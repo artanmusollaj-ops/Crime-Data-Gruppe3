@@ -3,5 +3,6 @@
 # Installation:
 #   python -m pip install -r requirements.txt
 #
-# Abhaengigkeiten werden ergaenzt, sobald sie im vereinfachten PoC
-# tatsaechlich benoetigt werden.
+pandas>=2.2,<4
+python-dotenv>=1.1,<2
+requests>=2.32,<3
