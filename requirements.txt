@@ -1,0 +1,7 @@
+# Python-Abhaengigkeiten des Chicago-Projekts
+#
+# Installation:
+#   python -m pip install -r requirements.txt
+#
+# Abhaengigkeiten werden ergaenzt, sobald sie im vereinfachten PoC
+# tatsaechlich benoetigt werden.
