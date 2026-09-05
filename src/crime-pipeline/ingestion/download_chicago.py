@@ -1,6 +1,7 @@
 """Load Chicago crime data into immutable bronze runs.
 
-Every call writes one run to data/bronze/. Values keep the JSON type the API
+Every call writes one run to data/raw/ and data/bronze/ under a shared run id.
+Raw holds the API responses byte for byte; bronze is derived from them. Values keep the JSON type the API
 sent them with: arrest and domestic are booleans, location is a nested struct,
 everything else is a string, because that is what the API sends. No dates,
 numbers or codes are parsed here; that belongs in the layers above.
@@ -19,6 +20,7 @@ Ein Fingerabdruck ueber die Feldtypen der Quelle macht Schema-Drift sichtbar.
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import logging
@@ -41,7 +43,15 @@ API_URL = "https://data.cityofchicago.org/resource/ijzp-q8t2.json"
 METADATA_URL = "https://data.cityofchicago.org/api/views/ijzp-q8t2.json"
 DATASET_ID = "ijzp-q8t2"
 CITY = "chicago"
-LAYER = "bronze"
+# Zwei Schichten je Lauf. Raw ist das Beweisstueck: die API-Antworten Byte fuer
+# Byte. Bronze ist daraus abgeleitet und jederzeit neu erzeugbar.
+RAW_LAYER = "raw"
+BRONZE_LAYER = "bronze"
+LAYERS = (RAW_LAYER, BRONZE_LAYER)
+LAYER_FORMAT = {
+    RAW_LAYER: "application/json (gzip, eine API-Antwort je Datei)",
+    BRONZE_LAYER: "parquet (snappy)",
+}
 DEFAULT_YEAR = 2024
 PAGE_SIZE = 10_000
 # Die Mitgliedschaft des Snapshots wird ueber id festgeschrieben. Socrata
@@ -134,6 +144,7 @@ class Download(NamedTuple):
     """
 
     records: list[dict[str, Any]]
+    bodies: list[bytes]
     source_count_before: int | None = None
     source_count_after: int | None = None
     snapshot_size: int | None = None
@@ -166,8 +177,8 @@ def app_token(disabled: bool) -> str | None:
     return os.getenv("SOCRATA_APP_TOKEN") or None
 
 
-def run_parent(data_root: Path, ingest_date: str) -> Path:
-    return data_root / LAYER / f"city={CITY}" / f"ingest_date={ingest_date}"
+def run_parent(data_root: Path, layer: str, ingest_date: str) -> Path:
+    return data_root / layer / f"city={CITY}" / f"ingest_date={ingest_date}"
 
 
 def discard_stale_partials(data_root: Path, now: datetime) -> list[Path]:
@@ -178,19 +189,25 @@ def discard_stale_partials(data_root: Path, now: datetime) -> list[Path]:
     """
     cutoff = (now - timedelta(hours=STALE_PARTIAL_HOURS)).timestamp()
     removed = []
-    pattern = f"{LAYER}/city={CITY}/ingest_date=*/.*.part"
-    for path in sorted(data_root.glob(pattern)):
-        if path.is_dir() and path.stat().st_mtime < cutoff:
-            shutil.rmtree(path, ignore_errors=True)
-            log.warning("Discarded stale partial run: %s", path)
-            removed.append(path)
+    for layer in LAYERS:
+        pattern = f"{layer}/city={CITY}/ingest_date=*/.*.part"
+        for path in sorted(data_root.glob(pattern)):
+            if path.is_dir() and path.stat().st_mtime < cutoff:
+                shutil.rmtree(path, ignore_errors=True)
+                log.warning("Discarded stale partial run: %s", path)
+                removed.append(path)
     return removed
 
 
 def previous_watermark(data_root: Path, year: int) -> str | None:
-    """Read the greatest watermark from complete, non-test runs."""
+    """Liest das hoechste Wasserzeichen aus vollstaendigen Bronze-Laeufen.
+
+    Bronze wird zuletzt veroeffentlicht, das Wasserzeichen rueckt also erst vor,
+    wenn der ganze Lauf stand. Ein Raw-Lauf ohne Bronze-Zwilling kostet eine
+    Wiederholung, nie eine Luecke.
+    """
     values = []
-    pattern = f"{LAYER}/city={CITY}/ingest_date=*/run_*/manifest.json"
+    pattern = f"{BRONZE_LAYER}/city={CITY}/ingest_date=*/run_*/manifest.json"
     for path in data_root.glob(pattern):
         try:
             manifest = json.loads(path.read_text(encoding="utf-8"))
@@ -283,17 +300,24 @@ def build_session(token: str | None) -> requests.Session:
     return session
 
 
-def fetch_json(
+def fetch_raw(
     session: requests.Session, params: dict[str, Any], url: str = API_URL
-) -> Any:
+) -> tuple[Any, bytes]:
+    """Liefert die geparste Antwort und ihren unveraenderten Koerper."""
     try:
         response = session.get(url, params=params, timeout=TIMEOUT_SECONDS)
         response.raise_for_status()
-        return response.json()
+        return response.json(), response.content
     except requests.JSONDecodeError as error:
         raise IngestionError("API returned invalid JSON") from error
     except requests.RequestException as error:
         raise IngestionError(f"API request failed: {error}") from error
+
+
+def fetch_json(
+    session: requests.Session, params: dict[str, Any], url: str = API_URL
+) -> Any:
+    return fetch_raw(session, params, url)[0]
 
 
 def source_schema(session: requests.Session) -> tuple[str | None, dict[str, str]]:
@@ -380,9 +404,14 @@ def fetch_records(
     year: int,
     updated_from: str | None,
     max_records: int | None,
-) -> list[dict[str, Any]]:
-    """Laedt ganze Datensaetze seitenweise per Keyset-Pagination."""
+) -> tuple[list[dict[str, Any]], list[bytes]]:
+    """Laedt Datensaetze per Keyset-Pagination und behaelt jede Antwort bei.
+
+    Die Antwortkoerper wandern unveraendert in die Raw-Schicht, deshalb werden
+    sie hier neben den geparsten Datensaetzen gesammelt.
+    """
     records: list[dict[str, Any]] = []
+    bodies: list[bytes] = []
     after_id: int | None = None
 
     while True:
@@ -391,7 +420,7 @@ def fetch_records(
         if limit <= 0:
             break
 
-        page = fetch_json(session, query(year, updated_from, limit, after_id))
+        page, body = fetch_raw(session, query(year, updated_from, limit, after_id))
         if not isinstance(page, list):
             raise IngestionError("API response is not a list")
         if not page:
@@ -403,11 +432,12 @@ def fetch_records(
             raise IngestionError(f"Datensatz ohne brauchbare id: {error}")
 
         records.extend(page)
+        bodies.append(body)
         log.info("Downloaded %s record(s)", f"{len(records):,}")
         if len(page) < limit:
             break
 
-    return records
+    return records, bodies
 
 
 def verify_snapshot(records: list[dict[str, Any]], expected_ids: list[int]) -> None:
@@ -453,9 +483,12 @@ def download(
         fingerprint, fields = source_schema(session)
 
         if max_records:
-            records = fetch_records(session, year, updated_from, max_records)
+            records, bodies = fetch_records(session, year, updated_from, max_records)
             return Download(
-                records, schema_fingerprint=fingerprint, schema_fields=fields
+                records,
+                bodies,
+                schema_fingerprint=fingerprint,
+                schema_fields=fields,
             )
 
         count_before = expected_rows(session, year, updated_from)
@@ -466,7 +499,7 @@ def download(
                 f"mit {len(expected_ids):,} id(s)"
             )
 
-        records = fetch_records(session, year, updated_from, None)
+        records, bodies = fetch_records(session, year, updated_from, None)
         verify_snapshot(records, expected_ids)
         count_after = expected_rows(session, year, updated_from)
 
@@ -481,6 +514,7 @@ def download(
         )
     return Download(
         records,
+        bodies,
         source_count_before=count_before,
         source_count_after=count_after,
         snapshot_size=len(expected_ids),
@@ -564,6 +598,37 @@ def query_url(year: int, updated_from: str | None, limit: int) -> str:
     return request.prepare().url or API_URL
 
 
+class RunPaths(NamedTuple):
+    """Wo ein veroeffentlichter Lauf gelandet ist."""
+
+    raw: Path
+    bronze: Path
+
+
+def write_landing(work_dir: Path, bodies: list[bytes]) -> list[dict[str, Any]]:
+    """Legt jede API-Antwort unveraendert ab, gzip-komprimiert.
+
+    ``mtime=0`` macht die komprimierten Bytes zu einer reinen Funktion der
+    Antwort, sodass der SHA-256 im Manifest reproduzierbar bleibt.
+    """
+    entries = []
+    for number, body in enumerate(bodies, start=1):
+        path = work_dir / f"page-{number:04d}.json.gz"
+        path.write_bytes(gzip.compress(body, mtime=0))
+        entries.append(file_entry(path))
+    return entries
+
+
+def write_bronze(
+    work_dir: Path, records: list[dict[str, Any]]
+) -> tuple[pa.Table, list[dict[str, Any]]]:
+    """Leitet die Parquet-Datei aus den Datensaetzen ab."""
+    path = work_dir / PARQUET_FILE
+    table = bronze_table(records)
+    pq.write_table(table, path, compression="snappy")
+    return table, [file_entry(path)]
+
+
 def write_run(
     data_root: Path,
     started: datetime,
@@ -575,19 +640,23 @@ def write_run(
     updated_from: str | None,
     token_used: bool,
     max_records: int | None,
-) -> Path:
-    """Write Parquet and manifest, then publish the directory atomically."""
+) -> RunPaths:
+    """Schreibt beide Schichten und veroeffentlicht sie atomar, Raw zuerst."""
     ingest_date = started.date().isoformat()
     run_id = started.strftime("run_%Y%m%dT%H%M%S%fZ")
-    parent = run_parent(data_root, ingest_date)
-    final_dir = parent / run_id
-    work_dir = parent / f".{run_id}.part"
-    work_dir.mkdir(parents=True)
+    parents = {
+        layer: run_parent(data_root, layer, ingest_date) for layer in LAYERS
+    }
+    work = {layer: parent / f".{run_id}.part" for layer, parent in parents.items()}
+    final = {layer: parent / run_id for layer, parent in parents.items()}
+    for path in work.values():
+        path.mkdir(parents=True)
 
     try:
-        parquet = work_dir / PARQUET_FILE
-        table = bronze_table(result.records)
-        pq.write_table(table, parquet, compression="snappy")
+        files = {RAW_LAYER: write_landing(work[RAW_LAYER], result.bodies)}
+        table, files[BRONZE_LAYER] = write_bronze(
+            work[BRONZE_LAYER], result.records
+        )
 
         watermarks = [old_watermark] if old_watermark else []
         watermarks.extend(
@@ -599,8 +668,6 @@ def write_run(
         manifest = {
             "status": "complete",
             "immutable": True,
-            "layer": LAYER,
-            "format": "parquet (snappy)",
             "city": CITY,
             "dataset_id": DATASET_ID,
             "event_year": year,
@@ -644,18 +711,30 @@ def write_run(
                 "whole_records": True,
                 "dropped_field_prefix": SYSTEM_PREFIX,
             },
-            "schema": {field.name: str(field.type) for field in SCHEMA},
-            "files": [file_entry(parquet)],
         }
-        (work_dir / "manifest.json").write_text(
-            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        work_dir.rename(final_dir)
-        return final_dir
+        for layer in LAYERS:
+            document = dict(manifest, layer=layer, format=LAYER_FORMAT[layer])
+            if layer == BRONZE_LAYER:
+                document["schema"] = {
+                    field.name: str(field.type) for field in SCHEMA
+                }
+                document["derived_from"] = f"{RAW_LAYER}/.../{run_id}"
+            document["files"] = files[layer]
+            (work[layer] / "manifest.json").write_text(
+                json.dumps(document, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+        # Raw ist das Beweisstueck und wird zuerst veroeffentlicht. Scheitert
+        # danach Bronze, bleibt es erhalten, das Wasserzeichen rueckt aber nicht
+        # vor und der naechste Lauf wiederholt dasselbe Fenster.
+        work[RAW_LAYER].rename(final[RAW_LAYER])
+        work[BRONZE_LAYER].rename(final[BRONZE_LAYER])
+        return RunPaths(final[RAW_LAYER], final[BRONZE_LAYER])
     except BaseException:
         # ignore_errors keeps a cleanup problem from masking the real failure.
-        shutil.rmtree(work_dir, ignore_errors=True)
+        for path in work.values():
+            shutil.rmtree(path, ignore_errors=True)
         raise
 
 
@@ -672,7 +751,7 @@ def main() -> int:
         log.info("Starting %s for Chicago %s", mode, args.year)
 
         result = download(args.year, updated_from, token, args.max_records)
-        run_dir = write_run(
+        run = write_run(
             args.data_root,
             started,
             result,
@@ -683,7 +762,8 @@ def main() -> int:
             token_used=token is not None,
             max_records=args.max_records,
         )
-        log.info("Immutable run completed: %s", run_dir)
+        log.info("Immutable run completed: %s", run.raw)
+        log.info("                        %s", run.bronze)
         return 0
     except (IngestionError, OSError, ValueError) as error:
         log.error("Ingestion failed: %s", error)

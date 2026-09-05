@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import json
 import logging
@@ -29,7 +30,11 @@ INGEST_DATE = "2026-09-04"
 
 
 def write_manifest(
-    data_root: Path, ingest_date: str, run_id: str, **overrides
+    data_root: Path,
+    ingest_date: str,
+    run_id: str,
+    layer: str = dc.BRONZE_LAYER,
+    **overrides,
 ) -> Path:
     manifest = {
         "status": "complete",
@@ -38,7 +43,7 @@ def write_manifest(
         "watermark": {"maximum_seen": "2024-05-01T00:00:00.000"},
     }
     manifest.update(overrides)
-    directory = dc.run_parent(data_root, ingest_date) / run_id
+    directory = dc.run_parent(data_root, layer, ingest_date) / run_id
     directory.mkdir(parents=True)
     path = directory / "manifest.json"
     path.write_text(json.dumps(manifest), encoding="utf-8")
@@ -46,10 +51,14 @@ def write_manifest(
 
 
 def make_partial(
-    data_root: Path, ingest_date: str, name: str, age_hours: float
+    data_root: Path,
+    ingest_date: str,
+    name: str,
+    age_hours: float,
+    layer: str = dc.BRONZE_LAYER,
 ) -> Path:
     """Create a .part work directory with a backdated modification time."""
-    path = dc.run_parent(data_root, ingest_date) / name
+    path = dc.run_parent(data_root, layer, ingest_date) / name
     path.mkdir(parents=True)
     (path / dc.PARQUET_FILE).write_bytes(b"incomplete")
     stamp = (STARTED - timedelta(hours=age_hours)).timestamp()
@@ -60,10 +69,13 @@ def make_partial(
 class FakeResponse:
     """Minimal stand-in for requests.Response."""
 
-    def __init__(self, payload, raise_error=None, json_error=None):
+    def __init__(self, payload, raise_error=None, json_error=None, body=None):
         self._payload = payload
         self._raise_error = raise_error
         self._json_error = json_error
+        self.content = (
+            body if body is not None else json.dumps(payload).encode("utf-8")
+        )
 
     def raise_for_status(self):
         if self._raise_error is not None:
@@ -308,7 +320,7 @@ def test_app_token_missing_or_empty_is_none(monkeypatch, value):
 
 
 def test_run_parent_partitions_by_layer_city_and_ingest_date(tmp_path):
-    assert dc.run_parent(tmp_path, INGEST_DATE) == (
+    assert dc.run_parent(tmp_path, dc.BRONZE_LAYER, INGEST_DATE) == (
         tmp_path / "bronze" / "city=chicago" / f"ingest_date={INGEST_DATE}"
     )
 
@@ -378,7 +390,7 @@ def test_previous_watermark_ignores_unusable_runs(tmp_path, overrides):
 
 def test_previous_watermark_ignores_other_cities(tmp_path):
     directory = (
-        tmp_path / dc.LAYER / "city=zurich" / "ingest_date=2026-09-01" / "run_a"
+        tmp_path / dc.BRONZE_LAYER / "city=zurich" / "ingest_date=2026-09-01" / "run_a"
     )
     directory.mkdir(parents=True)
     (directory / "manifest.json").write_text(
@@ -993,16 +1005,23 @@ RECORDS = [
 ]
 
 
-def make_download(records=RECORDS, verified=True, count_after=None) -> dc.Download:
+def make_download(
+    records=RECORDS, verified=True, count_after=None, bodies=None
+) -> dc.Download:
     """Baut ein Download-Ergebnis wie nach einem geprueften Lauf.
 
     ``verified=False`` entspricht einem Lauf mit ``--max-records``: keine
     Zaehlung, keine feste id-Liste.
     """
+    if bodies is None:
+        bodies = [json.dumps(records).encode("utf-8")]
     if not verified:
-        return dc.Download(records, schema_fingerprint="abc123", schema_fields={})
+        return dc.Download(
+            records, bodies, schema_fingerprint="abc123", schema_fields={}
+        )
     return dc.Download(
         records,
+        bodies,
         source_count_before=len(records),
         source_count_after=len(records) if count_after is None else count_after,
         snapshot_size=len(records),
@@ -1012,7 +1031,7 @@ def make_download(records=RECORDS, verified=True, count_after=None) -> dc.Downlo
     )
 
 
-def write_default_run(data_root: Path, **overrides) -> Path:
+def write_default_run(data_root: Path, **overrides) -> dc.RunPaths:
     kwargs = {
         "year": 2024,
         "mode": "full_snapshot",
@@ -1027,23 +1046,33 @@ def write_default_run(data_root: Path, **overrides) -> Path:
     return dc.write_run(data_root, started, result, **kwargs)
 
 
-def read_manifest(directory: Path) -> dict:
+def read_manifest(directory) -> dict:
+    """Liest ein Manifest; ohne Angabe der Schicht das der Bronze-Schicht."""
+    if isinstance(directory, dc.RunPaths):
+        directory = directory.bronze
     return json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
 
 
-def test_write_run_publishes_the_expected_layout(tmp_path):
-    run_dir = write_default_run(tmp_path)
-    assert run_dir == tmp_path / "bronze" / "city=chicago" / f"ingest_date={INGEST_DATE}" / RUN_ID
-    assert sorted(path.name for path in run_dir.iterdir()) == [
+def test_write_run_publishes_both_layers(tmp_path):
+    run = write_default_run(tmp_path)
+    assert run.raw == dc.run_parent(tmp_path, dc.RAW_LAYER, INGEST_DATE) / RUN_ID
+    assert run.bronze == dc.run_parent(tmp_path, dc.BRONZE_LAYER, INGEST_DATE) / RUN_ID
+    assert sorted(path.name for path in run.raw.iterdir()) == [
+        "manifest.json",
+        "page-0001.json.gz",
+    ]
+    assert sorted(path.name for path in run.bronze.iterdir()) == [
         "manifest.json",
         dc.PARQUET_FILE,
     ]
-    assert list(run_dir.parent.glob(".*.part")) == []
+    assert run.raw.name == run.bronze.name == RUN_ID
+    for layer in dc.LAYERS:
+        assert list(dc.run_parent(tmp_path, layer, INGEST_DATE).glob(".*.part")) == []
 
 
 def test_write_run_parquet_keeps_the_original_types(tmp_path):
-    run_dir = write_default_run(tmp_path)
-    table = pq.read_table(run_dir / dc.PARQUET_FILE)
+    run = write_default_run(tmp_path)
+    table = pq.read_table(run.bronze / dc.PARQUET_FILE)
     assert table.schema == dc.SCHEMA
 
     rows = table.to_pylist()
@@ -1064,8 +1093,8 @@ def test_write_run_parquet_keeps_the_original_types(tmp_path):
 
 
 def test_write_run_parquet_is_readable_with_pandas(tmp_path):
-    run_dir = write_default_run(tmp_path)
-    frame = pd.read_parquet(run_dir / dc.PARQUET_FILE)
+    run = write_default_run(tmp_path)
+    frame = pd.read_parquet(run.bronze / dc.PARQUET_FILE)
     assert list(frame.columns) == list(dc.COLUMNS)
     # pandas hands back numpy scalars, so compare by value, not identity.
     assert frame.loc[0, "arrest"] == False  # noqa: E712
@@ -1105,9 +1134,9 @@ def test_write_run_manifest_records_the_column_types(tmp_path):
 
 
 def test_write_run_manifest_records_the_file_checksum(tmp_path):
-    run_dir = write_default_run(tmp_path)
-    parquet = run_dir / dc.PARQUET_FILE
-    entry = read_manifest(run_dir)["files"][0]
+    run = write_default_run(tmp_path)
+    parquet = run.bronze / dc.PARQUET_FILE
+    entry = read_manifest(run.bronze)["files"][0]
     assert entry["path"] == dc.PARQUET_FILE
     assert entry["size_bytes"] == parquet.stat().st_size
     assert entry["sha256"] == dc.file_hash(parquet)
@@ -1193,13 +1222,11 @@ def test_write_run_keeps_the_old_watermark_when_nothing_is_newer(tmp_path):
 
 
 def test_write_run_without_records_and_without_watermark(tmp_path):
-    run_dir = write_default_run(
-        tmp_path, result=make_download(records=[])
-    )
-    manifest = read_manifest(run_dir)
+    run = write_default_run(tmp_path, result=make_download(records=[]))
+    manifest = read_manifest(run)
     assert manifest["row_count"] == 0
     assert manifest["watermark"]["maximum_seen"] is None
-    assert pq.read_table(run_dir / dc.PARQUET_FILE).schema == dc.SCHEMA
+    assert pq.read_table(run.bronze / dc.PARQUET_FILE).schema == dc.SCHEMA
 
 
 def test_write_run_marks_a_limited_run_as_a_test_run(tmp_path):
@@ -1232,7 +1259,7 @@ def test_write_run_removes_the_work_directory_on_failure(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="parquet conversion failed"):
         write_default_run(tmp_path)
 
-    assert list(dc.run_parent(tmp_path, INGEST_DATE).iterdir()) == []
+    assert list(dc.run_parent(tmp_path, dc.BRONZE_LAYER, INGEST_DATE).iterdir()) == []
 
 
 def test_write_run_cleanup_does_not_mask_the_real_error(tmp_path, monkeypatch):
@@ -1257,18 +1284,124 @@ def test_write_run_cleans_up_after_an_interrupt(tmp_path, monkeypatch):
     with pytest.raises(KeyboardInterrupt):
         write_default_run(tmp_path)
 
-    assert list(dc.run_parent(tmp_path, INGEST_DATE).iterdir()) == []
+    assert list(dc.run_parent(tmp_path, dc.BRONZE_LAYER, INGEST_DATE).iterdir()) == []
 
 
 def test_write_run_never_overwrites_an_existing_run(tmp_path):
-    run_dir = write_default_run(tmp_path)
-    checksum = dc.file_hash(run_dir / dc.PARQUET_FILE)
+    run = write_default_run(tmp_path)
+    checksum = dc.file_hash(run.bronze / dc.PARQUET_FILE)
 
     with pytest.raises(OSError):
         write_default_run(tmp_path)
 
-    assert dc.file_hash(run_dir / dc.PARQUET_FILE) == checksum
-    assert list(run_dir.parent.glob(".*.part")) == []
+    assert dc.file_hash(run.bronze / dc.PARQUET_FILE) == checksum
+    for layer in dc.LAYERS:
+        assert list(dc.run_parent(tmp_path, layer, INGEST_DATE).glob(".*.part")) == []
+
+
+def test_write_landing_stores_responses_byte_for_byte(tmp_path):
+    bodies = [b'[{"id":"1"}]', b'[{"id":"2"}]']
+    entries = dc.write_landing(tmp_path, bodies)
+
+    assert [entry["path"] for entry in entries] == [
+        "page-0001.json.gz",
+        "page-0002.json.gz",
+    ]
+    for entry, body in zip(entries, bodies):
+        path = tmp_path / entry["path"]
+        assert gzip.decompress(path.read_bytes()) == body
+        assert entry["sha256"] == dc.file_hash(path)
+
+
+def test_write_landing_compression_is_deterministic(tmp_path):
+    """Gleiche Antwort, gleiche Bytes — sonst waere der SHA-256 wertlos."""
+    erste, zweite = tmp_path / "a", tmp_path / "b"
+    erste.mkdir()
+    zweite.mkdir()
+    body = [b'[{"id":"1","updated_on":"2024-05-01T09:00:00.000"}]']
+    assert (
+        dc.write_landing(erste, body)[0]["sha256"]
+        == dc.write_landing(zweite, body)[0]["sha256"]
+    )
+
+
+def test_write_landing_without_pages(tmp_path):
+    assert dc.write_landing(tmp_path, []) == []
+
+
+def test_write_run_raw_holds_the_untouched_response(tmp_path):
+    """In Raw stehen die JSON-Typen der API, nicht die Bronze-Umsetzung."""
+    run = write_default_run(tmp_path)
+    gespeichert = json.loads(
+        gzip.decompress((run.raw / "page-0001.json.gz").read_bytes())
+    )
+    assert gespeichert == RECORDS
+    assert gespeichert[0]["arrest"] is False
+    assert gespeichert[0]["location"]["human_address"].startswith("{")
+    # Bronze macht daraus einen bool und ein struct.
+    frame = pq.read_table(run.bronze / dc.PARQUET_FILE).to_pylist()
+    assert frame[0]["arrest"] is False
+    assert frame[0]["location"]["longitude"] == "-87.751134319"
+
+
+@pytest.mark.parametrize("layer", dc.LAYERS)
+def test_write_run_layer_manifest_is_self_contained(tmp_path, layer):
+    run = write_default_run(tmp_path)
+    manifest = read_manifest(getattr(run, layer))
+    assert manifest["layer"] == layer
+    assert manifest["format"] == dc.LAYER_FORMAT[layer]
+    assert manifest["run_id"] == RUN_ID
+    assert manifest["completeness"]["verified"] is True
+
+    verzeichnis = getattr(run, layer)
+    namen = sorted(
+        path.name for path in verzeichnis.iterdir() if path.name != "manifest.json"
+    )
+    assert sorted(entry["path"] for entry in manifest["files"]) == namen
+    for entry in manifest["files"]:
+        assert entry["sha256"] == dc.file_hash(verzeichnis / entry["path"])
+
+
+def test_write_run_only_bronze_declares_the_parquet_schema(tmp_path):
+    run = write_default_run(tmp_path)
+    bronze = read_manifest(run.bronze)
+    assert bronze["schema"] == {field.name: str(field.type) for field in dc.SCHEMA}
+    assert bronze["derived_from"].endswith(RUN_ID)
+    assert "schema" not in read_manifest(run.raw)
+
+
+def test_write_run_removes_both_work_directories_on_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        dc, "bronze_table", lambda records: (_ for _ in ()).throw(ValueError("kaputt"))
+    )
+    with pytest.raises(ValueError, match="kaputt"):
+        write_default_run(tmp_path)
+
+    for layer in dc.LAYERS:
+        assert list(dc.run_parent(tmp_path, layer, INGEST_DATE).iterdir()) == []
+
+
+def test_write_run_keeps_the_evidence_when_bronze_cannot_be_published(tmp_path):
+    """Raw erscheint zuerst; scheitert Bronze, rueckt das Wasserzeichen nicht vor."""
+    blocker = dc.run_parent(tmp_path, dc.BRONZE_LAYER, INGEST_DATE) / RUN_ID
+    blocker.mkdir(parents=True)
+    (blocker / "belegt").write_text("x", encoding="utf-8")
+
+    with pytest.raises(OSError):
+        write_default_run(tmp_path)
+
+    raw_run = dc.run_parent(tmp_path, dc.RAW_LAYER, INGEST_DATE) / RUN_ID
+    assert (raw_run / "page-0001.json.gz").exists()
+    assert dc.previous_watermark(tmp_path, 2024) is None
+
+
+def test_discard_stale_partials_sweeps_both_layers(tmp_path):
+    stale = [
+        make_partial(tmp_path, "2026-09-01", f".{RUN_ID}.part", 48, layer=layer)
+        for layer in dc.LAYERS
+    ]
+    assert sorted(dc.discard_stale_partials(tmp_path, STARTED)) == sorted(stale)
+    assert not any(path.exists() for path in stale)
 
 
 def test_write_run_output_is_discovered_as_a_watermark(tmp_path):
@@ -1290,7 +1423,7 @@ def test_runs_from_different_days_read_as_one_dataset(tmp_path):
         result=make_download(records=[{"id": "9", "victim_age": "34"}]),
     )
     # manifest.json sits beside each part file, so select the Parquet files.
-    parts = sorted(tmp_path.glob(f"{dc.LAYER}/**/{dc.PARQUET_FILE}"))
+    parts = sorted(tmp_path.glob(f"{dc.BRONZE_LAYER}/**/{dc.PARQUET_FILE}"))
     assert len(parts) == 2
     for part in parts:
         assert pq.read_table(part).schema == dc.SCHEMA
@@ -1339,8 +1472,8 @@ def run_main(monkeypatch, tmp_path, caplog):
     return run
 
 
-def published_runs(data_root: Path) -> list[Path]:
-    return sorted(data_root.glob(f"{dc.LAYER}/city=chicago/ingest_date=*/run_*"))
+def published_runs(data_root: Path, layer: str = dc.BRONZE_LAYER) -> list[Path]:
+    return sorted(data_root.glob(f"{layer}/city=chicago/ingest_date=*/run_*"))
 
 
 def test_main_first_call_is_a_full_snapshot(run_main, tmp_path, caplog):
