@@ -126,25 +126,45 @@ Das Manifest enthält unter anderem:
 - vollständiges Parquet-Schema mit Typen (`schema`)
 - Dateigrösse und SHA-256 der Parquet-Datei
 - Information, ob ein App Token verwendet wurde
-- Vollständigkeitsprüfung (`completeness`)
+- Vollständigkeitsnachweis (`completeness`): Zählung davor und danach, Grösse
+  und SHA-256 der festgeschriebenen `id`-Liste, geladene Zeilen
+- Schema-Fingerabdruck der Quelle samt Feldtypen (`source_schema`)
 
 ### Robustheit
 
-Drei Mechanismen schützen die Bronze-Schicht vor unbemerkt unvollständigen
+Fünf Mechanismen schützen die Bronze-Schicht vor unbemerkt unvollständigen
 Läufen:
 
 **Wiederholungen.** Die Session wiederholt gedrosselte und vorübergehend
 fehlerhafte Antworten (429, 500, 502, 503, 504) bis zu fünfmal mit
-exponentiellem Backoff. Ein voller Snapshot braucht rund 26 Anfragen; ohne
+exponentiellem Backoff. Ein voller Snapshot braucht rund 30 Anfragen; ohne
 Wiederholung würde ein einzelner Fehler den ganzen Lauf verwerfen.
 
-**Vollständigkeitsprüfung.** Vor dem Paginieren fragt das Skript mit
-`count(1)` die erwartete Zeilenzahl ab. Werden weniger Zeilen geladen, bricht
-der Lauf ab und veröffentlicht nichts, statt einen abgeschnittenen Snapshot als
-`complete` zu markieren und das Wasserzeichen über die Lücke hinaus zu setzen.
-Ist die Zählung selbst nicht verfügbar, läuft die Ingestion weiter und das
-Manifest hält `"completeness": {"verified": false}` fest. Läufe mit
-`--max-records` kürzen absichtlich und werden nicht geprüft.
+**Keyset-Pagination statt Offset.** Jede Folgeseite fragt ab der zuletzt
+gesehenen `id` (`... AND id > 13324861`, sortiert nach `id`) statt über
+`$offset`. Bei Offset-Paginierung verschieben gleichzeitige Änderungen an der
+Quelle die Seitengrenzen, wodurch Zeilen übersprungen oder doppelt geliefert
+werden können. Mit dem Schlüssel als Anker kann das nicht passieren.
+
+**Festgeschriebener Snapshot.** Vor dem Download wird die Menge der `id`-Werte
+abgefragt und festgehalten. Danach muss die Menge der geladenen `id`-Werte
+exakt dieser Liste entsprechen — nicht nur die Anzahl. Fehlt eine Zeile oder
+kommt eine unerwartete hinzu, bricht der Lauf ab und veröffentlicht nichts. Eine
+reine `id`-Abfrage liefert bis zu 50 000 Werte, ein ganzer Jahrgang kostet also
+nur wenige zusätzliche Anfragen.
+
+**Zählungen als Klammer.** `count(1)` läuft vor dem Lauf gegen die
+`id`-Liste (Abweichung = Abbruch) und noch einmal danach. Die zweite Zählung
+blockiert nicht, sondern hält als `source_changed_during_run` fest, ob sich die
+Quelle während des Laufs bewegt hat. Ist die Zählung nicht verfügbar, bleibt der
+`id`-Abgleich als Nachweis bestehen. Läufe mit `--max-records` kürzen absichtlich
+und durchlaufen keine dieser Prüfungen.
+
+**Schema-Fingerabdruck.** Aus den Feldnamen und Feldtypen der Quelle wird ein
+SHA-256 gebildet und im Manifest abgelegt. Ändert die Stadt den Typ eines
+Feldes, ändert sich der Fingerabdruck — auch dann, wenn die Ingestion
+weiterläuft. Die Spalte `_extra` fängt neue Felder auf, eine Typänderung an
+einem bestehenden Feld würde sie nicht bemerken.
 
 **Aufräumen.** Bricht ein Lauf hart ab, bleibt sein `.part`-Verzeichnis liegen.
 Der nächste Start entfernt solche Verzeichnisse, sobald sie älter als 24 Stunden

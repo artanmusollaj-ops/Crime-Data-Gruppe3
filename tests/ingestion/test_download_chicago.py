@@ -75,12 +75,27 @@ class FakeResponse:
         return self._payload
 
 
-class FakeSession:
-    """Replays canned responses and records every request."""
+SCHEMA_PAYLOAD = {
+    "columns": [
+        {"fieldName": "id", "dataTypeName": "number", "name": "ID"},
+        {"fieldName": "arrest", "dataTypeName": "checkbox", "name": "Arrest"},
+        {"fieldName": ":@computed_region_x", "dataTypeName": "number", "name": "R"},
+    ]
+}
 
-    def __init__(self, pages=(), count=None):
+
+class FakeSession:
+    """Replays canned responses and records every request.
+
+    Eine Abfrage wird an ihrer Form erkannt: Metadaten-URL, count-Abfrage,
+    reine id-Abfrage oder Datenseite.
+    """
+
+    def __init__(self, pages=(), id_pages=(), count=None, metadata=None):
         self.pages = list(pages)
+        self.id_pages = list(id_pages)
         self.count = count
+        self.metadata = metadata
         self.calls: list[dict] = []
         self.headers: dict[str, str] = {}
         self.tokens: list[str | None] = []
@@ -94,42 +109,93 @@ class FakeSession:
         return False
 
     def get(self, url, params=None, timeout=None):
-        self.calls.append({"url": url, "params": params, "timeout": timeout})
-        if self.is_count(self.calls[-1]):
+        call = {"url": url, "params": params, "timeout": timeout}
+        self.calls.append(call)
+        if url == dc.METADATA_URL:
+            return self.metadata
+        if self.is_count(call):
+            if isinstance(self.count, list):
+                return self.count.pop(0) if len(self.count) > 1 else self.count[0]
             return self.count
+        if self.is_ids(call):
+            return self.id_pages.pop(0)
         return self.pages.pop(0)
 
     @staticmethod
-    def is_count(call: dict) -> bool:
-        return str((call["params"] or {}).get("$select", "")).startswith("count(")
+    def select_of(call: dict) -> str:
+        return str((call["params"] or {}).get("$select", ""))
+
+    @classmethod
+    def is_count(cls, call: dict) -> bool:
+        return cls.select_of(call).startswith("count(")
+
+    @classmethod
+    def is_ids(cls, call: dict) -> bool:
+        return cls.select_of(call) == dc.ID_FIELD
+
+    def _of_kind(self, kind) -> list[dict]:
+        return [
+            call
+            for call in self.calls
+            if call["url"] != dc.METADATA_URL and kind(call)
+        ]
 
     @property
     def page_calls(self) -> list[dict]:
-        return [call for call in self.calls if not self.is_count(call)]
+        return self._of_kind(lambda c: not self.is_count(c) and not self.is_ids(c))
 
     @property
     def count_calls(self) -> list[dict]:
-        return [call for call in self.calls if self.is_count(call)]
+        return self._of_kind(self.is_count)
+
+    @property
+    def id_calls(self) -> list[dict]:
+        return self._of_kind(self.is_ids)
+
+    @property
+    def metadata_calls(self) -> list[dict]:
+        return [call for call in self.calls if call["url"] == dc.METADATA_URL]
 
 
 def count_response(value) -> FakeResponse:
     return FakeResponse([{dc.COUNT_ALIAS: str(value)}])
 
 
+def id_response(records) -> FakeResponse:
+    return FakeResponse([{dc.ID_FIELD: row[dc.ID_FIELD]} for row in records])
+
+
 @pytest.fixture
 def fake_session(monkeypatch):
-    """Replace build_session; the test supplies pages and the row count."""
+    """Ersetzt build_session; Seiten, id-Liste und Zaehlung kommen vom Test.
 
-    def install(pages=(), count="auto", **response_kwargs):
+    Ohne eigene Angabe werden id-Liste und Zaehlung aus ``pages`` abgeleitet,
+    sodass ein Lauf per Vorgabe konsistent ist.
+    """
+
+    def install(pages=(), count="auto", ids="auto", metadata="auto", **response_kwargs):
+        alle = [row for page in pages for row in page]
+
         if count == "auto":
-            response = count_response(sum(len(page) for page in pages))
-        elif isinstance(count, (FakeResponse, type(None))):
-            response = count
+            count_value = count_response(len(alle))
+        elif isinstance(count, (FakeResponse, list, type(None))):
+            count_value = count
         else:
-            response = count_response(count)
+            count_value = count_response(count)
+
+        if ids == "auto":
+            id_pages = [id_response(alle)]
+        elif ids is None:
+            id_pages = []
+        else:
+            id_pages = [page if isinstance(page, FakeResponse) else id_response(page)
+                        for page in ids]
 
         session = FakeSession(
-            [FakeResponse(page, **response_kwargs) for page in pages], response
+            pages=[FakeResponse(page, **response_kwargs) for page in pages],
+            id_pages=id_pages,
+            count=count_value,
+            metadata=FakeResponse(SCHEMA_PAYLOAD) if metadata == "auto" else metadata,
         )
 
         def build(token):
@@ -408,23 +474,38 @@ def test_where_clause_adds_the_delta_filter():
 
 def test_query_asks_for_whole_records():
     """No $select, so a field added by the city is still delivered."""
-    params = dc.query(2024, None, 10, 20)
+    params = dc.query(2024, None, 10)
     assert "$select" not in params
     assert params["$where"] == dc.where_clause(2024, None)
-    assert params["$order"] == "date,id"
+    assert params["$order"] == dc.ID_FIELD
     assert params["$limit"] == 10
-    assert params["$offset"] == 20
+    assert "$offset" not in params
 
 
-def test_query_delta_orders_by_the_watermark_field():
-    params = dc.query(2024, "2024-07-17T23:59:59.000", 10, 0)
-    assert params["$order"] == "updated_on,id"
+def test_query_pages_by_keyset_not_offset():
+    """Der zuletzt gesehene Schluessel wandert in die WHERE-Bedingung."""
+    params = dc.query(2024, None, 10, after_id=13324861)
+    assert params["$where"].endswith(" AND id > 13324861")
+    assert params["$where"].startswith(dc.where_clause(2024, None))
+    assert "$offset" not in params
+
+
+def test_query_keeps_the_delta_filter_alongside_the_keyset():
+    params = dc.query(2024, "2024-07-17T23:59:59.000", 10, after_id=42)
+    assert "updated_on >= '2024-07-17T23:59:59.000'" in params["$where"]
+    assert " AND id > 42" in params["$where"]
+
+
+def test_query_can_select_only_ids():
+    params = dc.query(2024, None, 50_000, None, dc.ID_FIELD)
+    assert params["$select"] == "id"
+    assert params["$order"] == dc.ID_FIELD
 
 
 def test_count_query_matches_the_page_filter():
     params = dc.count_query(2024, "2024-07-17T23:59:59.000")
     assert params["$select"] == f"count(1) AS {dc.COUNT_ALIAS}"
-    assert params["$where"] == dc.query(2024, "2024-07-17T23:59:59.000", 1, 0)["$where"]
+    assert params["$where"] == dc.query(2024, "2024-07-17T23:59:59.000", 1)["$where"]
     assert "$limit" not in params
 
 
@@ -432,7 +513,7 @@ def test_query_url_is_reproducible_and_token_free():
     url = dc.query_url(2024, None, 5)
     assert url.startswith(dc.API_URL)
     assert "%24limit=5" in url
-    assert "%24offset=0" in url
+    assert "%24offset" not in url
     assert "%24select" not in url
     assert "token" not in url.lower()
 
@@ -525,51 +606,116 @@ def test_download_stops_on_a_short_page(fake_session):
     session = fake_session(pages=[[{"id": "1"}, {"id": "2"}]])
     result = dc.download(2024, None, None, None)
     assert result.records == [{"id": "1"}, {"id": "2"}]
-    assert result.expected_rows == 2
+    assert result.source_count_before == 2
+    assert result.snapshot_size == 2
     assert len(session.page_calls) == 1
     assert session.page_calls[0]["params"]["$limit"] == dc.PAGE_SIZE
     assert session.closed is True
 
 
-def test_download_pages_until_exhausted(monkeypatch, fake_session):
+def test_download_pages_by_keyset(monkeypatch, fake_session):
+    """Jede Folgeseite fragt ab der letzten gesehenen id, nicht per Offset."""
     monkeypatch.setattr(dc, "PAGE_SIZE", 2)
     session = fake_session(
         pages=[[{"id": "1"}, {"id": "2"}], [{"id": "3"}, {"id": "4"}], [{"id": "5"}]]
     )
     result = dc.download(2024, None, None, None)
     assert [row["id"] for row in result.records] == ["1", "2", "3", "4", "5"]
-    assert [call["params"]["$offset"] for call in session.page_calls] == [0, 2, 4]
+    wheres = [call["params"]["$where"] for call in session.page_calls]
+    assert " AND id > " not in wheres[0]
+    assert wheres[1].endswith(" AND id > 2")
+    assert wheres[2].endswith(" AND id > 4")
+    assert all("$offset" not in call["params"] for call in session.page_calls)
 
 
-def test_download_counts_before_paging(fake_session):
+def position(session, call) -> int:
+    """Index eines Aufrufs ueber Identitaet; gleiche Aufrufe sind gleich gross."""
+    return next(i for i, other in enumerate(session.calls) if other is call)
+
+
+def test_download_order_of_operations(fake_session):
+    """Schema, Zaehlung, id-Liste, Seiten, zweite Zaehlung."""
     session = fake_session(pages=[[{"id": "1"}]])
     dc.download(2024, "2024-07-17T23:59:59.000", None, None)
-    assert len(session.count_calls) == 1
-    assert session.calls[0] is session.count_calls[0]
-    assert session.count_calls[0]["params"]["$where"] == dc.where_clause(
+
+    assert session.metadata_calls
+    assert len(session.count_calls) == 2
+    assert len(session.id_calls) == 1
+    reihenfolge = [
+        position(session, session.count_calls[0]),
+        position(session, session.id_calls[0]),
+        position(session, session.page_calls[0]),
+        position(session, session.count_calls[-1]),
+    ]
+    assert reihenfolge == sorted(reihenfolge)
+    assert session.id_calls[0]["params"]["$where"] == dc.where_clause(
         2024, "2024-07-17T23:59:59.000"
     )
 
 
-def test_download_rejects_a_truncated_result(monkeypatch, fake_session):
-    monkeypatch.setattr(dc, "PAGE_SIZE", 2)
-    fake_session(pages=[[{"id": "1"}, {"id": "2"}], [{"id": "3"}]], count=99)
-    with pytest.raises(dc.IngestionError, match="Truncated download: 3 of 99"):
+def test_download_rejects_a_count_that_misses_the_snapshot(fake_session):
+    fake_session(pages=[[{"id": "1"}, {"id": "2"}]], count=99)
+    with pytest.raises(dc.IngestionError, match="Zeilenzahl 99 passt nicht"):
         dc.download(2024, None, None, None)
 
 
-def test_download_accepts_rows_added_while_paging(fake_session):
-    fake_session(pages=[[{"id": "1"}, {"id": "2"}]], count=1)
+def test_download_rejects_a_missing_record(fake_session):
+    """Die id-Liste ist der Vertrag: fehlt eine Zeile, scheitert der Lauf."""
+    fake_session(
+        pages=[[{"id": "1"}, {"id": "2"}]],
+        ids=[[{"id": "1"}, {"id": "2"}, {"id": "3"}]],
+        count=3,
+    )
+    with pytest.raises(dc.IngestionError, match="1 fehlend"):
+        dc.download(2024, None, None, None)
+
+
+def test_download_rejects_an_unexpected_record(fake_session):
+    fake_session(
+        pages=[[{"id": "1"}, {"id": "9"}]], ids=[[{"id": "1"}, {"id": "2"}]], count=2
+    )
+    with pytest.raises(dc.IngestionError, match="1 unerwartet"):
+        dc.download(2024, None, None, None)
+
+
+def test_download_rejects_duplicate_ids_in_the_snapshot(fake_session):
+    fake_session(
+        pages=[[{"id": "1"}]], ids=[[{"id": "1"}, {"id": "1"}]], count=2
+    )
+    with pytest.raises(dc.IngestionError, match="doppelte ids"):
+        dc.download(2024, None, None, None)
+
+
+def test_download_records_a_moving_source_without_blocking(fake_session, caplog):
+    """Aendert sich die Quelle waehrend des Laufs, wird das nur dokumentiert."""
+    caplog.set_level(logging.WARNING)
+    fake_session(
+        pages=[[{"id": "1"}, {"id": "2"}]],
+        count=[count_response(2), count_response(7)],
+    )
     result = dc.download(2024, None, None, None)
+    assert result.source_count_before == 2
+    assert result.source_count_after == 7
     assert len(result.records) == 2
-    assert result.expected_rows == 1
+    assert "veraendert" in caplog.text
 
 
 def test_download_continues_when_the_count_is_unavailable(fake_session):
+    """Ohne Zaehlung bleibt der id-Abgleich als Nachweis bestehen."""
     fake_session(pages=[[{"id": "1"}]], count=FakeResponse([]))
     result = dc.download(2024, None, None, None)
     assert result.records == [{"id": "1"}]
-    assert result.expected_rows is None
+    assert result.source_count_before is None
+    assert result.snapshot_size == 1
+
+
+def test_download_snapshot_digest_is_stable(fake_session):
+    fake_session(pages=[[{"id": "2"}, {"id": "1"}]])
+    first = dc.download(2024, None, None, None)
+    fake_session(pages=[[{"id": "1"}, {"id": "2"}]])
+    second = dc.download(2024, None, None, None)
+    assert first.snapshot_sha256 == second.snapshot_sha256
+    assert len(first.snapshot_sha256) == 64
 
 
 def test_download_honours_max_records(monkeypatch, fake_session):
@@ -580,11 +726,21 @@ def test_download_honours_max_records(monkeypatch, fake_session):
     assert [call["params"]["$limit"] for call in session.page_calls] == [2, 1]
 
 
-def test_download_skips_the_count_for_a_limited_run(fake_session):
+def test_download_skips_the_gates_for_a_limited_run(fake_session):
     session = fake_session(pages=[[{"id": "1"}]])
     result = dc.download(2024, None, None, 1)
     assert session.count_calls == []
-    assert result.expected_rows is None
+    assert session.id_calls == []
+    assert result.snapshot_size is None
+    assert result.source_count_before is None
+
+
+def test_download_reads_the_schema_fingerprint(fake_session):
+    session = fake_session(pages=[[{"id": "1"}]])
+    result = dc.download(2024, None, None, None)
+    assert len(session.metadata_calls) == 1
+    assert result.schema_fingerprint is not None
+    assert result.schema_fields == {"id": "number", "arrest": "checkbox"}
 
 
 def test_download_builds_the_session_with_the_token(fake_session):
@@ -837,10 +993,23 @@ RECORDS = [
 ]
 
 
-def make_download(records=RECORDS, expected="auto") -> dc.Download:
-    if expected == "auto":
-        expected = len(records)
-    return dc.Download(records, expected)
+def make_download(records=RECORDS, verified=True, count_after=None) -> dc.Download:
+    """Baut ein Download-Ergebnis wie nach einem geprueften Lauf.
+
+    ``verified=False`` entspricht einem Lauf mit ``--max-records``: keine
+    Zaehlung, keine feste id-Liste.
+    """
+    if not verified:
+        return dc.Download(records, schema_fingerprint="abc123", schema_fields={})
+    return dc.Download(
+        records,
+        source_count_before=len(records),
+        source_count_after=len(records) if count_after is None else count_after,
+        snapshot_size=len(records),
+        snapshot_sha256="f" * 64,
+        schema_fingerprint="abc123",
+        schema_fields={"id": "number"},
+    )
 
 
 def write_default_run(data_root: Path, **overrides) -> Path:
@@ -944,16 +1113,42 @@ def test_write_run_manifest_records_the_file_checksum(tmp_path):
     assert entry["sha256"] == dc.file_hash(parquet)
 
 
-def test_write_run_records_a_verified_row_count(tmp_path):
+def test_write_run_records_the_completeness_evidence(tmp_path):
     manifest = read_manifest(write_default_run(tmp_path))
-    assert manifest["completeness"] == {"expected_rows": 2, "verified": True}
+    assert manifest["completeness"] == {
+        "verified": True,
+        "source_count_before": 2,
+        "source_count_after": 2,
+        "source_changed_during_run": False,
+        "snapshot_size": 2,
+        "snapshot_sha256": "f" * 64,
+        "downloaded_rows": 2,
+    }
+
+
+def test_write_run_flags_a_source_that_moved(tmp_path):
+    manifest = read_manifest(
+        write_default_run(tmp_path, result=make_download(count_after=5))
+    )
+    assert manifest["completeness"]["source_changed_during_run"] is True
+    assert manifest["completeness"]["verified"] is True
 
 
 def test_write_run_marks_an_unverified_run(tmp_path):
     manifest = read_manifest(
-        write_default_run(tmp_path, result=make_download(expected=None))
+        write_default_run(tmp_path, result=make_download(verified=False))
     )
-    assert manifest["completeness"] == {"expected_rows": None, "verified": False}
+    assert manifest["completeness"]["verified"] is False
+    assert manifest["completeness"]["snapshot_size"] is None
+    assert manifest["completeness"]["downloaded_rows"] == 2
+
+
+def test_write_run_records_the_source_schema_fingerprint(tmp_path):
+    manifest = read_manifest(write_default_run(tmp_path))
+    assert manifest["source_schema"] == {
+        "fingerprint": "abc123",
+        "fields": {"id": "number"},
+    }
 
 
 def test_write_run_watermark_for_a_full_snapshot(tmp_path):
@@ -987,7 +1182,7 @@ def test_write_run_keeps_the_old_watermark_when_nothing_is_newer(tmp_path):
     manifest = read_manifest(
         write_default_run(
             tmp_path,
-            result=make_download(records=[], expected=0),
+            result=make_download(records=[]),
             mode="delta",
             old_watermark="2024-06-02T09:00:00.000",
             updated_from="2024-05-19T09:00:00.000",
@@ -999,7 +1194,7 @@ def test_write_run_keeps_the_old_watermark_when_nothing_is_newer(tmp_path):
 
 def test_write_run_without_records_and_without_watermark(tmp_path):
     run_dir = write_default_run(
-        tmp_path, result=make_download(records=[], expected=0)
+        tmp_path, result=make_download(records=[])
     )
     manifest = read_manifest(run_dir)
     assert manifest["row_count"] == 0
@@ -1010,7 +1205,7 @@ def test_write_run_without_records_and_without_watermark(tmp_path):
 def test_write_run_marks_a_limited_run_as_a_test_run(tmp_path):
     manifest = read_manifest(
         write_default_run(
-            tmp_path, max_records=5, result=make_download(expected=None)
+            tmp_path, max_records=5, result=make_download(verified=False)
         )
     )
     assert manifest["max_records"] == 5
@@ -1082,7 +1277,7 @@ def test_write_run_output_is_discovered_as_a_watermark(tmp_path):
 
 
 def test_write_run_test_run_is_not_used_as_a_watermark(tmp_path):
-    write_default_run(tmp_path, max_records=5, result=make_download(expected=None))
+    write_default_run(tmp_path, max_records=5, result=make_download(verified=False))
     assert dc.previous_watermark(tmp_path, 2024) is None
 
 
@@ -1092,7 +1287,7 @@ def test_runs_from_different_days_read_as_one_dataset(tmp_path):
     write_default_run(
         tmp_path,
         started=STARTED + timedelta(days=1),
-        result=make_download(records=[{"id": "9", "victim_age": "34"}], expected=1),
+        result=make_download(records=[{"id": "9", "victim_age": "34"}]),
     )
     # manifest.json sits beside each part file, so select the Parquet files.
     parts = sorted(tmp_path.glob(f"{dc.LAYER}/**/{dc.PARQUET_FILE}"))
@@ -1118,7 +1313,7 @@ def test_runs_from_different_days_read_as_one_dataset(tmp_path):
 def run_main(monkeypatch, tmp_path, caplog):
     """Run main() with stubbed argument parsing, token lookup and download."""
 
-    def run(*, records=RECORDS, expected="auto", token=None, download=None, **cli):
+    def run(*, records=RECORDS, verified=True, token=None, download=None, **cli):
         options = {
             "year": 2024,
             "data_root": tmp_path,
@@ -1133,7 +1328,7 @@ def run_main(monkeypatch, tmp_path, caplog):
             calls.append((year, updated_from, app_token, max_records))
             if download is not None:
                 return download(year, updated_from, app_token, max_records)
-            return make_download(records=records, expected=expected)
+            return make_download(records=records, verified=verified)
 
         monkeypatch.setattr(dc, "arguments", lambda: dc.argparse.Namespace(**options))
         monkeypatch.setattr(dc, "app_token", lambda disabled: token)
@@ -1199,7 +1394,7 @@ def test_main_full_flag_ignores_the_watermark_but_keeps_it(run_main, tmp_path):
 
 
 def test_main_forwards_token_and_max_records(run_main, tmp_path):
-    code, calls = run_main(token="secret", max_records=5, expected=None)
+    code, calls = run_main(token="secret", max_records=5, verified=False)
     assert code == 0
     assert calls == [(2024, None, "secret", 5)]
 
@@ -1208,11 +1403,21 @@ def test_main_forwards_token_and_max_records(run_main, tmp_path):
     assert manifest["max_records"] == 5
 
 
-def test_main_carries_the_unverified_count_into_the_manifest(run_main, tmp_path):
-    code, _ = run_main(expected=None)
+def test_main_carries_the_completeness_evidence_into_the_manifest(run_main, tmp_path):
+    code, _ = run_main()
     assert code == 0
-    manifest = read_manifest(published_runs(tmp_path)[-1])
-    assert manifest["completeness"] == {"expected_rows": None, "verified": False}
+    completeness = read_manifest(published_runs(tmp_path)[-1])["completeness"]
+    assert completeness["verified"] is True
+    assert completeness["snapshot_size"] == 2
+    assert completeness["downloaded_rows"] == 2
+
+
+def test_main_marks_a_limited_run_as_unverified(run_main, tmp_path):
+    code, _ = run_main(verified=False)
+    assert code == 0
+    completeness = read_manifest(published_runs(tmp_path)[-1])["completeness"]
+    assert completeness["verified"] is False
+    assert completeness["snapshot_sha256"] is None
 
 
 def test_main_sweeps_stale_partials_before_writing(run_main, tmp_path):
