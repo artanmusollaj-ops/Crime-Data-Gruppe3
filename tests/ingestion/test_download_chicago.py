@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import json
 import logging
@@ -29,7 +30,11 @@ INGEST_DATE = "2026-09-04"
 
 
 def write_manifest(
-    data_root: Path, ingest_date: str, run_id: str, **overrides
+    data_root: Path,
+    ingest_date: str,
+    run_id: str,
+    layer: str = dc.BRONZE_LAYER,
+    **overrides,
 ) -> Path:
     manifest = {
         "status": "complete",
@@ -38,7 +43,7 @@ def write_manifest(
         "watermark": {"maximum_seen": "2024-05-01T00:00:00.000"},
     }
     manifest.update(overrides)
-    directory = dc.run_parent(data_root, ingest_date) / run_id
+    directory = dc.run_parent(data_root, layer, ingest_date) / run_id
     directory.mkdir(parents=True)
     path = directory / "manifest.json"
     path.write_text(json.dumps(manifest), encoding="utf-8")
@@ -46,10 +51,14 @@ def write_manifest(
 
 
 def make_partial(
-    data_root: Path, ingest_date: str, name: str, age_hours: float
+    data_root: Path,
+    ingest_date: str,
+    name: str,
+    age_hours: float,
+    layer: str = dc.BRONZE_LAYER,
 ) -> Path:
     """Create a .part work directory with a backdated modification time."""
-    path = dc.run_parent(data_root, ingest_date) / name
+    path = dc.run_parent(data_root, layer, ingest_date) / name
     path.mkdir(parents=True)
     (path / dc.PARQUET_FILE).write_bytes(b"incomplete")
     stamp = (STARTED - timedelta(hours=age_hours)).timestamp()
@@ -60,10 +69,13 @@ def make_partial(
 class FakeResponse:
     """Minimal stand-in for requests.Response."""
 
-    def __init__(self, payload, raise_error=None, json_error=None):
+    def __init__(self, payload, raise_error=None, json_error=None, body=None):
         self._payload = payload
         self._raise_error = raise_error
         self._json_error = json_error
+        self.content = (
+            body if body is not None else json.dumps(payload).encode("utf-8")
+        )
 
     def raise_for_status(self):
         if self._raise_error is not None:
@@ -75,12 +87,27 @@ class FakeResponse:
         return self._payload
 
 
-class FakeSession:
-    """Replays canned responses and records every request."""
+SCHEMA_PAYLOAD = {
+    "columns": [
+        {"fieldName": "id", "dataTypeName": "number", "name": "ID"},
+        {"fieldName": "arrest", "dataTypeName": "checkbox", "name": "Arrest"},
+        {"fieldName": ":@computed_region_x", "dataTypeName": "number", "name": "R"},
+    ]
+}
 
-    def __init__(self, pages=(), count=None):
+
+class FakeSession:
+    """Replays canned responses and records every request.
+
+    Eine Abfrage wird an ihrer Form erkannt: Metadaten-URL, count-Abfrage,
+    reine id-Abfrage oder Datenseite.
+    """
+
+    def __init__(self, pages=(), id_pages=(), count=None, metadata=None):
         self.pages = list(pages)
+        self.id_pages = list(id_pages)
         self.count = count
+        self.metadata = metadata
         self.calls: list[dict] = []
         self.headers: dict[str, str] = {}
         self.tokens: list[str | None] = []
@@ -94,42 +121,93 @@ class FakeSession:
         return False
 
     def get(self, url, params=None, timeout=None):
-        self.calls.append({"url": url, "params": params, "timeout": timeout})
-        if self.is_count(self.calls[-1]):
+        call = {"url": url, "params": params, "timeout": timeout}
+        self.calls.append(call)
+        if url == dc.METADATA_URL:
+            return self.metadata
+        if self.is_count(call):
+            if isinstance(self.count, list):
+                return self.count.pop(0) if len(self.count) > 1 else self.count[0]
             return self.count
+        if self.is_ids(call):
+            return self.id_pages.pop(0)
         return self.pages.pop(0)
 
     @staticmethod
-    def is_count(call: dict) -> bool:
-        return str((call["params"] or {}).get("$select", "")).startswith("count(")
+    def select_of(call: dict) -> str:
+        return str((call["params"] or {}).get("$select", ""))
+
+    @classmethod
+    def is_count(cls, call: dict) -> bool:
+        return cls.select_of(call).startswith("count(")
+
+    @classmethod
+    def is_ids(cls, call: dict) -> bool:
+        return cls.select_of(call) == dc.ID_FIELD
+
+    def _of_kind(self, kind) -> list[dict]:
+        return [
+            call
+            for call in self.calls
+            if call["url"] != dc.METADATA_URL and kind(call)
+        ]
 
     @property
     def page_calls(self) -> list[dict]:
-        return [call for call in self.calls if not self.is_count(call)]
+        return self._of_kind(lambda c: not self.is_count(c) and not self.is_ids(c))
 
     @property
     def count_calls(self) -> list[dict]:
-        return [call for call in self.calls if self.is_count(call)]
+        return self._of_kind(self.is_count)
+
+    @property
+    def id_calls(self) -> list[dict]:
+        return self._of_kind(self.is_ids)
+
+    @property
+    def metadata_calls(self) -> list[dict]:
+        return [call for call in self.calls if call["url"] == dc.METADATA_URL]
 
 
 def count_response(value) -> FakeResponse:
     return FakeResponse([{dc.COUNT_ALIAS: str(value)}])
 
 
+def id_response(records) -> FakeResponse:
+    return FakeResponse([{dc.ID_FIELD: row[dc.ID_FIELD]} for row in records])
+
+
 @pytest.fixture
 def fake_session(monkeypatch):
-    """Replace build_session; the test supplies pages and the row count."""
+    """Ersetzt build_session; Seiten, id-Liste und Zaehlung kommen vom Test.
 
-    def install(pages=(), count="auto", **response_kwargs):
+    Ohne eigene Angabe werden id-Liste und Zaehlung aus ``pages`` abgeleitet,
+    sodass ein Lauf per Vorgabe konsistent ist.
+    """
+
+    def install(pages=(), count="auto", ids="auto", metadata="auto", **response_kwargs):
+        alle = [row for page in pages for row in page]
+
         if count == "auto":
-            response = count_response(sum(len(page) for page in pages))
-        elif isinstance(count, (FakeResponse, type(None))):
-            response = count
+            count_value = count_response(len(alle))
+        elif isinstance(count, (FakeResponse, list, type(None))):
+            count_value = count
         else:
-            response = count_response(count)
+            count_value = count_response(count)
+
+        if ids == "auto":
+            id_pages = [id_response(alle)]
+        elif ids is None:
+            id_pages = []
+        else:
+            id_pages = [page if isinstance(page, FakeResponse) else id_response(page)
+                        for page in ids]
 
         session = FakeSession(
-            [FakeResponse(page, **response_kwargs) for page in pages], response
+            pages=[FakeResponse(page, **response_kwargs) for page in pages],
+            id_pages=id_pages,
+            count=count_value,
+            metadata=FakeResponse(SCHEMA_PAYLOAD) if metadata == "auto" else metadata,
         )
 
         def build(token):
@@ -242,7 +320,7 @@ def test_app_token_missing_or_empty_is_none(monkeypatch, value):
 
 
 def test_run_parent_partitions_by_layer_city_and_ingest_date(tmp_path):
-    assert dc.run_parent(tmp_path, INGEST_DATE) == (
+    assert dc.run_parent(tmp_path, dc.BRONZE_LAYER, INGEST_DATE) == (
         tmp_path / "bronze" / "city=chicago" / f"ingest_date={INGEST_DATE}"
     )
 
@@ -312,7 +390,7 @@ def test_previous_watermark_ignores_unusable_runs(tmp_path, overrides):
 
 def test_previous_watermark_ignores_other_cities(tmp_path):
     directory = (
-        tmp_path / dc.LAYER / "city=zurich" / "ingest_date=2026-09-01" / "run_a"
+        tmp_path / dc.BRONZE_LAYER / "city=zurich" / "ingest_date=2026-09-01" / "run_a"
     )
     directory.mkdir(parents=True)
     (directory / "manifest.json").write_text(
@@ -408,23 +486,38 @@ def test_where_clause_adds_the_delta_filter():
 
 def test_query_asks_for_whole_records():
     """No $select, so a field added by the city is still delivered."""
-    params = dc.query(2024, None, 10, 20)
+    params = dc.query(2024, None, 10)
     assert "$select" not in params
     assert params["$where"] == dc.where_clause(2024, None)
-    assert params["$order"] == "date,id"
+    assert params["$order"] == dc.ID_FIELD
     assert params["$limit"] == 10
-    assert params["$offset"] == 20
+    assert "$offset" not in params
 
 
-def test_query_delta_orders_by_the_watermark_field():
-    params = dc.query(2024, "2024-07-17T23:59:59.000", 10, 0)
-    assert params["$order"] == "updated_on,id"
+def test_query_pages_by_keyset_not_offset():
+    """Der zuletzt gesehene Schluessel wandert in die WHERE-Bedingung."""
+    params = dc.query(2024, None, 10, after_id=13324861)
+    assert params["$where"].endswith(" AND id > 13324861")
+    assert params["$where"].startswith(dc.where_clause(2024, None))
+    assert "$offset" not in params
+
+
+def test_query_keeps_the_delta_filter_alongside_the_keyset():
+    params = dc.query(2024, "2024-07-17T23:59:59.000", 10, after_id=42)
+    assert "updated_on >= '2024-07-17T23:59:59.000'" in params["$where"]
+    assert " AND id > 42" in params["$where"]
+
+
+def test_query_can_select_only_ids():
+    params = dc.query(2024, None, 50_000, None, dc.ID_FIELD)
+    assert params["$select"] == "id"
+    assert params["$order"] == dc.ID_FIELD
 
 
 def test_count_query_matches_the_page_filter():
     params = dc.count_query(2024, "2024-07-17T23:59:59.000")
     assert params["$select"] == f"count(1) AS {dc.COUNT_ALIAS}"
-    assert params["$where"] == dc.query(2024, "2024-07-17T23:59:59.000", 1, 0)["$where"]
+    assert params["$where"] == dc.query(2024, "2024-07-17T23:59:59.000", 1)["$where"]
     assert "$limit" not in params
 
 
@@ -432,7 +525,7 @@ def test_query_url_is_reproducible_and_token_free():
     url = dc.query_url(2024, None, 5)
     assert url.startswith(dc.API_URL)
     assert "%24limit=5" in url
-    assert "%24offset=0" in url
+    assert "%24offset" not in url
     assert "%24select" not in url
     assert "token" not in url.lower()
 
@@ -525,51 +618,116 @@ def test_download_stops_on_a_short_page(fake_session):
     session = fake_session(pages=[[{"id": "1"}, {"id": "2"}]])
     result = dc.download(2024, None, None, None)
     assert result.records == [{"id": "1"}, {"id": "2"}]
-    assert result.expected_rows == 2
+    assert result.source_count_before == 2
+    assert result.snapshot_size == 2
     assert len(session.page_calls) == 1
     assert session.page_calls[0]["params"]["$limit"] == dc.PAGE_SIZE
     assert session.closed is True
 
 
-def test_download_pages_until_exhausted(monkeypatch, fake_session):
+def test_download_pages_by_keyset(monkeypatch, fake_session):
+    """Jede Folgeseite fragt ab der letzten gesehenen id, nicht per Offset."""
     monkeypatch.setattr(dc, "PAGE_SIZE", 2)
     session = fake_session(
         pages=[[{"id": "1"}, {"id": "2"}], [{"id": "3"}, {"id": "4"}], [{"id": "5"}]]
     )
     result = dc.download(2024, None, None, None)
     assert [row["id"] for row in result.records] == ["1", "2", "3", "4", "5"]
-    assert [call["params"]["$offset"] for call in session.page_calls] == [0, 2, 4]
+    wheres = [call["params"]["$where"] for call in session.page_calls]
+    assert " AND id > " not in wheres[0]
+    assert wheres[1].endswith(" AND id > 2")
+    assert wheres[2].endswith(" AND id > 4")
+    assert all("$offset" not in call["params"] for call in session.page_calls)
 
 
-def test_download_counts_before_paging(fake_session):
+def position(session, call) -> int:
+    """Index eines Aufrufs ueber Identitaet; gleiche Aufrufe sind gleich gross."""
+    return next(i for i, other in enumerate(session.calls) if other is call)
+
+
+def test_download_order_of_operations(fake_session):
+    """Schema, Zaehlung, id-Liste, Seiten, zweite Zaehlung."""
     session = fake_session(pages=[[{"id": "1"}]])
     dc.download(2024, "2024-07-17T23:59:59.000", None, None)
-    assert len(session.count_calls) == 1
-    assert session.calls[0] is session.count_calls[0]
-    assert session.count_calls[0]["params"]["$where"] == dc.where_clause(
+
+    assert session.metadata_calls
+    assert len(session.count_calls) == 2
+    assert len(session.id_calls) == 1
+    reihenfolge = [
+        position(session, session.count_calls[0]),
+        position(session, session.id_calls[0]),
+        position(session, session.page_calls[0]),
+        position(session, session.count_calls[-1]),
+    ]
+    assert reihenfolge == sorted(reihenfolge)
+    assert session.id_calls[0]["params"]["$where"] == dc.where_clause(
         2024, "2024-07-17T23:59:59.000"
     )
 
 
-def test_download_rejects_a_truncated_result(monkeypatch, fake_session):
-    monkeypatch.setattr(dc, "PAGE_SIZE", 2)
-    fake_session(pages=[[{"id": "1"}, {"id": "2"}], [{"id": "3"}]], count=99)
-    with pytest.raises(dc.IngestionError, match="Truncated download: 3 of 99"):
+def test_download_rejects_a_count_that_misses_the_snapshot(fake_session):
+    fake_session(pages=[[{"id": "1"}, {"id": "2"}]], count=99)
+    with pytest.raises(dc.IngestionError, match="Zeilenzahl 99 passt nicht"):
         dc.download(2024, None, None, None)
 
 
-def test_download_accepts_rows_added_while_paging(fake_session):
-    fake_session(pages=[[{"id": "1"}, {"id": "2"}]], count=1)
+def test_download_rejects_a_missing_record(fake_session):
+    """Die id-Liste ist der Vertrag: fehlt eine Zeile, scheitert der Lauf."""
+    fake_session(
+        pages=[[{"id": "1"}, {"id": "2"}]],
+        ids=[[{"id": "1"}, {"id": "2"}, {"id": "3"}]],
+        count=3,
+    )
+    with pytest.raises(dc.IngestionError, match="1 fehlend"):
+        dc.download(2024, None, None, None)
+
+
+def test_download_rejects_an_unexpected_record(fake_session):
+    fake_session(
+        pages=[[{"id": "1"}, {"id": "9"}]], ids=[[{"id": "1"}, {"id": "2"}]], count=2
+    )
+    with pytest.raises(dc.IngestionError, match="1 unerwartet"):
+        dc.download(2024, None, None, None)
+
+
+def test_download_rejects_duplicate_ids_in_the_snapshot(fake_session):
+    fake_session(
+        pages=[[{"id": "1"}]], ids=[[{"id": "1"}, {"id": "1"}]], count=2
+    )
+    with pytest.raises(dc.IngestionError, match="doppelte ids"):
+        dc.download(2024, None, None, None)
+
+
+def test_download_records_a_moving_source_without_blocking(fake_session, caplog):
+    """Aendert sich die Quelle waehrend des Laufs, wird das nur dokumentiert."""
+    caplog.set_level(logging.WARNING)
+    fake_session(
+        pages=[[{"id": "1"}, {"id": "2"}]],
+        count=[count_response(2), count_response(7)],
+    )
     result = dc.download(2024, None, None, None)
+    assert result.source_count_before == 2
+    assert result.source_count_after == 7
     assert len(result.records) == 2
-    assert result.expected_rows == 1
+    assert "veraendert" in caplog.text
 
 
 def test_download_continues_when_the_count_is_unavailable(fake_session):
+    """Ohne Zaehlung bleibt der id-Abgleich als Nachweis bestehen."""
     fake_session(pages=[[{"id": "1"}]], count=FakeResponse([]))
     result = dc.download(2024, None, None, None)
     assert result.records == [{"id": "1"}]
-    assert result.expected_rows is None
+    assert result.source_count_before is None
+    assert result.snapshot_size == 1
+
+
+def test_download_snapshot_digest_is_stable(fake_session):
+    fake_session(pages=[[{"id": "2"}, {"id": "1"}]])
+    first = dc.download(2024, None, None, None)
+    fake_session(pages=[[{"id": "1"}, {"id": "2"}]])
+    second = dc.download(2024, None, None, None)
+    assert first.snapshot_sha256 == second.snapshot_sha256
+    assert len(first.snapshot_sha256) == 64
 
 
 def test_download_honours_max_records(monkeypatch, fake_session):
@@ -580,11 +738,21 @@ def test_download_honours_max_records(monkeypatch, fake_session):
     assert [call["params"]["$limit"] for call in session.page_calls] == [2, 1]
 
 
-def test_download_skips_the_count_for_a_limited_run(fake_session):
+def test_download_skips_the_gates_for_a_limited_run(fake_session):
     session = fake_session(pages=[[{"id": "1"}]])
     result = dc.download(2024, None, None, 1)
     assert session.count_calls == []
-    assert result.expected_rows is None
+    assert session.id_calls == []
+    assert result.snapshot_size is None
+    assert result.source_count_before is None
+
+
+def test_download_reads_the_schema_fingerprint(fake_session):
+    session = fake_session(pages=[[{"id": "1"}]])
+    result = dc.download(2024, None, None, None)
+    assert len(session.metadata_calls) == 1
+    assert result.schema_fingerprint is not None
+    assert result.schema_fields == {"id": "number", "arrest": "checkbox"}
 
 
 def test_download_builds_the_session_with_the_token(fake_session):
@@ -837,13 +1005,33 @@ RECORDS = [
 ]
 
 
-def make_download(records=RECORDS, expected="auto") -> dc.Download:
-    if expected == "auto":
-        expected = len(records)
-    return dc.Download(records, expected)
+def make_download(
+    records=RECORDS, verified=True, count_after=None, bodies=None
+) -> dc.Download:
+    """Baut ein Download-Ergebnis wie nach einem geprueften Lauf.
+
+    ``verified=False`` entspricht einem Lauf mit ``--max-records``: keine
+    Zaehlung, keine feste id-Liste.
+    """
+    if bodies is None:
+        bodies = [json.dumps(records).encode("utf-8")]
+    if not verified:
+        return dc.Download(
+            records, bodies, schema_fingerprint="abc123", schema_fields={}
+        )
+    return dc.Download(
+        records,
+        bodies,
+        source_count_before=len(records),
+        source_count_after=len(records) if count_after is None else count_after,
+        snapshot_size=len(records),
+        snapshot_sha256="f" * 64,
+        schema_fingerprint="abc123",
+        schema_fields={"id": "number"},
+    )
 
 
-def write_default_run(data_root: Path, **overrides) -> Path:
+def write_default_run(data_root: Path, **overrides) -> dc.RunPaths:
     kwargs = {
         "year": 2024,
         "mode": "full_snapshot",
@@ -858,23 +1046,33 @@ def write_default_run(data_root: Path, **overrides) -> Path:
     return dc.write_run(data_root, started, result, **kwargs)
 
 
-def read_manifest(directory: Path) -> dict:
+def read_manifest(directory) -> dict:
+    """Liest ein Manifest; ohne Angabe der Schicht das der Bronze-Schicht."""
+    if isinstance(directory, dc.RunPaths):
+        directory = directory.bronze
     return json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
 
 
-def test_write_run_publishes_the_expected_layout(tmp_path):
-    run_dir = write_default_run(tmp_path)
-    assert run_dir == tmp_path / "bronze" / "city=chicago" / f"ingest_date={INGEST_DATE}" / RUN_ID
-    assert sorted(path.name for path in run_dir.iterdir()) == [
+def test_write_run_publishes_both_layers(tmp_path):
+    run = write_default_run(tmp_path)
+    assert run.raw == dc.run_parent(tmp_path, dc.RAW_LAYER, INGEST_DATE) / RUN_ID
+    assert run.bronze == dc.run_parent(tmp_path, dc.BRONZE_LAYER, INGEST_DATE) / RUN_ID
+    assert sorted(path.name for path in run.raw.iterdir()) == [
+        "manifest.json",
+        "page-0001.json.gz",
+    ]
+    assert sorted(path.name for path in run.bronze.iterdir()) == [
         "manifest.json",
         dc.PARQUET_FILE,
     ]
-    assert list(run_dir.parent.glob(".*.part")) == []
+    assert run.raw.name == run.bronze.name == RUN_ID
+    for layer in dc.LAYERS:
+        assert list(dc.run_parent(tmp_path, layer, INGEST_DATE).glob(".*.part")) == []
 
 
 def test_write_run_parquet_keeps_the_original_types(tmp_path):
-    run_dir = write_default_run(tmp_path)
-    table = pq.read_table(run_dir / dc.PARQUET_FILE)
+    run = write_default_run(tmp_path)
+    table = pq.read_table(run.bronze / dc.PARQUET_FILE)
     assert table.schema == dc.SCHEMA
 
     rows = table.to_pylist()
@@ -895,8 +1093,8 @@ def test_write_run_parquet_keeps_the_original_types(tmp_path):
 
 
 def test_write_run_parquet_is_readable_with_pandas(tmp_path):
-    run_dir = write_default_run(tmp_path)
-    frame = pd.read_parquet(run_dir / dc.PARQUET_FILE)
+    run = write_default_run(tmp_path)
+    frame = pd.read_parquet(run.bronze / dc.PARQUET_FILE)
     assert list(frame.columns) == list(dc.COLUMNS)
     # pandas hands back numpy scalars, so compare by value, not identity.
     assert frame.loc[0, "arrest"] == False  # noqa: E712
@@ -936,24 +1134,50 @@ def test_write_run_manifest_records_the_column_types(tmp_path):
 
 
 def test_write_run_manifest_records_the_file_checksum(tmp_path):
-    run_dir = write_default_run(tmp_path)
-    parquet = run_dir / dc.PARQUET_FILE
-    entry = read_manifest(run_dir)["files"][0]
+    run = write_default_run(tmp_path)
+    parquet = run.bronze / dc.PARQUET_FILE
+    entry = read_manifest(run.bronze)["files"][0]
     assert entry["path"] == dc.PARQUET_FILE
     assert entry["size_bytes"] == parquet.stat().st_size
     assert entry["sha256"] == dc.file_hash(parquet)
 
 
-def test_write_run_records_a_verified_row_count(tmp_path):
+def test_write_run_records_the_completeness_evidence(tmp_path):
     manifest = read_manifest(write_default_run(tmp_path))
-    assert manifest["completeness"] == {"expected_rows": 2, "verified": True}
+    assert manifest["completeness"] == {
+        "verified": True,
+        "source_count_before": 2,
+        "source_count_after": 2,
+        "source_changed_during_run": False,
+        "snapshot_size": 2,
+        "snapshot_sha256": "f" * 64,
+        "downloaded_rows": 2,
+    }
+
+
+def test_write_run_flags_a_source_that_moved(tmp_path):
+    manifest = read_manifest(
+        write_default_run(tmp_path, result=make_download(count_after=5))
+    )
+    assert manifest["completeness"]["source_changed_during_run"] is True
+    assert manifest["completeness"]["verified"] is True
 
 
 def test_write_run_marks_an_unverified_run(tmp_path):
     manifest = read_manifest(
-        write_default_run(tmp_path, result=make_download(expected=None))
+        write_default_run(tmp_path, result=make_download(verified=False))
     )
-    assert manifest["completeness"] == {"expected_rows": None, "verified": False}
+    assert manifest["completeness"]["verified"] is False
+    assert manifest["completeness"]["snapshot_size"] is None
+    assert manifest["completeness"]["downloaded_rows"] == 2
+
+
+def test_write_run_records_the_source_schema_fingerprint(tmp_path):
+    manifest = read_manifest(write_default_run(tmp_path))
+    assert manifest["source_schema"] == {
+        "fingerprint": "abc123",
+        "fields": {"id": "number"},
+    }
 
 
 def test_write_run_watermark_for_a_full_snapshot(tmp_path):
@@ -987,7 +1211,7 @@ def test_write_run_keeps_the_old_watermark_when_nothing_is_newer(tmp_path):
     manifest = read_manifest(
         write_default_run(
             tmp_path,
-            result=make_download(records=[], expected=0),
+            result=make_download(records=[]),
             mode="delta",
             old_watermark="2024-06-02T09:00:00.000",
             updated_from="2024-05-19T09:00:00.000",
@@ -998,19 +1222,17 @@ def test_write_run_keeps_the_old_watermark_when_nothing_is_newer(tmp_path):
 
 
 def test_write_run_without_records_and_without_watermark(tmp_path):
-    run_dir = write_default_run(
-        tmp_path, result=make_download(records=[], expected=0)
-    )
-    manifest = read_manifest(run_dir)
+    run = write_default_run(tmp_path, result=make_download(records=[]))
+    manifest = read_manifest(run)
     assert manifest["row_count"] == 0
     assert manifest["watermark"]["maximum_seen"] is None
-    assert pq.read_table(run_dir / dc.PARQUET_FILE).schema == dc.SCHEMA
+    assert pq.read_table(run.bronze / dc.PARQUET_FILE).schema == dc.SCHEMA
 
 
 def test_write_run_marks_a_limited_run_as_a_test_run(tmp_path):
     manifest = read_manifest(
         write_default_run(
-            tmp_path, max_records=5, result=make_download(expected=None)
+            tmp_path, max_records=5, result=make_download(verified=False)
         )
     )
     assert manifest["max_records"] == 5
@@ -1037,7 +1259,7 @@ def test_write_run_removes_the_work_directory_on_failure(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="parquet conversion failed"):
         write_default_run(tmp_path)
 
-    assert list(dc.run_parent(tmp_path, INGEST_DATE).iterdir()) == []
+    assert list(dc.run_parent(tmp_path, dc.BRONZE_LAYER, INGEST_DATE).iterdir()) == []
 
 
 def test_write_run_cleanup_does_not_mask_the_real_error(tmp_path, monkeypatch):
@@ -1062,18 +1284,124 @@ def test_write_run_cleans_up_after_an_interrupt(tmp_path, monkeypatch):
     with pytest.raises(KeyboardInterrupt):
         write_default_run(tmp_path)
 
-    assert list(dc.run_parent(tmp_path, INGEST_DATE).iterdir()) == []
+    assert list(dc.run_parent(tmp_path, dc.BRONZE_LAYER, INGEST_DATE).iterdir()) == []
 
 
 def test_write_run_never_overwrites_an_existing_run(tmp_path):
-    run_dir = write_default_run(tmp_path)
-    checksum = dc.file_hash(run_dir / dc.PARQUET_FILE)
+    run = write_default_run(tmp_path)
+    checksum = dc.file_hash(run.bronze / dc.PARQUET_FILE)
 
     with pytest.raises(OSError):
         write_default_run(tmp_path)
 
-    assert dc.file_hash(run_dir / dc.PARQUET_FILE) == checksum
-    assert list(run_dir.parent.glob(".*.part")) == []
+    assert dc.file_hash(run.bronze / dc.PARQUET_FILE) == checksum
+    for layer in dc.LAYERS:
+        assert list(dc.run_parent(tmp_path, layer, INGEST_DATE).glob(".*.part")) == []
+
+
+def test_write_landing_stores_responses_byte_for_byte(tmp_path):
+    bodies = [b'[{"id":"1"}]', b'[{"id":"2"}]']
+    entries = dc.write_landing(tmp_path, bodies)
+
+    assert [entry["path"] for entry in entries] == [
+        "page-0001.json.gz",
+        "page-0002.json.gz",
+    ]
+    for entry, body in zip(entries, bodies):
+        path = tmp_path / entry["path"]
+        assert gzip.decompress(path.read_bytes()) == body
+        assert entry["sha256"] == dc.file_hash(path)
+
+
+def test_write_landing_compression_is_deterministic(tmp_path):
+    """Gleiche Antwort, gleiche Bytes — sonst waere der SHA-256 wertlos."""
+    erste, zweite = tmp_path / "a", tmp_path / "b"
+    erste.mkdir()
+    zweite.mkdir()
+    body = [b'[{"id":"1","updated_on":"2024-05-01T09:00:00.000"}]']
+    assert (
+        dc.write_landing(erste, body)[0]["sha256"]
+        == dc.write_landing(zweite, body)[0]["sha256"]
+    )
+
+
+def test_write_landing_without_pages(tmp_path):
+    assert dc.write_landing(tmp_path, []) == []
+
+
+def test_write_run_raw_holds_the_untouched_response(tmp_path):
+    """In Raw stehen die JSON-Typen der API, nicht die Bronze-Umsetzung."""
+    run = write_default_run(tmp_path)
+    gespeichert = json.loads(
+        gzip.decompress((run.raw / "page-0001.json.gz").read_bytes())
+    )
+    assert gespeichert == RECORDS
+    assert gespeichert[0]["arrest"] is False
+    assert gespeichert[0]["location"]["human_address"].startswith("{")
+    # Bronze macht daraus einen bool und ein struct.
+    frame = pq.read_table(run.bronze / dc.PARQUET_FILE).to_pylist()
+    assert frame[0]["arrest"] is False
+    assert frame[0]["location"]["longitude"] == "-87.751134319"
+
+
+@pytest.mark.parametrize("layer", dc.LAYERS)
+def test_write_run_layer_manifest_is_self_contained(tmp_path, layer):
+    run = write_default_run(tmp_path)
+    manifest = read_manifest(getattr(run, layer))
+    assert manifest["layer"] == layer
+    assert manifest["format"] == dc.LAYER_FORMAT[layer]
+    assert manifest["run_id"] == RUN_ID
+    assert manifest["completeness"]["verified"] is True
+
+    verzeichnis = getattr(run, layer)
+    namen = sorted(
+        path.name for path in verzeichnis.iterdir() if path.name != "manifest.json"
+    )
+    assert sorted(entry["path"] for entry in manifest["files"]) == namen
+    for entry in manifest["files"]:
+        assert entry["sha256"] == dc.file_hash(verzeichnis / entry["path"])
+
+
+def test_write_run_only_bronze_declares_the_parquet_schema(tmp_path):
+    run = write_default_run(tmp_path)
+    bronze = read_manifest(run.bronze)
+    assert bronze["schema"] == {field.name: str(field.type) for field in dc.SCHEMA}
+    assert bronze["derived_from"].endswith(RUN_ID)
+    assert "schema" not in read_manifest(run.raw)
+
+
+def test_write_run_removes_both_work_directories_on_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        dc, "bronze_table", lambda records: (_ for _ in ()).throw(ValueError("kaputt"))
+    )
+    with pytest.raises(ValueError, match="kaputt"):
+        write_default_run(tmp_path)
+
+    for layer in dc.LAYERS:
+        assert list(dc.run_parent(tmp_path, layer, INGEST_DATE).iterdir()) == []
+
+
+def test_write_run_keeps_the_evidence_when_bronze_cannot_be_published(tmp_path):
+    """Raw erscheint zuerst; scheitert Bronze, rueckt das Wasserzeichen nicht vor."""
+    blocker = dc.run_parent(tmp_path, dc.BRONZE_LAYER, INGEST_DATE) / RUN_ID
+    blocker.mkdir(parents=True)
+    (blocker / "belegt").write_text("x", encoding="utf-8")
+
+    with pytest.raises(OSError):
+        write_default_run(tmp_path)
+
+    raw_run = dc.run_parent(tmp_path, dc.RAW_LAYER, INGEST_DATE) / RUN_ID
+    assert (raw_run / "page-0001.json.gz").exists()
+    assert dc.previous_watermark(tmp_path, 2024) is None
+
+
+def test_discard_stale_partials_sweeps_both_layers(tmp_path):
+    stale = [
+        make_partial(tmp_path, "2026-09-01", f".{RUN_ID}.part", 48, layer=layer)
+        for layer in dc.LAYERS
+    ]
+    assert sorted(dc.discard_stale_partials(tmp_path, STARTED)) == sorted(stale)
+    assert not any(path.exists() for path in stale)
 
 
 def test_write_run_output_is_discovered_as_a_watermark(tmp_path):
@@ -1082,7 +1410,7 @@ def test_write_run_output_is_discovered_as_a_watermark(tmp_path):
 
 
 def test_write_run_test_run_is_not_used_as_a_watermark(tmp_path):
-    write_default_run(tmp_path, max_records=5, result=make_download(expected=None))
+    write_default_run(tmp_path, max_records=5, result=make_download(verified=False))
     assert dc.previous_watermark(tmp_path, 2024) is None
 
 
@@ -1092,10 +1420,10 @@ def test_runs_from_different_days_read_as_one_dataset(tmp_path):
     write_default_run(
         tmp_path,
         started=STARTED + timedelta(days=1),
-        result=make_download(records=[{"id": "9", "victim_age": "34"}], expected=1),
+        result=make_download(records=[{"id": "9", "victim_age": "34"}]),
     )
     # manifest.json sits beside each part file, so select the Parquet files.
-    parts = sorted(tmp_path.glob(f"{dc.LAYER}/**/{dc.PARQUET_FILE}"))
+    parts = sorted(tmp_path.glob(f"{dc.BRONZE_LAYER}/**/{dc.PARQUET_FILE}"))
     assert len(parts) == 2
     for part in parts:
         assert pq.read_table(part).schema == dc.SCHEMA
@@ -1118,7 +1446,7 @@ def test_runs_from_different_days_read_as_one_dataset(tmp_path):
 def run_main(monkeypatch, tmp_path, caplog):
     """Run main() with stubbed argument parsing, token lookup and download."""
 
-    def run(*, records=RECORDS, expected="auto", token=None, download=None, **cli):
+    def run(*, records=RECORDS, verified=True, token=None, download=None, **cli):
         options = {
             "year": 2024,
             "data_root": tmp_path,
@@ -1133,7 +1461,7 @@ def run_main(monkeypatch, tmp_path, caplog):
             calls.append((year, updated_from, app_token, max_records))
             if download is not None:
                 return download(year, updated_from, app_token, max_records)
-            return make_download(records=records, expected=expected)
+            return make_download(records=records, verified=verified)
 
         monkeypatch.setattr(dc, "arguments", lambda: dc.argparse.Namespace(**options))
         monkeypatch.setattr(dc, "app_token", lambda disabled: token)
@@ -1144,8 +1472,8 @@ def run_main(monkeypatch, tmp_path, caplog):
     return run
 
 
-def published_runs(data_root: Path) -> list[Path]:
-    return sorted(data_root.glob(f"{dc.LAYER}/city=chicago/ingest_date=*/run_*"))
+def published_runs(data_root: Path, layer: str = dc.BRONZE_LAYER) -> list[Path]:
+    return sorted(data_root.glob(f"{layer}/city=chicago/ingest_date=*/run_*"))
 
 
 def test_main_first_call_is_a_full_snapshot(run_main, tmp_path, caplog):
@@ -1199,7 +1527,7 @@ def test_main_full_flag_ignores_the_watermark_but_keeps_it(run_main, tmp_path):
 
 
 def test_main_forwards_token_and_max_records(run_main, tmp_path):
-    code, calls = run_main(token="secret", max_records=5, expected=None)
+    code, calls = run_main(token="secret", max_records=5, verified=False)
     assert code == 0
     assert calls == [(2024, None, "secret", 5)]
 
@@ -1208,11 +1536,21 @@ def test_main_forwards_token_and_max_records(run_main, tmp_path):
     assert manifest["max_records"] == 5
 
 
-def test_main_carries_the_unverified_count_into_the_manifest(run_main, tmp_path):
-    code, _ = run_main(expected=None)
+def test_main_carries_the_completeness_evidence_into_the_manifest(run_main, tmp_path):
+    code, _ = run_main()
     assert code == 0
-    manifest = read_manifest(published_runs(tmp_path)[-1])
-    assert manifest["completeness"] == {"expected_rows": None, "verified": False}
+    completeness = read_manifest(published_runs(tmp_path)[-1])["completeness"]
+    assert completeness["verified"] is True
+    assert completeness["snapshot_size"] == 2
+    assert completeness["downloaded_rows"] == 2
+
+
+def test_main_marks_a_limited_run_as_unverified(run_main, tmp_path):
+    code, _ = run_main(verified=False)
+    assert code == 0
+    completeness = read_manifest(published_runs(tmp_path)[-1])["completeness"]
+    assert completeness["verified"] is False
+    assert completeness["snapshot_sha256"] is None
 
 
 def test_main_sweeps_stale_partials_before_writing(run_main, tmp_path):

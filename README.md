@@ -24,8 +24,18 @@ Die aktive Umgebung lässt sich mit `deactivate` wieder verlassen.
 ## Chicago-Ingestion
 
 Das Skript `src/crime-pipeline/ingestion/download_chicago.py` legt jeden
-API-Abruf als unveränderlichen Bronze-Lauf unter `data/bronze/` ab. Standard
-ist das im PoC festgelegte Jahr 2024.
+API-Abruf als unveränderlichen Lauf in zwei Schichten ab. Standard ist das im
+PoC festgelegte Jahr 2024.
+
+| Schicht | Verzeichnis | Inhalt |
+| --- | --- | --- |
+| Raw | `data/raw/` | die API-Antworten Byte für Byte, gzip-komprimiert |
+| Bronze | `data/bronze/` | daraus abgeleitetes Parquet mit festem Schema |
+
+Beide Schichten teilen dieselbe `run_id`. Raw ist das Beweisstück und lässt sich
+nicht rekonstruieren — ein Delta-Lauf hält Datensätze so fest, wie sie in diesem
+Moment waren. Bronze ist abgeleitet und jederzeit neu erzeugbar. Detroit folgt
+derselben Aufteilung.
 
 Erster Aufruf: vollständigen Snapshot laden:
 
@@ -60,21 +70,36 @@ erstellt. Auch dabei wird kein früherer Lauf überschrieben:
 python src/crime-pipeline/ingestion/download_chicago.py --full
 ```
 
-### Aufbau der Bronze-Schicht
+### Aufbau der Schichten
 
 ```text
 data/
+├── raw/
+│   └── city=chicago/
+│       └── ingest_date=2026-09-05/
+│           └── run_20260905T174014844258Z/
+│               ├── page-0001.json.gz
+│               ├── page-0002.json.gz
+│               └── manifest.json
 └── bronze/
     └── city=chicago/
-        └── ingest_date=2026-09-04/
-            └── run_20260904T040000000000Z/
+        └── ingest_date=2026-09-05/
+            └── run_20260905T174014844258Z/
                 ├── part-0001.parquet
                 └── manifest.json
 ```
 
 Die Partitionierung folgt dem Abrufdatum, nicht dem Tatdatum. Jeder Lauf wird
-zuerst in einem versteckten `.part`-Verzeichnis erstellt und erst nach
-erfolgreichem Abschluss atomar veröffentlicht.
+zuerst in versteckten `.part`-Verzeichnissen erstellt und erst nach
+erfolgreichem Abschluss atomar veröffentlicht — zuerst Raw, dann Bronze.
+
+**Raw.** Eine Datei je API-Seite mit dem unveränderten Antwortkörper. Nichts wird
+umgewandelt: `arrest` bleibt ein JSON-Boolean, `location` ein verschachteltes
+Objekt. Die Kompression ist deterministisch (`mtime=0`), damit der SHA-256 im
+Manifest allein von der Antwort abhängt.
+
+**Bronze.** Aus Raw abgeleitet, mit den Originaltypen im Parquet-Schema. Das
+Manifest verweist über `derived_from` auf den Raw-Lauf derselben `run_id`.
 
 ### Originaltypen und festes Schema
 
@@ -126,29 +151,55 @@ Das Manifest enthält unter anderem:
 - vollständiges Parquet-Schema mit Typen (`schema`)
 - Dateigrösse und SHA-256 der Parquet-Datei
 - Information, ob ein App Token verwendet wurde
-- Vollständigkeitsprüfung (`completeness`)
+- Vollständigkeitsnachweis (`completeness`): Zählung davor und danach, Grösse
+  und SHA-256 der festgeschriebenen `id`-Liste, geladene Zeilen
+- Schema-Fingerabdruck der Quelle samt Feldtypen (`source_schema`)
+- Schicht (`layer`), Format und die Dateien dieser Schicht
 
 ### Robustheit
 
-Drei Mechanismen schützen die Bronze-Schicht vor unbemerkt unvollständigen
+Fünf Mechanismen schützen die Bronze-Schicht vor unbemerkt unvollständigen
 Läufen:
 
 **Wiederholungen.** Die Session wiederholt gedrosselte und vorübergehend
 fehlerhafte Antworten (429, 500, 502, 503, 504) bis zu fünfmal mit
-exponentiellem Backoff. Ein voller Snapshot braucht rund 26 Anfragen; ohne
+exponentiellem Backoff. Ein voller Snapshot braucht rund 30 Anfragen; ohne
 Wiederholung würde ein einzelner Fehler den ganzen Lauf verwerfen.
 
-**Vollständigkeitsprüfung.** Vor dem Paginieren fragt das Skript mit
-`count(1)` die erwartete Zeilenzahl ab. Werden weniger Zeilen geladen, bricht
-der Lauf ab und veröffentlicht nichts, statt einen abgeschnittenen Snapshot als
-`complete` zu markieren und das Wasserzeichen über die Lücke hinaus zu setzen.
-Ist die Zählung selbst nicht verfügbar, läuft die Ingestion weiter und das
-Manifest hält `"completeness": {"verified": false}` fest. Läufe mit
-`--max-records` kürzen absichtlich und werden nicht geprüft.
+**Keyset-Pagination statt Offset.** Jede Folgeseite fragt ab der zuletzt
+gesehenen `id` (`... AND id > 13324861`, sortiert nach `id`) statt über
+`$offset`. Bei Offset-Paginierung verschieben gleichzeitige Änderungen an der
+Quelle die Seitengrenzen, wodurch Zeilen übersprungen oder doppelt geliefert
+werden können. Mit dem Schlüssel als Anker kann das nicht passieren.
 
-**Aufräumen.** Bricht ein Lauf hart ab, bleibt sein `.part`-Verzeichnis liegen.
-Der nächste Start entfernt solche Verzeichnisse, sobald sie älter als 24 Stunden
-sind. Veröffentlichte Läufe werden nie angefasst.
+**Festgeschriebener Snapshot.** Vor dem Download wird die Menge der `id`-Werte
+abgefragt und festgehalten. Danach muss die Menge der geladenen `id`-Werte
+exakt dieser Liste entsprechen — nicht nur die Anzahl. Fehlt eine Zeile oder
+kommt eine unerwartete hinzu, bricht der Lauf ab und veröffentlicht nichts. Eine
+reine `id`-Abfrage liefert bis zu 50 000 Werte, ein ganzer Jahrgang kostet also
+nur wenige zusätzliche Anfragen.
+
+**Zählungen als Klammer.** `count(1)` läuft vor dem Lauf gegen die
+`id`-Liste (Abweichung = Abbruch) und noch einmal danach. Die zweite Zählung
+blockiert nicht, sondern hält als `source_changed_during_run` fest, ob sich die
+Quelle während des Laufs bewegt hat. Ist die Zählung nicht verfügbar, bleibt der
+`id`-Abgleich als Nachweis bestehen. Läufe mit `--max-records` kürzen absichtlich
+und durchlaufen keine dieser Prüfungen.
+
+**Schema-Fingerabdruck.** Aus den Feldnamen und Feldtypen der Quelle wird ein
+SHA-256 gebildet und im Manifest abgelegt. Ändert die Stadt den Typ eines
+Feldes, ändert sich der Fingerabdruck — auch dann, wenn die Ingestion
+weiterläuft. Die Spalte `_extra` fängt neue Felder auf, eine Typänderung an
+einem bestehenden Feld würde sie nicht bemerken.
+
+**Aufräumen.** Bricht ein Lauf hart ab, bleiben seine `.part`-Verzeichnisse
+liegen. Der nächste Start entfernt sie in beiden Schichten, sobald sie älter als
+24 Stunden sind. Veröffentlichte Läufe werden nie angefasst.
+
+Das Wasserzeichen wird ausschliesslich aus Bronze-Manifesten gelesen, und Bronze
+wird zuletzt veröffentlicht. Scheitert ein Lauf zwischen den Schichten, bleibt
+das Beweisstück in Raw erhalten, das Wasserzeichen rückt aber nicht vor: Der
+nächste Lauf wiederholt dasselbe Fenster, statt eine Lücke zu hinterlassen.
 
 Fortschritt und Fehler gehen über das `logging`-Modul nach stderr.
 
