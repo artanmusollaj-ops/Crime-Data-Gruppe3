@@ -3,3 +3,6 @@ __pycache__/
 *.py[cod]
 .env
 .ipynb_checkpoints/
+data/*/city=*/
+# Ablage vor der Umstellung auf data/
+raw/
