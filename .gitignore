@@ -8,8 +8,6 @@ data/*/city=*/
 data/*/detroit/
 # Census-Referenzgeometrien: data/<schicht>/dataset=tiger_tract/vintage=.../state=...
 data/*/dataset=*/
-# Ablage vor der Umstellung auf data/
-raw/
 # Artefakte der editierbaren Installation
 *.egg-info/
 .DS_Store
