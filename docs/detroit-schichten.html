@@ -1,0 +1,530 @@
+<title>Detroit-Schichten angleichen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap">
+<style>
+  :root {
+    --paper:#f6f8fa; --surface:#ffffff; --sunk:#eef1f5; --ink:#141b25;
+    --muted:#5b6a7d; --rule:#d7dee7; --rule-2:#bfc9d6;
+    --accent:#17627f; --accent-soft:#dcecf3; --signal:#9c5010; --signal-soft:#f6e7d6;
+    --f-head:"IBM Plex Serif",Georgia,"Times New Roman",serif;
+    --f-body:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --measure:68ch; --wide:880px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:#0f141b; --surface:#161d26; --sunk:#1b232e; --ink:#dde5ee;
+      --muted:#93a2b4; --rule:#2a3441; --rule-2:#3b4859;
+      --accent:#5eb4d6; --accent-soft:#14313d; --signal:#dda05c; --signal-soft:#33230f;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#0f141b; --surface:#161d26; --sunk:#1b232e; --ink:#dde5ee;
+    --muted:#93a2b4; --rule:#2a3441; --rule-2:#3b4859;
+    --accent:#5eb4d6; --accent-soft:#14313d; --signal:#dda05c; --signal-soft:#33230f;
+    color-scheme: dark;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:var(--f-body); font-size:16px; line-height:1.62;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:var(--wide); margin:0 auto; padding:0 24px 96px; }
+
+  .masthead { border-bottom:2px solid var(--ink); padding:56px 0 20px; margin-bottom:8px; }
+  .eyebrow {
+    font-family:var(--f-mono); font-size:12px; letter-spacing:.09em;
+    text-transform:uppercase; color:var(--muted); margin:0 0 14px;
+  }
+  h1 {
+    font-family:var(--f-head); font-weight:600; font-size:clamp(2rem,5vw,2.9rem);
+    line-height:1.1; letter-spacing:-.015em; text-wrap:balance; margin:0 0 14px;
+  }
+  .standfirst { font-size:1.075rem; color:var(--muted); max-width:var(--measure); margin:0; }
+
+  .facts {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    border-bottom:1px solid var(--rule); margin-bottom:40px;
+  }
+  .fact { padding:16px 18px 16px 0; }
+  .fact dt {
+    font-family:var(--f-mono); font-size:11px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--muted); margin:0 0 4px;
+  }
+  .fact dd { margin:0; font-family:var(--f-mono); font-size:.9rem; font-weight:500; }
+
+  .outline {
+    background:var(--sunk); border-left:3px solid var(--accent);
+    padding:18px 22px; margin-bottom:56px;
+  }
+  .outline h2 {
+    font-family:var(--f-mono); font-size:11px; letter-spacing:.09em;
+    text-transform:uppercase; color:var(--muted); font-weight:500; margin:0 0 10px;
+  }
+  .outline ol { margin:0; padding:0; list-style:none; columns:2; column-gap:32px; font-size:.925rem; }
+  .outline li { margin:0 0 5px; break-inside:avoid; }
+  .outline a { color:var(--ink); text-decoration:none; border-bottom:1px solid var(--rule-2); }
+  .outline a:hover { color:var(--accent); border-bottom-color:var(--accent); }
+
+  section { margin-bottom:64px; scroll-margin-top:24px; }
+  h2 {
+    font-family:var(--f-head); font-weight:600; font-size:1.6rem; letter-spacing:-.01em;
+    text-wrap:balance; margin:0 0 6px; padding-top:10px; border-top:1px solid var(--rule);
+  }
+  h3 { font-family:var(--f-body); font-weight:600; font-size:1.03rem; margin:32px 0 6px; }
+  p { max-width:var(--measure); margin:0 0 14px; }
+  .lede { color:var(--muted); max-width:var(--measure); margin:0 0 24px; }
+  ul.plain { max-width:var(--measure); padding-left:20px; margin:0 0 16px; }
+  ul.plain li { margin-bottom:8px; }
+
+  code {
+    font-family:var(--f-mono); font-size:.855em; background:var(--sunk);
+    padding:.1em .34em; border-radius:2px; word-break:break-word;
+  }
+  pre {
+    font-family:var(--f-mono); font-size:.83rem; line-height:1.65;
+    background:var(--surface); border:1px solid var(--rule); border-left:3px solid var(--rule-2);
+    padding:16px 18px; overflow-x:auto; margin:0 0 18px;
+  }
+  pre code { background:none; padding:0; font-size:1em; }
+  .cmt { color:var(--muted); }
+  .hl { color:var(--accent); font-weight:500; }
+  .bad { color:var(--signal); font-weight:500; }
+
+  .scroll { overflow-x:auto; margin:0 0 20px; border-bottom:1px solid var(--rule); }
+  table { width:100%; border-collapse:collapse; font-size:.9rem; min-width:540px; }
+  th {
+    text-align:left; font-family:var(--f-mono); font-weight:500; font-size:11px;
+    letter-spacing:.07em; text-transform:uppercase; color:var(--muted);
+    border-bottom:1px solid var(--rule-2); padding:0 16px 8px 0; vertical-align:bottom;
+  }
+  td { padding:10px 16px 10px 0; border-bottom:1px solid var(--rule); vertical-align:top; }
+  tr:last-child td { border-bottom:none; }
+  td.mono, th.mono { font-family:var(--f-mono); font-size:.83rem; white-space:nowrap; }
+  td.num { font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap; }
+
+  .note {
+    border-left:3px solid var(--accent); background:var(--accent-soft);
+    padding:14px 18px; margin:0 0 20px; max-width:var(--measure);
+  }
+  .note p:last-child { margin-bottom:0; }
+  .note .tag {
+    font-family:var(--f-mono); font-size:11px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--accent); display:block; margin-bottom:4px;
+  }
+  .warn { border-left-color:var(--signal); background:var(--signal-soft); }
+  .warn .tag { color:var(--signal); }
+
+  figure { margin:8px 0 26px; }
+  figure svg { max-width:100%; height:auto; display:block; color:var(--ink); }
+  figcaption {
+    font-size:.855rem; color:var(--muted); max-width:var(--measure);
+    margin-top:10px; border-left:2px solid var(--rule); padding-left:12px;
+  }
+  .box { fill:var(--surface); stroke:var(--rule-2); }
+  .box-a { fill:var(--accent-soft); stroke:var(--accent); }
+  .box-w { fill:var(--signal-soft); stroke:var(--signal); stroke-dasharray:4 3; }
+  .t { font-family:var(--f-body); font-size:12.5px; fill:var(--ink); }
+  .n { font-family:var(--f-mono); font-size:11px; fill:var(--muted); }
+  .w { font-family:var(--f-body); font-size:12.5px; fill:var(--signal); }
+  .h { font-family:var(--f-head); font-size:14px; font-weight:600; fill:var(--ink); }
+
+  .decision {
+    background:var(--sunk); border:1px solid var(--rule-2);
+    padding:20px 24px; margin:0 0 24px;
+  }
+  .decision h3 { margin-top:0; }
+  .decision ol { margin:0; padding-left:22px; }
+  .decision li { margin-bottom:10px; }
+
+  footer {
+    border-top:1px solid var(--rule); padding-top:18px;
+    font-size:.855rem; color:var(--muted); max-width:var(--measure);
+  }
+  a { color:var(--accent); }
+  a:focus-visible, .outline a:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+  @media (max-width:620px) { .outline ol { columns:1; } body { font-size:15px; } }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">Crime-Data-Gruppe3 · Entscheidungsvorlage</p>
+    <h1>Detroit-Schichten angleichen</h1>
+    <p class="standfirst">
+      Chicago schreibt seit PR #3 zwei Schichten: Raw als verbatim Archiv, Bronze
+      abgeleitet. Detroit schreibt eine, und sie liegt unter dem falschen Namen. Was
+      das kostet, welche drei Teile nötig wären und was die Gruppe entscheiden muss.
+    </p>
+  </header>
+
+  <dl class="facts">
+    <div class="fact"><dt>Betrifft</dt><dd>detroit_pipeline</dd></div>
+    <div class="fact"><dt>Aufwand</dt><dd>20–180 Zeilen</dd></div>
+    <div class="fact"><dt>Teile</dt><dd>3</dd></div>
+    <div class="fact"><dt>Entscheidung</dt><dd>Gruppe</dd></div>
+  </dl>
+
+  <nav class="outline" aria-label="Inhalt">
+    <h2>Inhalt</h2>
+    <ol>
+      <li><a href="#worum">Worum es geht</a></li>
+      <li><a href="#ist">Ist-Zustand</a></li>
+      <li><a href="#warum">Warum jetzt</a></li>
+      <li><a href="#teile">Die drei Teile</a></li>
+      <li><a href="#varianten">Varianten und Aufwand</a></li>
+      <li><a href="#empfehlung">Empfehlung</a></li>
+      <li><a href="#messungen">Messungen</a></li>
+      <li><a href="#nebenpunkte">Offene Nebenpunkte</a></li>
+    </ol>
+  </nav>
+
+  <!-- ============================================================ -->
+  <section id="worum">
+    <h2>Worum es geht</h2>
+    <p class="lede">
+      Eine Entscheidung, drei mögliche Ausbaustufen — und ein Nebeneffekt, der die
+      Silver-Schicht betrifft.
+    </p>
+    <p>
+      Die Gruppe hat festgelegt: <strong>Raw ist das verbatim Archiv, Bronze ist daraus
+      abgeleitet, und zwar in beiden Städten gleich.</strong> Für Chicago ist das
+      umgesetzt. Für Detroit steht es noch aus, und es ist mehr als eine Umbenennung —
+      ein Bronze-Schritt fehlt dort komplett.
+    </p>
+    <p>
+      Dieses Dokument beschreibt, was zu tun wäre. Es enthält keine Änderung am Code;
+      die Umsetzung wäre ein eigener Pull Request, abgestimmt mit dem Autor der
+      Detroit-Pipeline.
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="ist">
+    <h2>Ist-Zustand</h2>
+
+    <figure>
+      <svg viewBox="0 0 760 300" role="img"
+           aria-label="Vergleich: Chicago hat die Kette Raw, Bronze, Silver, wobei Raw und Bronze bestehen und Silver offen ist. Detroit hat eine NDJSON-Datei, die unter data slash bronze liegt, obwohl sie verbatim ist, dann direkt Silver. Der Bronze-Schritt fehlt bei Detroit.">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path>
+          </marker>
+        </defs>
+
+        <text class="h" x="30" y="26">Chicago</text>
+        <rect class="box-a" x="30" y="40" width="190" height="52" rx="2"></rect>
+        <text class="t" x="44" y="62">Raw · verbatim</text>
+        <text class="n" x="44" y="78">data/raw/city=chicago/…</text>
+        <line x1="220" y1="66" x2="256" y2="66" stroke="currentColor" marker-end="url(#ar)"></line>
+        <rect class="box-a" x="258" y="40" width="190" height="52" rx="2"></rect>
+        <text class="t" x="272" y="62">Bronze · abgeleitet</text>
+        <text class="n" x="272" y="78">data/bronze/city=chicago/…</text>
+        <line x1="448" y1="66" x2="484" y2="66" stroke="currentColor" marker-end="url(#ar)"></line>
+        <rect class="box" x="486" y="40" width="190" height="52" rx="2"></rect>
+        <text class="t" x="500" y="62">Silver</text>
+        <text class="n" x="500" y="78">offen</text>
+
+        <text class="h" x="30" y="150">Detroit</text>
+        <rect class="box-w" x="30" y="164" width="190" height="52" rx="2"></rect>
+        <text class="w" x="44" y="186">verbatim NDJSON</text>
+        <text class="n" x="44" y="202">data/bronze/detroit/…</text>
+
+        <rect class="box-w" x="258" y="164" width="190" height="52" rx="2"></rect>
+        <text class="w" x="272" y="186">Bronze fehlt</text>
+        <text class="n" x="272" y="202">kein abgeleitetes Parquet</text>
+
+        <path d="M 220 190 L 256 190" stroke="var(--signal)" stroke-dasharray="4 3"></path>
+        <path d="M 220 190 C 250 190 250 250 340 250 C 430 250 430 216 484 200"
+              fill="none" stroke="currentColor" marker-end="url(#ar)"></path>
+        <text class="n" x="300" y="266">springt direkt nach Silver</text>
+
+        <rect class="box" x="486" y="164" width="190" height="52" rx="2"></rect>
+        <text class="t" x="500" y="186">Silver</text>
+        <text class="n" x="500" y="202">transform_detroit.py</text>
+      </svg>
+      <figcaption>
+        Detroits NDJSON <em>ist</em> inhaltlich Raw — sie liegt nur unter
+        <code>data/bronze/</code> und trägt damit den Namen der Schicht, die es dort
+        gar nicht gibt. <code>transform_detroit.py</code> überspringt Bronze und
+        erzeugt direkt Silver.
+      </figcaption>
+    </figure>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th></th><th>Chicago</th><th>Detroit</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Raw-Format</td><td>Antwortkörper, gzip</td><td>NDJSON, neu serialisiert</td></tr>
+          <tr><td>Raw-Ort</td><td class="mono">data/raw/city=chicago/…</td><td class="mono bad">data/bronze/detroit/…</td></tr>
+          <tr><td>Bronze</td><td>Parquet, festes Schema</td><td class="bad">fehlt</td></tr>
+          <tr><td>Run-ID</td><td class="mono">run_20260905T…Z</td><td class="mono">UUID4</td></tr>
+          <tr><td>Einheit</td><td>Verzeichnis je Lauf</td><td>zwei Dateien nebeneinander</td></tr>
+          <tr><td>Partitionen</td><td class="mono">city= · ingest_date=</td><td>keine</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="warum">
+    <h2>Warum jetzt</h2>
+    <p class="lede">
+      Drei konkrete Folgen, nicht nur eine Frage der Ordnung.
+    </p>
+    <ul class="plain">
+      <li>
+        <strong>Silver bekäme zwei Eingabeformate.</strong> Aus Chicago typisiertes
+        Parquet mit fixiertem Schema, aus Detroit schemaloses NDJSON. Jede Leseroutine
+        oberhalb müsste beide Fälle kennen — und das ist die Schicht, an der ihr als
+        Nächstes arbeitet.
+      </li>
+      <li>
+        <strong>Das Konzeptdokument stimmt nicht mehr.</strong>
+        <code>nibrs_chicago_detroit_abgleichen.md</code> sagt „Bronze = unveränderte
+        Source Truth". Für Detroit stimmt das, für Chicagos Bronze nicht — dort ist es
+        Raw, das unverändert ist. Ohne Angleich bedeutet „Bronze" im Projekt je Stadt
+        etwas anderes.
+      </li>
+      <li>
+        <strong>Die Run-ID ist nicht sortierbar.</strong> Um den neuesten Detroit-Lauf
+        zu finden, muss man jedes Manifest öffnen und <code>started_at</code>
+        vergleichen. Bei Chicago genügt der Verzeichnisname. Für inkrementelle Läufe,
+        die Detroits README als nächsten Schritt nennt, braucht es ohnehin ein
+        Manifest-Scanning über eine stabile Struktur.
+      </li>
+    </ul>
+    <div class="note">
+      <span class="tag">Nicht dringend, aber unterschätzt</span>
+      <p>
+        Detroit veröffentlicht heute erst die NDJSON und schreibt das Manifest danach.
+        Bricht der Prozess dazwischen ab, liegt eine vollständige Datendatei ohne
+        Manifest da — sie sieht aus wie ein gültiger Lauf, hat aber weder Prüfsumme
+        noch Zählung. Ein Verzeichnis-Rename, wie Chicago es nutzt, kennt diesen
+        Zwischenzustand nicht.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="teile">
+    <h2>Die drei Teile</h2>
+
+    <h3>Teil 1 · Raw wirklich verbatim <span class="n">(~30 Zeilen, optional)</span></h3>
+    <p>Heute ist die NDJSON nicht byte-identisch mit der API-Antwort:</p>
+<pre><code>bronze_record = {"attributes": …, "geometry": …, <span class="hl">"_meta": {…}</span>}
+handle.write(json.dumps(bronze_record) + "\n")</code></pre>
+    <p>
+      Der Inhalt bleibt vollständig erhalten, aber jede Zeile wird neu serialisiert und
+      um Provenienz ergänzt. Für byte-verbatim müsste <code>iter_features()</code> den
+      Antwortkörper mitliefern — wie Chicagos <code>fetch_raw()</code> — und
+      <code>_meta</code> ins Manifest wandern statt in jeden Datensatz.
+    </p>
+
+    <h3>Teil 2 · Layout und Run-ID <span class="n">(~20 Zeilen)</span></h3>
+<pre><code><span class="cmt">vorher</span>
+data/bronze/detroit/detroit_rms_crime_2024_&lt;uuid&gt;.ndjson
+                    detroit_rms_crime_2024_&lt;uuid&gt;.manifest.json
+
+<span class="cmt">nachher</span>
+data/raw/city=detroit/ingest_date=2026-09-05/<span class="hl">run_20260905T…Z</span>/
+├── page-0001.json.gz
+└── manifest.json</code></pre>
+    <p>
+      Betrifft nur <code>extract_year()</code>. Bringt die chronologisch sortierbare
+      Run-ID, das atomare Verzeichnis-Rename und die Partitionsspalten
+      <code>city</code> und <code>ingest_date</code>.
+    </p>
+
+    <h3>Teil 3 · Bronze-Schritt <span class="n">(~120 Zeilen plus Tests)</span></h3>
+    <p>
+      Neues Modul, das aus Raw ein typisiertes Parquet ableitet — analog zu Chicagos
+      <code>bronze_table()</code>. Anders als Chicago liefert Detroit echte Zahlen, das
+      Schema sieht deshalb anders aus:
+    </p>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Felder</th><th class="mono">Parquet-Typ</th><th>Grund</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">incident_occurred_at, updated_at,<br>case_status_updated_at, updated_in_ibr_at</td>
+            <td class="mono">int64</td>
+            <td>ArcGIS liefert Epoch-Millisekunden als Zahl. Das Parsen zum Zeitstempel gehört in Silver.</td>
+          </tr>
+          <tr>
+            <td class="mono">latitude, longitude</td>
+            <td class="mono">double</td>
+            <td>echte Fliesskommazahlen, anders als bei Chicago</td>
+          </tr>
+          <tr>
+            <td class="mono">ESRI_OID, council_district,<br>incident_year, incident_hour_of_day</td>
+            <td class="mono">int64</td>
+            <td>Ganzzahlen, teilweise mit Nullwerten</td>
+          </tr>
+          <tr><td class="mono">geometry</td><td class="mono">struct&lt;x,y: double&gt;</td><td>verschachteltes Objekt</td></tr>
+          <tr><td class="mono">die übrigen 19</td><td class="mono">string</td><td>Text</td></tr>
+          <tr><td class="mono">_extra</td><td class="mono">string</td><td>JSON für alles, was nicht ins Schema passt</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Danach liest <code>transform_detroit.py</code> Parquet statt NDJSON — eine kleine
+      Anpassung, die fachliche Logik bleibt unberührt.
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="varianten">
+    <h2>Varianten und Aufwand</h2>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Variante</th><th>Aufwand</th><th>Ergebnis</th><th>Was offen bleibt</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>A</strong> · nur Teil 2</td>
+            <td class="num">~20 Zeilen</td>
+            <td>Layout und Run-ID stimmen, Raw liegt richtig</td>
+            <td>Bronze fehlt weiterhin, Silver bekommt zwei Formate</td>
+          </tr>
+          <tr>
+            <td><strong>B</strong> · Teil 2 + 3</td>
+            <td class="num">~150 Zeilen</td>
+            <td>Schichtenrollen stimmen für beide Städte, Silver bekommt einheitlich Parquet</td>
+            <td>Detroits Raw ist content-verbatim, nicht byte-verbatim</td>
+          </tr>
+          <tr>
+            <td><strong>C</strong> · Teil 1 + 2 + 3</td>
+            <td class="num">~180 Zeilen</td>
+            <td>vollständig symmetrisch zu Chicago</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Die Zeilenangaben sind Schätzungen für den Produktivcode. Tests und
+      Dokumentation kommen in ähnlichem Umfang dazu.
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="empfehlung">
+    <h2>Empfehlung</h2>
+    <div class="decision">
+      <h3>Variante B, Teil 1 später</h3>
+      <ol>
+        <li>
+          Der Unterschied zwischen byte- und content-verbatim ist für dieses Projekt
+          akademisch. In beiden Fällen geht kein Wert verloren; es geht nur darum, ob
+          auch Schlüsselreihenfolge und Whitespace der Antwort erhalten bleiben.
+        </li>
+        <li>
+          Die fehlende Bronze-Schicht ist dagegen eine echte Lücke. Sie fällt der
+          Gruppe spätestens beim Bau von Silver auf die Füsse, und dann ist sie teurer
+          zu schliessen als jetzt.
+        </li>
+        <li>
+          Teil 2 allein wäre kosmetisch: Der Ordner hiesse richtig, die eigentliche
+          Asymmetrie bliebe.
+        </li>
+      </ol>
+    </div>
+    <div class="note warn">
+      <span class="tag">Zum Vorgehen</span>
+      <p>
+        Teil 3 ist Neubau, kein Refactoring, und die Datei gehört dem Autor der
+        Detroit-Pipeline. Sinnvoll wäre ein eigener Pull Request, vorher abgestimmt —
+        er arbeitet möglicherweise gerade an denselben Dateien.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="messungen">
+    <h2>Messungen</h2>
+    <p class="lede">
+      Alles hier Genannte ist an den echten Schnittstellen nachgemessen, nicht geschätzt.
+    </p>
+
+    <h3>Detroits JSON-Typen</h3>
+    <p>200 Features aus dem Jahr 2024, Typen der <code>attributes</code>:</p>
+<pre><code>incident_occurred_at    int    <span class="cmt">1722441600000 (Epoch-ms)</span>
+case_status_updated_at  int
+updated_at              int
+updated_in_ibr_at       int    <span class="cmt">3 von 200 null</span>
+council_district        int    <span class="cmt">1 von 200 null</span>
+latitude / longitude    float
+geometry                {x: float, y: float}
+alle übrigen            str    <span class="cmt">neighborhood, zip_code teils null</span></code></pre>
+
+    <h3>Umfang</h3>
+    <div class="scroll">
+      <table>
+        <thead><tr><th></th><th>Chicago 2024</th><th>Detroit 2024</th></tr></thead>
+        <tbody>
+          <tr><td>Zeilen</td><td class="num">259 272</td><td class="num">88 695</td></tr>
+          <tr><td>Zeilen gesamt</td><td class="num">—</td><td class="num">823 951</td></tr>
+          <tr><td>Raw</td><td class="num">17,6 MB</td><td class="num">noch offen</td></tr>
+          <tr><td>Bronze</td><td class="num">16,7 MB</td><td class="num">existiert nicht</td></tr>
+          <tr><td>Felder</td><td class="num">22 + _extra</td><td class="num">28 + geometry</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Detroits Zahlen für Raw dürften ähnlich ausfallen: gzip-komprimiertes JSON war
+      bei Chicago kaum grösser als das Parquet.
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="nebenpunkte">
+    <h2>Offene Nebenpunkte</h2>
+    <p class="lede">
+      Unabhängig von der Schichten-Entscheidung, aber im selben Code.
+    </p>
+    <ul class="plain">
+      <li>
+        <strong>Paketname.</strong> README und Docstrings sagen durchgehend
+        <code>detroit_arcgis_pipeline</code>, das Verzeichnis heisst
+        <code>detroit_pipeline</code>. Jeder dokumentierte Befehl endet in einem
+        <code>ModuleNotFoundError</code>. Eine Zeile Arbeit, aber der erste Stolperstein
+        für jeden Neuen.
+      </li>
+      <li>
+        <strong>SSL auf macOS.</strong> Die Pipeline nutzt bewusst nur
+        <code>urllib</code>. Auf python.org-Installationen fehlt der
+        Zertifikatsspeicher, und jeder Aufruf endet nach fünf Wiederholungen in
+        <code>CERTIFICATE_VERIFY_FAILED</code>. Abhilfe für den Rechner:
+        <code>Install Certificates.command</code> ausführen. Sauberer im Code wäre ein
+        expliziter SSL-Kontext mit <code>certifi</code>, wie <code>requests</code> es
+        auf der Chicago-Seite mitbringt.
+      </li>
+      <li>
+        <strong><code>OFFENSE_MAPPING</code> kennt 6 von 32 Kategorien.</strong> Damit
+        sind 318 508 von 823 951 Zeilen (38,7 %)
+        <code>analysis_eligible=false</code> — darunter HOMICIDE, SEXUAL ASSAULT und
+        ARSON. Der strenge Ansatz ist richtig, die Liste nur unvollständig;
+        <code>config/crime_category_mapping.csv</code> deckt bereits alle 32 ab.
+      </li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>
+      Crime-Data-Gruppe3 · CAS Data Engineering · Ergänzt
+      <code>nibrs_chicago_detroit_abgleichen.md</code> und die Dokumentation der
+      Chicago-Ingestion. Stand nach PR #3 und PR #4.
+    </p>
+  </footer>
+
+</div>

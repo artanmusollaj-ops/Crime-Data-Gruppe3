@@ -2,7 +2,7 @@
 
 Beispiel:
 
-    python -m detroit_arcgis_pipeline.extract_detroit --year 2024 \
+    python -m detroit_pipeline.extract_detroit --year 2024 \
         --output-dir data/bronze/detroit
 
 Das Ergebnis besteht aus einer NDJSON-Datei und einem Run-Manifest. NDJSON

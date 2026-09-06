@@ -47,7 +47,7 @@ Im Elternverzeichnis des Pakets:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r detroit_arcgis_pipeline/requirements.txt
+pip install -r requirements.txt
 ```
 
 Ohne `pyarrow` funktionieren Download, CSV, NDJSON und Tests trotzdem.
@@ -55,7 +55,7 @@ Ohne `pyarrow` funktionieren Download, CSV, NDJSON und Tests trotzdem.
 ## Schritt 1: Bronze extrahieren
 
 ```bash
-python -m detroit_arcgis_pipeline.extract_detroit \
+PYTHONPATH=src/crime python -m detroit_pipeline.extract_detroit \
   --year 2024 \
   --output-dir data/bronze/detroit
 ```
@@ -63,7 +63,7 @@ python -m detroit_arcgis_pipeline.extract_detroit \
 Optional kann die API staerker geschont werden:
 
 ```bash
-python -m detroit_arcgis_pipeline.extract_detroit \
+PYTHONPATH=src/crime python -m detroit_pipeline.extract_detroit \
   --year 2024 \
   --batch-size 1000 \
   --pause-seconds 0.2 \
@@ -85,7 +85,7 @@ Bronze enthaelt weiterhin die originalen `attributes` und `geometry`. Unter
 Empfohlenes Parquet-Format:
 
 ```bash
-python -m detroit_arcgis_pipeline.transform_detroit \
+PYTHONPATH=src/crime python -m detroit_pipeline.transform_detroit \
   data/bronze/detroit/detroit_rms_crime_2024_<RUN_ID>.ndjson \
   --output data/silver/detroit_crime_2024.parquet
 ```
@@ -93,7 +93,7 @@ python -m detroit_arcgis_pipeline.transform_detroit \
 Zum Debuggen als CSV:
 
 ```bash
-python -m detroit_arcgis_pipeline.transform_detroit \
+PYTHONPATH=src/crime python -m detroit_pipeline.transform_detroit \
   data/bronze/detroit/detroit_rms_crime_2024_<RUN_ID>.ndjson \
   --output data/silver/detroit_crime_2024.csv
 ```
@@ -162,8 +162,8 @@ Kategoriezaehlung, Gesamtzahl, NDJSON und Manifest. Dadurch bleibt CI stabil.
 
 ```python
 from pathlib import Path
-from detroit_arcgis_pipeline.extract_detroit import extract_year
-from detroit_arcgis_pipeline.transform_detroit import transform
+from detroit_pipeline.extract_detroit import extract_year
+from detroit_pipeline.transform_detroit import transform
 
 bronze_path, manifest_path = extract_year(
     2024,

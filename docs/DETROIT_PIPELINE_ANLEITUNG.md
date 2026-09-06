@@ -60,7 +60,7 @@ Die relevanten Dateien und Verzeichnisse sind:
 
 ```text
 <PROJECT_ROOT>/
-├── detroit_pipeline/
+├── src/crime/detroit_pipeline/
 │   ├── __init__.py
 │   ├── detroit_arcgis.py
 │   ├── extract_detroit.py
@@ -94,7 +94,7 @@ Die Ordner `data`, die benötigten Unterordner und `logs/tests` müssen nicht ma
 - Python 3.11 oder 3.12 empfohlen;
 - Internetzugriff auf den ArcGIS-Dienst;
 - ausreichend freier Speicher für die gewählten Jahre;
-- Ausführung der Befehle aus dem Projekt-Root, also dem Ordner, der `detroit_pipeline`, `notebooks` und `tests` enthält.
+- Ausführung der Befehle aus dem Projekt-Root, also dem Ordner, der `src/`, `notebooks` und `tests` enthält.
 
 ### 5.2 Virtuelle Umgebung erstellen
 
@@ -125,7 +125,7 @@ Nach der Aktivierung sollte die Shell den Präfix `(.venv)` anzeigen.
 
 ```bash
 python -m pip install --upgrade pip
-python -m pip install -r detroit_pipeline/requirements.txt
+python -m pip install -r requirements.txt
 python -m pip install jupyter ipykernel
 ```
 
@@ -249,7 +249,7 @@ Das Präfix `05` ist nur die Reihenfolge innerhalb der Notebook-Sammlung. Das No
 
 ### Schritt 1 – Projektpfad und Imports
 
-Die erste Codezelle sucht den Projekt-Root. Das Notebook kann aus dem Projekt-Root oder aus dem Ordner `notebooks` gestartet werden. Falls `detroit_pipeline` nicht gefunden wird, bricht es mit einer verständlichen Fehlermeldung ab.
+Die erste Codezelle sucht den Projekt-Root. Das Notebook kann aus dem Projekt-Root oder aus dem Ordner `notebooks` gestartet werden. Falls `src/crime/detroit_pipeline` nicht gefunden wird, bricht es mit einer verständlichen Fehlermeldung ab.
 
 Es werden unter anderem folgende Funktionen importiert:
 
@@ -785,7 +785,7 @@ Der Client wiederholt HTTP 429, 500, 502, 503 und 504 sowie temporäre Netzwerk-
 ### Parquet-Ausgabe meldet fehlendes `pyarrow`
 
 ```bash
-python -m pip install -r detroit_pipeline/requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ### Notebook verwendet das falsche Python

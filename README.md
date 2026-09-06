@@ -1,11 +1,17 @@
 # Crime-Data-Gruppe3
 
-## Lokale Python-Umgebung
+## Einrichten
 
-Das Projekt verwendet eine klassische virtuelle Python-Umgebung mit `pip`
-und `requirements.txt`.
+**Voraussetzungen:** Python 3.11 oder neuer, Git.
 
-Einmalig einrichten:
+**Wichtig — nicht in einem Sync-Ordner arbeiten.** Das Projekt gehört nicht nach
+`~/Documents`, `OneDrive` oder `iCloud Drive`. Sync-Dienste legen mitten im
+Betrieb Konfliktkopien an (`datei 2.txt`), ändern Dateirechte und können sowohl
+die virtuelle Umgebung als auch `.git/` beschädigen. Ein Ort wie
+`~/Projekte/Crime-Data-Gruppe3` ist richtig; versioniert wird über GitHub, eine
+zweite Synchronisation braucht es nicht.
+
+### 1 · Umgebung anlegen
 
 ```bash
 python3 -m venv .venv
@@ -13,17 +19,63 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-Bei der weiteren Arbeit genügt:
+`requirements.txt` installiert das Projekt editierbar; die Abhängigkeiten stehen
+in `pyproject.toml`. Danach sind beide Pipelines importierbar, unabhängig vom
+aktuellen Verzeichnis:
 
-```bash
-source .venv/bin/activate
+```text
+src/crime/
+├── chicago_pipeline/   → import chicago_pipeline
+└── detroit_pipeline/   → import detroit_pipeline
 ```
 
-Die aktive Umgebung lässt sich mit `deactivate` wieder verlassen.
+### 2 · Zertifikate prüfen (nur macOS)
+
+Die Detroit-Pipeline nutzt `urllib` aus der Standardbibliothek. Python-Versionen
+von python.org bringen dort **keinen** Zertifikatsspeicher mit, jeder HTTPS-Aufruf
+endet dann nach fünf Wiederholungen in `CERTIFICATE_VERIFY_FAILED`. Einmalig pro
+Rechner:
+
+```bash
+open "/Applications/Python 3.13/Install Certificates.command"
+```
+
+Die Chicago-Pipeline ist nicht betroffen, sie nutzt `requests` mit eigenem
+Zertifikatsbündel — deshalb kann Chicago laufen, während Detroit scheitert.
+
+### 3 · Einrichtung prüfen
+
+```bash
+python -m pytest
+```
+
+Erwartet werden **153 bestandene Tests**, ohne Netzzugriff und ohne App Token.
+
+### 4 · App Token hinterlegen (optional)
+
+Für Chicago in `.env` im Projekt-Root:
+
+```text
+SOCRATA_APP_TOKEN=dein_token
+```
+
+Ohne Token funktioniert der öffentliche Zugriff ebenfalls, wird aber stärker
+gedrosselt. Die Datei ist über `.gitignore` ausgeschlossen.
+
+Bei der weiteren Arbeit genügt `source .venv/bin/activate`; verlassen wird die
+Umgebung mit `deactivate`.
+
+### Wenn etwas klemmt
+
+| Symptom | Ursache und Abhilfe |
+| --- | --- |
+| `ModuleNotFoundError: No module named 'chicago_pipeline'` | Die editierbare Installation greift nicht. Notlösung: `export PYTHONPATH=src/crime`. Die Tests brauchen das nicht, `pyproject.toml` setzt `pythonpath` für pytest ohnehin. |
+| `CERTIFICATE_VERIFY_FAILED` bei Detroit | Schritt 2. Alternativ nur für die Sitzung: `export SSL_CERT_FILE=$(python -c "import certifi; print(certifi.where())")`. |
+| Dateien mit „ 2" im Namen, wechselnde Rechte | Ein Sync-Dienst greift in den Ordner. Konfliktkopien entfernen (`find .venv -name "* [0-9].*" -delete`), neu installieren, und das Projekt aus dem Sync-Ordner nehmen. |
 
 ## Chicago-Ingestion
 
-Das Skript `src/crime-pipeline/ingestion/download_chicago.py` legt jeden
+Das Skript `src/crime/chicago_pipeline/download_chicago.py` legt jeden
 API-Abruf als unveränderlichen Lauf in zwei Schichten ab. Standard ist das im
 PoC festgelegte Jahr 2024.
 
@@ -40,7 +92,7 @@ derselben Aufteilung.
 Erster Aufruf: vollständigen Snapshot laden:
 
 ```bash
-python src/crime-pipeline/ingestion/download_chicago.py
+python -m chicago_pipeline.download_chicago
 ```
 
 Spätere Aufrufe erkennen das höchste erfolgreiche `updated_on`-Wasserzeichen
@@ -51,7 +103,7 @@ Für einen kleinen Test werden die Daten in ein separates Verzeichnis
 geschrieben:
 
 ```bash
-python src/crime-pipeline/ingestion/download_chicago.py \
+python -m chicago_pipeline.download_chicago \
   --data-root /tmp/chicago-ingestion-test \
   --max-records 5
 ```
@@ -60,14 +112,14 @@ Wenn `SOCRATA_APP_TOKEN` in `.env` gesetzt ist, verwendet das Skript ihn
 automatisch. Der öffentliche API-Zugriff funktioniert auch ohne Token:
 
 ```bash
-python src/crime-pipeline/ingestion/download_chicago.py --no-token --max-records 5
+python -m chicago_pipeline.download_chicago --no-token --max-records 5
 ```
 
 Ein zusätzlicher vollständiger Snapshot wird mit `--full` als neuer Lauf
 erstellt. Auch dabei wird kein früherer Lauf überschrieben:
 
 ```bash
-python src/crime-pipeline/ingestion/download_chicago.py --full
+python -m chicago_pipeline.download_chicago --full
 ```
 
 ### Aufbau der Schichten
@@ -232,7 +284,7 @@ Versionen derselben `id` erfolgt erst oberhalb der Bronze-Schicht.
 Weitere Optionen zeigt:
 
 ```bash
-python src/crime-pipeline/ingestion/download_chicago.py --help
+python -m chicago_pipeline.download_chicago --help
 ```
 
 ## Tests
@@ -252,5 +304,5 @@ Veröffentlichen beider Schichten inklusive Manifest ab.
 Weitere Optionen zeigt:
 
 ```bash
-python src/crime-pipeline/ingestion/download_chicago.py --help
+python -m chicago_pipeline.download_chicago --help
 ```

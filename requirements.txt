@@ -1,13 +1,11 @@
-# Python-Abhaengigkeiten des Chicago-Projekts
+# Python-Abhaengigkeiten des Projekts.
 #
-# Installation:
+# Der Eintrag installiert das Projekt editierbar samt aller Abhaengigkeiten
+# aus pyproject.toml, inklusive der Test-Werkzeuge:
+#
 #   python -m pip install -r requirements.txt
 #
-pandas>=2.2,<4
-pyarrow>=18,<30
-python-dotenv>=1.1,<2
-requests>=2.32,<3
-urllib3>=2,<3
-
-# Nur fuer die Tests
-pytest>=8,<10
+# Danach sind chicago_pipeline und detroit_pipeline ueberall importierbar,
+# ohne dass PYTHONPATH gesetzt werden muss.
+#
+-e .[dev]

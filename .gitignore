@@ -4,5 +4,10 @@ __pycache__/
 .env
 .ipynb_checkpoints/
 data/*/city=*/
+# Detroit legt (noch) flach ab, ohne city=-Partition
+data/*/detroit/
 # Ablage vor der Umstellung auf data/
 raw/
+# Artefakte der editierbaren Installation
+*.egg-info/
+.DS_Store

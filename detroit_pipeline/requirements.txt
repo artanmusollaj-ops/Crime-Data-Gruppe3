@@ -1,3 +1,0 @@
-# Fuer die Bronze-Extraktion werden keine externen Pakete benoetigt.
-# pyarrow ist nur fuer die empfohlene Parquet-Ausgabe im Silver-Schritt noetig.
-pyarrow>=17,<21

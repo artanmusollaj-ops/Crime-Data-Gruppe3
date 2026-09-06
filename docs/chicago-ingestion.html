@@ -358,9 +358,9 @@
   <dl class="facts">
     <div class="fact"><dt>Skript</dt><dd>download_chicago.py</dd></div>
     <div class="fact"><dt>Datensatz</dt><dd>ijzp-q8t2</dd></div>
-    <div class="fact"><dt>Ziel</dt><dd>data/bronze/</dd></div>
+    <div class="fact"><dt>Ziel</dt><dd>data/raw/ + bronze/</dd></div>
     <div class="fact"><dt>Spalten</dt><dd>22 + _extra</dd></div>
-    <div class="fact"><dt>Tests</dt><dd>127</dd></div>
+    <div class="fact"><dt>Tests</dt><dd>147</dd></div>
   </dl>
 
   <nav class="outline" aria-label="Inhalt">
@@ -385,7 +385,8 @@
     </p>
     <p>
       Das Skript lädt Straftaten eines Ereignisjahres über die Socrata-API der Stadt
-      Chicago und schreibt sie als Parquet-Datei mit einem Manifest nach
+      Chicago und schreibt sie in zwei Schichten: die Antworten unverändert nach
+      <code>data/raw/</code>, das daraus abgeleitete Parquet nach
       <code>data/bronze/</code>. Es interpretiert dabei nichts: Werte behalten den
       JSON-Typ, den die API liefert, Datumswerte bleiben Text, und Duplikate werden
       nicht aufgelöst. Ein voller Snapshot für 2024 umfasst 259 270 Zeilen und
@@ -406,8 +407,8 @@
     </p>
 
     <figure>
-      <svg viewBox="0 0 760 560" role="img"
-           aria-label="Ablaufdiagramm: Vorbereitung, Wasserzeichen lesen, Modus wählen, Zeilen zählen, Seiten laden, Vollständigkeit prüfen. Ist die Prüfung negativ, bricht der Lauf ab, ohne etwas zu veröffentlichen. Sonst werden Parquet und Manifest in ein Punkt-part-Verzeichnis geschrieben und dieses per rename atomar veröffentlicht.">
+      <svg viewBox="0 0 760 620" role="img"
+           aria-label="Ablaufdiagramm: Vorbereitung, Schema-Fingerabdruck und Zählung, Festschreiben der id-Liste, Abgleich von Zählung und Liste, Laden per Keyset-Pagination, Abgleich der geladenen ids gegen die Liste, zweite Zählung die nur dokumentiert wird, Schreiben in ein Punkt-part-Verzeichnis und atomares Veröffentlichen per rename. Die beiden Abgleiche brechen den Lauf ab, ohne etwas zu veröffentlichen.">
         <defs>
           <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5"
                   markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -420,75 +421,81 @@
         </defs>
 
         <!-- 1 -->
-        <rect class="flow-box" x="40" y="14" width="330" height="46" rx="2"></rect>
-        <text class="flow-t" x="56" y="34">Argumente, Token, .part aufräumen</text>
-        <text class="flow-n" x="56" y="50">arguments · app_token · discard_stale_partials</text>
-        <line x1="205" y1="60" x2="205" y2="82" stroke="currentColor" marker-end="url(#ar)"></line>
+        <rect class="flow-box" x="30" y="12" width="330" height="46" rx="2"></rect>
+        <text class="flow-t" x="46" y="32">Vorbereiten und Modus bestimmen</text>
+        <text class="flow-n" x="46" y="48">.part aufräumen · Wasserzeichen · full oder delta</text>
+        <line x1="195" y1="58" x2="195" y2="78" stroke="currentColor" marker-end="url(#ar)"></line>
 
         <!-- 2 -->
-        <rect class="flow-box" x="40" y="84" width="330" height="46" rx="2"></rect>
-        <text class="flow-t" x="56" y="104">Wasserzeichen aus Manifesten lesen</text>
-        <text class="flow-n" x="56" y="120">previous_watermark · delta_start</text>
-        <line x1="205" y1="130" x2="205" y2="152" stroke="currentColor" marker-end="url(#ar)"></line>
-        <text class="flow-l" x="216" y="146">keines → full_snapshot, sonst delta</text>
+        <rect class="flow-box" x="30" y="80" width="330" height="46" rx="2"></rect>
+        <text class="flow-t" x="46" y="100">Schema-Fingerabdruck und Zählung</text>
+        <text class="flow-n" x="46" y="116">api/views · $select=count(1)</text>
+        <line x1="195" y1="126" x2="195" y2="146" stroke="currentColor" marker-end="url(#ar)"></line>
 
         <!-- 3 -->
-        <rect class="flow-accent" x="40" y="154" width="330" height="46" rx="2"></rect>
-        <text class="flow-t" x="56" y="174">Erwartete Zeilenzahl abfragen</text>
-        <text class="flow-n" x="56" y="190">$select=count(1)</text>
-        <line x1="205" y1="200" x2="205" y2="222" stroke="currentColor" marker-end="url(#ar)"></line>
+        <rect class="flow-accent" x="30" y="148" width="330" height="46" rx="2"></rect>
+        <text class="flow-t" x="46" y="168">id-Liste festschreiben</text>
+        <text class="flow-n" x="46" y="184">$select=id · bis 50 000 je Anfrage</text>
+        <line x1="195" y1="194" x2="195" y2="214" stroke="currentColor" marker-end="url(#ar)"></line>
+
+        <!-- Gate A -->
+        <rect class="flow-accent" x="30" y="216" width="330" height="46" rx="2"></rect>
+        <text class="flow-t" x="46" y="236">Gate 1 · Zählung = Länge der Liste?</text>
+        <text class="flow-n" x="46" y="252">sonst hat sich die Quelle bewegt</text>
+        <line x1="360" y1="239" x2="452" y2="239" stroke="var(--signal)" marker-end="url(#ar-w)"></line>
+        <text class="flow-l" x="368" y="231" fill="var(--signal)">nein</text>
+        <rect class="flow-warn" x="454" y="216" width="276" height="46" rx="2"></rect>
+        <text class="flow-warn-t" x="470" y="236">Abbruch, Exit-Code 1</text>
+        <text class="flow-n" x="470" y="252">nichts veröffentlicht</text>
+        <line x1="195" y1="262" x2="195" y2="282" stroke="currentColor" marker-end="url(#ar)"></line>
 
         <!-- 4 -->
-        <rect class="flow-box" x="40" y="224" width="330" height="46" rx="2"></rect>
-        <text class="flow-t" x="56" y="244">Seiten laden, bis eine kurz ist</text>
-        <text class="flow-n" x="56" y="260">$limit 10 000 · $offset wächst</text>
-        <line x1="205" y1="270" x2="205" y2="292" stroke="currentColor" marker-end="url(#ar)"></line>
+        <rect class="flow-box" x="30" y="284" width="330" height="46" rx="2"></rect>
+        <text class="flow-t" x="46" y="304">Seiten laden per Keyset</text>
+        <text class="flow-n" x="46" y="320">$limit 10 000 · WHERE id &gt; zuletzt gesehen</text>
+        <line x1="195" y1="330" x2="195" y2="350" stroke="currentColor" marker-end="url(#ar)"></line>
 
-        <!-- 5 decision -->
-        <rect class="flow-accent" x="40" y="294" width="330" height="46" rx="2"></rect>
-        <text class="flow-t" x="56" y="314">Geladen ≥ erwartet?</text>
-        <text class="flow-n" x="56" y="330">Vollständigkeitsprüfung</text>
+        <!-- Gate B -->
+        <rect class="flow-accent" x="30" y="352" width="330" height="46" rx="2"></rect>
+        <text class="flow-t" x="46" y="372">Gate 2 · geladene ids = Liste?</text>
+        <text class="flow-n" x="46" y="388">Mengenvergleich, nicht nur Anzahl</text>
+        <line x1="360" y1="375" x2="452" y2="375" stroke="var(--signal)" marker-end="url(#ar-w)"></line>
+        <text class="flow-l" x="368" y="367" fill="var(--signal)">nein</text>
+        <rect class="flow-warn" x="454" y="352" width="276" height="46" rx="2"></rect>
+        <text class="flow-warn-t" x="470" y="372">Abbruch, Exit-Code 1</text>
+        <text class="flow-n" x="470" y="388">meldet fehlend und unerwartet</text>
+        <line x1="195" y1="398" x2="195" y2="418" stroke="currentColor" marker-end="url(#ar)"></line>
 
-        <!-- branch right -->
-        <line x1="370" y1="317" x2="466" y2="317" stroke="var(--signal)" marker-end="url(#ar-w)"></line>
-        <text class="flow-l" x="378" y="309" fill="var(--signal)">nein</text>
-        <rect class="flow-warn" x="468" y="294" width="252" height="46" rx="2"></rect>
-        <text class="flow-warn-t" x="484" y="314">Abbruch, Exit-Code 1</text>
-        <text class="flow-n" x="484" y="330">nichts veröffentlicht</text>
-
-        <line x1="205" y1="340" x2="205" y2="362" stroke="currentColor" marker-end="url(#ar)"></line>
-        <text class="flow-l" x="216" y="356">ja</text>
+        <!-- 5 -->
+        <rect class="flow-box" x="30" y="420" width="330" height="46" rx="2"></rect>
+        <text class="flow-t" x="46" y="440">Zweite Zählung</text>
+        <text class="flow-n" x="46" y="456">blockiert nicht, wird nur festgehalten</text>
+        <line x1="360" y1="443" x2="452" y2="443" stroke="currentColor" marker-end="url(#ar)"></line>
+        <rect class="flow-box" x="454" y="420" width="276" height="46" rx="2"></rect>
+        <text class="flow-t" x="470" y="440">source_changed_during_run</text>
+        <text class="flow-n" x="470" y="456">steht im Manifest</text>
+        <line x1="195" y1="466" x2="195" y2="486" stroke="currentColor" marker-end="url(#ar)"></line>
 
         <!-- 6 -->
-        <rect class="flow-box" x="40" y="364" width="330" height="60" rx="2"></rect>
-        <text class="flow-t" x="56" y="384">Parquet und Manifest schreiben</text>
-        <text class="flow-n" x="56" y="400">in .run_….part — noch unsichtbar</text>
-        <text class="flow-n" x="56" y="416">bronze_table · pq.write_table · file_entry</text>
-        <line x1="205" y1="424" x2="205" y2="446" stroke="currentColor" marker-end="url(#ar)"></line>
+        <rect class="flow-box" x="30" y="488" width="330" height="46" rx="2"></rect>
+        <text class="flow-t" x="46" y="508">Parquet und Manifest schreiben</text>
+        <text class="flow-n" x="46" y="524">in .run_….part — noch unsichtbar</text>
+        <line x1="195" y1="534" x2="195" y2="554" stroke="currentColor" marker-end="url(#ar)"></line>
 
         <!-- 7 -->
-        <rect class="flow-accent" x="40" y="448" width="330" height="46" rx="2"></rect>
-        <text class="flow-t" x="56" y="468">Verzeichnis umbenennen</text>
-        <text class="flow-n" x="56" y="484">work_dir.rename(final_dir) — atomar</text>
-
-        <line x1="370" y1="471" x2="466" y2="471" stroke="currentColor" marker-end="url(#ar)"></line>
-        <rect class="flow-box" x="468" y="448" width="252" height="46" rx="2"></rect>
-        <text class="flow-t" x="484" y="468">Lauf veröffentlicht</text>
-        <text class="flow-n" x="484" y="484">Exit-Code 0</text>
-
-        <!-- failure of write -->
-        <path d="M 40 394 L 24 394 L 24 530 L 468 530" fill="none"
-              stroke="var(--signal)" stroke-dasharray="4 4" marker-end="url(#ar-w)"></path>
-        <rect class="flow-warn" x="470" y="508" width="250" height="44" rx="2"></rect>
-        <text class="flow-warn-t" x="486" y="527">.part wird entfernt</text>
-        <text class="flow-n" x="486" y="543">jeder Fehler, auch Ctrl-C</text>
-        <text class="flow-l" x="34" y="524">Fehler</text>
+        <rect class="flow-accent" x="30" y="556" width="330" height="46" rx="2"></rect>
+        <text class="flow-t" x="46" y="576">Verzeichnis umbenennen</text>
+        <text class="flow-n" x="46" y="592">work_dir.rename(final_dir) — atomar</text>
+        <line x1="360" y1="579" x2="452" y2="579" stroke="currentColor" marker-end="url(#ar)"></line>
+        <rect class="flow-box" x="454" y="556" width="276" height="46" rx="2"></rect>
+        <text class="flow-t" x="470" y="576">Lauf veröffentlicht</text>
+        <text class="flow-n" x="470" y="592">Exit-Code 0</text>
       </svg>
       <figcaption>
-        Nichts ist sichtbar, bevor Schritt 7 gelaufen ist: Parquet und Manifest entstehen
-        in einem versteckten <code>.part</code>-Verzeichnis, das erst am Ende per
-        <code>rename</code> zum fertigen Lauf wird. Jeder Fehler davor räumt dieses
-        Verzeichnis weg, statt einen halben Lauf zu hinterlassen.
+        Zwei Gates entscheiden über Abbruch oder Veröffentlichung, ein drittes Ergebnis
+        wird nur dokumentiert. Nichts ist sichtbar, bevor das
+        <code>.part</code>-Verzeichnis umbenannt wurde; jeder Fehler davor räumt es weg,
+        statt einen halben Lauf zu hinterlassen.
       </figcaption>
     </figure>
 
@@ -527,23 +534,42 @@
         <p class="fn">delta_start()</p>
       </li>
       <li>
+        <h3>Schema-Fingerabdruck lesen</h3>
+        <p>Aus den Feldnamen und Feldtypen der Quelle wird ein SHA-256 gebildet.
+          Fällt der Endpunkt aus, läuft der Lauf ohne Fingerabdruck weiter — das ist
+          Beobachtung, kein Gate.</p>
+        <p class="fn">source_schema()</p>
+      </li>
+      <li>
         <h3>Erwartete Zeilenzahl abfragen</h3>
         <p>Eine <code>count(1)</code>-Abfrage mit derselben <code>WHERE</code>-Bedingung,
-          bevor die erste Seite geladen wird.</p>
+          bevor irgendetwas geladen wird.</p>
         <p class="fn">expected_rows()</p>
       </li>
       <li>
-        <h3>Seiten laden</h3>
-        <p>10 000 Datensätze pro Anfrage, <code>$offset</code> wächst mit. Eine Seite,
-          die kürzer als das Limit ist, beendet die Schleife. Ein voller Jahrgang
-          braucht rund 26 Anfragen.</p>
-        <p class="fn">download()</p>
+        <h3>id-Liste festschreiben</h3>
+        <p>Alle <code>id</code>-Werte des Laufs werden abgefragt und festgehalten. Erst
+          damit lässt sich später beweisen, dass genau diese Datensätze angekommen
+          sind. Eine reine <code>id</code>-Abfrage liefert bis zu 50 000 Werte, ein
+          ganzer Jahrgang kostet also nur sechs Anfragen. Weicht die Länge von der
+          Zählung ab oder enthält die Liste Dubletten, bricht der Lauf ab.</p>
+        <p class="fn">snapshot_ids()</p>
       </li>
       <li>
-        <h3>Vollständigkeit prüfen</h3>
-        <p>Sind weniger Zeilen angekommen als gezählt, bricht der Lauf ab und
-          veröffentlicht nichts.</p>
-        <p class="fn">download()</p>
+        <h3>Seiten laden per Keyset</h3>
+        <p>10 000 Datensätze pro Anfrage, jede Folgeseite mit
+          <code>AND id &gt; zuletzt gesehen</code> statt <code>$offset</code>. Damit
+          können gleichzeitige Änderungen an der Quelle keine Seitengrenzen
+          verschieben.</p>
+        <p class="fn">fetch_records()</p>
+      </li>
+      <li>
+        <h3>Gegen die id-Liste abgleichen</h3>
+        <p>Die Menge der geladenen <code>id</code>-Werte muss exakt der
+          festgeschriebenen Liste entsprechen — nicht nur die Anzahl. Die Fehlermeldung
+          nennt, wie viele fehlen und wie viele unerwartet sind. Danach läuft eine
+          zweite Zählung, die nur dokumentiert, ob sich die Quelle bewegt hat.</p>
+        <p class="fn">verify_snapshot()</p>
       </li>
       <li>
         <h3>Schreiben und veröffentlichen</h3>
@@ -768,12 +794,21 @@
       Partitioniert nach Abrufdatum, nicht nach Tatdatum.
     </p>
 
-<pre><code>data/bronze/
-└── city=chicago/
-    └── ingest_date=2026-09-05/
-        └── <span class="hl">run_20260905T064114377948Z</span>/
-            ├── part-0001.parquet
-            └── manifest.json</code></pre>
+<pre><code>data/
+├── raw/city=chicago/ingest_date=2026-09-05/<span class="hl">run_20260905T174014844258Z</span>/
+│   ├── page-0001.json.gz     <span class="cmt">← die Antwort, Byte für Byte</span>
+│   └── manifest.json
+└── bronze/city=chicago/ingest_date=2026-09-05/<span class="hl">run_20260905T174014844258Z</span>/
+    ├── part-0001.parquet     <span class="cmt">← daraus abgeleitet</span>
+    └── manifest.json</code></pre>
+
+<p>
+  Beide Schichten teilen dieselbe <code>run_id</code> und haben je ein eigenes,
+  vollständiges Manifest. Raw wird zuerst veröffentlicht: Es ist das Beweisstück und
+  lässt sich nicht rekonstruieren, weil ein Delta-Lauf Datensätze so festhält, wie sie
+  in diesem Moment waren. Bronze ist abgeleitet und jederzeit neu erzeugbar; sein
+  Manifest verweist über <code>derived_from</code> auf den Raw-Lauf.
+</p>
 
     <p>
       Die <code>run_id</code> enthält den Startzeitpunkt bis auf Mikrosekunden, zwei
@@ -793,7 +828,10 @@
           <tr><td class="mono">row_count</td><td>Geschriebene Zeilen.</td></tr>
           <tr><td class="mono">max_records</td><td>Gesetzt bei Testläufen. Solche Läufe liefern nie ein Wasserzeichen.</td></tr>
           <tr><td class="mono">used_app_token</td><td>Ob ein Token verwendet wurde — der Token selbst steht nirgends.</td></tr>
-          <tr><td class="mono">completeness</td><td>Erwartete Zeilenzahl und ob sie geprüft werden konnte.</td></tr>
+          <tr><td class="mono">completeness</td><td>Der Nachweis: Zählung davor und danach, <code>source_changed_during_run</code>, Grösse und SHA-256 der festgeschriebenen id-Liste, geladene Zeilen.</td></tr>
+          <tr><td class="mono">source_schema</td><td>Fingerabdruck der Quelle plus die Feldliste mit Typen, für den Vergleich zwischen Läufen.</td></tr>
+          <tr><td class="mono">layer · format</td><td>Welche Schicht dieses Manifest beschreibt und in welchem Format ihre Dateien liegen.</td></tr>
+          <tr><td class="mono">derived_from</td><td>Nur in Bronze: der Raw-Lauf, aus dem die Parquet-Datei entstanden ist.</td></tr>
           <tr><td class="mono">watermark</td><td>Feld, vorheriger Höchstwert, Lookback, Abfragebeginn, neuer Höchstwert.</td></tr>
           <tr><td class="mono">query</td><td>Erste Seiten-URL ohne Token, dazu <code>whole_records</code> und <code>dropped_field_prefix</code>.</td></tr>
           <tr><td class="mono">schema</td><td>Alle 23 Spalten mit ihrem Parquet-Typ.</td></tr>
@@ -854,18 +892,49 @@ table = daten.to_table(filter=ds.field("ingest_date") == "2026-09-05")</code></p
     <h3>Wiederholungen</h3>
     <p>
       Die Session wiederholt 429, 500, 502, 503 und 504 bis zu fünfmal mit
-      exponentiellem Backoff und beachtet <code>Retry-After</code>. Bei rund 26
+      exponentiellem Backoff und beachtet <code>Retry-After</code>. Bei rund 30
       Anfragen pro vollem Lauf würde sonst ein einzelner Ausrutscher — etwa eine
       Drosselung ohne Token — den gesamten Lauf verwerfen.
     </p>
 
-    <h3>Vollständigkeitsprüfung</h3>
+    <h3>Keyset-Pagination statt Offset</h3>
     <p>
-      Vor dem Paginieren wird die erwartete Zeilenzahl abgefragt. Kommen weniger an,
-      bricht der Lauf ab. Ist die Zählung selbst nicht erreichbar, läuft die Ingestion
-      weiter und das Manifest hält <code>"verified": false</code> fest — ein
-      Nebenaspekt darf die Ingestion nicht blockieren, aber er wird protokolliert.
-      Läufe mit <code>--max-records</code> kürzen absichtlich und werden nicht geprüft.
+      Jede Folgeseite fragt ab der zuletzt gesehenen <code>id</code>. Bei
+      <code>$offset</code> verschieben gleichzeitige Änderungen an der Quelle die
+      Seitengrenzen, wodurch Zeilen übersprungen oder doppelt geliefert werden können;
+      mit dem Schlüssel als Anker kann das nicht passieren. Socrata sortiert
+      <code>id</code> numerisch, und der Vergleich <code>id &gt; 13324861</code> nutzt
+      dieselbe Ordnung.
+    </p>
+
+    <h3>Festgeschriebener Snapshot</h3>
+    <p>
+      Vor dem Download wird die Menge der <code>id</code>-Werte fixiert, danach exakt
+      gegen die geladenen Werte abgeglichen. Das ist stärker als ein Zeilenvergleich:
+      Würden gleich viele, aber teilweise andere Datensätze ankommen, fiele das bei
+      einem reinen Zählvergleich nicht auf. Das Manifest hält die Grösse der Liste und
+      ihren SHA-256 fest, sodass sich ein Lauf später gegen seinen eigenen Vertrag
+      prüfen lässt.
+    </p>
+
+    <h3>Zählungen als Klammer</h3>
+    <p>
+      <code>count(1)</code> läuft vor dem Lauf gegen die id-Liste und noch einmal
+      danach. Die zweite Zählung blockiert nicht, sondern hält als
+      <code>source_changed_during_run</code> fest, ob sich die Quelle bewegt hat.
+      Ist die Zählung nicht verfügbar, bleibt der id-Abgleich als Nachweis bestehen und
+      das Manifest vermerkt <code>source_count_before: null</code>. Läufe mit
+      <code>--max-records</code> kürzen absichtlich und durchlaufen keine dieser
+      Prüfungen; ihr Manifest trägt <code>"verified": false</code>.
+    </p>
+
+    <h3>Schema-Fingerabdruck</h3>
+    <p>
+      Ein SHA-256 über Feldnamen und Feldtypen der Quelle. Die Spalte
+      <code>_extra</code> fängt neue Felder auf, eine Typänderung an einem bestehenden
+      Feld würde sie nicht bemerken — der Fingerabdruck schon. Weil das Manifest auch
+      die Feldliste selbst speichert, zeigt ein Vergleich zweier Läufe direkt, was sich
+      geändert hat.
     </p>
 
     <h3>Atomare Veröffentlichung</h3>
@@ -873,7 +942,14 @@ table = daten.to_table(filter=ds.field("ingest_date") == "2026-09-05")</code></p
       Alles entsteht in <code>.run_….part</code>. Erst <code>rename</code> macht den
       Lauf sichtbar, und <code>rename</code> ist auf einem Dateisystem atomar. Ein
       Leser sieht einen Lauf also entweder vollständig oder gar nicht. Schlägt
-      irgendetwas fehl — auch Ctrl-C — wird das Verzeichnis entfernt.
+      irgendetwas fehl — auch Ctrl-C — werden beide Verzeichnisse entfernt.
+    </p>
+    <p>
+      Die Reihenfolge ist Absicht: Raw zuerst, Bronze danach. Das Wasserzeichen wird
+      ausschliesslich aus Bronze-Manifesten gelesen. Scheitert ein Lauf zwischen den
+      Schichten, bleibt das Beweisstück in Raw erhalten, das Wasserzeichen rückt aber
+      nicht vor — der nächste Lauf wiederholt dasselbe Fenster, statt eine Lücke zu
+      hinterlassen.
     </p>
 
     <h3>Aufräumen</h3>
@@ -930,13 +1006,13 @@ table = daten.to_table(filter=ds.field("ingest_date") == "2026-09-05")</code></p
     <h2>Bedienung und Konstanten</h2>
 
 <pre><code><span class="cmt"># erster Lauf: voller Snapshot 2024</span>
-python src/crime-pipeline/ingestion/download_chicago.py
+python -m chicago_pipeline.download_chicago
 
 <span class="cmt"># jeder weitere Lauf wird automatisch zum Delta</span>
-python src/crime-pipeline/ingestion/download_chicago.py
+python -m chicago_pipeline.download_chicago
 
 <span class="cmt"># kleiner Test in ein separates Verzeichnis</span>
-python src/crime-pipeline/ingestion/download_chicago.py \
+python -m chicago_pipeline.download_chicago \
   --data-root /tmp/chicago-test --max-records 5</code></pre>
 
     <div class="scroll">
@@ -976,14 +1052,15 @@ python src/crime-pipeline/ingestion/download_chicago.py \
 
     <h3>Tests</h3>
     <p>
-      127 Tests unter <code>tests/ingestion/</code>, ohne Netzzugriff und ohne Token:
+      147 Tests unter <code>tests/ingestion/</code>, ohne Netzzugriff und ohne Token:
     </p>
 <pre><code>python -m pytest</code></pre>
     <p>
       Abgedeckt sind Argumentprüfung, Token-Ermittlung, Wasserzeichen und Lookback,
-      Paginierung, Wiederholungen, Vollständigkeitsprüfung, das Verwerfen der
-      Socrata-Spalten, die Spalte <code>_extra</code> in allen drei Fällen sowie das
-      atomare Veröffentlichen samt Aufräumen nach Fehlern.
+      Keyset-Pagination, Wiederholungen, die Reihenfolge der Prüfungen, fehlende und
+      unerwartete Datensätze im id-Abgleich, der Schema-Fingerabdruck, das Verwerfen
+      der Socrata-Spalten, die Spalte <code>_extra</code> in allen drei Fällen sowie
+      das atomare Veröffentlichen samt Aufräumen nach Fehlern.
     </p>
   </section>
 
