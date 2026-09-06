@@ -1053,6 +1053,18 @@ def read_manifest(directory) -> dict:
     return json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
 
 
+def read_part(path) -> pa.Table:
+    """Liest genau die eine Parquet-Datei, ohne den Dataset-Layer.
+
+    ``pq.read_table`` liest ueber die Dataset-Schicht: sie liest die
+    Hive-Verzeichnisse ueber der Datei mit und haengt ``city`` und
+    ``ingest_date`` als zusaetzliche Dictionary-Spalten an das Schema an - je
+    nach PyArrow-Version. Geprueft wird hier aber, was in der Datei steht,
+    also wird sie direkt gelesen.
+    """
+    return pq.ParquetFile(path).read()
+
+
 def test_write_run_publishes_both_layers(tmp_path):
     run = write_default_run(tmp_path)
     assert run.raw == dc.run_parent(tmp_path, dc.RAW_LAYER, INGEST_DATE) / RUN_ID
@@ -1072,7 +1084,7 @@ def test_write_run_publishes_both_layers(tmp_path):
 
 def test_write_run_parquet_keeps_the_original_types(tmp_path):
     run = write_default_run(tmp_path)
-    table = pq.read_table(run.bronze / dc.PARQUET_FILE)
+    table = read_part(run.bronze / dc.PARQUET_FILE)
     assert table.schema == dc.SCHEMA
 
     rows = table.to_pylist()
@@ -1226,7 +1238,7 @@ def test_write_run_without_records_and_without_watermark(tmp_path):
     manifest = read_manifest(run)
     assert manifest["row_count"] == 0
     assert manifest["watermark"]["maximum_seen"] is None
-    assert pq.read_table(run.bronze / dc.PARQUET_FILE).schema == dc.SCHEMA
+    assert read_part(run.bronze / dc.PARQUET_FILE).schema == dc.SCHEMA
 
 
 def test_write_run_marks_a_limited_run_as_a_test_run(tmp_path):
@@ -1426,7 +1438,7 @@ def test_runs_from_different_days_read_as_one_dataset(tmp_path):
     parts = sorted(tmp_path.glob(f"{dc.BRONZE_LAYER}/**/{dc.PARQUET_FILE}"))
     assert len(parts) == 2
     for part in parts:
-        assert pq.read_table(part).schema == dc.SCHEMA
+        assert read_part(part).schema == dc.SCHEMA
 
     dataset = pq.read_table(parts, schema=dc.SCHEMA)
     assert dataset.num_rows == 3

@@ -29,6 +29,41 @@ src/crime/
 └── detroit_pipeline/   → import detroit_pipeline
 ```
 
+**Wichtig — Anaconda oder Miniconda installiert?** Dann ist `python` in einer
+frischen Shell der Conda-Interpreter: Die von `conda init` erzeugte Zeile in
+`~/.zshrc` aktiviert bei jedem Start automatisch die Umgebung `base`. Ein
+`python3 -m venv .venv` legt die Umgebung damit auf Conda an — mit einer anderen
+Python-Version und anderen Paketversionen als in `pyproject.toml` vorgesehen.
+Den Interpreter beim Anlegen deshalb ausschreiben:
+
+```bash
+which -a python3    # zeigt alle Interpreter im PATH
+/Library/Frameworks/Python.framework/Versions/3.13/bin/python3.13 -m venv .venv
+```
+
+Nach dem Aktivieren zählt nur, worauf `python` tatsächlich zeigt — nicht, was im
+Prompt steht:
+
+```bash
+source .venv/bin/activate
+which python     # .../<projekt>/.venv/bin/python
+python -V        # Python 3.13.0
+```
+
+**`conda deactivate` ist nicht die Lösung.** `source .venv/bin/activate` stellt
+`.venv/bin` an den Anfang des `PATH` und gewinnt damit gegen Conda; eine intakte
+Umgebung braucht kein `deactivate`. Zeigt `which python` trotz `(.venv)` im
+Prompt auf Conda, geht der Eintrag im `PATH` ins Leere — dann hilft nur, die
+Umgebung neu anzulegen. Conda aus dem `PATH` zu nehmen holt lediglich den
+nächsten falschen Interpreter nach vorn.
+
+**Die Umgebung lässt sich nicht verschieben.** `.venv/bin/activate` und jedes
+Konsolenskript darin enthalten den absoluten Pfad, unter dem die Umgebung
+angelegt wurde. Wird das Projekt verschoben oder kopiert, zeigt dieser Pfad ins
+Nichts: Der Prompt meldet weiterhin `(.venv)`, `python` fällt aber auf den
+nächsten `PATH`-Eintrag durch — auf Conda. Da `.venv` in `.gitignore` steht und
+ohnehin nie mitwandert, nach einem Umzug löschen und mit Schritt 1 neu anlegen.
+
 ### 2 · Zertifikate prüfen (nur macOS)
 
 Die Detroit-Pipeline nutzt `urllib` aus der Standardbibliothek. Python-Versionen
@@ -69,9 +104,11 @@ Umgebung mit `deactivate`.
 
 | Symptom | Ursache und Abhilfe |
 | --- | --- |
-| `ModuleNotFoundError: No module named 'chicago_pipeline'` | Die editierbare Installation greift nicht. Notlösung: `export PYTHONPATH=src/crime`. Die Tests brauchen das nicht, `pyproject.toml` setzt `pythonpath` für pytest ohnehin. |
+| `ModuleNotFoundError: No module named 'chicago_pipeline'` | Die editierbare Installation greift nicht. Zuerst `which python` prüfen: Läuft ein anderer Interpreter als der der Umgebung, oder wurde `.venv` neu angelegt ohne `python -m pip install -r requirements.txt`, fehlt die Installation schlicht. Notlösung: `export PYTHONPATH=src/crime`. Die Tests brauchen das nicht, `pyproject.toml` setzt `pythonpath` für pytest ohnehin. |
+| Prompt zeigt `(.venv)`, `which python` zeigt auf Conda | Die Umgebung wurde verschoben oder mit dem Conda-Python angelegt; ihr `PATH`-Eintrag geht ins Leere. `.venv` löschen und mit Schritt 1 neu anlegen. `conda deactivate` behebt es nicht. |
+| Unerwartete Paketversionen, etwa ein älteres `pyarrow` | Es läuft der Conda-Interpreter statt der Umgebung. Prüfen mit `which python` und `python -c "import pyarrow; print(pyarrow.__version__)"`. |
 | `CERTIFICATE_VERIFY_FAILED` bei Detroit | Schritt 2. Alternativ nur für die Sitzung: `export SSL_CERT_FILE=$(python -c "import certifi; print(certifi.where())")`. |
-| Dateien mit „ 2" im Namen, wechselnde Rechte | Ein Sync-Dienst greift in den Ordner. Konfliktkopien entfernen (`find .venv -name "* [0-9].*" -delete`), neu installieren, und das Projekt aus dem Sync-Ordner nehmen. |
+| Dateien mit „ 2" im Namen, wechselnde Rechte | Ein Sync-Dienst greift in den Ordner. Konfliktkopien entfernen — auch die ohne Endung, etwa `METADATA 2` (`find .venv \( -name "* [0-9]" -o -name "* [0-9].*" \) -delete`) —, neu installieren, und das Projekt aus dem Sync-Ordner nehmen. |
 
 ## Chicago-Ingestion
 
@@ -275,6 +312,16 @@ import pyarrow.parquet as pq
 
 parts = sorted(Path("data/bronze").glob("**/part-0001.parquet"))
 table = pq.read_table(parts)
+```
+
+`pq.read_table` liest über die Dataset-Schicht: Sie wertet die
+Hive-Verzeichnisse über den Dateien aus und hängt `city` und `ingest_date` als
+zusätzliche Spalten an — je nach PyArrow-Version auch dann, wenn nur eine
+einzelne Datei übergeben wird. Für einen Blick auf genau das Schema einer Datei
+wird sie deshalb direkt gelesen:
+
+```python
+schema = pq.ParquetFile(parts[0]).schema_arrow   # exakt die 23 Spalten der Datei
 ```
 
 Löschungen werden später durch einen separaten Schlüsselabgleich erkannt und
