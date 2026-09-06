@@ -2,11 +2,11 @@
 
 Beispiele:
 
-    python -m detroit_arcgis_pipeline.transform_detroit \
+    python -m detroit_pipeline.transform_detroit \
         data/bronze/detroit/detroit_rms_crime_2024_RUN_ID.ndjson \
         --output data/silver/detroit_crime_2024.parquet
 
-    python -m detroit_arcgis_pipeline.transform_detroit INPUT.ndjson \
+    python -m detroit_pipeline.transform_detroit INPUT.ndjson \
         --output OUTPUT.csv
 """
 

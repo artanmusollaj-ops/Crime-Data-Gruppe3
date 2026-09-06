@@ -2,7 +2,7 @@
 
 Beispiel:
 
-    python -m detroit_arcgis_pipeline.extract_detroit --year 2024 \
+    python -m detroit_pipeline.extract_detroit --year 2024 \
         --output-dir data/bronze/detroit
 
 Das Ergebnis besteht aus einer NDJSON-Datei und einem Run-Manifest. NDJSON
@@ -13,7 +13,7 @@ komplette Jahresbestand nicht im Arbeitsspeicher gehalten werden muss.
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from hashlib import sha256
 import json
 import logging
@@ -23,6 +23,7 @@ from uuid import uuid4
 from .detroit_arcgis import (
     ArcGISClient,
     DataQualityError,
+    build_updated_where,
     build_year_where,
 )
 
@@ -47,15 +48,21 @@ def write_json_atomic(path: Path, payload: dict) -> None:
     temporary_path.replace(path)
 
 
-def extract_year(
-    year: int,
+def _extract_where(
+    where: str,
     output_dir: Path,
     *,
+    file_stem: str,
+    extraction_mode: str,
+    date_field: str,
+    window_start: date,
+    window_end_exclusive: date,
+    year: int | None = None,
     batch_size: int | None = None,
     pause_seconds: float = 0.05,
     client: ArcGISClient | None = None,
 ) -> tuple[Path, Path]:
-    """Fuehrt einen vollstaendigen, count-verifizierten Jahresdownload aus.
+    """Fuehrt einen count-verifizierten Snapshot fuer eine WHERE-Klausel aus.
 
     Schritte:
 
@@ -72,10 +79,36 @@ def extract_year(
     client = client or ArcGISClient()
     run_id = str(uuid4())
     started_at = datetime.now(timezone.utc)
-    where = build_year_where(year)
+
+    # FULL und INCREMENTAL besitzen bewusst unterschiedliche fachliche
+    # Zeitachsen. Diese Invarianten verhindern, dass ein spaeterer Umbau einen
+    # Jahresbestand versehentlich nach Update-Zeit oder einen Daily Load nach
+    # Tatzeit selektiert.
+    extraction_contracts = {
+        "FULL": {
+            "date_field": "incident_occurred_at",
+            "selection_basis": "INCIDENT_OCCURRENCE_TIME",
+        },
+        "INCREMENTAL": {
+            "date_field": "updated_at",
+            "selection_basis": "SOURCE_LAST_UPDATED_TIME",
+        },
+    }
+    contract = extraction_contracts.get(extraction_mode)
+    if contract is None:
+        raise ValueError(f"Nicht unterstuetzter Extraction Mode: {extraction_mode}")
+    if date_field != contract["date_field"]:
+        raise DataQualityError(
+            f"{extraction_mode} muss {contract['date_field']} verwenden, "
+            f"nicht {date_field}"
+        )
 
     # SCHRITT 1: Metadaten liefern Object-ID-Feld, Seitengroesse und Schema-Hash.
     layer_info = client.get_layer_info()
+    if date_field not in layer_info.fields:
+        raise DataQualityError(
+            f"Erforderliches Datumsfeld fehlt im ArcGIS-Schema: {date_field}"
+        )
     effective_batch_size = min(
         batch_size or layer_info.max_record_count,
         layer_info.max_record_count,
@@ -94,7 +127,7 @@ def extract_year(
         )
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    final_path = output_dir / f"detroit_rms_crime_{year}_{run_id}.ndjson"
+    final_path = output_dir / f"{file_stem}_{run_id}.ndjson"
     temporary_path = final_path.with_suffix(".ndjson.tmp")
 
     # SCHRITT 3: Jede rohe ArcGIS-Zeile wird inklusive technischer Provenance
@@ -153,6 +186,14 @@ def extract_year(
         "source_system": "detroit_rms_crime",
         "dataset_id": "RMS_Crime_Incidents",
         "layer_url": client.layer_url,
+        "extraction_mode": extraction_mode,
+        "date_field": date_field,
+        "selection_basis": contract["selection_basis"],
+        "record_granularity": "INCIDENT_OFFENSE",
+        "window_is_half_open": True,
+        "captures_source_deletions": False,
+        "window_start": window_start.isoformat(),
+        "window_end_exclusive": window_end_exclusive.isoformat(),
         "year": year,
         "where": where,
         "object_id_field": object_id_field,
@@ -173,6 +214,67 @@ def extract_year(
     manifest_path = final_path.with_suffix(".manifest.json")
     write_json_atomic(manifest_path, manifest)
     return final_path, manifest_path
+
+
+def extract_year(
+    year: int,
+    output_dir: Path,
+    *,
+    batch_size: int | None = None,
+    pause_seconds: float = 0.05,
+    client: ArcGISClient | None = None,
+) -> tuple[Path, Path]:
+    """Laedt einen vollstaendigen Kalenderjahresbestand nach Tatzeitpunkt."""
+
+    window_start = date(year, 1, 1)
+    window_end_exclusive = date(year + 1, 1, 1)
+    return _extract_where(
+        build_year_where(year),
+        output_dir,
+        file_stem=f"detroit_rms_crime_{year}",
+        extraction_mode="FULL",
+        date_field="incident_occurred_at",
+        window_start=window_start,
+        window_end_exclusive=window_end_exclusive,
+        year=year,
+        batch_size=batch_size,
+        pause_seconds=pause_seconds,
+        client=client,
+    )
+
+
+def extract_updated_window(
+    start_date: date,
+    end_date_exclusive: date,
+    output_dir: Path,
+    *,
+    batch_size: int | None = None,
+    pause_seconds: float = 0.05,
+    client: ArcGISClient | None = None,
+) -> tuple[Path, Path]:
+    """Laedt neue und geaenderte Records eines halb-offenen Daily-Fensters.
+
+    Der Filter verwendet ``updated_at``. Dadurch werden auch Korrekturen an
+    aelteren Delikten erfasst. Das bewusste 14-Tage-Overlap muss Silver
+    idempotent per ``offense_key`` und neuestem Update-Zeitpunkt konsolidieren.
+    """
+
+    where = build_updated_where(start_date, end_date_exclusive)
+    return _extract_where(
+        where,
+        output_dir,
+        file_stem=(
+            "detroit_rms_crime_incremental_"
+            f"{start_date.isoformat()}_{end_date_exclusive.isoformat()}"
+        ),
+        extraction_mode="INCREMENTAL",
+        date_field="updated_at",
+        window_start=start_date,
+        window_end_exclusive=end_date_exclusive,
+        batch_size=batch_size,
+        pause_seconds=pause_seconds,
+        client=client,
+    )
 
 
 def format_load_summary(category_counts: dict[str, int], total: int) -> str:
