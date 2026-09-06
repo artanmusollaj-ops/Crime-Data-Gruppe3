@@ -419,3 +419,246 @@ erledigt werden.
 Die technischen Entscheide zu Bronze, Silver und Zusammenarbeit stehen in
 [`projektabsprache.md`](projektabsprache.md) und können in derselben Sitzung
 mitgenommen werden.
+
+---
+
+## 10 · Abgabe und Kolloquium
+
+**Ablauf.** Am Vortag bis 14:00 Uhr Upload von kommentiertem Code, **Daten** und
+Präsentation auf Moodle. Am Kolloquiumstag rund 30 Minuten Präsentation je
+Gruppe — **zu gleichen Teilen unter den Mitgliedern aufgeteilt** —, danach
+15 Minuten Diskussion mit Fragen von Kursteilnehmenden und Prüfenden.
+
+### 10.1 Abgabe über das Repository statt über Moodle
+
+Statt eines Uploads geben wir das GitHub-Repository an. Daraus folgen ein
+Blocker, eine Einsicht und eine Empfehlung.
+
+#### Blocker: Das Repository ist nicht öffentlich erreichbar
+
+`https://github.com/artanmusollaj-ops/Crime-Data-Gruppe3` antwortet mit
+**HTTP 404**. GitHub antwortet auf private Repositories genau so — es ist also
+vermutlich privat, nicht gelöscht. Solange das gilt, nützt der Link den
+Prüfenden nichts.
+
+Zwei Wege: **öffentlich schalten** oder die Prüfenden **als Mitarbeitende
+einladen**. Vor dem Öffentlichmachen habe ich die Historie geprüft: Es wurde nie
+ein Schlüssel committet, nur eine `.env.example`, und die Suche nach
+`SOCRATA_APP_TOKEN` oder `CENSUS_API_KEY` im gesamten Verlauf bleibt leer. Aus
+dieser Sicht spricht nichts gegen ein öffentliches Repository.
+
+`Entscheid Sichtbarkeit: __________________________________`
+
+#### Einsicht: Nur zwei der vier Quellen müssen überhaupt abgelegt werden
+
+Entscheidend ist, welche Quelle sich **byte-identisch reproduzieren** lässt:
+
+| Quelle | Verhalten | Konsequenz |
+| --- | --- | --- |
+| **TIGER** | Vintage eingefroren | reproduziert identisch → **nicht ablegen**, nachladen |
+| **ACS** | Vintage eingefroren | reproduziert identisch → **nicht ablegen**, nachladen |
+| **Chicago** | lebende Quelle, `updated_on` wandert | driftet → **Referenzstand nötig** |
+| **Detroit** | lebende Quelle | driftet → **Referenzstand nötig** |
+
+Damit schrumpft das, was wirklich festgehalten werden muss, auf die beiden
+Falldatenquellen. Und hier hilft die Bronze-Angleichung ein zweites Mal:
+
+```text
+Detroit NDJSON   125,3 MB
+Detroit Parquet    8,0 MB     16x kleiner, Konvertierung dauert 1,3 Sekunden
+```
+
+Chicago Bronze (16,7 MB) plus Detroit als Parquet (8,0 MB) ergeben einen
+Referenzstand von rund **25 MB** — handlich genug, dass die Frage nach externem
+Speicher gar nicht erst entsteht.
+
+#### Die Daten gehören **nicht** in die Git-Historie
+
+Wichtige Unterscheidung: Ein **Release-Asset** hängt am Repository, liegt aber
+ausserhalb der Versionsgeschichte. Das ist etwas anderes als `git add`.
+
+| | Committen | Release-Asset |
+| --- | --- | --- |
+| liegt in `.git` | ja, **dauerhaft** | nein |
+| jeder Clone lädt es mit | ja | nein |
+| nach dem Löschen weg | nein, bleibt in der Historie | ja |
+| Limit | 100 MB je Datei, Warnung ab 50 MB | 2 GB je Datei |
+
+Der Grund gegen das Committen liegt in unserer eigenen Architektur: Die Pipeline
+erzeugt absichtlich **immer neue unveränderliche Läufe**. Jeder weitere Lauf
+liesse das Repository dauerhaft um weitere rund 25 MB wachsen, denn Parquet ist
+binär und lässt sich nicht als Änderung speichern. `.git` liegt heute schon bei
+69 MB.
+
+**Ausnahme: die Manifeste.** Alle 15 zusammen wiegen 64 KB, sind Text, lassen
+sich sinnvoll vergleichen und sind die Beweiskette. Sie gehören ins Repository.
+Dabei ist eine Git-Eigenheit zu beachten — geprüft, nicht vermutet: Mit dem
+heutigen Muster `data/*/city=*/` greift eine Ausnahme wie `!**/manifest.json`
+**nicht**, weil Git eine Datei nicht wieder einschliessen kann, wenn ein
+übergeordnetes Verzeichnis ausgeschlossen ist. Es braucht die Dateivariante:
+
+```gitignore
+data/*/city=*/**
+!data/*/city=*/**/
+!**/manifest.json
+```
+
+#### Empfehlung: GitHub Release als Ablage, kein Drittanbieter
+
+Ein **Release** im eigenen Repository nimmt Dateien bis 2 GB auf, ist versioniert
+und liegt ausserhalb der Git-Historie — kein fremdes Speicherkonto, kein Link,
+der veralten kann.
+
+Die Alternativen, der Vollständigkeit halber:
+
+| Variante | Beurteilung |
+| --- | --- |
+| **Git LFS** | technisch möglich, aber Einrichtung, Kontingent und die Prüfenden bräuchten LFS lokal — unnötige Hürde |
+| **SwitchDrive der Hochschule** | institutionell sauber, aber Zugriffsrechte und Linkpflege liegen bei uns |
+| **Nur Skript, kein Referenzstand** | am einfachsten — aber die Zahlen der Präsentation sind später nicht mehr nachvollziehbar, weil die Falldaten driften |
+
+#### Die beiden Entscheide hängen zusammen
+
+Ein herunterladbares ZIP ist genau das, was ein Release-Asset ist. Der Haken:
+**Release-Assets erben die Sichtbarkeit des Repositories.** Bei einem privaten
+Repository verlangt auch der Release-Link eine Anmeldung.
+
+| ZIP liegt auf | funktioniert bei **privatem** Repo? |
+| --- | --- |
+| GitHub Release | **nein** — Anmeldung nötig |
+| SwitchDrive oder OneDrive mit Freigabelink | ja, unabhängig vom Repo |
+| Moodle | ja, unabhängig vom Repo |
+
+Das ist in dreissig Sekunden selbst nachprüfbar: Release-Link in einem privaten
+Browserfenster öffnen, also abgemeldet.
+
+Daraus ergeben sich zwei stimmige Kombinationen:
+
+**A · Repository öffentlich, Daten als Release.** Ein Link deckt Code,
+Dokumentation und Daten ab. Keine Zugriffsverwaltung am Prüfungstag, kein
+fremder Dienst, kein Link, der abläuft. Nach der Bewertung lässt sich das
+Repository wieder auf privat stellen.
+
+**B · Repository privat, ZIP über SwitchDrive oder Moodle.** Funktioniert, hat
+aber am Tag, an dem es zählt, zwei Fehlerquellen statt einer: Die Prüfenden
+brauchen eine GitHub-Einladung **und** der externe Link muss leben.
+
+Ich halte A für die robustere Variante — schlicht, weil weniger schiefgehen kann.
+
+#### Vor dem Öffentlichmachen zu klären
+
+- **Secrets:** geprüft, die Historie ist sauber (nur `.env.example`, keine
+  Schlüsselmuster).
+- **Lizenz:** Es gibt keine `LICENSE`-Datei. Ohne Lizenz gilt „alle Rechte
+  vorbehalten" — für eine Kursabgabe vertretbar, aber es sollte eine bewusste
+  Entscheidung sein.
+- **Quellennennung:** Die Notebooks führen die Quellen sauber auf, die README
+  nicht. Wer fremde Daten weiterverbreitet, sollte sie benennen. Alle vier
+  Quellen sind offen — Census-Daten sind als US-Regierungswerk gemeinfrei,
+  Chicago und Detroit stehen unter Open-Data-Bedingungen —, aber ein kurzer
+  Abschnitt „Datenquellen und Nutzungsbedingungen" in der README gehört dazu.
+  Das zahlt zugleich auf die Unterströmung **Data Governance** ein.
+
+Dazu ein Skript mit zwei Betriebsarten:
+
+| Aufruf | Was passiert | Wofür |
+| --- | --- | --- |
+| `fetch_data.py --referenz` | lädt den Referenzstand aus dem Release | Zahlen der Präsentation nachvollziehen |
+| `fetch_data.py --neu-laden` | lässt alle vier Pipelines gegen die Originalquellen laufen | zeigt, dass die Ingestion funktioniert |
+
+**Die Manifeste sind der Abgleich zwischen beiden.** Sie tragen SHA-256 je
+Datei, Zeilenzahl, Wasserzeichen und Vollständigkeitsnachweis. Das Skript kann
+nach einem Neuladen also sagen: „dein Lauf 259'281 Zeilen, Referenz 259'272 —
+neun Datensätze sind seither dazugekommen". Das ist **mehr wert als
+byte-identische Daten**: Die Drift wird beziffert statt versteckt, und genau das
+ist die ehrliche Antwort auf die Prüfungsfrage „wie reproduzierbar ist euer
+Lauf?".
+
+Nebenbei schliesst dasselbe Skript die Lücke **Orchestrierung** aus Abschnitt 3 —
+es ist der dokumentierte Ablauf, in dem die Pipelines zu laufen haben.
+
+`Entscheid Ablage: ________________________________________`
+
+### 10.2 Zeitbudget: 15 Minuten pro Person
+
+Bei zwei Personen bleiben je 15 Minuten. Unser Stoff ist ein Vielfaches davon —
+vier Quellen, vier Pipelines, 233 Tests, Qualitätsanalyse, Lebenszyklus,
+Speicherevaluation, Hypothesen. Ohne harte Auswahl wird es eine Aufzählung ohne
+Tiefe.
+
+Vorschlag für die Aufteilung, an der geforderten Gliederung entlang:
+
+| Block | Minuten | Inhalt |
+| --- | --- | --- |
+| Organisation und Projektgestaltung | 3 | Aufgabenteilung, Werkzeuge, Arbeitsweise |
+| Problemstellung, Forschungsfragen, Hypothesen | 5 | Abschnitt 2 |
+| Lebenszyklus und Architektur | 5 | ein Bild, nicht zehn |
+| Ingestion und Storage | 6 | Vollständigkeitsnachweis als roter Faden |
+| Transformation und Resultate | 7 | Hypothesentests mit Zahlen |
+| Limitationen | 4 | siehe 10.3 |
+
+**Wichtig:** Die Aufteilung in gleiche Redezeit heisst nicht, dass jede Person
+nur ihren Teil kennen muss. In der Diskussion richten sich Fragen an die Gruppe,
+nicht an das Kapitel. Beide müssen den ganzen Stand erklären können.
+
+### 10.3 Limitationen sind unser Heimspiel
+
+„Limitationen" steht als eigener Punkt auf der Agenda. Erfahrungsgemäss ist das
+der Teil, bei dem Gruppen ins Schwimmen geraten — weil man Schwächen erst sucht,
+wenn man danach gefragt wird.
+
+Wir sind in der umgekehrten Lage: Unsere Limitationen sind **gemessen**, mit
+Zahlen und mit Begründung. Das gehört selbstbewusst vorgetragen, nicht
+entschuldigend:
+
+- 0,67 % der Chicago-Fälle ohne Koordinaten — und der Ausfall ist nach
+  Delikttyp verzerrt, 4,3 % gegen 0,4 %
+- Detroit dagegen nur 0,29 % — die Verzerrung ist zwischen den Städten **nicht
+  symmetrisch**
+- ACS fehlt in Wayne County bei 9,6 % der Tracts, in Cook County bei 1,7 %
+- `case_number` ist kein Schlüssel, District `031` ist ein Erfassungsartefakt
+- ACS ist eine 5-Jahres-Schätzung, die Fälle sind tagesgenau
+- Tract-Grenzen brechen zwischen Zensus 2010 und 2020
+
+Wer Limitationen so beziffern kann, zeigt damit vor allem eines: dass er seine
+Daten kennt.
+
+### 10.4 Womit in der Diskussion zu rechnen ist
+
+15 Minuten Fragen. Diese hier halte ich für wahrscheinlich — die Antworten
+stehen alle in diesen beiden Dokumenten, sie müssen nur sitzen:
+
+| Frage | Wo die Antwort steht |
+| --- | --- |
+| Warum kein Spark, kein Hadoop, keine Cloud? | Abschnitt 3a und 4 — Grössenordnung, ROI |
+| Warum Dateien und keine Datenbank? | Abschnitt 4, Optionsvergleich |
+| Wie stellt ihr sicher, dass ein Lauf vollständig ist? | id-Liste vorher, Abgleich danach; ZIP-CRC; ACS gegen TIGER |
+| Was genau meint ihr mit Wasserzeichen? | **Achtung, zwei Bedeutungen** — Abschnitt 3a |
+| 0,67 % fehlen — warum löscht ihr sie nicht einfach? | H1, MNAR statt MCAR |
+| Ist das nicht ein ökologischer Fehlschluss? | Abschnitt 2.3.2 |
+| Warum Census Tracts und nicht Community Areas? | Vergleichbarkeit zwischen den Städten |
+| Wie reproduzierbar ist ein Lauf? | ehrlich: Raw ja, Delta-Läufe nein — deshalb der Referenzstand |
+| **Warum hat Bronze drei verschiedene Formen?** | **schwächster Punkt — siehe unten** |
+| Wer hat was gemacht? | Rollentabelle, [Absprache 7.3](projektabsprache.md) |
+| Was würdet ihr heute anders machen? | vorher überlegen, nicht improvisieren |
+
+**Die Bronze-Frage kommt.** „Storage: Evaluation, Wahl und Implementierung" ist
+Prüfungsinhalt, und drei nebeneinanderstehende Konventionen fallen auf. Zwei
+Wege: bis LN1 angleichen (Arbeitspaket 7), oder in der Präsentation selbst
+ansprechen — bekannt, hier die Begründung, hier der Plan. Selbst benennen ist
+fast immer besser, als ertappt zu werden.
+
+### 10.5 Vor der Abgabe
+
+- [ ] Repository öffentlich oder Prüfende eingeladen — heute antwortet es mit 404
+- [ ] Referenzstand als Release veröffentlicht, `fetch_data.py` einmal auf einem fremden Rechner getestet
+- [ ] `python -m pytest` läuft grün auf **beiden** Rechnern
+- [ ] Notebooks laufen von oben nach unten durch, ohne gespeicherte Outputs
+- [ ] README beschreibt, wie man den Stand reproduziert
+- [ ] Rollentabelle ausgefüllt — sie ist Präsentationsinhalt
+- [ ] Präsentation einmal mit Uhr durchgesprochen, je 15 Minuten
+- [ ] Fragenkatalog aus 10.4 gemeinsam durchgegangen
+
+**Zum Zeitplan:** Die Abgabe ist am Vortag um 14:00 Uhr. Der letzte sinnvolle
+Arbeitstag ist damit zwei Tage vor dem Kolloquium — am Vortag gehört die Zeit
+dem Packen, dem Hochladen und dem Durchsprechen, nicht dem Programmieren.
