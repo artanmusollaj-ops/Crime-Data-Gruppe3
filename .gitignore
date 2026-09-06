@@ -6,6 +6,8 @@ __pycache__/
 data/*/city=*/
 # Detroit legt (noch) flach ab, ohne city=-Partition
 data/*/detroit/
+# Census-Referenzgeometrien: data/<schicht>/dataset=tiger_tract/vintage=.../state=...
+data/*/dataset=*/
 # Ablage vor der Umstellung auf data/
 raw/
 # Artefakte der editierbaren Installation
