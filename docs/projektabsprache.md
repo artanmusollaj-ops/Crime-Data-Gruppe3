@@ -24,9 +24,9 @@ den geladenen Daten erhoben, nicht geschätzt.
 | **Detroit** | Pipeline fertig | 88'695 Fälle 2024, 1 Lauf, 32 Deliktkategorien | nur bronze |
 | **Census TIGER** | Pipeline fertig, getestet | 3'265 Tracts Illinois, 3'017 Michigan (Vintage 2024) | raw + bronze |
 | **Census ACS** | Pipeline fertig, getestet | dieselben Tracts, 3 Variablen | raw + bronze |
-| **Wetter (NOAA)** | noch nicht begonnen | – | – |
+| **Wetter (NOAA)** | Pipeline fertig, getestet | 29'181 Tage O'Hare (ab 1946), 26'264 Detroit Metro (ab 1942) | raw + bronze |
 
-Ergänzend: 240 Tests, 5 Notebooks, `config/iucr_nibrs_mapping.csv` mit 434
+Ergänzend: 272 Tests, 5 Notebooks, `config/iucr_nibrs_mapping.csv` mit 434
 Codes, `data/silver/` und `data/gold/` bislang leer.
 
 **Was implizit schon entschieden ist** (durch den Code, nicht durch ein
@@ -111,8 +111,19 @@ sonst vergleichen wir womöglich unterschiedlich stark verzerrte Grundgesamtheit
 
 ## 3 · Die Wetterquelle
 
-**Stand.** Noch nichts gebaut. „NOAH" heisst korrekt **NOAA** (National Oceanic
-and Atmospheric Administration).
+**Stand.** Gebaut und getestet als `weather_pipeline` (PR #11). „NOAH" heisst
+korrekt **NOAA** (National Oceanic and Atmospheric Administration).
+
+Die Fragen unten sind **nach dem Vorschlag umgesetzt**, damit heute etwas
+Vorzeigbares steht — der Entscheid bleibt offen und kann jede Antwort noch
+ändern. Was dabei anders war als hier beschrieben: die Kopfzeile hat nicht 11,
+sondern 112 Spalten bei O'Hare und 116 bei Detroit Metro. Die vier Größen des
+Vorschlags sind gepinnt, alles übrige liegt unverändert in `_extra` — also auch
+`SNWD`, `TAVG` und `AWND`. Eine Größe von dort ins Schema zu heben kostet einen
+Eintrag im Code und **keinen neuen Ladelauf**.
+
+Ausserdem: die Reihen enden rund vier Tage vor dem Abrufdatum. Ein Wetterjoin
+auf die jüngsten Falldaten läuft dort ins Leere.
 
 **Geprüft am 6.9.2026:** Es braucht **keinen** API-Schlüssel. Die Reihen liegen
 als eine CSV je Station bereit — dasselbe Muster wie TIGER, also überträgt sich
@@ -138,17 +149,20 @@ einer anderen Achse als bei Census.
 
 **Fragen.**
 
-1. Eine Station je Stadt (Flughafen) oder mehrere?
+1. Eine Station je Stadt (Flughafen) oder mehrere? — *umgesetzt: eine je Stadt.
+   Chicago Midway ist als dritte Station hinterlegt und mit `--station`
+   zuschaltbar, ohne Codeänderung.*
 2. Welche Grössen? Vorschlag: `TMAX`, `TMIN`, `PRCP`, `SNOW` — mehr braucht die
-   Leitfrage kaum.
+   Leitfrage kaum. — *umgesetzt; der Rest liegt in `_extra`.*
 3. Übernehmen wir die Qualitätsflags aus den `_ATTRIBUTES`-Spalten nach Bronze?
-   Vorschlag: ja, unverändert — sie sind Teil der Quelle.
+   Vorschlag: ja, unverändert — sie sind Teil der Quelle. — *umgesetzt.*
 
 **Vorschlag insgesamt.** Eine `weather_pipeline` nach dem Muster von
 `download_tiger`: eine Datei je Station, Vollständigkeit über `Content-Length`
-und Zeilenzahl, festes Schema plus `_extra`. Aufwand realistisch ein halber Tag,
-weil das Muster steht. **Aber erst bauen, wenn Variante C (2.1) beschlossen ist**
-— sonst laden wir Daten, die niemand auswertet.
+und Zeilenzahl, festes Schema plus `_extra`. **Umgesetzt.** Die Vorbedingung
+„erst bauen, wenn Variante C (2.1) beschlossen ist" ist damit vorweggenommen:
+Fällt der Entscheid gegen C, liegt eine Pipeline da, die niemand auswertet —
+sie kostet dann nichts weiter, ausser dass sie mitgepflegt wird.
 
 `Entscheid: ______________________________________________`
 

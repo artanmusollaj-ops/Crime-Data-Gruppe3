@@ -20,14 +20,15 @@ python -m pip install -r requirements.txt
 ```
 
 `requirements.txt` installiert das Projekt editierbar; die Abhängigkeiten stehen
-in `pyproject.toml`. Danach sind alle drei Pipelines importierbar, unabhängig
+in `pyproject.toml`. Danach sind alle vier Pipelines importierbar, unabhängig
 vom aktuellen Verzeichnis:
 
 ```text
 src/crime/
 ├── census_pipeline/    → import census_pipeline
 ├── chicago_pipeline/   → import chicago_pipeline
-└── detroit_pipeline/   → import detroit_pipeline
+├── detroit_pipeline/   → import detroit_pipeline
+└── weather_pipeline/   → import weather_pipeline
 ```
 
 **Wichtig — Anaconda oder Miniconda installiert?** Dann ist `python` in einer
@@ -334,6 +335,71 @@ Weitere Optionen zeigt:
 ```bash
 python -m chicago_pipeline.download_chicago --help
 ```
+
+## Wetter-Ingestion (NOAA)
+
+Das Skript `src/crime/weather_pipeline/download_noaa.py` lädt die täglichen
+Messreihen des GHCN-Daily, eine CSV je Station, und legt sie nach demselben
+Muster wie die übrigen Quellen als unveränderlichen Lauf in Raw und Bronze ab.
+Ein API-Schlüssel ist nicht nötig.
+
+```bash
+python -m weather_pipeline.download_noaa
+```
+
+Standard sind die beiden Flughafenstationen, je eine pro Stadt:
+
+| Station | ID | Reihe beginnt |
+| --- | --- | --- |
+| Chicago O'Hare | `USW00094846` | 1946-10-09 |
+| Detroit Metro | `USW00094847` | 1942-08-01 |
+
+Chicago Midway (`USW00014819`) ist bekannt, aber nicht Teil des Standardlaufs;
+`--station USW00014819` lädt sie zusätzlich.
+
+**Wetter wird nicht räumlich verbunden.** Census und die Falldaten treffen sich
+über `GEOID`; eine Wetterstation gilt für die ganze Stadt. Der Join läuft über
+**Datum und Stadt**, deshalb heißt der Partitionsschlüssel `station=` und nicht
+`state=`. Das Manifest nennt die Achse ausdrücklich unter `join_keys`.
+
+```text
+data/bronze/dataset=noaa_ghcnd/station=USW00094846/run_<UTC-Zeitstempel>/
+├── part-0001.parquet
+└── manifest.json
+```
+
+### Was in Bronze steht
+
+Gepinnt sind die Identitätsspalten (`STATION`, `DATE`, `LATITUDE`, `LONGITUDE`,
+`ELEVATION`, `NAME`) und vier Größen mit ihren Qualitätsflags: `PRCP`, `SNOW`,
+`TMAX`, `TMIN`, je mit `_ATTRIBUTES`.
+
+Die Quelle liefert deutlich mehr — O'Hare 112 Spalten, Detroit Metro 116, unter
+anderem `SNWD`, `TAVG`, `AWND` und die Wettertyp-Flags `WT01` bis `WV20`. Alles
+davon landet unverändert in `_extra`, einem JSON-Objekt je Zeile. Nichts wird
+verworfen: Wer später Schneehöhe oder Mitteltemperatur auswerten will, findet
+sie dort und braucht keinen neuen Ladelauf.
+
+**Werte bleiben Text, so wie die Quelle sie schreibt** — einschließlich der
+Leerzeichen, mit denen sie rechtsbündig aufgefüllt sind (`"  214"`). GHCN-Daily
+führt Temperaturen in Zehntelgrad Celsius und Niederschlag in
+Zehntelmillimetern; `"  214"` sind also 21,4 °C. Geparst und umgerechnet wird in
+Silver, nicht bei der Ingestion.
+
+### Läufe und Vollständigkeit
+
+Jeder Lauf ist ein vollständiger Schnappschuss — die Quelle liefert immer die
+ganze Reihe, es gibt kein Delta abzurufen. Ein zweiter Lauf am selben Tag wird
+deshalb übersprungen, `--force` erzwingt ihn trotzdem.
+
+Nachgewiesen wird die Vollständigkeit dreifach: `Content-Length` gegen die
+empfangenen Bytes, gelesene CSV-Zeilen gegen geschriebene Parquet-Zeilen, und
+die Prüfung, dass jede Zeile dieselbe Station nennt wie die angefragte Datei.
+Ein Fingerabdruck über die Kopfzeile macht sichtbar, wenn NOAA Spalten ergänzt.
+
+**Nachlauf der Quelle:** Die Reihen enden rund vier Tage vor dem Abrufdatum. Ein
+Join auf die jüngsten Falldaten läuft dort ins Leere — das ist eine Eigenschaft
+der Quelle, kein Fehler der Ingestion.
 
 ## Tests
 

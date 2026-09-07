@@ -1,7 +1,7 @@
 """Macht die Ingestion-Module unter kurzen Namen verfuegbar.
 
-Die Tests sprechen sie als ``download_chicago`` beziehungsweise
-``download_tiger`` an. Der Importpfad kommt entweder aus der editierbaren
+Die Tests sprechen sie als ``download_chicago``, ``download_noaa``
+beziehungsweise ``download_tiger`` an. Der Importpfad kommt entweder aus der editierbaren
 Installation oder aus ``pythonpath`` in pyproject.toml, sodass die Tests auch
 ohne Installation laufen.
 """
@@ -12,9 +12,11 @@ import sys
 
 from census_pipeline import download_acs
 from chicago_pipeline import download_chicago
+from weather_pipeline import download_noaa
 
 sys.modules["download_acs"] = download_acs
 sys.modules["download_chicago"] = download_chicago
+sys.modules["download_noaa"] = download_noaa
 
 # Nur die TIGER-Ingestion braucht pyogrio. Fehlt es, sollen alle uebrigen Tests
 # trotzdem laufen - ihre Tests ueberspringen sich selbst per importorskip.
