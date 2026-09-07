@@ -26,9 +26,11 @@ dependencies = [
     "pyogrio>=0.8,<1",
     "python-dotenv>=1.1,<2",
     "requests>=2.32,<3",
-    # ZoneInfo("America/Detroit") braucht auf Systemen ohne IANA-Datenbank
-    # (v.a. Windows) die mitgelieferten Zeitzonendaten.
-    "tzdata; sys_platform == 'win32'",
+    # SOURCE_TIMEZONE = ZoneInfo("America/Detroit") wird beim Import von
+    # detroit_pipeline ausgewertet. Ohne IANA-Datenbank schlaegt schon der
+    # Import fehl - auf Windows immer, auf schlanken Linux-Images (Alpine,
+    # manche CI-Images) ebenfalls. Deshalb ohne Plattform-Marker.
+    "tzdata",
     "urllib3>=2,<3",
 ]
 

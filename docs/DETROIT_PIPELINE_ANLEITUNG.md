@@ -163,7 +163,7 @@ Aus dem Projekt-Root:
 python -m tests.run_tests
 ```
 
-Der Runner führt derzeit zwölf Tests aus und erzeugt für jeden Testlauf neue Dateien:
+Der Runner führt die gesamte Suite aus — derzeit 239 Tests, davon zwölf für Detroit — und erzeugt für jeden Testlauf neue Dateien:
 
 ```text
 logs/tests/test_run_<TIMESTAMP>.log
@@ -173,14 +173,23 @@ logs/tests/test_run_<TIMESTAMP>.json
 Die Dateien werden wegen des Zeitstempels nicht überschrieben. Der Prozess liefert Exit-Code `0` bei Erfolg und `1` bei fehlgeschlagenen Tests. Ein erfolgreicher Lauf enthält:
 
 ```text
-Ran 12 tests
-OK
+239 passed
+
+Test Run Summary:
+  Status       : SUCCESS
+  Ausgefuehrt  : 239
 ```
 
-Alternativ kann nur die Standard-Testausgabe verwendet werden:
+Alternativ nur die Standard-Testausgabe, ohne Protokolldateien:
 
 ```bash
-python -m unittest discover -s tests -v
+python -m pytest
+```
+
+Nur die Detroit-Tests:
+
+```bash
+python -m pytest tests/test_detroit_arcgis.py tests/test_bronze_ingestion.py
 ```
 
 ### 6.2 Aktuell vorhandene Unit Tests

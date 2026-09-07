@@ -84,7 +84,7 @@ Zertifikatsbündel — deshalb kann Chicago laufen, während Detroit scheitert.
 python -m pytest
 ```
 
-Erwartet werden **153 bestandene Tests**, ohne Netzzugriff und ohne App Token.
+Erwartet werden **239 bestandene Tests**, ohne Netzzugriff und ohne App Token.
 
 ### 4 · App Token hinterlegen (optional)
 
