@@ -20,11 +20,12 @@ python -m pip install -r requirements.txt
 ```
 
 `requirements.txt` installiert das Projekt editierbar; die Abhängigkeiten stehen
-in `pyproject.toml`. Danach sind beide Pipelines importierbar, unabhängig vom
-aktuellen Verzeichnis:
+in `pyproject.toml`. Danach sind alle drei Pipelines importierbar, unabhängig
+vom aktuellen Verzeichnis:
 
 ```text
 src/crime/
+├── census_pipeline/    → import census_pipeline
 ├── chicago_pipeline/   → import chicago_pipeline
 └── detroit_pipeline/   → import detroit_pipeline
 ```
