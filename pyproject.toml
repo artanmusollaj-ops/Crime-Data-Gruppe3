@@ -1,12 +1,16 @@
 # Projektdefinition fuer Crime-Data-Gruppe3.
 #
-# Die beiden Pipelines liegen unter src/crime/ und werden von hier aus als
+# Die drei Pipelines liegen unter src/crime/ und werden von hier aus als
 # Pakete bekannt gemacht. Mit einer editierbaren Installation
 #
 #     python -m pip install -r requirements.txt
 #
-# sind chicago_pipeline und detroit_pipeline ueberall importierbar, ohne dass
-# PYTHONPATH gesetzt werden muss.
+# sind census_pipeline, chicago_pipeline und detroit_pipeline ueberall
+# importierbar, ohne dass PYTHONPATH gesetzt werden muss.
+#
+# packages.find weiter unten sucht ohne include/exclude und erfasst damit jedes
+# Verzeichnis unter src/crime/ mit einer __init__.py. Eine neue Pipeline braucht
+# hier also keinen Eintrag.
 
 [build-system]
 requires = ["setuptools>=68"]

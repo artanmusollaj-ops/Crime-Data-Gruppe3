@@ -8,8 +8,10 @@ data/*/city=*/
 data/*/detroit/
 # Census-Referenzgeometrien: data/<schicht>/dataset=tiger_tract/vintage=.../state=...
 data/*/dataset=*/
-# Artefakte der editierbaren Installation
+# Artefakte der editierbaren Installation und von pip wheel / python -m build
 *.egg-info/
+build/
+dist/
 .DS_Store
 # Generierte Testprotokolle: logs/ vom Test-Runner,
 # tests/test_results.txt von run_tests_and_log.py
