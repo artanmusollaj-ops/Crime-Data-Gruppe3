@@ -65,8 +65,9 @@ Die relevanten Dateien und Verzeichnisse sind:
 │   ├── detroit_arcgis.py
 │   ├── extract_detroit.py
 │   ├── transform_detroit.py
-│   ├── requirements.txt
 │   └── README.md
+├── pyproject.toml                # Paketdefinition und Abhaengigkeiten
+├── requirements.txt              # installiert das Projekt editierbar (-e .[dev])
 ├── notebooks/
 │   └── 05_detroit_bronze_ingestion.ipynb
 ├── tests/
@@ -80,7 +81,8 @@ Die relevanten Dateien und Verzeichnisse sind:
 │   └── silver/
 ├── logs/                         # wird durch den Test-Runner automatisch erstellt
 │   └── tests/
-└── DETROIT_PIPELINE_ANLEITUNG.md
+└── docs/
+    └── DETROIT_PIPELINE_ANLEITUNG.md
 ```
 
 Die Ordner `data`, die benötigten Unterordner und `logs/tests` müssen nicht manuell erstellt werden. Die Pipeline verwendet `mkdir(parents=True, exist_ok=True)` vor dem Schreiben.
@@ -161,7 +163,7 @@ Aus dem Projekt-Root:
 python -m tests.run_tests
 ```
 
-Der Runner führt derzeit neun Tests aus und erzeugt für jeden Testlauf neue Dateien:
+Der Runner führt derzeit zwölf Tests aus und erzeugt für jeden Testlauf neue Dateien:
 
 ```text
 logs/tests/test_run_<TIMESTAMP>.log
@@ -171,7 +173,7 @@ logs/tests/test_run_<TIMESTAMP>.json
 Die Dateien werden wegen des Zeitstempels nicht überschrieben. Der Prozess liefert Exit-Code `0` bei Erfolg und `1` bei fehlgeschlagenen Tests. Ein erfolgreicher Lauf enthält:
 
 ```text
-Ran 9 tests
+Ran 12 tests
 OK
 ```
 
@@ -192,6 +194,9 @@ python -m unittest discover -s tests -v
 5. halb-offenen Daily-Load-Zeitfilter;
 6. Allowlist der zulässigen Datumsfelder;
 7. Aufteilung von Object-IDs in API-konforme Batches.
+8. Quality Flag `MISSING_SOURCE_UPDATED_AT` bei fehlendem `updated_at`;
+9. 1:n-Beziehung zwischen Event und Offense sowie Deduplikation zweier
+   Source-Kategorien auf derselben Canonical Category.
 
 ### 6.3 Aktuell vorhandene Bronze-Integrationstests
 
@@ -203,6 +208,9 @@ python -m unittest discover -s tests -v
 4. Daily-Modus und `updated_at`-Filter;
 5. Daily-Zeitfenster und Dateiname;
 6. wichtige Manifestfelder und Download-Count.
+7. Full-Load-Vertrag mit `incident_occurred_at` als Auswahlzeitachse;
+8. maschinenlesbare Auswahlsemantik und die explizite Aussage, dass die
+   Extraktion keine Source-Löschungen erkennt.
 
 Die ausgegebene Teststatistik basiert auf fünf kontrollierten Fake-Datensätzen:
 
@@ -394,6 +402,11 @@ Das Intervall ist halb-offen. Dadurch gehört ein Datensatz am 1. Januar 2025 ni
 
 Detroit RMS ist in der Pipeline ab 2016 zugelassen. Die Quelle ist laut aktueller Projektdokumentation erst ab Dezember 2016 verfügbar; 2016 ist deshalb kein vollständiges Kalenderjahr.
 
+Die Pipeline validiert diesen Vertrag vor jedem Lauf. `FULL` darf ausschließlich
+`incident_occurred_at` verwenden; eine versehentliche Kombination mit
+`updated_at` bricht ab. Im Manifest wird dies als
+`selection_basis = INCIDENT_OCCURRENCE_TIME` protokolliert.
+
 ### 9.2 Welche Datensätze werden geladen?
 
 Geladen werden alle zum Abrufzeitpunkt in der Quelle vorhandenen Zeilen, deren `incident_occurred_at` im gewählten Kalenderjahr liegt, darunter auch:
@@ -478,6 +491,18 @@ Geladen werden alle Zeilen mit `updated_at` innerhalb des Fensters:
 
 Ein Delikt aus dem Jahr 2020 kann deshalb in einem Daily Load von 2026 erscheinen, wenn es 2026 innerhalb des Fensters geändert wurde. Das ist beabsichtigt.
 
+Die Selektion erfolgt auf Offense-Zeilen. Ein neuer Report erzeugt neue Zeilen;
+eine zusätzliche `incident_entry_id` unter einer schon bekannten
+`report_number` ist ein neues Delikt desselben Events. Bei einer Event-weiten
+Neupublikation kann Detroit für mehrere vorhandene Offense-Zeilen dasselbe neue
+`updated_at` setzen. Der Incremental Load lädt dann alle betroffenen Zeilen.
+
+Die Pipeline validiert auch diesen Vertrag: `INCREMENTAL` darf ausschließlich
+`updated_at` verwenden. Das Manifest führt
+`selection_basis = SOURCE_LAST_UPDATED_TIME`,
+`record_granularity = INCIDENT_OFFENSE`, `window_is_half_open = true` und
+`captures_source_deletions = false`.
+
 ### 10.3 Welche Datensätze werden nicht geladen?
 
 Nicht geladen werden:
@@ -491,13 +516,42 @@ Nicht geladen werden:
 
 Wegen der letzten beiden Punkte sollte periodisch ein Full Load beziehungsweise eine Source-Reconciliation durchgeführt werden.
 
-### 10.4 Warum 14 Tage Überlappung?
+Die Live-Prüfung vom 5. September 2026 ergab für den Gesamtbestand 823.951 von
+823.951 Records mit vorhandenem `incident_occurred_at`. Im 2024-Bestand waren
+hingegen 5 von 88.695 Offense-Zeilen ohne `updated_at`. Diese Werte sind eine
+zeitabhängige Beobachtung und kein dauerhaft garantierter Source Contract.
+Records ohne `updated_at` können über einen Full Load erscheinen, aber nicht
+durch den normalen Incremental-Filter selektiert werden.
+
+### 10.4 Technisches Update oder fachliche Änderung?
+
+`updated_at` ist das Extraktionswasserzeichen, aber kein Beweis für eine
+inhaltliche Änderung. Bei einer untersuchten Extremfall-Stichprobe besaßen alle
+Offense-Zeilen eines Events identische, sehr späte `updated_at`-Werte, während
+`case_status_updated_at` und `updated_in_ibr_at` meist deutlich früher lagen.
+Das ist mit einer technischen Neuverarbeitung oder Neupublikation vereinbar.
+
+Die zukünftige Silver-Konsolidierung soll daher einen Hash der fachlichen
+Attribute mit dem bisherigen Stand vergleichen:
+
+```text
+offense_key unbekannt                       → INSERT
+offense_key bekannt, business_hash geändert → BUSINESS_UPDATE
+offense_key bekannt, business_hash gleich   → TECHNICAL_REFRESH / UNCHANGED
+neue offense_key bei bekannter report_number → NEW_OFFENSE_FOR_EVENT
+im Full-Abgleich verschwundene offense_key   → POSSIBLE_DELETE
+```
+
+Technische Felder wie `ESRI_OID`, `pipeline_run_id`, `ingested_at` und das
+Wasserzeichen selbst gehören nicht in den `business_hash`.
+
+### 10.5 Warum 14 Tage Überlappung?
 
 Ein täglicher Lauf lädt bewusst erneut einen Teil der bereits zuvor geladenen Daten. Das reduziert das Risiko, verspätete Quelländerungen oder einen ausgefallenen einzelnen Tageslauf zu verlieren.
 
 Die Überlappung erzeugt erwartete Wiederholungen zwischen verschiedenen Bronze-Dateien. Bronze bewahrt diese Snapshots unverändert auf. Die zukünftige Silver-Stufe muss sie idempotent zusammenführen.
 
-### 10.5 Backfill eines Daily-Fensters
+### 10.6 Backfill eines Daily-Fensters
 
 Für einen reproduzierbaren historischen Lauf:
 
@@ -692,12 +746,18 @@ Die Transformation dokumentiert unter anderem:
 - `MISSING_SOURCE_RECORD_ID`;
 - `MISSING_SOURCE_EVENT_ID`;
 - `MISSING_OCCURRED_AT`;
+- `MISSING_SOURCE_UPDATED_AT`;
 - `PLACEHOLDER_COORDINATES` bei `(0, 0)`;
 - `INVALID_LATITUDE`;
 - `INVALID_LONGITUDE`;
 - `UNREVIEWED_OFFENSE_CATEGORY`.
 
 Problematische Records werden grundsätzlich behalten. `analysis_eligible` steuert, ob sie später in fachliche Aggregate eingehen dürfen.
+
+`MISSING_SOURCE_UPDATED_AT` schließt einen aus einem Full Load stammenden Record
+nicht automatisch aus der fachlichen Analyse aus. Es kennzeichnet die operative
+Einschränkung, dass dieser Record durch einen künftigen `updated_at`-Filter nicht
+selektiert werden kann, solange die Quelle keinen Wert setzt.
 
 ## 15. Duplikate und wiederholte Läufe
 
@@ -861,4 +921,3 @@ Detroit und Chicago werden zunächst separat transformiert. Erst danach werden v
 - [ ] Gold verwendet `COUNT(DISTINCT analysis_unit_key)`.
 - [ ] Die verwendeten Bronze-, Silver- und späteren Gold-Run-IDs sind dokumentiert.
 - [ ] Detroit- und Chicago-Daten erfüllen denselben Silver Data Contract.
-

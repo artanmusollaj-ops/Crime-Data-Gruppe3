@@ -11,3 +11,5 @@ data/*/dataset=*/
 # Artefakte der editierbaren Installation
 *.egg-info/
 .DS_Store
+# Testprotokolle des Test-Runners (tests/run_tests.py)
+logs/

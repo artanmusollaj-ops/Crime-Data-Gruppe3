@@ -6,6 +6,7 @@ statistik, Bronze-Ausgabe und Manifest ohne instabile Live-API-Abhaengigkeit.
 """
 
 import json
+from datetime import date
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -13,8 +14,18 @@ import unittest
 from detroit_pipeline.detroit_arcgis import ArcGISLayerInfo
 from detroit_pipeline.extract_detroit import (
     extract_year,
+    extract_updated_window,
     format_load_summary,
 )
+
+
+BRONZE_TEST_CATEGORY_COUNTS = {
+    "ASSAULT": 2,
+    "LARCENY": 1,
+    "ROBBERY": 1,
+    "__MISSING__": 1,
+}
+BRONZE_TEST_TOTAL = sum(BRONZE_TEST_CATEGORY_COUNTS.values())
 
 
 class FakeArcGISClient:
@@ -44,7 +55,12 @@ class FakeArcGISClient:
             object_id_field="ESRI_OID",
             max_record_count=2000,
             schema_fingerprint="test-schema",
-            fields=("ESRI_OID", "offense_category"),
+            fields=(
+                "ESRI_OID",
+                "offense_category",
+                "incident_occurred_at",
+                "updated_at",
+            ),
         )
 
     def get_count(self, where: str) -> int:
@@ -67,6 +83,27 @@ class FakeArcGISClient:
 
 
 class BronzeIngestionTests(unittest.TestCase):
+    def test_full_load_manifest_uses_occurrence_time(self) -> None:
+        """Verankert incident_occurred_at als fachliche Full-Load-Zeitachse."""
+
+        with TemporaryDirectory() as temporary_directory:
+            _, manifest_path = extract_year(
+                2024,
+                Path(temporary_directory),
+                client=FakeArcGISClient(),
+                pause_seconds=0,
+            )
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+            self.assertEqual(manifest["extraction_mode"], "FULL")
+            self.assertEqual(manifest["date_field"], "incident_occurred_at")
+            self.assertEqual(
+                manifest["selection_basis"], "INCIDENT_OCCURRENCE_TIME"
+            )
+            self.assertIn("incident_occurred_at >=", manifest["where"])
+            self.assertNotIn("updated_at >=", manifest["where"])
+            self.assertFalse(manifest["captures_source_deletions"])
+
     def test_counts_per_category_and_total(self) -> None:
         """Prueft und zeigt Kategorie- sowie Gesamtzahl der geladenen Records."""
 
@@ -79,21 +116,54 @@ class BronzeIngestionTests(unittest.TestCase):
             )
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
-            expected_counts = {
-                "ASSAULT": 2,
-                "LARCENY": 1,
-                "ROBBERY": 1,
-                "__MISSING__": 1,
-            }
             self.assertTrue(bronze_path.exists())
-            self.assertEqual(manifest["downloaded_count"], 5)
-            self.assertEqual(manifest["offense_category_counts"], expected_counts)
-            self.assertEqual(sum(expected_counts.values()), 5)
+            self.assertEqual(manifest["downloaded_count"], BRONZE_TEST_TOTAL)
+            self.assertEqual(
+                manifest["offense_category_counts"],
+                BRONZE_TEST_CATEGORY_COUNTS,
+            )
+            self.assertEqual(
+                sum(BRONZE_TEST_CATEGORY_COUNTS.values()),
+                BRONZE_TEST_TOTAL,
+            )
 
             # Die explizite Ausgabe macht beim lokalen Testlauf sofort sichtbar,
             # wie viele Datensaetze je Kategorie und insgesamt geladen wurden.
             print()
-            print(format_load_summary(expected_counts, 5))
+            print(
+                format_load_summary(
+                    BRONZE_TEST_CATEGORY_COUNTS,
+                    BRONZE_TEST_TOTAL,
+                )
+            )
+
+    def test_incremental_updated_window_manifest(self) -> None:
+        """Prueft Daily-Modus, Update-Fenster, Dateiname und Manifestfelder."""
+
+        with TemporaryDirectory() as temporary_directory:
+            bronze_path, manifest_path = extract_updated_window(
+                date(2026, 8, 23),
+                date(2026, 9, 6),
+                Path(temporary_directory),
+                client=FakeArcGISClient(),
+                pause_seconds=0,
+            )
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+            self.assertIn("incremental_2026-08-23_2026-09-06", bronze_path.name)
+            self.assertEqual(manifest["extraction_mode"], "INCREMENTAL")
+            self.assertEqual(manifest["date_field"], "updated_at")
+            self.assertEqual(
+                manifest["selection_basis"], "SOURCE_LAST_UPDATED_TIME"
+            )
+            self.assertEqual(manifest["record_granularity"], "INCIDENT_OFFENSE")
+            self.assertTrue(manifest["window_is_half_open"])
+            self.assertFalse(manifest["captures_source_deletions"])
+            self.assertEqual(manifest["window_start"], "2026-08-23")
+            self.assertEqual(manifest["window_end_exclusive"], "2026-09-06")
+            self.assertIsNone(manifest["year"])
+            self.assertIn("updated_at >=", manifest["where"])
+            self.assertEqual(manifest["downloaded_count"], 5)
 
 
 if __name__ == "__main__":

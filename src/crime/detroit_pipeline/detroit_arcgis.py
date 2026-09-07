@@ -81,21 +81,46 @@ def chunked(values: Sequence[int], size: int) -> Iterator[Sequence[int]]:
         yield values[start : start + size]
 
 
-def build_date_where(start_date: date, end_date: date) -> str:
-    """Erzeugt einen halb-offenen ArcGIS-Zeitfilter ``[start, end)``.
+def build_field_date_where(
+    field_name: str,
+    start_date: date,
+    end_date: date,
+) -> str:
+    """Erzeugt einen sicheren halb-offenen ArcGIS-Zeitfilter ``[start, end)``.
 
     Halb-offene Intervalle verhindern Doppelzaehlungen, wenn mehrere Jahre
-    oder Monate nacheinander extrahiert werden.
+    oder Daily-Fenster nacheinander extrahiert werden. Die Allowlist verhindert,
+    dass ein frei eingegebener Feldname in die ArcGIS-WHERE-Klausel gelangt.
     """
 
+    allowed_fields = {"incident_occurred_at", "updated_at"}
+    if field_name not in allowed_fields:
+        raise ValueError(f"Nicht erlaubtes Datumsfeld: {field_name}")
     if end_date <= start_date:
         raise ValueError("end_date muss nach start_date liegen")
     start = start_date.isoformat()
     end = end_date.isoformat()
     return (
-        f"incident_occurred_at >= TIMESTAMP '{start} 00:00:00' "
-        f"AND incident_occurred_at < TIMESTAMP '{end} 00:00:00'"
+        f"{field_name} >= TIMESTAMP '{start} 00:00:00' "
+        f"AND {field_name} < TIMESTAMP '{end} 00:00:00'"
     )
+
+
+def build_date_where(start_date: date, end_date: date) -> str:
+    """Erzeugt einen Tatzeitfilter fuer Full Loads und historische Analysen."""
+
+    return build_field_date_where("incident_occurred_at", start_date, end_date)
+
+
+def build_updated_where(start_date: date, end_date: date) -> str:
+    """Erzeugt einen Update-Zeitfilter fuer inkrementelle Daily Loads.
+
+    ``updated_at`` erfasst neben neuen Records auch nachtraegliche Aenderungen
+    an bereits bekannten Faellen. Das 14-Tage-Overlap wird in Silver anhand des
+    stabilen ``offense_key`` aufgeloest.
+    """
+
+    return build_field_date_where("updated_at", start_date, end_date)
 
 
 def build_year_where(year: int) -> str:
@@ -397,6 +422,11 @@ def parse_detroit_feature(
         quality_flags.append("MISSING_SOURCE_EVENT_ID")
     if attributes.get("incident_occurred_at") is None:
         quality_flags.append("MISSING_OCCURRED_AT")
+    if attributes.get("updated_at") is None:
+        # Der Record bleibt aus einem Full Load analysierbar, kann aber von
+        # einem spaeteren Incremental Filter auf updated_at nicht erfasst
+        # werden. Das Flag macht diese operative Luecke explizit.
+        quality_flags.append("MISSING_SOURCE_UPDATED_AT")
     if latitude == 0.0 and longitude == 0.0:
         latitude = longitude = None
         quality_flags.append("PLACEHOLDER_COORDINATES")
