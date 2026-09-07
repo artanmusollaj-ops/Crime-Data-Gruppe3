@@ -26,7 +26,7 @@ den geladenen Daten erhoben, nicht geschätzt.
 | **Census ACS** | Pipeline fertig, getestet | dieselben Tracts, 3 Variablen | raw + bronze |
 | **Wetter (NOAA)** | noch nicht begonnen | – | – |
 
-Ergänzend: 233 Tests, 5 Notebooks, `config/iucr_nibrs_mapping.csv` mit 434
+Ergänzend: 240 Tests, 5 Notebooks, `config/iucr_nibrs_mapping.csv` mit 434
 Codes, `data/silver/` und `data/gold/` bislang leer.
 
 **Was implizit schon entschieden ist** (durch den Code, nicht durch ein
@@ -355,14 +355,22 @@ Gold-Tabellen einchecken, weil sie klein sind.
 
 ### 7.2 Tests
 
-**Stand.** 233 Tests, aber ungleich verteilt: Chicago und Census liegen in
-`tests/<pipeline>/`, die Detroit-Tests direkt in `tests/`. Dazu liegen dort ein
-`run_tests_and_log.py` und ein eingechecktes `test_results.txt` — ein Artefakt,
-das schnell veraltet.
+**Stand.** 240 Tests, aber ungleich verteilt: Chicago und Census liegen in
+`tests/<pipeline>/`, die Detroit-Tests direkt in `tests/`.
 
-**Vorschlag.** Testdateien einheitlich nach `tests/<pipeline>/`, und
-`test_results.txt` nicht mitversionieren. Anspruch für neue Pipelines: Tests
-laufen ohne Netz und ohne Schlüssel, so wie die bestehenden.
+`test_results.txt` ist mit PR #9 aus der Versionierung genommen und steht
+zusammen mit `logs/` in `.gitignore`. Dabei kam heraus, dass beide Test-Runner
+ihre Protokolle über `unittest discover` erzeugten und damit nur die zwölf
+Detroit-Tests ausführten, den Lauf aber als Gesamterfolg meldeten — ein Bruch in
+Chicago oder Census lief mit Exit-Code 0 durch. Beide laufen jetzt über pytest
+und tun damit dasselbe.
+
+**Vorschlag.** Testdateien einheitlich nach `tests/<pipeline>/`, also auch die
+Detroit-Tests. Von den beiden Runnern einen behalten: `run_tests.py` schreibt
+Text-Log und strukturierten JSON-Report unter `logs/tests/`,
+`run_tests_and_log.py` hält die letzten fünf Läufe in einer Textdatei. Anspruch
+für neue Pipelines: Tests laufen ohne Netz und ohne Schlüssel, so wie die
+bestehenden.
 
 `Entscheid: ______________________________________________`
 
