@@ -1,4 +1,4 @@
-"""Fuehrt alle Tests aus und schreibt Text- sowie JSON-Testprotokolle.
+"""Fuehrt die gesamte Testsuite aus und schreibt Text- sowie JSON-Testprotokolle.
 
 Start aus dem Projekt-Root:
 
@@ -7,6 +7,13 @@ Start aus dem Projekt-Root:
 Die Textdatei enthaelt die komplette Konsolenausgabe inklusive Kategorie-
 statistik und Fehler-Tracebacks. Der JSON-Report stellt die Laufkennzahlen fuer
 Monitoring, CI oder eine spaetere Ops-Tabelle maschinenlesbar bereit.
+
+Ausgefuehrt wird ueber pytest und nicht ueber ``unittest discover``. Die Census-
+und Chicago-Tests sind im pytest-Stil geschrieben, also als Modulfunktionen mit
+``assert`` statt als ``unittest.TestCase``, und ausserdem laedt ``unittest`` die
+``conftest.py`` nicht. Ein Runner auf unittest-Basis fand deshalb nur die
+Detroit-Tests und meldete Erfolg, obwohl der weitaus groessere Teil der Suite
+nie ausgefuehrt wurde.
 """
 
 from __future__ import annotations
@@ -17,7 +24,8 @@ import json
 from pathlib import Path
 import sys
 from time import perf_counter
-import unittest
+
+import pytest
 
 from tests.test_bronze_ingestion import (
     BRONZE_TEST_CATEGORY_COUNTS,
@@ -49,28 +57,63 @@ class TeeStream:
         for stream in self.streams:
             stream.flush()
 
+    def isatty(self) -> bool:
+        """Meldet keinen Terminalmodus, damit pytest nicht farbig schreibt."""
 
-class RecordingTestResult(unittest.TextTestResult):
-    """Erweitert unittest um eine Liste erfolgreich ausgefuehrter Tests."""
+        return False
 
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+
+class ResultCollector:
+    """Sammelt die pytest-Ergebnisse fuer den JSON-Report."""
+
+    def __init__(self) -> None:
         self.successes: list[str] = []
+        self.failures: list[dict[str, str]] = []
+        self.errors: list[dict[str, str]] = []
+        self.skipped: list[dict[str, str]] = []
 
-    def addSuccess(self, test) -> None:  # noqa: N802 - unittest API
-        """Speichert erfolgreiche Tests fuer den JSON-Report."""
+    @property
+    def tests_run(self) -> int:
+        """Zahl der Tests, die ein Ergebnis geliefert haben."""
 
-        super().addSuccess(test)
-        self.successes.append(str(test))
+        return (
+            len(self.successes)
+            + len(self.failures)
+            + len(self.errors)
+            + len(self.skipped)
+        )
 
+    def pytest_runtest_logreport(self, report) -> None:
+        """Ordnet jeden Testbericht genau einer Ergebniskategorie zu."""
 
-def failure_records(entries: list[tuple[object, str]]) -> list[dict[str, str]]:
-    """Konvertiert unittest-Fehler in JSON-kompatible Datensaetze."""
+        if report.when == "call":
+            if report.passed:
+                self.successes.append(report.nodeid)
+            elif report.failed:
+                self.failures.append(self._record(report))
+            elif report.skipped:
+                self.skipped.append(self._skip_record(report))
+        elif report.failed:
+            # Ein Fehler in Fixture-Setup oder Teardown ist kein fachlich
+            # fehlgeschlagener Test, sondern ein Error.
+            self.errors.append(self._record(report))
+        elif report.when == "setup" and report.skipped:
+            self.skipped.append(self._skip_record(report))
 
-    return [
-        {"test": str(test), "traceback": traceback_text}
-        for test, traceback_text in entries
-    ]
+    @staticmethod
+    def _record(report) -> dict[str, str]:
+        """Uebertraegt Fehlerbericht und Traceback in JSON-taugliche Felder."""
+
+        return {"test": report.nodeid, "traceback": str(report.longrepr)}
+
+    @staticmethod
+    def _skip_record(report) -> dict[str, str]:
+        """Liest den Grund aus dem Skip-Bericht heraus."""
+
+        longrepr = report.longrepr
+        if isinstance(longrepr, tuple) and len(longrepr) == 3:
+            return {"test": report.nodeid, "reason": str(longrepr[2])}
+        return {"test": report.nodeid, "reason": str(longrepr)}
 
 
 def write_json_atomic(path: Path, payload: dict) -> None:
@@ -93,77 +136,83 @@ def main(log_dir: Path = DEFAULT_LOG_DIR) -> int:
     log_path = log_dir / f"test_run_{run_id}.log"
     json_path = log_dir / f"test_run_{run_id}.json"
 
-    suite = unittest.defaultTestLoader.discover(
-        start_dir=str(TEST_DIR),
-        pattern="test_*.py",
-        top_level_dir=str(PROJECT_ROOT),
-    )
-
+    collector = ResultCollector()
     started_timer = perf_counter()
+
     with log_path.open("w", encoding="utf-8") as log_handle:
         tee = TeeStream(sys.stdout, log_handle)
         with redirect_stdout(tee), redirect_stderr(tee):
-            print("Detroit Pipeline Test Run")
+            print("Crime-Data-Gruppe3 Test Run")
             print(f"Run-ID:     {run_id}")
             print(f"Started at: {started_at.isoformat()}")
             print(f"Test path:  {TEST_DIR}")
             print()
 
-            runner = unittest.TextTestRunner(
-                stream=tee,
-                verbosity=2,
-                resultclass=RecordingTestResult,
+            # -vv nennt jeden Test einzeln, auch gegen das -q aus
+            # pyproject.toml. -s laesst die Kategoriestatistik der
+            # Bronze-Tests bis ins Protokoll durch, statt sie wegzufangen.
+            exit_code = int(
+                pytest.main(
+                    [
+                        "-vv",
+                        "-s",
+                        "--color=no",
+                        "-p",
+                        "no:cacheprovider",
+                        str(TEST_DIR),
+                    ],
+                    plugins=[collector],
+                )
             )
-            result = runner.run(suite)
 
             duration_seconds = round(perf_counter() - started_timer, 3)
             finished_at = datetime.now(timezone.utc)
-            status = "SUCCESS" if result.wasSuccessful() else "FAILED"
+            status = "SUCCESS" if exit_code == 0 else "FAILED"
 
             print()
             print("Test Run Summary:")
-            print(f"  Status     : {status}")
-            print(f"  Ausgefuehrt: {result.testsRun}")
-            print(f"  Erfolgreich: {len(result.successes)}")
-            print(f"  Fehlgeschl.: {len(result.failures)}")
-            print(f"  Errors     : {len(result.errors)}")
-            print(f"  Uebersprungen: {len(result.skipped)}")
-            print(f"  Dauer (s)  : {duration_seconds}")
+            print(f"  Status       : {status}")
+            print(f"  Ausgefuehrt  : {collector.tests_run}")
+            print(f"  Erfolgreich  : {len(collector.successes)}")
+            print(f"  Fehlgeschl.  : {len(collector.failures)}")
+            print(f"  Errors       : {len(collector.errors)}")
+            print(f"  Uebersprungen: {len(collector.skipped)}")
+            print(f"  Dauer (s)    : {duration_seconds}")
+            print(f"  pytest-Code  : {exit_code}")
 
     report = {
-        "pipeline": "detroit_pipeline",
+        "project": "crime-data-gruppe3",
+        "runner": "pytest",
         "run_id": run_id,
         "status": status,
+        "pytest_exit_code": exit_code,
         "started_at": started_at.isoformat(),
         "finished_at": finished_at.isoformat(),
         "duration_seconds": duration_seconds,
         "counts": {
-            "tests_run": result.testsRun,
-            "successful": len(result.successes),
-            "failures": len(result.failures),
-            "errors": len(result.errors),
-            "skipped": len(result.skipped),
+            "tests_run": collector.tests_run,
+            "successful": len(collector.successes),
+            "failures": len(collector.failures),
+            "errors": len(collector.errors),
+            "skipped": len(collector.skipped),
         },
         "bronze_fixture_statistics": {
             "offense_category_counts": BRONZE_TEST_CATEGORY_COUNTS,
             "downloaded_count": BRONZE_TEST_TOTAL,
         },
         "tests": {
-            "successful": result.successes,
-            "failures": failure_records(result.failures),
-            "errors": failure_records(result.errors),
-            "skipped": [
-                {"test": str(test), "reason": reason}
-                for test, reason in result.skipped
-            ],
+            "successful": collector.successes,
+            "failures": collector.failures,
+            "errors": collector.errors,
+            "skipped": collector.skipped,
         },
         "text_log": str(log_path),
     }
     write_json_atomic(json_path, report)
 
-    print(f"Text-Log:   {log_path}")
+    print(f"Text-Log:    {log_path}")
     print(f"JSON-Report: {json_path}")
-    return 0 if result.wasSuccessful() else 1
+    return 0 if exit_code == 0 else 1
 
 
 if __name__ == "__main__":

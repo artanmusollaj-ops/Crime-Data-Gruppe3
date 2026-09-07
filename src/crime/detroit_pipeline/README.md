@@ -25,8 +25,7 @@ RMS_Crime_Incidents/FeatureServer/0
 | `../tests/test_detroit_arcgis.py` | Unit Tests fuer Parser und Hilfsfunktionen |
 | `../tests/test_bronze_ingestion.py` | Bronze-Integrationstest mit Kategorie- und Gesamtzahlen |
 | `../notebooks/05_detroit_bronze_ingestion.ipynb` | dokumentierter Bronze-Download im Jupyter Notebook |
-| `../DETROIT_PIPELINE_ANLEITUNG.md` | vollstaendige Installations-, Betriebs-, Test- und Uebergabeanleitung |
-| `../DETROIT_10_LONG_LAG_EVENTS.md` | zehn reale Mehrfachdelikt-Events zur fachlichen Einordnung von `updated_at` |
+| [`docs/DETROIT_PIPELINE_ANLEITUNG.md`](../../../docs/DETROIT_PIPELINE_ANLEITUNG.md) | vollstaendige Installations-, Betriebs-, Test- und Uebergabeanleitung |
 | `requirements.txt` | optionale Parquet-Abhaengigkeit |
 
 ## Warum Object-ID-Pagination?
@@ -324,24 +323,28 @@ fuehren keine echten HTTP-Requests oder Downloads aus. Dadurch bleiben lokale
 Testlaeufe und CI reproduzierbar und unabhaengig von der Verfuegbarkeit der
 Detroit-API.
 
-Alle zwoelf Tests werden aus dem Projekt-Root gestartet:
+Die zwoelf Detroit-Tests werden aus dem Projekt-Root gestartet:
 
 ```bash
-python -m unittest discover -s tests -v
+python -m pytest tests/test_detroit_arcgis.py tests/test_bronze_ingestion.py
 ```
 
 Ein erfolgreicher Lauf endet mit:
 
 ```text
-Ran 12 tests
-OK
+12 passed
 ```
+
+`python -m unittest discover -s tests` findet ebenfalls genau diese zwoelf, aber
+keinen der Census- und Chicago-Tests: die sind als Modulfunktionen mit `assert`
+geschrieben, die `unittest` nicht als Testfaelle erkennt. Fuer die gesamte Suite
+deshalb immer `pytest` verwenden.
 
 ### Testlauf dauerhaft protokollieren
 
-Der empfohlene Test-Runner zeigt dieselben Ergebnisse im Terminal und schreibt
-sie gleichzeitig in einen zeitgestempelten Text-Log sowie einen strukturierten
-JSON-Report:
+Der Test-Runner fuehrt die **gesamte** Suite aus, also auch Census und Chicago,
+zeigt die Ergebnisse im Terminal und schreibt sie gleichzeitig in einen
+zeitgestempelten Text-Log sowie einen strukturierten JSON-Report:
 
 ```bash
 python -m tests.run_tests
