@@ -374,6 +374,12 @@ Gepinnt sind die Identitätsspalten (`STATION`, `DATE`, `LATITUDE`, `LONGITUDE`,
 `ELEVATION`, `NAME`) und vier Größen mit ihren Qualitätsflags: `PRCP`, `SNOW`,
 `TMAX`, `TMIN`, je mit `_ATTRIBUTES`.
 
+`notebooks/07_weather_source.ipynb` dokumentiert die Quelle vollständig und
+prüft die Feststellungen an den geladenen Daten nach — unter anderem die
+Zehntel-Einheiten, den Nachlauf der Quelle, dass die vier Größen erst ab Ende
+1958 belegt sind, und dass die `_ATTRIBUTES`-Spalten je Station verschieden
+viele Felder führen.
+
 Die Quelle liefert deutlich mehr — O'Hare 112 Spalten, Detroit Metro 116, unter
 anderem `SNWD`, `TAVG`, `AWND` und die Wettertyp-Flags `WT01` bis `WV20`. Alles
 davon landet unverändert in `_extra`, einem JSON-Objekt je Zeile. Nichts wird
