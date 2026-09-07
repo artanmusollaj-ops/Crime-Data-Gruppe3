@@ -166,6 +166,78 @@ sie kostet dann nichts weiter, ausser dass sie mitgepflegt wird.
 
 `Entscheid: ______________________________________________`
 
+### 3.1 Abrufhäufigkeit, bedingter Abruf und Speicher
+
+**Stand.** Jeder Lauf lädt die **ganze** Datei. Die Quelle bietet kein Delta an:
+eine CSV je Station mit der kompletten Historie, kein Datumsfilter, keine
+Paginierung. Gemessen am 7.9.2026:
+
+| | O'Hare | Detroit Metro | zusammen |
+| --- | --- | --- | --- |
+| Download je Lauf | 10,9 MB | 10,1 MB | **21,1 MB** |
+| auf der Platte je Lauf | 12,0 MB | 11,2 MB | **23,3 MB** |
+
+Weil Läufe unveränderlich sind, liegt die fast identische Historie danach so oft
+auf der Platte, wie wir Läufe machen:
+
+| Frequenz | Platte pro Jahr | Netz pro Jahr |
+| --- | --- | --- |
+| täglich (365 Läufe) | **8,3 GB** | 7,5 GB |
+| wöchentlich (52) | 1,2 GB | 1,1 GB |
+| monatlich (12) | 0,3 GB | 0,2 GB |
+
+Zum Vergleich: Chicago und Census belegen zusammen rund 70 MB (siehe 7.1).
+
+Gebremst wird das heute nur durch eine Sperre in der Ingestion — ein
+Schnappschuss je Station und Abruftag, ein zweiter Lauf am selben Tag lädt nicht.
+`--force` und Backfills laden trotzdem voll.
+
+**Was die Quelle anbietet und wir nicht nutzen.** Ebenfalls nachgemessen:
+
+```text
+ETag            "a7052a-65ad06f950b00"
+Last-Modified   Sun, 06 Sep 2026 13:25:32 GMT
+Accept-Ranges   bytes
+
+If-Modified-Since: <Last-Modified>   ->  HTTP 304, 0 Byte
+Range: bytes=-2000                   ->  HTTP 206, 2000 Byte
+```
+
+Ein **bedingter Abruf** funktioniert also: Hat NOAA die Datei seit unserem
+letzten Lauf nicht neu veröffentlicht, antwortet der Server mit `304` und null
+Bytes statt mit 11 MB. Die Ingestion fragt das derzeit nicht.
+
+Ein **Delta über `Range`** wäre technisch ebenfalls möglich — davon ist
+abzuraten. GHCN-Daily ist ein qualitätsgeprüfter Datensatz, dessen Prüfläufe
+auch ältere Werte korrigieren können; ein Anhängen des Dateiendes würde solche
+Korrekturen stillschweigend übersehen. Belegt ist das nicht, wir haben erst
+einen Schnappschuss. Der zweite macht es messbar: Ein Vergleich der ersten
+10 MB beider Läufe zeigt, ob die Historie stabil bleibt.
+
+**Frage.** Wie oft laufen wir, und bauen wir den bedingten Abruf ein?
+
+| Variante | Aufwand | Folge |
+| --- | --- | --- |
+| A: täglich, wie heute | 0 | 8,3 GB im Jahr für eine Reihe, die täglich um eine Zeile wächst |
+| B: wöchentlich, plus `--force` vor einer Auswertung | 0, nur Absprache | 1,2 GB im Jahr; jeder Schnappschuss bleibt vollständig |
+| C: monatlich, plus `--force` vor einer Auswertung | 0, nur Absprache | 0,3 GB im Jahr; grösserer Abstand zum aktuellen Rand |
+| D: bedingter Abruf zusätzlich (`If-None-Match`) | ~20 Zeilen plus Tests | spart Netz, nicht Platte; macht `--force` billig |
+
+**Vorschlag.** **B plus D.** Der entscheidende Punkt ist, dass **jeder Lauf ein
+vollständiger Schnappschuss ist**: Anders als bei einer Ereignisquelle entsteht
+durch einen selteneren Lauf **keine Lücke**, weil der nächste Lauf die
+Zwischenzeit vollständig mitbringt. Ein täglicher Vollschnappschuss für eine
+Quelle, die täglich eine Zeile anhängt, ist die falsche Frequenz — er kostet das
+Siebenfache und bringt nichts, was der Wochenlauf nicht auch hätte.
+
+D ist unabhängig davon sinnvoll und billig: Es macht einen erzwungenen Lauf, der
+nichts Neues findet, kostenlos.
+
+**Nicht blockierend.** Fällt der Entscheid gar nicht, läuft Variante A weiter.
+Der Einbau von D wartet ausdrücklich auf diesen Entscheid.
+
+`Entscheid: ______________________________________________`
+
 ---
 
 ## 4 · Bronze: der grösste Abstimmungsbedarf
