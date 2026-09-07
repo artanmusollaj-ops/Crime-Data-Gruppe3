@@ -1,4 +1,7 @@
-"""Runs the project test suite and keeps the last five runs in tests/test_results.txt."""
+"""Runs the project test suite and keeps the last five runs in tests/test_results.txt.
+
+Die Logdatei ist ein generiertes Artefakt und steht in .gitignore.
+"""
 
 from __future__ import annotations
 
@@ -34,12 +37,14 @@ def write_history(history: list[str]) -> None:
 
 def main() -> int:
     timestamp = dt.datetime.now().astimezone().isoformat()
+    # pytest statt "unittest discover": die Census- und Chicago-Tests sind
+    # Modulfunktionen mit assert, die unittest nicht als Testfaelle erkennt.
+    # Mit unittest protokollierte dieses Skript einen Erfolgslauf, obwohl es
+    # nur die zwoelf Detroit-Tests von 239 ausfuehrte.
     command = [
         sys.executable,
         "-m",
-        "unittest",
-        "discover",
-        "-s",
+        "pytest",
         str(TESTS_DIR),
         "-v",
     ]
