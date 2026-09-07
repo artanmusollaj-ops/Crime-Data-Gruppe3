@@ -5,6 +5,8 @@ import unittest
 
 from detroit_pipeline.detroit_arcgis import (
     build_date_where,
+    build_field_date_where,
+    build_updated_where,
     chunked,
     parse_detroit_feature,
 )
@@ -65,12 +67,64 @@ class DetroitParserTests(unittest.TestCase):
         self.assertEqual(row["mapping_status"], "UNREVIEWED")
         self.assertIn("UNREVIEWED_OFFENSE_CATEGORY", row["quality_flags"])
 
+    def test_missing_updated_at_is_flagged(self) -> None:
+        """Markiert Records, die ein Daily Load spaeter nicht erfassen kann."""
+
+        self.feature["attributes"]["updated_at"] = None
+        row = parse_detroit_feature(
+            self.feature, pipeline_run_id="run", ingested_at="now"
+        )
+        self.assertIn("MISSING_SOURCE_UPDATED_AT", row["quality_flags"])
+        # Fehlendes updated_at verhindert die fachliche Analyse des aus einem
+        # Full Load stammenden Records nicht automatisch.
+        self.assertTrue(row["analysis_eligible"])
+
+    def test_multiple_offenses_share_event_and_category_analysis_key(self) -> None:
+        """Prueft die 1:n-Beziehung Event zu Offense und Category-Deduplikation."""
+
+        second_feature = {
+            "attributes": {
+                **self.feature["attributes"],
+                "incident_entry_id": "OFFENSE-2",
+                "offense_category": "AGGRAVATED ASSAULT",
+            },
+            "geometry": self.feature["geometry"],
+        }
+        # Beide Kategorien werden in der vergleichbaren Silver-Semantik auf
+        # ASSAULT abgebildet.
+        self.feature["attributes"]["offense_category"] = "ASSAULT"
+        first = parse_detroit_feature(
+            self.feature, pipeline_run_id="run", ingested_at="now"
+        )
+        second = parse_detroit_feature(
+            second_feature, pipeline_run_id="run", ingested_at="now"
+        )
+
+        self.assertNotEqual(first["offense_key"], second["offense_key"])
+        self.assertEqual(first["event_key"], second["event_key"])
+        self.assertEqual(first["canonical_category"], "ASSAULT")
+        self.assertEqual(second["canonical_category"], "ASSAULT")
+        self.assertEqual(first["analysis_unit_key"], second["analysis_unit_key"])
+
     def test_date_filter_is_half_open(self) -> None:
         """Prueft, dass benachbarte Zeitpartitionen nicht ueberlappen."""
 
         where = build_date_where(date(2024, 1, 1), date(2025, 1, 1))
         self.assertIn(">= TIMESTAMP '2024-01-01 00:00:00'", where)
         self.assertIn("< TIMESTAMP '2025-01-01 00:00:00'", where)
+
+    def test_updated_filter_is_half_open(self) -> None:
+        """Prueft das Update-Wasserzeichen fuer den Daily Load."""
+
+        where = build_updated_where(date(2026, 8, 23), date(2026, 9, 6))
+        self.assertIn("updated_at >= TIMESTAMP '2026-08-23 00:00:00'", where)
+        self.assertIn("updated_at < TIMESTAMP '2026-09-06 00:00:00'", where)
+
+    def test_date_field_allowlist(self) -> None:
+        """Verhindert frei eingeschleuste Feldnamen in der WHERE-Klausel."""
+
+        with self.assertRaises(ValueError):
+            build_field_date_where("updated_at OR 1=1", date(2024, 1, 1), date(2024, 1, 2))
 
     def test_chunking(self) -> None:
         """Prueft die Aufteilung der Object-IDs in API-Batches."""

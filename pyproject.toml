@@ -26,6 +26,9 @@ dependencies = [
     "pyogrio>=0.8,<1",
     "python-dotenv>=1.1,<2",
     "requests>=2.32,<3",
+    # ZoneInfo("America/Detroit") braucht auf Systemen ohne IANA-Datenbank
+    # (v.a. Windows) die mitgelieferten Zeitzonendaten.
+    "tzdata; sys_platform == 'win32'",
     "urllib3>=2,<3",
 ]
 
