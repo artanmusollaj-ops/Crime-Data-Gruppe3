@@ -8,7 +8,9 @@ technischen Entscheide (Bronze-Konventionen, Werkzeuge, Zusammenarbeit), hier
 die Abgabe-Sicht. Wo ein Entscheid aus der Absprache eine Anforderung erfüllt,
 ist er verlinkt.
 
-Alle Zahlen sind am 6. September 2026 aus dem Repository erhoben.
+Alle Zahlen sind am 8. September 2026 aus dem Repository erhoben. Die
+Entscheide der Sitzung vom 8.9.2026 sind in Abschnitt 9 abgeglichen; die
+technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 
 ---
 
@@ -20,8 +22,8 @@ Alle Zahlen sind am 6. September 2026 aus dem Repository erhoben.
 | **Forschungsfragen, Hypothesen** | ◐ Vorschlag steht, vier bereits vorgeprüft | Auswahl und Formulierung entscheiden → Abschnitt 2.2 / 2.3 |
 | **Vorgehen und Methoden** | ◐ implizit im Code | Methodenteil ausformulieren → Abschnitt 2.4 |
 | **Entwurf DE-Lebenszyklus** | ◐ gebaut, nicht benannt | Zuordnung dokumentieren → Abschnitt 3 |
-| **Ingestion: Quellen, Beschaffung** | ● weitgehend fertig | Wetterquelle offen, Detroit-Quellnotebook fehlt |
-| **Storage: Evaluation, Wahl, Implementierung** | ◐ implementiert, nicht evaluiert | Begründeter Vergleich → Abschnitt 4 |
+| **Ingestion: Quellen, Beschaffung** | ● fertig | Detroit-Quellnotebook fehlt |
+| **Storage: Evaluation, Wahl, Implementierung** | ◐ implementiert, Werkzeug entschieden, nicht evaluiert | Begründeter Vergleich → Abschnitt 4; zusätzlich das Bronze-Format ([Absprache 4.1](projektabsprache.md)) |
 | **Transformation 1: Analyse, Hypothesentest** | ◐ für Chicago fertig | Detroit-Qualität, eigentlicher Test → Abschnitt 5 |
 | **Initiale Datenbereinigung** | ○ Silver ist leer | Dedup, Typen, Join → Abschnitt 5 |
 | **Beantwortung der Forschungsfragen** | ○ | folgt aus allem davor |
@@ -29,8 +31,8 @@ Alle Zahlen sind am 6. September 2026 aus dem Repository erhoben.
 ● fertig ◐ teilweise ○ offen
 
 **Die gute Nachricht:** Ingestion und Storage — die beiden praktisch
-aufwendigsten Blöcke — stehen weitgehend. 233 Tests, vier Quellen, nachgewiesene
-Vollständigkeit. Und weil die Hypothesen Fragen des Data Engineering sind
+aufwendigsten Blöcke — stehen. 282 Tests, fünf Quellen in vier Pipelines,
+nachgewiesene Vollständigkeit. Und weil die Hypothesen Fragen des Data Engineering sind
 (Abschnitt 2.0), sind vier davon durch die bisherige Arbeit **bereits
 vorgeprüft**: Wir haben Befunde, bevor wir die Hypothesen formuliert haben.
 
@@ -95,7 +97,7 @@ Drei Fragen entlang der Modulinhalte — Integration, Bewertung, Bereinigung:
 | | Frage | Modulbezug |
 | --- | --- | --- |
 | **FF1** | Unter welchen Bedingungen lassen sich zwei unabhängig erhobene, unterschiedlich kodierte kommunale Kriminalitätsdatensätze so integrieren, dass ein valider Vergleich möglich wird? | Kompatibilität, Integration |
-| **FF2** | Welches Qualitätsniveau erreichen die vier Quellen, gemessen an definierten Dimensionen — und genügt es dem festgelegten Verwendungszweck? | Datenqualität, Bewertung |
+| **FF2** | Welches Qualitätsniveau erreichen die fünf Quellen, gemessen an definierten Dimensionen — und genügt es dem festgelegten Verwendungszweck? | Datenqualität, Bewertung |
 | **FF3** | Welche Bereinigungsschritte sind erforderlich, und wie stark verändern sie das Ergebnis? | Datenbereinigung 1 und 2 |
 
 FF3 ist die interessanteste der drei: Sie zwingt dazu, die Wirkung jeder
@@ -195,6 +197,38 @@ Vorschlag für die Gliederung:
 5. **Auswertungsmethoden** — deskriptive Statistik, Rangkorrelation, Regression,
    Konzentrationsmasse
 
+### 2.5 Was die Entscheide vom 8.9.2026 für Fragen und Hypothesen bedeuten
+
+Der Scope-Entscheid ist **Variante D** ([Absprache 2.1](projektabsprache.md)):
+deskriptiver Vergleich *plus* sozioökonomischer Zusammenhang *plus*
+Wettereinfluss. Das ist die umfangreichste der vier Varianten. Die Begründung im
+Entscheid ist pragmatisch — „ein Grossteil der Daten ist schon heruntergeladen,
+eine Integration sollte nicht mehr so aufwändig sein" —, und für die Ingestion
+trifft das zu: alle fünf Quellen liegen in Bronze.
+
+Für Fragen und Hypothesen folgt daraus:
+
+| | Wirkung von Variante D |
+| --- | --- |
+| **FF1** Integration | unverändert. Die Harmonisierung war ohnehin der Kern |
+| **FF2** Qualitätsniveau | betrifft jetzt **fünf** Quellen statt vier. NOAA bringt eigene Dimensionen mit: vier Tage Nachlauf, Belegung der Messgrössen erst ab 1958, Flag-Spalten mit je Station verschiedener Feldzahl (siehe Notebook 07) |
+| **FF3** Bereinigung | gewinnt einen Fall dazu: Werte in Zehnteln als Text, leere Felder gegen `0` bei Niederschlag, Spurenmengen mit Messflag `T` |
+| **H6** drei Zeitachsen | wird von Kür zu **Pflicht**. Mit Wetter im Scope sind es tatsächlich drei Achsen: Tatzeitpunkt, ACS-5-Jahres-Fenster, Wettertag |
+| **H1 bis H5** | unverändert Pflicht |
+| **H7, H8** | bleiben Kür |
+
+**Der Zeitraum ist auf 2024 festgelegt** ([Absprache 2.2](projektabsprache.md)).
+Die vorgeprüften Zahlen zu H1 bis H5 stammen aus dem Chicago-Vollbestand von
+259'272 Fällen; für den ausweisbaren Test müssen sie auf 2024 neu gerechnet oder
+der Bezug ausdrücklich benannt werden.
+
+**Eine Einschränkung, die aus 7.1 folgt.** Der Entscheid verlangt, dass bei einem
+Daily Load T-1 geladen wird und dies ausgewiesen wird. Für NOAA ist das **nicht
+erfüllbar**: Die Quelle veröffentlicht mit rund vier Tagen Nachlauf. Das ist
+keine Schwäche der Pipeline, sondern eine Eigenschaft des qualitätsgeprüften
+Datensatzes — es gehört als Ausnahme in die Dimension *Aktualität*
+(Abschnitt 2.3.1) und in die Limitationen (Abschnitt 10.3).
+
 ---
 
 ## 3 · Der Data-Engineering-Lebenszyklus
@@ -204,11 +238,11 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 
 | Phase | Was wir haben | Beleg | Lücke |
 | --- | --- | --- | --- |
-| **Generation** | Vier Quellsysteme: Socrata (Chicago), ArcGIS REST (Detroit), HTTPS-Dateien (TIGER), JSON-API (ACS). Je Quelle dokumentiert: Aktualisierungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 06 | Detroit-Quellnotebook, NOAA |
-| **Ingestion** | Vier Pipelines. Batch, kein Streaming. Chicago inkrementell über Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage | `src/crime/*_pipeline/` | Wetter offen |
+| **Generation** | Fünf Quellsysteme: Socrata (Chicago), ArcGIS REST (Detroit), HTTPS-Dateien (TIGER und NOAA), JSON-API (ACS). Je Quelle dokumentiert: Aktualisierungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 06, 07 | Detroit-Quellnotebook |
+| **Ingestion** | Vier Pipelines. Batch, kein Streaming. Chicago inkrementell über Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` | – |
 | **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest | `data/`, Abschnitt 4 | Evaluation schriftlich, Silver/Gold leer |
 | **Transformation** | Bronze bewusst ohne Transformation. Qualitätsanalyse für Chicago fertig | Notebook 03 | Silver und Gold komplett |
-| **Serving** | – | – | **komplett offen**, siehe Abschnitt 6 |
+| **Serving** | Option **A · Analytik** gewählt: Dashboard auf der Gold-Schicht | Abschnitt 6 | nicht gebaut; Gold braucht dafür Aggregate je Tract, Monat und Kategorie |
 
 ### Unterströmungen
 
@@ -236,7 +270,7 @@ Tabelle taugt als Gliederung für den Transformationsteil der Präsentation.
 
 | Modulinhalt | Bei uns | Stand |
 | --- | --- | --- |
-| **Kombination von Streams** | Alle vier Quellen sind Batch. Bewusst begründen statt weglassen: Ein Tumbling-Window ist der Batch-Fall der ereignisbasierten Verarbeitung | zu formulieren |
+| **Kombination von Streams** | Alle fünf Quellen sind Batch. Bewusst begründen statt weglassen: Ein Tumbling-Window ist der Batch-Fall der ereignisbasierten Verarbeitung | zu formulieren |
 | **Watermark, verspätete Daten** | Unser 14-Tage-Lookback ist funktional die Toleranz für verspätet eintreffende Änderungen | vorhanden, zu benennen |
 | **Verteiltes Setting (MapReduce, Spark)** | Nicht verwendet. Bei rund 350'000 Zeilen und 70 MB wäre es unangemessen — „so einfach und selbstisolierend wie möglich" | Begründung schreiben |
 | **Formatbedingte Kompatibilität** | Bronze hält alles als Text; Typisierung erst in Silver. Führende Nullen in `iucr`, `beat`, `district` müssen erhalten bleiben | umgesetzt |
@@ -303,7 +337,15 @@ eine DuckDB-Datei mit Sichten darauf.
 
 Siehe auch [Absprache 5.3](projektabsprache.md).
 
-`Entscheid: ______________________________________________`
+`Entscheid: DuckDB — übernommen aus [Absprache 5.3](projektabsprache.md), dort am 8.9.2026 entschieden. Die schriftliche Evaluation fehlt weiterhin.`
+
+**Was dieser Entscheid nicht abdeckt.** [Absprache 4.1](projektabsprache.md)
+hat das **Bronze-Format** offengelassen: „Es wird angeschaut was performanter
+ist. Wenn Parquet besser ist, wird es umgesetzt." Detroit liegt heute als
+NDJSON, Chicago und Census als Parquet. Die Evaluation in diesem Abschnitt muss
+diesen Vergleich deshalb mit abdecken — nicht nur Parquet gegen PostgreSQL und
+DuckDB, sondern auch NDJSON gegen Parquet innerhalb von Bronze. [Absprache
+4.2](projektabsprache.md) („Hängt von 4.1 ab") wartet auf dasselbe Ergebnis.
 
 ---
 
@@ -368,7 +410,7 @@ Dashboard auf derselben Gold-Schicht ist deutlich schneller gebaut als Modelle.
 allen Merkmalen. Fällt sie auf A, genügen Aggregate je Tract, Monat und
 Kategorie. Das ist der Grund, weshalb der Entscheid nicht warten kann.
 
-`Entscheid: ______________________________________________`
+`Entscheid: Option A ist unser Hauptziel`
 
 ---
 
@@ -377,7 +419,7 @@ Kategorie. Das ist der Grund, weshalb der Entscheid nicht warten kann.
 | # | Paket | Ergebnis | Wer | Bis |
 | --- | --- | --- | --- | --- |
 | 1 | Forschungsfragen und Hypothesen festlegen | Abschnitt 2 entschieden | beide | |
-| 2 | Serving-Option wählen | bestimmt das Gold-Schema | beide | |
+| 2 | ~~Serving-Option wählen~~ | erledigt am 8.9.2026: **Option A** | beide | ✓ |
 | 3 | Problemstellung und Methodenteil schreiben | Präsentationstext | | |
 | 4 | Lebenszyklus dokumentieren | Diagramm + Tabelle aus Abschnitt 3 | | |
 | 5 | Storage-Evaluation verschriftlichen | Abschnitt 4 als Präsentationsteil | | |
@@ -402,23 +444,59 @@ erledigt werden.
 | Detroit-Daten tragen den Vergleich nicht | FF1 nicht beantwortbar | Paket 6 früh, notfalls Fragestellung anpassen |
 | NIBRS-Zuordnung für Detroit unvollständig | Kategorien nicht vergleichbar | früh prüfen; Chicago ist zu 100 % belegt, Detroit offen |
 | Ungleiche ACS-Lücken zwischen den Städten | verzerrter Vergleich | ausweisen statt wegrechnen; Sensitivitätsrechnung |
-| Serving-Entscheid zu spät | Gold zweimal gebaut | Paket 2 in der ersten Sitzung |
+| ~~Serving-Entscheid zu spät~~ | ~~Gold zweimal gebaut~~ | entfallen: Option A ist entschieden, das Gold-Schema steht damit fest |
 | Verschiedene Datenstände im Team | widersprüchliche Zahlen | Referenzstand vereinbaren, [Absprache 7.1](projektabsprache.md) |
 
 ---
 
-## 9 · Zusammenfassung: was in der ersten Sitzung entschieden werden muss
+## 9 · Stand der Entscheide
 
-1. **Forschungsfragen** — FF1 bis FF3 (Data Engineering) übernehmen oder anders schneiden?
-2. **Hypothesen** — H1 bis H5 als Pflicht, H6 bis H8 als Kür? Und in welcher Formulierung?
-3. **Serving-Option** — A, B oder C? Bestimmt das Gold-Schema.
-4. **Wetterquelle** — im Scope? Entscheidet über FF3 und H5.
-5. **Storage-Begründung** — Parquet plus DuckDB, oder anders?
-6. **Arbeitsteilung** — Tabelle in Abschnitt 7 ausfüllen.
+Die Sitzung vom **8.9.2026** hat 17 der 18 Entscheide in
+[`projektabsprache.md`](projektabsprache.md) beantwortet. Für dieses Dokument
+ergibt sich folgender Stand:
 
-Die technischen Entscheide zu Bronze, Silver und Zusammenarbeit stehen in
-[`projektabsprache.md`](projektabsprache.md) und können in derselben Sitzung
-mitgenommen werden.
+| | Punkt | Stand | Woher |
+| --- | --- | --- | --- |
+| 1 | **Forschungsfragen** — FF1 bis FF3 übernehmen oder anders schneiden? | ○ **offen** | [Absprache 5.2](projektabsprache.md) sagt ausdrücklich „Forschungsfragen noch definieren" |
+| 2 | **Hypothesen** — H1 bis H5 Pflicht, H6 bis H8 Kür? | ○ **offen** | – |
+| 3 | **Serving-Option** — A, B oder C? | ● **A · Analytik** | Abschnitt 6; Gold braucht damit nur Aggregate je Tract, Monat und Kategorie, keine Merkmalstabelle |
+| 4 | **Wetterquelle** — im Scope? | ● **ja** | [Absprache 2.1](projektabsprache.md) Variante **D**; Quelle gebaut, getestet, geladen, dokumentiert |
+| 5 | **Storage-Begründung** | ◐ **Werkzeug ja, Begründung nein** | [Absprache 5.3](projektabsprache.md) „DuckDB"; die schriftliche Evaluation fehlt, und das Bronze-Format ist offen ([4.1](projektabsprache.md)) |
+| 6 | **Arbeitsteilung** | ○ **verschoben** | [Absprache 7.3](projektabsprache.md) „Machen wir sobald Artan bereit ist" |
+
+Dazu zwei Entscheide, die in dieser Liste bisher fehlten und weiterhin offen
+sind — beide in Abschnitt 10.1: **Sichtbarkeit** des Repositorys und **Ablage**
+der Abgabe. Sie hängen an der Abgabeform, nicht an der Technik.
+
+**Drei echte Entscheidungen bleiben also: 1, 2 und 6.** Die ersten beiden
+hängen zusammen und beide am selben Punkt: Die **Form** von Gold steht seit dem
+Serving-Entscheid fest — Aggregate je Tract, Monat und Kategorie —, aber sein
+**Inhalt** hängt an den Forschungsfragen. Genau das sagt
+[Absprache 5.2](projektabsprache.md) mit „Muss noch definiert werden.
+Forschungsfragen noch definieren."
+
+**Eine Spannung, die aus zwei Entscheiden zusammen entsteht.** Abschnitt 6 hat
+Option **B** vorgeschlagen, unter anderem mit der Begründung, sie „macht die
+Wetterdaten nützlich". Gewählt ist **A**, während [Absprache
+2.1](projektabsprache.md) mit Variante **D** das Wetter im Scope behält. Damit
+muss das Wetter seinen Platz in einem Aggregat-Gold verdienen — etwa als
+Dimension neben Tract, Monat und Kategorie. Sonst trägt die Wetterquelle nur zu
+FF2 und H6 bei, nicht zum Serving. Das ist kein Widerspruch, aber es gehört beim
+Entwurf des Gold-Schemas entschieden.
+
+### Was aus der Sitzung noch nicht eingearbeitet ist
+
+Diese Antworten aus der Absprache verändern Aussagen in diesem Dokument. Sie
+sind hier vermerkt, aber die betroffenen Abschnitte noch nicht ausformuliert:
+
+| Entscheid | Wirkung hier |
+| --- | --- |
+| **2.1 Variante D** | grösster Umfang von vier Varianten: Vergleich *plus* Sozioökonomie *plus* Wetter. Betrifft Abschnitt 2.5 |
+| **2.2 Zeitraum 2024** | fixiert die Datenbasis der Hypothesentests |
+| **2.4 Geo-Lücke** | „Detroit wird noch analysiert" — Vorarbeit für H1 und H7 |
+| **4.1 / 4.2 Bronze-Format** | die Storage-Evaluation in Abschnitt 4 braucht den Vergleich NDJSON gegen Parquet |
+| **5.1 Silver zweifach** | „Zwei Version, Abgleich welche besser" — ein Arbeitspaket, das in Abschnitt 7 fehlt |
+| **7.1 T-1 ausweisen** | liefert den fehlenden Schwellenwert für die Dimension *Aktualität* in Abschnitt 2.3.1 |
 
 ---
 
@@ -449,7 +527,7 @@ dieser Sicht spricht nichts gegen ein öffentliches Repository.
 
 `Entscheid Sichtbarkeit: __________________________________`
 
-#### Einsicht: Nur zwei der vier Quellen müssen überhaupt abgelegt werden
+#### Einsicht: Nur zwei der fünf Quellen müssen überhaupt abgelegt werden
 
 Entscheidend ist, welche Quelle sich **byte-identisch reproduzieren** lässt:
 
@@ -582,7 +660,7 @@ es ist der dokumentierte Ablauf, in dem die Pipelines zu laufen haben.
 ### 10.2 Zeitbudget: 15 Minuten pro Person
 
 Bei zwei Personen bleiben je 15 Minuten. Unser Stoff ist ein Vielfaches davon —
-vier Quellen, vier Pipelines, 233 Tests, Qualitätsanalyse, Lebenszyklus,
+fünf Quellen, vier Pipelines, 282 Tests, Qualitätsanalyse, Lebenszyklus,
 Speicherevaluation, Hypothesen. Ohne harte Auswahl wird es eine Aufzählung ohne
 Tiefe.
 
