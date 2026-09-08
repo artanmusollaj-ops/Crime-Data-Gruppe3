@@ -188,9 +188,11 @@ auf der Platte, wie wir Läufe machen:
 
 Zum Vergleich: Chicago und Census belegen zusammen rund 70 MB (siehe 7.1).
 
-Gebremst wird das heute nur durch eine Sperre in der Ingestion — ein
-Schnappschuss je Station und Abruftag, ein zweiter Lauf am selben Tag lädt nicht.
-`--force` und Backfills laden trotzdem voll.
+**Umgesetzt am 8.9.2026** gemäss Entscheid: Mindestabstand von sieben Tagen
+(`--min-interval-days`, `--force` übergeht ihn) plus bedingter Abruf über
+`If-None-Match` und `If-Modified-Since` aus dem letzten Manifest. Der bedingte
+Abruf greift auch bei `--force`, damit ein erzwungener Lauf ohne Neuigkeit
+nichts kostet.
 
 **Was die Quelle anbietet und wir nicht nutzen.** Ebenfalls nachgemessen:
 
@@ -208,11 +210,23 @@ letzten Lauf nicht neu veröffentlicht, antwortet der Server mit `304` und null
 Bytes statt mit 11 MB. Die Ingestion fragt das derzeit nicht.
 
 Ein **Delta über `Range`** wäre technisch ebenfalls möglich — davon ist
-abzuraten. GHCN-Daily ist ein qualitätsgeprüfter Datensatz, dessen Prüfläufe
-auch ältere Werte korrigieren können; ein Anhängen des Dateiendes würde solche
-Korrekturen stillschweigend übersehen. Belegt ist das nicht, wir haben erst
-einen Schnappschuss. Der zweite macht es messbar: Ein Vergleich der ersten
-10 MB beider Läufe zeigt, ob die Historie stabil bleibt.
+abzuraten, und das ist inzwischen **belegt**. Der zweite Schnappschuss vom
+8.9.2026 gegen den ersten vom 7.9.2026, Zeile für Zeile verglichen:
+
+| | O'Hare | Detroit Metro |
+| --- | --- | --- |
+| neue Zeilen am Ende | 2 | 2 |
+| entfernte Zeilen | 0 | 0 |
+| **nachträglich geänderte Zeilen** | **0** | **1** (2026-09-02) |
+
+In Detroit hat die Zeile vom 2.9. nachträglich `SNWD` und `SNWD_ATTRIBUTES`
+bekommen, wo vorher leere Felder standen — eine Korrektur einen Tag hinter dem
+damaligen Rand. **Die Quelle ist also nicht append-only.** Ein Delta, das nur
+das Dateiende anhängt, hätte diese Korrektur übersehen.
+
+Einzuschränken ist der Befund auf das Gemessene: ein Intervall von einem Tag,
+zwei Stationen. Korrekturen tief in der Historie sind damit nicht ausgeschlossen,
+nur nicht beobachtet. Der Vollschnappschuss deckt beide Fälle ab.
 
 **Frage.** Wie oft laufen wir, und bauen wir den bedingten Abruf ein?
 

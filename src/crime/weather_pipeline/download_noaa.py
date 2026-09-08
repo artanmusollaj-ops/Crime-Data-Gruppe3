@@ -10,9 +10,25 @@ TIGER-Vintage ist eingefroren, die Falldaten wachsen um einzelne Ereignisse -
 eine Stationsreihe waechst taeglich um genau eine Zeile am Ende, wird aber
 immer als ganze Datei ausgeliefert. Es gibt also kein Delta abzurufen und kein
 Wasserzeichen mitzufuehren: Jeder Lauf ist ein vollstaendiger Schnappschuss.
-An die Stelle des Wasserzeichens tritt die Frage, ob fuer diese Station heute
-schon ein Schnappschuss liegt. Dann gibt es nichts zu tun, solange nicht
-``--force`` einen neuen Lauf erzwingt.
+
+Weil jeder Lauf vollstaendig ist, erzeugt ein selteneres Laden anders als bei
+einer Ereignisquelle **keine Luecke** - der naechste Lauf bringt die
+Zwischenzeit mit. Ein taeglicher Vollschnappschuss fuer eine Reihe, die
+taeglich eine Zeile anhaengt, kostet dagegen das Siebenfache an Platz. Zwei
+Bremsen greifen deshalb vor dem Download, in dieser Reihenfolge:
+
+1. **Mindestabstand.** Liegt der letzte Lauf dieser Station weniger als
+   ``DEFAULT_MIN_INTERVAL_DAYS`` Tage zurueck, wird gar nicht gefragt.
+   ``--force`` ueberspringt diese Bremse, ``--min-interval-days 0`` hebt sie auf.
+2. **Bedingter Abruf.** Sonst wird mit ``If-None-Match`` und
+   ``If-Modified-Since`` aus dem letzten Manifest gefragt. Hat NOAA die Datei
+   seit dem letzten Lauf nicht neu veroeffentlicht, antwortet der Dienst mit
+   ``304`` und null Bytes statt mit elf Megabyte. Diese Bremse greift auch bei
+   ``--force`` - ein erzwungener Lauf, der nichts Neues findet, soll nichts
+   kosten.
+
+Beide Regeln stehen so in Abschnitt 3.1 der Projektabsprache, Entscheid
+"B plus D".
 
 Vollstaendigkeit wird nachgewiesen statt behauptet, mit den Mitteln, die diese
 Quelle hergibt: ``Content-Length`` gegen die empfangenen Bytes, die Zeilenzahl
@@ -38,7 +54,7 @@ import json
 import logging
 import shutil
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -66,6 +82,10 @@ LAYER_FORMAT = {
     BRONZE_LAYER: "parquet (snappy, Werte als Text wie in der Quelle)",
 }
 PARQUET_FILE = "part-0001.parquet"
+
+# Wochenrhythmus statt taeglich (Projektabsprache 3.1, Entscheid "B plus D").
+# 0 laedt bei jedem Aufruf, begrenzt nur durch den bedingten Abruf.
+DEFAULT_MIN_INTERVAL_DAYS = 7
 
 TIMEOUT_SECONDS = 300
 RETRY_TOTAL = 5
@@ -129,6 +149,7 @@ class Delivery(NamedTuple):
     url: str
     content_length: int | None
     last_modified: str | None
+    etag: str | None
 
 
 class Series(NamedTuple):
@@ -160,12 +181,26 @@ def arguments() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--min-interval-days",
+        type=int,
+        default=DEFAULT_MIN_INTERVAL_DAYS,
+        help=(
+            "Mindestabstand zum letzten Lauf in Tagen "
+            f"(Standard {DEFAULT_MIN_INTERVAL_DAYS}, 0 hebt die Bremse auf)"
+        ),
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
-        help="Neuen Lauf schreiben, auch wenn heute schon einer vorliegt",
+        help=(
+            "Mindestabstand ignorieren. Der bedingte Abruf greift weiterhin: "
+            "hat die Quelle nichts Neues, wird kein Lauf geschrieben."
+        ),
     )
     args = parser.parse_args()
     args.station = args.station or list(DEFAULT_STATIONS)
+    if args.min_interval_days < 0:
+        parser.error("--min-interval-days darf nicht negativ sein")
     return args
 
 
@@ -207,10 +242,12 @@ def completed_runs(
 ) -> list[Path]:
     """Bereits veroeffentlichte Laeufe dieser Station.
 
-    Ohne ``ingest_date`` alle, sonst nur die dieses Abruftags. Das ist die
-    Entsprechung zum Wasserzeichen der Ereignis-Ingestion: Sie beantwortet, ob
-    es ueberhaupt etwas zu tun gibt. Weil die Quelle taeglich genau eine Zeile
-    anhaengt, ist ein zweiter Schnappschuss am selben Tag ohne Erkenntniswert.
+    Ohne ``ingest_date`` alle, sonst nur die dieses Abruftags. Die Liste ist
+    nach run_id sortiert, und weil die run_id ein UTC-Zeitstempel ist, ist der
+    letzte Eintrag der jüngste Lauf.
+
+    Das ist die Entsprechung zum Wasserzeichen der Ereignis-Ingestion: Sie
+    beantwortet, ob es ueberhaupt etwas zu tun gibt.
 
     Gelesen wird nur Bronze, weil Bronze zuletzt veroeffentlicht wird - ein
     Raw-Lauf ohne Bronze-Zwilling kostet eine Wiederholung, nie eine Luecke.
@@ -244,11 +281,54 @@ def build_session() -> requests.Session:
     return session
 
 
-def fetch_delivery(session: requests.Session, station: str) -> Delivery:
-    """Laedt eine Stationsreihe und weist nach, dass sie ganz angekommen ist."""
+def conditional_headers(run_dir: Path | None) -> dict[str, str]:
+    """Baut ``If-None-Match``/``If-Modified-Since`` aus dem letzten Manifest.
+
+    Ohne vorherigen Lauf bleibt der Abruf unbedingt. Ein Manifest ohne die
+    beiden Angaben - etwa aus einem Lauf vor dieser Aenderung - liefert einen
+    leeren Satz und damit denselben Vollabruf wie bisher.
+    """
+    if run_dir is None:
+        return {}
+    pfad = run_dir / "manifest.json"
+    try:
+        manifest = json.loads(pfad.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise IngestionError(f"Invalid manifest: {pfad}") from error
+
+    abfrage = manifest.get("query") or {}
+    kopf = {}
+    # ETag ist der genauere Validator: Er haengt am Inhalt, nicht an einer
+    # Uhrzeit mit Sekundenauflösung.
+    if abfrage.get("etag"):
+        kopf["If-None-Match"] = abfrage["etag"]
+    if abfrage.get("last_modified"):
+        kopf["If-Modified-Since"] = abfrage["last_modified"]
+    return kopf
+
+
+def fetch_delivery(
+    session: requests.Session,
+    station: str,
+    *,
+    validators: dict[str, str] | None = None,
+) -> Delivery | None:
+    """Laedt eine Stationsreihe und weist nach, dass sie ganz angekommen ist.
+
+    ``None`` heisst: Der Dienst hat mit ``304 Not Modified`` geantwortet, die
+    Datei ist seit dem letzten Lauf unveraendert, es gibt nichts zu schreiben.
+    """
     url = station_url(station)
     try:
-        response = session.get(url, timeout=TIMEOUT_SECONDS)
+        response = session.get(
+            url, timeout=TIMEOUT_SECONDS, headers=validators or {}
+        )
+        if response.status_code == 304:
+            log.info(
+                "%s unveraendert seit dem letzten Lauf (HTTP 304, 0 Byte)",
+                csv_name(station),
+            )
+            return None
         response.raise_for_status()
         payload = response.content
     except requests.RequestException as error:
@@ -272,6 +352,7 @@ def fetch_delivery(session: requests.Session, station: str) -> Delivery:
         url=url,
         content_length=content_length,
         last_modified=response.headers.get("Last-Modified"),
+        etag=response.headers.get("ETag"),
     )
 
 
@@ -483,10 +564,14 @@ def write_run(
                 "column_count": len(fields),
                 "fields": fields,
             },
+            # last_modified und etag sind nicht nur Herkunftsangaben: Der
+            # naechste Lauf fragt mit ihnen bedingt an und laedt nichts, wenn
+            # die Quelle unveraendert ist.
             "query": {
                 "method": "GET",
                 "url": delivery.url,
                 "last_modified": delivery.last_modified,
+                "etag": delivery.etag,
             },
         }
         if len(series.rows) != bronze.num_rows:
@@ -518,25 +603,66 @@ def write_run(
         raise
 
 
+def newest_run(data_root: Path, station: str) -> Path | None:
+    """Der jüngste vollstaendige Lauf dieser Station, oder None."""
+    vorhanden = completed_runs(data_root, station)
+    return vorhanden[-1] if vorhanden else None
+
+
+def run_age_days(run_dir: Path, reference: date) -> int | None:
+    """Alter eines Laufs in Tagen, gemessen am Abrufdatum im Manifest."""
+    pfad = run_dir / "manifest.json"
+    try:
+        manifest = json.loads(pfad.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise IngestionError(f"Invalid manifest: {pfad}") from error
+    roh = manifest.get("ingest_date")
+    if not roh:
+        return None
+    try:
+        return (reference - date.fromisoformat(roh)).days
+    except ValueError as error:
+        raise IngestionError(
+            f"Unlesbares ingest_date in {pfad}: {roh!r}"
+        ) from error
+
+
 def ingest_station(
     session: requests.Session,
     data_root: Path,
     started: datetime,
     station: str,
     force: bool,
+    min_interval_days: int = DEFAULT_MIN_INTERVAL_DAYS,
 ) -> RunPaths | None:
-    """Laedt eine Stationsreihe; None, wenn heute nichts zu tun war."""
-    ingest_date = started.date().isoformat()
-    vorhanden = completed_runs(data_root, station, ingest_date)
-    if vorhanden and not force:
-        log.info(
-            "%s ist heute bereits geladen (%s); --force erzwingt einen neuen Lauf",
-            station,
-            vorhanden[-1].name,
-        )
-        return None
+    """Laedt eine Stationsreihe; None, wenn es nichts zu tun gab.
 
-    delivery = fetch_delivery(session, station)
+    Zwei Bremsen vor dem Download, siehe Modul-Docstring: der Mindestabstand
+    zum letzten Lauf, den ``force`` uebergeht, und der bedingte Abruf, den es
+    nicht uebergeht.
+    """
+    letzter = newest_run(data_root, station)
+
+    if letzter is not None and not force and min_interval_days > 0:
+        alter = run_age_days(letzter, started.date())
+        if alter is not None and alter < min_interval_days:
+            log.info(
+                "%s wurde vor %s Tag(en) geladen (%s), Mindestabstand ist %s; "
+                "--force laedt trotzdem",
+                station,
+                alter,
+                letzter.name,
+                min_interval_days,
+            )
+            return None
+
+    delivery = fetch_delivery(
+        session, station, validators=conditional_headers(letzter)
+    )
+    if delivery is None:
+        # 304: Die Quelle ist unveraendert. Ein weiterer Schnappschuss waere
+        # byteweise derselbe und kostet nur Platz.
+        return None
     return write_run(data_root, started, delivery, station=station)
 
 
@@ -557,7 +683,12 @@ def main() -> int:
                     info.get("city", "unbekannt"),
                 )
                 run = ingest_station(
-                    session, args.data_root, started, station, args.force
+                    session,
+                    args.data_root,
+                    started,
+                    station,
+                    args.force,
+                    args.min_interval_days,
                 )
                 if run is not None:
                     geschrieben += 1
