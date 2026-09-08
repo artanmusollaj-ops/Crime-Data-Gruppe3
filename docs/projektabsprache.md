@@ -345,6 +345,49 @@ wird. Konkret:
 Wichtig: Punkt 5 behält auch die **nicht verorteten** Fälle, mit einer Kennzeichnung.
 Sonst verschwindet die Verzerrung aus Abschnitt 2.4 unbemerkt.
 
+**Nachtrag 8.9.2026: drei Körner, nicht eine Tabelle.** Der Vorschlag oben
+entstand vor der Wetterquelle und spricht von „einer Tabelle". Das geht nicht
+auf, weil die Quellen drei verschiedene Granularitäten haben:
+
+| Tabelle | Eine Zeile ist | Woraus |
+| --- | --- | --- |
+| `crime_offense` | **ein Delikt** | Chicago- und Detroit-Bronze |
+| `tract` | **ein Census Tract** | TIGER (Geometrie) + ACS (Attribute) |
+| `weather_day` | **eine Stadt an einem Tag** | NOAA-Bronze |
+
+Alles in eine Tabelle zu zwingen hiesse, einen Wetterwert an jedes Delikt
+derselben Stadt und desselben Tages zu hängen — Zeilen vervielfachen sich, und
+jede Aggregation über Wetter zählt danach falsch. Zusammengeführt wird deshalb
+erst in Gold, dort auf dem Aggregationskorn.
+
+Zum Korn der Faktentabelle: **Delikt, nicht Fall.** Detroit liefert das schon
+fertig mit `offense_key` und `event_key` für die 1:n-Beziehung; Chicago hat `id`
+als Schlüssel, `case_number` taugt nicht (25 Nummern kommen mehrfach vor, siehe
+Abschnitt 8).
+
+**Was in `weather_day` gedeutet werden muss** und in Bronze bewusst nicht
+passiert: Zehntel auflösen (`"  214"` sind 21,4 °C, `SNOW` dagegen schon mm),
+leeres Feld zu `NULL` statt `0` — bei Niederschlag der entscheidende
+Unterschied —, das Messflag `T` für Spurenmengen als eigene Spalte, und die
+Feldzahl der `_ATTRIBUTES`-Spalten je Spalte bestimmen statt annehmen (drei bei
+`TMAX`, vier bei `PRCP`, drei bei Detroits `SNOW`, und im vierten Feld teils der
+literale Text `null`). Notebook 07 belegt das.
+
+**Spaltennamen englisch.** Der Vorschlag oben nennt `stadt`, `fall_id`,
+`zeitpunkt`; Abschnitt 6.1 hat dagegen „Code: englische Bezeichner" entschieden,
+und Bronze folgt dem schon (`analysis_eligible`, `occurred_at_utc`). Silver
+verwendet deshalb englische Spaltennamen.
+
+**`_extra` bleibt in Bronze.** Eine Größe von dort nach Silver zu heben kostet
+eine Codeänderung und keinen neuen Ladelauf — der `SNWD`-Fall zeigt, dass das
+trägt.
+
+**Stand.** `tract` ist gebaut (`python -m silver_pipeline.build_tract`), 6'282
+Zeilen, mit Herkunftsnachweis über die vier Bronze-Läufe im Manifest.
+`weather_day` und `crime_offense` fehlen; letzteres wartet auf Artans
+Zeitzonen-Fix, weil es sonst auf einer Zeitachse aufbaut, die gerade geändert
+wird.
+
 `Entscheid: Wird miteinander abgeglichen. Zwei Version, Abgleich welche besser Claude oder Codex.`
 
 ### 5.2 Was gehört in Gold?
