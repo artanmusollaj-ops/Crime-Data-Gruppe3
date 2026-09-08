@@ -63,12 +63,23 @@ def make_csv(rows: list[str] | None = None, header: str = HEADER) -> bytes:
     return ("\n".join([header, *rows]) + "\n").encode("utf-8")
 
 
+ETAG = '"a7052a-65ad06f950b00"'
+LAST_MODIFIED = "Sun, 06 Sep 2026 13:25:33 GMT"
+
+
 class FakeResponse:
-    def __init__(self, payload: bytes, headers: dict | None = None):
+    def __init__(
+        self,
+        payload: bytes,
+        headers: dict | None = None,
+        status_code: int = 200,
+    ):
         self.content = payload
+        self.status_code = status_code
         self.headers = headers if headers is not None else {
             "Content-Length": str(len(payload)),
-            "Last-Modified": "Sun, 06 Sep 2026 13:25:33 GMT",
+            "Last-Modified": LAST_MODIFIED,
+            "ETag": ETAG,
         }
 
     def raise_for_status(self) -> None:
@@ -76,15 +87,29 @@ class FakeResponse:
 
 
 class FakeSession:
-    """Liefert je Aufruf eine vorbereitete Antwort und merkt sich die URLs."""
+    """Liefert je Aufruf eine vorbereitete Antwort und merkt sich die Anfragen.
 
-    def __init__(self, payload: bytes, headers: dict | None = None):
+    ``not_modified=True`` laesst den Dienst mit ``304`` und leerem Rumpf
+    antworten, so wie NOAA es bei einem bedingten Abruf ohne Aenderung tut.
+    """
+
+    def __init__(
+        self,
+        payload: bytes,
+        headers: dict | None = None,
+        not_modified: bool = False,
+    ):
         self.payload = payload
         self.headers = headers
+        self.not_modified = not_modified
         self.urls: list[str] = []
+        self.sent_headers: list[dict] = []
 
     def get(self, url, **kwargs):
         self.urls.append(url)
+        self.sent_headers.append(dict(kwargs.get("headers") or {}))
+        if self.not_modified:
+            return FakeResponse(b"", headers={}, status_code=304)
         return FakeResponse(self.payload, self.headers)
 
     def __enter__(self):
@@ -106,7 +131,8 @@ def write_default_run(tmp_path: Path, **overrides) -> dn.RunPaths:
         payload=payload,
         url=dn.station_url(STATION),
         content_length=len(payload),
-        last_modified="Sun, 06 Sep 2026 13:25:33 GMT",
+        last_modified=LAST_MODIFIED,
+        etag=ETAG,
     )
     return dn.write_run(
         overrides.pop("data_root", tmp_path / "data"),
@@ -351,6 +377,7 @@ def test_failed_run_publishes_nothing(tmp_path):
         url=dn.station_url(STATION),
         content_length=len(kaputt),
         last_modified=None,
+        etag=None,
     )
     with pytest.raises(dn.IngestionError):
         dn.write_run(data_root, STARTED, delivery, station=STATION)
@@ -364,22 +391,48 @@ def test_failed_run_publishes_nothing(tmp_path):
 # --------------------------------------------------------------------------
 
 
-def test_second_run_on_the_same_day_is_skipped(tmp_path):
-    """Die Quelle haengt taeglich eine Zeile an - zweimal laden bringt nichts."""
+def test_default_interval_is_weekly(tmp_path):
+    """Projektabsprache 3.1, Entscheid B: wöchentlich statt taeglich."""
+    assert dn.DEFAULT_MIN_INTERVAL_DAYS == 7
+
+
+def test_run_inside_the_interval_does_not_even_ask(tmp_path):
+    """Die erste Bremse greift vor dem Netz: kein Abruf, kein Byte."""
     data_root = tmp_path / "data"
-    payload = make_csv()
-    session = FakeSession(payload)
+    session = FakeSession(make_csv())
 
     erst = dn.ingest_station(session, data_root, STARTED, STATION, force=False)
     assert erst is not None
+    assert len(session.urls) == 1
 
-    spaeter = STARTED.replace(hour=18)
-    zweit = dn.ingest_station(session, data_root, spaeter, STATION, force=False)
-    assert zweit is None
-    assert len(session.urls) == 1, "der zweite Lauf darf nicht laden"
+    for tage in (1, 3, 6):
+        spaeter = STARTED + timedelta(days=tage)
+        assert dn.ingest_station(session, data_root, spaeter, STATION, False) is None
+    assert len(session.urls) == 1, "innerhalb des Abstands darf nichts geladen werden"
 
 
-def test_force_writes_another_run_on_the_same_day(tmp_path):
+def test_run_after_the_interval_loads_again(tmp_path):
+    data_root = tmp_path / "data"
+    session = FakeSession(make_csv())
+    dn.ingest_station(session, data_root, STARTED, STATION, force=False)
+
+    naechste_woche = STARTED + timedelta(days=7)
+    assert dn.ingest_station(session, data_root, naechste_woche, STATION, False)
+    assert len(dn.completed_runs(data_root, STATION)) == 2
+
+
+def test_interval_zero_lifts_the_brake(tmp_path):
+    data_root = tmp_path / "data"
+    session = FakeSession(make_csv())
+    dn.ingest_station(session, data_root, STARTED, STATION, False, 0)
+    zweit = dn.ingest_station(
+        session, data_root, STARTED.replace(hour=18), STATION, False, 0
+    )
+    assert zweit is not None
+    assert len(dn.completed_runs(data_root, STATION)) == 2
+
+
+def test_force_ignores_the_interval(tmp_path):
     data_root = tmp_path / "data"
     session = FakeSession(make_csv())
     dn.ingest_station(session, data_root, STARTED, STATION, force=False)
@@ -390,12 +443,84 @@ def test_force_writes_another_run_on_the_same_day(tmp_path):
     assert len(dn.completed_runs(data_root, STATION)) == 2
 
 
-def test_a_new_day_loads_again(tmp_path):
+# --------------------------------------------------------------------------
+# Der bedingte Abruf (Projektabsprache 3.1, Entscheid D)
+# --------------------------------------------------------------------------
+
+
+def test_first_run_asks_unconditionally(tmp_path):
+    """Ohne vorherigen Lauf gibt es keine Validatoren zu senden."""
     data_root = tmp_path / "data"
     session = FakeSession(make_csv())
     dn.ingest_station(session, data_root, STARTED, STATION, force=False)
-    morgen = STARTED + timedelta(days=1)
-    assert dn.ingest_station(session, data_root, morgen, STATION, force=False)
+    assert session.sent_headers[0] == {}
+
+
+def test_later_run_sends_the_validators_from_the_last_manifest(tmp_path):
+    data_root = tmp_path / "data"
+    session = FakeSession(make_csv())
+    dn.ingest_station(session, data_root, STARTED, STATION, force=False)
+
+    dn.ingest_station(
+        session, data_root, STARTED + timedelta(days=7), STATION, force=False
+    )
+    gesendet = session.sent_headers[-1]
+    assert gesendet["If-None-Match"] == ETAG
+    assert gesendet["If-Modified-Since"] == LAST_MODIFIED
+
+
+def test_manifest_stores_the_validators_for_the_next_run(tmp_path):
+    run = write_default_run(tmp_path)
+    abfrage = read_manifest(run.bronze)["query"]
+    assert abfrage["etag"] == ETAG
+    assert abfrage["last_modified"] == LAST_MODIFIED
+
+
+def test_not_modified_writes_no_run(tmp_path):
+    """304 heisst: dieselben Bytes, also kein zweiter Schnappschuss."""
+    data_root = tmp_path / "data"
+    geladen = FakeSession(make_csv())
+    dn.ingest_station(geladen, data_root, STARTED, STATION, force=False)
+    vorher = len(dn.completed_runs(data_root, STATION))
+
+    unveraendert = FakeSession(make_csv(), not_modified=True)
+    ergebnis = dn.ingest_station(
+        unveraendert, data_root, STARTED + timedelta(days=7), STATION, force=False
+    )
+    assert ergebnis is None
+    assert len(dn.completed_runs(data_root, STATION)) == vorher
+
+
+def test_force_still_honours_not_modified(tmp_path):
+    """Ein erzwungener Lauf ohne Neuigkeit soll nichts kosten."""
+    data_root = tmp_path / "data"
+    geladen = FakeSession(make_csv())
+    dn.ingest_station(geladen, data_root, STARTED, STATION, force=False)
+
+    unveraendert = FakeSession(make_csv(), not_modified=True)
+    assert dn.ingest_station(
+        unveraendert, data_root, STARTED, STATION, force=True
+    ) is None
+    assert len(dn.completed_runs(data_root, STATION)) == 1
+
+
+def test_fetch_returns_none_on_304():
+    session = FakeSession(make_csv(), not_modified=True)
+    assert dn.fetch_delivery(session, STATION, validators={"If-None-Match": ETAG}) is None
+
+
+def test_manifest_without_validators_falls_back_to_a_full_request(tmp_path):
+    """Ein Lauf aus der Zeit vor dieser Aenderung darf nichts blockieren."""
+    run = write_default_run(tmp_path)
+    pfad = run.bronze / "manifest.json"
+    manifest = json.loads(pfad.read_text(encoding="utf-8"))
+    manifest["query"] = {"method": "GET", "url": manifest["query"]["url"]}
+    pfad.write_text(json.dumps(manifest), encoding="utf-8")
+    assert dn.conditional_headers(run.bronze) == {}
+
+
+def test_conditional_headers_without_a_previous_run():
+    assert dn.conditional_headers(None) == {}
 
 
 def test_incomplete_run_does_not_count_as_done(tmp_path):

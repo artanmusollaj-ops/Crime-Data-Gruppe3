@@ -395,8 +395,18 @@ Silver, nicht bei der Ingestion.
 ### Läufe und Vollständigkeit
 
 Jeder Lauf ist ein vollständiger Schnappschuss — die Quelle liefert immer die
-ganze Reihe, es gibt kein Delta abzurufen. Ein zweiter Lauf am selben Tag wird
-deshalb übersprungen, `--force` erzwingt ihn trotzdem.
+ganze Reihe, es gibt kein Delta abzurufen. Weil jeder Lauf vollständig ist,
+entsteht durch selteneres Laden **keine Lücke**: Der nächste Lauf bringt die
+Zwischenzeit mit. Zwei Bremsen greifen deshalb vor dem Download:
+
+| Bremse | Wirkung | Umgehung |
+| --- | --- | --- |
+| Mindestabstand, standardmässig 7 Tage | fragt gar nicht erst | `--force` oder `--min-interval-days 0` |
+| Bedingter Abruf über `If-None-Match` | `HTTP 304`, null Bytes statt 11 MB | keine — auch `--force` schreibt keinen Lauf, wenn die Quelle unverändert ist |
+
+Der Wochenrhythmus ist Abschnitt 3.1 der Projektabsprache, Entscheid „B plus D".
+Ein täglicher Vollschnappschuss kostet 8,3 GB im Jahr, der Wochenlauf 1,2 GB —
+bei gleichem Informationsgehalt.
 
 Nachgewiesen wird die Vollständigkeit dreifach: `Content-Length` gegen die
 empfangenen Bytes, gelesene CSV-Zeilen gegen geschriebene Parquet-Zeilen, und
