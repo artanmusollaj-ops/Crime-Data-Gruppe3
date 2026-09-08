@@ -242,7 +242,7 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 | **Ingestion** | Vier Pipelines. Batch, kein Streaming. Chicago inkrementell über Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` | – |
 | **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest | `data/`, Abschnitt 4 | Evaluation schriftlich, Silver/Gold leer |
 | **Transformation** | Bronze bewusst ohne Transformation. Qualitätsanalyse für Chicago fertig | Notebook 03 | Silver und Gold komplett |
-| **Serving** | – | – | **komplett offen**, siehe Abschnitt 6 |
+| **Serving** | Option **A · Analytik** gewählt: Dashboard auf der Gold-Schicht | Abschnitt 6 | nicht gebaut; Gold braucht dafür Aggregate je Tract, Monat und Kategorie |
 
 ### Unterströmungen
 
@@ -410,7 +410,7 @@ Dashboard auf derselben Gold-Schicht ist deutlich schneller gebaut als Modelle.
 allen Merkmalen. Fällt sie auf A, genügen Aggregate je Tract, Monat und
 Kategorie. Das ist der Grund, weshalb der Entscheid nicht warten kann.
 
-`Entscheid: ______________________________________________`
+`Entscheid: Option A ist unser Hauptziel`
 
 ---
 
@@ -419,7 +419,7 @@ Kategorie. Das ist der Grund, weshalb der Entscheid nicht warten kann.
 | # | Paket | Ergebnis | Wer | Bis |
 | --- | --- | --- | --- | --- |
 | 1 | Forschungsfragen und Hypothesen festlegen | Abschnitt 2 entschieden | beide | |
-| 2 | Serving-Option wählen | bestimmt das Gold-Schema | beide | |
+| 2 | ~~Serving-Option wählen~~ | erledigt am 8.9.2026: **Option A** | beide | ✓ |
 | 3 | Problemstellung und Methodenteil schreiben | Präsentationstext | | |
 | 4 | Lebenszyklus dokumentieren | Diagramm + Tabelle aus Abschnitt 3 | | |
 | 5 | Storage-Evaluation verschriftlichen | Abschnitt 4 als Präsentationsteil | | |
@@ -444,7 +444,7 @@ erledigt werden.
 | Detroit-Daten tragen den Vergleich nicht | FF1 nicht beantwortbar | Paket 6 früh, notfalls Fragestellung anpassen |
 | NIBRS-Zuordnung für Detroit unvollständig | Kategorien nicht vergleichbar | früh prüfen; Chicago ist zu 100 % belegt, Detroit offen |
 | Ungleiche ACS-Lücken zwischen den Städten | verzerrter Vergleich | ausweisen statt wegrechnen; Sensitivitätsrechnung |
-| Serving-Entscheid zu spät | Gold zweimal gebaut | Paket 2 in der ersten Sitzung |
+| ~~Serving-Entscheid zu spät~~ | ~~Gold zweimal gebaut~~ | entfallen: Option A ist entschieden, das Gold-Schema steht damit fest |
 | Verschiedene Datenstände im Team | widersprüchliche Zahlen | Referenzstand vereinbaren, [Absprache 7.1](projektabsprache.md) |
 
 ---
@@ -459,7 +459,7 @@ ergibt sich folgender Stand:
 | --- | --- | --- | --- |
 | 1 | **Forschungsfragen** — FF1 bis FF3 übernehmen oder anders schneiden? | ○ **offen** | [Absprache 5.2](projektabsprache.md) sagt ausdrücklich „Forschungsfragen noch definieren" |
 | 2 | **Hypothesen** — H1 bis H5 Pflicht, H6 bis H8 Kür? | ○ **offen** | – |
-| 3 | **Serving-Option** — A, B oder C? | ○ **offen** | – |
+| 3 | **Serving-Option** — A, B oder C? | ● **A · Analytik** | Abschnitt 6; Gold braucht damit nur Aggregate je Tract, Monat und Kategorie, keine Merkmalstabelle |
 | 4 | **Wetterquelle** — im Scope? | ● **ja** | [Absprache 2.1](projektabsprache.md) Variante **D**; Quelle gebaut, getestet, geladen, dokumentiert |
 | 5 | **Storage-Begründung** | ◐ **Werkzeug ja, Begründung nein** | [Absprache 5.3](projektabsprache.md) „DuckDB"; die schriftliche Evaluation fehlt, und das Bronze-Format ist offen ([4.1](projektabsprache.md)) |
 | 6 | **Arbeitsteilung** | ○ **verschoben** | [Absprache 7.3](projektabsprache.md) „Machen wir sobald Artan bereit ist" |
@@ -468,9 +468,21 @@ Dazu zwei Entscheide, die in dieser Liste bisher fehlten und weiterhin offen
 sind — beide in Abschnitt 10.1: **Sichtbarkeit** des Repositorys und **Ablage**
 der Abgabe. Sie hängen an der Abgabeform, nicht an der Technik.
 
-**Vier echte Entscheidungen bleiben also: 1, 2, 3 und 6.** Die ersten drei
-hängen zusammen — die Serving-Option bestimmt Gold, Gold hängt an den
-Forschungsfragen, und genau das sagt [Absprache 5.2](projektabsprache.md).
+**Drei echte Entscheidungen bleiben also: 1, 2 und 6.** Die ersten beiden
+hängen zusammen und beide am selben Punkt: Die **Form** von Gold steht seit dem
+Serving-Entscheid fest — Aggregate je Tract, Monat und Kategorie —, aber sein
+**Inhalt** hängt an den Forschungsfragen. Genau das sagt
+[Absprache 5.2](projektabsprache.md) mit „Muss noch definiert werden.
+Forschungsfragen noch definieren."
+
+**Eine Spannung, die aus zwei Entscheiden zusammen entsteht.** Abschnitt 6 hat
+Option **B** vorgeschlagen, unter anderem mit der Begründung, sie „macht die
+Wetterdaten nützlich". Gewählt ist **A**, während [Absprache
+2.1](projektabsprache.md) mit Variante **D** das Wetter im Scope behält. Damit
+muss das Wetter seinen Platz in einem Aggregat-Gold verdienen — etwa als
+Dimension neben Tract, Monat und Kategorie. Sonst trägt die Wetterquelle nur zu
+FF2 und H6 bei, nicht zum Serving. Das ist kein Widerspruch, aber es gehört beim
+Entwurf des Gold-Schemas entschieden.
 
 ### Was aus der Sitzung noch nicht eingearbeitet ist
 
