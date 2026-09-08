@@ -58,7 +58,7 @@ heutigen Stand fast erreichbar; B kostet wenig zusätzlich, weil die ACS-Daten
 schon liegen; C bringt eine dritte Zeitachse ins Spiel und lohnt erst, wenn A
 steht. So ist das Projekt zu jedem Zeitpunkt vorzeigbar.
 
-`Entscheid: ______________________________________________`
+`Entscheid: D. Ein Grossteil der Daten ist schon heruntergeladen. Ein Integration sollte nicht mehr so aufwändig sein.`
 
 ### 2.2 Zeitraum
 
@@ -77,7 +77,7 @@ Mehrjahres-Auswertung — nicht das Laden der Falldaten.
 fünf Jahre mit einem stillschweigenden Grenzbruch. Falls Zeit bleibt: 2021–2024,
 weil das vollständig innerhalb der 2020er-Grenzen liegt.
 
-`Entscheid: ______________________________________________`
+`Entscheid: Auf 2024 beschränken um im Leistungsnachweis 1 zu zeigen`
 
 ### 2.3 Räumliche Einheit
 
@@ -89,7 +89,7 @@ vergleichbar.
 Ebene. Chicagos `community_area` zusätzlich mitführen, weil sie für lokale
 Leser aussagekräftiger ist.
 
-`Entscheid: ______________________________________________`
+`Entscheid: Gemeinsame Einheit, Stadt als übergeordnert. Darunter noch miteinander abgleichen ob granularer berschrieben und übernommen.`
 
 ### 2.4 Umgang mit der Geo-Lücke
 
@@ -105,7 +105,7 @@ sondern in jeder Tract-Auswertung die Abdeckung je Delikttyp mitausweisen. Und:
 Für Detroit dieselbe Prüfung fahren, bevor wir Zahlen nebeneinanderstellen —
 sonst vergleichen wir womöglich unterschiedlich stark verzerrte Grundgesamtheiten.
 
-`Entscheid: ______________________________________________`
+`Entscheid: Vorschlag umsetzen. Detroit wird noch analysiert. In der Analyse bemerken`
 
 ---
 
@@ -164,7 +164,7 @@ und Zeilenzahl, festes Schema plus `_extra`. **Umgesetzt.** Die Vorbedingung
 Fällt der Entscheid gegen C, liegt eine Pipeline da, die niemand auswertet —
 sie kostet dann nichts weiter, ausser dass sie mitgepflegt wird.
 
-`Entscheid: ______________________________________________`
+`Entscheid: Gemäss Voschlag umsetzen. Allenfalls einen Mechaninsmus einbauen, der alte Download mit dem neuen überprüft und dann gelöscht wird. Daten in Quelle historisiert. Aufbewahrung regeln`
 
 ### 3.1 Abrufhäufigkeit, bedingter Abruf und Speicher
 
@@ -236,7 +236,7 @@ nichts Neues findet, kostenlos.
 **Nicht blockierend.** Fällt der Entscheid gar nicht, läuft Variante A weiter.
 Der Einbau von D wartet ausdrücklich auf diesen Entscheid.
 
-`Entscheid: ______________________________________________`
+`Entscheid: B plus D ist o.k.`
 
 ---
 
@@ -270,7 +270,7 @@ Beweisstück und unwiederbringlich; Bronze ist daraus jederzeit neu erzeugbar.
 Diese Trennung hat sich bewährt: Beim Chicago-Schemafehler liess sich Bronze
 neu ableiten, ohne die API erneut zu befragen.
 
-`Entscheid: ______________________________________________`
+`Entscheid: Es wird angeschaut was perfomanter ist. Wenn parquet besser ist, wird es umgesetzt da es besser ist zu vereinheitlichen`
 
 ### 4.2 Angleichung Detroits
 
@@ -292,7 +292,7 @@ anders abgelegt.
 Falls die Zeit knapp wird: Variante B ist ein vertretbarer Kompromiss, weil der
 Pfad das ist, was Silver am meisten stört.
 
-`Entscheid: ______________________________________________`
+`Entscheid: Hängt von 4.1 ab.`
 
 ### 4.3 Gemeinsame Regeln für jede künftige Quelle
 
@@ -307,7 +307,7 @@ Pfad das ist, was Silver am meisten stört.
 - [ ] Werte behalten den Typ der Quelle; Parsen erst in Silver
 - [ ] Schlüssel und Token nie im Manifest oder in einer abgelegten URL
 
-`Entscheid: ______________________________________________`
+`Entscheid: Wetter und Census bereits umgesetzt analog Chicago`
 
 ---
 
@@ -331,7 +331,7 @@ wird. Konkret:
 Wichtig: Punkt 5 behält auch die **nicht verorteten** Fälle, mit einer Kennzeichnung.
 Sonst verschwindet die Verzerrung aus Abschnitt 2.4 unbemerkt.
 
-`Entscheid: ______________________________________________`
+`Entscheid: Wird miteinander abgeglichen. Zwei Version, Abgleich welche besser Claude oder Codex.`
 
 ### 5.2 Was gehört in Gold?
 
@@ -346,7 +346,7 @@ Industrie — in Michigan 103 Stück). Dort ist eine Rate nicht definiert.
 Vorschlag: Rate `null`, absolute Zahl trotzdem ausweisen, Zelle in Auswertungen
 kenntlich machen.
 
-`Entscheid: ______________________________________________`
+`Entscheid: Muss noch definiert werden. Forschungsfragen noch definieren.`
 
 ### 5.3 Werkzeug für Silver und Gold
 
@@ -364,7 +364,7 @@ liest, der Join als SQL nachvollziehbar bleibt und wir schon WKB in Bronze
 liegen haben. Wer lieber bei Python bleibt: geopandas ist die pragmatische
 Alternative. Wichtig ist vor allem, dass wir **eines** wählen.
 
-`Entscheid: ______________________________________________`
+`Entscheid: DuckDB`
 
 ---
 
@@ -400,7 +400,7 @@ Ergänzende Regeln zur Diskussion:
 - **Je Quelle zwei Notebooks**: eines zur Quelle, eines zur Ingestion. Dazu je
   Stadt eines zur Datenqualität. Für Detroit fehlen beide noch.
 
-`Entscheid: ______________________________________________`
+`Entscheid: Wird so umgesetzt`
 
 ### 6.1 Sprache und Schreibweise
 
@@ -415,7 +415,7 @@ mit Umlauten und Schweizer Schreibweise (`ss` statt `ß`).
   ASCII-Umschreibung, damit Encoding nie zum Thema wird
 - Variablennamen immer ASCII, auch in Notebooks
 
-`Entscheid: ______________________________________________`
+`Entscheid: Machen wir so`
 
 ---
 
@@ -437,7 +437,7 @@ Ergebnisse beziehen. Ergänzend eine kurze Anleitung „so kommst du zum gleiche
 Stand" in der README. Alternative, falls uns Speicher egal ist: die
 Gold-Tabellen einchecken, weil sie klein sind.
 
-`Entscheid: ______________________________________________`
+`Entscheid: Bei einem Daily Load wird darauf geschaut T-1 geladen wird. Dies muss ausgewiesen werden.`
 
 ### 7.2 Tests
 
@@ -468,18 +468,18 @@ Diskussionsgrundlage:
 | Schritt | Ergebnis | Wer | Bis |
 | --- | --- | --- | --- |
 | 1 | Dieses Dokument entschieden | beide | |
-| 2 | Detroit-Datenqualität geprüft (Notebook wie 03) | | |
-| 3 | Detroit-Bronze angeglichen (falls 4.2 = A) | | |
-| 4 | Silver: Dedup, Typen, räumlicher Join | | |
-| 5 | NIBRS-Harmonisierung über beide Städte | | |
-| 6 | Gold: Aggregate und Raten | | |
-| 7 | Auswertungs-Notebook | | |
-| 8 | Wetter-Pipeline (nur falls Variante C) | | |
+| 2 | Detroit-Datenqualität geprüft (Notebook wie 03) |Artan| |
+| 3 | Detroit-Bronze angeglichen (falls 4.2 = A) |Artan, wenn Angleoich | |
+| 4 | Silver: Dedup, Typen, räumlicher Join |Beide, besete Versio gewinnt | |
+| 5 | NIBRS-Harmonisierung über beide Städte | Beide, beste Version gewinnt| |
+| 6 | Gold: Aggregate und Raten | Beide überlegen Analyseszenarien | |
+| 7 | Auswertungs-Notebook | Ausstehen | |
+| 8 | Wetter-Pipeline (nur falls Variante C) | Umgesetzt durch Christian| |
 
 Schritt 2 steht bewusst vorn: Erst wenn wir die Detroit-Daten so gut kennen wie
 die Chicagoer, wissen wir, ob ein Vergleich überhaupt trägt.
 
-`Entscheid: ______________________________________________`
+`Entscheid: Machen wir sobald Artan bereit ist`
 
 ### 7.4 Wann ist etwas fertig?
 
@@ -491,7 +491,7 @@ die Chicagoer, wissen wir, ob ein Vergleich überhaupt trägt.
 - [ ] Ein Notebook zur Quelle, eines zur Ingestion
 - [ ] In der README erwähnt
 
-`Entscheid: ______________________________________________`
+`Entscheid: Setzten wir so um`
 
 ---
 
