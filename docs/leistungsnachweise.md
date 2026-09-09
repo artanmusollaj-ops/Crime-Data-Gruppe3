@@ -302,10 +302,78 @@ Toleranz, die ein Streaming-Wasserzeichen setzt.
 
 ## 4 · Storage: die geforderte Evaluation
 
-Gefordert ist **Evaluation, Wahl und Implementierung**. Implementiert ist etwas,
-die Evaluation fehlt schriftlich. Vorschlag für die Argumentation:
+Gefordert ist **Evaluation, Wahl und Implementierung**. Die Evaluation besteht
+aus zwei Fragen, die oft vermischt werden:
 
-### Anforderungen an die Speicherumgebung
+1. **Die Speicherumgebung** — Dateien plus DuckDB, PostgreSQL/PostGIS oder
+   Cloud? Dazu unten die Anforderungen und Optionen.
+2. **Das Format innerhalb der Schichten** — NDJSON oder Parquet? Diese Frage
+   ist **gemessen** und in
+   [`notebooks/31_storage_evaluation.ipynb`](../notebooks/31_storage_evaluation.ipynb)
+   reproduzierbar.
+
+### Das Bronze-Format: gemessen, nicht behauptet
+
+Der Entscheid zu [Absprache 4.1](projektabsprache.md) verlangte genau diese
+Messung: *„Es wird angeschaut was performanter ist."* Verglichen wurden
+dieselben Daten in beiden Formaten — Detroits Bronze-Lauf, 88'695 Zeilen, das
+ausgelieferte NDJSON gegen daraus erzeugtes Parquet, gelesen über DuckDB.
+
+| Format | Grösse | gegen NDJSON |
+| --- | --- | --- |
+| NDJSON, wie ausgeliefert | 125,3 MB | 100 % |
+| NDJSON + gzip | 11,7 MB | 9,4 % |
+| **Parquet snappy** | **6,5 MB** | **5,2 %** |
+| Parquet zstd | 4,8 MB | 3,9 % |
+
+| Abfrage | NDJSON | Parquet | Faktor |
+| --- | --- | --- | --- |
+| Zeilen zählen | 0,112 s | 0,000 s | aus den Metadaten |
+| eine Spalte lesen | 0,113 s | 0,000 s | 683× |
+| nach Kategorie gruppieren | 0,114 s | 0,001 s | 137× |
+| **fünf Spalten, alle Zeilen** | **0,158 s** | **0,026 s** | **6,0×** |
+| alle Spalten materialisieren | 0,790 s | 0,615 s | 1,3× |
+
+**Die vierte Zeile ist die, die zählt.** Genau das tut die Silver-Schicht:
+wenige Felder aus jeder Zeile lesen. NDJSONs Zeiten sind über die ersten
+Abfragen konstant, weil JSON keine Spaltenauswahl kennt — wer ein Feld braucht,
+parst die ganze Datei. Beim vollständigen Materialisieren schrumpft der
+Vorsprung auf 1,3×, weil dort das Aufbauen der Ergebniszeilen dominiert.
+
+**Was für NDJSON spricht, damit es genannt ist.** Die Sorge, DuckDB könnte das
+Schema je nach Stichprobe anders erraten, **trifft nicht zu**: 100 Zeilen,
+2'048 Zeilen und die ganze Datei ergeben dasselbe Schema. Und NDJSON ist ohne
+Werkzeug lesbar — ein `head` zeigt eine Zeile, für Parquet braucht es DuckDB
+oder pyarrow. Für die Fehlersuche an einer neuen Quelle ist das ein echter
+Vorteil.
+
+**Der stärkste Befund ist nicht die Geschwindigkeit.** Detroits NDJSON
+übernimmt heute zwei Rollen gleichzeitig: Beweisstück und abgeleitete Tabelle.
+Zieht man es auf die Konvention der anderen drei Quellen nach, kostet die
+zusätzliche Schicht nichts, sie spart:
+
+```text
+heute        Bronze NDJSON                125,3 MB
+nachgezogen  Raw    NDJSON + gzip          11,7 MB
+             Bronze Parquet snappy          6,5 MB
+             zusammen                       18,3 MB   → 85 % weniger
+```
+
+**Ergebnis:** Parquet in Bronze, NDJSON komprimiert in Raw. Damit ist auch
+[Absprache 4.2](projektabsprache.md) entsperrt, deren Entscheid „Hängt von 4.1
+ab" lautete.
+
+**Grenzen der Messung:** warmer Betriebssystem-Cache, also ohne den
+Plattenzugriff, der Parquet zusätzlich begünstigen würde; eine Maschine, ein
+Datensatz; nur der Lesepfad. Die Grössenordnungen sind belastbar, die exakten
+Faktoren nicht übertragbar.
+
+### Die Speicherumgebung
+
+Die zweite Frage ist von der ersten unabhängig: Auch mit Parquet als Format
+bleibt offen, was darüber liegt. Vorschlag für die Argumentation:
+
+#### Anforderungen an die Speicherumgebung
 
 1. Rohdaten unveränderlich und beweissicher ablegen
 2. Spaltenorientierte Auswertung über einige Millionen Zeilen
@@ -314,7 +382,7 @@ die Evaluation fehlt schriftlich. Vorschlag für die Argumentation:
 5. Ohne Serverbetrieb lauffähig, damit beide im Team lokal arbeiten können
 6. Nachvollziehbar und versionierbar für die Abgabe
 
-### Optionen
+#### Optionen
 
 | Option | Stärken | Schwächen | Bewertung |
 | --- | --- | --- | --- |
@@ -323,7 +391,7 @@ die Evaluation fehlt schriftlich. Vorschlag für die Argumentation:
 | **DuckDB** | SQL direkt auf Parquet, `spatial`-Extension, eine Datei, kein Server | jung, nicht für parallele Schreiber gedacht | ergänzt die erste Option |
 | **Cloud (S3, BigQuery)** | skaliert, praxisnah | Kosten, Zugänge, für 70 MB unangemessen | verworfen |
 
-### Vorschlag
+#### Vorschlag
 
 **Zweistufig:** Dateibasierte Schichten in Parquet als Speicher, **DuckDB als
 Abfrageschicht** darüber. Begründung: Die Ablage bleibt offen, portabel und

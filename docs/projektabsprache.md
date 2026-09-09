@@ -286,6 +286,29 @@ neu ableiten, ohne die API erneut zu befragen.
 
 `Entscheid: Es wird angeschaut was perfomanter ist. Wenn parquet besser ist, wird es umgesetzt da es besser ist zu vereinheitlichen`
 
+**Angeschaut am 9.9.2026 — Parquet ist besser.** Gemessen an denselben Daten in
+beiden Formaten, reproduzierbar in
+[`notebooks/31_storage_evaluation.ipynb`](../notebooks/31_storage_evaluation.ipynb):
+
+| Kriterium | Ergebnis |
+| --- | --- |
+| Grösse | 6,5 MB gegen 125,3 MB; auch gegen gzip-komprimiertes NDJSON (11,7 MB) noch 1,8-mal kleiner |
+| Wenige Spalten, alle Zeilen — was Silver tut | **6,0-mal schneller** |
+| Zeilen zählen | aus den Metadaten, ohne die Daten zu lesen |
+| Alle Spalten materialisieren | nur 1,3-mal schneller |
+| Schema-Stabilität | **kein Unterschied**, NDJSON rät hier stabil |
+
+Der stärkste Befund ist nicht die Geschwindigkeit: Detroits NDJSON übernimmt
+heute Raw und Bronze gleichzeitig. Getrennt nach der Konvention der anderen drei
+Quellen — Raw als gzip-komprimiertes NDJSON, Bronze als Parquet — sind beide
+Schichten zusammen **18,3 statt 125,3 MB**. Die fehlende Schicht kostet also
+nichts, sie spart 85 %.
+
+Gegen Parquet spricht, dass es ohne Werkzeug nicht lesbar ist. Genau deshalb
+bleibt NDJSON in Raw, wo man es zur Fehlersuche braucht.
+
+**Damit ist 4.2 entsperrt**, dessen Entscheid „Hängt von 4.1 ab" lautete.
+
 ### 4.2 Angleichung Detroits
 
 **Frage.** Ziehen wir Detroit auf die gemeinsame Konvention nach?
