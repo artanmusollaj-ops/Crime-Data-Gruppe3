@@ -33,7 +33,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -42,20 +41,26 @@ from typing import Any, NamedTuple
 import duckdb
 
 from census_pipeline import STATES
-from silver_pipeline import ACS_MISSING_VALUE, BRONZE_LAYER, SILVER_LAYER
+from silver_pipeline import (
+    ACS_MISSING_VALUE,
+    BRONZE_LAYER,
+    PARQUET_FILE,
+    SILVER_LAYER,
+    TransformError,
+    connect,
+    newest_complete_run,
+    publish,
+    read_manifest,
+    schema_of,
+)
 
 
 TABLE = "tract"
 TIGER_DATASET = "tiger_tract"
 ACS_DATASET = "acs5_tract"
 DEFAULT_VINTAGE = 2024
-PARQUET_FILE = "part-0001.parquet"
 
 log = logging.getLogger("silver_tract")
-
-
-class TransformError(RuntimeError):
-    """Die Tabelle konnte nicht sicher gebaut werden."""
 
 
 class Source(NamedTuple):
@@ -95,12 +100,7 @@ def table_dir(data_root: Path, vintage: int) -> Path:
 def newest_bronze_run(
     data_root: Path, dataset: str, vintage: int, state: str
 ) -> Source:
-    """Der jueangste vollstaendige Bronze-Lauf dieser Quelle.
-
-    Gelesen wird das Manifest, nicht das Verzeichnis: Ein Lauf zaehlt nur mit
-    ``status == "complete"``. Die ``run_id`` ist ein UTC-Zeitstempel, deshalb
-    ist der letzte sortierte Eintrag der jueangste.
-    """
+    """Der juengste vollstaendige Bronze-Lauf dieser Quelle."""
     parent = (
         data_root
         / BRONZE_LAYER
@@ -108,40 +108,10 @@ def newest_bronze_run(
         / f"vintage={vintage}"
         / f"state={state}"
     )
-    kandidaten = []
-    for manifest_path in sorted(parent.glob("run_*/manifest.json")):
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as error:
-            raise TransformError(f"Invalid manifest: {manifest_path}") from error
-        if manifest.get("status") != "complete":
-            continue
-        parquet = manifest_path.parent / PARQUET_FILE
-        if not parquet.exists():
-            raise TransformError(f"Lauf ohne Parquet-Datei: {manifest_path.parent}")
-        kandidaten.append(
-            Source(dataset, state, manifest_path.parent.name, parquet)
-        )
-
-    if not kandidaten:
-        raise TransformError(
-            f"Kein vollstaendiger Bronze-Lauf fuer {dataset}, Vintage "
-            f"{vintage}, Staat {state}. Zuerst die Ingestion starten."
-        )
-    return kandidaten[-1]
-
-
-def connect() -> duckdb.DuckDBPyConnection:
-    """Eine DuckDB-Verbindung mit geladener ``spatial``-Extension."""
-    con = duckdb.connect()
-    try:
-        con.execute("INSTALL spatial")
-        con.execute("LOAD spatial")
-    except duckdb.Error as error:
-        raise TransformError(
-            f"spatial-Extension nicht verfuegbar: {error}"
-        ) from error
-    return con
+    lauf = newest_complete_run(
+        parent, what=f"{dataset}, Vintage {vintage}, Staat {state}"
+    )
+    return Source(dataset, state, lauf.name, lauf / PARQUET_FILE)
 
 
 def build_query(tiger: list[Source], acs: list[Source]) -> str:
@@ -278,96 +248,53 @@ def column_statistics(
     }
 
 
-def write_table(
+def build_manifest(
     con: duckdb.DuckDBPyConnection,
     relation: str,
-    data_root: Path,
     vintage: int,
     sources: list[Source],
     started: datetime,
-) -> Path:
-    """Schreibt Parquet und Manifest und veroeffentlicht sie atomar.
-
-    Silver ist abgeleitet und wird ersetzt, nicht angehaeuft. Ersetzt wird
-    trotzdem in drei Schritten, damit nie ein halber Stand sichtbar ist: neu
-    schreiben, alt beiseiteschieben, neu einhaengen, alt entfernen.
-    """
-    ziel = table_dir(data_root, vintage)
-    arbeit = ziel.parent / f".{ziel.name}.part"
-    verdraengt = ziel.parent / f".{ziel.name}.superseded"
-    shutil.rmtree(arbeit, ignore_errors=True)
-    shutil.rmtree(verdraengt, ignore_errors=True)
-    arbeit.mkdir(parents=True)
-
-    try:
-        parquet = arbeit / PARQUET_FILE
-        con.execute(
-            f"COPY {relation} TO '{parquet}' (FORMAT PARQUET, COMPRESSION SNAPPY)"
-        )
-
-        nachweis = reconcile(con, relation)
-        manifest = {
-            "status": "complete",
-            "layer": SILVER_LAYER,
-            "table": TABLE,
-            "grain": "ein Census Tract",
-            "vintage": vintage,
-            "built_at_utc": started.isoformat().replace("+00:00", "Z"),
-            "tool": f"duckdb {duckdb.__version__} mit spatial",
-            "format": "parquet (snappy, Geometrie als WKB in EPSG:4269)",
-            "row_count": nachweis["row_count"],
-            "join_key": "geoid",
-            # Ohne diese Herkunft ist der Referenzstand aus Absprache 7.1
-            # nicht belegbar: Sie nennt genau die Bronze-Laeufe, aus denen
-            # diese Tabelle entstanden ist.
-            "derived_from": [
-                {
-                    "layer": BRONZE_LAYER,
-                    "dataset": quelle.dataset,
-                    "state_fips": quelle.state,
-                    "run_id": quelle.run_id,
-                }
-                for quelle in sources
-            ],
-            "reconciliation": nachweis,
-            "column_statistics": column_statistics(con, relation),
-            "schema": {
-                name: str(typ)
-                for name, typ in zip(
-                    *con.execute(
-                        f"SELECT list(column_name), list(column_type) "
-                        f"FROM (DESCRIBE SELECT * FROM {relation})"
-                    ).fetchone()
-                )
-            },
-            "notes": {
-                "acs_missing_value": (
-                    f"{ACS_MISSING_VALUE} aus dem ACS ist hier zu NULL "
-                    "aufgeloest; in Bronze steht der Code unveraendert"
-                ),
-                "poverty_rate": (
-                    "bei Tracts ohne Einwohner NULL, die absoluten Zahlen "
-                    "bleiben erhalten"
-                ),
-                "extra_column": "_extra wird nicht uebernommen und bleibt in Bronze",
-            },
-        }
-        (arbeit / "manifest.json").write_text(
-            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-
-        if ziel.exists():
-            ziel.rename(verdraengt)
-        arbeit.rename(ziel)
-        shutil.rmtree(verdraengt, ignore_errors=True)
-        return ziel
-    except BaseException:
-        shutil.rmtree(arbeit, ignore_errors=True)
-        if verdraengt.exists() and not ziel.exists():
-            verdraengt.rename(ziel)
-        shutil.rmtree(verdraengt, ignore_errors=True)
-        raise
+) -> dict[str, Any]:
+    """Das Manifest der Tabelle, mit Herkunft und Nachweis."""
+    nachweis = reconcile(con, relation)
+    return {
+        "status": "complete",
+        "layer": SILVER_LAYER,
+        "table": TABLE,
+        "grain": "ein Census Tract",
+        "vintage": vintage,
+        "built_at_utc": started.isoformat().replace("+00:00", "Z"),
+        "tool": f"duckdb {duckdb.__version__} mit spatial",
+        "format": "parquet (snappy, Geometrie als WKB in EPSG:4269)",
+        "row_count": nachweis["row_count"],
+        "join_key": "geoid",
+        # Ohne diese Herkunft ist der Referenzstand aus Absprache 7.1 nicht
+        # belegbar: Sie nennt genau die Bronze-Laeufe, aus denen diese
+        # Tabelle entstanden ist.
+        "derived_from": [
+            {
+                "layer": BRONZE_LAYER,
+                "dataset": quelle.dataset,
+                "state_fips": quelle.state,
+                "run_id": quelle.run_id,
+            }
+            for quelle in sources
+        ],
+        "reconciliation": nachweis,
+        "column_statistics": column_statistics(con, relation),
+        "schema": schema_of(con, relation),
+        "notes": {
+            "acs_missing_value": (
+                f"{ACS_MISSING_VALUE} aus dem ACS ist hier zu NULL "
+                "aufgeloest; in Bronze steht der Code unveraendert"
+            ),
+            "poverty_rate": (
+                "bei Tracts ohne Einwohner NULL, die absoluten Zahlen "
+                "bleiben erhalten"
+            ),
+            "extra_column": "_extra wird nicht uebernommen und bleibt in Bronze",
+        },
+    }
 
 
 def build(data_root: Path, vintage: int, states: list[str]) -> Path:
@@ -384,11 +311,14 @@ def build(data_root: Path, vintage: int, states: list[str]) -> Path:
     for quelle in tiger + acs:
         log.info("Quelle: %s %s %s", quelle.dataset, quelle.state, quelle.run_id)
 
-    con = connect()
+    con = connect(spatial=True)
     try:
         con.execute(f"CREATE TEMP VIEW tract_silver AS {build_query(tiger, acs)}")
-        ziel = write_table(
-            con, "tract_silver", data_root, vintage, tiger + acs, started
+        manifest = build_manifest(
+            con, "tract_silver", vintage, tiger + acs, started
+        )
+        ziel = publish(
+            con, "tract_silver", table_dir(data_root, vintage), manifest
         )
     finally:
         con.close()
@@ -399,7 +329,7 @@ def main() -> int:
     args = arguments()
     try:
         ziel = build(args.data_root, args.vintage, args.state)
-        manifest = json.loads((ziel / "manifest.json").read_text(encoding="utf-8"))
+        manifest = read_manifest(ziel)
         log.info("Silver-Tabelle geschrieben: %s", ziel)
         log.info("  Zeilen: %s", f"{manifest['row_count']:,}")
         statistik = manifest["column_statistics"]

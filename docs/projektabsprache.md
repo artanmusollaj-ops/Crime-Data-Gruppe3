@@ -371,7 +371,7 @@ leeres Feld zu `NULL` statt `0` — bei Niederschlag der entscheidende
 Unterschied —, das Messflag `T` für Spurenmengen als eigene Spalte, und die
 Feldzahl der `_ATTRIBUTES`-Spalten je Spalte bestimmen statt annehmen (drei bei
 `TMAX`, vier bei `PRCP`, drei bei Detroits `SNOW`, und im vierten Feld teils der
-literale Text `null`). Notebook 07 belegt das.
+literale Text `null`). Notebook 22 belegt das.
 
 **Spaltennamen englisch.** Der Vorschlag oben nennt `stadt`, `fall_id`,
 `zeitpunkt`; Abschnitt 6.1 hat dagegen „Code: englische Bezeichner" entschieden,
@@ -382,11 +382,17 @@ verwendet deshalb englische Spaltennamen.
 eine Codeänderung und keinen neuen Ladelauf — der `SNWD`-Fall zeigt, dass das
 trägt.
 
-**Stand.** `tract` ist gebaut (`python -m silver_pipeline.build_tract`), 6'282
-Zeilen, mit Herkunftsnachweis über die vier Bronze-Läufe im Manifest.
-`weather_day` und `crime_offense` fehlen; letzteres wartet auf Artans
+**Stand.** `tract` ist gebaut (6'282 Zeilen) und `weather_day` ebenfalls
+(55'449 Zeilen, zwei Städte), jeweils mit Herkunftsnachweis über die
+Bronze-Läufe im Manifest. `crime_offense` fehlt und wartet auf Artans
 Zeitzonen-Fix, weil es sonst auf einer Zeitachse aufbaut, die gerade geändert
 wird.
+
+Aus `weather_day` ein Befund für die Abdeckung: Die Reihen reichen bis 1942
+zurück und sind dort lückenhaft — Detroit fehlen 4'451 Tage, alle vor 1970.
+**Ab 2001 ist die Reihe für beide Städte lückenlos**, 9'379 Tage je Stadt mit
+durchgehend belegter Temperatur. Für den Zeitraum aus Abschnitt 2.2 ist die
+Quelle also vollständig; das Manifest weist beides getrennt aus.
 
 `Entscheid: Wird miteinander abgeglichen. Zwei Version, Abgleich welche besser Claude oder Codex.`
 

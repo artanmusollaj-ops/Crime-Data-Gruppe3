@@ -211,7 +211,7 @@ Für Fragen und Hypothesen folgt daraus:
 | | Wirkung von Variante D |
 | --- | --- |
 | **FF1** Integration | unverändert. Die Harmonisierung war ohnehin der Kern |
-| **FF2** Qualitätsniveau | betrifft jetzt **fünf** Quellen statt vier. NOAA bringt eigene Dimensionen mit: vier Tage Nachlauf, Belegung der Messgrössen erst ab 1958, Flag-Spalten mit je Station verschiedener Feldzahl (siehe Notebook 07) |
+| **FF2** Qualitätsniveau | betrifft jetzt **fünf** Quellen statt vier. NOAA bringt eigene Dimensionen mit: vier Tage Nachlauf, Belegung der Messgrössen erst ab 1958, Flag-Spalten mit je Station verschiedener Feldzahl (siehe Notebook 22) |
 | **FF3** Bereinigung | gewinnt einen Fall dazu: Werte in Zehnteln als Text, leere Felder gegen `0` bei Niederschlag, Spurenmengen mit Messflag `T` |
 | **H6** drei Zeitachsen | wird von Kür zu **Pflicht**. Mit Wetter im Scope sind es tatsächlich drei Achsen: Tatzeitpunkt, ACS-5-Jahres-Fenster, Wettertag |
 | **H1 bis H5** | unverändert Pflicht |
@@ -238,7 +238,7 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 
 | Phase | Was wir haben | Beleg | Lücke |
 | --- | --- | --- | --- |
-| **Generation** | Fünf Quellsysteme: Socrata (Chicago), ArcGIS REST (Detroit), HTTPS-Dateien (TIGER und NOAA), JSON-API (ACS). Je Quelle dokumentiert: Aktualisierungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 06, 07 | Detroit-Quellnotebook |
+| **Generation** | Fünf Quellsysteme: Socrata (Chicago), ArcGIS REST (Detroit), HTTPS-Dateien (TIGER und NOAA), JSON-API (ACS). Je Quelle dokumentiert: Aktualisierungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 21, 22 | Detroit-Quellnotebook |
 | **Ingestion** | Vier Pipelines. Batch, kein Streaming. Chicago inkrementell über Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` | – |
 | **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest | `data/`, Abschnitt 4 | Evaluation schriftlich, Silver/Gold leer |
 | **Transformation** | Bronze bewusst ohne Transformation. Qualitätsanalyse für Chicago fertig | Notebook 03 | Silver und Gold komplett |
