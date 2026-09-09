@@ -16,9 +16,11 @@ stellt die Anforderungen dem Stand gegenüber. Wo eine Aussage hier auf einer
 Messung beruht, steht der Verweis auf das Notebook, das sie erzeugt — die Zahlen
 sind nachrechenbar, nicht abgeschrieben.
 
-> **Stand der Entscheide.** Kapitel 3 (Forschungsfragen und Hypothesen) ist als
-> Entwurf gekennzeichnet: Der Entscheid dazu ist offen. Alle übrigen Kapitel
-> beschreiben Umgesetztes.
+> **Was Entwurf ist und was gebaut.** Kapitel 3 (Forschungsfragen und
+> Hypothesen) ist Entwurf, weil der Entscheid offen ist. Kapitel 5.2 (Serving)
+> ist Entwurf, weil die Phase entschieden aber noch nicht gebaut ist — LN1
+> verlangt für den Lebenszyklus ausdrücklich den Entwurf. Alle übrigen Kapitel
+> beschreiben Umgesetztes, und wo etwas fehlt, steht es dort.
 
 ---
 
@@ -176,31 +178,118 @@ für Silver und Gold. Die Begründung steht in Kapitel 7.
 
 ## 5 · Der Data-Engineering-Lebenszyklus
 
+Gefordert ist der **Entwurf**. Drei Phasen sind gebaut, Transformation zu zwei
+Dritteln, Serving ist entworfen und noch nicht gebaut — der Entwurf steht
+in 5.2.
+
+### 5.1 Die fünf Phasen
+
 | Phase | Umsetzung | Beleg |
 | --- | --- | --- |
 | **Generation** | Fünf Quellsysteme: Socrata-API (Chicago), ArcGIS REST (Detroit), HTTPS-Dateien (TIGER, NOAA), JSON-API (ACS). Je Quelle dokumentiert: Änderungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 21, 22 |
 | **Ingestion** | Vier Pipelines, alle Batch. Chicago inkrementell über ein Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` |
 | **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest je Schicht | Kapitel 7 |
 | **Transformation** | Bronze bewusst ohne Deutung. Silver deutet: Typen, Einheiten, Fehlwerte, Schlüssel. Zwei von drei Tabellen gebaut | Kapitel 8 |
-| **Serving** | Option A (Analytik) entschieden, Gold noch nicht gebaut | – |
+| **Serving** | Option A (Analytik) entschieden, Gold entworfen und noch nicht gebaut | 5.2 |
 
-### Unterströmungen
+### 5.2 Serving: der Entwurf
 
-**Datenmanagement.** Herkunft ist durchgängig nachvollziehbar: Jeder
-Bronze-Lauf trägt eine `run_id` über beide Schichten, jede Silver-Tabelle nennt
-im Manifest die `run_id` jedes Bronze-Laufs, aus dem sie entstand.
+Entschieden ist **Option A · Analytik**: eine Auswertungsumgebung auf der
+Gold-Schicht. Gebaut ist sie nicht; gefordert ist der Entwurf, und der folgt aus
+den Entscheiden zwingend.
 
-**DataOps.** 329 Tests, alle ohne Netz und ohne Schlüssel. Jede Pipeline
-schreibt über ein `.part`-Verzeichnis und benennt erst nach erfolgreicher
-Prüfung atomar um — ein abgebrochener Lauf hinterlässt keinen halben Stand.
+#### Wer konsumiert
 
-**Sicherheit.** Kein Schlüssel liegt im Repository oder in einem Manifest; ein
-Test prüft das. Die Historie enthält keinen committeten Schlüssel.
+| Konsument | Zugriff | Korn |
+| --- | --- | --- |
+| Dashboard (primär) | über Sichten in einer DuckDB-Datei | aggregiert |
+| Ad-hoc-Auswertung im Team | SQL auf dieselben Sichten | aggregiert, bei Bedarf Silver |
 
-**Orchestrierung.** Bewusst nicht umgesetzt. Die Pipelines werden von Hand
-gestartet; ein Scheduler wäre bei fünf Quellen und diesem Datenvolumen Aufwand
-ohne Erkenntnisgewinn. Das ist eine Entscheidung, keine Lücke — und sie gehört
-benannt.
+Kein externer Dienst, keine API, keine Nutzerverwaltung. Das Serving endet an
+der Auswertungsumgebung.
+
+#### Was geliefert wird: zwei Gold-Tabellen, weil zwei Körner
+
+| Tabelle | Korn | Zellen (Obergrenze) | Wofür |
+| --- | --- | --- | --- |
+| `fact_tract_month` | `geoid` × Monat × Kategorie | 6'282 × 12 × 22 ≈ 1,66 Mio | räumlicher Vergleich, Raten |
+| `fact_city_day` | Stadt × Tag × Kategorie, plus Wetter des Tages | 2 × 366 × 22 ≈ 16'100 | Wetter braucht Tagesauflösung |
+
+Die Obergrenzen sind theoretisch. Tatsächlich besetzt sind höchstens so viele
+Zellen wie es Delikte gibt — rund 348'000 für 2024 —, realistisch deutlich
+weniger, weil sich Delikte auf wenige Kategorien und Tracts konzentrieren. Die
+ganze Gold-Schicht bleibt damit klein genug für eine Datei ohne Serverbetrieb;
+das ist derselbe Grund, der in Kapitel 7 gegen PostgreSQL sprach.
+
+**Kategorien.** Gruppiert wird über die 22 Kategorien aus
+`config/crime_category_mapping.csv`, die als vergleichbar markiert sind. Alle 22
+sind in **beiden** Städten belegt — das ist die Voraussetzung dafür, dass eine
+Zelle überhaupt vergleichbar ist. Die sechs übrigen Kategorien bleiben in Silver
+erhalten und sind aus Gold ausgeschlossen.
+
+**Die zweite Tabelle folgt aus einer Spannung zwischen zwei Entscheiden.**
+Variante D hält Wetter im Scope, Option A macht Gold monatlich. Eine
+Monatsmittelung zerstört aber genau das Signal, das eine Wetterfrage braucht —
+der Effekt eines heissen Tages überlebt sie nicht. Ohne `fact_city_day` zahlt
+die Wetterquelle nur auf FF2 und H6 ein und nicht auf die Auswertung.
+
+#### Welche Kennzahlen
+
+| Kennzahl | Herkunft |
+| --- | --- |
+| Fallzahl, absolut | `crime_offense` |
+| Einwohner | `tract`, ACS — über 2024 konstant |
+| Rate je 1'000 Einwohner | abgeleitet |
+| **Abdeckungsquote je Zelle** | Anteil verorteter Fälle, aus denen die Zelle entstand |
+
+#### Was das Serving zeigen muss
+
+Drei Eigenschaften der Daten dürfen im Dashboard nicht verschwinden, sonst wird
+aus einer belegten Zahl eine irreführende:
+
+- **Raten ohne Nenner.** 109 Tracts haben null Einwohner — Wasserflächen,
+  Flughäfen, Industrie. Dort ist die Rate `NULL` und nicht null; die absolute
+  Zahl bleibt sichtbar.
+- **Nicht verortete Fälle** fehlen in jeder Tract-Zelle: 0,70 % in Chicago,
+  0,29 % in Detroit. Deshalb steht die Abdeckungsquote **neben jeder Rate** und
+  nicht in einer Fussnote.
+- **Die Lücken sind ungleich zwischen den Städten** — beim Einkommen 9,6 % der
+  Tracts in Wayne County gegen 1,7 % in Cook County. Ein Vergleich ohne
+  Abdeckungsangabe wäre systematisch verzerrt, nicht nur ungenau.
+
+#### Aktualität
+
+Gold wird aus Silver **neu gebaut** und nicht inkrementell fortgeschrieben; ein
+Lauf ist damit reproduzierbar, solange der Referenzstand feststeht (Kapitel 10).
+
+Ein Anspruch, stets den Vortag zu zeigen, ist nicht einheitlich erfüllbar: Die
+Falldaten geben ihn her, NOAA nicht — dort liegen rund vier Tage Nachlauf. Das
+Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
+
+#### Was ausdrücklich nicht geliefert wird
+
+- **Keine zeilenweisen Falldaten.** Gold ist aggregiert; wer einzelne Fälle
+  braucht, geht auf Silver.
+- **Keine Merkmalstabelle je Tract für Modelle.** Das wäre Option B, und die ist
+  nicht gewählt.
+
+### 5.3 Unterströmungen
+
+| Unterströmung | Umsetzung | Lücke |
+| --- | --- | --- |
+| **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
+| **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
+| **DataOps** | 329 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
+| **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
+| **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
+| **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
+
+**Zur Orchestrierung.** Bei fünf Quellen und vier Batch-Pipelines wären Airflow
+oder Prefect Aufwand ohne Erkenntnisgewinn. Angemessen wäre ein `Makefile` oder
+ein Skript, das die Läufe in der richtigen Reihenfolge aufruft und protokolliert
+— die Reihenfolge ist real, weil `silver/tract` beide Census-Quellen braucht und
+`crime_offense` zusätzlich `tract`. Dass wir es nicht gebaut haben, ist eine
+Abwägung und keine Auslassung; genannt gehört sie trotzdem.
 
 ---
 
