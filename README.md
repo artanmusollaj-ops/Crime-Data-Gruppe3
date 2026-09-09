@@ -417,6 +417,38 @@ Ein Fingerabdruck über die Kopfzeile macht sichtbar, wenn NOAA Spalten ergänzt
 Join auf die jüngsten Falldaten läuft dort ins Leere — das ist eine Eigenschaft
 der Quelle, kein Fehler der Ingestion.
 
+## Silver-Schicht
+
+Bronze hält je Quelle einen unveränderten Schnappschuss. **Silver ist die erste
+Schicht, die deutet:** Typen setzen, Einheiten auflösen, Fehlwerte kennzeichnen,
+Schlüssel harmonisieren. Werkzeug ist DuckDB mit der `spatial`-Extension
+([Absprache 5.3](docs/projektabsprache.md)).
+
+Weil die Quellen drei verschiedene Körner haben, gibt es drei Tabellen und nicht
+eine — sonst vervielfachen sich Zeilen, und jede Aggregation zählt danach falsch:
+
+| Tabelle | Eine Zeile ist | Stand |
+| --- | --- | --- |
+| `tract` | ein Census Tract | ● gebaut |
+| `weather_day` | eine Stadt an einem Tag | ○ offen |
+| `crime_offense` | ein Delikt | ○ offen |
+
+```bash
+python -m silver_pipeline.build_tract
+```
+
+Das schreibt `data/silver/dataset=tract/vintage=2024/` mit Parquet und Manifest.
+Anders als Bronze wird Silver **ersetzt und nicht angehäuft** — die Schicht ist
+abgeleitet und jederzeit neu erzeugbar. Das Manifest nennt trotzdem die `run_id`
+jedes Bronze-Laufs, aus dem die Tabelle entstand; ohne diese Herkunft ist der
+Referenzstand aus [Absprache 7.1](docs/projektabsprache.md) nicht belegbar.
+
+Was `tract` gegenüber Bronze deutet: Der ACS liefert alles als Text, hier werden
+es Zahlen. Die Fehlwert-Kennung `-666666666` wird zu `NULL` — in Bronze bleibt
+der Code stehen. Die Armutsquote ist abgeleitet und bei Tracts ohne Einwohner
+`NULL` statt einer Division durch null, die absoluten Zahlen bleiben erhalten.
+Auffälligkeiten werden in `quality_flags` benannt statt entfernt.
+
 ## Tests
 
 Die Tests der Ingestion laufen ohne Netzzugriff und ohne App Token:

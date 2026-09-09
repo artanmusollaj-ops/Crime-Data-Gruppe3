@@ -1,0 +1,431 @@
+"""Baut die Silver-Tabelle ``tract`` aus TIGER-Geometrie und ACS-Attributen.
+
+Eine Zeile je Census Tract, mit Geometrie und den sozio-oekonomischen
+Kennzahlen desselben Tracts. Diese Tabelle ist die Dimension, an der die
+Falldaten spaeter haengen, und sie ist der einzige Silver-Baustein, der von
+keiner offenen Entscheidung abhaengt: Beide Quellen liegen als eingefrorene
+Vintage, teilen den Schluessel ``GEOID`` und brauchen keine Zeitachse.
+
+Aufruf aus dem Projekt-Root:
+
+    python -m silver_pipeline.build_tract
+
+Was hier gedeutet wird und in Bronze bewusst nicht:
+
+1. **Typen.** Der ACS liefert alle Werte als Text. Hier werden sie zu Zahlen.
+2. **Fehlwerte.** ``-666666666`` heisst "keine Schaetzung moeglich" und wird
+   zu ``NULL``. In Bronze bleibt der Code stehen, damit die Quelle
+   nachvollziehbar bleibt.
+3. **Abgeleitete Groessen.** Die Armutsquote ergibt sich aus zwei Spalten und
+   ist bei Tracts ohne Einwohner nicht definiert - dort ``NULL`` statt einer
+   Division durch null.
+4. **Qualitaetsmerkmale.** Fehlendes Einkommen und Tracts ohne Einwohner
+   werden benannt, nicht entfernt. Wer sie herausfiltern will, tut das in der
+   Auswertung und sieht dabei, wie viele es sind.
+
+Nicht uebernommen wird ``_extra``. Die Auffangspalte bleibt in Bronze; eine
+dortige Groesse hierher zu heben kostet eine Aenderung an diesem Modul und
+keinen neuen Ladelauf.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import shutil
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, NamedTuple
+
+import duckdb
+
+from census_pipeline import STATES
+from silver_pipeline import ACS_MISSING_VALUE, BRONZE_LAYER, SILVER_LAYER
+
+
+TABLE = "tract"
+TIGER_DATASET = "tiger_tract"
+ACS_DATASET = "acs5_tract"
+DEFAULT_VINTAGE = 2024
+PARQUET_FILE = "part-0001.parquet"
+
+log = logging.getLogger("silver_tract")
+
+
+class TransformError(RuntimeError):
+    """Die Tabelle konnte nicht sicher gebaut werden."""
+
+
+class Source(NamedTuple):
+    """Ein Bronze-Lauf, der in diese Tabelle eingeht."""
+
+    dataset: str
+    state: str
+    run_id: str
+    parquet: Path
+
+
+def arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data-root", type=Path, default=Path("data"))
+    parser.add_argument("--vintage", type=int, default=DEFAULT_VINTAGE)
+    parser.add_argument(
+        "--state",
+        action="append",
+        choices=sorted(STATES),
+        help="FIPS-Nummer; mehrfach moeglich. Ohne Angabe alle bekannten.",
+    )
+    args = parser.parse_args()
+    args.state = args.state or sorted(STATES)
+    return args
+
+
+def table_dir(data_root: Path, vintage: int) -> Path:
+    """Wohin die Tabelle geschrieben wird.
+
+    Partitioniert nach Vintage, weil die beiden Quellen eingefroren sind und
+    eine neue Vintage eine andere Tabelle ist - nicht eine neuere Version
+    derselben.
+    """
+    return data_root / SILVER_LAYER / f"dataset={TABLE}" / f"vintage={vintage}"
+
+
+def newest_bronze_run(
+    data_root: Path, dataset: str, vintage: int, state: str
+) -> Source:
+    """Der jueangste vollstaendige Bronze-Lauf dieser Quelle.
+
+    Gelesen wird das Manifest, nicht das Verzeichnis: Ein Lauf zaehlt nur mit
+    ``status == "complete"``. Die ``run_id`` ist ein UTC-Zeitstempel, deshalb
+    ist der letzte sortierte Eintrag der jueangste.
+    """
+    parent = (
+        data_root
+        / BRONZE_LAYER
+        / f"dataset={dataset}"
+        / f"vintage={vintage}"
+        / f"state={state}"
+    )
+    kandidaten = []
+    for manifest_path in sorted(parent.glob("run_*/manifest.json")):
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise TransformError(f"Invalid manifest: {manifest_path}") from error
+        if manifest.get("status") != "complete":
+            continue
+        parquet = manifest_path.parent / PARQUET_FILE
+        if not parquet.exists():
+            raise TransformError(f"Lauf ohne Parquet-Datei: {manifest_path.parent}")
+        kandidaten.append(
+            Source(dataset, state, manifest_path.parent.name, parquet)
+        )
+
+    if not kandidaten:
+        raise TransformError(
+            f"Kein vollstaendiger Bronze-Lauf fuer {dataset}, Vintage "
+            f"{vintage}, Staat {state}. Zuerst die Ingestion starten."
+        )
+    return kandidaten[-1]
+
+
+def connect() -> duckdb.DuckDBPyConnection:
+    """Eine DuckDB-Verbindung mit geladener ``spatial``-Extension."""
+    con = duckdb.connect()
+    try:
+        con.execute("INSTALL spatial")
+        con.execute("LOAD spatial")
+    except duckdb.Error as error:
+        raise TransformError(
+            f"spatial-Extension nicht verfuegbar: {error}"
+        ) from error
+    return con
+
+
+def build_query(tiger: list[Source], acs: list[Source]) -> str:
+    """Die Abfrage, die aus zwei Bronze-Quellen eine Silver-Zeile macht.
+
+    Der Join ist ein voller aeusserer Join und ausdruecklich kein innerer: Ein
+    Tract, der nur in einer der beiden Quellen steht, soll auffallen und nicht
+    stillschweigend verschwinden. Ob es solche gibt, prueft ``reconcile``.
+    """
+    tiger_dateien = ", ".join(f"'{quelle.parquet}'" for quelle in tiger)
+    acs_dateien = ", ".join(f"'{quelle.parquet}'" for quelle in acs)
+    staaten = ", ".join(
+        f"('{fips}', '{name}')" for fips, name in sorted(STATES.items())
+    )
+
+    return f"""
+    WITH tiger AS (
+        SELECT * FROM read_parquet([{tiger_dateien}])
+    ),
+    acs AS (
+        SELECT * FROM read_parquet([{acs_dateien}])
+    ),
+    states(state_fips, state_name) AS (
+        VALUES {staaten}
+    )
+    SELECT
+        coalesce(t.GEOID, a.GEOID)                        AS geoid,
+        t.STATEFP                                         AS state_fips,
+        s.state_name                                      AS state_name,
+        t.COUNTYFP                                        AS county_fips,
+        t.TRACTCE                                         AS tract_code,
+        t.NAMELSAD                                        AS name,
+        t.ALAND                                           AS land_area_m2,
+        t.AWATER                                          AS water_area_m2,
+        -- INTPTLAT kommt als '+42.0' beziehungsweise '-083.1'; TRY_CAST
+        -- kommt mit dem fuehrenden Plus und den fuehrenden Nullen zurecht.
+        TRY_CAST(t.INTPTLAT AS DOUBLE)                    AS centroid_lat,
+        TRY_CAST(t.INTPTLON AS DOUBLE)                    AS centroid_lon,
+        t.geometry                                        AS geometry,
+        TRY_CAST(a.B01003_001E AS BIGINT)                 AS population,
+        CASE WHEN a.B19013_001E = '{ACS_MISSING_VALUE}' THEN NULL
+             ELSE TRY_CAST(a.B19013_001E AS BIGINT) END   AS median_household_income_usd,
+        TRY_CAST(a.B17001_002E AS BIGINT)                 AS population_below_poverty,
+        -- Ohne Einwohner ist eine Quote nicht definiert. NULL statt Division
+        -- durch null, und die absolute Zahl bleibt trotzdem erhalten.
+        CASE WHEN TRY_CAST(a.B01003_001E AS BIGINT) > 0
+             THEN TRY_CAST(a.B17001_002E AS DOUBLE)
+                  / TRY_CAST(a.B01003_001E AS DOUBLE)
+             END                                          AS poverty_rate,
+        list_filter([
+            CASE WHEN t.GEOID IS NULL THEN 'MISSING_GEOMETRY' END,
+            CASE WHEN a.GEOID IS NULL THEN 'MISSING_ACS_ATTRIBUTES' END,
+            CASE WHEN a.B19013_001E = '{ACS_MISSING_VALUE}'
+                 THEN 'MISSING_MEDIAN_INCOME' END,
+            CASE WHEN TRY_CAST(a.B01003_001E AS BIGINT) = 0
+                 THEN 'ZERO_POPULATION' END
+        ], x -> x IS NOT NULL)                            AS quality_flags
+    FROM tiger t
+    FULL OUTER JOIN acs a ON t.GEOID = a.GEOID
+    LEFT JOIN states s ON s.state_fips = t.STATEFP
+    ORDER BY geoid
+    """
+
+
+def reconcile(con: duckdb.DuckDBPyConnection, relation: str) -> dict[str, Any]:
+    """Weist nach, dass die Tabelle beide Quellen deckungsgleich abbildet.
+
+    Der Nachweis dieser Schicht ist ein anderer als in Bronze: Dort wird
+    belegt, dass eine Auslieferung ganz angekommen ist. Hier wird belegt, dass
+    beim Zusammenfuehren keine Zeile verloren ging und keine erfunden wurde.
+    """
+    zeilen = con.execute(f"SELECT count(*) FROM {relation}").fetchone()[0]
+    ohne_geometrie = con.execute(
+        f"SELECT count(*) FROM {relation} "
+        "WHERE list_contains(quality_flags, 'MISSING_GEOMETRY')"
+    ).fetchone()[0]
+    ohne_acs = con.execute(
+        f"SELECT count(*) FROM {relation} "
+        "WHERE list_contains(quality_flags, 'MISSING_ACS_ATTRIBUTES')"
+    ).fetchone()[0]
+    doppelte = con.execute(
+        f"SELECT count(*) FROM (SELECT geoid FROM {relation} "
+        "GROUP BY geoid HAVING count(*) > 1)"
+    ).fetchone()[0]
+    ungueltige_geometrie = con.execute(
+        f"SELECT count(*) FROM {relation} "
+        "WHERE geometry IS NOT NULL AND NOT ST_IsValid(ST_GeomFromWKB(geometry))"
+    ).fetchone()[0]
+
+    if doppelte:
+        raise TransformError(
+            f"{doppelte} GEOID kommen mehrfach vor; geoid muss eindeutig sein"
+        )
+    if ohne_geometrie:
+        raise TransformError(
+            f"{ohne_geometrie} Tracts haben ACS-Attribute, aber keine "
+            "Geometrie - ohne Geometrie ist kein raeumlicher Join moeglich"
+        )
+
+    return {
+        "verified": True,
+        "row_count": zeilen,
+        "geoid_unique": True,
+        "tracts_without_geometry": ohne_geometrie,
+        "tracts_without_acs_attributes": ohne_acs,
+        "invalid_geometries": ungueltige_geometrie,
+    }
+
+
+def column_statistics(
+    con: duckdb.DuckDBPyConnection, relation: str
+) -> dict[str, Any]:
+    """Fuellgrade und Auffaelligkeiten, die in den Bericht gehoeren."""
+    row = con.execute(
+        f"""
+        SELECT
+            count(*)                                            AS zeilen,
+            count(population)                                   AS mit_einwohnern,
+            count(median_household_income_usd)                  AS mit_einkommen,
+            count(poverty_rate)                                 AS mit_quote,
+            sum(CASE WHEN population = 0 THEN 1 ELSE 0 END)     AS ohne_einwohner,
+            sum(population)                                     AS einwohner_summe
+        FROM {relation}
+        """
+    ).fetchone()
+    zeilen = row[0]
+    return {
+        "population_filled": row[1],
+        "median_income_filled": row[2],
+        "poverty_rate_defined": row[3],
+        "zero_population_tracts": row[4],
+        "population_total": row[5],
+        "median_income_missing_share": round(1 - row[2] / zeilen, 6) if zeilen else None,
+    }
+
+
+def write_table(
+    con: duckdb.DuckDBPyConnection,
+    relation: str,
+    data_root: Path,
+    vintage: int,
+    sources: list[Source],
+    started: datetime,
+) -> Path:
+    """Schreibt Parquet und Manifest und veroeffentlicht sie atomar.
+
+    Silver ist abgeleitet und wird ersetzt, nicht angehaeuft. Ersetzt wird
+    trotzdem in drei Schritten, damit nie ein halber Stand sichtbar ist: neu
+    schreiben, alt beiseiteschieben, neu einhaengen, alt entfernen.
+    """
+    ziel = table_dir(data_root, vintage)
+    arbeit = ziel.parent / f".{ziel.name}.part"
+    verdraengt = ziel.parent / f".{ziel.name}.superseded"
+    shutil.rmtree(arbeit, ignore_errors=True)
+    shutil.rmtree(verdraengt, ignore_errors=True)
+    arbeit.mkdir(parents=True)
+
+    try:
+        parquet = arbeit / PARQUET_FILE
+        con.execute(
+            f"COPY {relation} TO '{parquet}' (FORMAT PARQUET, COMPRESSION SNAPPY)"
+        )
+
+        nachweis = reconcile(con, relation)
+        manifest = {
+            "status": "complete",
+            "layer": SILVER_LAYER,
+            "table": TABLE,
+            "grain": "ein Census Tract",
+            "vintage": vintage,
+            "built_at_utc": started.isoformat().replace("+00:00", "Z"),
+            "tool": f"duckdb {duckdb.__version__} mit spatial",
+            "format": "parquet (snappy, Geometrie als WKB in EPSG:4269)",
+            "row_count": nachweis["row_count"],
+            "join_key": "geoid",
+            # Ohne diese Herkunft ist der Referenzstand aus Absprache 7.1
+            # nicht belegbar: Sie nennt genau die Bronze-Laeufe, aus denen
+            # diese Tabelle entstanden ist.
+            "derived_from": [
+                {
+                    "layer": BRONZE_LAYER,
+                    "dataset": quelle.dataset,
+                    "state_fips": quelle.state,
+                    "run_id": quelle.run_id,
+                }
+                for quelle in sources
+            ],
+            "reconciliation": nachweis,
+            "column_statistics": column_statistics(con, relation),
+            "schema": {
+                name: str(typ)
+                for name, typ in zip(
+                    *con.execute(
+                        f"SELECT list(column_name), list(column_type) "
+                        f"FROM (DESCRIBE SELECT * FROM {relation})"
+                    ).fetchone()
+                )
+            },
+            "notes": {
+                "acs_missing_value": (
+                    f"{ACS_MISSING_VALUE} aus dem ACS ist hier zu NULL "
+                    "aufgeloest; in Bronze steht der Code unveraendert"
+                ),
+                "poverty_rate": (
+                    "bei Tracts ohne Einwohner NULL, die absoluten Zahlen "
+                    "bleiben erhalten"
+                ),
+                "extra_column": "_extra wird nicht uebernommen und bleibt in Bronze",
+            },
+        }
+        (arbeit / "manifest.json").write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+        if ziel.exists():
+            ziel.rename(verdraengt)
+        arbeit.rename(ziel)
+        shutil.rmtree(verdraengt, ignore_errors=True)
+        return ziel
+    except BaseException:
+        shutil.rmtree(arbeit, ignore_errors=True)
+        if verdraengt.exists() and not ziel.exists():
+            verdraengt.rename(ziel)
+        shutil.rmtree(verdraengt, ignore_errors=True)
+        raise
+
+
+def build(data_root: Path, vintage: int, states: list[str]) -> Path:
+    """Baut die Tabelle und liefert das veroeffentlichte Verzeichnis."""
+    started = datetime.now(timezone.utc)
+    tiger = [
+        newest_bronze_run(data_root, TIGER_DATASET, vintage, state)
+        for state in states
+    ]
+    acs = [
+        newest_bronze_run(data_root, ACS_DATASET, vintage, state)
+        for state in states
+    ]
+    for quelle in tiger + acs:
+        log.info("Quelle: %s %s %s", quelle.dataset, quelle.state, quelle.run_id)
+
+    con = connect()
+    try:
+        con.execute(f"CREATE TEMP VIEW tract_silver AS {build_query(tiger, acs)}")
+        ziel = write_table(
+            con, "tract_silver", data_root, vintage, tiger + acs, started
+        )
+    finally:
+        con.close()
+    return ziel
+
+
+def main() -> int:
+    args = arguments()
+    try:
+        ziel = build(args.data_root, args.vintage, args.state)
+        manifest = json.loads((ziel / "manifest.json").read_text(encoding="utf-8"))
+        log.info("Silver-Tabelle geschrieben: %s", ziel)
+        log.info("  Zeilen: %s", f"{manifest['row_count']:,}")
+        statistik = manifest["column_statistics"]
+        log.info(
+            "  Einwohner insgesamt: %s, Tracts ohne Einwohner: %s",
+            f"{statistik['population_total']:,}",
+            statistik["zero_population_tracts"],
+        )
+        log.info(
+            "  ohne Median-Einkommen: %s (%.1f %%)",
+            manifest["row_count"] - statistik["median_income_filled"],
+            statistik["median_income_missing_share"] * 100,
+        )
+        return 0
+    except (TransformError, OSError, duckdb.Error) as error:
+        log.error("Silver-Aufbau fehlgeschlagen: %s", error)
+        return 1
+    except KeyboardInterrupt:
+        log.error("Abgebrochen; es wurde keine Tabelle veroeffentlicht")
+        return 130
+
+
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        stream=sys.stderr,
+    )
+    raise SystemExit(main())
