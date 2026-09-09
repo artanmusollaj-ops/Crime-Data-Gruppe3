@@ -12,10 +12,11 @@ import sys
 
 from census_pipeline import download_acs
 from chicago_pipeline import download_chicago
-from silver_pipeline import build_tract
+from silver_pipeline import build_tract, build_weather_day
 from weather_pipeline import download_noaa
 
 sys.modules["build_tract"] = build_tract
+sys.modules["build_weather_day"] = build_weather_day
 sys.modules["download_acs"] = download_acs
 sys.modules["download_chicago"] = download_chicago
 sys.modules["download_noaa"] = download_noaa

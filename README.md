@@ -374,7 +374,7 @@ Gepinnt sind die Identitätsspalten (`STATION`, `DATE`, `LATITUDE`, `LONGITUDE`,
 `ELEVATION`, `NAME`) und vier Größen mit ihren Qualitätsflags: `PRCP`, `SNOW`,
 `TMAX`, `TMIN`, je mit `_ATTRIBUTES`.
 
-`notebooks/07_weather_source.ipynb` dokumentiert die Quelle vollständig und
+`notebooks/22_weather_source.ipynb` dokumentiert die Quelle vollständig und
 prüft die Feststellungen an den geladenen Daten nach — unter anderem die
 Zehntel-Einheiten, den Nachlauf der Quelle, dass die vier Größen erst ab Ende
 1958 belegt sind, und dass die `_ATTRIBUTES`-Spalten je Station verschieden
@@ -430,11 +430,12 @@ eine — sonst vervielfachen sich Zeilen, und jede Aggregation zählt danach fal
 | Tabelle | Eine Zeile ist | Stand |
 | --- | --- | --- |
 | `tract` | ein Census Tract | ● gebaut |
-| `weather_day` | eine Stadt an einem Tag | ○ offen |
+| `weather_day` | eine Stadt an einem Tag | ● gebaut |
 | `crime_offense` | ein Delikt | ○ offen |
 
 ```bash
 python -m silver_pipeline.build_tract
+python -m silver_pipeline.build_weather_day
 ```
 
 Das schreibt `data/silver/dataset=tract/vintage=2024/` mit Parquet und Manifest.
@@ -448,6 +449,19 @@ es Zahlen. Die Fehlwert-Kennung `-666666666` wird zu `NULL` — in Bronze bleibt
 der Code stehen. Die Armutsquote ist abgeleitet und bei Tracts ohne Einwohner
 `NULL` statt einer Division durch null, die absoluten Zahlen bleiben erhalten.
 Auffälligkeiten werden in `quality_flags` benannt statt entfernt.
+
+Was `weather_day` deutet: **die Einheiten.** GHCN-Daily führt Temperatur und
+Niederschlag in Zehnteln, Schneefall dagegen schon in Millimetern — `"  214"`
+sind 21,4 °C. Ein leeres Feld wird `NULL` und nicht `0`, was bei Niederschlag
+der entscheidende Unterschied ist. Das Messflag `T` für Spurenmengen bekommt
+eine eigene Spalte, weil `PRCP = 0` mit `T` nicht „trocken" heisst. Und die
+Feldzahl der `_ATTRIBUTES`-Spalten wird ausgezählt statt unterstellt: Sie ist je
+Grösse und je Station verschieden.
+
+Je Stadt wird **eine** Station verwendet ([Absprache 3](docs/projektabsprache.md)).
+Ein zugeschaltetes Midway erscheint deshalb nicht in der Tabelle — das Manifest
+nennt es unter `skipped_stations`, damit es nicht stillschweigend verschwindet.
+Zwei Stationen derselben Stadt sind ein Fehler und kein stiller Doppelzähler.
 
 ## Tests
 

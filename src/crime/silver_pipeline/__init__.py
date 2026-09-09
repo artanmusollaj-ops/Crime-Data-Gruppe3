@@ -18,19 +18,136 @@ Wetterwert an jedem Delikt derselben Stadt und desselben Tages - oder
 Information wegwerfen. Zusammengefuehrt wird erst in Gold, dort auf dem
 Aggregationskorn.
 
-Werkzeug ist DuckDB mit der ``spatial``-Extension (Absprache 5.3). Es liest
-Bronze direkt, gleichgueltig ob Parquet oder NDJSON, sodass die noch offene
-Formatfrage aus Absprache 4.1 die Silver-Schicht nicht aufhaelt.
+Werkzeug ist DuckDB, fuer den raeumlichen Join mit der ``spatial``-Extension
+(Absprache 5.3). Es liest Bronze direkt, gleichgueltig ob Parquet oder NDJSON,
+sodass die noch offene Formatfrage aus Absprache 4.1 die Silver-Schicht nicht
+aufhaelt.
 
 Anders als Bronze sind Silver-Tabellen **abgeleitet und wiederherstellbar**.
 Sie werden deshalb ersetzt und nicht als Lauf angehaeuft; das Manifest nennt
 aber die ``run_id`` jedes Bronze-Laufs, aus dem die Tabelle entstanden ist -
 ohne diese Herkunft ist der Referenzstand aus Absprache 7.1 nicht belegbar.
+
+Dieses Modul haelt, was alle Bausteine teilen: Fehlerart, Manifestzugriff,
+Laufauswahl, Verbindung und das atomare Veroeffentlichen.
 """
+
+from __future__ import annotations
+
+import json
+import shutil
+from pathlib import Path
+from typing import Any
+
+import duckdb
+
 
 SILVER_LAYER = "silver"
 BRONZE_LAYER = "bronze"
+PARQUET_FILE = "part-0001.parquet"
 
 # Der Fehlwert des ACS. In Bronze bleibt er unveraendert stehen; ihn zu deuten
 # ist ausdruecklich Aufgabe dieser Schicht.
 ACS_MISSING_VALUE = "-666666666"
+
+
+class TransformError(RuntimeError):
+    """Eine Silver-Tabelle konnte nicht sicher gebaut werden."""
+
+
+def read_manifest(directory: Path) -> dict[str, Any]:
+    """Liest das Manifest eines Laufs oder einer Tabelle."""
+    pfad = directory / "manifest.json"
+    try:
+        return json.loads(pfad.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise TransformError(f"Invalid manifest: {pfad}") from error
+
+
+def newest_complete_run(parent: Path, *, what: str) -> Path:
+    """Der juengste vollstaendige Bronze-Lauf unter ``parent``.
+
+    Gelesen wird das Manifest und nicht das Verzeichnis: Ein Lauf zaehlt nur
+    mit ``status == "complete"``. Die ``run_id`` ist ein UTC-Zeitstempel,
+    deshalb ist der letzte sortierte Eintrag der juengste.
+    """
+    kandidaten = []
+    for manifest_path in sorted(parent.glob("run_*/manifest.json")):
+        if read_manifest(manifest_path.parent).get("status") != "complete":
+            continue
+        if not (manifest_path.parent / PARQUET_FILE).exists():
+            raise TransformError(
+                f"Lauf ohne Parquet-Datei: {manifest_path.parent}"
+            )
+        kandidaten.append(manifest_path.parent)
+
+    if not kandidaten:
+        raise TransformError(
+            f"Kein vollstaendiger Bronze-Lauf fuer {what}. "
+            "Zuerst die Ingestion starten."
+        )
+    return kandidaten[-1]
+
+
+def connect(*, spatial: bool = False) -> duckdb.DuckDBPyConnection:
+    """Eine DuckDB-Verbindung, auf Wunsch mit der ``spatial``-Extension."""
+    con = duckdb.connect()
+    if spatial:
+        try:
+            con.execute("INSTALL spatial")
+            con.execute("LOAD spatial")
+        except duckdb.Error as error:
+            raise TransformError(
+                f"spatial-Extension nicht verfuegbar: {error}"
+            ) from error
+    return con
+
+
+def publish(
+    con: duckdb.DuckDBPyConnection,
+    relation: str,
+    target: Path,
+    manifest: dict[str, Any],
+) -> Path:
+    """Schreibt Parquet und Manifest und veroeffentlicht sie atomar.
+
+    Silver ist abgeleitet und wird ersetzt, nicht angehaeuft. Ersetzt wird
+    trotzdem in drei Schritten, damit nie ein halber Stand sichtbar ist: neu
+    schreiben, alt beiseiteschieben, neu einhaengen, alt entfernen. Scheitert
+    etwas, bleibt der vorherige Stand unberuehrt.
+    """
+    arbeit = target.parent / f".{target.name}.part"
+    verdraengt = target.parent / f".{target.name}.superseded"
+    shutil.rmtree(arbeit, ignore_errors=True)
+    shutil.rmtree(verdraengt, ignore_errors=True)
+    arbeit.mkdir(parents=True)
+
+    try:
+        parquet = arbeit / PARQUET_FILE
+        con.execute(
+            f"COPY {relation} TO '{parquet}' (FORMAT PARQUET, COMPRESSION SNAPPY)"
+        )
+        (arbeit / "manifest.json").write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        if target.exists():
+            target.rename(verdraengt)
+        arbeit.rename(target)
+        shutil.rmtree(verdraengt, ignore_errors=True)
+        return target
+    except BaseException:
+        shutil.rmtree(arbeit, ignore_errors=True)
+        if verdraengt.exists() and not target.exists():
+            verdraengt.rename(target)
+        shutil.rmtree(verdraengt, ignore_errors=True)
+        raise
+
+
+def schema_of(con: duckdb.DuckDBPyConnection, relation: str) -> dict[str, str]:
+    """Spaltennamen und -typen der Relation, fuer das Manifest."""
+    namen, typen = con.execute(
+        f"SELECT list(column_name), list(column_type) "
+        f"FROM (DESCRIBE SELECT * FROM {relation})"
+    ).fetchone()
+    return dict(zip(namen, typen))
