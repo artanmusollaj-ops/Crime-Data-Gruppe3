@@ -5,7 +5,9 @@ tatsächlichen Projektstand gegenüber und benennt, was bis zur Abgabe fehlt.
 
 Es ergänzt [`projektabsprache.md`](projektabsprache.md): Dort stehen die
 technischen Entscheide (Bronze-Konventionen, Werkzeuge, Zusammenarbeit), hier
-die Abgabe-Sicht. Wo ein Entscheid aus der Absprache eine Anforderung erfüllt,
+die Abgabe-Sicht. Die **Abgabe selbst** ist
+[`ln1_konzept.md`](ln1_konzept.md) — dieses Dokument ist Arbeitsgrundlage und
+nicht Teil der Abgabe. Wo ein Entscheid aus der Absprache eine Anforderung erfüllt,
 ist er verlinkt.
 
 Alle Zahlen sind am 8. September 2026 aus dem Repository erhoben. Die
@@ -18,7 +20,7 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 
 | Anforderung | Stand | Was fehlt |
 | --- | --- | --- |
-| **Problemstellung, Ausgangslage** | ○ nicht vorhanden | Text, ca. 1 Seite → Abschnitt 2.1 |
+| **Problemstellung, Ausgangslage** | ● geschrieben | [`ln1_konzept.md`](ln1_konzept.md) Kapitel 2 |
 | **Forschungsfragen, Hypothesen** | ◐ Vorschlag steht, vier bereits vorgeprüft | Auswahl und Formulierung entscheiden → Abschnitt 2.2 / 2.3 |
 | **Vorgehen und Methoden** | ◐ implizit im Code | Methodenteil ausformulieren → Abschnitt 2.4 |
 | **Entwurf DE-Lebenszyklus** | ◐ gebaut, nicht benannt | Zuordnung dokumentieren → Abschnitt 3 |
