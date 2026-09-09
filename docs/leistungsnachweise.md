@@ -35,8 +35,9 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 **Die gute Nachricht:** Ingestion und Storage — die beiden praktisch
 aufwendigsten Blöcke — stehen. 282 Tests, fünf Quellen in vier Pipelines,
 nachgewiesene Vollständigkeit. Und weil die Hypothesen Fragen des Data Engineering sind
-(Abschnitt 2.0), sind vier davon durch die bisherige Arbeit **bereits
-vorgeprüft**: Wir haben Befunde, bevor wir die Hypothesen formuliert haben.
+(Abschnitt 2.0), sind fünf davon durch die bisherige Arbeit **bereits
+gemessen**: Wir haben Befunde, bevor wir die Hypothesen formuliert haben — und
+mit H7 auch eine falsifizierte.
 
 **Die Baustelle:** Der konzeptionelle Teil ist noch nicht aufgeschrieben, und
 Silver ist leer. Ohne formulierte Hypothesen gibt es keinen ausweisbaren
@@ -109,8 +110,9 @@ zwischen „Fälle ohne Koordinaten löschen" und „markieren".
 ### 2.3 Hypothesen (Vorschlag)
 
 Alle falsifizierbar, alle mit einem Verfahren aus dem Modul prüfbar, alle mit
-unseren Daten tatsächlich durchführbar. **Vier sind bereits vorgeprüft** — die
-Zahlen stammen aus den Notebooks und den Läufen im Repository.
+unseren Daten tatsächlich durchführbar. **Fünf sind bereits gemessen** — vier
+vorgeprüft oder bestätigt, eine falsifiziert. Die Zahlen stammen aus den
+Notebooks, den Läufen im Repository und der Silver-Tabelle `tract`.
 
 | | Hypothese | Verfahren | Stand |
 | --- | --- | --- | --- |
@@ -120,17 +122,53 @@ Zahlen stammen aus den Notebooks und den Läufen im Repository.
 | **H4** | Ein gepinntes Schema plus Auffangspalte fängt Schema-Drift **vollständig** auf, ohne Datenverlust. | Fingerabdruck über Feldtypen, Inhalt von `_extra` | bestätigt: Chicago driftfrei, TIGER fängt `GEOIDFQ` auf |
 | **H5** | Auffällige Werte in den Verwaltungsschlüsseln sind **Artefakte** (systematische Erfassungsfehler), keine echten Ausreisser. | Häufigkeitsanalyse plus feldübergreifende Konsistenzregel | vorgeprüft: District `031`, 13 Fälle, deren `beat` auf 016/024 zeigt |
 | **H6** | Die Zusammenführung der drei Zeitachsen gelingt allein durch **Aggregation**; **Imputation** ist nicht nötig. | Granularitätsanalyse je Quelle | offen — ACS ist eine 5-Jahres-Schätzung und dürfte die Ausnahme sein |
-| **H7** | Unser räumlicher Join **reproduziert** die Tract-Zuordnung, die Detroit selbst mitliefert. | Übereinstimmungsquote gegen `census_block_2020_geoid` | offen — Referenz vorhanden für 88'278 Zeilen |
+| **H7** | Unser räumlicher Join **reproduziert** die Tract-Zuordnung, die Detroit selbst mitliefert. | Übereinstimmungsquote gegen `census_block_2020_geoid` | **falsifiziert**: 83,35 % von 88'278 Zeilen; Ursache liegt in Detroits Daten |
 | **H8** | Tract-Zellen mit auffällig hohen Fallzahlen sind echte **Ausreisser** (Hotspots), kein **Noise**. | Tukey-Boxplot univariat, Isolation Forest multivariat | offen |
 
-**H7 ist ein Glücksfall und war mir bis eben nicht bewusst:** Detroit liefert in
-99,5 % der Zeilen eine 15-stellige `census_block_2020_geoid` mit — die ersten
-elf Stellen sind die Tract-GEOID, 275 Tracts, alle korrekt in Wayne County.
-Damit existiert für Detroit eine **unabhängige Referenz**, gegen die sich unser
-selbst gerechneter Punkt-in-Polygon-Join messen lässt. Chicago liefert nichts
-Vergleichbares. Wir können den Join also an Detroit validieren und ihn danach
-begründet auf Chicago anwenden — das ist deutlich stärker als ein Join, den
-niemand geprüft hat.
+**H7 sah wie ein Glücksfall aus und ist gemessen worden — mit einem anderen
+Ergebnis als erwartet.** Die Ausgangslage: Detroit liefert in 99,5 % der Zeilen
+eine 15-stellige `census_block_2020_geoid`, deren erste elf Stellen die
+Tract-GEOID sind, 275 Tracts. Damit schien eine **unabhängige Referenz** für
+unseren selbst gerechneten Punkt-in-Polygon-Join vorzuliegen; Chicago liefert
+nichts Vergleichbares.
+
+Der Vergleich gegen `silver/tract` (8.9.2026, DuckDB mit `spatial`):
+
+| | |
+| --- | --- |
+| vergleichbare Zeilen | 88'278 |
+| von uns nicht verortet | 0 |
+| **übereinstimmend** | **73'578 — 83,35 %** |
+| abweichend | 14'700, davon 337 in einem anderen County |
+
+**83 % ist keine Reproduktion, H7 ist in dieser Form falsifiziert.** Die
+naheliegenden Erklärungen greifen nicht:
+
+- **Kein Vintage-Problem.** Alle 275 von Detroit genannten Tracts existieren in
+  TIGER 2024.
+- **Keine Frage des Koordinatensystems.** Der Unterschied zwischen NAD83 und
+  WGS84 liegt unter einem Meter und erklärt keine 17 %.
+- **Keine Grenzungenauigkeit.** 337 Fälle landen in einem anderen *County*.
+
+Der Join selbst ist nachweislich sauber: 88'278 Quellzeilen ergeben 88'278
+Zeilen nach dem Join, Tracts überlappen also nicht und jeder Punkt liegt in
+genau einem. Daraus folgt zwingend, dass der Punkt dort, wo Detroit ein anderes
+Tract nennt, **nicht in Detroits eigenem Tract liegt**. Der Widerspruch besteht
+zwischen Detroits Koordinaten und Detroits `census_block_2020_geoid`, nicht
+zwischen Detroit und uns.
+
+**Die Ursache ist offen.** Plausibel wäre, dass eine der beiden Angaben aus
+Datenschutzgründen versetzt veröffentlicht wird, wie es kommunale
+Polizeidatensätze häufig tun — das ist eine Vermutung und keine Messung. Als
+Referenz zur Validierung unseres Joins taugt Detroits GEOID jedenfalls nicht,
+solange das nicht geklärt ist.
+
+**Ob H7 in dieser Form verwendet wird, ist noch offen** und hängt an der
+Hypothesen-Auswahl weiter unten. Für den Leistungsnachweis ist eine
+falsifizierte Hypothese allerdings nicht das schlechtere Ergebnis: Sie zeigt,
+dass geprüft und nicht bestätigt wurde. Fällt die Wahl darauf, gehört das
+Ergebnis in die Limitationen (Abschnitt 10.3) — und die Frage nach der Ursache
+ist der Punkt, an dem im Kolloquium nachgefragt wird (Abschnitt 10.4).
 
 **H2 und H5 sprechen die Begriffe des Moduls präzise an.** Ein *Duplikat* ist in
 jedem Attribut identisch, eine *Dublette* meint dieselbe Sache mit abweichenden
