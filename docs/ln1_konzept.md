@@ -119,7 +119,7 @@ bestätigt oder vorgeprüft, **eine falsifiziert.**
 | --- | --- | --- | --- |
 | **H1** | Fehlende Koordinaten treten **nicht zufällig** auf, sondern hängen vom Delikttyp ab. | Chi-Quadrat-Unabhängigkeitstest | vorgeprüft: 4,3 % bei Delikten an Kindern gegen 0,4 % bei Diebstahl |
 | **H2** | Der Überlapp der Delta-Läufe erzeugt ausschliesslich **Duplikate**, keine **Dubletten**. | Vergleich aller Attribute je Schlüssel | bestätigt |
-| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Abgleich gegen die Mapping-Tabelle | Chicago bestätigt, Detroit offen |
+| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Abgleich gegen die Mapping-Tabellen | Chicago: alle Codes der Falldaten zugeordnet, 2 der 434 Tabellenzeilen offen. Detroit: 92,3 % der Fälle über MICR Appendix F, Rest offen |
 | **H4** | Ein gepinntes Schema plus Auffangspalte fängt Schema-Drift **vollständig** auf. | Fingerabdruck über Feldtypen, Inhalt von `_extra` | bestätigt |
 | **H5** | Auffällige Werte in den Verwaltungsschlüsseln sind **Artefakte**, keine echten Ausreisser. | Häufigkeitsanalyse plus Konsistenzregel | vorgeprüft |
 | **H6** | Die Zusammenführung der drei Zeitachsen gelingt allein durch **Aggregation**; Imputation ist nicht nötig. | Granularitätsanalyse je Quelle | offen |
@@ -641,6 +641,8 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | Anforderungen gegen Stand | [`leistungsnachweise.md`](leistungsnachweise.md) |
 | Detroit-Pipeline im Detail | [`DETROIT_PIPELINE_ANLEITUNG.md`](DETROIT_PIPELINE_ANLEITUNG.md) |
 | NIBRS-Abgleich | [`nibrs_chicago_detroit_abgleichen.md`](nibrs_chicago_detroit_abgleichen.md) |
+| IUCR nach NIBRS (Chicago) | `config/iucr_nibrs_mapping.csv` |
+| MICR nach NIBRS (Detroit) | `config/micr_nibrs_mapping.csv`, Quelle [`micr_appendix_f_2009.pdf`](micr_appendix_f_2009.pdf) |
 
 ---
 
