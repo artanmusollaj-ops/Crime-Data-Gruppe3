@@ -26,8 +26,11 @@ den geladenen Daten erhoben, nicht geschätzt.
 | **Census ACS** | Pipeline fertig, getestet | dieselben Tracts, 3 Variablen | raw + bronze |
 | **Wetter (NOAA)** | Pipeline fertig, getestet | 29'181 Tage O'Hare (ab 1946), 26'264 Detroit Metro (ab 1942) | raw + bronze |
 
-Ergänzend: 272 Tests, 5 Notebooks, `config/iucr_nibrs_mapping.csv` mit 434
-Codes, `data/silver/` und `data/gold/` bislang leer.
+Ergänzend: 422 Tests, 8 Notebooks, `data/silver/` und `data/gold/` bislang
+leer. Die Deliktzuordnung liegt in drei Referenzdateien:
+`config/nibrs_offense_codes_2025.csv` (81 amtliche NIBRS-Codes),
+`config/iucr_nibrs_mapping.csv` (434 Chicago-Codes) und
+`config/micr_nibrs_mapping.csv` (128 Detroit-Codes).
 
 **Was implizit schon entschieden ist** (durch den Code, nicht durch ein
 Gespräch): unveränderliche Läufe mit Manifest, Nachweis der Vollständigkeit
@@ -527,7 +530,7 @@ Gold-Tabellen einchecken, weil sie klein sind.
 
 ### 7.2 Tests
 
-**Stand.** 240 Tests, aber ungleich verteilt: Chicago und Census liegen in
+**Stand.** 422 Tests, aber ungleich verteilt: Chicago und Census liegen in
 `tests/<pipeline>/`, die Detroit-Tests direkt in `tests/`.
 
 `test_results.txt` ist mit PR #9 aus der Versionierung genommen und steht
