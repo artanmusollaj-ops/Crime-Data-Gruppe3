@@ -26,8 +26,8 @@ den geladenen Daten erhoben, nicht geschätzt.
 | **Census ACS** | Pipeline fertig, getestet | dieselben Tracts, 3 Variablen | raw + bronze |
 | **Wetter (NOAA)** | Pipeline fertig, getestet | 29'181 Tage O'Hare (ab 1946), 26'264 Detroit Metro (ab 1942) | raw + bronze |
 
-Ergänzend: 422 Tests, 8 Notebooks, `data/silver/` und `data/gold/` bislang
-leer. Die Deliktzuordnung liegt in drei Referenzdateien:
+Ergänzend: 451 Tests, 8 Notebooks, `data/silver/` mit allen drei Tabellen,
+`data/gold/` bislang leer. Die Deliktzuordnung liegt in drei Referenzdateien:
 `config/nibrs_offense_codes_2025.csv` (81 amtliche NIBRS-Codes),
 `config/iucr_nibrs_mapping.csv` (434 Chicago-Codes) und
 `config/micr_nibrs_mapping.csv` (128 Detroit-Codes).
@@ -377,7 +377,7 @@ auf, weil die Quellen drei verschiedene Granularitäten haben:
 
 | Tabelle | Eine Zeile ist | Woraus |
 | --- | --- | --- |
-| `crime_offense` | **ein Delikt** | Chicago- und Detroit-Bronze |
+| `crime_offense` | **ein Delikt** | Chicago- und Detroit-Bronze, beide Crosswalks, `tract` |
 | `tract` | **ein Census Tract** | TIGER (Geometrie) + ACS (Attribute) |
 | `weather_day` | **eine Stadt an einem Tag** | NOAA-Bronze |
 
@@ -408,11 +408,22 @@ verwendet deshalb englische Spaltennamen.
 eine Codeänderung und keinen neuen Ladelauf — der `SNWD`-Fall zeigt, dass das
 trägt.
 
-**Stand.** `tract` ist gebaut (6'282 Zeilen) und `weather_day` ebenfalls
-(55'449 Zeilen, zwei Städte), jeweils mit Herkunftsnachweis über die
-Bronze-Läufe im Manifest. `crime_offense` fehlt und wartet auf Artans
-Zeitzonen-Fix, weil es sonst auf einer Zeitachse aufbaut, die gerade geändert
-wird.
+**Stand.** Alle drei Tabellen sind gebaut, jeweils mit Herkunftsnachweis über
+die Bronze-Läufe im Manifest: `tract` (6'282 Zeilen), `weather_day` (55'449
+Zeilen, zwei Städte) und seit dem 10.9. `crime_offense` (347'967 Delikte,
+259'272 Chicago und 88'695 Detroit).
+
+Der frühere Vorbehalt, `crime_offense` müsse auf Artans Zeitzonen-Fix warten,
+trägt nicht mehr: Sein Branch ändert das **Abfragefenster** — welche Zeilen in
+Bronze landen —, nicht das **Satzschema**. Silver liest aus unveränderlichen
+Bronze-Läufen; ein Neubau nach seinem Merge zieht die Korrektur nach, ohne dass
+am Silver-Code etwas zu ändern wäre. Geprüft am Diff seines Branches: keine
+Änderung an den Feldern eines Datensatzes.
+
+`crime_offense` löst dabei ein Problem, das vorher niemandem auffiel: **Chicago
+liefert `date` als Ortszeit ohne Zonenangabe, Detroit Millisekunden seit Epoch.**
+Ohne Umrechnung liegen beide Städte je nach Jahreszeit eine oder zwei Stunden
+auseinander, und man sieht es keinem Wert an.
 
 Aus `weather_day` ein Befund für die Abdeckung: Die Reihen reichen bis 1942
 zurück und sind dort lückenhaft — Detroit fehlen 4'451 Tage, alle vor 1970.
@@ -530,7 +541,7 @@ Gold-Tabellen einchecken, weil sie klein sind.
 
 ### 7.2 Tests
 
-**Stand.** 422 Tests, aber ungleich verteilt: Chicago und Census liegen in
+**Stand.** 451 Tests, aber ungleich verteilt: Chicago und Census liegen in
 `tests/<pipeline>/`, die Detroit-Tests direkt in `tests/`.
 
 `test_results.txt` ist mit PR #9 aus der Versionierung genommen und steht
