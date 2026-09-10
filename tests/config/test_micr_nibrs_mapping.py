@@ -23,7 +23,10 @@ MAPPING = PROJECT_ROOT / "config" / "micr_nibrs_mapping.csv"
 # Original: michigan.gov/.../micr-assets/2009/diappf.pdf, hier sprechend
 # benannt. Liegt im Repository, weil michigan.gov automatisierte Abrufe
 # mit HTTP 403 beantwortet.
-QUELLE = PROJECT_ROOT / "docs" / "micr_appendix_f_2009.pdf"
+QUELLEN = {
+    "micr_manual_1110_2024": PROJECT_ROOT / "docs" / "micr_manual_1110_2024.pdf",
+    "appendix_f_2009": PROJECT_ROOT / "docs" / "micr_appendix_f_2009.pdf",
+}
 
 SPALTEN = [
     "micr_code",
@@ -32,6 +35,7 @@ SPALTEN = [
     "nibrs_group",
     "nibrs_code",
     "nibrs_description",
+    "hierarchy",
     "match",
     "mapped",
     "seen_in_detroit_2024",
@@ -40,7 +44,7 @@ SPALTEN = [
 
 # Jede Zeile muss sagen, woher sie kommt. Ein leerer Wert heisst: keine
 # Zuordnung, und dann muss auch kein NIBRS-Code dastehen.
-HERKUNFT = {"appendix_f_2009", ""}
+HERKUNFT = {"micr_manual_1110_2024", "appendix_f_2009", ""}
 
 
 @pytest.fixture(scope="module")
@@ -96,14 +100,22 @@ def test_herkunft_stammt_aus_fester_menge(zeilen):
     assert not unbekannt, f"unbekannte Herkunft: {unbekannt}"
 
 
-def test_quelldokument_liegt_im_repository():
+@pytest.mark.parametrize("herkunft", sorted(QUELLEN))
+def test_quelldokument_liegt_im_repository(herkunft):
     """Die Herkunft muss nachlesbar sein, nicht nur behauptet.
 
-    michigan.gov beantwortet automatisierte Abrufe mit HTTP 403; deshalb liegt
-    das Dokument im Repository statt nur als Verweis.
+    michigan.gov beantwortet automatisierte Abrufe mit HTTP 403; deshalb liegen
+    die Dokumente im Repository statt nur als Verweis.
     """
-    assert QUELLE.exists(), f"{QUELLE} fehlt - ohne Quelle ist die Tabelle unbelegt"
-    assert QUELLE.stat().st_size > 10_000
+    pfad = QUELLEN[herkunft]
+    assert pfad.exists(), f"{pfad} fehlt - ohne Quelle ist die Tabelle unbelegt"
+    assert pfad.stat().st_size > 10_000
+
+
+def test_jede_genutzte_herkunft_hat_ein_dokument(zeilen):
+    genutzt = {z["match"] for z in zeilen if z["match"]}
+    ohne_beleg = genutzt - set(QUELLEN)
+    assert not ohne_beleg, f"Herkunft ohne hinterlegtes Dokument: {ohne_beleg}"
 
 
 def test_zugeordnete_zeilen_sind_vollstaendig(zeilen):
@@ -145,10 +157,12 @@ def test_mapped_ist_ein_wahrheitswert(zeilen):
 @pytest.mark.parametrize(
     "code,file_class,nibrs_code,nibrs_description",
     [
-        ("0901", "09001", "09A", "Murder/Non-Negligent Manslaughter"),
+        ("0901", "09001", "09A", "Murder and Non-Negligent Manslaughter"),
         ("0904", "09004", "09C", "Justifiable Homicide"),
-        ("1101", "11001", "11A", "Forcible Rape"),
-        ("1107", "11007", "11D", "Forcible Fondling"),
+        # Bezeichnungen nach der Fassung 2024: aus "Forcible Rape" wurde
+        # "Rape", aus "Forcible Fondling" wurde "Fondling".
+        ("1101", "11001", "11A", "Rape"),
+        ("1107", "11007", "11D", "Fondling"),
         ("1200", "12000", "120", "Robbery"),
         ("1301", "13001", "13B", "Simple Assault"),
         ("1302", "13002", "13A", "Aggravated Assault"),

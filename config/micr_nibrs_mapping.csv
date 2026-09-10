@@ -1,124 +1,129 @@
-micr_code,micr_file_class,micr_description,nibrs_group,nibrs_code,nibrs_description,match,mapped,seen_in_detroit_2024,note
-0100,01000,Sovereignty,B,90Z,All Other,appendix_f_2009,true,false,
-0200,02000,Military,B,90Z,All Other,appendix_f_2009,true,false,
-0300,03000,Immigration,B,90Z,All Other,appendix_f_2009,true,false,
-0901,09001,Murder/Non-Negligent Manslaughter,A,09A,Murder/Non-Negligent Manslaughter,appendix_f_2009,true,true,
-0902,09002,Negligent Homicide/Manslaughter,A,09B,Negligent Manslaughter,appendix_f_2009,true,true,
-0903,09003,Negligent Homicide Vehicle/Boat/ Snowmobile/ORV,B,90Z,All Other,appendix_f_2009,true,true,
-0904,09004,Justifiable Homicide,A,09C,Justifiable Homicide,appendix_f_2009,true,true,
-1001,10001,Kidnapping/Abduction,A,100,Kidnapping/Abduction,appendix_f_2009,true,true,
-1002,10002,Parental Kidnapping,A,100,Kidnapping/Abduction,appendix_f_2009,true,true,
-1101,11001,Sexual Penetration Penis/Vagina CSC1,A,11A,Forcible Rape,appendix_f_2009,true,true,
-1102,11002,Sexual Penetration Penis/Vagina CSC3,A,11A,Forcible Rape,appendix_f_2009,true,true,
-1103,11003,Sexual Penetration Oral/Anal CSC1,A,11B,Forcible Sodomy,appendix_f_2009,true,true,
-1104,11004,Sexual Penetration Oral/Anal CSC3,A,11B,Forcible Sodomy,appendix_f_2009,true,true,
-1105,11005,Sexual Penetration Object CSC1,A,11C,Sexual Assault with an Object,appendix_f_2009,true,true,
-1106,11006,Sexual Penetration Object CSC3,A,11C,Sexual Assault with an Object,appendix_f_2009,true,true,
-1107,11007,Sexual Contact Forcible CSC2,A,11D,Forcible Fondling,appendix_f_2009,true,true,
-1108,11008,Sexual Contact Forcible CSC4,A,11D,Forcible Fondling,appendix_f_2009,true,true,
-1171,,CSC 1ST DEGREE - PENIS / VAGINA,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-1172,,CSC 3RD DEGREE - PENIS / VAGINA,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-1173,,CSC 1ST DEGREE - ORAL / ANAL,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-1174,,CSC 3RD DEGREE - ORAL / ANAL,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-1175,,CSC 1ST DEGREE - OBJECT,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-1176,,CSC 3RD DEGREE - OBJECT,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-1177,,CSC 2ND DEGREE - FORCIBLE CONTACT,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-1178,,CSC 4TH DEGREE - FORCIBLE CONTACT,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-1200,12000,Robbery,A,120,Robbery,appendix_f_2009,true,true,
-1201,,CARJACKING,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-1301,13001,Non-Aggravated Assault,A,13B,Simple Assault,appendix_f_2009,true,true,
-1302,13002,Aggravated/Felonious Assault,A,13A,Aggravated Assault,appendix_f_2009,true,true,
-1303,13003,Intimidation/Stalking,A,13C,Intimidation,appendix_f_2009,true,true,
-1304,,NON-FATAL SHOOTING,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-1400,14000,Abortion,B,90Z,All Other,appendix_f_2009,true,false,
-2000,20000,Arson,A,200,Arson,appendix_f_2009,true,true,
-2099,,ARSON,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-2100,21000,Extortion,A,210,Extortion/Blackmail,appendix_f_2009,true,true,
-2101,,EXTORTION,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-2201,22001,Burglary - Forced Entry,A,220,Burglary/Breaking & Entering,appendix_f_2009,true,true,
-2202,22002,Burglary - Entry W/Out Force (Intent),A,220,Burglary/Breaking & Entering,appendix_f_2009,true,true,
-2203,22003,Burglary - Unlawful Entry (No Intent),B,90Z,All Other,appendix_f_2009,true,true,
-2204,22004,Possession of Burglary Tools,B,90Z,All Other,appendix_f_2009,true,true,
-2301,23001,Larceny - Pocket Picking,A,23A,Pocket Picking,appendix_f_2009,true,true,
-2302,23002,Larceny - Purse Snatching,A,23B,Purse Snatching,appendix_f_2009,true,true,
-2303,23003,Larceny - Theft from Building,A,23D,Theft from Building,appendix_f_2009,true,true,
-2304,23004,Larceny - Theft from Coin Operated,A,23E,Theft from Coin Operated Machine/Device,appendix_f_2009,true,true,
-2305,23005,Larceny - Theft from Motor Vehicle,A,23F,Theft from Motor Vehicle,appendix_f_2009,true,true,
-2306,23006,Larceny - Theft of Motor Vehicle Parts/,A,23G,Theft of Motor Vehicle Parts/ Accessories,appendix_f_2009,true,true,
-2307,23007,Larceny - Other,A,23H,All Other Larceny,appendix_f_2009,true,true,
-2401,24001,Motor Vehicle Theft,A,240,Motor Vehicle Theft,appendix_f_2009,true,true,
-2402,24002,Motor Vehicle as Stolen Property,A,280,Stolen Property,appendix_f_2009,true,true,
-2403,24003,Motor Vehicle Fraud,A,26A,False Pretense/Swindle/ Confidence Game,appendix_f_2009,true,true,
-2500,25000,Forgery/Counterfeiting,A,250,Counterfeiting/Forgery,appendix_f_2009,true,true,
-2501,,FORGERY / COUNTERFEITING,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-2601,26001,Fraud - False Pretense/Swindle/Confidence Game,A,26A,False Pretense/Swindle/ Confidence Game,appendix_f_2009,true,true,
-2602,26002,Fraud - Credit Card/ATM,A,26B,Credit Card/ATM,appendix_f_2009,true,true,
-2603,26003,Fraud - Impersonation,A,26C,Impersonation,appendix_f_2009,true,true,
-2604,26004,Fraud - Welfare,A,26D,Welfare Fraud,appendix_f_2009,true,true,
-2605,26005,Fraud - Wire,A,26E,Wire Fraud,appendix_f_2009,true,true,
-2606,26006,Fraud - Bad Checks,B,90A,Bad Checks,appendix_f_2009,true,true,
-2607,,FRAUD - IDENTITY THEFT,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-2608,,"FRAUD, COMPUTER HACKING/INVASION",,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-2700,27000,Embezzlement,A,270,Embezzlement,appendix_f_2009,true,false,
-2800,28000,Stolen Property,A,280,Stolen Property,appendix_f_2009,true,true,
-2801,,STOLEN PROPERTY,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-2900,29000,Damage to Property,A,290,Destruction/Damage/ Vandalism of,appendix_f_2009,true,true,
-3001,30001,Retail Fraud - Misrepresentation,A,26A,False Pretense/Swindle/ Confidence Game,appendix_f_2009,true,true,
-3002,30002,Retail Fraud - Theft,A,23C,Shoplifting,appendix_f_2009,true,true,
-3003,30003,Retail Fraud - Refund/Exchange,A,26A,False Pretense/Swindle/ Confidence Game,appendix_f_2009,true,false,
-3071,,RETAIL FRAUD - MISREPRESENTATION,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-3072,,RETAIL FRAUD - THEFT,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-3501,35001,Violation of Controlled Substance,A,35A,Drug/Narcotic Violations,appendix_f_2009,true,true,
-3502,35002,Narcotic Equipment Violations,A,35B,Drug Equipment Violations,appendix_f_2009,true,true,
-3601,36001,Sexual Penetration - Non-forcible - Blood Affinity,A,36A,Incest,appendix_f_2009,true,true,
-3602,36002,Sexual Penetration - Non-forcible - Other,A,36B,Statutory Rape,appendix_f_2009,true,false,
-3603,36003,Peeping Tom,B,90H,Peeping Tom,appendix_f_2009,true,false,
-3604,36004,Sex Offense - Other,B,90Z,All Other,appendix_f_2009,true,true,
-3692,,SEX OFFENSE - OTHER,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-3700,37000,Obscenity,A,370,Pornography/Obscene Material,appendix_f_2009,true,false,
-3801,38001,Family - Abuse/Neglect Nonviolent,B,90F,Family Offense Nonviolent,appendix_f_2009,true,true,
-3802,38002,Family - Nonsupport,B,90F,Family Offense Nonviolent,appendix_f_2009,true,false,
-3803,38003,Family - Other,B,90Z,All Other,appendix_f_2009,true,true,
-3901,39001,Gambling - Betting/Wagering,A,39B,Betting/Wagering,appendix_f_2009,true,true,
-3902,39002,Gambling - Operating/Promoting/Assisting,A,39A,Operating/Promoting/Assisting,appendix_f_2009,true,false,
-3903,39003,Gambling - Equipment Violations,A,39C,Gambling Equipment Violations,appendix_f_2009,true,false,
-3904,39004,Gambling - Sports Tampering,A,39D,Sports Tampering,appendix_f_2009,true,false,
-4001,40001,Commercialized Sex - Prostitution,A,40A,Prostitution,appendix_f_2009,true,true,
-4002,40002,Commercialized Sex - Assisting/Promoting,A,40B,Assisting/Promoting Prostitution,appendix_f_2009,true,true,
-4003,,PURCHASING PROSTITUTION,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-4101,41001,Liquor License - Establishment,B,90G,Liquor Law Violation,appendix_f_2009,true,false,
-4102,41002,Liquor Violations - Other,B,90G,Liquor Law Violation,appendix_f_2009,true,true,
-4200,42000,Drunkenness,B,90E,Drunkenness,appendix_f_2009,true,false,
-4800,48000,Obstructing Police,B,90Z,All Other,appendix_f_2009,true,true,
-4801,,OBSTRUCTING POLICE,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-4900,49000,Escape/Flight,B,90Z,All Other,appendix_f_2009,true,false,
-5000,50000,Obstructing Justice,B,90Z,All Other,appendix_f_2009,true,true,
-5001,,OBSTRUCTING JUSTICE,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-5100,51000,Bribery,A,510,Bribery,appendix_f_2009,true,false,
-5201,52001,Weapons Offense - Concealed,A,520,Weapon Law Violations,appendix_f_2009,true,true,
-5202,52002,Weapons Offense - Explosives,A,520,Weapon Law Violations,appendix_f_2009,true,true,
-5203,52003,Weapons Offense - Other,A,520,Weapon Law Violations,appendix_f_2009,true,true,
-5301,53001,Disorderly Conduct,B,90C,Disorderly Conduct,appendix_f_2009,true,true,
-5302,53002,Public Peace - Other,B,90Z,All Other,appendix_f_2009,true,true,
-5401,54001,Hit and Run Motor Vehicle Accident,B,90Z,All Other,appendix_f_2009,true,true,
-5402,54002,OUIL or OUID,B,90D,Driving Under the Influence,appendix_f_2009,true,false,
-5421,,"ACCIDENT, HIT & RUN",,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-5422,,"ACCIDENT, HIT & RUN",,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-5500,55000,Health and Safety,B,90Z,All Other,appendix_f_2009,true,true,
-5501,,HEALTH AND SAFETY,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-5600,56000,Civil Rights,B,90Z,All Other,appendix_f_2009,true,false,
-5701,57001,Trespass,B,90J,Trespass of Real Property,appendix_f_2009,true,true,
-5702,57002,Invasion of Privacy - Other,B,90Z,All Other,appendix_f_2009,true,true,
-5800,58000,Smuggling,B,90Z,All Other,appendix_f_2009,true,false,
-5900,59000,Election Laws,B,90Z,All Other,appendix_f_2009,true,false,
-6000,60000,Antitrust,B,90Z,All Other,appendix_f_2009,true,false,
-6100,61000,Tax/Revenue,B,90Z,All Other,appendix_f_2009,true,false,
-6200,62000,Conservation,B,90Z,All Other,appendix_f_2009,true,false,
-6300,63000,Vagrancy,B,90B,Curfew/Loitering/Vagrancy,appendix_f_2009,true,false,
-7000,70000,Juvenile Runaway,B,90I,Runaway,appendix_f_2009,true,true,
-7070,,RUNAWAY,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-7300,73000,Miscellaneous Criminal Offense,B,90Z,All Other,appendix_f_2009,true,true,
-7399,,MISCELLANEOUS CRIMINAL OFFENSE,,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-7500,75000,Solicitation (all crimes except prostitution),B,90Z,All Other,appendix_f_2009,true,true,
-7571,,SOLICITATION (ALL CRIMES EXCEPT PROSTITUTION),,,,,false,true,nicht in Appendix F (Fassung 2009); Bezeichnung aus den Detroit-Daten
-7700,77000,Conspiracy (all crimes),B,90Z,All Other,appendix_f_2009,true,false,
+micr_code,micr_file_class,micr_description,nibrs_group,nibrs_code,nibrs_description,hierarchy,match,mapped,seen_in_detroit_2024,note
+0100,01000,Sovereignty,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
+0200,02000,Military,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
+0300,03000,Immigration,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
+0901,09001,Murder/Non-Negligent Manslaughter,A,09A,Murder and Non-Negligent Manslaughter,1,micr_manual_1110_2024,true,true,
+0902,09002,Negligent Homicide/Manslaughter,A,09B,Negligent Manslaughter,1,micr_manual_1110_2024,true,true,
+0903,09003,Negligent Homicide Vehicle/Boat/ Snowmobile/ORV,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
+0904,09004,Justifiable Homicide,A,09C,Justifiable Homicide,27,micr_manual_1110_2024,true,true,
+1001,10001,Kidnapping/Abduction,A,100,Kidnapping/Abduction,12,micr_manual_1110_2024,true,true,
+1002,10002,Parental Kidnapping,A,100,Kidnapping/Abduction,12,micr_manual_1110_2024,true,true,
+1101,11001,Sexual Penetration Penis/Vagina CSC1,A,11A,Rape,2,micr_manual_1110_2024,true,true,
+1102,11002,Sexual Penetration Penis/Vagina CSC3,A,11A,Rape,2,micr_manual_1110_2024,true,true,
+1103,11003,Sexual Penetration Oral/Anal CSC1,A,11B,Sodomy,2,micr_manual_1110_2024,true,true,
+1104,11004,Sexual Penetration Oral/Anal CSC3,A,11B,Sodomy,2,micr_manual_1110_2024,true,true,
+1105,11005,Sexual Penetration Object CSC1,A,11C,Sexual Assault with an Object,2,micr_manual_1110_2024,true,true,
+1106,11006,Sexual Penetration Object CSC3,A,11C,Sexual Assault with an Object,2,micr_manual_1110_2024,true,true,
+1107,11007,Sexual Contact Forcible CSC2,A,11D,Fondling,4,micr_manual_1110_2024,true,true,
+1108,11008,Sexual Contact Forcible CSC4,A,11D,Fondling,4,micr_manual_1110_2024,true,true,
+1171,,CSC 1ST DEGREE - PENIS / VAGINA,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+1172,,CSC 3RD DEGREE - PENIS / VAGINA,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+1173,,CSC 1ST DEGREE - ORAL / ANAL,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+1174,,CSC 3RD DEGREE - ORAL / ANAL,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+1175,,CSC 1ST DEGREE - OBJECT,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+1176,,CSC 3RD DEGREE - OBJECT,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+1177,,CSC 2ND DEGREE - FORCIBLE CONTACT,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+1178,,CSC 4TH DEGREE - FORCIBLE CONTACT,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+1200,12000,Robbery,A,120,Robbery,3,micr_manual_1110_2024,true,true,
+1201,12001,Carjacking,A,120,Robbery,3,micr_manual_1110_2024,true,true,
+1301,13001,Non-Aggravated Assault,A,13B,Simple Assault,11,micr_manual_1110_2024,true,true,
+1302,13002,Aggravated/Felonious Assault,A,13A,Aggravated Assault,4,micr_manual_1110_2024,true,true,
+1303,13003,Intimidation/Stalking,A,13C,Intimidation,11,micr_manual_1110_2024,true,true,
+1304,13004,Non-Fatal Shooting,A,13A,Aggravated Assault,4,micr_manual_1110_2024,true,true,
+1400,14000,Abortion,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
+2000,20000,Arson,A,200,Arson,8,micr_manual_1110_2024,true,true,
+2099,,ARSON,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+2100,21000,Extortion,A,210,Extortion/Blackmail,27,micr_manual_1110_2024,true,true,
+2101,,EXTORTION,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+2201,22001,Burglary - Forced Entry,A,220,Burglary/Breaking & Entering,5,micr_manual_1110_2024,true,true,
+2202,22002,Burglary - Entry W/Out Force (Intent),A,220,Burglary/Breaking & Entering,5,micr_manual_1110_2024,true,true,
+2203,22003,Burglary - Unlawful Entry (No Intent),B,90J,Trespass of Real Property,27,micr_manual_1110_2024,true,true,2009 fuehrte 90Z; Fassung 2024 gilt
+2204,22004,Possession of Burglary Tools,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
+2301,23001,Larceny - Pocket Picking,A,23A,Pocket-Picking,6,micr_manual_1110_2024,true,true,
+2302,23002,Larceny - Purse Snatching,A,23B,Purse Snatching,6,micr_manual_1110_2024,true,true,
+2303,23003,Larceny - Theft from Building,A,23D,Theft from Building,6,micr_manual_1110_2024,true,true,
+2304,23004,Larceny - Theft from Coin Operated,A,23E,Theft from Coin Operated Machine/Device,6,micr_manual_1110_2024,true,true,
+2305,23005,Larceny - Theft from Motor Vehicle,A,23F,Theft from Motor Vehicle,6,micr_manual_1110_2024,true,true,
+2306,23006,Larceny - Theft of Motor Vehicle Parts/,A,23G,Accessories,6,micr_manual_1110_2024,true,true,
+2307,23007,Larceny - Other,A,23H,All Other Larceny,6,micr_manual_1110_2024,true,true,
+2401,24001,Motor Vehicle Theft,A,240,Motor Vehicle Theft,7,micr_manual_1110_2024,true,true,
+2402,24002,Motor Vehicle as Stolen Property,A,280,Stolen Property,15,micr_manual_1110_2024,true,true,
+2403,24003,Motor Vehicle Fraud,A,26A,Confidence Game  Credit Card/Automated Teller Machine,13,micr_manual_1110_2024,true,true,
+2500,25000,Forgery/Counterfeiting,A,250,Counterfeiting/Forgery,12,micr_manual_1110_2024,true,true,
+2501,,LARCENY - OTHER,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+2601,26001,Fraud - False Pretense/Swindle/Confidence Game,A,26A,Confidence Game  Credit Card/Automated Teller Machine,13,micr_manual_1110_2024,true,true,
+2602,26002,Fraud - Credit Card/ATM,A,26B,Credit Card/ATM,13,micr_manual_1110_2024,true,true,
+2603,26003,Fraud - Impersonation,A,26C,Impersonation,13,micr_manual_1110_2024,true,true,
+2604,26004,Fraud - Welfare,A,26D,Welfare Fraud,13,micr_manual_1110_2024,true,true,
+2605,26005,Fraud - Wire,A,26E,Wire Fraud,13,micr_manual_1110_2024,true,true,
+2606,26006,Fraud - Bad Checks,B,90A,Bad Checks,,appendix_f_2009,true,true,nur in Appendix F 2009; im Manual 1110 nicht mehr gefuehrt
+2607,26007,"Fraud, Identity Theft",A,26F,Identity Theft,13,micr_manual_1110_2024,true,true,
+2608,26008,"Fraud, Computer Hacking/Invasion",A,26G,Hacking/Computer Invasion,13,micr_manual_1110_2024,true,true,
+2700,27000,Embezzlement,A,270,Embezzlement,14,micr_manual_1110_2024,true,false,
+2800,28000,Stolen Property,A,280,Stolen Property,15,micr_manual_1110_2024,true,true,
+2801,,STOLEN PROPERTY,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+2900,29000,Damage to Property,A,290,Destruction/Damage/ Vandalism of,16,micr_manual_1110_2024,true,true,
+3001,30001,Retail Fraud - Misrepresentation,A,26A,Confidence Game  Credit Card/Automated Teller Machine,13,micr_manual_1110_2024,true,true,
+3002,30002,Retail Fraud - Theft,A,23C,Shoplifting,6,micr_manual_1110_2024,true,true,
+3003,30003,Retail Fraud - Refund/Exchange,A,26A,Confidence Game  Credit Card/Automated Teller Machine,13,micr_manual_1110_2024,true,false,
+3004,30004,Organized Retail Fraud,A,23C,Shoplifting,6,micr_manual_1110_2024,true,false,
+3071,,RETAIL FRAUD - MISREPRESENTATION,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+3072,,RETAIL FRAUD - THEFT,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+3501,35001,Violation of Controlled Substance,A,35A,Drug/Narcotic Violations,19,micr_manual_1110_2024,true,true,
+3502,35002,Narcotic Equipment Violations,A,35B,Drug Equipment Violations,19,micr_manual_1110_2024,true,true,
+3601,36001,Sexual Penetration - Non-forcible - Blood Affinity,A,36A,Incest,11,micr_manual_1110_2024,true,true,
+3602,36002,Sexual Penetration - Non-forcible - Other,A,36B,Statutory Rape,11,micr_manual_1110_2024,true,false,
+3603,36003,Peeping Tom,B,90H,Peeping Tom,27,micr_manual_1110_2024,true,false,
+3604,36004,Sex Offense - Other,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
+3692,,SEX OFFENSE - OTHER,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+3700,37000,Obscenity,A,370,Pornography/Obscene Material,25,micr_manual_1110_2024,true,false,
+3801,38001,Family - Abuse/Neglect Nonviolent,B,90F,"Family, Non-Violent",21,micr_manual_1110_2024,true,true,
+3802,38002,Family - Nonsupport,B,90F,"Family, Non-Violent",21,micr_manual_1110_2024,true,false,
+3803,38003,Family - Other,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
+3901,39001,Gambling - Betting/Wagering,A,39A,Betting/Wagering,20,micr_manual_1110_2024,true,true,2009 fuehrte 39B; Fassung 2024 gilt
+3902,39002,Gambling - Operating/Promoting/Assisting,A,39B,Betting/Wagering,20,micr_manual_1110_2024,true,false,2009 fuehrte 39A; Fassung 2024 gilt
+3903,39003,Gambling - Equipment Violations,A,39C,Gambling Equipment Violations,20,micr_manual_1110_2024,true,false,
+3904,39004,Gambling - Sports Tampering,A,39D,Sports Tampering,20,micr_manual_1110_2024,true,false,
+3905,39005,"Gambling, Other",B,90Z,All Other,27,micr_manual_1110_2024,true,false,
+4001,40001,Commercialized Sex - Prostitution,A,40A,Prostitution,18,micr_manual_1110_2024,true,true,
+4002,40002,Commercialized Sex - Assisting/Promoting,A,40B,Assisting/Promoting Prostitution,18,micr_manual_1110_2024,true,true,
+4003,40003,Purchasing Prostitution,A,40C,Purchasing Prostitution,18,micr_manual_1110_2024,true,true,
+4101,41001,Liquor License - Establishment,B,90G,Liquor Law Violations,23,micr_manual_1110_2024,true,false,
+4102,41002,Liquor Violations - Other,B,90G,Liquor Law Violations,23,micr_manual_1110_2024,true,true,
+4200,42000,Drunkenness,B,90E,Drunkenness,24,micr_manual_1110_2024,true,false,
+4800,48000,Obstructing Police,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
+4801,,OBSTRUCTING POLICE,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+4900,49000,Escape/Flight,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
+5000,50000,Obstructing Justice,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
+5001,,OBSTRUCTING JUSTICE,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+5100,51000,Bribery,A,510,Bribery,27,micr_manual_1110_2024,true,false,
+5201,52001,Weapons Offense - Concealed,A,520,Weapon Law Violations,17,micr_manual_1110_2024,true,true,
+5202,52002,Weapons Offense - Explosives,A,520,Weapon Law Violations,17,micr_manual_1110_2024,true,true,
+5203,52003,Weapons Offense - Other,A,520,Weapon Law Violations,17,micr_manual_1110_2024,true,true,
+5301,53001,Disorderly Conduct,B,90C,Disorderly Conduct,25,micr_manual_1110_2024,true,true,
+5302,53002,Public Peace - Other,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
+5401,54001,Hit and Run Motor Vehicle Accident,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
+5402,54002,OUIL or OUID,B,90D,Driving Under the Influence,22,micr_manual_1110_2024,true,false,
+5421,,"ACCIDENT, HIT & RUN",,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+5422,,"ACCIDENT, HIT & RUN",,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+5500,55000,Health and Safety,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
+5501,,HEALTH AND SAFETY,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+5600,56000,Civil Rights,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
+5701,57001,Trespass,B,90J,Trespass of Real Property,27,micr_manual_1110_2024,true,true,
+5702,57002,Invasion of Privacy - Other,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
+5800,58000,Smuggling,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
+5900,59000,Election Laws,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
+6000,60000,Antitrust,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
+6100,61000,Tax/Revenue,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
+6200,62000,Conservation,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
+6300,63000,Vagrancy,B,90B,Curfew/Loitering/Vagrancy,26,micr_manual_1110_2024,true,false,
+6401,64001,"Human Trafficking, Commercial Sex Acts",A,64A,"Human Trafficking, Commercial Sex Acts",9,micr_manual_1110_2024,true,false,
+6402,64002,"Human Trafficking, Involuntary Servitude",A,64B,"Human Trafficking, Involuntary Servitude",10,micr_manual_1110_2024,true,false,
+7000,70000,Juvenile Runaway,B,90I,Runaway,,appendix_f_2009,true,true,nur in Appendix F 2009; im Manual 1110 nicht mehr gefuehrt
+7070,,RUNAWAY,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+7200,72000,Animal Cruelty,A,720,Animal Cruelty,18,micr_manual_1110_2024,true,false,
+7300,73000,Miscellaneous Criminal Offense,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
+7399,,MISCELLANEOUS CRIMINAL OFFENSE,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+7500,75000,Solicitation (all crimes except prostitution),B,90Z,All Other,27,micr_manual_1110_2024,true,true,
+7571,,SOLICITATION (ALL CRIMES EXCEPT PROSTITUTION),,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
+7700,77000,Conspiracy (all crimes),B,90Z,All Other,27,micr_manual_1110_2024,true,false,
