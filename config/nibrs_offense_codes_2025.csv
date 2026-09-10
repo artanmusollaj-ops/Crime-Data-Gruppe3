@@ -1,0 +1,82 @@
+nibrs_code,nibrs_description,nibrs_group,crime_against,federal_only,source
+09A,Murder and Nonnegligent Manslaughter,A,Person,false,nibrs_technical_specification_2025
+09B,Negligent Manslaughter,A,Person,false,nibrs_technical_specification_2025
+09C,Justifiable Homicide,A,Not a Crime,false,nibrs_technical_specification_2025
+100,Kidnapping/Abduction,A,Person,false,nibrs_technical_specification_2025
+101,Treason,A,Society,true,nibrs_technical_specification_2025
+103,Espionage,A,Society,true,nibrs_technical_specification_2025
+11A,Rape,A,Person,false,nibrs_technical_specification_2025
+11B,Sodomy,A,Person,false,nibrs_technical_specification_2025
+11C,Sexual Assault With An Object,A,Person,false,nibrs_technical_specification_2025
+11D,Criminal Sexual Contact,A,Person,false,nibrs_technical_specification_2025
+120,Robbery,A,Property,false,nibrs_technical_specification_2025
+13A,Aggravated Assault,A,Person,false,nibrs_technical_specification_2025
+13B,Simple Assault,A,Person,false,nibrs_technical_specification_2025
+13C,Intimidation,A,Person,false,nibrs_technical_specification_2025
+200,Arson,A,Property,false,nibrs_technical_specification_2025
+210,Extortion/Blackmail,A,Property,false,nibrs_technical_specification_2025
+220,Burglary/Breaking & Entering,A,Property,false,nibrs_technical_specification_2025
+23A,Pocket-picking,A,Property,false,nibrs_technical_specification_2025
+23B,Purse-snatching,A,Property,false,nibrs_technical_specification_2025
+23C,Shoplifting,A,Property,false,nibrs_technical_specification_2025
+23D,Theft From Building,A,Property,false,nibrs_technical_specification_2025
+23E,Theft From Coin-Operated Machine or Device,A,Property,false,nibrs_technical_specification_2025
+23F,Theft From Motor Vehicle,A,Property,false,nibrs_technical_specification_2025
+23G,Theft of Motor Vehicle Parts or Accessories,A,Property,false,nibrs_technical_specification_2025
+23H,All Other Larceny,A,Property,false,nibrs_technical_specification_2025
+240,Motor Vehicle Theft,A,Property,false,nibrs_technical_specification_2025
+250,Counterfeiting/Forgery,A,Property,false,nibrs_technical_specification_2025
+26A,False Pretenses/Swindle/Confidence Game,A,Property,false,nibrs_technical_specification_2025
+26B,Credit Card/Automated Teller Machine Fraud,A,Property,false,nibrs_technical_specification_2025
+26C,Impersonation,A,Property,false,nibrs_technical_specification_2025
+26D,Welfare Fraud,A,Property,false,nibrs_technical_specification_2025
+26E,Wire Fraud,A,Property,false,nibrs_technical_specification_2025
+26F,Identity Theft,A,Property,false,nibrs_technical_specification_2025
+26G,Hacking/Computer Invasion,A,Property,false,nibrs_technical_specification_2025
+26H,Money Laundering,A,Society,true,nibrs_technical_specification_2025
+270,Embezzlement,A,Property,false,nibrs_technical_specification_2025
+280,Stolen Property Offenses,A,Property,false,nibrs_technical_specification_2025
+290,Destruction/Damage/Vandalism of Property,A,Property,false,nibrs_technical_specification_2025
+30A,Illegal Entry into the United States,A,Society,true,nibrs_technical_specification_2025
+30B,False Citizenship,A,Society,true,nibrs_technical_specification_2025
+30C,Smuggling Aliens,A,Society,true,nibrs_technical_specification_2025
+30D,Re-entry after Deportation,A,Society,true,nibrs_technical_specification_2025
+35A,Drug/Narcotic Violations,A,Society,false,nibrs_technical_specification_2025
+35B,Drug Equipment Violations,A,Society,false,nibrs_technical_specification_2025
+360,Failure to Register as a Sex Offender,A,Society,false,nibrs_technical_specification_2025
+36A,Incest,A,Person,false,nibrs_technical_specification_2025
+36B,Statutory Rape,A,Person,false,nibrs_technical_specification_2025
+370,Pornography/Obscene Material,A,Society,false,nibrs_technical_specification_2025
+39A,Betting/Wagering,A,Society,false,nibrs_technical_specification_2025
+39B,Operating/Promoting/Assisting Gambling,A,Society,false,nibrs_technical_specification_2025
+39C,Gambling Equipment Violations,A,Society,false,nibrs_technical_specification_2025
+39D,Sports Tampering,A,Society,false,nibrs_technical_specification_2025
+40A,Prostitution,A,Society,false,nibrs_technical_specification_2025
+40B,Assisting or Promoting Prostitution,A,Society,false,nibrs_technical_specification_2025
+40C,Purchasing Prostitution,A,Society,false,nibrs_technical_specification_2025
+49A,Harboring Escapee/Concealing from Arrest,A,Society,true,nibrs_technical_specification_2025
+49B,Flight to Avoid Prosecution,A,Society,true,nibrs_technical_specification_2025
+49C,Flight to Avoid Deportation,A,Society,true,nibrs_technical_specification_2025
+510,Bribery,A,Property,false,nibrs_technical_specification_2025
+520,Weapon Law Violations,A,Society,false,nibrs_technical_specification_2025
+521,Violation of National Firearm Act of 1934,A,Society,true,nibrs_technical_specification_2025
+522,Weapons of Mass Destruction,A,Society,true,nibrs_technical_specification_2025
+526,Explosives,A,Society,true,nibrs_technical_specification_2025
+58A,Import Violations,A,Society,true,nibrs_technical_specification_2025
+58B,Export Violations,A,Society,true,nibrs_technical_specification_2025
+61A,Federal Liquor Offenses,A,Society,true,nibrs_technical_specification_2025
+61B,Federal Tobacco Offenses,A,Society,true,nibrs_technical_specification_2025
+620,Wildlife Trafficking,A,Society,true,nibrs_technical_specification_2025
+64A,"Human Trafficking, Commercial Sex Acts",A,Person,false,nibrs_technical_specification_2025
+64B,"Human Trafficking, Involuntary Servitude",A,Person,false,nibrs_technical_specification_2025
+720,Animal Cruelty,A,Society,false,nibrs_technical_specification_2025
+90B,Curfew/Loitering/Vagrancy Violations,B,Society,false,nibrs_technical_specification_2025
+90C,Disorderly Conduct,B,Society,false,nibrs_technical_specification_2025
+90D,Driving Under the Influence,B,Society,false,nibrs_technical_specification_2025
+90F,"Family Offenses, Nonviolent",B,Society,false,nibrs_technical_specification_2025
+90G,Liquor Law Violations,B,Society,false,nibrs_technical_specification_2025
+90J,Trespass of Real Property,B,Society,false,nibrs_technical_specification_2025
+90K,Failure to Appear,B,Society,true,nibrs_technical_specification_2025
+90L,Federal Resource Violations,B,Society,true,nibrs_technical_specification_2025
+90M,Perjury,B,Society,true,nibrs_technical_specification_2025
+90Z,All Other Offenses,B,"Person, Property, or Society",false,nibrs_technical_specification_2025

@@ -56,7 +56,7 @@ micr_code,micr_file_class,micr_description,nibrs_group,nibrs_code,nibrs_descript
 2603,26003,Fraud - Impersonation,A,26C,Impersonation,13,micr_manual_1110_2024,true,true,
 2604,26004,Fraud - Welfare,A,26D,Welfare Fraud,13,micr_manual_1110_2024,true,true,
 2605,26005,Fraud - Wire,A,26E,Wire Fraud,13,micr_manual_1110_2024,true,true,
-2606,26006,Fraud - Bad Checks,B,90A,Bad Checks,,appendix_f_2009,true,true,nur in Appendix F 2009; im Manual 1110 nicht mehr gefuehrt
+2606,26006,Fraud - Bad Checks,B,90A,Bad Checks,,appendix_f_2009,true,true,nur in Appendix F 2009; im Manual 1110 nicht mehr gefuehrt; NIBRS 90A (Bad Checks) ist zurueckgezogen; die Fassung 2025 fuehrt den Code nicht mehr
 2607,26007,"Fraud, Identity Theft",A,26F,Identity Theft,13,micr_manual_1110_2024,true,true,
 2608,26008,"Fraud, Computer Hacking/Invasion",A,26G,Hacking/Computer Invasion,13,micr_manual_1110_2024,true,true,
 2700,27000,Embezzlement,A,270,Embezzlement,14,micr_manual_1110_2024,true,false,
@@ -73,7 +73,7 @@ micr_code,micr_file_class,micr_description,nibrs_group,nibrs_code,nibrs_descript
 3502,35002,Narcotic Equipment Violations,A,35B,Drug Equipment Violations,19,micr_manual_1110_2024,true,true,
 3601,36001,Sexual Penetration - Non-forcible - Blood Affinity,A,36A,Incest,11,micr_manual_1110_2024,true,true,
 3602,36002,Sexual Penetration - Non-forcible - Other,A,36B,Statutory Rape,11,micr_manual_1110_2024,true,false,
-3603,36003,Peeping Tom,B,90H,Peeping Tom,27,micr_manual_1110_2024,true,false,
+3603,36003,Peeping Tom,B,90H,Peeping Tom,27,micr_manual_1110_2024,true,false,NIBRS 90H (Peeping Tom) ist zurueckgezogen; die Fassung 2025 fuehrt den Code nicht mehr
 3604,36004,Sex Offense - Other,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
 3692,,SEX OFFENSE - OTHER,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
 3700,37000,Obscenity,A,370,Pornography/Obscene Material,25,micr_manual_1110_2024,true,false,
@@ -90,7 +90,7 @@ micr_code,micr_file_class,micr_description,nibrs_group,nibrs_code,nibrs_descript
 4003,40003,Purchasing Prostitution,A,40C,Purchasing Prostitution,18,micr_manual_1110_2024,true,true,
 4101,41001,Liquor License - Establishment,B,90G,Liquor Law Violations,23,micr_manual_1110_2024,true,false,
 4102,41002,Liquor Violations - Other,B,90G,Liquor Law Violations,23,micr_manual_1110_2024,true,true,
-4200,42000,Drunkenness,B,90E,Drunkenness,24,micr_manual_1110_2024,true,false,
+4200,42000,Drunkenness,B,90E,Drunkenness,24,micr_manual_1110_2024,true,false,NIBRS 90E (Drunkenness) ist zurueckgezogen; die Fassung 2025 fuehrt den Code nicht mehr
 4800,48000,Obstructing Police,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
 4801,,OBSTRUCTING POLICE,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
 4900,49000,Escape/Flight,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
@@ -119,7 +119,7 @@ micr_code,micr_file_class,micr_description,nibrs_group,nibrs_code,nibrs_descript
 6300,63000,Vagrancy,B,90B,Curfew/Loitering/Vagrancy,26,micr_manual_1110_2024,true,false,
 6401,64001,"Human Trafficking, Commercial Sex Acts",A,64A,"Human Trafficking, Commercial Sex Acts",9,micr_manual_1110_2024,true,false,
 6402,64002,"Human Trafficking, Involuntary Servitude",A,64B,"Human Trafficking, Involuntary Servitude",10,micr_manual_1110_2024,true,false,
-7000,70000,Juvenile Runaway,B,90I,Runaway,,appendix_f_2009,true,true,nur in Appendix F 2009; im Manual 1110 nicht mehr gefuehrt
+7000,70000,Juvenile Runaway,B,90I,Runaway,,appendix_f_2009,true,true,nur in Appendix F 2009; im Manual 1110 nicht mehr gefuehrt; NIBRS 90I (Runaway) ist zurueckgezogen; die Fassung 2025 fuehrt den Code nicht mehr
 7070,,RUNAWAY,,,,,,false,true,weder im Manual 1110 (2024) noch in Appendix F (2009); Bezeichnung aus den Detroit-Daten
 7200,72000,Animal Cruelty,A,720,Animal Cruelty,18,micr_manual_1110_2024,true,false,
 7300,73000,Miscellaneous Criminal Offense,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
