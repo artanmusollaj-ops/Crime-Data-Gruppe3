@@ -637,6 +637,7 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | Quelle Census erklärt | [`notebooks/21_census_source.ipynb`](../notebooks/21_census_source.ipynb) |
 | Quelle Wetter erklärt | [`notebooks/22_weather_source.ipynb`](../notebooks/22_weather_source.ipynb) |
 | Storage-Messung | [`notebooks/31_storage_evaluation.ipynb`](../notebooks/31_storage_evaluation.ipynb) |
+| Referenzquelle NIBRS, Mapping-Herkunft | [`notebooks/32_nibrs_source.ipynb`](../notebooks/32_nibrs_source.ipynb) |
 | Technische Entscheide | [`projektabsprache.md`](projektabsprache.md) |
 | Anforderungen gegen Stand | [`leistungsnachweise.md`](leistungsnachweise.md) |
 | Detroit-Pipeline im Detail | [`DETROIT_PIPELINE_ANLEITUNG.md`](DETROIT_PIPELINE_ANLEITUNG.md) |
