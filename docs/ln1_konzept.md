@@ -36,7 +36,7 @@ als Nenner für Raten — und Wetter als dritte Zeitachse.
 Umgesetzt sind **fünf Quellen in vier Ingestion-Pipelines**, eine
 Speicherarchitektur aus unveränderlichen Läufen, und zwei von drei
 Silver-Tabellen. Jede Quelle weist ihre Vollständigkeit nach, statt sie zu
-behaupten. **329 automatisierte Tests** laufen ohne Netzzugriff und ohne
+behaupten. **422 automatisierte Tests** laufen ohne Netzzugriff und ohne
 Schlüssel.
 
 | | |
@@ -112,14 +112,14 @@ Anwendungsebene ist Rahmen, nicht Prüfgegenstand.
 ### 3.3 Hypothesen
 
 Alle falsifizierbar, alle mit einem Verfahren aus dem Modul prüfbar, alle mit
-den vorliegenden Daten durchführbar. **Fünf sind bereits gemessen** — vier
-bestätigt oder vorgeprüft, **eine falsifiziert.**
+den vorliegenden Daten durchführbar. **Sechs sind bereits gemessen** — vier
+bestätigt oder vorgeprüft, **eine falsifiziert, eine teilweise falsifiziert.**
 
 | | Hypothese | Verfahren | Stand |
 | --- | --- | --- | --- |
 | **H1** | Fehlende Koordinaten treten **nicht zufällig** auf, sondern hängen vom Delikttyp ab. | Chi-Quadrat-Unabhängigkeitstest | vorgeprüft: 4,3 % bei Delikten an Kindern gegen 0,4 % bei Diebstahl |
 | **H2** | Der Überlapp der Delta-Läufe erzeugt ausschliesslich **Duplikate**, keine **Dubletten**. | Vergleich aller Attribute je Schlüssel | bestätigt |
-| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Abgleich gegen die Mapping-Tabellen | Chicago: alle Codes der Falldaten zugeordnet, 2 der 434 Tabellenzeilen offen. Detroit: 94,96 % der Fälle über den MICR-Crosswalk, Rest offen |
+| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Abgleich gegen die Mapping-Tabellen | **teilweise falsifiziert**, siehe 8.5. Chicago: 259 272 Fälle, jeder Code bekannt, aber nur **97,03 %** erhalten ein echtes NIBRS-Delikt — 2,97 % landen im Auffang `90Z`. Detroit: 94,96 % der Fälle über den MICR-Crosswalk, Rest offen |
 | **H4** | Ein gepinntes Schema plus Auffangspalte fängt Schema-Drift **vollständig** auf. | Fingerabdruck über Feldtypen, Inhalt von `_extra` | bestätigt |
 | **H5** | Auffällige Werte in den Verwaltungsschlüsseln sind **Artefakte**, keine echten Ausreisser. | Häufigkeitsanalyse plus Konsistenzregel | vorgeprüft |
 | **H6** | Die Zusammenführung der drei Zeitachsen gelingt allein durch **Aggregation**; Imputation ist nicht nötig. | Granularitätsanalyse je Quelle | offen |
@@ -279,7 +279,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 329 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
+| **DataOps** | 422 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -545,6 +545,55 @@ nicht geklärt ist.
 Dass eine Hypothese fällt, ist kein schlechteres Ergebnis als eine bestätigte:
 Sie zeigt, dass geprüft und nicht angenommen wurde.
 
+### 8.5 Ein zweiter, teilweise falsifizierter Befund: H3
+
+H3 nahm an, die Deliktschlüssel beider Städte liessen sich **vollständig** auf
+NIBRS abbilden. Für Chicago ist das messbar — und die Antwort hängt daran, was
+„vollständig" heissen soll.
+
+Gemessen über alle 259'272 eindeutigen Fälle des Jahrgangs 2024:
+
+| | |
+| --- | --- |
+| Fälle, deren IUCR-Code die Tabelle kennt | 259'272 — **100 %** |
+| bewusst nicht zugeordnet, weil kein Delikt | 3 (`1481`, Entzug der Waffentragerlaubnis) |
+| **Fälle mit einem echten NIBRS-Delikt** | **251'574 — 97,03 %** |
+| Fälle im Auffang `90Z` | 7'695 — **2,97 %** |
+
+**Abdeckung ja, Abbildung nein.** Kein Code fällt stillschweigend heraus, das
+war die eigentliche Sorge. Aber 2,97 % der Fälle tragen ein Delikt, das NIBRS
+nicht kennt: Verstösse gegen Registrierungspflichten, Bewährungs- und
+Bewährungsauflagen, Illinois-Eigenheiten wie *Criminal Fortification*. Für die
+landen sie auf `90Z All Other Offenses` — ein Code, der zwar gültig ist, aber
+für einen Deliktvergleich nichts aussagt.
+
+Im Katalog ist der Anteil deutlich höher als in den Fällen: **70 der 434
+Katalogzeilen** sind Auffangzeilen (16,1 %), in den Falldaten aber nur 2,97 %.
+Die Delikte ohne NIBRS-Entsprechung sind also überwiegend seltene. Das ist ein
+gutes Ergebnis für den Vergleich — aber es ist ein gemessenes, kein
+angenommenes.
+
+**Warum das überhaupt auffiel.** Die erste Fassung des Chicago-Crosswalks
+entstand aus einem Join über den I-UCR-Code auf eine nach ILCS-Statut
+geschlüsselte Codetabelle der Illinois State Police. Beide Systeme benutzen
+vierstellige Kürzel, meinen damit aber Verschiedenes. Der Join lieferte deshalb
+**gültige NIBRS-Codes für das falsche Delikt** — `1140 EMBEZZLEMENT` zeigte auf
+`250 Counterfeiting/Forgery`, vier Prostitutionszeilen auf `11A Rape`. Eine
+Prüfung auf Gültigkeit hätte das nie gefunden; aufgefallen ist es erst beim
+Vergleich der Deliktbeschreibungen beider Seiten.
+
+Die Zuordnung entsteht seither aus Chicagos eigener Beschreibung des Delikts
+gegen die amtliche Codeliste, festgehalten in
+[`tools/build_iucr_nibrs_mapping.py`](../tools/build_iucr_nibrs_mapping.py).
+106 der 434 Zeilen bekamen dabei einen anderen Code.
+
+**Die Lehre ist allgemeiner als der Fall.** Ein Schlüssel, der in zwei Systemen
+dieselbe Form hat, ist deshalb noch nicht derselbe Schlüssel. Ein Join darüber
+scheitert nicht — er liefert ein plausibles, prüfbar formgültiges und falsches
+Ergebnis. Gegen diese Fehlerklasse hilft keine Schemaprüfung, sondern nur ein
+Abgleich der Semantik: hier der Deliktbeschreibungen, die beide Seiten
+mitliefern.
+
 ---
 
 ## 9 · Grenzen
@@ -592,7 +641,7 @@ Sie zeigt, dass geprüft und nicht angenommen wurde.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 329 bestandene Tests
+python -m pytest                       # erwartet 422 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
@@ -641,9 +690,10 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | Technische Entscheide | [`projektabsprache.md`](projektabsprache.md) |
 | Anforderungen gegen Stand | [`leistungsnachweise.md`](leistungsnachweise.md) |
 | Detroit-Pipeline im Detail | [`DETROIT_PIPELINE_ANLEITUNG.md`](DETROIT_PIPELINE_ANLEITUNG.md) |
-| NIBRS-Abgleich | [`nibrs_chicago_detroit_abgleichen.md`](nibrs_chicago_detroit_abgleichen.md) |
-| IUCR nach NIBRS (Chicago) | `config/iucr_nibrs_mapping.csv` |
+| **NIBRS-Codeliste, amtlich** | `config/nibrs_offense_codes_2025.csv` — 81 Codes aus Anhang A von [`nibrs_technical_specification_2025.pdf`](nibrs_technical_specification_2025.pdf) |
+| IUCR nach NIBRS (Chicago) | `config/iucr_nibrs_mapping.csv`, erzeugt von [`tools/build_iucr_nibrs_mapping.py`](../tools/build_iucr_nibrs_mapping.py); Katalog vom [Datenportal der Stadt](https://data.cityofchicago.org/resource/c7ck-438e.json) |
 | MICR nach NIBRS (Detroit) | `config/micr_nibrs_mapping.csv`, Quellen [`micr_manual_1110_2024.pdf`](micr_manual_1110_2024.pdf) und [`micr_appendix_f_2009.pdf`](micr_appendix_f_2009.pdf) |
+| Codetabelle Illinois State Police | [`isp_nibrs_code_table_2026.xlsx`](isp_nibrs_code_table_2026.xlsx) — nach ILCS-Statut geschlüsselt, **nicht** als Crosswalk verwendbar, siehe 8.5 |
 
 ---
 
@@ -657,6 +707,7 @@ Damit dieses Dokument vollständig ist, fehlen:
   Hypothesentest zu H1, H2, H3 und H5
 - **Ein Notebook, das die Hypothesen rechnet** — die Zahlen zu H1, H2 und H5
   liegen heute in Notebook 03, H7 in 8.4; ein eigenes Notebook fehlt
-- **H3 für Detroit** — Chicagos NIBRS-Abbildung ist vollständig belegt, Detroits
-  Gegenbeweis steht aus
+- **H3 für Detroit** — Chicagos Seite ist gemessen (8.5), Detroits steht aus:
+  die 23 offenen MICR-Codes sind Arrest Charge Codes und brauchen den Umweg
+  über die File Class
 - **Das Detroit-Quellnotebook**
