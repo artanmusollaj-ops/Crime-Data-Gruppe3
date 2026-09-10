@@ -42,10 +42,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# openpyxl nur fuer die Tests: damit wird die ISP-Codetabelle (xlsx) als
-# Quelle gegen config/iucr_nibrs_mapping.csv gegengelesen. Keine Pipeline
-# braucht das Paket zur Laufzeit.
-dev = ["openpyxl>=3.1,<4", "pytest>=8,<10"]
+dev = ["pytest>=8,<10"]
 
 [tool.setuptools.packages.find]
 where = ["src/crime"]
