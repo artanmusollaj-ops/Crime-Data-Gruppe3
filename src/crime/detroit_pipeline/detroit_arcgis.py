@@ -14,7 +14,7 @@ skript optional ``pyarrow`` benoetigt.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time as datetime_time, timedelta, timezone
 from hashlib import sha256
 import json
 import logging
@@ -66,6 +66,7 @@ class ArcGISLayerInfo:
     max_record_count: int
     schema_fingerprint: str
     fields: tuple[str, ...]
+    field_types: tuple[tuple[str, str], ...] = ()
 
 
 def chunked(values: Sequence[int], size: int) -> Iterator[Sequence[int]]:
@@ -81,6 +82,89 @@ def chunked(values: Sequence[int], size: int) -> Iterator[Sequence[int]]:
         yield values[start : start + size]
 
 
+@dataclass(frozen=True)
+class DetroitDateWindow:
+    """Lokale Kalendergrenzen und ihre eindeutigen UTC-Zeitpunkte."""
+
+    start_local: datetime
+    end_local: datetime
+
+    @property
+    def start_utc(self) -> datetime:
+        return self.start_local.astimezone(timezone.utc)
+
+    @property
+    def end_utc(self) -> datetime:
+        return self.end_local.astimezone(timezone.utc)
+
+    def manifest_fields(self) -> dict:
+        """Dokumentiert genau die fuer ArcGIS verwendeten Grenzen."""
+        return {
+            "window_contract_version": 2,
+            "window_timezone": SOURCE_TIMEZONE.key,
+            "query_timezone": "UTC",
+            "window_start_local": self.start_local.isoformat(),
+            "window_end_local_exclusive": self.end_local.isoformat(),
+            "window_start_utc": self.start_utc.isoformat(),
+            "window_end_utc_exclusive": self.end_utc.isoformat(),
+            "window_duration_hours": (
+                self.end_utc - self.start_utc
+            ).total_seconds() / 3600,
+        }
+
+    def where(self, field_name: str) -> str:
+        """Formatiert UTC-Literale fuer den UTC-deklarierten ArcGIS-Layer."""
+        if field_name not in {"incident_occurred_at", "updated_at"}:
+            raise ValueError(f"Nicht erlaubtes Datumsfeld: {field_name}")
+        start = self.start_utc.strftime("%Y-%m-%d %H:%M:%S")
+        end = self.end_utc.strftime("%Y-%m-%d %H:%M:%S")
+        return (
+            f"{field_name} >= TIMESTAMP '{start}' "
+            f"AND {field_name} < TIMESTAMP '{end}'"
+        )
+
+
+def build_local_date_window(start_date: date, end_date: date) -> DetroitDateWindow:
+    """Interpretiert reine Datumswerte als Detroit-Mitternacht, Ende exklusiv.
+
+    Beide Grenzen werden lokal konstruiert. Insbesondere wird nicht pauschal
+    eine Anzahl von 24-Stunden-Perioden auf einen UTC-Start addiert.
+    """
+    if type(start_date) is not date or type(end_date) is not date:
+        raise TypeError("Fenstergrenzen muessen date-Werte ohne Uhrzeit sein")
+    if end_date <= start_date:
+        raise ValueError("end_date muss nach start_date liegen")
+    return DetroitDateWindow(
+        datetime.combine(start_date, datetime_time.min, SOURCE_TIMEZONE),
+        datetime.combine(end_date, datetime_time.min, SOURCE_TIMEZONE),
+    )
+
+
+def resolve_daily_window(
+    reference_date: date | None = None,
+    lookback_days: int = 14,
+    *,
+    now: datetime | None = None,
+) -> DetroitDateWindow:
+    """Waehlt lokale Kalendertage bis einschliesslich reference_date.
+
+    Ohne Referenzdatum endet das Fenster mit dem abgeschlossenen Detroit-
+    Vortag. Ein injizierter aware now-Zeitpunkt macht Tests reproduzierbar.
+    Ein explizites Referenzdatum ist unabhaengig von der Ausfuehrungszeit.
+    """
+    if type(lookback_days) is not int or lookback_days <= 0:
+        raise ValueError("lookback_days muss eine positive ganze Zahl sein")
+    if reference_date is None:
+        instant = now if now is not None else datetime.now(timezone.utc)
+        if instant.tzinfo is None or instant.utcoffset() is None:
+            raise ValueError("now muss eine Zeitzone enthalten")
+        reference_date = instant.astimezone(SOURCE_TIMEZONE).date() - timedelta(days=1)
+    if type(reference_date) is not date:
+        raise TypeError("reference_date muss ein date-Wert sein")
+    end_date = reference_date + timedelta(days=1)
+    return build_local_date_window(end_date - timedelta(days=lookback_days), end_date)
+
+
 def build_field_date_where(
     field_name: str,
     start_date: date,
@@ -93,17 +177,7 @@ def build_field_date_where(
     dass ein frei eingegebener Feldname in die ArcGIS-WHERE-Klausel gelangt.
     """
 
-    allowed_fields = {"incident_occurred_at", "updated_at"}
-    if field_name not in allowed_fields:
-        raise ValueError(f"Nicht erlaubtes Datumsfeld: {field_name}")
-    if end_date <= start_date:
-        raise ValueError("end_date muss nach start_date liegen")
-    start = start_date.isoformat()
-    end = end_date.isoformat()
-    return (
-        f"{field_name} >= TIMESTAMP '{start} 00:00:00' "
-        f"AND {field_name} < TIMESTAMP '{end} 00:00:00'"
-    )
+    return build_local_date_window(start_date, end_date).where(field_name)
 
 
 def build_date_where(start_date: date, end_date: date) -> str:
@@ -300,6 +374,7 @@ class ArcGISClient:
             max_record_count=int(metadata.get("maxRecordCount") or 2000),
             schema_fingerprint=fingerprint,
             fields=tuple(str(field["name"]) for field in fields),
+            field_types=tuple((str(f["name"]), str(f.get("type", ""))) for f in fields),
         )
 
     def get_count(self, where: str) -> int:
