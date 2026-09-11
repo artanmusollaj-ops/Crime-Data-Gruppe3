@@ -284,8 +284,14 @@ def test_neues_laufverzeichnis_wird_gelesen(tmp_path):
     assert manifest["checks"]["per_city"]["detroit"]["rows"] == 1
 
 
-def test_alter_ndjson_bestand_bleibt_lesbar(tmp_path):
-    """Ein Bestand von vor dem Umbau darf nicht unlesbar werden."""
+def test_alter_ndjson_bestand_wird_nicht_mehr_gelesen(tmp_path):
+    """Ein Bestand von vor dem Umbau ist nicht bloss alt, sondern falsch.
+
+    Sein Jahresfenster war in UTC gezogen statt in Detroiter Ortszeit; er
+    enthaelt 66 Faelle vom 31.12.2023 und vermisst 56 vom Jahresende 2024. Ihn
+    stillschweigend weiterzulesen waere schlimmer als ein Fehler - deshalb
+    nennt die Meldung den Grund und den Befehl, der es behebt.
+    """
     data_root = tmp_path / "data"
     config_root = tmp_path / "config"
     schreibe_tract(data_root)
@@ -293,17 +299,19 @@ def test_alter_ndjson_bestand_bleibt_lesbar(tmp_path):
     schreibe_detroit_ndjson(data_root, DET)
     schreibe_config(config_root)
 
-    ziel = bc.build(data_root, config_root)
-    assert manifest_von(ziel)["derived_from"]["detroit_bronze_format"] == "NDJSON"
-    assert len([z for z in lies(ziel) if z["city"] == "detroit"]) == 1
+    with pytest.raises(bc.TransformError) as fehler:
+        bc.build(data_root, config_root)
+    meldung = str(fehler.value)
+    assert "falschen Jahr" in meldung, "die Meldung muss den Grund nennen"
+    assert "extract_detroit" in meldung, "und den Weg heraus"
 
 
-def test_parquet_hat_vorrang_vor_ndjson(tmp_path):
+def test_liegengebliebenes_ndjson_wird_ignoriert(tmp_path):
     """Der gefaehrlichste Fall: beide Bestaende liegen nebeneinander.
 
-    Nach dem Umbau bleibt die alte NDJSON-Datei zunaechst liegen. Wuerde sie
-    weiter gelesen, rechnete die Tabelle stillschweigend mit dem alten Stand
-    weiter - ein Fehler, der wie ein Erfolg aussieht.
+    Nach dem Umbau bleibt eine alte NDJSON-Datei womoeglich liegen. Wuerde sie
+    mitgelesen, mischte die Tabelle zwei Staende - einen davon mit Faellen aus
+    dem falschen Jahr. Ein Fehler, der wie ein Erfolg aussieht.
     """
     data_root = tmp_path / "data"
     config_root = tmp_path / "config"

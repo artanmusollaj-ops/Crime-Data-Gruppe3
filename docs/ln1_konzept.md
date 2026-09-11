@@ -44,7 +44,7 @@ Schlüssel.
 | | |
 | --- | --- |
 | Chicago, Jahrgang 2024 | 259'272 Delikte |
-| Detroit, Jahrgang 2024 | 88'695 Delikte |
+| Detroit, Jahrgang 2024 | 88'685 Delikte |
 | Census Tracts, Illinois und Michigan | 6'282, mit Geometrie und Sozialdaten |
 | Wetter, zwei Stationen | 55'449 Stadt-Tage, zurück bis 1942 |
 
@@ -121,7 +121,7 @@ bestätigt oder vorgeprüft, **eine falsifiziert, eine teilweise falsifiziert.**
 | --- | --- | --- | --- |
 | **H1** | Fehlende Koordinaten treten **nicht zufällig** auf, sondern hängen vom Delikttyp ab. | Chi-Quadrat-Unabhängigkeitstest | vorgeprüft: 4,3 % bei Delikten an Kindern gegen 0,4 % bei Diebstahl |
 | **H2** | Der Überlapp der Delta-Läufe erzeugt ausschliesslich **Duplikate**, keine **Dubletten**. | Vergleich aller Attribute je Schlüssel | bestätigt |
-| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Anwendung beider Crosswalks in `silver/crime_offense` | **teilweise falsifiziert**, siehe 8.5. Chicago **100 %** zugeordnet, Detroit **98,1 %**. Aber nur **96,4 %** aller Fälle tragen ein echtes NIBRS-Delikt — 10'793 landen im Auffang `90Z`, 1'684 gar nicht |
+| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Anwendung beider Crosswalks in `silver/crime_offense` | **teilweise falsifiziert**, siehe 8.5. Chicago **100 %** zugeordnet, Detroit **98,1 %**. Aber nur **96,4 %** aller Fälle tragen ein echtes NIBRS-Delikt — 10'794 landen im Auffang `90Z`, 1'650 gar nicht |
 | **H4** | Ein gepinntes Schema plus Auffangspalte fängt Schema-Drift **vollständig** auf. | Fingerabdruck über Feldtypen, Inhalt von `_extra` | bestätigt |
 | **H5** | Auffällige Werte in den Verwaltungsschlüsseln sind **Artefakte**, keine echten Ausreisser. | Häufigkeitsanalyse plus Konsistenzregel | vorgeprüft |
 | **H6** | Die Zusammenführung der drei Zeitachsen gelingt allein durch **Aggregation**; Imputation ist nicht nötig. | Granularitätsanalyse je Quelle | offen |
@@ -390,24 +390,29 @@ einen Server betreibt.
 Vier Quellen legten Bronze als Parquet ab, Detroit als NDJSON. Ob das
 zusammengeführt werden soll, ist keine Geschmacksfrage, sondern messbar.
 Verglichen wurden **dieselben Daten in beiden Formaten** — Detroits Bronze-Lauf
-mit 88'695 Zeilen, gelesen über DuckDB.
+mit 88'685 Zeilen, gelesen über DuckDB.
 
-> **Die Messung ist inzwischen umgesetzt.** Detroit schreibt seit dem 11.9.
-> Parquet in Laufverzeichnissen. Dieses Kapitel beschreibt die Messung, die zu
-> dem Entscheid geführt hat; die Zahlen unten sind der Stand davor.
+> **Die Messung ist umgesetzt und bleibt nachrechenbar.** Detroit schreibt seit
+> dem 11.9. Parquet; der alte NDJSON-Bestand ist gelöscht, damit niemand
+> versehentlich darauf zugreift. Das Vergleichs-NDJSON erzeugt das Notebook
+> deshalb zur Laufzeit aus der Spalte `_feature_json`, die die Antwort der
+> Quelle unverändert aufbewahrt. Es ist damit etwas kleiner als die frühere
+> Bronze-Datei, der die Pipeline je Zeile noch einen `_meta`-Block anfügte —
+> der Vergleich selbst ist derselbe.
 
 | Format | Grösse |
 | --- | --- |
-| NDJSON, wie ausgeliefert | 125,3 MB |
-| NDJSON + gzip | 11,7 MB |
+| NDJSON, wie ausgeliefert | 89,4 MB |
+| NDJSON + gzip | 10,9 MB |
 | **Parquet snappy** | **6,5 MB** |
+| Parquet zstd | 4,8 MB |
 
 | Abfrage | NDJSON | Parquet | Faktor |
 | --- | --- | --- | --- |
-| Zeilen zählen | 0,112 s | 0,000 s | aus den Metadaten |
-| nach Kategorie gruppieren | 0,114 s | 0,001 s | 137× |
-| **fünf Spalten, alle Zeilen** | **0,158 s** | **0,026 s** | **6,0×** |
-| alle Spalten materialisieren | 0,790 s | 0,615 s | 1,3× |
+| Zeilen zählen | 0,088 s | 0,000 s | aus den Metadaten |
+| nach Kategorie gruppieren | 0,091 s | 0,001 s | 110× |
+| **fünf Spalten, alle Zeilen** | **0,139 s** | **0,029 s** | **4,9×** |
+| alle Spalten materialisieren | 0,541 s | 0,428 s | 1,3× |
 
 Die dritte Zeile ist die, die zählt: Genau das tut die Silver-Schicht. NDJSONs
 Zeiten sind über die ersten Abfragen konstant, weil **JSON keine Spaltenauswahl
@@ -425,10 +430,10 @@ nach der Konvention der anderen vier Quellen kostet die zusätzliche Schicht
 nichts — sie spart:
 
 ```text
-heute        Bronze NDJSON            125,3 MB
-getrennt     Raw    NDJSON + gzip      11,7 MB
+vorher       Bronze NDJSON             89,4 MB
+getrennt     Raw    NDJSON + gzip      10,9 MB
              Bronze Parquet snappy      6,5 MB
-             zusammen                   18,3 MB   → 85 % weniger
+             zusammen                   17,4 MB   → 81 % weniger
 ```
 
 Messung und Methodik: [`notebooks/31_storage_evaluation.ipynb`](../notebooks/31_storage_evaluation.ipynb).
@@ -492,7 +497,7 @@ desselben Tages — oder Information wegwerfen. Deshalb drei Tabellen:
 | --- | --- | --- |
 | `tract` | ein Census Tract | **gebaut**, 6'282 Zeilen |
 | `weather_day` | eine Stadt an einem Tag | **gebaut**, 55'449 Zeilen |
-| `crime_offense` | ein Delikt | **gebaut**, 347'967 Zeilen |
+| `crime_offense` | ein Delikt | **gebaut**, 347'957 Zeilen |
 
 `tract` verbindet TIGER-Geometrie mit ACS-Attributen. Gedeutet wird: Text zu
 Zahlen, `-666666666` zu `NULL`, die Armutsquote abgeleitet — und bei Tracts ohne
@@ -505,8 +510,8 @@ Rekorden plausibilisiert. Ein leeres Feld wird `NULL` und **nicht** `0` — bei
 Niederschlag der entscheidende Unterschied. Das Messflag `T` für Spurenmengen
 bekommt eine eigene Spalte, weil `0` mit `T` nicht „trocken" heisst.
 
-`crime_offense` ist die Tabelle, die den Vergleich trägt — 347'967 Delikte,
-259'272 aus Chicago und 88'695 aus Detroit. Sie leistet drei Übersetzungen auf
+`crime_offense` ist die Tabelle, die den Vergleich trägt — 347'957 Delikte,
+259'272 aus Chicago und 88'685 aus Detroit. Sie leistet drei Übersetzungen auf
 einmal, und jede davon ist ein eigener Fehlerherd:
 
 | | Chicago | Detroit |
@@ -600,17 +605,17 @@ NIBRS abbilden. Seit `silver/crime_offense` beide Crosswalks auf die Falldaten
 anwendet, ist das gemessen — und die Antwort hängt daran, was „vollständig"
 heissen soll.
 
-Gemessen über alle 347'967 Delikte des Jahrgangs 2024:
+Gemessen über alle 347'957 Delikte des Jahrgangs 2024:
 
 | | Chicago | Detroit | zusammen |
 | --- | ---: | ---: | ---: |
-| Delikte | 259'272 | 88'695 | 347'967 |
+| Delikte | 259'272 | 88'685 | 347'957 |
 | Quellcode im Crosswalk bekannt | **100 %** | **98,1 %** | 99,5 % |
-| davon Auffang `90Z` | 7'695 | 3'098 | 10'793 |
+| davon Auffang `90Z` | 7'695 | 3'099 | 10'794 |
 | **mit einem echten NIBRS-Delikt** | **97,0 %** | **94,6 %** | **96,4 %** |
 
 **Abdeckung ja, Abbildung nein.** Kein Chicago-Code fällt stillschweigend
-heraus, das war die eigentliche Sorge. Aber 10'793 Fälle tragen ein Delikt, das
+heraus, das war die eigentliche Sorge. Aber 10'794 Fälle tragen ein Delikt, das
 NIBRS nicht kennt: Verstösse gegen Registrierungspflichten, Bewährungsauflagen,
 Illinois-Eigenheiten wie *Criminal Fortification*. Sie landen auf `90Z All Other
 Offenses` — ein Code, der gültig ist, für einen Deliktvergleich aber nichts
@@ -641,13 +646,13 @@ angeschlossen, nachgerechnet in
 20 von 23, was Detroit von 94,96 % auf **98,10 %** hebt.
 
 **Drei bleiben offen**, weil Detroits eigene Beschreibung dem Handbuch
-widerspricht — 1'681 Fälle:
+widerspricht — 1'647 Fälle:
 
 | Code | Fälle | Detroit sagt | Handbuch sagt |
 | --- | ---: | --- | --- |
-| `3072` | 1'477 | RETAIL FRAUD – **THEFT** | Retail Fraud **Misrepresentation** 2nd Degree |
-| `5421` | 102 | ACCIDENT, HIT & RUN | Operating **ORV** Under the Influence |
-| `5422` | 102 | ACCIDENT, HIT & RUN | Permitted Person Under the Influence |
+| `3072` | 1'447 | RETAIL FRAUD – **THEFT** | Retail Fraud **Misrepresentation** 2nd Degree |
+| `5421` | 100 | ACCIDENT, HIT & RUN | Operating **ORV** Under the Influence |
+| `5422` | 100 | ACCIDENT, HIT & RUN | Permitted Person Under the Influence |
 
 Der Unterschied ist erheblich: bei `3072` steht 26A *False Pretenses* gegen 23C
 *Shoplifting*. Hier zu raten wäre genau der Fehler, der den Chicago-Crosswalk
@@ -809,7 +814,7 @@ Damit dieses Dokument vollständig ist, fehlen:
   es `tract` als Nenner braucht, gehört nach Gold und fehlt noch
 - **Ein Notebook, das die Hypothesen rechnet** — die Zahlen zu H1, H2 und H5
   liegen heute in Notebook 03, H7 in 8.4; ein eigenes Notebook fehlt
-- **Die letzten 1,9 % von Detroit** — `3072`, `5421` und `5422`, zusammen 1'681
+- **Die letzten 1,9 % von Detroit** — `3072`, `5421` und `5422`, zusammen 1'647
   Fälle, bei denen Detroits Beschreibung dem MICR-Handbuch widerspricht (8.5).
   Das kann nur Detroit auflösen
 - **Das Detroit-Quellnotebook**
