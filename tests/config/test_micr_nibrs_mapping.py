@@ -307,9 +307,17 @@ def test_nur_die_umstrittenen_bleiben_offen(zeilen):
 
 
 def detroit_codes() -> dict[str, int] | None:
-    """Die MICR-Codes des juengsten Detroit-Bronze-Laufs, oder None."""
-    treffer = sorted((PROJECT_ROOT / "data" / "bronze" / "detroit").glob("*.ndjson")) \
-        if (PROJECT_ROOT / "data" / "bronze" / "detroit").exists() else []
+    """Die MICR-Codes des juengsten Detroit-Bronze-Laufs, oder None.
+
+    Detroit schreibt seit dem 11.9. Parquet in Laufverzeichnissen. Der frueher
+    gelesene NDJSON-Bestand ist geloescht: Sein Jahresfenster war in UTC
+    gezogen statt in Detroiter Ortszeit, er enthielt also Faelle aus 2023.
+    """
+    wurzel = PROJECT_ROOT / "data" / "bronze" / "detroit"
+    treffer = sorted(
+        p for p in wurzel.glob("**/run_*/part-0001.parquet")
+        if not any(teil.startswith(".") for teil in p.parts)
+    ) if wurzel.exists() else []
     if not treffer:
         return None
     duckdb = pytest.importorskip("duckdb")
@@ -319,7 +327,7 @@ def detroit_codes() -> dict[str, int] | None:
             code: anzahl
             for code, anzahl in con.execute(f"""
                 SELECT attributes.state_offense_code, count(*)
-                FROM read_json_auto('{treffer[-1]}')
+                FROM read_parquet({[str(p) for p in treffer]!r})
                 WHERE attributes.state_offense_code IS NOT NULL
                 GROUP BY 1
             """).fetchall()

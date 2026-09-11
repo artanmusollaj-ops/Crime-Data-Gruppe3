@@ -25,7 +25,7 @@ Gesamtfallzahl addiert werden dürfen, gilt für unsere Tabelle genauso.
 
 Sein Detroit-Fenster ist bemerkenswert: Juni `04:00Z`, 9. November `05:00Z` — er
 hat die Sommerzeit von Hand richtig aufgelöst. Genau das, was unsere Ingestion
-seit dem Zeitzonen-Fix automatisch tut (Konzept 8.6).
+seit dem Zeitzonen-Fix automatisch tut.
 
 ## 2. Detroit: deckungsgleich
 
@@ -140,7 +140,7 @@ Beschreibung**, und die sagt „ASSAULT / SIMPLE". Erst wer die Rechtslage dahin
 kennt, sieht, dass „Assault" in Illinois etwas anderes heisst als im
 Alltagssprachgebrauch.
 
-Das ist dieselbe Fehlerklasse wie in Konzept 8.5 und 8.6, eine Ebene tiefer:
+Das ist dieselbe Fehlerklasse wie in Konzept 8.5, eine Ebene tiefer:
 nicht gleiche Form mit anderer Bedeutung, sondern **gleiches Wort mit anderer
 Bedeutung**.
 
