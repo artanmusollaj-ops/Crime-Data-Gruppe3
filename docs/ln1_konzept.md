@@ -38,7 +38,7 @@ Speicherarchitektur aus unveränderlichen Läufen, und **alle drei
 Silver-Tabellen** — seit `crime_offense` sprechen beide Städte dieselbe
 Deliktsprache, liegen auf derselben Zeitachse und tragen dieselbe
 Raumeinheit. Jede Quelle weist ihre Vollständigkeit nach, statt sie zu
-behaupten. **459 automatisierte Tests** laufen ohne Netzzugriff und ohne
+behaupten. **492 automatisierte Tests** laufen ohne Netzzugriff und ohne
 Schlüssel.
 
 | | |
@@ -281,7 +281,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 459 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
+| **DataOps** | 492 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -375,10 +375,14 @@ einen Server betreibt.
 
 ### 7.3 Das Format innerhalb der Schichten — gemessen
 
-Vier Quellen legen Bronze als Parquet ab, Detroit als NDJSON. Ob das
+Vier Quellen legten Bronze als Parquet ab, Detroit als NDJSON. Ob das
 zusammengeführt werden soll, ist keine Geschmacksfrage, sondern messbar.
 Verglichen wurden **dieselben Daten in beiden Formaten** — Detroits Bronze-Lauf
 mit 88'695 Zeilen, gelesen über DuckDB.
+
+> **Die Messung ist inzwischen umgesetzt.** Detroit schreibt seit dem 11.9.
+> Parquet in Laufverzeichnissen. Dieses Kapitel beschreibt die Messung, die zu
+> dem Entscheid geführt hat; die Zahlen unten sind der Stand davor.
 
 | Format | Grösse |
 | --- | --- |
@@ -418,6 +422,14 @@ getrennt     Raw    NDJSON + gzip      11,7 MB
 Messung und Methodik: [`notebooks/31_storage_evaluation.ipynb`](../notebooks/31_storage_evaluation.ipynb).
 Die Messung läuft mit warmem Betriebssystem-Cache und **unterschätzt damit
 Parquet**, weil der Plattenzugriff wegfällt.
+
+**Was daraus wurde.** Detroits Ingestion schreibt seit dem 11.9. Parquet, in
+Laufverzeichnissen mit Manifest und Prüfsumme, und bringt einen eigenen
+Datenvertrag mit: eingefrorenes Schema aus den Layer-Metadaten, `_feature_json`
+als verlustfreie Nutzlast, `_extra` für Typdrift. Vier der fünf Quellen liegen
+damit auf derselben Konvention. Die Silver-Schicht liest beide Formate — ein
+Bestand von vor der Umstellung wird nicht unlesbar, das neue Layout hat aber
+Vorrang.
 
 ### 7.4 Implementierung
 
@@ -715,7 +727,7 @@ mitliefern.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 451 bestandene Tests
+python -m pytest                       # erwartet 492 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:

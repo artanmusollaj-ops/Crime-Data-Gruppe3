@@ -96,12 +96,20 @@ UNFOUNDED = "UNFOUNDED"
 
 
 class Source(NamedTuple):
-    """Ein Bronze-Bestand, aus dem die Tabelle entsteht."""
+    """Ein Bronze-Bestand, aus dem die Tabelle entsteht.
+
+    ``reader`` haelt fest, wie DuckDB ihn liest. Chicago liegt als Parquet vor,
+    Detroit seit dem Umbau vom 11.9. ebenfalls - aber es gibt noch
+    NDJSON-Bestaende aus der Zeit davor, und die sollen nicht unlesbar werden,
+    nur weil das Format gewechselt hat.
+    """
 
     city: str
     paths: list[Path]
     run_ids: list[str]
     row_count: int
+    reader: str = "read_parquet"
+    format: str = "PARQUET"
 
 
 def arguments() -> argparse.Namespace:
@@ -165,17 +173,77 @@ def chicago_sources(data_root: Path) -> Source:
 
 
 def detroit_sources(data_root: Path) -> Source:
-    """Detroits Bronze-Bestand.
+    """Detroits Bronze-Bestand, im neuen Layout oder im alten.
 
-    Detroit legt eine NDJSON-Datei je Lauf ab, mit einem Manifest daneben -
-    nicht die Laufverzeichnisse der uebrigen Pipelines. Absprache 4.2 haelt
-    die Angleichung als offenen Punkt; bis dahin liest diese Funktion das
-    vorhandene Format.
+    Seit dem Parquet-Umbau legt Detroit Laufverzeichnisse an::
+
+        bronze/detroit/full/year=2024/run_<uuid>/part-0001.parquet
+        bronze/detroit/incremental/run_date=2026-09-11/run_<uuid>/...
+
+    Davor lag je Lauf eine NDJSON-Datei flach unter ``bronze/detroit/``, mit
+    einem ``*.manifest.json`` daneben. Beide Formen werden gelesen, das neue
+    Layout hat Vorrang.
+
+    **Warum nicht einfach nur das neue Layout.** Waere hier nur das neue
+    gesucht worden, haette ein vorhandener NDJSON-Bestand einen Fehler
+    ausgeloest; waere nur das alte gesucht worden - der Stand bis eben -, haette
+    die Tabelle jeden neuen Lauf stillschweigend uebergangen und mit dem alten
+    Bestand weitergerechnet. Das ist der unangenehmere der beiden Fehler, weil
+    er wie ein Erfolg aussieht.
     """
     wurzel = data_root / BRONZE_LAYER / DETROIT
     if not wurzel.exists():
         raise TransformError(f"Kein Detroit-Bronze-Verzeichnis: {wurzel}")
 
+    parquet = _detroit_parquet_runs(wurzel)
+    if parquet is not None:
+        return parquet
+
+    legacy = _detroit_ndjson_runs(wurzel)
+    if legacy is not None:
+        LOG.warning(
+            "Detroit liegt nur als NDJSON vor (%d Lauf/Laeufe). Das ist der "
+            "Stand vor dem Parquet-Umbau; ein neuer Full Load ersetzt ihn.",
+            len(legacy.paths),
+        )
+        return legacy
+
+    raise TransformError(
+        "Kein erfolgreicher Detroit-Bronze-Lauf. Zuerst die Ingestion starten: "
+        "python -m detroit_pipeline.extract_detroit --mode full --years 2024"
+    )
+
+
+def _detroit_parquet_runs(wurzel: Path) -> Source | None:
+    """Laufverzeichnisse des Parquet-Vertrags, oder None."""
+    pfade: list[Path] = []
+    laeufe: list[str] = []
+    zeilen = 0
+    for manifest_path in sorted(wurzel.glob("**/run_*/manifest.json")):
+        # Ein noch nicht veroeffentlichter Lauf liegt in einem versteckten
+        # .partial-Verzeichnis. Er darf nie mitgelesen werden.
+        if any(teil.startswith(".") for teil in manifest_path.parts):
+            continue
+        manifest = read_manifest_file(manifest_path)
+        if str(manifest.get("status", "")).upper() != "SUCCESS":
+            LOG.warning("Lauf uebersprungen, nicht SUCCESS: %s", manifest_path.parent)
+            continue
+        datei = manifest_path.parent / str(
+            manifest.get("bronze_file") or PARQUET_FILE
+        )
+        if not datei.exists():
+            raise TransformError(f"Manifest ohne Parquet-Datei: {manifest_path}")
+        pfade.append(datei)
+        laeufe.append(str(manifest.get("pipeline_run_id") or manifest_path.parent.name))
+        zeilen += int(manifest.get("downloaded_count") or 0)
+
+    if not pfade:
+        return None
+    return Source(DETROIT, pfade, laeufe, zeilen, "read_parquet", "PARQUET")
+
+
+def _detroit_ndjson_runs(wurzel: Path) -> Source | None:
+    """Der Bestand vor dem Umbau: eine NDJSON je Lauf, flach abgelegt."""
     pfade: list[Path] = []
     laeufe: list[str] = []
     zeilen = 0
@@ -194,10 +262,8 @@ def detroit_sources(data_root: Path) -> Source:
         zeilen += int(manifest.get("downloaded_count") or 0)
 
     if not pfade:
-        raise TransformError(
-            "Kein erfolgreicher Detroit-Bronze-Lauf. Zuerst die Ingestion starten."
-        )
-    return Source(DETROIT, pfade, laeufe, zeilen)
+        return None
+    return Source(DETROIT, pfade, laeufe, zeilen, "read_json_auto", "NDJSON")
 
 
 def read_manifest_file(path: Path) -> dict[str, Any]:
@@ -272,7 +338,7 @@ def build_query(
 
     -- Chicago: eine Zeile je id, die Fassung mit dem juengsten updated_on.
     chicago_roh AS (
-        SELECT * FROM read_parquet({sql_list(chicago.paths)})
+        SELECT * FROM {chicago.reader}({sql_list(chicago.paths)})
     ),
     chicago_eindeutig AS (
         SELECT * FROM (
@@ -306,9 +372,12 @@ def build_query(
     ),
 
     -- Detroit: eine Zeile je incident_entry_id.
+    -- Parquet und NDJSON tragen beide die Quellfelder unter 'attributes';
+    -- nur der Leseausdruck unterscheidet sich. Die Geometrie wird nicht
+    -- gebraucht, Detroit fuehrt die Koordinaten auch in den Attributen.
     detroit_roh AS (
-        SELECT attributes, geometry
-        FROM read_json_auto({sql_list(detroit.paths)})
+        SELECT attributes
+        FROM {detroit.reader}({sql_list(detroit.paths)})
     ),
     detroit_eindeutig AS (
         SELECT * FROM (
@@ -457,11 +526,14 @@ def reconcile(
             f"Chicago: {je_stadt[CHICAGO]['rows']} Zeilen aus "
             f"{chicago.row_count} Bronze-Zeilen - mehr Ergebnis als Quelle"
         )
-    if je_stadt.get(DETROIT, {}).get("rows", 0) != detroit.row_count:
+    # Seit dem Parquet-Umbau kann auch Detroit mehrere Laeufe haben: ein Full
+    # Load plus taegliche Nachlaeufe, die einander ueberlappen. Die Rohsumme ist
+    # deshalb groesser oder gleich der Zeilenzahl - kleiner nie, dann waere
+    # etwas verlorengegangen.
+    if je_stadt.get(DETROIT, {}).get("rows", 0) > detroit.row_count:
         raise TransformError(
             f"Detroit: {je_stadt[DETROIT]['rows']} Zeilen aus "
-            f"{detroit.row_count} Bronze-Zeilen - Detroit haeuft nicht an, "
-            "die Zahlen muessen uebereinstimmen"
+            f"{detroit.row_count} Bronze-Zeilen - mehr Ergebnis als Quelle"
         )
 
     zeitraum = con.execute(
@@ -531,7 +603,9 @@ def build_manifest(
         "tool": f"duckdb {duckdb.__version__} mit spatial und icu",
         "derived_from": {
             "chicago_bronze_runs": chicago.run_ids,
+            "chicago_bronze_format": chicago.format,
             "detroit_bronze_runs": detroit.run_ids,
+            "detroit_bronze_format": detroit.format,
             "silver_tract": str(tract),
             "crosswalks": [
                 str(config_root / IUCR_MAPPING),

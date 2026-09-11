@@ -26,7 +26,7 @@ den geladenen Daten erhoben, nicht geschätzt.
 | **Census ACS** | Pipeline fertig, getestet | dieselben Tracts, 3 Variablen | raw + bronze |
 | **Wetter (NOAA)** | Pipeline fertig, getestet | 29'181 Tage O'Hare (ab 1946), 26'264 Detroit Metro (ab 1942) | raw + bronze |
 
-Ergänzend: 459 Tests, 8 Notebooks, `data/silver/` mit allen drei Tabellen,
+Ergänzend: 492 Tests, 8 Notebooks, `data/silver/` mit allen drei Tabellen,
 `data/gold/` bislang leer. Die Deliktzuordnung liegt in drei Referenzdateien:
 `config/nibrs_offense_codes_2025.csv` (81 amtliche NIBRS-Codes),
 `config/iucr_nibrs_mapping.csv` (434 Chicago-Codes) und
@@ -259,15 +259,22 @@ Der Einbau von D wartet ausdrücklich auf diesen Entscheid.
 
 ## 4 · Bronze: der grösste Abstimmungsbedarf
 
-**Stand.** Wir haben heute **drei verschiedene Bronze-Konventionen**:
+**Stand seit dem 11.9.** Detroit schreibt Parquet in Laufverzeichnissen. Damit
+sind die Konventionen nah beieinander, aber noch nicht gleich:
 
 | | Chicago | Detroit | Census |
 | --- | --- | --- | --- |
-| Pfad | `bronze/city=chicago/ingest_date=…/run_…/` | `bronze/detroit/<name>_<uuid>.ndjson` | `bronze/dataset=…/vintage=…/state=…/run_…/` |
-| Partition | Hive (`city`, `ingest_date`) | keine | Hive (`dataset`, `vintage`, `state`) |
-| Format | Parquet (snappy) | NDJSON | Parquet (snappy) |
-| Lauf-Kennung | `run_<UTC-Zeitstempel>` | UUID4 | `run_<UTC-Zeitstempel>` |
-| Manifest | `manifest.json` je Schicht im Lauf-Ordner | `<name>.manifest.json` daneben | wie Chicago |
+| Pfad | `bronze/city=chicago/ingest_date=…/run_…/` | `bronze/detroit/full/year=…/run_…/` | `bronze/dataset=…/vintage=…/state=…/run_…/` |
+| Partition | Hive (`city`, `ingest_date`) | teils (`year`, `run_date`), aber `full`/`incremental` ohne Schlüssel | Hive (`dataset`, `vintage`, `state`) |
+| Format | Parquet (snappy) | Parquet (ZSTD) | Parquet (snappy) |
+| Lauf-Kennung | `run_<UTC-Zeitstempel>` | `run_<UUID4>` | `run_<UTC-Zeitstempel>` |
+| Manifest | `manifest.json` je Schicht im Lauf-Ordner | `manifest.json` im Lauf-Ordner | wie Chicago |
+
+**Was noch abweicht.** Detroit benennt die Stadt nicht als Partitionsschlüssel
+(`detroit/` statt `city=detroit/`), und `full`/`incremental` sind keine
+`key=value`-Paare. Die Lauf-Kennung ist eine UUID statt eines Zeitstempels,
+sortiert also nicht chronologisch. Und Detroit schreibt weiterhin **kein
+`raw/`** — die Entscheidungsvorlage `detroit-schichten.html` bleibt offen.
 | Manifest-Felder | `completeness`, `watermark`, `source_schema`, `query` | `offense_category_counts`, `pipeline_run_id`, … | wie Chicago plus `crs` |
 | Raw-Schicht | ja | **nein** | ja |
 | Schema | gepinnt, 23 Spalten, `_extra` | verschachteltes JSON (`attributes`/`geometry`/`_meta`) | gepinnt, 14 bzw. 9 Spalten, `_extra` |
@@ -541,7 +548,7 @@ Gold-Tabellen einchecken, weil sie klein sind.
 
 ### 7.2 Tests
 
-**Stand.** 459 Tests, aber ungleich verteilt: Chicago und Census liegen in
+**Stand.** 492 Tests, aber ungleich verteilt: Chicago und Census liegen in
 `tests/<pipeline>/`, die Detroit-Tests direkt in `tests/`.
 
 `test_results.txt` ist mit PR #9 aus der Versionierung genommen und steht

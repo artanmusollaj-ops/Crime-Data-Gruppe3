@@ -83,30 +83,62 @@ def schreibe_chicago(
     return ziel
 
 
+def detroit_saetze(zeilen: list[dict]) -> list[dict]:
+    """Die Quellfelder, wie Detroit sie unter ``attributes`` fuehrt."""
+    return [{
+        "incident_entry_id": z["incident_entry_id"],
+        "report_number": z.get("report_number"),
+        "state_offense_code": z.get("state_offense_code"),
+        "offense_description": z.get("offense_description"),
+        "incident_occurred_at": z.get("incident_occurred_at"),
+        "updated_at": z.get("updated_at", 0),
+        "case_status": z.get("case_status"),
+        "latitude": z.get("latitude"),
+        "longitude": z.get("longitude"),
+    } for z in zeilen]
+
+
 def schreibe_detroit(
     data_root: Path,
     zeilen: list[dict],
     *,
-    lauf: str = "detroit_2024_aaa",
+    lauf: str = "run_aaa",
+    unterpfad: str = "full/year=2024",
     status: str = "SUCCESS",
 ) -> Path:
+    """Detroits Bronze im Parquet-Vertrag: ein Laufverzeichnis je Lauf."""
+    ziel = data_root / "bronze" / "detroit" / unterpfad / lauf
+    ziel.mkdir(parents=True, exist_ok=True)
+    saetze = detroit_saetze(zeilen)
+    tabelle = pa.table({
+        "attributes": pa.array(saetze),
+        "source_system": pa.array(["detroit_rms_crime"] * len(saetze)),
+        "pipeline_run_id": pa.array([lauf] * len(saetze)),
+    })
+    pq.write_table(tabelle, ziel / bc.PARQUET_FILE)
+    (ziel / "manifest.json").write_text(json.dumps({
+        "status": status, "bronze_contract_version": 2,
+        "storage_format": "PARQUET", "pipeline_run_id": lauf,
+        "bronze_file": bc.PARQUET_FILE, "downloaded_count": len(saetze),
+    }), encoding="utf-8")
+    return ziel
+
+
+def schreibe_detroit_ndjson(
+    data_root: Path,
+    zeilen: list[dict],
+    *,
+    lauf: str = "detroit_2024_alt",
+    status: str = "SUCCESS",
+) -> Path:
+    """Der Bestand vor dem Parquet-Umbau: eine NDJSON flach im Verzeichnis."""
     ziel = data_root / "bronze" / "detroit"
     ziel.mkdir(parents=True, exist_ok=True)
     ndjson = ziel / f"{lauf}.ndjson"
     with ndjson.open("w", encoding="utf-8") as datei:
-        for z in zeilen:
+        for satz, z in zip(detroit_saetze(zeilen), zeilen):
             datei.write(json.dumps({
-                "attributes": {
-                    "incident_entry_id": z["incident_entry_id"],
-                    "report_number": z.get("report_number"),
-                    "state_offense_code": z.get("state_offense_code"),
-                    "offense_description": z.get("offense_description"),
-                    "incident_occurred_at": z.get("incident_occurred_at"),
-                    "updated_at": z.get("updated_at", 0),
-                    "case_status": z.get("case_status"),
-                    "latitude": z.get("latitude"),
-                    "longitude": z.get("longitude"),
-                },
+                "attributes": satz,
                 "geometry": {"x": z.get("longitude"), "y": z.get("latitude")},
             }) + "\n")
     (ziel / f"{lauf}.manifest.json").write_text(json.dumps({
@@ -216,16 +248,117 @@ def test_ueberlappende_delta_laeufe_erzeugen_keine_doppelten_zeilen(tmp_path):
     )
 
 
-def test_doppelter_deliktschluessel_ist_ein_fehler(tmp_path):
-    """Detroit haeuft nicht an - zwei Zeilen mit derselben id waeren ein Bruch."""
+def test_ueberlappende_detroit_laeufe_erzeugen_keine_doppelten_zeilen(tmp_path):
+    """Seit dem Parquet-Umbau kann auch Detroit mehrere Laeufe haben.
+
+    Ein Full Load plus taegliche Nachlaeufe ueberlappen einander; derselbe
+    incident_entry_id kommt dann in mehreren Laeufen vor. Behalten wird die
+    Fassung mit dem juengsten updated_at - dieselbe Regel wie bei Chicago.
+    """
     data_root = tmp_path / "data"
     config_root = tmp_path / "config"
     schreibe_tract(data_root)
     schreibe_chicago(data_root, CHI)
-    schreibe_detroit(data_root, DET, lauf="a")
-    schreibe_detroit(data_root, DET, lauf="b")   # derselbe Satz ein zweites Mal
+    schreibe_detroit(data_root, [dict(DET[0], offense_description="ALT",
+                                      updated_at=1000)],
+                     lauf="run_voll", unterpfad="full/year=2024")
+    schreibe_detroit(data_root, [dict(DET[0], offense_description="NEU",
+                                      updated_at=2000)],
+                     lauf="run_taeglich", unterpfad="incremental/run_date=2026-09-11")
     schreibe_config(config_root)
-    with pytest.raises(bc.TransformError, match="offense_id|uebereinstimmen"):
+
+    zeilen = [z for z in lies(bc.build(data_root, config_root))
+              if z["city"] == "detroit"]
+    assert len(zeilen) == 1
+    assert zeilen[0]["source_offense_description"] == "NEU"
+
+
+# --------------------------------------------------------------------------
+# Der Formatwechsel: Detroit schrieb frueher NDJSON, jetzt Parquet
+# --------------------------------------------------------------------------
+
+
+def test_neues_laufverzeichnis_wird_gelesen(tmp_path):
+    manifest = manifest_von(baue(tmp_path, CHI, DET))
+    assert manifest["derived_from"]["detroit_bronze_format"] == "PARQUET"
+    assert manifest["checks"]["per_city"]["detroit"]["rows"] == 1
+
+
+def test_alter_ndjson_bestand_bleibt_lesbar(tmp_path):
+    """Ein Bestand von vor dem Umbau darf nicht unlesbar werden."""
+    data_root = tmp_path / "data"
+    config_root = tmp_path / "config"
+    schreibe_tract(data_root)
+    schreibe_chicago(data_root, CHI)
+    schreibe_detroit_ndjson(data_root, DET)
+    schreibe_config(config_root)
+
+    ziel = bc.build(data_root, config_root)
+    assert manifest_von(ziel)["derived_from"]["detroit_bronze_format"] == "NDJSON"
+    assert len([z for z in lies(ziel) if z["city"] == "detroit"]) == 1
+
+
+def test_parquet_hat_vorrang_vor_ndjson(tmp_path):
+    """Der gefaehrlichste Fall: beide Bestaende liegen nebeneinander.
+
+    Nach dem Umbau bleibt die alte NDJSON-Datei zunaechst liegen. Wuerde sie
+    weiter gelesen, rechnete die Tabelle stillschweigend mit dem alten Stand
+    weiter - ein Fehler, der wie ein Erfolg aussieht.
+    """
+    data_root = tmp_path / "data"
+    config_root = tmp_path / "config"
+    schreibe_tract(data_root)
+    schreibe_chicago(data_root, CHI)
+    schreibe_detroit_ndjson(data_root, [dict(DET[0], incident_entry_id="ALT",
+                                             offense_description="ALTER BESTAND")])
+    schreibe_detroit(data_root, [dict(DET[0], incident_entry_id="NEU",
+                                      offense_description="NEUER BESTAND")])
+    schreibe_config(config_root)
+
+    zeilen = [z for z in lies(bc.build(data_root, config_root))
+              if z["city"] == "detroit"]
+    assert [z["offense_id"] for z in zeilen] == ["NEU"]
+
+
+def test_unveroeffentlichter_lauf_wird_nicht_gelesen(tmp_path):
+    """Ein abgebrochener Lauf liegt in einem versteckten .partial-Verzeichnis."""
+    data_root = tmp_path / "data"
+    config_root = tmp_path / "config"
+    schreibe_tract(data_root)
+    schreibe_chicago(data_root, CHI)
+    schreibe_detroit(data_root, DET, lauf="run_fertig")
+    schreibe_detroit(data_root, [dict(DET[0], incident_entry_id="HALB")],
+                     lauf="run_halb", unterpfad="full/year=2024/.run_halb.partial")
+    schreibe_config(config_root)
+
+    zeilen = [z for z in lies(bc.build(data_root, config_root))
+              if z["city"] == "detroit"]
+    assert [z["offense_id"] for z in zeilen] == ["D1"]
+
+
+def test_nicht_erfolgreicher_lauf_wird_uebergangen(tmp_path):
+    data_root = tmp_path / "data"
+    config_root = tmp_path / "config"
+    schreibe_tract(data_root)
+    schreibe_chicago(data_root, CHI)
+    schreibe_detroit(data_root, DET, lauf="run_ok")
+    schreibe_detroit(data_root, [dict(DET[0], incident_entry_id="KAPUTT")],
+                     lauf="run_kaputt", status="FAILED")
+    schreibe_config(config_root)
+
+    zeilen = [z for z in lies(bc.build(data_root, config_root))
+              if z["city"] == "detroit"]
+    assert [z["offense_id"] for z in zeilen] == ["D1"]
+
+
+def test_fehlender_detroit_bestand_nennt_den_befehl(tmp_path):
+    data_root = tmp_path / "data"
+    config_root = tmp_path / "config"
+    schreibe_tract(data_root)
+    schreibe_chicago(data_root, CHI)
+    (data_root / "bronze" / "detroit").mkdir(parents=True)
+    schreibe_config(config_root)
+    with pytest.raises(bc.TransformError, match="extract_detroit"):
         bc.build(data_root, config_root)
 
 
@@ -397,9 +530,13 @@ def test_manifest_nennt_jeden_quelllauf(tmp_path):
     manifest = manifest_von(baue(tmp_path, CHI, DET))
     herkunft = manifest["derived_from"]
     assert herkunft["chicago_bronze_runs"] == ["run_20260101T000000000000Z"]
-    assert herkunft["detroit_bronze_runs"] == ["detroit_2024_aaa"]
+    assert herkunft["detroit_bronze_runs"] == ["run_aaa"]
     assert "tract" in herkunft["silver_tract"]
     assert len(herkunft["crosswalks"]) == 3
+    # Aus welchem Format gelesen wurde, gehoert zur Herkunft: Detroit hat das
+    # Format gewechselt, und beide Bestaende koennen nebeneinander liegen.
+    assert herkunft["chicago_bronze_format"] == "PARQUET"
+    assert herkunft["detroit_bronze_format"] == "PARQUET"
 
 
 def test_manifest_nennt_die_vergleichbaren_delikte(tmp_path):
