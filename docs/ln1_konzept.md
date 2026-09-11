@@ -38,7 +38,7 @@ Speicherarchitektur aus unveränderlichen Läufen, und **alle drei
 Silver-Tabellen** — seit `crime_offense` sprechen beide Städte dieselbe
 Deliktsprache, liegen auf derselben Zeitachse und tragen dieselbe
 Raumeinheit. Jede Quelle weist ihre Vollständigkeit nach, statt sie zu
-behaupten. **500 automatisierte Tests** laufen ohne Netzzugriff und ohne
+behaupten. **504 automatisierte Tests** laufen ohne Netzzugriff und ohne
 Schlüssel.
 
 | | |
@@ -293,7 +293,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 500 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
+| **DataOps** | 504 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -660,11 +660,12 @@ als die daneben:
 
 | NIBRS | Delikt | Chicago | Detroit |
 | --- | --- | ---: | ---: |
-| `13B` | Simple Assault | 53'977 | 15'894 |
+| `13B` | Simple Assault | 38'857 | 15'889 |
 | `23H` | All Other Larceny | 38'597 | 4'171 |
-| `290` | Destruction/Damage/Vandalism | 28'596 | 11'782 |
-| `240` | Motor Vehicle Theft | 22'101 | 8'517 |
-| `13A` | Aggravated Assault | 16'088 | 8'071 |
+| `290` | Destruction/Damage/Vandalism | 28'596 | 11'786 |
+| `240` | Motor Vehicle Theft | 22'101 | 8'511 |
+| `13C` | Intimidation | 19'338 | 1'235 |
+| `13A` | Aggravated Assault | 16'088 | 8'073 |
 
 Absolut sind das keine vergleichbaren Zahlen — Chicago hat rund viermal so
 viele Einwohner. Vergleichbar werden sie erst mit dem Nenner aus `tract`, und
@@ -739,7 +740,7 @@ mitliefern.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 500 bestandene Tests
+python -m pytest                       # erwartet 504 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:

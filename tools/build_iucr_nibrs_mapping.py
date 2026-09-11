@@ -119,12 +119,20 @@ _gruppe("1564", "13A")               # Criminal Transmission of HIV: schwere
 
 # --- Koerperverletzung: ohne Waffe, keine oder leichte Verletzung ---------
 _gruppe("0440 0454 0460 0475 0484 0486", "13B")
-_gruppe("0545 0554 0560", "13B")
+_gruppe("0545 0554", "13B")   # siehe ERMESSEN: koennte 13C sein
 _gruppe("0494", "13B")               # Ritual Mutilation, Haende, leichte Verletzung
 _gruppe("1750", "13B")               # Child Abuse, nicht sexuell
 
 # --- Bedrohung -------------------------------------------------------------
 _gruppe("3960 3961 3966 3975 3980", "13C")
+# Illinois trennt Assault von Battery: Assault ist die Drohung ohne Beruehrung
+# (720 ILCS 5/12-1), Battery die Beruehrung (5/12-3). NIBRS trennt genauso -
+# 13C Intimidation ist die Drohung, 13B Simple Assault der Angriff. Die
+# ILCS-Tabelle der Illinois State Police bestaetigt beides ausdruecklich:
+# 720-5/12-1 Assault -> 13C, 720-5/12-3 Battery -> 13B. Das sind die einzigen
+# beiden Zeilen der 13er-Familie, deren Wortlaut wirklich zu Chicagos Katalog
+# passt; bei allen uebrigen greift der Statut-Versatz aus Kapitel 8.5.
+_gruppe("0560", "13C")               # ASSAULT / SIMPLE
 _gruppe("0580 0581 0583", "13C")     # Stalking: NIBRS kennt keinen eigenen Code
 _gruppe("2850 2851", "13C")          # Bomb Threat, Arson Threat
 _gruppe("2820", "13C")               # Telephone Threat
@@ -287,6 +295,15 @@ ERMESSEN = {
     "4800": "Money Laundering: NIBRS fuehrt 26H, markiert ihn aber als nur von "
             "Bundes- und Stammesbehoerden meldbar; fuer Chicago bleibt 90Z",
     "2900": "Air Rifle wird von Chicago als Waffe gefuehrt, deshalb 520",
+    # Artans Review vom 11.9. hat 0560 als falsch nachgewiesen (jetzt 13C).
+    # Diese beiden folgen derselben Logik - Chicago fuehrt sie unter ASSAULT,
+    # also als Drohung -, aber die ILCS-Tabelle kennt keine Zeile dazu. Ohne
+    # Beleg wird nicht umgebucht, sondern benannt.
+    "0545": "Chicago fuehrt es unter ASSAULT, was in Illinois die Drohung ohne "
+            "Beruehrung meint; das spraeche fuer 13C. Die ILCS-Tabelle der ISP "
+            "fuehrt keine Zeile zu diesem Kuerzel, deshalb bleibt es bei 13B",
+    "0554": "wie 0545: Chicago fuehrt es unter ASSAULT, die ILCS-Tabelle der "
+            "ISP kennt aber keine Zeile zu diesem Kuerzel",
     # Offene Frage, bewusst nicht stillschweigend entschieden: nach der
     # Bundesdefinition des Menschenhandels gilt ein Opfer unter 18 Jahren auch
     # ohne Noetigung als Fall von 64A. Die Technical Specification ist eine

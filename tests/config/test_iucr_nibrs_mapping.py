@@ -203,6 +203,39 @@ def test_stichproben(zeilen, iucr, erwartet, warum):
     assert zeile["ibr_code"] == erwartet, warum
 
 
+def test_assault_und_battery_bleiben_getrennt(zeilen):
+    """Illinois trennt Drohung und Beruehrung - NIBRS auch.
+
+    Eine erste Fassung warf beides auf 13B. Aufgefallen ist es in Artans
+    Review vom 11.9.; belegt hat es die ILCS-Tabelle der Illinois State
+    Police, die 720-5/12-1 *Assault* auf 13C fuehrt und 720-5/12-3 *Battery*
+    auf 13B. Das sind die einzigen beiden Zeilen der 13er-Familie, deren
+    Wortlaut zu Chicagos Katalog passt.
+
+    Die Verwechslung ist teuer: Sie betraf 15'120 Faelle, 28 Prozent von
+    Chicagos einfacher Koerperverletzung, und verschob das Verhaeltnis zu
+    Detroit von 2,45 auf 3,40.
+    """
+    nach_code = {z["iucr"]: z for z in zeilen}
+    assert nach_code["0460"]["ibr_code"] == "13B", "BATTERY / SIMPLE ist der Angriff"
+    assert nach_code["0560"]["ibr_code"] == "13C", "ASSAULT / SIMPLE ist die Drohung"
+
+
+def test_bedrohung_ohne_beleg_bleibt_ermessen(zeilen):
+    """0545 und 0554 folgen derselben Logik, aber ohne Quelle.
+
+    Chicago fuehrt beide unter ASSAULT, was fuer 13C spraeche. Die
+    ILCS-Tabelle kennt zu diesen Kuerzeln aber keine Zeile. Ohne Beleg wird
+    nicht umgebucht - aber die Frage muss in der Tabelle stehen.
+    """
+    for code in ("0545", "0554"):
+        zeile = next(z for z in zeilen if z["iucr"] == code)
+        assert zeile["match"] == "nibrs_ermessen", f"{code} ist keine belegte Zuordnung"
+        assert "ISP" in zeile["note"] or "ILCS" in zeile["note"], (
+            f"{code}: die Notiz muss sagen, woran der Beleg fehlt"
+        )
+
+
 def test_prostitution_ist_kein_sexualdelikt(zeilen):
     """Die Fassung aus dem ISP-Join hatte 1512 auf 11A Rape stehen.
 
