@@ -3,10 +3,10 @@
 Beispiele:
 
     python -m detroit_pipeline.transform_detroit \
-        data/bronze/detroit/detroit_rms_crime_2024_RUN_ID.ndjson \
+        data/bronze/detroit/full/year=2024/run_UUID/part-0001.parquet \
         --output data/silver/detroit_crime_2024.parquet
 
-    python -m detroit_pipeline.transform_detroit INPUT.ndjson \
+    python -m detroit_pipeline.transform_detroit INPUT.parquet \
         --output OUTPUT.csv
 """
 
@@ -20,10 +20,31 @@ from pathlib import Path
 from typing import Iterable
 
 from .detroit_arcgis import DataQualityError, parse_detroit_feature
+from .bronze_manifest import validate_manifest
+import pyarrow.parquet as pq
 
 
 def iter_bronze_records(path: Path) -> Iterable[dict]:
-    """Liest Bronze-NDJSON zeilenweise und meldet kaputte Zeilen exakt."""
+    """Read verified Parquet batches; legacy NDJSON is an explicit migration fallback."""
+
+    if path.suffix == '.parquet':
+        checked, manifest = validate_manifest(path.parent / 'manifest.json')
+        if path.resolve() != checked.resolve():
+            raise DataQualityError('Datei nicht im Manifest referenziert')
+        with pq.ParquetFile(path) as pf:
+            for batch in pf.iter_batches(batch_size=2000):
+                for row in batch.to_pylist():
+                    feature = json.loads(row['_feature_json'])
+                    feature['_meta'] = {
+                        'source_system': row['source_system'],
+                        'pipeline_run_id': row['pipeline_run_id'],
+                        'ingested_at': row['ingested_at_utc'].isoformat(),
+                        'schema_fingerprint': manifest['schema_fingerprint'],
+                    }
+                    yield feature
+        return
+    if path.suffix not in ('.ndjson', '.jsonl'):
+        raise DataQualityError('Erwartet Parquet oder Legacy-NDJSON')
 
     with path.open("r", encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, 1):
