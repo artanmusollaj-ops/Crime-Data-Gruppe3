@@ -68,7 +68,7 @@ micr_code,micr_code_type,micr_file_class,micr_description,nibrs_group,nibrs_code
 3003,file_class,30003,Retail Fraud - Refund/Exchange,A,26A,Confidence Game  Credit Card/Automated Teller Machine,13,micr_manual_1110_2024,true,false,
 3004,file_class,30004,Organized Retail Fraud,A,23C,Shoplifting,6,micr_manual_1110_2024,true,false,
 3071,arrest_charge,30001,RETAIL FRAUD - MISREPRESENTATION,A,26A,Confidence Game  Credit Card/Automated Teller Machine,13,micr_arrest_charge_1110_2024,true,true,Arrest Charge 'Retail Fraud Misrepresentation 1st Degree' unter File Class 30001 (Retail Fraud - Misrepresentation); NIBRS von dort uebernommen
-3072,arrest_charge,,RETAIL FRAUD - THEFT,,,,,,false,true,"Detroit nennt es RETAIL FRAUD - THEFT, das Handbuch fuehrt 3072 als Retail Fraud Misrepresentation 2nd Degree unter File Class 30001. Theft waere 30002 mit den Arrest Charges 3073/3074/3078. Der Unterschied ist 26A False Pretenses gegen 23C Shoplifting. Detroit benutzt daneben auch 3002, die echte File Class fuer Retail Fraud Theft. Nur Detroit kann das aufloesen"
+3072,arrest_charge,30002,RETAIL FRAUD - THEFT,A,23C,Shoplifting,6,detroit_charge_file_class,true,true,"Das Handbuch fuehrt 3072 als Retail Fraud Misrepresentation 2nd Degree unter File Class 30001; das waere 26A False Pretenses. Detroit liefert zu allen 1447 Zeilen arrest_charge 30002 und charge_description 'RETAIL FRAUD - THEFT' - den Namen, den 30002 im Handbuch traegt. Detroit benutzt daneben 3002, dieselbe File Class"
 3501,file_class,35001,Violation of Controlled Substance,A,35A,Drug/Narcotic Violations,19,micr_manual_1110_2024,true,true,
 3502,file_class,35002,Narcotic Equipment Violations,A,35B,Drug Equipment Violations,19,micr_manual_1110_2024,true,true,
 3601,file_class,36001,Sexual Penetration - Non-forcible - Blood Affinity,A,36A,Incest,11,micr_manual_1110_2024,true,true,
@@ -104,8 +104,8 @@ micr_code,micr_code_type,micr_file_class,micr_description,nibrs_group,nibrs_code
 5302,file_class,53002,Public Peace - Other,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
 5401,file_class,54001,Hit and Run Motor Vehicle Accident,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
 5402,file_class,54002,OUIL or OUID,B,90D,Driving Under the Influence,22,micr_manual_1110_2024,true,false,
-5421,arrest_charge,,"ACCIDENT, HIT & RUN",,,,,,false,true,"Detroit nennt es ACCIDENT, HIT & RUN; das Handbuch fuehrt 5421 als Operating ORV Under the Influence of Controlled Substance unter File Class 54002. Hit & Run waere 54001, deren Arrest Charges 8011 bis 8013 sind. Detroits Verwendung passt zu keiner der beiden Lesarten"
-5422,arrest_charge,,"ACCIDENT, HIT & RUN",,,,,,false,true,"wie 5421: Detroit nennt es ACCIDENT, HIT & RUN, das Handbuch Permitted Person Under the Influence of Controlled Substance to Operate, File Class 54002"
+5421,arrest_charge,54001,"ACCIDENT, HIT & RUN",B,90Z,All Other,27,detroit_charge_file_class,true,true,"Das Handbuch fuehrt 5421 als Operating ORV Under the Influence unter File Class 54002. Detroit liefert zu allen 100 Zeilen arrest_charge 54001 und charge_description 'ACCIDENT, HIT & RUN' - den Namen, den 54001 im Handbuch traegt"
+5422,arrest_charge,54001,"ACCIDENT, HIT & RUN",B,90Z,All Other,27,detroit_charge_file_class,true,true,"Das Handbuch fuehrt 5422 als Permitted Person Under the Influence to Operate unter File Class 54002. Detroit liefert zu allen 100 Zeilen arrest_charge 54001 und charge_description 'ACCIDENT, HIT & RUN' - den Namen, den 54001 im Handbuch traegt; gleiche Lage wie bei 5421"
 5500,file_class,55000,Health and Safety,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
 5501,arrest_charge,55000,HEALTH AND SAFETY,B,90Z,All Other,27,micr_arrest_charge_1110_2024,true,true,"Arrest Charge 'Drugs, Adulterated' unter File Class 55000 (Health and Safety); NIBRS von dort uebernommen"
 5600,file_class,56000,Civil Rights,B,90Z,All Other,27,micr_manual_1110_2024,true,false,

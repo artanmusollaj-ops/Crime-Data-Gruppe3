@@ -104,8 +104,10 @@ statt in Ortszeit gestanden, lägen 66 Fälle aus 2023 im Jahrgang — und der
 - **Der Nenner ist eine Näherung.** Gerechnet wird mit der Einwohnerzahl der
   Tracts mit Delikten. Für einen Vergleich *zwischen* den Städten brauchbar, als
   absolute Rate nicht.
-- **Detroits Abdeckung ist 98,1 %.** 1 647 Fälle tragen einen Code, den das
-  MICR-Handbuch anders führt als Detroit selbst; sie fehlen in allen Zahlen.
+- **Detroits Abdeckung ist inzwischen 100 %.** Die 1 647 Fälle, die zum Zeitpunkt
+  dieses Berichts fehlten, sind seither über Detroits eigene Felder angeschlossen
+  (Konzept 8.5). Sie gehen nach `23C Shoplifting` und `90Z` und berühren keine der
+  drei hier untersuchten Kategorien; die Zahlen des Berichts bleiben gültig.
 - **`13C` ist zwischen den Städten nicht vergleichbar**, siehe oben.
 - **Anzeigeverhalten ist nicht Kriminalität.** Beide Datensätze zählen gemeldete
   Delikte.

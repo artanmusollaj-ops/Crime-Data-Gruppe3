@@ -67,15 +67,15 @@ Der Pfad muss auf `.venv314\Scripts\python.exe` enden.
 .\.venv314\Scripts\python.exe -m tests.run_tests
 ```
 
-Erwartet: **die ganze Suite, Status SUCCESS** — derzeit 510 Tests. Der Runner
+Erwartet: **die ganze Suite, Status SUCCESS** — derzeit 514 Tests. Der Runner
 sammelt mit pytest und fuehrt damit alle Pipelines aus, nicht nur Detroit.
 Eine zweistellige Zahl waere ein Alarmzeichen, kein Erfolg.
 Text- und JSON-Protokolle entstehen unter `logs/tests/`. Einzelne `error:`-Ausgaben mit anschließendem `ok` gehören zu den Tests ungültiger Parameter. Entscheidend ist das Gesamtergebnis.
 
 ### Schritt 6: Notebook verwenden oder per CLI laden
 
-- `notebooks/04_detroit_data_source.ipynb`: optionales Quellen-Notebook. `RUN_LIVE_QUERY = True` aktiviert die kleine Vorschau. Dieses separat gelieferte Notebook ergänzt das Paket.
-- `notebooks/05_detroit_bronze_ingestion.ipynb`: produktiver Download. Zellen von oben nach unten ausführen. In der Konfiguration `LOAD_MODE = "FULL"` und beispielsweise `YEARS = [2024]` wählen; `RUN_DOWNLOAD = True` aktiviert den Download. Für Daily `LOAD_MODE = "DAILY"` und `DAILY_LOOKBACK_DAYS = 14` wählen; `DAILY_REFERENCE_DATE = None` verwendet den Detroit-Vortag.
+- `notebooks/11_detroit_source.ipynb`: das Quellen-Notebook. Es dokumentiert den Feature Layer, die Zeitzonen-Deklaration und die beiden Deliktfelder und rechnet jede Zahl selbst nach — gegen den Dienst und gegen den Bronze-Bestand.
+- `notebooks/12_detroit_bronze_ingestion.ipynb`: produktiver Download. Zellen von oben nach unten ausführen. In der Konfiguration `LOAD_MODE = "FULL"` und beispielsweise `YEARS = [2024]` wählen; `RUN_DOWNLOAD = True` aktiviert den Download. Für Daily `LOAD_MODE = "DAILY"` und `DAILY_LOOKBACK_DAYS = 14` wählen; `DAILY_REFERENCE_DATE = None` verwendet den Detroit-Vortag.
 - Im Lade-Notebook startet `LOAD_DUCKDB = True` in Schritt 6 den Import der gerade geladenen Runs.
 
 Alternativ verwendest du die CLI-Befehle in den folgenden Abschnitten. Führe denselben Download nicht gleichzeitig im Notebook und per CLI aus.
@@ -205,7 +205,7 @@ Gold-Aggregate aus Silver-Current erstellen; technische Ladezeit nie als Tatdatu
 .\.venv314\Scripts\python.exe -m tests.run_tests
 ```
 
-**510 automatisierte Offline-Tests**, davon rund 40 fuer dieses Paket. Der
+**514 automatisierte Offline-Tests**, davon rund 40 fuer dieses Paket. Der
 Runner sammelt seit dem 11.9. mit pytest: Vorher benutzte er
 `unittest.discover`, das nur `TestCase`-Klassen erkennt, und meldete SUCCESS
 nach 39 von damals 448 Tests — ein gruener Lauf, der 91 Prozent der Suite nie
