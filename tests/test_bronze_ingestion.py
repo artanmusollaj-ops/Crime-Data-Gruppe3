@@ -150,7 +150,8 @@ class BronzeIngestionTests(unittest.TestCase):
             )
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
-            self.assertIn("incremental_2026-08-23_2026-09-06", bronze_path.name)
+            self.assertEqual('part-0001.parquet', bronze_path.name)
+            self.assertTrue(bronze_path.parent.name.startswith('run_'))
             self.assertEqual(manifest["extraction_mode"], "INCREMENTAL")
             self.assertEqual(manifest["date_field"], "updated_at")
             self.assertEqual(
