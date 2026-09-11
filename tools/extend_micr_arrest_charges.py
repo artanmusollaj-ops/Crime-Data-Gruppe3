@@ -79,26 +79,48 @@ SPALTEN = [
     "note",
 ]
 
-# Detroits Beschreibung widerspricht dem Handbuch. Nicht zuordnen.
-UMSTRITTEN = {
+# Drei Codes, bei denen Detroits Verwendung dem Handbuch widerspricht.
+#
+# Sie standen lange unzugeordnet, mit der Notiz "nur Detroit kann das
+# aufloesen". Detroit loest es - in zwei Feldern, die wir bis dahin nicht
+# gelesen hatten. Zu jeder dieser Zeilen liefert die Quelle selbst
+#
+#   arrest_charge       die fuenfstellige MICR File Class
+#   charge_description  deren Bezeichnung im Klartext
+#
+# und beide sind ueber alle betroffenen Zeilen eindeutig. Die genannte File
+# Class traegt im Handbuch genau den Namen, den Detroit in charge_description
+# schreibt. Damit sagen zwei unabhaengige Spalten dasselbe, und der Weg zum
+# NIBRS-Code ist derselbe wie bei jeder anderen Arrest Charge: ueber die File
+# Class.
+#
+# Die Herkunft heisst deshalb nicht wie beim Handbuch. Beleg ist hier die
+# Quelle, nicht das Dokument - nachgerechnet in
+# notebooks/04_detroit_source.ipynb, Abschnitt 7.1.
+HERKUNFT_DETROIT = "detroit_charge_file_class"
+
+DETROIT_ENTSCHEIDET = {
     "3072": (
-        "Detroit nennt es RETAIL FRAUD - THEFT, das Handbuch fuehrt 3072 als "
-        "Retail Fraud Misrepresentation 2nd Degree unter File Class 30001. "
-        "Theft waere 30002 mit den Arrest Charges 3073/3074/3078. Der "
-        "Unterschied ist 26A False Pretenses gegen 23C Shoplifting. Detroit "
-        "benutzt daneben auch 3002, die echte File Class fuer Retail Fraud "
-        "Theft. Nur Detroit kann das aufloesen"
+        "30002",
+        "Das Handbuch fuehrt 3072 als Retail Fraud Misrepresentation 2nd "
+        "Degree unter File Class 30001; das waere 26A False Pretenses. Detroit "
+        "liefert zu allen 1447 Zeilen arrest_charge 30002 und "
+        "charge_description 'RETAIL FRAUD - THEFT' - den Namen, den 30002 im "
+        "Handbuch traegt. Detroit benutzt daneben 3002, dieselbe File Class",
     ),
     "5421": (
-        "Detroit nennt es ACCIDENT, HIT & RUN; das Handbuch fuehrt 5421 als "
-        "Operating ORV Under the Influence of Controlled Substance unter File "
-        "Class 54002. Hit & Run waere 54001, deren Arrest Charges 8011 bis "
-        "8013 sind. Detroits Verwendung passt zu keiner der beiden Lesarten"
+        "54001",
+        "Das Handbuch fuehrt 5421 als Operating ORV Under the Influence unter "
+        "File Class 54002. Detroit liefert zu allen 100 Zeilen arrest_charge "
+        "54001 und charge_description 'ACCIDENT, HIT & RUN' - den Namen, den "
+        "54001 im Handbuch traegt",
     ),
     "5422": (
-        "wie 5421: Detroit nennt es ACCIDENT, HIT & RUN, das Handbuch "
-        "Permitted Person Under the Influence of Controlled Substance to "
-        "Operate, File Class 54002"
+        "54001",
+        "Das Handbuch fuehrt 5422 als Permitted Person Under the Influence to "
+        "Operate unter File Class 54002. Detroit liefert zu allen 100 Zeilen "
+        "arrest_charge 54001 und charge_description 'ACCIDENT, HIT & RUN' - "
+        "den Namen, den 54001 im Handbuch traegt; gleiche Lage wie bei 5421",
     ),
 }
 
@@ -171,15 +193,31 @@ def main() -> int:
     charges = arrest_charges(manual_text())
     print(f"Arrest Charges im Handbuch: {len(charges)}")
 
-    angeschlossen, offen_gelassen, unauffindbar = 0, 0, []
+    angeschlossen, ueber_detroit, unauffindbar = 0, 0, []
     for z in zeilen:
         if z["mapped"] == "true":
             continue
         code = z["micr_code"]
-        if code in UMSTRITTEN:
-            z["micr_code_type"] = "arrest_charge"
-            z["note"] = UMSTRITTEN[code]
-            offen_gelassen += 1
+        if code in DETROIT_ENTSCHEIDET:
+            file_class, begruendung = DETROIT_ENTSCHEIDET[code]
+            quelle = nach_file_class.get(file_class)
+            if quelle is None or quelle["mapped"] != "true":
+                unauffindbar.append(code)
+                continue
+            z.update({
+                "micr_code_type": "arrest_charge",
+                "micr_file_class": file_class,
+                "nibrs_group": quelle["nibrs_group"],
+                "nibrs_code": quelle["nibrs_code"],
+                "nibrs_description": quelle["nibrs_description"],
+                "hierarchy": quelle["hierarchy"],
+                "match": HERKUNFT_DETROIT,
+                "mapped": "true",
+                "note": begruendung,
+            })
+            ueber_detroit += 1
+            print(f"  {code} -> {quelle['nibrs_code']:<4} ueber File Class {file_class}"
+                  f"  (aus Detroits eigenen Feldern)")
             continue
 
         treffer = charges.get(code)
@@ -227,8 +265,9 @@ def main() -> int:
 
     zugeordnet = sum(1 for z in zeilen if z["mapped"] == "true")
     print(f"\n{MAPPING.relative_to(PROJECT_ROOT)}: {len(zeilen)} Zeilen")
-    print(f"  neu angeschlossen : {angeschlossen}")
-    print(f"  bewusst offen     : {offen_gelassen}  ({', '.join(sorted(UMSTRITTEN))})")
+    print(f"  ueber das Handbuch: {angeschlossen}")
+    print(f"  ueber Detroits Felder: {ueber_detroit}"
+          f"  ({', '.join(sorted(DETROIT_ENTSCHEIDET))})")
     print(f"  zugeordnet gesamt : {zugeordnet}")
     return 0
 

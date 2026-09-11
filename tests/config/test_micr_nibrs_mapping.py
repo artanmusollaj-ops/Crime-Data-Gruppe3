@@ -32,6 +32,14 @@ QUELLEN = {
     "appendix_f_2009": PROJECT_ROOT / "docs" / "micr_appendix_f_2009.pdf",
 }
 
+# Eine Herkunft, deren Beleg kein Dokument ist, sondern die Quelle selbst: Zu
+# drei Codes widerspricht Detroits Verwendung dem Handbuch, und Detroit liefert
+# die Aufloesung in zwei eigenen Feldern mit. Belegt wird das nicht durch ein
+# PDF, sondern durch eine Rechnung - und die muss auffindbar sein.
+AUS_DEN_DATEN = {
+    "detroit_charge_file_class": PROJECT_ROOT / "notebooks" / "04_detroit_source.ipynb",
+}
+
 SPALTEN = [
     "micr_code",
     "micr_code_type",
@@ -49,16 +57,20 @@ SPALTEN = [
 
 # Jede Zeile muss sagen, woher sie kommt. Ein leerer Wert heisst: keine
 # Zuordnung, und dann muss auch kein NIBRS-Code dastehen.
-HERKUNFT = {"micr_manual_1110_2024", "micr_arrest_charge_1110_2024",
-             "appendix_f_2009", ""}
+HERKUNFT = set(QUELLEN) | set(AUS_DEN_DATEN) | {""}
 
 # MICR fuehrt zwei Codelisten. Welche eine Zeile meint, muss dastehen - sonst
 # ist der vierstellige Code doppeldeutig.
 CODE_ARTEN = {"file_class", "arrest_charge", ""}
 
-# Detroits eigene Beschreibung widerspricht hier dem Handbuch. Lieber eine
-# benannte Luecke als eine erfundene Zuordnung.
-UMSTRITTEN = {"3072", "5421", "5422"}
+# Drei Codes, deren Zuordnung nicht aus dem Handbuch stammt, sondern aus
+# Detroits eigenen Feldern - das Handbuch sagt zu ihnen etwas anderes.
+# Hergeleitet und nachgerechnet in notebooks/04_detroit_source.ipynb, 7.1.
+AUS_DETROITS_FELDERN = {
+    "3072": ("30002", "23C"),
+    "5421": ("54001", "90Z"),
+    "5422": ("54001", "90Z"),
+}
 
 
 @pytest.fixture(scope="module")
@@ -131,10 +143,23 @@ def test_quelldokument_liegt_im_repository(herkunft):
     assert pfad.stat().st_size > 10_000
 
 
-def test_jede_genutzte_herkunft_hat_ein_dokument(zeilen):
+def test_jede_genutzte_herkunft_hat_einen_beleg(zeilen):
+    """Jede Herkunft zeigt auf etwas Nachlesbares - ein PDF oder eine Rechnung."""
     genutzt = {z["match"] for z in zeilen if z["match"]}
-    ohne_beleg = genutzt - set(QUELLEN)
-    assert not ohne_beleg, f"Herkunft ohne hinterlegtes Dokument: {ohne_beleg}"
+    ohne_beleg = genutzt - set(QUELLEN) - set(AUS_DEN_DATEN)
+    assert not ohne_beleg, f"Herkunft ohne hinterlegten Beleg: {ohne_beleg}"
+
+
+def test_der_beleg_aus_den_daten_liegt_wirklich_da(zeilen):
+    """Ein Verweis auf eine Rechnung ist nur so viel wert wie die Rechnung.
+
+    Waere das Notebook geloescht oder umbenannt, stuenden drei Zeilen des
+    Crosswalks ohne nachvollziehbaren Grund da - und niemand wuesste es.
+    """
+    genutzt = {z["match"] for z in zeilen if z["match"]}
+    for herkunft, beleg in AUS_DEN_DATEN.items():
+        if herkunft in genutzt:
+            assert beleg.exists(), f"{herkunft} verweist auf {beleg}, das fehlt"
 
 
 def test_zugeordnete_zeilen_sind_vollstaendig(zeilen):
@@ -273,32 +298,54 @@ def test_arrest_charge_erbt_den_code_seiner_file_class(zeilen):
 def test_arrest_charge_zeilen_nennen_ihre_herkunft(zeilen):
     falsch = [z["micr_code"] for z in zeilen
               if z["micr_code_type"] == "arrest_charge" and z["mapped"] == "true"
-              and z["match"] != "micr_arrest_charge_1110_2024"]
+              and z["match"] not in {"micr_arrest_charge_1110_2024",
+                                     "detroit_charge_file_class"}]
     assert not falsch, f"Arrest Charge mit falscher Herkunft: {falsch}"
 
 
-def test_umstrittene_codes_bleiben_offen(zeilen):
-    """Wo Detroit dem Handbuch widerspricht, wird nicht geraten.
+@pytest.mark.parametrize("code", sorted(AUS_DETROITS_FELDERN))
+def test_zuordnung_gegen_das_handbuch_ist_kenntlich(zeilen, code):
+    """Diese drei Zeilen folgen nicht dem Handbuch. Das muss man ihnen ansehen.
 
-    Beim Chicago-Crosswalk hat genau diese Versuchung 106 falsche Zeilen
-    gekostet - gueltige NIBRS-Codes fuer das falsche Delikt.
+    Sie standen lange unzugeordnet, weil Detroits Beschreibung dem Handbuch
+    widerspricht - und beim Chicago-Crosswalk hat die Versuchung, so etwas zu
+    raten, 106 falsche Zeilen gekostet. Geraten wird auch jetzt nicht: Die
+    File Class kommt aus Detroits eigenem Feld ``arrest_charge``, der Name aus
+    ``charge_description``. Wer die Zeile spaeter liest, muss beides in der
+    Herkunft und der Notiz wiederfinden.
     """
-    for code in UMSTRITTEN:
-        zeile = next(z for z in zeilen if z["micr_code"] == code)
-        assert zeile["mapped"] == "false", f"{code} duerfte nicht zugeordnet sein"
-        assert zeile["note"].strip(), f"{code} ohne Begruendung"
-        assert "Handbuch" in zeile["note"], (
-            f"{code}: die Notiz muss den Widerspruch benennen"
-        )
-
-
-def test_nur_die_umstrittenen_bleiben_offen(zeilen):
-    """Gegenprobe - sonst haelt der Test oben auch bei einer wachsenden Luecke."""
-    offen = {z["micr_code"] for z in zeilen if z["mapped"] == "false"}
-    assert offen == UMSTRITTEN, (
-        f"unerwartet offen: {sorted(offen - UMSTRITTEN)}, "
-        f"unerwartet geschlossen: {sorted(UMSTRITTEN - offen)}"
+    file_class, nibrs = AUS_DETROITS_FELDERN[code]
+    zeile = next(z for z in zeilen if z["micr_code"] == code)
+    assert zeile["mapped"] == "true"
+    assert zeile["micr_file_class"] == file_class
+    assert zeile["nibrs_code"] == nibrs
+    assert zeile["match"] == "detroit_charge_file_class", (
+        f"{code}: die Herkunft muss sagen, dass nicht das Handbuch die Quelle ist"
     )
+    assert "Handbuch" in zeile["note"], f"{code}: die Notiz muss den Widerspruch nennen"
+    assert "charge_description" in zeile["note"], (
+        f"{code}: die Notiz muss den Beleg nennen, nicht nur den Widerspruch"
+    )
+
+
+def test_nur_diese_drei_weichen_vom_handbuch_ab(zeilen):
+    """Gegenprobe - sonst waechst die Ausnahme unbemerkt."""
+    abweichend = {z["micr_code"] for z in zeilen
+                  if z["match"] == "detroit_charge_file_class"}
+    assert abweichend == set(AUS_DETROITS_FELDERN), (
+        f"neu gegen das Handbuch: {sorted(abweichend - set(AUS_DETROITS_FELDERN))}, "
+        f"nicht mehr dabei: {sorted(set(AUS_DETROITS_FELDERN) - abweichend)}"
+    )
+
+
+def test_die_tabelle_hat_keine_luecke_mehr(zeilen):
+    """Seit den drei Codes ist jede Zeile zugeordnet.
+
+    Bleibt der Test gruen, ohne dass jemand ihn anfasst, ist das die Zusage;
+    faellt er, ist eine neue Zeile dazugekommen, die niemand geprueft hat.
+    """
+    offen = {z["micr_code"] for z in zeilen if z["mapped"] != "true"}
+    assert not offen, f"unzugeordnet: {sorted(offen)}"
 
 
 # --------------------------------------------------------------------------
@@ -355,10 +402,12 @@ def test_abdeckung_der_faelle_ist_ausgewiesen(zeilen):
     gesamt = sum(daten.values())
     gedeckt = sum(n for code, n in daten.items() if code in zugeordnet)
     anteil = gedeckt / gesamt
-    # Seit die Arrest Charges angeschlossen sind, liegt die Quote bei 98,1 %.
-    # Offen bleiben nur 3072, 5421 und 5422 - zusammen 1'681 Faelle, bei denen
-    # Detroits Beschreibung dem Handbuch widerspricht.
-    assert anteil > 0.97, f"nur {anteil:.1%} der Faelle zugeordnet"
+    # Seit 3072, 5421 und 5422 ueber Detroits eigene Felder angeschlossen sind,
+    # deckt die Tabelle jeden Code ab, der 2024 vorkommt. Die Schwelle steht
+    # trotzdem knapp darunter und nicht bei 100 %: Ein neuer Code in einem
+    # spaeteren Jahrgang soll den Test nicht sofort fallen lassen, sondern der
+    # Test oben, der die Luecke beim Namen nennt.
+    assert anteil > 0.999, f"nur {anteil:.1%} der Faelle zugeordnet"
 
 
 def test_seen_in_detroit_stimmt_mit_den_daten(zeilen):
