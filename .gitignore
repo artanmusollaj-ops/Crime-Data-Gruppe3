@@ -8,6 +8,9 @@ data/*/city=*/
 data/*/detroit/
 # Census-Referenzgeometrien: data/<schicht>/dataset=tiger_tract/vintage=.../state=...
 data/*/dataset=*/
+# Die Auswertungsdatenbank ist abgeleitet: Sichten ueber die Schichten, keine
+# Daten. Sie traegt absolute Pfade und waere auf einem anderen Rechner wertlos.
+data/serving/
 # Artefakte der editierbaren Installation und von pip wheel / python -m build
 *.egg-info/
 build/

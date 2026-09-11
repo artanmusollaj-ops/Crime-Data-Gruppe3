@@ -38,7 +38,7 @@ Speicherarchitektur aus unveränderlichen Läufen, und **alle drei
 Silver-Tabellen** — seit `crime_offense` sprechen beide Städte dieselbe
 Deliktsprache, liegen auf derselben Zeitachse und tragen dieselbe
 Raumeinheit. Jede Quelle weist ihre Vollständigkeit nach, statt sie zu
-behaupten. **500 automatisierte Tests** laufen ohne Netzzugriff und ohne
+behaupten. **510 automatisierte Tests** laufen ohne Netzzugriff und ohne
 Schlüssel.
 
 | | |
@@ -223,11 +223,23 @@ weniger, weil sich Delikte auf wenige Kategorien und Tracts konzentrieren. Die
 ganze Gold-Schicht bleibt damit klein genug für eine Datei ohne Serverbetrieb;
 das ist derselbe Grund, der in Kapitel 7 gegen PostgreSQL sprach.
 
-**Kategorien.** Gruppiert wird über die 22 Kategorien aus
-`config/crime_category_mapping.csv`, die als vergleichbar markiert sind. Alle 22
-sind in **beiden** Städten belegt — das ist die Voraussetzung dafür, dass eine
-Zelle überhaupt vergleichbar ist. Die sechs übrigen Kategorien bleiben in Silver
-erhalten und sind aus Gold ausgeschlossen.
+**Kategorien.** Gruppiert wird über die **NIBRS-Deliktfamilie** — die ersten
+beiden Zeichen des Codes, also `13` für Körperverletzung, `23` für Diebstahl,
+`26` für Betrug. Das ist die Gliederung, die der Standard selbst vorgibt; sie
+muss nicht gepflegt werden und steht mit `nibrs_code` schon in `crime_offense`.
+
+In den Falldaten 2024 sind **25 Familien** belegt, **20 davon in beiden
+Städten** — und nur diese 20 tragen eine vergleichbare Zelle. Die fünf übrigen
+kommen jeweils nur in einer Stadt vor (`27` Embezzlement, `37` Pornografie,
+`51` Bestechung, `64` Menschenhandel, `72` Tierquälerei in Chicago, keine in
+Detroit); sie bleiben in Silver erhalten und sind aus Gold ausgeschlossen.
+
+> **Zuvor stand hier eine eigene Kategorienliste**,
+> `config/crime_category_mapping.csv`, die Chicagos `fbi_code` (SRS) und
+> Detroits `offense_category` auf 22 gemeinsame Kategorien abbildete. Sie ist
+> entfernt: Seit beide Städte über NIBRS laufen, wäre sie eine zweite,
+> handgepflegte Übersetzung neben der belegten — und die 20 Familien leisten
+> dasselbe, ohne gepflegt werden zu müssen.
 
 **Die zweite Tabelle folgt aus einer Spannung zwischen zwei Entscheiden.**
 Variante D hält Wetter im Scope, Option A macht Gold monatlich. Eine
@@ -281,7 +293,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 500 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
+| **DataOps** | 510 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -648,11 +660,12 @@ als die daneben:
 
 | NIBRS | Delikt | Chicago | Detroit |
 | --- | --- | ---: | ---: |
-| `13B` | Simple Assault | 53'977 | 15'894 |
+| `13B` | Simple Assault | 38'857 | 15'889 |
 | `23H` | All Other Larceny | 38'597 | 4'171 |
-| `290` | Destruction/Damage/Vandalism | 28'596 | 11'782 |
-| `240` | Motor Vehicle Theft | 22'101 | 8'517 |
-| `13A` | Aggravated Assault | 16'088 | 8'071 |
+| `290` | Destruction/Damage/Vandalism | 28'596 | 11'786 |
+| `240` | Motor Vehicle Theft | 22'101 | 8'511 |
+| `13C` | Intimidation | 19'338 | 1'235 |
+| `13A` | Aggravated Assault | 16'088 | 8'073 |
 
 Absolut sind das keine vergleichbaren Zahlen — Chicago hat rund viermal so
 viele Einwohner. Vergleichbar werden sie erst mit dem Nenner aus `tract`, und
@@ -727,7 +740,7 @@ mitliefern.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 500 bestandene Tests
+python -m pytest                       # erwartet 508 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
@@ -781,6 +794,7 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | IUCR nach NIBRS (Chicago) | `config/iucr_nibrs_mapping.csv`, erzeugt von [`tools/build_iucr_nibrs_mapping.py`](../tools/build_iucr_nibrs_mapping.py); Katalog vom [Datenportal der Stadt](https://data.cityofchicago.org/resource/c7ck-438e.json) |
 | MICR nach NIBRS (Detroit) | `config/micr_nibrs_mapping.csv`, Quellen [`micr_manual_1110_2024.pdf`](micr_manual_1110_2024.pdf) und [`micr_appendix_f_2009.pdf`](micr_appendix_f_2009.pdf) |
 | Codetabelle Illinois State Police | [`isp_nibrs_code_table_2026.xlsx`](isp_nibrs_code_table_2026.xlsx) — nach ILCS-Statut geschlüsselt, **nicht** als Crosswalk verwendbar, siehe 8.5 |
+| Zweite Abschrift der Codeliste | [`illinois_nibrs_iepd_2023.xlsx`](illinois_nibrs_iepd_2023.xlsx), Blatt `OffenseCode` — Illinois' eigene Abschrift derselben FBI-Liste; belegt alle 81 Bezeichnungen statt zehn Stichproben |
 
 ---
 

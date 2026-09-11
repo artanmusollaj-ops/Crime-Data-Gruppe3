@@ -97,9 +97,10 @@ _gruppe("0141 0142", "09B")          # fahrlaessige Toetung, reckless homicide
 # Unterscheidung nicht, sondern nur Waffe und Versuch. 11A ist damit der
 # einzige belegbare Code fuer die ganze Gruppe.
 _gruppe("0261 0262 0263 0264 0265 0266 0271 0272 0273 0274 0275 0281 0291", "11A")
-_gruppe("1573", "11A")               # Criminal Sexual Abuse - Sexual Penetration
 _gruppe("1753 1754", "11A")          # Sexual Assault of Child by Family Member
 _gruppe("1577 1599", "36B")          # Opfer 13-16, Taeter aelter: Statutory Rape
+_gruppe("1573", "36B")               # ISP bezieht es auf 720-5/11-1.50(b):
+                                     # Taeter unter 17, Opfer 9-17
 _gruppe("1580", "36A")               # Sexual Relations in Family
 _gruppe("1751 1752", "36A")          # Criminal Sexual Abuse by Family Member
 
@@ -119,12 +120,20 @@ _gruppe("1564", "13A")               # Criminal Transmission of HIV: schwere
 
 # --- Koerperverletzung: ohne Waffe, keine oder leichte Verletzung ---------
 _gruppe("0440 0454 0460 0475 0484 0486", "13B")
-_gruppe("0545 0554 0560", "13B")
+_gruppe("0545 0554", "13B")   # siehe ERMESSEN: koennte 13C sein
 _gruppe("0494", "13B")               # Ritual Mutilation, Haende, leichte Verletzung
 _gruppe("1750", "13B")               # Child Abuse, nicht sexuell
 
 # --- Bedrohung -------------------------------------------------------------
 _gruppe("3960 3961 3966 3975 3980", "13C")
+# Illinois trennt Assault von Battery: Assault ist die Drohung ohne Beruehrung
+# (720 ILCS 5/12-1), Battery die Beruehrung (5/12-3). NIBRS trennt genauso -
+# 13C Intimidation ist die Drohung, 13B Simple Assault der Angriff. Die
+# ILCS-Tabelle der Illinois State Police bestaetigt beides ausdruecklich:
+# 720-5/12-1 Assault -> 13C, 720-5/12-3 Battery -> 13B. Das sind die einzigen
+# beiden Zeilen der 13er-Familie, deren Wortlaut wirklich zu Chicagos Katalog
+# passt; bei allen uebrigen greift der Statut-Versatz aus Kapitel 8.5.
+_gruppe("0560", "13C")               # ASSAULT / SIMPLE
 _gruppe("0580 0581 0583", "13C")     # Stalking: NIBRS kennt keinen eigenen Code
 _gruppe("2850 2851", "13C")          # Bomb Threat, Arson Threat
 _gruppe("2820", "13C")               # Telephone Threat
@@ -140,7 +149,12 @@ _gruppe("1055", "64B")
 
 # --- Prostitution ----------------------------------------------------------
 _gruppe("1506 1507 1511 1549", "40A")                      # Ausuebung
-_gruppe("1505 1510 1512 1513 1515 1520 1521 1530 1531", "40B")   # Foerderung
+_gruppe("1505 1510 1512 1513 1515 1520 1530", "40B")             # Foerderung
+# Illinois hat Juvenile Pimping und Keeping a Place of Juvenile Prostitution
+# 2013 in 720-5/11-14.4 zusammengefasst. Die ISP fuehrt dieses Statut auf 64A -
+# das Foerdern einer minderjaehrigen Prostituierten ist Menschenhandel. Das
+# Patronisieren dagegen bleibt 40C (ISP zu 11-18.1(a)).
+_gruppe("1531 1521", "64A")
 _gruppe("1504 1525 1526", "40C")                           # Freier
 
 # --- Einbruch, Diebstahl, Fahrzeugdiebstahl -------------------------------
@@ -169,9 +183,10 @@ _gruppe("1330 1335 1350 1360 1365", "90J")
 
 # --- Faelschung und Betrug -------------------------------------------------
 _gruppe("1120 1121 1122 1160 502P", "250")
-_gruppe("1110 1130 1135 1185 1195 1197 1210 1242 1245", "26A")
+_gruppe("1110 1130 1135 1195 1197 1210 1242 1245", "26A")
 _gruppe("1150 1151 1152", "26B")
-_gruppe("1170", "26C")
+_gruppe("1170 1185", "26C")   # 1185: das Statut ist "False Representation as
+                              # Person Authorized to Enforce the Law" (ISP)
 _gruppe("1101 1102 1187 1192", "26D")
 _gruppe("1199", "26E")
 _gruppe("0840 0841 0842 0843 1153 1154 1155 1156", "26F")
@@ -204,13 +219,15 @@ _gruppe("4650 4651 4652", "360")
 
 # --- Bestechung ------------------------------------------------------------
 _gruppe("3910", "510")
+_gruppe("4810", "510")               # Compounding a Crime: Geld dafuer nehmen,
+                                     # eine Tat nicht anzuzeigen (ISP)
 
 # --- Waffendelikte ---------------------------------------------------------
 _gruppe("141A 141B 141C 142A 142B 1435 143A 143B 143C 1440 1450 1460 "
         "1475 1476 1477 2900", "520")
 _gruppe("1478 1479 1480", "520")     # Concealed Carry License Violation
 _gruppe("1030 1035", "520")          # Besitz Spreng-/Brandvorrichtung
-_gruppe("3200 4740 4860 5007 5008", "520")
+_gruppe("3200 4860 5007 5008", "520")   # 4740 Body Armor ist keine Waffe
 
 # --- Tierquaelerei ---------------------------------------------------------
 _gruppe("1682 501A", "720")
@@ -226,12 +243,13 @@ _gruppe("2210 2220 2230 2240 2250 2251", "90G")
 _gruppe("0470 2840 2860 2870 2890 3100 3300", "90C")
 _gruppe("1536 1570", "90C")          # Public Indecency
 _gruppe("2825 2826 2830", "90C")     # Belaestigung per Telefon und elektronisch
+_gruppe("1574", "90C")               # Fornication, ISP ist spezifischer
 
 # --- Brandstiftung, Auffangzeile ------------------------------------------
 _gruppe("5003", "200")               # Other Arson / Explosive Incident
 
 # --- Ohne NIBRS-Entsprechung: Auffang 90Z ---------------------------------
-_gruppe("1544 1565 1566 1572 1574 1576 1578 1585", "90Z")
+_gruppe("1544 1565 1566 1572 1576 1578 1585", "90Z")
 _gruppe("1710 1715 1720 1725 1755 1775 1780 1791", "90Z")
 _gruppe("0584", "90Z")               # Verstoss gegen Kontaktverbot, nicht das Stalking
 _gruppe("1230 1235 1255 1261 1262 1263", "90Z")
@@ -240,7 +258,8 @@ _gruppe("1640", "90Z")               # Register Federal Gambling Stamp
 _gruppe("2895 3000", "90Z")
 _gruppe("3710 3720 3730 3731 3740 3750 3751 3760 3770 3800 3920", "90Z")
 _gruppe("3610 4310 4386 4387 4388 4389 4410 4420 4510 4625 "
-        "4750 4800 4810", "90Z")
+        "4750 4800", "90Z")
+_gruppe("4740", "90Z")               # Koerperschutz, keine Waffe (ISP)
 _gruppe("5000 5001 5002 5009 500E 500N 5011 5013 501H 502R", "90Z")
 _gruppe("5110 5111 5112 5120 5121 5122 5130 5131 5132", "90Z")
 
@@ -287,16 +306,28 @@ ERMESSEN = {
     "4800": "Money Laundering: NIBRS fuehrt 26H, markiert ihn aber als nur von "
             "Bundes- und Stammesbehoerden meldbar; fuer Chicago bleibt 90Z",
     "2900": "Air Rifle wird von Chicago als Waffe gefuehrt, deshalb 520",
+    # Artans Review vom 11.9. hat 0560 als falsch nachgewiesen (jetzt 13C).
+    # Diese beiden folgen derselben Logik - Chicago fuehrt sie unter ASSAULT,
+    # also als Drohung -, aber die ILCS-Tabelle kennt keine Zeile dazu. Ohne
+    # Beleg wird nicht umgebucht, sondern benannt.
+    "0545": "Chicago fuehrt es unter ASSAULT, was in Illinois die Drohung ohne "
+            "Beruehrung meint; das spraeche fuer 13C. Die ILCS-Tabelle der ISP "
+            "fuehrt keine Zeile zu diesem Kuerzel, deshalb bleibt es bei 13B",
+    "0554": "wie 0545: Chicago fuehrt es unter ASSAULT, die ILCS-Tabelle der "
+            "ISP kennt aber keine Zeile zu diesem Kuerzel",
     # Offene Frage, bewusst nicht stillschweigend entschieden: nach der
     # Bundesdefinition des Menschenhandels gilt ein Opfer unter 18 Jahren auch
     # ohne Noetigung als Fall von 64A. Die Technical Specification ist eine
     # reine Datenspezifikation und enthaelt keine Deliktdefinitionen, kann die
     # Frage also nicht belegen. Bis dahin folgt die Zuordnung Chicagos eigener
     # Einstufung: index_code N, also kein Indexdelikt.
-    "1521": "Keeping Place of Juvenile Prostitution: 64A waere zu pruefen, "
-            "wenn Minderjaehrigkeit allein Menschenhandel begruendet",
-    "1526": "Patronizing a Juvenile Prostitute: siehe 1521",
-    "1531": "Juvenile Pimping: siehe 1521",
+    "1521": "Keeping Place of Juvenile Prostitution: 64A folgt aus 720-5/11-14.4, "
+            "in dem Illinois das Delikt 2013 aufgehen liess. Die ISP fuehrt "
+            "dieses Statut auf 64A, kennt zu diesem Kuerzel aber keine Zeile - "
+            "die Zuordnung ist Schlussfolgerung, nicht Beleg",
+    "1573": "ISP bezieht 720-5/11-1.50(b) auf Taeter unter 17 und Opfer 9 bis 17, "
+            "also Statutory Rape. Chicagos Beschreibung nennt kein Alter, aber "
+            "(b) ist die einzige Penetrationsvariante ohne Gewalt",
 }
 
 

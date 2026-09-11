@@ -514,8 +514,10 @@ alle übrigen            str    <span class="cmt">neighborhood, zip_code teils n
         <strong><code>OFFENSE_MAPPING</code> kennt 6 von 32 Kategorien.</strong> Damit
         sind 318 508 von 823 951 Zeilen (38,7 %)
         <code>analysis_eligible=false</code> — darunter HOMICIDE, SEXUAL ASSAULT und
-        ARSON. Der strenge Ansatz ist richtig, die Liste nur unvollständig;
-        <code>config/crime_category_mapping.csv</code> deckt bereits alle 32 ab.
+        ARSON. Der strenge Ansatz ist richtig, die Liste nur unvollständig.
+        Inzwischen deckt <code>config/micr_nibrs_mapping.csv</code> 98,1 % der
+        Detroit-Fälle ab und führt sie nach NIBRS; <code>OFFENSE_MAPPING</code>
+        ist damit überholt, aber noch im Code.
       </li>
     </ul>
   </section>
