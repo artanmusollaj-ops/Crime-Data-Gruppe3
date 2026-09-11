@@ -16,17 +16,23 @@ Referenztabellen sind aber Modulfunktionen mit ``assert``. Dazu kommt, dass
 ``unittest`` die ``conftest.py`` gar nicht laedt, in der die Pipelines unter
 ihren kurzen Namen bekannt gemacht werden. Das Ergebnis war ein
 Protokoll, das **SUCCESS nach 39 von 448 Tests** meldete - ein gruener Lauf, der
-91 Prozent der Suite nie angefasst hatte. Dieselbe Falle war in
-``run_tests_and_log.py`` schon einmal aufgefallen und dort behoben worden; die
-Lehre stand also im Repository, nur nicht in dieser Datei.
+91 Prozent der Suite nie angefasst hatte. Es passierte **zweimal**, und beim
+zweiten Mal stand die Lehre bereits im Repository - im zweiten Runner, den es
+damals noch gab.
 
 Gesammelt wird deshalb mit demselben Sammler, den auch ``python -m pytest``
 benutzt. Beide koennen dadurch nicht mehr auseinanderlaufen: Was pytest findet,
 findet dieser Runner auch.
+
+Dass das so bleibt, sichert ``tests/test_run_tests.py``: Der Runner bekommt
+dort ein winziges Verzeichnis mit je einem Test beider Stile und muss beide
+finden. Geprueft wird die Faehigkeit, nicht eine Gesamtzahl, die mit jeder
+neuen Testdatei veraltet.
 """
 
 from __future__ import annotations
 
+import argparse
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
 import json
@@ -48,7 +54,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import pytest  # noqa: E402 - erst nach dem Pfad-Bootstrap importierbar
 
-from tests.test_bronze_ingestion import (  # noqa: E402 - dito
+from tests.detroit_pipeline.test_bronze_ingestion import (  # noqa: E402 - dito
     BRONZE_TEST_CATEGORY_COUNTS,
     BRONZE_TEST_TOTAL,
 )
@@ -174,7 +180,27 @@ def write_json_atomic(path: Path, payload: dict) -> None:
     temporary_path.replace(path)
 
 
-def main(log_dir: Path = DEFAULT_LOG_DIR) -> int:
+def arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    """Zielverzeichnis und Protokollort lassen sich setzen.
+
+    Beides ist vor allem dafuer da, dass ``tests/test_run_tests.py`` den Runner
+    auf ein kleines, eigens gebautes Verzeichnis loslassen kann. Ohne diese
+    Moeglichkeit liesse sich nur pruefen, was der Runner auf der echten Suite
+    tut - und das hiesse, pytest in pytest zu starten.
+    """
+    parser = argparse.ArgumentParser(description="Fuehrt die Testsuite aus.")
+    parser.add_argument(
+        "--test-dir", type=Path, default=TEST_DIR,
+        help=f"Verzeichnis mit den Tests (Vorgabe: {TEST_DIR})",
+    )
+    parser.add_argument(
+        "--log-dir", type=Path, default=DEFAULT_LOG_DIR,
+        help=f"Zielverzeichnis der Protokolle (Vorgabe: {DEFAULT_LOG_DIR})",
+    )
+    return parser.parse_args(argv)
+
+
+def main(log_dir: Path = DEFAULT_LOG_DIR, test_dir: Path = TEST_DIR) -> int:
     """Fuehrt die Tests aus, protokolliert Ergebnisse und liefert Exit-Code."""
 
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -192,7 +218,7 @@ def main(log_dir: Path = DEFAULT_LOG_DIR) -> int:
             print("Crime-Data-Gruppe3 Test Run")
             print(f"Run-ID:     {run_id}")
             print(f"Started at: {started_at.isoformat()}")
-            print(f"Test path:  {TEST_DIR}")
+            print(f"Test path:  {test_dir}")
             print()
 
             # -vv nennt jeden Test einzeln, auch gegen das -q aus
@@ -201,7 +227,7 @@ def main(log_dir: Path = DEFAULT_LOG_DIR) -> int:
             # sie ist der Grund, warum dort ueberhaupt gedruckt wird.
             # -p no:cacheprovider haelt .pytest_cache aus dem Repository.
             pytest.main(
-                ["-vv", "-s", "--color=no", "-p", "no:cacheprovider", str(TEST_DIR)],
+                ["-vv", "-s", "--color=no", "-p", "no:cacheprovider", str(test_dir)],
                 plugins=[mitschrift],
             )
 
@@ -229,6 +255,7 @@ def main(log_dir: Path = DEFAULT_LOG_DIR) -> int:
         "run_id": run_id,
         "status": status,
         "collector": "pytest",
+        "test_dir": str(test_dir),
         "started_at": started_at.isoformat(),
         "finished_at": finished_at.isoformat(),
         "duration_seconds": duration_seconds,
@@ -264,4 +291,5 @@ def main(log_dir: Path = DEFAULT_LOG_DIR) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    _args = arguments()
+    raise SystemExit(main(log_dir=_args.log_dir, test_dir=_args.test_dir))
