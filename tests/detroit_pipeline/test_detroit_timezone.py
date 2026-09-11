@@ -12,7 +12,7 @@ from detroit_pipeline.detroit_arcgis import (
     DataQualityError,
 )
 from detroit_pipeline.extract_detroit import extract_updated_window, extract_year, _extract_where
-from tests.test_bronze_ingestion import FakeArcGISClient
+from tests.detroit_pipeline.test_bronze_ingestion import FakeArcGISClient
 
 
 class RecordingClient(FakeArcGISClient):

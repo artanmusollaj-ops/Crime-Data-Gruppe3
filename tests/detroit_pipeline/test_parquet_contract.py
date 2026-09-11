@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 import pyarrow.parquet as pq
 import duckdb
-from tests.test_bronze_ingestion import FakeArcGISClient
+from tests.detroit_pipeline.test_bronze_ingestion import FakeArcGISClient
 from detroit_pipeline.extract_detroit import extract_year, extract_updated_window
 from detroit_pipeline.bronze_manifest import validate_manifest
 from detroit_pipeline.transform_detroit import iter_bronze_records, parse_records

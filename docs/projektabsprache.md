@@ -530,8 +530,17 @@ Gold-Tabellen einchecken, weil sie klein sind.
 
 ### 7.2 Tests
 
-**Stand.** 422 Tests, aber ungleich verteilt: Chicago und Census liegen in
-`tests/<pipeline>/`, die Detroit-Tests direkt in `tests/`.
+**Stand.** 449 Tests, seit dem 11.9. einheitlich nach Pipeline gegliedert:
+
+```text
+tests/
+├── census_pipeline/    ├── detroit_pipeline/   ├── silver_pipeline/
+├── chicago_pipeline/   ├── config/             └── weather_pipeline/
+```
+
+Die Detroit-Tests lagen zuvor als einzige flach in `tests/`. Der Umzug macht
+`python -m pytest tests/detroit_pipeline` möglich — vorher liess sich eine
+Pipeline nur über einzelne Dateinamen ansteuern.
 
 `test_results.txt` ist mit PR #9 aus der Versionierung genommen und steht
 zusammen mit `logs/` in `.gitignore`. Dabei kam heraus, dass beide Test-Runner
@@ -540,12 +549,17 @@ Detroit-Tests ausführten, den Lauf aber als Gesamterfolg meldeten — ein Bruch
 Chicago oder Census lief mit Exit-Code 0 durch. Beide laufen jetzt über pytest
 und tun damit dasselbe.
 
-**Vorschlag.** Testdateien einheitlich nach `tests/<pipeline>/`, also auch die
-Detroit-Tests. Von den beiden Runnern einen behalten: `run_tests.py` schreibt
-Text-Log und strukturierten JSON-Report unter `logs/tests/`,
-`run_tests_and_log.py` hält die letzten fünf Läufe in einer Textdatei. Anspruch
-für neue Pipelines: Tests laufen ohne Netz und ohne Schlüssel, so wie die
-bestehenden.
+**Erledigt.** Testdateien liegen einheitlich unter `tests/<pipeline>/`.
+
+**Offen: einen der beiden Runner behalten.** `run_tests.py` schreibt Text-Log
+und strukturierten JSON-Report unter `logs/tests/`, `run_tests_and_log.py` hält
+die letzten fünf Läufe in einer Textdatei. Beide sammeln über pytest — dass sie
+das tun, war zweimal nötig: `run_tests.py` war zwischenzeitlich wieder auf
+`unittest discover` zurückgefallen und meldete SUCCESS nach 39 von 448 Tests.
+Solange es zwei gibt, kann das wieder passieren.
+
+Anspruch für neue Pipelines: Tests laufen ohne Netz und ohne Schlüssel, so wie
+die bestehenden.
 
 `Entscheid: ______________________________________________`
 

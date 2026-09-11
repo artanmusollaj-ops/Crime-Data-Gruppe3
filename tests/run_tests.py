@@ -48,7 +48,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import pytest  # noqa: E402 - erst nach dem Pfad-Bootstrap importierbar
 
-from tests.test_bronze_ingestion import (  # noqa: E402 - dito
+from tests.detroit_pipeline.test_bronze_ingestion import (  # noqa: E402 - dito
     BRONZE_TEST_CATEGORY_COUNTS,
     BRONZE_TEST_TOTAL,
 )
