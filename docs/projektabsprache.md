@@ -474,6 +474,52 @@ Alternative. Wichtig ist vor allem, dass wir **eines** wählen.
 
 `Entscheid: DuckDB`
 
+### 5.4 DuckDB: Abfrageschicht oder zweite Kopie?
+
+**Stand.** Der Detroit-Branch brachte `load_duckdb.py` mit, das Bronze in eine
+DuckDB-Datei unter `data/warehouse/` importiert — als materialisierte Tabellen,
+mit dem Datensatz als JSON-Blob. Absprache 7.1 hält dagegen fest:
+dateibasierte Schichten als Speicher, **DuckDB als Abfrageschicht darüber**.
+
+**Gemessen statt gestritten**, zweimal:
+
+*Bronze, Abfrage über Detroits 88'695 Zeilen (Kategorie × Monat):*
+
+| | Zeit | Grösse |
+| --- | ---: | ---: |
+| Parquet direkt | 3,8 ms | 12,1 MB |
+| DuckDB-Kopie als JSON-Blob | **64,3 ms** | 32,0 MB |
+
+Der Grund: `load_duckdb.py` legt den ganzen Datensatz als JSON ab und extrahiert
+nur `incident_entry_id` in eine Spalte. Jede Auswertung muss also pro Zeile JSON
+parsen. Die Kopie ist damit **17× langsamer und 2,6× grösser** als die Datei,
+die sie ersetzen sollte.
+
+*Serving, Ad-hoc über alle drei Silver-Tabellen (410'000 Zeilen):*
+
+| | Sichten | Kopie |
+| --- | ---: | ---: |
+| Drei-Wege-Join | 4,4 ms | 5,1 ms |
+| Join Delikt × Tract | 3,6 ms | 4,3 ms |
+| Dateigrösse | **0,3 MB** | 45,1 MB |
+
+Auch hier sind Sichten nicht langsamer, teils schneller. Ergebnisse in beiden
+Messungen identisch geprüft. Methodik:
+[`notebooks/33_serving_evaluation.ipynb`](../notebooks/33_serving_evaluation.ipynb).
+
+**Entscheid: Sichten, keine Kopie.** Nicht wegen der Geschwindigkeit — die ist
+ein Gleichstand —, sondern weil eine Kopie veralten kann, ohne dass man es ihr
+ansieht, und weil sie eine zweite Wahrheit neben den unveränderlichen Schichten
+ist. Gebaut in `src/crime/serving/build_analysis_db.py`.
+
+**Was aus `load_duckdb.py` bleiben soll:** sein `validate_manifest`. Status,
+Prüfsumme, fünf Zählwege gegeneinander, Schema-Fingerabdruck und die Herkunft
+jeder Zeile — ein ernsthaftes Eingangstor, völlig unabhängig von der
+Speicherfrage. Es gehört behalten; nur der Importer sollte später auf **Gold**
+zielen statt auf Bronze.
+
+`Entscheid: ______________________________________________`
+
 ---
 
 ## 6 · Dokumentation
