@@ -223,11 +223,23 @@ weniger, weil sich Delikte auf wenige Kategorien und Tracts konzentrieren. Die
 ganze Gold-Schicht bleibt damit klein genug für eine Datei ohne Serverbetrieb;
 das ist derselbe Grund, der in Kapitel 7 gegen PostgreSQL sprach.
 
-**Kategorien.** Gruppiert wird über die 22 Kategorien aus
-`config/crime_category_mapping.csv`, die als vergleichbar markiert sind. Alle 22
-sind in **beiden** Städten belegt — das ist die Voraussetzung dafür, dass eine
-Zelle überhaupt vergleichbar ist. Die sechs übrigen Kategorien bleiben in Silver
-erhalten und sind aus Gold ausgeschlossen.
+**Kategorien.** Gruppiert wird über die **NIBRS-Deliktfamilie** — die ersten
+beiden Zeichen des Codes, also `13` für Körperverletzung, `23` für Diebstahl,
+`26` für Betrug. Das ist die Gliederung, die der Standard selbst vorgibt; sie
+muss nicht gepflegt werden und steht mit `nibrs_code` schon in `crime_offense`.
+
+In den Falldaten 2024 sind **25 Familien** belegt, **20 davon in beiden
+Städten** — und nur diese 20 tragen eine vergleichbare Zelle. Die fünf übrigen
+kommen jeweils nur in einer Stadt vor (`27` Embezzlement, `37` Pornografie,
+`51` Bestechung, `64` Menschenhandel, `72` Tierquälerei in Chicago, keine in
+Detroit); sie bleiben in Silver erhalten und sind aus Gold ausgeschlossen.
+
+> **Zuvor stand hier eine eigene Kategorienliste**,
+> `config/crime_category_mapping.csv`, die Chicagos `fbi_code` (SRS) und
+> Detroits `offense_category` auf 22 gemeinsame Kategorien abbildete. Sie ist
+> entfernt: Seit beide Städte über NIBRS laufen, wäre sie eine zweite,
+> handgepflegte Übersetzung neben der belegten — und die 20 Familien leisten
+> dasselbe, ohne gepflegt werden zu müssen.
 
 **Die zweite Tabelle folgt aus einer Spannung zwischen zwei Entscheiden.**
 Variante D hält Wetter im Scope, Option A macht Gold monatlich. Eine
