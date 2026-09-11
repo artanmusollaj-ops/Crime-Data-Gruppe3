@@ -25,11 +25,16 @@ MAPPING = PROJECT_ROOT / "config" / "micr_nibrs_mapping.csv"
 # mit HTTP 403 beantwortet.
 QUELLEN = {
     "micr_manual_1110_2024": PROJECT_ROOT / "docs" / "micr_manual_1110_2024.pdf",
+    # Dieselbe Quelle, anderer Abschnitt: die Arrest-Charge-Liste statt der
+    # File-Class-Liste. Die Herkunft bleibt getrennt, weil die Zuordnung eine
+    # Stufe mehr durchlaeuft - Arrest Charge, File Class, dann NIBRS.
+    "micr_arrest_charge_1110_2024": PROJECT_ROOT / "docs" / "micr_manual_1110_2024.pdf",
     "appendix_f_2009": PROJECT_ROOT / "docs" / "micr_appendix_f_2009.pdf",
 }
 
 SPALTEN = [
     "micr_code",
+    "micr_code_type",
     "micr_file_class",
     "micr_description",
     "nibrs_group",
@@ -44,7 +49,16 @@ SPALTEN = [
 
 # Jede Zeile muss sagen, woher sie kommt. Ein leerer Wert heisst: keine
 # Zuordnung, und dann muss auch kein NIBRS-Code dastehen.
-HERKUNFT = {"micr_manual_1110_2024", "appendix_f_2009", ""}
+HERKUNFT = {"micr_manual_1110_2024", "micr_arrest_charge_1110_2024",
+             "appendix_f_2009", ""}
+
+# MICR fuehrt zwei Codelisten. Welche eine Zeile meint, muss dastehen - sonst
+# ist der vierstellige Code doppeldeutig.
+CODE_ARTEN = {"file_class", "arrest_charge", ""}
+
+# Detroits eigene Beschreibung widerspricht hier dem Handbuch. Lieber eine
+# benannte Luecke als eine erfundene Zuordnung.
+UMSTRITTEN = {"3072", "5421", "5422"}
 
 
 @pytest.fixture(scope="module")
@@ -79,11 +93,16 @@ def test_micr_code_ist_vierstellig(zeilen):
 
 
 def test_file_class_passt_zum_micr_code(zeilen):
-    """Appendix F fuehrt fuenfstellig NN00M, Detroit vierstellig NN0M."""
+    """Appendix F fuehrt fuenfstellig NN00M, Detroit vierstellig NN0M.
+
+    Gilt nur fuer Zeilen, deren Code selbst eine File Class ist. Bei einem
+    Arrest Charge nennt ``micr_file_class`` die uebergeordnete Klasse, und die
+    hat mit dem Code nichts zu tun: 3071 haengt unter 30001.
+    """
     falsch = [
         (z["micr_code"], z["micr_file_class"])
         for z in zeilen
-        if z["micr_file_class"]
+        if z["micr_code_type"] == "file_class" and z["micr_file_class"]
         and z["micr_file_class"][:2] + z["micr_file_class"][3:5] != z["micr_code"]
     ]
     assert not falsch, f"Code und File Class passen nicht: {falsch}"
@@ -203,6 +222,86 @@ def test_gruppe_a_liegt_ausserhalb_des_90er_namensraums(zeilen):
 
 
 # --------------------------------------------------------------------------
+# Die zweite Codeliste: Arrest Charges
+# --------------------------------------------------------------------------
+
+
+def test_code_art_stammt_aus_fester_menge(zeilen):
+    unbekannt = {z["micr_code_type"] for z in zeilen} - CODE_ARTEN
+    assert not unbekannt, f"unbekannte Code-Art: {unbekannt}"
+
+
+def test_jede_zugeordnete_zeile_sagt_welche_liste_sie_meint(zeilen):
+    """Ohne diese Angabe ist ein vierstelliger Code nicht aufloesbar.
+
+    54 Kuerzel koennen beides sein: 0901 ist die gekuerzte File Class 09001
+    und zugleich der Arrest Charge "Family, Gun".
+    """
+    ohne = [z["micr_code"] for z in zeilen
+            if z["mapped"] == "true" and not z["micr_code_type"]]
+    assert not ohne, f"zugeordnet, aber ohne Code-Art: {ohne}"
+
+
+def test_arrest_charge_nennt_seine_file_class(zeilen):
+    """Die Zuordnung laeuft ueber die File Class - die muss nachlesbar sein."""
+    ohne = [z["micr_code"] for z in zeilen
+            if z["micr_code_type"] == "arrest_charge" and z["mapped"] == "true"
+            and not z["micr_file_class"]]
+    assert not ohne, f"Arrest Charge ohne File Class: {ohne}"
+
+
+def test_arrest_charge_erbt_den_code_seiner_file_class(zeilen):
+    """Der NIBRS-Code kommt von der File Class, nicht aus eigener Deutung.
+
+    Genau das ist der Unterschied zu einer erfundenen Zuordnung: Jede dieser
+    Zeilen laesst sich in der Tabelle selbst nachrechnen.
+    """
+    nach_klasse = {z["micr_file_class"]: z for z in zeilen
+                   if z["micr_code_type"] == "file_class" and z["micr_file_class"]}
+    abweichend = []
+    for z in zeilen:
+        if z["micr_code_type"] != "arrest_charge" or z["mapped"] != "true":
+            continue
+        quelle = nach_klasse.get(z["micr_file_class"])
+        assert quelle is not None, f"{z['micr_code']}: File Class fehlt in der Tabelle"
+        if (z["nibrs_code"], z["nibrs_group"]) != (quelle["nibrs_code"],
+                                                   quelle["nibrs_group"]):
+            abweichend.append((z["micr_code"], z["nibrs_code"], quelle["nibrs_code"]))
+    assert not abweichend, f"weicht von der File Class ab: {abweichend}"
+
+
+def test_arrest_charge_zeilen_nennen_ihre_herkunft(zeilen):
+    falsch = [z["micr_code"] for z in zeilen
+              if z["micr_code_type"] == "arrest_charge" and z["mapped"] == "true"
+              and z["match"] != "micr_arrest_charge_1110_2024"]
+    assert not falsch, f"Arrest Charge mit falscher Herkunft: {falsch}"
+
+
+def test_umstrittene_codes_bleiben_offen(zeilen):
+    """Wo Detroit dem Handbuch widerspricht, wird nicht geraten.
+
+    Beim Chicago-Crosswalk hat genau diese Versuchung 106 falsche Zeilen
+    gekostet - gueltige NIBRS-Codes fuer das falsche Delikt.
+    """
+    for code in UMSTRITTEN:
+        zeile = next(z for z in zeilen if z["micr_code"] == code)
+        assert zeile["mapped"] == "false", f"{code} duerfte nicht zugeordnet sein"
+        assert zeile["note"].strip(), f"{code} ohne Begruendung"
+        assert "Handbuch" in zeile["note"], (
+            f"{code}: die Notiz muss den Widerspruch benennen"
+        )
+
+
+def test_nur_die_umstrittenen_bleiben_offen(zeilen):
+    """Gegenprobe - sonst haelt der Test oben auch bei einer wachsenden Luecke."""
+    offen = {z["micr_code"] for z in zeilen if z["mapped"] == "false"}
+    assert offen == UMSTRITTEN, (
+        f"unerwartet offen: {sorted(offen - UMSTRITTEN)}, "
+        f"unerwartet geschlossen: {sorted(UMSTRITTEN - offen)}"
+    )
+
+
+# --------------------------------------------------------------------------
 # Abdeckung der echten Daten, wenn vorhanden
 # --------------------------------------------------------------------------
 
@@ -248,9 +347,10 @@ def test_abdeckung_der_faelle_ist_ausgewiesen(zeilen):
     gesamt = sum(daten.values())
     gedeckt = sum(n for code, n in daten.items() if code in zugeordnet)
     anteil = gedeckt / gesamt
-    # Die Fassung von 2009 kennt spaetere Ergaenzungen nicht; ein Einbrechen
-    # dieser Quote waere aber ein Zeichen, dass etwas anderes kaputt ist.
-    assert anteil > 0.90, f"nur {anteil:.1%} der Faelle zugeordnet"
+    # Seit die Arrest Charges angeschlossen sind, liegt die Quote bei 98,1 %.
+    # Offen bleiben nur 3072, 5421 und 5422 - zusammen 1'681 Faelle, bei denen
+    # Detroits Beschreibung dem Handbuch widerspricht.
+    assert anteil > 0.97, f"nur {anteil:.1%} der Faelle zugeordnet"
 
 
 def test_seen_in_detroit_stimmt_mit_den_daten(zeilen):

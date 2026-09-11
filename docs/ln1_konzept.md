@@ -34,9 +34,11 @@ NIBRS-Standard, eine gemeinsame Raumeinheit über Census Tracts, Einwohnerzahlen
 als Nenner für Raten — und Wetter als dritte Zeitachse.
 
 Umgesetzt sind **fünf Quellen in vier Ingestion-Pipelines**, eine
-Speicherarchitektur aus unveränderlichen Läufen, und zwei von drei
-Silver-Tabellen. Jede Quelle weist ihre Vollständigkeit nach, statt sie zu
-behaupten. **422 automatisierte Tests** laufen ohne Netzzugriff und ohne
+Speicherarchitektur aus unveränderlichen Läufen, und **alle drei
+Silver-Tabellen** — seit `crime_offense` sprechen beide Städte dieselbe
+Deliktsprache, liegen auf derselben Zeitachse und tragen dieselbe
+Raumeinheit. Jede Quelle weist ihre Vollständigkeit nach, statt sie zu
+behaupten. **500 automatisierte Tests** laufen ohne Netzzugriff und ohne
 Schlüssel.
 
 | | |
@@ -119,7 +121,7 @@ bestätigt oder vorgeprüft, **eine falsifiziert, eine teilweise falsifiziert.**
 | --- | --- | --- | --- |
 | **H1** | Fehlende Koordinaten treten **nicht zufällig** auf, sondern hängen vom Delikttyp ab. | Chi-Quadrat-Unabhängigkeitstest | vorgeprüft: 4,3 % bei Delikten an Kindern gegen 0,4 % bei Diebstahl |
 | **H2** | Der Überlapp der Delta-Läufe erzeugt ausschliesslich **Duplikate**, keine **Dubletten**. | Vergleich aller Attribute je Schlüssel | bestätigt |
-| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Abgleich gegen die Mapping-Tabellen | **teilweise falsifiziert**, siehe 8.5. Chicago: 259 272 Fälle, jeder Code bekannt, aber nur **97,03 %** erhalten ein echtes NIBRS-Delikt — 2,97 % landen im Auffang `90Z`. Detroit: 94,96 % der Fälle über den MICR-Crosswalk, Rest offen |
+| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Anwendung beider Crosswalks in `silver/crime_offense` | **teilweise falsifiziert**, siehe 8.5. Chicago **100 %** zugeordnet, Detroit **98,1 %**. Aber nur **96,4 %** aller Fälle tragen ein echtes NIBRS-Delikt — 10'793 landen im Auffang `90Z`, 1'684 gar nicht |
 | **H4** | Ein gepinntes Schema plus Auffangspalte fängt Schema-Drift **vollständig** auf. | Fingerabdruck über Feldtypen, Inhalt von `_extra` | bestätigt |
 | **H5** | Auffällige Werte in den Verwaltungsschlüsseln sind **Artefakte**, keine echten Ausreisser. | Häufigkeitsanalyse plus Konsistenzregel | vorgeprüft |
 | **H6** | Die Zusammenführung der drei Zeitachsen gelingt allein durch **Aggregation**; Imputation ist nicht nötig. | Granularitätsanalyse je Quelle | offen |
@@ -279,7 +281,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 422 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
+| **DataOps** | 500 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -373,10 +375,14 @@ einen Server betreibt.
 
 ### 7.3 Das Format innerhalb der Schichten — gemessen
 
-Vier Quellen legen Bronze als Parquet ab, Detroit als NDJSON. Ob das
+Vier Quellen legten Bronze als Parquet ab, Detroit als NDJSON. Ob das
 zusammengeführt werden soll, ist keine Geschmacksfrage, sondern messbar.
 Verglichen wurden **dieselben Daten in beiden Formaten** — Detroits Bronze-Lauf
 mit 88'695 Zeilen, gelesen über DuckDB.
+
+> **Die Messung ist inzwischen umgesetzt.** Detroit schreibt seit dem 11.9.
+> Parquet in Laufverzeichnissen. Dieses Kapitel beschreibt die Messung, die zu
+> dem Entscheid geführt hat; die Zahlen unten sind der Stand davor.
 
 | Format | Grösse |
 | --- | --- |
@@ -416,6 +422,14 @@ getrennt     Raw    NDJSON + gzip      11,7 MB
 Messung und Methodik: [`notebooks/31_storage_evaluation.ipynb`](../notebooks/31_storage_evaluation.ipynb).
 Die Messung läuft mit warmem Betriebssystem-Cache und **unterschätzt damit
 Parquet**, weil der Plattenzugriff wegfällt.
+
+**Was daraus wurde.** Detroits Ingestion schreibt seit dem 11.9. Parquet, in
+Laufverzeichnissen mit Manifest und Prüfsumme, und bringt einen eigenen
+Datenvertrag mit: eingefrorenes Schema aus den Layer-Metadaten, `_feature_json`
+als verlustfreie Nutzlast, `_extra` für Typdrift. Vier der fünf Quellen liegen
+damit auf derselben Konvention. Die Silver-Schicht liest beide Formate — ein
+Bestand von vor der Umstellung wird nicht unlesbar, das neue Layout hat aber
+Vorrang.
 
 ### 7.4 Implementierung
 
@@ -466,7 +480,7 @@ desselben Tages — oder Information wegwerfen. Deshalb drei Tabellen:
 | --- | --- | --- |
 | `tract` | ein Census Tract | **gebaut**, 6'282 Zeilen |
 | `weather_day` | eine Stadt an einem Tag | **gebaut**, 55'449 Zeilen |
-| `crime_offense` | ein Delikt | offen |
+| `crime_offense` | ein Delikt | **gebaut**, 347'967 Zeilen |
 
 `tract` verbindet TIGER-Geometrie mit ACS-Attributen. Gedeutet wird: Text zu
 Zahlen, `-666666666` zu `NULL`, die Armutsquote abgeleitet — und bei Tracts ohne
@@ -479,9 +493,31 @@ Rekorden plausibilisiert. Ein leeres Feld wird `NULL` und **nicht** `0` — bei
 Niederschlag der entscheidende Unterschied. Das Messflag `T` für Spurenmengen
 bekommt eine eigene Spalte, weil `0` mit `T` nicht „trocken" heisst.
 
-**Beide Tabellen benennen Auffälligkeiten statt sie zu entfernen**, in einer
-Spalte `quality_flags`. Wer filtern will, filtert in der Auswertung und sieht
-dabei, wie viele Zeilen es betrifft.
+`crime_offense` ist die Tabelle, die den Vergleich trägt — 347'967 Delikte,
+259'272 aus Chicago und 88'695 aus Detroit. Sie leistet drei Übersetzungen auf
+einmal, und jede davon ist ein eigener Fehlerherd:
+
+| | Chicago | Detroit |
+| --- | --- | --- |
+| Delikte | `iucr` → NIBRS, **100 %** der Fälle | `state_offense_code` → NIBRS, **98,1 %** |
+| Zeit | `date` ist **Ortszeit ohne Zonenangabe** | Millisekunden seit Epoch, also UTC |
+| Raum | Punkt-in-Polygon gegen `tract`, **99,3 %** verortet | dito, **99,7 %** |
+
+**Die Zeitachse ist der unauffälligste und gefährlichste Punkt.** Chicagos
+`date` sieht aus wie ein Zeitstempel, ist aber Lokalzeit ohne Zone;
+`2024-01-01T00:56:00.000` heisst 06:56 UTC im Winter und 05:56 im Sommer.
+Detroits Feld ist bereits UTC. Wer beide als gleichartig behandelt, vergleicht
+Städte, die je nach Jahreszeit eine oder zwei Stunden auseinanderliegen — und
+sieht es keinem Wert an. Die Tabelle führt deshalb `occurred_at_utc` für den
+Vergleich, `occurred_at_local` für die Frage, was in der Stadt Ortszeit war,
+und `occurred_date_local` für den Join auf `weather_day`.
+
+**Alle drei Tabellen benennen Auffälligkeiten statt sie zu entfernen.** `tract`
+und `weather_day` in einer Spalte `quality_flags`, `crime_offense` über
+`located`, `nibrs_mapped` und `unfounded`. Unverortete Fälle, Fälle ohne
+NIBRS-Zuordnung und Detroits zurückgezogene Fälle bleiben in der Tabelle. Wer
+filtern will, filtert in der Auswertung und sieht dabei, wie viele Zeilen es
+betrifft.
 
 ### 8.3 Deduplikation: Duplikate, keine Dubletten
 
@@ -548,30 +584,80 @@ Sie zeigt, dass geprüft und nicht angenommen wurde.
 ### 8.5 Ein zweiter, teilweise falsifizierter Befund: H3
 
 H3 nahm an, die Deliktschlüssel beider Städte liessen sich **vollständig** auf
-NIBRS abbilden. Für Chicago ist das messbar — und die Antwort hängt daran, was
-„vollständig" heissen soll.
+NIBRS abbilden. Seit `silver/crime_offense` beide Crosswalks auf die Falldaten
+anwendet, ist das gemessen — und die Antwort hängt daran, was „vollständig"
+heissen soll.
 
-Gemessen über alle 259'272 eindeutigen Fälle des Jahrgangs 2024:
+Gemessen über alle 347'967 Delikte des Jahrgangs 2024:
 
-| | |
-| --- | --- |
-| Fälle, deren IUCR-Code die Tabelle kennt | 259'272 — **100 %** |
-| bewusst nicht zugeordnet, weil kein Delikt | 3 (`1481`, Entzug der Waffentragerlaubnis) |
-| **Fälle mit einem echten NIBRS-Delikt** | **251'574 — 97,03 %** |
-| Fälle im Auffang `90Z` | 7'695 — **2,97 %** |
+| | Chicago | Detroit | zusammen |
+| --- | ---: | ---: | ---: |
+| Delikte | 259'272 | 88'695 | 347'967 |
+| Quellcode im Crosswalk bekannt | **100 %** | **98,1 %** | 99,5 % |
+| davon Auffang `90Z` | 7'695 | 3'098 | 10'793 |
+| **mit einem echten NIBRS-Delikt** | **97,0 %** | **94,6 %** | **96,4 %** |
 
-**Abdeckung ja, Abbildung nein.** Kein Code fällt stillschweigend heraus, das
-war die eigentliche Sorge. Aber 2,97 % der Fälle tragen ein Delikt, das NIBRS
-nicht kennt: Verstösse gegen Registrierungspflichten, Bewährungs- und
-Bewährungsauflagen, Illinois-Eigenheiten wie *Criminal Fortification*. Für die
-landen sie auf `90Z All Other Offenses` — ein Code, der zwar gültig ist, aber
-für einen Deliktvergleich nichts aussagt.
+**Abdeckung ja, Abbildung nein.** Kein Chicago-Code fällt stillschweigend
+heraus, das war die eigentliche Sorge. Aber 10'793 Fälle tragen ein Delikt, das
+NIBRS nicht kennt: Verstösse gegen Registrierungspflichten, Bewährungsauflagen,
+Illinois-Eigenheiten wie *Criminal Fortification*. Sie landen auf `90Z All Other
+Offenses` — ein Code, der gültig ist, für einen Deliktvergleich aber nichts
+aussagt.
 
-Im Katalog ist der Anteil deutlich höher als in den Fällen: **70 der 434
-Katalogzeilen** sind Auffangzeilen (16,1 %), in den Falldaten aber nur 2,97 %.
-Die Delikte ohne NIBRS-Entsprechung sind also überwiegend seltene. Das ist ein
-gutes Ergebnis für den Vergleich — aber es ist ein gemessenes, kein
-angenommenes.
+Für Chicago ist der Anteil im Katalog viel höher als in den Fällen: **70 der 434
+Katalogzeilen** sind Auffangzeilen (16,1 %), in den Falldaten nur 2,97 %. Die
+Delikte ohne NIBRS-Entsprechung sind also überwiegend seltene — gut für den
+Vergleich, aber gemessen und nicht angenommen.
+
+**Detroits offene Fälle sind ein anderer Fall.** Dort steht kein Auffangcode,
+sondern gar keiner, weil Detroit in `state_offense_code` **zwei Codelisten
+mischt**: die *Offense File Class* (was ist passiert) und den *Arrest Charge*
+(womit wird jemand beschuldigt). Das MICR-Handbuch führt beide getrennt, 833
+Arrest Charges unter 104 File Classes.
+
+Detroit veröffentlicht beide in einem vierstelligen Feld. File Classes sind
+fünfstellig und werden gekürzt (`13001` → `1301`), Arrest Charges sind von Haus
+aus vierstellig — **54 Kürzel sind dadurch doppeldeutig**: `0901` ist zugleich
+die gekürzte File Class `09001` *Murder* und der Arrest Charge *Family, Gun*.
+Für alle 54 stützt Detroits eigene Beschreibung die File-Class-Lesart; keine
+einzige widerspricht ihr.
+
+23 Codes waren jedoch **nur** Arrest Charge und damit in einer File-Class-Tabelle
+nicht auffindbar. Sie sind über den Weg Arrest Charge → File Class → NIBRS
+angeschlossen, nachgerechnet in
+[`tools/extend_micr_arrest_charges.py`](../tools/extend_micr_arrest_charges.py):
+20 von 23, was Detroit von 94,96 % auf **98,10 %** hebt.
+
+**Drei bleiben offen**, weil Detroits eigene Beschreibung dem Handbuch
+widerspricht — 1'681 Fälle:
+
+| Code | Fälle | Detroit sagt | Handbuch sagt |
+| --- | ---: | --- | --- |
+| `3072` | 1'477 | RETAIL FRAUD – **THEFT** | Retail Fraud **Misrepresentation** 2nd Degree |
+| `5421` | 102 | ACCIDENT, HIT & RUN | Operating **ORV** Under the Influence |
+| `5422` | 102 | ACCIDENT, HIT & RUN | Permitted Person Under the Influence |
+
+Der Unterschied ist erheblich: bei `3072` steht 26A *False Pretenses* gegen 23C
+*Shoplifting*. Hier zu raten wäre genau der Fehler, der den Chicago-Crosswalk
+106 Zeilen gekostet hat — gültige Codes für das falsche Delikt. Die Lücke ist
+benannt und bleibt, bis Detroit sie auflöst.
+
+**Was die Tabelle über die Hypothese hinaus zeigt.** Zum ersten Mal lassen sich
+beide Städte nebeneinanderstellen, ohne dass eine Zahl etwas anderes bedeutet
+als die daneben:
+
+| NIBRS | Delikt | Chicago | Detroit |
+| --- | --- | ---: | ---: |
+| `13B` | Simple Assault | 53'977 | 15'894 |
+| `23H` | All Other Larceny | 38'597 | 4'171 |
+| `290` | Destruction/Damage/Vandalism | 28'596 | 11'782 |
+| `240` | Motor Vehicle Theft | 22'101 | 8'517 |
+| `13A` | Aggravated Assault | 16'088 | 8'071 |
+
+Absolut sind das keine vergleichbaren Zahlen — Chicago hat rund viermal so
+viele Einwohner. Vergleichbar werden sie erst mit dem Nenner aus `tract`, und
+das gehört nach Gold. Aber die **Kategorien** sind jetzt dieselben, und das war
+die Voraussetzung.
 
 **Warum das überhaupt auffiel.** Die erste Fassung des Chicago-Crosswalks
 entstand aus einem Join über den I-UCR-Code auf eine nach ILCS-Statut
@@ -641,7 +727,7 @@ mitliefern.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 422 bestandene Tests
+python -m pytest                       # erwartet 500 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
@@ -678,6 +764,7 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | --- | --- |
 | Ingestion, vier Pipelines | `src/crime/{chicago,detroit,census,weather}_pipeline/` |
 | Silver-Aufbau | `src/crime/silver_pipeline/` |
+| **Der Städtevergleich selbst** | `src/crime/silver_pipeline/build_crime_offense.py` → `data/silver/dataset=crime_offense/` |
 | Tests | `tests/`, nach Pipeline gegliedert |
 | Quelle Chicago erklärt | [`notebooks/01_chicago_source.ipynb`](../notebooks/01_chicago_source.ipynb) |
 | Chicago-Ingestion vorgeführt | [`notebooks/02_chicago_bronze_ingestion.ipynb`](../notebooks/02_chicago_bronze_ingestion.ipynb) |
@@ -703,11 +790,12 @@ Damit dieses Dokument vollständig ist, fehlen:
 
 - **Entscheid über Forschungsfragen und Hypothesen** (Kapitel 3) — er bestimmt,
   was in Gold gehört
-- **`crime_offense`** als dritte Silver-Tabelle, und damit der eigentliche
-  Hypothesentest zu H1, H2, H3 und H5
+- **Ein Notebook, das den Vergleich rechnet.** `crime_offense` liegt vor, die
+  Zahlen je NIBRS-Code stehen im Manifest — aber die Rate je Einwohner, für die
+  es `tract` als Nenner braucht, gehört nach Gold und fehlt noch
 - **Ein Notebook, das die Hypothesen rechnet** — die Zahlen zu H1, H2 und H5
   liegen heute in Notebook 03, H7 in 8.4; ein eigenes Notebook fehlt
-- **H3 für Detroit** — Chicagos Seite ist gemessen (8.5), Detroits steht aus:
-  die 23 offenen MICR-Codes sind Arrest Charge Codes und brauchen den Umweg
-  über die File Class
+- **Die letzten 1,9 % von Detroit** — `3072`, `5421` und `5422`, zusammen 1'681
+  Fälle, bei denen Detroits Beschreibung dem MICR-Handbuch widerspricht (8.5).
+  Das kann nur Detroit auflösen
 - **Das Detroit-Quellnotebook**

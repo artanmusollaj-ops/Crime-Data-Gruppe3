@@ -26,8 +26,8 @@ den geladenen Daten erhoben, nicht geschätzt.
 | **Census ACS** | Pipeline fertig, getestet | dieselben Tracts, 3 Variablen | raw + bronze |
 | **Wetter (NOAA)** | Pipeline fertig, getestet | 29'181 Tage O'Hare (ab 1946), 26'264 Detroit Metro (ab 1942) | raw + bronze |
 
-Ergänzend: 422 Tests, 8 Notebooks, `data/silver/` und `data/gold/` bislang
-leer. Die Deliktzuordnung liegt in drei Referenzdateien:
+Ergänzend: 500 Tests, 8 Notebooks, `data/silver/` mit allen drei Tabellen,
+`data/gold/` bislang leer. Die Deliktzuordnung liegt in drei Referenzdateien:
 `config/nibrs_offense_codes_2025.csv` (81 amtliche NIBRS-Codes),
 `config/iucr_nibrs_mapping.csv` (434 Chicago-Codes) und
 `config/micr_nibrs_mapping.csv` (128 Detroit-Codes).
@@ -259,15 +259,22 @@ Der Einbau von D wartet ausdrücklich auf diesen Entscheid.
 
 ## 4 · Bronze: der grösste Abstimmungsbedarf
 
-**Stand.** Wir haben heute **drei verschiedene Bronze-Konventionen**:
+**Stand seit dem 11.9.** Detroit schreibt Parquet in Laufverzeichnissen. Damit
+sind die Konventionen nah beieinander, aber noch nicht gleich:
 
 | | Chicago | Detroit | Census |
 | --- | --- | --- | --- |
-| Pfad | `bronze/city=chicago/ingest_date=…/run_…/` | `bronze/detroit/<name>_<uuid>.ndjson` | `bronze/dataset=…/vintage=…/state=…/run_…/` |
-| Partition | Hive (`city`, `ingest_date`) | keine | Hive (`dataset`, `vintage`, `state`) |
-| Format | Parquet (snappy) | NDJSON | Parquet (snappy) |
-| Lauf-Kennung | `run_<UTC-Zeitstempel>` | UUID4 | `run_<UTC-Zeitstempel>` |
-| Manifest | `manifest.json` je Schicht im Lauf-Ordner | `<name>.manifest.json` daneben | wie Chicago |
+| Pfad | `bronze/city=chicago/ingest_date=…/run_…/` | `bronze/detroit/full/year=…/run_…/` | `bronze/dataset=…/vintage=…/state=…/run_…/` |
+| Partition | Hive (`city`, `ingest_date`) | teils (`year`, `run_date`), aber `full`/`incremental` ohne Schlüssel | Hive (`dataset`, `vintage`, `state`) |
+| Format | Parquet (snappy) | Parquet (ZSTD) | Parquet (snappy) |
+| Lauf-Kennung | `run_<UTC-Zeitstempel>` | `run_<UUID4>` | `run_<UTC-Zeitstempel>` |
+| Manifest | `manifest.json` je Schicht im Lauf-Ordner | `manifest.json` im Lauf-Ordner | wie Chicago |
+
+**Was noch abweicht.** Detroit benennt die Stadt nicht als Partitionsschlüssel
+(`detroit/` statt `city=detroit/`), und `full`/`incremental` sind keine
+`key=value`-Paare. Die Lauf-Kennung ist eine UUID statt eines Zeitstempels,
+sortiert also nicht chronologisch. Und Detroit schreibt weiterhin **kein
+`raw/`** — die Entscheidungsvorlage `detroit-schichten.html` bleibt offen.
 | Manifest-Felder | `completeness`, `watermark`, `source_schema`, `query` | `offense_category_counts`, `pipeline_run_id`, … | wie Chicago plus `crs` |
 | Raw-Schicht | ja | **nein** | ja |
 | Schema | gepinnt, 23 Spalten, `_extra` | verschachteltes JSON (`attributes`/`geometry`/`_meta`) | gepinnt, 14 bzw. 9 Spalten, `_extra` |
@@ -377,7 +384,7 @@ auf, weil die Quellen drei verschiedene Granularitäten haben:
 
 | Tabelle | Eine Zeile ist | Woraus |
 | --- | --- | --- |
-| `crime_offense` | **ein Delikt** | Chicago- und Detroit-Bronze |
+| `crime_offense` | **ein Delikt** | Chicago- und Detroit-Bronze, beide Crosswalks, `tract` |
 | `tract` | **ein Census Tract** | TIGER (Geometrie) + ACS (Attribute) |
 | `weather_day` | **eine Stadt an einem Tag** | NOAA-Bronze |
 
@@ -408,11 +415,22 @@ verwendet deshalb englische Spaltennamen.
 eine Codeänderung und keinen neuen Ladelauf — der `SNWD`-Fall zeigt, dass das
 trägt.
 
-**Stand.** `tract` ist gebaut (6'282 Zeilen) und `weather_day` ebenfalls
-(55'449 Zeilen, zwei Städte), jeweils mit Herkunftsnachweis über die
-Bronze-Läufe im Manifest. `crime_offense` fehlt und wartet auf Artans
-Zeitzonen-Fix, weil es sonst auf einer Zeitachse aufbaut, die gerade geändert
-wird.
+**Stand.** Alle drei Tabellen sind gebaut, jeweils mit Herkunftsnachweis über
+die Bronze-Läufe im Manifest: `tract` (6'282 Zeilen), `weather_day` (55'449
+Zeilen, zwei Städte) und seit dem 10.9. `crime_offense` (347'967 Delikte,
+259'272 Chicago und 88'695 Detroit).
+
+Der frühere Vorbehalt, `crime_offense` müsse auf Artans Zeitzonen-Fix warten,
+trägt nicht mehr: Sein Branch ändert das **Abfragefenster** — welche Zeilen in
+Bronze landen —, nicht das **Satzschema**. Silver liest aus unveränderlichen
+Bronze-Läufen; ein Neubau nach seinem Merge zieht die Korrektur nach, ohne dass
+am Silver-Code etwas zu ändern wäre. Geprüft am Diff seines Branches: keine
+Änderung an den Feldern eines Datensatzes.
+
+`crime_offense` löst dabei ein Problem, das vorher niemandem auffiel: **Chicago
+liefert `date` als Ortszeit ohne Zonenangabe, Detroit Millisekunden seit Epoch.**
+Ohne Umrechnung liegen beide Städte je nach Jahreszeit eine oder zwei Stunden
+auseinander, und man sieht es keinem Wert an.
 
 Aus `weather_day` ein Befund für die Abdeckung: Die Reihen reichen bis 1942
 zurück und sind dort lückenhaft — Detroit fehlen 4'451 Tage, alle vor 1970.
@@ -530,7 +548,7 @@ Gold-Tabellen einchecken, weil sie klein sind.
 
 ### 7.2 Tests
 
-**Stand.** 457 Tests, seit dem 11.9. einheitlich nach Pipeline gegliedert:
+**Stand.** 500 Tests, seit dem 11.9. einheitlich nach Pipeline gegliedert:
 
 ```text
 tests/
