@@ -67,7 +67,7 @@ Der Pfad muss auf `.venv314\Scripts\python.exe` enden.
 .\.venv314\Scripts\python.exe -m tests.run_tests
 ```
 
-Erwartet: **449 Tests, Status SUCCESS**. Der Runner sammelt mit pytest und
+Erwartet: **457 Tests, Status SUCCESS**. Der Runner sammelt mit pytest und
 fuehrt damit die ganze Suite aus, nicht nur die Detroit-Tests.
 Text- und JSON-Protokolle entstehen unter `logs/tests/`. Einzelne `error:`-Ausgaben mit anschließendem `ok` gehören zu den Tests ungültiger Parameter. Entscheidend ist das Gesamtergebnis.
 
@@ -204,10 +204,10 @@ Gold-Aggregate aus Silver-Current erstellen; technische Ladezeit nie als Tatdatu
 .\.venv314\Scripts\python.exe -m tests.run_tests
 ```
 
-**449 automatisierte Offline-Tests**, davon rund 40 fuer dieses Paket. Der
+**457 automatisierte Offline-Tests**, davon rund 40 fuer dieses Paket. Der
 Runner sammelt seit dem 11.9. mit pytest: Vorher benutzte er
 `unittest.discover`, das nur `TestCase`-Klassen erkennt, und meldete SUCCESS
-nach 39 von 448 Tests — ein gruener Lauf, der 91 Prozent der Suite nie
+nach 39 von damals 448 Tests — ein gruener Lauf, der 91 Prozent der Suite nie
 angefasst hatte.
 tests/detroit_pipeline/test_detroit_arcgis.py: API-Client/Parser und Schlüssel.
 tests/detroit_pipeline/test_bronze_ingestion.py: Ingestion, Count-Gates und Kategorieausgabe.
