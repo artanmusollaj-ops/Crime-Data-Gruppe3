@@ -26,7 +26,7 @@ den geladenen Daten erhoben, nicht geschätzt.
 | **Census ACS** | Pipeline fertig, getestet | dieselben Tracts, 3 Variablen | raw + bronze |
 | **Wetter (NOAA)** | Pipeline fertig, getestet | 29'181 Tage O'Hare (ab 1946), 26'264 Detroit Metro (ab 1942) | raw + bronze |
 
-Ergänzend: 492 Tests, 8 Notebooks, `data/silver/` mit allen drei Tabellen,
+Ergänzend: 500 Tests, 8 Notebooks, `data/silver/` mit allen drei Tabellen,
 `data/gold/` bislang leer. Die Deliktzuordnung liegt in drei Referenzdateien:
 `config/nibrs_offense_codes_2025.csv` (81 amtliche NIBRS-Codes),
 `config/iucr_nibrs_mapping.csv` (434 Chicago-Codes) und
@@ -548,24 +548,49 @@ Gold-Tabellen einchecken, weil sie klein sind.
 
 ### 7.2 Tests
 
-**Stand.** 492 Tests, aber ungleich verteilt: Chicago und Census liegen in
-`tests/<pipeline>/`, die Detroit-Tests direkt in `tests/`.
+**Stand.** 500 Tests, seit dem 11.9. einheitlich nach Pipeline gegliedert:
 
-`test_results.txt` ist mit PR #9 aus der Versionierung genommen und steht
-zusammen mit `logs/` in `.gitignore`. Dabei kam heraus, dass beide Test-Runner
-ihre Protokolle über `unittest discover` erzeugten und damit nur die zwölf
-Detroit-Tests ausführten, den Lauf aber als Gesamterfolg meldeten — ein Bruch in
-Chicago oder Census lief mit Exit-Code 0 durch. Beide laufen jetzt über pytest
-und tun damit dasselbe.
+```text
+tests/
+├── census_pipeline/    ├── detroit_pipeline/   ├── silver_pipeline/
+├── chicago_pipeline/   ├── config/             └── weather_pipeline/
+```
 
-**Vorschlag.** Testdateien einheitlich nach `tests/<pipeline>/`, also auch die
-Detroit-Tests. Von den beiden Runnern einen behalten: `run_tests.py` schreibt
-Text-Log und strukturierten JSON-Report unter `logs/tests/`,
-`run_tests_and_log.py` hält die letzten fünf Läufe in einer Textdatei. Anspruch
-für neue Pipelines: Tests laufen ohne Netz und ohne Schlüssel, so wie die
-bestehenden.
+Die Detroit-Tests lagen zuvor als einzige flach in `tests/`. Der Umzug macht
+`python -m pytest tests/detroit_pipeline` möglich — vorher liess sich eine
+Pipeline nur über einzelne Dateinamen ansteuern.
 
-`Entscheid: ______________________________________________`
+**Erledigt: Testdateien einheitlich unter `tests/<pipeline>/`.**
+
+**Erledigt: ein Runner statt zwei.** `run_tests_and_log.py` ist gelöscht — er
+hatte keinen einzigen Aufrufer, keine Dokumentation nannte ihn, und seine
+Ausgabe war ohnehin nicht versioniert. Geblieben ist `run_tests.py`: Text-Log
+und strukturierter JSON-Report je Lauf unter `logs/tests/`.
+
+**Der eigentliche Punkt ist aber nicht die Zahl der Runner.** Der Runner ist
+**zweimal** auf `unittest discover` zurückgefallen und meldete danach SUCCESS
+nach 39 von damals 448 Tests — ein grüner Lauf, der 91 % der Suite nie angefasst
+hatte. Der Loader erkennt nur `TestCase`-Klassen; die Tests für Chicago,
+Census, Wetter, Silver und die Referenztabellen sind Modulfunktionen mit
+`assert`, und `unittest` lädt die `conftest.py` gar nicht.
+
+Ein Runner weniger verhindert das nicht. Was es verhindert, ist
+[`tests/test_run_tests.py`](../tests/test_run_tests.py): Der Runner bekommt
+dort ein winziges Verzeichnis mit **je einem Test beider Stile** und muss beide
+finden. Gemessen wird die Fähigkeit, nicht der Bestand — der Test veraltet
+also nicht mit jeder neuen Testdatei. Gegenprobe: Dreht man den Runner auf
+`unittest discover` zurück, fallen vier dieser Tests.
+
+Dafür kann `run_tests.py` jetzt auf ein anderes Verzeichnis gerichtet werden
+(`--test-dir`, `--log-dir`). Ohne das liesse sich nur prüfen, was er auf der
+echten Suite tut — und das hiesse, pytest in pytest zu starten.
+
+Anspruch für neue Pipelines: Tests laufen ohne Netz und ohne Schlüssel, so wie
+die bestehenden.
+
+**Weiterhin offen: keine CI.** Niemand führt diese Tests bei einem Push aus;
+das Abgabedokument nennt es unter DataOps als Lücke. Ein Runner mit
+maschinenlesbarem Report ist die Vorarbeit dafür, mehr nicht.
 
 ### 7.3 Rollen und Reihenfolge
 

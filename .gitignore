@@ -13,7 +13,5 @@ data/*/dataset=*/
 build/
 dist/
 .DS_Store
-# Generierte Testprotokolle: logs/ vom Test-Runner,
-# tests/test_results.txt von run_tests_and_log.py
+# Generierte Testprotokolle des Test-Runners.
 logs/
-tests/test_results.txt
