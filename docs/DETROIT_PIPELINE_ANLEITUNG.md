@@ -74,7 +74,7 @@ Text- und JSON-Protokolle entstehen unter `logs/tests/`. Einzelne `error:`-Ausga
 
 ### Schritt 6: Notebook verwenden oder per CLI laden
 
-- `notebooks/04_detroit_data_source.ipynb`: optionales Quellen-Notebook. `RUN_LIVE_QUERY = True` aktiviert die kleine Vorschau. Dieses separat gelieferte Notebook ergänzt das Paket.
+- `notebooks/04_detroit_source.ipynb`: das Quellen-Notebook. Es dokumentiert den Feature Layer, die Zeitzonen-Deklaration und die beiden Deliktfelder und rechnet jede Zahl selbst nach — gegen den Dienst und gegen den Bronze-Bestand.
 - `notebooks/05_detroit_bronze_ingestion.ipynb`: produktiver Download. Zellen von oben nach unten ausführen. In der Konfiguration `LOAD_MODE = "FULL"` und beispielsweise `YEARS = [2024]` wählen; `RUN_DOWNLOAD = True` aktiviert den Download. Für Daily `LOAD_MODE = "DAILY"` und `DAILY_LOOKBACK_DAYS = 14` wählen; `DAILY_REFERENCE_DATE = None` verwendet den Detroit-Vortag.
 - Im Lade-Notebook startet `LOAD_DUCKDB = True` in Schritt 6 den Import der gerade geladenen Runs.
 

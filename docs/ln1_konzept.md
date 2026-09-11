@@ -782,6 +782,7 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | Quelle Chicago erklärt | [`notebooks/01_chicago_source.ipynb`](../notebooks/01_chicago_source.ipynb) |
 | Chicago-Ingestion vorgeführt | [`notebooks/02_chicago_bronze_ingestion.ipynb`](../notebooks/02_chicago_bronze_ingestion.ipynb) |
 | Datenqualität Chicago | [`notebooks/03_chicago_data_quality.ipynb`](../notebooks/03_chicago_data_quality.ipynb) |
+| Quelle Detroit erklärt | [`notebooks/04_detroit_source.ipynb`](../notebooks/04_detroit_source.ipynb) |
 | Detroit-Ingestion vorgeführt | [`notebooks/05_detroit_bronze_ingestion.ipynb`](../notebooks/05_detroit_bronze_ingestion.ipynb) |
 | Quelle Census erklärt | [`notebooks/21_census_source.ipynb`](../notebooks/21_census_source.ipynb) |
 | Quelle Wetter erklärt | [`notebooks/22_weather_source.ipynb`](../notebooks/22_weather_source.ipynb) |
