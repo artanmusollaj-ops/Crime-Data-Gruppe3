@@ -17,6 +17,7 @@ gefunden. Die Stichproben unten pruefen deshalb den Inhalt, nicht die Form.
 from __future__ import annotations
 
 import csv
+import re
 from pathlib import Path
 
 import pytest
@@ -260,6 +261,141 @@ def test_gewaltdelikte_liegen_im_person_namensraum(zeilen, amtlich):
         and amtlich[z["ibr_code"]]["crime_against"] not in {"Person", "Property", "Not a Crime"}
     ]
     assert not falsch, f"Gewaltdelikt auf einem Society-Code: {falsch}"
+
+
+# --------------------------------------------------------------------------
+# Gegenprobe durch die Landespolizei
+# --------------------------------------------------------------------------
+
+# Original: isp.illinois.gov/CrimeReporting/NIBRS, "NIBRS Code Table".
+ISP_TABELLE = PROJECT_ROOT / "docs" / "isp_nibrs_code_table_2026.xlsx"
+
+# Woerter, die in fast jeder Deliktbeschreibung stehen und deshalb nichts ueber
+# Uebereinstimmung aussagen.
+FUELLWOERTER = {"other", "than", "with", "from", "over", "under", "and", "the",
+                "for", "not", "only"}
+
+# Ab hier gilt der Wortlaut als deckend. Darunter ist es eine Namensaehnlichkeit
+# ohne Aussage - 0810 "THEFT / OVER $500" und "Retail Theft - Alters Label"
+# teilen sich das Wort "theft" und meinen Verschiedenes.
+DECKUNG = 0.6
+
+# Wo wir der Landespolizei widersprechen - und warum. Jede neue Abweichung
+# laesst den Test fallen und muss hier begruendet werden, oder die Zuordnung
+# ist falsch. Genau diese Liste hat gefehlt, als 0560 auf 13B lag.
+ABWEICHUNGEN = {
+    # Statut-Artefakte: die ISP-Zeile ist ein anderes Delikt. Die ISP-Tabelle
+    # ist nach ILCS-Statut geschluesselt und vergibt je Statut ein eigenes
+    # I-UCR-Kuerzel; Chicagos Katalog benutzt dieselben Kuerzel anders.
+    "0810": ("23H", "26A", "ISP-Zeile ist Retail Theft mit manipuliertem "
+                           "Preisschild, Chicago meint Diebstahl ueber 500 Dollar"),
+    "0820": ("23H", "23C", "ISP-Zeile ist Retail Theft durch Verbergen von Ware"),
+    "1505": ("40B", "40A", "ISP-Zeile ist das Grunddelikt Prostitution; "
+                           "Chicagos Call Operation ist die Foerderung"),
+    # Sachliche Abweichungen: die NIBRS-Definition ist eindeutiger als die
+    # Wahl der ISP.
+    "1030": ("520", "90Z", "Die Definition von 520 nennt explosives und "
+                           "incendiary devices ausdruecklich"),
+    "1145": ("280", "26E", "280 ist woertlich das Verkaufen von Sachen in "
+                           "Kenntnis der Herkunft; beim Hehlen wird der Kaeufer "
+                           "nicht getaeuscht"),
+    "1147": ("280", "26E", "wie 1145: elektronisches Hehlen ist das Verkaufen "
+                           "gestohlener Sachen, nicht die Taeuschung des Kaeufers"),
+    "3920": ("90Z", "210", "210 Extortion verlangt eine Drohung, die "
+                           "Amtsmissbrauch nicht zwingend hat"),
+    "4750": ("90Z", "90F", "90F setzt ein Familienmitglied voraus, der "
+                           "Offenbarende ist keines"),
+}
+
+
+@pytest.fixture(scope="module")
+def isp_zeilen() -> dict[str, tuple[str, str]]:
+    """I-UCR-Kuerzel -> (Wortlaut des Statuts, IBR-Code) aus der ISP-Tabelle."""
+    openpyxl = pytest.importorskip("openpyxl")
+    if not ISP_TABELLE.exists():
+        pytest.skip(f"{ISP_TABELLE} fehlt")
+    blatt = openpyxl.load_workbook(ISP_TABELLE, read_only=True, data_only=True)
+    blatt = blatt[blatt.sheetnames[0]]
+    return {
+        str(iucr).strip(): (str(literal or ""), str(ibr).strip())
+        for _ilcs, literal, iucr, ibr, _kat
+        in blatt.iter_rows(min_row=4, values_only=True)
+        if iucr and ibr
+    }
+
+
+def _begriffe(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z]{4,}", text.lower())} - FUELLWOERTER
+
+
+def vergleichbare_zeilen(zeilen, isp_zeilen):
+    """Die Zeilen, bei denen die ISP wirklich dasselbe Delikt meint.
+
+    Ohne dieses Tor ist der Vergleich wertlos: Die ISP-Tabelle ist nach Statut
+    geschluesselt, und bei 86 von 240 gemeinsamen Kuerzeln beschreibt sie ein
+    voellig anderes Delikt (Konzept 8.5). Verglichen wird deshalb nur, wo sich
+    die Beschreibungen decken.
+    """
+    for z in zeilen:
+        if not z["ibr_code"] or z["iucr"] not in isp_zeilen:
+            continue
+        literal, ibr = isp_zeilen[z["iucr"]]
+        unser = _begriffe(f"{z['primary_description']} {z['secondary_description']}")
+        ihrer = _begriffe(literal)
+        if not unser or not ihrer:
+            continue
+        if len(unser & ihrer) / min(len(unser), len(ihrer)) >= DECKUNG:
+            yield z, literal, ibr
+
+
+def test_die_gegenprobe_deckt_genug_zeilen_ab(zeilen, isp_zeilen):
+    """Ohne Mindestueberdeckung liefe der Test unten leer durch."""
+    anzahl = sum(1 for _ in vergleichbare_zeilen(zeilen, isp_zeilen))
+    assert anzahl > 90, f"nur {anzahl} Zeilen vergleichbar"
+
+
+def test_abweichungen_von_der_landespolizei_sind_begruendet(zeilen, isp_zeilen):
+    """Die Pruefung, die 0560 gefunden haette.
+
+    Die ILCS-Tabelle der Illinois State Police ist die einzige **unabhaengige**
+    Beurteilung unserer Zuordnung: Alle anderen Tests vergleichen sie mit
+    Chicagos eigener Beschreibung, und nach diesem Massstab sah
+    ``ASSAULT / SIMPLE -> 13B`` richtig aus. Erst die Landespolizei sagt, dass
+    Assault in Illinois die Drohung ohne Beruehrung meint.
+
+    Der Test verlangt nicht Uebereinstimmung - dafuer ist die Tabelle zu sehr
+    nach Statut geschluesselt. Er verlangt, dass die Menge der Abweichungen
+    genau der dokumentierten entspricht. Eine neue faellt auf und muss
+    begruendet werden.
+    """
+    gefunden = {
+        z["iucr"]: (z["ibr_code"], ibr)
+        for z, _literal, ibr in vergleichbare_zeilen(zeilen, isp_zeilen)
+        if ibr != z["ibr_code"]
+    }
+    erwartet = {k: (v[0], v[1]) for k, v in ABWEICHUNGEN.items()}
+    assert gefunden == erwartet, (
+        f"neu abweichend: { {k: v for k, v in gefunden.items() if k not in erwartet} }, "
+        f"nicht mehr abweichend: { {k: v for k, v in erwartet.items() if k not in gefunden} }"
+    )
+
+
+def test_jede_abweichung_traegt_eine_begruendung():
+    ohne = [k for k, v in ABWEICHUNGEN.items() if len(v[2].strip()) < 20]
+    assert not ohne, f"Abweichung ohne Begruendung: {ohne}"
+
+
+def test_wo_die_landespolizei_zustimmt_stimmt_auch_0560(zeilen, isp_zeilen):
+    """Die beiden Zeilen, an denen sich der Fehler entschied.
+
+    Illinois trennt Assault (Drohung, 720-5/12-1) von Battery (Beruehrung,
+    5/12-3). Beide haben eine ISP-Zeile mit deckendem Wortlaut - und nur bei
+    diesen beiden traegt der Join in der ganzen 13er-Familie.
+    """
+    treffer = {z["iucr"]: (z["ibr_code"], ibr)
+               for z, _l, ibr in vergleichbare_zeilen(zeilen, isp_zeilen)}
+    assert treffer.get("0460") == ("13B", "13B"), "BATTERY / SIMPLE ist der Angriff"
+    assert treffer.get("0560") == ("13C", "13C"), "ASSAULT / SIMPLE ist die Drohung"
 
 
 def test_jede_deliktgruppe_ist_zugeordnet(zeilen):

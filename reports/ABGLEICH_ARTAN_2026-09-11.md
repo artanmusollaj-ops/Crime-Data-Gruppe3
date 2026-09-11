@@ -143,3 +143,83 @@ Alltagssprachgebrauch.
 Das ist dieselbe Fehlerklasse wie in Konzept 8.5 und 8.6, eine Ebene tiefer:
 nicht gleiche Form mit anderer Bedeutung, sondern **gleiches Wort mit anderer
 Bedeutung**.
+
+---
+
+## 8. Nachtrag: die Gegenprobe systematisch gemacht
+
+Artans Fund warf die Frage auf, ob sich das nicht als Test bauen liesse. Das
+Problem: Alle unsere bisherigen Tests vergleichen die Zuordnung mit **Chicagos
+eigener Beschreibung** — und nach diesem Massstab war `ASSAULT / SIMPLE → 13B`
+richtig. Nur eine unabhängige Quelle kann das aufdecken, und davon gibt es
+genau eine: die ILCS-Tabelle der Illinois State Police.
+
+Sie war schon einmal als Test im Repository und wurde entfernt (PR #23), weil
+sie dort als pauschale Bestätigung benutzt wurde — falsch, denn sie ist nach
+Statut geschlüsselt. Mit einem **semantischen Tor** davor trägt sie: verglichen
+wird nur, wo sich der ILCS-Wortlaut mit Chicagos Beschreibung deckt.
+
+| | |
+| --- | ---: |
+| Chicago-Codes mit deckender ISP-Zeile | **111** von 432 |
+| stimmten überein | 97 |
+| wichen ab | **14** |
+
+### Was aus den 14 wurde
+
+**Sechs umgebucht, der ISP folgend:**
+
+| IUCR | Fälle | | vorher | jetzt | Grund |
+| --- | ---: | --- | --- | --- | --- |
+| `1185` | 33 | Deceptive Collection Practices | `26A` | **`26C`** | Statut ist *False Representation as Person Authorized to Enforce the Law* |
+| `1573` | 10 | Criminal Sexual Abuse – Penetration | `11A` | **`36B`** | ISP bezieht es auf `11-1.50(b)`: Täter unter 17, Opfer 9–17 |
+| `4740` | 1 | Unlawful Use of Body Armor | `520` | **`90Z`** | Körperschutz ist keine Waffe |
+| `1574` | 1 | Fornication | `90Z` | **`90C`** | ISP ist spezifischer als der Auffang |
+| `4810` | 0 | Compounding a Crime | `90Z` | **`510`** | Geld dafür nehmen, eine Tat nicht anzuzeigen |
+| `1531` | 0 | Juvenile Pimping | `40B` | **`64A`** | ISP: `11-14.4` Promoting Juvenile Prostitution |
+
+Zusammen 45 Fälle — gegen `0560` mit 15 120 ein Feinschliff.
+
+**`1531` löste dabei eine Frage, die seit dem Aufbau des MICR-Crosswalks offen
+war:** ob Minderjährigkeit allein Menschenhandel begründet. Die ISP-Tabelle
+antwortet differenziert — **Fördern** einer minderjährigen Prostituierten ist
+`64A`, **Freier sein** bleibt `40C` (`11-18.1(a)`). `1521` folgt `1531` als
+Schlussfolgerung, weil Illinois beide 2013 in `11-14.4` zusammenfasste; die ISP
+kennt zu dem Kürzel keine Zeile, deshalb bleibt es als Ermessen markiert.
+`1526` ist damit **belegt** statt Ermessen.
+
+**Acht bleiben als begründete Abweichung stehen:**
+
+| IUCR | wir | ISP | warum wir abweichen |
+| --- | --- | --- | --- |
+| `0810`, `0820` | `23H` | `26A`/`23C` | ISP-Zeilen sind Retail-Theft-Statute, Chicago meint einfachen Diebstahl |
+| `1505` | `40B` | `40A` | ISP-Zeile ist das Grunddelikt, Chicagos Call Operation die Förderung |
+| `1030` | `520` | `90Z` | die Definition von `520` nennt *explosives, incendiary devices* ausdrücklich |
+| `1145`, `1147` | `280` | `26E` | `280` ist wörtlich das Verkaufen in Kenntnis der Herkunft; beim Hehlen wird der Käufer nicht getäuscht |
+| `3920` | `90Z` | `210` | `210` verlangt eine Drohung, Amtsmissbrauch hat die nicht zwingend |
+| `4750` | `90Z` | `90F` | `90F` setzt ein Familienmitglied voraus |
+
+### Der Test
+
+`test_abweichungen_von_der_landespolizei_sind_begruendet` verlangt **nicht**
+Übereinstimmung — dafür ist die Tabelle zu sehr nach Statut geschlüsselt. Er
+verlangt, dass die Menge der Abweichungen genau der dokumentierten entspricht,
+jede mit Begründung. Eine neue Abweichung lässt ihn fallen.
+
+Genau das hat bei `0560` gefehlt: Der Code wäre auf der Liste gelandet, und
+jemand hätte aufschreiben müssen, warum wir von der Landespolizei abweichen.
+Dabei wäre aufgefallen, dass wir es nicht können.
+
+**Gegenprobe:** Setzt man `0560` zurück auf `13B`, meldet der Test
+
+```
+neu abweichend: {'0560': ('13B', '13C')}
+```
+
+### Was er nicht leistet
+
+Er deckt **111 von 432 Codes ab, also 26 %**, und für Detroit nichts — dort ist
+der MICR-Test die Entsprechung. In der 13er-Familie hatten nur `0460` und `0560`
+eine passende ISP-Zeile; ein falsches `051A` fände er nicht. Es ist kein Netz,
+sondern ein zweites Augenpaar auf dem Viertel der Tabelle, das die Landespolizei
+selbst beurteilt hat.
