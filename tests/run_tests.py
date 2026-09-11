@@ -12,7 +12,9 @@ eine spaetere Ops-Tabelle maschinenlesbar bereit.
 **Warum pytest und nicht unittest.** Dieses Skript sammelte die Tests frueher
 mit ``unittest.defaultTestLoader.discover``. Der Loader erkennt nur
 ``TestCase``-Klassen; die Tests fuer Chicago, Census, Wetter, Silver und die
-Referenztabellen sind aber Modulfunktionen mit ``assert``. Das Ergebnis war ein
+Referenztabellen sind aber Modulfunktionen mit ``assert``. Dazu kommt, dass
+``unittest`` die ``conftest.py`` gar nicht laedt, in der die Pipelines unter
+ihren kurzen Namen bekannt gemacht werden. Das Ergebnis war ein
 Protokoll, das **SUCCESS nach 39 von 448 Tests** meldete - ein gruener Lauf, der
 91 Prozent der Suite nie angefasst hatte. Dieselbe Falle war in
 ``run_tests_and_log.py`` schon einmal aufgefallen und dort behoben worden; die
@@ -193,9 +195,13 @@ def main(log_dir: Path = DEFAULT_LOG_DIR) -> int:
             print(f"Test path:  {TEST_DIR}")
             print()
 
+            # -vv nennt jeden Test einzeln, auch gegen das -q aus
+            # pyproject.toml. -s laesst die Kategoriestatistik der
+            # Bronze-Tests bis ins Protokoll durch, statt sie wegzufangen -
+            # sie ist der Grund, warum dort ueberhaupt gedruckt wird.
             # -p no:cacheprovider haelt .pytest_cache aus dem Repository.
             pytest.main(
-                [str(TEST_DIR), "-v", "--color=no", "-p", "no:cacheprovider"],
+                ["-vv", "-s", "--color=no", "-p", "no:cacheprovider", str(TEST_DIR)],
                 plugins=[mitschrift],
             )
 
