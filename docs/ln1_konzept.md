@@ -48,6 +48,14 @@ Schlüssel.
 | Census Tracts, Illinois und Michigan | 6'282, mit Geometrie und Sozialdaten |
 | Wetter, zwei Stationen | 55'449 Stadt-Tage, zurück bis 1942 |
 
+**Drei Befunde sind dabei entstanden, die keine Fehlermeldung erzeugt hätten.**
+Der räumliche Join reproduziert Detroits eigene Tract-Angabe nicht (8.4). Der
+erste Chicago-Crosswalk lieferte gültige NIBRS-Codes für das falsche Delikt
+(8.5). Und Detroits Jahrgang 2024 enthielt 66 Fälle aus 2023, weil das
+Abfragefenster in UTC statt in Ortszeit gezogen war (8.6). Alle drei waren
+formal einwandfrei; sichtbar wurden sie erst durch eine Prüfung gegen etwas,
+das wahr sein muss.
+
 ---
 
 ## 2 · Problemstellung und Ausgangslage
@@ -697,6 +705,86 @@ scheitert nicht — er liefert ein plausibles, prüfbar formgültiges und falsch
 Ergebnis. Gegen diese Fehlerklasse hilft keine Schemaprüfung, sondern nur ein
 Abgleich der Semantik: hier der Deliktbeschreibungen, die beide Seiten
 mitliefern.
+
+### 8.6 Ein Befund ohne Hypothese: die Zeitzone
+
+Zu diesem gehört keine Hypothese — er fiel bei der Arbeit an und ist der
+lehrreichste des Projekts, weil derselbe Fehler **zweimal** auftrat, an zwei
+verschiedenen Stellen, in zwei verschiedenen Formen. Beide Male war das
+Ergebnis typrichtig und inhaltlich falsch.
+
+#### Erster Fall: das Abfragefenster
+
+Detroits Ingestion holte das Jahr 2024 mit einem Filter dieser Art:
+
+```sql
+incident_occurred_at >= TIMESTAMP '2024-01-01 00:00:00'
+AND incident_occurred_at <  TIMESTAMP '2025-01-01 00:00:00'
+```
+
+Gemeint war: der 1. Januar in Detroit. Bekommen hat man: der 1. Januar in UTC.
+Die Quelle sagt selbst, welche der beiden Lesarten gilt — der ArcGIS-Layer
+deklariert seine Datumsfelder ausdrücklich:
+
+```json
+"dateFieldsTimeReference": {
+  "timeZone": "UTC", "timeZoneIANA": "Etc/UTC", "respectsDaylightSaving": false
+}
+```
+
+Detroit liegt fünf Stunden hinter UTC. `2024-01-01 00:00 UTC` ist dort erst der
+**31. Dezember 2023 um 19:00**. Das Fenster war also um fünf Stunden verschoben:
+Es nahm den Abend des 31.12.2023 mit und liess den Abend des 31.12.2024 weg.
+
+**Gemessen am alten und am neuen Bestand:**
+
+| | Zeilen | Ortszeit Detroit |
+| --- | ---: | --- |
+| nur im alten Lauf | 66 | alle 31.12.**2023** ab 19:00 |
+| nur im neuen Lauf | 56 | alle 31.12.**2024** ab 19:00 |
+
+Die entscheidende Kontrolle ist die einfachste: Wie viele Fälle eines
+Jahrgangs 2024 liegen nach Ortszeit **nicht** im Jahr 2024?
+
+| | |
+| --- | --- |
+| alter Lauf | 66 |
+| **neuer Lauf** | **0** |
+
+Der Fix zieht die Fenstergrenzen in Detroiter Ortszeit und rechnet **jede
+Grenze einzeln** nach UTC um — nötig, weil ein Tag mit Zeitumstellung 23 oder
+25 Stunden hat und ein fester Versatz deshalb nicht genügt. Das Manifest führt
+seither beide Fassungen mit: `window_start_local 2024-01-01T00:00:00-05:00`
+und `window_start_utc 2024-01-01T05:00:00+00:00`.
+
+#### Zweiter Fall: die gemeinsame Zeitachse
+
+Beim Bau von `crime_offense` trat dasselbe in anderer Gestalt auf (8.2):
+Chicago liefert `date` als **Ortszeit ohne Zonenangabe**, Detroit
+Millisekunden seit Epoch, also einen echten Zeitpunkt. Zwei Delikte um
+`08:30` sind damit **nicht gleichzeitig** — sie liegen je nach Jahreszeit eine
+oder zwei Stunden auseinander. Ein Vergleich nach Tageszeit, wie ihn H6
+braucht, wäre ohne Umrechnung wertlos gewesen.
+
+#### Was daraus folgt
+
+**Ein Zeitstempel ohne Zone ist kein Zeitstempel.** `2024-01-01T00:56:00.000`
+sieht in beiden Quellen gleich aus und bedeutet Verschiedenes — in Chicago eine
+Ortszeit, in Detroit gäbe es das Feld in dieser Form gar nicht. Kein
+Schemacheck, keine Typprüfung und kein Vollständigkeitsnachweis findet das: Die
+Werte sind gültige Zeitstempel, die Zeilenzahlen stimmen, das Manifest meldet
+Erfolg.
+
+**Gefunden hat es eine Prüfung gegen etwas, das wahr sein muss.** Ein Jahrgang
+2024 enthält keine Fälle aus 2023 — diese Aussage ist unabhängig vom Code
+prüfbar und deshalb die einzige, die den Fehler sichtbar macht. Sie kostet eine
+Zeile SQL und ist dieselbe Bauart wie die Semantikprüfung aus 8.5: nicht die
+Form prüfen, sondern das, was die Daten über sich behaupten.
+
+**Die Fehlerklasse ist die gefährlichste im ganzen Projekt**, weil sie
+geräuschlos ist. Der ISP-Join (8.5), das Zeitfenster und Detroits zwei
+Codelisten (8.5) haben dasselbe Muster: formal einwandfrei, inhaltlich falsch,
+und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 
 ---
 
