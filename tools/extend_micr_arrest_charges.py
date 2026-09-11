@@ -96,7 +96,7 @@ SPALTEN = [
 #
 # Die Herkunft heisst deshalb nicht wie beim Handbuch. Beleg ist hier die
 # Quelle, nicht das Dokument - nachgerechnet in
-# notebooks/04_detroit_source.ipynb, Abschnitt 7.1.
+# notebooks/11_detroit_source.ipynb, Abschnitt 7.1.
 HERKUNFT_DETROIT = "detroit_charge_file_class"
 
 DETROIT_ENTSCHEIDET = {

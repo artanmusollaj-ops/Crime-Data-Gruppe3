@@ -37,7 +37,7 @@ QUELLEN = {
 # die Aufloesung in zwei eigenen Feldern mit. Belegt wird das nicht durch ein
 # PDF, sondern durch eine Rechnung - und die muss auffindbar sein.
 AUS_DEN_DATEN = {
-    "detroit_charge_file_class": PROJECT_ROOT / "notebooks" / "04_detroit_source.ipynb",
+    "detroit_charge_file_class": PROJECT_ROOT / "notebooks" / "11_detroit_source.ipynb",
 }
 
 SPALTEN = [
@@ -65,7 +65,7 @@ CODE_ARTEN = {"file_class", "arrest_charge", ""}
 
 # Drei Codes, deren Zuordnung nicht aus dem Handbuch stammt, sondern aus
 # Detroits eigenen Feldern - das Handbuch sagt zu ihnen etwas anderes.
-# Hergeleitet und nachgerechnet in notebooks/04_detroit_source.ipynb, 7.1.
+# Hergeleitet und nachgerechnet in notebooks/11_detroit_source.ipynb, 7.1.
 AUS_DETROITS_FELDERN = {
     "3072": ("30002", "23C"),
     "5421": ("54001", "90Z"),
