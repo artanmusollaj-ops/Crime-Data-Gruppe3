@@ -67,7 +67,8 @@ Der Pfad muss auf `.venv314\Scripts\python.exe` enden.
 .\.venv314\Scripts\python.exe -m tests.run_tests
 ```
 
-Erwartet für dieses Paket: **39 Tests, OK, Status SUCCESS**.
+Erwartet: **449 Tests, Status SUCCESS**. Der Runner sammelt mit pytest und
+fuehrt damit die ganze Suite aus, nicht nur die Detroit-Tests.
 Text- und JSON-Protokolle entstehen unter `logs/tests/`. Einzelne `error:`-Ausgaben mit anschließendem `ok` gehören zu den Tests ungültiger Parameter. Entscheidend ist das Gesamtergebnis.
 
 ### Schritt 6: Notebook verwenden oder per CLI laden
@@ -203,7 +204,11 @@ Gold-Aggregate aus Silver-Current erstellen; technische Ladezeit nie als Tatdatu
 .\.venv314\Scripts\python.exe -m tests.run_tests
 ```
 
-39 automatisierte Offline-Tests bestanden in dieser Lieferung.
+**449 automatisierte Offline-Tests**, davon rund 40 fuer dieses Paket. Der
+Runner sammelt seit dem 11.9. mit pytest: Vorher benutzte er
+`unittest.discover`, das nur `TestCase`-Klassen erkennt, und meldete SUCCESS
+nach 39 von 448 Tests — ein gruener Lauf, der 91 Prozent der Suite nie
+angefasst hatte.
 tests/test_detroit_arcgis.py: API-Client/Parser und Schlüssel.
 tests/test_bronze_ingestion.py: Ingestion, Count-Gates und Kategorieausgabe.
 tests/test_detroit_timezone.py: lokale Jahres-/Tagesfenster, UTC, DST, Zürich-Ausführungszeiten.
@@ -211,7 +216,7 @@ tests/test_extract_detroit_cli.py: Full/Daily-CLI und Parameterfehler.
 tests/test_parquet_contract.py: Payload-Roundtrip, Typdrift, leere Runs, beschädigte Artefakte, atomare Fehlerbehandlung, wiederholter DB-Import, Overlap, Rollback und mehrere Delikte.
 tests/run_tests.py schreibt je Lauf eigene Text- und JSON-Dateien unter logs/tests/. Sie werden nicht automatisch auf fünf Runs gekürzt.
 Die Statistik mit fünf Datensätzen ist eine Test-Fixture, kein echter Detroit-Download.
-Prüfstand: 39/39 Offline-Tests unter regulärem CPython 3.14.7/Windows AMD64 sowie Python 3.12/Linux bestanden. Die Tests verwenden kleine Fixtures und simulierte Quellen.
+Prüfstand für dieses Paket: Offline-Tests unter CPython 3.14.7/Windows AMD64 sowie Python 3.12/Linux bestanden. Die Tests verwenden kleine Fixtures und simulierte Quellen.
 Live-API, großer Jahresdownload, realer Scheduler und gemeinsame Chicago-Integration sind durch diese Offline-Tests nicht verifiziert.
 
 ## 10. Bestehende NDJSON-Dateien

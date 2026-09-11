@@ -79,6 +79,24 @@ class DetroitParserTests(unittest.TestCase):
         # Full Load stammenden Records nicht automatisch.
         self.assertTrue(row["analysis_eligible"])
 
+    def test_present_updated_at_is_not_flagged(self) -> None:
+        """Sichert den Gegenfall: ein echtes updated_at setzt kein Flag."""
+
+        # Die Fixture fuehrt updated_at gar nicht, weshalb der Test darueber
+        # denselben Codepfad nimmt wie ein ausdrueckliches None. Erst dieser
+        # Fall trennt die beiden Zweige und faengt eine Regression, die das
+        # Flag unabhaengig vom Feldwert setzt.
+        self.feature["attributes"]["updated_at"] = 1704239400000
+        row = parse_detroit_feature(
+            self.feature, pipeline_run_id="run", ingested_at="now"
+        )
+        self.assertNotIn("MISSING_SOURCE_UPDATED_AT", row["quality_flags"])
+        # Der Wert muss ausserdem in der Auswertespalte ankommen, sonst waere
+        # das fehlende Flag nur ein Zufall.
+        self.assertEqual(
+            row["source_updated_at_utc"], "2024-01-02T23:50:00+00:00"
+        )
+
     def test_multiple_offenses_share_event_and_category_analysis_key(self) -> None:
         """Prueft die 1:n-Beziehung Event zu Offense und Category-Deduplikation."""
 
