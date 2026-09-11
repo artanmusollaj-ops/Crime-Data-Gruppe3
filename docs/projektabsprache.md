@@ -21,7 +21,7 @@ den geladenen Daten erhoben, nicht geschätzt.
 | Quelle | Stand | Umfang | Schichten |
 | --- | --- | --- | --- |
 | **Chicago** | Pipeline fertig, getestet | 259'272 Fälle 2024, 3 Läufe (1 voll, 2 Delta) | raw + bronze |
-| **Detroit** | Pipeline fertig | 88'695 Fälle 2024, 1 Lauf, 32 Deliktkategorien | nur bronze |
+| **Detroit** | Pipeline fertig | 88'685 Fälle 2024, 1 Lauf, 32 Deliktkategorien | nur bronze |
 | **Census TIGER** | Pipeline fertig, getestet | 3'265 Tracts Illinois, 3'017 Michigan (Vintage 2024) | raw + bronze |
 | **Census ACS** | Pipeline fertig, getestet | dieselben Tracts, 3 Variablen | raw + bronze |
 | **Wetter (NOAA)** | Pipeline fertig, getestet | 29'181 Tage O'Hare (ab 1946), 26'264 Detroit Metro (ab 1942) | raw + bronze |
@@ -302,7 +302,7 @@ beiden Formaten, reproduzierbar in
 
 | Kriterium | Ergebnis |
 | --- | --- |
-| Grösse | 6,5 MB gegen 125,3 MB; auch gegen gzip-komprimiertes NDJSON (11,7 MB) noch 1,8-mal kleiner |
+| Grösse | 6,5 MB gegen 89,4 MB; auch gegen gzip-komprimiertes NDJSON (10,9 MB) noch 1,8-mal kleiner |
 | Wenige Spalten, alle Zeilen — was Silver tut | **6,0-mal schneller** |
 | Zeilen zählen | aus den Metadaten, ohne die Daten zu lesen |
 | Alle Spalten materialisieren | nur 1,3-mal schneller |
@@ -311,7 +311,7 @@ beiden Formaten, reproduzierbar in
 Der stärkste Befund ist nicht die Geschwindigkeit: Detroits NDJSON übernimmt
 heute Raw und Bronze gleichzeitig. Getrennt nach der Konvention der anderen drei
 Quellen — Raw als gzip-komprimiertes NDJSON, Bronze als Parquet — sind beide
-Schichten zusammen **18,3 statt 125,3 MB**. Die fehlende Schicht kostet also
+Schichten zusammen **18,3 statt 89,4 MB**. Die fehlende Schicht kostet also
 nichts, sie spart 85 %.
 
 Gegen Parquet spricht, dass es ohne Werkzeug nicht lesbar ist. Genau deshalb
@@ -417,8 +417,8 @@ trägt.
 
 **Stand.** Alle drei Tabellen sind gebaut, jeweils mit Herkunftsnachweis über
 die Bronze-Läufe im Manifest: `tract` (6'282 Zeilen), `weather_day` (55'449
-Zeilen, zwei Städte) und seit dem 10.9. `crime_offense` (347'967 Delikte,
-259'272 Chicago und 88'695 Detroit).
+Zeilen, zwei Städte) und seit dem 10.9. `crime_offense` (347'957 Delikte,
+259'272 Chicago und 88'685 Detroit).
 
 Der frühere Vorbehalt, `crime_offense` müsse auf Artans Zeitzonen-Fix warten,
 trägt nicht mehr: Sein Branch ändert das **Abfragefenster** — welche Zeilen in

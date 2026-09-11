@@ -284,8 +284,14 @@ def test_neues_laufverzeichnis_wird_gelesen(tmp_path):
     assert manifest["checks"]["per_city"]["detroit"]["rows"] == 1
 
 
-def test_alter_ndjson_bestand_bleibt_lesbar(tmp_path):
-    """Ein Bestand von vor dem Umbau darf nicht unlesbar werden."""
+def test_alter_ndjson_bestand_wird_nicht_mehr_gelesen(tmp_path):
+    """Ein Bestand von vor dem Umbau ist nicht bloss alt, sondern falsch.
+
+    Sein Jahresfenster war in UTC gezogen statt in Detroiter Ortszeit; er
+    enthaelt 66 Faelle vom 31.12.2023 und vermisst 56 vom Jahresende 2024. Ihn
+    stillschweigend weiterzulesen waere schlimmer als ein Fehler - deshalb
+    nennt die Meldung den Grund und den Befehl, der es behebt.
+    """
     data_root = tmp_path / "data"
     config_root = tmp_path / "config"
     schreibe_tract(data_root)
@@ -293,17 +299,19 @@ def test_alter_ndjson_bestand_bleibt_lesbar(tmp_path):
     schreibe_detroit_ndjson(data_root, DET)
     schreibe_config(config_root)
 
-    ziel = bc.build(data_root, config_root)
-    assert manifest_von(ziel)["derived_from"]["detroit_bronze_format"] == "NDJSON"
-    assert len([z for z in lies(ziel) if z["city"] == "detroit"]) == 1
+    with pytest.raises(bc.TransformError) as fehler:
+        bc.build(data_root, config_root)
+    meldung = str(fehler.value)
+    assert "falschen Jahr" in meldung, "die Meldung muss den Grund nennen"
+    assert "extract_detroit" in meldung, "und den Weg heraus"
 
 
-def test_parquet_hat_vorrang_vor_ndjson(tmp_path):
+def test_liegengebliebenes_ndjson_wird_ignoriert(tmp_path):
     """Der gefaehrlichste Fall: beide Bestaende liegen nebeneinander.
 
-    Nach dem Umbau bleibt die alte NDJSON-Datei zunaechst liegen. Wuerde sie
-    weiter gelesen, rechnete die Tabelle stillschweigend mit dem alten Stand
-    weiter - ein Fehler, der wie ein Erfolg aussieht.
+    Nach dem Umbau bleibt eine alte NDJSON-Datei womoeglich liegen. Wuerde sie
+    mitgelesen, mischte die Tabelle zwei Staende - einen davon mit Faellen aus
+    dem falschen Jahr. Ein Fehler, der wie ein Erfolg aussieht.
     """
     data_root = tmp_path / "data"
     config_root = tmp_path / "config"
@@ -600,6 +608,74 @@ def test_neubau_ersetzt_statt_anzuhaeufen(tmp_path):
     ziel = bc.build(tmp_path / "data", tmp_path / "config")
     assert len(lies(ziel)) == erst
     assert not list(ziel.parent.glob(".*"))
+
+
+# --------------------------------------------------------------------------
+# Gegen die echten Daten, wenn vorhanden
+# --------------------------------------------------------------------------
+
+
+def echte_tabelle() -> Path | None:
+    """Die gebaute Silver-Tabelle, oder None. ``data/`` ist nicht versioniert."""
+    pfad = (PROJECT_ROOT / "data" / "silver" / "dataset=crime_offense"
+            / bc.PARQUET_FILE)
+    return pfad if pfad.exists() else None
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_kein_fall_liegt_ausserhalb_seines_jahrgangs():
+    """Die Pruefung, die das falsche Abfragefenster sichtbar gemacht hat.
+
+    Ein Jahrgang 2024 enthaelt keine Faelle aus 2023 - diese Aussage ist
+    unabhaengig vom Code wahr und deshalb die einzige, die den Fehler zeigt.
+    Detroits Fenster war frueher in UTC gezogen statt in Ortszeit; da Detroit
+    fuenf Stunden hinter UTC liegt, nahm es den Abend des 31.12.2023 mit. 66
+    Faelle lagen dadurch im falschen Jahr, und weder Schemapruefung noch
+    Vollstaendigkeitsnachweis schlugen an: Die Werte waren gueltige
+    Zeitstempel, die Zeilenzahlen stimmten, das Manifest meldete Erfolg.
+
+    Geprueft wird die **Ortszeit**, nicht UTC. In UTC liegen Faelle vom
+    Silvesterabend beider Staedte korrekt im Folgejahr; das ist kein Fehler,
+    sondern der Grund, warum die Tabelle beide Achsen fuehrt.
+    """
+    tabelle = echte_tabelle()
+    if tabelle is None:
+        pytest.skip("silver/crime_offense nicht gebaut")
+
+    con = duckdb.connect()
+    try:
+        falsch = con.execute(f"""
+            SELECT city, year(occurred_date_local) AS jahr, count(*)
+            FROM read_parquet('{tabelle}')
+            WHERE year(occurred_date_local) <> 2024
+            GROUP BY 1, 2 ORDER BY 1, 2
+        """).fetchall()
+    finally:
+        con.close()
+    assert not falsch, (
+        f"Faelle ausserhalb des Jahrgangs 2024, nach Ortszeit: {falsch}. "
+        "Ist ein Abfragefenster in UTC statt in Ortszeit gezogen?"
+    )
+
+
+def test_beide_staedte_liegen_im_jahrgang():
+    """Gegenprobe: sonst haelt der Test oben auch bei einer leeren Tabelle."""
+    tabelle = echte_tabelle()
+    if tabelle is None:
+        pytest.skip("silver/crime_offense nicht gebaut")
+
+    con = duckdb.connect()
+    try:
+        je_stadt = dict(con.execute(f"""
+            SELECT city, count(*) FROM read_parquet('{tabelle}')
+            WHERE year(occurred_date_local) = 2024 GROUP BY 1
+        """).fetchall())
+    finally:
+        con.close()
+    assert set(je_stadt) == {"chicago", "detroit"}, je_stadt
+    assert all(n > 1000 for n in je_stadt.values()), je_stadt
 
 
 def test_tabellenverzeichnis_traegt_keine_vintage():

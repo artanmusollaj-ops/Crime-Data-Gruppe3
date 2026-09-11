@@ -96,13 +96,7 @@ UNFOUNDED = "UNFOUNDED"
 
 
 class Source(NamedTuple):
-    """Ein Bronze-Bestand, aus dem die Tabelle entsteht.
-
-    ``reader`` haelt fest, wie DuckDB ihn liest. Chicago liegt als Parquet vor,
-    Detroit seit dem Umbau vom 11.9. ebenfalls - aber es gibt noch
-    NDJSON-Bestaende aus der Zeit davor, und die sollen nicht unlesbar werden,
-    nur weil das Format gewechselt hat.
-    """
+    """Ein Bronze-Bestand, aus dem die Tabelle entsteht."""
 
     city: str
     paths: list[Path]
@@ -173,49 +167,26 @@ def chicago_sources(data_root: Path) -> Source:
 
 
 def detroit_sources(data_root: Path) -> Source:
-    """Detroits Bronze-Bestand, im neuen Layout oder im alten.
+    """Detroits Bronze-Bestand: Laufverzeichnisse mit Parquet.
 
-    Seit dem Parquet-Umbau legt Detroit Laufverzeichnisse an::
+    ::
 
         bronze/detroit/full/year=2024/run_<uuid>/part-0001.parquet
         bronze/detroit/incremental/run_date=2026-09-11/run_<uuid>/...
 
-    Davor lag je Lauf eine NDJSON-Datei flach unter ``bronze/detroit/``, mit
-    einem ``*.manifest.json`` daneben. Beide Formen werden gelesen, das neue
-    Layout hat Vorrang.
-
-    **Warum nicht einfach nur das neue Layout.** Waere hier nur das neue
-    gesucht worden, haette ein vorhandener NDJSON-Bestand einen Fehler
-    ausgeloest; waere nur das alte gesucht worden - der Stand bis eben -, haette
-    die Tabelle jeden neuen Lauf stillschweigend uebergangen und mit dem alten
-    Bestand weitergerechnet. Das ist der unangenehmere der beiden Fehler, weil
-    er wie ein Erfolg aussieht.
+    **Warum es keinen NDJSON-Rueckfall mehr gibt.** Bis zum 11.9. lag je Lauf
+    eine NDJSON-Datei flach unter ``bronze/detroit/``, und diese Funktion las
+    sie als Rueckfall mit. Das ist bewusst entfernt worden, denn jene Bestaende
+    stammen aus der Zeit vor dem Zeitzonen-Fix: Ihr Jahresfenster war in UTC
+    gezogen statt in Detroiter Ortszeit, weshalb sie 66 Faelle vom 31.12.2023
+    enthalten und 56 vom Jahresende 2024 vermissen lassen. Ein Rueckfall haette
+    diese Daten weiter eingelesen - mit einer Warnung im Log, die man
+    ueberliest. Lieber ein klarer Fehler und ein neuer Full Load.
     """
     wurzel = data_root / BRONZE_LAYER / DETROIT
     if not wurzel.exists():
         raise TransformError(f"Kein Detroit-Bronze-Verzeichnis: {wurzel}")
 
-    parquet = _detroit_parquet_runs(wurzel)
-    if parquet is not None:
-        return parquet
-
-    legacy = _detroit_ndjson_runs(wurzel)
-    if legacy is not None:
-        LOG.warning(
-            "Detroit liegt nur als NDJSON vor (%d Lauf/Laeufe). Das ist der "
-            "Stand vor dem Parquet-Umbau; ein neuer Full Load ersetzt ihn.",
-            len(legacy.paths),
-        )
-        return legacy
-
-    raise TransformError(
-        "Kein erfolgreicher Detroit-Bronze-Lauf. Zuerst die Ingestion starten: "
-        "python -m detroit_pipeline.extract_detroit --mode full --years 2024"
-    )
-
-
-def _detroit_parquet_runs(wurzel: Path) -> Source | None:
-    """Laufverzeichnisse des Parquet-Vertrags, oder None."""
     pfade: list[Path] = []
     laeufe: list[str] = []
     zeilen = 0
@@ -238,32 +209,20 @@ def _detroit_parquet_runs(wurzel: Path) -> Source | None:
         zeilen += int(manifest.get("downloaded_count") or 0)
 
     if not pfade:
-        return None
-    return Source(DETROIT, pfade, laeufe, zeilen, "read_parquet", "PARQUET")
-
-
-def _detroit_ndjson_runs(wurzel: Path) -> Source | None:
-    """Der Bestand vor dem Umbau: eine NDJSON je Lauf, flach abgelegt."""
-    pfade: list[Path] = []
-    laeufe: list[str] = []
-    zeilen = 0
-    for manifest_path in sorted(wurzel.glob("*.manifest.json")):
-        manifest = read_manifest_file(manifest_path)
-        if str(manifest.get("status", "")).upper() != "SUCCESS":
-            LOG.warning("Lauf uebersprungen, nicht SUCCESS: %s", manifest_path)
-            continue
-        ndjson = manifest_path.with_name(
-            manifest_path.name.replace(".manifest.json", ".ndjson")
+        veraltet = sorted(wurzel.glob("*.ndjson"))
+        if veraltet:
+            raise TransformError(
+                f"Nur NDJSON-Bestaende aus der Zeit vor dem Zeitzonen-Fix "
+                f"gefunden ({len(veraltet)} Datei(en) unter {wurzel}). Sie "
+                "enthalten Faelle aus dem falschen Jahr und werden nicht mehr "
+                "gelesen. Neu laden mit: python -m "
+                "detroit_pipeline.extract_detroit --mode full --years 2024"
+            )
+        raise TransformError(
+            "Kein erfolgreicher Detroit-Bronze-Lauf. Zuerst die Ingestion starten: "
+            "python -m detroit_pipeline.extract_detroit --mode full --years 2024"
         )
-        if not ndjson.exists():
-            raise TransformError(f"Manifest ohne NDJSON-Datei: {manifest_path}")
-        pfade.append(ndjson)
-        laeufe.append(str(manifest.get("pipeline_run_id") or ndjson.stem))
-        zeilen += int(manifest.get("downloaded_count") or 0)
-
-    if not pfade:
-        return None
-    return Source(DETROIT, pfade, laeufe, zeilen, "read_json_auto", "NDJSON")
+    return Source(DETROIT, pfade, laeufe, zeilen, "read_parquet", "PARQUET")
 
 
 def read_manifest_file(path: Path) -> dict[str, Any]:

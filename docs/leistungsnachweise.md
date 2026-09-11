@@ -356,23 +356,23 @@ aus zwei Fragen, die oft vermischt werden:
 
 Der Entscheid zu [Absprache 4.1](projektabsprache.md) verlangte genau diese
 Messung: *„Es wird angeschaut was performanter ist."* Verglichen wurden
-dieselben Daten in beiden Formaten — Detroits Bronze-Lauf, 88'695 Zeilen, das
+dieselben Daten in beiden Formaten — Detroits Bronze-Lauf, 88'685 Zeilen, das
 ausgelieferte NDJSON gegen daraus erzeugtes Parquet, gelesen über DuckDB.
 
 | Format | Grösse | gegen NDJSON |
 | --- | --- | --- |
-| NDJSON, wie ausgeliefert | 125,3 MB | 100 % |
-| NDJSON + gzip | 11,7 MB | 9,4 % |
-| **Parquet snappy** | **6,5 MB** | **5,2 %** |
-| Parquet zstd | 4,8 MB | 3,9 % |
+| NDJSON, wie ausgeliefert | 89,4 MB | 100 % |
+| NDJSON + gzip | 10,9 MB | 12,2 % |
+| **Parquet snappy** | **6,5 MB** | **7,3 %** |
+| Parquet zstd | 4,8 MB | 5,4 % |
 
 | Abfrage | NDJSON | Parquet | Faktor |
 | --- | --- | --- | --- |
-| Zeilen zählen | 0,112 s | 0,000 s | aus den Metadaten |
-| eine Spalte lesen | 0,113 s | 0,000 s | 683× |
-| nach Kategorie gruppieren | 0,114 s | 0,001 s | 137× |
-| **fünf Spalten, alle Zeilen** | **0,158 s** | **0,026 s** | **6,0×** |
-| alle Spalten materialisieren | 0,790 s | 0,615 s | 1,3× |
+| Zeilen zählen | 0,088 s | 0,000 s | aus den Metadaten |
+| eine Spalte lesen | 0,090 s | 0,000 s | 617× |
+| nach Kategorie gruppieren | 0,091 s | 0,001 s | 110× |
+| **fünf Spalten, alle Zeilen** | **0,139 s** | **0,029 s** | **4,9×** |
+| alle Spalten materialisieren | 0,541 s | 0,428 s | 1,3× |
 
 **Die vierte Zeile ist die, die zählt.** Genau das tut die Silver-Schicht:
 wenige Felder aus jeder Zeile lesen. NDJSONs Zeiten sind über die ersten
@@ -393,10 +393,10 @@ Zieht man es auf die Konvention der anderen drei Quellen nach, kostet die
 zusätzliche Schicht nichts, sie spart:
 
 ```text
-heute        Bronze NDJSON                125,3 MB
-nachgezogen  Raw    NDJSON + gzip          11,7 MB
+heute        Bronze NDJSON                89,4 MB
+nachgezogen  Raw    NDJSON + gzip          10,9 MB
              Bronze Parquet snappy          6,5 MB
-             zusammen                       18,3 MB   → 85 % weniger
+             zusammen                       17,4 MB   → 81 % weniger
 ```
 
 **Ergebnis:** Parquet in Bronze, NDJSON komprimiert in Raw. Damit ist auch
@@ -650,12 +650,12 @@ Damit schrumpft das, was wirklich festgehalten werden muss, auf die beiden
 Falldatenquellen. Und hier hilft die Bronze-Angleichung ein zweites Mal:
 
 ```text
-Detroit NDJSON   125,3 MB
-Detroit Parquet    8,0 MB     16x kleiner, Konvertierung dauert 1,3 Sekunden
+Detroit NDJSON   89,4 MB
+Detroit Parquet   16,0 MB     der echte Lauf vom 11.9., ZSTD, mit Nutzlast
 ```
 
-Chicago Bronze (16,7 MB) plus Detroit als Parquet (8,0 MB) ergeben einen
-Referenzstand von rund **25 MB** — handlich genug, dass die Frage nach externem
+Chicago Bronze (16,7 MB) plus Detroit als Parquet (16,0 MB) ergeben einen
+Referenzstand von rund **33 MB** — handlich genug, dass die Frage nach externem
 Speicher gar nicht erst entsteht.
 
 #### Die Daten gehören **nicht** in die Git-Historie
