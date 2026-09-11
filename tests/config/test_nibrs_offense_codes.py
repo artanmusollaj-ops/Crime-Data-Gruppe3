@@ -234,3 +234,112 @@ def test_zurueckgezogene_codes_sind_wirklich_zurueckgezogen(codes):
     assert not versehentlich, (
         f"als zurueckgezogen gefuehrt, steht aber in der Spezifikation: {versehentlich}"
     )
+
+
+# --------------------------------------------------------------------------
+# Die Codeliste gegen eine zweite Abschrift
+# --------------------------------------------------------------------------
+#
+# ``test_stichproben_gegen_anhang_a`` prueft zehn Zeilen von Hand. Der Rest der
+# Liste ist bisher unbelegt - eine Abschrift aus einem PDF, der niemand
+# widerspricht. Illinois veroeffentlicht mit seinem *NIBRS Information Exchange
+# Package* eine eigene Abschrift derselben FBI-Liste, Blatt ``OffenseCode``.
+#
+# Sie ist **keine unabhaengige Autoritaet** - beide stammen aus derselben
+# Spezifikation. Sie ist eine zweite Hand, die dasselbe abgeschrieben hat, und
+# faengt damit genau das, was ein PDF-Abgleich nicht faengt: unseren eigenen
+# Uebertragungsfehler. Umfang und Reihenfolge muessen stimmen, der Wortlaut in
+# den unten benannten Faellen nicht.
+
+# Original: isp.illinois.gov, "NIBRS Information Exchange Package", Fassung
+# 2023.0 vom 28.02.2024. Blatt OffenseILUCRCode ist die aeltere Ausgabe der
+# Tabelle, die ISP_TABELLE in der Fassung 2026 enthaelt; gebraucht wird hier
+# nur das Blatt OffenseCode.
+IEPD_TABELLE = PROJECT_ROOT / "docs" / "illinois_nibrs_iepd_2023.xlsx"
+
+# Illinois schreibt die Fassung 2023.0 ab, wir die Fassung 2025. Wo die beiden
+# sich unterscheiden, steht hier der Grund. Jede Zeile ist entweder eine reine
+# Schreibweise oder eine benannte Umbenennung des FBI.
+WORTLAUT = {
+    # Das FBI selbst: "Updated verbiage to replace 'Fondling' with 'Criminal
+    # Sexual Contact'" - Aenderungsliste der Fassung 2025. Illinois 2023.0
+    # fuehrt noch den alten Namen.
+    "11D": "Fondling",
+    # Ab hier nur Schreibweisen: Kaufmanns-Und, Praefix der Deliktgruppe,
+    # Singular/Plural, weggelassene Fuellwoerter.
+    "09A": "Murder & Nonnegligent Manslaughter",
+    "280": "Stolen Offenses",
+    "30A": "Immigration - Illegal Entry Into US",
+    "30B": "Immigration - False Citizenship",
+    "30C": "Immigration - Smuggling Aliens",
+    "30D": "Immigration - Re-entry After Deportation",
+    "360": "Failure To Register As Sex Offender",
+    "39C": "Gambling Equipment Violation",
+    "49A": "Fugitive - Harboring Escapee - Concealing From Arrest",
+    "49B": "Fugitive - Flight To Avoid Prosecution",
+    "49C": "Fugitive - Flight To Avoid Deportation",
+    "521": "Firearm Act Violation",
+    "90J": "Trespass of Real",
+    "90K": "Bond Failure to Appear",
+}
+
+
+@pytest.fixture(scope="module")
+def illinois_bezeichnungen() -> list[str]:
+    """Blatt ``OffenseCode`` des IEPD, in der Reihenfolge des Dokuments."""
+
+    openpyxl = pytest.importorskip("openpyxl")
+    blatt = openpyxl.load_workbook(
+        IEPD_TABELLE, read_only=True, data_only=True
+    )["OffenseCode"]
+    zeilen = [z for z in blatt.iter_rows(values_only=True)]
+    kopf = next(i for i, z in enumerate(zeilen) if z and z[0] == "Code")
+    return [str(z[1]).strip() for z in zeilen[kopf + 1:] if z and z[0]]
+
+
+def test_zweite_abschrift_liegt_im_repository():
+    assert IEPD_TABELLE.exists(), (
+        f"{IEPD_TABELLE} fehlt - ohne sie ist die Codeliste nur eine Abschrift"
+    )
+
+
+def test_illinois_kennt_gleich_viele_delikte(codeliste, illinois_bezeichnungen):
+    """Ein uebersehener oder doppelter Code faellt hier auf."""
+
+    assert len(illinois_bezeichnungen) == len(codeliste) == 81
+
+
+def test_jede_bezeichnung_deckt_sich_mit_illinois(codeliste, illinois_bezeichnungen):
+    """Alle 81 Bezeichnungen, nicht nur die zehn Stichproben.
+
+    Illinois sortiert ``360`` hinter ``36B``, wir davor - verglichen wird
+    deshalb als Menge und nicht Zeile fuer Zeile.
+    """
+    ihre = {b.lower() for b in illinois_bezeichnungen}
+    abweichend = {}
+    for zeile in codeliste:
+        code, unsere = zeile["nibrs_code"], zeile["nibrs_description"]
+        erwartet = WORTLAUT.get(code, unsere)
+        if erwartet.lower() not in ihre:
+            abweichend[code] = (unsere, erwartet)
+    assert not abweichend, (
+        "Bezeichnung steht so nicht im IEPD. Entweder ist unsere Abschrift "
+        f"falsch, oder WORTLAUT braucht einen begruendeten Eintrag: {abweichend}"
+    )
+
+
+def test_wortlaut_liste_ist_nicht_veraltet(codeliste, illinois_bezeichnungen):
+    """Gegenprobe: kein Eintrag in WORTLAUT, der gar nicht noetig waere.
+
+    Ohne diese Pruefung koennte die Liste mit der Zeit Ausnahmen ansammeln, die
+    laengst keine mehr sind - und dabei echte Abweichungen verdecken.
+    """
+    ihre = {b.lower() for b in illinois_bezeichnungen}
+    nach_code = {z["nibrs_code"]: z["nibrs_description"] for z in codeliste}
+    ueberfluessig = {
+        code for code in WORTLAUT
+        if nach_code.get(code, "").lower() in ihre
+    }
+    assert not ueberfluessig, (
+        f"WORTLAUT nennt Codes, die woertlich uebereinstimmen: {ueberfluessig}"
+    )

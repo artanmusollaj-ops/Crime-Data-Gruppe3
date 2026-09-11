@@ -38,7 +38,7 @@ Speicherarchitektur aus unveränderlichen Läufen, und **alle drei
 Silver-Tabellen** — seit `crime_offense` sprechen beide Städte dieselbe
 Deliktsprache, liegen auf derselben Zeitachse und tragen dieselbe
 Raumeinheit. Jede Quelle weist ihre Vollständigkeit nach, statt sie zu
-behaupten. **508 automatisierte Tests** laufen ohne Netzzugriff und ohne
+behaupten. **512 automatisierte Tests** laufen ohne Netzzugriff und ohne
 Schlüssel.
 
 | | |
@@ -293,7 +293,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 508 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
+| **DataOps** | 512 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -794,6 +794,7 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | IUCR nach NIBRS (Chicago) | `config/iucr_nibrs_mapping.csv`, erzeugt von [`tools/build_iucr_nibrs_mapping.py`](../tools/build_iucr_nibrs_mapping.py); Katalog vom [Datenportal der Stadt](https://data.cityofchicago.org/resource/c7ck-438e.json) |
 | MICR nach NIBRS (Detroit) | `config/micr_nibrs_mapping.csv`, Quellen [`micr_manual_1110_2024.pdf`](micr_manual_1110_2024.pdf) und [`micr_appendix_f_2009.pdf`](micr_appendix_f_2009.pdf) |
 | Codetabelle Illinois State Police | [`isp_nibrs_code_table_2026.xlsx`](isp_nibrs_code_table_2026.xlsx) — nach ILCS-Statut geschlüsselt, **nicht** als Crosswalk verwendbar, siehe 8.5 |
+| Zweite Abschrift der Codeliste | [`illinois_nibrs_iepd_2023.xlsx`](illinois_nibrs_iepd_2023.xlsx), Blatt `OffenseCode` — Illinois' eigene Abschrift derselben FBI-Liste; belegt alle 81 Bezeichnungen statt zehn Stichproben |
 
 ---
 
