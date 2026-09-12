@@ -42,7 +42,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8,<10"]
+dev = [
+    "pytest>=8,<10",
+    # Liest die IEPD-Arbeitsmappe von Illinois - die zweite Quelle fuer die
+    # 81 NIBRS-Bezeichnungen. Ohne sie ueberspringen sich sechs Tests
+    # stillschweigend, und die Codeliste haette wieder nur eine Quelle.
+    "openpyxl>=3.1,<4",
+]
 
 [tool.setuptools.packages.find]
 where = ["src/crime"]

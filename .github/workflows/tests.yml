@@ -1,0 +1,65 @@
+# Die Testsuite auf jedem Pull Request und auf main.
+#
+# Warum es das braucht: Bis September 2026 liefen die Tests nur, wenn jemand
+# daran dachte. Zweimal ist dabei eine Zahl in den Abgabedokumenten veraltet,
+# ohne dass etwas rot wurde - gefunden hat es beide Male ein Zufall. Seit es
+# Waechter fuer diese Zahlen gibt, muessen sie auch automatisch laufen.
+#
+# Was hier NICHT geprueft wird: die Zahlen gegen die gebauten Daten. `data/`
+# ist aus der Versionierung ausgeschlossen, ein frischer Klon hat es also
+# nicht - die betroffenen Tests ueberspringen sich selbst. Was laeuft, ist
+# alles uebrige: 628 von 662 Tests, darunter beide Testzahl-Waechter, die
+# Reproduzierbarkeit der Crosswalks aus den PDFs und die Form der Dokumente.
+
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Ein neuer Push auf denselben Branch macht den laufenden Test ueberfluessig.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 ist die Untergrenze aus pyproject.toml, 3.13 die Version, auf
+        # der entwickelt wird. Beide zu pruefen macht aus der Zusage im README
+        # eine gepruefte Aussage statt einer Behauptung.
+        python: ["3.11", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: poppler-utils
+        # Liefert pdftotext. Die Werkzeuge unter tools/ lesen damit die
+        # amtlichen PDFs, und drei Tests pruefen, dass sich die Crosswalks
+        # daraus byteweise reproduzieren lassen. Ohne poppler ueberspringen
+        # sie sich - dann waere die Zusage "reproduzierbar abgeleitet"
+        # ausgerechnet dort ungeprueft, wo automatisch geprueft wird.
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
+
+      - name: Abhaengigkeiten installieren
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Tests
+        # Kein Netz noetig und kein Schluessel: Die Werkzeug-Tests fallen auf
+        # die versionierten Kataloge zurueck, wenn ein Portal nicht antwortet.
+        run: python -m pytest -q -rs

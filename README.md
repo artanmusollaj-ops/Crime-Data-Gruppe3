@@ -1,5 +1,7 @@
 # Crime-Data-Gruppe3
 
+[![Tests](https://github.com/artanmusollaj-ops/Crime-Data-Gruppe3/actions/workflows/tests.yml/badge.svg)](https://github.com/artanmusollaj-ops/Crime-Data-Gruppe3/actions/workflows/tests.yml)
+
 Vergleich der Kriminalitätsdaten von **Chicago und Detroit für das Jahr 2024** —
 eine Semesterarbeit im CAS Data Engineering.
 
@@ -375,6 +377,18 @@ python -m pytest
   `tests/test_aenderungen.py` prüfen die Zahlen in `docs/` gegen die gebauten
   Parquet-Dateien. Eine Zahl auf einer Folie, die der Zahl im Konzept
   widerspricht, ist der teuerste Fehler in einer Abgabe.
+
+### Sie laufen auch ohne dich
+
+Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request und
+auf `main` aus, unter Python **3.11 und 3.13** — die Untergrenze aus
+`pyproject.toml` und die Version, auf der entwickelt wird.
+
+In einem frischen Klon laufen **628 der 662 Tests**. Die übrigen 34 überspringen
+sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
+Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
+aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
+über die Testzahl in diesem README und in `AENDERUNGEN.md`.
 
 Weitere Optionen zeigt jedes Modul selbst:
 

@@ -342,7 +342,10 @@ anders abgelegt.
 Falls die Zeit knapp wird: Variante B ist ein vertretbarer Kompromiss, weil der
 Pfad das ist, was Silver am meisten stört.
 
-`Entscheid: Hängt von 4.1 ab.`
+`Entscheid: Variante A, umgesetzt am 12.9.2026 (PR #39).` Detroits Bronze liegt
+unter `city=detroit/`, jeder Lauf schreibt Raw als gzip mit SHA-256 je Antwort,
+Parquet mit gepinntem Schema und ein Manifest. Silver liest damit **einen**
+Lesepfad für beide Städte.
 
 ### 4.3 Gemeinsame Regeln für jede künftige Quelle
 
