@@ -14,7 +14,7 @@ zweite Synchronisation braucht es nicht.
 ### 1 · Umgebung anlegen
 
 ```bash
-python3 -m venv .venv
+python -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
