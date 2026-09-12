@@ -5,13 +5,15 @@ fuenf lokale Features. Dadurch prueft CI Count-Reconciliation, Kategorie-
 statistik, Bronze-Ausgabe und Manifest ohne instabile Live-API-Abhaengigkeit.
 """
 
+import gzip
 import json
+from hashlib import sha256
 from datetime import date
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from detroit_pipeline.detroit_arcgis import ArcGISLayerInfo
+from detroit_pipeline.detroit_arcgis import ArcGISLayerInfo, DataQualityError
 from detroit_pipeline.extract_detroit import (
     extract_year,
     extract_updated_window,
@@ -34,6 +36,10 @@ class FakeArcGISClient:
     layer_url = "https://example.invalid/FeatureServer/0"
 
     def __init__(self) -> None:
+        # Der Aufzeichner ist der Haken, an dem die Raw-Schicht haengt. Der
+        # Doppelgaenger bedient ihn wie der echte Client: mit den Bytes, die
+        # ein Dienst geliefert haette.
+        self.aufzeichner = None
         categories = ["ASSAULT", "ASSAULT", "ROBBERY", "LARCENY", None]
         self.features = [
             {
@@ -63,7 +69,7 @@ class FakeArcGISClient:
             ),
         )
 
-    def get_count(self, where: str) -> int:
+    def get_count(self, where: str, *, name: str = "count") -> int:
         """Simuliert den serverseitigen Count vor und nach dem Download."""
 
         return len(self.features)
@@ -77,9 +83,15 @@ class FakeArcGISClient:
         """Liefert genau die Features der angefragten Object-IDs."""
 
         selected = set(object_ids)
-        yield from (
+        treffer = [
             row for row in self.features if row["attributes"]["ESRI_OID"] in selected
-        )
+        ]
+        if self.aufzeichner is not None:
+            self.aufzeichner(
+                "features-0001",
+                json.dumps({"features": treffer}).encode("utf-8"),
+            )
+        yield from treffer
 
 
 class BronzeIngestionTests(unittest.TestCase):
@@ -169,3 +181,95 @@ class BronzeIngestionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RawSchichtTests(unittest.TestCase):
+    """Die Raw-Schicht: was der Dienst geliefert hat, Byte fuer Byte.
+
+    Bronze hielt Detroits Antwort bisher nur geparst - je Zeile als
+    ``_feature_json``. Fuer die Auswertung genuegt das, als Beweis nicht:
+    Damit liess sich nicht mehr zeigen, was der Dienst tatsaechlich geschickt
+    hat. Detroit war die einzige der fuenf Quellen ohne Raw, und Kapitel 7 des
+    Konzepts macht die Trennung von Beweis und Ableitung zum Prinzip.
+    """
+
+    def _lauf(self, temporary_directory: str, *, mit_raw: bool = True):
+        wurzel = Path(temporary_directory)
+        raw_dir = wurzel / "raw" if mit_raw else None
+        bronze_path, manifest_path = extract_year(
+            2024,
+            wurzel / "bronze",
+            raw_dir=raw_dir,
+            client=FakeArcGISClient(),
+            pause_seconds=0,
+        )
+        return wurzel, bronze_path, manifest_path
+
+    def test_jede_antwort_liegt_unveraendert_als_gzip(self) -> None:
+        with TemporaryDirectory() as tmp:
+            wurzel, _, _ = self._lauf(tmp)
+            laeufe = sorted((wurzel / "raw").glob("run_*"))
+            self.assertEqual(len(laeufe), 1, "genau ein Raw-Lauf")
+            dateien = sorted(laeufe[0].glob("*.json.gz"))
+            self.assertTrue(dateien, "keine Antwort abgelegt")
+
+            roh = gzip.decompress(dateien[0].read_bytes())
+            geparst = json.loads(roh)
+            self.assertIn("features", geparst)
+
+    def test_der_sha256_gilt_fuer_die_gelieferten_bytes(self) -> None:
+        """Nicht fuer die komprimierte Datei - sonst haengt er am Packer."""
+        with TemporaryDirectory() as tmp:
+            wurzel, _, _ = self._lauf(tmp)
+            lauf = sorted((wurzel / "raw").glob("run_*"))[0]
+            manifest = json.loads((lauf / "manifest.json").read_text(encoding="utf-8"))
+            for eintrag in manifest["files"]:
+                roh = gzip.decompress((lauf / eintrag["path"]).read_bytes())
+                self.assertEqual(sha256(roh).hexdigest(), eintrag["sha256"])
+                self.assertEqual(len(roh), eintrag["bytes_unkomprimiert"])
+
+    def test_die_ablage_ist_reproduzierbar(self) -> None:
+        """gzip schreibt sonst die Uhrzeit mit, und der Hash waere wertlos."""
+        with TemporaryDirectory() as a, TemporaryDirectory() as b:
+            wurzel_a, _, _ = self._lauf(a)
+            wurzel_b, _, _ = self._lauf(b)
+            datei_a = sorted(sorted((wurzel_a / "raw").glob("run_*"))[0].glob("*.json.gz"))[0]
+            datei_b = sorted(sorted((wurzel_b / "raw").glob("run_*"))[0].glob("*.json.gz"))[0]
+            self.assertEqual(datei_a.read_bytes(), datei_b.read_bytes())
+
+    def test_bronze_nennt_seinen_beweis(self) -> None:
+        with TemporaryDirectory() as tmp:
+            wurzel, _, manifest_path = self._lauf(tmp)
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertIn("raw layer", manifest["payload_contract"])
+            raw = manifest["raw_layer"]
+            self.assertGreater(raw["responses"], 0)
+            self.assertGreater(raw["bytes_delivered"], 0)
+            self.assertEqual(len(raw["files"]), raw["responses"])
+
+    def test_ohne_raw_bleibt_alles_wie_vorher(self) -> None:
+        """--no-raw muss den alten Weg unveraendert lassen."""
+        with TemporaryDirectory() as tmp:
+            wurzel, _, manifest_path = self._lauf(tmp, mit_raw=False)
+            self.assertFalse((wurzel / "raw").exists())
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertIsNone(manifest["raw_layer"])
+            self.assertIn("not HTTP bytes", manifest["payload_contract"])
+
+    def test_ein_abbruch_hinterlaesst_keinen_halben_raw_lauf(self) -> None:
+        """Ein Beweisstueck, das nur halb da ist, ist kein Beweisstueck."""
+        class KaputterClient(FakeArcGISClient):
+            def iter_features(self, object_ids, **kwargs):
+                if self.aufzeichner is not None:
+                    self.aufzeichner("features-0001", b'{"features": []}')
+                raise DataQualityError("Abbruch mitten im Lauf")
+
+        with TemporaryDirectory() as tmp:
+            wurzel = Path(tmp)
+            with self.assertRaises(DataQualityError):
+                extract_year(
+                    2024, wurzel / "bronze", raw_dir=wurzel / "raw",
+                    client=KaputterClient(), pause_seconds=0,
+                )
+            uebrig = list((wurzel / "raw").glob("run_*"))
+            self.assertEqual(uebrig, [], f"halber Raw-Lauf geblieben: {uebrig}")

@@ -362,7 +362,7 @@ def detroit_codes() -> dict[str, int] | None:
     gelesene NDJSON-Bestand ist geloescht: Sein Jahresfenster war in UTC
     gezogen statt in Detroiter Ortszeit, er enthielt also Faelle aus 2023.
     """
-    wurzel = PROJECT_ROOT / "data" / "bronze" / "detroit"
+    wurzel = PROJECT_ROOT / "data" / "bronze" / "city=detroit"
     treffer = sorted(
         p for p in wurzel.glob("**/run_*/part-0001.parquet")
         if not any(teil.startswith(".") for teil in p.parts)

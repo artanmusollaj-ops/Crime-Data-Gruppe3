@@ -26,7 +26,7 @@ den geladenen Daten erhoben, nicht geschätzt.
 | **Census ACS** | Pipeline fertig, getestet | dieselben Tracts, 3 Variablen | raw + bronze |
 | **Wetter (NOAA)** | Pipeline fertig, getestet | 29'181 Tage O'Hare (ab 1946), 26'264 Detroit Metro (ab 1942) | raw + bronze |
 
-Ergänzend: 621 Tests, 8 Notebooks, `data/silver/` mit allen drei Tabellen,
+Ergänzend: 627 Tests, 8 Notebooks, `data/silver/` mit allen drei Tabellen,
 `data/gold/` bislang leer. Die Deliktzuordnung liegt in drei Referenzdateien:
 `config/nibrs_offense_codes_2025.csv` (81 amtliche NIBRS-Codes),
 `config/iucr_nibrs_mapping.csv` (434 Chicago-Codes) und
@@ -264,23 +264,26 @@ sind die Konventionen nah beieinander, aber noch nicht gleich:
 
 | | Chicago | Detroit | Census |
 | --- | --- | --- | --- |
-| Pfad | `bronze/city=chicago/ingest_date=…/run_…/` | `bronze/detroit/full/year=…/run_…/` | `bronze/dataset=…/vintage=…/state=…/run_…/` |
-| Partition | Hive (`city`, `ingest_date`) | teils (`year`, `run_date`), aber `full`/`incremental` ohne Schlüssel | Hive (`dataset`, `vintage`, `state`) |
+| Pfad | `bronze/city=chicago/ingest_date=…/run_…/` | `bronze/city=detroit/full/year=…/run_…/` | `bronze/dataset=…/vintage=…/state=…/run_…/` |
+| Partition | Hive (`city`, `ingest_date`) | Hive (`city`), dazu (`year`, `run_date`); `full`/`incremental` ohne Schlüssel | Hive (`dataset`, `vintage`, `state`) |
 | Format | Parquet (snappy) | Parquet (ZSTD) | Parquet (snappy) |
 | Lauf-Kennung | `run_<UTC-Zeitstempel>` | `run_<UUID4>` | `run_<UTC-Zeitstempel>` |
 | Manifest | `manifest.json` je Schicht im Lauf-Ordner | `manifest.json` im Lauf-Ordner | wie Chicago |
 
-**Was noch abweicht.** Detroit benennt die Stadt nicht als Partitionsschlüssel
-(`detroit/` statt `city=detroit/`), und `full`/`incremental` sind keine
-`key=value`-Paare. Die Lauf-Kennung ist eine UUID statt eines Zeitstempels,
-sortiert also nicht chronologisch. Und Detroit schreibt weiterhin **kein
-`raw/`** — die Entscheidungsvorlage `detroit-schichten.html` bleibt offen.
+**Was noch abweicht.** `full`/`incremental` sind keine `key=value`-Paare. Die
+Lauf-Kennung ist eine UUID statt eines Zeitstempels, sortiert also nicht
+chronologisch.
+
+**Erledigt am 12.9.:** Detroit benennt die Stadt jetzt als Partitionsschlüssel
+(`city=detroit/` statt `detroit/`) und schreibt eine **Raw-Schicht** — jede
+ArcGIS-Antwort unverändert als gzip, mit SHA-256 je Antwort im Manifest. 46
+Antworten je Jahrgang, 84,6 MB geliefert, 10 MB abgelegt.
 | Manifest-Felder | `completeness`, `watermark`, `source_schema`, `query` | `offense_category_counts`, `pipeline_run_id`, … | wie Chicago plus `crs` |
-| Raw-Schicht | ja | **nein** | ja |
+| Raw-Schicht | ja | ja | ja |
 | Schema | gepinnt, 23 Spalten, `_extra` | verschachteltes JSON (`attributes`/`geometry`/`_meta`) | gepinnt, 14 bzw. 9 Spalten, `_extra` |
 
-Der Kommentar in `.gitignore` („Detroit legt (noch) flach ab") deutet darauf
-hin, dass das bekannt und als Übergang gedacht war.
+Der Kommentar in `.gitignore` nannte das lange einen Übergang („Detroit legt
+(noch) flach ab") — seit dem 12.9. ist er eingelöst.
 
 ### 4.1 Was bedeutet „Bronze" bei uns?
 
@@ -595,7 +598,7 @@ Gold-Tabellen einchecken, weil sie klein sind.
 
 ### 7.2 Tests
 
-**Stand.** 621 Tests, seit dem 11.9. einheitlich nach Pipeline gegliedert:
+**Stand.** 627 Tests, seit dem 11.9. einheitlich nach Pipeline gegliedert:
 
 ```text
 tests/

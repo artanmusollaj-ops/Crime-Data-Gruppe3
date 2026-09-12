@@ -20,7 +20,7 @@ import json
 import logging
 import random
 import time
-from typing import Any, Iterable, Iterator, Mapping, Sequence
+from typing import Any, Callable, Iterable, Iterator, Mapping, Sequence
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -267,11 +267,13 @@ class ArcGISClient:
         timeout_seconds: int = 60,
         max_retries: int = 5,
         user_agent: str = "CrimeDataEngineeringStudentProject/1.0",
+        aufzeichner: Callable[[str, bytes], None] | None = None,
     ) -> None:
         self.layer_url = layer_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.max_retries = max_retries
         self.user_agent = user_agent
+        self.aufzeichner = aufzeichner
         self.logger = logging.getLogger(self.__class__.__name__)
 
     def _request_json(
@@ -280,11 +282,17 @@ class ArcGISClient:
         params: Mapping[str, Any] | None = None,
         *,
         post: bool = False,
+        name: str = "antwort",
     ) -> dict[str, Any]:
         """Fuehrt einen JSON-Request mit exponentiellem Backoff aus.
 
         Query-Aufrufe werden als POST gesendet, damit lange Object-ID-Listen
         nicht an URL-Laengenlimits von Proxies oder Servern scheitern.
+
+        Ist ein ``aufzeichner`` gesetzt, bekommt er die **gelieferten Bytes**
+        vor dem Parsen zu sehen - das ist der Unterschied zwischen einer
+        Raw-Schicht und einer Kopie unserer Deutung. ``name`` gibt der Antwort
+        einen sprechenden Dateinamen.
         """
 
         encoded = urlencode(params or {}).encode("utf-8")
@@ -304,7 +312,10 @@ class ArcGISClient:
         for attempt in range(self.max_retries + 1):
             try:
                 with urlopen(request, timeout=self.timeout_seconds) as response:
-                    payload = json.load(response)
+                    body = response.read()
+                payload = json.loads(body)
+                if self.aufzeichner is not None:
+                    self.aufzeichner(name, body)
                 if "error" in payload:
                     raise ArcGISRequestError(
                         f"ArcGIS-Fehler: {json.dumps(payload['error'], ensure_ascii=False)}"
@@ -344,7 +355,8 @@ class ArcGISClient:
         Felder, Typen oder Aliasnamen, veraendert sich der Fingerprint.
         """
 
-        metadata = self._request_json(self.layer_url, {"f": "json"})
+        metadata = self._request_json(
+            self.layer_url, {"f": "json"}, name="layer_metadaten")
         fields = metadata.get("fields") or []
         if not fields:
             raise ArcGISRequestError("Layer-Metadaten enthalten keine Felder")
@@ -377,13 +389,14 @@ class ArcGISClient:
             field_types=tuple((str(f["name"]), str(f.get("type", ""))) for f in fields),
         )
 
-    def get_count(self, where: str) -> int:
+    def get_count(self, where: str, *, name: str = "count") -> int:
         """Ermittelt die serverseitige Zeilenzahl fuer ein Qualitaets-Gate."""
 
         payload = self._request_json(
             f"{self.layer_url}/query",
             {"where": where, "returnCountOnly": "true", "f": "json"},
             post=True,
+            name=name,
         )
         return int(payload["count"])
 
@@ -398,6 +411,7 @@ class ArcGISClient:
             f"{self.layer_url}/query",
             {"where": where, "returnIdsOnly": "true", "f": "json"},
             post=True,
+            name="object_ids",
         )
         object_id_field = payload.get("objectIdFieldName")
         object_ids = sorted(int(value) for value in payload.get("objectIds", []))
@@ -438,6 +452,7 @@ class ArcGISClient:
                     "f": "json",
                 },
                 post=True,
+                name=f"features-{batch_number:04d}",
             )
             features = payload.get("features") or []
             if len(features) != len(id_batch):

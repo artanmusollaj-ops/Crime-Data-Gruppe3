@@ -3,7 +3,7 @@
 Beispiele:
 
     python -m detroit_pipeline.transform_detroit \
-        data/bronze/detroit/full/year=2024/run_UUID/part-0001.parquet \
+        data/bronze/city=detroit/full/year=2024/run_UUID/part-0001.parquet \
         --output data/silver/detroit_crime_2024.parquet
 
     python -m detroit_pipeline.transform_detroit INPUT.parquet \

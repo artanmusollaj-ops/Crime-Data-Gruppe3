@@ -78,6 +78,10 @@ TABLE = "crime_offense"
 
 CHICAGO = "chicago"
 DETROIT = "detroit"
+# Der Verzeichnisname unter bronze/. Er folgt seit dem 12.9. demselben Muster
+# wie Chicagos - sprechender Partitionsschluessel statt blossem Namen, damit
+# beide Staedte in einer Auflistung gleich aussehen.
+DETROIT_BRONZE = f"city={DETROIT}"
 
 # Ortszeit der beiden Staedte. Chicago liefert Lokalzeit ohne Zonenangabe,
 # Detroit einen UTC-Zeitpunkt - beide brauchen ihre Zone, aber fuer
@@ -171,11 +175,11 @@ def detroit_sources(data_root: Path) -> Source:
 
     ::
 
-        bronze/detroit/full/year=2024/run_<uuid>/part-0001.parquet
-        bronze/detroit/incremental/run_date=2026-09-11/run_<uuid>/...
+        bronze/city=detroit/full/year=2024/run_<uuid>/part-0001.parquet
+        bronze/city=detroit/incremental/run_date=2026-09-11/run_<uuid>/...
 
     **Warum es keinen NDJSON-Rueckfall mehr gibt.** Bis zum 11.9. lag je Lauf
-    eine NDJSON-Datei flach unter ``bronze/detroit/``, und diese Funktion las
+    eine NDJSON-Datei flach unter ``bronze/city=detroit/``, und diese Funktion las
     sie als Rueckfall mit. Das ist bewusst entfernt worden, denn jene Bestaende
     stammen aus der Zeit vor dem Zeitzonen-Fix: Ihr Jahresfenster war in UTC
     gezogen statt in Detroiter Ortszeit, weshalb sie 66 Faelle vom 31.12.2023
@@ -183,7 +187,7 @@ def detroit_sources(data_root: Path) -> Source:
     diese Daten weiter eingelesen - mit einer Warnung im Log, die man
     ueberliest. Lieber ein klarer Fehler und ein neuer Full Load.
     """
-    wurzel = data_root / BRONZE_LAYER / DETROIT
+    wurzel = data_root / BRONZE_LAYER / DETROIT_BRONZE
     if not wurzel.exists():
         raise TransformError(f"Kein Detroit-Bronze-Verzeichnis: {wurzel}")
 

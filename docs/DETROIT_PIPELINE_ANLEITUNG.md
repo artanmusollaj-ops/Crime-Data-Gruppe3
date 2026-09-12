@@ -67,7 +67,7 @@ Der Pfad muss auf `.venv314\Scripts\python.exe` enden.
 .\.venv314\Scripts\python.exe -m tests.run_tests
 ```
 
-Erwartet: **die ganze Suite, Status SUCCESS** — derzeit 621 Tests. Der Runner
+Erwartet: **die ganze Suite, Status SUCCESS** — derzeit 627 Tests. Der Runner
 sammelt mit pytest und fuehrt damit alle Pipelines aus, nicht nur Detroit.
 Eine zweistellige Zahl waere ein Alarmzeichen, kein Erfolg.
 Text- und JSON-Protokolle entstehen unter `logs/tests/`. Einzelne `error:`-Ausgaben mit anschließendem `ok` gehören zu den Tests ungültiger Parameter. Entscheidend ist das Gesamtergebnis.
@@ -93,10 +93,17 @@ NULL im Tatdatum wird vom Jahresfilter nicht erfasst. Für solche Zeilen braucht
 
 CLI und Notebook legen an:
 
-- data/bronze/detroit/full/year=2025/run_<UUID>/part-0001.parquet
-- im gleichen Run-Ordner: manifest.json
+- data/raw/city=detroit/full/year=2025/run_<UUID>/NNNN-features-NNNN.json.gz — jede ArcGIS-Antwort unverändert, Byte für Byte
+- data/bronze/city=detroit/full/year=2025/run_<UUID>/part-0001.parquet
+- im jeweiligen Run-Ordner: manifest.json
 
-Direkte Python-Aufrufe extract_year(..., output_dir=...) legen nur run_<UUID> unter dem übergebenen Verzeichnis an. Jahrespartitionierung erledigt der Aufrufer.
+Der Ordner heisst seit dem 12.9. `city=detroit` statt `detroit` — dasselbe Muster wie `city=chicago`.
+
+**Raw zuerst, Bronze danach.** Ein Raw-Lauf ohne Bronze-Zwilling kostet eine Wiederholung; umgekehrt stünde eine abgeleitete Tabelle ohne ihren Beweis da, und niemand sähe es ihr an. Die Metadaten- und Count-Abrufe vor dem Download sind Vorprüfungen und werden nicht mitgeschrieben — was der Bestand ist, sagen die Feature-Batches.
+
+`--no-raw` schaltet die Raw-Schicht ab und lädt wie vor dem 12.9. nur nach Bronze. `--raw-dir` setzt ihr Ziel.
+
+Direkte Python-Aufrufe extract_year(..., output_dir=..., raw_dir=...) legen nur run_<UUID> unter den übergebenen Verzeichnissen an. Jahrespartitionierung erledigt der Aufrufer.
 
 ## 4. Daily und Backfill
 ```powershell
@@ -146,7 +153,7 @@ Die Kategorienstatistik zählt rohe Offense-Zeilen; sie ist keine Event- oder Ca
 
 ## 6. DuckDB laden
 ```powershell
-.\.venv314\Scripts\python.exe -m detroit_pipeline.load_duckdb --manifest "data/bronze/detroit/full/year=2025/run_<UUID>/manifest.json" --database "data/warehouse/crime.duckdb"
+.\.venv314\Scripts\python.exe -m detroit_pipeline.load_duckdb --manifest "data/bronze/city=detroit/full/year=2025/run_<UUID>/manifest.json" --database "data/warehouse/crime.duckdb"
 ```
 
 <UUID> durch den tatsächlichen Run ersetzen. Mehrere Manifeste können nach --manifest angegeben werden.
@@ -205,7 +212,7 @@ Gold-Aggregate aus Silver-Current erstellen; technische Ladezeit nie als Tatdatu
 .\.venv314\Scripts\python.exe -m tests.run_tests
 ```
 
-**621 automatisierte Offline-Tests**, davon rund 40 fuer dieses Paket. Der
+**627 automatisierte Offline-Tests**, davon rund 40 fuer dieses Paket. Der
 Runner sammelt seit dem 11.9. mit pytest: Vorher benutzte er
 `unittest.discover`, das nur `TestCase`-Klassen erkennt, und meldete SUCCESS
 nach 39 von damals 448 Tests — ein gruener Lauf, der 91 Prozent der Suite nie
