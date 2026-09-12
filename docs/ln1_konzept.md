@@ -38,7 +38,7 @@ Speicherarchitektur aus unveränderlichen Läufen, und **alle drei
 Silver-Tabellen** — seit `crime_offense` sprechen beide Städte dieselbe
 Deliktsprache, liegen auf derselben Zeitachse und tragen dieselbe
 Raumeinheit. Jede Quelle weist ihre Vollständigkeit nach, statt sie zu
-behaupten. **557 automatisierte Tests** laufen ohne Netzzugriff und ohne
+behaupten. **564 automatisierte Tests** laufen ohne Netzzugriff und ohne
 Schlüssel.
 
 | | |
@@ -259,10 +259,30 @@ ist derselbe Grund, der in Kapitel 7 gegen PostgreSQL sprach.
 
 `dim_date` wird erzeugt und nicht aus den Fakten abgeleitet: Ein Tag ohne
 Delikt ist eine Aussage und darf nicht fehlen, sonst zeigt eine Zeitreihe eine
-Lücke als Nicht-Ereignis. `dim_offense` führt vier vom FBI zurückgezogene Codes
-mit `retired = true` — zwei davon kommen in den Falldaten vor, und ohne sie
-verlöre jeder Filter über die Dimension rund tausend Delikte, ohne zu
-scheitern.
+Lücke als Nicht-Ereignis.
+
+**Zurückgezogene Codes müssen auflösbar sein.** Vier NIBRS-Codes hat das FBI
+gestrichen; die MICR-Quellen führen sie weiter, und zwei stehen in den
+Falldaten. Sie wegzulassen hiesse, dass ein Filter über die Dimension rund
+tausend Delikte verliert, ohne zu scheitern — sie nur als `retired` zu
+markieren sagt aber nur, *dass* der Code weg ist, nicht *wohin*.
+
+| Code | | Auflösung | heute | Fälle |
+| --- | --- | --- | --- | ---: |
+| `90A` | Bad Checks | **ersetzt** | `26A` | 50 |
+| `90I` | Runaway | **keine Straftat** | — | 969 |
+| `90E` | Drunkenness | offen | — | 0 |
+| `90H` | Peeping Tom | offen | — | 0 |
+
+`90A` ist belegt: Die ILCS-Tabelle führt `720-5/17-1(B)` *Deceptive Practices –
+Bad Checks* unter `26A`. Bei `90I` ist das Fehlen eines Nachfolgers selbst die
+Antwort — Weglaufen ist keine Straftat, und genau deshalb wurde der Code
+gestrichen; die ILCS-Tabelle kennt nur das *Beherbergen* (`720-5/10-6` → `90Z`).
+
+Die beiden offenen kommen 2024 nicht vor, und **der Bau erzwingt, dass das so
+bleibt**: Ein Code mit `resolution = 'unresolved'`, der in den Fakten auftaucht,
+lässt den Lauf scheitern. Erscheint er in einem späteren Jahrgang, muss jemand
+einen Beleg nachtragen, statt ihn stillschweigend mitlaufen zu lassen.
 
 **Kategorien.** Gruppiert wird über die **NIBRS-Deliktfamilie** — die ersten
 beiden Zeichen des Codes, also `13` für Körperverletzung, `23` für Diebstahl,
@@ -380,7 +400,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 557 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
+| **DataOps** | 564 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -946,7 +966,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 557 bestandene Tests
+python -m pytest                       # erwartet 564 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:

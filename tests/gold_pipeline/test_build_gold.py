@@ -261,6 +261,49 @@ def test_zurueckgezogene_codes_stehen_drin_und_sind_gekennzeichnet(tmp_path):
         assert nach_code[code]["retired"] is True
         assert nach_code[code]["nibrs_description"], f"{code} ohne Bezeichnung"
     assert nach_code["90Z"]["retired"] is False
+    assert nach_code["90Z"]["resolution"] == "current"
+
+
+def test_jeder_zurueckgezogene_code_sagt_was_er_heute_bedeutet(tmp_path):
+    """"Zurueckgezogen" allein ist keine Auskunft.
+
+    Wer eine Zeitreihe ueber mehrere Jahrgaenge legt oder nach einem Delikt
+    filtert, muss wissen, wohin ein gestrichener Code heute zeigt - sonst
+    uebersieht ein Filter auf 26A genau die Faelle, die frueher 90A hiessen.
+    """
+    nach_code = {z["nibrs_code"]: z for z in bg.dim_offense_rows(PROJECT_ROOT / "config")}
+    erlaubt = {"current", "replaced", "not_an_offense", "unresolved"}
+    for code, zeile in nach_code.items():
+        assert zeile["resolution"] in erlaubt, f"{code}: {zeile['resolution']}"
+        if zeile["retired"]:
+            assert zeile["retirement_note"], f"{code} ohne Begruendung"
+        if zeile["resolution"] == "replaced":
+            assert zeile["replaced_by"] in nach_code, (
+                f"{code} zeigt auf {zeile['replaced_by']}, den es nicht gibt"
+            )
+        else:
+            assert zeile["replaced_by"] is None
+
+
+def test_bad_checks_loest_sich_belegt_auf(tmp_path):
+    """Der Beleg ist die ILCS-Tabelle, nicht eine Vermutung."""
+    nach_code = {z["nibrs_code"]: z for z in bg.dim_offense_rows(PROJECT_ROOT / "config")}
+    zeile = nach_code["90A"]
+    assert zeile["resolution"] == "replaced"
+    assert zeile["replaced_by"] == "26A"
+    assert "17-1(B)" in zeile["retirement_note"], (
+        "die Notiz muss das Statut nennen, auf das sich die Aufloesung stuetzt"
+    )
+
+
+def test_runaway_ist_keine_tat_und_sagt_das(tmp_path):
+    """Ein Code ohne Nachfolger ist aufgeloest, wenn der Grund dasteht."""
+    zeile = {z["nibrs_code"]: z for z in bg.dim_offense_rows(PROJECT_ROOT / "config")}["90I"]
+    assert zeile["resolution"] == "not_an_offense"
+    assert zeile["replaced_by"] is None
+    assert "Harboring" in zeile["retirement_note"], (
+        "die Notiz muss den Unterschied zum Beherbergen benennen"
+    )
 
 
 def test_die_familie_ist_das_kuerzel_und_nichts_erfundenes(tmp_path):
@@ -268,6 +311,19 @@ def test_die_familie_ist_das_kuerzel_und_nichts_erfundenes(tmp_path):
     zeilen = bg.dim_offense_rows(PROJECT_ROOT / "config")
     assert all(z["nibrs_family"] == z["nibrs_code"][:2] for z in zeilen)
     assert "nibrs_family_description" not in zeilen[0]
+
+
+def test_in_der_echten_dimension_ist_jeder_genutzte_code_aufloesbar(con):
+    """Gegen die gebaute Schicht, nicht nur gegen die Liste im Code."""
+    fakt, dim = gold("fact_offense"), gold("dim_offense")
+    if fakt is None or dim is None:
+        pytest.skip("keine gebaute Gold-Schicht vorhanden")
+    offen = con.execute(
+        f"SELECT d.nibrs_code, count(*) FROM read_parquet('{fakt}') f "
+        f"JOIN read_parquet('{dim}') d ON d.nibrs_code = f.nibrs_code "
+        "WHERE d.retired AND d.resolution = 'unresolved' GROUP BY 1"
+    ).fetchall()
+    assert not offen, f"zurueckgezogen und ungeloest, aber in den Daten: {offen}"
 
 
 def test_fehlende_codeliste_wird_gemeldet(tmp_path):
@@ -359,10 +415,11 @@ def baue(con, tmp_path, zeilen, tracts=None):
     con.execute(
         "CREATE OR REPLACE TABLE dim_offense (nibrs_code VARCHAR, nibrs_description VARCHAR, "
         "nibrs_family VARCHAR, nibrs_group VARCHAR, crime_against VARCHAR, "
-        "federal_only BOOLEAN, retired BOOLEAN)"
+        "federal_only BOOLEAN, retired BOOLEAN, replaced_by VARCHAR, "
+        "resolution VARCHAR, retirement_note VARCHAR)"
     )
     con.executemany(
-        "INSERT INTO dim_offense VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO dim_offense VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [tuple(z.values()) for z in bg.dim_offense_rows(PROJECT_ROOT / "config")],
     )
     con.execute(f"CREATE OR REPLACE TABLE dim_date AS {bg.dim_date_query(offense)}")
@@ -421,6 +478,35 @@ def test_ein_verwaister_deliktschluessel_faellt_auf(con, tmp_path):
     ])
     con.execute("DELETE FROM dim_offense WHERE nibrs_code = '13A'")
     with pytest.raises(TransformError, match="dim_offense"):
+        bg.reconcile(con, offense)
+
+
+def test_ein_ungeloester_code_in_den_daten_laesst_den_bau_scheitern(con, tmp_path):
+    """Die Zusage in einem Satz: Was in den Daten steht, muss auflösbar sein."""
+    offense = baue(con, tmp_path, [
+        ("a", "chicago", date(2024, 3, 1), "90E", "17031010100"),
+    ])
+    with pytest.raises(TransformError, match="ohne Aufloesung"):
+        bg.reconcile(con, offense)
+
+
+def test_ein_aufgeloester_code_in_den_daten_geht_durch(con, tmp_path):
+    offense = baue(con, tmp_path, [
+        ("a", "chicago", date(2024, 3, 1), "90A", "17031010100"),
+        ("b", "chicago", date(2024, 3, 2), "90I", "17031010100"),
+    ])
+    nachweis = bg.reconcile(con, offense)
+    assert nachweis["retired_codes"]["90A"]["replaced_by"] == "26A"
+    assert nachweis["retired_codes"]["90A"]["offenses"] == 1
+    assert nachweis["retired_codes"]["90I"]["resolution"] == "not_an_offense"
+
+
+def test_eine_fehlende_begruendung_faellt_auf(con, tmp_path):
+    offense = baue(con, tmp_path, [
+        ("a", "chicago", date(2024, 3, 1), "13A", "17031010100"),
+    ])
+    con.execute("UPDATE dim_offense SET retirement_note = NULL WHERE retired")
+    with pytest.raises(TransformError, match="ohne Begruendung"):
         bg.reconcile(con, offense)
 
 

@@ -68,6 +68,49 @@ DEFAULT_VINTAGE = 2024
 NIBRS_CODES = "nibrs_offense_codes_2025.csv"
 CROSSWALKS = ("iucr_nibrs_mapping.csv", "micr_nibrs_mapping.csv")
 
+# Vier NIBRS-Codes hat das FBI zurueckgezogen; die Fassung 2025 fuehrt sie nicht
+# mehr. Die MICR-Quellen fuehren sie weiter, und zwei davon stehen in den
+# Falldaten 2024. Ein Code, der in den Daten steht, muss aber sagen koennen, was
+# er heute bedeutet - sonst ist eine Zeitreihe ueber mehrere Jahrgaenge nicht zu
+# lesen und ein Filter nicht zu bauen.
+#
+# Aufgeloest wird nur, wo es einen Beleg gibt. Die Spezifikation selbst schweigt;
+# sie kennt die Codes gar nicht mehr. Belegen laesst es sich ueber die
+# ILCS-Tabelle der Illinois State Police, die je Statut einen aktuellen
+# IBR-Code vergibt - dieselbe Quelle, die schon die Chicagoer Gegenprobe traegt.
+#
+#   'replaced'        es gibt einen heutigen Code, und eine Quelle sagt welchen
+#   'not_an_offense'  das FBI hat den Code gestrichen, weil es keine Tat ist
+#   'unresolved'      kein Beleg; darf nicht in den Falldaten vorkommen
+ZURUECKGEZOGEN = {
+    "90A": (
+        "26A", "replaced",
+        "Die ILCS-Tabelle der Illinois State Police fuehrt 720-5/17-1(B) "
+        "'Deceptive Practices - Bad Checks' unter IBR 26A False Pretenses/"
+        "Swindle/Confidence Game. Detroits MICR-Zeile 2606 'Fraud - Bad Checks' "
+        "liegt in derselben Deliktfamilie 26",
+    ),
+    "90I": (
+        None, "not_an_offense",
+        "Weglaufen ist keine Straftat; genau deshalb hat das FBI den Code "
+        "gestrichen. Die ILCS-Tabelle kennt nur 720-5/10-6 'Harboring a "
+        "Runaway' (IBR 90Z) - das Beherbergen, nicht das Weglaufen. Die Zeilen "
+        "bleiben zaehlbar, tragen aber kein heutiges NIBRS-Delikt",
+    ),
+    "90E": (
+        None, "unresolved",
+        "Oeffentliche Trunkenheit ist in Illinois keine Straftat; die "
+        "ILCS-Tabelle fuehrt dazu keine Zeile. Kommt in den Falldaten 2024 "
+        "nicht vor",
+    ),
+    "90H": (
+        None, "unresolved",
+        "Die naechstliegenden Statute 720-5/26-4 (Unauthorized Video "
+        "Recording) verteilen sich je nach Ort auf 370 und 90C - kein "
+        "einzelner Nachfolger. Kommt in den Falldaten 2024 nicht vor",
+    ),
+}
+
 log = logging.getLogger("gold")
 
 
@@ -210,6 +253,9 @@ def dim_offense_rows(config_root: Path) -> list[dict[str, Any]]:
             "crime_against": z["crime_against"],
             "federal_only": z["federal_only"] == "true",
             "retired": False,
+            "replaced_by": None,
+            "resolution": "current",
+            "retirement_note": None,
         }
         for z in amtlich
     ]
@@ -225,6 +271,9 @@ def dim_offense_rows(config_root: Path) -> list[dict[str, Any]]:
                 if not code or code in bekannt:
                     continue
                 bekannt.add(code)
+                ersatz, aufloesung, grund = ZURUECKGEZOGEN.get(
+                    code, (None, "unresolved", "kein Beleg hinterlegt")
+                )
                 zeilen.append({
                     "nibrs_code": code,
                     "nibrs_description": (
@@ -235,6 +284,9 @@ def dim_offense_rows(config_root: Path) -> list[dict[str, Any]]:
                     "crime_against": "",
                     "federal_only": False,
                     "retired": True,
+                    "replaced_by": ersatz,
+                    "resolution": aufloesung,
+                    "retirement_note": grund,
                 })
     return sorted(zeilen, key=lambda z: z["nibrs_code"])
 
@@ -380,6 +432,31 @@ def reconcile(
                 f"{anzahl:,} Zeilen in fact_offense zeigen auf keine Zeile in {name}"
             )
 
+    # Ein zurueckgezogener Code, der in den Daten vorkommt, muss sagen koennen,
+    # was er heute bedeutet. Sonst laesst sich weder eine Zeitreihe ueber mehrere
+    # Jahrgaenge lesen noch ein Filter bauen, der nichts verliert: Wer nach 26A
+    # filtert, uebersieht sonst die Faelle, die frueher 90A hiessen.
+    ungeloest = con.execute(
+        "SELECT d.nibrs_code, count(*) FROM fact_offense f "
+        "JOIN dim_offense d ON d.nibrs_code = f.nibrs_code "
+        "WHERE d.retired AND d.resolution = 'unresolved' "
+        "GROUP BY 1 ORDER BY 1"
+    ).fetchall()
+    if ungeloest:
+        raise TransformError(
+            "Zurueckgezogene Codes ohne Aufloesung in den Falldaten: "
+            + ", ".join(f"{code} ({n:,} Faelle)" for code, n in ungeloest)
+            + " - ZURUECKGEZOGEN in build_gold.py braucht einen belegten Eintrag"
+        )
+    ohne_begruendung = con.execute(
+        "SELECT count(*) FROM dim_offense WHERE retired "
+        "AND (retirement_note IS NULL OR trim(retirement_note) = '')"
+    ).fetchone()[0]
+    if ohne_begruendung:
+        raise TransformError(
+            f"{ohne_begruendung} zurueckgezogene Codes ohne Begruendung"
+        )
+
     mehrfach = con.execute(
         "SELECT count(*) FROM (SELECT geoid FROM dim_tract "
         "GROUP BY geoid HAVING count(*) > 1)"
@@ -416,10 +493,24 @@ def reconcile(
         "SELECT count(*) FROM fact_offense WHERE tract_geoid IS NOT NULL"
     ).fetchone()[0]
 
+    zurueckgezogen = {
+        zeile[0]: {
+            "resolution": zeile[1],
+            "replaced_by": zeile[2],
+            "offenses": zeile[3],
+        }
+        for zeile in con.execute(
+            "SELECT d.nibrs_code, d.resolution, d.replaced_by, count(f.offense_id) "
+            "FROM dim_offense d LEFT JOIN fact_offense f ON f.nibrs_code = d.nibrs_code "
+            "WHERE d.retired GROUP BY 1, 2, 3 ORDER BY 1"
+        ).fetchall()
+    }
+
     return {
         "verified": True,
         "fact_rows": gold,
         "silver_rows": silber,
+        "retired_codes": zurueckgezogen,
         "orphan_keys": {
             "dim_offense": verwaist_delikt,
             "dim_tract": verwaist_tract,
@@ -480,10 +571,11 @@ def build(data_root: Path, config_root: Path, vintage: int) -> dict[str, Path]:
         con.execute(
             "CREATE TABLE dim_offense (nibrs_code VARCHAR, nibrs_description VARCHAR, "
             "nibrs_family VARCHAR, nibrs_group VARCHAR, crime_against VARCHAR, "
-            "federal_only BOOLEAN, retired BOOLEAN)"
+            "federal_only BOOLEAN, retired BOOLEAN, replaced_by VARCHAR, "
+            "resolution VARCHAR, retirement_note VARCHAR)"
         )
         con.executemany(
-            "INSERT INTO dim_offense VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO dim_offense VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [tuple(z.values()) for z in dim_offense_rows(config_root)],
         )
         con.execute(f"CREATE TABLE dim_date AS {dim_date_query(offense)}")
@@ -513,7 +605,15 @@ def build(data_root: Path, config_root: Path, vintage: int) -> dict[str, Path]:
               "retired": (
                   "true fuer Codes, die das FBI zurueckgezogen hat, die die "
                   "MICR-Quellen aber weiter fuehren. Sie stehen hier, damit "
-                  "kein Filter ueber die Dimension Faelle verliert")}),
+                  "kein Filter ueber die Dimension Faelle verliert"),
+              "resolution": (
+                  "was der Code heute bedeutet: current, replaced (dann nennt "
+                  "replaced_by den heutigen Code), not_an_offense, oder "
+                  "unresolved. Ein unresolved-Code darf in den Falldaten nicht "
+                  "vorkommen; der Bau scheitert sonst"),
+              "replaced_by": (
+                  "der heutige NIBRS-Code, belegt ueber die ILCS-Tabelle der "
+                  "Illinois State Police; retirement_note nennt das Statut")}),
             ("dim_date", "ein Kalendertag", [offense],
              {"vollstaendig": "auch Tage ohne Delikt, sonst zeigt eine "
                               "Zeitreihe eine Luecke als Nicht-Ereignis"}),
