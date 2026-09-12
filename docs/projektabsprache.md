@@ -425,7 +425,7 @@ die Bronze-Läufe im Manifest: `tract` (6'282 Zeilen), `place` (2'206 Zeilen,
 die Stadtgrenzen), `weather_day` (55'449
 Zeilen, zwei Städte) und seit dem 10.9. `crime_offense` (347'957 Zeilen,
 259'272 Chicago und 88'685 Detroit; Detroits Zeilen sind Anklagen, je Tat
-zählt eine — Gold kommt damit auf 344'607).
+zählt eine — Gold kommt damit auf 344'617).
 
 Der frühere Vorbehalt, `crime_offense` müsse auf Artans Zeitzonen-Fix warten,
 trägt nicht mehr: Sein Branch ändert das **Abfragefenster** — welche Zeilen in

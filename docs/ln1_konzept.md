@@ -45,7 +45,7 @@ Schlüssel.
 | | |
 | --- | --- |
 | Chicago, Jahrgang 2024 | 259'272 Delikte |
-| Detroit, Jahrgang 2024 | 88'685 Anklagen zu 85'335 Taten |
+| Detroit, Jahrgang 2024 | 88'685 Anklagen zu 85'345 Taten |
 | Census Tracts, Illinois und Michigan | 6'282, mit Geometrie und Sozialdaten |
 | Wetter, zwei Stationen | 55'449 Stadt-Tage, zurück bis 1942 |
 
@@ -294,7 +294,7 @@ der Auswertungsumgebung.
 
 | Tabelle | Korn | Zeilen |
 | --- | --- | ---: |
-| `fact_offense` | **eine Tat** | 344'607 |
+| `fact_offense` | **eine Tat** | 344'617 |
 | `dim_tract` | ein Census Tract, mit **Stadtzuordnung** und Einwohnerzahl | 6'282 |
 | `dim_offense` | ein NIBRS-Delikt | 85 |
 | `dim_date` | ein Kalendertag | 366 |
@@ -404,7 +404,7 @@ und 16 Sachbeschädigung: Es gilt die schwerste Anklage.
 | | Detroit |
 | --- | ---: |
 | Zeilen in Silver (eine Anklage) | 88'685 |
-| davon zählend (**eine Tat**) | **85'335** |
+| davon zählend (**eine Tat**) | **85'345** |
 | Unterschied | −3'350 = **−3,8 %** |
 
 Gold nimmt nur die zählenden. Wer die Anklagen braucht — *„wie oft wurde
@@ -459,7 +459,7 @@ Damit ist die Frage beantwortet, die das Projekt von Anfang an stellen wollte:
 | | Delikte | Einwohner | je 1'000 |
 | --- | ---: | ---: | ---: |
 | Chicago | 251'516 | 2'661'953 | **94,5** |
-| Detroit | 84'648 | 638'635 | **132,5** |
+| Detroit | 84'658 | 638'635 | **132,6** |
 
 Absolute Fallzahlen hätten das Gegenteil nahegelegt.
 
@@ -1118,6 +1118,7 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | --- | --- |
 | Ingestion, vier Pipelines | `src/crime/{chicago,detroit,census,weather}_pipeline/` |
 | Silver-Aufbau | `src/crime/silver_pipeline/` |
+| Gold-Aufbau | `src/crime/gold_pipeline/build_gold.py` → `data/gold/` |
 | **Auswertungsumgebung** | `src/crime/serving/build_analysis_db.py` → `data/serving/analyse.duckdb` |
 | **Der Städtevergleich selbst** | `src/crime/silver_pipeline/build_crime_offense.py` → `data/silver/dataset=crime_offense/` |
 | Tests | `tests/`, nach Pipeline gegliedert |
@@ -1125,6 +1126,7 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | Chicago-Ingestion vorgeführt | [`notebooks/02_chicago_bronze_ingestion.ipynb`](../notebooks/02_chicago_bronze_ingestion.ipynb) |
 | Datenqualität Chicago | [`notebooks/03_chicago_data_quality.ipynb`](../notebooks/03_chicago_data_quality.ipynb) |
 | Quelle Detroit erklärt | [`notebooks/11_detroit_source.ipynb`](../notebooks/11_detroit_source.ipynb) |
+| Datenqualität Detroit | [`notebooks/13_detroit_data_quality.ipynb`](../notebooks/13_detroit_data_quality.ipynb) |
 | Detroit-Ingestion vorgeführt | [`notebooks/12_detroit_bronze_ingestion.ipynb`](../notebooks/12_detroit_bronze_ingestion.ipynb) |
 | Quelle Census erklärt | [`notebooks/21_census_source.ipynb`](../notebooks/21_census_source.ipynb) |
 | Quelle Wetter erklärt | [`notebooks/22_weather_source.ipynb`](../notebooks/22_weather_source.ipynb) |
