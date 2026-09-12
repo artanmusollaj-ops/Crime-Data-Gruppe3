@@ -1,17 +1,69 @@
 # Crime-Data-Gruppe3
 
-## Einrichten
+Vergleich der Kriminalitätsdaten von **Chicago und Detroit für das Jahr 2024** —
+eine Semesterarbeit im CAS Data Engineering.
+
+Die Frage klingt einfach und ist es nicht: *Wo passiert was, wie oft, im
+Verhältnis zu wie vielen Menschen?* Beide Städte veröffentlichen ihre Falldaten
+offen, aber sie tun es unvergleichbar. Chicago liefert eine Zeile je Delikt und
+codiert nach **IUCR**, Detroit eine Zeile je **Anklage** und codiert nach
+**MICR**. Chicagos Zeitstempel ist Ortszeit ohne Zonenangabe, Detroits ist UTC.
+Und keine der beiden Quellen sagt, zu welcher Stadt ein Gebiet gehört — ohne
+Stadtgrenze gibt es keinen Nenner und damit keine Rate je Einwohner.
+
+Dieses Repository baut die Strecke, die aus zwei unvergleichbaren Quellen eine
+vergleichbare Tabelle macht:
+
+```text
+        Chicago ─┐
+        Detroit ─┤
+  Census TIGER ──┼──▶  raw ──▶ bronze ──▶ silver ──▶ gold ──▶ serving
+    Census ACS ──┤       │        │          │         │         │
+     NOAA GHCN ──┘    Beweis   geparst    gedeutet   Stern    Abfragen
+```
+
+| Schicht | Was sie ist |
+| --- | --- |
+| **raw** | die Antwort der Quelle, Byte für Byte, mit SHA-256. Nicht rekonstruierbar |
+| **bronze** | daraus abgeleitetes Parquet mit gepinntem Schema. Deutet nichts |
+| **silver** | die erste deutende Schicht: Typen, Einheiten, Zeitzonen, NIBRS, Raum |
+| **gold** | Sternschema mit einer Faktentabelle je Tat und vier Dimensionen |
+| **serving** | DuckDB-Sichten über die Schichten, für die Auswertung |
+
+**Der Stand in Zahlen** — was gerade in den Schichten liegt:
+
+| | |
+| --- | ---: |
+| `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | 344'617 Zeilen (eine Tat) |
+| Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
+| Detroit | 84'658 Delikte · 638'635 Einwohner · **132,6** je 1'000 |
+
+Wo etwas ausführlich steht:
+
+| Was | Wo |
+| --- | --- |
+| Konzept, Methode, Befunde | [`docs/ln1_konzept.md`](docs/ln1_konzept.md) |
+| Was sich wann geändert hat und warum | [`docs/AENDERUNGEN.md`](docs/AENDERUNGEN.md) |
+| Würfel und Sternschema erklärt | [`docs/sternschema-und-wuerfel.md`](docs/sternschema-und-wuerfel.md) |
+| Detroit-Pipeline im Detail | [`docs/DETROIT_PIPELINE_ANLEITUNG.md`](docs/DETROIT_PIPELINE_ANLEITUNG.md) |
+| Die Quellen einzeln erklärt | [`notebooks/`](notebooks/) 01, 11, 21, 22, 32 |
+| Datenqualität je Stadt | [`notebooks/03`](notebooks/03_chicago_data_quality.ipynb), [`notebooks/13`](notebooks/13_detroit_data_quality.ipynb) |
+
+---
+
+## 1 · Einrichten
 
 **Voraussetzungen:** Python 3.11 oder neuer, Git.
 
-**Wichtig — nicht in einem Sync-Ordner arbeiten.** Das Projekt gehört nicht nach
+**Nicht in einem Sync-Ordner arbeiten.** Das Projekt gehört nicht nach
 `~/Documents`, `OneDrive` oder `iCloud Drive`. Sync-Dienste legen mitten im
 Betrieb Konfliktkopien an (`datei 2.txt`), ändern Dateirechte und können sowohl
 die virtuelle Umgebung als auch `.git/` beschädigen. Ein Ort wie
 `~/Projekte/Crime-Data-Gruppe3` ist richtig; versioniert wird über GitHub, eine
 zweite Synchronisation braucht es nicht.
 
-### 1 · Umgebung anlegen
+### 1.1 Umgebung anlegen
 
 ```bash
 python -m venv .venv
@@ -20,23 +72,26 @@ python -m pip install -r requirements.txt
 ```
 
 `requirements.txt` installiert das Projekt editierbar; die Abhängigkeiten stehen
-in `pyproject.toml`. Danach sind alle vier Pipelines importierbar, unabhängig
-vom aktuellen Verzeichnis:
+in `pyproject.toml`. Danach sind alle Pipelines importierbar, unabhängig vom
+aktuellen Verzeichnis:
 
 ```text
 src/crime/
-├── census_pipeline/    → import census_pipeline
 ├── chicago_pipeline/   → import chicago_pipeline
 ├── detroit_pipeline/   → import detroit_pipeline
-└── weather_pipeline/   → import weather_pipeline
+├── census_pipeline/    → import census_pipeline
+├── weather_pipeline/   → import weather_pipeline
+├── silver_pipeline/    → import silver_pipeline
+├── gold_pipeline/      → import gold_pipeline
+└── serving/            → import serving
 ```
 
-**Wichtig — Anaconda oder Miniconda installiert?** Dann ist `python` in einer
-frischen Shell der Conda-Interpreter: Die von `conda init` erzeugte Zeile in
-`~/.zshrc` aktiviert bei jedem Start automatisch die Umgebung `base`. Ein
-`python3 -m venv .venv` legt die Umgebung damit auf Conda an — mit einer anderen
-Python-Version und anderen Paketversionen als in `pyproject.toml` vorgesehen.
-Den Interpreter beim Anlegen deshalb ausschreiben:
+**Anaconda oder Miniconda installiert?** Dann ist `python` in einer frischen
+Shell der Conda-Interpreter: Die von `conda init` erzeugte Zeile in `~/.zshrc`
+aktiviert bei jedem Start automatisch die Umgebung `base`. Ein `python -m venv
+.venv` legt die Umgebung damit auf Conda an — mit einer anderen Python-Version
+und anderen Paketversionen als in `pyproject.toml` vorgesehen. Den Interpreter
+beim Anlegen deshalb ausschreiben:
 
 ```bash
 which -a python3    # zeigt alle Interpreter im PATH
@@ -64,14 +119,14 @@ Konsolenskript darin enthalten den absoluten Pfad, unter dem die Umgebung
 angelegt wurde. Wird das Projekt verschoben oder kopiert, zeigt dieser Pfad ins
 Nichts: Der Prompt meldet weiterhin `(.venv)`, `python` fällt aber auf den
 nächsten `PATH`-Eintrag durch — auf Conda. Da `.venv` in `.gitignore` steht und
-ohnehin nie mitwandert, nach einem Umzug löschen und mit Schritt 1 neu anlegen.
+ohnehin nie mitwandert, nach einem Umzug löschen und neu anlegen.
 
-### 2 · Zertifikate prüfen (nur macOS)
+### 1.2 Zertifikate prüfen (nur macOS)
 
 Die Detroit-Pipeline nutzt `urllib` aus der Standardbibliothek. Python-Versionen
-von python.org bringen dort **keinen** Zertifikatsspeicher mit, jeder HTTPS-Aufruf
-endet dann nach fünf Wiederholungen in `CERTIFICATE_VERIFY_FAILED`. Einmalig pro
-Rechner:
+von python.org bringen dort **keinen** Zertifikatsspeicher mit, jeder
+HTTPS-Aufruf endet dann nach fünf Wiederholungen in
+`CERTIFICATE_VERIFY_FAILED`. Einmalig pro Rechner:
 
 ```bash
 open "/Applications/Python 3.13/Install Certificates.command"
@@ -80,405 +135,242 @@ open "/Applications/Python 3.13/Install Certificates.command"
 Die Chicago-Pipeline ist nicht betroffen, sie nutzt `requests` mit eigenem
 Zertifikatsbündel — deshalb kann Chicago laufen, während Detroit scheitert.
 
-### 3 · Einrichtung prüfen
+### 1.3 Schlüssel hinterlegen
+
+Eine Datei `.env` im Projekt-Root, nach dem Muster von `.env.example`. Sie ist
+über `.gitignore` ausgeschlossen.
+
+```text
+CENSUS_API_KEY=dein_schluessel     # Pflicht für die ACS-Daten
+SOCRATA_APP_TOKEN=dein_token       # optional, für Chicago
+```
+
+**`CENSUS_API_KEY` ist Pflicht**, wenn Census-Daten geladen werden sollen —
+kostenlos unter <https://api.census.gov/data/key_signup.html>. Ohne ihn
+antwortet die API mit **HTTP 200** und einer HTML-Seite „Missing Key" statt mit
+einem Fehlerstatus; die Pipeline erkennt das und bricht ab, statt eine leere
+Tabelle zu schreiben.
+
+`SOCRATA_APP_TOKEN` ist optional. Ohne Token funktioniert der öffentliche
+Zugriff auf Chicago ebenfalls, wird aber stärker gedrosselt.
+
+### 1.4 Einrichtung prüfen
 
 ```bash
 python -m pytest
 ```
 
-Erwartet werden **239 bestandene Tests**, ohne Netzzugriff und ohne App Token.
-
-### 4 · App Token hinterlegen (optional)
-
-Für Chicago in `.env` im Projekt-Root:
-
-```text
-SOCRATA_APP_TOKEN=dein_token
-```
-
-Ohne Token funktioniert der öffentliche Zugriff ebenfalls, wird aber stärker
-gedrosselt. Die Datei ist über `.gitignore` ausgeschlossen.
+Erwartet werden **647 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
+Fixtures und simulierten Quellen.
 
 Bei der weiteren Arbeit genügt `source .venv/bin/activate`; verlassen wird die
 Umgebung mit `deactivate`.
 
-### Wenn etwas klemmt
+---
+
+## 2 · Daten laden
+
+Die Reihenfolge ist nicht beliebig: Jede Schicht liest die darunter. Von einem
+leeren `data/` aus sind es drei Blöcke.
+
+> **Hinweis:** `data/` steht in `.gitignore` — die Daten wandern nicht über Git.
+> Wer frisch klont, lädt sie mit den Schritten unten selbst. Rechnen Sie mit
+> rund zehn Minuten, das meiste davon Wartezeit an den APIs.
+
+### 2.1 Ingestion — raw und bronze
+
+Jeder Aufruf schreibt einen **unveränderlichen Lauf**: erst in ein verstecktes
+`.part`-Verzeichnis, dann atomar veröffentlicht, zuerst raw, dann bronze. Beide
+teilen dieselbe `run_id`. Frühere Läufe werden nie überschrieben.
+
+```bash
+# Chicago — erster Aufruf lädt 2024 vollständig,
+# spätere erkennen das Wasserzeichen und laden ein Delta mit 14 Tagen Überlappung
+python -m chicago_pipeline.download_chicago
+
+# Detroit — immer ein voller Jahrgang, siehe unten warum
+python -m detroit_pipeline.extract_detroit --mode full --years 2024
+
+# Census: Geometrien (Tracts und Stadtgrenzen) und Einwohnerzahlen
+python -m census_pipeline.download_tiger --auslieferung tract
+python -m census_pipeline.download_tiger --auslieferung place
+python -m census_pipeline.download_acs
+
+# Wetter: je Stadt eine Station
+python -m weather_pipeline.download_noaa
+```
+
+**Warum Detroit keine Deltas lädt.** 54,6 % des Jahrgangs 2024 wurden *mehr als
+ein Jahr nach der Tat* noch geändert. Ein Delta nach Tatdatum verpasst diese
+Korrekturen. Bei 88'685 Zeilen und 97 Sekunden Laufzeit ist der volle Snapshot
+die einfachere und die richtigere Variante — gemessen in
+[Notebook 13](notebooks/13_detroit_data_quality.ipynb), Schritt 12.
+
+**Was raw und bronze unterscheidet.** Raw ist das Beweisstück: die Antwort Byte
+für Byte, gzip-komprimiert mit `mtime=0`, damit der SHA-256 im Manifest allein
+von der Antwort abhängt. Ein Delta-Lauf hält Datensätze so fest, wie sie in
+diesem Moment waren — das lässt sich später nicht rekonstruieren. Bronze ist
+daraus abgeleitet und jederzeit neu erzeugbar; es behält die Originaltypen der
+Quelle und deutet nichts. Alles Unerwartete landet in einer Auffangspalte
+`_extra`, statt verworfen zu werden.
+
+Ein Lauf sieht so aus:
+
+```text
+data/
+├── raw/city=chicago/ingest_date=2026-09-05/run_20260905T174014844258Z/
+│   ├── page-0001.json.gz
+│   └── manifest.json
+└── bronze/city=chicago/ingest_date=2026-09-05/run_20260905T174014844258Z/
+    ├── part-0001.parquet
+    └── manifest.json
+```
+
+Partitioniert wird nach dem **Abrufdatum**, nicht nach dem Tatdatum.
+
+Für einen kleinen Test ohne Spuren im echten `data/`:
+
+```bash
+python -m chicago_pipeline.download_chicago \
+  --data-root /tmp/chicago-test --max-records 5
+```
+
+### 2.2 Silver — die erste deutende Schicht
+
+```bash
+python -m silver_pipeline.build_tract          # zuerst: crime_offense braucht ihn
+python -m silver_pipeline.build_place
+python -m silver_pipeline.build_weather_day
+python -m silver_pipeline.build_crime_offense
+```
+
+Anders als Bronze wird Silver **ersetzt und nicht angehäuft** — die Schicht ist
+abgeleitet und jederzeit neu erzeugbar. Das Manifest nennt trotzdem die `run_id`
+jedes Bronze-Laufs, aus dem die Tabelle entstand.
+
+Vier Tabellen, weil die Quellen vier Körner haben. Sie in eine zu zwingen würde
+Zeilen vervielfachen — ein Wetterwert an jedem Delikt derselben Stadt und
+desselben Tages — oder Information wegwerfen:
+
+| Tabelle | Eine Zeile ist | Zeilen |
+| --- | --- | ---: |
+| `tract` | ein Census Tract | 6'282 |
+| `place` | ein Ort (Stadtgrenze) | 2'206 |
+| `weather_day` | eine Stadt an einem Tag | 55'449 |
+| `crime_offense` | eine **Anklage**; je Tat zählt eine | 347'957 |
+
+`crime_offense` leistet drei Übersetzungen auf einmal, und jede ist ein eigener
+Fehlerherd:
+
+* **Delikte.** Chicagos `iucr` und Detroits `state_offense_code` gehen über
+  [`config/iucr_nibrs_mapping.csv`](config/) und
+  [`config/micr_nibrs_mapping.csv`](config/) auf **NIBRS**, die bundesweite
+  Codeliste. Beide Städte zu 100 % zugeordnet.
+* **Zeit.** Chicagos `date` sieht aus wie ein Zeitstempel, ist aber Ortszeit
+  ohne Zone; Detroits Feld ist bereits UTC. Wer beide gleich behandelt,
+  vergleicht Städte, die je nach Jahreszeit ein bis zwei Stunden
+  auseinanderliegen. Die Tabelle führt deshalb `occurred_at_utc` **und**
+  `occurred_at_local`.
+* **Raum.** Punkt-in-Polygon gegen `tract`, damit beide Städte dieselbe
+  Raumeinheit tragen. Chicago 99,3 % verortet, Detroit 99,7 %.
+
+**Die Tabelle wirft nichts weg.** Weder unverortete Fälle noch solche ohne
+NIBRS-Zuordnung noch Detroits `UNFOUNDED`-Fälle. Alle drei sind gekennzeichnet
+(`located`, `nibrs_mapped`, `unfounded`), damit eine Auswertung sie bewusst
+ein- oder ausschliessen kann und dabei sieht, wie viele Zeilen es betrifft.
+
+### 2.3 Gold und Serving
+
+```bash
+python -m gold_pipeline.build_gold
+python -m serving.build_analysis_db
+```
+
+Gold ist ein **Sternschema**: eine Faktentabelle `fact_offense` mit einer Zeile
+je **Tat** und vier Dimensionen daneben. Der Unterschied zu Silver ist das Korn
+— Detroit liefert je Vorfall mehrere Anklagen; wer Zeilen zählt, zählt Detroit
+um 3,9 % zu hoch. Warum kein vorberechneter Würfel gebaut wurde, steht in
+[`docs/sternschema-und-wuerfel.md`](docs/sternschema-und-wuerfel.md).
+
+`build_analysis_db` erzeugt `data/serving/analyse.duckdb` — eine DuckDB-Datei
+mit **Sichten** über die Parquet-Schichten, keine Kopie. Ein Silver- oder
+Gold-Neubau ist darin sofort sichtbar.
+
+```bash
+duckdb -readonly data/serving/analyse.duckdb
+```
+
+```sql
+SHOW TABLES;              -- fünf Gold-, vier Silver- und zwei Metasichten
+SELECT * FROM tabellen;   -- welche Sicht auf welche Datei zeigt
+```
+
+Ein typischer Stern-Join — die Rate je 1'000 Einwohner:
+
+```sql
+WITH einwohner AS (
+    SELECT city, sum(population) AS n
+    FROM dim_tract WHERE city IS NOT NULL GROUP BY 1
+)
+SELECT t.city, count(*) AS delikte, any_value(e.n) AS einwohner,
+       round(count(*) * 1000.0 / any_value(e.n), 1) AS je_1000
+FROM fact_offense f
+JOIN dim_tract t ON t.geoid = f.tract_geoid
+JOIN einwohner e ON e.city  = t.city
+WHERE t.city IS NOT NULL
+GROUP BY 1 ORDER BY je_1000 DESC;
+```
+
+**`WHERE t.city IS NOT NULL` nie vergessen.** `dim_tract` enthält alle Tracts
+beider Countys, auch die ausserhalb der Stadtgrenzen — ohne den Filter zählen
+Vorstädte mit.
+
+---
+
+## 3 · Wenn etwas klemmt
 
 | Symptom | Ursache und Abhilfe |
 | --- | --- |
 | `ModuleNotFoundError: No module named 'chicago_pipeline'` | Die editierbare Installation greift nicht. Zuerst `which python` prüfen: Läuft ein anderer Interpreter als der der Umgebung, oder wurde `.venv` neu angelegt ohne `python -m pip install -r requirements.txt`, fehlt die Installation schlicht. Notlösung: `export PYTHONPATH=src/crime`. Die Tests brauchen das nicht, `pyproject.toml` setzt `pythonpath` für pytest ohnehin. |
-| Prompt zeigt `(.venv)`, `which python` zeigt auf Conda | Die Umgebung wurde verschoben oder mit dem Conda-Python angelegt; ihr `PATH`-Eintrag geht ins Leere. `.venv` löschen und mit Schritt 1 neu anlegen. `conda deactivate` behebt es nicht. |
+| Prompt zeigt `(.venv)`, `which python` zeigt auf Conda | Die Umgebung wurde verschoben oder mit dem Conda-Python angelegt; ihr `PATH`-Eintrag geht ins Leere. `.venv` löschen und neu anlegen. `conda deactivate` behebt es nicht. |
 | Unerwartete Paketversionen, etwa ein älteres `pyarrow` | Es läuft der Conda-Interpreter statt der Umgebung. Prüfen mit `which python` und `python -c "import pyarrow; print(pyarrow.__version__)"`. |
-| `CERTIFICATE_VERIFY_FAILED` bei Detroit | Schritt 2. Alternativ nur für die Sitzung: `export SSL_CERT_FILE=$(python -c "import certifi; print(certifi.where())")`. |
+| `CERTIFICATE_VERIFY_FAILED` bei Detroit | Abschnitt 1.2. Alternativ nur für die Sitzung: `export SSL_CERT_FILE=$(python -c "import certifi; print(certifi.where())")`. |
+| `CENSUS_API_KEY fehlt` | Abschnitt 1.3. Der Schlüssel ist kostenlos und wird sofort per Mail zugestellt. |
+| Census antwortet mit „Missing Key" trotz Schlüssel | Der Schlüssel steht in `.env`, aber das Programm läuft aus einem anderen Verzeichnis. `.env` wird ab dem **aktuellen** Verzeichnis gesucht — aus dem Projekt-Root starten. |
+| `Kein erfolgreicher Detroit-Bronze-Lauf` beim Silver-Bau | Bronze fehlt oder kein Lauf trägt `status: SUCCESS`. Erst die Ingestion aus 2.1. |
+| `Nur NDJSON-Bestände aus der Zeit vor dem Zeitzonen-Fix` | Alte Detroit-Daten. Ihr Jahresfenster war in UTC gezogen statt in Detroiter Ortszeit und enthält Fälle aus dem falschen Jahr. Neu laden: `python -m detroit_pipeline.extract_detroit --mode full --years 2024`. |
+| DuckDB meldet, die Datei sei gesperrt | Eine andere Sitzung hält `analyse.duckdb` schreibend offen. Mit `-readonly` beziehungsweise `read_only=True` können beliebig viele Leser gleichzeitig zugreifen. |
 | Dateien mit „ 2" im Namen, wechselnde Rechte | Ein Sync-Dienst greift in den Ordner. Konfliktkopien entfernen — auch die ohne Endung, etwa `METADATA 2` (`find .venv \( -name "* [0-9]" -o -name "* [0-9].*" \) -delete`) —, neu installieren, und das Projekt aus dem Sync-Ordner nehmen. |
 
-## Chicago-Ingestion
+---
 
-Das Skript `src/crime/chicago_pipeline/download_chicago.py` legt jeden
-API-Abruf als unveränderlichen Lauf in zwei Schichten ab. Standard ist das im
-PoC festgelegte Jahr 2024.
-
-| Schicht | Verzeichnis | Inhalt |
-| --- | --- | --- |
-| Raw | `data/raw/` | die API-Antworten Byte für Byte, gzip-komprimiert |
-| Bronze | `data/bronze/` | daraus abgeleitetes Parquet mit festem Schema |
-
-Beide Schichten teilen dieselbe `run_id`. Raw ist das Beweisstück und lässt sich
-nicht rekonstruieren — ein Delta-Lauf hält Datensätze so fest, wie sie in diesem
-Moment waren. Bronze ist abgeleitet und jederzeit neu erzeugbar. Detroit folgt
-derselben Aufteilung.
-
-Erster Aufruf: vollständigen Snapshot laden:
-
-```bash
-python -m chicago_pipeline.download_chicago
-```
-
-Spätere Aufrufe erkennen das höchste erfolgreiche `updated_on`-Wasserzeichen
-aus den Manifesten und erstellen automatisch einen Delta-Lauf mit 14 Tagen
-Überlappung. Frühere Läufe werden nie verändert oder gelöscht.
-
-Für einen kleinen Test werden die Daten in ein separates Verzeichnis
-geschrieben:
-
-```bash
-python -m chicago_pipeline.download_chicago \
-  --data-root /tmp/chicago-ingestion-test \
-  --max-records 5
-```
-
-Wenn `SOCRATA_APP_TOKEN` in `.env` gesetzt ist, verwendet das Skript ihn
-automatisch. Der öffentliche API-Zugriff funktioniert auch ohne Token:
-
-```bash
-python -m chicago_pipeline.download_chicago --no-token --max-records 5
-```
-
-Ein zusätzlicher vollständiger Snapshot wird mit `--full` als neuer Lauf
-erstellt. Auch dabei wird kein früherer Lauf überschrieben:
-
-```bash
-python -m chicago_pipeline.download_chicago --full
-```
-
-### Aufbau der Schichten
-
-```text
-data/
-├── raw/
-│   └── city=chicago/
-│       └── ingest_date=2026-09-05/
-│           └── run_20260905T174014844258Z/
-│               ├── page-0001.json.gz
-│               ├── page-0002.json.gz
-│               └── manifest.json
-└── bronze/
-    └── city=chicago/
-        └── ingest_date=2026-09-05/
-            └── run_20260905T174014844258Z/
-                ├── part-0001.parquet
-                └── manifest.json
-```
-
-Die Partitionierung folgt dem Abrufdatum, nicht dem Tatdatum. Jeder Lauf wird
-zuerst in versteckten `.part`-Verzeichnissen erstellt und erst nach
-erfolgreichem Abschluss atomar veröffentlicht — zuerst Raw, dann Bronze.
-
-**Raw.** Eine Datei je API-Seite mit dem unveränderten Antwortkörper. Nichts wird
-umgewandelt: `arrest` bleibt ein JSON-Boolean, `location` ein verschachteltes
-Objekt. Die Kompression ist deterministisch (`mtime=0`), damit der SHA-256 im
-Manifest allein von der Antwort abhängt.
-
-**Bronze.** Aus Raw abgeleitet, mit den Originaltypen im Parquet-Schema. Das
-Manifest verweist über `derived_from` auf den Raw-Lauf derselben `run_id`.
-
-### Originaltypen und festes Schema
-
-Die Werte behalten den JSON-Typ, den die API liefert. Es wird nichts
-interpretiert und nichts umgewandelt:
-
-| Feld | Parquet-Typ | Grund |
-| --- | --- | --- |
-| `arrest`, `domestic` | `bool` | die API sendet echte JSON-Booleans |
-| `location` | `struct<latitude, longitude, human_address>` | die API sendet ein verschachteltes Objekt |
-| alle übrigen 19 Felder | `string` | die API sendet Strings, auch für Datum, Zahlen und Koordinaten |
-
-Datumswerte bleiben also Text, weil sie als Text ankommen. Das Parsen von
-Zeitstempeln, das Casten von `ward` oder `latitude` sowie Deduplizierung, SCD2
-und DuckDB gehören in die Staging- beziehungsweise Curated-Schicht.
-
-Die Abfrage nutzt kein `$select`, es werden ganze Datensätze geladen. Die 22
-bekannten Felder sind als Spalten fixiert, damit alle Läufe dasselbe Schema
-haben und gemeinsam gelesen werden können. Alles, was nicht in dieses Schema
-passt, wird unverändert in der Spalte `_extra` als JSON aufbewahrt:
-
-- ein Feld, das die Stadt später ergänzt, zum Beispiel `{"victim_age":"34"}`
-- ein Wert, dessen JSON-Typ sich ändert, zum Beispiel `{"arrest":"true"}`;
-  die Spalte `arrest` ist für diese Zeile dann leer
-- ein `location`-Objekt mit unerwarteten Schlüsseln
-
-Damit geht kein Wert verloren, obwohl die Antworten selbst nicht archiviert
-werden, und das Schema bleibt über alle Läufe hinweg stabil.
-
-**Socrata-eigene Spalten.** Die Plattform liefert neun Spalten
-`:@computed_region_*` sowie Metadaten wie `:id` und `:updated_at`. Es sind
-räumliche Verknüpfungen von Socrata, keine Daten der Stadt, und ihre Werte
-ändern sich, wenn Socrata seine Grenzdateien aktualisiert. `ward`, `district`,
-`community_area` und `beat` enthalten dieselbe Information bereits aus der
-Quelle. Alle Felder mit dem Präfix `:` werden deshalb verworfen und landen auch
-nicht in `_extra`.
-
-Die API lässt diese Spalten zwar bereits weg, sobald `$where` oder `$order`
-gesetzt ist, was in dieser Abfrage immer der Fall ist. Dieses Verhalten ist
-aber nicht dokumentiert, deshalb filtert das Skript zusätzlich selbst. Das
-Manifest hält die Regel als `query.dropped_field_prefix` fest.
-
-Das Manifest enthält unter anderem:
-
-- Start- und Endzeit des Laufs
-- Zeilenanzahl und API-Abfrage ohne Token
-- vorheriges und neues `updated_on`-Wasserzeichen
-- Lookback-Zeitraum
-- vollständiges Parquet-Schema mit Typen (`schema`)
-- Dateigrösse und SHA-256 der Parquet-Datei
-- Information, ob ein App Token verwendet wurde
-- Vollständigkeitsnachweis (`completeness`): Zählung davor und danach, Grösse
-  und SHA-256 der festgeschriebenen `id`-Liste, geladene Zeilen
-- Schema-Fingerabdruck der Quelle samt Feldtypen (`source_schema`)
-- Schicht (`layer`), Format und die Dateien dieser Schicht
-
-### Robustheit
-
-Fünf Mechanismen schützen die Bronze-Schicht vor unbemerkt unvollständigen
-Läufen:
-
-**Wiederholungen.** Die Session wiederholt gedrosselte und vorübergehend
-fehlerhafte Antworten (429, 500, 502, 503, 504) bis zu fünfmal mit
-exponentiellem Backoff. Ein voller Snapshot braucht rund 30 Anfragen; ohne
-Wiederholung würde ein einzelner Fehler den ganzen Lauf verwerfen.
-
-**Keyset-Pagination statt Offset.** Jede Folgeseite fragt ab der zuletzt
-gesehenen `id` (`... AND id > 13324861`, sortiert nach `id`) statt über
-`$offset`. Bei Offset-Paginierung verschieben gleichzeitige Änderungen an der
-Quelle die Seitengrenzen, wodurch Zeilen übersprungen oder doppelt geliefert
-werden können. Mit dem Schlüssel als Anker kann das nicht passieren.
-
-**Festgeschriebener Snapshot.** Vor dem Download wird die Menge der `id`-Werte
-abgefragt und festgehalten. Danach muss die Menge der geladenen `id`-Werte
-exakt dieser Liste entsprechen — nicht nur die Anzahl. Fehlt eine Zeile oder
-kommt eine unerwartete hinzu, bricht der Lauf ab und veröffentlicht nichts. Eine
-reine `id`-Abfrage liefert bis zu 50 000 Werte, ein ganzer Jahrgang kostet also
-nur wenige zusätzliche Anfragen.
-
-**Zählungen als Klammer.** `count(1)` läuft vor dem Lauf gegen die
-`id`-Liste (Abweichung = Abbruch) und noch einmal danach. Die zweite Zählung
-blockiert nicht, sondern hält als `source_changed_during_run` fest, ob sich die
-Quelle während des Laufs bewegt hat. Ist die Zählung nicht verfügbar, bleibt der
-`id`-Abgleich als Nachweis bestehen. Läufe mit `--max-records` kürzen absichtlich
-und durchlaufen keine dieser Prüfungen.
-
-**Schema-Fingerabdruck.** Aus den Feldnamen und Feldtypen der Quelle wird ein
-SHA-256 gebildet und im Manifest abgelegt. Ändert die Stadt den Typ eines
-Feldes, ändert sich der Fingerabdruck — auch dann, wenn die Ingestion
-weiterläuft. Die Spalte `_extra` fängt neue Felder auf, eine Typänderung an
-einem bestehenden Feld würde sie nicht bemerken.
-
-**Aufräumen.** Bricht ein Lauf hart ab, bleiben seine `.part`-Verzeichnisse
-liegen. Der nächste Start entfernt sie in beiden Schichten, sobald sie älter als
-24 Stunden sind. Veröffentlichte Läufe werden nie angefasst.
-
-Das Wasserzeichen wird ausschliesslich aus Bronze-Manifesten gelesen, und Bronze
-wird zuletzt veröffentlicht. Scheitert ein Lauf zwischen den Schichten, bleibt
-das Beweisstück in Raw erhalten, das Wasserzeichen rückt aber nicht vor: Der
-nächste Lauf wiederholt dasselbe Fenster, statt eine Lücke zu hinterlassen.
-
-Fortschritt und Fehler gehen über das `logging`-Modul nach stderr.
-
-### Daten lesen
-
-Die Datenordner werden von Git ignoriert. Ein einzelner Lauf:
-
-```python
-import pandas as pd
-
-run = "data/bronze/city=chicago/ingest_date=2026-09-04/run_20260904T040000000000Z"
-df = pd.read_parquet(f"{run}/part-0001.parquet")
-```
-
-Mehrere Läufe zusammen: Da neben jeder Parquet-Datei ein `manifest.json` liegt,
-werden die Dateien gezielt ausgewählt und mit dem festen Schema gelesen:
-
-```python
-from pathlib import Path
-import pyarrow.parquet as pq
-
-parts = sorted(Path("data/bronze").glob("**/part-0001.parquet"))
-table = pq.read_table(parts)
-```
-
-`pq.read_table` liest über die Dataset-Schicht: Sie wertet die
-Hive-Verzeichnisse über den Dateien aus und hängt `city` und `ingest_date` als
-zusätzliche Spalten an — je nach PyArrow-Version auch dann, wenn nur eine
-einzelne Datei übergeben wird. Für einen Blick auf genau das Schema einer Datei
-wird sie deshalb direkt gelesen:
-
-```python
-schema = pq.ParquetFile(parts[0]).schema_arrow   # exakt die 23 Spalten der Datei
-```
-
-Löschungen werden später durch einen separaten Schlüsselabgleich erkannt und
-als eigener unveränderlicher Lauf dokumentiert. Die Auflösung mehrerer
-Versionen derselben `id` erfolgt erst oberhalb der Bronze-Schicht.
-
-Weitere Optionen zeigt:
-
-```bash
-python -m chicago_pipeline.download_chicago --help
-```
-
-## Wetter-Ingestion (NOAA)
-
-Das Skript `src/crime/weather_pipeline/download_noaa.py` lädt die täglichen
-Messreihen des GHCN-Daily, eine CSV je Station, und legt sie nach demselben
-Muster wie die übrigen Quellen als unveränderlichen Lauf in Raw und Bronze ab.
-Ein API-Schlüssel ist nicht nötig.
-
-```bash
-python -m weather_pipeline.download_noaa
-```
-
-Standard sind die beiden Flughafenstationen, je eine pro Stadt:
-
-| Station | ID | Reihe beginnt |
-| --- | --- | --- |
-| Chicago O'Hare | `USW00094846` | 1946-10-09 |
-| Detroit Metro | `USW00094847` | 1942-08-01 |
-
-Chicago Midway (`USW00014819`) ist bekannt, aber nicht Teil des Standardlaufs;
-`--station USW00014819` lädt sie zusätzlich.
-
-**Wetter wird nicht räumlich verbunden.** Census und die Falldaten treffen sich
-über `GEOID`; eine Wetterstation gilt für die ganze Stadt. Der Join läuft über
-**Datum und Stadt**, deshalb heißt der Partitionsschlüssel `station=` und nicht
-`state=`. Das Manifest nennt die Achse ausdrücklich unter `join_keys`.
-
-```text
-data/bronze/dataset=noaa_ghcnd/station=USW00094846/run_<UTC-Zeitstempel>/
-├── part-0001.parquet
-└── manifest.json
-```
-
-### Was in Bronze steht
-
-Gepinnt sind die Identitätsspalten (`STATION`, `DATE`, `LATITUDE`, `LONGITUDE`,
-`ELEVATION`, `NAME`) und vier Größen mit ihren Qualitätsflags: `PRCP`, `SNOW`,
-`TMAX`, `TMIN`, je mit `_ATTRIBUTES`.
-
-`notebooks/22_weather_source.ipynb` dokumentiert die Quelle vollständig und
-prüft die Feststellungen an den geladenen Daten nach — unter anderem die
-Zehntel-Einheiten, den Nachlauf der Quelle, dass die vier Größen erst ab Ende
-1958 belegt sind, und dass die `_ATTRIBUTES`-Spalten je Station verschieden
-viele Felder führen.
-
-Die Quelle liefert deutlich mehr — O'Hare 112 Spalten, Detroit Metro 116, unter
-anderem `SNWD`, `TAVG`, `AWND` und die Wettertyp-Flags `WT01` bis `WV20`. Alles
-davon landet unverändert in `_extra`, einem JSON-Objekt je Zeile. Nichts wird
-verworfen: Wer später Schneehöhe oder Mitteltemperatur auswerten will, findet
-sie dort und braucht keinen neuen Ladelauf.
-
-**Werte bleiben Text, so wie die Quelle sie schreibt** — einschließlich der
-Leerzeichen, mit denen sie rechtsbündig aufgefüllt sind (`"  214"`). GHCN-Daily
-führt Temperaturen in Zehntelgrad Celsius und Niederschlag in
-Zehntelmillimetern; `"  214"` sind also 21,4 °C. Geparst und umgerechnet wird in
-Silver, nicht bei der Ingestion.
-
-### Läufe und Vollständigkeit
-
-Jeder Lauf ist ein vollständiger Schnappschuss — die Quelle liefert immer die
-ganze Reihe, es gibt kein Delta abzurufen. Weil jeder Lauf vollständig ist,
-entsteht durch selteneres Laden **keine Lücke**: Der nächste Lauf bringt die
-Zwischenzeit mit. Zwei Bremsen greifen deshalb vor dem Download:
-
-| Bremse | Wirkung | Umgehung |
-| --- | --- | --- |
-| Mindestabstand, standardmässig 7 Tage | fragt gar nicht erst | `--force` oder `--min-interval-days 0` |
-| Bedingter Abruf über `If-None-Match` | `HTTP 304`, null Bytes statt 11 MB | keine — auch `--force` schreibt keinen Lauf, wenn die Quelle unverändert ist |
-
-Der Wochenrhythmus ist Abschnitt 3.1 der Projektabsprache, Entscheid „B plus D".
-Ein täglicher Vollschnappschuss kostet 8,3 GB im Jahr, der Wochenlauf 1,2 GB —
-bei gleichem Informationsgehalt.
-
-Nachgewiesen wird die Vollständigkeit dreifach: `Content-Length` gegen die
-empfangenen Bytes, gelesene CSV-Zeilen gegen geschriebene Parquet-Zeilen, und
-die Prüfung, dass jede Zeile dieselbe Station nennt wie die angefragte Datei.
-Ein Fingerabdruck über die Kopfzeile macht sichtbar, wenn NOAA Spalten ergänzt.
-
-**Nachlauf der Quelle:** Die Reihen enden rund vier Tage vor dem Abrufdatum. Ein
-Join auf die jüngsten Falldaten läuft dort ins Leere — das ist eine Eigenschaft
-der Quelle, kein Fehler der Ingestion.
-
-## Silver-Schicht
-
-Bronze hält je Quelle einen unveränderten Schnappschuss. **Silver ist die erste
-Schicht, die deutet:** Typen setzen, Einheiten auflösen, Fehlwerte kennzeichnen,
-Schlüssel harmonisieren. Werkzeug ist DuckDB mit der `spatial`-Extension
-([Absprache 5.3](docs/projektabsprache.md)).
-
-Weil die Quellen drei verschiedene Körner haben, gibt es drei Tabellen und nicht
-eine — sonst vervielfachen sich Zeilen, und jede Aggregation zählt danach falsch:
-
-| Tabelle | Eine Zeile ist | Stand |
-| --- | --- | --- |
-| `tract` | ein Census Tract | ● gebaut |
-| `weather_day` | eine Stadt an einem Tag | ● gebaut |
-| `crime_offense` | ein Delikt | ○ offen |
-
-```bash
-python -m silver_pipeline.build_tract
-python -m silver_pipeline.build_weather_day
-```
-
-Das schreibt `data/silver/dataset=tract/vintage=2024/` mit Parquet und Manifest.
-Anders als Bronze wird Silver **ersetzt und nicht angehäuft** — die Schicht ist
-abgeleitet und jederzeit neu erzeugbar. Das Manifest nennt trotzdem die `run_id`
-jedes Bronze-Laufs, aus dem die Tabelle entstand; ohne diese Herkunft ist der
-Referenzstand aus [Absprache 7.1](docs/projektabsprache.md) nicht belegbar.
-
-Was `tract` gegenüber Bronze deutet: Der ACS liefert alles als Text, hier werden
-es Zahlen. Die Fehlwert-Kennung `-666666666` wird zu `NULL` — in Bronze bleibt
-der Code stehen. Die Armutsquote ist abgeleitet und bei Tracts ohne Einwohner
-`NULL` statt einer Division durch null, die absoluten Zahlen bleiben erhalten.
-Auffälligkeiten werden in `quality_flags` benannt statt entfernt.
-
-Was `weather_day` deutet: **die Einheiten.** GHCN-Daily führt Temperatur und
-Niederschlag in Zehnteln, Schneefall dagegen schon in Millimetern — `"  214"`
-sind 21,4 °C. Ein leeres Feld wird `NULL` und nicht `0`, was bei Niederschlag
-der entscheidende Unterschied ist. Das Messflag `T` für Spurenmengen bekommt
-eine eigene Spalte, weil `PRCP = 0` mit `T` nicht „trocken" heisst. Und die
-Feldzahl der `_ATTRIBUTES`-Spalten wird ausgezählt statt unterstellt: Sie ist je
-Grösse und je Station verschieden.
-
-Je Stadt wird **eine** Station verwendet ([Absprache 3](docs/projektabsprache.md)).
-Ein zugeschaltetes Midway erscheint deshalb nicht in der Tabelle — das Manifest
-nennt es unter `skipped_stations`, damit es nicht stillschweigend verschwindet.
-Zwei Stationen derselben Stadt sind ein Fehler und kein stiller Doppelzähler.
-
-## Tests
-
-Die Tests der Ingestion laufen ohne Netzzugriff und ohne App Token:
+## 4 · Tests
 
 ```bash
 python -m pytest
 ```
 
-Sie decken Argumentprüfung, Token-Ermittlung, Wasserzeichen und Lookback,
-API-Abfrage und Paginierung, Wiederholungen und Vollständigkeitsprüfung, das
-Aufräumen liegengebliebener `.part`-Verzeichnisse, die unveränderte Ablage der
-Antworten in Raw, die Spalte `_extra` für neue API-Felder sowie das atomare
-Veröffentlichen beider Schichten inklusive Manifest ab.
+**647 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
-Weitere Optionen zeigt:
+* **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
+  Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
+  liegengebliebener `.part`-Verzeichnisse und das atomare Veröffentlichen
+  beider Schichten samt Manifest.
+* **Crosswalks** — dass sich `config/*.csv` aus den amtlichen PDFs
+  **reproduzieren** lässt: Das Werkzeug läuft in ein temporäres Verzeichnis,
+  und das Ergebnis muss byteweise mit der versionierten Datei übereinstimmen.
+  Ohne diese Prüfung wäre „nicht von Hand gepflegt" eine Behauptung.
+* **Silver und Gold** — Korn, Deduplikation, Zeitzonen, der räumliche Join, die
+  Stadtzuordnung und die zurückgezogenen NIBRS-Codes.
+* **Die Dokumente** — `tests/test_abgabedokumente.py` und
+  `tests/test_aenderungen.py` prüfen die Zahlen in `docs/` gegen die gebauten
+  Parquet-Dateien. Eine Zahl auf einer Folie, die der Zahl im Konzept
+  widerspricht, ist der teuerste Fehler in einer Abgabe.
+
+Weitere Optionen zeigt jedes Modul selbst:
 
 ```bash
 python -m chicago_pipeline.download_chicago --help
+python -m detroit_pipeline.extract_detroit --help
 ```

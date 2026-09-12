@@ -20,7 +20,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **639** |
+| Tests | **647** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -29,6 +29,44 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 12.09.2026 · Das README überarbeitet (#49)
+
+**Was.** Neu geschrieben: eine Erklärung, worum es im Projekt geht, die
+Einrichtung, der vollständige Ladeweg aller fünf Quellen, die Fehlerbehebung
+und die Tests. Von 484 auf 376 Zeilen — kürzer und trotzdem vollständiger.
+
+**Warum.** Das README beschrieb Chicago und das Wetter ausführlich und
+**Detroit, Gold und Serving gar nicht**. Wer danach vorging, kam bis Bronze und
+dann nicht weiter. Drei Aussagen waren zudem überholt:
+
+| Stand da | Richtig |
+| --- | --- |
+| „239 bestandene Tests" | **647** |
+| `crime_offense` ○ offen, „drei Tabellen" | gebaut, **vier** Tabellen — `place` fehlte ganz |
+| kein Wort zu Gold, Serving, Detroit-Ingestion | jetzt mit Befehl und Begründung |
+
+**Die Lücke, die am meisten gekostet hätte.** `CENSUS_API_KEY` war **nirgends
+erwähnt**, obwohl er für die ACS-Daten Pflicht ist — und die Census-API
+antwortet ohne Schlüssel mit **HTTP 200** und einer HTML-Seite „Missing Key".
+Wer dem README folgte, wäre an dieser Stelle ohne verständliche Meldung
+steckengeblieben.
+
+**Neu gegenüber vorher.** Der Ladeweg steht jetzt als Reihenfolge da — Ingestion
+je Quelle, dann Silver in der richtigen Abfolge (`tract` vor `crime_offense`),
+dann Gold und Serving mitsamt einer lauffähigen Beispielabfrage. Dazu sieben
+neue Zeilen in der Fehlerbehebung: der fehlende Census-Schlüssel, `.env` aus
+dem falschen Verzeichnis, fehlendes Detroit-Bronze, die alten NDJSON-Bestände
+und die gesperrte DuckDB-Datei.
+
+**Damit es nicht wieder veraltet.** `tests/test_abgabedokumente.py` prüft jetzt
+auch das README: die fünf Zeilenzahlen, beide Raten und die Testzahl selbst.
+Gegenprobe gemacht — eine Zahl auf den alten Stand gesetzt, der Test fällt mit
+`assert 84648 == 84658`. **639 → 647 Tests**, die acht neuen sind diese Prüfung.
+
+**Nachlesen.** `README.md` · PR #49
 
 ---
 

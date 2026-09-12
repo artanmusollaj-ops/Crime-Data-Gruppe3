@@ -22,6 +22,8 @@ muessen auch in einem frischen Klon ohne ``data/`` durchlaufen.
 from __future__ import annotations
 
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -30,6 +32,7 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 KONZEPT = PROJECT_ROOT / "docs" / "ln1_konzept.md"
 ABSPRACHE = PROJECT_ROOT / "docs" / "projektabsprache.md"
+README = PROJECT_ROOT / "README.md"
 
 SILVER = PROJECT_ROOT / "data" / "silver"
 GOLD = PROJECT_ROOT / "data" / "gold"
@@ -66,6 +69,11 @@ def konzept() -> str:
 @pytest.fixture(scope="module")
 def absprache() -> str:
     return ABSPRACHE.read_text(encoding="utf-8")
+
+
+@pytest.fixture(scope="module")
+def readme() -> str:
+    return README.read_text(encoding="utf-8")
 
 
 def zeilen(con, pfad: Path | None) -> int:
@@ -203,4 +211,79 @@ def test_h3_tabelle_in_85(con, konzept):
     chi, det, zusammen = (int(g.replace("'", "")) for g in treffer.groups())
     assert (chi, det, zusammen) == (
         je_stadt["chicago"], je_stadt["detroit"], gesamt
+    )
+
+
+# --------------------------------------------------------------------------
+# README - die erste Seite, die jemand liest
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "dataset,schicht,muster",
+    [
+        ("crime_offense", SILVER, r"`silver/crime_offense` \| ([0-9']+) Zeilen"),
+        ("fact_offense", GOLD, r"`gold/fact_offense` \| ([0-9']+) Zeilen"),
+        ("tract", SILVER, r"\| `tract` \| ein Census Tract \| ([0-9']+) \|"),
+        ("place", SILVER, r"\| `place` \|[^|]*\| ([0-9']+) \|"),
+        ("weather_day", SILVER, r"\| `weather_day` \|[^|]*\| ([0-9']+) \|"),
+    ],
+)
+def test_readme_nennt_die_zeilenzahlen(con, readme, dataset, schicht, muster):
+    """Der Kopf des README nennt den Stand der Schichten."""
+    assert genannt(readme, muster) == zeilen(con, parquet(schicht, dataset)), dataset
+
+
+@pytest.mark.parametrize("stadt", ["Chicago", "Detroit"])
+def test_readme_nennt_die_raten(con, readme, stadt):
+    fakt, dim = parquet(GOLD, "fact_offense"), parquet(GOLD, "dim_tract")
+    if fakt is None or dim is None:
+        pytest.skip("Gold nicht gebaut")
+    echt = dict(
+        (z[0], (z[1], z[2]))
+        for z in con.execute(f"""
+            WITH e AS (
+                SELECT city, sum(population) AS n FROM read_parquet('{dim}')
+                WHERE city IS NOT NULL GROUP BY 1
+            )
+            SELECT t.city, count(*), round(count(*) * 1000.0 / any_value(e.n), 1)
+            FROM read_parquet('{fakt}') f
+            JOIN read_parquet('{dim}') t ON t.geoid = f.tract_geoid
+            JOIN e ON e.city = t.city
+            WHERE t.city IS NOT NULL GROUP BY 1
+        """).fetchall()
+    )
+    treffer = re.search(
+        rf"\| {stadt} \| ([0-9']+) Delikte .*?\*\*([0-9]+,[0-9])\*\* je 1'000",
+        readme,
+    )
+    assert treffer, f"Ratenzeile fuer {stadt} nicht im README"
+    delikte = int(treffer.group(1).replace("'", ""))
+    rate = float(treffer.group(2).replace(",", "."))
+    assert delikte == echt[stadt.lower()][0]
+    assert rate == pytest.approx(echt[stadt.lower()][1], abs=0.05)
+
+
+def test_readme_nennt_die_testzahl(readme):
+    """"Erwartet werden N bestandene Tests" - die Zusage an jeden, der neu klont.
+
+    Steht dort eine zu hohe Zahl, glaubt der Nächste, seine Einrichtung sei
+    kaputt. Steht eine zu niedrige, faellt nicht auf, dass Tests fehlen.
+    """
+    genannte = {
+        int(z.replace("'", ""))
+        for z in re.findall(r"\*\*([0-9']+) (?:bestandene )?Tests?\*\*", readme)
+    }
+    assert genannte, "Das README nennt keine Testzahl"
+    fertig = subprocess.run(
+        [sys.executable, "-m", "pytest", "--collect-only",
+         "-o", "addopts=", "-p", "no:cacheprovider"],
+        capture_output=True, text=True, cwd=PROJECT_ROOT,
+    )
+    treffer = re.search(r"([0-9]+) tests? collected", fertig.stdout)
+    if treffer is None:
+        pytest.skip(f"Sammellauf lieferte keine Zahl: {fertig.stdout[-200:]}")
+    gesammelt = int(treffer.group(1))
+    assert genannte == {gesammelt}, (
+        f"README nennt {sorted(genannte)} Tests, gesammelt werden {gesammelt}"
     )
