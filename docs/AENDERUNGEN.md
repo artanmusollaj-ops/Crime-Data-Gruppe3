@@ -42,6 +42,52 @@ Eintrag hier sagt, was das war.
 
 ---
 
+## 12.09.2026 · CI — die Tests laufen jetzt auch ohne uns (#54)
+
+**Was.** `.github/workflows/tests.yml`: die Suite auf jedem Pull Request und auf
+`main`, unter Python **3.11 und 3.13**. Dazu sieben veraltete Statuszeilen in
+`leistungsnachweise.md` nachgezogen.
+
+**Warum.** Bis heute liefen die Tests nur, wenn jemand daran dachte. **Zweimal**
+ist dabei eine Zahl in den Abgabedokumenten veraltet, ohne dass etwas rot wurde
+— gefunden hat es beide Male ein Zufall. Seit es Wächter für diese Zahlen gibt,
+müssen sie auch automatisch laufen.
+
+**Was CI prüft — und was nicht.** In einem frischen Klon laufen **628 der 662
+Tests**. Die übrigen 34 überspringen sich selbst, weil sie gebaute Daten
+brauchen und `data/` nicht versioniert ist. Das ist eine ehrliche Grenze: Die
+Zahlen *gegen die Parquet-Dateien* prüft nur ein lokaler Lauf. Was in CI läuft,
+ist trotzdem das Wesentliche — die Reproduzierbarkeit der Crosswalks aus den
+amtlichen PDFs, die Form der Dokumente, und **beide Wächter über die Testzahl**.
+
+**Ein Fund beim Proben.** Der Probelauf in einem frischen Klon zeigte, dass
+`openpyxl` **nirgends deklariert** war. Lokal ist es installiert, in CI wäre es
+das nicht — und damit hätten sich **sechs Tests stillschweigend übersprungen**:
+genau die, die die 81 NIBRS-Bezeichnungen gegen Illinois' IEPD-Arbeitsmappe
+halten, also gegen die *zweite* Quelle. Die Codeliste hätte in CI wieder nur
+eine Quelle gehabt. Jetzt steht `openpyxl` in den Testabhängigkeiten: **622 →
+628** Tests im frischen Klon.
+
+**Die Matrix ist kein Selbstzweck.** Das README sagt „Python 3.11 oder neuer".
+Mit zwei Versionen im Lauf ist das eine geprüfte Aussage statt einer
+Behauptung.
+
+**Sieben Statuszeilen nachgezogen.**
+
+| Stand da | Tatsächlich |
+| --- | --- |
+| Storage „nicht evaluiert" | Notebook 31 misst, Kapitel 7 schreibt es aus |
+| „Silver ist leer" | vier Tabellen, 347'957 Zeilen |
+| „für Chicago fertig" | beide Städte, seit Notebook 13 |
+| „Detroit-Quellnotebook fehlt" | Notebook 11 |
+| „Bronze-Format ist offen" | Parquet, Absprache 4.1 |
+| Arbeitsteilung „verschoben" | geregelt am 12.9. |
+| Absprache 4.2 „Entscheid: Hängt von 4.1 ab" | Variante A, umgesetzt in PR #39 |
+
+**Nachlesen.** `.github/workflows/tests.yml` · PR #54
+
+---
+
 ## 12.09.2026 · Ein Widerspruch im Konzept, und ein Reproduktionsweg, der nicht lief (#53)
 
 **Was.** Aus einer externen Schwachstellenanalyse: zwei Befunde geprüft und

@@ -24,10 +24,10 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 | **Forschungsfragen, Hypothesen** | ◐ Vorschlag steht, vier bereits vorgeprüft | Auswahl und Formulierung entscheiden → Abschnitt 2.2 / 2.3 |
 | **Vorgehen und Methoden** | ◐ implizit im Code | Methodenteil ausformulieren → Abschnitt 2.4 |
 | **Entwurf DE-Lebenszyklus** | ◐ gebaut, nicht benannt | Zuordnung dokumentieren → Abschnitt 3 |
-| **Ingestion: Quellen, Beschaffung** | ● fertig | Detroit-Quellnotebook fehlt |
-| **Storage: Evaluation, Wahl, Implementierung** | ◐ implementiert, Werkzeug entschieden, nicht evaluiert | Begründeter Vergleich → Abschnitt 4; zusätzlich das Bronze-Format ([Absprache 4.1](projektabsprache.md)) |
-| **Transformation 1: Analyse, Hypothesentest** | ◐ für Chicago fertig | Detroit-Qualität, eigentlicher Test → Abschnitt 5 |
-| **Initiale Datenbereinigung** | ○ Silver ist leer | Dedup, Typen, Join → Abschnitt 5 |
+| **Ingestion: Quellen, Beschaffung** | ● fertig | fünf Quellen, je ein Quellnotebook |
+| **Storage: Evaluation, Wahl, Implementierung** | ● fertig | gemessen in Notebook 31 (NDJSON gegen Parquet), verschriftlicht in [`ln1_konzept.md`](ln1_konzept.md) Kapitel 7 |
+| **Transformation 1: Analyse, Hypothesentest** | ◐ Qualität beider Städte fertig | der eigentliche Hypothesentest → Abschnitt 5 |
+| **Initiale Datenbereinigung** | ● fertig | vier Silver-Tabellen, `crime_offense` mit 347'957 Zeilen |
 | **Beantwortung der Forschungsfragen** | ○ | folgt aus allem davor |
 
 ● fertig ◐ teilweise ○ offen
@@ -579,8 +579,8 @@ ergibt sich folgender Stand:
 | 2 | **Hypothesen** — H1 bis H5 Pflicht, H6 bis H8 Kür? | ○ **offen** | – |
 | 3 | **Serving-Option** — A, B oder C? | ● **A · Analytik** | Abschnitt 6; gebaut als Sternschema auf Deliktkorn statt als Aggregat — die Messung dazu in Notebook 34 |
 | 4 | **Wetterquelle** — im Scope? | ● **ja** | [Absprache 2.1](projektabsprache.md) Variante **D**; Quelle gebaut, getestet, geladen, dokumentiert |
-| 5 | **Storage-Begründung** | ◐ **Werkzeug ja, Begründung nein** | [Absprache 5.3](projektabsprache.md) „DuckDB"; die schriftliche Evaluation fehlt, und das Bronze-Format ist offen ([4.1](projektabsprache.md)) |
-| 6 | **Arbeitsteilung** | ○ **verschoben** | [Absprache 7.3](projektabsprache.md) „Machen wir sobald Artan bereit ist" |
+| 5 | **Storage-Begründung** | ● **erledigt** | Notebook 31 misst NDJSON gegen Parquet, Kapitel 7 schreibt es aus; das Bronze-Format ist mit [Absprache 4.1](projektabsprache.md) auf Parquet entschieden |
+| 6 | **Arbeitsteilung** | ● **geregelt am 12.9.2026** | Christian: Silver, Gold, Pipeline. Artan: Dokumentation, Präsentation, Hypothesen |
 
 Dazu zwei Entscheide, die in dieser Liste bisher fehlten und weiterhin offen
 sind — beide in Abschnitt 10.1: **Sichtbarkeit** des Repositorys und **Ablage**
