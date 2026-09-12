@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 322" role="img" width="100%" height="auto"
+     aria-label="Vier Körner im Vergleich: Silver hält 347957 Anklagen, Gold 344617 Taten, die verworfenen Würfel nur noch 95219 beziehungsweise 11156 vorberechnete Zellen.">
+<style>
+  svg { color: #14304a; }
+  .signal { fill: #c2410c; }
+  @media (prefers-color-scheme: dark) {
+    svg { color: #dde5ee; }
+    .signal { fill: #dda05c; }
+  }
+</style>
+  <text x="184" y="58" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12.5" font-weight="600" fill="currentColor">silver/crime_offense</text>
+  <text x="184" y="73" text-anchor="end" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.62">eine Anklage</text>
+  <rect x="196" y="44" width="376.0" height="32" rx="3" class="signal" fill-opacity="0.82" stroke="none"/>
+  <text x="584.0" y="59" font-family="ui-monospace SFMono-Regular Menlo monospace" font-size="12" fill="currentColor" font-weight="600">347 957</text>
+  <text x="584.0" y="74" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" fill="currentColor" fill-opacity="0.6">jede Anklage einzeln · 3,9 % Überzählung</text>
+  <text x="184" y="120" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12.5" font-weight="600" fill="currentColor">gold/fact_offense</text>
+  <text x="184" y="135" text-anchor="end" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.62">eine Tat</text>
+  <rect x="196" y="106" width="372.4" height="32" rx="3" class="signal" fill-opacity="0.82" stroke="none"/>
+  <text x="580.4" y="121" font-family="ui-monospace SFMono-Regular Menlo monospace" font-size="12" fill="currentColor" font-weight="600">344 617</text>
+  <text x="580.4" y="136" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" fill="currentColor" fill-opacity="0.6">je Tat eine zählende Zeile · das gebaute Korn</text>
+  <text x="184" y="182" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12.5" font-weight="600" fill="currentColor">fact_tract_month</text>
+  <text x="184" y="197" text-anchor="end" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.62">Tract × Monat × Familie</text>
+  <rect x="196" y="168" width="102.9" height="32" rx="3" fill="currentColor" fill-opacity="0.07" stroke="currentColor" stroke-width="1.1" stroke-dasharray="4 3" stroke-opacity="0.55"/>
+  <text x="310.9" y="183" font-family="ui-monospace SFMono-Regular Menlo monospace" font-size="12" fill="currentColor" font-weight="600">95 219</text>
+  <text x="310.9" y="198" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" fill="currentColor" fill-opacity="0.6">kein Tag, kein einzelnes Delikt</text>
+  <text x="184" y="244" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12.5" font-weight="600" fill="currentColor">fact_city_day</text>
+  <text x="184" y="259" text-anchor="end" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.62">Stadt × Tag × Familie</text>
+  <rect x="196" y="230" width="12.1" height="32" rx="3" fill="currentColor" fill-opacity="0.07" stroke="currentColor" stroke-width="1.1" stroke-dasharray="4 3" stroke-opacity="0.55"/>
+  <text x="220.1" y="245" font-family="ui-monospace SFMono-Regular Menlo monospace" font-size="12" fill="currentColor" font-weight="600">11 156</text>
+  <text x="220.1" y="260" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" fill="currentColor" fill-opacity="0.6">kein Tract, kein einzelnes Delikt</text>
+  <text x="196" y="26" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="600" class="signal">gebaut</text>
+  <text x="262" y="26" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.6">· gestrichelt: der verworfene Entwurf</text>
+  <text x="14" y="308" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12.5" fill="currentColor" fill-opacity="0.7">Der Schritt von Silver zu Gold kostet 3 340 Zeilen — der Schritt zum Würfel 249 398.</text>
+</svg>
