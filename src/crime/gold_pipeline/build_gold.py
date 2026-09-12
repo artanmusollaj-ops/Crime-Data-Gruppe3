@@ -53,7 +53,11 @@ from typing import Any, NamedTuple
 import duckdb
 
 from gold_pipeline import (
+    GATE_HOECHSTENS,
+    GATE_MINDESTENS,
+    GEO_STATUS_WERTE,
     GOLD_LAYER,
+    MAPPING_STATUS_WERTE,
     STADT_SCHWELLE,
     STUDIENSTAEDTE,
     table_dir,
@@ -427,7 +431,7 @@ def dim_city_day_query(weather: Quelle, offense: Quelle) -> str:
 # --------------------------------------------------------------------------
 
 
-def fact_offense_query(offense: Quelle) -> str:
+def fact_offense_query(offense: Quelle, tracts: str = "dim_tract") -> str:
     """Eine Zeile je **Tat**, mit den Schluesseln der Dimensionen.
 
     Hier liegt der einzige Stellenwechsel gegenueber Silver. Detroits Zeilen
@@ -463,10 +467,22 @@ def fact_offense_query(offense: Quelle) -> str:
         o.latitude                                      AS latitude,
         o.longitude                                     AS longitude,
         o.located                                       AS located,
+        o.mapping_status                                AS mapping_status,
+        -- Warum eine Zeile in einer Tract-Auswertung fehlt, in einem Wort.
+        -- ``located`` sagt nur ja oder nein; hier steht der Grund, und die
+        -- vierte Stufe braucht die Stadtgrenze - deshalb entsteht die Spalte
+        -- in Gold und nicht in Silver.
+        CASE
+            WHEN o.latitude IS NULL   THEN 'missing_coordinate'
+            WHEN o.tract_geoid IS NULL THEN 'no_tract'
+            WHEN t.city IS NULL        THEN 'outside_city'
+            ELSE 'inside_city'
+        END                                             AS geo_status,
         o.arrest                                        AS arrest,
         o.unfounded                                     AS unfounded,
         o.offense_group_id                              AS offense_group_id
     FROM {offense.relation} o
+    LEFT JOIN {tracts} t ON t.geoid = o.tract_geoid
     WHERE o.counts
     """
 
@@ -474,6 +490,75 @@ def fact_offense_query(offense: Quelle) -> str:
 # --------------------------------------------------------------------------
 # Nachweis
 # --------------------------------------------------------------------------
+
+
+def abdeckung(con: duckdb.DuckDBPyConnection) -> dict[str, float]:
+    """Misst, wie sich die Fakten auf die beiden Statusspalten verteilen.
+
+    Nur messen - ob die Anteile ausreichen, entscheidet ``pruefe_gate``. Die
+    Trennung ist Absicht: Eine Messung darf auch dann Zahlen liefern, wenn sie
+    schlecht aussehen, und eine Testfixture mit zwei Zeilen hat naturgemaess
+    schraege Anteile.
+
+    Eine Pruefung steckt trotzdem hier, weil sie keine Ermessensfrage ist:
+    Kommt in ``mapping_status`` oder ``geo_status`` ein Wert vor, den der Code
+    nicht kennt, hat jemand die Einstufung geaendert - dann bleibt der Bau
+    stehen, statt eine Kennzahl still zu verschieben.
+    """
+    unbekannt = {}
+    for spalte, erlaubt in (("mapping_status", MAPPING_STATUS_WERTE),
+                            ("geo_status", GEO_STATUS_WERTE)):
+        fremd = sorted(
+            str(z[0]) for z in con.execute(
+                f"SELECT DISTINCT {spalte} FROM fact_offense"
+            ).fetchall() if z[0] not in erlaubt
+        )
+        if fremd:
+            unbekannt[spalte] = fremd
+    if unbekannt:
+        raise TransformError(
+            f"Unbekannte Statuswerte in fact_offense: {unbekannt}. Entweder "
+            "ist die Einstufung geaendert worden - dann gehoert der neue Wert "
+            "in MAPPING_STATUS_WERTE beziehungsweise GEO_STATUS_WERTE - oder "
+            "es ist ein Tippfehler."
+        )
+
+    gesamt = con.execute("SELECT count(*) FROM fact_offense").fetchone()[0]
+    anteile: dict[str, float] = {}
+    for spalte, werte in (("geo_status", GEO_STATUS_WERTE),
+                          ("mapping_status", MAPPING_STATUS_WERTE)):
+        for wert in sorted(werte):
+            n = con.execute(
+                f"SELECT count(*) FROM fact_offense WHERE {spalte} = ?", [wert]
+            ).fetchone()[0]
+            anteile[wert] = round(100.0 * n / gesamt, 4) if gesamt else 0.0
+
+    return anteile
+
+
+def pruefe_gate(anteile: dict[str, float]) -> None:
+    """Das Publish-Gate: Gold wird nur veroeffentlicht, wenn die Abdeckung traegt.
+
+    Gerufen wird es von ``build`` und nicht von ``reconcile`` - ein Nachweis
+    misst, ein Gate entscheidet. Warum die Schwellen so weit unter den
+    gemessenen Werten liegen, steht bei ``GATE_MINDESTENS``.
+    """
+    for wert, boden in GATE_MINDESTENS.items():
+        ist = anteile.get(wert, 0.0)
+        if ist < boden:
+            raise TransformError(
+                f"Abdeckung reisst die Schwelle: {wert} bei {ist} %, verlangt "
+                f"sind mindestens {boden} %. Die Schwelle liegt weit unter dem "
+                "gemessenen Stand - vor dem Hochsetzen pruefen, ob der "
+                "raeumliche Join oder ein Crosswalk gebrochen ist."
+            )
+    for wert, decke in GATE_HOECHSTENS.items():
+        ist = anteile.get(wert, 0.0)
+        if ist > decke:
+            raise TransformError(
+                f"Abdeckung reisst die Schwelle: {wert} bei {ist} %, erlaubt "
+                f"sind hoechstens {decke} %."
+            )
 
 
 def reconcile(
@@ -604,9 +689,16 @@ def reconcile(
         ).fetchall()
     }
 
+    anteile = abdeckung(con)
+
     return {
         "verified": True,
         "grain": "eine Tat; Detroits weitere Anklagen bleiben in Silver",
+        "coverage_percent": anteile,
+        "coverage_gate": {
+            "minimum": GATE_MINDESTENS,
+            "maximum": GATE_HOECHSTENS,
+        },
         "fact_rows": gold,
         "silver_rows": silber,
         "silver_rows_counting": zaehlend,
@@ -686,6 +778,10 @@ def build(data_root: Path, config_root: Path, vintage: int) -> dict[str, Path]:
         con.execute(f"CREATE TABLE fact_offense AS {fact_offense_query(offense)}")
 
         nachweis = reconcile(con, offense)
+        # Erst hier, nicht im Nachweis: Was gemessen wurde, steht im Manifest;
+        # ob es reicht, entscheidet das Gate - und zwar bevor irgendeine
+        # Tabelle veroeffentlicht wird.
+        pruefe_gate(nachweis["coverage_percent"])
 
         bauplan = [
             ("fact_offense", "eine Tat", [offense],

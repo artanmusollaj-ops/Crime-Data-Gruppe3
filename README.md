@@ -162,7 +162,7 @@ Zugriff auf Chicago ebenfalls, wird aber stärker gedrosselt.
 python -m pytest
 ```
 
-Erwartet werden **662 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **672 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -361,7 +361,7 @@ können.
 python -m pytest
 ```
 
-**662 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**672 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -384,7 +384,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus, unter Python **3.11 und 3.13** — die Untergrenze aus
 `pyproject.toml` und die Version, auf der entwickelt wird.
 
-In einem frischen Klon laufen **628 der 662 Tests**. Die übrigen 34 überspringen
+In einem frischen Klon laufen **638 der 672 Tests**. Die übrigen 34 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter

@@ -795,3 +795,56 @@ def test_je_tat_zaehlt_genau_eine_zeile(tmp_path):
         je_tat.setdefault(z["offense_group_id"], []).append(z["counts"])
     for gruppe, marken in je_tat.items():
         assert sum(1 for m in marken if m) == 1, f"{gruppe}: {marken}"
+
+
+# --------------------------------------------------------------------------
+# mapping_status
+# --------------------------------------------------------------------------
+
+
+def test_mapping_status_deckt_jede_herkunft_der_crosswalks_ab():
+    """Jeder ``match``-Wert in den Crosswalks braucht eine Einstufung.
+
+    Sonst faellt der Bau erst auf, wenn die Daten den betroffenen Code
+    enthalten - also moeglicherweise erst beim naechsten Jahrgang. Der Test
+    liest die Crosswalks selbst statt einer gepflegten Liste.
+    """
+    duckdb = pytest.importorskip("duckdb")
+    con = duckdb.connect()
+    try:
+        vorhanden = set()
+        for datei in ("iucr_nibrs_mapping.csv", "micr_nibrs_mapping.csv"):
+            pfad = PROJECT_ROOT / "config" / datei
+            if not pfad.exists():
+                continue
+            vorhanden |= {
+                z[0] for z in con.execute(
+                    f"SELECT DISTINCT match FROM read_csv('{pfad}') "
+                    "WHERE mapped = 'true'"
+                ).fetchall() if z[0]
+            }
+    finally:
+        con.close()
+    fehlend = sorted(vorhanden - set(bc.MAPPING_STATUS))
+    assert not fehlend, (
+        f"ohne Einstufung in MAPPING_STATUS: {fehlend}. Eintragen und dabei "
+        "entscheiden, ob die Zuordnung belegt (exact) oder eine Entscheidung "
+        "(ambiguous) ist."
+    )
+
+
+def test_mapping_status_kennt_nur_die_vier_stufen():
+    erlaubt = {"exact", "ambiguous", "fallback_90Z", "unmapped"}
+    assert set(bc.MAPPING_STATUS.values()) <= erlaubt
+
+
+def test_der_auffangcode_ist_keine_exakte_zuordnung():
+    """90Z ist ein gueltiger Code und trotzdem kein vergleichbares Delikt.
+
+    Er entsteht auf zwei Wegen: Chicagos Crosswalk fuehrt ihn als
+    ``nibrs_auffang``, Detroits MICR-Handbuch bildet Codes direkt darauf ab.
+    Der zweite Weg traegt eine Herkunft, die sonst ``exact`` waere - deshalb
+    entscheidet in der Abfrage der **Code** und nicht die Herkunft.
+    """
+    assert bc.MAPPING_STATUS["nibrs_auffang"] == "fallback_90Z"
+    assert bc.AUFFANG_CODE == "90Z"
