@@ -272,12 +272,12 @@ def test_jeder_zurueckgezogene_code_sagt_was_er_heute_bedeutet(tmp_path):
     uebersieht ein Filter auf 26A genau die Faelle, die frueher 90A hiessen.
     """
     nach_code = {z["nibrs_code"]: z for z in bg.dim_offense_rows(PROJECT_ROOT / "config")}
-    erlaubt = {"current", "replaced", "not_an_offense", "unresolved"}
+    erlaubt = {"current", "replaced", "reclassified", "not_an_offense", "unresolved"}
     for code, zeile in nach_code.items():
         assert zeile["resolution"] in erlaubt, f"{code}: {zeile['resolution']}"
         if zeile["retired"]:
             assert zeile["retirement_note"], f"{code} ohne Begruendung"
-        if zeile["resolution"] == "replaced":
+        if zeile["resolution"] in {"replaced", "reclassified"}:
             assert zeile["replaced_by"] in nach_code, (
                 f"{code} zeigt auf {zeile['replaced_by']}, den es nicht gibt"
             )
@@ -301,16 +301,89 @@ def test_runaway_ist_keine_tat_und_sagt_das(tmp_path):
     zeile = {z["nibrs_code"]: z for z in bg.dim_offense_rows(PROJECT_ROOT / "config")}["90I"]
     assert zeile["resolution"] == "not_an_offense"
     assert zeile["replaced_by"] is None
-    assert "Harboring" in zeile["retirement_note"], (
-        "die Notiz muss den Unterschied zum Beherbergen benennen"
+    assert "Not a Crime" in zeile["retirement_note"], (
+        "die Notiz muss den FBI-Beleg nennen, nicht eine Herleitung"
     )
 
 
-def test_die_familie_ist_das_kuerzel_und_nichts_erfundenes(tmp_path):
-    """Kein Familienname, weil die Spezifikation dafuer keine Liste fuehrt."""
+def test_die_familie_bleibt_das_kuerzel(tmp_path):
+    """Sie ist ein technischer Schluessel, keine Gliederung."""
     zeilen = bg.dim_offense_rows(PROJECT_ROOT / "config")
     assert all(z["nibrs_family"] == z["nibrs_code"][:2] for z in zeilen)
-    assert "nibrs_family_description" not in zeilen[0]
+    assert "nibrs_family_description" not in zeilen[0], (
+        "die Familie bekommt keinen Namen - dafuer ist nibrs_category da"
+    )
+
+
+def test_jeder_code_hat_genau_eine_kategorie(tmp_path):
+    nach_code = {z["nibrs_code"]: z for z in bg.dim_offense_rows(PROJECT_ROOT / "config")}
+    ohne = sorted(c for c, z in nach_code.items() if not z["nibrs_category"])
+    assert not ohne, f"Codes ohne Kategorie: {ohne}"
+
+
+def test_die_kategorie_ist_nicht_die_familie(tmp_path):
+    """Genau die vier Stellen, an denen das Praefix in die Irre fuehrt.
+
+    Sie sind der Grund, warum das Handbuch gelesen wird statt left(code, 2)
+    genommen: Waeren Familie und Kategorie dasselbe, braeuchte es die Datei
+    nicht.
+    """
+    nach_code = {z["nibrs_code"]: z for z in bg.dim_offense_rows(PROJECT_ROOT / "config")}
+
+    def kat(code):
+        return nach_code[code]["nibrs_category"]
+
+    # Eine Kategorie, zwei Familien
+    assert kat("11A") == kat("36A") == "Sex Offenses"
+    # Eine Kategorie, drei Familien
+    assert kat("58A") == kat("61A") == kat("620") == "Commerce Violations"
+    # Eine Familie, drei Kategorien
+    assert kat("100") == "Kidnapping/Abduction"
+    assert kat("101") == "Treason"
+    assert kat("103") == "Espionage"
+    # Group B hat keinen Sammelnamen fuer die Familie 90
+    neunzig = {kat(c) for c in nach_code if c.startswith("90")}
+    assert len(neunzig) > 5, f"Familie 90 sollte viele Kategorien haben: {neunzig}"
+
+
+def test_das_handbuch_nennt_28_und_10(tmp_path):
+    """Die Zahlen, die das Handbuch ueber sich selbst sagt."""
+    zeilen = [z for z in bg.dim_offense_rows(PROJECT_ROOT / "config") if not z["retired"]]
+    a = {z["nibrs_category"] for z in zeilen if z["nibrs_group"] == "A"}
+    b = {z["nibrs_category"] for z in zeilen if z["nibrs_group"] == "B"}
+    assert len(a) == 28, f"{len(a)} Group-A-Kategorien"
+    assert len(b) == 10, f"{len(b)} Group-B-Kategorien"
+    assert sum(1 for z in zeilen if z["nibrs_group"] == "A") == 71
+
+
+def test_die_zurueckgezogenen_behalten_ihre_kategorie_von_2011(tmp_path):
+    """Das Handbuch 2025 kennt sie nicht mehr; die Codeliste 2011 schon.
+
+    Die Kategorie kommt aus derselben CSV wie alle anderen - die Datei sagt je
+    Zeile, welches Dokument sie belegt. Gold kennt die vier Codes nicht
+    namentlich und muss es auch nicht.
+    """
+    nach_code = {z["nibrs_code"]: z for z in bg.dim_offense_rows(PROJECT_ROOT / "config")}
+    assert nach_code["90A"]["nibrs_category"] == "Bad Checks"
+    assert nach_code["90I"]["nibrs_category"] == "Runaway"
+
+
+def test_11b_und_11c_werden_auf_11a_umgeschluesselt(tmp_path):
+    """Nicht zurueckgezogen, aber beim Veroeffentlichen zusammengefasst.
+
+    Wer sie in einer Auswertung stehen laesst, zaehlt anders als das FBI - bei
+    uns sind das 205 Faelle aus Detroit.
+    """
+    nach_code = {z["nibrs_code"]: z for z in bg.dim_offense_rows(PROJECT_ROOT / "config")}
+    for code in ("11B", "11C"):
+        zeile = nach_code[code]
+        assert zeile["retired"] is False, f"{code} ist meldbar, nicht zurueckgezogen"
+        assert zeile["resolution"] == "reclassified"
+        assert zeile["replaced_by"] == "11A"
+        assert "2023" in zeile["retirement_note"], (
+            f"{code}: die Notiz muss die Fassung nennen, ab der das gilt"
+        )
+    assert nach_code["11A"]["resolution"] == "current"
 
 
 def test_in_der_echten_dimension_ist_jeder_genutzte_code_aufloesbar(con):
@@ -414,12 +487,12 @@ def baue(con, tmp_path, zeilen, tracts=None):
     con.execute(f"CREATE OR REPLACE TABLE dim_tract AS {bg.dim_tract_query(tract, place)}")
     con.execute(
         "CREATE OR REPLACE TABLE dim_offense (nibrs_code VARCHAR, nibrs_description VARCHAR, "
-        "nibrs_family VARCHAR, nibrs_group VARCHAR, crime_against VARCHAR, "
-        "federal_only BOOLEAN, retired BOOLEAN, replaced_by VARCHAR, "
-        "resolution VARCHAR, retirement_note VARCHAR)"
+        "nibrs_category VARCHAR, nibrs_family VARCHAR, nibrs_group VARCHAR, "
+        "crime_against VARCHAR, federal_only BOOLEAN, retired BOOLEAN, "
+        "replaced_by VARCHAR, resolution VARCHAR, retirement_note VARCHAR)"
     )
     con.executemany(
-        "INSERT INTO dim_offense VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO dim_offense VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [tuple(z.values()) for z in bg.dim_offense_rows(PROJECT_ROOT / "config")],
     )
     con.execute(f"CREATE OR REPLACE TABLE dim_date AS {bg.dim_date_query(offense)}")

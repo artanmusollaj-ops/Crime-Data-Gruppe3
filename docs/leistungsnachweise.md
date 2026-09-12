@@ -33,7 +33,7 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 ● fertig ◐ teilweise ○ offen
 
 **Die gute Nachricht:** Ingestion und Storage — die beiden praktisch
-aufwendigsten Blöcke — stehen. 585 Tests, fünf Quellen in vier Pipelines,
+aufwendigsten Blöcke — stehen. 590 Tests, fünf Quellen in vier Pipelines,
 nachgewiesene Vollständigkeit. Und weil die Hypothesen Fragen des Data Engineering sind
 (Abschnitt 2.0), sind fünf davon durch die bisherige Arbeit **bereits
 gemessen**: Wir haben Befunde, bevor wir die Hypothesen formuliert haben — und
@@ -768,7 +768,7 @@ es ist der dokumentierte Ablauf, in dem die Pipelines zu laufen haben.
 ### 10.2 Zeitbudget: 15 Minuten pro Person
 
 Bei zwei Personen bleiben je 15 Minuten. Unser Stoff ist ein Vielfaches davon —
-fünf Quellen, vier Pipelines, 585 Tests, Qualitätsanalyse, Lebenszyklus,
+fünf Quellen, vier Pipelines, 590 Tests, Qualitätsanalyse, Lebenszyklus,
 Speicherevaluation, Hypothesen. Ohne harte Auswahl wird es eine Aufzählung ohne
 Tiefe.
 
