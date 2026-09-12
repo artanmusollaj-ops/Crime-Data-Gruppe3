@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **660** |
+| Tests | **662** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -39,6 +39,68 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 12.09.2026 · Ein Widerspruch im Konzept, und ein Reproduktionsweg, der nicht lief (#53)
+
+**Was.** Aus einer externen Schwachstellenanalyse: zwei Befunde geprüft und
+behoben, plus die Herkunft von `dim_offense`.
+
+### Der Widerspruch
+
+Kapitel 5.2 sagte unter *Was ausdrücklich nicht geliefert wird*:
+
+> **Keine zeilenweisen Falldaten.** Gold ist aggregiert; wer einzelne Fälle
+> braucht, geht auf Silver.
+
+`fact_offense` führt `offense_id`, `occurred_at_local`, `latitude`,
+`longitude` — **eine Zeile je Tat**. Der Satz war falsch, und er widersprach
+der eigenen Kernbegründung: Notebook 34 und die Erklärseite argumentieren
+ausführlich *„Gold behält deshalb das Korn"*. Ein Überbleibsel des
+Würfel-Entwurfs, beim Umstieg auf das Sternschema nie nachgezogen.
+
+**Warum das mehr wiegt als eine veraltete Zahl.** Eine falsche Zahl ist ein
+Fehler; ein Widerspruch zwischen zwei Kapiteln desselben Dokuments ist eine
+Einladung zur Nachfrage — ein Prüfer liest 5.2 und öffnet `fact_offense`.
+
+Der Abschnitt sagt jetzt, was tatsächlich gilt: **keine vorberechneten
+Aggregate**, und was ein Dashboard zeigt, ist eine engere Auswahl als Gold —
+Aggregate je Tract und Zeitraum, ohne Identifikatoren und Punktkoordinaten.
+Die alte Fassung steht als Korrekturhinweis dabei, statt spurlos zu
+verschwinden.
+
+### Der Reproduktionsweg
+
+Kapitel 10 nachgespielt. Drei Fehler:
+
+| Stand da | Problem |
+| --- | --- |
+| `extract_detroit --year 2024` | **gibt es nicht** — der Aufruf ist `--mode full --years 2024` |
+| `download_tiger` ohne `--auslieferung` | lädt nur Tracts. Ohne `place` bekommt `dim_tract` **keine Stadtzuordnung** — und das scheitert nicht, es liefert still ein Gold ohne Städte |
+| Silver mit zwei von vier Tabellen | `build_place` und `build_crime_offense` fehlten, Gold und Serving ganz |
+
+Jetzt stehen alle 15 Befehle da, und **jeder ist nachgeprüft**: `--help` läuft
+bei allen durch. Ein Reproduktionsabschnitt, der nicht läuft, ist in einer
+Abgabe schlimmer als keiner — er behauptet Reproduzierbarkeit.
+
+### Die Herkunft von `dim_offense`
+
+Ihr `derived_from` war **leer** — ausgerechnet bei der Dimension, die
+entscheidet, was in beiden Städten als welches Delikt zählt. Die übrigen vier
+Gold-Tabellen nannten ihre Silver-Quellen korrekt; diese fiel durch, weil sie
+nicht aus Silver kommt, sondern aus zwei Dateien unter `config/`. `Quelle`
+trägt jetzt eine Schicht, und das Manifest nennt sie.
+
+**Was aus der Analyse *nicht* übernommen wurde.** Der Befund *„Detroit hat
+keinen automatisch fortgeschriebenen Wasserstand"* ist keine Lücke, sondern
+eine gemessene Entscheidung: 54,6 % des Jahrgangs wurden mehr als ein Jahr nach
+der Tat noch geändert, ein Wasserstand nach Tatdatum verpasst genau diese
+Korrekturen. Ein voller Snapshot dauert 97 Sekunden.
+
+**Zahlen.** 660 → **662 Tests**. An den Daten ändert sich nichts.
+
+**Nachlesen.** `docs/ln1_konzept.md` 5.2 und 10 · PR #53
 
 ---
 

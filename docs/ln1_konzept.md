@@ -510,10 +510,23 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 
 #### Was ausdrücklich nicht geliefert wird
 
-- **Keine zeilenweisen Falldaten.** Gold ist aggregiert; wer einzelne Fälle
-  braucht, geht auf Silver.
+- **Keine vorberechneten Aggregate.** Gold behält das Korn — eine Zeile je Tat,
+  mit Zeitpunkt und Koordinate. Aggregiert wird in der Abfrage, nicht im
+  Speicher; die Messung dazu steht weiter oben in diesem Kapitel. Wer nur
+  Summen braucht, bekommt sie über ein `GROUP BY`.
 - **Keine Merkmalstabelle je Tract für Modelle.** Das wäre Option B, und die ist
   nicht gewählt.
+- **Was das Dashboard zeigt, ist eine engere Auswahl als Gold.** Die
+  Faktentabelle trägt `offense_id`, den genauen Zeitpunkt und die Koordinate —
+  nötig für flexible Auswertung, aber nichts, was auf eine Folie gehört. Eine
+  veröffentlichte Ansicht zeigt Aggregate je Tract und Zeitraum, ohne
+  Identifikatoren und ohne Punktkoordinaten.
+
+> **Korrektur, 12.9.2026.** Hier stand bis heute *„Keine zeilenweisen
+> Falldaten. Gold ist aggregiert."* Das war ein Überbleibsel des
+> Würfel-Entwurfs und widersprach der Messung, die ihn verworfen hat: Gold
+> behält das Korn, genau das ist die Entscheidung. Siehe
+> [`AENDERUNGEN.md`](AENDERUNGEN.md).
 
 ### 5.3 Unterströmungen
 
@@ -521,7 +534,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 660 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
+| **DataOps** | 662 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -1084,8 +1097,8 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 - **Keine Orchestrierung.** Bewusst, siehe Kapitel 5.
 - **Der räumliche Join ist nicht unabhängig validiert**, weil die einzige
   verfügbare Referenz sich als widersprüchlich erwiesen hat (8.4).
-- **Ein Notebook zur Detroit-Quelle fehlt.** Für Chicago, Census und Wetter
-  existiert je eines.
+- **Kein Feldkatalog.** Die Bedeutung der Felder steht in den Modul-Docstrings
+  und Manifesten, aber nicht an einer Stelle zusammen.
 
 ---
 
@@ -1094,24 +1107,36 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 627 bestandene Tests
+python -m pytest                       # erwartet 662 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
 
 ```bash
 python -m chicago_pipeline.download_chicago --year 2024
-python -m detroit_pipeline.extract_detroit --year 2024
-python -m census_pipeline.download_tiger
+python -m detroit_pipeline.extract_detroit --mode full --years 2024
+python -m census_pipeline.download_tiger --auslieferung tract
+python -m census_pipeline.download_tiger --auslieferung place
 python -m census_pipeline.download_acs   # braucht CENSUS_API_KEY in .env
 python -m weather_pipeline.download_noaa
 ```
 
-Silver ableiten:
+**Beide TIGER-Aufrufe sind nötig.** `tract` ist die Raumeinheit, `place` die
+Stadtgrenze; ohne die zweite bekommt `dim_tract` keine Stadtzuordnung, und die
+Rate je Einwohner hat keinen Nenner. Der Aufruf ohne `--auslieferung` lädt nur
+Tracts und scheitert dabei nicht — er liefert still ein Gold ohne Städte.
+
+Silver, Gold und die Auswertungsumgebung ableiten — die Reihenfolge gilt,
+`build_crime_offense` braucht `tract`:
 
 ```bash
 python -m silver_pipeline.build_tract
+python -m silver_pipeline.build_place
 python -m silver_pipeline.build_weather_day
+python -m silver_pipeline.build_crime_offense
+python -m gold_pipeline.build_gold
+python -m serving.build_analysis_db
+python -m serving.export_geojson
 ```
 
 **Wichtig zur Reproduzierbarkeit.** Die Falldaten wachsen laufend, ein Lauf von
