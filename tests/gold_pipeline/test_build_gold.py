@@ -131,6 +131,7 @@ def offense_quelle(tmp_path: Path, zeilen) -> bg.Quelle:
         "crime_against": pa.array(["Person"] * n),
         "nibrs_match": pa.array(["nibrs_definition"] * n),
         "nibrs_mapped": pa.array([True] * n),
+        "mapping_status": pa.array(["exact"] * n),
         "latitude": pa.array([41.8] * n, pa.float64()),
         "longitude": pa.array([-87.6] * n, pa.float64()),
         "tract_geoid": pa.array([z[4] for z in zeilen]),
@@ -715,7 +716,9 @@ def test_eine_nicht_zaehlende_zeile_kommt_nicht_nach_gold(con, tmp_path):
         ("a", "chicago", date(2024, 3, 1), "13A", "17031010100", True),
         ("b", "chicago", date(2024, 3, 1), "23C", "17031010100", False),
     ])
-    con.execute(f"CREATE OR REPLACE TABLE fo AS {bg.fact_offense_query(offense)}")
+    con.execute("CREATE OR REPLACE TABLE leere_tracts AS SELECT NULL::VARCHAR AS geoid, NULL::VARCHAR AS city WHERE false")
+    con.execute("CREATE OR REPLACE TABLE fo AS "
+                + bg.fact_offense_query(offense, "leere_tracts"))
     ids = [z[0] for z in con.execute("SELECT offense_id FROM fo").fetchall()]
     assert ids == ["a"]
 
@@ -746,3 +749,96 @@ def test_das_manifest_uebernimmt_die_schicht_der_quelle(con, tmp_path):
         datetime.now(timezone.utc), None, "eine Zeile", {},
     )
     assert [q["layer"] for q in manifest["derived_from"]] == ["config", "silver"]
+
+
+# --------------------------------------------------------------------------
+# Abdeckung und Publish-Gate
+# --------------------------------------------------------------------------
+
+
+def test_geo_status_nennt_den_grund_statt_nur_ja_oder_nein(con, tmp_path):
+    """``located`` sagt, *dass* eine Zeile fehlt. ``geo_status`` sagt *warum*.
+
+    Vier Faelle, und sie fuehren zu verschiedenen Schluessen: Ohne Koordinate
+    hat die Quelle nichts geliefert; ausserhalb der Stadt hat die
+    Mehrheitsregel entschieden. Das erste ist eine Luecke, das zweite eine
+    Entscheidung - eine Auswertung darf sie nicht in einen Topf werfen.
+    """
+    baue(
+        con, tmp_path,
+        [
+            ("drin", "chicago", date(2024, 3, 1), "13A", "17031010100"),
+            ("draussen", "chicago", date(2024, 3, 2), "13A", "17031010300"),
+            ("kein_tract", "chicago", date(2024, 3, 3), "13A", None),
+        ],
+        tracts=[
+            ("17031010100", 1000, wkb_rechteck(1, 1, 2, 2)),
+            ("17031010300", 500, wkb_rechteck(9.7, 1, 1.0, 1.0)),
+        ],
+    )
+    status = dict(con.execute(
+        "SELECT offense_id, geo_status FROM fact_offense"
+    ).fetchall())
+    assert status["drin"] == "inside_city"
+    assert status["draussen"] == "outside_city"
+    assert status["kein_tract"] == "no_tract"
+
+
+def test_die_abdeckung_zaehlt_jede_zeile_genau_einmal(con, tmp_path):
+    baue(con, tmp_path, [
+        ("a", "chicago", date(2024, 3, 1), "13A", "17031010100"),
+        ("b", "chicago", date(2024, 3, 2), "13A", "17031010100"),
+    ])
+    anteile = bg.abdeckung(con)
+    geo = sum(anteile[w] for w in bg.GEO_STATUS_WERTE)
+    zuordnung = sum(anteile[w] for w in bg.MAPPING_STATUS_WERTE)
+    assert geo == pytest.approx(100.0, abs=0.01)
+    assert zuordnung == pytest.approx(100.0, abs=0.01)
+
+
+def test_ein_unbekannter_statuswert_laesst_den_bau_stehen(con, tmp_path):
+    """Wer die Einstufung aendert, soll es merken - nicht die Kennzahl.
+
+    Ein neuer Wert in ``mapping_status`` wuerde sonst in keiner Gruppierung
+    auftauchen, die die bekannten Werte aufzaehlt. Die Zeile verschwaende aus
+    der Abdeckung, ohne dass eine Summe sich beklagt.
+    """
+    baue(con, tmp_path, [("a", "chicago", date(2024, 3, 1), "13A", "17031010100")])
+    con.execute("UPDATE fact_offense SET mapping_status = 'halbwegs_sicher'")
+    with pytest.raises(TransformError, match="Unbekannte Statuswerte"):
+        bg.abdeckung(con)
+
+
+def test_das_gate_haelt_die_gemessene_abdeckung_aus():
+    """Die Schwellen sind Boeden, keine Ziele - der echte Stand muss durchgehen."""
+    gemessen = {
+        "inside_city": 97.55, "outside_city": 1.87,
+        "missing_coordinate": 0.58, "no_tract": 0.0,
+        "exact": 95.49, "ambiguous": 1.48,
+        "fallback_90Z": 3.03, "unmapped": 0.0009,
+    }
+    bg.pruefe_gate(gemessen)  # darf nicht werfen
+
+
+def test_das_gate_faellt_bei_gebrochenem_raeumlichem_join():
+    """Der Fall, fuer den es das Gate gibt."""
+    kaputt = {"inside_city": 12.0, "exact": 95.49, "unmapped": 0.0}
+    with pytest.raises(TransformError, match="inside_city"):
+        bg.pruefe_gate(kaputt)
+
+
+def test_das_gate_faellt_bei_zu_vielen_ohne_zuordnung():
+    kaputt = {"inside_city": 97.5, "exact": 90.0, "unmapped": 7.5}
+    with pytest.raises(TransformError, match="unmapped"):
+        bg.pruefe_gate(kaputt)
+
+
+def test_die_schwellen_liegen_unter_dem_gemessenen_stand():
+    """Ein Gate, das knapp unter dem Ist liegt, wird beim ersten Rot hochgesetzt.
+
+    Deshalb steht hier, wie viel Luft es haben soll: mindestens fuenf
+    Prozentpunkte. Wer die Schwelle enger zieht, muss diesen Test anfassen -
+    und damit die Entscheidung sichtbar machen.
+    """
+    assert bg.GATE_MINDESTENS["inside_city"] <= 97.55 - 5
+    assert bg.GATE_MINDESTENS["exact"] <= 95.49 - 5

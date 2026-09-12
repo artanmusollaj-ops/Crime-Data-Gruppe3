@@ -54,6 +54,32 @@ STUDIENSTAEDTE = {
 # notebooks/34_gold_sternschema.ipynb).
 STADT_SCHWELLE = 0.5
 
+# Was die beiden Statusspalten annehmen duerfen. Ein neuer Wert bedeutet, dass
+# jemand die Einstufung geaendert hat - dann soll der Bau stehen bleiben und
+# nicht still eine Kennzahl verschieben.
+MAPPING_STATUS_WERTE = {"exact", "ambiguous", "fallback_90Z", "unmapped"}
+GEO_STATUS_WERTE = {"inside_city", "outside_city", "no_tract", "missing_coordinate"}
+
+# Untergrenzen fuer die Veroeffentlichung, in Prozent der Faktenzeilen.
+#
+# **Es sind Boeden, keine Ziele.** Am Jahrgang 2024 gemessen liegen die Werte
+# weit darueber: inside_city 97,55 %, exact 95,49 %, unmapped 0,0009 %. Die
+# Schwellen haben absichtlich viel Luft - sie sollen einen *Einsturz*
+# abfangen, nicht die normale Bewegung der Quelle. Ein gebrochener raeumlicher
+# Join oder ein Crosswalk, der ins Leere laeuft, faellt hier auf; dass die
+# Stadt ein paar hundert Faelle anders codiert, nicht.
+#
+# Eng gezogene Schwellen waeren schlimmer als keine: Sie wuerden bei jeder
+# Datenbewegung rot, und die erste Reaktion waere, sie hochzusetzen statt
+# hinzusehen.
+GATE_MINDESTENS = {
+    "inside_city": 90.0,      # gemessen 97,55
+    "exact": 85.0,            # gemessen 95,49
+}
+GATE_HOECHSTENS = {
+    "unmapped": 1.0,          # gemessen 0,0009
+}
+
 
 def table_dir(data_root: Path, table: str) -> Path:
     """Wohin eine Gold-Tabelle geschrieben wird."""

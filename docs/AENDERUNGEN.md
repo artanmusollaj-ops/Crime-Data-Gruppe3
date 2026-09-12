@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **662** |
+| Tests | **672** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -39,6 +39,87 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 12.09.2026 · `mapping_status` und `geo_status`, und ein Publish-Gate (#55)
+
+**Was.** Zwei neue Spalten und eine Schwelle, unter der Gold nicht
+veröffentlicht wird. Aus der Schwachstellenanalyse, Massnahme 1 und 3.
+
+**Warum.** Drei bekannte Schwächen standen bisher nur in der Dokumentation:
+die 90Z-Auffangzuordnungen, die Randfälle ausserhalb der Stadtgrenze, die
+fehlenden Koordinaten. Jede Auswertung musste sie selbst herleiten — und
+konnte sie ebenso gut vergessen. Als Spalten sind sie **abfragbar**.
+
+### `mapping_status` — darf ich diese Zeile vergleichen?
+
+`nibrs_match` sagt, *woher* eine Zuordnung stammt. `mapping_status` fasst das
+zu der Frage zusammen, die eine Auswertung stellt:
+
+| Wert | Bedeutung | Chicago | Detroit |
+| --- | --- | ---: | ---: |
+| `exact` | ein amtliches Dokument bildet den Code so ab | 95,61 % | 94,65 % |
+| `ambiguous` | **wir** haben entschieden, weil die Quellen auseinandergingen | 1,43 % | 1,63 % |
+| `fallback_90Z` | gültiger Code, aber der Auffang — für einen Deliktvergleich wertlos | 2,97 % | 3,72 % |
+| `unmapped` | kein Code | 3 Zeilen | 0 |
+
+**Die Kategorie `ambiguous` ist der eigentliche Gewinn.** Dahinter stecken 17
+IUCR-Codes, bei denen Chicagos Einordnung und NIBRS auseinandergehen — Chicago
+führt `0760` als *Burglary from Motor Vehicle*, NIBRS zählt das als `23F Theft
+from Motor Vehicle`. Beides vertretbar, aber es ist eine **Entscheidung und
+keine Ableitung**. Dasselbe gilt für Detroits drei Codes, die wir über die
+File-Class-Angabe aufgelöst haben. Bisher sahen diese 5'340 Zeilen aus wie
+jede andere.
+
+### `geo_status` — warum eine Zeile in einer Tract-Auswertung fehlt
+
+| Wert | Zeilen |
+| --- | ---: |
+| `inside_city` | 336'174 |
+| `outside_city` | 6'445 |
+| `missing_coordinate` | 1'997 |
+| `no_tract` | 1 |
+
+`located` sagte bisher nur *dass* eine Zeile fehlt. Der Unterschied zählt: Ohne
+Koordinate hat die **Quelle** nichts geliefert, ausserhalb der Stadt hat
+**unsere Mehrheitsregel** entschieden. Das erste ist eine Lücke, das zweite
+eine Entscheidung — eine Auswertung darf sie nicht in einen Topf werfen.
+
+Die Spalte entsteht in **Gold** und nicht in Silver: Die vierte Stufe braucht
+die Stadtgrenze, und die kennt erst `dim_tract`.
+
+### Das Publish-Gate
+
+Gold wird nur gebaut, wenn die Abdeckung trägt. Zwei Prüfungen:
+
+* **Ohne Spielraum:** Kommt ein Statuswert vor, den der Code nicht kennt, hat
+  jemand die Einstufung geändert — der Bau bleibt stehen. Dasselbe in Silver
+  für eine unbekannte Herkunft in einem Crosswalk.
+* **Mit Spielraum:** `inside_city` ≥ 90 %, `exact` ≥ 85 %, `unmapped` ≤ 1 %.
+
+**Die Schwellen sind Böden, keine Ziele.** Gemessen liegen die Werte bei
+97,55 %, 95,49 % und 0,0009 %. Der Abstand ist Absicht: Das Gate soll einen
+*Einsturz* abfangen — einen gebrochenen räumlichen Join, einen Crosswalk, der
+ins Leere läuft —, nicht die normale Bewegung der Quelle. Ein eng gezogenes
+Gate wäre schlimmer als keines: Es würde bei jeder Datenbewegung rot, und die
+erste Reaktion wäre, es hochzusetzen statt hinzusehen. Ein Test hält fest,
+dass mindestens fünf Prozentpunkte Luft bleiben.
+
+**Messen und Entscheiden sind getrennt.** `abdeckung()` misst und schreibt ins
+Manifest, `pruefe_gate()` entscheidet und wird nur vom Bau gerufen. Sonst
+hätte eine Testfixture mit zwei Zeilen das Gate gerissen — sie hat
+naturgemäss schräge Anteile.
+
+**Für die Präsentation.** Jede Grafik kann jetzt die Abdeckung danebenstellen,
+ohne sie neu herzuleiten. Und die Frage *„sind die 3 % auf 90Z vergleichbar?"*
+hat eine Spalte statt einer Fussnote.
+
+**Zahlen.** 662 → **672 Tests**. An den Daten ändert sich nichts; die beiden
+Spalten kommen dazu.
+
+**Nachlesen.** `MAPPING_STATUS` in `build_crime_offense.py`, `GATE_MINDESTENS`
+in `gold_pipeline/__init__.py` · PR #55
 
 ---
 

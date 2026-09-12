@@ -98,6 +98,37 @@ TRACT_TABLE = "dataset=tract"
 # Detroit fuehrt zurueckgezogene Faelle weiter und markiert sie im Status.
 UNFOUNDED = "UNFOUNDED"
 
+# Wie gut ist eine NIBRS-Zuordnung belegt? ``nibrs_match`` sagt, *woher* sie
+# kommt; ``mapping_status`` fasst das zu der Frage zusammen, die eine
+# Auswertung stellt: **Darf ich diese Zeile mit der anderen Stadt
+# vergleichen?**
+#
+#   exact         ein amtliches Dokument sagt, dass dieser Code so abgebildet
+#                 wird - die Codeliste selbst, das MICR-Handbuch, die Liste
+#                 der Arrest Charges, Anhang F
+#   ambiguous     wir haben entschieden, weil die Quellen auseinandergingen
+#                 oder schwiegen. Chicago fuehrt 0760 als *Burglary from Motor
+#                 Vehicle*, NIBRS zaehlt das Eindringen in ein Fahrzeug als
+#                 23F Theft from Motor Vehicle - beides vertretbar, aber es
+#                 ist eine Entscheidung und keine Ableitung
+#   fallback_90Z  die Zuordnung existiert und fuehrt auf den Auffangcode. Ein
+#                 gueltiger Code, fuer einen Deliktvergleich aber wertlos
+#   unmapped      kein Code
+#
+# Eine neue Herkunft darf **nicht** stillschweigend durchgehen - sonst waechst
+# oder schrumpft die Vergleichbarkeit, ohne dass jemand hingesehen hat.
+# ``reconcile`` laesst den Bau deshalb bei einem unbekannten Wert scheitern.
+MAPPING_STATUS = {
+    "nibrs_definition": "exact",
+    "micr_manual_1110_2024": "exact",
+    "micr_arrest_charge_1110_2024": "exact",
+    "appendix_f_2009": "exact",
+    "nibrs_ermessen": "ambiguous",
+    "detroit_charge_file_class": "ambiguous",
+    "nibrs_auffang": "fallback_90Z",
+}
+AUFFANG_CODE = "90Z"
+
 
 class Source(NamedTuple):
     """Ein Bronze-Bestand, aus dem die Tabelle entsteht."""
@@ -278,8 +309,18 @@ def build_query(
     micr = config_root / MICR_MAPPING
     codes = config_root / NIBRS_CODES
 
+    # Die Einstufung kommt aus MAPPING_STATUS und nicht aus verstreuten
+    # CASE-Zweigen: So steht sie an einer Stelle, und ein Test kann sie gegen
+    # die Werte halten, die in den Crosswalks wirklich vorkommen.
+    status_werte = ", ".join(
+        f"('{herkunft}', '{stufe}')"
+        for herkunft, stufe in sorted(MAPPING_STATUS.items())
+    )
     return f"""
-    WITH nibrs AS (
+    WITH status AS (
+        SELECT * FROM (VALUES {status_werte}) AS s(nibrs_match, mapping_status)
+    ),
+    nibrs AS (
         SELECT nibrs_code, nibrs_description, nibrs_group, crime_against
         FROM read_csv('{codes}', header = true, all_varchar = true)
     ),
@@ -465,6 +506,11 @@ def build_query(
         n.crime_against,
         b.nibrs_match,
         b.nibrs_code IS NOT NULL                           AS nibrs_mapped,
+        CASE
+            WHEN b.nibrs_code IS NULL            THEN 'unmapped'
+            WHEN b.nibrs_code = '{AUFFANG_CODE}' THEN 'fallback_90Z'
+            ELSE s.mapping_status
+        END                                                AS mapping_status,
         b.latitude,
         b.longitude,
         v.geoid                                            AS tract_geoid,
@@ -476,6 +522,7 @@ def build_query(
         b.counts_reason
     FROM bereinigt b
     LEFT JOIN nibrs n ON b.nibrs_code = n.nibrs_code
+    LEFT JOIN status s ON b.nibrs_match = s.nibrs_match
     LEFT JOIN verortet v
       ON b.city = v.city AND b.offense_id = v.offense_id
     ORDER BY b.city, b.occurred_at_utc, b.offense_id
@@ -531,6 +578,25 @@ def reconcile(
             raise TransformError(
                 f"{stadt}: {zahlen['without_timestamp']} Zeilen ohne Zeitpunkt"
             )
+
+    # Eine neue Herkunft in einem Crosswalk darf nicht stillschweigend
+    # durchrutschen: Die Zeile haette einen gueltigen NIBRS-Code und truege
+    # trotzdem ein leeres ``mapping_status``. Wer danach filtert, verloere
+    # sie - genau die Sorte Verlust, die diese Spalte verhindern soll.
+    bekannt = ", ".join(repr(k) for k in sorted(MAPPING_STATUS))
+    unbekannt = con.execute(f"""
+        SELECT nibrs_match, count(*) FROM {relation}
+        WHERE nibrs_code IS NOT NULL AND nibrs_code <> '{AUFFANG_CODE}'
+          AND (nibrs_match IS NULL OR nibrs_match NOT IN ({bekannt}))
+        GROUP BY 1 ORDER BY 2 DESC
+    """).fetchall()
+    if unbekannt:
+        raise TransformError(
+            "Unbekannte Herkunft der NIBRS-Zuordnung: "
+            + ", ".join(f"{h} ({n} Zeilen)" for h, n in unbekannt)
+            + ". In MAPPING_STATUS eintragen und dabei entscheiden, ob die "
+            "Zuordnung belegt (exact) oder eine Entscheidung (ambiguous) ist."
+        )
 
     # Chicagos Deltas ueberlappen; die Rohsumme ist deshalb groesser als die
     # Zeilenzahl. Kleiner darf sie nie sein - dann waere etwas verlorengegangen.
