@@ -20,7 +20,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **633** |
+| Tests | **625** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -29,6 +29,51 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 12.09.2026 · Ein toter Zwilling der Silver-Schicht entfernt (#42)
+
+**Was.** `transform_detroit.py` und `parse_detroit_feature()` sind gelöscht,
+samt `OFFENSE_MAPPING`, `analysis_eligible` und `canonical_category`.
+
+**Warum.** Sie waren eine **zweite, Detroit-eigene Silver-Schicht** aus der
+Zeit vor der zweiten Stadt — und sie liefen nicht mehr: `extract_detroit.py`
+importiert sie seit dem Umstieg auf Parquet nicht. Am Leben hielten sie nur
+noch acht Tests, die sie direkt aufriefen.
+
+Gefährlich war daran die Kategorienzuordnung. `OFFENSE_MAPPING` war eine
+Hausliste mit **sechs** Einträgen (`LARCENY → THEFT` und so weiter); alles
+andere blieb `UNREVIEWED`. Daneben steht seit Juli der belegte Weg: Detroits
+MICR-Code über `config/micr_nibrs_mapping.csv` auf NIBRS, **100 % der Zeilen
+zugeordnet**, je Zeile mit Quellenangabe. Zwei Zuordnungen für dieselben Daten
+sind in einer Abgabe eine Frage, die man nicht gut beantworten kann.
+
+**Was dabei nicht verloren geht.** Die drei Invarianten, die der tote Code
+prüfte, sind in Silver besser abgedeckt — dort gegen den Code, der wirklich
+läuft:
+
+| Alte Prüfung | Wo sie heute steht |
+| --- | --- |
+| `UNFOUNDED` bleibt erhalten, zählt aber nicht | `test_unfounded_wird_gekennzeichnet_nicht_entfernt` — Silver **kennzeichnet** statt zu verwerfen |
+| mehrere Delikte eines Vorfalls teilen eine Analyseeinheit | die Tests zu `offense_group_id` und `counts` |
+| das Ladedatum verschiebt das lokale Tatdatum nicht | die Zeitzonen-Tests zu `occurred_at_local` |
+
+**Zahlen.** −350 Zeilen Code, **633 → 625 Tests**. An den Daten ändert sich
+nichts: Silver, Gold und alle Raten bleiben gleich.
+
+**Nebenbei: H1 gilt jetzt für beide Städte.** Kapitel 3.3 belegte H1 bisher
+nur mit Chicago-Zahlen. Notebook 13 misst dieselbe Richtung für Detroit —
+2,3 % fehlende Koordinaten bei Familiendelikten gegen 0,16 % bei Diebstahl.
+Die Hypothese ist damit in **beiden** Städten vorgeprüft; für „bestätigt"
+fehlt noch der Chi-Quadrat-Test.
+
+**In den Dokumenten korrigiert.** `DETROIT_PIPELINE_ANLEITUNG.md` Kapitel 8
+beschrieb einen Silver-Entwurf, der so nie gebaut wurde — jetzt steht dort eine
+Tabelle, die Entwurfsbegriff und Umsetzung gegenüberstellt. Kapitel 10 und 11
+sowie `projektabsprache.md` 5 („Beide Ordner sind leer") nachgezogen.
+
+**Nachlesen.** `src/crime/detroit_pipeline/README.md` · PR #42
 
 ---
 

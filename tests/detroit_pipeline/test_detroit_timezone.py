@@ -8,7 +8,7 @@ import unittest
 from zoneinfo import ZoneInfo
 
 from detroit_pipeline.detroit_arcgis import (
-    build_local_date_window, resolve_daily_window, parse_detroit_feature,
+    build_local_date_window, resolve_daily_window,
     DataQualityError,
 )
 from detroit_pipeline.extract_detroit import extract_updated_window, extract_year, _extract_where
@@ -128,14 +128,6 @@ class DetroitTimezoneTests(unittest.TestCase):
     def test_inconsistent_query_rejected_before_download(self):
         with TemporaryDirectory() as directory, self.assertRaises(DataQualityError):
             _extract_where("updated_at >= TIMESTAMP '2026-03-08 00:00:00'", Path(directory), file_stem="invalid", extraction_mode="INCREMENTAL", date_field="updated_at", window_start=date(2026, 3, 8), window_end_exclusive=date(2026, 3, 9), client=RecordingClient())
-
-    def test_ingestion_date_does_not_change_local_event_date(self):
-        instant = datetime(2026, 7, 16, 2, tzinfo=timezone.utc)
-        feature = {"attributes": {"incident_occurred_at": int(instant.timestamp() * 1000)}}
-        a = parse_detroit_feature(feature, pipeline_run_id="a", ingested_at="2026-07-17T00:00:00+00:00")
-        b = parse_detroit_feature(feature, pipeline_run_id="b", ingested_at="2026-08-01T00:00:00+00:00")
-        self.assertEqual(a["occurred_at_local"], "2026-07-15T22:00:00-04:00")
-        self.assertEqual(a["occurred_at_local"], b["occurred_at_local"])
 
 
 if __name__ == "__main__":
