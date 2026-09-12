@@ -26,7 +26,7 @@ den geladenen Daten erhoben, nicht geschätzt.
 | **Census ACS** | Pipeline fertig, getestet | dieselben Tracts, 3 Variablen | raw + bronze |
 | **Wetter (NOAA)** | Pipeline fertig, getestet | 29'181 Tage O'Hare (ab 1946), 26'264 Detroit Metro (ab 1942) | raw + bronze |
 
-Ergänzend: 597 Tests, 8 Notebooks, `data/silver/` mit allen drei Tabellen,
+Ergänzend: 603 Tests, 8 Notebooks, `data/silver/` mit allen drei Tabellen,
 `data/gold/` bislang leer. Die Deliktzuordnung liegt in drei Referenzdateien:
 `config/nibrs_offense_codes_2025.csv` (81 amtliche NIBRS-Codes),
 `config/iucr_nibrs_mapping.csv` (434 Chicago-Codes) und
@@ -417,8 +417,9 @@ trägt.
 
 **Stand.** Alle drei Tabellen sind gebaut, jeweils mit Herkunftsnachweis über
 die Bronze-Läufe im Manifest: `tract` (6'282 Zeilen), `weather_day` (55'449
-Zeilen, zwei Städte) und seit dem 10.9. `crime_offense` (347'957 Delikte,
-259'272 Chicago und 88'685 Detroit).
+Zeilen, zwei Städte) und seit dem 10.9. `crime_offense` (347'957 Zeilen,
+259'272 Chicago und 88'685 Detroit; Detroits Zeilen sind Anklagen, je Tat
+zählt eine — Gold kommt damit auf 344'607).
 
 Der frühere Vorbehalt, `crime_offense` müsse auf Artans Zeitzonen-Fix warten,
 trägt nicht mehr: Sein Branch ändert das **Abfragefenster** — welche Zeilen in
@@ -548,7 +549,7 @@ Gold-Tabellen einchecken, weil sie klein sind.
 
 ### 7.2 Tests
 
-**Stand.** 597 Tests, seit dem 11.9. einheitlich nach Pipeline gegliedert:
+**Stand.** 603 Tests, seit dem 11.9. einheitlich nach Pipeline gegliedert:
 
 ```text
 tests/

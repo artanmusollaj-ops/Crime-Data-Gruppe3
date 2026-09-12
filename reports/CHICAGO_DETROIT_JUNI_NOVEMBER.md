@@ -104,6 +104,11 @@ statt in Ortszeit gestanden, lägen 66 Fälle aus 2023 im Jahrgang — und der
 - **Der Nenner ist eine Näherung.** Gerechnet wird mit der Einwohnerzahl der
   Tracts mit Delikten. Für einen Vergleich *zwischen* den Städten brauchbar, als
   absolute Rate nicht.
+- **Die Zahlen dieses Berichts stehen auf Anklagekorn.** Detroits Zeilen sind
+  Anklagen, Chicagos sind Delikte; seit dem 12.9. markiert Silver je Tat eine
+  zählende Zeile, und Gold nimmt nur diese (Konzept 5.2). Detroit liegt damit
+  um 3,8 % tiefer als hier ausgewiesen. Die Aussagen des Berichts ändern sich
+  dadurch nicht in der Richtung, die Absolutzahlen aber schon.
 - **Detroits Abdeckung ist inzwischen 100 %.** Die 1 647 Fälle, die zum Zeitpunkt
   dieses Berichts fehlten, sind seither über Detroits eigene Felder angeschlossen
   (Konzept 8.5). Sie gehen nach `23C Shoplifting` und `90Z` und berühren keine der

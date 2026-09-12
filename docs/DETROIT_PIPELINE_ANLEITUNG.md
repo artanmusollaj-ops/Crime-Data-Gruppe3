@@ -67,7 +67,7 @@ Der Pfad muss auf `.venv314\Scripts\python.exe` enden.
 .\.venv314\Scripts\python.exe -m tests.run_tests
 ```
 
-Erwartet: **die ganze Suite, Status SUCCESS** — derzeit 597 Tests. Der Runner
+Erwartet: **die ganze Suite, Status SUCCESS** — derzeit 603 Tests. Der Runner
 sammelt mit pytest und fuehrt damit alle Pipelines aus, nicht nur Detroit.
 Eine zweistellige Zahl waere ein Alarmzeichen, kein Erfolg.
 Text- und JSON-Protokolle entstehen unter `logs/tests/`. Einzelne `error:`-Ausgaben mit anschließendem `ok` gehören zu den Tests ungültiger Parameter. Entscheidend ist das Gesamtergebnis.
@@ -205,7 +205,7 @@ Gold-Aggregate aus Silver-Current erstellen; technische Ladezeit nie als Tatdatu
 .\.venv314\Scripts\python.exe -m tests.run_tests
 ```
 
-**597 automatisierte Offline-Tests**, davon rund 40 fuer dieses Paket. Der
+**603 automatisierte Offline-Tests**, davon rund 40 fuer dieses Paket. Der
 Runner sammelt seit dem 11.9. mit pytest: Vorher benutzte er
 `unittest.discover`, das nur `TestCase`-Klassen erkennt, und meldete SUCCESS
 nach 39 von damals 448 Tests — ein gruener Lauf, der 91 Prozent der Suite nie

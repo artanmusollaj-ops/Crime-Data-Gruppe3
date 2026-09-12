@@ -103,7 +103,12 @@ def place_quelle(tmp_path: Path) -> bg.Quelle:
 
 
 def offense_quelle(tmp_path: Path, zeilen) -> bg.Quelle:
-    """zeilen: (offense_id, city, tag, nibrs_code, tract_geoid)."""
+    """zeilen: (offense_id, city, tag, nibrs_code, tract_geoid).
+
+    Optional als sechstes Element ``counts``; ohne Angabe zaehlt die Zeile.
+    Silver haelt jede Anklage und markiert je Tat eine als zaehlend - Gold
+    nimmt nur diese, sonst waere Detroit um 3,8 Prozent zu hoch gezaehlt.
+    """
     n = len(zeilen)
     return schreibe(tmp_path, "crime_offense", pa.table({
         "city": pa.array([z[1] for z in zeilen]),
@@ -133,6 +138,11 @@ def offense_quelle(tmp_path: Path, zeilen) -> bg.Quelle:
         "arrest": pa.array([False] * n),
         "unfounded": pa.array([False] * n),
         "dataset": pa.array(["crime_offense"] * n),
+        "offense_group_id": pa.array([z[0] for z in zeilen]),
+        "counts": pa.array([z[5] if len(z) > 5 else True for z in zeilen]),
+        "counts_reason": pa.array(
+            ["eine_zeile_ist_ein_delikt" if (len(z) < 6 or z[5])
+             else "weitere_anklage_zur_selben_tat" for z in zeilen]),
     }))
 
 
@@ -676,11 +686,35 @@ def test_in_der_echten_schicht_zeigt_kein_schluessel_ins_leere(con):
         assert verwaist == 0, f"{verwaist} Zeilen zeigen auf keine Zeile in {name}"
 
 
-def test_die_echte_faktentabelle_hat_das_korn_von_silver(con):
+def test_die_echte_faktentabelle_traegt_das_tatkorn(con):
+    """Gold zaehlt Taten, Silver haelt Anklagen.
+
+    Detroits Zeilen sind Anklagen, Chicagos sind Delikte. Waere Gold auf
+    Anklagekorn, stuende Detroit um 3,8 Prozent zu hoch in jedem Vergleich.
+    """
     fakt = gold("fact_offense")
     silber = PROJECT_ROOT / "data" / "silver" / "dataset=crime_offense" / "part-0001.parquet"
     if fakt is None or not silber.exists():
         pytest.skip("keine gebaute Gold-Schicht vorhanden")
     a = con.execute(f"SELECT count(*) FROM read_parquet('{fakt}')").fetchone()[0]
-    b = con.execute(f"SELECT count(*) FROM read_parquet('{silber}')").fetchone()[0]
-    assert a == b
+    b, zaehlend = con.execute(
+        f"SELECT count(*), count(*) FILTER (WHERE counts) FROM read_parquet('{silber}')"
+    ).fetchone()
+    assert a == zaehlend, "Gold nimmt genau die zaehlenden Zeilen"
+    assert a < b, "und es sind weniger als alle - sonst greift die Auswahl nicht"
+    doppelt = con.execute(
+        f"SELECT count(*) FROM (SELECT offense_group_id FROM read_parquet('{fakt}') "
+        "WHERE offense_group_id IS NOT NULL GROUP BY 1 HAVING count(*) > 1)"
+    ).fetchone()[0]
+    assert doppelt == 0, f"{doppelt} Taten stehen mehrfach in Gold"
+
+
+def test_eine_nicht_zaehlende_zeile_kommt_nicht_nach_gold(con, tmp_path):
+    """Die Auswahl aus Silver muss in Gold ankommen."""
+    offense = offense_quelle(tmp_path, [
+        ("a", "chicago", date(2024, 3, 1), "13A", "17031010100", True),
+        ("b", "chicago", date(2024, 3, 1), "23C", "17031010100", False),
+    ])
+    con.execute(f"CREATE OR REPLACE TABLE fo AS {bg.fact_offense_query(offense)}")
+    ids = [z[0] for z in con.execute("SELECT offense_id FROM fo").fetchall()]
+    assert ids == ["a"]

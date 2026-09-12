@@ -403,7 +403,18 @@ def dim_city_day_query(weather: Quelle, offense: Quelle) -> str:
 
 
 def fact_offense_query(offense: Quelle) -> str:
-    """Das Korn bleibt: eine Zeile je Delikt, mit den Schluesseln der Dimensionen.
+    """Eine Zeile je **Tat**, mit den Schluesseln der Dimensionen.
+
+    Hier liegt der einzige Stellenwechsel gegenueber Silver. Detroits Zeilen
+    sind **Anklagen**, Chicagos sind **Delikte**: Ein Ueberfall mit Schuessen
+    und geraubtem Auto steht bei Detroit als fuenf Zeilen, bei Chicago als
+    eine. Wer beide summiert, zaehlt Detroit um 3,8 Prozent zu hoch.
+
+    Silver haelt deshalb jede Anklage und markiert je Tat eine Zeile mit
+    ``counts``; Gold nimmt nur diese. Wer die Anklagen braucht - "wie oft wurde
+    zusaetzlich Sachbeschaedigung angezeigt" -, findet sie vollstaendig in
+    ``silver/crime_offense``.
+
 
     Ergaenzt werden nur Groessen, die sich aus dem Zeitstempel ableiten, und die
     Deliktfamilie. Sie sparen keine Laufzeit - gemessen 0,3 Millisekunden -,
@@ -428,8 +439,10 @@ def fact_offense_query(offense: Quelle) -> str:
         o.longitude                                     AS longitude,
         o.located                                       AS located,
         o.arrest                                        AS arrest,
-        o.unfounded                                     AS unfounded
+        o.unfounded                                     AS unfounded,
+        o.offense_group_id                              AS offense_group_id
     FROM {offense.relation} o
+    WHERE o.counts
     """
 
 
@@ -447,11 +460,25 @@ def reconcile(
     kann: eine Zeile beim Umschreiben verlieren, einen Fremdschluessel ins Leere
     zeigen lassen, oder jedem Tract zwei Staedte geben.
     """
-    silber = con.execute(f"SELECT count(*) FROM {offense.relation}").fetchone()[0]
+    silber, zaehlend = con.execute(
+        f"SELECT count(*), count(*) FILTER (WHERE counts) FROM {offense.relation}"
+    ).fetchone()
     gold = con.execute("SELECT count(*) FROM fact_offense").fetchone()[0]
-    if silber != gold:
+    if zaehlend != gold:
         raise TransformError(
-            f"fact_offense hat {gold:,} Zeilen, silver/crime_offense {silber:,}"
+            f"fact_offense hat {gold:,} Zeilen, in silver/crime_offense zaehlen "
+            f"aber {zaehlend:,} von {silber:,}"
+        )
+    # Je Tat genau eine Zeile - sonst zaehlt Detroit doppelt, und das war der
+    # Grund fuer diese Schicht.
+    mehrfach = con.execute(
+        "SELECT count(*) FROM (SELECT offense_group_id FROM fact_offense "
+        "WHERE offense_group_id IS NOT NULL "
+        "GROUP BY 1 HAVING count(*) > 1)"
+    ).fetchone()[0]
+    if mehrfach:
+        raise TransformError(
+            f"{mehrfach:,} Taten stehen mehrfach in fact_offense"
         )
 
     verwaist_delikt = con.execute(
@@ -554,8 +581,11 @@ def reconcile(
 
     return {
         "verified": True,
+        "grain": "eine Tat; Detroits weitere Anklagen bleiben in Silver",
         "fact_rows": gold,
         "silver_rows": silber,
+        "silver_rows_counting": zaehlend,
+        "charges_dropped": silber - zaehlend,
         "retired_codes": zurueckgezogen,
         "orphan_keys": {
             "dim_offense": verwaist_delikt,
@@ -633,8 +663,14 @@ def build(data_root: Path, config_root: Path, vintage: int) -> dict[str, Path]:
         nachweis = reconcile(con, offense)
 
         bauplan = [
-            ("fact_offense", "ein Delikt", [offense],
-             {"korn": "Das Korn bleibt wie in Silver; Gold aggregiert nicht",
+            ("fact_offense", "eine Tat", [offense],
+             {"korn": (
+                 "eine Zeile je Tat. Detroits Zeilen sind Anklagen - je Tat "
+                 "zaehlt eine; Chicagos Zeile ist schon die Tat. Ohne das "
+                 "waere Detroit um 3,8 Prozent zu hoch gezaehlt"),
+              "alle_anklagen": (
+                  "vollstaendig in silver/crime_offense, mit counts und "
+                  "counts_reason je Zeile"),
               "reporting_city": "die meldende Stadt, nicht die Stadt des Tracts"}),
             ("dim_tract", "ein Census Tract", [tract, place],
              {"stadtzuordnung": (
