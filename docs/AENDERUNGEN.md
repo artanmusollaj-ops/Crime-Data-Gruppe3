@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **681** |
+| Tests | **694** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -39,6 +39,59 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 12.09.2026 · Ein Run-Controller, und drei Lücken, die er aufgedeckt hat (#58)
+
+**Was.** `python -m orchestration.run_all` fährt Ingestion, Silver, Gold und
+Serving in der richtigen Reihenfolge und schreibt ein Gesamtmanifest.
+
+**Warum jetzt.** Die Annahme, die den Controller lange nach hinten schob, war
+falsch: *„ein Jahrgang, einmal geladen, danach stabil."* **Die Quellen bewegen
+sich dauernd** — Chicago und Detroit ändern Einträge noch Jahre nach der Tat;
+Notebook 13 misst 10 umklassierte Delikte in 20 Stunden und 54,6 % des
+Jahrgangs, die mehr als ein Jahr nach der Tat noch angefasst wurden. Damit ist
+*„auf welchem Stand beruht diese Zahl?"* keine Formalie.
+
+### Was er tut
+
+| | |
+| --- | --- |
+| Reihenfolge | 13 Stufen, seriell. `tract` vor `crime_offense`, **beide** TIGER-Auslieferungen, Gold nach Silver |
+| Abbruch | bei der ersten gescheiterten Stufe — jede weitere baute sonst auf einem halben Stand |
+| Herkunft | `data/pipeline_run.json` nennt **jeden** Bronze-Lauf, auf dem das Ergebnis ruht |
+| Fingerabdruck | ein Hash über die Eingaben. Zwei Läufe auf demselben Stand tragen denselben |
+| Aktualität | wann jede der sechs Quellen zuletzt geladen wurde |
+
+`--ohne-ingestion` leitet nur neu ab, ohne die Quellen anzufassen — **2
+Sekunden** für Silver, Gold und Serving zusammen. `--trocken` zeigt den Plan.
+
+### Was er bewusst nicht tut
+
+Keine Prozesssperre: Ingestion-Läufe sind unveränderlich, Silver und Gold
+werden atomar umbenannt — schlimmstenfalls gewinnt der zweite Lauf, und der
+schreibt denselben Stand. Keine Wiederaufnahme: Jede Stufe ist idempotent und
+die Strecke läuft in Minuten; „nochmal starten" löst dasselbe billiger als ein
+Zustandsautomat, den niemand testet.
+
+### Drei Lücken, die er aufgedeckt hat
+
+Ein Controller, der alle Manifeste einsammelt, stolpert über jede
+Uneinheitlichkeit:
+
+| Lücke | Behoben |
+| --- | --- |
+| `silver/crime_offense` hatte als **einziges** Manifest keinen `status` | ergänzt — ausgerechnet die Tabelle, die den Vergleich trägt, sagte nicht, ob ihr Bau durchlief |
+| dieselbe Tabelle hatte **keine `row_count`** — die Zahl stand nur je Stadt verschachtelt | ergänzt, wie bei jeder anderen Tabelle |
+| **zwei Statusvokabulare**: acht Module schreiben `complete`, Detroit `SUCCESS`; dazu `completed_at_utc` gegen `finished_at` | der Controller nimmt beide und sagt an einer Stelle, warum |
+
+Das dritte habe ich **nicht** vereinheitlicht: Es würde jedes bereits
+geschriebene Manifest ungültig machen, für einen kosmetischen Gewinn.
+
+**Zahlen.** 681 → **694 Tests**; im frischen Klon laufen 654 davon.
+
+**Nachlesen.** `src/crime/orchestration/` · PR #58
 
 ---
 

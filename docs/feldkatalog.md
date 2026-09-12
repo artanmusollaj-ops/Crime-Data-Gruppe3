@@ -17,7 +17,7 @@ Quellnotebooks 01, 11, 21 und 22.
 
 ### `crime_offense`
 
-Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert**.
+Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert**. 347'957 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |

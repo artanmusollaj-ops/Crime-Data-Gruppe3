@@ -534,7 +534,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 681 Tests, alle ohne Netz und ohne Schlüssel, seit dem 12.9. auf jedem Pull Request in GitHub Actions (Python 3.11 und 3.13); Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine Alarmierung, keine Freshness-Kontrolle |
+| **DataOps** | 694 Tests, alle ohne Netz und ohne Schlüssel, seit dem 12.9. auf jedem Pull Request in GitHub Actions (Python 3.11 und 3.13); Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine Alarmierung, keine Freshness-Kontrolle |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -1094,7 +1094,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 
 **Zur Umsetzung**
 
-- **Keine Orchestrierung.** Bewusst, siehe Kapitel 5.
+- **Keine Parallelität und keine Wiederaufnahme.** Der Controller fährt die Stufen seriell und bricht beim ersten Fehler ab; ein abgebrochener Lauf wird neu gestartet, nicht fortgesetzt. Bei Minuten Laufzeit ist das billiger als ein Zustandsautomat.
 - **Die Mehrheitsregel schliesst Grenzfälle aus, und zwar nicht neutral.**
   5'249 Chicagoer Delikte liegen innerhalb der Stadtgrenze, aber in einem
   Tract, der mehrheitlich zur Nachbargemeinde gehört. Weil diese Randtracts
@@ -1112,7 +1112,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 681 bestandene Tests
+python -m pytest                       # erwartet 694 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
@@ -1131,8 +1131,14 @@ Stadtgrenze; ohne die zweite bekommt `dim_tract` keine Stadtzuordnung, und die
 Rate je Einwohner hat keinen Nenner. Der Aufruf ohne `--auslieferung` lädt nur
 Tracts und scheitert dabei nicht — er liefert still ein Gold ohne Städte.
 
-Silver, Gold und die Auswertungsumgebung ableiten — die Reihenfolge gilt,
-`build_crime_offense` braucht `tract`:
+Oder in einem Aufruf, mit Protokoll und Herkunft:
+
+```bash
+python -m orchestration.run_all
+```
+
+Silver, Gold und die Auswertungsumgebung einzeln ableiten — die Reihenfolge
+gilt, `build_crime_offense` braucht `tract`:
 
 ```bash
 python -m silver_pipeline.build_tract
@@ -1160,6 +1166,7 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | Was | Wo |
 | --- | --- |
 | Ingestion, vier Pipelines | `src/crime/{chicago,detroit,census,weather}_pipeline/` |
+| **Der ganze Lauf, in Reihenfolge** | `src/crime/orchestration/run_all.py` → `data/pipeline_run.json` |
 | Silver-Aufbau | `src/crime/silver_pipeline/` |
 | Gold-Aufbau | `src/crime/gold_pipeline/build_gold.py` → `data/gold/` |
 | **Auswertungsumgebung** | `src/crime/serving/build_analysis_db.py` → `data/serving/analyse.duckdb` |

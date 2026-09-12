@@ -675,8 +675,18 @@ def build_manifest(
     pruefung: dict[str, Any],
 ) -> dict[str, Any]:
     return {
+        # Als einziges Manifest des Projekts fehlte hier lange der Status -
+        # ausgerechnet bei der Tabelle, die den Vergleich traegt. Wer sie las,
+        # konnte nicht wissen, ob der Bau durchgelaufen ist.
+        "status": "complete",
         "table": TABLE,
         "layer": SILVER_LAYER,
+        # Je Stadt steht die Zahl unter "checks"; hier oben steht sie noch
+        # einmal, weil jede andere Tabelle das auch tut. Wer Manifeste
+        # einsammelt, soll nicht fuer eine davon einen Sonderweg brauchen.
+        "row_count": sum(
+            stadt["rows"] for stadt in pruefung["per_city"].values()
+        ),
         "grain": "eine Anklage; je Tat ist eine Zeile mit counts markiert",
         "built_at_utc": datetime.now(timezone.utc).isoformat(),
         "tool": f"duckdb {duckdb.__version__} mit spatial und icu",
