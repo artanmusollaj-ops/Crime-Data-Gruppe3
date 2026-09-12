@@ -128,7 +128,7 @@ bestätigt oder vorgeprüft, **eine falsifiziert, eine teilweise falsifiziert.**
 
 | | Hypothese | Verfahren | Stand |
 | --- | --- | --- | --- |
-| **H1** | Fehlende Koordinaten treten **nicht zufällig** auf, sondern hängen vom Delikttyp ab. | Chi-Quadrat-Unabhängigkeitstest | vorgeprüft in **beiden** Städten, gleiche Richtung: Chicago 4,3 % bei Delikten an Kindern gegen 0,4 % bei Diebstahl, Detroit 2,3 % bei Familiendelikten gegen 0,16 % bei Diebstahl (Notebook 13, Schritt 7) |
+| **H1** | Fehlende Koordinaten treten **nicht zufällig** auf, sondern hängen vom Delikttyp ab. | Chi-Quadrat-Unabhängigkeitstest | vorgeprüft in **beiden** Städten. Auf gemeinsamer NIBRS-Achse: Sexualdelikte fehlen in Chicago beim 6,5-Fachen, in Detroit beim 5,1-Fachen des Stadtschnitts — Betrug dagegen **nur** in Chicago (Faktor 18 zwischen den Städten). Notebook 34, Abschnitt 5.2 |
 | **H2** | Der Überlapp der Delta-Läufe erzeugt ausschliesslich **Duplikate**, keine **Dubletten**. | Vergleich aller Attribute je Schlüssel | bestätigt |
 | **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Anwendung beider Crosswalks in `silver/crime_offense` | **teilweise falsifiziert**, siehe 8.5. Beide Städte sind **100 %** zugeordnet — aber nur **97,0 %** aller Fälle tragen ein echtes NIBRS-Delikt; 10'442 landen im Auffang `90Z`. Die Abdeckung stimmt, die Abbildung nicht |
 | **H4** | Ein gepinntes Schema plus Auffangspalte fängt Schema-Drift **vollständig** auf. | Fingerabdruck über Feldtypen, Inhalt von `_extra` | bestätigt |
@@ -161,8 +161,10 @@ Kennzahl, die sich berechnen lässt:
 Der Verwendungszweck legt die Schwellen fest. Für eine Rate je Tract ist eine
 Verortungsquote von 99,3 % gut — aber nur, solange die fehlenden 0,7 % nicht
 systematisch verzerrt sind. Genau das prüft H1, und genau deshalb hängen die
-beiden Ebenen aus 3.1 zusammen. Detroit liegt mit 99,7 % besser, zeigt aber
-dieselbe Schlagseite: Die Quote allein sagt noch nicht, ob sie trägt.
+beiden Ebenen aus 3.1 zusammen. Detroit liegt mit 99,7 % besser, aber die Quote
+allein sagt nicht, ob sie trägt: Bei Sexualdelikten fehlen in beiden Städten
+rund fünf- bis sechsmal so viele Koordinaten wie im Schnitt, bei Betrug nur in
+Chicago.
 
 ---
 
