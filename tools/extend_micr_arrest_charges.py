@@ -46,6 +46,7 @@ Es ist idempotent: ein zweiter Lauf aendert nichts.
 
 from __future__ import annotations
 
+import argparse
 import csv
 import re
 import shutil
@@ -128,6 +129,26 @@ DETROIT_ENTSCHEIDET = {
 # Die Zuordnung bleibt richtig, der Hinweis gehoert trotzdem dazu.
 ZURUECKGEZOGEN = {"90A", "90E", "90H", "90I"}
 
+# Die Bezeichnungen der noch nicht zugeordneten Zeilen stammten aus dem Feld
+# ``offense_description`` der Detroit-Daten. Das ist die Einstufung des
+# *Vorfalls*, nicht der Anklage, und sie schwankt innerhalb desselben Codes.
+# Bei den meisten Codes traf sie trotzdem - Detroit schreibt dort den Namen der
+# File Class. Bei einem nicht.
+#
+# Gefunden hat das Artan mit der Frage, wie man von "Diebstahl" auf ein anderes
+# Delikt kommt. Die Zuordnung war richtig; die Bezeichnung war es nicht.
+BEZEICHNUNG_KORRIGIERT = {
+    "2501": (
+        "Forgery of Checks",
+        "In den Detroit-Daten stand 'LARCENY - OTHER'. Das ist weder der Name "
+        "der Anklage noch der ihrer File Class: Das Handbuch fuehrt 2501 als "
+        "'Forgery of Checks' unter File Class 25000 Forgery/Counterfeiting, "
+        "und Detroit selbst liefert zu allen 78 Zeilen arrest_charge 25000 und "
+        "charge_description 'FORGERY / COUNTERFEITING'. Die Bezeichnung kam "
+        "aus einer einzelnen abweichenden Zeile",
+    ),
+}
+
 
 def manual_text() -> list[str]:
     """Der Text des MICR-Handbuchs, Zeile fuer Zeile."""
@@ -176,8 +197,34 @@ def arrest_charges(zeilen: list[str]) -> dict[str, tuple[str, str]]:
     return treffer
 
 
-def main() -> int:
-    with MAPPING.open(encoding="utf-8") as datei:
+def arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    """Quelle und Ziel lassen sich trennen.
+
+    Das Werkzeug erweitert eine bestehende Tabelle, statt sie neu zu bauen -
+    es fuellt nur Zeilen, die noch nicht zugeordnet sind. Ein Lauf auf dem
+    fertigen Stand tut deshalb nichts, und ohne diese beiden Schalter liesse
+    sich nicht pruefen, ob er den Anschluss noch einmal herstellen koennte.
+    ``tests/config/test_micr_nibrs_mapping.py`` gibt ihm dafuer eine Fassung
+    mit geloeschter Zuordnung und vergleicht das Ergebnis mit der
+    versionierten Datei.
+    """
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--mapping", type=Path, default=MAPPING,
+        help=f"Eingabe (Vorgabe: {MAPPING.relative_to(PROJECT_ROOT)})",
+    )
+    parser.add_argument(
+        "--output", type=Path, default=None,
+        help="Ausgabe; ohne Angabe wird die Eingabe ersetzt",
+    )
+    args = parser.parse_args(argv)
+    args.output = args.output or args.mapping
+    return args
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = arguments(argv)
+    with args.mapping.open(encoding="utf-8") as datei:
         zeilen = list(csv.DictReader(datei))
 
     # Die Spalte micr_code_type ist neu; bestehende Zeilen sind File Classes.
@@ -194,6 +241,7 @@ def main() -> int:
     print(f"Arrest Charges im Handbuch: {len(charges)}")
 
     angeschlossen, ueber_detroit, unauffindbar = 0, 0, []
+    korrigiert: list[tuple[str, str, str]] = []
     for z in zeilen:
         if z["mapped"] == "true":
             continue
@@ -234,12 +282,18 @@ def main() -> int:
             f"Arrest Charge '{bezeichnung}' unter File Class {file_class} "
             f"({quelle['micr_description']}); NIBRS von dort uebernommen"
         )
+        neue_bezeichnung = z["micr_description"]
+        if code in BEZEICHNUNG_KORRIGIERT:
+            neue_bezeichnung, grund = BEZEICHNUNG_KORRIGIERT[code]
+            hinweis += f"; {grund}"
+            korrigiert.append((code, z["micr_description"], neue_bezeichnung))
         if quelle["nibrs_code"] in ZURUECKGEZOGEN:
             hinweis += (
                 f"; NIBRS {quelle['nibrs_code']} ist beim FBI zurueckgezogen"
             )
         z.update({
             "micr_code_type": "arrest_charge",
+            "micr_description": neue_bezeichnung,
             "micr_file_class": file_class,
             "nibrs_group": quelle["nibrs_group"],
             "nibrs_code": quelle["nibrs_code"],
@@ -258,13 +312,16 @@ def main() -> int:
               file=sys.stderr)
         return 1
 
-    with MAPPING.open("w", newline="", encoding="utf-8") as datei:
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    with args.output.open("w", newline="", encoding="utf-8") as datei:
         schreiber = csv.DictWriter(datei, fieldnames=SPALTEN)
         schreiber.writeheader()
         schreiber.writerows({s: z.get(s, "") for s in SPALTEN} for z in zeilen)
 
     zugeordnet = sum(1 for z in zeilen if z["mapped"] == "true")
-    print(f"\n{MAPPING.relative_to(PROJECT_ROOT)}: {len(zeilen)} Zeilen")
+    print(f"\n{args.output}: {len(zeilen)} Zeilen")
+    for code, alt, neu in korrigiert:
+        print(f"  Bezeichnung korrigiert: {code} '{alt}' -> '{neu}'")
     print(f"  ueber das Handbuch: {angeschlossen}")
     print(f"  ueber Detroits Felder: {ueber_detroit}"
           f"  ({', '.join(sorted(DETROIT_ENTSCHEIDET))})")

@@ -13,6 +13,8 @@ kein Bronze-Lauf vorliegt - ``data/`` ist nicht versioniert.
 from __future__ import annotations
 
 import csv
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -418,4 +420,184 @@ def test_seen_in_detroit_stimmt_mit_den_daten(zeilen):
     assert behauptet == set(daten), (
         f"nur in der Tabelle: {sorted(behauptet - set(daten))}, "
         f"nur in den Daten: {sorted(set(daten) - behauptet)}"
+    )
+
+
+# --------------------------------------------------------------------------
+# Reproduzierbarkeit
+# --------------------------------------------------------------------------
+#
+# Das Konzept sagt zu, die Crosswalks seien reproduzierbar abgeleitet. Bis
+# hierher pruefen alle Tests nur die fertige Datei - jemand koennte sie von
+# Hand aendern, und alles bliebe gruen. Der Test unten laesst das Werkzeug den
+# Anschluss noch einmal herstellen und vergleicht byteweise.
+
+WERKZEUG = PROJECT_ROOT / "tools" / "extend_micr_arrest_charges.py"
+MANUAL = PROJECT_ROOT / "docs" / "micr_manual_1110_2024.pdf"
+
+# Die Herkunftswerte, fuer die dieses Werkzeug zustaendig ist. Zeilen mit einer
+# anderen Herkunft stammen aus den Handbuechern und sind seine Eingabe.
+ERZEUGT = {"micr_arrest_charge_1110_2024", "detroit_charge_file_class"}
+
+# Die Spalten, die es fuellt. Genau sie werden fuer die Probe geleert.
+GEFUELLT = ("micr_code_type", "micr_file_class", "nibrs_group", "nibrs_code",
+            "nibrs_description", "hierarchy", "match", "note")
+
+
+def test_das_werkzeug_stellt_den_anschluss_wieder_her(tmp_path, zeilen):
+    """Die Probe aufs Exempel: aus dem Stand davor entsteht der Stand danach.
+
+    Ein normaler Lauf taete nichts - das Werkzeug fuellt nur Zeilen, die noch
+    nicht zugeordnet sind, und inzwischen sind es alle. Geprueft wird deshalb
+    gegen eine Fassung, in der genau die 23 Zeilen geleert sind, die es selbst
+    angeschlossen hat.
+    """
+    if not MANUAL.exists():
+        pytest.skip(f"{MANUAL} fehlt")
+
+    davor = tmp_path / "davor.csv"
+    danach = tmp_path / "danach.csv"
+    geleert = 0
+    with davor.open("w", newline="", encoding="utf-8") as datei:
+        schreiber = csv.DictWriter(datei, fieldnames=list(zeilen[0]))
+        schreiber.writeheader()
+        for zeile in zeilen:
+            kopie = dict(zeile)
+            if kopie["match"] in ERZEUGT:
+                for spalte in GEFUELLT:
+                    kopie[spalte] = ""
+                kopie["mapped"] = "false"
+                geleert += 1
+            schreiber.writerow(kopie)
+
+    assert geleert == 23, f"erwartet 23 erzeugte Zeilen, gefunden {geleert}"
+
+    fertig = subprocess.run(
+        [sys.executable, str(WERKZEUG),
+         "--mapping", str(davor), "--output", str(danach)],
+        capture_output=True, text=True, cwd=PROJECT_ROOT,
+    )
+    assert fertig.returncode == 0, fertig.stderr
+
+    assert danach.read_text(encoding="utf-8") == MAPPING.read_text(encoding="utf-8"), (
+        "Das Werkzeug baut den Anschluss nicht mehr so auf, wie er in "
+        "config/micr_nibrs_mapping.csv steht - die Datei ist dann von Hand "
+        "geaendert worden oder das Werkzeug hat sich geaendert"
+    )
+
+
+def test_ein_lauf_auf_dem_fertigen_stand_aendert_nichts(tmp_path):
+    """Zweimal laufen darf nicht zweimal etwas tun."""
+    if not MANUAL.exists():
+        pytest.skip(f"{MANUAL} fehlt")
+    ziel = tmp_path / "kopie.csv"
+    ziel.write_text(MAPPING.read_text(encoding="utf-8"), encoding="utf-8")
+    fertig = subprocess.run(
+        [sys.executable, str(WERKZEUG), "--mapping", str(ziel)],
+        capture_output=True, text=True, cwd=PROJECT_ROOT,
+    )
+    assert fertig.returncode == 0, fertig.stderr
+    assert ziel.read_text(encoding="utf-8") == MAPPING.read_text(encoding="utf-8")
+
+
+# --------------------------------------------------------------------------
+# Sagt die Bezeichnung dasselbe wie der Code?
+# --------------------------------------------------------------------------
+#
+# Artan fragte, wie man von "Diebstahl" auf ein anderes Delikt kommt. Die
+# Zuordnung war richtig - die Bezeichnung nicht: 2501 stand als
+# "LARCENY - OTHER" in der Tabelle, obwohl das Handbuch den Code als
+# "Forgery of Checks" unter File Class 25000 Forgery/Counterfeiting fuehrt.
+#
+# Die Bezeichnungen der zunaechst unzugeordneten Zeilen stammten aus dem Feld
+# ``offense_description`` der Detroit-Daten. Das ist die Einstufung des
+# *Vorfalls*, nicht der Anklage, und sie schwankt innerhalb desselben Codes.
+# Bei 2501 wurde eine einzelne abweichende Zeile erwischt.
+#
+# Der Test unten prueft, dass die Bezeichnung einer Arrest Charge inhaltlich zu
+# ihrer File Class passt. Er verlangt keine Gleichheit - Detroit schreibt den
+# Namen der File Class, das Handbuch den der Anklage, und beides ist richtig.
+# Er verlangt, dass sie sich wenigstens ein Inhaltswort teilen.
+
+FUELLWOERTER = {"other", "othr", "all", "and", "the", "with", "from", "degree",
+                "misc", "general", "none", "non", "offense", "offenses"}
+
+# Wo sich die Bezeichnungen kein Wort teilen und das trotzdem in Ordnung ist.
+ANDERS_BENANNT = {
+    "3692": (
+        "Detroit nennt 3692 'SEX OFFENSE - OTHER', das Handbuch fuehrt die "
+        "File Class 36002 als 'Sexual Penetration - Non-forcible'. Beides "
+        "meint dasselbe, nur mit anderem Wort - kein Widerspruch"
+    ),
+}
+
+
+def _begriffe(text: str) -> set[str]:
+    import re as _re
+    return {w for w in _re.findall(r"[a-z]{3,}", text.lower())} - FUELLWOERTER
+
+
+def test_die_bezeichnung_passt_zur_file_class(zeilen):
+    """Eine Arrest Charge muss etwas mit ihrer File Class zu tun haben.
+
+    Genau das war bei 2501 nicht der Fall: 'LARCENY - OTHER' unter
+    'Forgery/Counterfeiting'. Der NIBRS-Code stimmte - die Bezeichnung haette
+    jeden in die Irre gefuehrt, der die Tabelle liest.
+    """
+    nach_file_class = {
+        z["micr_file_class"]: z for z in zeilen
+        if z["micr_code_type"] == "file_class" and z["micr_file_class"]
+    }
+    fremd = {}
+    for z in zeilen:
+        if z["micr_code_type"] != "arrest_charge":
+            continue
+        ziel = nach_file_class.get(z["micr_file_class"])
+        if ziel is None:
+            continue
+        eigene = _begriffe(z["micr_description"])
+        ihre = _begriffe(ziel["micr_description"])
+        if eigene and ihre and not (eigene & ihre):
+            fremd[z["micr_code"]] = (z["micr_description"], ziel["micr_description"])
+
+    unerklaert = {k: v for k, v in fremd.items() if k not in ANDERS_BENANNT}
+    assert not unerklaert, (
+        "Bezeichnung hat nichts mit ihrer File Class gemeinsam und steht nicht "
+        f"in ANDERS_BENANNT: {unerklaert}"
+    )
+
+
+def test_die_ausnahmeliste_ist_nicht_veraltet(zeilen):
+    """Gegenprobe - sonst sammelt die Liste Ausnahmen an, die keine mehr sind."""
+    nach_file_class = {
+        z["micr_file_class"]: z for z in zeilen
+        if z["micr_code_type"] == "file_class" and z["micr_file_class"]
+    }
+    nach_code = {z["micr_code"]: z for z in zeilen}
+    ueberfluessig = []
+    for code in ANDERS_BENANNT:
+        z = nach_code.get(code)
+        ziel = nach_file_class.get(z["micr_file_class"]) if z else None
+        if z and ziel and (_begriffe(z["micr_description"]) & _begriffe(ziel["micr_description"])):
+            ueberfluessig.append(code)
+    assert not ueberfluessig, (
+        f"ANDERS_BENANNT nennt Codes, die sich inzwischen decken: {ueberfluessig}"
+    )
+
+
+def test_2501_ist_forgery_und_nicht_larceny(zeilen):
+    """Der Fall, der die Pruefung ausgeloest hat.
+
+    Detroit liefert zu allen 78 Zeilen arrest_charge 25000 und
+    charge_description 'FORGERY / COUNTERFEITING'; das Handbuch fuehrt 2501
+    als 'Forgery of Checks'. Die alte Bezeichnung kam aus einer einzelnen
+    abweichenden Zeile im Feld offense_description.
+    """
+    zeile = next(z for z in zeilen if z["micr_code"] == "2501")
+    assert zeile["micr_description"] == "Forgery of Checks"
+    assert zeile["micr_file_class"] == "25000"
+    assert zeile["nibrs_code"] == "250"
+    assert "LARCENY - OTHER" in zeile["note"], (
+        "die Notiz muss die alte Bezeichnung nennen, sonst verschwindet der "
+        "Widerspruch aus der Tabelle"
     )

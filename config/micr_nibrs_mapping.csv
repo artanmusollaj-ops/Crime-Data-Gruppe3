@@ -50,7 +50,7 @@ micr_code,micr_code_type,micr_file_class,micr_description,nibrs_group,nibrs_code
 2402,file_class,24002,Motor Vehicle as Stolen Property,A,280,Stolen Property,15,micr_manual_1110_2024,true,true,
 2403,file_class,24003,Motor Vehicle Fraud,A,26A,Confidence Game  Credit Card/Automated Teller Machine,13,micr_manual_1110_2024,true,true,
 2500,file_class,25000,Forgery/Counterfeiting,A,250,Counterfeiting/Forgery,12,micr_manual_1110_2024,true,true,
-2501,arrest_charge,25000,LARCENY - OTHER,A,250,Counterfeiting/Forgery,12,micr_arrest_charge_1110_2024,true,true,Arrest Charge 'Forgery of Checks' unter File Class 25000 (Forgery/Counterfeiting); NIBRS von dort uebernommen
+2501,arrest_charge,25000,Forgery of Checks,A,250,Counterfeiting/Forgery,12,micr_arrest_charge_1110_2024,true,true,"Arrest Charge 'Forgery of Checks' unter File Class 25000 (Forgery/Counterfeiting); NIBRS von dort uebernommen; In den Detroit-Daten stand 'LARCENY - OTHER'. Das ist weder der Name der Anklage noch der ihrer File Class: Das Handbuch fuehrt 2501 als 'Forgery of Checks' unter File Class 25000 Forgery/Counterfeiting, und Detroit selbst liefert zu allen 78 Zeilen arrest_charge 25000 und charge_description 'FORGERY / COUNTERFEITING'. Die Bezeichnung kam aus einer einzelnen abweichenden Zeile"
 2601,file_class,26001,Fraud - False Pretense/Swindle/Confidence Game,A,26A,Confidence Game  Credit Card/Automated Teller Machine,13,micr_manual_1110_2024,true,true,
 2602,file_class,26002,Fraud - Credit Card/ATM,A,26B,Credit Card/ATM,13,micr_manual_1110_2024,true,true,
 2603,file_class,26003,Fraud - Impersonation,A,26C,Impersonation,13,micr_manual_1110_2024,true,true,
