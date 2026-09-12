@@ -114,7 +114,7 @@ def schreibe_detroit(
     status: str = "SUCCESS",
 ) -> Path:
     """Detroits Bronze im Parquet-Vertrag: ein Laufverzeichnis je Lauf."""
-    ziel = data_root / "bronze" / "detroit" / unterpfad / lauf
+    ziel = data_root / "bronze" / bc.DETROIT_BRONZE / unterpfad / lauf
     ziel.mkdir(parents=True, exist_ok=True)
     saetze = detroit_saetze(zeilen)
     tabelle = pa.table({
@@ -139,7 +139,7 @@ def schreibe_detroit_ndjson(
     status: str = "SUCCESS",
 ) -> Path:
     """Der Bestand vor dem Parquet-Umbau: eine NDJSON flach im Verzeichnis."""
-    ziel = data_root / "bronze" / "detroit"
+    ziel = data_root / "bronze" / bc.DETROIT_BRONZE
     ziel.mkdir(parents=True, exist_ok=True)
     ndjson = ziel / f"{lauf}.ndjson"
     with ndjson.open("w", encoding="utf-8") as datei:
@@ -380,7 +380,7 @@ def test_fehlender_detroit_bestand_nennt_den_befehl(tmp_path):
     config_root = tmp_path / "config"
     schreibe_tract(data_root)
     schreibe_chicago(data_root, CHI)
-    (data_root / "bronze" / "detroit").mkdir(parents=True)
+    (data_root / "bronze" / bc.DETROIT_BRONZE).mkdir(parents=True)
     schreibe_config(config_root)
     with pytest.raises(bc.TransformError, match="extract_detroit"):
         bc.build(data_root, config_root)

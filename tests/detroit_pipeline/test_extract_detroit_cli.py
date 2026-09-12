@@ -62,6 +62,8 @@ class DetroitCliTests(unittest.TestCase):
                 "2025",
                 "--output-dir",
                 "bronze",
+                "--raw-dir",
+                "roh",
             ]
         )
 
@@ -72,12 +74,14 @@ class DetroitCliTests(unittest.TestCase):
                 call(
                     year=2024,
                     output_dir=Path("bronze/full/year=2024"),
+                    raw_dir=Path("roh/full/year=2024"),
                     batch_size=None,
                     pause_seconds=0.05,
                 ),
                 call(
                     year=2025,
                     output_dir=Path("bronze/full/year=2025"),
+                    raw_dir=Path("roh/full/year=2025"),
                     batch_size=None,
                     pause_seconds=0.05,
                 ),
@@ -105,6 +109,8 @@ class DetroitCliTests(unittest.TestCase):
                 "2026-09-07",
                 "--output-dir",
                 "bronze",
+                "--raw-dir",
+                "roh",
             ]
         )
 
@@ -113,6 +119,7 @@ class DetroitCliTests(unittest.TestCase):
             start_date=date(2026, 8, 25),
             end_date_exclusive=date(2026, 9, 8),
             output_dir=Path("bronze/incremental/run_date=2026-09-07"),
+            raw_dir=Path("roh/incremental/run_date=2026-09-07"),
             batch_size=None,
             pause_seconds=0.05,
         )

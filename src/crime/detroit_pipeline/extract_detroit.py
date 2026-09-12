@@ -3,10 +3,10 @@
 Beispiele:
 
     python -m detroit_pipeline.extract_detroit --mode full \
-        --years 2024 2025 --output-dir data/bronze/detroit
+        --years 2024 2025 --output-dir data/bronze/city=detroit
 
     python -m detroit_pipeline.extract_detroit --mode daily \
-        --lookback-days 14 --output-dir data/bronze/detroit
+        --lookback-days 14 --output-dir data/bronze/city=detroit
 
 Das Ergebnis besteht aus Parquet und Manifest in einem gemeinsam publizierten
 Run-Verzeichnis. Die Feature-Daten werden in begrenzten Batches geschrieben.
@@ -16,11 +16,13 @@ from __future__ import annotations
 
 import argparse
 from datetime import date, datetime, timedelta, timezone
+import gzip
 from hashlib import sha256
 import json
 import logging
 import shutil
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -34,6 +36,40 @@ from .detroit_arcgis import (
     build_year_where,
     resolve_daily_window,
 )
+
+
+class Mitschrift:
+    """Legt jede ArcGIS-Antwort unveraendert in der Raw-Schicht ab.
+
+    Bronze hielt die Antwort der Quelle bisher nur **geparst** - je Zeile als
+    ``_feature_json``. Das genuegt fuer die Auswertung, ist aber kein Beweis:
+    Was der Dienst tatsaechlich geschickt hat, liess sich daraus nicht mehr
+    zeigen. Detroit war damit die einzige der fuenf Quellen ohne Raw-Schicht,
+    und Kapitel 7 des Konzepts macht die Trennung von Beweis und Ableitung zum
+    Architekturprinzip.
+
+    ``mtime=0`` macht die komprimierten Bytes zu einer reinen Funktion der
+    Antwort - wie bei Chicago, damit der SHA-256 im Manifest reproduzierbar
+    bleibt und nicht vom Zeitpunkt des Laufs abhaengt.
+    """
+
+    def __init__(self, work_dir: Path) -> None:
+        self.work_dir = work_dir
+        self.dateien: list[dict[str, Any]] = []
+
+    def __call__(self, name: str, body: bytes) -> None:
+        pfad = self.work_dir / f"{len(self.dateien) + 1:04d}-{name}.json.gz"
+        pfad.write_bytes(gzip.compress(body, mtime=0))
+        self.dateien.append({
+            "path": pfad.name,
+            "sha256": sha256(body).hexdigest(),
+            "size_bytes": pfad.stat().st_size,
+            "bytes_unkomprimiert": len(body),
+        })
+
+    @property
+    def bytes_roh(self) -> int:
+        return sum(d["bytes_unkomprimiert"] for d in self.dateien)
 
 
 def file_sha256(path: Path) -> str:
@@ -60,6 +96,7 @@ def _extract_where(
     where: str,
     output_dir: Path,
     *,
+    raw_dir: Path | None = None,
     file_stem: str,
     extraction_mode: str,
     date_field: str,
@@ -156,6 +193,21 @@ def _extract_where(
     schema = schema_for(layer_info)
     work_dir.mkdir()
 
+    # Die Raw-Schicht faengt erst ab hier mit, nicht schon bei Metadaten und
+    # Count: Vor diesem Punkt steht noch nicht fest, dass es ueberhaupt einen
+    # Lauf gibt, und ein halb gefuelltes Raw-Verzeichnis waere kein Beweis,
+    # sondern Abfall. Die drei Antworten davor sind Vorpruefungen; was der
+    # Bestand ist, sagen die Feature-Batches.
+    raw_final = raw_work = None
+    client_mitschrift: Mitschrift | None = None
+    if raw_dir is not None:
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        raw_final = raw_dir / f'run_{run_id}'
+        raw_work = raw_dir / f'.run_{run_id}.partial'
+        raw_work.mkdir()
+        client_mitschrift = Mitschrift(raw_work)
+        client.aufzeichner = client_mitschrift
+
     # SCHRITT 3: Jede rohe ArcGIS-Zeile wird inklusive technischer Provenance
     # sofort geschrieben. Fachliche Transformationen gehoeren nicht in Bronze.
     downloaded_count = 0
@@ -202,12 +254,16 @@ def _extract_where(
             if parquet.metadata.num_rows != downloaded_count:
                 raise DataQualityError('Parquet-Zeilenzahl inkonsistent')
         # Publication is deliberately deferred until all metadata is ready.
-        source_count_after = client.get_count(where)
+        source_count_after = client.get_count(where, name="count_nachher")
         finished_at = datetime.now(timezone.utc)
         checksum = file_sha256(temporary_path)
     except BaseException:
         shutil.rmtree(work_dir, ignore_errors=True)
+        if raw_work is not None:
+            shutil.rmtree(raw_work, ignore_errors=True)
         raise
+    finally:
+        client.aufzeichner = None
 
     # SCHRITT 4: Der zweite Count dokumentiert, ob sich die Live-Quelle waehrend
     # des Laufs veraendert hat. Die feste ID-Liste bleibt der Snapshot-Vertrag.
@@ -225,9 +281,24 @@ def _extract_where(
         "rows_with_extra": extra_rows,
         "snapshot_membership_verified": True,
         "snapshot_ids_sha256": sha256(','.join(map(str, sorted(object_ids))).encode()).hexdigest(),
-        "payload_contract": "_feature_json preserves parsed source JSON; not HTTP bytes",
+        "payload_contract": (
+            "_feature_json preserves parsed source JSON; the delivered HTTP "
+            "bytes are in the raw layer"
+            if raw_work is not None else
+            "_feature_json preserves parsed source JSON; not HTTP bytes"
+        ),
         "files": [{"path": "part-0001.parquet", "sha256": checksum,
                    "size_bytes": temporary_path.stat().st_size}],
+        "raw_layer": (
+            {
+                "path": str(raw_final),
+                "responses": len(client_mitschrift.dateien),
+                "bytes_delivered": client_mitschrift.bytes_roh,
+                "bytes_stored": sum(d["size_bytes"] for d in client_mitschrift.dateien),
+                "files": client_mitschrift.dateien,
+            }
+            if raw_work is not None else None
+        ),
         "pipeline_run_id": run_id,
         "status": "SUCCESS",
         "source_system": "detroit_rms_crime",
@@ -259,11 +330,40 @@ def _extract_where(
         "bronze_file": "part-0001.parquet",
         "bronze_sha256": checksum,
     }
+    # Raw zuerst veroeffentlichen, Bronze danach. Ein Raw-Lauf ohne
+    # Bronze-Zwilling kostet eine Wiederholung; umgekehrt stuende eine
+    # abgeleitete Tabelle ohne ihren Beweis da - und niemand saehe es ihr an.
     try:
+        if raw_work is not None:
+            write_json_atomic(raw_work / 'manifest.json', {
+                "raw_contract_version": 1,
+                "immutable": True,
+                "status": "SUCCESS",
+                "source_system": manifest["source_system"],
+                "dataset_id": manifest["dataset_id"],
+                "layer_url": manifest["layer_url"],
+                "pipeline_run_id": run_id,
+                "format": "application/json (gzip, eine ArcGIS-Antwort je Datei)",
+                "note": (
+                    "Jede Datei ist die Antwort des Dienstes, Byte fuer Byte, "
+                    "vor dem Parsen abgelegt. Metadaten- und Count-Abrufe vor "
+                    "dem eigentlichen Download sind Vorpruefungen und nicht "
+                    "enthalten."
+                ),
+                "responses": len(client_mitschrift.dateien),
+                "bytes_delivered": client_mitschrift.bytes_roh,
+                "files": client_mitschrift.dateien,
+                "derived_to": f"bronze/.../{run_id}",
+                "started_at": manifest["started_at"],
+                "finished_at": manifest["finished_at"],
+            })
+            raw_work.rename(raw_final)
         write_json_atomic(work_dir / 'manifest.json', manifest)
         work_dir.rename(final_dir)
     except BaseException:
         shutil.rmtree(work_dir, ignore_errors=True)
+        if raw_work is not None:
+            shutil.rmtree(raw_work, ignore_errors=True)
         raise
     return final_path, manifest_path
 
@@ -272,6 +372,7 @@ def extract_year(
     year: int,
     output_dir: Path,
     *,
+    raw_dir: Path | None = None,
     batch_size: int | None = None,
     pause_seconds: float = 0.05,
     client: ArcGISClient | None = None,
@@ -283,6 +384,7 @@ def extract_year(
     return _extract_where(
         build_year_where(year),
         output_dir,
+        raw_dir=raw_dir,
         file_stem=f"detroit_rms_crime_{year}",
         extraction_mode="FULL",
         date_field="incident_occurred_at",
@@ -300,6 +402,7 @@ def extract_updated_window(
     end_date_exclusive: date,
     output_dir: Path,
     *,
+    raw_dir: Path | None = None,
     batch_size: int | None = None,
     pause_seconds: float = 0.05,
     client: ArcGISClient | None = None,
@@ -315,6 +418,7 @@ def extract_updated_window(
     return _extract_where(
         where,
         output_dir,
+        raw_dir=raw_dir,
         file_stem=(
             "detroit_rms_crime_incremental_"
             f"{start_date.isoformat()}_{end_date_exclusive.isoformat()}"
@@ -400,8 +504,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("data/bronze/detroit"),
+        default=Path("data/bronze/city=detroit"),
         help="Zielverzeichnis fuer Bronze und Manifest",
+    )
+    parser.add_argument(
+        "--raw-dir",
+        type=Path,
+        default=Path("data/raw/city=detroit"),
+        help=(
+            "Zielverzeichnis fuer die Raw-Schicht: jede ArcGIS-Antwort "
+            "unveraendert als gzip. --no-raw schaltet sie ab"
+        ),
+    )
+    parser.add_argument(
+        "--no-raw",
+        action="store_true",
+        help="Keine Raw-Schicht schreiben (nur Bronze wie vor dem 12.9.)",
     )
     parser.add_argument(
         "--batch-size",
@@ -469,6 +587,8 @@ def main(argv: list[str] | None = None) -> int:
             bronze_path, manifest_path = extract_year(
                 year=year,
                 output_dir=args.output_dir / "full" / f"year={year}",
+                raw_dir=(None if args.no_raw
+                         else args.raw_dir / "full" / f"year={year}"),
                 batch_size=args.batch_size,
                 pause_seconds=args.pause_seconds,
             )
@@ -494,6 +614,8 @@ def main(argv: list[str] | None = None) -> int:
         output_dir=(
             args.output_dir / "incremental" / f"run_date={run_date.isoformat()}"
         ),
+        raw_dir=(None if args.no_raw else
+                 args.raw_dir / "incremental" / f"run_date={run_date.isoformat()}"),
         batch_size=args.batch_size,
         pause_seconds=args.pause_seconds,
     )

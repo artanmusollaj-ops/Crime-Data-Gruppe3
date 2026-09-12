@@ -21,7 +21,7 @@ class RecordingClient(FakeArcGISClient):
         super().__init__()
         self.filters = []
 
-    def get_count(self, where):
+    def get_count(self, where, *, name="count"):
         self.filters.append(where)
         return super().get_count(where)
 

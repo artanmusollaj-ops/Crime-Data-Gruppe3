@@ -39,7 +39,7 @@ Speicherarchitektur aus unveränderlichen Läufen, und **alle drei
 Silver-Tabellen** — seit `crime_offense` sprechen beide Städte dieselbe
 Deliktsprache, liegen auf derselben Zeitachse und tragen dieselbe
 Raumeinheit. Jede Quelle weist ihre Vollständigkeit nach, statt sie zu
-behaupten. **621 automatisierte Tests** laufen ohne Netzzugriff und ohne
+behaupten. **627 automatisierte Tests** laufen ohne Netzzugriff und ohne
 Schlüssel.
 
 | | |
@@ -189,9 +189,8 @@ für Silver und Gold. Die Begründung steht in Kapitel 7.
 
 ## 5 · Der Data-Engineering-Lebenszyklus
 
-Gefordert ist der **Entwurf**. Drei Phasen sind gebaut, Transformation zu zwei
-Dritteln, Serving ist entworfen und noch nicht gebaut — der Entwurf steht
-in 5.2.
+Gefordert ist der **Entwurf**. Alle fünf Phasen sind inzwischen gebaut; der
+Entwurf und was die Messung daran geändert hat, steht in 5.2.
 
 ### 5.1 Die fünf Phasen
 
@@ -200,8 +199,8 @@ in 5.2.
 | **Generation** | Fünf Quellsysteme: Socrata-API (Chicago), ArcGIS REST (Detroit), HTTPS-Dateien (TIGER, NOAA), JSON-API (ACS). Je Quelle dokumentiert: Änderungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 21, 22 |
 | **Ingestion** | Vier Pipelines, alle Batch. Chicago inkrementell über ein Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` |
 | **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest je Schicht | Kapitel 7 |
-| **Transformation** | Bronze bewusst ohne Deutung. Silver deutet: Typen, Einheiten, Fehlwerte, Schlüssel. Zwei von drei Tabellen gebaut | Kapitel 8 |
-| **Serving** | Option A (Analytik) entschieden, Gold entworfen und noch nicht gebaut | 5.2 |
+| **Transformation** | Bronze bewusst ohne Deutung. Silver deutet: Typen, Einheiten, Fehlwerte, Schlüssel. Alle vier Tabellen gebaut | Kapitel 8 |
+| **Serving** | Option A (Analytik) entschieden, Gold als Sternschema gebaut, Auswertungsdatenbank mit neun Sichten | 5.2 |
 
 ### 5.2 Serving: der Entwurf, und was die Messung daran geändert hat
 
@@ -512,7 +511,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 621 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
+| **DataOps** | 627 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -708,9 +707,9 @@ ableiten, ohne die API erneut zu befragen.
 
 ### 8.2 Was Silver deutet
 
-Die Quellen haben **drei verschiedene Körner**. Sie in eine Tabelle zu zwingen
+Die Quellen haben **verschiedene Körner**. Sie in eine Tabelle zu zwingen
 würde Zeilen vervielfachen — ein Wetterwert an jedem Delikt derselben Stadt und
-desselben Tages — oder Information wegwerfen. Deshalb drei Tabellen:
+desselben Tages — oder Information wegwerfen. Deshalb vier Tabellen:
 
 | Tabelle | Eine Zeile ist | Stand |
 | --- | --- | --- |
@@ -750,7 +749,7 @@ sieht es keinem Wert an. Die Tabelle führt deshalb `occurred_at_utc` für den
 Vergleich, `occurred_at_local` für die Frage, was in der Stadt Ortszeit war,
 und `occurred_date_local` für den Join auf `weather_day`.
 
-**Alle drei Tabellen benennen Auffälligkeiten statt sie zu entfernen.** `tract`
+**Alle Tabellen benennen Auffälligkeiten statt sie zu entfernen.** `tract`
 und `weather_day` in einer Spalte `quality_flags`, `crime_offense` über
 `located`, `nibrs_mapped` und `unfounded`. Unverortete Fälle, Fälle ohne
 NIBRS-Zuordnung und Detroits zurückgezogene Fälle bleiben in der Tabelle. Wer
@@ -1079,7 +1078,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 621 bestandene Tests
+python -m pytest                       # erwartet 627 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
@@ -1133,6 +1132,7 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | Technische Entscheide | [`projektabsprache.md`](projektabsprache.md) |
 | Anforderungen gegen Stand | [`leistungsnachweise.md`](leistungsnachweise.md) |
 | Detroit-Pipeline im Detail | [`DETROIT_PIPELINE_ANLEITUNG.md`](DETROIT_PIPELINE_ANLEITUNG.md) |
+| **Was sich wann geändert hat** | [`AENDERUNGEN.md`](AENDERUNGEN.md) — ein Eintrag je Pull Request, mit den Zahlen und ihrer Begründung |
 | **NIBRS-Codeliste, amtlich** | `config/nibrs_offense_codes_2025.csv` — 81 Codes aus Anhang A von [`nibrs_technical_specification_2025.pdf`](nibrs_technical_specification_2025.pdf) |
 | IUCR nach NIBRS (Chicago) | `config/iucr_nibrs_mapping.csv`, erzeugt von [`tools/build_iucr_nibrs_mapping.py`](../tools/build_iucr_nibrs_mapping.py); Katalog vom [Datenportal der Stadt](https://data.cityofchicago.org/resource/c7ck-438e.json) |
 | MICR nach NIBRS (Detroit) | `config/micr_nibrs_mapping.csv`, erweitert von [`tools/extend_micr_arrest_charges.py`](../tools/extend_micr_arrest_charges.py); Quellen [`micr_manual_1110_2024.pdf`](micr_manual_1110_2024.pdf) und [`micr_appendix_f_2009.pdf`](micr_appendix_f_2009.pdf) |

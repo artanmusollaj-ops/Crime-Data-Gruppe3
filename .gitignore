@@ -4,8 +4,6 @@ __pycache__/
 .env
 .ipynb_checkpoints/
 data/*/city=*/
-# Detroit legt (noch) flach ab, ohne city=-Partition
-data/*/detroit/
 # Census-Referenzgeometrien: data/<schicht>/dataset=tiger_tract/vintage=.../state=...
 data/*/dataset=*/
 # Die Auswertungsdatenbank ist abgeleitet: Sichten ueber die Schichten, keine
