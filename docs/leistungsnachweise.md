@@ -281,8 +281,8 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 | **Generation** | Fünf Quellsysteme: Socrata (Chicago), ArcGIS REST (Detroit), HTTPS-Dateien (TIGER und NOAA), JSON-API (ACS). Je Quelle dokumentiert: Aktualisierungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 21, 22 | Detroit-Quellnotebook |
 | **Ingestion** | Vier Pipelines. Batch, kein Streaming. Chicago inkrementell über Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` | – |
 | **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest | `data/`, Abschnitt 4 | Evaluation schriftlich, Silver/Gold leer |
-| **Transformation** | Bronze bewusst ohne Transformation. Qualitätsanalyse für Chicago fertig | Notebook 03 | Silver und Gold komplett |
-| **Serving** | Option **A · Analytik** gewählt: Dashboard auf der Gold-Schicht | Abschnitt 6 | nicht gebaut; Gold braucht dafür Aggregate je Tract, Monat und Kategorie |
+| **Transformation** | Bronze bewusst ohne Transformation. Silver und Gold gebaut, Qualitätsanalyse für Chicago fertig | Notebook 03, 34 | Qualitätsanalyse Detroit |
+| **Serving** | Option **A · Analytik** gewählt: Auswertungsdatenbank auf der Gold-Schicht | Abschnitt 6, Notebook 33 | gebaut: neun Sichten über Silver und Gold; das Dashboard darauf fehlt |
 
 ### Unterströmungen
 
@@ -492,7 +492,7 @@ bauen wir schon für LN1.
 
 | | Was zu liefern ist | Passt zu unseren Daten | Aufwand | Risiko |
 | --- | --- | --- | --- | --- |
-| **A · Analytik** | Deployment-Umgebung, z. B. Dashboard auf der Gold-Schicht | sehr gut — Gold ist ohnehin geplant | mittel | gering |
+| **A · Analytik** | Deployment-Umgebung, z. B. Dashboard auf der Gold-Schicht | sehr gut — Gold ist ohnehin geplant (inzwischen gebaut) | mittel | gering |
 | **B · Machine Learning** | mindestens zwei Regressions- oder Klassifikationsmodelle mit Vergleich | gut: Zielgrösse Kriminalitätsrate je Tract, Merkmale aus ACS und Wetter | mittel–hoch | mittel |
 | **C · KI-Anwendung** | Applikation mit LLM, z. B. Agentic AI | Daten wären Kontext, nicht Kern | hoch | hoch, Data-Engineering-Anteil gering |
 
@@ -567,7 +567,7 @@ ergibt sich folgender Stand:
 | --- | --- | --- | --- |
 | 1 | **Forschungsfragen** — FF1 bis FF3 übernehmen oder anders schneiden? | ○ **offen** | [Absprache 5.2](projektabsprache.md) sagt ausdrücklich „Forschungsfragen noch definieren" |
 | 2 | **Hypothesen** — H1 bis H5 Pflicht, H6 bis H8 Kür? | ○ **offen** | – |
-| 3 | **Serving-Option** — A, B oder C? | ● **A · Analytik** | Abschnitt 6; Gold braucht damit nur Aggregate je Tract, Monat und Kategorie, keine Merkmalstabelle |
+| 3 | **Serving-Option** — A, B oder C? | ● **A · Analytik** | Abschnitt 6; gebaut als Sternschema auf Deliktkorn statt als Aggregat — die Messung dazu in Notebook 34 |
 | 4 | **Wetterquelle** — im Scope? | ● **ja** | [Absprache 2.1](projektabsprache.md) Variante **D**; Quelle gebaut, getestet, geladen, dokumentiert |
 | 5 | **Storage-Begründung** | ◐ **Werkzeug ja, Begründung nein** | [Absprache 5.3](projektabsprache.md) „DuckDB"; die schriftliche Evaluation fehlt, und das Bronze-Format ist offen ([4.1](projektabsprache.md)) |
 | 6 | **Arbeitsteilung** | ○ **verschoben** | [Absprache 7.3](projektabsprache.md) „Machen wir sobald Artan bereit ist" |

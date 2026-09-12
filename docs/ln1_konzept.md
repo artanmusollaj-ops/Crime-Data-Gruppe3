@@ -189,9 +189,8 @@ für Silver und Gold. Die Begründung steht in Kapitel 7.
 
 ## 5 · Der Data-Engineering-Lebenszyklus
 
-Gefordert ist der **Entwurf**. Drei Phasen sind gebaut, Transformation zu zwei
-Dritteln, Serving ist entworfen und noch nicht gebaut — der Entwurf steht
-in 5.2.
+Gefordert ist der **Entwurf**. Alle fünf Phasen sind inzwischen gebaut; der
+Entwurf und was die Messung daran geändert hat, steht in 5.2.
 
 ### 5.1 Die fünf Phasen
 
@@ -200,8 +199,8 @@ in 5.2.
 | **Generation** | Fünf Quellsysteme: Socrata-API (Chicago), ArcGIS REST (Detroit), HTTPS-Dateien (TIGER, NOAA), JSON-API (ACS). Je Quelle dokumentiert: Änderungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 21, 22 |
 | **Ingestion** | Vier Pipelines, alle Batch. Chicago inkrementell über ein Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` |
 | **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest je Schicht | Kapitel 7 |
-| **Transformation** | Bronze bewusst ohne Deutung. Silver deutet: Typen, Einheiten, Fehlwerte, Schlüssel. Zwei von drei Tabellen gebaut | Kapitel 8 |
-| **Serving** | Option A (Analytik) entschieden, Gold entworfen und noch nicht gebaut | 5.2 |
+| **Transformation** | Bronze bewusst ohne Deutung. Silver deutet: Typen, Einheiten, Fehlwerte, Schlüssel. Alle vier Tabellen gebaut | Kapitel 8 |
+| **Serving** | Option A (Analytik) entschieden, Gold als Sternschema gebaut, Auswertungsdatenbank mit neun Sichten | 5.2 |
 
 ### 5.2 Serving: der Entwurf, und was die Messung daran geändert hat
 
@@ -708,9 +707,9 @@ ableiten, ohne die API erneut zu befragen.
 
 ### 8.2 Was Silver deutet
 
-Die Quellen haben **drei verschiedene Körner**. Sie in eine Tabelle zu zwingen
+Die Quellen haben **verschiedene Körner**. Sie in eine Tabelle zu zwingen
 würde Zeilen vervielfachen — ein Wetterwert an jedem Delikt derselben Stadt und
-desselben Tages — oder Information wegwerfen. Deshalb drei Tabellen:
+desselben Tages — oder Information wegwerfen. Deshalb vier Tabellen:
 
 | Tabelle | Eine Zeile ist | Stand |
 | --- | --- | --- |
@@ -750,7 +749,7 @@ sieht es keinem Wert an. Die Tabelle führt deshalb `occurred_at_utc` für den
 Vergleich, `occurred_at_local` für die Frage, was in der Stadt Ortszeit war,
 und `occurred_date_local` für den Join auf `weather_day`.
 
-**Alle drei Tabellen benennen Auffälligkeiten statt sie zu entfernen.** `tract`
+**Alle Tabellen benennen Auffälligkeiten statt sie zu entfernen.** `tract`
 und `weather_day` in einer Spalte `quality_flags`, `crime_offense` über
 `located`, `nibrs_mapped` und `unfounded`. Unverortete Fälle, Fälle ohne
 NIBRS-Zuordnung und Detroits zurückgezogene Fälle bleiben in der Tabelle. Wer

@@ -26,8 +26,8 @@ den geladenen Daten erhoben, nicht geschätzt.
 | **Census ACS** | Pipeline fertig, getestet | dieselben Tracts, 3 Variablen | raw + bronze |
 | **Wetter (NOAA)** | Pipeline fertig, getestet | 29'181 Tage O'Hare (ab 1946), 26'264 Detroit Metro (ab 1942) | raw + bronze |
 
-Ergänzend: 627 Tests, 8 Notebooks, `data/silver/` mit allen drei Tabellen,
-`data/gold/` bislang leer. Die Deliktzuordnung liegt in drei Referenzdateien:
+Ergänzend: 627 Tests, 11 Notebooks, `data/silver/` mit allen vier Tabellen,
+`data/gold/` mit dem Sternschema (eine Faktentabelle, vier Dimensionen). Die Deliktzuordnung liegt in drei Referenzdateien:
 `config/nibrs_offense_codes_2025.csv` (81 amtliche NIBRS-Codes),
 `config/iucr_nibrs_mapping.csv` (434 Chicago-Codes) und
 `config/micr_nibrs_mapping.csv` (128 Detroit-Codes).
@@ -418,8 +418,9 @@ verwendet deshalb englische Spaltennamen.
 eine Codeänderung und keinen neuen Ladelauf — der `SNWD`-Fall zeigt, dass das
 trägt.
 
-**Stand.** Alle drei Tabellen sind gebaut, jeweils mit Herkunftsnachweis über
-die Bronze-Läufe im Manifest: `tract` (6'282 Zeilen), `weather_day` (55'449
+**Stand.** Alle vier Tabellen sind gebaut, jeweils mit Herkunftsnachweis über
+die Bronze-Läufe im Manifest: `tract` (6'282 Zeilen), `place` (2'206 Zeilen,
+die Stadtgrenzen), `weather_day` (55'449
 Zeilen, zwei Städte) und seit dem 10.9. `crime_offense` (347'957 Zeilen,
 259'272 Chicago und 88'685 Detroit; Detroits Zeilen sind Anklagen, je Tat
 zählt eine — Gold kommt damit auf 344'607).
