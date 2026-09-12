@@ -1,12 +1,22 @@
-# Änderungen an Silver und Gold
+# Änderungen an der Datenstrecke
 
-Diese Datei hält fest, **was sich an den Zahlen geändert hat und warum** —
-gedacht für die Dokumentation und die Präsentation. Ein Eintrag je gemergtem
-Pull Request, neueste zuerst.
+Diese Datei hält fest, **was sich an den Zahlen und Zusagen geändert hat und
+warum** — gedacht für die Dokumentation und die Präsentation. Neueste zuerst.
 
 Sie ersetzt nicht die Git-Historie. Dort steht, *was* im Code passiert ist; hier
-steht, was es für die Aussagen des Projekts bedeutet. Refactorings, Testarbeit
-und Aufräumen stehen deshalb bewusst **nicht** hier.
+steht, was es für die Aussagen des Projekts bedeutet.
+
+**Wann ein Eintrag entsteht.** Wenn sich etwas ändert, das die Abgabe behauptet:
+eine **Zahl**, eine **Zusage** (etwa „die Crosswalks sind reproduzierbar
+abgeleitet"), oder eine Aussage in einem der Abgabedokumente, die wir korrigiert
+haben. Ein Pull Request, der nur aufräumt, ein Werkzeug bequemer macht oder
+einen Kommentar richtigstellt, bekommt **keinen** — steht dann aber unten unter
+*Bewusst ohne Eintrag*, damit eine Lücke in den Nummern als Entscheidung
+erkennbar ist und nicht als Versehen.
+
+Die frühere Fassung dieser Regel sagte *„ein Eintrag je gemergtem Pull
+Request"* **und** *„Testarbeit steht bewusst nicht hier"*. Beides zusammen geht
+nicht, und entsprechend fehlten vier Einträge, bis es am 12.9. auffiel.
 
 **Arbeitsteilung seit 12.9.2026:** Christian bearbeitet Silver und Gold, Artan
 Dokumentation und Präsentation. Wo unsere Arbeit eine Aussage in
@@ -20,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **647** |
+| Tests | **649** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -29,6 +39,49 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 12.09.2026 · Vier fehlende Einträge — und eine Regel, die sich widersprach (#51)
+
+**Was.** Die Einträge zu **#25, #28, #31 und #37** nachgetragen, die Kopfregel
+entwirrt, und ein Abschnitt *Bewusst ohne Eintrag* angelegt.
+
+**Warum.** Auf die Frage, ob diese Datei nachgeführt sei, lautete die ehrliche
+Antwort: **nein.** Vier gemergte Pull Requests hatten keinen Eintrag, und es
+war kein Zufall, dass es ausgerechnet vier waren — im Kopf standen **zwei
+Regeln, die sich widersprechen**:
+
+> „Ein Eintrag je gemergtem Pull Request" · „Refactorings, Testarbeit und
+> Aufräumen stehen deshalb bewusst **nicht** hier."
+
+Beides zusammen geht nicht. Wo zwei Regeln gelten, gilt keine — und die Praxis
+wurde uneinheitlich: #45 (Testarbeit) bekam einen Eintrag, #37 (ebenfalls
+Testarbeit) nicht.
+
+**Was gefehlt hat.**
+
+| PR | Warum er hingehört |
+| --- | --- |
+| **#25** | der Zeitzonen-Fix: Detroits Jahresfenster war in UTC gezogen — 66 Fälle aus dem falschen Jahr, 56 fehlende vom Jahresende |
+| **#28** | die ganze Auswertungsumgebung, samt der Messung Sichten gegen Kopie (0,3 MB gegen 45,1 MB) |
+| **#31** | die NIBRS-Codeliste bekam eine zweite Quelle — vorher hätte ein Tippfehler beide Städte gleichzeitig verschoben |
+| **#37** | aus „die Crosswalks sind reproduzierbar abgeleitet" wurde eine geprüfte Zusage statt einer Behauptung |
+
+**Die neue Regel.** Ein Eintrag entsteht, wenn sich etwas ändert, das die Abgabe
+**behauptet** — eine Zahl, eine Zusage, oder eine korrigierte Aussage in einem
+Abgabedokument. Alles andere kommt unter *Bewusst ohne Eintrag*, mit
+Begründung.
+
+**Damit es nicht wieder passiert.** Zwei Tests: Die PR-Nummern müssen
+**lückenlos** sein — jede ist entweder ein Eintrag oder ausgelassen —, und
+keine darf beides sein. Der erste braucht kein Netz: Eine fehlende Nummer
+fällt schon an der Lücke auf. Gegenprobe gemacht, `#27` aus der Liste
+genommen: *„Diese Pull Requests sind weder Eintrag noch ausgelassen: [27]"*.
+
+**Zahlen.** 647 → **649 Tests**.
+
+**Nachlesen.** `tests/test_aenderungen.py` · PR #51
 
 ---
 
@@ -430,6 +483,39 @@ nicht, die Absolutzahlen schon.
 
 ---
 
+## 12.09.2026 · Die Werkzeuge beweisen jetzt, dass sie ihre Dateien erzeugen (#37)
+
+**Was.** Alle drei Werkzeuge unter `tools/` laufen im Test in ein temporäres
+Verzeichnis, und das Ergebnis muss **byteweise** mit der versionierten CSV
+übereinstimmen.
+
+**Warum.** Das Konzept sagt an mehreren Stellen, die Crosswalks seien
+reproduzierbar abgeleitet und nicht von Hand gepflegt. Geprüft hat das **nur
+eines von drei** Werkzeugen. Bei den anderen beiden prüften die Tests die
+fertige Datei — also das Ergebnis, nicht seine Herkunft. **Wer eine Zuordnung
+von Hand hineingeschrieben hätte, wäre durch alle Tests gekommen.** Die Zusage
+war damit eine Behauptung.
+
+**Zahlen.** Zwei Mutationsproben belegen, dass der Test greift: `0560` in
+Chicagos CSV von Hand auf `13B` gesetzt → *„Das Werkzeug erzeugt eine andere
+Datei"*; eine Notiz in Detroits CSV umgeschrieben → *„Das Werkzeug baut den
+Anschluss nicht mehr so auf"*.
+
+Der schwierige Fall war `extend_micr_arrest_charges.py`: Es *erweitert* eine
+bestehende Tabelle und füllt nur, was noch nicht zugeordnet ist — inzwischen
+sind das null Zeilen, ein Lauf täte also nichts. Der Test baut deshalb eine
+Fassung, in der genau die **23 vom Werkzeug erzeugten Zeilen** geleert sind,
+lässt es darauf los und vergleicht. Dazu die Gegenprobe, dass ein zweiter Lauf
+nichts mehr ändert.
+
+**Der Preis.** Die Suite läuft statt in 6,6 nun in **14,8 Sekunden** — die
+Werkzeuge lesen zwei PDFs und rufen Chicagos Katalog ab. Das ist der Preis
+dafür, die Herkunft zu prüfen statt nur das Ergebnis.
+
+**Nachlesen.** `tests/config/` · PR #37
+
+---
+
 ## 12.09.2026 · Zurückgezogene und umgeschlüsselte NIBRS-Codes (#36)
 
 **Was.** `dim_offense` sagt jetzt bei jedem Code, was er heute bedeutet.
@@ -511,6 +597,42 @@ nicht „Deliktfamilie".
 
 ---
 
+## 12.09.2026 · Die Auswertungsumgebung: aus vorhanden wird abfragbar (#28)
+
+**Was.** `python -m serving.build_analysis_db` erzeugt
+`data/serving/analyse.duckdb` — eine DuckDB-Datei mit **Sichten** über die
+Schichten.
+
+**Warum.** Bis dahin waren die Daten aufbereitet, aber nicht *benutzbar*. Wer
+eine Frage hatte, musste wissen, dass die Delikte unter
+`data/silver/dataset=crime_offense/part-0001.parquet` liegen — und das in jede
+Abfrage schreiben. Das ist der Unterschied zwischen **vorhanden** und
+**abfragbar**.
+
+**Zahlen — Sichten gegen Kopie, gemessen.**
+
+| Ad-hoc-Abfrage | Sichten | Kopie |
+| --- | ---: | ---: |
+| Filter und Gruppierung | 1,8 ms | 2,3 ms |
+| Join Delikt × Tract | 3,6 ms | 4,3 ms |
+| Drei-Wege-Join | 4,4 ms | 5,1 ms |
+| **Dateigrösse** | **0,3 MB** | **45,1 MB** |
+
+Sichten sind sogar knapp schneller — DuckDB liest Parquet nativ mit
+Projektions- und Prädikat-Pushdown. Den Ausschlag gaben aber drei Dinge, die
+sich nicht messen lassen: Eine Kopie **kann veralten**, ohne dass man es ihr
+ansieht. Sie ist eine **zweite Wahrheit** neben den Schichten. Und sie kostet
+das **150-fache** an Platz.
+
+**Für die Präsentation.** Die Datei hält keine Daten, sondern Namen. Ein
+Silver- oder Gold-Neubau ist darin sofort sichtbar, ohne Import. Als Gold
+dazukam, war keine Codeänderung nötig — `discover()` nimmt auf, was in den
+Schichten liegt.
+
+**Nachlesen.** `src/crime/serving/__init__.py` · `notebooks/33_serving_evaluation.ipynb` · PR #28
+
+---
+
 ## 11.09.2026 · Detroits letzte drei Codes (#32)
 
 **Was.** `3072`, `5421` und `5422` sind zugeordnet. Detroits Abdeckung geht von
@@ -529,6 +651,27 @@ Fällen nach `90Z`.
 Bestätigung durch Detroit steht aus; das gehört dazugesagt.
 
 **Nachlesen.** Konzept 8.5 · Notebook 11 Abschnitt 7.1 · PR #32
+
+---
+
+## 11.09.2026 · Die Zielliste selbst bekommt eine zweite Quelle (#31)
+
+**Was.** Notebook 32 prüft nicht mehr nur die Crosswalks *gegen* die 81
+NIBRS-Codes, sondern die **Codeliste selbst** gegen eine zweite Abschrift.
+Ausserdem ein eigenes Quellen-Notebook für Detroit.
+
+**Warum.** Die 81 Codes waren bis dahin eine Abschrift aus einem PDF, der
+niemand widerspricht. **Ein Tippfehler dort verschiebt beide Städte
+gleichzeitig** — und fiele nirgends auf, weil beide Crosswalks gegen dieselbe
+falsche Liste geprüft würden. Illinois' IEPD-Arbeitsmappe ist eine zweite Hand
+am selben FBI-Dokument.
+
+**Zahlen.** Alle **81** Bezeichnungen belegt statt zehn Stichproben. Die
+ISP-Tabelle stand vorher nur als Warnung im Notebook (*„nicht als Crosswalk
+verwendbar"*), die IEPD-Mappe gar nicht; beide sind jetzt belegende Quellen mit
+eigenen Tests.
+
+**Nachlesen.** `notebooks/32_nibrs_source.ipynb` §3.4 · `notebooks/11_detroit_source.ipynb` · PR #31
 
 ---
 
@@ -569,6 +712,25 @@ deklariert ihre Datumsfelder ausdrücklich als UTC — gelesen hatte es niemand.
 
 ---
 
+## 11.09.2026 · Detroits Bronze wird Parquet — und das Jahr stimmt wieder (#25)
+
+**Was.** Detroits Ingestion schreibt Bronze als Parquet mit Lauf-Verzeichnis,
+Manifest und Datenvertrag — dasselbe Muster wie Chicago. Enthalten ist der
+**Zeitzonen-Fix**.
+
+**Warum.** Das Jahresfenster war in **UTC** gezogen statt in Detroiter
+Ortszeit. Ein „Jahrgang 2024" enthielt damit Fälle vom 31.12.2023 und liess
+welche vom Jahresende fehlen — ohne dass man es einer Zahl ansieht.
+
+**Zahlen.** Die alten NDJSON-Bestände enthalten **66** Fälle aus dem falschen
+Jahr und vermissen **56** vom Jahresende 2024. Sie werden seither nicht mehr
+gelesen: `silver_pipeline` bricht mit einem klaren Fehler ab, statt sie mit
+einer Warnung einzulesen, die man überliest.
+
+**Nachlesen.** `docs/DETROIT_TIMEZONE_AENDERUNGEN.md` · PR #25
+
+---
+
 ## 11.09.2026 · `crime_offense`: beide Städte auf NIBRS (#24)
 
 **Was.** Die Tabelle, die den Vergleich trägt. Beide Städte in einer
@@ -582,3 +744,19 @@ eine Behauptung.
 sind Korrekturen daran.
 
 **Nachlesen.** Konzept 8.2 · Notebook 32 · PR #24
+
+---
+
+## Bewusst ohne Eintrag
+
+Damit eine Lücke in den Nummern als Entscheidung erkennbar ist und nicht als
+Versehen. Jeder Pull Request ab #24 ist entweder oben ein Eintrag oder hier.
+
+| PR | Was er war | Warum kein Eintrag |
+| --- | --- | --- |
+| #26 | Test-Runner nimmt `-vv` und `-s` wieder auf | Werkzeug, ändert keine Aussage |
+| #27 | Tests aufgeräumt, ein Runner statt zwei | Aufräumen |
+| #34 | erste Fassung der Deliktgliederung | **nicht gemergt** — ersetzt durch #35 |
+| #41 | erste Fassung des toten Zwillings | **nicht gemergt** — durch das Löschen des Basis-Branches geschlossen, neu als #42 |
+| #50 | ein überholter Kommentar in `build_analysis_db.py` | eine Zeile, ändert keine Aussage |
+

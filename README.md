@@ -160,7 +160,7 @@ Zugriff auf Chicago ebenfalls, wird aber stärker gedrosselt.
 python -m pytest
 ```
 
-Erwartet werden **647 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **649 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -351,7 +351,7 @@ Vorstädte mit.
 python -m pytest
 ```
 
-**647 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**649 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen

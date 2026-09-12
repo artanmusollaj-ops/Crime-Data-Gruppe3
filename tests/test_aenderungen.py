@@ -149,3 +149,42 @@ def test_die_eintraege_stehen_neueste_zuerst(text):
     assert schluessel == sorted(schluessel, reverse=True), (
         f"Reihenfolge stimmt nicht: {daten}"
     )
+
+
+def test_keine_pull_request_nummer_faellt_durch(text):
+    """Jede Nummer ab #24 ist entweder ein Eintrag oder bewusst ausgelassen.
+
+    Das ist die Pruefung, die vier Monate zu spaet kam: #25, #28, #31 und #37
+    waren gemergt und hatten keinen Eintrag. Aufgefallen ist es nur, weil
+    jemand gefragt hat, ob die Datei nachgefuehrt sei.
+
+    Ohne Netz geht das so: Die Nummern muessen **luckenlos** sein. Faellt eine
+    heraus, ist sie entweder vergessen oder gehoert unter "Bewusst ohne
+    Eintrag" - beides will man wissen. Ein neuer Pull Request laesst den Test
+    fallen, bis er eingeordnet ist; genau das ist der Zweck.
+    """
+    eintraege = {int(n) for n in re.findall(r"^## [0-9.]+ · .*?\(#([0-9]+)\)$",
+                                            text, re.M)}
+    assert eintraege, "keine Eintraege mit PR-Nummer gefunden"
+
+    anfang = text.index("## Bewusst ohne Eintrag")
+    ausgelassen = {int(n) for n in re.findall(r"^\| #([0-9]+) \|", text[anfang:], re.M)}
+    assert ausgelassen, "der Abschnitt 'Bewusst ohne Eintrag' ist leer"
+
+    bekannt = eintraege | ausgelassen
+    fehlend = sorted(set(range(min(bekannt), max(bekannt) + 1)) - bekannt)
+    assert not fehlend, (
+        f"Diese Pull Requests sind weder Eintrag noch ausgelassen: {fehlend}. "
+        "Entweder einen Eintrag schreiben oder unter 'Bewusst ohne Eintrag' "
+        "mit Begruendung eintragen."
+    )
+
+
+def test_die_eintraege_und_die_ausgelassenen_ueberschneiden_sich_nicht(text):
+    """Sonst stuende dieselbe Nummer als erledigt und als ausgelassen da."""
+    eintraege = {int(n) for n in re.findall(r"^## [0-9.]+ · .*?\(#([0-9]+)\)$",
+                                            text, re.M)}
+    anfang = text.index("## Bewusst ohne Eintrag")
+    ausgelassen = {int(n) for n in re.findall(r"^\| #([0-9]+) \|", text[anfang:], re.M)}
+    doppelt = sorted(eintraege & ausgelassen)
+    assert not doppelt, f"gleichzeitig Eintrag und ausgelassen: {doppelt}"
