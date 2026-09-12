@@ -38,7 +38,7 @@ Speicherarchitektur aus unveränderlichen Läufen, und **alle drei
 Silver-Tabellen** — seit `crime_offense` sprechen beide Städte dieselbe
 Deliktsprache, liegen auf derselben Zeitachse und tragen dieselbe
 Raumeinheit. Jede Quelle weist ihre Vollständigkeit nach, statt sie zu
-behaupten. **537 automatisierte Tests** laufen ohne Netzzugriff und ohne
+behaupten. **585 automatisierte Tests** laufen ohne Netzzugriff und ohne
 Schlüssel.
 
 | | |
@@ -417,7 +417,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 537 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
+| **DataOps** | 585 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -983,7 +983,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 537 bestandene Tests
+python -m pytest                       # erwartet 585 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
