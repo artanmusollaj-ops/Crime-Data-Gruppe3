@@ -842,3 +842,45 @@ def test_die_schwellen_liegen_unter_dem_gemessenen_stand():
     """
     assert bg.GATE_MINDESTENS["inside_city"] <= 97.55 - 5
     assert bg.GATE_MINDESTENS["exact"] <= 95.49 - 5
+
+
+def test_kein_delikt_landet_in_der_falschen_stadt(con):
+    """Die Zusage, auf der jeder Staedtevergleich ruht.
+
+    Die Mehrheitsregel geht den Umweg ueber den Tract: Ein Punkt liegt in einem
+    Tract, und der Tract gehoert zu einer Stadt. Dieselbe Frage laesst sich
+    **direkt** stellen - Punkt gegen Ortsgrenze, andere Geometrie, andere
+    Operation. Das ist die unabhaengige Referenz, die Detroits eigene
+    Block-GEOID nicht sein konnte (siehe H7).
+
+    Geprueft wird nur die Richtung, die nicht vorkommen darf: ein Delikt, das
+    die Regel Chicago zuschlaegt und das in Detroit liegt, oder umgekehrt. Dass
+    die Regel Faelle an der Grenze *ausschliesst*, ist bekannt und in Notebook
+    34, Abschnitt 3.2 beziffert - das ist kein Fehler, sondern ihr Preis.
+    """
+    fakt, dim = gold("fact_offense"), gold("dim_tract")
+    platz = (PROJECT_ROOT / "data" / "silver" / "dataset=place" / "vintage=2024"
+             / "part-0001.parquet")
+    if not (fakt and dim and platz.exists()):
+        pytest.skip("Gold oder silver/place nicht gebaut")
+
+    con.execute("INSTALL spatial")
+    con.execute("LOAD spatial")
+    orte = ", ".join(f"'{g}'" for g in sorted(STUDIENSTAEDTE))
+    paare = ", ".join(f"('{g}','{s}')" for g, s in sorted(STUDIENSTAEDTE.items()))
+    verwechselt = con.execute(f"""
+        WITH grenze AS (
+            SELECT geoid, ST_GeomFromWKB(geometry) AS geom
+            FROM read_parquet('{platz}') WHERE geoid IN ({orte})
+        ), stadt(city_geoid, city) AS (VALUES {paare})
+        SELECT count(*)
+        FROM read_parquet('{fakt}') f
+        JOIN read_parquet('{dim}') t ON t.geoid = f.tract_geoid
+        JOIN grenze g ON ST_Within(ST_Point(f.longitude, f.latitude), g.geom)
+        JOIN stadt s ON s.city_geoid = g.geoid
+        WHERE t.city IS NOT NULL AND t.city <> s.city
+    """).fetchone()[0]
+    assert verwechselt == 0, (
+        f"{verwechselt} Delikte liegen in der einen Stadt und sind der anderen "
+        "zugeordnet - dann traegt der Staedtevergleich nicht"
+    )

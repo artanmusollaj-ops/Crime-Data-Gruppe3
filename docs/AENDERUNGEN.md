@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **672** |
+| Tests | **673** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -39,6 +39,79 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 12.09.2026 · Der räumliche Join ist jetzt unabhängig geprüft (#56)
+
+**Was.** Notebook 34 hat einen Abschnitt 3.2: die Stadtzuordnung gegen eine
+zweite, unabhängige Referenz gehalten — und die 6'445 Fälle ohne
+Stadtzuordnung nach Ursache klassifiziert.
+
+**Warum.** Kapitel 9 nannte als Grenze: *„Der räumliche Join ist nicht
+unabhängig validiert."* Der Grund war H7 — Detroits eigene
+`census_block_2020_geoid` widerspricht Detroits eigenen Koordinaten und taugt
+nicht als Referenz. Die zweite Referenz lag aber die ganze Zeit im Projekt:
+**`silver/place`, die Stadtgrenze selbst.** Die Mehrheitsregel geht den Umweg
+über den Tract; denselben Punkt kann man **direkt** gegen die Ortsgrenze
+halten. Andere Geometrie, andere Operation, dieselbe Frage.
+
+### Das Ergebnis
+
+| Mehrheitsregel | direkte Ortsgrenze | Fälle |
+| --- | --- | ---: |
+| chicago | chicago | 251'515 |
+| detroit | detroit | 84'658 |
+| (keine) | chicago | **5'249** |
+| (keine) | ausserhalb | 1'185 |
+| (keine) | detroit | 12 |
+| chicago | ausserhalb | **1** |
+
+**Kein einziger Fall wird der falschen Stadt zugeordnet.** Keine Zeile sagt
+*Chicago* per Regel und *Detroit* per Ortsgrenze oder umgekehrt. Das ist die
+Zusage, auf der jeder Städtevergleich ruht, und sie ist damit bestätigt. Ein
+Test hält sie fest.
+
+Die Abweichungen liegen **alle in einer Richtung**: Die Regel schliesst aus,
+was drin ist. Genau **ein** Fall von 251'516 wird fälschlich eingeschlossen.
+
+### Die 6'445, klassifiziert
+
+| | Chicago | Detroit |
+| --- | ---: | ---: |
+| in der meldenden Stadt (Tract gehört der Nachbargemeinde) | 5'249 | 12 |
+| in einer Nachbargemeinde (Oak Park, Evanston, Warren …) | 716 | 415 |
+| in keiner Gemeinde (nicht eingemeindet) | 42 | 11 |
+
+Die mittlere Gruppe gehört **zu Recht** nicht in den Zähler — dort hat die
+Stadtpolizei jenseits der Stadtgrenze erfasst. Die erste ist ein Fehler der
+**Regel**, nicht der Daten.
+
+### Und die Rate? Sie ist verzerrt — messbar
+
+**Die Randtracts sind überdurchschnittlich deliktdicht.** Die 5'249 Chicagoer
+Fälle sitzen auf rund 23'100 anteiligen Einwohnern: **227 Delikte je 1'000**
+gegen 94,5 im Stadtschnitt. Plausibel — Gewerbestreifen, Verkehrsachsen,
+Flughafenumland, wo viele Menschen sind und wenige wohnen.
+
+| Stadt | Delikte | Einwohner | Rate |
+| --- | ---: | ---: | ---: |
+| Chicago, Mehrheitsregel | 251'516 | 2'661'953 | **94,5** |
+| Chicago, mit den Grenzfällen | 256'765 | 2'685'096 | **95,6** |
+| Detroit | 84'658 | 638'635 | **132,6** (unverändert) |
+
+**Für die Präsentation.** Der Abstand schrumpft leicht: 132,6 gegen 94,5 sind
+40 % mehr, gegen 95,6 noch 39 %. Die Aussage bleibt, ihre Grösse verschiebt
+sich um gut einen Prozentpunkt — und das ist jetzt **gemessen statt unbekannt**.
+
+**Warum die Regel trotzdem bleibt.** Eine Zuordnung je Punkt machte den Zähler
+genauer und den Nenner unmöglich: Einwohnerzahlen gibt es nur je Tract. Man
+bekäme eine exakte Zahl oben und eine geschätzte unten — schlechter als zwei
+Zahlen, die derselben Regel folgen.
+
+**Zahlen.** 672 → **673 Tests**.
+
+**Nachlesen.** `notebooks/34_gold_sternschema.ipynb` Abschnitt 3.2 · PR #56
 
 ---
 
