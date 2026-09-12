@@ -38,7 +38,7 @@ Speicherarchitektur aus unveränderlichen Läufen, und **alle drei
 Silver-Tabellen** — seit `crime_offense` sprechen beide Städte dieselbe
 Deliktsprache, liegen auf derselben Zeitachse und tragen dieselbe
 Raumeinheit. Jede Quelle weist ihre Vollständigkeit nach, statt sie zu
-behaupten. **594 automatisierte Tests** laufen ohne Netzzugriff und ohne
+behaupten. **597 automatisierte Tests** laufen ohne Netzzugriff und ohne
 Schlüssel.
 
 | | |
@@ -425,7 +425,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 594 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
+| **DataOps** | 597 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -991,7 +991,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 594 bestandene Tests
+python -m pytest                       # erwartet 597 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
@@ -1058,8 +1058,11 @@ Ergebnis muss byteweise mit der versionierten Datei übereinstimmen.
 
 Ohne diese Prüfung war die Zusage eine Behauptung: Wer eine Zuordnung von Hand
 in die CSV geschrieben hätte, wäre durch alle übrigen Tests gekommen — sie
-prüfen die Datei, nicht ihre Herkunft. Die drei Tests kosten zusammen rund acht
-Sekunden Laufzeit, weil sie zwei PDF-Dateien lesen und Chicagos Katalog abrufen.
+prüfen die Datei, nicht ihre Herkunft. Chicagos Werkzeug läuft dabei mit
+`--offline`, liest den Katalog also aus der versionierten Datei: Geprüft werden
+die **Zuordnungsregeln**, nicht ob sich Chicagos Katalog bewegt hat. Diese
+zweite Frage stellt Notebook 32 live gegen das Portal — als Test hätte sie
+zwanzig Sekunden gekostet und an einer Netzverbindung gehangen.
 
 ---
 

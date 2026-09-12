@@ -332,8 +332,16 @@ ERMESSEN = {
 }
 
 
-def lade_basis() -> list[dict[str, str]]:
-    """Chicagos IUCR-Liste, bevorzugt vom Portal, sonst aus der Datei."""
+def lade_basis(offline: bool = False) -> list[dict[str, str]]:
+    """Chicagos IUCR-Liste, bevorzugt vom Portal, sonst aus der Datei.
+
+    ``offline`` ueberspringt das Portal. Gebraucht wird das vom Test: Er prueft
+    die Zuordnungsregeln, nicht den Katalog, und soll dafuer weder Netz
+    brauchen noch zwanzig Sekunden.
+    """
+    if offline:
+        print(f"offline; benutze {ZIEL.name} als Katalog")
+        return _basis_aus_datei()
     try:
         with urllib.request.urlopen(PORTAL, timeout=30) as antwort:
             roh = json.load(antwort)
@@ -350,13 +358,18 @@ def lade_basis() -> list[dict[str, str]]:
         ]
     except (urllib.error.URLError, TimeoutError, OSError) as fehler:
         print(f"Portal nicht erreichbar ({fehler}); benutze {ZIEL.name}")
-        with ZIEL.open(encoding="utf-8") as datei:
-            return [
-                {s: z[s] for s in
-                 ("iucr", "primary_description", "secondary_description",
-                  "index_code", "active")}
-                for z in csv.DictReader(datei)
-            ]
+        return _basis_aus_datei()
+
+
+def _basis_aus_datei() -> list[dict[str, str]]:
+    """Der Katalog, wie er in der versionierten Datei steht."""
+    with ZIEL.open(encoding="utf-8") as datei:
+        return [
+            {s: z[s] for s in
+             ("iucr", "primary_description", "secondary_description",
+              "index_code", "active")}
+            for z in csv.DictReader(datei)
+        ]
 
 
 def arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -373,15 +386,20 @@ def arguments(argv: list[str] | None = None) -> argparse.Namespace:
         "--output", type=Path, default=ZIEL,
         help=f"Zieldatei (Vorgabe: {ZIEL.relative_to(PROJECT_ROOT)})",
     )
+    parser.add_argument(
+        "--offline", action="store_true",
+        help="Katalog aus der versionierten Datei lesen statt vom Portal",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
-    ziel = arguments(argv).output
+    args = arguments(argv)
+    ziel = args.output
     with CODELISTE.open(encoding="utf-8") as datei:
         amtlich = {z["nibrs_code"]: z for z in csv.DictReader(datei)}
 
-    basis = sorted(lade_basis(), key=lambda z: z["iucr"])
+    basis = sorted(lade_basis(args.offline), key=lambda z: z["iucr"])
     bekannt = {z["iucr"] for z in basis}
 
     fehlt = bekannt - set(ZUORDNUNG) - set(NICHT_ZUGEORDNET)

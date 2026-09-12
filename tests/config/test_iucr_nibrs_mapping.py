@@ -428,14 +428,15 @@ def test_das_werkzeug_erzeugt_genau_diese_datei(tmp_path):
     niemand nachrechnet, koennte jemand die Datei von Hand aendern und alle
     uebrigen Tests blieben gruen - sie pruefen die Datei, nicht ihre Herkunft.
 
-    Netz ist nicht noetig: Ist das Portal nicht erreichbar, liest das Werkzeug
-    den Katalog aus der versionierten Datei. Der Vergleich traegt dann
-    weniger - er belegt die Zuordnungsregeln, nicht den Katalog -, aber er
-    faellt nicht aus.
+    Gelaufen wird mit ``--offline``: Der Katalog kommt aus der versionierten
+    Datei, nicht vom Portal. Geprueft werden damit die **Zuordnungsregeln** -
+    ob Chicagos Katalog sich bewegt hat, ist eine andere Frage, und Notebook 32
+    stellt sie live. Ohne den Schalter kostete dieser Test zwanzig Sekunden und
+    haenge an einer Netzverbindung.
     """
     ziel = tmp_path / "erzeugt.csv"
     fertig = subprocess.run(
-        [sys.executable, str(WERKZEUG), "--output", str(ziel)],
+        [sys.executable, str(WERKZEUG), "--output", str(ziel), "--offline"],
         capture_output=True, text=True, cwd=PROJECT_ROOT,
     )
     assert fertig.returncode == 0, fertig.stderr
@@ -464,7 +465,7 @@ def test_zweimal_laufen_liefert_dasselbe(tmp_path):
     zweite = tmp_path / "zwei.csv"
     for ziel in (erste, zweite):
         fertig = subprocess.run(
-            [sys.executable, str(WERKZEUG), "--output", str(ziel)],
+            [sys.executable, str(WERKZEUG), "--output", str(ziel), "--offline"],
             capture_output=True, text=True, cwd=PROJECT_ROOT,
         )
         assert fertig.returncode == 0, fertig.stderr

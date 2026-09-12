@@ -129,6 +129,26 @@ DETROIT_ENTSCHEIDET = {
 # Die Zuordnung bleibt richtig, der Hinweis gehoert trotzdem dazu.
 ZURUECKGEZOGEN = {"90A", "90E", "90H", "90I"}
 
+# Die Bezeichnungen der noch nicht zugeordneten Zeilen stammten aus dem Feld
+# ``offense_description`` der Detroit-Daten. Das ist die Einstufung des
+# *Vorfalls*, nicht der Anklage, und sie schwankt innerhalb desselben Codes.
+# Bei den meisten Codes traf sie trotzdem - Detroit schreibt dort den Namen der
+# File Class. Bei einem nicht.
+#
+# Gefunden hat das Artan mit der Frage, wie man von "Diebstahl" auf ein anderes
+# Delikt kommt. Die Zuordnung war richtig; die Bezeichnung war es nicht.
+BEZEICHNUNG_KORRIGIERT = {
+    "2501": (
+        "Forgery of Checks",
+        "In den Detroit-Daten stand 'LARCENY - OTHER'. Das ist weder der Name "
+        "der Anklage noch der ihrer File Class: Das Handbuch fuehrt 2501 als "
+        "'Forgery of Checks' unter File Class 25000 Forgery/Counterfeiting, "
+        "und Detroit selbst liefert zu allen 78 Zeilen arrest_charge 25000 und "
+        "charge_description 'FORGERY / COUNTERFEITING'. Die Bezeichnung kam "
+        "aus einer einzelnen abweichenden Zeile",
+    ),
+}
+
 
 def manual_text() -> list[str]:
     """Der Text des MICR-Handbuchs, Zeile fuer Zeile."""
@@ -221,6 +241,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Arrest Charges im Handbuch: {len(charges)}")
 
     angeschlossen, ueber_detroit, unauffindbar = 0, 0, []
+    korrigiert: list[tuple[str, str, str]] = []
     for z in zeilen:
         if z["mapped"] == "true":
             continue
@@ -261,12 +282,18 @@ def main(argv: list[str] | None = None) -> int:
             f"Arrest Charge '{bezeichnung}' unter File Class {file_class} "
             f"({quelle['micr_description']}); NIBRS von dort uebernommen"
         )
+        neue_bezeichnung = z["micr_description"]
+        if code in BEZEICHNUNG_KORRIGIERT:
+            neue_bezeichnung, grund = BEZEICHNUNG_KORRIGIERT[code]
+            hinweis += f"; {grund}"
+            korrigiert.append((code, z["micr_description"], neue_bezeichnung))
         if quelle["nibrs_code"] in ZURUECKGEZOGEN:
             hinweis += (
                 f"; NIBRS {quelle['nibrs_code']} ist beim FBI zurueckgezogen"
             )
         z.update({
             "micr_code_type": "arrest_charge",
+            "micr_description": neue_bezeichnung,
             "micr_file_class": file_class,
             "nibrs_group": quelle["nibrs_group"],
             "nibrs_code": quelle["nibrs_code"],
@@ -293,6 +320,8 @@ def main(argv: list[str] | None = None) -> int:
 
     zugeordnet = sum(1 for z in zeilen if z["mapped"] == "true")
     print(f"\n{args.output}: {len(zeilen)} Zeilen")
+    for code, alt, neu in korrigiert:
+        print(f"  Bezeichnung korrigiert: {code} '{alt}' -> '{neu}'")
     print(f"  ueber das Handbuch: {angeschlossen}")
     print(f"  ueber Detroits Felder: {ueber_detroit}"
           f"  ({', '.join(sorted(DETROIT_ENTSCHEIDET))})")
