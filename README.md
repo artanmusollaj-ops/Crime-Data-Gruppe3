@@ -163,7 +163,7 @@ Zugriff auf Chicago ebenfalls, wird aber stärker gedrosselt.
 python -m pytest
 ```
 
-Erwartet werden **681 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **694 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -180,6 +180,23 @@ leeren `data/` aus sind es drei Blöcke.
 > **Hinweis:** `data/` steht in `.gitignore` — die Daten wandern nicht über Git.
 > Wer frisch klont, lädt sie mit den Schritten unten selbst. Rechnen Sie mit
 > rund zehn Minuten, das meiste davon Wartezeit an den APIs.
+
+### 2.0 Alles auf einmal
+
+```bash
+python -m orchestration.run_all                  # alles, inklusive Ingestion
+python -m orchestration.run_all --ohne-ingestion # nur neu ableiten
+python -m orchestration.run_all --trocken        # nur zeigen, was liefe
+```
+
+Der Controller kennt die Reihenfolge, bricht bei der ersten gescheiterten Stufe
+ab und schreibt `data/pipeline_run.json`: welche Stufen liefen, **auf welchen
+Bronze-Läufen** das Ergebnis ruht, wie alt jede Quelle ist, und einen
+Fingerabdruck über die Eingaben. Zwei Läufe auf demselben Stand tragen
+denselben Fingerabdruck.
+
+Die Abschnitte darunter erklären, was er tut — und sie sind der Weg, wenn nur
+eine Stufe neu laufen soll.
 
 ### 2.1 Ingestion — raw und bronze
 
@@ -362,7 +379,7 @@ können.
 python -m pytest
 ```
 
-**681 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**694 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -385,7 +402,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus, unter Python **3.11 und 3.13** — die Untergrenze aus
 `pyproject.toml` und die Version, auf der entwickelt wird.
 
-In einem frischen Klon laufen **641 der 681 Tests**. Die übrigen 34 überspringen
+In einem frischen Klon laufen **654 der 694 Tests**. Die übrigen 34 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter

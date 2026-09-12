@@ -10,6 +10,10 @@ data/*/dataset=*/
 # Daten. Sie wird mit 'python -m serving.build_analysis_db' neu erzeugt und
 # traegt absolute Pfade, waere also auf einem anderen Rechner ohnehin wertlos.
 data/serving/
+# Das Protokoll des letzten Gesamtlaufs. Abgeleitet und rechnerlokal: Es nennt
+# run_ids, die es nur hier gibt. Wird von 'python -m orchestration.run_all'
+# neu geschrieben.
+data/pipeline_run.json
 # Artefakte der editierbaren Installation und von pip wheel / python -m build
 *.egg-info/
 build/
