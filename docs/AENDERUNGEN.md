@@ -32,6 +32,41 @@ Eintrag hier sagt, was das war.
 
 ---
 
+## 12.09.2026 · Würfel und Sternschema werden erklärt, nicht vorausgesetzt (#47)
+
+**Was.** Notebook 34 bekommt vor Abschnitt 1 einen Erklärteil mit drei
+Diagrammen, und `docs/sternschema-und-wuerfel.html` fasst dasselbe als Seite
+zusammen.
+
+**Warum.** Das Notebook **mass** die Entscheidung, erklärte aber nie, was ein
+Würfel und was ein Sternschema ist. Wer die Begriffe nicht schon kennt, liest
+Messwerte ohne zu wissen, wofür. In einer Abgabe ist das die Stelle, an der
+nachgefragt wird.
+
+**Die drei Diagramme.**
+
+| Diagramm | Was es zeigt |
+| --- | --- |
+| Der Würfel | die drei gewählten Achsen, eine hervorgehobene Zelle — und darunter, was in ihr nicht mehr steckt |
+| Das Sternschema | `fact_offense` in der Mitte, vier Dimensionen aussen, jede Kante mit ihrem JOIN-Schlüssel |
+| Die Kornleiter | vier Balken nach Zeilenzahl: Silver, Gold, und die zwei verworfenen Würfel |
+
+**Zahlen — die Kornleiter ist gerechnet, nicht geschätzt.** Der verworfene
+`fact_tract_month` hätte **95 219** Zeilen gehabt, `fact_city_day` **11 156**.
+Damit lässt sich der Handel beziffern: Der Schritt von Silver zu Gold kostet
+**3 340** Zeilen (Detroits Mehrfachanklagen), der Schritt zum Würfel **249 398**
+— und mit ihnen jede Frage, die feiner ist als Monat und Deliktfamilie.
+
+**Für die Präsentation.** Die Seite hat einen Abschnitt *„Wann ein Würfel
+trotzdem richtig ist"*. Die Entscheidung gilt für **diese** Datenmenge, nicht
+allgemein — bei zwei Grössenordnungen mehr kehrt sie sich um, und der Würfel
+liesse sich aus dem Stern jederzeit nachbauen. Umgekehrt nicht. Das ist die
+ehrlichere Fassung als „Sternschema ist besser".
+
+**Nachlesen.** `notebooks/34_gold_sternschema.ipynb` · `docs/sternschema-und-wuerfel.html` · PR #47
+
+---
+
 ## 12.09.2026 · Querverweise zwischen Silver und Gold (#46)
 
 **Was.** Drei Verweise in `ln1_konzept.md`, damit beide Schichten
