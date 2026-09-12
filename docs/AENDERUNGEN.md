@@ -84,6 +84,18 @@ Behauptung.
 | Arbeitsteilung „verschoben" | geregelt am 12.9. |
 | Absprache 4.2 „Entscheid: Hängt von 4.1 ab" | Variante A, umgesetzt in PR #39 |
 
+**Der erste Lauf fiel durch — und das war nützlich.** `pdftotext` fehlt auf
+`ubuntu-latest`. Mein Probelauf hatte das nicht gezeigt, weil er auf dem Mac
+lief, wo poppler installiert ist: **Ein frischer Klon allein ist keine treue
+CI-Simulation, die Systemwerkzeuge kommen vom Host.** Dabei kam noch eine
+Ungleichbehandlung heraus — zwei Tests übersprangen sich bei fehlendem
+`pdftotext` sauber, zwei andere fielen rot. Jetzt teilen sie sich eine
+Bedingung, und CI installiert `poppler-utils`, damit die Reproduzierbarkeit
+der Crosswalks dort wirklich geprüft wird statt übersprungen.
+
+**Nachgemessen statt geschätzt:** **628 von 662** Tests laufen im CI-Lauf, 34
+überspringen sich mangels `data/`. Beide Matrix-Jobs grün in je 1 min 50 s.
+
 **Nachlesen.** `.github/workflows/tests.yml` · PR #54
 
 ---
