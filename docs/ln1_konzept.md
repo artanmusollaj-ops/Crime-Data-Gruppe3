@@ -534,7 +534,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 673 Tests, alle ohne Netz und ohne Schlüssel, seit dem 12.9. auf jedem Pull Request in GitHub Actions (Python 3.11 und 3.13); Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine Alarmierung, keine Freshness-Kontrolle |
+| **DataOps** | 681 Tests, alle ohne Netz und ohne Schlüssel, seit dem 12.9. auf jedem Pull Request in GitHub Actions (Python 3.11 und 3.13); Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine Alarmierung, keine Freshness-Kontrolle |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -1102,8 +1102,8 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
   Stadtschnitt —, ist Chicagos Rate um gut einen Punkt untertrieben: 94,5
   statt 95,6. Detroit ist praktisch nicht betroffen (12 Fälle). Gemessen in
   Notebook 34, Abschnitt 3.2.
-- **Kein Feldkatalog.** Die Bedeutung der Felder steht in den Modul-Docstrings
-  und Manifesten, aber nicht an einer Stelle zusammen.
+- **Keine Alarmierung und keine Freshness-Kontrolle.** Die Tests laufen auf
+  jedem Pull Request, aber niemand merkt es, wenn die Daten veralten.
 
 ---
 
@@ -1112,7 +1112,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 673 bestandene Tests
+python -m pytest                       # erwartet 681 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
@@ -1182,6 +1182,7 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | Technische Entscheide | [`projektabsprache.md`](projektabsprache.md) |
 | Anforderungen gegen Stand | [`leistungsnachweise.md`](leistungsnachweise.md) |
 | Detroit-Pipeline im Detail | [`DETROIT_PIPELINE_ANLEITUNG.md`](DETROIT_PIPELINE_ANLEITUNG.md) |
+| **Feldkatalog** | [`feldkatalog.md`](feldkatalog.md) — 131 Spalten in 9 Tabellen, erzeugt von [`tools/build_feldkatalog.py`](../tools/build_feldkatalog.py) |
 | **Was sich wann geändert hat** | [`AENDERUNGEN.md`](AENDERUNGEN.md) — ein Eintrag je Pull Request, mit den Zahlen und ihrer Begründung |
 | **NIBRS-Codeliste, amtlich** | `config/nibrs_offense_codes_2025.csv` — 81 Codes aus Anhang A von [`nibrs_technical_specification_2025.pdf`](nibrs_technical_specification_2025.pdf) |
 | IUCR nach NIBRS (Chicago) | `config/iucr_nibrs_mapping.csv`, erzeugt von [`tools/build_iucr_nibrs_mapping.py`](../tools/build_iucr_nibrs_mapping.py); Katalog vom [Datenportal der Stadt](https://data.cityofchicago.org/resource/c7ck-438e.json) |
@@ -1191,7 +1192,7 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | Die vier zurückgezogenen Codes | [`NIBRS_Offense_Codes.pdf`](NIBRS_Offense_Codes.pdf), Fassung 2011 — überholt, aber der einzige Beleg für `90A`, `90E`, `90H`, `90I` |
 | Zweite Abschrift der Codeliste | [`illinois_nibrs_iepd_2023.xlsx`](illinois_nibrs_iepd_2023.xlsx), Blatt `OffenseCode` — Illinois' eigene Abschrift derselben FBI-Liste; belegt alle 81 Bezeichnungen statt zehn Stichproben |
 
-**Keine dieser drei Konfigurationsdateien wird von Hand gepflegt** — jede wird
+**Keine dieser Konfigurationsdateien wird von Hand gepflegt** — jede wird
 von einem Werkzeug erzeugt, und seit dem 12.9. prüft je ein Test, dass sich das
 wiederholen lässt: Das Werkzeug läuft in ein temporäres Verzeichnis, und das
 Ergebnis muss byteweise mit der versionierten Datei übereinstimmen.

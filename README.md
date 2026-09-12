@@ -46,6 +46,7 @@ Wo etwas ausführlich steht:
 | Was | Wo |
 | --- | --- |
 | Konzept, Methode, Befunde | [`docs/ln1_konzept.md`](docs/ln1_konzept.md) |
+| Was jede Spalte bedeutet | [`docs/feldkatalog.md`](docs/feldkatalog.md) |
 | Was sich wann geändert hat und warum | [`docs/AENDERUNGEN.md`](docs/AENDERUNGEN.md) |
 | Würfel und Sternschema erklärt | [`docs/sternschema-und-wuerfel.md`](docs/sternschema-und-wuerfel.md) |
 | Detroit-Pipeline im Detail | [`docs/DETROIT_PIPELINE_ANLEITUNG.md`](docs/DETROIT_PIPELINE_ANLEITUNG.md) |
@@ -162,7 +163,7 @@ Zugriff auf Chicago ebenfalls, wird aber stärker gedrosselt.
 python -m pytest
 ```
 
-Erwartet werden **673 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **681 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -361,7 +362,7 @@ können.
 python -m pytest
 ```
 
-**673 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**681 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -384,7 +385,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus, unter Python **3.11 und 3.13** — die Untergrenze aus
 `pyproject.toml` und die Version, auf der entwickelt wird.
 
-In einem frischen Klon laufen **638 der 673 Tests**. Die übrigen 34 überspringen
+In einem frischen Klon laufen **641 der 681 Tests**. Die übrigen 34 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
