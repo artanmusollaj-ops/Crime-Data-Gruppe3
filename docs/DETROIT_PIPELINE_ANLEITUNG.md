@@ -187,57 +187,67 @@ Täglich z. B. 07:00 Europe/Zurich planen. Detroit-Vortag wird im Code bestimmt;
 Monitoring: Job-Exitcode, letzte erfolgreiche Referenz, Count-Veränderungen, fehlende IDs/Datumswerte, extra_rows, Schemas, Importstatus und Speicherplatz beobachten.
 Periodische Full-Abgleiche ergänzen Daily. Fehlende Zeilen erst nach erfolgreicher, vergleichbarer Vollaufnahme als mögliche Löschung markieren.
 
-## 8. Silver als nächster Schritt
-DuckDB kann sowohl Silver als auch Gold halten; VS Code ist nur das Entwicklungswerkzeug.
+## 8. Silver und Gold
 
-1. Explizite typisierte Detroit-Silver-Projektion aus Bronze erstellen und unbekannte/ungültige Werte kennzeichnen.
-2. offense_key aus (source_system, incident_entry_id), event_key aus (source_system, report_number) bilden. Alle Schlüsselbestandteile als Strings behandeln.
-3. Erstbeobachtung first_seen_at = frühestes ingested_at_utc; last_seen_at = späteste Beobachtung. Das ist kein polizeiliches created_at und fehlende Daily-Zeilen bedeuten keine Löschung.
-4. Fachlichen Hash aus definierten Business-Feldern bilden. Technische IDs/Runzeiten ausschließen.
-5. Aktuelle Offense-Version mit expliziter Reihenfolge nach Quell-Update, Beobachtungszeit und Tie-Breaker konsolidieren; NULL und gleichzeitige widersprüchliche Updates gesondert behandeln.
-6. Wiederholung desselben Runs darf keine neue History erzeugen. A→B→A muss als drei Versionen darstellbar sein; (offense_key,business_hash) allein ist kein History-Primärschlüssel.
-7. Full-Reconciliation nach kompatiblem Tatzeitfenster, vollständigem Snapshot und stabilen Identitäten durchführen. Reklassifikation nicht aus ähnlichen IDs als Löschung ableiten.
-8. Canonical Mapping versionieren und UNREVIEWED sichtbar halten.
-9. Pro Kategorie COUNT(DISTINCT event_key) beziehungsweise DISTINCT(source_system,report_number,canonical_category) zählen. Zwei Assault-Offenses desselben Reports ergeben eine Analysis Unit für ASSAULT.
-10. Gesamtereignisse separat zählen. Kategoriesummen können die Gesamtzahl der Events überschreiten.
+**Gebaut, und zwar anders als hier ursprünglich geplant.** An dieser Stelle
+stand ein Entwurf für eine Detroit-eigene Silver-Schicht mit `offense_key`,
+`event_key`, `analysis_unit_key`, einem Business-Hash und einer
+Current/History-Konsolidierung. Umgesetzt wurde etwas Einfacheres, weil die
+zweite Stadt dazukam:
 
-Für Chicago eigene Quelladapter, Identitäts-, Zeit- und Vollständigkeitsregeln prüfen.
-Unterschiedliche Run-ID-Formate sind akzeptabel; immer zusammen mit source_system verwenden.
-Gemeinsames Parquet-Format allein bedeutet kein gemeinsames Schema.
-Wetter über lokale Tages-/Stundenreferenz und Raumbezug anbinden; Census über Gebiet und Erhebungsjahr/Vintage, nicht über beliebige Tagesgleichheit.
-Gold-Aggregate aus Silver-Current erstellen; technische Ladezeit nie als Tatdatum verwenden.
+`silver_pipeline/build_crime_offense.py` baut **eine** Tabelle für beide Städte
+(`silver/crime_offense`), `gold_pipeline/build_gold.py` das Sternschema darauf.
+Die Entwurfsbegriffe haben dort folgende Entsprechung:
+
+| Entwurf | Umgesetzt |
+| --- | --- |
+| `offense_key` je Quelle | `offense_id` — Detroits `incident_entry_id`, Chicagos `id` |
+| `event_key` | `event_id` — Detroits `report_number`, Chicagos `case_number` |
+| `analysis_unit_key`, `canonical_category` | `offense_group_id` und `counts`: je Tat (Vorfall × Delikt) zählt genau **eine** Zeile. Die Kategorie kommt nicht aus einer Hausliste, sondern aus NIBRS über `config/micr_nibrs_mapping.csv` |
+| Business-Hash, Current/History | entfällt. Detroit lädt volle Snapshots; dedupliziert wird je `incident_entry_id` nach dem jüngsten `updated_at`. Notebook 13 belegt, dass jede inhaltliche Änderung der Quelle einen neuen `updated_at` trägt |
+| `UNREVIEWED` sichtbar halten | jede Zeile trägt `nibrs_match` — woher die Zuordnung stammt und wie gut sie belegt ist |
+
+Was vom Entwurf gilt und umgesetzt ist: Schlüsselbestandteile bleiben Strings
+(führende Nullen), die technische Ladezeit ist nie das Tatdatum, Wetter hängt
+an der lokalen Tagesreferenz und Census an Gebiet plus Vintage, und
+Kategoriesummen können die Zahl der Vorfälle überschreiten — bei Detroit um
+3,9 Prozent, siehe Notebook 13, Schritt 5.
 
 ## 9. Tests
 ```powershell
 .\.venv314\Scripts\python.exe -m tests.run_tests
 ```
 
-**633 automatisierte Offline-Tests**, davon rund 40 fuer dieses Paket. Der
+**625 automatisierte Offline-Tests**, davon 38 fuer dieses Paket. Der
 Runner sammelt seit dem 11.9. mit pytest: Vorher benutzte er
 `unittest.discover`, das nur `TestCase`-Klassen erkennt, und meldete SUCCESS
 nach 39 von damals 448 Tests — ein gruener Lauf, der 91 Prozent der Suite nie
 angefasst hatte.
-tests/detroit_pipeline/test_detroit_arcgis.py: API-Client/Parser und Schlüssel.
+tests/detroit_pipeline/test_detroit_arcgis.py: Zeitfenster-Filter und Batch-Bildung.
 tests/detroit_pipeline/test_bronze_ingestion.py: Ingestion, Count-Gates und Kategorieausgabe.
 tests/detroit_pipeline/test_detroit_timezone.py: lokale Jahres-/Tagesfenster, UTC, DST, Zürich-Ausführungszeiten.
 tests/detroit_pipeline/test_extract_detroit_cli.py: Full/Daily-CLI und Parameterfehler.
-tests/detroit_pipeline/test_parquet_contract.py: Payload-Roundtrip, Typdrift, leere Runs, beschädigte Artefakte, atomare Fehlerbehandlung, wiederholter DB-Import, Overlap, Rollback und mehrere Delikte.
+tests/detroit_pipeline/test_parquet_contract.py: Payload-Roundtrip, Typdrift, leere Runs, beschädigte Artefakte, atomare Fehlerbehandlung, wiederholter DB-Import, Overlap und Rollback.
 tests/run_tests.py schreibt je Lauf eigene Text- und JSON-Dateien unter logs/tests/. Sie werden nicht automatisch auf fünf Runs gekürzt.
 Die Statistik mit fünf Datensätzen ist eine Test-Fixture, kein echter Detroit-Download.
 Prüfstand für dieses Paket: Offline-Tests unter CPython 3.14.7/Windows AMD64 sowie Python 3.12/Linux bestanden. Die Tests verwenden kleine Fixtures und simulierte Quellen.
 Live-API, großer Jahresdownload, realer Scheduler und gemeinsame Chicago-Integration sind durch diese Offline-Tests nicht verifiziert.
 
 ## 10. Bestehende NDJSON-Dateien
-Nicht einfach die Endung ändern. Der Einzeldatei-Parser kann Legacy-NDJSON weiter lesen.
-Der neue DuckDB-Importer akzeptiert ausschließlich neue Parquet-Manifeste des Vertrags 2.
-Diese Lieferung enthält keinen automatischen historischen NDJSON-Migrator.
-Für den Umstieg einen neuen Full-Bestand laden oder später eine geprüfte Konvertierung mit Eltern-Run-Lineage erstellen. Alte Rohdaten archivieren.
-Keine alten und neuen Bestände ungeprüft für Statistiken zusammenzählen.
+Nicht einfach die Endung ändern. Die NDJSON-Bestände stammen aus der Zeit vor
+dem Zeitzonen-Fix: Ihr Jahresfenster war in UTC gezogen statt in Detroiter
+Ortszeit, weshalb sie Fälle vom 31.12.2023 enthalten und solche vom Jahresende
+2024 vermissen lassen.
 
+Gelesen werden sie deshalb nirgends mehr — `silver_pipeline` bricht mit einem
+klaren Fehler ab, wenn es nur NDJSON findet, statt sie mit einer Warnung
+einzulesen, die man überliest. Ein Migrator existiert bewusst nicht: Der
+richtige Weg ist ein neuer Full Load (97 Sekunden). Alte Rohdaten archivieren
+und keine alten und neuen Bestände ungeprüft für Statistiken zusammenzählen.
 
 ## 11. Projektintegration und Funktionsumfang
 
-Die Pipeline extrahiert ArcGIS-Daten in Parquet-Runs und importiert sie transaktional in DuckDB-Bronze. Die laufübergreifende Silver-Current/History-Verarbeitung und Gold-Aggregate sind noch aufzubauen. Der vorhandene Einzeldatei-Parser ersetzt diese Konsolidierung nicht.
+Die Pipeline legt jede ArcGIS-Antwort unverändert in der Raw-Schicht ab, extrahiert sie in Parquet-Runs und importiert sie optional transaktional in DuckDB-Bronze. Silver und Gold liegen nicht in diesem Paket, sondern in `silver_pipeline` und `gold_pipeline` — gemeinsam für beide Städte.
 
 Bei Übernahme in das gemeinsame Repository ausschließlich die Detroit-Dateien integrieren. Gemeinsame Requirements und Test-Runner zusammenführen. `.venv314/`, andere virtuelle Umgebungen, `data/` und `logs/` in `.gitignore` ausschließen. Für geplante Jobs denselben Interpreter wie für die erfolgreichen Tests verwenden.
 
