@@ -66,6 +66,7 @@ from silver_pipeline import (
 
 DEFAULT_VINTAGE = 2024
 NIBRS_CODES = "nibrs_offense_codes_2025.csv"
+NIBRS_KATEGORIEN = "nibrs_offense_categories_2025.csv"
 CROSSWALKS = ("iucr_nibrs_mapping.csv", "micr_nibrs_mapping.csv")
 
 # Vier NIBRS-Codes hat das FBI zurueckgezogen; die Fassung 2025 fuehrt sie nicht
@@ -82,6 +83,29 @@ CROSSWALKS = ("iucr_nibrs_mapping.csv", "micr_nibrs_mapping.csv")
 #   'replaced'        es gibt einen heutigen Code, und eine Quelle sagt welchen
 #   'not_an_offense'  das FBI hat den Code gestrichen, weil es keine Tat ist
 #   'unresolved'      kein Beleg; darf nicht in den Falldaten vorkommen
+# Zwei Codes, die das Handbuch weiter fuehrt, aber beim Veroeffentlichen
+# umschluesselt. Sie sind nicht zurueckgezogen - sie duerfen gemeldet werden -,
+# aber wer sie in einer Auswertung stehen laesst, zaehlt anders als das FBI.
+#
+# Beleg ist das Aenderungsprotokoll des User Manual zur Fassung 2023.0:
+# "Updated 11B Sodomy to indicate that offense will be reclassified to 11A Rape
+# for reporting purposes as of 2023"; fuer 11C steht dort dasselbe. In der
+# Codeliste selbst stehen beide mit dem Vermerk "*Converts to 11A".
+UMGESCHLUESSELT = {
+    "11B": (
+        "11A", "reclassified",
+        "Das User Manual 2025.0 fuehrt 11B mit dem Vermerk 'Converts to 11A'; "
+        "das Aenderungsprotokoll zur Fassung 2023.0 sagt, dass die Meldung seit "
+        "2023 auf 11A Rape umgeschluesselt wird. Der Code bleibt meldbar",
+    ),
+    "11C": (
+        "11A", "reclassified",
+        "wie 11B: Das User Manual 2025.0 fuehrt 11C mit 'Converts to 11A', das "
+        "Aenderungsprotokoll zur Fassung 2023.0 nennt die Umschluesselung auf "
+        "11A Rape seit 2023. Der Code bleibt meldbar",
+    ),
+}
+
 ZURUECKGEZOGEN = {
     "90A": (
         "26A", "replaced",
@@ -92,10 +116,11 @@ ZURUECKGEZOGEN = {
     ),
     "90I": (
         None, "not_an_offense",
-        "Weglaufen ist keine Straftat; genau deshalb hat das FBI den Code "
-        "gestrichen. Die ILCS-Tabelle kennt nur 720-5/10-6 'Harboring a "
-        "Runaway' (IBR 90Z) - das Beherbergen, nicht das Weglaufen. Die Zeilen "
-        "bleiben zaehlbar, tragen aber kein heutiges NIBRS-Delikt",
+        "Die Codeliste NIBRS 2011 fuehrt 90I Runaway als 'Not a Crime' und "
+        "vermerkt: 'In January 2011, the FBI discontinued the collection of "
+        "arrest data for runaways.' Weglaufen ist keine Straftat - deshalb gibt "
+        "es keinen Nachfolger. Die Zeilen bleiben zaehlbar, tragen aber kein "
+        "heutiges NIBRS-Delikt",
     ),
     "90E": (
         None, "unresolved",
@@ -244,21 +269,41 @@ def dim_offense_rows(config_root: Path) -> list[dict[str, Any]]:
     if not amtlich:
         raise TransformError(f"Codeliste ist leer: {pfad}")
 
-    zeilen = [
-        {
-            "nibrs_code": z["nibrs_code"],
+    kat_pfad = config_root / NIBRS_KATEGORIEN
+    if not kat_pfad.exists():
+        raise TransformError(
+            f"Kategorienliste fehlt: {kat_pfad}. "
+            "Zuerst: python tools/build_nibrs_categories.py"
+        )
+    with kat_pfad.open(encoding="utf-8") as datei:
+        kategorie = {z["nibrs_code"]: z["nibrs_category"] for z in csv.DictReader(datei)}
+
+    ohne_kategorie = sorted(
+        z["nibrs_code"] for z in amtlich if z["nibrs_code"] not in kategorie
+    )
+    if ohne_kategorie:
+        raise TransformError(
+            f"Codes ohne Kategorie: {ohne_kategorie} - "
+            "tools/build_nibrs_categories.py neu laufen lassen"
+        )
+
+    zeilen = []
+    for z in amtlich:
+        code = z["nibrs_code"]
+        ersatz, aufloesung, grund = UMGESCHLUESSELT.get(code, (None, "current", None))
+        zeilen.append({
+            "nibrs_code": code,
             "nibrs_description": z["nibrs_description"],
-            "nibrs_family": z["nibrs_code"][:2],
+            "nibrs_category": kategorie[code],
+            "nibrs_family": code[:2],
             "nibrs_group": z["nibrs_group"],
             "crime_against": z["crime_against"],
             "federal_only": z["federal_only"] == "true",
             "retired": False,
-            "replaced_by": None,
-            "resolution": "current",
-            "retirement_note": None,
-        }
-        for z in amtlich
-    ]
+            "replaced_by": ersatz,
+            "resolution": aufloesung,
+            "retirement_note": grund,
+        })
 
     bekannt = {z["nibrs_code"] for z in zeilen}
     for name in CROSSWALKS:
@@ -279,6 +324,7 @@ def dim_offense_rows(config_root: Path) -> list[dict[str, Any]]:
                     "nibrs_description": (
                         z.get("nibrs_description") or z.get("ibr_category") or ""
                     ).strip(),
+                    "nibrs_category": kategorie.get(code, ""),
                     "nibrs_family": code[:2],
                     "nibrs_group": (z.get("nibrs_group") or "B").strip() or "B",
                     "crime_against": "",
@@ -570,12 +616,12 @@ def build(data_root: Path, config_root: Path, vintage: int) -> dict[str, Path]:
         con.execute(f"CREATE TABLE dim_tract AS {dim_tract_query(tract, place)}")
         con.execute(
             "CREATE TABLE dim_offense (nibrs_code VARCHAR, nibrs_description VARCHAR, "
-            "nibrs_family VARCHAR, nibrs_group VARCHAR, crime_against VARCHAR, "
-            "federal_only BOOLEAN, retired BOOLEAN, replaced_by VARCHAR, "
-            "resolution VARCHAR, retirement_note VARCHAR)"
+            "nibrs_category VARCHAR, nibrs_family VARCHAR, nibrs_group VARCHAR, "
+            "crime_against VARCHAR, federal_only BOOLEAN, retired BOOLEAN, "
+            "replaced_by VARCHAR, resolution VARCHAR, retirement_note VARCHAR)"
         )
         con.executemany(
-            "INSERT INTO dim_offense VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO dim_offense VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [tuple(z.values()) for z in dim_offense_rows(config_root)],
         )
         con.execute(f"CREATE TABLE dim_date AS {dim_date_query(offense)}")
@@ -599,9 +645,17 @@ def build(data_root: Path, config_root: Path, vintage: int) -> dict[str, Path]:
                   "Tract liegt ausserhalb beider Studienstaedte oder nur "
                   "teilweise darin")}),
             ("dim_offense", "ein NIBRS-Delikt", [],
-             {"nibrs_family": (
-                 "die ersten beiden Zeichen des Codes; ohne Bezeichnung, weil "
-                 "die Spezifikation dafuer keine auslesbare Liste fuehrt"),
+             {"nibrs_category": (
+                 "die amtliche Gliederung aus dem NIBRS User Manual 2025.0: "
+                 "28 Group-A- und 10 Group-B-Kategorien. Fuer die vier "
+                 "zurueckgezogenen Codes aus der Codeliste NIBRS 2011, die das "
+                 "Handbuch nicht mehr fuehrt"),
+              "nibrs_family": (
+                 "die ersten beiden Zeichen des Codes. KEINE amtliche "
+                 "Gliederung - 11 und 36 sind beide Sex Offenses, 58/61/62 "
+                 "alle Commerce Violations, 10 zerfaellt in drei und 90 in "
+                 "zehn Kategorien. Als technischer Schluessel erhalten, zum "
+                 "Gruppieren gehoert nibrs_category"),
               "retired": (
                   "true fuer Codes, die das FBI zurueckgezogen hat, die die "
                   "MICR-Quellen aber weiter fuehren. Sie stehen hier, damit "
