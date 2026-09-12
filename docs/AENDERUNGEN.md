@@ -20,7 +20,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **625** |
+| Tests | **639** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -29,6 +29,50 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 12.09.2026 · Die Zahlen in den Abgabedokumenten werden jetzt bewacht (#45)
+
+**Was.** `tests/test_abgabedokumente.py` — 14 Tests, die die Zahlen in
+`ln1_konzept.md` und `projektabsprache.md` gegen die gebauten Parquet-Dateien
+prüfen.
+
+**Warum.** Der Neubau von Silver und Gold hat **fünf Zahlen stehen lassen**,
+und alle Tests blieben grün, weil keiner diese Dateien ansieht. Gefunden wurden
+sie erst auf die Frage hin, wo Silver und Gold eigentlich dokumentiert sind:
+
+| Stelle | stand da | richtig |
+| --- | ---: | ---: |
+| Konzept 1, Detroits Korn | 85'335 Taten | **85'345** |
+| Konzept 5.2, `fact_offense` | 344'607 | **344'617** |
+| Konzept 5.2, Detroits Korn | 85'335 | **85'345** |
+| Konzept 5.2, Detroits Rate | 84'648 · 132,5 | **84'658 · 132,6** |
+| Absprache 5.2 | 344'607 | **344'617** |
+
+Das ist die teuerste Art Fehler in einer Abgabe: Eine Zahl auf einer Folie
+stimmt nicht mit der im Konzept überein, und niemand weiss mehr, welche gilt.
+`AENDERUNGEN.md` war schon bewacht — die beiden Dokumente, aus denen die Abgabe
+selbst entsteht, nicht.
+
+**Was geprüft wird.** Die Zeilenzahlen aller vier Silver- und fünf
+Gold-Tabellen, Detroits Korn (Anklagen zu Taten), beide Raten je 1'000
+Einwohner samt Zähler und Nenner, und die H3-Tabelle in 8.5. **Nicht** geprüft
+wird der Fliesstext: Er beschreibt Entscheidungen und soll sich nicht mit jedem
+Ladelauf ändern. Fehlt `data/`, wird übersprungen statt rot.
+
+Gegenprobe gemacht: Eine Zahl absichtlich auf den alten Stand gesetzt, der Test
+fällt mit `assert 344607 == 344617`.
+
+**Nebenbei.** Kapitel 11 „Wo was liegt" nannte den **Silver**-Aufbau, aber
+nicht den Gold-Aufbau, und Notebook 03 (Datenqualität Chicago), aber nicht
+Notebook 13. Beide ergänzt. Ausserdem im Docstring von `build_gold.py` derselbe
+überholte Absatz wie in Notebook 34: `dim_offense` führt seit dem
+Kategorien-Werkzeug 42 amtliche Kategorien.
+
+**Zahlen.** 625 → **639 Tests**.
+
+**Nachlesen.** `tests/test_abgabedokumente.py` · PR #45
 
 ---
 

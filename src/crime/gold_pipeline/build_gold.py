@@ -28,11 +28,16 @@ und liegt praktisch gleichauf mit der Flaechengewichtung. Der verbleibende
 Abstand zum Zensus ist keine Ungenauigkeit der Regel, sondern der Unterschied
 zwischen einer ACS-Schaetzung und einer Zaehlung.
 
-**Keine erfundenen Familiennamen.** ``dim_offense`` fuehrt die Deliktfamilie als
-Kuerzel (``13``, ``23``, ``26``), aber ohne Bezeichnung. Die NIBRS-Spezifikation
-nennt solche Namen nur verstreut im Fliesstext und fuehrt keine Liste, die sich
-auslesen liesse; eine selbst geschriebene waere eine gepflegte Uebersetzung mehr
-- genau das, was mit ``crime_category_mapping.csv`` schon einmal entfernt wurde.
+**Gruppiert wird ueber die amtliche Kategorie, nicht ueber das Praefix.**
+``dim_offense`` fuehrt ``nibrs_category`` aus dem NIBRS User Manual 2025.0 - 28
+Group-A-Kategorien und 10 fuer Group B, gelesen von
+``tools/build_nibrs_categories.py``. Die Deliktfamilie (``nibrs_family``) bleibt
+daneben als Kuerzel ``13``, ``23``, ``26`` ohne Bezeichnung stehen: Die
+Spezifikation fuehrt dafuer keine auslesbare Liste, und eine selbst
+geschriebene waere eine gepflegte Uebersetzung mehr. Sie ist seit den
+Kategorien aber auch kein Auswertungsweg mehr, sondern ein technisches Praefix
+- ``left(nibrs_code, 2)`` und die Kategorie fallen an vier Stellen
+nachweislich auseinander.
 """
 
 from __future__ import annotations
