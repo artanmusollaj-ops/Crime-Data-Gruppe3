@@ -49,8 +49,9 @@ LOG = logging.getLogger("build_analysis_db")
 
 PARQUET_FILE = "part-0001.parquet"
 
-# Die Schichten, die abfragbar gemacht werden. Gold ist noch leer; sobald dort
-# etwas liegt, taucht es ohne Codeaenderung auf.
+# Die Schichten, die abfragbar gemacht werden. Beide sind gebaut: vier
+# Silver-Tabellen und die fuenf des Sternschemas, zusammen neun Sichten. Als
+# Gold dazukam, war dafuer nichts zu tun - discover() nimmt auf, was da ist.
 SCHICHTEN = ("silver", "gold")
 
 
