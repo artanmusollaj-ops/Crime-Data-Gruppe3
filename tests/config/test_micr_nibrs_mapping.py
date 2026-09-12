@@ -433,6 +433,22 @@ def test_seen_in_detroit_stimmt_mit_den_daten(zeilen):
 # Anschluss noch einmal herstellen und vergleicht byteweise.
 
 WERKZEUG = PROJECT_ROOT / "tools" / "extend_micr_arrest_charges.py"
+
+
+def ohne_pdftotext(fertig: subprocess.CompletedProcess) -> bool:
+    """Fehlt ``pdftotext``, wird uebersprungen statt rot.
+
+    Das Werkzeug liest die MICR-Handbuecher als PDF und braucht dafuer
+    ``pdftotext`` aus ``poppler-utils``. Auf einem frischen Rechner fehlt das
+    oft. Ein roter Test waere dort irrefuehrend - er zeigte nicht, dass etwas
+    kaputt ist, sondern dass ein Systemwerkzeug fehlt.
+
+    In CI ist ``poppler-utils`` installiert; diese Tests laufen dort also
+    wirklich. Sonst waere die Zusage "die Crosswalks sind reproduzierbar
+    abgeleitet" ausgerechnet dort ungeprueft, wo sie automatisch geprueft
+    werden soll.
+    """
+    return fertig.returncode != 0 and "pdftotext nicht gefunden" in fertig.stderr
 MANUAL = PROJECT_ROOT / "docs" / "micr_manual_1110_2024.pdf"
 
 # Die Herkunftswerte, fuer die dieses Werkzeug zustaendig ist. Zeilen mit einer
@@ -477,6 +493,8 @@ def test_das_werkzeug_stellt_den_anschluss_wieder_her(tmp_path, zeilen):
          "--mapping", str(davor), "--output", str(danach)],
         capture_output=True, text=True, cwd=PROJECT_ROOT,
     )
+    if ohne_pdftotext(fertig):
+        pytest.skip("pdftotext nicht verfuegbar")
     assert fertig.returncode == 0, fertig.stderr
 
     assert danach.read_text(encoding="utf-8") == MAPPING.read_text(encoding="utf-8"), (
@@ -496,6 +514,8 @@ def test_ein_lauf_auf_dem_fertigen_stand_aendert_nichts(tmp_path):
         [sys.executable, str(WERKZEUG), "--mapping", str(ziel)],
         capture_output=True, text=True, cwd=PROJECT_ROOT,
     )
+    if ohne_pdftotext(fertig):
+        pytest.skip("pdftotext nicht verfuegbar")
     assert fertig.returncode == 0, fertig.stderr
     assert ziel.read_text(encoding="utf-8") == MAPPING.read_text(encoding="utf-8")
 

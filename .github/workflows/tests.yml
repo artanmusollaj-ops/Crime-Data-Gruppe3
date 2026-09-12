@@ -8,7 +8,7 @@
 # Was hier NICHT geprueft wird: die Zahlen gegen die gebauten Daten. `data/`
 # ist aus der Versionierung ausgeschlossen, ein frischer Klon hat es also
 # nicht - die betroffenen Tests ueberspringen sich selbst. Was laeuft, ist
-# alles uebrige: 622 von 662 Tests, darunter beide Testzahl-Waechter, die
+# alles uebrige: 631 von 662 Tests, darunter beide Testzahl-Waechter, die
 # Reproduzierbarkeit der Crosswalks aus den PDFs und die Form der Dokumente.
 
 name: Tests
@@ -45,6 +45,14 @@ jobs:
           python-version: ${{ matrix.python }}
           cache: pip
           cache-dependency-path: pyproject.toml
+
+      - name: poppler-utils
+        # Liefert pdftotext. Die Werkzeuge unter tools/ lesen damit die
+        # amtlichen PDFs, und drei Tests pruefen, dass sich die Crosswalks
+        # daraus byteweise reproduzieren lassen. Ohne poppler ueberspringen
+        # sie sich - dann waere die Zusage "reproduzierbar abgeleitet"
+        # ausgerechnet dort ungeprueft, wo automatisch geprueft wird.
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
 
       - name: Abhaengigkeiten installieren
         run: |
