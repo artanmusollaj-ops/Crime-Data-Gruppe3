@@ -467,14 +467,14 @@ Gefordert sind **Analyse der Datengrundlage**, **Hypothesentest** und
 | Datenqualität Chicago | ● fertig, 12 Prüfungen | – |
 | Datenqualität Detroit | ● fertig, 14 Prüfungen | – |
 | Datenqualität Census | ◐ im Quellnotebook enthalten | gering |
-| Silver: Dedup und Typen | ○ | ~½ Tag |
-| Silver: räumlicher Join auf Tracts | ○ | ~1 Tag, inklusive Umprojektion |
-| NIBRS-Harmonisierung beider Städte | ◐ Chicago belegt, Detroit offen | ~1 Tag |
-| Gold: Raten je Tract | ○ | ~½ Tag |
+| Silver: Dedup und Typen | ● fertig | – |
+| Silver: räumlicher Join auf Tracts | ● fertig, 99,3 % / 99,7 % verortet | – |
+| NIBRS-Harmonisierung beider Städte | ● fertig, beide Städte 100 % zugeordnet — aber H3 teilweise falsifiziert (Konzept 8.5) | – |
+| Gold: Raten je Tract | ● fertig, Sternschema mit `fact_offense` und vier Dimensionen | – |
 | Hypothesentest H1–H4 | ○ | ~1 Tag |
 
-**Realistisch rund fünf Arbeitstage zu zweit** — ohne Präsentation und ohne die
-Wetterquelle.
+**Offen ist noch der Hypothesentest** — rund ein Arbeitstag. Die Wetterquelle
+und die Präsentation kommen dazu.
 
 **Reihenfolge-Empfehlung:** Detroit-Qualität zuerst. Erst wenn wir die
 Detroit-Daten so gut kennen wie die Chicagoer, wissen wir, ob der Vergleich
@@ -532,10 +532,10 @@ Kategorie. Das ist der Grund, weshalb der Entscheid nicht warten kann.
 | 4 | Lebenszyklus dokumentieren | Diagramm + Tabelle aus Abschnitt 3 | | |
 | 5 | Storage-Evaluation verschriftlichen | Abschnitt 4 als Präsentationsteil | | |
 | 6 | ~~Datenqualität Detroit~~ | erledigt am 12.9.2026: Notebook 13 | Christian | ✓ |
-| 7 | Detroit-Bronze angleichen (falls beschlossen) | einheitliche Schicht | | |
-| 8 | Silver: Dedup, Typen, räumlicher Join | eine Faktentabelle | | |
-| 9 | NIBRS-Harmonisierung über beide Städte | gemeinsame Kategorien | | |
-| 10 | Gold: Raten je Tract | Auswertungstabelle | | |
+| 7 | ~~Detroit-Bronze angleichen~~ | erledigt am 12.9.2026: Raw-Schicht und `city=`-Partition wie Chicago | Christian | ✓ |
+| 8 | ~~Silver: Dedup, Typen, räumlicher Join~~ | erledigt: `silver/crime_offense`, 347'957 Zeilen | Christian | ✓ |
+| 9 | ~~NIBRS-Harmonisierung über beide Städte~~ | erledigt: beide Crosswalks angewandt, H3 dabei teilweise falsifiziert | Christian | ✓ |
+| 10 | ~~Gold: Raten je Tract~~ | erledigt: Sternschema, Chicago 94,5 / Detroit 132,6 je 1'000 | Christian | ✓ |
 | 11 | Hypothesentest H1–H4 | Notebook mit Ergebnissen | | |
 | 12 | Präsentation | Abgabe | beide | |
 

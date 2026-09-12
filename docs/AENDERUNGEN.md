@@ -32,6 +32,42 @@ Eintrag hier sagt, was das war.
 
 ---
 
+## 12.09.2026 · Der Stand in `leistungsnachweise.md` nachgezogen (#43)
+
+**Was.** Acht Zeilen in den beiden Planungstabellen standen als offen, obwohl
+sie erledigt sind. Jede ist vor der Änderung gegen die gebauten Daten geprüft
+worden, nicht aus dem Gedächtnis abgehakt.
+
+**Warum.** Es sind die Tabellen, aus denen die Abgabe den Projektstand liest.
+Vier Zeilen „offen" bei fertiger Arbeit lesen sich wie ein Rückstand, den es
+nicht gibt — und die daraus abgeleitete Summe („fünf Arbeitstage zu zweit")
+war damit ebenfalls falsch.
+
+**Zahlen — womit jede Zeile belegt ist.**
+
+| Zeile | Beleg |
+| --- | --- |
+| Silver: Dedup und Typen | 347'957 Zeilen, `offense_id` eindeutig, Zeitstempel und Koordinaten typisiert |
+| Silver: räumlicher Join | Chicago **99,3 %**, Detroit **99,7 %** mit `tract_geoid` |
+| NIBRS-Harmonisierung | beide Städte **100 %** zugeordnet — mit dem Vorbehalt aus H3: nur 97,0 % tragen ein echtes NIBRS-Delikt |
+| Gold: Raten je Tract | `fact_offense` plus vier Dimensionen, Chicago 94,5 / Detroit 132,6 je 1'000 |
+
+Aufwandssumme von „fünf Arbeitstage zu zweit" auf „rund ein Arbeitstag"
+korrigiert; im Fahrplan die Pakete 7 bis 10 abgehakt.
+
+**Nebenbei die eigene Nachlässigkeit korrigiert.** Der Neubau von Silver und
+Gold vom selben Tag hatte Kapitel 8.5 in `ln1_konzept.md` nicht mitgezogen:
+344'607 → **344'617** Delikte, Detroit 85'335 → **85'345**. Die 90Z-Zahlen und
+die 97,0 % bleiben unverändert.
+
+**Was bewusst stehen bleibt.** Die „Reihenfolge-Empfehlung" unter Tabelle 5
+(„Detroit-Qualität zuerst") ist Argumentation, nicht Sachstand — dafür gibt es
+einen Textvorschlag für Artan statt einer stillen Änderung.
+
+**Nachlesen.** `docs/leistungsnachweise.md` Abschnitte 5 und 7 · PR #43
+
+---
+
 ## 12.09.2026 · Ein toter Zwilling der Silver-Schicht entfernt (#42)
 
 **Was.** `transform_detroit.py` und `parse_detroit_feature()` sind gelöscht,

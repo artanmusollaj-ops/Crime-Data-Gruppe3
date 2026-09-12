@@ -826,11 +826,11 @@ NIBRS abbilden. Seit `silver/crime_offense` beide Crosswalks auf die Falldaten
 anwendet, ist das gemessen — und die Antwort hängt daran, was „vollständig"
 heissen soll.
 
-Gemessen auf Tatkorn über die 344'607 Delikte des Jahrgangs 2024:
+Gemessen auf Tatkorn über die 344'617 Delikte des Jahrgangs 2024:
 
 | | Chicago | Detroit | zusammen |
 | --- | ---: | ---: | ---: |
-| Delikte (Tatkorn) | 259'272 | 85'335 | 344'607 |
+| Delikte (Tatkorn) | 259'272 | 85'345 | 344'617 |
 | Quellcode im Crosswalk bekannt | **100 %** | **100 %** | **100 %** |
 | davon Auffang `90Z` | 7'695 | 2'747 | 10'442 |
 | **mit einem echten NIBRS-Delikt** | **97,0 %** | **96,8 %** | **97,0 %** |
