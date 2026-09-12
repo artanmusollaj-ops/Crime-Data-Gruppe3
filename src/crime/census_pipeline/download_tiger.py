@@ -1,4 +1,10 @@
-"""Load Census TIGER/Line tract boundaries into immutable runs.
+"""Load Census TIGER/Line geometries into immutable runs.
+
+Zwei Geometriearten, dasselbe Verfahren: ``tract`` liefert die Raumeinheit des
+Vergleichs, ``place`` die Stadtgrenzen. Ohne die zweite laesst sich keine Rate
+je Einwohner belegen - ein Tract weiss nicht, zu welcher Stadt er gehoert, und
+ein County ist viel groesser als die Stadt darin. Was sich zwischen den beiden
+unterscheidet, steht in ``Auslieferung``; alles andere ist geteilt.
 
 Jeder Aufruf schreibt einen Lauf nach data/raw/ und data/bronze/ unter einer
 gemeinsamen run_id, genau wie die Chicago-Ingestion. Raw haelt das ZIP-Archiv
@@ -45,8 +51,6 @@ from census_pipeline import STATES
 
 
 BASE_URL = "https://www2.census.gov/geo/tiger"
-DATASET = "tiger_tract"
-ARCHIVE_DIRECTORY = "TRACT"
 USER_AGENT = "crime-data-gruppe3/0.1 (Hochschulprojekt CAS Data Engineering)"
 DEFAULT_VINTAGE = 2024
 # Vor 2020 gelten die Tract-Grenzen des Zensus 2010. Wer Faelle von 2001 bis
@@ -80,7 +84,7 @@ EXPECTED_CRS = "EPSG:4269"
 # Das gepinnte Spaltenset. Es ist die Schnittmenge ueber die Vintages: Spalten,
 # die eine Vintage zusaetzlich mitbringt, landen unveraendert in EXTRA_COLUMN,
 # statt das Schema von Lauf zu Lauf wandern zu lassen.
-FIELD_TYPES: dict[str, pa.DataType] = {
+TRACT_FELDER: dict[str, pa.DataType] = {
     "STATEFP": pa.string(),
     "COUNTYFP": pa.string(),
     "TRACTCE": pa.string(),
@@ -94,23 +98,80 @@ FIELD_TYPES: dict[str, pa.DataType] = {
     "INTPTLAT": pa.string(),
     "INTPTLON": pa.string(),
 }
+
+# PLACE fuehrt statt COUNTYFP/TRACTCE die Ortsnummer und zwei Schluessel, die
+# die Art der Gebietseinheit angeben - LSAD und CLASSFP. Sie sind noetig, weil
+# derselbe Ortsname mehrfach vorkommt: Illinois fuehrt neben Chicago city auch
+# ein Detroit village. Unterschieden wird trotzdem ueber die GEOID; die beiden
+# Spalten machen nur nachlesbar, warum.
+PLACE_FELDER: dict[str, pa.DataType] = {
+    "STATEFP": pa.string(),
+    "PLACEFP": pa.string(),
+    "PLACENS": pa.string(),
+    "GEOID": pa.string(),
+    "NAME": pa.string(),
+    "NAMELSAD": pa.string(),
+    "LSAD": pa.string(),
+    "CLASSFP": pa.string(),
+    "MTFCC": pa.string(),
+    "FUNCSTAT": pa.string(),
+    "ALAND": pa.int64(),
+    "AWATER": pa.int64(),
+    "INTPTLAT": pa.string(),
+    "INTPTLON": pa.string(),
+}
 GEOMETRY_COLUMN = "geometry"
 SOURCE_GEOMETRY_COLUMN = "wkb_geometry"
 EXTRA_COLUMN = "_extra"
 
+# TIGER liefert mehrere Geometriearten nach demselben Muster: gleiche
+# Adressform, gleiches ZIP, gleiche Pflichtdateien, nur ein anderes Verzeichnis
+# und ein anderes Spaltenset. Was sich unterscheidet, steht deshalb hier und
+# nicht verteilt im Modul.
+#
+# PLACE kam dazu, weil Tracts nicht sagen, zu welcher Stadt sie gehoeren. Ein
+# County ist viel groesser als die Stadt darin - Cook County hat 5,18 Mio
+# Einwohner, Chicago rund 2,7 Mio. Ohne die Stadtgrenze gibt es keinen Nenner
+# fuer eine Rate je Einwohner.
+
+
+class Auslieferung(NamedTuple):
+    """Was eine TIGER-Geometrieart von der anderen unterscheidet."""
+
+    name: str
+    dataset: str
+    verzeichnis: str
+    stamm: str
+    feld_typen: dict[str, pa.DataType]
+
+    def archiv(self, vintage: int, state: str) -> str:
+        return f"tl_{vintage}_{state}_{self.stamm}.zip"
+
+    def mitglied(self, vintage: int, state: str) -> str:
+        return f"tl_{vintage}_{state}_{self.stamm}.shp"
+
+    def schema(self) -> pa.Schema:
+        fields = [pa.field(n, k) for n, k in self.feld_typen.items()]
+        fields.append(pa.field(GEOMETRY_COLUMN, pa.binary()))
+        fields.append(pa.field(EXTRA_COLUMN, pa.string()))
+        return pa.schema(fields)
+
 log = logging.getLogger("census_tiger_ingestion")
 
 
-def build_schema() -> pa.Schema:
-    """Pin one Parquet schema for every vintage and every state."""
-    fields = [pa.field(name, kind) for name, kind in FIELD_TYPES.items()]
-    fields.append(pa.field(GEOMETRY_COLUMN, pa.binary()))
-    fields.append(pa.field(EXTRA_COLUMN, pa.string()))
-    return pa.schema(fields)
+TRACT = Auslieferung("tract", "tiger_tract", "TRACT", "tract", TRACT_FELDER)
+PLACE = Auslieferung("place", "tiger_place", "PLACE", "place", PLACE_FELDER)
+AUSLIEFERUNGEN = {a.name: a for a in (TRACT, PLACE)}
 
-
-SCHEMA = build_schema()
+# Die Vorgabe bleibt der Tract. Jede Funktion unten nimmt die Auslieferung als
+# Schluesselwort mit genau diesem Vorgabewert - dadurch veraendert sich fuer
+# jeden bestehenden Aufruf nichts, und die Tests zu den Tracts pruefen
+# weiterhin den Pfad, den sie immer geprueft haben.
+FIELD_TYPES = TRACT.feld_typen
+SCHEMA = TRACT.schema()
 COLUMNS = tuple(SCHEMA.names)
+DATASET = TRACT.dataset
+ARCHIVE_DIRECTORY = TRACT.verzeichnis
 
 
 class IngestionError(RuntimeError):
@@ -149,6 +210,12 @@ def arguments() -> argparse.Namespace:
         action="store_true",
         help="Neuen Lauf schreiben, auch wenn die Vintage schon geladen ist",
     )
+    parser.add_argument(
+        "--auslieferung",
+        choices=sorted(AUSLIEFERUNGEN),
+        default=TRACT.name,
+        help="Geometrieart: tract (Vorgabe) oder place (Stadtgrenzen)",
+    )
     args = parser.parse_args()
     if args.vintage < EARLIEST_VINTAGE:
         parser.error(f"--vintage must be {EARLIEST_VINTAGE} or later")
@@ -156,21 +223,21 @@ def arguments() -> argparse.Namespace:
     return args
 
 
-def tiger_url(vintage: int, state: str) -> str:
-    """Die Adresse einer Tract-Auslieferung; sie folgt einem festen Muster."""
-    name = archive_name(vintage, state)
-    return f"{BASE_URL}/TIGER{vintage}/{ARCHIVE_DIRECTORY}/{name}"
+def tiger_url(vintage: int, state: str, aus: Auslieferung = TRACT) -> str:
+    """Die Adresse einer Auslieferung; sie folgt einem festen Muster."""
+    return f"{BASE_URL}/TIGER{vintage}/{aus.verzeichnis}/{aus.archiv(vintage, state)}"
 
 
-def archive_name(vintage: int, state: str) -> str:
-    return f"tl_{vintage}_{state}_tract.zip"
+def archive_name(vintage: int, state: str, aus: Auslieferung = TRACT) -> str:
+    return aus.archiv(vintage, state)
 
 
-def shapefile_member(vintage: int, state: str) -> str:
-    return f"tl_{vintage}_{state}_tract.shp"
+def shapefile_member(vintage: int, state: str, aus: Auslieferung = TRACT) -> str:
+    return aus.mitglied(vintage, state)
 
 
-def run_parent(data_root: Path, layer: str, vintage: int, state: str) -> Path:
+def run_parent(data_root: Path, layer: str, vintage: int, state: str,
+               aus: Auslieferung = TRACT) -> Path:
     """Partitioniert wird nach Vintage und Bundesstaat, nicht nach Abrufdatum.
 
     Eine Vintage ist eingefroren: Wann sie geladen wurde, ist Metadatum im
@@ -180,18 +247,19 @@ def run_parent(data_root: Path, layer: str, vintage: int, state: str) -> Path:
     return (
         data_root
         / layer
-        / f"dataset={DATASET}"
+        / f"dataset={aus.dataset}"
         / f"vintage={vintage}"
         / f"state={state}"
     )
 
 
-def discard_stale_partials(data_root: Path, now: datetime) -> list[Path]:
+def discard_stale_partials(data_root: Path, now: datetime,
+                           aus: Auslieferung = TRACT) -> list[Path]:
     """Drop work directories a crashed run left behind."""
     cutoff = (now - timedelta(hours=STALE_PARTIAL_HOURS)).timestamp()
     removed = []
     for layer in LAYERS:
-        pattern = f"{layer}/dataset={DATASET}/vintage=*/state=*/.*.part"
+        pattern = f"{layer}/dataset={aus.dataset}/vintage=*/state=*/.*.part"
         for path in sorted(data_root.glob(pattern)):
             if path.is_dir() and path.stat().st_mtime < cutoff:
                 shutil.rmtree(path, ignore_errors=True)
@@ -200,7 +268,8 @@ def discard_stale_partials(data_root: Path, now: datetime) -> list[Path]:
     return removed
 
 
-def completed_runs(data_root: Path, vintage: int, state: str) -> list[Path]:
+def completed_runs(data_root: Path, vintage: int, state: str,
+                   aus: Auslieferung = TRACT) -> list[Path]:
     """Bereits veroeffentlichte Laeufe dieser Vintage.
 
     Das ist die Entsprechung zum Wasserzeichen der Ereignis-Ingestion: Sie
@@ -208,7 +277,7 @@ def completed_runs(data_root: Path, vintage: int, state: str) -> list[Path]:
     weil Bronze zuletzt veroeffentlicht wird - ein Raw-Lauf ohne Bronze-Zwilling
     kostet eine Wiederholung, nie eine Luecke.
     """
-    parent = run_parent(data_root, BRONZE_LAYER, vintage, state)
+    parent = run_parent(data_root, BRONZE_LAYER, vintage, state, aus)
     runs = []
     for path in sorted(parent.glob("run_*/manifest.json")):
         try:
@@ -235,9 +304,10 @@ def build_session() -> requests.Session:
     return session
 
 
-def fetch_archive(session: requests.Session, vintage: int, state: str) -> Archive:
+def fetch_archive(session: requests.Session, vintage: int, state: str,
+                  aus: Auslieferung = TRACT) -> Archive:
     """Laedt ein Archiv und weist nach, dass es unversehrt angekommen ist."""
-    url = tiger_url(vintage, state)
+    url = tiger_url(vintage, state, aus)
     try:
         response = session.get(url, timeout=TIMEOUT_SECONDS)
         response.raise_for_status()
@@ -253,10 +323,10 @@ def fetch_archive(session: requests.Session, vintage: int, state: str) -> Archiv
             f"{content_length:,} Byte"
         )
 
-    members = verify_archive(payload, vintage, state)
+    members = verify_archive(payload, vintage, state, aus)
     log.info(
         "%s geladen: %s Byte, %s Dateien im Archiv",
-        archive_name(vintage, state),
+        archive_name(vintage, state, aus),
         f"{len(payload):,}",
         len(members),
     )
@@ -269,7 +339,8 @@ def fetch_archive(session: requests.Session, vintage: int, state: str) -> Archiv
     )
 
 
-def verify_archive(payload: bytes, vintage: int, state: str) -> list[str]:
+def verify_archive(payload: bytes, vintage: int, state: str,
+                   aus: Auslieferung = TRACT) -> list[str]:
     """Prueft das Archiv gegen seine eigenen Pruefsummen.
 
     Ein ZIP fuehrt je Mitgliedsdatei eine CRC32 mit. ``testzip`` liest jede
@@ -286,7 +357,7 @@ def verify_archive(payload: bytes, vintage: int, state: str) -> list[str]:
     except zipfile.BadZipFile as error:
         raise IngestionError(f"Kein lesbares ZIP-Archiv: {error}") from error
 
-    stem = shapefile_member(vintage, state).removesuffix(".shp")
+    stem = shapefile_member(vintage, state, aus).removesuffix(".shp")
     fehlend = [
         suffix for suffix in REQUIRED_MEMBERS if f"{stem}{suffix}" not in members
     ]
@@ -315,13 +386,14 @@ def json_text(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
-def read_features(archive_path: Path, vintage: int, state: str) -> tuple[pa.Table, dict]:
+def read_features(archive_path: Path, vintage: int, state: str,
+                  aus: Auslieferung = TRACT) -> tuple[pa.Table, dict]:
     """Liest das Shapefile direkt aus dem Archiv, ohne es auszupacken.
 
     GDAL spricht ZIP-Archive ueber das Praefix ``/vsizip/`` an. Die Geometrie
     kommt dabei schon als WKB, ganz ohne geopandas oder shapely.
     """
-    member = shapefile_member(vintage, state)
+    member = shapefile_member(vintage, state, aus)
     source = f"/vsizip/{archive_path}/{member}"
     try:
         meta, table = read_arrow(source)
@@ -334,7 +406,7 @@ def read_features(archive_path: Path, vintage: int, state: str) -> tuple[pa.Tabl
     return table, meta
 
 
-def bronze_table(source: pa.Table) -> pa.Table:
+def bronze_table(source: pa.Table, aus: Auslieferung = TRACT) -> pa.Table:
     """Bildet die Quelltabelle auf das gepinnte Schema ab, ohne etwas zu verlieren.
 
     Eine Spalte, die nicht ins Schema passt - unbekannter Name oder anderer Typ -
@@ -348,8 +420,8 @@ def bronze_table(source: pa.Table) -> pa.Table:
     for name in source.schema.names:
         if name == SOURCE_GEOMETRY_COLUMN:
             continue
-        passt = name in FIELD_TYPES and source.schema.field(name).type.equals(
-            FIELD_TYPES[name]
+        passt = name in aus.feld_typen and source.schema.field(name).type.equals(
+            aus.feld_typen[name]
         )
         if passt:
             behalten[name] = source.column(name)
@@ -358,7 +430,7 @@ def bronze_table(source: pa.Table) -> pa.Table:
 
     rows = source.num_rows
     arrays = []
-    for name, kind in FIELD_TYPES.items():
+    for name, kind in aus.feld_typen.items():
         if name in behalten:
             arrays.append(behalten[name].combine_chunks())
         else:
@@ -370,7 +442,7 @@ def bronze_table(source: pa.Table) -> pa.Table:
         arrays.append(pa.nulls(rows, type=pa.binary()))
 
     arrays.append(pa.array(extra_column(extra, rows), type=pa.string()))
-    return pa.Table.from_arrays(arrays, schema=SCHEMA)
+    return pa.Table.from_arrays(arrays, schema=aus.schema())
 
 
 def extra_column(extra: dict[str, list[Any]], rows: int) -> list[str | None]:
@@ -412,7 +484,8 @@ def write_landing(work_dir: Path, archive: Archive, name: str) -> tuple[Path, li
 
 
 def write_bronze(
-    work_dir: Path, archive_path: Path, vintage: int, state: str
+    work_dir: Path, archive_path: Path, vintage: int, state: str,
+    aus: Auslieferung = TRACT,
 ) -> tuple[pa.Table, dict[str, Any], list[dict[str, Any]]]:
     """Leitet die Parquet-Datei aus der gelandeten Raw-Datei ab.
 
@@ -420,9 +493,9 @@ def write_bronze(
     keine zweite Kopie im Speicher: Bronze ist damit nachweislich aus genau dem
     Beweisstueck abgeleitet, dessen SHA-256 im Manifest steht.
     """
-    table, meta = read_features(archive_path, vintage, state)
+    table, meta = read_features(archive_path, vintage, state, aus)
     path = work_dir / PARQUET_FILE
-    bronze = bronze_table(table)
+    bronze = bronze_table(table, aus)
     pq.write_table(bronze, path, compression="snappy")
     return bronze, meta, [file_entry(path)]
 
@@ -434,12 +507,13 @@ def write_run(
     *,
     vintage: int,
     state: str,
+    aus: Auslieferung = TRACT,
 ) -> RunPaths:
     """Schreibt beide Schichten und veroeffentlicht sie atomar, Raw zuerst."""
     ingest_date = started.date().isoformat()
     run_id = started.strftime("run_%Y%m%dT%H%M%S%fZ")
     parents = {
-        layer: run_parent(data_root, layer, vintage, state) for layer in LAYERS
+        layer: run_parent(data_root, layer, vintage, state, aus) for layer in LAYERS
     }
     work = {layer: parent / f".{run_id}.part" for layer, parent in parents.items()}
     final = {layer: parent / run_id for layer, parent in parents.items()}
@@ -447,11 +521,11 @@ def write_run(
         path.mkdir(parents=True)
 
     try:
-        name = archive_name(vintage, state)
+        name = archive_name(vintage, state, aus)
         staged, raw_files = write_landing(work[RAW_LAYER], archive, name)
         files = {RAW_LAYER: raw_files}
         bronze, meta, files[BRONZE_LAYER] = write_bronze(
-            work[BRONZE_LAYER], staged, vintage, state
+            work[BRONZE_LAYER], staged, vintage, state, aus
         )
 
         fingerprint, fields = source_schema(meta)
@@ -459,7 +533,7 @@ def write_run(
             "status": "complete",
             "immutable": True,
             "source": "census_tiger",
-            "dataset": DATASET,
+            "dataset": aus.dataset,
             "vintage": vintage,
             "state_fips": state,
             "state_name": STATES.get(state),
@@ -521,34 +595,38 @@ def ingest_state(
     vintage: int,
     state: str,
     force: bool,
+    aus: Auslieferung = TRACT,
 ) -> RunPaths | None:
     """Laedt eine Vintage fuer einen Bundesstaat; None, wenn nichts zu tun war."""
-    vorhanden = completed_runs(data_root, vintage, state)
+    vorhanden = completed_runs(data_root, vintage, state, aus)
     if vorhanden and not force:
         log.info(
-            "TIGER %s %s ist bereits geladen (%s); --force erzwingt einen neuen Lauf",
+            "TIGER %s %s %s ist bereits geladen (%s); --force erzwingt einen neuen Lauf",
             vintage,
+            aus.name,
             STATES.get(state, state),
             vorhanden[-1].name,
         )
         return None
 
-    archive = fetch_archive(session, vintage, state)
-    return write_run(data_root, started, archive, vintage=vintage, state=state)
+    archive = fetch_archive(session, vintage, state, aus)
+    return write_run(data_root, started, archive, vintage=vintage, state=state, aus=aus)
 
 
 def main() -> int:
     args = arguments()
     started = datetime.now(timezone.utc)
+    aus = AUSLIEFERUNGEN[args.auslieferung]
 
     try:
-        discard_stale_partials(args.data_root, started)
+        discard_stale_partials(args.data_root, started, aus)
         geschrieben = 0
         with build_session() as session:
             for state in args.state:
                 log.info(
-                    "Starting TIGER %s tracts for %s (%s)",
+                    "Starting TIGER %s %s for %s (%s)",
                     args.vintage,
+                    aus.name,
                     STATES.get(state, state),
                     state,
                 )
@@ -559,6 +637,7 @@ def main() -> int:
                     args.vintage,
                     state,
                     args.force,
+                    aus,
                 )
                 if run is not None:
                     geschrieben += 1
