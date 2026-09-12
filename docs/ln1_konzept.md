@@ -38,7 +38,7 @@ Speicherarchitektur aus unveränderlichen Läufen, und **alle drei
 Silver-Tabellen** — seit `crime_offense` sprechen beide Städte dieselbe
 Deliktsprache, liegen auf derselben Zeitachse und tragen dieselbe
 Raumeinheit. Jede Quelle weist ihre Vollständigkeit nach, statt sie zu
-behaupten. **516 automatisierte Tests** laufen ohne Netzzugriff und ohne
+behaupten. **537 automatisierte Tests** laufen ohne Netzzugriff und ohne
 Schlüssel.
 
 | | |
@@ -231,16 +231,33 @@ weniger, weil sich Delikte auf wenige Kategorien und Tracts konzentrieren. Die
 ganze Gold-Schicht bleibt damit klein genug für eine Datei ohne Serverbetrieb;
 das ist derselbe Grund, der in Kapitel 7 gegen PostgreSQL sprach.
 
-**Kategorien.** Gruppiert wird über die **NIBRS-Deliktfamilie** — die ersten
-beiden Zeichen des Codes, also `13` für Körperverletzung, `23` für Diebstahl,
-`26` für Betrug. Das ist die Gliederung, die der Standard selbst vorgibt; sie
-muss nicht gepflegt werden und steht mit `nibrs_code` schon in `crime_offense`.
+**Kategorien.** Gruppiert wird über die **amtliche NIBRS-Deliktkategorie**:
+28 Group-A- und 10 Group-B-Kategorien aus dem *NIBRS User Manual 2025.0*.
+[`tools/build_nibrs_categories.py`](../tools/build_nibrs_categories.py) liest
+sie aus dem Handbuch nach `config/nibrs_offense_categories_2025.csv`.
 
-In den Falldaten 2024 sind **25 Familien** belegt, **20 davon in beiden
-Städten** — und nur diese 20 tragen eine vergleichbare Zelle. Die fünf übrigen
-kommen jeweils nur in einer Stadt vor (`27` Embezzlement, `37` Pornografie,
-`51` Bestechung, `64` Menschenhandel, `72` Tierquälerei in Chicago, keine in
-Detroit); sie bleiben in Silver erhalten und sind aus Gold ausgeschlossen.
+**Hier stand zuvor eine Hilfskonstruktion.** Gruppiert wurde über die ersten
+beiden Zeichen des Codes — `13` für Körperverletzung, `23` für Diebstahl — mit
+der Begründung, das sei „die Gliederung, die der Standard selbst vorgibt". Das
+war falsch, und zwar an vier Stellen:
+
+| | |
+| --- | --- |
+| `11` **und** `36` | sind **beide** *Sex Offenses* |
+| `58`, `61`, `62` | sind **alle drei** *Commerce Violations* |
+| `10` | zerfällt in **drei**: Kidnapping/Abduction, Treason, Espionage |
+| `90` | zerfällt in **zehn** Group-B-Kategorien, ohne Sammelnamen |
+
+Das Präfix bleibt als technischer Schlüssel erhalten; wer gruppiert, nimmt die
+Kategorie. In den Falldaten 2024 sind **30 Kategorien** belegt, **23 davon in
+beiden Städten**, und diese 23 decken **99,5 %** der Fälle. Die übrigen kommen
+nur in einer Stadt vor — Embezzlement, Pornografie, Bestechung, Menschenhandel
+und Tierquälerei in Chicago, Bad Checks und Runaway in Detroit.
+
+Die Kategorien werden **gelesen, nicht gepflegt**: Ein zweiter Lauf des Skripts
+liefert dieselbe Datei, und ein Test prüft das. Vier zurückgezogene Codes, die
+das Handbuch nicht mehr führt, kommen aus der Fassung 2011 derselben Liste;
+jede Zeile nennt ihr Dokument.
 
 > **Zuvor stand hier eine eigene Kategorienliste**,
 > `config/crime_category_mapping.csv`, die Chicagos `fbi_code` (SRS) und
@@ -301,7 +318,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 516 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
+| **DataOps** | 537 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -866,7 +883,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 516 bestandene Tests
+python -m pytest                       # erwartet 537 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
@@ -921,6 +938,8 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | IUCR nach NIBRS (Chicago) | `config/iucr_nibrs_mapping.csv`, erzeugt von [`tools/build_iucr_nibrs_mapping.py`](../tools/build_iucr_nibrs_mapping.py); Katalog vom [Datenportal der Stadt](https://data.cityofchicago.org/resource/c7ck-438e.json) |
 | MICR nach NIBRS (Detroit) | `config/micr_nibrs_mapping.csv`, Quellen [`micr_manual_1110_2024.pdf`](micr_manual_1110_2024.pdf) und [`micr_appendix_f_2009.pdf`](micr_appendix_f_2009.pdf) |
 | Codetabelle Illinois State Police | [`isp_nibrs_code_table_2026.xlsx`](isp_nibrs_code_table_2026.xlsx) — nach ILCS-Statut geschlüsselt, **nicht** als Crosswalk verwendbar, siehe 8.5 |
+| **Amtliche Deliktkategorien** | `config/nibrs_offense_categories_2025.csv`, gelesen von [`tools/build_nibrs_categories.py`](../tools/build_nibrs_categories.py) aus [`nibrs-user-manual-2025-0-062625.pdf`](nibrs-user-manual-2025-0-062625.pdf) — 28 + 10 Kategorien |
+| Die vier zurückgezogenen Codes | [`NIBRS_Offense_Codes.pdf`](NIBRS_Offense_Codes.pdf), Fassung 2011 — überholt, aber der einzige Beleg für `90A`, `90E`, `90H`, `90I` |
 | Zweite Abschrift der Codeliste | [`illinois_nibrs_iepd_2023.xlsx`](illinois_nibrs_iepd_2023.xlsx), Blatt `OffenseCode` — Illinois' eigene Abschrift derselben FBI-Liste; belegt alle 81 Bezeichnungen statt zehn Stichproben |
 
 ---
