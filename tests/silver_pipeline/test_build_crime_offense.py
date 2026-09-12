@@ -88,7 +88,14 @@ def detroit_saetze(zeilen: list[dict]) -> list[dict]:
     return [{
         "incident_entry_id": z["incident_entry_id"],
         "report_number": z.get("report_number"),
+        # Der Vorfall, zu dem die Zeile gehoert. Mehrere Anklagen zur selben
+        # Tat teilen ihn sich; ohne ihn laesst sich das Tatkorn nicht bilden.
+        "case_id": z.get("case_id", z["incident_entry_id"]),
         "state_offense_code": z.get("state_offense_code"),
+        # Die Anklage. Sie faellt bei 3,6 Prozent der echten Zeilen von der
+        # Tat ab - genau daran haengt die Auswahl der zaehlenden Zeile.
+        "charge_description": z.get(
+            "charge_description", z.get("offense_description")),
         "offense_description": z.get("offense_description"),
         "incident_occurred_at": z.get("incident_occurred_at"),
         "updated_at": z.get("updated_at", 0),
@@ -167,7 +174,15 @@ def schreibe_config(config_root: Path) -> None:
         "micr_code,micr_file_class,micr_description,nibrs_group,nibrs_code,"
         "nibrs_description,hierarchy,match,mapped,seen_in_detroit_2024,note\n"
         "1301,13001,ASSAULT,A,13A,Aggravated Assault,1,micr_manual_1110_2024,true,true,\n"
-        "0910,09010,SOMETHING ELSE,B,90Z,All Other Offenses,9,micr_manual_1110_2024,true,true,\n",
+        "0910,09010,SOMETHING ELSE,B,90Z,All Other Offenses,9,micr_manual_1110_2024,true,true,\n"
+        # Fuer die Auswahl der zaehlenden Zeile: zwei Codes mit verschiedenem
+        # Rang. Im echten Handbuch steht 1302 auf 4 und 2901 auf 16 - hier
+        # genuegt, dass der eine schwerer wiegt als der andere.
+        "1302,13002,AGGRAVATED ASSAULT,A,13A,Aggravated Assault,4,micr_manual_1110_2024,true,true,\n"
+        "1172,11002,CSC 3RD DEGREE,A,13A,Aggravated Assault,2,micr_arrest_charge_1110_2024,true,true,\n"
+        "2307,23007,LARCENY - OTHER,A,90Z,All Other Offenses,6,micr_manual_1110_2024,true,true,\n"
+        "1201,12001,CARJACKING,A,13A,Aggravated Assault,3,micr_manual_1110_2024,true,true,\n"
+        "2901,29000,DAMAGE TO PROPERTY,A,90Z,All Other Offenses,16,micr_manual_1110_2024,true,true,\n",
         encoding="utf-8")
 
 
@@ -202,8 +217,9 @@ CHI = [{"id": "1", "case_number": "JA1", "date": "2024-01-15T08:30:00.000",
         "latitude": IN_CHICAGO[0], "longitude": IN_CHICAGO[1],
         "updated_on": "2024-02-01T00:00:00.000", "arrest": True}]
 # 2024-01-15 13:30 UTC entspricht 08:30 Ortszeit in Detroit (EST, UTC-5).
-DET = [{"incident_entry_id": "D1", "report_number": "R1", "state_offense_code": "1301",
-        "offense_description": "ASSAULT", "incident_occurred_at": 1705325400000,
+DET = [{"incident_entry_id": "D1", "report_number": "R1", "case_id": "F1",
+        "state_offense_code": "1301", "offense_description": "ASSAULT",
+        "incident_occurred_at": 1705325400000,
         "latitude": IN_DETROIT[0], "longitude": IN_DETROIT[1]}]
 
 
@@ -680,3 +696,102 @@ def test_beide_staedte_liegen_im_jahrgang():
 
 def test_tabellenverzeichnis_traegt_keine_vintage():
     assert bc.table_dir(Path("data")).name == "dataset=crime_offense"
+
+
+# --------------------------------------------------------------------------
+# Tatkorn: welche Zeile zaehlt
+# --------------------------------------------------------------------------
+#
+# Detroits Zeilen sind Anklagen, Chicagos sind Delikte. Ein Ueberfall mit
+# Schuessen und geraubtem Auto steht bei Detroit als fuenf Zeilen, bei Chicago
+# als eine; wer beide summiert, zaehlt Detroit zu hoch.
+#
+# Welches Feld die Tat traegt, sagen die Daten: Bei Vorfaellen mit mehreren
+# Zeilen ist offense_description in 38,4 Prozent konstant, charge_description
+# nur in 2,3 Prozent. Silver behaelt jede Anklage und markiert je Tat eine
+# Zeile mit ``counts``.
+#
+# Artan hat das gefunden, an einer Zeile mit offense_category LARCENY und
+# offense_description "CSC 3RD DEGREE - PENIS / VAGINA".
+
+
+def det_zeile(nr: str, fall: str, code: str, anklage: str, tat: str) -> dict:
+    return {
+        "incident_entry_id": nr, "report_number": f"R{fall}", "case_id": fall,
+        "state_offense_code": code, "charge_description": anklage,
+        "offense_description": tat, "incident_occurred_at": 1705325400000,
+        "latitude": IN_DETROIT[0], "longitude": IN_DETROIT[1],
+    }
+
+
+def test_chicagos_zeile_zaehlt_immer(tmp_path):
+    """Eine Chicago-Zeile ist bereits ein Delikt, keine Anklage."""
+    zeilen = [z for z in lies(baue(tmp_path, CHI, DET)) if z["city"] == "chicago"]
+    assert all(z["counts"] for z in zeilen)
+    assert {z["counts_reason"] for z in zeilen} == {"eine_zeile_ist_ein_delikt"}
+
+
+def test_zwei_anklagen_zur_selben_tat_zaehlen_einmal(tmp_path):
+    """Artans Fall: eine CSC-Tat, dazu eine Larceny-Anklage.
+
+    Beide Zeilen bleiben erhalten - die Anklage ist eine Tatsache und wird
+    nicht weggeworfen. Gezaehlt wird die Zeile, deren Anklage die Tat selbst
+    ist; sie traegt damit schon den richtigen MICR-Code.
+    """
+    detroit = [
+        det_zeile("D1", "F1", "2307", "LARCENY - OTHER", "CSC 3RD DEGREE"),
+        det_zeile("D2", "F1", "1172", "CSC 3RD DEGREE", "CSC 3RD DEGREE"),
+    ]
+    zeilen = {z["offense_id"]: z for z in lies(baue(tmp_path, CHI, detroit))
+              if z["city"] == "detroit"}
+    assert len(zeilen) == 2, "beide Anklagen bleiben in Silver"
+    assert zeilen["D2"]["counts"] is True
+    assert zeilen["D2"]["counts_reason"] == "anklage_ist_die_tat"
+    assert zeilen["D1"]["counts"] is False
+    assert zeilen["D1"]["counts_reason"] == "weitere_anklage_zur_selben_tat"
+    assert zeilen["D1"]["offense_group_id"] == zeilen["D2"]["offense_group_id"]
+
+
+def test_zwei_verschiedene_taten_im_selben_vorfall_zaehlen_zweimal(tmp_path):
+    """Ein Vorfall kann mehrere Taten tragen - dann zaehlen sie einzeln."""
+    detroit = [
+        det_zeile("D1", "F1", "1302", "AGGRAVATED ASSAULT", "AGGRAVATED ASSAULT"),
+        det_zeile("D2", "F1", "1201", "CARJACKING", "CARJACKING"),
+    ]
+    zeilen = [z for z in lies(baue(tmp_path, CHI, detroit)) if z["city"] == "detroit"]
+    assert sum(1 for z in zeilen if z["counts"]) == 2
+    assert len({z["offense_group_id"] for z in zeilen}) == 2
+
+
+def test_ohne_passende_anklage_entscheidet_die_hierarchie(tmp_path):
+    """Die 19 Faelle, in denen keine Anklage die Tat selbst nennt.
+
+    Dann gilt die schwerste - die Hierarchie des MICR-Handbuchs, in der 1
+    Mord ist und 16 Sachbeschaedigung. ``1302`` Aggravated Assault steht auf
+    Rang 11, ``2901`` Damage to Property auf 16.
+    """
+    detroit = [
+        det_zeile("D1", "F1", "2901", "DAMAGE TO PROPERTY", "THREATS - GENERAL"),
+        det_zeile("D2", "F1", "1302", "AGGRAVATED ASSAULT", "THREATS - GENERAL"),
+    ]
+    zeilen = {z["offense_id"]: z for z in lies(baue(tmp_path, CHI, detroit))
+              if z["city"] == "detroit"}
+    assert zeilen["D2"]["counts"] is True, "die schwerere Anklage zaehlt"
+    assert zeilen["D2"]["counts_reason"] == "schwerste_anklage"
+    assert zeilen["D1"]["counts"] is False
+
+
+def test_je_tat_zaehlt_genau_eine_zeile(tmp_path):
+    """Die Zusage in einem Satz - sonst zaehlt Detroit doppelt."""
+    detroit = [
+        det_zeile("D1", "F1", "2307", "LARCENY - OTHER", "CSC 3RD DEGREE"),
+        det_zeile("D2", "F1", "1172", "CSC 3RD DEGREE", "CSC 3RD DEGREE"),
+        det_zeile("D3", "F1", "2901", "DAMAGE TO PROPERTY", "CSC 3RD DEGREE"),
+        det_zeile("D4", "F2", "1302", "AGGRAVATED ASSAULT", "AGGRAVATED ASSAULT"),
+    ]
+    zeilen = [z for z in lies(baue(tmp_path, CHI, detroit)) if z["city"] == "detroit"]
+    je_tat = {}
+    for z in zeilen:
+        je_tat.setdefault(z["offense_group_id"], []).append(z["counts"])
+    for gruppe, marken in je_tat.items():
+        assert sum(1 for m in marken if m) == 1, f"{gruppe}: {marken}"

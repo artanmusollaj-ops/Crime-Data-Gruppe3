@@ -285,7 +285,8 @@ def build_query(
         WHERE mapped = 'true'
     ),
     micr_map AS (
-        SELECT micr_code, nibrs_code, match AS nibrs_match
+        SELECT micr_code, nibrs_code, match AS nibrs_match,
+               TRY_CAST(hierarchy AS INTEGER) AS hierarchy
         FROM read_csv('{micr}', header = true, all_varchar = true)
         WHERE mapped = 'true'
     ),
@@ -325,7 +326,12 @@ def build_query(
             TRY_CAST(c.latitude AS DOUBLE)                 AS latitude,
             TRY_CAST(c.longitude AS DOUBLE)                AS longitude,
             c.arrest                                       AS arrest,
-            NULL                                           AS unfounded
+            NULL                                           AS unfounded,
+            -- Chicagos Zeile ist schon das Delikt; sie ist ihre eigene Gruppe
+            -- und zaehlt immer.
+            nullif(trim(c.id), '')                         AS offense_group_id,
+            TRUE                                           AS counts,
+            'eine_zeile_ist_ein_delikt'                    AS counts_reason
         FROM chicago_eindeutig c
         LEFT JOIN iucr_map m ON trim(c.iucr) = m.iucr
     ),
@@ -347,6 +353,35 @@ def build_query(
             FROM detroit_roh
         ) WHERE rang = 1
     ),
+    -- Detroits Zeilen sind Anklagen, Chicagos sind Delikte. Ein Ueberfall mit
+    -- Schuessen und geraubtem Auto steht bei Detroit als fuenf Zeilen, bei
+    -- Chicago als eine. Wer beide Staedte summiert, ohne das zu wissen, zaehlt
+    -- Detroit zu hoch - und zwar um 3,8 Prozent.
+    --
+    -- Welches Feld die Tat traegt, sagen die Daten selbst: Bei Vorfaellen mit
+    -- mehreren Zeilen ist ``offense_description`` in 38,4 Prozent der Faelle
+    -- konstant, ``charge_description`` nur in 2,3 Prozent. Die Tat ist also
+    -- offense_description, die Anklage der Rest der Zeile.
+    --
+    -- Je (Vorfall, Tat) wird eine Zeile als die zaehlende markiert. Gewaehlt
+    -- wird die, deren Anklage die Tat selbst ist - dann traegt sie schon den
+    -- richtigen MICR-Code und es braucht keine Zuordnung ueber Text. Das
+    -- trifft auf 99,98 Prozent der Gruppen zu. Fuer die uebrigen 19
+    -- entscheidet die Hierarchie des MICR-Handbuchs, in der 1 Mord ist und 16
+    -- Sachbeschaedigung: Es gilt die schwerste Anklage.
+    detroit_gewaehlt AS (
+        SELECT *, row_number() OVER (
+            PARTITION BY trim(attributes.case_id),
+                         coalesce(trim(attributes.offense_description), '')
+            ORDER BY
+                CASE WHEN trim(attributes.charge_description)
+                        = trim(attributes.offense_description) THEN 0 ELSE 1 END,
+                coalesce(mm.hierarchy, 99),
+                trim(attributes.incident_entry_id)
+        ) AS rang_in_tat
+        FROM detroit_eindeutig d
+        LEFT JOIN micr_map mm ON trim(d.attributes.state_offense_code) = mm.micr_code
+    ),
     detroit_delikte AS (
         SELECT
             '{DETROIT}'                                    AS city,
@@ -365,8 +400,20 @@ def build_query(
             d.attributes.longitude                         AS longitude,
             NULL                                           AS arrest,
             upper(coalesce(trim(d.attributes.case_status), '')) = '{UNFOUNDED}'
-                                                           AS unfounded
-        FROM detroit_eindeutig d
+                                                           AS unfounded,
+            -- Der Schluessel der Tat: Vorfall plus ihre Beschreibung.
+            trim(d.attributes.case_id) || '|'
+                || coalesce(trim(d.attributes.offense_description), '')
+                                                           AS offense_group_id,
+            d.rang_in_tat = 1                              AS counts,
+            CASE
+                WHEN d.rang_in_tat > 1 THEN 'weitere_anklage_zur_selben_tat'
+                WHEN trim(d.attributes.charge_description)
+                     = trim(d.attributes.offense_description)
+                    THEN 'anklage_ist_die_tat'
+                ELSE 'schwerste_anklage'
+            END                                            AS counts_reason
+        FROM detroit_gewaehlt d
         LEFT JOIN micr_map m ON trim(d.attributes.state_offense_code) = m.micr_code
     ),
 
@@ -419,7 +466,10 @@ def build_query(
         v.geoid                                            AS tract_geoid,
         v.geoid IS NOT NULL                                AS located,
         CAST(b.arrest AS BOOLEAN)                          AS arrest,
-        CAST(b.unfounded AS BOOLEAN)                       AS unfounded
+        CAST(b.unfounded AS BOOLEAN)                       AS unfounded,
+        b.offense_group_id,
+        CAST(b.counts AS BOOLEAN)                          AS counts,
+        b.counts_reason
     FROM bereinigt b
     LEFT JOIN nibrs n ON b.nibrs_code = n.nibrs_code
     LEFT JOIN verortet v

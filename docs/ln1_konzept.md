@@ -38,13 +38,13 @@ Speicherarchitektur aus unveränderlichen Läufen, und **alle drei
 Silver-Tabellen** — seit `crime_offense` sprechen beide Städte dieselbe
 Deliktsprache, liegen auf derselben Zeitachse und tragen dieselbe
 Raumeinheit. Jede Quelle weist ihre Vollständigkeit nach, statt sie zu
-behaupten. **597 automatisierte Tests** laufen ohne Netzzugriff und ohne
+behaupten. **603 automatisierte Tests** laufen ohne Netzzugriff und ohne
 Schlüssel.
 
 | | |
 | --- | --- |
 | Chicago, Jahrgang 2024 | 259'272 Delikte |
-| Detroit, Jahrgang 2024 | 88'685 Delikte |
+| Detroit, Jahrgang 2024 | 88'685 Anklagen zu 85'335 Taten |
 | Census Tracts, Illinois und Michigan | 6'282, mit Geometrie und Sozialdaten |
 | Wetter, zwei Stationen | 55'449 Stadt-Tage, zurück bis 1942 |
 
@@ -129,7 +129,7 @@ bestätigt oder vorgeprüft, **eine falsifiziert, eine teilweise falsifiziert.**
 | --- | --- | --- | --- |
 | **H1** | Fehlende Koordinaten treten **nicht zufällig** auf, sondern hängen vom Delikttyp ab. | Chi-Quadrat-Unabhängigkeitstest | vorgeprüft: 4,3 % bei Delikten an Kindern gegen 0,4 % bei Diebstahl |
 | **H2** | Der Überlapp der Delta-Läufe erzeugt ausschliesslich **Duplikate**, keine **Dubletten**. | Vergleich aller Attribute je Schlüssel | bestätigt |
-| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Anwendung beider Crosswalks in `silver/crime_offense` | **teilweise falsifiziert**, siehe 8.5. Beide Städte sind **100 %** zugeordnet — aber nur **96,8 %** aller Fälle tragen ein echtes NIBRS-Delikt; 10'994 landen im Auffang `90Z`. Die Abdeckung stimmt, die Abbildung nicht |
+| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Anwendung beider Crosswalks in `silver/crime_offense` | **teilweise falsifiziert**, siehe 8.5. Beide Städte sind **100 %** zugeordnet — aber nur **97,0 %** aller Fälle tragen ein echtes NIBRS-Delikt; 10'442 landen im Auffang `90Z`. Die Abdeckung stimmt, die Abbildung nicht |
 | **H4** | Ein gepinntes Schema plus Auffangspalte fängt Schema-Drift **vollständig** auf. | Fingerabdruck über Feldtypen, Inhalt von `_extra` | bestätigt |
 | **H5** | Auffällige Werte in den Verwaltungsschlüsseln sind **Artefakte**, keine echten Ausreisser. | Häufigkeitsanalyse plus Konsistenzregel | vorgeprüft |
 | **H6** | Die Zusammenführung der drei Zeitachsen gelingt allein durch **Aggregation**; Imputation ist nicht nötig. | Granularitätsanalyse je Quelle | offen |
@@ -248,7 +248,7 @@ der Auswertungsumgebung.
 
 | Tabelle | Korn | Zeilen |
 | --- | --- | ---: |
-| `fact_offense` | ein Delikt | 347'957 |
+| `fact_offense` | **eine Tat** | 344'607 |
 | `dim_tract` | ein Census Tract, mit **Stadtzuordnung** und Einwohnerzahl | 6'282 |
 | `dim_offense` | ein NIBRS-Delikt | 85 |
 | `dim_date` | ein Kalendertag | 366 |
@@ -311,7 +311,8 @@ war falsch, und zwar an vier Stellen:
 
 Das Präfix bleibt als technischer Schlüssel erhalten; wer gruppiert, nimmt die
 Kategorie. In den Falldaten 2024 sind **30 Kategorien** belegt, **23 davon in
-beiden Städten**, und diese 23 decken **99,5 %** der Fälle. Die übrigen kommen
+beiden Städten**, und diese 23 decken **99,5 %** der Fälle (auf Tatkorn, siehe
+5.2). Die übrigen kommen
 nur in einer Stadt vor — Embezzlement, Pornografie, Bestechung, Menschenhandel
 und Tierquälerei in Chicago, Bad Checks und Runaway in Detroit.
 
@@ -326,6 +327,48 @@ jede Zeile nennt ihr Dokument.
 > entfernt: Seit beide Städte über NIBRS laufen, wäre sie eine zweite,
 > handgepflegte Übersetzung neben der belegten — und die 20 Familien leisten
 > dasselbe, ohne gepflegt werden zu müssen.
+
+#### Das Korn: Detroits Zeilen sind Anklagen, Chicagos sind Delikte
+
+**Das ist der einzige Stellenwechsel zwischen Silver und Gold** — und er war
+nötig, weil die beiden Städte verschieden feine Zeilen liefern. Ein Überfall mit
+Schüssen und geraubtem Auto steht bei Detroit als **fünf** Zeilen, bei Chicago
+als **eine**:
+
+```
+Zeile 1218143-1302   Anklage: AGGRAVATED ASSAULT      Tat: AGGRAVATED ASSAULT
+Zeile 1218143-1304   Anklage: NON-FATAL SHOOTING      Tat: AGGRAVATED ASSAULT
+Zeile 1218158-1201   Anklage: CARJACKING              Tat: CARJACKING
+Zeile 1218158-2401   Anklage: MOTOR VEHICLE THEFT     Tat: AGGRAVATED ASSAULT
+Zeile 1218218-1302   Anklage: AGGRAVATED ASSAULT      Tat: AGGRAVATED ASSAULT
+```
+
+**Welches Feld die Tat trägt, sagen die Daten selbst.** Bei Vorfällen mit
+mehreren Zeilen ist `offense_description` in **38,4 %** der Fälle konstant,
+`charge_description` nur in **2,3 %**. Die Tat ist also `offense_description`;
+der Rest der Zeile beschreibt die einzelne Anklage.
+
+**Silver behält jede Anklage** — sie ist eine Tatsache — und markiert je Tat
+eine Zeile mit `counts`. Gewählt wird die Zeile, deren Anklage die Tat selbst
+ist; sie trägt damit schon den richtigen MICR-Code, und es braucht keine
+Zuordnung über Text. Das trifft auf **99,98 %** der Gruppen zu. Für die
+übrigen 19 entscheidet die **Hierarchie des MICR-Handbuchs**, in der 1 Mord ist
+und 16 Sachbeschädigung: Es gilt die schwerste Anklage.
+
+| | Detroit |
+| --- | ---: |
+| Zeilen in Silver (eine Anklage) | 88'685 |
+| davon zählend (**eine Tat**) | **85'335** |
+| Unterschied | −3'350 = **−3,8 %** |
+
+Gold nimmt nur die zählenden. Wer die Anklagen braucht — *„wie oft wurde
+zusätzlich Sachbeschädigung angezeigt"* — findet sie vollständig in
+`silver/crime_offense`, mit `counts` und `counts_reason` je Zeile.
+
+**Gefunden hat das Artan**, an einer Zeile mit `offense_category` LARCENY und
+`offense_description` *CSC 3rd Degree*. Sie gehört zu einem Vorfall mit zwei
+Anklagen zu einer Tat — die Larceny-Anklage und die CSC-Anklage. Ohne diese
+Auswahl hätte der Vergleich Detroit systematisch zu hoch gezählt.
 
 **Das Wetter bleibt tagesgenau.** Das war am alten Entwurf richtig: Eine
 Monatsmittelung zerstört genau das Signal, das eine Wetterfrage braucht. Aus
@@ -370,7 +413,7 @@ Damit ist die Frage beantwortet, die das Projekt von Anfang an stellen wollte:
 | | Delikte | Einwohner | je 1'000 |
 | --- | ---: | ---: | ---: |
 | Chicago | 251'516 | 2'661'953 | **94,5** |
-| Detroit | 87'964 | 638'635 | **137,7** |
+| Detroit | 84'648 | 638'635 | **132,5** |
 
 Absolute Fallzahlen hätten das Gegenteil nahegelegt.
 
@@ -425,7 +468,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 597 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
+| **DataOps** | 603 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -630,7 +673,7 @@ desselben Tages — oder Information wegwerfen. Deshalb drei Tabellen:
 | `tract` | ein Census Tract | **gebaut**, 6'282 Zeilen |
 | `place` | ein Ort (Stadtgrenze) | **gebaut**, 2'206 Zeilen |
 | `weather_day` | eine Stadt an einem Tag | **gebaut**, 55'449 Zeilen |
-| `crime_offense` | ein Delikt | **gebaut**, 347'957 Zeilen |
+| `crime_offense` | eine **Anklage**; je Tat zählt eine (5.2) | **gebaut**, 347'957 Zeilen |
 
 `tract` verbindet TIGER-Geometrie mit ACS-Attributen. Gedeutet wird: Text zu
 Zahlen, `-666666666` zu `NULL`, die Armutsquote abgeleitet — und bei Tracts ohne
@@ -643,8 +686,9 @@ Rekorden plausibilisiert. Ein leeres Feld wird `NULL` und **nicht** `0` — bei
 Niederschlag der entscheidende Unterschied. Das Messflag `T` für Spurenmengen
 bekommt eine eigene Spalte, weil `0` mit `T` nicht „trocken" heisst.
 
-`crime_offense` ist die Tabelle, die den Vergleich trägt — 347'957 Delikte,
-259'272 aus Chicago und 88'685 aus Detroit. Sie leistet drei Übersetzungen auf
+`crime_offense` ist die Tabelle, die den Vergleich trägt — 347'957 Zeilen,
+259'272 aus Chicago und 88'685 aus Detroit. Detroits Zeilen sind Anklagen; je
+Tat ist eine als zählend markiert, und Gold nimmt nur diese (5.2). Sie leistet drei Übersetzungen auf
 einmal, und jede davon ist ein eigener Fehlerherd:
 
 | | Chicago | Detroit |
@@ -738,17 +782,17 @@ NIBRS abbilden. Seit `silver/crime_offense` beide Crosswalks auf die Falldaten
 anwendet, ist das gemessen — und die Antwort hängt daran, was „vollständig"
 heissen soll.
 
-Gemessen über alle 347'957 Delikte des Jahrgangs 2024:
+Gemessen auf Tatkorn über die 344'607 Delikte des Jahrgangs 2024:
 
 | | Chicago | Detroit | zusammen |
 | --- | ---: | ---: | ---: |
-| Delikte | 259'272 | 88'685 | 347'957 |
+| Delikte (Tatkorn) | 259'272 | 85'335 | 344'607 |
 | Quellcode im Crosswalk bekannt | **100 %** | **100 %** | **100 %** |
-| davon Auffang `90Z` | 7'695 | 3'299 | 10'994 |
-| **mit einem echten NIBRS-Delikt** | **97,0 %** | **96,3 %** | **96,8 %** |
+| davon Auffang `90Z` | 7'695 | 2'747 | 10'442 |
+| **mit einem echten NIBRS-Delikt** | **97,0 %** | **96,8 %** | **97,0 %** |
 
 **Abdeckung ja, Abbildung nein.** Kein Chicago-Code fällt stillschweigend
-heraus, das war die eigentliche Sorge. Aber 10'994 Fälle tragen ein Delikt, das
+heraus, das war die eigentliche Sorge. Aber 10'442 Fälle tragen ein Delikt, das
 NIBRS nicht kennt: Verstösse gegen Registrierungspflichten, Bewährungsauflagen,
 Illinois-Eigenheiten wie *Criminal Fortification*. Sie landen auf `90Z All Other
 Offenses` — ein Code, der gültig ist, für einen Deliktvergleich aber nichts
@@ -991,7 +1035,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 597 bestandene Tests
+python -m pytest                       # erwartet 603 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
