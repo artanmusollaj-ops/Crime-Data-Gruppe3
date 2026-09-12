@@ -534,7 +534,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 672 Tests, alle ohne Netz und ohne Schlüssel, seit dem 12.9. auf jedem Pull Request in GitHub Actions (Python 3.11 und 3.13); Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine Alarmierung, keine Freshness-Kontrolle |
+| **DataOps** | 673 Tests, alle ohne Netz und ohne Schlüssel, seit dem 12.9. auf jedem Pull Request in GitHub Actions (Python 3.11 und 3.13); Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine Alarmierung, keine Freshness-Kontrolle |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -1095,8 +1095,13 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 **Zur Umsetzung**
 
 - **Keine Orchestrierung.** Bewusst, siehe Kapitel 5.
-- **Der räumliche Join ist nicht unabhängig validiert**, weil die einzige
-  verfügbare Referenz sich als widersprüchlich erwiesen hat (8.4).
+- **Die Mehrheitsregel schliesst Grenzfälle aus, und zwar nicht neutral.**
+  5'249 Chicagoer Delikte liegen innerhalb der Stadtgrenze, aber in einem
+  Tract, der mehrheitlich zur Nachbargemeinde gehört. Weil diese Randtracts
+  überdurchschnittlich deliktdicht sind — 227 je 1'000 gegen 94,5 im
+  Stadtschnitt —, ist Chicagos Rate um gut einen Punkt untertrieben: 94,5
+  statt 95,6. Detroit ist praktisch nicht betroffen (12 Fälle). Gemessen in
+  Notebook 34, Abschnitt 3.2.
 - **Kein Feldkatalog.** Die Bedeutung der Felder steht in den Modul-Docstrings
   und Manifesten, aber nicht an einer Stelle zusammen.
 
@@ -1107,7 +1112,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 672 bestandene Tests
+python -m pytest                       # erwartet 673 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
