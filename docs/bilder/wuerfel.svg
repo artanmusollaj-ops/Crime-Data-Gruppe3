@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 830 372" role="img" width="100%" height="auto"
+     aria-label="Ein vorberechneter Würfel mit den Achsen Tract, Monat und Deliktfamilie. Jede Zelle hält eine fertige Zahl; der Tag und das einzelne Delikt sind darin nicht mehr enthalten.">
+<style>
+  svg { color: #14304a; }
+  .signal { fill: #c2410c; }
+  @media (prefers-color-scheme: dark) {
+    svg { color: #dde5ee; }
+    .signal { fill: #dda05c; }
+  }
+</style>
+  <g stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" fill="none">
+    <polygon points="236,96 356,165 476,96 356,27" fill="currentColor" fill-opacity="0.05"/>
+    <polygon points="236,96 356,165 356,297 236,228" fill="currentColor" fill-opacity="0.12"/>
+    <polygon points="356,165 476,96 476,228 356,297" fill="currentColor" fill-opacity="0.02"/>
+    <g stroke-opacity="0.3" stroke-width="1">
+      <line x1="276" y1="119" x2="396" y2="50"/>
+      <line x1="276" y1="73" x2="396" y2="142"/>
+      <line x1="276" y1="119" x2="276" y2="251"/>
+      <line x1="236" y1="140" x2="356" y2="209"/>
+      <line x1="396" y1="142" x2="396" y2="274"/>
+      <line x1="356" y1="209" x2="476" y2="140"/>
+      <line x1="316" y1="142" x2="436" y2="73"/>
+      <line x1="316" y1="50" x2="436" y2="119"/>
+      <line x1="316" y1="142" x2="316" y2="274"/>
+      <line x1="236" y1="184" x2="356" y2="253"/>
+      <line x1="436" y1="119" x2="436" y2="251"/>
+      <line x1="356" y1="253" x2="476" y2="184"/>
+    </g>
+    <polygon points="396,186 436,163 436,207 396,230" class="signal" fill-opacity="0.92" stroke="none"/>
+  </g>
+  <g fill="currentColor" font-size="13" font-weight="600" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif">
+    <text x="222.0" y="167.0" text-anchor="end">Monat</text>
+    <text x="290.0" y="292.5" text-anchor="middle">Tract</text>
+    <text x="426.0" y="292.5" text-anchor="middle">Deliktfamilie</text>
+  </g>
+  <g font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12.5">
+    <path d="M 416.0 196.5 L 540 168 L 566 168" stroke="currentColor" stroke-width="1" stroke-opacity="0.45" fill="none"/>
+    <circle cx="566" cy="168" r="2.5" fill="currentColor"/>
+    <text x="578" y="158" fill="currentColor" font-weight="600">eine Zelle = eine fertige Zahl</text>
+    <text x="578" y="177" fill="currentColor" fill-opacity="0.7">412 Diebstähle</text>
+    <text x="578" y="194" fill="currentColor" fill-opacity="0.7">Tract 170318391 · März · Larceny</text>
+  </g>
+  <g font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12.5" fill="currentColor" fill-opacity="0.7">
+    <text x="14" y="350">Nicht mehr enthalten: der Tag, das einzelne Delikt, der einzelne Fall.</text>
+  </g>
+</svg>

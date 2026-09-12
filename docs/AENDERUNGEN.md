@@ -32,6 +32,30 @@ Eintrag hier sagt, was das war.
 
 ---
 
+## 12.09.2026 · Die Erklärung zu Würfel und Stern auch als Markdown (#48)
+
+**Was.** `docs/sternschema-und-wuerfel.md`, inhaltsgleich mit der HTML-Fassung,
+plus die drei Diagramme als eigenständige Dateien unter `docs/bilder/`.
+
+**Warum.** Die übrigen Dokumente in `docs/` sind Markdown; eine HTML-Datei
+lässt sich im Repository weder überfliegen noch im Pull Request kommentieren.
+GitHub stellt Markdown direkt dar, HTML nicht.
+
+**Worauf dabei zu achten war.** Im HTML erben die Diagramme Farbe und Tokens
+vom Dokument: `currentColor` für die Linien, `var(--signal)` für die
+Hervorhebung. Als eigene Datei in einem `<img>` erbt eine Grafik **nichts** —
+`currentColor` fiele auf Schwarz zurück und `var(--signal)` wäre schlicht
+ungültig; die hervorgehobene Zelle wäre verschwunden. Jede der drei Dateien
+trägt ihre Farben deshalb selbst, in einem `<style>`-Block mitsamt
+`prefers-color-scheme` fürs dunkle Thema.
+
+**Geprüft.** Alle sechs Verweise des Dokuments lösen auf, und jede SVG-Datei
+rendert eigenständig — also ohne das HTML-Stylesheet ringsum.
+
+**Nachlesen.** `docs/sternschema-und-wuerfel.md` · PR #48
+
+---
+
 ## 12.09.2026 · Würfel und Sternschema werden erklärt, nicht vorausgesetzt (#47)
 
 **Was.** Notebook 34 bekommt vor Abschnitt 1 einen Erklärteil mit drei
