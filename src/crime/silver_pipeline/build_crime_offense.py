@@ -677,7 +677,7 @@ def build_manifest(
     return {
         "table": TABLE,
         "layer": SILVER_LAYER,
-        "grain": "ein Delikt",
+        "grain": "eine Anklage; je Tat ist eine Zeile mit counts markiert",
         "built_at_utc": datetime.now(timezone.utc).isoformat(),
         "tool": f"duckdb {duckdb.__version__} mit spatial und icu",
         "derived_from": {

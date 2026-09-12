@@ -582,7 +582,16 @@ def test_manifest_nennt_die_zeitzonen(tmp_path):
 
 
 def test_manifest_nennt_das_korn(tmp_path):
-    assert manifest_von(baue(tmp_path, CHI, DET))["grain"] == "ein Delikt"
+    """Seit dem Tatkorn-Umbau ist eine Zeile eine **Anklage**, kein Delikt.
+
+    Das Manifest sagte bis zum 12.9. weiter "ein Delikt" - und der Feldkatalog,
+    der das Korn aus den Manifesten liest, haette es so uebernommen. Genau
+    dafuer steht es hier als Test: Das Korn ist die Aussage, die eine Tabelle
+    ueber sich selbst macht, und Detroits Zeilen sind Anklagen.
+    """
+    korn = manifest_von(baue(tmp_path, CHI, DET))["grain"]
+    assert korn.startswith("eine Anklage"), korn
+    assert "counts" in korn, "das Korn muss sagen, welche Zeile zaehlt"
 
 
 def test_unvollstaendiger_lauf_wird_uebergangen(tmp_path):

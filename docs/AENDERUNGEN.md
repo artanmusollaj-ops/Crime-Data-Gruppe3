@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **673** |
+| Tests | **681** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -39,6 +39,49 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 12.09.2026 · Ein Feldkatalog, der nicht veralten kann (#57)
+
+**Was.** `docs/feldkatalog.md` — **131 Spalten in 9 Tabellen**, je mit Typ und
+Bedeutung. Dazu das Werkzeug, das ihn erzeugt, und vier Tests, die ihn
+vollständig halten.
+
+**Warum.** Kapitel 9 nannte als Grenze: *„Kein Feldkatalog. Die Bedeutung der
+Felder steht in den Modul-Docstrings und Manifesten, aber nicht an einer Stelle
+zusammen."* Das war die letzte offene Umsetzungs-Grenze.
+
+**Warum erzeugt und nicht geschrieben.** Ein Feldkatalog ist genau die Sorte
+Dokument, die still veraltet — und in diesem Projekt ist das mit Zahlen schon
+**zweimal** passiert. Spaltennamen und Typen kommen deshalb aus den
+**Manifesten** der gebauten Tabellen; sie stimmen per Konstruktion. Von Hand
+gepflegt wird nur, was sich nicht ableiten lässt: die Bedeutung.
+
+**Wie eine neue Spalte dazukommt.** Der Lauf **scheitert** und nennt sie:
+
+```
+1 Spalten ohne Beschreibung:
+  gold/fact_offense.geo_status
+```
+
+Der Umweg ist Absicht — wer eine Spalte hinzufügt, soll einen Satz darüber
+schreiben müssen. Gegenprobe gemacht.
+
+**Vier Tests** halten fest: jede gebaute Spalte hat eine Beschreibung, keine
+Beschreibung zeigt ins Leere, jede Spalte steht auch im Dokument (sonst wäre
+es nicht neu erzeugt worden), und ein zweiter Lauf liefert dieselbe Datei —
+dasselbe Verfahren wie bei den drei Crosswalk-Werkzeugen.
+
+**Ein Fund beim Bauen.** Weil der Katalog das Korn aus den Manifesten liest,
+fiel auf, dass `silver/crime_offense` dort noch **„ein Delikt"** stand. Seit
+dem Tatkorn-Umbau ist eine Zeile eine **Anklage**. Das Korn ist die Aussage,
+die eine Tabelle über sich selbst macht — jetzt lautet sie *„eine Anklage; je
+Tat ist eine Zeile mit `counts` markiert"*, und ein Test hält sie fest.
+
+**Zahlen.** 673 → **681 Tests**; im frischen Klon laufen 641 davon.
+
+**Nachlesen.** `docs/feldkatalog.md` · PR #57
 
 ---
 
