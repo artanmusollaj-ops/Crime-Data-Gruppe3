@@ -32,6 +32,32 @@ Eintrag hier sagt, was das war.
 
 ---
 
+## 12.09.2026 · Querverweise zwischen Silver und Gold (#46)
+
+**Was.** Drei Verweise in `ln1_konzept.md`, damit beide Schichten
+auffindbar sind, ohne den Aufbau zu ändern.
+
+**Warum.** Silver steht in Kapitel 8 (Transformation), **Gold in 5.2**
+(Serving). Das ist begründet — Gold entstand aus der Serving-Entscheidung, nicht
+aus einer Qualitätsfrage. Wer aber die Schichten sucht, findet sie nicht
+nebeneinander und schliesst im Zweifel, Gold sei nicht beschrieben. Genau diese
+Frage kam auf.
+
+**Wo.**
+
+| Stelle | Verweis |
+| --- | --- |
+| Kapitel 8, vor 8.1 | Kasten: Gold ist in 5.2 beschrieben, die Reihenfolge bleibt Bronze → Silver → Gold → Serving, der Verzeichnisbaum steht in 7.4 |
+| 5.2, beim Sternschema | Gold setzt auf `silver/crime_offense` auf und ordnet an, deutet aber nichts Neues — gedeutet wird in 8.2 |
+| 5.1, Lebenszyklus-Tabelle | Zeile *Transformation* nennt Gold und sagt, dass es in 5.2 steht |
+
+Beide Ankerlinks sind gegen die Überschriften geprüft, damit kein toter Verweis
+entsteht — der wäre schlimmer als keiner.
+
+**Nachlesen.** `docs/ln1_konzept.md` Kapitel 5.1, 5.2 und 8 · PR #46
+
+---
+
 ## 12.09.2026 · Die Zahlen in den Abgabedokumenten werden jetzt bewacht (#45)
 
 **Was.** `tests/test_abgabedokumente.py` — 14 Tests, die die Zahlen in

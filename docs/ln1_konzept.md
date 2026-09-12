@@ -202,7 +202,7 @@ Entwurf und was die Messung daran geändert hat, steht in 5.2.
 | **Generation** | Fünf Quellsysteme: Socrata-API (Chicago), ArcGIS REST (Detroit), HTTPS-Dateien (TIGER, NOAA), JSON-API (ACS). Je Quelle dokumentiert: Änderungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 21, 22 |
 | **Ingestion** | Vier Pipelines, alle Batch. Chicago inkrementell über ein Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` |
 | **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest je Schicht | Kapitel 7 |
-| **Transformation** | Bronze bewusst ohne Deutung. Silver deutet: Typen, Einheiten, Fehlwerte, Schlüssel. Alle vier Tabellen gebaut | Kapitel 8 |
+| **Transformation** | Bronze bewusst ohne Deutung. Silver deutet: Typen, Einheiten, Fehlwerte, Schlüssel. Alle vier Tabellen gebaut. **Gold** setzt darauf auf, ist aber in 5.2 beschrieben — es entstand aus der Serving-Entscheidung | Kapitel 8, Gold in 5.2 |
 | **Serving** | Option A (Analytik) entschieden, Gold als Sternschema gebaut, Auswertungsdatenbank mit neun Sichten | 5.2 |
 
 ### 5.2 Serving: der Entwurf, und was die Messung daran geändert hat
@@ -230,6 +230,9 @@ Auswertungsplattform da ist.
 
 **Gold behält deshalb das Korn** und wird statt dessen abfragbar gemacht: ein
 Sternschema mit einer Faktentabelle je Delikt und vier kleinen Dimensionen.
+Aufgesetzt wird auf `silver/crime_offense` — was dort gedeutet und
+zusammengeführt wurde, steht in [8.2](#82-was-silver-deutet); Gold ordnet es
+an, deutet aber nichts Neues.
 Jede Frage ist damit ein Filter und ein `GROUP BY` auf einer Tabelle; die
 Oberfläche baut die `WHERE`-Klausel aus den Auswahlfeldern, und die Dimensionen
 tragen die Auswahllisten gleich mit.
@@ -696,6 +699,12 @@ wird sie ersetzt statt angehäuft. Das Manifest nennt trotzdem die Herkunft.
 ---
 
 ## 8 · Transformation Teil 1: Bereinigung und Qualität
+
+> **Wo die vierte Schicht steht.** Dieses Kapitel beschreibt Bronze und Silver.
+> **Gold** ist in [5.2](#52-serving-der-entwurf-und-was-die-messung-daran-geändert-hat)
+> beschrieben, nicht hier — es entstand aus der Serving-Entscheidung und nicht
+> aus einer Qualitätsfrage. Die Reihenfolge der Schichten ist trotzdem
+> Bronze → Silver → Gold → Serving; Kapitel 7.4 zeigt sie als Verzeichnisbaum.
 
 ### 8.1 Was Bronze bewusst nicht tut
 
