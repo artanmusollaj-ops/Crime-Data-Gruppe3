@@ -257,6 +257,10 @@ Seit Gold gebaut ist, führt sie **neun Sichten**: die vier Silver-Tabellen und
 die fünf des Sternschemas. Dazu war nichts zu tun — `discover()` sucht in
 beiden Schichten und nimmt auf, was da ist.
 
+Daneben liegt `tracts.geojson`: die **1'055 Tract-Umrisse** der beiden Städte
+für eine Karte, weil `dim_tract` nur Zentroide führt und die Polygone in
+`silver/tract` als WKB liegen — ein Format, das kein Browser liest.
+
 **Die Datei hält keine Daten, nur Namen** — 0,3 MB gegen 45,1 MB für dieselben
 Daten als kopierte Tabellen. Das war eine gemessene Entscheidung, keine
 Geschmacksfrage, und sie fiel nicht über Geschwindigkeit:
@@ -517,7 +521,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 627 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
+| **DataOps** | 660 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -1129,6 +1133,7 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | Silver-Aufbau | `src/crime/silver_pipeline/` |
 | Gold-Aufbau | `src/crime/gold_pipeline/build_gold.py` → `data/gold/` |
 | **Auswertungsumgebung** | `src/crime/serving/build_analysis_db.py` → `data/serving/analyse.duckdb` |
+| **Tract-Umrisse für eine Karte** | `src/crime/serving/export_geojson.py` → `data/serving/tracts.geojson` |
 | **Der Städtevergleich selbst** | `src/crime/silver_pipeline/build_crime_offense.py` → `data/silver/dataset=crime_offense/` |
 | Tests | `tests/`, nach Pipeline gegliedert |
 | Quelle Chicago erklärt | [`notebooks/01_chicago_source.ipynb`](../notebooks/01_chicago_source.ipynb) |

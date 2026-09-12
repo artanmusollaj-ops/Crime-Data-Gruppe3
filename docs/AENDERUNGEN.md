@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **649** |
+| Tests | **660** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -39,6 +39,60 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 12.09.2026 · Die Tract-Umrisse als GeoJSON, für eine Karte (#52)
+
+**Was.** `python -m serving.export_geojson` schreibt
+`data/serving/tracts.geojson` — die **1'055 Tract-Umrisse** der beiden Städte,
+0,55 MB.
+
+**Warum.** Eine Choroplethenkarte färbt Flächen ein, braucht also Polygone.
+`gold/dim_tract` führt aber nur **Zentroide**; die Umrisse liegen in
+`silver/tract` als WKB, ein Format, das kein Browser liest. Das war die Lücke
+zwischen dem, was gebaut ist, und dem, was ein Dashboard bräuchte.
+
+**Warum die Geometrie nicht nach Gold wandert.** `dim_tract` deckt beide
+Countys ab, nicht nur die Städte — mit Geometrie wäre die Dimension **26 MB
+statt 0,4 MB**, und jedes `SELECT *` darauf schleppte sie mit. Gold soll klein
+bleiben.
+
+**Zahlen — die Vereinfachung ist gemessen, nicht geschätzt.**
+
+| Toleranz | Datei | Fläche je Tract | Stadtfläche gesamt |
+| --- | ---: | ---: | ---: |
+| keine | 2,94 MB | – | – |
+| **0,00002 (~2 m)** | **0,55 MB** | −0,0002 % | −0,011 % |
+| 0,0001 (~11 m) | 0,42 MB | −0,0008 % | −0,055 % |
+| 0,0005 (~56 m) | 0,37 MB | −0,0826 % | – |
+
+Der ganze Gewinn liegt in den ersten zwei Metern. Die letzte Spalte misst die
+**Vereinigung** aller Tracts einer Stadt und beantwortet damit die Frage, ob
+zwischen Nachbarflächen Lücken aufreissen, wenn eine gemeinsame Grenze zweimal
+unabhängig vereinfacht wird — 0,011 % entspricht einem Saum von Zentimetern.
+
+**Keine Kennzahl in der Datei.** Je Fläche nur `geoid`, `city`, `tract_name`.
+Wer einfärben will, verbindet über `geoid` mit `dim_tract` und `fact_offense`.
+Die Einwohnerzahl mitzugeben wäre eine zweite Wahrheit, die nach einem
+Gold-Neubau still den alten Nenner zeigt — derselbe Grund, aus dem die
+Auswertungsdatenbank Sichten hält und keine Kopien.
+
+**Für die Präsentation: was das Bild belegt.** Die 1'055 Flächen einmal
+gezeichnet, bestätigen zwei Entscheidungen der Pipeline:
+
+* **Detroit hat zwei Löcher** — Hamtramck und Highland Park, zwei
+  eigenständige Städte, vollständig von Detroit umschlossen. 14 Tracts dort
+  tragen keine Stadtzuordnung; die Mehrheitsregel hat sie korrekt
+  ausgeschlossen. Wären sie dabei, wäre Detroits Nenner zu gross und die Rate
+  zu niedrig.
+* **Chicagos abgetrennter Block im Nordwesten** ist O'Hare. Tract 9800 hat dort
+  **null Einwohner** — genau die Sorte Fläche, für die die Rate `NULL` ist und
+  nicht null.
+
+**Zahlen.** 649 → **660 Tests**.
+
+**Nachlesen.** `src/crime/serving/export_geojson.py` · PR #52
 
 ---
 
