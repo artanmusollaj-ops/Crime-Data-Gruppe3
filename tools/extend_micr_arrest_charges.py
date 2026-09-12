@@ -46,6 +46,7 @@ Es ist idempotent: ein zweiter Lauf aendert nichts.
 
 from __future__ import annotations
 
+import argparse
 import csv
 import re
 import shutil
@@ -176,8 +177,34 @@ def arrest_charges(zeilen: list[str]) -> dict[str, tuple[str, str]]:
     return treffer
 
 
-def main() -> int:
-    with MAPPING.open(encoding="utf-8") as datei:
+def arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    """Quelle und Ziel lassen sich trennen.
+
+    Das Werkzeug erweitert eine bestehende Tabelle, statt sie neu zu bauen -
+    es fuellt nur Zeilen, die noch nicht zugeordnet sind. Ein Lauf auf dem
+    fertigen Stand tut deshalb nichts, und ohne diese beiden Schalter liesse
+    sich nicht pruefen, ob er den Anschluss noch einmal herstellen koennte.
+    ``tests/config/test_micr_nibrs_mapping.py`` gibt ihm dafuer eine Fassung
+    mit geloeschter Zuordnung und vergleicht das Ergebnis mit der
+    versionierten Datei.
+    """
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--mapping", type=Path, default=MAPPING,
+        help=f"Eingabe (Vorgabe: {MAPPING.relative_to(PROJECT_ROOT)})",
+    )
+    parser.add_argument(
+        "--output", type=Path, default=None,
+        help="Ausgabe; ohne Angabe wird die Eingabe ersetzt",
+    )
+    args = parser.parse_args(argv)
+    args.output = args.output or args.mapping
+    return args
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = arguments(argv)
+    with args.mapping.open(encoding="utf-8") as datei:
         zeilen = list(csv.DictReader(datei))
 
     # Die Spalte micr_code_type ist neu; bestehende Zeilen sind File Classes.
@@ -258,13 +285,14 @@ def main() -> int:
               file=sys.stderr)
         return 1
 
-    with MAPPING.open("w", newline="", encoding="utf-8") as datei:
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    with args.output.open("w", newline="", encoding="utf-8") as datei:
         schreiber = csv.DictWriter(datei, fieldnames=SPALTEN)
         schreiber.writeheader()
         schreiber.writerows({s: z.get(s, "") for s in SPALTEN} for z in zeilen)
 
     zugeordnet = sum(1 for z in zeilen if z["mapped"] == "true")
-    print(f"\n{MAPPING.relative_to(PROJECT_ROOT)}: {len(zeilen)} Zeilen")
+    print(f"\n{args.output}: {len(zeilen)} Zeilen")
     print(f"  ueber das Handbuch: {angeschlossen}")
     print(f"  ueber Detroits Felder: {ueber_detroit}"
           f"  ({', '.join(sorted(DETROIT_ENTSCHEIDET))})")

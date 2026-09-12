@@ -13,6 +13,8 @@ kein Bronze-Lauf vorliegt - ``data/`` ist nicht versioniert.
 from __future__ import annotations
 
 import csv
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -419,3 +421,80 @@ def test_seen_in_detroit_stimmt_mit_den_daten(zeilen):
         f"nur in der Tabelle: {sorted(behauptet - set(daten))}, "
         f"nur in den Daten: {sorted(set(daten) - behauptet)}"
     )
+
+
+# --------------------------------------------------------------------------
+# Reproduzierbarkeit
+# --------------------------------------------------------------------------
+#
+# Das Konzept sagt zu, die Crosswalks seien reproduzierbar abgeleitet. Bis
+# hierher pruefen alle Tests nur die fertige Datei - jemand koennte sie von
+# Hand aendern, und alles bliebe gruen. Der Test unten laesst das Werkzeug den
+# Anschluss noch einmal herstellen und vergleicht byteweise.
+
+WERKZEUG = PROJECT_ROOT / "tools" / "extend_micr_arrest_charges.py"
+MANUAL = PROJECT_ROOT / "docs" / "micr_manual_1110_2024.pdf"
+
+# Die Herkunftswerte, fuer die dieses Werkzeug zustaendig ist. Zeilen mit einer
+# anderen Herkunft stammen aus den Handbuechern und sind seine Eingabe.
+ERZEUGT = {"micr_arrest_charge_1110_2024", "detroit_charge_file_class"}
+
+# Die Spalten, die es fuellt. Genau sie werden fuer die Probe geleert.
+GEFUELLT = ("micr_code_type", "micr_file_class", "nibrs_group", "nibrs_code",
+            "nibrs_description", "hierarchy", "match", "note")
+
+
+def test_das_werkzeug_stellt_den_anschluss_wieder_her(tmp_path, zeilen):
+    """Die Probe aufs Exempel: aus dem Stand davor entsteht der Stand danach.
+
+    Ein normaler Lauf taete nichts - das Werkzeug fuellt nur Zeilen, die noch
+    nicht zugeordnet sind, und inzwischen sind es alle. Geprueft wird deshalb
+    gegen eine Fassung, in der genau die 23 Zeilen geleert sind, die es selbst
+    angeschlossen hat.
+    """
+    if not MANUAL.exists():
+        pytest.skip(f"{MANUAL} fehlt")
+
+    davor = tmp_path / "davor.csv"
+    danach = tmp_path / "danach.csv"
+    geleert = 0
+    with davor.open("w", newline="", encoding="utf-8") as datei:
+        schreiber = csv.DictWriter(datei, fieldnames=list(zeilen[0]))
+        schreiber.writeheader()
+        for zeile in zeilen:
+            kopie = dict(zeile)
+            if kopie["match"] in ERZEUGT:
+                for spalte in GEFUELLT:
+                    kopie[spalte] = ""
+                kopie["mapped"] = "false"
+                geleert += 1
+            schreiber.writerow(kopie)
+
+    assert geleert == 23, f"erwartet 23 erzeugte Zeilen, gefunden {geleert}"
+
+    fertig = subprocess.run(
+        [sys.executable, str(WERKZEUG),
+         "--mapping", str(davor), "--output", str(danach)],
+        capture_output=True, text=True, cwd=PROJECT_ROOT,
+    )
+    assert fertig.returncode == 0, fertig.stderr
+
+    assert danach.read_text(encoding="utf-8") == MAPPING.read_text(encoding="utf-8"), (
+        "Das Werkzeug baut den Anschluss nicht mehr so auf, wie er in "
+        "config/micr_nibrs_mapping.csv steht - die Datei ist dann von Hand "
+        "geaendert worden oder das Werkzeug hat sich geaendert"
+    )
+
+
+def test_ein_lauf_auf_dem_fertigen_stand_aendert_nichts(tmp_path):
+    """Zweimal laufen darf nicht zweimal etwas tun."""
+    if not MANUAL.exists():
+        pytest.skip(f"{MANUAL} fehlt")
+    ziel = tmp_path / "kopie.csv"
+    ziel.write_text(MAPPING.read_text(encoding="utf-8"), encoding="utf-8")
+    fertig = subprocess.run(
+        [sys.executable, str(WERKZEUG), "--mapping", str(ziel)],
+        capture_output=True, text=True, cwd=PROJECT_ROOT,
+    )
+    assert fertig.returncode == 0, fertig.stderr
+    assert ziel.read_text(encoding="utf-8") == MAPPING.read_text(encoding="utf-8")

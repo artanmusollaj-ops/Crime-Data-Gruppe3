@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import csv
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -408,3 +410,62 @@ def test_jede_deliktgruppe_ist_zugeordnet(zeilen):
         if codes <= {"90Z", ""} and name not in {"NON-CRIMINAL", "DOMESTIC VIOLENCE"}
     )
     assert not nur_auffang, f"Gruppe komplett im Auffang: {nur_auffang}"
+
+
+# --------------------------------------------------------------------------
+# Reproduzierbarkeit
+# --------------------------------------------------------------------------
+
+
+WERKZEUG = PROJECT_ROOT / "tools" / "build_iucr_nibrs_mapping.py"
+
+
+def test_das_werkzeug_erzeugt_genau_diese_datei(tmp_path):
+    """Die Zusage aus dem Konzept, gepruft statt behauptet.
+
+    ``config/iucr_nibrs_mapping.csv`` ist nicht gepflegt, sondern erzeugt: aus
+    Chicagos IUCR-Katalog und den Zuordnungsregeln im Werkzeug. Solange das
+    niemand nachrechnet, koennte jemand die Datei von Hand aendern und alle
+    uebrigen Tests blieben gruen - sie pruefen die Datei, nicht ihre Herkunft.
+
+    Netz ist nicht noetig: Ist das Portal nicht erreichbar, liest das Werkzeug
+    den Katalog aus der versionierten Datei. Der Vergleich traegt dann
+    weniger - er belegt die Zuordnungsregeln, nicht den Katalog -, aber er
+    faellt nicht aus.
+    """
+    ziel = tmp_path / "erzeugt.csv"
+    fertig = subprocess.run(
+        [sys.executable, str(WERKZEUG), "--output", str(ziel)],
+        capture_output=True, text=True, cwd=PROJECT_ROOT,
+    )
+    assert fertig.returncode == 0, fertig.stderr
+    assert ziel.exists(), "das Werkzeug hat nichts geschrieben"
+
+    erzeugt = ziel.read_text(encoding="utf-8")
+    versioniert = MAPPING.read_text(encoding="utf-8")
+    if erzeugt != versioniert:
+        erz = erzeugt.splitlines()
+        ver = versioniert.splitlines()
+        abweichend = [
+            (a, b) for a, b in zip(erz, ver) if a != b
+        ][:3]
+        raise AssertionError(
+            f"Das Werkzeug erzeugt eine andere Datei "
+            f"({len(erz)} gegen {len(ver)} Zeilen). "
+            f"Entweder wurde die Datei von Hand geaendert, oder Chicagos "
+            f"Katalog hat sich bewegt und das Werkzeug muss neu laufen. "
+            f"Erste Unterschiede: {abweichend}"
+        )
+
+
+def test_zweimal_laufen_liefert_dasselbe(tmp_path):
+    """Ohne das waere der Vergleich oben nur ein Zufall."""
+    erste = tmp_path / "eins.csv"
+    zweite = tmp_path / "zwei.csv"
+    for ziel in (erste, zweite):
+        fertig = subprocess.run(
+            [sys.executable, str(WERKZEUG), "--output", str(ziel)],
+            capture_output=True, text=True, cwd=PROJECT_ROOT,
+        )
+        assert fertig.returncode == 0, fertig.stderr
+    assert erste.read_text(encoding="utf-8") == zweite.read_text(encoding="utf-8")

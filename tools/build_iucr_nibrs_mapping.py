@@ -46,6 +46,7 @@ stammen ohnehin von dort und wurden gegen das Portal verifiziert.
 
 from __future__ import annotations
 
+import argparse
 import csv
 import json
 import sys
@@ -358,7 +359,25 @@ def lade_basis() -> list[dict[str, str]]:
             ]
 
 
-def main() -> int:
+def arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    """Das Ziel laesst sich umlenken.
+
+    Gebraucht wird das von ``tests/config/test_iucr_nibrs_mapping.py``: Der
+    Test laesst das Werkzeug in ein temporaeres Verzeichnis schreiben und
+    vergleicht mit der versionierten Datei. Ohne die Umlenkung muesste er die
+    echte Konfiguration ueberschreiben und danach wiederherstellen - und bei
+    einem Abbruch bliebe sie veraendert liegen.
+    """
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--output", type=Path, default=ZIEL,
+        help=f"Zieldatei (Vorgabe: {ZIEL.relative_to(PROJECT_ROOT)})",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    ziel = arguments(argv).output
     with CODELISTE.open(encoding="utf-8") as datei:
         amtlich = {z["nibrs_code"]: z for z in csv.DictReader(datei)}
 
@@ -401,7 +420,8 @@ def main() -> int:
             "note": ERMESSEN.get(iucr, ""),
         })
 
-    with ZIEL.open("w", newline="", encoding="utf-8") as datei:
+    ziel.parent.mkdir(parents=True, exist_ok=True)
+    with ziel.open("w", newline="", encoding="utf-8") as datei:
         schreiber = csv.DictWriter(datei, fieldnames=SPALTEN)
         schreiber.writeheader()
         schreiber.writerows(zeilen)
@@ -410,7 +430,7 @@ def main() -> int:
     for z in zeilen:
         verteilung[z["match"] or "(nicht zugeordnet)"] = \
             verteilung.get(z["match"] or "(nicht zugeordnet)", 0) + 1
-    print(f"{ZIEL.relative_to(PROJECT_ROOT)}: {len(zeilen)} Zeilen")
+    print(f"{ziel}: {len(zeilen)} Zeilen")
     for k, n in sorted(verteilung.items()):
         print(f"  {k:<22}{n:>4}")
     print(f"  verschiedene NIBRS-Codes: "
