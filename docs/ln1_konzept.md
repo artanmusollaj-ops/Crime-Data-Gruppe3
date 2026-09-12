@@ -18,9 +18,10 @@ sind nachrechenbar, nicht abgeschrieben.
 
 > **Was Entwurf ist und was gebaut.** Kapitel 3 (Forschungsfragen und
 > Hypothesen) ist Entwurf, weil der Entscheid offen ist. Kapitel 5.2 (Serving)
-> ist Entwurf, weil die Phase entschieden aber noch nicht gebaut ist — LN1
-> verlangt für den Lebenszyklus ausdrücklich den Entwurf. Alle übrigen Kapitel
-> beschreiben Umgesetztes, und wo etwas fehlt, steht es dort.
+> ist zur Hälfte gebaut: Die Auswertungsumgebung steht, die Gold-Tabellen
+> darunter sind entworfen — LN1 verlangt für den Lebenszyklus ausdrücklich den
+> Entwurf. Alle übrigen Kapitel beschreiben Umgesetztes, und wo etwas fehlt,
+> steht es dort.
 
 ---
 
@@ -38,7 +39,7 @@ Speicherarchitektur aus unveränderlichen Läufen, und **alle drei
 Silver-Tabellen** — seit `crime_offense` sprechen beide Städte dieselbe
 Deliktsprache, liegen auf derselben Zeitachse und tragen dieselbe
 Raumeinheit. Jede Quelle weist ihre Vollständigkeit nach, statt sie zu
-behaupten. **603 automatisierte Tests** laufen ohne Netzzugriff und ohne
+behaupten. **621 automatisierte Tests** laufen ohne Netzzugriff und ohne
 Schlüssel.
 
 | | |
@@ -233,6 +234,49 @@ tragen die Auswahllisten gleich mit.
 
 Nachgerechnet in
 [`notebooks/34_gold_sternschema.ipynb`](../notebooks/34_gold_sternschema.ipynb).
+
+#### Was gebaut ist: die Auswertungsdatenbank
+
+
+`python -m serving.build_analysis_db` erzeugt `data/serving/analyse.duckdb` —
+eine DuckDB-Datei mit **Sichten** über die Schichten. Wer auswerten will,
+öffnet sie und schreibt SQL:
+
+```sql
+SELECT c.tract_geoid, count(*) * 100000.0 / any_value(t.population) AS rate
+FROM crime_offense c JOIN tract t ON c.tract_geoid = t.geoid
+GROUP BY 1 ORDER BY rate DESC;
+```
+
+Seit Gold gebaut ist, führt sie **neun Sichten**: die vier Silver-Tabellen und
+die fünf des Sternschemas. Dazu war nichts zu tun — `discover()` sucht in
+beiden Schichten und nimmt auf, was da ist.
+
+**Die Datei hält keine Daten, nur Namen** — 0,3 MB gegen 45,1 MB für dieselben
+Daten als kopierte Tabellen. Das war eine gemessene Entscheidung, keine
+Geschmacksfrage, und sie fiel nicht über Geschwindigkeit:
+
+| Ad-hoc-Abfrage | Sichten | Kopie |
+| --- | ---: | ---: |
+| Filter und Gruppierung | 1,8 ms | 2,3 ms |
+| Join Delikt × Tract | 3,6 ms | 4,3 ms |
+| Drei-Wege-Join | 4,4 ms | 5,1 ms |
+
+Sichten sind sogar knapp schneller; einen Unterschied von einer halben
+Millisekunde nimmt niemand wahr. Den Ausschlag geben drei Eigenschaften, die
+sich nicht messen lassen: Eine Kopie **kann veralten** — nach einem
+Silver-Neubau zeigt sie den alten Stand, ohne dass man es ihr ansieht. Sie ist
+eine **zweite Wahrheit** neben den Schichten, was Kapitel 7.2 ausdrücklich
+ausschliesst. Und sie kostet das 150-fache an Platz.
+
+**Eigene Abfragen und eigene Tabellen.** Die Datei ist eine echte Datenbank;
+wer ein Zwischenergebnis behalten will, legt daneben `CREATE TABLE meins AS
+SELECT …` an. Die Sichten bleiben Sichten. Zwei gleichzeitige Schreiber gehen
+nicht — DuckDB kennt nur einen; bei zwei Personen mit je eigener Datei und
+`ATTACH` ist auch das gelöst.
+
+Messung und Methodik: [`notebooks/33_serving_evaluation.ipynb`](../notebooks/33_serving_evaluation.ipynb).
+
 
 #### Wer konsumiert
 
@@ -468,7 +512,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 603 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
+| **DataOps** | 621 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -1035,7 +1079,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 603 bestandene Tests
+python -m pytest                       # erwartet 621 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
@@ -1072,6 +1116,7 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | --- | --- |
 | Ingestion, vier Pipelines | `src/crime/{chicago,detroit,census,weather}_pipeline/` |
 | Silver-Aufbau | `src/crime/silver_pipeline/` |
+| **Auswertungsumgebung** | `src/crime/serving/build_analysis_db.py` → `data/serving/analyse.duckdb` |
 | **Der Städtevergleich selbst** | `src/crime/silver_pipeline/build_crime_offense.py` → `data/silver/dataset=crime_offense/` |
 | Tests | `tests/`, nach Pipeline gegliedert |
 | Quelle Chicago erklärt | [`notebooks/01_chicago_source.ipynb`](../notebooks/01_chicago_source.ipynb) |
@@ -1082,6 +1127,7 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | Quelle Census erklärt | [`notebooks/21_census_source.ipynb`](../notebooks/21_census_source.ipynb) |
 | Quelle Wetter erklärt | [`notebooks/22_weather_source.ipynb`](../notebooks/22_weather_source.ipynb) |
 | Storage-Messung | [`notebooks/31_storage_evaluation.ipynb`](../notebooks/31_storage_evaluation.ipynb) |
+| Serving-Messung: Sichten oder Kopie | [`notebooks/33_serving_evaluation.ipynb`](../notebooks/33_serving_evaluation.ipynb) |
 | Referenzquelle NIBRS, Mapping-Herkunft | [`notebooks/32_nibrs_source.ipynb`](../notebooks/32_nibrs_source.ipynb) |
 | Gold-Sternschema, Stadtzuordnung | [`notebooks/34_gold_sternschema.ipynb`](../notebooks/34_gold_sternschema.ipynb) |
 | Technische Entscheide | [`projektabsprache.md`](projektabsprache.md) |
