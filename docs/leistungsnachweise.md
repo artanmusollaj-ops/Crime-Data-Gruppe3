@@ -476,11 +476,21 @@ Gefordert sind **Analyse der Datengrundlage**, **Hypothesentest** und
 **Offen ist noch der Hypothesentest** — rund ein Arbeitstag. Die Wetterquelle
 und die Präsentation kommen dazu.
 
-**Reihenfolge-Empfehlung:** Detroit-Qualität zuerst. Erst wenn wir die
-Detroit-Daten so gut kennen wie die Chicagoer, wissen wir, ob der Vergleich
-trägt. Wäre etwa der Detroit-Geoausfall ähnlich verzerrt wie der Chicagoer, aber
-in anderen Kategorien, würde jeder Städtevergleich schief — und das wollen wir
-vor der Auswertung wissen, nicht danach.
+**Reihenfolge-Empfehlung — eingelöst, mit einem geteilten Ergebnis.** Die
+Detroit-Qualität kam zuerst, und die Frage war berechtigt: Der Geoausfall ist in
+beiden Städten nicht zufällig, aber er ist **nicht durchweg derselbe**. Auf
+gemeinsamer NIBRS-Achse gemessen (Notebook 34, Abschnitt 5.2):
+
+* **Sexualdelikte** fehlen in beiden Städten deutlich überproportional —
+  Chicago beim 6,5-Fachen des Stadtschnitts, Detroit beim 5,1-Fachen. Gleiche
+  Richtung, vermutlich gleiche Ursache: die zurückgehaltene Adresse. Dieser
+  Teil der Lücke verzerrt den Vergleich **nicht**, er trifft beide Seiten.
+* **Betrug** fehlt dagegen nur in Chicago: 3,5 % gegen 0,19 % — Faktor 18
+  zwischen den Städten. Hier ist Chicagos Zahl die untererfasste.
+
+Für den Vergleich der Gesamtraten trägt das (0,67 % gegen 0,29 % Ausfall
+verschieben keine Rangfolge); für einen Vergleich **je Delikttyp** muss bei
+Betrug die Abdeckung danebenstehen.
 
 ---
 

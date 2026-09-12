@@ -32,6 +32,59 @@ Eintrag hier sagt, was das war.
 
 ---
 
+## 12.09.2026 · Die Geo-Lücke beider Städte auf einer Achse (#44)
+
+**Was.** Notebook 34 hat einen Abschnitt 5.2: Der Ausfall fehlender
+Koordinaten, gemessen für beide Städte über `dim_offense.nibrs_category` statt
+je Stadt über ihre Hauskategorien.
+
+**Warum.** H1 war je Stadt vorgeprüft — Chicago in Notebook 03, Detroit in
+Notebook 13. Nur stand die Frage dort in **unvergleichbaren** Kategorien:
+Chicago kennt „Delikte an Kindern", Detroit „Family Offense". Ob dieselbe
+Ursache wirkt, liess sich so nicht sagen. Genau dafür gibt es `dim_offense`.
+
+**Zahlen.** Verglichen wird das Vielfache des jeweiligen Stadtschnitts (Chicago
+verliert 0,67 %, Detroit 0,29 %):
+
+| NIBRS-Kategorie | Chicago | Detroit |
+| --- | ---: | ---: |
+| Sex Offenses | 4,39 % · **6,5×** | 1,50 % · **5,1×** |
+| Fraud Offenses | 3,48 % · **5,2×** | 0,19 % · 0,6× |
+| Prostitution Offenses | 1,94 % · 2,9× | 0,33 % · 1,1× |
+
+**Das Ergebnis ist geteilt — und das ist der Punkt.**
+
+* **Sexualdelikte** fehlen in **beiden** Städten stark überproportional.
+  Gleiche Richtung, vermutlich gleiche Ursache: die zurückgehaltene Adresse.
+  Dieser Teil der Lücke verzerrt den Städtevergleich **nicht**.
+* **Betrug** fehlt **nur** in Chicago — Faktor 18 zwischen den Städten.
+  Plausibel ist Betrug ohne Tatort (Telefon, online), den Chicago mitführt und
+  Detroits Vorfallsbericht so nicht kennt. Hier ist Chicagos Zahl die
+  untererfasste.
+
+**Für die Präsentation.** Der Vergleich der **Gesamtraten** trägt: 0,67 % gegen
+0,29 % Ausfall verschieben keine Rangfolge. Ein Vergleich **je Delikttyp**
+trägt bei Sexualdelikten, weil die Verzerrung gleichgerichtet ist — bei
+**Betrug nicht**. Wer die Städte dort gegeneinanderstellt, muss die Abdeckung
+danebenstellen.
+
+**Eine frühere Aussage korrigiert.** In der Übergabe vom selben Tag stand, der
+Geoausfall sei „in beiden Städten in denselben Kategorien verzerrt". Das war zu
+stark: Es gilt für Sexualdelikte, nicht für Betrug. Die Messung oben ersetzt
+die Aussage.
+
+**In den Dokumenten korrigiert.** `leistungsnachweise.md`: die
+Reihenfolge-Empfehlung unter Tabelle 5 ist eingelöst und sagt jetzt das
+Ergebnis. `ln1_konzept.md`: H1 in Kapitel 3.3 und die Schwellenstelle in 3.4
+stehen auf der gemeinsamen Achse statt auf zwei Hauskategorien. Ausserdem die
+Grenze „Keine Familienbezeichnungen" in Notebook 34 — `dim_offense` führt seit
+dem Kategorien-Werkzeug 42 amtliche Kategorien, die Familie ist nur noch ein
+technisches Präfix.
+
+**Nachlesen.** `notebooks/34_gold_sternschema.ipynb` Abschnitt 5.2 · PR #44
+
+---
+
 ## 12.09.2026 · Der Stand in `leistungsnachweise.md` nachgezogen (#43)
 
 **Was.** Acht Zeilen in den beiden Planungstabellen standen als offen, obwohl
