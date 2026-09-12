@@ -38,7 +38,7 @@ Speicherarchitektur aus unveränderlichen Läufen, und **alle drei
 Silver-Tabellen** — seit `crime_offense` sprechen beide Städte dieselbe
 Deliktsprache, liegen auf derselben Zeitachse und tragen dieselbe
 Raumeinheit. Jede Quelle weist ihre Vollständigkeit nach, statt sie zu
-behaupten. **516 automatisierte Tests** laufen ohne Netzzugriff und ohne
+behaupten. **557 automatisierte Tests** laufen ohne Netzzugriff und ohne
 Schlüssel.
 
 | | |
@@ -202,11 +202,37 @@ in 5.2.
 | **Transformation** | Bronze bewusst ohne Deutung. Silver deutet: Typen, Einheiten, Fehlwerte, Schlüssel. Zwei von drei Tabellen gebaut | Kapitel 8 |
 | **Serving** | Option A (Analytik) entschieden, Gold entworfen und noch nicht gebaut | 5.2 |
 
-### 5.2 Serving: der Entwurf
+### 5.2 Serving: der Entwurf, und was die Messung daran geändert hat
 
 Entschieden ist **Option A · Analytik**: eine Auswertungsumgebung auf der
-Gold-Schicht. Gebaut ist sie nicht; gefordert ist der Entwurf, und der folgt aus
-den Entscheiden zwingend.
+Gold-Schicht.
+
+**Der Entwurf sah zwei vorberechnete Würfel vor** — `fact_tract_month` und
+`fact_city_day` — mit Geschwindigkeit als Begründung. Beim Bau wurde die
+Begründung nachgemessen und fiel weg:
+
+| Abfrage, direkt auf Silver | |
+| --- | ---: |
+| ein Delikt, ein Tag, eine Stadt | **0,6 ms** |
+| ein Delikt, ein Monat, beide Städte | 0,9 ms |
+| Rate je 1'000 Einwohner, Tract × Familie | 6,8 ms |
+| Delikte je Tag mit Tagestemperatur | 3,4 ms |
+
+Bei 348'000 Zeilen ist DuckDB nicht der Engpass; eine vorberechnete
+Monatsspalte spart 0,2 Millisekunden. Der Preis der Aggregation ist dagegen
+konkret: `fact_tract_month` kennt keine Tage, `fact_city_day` keine Tracts, und
+beide fassen 59 Delikte zu 25 Familien zusammen. *„Nur Shoplifting am
+9. November"* wäre nicht mehr zu beantworten — also genau das, wofür eine
+Auswertungsplattform da ist.
+
+**Gold behält deshalb das Korn** und wird statt dessen abfragbar gemacht: ein
+Sternschema mit einer Faktentabelle je Delikt und vier kleinen Dimensionen.
+Jede Frage ist damit ein Filter und ein `GROUP BY` auf einer Tabelle; die
+Oberfläche baut die `WHERE`-Klausel aus den Auswahlfeldern, und die Dimensionen
+tragen die Auswahllisten gleich mit.
+
+Nachgerechnet in
+[`notebooks/34_gold_sternschema.ipynb`](../notebooks/34_gold_sternschema.ipynb).
 
 #### Wer konsumiert
 
@@ -218,18 +244,25 @@ den Entscheiden zwingend.
 Kein externer Dienst, keine API, keine Nutzerverwaltung. Das Serving endet an
 der Auswertungsumgebung.
 
-#### Was geliefert wird: zwei Gold-Tabellen, weil zwei Körner
+#### Was geliefert wird: fünf Gold-Tabellen
 
-| Tabelle | Korn | Zellen (Obergrenze) | Wofür |
-| --- | --- | --- | --- |
-| `fact_tract_month` | `geoid` × Monat × Kategorie | 6'282 × 12 × 22 ≈ 1,66 Mio | räumlicher Vergleich, Raten |
-| `fact_city_day` | Stadt × Tag × Kategorie, plus Wetter des Tages | 2 × 366 × 22 ≈ 16'100 | Wetter braucht Tagesauflösung |
+| Tabelle | Korn | Zeilen |
+| --- | --- | ---: |
+| `fact_offense` | ein Delikt | 347'957 |
+| `dim_tract` | ein Census Tract, mit **Stadtzuordnung** und Einwohnerzahl | 6'282 |
+| `dim_offense` | ein NIBRS-Delikt | 85 |
+| `dim_date` | ein Kalendertag | 366 |
+| `dim_city_day` | Stadt und Tag, mit dem Wetter | 732 |
 
-Die Obergrenzen sind theoretisch. Tatsächlich besetzt sind höchstens so viele
-Zellen wie es Delikte gibt — rund 348'000 für 2024 —, realistisch deutlich
-weniger, weil sich Delikte auf wenige Kategorien und Tracts konzentrieren. Die
-ganze Gold-Schicht bleibt damit klein genug für eine Datei ohne Serverbetrieb;
-das ist derselbe Grund, der in Kapitel 7 gegen PostgreSQL sprach.
+Die ganze Schicht bleibt klein genug für eine Datei ohne Serverbetrieb — das
+ist derselbe Grund, der in Kapitel 7 gegen PostgreSQL sprach.
+
+`dim_date` wird erzeugt und nicht aus den Fakten abgeleitet: Ein Tag ohne
+Delikt ist eine Aussage und darf nicht fehlen, sonst zeigt eine Zeitreihe eine
+Lücke als Nicht-Ereignis. `dim_offense` führt vier vom FBI zurückgezogene Codes
+mit `retired = true` — zwei davon kommen in den Falldaten vor, und ohne sie
+verlöre jeder Filter über die Dimension rund tausend Delikte, ohne zu
+scheitern.
 
 **Kategorien.** Gruppiert wird über die **NIBRS-Deliktfamilie** — die ersten
 beiden Zeichen des Codes, also `13` für Körperverletzung, `23` für Diebstahl,
@@ -249,11 +282,57 @@ Detroit); sie bleiben in Silver erhalten und sind aus Gold ausgeschlossen.
 > handgepflegte Übersetzung neben der belegten — und die 20 Familien leisten
 > dasselbe, ohne gepflegt werden zu müssen.
 
-**Die zweite Tabelle folgt aus einer Spannung zwischen zwei Entscheiden.**
-Variante D hält Wetter im Scope, Option A macht Gold monatlich. Eine
-Monatsmittelung zerstört aber genau das Signal, das eine Wetterfrage braucht —
-der Effekt eines heissen Tages überlebt sie nicht. Ohne `fact_city_day` zahlt
-die Wetterquelle nur auf FF2 und H6 ein und nicht auf die Auswertung.
+**Das Wetter bleibt tagesgenau.** Das war am alten Entwurf richtig: Eine
+Monatsmittelung zerstört genau das Signal, das eine Wetterfrage braucht. Aus
+`fact_city_day` wurde deshalb `dim_city_day` — dieselbe Auflösung, aber als
+Dimension neben der Faktentabelle statt als eigener Würfel.
+
+#### Die Stadtgrenze: der Nenner, den es vorher nicht gab
+
+Bis zu dieser Schicht konnte das Projekt **keine Rate je Einwohner belegen**.
+`silver/tract` deckt ganze Countys ab, und ein Tract sagt nicht, zu welcher
+Stadt er gehört: Cook County hat 5,18 Millionen Einwohner, Chicago rund 2,7
+Millionen. Der Juni-Bericht behalf sich mit *„Tracts, in denen Delikte liegen"*
+und nannte das ausdrücklich eine Näherung.
+
+`silver/place` liefert jetzt die Ortsgrenzen aus TIGER/Line. Tracts liegen
+allerdings nicht sauber darin, sondern überschreiten sie. Drei Regeln wären
+denkbar:
+
+| Regel | Chicago | Detroit |
+| --- | ---: | ---: |
+| alle berührten Tracts | 3'080'550 | 884'691 |
+| Flächengewichtung | 2'651'921 | 638'570 |
+| **Mehrheitsregel** | **2'661'953** | **638'635** |
+| Zensus 2020 | 2'746'388 | 639'111 |
+
+Gewählt ist die **Mehrheitsregel**: Ein Tract gehört zu der Stadt, die mehr als
+die Hälfte seiner Fläche bedeckt. Sie gibt jedem Tract genau eine Stadt — die
+Voraussetzung dafür, dass sich Fälle ohne Doppelzählung summieren lassen — und
+liegt praktisch gleichauf mit der Flächengewichtung. Detroit trifft sie auf
+**0,07 %** genau; der grössere Abstand bei Chicago ist der Unterschied zwischen
+einer ACS-Schätzung und einer Zählung, nicht ein Fehler der Regel.
+`dim_tract.city_area_share` hält den Anteil in jeder Zeile fest, damit sich
+beides nachrechnen lässt.
+
+**Der Preis ist gemessen:** 1,9 % der Delikte liegen in Tracts, die keiner der
+beiden Städte zugeordnet sind — Fälle knapp jenseits der Stadtgrenze. Zähler
+und Nenner folgen derselben Grenze, der Rand verzerrt also beide Seiten
+gleichsinnig.
+
+Damit ist die Frage beantwortet, die das Projekt von Anfang an stellen wollte:
+
+| | Delikte | Einwohner | je 1'000 |
+| --- | ---: | ---: | ---: |
+| Chicago | 251'516 | 2'661'953 | **94,5** |
+| Detroit | 87'964 | 638'635 | **137,7** |
+
+Absolute Fallzahlen hätten das Gegenteil nahegelegt.
+
+**Ein Ort heisst nicht eindeutig.** Illinois führt neben *Chicago city* auch ein
+*Detroit village* von 0,65 Quadratkilometern. Die Auswahl der beiden Städte
+läuft deshalb über die FIPS-Ortsnummer und nicht über den Namen; ein Test hält
+fest, dass es diese Falle wirklich gibt.
 
 #### Welche Kennzahlen
 
@@ -301,7 +380,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 516 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
+| **DataOps** | 557 Tests, alle ohne Netz und ohne Schlüssel; Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine CI, keine Alarmierung |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
 | **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
@@ -463,7 +542,7 @@ data/
 ├── raw/     unverändert, Byte für Byte wie ausgeliefert
 ├── bronze/  daraus abgeleitetes Parquet mit gepinntem Schema
 ├── silver/  gedeutet: Typen, Einheiten, Fehlwerte, harmonisierte Schlüssel
-└── gold/    auswertungsfertige Aggregate (noch leer)
+└── gold/    Sternschema: fact_offense und vier Dimensionen
 ```
 
 Partitioniert wird mit sprechenden Schlüsseln, deren erster die Quelle benennt:
@@ -504,6 +583,7 @@ desselben Tages — oder Information wegwerfen. Deshalb drei Tabellen:
 | Tabelle | Eine Zeile ist | Stand |
 | --- | --- | --- |
 | `tract` | ein Census Tract | **gebaut**, 6'282 Zeilen |
+| `place` | ein Ort (Stadtgrenze) | **gebaut**, 2'206 Zeilen |
 | `weather_day` | eine Stadt an einem Tag | **gebaut**, 55'449 Zeilen |
 | `crime_offense` | ein Delikt | **gebaut**, 347'957 Zeilen |
 
@@ -866,7 +946,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 516 bestandene Tests
+python -m pytest                       # erwartet 557 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
@@ -914,6 +994,7 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | Quelle Wetter erklärt | [`notebooks/22_weather_source.ipynb`](../notebooks/22_weather_source.ipynb) |
 | Storage-Messung | [`notebooks/31_storage_evaluation.ipynb`](../notebooks/31_storage_evaluation.ipynb) |
 | Referenzquelle NIBRS, Mapping-Herkunft | [`notebooks/32_nibrs_source.ipynb`](../notebooks/32_nibrs_source.ipynb) |
+| Gold-Sternschema, Stadtzuordnung | [`notebooks/34_gold_sternschema.ipynb`](../notebooks/34_gold_sternschema.ipynb) |
 | Technische Entscheide | [`projektabsprache.md`](projektabsprache.md) |
 | Anforderungen gegen Stand | [`leistungsnachweise.md`](leistungsnachweise.md) |
 | Detroit-Pipeline im Detail | [`DETROIT_PIPELINE_ANLEITUNG.md`](DETROIT_PIPELINE_ANLEITUNG.md) |
@@ -929,11 +1010,14 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 
 Damit dieses Dokument vollständig ist, fehlen:
 
-- **Entscheid über Forschungsfragen und Hypothesen** (Kapitel 3) — er bestimmt,
-  was in Gold gehört
-- **Ein Notebook, das den Vergleich rechnet.** `crime_offense` liegt vor, die
-  Zahlen je NIBRS-Code stehen im Manifest — aber die Rate je Einwohner, für die
-  es `tract` als Nenner braucht, gehört nach Gold und fehlt noch
+- **Entscheid über Forschungsfragen und Hypothesen** (Kapitel 3) — Gold ist
+  bewusst so gebaut, dass er nichts daran ändert: Das Korn bleibt, und jede
+  Frage ist ein Filter darauf (5.2)
+- **Ein Notebook, das den Vergleich über alle Hypothesen rechnet.** Die Rate je
+  Einwohner steht seit Gold zur Verfügung (5.2) und ist in Notebook 34
+  gerechnet; ein Notebook, das den ganzen Vergleich daraus aufbaut, fehlt noch
 - **Ein Notebook, das die Hypothesen rechnet** — die Zahlen zu H1, H2 und H5
   liegen heute in Notebook 03, H7 in 8.4; ein eigenes Notebook fehlt
-- **Das Detroit-Quellnotebook**
+- **Ein Notebook zur Datenqualität Detroits**, als Gegenstück zu Notebook 03
+  für Chicago — Notebook 11 dokumentiert die Quelle, nicht die Qualität der
+  geladenen Daten
