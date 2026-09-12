@@ -22,13 +22,55 @@ Eintrag hier sagt, was das war.
 | --- | ---: |
 | Tests | **633** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | **344'607** Zeilen (eine Tat) |
+| `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 84'648 Delikte · 638'635 Einwohner · **132,5** je 1'000 |
+| Detroit | 84'658 Delikte · 638'635 Einwohner · **132,6** je 1'000 |
 
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 12.09.2026 · Detroits Datenqualität gemessen, Stand nachgezogen (#40)
+
+**Was.** Notebook `13_detroit_data_quality.ipynb` prüft Detroits Bronze Schritt
+für Schritt — das Gegenstück zu Notebook 03 für Chicago. Es war die letzte
+benannte Lücke zwischen den beiden Städten. Silver und Gold sind dabei auf den
+neuesten Bronze-Lauf nachgezogen worden.
+
+**Warum.** Zwei Snapshots desselben Jahrgangs lagen nebeneinander, gut 20
+Stunden auseinander. Der Vergleich beantwortet eine Frage, die bei Chicago
+offenbleibt: **Ein abgeschlossenes Jahr ist keine Konstante.**
+
+**Zahlen.**
+
+* **10 Delikte in gut 20 Stunden umklassiert** — eine schwere Körperverletzung
+  wird zur Schussabgabe ohne Todesfolge, eine Schlägerei zur Sachbeschädigung.
+  Jede dieser Änderungen trägt einen neuen `updated_at`; die Deduplizierung in
+  Silver trifft deshalb nachweislich die richtige Fassung.
+* `gold/fact_offense` **344'607 → 344'617**, Detroit **84'648 → 84'658**,
+  Rate **132,5 → 132,6** je 1'000. Chicago unverändert.
+* **`ESRI_OID` ist kein Schlüssel:** 68'655 von 88'685 ObjectIDs waren im
+  zweiten Lauf andere. Der Wert nummeriert das Abfrageergebnis, nicht den
+  Datensatz — `snapshot_ids_sha256` zweier Läufe zu vergleichen sagt nichts.
+* **54,6 %** des Jahrgangs wurden mehr als ein Jahr nach der Tat noch
+  angefasst. Ein Delta nach Tatdatum verpasst diese Korrekturen — der Grund,
+  warum Detroit den vollen Jahrgang neu lädt.
+* **Die Zeitzone ist jetzt belegt, nicht angenommen:** `incident_hour_of_day`,
+  `incident_time`, `incident_day_of_week` und `incident_year` stimmen ohne eine
+  einzige Abweichung mit `America/Detroit` überein und weichen als UTC gelesen
+  in jeder Zeile ab.
+* **66 %** der `charge_description` sind mit Leerzeichen auf Feldbreite
+  gepolstert: 152 scheinbare Werte gegen 79 echte.
+
+**Für die Präsentation.** Detroits Geo-Lücke ist mit **0,29 %** kleiner als
+Chicagos (0,7 %), zeigt aber dieselbe Schlagseite: Sexual- und Familiendelikte
+liegen um das Sechs- bis Neunfache über dem Schnitt, vermutlich weil die
+Adresse zurückgehalten wird. Bei Detroit geht es um 16 von 869 Sexualdelikten —
+die Richtung stimmt, das Gewicht nicht.
+
+**Nachlesen.** `notebooks/13_detroit_data_quality.ipynb` · PR #40
 
 ---
 

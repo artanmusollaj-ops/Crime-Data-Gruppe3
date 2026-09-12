@@ -1168,6 +1168,3 @@ Damit dieses Dokument vollständig ist, fehlen:
   gerechnet; ein Notebook, das den ganzen Vergleich daraus aufbaut, fehlt noch
 - **Ein Notebook, das die Hypothesen rechnet** — die Zahlen zu H1, H2 und H5
   liegen heute in Notebook 03, H7 in 8.4; ein eigenes Notebook fehlt
-- **Ein Notebook zur Datenqualität Detroits**, als Gegenstück zu Notebook 03
-  für Chicago — Notebook 11 dokumentiert die Quelle, nicht die Qualität der
-  geladenen Daten

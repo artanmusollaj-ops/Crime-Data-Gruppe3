@@ -465,7 +465,7 @@ Gefordert sind **Analyse der Datengrundlage**, **Hypothesentest** und
 | Schritt | Stand | Aufwand |
 | --- | --- | --- |
 | Datenqualität Chicago | ● fertig, 12 Prüfungen | – |
-| Datenqualität Detroit | ○ offen | ~½ Tag, Notebook 03 als Vorlage |
+| Datenqualität Detroit | ● fertig, 14 Prüfungen | – |
 | Datenqualität Census | ◐ im Quellnotebook enthalten | gering |
 | Silver: Dedup und Typen | ○ | ~½ Tag |
 | Silver: räumlicher Join auf Tracts | ○ | ~1 Tag, inklusive Umprojektion |
@@ -531,7 +531,7 @@ Kategorie. Das ist der Grund, weshalb der Entscheid nicht warten kann.
 | 3 | Problemstellung und Methodenteil schreiben | Präsentationstext | | |
 | 4 | Lebenszyklus dokumentieren | Diagramm + Tabelle aus Abschnitt 3 | | |
 | 5 | Storage-Evaluation verschriftlichen | Abschnitt 4 als Präsentationsteil | | |
-| 6 | Datenqualität Detroit | Notebook analog 03 | | |
+| 6 | ~~Datenqualität Detroit~~ | erledigt am 12.9.2026: Notebook 13 | Christian | ✓ |
 | 7 | Detroit-Bronze angleichen (falls beschlossen) | einheitliche Schicht | | |
 | 8 | Silver: Dedup, Typen, räumlicher Join | eine Faktentabelle | | |
 | 9 | NIBRS-Harmonisierung über beide Städte | gemeinsame Kategorien | | |
