@@ -145,10 +145,16 @@ log = logging.getLogger("gold")
 
 
 class Quelle(NamedTuple):
-    """Eine Silver-Tabelle, aus der Gold abgeleitet ist."""
+    """Etwas, aus dem eine Gold-Tabelle abgeleitet ist.
+
+    Meist eine Silver-Tabelle. ``dim_offense`` entsteht dagegen aus zwei
+    versionierten CSV-Dateien unter ``config/`` - die Dimension traegt die
+    ganze NIBRS-Klassifikation und muss sagen koennen, woher sie stammt.
+    """
 
     name: str
     pfad: Path
+    layer: str = SILVER_LAYER
 
     @property
     def relation(self) -> str:
@@ -161,6 +167,20 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--config-root", type=Path, default=Path("config"))
     parser.add_argument("--vintage", type=int, default=DEFAULT_VINTAGE)
     return parser.parse_args()
+
+
+def referenzquellen(config_root: Path) -> list[Quelle]:
+    """Die beiden Dateien, aus denen ``dim_offense`` entsteht.
+
+    Sie standen lange nicht im Manifest - ausgerechnet die Dimension, die die
+    Deliktklassifikation beider Staedte traegt, nannte keine Quelle. Beide
+    werden von einem Werkzeug aus amtlichen PDFs erzeugt und nicht von Hand
+    gepflegt; welches, sagt ``notes``.
+    """
+    return [
+        Quelle(name, config_root / name, layer="config")
+        for name in (NIBRS_CODES, NIBRS_KATEGORIEN)
+    ]
 
 
 def silver_quelle(data_root: Path, name: str, vintage: int | None = None) -> Quelle:
@@ -624,7 +644,7 @@ def build_manifest(
         "format": "parquet (snappy)",
         "row_count": con.execute(f"SELECT count(*) FROM {tabelle}").fetchone()[0],
         "derived_from": [
-            {"layer": SILVER_LAYER, "table": q.name, "path": str(q.pfad)}
+            {"layer": q.layer, "table": q.name, "path": str(q.pfad)}
             for q in quellen
         ],
         "schema": schema_of(con, tabelle),
@@ -685,7 +705,7 @@ def build(data_root: Path, config_root: Path, vintage: int) -> dict[str, Path]:
               "city_ist_null": (
                   "Tract liegt ausserhalb beider Studienstaedte oder nur "
                   "teilweise darin")}),
-            ("dim_offense", "ein NIBRS-Delikt", [],
+            ("dim_offense", "ein NIBRS-Delikt", referenzquellen(config_root),
              {"nibrs_category": (
                  "die amtliche Gliederung aus dem NIBRS User Manual 2025.0: "
                  "28 Group-A- und 10 Group-B-Kategorien. Fuer die vier "

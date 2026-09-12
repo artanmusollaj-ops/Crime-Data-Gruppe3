@@ -718,3 +718,31 @@ def test_eine_nicht_zaehlende_zeile_kommt_nicht_nach_gold(con, tmp_path):
     con.execute(f"CREATE OR REPLACE TABLE fo AS {bg.fact_offense_query(offense)}")
     ids = [z[0] for z in con.execute("SELECT offense_id FROM fo").fetchall()]
     assert ids == ["a"]
+
+
+def test_dim_offense_nennt_seine_referenzdateien(tmp_path):
+    """Die Dimension, die die Deliktklassifikation traegt, braucht eine Herkunft.
+
+    Ihr ``derived_from`` war lange **leer** - ausgerechnet bei der Tabelle, die
+    entscheidet, was in beiden Staedten als welches Delikt zaehlt. Die uebrigen
+    vier Gold-Tabellen nannten ihre Silver-Quellen korrekt; diese fiel durch,
+    weil sie nicht aus Silver kommt, sondern aus zwei Dateien unter ``config/``.
+    """
+    quellen = bg.referenzquellen(Path("config"))
+    namen = {q.name for q in quellen}
+    assert namen == {bg.NIBRS_CODES, bg.NIBRS_KATEGORIEN}
+    assert {q.layer for q in quellen} == {"config"}, (
+        "sonst behauptet das Manifest, die Dateien kaemen aus Silver"
+    )
+
+
+def test_das_manifest_uebernimmt_die_schicht_der_quelle(con, tmp_path):
+    """Vorher stand in jeder Zeile 'silver', unabhaengig von der Wahrheit."""
+    con.execute("CREATE OR REPLACE TABLE leer AS SELECT 1 AS x")
+    manifest = bg.build_manifest(
+        con, "leer",
+        [bg.Quelle("a.csv", tmp_path / "a.csv", layer="config"),
+         bg.Quelle("b", tmp_path / "b.parquet")],
+        datetime.now(timezone.utc), None, "eine Zeile", {},
+    )
+    assert [q["layer"] for q in manifest["derived_from"]] == ["config", "silver"]
