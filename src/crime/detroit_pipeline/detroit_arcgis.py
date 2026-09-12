@@ -1,14 +1,17 @@
-"""Gemeinsame Funktionen fuer die Detroit Crime ArcGIS REST Pipeline.
+"""Der ArcGIS-HTTP-Client und die Zeitfenster fuer die Detroit-Ingestion.
 
-Dieses Modul enthaelt bewusst sowohl den kleinen ArcGIS-HTTP-Client als auch
-die deterministische Transformation einer rohen ArcGIS-Feature-Zeile. Die
-eigentlichen Kommandozeilenprogramme befinden sich in ``extract_detroit.py``
-und ``transform_detroit.py``.
+Das Modul beantwortet zwei Fragen: **Wie** wird geladen (Retry, Backoff,
+ID-basierte Pagination, Vollstaendigkeits-Gates) und **welcher Ausschnitt**
+(``build_local_date_window`` und die ``where``-Ausdruecke). Das
+Kommandozeilenprogramm dazu ist ``extract_detroit.py``.
 
-Die Implementierung verwendet fuer den Download nur die Python-Standard-
-bibliothek. Dadurch kann die Bronze-Extraktion auch in einer sehr schlanken
-Laufzeitumgebung ausgefuehrt werden. Fuer Parquet wird erst im Transformations-
-skript optional ``pyarrow`` benoetigt.
+Was die Zeilen *bedeuten*, steht bewusst nicht hier. Die fachliche
+Transformation beider Staedte liegt in ``silver_pipeline.build_crime_offense``
+- eine Stelle, ein Korn, ein Crosswalk. Dieses Modul laedt, es deutet nicht.
+
+Der Download verwendet nur die Standardbibliothek. Dadurch laeuft die
+Bronze-Extraktion auch in einer sehr schlanken Laufzeitumgebung; ``pyarrow``
+braucht erst das Schreiben der Parquet-Datei in ``extract_detroit.py``.
 """
 
 from __future__ import annotations
@@ -32,20 +35,7 @@ DETROIT_LAYER_URL = (
     "RMS_Crime_Incidents/FeatureServer/0"
 )
 SOURCE_SYSTEM = "detroit_rms_crime"
-SOURCE_DATASET_ID = "RMS_Crime_Incidents"
 SOURCE_TIMEZONE = ZoneInfo("America/Detroit")
-
-# Nur fachlich explizit freigegebene Werte werden in die vergleichbaren
-# Kategorien uebernommen. Neue Werte bleiben UNREVIEWED statt stillschweigend
-# in OTHER zu landen.
-OFFENSE_MAPPING: dict[str, str] = {
-    "ROBBERY": "ROBBERY",
-    "BURGLARY": "BURGLARY",
-    "LARCENY": "THEFT",
-    "STOLEN VEHICLE": "VEHICLE_THEFT",
-    "ASSAULT": "ASSAULT",
-    "AGGRAVATED ASSAULT": "ASSAULT",
-}
 
 RETRYABLE_HTTP_CODES = {429, 500, 502, 503, 504}
 
@@ -203,52 +193,6 @@ def build_year_where(year: int) -> str:
     if not 2016 <= year <= 2100:
         raise ValueError("Detroit RMS ist erst ab Dezember 2016 verfuegbar")
     return build_date_where(date(year, 1, 1), date(year + 1, 1, 1))
-
-
-def sha256_key(*parts: object) -> str:
-    """Erzeugt aus fachlichen Schluesselteilen einen deterministischen Hash."""
-
-    normalized = "|".join("" if value is None else str(value) for value in parts)
-    return sha256(normalized.encode("utf-8")).hexdigest()
-
-
-def normalize_text(value: Any) -> str | None:
-    """Normalisiert Text, ohne fehlende Werte als leere Strings zu erfinden."""
-
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
-def safe_float(value: Any) -> float | None:
-    """Konvertiert Koordinaten robust; unlesbare Werte werden zu ``None``."""
-
-    if value in (None, ""):
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def epoch_ms_to_iso(value: Any, target_timezone: ZoneInfo | timezone) -> str | None:
-    """Konvertiert einen ArcGIS-Epoch-Millisekundenwert in ISO-8601.
-
-    ArcGIS liefert Datumsfelder als Millisekunden seit Unix Epoch. Der rohe
-    Millisekundenwert bleibt in Silver zusaetzlich erhalten, damit die
-    Transformation vollstaendig nachvollziehbar bleibt.
-    """
-
-    if value in (None, ""):
-        return None
-    try:
-        timestamp = float(value) / 1000.0
-        return datetime.fromtimestamp(timestamp, timezone.utc).astimezone(
-            target_timezone
-        ).isoformat()
-    except (TypeError, ValueError, OverflowError, OSError):
-        return None
 
 
 class ArcGISClient:
@@ -464,149 +408,3 @@ class ArcGISClient:
             if pause_seconds > 0:
                 time.sleep(pause_seconds)
 
-
-def parse_detroit_feature(
-    feature: Mapping[str, Any],
-    *,
-    pipeline_run_id: str,
-    ingested_at: str,
-) -> dict[str, Any]:
-    """Transformiert ein rohes Detroit-Feature in eine Silver-nahe Zeile.
-
-    Die Funktion:
-
-    1. trennt physische Offense-Zeile und fachliches Polizeiereignis,
-    2. normalisiert Zeit und Koordinaten,
-    3. mappt nur freigegebene Deliktkategorien,
-    4. erzeugt deterministische Schluessel und
-    5. dokumentiert Qualitaetsprobleme statt Zeilen zu verwerfen.
-    """
-
-    attributes = dict(feature.get("attributes") or {})
-    geometry = dict(feature.get("geometry") or {})
-
-    esri_oid = attributes.get("ESRI_OID")
-    source_record_id = normalize_text(attributes.get("incident_entry_id"))
-    if source_record_id is None and esri_oid is not None:
-        source_record_id = str(esri_oid)
-
-    source_event_id = normalize_text(attributes.get("report_number"))
-    if source_event_id is None:
-        source_event_id = normalize_text(attributes.get("case_id"))
-
-    source_category = normalize_text(attributes.get("offense_category"))
-    canonical_category = OFFENSE_MAPPING.get((source_category or "").upper())
-    mapping_status = "MAPPED" if canonical_category else "UNREVIEWED"
-
-    latitude = safe_float(attributes.get("latitude"))
-    longitude = safe_float(attributes.get("longitude"))
-    if latitude is None:
-        latitude = safe_float(geometry.get("y"))
-    if longitude is None:
-        longitude = safe_float(geometry.get("x"))
-
-    quality_flags: list[str] = []
-    if source_record_id is None:
-        quality_flags.append("MISSING_SOURCE_RECORD_ID")
-    if source_event_id is None:
-        quality_flags.append("MISSING_SOURCE_EVENT_ID")
-    if attributes.get("incident_occurred_at") is None:
-        quality_flags.append("MISSING_OCCURRED_AT")
-    if attributes.get("updated_at") is None:
-        # Der Record bleibt aus einem Full Load analysierbar, kann aber von
-        # einem spaeteren Incremental Filter auf updated_at nicht erfasst
-        # werden. Das Flag macht diese operative Luecke explizit.
-        quality_flags.append("MISSING_SOURCE_UPDATED_AT")
-    if latitude == 0.0 and longitude == 0.0:
-        latitude = longitude = None
-        quality_flags.append("PLACEHOLDER_COORDINATES")
-    if latitude is not None and not -90 <= latitude <= 90:
-        latitude = None
-        quality_flags.append("INVALID_LATITUDE")
-    if longitude is not None and not -180 <= longitude <= 180:
-        longitude = None
-        quality_flags.append("INVALID_LONGITUDE")
-    if canonical_category is None:
-        quality_flags.append("UNREVIEWED_OFFENSE_CATEGORY")
-
-    case_status = normalize_text(attributes.get("case_status"))
-    is_unfounded = (case_status or "").upper() == "UNFOUNDED"
-    analysis_eligible = bool(
-        canonical_category
-        and source_record_id
-        and source_event_id
-        and not is_unfounded
-    )
-
-    offense_key = (
-        sha256_key(SOURCE_SYSTEM, source_record_id) if source_record_id else None
-    )
-    event_key = (
-        sha256_key(SOURCE_SYSTEM, source_event_id) if source_event_id else None
-    )
-    analysis_unit_key = (
-        sha256_key(SOURCE_SYSTEM, source_event_id, canonical_category)
-        if analysis_eligible
-        else None
-    )
-
-    occurred_raw = attributes.get("incident_occurred_at")
-    return {
-        "source_system": SOURCE_SYSTEM,
-        "source_dataset_id": SOURCE_DATASET_ID,
-        "source_record_id": source_record_id,
-        "source_event_id": source_event_id,
-        "record_granularity": "INCIDENT_OFFENSE",
-        "offense_key": offense_key,
-        "event_key": event_key,
-        "analysis_unit_key": analysis_unit_key,
-        "incident_entry_id": normalize_text(attributes.get("incident_entry_id")),
-        "report_number": normalize_text(attributes.get("report_number")),
-        "case_id": normalize_text(attributes.get("case_id")),
-        "crime_id": normalize_text(attributes.get("crime_id")),
-        "source_offense_category": source_category,
-        "source_offense_description": normalize_text(
-            attributes.get("offense_description")
-        ),
-        "state_offense_code": normalize_text(attributes.get("state_offense_code")),
-        "arrest_charge": normalize_text(attributes.get("arrest_charge")),
-        "charge_description": normalize_text(attributes.get("charge_description")),
-        "canonical_category": canonical_category,
-        "mapping_status": mapping_status,
-        "analysis_eligible": analysis_eligible,
-        "case_status": case_status,
-        "incident_occurred_at_epoch_ms": occurred_raw,
-        "occurred_at_utc": epoch_ms_to_iso(occurred_raw, timezone.utc),
-        "occurred_at_local": epoch_ms_to_iso(occurred_raw, SOURCE_TIMEZONE),
-        "source_timezone": "America/Detroit",
-        "incident_time_source": normalize_text(attributes.get("incident_time")),
-        "incident_day_of_week_source": normalize_text(
-            attributes.get("incident_day_of_week")
-        ),
-        "incident_hour_of_day_source": attributes.get("incident_hour_of_day"),
-        "incident_year_source": attributes.get("incident_year"),
-        "nearest_intersection": normalize_text(attributes.get("nearest_intersection")),
-        "police_precinct": normalize_text(attributes.get("police_precinct")),
-        "scout_car_area": normalize_text(attributes.get("scout_car_area")),
-        "neighborhood": normalize_text(attributes.get("neighborhood")),
-        "council_district": normalize_text(attributes.get("council_district")),
-        "zip_code": normalize_text(attributes.get("zip_code")),
-        "census_block_2020_geoid": normalize_text(
-            attributes.get("census_block_2020_geoid")
-        ),
-        "latitude": latitude,
-        "longitude": longitude,
-        "case_status_updated_at_utc": epoch_ms_to_iso(
-            attributes.get("case_status_updated_at"), timezone.utc
-        ),
-        "updated_in_ibr_at_utc": epoch_ms_to_iso(
-            attributes.get("updated_in_ibr_at"), timezone.utc
-        ),
-        "source_updated_at_utc": epoch_ms_to_iso(
-            attributes.get("updated_at"), timezone.utc
-        ),
-        "source_esri_oid": esri_oid,
-        "quality_flags": ";".join(quality_flags),
-        "pipeline_run_id": pipeline_run_id,
-        "ingested_at": ingested_at,
-    }

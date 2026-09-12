@@ -363,9 +363,11 @@ Pfad das ist, was Silver am meisten stört.
 
 ## 5 · Silver und Gold
 
-**Stand.** Beide Ordner sind leer. `transform_detroit.py` schreibt bereits
-„Silver-nahe" Daten, ist aber noch nicht auf einen gemeinsamen Zielzustand
-ausgerichtet.
+**Stand.** Beide Schichten sind gebaut: `silver/crime_offense` (347'957
+Zeilen) und das Gold-Sternschema darauf (`fact_offense`, 344'617 Zeilen). Der
+früher hier genannte Detroit-eigene Normalisierer `transform_detroit.py` ist
+entfernt — er hätte eine zweite, unbelegte Kategorienzuordnung neben dem
+NIBRS-Crosswalk gehalten.
 
 ### 5.1 Was gehört in Silver?
 
@@ -411,7 +413,7 @@ literale Text `null`). Notebook 22 belegt das.
 
 **Spaltennamen englisch.** Der Vorschlag oben nennt `stadt`, `fall_id`,
 `zeitpunkt`; Abschnitt 6.1 hat dagegen „Code: englische Bezeichner" entschieden,
-und Bronze folgt dem schon (`analysis_eligible`, `occurred_at_utc`). Silver
+und Bronze folgt dem schon (`ingested_at_utc`, `pipeline_run_id`). Silver
 verwendet deshalb englische Spaltennamen.
 
 **`_extra` bleibt in Bronze.** Eine Größe von dort nach Silver zu heben kostet

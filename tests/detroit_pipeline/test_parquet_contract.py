@@ -11,7 +11,6 @@ import duckdb
 from tests.detroit_pipeline.test_bronze_ingestion import FakeArcGISClient
 from detroit_pipeline.extract_detroit import extract_year, extract_updated_window
 from detroit_pipeline.bronze_manifest import validate_manifest
-from detroit_pipeline.transform_detroit import iter_bronze_records, parse_records
 from detroit_pipeline.load_duckdb import load_run
 from detroit_pipeline.detroit_arcgis import ArcGISLayerInfo, DataQualityError
 
@@ -42,18 +41,18 @@ class ParquetContractTests(unittest.TestCase):
             self.assertEqual(rows[0]['attributes']['report_number'], '000123')
             self.assertIsNone(rows[4]['attributes']['updated_at'])
             self.assertEqual(json.loads(rows[4]['_extra'])['updated_at'], 'changed-source-type')
-            records = list(iter_bronze_records(file))
-            for feature, record in zip(c.features, records):
-                record.pop('_meta')
-                self.assertEqual(feature, record)
+            # _feature_json haelt die Antwort der Quelle unveraendert. Das
+            # ist der Vertrag von Bronze: gepinnte Spalten fuer die Auswertung,
+            # daneben die Zeile so, wie sie kam.
+            for feature, row in zip(c.features, rows):
+                self.assertEqual(feature, json.loads(row['_feature_json']))
             self.assertEqual(m['rows_with_extra'], 2)
 
     def test_empty_run_is_valid_parquet_and_importable(self):
         c = TypedClient(); c.features = []
         with TemporaryDirectory() as d:
-            f, m = extract_year(2024, Path(d), client=c)
+            _, m = extract_year(2024, Path(d), client=c)
             self.assertEqual(validate_manifest(m)[1]['downloaded_count'], 0)
-            self.assertEqual(parse_records(f)[0], [])
             self.assertEqual(load_run(m, Path(d)/'empty.duckdb'), 'IMPORTED')
 
     def test_duplicate_and_unexpected_ids_fail_without_publication(self):
@@ -117,15 +116,5 @@ class ParquetContractTests(unittest.TestCase):
             with self.assertRaises(duckdb.ConstraintException): load_run(m2, db)
             with duckdb.connect(str(db)) as con:
                 self.assertEqual(con.execute('SELECT count(*) FROM bronze.detroit_records').fetchone()[0], 5)
-
-    def test_parser_keeps_multi_offense_event(self):
-        c=TypedClient()
-        c.features[1]['attributes']['report_number']=c.features[0]['attributes']['report_number']
-        with TemporaryDirectory() as d:
-            f,_=extract_year(2024,Path(d),client=c)
-            rows,_=parse_records(f)
-            self.assertEqual(rows[0]['event_key'],rows[1]['event_key'])
-            self.assertNotEqual(rows[0]['offense_key'],rows[1]['offense_key'])
-            self.assertEqual(rows[0]['analysis_unit_key'],rows[1]['analysis_unit_key'])
 
 if __name__ == '__main__': unittest.main()
