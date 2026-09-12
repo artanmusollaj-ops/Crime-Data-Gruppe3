@@ -1,0 +1,82 @@
+nibrs_code,nibrs_category,nibrs_group,source
+09A,Homicide Offenses,A,nibrs_user_manual_2025_0
+09B,Homicide Offenses,A,nibrs_user_manual_2025_0
+09C,Homicide Offenses,A,nibrs_user_manual_2025_0
+100,Kidnapping/Abduction,A,nibrs_user_manual_2025_0
+101,Treason,A,nibrs_user_manual_2025_0
+103,Espionage,A,nibrs_user_manual_2025_0
+11A,Sex Offenses,A,nibrs_user_manual_2025_0
+11B,Sex Offenses,A,nibrs_user_manual_2025_0
+11C,Sex Offenses,A,nibrs_user_manual_2025_0
+11D,Sex Offenses,A,nibrs_user_manual_2025_0
+120,Robbery,A,nibrs_user_manual_2025_0
+13A,Assault Offenses,A,nibrs_user_manual_2025_0
+13B,Assault Offenses,A,nibrs_user_manual_2025_0
+13C,Assault Offenses,A,nibrs_user_manual_2025_0
+200,Arson,A,nibrs_user_manual_2025_0
+210,Extortion/Blackmail,A,nibrs_user_manual_2025_0
+220,Burglary/Breaking & Entering,A,nibrs_user_manual_2025_0
+23A,Larceny/Theft Offenses,A,nibrs_user_manual_2025_0
+23B,Larceny/Theft Offenses,A,nibrs_user_manual_2025_0
+23C,Larceny/Theft Offenses,A,nibrs_user_manual_2025_0
+23D,Larceny/Theft Offenses,A,nibrs_user_manual_2025_0
+23E,Larceny/Theft Offenses,A,nibrs_user_manual_2025_0
+23F,Larceny/Theft Offenses,A,nibrs_user_manual_2025_0
+23G,Larceny/Theft Offenses,A,nibrs_user_manual_2025_0
+23H,Larceny/Theft Offenses,A,nibrs_user_manual_2025_0
+240,Motor Vehicle Theft,A,nibrs_user_manual_2025_0
+250,Counterfeiting/Forgery,A,nibrs_user_manual_2025_0
+26A,Fraud Offenses,A,nibrs_user_manual_2025_0
+26B,Fraud Offenses,A,nibrs_user_manual_2025_0
+26C,Fraud Offenses,A,nibrs_user_manual_2025_0
+26D,Fraud Offenses,A,nibrs_user_manual_2025_0
+26E,Fraud Offenses,A,nibrs_user_manual_2025_0
+26F,Fraud Offenses,A,nibrs_user_manual_2025_0
+26G,Fraud Offenses,A,nibrs_user_manual_2025_0
+26H,Fraud Offenses,A,nibrs_user_manual_2025_0
+270,Embezzlement,A,nibrs_user_manual_2025_0
+280,Stolen Property Offenses,A,nibrs_user_manual_2025_0
+290,Destruction/Damage/Vandalism of Property,A,nibrs_user_manual_2025_0
+30A,Immigration Violations,A,nibrs_user_manual_2025_0
+30B,Immigration Violations,A,nibrs_user_manual_2025_0
+30C,Immigration Violations,A,nibrs_user_manual_2025_0
+30D,Immigration Violations,A,nibrs_user_manual_2025_0
+35A,Drug/Narcotic Offenses,A,nibrs_user_manual_2025_0
+35B,Drug/Narcotic Offenses,A,nibrs_user_manual_2025_0
+360,Sex Offenses,A,nibrs_user_manual_2025_0
+36A,Sex Offenses,A,nibrs_user_manual_2025_0
+36B,Sex Offenses,A,nibrs_user_manual_2025_0
+370,Pornography/Obscene Material,A,nibrs_user_manual_2025_0
+39A,Gambling Offenses,A,nibrs_user_manual_2025_0
+39B,Gambling Offenses,A,nibrs_user_manual_2025_0
+39C,Gambling Offenses,A,nibrs_user_manual_2025_0
+39D,Gambling Offenses,A,nibrs_user_manual_2025_0
+40A,Prostitution Offenses,A,nibrs_user_manual_2025_0
+40B,Prostitution Offenses,A,nibrs_user_manual_2025_0
+40C,Prostitution Offenses,A,nibrs_user_manual_2025_0
+49A,Fugitive Offenses,A,nibrs_user_manual_2025_0
+49B,Fugitive Offenses,A,nibrs_user_manual_2025_0
+49C,Fugitive Offenses,A,nibrs_user_manual_2025_0
+510,Bribery,A,nibrs_user_manual_2025_0
+520,Weapon Law Violations,A,nibrs_user_manual_2025_0
+521,Weapon Law Violations,A,nibrs_user_manual_2025_0
+522,Weapon Law Violations,A,nibrs_user_manual_2025_0
+526,Weapon Law Violations,A,nibrs_user_manual_2025_0
+58A,Commerce Violations,A,nibrs_user_manual_2025_0
+58B,Commerce Violations,A,nibrs_user_manual_2025_0
+61A,Commerce Violations,A,nibrs_user_manual_2025_0
+61B,Commerce Violations,A,nibrs_user_manual_2025_0
+620,Commerce Violations,A,nibrs_user_manual_2025_0
+64A,Human Trafficking,A,nibrs_user_manual_2025_0
+64B,Human Trafficking,A,nibrs_user_manual_2025_0
+720,Animal Cruelty,A,nibrs_user_manual_2025_0
+90B,Curfew/Loitering/Vagrancy Violations,B,nibrs_user_manual_2025_0
+90C,Disorderly Conduct,B,nibrs_user_manual_2025_0
+90D,Driving Under the Influence,B,nibrs_user_manual_2025_0
+90F,"Family Offenses, Nonviolent",B,nibrs_user_manual_2025_0
+90G,Liquor Law Violations,B,nibrs_user_manual_2025_0
+90J,Trespass of Real Property,B,nibrs_user_manual_2025_0
+90K,Bond Default,B,nibrs_user_manual_2025_0
+90L,Federal Resource Violation,B,nibrs_user_manual_2025_0
+90M,Perjury,B,nibrs_user_manual_2025_0
+90Z,All Other Offenses,B,nibrs_user_manual_2025_0
