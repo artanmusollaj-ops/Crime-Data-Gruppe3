@@ -30,15 +30,71 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **744** |
+| Tests | **752** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
 | Detroit | 84'658 Delikte · 638'635 Einwohner · **132,6** je 1'000 |
+| Fallkorn (`counts_case`) | Chicago 259'243 · Detroit 80'229 Fälle; Detroit **124,6** je 1'000 |
 
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 13.09.2026 · Ein zweites Korn: der Fall — die Städte zählen verschieden (#66)
+
+**Was.** `silver/crime_offense` und `gold/fact_offense` tragen eine neue
+Spalte `counts_case`: je Fall zählt eine Zeile, die mit dem schwersten
+Delikt, für beide Städte nach derselben Rangfolge (`FALLKORN_RANG`, die
+Hierarchieregel des UCR Handbook auf NIBRS übersetzt; bei gleichem Delikt die
+früheste Zeile). Additiv — `counts` und alle bisherigen Zahlen bleiben.
+
+**Warum.** Christian hat gefragt, ob Chicagos Mordfälle je Opfer erfasst
+sind und ob das berücksichtigt ist. Dokumentiert war es (Notebook 01, 03),
+umgesetzt nicht — die dort angekündigte Kennzeichnung `record_granularity =
+VICTIM` wurde nie gebaut. Die Messung ergab dann mehr: Die 25 Mordfälle mit
+2–3 Zeilen (593 Zeilen, 564 Fälle) sind die **einzigen** Mehrfachzeilen in
+ganz Chicago 2024. Chicago führt je Vorfall ein Delikt. Detroit führt jedes:
+85'345 Taten auf 80'229 Fälle, 4'658 Fälle mit 2–4 Taten. Das Tatkorn (#38)
+hatte Detroits Anklagen angeglichen, nicht die Zählweise der Städte.
+
+**Gemessen.**
+
+| | Chicago | Detroit |
+| --- | ---: | ---: |
+| Taten (`counts`) | 259'272 | 85'345 |
+| Fälle (`counts_case`) | 259'243 | 80'229 |
+| Rate je 1'000, Tatkorn → Fallkorn | 94,5 → 94,5 | 132,6 → **124,6** |
+
+Die Reihenfolge bleibt, der Abstand schrumpft um acht Punkte. In Detroit
+entschied die Rangfolge in 4'576 Fällen; am meisten verschiebt sich
+Sachbeschädigung (290: 10'519 Taten, 8'698 Fälle) — der typische Beifang
+eines Einbruchs.
+
+**Für beide Städte gleich.** Christians Rückfrage — *wenn Detroit es gleich
+macht, müsste man es nicht für beide so machen?* — ja. Eine Regel nur für
+Chicago wäre die nächste Schieflage; die Rangfolge liegt deshalb auf der
+NIBRS-Achse, nicht auf MICR, und der Code kennt keinen Sonderweg je Stadt.
+Silver prüft beim Bau, dass je Fall mit zählender Zeile genau eine
+`counts_case` trägt.
+
+**Korrigiert.** Notebook 11 behauptete „dieselbe Körnung wie bei Chicago".
+Die Zelle sagt jetzt das Gegenteil, mit den Zahlen.
+
+**Datenlauf.** Der erste Lauf mit gesetztem `CENSUS_API_KEY` ging durch —
+Ingestion, Silver, Gold, Serving, sechs Notebooks. Rot war der Testschritt,
+und zwar genau die Zahlenwächter: 348'300 Silver-Zeilen statt 347'957,
+84'685 Detroit-Taten statt 84'658. Die Quellen haben sich über Nacht bewegt;
+Kapitel 9 beschreibt genau dieses Verhalten.
+
+**In Artans Dokumenten.** Konzept 5.2 (Abschnitt *Das Korn*: zweites Korn
+mit Tabelle), Kapitel 9 (neue Grenze *Die Städte zählen verschieden*),
+Tabelle 8 (Zeile `crime_offense`), Feldkatalog 133 Spalten. Welche Zählweise
+auf die Folie kommt, ist ein Entscheid für Freitag.
+
+**Zahlen.** 744 → **752 Tests**. Neu im Kopf: die Fallkorn-Zeile, bewacht.
 
 ---
 

@@ -7,7 +7,7 @@ gebauten Tabellen, die Bedeutung aus [`tools/build_feldkatalog.py`](../tools/bui
 python tools/build_feldkatalog.py
 ```
 
-**131 Spalten in 9 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
+**133 Spalten in 9 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
 soll einen Satz darüber schreiben müssen. `tests/test_feldkatalog.py` prüft, dass der Katalog vollständig und reproduzierbar ist.
 
 Die Rohschichten stehen hier nicht: **Bronze deutet nicht**, seine Spalten sind die der Quelle. Was sie bedeuten, sagen die
@@ -17,7 +17,7 @@ Quellnotebooks 01, 11, 21 und 22.
 
 ### `crime_offense`
 
-Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert**. 347'957 Zeilen.
+Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert, je Fall eine mit counts_case**. 347'957 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -45,6 +45,7 @@ Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert**. 347
 | `offense_group_id` | `VARCHAR` | Schlüssel der **Tat**: Vorfall plus Deliktbeschreibung. Detroits mehrere Anklagen zu einer Tat teilen ihn. |
 | `counts` | `BOOLEAN` | **Die zählende Zeile je Tat.** Detroit liefert je Vorfall mehrere Anklagen; genau eine trägt `true`. Gold nimmt nur diese - sonst zählte Detroit 3,9 % zu hoch. |
 | `counts_reason` | `VARCHAR` | Warum diese Zeile zählt oder nicht: `eine_zeile_ist_ein_delikt` (Chicago), `anklage_ist_die_tat`, `schwerste_anklage`, `weitere_anklage_zur_selben_tat`. |
+| `counts_case` | `BOOLEAN` | **Die zählende Zeile je Fall** - die mit dem schwersten Delikt (Rangfolge `FALLKORN_RANG`, für beide Städte gleich). Chicago führt je Vorfall ein Delikt, Detroit jedes; wer auf Chicagos Zählweise vergleicht, filtert hierauf. |
 
 ### `place`
 
@@ -210,3 +211,4 @@ Eine Zeile ist: **eine Tat**. 344'617 Zeilen.
 | `arrest` | `BOOLEAN` | Ob es zu einer Festnahme kam. Nur Chicago liefert das; bei Detroit `NULL`. |
 | `unfounded` | `BOOLEAN` | Ob der Fall als unbegründet zurückgezogen wurde. Nur Detroit führt das; die Zeilen bleiben erhalten und werden gekennzeichnet statt entfernt. |
 | `offense_group_id` | `VARCHAR` | Schlüssel der **Tat**: Vorfall plus Deliktbeschreibung. Detroits mehrere Anklagen zu einer Tat teilen ihn. |
+| `counts_case` | `BOOLEAN` | **Die zählende Zeile je Fall** - die mit dem schwersten Delikt (Rangfolge `FALLKORN_RANG`, für beide Städte gleich). Chicago führt je Vorfall ein Delikt, Detroit jedes; wer auf Chicagos Zählweise vergleicht, filtert hierauf. |
