@@ -15,9 +15,18 @@ rot**, und ein Alarm, der immer klingelt, ist keiner. Die Frage, die der
 Datenlauf beantworten soll, ist nicht "stimmt die Zahl noch?", sondern **"wie
 weit ist sie weg?"** - und die Antwort ist eine Zahl je Groesse, keine Farbe.
 
-Der Exit-Code ist immer 0. Fehlt eine Tabelle, steht "nicht gebaut" in der
-Zeile; das Werkzeug ist auch dann nuetzlich, wenn die Strecke vorher
-abgebrochen ist.
+**Mit Schwelle.** Eine Tabelle, die niemand ansehen muss, ist der umgekehrte
+Fehler. Deshalb wird der Lauf rot, wenn die Drift eine Toleranz ueberschreitet
+- und die Toleranz ist das, was auf einer Folie stuende: eine **Rate je
+1'000** bewegt sich um mindestens 0,1 (die Rundung, in der sie zitiert wird),
+oder eine **Zeilen- oder Fallzahl** um mehr als 1 Prozent. Das Wochenrauschen
+der Quellen liegt weit darunter (gemessen am 13.9.: Raten 0,0; Zahlen bis
+0,13 Prozent); ein Quellenausfall, ein halber Full Load, eine Schemaaenderung
+liegen weit darueber.
+
+Fehlt eine Tabelle, steht "nicht gebaut" in der Zeile - das ist keine Drift,
+die Strecke davor ist dann schon rot. Exit 1 nur bei ueberschrittener
+Toleranz; ``--nur-melden`` schaltet das ab.
 """
 
 from __future__ import annotations
@@ -33,6 +42,11 @@ import duckdb
 
 AENDERUNGEN = Path("docs") / "AENDERUNGEN.md"
 ANFANG = "## Der Stand in Zahlen"
+
+# Die Toleranz. Raten absolut (je 1'000 Einwohner, eine Nachkommastelle),
+# Zahlen relativ in Prozent.
+MAX_RATE = 0.1
+MAX_PROZENT = 1.0
 
 # Jede Groesse: Schluessel, Beschriftung, Muster im Kopfabschnitt, Nachkommastellen.
 # Die Muster sind dieselben wie in tests/test_aenderungen.py - dort halten sie,
@@ -81,6 +95,20 @@ class Zeile(NamedTuple):
         if self.drift is None or not self.dokumentiert:
             return None
         return round(100 * self.drift / self.dokumentiert, 2)
+
+    @property
+    def ist_rate(self) -> bool:
+        return self.stellen > 0
+
+    def ueber(self, max_rate: float = MAX_RATE, max_prozent: float = MAX_PROZENT) -> bool:
+        """Ob die Drift die Toleranz ueberschreitet. Nicht gebaut heisst nein."""
+        if self.drift is None:
+            return False
+        if self.ist_rate:
+            return abs(self.drift) >= max_rate
+        # Ungerundet: 1'001 auf 100'000 sind 1,001 Prozent, und die zwei
+        # Nachkommastellen der Anzeige duerfen die Schwelle nicht verstecken.
+        return abs(100 * self.drift / self.dokumentiert) > max_prozent
 
 
 def zahl(text: str) -> float:
@@ -160,18 +188,25 @@ def format_zahl(wert: float | None, stellen: int, vorzeichen: bool = False) -> s
     return text
 
 
-def tabelle(alle: list[Zeile], fingerabdruck: str | None = None) -> str:
+def ueberschritten(alle: list[Zeile], max_rate: float = MAX_RATE,
+                   max_prozent: float = MAX_PROZENT) -> list[Zeile]:
+    return [z for z in alle if z.ueber(max_rate, max_prozent)]
+
+
+def tabelle(alle: list[Zeile], fingerabdruck: str | None = None, *,
+            max_rate: float = MAX_RATE, max_prozent: float = MAX_PROZENT) -> str:
     """Markdown - fuer die Job-Zusammenfassung in GitHub Actions und stdout."""
     kopf = ["## Drift gegen den dokumentierten Stand", ""]
     if fingerabdruck:
         kopf.append(f"Frischer Lauf, Fingerabdruck der Eingaben `{fingerabdruck}`.")
     kopf += [
         "*Dokumentiert* ist der Kopf von `docs/AENDERUNGEN.md` (der Referenzstand), "
-        "*gemessen* der Lauf von heute. Die Drift ist keine Farbe, sondern eine Zahl: "
-        "So weit haben sich die Quellen seit dem Referenzstand bewegt.",
+        "*gemessen* der Lauf von heute. Die Drift ist eine Zahl, keine Farbe - "
+        f"rot wird es erst über der Toleranz: Raten ab {format_zahl(max_rate, 1)} je 1'000, "
+        f"Zahlen über {format_zahl(max_prozent, 1)} %.",
         "",
-        "| Grösse | dokumentiert | gemessen | Drift | % |",
-        "| --- | ---: | ---: | ---: | ---: |",
+        "| Grösse | dokumentiert | gemessen | Drift | % | Toleranz |",
+        "| --- | ---: | ---: | ---: | ---: | :---: |",
     ]
     for z in alle:
         if z.dokumentiert is None:
@@ -183,16 +218,29 @@ def tabelle(alle: list[Zeile], fingerabdruck: str | None = None) -> str:
             mess = format_zahl(z.gemessen, z.stellen)
             drift = format_zahl(z.drift, z.stellen, vorzeichen=True)
             prozent = format_zahl(z.prozent, 2, vorzeichen=True)
-        kopf.append(f"| {z.name} | {dok} | {mess} | {drift} | {prozent} |")
+        toleranz = "**überschritten**" if z.ueber(max_rate, max_prozent) else "ok"
+        kopf.append(f"| {z.name} | {dok} | {mess} | {drift} | {prozent} | {toleranz} |")
+    zu_weit = ueberschritten(alle, max_rate, max_prozent)
+    kopf.append("")
+    if zu_weit:
+        kopf.append(f"**{len(zu_weit)} Grösse(n) über der Toleranz** - Zeit, den "
+                    "Referenzstand nachzuziehen oder die Quelle anzusehen: "
+                    + ", ".join(z.name for z in zu_weit) + ".")
+    else:
+        kopf.append("Alle Grössen innerhalb der Toleranz.")
     return "\n".join(kopf) + "\n"
 
 
-def als_json(alle: list[Zeile], fingerabdruck: str | None) -> dict[str, Any]:
+def als_json(alle: list[Zeile], fingerabdruck: str | None, *,
+             max_rate: float = MAX_RATE, max_prozent: float = MAX_PROZENT) -> dict[str, Any]:
     return {
         "fingerprint": fingerabdruck,
+        "tolerance": {"rate_abs": max_rate, "count_percent": max_prozent},
+        "within_tolerance": not ueberschritten(alle, max_rate, max_prozent),
         "measures": {
             z.schluessel: {"documented": z.dokumentiert, "measured": z.gemessen,
-                           "drift": z.drift, "drift_percent": z.prozent}
+                           "drift": z.drift, "drift_percent": z.prozent,
+                           "exceeded": z.ueber(max_rate, max_prozent)}
             for z in alle
         },
     }
@@ -222,6 +270,12 @@ def arguments() -> argparse.Namespace:
                    help="Markdown anhaengen, etwa an $GITHUB_STEP_SUMMARY")
     p.add_argument("--json", type=Path, default=None, metavar="DATEI",
                    help="Ergebnis als JSON schreiben")
+    p.add_argument("--max-rate", type=float, default=MAX_RATE, metavar="X",
+                   help=f"Toleranz fuer Raten je 1'000, absolut (Vorgabe {MAX_RATE})")
+    p.add_argument("--max-prozent", type=float, default=MAX_PROZENT, metavar="P",
+                   help=f"Toleranz fuer Zeilen- und Fallzahlen in Prozent (Vorgabe {MAX_PROZENT})")
+    p.add_argument("--nur-melden", action="store_true",
+                   help="auch ueber der Toleranz mit Exit 0 enden")
     return p.parse_args()
 
 
@@ -231,15 +285,22 @@ def main() -> int:
     mess = gemessen(args.data_root)
     alle = zeilen(dok, mess)
     fingerabdruck = fingerabdruck_von(args.data_root)
-    text = tabelle(alle, fingerabdruck)
+    schwellen = {"max_rate": args.max_rate, "max_prozent": args.max_prozent}
+    text = tabelle(alle, fingerabdruck, **schwellen)
     print(text)
     if args.summary:
         with args.summary.open("a", encoding="utf-8") as f:
             f.write(text + "\n")
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)
-        args.json.write_text(json.dumps(als_json(alle, fingerabdruck), indent=2,
-                                        ensure_ascii=False), encoding="utf-8")
+        args.json.write_text(json.dumps(als_json(alle, fingerabdruck, **schwellen),
+                                        indent=2, ensure_ascii=False), encoding="utf-8")
+    zu_weit = ueberschritten(alle, **schwellen)
+    if zu_weit and not args.nur_melden:
+        # Als Annotation, damit es auf der Laufseite steht, nicht nur im Log.
+        print("::error::Drift ueber der Toleranz: "
+              + ", ".join(f"{z.name} ({format_zahl(z.drift, z.stellen, True)})" for z in zu_weit))
+        return 1
     return 0
 
 

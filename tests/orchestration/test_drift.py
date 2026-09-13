@@ -1,8 +1,9 @@
 """Tests fuer das Drift-Werkzeug.
 
-Eine Zusage steht ueber allen: **Es scheitert nie.** Der Datenlauf ruft es
-nach den Tests, auch wenn die Strecke abgebrochen ist - dann steht "nicht
-gebaut" in der Zeile, und der Lauf bleibt lesbar.
+Zwei Zusagen: Fehlende Tabellen sind keine Drift - dann steht "nicht gebaut"
+in der Zeile, und der Lauf bleibt lesbar. Und rot wird es **nur ueber der
+Toleranz**: Raten ab 0,1 je 1'000, Zahlen ueber 1 Prozent. Das Wochenrauschen
+der Quellen liegt darunter, ein Ausfall darueber.
 """
 
 from __future__ import annotations
@@ -94,7 +95,66 @@ def test_die_drift_ist_eine_zahl_mit_vorzeichen():
     (z,) = [z for z in dr.zeilen({"silver_rows": 100}, {"silver_rows": 103})
             if z.schluessel == "silver_rows"]
     assert z.drift == 3 and z.prozent == 3.0
-    assert "| +3 | +3,00 |" in dr.tabelle([z])
+    assert "| +3 | +3,00 | **überschritten** |" in dr.tabelle([z])
+
+
+# --------------------------------------------------------------------------
+# Die Toleranz
+# --------------------------------------------------------------------------
+
+
+def zeile(schluessel: str, dok: float, mess: float) -> dr.Zeile:
+    (z,) = [z for z in dr.zeilen({schluessel: dok}, {schluessel: mess})
+            if z.schluessel == schluessel]
+    return z
+
+
+def test_das_wochenrauschen_liegt_unter_der_toleranz():
+    """Der Lauf vom 13.9.: +343 Zeilen (0,10 %), Raten unveraendert."""
+    assert not zeile("silver_rows", 347957, 348300).ueber()
+    assert not zeile("detroit_rate", 132.6, 132.6).ueber()
+    assert not zeile("chicago_faelle", 259243, 259585).ueber()
+
+
+def test_eine_rate_die_sich_in_der_ersten_stelle_bewegt_ist_zu_weit():
+    """0,1 ist die Rundung, in der die Rate zitiert wird."""
+    assert zeile("detroit_rate", 132.6, 132.7).ueber()
+    assert zeile("detroit_rate", 132.6, 132.5).ueber()
+    assert not zeile("detroit_rate", 132.6, 132.64).ueber()
+
+
+def test_eine_zahl_ueber_einem_prozent_ist_zu_weit():
+    assert zeile("gold_rows", 100000, 101001).ueber()
+    assert zeile("gold_rows", 100000, 98999).ueber()
+    assert not zeile("gold_rows", 100000, 101000).ueber()
+
+
+def test_nicht_gebaut_ist_keine_drift():
+    assert not zeile("gold_rows", 100000, None).ueber()  # type: ignore[arg-type]
+
+
+def test_die_tabelle_nennt_die_ueberschreitung():
+    text = dr.tabelle([zeile("detroit_rate", 132.6, 140.0)])
+    assert "**überschritten**" in text and "1 Grösse(n) über der Toleranz" in text
+    assert "Alle Grössen innerhalb" in dr.tabelle([zeile("detroit_rate", 132.6, 132.6)])
+
+
+def test_main_wird_rot_ueber_der_toleranz(tmp_path, monkeypatch, capsys):
+    baue_daten(tmp_path)          # 4 Silver-Zeilen ...
+    aenderungen = tmp_path / "AENDERUNGEN.md"
+    aenderungen.write_text(KOPF, encoding="utf-8")   # ... dokumentiert 347'957
+    ausgabe = tmp_path / "drift.json"
+    argv = ["drift", "--data-root", str(tmp_path), "--aenderungen", str(aenderungen),
+            "--json", str(ausgabe)]
+    monkeypatch.setattr(sys, "argv", argv)
+    assert dr.main() == 1
+    assert "::error::Drift ueber der Toleranz" in capsys.readouterr().out
+    ergebnis = json.loads(ausgabe.read_text(encoding="utf-8"))
+    assert ergebnis["within_tolerance"] is False
+    assert ergebnis["measures"]["silver_rows"]["exceeded"] is True
+
+    monkeypatch.setattr(sys, "argv", argv + ["--nur-melden"])
+    assert dr.main() == 0
 
 
 def test_main_scheitert_nie_und_schreibt_beides(tmp_path, monkeypatch, capsys):
@@ -112,7 +172,9 @@ def test_main_scheitert_nie_und_schreibt_beides(tmp_path, monkeypatch, capsys):
     ergebnis = json.loads(ausgabe.read_text(encoding="utf-8"))
     assert ergebnis["measures"]["silver_rows"] == {
         "documented": 347957, "measured": None, "drift": None, "drift_percent": None,
+        "exceeded": False,
     }
+    assert ergebnis["within_tolerance"] is True, "nicht gebaut ist keine Drift"
 
 
 def test_der_fingerabdruck_kommt_aus_dem_gesamtmanifest(tmp_path):

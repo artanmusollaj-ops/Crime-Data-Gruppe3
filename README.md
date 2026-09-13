@@ -171,7 +171,7 @@ Zugriff auf Chicago ebenfalls, wird aber stärker gedrosselt.
 python -m pytest
 ```
 
-Erwartet werden **762 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **769 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -406,7 +406,7 @@ geschieht nichts. `data/` ist nicht versioniert; die Regel gilt je Rechner.
 python -m pytest
 ```
 
-**762 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**769 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -440,7 +440,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **721 der 762 Tests**. Die übrigen 41 überspringen
+In einem frischen Klon laufen **728 der 769 Tests**. Die übrigen 41 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
@@ -468,9 +468,12 @@ dokumentierte Zahlen gegen Parquet halten (Marker `referenzstand`), laufen im
 Datenlauf deshalb **nicht**; sie gelten für den Referenzstand auf deinem
 Rechner. Stattdessen weist `orchestration.drift` je Grösse aus, wie weit der
 dokumentierte Stand vom frischen entfernt ist — als Tabelle in der
-Job-Zusammenfassung und als `drift.json` im Artefakt. Rot heisst dort nur
-noch: Die Strecke oder ein Test, der auf frischen Daten gelten muss, ist
-kaputt. Lokal zeigt `python -m orchestration.drift` dieselbe Tabelle.
+Job-Zusammenfassung (*Actions → Datenlauf → Lauf → Summary*) und als
+`drift.json` im Artefakt. **Rot wird es erst über der Toleranz:** eine Rate
+je 1'000 bewegt sich um ≥ 0,1, oder eine Zeilen- oder Fallzahl um > 1 %.
+Das Wochenrauschen liegt weit darunter; ein Quellenausfall weit darüber —
+und dann ist es Zeit, den Referenzstand nachzuziehen. Lokal zeigt
+`python -m orchestration.drift` dieselbe Tabelle.
 
 Weitere Optionen zeigt jedes Modul selbst:
 

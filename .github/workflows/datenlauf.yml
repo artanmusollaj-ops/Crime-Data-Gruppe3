@@ -16,9 +16,11 @@
 # gilt: Die Waechter, die dokumentierte Zahlen gegen Daten halten (Marker
 # "referenzstand"), laufen hier nicht; sie gelten fuer den Referenzstand auf
 # dem eigenen Rechner. Stattdessen weist orchestration.drift die Abweichung
-# als Zahl je Groesse aus - in der Job-Zusammenfassung und als Artefakt.
-# Rot heisst hier nur noch: Die Strecke oder ein Test, der auf frischen Daten
-# gelten muss, ist kaputt.
+# als Zahl je Groesse aus - in der Job-Zusammenfassung und als Artefakt - und
+# wird erst ueber einer Toleranz rot: Raten ab 0,1 je 1'000, Zahlen ueber
+# 1 Prozent. Rot heisst hier also: Die Strecke ist kaputt, ein Test, der auf
+# frischen Daten gelten muss, faellt, oder die Quelle hat sich so weit
+# bewegt, dass die Dokumente nachgezogen gehoeren.
 #
 # Was der Lauf braucht: CENSUS_API_KEY als Repository-Secret (Settings ->
 # Secrets and variables -> Actions). Ohne ihn liefert die Census-API HTTP 200
@@ -145,7 +147,8 @@ jobs:
 
       - name: Drift ausweisen
         # Auch wenn die Tests rot sind, auch wenn die Strecke abgebrochen ist -
-        # dann steht "nicht gebaut" in der Zeile. Das Werkzeug scheitert nie.
+        # dann steht "nicht gebaut" in der Zeile, und das ist keine Drift.
+        # Rot wird der Schritt nur ueber der Toleranz (Vorgaben im Werkzeug).
         if: always()
         run: python -m orchestration.drift --summary "$GITHUB_STEP_SUMMARY" --json data/drift.json
 

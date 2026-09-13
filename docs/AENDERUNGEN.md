@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **762** |
+| Tests | **769** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -40,6 +40,34 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 13.09.2026 · Die Drift bekommt eine Toleranz (#69)
+
+**Was.** `orchestration.drift` wird rot, wenn eine Grösse die Toleranz
+überschreitet: eine **Rate je 1'000** um ≥ 0,1 (die Rundung, in der sie
+zitiert wird), eine **Zeilen- oder Fallzahl** um > 1 %. Die Tabelle hat eine
+Spalte *Toleranz*, das JSON `within_tolerance` und `exceeded` je Grösse, und
+die Laufseite eine Annotation, die sagt, welche Grösse wie weit weg ist.
+`--nur-melden` schaltet das ab; der Datenlauf tut das nicht.
+
+**Warum.** Christian war sich nach #67 nicht mehr sicher, ob *Drift statt
+Rot* richtig ist — zu Recht. Rot bei jeder Abweichung war ein Alarm, der
+jede Woche klingelt; eine Tabelle ohne Konsequenz ist ein Alarm, den niemand
+hören muss. Die Schwelle ist das, was auf einer Folie stünde: Das
+Wochenrauschen der Quellen liegt weit darunter (13.9.: Raten 0,0, Zahlen bis
+0,13 %), ein Quellenausfall, ein halber Full Load, eine Schemaänderung weit
+darüber. Und wenn die Drift die Schwelle erreicht, ist das genau der Moment,
+den Referenzstand nachzuziehen.
+
+**Nicht gebaut ist keine Drift.** Fehlt eine Tabelle, bleibt der Schritt
+grün — die Strecke davor ist dann schon rot.
+
+**In Artans Dokumenten.** Konzept Kapitel 9 (Grenze *Referenzstand*), README
+(*Drift statt Rot*, mit dem Weg zur Zusammenfassung).
+
+**Zahlen.** 762 → **769 Tests**.
 
 ---
 
