@@ -35,12 +35,14 @@ NIBRS-Standard, eine gemeinsame Raumeinheit über Census Tracts, Einwohnerzahlen
 als Nenner für Raten — und Wetter als dritte Zeitachse.
 
 Umgesetzt sind **fünf Quellen in vier Ingestion-Pipelines**, eine
-Speicherarchitektur aus unveränderlichen Läufen, und **alle drei
+Speicherarchitektur aus unveränderlichen Läufen, und **alle vier
 Silver-Tabellen** — seit `crime_offense` sprechen beide Städte dieselbe
 Deliktsprache, liegen auf derselben Zeitachse und tragen dieselbe
-Raumeinheit. Jede Quelle weist ihre Vollständigkeit nach, statt sie zu
-behaupten. **627 automatisierte Tests** laufen ohne Netzzugriff und ohne
-Schlüssel.
+Raumeinheit. Darauf steht das **Gold-Sternschema** aus einer Faktentabelle
+und vier Dimensionen (5.2), darauf die Auswertungsumgebung. Die Schichten
+liegen wahlweise lokal oder auf einem gemeinsamen Objektspeicher (7.4).
+Jede Quelle weist ihre Vollständigkeit nach, statt sie zu behaupten.
+**865 automatisierte Tests** laufen ohne Netzzugriff und ohne Schlüssel.
 
 | | |
 | --- | --- |
@@ -201,9 +203,9 @@ Entwurf und was die Messung daran geändert hat, steht in 5.2.
 | --- | --- | --- |
 | **Generation** | Fünf Quellsysteme: Socrata-API (Chicago), ArcGIS REST (Detroit), HTTPS-Dateien (TIGER, NOAA), JSON-API (ACS). Je Quelle dokumentiert: Änderungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 21, 22 |
 | **Ingestion** | Vier Pipelines, alle Batch. Chicago inkrementell über ein Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` |
-| **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest je Schicht | Kapitel 7 |
+| **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest je Schicht. Wo sie liegen — lokal, auf SeaweedFS oder beides — ist wählbar (7.4) | Kapitel 7 |
 | **Transformation** | Bronze bewusst ohne Deutung. Silver deutet: Typen, Einheiten, Fehlwerte, Schlüssel. Alle vier Tabellen gebaut. **Gold** setzt darauf auf, ist aber in 5.2 beschrieben — es entstand aus der Serving-Entscheidung | Kapitel 8, Gold in 5.2 |
-| **Serving** | Option A (Analytik) entschieden, Gold als Sternschema gebaut, Auswertungsdatenbank mit neun Sichten | 5.2 |
+| **Serving** | Option A (Analytik) entschieden, Gold als Sternschema gebaut, Auswertungsdatenbank mit elf Sichten | 5.2 |
 
 ### 5.2 Serving: der Entwurf, und was die Messung daran geändert hat
 
@@ -253,9 +255,11 @@ FROM crime_offense c JOIN tract t ON c.tract_geoid = t.geoid
 GROUP BY 1 ORDER BY rate DESC;
 ```
 
-Seit Gold gebaut ist, führt sie **neun Sichten**: die vier Silver-Tabellen und
-die fünf des Sternschemas. Dazu war nichts zu tun — `discover()` sucht in
-beiden Schichten und nimmt auf, was da ist.
+Seit Gold gebaut ist, führt sie **elf Sichten**: die vier Silver-Tabellen, die
+fünf des Sternschemas und zwei Hilfssichten — `tabellen` und `herkunft` sagen,
+was man vor sich hat, ohne dass man das Repository kennen muss. Für die neun
+Datensichten war nichts zu tun: `discover()` sucht in beiden Schichten und
+nimmt auf, was da ist.
 
 Daneben liegt `tracts.geojson`: die **1'055 Tract-Umrisse** der beiden Städte
 für eine Karte, weil `dim_tract` nur Zentroide führt und die Polygone in
@@ -553,7 +557,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; drei Tests prüfen das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel. `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog mit 133 Spalten, erzeugt aus den Manifesten und getestet. Gesamtmanifest je Lauf mit allen Eingabe-Läufen und Fingerabdruck. Verantwortliche je Datensatz in Absprache 7.3, gegen die Stufenliste getestet. Aufbewahrungsregel mit `orchestration.aufraeumen`: der jüngste Lauf und der davor, alles von Silver Genannte und die Basis jedes Deltas bleiben; gelöscht wird nur auf Wunsch, Raw und Bronze zusammen. Datenablage wahlweise lokal, SeaweedFS (S3) oder hybrid (`storage`): lesen lokal zuerst, S3 als Rückfall; schreiben lokal, prüfen, gezielt publizieren, `manifest.json` zuletzt. Ein veralteter lokaler Stand einer abgeleiteten Tabelle wird beim Lesen gemeldet und beim Publizieren abgelehnt — verglichen werden `built_at_utc` und die Bronze-Läufe aus `derived_from` | das Aufräumen ist ein Handgriff, kein Automatismus; Detroits Lauf vom 11.9. bleibt bewusst ohne Raw-Gegenstück — er ist der vorherige Schnappschuss, der die Instabilität der Quelle belegt; die Ablage lädt nichts automatisch herunter und synchronisiert nicht zurück — bewusst, Version 1 |
-| **DataOps** | 864 Tests ohne Netz und Schlüssel, auf jedem Pull Request in GitHub Actions — Linux und Windows, Python 3.11 und 3.13; `ruff` davor. Schreiben über `.part` und atomares Umbenennen. Publish-Gate: Gold entsteht nur, wenn die Abdeckung Schwellen hält | die 40 datengebundenen Wächter laufen auf Pull Requests nicht — dafür gibt es seit dem 13.9. den wöchentlichen Datenlauf (`datenlauf.yml`), der alle Quellen lädt, die Strecke baut und dann die ganze Suite fährt; er braucht `CENSUS_API_KEY` als Repository-Secret und ist bis zum ersten grünen Lauf eine Einrichtung, kein Nachweis. Aktualität wird im Datenlauf gegen eine Schwelle von acht Tagen geprüft — eine Quelle, die nichts Neues liefert, lässt ihn scheitern; keine Alarmierung ausser dem roten Lauf selbst |
+| **DataOps** | 865 Tests ohne Netz und Schlüssel, auf jedem Pull Request in GitHub Actions — Linux und Windows, Python 3.11 und 3.13; `ruff` davor. Schreiben über `.part` und atomares Umbenennen. Publish-Gate: Gold entsteht nur, wenn die Abdeckung Schwellen hält | die 40 datengebundenen Wächter laufen auf Pull Requests nicht — dafür gibt es seit dem 13.9. den wöchentlichen Datenlauf (`datenlauf.yml`), der alle Quellen lädt, die Strecke baut und dann die ganze Suite fährt; er braucht `CENSUS_API_KEY` als Repository-Secret und ist bis zum ersten grünen Lauf eine Einrichtung, kein Nachweis. Aktualität wird im Datenlauf gegen eine Schwelle von acht Tagen geprüft — eine Quelle, die nichts Neues liefert, lässt ihn scheitern; keine Alarmierung ausser dem roten Lauf selbst |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel. `mapping_status` und `geo_status` machen die Vergleichbarkeit je Zeile abfragbar. Ein Manifest-Leser (`manifeste`) für alle Schichten statt elf | kein Diagramm der Abhängigkeitskanten; Vintage 2024 hart verdrahtet — für mehrere Jahrgänge muss sie je Jahr mitlaufen |
 | **Orchestration** | `orchestration.run_all`: 13 Stufen in Reihenfolge, Abbruch beim ersten Fehler, Gesamtmanifest mit allen Bronze-Läufen und Fingerabdruck über die Eingaben | keine Zeitplanung — die Quellen ändern sich täglich, der Lauf startet, wenn jemand daran denkt; keine Wiederaufnahme, bewusst |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen. `ruff` mit Pyflakes und `raise … from`, Lockfile, CI-Matrix über zwei Betriebssysteme | die sechs Notebooks, die Zahlen belegen, laufen seit dem 13.9. im wöchentlichen Datenlauf — nicht auf Pull Requests, weil sie `data/` brauchen. Notebook 32 war bis dahin einen Tag lang still kaputt. Die sechs ladenden Notebooks laufen bewusst nirgends automatisch |
@@ -650,6 +654,20 @@ als Abfrageschicht** darüber. Die Ablage bleibt offen, portabel und
 unveränderlich; DuckDB liefert SQL und den räumlichen Join, ohne dass jemand
 einen Server betreibt.
 
+> **Nachtrag 13.9.2026: die verworfene Zeile ist zur Hälfte zurück.** Oben
+> steht *„Cloud (S3, BigQuery) — verworfen"*, und das galt der Frage nach
+> **Skalierung**; daran hat sich nichts geändert, für 350'000 Zeilen wäre sie
+> unangemessen. Zurückgekommen ist S3 für eine andere Frage, die in dieser
+> Tabelle nicht vorkam: **Wie kommen zwei Leute an denselben Stand?** `data/`
+> ist aus der Versionierung ausgeschlossen (7.4), also lud bis hierher jeder
+> selbst — mit eigenen `run_id`s und, durch die Delta-Logik, anderen Zeilen.
+> Seit dem 13.9. gibt es dafür einen gemeinsamen veröffentlichten Bestand auf
+> **SeaweedFS**, angesprochen über die S3-Schnittstelle. Die beiden Einwände
+> der Tabelle treffen ihn nicht: Er läuft selbstgehostet, es entstehen keine
+> Kosten und keine fremden Zugänge. Und die Wahl darüber bleibt unberührt —
+> es sind dieselben Parquet-Dateien in derselben Struktur, gelesen von
+> demselben DuckDB. Wählbar ist nur, **wo** sie liegen (7.4).
+
 ### 7.3 Das Format innerhalb der Schichten — gemessen
 
 Vier Quellen legten Bronze als Parquet ab, Detroit als NDJSON. Ob das
@@ -708,19 +726,26 @@ Parquet**, weil der Plattenzugriff wegfällt.
 **Was daraus wurde.** Detroits Ingestion schreibt seit dem 11.9. Parquet, in
 Laufverzeichnissen mit Manifest und Prüfsumme, und bringt einen eigenen
 Datenvertrag mit: eingefrorenes Schema aus den Layer-Metadaten, `_feature_json`
-als verlustfreie Nutzlast, `_extra` für Typdrift. Vier der fünf Quellen liegen
-damit auf derselben Konvention. Die Silver-Schicht liest beide Formate — ein
-Bestand von vor der Umstellung wird nicht unlesbar, das neue Layout hat aber
-Vorrang.
+als verlustfreie Nutzlast, `_extra` für Typdrift. **Alle fünf Quellen liegen
+damit auf derselben Konvention**: Raw als Beweis, Bronze als Parquet, je Lauf
+ein Verzeichnis mit Manifest.
+
+Den NDJSON-Rückfall der Silver-Schicht gibt es **nicht mehr**. Er ist mit dem
+Zeitzonen-Befund (8.6) bewusst entfernt worden: Jene Bestände hatten ihr
+Jahresfenster in UTC statt in Detroiter Ortszeit gezogen, enthielten also 66
+Fälle aus 2023 und vermissten 56 vom Jahresende 2024. Ein Rückfall hätte sie
+weiter eingelesen — mit einer Warnung im Log, die man überliest. Lieber ein
+klarer Fehler und ein neuer Full Load.
 
 ### 7.4 Implementierung
 
 ```text
 data/
-├── raw/     unverändert, Byte für Byte wie ausgeliefert
-├── bronze/  daraus abgeleitetes Parquet mit gepinntem Schema
-├── silver/  gedeutet: Typen, Einheiten, Fehlwerte, harmonisierte Schlüssel
-└── gold/    Sternschema: fact_offense und vier Dimensionen
+├── raw/      unverändert, Byte für Byte wie ausgeliefert
+├── bronze/   daraus abgeleitetes Parquet mit gepinntem Schema
+├── silver/   gedeutet: Typen, Einheiten, Fehlwerte, harmonisierte Schlüssel
+├── gold/     Sternschema: fact_offense und vier Dimensionen
+└── serving/  Auswertungsumgebung: analyse.duckdb und tracts.geojson
 ```
 
 Partitioniert wird mit sprechenden Schlüsseln, deren erster die Quelle benennt:
@@ -736,6 +761,54 @@ nie eine Lücke.
 
 **Silver ist die Ausnahme:** abgeleitet und jederzeit neu erzeugbar, deshalb
 wird sie ersetzt statt angehäuft. Das Manifest nennt trotzdem die Herkunft.
+
+#### Wo diese Struktur liegt, ist wählbar — seit 13.9.2026
+
+Alles oben Beschriebene gilt unverändert; neu ist nur, dass `data/` nicht der
+einzige Ort ist. Ein Pfad wird intern **relativ** adressiert
+(`bronze/city=chicago/ingest_date=…/run_…/part-0001.parquet`), und
+`STORAGE_BACKEND` entscheidet, was daraus wird:
+
+| Modus | Lesen | Schreiben |
+| --- | --- | --- |
+| `local` (Vorgabe) | `data/…` | `data/…` — der bisherige Zustand, unverändert |
+| `hybrid` | lokal, wenn die Datei da ist, **sonst** `s3://urban-crime/…` | lokal, prüfen, **dann** gezielt publizieren |
+| `s3` | immer SeaweedFS | lokal als Arbeitskopie, prüfen, publizieren, Kopie entfernen |
+
+**Hybrid ist der Modus für die Zusammenarbeit** und beantwortet die Frage aus
+Absprache 7.1, wie zwei Leute an denselben Stand kommen. SeaweedFS trägt den
+gemeinsamen **veröffentlichten** Bestand, `data/` ist Arbeitskopie. Wer eine
+Tabelle lokal nicht hat, liest sie von dort — ohne vorher etwas zu
+synchronisieren.
+
+Drei Regeln machen daraus mehr als einen Netzordner:
+
+1. **Veröffentlicht wird erst nach der Prüfung.** Gebaut wird lokal, dann
+   laufen die bestehenden Kontrollen (Vollständigkeitsnachweis, `reconcile`,
+   Publish-Gate), und erst danach geht der Lauf oder die Tabelle hoch — je
+   Lauf einzeln, `manifest.json` **zuletzt**. Damit ist das Manifest oben
+   dasselbe Signal wie das atomare Umbenennen lokal: Es ist da, also ist der
+   Lauf vollständig. Was scheitert, erreicht den gemeinsamen Bestand nie.
+2. **Läufe bleiben unveränderlich.** Liegt ein Objekt schon oben und ist
+   identisch, wird es übersprungen; liegt es mit anderem Inhalt dort, ist das
+   ein Fehler. Nichts wird still überschrieben. Nach jedem Upload wird das
+   Objekt zurückgelesen — Grösse und, wo der Dienst ein ETag liefert, die
+   Prüfsumme.
+3. **Ein veralteter eigener Stand wird erkannt.** Silver und Gold *werden*
+   ersetzt, dort greift Regel 2 nicht. Stattdessen vergleicht die Ablage
+   `built_at_utc` und die Bronze-Läufe aus `derived_from`: Wer eine Tabelle
+   von letzter Woche liest, bekommt eine Warnung; wer sie publizieren will,
+   eine Absage. Sonst verdrängte ein alter Stand einen neuen, ohne Spur.
+
+**Immer lokal bleibt `data/serving/`** — die Auswertungsdatenbank ist
+abgeleitet, klein und trägt Pfade, die nur auf einem Rechner gelten. Ihre
+Sichten zeigen je nach Modus auf lokale oder auf S3-Dateien.
+
+**Was bewusst nicht gebaut ist:** kein automatisches Herunterladen (was lokal
+fehlt, wird von S3 *gelesen*, nicht kopiert), keine Synchronisation zurück,
+kein gleichzeitiges Schreiben in beide Richtungen. Die Ablage ist damit keine
+verteilte Datenbank, sondern das, was das Projekt braucht: ein Ort für den
+Stand, auf den sich beide beziehen.
 
 ---
 
@@ -1152,7 +1225,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 864 bestandene Tests
+python -m pytest                       # erwartet 865 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
@@ -1198,6 +1271,18 @@ die Zahlen in diesem Dokument beziehen sich auf die in 8.3 genannten
 Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 
 `data/` ist vollständig aus der Versionierung ausgeschlossen.
+
+**Ohne eigenen Ladelauf.** Seit dem 13.9. liegt der veröffentlichte Stand auf
+SeaweedFS (7.4). Wer `STORAGE_BACKEND=hybrid` samt Schlüsseln in `.env` setzt,
+braucht die Quellen **nicht** selbst zu laden: Was lokal fehlt, wird von dort
+gelesen. Der Referenzstand ist damit kein Zettel mehr, sondern ein Ort —
+welche Läufe er umfasst, sagt das Manifest jeder Tabelle unter
+`derived_from`.
+
+```bash
+python -m storage                                  # prüft die Verbindung und den eigenen Stand
+python -m orchestration.run_all --ohne-ingestion    # Silver, Gold und Serving daraus ableiten
+```
 
 ---
 
