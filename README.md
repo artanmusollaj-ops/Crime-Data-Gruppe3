@@ -171,7 +171,7 @@ Zugriff auf Chicago ebenfalls, wird aber stärker gedrosselt.
 python -m pytest
 ```
 
-Erwartet werden **731 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **744 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -367,6 +367,22 @@ können.
 
 ---
 
+### 2.4 Aufräumen — was von Raw und Bronze bleiben muss
+
+Jeder Lauf legt ein neues Verzeichnis an, nichts wird überschrieben. Das ist
+gewollt, und es wächst. Was bleiben muss, sagt ein Werkzeug:
+
+```bash
+python -m orchestration.aufraeumen             # zeigt je Quelle, was bleibt und warum
+python -m orchestration.aufraeumen --loeschen  # löscht die entbehrlichen Läufe, Raw und Bronze zusammen
+```
+
+Es bleiben: der **jüngste Lauf und der davor** (der zweite ist der
+Schnappschuss, gegen den Notebook 13 die Quelle prüft), alles, was ein
+**Silver-Manifest nennt**, und die **Basis eines Delta-Laufs** — Chicago lädt
+seit dem ersten vollen Schnappschuss nur Änderungen. Ohne `--loeschen`
+geschieht nichts. `data/` ist nicht versioniert; die Regel gilt je Rechner.
+
 ## 3 · Wenn etwas klemmt
 
 | Symptom | Ursache und Abhilfe |
@@ -390,7 +406,7 @@ können.
 python -m pytest
 ```
 
-**731 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**744 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -424,7 +440,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **691 der 731 Tests**. Die übrigen 40 überspringen
+In einem frischen Klon laufen **704 der 744 Tests**. Die übrigen 40 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter

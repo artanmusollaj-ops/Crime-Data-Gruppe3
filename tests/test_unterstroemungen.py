@@ -39,6 +39,7 @@ ARTEFAKTE: dict[str, Path] = {
     "github actions": PROJECT_ROOT / ".github" / "workflows" / "tests.yml",
     "datenlauf": PROJECT_ROOT / ".github" / "workflows" / "datenlauf.yml",
     "manifeste": PROJECT_ROOT / "src" / "crime" / "manifeste" / "__init__.py",
+    "aufraeumen": PROJECT_ROOT / "src" / "crime" / "orchestration" / "aufraeumen.py",
     "requirements.lock": PROJECT_ROOT / "requirements.lock",
     "lockfile": PROJECT_ROOT / "requirements.lock",
     "ruff": PROJECT_ROOT / "pyproject.toml",   # plus [tool.ruff], siehe unten
@@ -57,6 +58,7 @@ UEBERHOLTE_LUECKEN: dict[str, str] = {
     "keine ci": "github actions",
     "kein lockfile": "lockfile",
     "kein linter": "ruff",
+    "keine aufbewahrungsregel": "aufraeumen",
 }
 
 

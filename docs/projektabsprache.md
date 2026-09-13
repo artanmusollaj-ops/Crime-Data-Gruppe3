@@ -362,6 +362,15 @@ Lesepfad für beide Städte.
 
 `Entscheid: Wetter und Census bereits umgesetzt analog Chicago`
 
+**Nachtrag 13.9.2026 — Aufbewahrung.** Läufe sind unveränderlich, also
+wachsen `raw/` und `bronze/` mit jedem Lauf. Was bleiben muss, sagt
+`orchestration.aufraeumen` (README 2.4): der jüngste Lauf und der davor,
+alles, was ein Silver-Manifest nennt, und die Basis jedes Delta-Laufs;
+gelöscht wird nur auf Wunsch, Raw und Bronze zusammen. Detroits Lauf vom
+11.9.2026 bleibt bewusst, obwohl er kein Raw-Gegenstück hat — er ist der
+Schnappschuss, an dem Notebook 13 zeigt, dass die Quelle abgeschlossene
+Fälle nachträglich ändert.
+
 ---
 
 ## 5 · Silver und Gold

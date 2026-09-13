@@ -104,8 +104,12 @@ class Tabelle(NamedTuple):
 
 
 def versteckt(pfad: Path) -> bool:
-    """Ein ``.part``- oder ``.partial``-Verzeichnis ist ein Lauf, der noch nicht gilt."""
-    return any(teil.startswith(".") for teil in pfad.parts)
+    """Ein ``.part``- oder ``.partial``-Verzeichnis ist ein Lauf, der noch nicht gilt.
+
+    ``.`` und ``..`` zaehlen nicht - sonst waere unter ``--data-root ../data``
+    jeder Lauf versteckt, und der Leser meldete stumm: nichts da.
+    """
+    return any(teil.startswith(".") and teil not in (".", "..") for teil in pfad.parts)
 
 
 def read_manifest(

@@ -57,6 +57,16 @@ def test_versteckte_laeufe_zaehlen_nie(tmp_path):
     assert [lf.verzeichnis.name for lf in mf.fertige_laeufe(tmp_path)] == ["run_a"]
 
 
+def test_punkt_punkt_im_pfad_versteckt_nichts(tmp_path, monkeypatch):
+    """Unter ``--data-root ../data`` fand der Leser stumm nichts - jeder
+    Pfadteil, der mit einem Punkt beginnt, galt als ``.part``."""
+    lauf(tmp_path, "run_a", status="complete")
+    monkeypatch.chdir(tmp_path / "run_a")
+    relativ = Path("..")
+    assert not mf.versteckt(relativ / "run_a" / "manifest.json")
+    assert [lf.verzeichnis.name for lf in mf.fertige_laeufe(relativ)] == ["run_a"]
+
+
 def test_kaputtes_manifest_wirft_die_ausnahme_des_aufrufers(tmp_path):
     """Die Ingestion sagt IngestionError, Silver TransformError - ihre Tests haengen daran."""
     d = tmp_path / "run_a"
