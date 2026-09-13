@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **761** |
+| Tests | **762** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -1571,4 +1571,5 @@ Versehen. Jeder Pull Request ab #24 ist entweder oben ein Eintrag oder hier.
 | #34 | erste Fassung der Deliktgliederung | **nicht gemergt** — ersetzt durch #35 |
 | #41 | erste Fassung des toten Zwillings | **nicht gemergt** — durch das Löschen des Basis-Branches geschlossen, neu als #42 |
 | #50 | ein überholter Kommentar in `build_analysis_db.py` | eine Zeile, ändert keine Aussage |
+| #68 | `orchestration.drift` las den Fingerabdruck unter einem falschen Schlüssel (`fingerprint` statt `input_fingerprint`) — der erste Lauf zeigte `None` | Fehlerbehebung mit Test, ändert keine Aussage |
 

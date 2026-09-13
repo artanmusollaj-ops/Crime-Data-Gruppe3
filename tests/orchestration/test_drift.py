@@ -113,3 +113,16 @@ def test_main_scheitert_nie_und_schreibt_beides(tmp_path, monkeypatch, capsys):
     assert ergebnis["measures"]["silver_rows"] == {
         "documented": 347957, "measured": None, "drift": None, "drift_percent": None,
     }
+
+
+def test_der_fingerabdruck_kommt_aus_dem_gesamtmanifest(tmp_path):
+    """Der erste Datenlauf zeigte "fingerprint None": das Werkzeug las einen
+    Schluessel, den run_all nie schreibt. Gelesen wird jetzt derselbe Name,
+    den der Controller schreibt - und der Test haelt beide zusammen."""
+    import run_all
+    assert '"input_fingerprint"' in Path(run_all.__file__).read_text(encoding="utf-8")
+    (tmp_path / "pipeline_run.json").write_text(
+        json.dumps({"input_fingerprint": "b1c239ec75b7ee656d74ff006413884049f5bc50"}),
+        encoding="utf-8")
+    assert dr.fingerabdruck_von(tmp_path) == "b1c239ec75b7ee65"
+    assert dr.fingerabdruck_von(tmp_path / "leer") is None
