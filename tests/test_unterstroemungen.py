@@ -127,3 +127,49 @@ def test_die_testzahl_in_der_tabelle_stimmt(zeilen):
     assert genannt == int(treffer.group(1)), (
         f"5.3 nennt {genannt} Tests, gesammelt werden {treffer.group(1)}"
     )
+
+
+# --------------------------------------------------------------------------
+# Verantwortliche je Datensatz (Absprache 7.3)
+# --------------------------------------------------------------------------
+
+ABSPRACHE = PROJECT_ROOT / "docs" / "projektabsprache.md"
+
+
+def verantwortliche() -> dict[str, str]:
+    """Die Tabelle in Absprache 7.3: Stufe -> Verantwortlicher.
+
+    Eine Zeile kann mehrere Stufen nennen (``tract``, ``place``, ...); jede
+    davon zaehlt einzeln.
+    """
+    text = ABSPRACHE.read_text(encoding="utf-8")
+    anfang = text.index("Verantwortliche je Datensatz")
+    ende = text.index("### 7.4", anfang)
+    zeilen = re.findall(r"^\| (.+?) \| .+? \| .+? \| (.+?) \| .+? \|$",
+                        text[anfang:ende], re.M)
+    gefunden = {}
+    for stufen, wer in zeilen:
+        for stufe in re.findall(r"`([a-z_]+)`", stufen):
+            gefunden[stufe] = wer.strip()
+    return gefunden
+
+
+def test_jede_stufe_des_run_controllers_hat_einen_verantwortlichen():
+    """Die Luecke aus Tabelle 5.3: niemand war fuer einen Datensatz benannt.
+
+    Gemessen wird gegen ``run_all.STUFEN`` - kommt eine Stufe dazu, faellt der
+    Test, bis jemand sie in der Absprache uebernimmt.
+    """
+    import run_all
+
+    benannt = verantwortliche()
+    assert benannt, "keine Tabelle 'Verantwortliche je Datensatz' in Absprache 7.3"
+    fehlend = [s.name for s in run_all.STUFEN if s.name not in benannt]
+    assert not fehlend, f"Stufen ohne Verantwortlichen in Absprache 7.3: {fehlend}"
+
+
+def test_jeder_verantwortliche_ist_einer_von_uns():
+    """Ein Name, der nicht im Team ist, ist ein Tippfehler - oder eine Luecke."""
+    fremd = {s: w for s, w in verantwortliche().items()
+             if w not in {"Christian", "Artan", "beide"}}
+    assert not fremd, f"unbekannte Verantwortliche: {fremd}"

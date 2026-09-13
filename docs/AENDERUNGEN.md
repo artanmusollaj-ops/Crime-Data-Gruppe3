@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **729** |
+| Tests | **731** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -39,6 +39,36 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 13.09.2026 · Verantwortliche je Datensatz (#64)
+
+**Was.** Absprache 7.3 hat eine Tabelle *Verantwortliche je Datensatz*: jede
+Stufe des Run-Controllers, der Datensatz dahinter, das Modul, wer zuständig
+ist, und wo es belegt ist. Punkt 7 der Schwachstellenliste.
+
+**Warum.** Die Schritt-Tabelle in 7.3 sagte, wer *baut* — nicht, wen man
+fragt, wenn eine Quelle klemmt. Tabelle 5.3 des Konzepts führte das als Lücke
+unter *Data Management*: „niemand ist für einen Datensatz benannt".
+
+**Was drinsteht.** Stand nach der Arbeitsteilung vom 12.9.: alle sechs
+Ingestion-Stufen, Silver, Gold und Serving bei Christian; Hypothesen und die
+vier Abgabedokumente bei Artan. Das ist keine Wunschverteilung, sondern der
+Befund aus der Git-Historie — jeder Pull Request an der Datenstrecke seit #2
+ist von Christian. Eine Stellvertretung regelt die Tabelle bewusst nicht:
+bei zwei Personen ist der andere der einzige Ausweg.
+
+**Wächter.** `tests/test_unterstroemungen.py` liest die Tabelle und hält sie
+gegen `run_all.STUFEN`: Kommt eine Stufe dazu, fällt der Test, bis sie in der
+Absprache einen Verantwortlichen hat. Ein zweiter Test lässt nur Christian,
+Artan oder „beide" als Namen zu.
+
+**In Artans Dokumenten.** Absprache 7.3: die Tabelle als datierter Nachtrag,
+unter dem bestehenden Entscheid. Konzept 5.3: die Lücke aus der Zeile
+*Data Management* gestrichen, die Umsetzung um den Verweis ergänzt.
+
+**Zahlen.** 729 → **731 Tests**.
 
 ---
 
