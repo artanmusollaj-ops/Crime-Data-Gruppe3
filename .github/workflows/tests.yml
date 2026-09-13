@@ -70,12 +70,25 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
 
       - name: Abhaengigkeiten installieren
-        # Aus dem Lockfile, nicht aus den Bereichen: CI soll denselben Stand
-        # haben wie ein Entwickler, der ihn nachstellt.
+        # Zwei Wege, mit Absicht. 3.13 installiert aus dem Lockfile: derselbe
+        # Stand wie ein Entwickler, der ihn nachstellt. 3.11 installiert aus
+        # den Bereichen in pyproject.toml - das Lockfile kann es nicht, numpy
+        # 2.5 verlangt Python 3.12, und genau das prueft dieser Job: dass die
+        # Zusage "3.11 oder neuer" mit den erlaubten Bereichen noch stimmt.
+        #
+        # shell: bash auch unter Windows. PowerShell bricht bei einem
+        # gescheiterten pip nicht ab - der erste Windows-Lauf installierte
+        # nichts und meldete dann "No module named pytest".
+        shell: bash
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.lock
-          python -m pip install -e . --no-deps
+          if [ "${{ matrix.python }}" = "3.13" ]; then
+            python -m pip install -r requirements.lock
+            python -m pip install -e . --no-deps
+          else
+            python -m pip install -r requirements.txt
+          fi
 
       - name: Tests
         # Kein Netz noetig und kein Schluessel: Die Werkzeug-Tests fallen auf

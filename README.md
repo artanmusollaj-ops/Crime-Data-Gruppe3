@@ -76,7 +76,7 @@ python -m pip install -r requirements.txt
 
 `requirements.txt` installiert das Projekt editierbar; die Abhängigkeiten stehen
 in `pyproject.toml` als Bereiche. Wer **exakt** den Stand will, mit dem CI
-läuft:
+unter Python 3.13 läuft:
 
 ```bash
 python -m pip install -r requirements.lock && python -m pip install -e . --no-deps
