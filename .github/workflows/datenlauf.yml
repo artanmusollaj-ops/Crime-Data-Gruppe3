@@ -1,0 +1,116 @@
+# Der woechentliche Datenlauf: laedt alle fuenf Quellen, baut Silver, Gold und
+# Serving - und laesst dann die Tests laufen, die ein frischer Klon nicht
+# ausfuehren kann.
+#
+# Warum es das braucht: tests.yml prueft auf jedem Pull Request 658 von 698
+# Tests. Die 40 uebrigen brauchen gebaute Daten - und das sind ausgerechnet
+# die Waechter: Zahlen in den Abgabedokumenten gegen die Parquet-Dateien, die
+# Einwohnerprobe der Stadtzuordnung, "kein Delikt in der falschen Stadt".
+# Bis zu diesem Workflow liefen sie nur, wenn jemand lokal pytest tippte.
+# CI bewies den Code, nicht die Daten.
+#
+# Was ein rotes Ergebnis bedeutet - und das ist der Punkt, nicht ein Mangel:
+# Die Quellen bewegen sich. Detroit aendert Eintraege noch Jahre nach der Tat,
+# Chicago liefert Deltas. Wenn ein frischer Lauf andere Zahlen baut als die,
+# die in ln1_konzept.md stehen, dann sind die Dokumente gegenueber der Quelle
+# veraltet. Genau das soll jemand erfahren, bevor er die alte Zahl auf eine
+# Folie setzt. Rot heisst hier: "Der dokumentierte Stand und die Quelle sind
+# auseinander" - der Freshness-Alarm, den es bisher nicht gab.
+#
+# Was der Lauf braucht: CENSUS_API_KEY als Repository-Secret (Settings ->
+# Secrets and variables -> Actions). Ohne ihn liefert die Census-API HTTP 200
+# mit einer HTML-Seite "Missing Key"; die Pipeline erkennt das und bricht ab.
+# Der erste Schritt prueft das Secret deshalb vorab und sagt, was fehlt.
+# SOCRATA_APP_TOKEN ist optional; ohne ihn ist Chicago nur langsamer.
+#
+# Was der Lauf NICHT tut: Daten committen. data/ bleibt aus der Versionierung
+# ausgeschlossen. Was bleibt, ist ein Artefakt mit dem Gesamtmanifest -
+# welche Laeufe, welcher Fingerabdruck, wie alt jede Quelle - und dem
+# Testprotokoll.
+
+name: Datenlauf
+
+on:
+  schedule:
+    # Montags 06:00 UTC. Frueh genug, dass ein rotes Ergebnis die Woche
+    # eroeffnet, statt am Freitag vor der Abgabe aufzufallen.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      ohne_ingestion:
+        description: "Nur neu ableiten? (Braucht vorher geladene Daten - in CI praktisch nie.)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: datenlauf
+  cancel-in-progress: false
+
+jobs:
+  datenlauf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Secret vorhanden?
+        # Vorab statt bei Stufe 5 von 13. Eine Ingestion, die zwanzig Minuten
+        # laeuft und dann an einem fehlenden Schluessel stirbt, ist die
+        # teuerste Art, es zu erfahren.
+        env:
+          CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
+        run: |
+          if [ -z "$CENSUS_API_KEY" ]; then
+            echo "::error::CENSUS_API_KEY fehlt als Repository-Secret. Kostenlos unter https://api.census.gov/data/key_signup.html, dann Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+          echo "CENSUS_API_KEY ist gesetzt."
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.lock
+
+      - name: poppler-utils
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
+
+      - name: Abhaengigkeiten installieren
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.lock
+          python -m pip install -e . --no-deps
+
+      - name: Die ganze Strecke
+        # Der Controller kennt die Reihenfolge und bricht beim ersten Fehler
+        # ab. Die Schluessel kommen als Umgebungsvariablen; die Pipelines
+        # lesen sie ueber os.getenv, eine .env-Datei braucht es dafuer nicht.
+        env:
+          CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
+          SOCRATA_APP_TOKEN: ${{ secrets.SOCRATA_APP_TOKEN }}
+        run: |
+          if [ "${{ inputs.ohne_ingestion }}" = "true" ]; then
+            python -m orchestration.run_all --ohne-ingestion
+          else
+            python -m orchestration.run_all
+          fi
+
+      - name: Alle Tests, jetzt mit Daten
+        # Hier laufen die 40, die ein Pull Request ueberspringt. Rot heisst:
+        # Der dokumentierte Stand und die Quelle sind auseinander.
+        run: python -m pytest -q -rs
+
+      - name: Gesamtmanifest sichern
+        # Auch wenn die Tests rot sind - gerade dann. Das Manifest sagt,
+        # welche Laeufe es waren und wie alt jede Quelle ist.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline_run
+          path: data/pipeline_run.json
+          if-no-files-found: warn
+          retention-days: 90
