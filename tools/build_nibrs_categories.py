@@ -111,8 +111,12 @@ def text_aus_pdf(pfad: Path) -> list[str]:
     except subprocess.CalledProcessError as fehler:
         raise LeseFehler(f"pdftotext scheiterte: {fehler}") from fehler
     # Nicht splitlines: Der Seitenvorschub \x0c wuerde als Zeilenende zaehlen
-    # und die Einrueckung der Folgezeile verschieben.
-    return fertig.stdout.decode("utf-8", "replace").split("\n")
+    # und die Einrueckung der Folgezeile verschieben. Aber \r muss weg -
+    # unter Windows schreibt pdftotext \r\n, und ein Regex, der die
+    # Einrueckung zaehlt, sieht dann keine einzige Ueberschrift mehr. Gefunden
+    # hat das der erste Windows-Lauf in CI: "Code ohne Kategorie: Arson".
+    return [z.rstrip("\r") for z in
+            fertig.stdout.decode("utf-8", "replace").split("\n")]
 
 
 def kategorien(zeilen: list[str]) -> list[dict[str, str]]:

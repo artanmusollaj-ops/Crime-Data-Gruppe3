@@ -22,7 +22,9 @@ import pytest
 
 duckdb = pytest.importorskip("duckdb")
 
-import export_geojson as eg
+# Erst nach importorskip: Das Modul braucht duckdb, und ohne duckdb soll die
+# Datei uebersprungen werden statt beim Import zu scheitern.
+import export_geojson as eg  # noqa: E402
 
 
 PARQUET = "part-0001.parquet"

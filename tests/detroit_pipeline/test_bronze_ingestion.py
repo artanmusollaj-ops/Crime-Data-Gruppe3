@@ -239,7 +239,7 @@ class RawSchichtTests(unittest.TestCase):
 
     def test_bronze_nennt_seinen_beweis(self) -> None:
         with TemporaryDirectory() as tmp:
-            wurzel, _, manifest_path = self._lauf(tmp)
+            _, _, manifest_path = self._lauf(tmp)
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             self.assertIn("raw layer", manifest["payload_contract"])
             raw = manifest["raw_layer"]

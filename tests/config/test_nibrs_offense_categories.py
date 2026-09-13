@@ -223,7 +223,17 @@ def test_ein_zweiter_lauf_liefert_dieselbe_datei(tmp_path):
     """Die Datei ist gelesen, nicht gepflegt - also muss sie sich erzeugen lassen.
 
     Braucht ``pdftotext``; fehlt es, wird der Test uebersprungen statt rot.
+
+    **Nur unter Linux.** Die Reproduktion ist gegen ``poppler-utils`` definiert,
+    wie CI es installiert. Der erste Windows-Lauf in CI zeigte, dass dessen
+    ``pdftotext -layout`` die Spalten anders setzt: Die Ueberschrift *Arson*
+    stand nicht mehr auf Einrueckung 2-3, das Werkzeug meldete "Code ohne
+    Kategorie". Das ist keine Schwaeche der Datei, sondern des Umwegs ueber
+    ein Layout-Werkzeug - und der Umweg gilt fuer genau einen Build. Die
+    beiden MICR-Tests trifft es genauso; sie ueberspringen sich dort ebenso.
     """
+    if sys.platform == "win32":
+        pytest.skip("Reproduktion ist gegen poppler-utils unter Linux definiert")
     if not HANDBUCH.exists():
         pytest.skip("Handbuch liegt nicht vor")
     vorher = KATEGORIEN.read_text(encoding="utf-8")

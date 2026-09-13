@@ -165,7 +165,9 @@ def manual_text() -> list[str]:
             ["pdftotext", "-layout", str(MANUAL), str(ziel)],
             check=True, capture_output=True,
         )
-        return ziel.read_text(encoding="utf-8", errors="replace").split("\n")
+        # \r entfernen, nicht splitlines - siehe build_nibrs_categories.
+        return [z.rstrip("\r") for z in
+                ziel.read_text(encoding="utf-8", errors="replace").split("\n")]
 
 
 def arrest_charges(zeilen: list[str]) -> dict[str, tuple[str, str]]:

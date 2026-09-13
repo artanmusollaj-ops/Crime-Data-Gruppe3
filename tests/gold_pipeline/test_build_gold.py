@@ -13,7 +13,6 @@ werden als kleine Parquet-Dateien zur Laufzeit erzeugt.
 
 from __future__ import annotations
 
-import csv
 import struct
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -23,7 +22,7 @@ import pyarrow.parquet as pq
 import pytest
 
 import build_gold as bg
-from gold_pipeline import STADT_SCHWELLE, STUDIENSTAEDTE
+from gold_pipeline import STUDIENSTAEDTE
 from silver_pipeline import TransformError, connect
 
 

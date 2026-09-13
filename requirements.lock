@@ -1,0 +1,42 @@
+# Exakte Versionen fuer Python 3.13, aus einer frischen Installation von
+# requirements.txt eingefroren (python -m pip freeze --exclude-editable).
+#
+# Nur 3.13: numpy 2.5 verlangt Python 3.12, ein Lockfile gilt also je
+# Interpreter. CI installiert 3.11 deshalb aus den Bereichen und prueft
+# damit, dass "3.11 oder neuer" noch stimmt - der erste CI-Lauf mit
+# diesem Lockfile fiel genau daran.
+#
+# Warum es diese Datei braucht: pyproject.toml nennt Bereiche wie
+# duckdb>=1.1,<2. Damit bekommen CI, Christian und Artan je nach Tag
+# verschiedene Versionen - am 13.9.2026 hatte der eine numpy 2.5.2, der
+# frische Klon 2.5.3. Ein Test, der hier gruen ist und dort rot, ist dann
+# nicht mehr auf den Code zurueckzufuehren.
+#
+# CI installiert aus dieser Datei. Entwickler duerfen weiter requirements.txt
+# nehmen; wer denselben Stand wie CI will:
+#
+#   python -m pip install -r requirements.lock && python -m pip install -e . --no-deps
+#
+# Aktualisieren: frische Umgebung, requirements.txt installieren, freeze.
+certifi==2026.7.22
+charset-normalizer==3.5.1
+duckdb==1.5.5
+et_xmlfile==2.0.0
+idna==3.19
+iniconfig==2.3.0
+numpy==2.5.3
+openpyxl==3.1.5
+packaging==26.3
+pandas==3.0.5
+pluggy==1.6.0
+pyarrow==25.0.1
+pygments==2.21.0
+pyogrio==0.13.0
+pytest==9.1.1
+python-dateutil==2.9.0.post0
+python-dotenv==1.2.3
+requests==2.34.2
+ruff==0.16.7
+six==1.17.0
+tzdata==2026.4
+urllib3==2.7.0

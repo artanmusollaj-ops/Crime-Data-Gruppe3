@@ -371,7 +371,7 @@ def snapshot_ids(
         try:
             batch = [int(row[ID_FIELD]) for row in page]
         except (KeyError, TypeError, ValueError) as error:
-            raise IngestionError(f"Unbrauchbare id in der Snapshot-Liste: {error}")
+            raise IngestionError(f"Unbrauchbare id in der Snapshot-Liste: {error}") from error
         ids.extend(batch)
         after_id = batch[-1]
         log.info("Snapshot: %s id(s) festgeschrieben", f"{len(ids):,}")
@@ -429,7 +429,7 @@ def fetch_records(
         try:
             after_id = int(page[-1][ID_FIELD])
         except (KeyError, TypeError, ValueError) as error:
-            raise IngestionError(f"Datensatz ohne brauchbare id: {error}")
+            raise IngestionError(f"Datensatz ohne brauchbare id: {error}") from error
 
         records.extend(page)
         bodies.append(body)
@@ -445,7 +445,7 @@ def verify_snapshot(records: list[dict[str, Any]], expected_ids: list[int]) -> N
     try:
         geladen = {int(row[ID_FIELD]) for row in records}
     except (KeyError, TypeError, ValueError) as error:
-        raise IngestionError(f"Datensatz ohne brauchbare id: {error}")
+        raise IngestionError(f"Datensatz ohne brauchbare id: {error}") from error
 
     erwartet = set(expected_ids)
     if geladen == erwartet:

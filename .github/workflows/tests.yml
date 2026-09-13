@@ -8,7 +8,7 @@
 # Was hier NICHT geprueft wird: die Zahlen gegen die gebauten Daten. `data/`
 # ist aus der Versionierung ausgeschlossen, ein frischer Klon hat es also
 # nicht - die betroffenen Tests ueberspringen sich selbst. Was laeuft, ist
-# alles uebrige: 654 von 694 Tests, darunter beide Testzahl-Waechter, die
+# alles uebrige: 658 von 698 Tests, darunter beide Testzahl-Waechter, die
 # Reproduzierbarkeit der Crosswalks aus den PDFs und die Form der Dokumente.
 
 name: Tests
@@ -27,14 +27,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  pytest:
+  ruff:
+    # Zuerst und allein: Pyflakes findet in Sekunden, wofuer die Suite zwei
+    # Minuten braucht - und Fehler, die kein Test sieht.
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install ruff==0.16.7
+      - run: ruff check src tests tools
+
+  pytest:
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         # 3.11 ist die Untergrenze aus pyproject.toml, 3.13 die Version, auf
-        # der entwickelt wird. Beide zu pruefen macht aus der Zusage im README
-        # eine gepruefte Aussage statt einer Behauptung.
+        # der entwickelt wird. Windows, weil Artan darauf entwickelt - eine
+        # Anleitung mit PowerShell-Befehlen und ein CI, das sie nie ausfuehrt,
+        # widersprechen sich.
+        os: [ubuntu-latest, windows-latest]
         python: ["3.11", "3.13"]
 
     steps:
@@ -44,20 +58,41 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: requirements.lock
 
       - name: poppler-utils
         # Liefert pdftotext. Die Werkzeuge unter tools/ lesen damit die
         # amtlichen PDFs, und drei Tests pruefen, dass sich die Crosswalks
-        # daraus byteweise reproduzieren lassen. Ohne poppler ueberspringen
-        # sie sich - dann waere die Zusage "reproduzierbar abgeleitet"
-        # ausgerechnet dort ungeprueft, wo automatisch geprueft wird.
+        # daraus byteweise reproduzieren lassen. Nur unter Linux: Der
+        # Windows-Runner hat zwar ein pdftotext, aber ein anderer Build setzt
+        # die Spalten anders, und alle drei PDF-Reproduktionen haengen am
+        # Layout. Sie sind gegen poppler-utils definiert und ueberspringen
+        # sich unter Windows mit genau dieser Begruendung. Windows prueft, ob
+        # der Code laeuft - und hat dabei den \r-Fehler in beiden
+        # PDF-Werkzeugen gefunden.
+        if: runner.os == 'Linux'
         run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
 
       - name: Abhaengigkeiten installieren
+        # Zwei Wege, mit Absicht. 3.13 installiert aus dem Lockfile: derselbe
+        # Stand wie ein Entwickler, der ihn nachstellt. 3.11 installiert aus
+        # den Bereichen in pyproject.toml - das Lockfile kann es nicht, numpy
+        # 2.5 verlangt Python 3.12, und genau das prueft dieser Job: dass die
+        # Zusage "3.11 oder neuer" mit den erlaubten Bereichen noch stimmt.
+        #
+        # shell: bash auch unter Windows. PowerShell bricht bei einem
+        # gescheiterten pip nicht ab - der erste Windows-Lauf installierte
+        # nichts und meldete dann "No module named pytest".
+        shell: bash
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          if [ "${{ matrix.python }}" = "3.13" ]; then
+            python -m pip install -r requirements.lock
+            python -m pip install -e . --no-deps
+          else
+            python -m pip install -r requirements.txt
+          fi
 
       - name: Tests
         # Kein Netz noetig und kein Schluessel: Die Werkzeug-Tests fallen auf

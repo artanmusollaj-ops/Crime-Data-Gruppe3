@@ -51,9 +51,7 @@ nicht existierende Ortszeit nennt; ``reconcile`` zaehlt sie.
 from __future__ import annotations
 
 import argparse
-import csv
 import logging
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, NamedTuple

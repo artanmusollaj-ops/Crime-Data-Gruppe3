@@ -75,7 +75,15 @@ python -m pip install -r requirements.txt
 ```
 
 `requirements.txt` installiert das Projekt editierbar; die Abhängigkeiten stehen
-in `pyproject.toml`. Danach sind alle Pipelines importierbar, unabhängig vom
+in `pyproject.toml` als Bereiche. Wer **exakt** den Stand will, mit dem CI
+unter Python 3.13 läuft:
+
+```bash
+python -m pip install -r requirements.lock && python -m pip install -e . --no-deps
+```
+
+Der Unterschied ist real — am 13.9. hatte ein Rechner `numpy 2.5.2`, der frische
+Klon `2.5.3`. Danach sind alle Pipelines importierbar, unabhängig vom
 aktuellen Verzeichnis:
 
 ```text
@@ -163,7 +171,7 @@ Zugriff auf Chicago ebenfalls, wird aber stärker gedrosselt.
 python -m pytest
 ```
 
-Erwartet werden **694 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **698 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -379,7 +387,7 @@ können.
 python -m pytest
 ```
 
-**694 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**698 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -396,13 +404,24 @@ python -m pytest
   Parquet-Dateien. Eine Zahl auf einer Folie, die der Zahl im Konzept
   widerspricht, ist der teuerste Fehler in einer Abgabe.
 
+### Vor den Tests: `ruff`
+
+```bash
+ruff check src tests tools
+```
+
+Pyflakes-Regeln plus `raise … from`: ungenutzte Importe, undefinierte Namen,
+verschluckte Ursachen. Das sind die Fehler, die eine Testsuite nicht sieht —
+zwei davon sind an einem Tag durchgerutscht, bevor es die Prüfung gab. CI führt
+sie vor der Suite aus.
+
 ### Sie laufen auch ohne dich
 
 Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request und
-auf `main` aus, unter Python **3.11 und 3.13** — die Untergrenze aus
-`pyproject.toml` und die Version, auf der entwickelt wird.
+auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
+Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **654 der 694 Tests**. Die übrigen 34 überspringen
+In einem frischen Klon laufen **658 der 698 Tests**. Die übrigen 34 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
