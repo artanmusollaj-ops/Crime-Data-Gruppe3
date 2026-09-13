@@ -42,4 +42,4 @@ LAUF_MANIFEST = "pipeline_run.json"
 # Ingestion ``SUCCESS``. Das zu vereinheitlichen wuerde jedes bereits
 # geschriebene Manifest ungueltig machen; der Controller nimmt deshalb beide
 # und nennt sie hier einmal, statt die Kenntnis zu verstreuen.
-FERTIG = {"complete", "success"}
+from manifeste import FERTIG  # noqa: E402,F401 - hier beheimatet, dort einmal definiert

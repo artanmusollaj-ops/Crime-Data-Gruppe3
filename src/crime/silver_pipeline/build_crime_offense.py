@@ -54,6 +54,8 @@ import argparse
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+
+from manifeste import fertige_laeufe
 from typing import Any, NamedTuple
 
 import duckdb
@@ -65,7 +67,6 @@ from silver_pipeline import (
     TransformError,
     connect,
     publish,
-    read_manifest,
     schema_of,
 )
 
@@ -180,17 +181,15 @@ def chicago_sources(data_root: Path) -> Source:
     pfade: list[Path] = []
     laeufe: list[str] = []
     zeilen = 0
-    for manifest_path in sorted(wurzel.glob("ingest_date=*/run_*/manifest.json")):
-        manifest = read_manifest(manifest_path.parent)
-        if manifest.get("status") != "complete":
-            LOG.warning("Lauf uebersprungen, nicht complete: %s", manifest_path.parent)
-            continue
-        parquet = manifest_path.parent / PARQUET_FILE
+    for lauf in fertige_laeufe(
+        wurzel, "ingest_date=*/run_*/manifest.json", fehler=TransformError
+    ):
+        parquet = lauf.verzeichnis / PARQUET_FILE
         if not parquet.exists():
-            raise TransformError(f"Lauf ohne Parquet-Datei: {manifest_path.parent}")
+            raise TransformError(f"Lauf ohne Parquet-Datei: {lauf.verzeichnis}")
         pfade.append(parquet)
-        laeufe.append(str(manifest.get("run_id") or manifest_path.parent.name))
-        zeilen += int(manifest.get("row_count") or 0)
+        laeufe.append(lauf.run_id)
+        zeilen += lauf.zeilen
 
     if not pfade:
         raise TransformError(
@@ -223,23 +222,15 @@ def detroit_sources(data_root: Path) -> Source:
     pfade: list[Path] = []
     laeufe: list[str] = []
     zeilen = 0
-    for manifest_path in sorted(wurzel.glob("**/run_*/manifest.json")):
-        # Ein noch nicht veroeffentlichter Lauf liegt in einem versteckten
-        # .partial-Verzeichnis. Er darf nie mitgelesen werden.
-        if any(teil.startswith(".") for teil in manifest_path.parts):
-            continue
-        manifest = read_manifest_file(manifest_path)
-        if str(manifest.get("status", "")).upper() != "SUCCESS":
-            LOG.warning("Lauf uebersprungen, nicht SUCCESS: %s", manifest_path.parent)
-            continue
-        datei = manifest_path.parent / str(
-            manifest.get("bronze_file") or PARQUET_FILE
-        )
+    # Versteckte .partial-Verzeichnisse und das SUCCESS-Vokabular kennt der
+    # gemeinsame Leser; Detroit braucht hier keinen Sonderweg mehr.
+    for lauf in fertige_laeufe(wurzel, fehler=TransformError):
+        datei = lauf.datei(PARQUET_FILE)
         if not datei.exists():
-            raise TransformError(f"Manifest ohne Parquet-Datei: {manifest_path}")
+            raise TransformError(f"Manifest ohne Parquet-Datei: {lauf.verzeichnis}")
         pfade.append(datei)
-        laeufe.append(str(manifest.get("pipeline_run_id") or manifest_path.parent.name))
-        zeilen += int(manifest.get("downloaded_count") or 0)
+        laeufe.append(lauf.run_id)
+        zeilen += lauf.zeilen
 
     if not pfade:
         veraltet = sorted(wurzel.glob("*.ndjson"))

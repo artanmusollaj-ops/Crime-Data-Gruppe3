@@ -37,6 +37,8 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
+
+from manifeste import fertige_laeufe
 from typing import Any
 
 import duckdb
@@ -72,14 +74,10 @@ def newest_complete_run(parent: Path, *, what: str) -> Path:
     deshalb ist der letzte sortierte Eintrag der juengste.
     """
     kandidaten = []
-    for manifest_path in sorted(parent.glob("run_*/manifest.json")):
-        if read_manifest(manifest_path.parent).get("status") != "complete":
-            continue
-        if not (manifest_path.parent / PARQUET_FILE).exists():
-            raise TransformError(
-                f"Lauf ohne Parquet-Datei: {manifest_path.parent}"
-            )
-        kandidaten.append(manifest_path.parent)
+    for lauf in fertige_laeufe(parent, "run_*/manifest.json", fehler=TransformError):
+        if not (lauf.verzeichnis / PARQUET_FILE).exists():
+            raise TransformError(f"Lauf ohne Parquet-Datei: {lauf.verzeichnis}")
+        kandidaten.append(lauf.verzeichnis)
 
     if not kandidaten:
         raise TransformError(

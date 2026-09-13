@@ -13,6 +13,7 @@ import sys
 from census_pipeline import download_acs
 from chicago_pipeline import download_chicago
 from gold_pipeline import build_gold
+import manifeste
 from orchestration import run_all
 from serving import build_analysis_db, export_geojson
 from silver_pipeline import (
@@ -27,6 +28,7 @@ sys.modules["build_analysis_db"] = build_analysis_db
 sys.modules["export_geojson"] = export_geojson
 sys.modules["build_crime_offense"] = build_crime_offense
 sys.modules["build_gold"] = build_gold
+sys.modules["manifeste"] = manifeste
 sys.modules["run_all"] = run_all
 sys.modules["build_place"] = build_place
 sys.modules["build_tract"] = build_tract
