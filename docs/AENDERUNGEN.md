@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **722** |
+| Tests | **729** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -39,6 +39,49 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 13.09.2026 · Die Aktualität wird geprüft, nicht nur aufgezeichnet (#63)
+
+**Was.** `run_all --maximal-alter-tage N`: Ist der jüngste Lauf einer Quelle
+älter, scheitert der Lauf und nennt Quelle und Alter. Der Datenlauf gibt
+**acht Tage** mit. Punkt 6 der Schwachstellenliste.
+
+**Warum.** Das Gesamtmanifest nannte seit #58 je Quelle den jüngsten Lauf —
+und niemand las es. *„Aktualität wird aufgezeichnet, nicht geprüft"* stand als
+Lücke in Tabelle 5.3. Eine Zahl, die niemand gegen etwas hält, ist keine
+Kontrolle.
+
+**Wann geprüft wird, hängt vom Modus ab.** Bei `--ohne-ingestion` **vor** der
+ersten Stufe: Die Daten werden dabei nicht frischer, und ein Gold auf
+veraltetem Bronze wäre genau die Zahl, die dann auf einer Folie landet. Mit
+Ingestion **danach**: Jetzt sollten alle Quellen frisch sein — sind sie es
+nicht, hat eine Quelle nichts Neues geliefert, und das will man erfahren.
+
+**Gegen die echten Daten probiert.** Schwelle ein Tag:
+
+```
+Zu alt: city=chicago (7.1 Tage), city=detroit (1.1 Tage),
+dataset=acs5_tract (6.9 Tage), dataset=noaa_ghcnd (4.6 Tage),
+dataset=tiger_place (1.2 Tage), dataset=tiger_tract (6.9 Tage).
+Erlaubt: 1.0 Tage.
+```
+
+Nichts gebaut. Mit dreissig Tagen: sieben Stufen in zwei Sekunden.
+
+**Warum acht Tage im Datenlauf.** Wochentakt plus Reserve, NOAAs vier Tage
+Nachlauf eingeschlossen. Eine Quelle, die eine Woche lang nichts Neues
+liefert, lässt den Montagslauf rot werden.
+
+**Was weiterhin fehlt, und jetzt ehrlich so heisst.** Kapitel 9 sagte „keine
+Alarmierung und keine Freshness-Kontrolle". Die zweite gibt es jetzt; die
+erste nicht: Der Lauf wird rot, aber niemand wird angerufen. Wer es erfahren
+will, muss auf *Actions* sehen.
+
+**Zahlen.** 722 → **729 Tests**.
+
+**Nachlesen.** `src/crime/orchestration/run_all.py` · PR #63
 
 ---
 

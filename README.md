@@ -171,7 +171,7 @@ Zugriff auf Chicago ebenfalls, wird aber stärker gedrosselt.
 python -m pytest
 ```
 
-Erwartet werden **722 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **729 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -198,7 +198,10 @@ python -m orchestration.run_all --trocken        # nur zeigen, was liefe
 ```
 
 Der Controller kennt die Reihenfolge, bricht bei der ersten gescheiterten Stufe
-ab und schreibt `data/pipeline_run.json`: welche Stufen liefen, **auf welchen
+ab und schreibt `data/pipeline_run.json`. Mit `--maximal-alter-tage 8` scheitert
+er ausserdem, wenn der jüngste Lauf einer Quelle älter ist — bei
+`--ohne-ingestion` schon **vor** der ersten Stufe, weil die Daten dabei nicht
+frischer werden. Das Manifest enthält: welche Stufen liefen, **auf welchen
 Bronze-Läufen** das Ergebnis ruht, wie alt jede Quelle ist, und einen
 Fingerabdruck über die Eingaben. Zwei Läufe auf demselben Stand tragen
 denselben Fingerabdruck.
@@ -387,7 +390,7 @@ können.
 python -m pytest
 ```
 
-**722 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**729 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -421,7 +424,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **682 der 722 Tests**. Die übrigen 34 überspringen
+In einem frischen Klon laufen **689 der 729 Tests**. Die übrigen 34 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
