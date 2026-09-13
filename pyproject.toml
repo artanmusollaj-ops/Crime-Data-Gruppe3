@@ -48,6 +48,10 @@ dev = [
     # 81 NIBRS-Bezeichnungen. Ohne sie ueberspringen sich sechs Tests
     # stillschweigend, und die Codeliste haette wieder nur eine Quelle.
     "openpyxl>=3.1,<4",
+    # Statische Pruefung. 694 Tests fingen zwei Fehler eines Tages nicht -
+    # einen falschen Modulalias und eine doppelt vergebene Variable. Pyflakes
+    # meldet beides, bevor ein Test laeuft.
+    "ruff>=0.16,<1",
 ]
 
 [tool.setuptools.packages.find]
@@ -58,3 +62,18 @@ testpaths = ["tests"]
 addopts = "-q"
 # Fallback, damit die Tests auch ohne Installation laufen.
 pythonpath = ["src/crime"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# Bewusst schmal: nur, was ein Fehler ist, nichts, was Geschmack ist.
+#   E4, E7, E9  Import-, Anweisungs- und Laufzeitfehler aus pycodestyle
+#   F           Pyflakes - ungenutzte Importe, undefinierte Namen, doppelte
+#               Argumente. Die Klasse Fehler, die Tests nicht sehen.
+#   B904        raise ohne "from" im except - verschluckt die Ursache
+#   RUF059      entpackte Variable, die nie benutzt wird
+# Importsortierung (I) und zip(strict=) (B905) waeren rund 60 Aenderungen
+# ohne einen gefangenen Fehler. Nicht aufgenommen.
+select = ["E4", "E7", "E9", "F", "B904", "RUF059"]

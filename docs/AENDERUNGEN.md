@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **694** |
+| Tests | **698** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -39,6 +39,46 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 13.09.2026 · Die Unterströmungen gegen das Projekt geprüft — und drei Zeilen Werkzeug (#59)
+
+**Was.** Tabelle 5.3 neu geschrieben und mit einem Wächter versehen; `ruff`,
+ein Lockfile und Windows in der CI-Matrix. Punkte 1 und 2 der
+Schwachstellenliste vom 13.9.
+
+**Warum die Tabelle einen Wächter braucht.** Sie war **dreimal** veraltet,
+während die Arbeit lief, die sie beschreibt: ein Feldkatalog als Lücke, den es
+seit #57 gab; eine Orchestrierung als „bewusst offen", die seit #58 gebaut war;
+eine leere Lücken-Spalte bei Software Engineering, wo kein Linter und kein
+Lockfile existierten. Dieselbe Drift wie bei den Zahlen — nur in Worten.
+
+Wörter lassen sich nicht gegen Parquet halten, aber jede Zeile behauptet oder
+vermisst etwas, das als **Datei** existiert oder nicht. `test_unterstroemungen.py`
+prüft: Was *Umsetzung* nennt, muss es geben; was *Lücke* nennt, darf es nicht
+geben; und die Testzahl stimmt — eine dritte Stelle neben README und dieser
+Datei.
+
+**Was jetzt in der Tabelle steht — ehrlich.** Die grösste Lücke ist neu
+benannt: **Die 40 datengebundenen Wächter laufen nur lokal.** CI beweist den
+Code, nicht die Daten. Dazu: niemand ist für einen Datensatz verantwortlich,
+keine Aufbewahrungsregel, keine Zeitplanung, die Notebooks laufen nicht in CI.
+
+**Drei Zeilen Werkzeug.**
+
+| | Was | Was es sofort fand |
+| --- | --- | --- |
+| `ruff` | Pyflakes plus `raise … from`; bewusst schmal, keine Stilregeln | **12 echte Funde**: 7 ungenutzte Importe, 3 `raise` ohne `from` in Chicagos Ingestion (verschluckt die Ursache), 8 Semikolon-Einzeiler — und einen Einzeiler-Import im Wächter selbst, noch bevor der lief |
+| `requirements.lock` | exakte Versionen aus einer frischen Installation | die Drift war real: der Rechner hatte `numpy 2.5.2`, der frische Klon `2.5.3` |
+| Windows in CI | `windows-latest` × Python 3.11 / 3.13 | Artan entwickelt darauf — eine Anleitung mit PowerShell und ein CI, das sie nie ausführt, widersprechen sich |
+
+Importsortierung und `zip(strict=)` sind **nicht** aufgenommen: rund 60
+Änderungen ohne einen gefangenen Fehler.
+
+**Zahlen.** 694 → **698 Tests**; im frischen Klon 658.
+
+**Nachlesen.** `docs/ln1_konzept.md` 5.3 · `tests/test_unterstroemungen.py` · PR #59
 
 ---
 

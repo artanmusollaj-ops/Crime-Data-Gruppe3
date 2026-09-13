@@ -49,7 +49,8 @@ class ParquetContractTests(unittest.TestCase):
             self.assertEqual(m['rows_with_extra'], 2)
 
     def test_empty_run_is_valid_parquet_and_importable(self):
-        c = TypedClient(); c.features = []
+        c = TypedClient()
+        c.features = []
         with TemporaryDirectory() as d:
             _, m = extract_year(2024, Path(d), client=c)
             self.assertEqual(validate_manifest(m)[1]['downloaded_count'], 0)
@@ -82,11 +83,13 @@ class ParquetContractTests(unittest.TestCase):
             f, m = extract_year(2024, Path(d), client=TypedClient())
             with f.open('ab') as handle:
                 handle.write(b'corruption')
-            with self.assertRaises(DataQualityError): validate_manifest(m)
+            with self.assertRaises(DataQualityError):
+                validate_manifest(m)
 
     def test_run_replay_skipped_but_overlap_retained(self):
         with TemporaryDirectory() as d:
-            root = Path(d); db = root/'crime.duckdb'
+            root = Path(d)
+            db = root/'crime.duckdb'
             _, m1 = extract_year(2024, root/'full', client=TypedClient())
             _, m2 = extract_updated_window(date(2026,9,1),date(2026,9,8),root/'daily',client=TypedClient())
             self.assertEqual(load_run(m1, db), 'IMPORTED')
@@ -98,23 +101,28 @@ class ParquetContractTests(unittest.TestCase):
 
     def test_duckdb_conflicting_identity_rejected(self):
         with TemporaryDirectory() as d:
-            root=Path(d); db=root/'crime.duckdb'
+            root = Path(d)
+            db = root/'crime.duckdb'
             _, m = extract_year(2024, root, client=TypedClient())
             load_run(m, db)
             with duckdb.connect(str(db)) as con:
                 con.execute("UPDATE metadata.bronze_runs SET sha256='different'")
-            with self.assertRaises(DataQualityError): load_run(m, db)
+            with self.assertRaises(DataQualityError):
+                load_run(m, db)
 
     def test_duckdb_transaction_rolls_back_on_ledger_failure(self):
         with TemporaryDirectory() as d:
-            root=Path(d); db=root/'crime.duckdb'
+            root = Path(d)
+            db = root/'crime.duckdb'
             _, m1=extract_year(2024, root/'a', client=TypedClient())
             _, m2=extract_year(2024, root/'b', client=TypedClient())
             load_run(m1, db)
             with duckdb.connect(str(db)) as con:
                 con.execute('CREATE UNIQUE INDEX one_per_source ON metadata.bronze_runs(source_system)')
-            with self.assertRaises(duckdb.ConstraintException): load_run(m2, db)
+            with self.assertRaises(duckdb.ConstraintException):
+                load_run(m2, db)
             with duckdb.connect(str(db)) as con:
                 self.assertEqual(con.execute('SELECT count(*) FROM bronze.detroit_records').fetchone()[0], 5)
 
-if __name__ == '__main__': unittest.main()
+if __name__ == '__main__':
+    unittest.main()

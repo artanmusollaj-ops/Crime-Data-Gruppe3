@@ -532,19 +532,24 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 
 | Unterströmung | Umsetzung | Lücke |
 | --- | --- | --- |
-| **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; ein Test prüft das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel | Datenschutzabschnitt schriftlich |
-| **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Feldkatalog |
-| **DataOps** | 694 Tests, alle ohne Netz und ohne Schlüssel, seit dem 12.9. auf jedem Pull Request in GitHub Actions (Python 3.11 und 3.13); Schreiben über `.part` und atomares Umbenennen, sodass ein abgebrochener Lauf keinen halben Stand hinterlässt | keine Alarmierung, keine Freshness-Kontrolle |
-| **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel | Architekturdiagramm |
-| **Orchestration** | – | **bewusst offen**: die Pipelines werden von Hand in der richtigen Reihenfolge gestartet |
-| **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen bei Drosselung und Serverfehlern | – |
+| **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; drei Tests prüfen das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel. `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
+| **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog mit 131 Spalten, erzeugt aus den Manifesten und getestet. Gesamtmanifest je Lauf mit allen Eingabe-Läufen und Fingerabdruck | niemand ist für einen Datensatz benannt; keine Aufbewahrungsregel für Raw und Bronze; ein Detroit-Lauf vom 11.9. ohne Raw-Gegenstück |
+| **DataOps** | 698 Tests ohne Netz und Schlüssel, auf jedem Pull Request in GitHub Actions — Linux und Windows, Python 3.11 und 3.13; `ruff` davor. Schreiben über `.part` und atomares Umbenennen. Publish-Gate: Gold entsteht nur, wenn die Abdeckung Schwellen hält | die 40 datengebundenen Wächter (Zahlen gegen Parquet, Einwohnerprobe, Stadtzuordnung) laufen nur lokal — CI beweist den Code, nicht die Daten; Aktualität wird aufgezeichnet, nicht geprüft; keine Alarmierung |
+| **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel. `mapping_status` und `geo_status` machen die Vergleichbarkeit je Zeile abfragbar | kein Diagramm der Abhängigkeitskanten; „Manifeste einsammeln" ist elfmal implementiert; Vintage 2024 hart verdrahtet — für mehrere Jahrgänge muss sie je Jahr mitlaufen |
+| **Orchestration** | `orchestration.run_all`: 13 Stufen in Reihenfolge, Abbruch beim ersten Fehler, Gesamtmanifest mit allen Bronze-Läufen und Fingerabdruck über die Eingaben | keine Zeitplanung — die Quellen ändern sich täglich, der Lauf startet, wenn jemand daran denkt; keine Wiederaufnahme, bewusst |
+| **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen. `ruff` mit Pyflakes und `raise … from`, Lockfile, CI-Matrix über zwei Betriebssysteme | die zwölf Notebooks — die Belege der Abgabe — laufen nicht in CI und können still brechen |
 
-**Zur Orchestrierung.** Bei fünf Quellen und vier Batch-Pipelines wären Airflow
-oder Prefect Aufwand ohne Erkenntnisgewinn. Angemessen wäre ein `Makefile` oder
-ein Skript, das die Läufe in der richtigen Reihenfolge aufruft und protokolliert
-— die Reihenfolge ist real, weil `silver/tract` beide Census-Quellen braucht und
-`crime_offense` zusätzlich `tract`. Dass wir es nicht gebaut haben, ist eine
-Abwägung und keine Auslassung; genannt gehört sie trotzdem.
+**Zur Orchestrierung.** Airflow oder Prefect wären bei fünf Quellen und vier
+Batch-Pipelines Aufwand ohne Erkenntnisgewinn. Gebaut ist deshalb ein Skript,
+das die Läufe in der richtigen Reihenfolge aufruft und protokolliert — die
+Reihenfolge ist real, weil `silver/tract` beide Census-Quellen braucht und
+`crime_offense` zusätzlich `tract`. Was fehlt, ist der Anstoss: Nichts startet
+den Lauf von selbst.
+
+**Wozu diese Tabelle einen Wächter hat.** Sie ist dreimal veraltet, während die
+Arbeit lief, die sie beschreibt — ein Feldkatalog als Lücke, den es schon gab;
+eine Orchestrierung als „bewusst offen", die gebaut war. `tests/test_unterstroemungen.py`
+hält jede Zeile gegen das Artefakt, das sie behauptet oder vermisst.
 
 ---
 
@@ -1112,7 +1117,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 694 bestandene Tests
+python -m pytest                       # erwartet 698 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
