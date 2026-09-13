@@ -231,7 +231,11 @@ def test_arguments_defaults(monkeypatch):
     monkeypatch.setattr("sys.argv", ["download_chicago.py"])
     args = dc.arguments()
     assert args.year == dc.DEFAULT_YEAR
-    assert args.data_root == Path("data")
+    # Seit der Storage-Abstraktion entscheidet die Ablage (LOCAL_DATA_ROOT,
+    # Vorgabe data) - die Kommandozeile laesst die Wurzel offen.
+    assert args.data_root is None
+    from storage import for_root
+    assert for_root(args.data_root).local_root == Path("data")
     assert args.max_records is None
     assert args.full is False
     assert args.no_token is False

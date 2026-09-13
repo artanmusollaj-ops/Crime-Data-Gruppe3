@@ -49,10 +49,16 @@ class ManifestFehler(RuntimeError):
 
 
 class Lauf(NamedTuple):
-    """Ein fertiger Lauf: sein Verzeichnis und sein Manifest."""
+    """Ein fertiger Lauf: sein Verzeichnis und sein Manifest.
+
+    ``relativ`` ist der Ablagepfad unter der Wurzel (``bronze/city=.../run_x``),
+    gesetzt von ``storage.Storage.laeufe``; bei einem Lauf, der nur auf S3
+    liegt, existiert ``verzeichnis`` lokal nicht.
+    """
 
     verzeichnis: Path
     manifest: dict[str, Any]
+    relativ: str = ""
 
     @property
     def run_id(self) -> str:
@@ -94,6 +100,7 @@ class Tabelle(NamedTuple):
     name: str
     verzeichnis: Path
     manifest: dict[str, Any]
+    relativ: str = ""
 
     @property
     def zeilen(self) -> int | None:

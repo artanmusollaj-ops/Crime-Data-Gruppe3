@@ -77,6 +77,8 @@ from pathlib import Path
 import duckdb
 
 from serving import SERVING_LAYER
+from storage import for_root
+from storage import duckdb as storage_duckdb
 
 
 LOG = logging.getLogger("export_geojson")
@@ -92,21 +94,22 @@ TOLERANZ = 0.00002
 EIGENSCHAFTEN = ("geoid", "city", "tract_name")
 
 
-def quellen(data_root: Path) -> tuple[Path, Path]:
-    """Die Umrisse aus Silver, die Stadtzuordnung aus Gold."""
-    tract = sorted((data_root / "silver" / "dataset=tract").glob(f"**/{PARQUET_FILE}"))
-    dim = data_root / "gold" / "dataset=dim_tract" / PARQUET_FILE
+def quellen(data_root: Path) -> tuple[str, str]:
+    """Die Umrisse aus Silver, die Stadtzuordnung aus Gold - lokal oder s3://."""
+    ablage = for_root(data_root)
+    tract = ablage.list_files("silver/dataset=tract", f"**/{PARQUET_FILE}")
+    dim = f"gold/dataset=dim_tract/{PARQUET_FILE}"
     if not tract:
         raise RuntimeError(
             f"Keine Tract-Geometrie unter {data_root}/silver/dataset=tract. "
             "Zuerst 'python -m silver_pipeline.build_tract'."
         )
-    if not dim.exists():
+    if not ablage.exists(dim):
         raise RuntimeError(
-            f"{dim} fehlt - ohne sie ist nicht bekannt, welcher Tract zu welcher "
-            "Stadt gehoert. Zuerst 'python -m gold_pipeline.build_gold'."
+            f"{ablage.local_path(dim)} fehlt - ohne sie ist nicht bekannt, welcher "
+            "Tract zu welcher Stadt gehoert. Zuerst 'python -m gold_pipeline.build_gold'."
         )
-    return tract[-1], dim
+    return ablage.resolve_read_path(tract[-1]), ablage.resolve_read_path(dim)
 
 
 def sammle(
@@ -168,7 +171,7 @@ def sammle(
 
 def build(data_root: Path, *, toleranz: float = TOLERANZ, alle: bool = False) -> Path:
     tract, dim = quellen(data_root)
-    con = duckdb.connect()
+    con = storage_duckdb.connect(for_root(data_root).config)
     try:
         con.execute("INSTALL spatial")
         con.execute("LOAD spatial")
@@ -211,7 +214,8 @@ def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Schreibt die Tract-Umrisse als GeoJSON fuer eine Karte."
     )
-    parser.add_argument("--data-root", type=Path, default=Path("data"))
+    parser.add_argument("--data-root", type=Path, default=None,
+                        help="Wurzel der Schichten (Vorgabe: LOCAL_DATA_ROOT oder data)")
     parser.add_argument(
         "--toleranz", type=float, default=TOLERANZ,
         help=f"Douglas-Peucker in Grad, 0 schaltet ab (Vorgabe {TOLERANZ}, ~2 m)",
@@ -231,7 +235,8 @@ def main() -> int:
         format="%(levelname)s %(message)s",
     )
     try:
-        ziel = build(args.data_root, toleranz=args.toleranz, alle=args.alle)
+        ziel = build(for_root(args.data_root).local_root,
+                     toleranz=args.toleranz, alle=args.alle)
     except RuntimeError as fehler:
         LOG.error("%s", fehler)
         return 1

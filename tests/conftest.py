@@ -32,6 +32,24 @@ sys.modules["manifeste"] = manifeste
 sys.modules["run_all"] = run_all
 sys.modules["aufraeumen"] = aufraeumen
 sys.modules["drift"] = drift
+
+
+# Die Ablage kommt aus der Umgebung und wird einmal gelesen. Zwischen zwei
+# Tests darf davon nichts uebrigbleiben - und kein Test darf versehentlich
+# gegen eine .env des Entwicklers laufen, die auf SeaweedFS zeigt.
+import pytest  # noqa: E402
+import storage  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _frische_ablage(monkeypatch):
+    for name in ("STORAGE_BACKEND", "LOCAL_DATA_ROOT", "S3_ENDPOINT", "S3_ACCESS_KEY",
+                 "S3_SECRET_KEY", "S3_BUCKET", "S3_USE_SSL", "HYBRID_READ_PRIORITY",
+                 "HYBRID_PUBLISH_AFTER_WRITE"):
+        monkeypatch.delenv(name, raising=False)
+    storage.set_storage(storage.Storage(storage.Config()))
+    yield
+    storage.set_storage(None)
 sys.modules["build_place"] = build_place
 sys.modules["build_tract"] = build_tract
 sys.modules["build_weather_day"] = build_weather_day

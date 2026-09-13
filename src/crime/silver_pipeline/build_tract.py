@@ -40,6 +40,7 @@ from typing import Any, NamedTuple
 import duckdb
 
 from census_pipeline import STATES
+from storage import for_root
 from silver_pipeline import (
     ACS_MISSING_VALUE,
     BRONZE_LAYER,
@@ -68,12 +69,13 @@ class Source(NamedTuple):
     dataset: str
     state: str
     run_id: str
-    parquet: Path
+    parquet: str   # lokal oder s3://, siehe storage.resolve_read_path
 
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data-root", type=Path, default=Path("data"))
+    parser.add_argument("--data-root", type=Path, default=None,
+                        help="Wurzel der Schichten (Vorgabe: LOCAL_DATA_ROOT oder data)")
     parser.add_argument("--vintage", type=int, default=DEFAULT_VINTAGE)
     parser.add_argument(
         "--state",
@@ -100,17 +102,13 @@ def newest_bronze_run(
     data_root: Path, dataset: str, vintage: int, state: str
 ) -> Source:
     """Der juengste vollstaendige Bronze-Lauf dieser Quelle."""
-    parent = (
-        data_root
-        / BRONZE_LAYER
-        / f"dataset={dataset}"
-        / f"vintage={vintage}"
-        / f"state={state}"
-    )
+    ablage = for_root(data_root)
+    prefix = f"{BRONZE_LAYER}/dataset={dataset}/vintage={vintage}/state={state}"
     lauf = newest_complete_run(
-        parent, what=f"{dataset}, Vintage {vintage}, Staat {state}"
+        ablage, prefix, what=f"{dataset}, Vintage {vintage}, Staat {state}"
     )
-    return Source(dataset, state, lauf.name, lauf / PARQUET_FILE)
+    return Source(dataset, state, lauf.verzeichnis.name,
+                  ablage.resolve_read_path(lauf.relativ, PARQUET_FILE))
 
 
 def build_query(tiger: list[Source], acs: list[Source]) -> str:
@@ -321,13 +319,15 @@ def build(data_root: Path, vintage: int, states: list[str]) -> Path:
         )
     finally:
         con.close()
+    # Erst nach Bau und Manifest, nie davor: Was hier ankommt, hat bestanden.
+    for_root(data_root).publish_table(ziel)
     return ziel
 
 
 def main() -> int:
     args = arguments()
     try:
-        ziel = build(args.data_root, args.vintage, args.state)
+        ziel = build(for_root(args.data_root).local_root, args.vintage, args.state)
         manifest = read_manifest(ziel)
         log.info("Silver-Tabelle geschrieben: %s", ziel)
         log.info("  Zeilen: %s", f"{manifest['row_count']:,}")

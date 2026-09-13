@@ -42,6 +42,9 @@ from typing import NamedTuple
 
 import duckdb
 
+from storage import for_root
+from storage import duckdb as storage_duckdb
+
 from serving import DATABASE_NAME, SERVING_LAYER
 
 
@@ -60,7 +63,7 @@ class Tabelle(NamedTuple):
 
     name: str
     layer: str
-    path: Path
+    path: str | Path   # lokal absolut, oder s3://
     partition: str
 
 
@@ -69,8 +72,8 @@ def arguments() -> argparse.Namespace:
         description="Baut die Auswertungsdatenbank aus Silver und Gold."
     )
     parser.add_argument(
-        "--data-root", type=Path, default=Path("data"),
-        help="Wurzel der Schichten (Vorgabe: data)",
+        "--data-root", type=Path, default=None,
+        help="Wurzel der Schichten (Vorgabe: LOCAL_DATA_ROOT oder data)",
     )
     parser.add_argument("--verbose", action="store_true")
     return parser.parse_args()
@@ -88,22 +91,24 @@ def discover(data_root: Path) -> list[Tabelle]:
     ist das die juengste.
     """
     gefunden: dict[str, Tabelle] = {}
+    ablage = for_root(data_root)
     for layer in SCHICHTEN:
-        wurzel = data_root / layer
-        if not wurzel.exists():
-            continue
-        for parquet in sorted(wurzel.glob(f"dataset=*/**/{PARQUET_FILE}")):
+        for rel in ablage.list_files(layer, f"dataset=*/**/{PARQUET_FILE}"):
             name = None
             partition = ""
-            for teil in parquet.relative_to(wurzel).parts:
+            for teil in rel.split("/")[1:]:
                 if teil.startswith("dataset="):
                     name = teil.removeprefix("dataset=")
                 elif "=" in teil:
                     partition = teil
             if name is None:
                 continue
+            # Lokal absolut, damit die Datenbank von ueberall lesbar bleibt;
+            # auf S3 die URL. Im Hybridmodus entscheidet die Ablage je Datei.
+            pfad = ablage.resolve_read_path(rel)
+            path: str | Path = pfad if pfad.startswith("s3://") else Path(pfad).resolve()
             # Spaetere Schichten und juengere Vintages ueberschreiben.
-            gefunden[name] = Tabelle(name, layer, parquet.resolve(), partition)
+            gefunden[name] = Tabelle(name, layer, path, partition)
     return sorted(gefunden.values(), key=lambda t: (t.layer, t.name))
 
 
@@ -185,7 +190,11 @@ def build(data_root: Path) -> Path:
     arbeit = ziel.with_name(f".{ziel.name}.part")
     arbeit.unlink(missing_ok=True)
 
-    con = duckdb.connect(str(arbeit))
+    # Die Datenbank selbst bleibt immer lokal (data/serving/), in jedem Modus.
+    # Kann die Ablage S3 lesen, bringt die Verbindung httpfs und ein
+    # temporaeres Secret mit - und wer die Datei spaeter oeffnet, braucht
+    # dasselbe: storage.duckdb.connect(config, pfad).
+    con = storage_duckdb.connect(for_root(data_root).config, arbeit)
     try:
         # Fuer die Geometrie in tract. Fehlt die Extension, bleiben die Sichten
         # trotzdem lesbar - nur ST_-Funktionen stehen dann nicht bereit.
@@ -221,7 +230,7 @@ def main() -> int:
         format="%(levelname)s %(message)s",
     )
     try:
-        ziel = build(args.data_root)
+        ziel = build(for_root(args.data_root).local_root)
     except RuntimeError as fehler:
         LOG.error("%s", fehler)
         return 1

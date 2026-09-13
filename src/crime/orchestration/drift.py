@@ -37,7 +37,8 @@ import re
 from pathlib import Path
 from typing import Any, NamedTuple
 
-import duckdb
+from storage import for_root
+from storage import duckdb as storage_duckdb
 
 
 AENDERUNGEN = Path("docs") / "AENDERUNGEN.md"
@@ -130,16 +131,21 @@ def dokumentiert(text: str) -> dict[str, float]:
 
 def gemessen(data_root: Path) -> dict[str, float]:
     """Dieselben Groessen aus den gebauten Tabellen; was nicht gebaut ist, fehlt."""
-    silver = data_root / "silver" / "dataset=crime_offense" / "part-0001.parquet"
-    gold = data_root / "gold" / "dataset=fact_offense" / "part-0001.parquet"
-    tract = data_root / "gold" / "dataset=dim_tract" / "part-0001.parquet"
+    ablage = for_root(data_root)
+    rel = {
+        "silver": "silver/dataset=crime_offense/part-0001.parquet",
+        "gold": "gold/dataset=fact_offense/part-0001.parquet",
+        "tract": "gold/dataset=dim_tract/part-0001.parquet",
+    }
+    da = {name: ablage.exists(r) for name, r in rel.items()}
+    silver, gold, tract = (ablage.resolve_read_path(rel[n]) for n in ("silver", "gold", "tract"))
     werte: dict[str, float] = {}
-    con = duckdb.connect()
+    con = storage_duckdb.connect(ablage.config)
     try:
-        if silver.exists():
+        if da["silver"]:
             werte["silver_rows"] = con.execute(
                 f"SELECT count(*) FROM read_parquet('{silver}')").fetchone()[0]
-        if gold.exists():
+        if da["gold"]:
             werte["gold_rows"] = con.execute(
                 f"SELECT count(*) FROM read_parquet('{gold}')").fetchone()[0]
             for stadt, faelle in con.execute(f"""
@@ -147,7 +153,7 @@ def gemessen(data_root: Path) -> dict[str, float]:
                 FROM read_parquet('{gold}') GROUP BY 1
             """).fetchall():
                 werte[f"{stadt}_faelle"] = faelle
-        if gold.exists() and tract.exists():
+        if da["gold"] and da["tract"]:
             for stadt, delikte, einwohner, rate, rate_fall in con.execute(f"""
                 WITH e AS (
                     SELECT city, sum(population) AS n
@@ -264,7 +270,8 @@ def arguments() -> argparse.Namespace:
         description="Zeigt je Groesse, wie weit der dokumentierte Stand vom "
                     "gebauten entfernt ist. Scheitert nie."
     )
-    p.add_argument("--data-root", type=Path, default=Path("data"))
+    p.add_argument("--data-root", type=Path, default=None,
+                   help="Wurzel der Schichten (Vorgabe: LOCAL_DATA_ROOT oder data)")
     p.add_argument("--aenderungen", type=Path, default=AENDERUNGEN)
     p.add_argument("--summary", type=Path, default=None, metavar="DATEI",
                    help="Markdown anhaengen, etwa an $GITHUB_STEP_SUMMARY")
@@ -282,9 +289,9 @@ def arguments() -> argparse.Namespace:
 def main() -> int:
     args = arguments()
     dok = dokumentiert(args.aenderungen.read_text(encoding="utf-8"))
-    mess = gemessen(args.data_root)
+    mess = gemessen(for_root(args.data_root).local_root)
     alle = zeilen(dok, mess)
-    fingerabdruck = fingerabdruck_von(args.data_root)
+    fingerabdruck = fingerabdruck_von(for_root(args.data_root).local_root)
     schwellen = {"max_rate": args.max_rate, "max_prozent": args.max_prozent}
     text = tabelle(alle, fingerabdruck, **schwellen)
     print(text)
