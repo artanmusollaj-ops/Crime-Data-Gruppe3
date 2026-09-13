@@ -203,9 +203,12 @@ def fingerabdruck_von(data_root: Path) -> str | None:
     if not protokoll.exists():
         return None
     try:
-        return json.loads(protokoll.read_text(encoding="utf-8")).get("fingerprint")
+        # run_all schreibt input_fingerprint; die ersten 16 Zeichen genuegen,
+        # so zeigt es auch der Controller selbst an.
+        wert = json.loads(protokoll.read_text(encoding="utf-8")).get("input_fingerprint")
     except (OSError, json.JSONDecodeError):
         return None
+    return str(wert)[:16] if wert else None
 
 
 def arguments() -> argparse.Namespace:
