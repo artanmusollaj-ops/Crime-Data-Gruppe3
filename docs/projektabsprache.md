@@ -611,6 +611,14 @@ Gold-Tabellen einchecken, weil sie klein sind.
 
 `Entscheid: Bei einem Daily Load wird darauf geschaut T-1 geladen wird. Dies muss ausgewiesen werden.`
 
+**Nachtrag 13.9.2026 — gemeinsamer Datenstand über SeaweedFS.** Seit der
+Storage-Abstraktion (`src/crime/storage/`, README 2.5) gibt es einen
+gemeinsamen veröffentlichten Bestand: SeaweedFS über S3
+(`s3://urban-crime/…`, dieselbe Struktur wie `data/`). Im Hybridmodus liest
+jeder lokal, was er hat, und sonst von dort; publiziert wird nur, was Bau und
+Prüfung bestanden hat. Wer neu einsteigt, muss nichts vorab laden. Der
+Referenzstand bleibt, was das Manifest je Tabelle nennt.
+
 ### 7.2 Tests
 
 **Stand.** 633 Tests, seit dem 11.9. einheitlich nach Pipeline gegliedert:

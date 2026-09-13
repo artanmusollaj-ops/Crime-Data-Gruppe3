@@ -38,10 +38,13 @@ import json
 import shutil
 from pathlib import Path
 
-from manifeste import fertige_laeufe
 from typing import Any
 
 import duckdb
+
+from manifeste import Lauf
+from storage import Storage, get_storage
+from storage import duckdb as storage_duckdb
 
 
 SILVER_LAYER = "silver"
@@ -66,18 +69,20 @@ def read_manifest(directory: Path) -> dict[str, Any]:
         raise TransformError(f"Invalid manifest: {pfad}") from error
 
 
-def newest_complete_run(parent: Path, *, what: str) -> Path:
-    """Der juengste vollstaendige Bronze-Lauf unter ``parent``.
+def newest_complete_run(storage: Storage, prefix: str, *, what: str) -> Lauf:
+    """Der juengste vollstaendige Bronze-Lauf unter ``prefix`` (relativ zur Ablage).
 
     Gelesen wird das Manifest und nicht das Verzeichnis: Ein Lauf zaehlt nur
     mit ``status == "complete"``. Die ``run_id`` ist ein UTC-Zeitstempel,
-    deshalb ist der letzte sortierte Eintrag der juengste.
+    deshalb ist der letzte sortierte Eintrag der juengste. Woher der Lauf
+    kommt - lokal oder SeaweedFS -, entscheidet die Ablage; die Parquet-Datei
+    wird ueber ``storage.resolve_read_path(lauf.relativ, PARQUET_FILE)`` gelesen.
     """
     kandidaten = []
-    for lauf in fertige_laeufe(parent, "run_*/manifest.json", fehler=TransformError):
-        if not (lauf.verzeichnis / PARQUET_FILE).exists():
-            raise TransformError(f"Lauf ohne Parquet-Datei: {lauf.verzeichnis}")
-        kandidaten.append(lauf.verzeichnis)
+    for lauf in storage.laeufe(prefix, "run_*/manifest.json", fehler=TransformError):
+        if not storage.exists(lauf.relativ, PARQUET_FILE):
+            raise TransformError(f"Lauf ohne Parquet-Datei: {lauf.relativ}")
+        kandidaten.append(lauf)
 
     if not kandidaten:
         raise TransformError(
@@ -88,8 +93,15 @@ def newest_complete_run(parent: Path, *, what: str) -> Path:
 
 
 def connect(*, spatial: bool = False) -> duckdb.DuckDBPyConnection:
-    """Eine DuckDB-Verbindung, auf Wunsch mit der ``spatial``-Extension."""
-    con = duckdb.connect()
+    """Eine DuckDB-Verbindung, auf Wunsch mit der ``spatial``-Extension.
+
+    Kann die Ablage S3 lesen, bringt die Verbindung ``httpfs`` und ein
+    temporaeres Secret mit - siehe ``storage.duckdb``.
+    """
+    try:
+        con = storage_duckdb.connect(get_storage().config)
+    except storage_duckdb.DuckDBFehler as error:
+        raise TransformError(str(error)) from error
     if spatial:
         try:
             con.execute("INSTALL spatial")

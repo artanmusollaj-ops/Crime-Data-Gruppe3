@@ -26,6 +26,8 @@ from typing import Any
 from uuid import uuid4
 import pyarrow as pa
 import pyarrow.parquet as pq
+
+from storage import get_storage
 from .bronze_parquet import schema_for, schema_hash, to_row
 
 from .detroit_arcgis import (
@@ -504,13 +506,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("data/bronze/city=detroit"),
-        help="Zielverzeichnis fuer Bronze und Manifest",
+        default=None,
+        help="Zielverzeichnis fuer Bronze und Manifest "
+             "(Vorgabe: <LOCAL_DATA_ROOT>/bronze/city=detroit)",
     )
     parser.add_argument(
         "--raw-dir",
         type=Path,
-        default=Path("data/raw/city=detroit"),
+        default=None,
         help=(
             "Zielverzeichnis fuer die Raw-Schicht: jede ArcGIS-Antwort "
             "unveraendert als gzip. --no-raw schaltet sie ab"
@@ -539,6 +542,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="INFO",
     )
     args = parser.parse_args(argv)
+    wurzel = get_storage().local_root
+    if args.output_dir is None:
+        args.output_dir = wurzel / "bronze" / "city=detroit"
+    if args.raw_dir is None:
+        args.raw_dir = wurzel / "raw" / "city=detroit"
 
     if args.mode == "full":
         if not args.years:
@@ -584,15 +592,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.mode == "full":
         for year in args.years:
             logging.info("Starte Detroit Full Load fuer %s", year)
+            raw_dir = None if args.no_raw else args.raw_dir / "full" / f"year={year}"
             bronze_path, manifest_path = extract_year(
                 year=year,
                 output_dir=args.output_dir / "full" / f"year={year}",
-                raw_dir=(None if args.no_raw
-                         else args.raw_dir / "full" / f"year={year}"),
+                raw_dir=raw_dir,
                 batch_size=args.batch_size,
                 pause_seconds=args.pause_seconds,
             )
             print_extraction_result(bronze_path, manifest_path)
+            publiziere(bronze_path.parent, raw_dir)
         return 0
 
     daily_window = resolve_daily_window(
@@ -608,19 +617,36 @@ def main(argv: list[str] | None = None) -> int:
         window_start,
         window_end_exclusive,
     )
+    raw_dir = (None if args.no_raw else
+               args.raw_dir / "incremental" / f"run_date={run_date.isoformat()}")
     bronze_path, manifest_path = extract_updated_window(
         start_date=window_start,
         end_date_exclusive=window_end_exclusive,
         output_dir=(
             args.output_dir / "incremental" / f"run_date={run_date.isoformat()}"
         ),
-        raw_dir=(None if args.no_raw else
-                 args.raw_dir / "incremental" / f"run_date={run_date.isoformat()}"),
+        raw_dir=raw_dir,
         batch_size=args.batch_size,
         pause_seconds=args.pause_seconds,
     )
     print_extraction_result(bronze_path, manifest_path)
+    publiziere(bronze_path.parent, raw_dir)
     return 0
+
+
+def publiziere(bronze_final: Path, raw_dir: Path | None) -> None:
+    """Nach dem finalen Umbenennen: erst den Raw-Lauf, dann den Bronze-Lauf.
+
+    Beide liegen bereits unter ihrem endgueltigen Namen, mit Manifest - die
+    bestehenden Pruefungen (Count-Abgleich, Snapshot-IDs, Schema) sind
+    durch. Was hier nicht ankommt, hat sie nicht bestanden. Liegt ein
+    ``--output-dir`` ausserhalb von LOCAL_DATA_ROOT, sagt die Ablage das und
+    publiziert nicht.
+    """
+    ablage = get_storage()
+    if raw_dir is not None:
+        ablage.publish_run(raw_dir / bronze_final.name)
+    ablage.publish_run(bronze_final)
 
 
 if __name__ == "__main__":

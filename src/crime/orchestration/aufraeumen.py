@@ -42,6 +42,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 from manifeste import fertige_laeufe, tabellen
+from storage import for_root
 
 
 LOG = logging.getLogger("aufraeumen")
@@ -232,7 +233,8 @@ def arguments() -> argparse.Namespace:
         description="Zeigt, welche Raw- und Bronze-Laeufe bleiben muessen und "
                     "welche entbehrlich sind. Loescht nur auf Wunsch."
     )
-    p.add_argument("--data-root", type=Path, default=Path("data"))
+    p.add_argument("--data-root", type=Path, default=None,
+                   help="lokale Wurzel (Vorgabe: LOCAL_DATA_ROOT oder data). Aufgeraeumt wird nur lokal")
     p.add_argument("--loeschen", action="store_true",
                    help="entbehrliche Laeufe wirklich loeschen, Raw und Bronze zusammen")
     p.add_argument("-v", "--verbose", action="store_true")
@@ -245,7 +247,8 @@ def main() -> int:
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(levelname)s %(message)s",
     )
-    alle = bericht(args.data_root)
+    data_root = for_root(args.data_root).local_root
+    alle = bericht(data_root)
     zeige(alle)
     entbehrlich = [e for e in alle if not e.bleibt]
     if not entbehrlich:
@@ -254,7 +257,7 @@ def main() -> int:
         print("Nichts geloescht. Mit --loeschen gehen die entbehrlichen Laeufe weg.")
         return 0
     frei = sum(e.bestand.bytes for e in entbehrlich)
-    geloescht = loesche(alle, args.data_root)
+    geloescht = loesche(alle, data_root)
     print(f"{len(geloescht)} Verzeichnisse geloescht, {frei / 1e6:.1f} MB frei.")
     return 0
 

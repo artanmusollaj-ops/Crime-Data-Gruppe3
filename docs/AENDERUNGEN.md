@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **769** |
+| Tests | **827** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -40,6 +40,63 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 13.09.2026 · Die Ablage ist wählbar: lokal, SeaweedFS oder hybrid (#70)
+
+**Was.** Ein Paket `src/crime/storage/` abstrahiert, wo die Schichten
+liegen. `STORAGE_BACKEND=local` (Vorgabe) ist der bisherige Zustand,
+unverändert. `hybrid` liest lokal, wenn die Datei da ist, sonst von SeaweedFS
+(`s3://urban-crime/…`, dieselbe Struktur wie `data/`), und schreibt lokal,
+prüft, publiziert dann gezielt. `s3` liest immer von SeaweedFS, schreibt lokal
+als Arbeitskopie, publiziert und entfernt die Kopie. Alle Befehle bleiben
+gleich; die Konfiguration kommt aus `.env`.
+
+**Die drei Sätze, die es zusammenfassen.**
+
+```
+Hybrid READ:    lokal zuerst, S3 als Rückfall
+Hybrid WRITE:   lokal, prüfen, dann gezielt nach S3 publizieren
+Serving DuckDB: immer lokal
+```
+
+**Publizieren ist gezielt, nicht sync.** Je Lauf oder Tabelle die Dateien,
+die dieser Lauf erzeugt hat, `manifest.json` zuletzt — das Manifest auf S3
+ist das Zeichen, dass ein Lauf vollständig oben ist, wie das Umbenennen
+lokal. Nach jedem Upload wird das Objekt zurückgelesen (Existenz, Grösse,
+MD5 gegen das ETag). Läufe (`run_…`) sind unveränderlich: identisch schon
+oben → übersprungen; anders schon oben → Fehler. Silver- und Gold-Tabellen
+werden **überschrieben** — lokal werden sie ebenso ersetzt, nicht angehäuft.
+
+**Welche Pipelines publizieren.** Alle sechs Ingestion-Stufen (Raw zuerst,
+Bronze danach), die vier Silver-Tabellen, die fünf Gold-Tabellen — jeweils
+erst nach den bestehenden Prüfungen. `data/serving/` bleibt in jedem Modus
+lokal; die Sichten in `analyse.duckdb` zeigen je Datei dorthin, wo sie liegt.
+`orchestration.aufraeumen` räumt weiterhin nur lokal auf.
+
+**Was Version 1 bewusst nicht tut.** Kein automatisches Herunterladen (was
+fehlt, wird von S3 gelesen, nicht kopiert), keine Synchronisation zurück,
+kein Dual-Write, nur `local` als Lesepriorität.
+
+**Wächter.** 58 Tests unter `tests/storage/` gegen ein S3 im Speicher, ohne
+SeaweedFS: Pfadauflösung je Modus, Rückfall, Vereinigung lokaler und
+entfernter Läufe (ein unfertiger lokaler Lauf verdeckt keinen fertigen auf
+S3), Reihenfolge und Verifikation beim Publizieren, Konflikte, und die
+Pipelines im Hybridmodus — Silver publiziert nach der Prüfung und nicht,
+wenn sie scheitert; Chicago und Detroit Raw vor Bronze; die
+Auswertungsdatenbank bleibt lokal. `boto3` ist neue Abhängigkeit; im
+local-Modus wird es nie importiert.
+
+**Nebenbei.** `manifeste.Lauf` und `Tabelle` tragen jetzt ihren relativen
+Ablagepfad (`relativ`); `--data-root` hat keine feste Vorgabe mehr, sondern
+folgt `LOCAL_DATA_ROOT` (Vorgabe weiterhin `data`).
+
+**In Artans Dokumenten.** Konzept 5.3 (Umsetzung und Lücke der Zeile *Data
+Management*), Kapitel 11 (Zeile *Wo die Daten liegen*). Absprache 7.1:
+datierter Nachtrag — der gemeinsame Datenstand hat jetzt einen Ort.
+
+**Zahlen.** 769 → **827 Tests**.
 
 ---
 

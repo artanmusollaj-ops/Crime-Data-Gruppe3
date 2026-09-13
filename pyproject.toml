@@ -32,6 +32,9 @@ dependencies = [
     # noetig ist.
     "pyogrio>=0.8,<1",
     "python-dotenv>=1.1,<2",
+    # SeaweedFS ueber S3 (STORAGE_BACKEND=s3|hybrid). Im local-Modus wird es
+    # nie importiert; DuckDB liest S3 ueber httpfs, nicht ueber boto3.
+    "boto3>=1.35,<2",
     "requests>=2.32,<3",
     # SOURCE_TIMEZONE = ZoneInfo("America/Detroit") wird beim Import von
     # detroit_pipeline ausgewertet. Ohne IANA-Datenbank schlaegt schon der

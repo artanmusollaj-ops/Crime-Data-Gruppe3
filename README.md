@@ -154,6 +154,9 @@ Eine Datei `.env` im Projekt-Root, nach dem Muster von `.env.example`. Sie ist
 ```text
 CENSUS_API_KEY=dein_schluessel     # Pflicht für die ACS-Daten
 SOCRATA_APP_TOKEN=dein_token       # optional, für Chicago
+STORAGE_BACKEND=local              # local (Vorgabe), hybrid oder s3 — siehe 2.5
+S3_ACCESS_KEY=…                    # nur für hybrid und s3
+S3_SECRET_KEY=…
 ```
 
 **`CENSUS_API_KEY` ist Pflicht**, wenn Census-Daten geladen werden sollen —
@@ -171,7 +174,7 @@ Zugriff auf Chicago ebenfalls, wird aber stärker gedrosselt.
 python -m pytest
 ```
 
-Erwartet werden **769 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **827 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -383,6 +386,54 @@ Schnappschuss, gegen den Notebook 13 die Quelle prüft), alles, was ein
 seit dem ersten vollen Schnappschuss nur Änderungen. Ohne `--loeschen`
 geschieht nichts. `data/` ist nicht versioniert; die Regel gilt je Rechner.
 
+### 2.5 Ablage: lokal, SeaweedFS oder hybrid
+
+Wo die Schichten liegen, entscheidet `STORAGE_BACKEND` in `.env`. Die
+Befehle bleiben dieselben, die Struktur unter der Wurzel auch —
+`bronze/city=chicago/ingest_date=…/run_…/part-0001.parquet` heisst lokal
+`data/…` und auf SeaweedFS `s3://urban-crime/…`.
+
+| Modus | Lesen | Schreiben |
+| --- | --- | --- |
+| `local` (Vorgabe) | `data/` | `data/` — genau wie bisher |
+| `hybrid` | lokal, wenn die Datei da ist, **sonst SeaweedFS** | lokal, prüfen, **dann gezielt publizieren** |
+| `s3` | immer SeaweedFS | lokal als Arbeitsverzeichnis, prüfen, publizieren, lokale Kopie entfernen |
+
+**Hybrid ist der Modus für die Zusammenarbeit.** SeaweedFS ist der gemeinsame
+veröffentlichte Bestand, `data/` die Arbeitskopie. Wer eine Tabelle lokal
+nicht hat, liest sie von SeaweedFS — ohne vorher etwas zu synchronisieren.
+Umgekehrt erreicht nur, was Bau **und** Prüfung bestanden hat, den gemeinsamen
+Bestand: je Lauf oder Tabelle, `manifest.json` zuletzt. Läufe (`run_…`)
+werden nie überschrieben — liegt einer schon anders oben, ist das ein
+Fehler. Silver- und Gold-Tabellen werden überschrieben, wie lokal auch.
+
+**Immer lokal:** `data/serving/` — die Auswertungsdatenbank und das
+GeoJSON. Die Sichten in `analyse.duckdb` zeigen je Datei dorthin, wo sie
+liegt. Wer sie im Hybrid- oder S3-Modus öffnet, braucht dieselbe Verbindung
+wie die Pipeline — `httpfs` und ein temporäres Secret, nichts wird
+persistiert:
+
+```python
+from storage import get_storage
+from storage.duckdb import connect
+con = connect(get_storage().config, "data/serving/analyse.duckdb", read_only=True)
+```
+
+**Bewusst nicht:** kein automatisches Herunterladen (was fehlt, wird von
+S3 *gelesen*, nicht kopiert), keine Synchronisation zurück, kein
+Dual-Write. `orchestration.aufraeumen` räumt weiterhin nur lokal auf.
+
+In Notebooks und Skripten liefert `from storage import resolve_read_path`
+den Pfad, den `read_parquet` lesen soll — lokal oder `s3://`, ohne dass der
+Code es wissen muss.
+
+Prüfen, ob SeaweedFS erreichbar ist (braucht die Schlüssel; kein Test hängt
+davon ab):
+
+```bash
+python -c "from storage import get_storage; print(get_storage().list_files('silver', '**/manifest.json'))"
+```
+
 ## 3 · Wenn etwas klemmt
 
 | Symptom | Ursache und Abhilfe |
@@ -406,7 +457,7 @@ geschieht nichts. `data/` ist nicht versioniert; die Regel gilt je Rechner.
 python -m pytest
 ```
 
-**769 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**827 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -440,7 +491,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **728 der 769 Tests**. Die übrigen 41 überspringen
+In einem frischen Klon laufen **786 der 827 Tests**. Die übrigen 41 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter

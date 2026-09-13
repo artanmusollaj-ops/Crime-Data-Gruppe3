@@ -29,8 +29,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import NamedTuple
 
-from manifeste import fertige_laeufe, tabellen
 from orchestration import LAUF_MANIFEST
+from storage import for_root
 
 
 LOG = logging.getLogger("run_all")
@@ -93,11 +93,10 @@ def bronze_laeufe(data_root: Path) -> dict[str, list[str]]:
     unterwegs abgebrochen ist, liegt zwar da, gilt aber nicht.
     """
     gefunden: dict[str, list[str]] = {}
-    wurzel = data_root / "bronze"
-    for lauf in fertige_laeufe(wurzel, "**/manifest.json", streng=False):
+    for lauf in for_root(data_root).laeufe("bronze", "**/manifest.json"):
         # Der erste Pfadteil unter bronze/ benennt die Quelle:
         # city=chicago, dataset=tiger_tract, dataset=noaa_ghcnd ...
-        quelle = lauf.verzeichnis.relative_to(wurzel).parts[0]
+        quelle = lauf.relativ.split("/")[1]
         gefunden.setdefault(quelle, []).append(lauf.run_id)
     return {k: sorted(set(v)) for k, v in sorted(gefunden.items())}
 
@@ -115,9 +114,8 @@ def aktualitaet(data_root: Path) -> dict[str, str]:
     sehen will, ob eine Quelle veraltet, sieht hier nach.
     """
     juengste: dict[str, str] = {}
-    wurzel = data_root / "bronze"
-    for lauf in fertige_laeufe(wurzel, "**/manifest.json", streng=False):
-        quelle = lauf.verzeichnis.relative_to(wurzel).parts[0]
+    for lauf in for_root(data_root).laeufe("bronze", "**/manifest.json"):
+        quelle = lauf.relativ.split("/")[1]
         wann = lauf.abgeschlossen_um
         if wann and wann > juengste.get(quelle, ""):
             juengste[quelle] = wann
@@ -153,7 +151,7 @@ def zeilenzahlen(data_root: Path) -> dict[str, int]:
     """Was am Ende dasteht - je Tabelle eine Zahl aus ihrem Manifest."""
     return {
         f"{t.schicht}/{t.name}": t.zeilen
-        for t in tabellen(data_root)
+        for t in for_root(data_root).tabellen()
         if t.zeilen is not None
     }
 
@@ -267,7 +265,8 @@ def arguments() -> argparse.Namespace:
         description="Faehrt Ingestion, Silver, Gold und Serving in der "
                     "richtigen Reihenfolge."
     )
-    p.add_argument("--data-root", type=Path, default=Path("data"))
+    p.add_argument("--data-root", type=Path, default=None,
+                   help="Wurzel der Schichten (Vorgabe: LOCAL_DATA_ROOT oder data)")
     p.add_argument("--ohne-ingestion", action="store_true",
                    help="nur neu ableiten, ohne die Quellen anzufassen")
     p.add_argument("--bis", choices=GRUPPEN,
@@ -297,7 +296,7 @@ def main() -> int:
                   f"python -m {s.modul} {' '.join(s.argumente)}".rstrip())
         return 0
 
-    manifest = lauf(args.data_root, projekt_root,
+    manifest = lauf(for_root(args.data_root).local_root, projekt_root,
                     ohne_ingestion=args.ohne_ingestion, bis=args.bis,
                     maximal_alter_tage=args.maximal_alter_tage)
 
@@ -314,7 +313,7 @@ def main() -> int:
     gesamt = sum(s["sekunden"] for s in manifest["stages"])
     print(f"{len(manifest['stages'])} Stufen in {gesamt:.0f} s.")
     print(f"Fingerabdruck der Eingaben: {manifest['input_fingerprint'][:16]}")
-    print(f"Protokoll: {args.data_root / LAUF_MANIFEST}")
+    print(f"Protokoll: {for_root(args.data_root).local_root / LAUF_MANIFEST}")
     return 0
 
 

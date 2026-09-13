@@ -35,6 +35,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import requests
 from dotenv import find_dotenv, load_dotenv
+
+from storage import PublishError, for_root
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -156,7 +158,8 @@ class Download(NamedTuple):
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--year", type=int, default=DEFAULT_YEAR)
-    parser.add_argument("--data-root", type=Path, default=Path("data"))
+    parser.add_argument("--data-root", type=Path, default=None,
+                        help="Wurzel der Schichten (Vorgabe: LOCAL_DATA_ROOT oder data)")
     parser.add_argument("--max-records", type=int, help="Limit for test runs")
     parser.add_argument("--full", action="store_true", help="Force a new full snapshot")
     parser.add_argument("--no-token", action="store_true")
@@ -207,13 +210,14 @@ def previous_watermark(data_root: Path, year: int) -> str | None:
     Wiederholung, nie eine Luecke.
     """
     values = []
-    pattern = f"{BRONZE_LAYER}/city={CITY}/ingest_date=*/run_*/manifest.json"
-    for path in data_root.glob(pattern):
-        try:
-            manifest = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as error:
-            raise IngestionError(f"Invalid manifest: {path}") from error
-
+    # Lokal und - je nach Ablage - auf SeaweedFS: Wer ohne lokalen Bestand
+    # arbeitet, darf nicht jede Woche einen Vollschnappschuss ziehen.
+    laeufe = for_root(data_root).laeufe(
+        f"{BRONZE_LAYER}/city={CITY}", "ingest_date=*/run_*/manifest.json",
+        streng=True, fehler=IngestionError,
+    )
+    for lauf in laeufe:
+        manifest = lauf.manifest
         if (
             manifest.get("status") == "complete"
             and manifest.get("event_year") == year
@@ -742,17 +746,19 @@ def main() -> int:
     args = arguments()
     started = datetime.now(timezone.utc)
     token = app_token(args.no_token)
+    ablage = for_root(args.data_root)
+    data_root = ablage.local_root
 
     try:
-        discard_stale_partials(args.data_root, started)
-        watermark = previous_watermark(args.data_root, args.year)
+        discard_stale_partials(data_root, started)
+        watermark = previous_watermark(data_root, args.year)
         updated_from = delta_start(watermark) if watermark and not args.full else None
         mode = "delta" if updated_from else "full_snapshot"
         log.info("Starting %s for Chicago %s", mode, args.year)
 
         result = download(args.year, updated_from, token, args.max_records)
         run = write_run(
-            args.data_root,
+            data_root,
             started,
             result,
             year=args.year,
@@ -764,8 +770,13 @@ def main() -> int:
         )
         log.info("Immutable run completed: %s", run.raw)
         log.info("                        %s", run.bronze)
+        # Erst jetzt, nach dem atomaren Umbenennen: Raw zuerst, Bronze danach,
+        # je Lauf das Manifest zuletzt. Ein Lauf, der es bis hierher nicht
+        # geschafft hat, erreicht den gemeinsamen Bestand nie.
+        ablage.publish_run(run.raw)
+        ablage.publish_run(run.bronze)
         return 0
-    except (IngestionError, OSError, ValueError) as error:
+    except (IngestionError, OSError, ValueError, PublishError) as error:
         log.error("Ingestion failed: %s", error)
         return 1
     except KeyboardInterrupt:

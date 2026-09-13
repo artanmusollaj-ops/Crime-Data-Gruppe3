@@ -37,13 +37,14 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from manifeste import fertige_laeufe
 from typing import Any, NamedTuple
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 import requests
 from dotenv import find_dotenv, load_dotenv
+
+from storage import PublishError, for_root
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -134,7 +135,8 @@ class RunPaths(NamedTuple):
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--vintage", type=int, default=DEFAULT_VINTAGE)
-    parser.add_argument("--data-root", type=Path, default=Path("data"))
+    parser.add_argument("--data-root", type=Path, default=None,
+                        help="Wurzel der Schichten (Vorgabe: LOCAL_DATA_ROOT oder data)")
     parser.add_argument("--state", action="append", choices=sorted(STATES))
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
@@ -200,10 +202,12 @@ def discard_stale_partials(data_root: Path, now: datetime) -> list[Path]:
 
 def completed_runs(data_root: Path, vintage: int, state: str) -> list[Path]:
     """Bereits veroeffentlichte Laeufe dieser Vintage; Bronze zaehlt."""
-    parent = run_parent(data_root, BRONZE_LAYER, vintage, state)
+    ablage = for_root(data_root)
+    prefix = ablage.relativ(run_parent(data_root, BRONZE_LAYER, vintage, state))
     return [
         lauf.verzeichnis
-        for lauf in fertige_laeufe(parent, "run_*/manifest.json", fehler=IngestionError)
+        for lauf in ablage.laeufe(prefix, "run_*/manifest.json",
+                                  streng=True, fehler=IngestionError)
     ]
 
 
@@ -501,9 +505,12 @@ def main() -> int:
     args = arguments()
     started = datetime.now(timezone.utc)
 
+    ablage = for_root(args.data_root)
+    data_root = ablage.local_root
+
     try:
         key = census_key()
-        discard_stale_partials(args.data_root, started)
+        discard_stale_partials(data_root, started)
         geschrieben = 0
         with build_session() as session:
             for state in args.state:
@@ -515,7 +522,7 @@ def main() -> int:
                 )
                 run = ingest_state(
                     session,
-                    args.data_root,
+                    data_root,
                     started,
                     args.vintage,
                     state,
@@ -526,9 +533,11 @@ def main() -> int:
                     geschrieben += 1
                     log.info("Immutable run completed: %s", run.raw)
                     log.info("                        %s", run.bronze)
+                    ablage.publish_run(run.raw)
+                    ablage.publish_run(run.bronze)
         log.info("Fertig: %s Lauf/Laeufe geschrieben", geschrieben)
         return 0
-    except (IngestionError, OSError, ValueError) as error:
+    except (IngestionError, OSError, ValueError, PublishError) as error:
         log.error("Ingestion failed: %s", error)
         return 1
     except KeyboardInterrupt:

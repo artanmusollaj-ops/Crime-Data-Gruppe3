@@ -65,11 +65,11 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-from manifeste import fertige_laeufe
 from typing import Any, NamedTuple
 
 import duckdb
 
+from storage import for_root
 from silver_pipeline import (
     BRONZE_LAYER,
     PARQUET_FILE,
@@ -156,7 +156,7 @@ class Source(NamedTuple):
     """Ein Bronze-Bestand, aus dem die Tabelle entsteht."""
 
     city: str
-    paths: list[Path]
+    paths: list[str]   # lokal oder s3://, siehe storage.resolve_read_path
     run_ids: list[str]
     row_count: int
     reader: str = "read_parquet"
@@ -170,8 +170,8 @@ def arguments() -> argparse.Namespace:
     parser.add_argument(
         "--data-root",
         type=Path,
-        default=Path("data"),
-        help="Wurzel der Schichten (Vorgabe: data)",
+        default=None,
+        help="Wurzel der Schichten (Vorgabe: LOCAL_DATA_ROOT oder data)",
     )
     parser.add_argument(
         "--config-root",
@@ -200,17 +200,17 @@ def chicago_sources(data_root: Path) -> Source:
     anders als bei ``tract`` oder ``weather_day``, wo ein Lauf den ganzen
     Bestand traegt.
     """
-    wurzel = data_root / BRONZE_LAYER / f"city={CHICAGO}"
-    pfade: list[Path] = []
+    ablage = for_root(data_root)
+    prefix = f"{BRONZE_LAYER}/city={CHICAGO}"
+    pfade: list[str] = []
     laeufe: list[str] = []
     zeilen = 0
-    for lauf in fertige_laeufe(
-        wurzel, "ingest_date=*/run_*/manifest.json", fehler=TransformError
+    for lauf in ablage.laeufe(
+        prefix, "ingest_date=*/run_*/manifest.json", fehler=TransformError
     ):
-        parquet = lauf.verzeichnis / PARQUET_FILE
-        if not parquet.exists():
-            raise TransformError(f"Lauf ohne Parquet-Datei: {lauf.verzeichnis}")
-        pfade.append(parquet)
+        if not ablage.exists(lauf.relativ, PARQUET_FILE):
+            raise TransformError(f"Lauf ohne Parquet-Datei: {lauf.relativ}")
+        pfade.append(ablage.resolve_read_path(lauf.relativ, PARQUET_FILE))
         laeufe.append(lauf.run_id)
         zeilen += lauf.zeilen
 
@@ -238,25 +238,27 @@ def detroit_sources(data_root: Path) -> Source:
     diese Daten weiter eingelesen - mit einer Warnung im Log, die man
     ueberliest. Lieber ein klarer Fehler und ein neuer Full Load.
     """
-    wurzel = data_root / BRONZE_LAYER / DETROIT_BRONZE
-    if not wurzel.exists():
+    ablage = for_root(data_root)
+    prefix = f"{BRONZE_LAYER}/{DETROIT_BRONZE}"
+    wurzel = ablage.local_path(prefix)
+    if ablage.config.liest_lokal and not ablage.config.remote and not wurzel.exists():
         raise TransformError(f"Kein Detroit-Bronze-Verzeichnis: {wurzel}")
 
-    pfade: list[Path] = []
+    pfade: list[str] = []
     laeufe: list[str] = []
     zeilen = 0
     # Versteckte .partial-Verzeichnisse und das SUCCESS-Vokabular kennt der
     # gemeinsame Leser; Detroit braucht hier keinen Sonderweg mehr.
-    for lauf in fertige_laeufe(wurzel, fehler=TransformError):
-        datei = lauf.datei(PARQUET_FILE)
-        if not datei.exists():
-            raise TransformError(f"Manifest ohne Parquet-Datei: {lauf.verzeichnis}")
-        pfade.append(datei)
+    for lauf in ablage.laeufe(prefix, fehler=TransformError):
+        datei = lauf.datei(PARQUET_FILE).name
+        if not ablage.exists(lauf.relativ, datei):
+            raise TransformError(f"Manifest ohne Parquet-Datei: {lauf.relativ}")
+        pfade.append(ablage.resolve_read_path(lauf.relativ, datei))
         laeufe.append(lauf.run_id)
         zeilen += lauf.zeilen
 
     if not pfade:
-        veraltet = sorted(wurzel.glob("*.ndjson"))
+        veraltet = sorted(wurzel.glob("*.ndjson")) if wurzel.exists() else []
         if veraltet:
             raise TransformError(
                 f"Nur NDJSON-Bestaende aus der Zeit vor dem Zeitzonen-Fix "
@@ -272,16 +274,28 @@ def detroit_sources(data_root: Path) -> Source:
     return Source(DETROIT, pfade, laeufe, zeilen, "read_parquet", "PARQUET")
 
 
-def tract_source(data_root: Path) -> Path:
+class TractQuelle(NamedTuple):
+    """``silver/tract`` einer Vintage: woher gelesen wird, und welche Vintage."""
+
+    pfad: str        # lokal oder s3://
+    vintage: str     # etwa "vintage=2024"
+
+    def __str__(self) -> str:
+        return self.pfad
+
+
+def tract_source(data_root: Path) -> TractQuelle:
     """Die juengste Vintage von ``silver/tract``."""
-    wurzel = data_root / SILVER_LAYER / TRACT_TABLE
-    kandidaten = sorted(wurzel.glob("vintage=*/" + PARQUET_FILE))
+    ablage = for_root(data_root)
+    prefix = f"{SILVER_LAYER}/{TRACT_TABLE}"
+    kandidaten = ablage.list_files(prefix, "vintage=*/" + PARQUET_FILE)
     if not kandidaten:
         raise TransformError(
-            f"silver/tract fehlt unter {wurzel}. "
+            f"silver/tract fehlt unter {ablage.local_path(prefix)}. "
             "Zuerst 'python -m silver_pipeline.build_tract' laufen lassen."
         )
-    return kandidaten[-1]
+    rel = kandidaten[-1]
+    return TractQuelle(ablage.resolve_read_path(rel), rel.split("/")[-2])
 
 
 # ---------------------------------------------------------------------------
@@ -289,7 +303,7 @@ def tract_source(data_root: Path) -> Path:
 # ---------------------------------------------------------------------------
 
 
-def sql_list(paths: list[Path]) -> str:
+def sql_list(paths: list[str]) -> str:
     inhalt = ", ".join(f"'{p}'" for p in paths)
     return f"[{inhalt}]"
 
@@ -297,7 +311,7 @@ def sql_list(paths: list[Path]) -> str:
 def build_query(
     chicago: Source,
     detroit: Source,
-    tract: Path,
+    tract: TractQuelle,
     config_root: Path,
 ) -> str:
     """Beide Staedte, auf NIBRS gebracht und raeumlich verortet.
@@ -722,7 +736,7 @@ def build_manifest(
     relation: str,
     chicago: Source,
     detroit: Source,
-    tract: Path,
+    tract: TractQuelle,
     config_root: Path,
     pruefung: dict[str, Any],
 ) -> dict[str, Any]:
@@ -768,7 +782,7 @@ def build(data_root: Path, config_root: Path) -> Path:
     tract = tract_source(data_root)
     LOG.info(
         "Quellen: Chicago %d Laeufe, Detroit %d Laeufe, tract %s",
-        len(chicago.paths), len(detroit.paths), tract.parent.name,
+        len(chicago.paths), len(detroit.paths), tract.vintage,
     )
 
     con = connect(spatial=True)
@@ -794,9 +808,11 @@ def build(data_root: Path, config_root: Path) -> Path:
         )
         ziel = publish(con, TABLE, table_dir(data_root), manifest)
         LOG.info("%s: %d Zeilen", ziel, pruefung["rows"])
-        return ziel
     finally:
         con.close()
+    # Erst nach Bau, Pruefung und Manifest - was hier ankommt, hat bestanden.
+    for_root(data_root).publish_table(ziel)
+    return ziel
 
 
 def main() -> int:
@@ -806,7 +822,7 @@ def main() -> int:
         format="%(levelname)s %(message)s",
     )
     try:
-        build(args.data_root, args.config_root)
+        build(for_root(args.data_root).local_root, args.config_root)
     except TransformError as error:
         LOG.error("%s", error)
         return 1

@@ -50,6 +50,7 @@ from typing import Any, NamedTuple
 
 import duckdb
 
+from storage import for_root
 from silver_pipeline import (
     BRONZE_LAYER,
     PARQUET_FILE,
@@ -85,12 +86,13 @@ class Source(NamedTuple):
     station: str
     city: str
     run_id: str
-    parquet: Path
+    parquet: str   # lokal oder s3://, siehe storage.resolve_read_path
 
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data-root", type=Path, default=Path("data"))
+    parser.add_argument("--data-root", type=Path, default=None,
+                        help="Wurzel der Schichten (Vorgabe: LOCAL_DATA_ROOT oder data)")
     parser.add_argument(
         "--station",
         action="append",
@@ -119,14 +121,14 @@ def table_dir(data_root: Path) -> Path:
 
 def newest_bronze_run(data_root: Path, station: str) -> Source:
     """Der juengste vollstaendige Bronze-Lauf dieser Station."""
-    parent = (
-        data_root / BRONZE_LAYER / f"dataset={NOAA_DATASET}" / f"station={station}"
-    )
-    lauf = newest_complete_run(parent, what=f"{NOAA_DATASET}, Station {station}")
+    ablage = for_root(data_root)
+    prefix = f"{BRONZE_LAYER}/dataset={NOAA_DATASET}/station={station}"
+    lauf = newest_complete_run(ablage, prefix, what=f"{NOAA_DATASET}, Station {station}")
     stadt = STATIONS.get(station, {}).get("city")
     if stadt is None:
         raise TransformError(f"Unbekannte Station: {station}")
-    return Source(station, stadt, lauf.name, lauf / PARQUET_FILE)
+    return Source(station, stadt, lauf.verzeichnis.name,
+                  ablage.resolve_read_path(lauf.relativ, PARQUET_FILE))
 
 
 def collect_sources(data_root: Path, stations: list[str]) -> list[Source]:
@@ -160,11 +162,15 @@ def skipped_stations(data_root: Path, used: list[Source]) -> list[dict[str, str]
     unveraendert sieht, soll nachlesen koennen, warum.
     """
     genutzt = {quelle.station for quelle in used}
-    parent = data_root / BRONZE_LAYER / f"dataset={NOAA_DATASET}"
+    ablage = for_root(data_root)
+    prefix = f"{BRONZE_LAYER}/dataset={NOAA_DATASET}"
+    stationen = sorted({
+        lauf.relativ[len(prefix) + 1:].split("/")[0].removeprefix("station=")
+        for lauf in ablage.laeufe(prefix, "station=*/run_*/manifest.json")
+    })
     uebergangen = []
-    for verzeichnis in sorted(parent.glob("station=*")):
-        station = verzeichnis.name.removeprefix("station=")
-        if station in genutzt or not list(verzeichnis.glob("run_*/manifest.json")):
+    for station in stationen:
+        if station in genutzt:
             continue
         uebergangen.append(
             {
@@ -417,15 +423,17 @@ def build(data_root: Path, stations: list[str]) -> Path:
         manifest = build_manifest(
             con, "weather_silver", sources, uebergangen, started
         )
-        return publish(con, "weather_silver", table_dir(data_root), manifest)
+        ziel = publish(con, "weather_silver", table_dir(data_root), manifest)
     finally:
         con.close()
+    for_root(data_root).publish_table(ziel)
+    return ziel
 
 
 def main() -> int:
     args = arguments()
     try:
-        ziel = build(args.data_root, args.station)
+        ziel = build(for_root(args.data_root).local_root, args.station)
         manifest = read_manifest(ziel)
         log.info("Silver-Tabelle geschrieben: %s", ziel)
         log.info("  Zeilen: %s", f"{manifest['row_count']:,}")

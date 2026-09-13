@@ -52,6 +52,7 @@ from typing import Any, NamedTuple
 
 import duckdb
 
+from storage import for_root
 from gold_pipeline import (
     GATE_HOECHSTENS,
     GATE_MINDESTENS,
@@ -157,7 +158,7 @@ class Quelle(NamedTuple):
     """
 
     name: str
-    pfad: Path
+    pfad: str | Path   # Silver: lokal oder s3://; config: lokal
     layer: str = SILVER_LAYER
 
     @property
@@ -167,7 +168,8 @@ class Quelle(NamedTuple):
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data-root", type=Path, default=Path("data"))
+    parser.add_argument("--data-root", type=Path, default=None,
+                        help="Wurzel der Schichten (Vorgabe: LOCAL_DATA_ROOT oder data)")
     parser.add_argument("--config-root", type=Path, default=Path("config"))
     parser.add_argument("--vintage", type=int, default=DEFAULT_VINTAGE)
     return parser.parse_args()
@@ -188,20 +190,23 @@ def referenzquellen(config_root: Path) -> list[Quelle]:
 
 
 def silver_quelle(data_root: Path, name: str, vintage: int | None = None) -> Quelle:
-    """Der Pfad einer Silver-Tabelle; mit Vintage, wo sie danach partitioniert ist."""
-    verzeichnis = data_root / SILVER_LAYER / f"dataset={name}"
+    """Der Pfad einer Silver-Tabelle; mit Vintage, wo sie danach partitioniert ist.
+
+    Woher gelesen wird - lokal oder SeaweedFS - entscheidet die Ablage.
+    """
+    ablage = for_root(data_root)
+    verzeichnis = f"{SILVER_LAYER}/dataset={name}"
     if vintage is not None:
-        verzeichnis = verzeichnis / f"vintage={vintage}"
-    pfad = verzeichnis / PARQUET_FILE
-    if not pfad.exists():
-        treffer = sorted(verzeichnis.glob(f"**/{PARQUET_FILE}"))
-        if not treffer:
-            raise TransformError(
-                f"Silver-Tabelle {name} fehlt unter {verzeichnis}. "
-                f"Zuerst bauen: python -m silver_pipeline.build_{name}"
-            )
-        pfad = treffer[-1]
-    return Quelle(name, pfad)
+        verzeichnis += f"/vintage={vintage}"
+    if ablage.exists(verzeichnis, PARQUET_FILE):
+        return Quelle(name, ablage.resolve_read_path(verzeichnis, PARQUET_FILE))
+    treffer = ablage.list_files(verzeichnis, f"**/{PARQUET_FILE}")
+    if not treffer:
+        raise TransformError(
+            f"Silver-Tabelle {name} fehlt unter {ablage.local_path(verzeichnis)}. "
+            f"Zuerst bauen: python -m silver_pipeline.build_{name}"
+        )
+    return Quelle(name, ablage.resolve_read_path(treffer[-1]))
 
 
 # --------------------------------------------------------------------------
@@ -855,13 +860,18 @@ def build(data_root: Path, config_root: Path, vintage: int) -> dict[str, Path]:
             )
     finally:
         con.close()
+    # Erst wenn alle fuenf lokal stehen: Ein halbes Gold auf S3 waere genau
+    # der Stand, den ein anderer Rechner dann fuer vollstaendig hielte.
+    ablage = for_root(data_root)
+    for tabelle in ziele.values():
+        ablage.publish_table(tabelle)
     return ziele
 
 
 def main() -> int:
     args = arguments()
     try:
-        ziele = build(args.data_root, args.config_root, args.vintage)
+        ziele = build(for_root(args.data_root).local_root, args.config_root, args.vintage)
         manifest = read_manifest(ziele["fact_offense"])
         nachweis = manifest["reconciliation"]
         log.info("Gold gebaut, %s Tabellen", len(ziele))

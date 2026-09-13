@@ -57,7 +57,8 @@ import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from manifeste import fertige_laeufe
+from manifeste import Lauf
+from storage import PublishError, for_root
 from typing import Any, NamedTuple
 
 import pyarrow as pa
@@ -172,7 +173,8 @@ class RunPaths(NamedTuple):
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data-root", type=Path, default=Path("data"))
+    parser.add_argument("--data-root", type=Path, default=None,
+                        help="Wurzel der Schichten (Vorgabe: LOCAL_DATA_ROOT oder data)")
     parser.add_argument(
         "--station",
         action="append",
@@ -254,12 +256,18 @@ def completed_runs(
     Gelesen wird nur Bronze, weil Bronze zuletzt veroeffentlicht wird - ein
     Raw-Lauf ohne Bronze-Zwilling kostet eine Wiederholung, nie eine Luecke.
     """
-    parent = run_parent(data_root, BRONZE_LAYER, station)
     return [
         lauf.verzeichnis
-        for lauf in fertige_laeufe(parent, "run_*/manifest.json", fehler=IngestionError)
+        for lauf in fertige_laeufe_der_station(data_root, station)
         if ingest_date is None or lauf.manifest.get("ingest_date") == ingest_date
     ]
+
+
+def fertige_laeufe_der_station(data_root: Path, station: str) -> list[Lauf]:
+    """Wie ``completed_runs``, aber mit Manifest - lokal oder auf SeaweedFS."""
+    ablage = for_root(data_root)
+    prefix = ablage.relativ(run_parent(data_root, BRONZE_LAYER, station))
+    return ablage.laeufe(prefix, "run_*/manifest.json", streng=True, fehler=IngestionError)
 
 
 def build_session() -> requests.Session:
@@ -277,7 +285,18 @@ def build_session() -> requests.Session:
     return session
 
 
-def conditional_headers(run_dir: Path | None) -> dict[str, str]:
+def manifest_des_laufs(lauf: Lauf | Path) -> dict[str, Any]:
+    """Das Manifest eines Laufs - schon geladen (``Lauf``) oder vom Pfad."""
+    if isinstance(lauf, Lauf):
+        return lauf.manifest
+    pfad = lauf / "manifest.json"
+    try:
+        return json.loads(pfad.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise IngestionError(f"Invalid manifest: {pfad}") from error
+
+
+def conditional_headers(run_dir: Lauf | Path | None) -> dict[str, str]:
     """Baut ``If-None-Match``/``If-Modified-Since`` aus dem letzten Manifest.
 
     Ohne vorherigen Lauf bleibt der Abruf unbedingt. Ein Manifest ohne die
@@ -286,11 +305,7 @@ def conditional_headers(run_dir: Path | None) -> dict[str, str]:
     """
     if run_dir is None:
         return {}
-    pfad = run_dir / "manifest.json"
-    try:
-        manifest = json.loads(pfad.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        raise IngestionError(f"Invalid manifest: {pfad}") from error
+    manifest = manifest_des_laufs(run_dir)
 
     abfrage = manifest.get("query") or {}
     kopf = {}
@@ -599,19 +614,20 @@ def write_run(
         raise
 
 
-def newest_run(data_root: Path, station: str) -> Path | None:
-    """Der jüngste vollstaendige Lauf dieser Station, oder None."""
-    vorhanden = completed_runs(data_root, station)
+def newest_run(data_root: Path, station: str) -> Lauf | None:
+    """Der jüngste vollstaendige Lauf dieser Station, oder None.
+
+    Als ``Lauf`` mit Manifest, nicht als Pfad: Liegt er nur auf SeaweedFS,
+    gibt es lokal nichts zu lesen.
+    """
+    vorhanden = fertige_laeufe_der_station(data_root, station)
     return vorhanden[-1] if vorhanden else None
 
 
-def run_age_days(run_dir: Path, reference: date) -> int | None:
+def run_age_days(run_dir: Lauf | Path, reference: date) -> int | None:
     """Alter eines Laufs in Tagen, gemessen am Abrufdatum im Manifest."""
-    pfad = run_dir / "manifest.json"
-    try:
-        manifest = json.loads(pfad.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        raise IngestionError(f"Invalid manifest: {pfad}") from error
+    manifest = manifest_des_laufs(run_dir)
+    pfad = (run_dir.verzeichnis if isinstance(run_dir, Lauf) else run_dir) / "manifest.json"
     roh = manifest.get("ingest_date")
     if not roh:
         return None
@@ -647,7 +663,7 @@ def ingest_station(
                 "--force laedt trotzdem",
                 station,
                 alter,
-                letzter.name,
+                letzter.verzeichnis.name,
                 min_interval_days,
             )
             return None
@@ -666,8 +682,11 @@ def main() -> int:
     args = arguments()
     started = datetime.now(timezone.utc)
 
+    ablage = for_root(args.data_root)
+    data_root = ablage.local_root
+
     try:
-        discard_stale_partials(args.data_root, started)
+        discard_stale_partials(data_root, started)
         geschrieben = 0
         with build_session() as session:
             for station in args.station:
@@ -680,7 +699,7 @@ def main() -> int:
                 )
                 run = ingest_station(
                     session,
-                    args.data_root,
+                    data_root,
                     started,
                     station,
                     args.force,
@@ -690,9 +709,11 @@ def main() -> int:
                     geschrieben += 1
                     log.info("Immutable run completed: %s", run.raw)
                     log.info("                        %s", run.bronze)
+                    ablage.publish_run(run.raw)
+                    ablage.publish_run(run.bronze)
         log.info("Fertig: %s Lauf/Laeufe geschrieben", geschrieben)
         return 0
-    except (IngestionError, OSError, ValueError) as error:
+    except (IngestionError, OSError, ValueError, PublishError) as error:
         log.error("Ingestion failed: %s", error)
         return 1
     except KeyboardInterrupt:
