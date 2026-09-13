@@ -99,6 +99,38 @@ jobs:
             python -m orchestration.run_all
           fi
 
+      - name: Die Notebooks, die Zahlen belegen
+        # Sechs von zwoelf. Die Linie: Notebooks, die Zahlen belegen, laufen;
+        # Notebooks, die laden (01, 02, 11, 12, 21, 22), nicht - sie wuerden
+        # hier zusaetzliche Bronze-Laeufe erzeugen.
+        #
+        # Warum ueberhaupt: Notebook 32 war seit der city=-Umbenennung (#39)
+        # still kaputt - "Kein Detroit-Bronze-Lauf", obwohl zwei da lagen.
+        # Einen Tag lang hat es niemand gemerkt, weil es niemand ausfuehrte.
+        # Diese Notebooks sind die Belege der Abgabe; ein Beleg, der nicht
+        # mehr laeuft, ist keiner.
+        run: |
+          set -euo pipefail
+          for nb in 03_chicago_data_quality 13_detroit_data_quality \
+                    31_storage_evaluation 32_nibrs_source \
+                    33_serving_evaluation 34_gold_sternschema; do
+            echo "== $nb"
+            python -m jupyter nbconvert --to notebook --execute \
+              --ExecutePreprocessor.timeout=1200 \
+              --output-dir ausgefuehrt "notebooks/$nb.ipynb"
+          done
+
+      - name: Ausgefuehrte Notebooks sichern
+        # Mit Ausgaben - das ist der Stand, den die Zahlen im Konzept
+        # beschreiben sollen. Wer eine Folie macht, kann hier nachsehen.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: notebooks-ausgefuehrt
+          path: ausgefuehrt/
+          if-no-files-found: warn
+          retention-days: 90
+
       - name: Alle Tests, jetzt mit Daten
         # Hier laufen die 40, die ein Pull Request ueberspringt. Rot heisst:
         # Der dokumentierte Stand und die Quelle sind auseinander.

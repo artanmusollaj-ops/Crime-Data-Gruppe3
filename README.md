@@ -171,7 +171,7 @@ Zugriff auf Chicago ebenfalls, wird aber stärker gedrosselt.
 python -m pytest
 ```
 
-Erwartet werden **705 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **708 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -387,7 +387,7 @@ können.
 python -m pytest
 ```
 
-**705 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**708 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -421,7 +421,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **665 der 705 Tests**. Die übrigen 34 überspringen
+In einem frischen Klon laufen **668 der 708 Tests**. Die übrigen 34 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
@@ -434,6 +434,11 @@ Wächter — Zahlen gegen Parquet, die Einwohnerprobe, „kein Delikt in der
 falschen Stadt". Der Workflow `datenlauf.yml` fährt deshalb **montags** die
 ganze Strecke: alle fünf Quellen laden, Silver, Gold und Serving bauen, dann
 die komplette Suite. Von Hand startbar unter *Actions → Datenlauf*.
+
+Nach dem Bau führt er die **sechs Notebooks aus, die Zahlen belegen** — 03,
+13, 31, 32, 33, 34 — und legt sie mit Ausgaben als Artefakt ab. Die sechs, die
+laden, laufen bewusst nicht: Sie würden zusätzliche Bronze-Läufe erzeugen.
+Notebook 32 war vor dieser Prüfung einen Tag lang still kaputt.
 
 Er braucht `CENSUS_API_KEY` als Repository-Secret; der erste Schritt prüft
 das und sagt, was fehlt. **Ein rotes Ergebnis ist dort kein Fehler, sondern

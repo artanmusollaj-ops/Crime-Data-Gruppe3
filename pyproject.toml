@@ -52,6 +52,11 @@ dev = [
     # einen falschen Modulalias und eine doppelt vergebene Variable. Pyflakes
     # meldet beides, bevor ein Test laeuft.
     "ruff>=0.16,<1",
+    # Fuehrt die Notebooks im woechentlichen Datenlauf aus. Notebook 32 war
+    # seit der city=-Umbenennung still kaputt - einen Tag lang, unbemerkt,
+    # weil es niemand ausfuehrte. Das sind die Belege der Abgabe.
+    "nbconvert>=7.16,<8",
+    "ipykernel>=6.29,<7",
 ]
 
 [tool.setuptools.packages.find]

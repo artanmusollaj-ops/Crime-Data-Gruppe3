@@ -59,3 +59,38 @@ def test_er_sichert_das_gesamtmanifest_auch_bei_rot():
 def test_er_committet_keine_daten():
     t = text()
     assert "git commit" not in t and "git push" not in t
+
+
+BELEGEN = ("03_chicago_data_quality", "13_detroit_data_quality",
+           "31_storage_evaluation", "32_nibrs_source",
+           "33_serving_evaluation", "34_gold_sternschema")
+LADEN = ("01_chicago_source", "02_chicago_bronze_ingestion",
+         "11_detroit_source", "12_detroit_bronze_ingestion",
+         "21_census_source", "22_weather_source")
+
+
+def test_die_belegenden_notebooks_laufen_nach_dem_bau():
+    """Sechs von zwoelf, und nach der Strecke - vorher gaebe es keine Daten."""
+    t = text()
+    strecke = t.index("python -m orchestration.run_all")
+    notebooks = t.index("nbconvert --to notebook --execute")
+    assert strecke < notebooks
+    for nb in BELEGEN:
+        assert nb in t, f"{nb} fehlt im Datenlauf"
+
+
+def test_die_ladenden_notebooks_laufen_nicht():
+    """Sie wuerden im Lauf zusaetzliche Bronze-Laeufe erzeugen."""
+    t = text()
+    for nb in LADEN:
+        assert nb not in t, f"{nb} laedt und gehoert nicht in den Datenlauf"
+
+
+def test_jedes_notebook_im_repository_ist_eingeordnet():
+    """Ein neues Notebook muss entweder laufen oder ausdruecklich nicht."""
+    vorhanden = {p.stem for p in (PROJECT_ROOT / "notebooks").glob("*.ipynb")}
+    eingeordnet = set(BELEGEN) | set(LADEN)
+    assert vorhanden == eingeordnet, (
+        f"nicht eingeordnet: {sorted(vorhanden - eingeordnet)}, "
+        f"nicht mehr da: {sorted(eingeordnet - vorhanden)}"
+    )
