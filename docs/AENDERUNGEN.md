@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **708** |
+| Tests | **722** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -39,6 +39,53 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 13.09.2026 · Ein Manifest-Leser statt elf (#62)
+
+**Was.** `src/crime/manifeste/`: `fertige_laeufe()` und `tabellen()`, dazu
+`Lauf` und `Tabelle`, die die je Quelle verschieden benannten Schlüssel
+auflösen — `run_id`/`pipeline_run_id`, `completed_at_utc`/`finished_at`,
+`row_count`/`downloaded_count`. Zehn Stellen lesen jetzt darüber. Punkt 5 der
+Schwachstellenliste.
+
+**Warum.** „Manifeste einsammeln" war an **elf Stellen** implementiert, jede
+ein wenig anders: sieben kannten nur `complete`, Detroits Leser nur
+`SUCCESS`, der Controller beide; drei übersprangen versteckte
+`.part`-Verzeichnisse, die übrigen nicht; die Ingestion warf bei kaputtem
+JSON, der Controller warnte. Als der Controller entstand, musste er jede
+dieser Eigenheiten einzeln nachvollziehen — und **vier der elf Stellen
+stammten vom selben Tag.**
+
+**Was je Aufrufer verschieden bleibt, ist ein Parameter.** Das Glob-Muster.
+Der Fehlertyp — die Ingestion sagt `IngestionError`, Silver `TransformError`,
+und ihre Tests hängen an diesen Typen. Und ob ein kaputtes Manifest wirft oder
+nur warnt: Für eine Pipeline ist es ein Fehler in der eigenen Schicht, für den
+Controller, der nur inventarisiert, eine Warnung.
+
+**Was bewusst nicht hineingehört.** Detroits `validate_manifest` ist kein
+Leser, sondern ein Zulassungstor mit Prüfsummen, Zeilenzahlen und
+Schema-Fingerabdruck. Es prüft, ob ein Lauf *gilt*; der Leser findet nur, ob
+er *fertig* ist. Und `serving.discover()` globbt Parquet-Dateien, keine
+Manifeste.
+
+**Der Beleg, dass es gegriffen hat.** Nach dem Austausch war **jeder
+funktionale Test auf Anhieb grün** — Ingestion, Silver, Controller,
+Feldkatalog. Ruff meldete genau eines: `read_manifest` in
+`build_crime_offense` war jetzt ungenutzt, weil es der alte Leser war. Und
+`read_manifest_file`, Detroits Sonderweg, hatte keinen Aufrufer mehr —
+entfernt.
+
+**Eine Lehre für die eigene Kette.** Der erste Versuch, diesen Eintrag zu
+schreiben, scheiterte an einem `„…"`-Zitat, das einen Python-String zu früh
+schloss — und der Pull Request ging trotzdem hinaus, weil `pytest | tail` den
+roten Exit-Code verschluckte. Seither läuft die Kette mit `pipefail`.
+
+**Zahlen.** 708 → **722 Tests**; 14 neue halten fest, was elf Stellen je für
+sich richtig oder falsch machten.
+
+**Nachlesen.** `src/crime/manifeste/__init__.py` · PR #62
 
 ---
 

@@ -22,9 +22,11 @@ Wer eine Spalte hinzufuegt, soll einen Satz darueber schreiben muessen.
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src" / "crime"))
+from manifeste import tabellen  # noqa: E402
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -208,16 +210,10 @@ JE_TABELLE: dict[tuple[str, str], str] = {
 
 def manifeste() -> list[tuple[str, str, dict]]:
     """Jede gebaute Tabelle mit ihrem Manifest, nach Schicht und Name sortiert."""
-    gefunden = []
-    for schicht in SCHICHTEN:
-        wurzel = PROJECT_ROOT / "data" / schicht
-        for pfad in sorted(wurzel.glob("dataset=*/**/manifest.json")):
-            if any(teil.startswith(".") for teil in pfad.parts):
-                continue
-            name = next(t for t in pfad.parts if t.startswith("dataset=")
-                        ).removeprefix("dataset=")
-            gefunden.append((schicht, name, json.loads(pfad.read_text("utf-8"))))
-    return sorted(gefunden, key=lambda x: (x[0], x[1]))
+    return [
+        (t.schicht, t.name, t.manifest)
+        for t in tabellen(PROJECT_ROOT / "data", SCHICHTEN)
+    ]
 
 
 def beschreibung(tabelle: str, spalte: str) -> str | None:

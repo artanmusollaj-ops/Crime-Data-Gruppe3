@@ -29,7 +29,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import NamedTuple
 
-from orchestration import FERTIG, LAUF_MANIFEST
+from manifeste import fertige_laeufe, tabellen
+from orchestration import LAUF_MANIFEST
 
 
 LOG = logging.getLogger("run_all")
@@ -93,25 +94,11 @@ def bronze_laeufe(data_root: Path) -> dict[str, list[str]]:
     """
     gefunden: dict[str, list[str]] = {}
     wurzel = data_root / "bronze"
-    if not wurzel.exists():
-        return gefunden
-    for pfad in sorted(wurzel.glob("**/manifest.json")):
-        if any(teil.startswith(".") for teil in pfad.parts):
-            continue
-        try:
-            m = json.loads(pfad.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            LOG.warning("Manifest nicht lesbar: %s", pfad)
-            continue
-        if str(m.get("status", "")).lower() not in FERTIG:
-            continue
+    for lauf in fertige_laeufe(wurzel, "**/manifest.json", streng=False):
         # Der erste Pfadteil unter bronze/ benennt die Quelle:
         # city=chicago, dataset=tiger_tract, dataset=noaa_ghcnd ...
-        quelle = pfad.relative_to(wurzel).parts[0]
-        lauf = str(
-            m.get("run_id") or m.get("pipeline_run_id") or pfad.parent.name
-        )
-        gefunden.setdefault(quelle, []).append(lauf)
+        quelle = lauf.verzeichnis.relative_to(wurzel).parts[0]
+        gefunden.setdefault(quelle, []).append(lauf.run_id)
     return {k: sorted(set(v)) for k, v in sorted(gefunden.items())}
 
 
@@ -129,23 +116,9 @@ def aktualitaet(data_root: Path) -> dict[str, str]:
     """
     juengste: dict[str, str] = {}
     wurzel = data_root / "bronze"
-    if not wurzel.exists():
-        return juengste
-    for pfad in sorted(wurzel.glob("**/manifest.json")):
-        if any(teil.startswith(".") for teil in pfad.parts):
-            continue
-        try:
-            m = json.loads(pfad.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            continue
-        if str(m.get("status", "")).lower() not in FERTIG:
-            continue
-        quelle = pfad.relative_to(wurzel).parts[0]
-        # Acht Module schreiben completed_at_utc, Detroit finished_at. Wie
-        # beim Status: beide nehmen ist billiger, als jedes geschriebene
-        # Manifest ungueltig zu machen.
-        wann = str(m.get("completed_at_utc") or m.get("finished_at")
-                   or m.get("built_at_utc") or "")
+    for lauf in fertige_laeufe(wurzel, "**/manifest.json", streng=False):
+        quelle = lauf.verzeichnis.relative_to(wurzel).parts[0]
+        wann = lauf.abgeschlossen_um
         if wann and wann > juengste.get(quelle, ""):
             juengste[quelle] = wann
     return dict(sorted(juengste.items()))
@@ -153,18 +126,11 @@ def aktualitaet(data_root: Path) -> dict[str, str]:
 
 def zeilenzahlen(data_root: Path) -> dict[str, int]:
     """Was am Ende dasteht - je Tabelle eine Zahl aus ihrem Manifest."""
-    ergebnis: dict[str, int] = {}
-    for schicht in ("silver", "gold"):
-        for pfad in sorted((data_root / schicht).glob("dataset=*/**/manifest.json")):
-            if any(teil.startswith(".") for teil in pfad.parts):
-                continue
-            m = json.loads(pfad.read_text(encoding="utf-8"))
-            name = next(t for t in pfad.parts if t.startswith("dataset=")
-                        ).removeprefix("dataset=")
-            zahl = m.get("row_count") or m.get("rows")
-            if zahl is not None:
-                ergebnis[f"{schicht}/{name}"] = int(zahl)
-    return dict(sorted(ergebnis.items()))
+    return {
+        f"{t.schicht}/{t.name}": t.zeilen
+        for t in tabellen(data_root)
+        if t.zeilen is not None
+    }
 
 
 # ---------------------------------------------------------------------------

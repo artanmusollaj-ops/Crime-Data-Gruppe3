@@ -36,6 +36,8 @@ import shutil
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+from manifeste import fertige_laeufe
 from typing import Any, NamedTuple
 
 import pyarrow as pa
@@ -199,15 +201,10 @@ def discard_stale_partials(data_root: Path, now: datetime) -> list[Path]:
 def completed_runs(data_root: Path, vintage: int, state: str) -> list[Path]:
     """Bereits veroeffentlichte Laeufe dieser Vintage; Bronze zaehlt."""
     parent = run_parent(data_root, BRONZE_LAYER, vintage, state)
-    runs = []
-    for path in sorted(parent.glob("run_*/manifest.json")):
-        try:
-            manifest = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as error:
-            raise IngestionError(f"Invalid manifest: {path}") from error
-        if manifest.get("status") == "complete":
-            runs.append(path.parent)
-    return runs
+    return [
+        lauf.verzeichnis
+        for lauf in fertige_laeufe(parent, "run_*/manifest.json", fehler=IngestionError)
+    ]
 
 
 def build_session() -> requests.Session:
