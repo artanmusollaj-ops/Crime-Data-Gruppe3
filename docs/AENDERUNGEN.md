@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **705** |
+| Tests | **708** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -39,6 +39,39 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 13.09.2026 · Die Notebooks laufen im Datenlauf — und Notebook 32 war kaputt (#61)
+
+**Was.** Der Datenlauf führt nach dem Bau die sechs Notebooks aus, die Zahlen
+belegen: 03, 13, 31, 32, 33, 34. Mit Ausgaben als Artefakt. Punkt 4 der
+Schwachstellenliste.
+
+**Warum — und der Beweis kam vor dem Bau.** Beim lokalen Probelauf der sechs
+fiel **Notebook 32** sofort: *„Kein Detroit-Bronze-Lauf"*, obwohl zwei da
+lagen. Es suchte noch unter `bronze/detroit/` — dem Pfad von vor #39, der seit
+gestern `city=detroit/` heisst. **Einen Tag lang still kaputt**, und niemand
+hat es gemerkt, weil es niemand ausführte. Diese Notebooks sind die Belege der
+Abgabe; ein Beleg, der nicht mehr läuft, ist keiner. Genau das hatte die
+Analyse als Risiko benannt, und genau so ist es eingetreten.
+
+**Die Linie.** Notebooks, die **Zahlen belegen**, laufen. Notebooks, die
+**laden** (01, 02, 11, 12, 21, 22), laufen nicht — sie würden im Lauf
+zusätzliche Bronze-Läufe erzeugen. Ein Formtest hält fest, dass jedes Notebook
+im Repository auf einer der beiden Listen steht: Ein neues muss eingeordnet
+werden, es kann nicht unbemerkt dazukommen.
+
+**Warum im Datenlauf und nicht auf Pull Requests.** Sie brauchen `data/`.
+Ohne gebaute Schichten haben sie nichts zu belegen.
+
+**Was dazukam.** `nbconvert` und `ipykernel` als Dev-Abhängigkeiten; das
+Lockfile aus einer frischen Installation neu eingefroren, jetzt 68 Pakete.
+
+**Zahlen.** 705 → **708 Tests**. Lokal laufen alle sechs Notebooks in unter
+40 Sekunden zusammen.
+
+**Nachlesen.** `.github/workflows/datenlauf.yml` · PR #61
 
 ---
 
