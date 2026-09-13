@@ -174,7 +174,7 @@ Zugriff auf Chicago ebenfalls, wird aber stärker gedrosselt.
 python -m pytest
 ```
 
-Erwartet werden **832 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **837 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -437,7 +437,20 @@ python -m storage
 Zeigt Modus, Wurzel, Endpoint und Bucket (nie die Schlüssel), löst den
 Hostnamen auf und listet `silver/`. Antwortet SeaweedFS nicht, sagt auch jede
 Pipeline nur noch einen Satz — *nicht erreichbar*, *lehnt ab* mit dem Code —
-statt eines boto3-Tracebacks.
+statt eines boto3-Tracebacks. Vorübergehende Aussetzer (403, 5xx,
+Verbindungsabbruch) werden bis zu viermal mit Pause wiederholt.
+
+**Bestehende Läufe nachpublizieren.** Die Pipelines publizieren nur den
+Lauf, den sie gerade schreiben. Was vorher da war — Chicagos
+Vollschnappschuss, die Deltas, Detroit, Census, NOAA — kommt so hoch, Raw vor
+Bronze, je Lauf das Manifest zuletzt, idempotent:
+
+```bash
+python -m storage publizieren              # zeigt, was lokal liegt und oben fehlt
+python -m storage publizieren --wirklich   # lädt es hoch
+```
+
+Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 
 ## 3 · Wenn etwas klemmt
 
@@ -462,7 +475,7 @@ statt eines boto3-Tracebacks.
 python -m pytest
 ```
 
-**832 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**837 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -496,7 +509,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **791 der 832 Tests**. Die übrigen 41 überspringen
+In einem frischen Klon laufen **796 der 837 Tests**. Die übrigen 41 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter

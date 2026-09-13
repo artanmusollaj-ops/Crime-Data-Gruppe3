@@ -30,6 +30,7 @@ import json
 import logging
 import re
 import shutil
+import time
 from collections.abc import Iterable
 from fnmatch import translate as glob_translate
 from pathlib import Path
@@ -68,6 +69,16 @@ class S3Client(Protocol):
     def list(self, prefix: str) -> list[Objekt]: ...
 
 
+# Vor dem ersten Nachpublizieren antwortete SeaweedFS auf ein HEAD einmal mit
+# 403 - und Sekunden spaeter auf denselben Schluessel mit 404. Solche Aussetzer
+# (403, 5xx, Verbindungsabbruch) werden ein paarmal mit Pause wiederholt, bevor
+# sie ein Fehler sind. boto3 wiederholt 403 von sich aus nicht.
+VERSUCHE = 4
+PAUSEN = (1.0, 3.0, 8.0)
+VORUEBERGEHEND = {"403", "AccessDenied", "500", "502", "503", "504",
+                  "InternalError", "ServiceUnavailable", "SlowDown", "RequestTimeout"}
+
+
 class Boto3Client:
     """S3 ueber boto3, path-style, gegen den konfigurierten Endpoint."""
 
@@ -89,6 +100,28 @@ class Boto3Client:
             ),
         )
 
+    def _mit_wiederholung(self, was: str, aufruf):
+        """Fuehrt ``aufruf()`` aus; voruebergehende Fehler werden wiederholt."""
+        from botocore.exceptions import BotoCoreError, ClientError
+
+        for versuch in range(VERSUCHE):
+            try:
+                return aufruf()
+            except ClientError as fehler:
+                code = str(fehler.response.get("Error", {}).get("Code", ""))
+                if code in ("404", "NoSuchKey", "NotFound"):
+                    raise
+                letzter = fehler
+                if code not in VORUEBERGEHEND:
+                    break
+            except BotoCoreError as fehler:
+                letzter = fehler
+            if versuch < VERSUCHE - 1:
+                LOG.warning("SeaweedFS: %s bei %s - Versuch %d von %d, Pause %.0f s",
+                            type(letzter).__name__, was, versuch + 1, VERSUCHE, PAUSEN[versuch])
+                time.sleep(PAUSEN[versuch])
+        raise self._uebersetzt(letzter, was) from letzter
+
     def _uebersetzt(self, fehler: Exception, was: str) -> StorageError:
         """Ein boto-Fehler als ein Satz - Endpoint und Ursache, keine Schluessel."""
         from botocore.exceptions import ClientError, EndpointConnectionError
@@ -109,48 +142,44 @@ class Boto3Client:
         return StorageError(f"SeaweedFS: {type(fehler).__name__} bei {was}: {fehler}")
 
     def head(self, key: str) -> Objekt | None:
-        from botocore.exceptions import BotoCoreError, ClientError
+        from botocore.exceptions import ClientError
 
         try:
-            antwort = self._client.head_object(Bucket=self.bucket, Key=key)
+            antwort = self._mit_wiederholung(
+                f"HEAD {key}", lambda: self._client.head_object(Bucket=self.bucket, Key=key))
         except ClientError as fehler:
             code = str(fehler.response.get("Error", {}).get("Code", ""))
             if code in ("404", "NoSuchKey", "NotFound"):
                 return None
             raise self._uebersetzt(fehler, f"HEAD {key}") from fehler
-        except BotoCoreError as fehler:
-            raise self._uebersetzt(fehler, f"HEAD {key}") from fehler
         return Objekt(key, int(antwort["ContentLength"]), antwort.get("ETag", ""))
 
     def get(self, key: str) -> bytes:
-        from botocore.exceptions import BotoCoreError, ClientError
+        from botocore.exceptions import ClientError
 
         try:
-            return self._client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
-        except (BotoCoreError, ClientError) as fehler:
+            return self._mit_wiederholung(
+                f"GET {key}",
+                lambda: self._client.get_object(Bucket=self.bucket, Key=key)["Body"].read())
+        except ClientError as fehler:
             raise self._uebersetzt(fehler, f"GET {key}") from fehler
 
     def put(self, key: str, daten: bytes) -> None:
-        from botocore.exceptions import BotoCoreError, ClientError
-
-        try:
-            self._client.put_object(Bucket=self.bucket, Key=key, Body=daten)
-        except (BotoCoreError, ClientError) as fehler:
-            raise self._uebersetzt(fehler, f"PUT {key}") from fehler
+        self._mit_wiederholung(
+            f"PUT {key}",
+            lambda: self._client.put_object(Bucket=self.bucket, Key=key, Body=daten))
 
     def list(self, prefix: str) -> list[Objekt]:
-        from botocore.exceptions import BotoCoreError, ClientError
-
-        gefunden: list[Objekt] = []
-        try:
+        def alle() -> list[Objekt]:
+            gefunden: list[Objekt] = []
             paginator = self._client.get_paginator("list_objects_v2")
             for seite in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
                 for eintrag in seite.get("Contents", []):
                     gefunden.append(Objekt(eintrag["Key"], int(eintrag["Size"]),
                                            eintrag.get("ETag", "")))
-        except (BotoCoreError, ClientError) as fehler:
-            raise self._uebersetzt(fehler, f"LIST {prefix}") from fehler
-        return gefunden
+            return gefunden
+
+        return self._mit_wiederholung(f"LIST {prefix}", alle)
 
 
 class FakeS3Client:

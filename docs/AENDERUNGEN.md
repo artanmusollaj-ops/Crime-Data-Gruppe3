@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **832** |
+| Tests | **837** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -40,6 +40,32 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 13.09.2026 · Bestehende Läufe nachpublizieren — und Aussetzer aushalten (#72)
+
+**Was.** `python -m storage publizieren` zeigt, welche fertigen lokalen
+Läufe unter `raw/` und `bronze/` auf SeaweedFS fehlen, und bringt sie mit
+`--wirklich` hoch — Raw vor Bronze, je Lauf das Manifest zuletzt,
+idempotent, kein Sync in die Gegenrichtung. Dazu wiederholt der S3-Client
+vorübergehende Fehler (403, 5xx, Verbindungsabbruch) bis zu viermal mit
+Pause, bevor sie ein Fehler sind; endgültige (falscher Schlüssel, kein
+Bucket) sofort.
+
+**Warum.** Christians erster Hybridlauf brachte Silver und Gold nach
+SeaweedFS — Bronze und Raw nicht, weil `--ohne-ingestion` die Stufen
+übersprang, die sie publizieren. Für Artan wäre das kein Detail: Silver
+liest **alle** Chicago-Läufe; ohne den Vollschnappschuss vom 5.9. baut er
+kein `crime_offense`. Beim Nachpublizieren antwortete SeaweedFS auf das
+erste HEAD mit 403 und Sekunden später auf denselben Schlüssel mit 404 —
+ein Aussetzer, kein Rechteproblem. boto3 wiederholt 403 nicht von sich aus.
+
+**Stand auf SeaweedFS danach.** 146 Objekte, 251 MB: raw 98 (94 MB),
+bronze 30 (93 MB), silver 8 (49 MB), gold 10 (15 MB). Alle 29 lokalen Läufe
+sind oben; ein zweiter Aufruf sagt *Nichts zu tun*.
+
+**Zahlen.** 832 → **837 Tests**.
 
 ---
 
