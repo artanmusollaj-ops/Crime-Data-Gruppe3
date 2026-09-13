@@ -669,6 +669,31 @@ die Chicagoer, wissen wir, ob ein Vergleich überhaupt trägt.
 
 `Entscheid: Machen wir sobald Artan bereit ist`
 
+**Nachtrag 13.9.2026 — Verantwortliche je Datensatz.** Die Schritt-Tabelle
+oben sagt, wer *baut*; sie sagt nicht, wen man fragt, wenn eine Quelle
+klemmt. Das stand als Lücke in Tabelle 5.3 des Konzepts („niemand ist für
+einen Datensatz benannt"). Stand nach der Arbeitsteilung vom 12.9.2026;
+Stufennamen wie in `orchestration.run_all`. Ein Test hält die Tabelle
+vollständig: jede Stufe des Run-Controllers muss hier stehen.
+
+| Stufe | Datensatz | Modul | Verantwortlich | Belegt in |
+| --- | --- | --- | --- | --- |
+| `chicago` | `bronze/city=chicago` | `chicago_pipeline.download_chicago` | Christian | Notebooks 01–03 |
+| `detroit` | `bronze/city=detroit` | `detroit_pipeline.extract_detroit` | Christian | Notebooks 11–13 |
+| `tiger_tract` | `bronze/dataset=tiger_tract` | `census_pipeline.download_tiger` | Christian | Notebook 21 |
+| `tiger_place` | `bronze/dataset=tiger_place` | `census_pipeline.download_tiger` | Christian | Notebook 21 |
+| `acs` | `bronze/dataset=acs5_tract` | `census_pipeline.download_acs` | Christian | Notebook 21 |
+| `noaa` | `bronze/dataset=noaa_ghcnd` | `weather_pipeline.download_noaa` | Christian | Notebook 22 |
+| `tract`, `place`, `weather_day`, `crime_offense` | `silver/` | `silver_pipeline.*` | Christian | Konzept 8, Feldkatalog |
+| `gold` | `gold/` (fünf Tabellen) | `gold_pipeline.build_gold` | Christian | Notebook 34, Konzept 5.2 |
+| `analyse_db`, `tracts_geojson` | `serving/` | `serving.*` | Christian | Notebook 33 |
+| — | Hypothesen (Kapitel 3, Notebook) | — | Artan | Konzept 3 |
+| — | Konzept, Absprache, Leistungsnachweise, Präsentation | — | Artan | `docs/` |
+
+Was die Tabelle **nicht** regelt: eine Stellvertretung. Fällt einer von uns
+aus, übernimmt der andere — das ist bei zwei Personen keine Regel, sondern
+der einzige Ausweg. Wer eine Quelle übernimmt, trägt sich hier ein.
+
 ### 7.4 Wann ist etwas fertig?
 
 **Vorschlag** für eine gemeinsame Messlatte je Pipeline:
