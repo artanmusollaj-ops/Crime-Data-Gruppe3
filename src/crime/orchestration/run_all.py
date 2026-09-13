@@ -25,7 +25,7 @@ import logging
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import NamedTuple
 
@@ -124,6 +124,31 @@ def aktualitaet(data_root: Path) -> dict[str, str]:
     return dict(sorted(juengste.items()))
 
 
+def veraltete_quellen(
+    data_root: Path, maximal_alter_tage: float, *, jetzt: datetime | None = None
+) -> dict[str, float]:
+    """Quellen, deren juengster Lauf aelter ist als erlaubt - mit ihrem Alter in Tagen.
+
+    Bis hierher wurde die Aktualitaet nur **aufgezeichnet**: Das Gesamtmanifest
+    nannte je Quelle den juengsten Lauf, und niemand las es. Eine Zahl, die
+    niemand gegen etwas haelt, ist keine Kontrolle. Hier wird sie gegen eine
+    Schwelle gehalten.
+
+    Eine Quelle ohne einzigen fertigen Lauf zaehlt als unendlich alt: Sie ist
+    nicht "frisch", sie ist nicht da.
+    """
+    jetzt = jetzt or datetime.now(timezone.utc)
+    zu_alt: dict[str, float] = {}
+    for quelle, wann in aktualitaet(data_root).items():
+        stempel = datetime.fromisoformat(wann.replace("Z", "+00:00"))
+        if stempel.tzinfo is None:
+            stempel = stempel.replace(tzinfo=timezone.utc)
+        alter = (jetzt - stempel) / timedelta(days=1)
+        if alter > maximal_alter_tage:
+            zu_alt[quelle] = round(alter, 1)
+    return zu_alt
+
+
 def zeilenzahlen(data_root: Path) -> dict[str, int]:
     """Was am Ende dasteht - je Tabelle eine Zahl aus ihrem Manifest."""
     return {
@@ -189,12 +214,35 @@ def schreibe_manifest(data_root: Path, manifest: dict) -> Path:
 
 
 def lauf(data_root: Path, projekt_root: Path, *,
-         ohne_ingestion: bool = False, bis: str | None = None) -> dict:
+         ohne_ingestion: bool = False, bis: str | None = None,
+         maximal_alter_tage: float | None = None) -> dict:
     stufen = auswahl(ohne_ingestion, bis)
     begonnen = datetime.now(timezone.utc)
-    protokoll = fahre(stufen, projekt_root)
-    geschafft = all(s["exit"] == 0 for s in protokoll) and len(protokoll) == len(stufen)
+    zu_alt: dict[str, float] = {}
 
+    # Ohne Ingestion werden die Daten nicht frischer. Sind sie schon zu alt,
+    # lohnt sich keine Stufe - und ein Gold auf veraltetem Bronze waere genau
+    # die Zahl, die dann auf einer Folie landet.
+    if maximal_alter_tage is not None and ohne_ingestion:
+        zu_alt = veraltete_quellen(data_root, maximal_alter_tage)
+        if zu_alt:
+            for quelle, tage in zu_alt.items():
+                LOG.error("%s ist %.1f Tage alt, erlaubt sind %s. Nichts gebaut.",
+                          quelle, tage, maximal_alter_tage)
+
+    protokoll = fahre(stufen, projekt_root) if not zu_alt else []
+    gelaufen = all(s["exit"] == 0 for s in protokoll) and len(protokoll) == len(stufen)
+
+    # Mit Ingestion erst danach: Jetzt sollten alle Quellen frisch sein. Sind
+    # sie es nicht, hat eine Quelle nichts Neues geliefert - das ist der Fall,
+    # den man erfahren will, bevor die alte Zahl weiterlebt.
+    if maximal_alter_tage is not None and not ohne_ingestion and gelaufen:
+        zu_alt = veraltete_quellen(data_root, maximal_alter_tage)
+        for quelle, tage in zu_alt.items():
+            LOG.error("%s ist nach der Ingestion %.1f Tage alt, erlaubt sind %s.",
+                      quelle, tage, maximal_alter_tage)
+
+    geschafft = gelaufen and not zu_alt
     laeufe = bronze_laeufe(data_root)
     manifest = {
         "status": "complete" if geschafft else "failed",
@@ -204,6 +252,10 @@ def lauf(data_root: Path, projekt_root: Path, *,
         "input_bronze_runs": laeufe,
         "input_fingerprint": fingerabdruck(laeufe),
         "source_freshness": aktualitaet(data_root),
+        "freshness_check": {
+            "max_age_days": maximal_alter_tage,
+            "stale": zu_alt,
+        },
         "output_rows": zeilenzahlen(data_root) if geschafft else {},
     }
     schreibe_manifest(data_root, manifest)
@@ -222,6 +274,9 @@ def arguments() -> argparse.Namespace:
                    help="nach dieser Gruppe aufhoeren")
     p.add_argument("--trocken", action="store_true",
                    help="nur zeigen, was liefe")
+    p.add_argument("--maximal-alter-tage", type=float, default=None, metavar="TAGE",
+                   help="scheitern, wenn der juengste Lauf einer Quelle aelter ist "
+                        "(ohne Angabe wird die Aktualitaet nur aufgezeichnet)")
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args()
 
@@ -243,12 +298,18 @@ def main() -> int:
         return 0
 
     manifest = lauf(args.data_root, projekt_root,
-                    ohne_ingestion=args.ohne_ingestion, bis=args.bis)
+                    ohne_ingestion=args.ohne_ingestion, bis=args.bis,
+                    maximal_alter_tage=args.maximal_alter_tage)
 
     print()
     if manifest["status"] != "complete":
-        gescheitert = next(s for s in manifest["stages"] if s["exit"] != 0)
-        print(f"Abgebrochen bei {gescheitert['gruppe']} · {gescheitert['name']}.")
+        zu_alt = manifest["freshness_check"]["stale"]
+        if zu_alt:
+            alt_ = ", ".join(f"{q} ({t} Tage)" for q, t in zu_alt.items())
+            print(f"Zu alt: {alt_}. Erlaubt: {args.maximal_alter_tage} Tage.")
+        else:
+            gescheitert = next(s for s in manifest["stages"] if s["exit"] != 0)
+            print(f"Abgebrochen bei {gescheitert['gruppe']} · {gescheitert['name']}.")
         return 1
     gesamt = sum(s["sekunden"] for s in manifest["stages"])
     print(f"{len(manifest['stages'])} Stufen in {gesamt:.0f} s.")

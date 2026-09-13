@@ -93,10 +93,13 @@ jobs:
           CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
           SOCRATA_APP_TOKEN: ${{ secrets.SOCRATA_APP_TOKEN }}
         run: |
+          # Acht Tage: Wochentakt plus Reserve, NOAAs vier Tage Nachlauf
+          # eingeschlossen. Liefert eine Quelle nichts Neues, faellt der
+          # Lauf - das ist die Freshness-Kontrolle, die es bisher nicht gab.
           if [ "${{ inputs.ohne_ingestion }}" = "true" ]; then
-            python -m orchestration.run_all --ohne-ingestion
+            python -m orchestration.run_all --ohne-ingestion --maximal-alter-tage 8
           else
-            python -m orchestration.run_all
+            python -m orchestration.run_all --maximal-alter-tage 8
           fi
 
       - name: Die Notebooks, die Zahlen belegen

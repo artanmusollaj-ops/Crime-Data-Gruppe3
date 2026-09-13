@@ -196,3 +196,91 @@ def test_versteckte_laeufe_bleiben_draussen(tmp_path):
     bronze(data_root, "city=chicago", "run_A")
     bronze(data_root, "city=chicago", ".run_B.part")
     assert ra.bronze_laeufe(data_root) == {"city=chicago": ["run_A"]}
+
+
+# --------------------------------------------------------------------------
+# Aktualitaet - aufgezeichnet war sie schon, jetzt wird sie geprueft
+# --------------------------------------------------------------------------
+
+from datetime import datetime, timedelta, timezone  # noqa: E402
+
+
+def stempel(tage_alt: float) -> str:
+    return (datetime.now(timezone.utc) - timedelta(days=tage_alt)).isoformat()
+
+
+def test_veraltete_quellen_nennt_quelle_und_alter(tmp_path):
+    data_root = tmp_path / "data"
+    bronze(data_root, "city=chicago", "run_A", wann=stempel(2))
+    bronze(data_root, "city=detroit", "run_B", wann=stempel(20))
+    zu_alt = ra.veraltete_quellen(data_root, maximal_alter_tage=8)
+    assert list(zu_alt) == ["city=detroit"]
+    assert 19.9 < zu_alt["city=detroit"] < 20.1
+
+
+def test_detroits_zeitstempel_mit_zone_wird_verstanden(tmp_path):
+    """finished_at traegt +00:00, completed_at_utc nicht - beide muessen gehen."""
+    data_root = tmp_path / "data"
+    manifest_schreiben(
+        data_root / "bronze" / "city=detroit" / "run_X" / "manifest.json",
+        status="SUCCESS", pipeline_run_id="run_X",
+        finished_at=(datetime.now(timezone.utc) - timedelta(days=30)).isoformat(),
+    )
+    assert "city=detroit" in ra.veraltete_quellen(data_root, 8)
+
+
+def test_ohne_schwelle_wird_nur_aufgezeichnet(tmp_path, monkeypatch):
+    data_root = tmp_path / "data"
+    bronze(data_root, "city=chicago", "run_A", wann=stempel(400))
+    stufen = [falsche_stufe(tmp_path, "eins", 0)]
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(ra, "auswahl", lambda *_a, **_k: stufen)
+    manifest = ra.lauf(data_root, tmp_path)
+    assert manifest["status"] == "complete"
+    assert manifest["freshness_check"] == {"max_age_days": None, "stale": {}}
+
+
+def test_ohne_ingestion_faellt_ein_veralteter_bestand_vor_der_ersten_stufe(tmp_path, monkeypatch):
+    """Die Daten werden dabei nicht frischer - also lohnt keine Stufe."""
+    data_root = tmp_path / "data"
+    bronze(data_root, "city=chicago", "run_A", wann=stempel(30))
+    spur = tmp_path / "spur.txt"
+    stufen = [falsche_stufe(tmp_path, "eins", 0, spur)]
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(ra, "auswahl", lambda *_a, **_k: stufen)
+
+    manifest = ra.lauf(data_root, tmp_path, ohne_ingestion=True, maximal_alter_tage=8)
+
+    assert manifest["status"] == "failed"
+    assert manifest["stages"] == [], "es darf keine Stufe gelaufen sein"
+    assert not spur.exists()
+    assert "city=chicago" in manifest["freshness_check"]["stale"]
+
+
+def test_mit_ingestion_wird_nach_der_strecke_geprueft(tmp_path, monkeypatch):
+    """Nach der Ingestion sollte alles frisch sein. Ist es das nicht, hat
+    eine Quelle nichts Neues geliefert - der Lauf soll das melden."""
+    data_root = tmp_path / "data"
+    bronze(data_root, "city=chicago", "run_A", wann=stempel(30))
+    spur = tmp_path / "spur.txt"
+    stufen = [falsche_stufe(tmp_path, "eins", 0, spur)]
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(ra, "auswahl", lambda *_a, **_k: stufen)
+
+    manifest = ra.lauf(data_root, tmp_path, maximal_alter_tage=8)
+
+    assert spur.exists(), "die Strecke muss gelaufen sein"
+    assert manifest["status"] == "failed"
+    assert manifest["freshness_check"]["stale"] == {"city=chicago": manifest["freshness_check"]["stale"]["city=chicago"]}
+    assert manifest["output_rows"] == {}
+
+
+def test_frische_daten_gehen_durch(tmp_path, monkeypatch):
+    data_root = tmp_path / "data"
+    bronze(data_root, "city=chicago", "run_A", wann=stempel(1))
+    stufen = [falsche_stufe(tmp_path, "eins", 0)]
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(ra, "auswahl", lambda *_a, **_k: stufen)
+    manifest = ra.lauf(data_root, tmp_path, ohne_ingestion=True, maximal_alter_tage=8)
+    assert manifest["status"] == "complete"
+    assert manifest["freshness_check"]["stale"] == {}

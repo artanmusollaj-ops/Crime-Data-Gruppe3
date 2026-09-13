@@ -94,3 +94,8 @@ def test_jedes_notebook_im_repository_ist_eingeordnet():
         f"nicht eingeordnet: {sorted(vorhanden - eingeordnet)}, "
         f"nicht mehr da: {sorted(eingeordnet - vorhanden)}"
     )
+
+
+def test_der_datenlauf_erzwingt_eine_frische_schwelle():
+    """Aufzeichnen allein ist keine Kontrolle."""
+    assert "--maximal-alter-tage" in text()
