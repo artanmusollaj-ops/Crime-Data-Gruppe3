@@ -307,3 +307,51 @@ def test_for_root_haelt_backend_und_client(tmp_path):
 def test_glob_semantik_wie_pathlib(rel, muster, erwartet):
     from storage.backend import passt
     assert passt(rel, muster) is erwartet
+
+
+
+# --------------------------------------------------------------------------
+# Wenn SeaweedFS nicht antwortet: ein Satz, kein Traceback
+# --------------------------------------------------------------------------
+
+
+def test_ein_unerreichbarer_endpoint_wird_zu_einem_satz():
+    """Der erste Versuch gegen s3.datenwerft.ch: der Hostname loeste nicht auf,
+    und die Pipeline fiel mit einem boto3-Traceback. Jetzt ein Satz mit Endpoint."""
+    from botocore.exceptions import EndpointConnectionError
+
+    from storage import StorageError
+    from storage.backend import Boto3Client
+
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s",
+                                s3_endpoint="s3.beispiel.invalid"))
+
+    class Tot:
+        def get_paginator(self, name):
+            raise EndpointConnectionError(endpoint_url="https://s3.beispiel.invalid/x")
+
+    client._client = Tot()
+    with pytest.raises(StorageError, match="nicht erreichbar: https://s3.beispiel.invalid"):
+        client.list("silver/")
+
+
+def test_eine_abgelehnte_anfrage_nennt_den_code():
+    from botocore.exceptions import ClientError
+
+    from storage import StorageError
+    from storage.backend import Boto3Client
+
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s"))
+
+    class Abgelehnt:
+        def head_object(self, **kw):
+            raise ClientError({"Error": {"Code": "InvalidAccessKeyId"}}, "HeadObject")
+
+    client._client = Abgelehnt()
+    with pytest.raises(StorageError, match="InvalidAccessKeyId"):
+        client.head("silver/x")
+
+
+def test_publish_error_ist_ein_storage_error():
+    from storage import StorageError
+    assert issubclass(PublishError, StorageError)

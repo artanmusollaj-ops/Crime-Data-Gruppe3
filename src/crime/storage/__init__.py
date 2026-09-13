@@ -25,13 +25,14 @@ from storage.backend import (
     PublishError,
     S3Client,
     Storage,
+    StorageError,
     manifest_von,
 )
 from storage.config import BACKENDS, Config, StorageConfigError, load
 
 __all__ = [
     "BACKENDS", "Boto3Client", "Config", "FakeS3Client", "PublishError",
-    "S3Client", "Storage", "StorageConfigError", "load", "manifest_von",
+    "S3Client", "Storage", "StorageConfigError", "StorageError", "load", "manifest_von",
     "get_storage", "set_storage", "for_root",
     "storage_path", "local_path", "s3_path", "resolve_read_path",
     "publish_to_shared_storage", "exists", "list_files", "read_text", "write_text",

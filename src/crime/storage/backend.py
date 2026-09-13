@@ -45,7 +45,11 @@ LOG = logging.getLogger("storage")
 MD5 = re.compile(r"^[0-9a-f]{32}$")
 
 
-class PublishError(RuntimeError):
+class StorageError(RuntimeError):
+    """Die Ablage ist nicht erreichbar oder lehnt ab - ohne Traceback aus boto3."""
+
+
+class PublishError(StorageError):
     """Etwas konnte nicht nach SeaweedFS - oder liegt dort schon anders."""
 
 
@@ -72,6 +76,7 @@ class Boto3Client:
         from botocore.config import Config as BotoConfig
 
         self.bucket = config.s3_bucket
+        self.endpoint_url = config.endpoint_url
         self._client = boto3.client(
             "s3",
             endpoint_url=config.endpoint_url,
@@ -84,8 +89,27 @@ class Boto3Client:
             ),
         )
 
+    def _uebersetzt(self, fehler: Exception, was: str) -> StorageError:
+        """Ein boto-Fehler als ein Satz - Endpoint und Ursache, keine Schluessel."""
+        from botocore.exceptions import ClientError, EndpointConnectionError
+
+        if isinstance(fehler, EndpointConnectionError):
+            return StorageError(
+                f"SeaweedFS nicht erreichbar: {self.endpoint_url} ({was}). "
+                "Stimmt S3_ENDPOINT, und loest der Hostname auf? "
+                "'python -m storage' prueft die Verbindung."
+            )
+        if isinstance(fehler, ClientError):
+            code = str(fehler.response.get("Error", {}).get("Code", "?"))
+            return StorageError(
+                f"SeaweedFS lehnt ab: {code} bei {was} auf {self.endpoint_url}, "
+                f"Bucket {self.bucket!r}. Bei AccessDenied/InvalidAccessKeyId/"
+                "SignatureDoesNotMatch die Schluessel pruefen, bei NoSuchBucket den Bucket."
+            )
+        return StorageError(f"SeaweedFS: {type(fehler).__name__} bei {was}: {fehler}")
+
     def head(self, key: str) -> Objekt | None:
-        from botocore.exceptions import ClientError
+        from botocore.exceptions import BotoCoreError, ClientError
 
         try:
             antwort = self._client.head_object(Bucket=self.bucket, Key=key)
@@ -93,22 +117,39 @@ class Boto3Client:
             code = str(fehler.response.get("Error", {}).get("Code", ""))
             if code in ("404", "NoSuchKey", "NotFound"):
                 return None
-            raise
+            raise self._uebersetzt(fehler, f"HEAD {key}") from fehler
+        except BotoCoreError as fehler:
+            raise self._uebersetzt(fehler, f"HEAD {key}") from fehler
         return Objekt(key, int(antwort["ContentLength"]), antwort.get("ETag", ""))
 
     def get(self, key: str) -> bytes:
-        return self._client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
+        from botocore.exceptions import BotoCoreError, ClientError
+
+        try:
+            return self._client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
+        except (BotoCoreError, ClientError) as fehler:
+            raise self._uebersetzt(fehler, f"GET {key}") from fehler
 
     def put(self, key: str, daten: bytes) -> None:
-        self._client.put_object(Bucket=self.bucket, Key=key, Body=daten)
+        from botocore.exceptions import BotoCoreError, ClientError
+
+        try:
+            self._client.put_object(Bucket=self.bucket, Key=key, Body=daten)
+        except (BotoCoreError, ClientError) as fehler:
+            raise self._uebersetzt(fehler, f"PUT {key}") from fehler
 
     def list(self, prefix: str) -> list[Objekt]:
+        from botocore.exceptions import BotoCoreError, ClientError
+
         gefunden: list[Objekt] = []
-        paginator = self._client.get_paginator("list_objects_v2")
-        for seite in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
-            for eintrag in seite.get("Contents", []):
-                gefunden.append(Objekt(eintrag["Key"], int(eintrag["Size"]),
-                                       eintrag.get("ETag", "")))
+        try:
+            paginator = self._client.get_paginator("list_objects_v2")
+            for seite in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
+                for eintrag in seite.get("Contents", []):
+                    gefunden.append(Objekt(eintrag["Key"], int(eintrag["Size"]),
+                                           eintrag.get("ETag", "")))
+        except (BotoCoreError, ClientError) as fehler:
+            raise self._uebersetzt(fehler, f"LIST {prefix}") from fehler
         return gefunden
 
 

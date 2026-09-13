@@ -66,3 +66,27 @@ def test_die_umgebung_schlaegt_die_env_datei(tmp_path, monkeypatch):
     monkeypatch.setenv("STORAGE_BACKEND", "local")
     monkeypatch.delenv("S3_ACCESS_KEY", raising=False)
     assert cfg.load().backend == "local"
+
+
+
+def test_python_m_storage_prueft_ohne_schluessel_zu_zeigen(monkeypatch, capsys):
+    """Die Pruefung sagt, was fehlt - und druckt nie einen Schluessel."""
+    import storage
+    from storage import __main__ as pruefung
+
+    monkeypatch.setenv("STORAGE_BACKEND", "hybrid")
+    monkeypatch.setenv("S3_ACCESS_KEY", "GEHEIM-ID")
+    monkeypatch.setenv("S3_SECRET_KEY", "GEHEIM-SECRET")
+    monkeypatch.setenv("S3_ENDPOINT", "s3.beispiel.invalid")
+    storage.set_storage(None)
+    assert pruefung.main() == 1
+    out = capsys.readouterr().out
+    assert "loest nicht auf" in out and "hybrid" in out
+    assert "GEHEIM" not in out
+
+
+def test_python_m_storage_im_local_modus(capsys):
+    from storage import __main__ as pruefung
+
+    assert pruefung.main() == 0
+    assert "STORAGE_BACKEND=local" in capsys.readouterr().out

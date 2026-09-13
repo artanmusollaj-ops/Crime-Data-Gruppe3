@@ -174,7 +174,7 @@ Zugriff auf Chicago ebenfalls, wird aber stärker gedrosselt.
 python -m pytest
 ```
 
-Erwartet werden **827 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **832 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -427,12 +427,17 @@ In Notebooks und Skripten liefert `from storage import resolve_read_path`
 den Pfad, den `read_parquet` lesen soll — lokal oder `s3://`, ohne dass der
 Code es wissen muss.
 
-Prüfen, ob SeaweedFS erreichbar ist (braucht die Schlüssel; kein Test hängt
-davon ab):
+Prüfen, ob SeaweedFS erreichbar ist — **vor** der ersten Pipeline (braucht
+die Schlüssel; kein Test hängt davon ab):
 
 ```bash
-python -c "from storage import get_storage; print(get_storage().list_files('silver', '**/manifest.json'))"
+python -m storage
 ```
+
+Zeigt Modus, Wurzel, Endpoint und Bucket (nie die Schlüssel), löst den
+Hostnamen auf und listet `silver/`. Antwortet SeaweedFS nicht, sagt auch jede
+Pipeline nur noch einen Satz — *nicht erreichbar*, *lehnt ab* mit dem Code —
+statt eines boto3-Tracebacks.
 
 ## 3 · Wenn etwas klemmt
 
@@ -457,7 +462,7 @@ python -c "from storage import get_storage; print(get_storage().list_files('silv
 python -m pytest
 ```
 
-**827 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**832 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -491,7 +496,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **786 der 827 Tests**. Die übrigen 41 überspringen
+In einem frischen Klon laufen **791 der 832 Tests**. Die übrigen 41 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter

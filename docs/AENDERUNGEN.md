@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **827** |
+| Tests | **832** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -40,6 +40,22 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 13.09.2026 · Die Ablage sagt, wenn SeaweedFS nicht antwortet (#71)
+
+**Was.** `python -m storage` prüft die Ablage vor der ersten Pipeline:
+Modus, Wurzel, Endpoint, Bucket (nie die Schlüssel), DNS-Auflösung, eine
+Listung von `silver/`. Und jede Transportstörung aus boto3 wird zu einem
+Satz — *SeaweedFS nicht erreichbar: https://…* oder *lehnt ab: Code* — statt
+zu einem Traceback aus `botocore/endpoint.py`.
+
+**Warum.** Christians erster Versuch im Hybridmodus fiel mit genau diesem
+Traceback. Der Befund: `s3.datenwerft.ch` hat keinen DNS-Eintrag. Das kann
+kein Schlüssel heilen, und die Pipeline sollte es in einem Satz sagen.
+
+**Zahlen.** 827 → **832 Tests**.
 
 ---
 
