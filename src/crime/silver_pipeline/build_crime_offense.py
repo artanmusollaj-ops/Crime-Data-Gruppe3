@@ -249,16 +249,6 @@ def detroit_sources(data_root: Path) -> Source:
     return Source(DETROIT, pfade, laeufe, zeilen, "read_parquet", "PARQUET")
 
 
-def read_manifest_file(path: Path) -> dict[str, Any]:
-    """Wie ``read_manifest``, aber fuer eine frei benannte Manifestdatei."""
-    import json
-
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as error:
-        raise TransformError(f"Invalid manifest: {path}") from error
-
-
 def tract_source(data_root: Path) -> Path:
     """Die juengste Vintage von ``silver/tract``."""
     wurzel = data_root / SILVER_LAYER / TRACT_TABLE
