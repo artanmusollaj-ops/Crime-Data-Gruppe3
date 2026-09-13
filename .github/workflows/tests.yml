@@ -63,9 +63,13 @@ jobs:
       - name: poppler-utils
         # Liefert pdftotext. Die Werkzeuge unter tools/ lesen damit die
         # amtlichen PDFs, und drei Tests pruefen, dass sich die Crosswalks
-        # daraus byteweise reproduzieren lassen. Nur unter Linux - unter
-        # Windows ueberspringen sich diese Tests, dort geht es um die Frage,
-        # ob der Code laeuft, nicht ob die PDFs lesbar sind.
+        # daraus byteweise reproduzieren lassen. Nur unter Linux: Der
+        # Windows-Runner hat zwar ein pdftotext, aber ein anderer Build setzt
+        # die Spalten anders, und die Kategorien-Reproduktion haengt am
+        # Layout. Sie ist gegen poppler-utils definiert und ueberspringt sich
+        # unter Windows mit genau dieser Begruendung. Windows prueft, ob der
+        # Code laeuft - und hat dabei den \r-Fehler in beiden PDF-Werkzeugen
+        # gefunden.
         if: runner.os == 'Linux'
         run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
 
