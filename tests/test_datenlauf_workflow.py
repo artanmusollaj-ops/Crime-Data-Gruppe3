@@ -144,3 +144,11 @@ def test_jeder_waechter_der_zahlen_gegen_daten_haelt_traegt_den_marker():
             if braucht_daten and "referenzstand" not in dekoratoren:
                 fehlend.append(f"{datei}::{name}")
     assert not fehlend, fehlend
+
+
+def test_die_drift_hat_eine_schwelle():
+    """Eine Tabelle, die niemand ansehen muss, ist der umgekehrte Fehler.
+    Der Schritt darf die Toleranz nicht abschalten."""
+    t = text()
+    drift_ = t[t.index("python -m orchestration.drift"):].splitlines()[0]
+    assert "--nur-melden" not in drift_
