@@ -52,7 +52,7 @@ from typing import Any, NamedTuple
 
 import duckdb
 
-from storage import for_root
+from storage import StorageError, for_root
 from gold_pipeline import (
     GATE_HOECHSTENS,
     GATE_MINDESTENS,
@@ -888,7 +888,7 @@ def main() -> int:
             f"{nachweis['offenses_whose_tract_belongs_to_no_study_city']:,}",
         )
         return 0
-    except (TransformError, OSError, duckdb.Error) as error:
+    except (TransformError, StorageError, OSError, duckdb.Error) as error:
         log.error("Gold-Aufbau fehlgeschlagen: %s", error)
         return 1
     except KeyboardInterrupt:

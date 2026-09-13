@@ -69,7 +69,7 @@ from typing import Any, NamedTuple
 
 import duckdb
 
-from storage import for_root
+from storage import StorageError, for_root
 from silver_pipeline import (
     BRONZE_LAYER,
     PARQUET_FILE,
@@ -823,7 +823,7 @@ def main() -> int:
     )
     try:
         build(for_root(args.data_root).local_root, args.config_root)
-    except TransformError as error:
+    except (TransformError, StorageError) as error:
         LOG.error("%s", error)
         return 1
     return 0

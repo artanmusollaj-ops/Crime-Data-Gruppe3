@@ -22,6 +22,7 @@ import argparse
 import socket
 import sys
 
+from manifeste import MANIFEST
 from storage import StorageError, get_storage
 from storage.config import StorageConfigError
 
@@ -59,6 +60,44 @@ def pruefen() -> int:
         return 1
     print(f"Verbindung: ok - {len(dateien)} Manifest(e) unter silver/ "
           + (f"({dateien[0]}, ...)" if dateien else "(noch nichts publiziert)"))
+    return staende(ablage)
+
+
+def staende(ablage) -> int:
+    """Je abgeleitete Tabelle: ist die lokale so neu wie die auf SeaweedFS?
+
+    Das ist die Frage, die sich niemand stellt, bis eine alte Zahl auf einer
+    Folie steht. "lokal zuerst" liest still die aeltere Fassung.
+    """
+    from storage import ABGELEITET
+
+    zeilen, veraltet = [], 0
+    for schicht in ABGELEITET:
+        for pfad in sorted(ablage.local_path(schicht).glob(f"dataset=*/**/{MANIFEST}")):
+            rel = ablage.relativ(pfad.parent)
+            if rel is None:
+                continue
+            try:
+                befund = ablage.vergleiche_stand(rel)
+            except StorageError as fehler:
+                print(f"Staende    : nicht vergleichbar ({fehler})")
+                return 1
+            if befund is None:
+                zeilen.append((rel, "nur lokal"))
+            elif befund.veraltet:
+                veraltet += 1
+                zeilen.append((rel, "ALT - " + befund.satz().split(": ", 1)[1]))
+            else:
+                zeilen.append((rel, "aktuell"))
+    if not zeilen:
+        print("Staende    : lokal ist nichts gebaut")
+        return 0
+    print("Staende    :")
+    for rel, was in zeilen:
+        print(f"  {rel:<44} {was}")
+    if veraltet:
+        print(f"\n{veraltet} lokale Tabelle(n) sind aelter als auf SeaweedFS. Sie werden "
+              "trotzdem gelesen.\nNeu bauen: python -m orchestration.run_all --ohne-ingestion")
     return 0
 
 

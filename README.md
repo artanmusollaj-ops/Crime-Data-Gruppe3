@@ -174,7 +174,7 @@ Zugriff auf Chicago ebenfalls, wird aber stärker gedrosselt.
 python -m pytest
 ```
 
-Erwartet werden **837 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **864 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -419,6 +419,33 @@ from storage.duckdb import connect
 con = connect(get_storage().config, "data/serving/analyse.duckdb", read_only=True)
 ```
 
+**Wenn dein lokaler Stand älter ist.** „Lokal zuerst" hat eine scharfe
+Kante: Eine Silver- oder Gold-Tabelle von letzter Woche wird gelesen, auch
+wenn auf SeaweedFS eine neuere liegt. Deshalb vergleicht die Ablage bei
+diesen Tabellen beide Manifeste — `built_at_utc` und die Bronze-Läufe aus
+`derived_from`:
+
+- **Beim Lesen** eine Warnung, gelesen wird trotzdem lokal. Wer offline
+  arbeitet, arbeitet weiter.
+- **Beim Publizieren** eine Absage, wenn dein Stand älter ist oder auf
+  weniger Bronze-Läufen ruht — er würde einen neueren verdrängen, und
+  niemand sähe es ihm an. Der Bau bleibt lokal fertig; nur das Hochladen
+  unterbleibt, mit einem Satz statt eines Tracebacks.
+
+`python -m storage` zeigt es je Tabelle, bevor du etwas baust:
+
+```text
+Staende    :
+  silver/dataset=crime_offense    ALT - hier gebaut 08.09.2026 10:00 UTC,
+                                  auf SeaweedFS 13.09.2026 14:06 UTC;
+                                  dort stecken 4 Bronze-Laeufe, die hier fehlen
+```
+
+Der Ausweg ist immer derselbe: `python -m orchestration.run_all
+--ohne-ingestion`. Danach ruht dein Stand auf allen Läufen — den lokalen und
+denen von SeaweedFS. Läufe unter `bronze/` und `raw/` sind davon nicht
+betroffen: Sie sind unveränderlich und ergänzen einander.
+
 **Bewusst nicht:** kein automatisches Herunterladen (was fehlt, wird von
 S3 *gelesen*, nicht kopiert), keine Synchronisation zurück, kein
 Dual-Write. `orchestration.aufraeumen` räumt weiterhin nur lokal auf.
@@ -475,7 +502,7 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 python -m pytest
 ```
 
-**837 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**864 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -509,7 +536,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **796 der 837 Tests**. Die übrigen 41 überspringen
+In einem frischen Klon laufen **823 der 864 Tests**. Die übrigen 41 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
