@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **864** |
+| Tests | **865** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -40,6 +40,49 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 13.09.2026 · Das Konzept auf den Storage-Umbau nachgeführt — und vier veraltete Stellen (#74)
+
+**Was.** `ln1_konzept.md` beschreibt die wählbare Ablage dort, wo sie
+hingehört: Kapitel 7. Dazu vier Sachkorrekturen, die beim Durchsehen
+aufgefallen sind.
+
+**Kapitel 7.2 widersprach dem Gebauten.** Die Bewertungstabelle führt *„Cloud
+(S3, BigQuery) — verworfen"*. Das galt der **Skalierung** und gilt weiter;
+zurückgekommen ist S3 für eine Frage, die in der Tabelle nicht vorkam: wie
+zwei Leute an denselben Stand kommen. Die Zeile bleibt deshalb stehen — sie
+ist der damalige Entscheid —, und ein datierter Nachtrag sagt, was sich
+geändert hat und warum die beiden Einwände (Kosten, fremde Zugänge) auf ein
+selbstgehostetes SeaweedFS nicht zutreffen.
+
+**Kapitel 7.4** hat einen neuen Abschnitt *Wo diese Struktur liegt, ist
+wählbar*: die drei Modi als Tabelle und die drei Regeln, die aus dem
+gemeinsamen Bestand mehr machen als einen Netzordner — publizieren erst nach
+der Prüfung, Läufe unveränderlich, veralteter eigener Stand wird erkannt.
+Dazu `serving/` im Verzeichnisbaum, das dort fehlte.
+
+**Die vier veralteten Stellen.**
+
+| Wo | Stand | Richtig |
+| --- | --- | --- |
+| Kurzfassung | „627 automatisierte Tests" | 865 |
+| Kurzfassung | „alle drei Silver-Tabellen" | vier; Gold und Serving fehlten ganz |
+| 5.1 und 5.2 | „neun Sichten" | elf — die Hilfssichten `tabellen` und `herkunft` fehlten in der Aufzählung |
+| 7.3 | „Die Silver-Schicht liest beide Formate" | der NDJSON-Rückfall ist seit dem Zeitzonen-Befund bewusst entfernt; ausserdem „vier der fünf Quellen" statt aller fünf |
+
+**Die Testzahl stand an drei Stellen und nur eine war bewacht.** Die
+Kurzfassung sagte 627, die geprüfte Tabelle 5.3 sagte 864 — dasselbe
+Dokument, zwei Zahlen, und die falsche stand vorn. `test_abgabedokumente.py`
+prüft jetzt **jede** Stelle im Konzept.
+
+**Kapitel 10** nennt den Rückgriff auf SeaweedFS: Wer `hybrid` setzt, muss
+die Quellen nicht selbst laden. Der Reproduktionsweg darüber stimmt
+unverändert — `requirements.txt` enthält `-e .[dev]`, installiert das Projekt
+also editierbar.
+
+**Zahlen.** 864 → **865 Tests**.
 
 ---
 

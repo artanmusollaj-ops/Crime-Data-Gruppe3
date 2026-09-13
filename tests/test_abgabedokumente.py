@@ -295,3 +295,32 @@ def test_readme_nennt_die_testzahl(readme):
     assert genannte == {gesammelt}, (
         f"README nennt {sorted(genannte)} Tests, gesammelt werden {gesammelt}"
     )
+
+
+@pytest.mark.referenzstand
+def test_das_konzept_nennt_die_testzahl_ueberall_gleich(konzept):
+    """Drei Stellen im Konzept nennen die Testzahl, und nur eine war bewacht.
+
+    Am 13.9. stand in der Kurzfassung **627**, in der bewachten Tabelle 5.3
+    aber 864 - dasselbe Dokument, zwei Zahlen, und die falsche stand vorn.
+    Geprueft wird deshalb **jede** Stelle: Kurzfassung, Tabelle 5.3 und der
+    Reproduktionsweg in Kapitel 10.
+    """
+    genannte = {
+        int(z.replace("'", ""))
+        for z in re.findall(r"([0-9']+) (?:automatisierte |bestandene )?Tests?\b", konzept)
+    }
+    assert len(genannte) >= 1, "Das Konzept nennt keine Testzahl"
+    fertig = subprocess.run(
+        [sys.executable, "-m", "pytest", "--collect-only",
+         "-o", "addopts=", "-p", "no:cacheprovider"],
+        capture_output=True, text=True, cwd=PROJECT_ROOT,
+    )
+    treffer = re.search(r"([0-9]+) tests? collected", fertig.stdout)
+    if treffer is None:
+        pytest.skip(f"Sammellauf lieferte keine Zahl: {fertig.stdout[-200:]}")
+    gesammelt = int(treffer.group(1))
+    assert genannte == {gesammelt}, (
+        f"Das Konzept nennt {sorted(genannte)} Tests, gesammelt werden {gesammelt}. "
+        "Alle drei Stellen mitziehen: Kurzfassung, Tabelle 5.3, Kapitel 10."
+    )
