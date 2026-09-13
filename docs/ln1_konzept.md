@@ -42,7 +42,7 @@ Raumeinheit. Darauf steht das **Gold-Sternschema** aus einer Faktentabelle
 und vier Dimensionen (5.2), darauf die Auswertungsumgebung. Die Schichten
 liegen wahlweise lokal oder auf einem gemeinsamen Objektspeicher (7.4).
 Jede Quelle weist ihre Vollständigkeit nach, statt sie zu behaupten.
-**865 automatisierte Tests** laufen ohne Netzzugriff und ohne Schlüssel.
+**873 automatisierte Tests** laufen ohne Netzzugriff und ohne Schlüssel.
 
 | | |
 | --- | --- |
@@ -557,7 +557,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; drei Tests prüfen das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel. `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog mit 133 Spalten, erzeugt aus den Manifesten und getestet. Gesamtmanifest je Lauf mit allen Eingabe-Läufen und Fingerabdruck. Verantwortliche je Datensatz in Absprache 7.3, gegen die Stufenliste getestet. Aufbewahrungsregel mit `orchestration.aufraeumen`: der jüngste Lauf und der davor, alles von Silver Genannte und die Basis jedes Deltas bleiben; gelöscht wird nur auf Wunsch, Raw und Bronze zusammen. Datenablage wahlweise lokal, SeaweedFS (S3) oder hybrid (`storage`): lesen lokal zuerst, S3 als Rückfall; schreiben lokal, prüfen, gezielt publizieren, `manifest.json` zuletzt. Ein veralteter lokaler Stand einer abgeleiteten Tabelle wird beim Lesen gemeldet und beim Publizieren abgelehnt — verglichen werden `built_at_utc` und die Bronze-Läufe aus `derived_from` | das Aufräumen ist ein Handgriff, kein Automatismus; Detroits Lauf vom 11.9. bleibt bewusst ohne Raw-Gegenstück — er ist der vorherige Schnappschuss, der die Instabilität der Quelle belegt; die Ablage lädt nichts automatisch herunter und synchronisiert nicht zurück — bewusst, Version 1 |
-| **DataOps** | 865 Tests ohne Netz und Schlüssel, auf jedem Pull Request in GitHub Actions — Linux und Windows, Python 3.11 und 3.13; `ruff` davor. Schreiben über `.part` und atomares Umbenennen. Publish-Gate: Gold entsteht nur, wenn die Abdeckung Schwellen hält | die 40 datengebundenen Wächter laufen auf Pull Requests nicht — dafür gibt es seit dem 13.9. den wöchentlichen Datenlauf (`datenlauf.yml`), der alle Quellen lädt, die Strecke baut und dann die ganze Suite fährt; er braucht `CENSUS_API_KEY` als Repository-Secret und ist bis zum ersten grünen Lauf eine Einrichtung, kein Nachweis. Aktualität wird im Datenlauf gegen eine Schwelle von acht Tagen geprüft — eine Quelle, die nichts Neues liefert, lässt ihn scheitern; keine Alarmierung ausser dem roten Lauf selbst |
+| **DataOps** | 873 Tests ohne Netz und Schlüssel, auf jedem Pull Request in GitHub Actions — Linux und Windows, Python 3.11 und 3.13; `ruff` davor. Schreiben über `.part` und atomares Umbenennen. Publish-Gate: Gold entsteht nur, wenn die Abdeckung Schwellen hält | die 40 datengebundenen Wächter laufen auf Pull Requests nicht — dafür gibt es seit dem 13.9. den wöchentlichen Datenlauf (`datenlauf.yml`), der alle Quellen lädt, die Strecke baut und dann die ganze Suite fährt; er braucht `CENSUS_API_KEY` als Repository-Secret und ist bis zum ersten grünen Lauf eine Einrichtung, kein Nachweis. Aktualität wird im Datenlauf gegen eine Schwelle von acht Tagen geprüft — eine Quelle, die nichts Neues liefert, lässt ihn scheitern; keine Alarmierung ausser dem roten Lauf selbst |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel. `mapping_status` und `geo_status` machen die Vergleichbarkeit je Zeile abfragbar. Ein Manifest-Leser (`manifeste`) für alle Schichten statt elf | kein Diagramm der Abhängigkeitskanten; Vintage 2024 hart verdrahtet — für mehrere Jahrgänge muss sie je Jahr mitlaufen |
 | **Orchestration** | `orchestration.run_all`: 13 Stufen in Reihenfolge, Abbruch beim ersten Fehler, Gesamtmanifest mit allen Bronze-Läufen und Fingerabdruck über die Eingaben | keine Zeitplanung — die Quellen ändern sich täglich, der Lauf startet, wenn jemand daran denkt; keine Wiederaufnahme, bewusst |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen. `ruff` mit Pyflakes und `raise … from`, Lockfile, CI-Matrix über zwei Betriebssysteme | die sechs Notebooks, die Zahlen belegen, laufen seit dem 13.9. im wöchentlichen Datenlauf — nicht auf Pull Requests, weil sie `data/` brauchen. Notebook 32 war bis dahin einen Tag lang still kaputt. Die sechs ladenden Notebooks laufen bewusst nirgends automatisch |
@@ -763,6 +763,9 @@ nie eine Lücke.
 wird sie ersetzt statt angehäuft. Das Manifest nennt trotzdem die Herkunft.
 
 #### Wo diese Struktur liegt, ist wählbar — seit 13.9.2026
+
+*Der vollständige Aufbau steht in
+[`storage-architektur.md`](storage-architektur.md); hier das Nötige.*
 
 Alles oben Beschriebene gilt unverändert; neu ist nur, dass `data/` nicht der
 einzige Ort ist. Ein Pfad wird intern **relativ** adressiert
@@ -1225,7 +1228,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 865 bestandene Tests
+python -m pytest                       # erwartet 873 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
@@ -1294,7 +1297,7 @@ python -m orchestration.run_all --ohne-ingestion    # Silver, Gold und Serving d
 | **Der eine Manifest-Leser** | `src/crime/manifeste/` — findet fertige Läufe und gebaute Tabellen für Ingestion, Silver, Controller und Werkzeuge |
 | **Der ganze Lauf, in Reihenfolge** | `src/crime/orchestration/run_all.py` → `data/pipeline_run.json` |
 | **Was von Raw und Bronze bleiben muss** | `src/crime/orchestration/aufraeumen.py` — zeigt je Quelle, was bleibt und warum; löscht nur mit `--loeschen` |
-| **Wo die Daten liegen** | `src/crime/storage/` — `STORAGE_BACKEND=local`, `hybrid` oder `s3`; README 2.5 |
+| **Wo die Daten liegen** | `src/crime/storage/` — `STORAGE_BACKEND=local`, `hybrid` oder `s3`. Aufbau: [`storage-architektur.md`](storage-architektur.md), Bedienung: README 2.5 |
 | Silver-Aufbau | `src/crime/silver_pipeline/` |
 | Gold-Aufbau | `src/crime/gold_pipeline/build_gold.py` → `data/gold/` |
 | **Auswertungsumgebung** | `src/crime/serving/build_analysis_db.py` → `data/serving/analyse.duckdb` |
@@ -1313,6 +1316,7 @@ python -m orchestration.run_all --ohne-ingestion    # Silver, Gold und Serving d
 | Serving-Messung: Sichten oder Kopie | [`notebooks/33_serving_evaluation.ipynb`](../notebooks/33_serving_evaluation.ipynb) |
 | Referenzquelle NIBRS, Mapping-Herkunft | [`notebooks/32_nibrs_source.ipynb`](../notebooks/32_nibrs_source.ipynb) |
 | Gold-Sternschema, Stadtzuordnung | [`notebooks/34_gold_sternschema.ipynb`](../notebooks/34_gold_sternschema.ipynb) |
+| **Die Datenablage im Aufbau** | [`storage-architektur.md`](storage-architektur.md) — die drei Modi, was zugesichert wird, die API und die Fehlerbilder |
 | **Würfel und Sternschema erklärt** | [`sternschema-und-wuerfel.md`](sternschema-und-wuerfel.md) — die beiden Bauweisen mit Diagrammen, als Vorlage für die Präsentation. Dieselbe Darstellung mit durchgehendem Layout: [`sternschema-und-wuerfel.html`](sternschema-und-wuerfel.html) |
 | Technische Entscheide | [`projektabsprache.md`](projektabsprache.md) |
 | Anforderungen gegen Stand | [`leistungsnachweise.md`](leistungsnachweise.md) |
