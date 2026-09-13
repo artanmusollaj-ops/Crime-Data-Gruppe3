@@ -151,12 +151,12 @@ Zertifikatsbündel — deshalb kann Chicago laufen, während Detroit scheitert.
 Eine Datei `.env` im Projekt-Root, nach dem Muster von `.env.example`. Sie ist
 über `.gitignore` ausgeschlossen.
 
+**Wer lokal arbeitet, braucht zwei Zeilen** — und keine davon betrifft den
+gemeinsamen Speicher:
+
 ```text
 CENSUS_API_KEY=dein_schluessel     # Pflicht für die ACS-Daten
 SOCRATA_APP_TOKEN=dein_token       # optional, für Chicago
-STORAGE_BACKEND=local              # local (Vorgabe), hybrid oder s3 — siehe 2.5
-S3_ACCESS_KEY=…                    # nur für hybrid und s3
-S3_SECRET_KEY=…
 ```
 
 **`CENSUS_API_KEY` ist Pflicht**, wenn Census-Daten geladen werden sollen —
@@ -168,13 +168,36 @@ Tabelle zu schreiben.
 `SOCRATA_APP_TOKEN` ist optional. Ohne Token funktioniert der öffentliche
 Zugriff auf Chicago ebenfalls, wird aber stärker gedrosselt.
 
+**Den gemeinsamen Speicher braucht es nur, wenn du ihn willst.** `data/` ist
+die Vorgabe; solange `STORAGE_BACKEND` fehlt oder auf `local` steht, wird
+keine einzige `S3_`-Variable gelesen und `boto3` nie importiert. Wer den
+Bestand mit dem Team teilen will, ergänzt drei Zeilen (mehr zu den Modi
+in 2.5):
+
+```text
+STORAGE_BACKEND=hybrid             # lokal zuerst, SeaweedFS als Rückfall
+S3_ACCESS_KEY=dein_schluessel
+S3_SECRET_KEY=dein_geheimnis
+```
+
+| Variable | Vorgabe | wann nötig |
+| --- | --- | --- |
+| `STORAGE_BACKEND` | `local` | für `hybrid` und `s3` |
+| `S3_ACCESS_KEY`, `S3_SECRET_KEY` | — | für `hybrid` und `s3`, sonst nie |
+| `S3_ENDPOINT` | `s3.datenwerft.ch` | nur bei abweichendem Server |
+| `S3_BUCKET` | `urban-crime` | nur bei abweichendem Bucket |
+| `LOCAL_DATA_ROOT` | `data` | nur bei abweichendem Verzeichnis |
+
+Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
+— nicht erst die fünfte Pipeline-Stufe. Prüfen mit `python -m storage`.
+
 ### 1.4 Einrichtung prüfen
 
 ```bash
 python -m pytest
 ```
 
-Erwartet werden **865 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **873 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -388,6 +411,10 @@ geschieht nichts. `data/` ist nicht versioniert; die Regel gilt je Rechner.
 
 ### 2.5 Ablage: lokal, SeaweedFS oder hybrid
 
+> Der ganze Aufbau — Entwurf, Zusicherungen, API, Betrieb — steht in
+> [`docs/storage-architektur.md`](docs/storage-architektur.md). Hier steht,
+> wie man ihn bedient.
+
 Wo die Schichten liegen, entscheidet `STORAGE_BACKEND` in `.env`. Die
 Befehle bleiben dieselben, die Struktur unter der Wurzel auch —
 `bronze/city=chicago/ingest_date=…/run_…/part-0001.parquet` heisst lokal
@@ -502,7 +529,7 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 python -m pytest
 ```
 
-**865 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**873 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -536,7 +563,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **824 der 865 Tests**. Die übrigen 41 überspringen
+In einem frischen Klon laufen **832 der 873 Tests**. Die übrigen 41 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter

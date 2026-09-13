@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **865** |
+| Tests | **873** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -40,6 +40,40 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 13.09.2026 · Die Datenablage hat ein Architekturdokument (#75)
+
+**Was.** [`docs/storage-architektur.md`](storage-architektur.md) beschreibt
+den ganzen Aufbau auf 15 Abschnitten: das Problem, den relativen
+Ablagepfad, die drei Modi mit Fluss-Diagrammen, jede Umgebungsvariable und
+wann sie nötig ist, Lesen, Publizieren, die beiden Konfliktregeln, den
+veralteten Stand, was immer lokal bleibt, DuckDB mit S3, die API, die
+Werkzeuge, was bewusst fehlt, die Fehlerbilder und wo der Code liegt.
+
+**Warum getrennt.** README 2.5 sagt, wie man es **bedient**; Konzept 7.4
+ordnet es in den Lebenszyklus ein. Beide sollen nicht zum Handbuch
+anwachsen. Beide verweisen jetzt auf das neue Dokument, und es verweist
+zurück.
+
+**Die Frage, die es auslöste.** *Wenn man lokal arbeitet, muss man das
+`.env` für S3 nicht ausfüllen, oder?* — Richtig, und zwar vollständig:
+`local` ist die Vorgabe, `STORAGE_BACKEND` darf ganz fehlen, keine
+`S3_`-Variable wird gelesen, `boto3` nie importiert. Das steht jetzt als
+Tabelle in README 1.3 und in Abschnitt 4 des Dokuments — vorher stand im
+README eine Beispiel-`.env`, die alle fünf Zeilen zeigte und damit den
+falschen Eindruck erweckte, sie gehörten dazu.
+
+**Wächter.** `tests/storage/test_dokumentation.py` hält die Variablentabelle
+an der Konfiguration fest: Jede Variable, die `config.py` liest, muss darin
+stehen; keine erfundene daneben; und **jede genannte Vorgabe muss die echte
+sein** — die Stelle, die am leisesten veraltet. Zwei Gegenproben haben
+gezeigt, dass die Prüfung zubeisst. Dazu: alle drei Modi beschrieben, die
+drei Merksätze vorhanden, die genannten Code-Dateien existieren, das README
+verweist.
+
+**Zahlen.** 865 → **873 Tests**.
 
 ---
 
