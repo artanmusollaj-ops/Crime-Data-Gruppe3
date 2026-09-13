@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **698** |
+| Tests | **705** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -39,6 +39,48 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 13.09.2026 · Ein wöchentlicher Datenlauf, damit die Wächter nicht nur lokal laufen (#60)
+
+**Was.** `.github/workflows/datenlauf.yml`: montags 06:00 UTC und von Hand.
+Lädt alle fünf Quellen, fährt den Controller, und lässt dann die **ganze**
+Suite laufen — die 40 datengebundenen Tests eingeschlossen. Punkt 3 der
+Schwachstellenliste.
+
+**Warum.** `tests.yml` prüft auf jedem Pull Request 665 von 705 Tests. Die 40
+übrigen brauchen gebaute Daten, und das sind ausgerechnet die Wächter: Zahlen
+in den Abgabedokumenten gegen die Parquet-Dateien, die Einwohnerprobe, „kein
+Delikt in der falschen Stadt". Alles, was am 12.9. an Absicherung entstand,
+hatte einen blinden Fleck — **es lief nur, wenn jemand lokal `pytest`
+tippte.** CI bewies den Code, nicht die Daten.
+
+**Was ein rotes Ergebnis bedeutet.** Das ist der Kern, und er ist kein
+Mangel: Die Quellen bewegen sich — Detroit ändert Einträge noch Jahre nach
+der Tat, Chicago liefert Deltas. Wenn ein frischer Lauf andere Zahlen baut als
+die in `ln1_konzept.md`, sind die Dokumente gegenüber der Quelle veraltet.
+Genau das soll jemand erfahren, **bevor** er die alte Zahl auf eine Folie
+setzt. Rot heisst: *„der dokumentierte Stand und die Quelle sind auseinander"*
+— der Freshness-Alarm, den es bisher nicht gab.
+
+**Was der Lauf braucht.** `CENSUS_API_KEY` als Repository-Secret. Ohne ihn
+antwortet die Census-API mit HTTP 200 und einer HTML-Seite; der erste Schritt
+prüft das Secret deshalb vorab und sagt, was fehlt — statt nach zwanzig
+Minuten Ingestion bei Stufe 5 von 13 zu sterben. **Das Secret kann nur ein
+Repository-Inhaber setzen; bis zum ersten grünen Lauf ist der Workflow eine
+Einrichtung, kein Nachweis.** Tabelle 5.3 sagt es so.
+
+**Was er nicht tut.** Daten committen. `data/` bleibt ausgeschlossen; was
+bleibt, ist das Gesamtmanifest als Artefakt — auch bei Rot, gerade dann.
+
+**Sieben Formtests** halten fest: Zeitplan und Handstart, nicht auf Pull
+Requests, Controller vor den Tests, Secret vor der Strecke, Manifest auch bei
+Rot, kein `git commit`.
+
+**Zahlen.** 698 → **705 Tests**.
+
+**Nachlesen.** `.github/workflows/datenlauf.yml` · PR #60
 
 ---
 

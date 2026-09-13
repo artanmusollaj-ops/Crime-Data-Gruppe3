@@ -37,6 +37,7 @@ ARTEFAKTE: dict[str, Path] = {
     "run_all": PROJECT_ROOT / "src" / "crime" / "orchestration" / "run_all.py",
     "orchestration.run_all": PROJECT_ROOT / "src" / "crime" / "orchestration" / "run_all.py",
     "github actions": PROJECT_ROOT / ".github" / "workflows" / "tests.yml",
+    "datenlauf": PROJECT_ROOT / ".github" / "workflows" / "datenlauf.yml",
     "requirements.lock": PROJECT_ROOT / "requirements.lock",
     "lockfile": PROJECT_ROOT / "requirements.lock",
     "ruff": PROJECT_ROOT / "pyproject.toml",   # plus [tool.ruff], siehe unten
