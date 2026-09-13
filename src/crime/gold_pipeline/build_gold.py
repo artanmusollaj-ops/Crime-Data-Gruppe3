@@ -444,6 +444,12 @@ def fact_offense_query(offense: Quelle, tracts: str = "dim_tract") -> str:
     zusaetzlich Sachbeschaedigung angezeigt" -, findet sie vollstaendig in
     ``silver/crime_offense``.
 
+    Dazu kommt ``counts_case`` unveraendert aus Silver: je **Fall** eine Zeile,
+    die mit dem schwersten Delikt. Chicago fuehrt je Vorfall ein Delikt,
+    Detroit jedes - auf Tatkorn zaehlt Detroit 6,4 Prozent, die Chicago nie
+    zaehlt. Wer beide Staedte auf Chicagos Zaehlweise vergleichen will, filtert
+    auf ``counts_case``; die Tatzahlen bleiben, wie sie sind.
+
 
     Ergaenzt werden nur Groessen, die sich aus dem Zeitstempel ableiten, und die
     Deliktfamilie. Sie sparen keine Laufzeit - gemessen 0,3 Millisekunden -,
@@ -480,7 +486,8 @@ def fact_offense_query(offense: Quelle, tracts: str = "dim_tract") -> str:
         END                                             AS geo_status,
         o.arrest                                        AS arrest,
         o.unfounded                                     AS unfounded,
-        o.offense_group_id                              AS offense_group_id
+        o.offense_group_id                              AS offense_group_id,
+        o.counts_case                                   AS counts_case
     FROM {offense.relation} o
     LEFT JOIN {tracts} t ON t.geoid = o.tract_geoid
     WHERE o.counts

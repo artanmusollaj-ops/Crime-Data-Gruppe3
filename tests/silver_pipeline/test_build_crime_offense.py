@@ -182,7 +182,10 @@ def schreibe_config(config_root: Path) -> None:
         "1172,11002,CSC 3RD DEGREE,A,13A,Aggravated Assault,2,micr_arrest_charge_1110_2024,true,true,\n"
         "2307,23007,LARCENY - OTHER,A,90Z,All Other Offenses,6,micr_manual_1110_2024,true,true,\n"
         "1201,12001,CARJACKING,A,13A,Aggravated Assault,3,micr_manual_1110_2024,true,true,\n"
-        "2901,29000,DAMAGE TO PROPERTY,A,90Z,All Other Offenses,16,micr_manual_1110_2024,true,true,\n",
+        "2901,29000,DAMAGE TO PROPERTY,A,90Z,All Other Offenses,16,micr_manual_1110_2024,true,true,\n"
+        # Fuer das Fallkorn: ein Eigentumsdelikt aus der Hierarchie (240) neben
+        # einem Personendelikt (13A) und einem Auffangcode (90Z).
+        "2401,24001,MOTOR VEHICLE THEFT,A,240,Motor Vehicle Theft,7,micr_manual_1110_2024,true,true,\n",
         encoding="utf-8")
 
 
@@ -592,6 +595,7 @@ def test_manifest_nennt_das_korn(tmp_path):
     korn = manifest_von(baue(tmp_path, CHI, DET))["grain"]
     assert korn.startswith("eine Anklage"), korn
     assert "counts" in korn, "das Korn muss sagen, welche Zeile zaehlt"
+    assert "counts_case" in korn, "und welche je Fall zaehlt"
 
 
 def test_unvollstaendiger_lauf_wird_uebergangen(tmp_path):
@@ -857,3 +861,103 @@ def test_der_auffangcode_ist_keine_exakte_zuordnung():
     """
     assert bc.MAPPING_STATUS["nibrs_auffang"] == "fallback_90Z"
     assert bc.AUFFANG_CODE == "90Z"
+
+
+# --------------------------------------------------------------------------
+# Das Fallkorn: je Fall zaehlt eine Zeile, fuer beide Staedte nach derselben
+# Regel.
+#
+# Chicago fuehrt je Vorfall ein Delikt - die einzigen Mehrfachzeilen sind
+# Mordopfer, ein Datensatz je Opfer (25 Faelle in 2024). Detroit fuehrt je
+# Vorfall jedes Delikt (4'658 Faelle mit 2-4 Taten). Auf Tatkorn zaehlt
+# Detroit damit 6,4 Prozent, die Chicago nie zaehlt. ``counts_case`` gleicht
+# das an: die Zeile mit dem schwersten Delikt, bei gleichem Delikt die
+# frueheste. Christian hat gefragt, ob das fuer beide Staedte gelten muesse -
+# ja, sonst waere es die naechste Schieflage.
+# --------------------------------------------------------------------------
+
+
+def chi_zeile(nr: str, fall: str | None, datum: str, iucr: str = "0110") -> dict:
+    return {"id": nr, "case_number": fall, "date": datum, "iucr": iucr,
+            "description": "X", "latitude": IN_CHICAGO[0], "longitude": IN_CHICAGO[1],
+            "updated_on": "2024-02-01T00:00:00.000"}
+
+
+def fallkorn(tmp_path, chicago, detroit, stadt) -> dict[str, tuple[bool, bool]]:
+    """offense_id -> (counts, counts_case) fuer eine Stadt."""
+    return {z["offense_id"]: (z["counts"], z["counts_case"])
+            for z in lies(baue(tmp_path, chicago, detroit)) if z["city"] == stadt}
+
+
+def test_chicagos_mordopfer_zaehlen_je_fall_einmal(tmp_path):
+    """Zwei Opfer, ein Fall: beide Zeilen sind Taten, eine ist der Fall.
+
+    Gewaehlt wird bei gleichem Delikt die frueheste Zeile - das zweite Opfer
+    von JH100028 starb zwei Tage nach dem ersten.
+    """
+    chicago = [chi_zeile("2", "JH1", "2024-01-03T20:59:00.000"),
+               chi_zeile("1", "JH1", "2024-01-01T00:56:00.000")]
+    assert fallkorn(tmp_path, chicago, DET, "chicago") == {
+        "1": (True, True), "2": (True, False),
+    }
+
+
+def test_detroits_mehrere_taten_zaehlen_je_fall_einmal(tmp_path):
+    """Einbruch plus Koerperverletzung: zwei Taten, ein Fall, das schwerere zaehlt."""
+    detroit = [
+        det_zeile("D1", "F1", "2307", "LARCENY - OTHER", "LARCENY - OTHER"),
+        det_zeile("D2", "F1", "1302", "AGGRAVATED ASSAULT", "AGGRAVATED ASSAULT"),
+    ]
+    assert fallkorn(tmp_path, CHI, detroit, "detroit") == {
+        "D1": (True, False), "D2": (True, True),
+    }
+
+
+def test_die_rangfolge_ist_die_hierarchieregel(tmp_path):
+    """13A vor 240 (beide in der Hierarchie), 240 vor 90Z (nicht darin)."""
+    detroit = [
+        det_zeile("D1", "F1", "2401", "MOTOR VEHICLE THEFT", "MOTOR VEHICLE THEFT"),
+        det_zeile("D2", "F1", "2307", "LARCENY - OTHER", "LARCENY - OTHER"),
+        det_zeile("D3", "F1", "1302", "AGGRAVATED ASSAULT", "AGGRAVATED ASSAULT"),
+        det_zeile("D4", "F2", "2401", "MOTOR VEHICLE THEFT", "MOTOR VEHICLE THEFT"),
+        det_zeile("D5", "F2", "2307", "LARCENY - OTHER", "LARCENY - OTHER"),
+    ]
+    ergebnis = fallkorn(tmp_path, CHI, detroit, "detroit")
+    assert [k for k, (_, fall) in ergebnis.items() if fall] == ["D3", "D4"]
+    assert bc.FALLKORN_RANG[0] == "09A", "Toetung steht ganz oben"
+    assert bc.FALLKORN_RANG.index("13A") < bc.FALLKORN_RANG.index("240")
+
+
+def test_eine_anklage_die_nicht_zaehlt_zaehlt_auch_nicht_je_fall(tmp_path):
+    """Artans Fall: die Larceny-Anklage zur CSC-Tat ist keine Tat - und kein Fall."""
+    detroit = [
+        det_zeile("D1", "F1", "2307", "LARCENY - OTHER", "CSC 3RD DEGREE"),
+        det_zeile("D2", "F1", "1172", "CSC 3RD DEGREE", "CSC 3RD DEGREE"),
+    ]
+    assert fallkorn(tmp_path, CHI, detroit, "detroit") == {
+        "D1": (False, False), "D2": (True, True),
+    }
+
+
+def test_ohne_fallnummer_ist_die_zeile_ihr_eigener_fall(tmp_path):
+    """Sonst fielen alle Zeilen ohne Nummer in einen Fall zusammen."""
+    chicago = [chi_zeile("1", None, "2024-01-01T00:56:00.000"),
+               chi_zeile("2", None, "2024-01-02T00:56:00.000")]
+    assert fallkorn(tmp_path, chicago, DET, "chicago") == {
+        "1": (True, True), "2": (True, True),
+    }
+
+
+def test_das_fallkorn_gilt_fuer_beide_staedte_gleich(tmp_path):
+    """Dieselbe Regel, derselbe Code, beide Staedte: kein Sonderweg."""
+    chicago = [chi_zeile("1", "JH1", "2024-01-01T00:56:00.000"),
+               chi_zeile("2", "JH1", "2024-01-01T00:57:00.000")]
+    detroit = [
+        det_zeile("D1", "F1", "1302", "AGGRAVATED ASSAULT", "AGGRAVATED ASSAULT"),
+        det_zeile("D2", "F1", "1302", "AGGRAVATED ASSAULT", "AGGRAVATED ASSAULT 2"),
+    ]
+    zeilen = lies(baue(tmp_path, chicago, detroit))
+    je_stadt = {}
+    for z in zeilen:
+        je_stadt.setdefault(z["city"], []).append(z["counts_case"])
+    assert je_stadt == {"chicago": [True, False], "detroit": [True, False]}

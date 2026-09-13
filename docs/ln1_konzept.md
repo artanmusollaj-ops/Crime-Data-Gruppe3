@@ -418,6 +418,25 @@ Gold nimmt nur die zählenden. Wer die Anklagen braucht — *„wie oft wurde
 zusätzlich Sachbeschädigung angezeigt"* — findet sie vollständig in
 `silver/crime_offense`, mit `counts` und `counts_reason` je Zeile.
 
+**Ein zweites Korn seit 13.9.2026: der Fall.** Das Tatkorn gleicht Detroits
+Anklagen an — aber nicht die Zählweise der beiden Städte. Chicago führt je
+Vorfall **ein** Delikt (die einzigen Mehrfachzeilen sind Mordopfer, ein
+Datensatz je Opfer), Detroit führt je Vorfall **jedes** Delikt. `counts_case`
+markiert je Fall die Zeile mit dem schwersten Delikt — für beide Städte nach
+derselben Rangfolge (`FALLKORN_RANG`: die Hierarchieregel des UCR Handbook,
+auf NIBRS übersetzt), bei gleichem Delikt die früheste Zeile.
+
+| | Chicago | Detroit |
+| --- | ---: | ---: |
+| Taten (`counts`) | 259'272 | 85'345 |
+| Fälle (`counts_case`) | 259'243 | 80'229 |
+| Taten je Fall | 1,000 | **1,064** |
+| Rate je 1'000, Tatkorn | 94,5 | 132,6 |
+| Rate je 1'000, Fallkorn | 94,5 | **124,6** |
+
+Beide Masse liegen in Gold; die Tatzahlen ändern sich nicht. Welche Zählweise
+die Aussage trägt, ist ein Entscheid — Chicagos Zählweise ist das Fallkorn.
+
 **Gefunden hat das Artan**, an einer Zeile mit `offense_category` LARCENY und
 `offense_description` *CSC 3rd Degree*. Sie gehört zu einem Vorfall mit zwei
 Anklagen zu einer Tat — die Larceny-Anklage und die CSC-Anklage. Ohne diese
@@ -533,8 +552,8 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | Unterströmung | Umsetzung | Lücke |
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; drei Tests prüfen das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel. `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
-| **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog mit 131 Spalten, erzeugt aus den Manifesten und getestet. Gesamtmanifest je Lauf mit allen Eingabe-Läufen und Fingerabdruck. Verantwortliche je Datensatz in Absprache 7.3, gegen die Stufenliste getestet. Aufbewahrungsregel mit `orchestration.aufraeumen`: der jüngste Lauf und der davor, alles von Silver Genannte und die Basis jedes Deltas bleiben; gelöscht wird nur auf Wunsch, Raw und Bronze zusammen | das Aufräumen ist ein Handgriff, kein Automatismus; Detroits Lauf vom 11.9. bleibt bewusst ohne Raw-Gegenstück — er ist der vorherige Schnappschuss, der die Instabilität der Quelle belegt |
-| **DataOps** | 744 Tests ohne Netz und Schlüssel, auf jedem Pull Request in GitHub Actions — Linux und Windows, Python 3.11 und 3.13; `ruff` davor. Schreiben über `.part` und atomares Umbenennen. Publish-Gate: Gold entsteht nur, wenn die Abdeckung Schwellen hält | die 40 datengebundenen Wächter laufen auf Pull Requests nicht — dafür gibt es seit dem 13.9. den wöchentlichen Datenlauf (`datenlauf.yml`), der alle Quellen lädt, die Strecke baut und dann die ganze Suite fährt; er braucht `CENSUS_API_KEY` als Repository-Secret und ist bis zum ersten grünen Lauf eine Einrichtung, kein Nachweis. Aktualität wird im Datenlauf gegen eine Schwelle von acht Tagen geprüft — eine Quelle, die nichts Neues liefert, lässt ihn scheitern; keine Alarmierung ausser dem roten Lauf selbst |
+| **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog mit 133 Spalten, erzeugt aus den Manifesten und getestet. Gesamtmanifest je Lauf mit allen Eingabe-Läufen und Fingerabdruck. Verantwortliche je Datensatz in Absprache 7.3, gegen die Stufenliste getestet. Aufbewahrungsregel mit `orchestration.aufraeumen`: der jüngste Lauf und der davor, alles von Silver Genannte und die Basis jedes Deltas bleiben; gelöscht wird nur auf Wunsch, Raw und Bronze zusammen | das Aufräumen ist ein Handgriff, kein Automatismus; Detroits Lauf vom 11.9. bleibt bewusst ohne Raw-Gegenstück — er ist der vorherige Schnappschuss, der die Instabilität der Quelle belegt |
+| **DataOps** | 752 Tests ohne Netz und Schlüssel, auf jedem Pull Request in GitHub Actions — Linux und Windows, Python 3.11 und 3.13; `ruff` davor. Schreiben über `.part` und atomares Umbenennen. Publish-Gate: Gold entsteht nur, wenn die Abdeckung Schwellen hält | die 40 datengebundenen Wächter laufen auf Pull Requests nicht — dafür gibt es seit dem 13.9. den wöchentlichen Datenlauf (`datenlauf.yml`), der alle Quellen lädt, die Strecke baut und dann die ganze Suite fährt; er braucht `CENSUS_API_KEY` als Repository-Secret und ist bis zum ersten grünen Lauf eine Einrichtung, kein Nachweis. Aktualität wird im Datenlauf gegen eine Schwelle von acht Tagen geprüft — eine Quelle, die nichts Neues liefert, lässt ihn scheitern; keine Alarmierung ausser dem roten Lauf selbst |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel. `mapping_status` und `geo_status` machen die Vergleichbarkeit je Zeile abfragbar. Ein Manifest-Leser (`manifeste`) für alle Schichten statt elf | kein Diagramm der Abhängigkeitskanten; Vintage 2024 hart verdrahtet — für mehrere Jahrgänge muss sie je Jahr mitlaufen |
 | **Orchestration** | `orchestration.run_all`: 13 Stufen in Reihenfolge, Abbruch beim ersten Fehler, Gesamtmanifest mit allen Bronze-Läufen und Fingerabdruck über die Eingaben | keine Zeitplanung — die Quellen ändern sich täglich, der Lauf startet, wenn jemand daran denkt; keine Wiederaufnahme, bewusst |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen. `ruff` mit Pyflakes und `raise … from`, Lockfile, CI-Matrix über zwei Betriebssysteme | die sechs Notebooks, die Zahlen belegen, laufen seit dem 13.9. im wöchentlichen Datenlauf — nicht auf Pull Requests, weil sie `data/` brauchen. Notebook 32 war bis dahin einen Tag lang still kaputt. Die sechs ladenden Notebooks laufen bewusst nirgends automatisch |
@@ -750,7 +769,7 @@ desselben Tages — oder Information wegwerfen. Deshalb vier Tabellen:
 | `tract` | ein Census Tract | **gebaut**, 6'282 Zeilen |
 | `place` | ein Ort (Stadtgrenze) | **gebaut**, 2'206 Zeilen |
 | `weather_day` | eine Stadt an einem Tag | **gebaut**, 55'449 Zeilen |
-| `crime_offense` | eine **Anklage**; je Tat zählt eine (5.2) | **gebaut**, 347'957 Zeilen |
+| `crime_offense` | eine **Anklage**; je Tat zählt eine (`counts`), je Fall eine (`counts_case`, 5.2) | **gebaut**, 347'957 Zeilen |
 
 `tract` verbindet TIGER-Geometrie mit ACS-Attributen. Gedeutet wird: Text zu
 Zahlen, `-666666666` zu `NULL`, die Armutsquote abgeleitet — und bei Tracts ohne
@@ -1082,6 +1101,13 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
   der Tracts der Einkommenswert, in Cook County bei 1,7 %. Auch die Geo-Lücke
   unterscheidet sich: 0,70 % in Chicago gegen 0,29 % in Detroit. Eine Verzerrung
   wirkt damit ungleich auf die beiden Städte.
+- **Die Städte zählen verschieden.** Chicago führt je Vorfall ein Delikt
+  (Mordopfer ausgenommen: ein Datensatz je Opfer), Detroit jedes Delikt eines
+  Vorfalls — 6,4 % mehr Taten als Fälle. Auf Tatkorn liegt Detroit bei 132,6
+  je 1'000, auf Fallkorn (`counts_case`, beide Städte dieselbe Regel) bei
+  124,6; Chicago in beiden bei 94,5. Die Reihenfolge bleibt, der Abstand
+  schrumpft. Beide Masse sind in Gold; welches die Aussage trägt, ist zu
+  entscheiden (5.2).
 
 **Zu den Quellen**
 
@@ -1119,7 +1145,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 744 bestandene Tests
+python -m pytest                       # erwartet 752 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
@@ -1198,7 +1224,7 @@ Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
 | Technische Entscheide | [`projektabsprache.md`](projektabsprache.md) |
 | Anforderungen gegen Stand | [`leistungsnachweise.md`](leistungsnachweise.md) |
 | Detroit-Pipeline im Detail | [`DETROIT_PIPELINE_ANLEITUNG.md`](DETROIT_PIPELINE_ANLEITUNG.md) |
-| **Feldkatalog** | [`feldkatalog.md`](feldkatalog.md) — 131 Spalten in 9 Tabellen, erzeugt von [`tools/build_feldkatalog.py`](../tools/build_feldkatalog.py) |
+| **Feldkatalog** | [`feldkatalog.md`](feldkatalog.md) — 133 Spalten in 9 Tabellen, erzeugt von [`tools/build_feldkatalog.py`](../tools/build_feldkatalog.py) |
 | **Was sich wann geändert hat** | [`AENDERUNGEN.md`](AENDERUNGEN.md) — ein Eintrag je Pull Request, mit den Zahlen und ihrer Begründung |
 | **NIBRS-Codeliste, amtlich** | `config/nibrs_offense_codes_2025.csv` — 81 Codes aus Anhang A von [`nibrs_technical_specification_2025.pdf`](nibrs_technical_specification_2025.pdf) |
 | IUCR nach NIBRS (Chicago) | `config/iucr_nibrs_mapping.csv`, erzeugt von [`tools/build_iucr_nibrs_mapping.py`](../tools/build_iucr_nibrs_mapping.py); Katalog vom [Datenportal der Stadt](https://data.cityofchicago.org/resource/c7ck-438e.json) |

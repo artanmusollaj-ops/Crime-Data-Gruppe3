@@ -36,6 +36,16 @@ Was hier gedeutet wird und in Bronze bewusst nicht:
    dieselbe Raumeinheit tragen. Nicht verortete Faelle **bleiben** in der
    Tabelle und tragen ``located = false``; sonst verschwaende die Verzerrung
    aus Absprache 2.4 unbemerkt.
+5. **Zwei Koerner, beide fuer beide Staedte.** ``counts`` markiert je **Tat**
+   eine Zeile (Detroits Anklagen fallen zusammen). ``counts_case`` markiert
+   je **Fall** eine Zeile - die mit dem schwersten Delikt. Das braucht es,
+   weil die Staedte verschieden zaehlen: Chicago fuehrt je Vorfall **ein**
+   Delikt (259'272 Zeilen auf 259'243 Faelle; die einzigen Mehrfachzeilen
+   sind Mordopfer, ein Datensatz je Opfer), Detroit fuehrt je Vorfall
+   **jedes** Delikt (85'345 Taten auf 80'229 Faelle). Auf Tatkorn zaehlt
+   Detroit damit 6,4 Prozent, die Chicago nie zaehlt. Die Rangfolge steht in
+   ``FALLKORN_RANG`` und gilt fuer beide Staedte gleich - eine Regel nur fuer
+   eine Stadt waere die naechste Schieflage.
 
 **Was diese Tabelle nicht tut:** Sie wirft nichts weg. Weder unverortete
 Faelle noch solche ohne NIBRS-Zuordnung noch Detroits ``UNFOUNDED``-Faelle.
@@ -127,6 +137,19 @@ MAPPING_STATUS = {
     "nibrs_auffang": "fallback_90Z",
 }
 AUFFANG_CODE = "90Z"
+
+# Das Fallkorn: je Fall zaehlt die Zeile mit dem schwersten Delikt. Die
+# Reihenfolge ist die Hierarchieregel des UCR Handbook (FBI 2004, "Hierarchy
+# Rule"), auf NIBRS-Codes uebersetzt: Toetung, Vergewaltigung, Raub, schwere
+# Koerperverletzung, Einbruch, Diebstahl, Fahrzeugdiebstahl, Brandstiftung.
+# Alles Uebrige dahinter - Personen vor Eigentum vor Gesellschaft, dann nach
+# Code. Fuer Chicago entscheidet die Liste faktisch nie (Mehrfachzeilen sind
+# Mordopfer mit gleichem Code), fuer Detroit in 4'576 Faellen.
+FALLKORN_RANG: tuple[str, ...] = (
+    "09A", "09B", "11A", "11B", "11C", "120", "13A", "220",
+    "23A", "23B", "23C", "23D", "23E", "23F", "23G", "23H", "240", "200",
+)
+CRIME_AGAINST_RANG = {"Person": 1, "Property": 2, "Society": 3}
 
 
 class Source(NamedTuple):
@@ -295,9 +318,21 @@ def build_query(
         f"('{herkunft}', '{stufe}')"
         for herkunft, stufe in sorted(MAPPING_STATUS.items())
     )
+    rang_werte = ", ".join(
+        f"('{code}', {rang})" for rang, code in enumerate(FALLKORN_RANG, 1)
+    )
+    gegen_werte = ", ".join(
+        f"('{gegen}', {rang})" for gegen, rang in sorted(CRIME_AGAINST_RANG.items())
+    )
     return f"""
     WITH status AS (
         SELECT * FROM (VALUES {status_werte}) AS s(nibrs_match, mapping_status)
+    ),
+    fallrang AS (
+        SELECT * FROM (VALUES {rang_werte}) AS r(nibrs_code, rang)
+    ),
+    gegen AS (
+        SELECT * FROM (VALUES {gegen_werte}) AS g(crime_against, rang)
     ),
     nibrs AS (
         SELECT nibrs_code, nibrs_description, nibrs_group, crime_against
@@ -468,6 +503,25 @@ def build_query(
         FROM bereinigt b
         JOIN tract t ON ST_Within(ST_Point(b.longitude, b.latitude), t.geom)
         WHERE b.latitude IS NOT NULL AND b.longitude IS NOT NULL
+    ),
+    -- Das Fallkorn: unter den zaehlenden Zeilen eines Falls die mit dem
+    -- schwersten Delikt; bei gleichem Delikt (mehrere Opfer) die frueheste.
+    -- Eine Zeile ohne Fallnummer ist ihr eigener Fall. Codes ausserhalb der
+    -- Hierarchie ordnen sich hinter ihr ein, nach crime_against, dann Code;
+    -- ohne NIBRS-Code ganz hinten.
+    fallkorn AS (
+        SELECT b.city, b.offense_id,
+               row_number() OVER (
+                   PARTITION BY b.city, coalesce(b.event_id, b.offense_id)
+                   ORDER BY coalesce(fr.rang, 100 + coalesce(g.rang, 9)),
+                            b.nibrs_code NULLS LAST,
+                            b.occurred_at_utc, b.offense_id
+               ) AS rang_im_fall
+        FROM bereinigt b
+        LEFT JOIN nibrs n ON b.nibrs_code = n.nibrs_code
+        LEFT JOIN fallrang fr ON b.nibrs_code = fr.nibrs_code
+        LEFT JOIN gegen g ON n.crime_against = g.crime_against
+        WHERE b.counts
     )
 
     SELECT
@@ -498,12 +552,15 @@ def build_query(
         CAST(b.unfounded AS BOOLEAN)                       AS unfounded,
         b.offense_group_id,
         CAST(b.counts AS BOOLEAN)                          AS counts,
-        b.counts_reason
+        b.counts_reason,
+        coalesce(f.rang_im_fall = 1, FALSE)                AS counts_case
     FROM bereinigt b
     LEFT JOIN nibrs n ON b.nibrs_code = n.nibrs_code
     LEFT JOIN status s ON b.nibrs_match = s.nibrs_match
     LEFT JOIN verortet v
       ON b.city = v.city AND b.offense_id = v.offense_id
+    LEFT JOIN fallkorn f
+      ON b.city = f.city AND b.offense_id = f.offense_id
     ORDER BY b.city, b.occurred_at_utc, b.offense_id
     """
 
@@ -534,14 +591,21 @@ def reconcile(
             "nibrs_mapped": zugeordnet,
             "located": verortet,
             "without_timestamp": ohne_zeit,
+            "counts": taten,
+            "counts_case": faelle,
+            "distinct_counted_event_id": gezaehlte_faelle,
         }
-        for stadt, zeilen, eindeutig, ereignisse, zugeordnet, verortet, ohne_zeit
+        for stadt, zeilen, eindeutig, ereignisse, zugeordnet, verortet, ohne_zeit,
+            taten, faelle, gezaehlte_faelle
         in con.execute(f"""
             SELECT city, count(*), count(DISTINCT offense_id),
                    count(DISTINCT event_id),
                    count(*) FILTER (nibrs_mapped),
                    count(*) FILTER (located),
-                   count(*) FILTER (occurred_at_utc IS NULL)
+                   count(*) FILTER (occurred_at_utc IS NULL),
+                   count(*) FILTER (counts),
+                   count(*) FILTER (counts_case),
+                   count(DISTINCT coalesce(event_id, offense_id)) FILTER (counts)
             FROM {relation} GROUP BY city ORDER BY city
         """).fetchall()
     }
@@ -556,6 +620,15 @@ def reconcile(
         if zahlen["without_timestamp"]:
             raise TransformError(
                 f"{stadt}: {zahlen['without_timestamp']} Zeilen ohne Zeitpunkt"
+            )
+        # Das Fallkorn ist genau dann richtig, wenn je Fall mit zaehlender
+        # Zeile genau eine als counts_case markiert ist - nicht mehr, nicht
+        # weniger. Eine Zeile, die nicht zaehlt, kann auch nicht je Fall zaehlen.
+        if zahlen["counts_case"] != zahlen["distinct_counted_event_id"]:
+            raise TransformError(
+                f"{stadt}: {zahlen['counts_case']} Zeilen mit counts_case, aber "
+                f"{zahlen['distinct_counted_event_id']} Faelle mit zaehlender "
+                "Zeile - das Fallkorn ist nicht eine Zeile je Fall"
             )
 
     # Eine neue Herkunft in einem Crosswalk darf nicht stillschweigend
@@ -666,7 +739,8 @@ def build_manifest(
         "row_count": sum(
             stadt["rows"] for stadt in pruefung["per_city"].values()
         ),
-        "grain": "eine Anklage; je Tat ist eine Zeile mit counts markiert",
+        "grain": "eine Anklage; je Tat ist eine Zeile mit counts markiert, "
+                 "je Fall eine mit counts_case",
         "built_at_utc": datetime.now(timezone.utc).isoformat(),
         "tool": f"duckdb {duckdb.__version__} mit spatial und icu",
         "derived_from": {

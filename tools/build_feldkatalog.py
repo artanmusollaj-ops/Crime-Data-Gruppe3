@@ -113,6 +113,10 @@ GEMEINSAM: dict[str, str] = {
                  "gekennzeichnet statt entfernt.",
     "offense_group_id": "Schlüssel der **Tat**: Vorfall plus Deliktbeschreibung. "
                         "Detroits mehrere Anklagen zu einer Tat teilen ihn.",
+    "counts_case": "**Die zählende Zeile je Fall** - die mit dem schwersten "
+                   "Delikt (Rangfolge `FALLKORN_RANG`, für beide Städte gleich). "
+                   "Chicago führt je Vorfall ein Delikt, Detroit jedes; wer auf "
+                   "Chicagos Zählweise vergleicht, filtert hierauf.",
     "mapping_status": "Wie gut die NIBRS-Zuordnung belegt ist: `exact` (ein "
                       "amtliches Dokument), `ambiguous` (wir haben entschieden), "
                       "`fallback_90Z` (Auffangcode), `unmapped`.",

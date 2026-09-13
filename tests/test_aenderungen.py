@@ -188,3 +188,23 @@ def test_die_eintraege_und_die_ausgelassenen_ueberschneiden_sich_nicht(text):
     ausgelassen = {int(n) for n in re.findall(r"^\| #([0-9]+) \|", text[anfang:], re.M)}
     doppelt = sorted(eintraege & ausgelassen)
     assert not doppelt, f"gleichzeitig Eintrag und ausgelassen: {doppelt}"
+
+
+def test_der_kopf_nennt_das_fallkorn(stand):
+    """Die zweite Zaehlweise, seit #66 - je Fall eine Zeile, beide Staedte gleich."""
+    duckdb = pytest.importorskip("duckdb")
+    if not GOLD.exists():
+        pytest.skip("Gold nicht gebaut")
+    con = duckdb.connect()
+    try:
+        echt = dict(con.execute(
+            f"SELECT reporting_city, count(*) FILTER (counts_case) "
+            f"FROM read_parquet('{GOLD}') GROUP BY 1"
+        ).fetchall())
+    finally:
+        con.close()
+    for stadt in ("Chicago", "Detroit"):
+        genannt = zahl(stand, rf"\| Fallkorn.*?{stadt} ([0-9']+)")
+        assert genannt == echt[stadt.lower()], (
+            f"Fallkorn {stadt}: genannt {genannt:,}, tatsaechlich {echt[stadt.lower()]:,}"
+        )

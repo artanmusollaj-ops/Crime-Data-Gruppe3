@@ -143,6 +143,8 @@ def offense_quelle(tmp_path: Path, zeilen) -> bg.Quelle:
         "counts_reason": pa.array(
             ["eine_zeile_ist_ein_delikt" if (len(z) < 6 or z[5])
              else "weitere_anklage_zur_selben_tat" for z in zeilen]),
+        # Jede Zeile ist hier ihr eigener Fall: Fallkorn gleich Tatkorn.
+        "counts_case": pa.array([z[5] if len(z) > 5 else True for z in zeilen]),
     }))
 
 
@@ -883,3 +885,21 @@ def test_kein_delikt_landet_in_der_falschen_stadt(con):
         f"{verwechselt} Delikte liegen in der einen Stadt und sind der anderen "
         "zugeordnet - dann traegt der Staedtevergleich nicht"
     )
+
+
+def test_fact_offense_traegt_das_fallkorn(tmp_path):
+    """``counts_case`` kommt unveraendert aus Silver - Gold entscheidet nichts neu."""
+    import duckdb
+    quelle = offense_quelle(tmp_path, [
+        ("a", "chicago", date(2024, 1, 1), "13A", "17031000100"),
+        ("b", "detroit", date(2024, 1, 1), "13A", "26163000100", False),
+    ])
+    con = duckdb.connect()
+    try:
+        con.execute("CREATE TABLE dim_tract AS SELECT '17031000100' AS geoid, 'chicago' AS city")
+        zeilen = con.execute(
+            "SELECT offense_id, counts_case FROM (" + bg.fact_offense_query(quelle) + ")"
+        ).fetchall()
+    finally:
+        con.close()
+    assert zeilen == [("a", True)], "die nicht zaehlende Zeile ist gar nicht in Gold"
