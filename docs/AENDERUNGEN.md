@@ -76,7 +76,25 @@ keine Aufbewahrungsregel, keine Zeitplanung, die Notebooks laufen nicht in CI.
 Importsortierung und `zip(strict=)` sind **nicht** aufgenommen: rund 60
 Änderungen ohne einen gefangenen Fehler.
 
-**Zahlen.** 694 → **698 Tests**; im frischen Klon 658.
+**Was erst die vier CI-Runden gezeigt haben.** Der erste Lauf war dreimal
+rot, und jeder Fehler war eine eigene Lehre:
+
+| Fund | Lehre |
+| --- | --- |
+| `numpy==2.5.3` verlangt Python ≥ 3.12 — beide 3.11-Jobs scheiterten an der Installation | **Ein Lockfile gilt je Interpreter.** 3.13 installiert aus dem Lock, 3.11 aus den Bereichen — und prüft damit, dass „3.11 oder neuer" noch stimmt |
+| Windows 3.11 meldete *„No module named pytest"* statt des Installationsfehlers | **PowerShell bricht bei gescheitertem `pip` nicht ab.** Der Schritt läuft jetzt unter `bash` mit `set -e` |
+| beide PDF-Werkzeuge trennen bewusst auf `\n` (Seitenvorschub), liessen unter Windows aber `\r` an jeder Zeile | echter Portabilitätsfehler, behoben — Artan hätte ihn auf seinem Rechner ebenso getroffen |
+| auch danach: *„Code ohne Kategorie: Arson"* — Windows' `pdftotext` ist ein anderer Poppler-Build und setzt `-layout` anders | **Die drei PDF-Reproduktionen sind gegen `poppler-utils` unter Linux definiert** und überspringen sich unter Windows mit genau dieser Begründung, statt den Regex aufzuweichen |
+
+Eine eigene Aussage musste ich dabei zurücknehmen: „die beiden MICR-Tests
+bestanden unter Windows" — sie waren im ersten Lauf ebenfalls rot, mein
+Log-Filter hatte nur den letzten Fehler gezeigt. Und eine Beobachtung bleibt
+unerklärt: Das MICR-Werkzeug schreibt sein *FEHLER* nachweislich auf stderr,
+CI sah trotzdem ein leeres stderr. Die Zusicherung zeigt deshalb künftig auch
+stdout.
+
+**Zahlen.** 694 → **698 Tests**; im frischen Linux-Klon 658, unter Windows
+drei weniger.
 
 **Nachlesen.** `docs/ln1_konzept.md` 5.3 · `tests/test_unterstroemungen.py` · PR #59
 
