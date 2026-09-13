@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **731** |
+| Tests | **744** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -39,6 +39,50 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 13.09.2026 · Eine Aufbewahrungsregel — und der Lauf vom 11.9. bleibt (#65)
+
+**Was.** `orchestration.aufraeumen` sagt je Quelle, welche Raw- und
+Bronze-Läufe bleiben müssen und welche entbehrlich sind. Gelöscht wird nur mit
+`--loeschen`, und dann Raw und Bronze zusammen. Punkt 8 der
+Schwachstellenliste — der letzte.
+
+**Die Regel.** Es bleiben (1) der jüngste Lauf und der davor, (2) jeder Lauf,
+den ein Silver-Manifest unter `derived_from` nennt, (3) die Basis eines
+Delta-Laufs — Chicago lädt seit dem vollen Schnappschuss vom 5.9. nur
+Änderungen, 42 Zeilen je Lauf; ohne den Schnappschuss darunter wären sie
+wertlos. Alles andere ist entbehrlich.
+
+**Was sie heute freigibt: nichts.** Zehn Läufe über sechs Quellen, jeder hat
+einen Grund. Die 178 MB aus der Schwachstellenliste sind also keine Altlast,
+sondern der Bestand, den die Regel verlangt — das wusste vorher niemand, weil
+es keine Regel gab.
+
+**Der Lauf vom 11.9.** Detroits Bronze-Lauf `1cca323d…` hat kein
+Raw-Gegenstück: Er ist vom 11.9. 12:50, Detroits Raw-Schicht kam am 12.9.
+mit #39. Er bleibt trotzdem. Er ist der *vorherige Schnappschuss*, und nur
+mit ihm zeigt Notebook 13 (Schritt 3), dass Detroit abgeschlossene Fälle
+nachträglich ändert — 68'655 von 88'685 `ESRI_OID` anders, zehn Delikte in
+zwanzig Stunden umklassiert. Notebook 13 speichert keine Ausgaben; ohne den
+Lauf wäre der Befund nur noch eine Behauptung. Das Werkzeug meldet ihn als
+„ohne Raw".
+
+**Ein Fehler nebenbei.** `manifeste.versteckt()` hielt jeden Pfadteil mit
+Punkt am Anfang für ein `.part`-Verzeichnis — auch `..`. Unter
+`--data-root ../data` fand der Leser stumm nichts, und `run_all` hätte
+dasselbe getroffen. Behoben, mit Test.
+
+**Bewusst nicht.** Die Regel läuft nicht von allein. `data/` ist nicht
+versioniert, sie gilt je Rechner, und Löschen bleibt ein Handgriff, den man
+sieht. In GitHub Actions läuft jeder Datenlauf auf einer frischen Maschine.
+
+**In Artans Dokumenten.** Konzept 5.3: die Lücke *keine Aufbewahrungsregel*
+gestrichen, die Umsetzung ergänzt; Kapitel 11 um die Zeile zum Werkzeug.
+Absprache 4.3: datierter Nachtrag. README 2.4 neu.
+
+**Zahlen.** 731 → **744 Tests**.
 
 ---
 
