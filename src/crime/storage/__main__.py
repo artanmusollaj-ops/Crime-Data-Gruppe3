@@ -1,14 +1,24 @@
-"""Prueft die Ablage, bevor eine Pipeline daran scheitert.
+"""Die Ablage pruefen - und bestehende Laeufe nachpublizieren.
 
-    python -m storage
+    python -m storage                          # Verbindung pruefen
+    python -m storage publizieren              # zeigen, welche lokalen Laeufe oben fehlen
+    python -m storage publizieren --wirklich   # sie hochbringen, Raw vor Bronze
 
-Zeigt Modus, Wurzel, Endpoint und Bucket (nie die Schluessel), loest den
-Hostnamen auf und listet, was unter ``silver/`` liegt. Exit 0, wenn die
-Ablage antwortet; 1 mit einem Satz, wenn nicht.
+Die Pruefung zeigt Modus, Wurzel, Endpoint und Bucket (nie die Schluessel),
+loest den Hostnamen auf und listet, was unter ``silver/`` liegt. Exit 0, wenn
+die Ablage antwortet; 1 mit einem Satz, wenn nicht.
+
+Das Nachpublizieren ist fuer den Anfang gedacht: Die Pipelines publizieren
+nur den Lauf, den sie gerade schreiben. Was vorher da war - Chicagos
+Vollschnappschuss, die Deltas, Detroit, Census, NOAA - kommt nur so nach
+SeaweedFS. Es ist dieselbe Regel wie in den Pipelines: je Lauf, Manifest
+zuletzt, unveraenderlich (identisch oben: uebersprungen; anders oben: Fehler).
+Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberuehrt.
 """
 
 from __future__ import annotations
 
+import argparse
 import socket
 import sys
 
@@ -16,7 +26,10 @@ from storage import StorageError, get_storage
 from storage.config import StorageConfigError
 
 
-def main() -> int:
+SCHICHTEN = ("raw", "bronze")
+
+
+def pruefen() -> int:
     try:
         ablage = get_storage()
     except StorageConfigError as fehler:
@@ -47,6 +60,66 @@ def main() -> int:
     print(f"Verbindung: ok - {len(dateien)} Manifest(e) unter silver/ "
           + (f"({dateien[0]}, ...)" if dateien else "(noch nichts publiziert)"))
     return 0
+
+
+def publizieren(schichten: tuple[str, ...], wirklich: bool) -> int:
+    try:
+        ablage = get_storage()
+    except StorageConfigError as fehler:
+        print(f"Konfiguration: {fehler}")
+        return 1
+    if not ablage.config.publiziert:
+        print(f"STORAGE_BACKEND={ablage.backend}: hier wird nichts publiziert.")
+        return 1
+
+    try:
+        oben = {
+            o.key.rsplit("/", 1)[0]
+            for o in ablage.client.list("")
+            if o.key.endswith("/manifest.json")
+        }
+        fehlend = []
+        for schicht in schichten:   # Raw vor Bronze, wie die Pipelines
+            for lauf in ablage.laeufe(schicht):
+                if lauf.verzeichnis.exists() and lauf.relativ not in oben:
+                    fehlend.append(lauf)
+    except StorageError as fehler:
+        print(f"Verbindung: {fehler}")
+        return 1
+
+    if not fehlend:
+        print("Nichts zu tun: jeder fertige lokale Lauf liegt schon oben.")
+        return 0
+    mb = sum(p.stat().st_size for lf in fehlend for p in lf.verzeichnis.rglob("*") if p.is_file()) / 1e6
+    print(f"{len(fehlend)} Lauf/Laeufe lokal, aber nicht auf SeaweedFS ({mb:.0f} MB):")
+    for lauf in fehlend:
+        print(f"  {lauf.relativ}")
+    if not wirklich:
+        print("\nNichts publiziert. Mit --wirklich gehen sie hoch, Raw vor Bronze.")
+        return 0
+
+    for i, lauf in enumerate(fehlend, 1):
+        try:
+            dateien = ablage.publish_run(lauf.relativ)
+        except StorageError as fehler:
+            print(f"\n[{i}/{len(fehlend)}] {lauf.relativ}: {fehler}")
+            return 1
+        print(f"[{i}/{len(fehlend)}] {lauf.relativ}: {len(dateien)} Datei(en)")
+    print(f"\nFertig: {len(fehlend)} Laeufe publiziert.")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(prog="python -m storage", description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    unter = p.add_subparsers(dest="befehl")
+    pub = unter.add_parser("publizieren", help="bestehende lokale Laeufe nach SeaweedFS bringen")
+    pub.add_argument("--schichten", nargs="+", default=list(SCHICHTEN), choices=SCHICHTEN)
+    pub.add_argument("--wirklich", action="store_true", help="nicht nur zeigen, sondern hochladen")
+    args = p.parse_args(argv)
+    if args.befehl == "publizieren":
+        return publizieren(tuple(args.schichten), args.wirklich)
+    return pruefen()
 
 
 if __name__ == "__main__":

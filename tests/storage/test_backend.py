@@ -315,14 +315,15 @@ def test_glob_semantik_wie_pathlib(rel, muster, erwartet):
 # --------------------------------------------------------------------------
 
 
-def test_ein_unerreichbarer_endpoint_wird_zu_einem_satz():
+def test_ein_unerreichbarer_endpoint_wird_zu_einem_satz(monkeypatch):
     """Der erste Versuch gegen s3.datenwerft.ch: der Hostname loeste nicht auf,
     und die Pipeline fiel mit einem boto3-Traceback. Jetzt ein Satz mit Endpoint."""
     from botocore.exceptions import EndpointConnectionError
 
-    from storage import StorageError
+    from storage import StorageError, backend
     from storage.backend import Boto3Client
 
+    monkeypatch.setattr(backend.time, "sleep", lambda s: None)
     client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s",
                                 s3_endpoint="s3.beispiel.invalid"))
 
@@ -355,3 +356,66 @@ def test_eine_abgelehnte_anfrage_nennt_den_code():
 def test_publish_error_ist_ein_storage_error():
     from storage import StorageError
     assert issubclass(PublishError, StorageError)
+
+
+
+def test_ein_voruebergehender_403_wird_wiederholt(monkeypatch):
+    """Beim ersten Nachpublizieren: HEAD 403, Sekunden spaeter 404 auf denselben
+    Schluessel. Ein Aussetzer darf keinen Lauf abbrechen."""
+    from botocore.exceptions import ClientError
+
+    from storage import backend
+    from storage.backend import Boto3Client
+
+    monkeypatch.setattr(backend.time, "sleep", lambda s: None)
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s"))
+    antworten = [ClientError({"Error": {"Code": "403"}}, "HeadObject"),
+                 ClientError({"Error": {"Code": "404"}}, "HeadObject")]
+
+    class Launisch:
+        def head_object(self, **kw):
+            raise antworten.pop(0)
+
+    client._client = Launisch()
+    assert client.head("raw/x") is None, "nach dem 403 kam das ehrliche 404"
+    assert antworten == []
+
+
+def test_ein_dauerhafter_fehler_wird_nach_den_versuchen_zum_satz(monkeypatch):
+    from botocore.exceptions import ClientError
+
+    from storage import StorageError, backend
+    from storage.backend import Boto3Client
+
+    pausen = []
+    monkeypatch.setattr(backend.time, "sleep", pausen.append)
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s"))
+
+    class Stur:
+        def put_object(self, **kw):
+            raise ClientError({"Error": {"Code": "503"}}, "PutObject")
+
+    client._client = Stur()
+    with pytest.raises(StorageError, match="503"):
+        client.put("bronze/x", b"x")
+    assert len(pausen) == backend.VERSUCHE - 1
+
+
+def test_ein_endgueltiger_fehler_wird_nicht_wiederholt(monkeypatch):
+    from botocore.exceptions import ClientError
+
+    from storage import StorageError, backend
+    from storage.backend import Boto3Client
+
+    pausen = []
+    monkeypatch.setattr(backend.time, "sleep", pausen.append)
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s"))
+
+    class Falsch:
+        def put_object(self, **kw):
+            raise ClientError({"Error": {"Code": "InvalidAccessKeyId"}}, "PutObject")
+
+    client._client = Falsch()
+    with pytest.raises(StorageError, match="InvalidAccessKeyId"):
+        client.put("bronze/x", b"x")
+    assert pausen == []

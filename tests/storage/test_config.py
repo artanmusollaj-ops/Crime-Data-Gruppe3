@@ -79,7 +79,7 @@ def test_python_m_storage_prueft_ohne_schluessel_zu_zeigen(monkeypatch, capsys):
     monkeypatch.setenv("S3_SECRET_KEY", "GEHEIM-SECRET")
     monkeypatch.setenv("S3_ENDPOINT", "s3.beispiel.invalid")
     storage.set_storage(None)
-    assert pruefung.main() == 1
+    assert pruefung.main([]) == 1
     out = capsys.readouterr().out
     assert "loest nicht auf" in out and "hybrid" in out
     assert "GEHEIM" not in out
@@ -88,5 +88,52 @@ def test_python_m_storage_prueft_ohne_schluessel_zu_zeigen(monkeypatch, capsys):
 def test_python_m_storage_im_local_modus(capsys):
     from storage import __main__ as pruefung
 
-    assert pruefung.main() == 0
+    assert pruefung.main([]) == 0
     assert "STORAGE_BACKEND=local" in capsys.readouterr().out
+
+
+def test_nachpublizieren_zeigt_erst_und_laedt_dann_raw_vor_bronze(tmp_path, capsys):
+    """Die Pipelines publizieren nur, was sie gerade schreiben; was vorher da
+    war, kommt nur so hoch - Lauf fuer Lauf, Manifest zuletzt, idempotent."""
+    import json
+
+    import storage
+    from storage import Config, FakeS3Client, Storage
+    from storage import __main__ as befehl
+
+    fake = FakeS3Client()
+    data_root = tmp_path / "data"
+    storage.set_storage(Storage(Config(backend="hybrid", local_root=data_root,
+                                       s3_access_key="k", s3_secret_key="s"), fake))
+    for rel in ("bronze/city=chicago/ingest_date=2026-09-05/run_a",
+                "raw/city=chicago/ingest_date=2026-09-05/run_a",
+                "bronze/dataset=noaa_ghcnd/station=X/run_b"):
+        ordner = data_root / rel
+        ordner.mkdir(parents=True)
+        (ordner / "part-0001.parquet").write_bytes(b"PAR1")
+        (ordner / "manifest.json").write_text(json.dumps({"status": "complete", "run_id": rel[-5:]}))
+    # run_b liegt schon oben - der darf nicht noch einmal
+    fake.put("bronze/dataset=noaa_ghcnd/station=X/run_b/part-0001.parquet", b"PAR1")
+    fake.put("bronze/dataset=noaa_ghcnd/station=X/run_b/manifest.json",
+             (data_root / "bronze/dataset=noaa_ghcnd/station=X/run_b/manifest.json").read_bytes())
+    fake.uploads.clear()   # das Vorbereiten zaehlt nicht
+
+    assert befehl.main(["publizieren"]) == 0
+    out = capsys.readouterr().out
+    assert "2 Lauf/Laeufe" in out and "Nichts publiziert" in out and fake.uploads == []
+
+    assert befehl.main(["publizieren", "--wirklich"]) == 0
+    assert fake.uploads == [
+        "raw/city=chicago/ingest_date=2026-09-05/run_a/part-0001.parquet",
+        "raw/city=chicago/ingest_date=2026-09-05/run_a/manifest.json",
+        "bronze/city=chicago/ingest_date=2026-09-05/run_a/part-0001.parquet",
+        "bronze/city=chicago/ingest_date=2026-09-05/run_a/manifest.json",
+    ]
+    assert befehl.main(["publizieren", "--wirklich"]) == 0
+    assert "Nichts zu tun" in capsys.readouterr().out
+
+
+def test_nachpublizieren_im_local_modus_sagt_nein(capsys):
+    from storage import __main__ as befehl
+    assert befehl.main(["publizieren", "--wirklich"]) == 1
+    assert "nichts publiziert" in capsys.readouterr().out
