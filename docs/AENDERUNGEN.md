@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **752** |
+| Tests | **761** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -40,6 +40,41 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 13.09.2026 · Der Datenlauf weist die Drift aus, statt zu scheitern (#67)
+
+**Was.** Die Wächter, die dokumentierte Zahlen gegen die gebauten Daten
+halten, tragen den Marker `referenzstand` — zwölf Testfunktionen, mit Parametern 25 Fälle, in
+`test_aenderungen.py`, `test_abgabedokumente.py` und `test_feldkatalog.py`.
+Der wöchentliche Datenlauf wählt sie ab (`-m "not referenzstand"`) und ruft
+danach `orchestration.drift`: je Grösse dokumentiert, gemessen, Drift und
+Prozent — als Tabelle in der Job-Zusammenfassung und als `drift.json` im
+Artefakt. Das Werkzeug scheitert nie; fehlt eine Tabelle, steht *nicht
+gebaut* in der Zeile.
+
+**Warum.** Der erste Datenlauf mit Schlüssel war rot — und zwar genau an den
+Zahlenwächtern: 348'300 Silver-Zeilen statt 347'957, 84'685 Detroit-Taten
+statt 84'658. Die Quellen bewegen sich jede Woche; ein Alarm, der jede Woche
+klingelt, ist keiner. Christians Entscheid: *die Zahl lieber als Drift
+ausweisen statt zu scheitern.* Die Wächter gelten weiter — für den
+Referenzstand auf dem eigenen Rechner, wo sie hingehören.
+
+**Was rot jetzt heisst.** Die Strecke bricht, eine Quelle ist älter als acht
+Tage, oder ein Test fällt, der auf frischen Daten gelten muss (Einwohnerprobe,
+„kein Delikt in der falschen Stadt", das Fallkorn je Fall genau einmal).
+
+**Wächter.** `test_datenlauf_workflow.py`: der Marker wird abgewählt, die
+Drift kommt nach den Tests mit `if: always()`, in die Zusammenfassung und ins
+Artefakt; und jeder Test, der eine Zahl gegen Parquet hält, trägt den Marker —
+sonst wäre der Lauf beim nächsten Wächter wieder jede Woche rot.
+
+**In Artans Dokumenten.** Konzept Kapitel 9: die Grenze *Keine Alarmierung*
+sagt nicht mehr, der Lauf scheitere an den Zahlen; neue Grenze *Die Dokumente
+beschreiben einen Referenzstand, nicht den Tag.* README: *Drift statt Rot.*
+
+**Zahlen.** 752 → **761 Tests**.
 
 ---
 

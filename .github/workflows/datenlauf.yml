@@ -9,13 +9,16 @@
 # Bis zu diesem Workflow liefen sie nur, wenn jemand lokal pytest tippte.
 # CI bewies den Code, nicht die Daten.
 #
-# Was ein rotes Ergebnis bedeutet - und das ist der Punkt, nicht ein Mangel:
-# Die Quellen bewegen sich. Detroit aendert Eintraege noch Jahre nach der Tat,
-# Chicago liefert Deltas. Wenn ein frischer Lauf andere Zahlen baut als die,
-# die in ln1_konzept.md stehen, dann sind die Dokumente gegenueber der Quelle
-# veraltet. Genau das soll jemand erfahren, bevor er die alte Zahl auf eine
-# Folie setzt. Rot heisst hier: "Der dokumentierte Stand und die Quelle sind
-# auseinander" - der Freshness-Alarm, den es bisher nicht gab.
+# Die Quellen bewegen sich: Detroit aendert Eintraege noch Jahre nach der
+# Tat, Chicago liefert Deltas. Ein frischer Lauf baut deshalb andere Zahlen
+# als die, die in ln1_konzept.md stehen - jede Woche. Bis zum 13.9. war der
+# Lauf deswegen rot, und ein Alarm, der immer klingelt, ist keiner. Seither
+# gilt: Die Waechter, die dokumentierte Zahlen gegen Daten halten (Marker
+# "referenzstand"), laufen hier nicht; sie gelten fuer den Referenzstand auf
+# dem eigenen Rechner. Stattdessen weist orchestration.drift die Abweichung
+# als Zahl je Groesse aus - in der Job-Zusammenfassung und als Artefakt.
+# Rot heisst hier nur noch: Die Strecke oder ein Test, der auf frischen Daten
+# gelten muss, ist kaputt.
 #
 # Was der Lauf braucht: CENSUS_API_KEY als Repository-Secret (Settings ->
 # Secrets and variables -> Actions). Ohne ihn liefert die Census-API HTTP 200
@@ -135,17 +138,27 @@ jobs:
           retention-days: 90
 
       - name: Alle Tests, jetzt mit Daten
-        # Hier laufen die 40, die ein Pull Request ueberspringt. Rot heisst:
-        # Der dokumentierte Stand und die Quelle sind auseinander.
-        run: python -m pytest -q -rs
+        # Hier laufen die Tests, die ein Pull Request ueberspringt - bis auf
+        # die Waechter des Referenzstands. Die waeren auf frischen Daten jede
+        # Woche rot; ihre Abweichung weist der naechste Schritt als Zahl aus.
+        run: python -m pytest -q -rs -m "not referenzstand"
+
+      - name: Drift ausweisen
+        # Auch wenn die Tests rot sind, auch wenn die Strecke abgebrochen ist -
+        # dann steht "nicht gebaut" in der Zeile. Das Werkzeug scheitert nie.
+        if: always()
+        run: python -m orchestration.drift --summary "$GITHUB_STEP_SUMMARY" --json data/drift.json
 
       - name: Gesamtmanifest sichern
         # Auch wenn die Tests rot sind - gerade dann. Das Manifest sagt,
-        # welche Laeufe es waren und wie alt jede Quelle ist.
+        # welche Laeufe es waren und wie alt jede Quelle ist; die Drift sagt,
+        # wie weit die Dokumente davon entfernt sind.
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pipeline_run
-          path: data/pipeline_run.json
+          path: |
+            data/pipeline_run.json
+            data/drift.json
           if-no-files-found: warn
           retention-days: 90

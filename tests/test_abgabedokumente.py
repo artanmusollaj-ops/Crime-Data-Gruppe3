@@ -103,6 +103,7 @@ def genannt(text: str, muster: str) -> int:
         ("weather_day", r"\| `weather_day` \|[^|]*\| \*\*gebaut\*\*, ([0-9']+) Zeilen \|"),
     ],
 )
+@pytest.mark.referenzstand
 def test_silber_tabelle_in_82(con, konzept, dataset, muster):
     """Kapitel 8.2 nennt je Silver-Tabelle ihre Zeilenzahl."""
     assert genannt(konzept, muster) == zeilen(con, parquet(SILVER, dataset)), dataset
@@ -118,6 +119,7 @@ def test_silber_tabelle_in_82(con, konzept, dataset, muster):
         ("dim_city_day", r"\| `dim_city_day` \|[^|]*\| ([0-9']+) \|"),
     ],
 )
+@pytest.mark.referenzstand
 def test_gold_tabelle_in_52(con, konzept, dataset, muster):
     """Kapitel 5.2 nennt je Gold-Tabelle ihre Zeilenzahl."""
     assert genannt(konzept, muster) == zeilen(con, parquet(GOLD, dataset)), dataset
@@ -128,6 +130,7 @@ def test_gold_tabelle_in_52(con, konzept, dataset, muster):
 # --------------------------------------------------------------------------
 
 
+@pytest.mark.referenzstand
 def test_detroits_korn_in_der_kurzfassung(con, konzept):
     """Kapitel 1: "88'685 Anklagen zu N Taten"."""
     pfad = parquet(SILVER, "crime_offense")
@@ -142,6 +145,7 @@ def test_detroits_korn_in_der_kurzfassung(con, konzept):
     assert (taten, anklagen) == echt
 
 
+@pytest.mark.referenzstand
 def test_gold_korn_in_der_absprache(con, absprache):
     """Die Absprache nennt dieselbe Gold-Zeilenzahl wie das Konzept."""
     assert genannt(absprache, r"Gold kommt damit auf ([0-9']+)\)") == zeilen(
@@ -155,6 +159,7 @@ def test_gold_korn_in_der_absprache(con, absprache):
 
 
 @pytest.mark.parametrize("stadt", ["Chicago", "Detroit"])
+@pytest.mark.referenzstand
 def test_rate_je_einwohner(con, konzept, stadt):
     fakt, dim = parquet(GOLD, "fact_offense"), parquet(GOLD, "dim_tract")
     if fakt is None or dim is None:
@@ -190,6 +195,7 @@ def test_rate_je_einwohner(con, konzept, stadt):
 # --------------------------------------------------------------------------
 
 
+@pytest.mark.referenzstand
 def test_h3_tabelle_in_85(con, konzept):
     """Die Tatkorn-Zahlen, mit denen H3 teilweise falsifiziert wird."""
     fakt = parquet(GOLD, "fact_offense")
@@ -229,12 +235,14 @@ def test_h3_tabelle_in_85(con, konzept):
         ("weather_day", SILVER, r"\| `weather_day` \|[^|]*\| ([0-9']+) \|"),
     ],
 )
+@pytest.mark.referenzstand
 def test_readme_nennt_die_zeilenzahlen(con, readme, dataset, schicht, muster):
     """Der Kopf des README nennt den Stand der Schichten."""
     assert genannt(readme, muster) == zeilen(con, parquet(schicht, dataset)), dataset
 
 
 @pytest.mark.parametrize("stadt", ["Chicago", "Detroit"])
+@pytest.mark.referenzstand
 def test_readme_nennt_die_raten(con, readme, stadt):
     fakt, dim = parquet(GOLD, "fact_offense"), parquet(GOLD, "dim_tract")
     if fakt is None or dim is None:

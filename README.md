@@ -171,7 +171,7 @@ Zugriff auf Chicago ebenfalls, wird aber stärker gedrosselt.
 python -m pytest
 ```
 
-Erwartet werden **752 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **761 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -406,7 +406,7 @@ geschieht nichts. `data/` ist nicht versioniert; die Regel gilt je Rechner.
 python -m pytest
 ```
 
-**752 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**761 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -440,7 +440,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **711 der 752 Tests**. Die übrigen 41 überspringen
+In einem frischen Klon laufen **720 der 761 Tests**. Die übrigen 41 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
@@ -460,9 +460,17 @@ laden, laufen bewusst nicht: Sie würden zusätzliche Bronze-Läufe erzeugen.
 Notebook 32 war vor dieser Prüfung einen Tag lang still kaputt.
 
 Er braucht `CENSUS_API_KEY` als Repository-Secret; der erste Schritt prüft
-das und sagt, was fehlt. **Ein rotes Ergebnis ist dort kein Fehler, sondern
-die Nachricht:** Die Quellen haben sich bewegt, und die Zahlen in den
-Dokumenten beschreiben nicht mehr den aktuellen Stand.
+das und sagt, was fehlt.
+
+**Drift statt Rot.** Die Quellen bewegen sich jede Woche — Detroit ändert
+Einträge noch Jahre nach der Tat, Chicago liefert Deltas. Die Wächter, die
+dokumentierte Zahlen gegen Parquet halten (Marker `referenzstand`), laufen im
+Datenlauf deshalb **nicht**; sie gelten für den Referenzstand auf deinem
+Rechner. Stattdessen weist `orchestration.drift` je Grösse aus, wie weit der
+dokumentierte Stand vom frischen entfernt ist — als Tabelle in der
+Job-Zusammenfassung und als `drift.json` im Artefakt. Rot heisst dort nur
+noch: Die Strecke oder ein Test, der auf frischen Daten gelten muss, ist
+kaputt. Lokal zeigt `python -m orchestration.drift` dieselbe Tabelle.
 
 Weitere Optionen zeigt jedes Modul selbst:
 

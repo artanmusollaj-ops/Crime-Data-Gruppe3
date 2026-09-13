@@ -138,6 +138,7 @@ def test_das_korn_jeder_tabelle_steht_drin(gebaut):
 # --------------------------------------------------------------------------
 
 
+@pytest.mark.referenzstand
 def test_ein_zweiter_lauf_liefert_dieselbe_datei(gebaut):
     """Wie bei den drei Crosswalk-Werkzeugen: erzeugt heisst wiederholbar."""
     vorher = KATALOG.read_text(encoding="utf-8")
