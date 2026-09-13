@@ -230,7 +230,7 @@ def test_ein_zweiter_lauf_liefert_dieselbe_datei(tmp_path):
     stand nicht mehr auf Einrueckung 2-3, das Werkzeug meldete "Code ohne
     Kategorie". Das ist keine Schwaeche der Datei, sondern des Umwegs ueber
     ein Layout-Werkzeug - und der Umweg gilt fuer genau einen Build. Die
-    beiden MICR-Tests sind davon nicht betroffen, sie laufen auch dort.
+    beiden MICR-Tests trifft es genauso; sie ueberspringen sich dort ebenso.
     """
     if sys.platform == "win32":
         pytest.skip("Reproduktion ist gegen poppler-utils unter Linux definiert")
