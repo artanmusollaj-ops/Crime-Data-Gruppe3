@@ -67,6 +67,10 @@ testpaths = ["tests"]
 addopts = "-q"
 # Fallback, damit die Tests auch ohne Installation laufen.
 pythonpath = ["src/crime"]
+# referenzstand: haelt dokumentierte Zahlen gegen die gebauten Daten. Gilt
+# fuer den Referenzstand auf dem eigenen Rechner; der woechentliche
+# Datenlauf waehlt diese Tests ab und weist die Drift als Zahl aus.
+markers = ["referenzstand: dokumentierte Zahlen gegen gebaute Daten"]
 
 [tool.ruff]
 line-length = 100

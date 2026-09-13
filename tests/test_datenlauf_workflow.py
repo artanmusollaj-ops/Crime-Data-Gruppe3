@@ -99,3 +99,48 @@ def test_jedes_notebook_im_repository_ist_eingeordnet():
 def test_der_datenlauf_erzwingt_eine_frische_schwelle():
     """Aufzeichnen allein ist keine Kontrolle."""
     assert "--maximal-alter-tage" in text()
+
+
+# --------------------------------------------------------------------------
+# Drift statt Rot (seit 13.9.2026)
+# --------------------------------------------------------------------------
+
+
+def test_die_waechter_des_referenzstands_laufen_nicht_im_datenlauf():
+    """Auf frischen Daten waeren sie jede Woche rot - ein Alarm, der immer
+    klingelt, ist keiner."""
+    t = text()
+    assert '-m "not referenzstand"' in t, (
+        "pytest muss den Marker referenzstand abwaehlen"
+    )
+
+
+def test_die_drift_wird_ausgewiesen_auch_wenn_es_rot_ist():
+    t = text()
+    tests = t.index("python -m pytest")
+    drift_ = t.index("python -m orchestration.drift")
+    assert tests < drift_, "die Drift kommt nach den Tests"
+    schritt = t[t.index("Drift ausweisen"):drift_]
+    assert "if: always()" in schritt, "die Drift muss auch bei roten Tests erscheinen"
+    assert "$GITHUB_STEP_SUMMARY" in t, "die Tabelle gehoert in die Job-Zusammenfassung"
+    assert "data/drift.json" in t[t.index("Gesamtmanifest sichern"):], (
+        "die Drift muss als Artefakt bleiben"
+    )
+
+
+def test_jeder_waechter_der_zahlen_gegen_daten_haelt_traegt_den_marker():
+    """Ein Test, der eine dokumentierte Zahl gegen Parquet haelt und den
+    Marker nicht traegt, macht den Datenlauf wieder jede Woche rot."""
+    import re
+    fehlend = []
+    for datei in ("test_aenderungen.py", "test_abgabedokumente.py"):
+        quelle = (PROJECT_ROOT / "tests" / datei).read_text(encoding="utf-8")
+        for m in re.finditer(r"((?:@pytest\.mark\.[^\n]+\n)*)def (test_\w+)\(([^)]*)\)", quelle):
+            dekoratoren, name, parameter = m.groups()
+            braucht_daten = "con" in parameter.split(",") or "con," in parameter.replace(" ", "")
+            if name in ("test_der_kopf_nennt_die_zeilenzahlen", "test_der_kopf_nennt_die_raten",
+                        "test_der_kopf_nennt_das_fallkorn"):
+                braucht_daten = True
+            if braucht_daten and "referenzstand" not in dekoratoren:
+                fehlend.append(f"{datei}::{name}")
+    assert not fehlend, fehlend

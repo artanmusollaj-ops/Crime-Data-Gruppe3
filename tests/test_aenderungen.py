@@ -84,6 +84,7 @@ def test_der_kopf_nennt_die_testzahl(stand):
     )
 
 
+@pytest.mark.referenzstand
 def test_der_kopf_nennt_die_zeilenzahlen(stand):
     """Silver und Gold - die beiden Zahlen, die das Korn unterscheiden."""
     duckdb = pytest.importorskip("duckdb")
@@ -102,6 +103,7 @@ def test_der_kopf_nennt_die_zeilenzahlen(stand):
         con.close()
 
 
+@pytest.mark.referenzstand
 def test_der_kopf_nennt_die_raten(stand):
     """Die Rate je 1'000 Einwohner - was am ehesten auf eine Folie kommt."""
     duckdb = pytest.importorskip("duckdb")
@@ -190,6 +192,7 @@ def test_die_eintraege_und_die_ausgelassenen_ueberschneiden_sich_nicht(text):
     assert not doppelt, f"gleichzeitig Eintrag und ausgelassen: {doppelt}"
 
 
+@pytest.mark.referenzstand
 def test_der_kopf_nennt_das_fallkorn(stand):
     """Die zweite Zaehlweise, seit #66 - je Fall eine Zeile, beide Staedte gleich."""
     duckdb = pytest.importorskip("duckdb")
