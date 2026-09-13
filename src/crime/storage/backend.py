@@ -21,6 +21,22 @@ Zwei Sorten Ziele:
 
 Nach jedem Upload wird das Objekt zurueckgelesen: Existenz und Groesse
 immer, die MD5-Pruefsumme gegen das ETag, wo der Dienst eines liefert.
+
+**Der veraltete lokale Stand.** Die Regel "lokal zuerst" hat eine scharfe
+Kante: Wer eine Silver- oder Gold-Tabelle von letzter Woche herumliegen hat,
+liest sie - auch wenn auf SeaweedFS eine neuere liegt, und ohne es zu merken.
+Und veroeffentlicht er sie, verdraengt sein alter Stand den neuen. Deshalb
+vergleicht die Ablage bei abgeleiteten Tabellen beide Manifeste:
+
+* **Beim Lesen** eine Warnung, wenn die lokale aelter ist - gelesen wird
+  trotzdem lokal, denn das ist die Regel.
+* **Beim Publizieren** eine Absage, wenn der eigene Stand aelter ist oder auf
+  weniger Bronze-Laeufen ruht. Wer wirklich zurueckdrehen will, sagt
+  ``erzwingen=True``.
+
+Verglichen wird ``built_at_utc`` (tragen alle neun Tabellen) und die
+Lauf-Kennungen aus ``derived_from``. Gold nennt dort Silver-Tabellen statt
+Laeufe; fuer Gold zaehlt deshalb nur der Zeitpunkt.
 """
 
 from __future__ import annotations
@@ -32,11 +48,20 @@ import re
 import shutil
 import time
 from collections.abc import Iterable
+from datetime import datetime, timezone
 from fnmatch import translate as glob_translate
 from pathlib import Path
 from typing import Any, NamedTuple, Protocol
 
-from manifeste import FERTIG, MANIFEST, Lauf, Tabelle, fertige_laeufe, tabellen
+from manifeste import (
+    FERTIG,
+    MANIFEST,
+    Lauf,
+    Tabelle,
+    fertige_laeufe,
+    read_manifest,
+    tabellen,
+)
 from storage import paths
 from storage.config import Config
 
@@ -44,6 +69,10 @@ from storage.config import Config
 LOG = logging.getLogger("storage")
 
 MD5 = re.compile(r"^[0-9a-f]{32}$")
+
+# Schichten, die ersetzt statt angehaeuft werden - nur fuer sie ist die Frage
+# "wessen Stand ist neuer?" ueberhaupt sinnvoll. Laeufe sind unveraenderlich.
+ABGELEITET = ("silver", "gold")
 
 
 class StorageError(RuntimeError):
@@ -206,6 +235,70 @@ class FakeS3Client:
         return [self.head(k) for k in sorted(self.objekte) if k.startswith(prefix)]  # type: ignore[misc]
 
 
+def zeitpunkt(manifest: dict[str, Any]) -> datetime | None:
+    """Wann diese Tabelle gebaut wurde. Alle neun tragen ``built_at_utc``."""
+    roh = manifest.get("built_at_utc") or manifest.get("completed_at_utc")
+    if not roh:
+        return None
+    try:
+        wann = datetime.fromisoformat(str(roh).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return wann if wann.tzinfo else wann.replace(tzinfo=timezone.utc)
+
+
+def eingaben(manifest: dict[str, Any]) -> frozenset[str]:
+    """Die Bronze-Laufkennungen, auf denen eine Tabelle ruht.
+
+    Drei Formen, gewachsen und bewusst nicht angeglichen: ``crime_offense``
+    fuehrt Listen je Stadt (``chicago_bronze_runs``), die uebrigen
+    Silver-Tabellen eine Liste von Eintraegen mit ``run_id``, und Gold nennt
+    Silver-Tabellen statt Laeufe - dort bleibt die Menge leer, und es zaehlt
+    allein der Zeitpunkt.
+    """
+    herkunft = manifest.get("derived_from")
+    gefunden: set[str] = set()
+    if isinstance(herkunft, dict):
+        for schluessel, wert in herkunft.items():
+            if schluessel.endswith("_runs") and isinstance(wert, list):
+                gefunden.update(str(v) for v in wert)
+    elif isinstance(herkunft, list):
+        for eintrag in herkunft:
+            if isinstance(eintrag, dict) and eintrag.get("run_id"):
+                gefunden.add(str(eintrag["run_id"]))
+    return frozenset(gefunden)
+
+
+class Standvergleich(NamedTuple):
+    """Der eigene Stand einer abgeleiteten Tabelle gegen den auf SeaweedFS."""
+
+    tabelle: str
+    hier: datetime | None
+    dort: datetime | None
+    fehlende_eingaben: frozenset[str]
+
+    @property
+    def aelter(self) -> bool:
+        return self.hier is not None and self.dort is not None and self.hier < self.dort
+
+    @property
+    def veraltet(self) -> bool:
+        """Aelter gebaut, oder auf weniger Bronze-Laeufen gebaut."""
+        return self.aelter or bool(self.fehlende_eingaben)
+
+    def satz(self) -> str:
+        teile = []
+        if self.hier and self.dort:
+            teile.append(f"hier gebaut {self.hier:%d.%m.%Y %H:%M} UTC, "
+                         f"auf SeaweedFS {self.dort:%d.%m.%Y %H:%M} UTC")
+        if self.fehlende_eingaben:
+            namen = ", ".join(sorted(self.fehlende_eingaben)[:3])
+            mehr = "" if len(self.fehlende_eingaben) <= 3 else f" und {len(self.fehlende_eingaben) - 3} weitere"
+            teile.append(f"dort stecken {len(self.fehlende_eingaben)} Bronze-Lauf/Laeufe, "
+                         f"die hier fehlen ({namen}{mehr})")
+        return f"{self.tabelle}: " + "; ".join(teile)
+
+
 def etag_md5(etag: str) -> str | None:
     """Das ETag als MD5, wenn es eines ist (bei mehrteiligen Uploads nicht)."""
     wert = etag.strip().strip('"').lower()
@@ -218,6 +311,8 @@ class Storage:
     def __init__(self, config: Config, client: S3Client | None = None) -> None:
         self.config = config
         self._client = client
+        self._entfernte_manifeste: dict[str, dict[str, Any] | None] = {}
+        self._gewarnt: set[str] = set()
 
     # -- Aufbau --------------------------------------------------------------
 
@@ -244,6 +339,78 @@ class Storage:
         if Path(local_root) == self.local_root:
             return self
         return Storage(replace(self.config, local_root=Path(local_root)), self._client)
+
+    # -- Wessen Stand ist neuer? --------------------------------------------
+
+    def tabellenverzeichnis(self, rel: str) -> str:
+        """Das Verzeichnis, in dem das Manifest liegt - aus Datei oder Ordner."""
+        letzter = rel.rsplit("/", 1)[-1]
+        return rel.rsplit("/", 1)[0] if "." in letzter else rel
+
+    def entfernter_stand(self, verzeichnis: str, *, frisch: bool = False) -> dict[str, Any] | None:
+        """Das Manifest dieser Tabelle auf SeaweedFS, oder None."""
+        if not self.config.remote:
+            return None
+        if not frisch and verzeichnis in self._entfernte_manifeste:
+            return self._entfernte_manifeste[verzeichnis]
+        schluessel = f"{verzeichnis}/{MANIFEST}"
+        manifest = None
+        if self.client.head(schluessel) is not None:
+            try:
+                manifest = json.loads(self.client.get(schluessel).decode("utf-8"))
+            except (ValueError, UnicodeDecodeError):
+                LOG.warning("Manifest auf SeaweedFS nicht lesbar: %s", schluessel)
+        self._entfernte_manifeste[verzeichnis] = manifest
+        return manifest
+
+    def vergleiche_stand(self, verzeichnis: str, lokal: dict[str, Any] | None = None, *,
+                         frisch: bool = False) -> Standvergleich | None:
+        """Vergleicht die lokale Tabelle mit der auf SeaweedFS.
+
+        ``None``, wenn nichts zu vergleichen ist: keine der beiden Seiten da,
+        oder eine Schicht, in der Staende einander nicht verdraengen.
+        """
+        if verzeichnis.split("/")[0] not in ABGELEITET or not self.config.remote:
+            return None
+        if lokal is None:
+            pfad = self.local_path(verzeichnis, MANIFEST)
+            if not pfad.exists():
+                return None
+            manifest = read_manifest(pfad, streng=False)
+            if manifest is None:
+                return None
+            lokal = manifest
+        dort = self.entfernter_stand(verzeichnis, frisch=frisch)
+        if dort is None:
+            return None
+        return Standvergleich(
+            verzeichnis, zeitpunkt(lokal), zeitpunkt(dort),
+            eingaben(dort) - eingaben(lokal),
+        )
+
+    def _warne_wenn_veraltet(self, rel: str) -> None:
+        """Beim Lesen: sagen, dass die lokale Fassung nicht die neueste ist.
+
+        Eine Warnung, keine Absage - "lokal zuerst" bleibt die Regel. Faellt
+        dabei SeaweedFS aus, bleibt es still: Ein lokaler Lesezugriff soll
+        nicht daran scheitern, dass das Netz weg ist.
+        """
+        verzeichnis = self.tabellenverzeichnis(rel)
+        if verzeichnis in self._gewarnt or verzeichnis.split("/")[0] not in ABGELEITET:
+            return
+        self._gewarnt.add(verzeichnis)
+        try:
+            befund = self.vergleiche_stand(verzeichnis)
+        except StorageError as fehler:
+            LOG.debug("Stand nicht vergleichbar (%s): %s", verzeichnis, fehler)
+            return
+        if befund is not None and befund.veraltet:
+            LOG.warning(
+                "Lokaler Stand ist aelter als der auf SeaweedFS - %s. Gelesen wird "
+                "trotzdem die lokale Fassung. Neu bauen mit "
+                "'python -m orchestration.run_all --ohne-ingestion'.",
+                befund.satz(),
+            )
 
     # -- Pfade ---------------------------------------------------------------
 
@@ -275,6 +442,7 @@ class Storage:
             return self.s3_path(rel)
         lokal = self.local_path(rel)
         if lokal.exists():
+            self._warne_wenn_veraltet(rel)
             LOG.debug("Reading local: %s", lokal)
             return str(lokal)
         LOG.info("Local file missing, falling back to S3: %s", self.s3_path(rel))
@@ -487,13 +655,28 @@ class Storage:
         self._lokal_entfernen_falls_s3(rel)
         return oben
 
-    def publish_table(self, tabelle: str | Path) -> list[str]:
+    def publish_table(self, tabelle: str | Path, *, erzwingen: bool = False) -> list[str]:
         """Eine abgeleitete Tabelle publizieren. **Ueberschreibt** auf S3 -
-        lokal wird sie ebenso ersetzt, nicht angehaeuft."""
+        lokal wird sie ebenso ersetzt, nicht angehaeuft.
+
+        Nicht aber, wenn der eigene Stand aelter ist als der dort oder auf
+        weniger Bronze-Laeufen ruht: Dann verdraengte er einen neueren, und
+        niemand saehe es ihm an. ``erzwingen=True`` dreht bewusst zurueck.
+        """
         rel = self._rel_dir(tabelle)
         if rel is None:
             return []
+        if self.config.publiziert and not erzwingen:
+            befund = self.vergleiche_stand(rel, frisch=True)
+            if befund is not None and befund.veraltet:
+                raise PublishError(
+                    f"Nicht publiziert, das waere ein Rueckschritt - {befund.satz()}. "
+                    "Erst neu bauen ('python -m orchestration.run_all --ohne-ingestion'), "
+                    "dann publizieren. Wer wirklich zurueckdrehen will: "
+                    "publish_table(..., erzwingen=True)."
+                )
         oben = self.publish_files(self._dateien_unter(rel), ueberschreiben=True)
+        self._entfernte_manifeste.pop(rel, None)
         self._lokal_entfernen_falls_s3(rel)
         return oben
 

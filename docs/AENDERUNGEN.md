@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **837** |
+| Tests | **864** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -40,6 +40,51 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 13.09.2026 · Ein veralteter lokaler Stand wird gemeldet, nicht publiziert (#73)
+
+**Was.** Bei Silver- und Gold-Tabellen vergleicht die Ablage jetzt den
+lokalen Stand mit dem auf SeaweedFS — `built_at_utc` und die Bronze-Läufe
+aus `derived_from`. Ist der lokale älter oder ruht er auf weniger Läufen:
+**beim Lesen** eine Warnung (gelesen wird trotzdem lokal), **beim
+Publizieren** eine Absage. `python -m storage` zeigt es je Tabelle,
+`publish_table(..., erzwingen=True)` dreht bewusst zurück.
+
+**Warum.** Christian hat gefragt, was passiert, wenn Artan lokal einen
+anderen Stand hat. Gemessen: Er liest **still** seine alte Fassung —
+344'607 statt 348'300 Zeilen, genau die Sorte Zahl, die auf eine Folie
+kommt. Und veröffentlicht er sie, verdrängt sein Stand vom 8.9. den vom
+13.9. für alle, ohne Spur. Die Läufe unter `bronze/` und `raw/` waren nie
+betroffen: Sie sind unveränderlich und ergänzen einander, statt sich zu
+verdrängen — auch das ist jetzt ein Test.
+
+**Warum Lesen warnt und Publizieren absagt.** „Lokal zuerst" ist die Regel
+und bleibt es; wer offline arbeitet, soll weiterarbeiten. Ein Rückschritt im
+**gemeinsamen** Bestand ist dagegen nichts, was man aus Versehen tun darf.
+Der Bau bleibt dabei lokal fertig — nur das Hochladen unterbleibt, mit einem
+Satz statt eines Tracebacks (die fünf Silver- und Gold-Kommandos fangen
+`StorageError` jetzt mit).
+
+**Zwei Signale, weil eines nicht reicht.** Die Uhrzeit fängt den Fall
+„heute gebaut, aber ohne den Lauf, den ein anderer längst geladen hat"
+nicht. Die Lauf-Mengen fangen ihn. Umgekehrt nennt Gold unter
+`derived_from` Silver-Tabellen statt Läufe — dort zählt allein die Uhrzeit.
+
+**Gegen den echten Bucket geprüft** (nur lesend, mit einer nachgestellten
+Kopie): *„hier gebaut 08.09.2026 10:00 UTC, auf SeaweedFS 13.09.2026 14:06
+UTC; dort stecken 4 Bronze-Läufe, die hier fehlen."*
+
+**Der Ausweg** ist immer `python -m orchestration.run_all --ohne-ingestion`
+— danach ruht der Stand auf allen Läufen, den lokalen und denen von
+SeaweedFS.
+
+**In Artans Dokumenten.** Konzept 5.3, Zeile *Data Management*: die
+Umsetzung nennt den Vergleich. README 2.5: *Wenn dein lokaler Stand älter
+ist.*
+
+**Zahlen.** 837 → **864 Tests**.
 
 ---
 

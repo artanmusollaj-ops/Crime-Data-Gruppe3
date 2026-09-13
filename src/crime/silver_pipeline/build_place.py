@@ -47,7 +47,7 @@ from typing import Any, NamedTuple
 import duckdb
 
 from census_pipeline import STATES
-from storage import for_root
+from storage import StorageError, for_root
 from silver_pipeline import (
     BRONZE_LAYER,
     PARQUET_FILE,
@@ -343,7 +343,7 @@ def main() -> int:
                     name,
                 )
         return 0
-    except (TransformError, OSError, duckdb.Error) as error:
+    except (TransformError, StorageError, OSError, duckdb.Error) as error:
         log.error("Silver-Aufbau fehlgeschlagen: %s", error)
         return 1
     except KeyboardInterrupt:
