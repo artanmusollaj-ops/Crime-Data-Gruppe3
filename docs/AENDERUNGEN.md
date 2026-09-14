@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **935** |
+| Tests | **938** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -60,11 +60,11 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `bronze/dataset=tiger_tract`, `bronze/dataset=tiger_place` | 1 | 14.09.2026 | Vintage-Archiv je Bundesstaat, Geometrie als WKB in EPSG:4269, Feld-Allowlist mit `_extra` |
 | `bronze/dataset=acs5_tract` | 1 | 14.09.2026 | fünf Variablen je Tract, Fehlwert `-666666666` bleibt unverändert stehen |
 | `bronze/dataset=noaa_ghcnd` | 1 | 14.09.2026 | Vollschnappschuss je Station, bedingter Abruf über ETag, Mindestabstand sieben Tage |
-| `silver/tract` | 1 | 14.09.2026 | ein Census Tract je Zeile, TIGER und ACS über einen vollen äusseren Join |
+| `silver/tract` | **2** | 14.09.2026 | ein Census Tract je Zeile, TIGER und ACS über einen vollen äusseren Join. Version 2: `median_household_income_usd` und `population_below_poverty` als `INTEGER` statt `BIGINT` — die Einwohnerzahl bleibt `BIGINT`, sie ist der Nenner jeder Rate |
 | `silver/place` | 1 | 14.09.2026 | ein Ort je Zeile, Geometrie für die Stadtgrenze |
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
 | `silver/crime_offense` | 1 | 14.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse |
-| `gold/*` | 1 | 14.09.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung |
+| `gold/*` | **2** | 14.09.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT` |
 
 > **Der Feldkatalog wird erzeugt, nicht gepflegt.** Am 14.9. wurde
 > `docs/feldkatalog.md` von Hand bearbeitet (`f1c9b42`): Spaltentypen von
@@ -74,14 +74,61 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 > `test_ein_zweiter_lauf_liefert_dieselbe_datei` schlug an. Die schmaleren
 > Typen sind ein berechtigter **Wunsch**, aber kein Zustand: `year(tag)`
 > liefert in DuckDB `BIGINT`. Wer sie will, setzt sie als `CAST` in
-> `dim_date_query` und `build_tract` — dann sagt der Katalog `SMALLINT`
-> **und** es stimmt. Bis dahin ist der erzeugte Stand wiederhergestellt.
+> `dim_date_query` und `build_tract`. **Genau das ist am 14.9. geschehen**
+> (#86): Die Typen stehen jetzt im Code, der Katalog sagt `SMALLINT` — und es
+> stimmt. Dabei fiel auf, dass die Handänderung `median_household_income_usd`
+> nur in `gold/dim_tract` umgestellt hatte, nicht in `silver/tract`, obwohl
+> Gold den Wert von dort übernimmt. Im Code gesetzt, stimmen beide
+> zwangsläufig überein — das ist das Argument für den Code und gegen das
+> Dokument.
 
 **Version 1 heisst „der Vertrag, wie er am 14.9.2026 gilt".** Frühere
 Änderungen — das Tatebene, das Fallebene, die Mehrheitsregel — stehen als
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 14.09.2026 · Artans schmale Typen, im Code statt im Dokument (#86)
+
+**Was.** Die neun Spalten, die Artan am 14.9. im Feldkatalog schmaler
+eingetragen hatte, sind jetzt im Code schmal — und damit in den Daten:
+
+| Spalte | vorher | jetzt |
+| --- | --- | --- |
+| `dim_date.year`, `.day_of_year` | `BIGINT` | `SMALLINT` |
+| `dim_date.month`, `.quarter`, `.day_of_month`, `.day_of_week` | `BIGINT` | `TINYINT` |
+| `fact_offense.hour_of_day` | `BIGINT` | `TINYINT` |
+| `median_household_income_usd`, `population_below_poverty` | `BIGINT` | `INTEGER` |
+
+**Warum es im Code stehen muss.** `docs/feldkatalog.md` wird erzeugt; eine
+Handänderung ist beim nächsten Werkzeuglauf weg (#84). Erst der `CAST` in
+`dim_date_query`, `fact_offense_query` und `build_tract` macht die Aussage
+wahr — danach schreibt das Werkzeug sie von selbst.
+
+**Und der Beweis, dass genau das der Unterschied ist.** Die Handänderung
+hatte `median_household_income_usd` nur in `gold/dim_tract` umgestellt, nicht
+in `silver/tract` — obwohl Gold den Wert von dort übernimmt. Zwei Zeilen für
+dieselbe Spalte, zwei Typen. Im Code gesetzt, stimmen beide zwangsläufig
+überein.
+
+**Geprüft, dass nichts verlorenging.** `TRY_CAST` liefert bei Überlauf
+stillschweigend `NULL`; deshalb vorher gemessen und nachher gezählt:
+6'102 Einkommen (Maximum 250'001), 6'282 Armutszahlen (Maximum 5'819),
+344'617 Tatstunden (0 bis 23) — alle unverändert, alle weit unter der Grenze.
+Die **Einwohnerzahl bleibt bewusst `BIGINT`**: Sie ist der Nenner jeder Rate,
+und dort ist Vorsicht mehr wert als vier Byte.
+
+**Vertragsversionen.** `silver/tract` und `gold/*` steigen auf **2** — das
+Schema ist Teil dessen, was eine Tabelle zusagt, und wer sie mit `pyarrow`
+liest, bekommt jetzt einen anderen Typ. Die Zahlen selbst ändern sich nicht:
+die Drift-Messung bleibt auf 0,00 in allen elf Grössen.
+
+**Wächter.** Drei Tests halten die Typen fest, damit sie nicht still wieder
+breit werden.
+
+**Zahlen.** 935 → **938 Tests**.
 
 ---
 

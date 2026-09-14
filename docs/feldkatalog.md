@@ -87,8 +87,8 @@ Eine Zeile ist: **ein Census Tract**. 6'282 Zeilen.
 | `centroid_lon` | `DOUBLE` | Längengrad des Flächenschwerpunkts. |
 | `geometry` | `BLOB` | Der Umriss als WKB. Kein Browser liest das - für eine Karte schreibt `serving.export_geojson` daraus GeoJSON. |
 | `population` | `BIGINT` | Einwohnerzahl aus der ACS-5-Jahres-Schätzung. Der Nenner jeder Rate. `0` kommt vor - Wasserflächen, Flughäfen, Industriegebiete. |
-| `median_household_income_usd` | `BIGINT` | Medianes Haushaltseinkommen in Dollar, ACS. `NULL`, wo die Schätzung zu unsicher ist - in Wayne County öfter als in Cook County. |
-| `population_below_poverty` | `BIGINT` | Absolute Zahl der Menschen unter der Armutsgrenze. Bleibt erhalten, auch wo `poverty_rate` `NULL` ist. |
+| `median_household_income_usd` | `INTEGER` | Medianes Haushaltseinkommen in Dollar, ACS. `NULL`, wo die Schätzung zu unsicher ist - in Wayne County öfter als in Cook County. |
+| `population_below_poverty` | `INTEGER` | Absolute Zahl der Menschen unter der Armutsgrenze. Bleibt erhalten, auch wo `poverty_rate` `NULL` ist. |
 | `poverty_rate` | `DOUBLE` | Anteil der Menschen unter der Armutsgrenze, 0 bis 1. `NULL` bei null Einwohnern statt einer Division durch null. |
 | `quality_flags` | `VARCHAR[]` | Auffälligkeiten, die **benannt und nicht entfernt** werden - etwa `MISSING_MEDIAN_INCOME` oder `SUSPECT_SNOWFALL`. Leer, wenn nichts auffiel. |
 
@@ -135,16 +135,16 @@ Eine Zeile ist: **ein Kalendertag**. 366 Zeilen.
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
 | `date` | `DATE` | Der Kalendertag. **Jeder Tag steht hier**, auch einer ohne Delikt - sonst zeigte eine Zeitreihe eine Lücke als Nicht-Ereignis. |
-| `year` | `BIGINT` | Kalenderjahr. |
-| `month` | `BIGINT` | Monat als Zahl, 1 bis 12. |
-| `quarter` | `BIGINT` | Quartal, 1 bis 4. |
-| `day_of_month` | `BIGINT` | Tag im Monat, 1 bis 31. |
-| `day_of_week` | `BIGINT` | Wochentag als Zahl. |
+| `year` | `SMALLINT` | Kalenderjahr. |
+| `month` | `TINYINT` | Monat als Zahl, 1 bis 12. |
+| `quarter` | `TINYINT` | Quartal, 1 bis 4. |
+| `day_of_month` | `TINYINT` | Tag im Monat, 1 bis 31. |
+| `day_of_week` | `TINYINT` | Wochentag als Zahl. |
 | `day_name` | `VARCHAR` | Wochentag ausgeschrieben, englisch. |
 | `month_name` | `VARCHAR` | Monat ausgeschrieben, englisch. |
 | `month_start` | `DATE` | Erster Tag des Monats - zum Gruppieren, ohne in der Abfrage zu rechnen. |
 | `is_weekend` | `BOOLEAN` | Samstag oder Sonntag. |
-| `day_of_year` | `BIGINT` | Tag im Jahr, 1 bis 366. |
+| `day_of_year` | `SMALLINT` | Tag im Jahr, 1 bis 366. |
 
 ### `dim_offense`
 
@@ -179,7 +179,7 @@ Eine Zeile ist: **ein Census Tract**. 6'282 Zeilen.
 | `county_fips` | `VARCHAR` | Drei Ziffern des County innerhalb des Bundesstaats: `031` Cook (Chicago), `163` Wayne (Detroit). |
 | `tract_name` | `VARCHAR` | Bezeichnung des Tracts. |
 | `population` | `BIGINT` | Einwohnerzahl aus der ACS-5-Jahres-Schätzung. Der Nenner jeder Rate. `0` kommt vor - Wasserflächen, Flughäfen, Industriegebiete. |
-| `median_household_income_usd` | `BIGINT` | Medianes Haushaltseinkommen in Dollar, ACS. `NULL`, wo die Schätzung zu unsicher ist - in Wayne County öfter als in Cook County. |
+| `median_household_income_usd` | `INTEGER` | Medianes Haushaltseinkommen in Dollar, ACS. `NULL`, wo die Schätzung zu unsicher ist - in Wayne County öfter als in Cook County. |
 | `poverty_rate` | `DOUBLE` | Anteil der Menschen unter der Armutsgrenze, 0 bis 1. `NULL` bei null Einwohnern statt einer Division durch null. |
 | `land_area_m2` | `BIGINT` | Landfläche in Quadratmetern, aus TIGER/Line. Ohne Wasser - für eine Flächendichte die richtige Grösse. |
 | `centroid_lat` | `DOUBLE` | Breitengrad des Flächenschwerpunkts. Für eine Karte, die Punkte statt Flächen zeigt. |
@@ -197,7 +197,7 @@ Eine Zeile ist: **eine Tat**. 344'617 Zeilen.
 | `occurred_at_utc` | `TIMESTAMP` | Tatzeitpunkt in UTC. Die Achse, auf der sich beide Städte vergleichen lassen. |
 | `occurred_at_local` | `TIMESTAMP` | Tatzeitpunkt in Ortszeit der Stadt. Für die Frage, was *in der Stadt* für eine Uhrzeit war. |
 | `date` | `DATE` | Tatdatum in Ortszeit. Schlüssel auf `dim_date`. |
-| `hour_of_day` | `BIGINT` | Tatstunde in Ortszeit, 0 bis 23. |
+| `hour_of_day` | `TINYINT` | Tatstunde in Ortszeit, 0 bis 23. |
 | `tract_geoid` | `VARCHAR` | GEOID des Census Tracts, in dem der Punkt liegt - aus dem eigenen räumlichen Join, nicht aus der Quelle. |
 | `nibrs_code` | `VARCHAR` | NIBRS-Deliktcode des FBI, etwa `13A`. Die gemeinsame Sprache beider Städte - erst über ihn wird IUCR mit MICR vergleichbar. |
 | `nibrs_family` | `VARCHAR` | Die ersten beiden Zeichen des Codes. **Keine amtliche Gliederung** - zum Gruppieren gehört `nibrs_category`. |
