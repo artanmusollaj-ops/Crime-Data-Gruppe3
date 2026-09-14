@@ -743,6 +743,9 @@ def test_dim_offense_nennt_seine_referenzdateien(tmp_path):
 def test_das_manifest_uebernimmt_die_schicht_der_quelle(con, tmp_path):
     """Vorher stand in jeder Zeile 'silver', unabhaengig von der Wahrheit."""
     con.execute("CREATE OR REPLACE TABLE leer AS SELECT 1 AS x")
+    # Die Referenzdatei traegt seit dem 14.9. ihre Pruefsumme im Manifest -
+    # es muss sie also geben.
+    (tmp_path / "a.csv").write_text("x\n", encoding="utf-8")
     manifest = bg.build_manifest(
         con, "leer",
         [bg.Quelle("a.csv", tmp_path / "a.csv", layer="config"),
@@ -903,3 +906,46 @@ def test_fact_offense_traegt_das_fallkorn(tmp_path):
     finally:
         con.close()
     assert zeilen == [("a", True)], "die nicht zaehlende Zeile ist gar nicht in Gold"
+
+
+# --------------------------------------------------------------------------
+# Die Herkunftskette: Gold nennt den Silver-**Stand**
+# --------------------------------------------------------------------------
+
+
+def test_gold_nennt_den_silver_stand_und_dessen_eigene_herkunft():
+    """Das schwaechste Glied der Kette, bis zum 14.9.2026.
+
+    Vorher stand hier nur ein Pfad. Wird Silver neu gebaut, zeigt derselbe
+    Pfad auf etwas anderes - und nichts am Gold-Manifest verraet es. Jetzt
+    ist die Kette im Manifest verschachtelt: Gold nennt Silver, Silver nennt
+    seine Bronze-Laeufe.
+    """
+    quelle = bg.Quelle("crime_offense", "/irgendwo/part-0001.parquet", manifest={
+        "built_at_utc": "2026-09-14T08:00:00+00:00",
+        "input_fingerprint": "a" * 64,
+        "derived_from": {"chicago_bronze_runs": ["run_A", "run_B"]},
+    })
+    eintrag = bg.herkunft_der_quelle(quelle)
+    assert eintrag["layer"] == "silver" and eintrag["table"] == "crime_offense"
+    assert eintrag["built_at_utc"] == "2026-09-14T08:00:00+00:00"
+    assert eintrag["input_fingerprint"] == "a" * 64
+    assert eintrag["derived_from"]["chicago_bronze_runs"] == ["run_A", "run_B"], (
+        "die Bronze-Laeufe muessen vom Gold-Manifest aus lesbar sein"
+    )
+
+
+def test_eine_referenzdatei_traegt_ihre_pruefsumme(tmp_path):
+    """dim_offense ruht auf zwei CSV unter config/, nicht auf Silver."""
+    datei = tmp_path / "codes.csv"
+    datei.write_text("nibrs_code\n09A\n", encoding="utf-8")
+    eintrag = bg.herkunft_der_quelle(bg.Quelle("codes.csv", datei, layer="config"))
+    assert eintrag["layer"] == "config"
+    assert len(eintrag["sha256"]) == 64
+    assert "built_at_utc" not in eintrag, "eine CSV hat keinen Bauzeitpunkt"
+
+
+def test_eine_quelle_ohne_manifest_faellt_auf_den_pfad_zurueck():
+    """Ein Bestand von vor der Aenderung darf den Bau nicht aufhalten."""
+    eintrag = bg.herkunft_der_quelle(bg.Quelle("tract", "/alt/part-0001.parquet"))
+    assert eintrag == {"layer": "silver", "table": "tract", "path": "/alt/part-0001.parquet"}

@@ -47,6 +47,7 @@ from typing import Any, NamedTuple
 import duckdb
 
 from census_pipeline import STATES
+from manifeste import eingabe_abdruck
 from storage import StorageError, for_root
 from silver_pipeline import (
     BRONZE_LAYER,
@@ -266,6 +267,15 @@ def build_manifest(
     started: datetime,
 ) -> dict[str, Any]:
     nachweis = reconcile(con, relation)
+    herkunft = [
+        {
+            "layer": BRONZE_LAYER,
+            "dataset": q.dataset,
+            "state_fips": q.state,
+            "run_id": q.run_id,
+        }
+        for q in sources
+    ]
     return {
         "status": "complete",
         "layer": SILVER_LAYER,
@@ -277,15 +287,10 @@ def build_manifest(
         "format": "parquet (snappy, Geometrie als WKB in EPSG:4269)",
         "row_count": nachweis["row_count"],
         "join_key": "geoid",
-        "derived_from": [
-            {
-                "layer": BRONZE_LAYER,
-                "dataset": q.dataset,
-                "state_fips": q.state,
-                "run_id": q.run_id,
-            }
-            for q in sources
-        ],
+        "derived_from": herkunft,
+        # Ein Abdruck ueber die Eingaben: Wer diese Tabelle benutzt, nennt ihn
+        # und sagt damit, auf welchem Stand er ruht - ein Pfad koennte das nicht.
+        "input_fingerprint": eingabe_abdruck(herkunft),
         "reconciliation": nachweis,
         "column_statistics": column_statistics(con, relation),
         "schema": schema_of(con, relation),

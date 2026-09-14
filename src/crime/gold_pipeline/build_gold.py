@@ -52,7 +52,8 @@ from typing import Any, NamedTuple
 
 import duckdb
 
-from storage import StorageError, for_root
+from manifeste import eingabe_abdruck, referenz, referenzdatei
+from storage import StorageError, for_root, manifest_von
 from gold_pipeline import (
     GATE_HOECHSTENS,
     GATE_MINDESTENS,
@@ -160,6 +161,9 @@ class Quelle(NamedTuple):
     name: str
     pfad: str | Path   # Silver: lokal oder s3://; config: lokal
     layer: str = SILVER_LAYER
+    # Das Manifest der Quelle, damit Gold ihren **Stand** nennen kann und
+    # nicht nur ihren Pfad. Bei Referenzdateien unter config/ leer.
+    manifest: dict[str, Any] | None = None
 
     @property
     def relation(self) -> str:
@@ -198,15 +202,22 @@ def silver_quelle(data_root: Path, name: str, vintage: int | None = None) -> Que
     verzeichnis = f"{SILVER_LAYER}/dataset={name}"
     if vintage is not None:
         verzeichnis += f"/vintage={vintage}"
-    if ablage.exists(verzeichnis, PARQUET_FILE):
-        return Quelle(name, ablage.resolve_read_path(verzeichnis, PARQUET_FILE))
-    treffer = ablage.list_files(verzeichnis, f"**/{PARQUET_FILE}")
-    if not treffer:
-        raise TransformError(
-            f"Silver-Tabelle {name} fehlt unter {ablage.local_path(verzeichnis)}. "
-            f"Zuerst bauen: python -m silver_pipeline.build_{name}"
-        )
-    return Quelle(name, ablage.resolve_read_path(treffer[-1]))
+    if not ablage.exists(verzeichnis, PARQUET_FILE):
+        treffer = ablage.list_files(verzeichnis, f"**/{PARQUET_FILE}")
+        if not treffer:
+            raise TransformError(
+                f"Silver-Tabelle {name} fehlt unter {ablage.local_path(verzeichnis)}. "
+                f"Zuerst bauen: python -m silver_pipeline.build_{name}"
+            )
+        verzeichnis = treffer[-1].rsplit("/", 1)[0]
+    # Das Manifest wird mitgelesen: Gold soll sagen koennen, auf welchem
+    # Silver-**Stand** es ruht - Zeitpunkt, Eingabe-Abdruck und dessen eigene
+    # Herkunft. Ein Pfad allein zeigt nur auf das, was gerade dort liegt.
+    manifest = {}
+    if ablage.exists(verzeichnis, "manifest.json"):
+        manifest = manifest_von(ablage, verzeichnis, "manifest.json")
+    return Quelle(name, ablage.resolve_read_path(verzeichnis, PARQUET_FILE),
+                  manifest=manifest)
 
 
 # --------------------------------------------------------------------------
@@ -729,6 +740,27 @@ def reconcile(
     }
 
 
+def herkunft_der_quelle(q: Quelle) -> dict[str, Any]:
+    """Wie Gold eine Quelle nennt - mit ihrem Stand, nicht nur ihrem Pfad.
+
+    Bis zum 14.9. stand hier ``{"layer", "table", "path"}``, und das war das
+    schwaechste Glied der Herkunftskette: Ein Pfad zeigt auf das, was gerade
+    dort liegt. Wird Silver neu gebaut, zeigt derselbe Satz auf etwas anderes
+    - und nichts am Gold-Manifest verraet es. Jetzt steht dabei, **wann**
+    jener Stand gebaut wurde, auf **welchen Eingaben** er ruhte, und
+    woertlich dessen eigene Herkunft. Damit nennt ein Gold-Manifest die
+    Bronze-Laeufe, aus denen seine Zahlen stammen, auch wenn Silver
+    inzwischen weitergezogen ist.
+
+    Referenzdateien unter ``config/`` tragen stattdessen ihre Pruefsumme -
+    sie werden aus amtlichen PDFs erzeugt und haben keinen Bauzeitpunkt.
+    """
+    kopf = {"layer": q.layer, "table": q.name}
+    if q.layer == "config":
+        return {**kopf, **referenzdatei(Path(q.pfad))}
+    return {**kopf, **referenz(q.pfad, q.manifest or {})}
+
+
 def build_manifest(
     con: duckdb.DuckDBPyConnection,
     tabelle: str,
@@ -738,6 +770,7 @@ def build_manifest(
     korn: str,
     notizen: dict[str, str],
 ) -> dict[str, Any]:
+    herkunft = [herkunft_der_quelle(q) for q in quellen]
     manifest = {
         "status": "complete",
         "layer": GOLD_LAYER,
@@ -747,10 +780,8 @@ def build_manifest(
         "tool": f"duckdb {duckdb.__version__} mit spatial",
         "format": "parquet (snappy)",
         "row_count": con.execute(f"SELECT count(*) FROM {tabelle}").fetchone()[0],
-        "derived_from": [
-            {"layer": q.layer, "table": q.name, "path": str(q.pfad)}
-            for q in quellen
-        ],
+        "derived_from": herkunft,
+        "input_fingerprint": eingabe_abdruck(herkunft),
         "schema": schema_of(con, tabelle),
         "notes": notizen,
     }

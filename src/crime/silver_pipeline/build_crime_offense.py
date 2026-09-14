@@ -69,6 +69,7 @@ from typing import Any, NamedTuple
 
 import duckdb
 
+from manifeste import eingabe_abdruck, referenz, referenzdatei
 from storage import StorageError, for_root
 from silver_pipeline import (
     BRONZE_LAYER,
@@ -77,6 +78,7 @@ from silver_pipeline import (
     TransformError,
     connect,
     publish,
+    read_manifest,
     schema_of,
 )
 
@@ -731,6 +733,35 @@ def comparability(con: duckdb.DuckDBPyConnection, relation: str) -> list[dict[st
 # ---------------------------------------------------------------------------
 
 
+def herkunft_von(
+    chicago: Source, detroit: Source, tract: TractQuelle, config_root: Path
+) -> dict[str, Any]:
+    """Woraus diese Tabelle entstanden ist - vollstaendig genug zum Nachbauen.
+
+    Die Bronze-Laeufe stehen namentlich da, seit es die Tabelle gibt. Neu
+    seit dem 14.9. sind die beiden Glieder, die vorher nur Pfade waren: Die
+    Crosswalks tragen ihre Pruefsumme (sie werden aus amtlichen PDFs erzeugt
+    und koennen sich aendern, ohne dass der Pfad sich aendert), und
+    ``silver/tract`` wird als **Referenz** genannt - mit Bauzeitpunkt,
+    Eingabe-Abdruck und seiner eigenen Herkunft.
+    """
+    tract_manifest = {}
+    tract_verzeichnis = Path(tract.pfad).parent
+    if (tract_verzeichnis / "manifest.json").exists():
+        tract_manifest = read_manifest(tract_verzeichnis)
+    return {
+        "chicago_bronze_runs": chicago.run_ids,
+        "chicago_bronze_format": chicago.format,
+        "detroit_bronze_runs": detroit.run_ids,
+        "detroit_bronze_format": detroit.format,
+        "silver_tract": referenz(Path(tract.pfad), tract_manifest),
+        "crosswalks": [
+            referenzdatei(config_root / name)
+            for name in (IUCR_MAPPING, MICR_MAPPING, NIBRS_CODES)
+        ],
+    }
+
+
 def build_manifest(
     con: duckdb.DuckDBPyConnection,
     relation: str,
@@ -740,6 +771,7 @@ def build_manifest(
     config_root: Path,
     pruefung: dict[str, Any],
 ) -> dict[str, Any]:
+    herkunft = herkunft_von(chicago, detroit, tract, config_root)
     return {
         # Als einziges Manifest des Projekts fehlte hier lange der Status -
         # ausgerechnet bei der Tabelle, die den Vergleich traegt. Wer sie las,
@@ -757,18 +789,8 @@ def build_manifest(
                  "je Fall eine mit counts_case",
         "built_at_utc": datetime.now(timezone.utc).isoformat(),
         "tool": f"duckdb {duckdb.__version__} mit spatial und icu",
-        "derived_from": {
-            "chicago_bronze_runs": chicago.run_ids,
-            "chicago_bronze_format": chicago.format,
-            "detroit_bronze_runs": detroit.run_ids,
-            "detroit_bronze_format": detroit.format,
-            "silver_tract": str(tract),
-            "crosswalks": [
-                str(config_root / IUCR_MAPPING),
-                str(config_root / MICR_MAPPING),
-                str(config_root / NIBRS_CODES),
-            ],
-        },
+        "derived_from": herkunft,
+        "input_fingerprint": eingabe_abdruck(herkunft),
         "timezones": TIMEZONES,
         "checks": pruefung,
         "comparable_offenses": comparability(con, relation),

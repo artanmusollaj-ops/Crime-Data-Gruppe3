@@ -10,7 +10,7 @@ vorn.
 
 | Thema | Kommt von | Dringlichkeit |
 | --- | --- | --- |
-| [1 · Stichtagskonsistenz und Lineage](#1--stichtagskonsistenz-und-lineage) | Artan | **hoch** — eine Lücke, die heute schon besteht |
+| [1 · Stichtagskonsistenz und Lineage](#1--stichtagskonsistenz-und-lineage) | Artan | **Stufe A erledigt am 14.9.** (#77); B offen |
 | [2 · Die Ladelogik versionieren](#2--die-ladelogik-versionieren) | Artan | **hoch** — billig, und es gibt ein Vorbild im Projekt |
 | [3 · Skalieren](#3--skalieren) | Gedankenspiel | mittel — erst relevant ab Stadt drei |
 | [4 · In die Cloud](#4--in-die-cloud) | Gedankenspiel | niedrig — technisch fast vorbereitet, fachlich unnötig |
@@ -55,10 +55,10 @@ rückwärts lesen. Von einer heutigen **Gold**-Tabelle aus nicht mehr.
 | --- | --- | --- |
 | Bronze → Raw | `run_id` identisch, `bronze_sha256` | **ja** |
 | Silver → Bronze | Lauf-Kennungen namentlich | **ja** |
-| Silver → Crosswalk | `config/iucr_nibrs_mapping.csv` — ein **Pfad** | nein: kein Hash, keine Version |
-| Silver → `silver/tract` | ein **Pfad** | nein |
-| Gold → Silver | `{"table": "crime_offense", "path": "data/silver/…/part-0001.parquet"}` | **nein — das schwächste Glied** |
-| Silver/Gold → Vorgängerstand | gar nichts | nein: es gibt keinen Verlauf |
+| Silver → Crosswalk | ~~ein **Pfad**~~ → Pfad **und SHA-256** | **ja, seit 14.9.** |
+| Silver → `silver/tract` | ~~ein **Pfad**~~ → Referenz mit Zeitpunkt und Abdruck | **ja, seit 14.9.** |
+| Gold → Silver | ~~nur ein **Pfad**~~ → Referenz samt Silvers eigener Herkunft | **ja, seit 14.9.** |
+| Silver/Gold → Vorgängerstand | gar nichts | nein: es gibt keinen Verlauf (Stufe C) |
 
 **Ein Pfad ist keine Version.** `data/silver/dataset=crime_offense/part-0001.parquet`
 zeigt auf das, was gerade dort liegt. Wird Silver neu gebaut, zeigt derselbe
@@ -66,7 +66,7 @@ Satz im Gold-Manifest auf etwas anderes — und nichts am Manifest verrät es.
 Genau das ist Artans Punkt: Zwischen „Werte vom Tag X" und „Bronze Load XY"
 fehlt in der Mitte die Angabe, **welches** Silver gemeint war.
 
-### Der billige Teil der Lösung
+### Der billige Teil der Lösung — **gebaut am 14.9.2026**
 
 Man braucht dafür **keine** Historisierung der Silver-Dateien. Es genügt,
 dass Gold die **Identität** des Silver-Stands festhält, aus dem es gebaut
@@ -89,6 +89,29 @@ schon da: `built_at_utc` in jedem Manifest, `input_fingerprint` in
 
 Aufwand: klein. Wirkung: die Kette ist geschlossen statt an einer Stelle
 gerissen.
+
+**So sieht sie heute aus**, von einer Gold-Zahl aus gelesen:
+
+```text
+gold/fact_offense    input_fingerprint e7ec6a4a…
+  ruht auf silver/crime_offense
+      gebaut am      2026-09-14T11:37:57
+      Eingabeabdruck 1608aec7…
+      und das ruhte auf:
+        Chicago  3 Läufe, erster run_20260905T174633859259Z
+        Detroit  2 Läufe
+        tract    gebaut 2026-09-14T11:37:56, Abdruck 215d02b2…
+        iucr_nibrs_mapping.csv         ed36120081941cff…
+        micr_nibrs_mapping.csv         b4a0099d868abffc…
+        nibrs_offense_codes_2025.csv   6f650716c8992a38…
+```
+
+**Der Abdruck hängt nicht an Pfaden und nicht an der Uhrzeit.** Das fiel
+beim Bauen auf: Die erste Fassung hashte die Herkunft mitsamt den absoluten
+Pfaden — damit hätten Christian und Artan für **denselben** Stand
+verschiedene Abdrücke bekommen, und die ganze Zusage wäre wertlos gewesen.
+Gehasht wird deshalb nur das Kennzeichnende: Lauf-Kennungen, Prüfsummen und
+die Abdrücke der Vorgänger (`manifeste.kennzeichen`).
 
 ### Der Konflikt, den niemand gesucht hat
 
@@ -115,7 +138,7 @@ den Unterschied zwischen „wir könnten reproduzieren" und „wir können".
 
 | Stufe | Was | Aufwand | Was man danach kann |
 | --- | --- | --- | --- |
-| **A** | Gold nennt die Identität des Silver-Stands, nicht nur den Pfad; Crosswalks mit Hash statt Pfad | klein | jede heutige Zahl vollständig **erklären** |
+| ~~**A**~~ | ~~Gold nennt die Identität des Silver-Stands; Crosswalks mit Hash~~ — **erledigt 14.9.2026 (#77)** | klein | jede heutige Zahl vollständig **erklären** |
 | **B** | Gepinnte Läufe, die das Aufräumen überleben | klein | jede gepinnte Zahl **reproduzieren** |
 | **C** | Silver und Gold versioniert ablegen (`vintage=`/`asof=`), statt zu ersetzen | mittel–gross | **mehrere** Stände nebeneinander halten und vergleichen |
 
@@ -332,7 +355,7 @@ Nach Nutzen je Aufwand, nicht nach Reiz:
 
 | | Was | Warum zuerst |
 | --- | --- | --- |
-| **1** | Gold nennt die Identität des Silver-Stands; Crosswalks mit Hash (1·A) | schliesst die Lineage-Kette; klein |
+| ~~**1**~~ | ~~Gold nennt die Identität des Silver-Stands; Crosswalks mit Hash (1·A)~~ — **erledigt 14.9.2026** | schliesst die Lineage-Kette; klein |
 | **2** | Code-Version und Vertragsversion in jedes Manifest (2) | beantwortet „ab wann anders geladen" — und es gibt ein Vorbild |
 | **3** | Gepinnte Läufe, die das Aufräumen überleben (1·B) | macht aus „erklärbar" ein „reproduzierbar" |
 | **4** | `STUDIENSTAEDTE`-Duplikat zusammenführen | fünf Minuten; kostet sonst bei Stadt drei einen halben Tag |

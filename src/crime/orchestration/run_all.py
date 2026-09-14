@@ -19,7 +19,6 @@ irgendwann anders funktioniert als der erste.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import logging
 import subprocess
@@ -29,6 +28,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import NamedTuple
 
+from manifeste import fingerabdruck as manifeste_fingerabdruck
 from orchestration import LAUF_MANIFEST
 from storage import for_root
 
@@ -101,10 +101,9 @@ def bronze_laeufe(data_root: Path) -> dict[str, list[str]]:
     return {k: sorted(set(v)) for k, v in sorted(gefunden.items())}
 
 
-def fingerabdruck(laeufe: dict[str, list[str]]) -> str:
-    """Ein Hash ueber die Eingaben - zwei Laeufe darauf sind derselbe Stand."""
-    roh = json.dumps(laeufe, sort_keys=True, ensure_ascii=False)
-    return hashlib.sha256(roh.encode("utf-8")).hexdigest()
+# Derselbe Abdruck wie in den Tabellenmanifesten - er kommt aus manifeste,
+# damit "derselbe Stand" ueberall dasselbe heisst.
+fingerabdruck = manifeste_fingerabdruck
 
 
 def aktualitaet(data_root: Path) -> dict[str, str]:
