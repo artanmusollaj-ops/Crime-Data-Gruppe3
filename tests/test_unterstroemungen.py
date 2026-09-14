@@ -41,6 +41,8 @@ ARTEFAKTE: dict[str, Path] = {
     "manifeste": PROJECT_ROOT / "src" / "crime" / "manifeste" / "__init__.py",
     "aufraeumen": PROJECT_ROOT / "src" / "crime" / "orchestration" / "aufraeumen.py",
     "drift": PROJECT_ROOT / "src" / "crime" / "orchestration" / "drift.py",
+    "architekturbilder": PROJECT_ROOT / "docs" / "bilder" / "architektur-pakete.svg",
+    "architekturbild": PROJECT_ROOT / "docs" / "bilder" / "architektur-pakete.svg",
     "seaweedfs": PROJECT_ROOT / "src" / "crime" / "storage" / "__init__.py",
     "requirements.lock": PROJECT_ROOT / "requirements.lock",
     "lockfile": PROJECT_ROOT / "requirements.lock",
@@ -61,6 +63,7 @@ UEBERHOLTE_LUECKEN: dict[str, str] = {
     "kein lockfile": "lockfile",
     "kein linter": "ruff",
     "keine aufbewahrungsregel": "aufraeumen",
+    "kein diagramm": "architekturbilder",
 }
 
 

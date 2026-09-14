@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 474" role="img" width="100%" height="auto"
+     aria-label="Der Datenfluss in vier Gruppen mit 13 Stufen: Ingestion schreibt raw und bronze, silver deutet, gold baut das Sternschema, serving stellt bereit.">
+<style>
+  svg { color: #14304a; }
+  .signal { fill: #c2410c; }
+  .signal-strich { stroke: #c2410c; }
+  @media (prefers-color-scheme: dark) {
+    svg { color: #dde5ee; }
+    .signal { fill: #dda05c; }
+    .signal-strich { stroke: #dda05c; }
+  }
+</style>
+  <defs><marker id="pfeil" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M 0 1 L 9 5 L 0 9 z" fill="currentColor"/></marker></defs>
+  <g>
+    <rect x="274" y="24" width="562" height="52" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+    <text x="555" y="49" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" font-weight="600" fill="currentColor">raw + bronze</text>
+    <text x="555" y="66" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.72">6 Stufen: chicago, detroit, tiger_tract, tiger_place, acs, noaa</text>
+  </g>
+  <text x="24" y="46" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="0.8">ingestion</text>
+  <text x="24" y="64" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">je Lauf ein Verzeichnis, unveränderlich</text>
+  <g>
+    <rect x="274" y="128" width="562" height="52" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+    <text x="555" y="153" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" font-weight="600" fill="currentColor">silver</text>
+    <text x="555" y="170" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.72">4 Stufen: tract, place, weather_day, crime_offense</text>
+  </g>
+  <text x="24" y="150" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="0.8">silver</text>
+  <text x="24" y="168" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">gedeutet: Typen, Einheiten, Schlüssel</text>
+  <line x1="555" y1="76" x2="555" y2="124" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
+  <g>
+    <rect x="274" y="232" width="562" height="52" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+    <text x="555" y="257" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" font-weight="600" fill="currentColor">gold</text>
+    <text x="555" y="274" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.72">1 Stufe: gold</text>
+  </g>
+  <text x="24" y="254" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="0.8">gold</text>
+  <text x="24" y="272" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">Sternschema, eine Zeile je Tat</text>
+  <line x1="555" y1="180" x2="555" y2="228" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
+  <g>
+    <rect x="274" y="336" width="562" height="52" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+    <text x="555" y="361" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" font-weight="600" fill="currentColor">serving</text>
+    <text x="555" y="378" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.72">2 Stufen: analyse_db, tracts_geojson</text>
+  </g>
+  <text x="24" y="358" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="0.8">serving</text>
+  <text x="24" y="376" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">bleibt immer lokal</text>
+  <line x1="555" y1="284" x2="555" y2="332" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
+  <text x="24" y="462" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">Aus orchestration.run_all.STUFEN erzeugt. Abbruch beim ersten Fehler; die Reihenfolge ist real, nicht dekorativ.</text>
+</svg>
