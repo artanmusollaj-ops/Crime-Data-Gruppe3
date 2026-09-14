@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **896** |
+| Tests | **924** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -40,6 +40,80 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## Vertragsversionen
+
+Was sich ändert, wenn eine dieser Zahlen steigt: **was** geladen oder gedeutet
+wird — Zeitfenster, Feldauswahl, Dedup-Regel, Korn. Nicht, *wie* der Code es
+tut; dafür steht der Git-Commit im selben Manifest.
+
+Jeder Lauf trägt seine Version bei sich. *„Ab wann wurde anders geladen?"* ist
+damit eine **Abfrage** und kein Eintrag, den jemand pflegen muss: der erste
+Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
+
+| Datensatz | Version | seit | was der Vertrag festlegt |
+| --- | ---: | --- | --- |
+| `bronze/city=chicago` | 1 | 14.09.2026 | Jahresfenster über `date`, Delta über `updated_on` mit 14 Tagen Rückgriff, feste id-Liste als Vollständigkeitsnachweis |
+| `bronze/city=detroit` | **2** | 11.09.2026 | Abfragefenster in **Detroiter Ortszeit** statt UTC (Konzept 8.6). Version 1 zog es in UTC — jene Läufe enthielten 66 Fälle aus 2023 und vermissten 56 vom Jahresende 2024 |
+| `bronze/dataset=tiger_tract`, `bronze/dataset=tiger_place` | 1 | 14.09.2026 | Vintage-Archiv je Bundesstaat, Geometrie als WKB in EPSG:4269, Feld-Allowlist mit `_extra` |
+| `bronze/dataset=acs5_tract` | 1 | 14.09.2026 | fünf Variablen je Tract, Fehlwert `-666666666` bleibt unverändert stehen |
+| `bronze/dataset=noaa_ghcnd` | 1 | 14.09.2026 | Vollschnappschuss je Station, bedingter Abruf über ETag, Mindestabstand sieben Tage |
+| `silver/tract` | 1 | 14.09.2026 | ein Census Tract je Zeile, TIGER und ACS über einen vollen äusseren Join |
+| `silver/place` | 1 | 14.09.2026 | ein Ort je Zeile, Geometrie für die Stadtgrenze |
+| `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
+| `silver/crime_offense` | 1 | 14.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse |
+| `gold/*` | 1 | 14.09.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung |
+
+**Version 1 heisst „der Vertrag, wie er am 14.9.2026 gilt".** Frühere
+Änderungen — das Tatkorn, das Fallkorn, die Mehrheitsregel — stehen als
+Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
+vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
+die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 14.09.2026 · Jeder Lauf sagt, welcher Code ihn gemacht hat (#78)
+
+**Was.** Jedes Manifest — fünf Quellen, vier Silver-Tabellen, fünf
+Gold-Tabellen — trägt jetzt zwei Angaben: `contract_version` (was geladen
+oder gedeutet wird) und `code_version` (welcher Git-Commit, und ob der
+Arbeitsbaum sauber war). Dazu ein Register *Vertragsversionen* weiter oben in
+dieser Datei. Artans Punkt 2 ([`ausblick.md`](ausblick.md)).
+
+**Warum.** Am 11.9. wurde Detroits Abfragefenster von UTC auf Ortszeit
+umgestellt. Läufe davor enthielten 66 Fälle aus 2023 und vermissten 56 vom
+Jahresende 2024 (Konzept 8.6). Zwei Läufe, gleiche Struktur, gleiche Quelle —
+**anders geladen**. Ohne Vermerk im Lauf selbst sieht man das keinem an.
+
+**Drei Fragen, die leicht verwechselt werden.** *Welcher Code lief* beantwortet
+der Commit — automatisch und genau, aber er springt auch bei einem Tippfehler
+im Kommentar. *Hat sich die Bedeutung geändert* beantwortet die
+Vertragsversion — bewusst gesetzt, grob, fachlich. Und *ab wann gilt das Neue*
+braucht **keine eigene Antwort**: Weil Läufe unveränderlich und zeitgestempelt
+sind, ist es eine Abfrage — der erste Lauf mit der höheren Zahl. Kein Register,
+das jemand pflegen muss und das veraltet.
+
+**`git_dirty` ist wichtiger, als es aussieht.** Ein Lauf aus einem veränderten
+Arbeitsbaum lässt sich aus dem Commit allein nicht nachbauen. Wer das später
+wissen will, findet es im Manifest, statt es zu vermuten.
+
+**Detroit war das Vorbild** und behält seine drei feineren Verträge
+(`bronze_`, `raw_`, `window_contract_version`); `contract_version` ist die
+gemeinsame Angabe aller fünf Quellen und steht dort auf **2**, weil diese Zahl
+seit dem 11.9. in den Daten steht. Alle anderen starten bei 1 — rückwirkend
+Nummern zu vergeben hätte eine Ordnung vorgetäuscht, die es damals nicht gab.
+
+**Wächter.** `tests/test_vertragsversionen.py` hält jede Zahl im Code gegen
+das Register. Wer eine Version erhöht und das Register vergisst, fällt durch —
+mit der Meldung, was zu schreiben ist. Eine Versionsnummer ohne Begründung ist
+schlimmer als keine: Sie sieht nach Ordnung aus.
+
+**Ohne Git** — installiertes Paket, kein Repository — bleibt `code_version`
+bei `None`. Ein Lauf darf daran nie scheitern; auch das ist ein Test.
+
+**Zahlen.** 896 → **924 Tests**.
 
 ---
 

@@ -44,6 +44,7 @@ import pyarrow.parquet as pq
 import requests
 from dotenv import find_dotenv, load_dotenv
 
+from manifeste import code_stand
 from storage import PublishError, for_root
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -55,6 +56,9 @@ BASE_URL = "https://api.census.gov/data"
 PRODUCT = "acs/acs5"
 DATASET = "acs5_tract"
 USER_AGENT = "crime-data-gruppe3/0.1 (Hochschulprojekt CAS Data Engineering)"
+# Der Ladevertrag; siehe "Vertragsversionen" in AENDERUNGEN.md.
+CONTRACT_VERSION = 1
+
 DEFAULT_VINTAGE = 2024
 EARLIEST_VINTAGE = 2009
 KEY_PARAMETER = "key"
@@ -420,6 +424,8 @@ def write_run(
 
         manifest = {
             "status": "complete",
+            "contract_version": CONTRACT_VERSION,
+            "code_version": code_stand(),
             "immutable": True,
             "source": "census_acs5",
             "dataset": DATASET,

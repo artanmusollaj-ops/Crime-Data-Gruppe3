@@ -57,7 +57,7 @@ import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from manifeste import Lauf
+from manifeste import Lauf, code_stand
 from storage import PublishError, for_root
 from typing import Any, NamedTuple
 
@@ -88,6 +88,9 @@ PARQUET_FILE = "part-0001.parquet"
 
 # Wochenrhythmus statt taeglich (Projektabsprache 3.1, Entscheid "B plus D").
 # 0 laedt bei jedem Aufruf, begrenzt nur durch den bedingten Abruf.
+# Der Ladevertrag; siehe "Vertragsversionen" in AENDERUNGEN.md.
+CONTRACT_VERSION = 1
+
 DEFAULT_MIN_INTERVAL_DAYS = 7
 
 TIMEOUT_SECONDS = 300
@@ -533,6 +536,8 @@ def write_run(
         info = STATIONS.get(station, {})
         manifest = {
             "status": "complete",
+            "contract_version": CONTRACT_VERSION,
+            "code_version": code_stand(),
             "immutable": True,
             "source": "noaa_ghcnd",
             "dataset": DATASET,

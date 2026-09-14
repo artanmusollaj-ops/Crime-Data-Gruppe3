@@ -50,7 +50,7 @@ from typing import Any, NamedTuple
 
 import duckdb
 
-from manifeste import eingabe_abdruck
+from manifeste import code_stand, eingabe_abdruck
 from storage import StorageError, for_root
 from silver_pipeline import (
     BRONZE_LAYER,
@@ -66,6 +66,13 @@ from silver_pipeline import (
 from weather_pipeline import STATIONS
 
 TABLE = "weather_day"
+
+# Der Deutungsvertrag: Was diese Tabelle bedeutet - Korn, Regeln, Spalten -
+# nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
+# zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
+# "Vertragsversionen"; ein Test prueft das.
+CONTRACT_VERSION = 1
+
 NOAA_DATASET = "noaa_ghcnd"
 
 # Zehntelgrad Celsius beziehungsweise Zehntelmillimeter. SNOW steht schon in
@@ -362,6 +369,8 @@ def build_manifest(
     ]
     return {
         "status": "complete",
+        "contract_version": CONTRACT_VERSION,
+        "code_version": code_stand(),
         "layer": SILVER_LAYER,
         "table": TABLE,
         "grain": "eine Stadt an einem Tag",

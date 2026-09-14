@@ -29,6 +29,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
+from functools import lru_cache
 import logging
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -109,6 +111,41 @@ class Tabelle(NamedTuple):
         if zahl is None:
             zahl = self.manifest.get("rows")
         return int(zahl) if zahl is not None else None
+
+
+@lru_cache(maxsize=1)
+def code_stand() -> dict[str, Any]:
+    """Welcher Code diesen Lauf erzeugt hat - Commit und Sauberkeit.
+
+    Das ist die **forensische** Haelfte der Frage *"ab wann wurden die Daten
+    anders geladen?"*: Der Commit sagt genau, welcher Code lief. Was er nicht
+    sagt, ist ob sich die **Bedeutung** geaendert hat - er springt auch bei
+    einem Tippfehler im Kommentar. Dafuer gibt es ``contract_version``.
+
+    ``dirty`` ist wichtiger, als es aussieht: Ein Lauf aus einem veraenderten
+    Arbeitsbaum laesst sich aus dem Commit allein **nicht** nachbauen. Wer
+    das spaeter wissen will, findet es hier statt es zu vermuten.
+
+    Ohne Git - installiertes Paket, kein Repository, kein git im Pfad -
+    bleibt es bei ``None``. Ein Lauf darf daran nie scheitern.
+    """
+    wurzel = Path(__file__).resolve().parents[3]
+
+    def git(*argumente: str) -> str | None:
+        try:
+            fertig = subprocess.run(
+                ["git", "-C", str(wurzel), *argumente],
+                capture_output=True, text=True, timeout=10,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return fertig.stdout.strip() if fertig.returncode == 0 else None
+
+    commit = git("rev-parse", "HEAD")
+    if commit is None:
+        return {"git_commit": None, "git_dirty": None}
+    geaendert = git("status", "--porcelain")
+    return {"git_commit": commit, "git_dirty": bool(geaendert)}
 
 
 def fingerabdruck(wert: Any) -> str:

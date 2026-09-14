@@ -39,6 +39,7 @@ import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from manifeste import code_stand
 from storage import PublishError, for_root
 from typing import Any, NamedTuple
 
@@ -54,6 +55,9 @@ from census_pipeline import STATES
 
 BASE_URL = "https://www2.census.gov/geo/tiger"
 USER_AGENT = "crime-data-gruppe3/0.1 (Hochschulprojekt CAS Data Engineering)"
+# Der Ladevertrag; siehe "Vertragsversionen" in AENDERUNGEN.md.
+CONTRACT_VERSION = 1
+
 DEFAULT_VINTAGE = 2024
 # Vor 2020 gelten die Tract-Grenzen des Zensus 2010. Wer Faelle von 2001 bis
 # 2019 verortet, braucht deshalb zusaetzlich eine aeltere Vintage - darum steht
@@ -531,6 +535,8 @@ def write_run(
         fingerprint, fields = source_schema(meta)
         manifest = {
             "status": "complete",
+            "contract_version": CONTRACT_VERSION,
+            "code_version": code_stand(),
             "immutable": True,
             "source": "census_tiger",
             "dataset": aus.dataset,

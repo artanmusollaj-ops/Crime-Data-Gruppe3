@@ -69,7 +69,7 @@ from typing import Any, NamedTuple
 
 import duckdb
 
-from manifeste import eingabe_abdruck, referenz, referenzdatei
+from manifeste import code_stand, eingabe_abdruck, referenz, referenzdatei
 from storage import StorageError, for_root
 from silver_pipeline import (
     BRONZE_LAYER,
@@ -86,6 +86,13 @@ from silver_pipeline import (
 LOG = logging.getLogger("build_crime_offense")
 
 TABLE = "crime_offense"
+
+# Der Deutungsvertrag: Was diese Tabelle bedeutet - Korn, Regeln, Spalten -
+# nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
+# zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
+# "Vertragsversionen"; ein Test prueft das.
+CONTRACT_VERSION = 1
+
 
 CHICAGO = "chicago"
 DETROIT = "detroit"
@@ -777,6 +784,8 @@ def build_manifest(
         # ausgerechnet bei der Tabelle, die den Vergleich traegt. Wer sie las,
         # konnte nicht wissen, ob der Bau durchgelaufen ist.
         "status": "complete",
+        "contract_version": CONTRACT_VERSION,
+        "code_version": code_stand(),
         "table": TABLE,
         "layer": SILVER_LAYER,
         # Je Stadt steht die Zahl unter "checks"; hier oben steht sie noch

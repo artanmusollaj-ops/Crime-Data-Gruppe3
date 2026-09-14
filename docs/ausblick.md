@@ -11,7 +11,7 @@ vorn.
 | Thema | Kommt von | Dringlichkeit |
 | --- | --- | --- |
 | [1 · Stichtagskonsistenz und Lineage](#1--stichtagskonsistenz-und-lineage) | Artan | **Stufe A erledigt am 14.9.** (#77); B offen |
-| [2 · Die Ladelogik versionieren](#2--die-ladelogik-versionieren) | Artan | **hoch** — billig, und es gibt ein Vorbild im Projekt |
+| [2 · Die Ladelogik versionieren](#2--die-ladelogik-versionieren) | Artan | **erledigt am 14.9.** (#78) |
 | [3 · Skalieren](#3--skalieren) | Gedankenspiel | mittel — erst relevant ab Stadt drei |
 | [4 · In die Cloud](#4--in-die-cloud) | Gedankenspiel | niedrig — technisch fast vorbereitet, fachlich unnötig |
 
@@ -162,7 +162,7 @@ enthielten 66 Fälle aus 2023 und vermissten 56 vom Jahresende 2024 (Konzept
 8.6). Zwei Läufe, gleiche Struktur, gleiche Quelle — **anders geladen**. Ohne
 Vermerk im Lauf selbst sieht man das keinem der beiden an.
 
-### Es gibt schon ein Vorbild — in Detroit
+### Es gab schon ein Vorbild — in Detroit
 
 ```json
 "window_contract_version": 2,
@@ -170,9 +170,12 @@ Vermerk im Lauf selbst sieht man das keinem der beiden an.
 "raw_contract_version": 1
 ```
 
-Detroit macht bereits exakt das, was Artan vorschlägt — nur für Detroit, und
+Detroit machte bereits exakt das, was Artan vorschlägt — nur für Detroit, und
 nur für diese drei Verträge. Die Zahl sprang auf 2, als der Zeitzonen-Fix
-kam. **Das ist kein Neubau, das ist ein Muster, das verallgemeinert gehört.**
+kam. **Das war kein Neubau, sondern ein Muster, das verallgemeinert gehörte —
+und seit dem 14.9.2026 ist es das** (#78): Alle fünf Quellen und alle neun
+abgeleiteten Tabellen tragen `contract_version`, dazu `code_version` mit
+Git-Commit und der Angabe, ob der Arbeitsbaum sauber war.
 
 Chicago, Census und NOAA haben nichts Vergleichbares. Und was durchgängig
 fehlt, ist der Code-Stand selbst: Die Silver-Manifeste halten `"tool": "duckdb
@@ -197,23 +200,26 @@ Kein Register, das jemand pflegen muss und das veraltet. Die Daten
 beantworten es selbst. Das ist derselbe Gedanke wie beim Manifest überhaupt:
 Was wahr ist, steht beim Gegenstand, nicht in einer Liste daneben.
 
-### Vorschlag
+### Umgesetzt am 14.9.2026 (#78)
 
-1. **Code-Version in jedes Lauf-Manifest** — Git-Commit und ob der
-   Arbeitsbaum sauber war. Billig, automatisch, beantwortet Frage 1.
-2. **Vertragsversion für jede Quelle**, nicht nur Detroit. Eine Konstante je
-   Pipeline, die erhöht wird, wenn sich ändert, *was* geladen wird —
-   Zeitfenster, Feldauswahl, Dedup-Regel, Wasserzeichen-Logik. Nicht, wenn
-   sich ändert, *wie* der Code es tut.
-3. **Ein Wächter**: Wird eine Vertragsversion erhöht, muss ein Eintrag in
-   `AENDERUNGEN.md` sie nennen. Sonst steht in einem Jahr eine 3 im Manifest,
-   und niemand weiss mehr, wofür.
-4. **Dieselbe Angabe für Silver und Gold** — dort heisst sie
-   Transformationsversion und ändert sich, wenn sich eine Deutung ändert (das
-   Tatkorn, das Fallkorn, die Mehrheitsregel).
-
-Punkt 3 ist der, den ich am wenigsten weglassen würde. Eine Versionsnummer
-ohne Begründung ist schlimmer als keine: Sie sieht nach Ordnung aus.
+1. **Code-Version in jedem Manifest** — `code_version` mit Git-Commit und
+   `git_dirty`. Das zweite ist wichtiger, als es aussieht: Ein Lauf aus einem
+   veränderten Arbeitsbaum lässt sich aus dem Commit allein **nicht**
+   nachbauen; wer das später wissen will, findet es dort statt es zu vermuten.
+   Ohne Git bleibt es bei `None` — ein Lauf darf daran nie scheitern.
+2. **`contract_version` für jede Quelle**, nicht nur Detroit — und für jede
+   abgeleitete Tabelle. Sie steigt, wenn sich ändert, *was* geladen oder
+   gedeutet wird; nicht, *wie* der Code es tut.
+3. **Der Wächter**: `tests/test_vertragsversionen.py` hält jede Zahl gegen
+   das Register *Vertragsversionen* in `AENDERUNGEN.md`. Wer erhöht und das
+   Register vergisst, fällt durch — mit der Meldung, was zu schreiben ist.
+   Das war der Punkt, den ich am wenigsten weglassen wollte: Eine
+   Versionsnummer ohne Begründung ist schlimmer als keine, sie sieht nach
+   Ordnung aus.
+4. **Version 1 bedeutet: der Vertrag, wie er am 14.9.2026 gilt.** Rückwirkend
+   Nummern zu vergeben hätte eine Ordnung vorgetäuscht, die es damals nicht
+   gab; frühere Änderungen stehen als Einträge in `AENDERUNGEN.md`. Detroit
+   ist die Ausnahme — dort steht die 2 seit dem 11.9. in den Daten selbst.
 
 ### Woran es sich beweisen muss
 
@@ -223,8 +229,9 @@ Frage beantwortbar wird:
 > „Die Zahl auf Folie 7 stammt vom 8.9. Wurde sie mit derselben Logik geladen
 > wie die von heute — und wenn nein, wo genau ist der Unterschied?"
 
-Heute: nein, nur über die Git-Historie und Kopfrechnen. Mit 1 und 2: ja, durch
-Vergleich zweier Manifeste.
+Vor dem 14.9.: nein, nur über die Git-Historie und Kopfrechnen. Seither: ja,
+durch Vergleich zweier Manifeste — `contract_version` sagt, ob die Bedeutung
+eine andere ist, `code_version` sagt genau, welcher Code lief.
 
 ---
 
@@ -356,7 +363,7 @@ Nach Nutzen je Aufwand, nicht nach Reiz:
 | | Was | Warum zuerst |
 | --- | --- | --- |
 | ~~**1**~~ | ~~Gold nennt die Identität des Silver-Stands; Crosswalks mit Hash (1·A)~~ — **erledigt 14.9.2026** | schliesst die Lineage-Kette; klein |
-| **2** | Code-Version und Vertragsversion in jedes Manifest (2) | beantwortet „ab wann anders geladen" — und es gibt ein Vorbild |
+| ~~**2**~~ | ~~Code-Version und Vertragsversion in jedes Manifest (2)~~ — **erledigt 14.9.2026** | beantwortet, ab wann anders geladen wurde |
 | **3** | Gepinnte Läufe, die das Aufräumen überleben (1·B) | macht aus „erklärbar" ein „reproduzierbar" |
 | **4** | `STUDIENSTAEDTE`-Duplikat zusammenführen | fünf Minuten; kostet sonst bei Stadt drei einen halben Tag |
 | **5** | Quellprofil statt zwei CTEs | der einzige echte Blocker für eine dritte Stadt |

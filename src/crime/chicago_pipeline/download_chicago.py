@@ -36,6 +36,7 @@ import pyarrow.parquet as pq
 import requests
 from dotenv import find_dotenv, load_dotenv
 
+from manifeste import code_stand
 from storage import PublishError, for_root
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -54,6 +55,12 @@ LAYER_FORMAT = {
     RAW_LAYER: "application/json (gzip, eine API-Antwort je Datei)",
     BRONZE_LAYER: "parquet (snappy)",
 }
+# Der Ladevertrag: Was geladen wird, nicht wie. Steigt diese Zahl, sind die
+# Daten ab jenem Lauf anders zu lesen - Zeitfenster, Feldauswahl,
+# Wasserzeichen-Logik. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
+# "Vertragsversionen"; ein Test prueft das.
+CONTRACT_VERSION = 1
+
 DEFAULT_YEAR = 2024
 PAGE_SIZE = 10_000
 # Die Mitgliedschaft des Snapshots wird ueber id festgeschrieben. Socrata
@@ -671,6 +678,8 @@ def write_run(
         first_limit = min(PAGE_SIZE, max_records) if max_records else PAGE_SIZE
         manifest = {
             "status": "complete",
+            "contract_version": CONTRACT_VERSION,
+            "code_version": code_stand(),
             "immutable": True,
             "city": CITY,
             "dataset_id": DATASET_ID,
