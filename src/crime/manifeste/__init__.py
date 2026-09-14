@@ -27,6 +27,7 @@ ob er *fertig* ist.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from pathlib import Path
@@ -108,6 +109,88 @@ class Tabelle(NamedTuple):
         if zahl is None:
             zahl = self.manifest.get("rows")
         return int(zahl) if zahl is not None else None
+
+
+def fingerabdruck(wert: Any) -> str:
+    """Ein Abdruck ueber die Eingaben - derselbe Stand, derselbe Abdruck.
+
+    Kanonisch heisst: sortierte Schluessel. Zwei Tabellen mit demselben
+    Abdruck ruhen auf denselben Eingaben, gleichgueltig in welcher
+    Reihenfolge sie gefunden wurden.
+    """
+    roh = json.dumps(wert, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(roh.encode("utf-8")).hexdigest()
+
+
+# Was sagt, *wo* und *wann* - nicht, *was*. Beides faellt aus dem Abdruck.
+FLUECHTIG = ("path", "built_at_utc")
+
+
+def kennzeichen(wert: Any) -> Any:
+    """Nur die Teile einer Herkunft, die den Eingabestand kennzeichnen.
+
+    Pfade und Bauzeitpunkte fallen weg. Der Grund ist der gemeinsame
+    Speicher: Derselbe Stand liegt bei Christian unter ``/Users/...`` und bei
+    Artan anderswo, und ein zweiter Bau aus denselben Eingaben findet zu einer
+    anderen Uhrzeit statt. Beides darf den Abdruck nicht veraendern, sonst
+    traegt derselbe Stand zwei Abdruecke und die Zusage ist wertlos.
+
+    Was bleibt, ist das Kennzeichnende: Lauf-Kennungen, Pruefsummen und die
+    Abdruecke der Vorgaenger.
+    """
+    if isinstance(wert, dict):
+        return {k: kennzeichen(v) for k, v in wert.items() if k not in FLUECHTIG}
+    if isinstance(wert, list):
+        return [kennzeichen(v) for v in wert]
+    return wert
+
+
+def eingabe_abdruck(herkunft: Any) -> str:
+    """Der Abdruck ueber die Eingaben - derselbe Stand, derselbe Abdruck."""
+    return fingerabdruck(kennzeichen(herkunft))
+
+
+def datei_hash(pfad: Path) -> str:
+    """SHA-256 einer Referenzdatei - fuer Crosswalks und Codelisten.
+
+    Ein Pfad sagt nur, *wo* etwas lag. Wer eine Zahl erklaeren will, braucht
+    aber, *was* dort stand: Die Crosswalks werden aus amtlichen PDFs erzeugt
+    und koennen sich aendern, ohne dass der Pfad sich aendert.
+    """
+    h = hashlib.sha256()
+    with pfad.open("rb") as datei:
+        for block in iter(lambda: datei.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def referenz(pfad: Path, manifest: dict[str, Any]) -> dict[str, Any]:
+    """Wie eine abgeleitete Tabelle genannt wird, wenn eine andere auf ihr ruht.
+
+    **Ein Pfad ist keine Version.** ``data/silver/dataset=crime_offense/
+    part-0001.parquet`` zeigt auf das, was gerade dort liegt; wird Silver neu
+    gebaut, zeigt derselbe Satz auf etwas anderes, und nichts verraet es.
+    Deshalb nennt eine Referenz auch **wann** jener Stand gebaut wurde, auf
+    **welchen Eingaben** er ruhte (``input_fingerprint``) und - woertlich -
+    dessen eigene Herkunft. Damit ist die Kette im Manifest selbst
+    verschachtelt: Gold nennt Silver, Silver nennt die Bronze-Laeufe.
+
+    Das ersetzt keine Historisierung der Dateien. Es macht die Frage
+    beantwortbar, aus welchen Eingaben eine Zahl entstanden ist - und das ist
+    die Frage, die in einer Abgabe gestellt wird.
+    """
+    eintrag: dict[str, Any] = {"path": str(pfad)}
+    for schluessel in ("built_at_utc", "input_fingerprint"):
+        if manifest.get(schluessel):
+            eintrag[schluessel] = manifest[schluessel]
+    if manifest.get("derived_from") is not None:
+        eintrag["derived_from"] = manifest["derived_from"]
+    return eintrag
+
+
+def referenzdatei(pfad: Path) -> dict[str, Any]:
+    """Eine versionierte Referenzdatei mit ihrer Pruefsumme."""
+    return {"path": str(pfad), "sha256": datei_hash(pfad)}
 
 
 def versteckt(pfad: Path) -> bool:

@@ -9,6 +9,10 @@ Geprueft wird deshalb: Solange das Dokument eine Luecke **behauptet**, muss
 sie noch da sein. Wer eine schliesst, faellt hier durch und zieht den
 Ausblick mit. Die Messwerte bleiben ungeprueft - sie tragen ein Datum und
 beschreiben einen Stand, nicht eine Zusage.
+
+Ist ein Punkt umgesetzt, verschwindet sein Waechter hier und die Zusage wird
+dort geprueft, wo sie gilt: Die Herkunftskette (Punkt 1·A, erledigt am 14.9.)
+haelt seither ``tests/gold_pipeline/test_build_gold.py`` fest.
 """
 
 from __future__ import annotations
@@ -110,17 +114,21 @@ def test_nur_detroit_hat_vertragsversionen(text):
     )
 
 
-def test_gold_nennt_silver_weiterhin_nur_als_pfad(text):
-    """Das schwaechste Glied aus Abschnitt 1. Wird es gestaerkt, faellt der Satz."""
-    if "das schwächste Glied" not in text:
-        pytest.skip("Das Dokument behauptet es nicht mehr")
-    bauplan = re.search(
-        r'\{"layer": q\.layer, "table": q\.name, "path": str\(q\.pfad\)\}',
-        code("gold_pipeline", "build_gold.py"),
+def test_die_herkunftskette_bleibt_geschlossen(text):
+    """Umgekehrter Waechter: Punkt 1- A ist seit dem 14.9. gebaut.
+
+    Das Dokument fuehrt ihn als erledigt - dann muss der Code es auch
+    weiterhin tun. Wer ``herkunft_der_quelle`` entfernt, macht aus einem
+    erledigten Punkt wieder eine Luecke, ohne es zu merken.
+    """
+    if "erledigt 14.9.2026" not in text:
+        pytest.skip("Das Dokument fuehrt den Punkt nicht als erledigt")
+    assert "def herkunft_der_quelle" in code("gold_pipeline", "build_gold.py"), (
+        "Gold nennt seine Quelle wieder nur als Pfad - der Ausblick sagt, "
+        "der Punkt sei erledigt"
     )
-    assert bauplan, (
-        "Gold nennt seine Silver-Quelle nicht mehr nur als Pfad - Abschnitt 1 "
-        "und die Reihenfolge in 5 anpassen"
+    assert "def eingabe_abdruck" in code("manifeste", "__init__.py"), (
+        "Der Eingabe-Abdruck ist weg - Abschnitt 1 anpassen"
     )
 
 

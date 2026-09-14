@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **883** |
+| Tests | **896** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -40,6 +40,53 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 14.09.2026 · Die Herkunftskette ist geschlossen (#77)
+
+**Was.** Jede abgeleitete Tabelle trägt einen `input_fingerprint` über ihre
+Eingaben. Wer auf einer anderen ruht, nennt sie nicht mehr nur als **Pfad**,
+sondern als **Stand**: Bauzeitpunkt, Eingabe-Abdruck und — wörtlich — deren
+eigene Herkunft. Referenzdateien unter `config/` tragen ihre SHA-256. Artans
+Punkt 1, Stufe A ([`ausblick.md`](ausblick.md)).
+
+**Warum.** Gold nannte seine Silver-Quelle als
+`{"path": "data/silver/…/part-0001.parquet"}`, und ein Pfad zeigt auf das,
+was gerade dort liegt. Wurde Silver neu gebaut, zeigte derselbe Satz auf
+etwas anderes — und nichts verriet es. Dasselbe galt für die Crosswalks, die
+aus amtlichen PDFs erzeugt werden und sich ändern können, ohne dass ihr Pfad
+sich ändert.
+
+**Was jetzt von einer Gold-Zahl aus lesbar ist:**
+
+```text
+gold/fact_offense    input_fingerprint e7ec6a4a…
+  ruht auf silver/crime_offense, gebaut 2026-09-14T11:37:57, Abdruck 1608aec7…
+      Chicago  3 Läufe, erster run_20260905T174633859259Z
+      Detroit  2 Läufe
+      tract    gebaut 2026-09-14T11:37:56, Abdruck 215d02b2…
+      iucr_nibrs_mapping.csv  ed36120081941cff…   (+ zwei weitere)
+```
+
+**Ein Entwurfsfehler, den ein Test gefangen hat.** Die erste Fassung hashte
+die Herkunft **mitsamt den absoluten Pfaden**. Damit hätten Christian und
+Artan für denselben Stand verschiedene Abdrücke bekommen — im gemeinsamen
+Speicher wäre die Zusage wertlos gewesen. Gehasht wird jetzt nur das
+Kennzeichnende (`manifeste.kennzeichen`): Lauf-Kennungen, Prüfsummen und die
+Abdrücke der Vorgänger. Pfade und Bauzeitpunkte fallen heraus — sie sagen,
+*wo* und *wann*, nicht *was*.
+
+**Nebenbei aufgeräumt:** `run_all.fingerabdruck` war eine zweite Fassung
+derselben Rechnung und kommt jetzt aus `manifeste` — „derselbe Stand" heisst
+überall dasselbe.
+
+**Was das nicht ist.** Keine Historisierung: Silver und Gold werden weiterhin
+ersetzt. Die Kette **erklärt** jede heutige Zahl vollständig; sie **reproduzieren**
+lässt sich eine vergangene erst mit Stufe B (gepinnte Läufe), weil die
+Aufbewahrungsregel alte Bronze-Läufe sonst wegräumt.
+
+**Zahlen.** 883 → **896 Tests**.
 
 ---
 

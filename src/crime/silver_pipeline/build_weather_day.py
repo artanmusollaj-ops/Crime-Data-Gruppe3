@@ -50,6 +50,7 @@ from typing import Any, NamedTuple
 
 import duckdb
 
+from manifeste import eingabe_abdruck
 from storage import StorageError, for_root
 from silver_pipeline import (
     BRONZE_LAYER,
@@ -349,6 +350,16 @@ def build_manifest(
     started: datetime,
 ) -> dict[str, Any]:
     nachweis = reconcile(con, relation, sources)
+    herkunft = [
+        {
+            "layer": BRONZE_LAYER,
+            "dataset": NOAA_DATASET,
+            "station_id": quelle.station,
+            "city": quelle.city,
+            "run_id": quelle.run_id,
+        }
+        for quelle in sources
+    ]
     return {
         "status": "complete",
         "layer": SILVER_LAYER,
@@ -360,16 +371,10 @@ def build_manifest(
         "row_count": nachweis["row_count"],
         # Wetter wird nicht raeumlich verbunden, sondern ueber Stadt und Tag.
         "join_keys": ["city", "date"],
-        "derived_from": [
-            {
-                "layer": BRONZE_LAYER,
-                "dataset": NOAA_DATASET,
-                "station_id": quelle.station,
-                "city": quelle.city,
-                "run_id": quelle.run_id,
-            }
-            for quelle in sources
-        ],
+        "derived_from": herkunft,
+        # Ein Abdruck ueber die Eingaben: Wer diese Tabelle benutzt, nennt ihn
+        # und sagt damit, auf welchem Stand er ruht - ein Pfad koennte das nicht.
+        "input_fingerprint": eingabe_abdruck(herkunft),
         "skipped_stations": skipped,
         "reconciliation": nachweis,
         "coverage": coverage(con, relation),

@@ -14,6 +14,7 @@ beim Verorten verlorengeht.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import duckdb
@@ -53,6 +54,15 @@ def schreibe_tract(data_root: Path) -> None:
         TO '{ziel / bc.PARQUET_FILE}' (FORMAT PARQUET)
     """)
     con.close()
+    # Mit Manifest, wie build_tract es schreibt - crime_offense nennt daraus
+    # den Stand, auf dem es ruht.
+    (ziel / "manifest.json").write_text(json.dumps({
+        "status": "complete", "table": "tract", "layer": "silver",
+        "built_at_utc": datetime.now(timezone.utc).isoformat(),
+        "input_fingerprint": "t" * 64,
+        "derived_from": [{"layer": "bronze", "dataset": "tiger_tract",
+                          "run_id": "run_20260101T000000000000Z"}],
+    }), encoding="utf-8")
 
 
 def schreibe_chicago(
@@ -558,7 +568,7 @@ def test_manifest_nennt_jeden_quelllauf(tmp_path):
     herkunft = manifest["derived_from"]
     assert herkunft["chicago_bronze_runs"] == ["run_20260101T000000000000Z"]
     assert herkunft["detroit_bronze_runs"] == ["run_aaa"]
-    assert "tract" in herkunft["silver_tract"]
+    assert "tract" in herkunft["silver_tract"]["path"]
     assert len(herkunft["crosswalks"]) == 3
     # Aus welchem Format gelesen wurde, gehoert zur Herkunft: Detroit hat das
     # Format gewechselt, und beide Bestaende koennen nebeneinander liegen.
@@ -961,3 +971,76 @@ def test_das_fallkorn_gilt_fuer_beide_staedte_gleich(tmp_path):
     for z in zeilen:
         je_stadt.setdefault(z["city"], []).append(z["counts_case"])
     assert je_stadt == {"chicago": [True, False], "detroit": [True, False]}
+
+
+# --------------------------------------------------------------------------
+# Die Herkunftskette (seit 14.9.2026)
+#
+# Zwei Glieder waren bis dahin nur Pfade: die Crosswalks und silver/tract.
+# Ein Pfad zeigt aber auf das, was gerade dort liegt - wer eine Zahl erklaeren
+# will, braucht, *was* dort stand. Artan hat danach gefragt.
+# --------------------------------------------------------------------------
+
+
+def test_die_crosswalks_tragen_ihre_pruefsumme(tmp_path):
+    """Sie werden aus amtlichen PDFs erzeugt und koennen sich aendern, ohne
+    dass der Pfad sich aendert."""
+    herkunft = manifest_von(baue(tmp_path, CHI, DET))["derived_from"]
+    assert len(herkunft["crosswalks"]) == 3
+    for eintrag in herkunft["crosswalks"]:
+        assert set(eintrag) == {"path", "sha256"}
+        assert len(eintrag["sha256"]) == 64, "SHA-256 in hex"
+    assert len({e["sha256"] for e in herkunft["crosswalks"]}) == 3
+
+
+def test_silver_tract_wird_als_stand_genannt_nicht_als_pfad(tmp_path):
+    """Der Bauzeitpunkt gehoert dazu: Wird tract neu gebaut, ruht
+    crime_offense danach auf etwas anderem - der Pfad bliebe derselbe."""
+    tract = manifest_von(baue(tmp_path, CHI, DET))["derived_from"]["silver_tract"]
+    assert "path" in tract
+    assert tract.get("built_at_utc"), "ohne Zeitpunkt ist es wieder nur ein Pfad"
+
+
+def test_derselbe_eingabestand_traegt_denselben_abdruck(tmp_path):
+    """Der Abdruck haengt an den Eingaben, nicht an der Uhrzeit des Baus."""
+    erst = manifest_von(baue(tmp_path / "a", CHI, DET))
+    zweit = manifest_von(baue(tmp_path / "b", CHI, DET))
+    assert erst["input_fingerprint"] == zweit["input_fingerprint"]
+    assert erst["built_at_utc"] != zweit["built_at_utc"]
+
+
+def test_ein_zusaetzlicher_bronze_lauf_aendert_den_abdruck(tmp_path):
+    """Sonst waere der Abdruck wertlos - er soll den Stand unterscheiden.
+
+    Eine Zeile mehr im **selben** Lauf aendert ihn dagegen nicht: Der Abdruck
+    steht fuer die Eingaben, und die sind derselbe Lauf. Wer wissen will, ob
+    sich der Inhalt bewegt hat, sieht auf die Zeilenzahl.
+    """
+    data_root, config_root = tmp_path / "data", tmp_path / "config"
+    schreibe_tract(data_root)
+    schreibe_chicago(data_root, CHI)
+    schreibe_detroit(data_root, DET)
+    schreibe_config(config_root)
+    vorher = manifest_von(bc.build(data_root, config_root))["input_fingerprint"]
+
+    schreibe_chicago(data_root, CHI, run_id="run_20260202T000000000000Z",
+                     ingest_date="2026-02-02")
+    assert manifest_von(bc.build(data_root, config_root))["input_fingerprint"] != vorher
+
+
+def test_ein_geaenderter_crosswalk_aendert_den_abdruck(tmp_path):
+    """Der Grund fuer die Pruefsummen: Die Crosswalks werden aus amtlichen
+    PDFs erzeugt. Aendert sich einer, ist es ein anderer Eingabestand -
+    obwohl kein Bronze-Lauf dazugekommen ist und der Pfad derselbe bleibt."""
+    data_root, config_root = tmp_path / "data", tmp_path / "config"
+    schreibe_tract(data_root)
+    schreibe_chicago(data_root, CHI)
+    schreibe_detroit(data_root, DET)
+    schreibe_config(config_root)
+    vorher = manifest_von(bc.build(data_root, config_root))["input_fingerprint"]
+
+    pfad = config_root / bc.IUCR_MAPPING
+    pfad.write_text(pfad.read_text(encoding="utf-8") +
+                    "1310,CRIMINAL DAMAGE,X,I,true,290,DESTRUCTION,nibrs_definition,true,\n",
+                    encoding="utf-8")
+    assert manifest_von(bc.build(data_root, config_root))["input_fingerprint"] != vorher

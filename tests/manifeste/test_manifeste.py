@@ -152,3 +152,45 @@ def test_tabellen_ueberspringt_versteckte(tmp_path):
 
 def test_tabellen_ohne_schicht_ist_leer(tmp_path):
     assert mf.tabellen(tmp_path) == []
+
+
+# --------------------------------------------------------------------------
+# Herkunft: Abdruck, Pruefsumme, Referenz
+# --------------------------------------------------------------------------
+
+
+def test_der_abdruck_haengt_am_inhalt_nicht_an_der_reihenfolge():
+    assert mf.fingerabdruck({"a": [1], "b": 2}) == mf.fingerabdruck({"b": 2, "a": [1]})
+    assert mf.fingerabdruck({"a": [1]}) != mf.fingerabdruck({"a": [2]})
+    assert len(mf.fingerabdruck({})) == 64
+
+
+def test_die_dateipruefsumme_erkennt_eine_aenderung(tmp_path):
+    datei = tmp_path / "crosswalk.csv"
+    datei.write_text("iucr,nibrs\n0110,09A\n", encoding="utf-8")
+    vorher = mf.datei_hash(datei)
+    datei.write_text("iucr,nibrs\n0110,13A\n", encoding="utf-8")
+    assert mf.datei_hash(datei) != vorher
+
+
+def test_eine_referenz_nennt_stand_und_herkunft():
+    eintrag = mf.referenz(Path("/x/part-0001.parquet"), {
+        "built_at_utc": "2026-09-14T08:00:00+00:00",
+        "input_fingerprint": "b" * 64,
+        "derived_from": [{"run_id": "run_A"}],
+    })
+    assert eintrag["path"].endswith("part-0001.parquet")
+    assert eintrag["built_at_utc"] and eintrag["input_fingerprint"]
+    assert eintrag["derived_from"] == [{"run_id": "run_A"}]
+
+
+def test_eine_referenz_ohne_manifest_ist_nur_ein_pfad():
+    """Kein Bestand von vor der Aenderung darf daran scheitern."""
+    assert mf.referenz(Path("/x/y.parquet"), {}) == {"path": "/x/y.parquet"}
+
+
+def test_referenzdatei_nennt_pfad_und_pruefsumme(tmp_path):
+    datei = tmp_path / "codes.csv"
+    datei.write_text("x\n", encoding="utf-8")
+    eintrag = mf.referenzdatei(datei)
+    assert set(eintrag) == {"path", "sha256"} and len(eintrag["sha256"]) == 64

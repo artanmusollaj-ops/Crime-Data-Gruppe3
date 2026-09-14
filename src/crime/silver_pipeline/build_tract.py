@@ -40,6 +40,7 @@ from typing import Any, NamedTuple
 import duckdb
 
 from census_pipeline import STATES
+from manifeste import eingabe_abdruck
 from storage import StorageError, for_root
 from silver_pipeline import (
     ACS_MISSING_VALUE,
@@ -254,6 +255,15 @@ def build_manifest(
 ) -> dict[str, Any]:
     """Das Manifest der Tabelle, mit Herkunft und Nachweis."""
     nachweis = reconcile(con, relation)
+    herkunft = [
+        {
+            "layer": BRONZE_LAYER,
+            "dataset": quelle.dataset,
+            "state_fips": quelle.state,
+            "run_id": quelle.run_id,
+        }
+        for quelle in sources
+    ]
     return {
         "status": "complete",
         "layer": SILVER_LAYER,
@@ -268,15 +278,10 @@ def build_manifest(
         # Ohne diese Herkunft ist der Referenzstand aus Absprache 7.1 nicht
         # belegbar: Sie nennt genau die Bronze-Laeufe, aus denen diese
         # Tabelle entstanden ist.
-        "derived_from": [
-            {
-                "layer": BRONZE_LAYER,
-                "dataset": quelle.dataset,
-                "state_fips": quelle.state,
-                "run_id": quelle.run_id,
-            }
-            for quelle in sources
-        ],
+        "derived_from": herkunft,
+        # Ein Abdruck ueber die Eingaben: Wer diese Tabelle benutzt, nennt ihn
+        # und sagt damit, auf welchem Stand er ruht - ein Pfad koennte das nicht.
+        "input_fingerprint": eingabe_abdruck(herkunft),
         "reconciliation": nachweis,
         "column_statistics": column_statistics(con, relation),
         "schema": schema_of(con, relation),
