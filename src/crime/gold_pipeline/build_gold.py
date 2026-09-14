@@ -79,7 +79,7 @@ from silver_pipeline import (
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
-CONTRACT_VERSION = 1
+CONTRACT_VERSION = 2
 
 DEFAULT_VINTAGE = 2024
 NIBRS_CODES = "nibrs_offense_codes_2025.csv"
@@ -406,16 +406,20 @@ def dim_date_query(offense: Quelle) -> str:
     -- fact_offense, und der Join haengt an einer stillschweigenden Umwandlung.
     SELECT
         CAST(tag AS DATE)                               AS date,
-        year(tag)                                       AS year,
-        month(tag)                                      AS month,
-        quarter(tag)                                    AS quarter,
-        day(tag)                                        AS day_of_month,
-        dayofweek(tag)                                  AS day_of_week,
+        -- Schmale Typen, weil die Sache schmal ist: ein Jahr passt in
+        -- SMALLINT, alles Uebrige in TINYINT (-128 bis 127). DuckDBs
+        -- Datumsfunktionen liefern durchweg BIGINT; ohne CAST stuende in
+        -- einer Dimensionstabelle achtmal so viel Platz wie noetig.
+        CAST(year(tag) AS SMALLINT)                     AS year,
+        CAST(month(tag) AS TINYINT)                     AS month,
+        CAST(quarter(tag) AS TINYINT)                   AS quarter,
+        CAST(day(tag) AS TINYINT)                       AS day_of_month,
+        CAST(dayofweek(tag) AS TINYINT)                 AS day_of_week,
         dayname(tag)                                    AS day_name,
         monthname(tag)                                  AS month_name,
         CAST(date_trunc('month', tag) AS DATE)          AS month_start,
         dayofweek(tag) IN (0, 6)                        AS is_weekend,
-        dayofyear(tag)                                  AS day_of_year
+        CAST(dayofyear(tag) AS SMALLINT)                AS day_of_year
     FROM spanne, unnest(generate_series(von, bis, INTERVAL 1 DAY)) AS t(tag)
     ORDER BY date
     """
@@ -487,7 +491,7 @@ def fact_offense_query(offense: Quelle, tracts: str = "dim_tract") -> str:
         o.occurred_at_utc                               AS occurred_at_utc,
         o.occurred_at_local                             AS occurred_at_local,
         o.occurred_date_local                           AS date,
-        hour(o.occurred_at_local)                       AS hour_of_day,
+        CAST(hour(o.occurred_at_local) AS TINYINT)      AS hour_of_day,
         o.tract_geoid                                   AS tract_geoid,
         o.nibrs_code                                    AS nibrs_code,
         left(o.nibrs_code, 2)                           AS nibrs_family,

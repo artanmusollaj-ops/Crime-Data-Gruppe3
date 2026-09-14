@@ -361,3 +361,20 @@ def test_failed_rebuild_keeps_the_previous_table(tmp_path):
     assert ziel.exists()
     assert (ziel / bt.PARQUET_FILE).read_bytes() == vorher
     assert not list(ziel.parent.glob(".*"))
+
+
+def test_die_acs_spalten_sind_so_schmal_wie_die_sache(tmp_path):
+    """Ein Haushaltseinkommen und eine Personenzahl je Tract passen in INTEGER.
+
+    Artan hat das am 14.9. angemerkt - allerdings im **erzeugten** Feldkatalog
+    statt im Code, und dort war es beim naechsten Lauf wieder weg. Hier steht
+    es an der Stelle, die es wahr macht.
+
+    Die Einwohnerzahl bleibt bewusst BIGINT: Sie ist der Nenner jeder Rate,
+    und dort ist Vorsicht mehr wert als vier Byte.
+    """
+    _, manifest, _ = gebaut(tmp_path)
+    schema = manifest["schema"]
+    assert schema["median_household_income_usd"] == "INTEGER"
+    assert schema["population_below_poverty"] == "INTEGER"
+    assert schema["population"] == "BIGINT", "der Nenner bleibt breit"

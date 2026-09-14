@@ -58,11 +58,17 @@ from silver_pipeline import (
 
 TABLE = "tract"
 
+# Die Typen sind so schmal wie die Sache: ein Haushaltseinkommen und eine
+# Personenzahl je Tract passen in INTEGER (Maximum 2,1 Mrd; gemessen 250'001
+# beziehungsweise 5'819). BIGINT waere das Achtfache an Platz fuer nichts.
+# Die Einwohnerzahl bleibt bewusst BIGINT - sie ist der Nenner jeder Rate,
+# und dort ist Vorsicht mehr wert als vier Byte.
+
 # Der Deutungsvertrag: Was diese Tabelle bedeutet - Granularität, Regeln, Spalten -
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
-CONTRACT_VERSION = 1
+CONTRACT_VERSION = 2
 
 TIGER_DATASET = "tiger_tract"
 ACS_DATASET = "acs5_tract"
@@ -158,8 +164,8 @@ def build_query(tiger: list[Source], acs: list[Source]) -> str:
         t.geometry                                        AS geometry,
         TRY_CAST(a.B01003_001E AS BIGINT)                 AS population,
         CASE WHEN a.B19013_001E = '{ACS_MISSING_VALUE}' THEN NULL
-             ELSE TRY_CAST(a.B19013_001E AS BIGINT) END   AS median_household_income_usd,
-        TRY_CAST(a.B17001_002E AS BIGINT)                 AS population_below_poverty,
+             ELSE TRY_CAST(a.B19013_001E AS INTEGER) END AS median_household_income_usd,
+        TRY_CAST(a.B17001_002E AS INTEGER)                AS population_below_poverty,
         -- Ohne Einwohner ist eine Quote nicht definiert. NULL statt Division
         -- durch null, und die absolute Zahl bleibt trotzdem erhalten.
         CASE WHEN TRY_CAST(a.B01003_001E AS BIGINT) > 0

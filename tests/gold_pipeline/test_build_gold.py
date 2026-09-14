@@ -973,3 +973,27 @@ def test_der_verbundschluessel_ist_abgeleitet_nicht_abgeschrieben():
     # Und die Schluessel muessen zu dem passen, was crime_offense in city
     # schreibt - sonst verbindet dim_tract ins Leere.
     assert set(STADT_SCHLUESSEL.values()) == {"chicago", "detroit"}
+
+
+def test_die_kalendertabelle_traegt_schmale_typen(con, tmp_path):
+    """DuckDBs Datumsfunktionen liefern durchweg BIGINT - ohne CAST stuende in
+    einer Dimensionstabelle achtmal so viel Platz wie noetig.
+
+    Ein Jahr passt in SMALLINT, alles Uebrige in TINYINT (-128 bis 127):
+    Monat 1-12, Quartal 1-4, Tag 1-31, Wochentag 0-6, Tagesnummer 1-366.
+    """
+    baue(con, tmp_path, [("a", "chicago", date(2024, 3, 1), "13A", "17031010100")])
+    typen = dict(con.execute("SELECT column_name, column_type "
+                             "FROM (DESCRIBE dim_date)").fetchall())
+    assert typen["year"] == "SMALLINT" and typen["day_of_year"] == "SMALLINT"
+    for spalte in ("month", "quarter", "day_of_month", "day_of_week"):
+        assert typen[spalte] == "TINYINT", spalte
+
+
+def test_die_tatstunde_ist_ein_tinyint(con, tmp_path):
+    """0 bis 23 - dafuer braucht es kein BIGINT, und die Faktentabelle hat
+    344'617 Zeilen."""
+    baue(con, tmp_path, [("a", "chicago", date(2024, 3, 1), "13A", "17031010100")])
+    typen = dict(con.execute("SELECT column_name, column_type "
+                             "FROM (DESCRIBE fact_offense)").fetchall())
+    assert typen["hour_of_day"] == "TINYINT"
