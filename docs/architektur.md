@@ -1,8 +1,8 @@
 # Der Aufbau, in zwei Bildern und einem Lesepfad
 
 Dieses Projekt hat **mehr Erklärung als Code** — rund 11'600 Zeilen Prosa
-gegen 10'569 Zeilen Produktionscode, verteilt auf 294 Docstrings, 475
-Test-Docstrings und elf Dokumente. Was fehlte, war kein weiterer Text,
+gegen 10'569 Zeilen Produktionscode, verteilt auf 294 Docstrings, 495
+Test-Docstrings und zwölf Dokumente. Was fehlte, war kein weiterer Text,
 sondern ein **Weg hinein**. Der steht hier.
 
 Beide Bilder werden von
@@ -77,6 +77,15 @@ diese sechs Stellen in dieser Reihenfolge. Zusammen sind es rund 400 Zeilen.
 | 5 | dieselbe Datei → `build_query` | wie das in SQL aussieht: zwei Städte, zwei CTEs, ein `UNION ALL` |
 | 6 | `gold_pipeline/build_gold.py` → `fact_offense_query` | der einzige Stellenwechsel zwischen Silver und Gold, und warum es ihn braucht |
 
+### Der Lesepfad für die Zahlen
+
+Der Pfad oben geht durch den Code. Wen stattdessen interessiert, **woher eine
+Zahl kommt**, liest [`eine-zahl.md`](eine-zahl.md): Dort wird die Rate 94,5
+über sieben Stufen rückwärts aufgerollt, von der Folie bis zur gzip-Datei der
+Stadt Chicago — und dabei kommt jede wesentliche Entscheidung des Projekts
+genau einmal vor. Das ist der kürzere Weg zur Frage, die eine Abgabe verdient:
+*Woher wisst ihr das?*
+
 Danach lohnen sich je nach Interesse:
 
 * **Warum eine Zahl so ist, wie sie ist** → [`ln1_konzept.md`](ln1_konzept.md)
@@ -89,7 +98,7 @@ Danach lohnen sich je nach Interesse:
 
 ### Die Tests sind der zweite Lesepfad
 
-475 Test-Docstrings, und sie sind keine Floskeln — sie sagen, *warum* eine
+495 Test-Docstrings, und sie sind keine Floskeln — sie sagen, *warum* eine
 Zusage besteht:
 
 > *„Die Drift, die dreimal passiert ist: eine Lücke, die längst geschlossen

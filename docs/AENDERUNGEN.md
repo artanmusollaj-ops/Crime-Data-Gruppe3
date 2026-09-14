@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **946** |
+| Tests | **959** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -87,6 +87,51 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 14.09.2026 · Eine Zahl von Ende zu Ende (#88)
+
+**Was.** [`docs/eine-zahl.md`](eine-zahl.md) rollt die Rate **94,5** rückwärts
+auf: sieben Stufen von der Folie bis zu den 26 gzip-Dateien, die die Stadt
+Chicago am 5. September geliefert hat. Zähler, Nenner, Herkunftskette,
+Vollständigkeitsnachweis, Rohantwort.
+
+**Warum.** Der Lesepfad in [`architektur.md`](architektur.md) führt durch den
+Code. Er beantwortet nicht die Frage, die in einer Abgabe zuerst kommt:
+*Woher wisst ihr das?* Dieses Dokument tut es an einer einzigen Zahl — und
+weil der Weg alle Schichten durchläuft, kommt dabei jede wesentliche
+Entscheidung des Projekts genau einmal vor, in der Reihenfolge, in der sie
+wirkt.
+
+**Der Einzelfall, der alles auf einmal trägt.** `JH100028`, der erste Mordfall
+des Jahrgangs: zwei Opfer, zwei Zeilen, `offense_id` 27932 und 27933. Die
+Ortszeit 00:56 ist UTC 06:56, beim zweiten Opfer springt die UTC-Zeit auf den
+Folgetag. IUCR `0110` wird NIBRS `09A`, Status `exact`. Der Tract kam aus dem
+eigenen Punkt-in-Polygon-Join. Beide Zeilen zählen als Tat, nur die frühere
+als Fall. Vier Entscheidungen — Zeitzone, NIBRS, Raum, Granularität — an einem
+Fall, den man in einer Minute vorführen kann.
+
+**Was beim Schreiben auffiel.** Die Herkunftskette ist reicher, als sie bisher
+irgendwo dargestellt war: Sie hängt nicht nur am Zähler. Der Nenner hat seine
+eigene Kette über `silver/tract` zu den TIGER- und ACS-Läufen, und die drei
+Crosswalks hängen mit ihrer SHA-256 daran. Das ist richtig so — eine geänderte
+Zuordnungstabelle verschiebt die Zahlen genauso wie neue Daten.
+
+**Wächter.** 13 Tests in `tests/test_eine_zahl.py`, alle gegen die gebauten
+Daten statt gegen Konstanten: die Formelzeile muss aufgehen, die
+`geo_status`-Tabelle muss sich auf die Gesamtzahl summieren, jeder im
+Dokument genannte Lauf und jeder Abdruck muss im Manifest vorkommen, und
+`JH100028` muss weiterhin genau zwei Zeilen haben. Sechs eingebaute
+Falschzahlen fielen durch; die siebte zunächst nicht — die Prüfung des Zählers
+hing an der Zahlenmenge des ganzen Dokuments statt an der Formelzeile. Das ist
+jetzt verankert.
+
+**Der Fehler, den der Wächter sofort fand.** Beim Umbau von Stufe 4 war
+Detroits Fallzahl 80'229 aus dem Text gefallen. Der Test schlug beim ersten
+Lauf an — genau der Fall, für den er da ist.
+
+**Zahlen.** 946 → **959 Tests**. Zwölf Dokumente in `docs/`.
 
 ---
 
