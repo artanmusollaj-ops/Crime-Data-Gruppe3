@@ -51,8 +51,10 @@ def test_studienstaedte_steht_nur_noch_einmal(text):
     """
     if "zusammengeführt am 14.9.2026" not in text:
         pytest.skip("Das Dokument fuehrt den Punkt nicht als erledigt")
+    # as_posix(), nicht str(): Auf Windows waere es silver_pipeline\\__init__.py,
+    # und der erste Anlauf ist genau daran gescheitert.
     treffer = [
-        str(p.relative_to(QUELLE)) for p in QUELLE.rglob("*.py")
+        p.relative_to(QUELLE).as_posix() for p in QUELLE.rglob("*.py")
         if "STUDIENSTAEDTE = {" in p.read_text(encoding="utf-8")
     ]
     assert treffer == ["silver_pipeline/__init__.py"], (
