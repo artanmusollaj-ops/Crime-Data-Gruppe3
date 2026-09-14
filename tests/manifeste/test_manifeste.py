@@ -185,8 +185,14 @@ def test_eine_referenz_nennt_stand_und_herkunft():
 
 
 def test_eine_referenz_ohne_manifest_ist_nur_ein_pfad():
-    """Kein Bestand von vor der Aenderung darf daran scheitern."""
-    assert mf.referenz(Path("/x/y.parquet"), {}) == {"path": "/x/y.parquet"}
+    """Kein Bestand von vor der Aenderung darf daran scheitern.
+
+    Der Pfad wird mit ``str(Path(...))`` verglichen, nicht als Literal:
+    Auf Windows ist das ``\\x\\y.parquet``, und der erste Anlauf ist genau
+    daran gescheitert.
+    """
+    pfad = Path("/x/y.parquet")
+    assert mf.referenz(pfad, {}) == {"path": str(pfad)}
 
 
 def test_referenzdatei_nennt_pfad_und_pruefsumme(tmp_path):
