@@ -85,6 +85,43 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 14.09.2026 · Korn wird Granularität (#85)
+
+**Was.** Der Begriff *Korn* heisst im ganzen Projekt jetzt **Granularität**,
+die beiden Prägungen *Tatkorn* und *Fallkorn* heissen **Tatebene** und
+**Fallebene**. 160 Stellen in 29 Dateien: Code, Tests, Notebooks, README und
+die Abgabedokumente.
+
+**Warum.** „Korn" ist eine wörtliche Übersetzung von Kimballs *grain*; im
+deutschen Data Engineering ist **Granularität** der eingeführte Begriff, und
+„Korn" lässt zuerst an Getreide denken. Christian hat es angemerkt, und er
+hat recht: In einer Abgabe liest sich das als Übersetzungsfehler.
+
+**Warum nicht „Tatgranularität".** Korrekt, aber unlesbar. *Ebene* ist in der
+Dimensionsmodellierung eingeführt und trägt dieselbe Unterscheidung in zwei
+Silben. Wo es um den Begriff geht, steht *Granularität*; wo es um die beiden
+konkreten geht, *Tat-* und *Fallebene*.
+
+**Was dabei zu beachten war.** *Korn* ist sächlich, *Granularität* weiblich —
+die Artikel mussten mit (`das Korn` → `die Granularität`). Und mehrere Muster
+im Code lesen Dokumenttext: `orchestration.drift` sucht `\| Fallkorn.*?` im
+Kopf von `AENDERUNGEN.md`, `test_abgabedokumente` sucht
+`\| Delikte \(Tatkorn\)` im Konzept. Text und Muster wurden zusammen
+geändert, sonst hätte die Drift-Messung ins Leere gegriffen.
+
+**Nicht angefasst: die datierten Einträge in dieser Datei.** Das Projekt hält
+in `test_aenderungen` fest, dass sie Vergangenes beschreiben und sich nicht
+ändern sollen. Nur der Kopf ist nachgezogen. Ebenso unberührt bleiben die
+Manifest-Schlüssel — dort heisst es weiterhin `grain`, englisch wie alle
+anderen Schlüssel.
+
+**Mitgezogen.** `docs/bilder/korn.svg` → `granularitaet.svg`, die Testnamen,
+der Schlüssel `detroit_rate_fallkorn` in `drift.py`.
+
+**Zahlen.** 935 Tests, unverändert — eine Begriffsumstellung ändert keine Zahl.
+
+---
+
 ## 14.09.2026 · Die Analyseplattform durchdacht — und der Würfel zum zweiten Mal verworfen (#83)
 
 **Was.** [`ausblick.md`](ausblick.md) hat einen Abschnitt 5: die
