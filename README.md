@@ -48,7 +48,7 @@ Wo etwas ausführlich steht:
 | Konzept, Methode, Befunde | [`docs/ln1_konzept.md`](docs/ln1_konzept.md) |
 | Wie der Aufbau zusammenhängt | [`docs/architektur.md`](docs/architektur.md) |
 | Woher eine Zahl kommt, Stufe für Stufe | [`docs/eine-zahl.md`](docs/eine-zahl.md) |
-| Jedes Modul, jede Funktion | `python tools/build_referenz.py` → `docs/referenz/` |
+| Jedes Modul, jede Funktion | [`docs/referenz/`](docs/referenz/index.html) |
 | Was jede Spalte bedeutet | [`docs/feldkatalog.md`](docs/feldkatalog.md) |
 | Was sich wann geändert hat und warum | [`docs/AENDERUNGEN.md`](docs/AENDERUNGEN.md) |
 | Würfel und Sternschema erklärt | [`docs/sternschema-und-wuerfel.md`](docs/sternschema-und-wuerfel.md) |
@@ -200,7 +200,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet werden **976 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **978 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -213,13 +213,21 @@ Umgebung mit `deactivate`.
 python tools/build_referenz.py
 ```
 
-Erzeugt `docs/referenz/` und nennt am Schluss die Datei zum Öffnen: eine Seite
-je Modul, mit Suche und dem Quelltext daneben — aus den Docstrings, die im Code
-stehen. Das Verzeichnis ist nicht versioniert und entsteht in gut einer Sekunde
-neu; nach jeder Änderung am Code also einfach nochmal aufrufen.
+`docs/referenz/` liegt im Repository — `docs/referenz/index.html` lässt sich
+also direkt öffnen, ohne vorher etwas zu bauen. Eine Seite je Modul, mit Suche
+und dem Quelltext daneben, aus den Docstrings.
 
-Wer nichts installieren will, lädt es stattdessen herunter: Jeder Lauf auf
-`main` hängt es unter *Actions → Tests → code-referenz* als Artefakt an.
+Der Befehl oben baut sie neu, und **das gehört nach jeder Änderung an einem
+Docstring dazu** — genau wie beim Feldkatalog und bei den Architekturbildern.
+Ein Test hält die abgelegten Seiten gegen einen frischen Bau und wird rot,
+wenn sie auseinanderlaufen.
+
+Der Bau setzt dafür `PYTHONHASHSEED` und startet sich einmal selbst neu. Ohne
+das wäre die Ausgabe von Lauf zu Lauf verschieden, weil pdoc Mengen mit `repr`
+druckt und deren Reihenfolge am Hashwert hängt.
+
+Wer lieber ein fertiges Paket herunterlädt: Jeder Lauf auf `main` hängt die
+Referenz unter *Actions → Tests → code-referenz* als Artefakt an.
 
 ---
 
@@ -559,7 +567,7 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 python -m pytest
 ```
 
-**976 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**978 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -593,7 +601,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **921 der 976 Tests**. Die übrigen 55 überspringen
+In einem frischen Klon laufen **922 der 978 Tests**. Die übrigen 56 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter

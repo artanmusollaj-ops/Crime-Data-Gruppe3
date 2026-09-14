@@ -121,9 +121,13 @@ sie blätterbar:
 python tools/build_referenz.py
 ```
 
-Das schreibt `docs/referenz/`: eine Seite je Modul, durchsuchbar, mit dem
-Quelltext daneben. Die Startseite ordnet die zehn Pakete in der Reihenfolge
-des Gesamtlaufs — auch sie erzeugt, aus `run_all.STUFEN`.
+Das schreibt [`docs/referenz/`](referenz/index.html): eine Seite je Modul,
+durchsuchbar, mit dem Quelltext daneben. Die Startseite ordnet die zehn Pakete
+in der Reihenfolge des Gesamtlaufs — auch sie erzeugt, aus `run_all.STUFEN`.
+
+Das Verzeichnis liegt im Repository, wie die Crosswalks und die beiden Bilder
+darüber: Was sich byteweise reproduzieren lässt, gehört hinein. Ein Test hält
+das Abgelegte gegen einen frischen Bau.
 
 ### Und vier Befehle, die zeigen statt behaupten
 

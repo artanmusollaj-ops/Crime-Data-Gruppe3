@@ -4,7 +4,10 @@
     python tools/build_referenz.py
 
 Schreibt ``docs/referenz/`` - eine Seite je Modul, mit Suche und Quelltext.
-Das Verzeichnis ist nicht versioniert; es entsteht in Sekunden neu.
+Das Verzeichnis **ist versioniert**, wie die Crosswalks, der Feldkatalog und
+die Architekturbilder: Ein erzeugtes Artefakt gehoert in das Repository, wenn
+ein zweiter Lauf dieselbe Datei liefert. Dann ist es pruefbar, und es ist da,
+auch wenn jemand nichts installieren will.
 
 **Warum es das braucht.** Dieses Projekt hat mehr Erklaerung als Code: rund
 11'600 Zeilen Prosa gegen 10'569 Zeilen Produktionscode. Der groesste Teil
@@ -22,7 +25,28 @@ jeweiligen Paket-Docstrings. Beides ist abgeleitet, nicht gepflegt: Ein neues
 Paket erscheint von selbst an der richtigen Stelle, und es gibt keine zweite
 Beschreibung, die veralten koennte.
 
-**Was der Wächter prueft.** ``tests/test_referenz.py`` haelt fest, dass jedes
+**Warum der Hash-Seed festgenagelt wird.** Manche Vorgabewerte im Code sind
+Mengen, und pdoc druckt sie mit ``repr``. Die Reihenfolge einer Menge von
+Zeichenketten haengt an deren Hashwerten, und die sind je Prozess zufaellig -
+``frozenset({'complete', 'success'})`` im einen Lauf, ``frozenset({'success',
+'complete'})`` im naechsten. Von fuenf Laeufen hintereinander unterschieden
+sich bis zu vier Dateien, ohne dass sich eine Zeile Code geaendert haette.
+``main`` startet den Prozess deshalb einmal neu, mit ``PYTHONHASHSEED=0``.
+
+Gefunden wurde das erst, als die Referenz ins Repository sollte. Der erste
+Waechter baute zweimal **im selben Prozess** - und derselbe Prozess hat
+denselben Seed. Er war gruen, weil er die Frage nicht gestellt hat.
+
+**Was die Marke soll.** ``erzeugt-mit.json`` haelt fest, welcher Interpreter
+und welche pdoc-Version die abgelegten Seiten geschrieben haben. Die Ausgabe
+ist naemlich nur *innerhalb* einer Python-Version byteweise gleich: 3.13
+schreibt ``pathlib._local.Path``, wo 3.12 noch ``pathlib.Path`` schreibt, und
+zeigt fuer ``__init__`` einen Quelltext, den 3.12 nicht hat. Neunzehn von
+fuenfundzwanzig Dateien sind deshalb zwischen 3.12 und 3.13 verschieden. Der
+Waechter vergleicht Bytes nur, wenn er auf derselben Version laeuft, und sagt
+sonst, warum er es nicht tut.
+
+**Was der Waechter prueft.** ``tests/test_referenz.py`` haelt fest, dass jedes
 Paket einen Docstring hat, dass die Startseite jedes Paket nennt, und dass ein
 zweiter Lauf dieselben Dateien liefert - dieselbe Regel wie bei den
 Crosswalks, beim Feldkatalog und bei den Architekturbildern.
@@ -30,9 +54,13 @@ Crosswalks, beim Feldkatalog und bei den Architekturbildern.
 
 from __future__ import annotations
 
+import argparse
 import ast
 import html
+import json
+import os
 import shutil
+import subprocess
 import sys
 import warnings
 from pathlib import Path
@@ -41,6 +69,11 @@ from typing import NamedTuple
 PROJEKT = Path(__file__).resolve().parents[1]
 QUELLE = PROJEKT / "src" / "crime"
 ZIEL = PROJEKT / "docs" / "referenz"
+MARKE = "erzeugt-mit.json"
+
+# Irgendein fester Wert; 0 ist der uebliche. Entscheidend ist nur, dass er
+# ueber Laeufe hinweg derselbe bleibt.
+HASHSEED = "0"
 
 sys.path.insert(0, str(QUELLE))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -304,6 +337,9 @@ def baue(ziel: Path = ZIEL) -> Ergebnis:
         pdoc.pdoc(*pakete(), output_directory=ziel)
 
     (ziel / "index.html").write_text(startseite(), encoding="utf-8")
+    (ziel / MARKE).write_text(
+        json.dumps(erzeugt_mit(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
     fehlend = [p for p in pakete() if not (ziel / f"{p}.html").is_file()]
     if fehlend:
@@ -318,16 +354,51 @@ def baue(ziel: Path = ZIEL) -> Ergebnis:
     )
 
 
-def main() -> int:
-    dateien, warnungen = baue()
+def erzeugt_mit() -> dict[str, str]:
+    """Womit die abgelegten Seiten geschrieben wurden.
+
+    Steht als ``erzeugt-mit.json`` neben ihnen. Der Waechter vergleicht Bytes
+    nur, wenn er auf denselben Versionen laeuft - die Ausgabe ist zwischen
+    Python-Versionen nicht gleich, und ein Test, der das ignoriert, waere auf
+    der halben Testmatrix rot, ohne dass etwas kaputt waere.
+    """
+    import pdoc
+
+    return {
+        "python": f"{sys.version_info.major}.{sys.version_info.minor}",
+        "pdoc": pdoc.__version__,
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
+    zerleger = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    zerleger.add_argument(
+        "--ziel", type=Path, default=ZIEL,
+        help="wohin geschrieben wird (Vorgabe: docs/referenz)",
+    )
+    argumente = zerleger.parse_args(argv)
+
+    if os.environ.get("PYTHONHASHSEED") != HASHSEED:
+        # Einmal neu starten, damit die Reihenfolge von Mengen feststeht.
+        # Die Begruendung steht oben im Modul-Docstring.
+        fertig = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve()),
+             *(argv if argv is not None else sys.argv[1:])],
+            env={**os.environ, "PYTHONHASHSEED": HASHSEED},
+        )
+        return fertig.returncode
+
+    ziel = argumente.ziel
+    dateien, warnungen = baue(ziel)
     seiten = [p for p in dateien if p.suffix == ".html"]
     groesse = sum(p.stat().st_size for p in dateien) / 1_048_576
-    print(f"{len(seiten)} Seiten, {groesse:.1f} MB -> {ZIEL.relative_to(PROJEKT)}")
+    wohin = ziel if not ziel.is_relative_to(PROJEKT) else ziel.relative_to(PROJEKT)
+    print(f"{len(seiten)} Seiten, {groesse:.1f} MB -> {wohin}")
     if warnungen:
         print(f"{len(warnungen)} Typannotationen konnte pdoc nicht aufloesen "
               "(NamedTuple-Felder und storage.list). Die Docstrings sind "
               "davon nicht betroffen; die Begruendung steht in baue().")
-    print(f"Zum Ansehen: {(ZIEL / 'index.html').as_uri()}")
+    print(f"Zum Ansehen: {(ziel / 'index.html').as_uri()}")
     return 0
 
 
