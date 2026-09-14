@@ -61,7 +61,7 @@ from gold_pipeline import (
     GOLD_LAYER,
     MAPPING_STATUS_WERTE,
     STADT_SCHWELLE,
-    STUDIENSTAEDTE,
+    STADT_SCHLUESSEL,
     table_dir,
 )
 from silver_pipeline import (
@@ -240,7 +240,8 @@ def dim_tract_query(tract: Quelle, place: Quelle) -> str:
     der groesste Anteil, und nur wenn er ueber der Schwelle liegt.
     """
     staedte = ", ".join(
-        f"('{geoid}', '{name}')" for geoid, name in sorted(STUDIENSTAEDTE.items())
+        f"('{geoid}', '{schluessel}')"
+        for geoid, schluessel in sorted(STADT_SCHLUESSEL.items())
     )
     return f"""
     WITH studienstadt(city_geoid, city) AS (VALUES {staedte}),
@@ -683,7 +684,7 @@ def reconcile(
             "WHERE city IS NOT NULL GROUP BY city ORDER BY city"
         ).fetchall()
     }
-    fehlend = sorted(set(STUDIENSTAEDTE.values()) - set(einwohner))
+    fehlend = sorted(set(STADT_SCHLUESSEL.values()) - set(einwohner))
     if fehlend:
         raise TransformError(
             f"Keine Tracts der Stadt zugeordnet: {fehlend} - die Stadtgrenze "

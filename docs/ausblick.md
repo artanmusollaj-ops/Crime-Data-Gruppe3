@@ -293,7 +293,7 @@ Gold 14 MB.
 | Stelle | Was klemmt | Aufwand |
 | --- | --- | --- |
 | `build_crime_offense.build_query()` | zwei handgeschriebene CTEs; 30 bzw. 39 Erwähnungen der beiden Städte im Modul | **gross** |
-| `STUDIENSTAEDTE` | **doppelt definiert** — `gold_pipeline/__init__.py` klein, `build_place.py` gross geschrieben | klein, aber jetzt fällig |
+| ~~`STUDIENSTAEDTE`~~ | ~~**doppelt definiert**~~ — **zusammengeführt am 14.9.2026 (#82)**: Silver trägt den amtlichen Namen, Gold leitet `STADT_SCHLUESSEL` daraus ab | erledigt |
 | `DEFAULT_VINTAGE` | an fünf Stellen, plus `DEFAULT_YEAR` | mittel |
 | räumlicher Join | eine Relation über alle Tracts | mittel |
 | DuckDB-Einstellungen | keine Grenzen gesetzt | klein |
@@ -385,7 +385,7 @@ Nach Nutzen je Aufwand, nicht nach Reiz:
 | ~~**1**~~ | ~~Gold nennt die Identität des Silver-Stands; Crosswalks mit Hash (1·A)~~ — **erledigt 14.9.2026** | schliesst die Lineage-Kette; klein |
 | ~~**2**~~ | ~~Code-Version und Vertragsversion in jedes Manifest (2)~~ — **erledigt 14.9.2026** | beantwortet, ab wann anders geladen wurde |
 | ~~**3**~~ | ~~Gepinnte Läufe, die das Aufräumen überleben (1·B)~~ — **erledigt 14.9.2026** | macht aus erklärbar ein reproduzierbar |
-| **4** | `STUDIENSTAEDTE`-Duplikat zusammenführen | fünf Minuten; kostet sonst bei Stadt drei einen halben Tag |
+| ~~**4**~~ | ~~`STUDIENSTAEDTE`-Duplikat zusammenführen~~ — **erledigt 14.9.2026** | fünf Minuten; kostet sonst bei Stadt drei einen halben Tag |
 | **5** | Quellprofil statt zwei CTEs | der einzige echte Blocker für eine dritte Stadt |
 | **6** | Partitioniertes Silver mit Fingerabdruck je Partition | linear → konstant; unabhängig von Infrastruktur |
 | **7** | Cloud Stufe 1 | danach ein Nachmittag, kein Projekt |

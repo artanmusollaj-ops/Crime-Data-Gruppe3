@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **931** |
+| Tests | **932** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -71,6 +71,36 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 14.09.2026 · Zwei Dinge unter einem Namen, entflochten (#82)
+
+**Was.** Die Zuordnung der beiden Studienstädte zu ihren FIPS-Ortsnummern
+stand **zweimal** im Projekt, unter demselben Namen `STUDIENSTAEDTE` und mit
+**verschiedenen Werten**: in `silver_pipeline/build_place.py` gross
+(`"Chicago"`), in `gold_pipeline/__init__.py` klein (`"chicago"`). Jetzt steht
+die Tatsache einmal in `silver_pipeline`, und Gold leitet daraus
+`STADT_SCHLUESSEL` ab. Punkt 4 der Reihenfolge in
+[`ausblick.md`](ausblick.md).
+
+**Warum die Werte verschieden waren — und beide richtig.** Silver prüft gegen
+TIGERs `name`-Feld, und dort steht *Chicago*; das ist der Nachweis, dass eine
+GEOID auf den Ort zeigt, den wir meinen. Gold braucht denselben Ort als
+Verbundschlüssel, und die Spalte `city` in `crime_offense` ist
+kleingeschrieben. Zwei verschiedene Dinge — nur hiessen sie gleich.
+
+**Was daran gefährlich war.** Wer die falsche importierte, bekam
+stillschweigend etwas anderes. Und beim Eintragen einer dritten Stadt wäre sie
+an einer der beiden Stellen gelandet: Silver hätte sie geprüft und Gold nicht
+zugeordnet, oder umgekehrt — beides ohne Fehlermeldung, mit einer Rate ohne
+Nenner als Ergebnis.
+
+**Eine dritte Stadt wird jetzt an genau einer Stelle eingetragen.** Ein Test
+hält die Ableitung fest, ein zweiter, dass die Definition nur noch einmal
+vorkommt.
+
+**Zahlen.** 931 → **932 Tests**.
 
 ---
 
