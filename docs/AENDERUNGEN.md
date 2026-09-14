@@ -66,6 +66,17 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `silver/crime_offense` | 1 | 14.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse |
 | `gold/*` | 1 | 14.09.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung |
 
+> **Der Feldkatalog wird erzeugt, nicht gepflegt.** Am 14.9. wurde
+> `docs/feldkatalog.md` von Hand bearbeitet (`f1c9b42`): Spaltentypen von
+> `BIGINT` auf `SMALLINT`, `TINYINT` und `INTEGER`. Die Datei entsteht aber
+> aus `tools/build_feldkatalog.py` und den Manifesten — die Änderung wäre
+> beim nächsten Lauf verschwunden, und der Wächter
+> `test_ein_zweiter_lauf_liefert_dieselbe_datei` schlug an. Die schmaleren
+> Typen sind ein berechtigter **Wunsch**, aber kein Zustand: `year(tag)`
+> liefert in DuckDB `BIGINT`. Wer sie will, setzt sie als `CAST` in
+> `dim_date_query` und `build_tract` — dann sagt der Katalog `SMALLINT`
+> **und** es stimmt. Bis dahin ist der erzeugte Stand wiederhergestellt.
+
 **Version 1 heisst „der Vertrag, wie er am 14.9.2026 gilt".** Frühere
 Änderungen — das Tatkorn, das Fallkorn, die Mehrheitsregel — stehen als
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
@@ -2116,5 +2127,6 @@ Versehen. Jeder Pull Request ab #24 ist entweder oben ein Eintrag oder hier.
 | #50 | ein überholter Kommentar in `build_analysis_db.py` | eine Zeile, ändert keine Aussage |
 | #80 | `docs/detroit-schichten.html` entfernt — der Entwurf „Detroit-Schichten angleichen" aus der Zeit vor #39 | veraltet und nirgends verlinkt; was daraus wurde, steht in `DETROIT_PIPELINE_ANLEITUNG.md` und Konzept 7.3. Christian hat es entschieden |
 | #81 | `docs/chicago-ingestion.html` entfernt — eine dritte, unverlinkte Beschreibung derselben Pipeline | veraltet (kein Storage-Backend, keine `contract_version`, 259 270 statt 259 272 Zeilen) und nirgends verlinkt; der Inhalt steht im Modul-Docstring, in Notebook 02, README 2.1 und Konzept 6 |
+| #84 | `docs/feldkatalog.md` neu erzeugt, nachdem er von Hand bearbeitet worden war | kein inhaltlicher Entscheid, sondern die Wiederherstellung des erzeugten Stands; die Begründung steht als Anmerkung unter *Vertragsversionen* |
 | #68 | `orchestration.drift` las den Fingerabdruck unter einem falschen Schlüssel (`fingerprint` statt `input_fingerprint`) — der erste Lauf zeigte `None` | Fehlerbehebung mit Test, ändert keine Aussage |
 
