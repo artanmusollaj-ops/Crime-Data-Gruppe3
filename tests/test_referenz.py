@@ -311,10 +311,29 @@ def test_ein_zweiter_lauf_liefert_dieselben_dateien(tmp_path, abgelegt):
         if _ohne_zeilenenden(abgelegt / rel) != _ohne_zeilenenden(ziel / rel)
     ]
     assert not anders, (
-        f"{len(anders)} Datei(en) weichen vom frischen Bau ab: {anders[:5]}. "
-        "Die abgelegte Referenz ist aelter als der Code - "
+        f"{len(anders)} Datei(en) weichen vom frischen Bau ab: {anders[:5]}.\n"
+        + _erste_abweichung(abgelegt / anders[0], ziel / anders[0])
+        + "\nDie abgelegte Referenz ist aelter als der Code - "
         "python tools/build_referenz.py"
     )
+
+
+def _erste_abweichung(abgelegt: Path, frisch: Path) -> str:
+    """Die erste Zeile, in der sich zwei Seiten unterscheiden.
+
+    Ohne sie sagt der Test nur *dass* etwas abweicht. Beim ersten roten Lauf
+    war genau das das Problem: eine Datei, ein Name, und keine Ahnung, woran
+    es liegt - die Ursache lag in einer von 12'000 Zeilen.
+    """
+    from difflib import unified_diff
+
+    zeilen = list(unified_diff(
+        _ohne_zeilenenden(abgelegt).decode("utf-8", "replace").splitlines(),
+        _ohne_zeilenenden(frisch).decode("utf-8", "replace").splitlines(),
+        fromfile="abgelegt", tofile="frisch", n=0, lineterm="",
+    ))
+    gekuerzt = [z[:400] for z in zeilen[:12]]
+    return "\n".join(gekuerzt)
 
 
 def _ohne_zeilenenden(pfad: Path) -> bytes:
