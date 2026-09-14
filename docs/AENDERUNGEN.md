@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **938** |
+| Tests | **946** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -87,6 +87,47 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 14.09.2026 · Zwei Architekturbilder, aus dem Code erzeugt (#87)
+
+**Was.** [`docs/architektur.md`](architektur.md) zeigt den Aufbau in zwei
+Bildern und führt einen Lesepfad: sechs Stellen, rund 400 Zeilen, in der
+Reihenfolge, in der sie sich erklären. Beide Bilder erzeugt
+`tools/build_architekturbilder.py` aus dem AST und aus
+`orchestration.run_all.STUFEN`.
+
+**Warum.** Konzept 5.3 führte unter *Data Architecture* wochenlang *„kein
+Diagramm der Abhängigkeitskanten"* als Lücke. Die ist damit geschlossen — und
+zwar so, dass sie nicht wiederkommt: Ein gezeichnetes Bild wäre am Tag darauf
+falsch, ein erzeugtes nicht.
+
+**Der Befund, der die Aufgabe verschoben hat.** Das Projekt hat **mehr
+Erklärung als Code**: rund 11'600 Zeilen Prosa (294 Docstrings, 475
+Test-Docstrings, elf Dokumente) gegen 10'569 Zeilen Produktionscode. Es fehlte
+also kein Text, sondern ein Weg hinein.
+
+**Warum nur drei von neunzehn Pfeilen gezeichnet sind.** Sechzehn Kanten
+zeigen auf `manifeste` und `storage`; alle zu zeichnen ergibt ein Knäuel, in
+dem die drei übrigen untergehen. Die Fundamente stehen als Band darunter, die
+Bildunterschrift nennt genau, wer sie benutzt. Dasselbe in lesbar, nicht
+weniger.
+
+**Die Pointe der beiden Bilder.** Im Importgraph fehlt eine Kante von
+`silver_pipeline` zu `chicago_pipeline`, im Datenfluss steht sie. Kein
+Widerspruch: **Die Schichten hängen an Dateien, nicht aneinander.** Silver
+liest Chicagos Bronze-Läufe über die Ablage, nicht über einen Import — deshalb
+erzwingt eine dritte Stadt keine Änderung an Silver, und deshalb hat der
+Storage-Umbau die Pipelines nicht angefasst.
+
+**Wächter.** Acht Tests: ein zweiter Lauf liefert dieselben Dateien, das SVG
+ist wohlgeformt und hat eine Beschreibung, jedes Paket steht im Bild, die
+genannten Zahlen stimmen — und der **Importgraph hat keine Zyklen**. Das
+letzte ist eine Aussage über die Architektur, nicht über die Zeichnung:
+`manifeste` hängt an nichts, `storage` nur an `manifeste`.
+
+**Zahlen.** 938 → **946 Tests**.
 
 ---
 
