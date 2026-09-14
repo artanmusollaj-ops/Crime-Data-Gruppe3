@@ -43,17 +43,21 @@ def code(*teile: str) -> str:
 # --------------------------------------------------------------------------
 
 
-def test_studienstaedte_ist_wirklich_doppelt_definiert(text):
-    """Behauptet in Abschnitt 3. Wird es zusammengefuehrt, faellt der Satz."""
-    if "doppelt definiert" not in text:
-        pytest.skip("Das Dokument behauptet es nicht mehr")
+def test_studienstaedte_steht_nur_noch_einmal(text):
+    """Umgekehrter Waechter: zusammengefuehrt am 14.9.2026.
+
+    Wer die Zuordnung wieder abschreibt, faellt hier durch - und bei der
+    dritten Stadt haette es sonst einen halben Tag Fehlersuche gekostet.
+    """
+    if "zusammengeführt am 14.9.2026" not in text:
+        pytest.skip("Das Dokument fuehrt den Punkt nicht als erledigt")
     treffer = [
-        p for p in ("gold_pipeline/__init__.py", "silver_pipeline/build_place.py")
-        if "STUDIENSTAEDTE = " in code(*p.split("/"))
+        str(p.relative_to(QUELLE)) for p in QUELLE.rglob("*.py")
+        if "STUDIENSTAEDTE = {" in p.read_text(encoding="utf-8")
     ]
-    assert len(treffer) == 2, (
-        f"STUDIENSTAEDTE steht nur noch in {treffer} - der Ausblick sagt, es sei "
-        "doppelt. Abschnitt 3 und die Reihenfolge in 5 anpassen."
+    assert treffer == ["silver_pipeline/__init__.py"], (
+        f"STUDIENSTAEDTE wird an {len(treffer)} Stellen definiert: {treffer}. "
+        "Der Ausblick sagt, es sei zusammengefuehrt."
     )
 
 

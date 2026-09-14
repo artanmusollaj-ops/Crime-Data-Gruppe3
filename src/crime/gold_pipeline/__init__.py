@@ -35,16 +35,25 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from silver_pipeline import STUDIENSTAEDTE
+
 
 GOLD_LAYER = "gold"
 SILVER_LAYER = "silver"
 PARQUET_FILE = "part-0001.parquet"
 
-# Die beiden Staedte ueber ihre FIPS-Ortsnummer. Ueber den Namen zu gehen waere
-# falsch: Illinois fuehrt neben Chicago city auch ein Detroit village.
-STUDIENSTAEDTE = {
-    "1714000": "chicago",
-    "2622000": "detroit",
+# Die beiden Staedte als **Verbundschluessel**: kleingeschrieben, weil so die
+# Spalte ``city`` in ``silver/crime_offense`` aussieht und ``dim_tract``
+# darueber verbunden wird.
+#
+# Abgeleitet, nicht abgeschrieben. Bis zum 14.9.2026 stand dieselbe Zuordnung
+# ein zweites Mal in ``silver_pipeline`` - gross statt klein, unter demselben
+# Namen ``STUDIENSTAEDTE``. Zwei Dinge unter einem Namen, mit verschiedenen
+# Werten: Wer die falsche importierte, bekam stillschweigend etwas anderes,
+# und eine dritte Stadt waere nur an einer der beiden Stellen gelandet. Die
+# Tatsache steht jetzt einmal da, der abgeleitete Schluessel heisst anders.
+STADT_SCHLUESSEL = {
+    geoid: name.lower() for geoid, name in STUDIENSTAEDTE.items()
 }
 
 # Ab diesem Flaechenanteil gehoert ein Tract zur Stadt. Tracts liegen nicht

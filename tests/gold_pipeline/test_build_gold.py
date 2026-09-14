@@ -22,7 +22,7 @@ import pyarrow.parquet as pq
 import pytest
 
 import build_gold as bg
-from gold_pipeline import STUDIENSTAEDTE
+from gold_pipeline import STADT_SCHLUESSEL
 from silver_pipeline import TransformError, connect
 
 
@@ -659,7 +659,7 @@ def test_die_echte_stadtzuordnung_trifft_die_amtliche_einwohnerzahl(con):
             "WHERE city IS NOT NULL GROUP BY city"
         ).fetchall()
     )
-    assert set(einwohner) == set(STUDIENSTAEDTE.values())
+    assert set(einwohner) == set(STADT_SCHLUESSEL.values())
     # Zensus 2020: Chicago 2'746'388, Detroit 639'111. Der ACS schaetzt
     # niedriger als der Zensus zaehlt, deshalb eine einseitige Spanne.
     assert 2_400_000 < einwohner["chicago"] < 2_800_000
@@ -870,8 +870,8 @@ def test_kein_delikt_landet_in_der_falschen_stadt(con):
 
     con.execute("INSTALL spatial")
     con.execute("LOAD spatial")
-    orte = ", ".join(f"'{g}'" for g in sorted(STUDIENSTAEDTE))
-    paare = ", ".join(f"('{g}','{s}')" for g, s in sorted(STUDIENSTAEDTE.items()))
+    orte = ", ".join(f"'{g}'" for g in sorted(STADT_SCHLUESSEL))
+    paare = ", ".join(f"('{g}','{s}')" for g, s in sorted(STADT_SCHLUESSEL.items()))
     verwechselt = con.execute(f"""
         WITH grenze AS (
             SELECT geoid, ST_GeomFromWKB(geometry) AS geom
@@ -949,3 +949,27 @@ def test_eine_quelle_ohne_manifest_faellt_auf_den_pfad_zurueck():
     """Ein Bestand von vor der Aenderung darf den Bau nicht aufhalten."""
     eintrag = bg.herkunft_der_quelle(bg.Quelle("tract", "/alt/part-0001.parquet"))
     assert eintrag == {"layer": "silver", "table": "tract", "path": "/alt/part-0001.parquet"}
+
+
+def test_der_verbundschluessel_ist_abgeleitet_nicht_abgeschrieben():
+    """Seit dem 14.9.2026 steht die Zuordnung einmal im Projekt.
+
+    Vorher gab es sie zweimal unter demselben Namen ``STUDIENSTAEDTE`` - in
+    ``silver_pipeline`` gross, in ``gold_pipeline`` klein. Zwei Dinge, ein
+    Name, verschiedene Werte: Wer die falsche importierte, bekam
+    stillschweigend etwas anderes, und eine dritte Stadt waere nur an einer
+    der beiden Stellen gelandet.
+
+    Jetzt traegt Silver die Tatsache (der amtliche Name, wie TIGER ihn
+    schreibt) und Gold leitet den Verbundschluessel ab. Dieser Test haelt die
+    Ableitung fest - wer sie wieder abschreibt, faellt durch.
+    """
+    from silver_pipeline import STUDIENSTAEDTE
+
+    assert set(STADT_SCHLUESSEL) == set(STUDIENSTAEDTE), "dieselben FIPS-Nummern"
+    assert STADT_SCHLUESSEL == {
+        geoid: name.lower() for geoid, name in STUDIENSTAEDTE.items()
+    }
+    # Und die Schluessel muessen zu dem passen, was crime_offense in city
+    # schreibt - sonst verbindet dim_tract ins Leere.
+    assert set(STADT_SCHLUESSEL.values()) == {"chicago", "detroit"}

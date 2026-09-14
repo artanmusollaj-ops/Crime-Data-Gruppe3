@@ -50,6 +50,7 @@ from census_pipeline import STATES
 from manifeste import code_stand, eingabe_abdruck
 from storage import StorageError, for_root
 from silver_pipeline import (
+    STUDIENSTAEDTE,
     BRONZE_LAYER,
     PARQUET_FILE,
     SILVER_LAYER,
@@ -73,14 +74,10 @@ CONTRACT_VERSION = 1
 PLACE_DATASET = "tiger_place"
 DEFAULT_VINTAGE = 2024
 
-# Die beiden Staedte des Projekts, ueber ihre FIPS-Ortsnummer. Sie steht hier
-# und nicht in Gold, weil ``reconcile`` nachweisen muss, dass beide ueberhaupt
-# in der Auslieferung stecken - eine Tabelle ohne Chicago waere formal gueltig
-# und fachlich wertlos.
-STUDIENSTAEDTE = {
-    "1714000": "Chicago",
-    "2622000": "Detroit",
-}
+# Die beiden Staedte kommen aus ``silver_pipeline`` - hier steht nur, wozu sie
+# gebraucht werden: ``reconcile`` weist nach, dass beide ueberhaupt in der
+# Auslieferung stecken. Eine Tabelle ohne Chicago waere formal gueltig und
+# fachlich wertlos.
 
 # LSAD sagt, welches Wort im Namen hinter dem Ortsnamen steht. Nur diese beiden
 # Codes kommen bei unseren Staedten vor; alles andere bleibt als Code stehen.

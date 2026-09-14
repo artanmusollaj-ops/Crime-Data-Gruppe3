@@ -51,6 +51,24 @@ SILVER_LAYER = "silver"
 BRONZE_LAYER = "bronze"
 PARQUET_FILE = "part-0001.parquet"
 
+# Die beiden Staedte des Projekts, ueber ihre FIPS-Ortsnummer. Ueber den Namen
+# zu gehen waere falsch: Illinois fuehrt neben Chicago city auch ein Detroit
+# village.
+#
+# Der Wert ist der **amtliche Name, wie TIGER ihn schreibt** - gross. Genau so
+# prueft ``build_place``, dass eine GEOID auf den Ort zeigt, den wir meinen.
+# Gold braucht denselben Ort als kleingeschriebenen Verbundschluessel (die
+# Spalte ``city`` in ``crime_offense``) und leitet ihn hieraus ab; siehe
+# ``gold_pipeline.STADT_SCHLUESSEL``.
+#
+# **Eine dritte Stadt wird genau hier eingetragen, sonst nirgends.** Bis zum
+# 14.9.2026 stand diese Zuordnung zweimal im Projekt - einmal gross, einmal
+# klein -, und wer sie erweitert haette, haette eine der beiden vergessen.
+STUDIENSTAEDTE = {
+    "1714000": "Chicago",
+    "2622000": "Detroit",
+}
+
 # Der Fehlwert des ACS. In Bronze bleibt er unveraendert stehen; ihn zu deuten
 # ist ausdruecklich Aufgabe dieser Schicht.
 ACS_MISSING_VALUE = "-666666666"
