@@ -2036,5 +2036,6 @@ Versehen. Jeder Pull Request ab #24 ist entweder oben ein Eintrag oder hier.
 | #41 | erste Fassung des toten Zwillings | **nicht gemergt** — durch das Löschen des Basis-Branches geschlossen, neu als #42 |
 | #50 | ein überholter Kommentar in `build_analysis_db.py` | eine Zeile, ändert keine Aussage |
 | #80 | `docs/detroit-schichten.html` entfernt — der Entwurf „Detroit-Schichten angleichen" aus der Zeit vor #39 | veraltet und nirgends verlinkt; was daraus wurde, steht in `DETROIT_PIPELINE_ANLEITUNG.md` und Konzept 7.3. Christian hat es entschieden |
+| #81 | `docs/chicago-ingestion.html` entfernt — eine dritte, unverlinkte Beschreibung derselben Pipeline | veraltet (kein Storage-Backend, keine `contract_version`, 259 270 statt 259 272 Zeilen) und nirgends verlinkt; der Inhalt steht im Modul-Docstring, in Notebook 02, README 2.1 und Konzept 6 |
 | #68 | `orchestration.drift` las den Fingerabdruck unter einem falschen Schlüssel (`fingerprint` statt `input_fingerprint`) — der erste Lauf zeigte `None` | Fehlerbehebung mit Test, ändert keine Aussage |
 
