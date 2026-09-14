@@ -10,7 +10,7 @@ vorn.
 
 | Thema | Kommt von | Dringlichkeit |
 | --- | --- | --- |
-| [1 · Stichtagskonsistenz und Lineage](#1--stichtagskonsistenz-und-lineage) | Artan | **Stufe A erledigt am 14.9.** (#77); B offen |
+| [1 · Stichtagskonsistenz und Lineage](#1--stichtagskonsistenz-und-lineage) | Artan | **Stufe A und B erledigt am 14.9.** (#77, #79); C offen |
 | [2 · Die Ladelogik versionieren](#2--die-ladelogik-versionieren) | Artan | **erledigt am 14.9.** (#78) |
 | [3 · Skalieren](#3--skalieren) | Gedankenspiel | mittel — erst relevant ab Stadt drei |
 | [4 · In die Cloud](#4--in-die-cloud) | Gedankenspiel | niedrig — technisch fast vorbereitet, fachlich unnötig |
@@ -113,7 +113,7 @@ verschiedene Abdrücke bekommen, und die ganze Zusage wäre wertlos gewesen.
 Gehasht wird deshalb nur das Kennzeichnende: Lauf-Kennungen, Prüfsummen und
 die Abdrücke der Vorgänger (`manifeste.kennzeichen`).
 
-### Der Konflikt, den niemand gesucht hat
+### Der Konflikt, den niemand gesucht hat — **gelöst am 14.9.2026** (#79)
 
 Reproduzierbarkeit braucht die alten Bronze-Läufe. Die **Aufbewahrungsregel**
 von gestern (`orchestration.aufraeumen`) behält:
@@ -134,15 +134,35 @@ Historisierung falsch. Beides gleichzeitig geht nur mit einer vierten Regel:
 Das ist eine kleine Erweiterung einer Sache, die es schon gibt, und sie macht
 den Unterschied zwischen „wir könnten reproduzieren" und „wir können".
 
+**Gebaut als Regel 0** in `orchestration.aufraeumen`, mit einem versionierten
+Register `config/referenzstand.csv` — ein Referenzstand ist eine Verabredung
+des Teams, kein Zustand eines Rechners.
+
+**Und er wird abgeleitet, nicht getippt.** Das ist der Ertrag von Stufe A:
+Weil ein Gold-Manifest seine Silver-Quelle samt deren Herkunft nennt, stehen
+die Bronze-Läufe darin. `--pinnen` liest sie heraus:
+
+```bash
+$ python -m orchestration.aufraeumen --pinnen LN1
+9 Lauf/Laeufe als 'LN1' festgehalten in config/referenzstand.csv
+$ python -m orchestration.aufraeumen
+  1d879a0e-2398-4dcb-b59f-6218   88'685 Zeilen   27.2 MB  Referenzstand
+  run_20260907T181228996304Z     55'445 Zeilen   24.5 MB  vorheriger Schnappschuss
+```
+
+Neun Läufe über alle fünf Quellen — genau die, auf denen die veröffentlichten
+Zahlen ruhen. Der NOAA-Lauf vom 7.9. ist **nicht** dabei: Silver nimmt den
+jüngsten, also ruht keine Zahl auf ihm.
+
 ### In drei Stufen
 
 | Stufe | Was | Aufwand | Was man danach kann |
 | --- | --- | --- | --- |
 | ~~**A**~~ | ~~Gold nennt die Identität des Silver-Stands; Crosswalks mit Hash~~ — **erledigt 14.9.2026 (#77)** | klein | jede heutige Zahl vollständig **erklären** |
-| **B** | Gepinnte Läufe, die das Aufräumen überleben | klein | jede gepinnte Zahl **reproduzieren** |
+| ~~**B**~~ | ~~Gepinnte Läufe, die das Aufräumen überleben~~ — **erledigt 14.9.2026 (#79)** | klein | jede gepinnte Zahl **reproduzieren** |
 | **C** | Silver und Gold versioniert ablegen (`vintage=`/`asof=`), statt zu ersetzen | mittel–gross | **mehrere** Stände nebeneinander halten und vergleichen |
 
-Stufe A und B zusammen lösen Artans Punkt. **Stufe C ist ausdrücklich
+Stufe A und B sind gebaut und lösen Artans Punkt. **Stufe C ist ausdrücklich
 optional** — sie ist die teure Variante und hebt die Entscheidung auf, dass
 abgeleitete Schichten ersetzt und nicht angehäuft werden (Konzept 7.4). Ich
 würde sie erst bauen, wenn jemand tatsächlich zwei Stände vergleichen will;
@@ -364,7 +384,7 @@ Nach Nutzen je Aufwand, nicht nach Reiz:
 | --- | --- | --- |
 | ~~**1**~~ | ~~Gold nennt die Identität des Silver-Stands; Crosswalks mit Hash (1·A)~~ — **erledigt 14.9.2026** | schliesst die Lineage-Kette; klein |
 | ~~**2**~~ | ~~Code-Version und Vertragsversion in jedes Manifest (2)~~ — **erledigt 14.9.2026** | beantwortet, ab wann anders geladen wurde |
-| **3** | Gepinnte Läufe, die das Aufräumen überleben (1·B) | macht aus „erklärbar" ein „reproduzierbar" |
+| ~~**3**~~ | ~~Gepinnte Läufe, die das Aufräumen überleben (1·B)~~ — **erledigt 14.9.2026** | macht aus erklärbar ein reproduzierbar |
 | **4** | `STUDIENSTAEDTE`-Duplikat zusammenführen | fünf Minuten; kostet sonst bei Stadt drei einen halben Tag |
 | **5** | Quellprofil statt zwei CTEs | der einzige echte Blocker für eine dritte Stadt |
 | **6** | Partitioniertes Silver mit Fingerabdruck je Partition | linear → konstant; unabhängig von Infrastruktur |

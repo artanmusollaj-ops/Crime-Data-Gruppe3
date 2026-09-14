@@ -197,7 +197,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet werden **924 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **931 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -403,11 +403,24 @@ python -m orchestration.aufraeumen             # zeigt je Quelle, was bleibt und
 python -m orchestration.aufraeumen --loeschen  # löscht die entbehrlichen Läufe, Raw und Bronze zusammen
 ```
 
-Es bleiben: der **jüngste Lauf und der davor** (der zweite ist der
+Es bleiben: alles, was **gepinnt** ist (siehe unten), der **jüngste Lauf und der davor** (der zweite ist der
 Schnappschuss, gegen den Notebook 13 die Quelle prüft), alles, was ein
 **Silver-Manifest nennt**, und die **Basis eines Delta-Laufs** — Chicago lädt
 seit dem ersten vollen Schnappschuss nur Änderungen. Ohne `--loeschen`
 geschieht nichts. `data/` ist nicht versioniert; die Regel gilt je Rechner.
+
+**Einen Stand festhalten.** Wer eine Zahl in eine Abgabe übernimmt, pinnt
+den Stand, auf dem sie ruht — danach überlebt er jedes Aufräumen:
+
+```bash
+python -m orchestration.aufraeumen --pinnen LN1
+```
+
+Welche Läufe das sind, wird aus den Gold-Manifesten **abgeleitet**, nicht
+getippt: Sie nennen ihre Silver-Quelle samt deren Herkunft, und darin stehen
+die Bronze-Läufe. Das Register `config/referenzstand.csv` ist versioniert und
+gehört mit committet — ein Referenzstand ist eine Verabredung des Teams, kein
+Zustand eines Rechners.
 
 ### 2.5 Ablage: lokal, SeaweedFS oder hybrid
 
@@ -529,7 +542,7 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 python -m pytest
 ```
 
-**924 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**931 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -563,7 +576,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **881 der 924 Tests**. Die übrigen 43 überspringen
+In einem frischen Klon laufen **888 der 931 Tests**. Die übrigen 43 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter

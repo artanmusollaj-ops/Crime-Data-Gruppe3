@@ -153,12 +153,13 @@ def test_die_code_version_steht_in_den_manifesten(text):
     )
 
 
-def test_aufraeumen_kennt_noch_keine_gepinnten_laeufe(text):
-    """Stufe B aus Abschnitt 1."""
-    if "Gepinnt bleibt" not in text:
-        pytest.skip("Das Dokument schlaegt es nicht mehr vor")
-    assert "gepinnt" not in code("orchestration", "aufraeumen.py").lower(), (
-        "Das Aufraeumen kennt jetzt gepinnte Laeufe - Abschnitt 1, Stufe B ist erledigt"
+def test_das_aufraeumen_kennt_gepinnte_laeufe(text):
+    """Umgekehrter Waechter: Stufe B ist seit dem 14.9. gebaut."""
+    if "erledigt 14.9.2026 (#79)" not in text:
+        pytest.skip("Das Dokument fuehrt Stufe B nicht als erledigt")
+    quelle = code("orchestration", "aufraeumen.py")
+    assert "def gepinnte_laeufe" in quelle and "def pinne" in quelle, (
+        "Das Aufraeumen kennt keine gepinnten Laeufe mehr - Abschnitt 1 anpassen"
     )
 
 
