@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **978** |
+| Tests | **980** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -134,7 +134,26 @@ wie die Werkzeuge sie aus den amtlichen PDFs schreiben, und drei Tests
 vergleichen genau diese Bytes. Eine eol-Regel darueber haette sie beim
 naechsten Checkout umgeschrieben und die Reproduktion gebrochen.
 
-**Zahlen.** 976 → **978 Tests**. Das Repository waechst von 9,0 auf 9,6 MB
+**Der zweite Fehler, den erst CI zeigte.** Der Byte-Vergleich war lokal
+gruen und auf beiden 3.13-Runnern rot — eine einzige Datei, `storage.html`,
+und keine Ahnung woran. Die Ursache stand in einer von 12'000 Zeilen:
+`S3Client` ist ein `typing.Protocol`, und Python haengt solchen Klassen ein
+`__init__` aus `typing.py` an. pdoc zeigt jedes `__init__` mit Parametern —
+also standen **neun Zeilen CPython** in der Seite, samt ihrer Zeilennummern.
+Die verschieben sich zwischen Patchversionen; auf 3.13.0 lag die Funktion bei
+Zeile 1940, auf dem Runner anderswo.
+
+Gefiltert wird das ueber pdocs eigenen Ausstieg: `tools/pdoc_vorlage/`
+ueberschreibt das Makro `is_public` und laesst Mitglieder weg, deren
+Quelldatei ausserhalb von `src/crime` liegt. Ein erster Entwurf nahm zu viel
+weg — `<string>` als Quelldatei heisst *erzeugt*, nicht *fremd*, und damit
+verschwanden auch alle `NamedTuple`-Konstruktoren. Beide Faelle stehen jetzt
+als Test.
+
+Nebenbei: Dass der Waechter nur *„storage.html weicht ab"* sagte, war selbst
+ein Mangel. Er nennt jetzt die erste abweichende Zeile.
+
+**Zahlen.** 976 → **980 Tests**. Das Repository waechst von 9,0 auf 9,6 MB
 (gemessen an zwei gepackten Klonen). Die 7,2 MB HTML kosten also rund 0,6 MB,
 weil fuenfundzwanzig Seiten dasselbe CSS tragen und sich entsprechend gut
 packen lassen.

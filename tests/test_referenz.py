@@ -252,6 +252,54 @@ def test_die_seiten_tragen_keine_rechnerpfade(abgelegt):
     assert not schuldig, f"diese Seiten nennen einen absoluten Pfad: {schuldig}"
 
 
+def test_die_referenz_zeigt_keinen_fremden_quelltext(abgelegt):
+    """Nur unser Code gehoert hinein - und nur er ist reproduzierbar.
+
+    ``S3Client`` ist ein ``typing.Protocol``; Python haengt solchen Klassen ein
+    ``__init__`` aus ``typing.py`` an, und pdoc zeigte dessen neun Zeilen
+    CPython samt Zeilennummern. Die verschieben sich zwischen
+    Patchversionen - der Byte-Vergleich war lokal gruen und auf CI rot, und
+    die Ursache stand in einer von 12'000 Zeilen.
+
+    Geprueft wird der Effekt, nicht die Ursache: Steht irgendwo Quelltext, den
+    wir nicht geschrieben haben, faellt der Test.
+    """
+    verraeter = ("_no_init_or_replace_init", "S3Client.__init__")
+    gefunden = {
+        str(pfad.relative_to(abgelegt).as_posix()): [
+            v for v in verraeter if v in pfad.read_text(encoding="utf-8")
+        ]
+        for pfad in abgelegt.rglob("*.html")
+    }
+    schuldig = {name: was for name, was in gefunden.items() if was}
+    assert not schuldig, (
+        f"fremder Quelltext in der Referenz: {schuldig}. "
+        "aus_fremdem_code() in tools/build_referenz.py greift nicht mehr."
+    )
+
+
+def test_der_filter_fuer_fremden_code_trifft_nur_fremden(abgelegt):
+    """Er darf nicht zu viel wegnehmen.
+
+    Ein erster Entwurf fragte nur, ob die Quelldatei unter ``src/crime``
+    liegt - und warf damit auch alle ``NamedTuple``-Konstruktoren heraus, denn
+    die tragen ``<string>`` als Quelldatei. Weg waren ``Lauf``, ``Tabelle``,
+    ``Quelle`` und ``Standvergleich``.
+    """
+    erwartet = {
+        "manifeste.html": ("Lauf.__init__", "Tabelle.__init__"),
+        "storage.html": ("Standvergleich.__init__", "Boto3Client.__init__"),
+        "gold_pipeline/build_gold.html": ("Quelle.__init__",),
+    }
+    for seite, namen in erwartet.items():
+        inhalt = (abgelegt / seite).read_text(encoding="utf-8")
+        fehlend = [n for n in namen if n not in inhalt]
+        assert not fehlend, (
+            f"{seite}: diese eigenen Konstruktoren fehlen: {fehlend} - "
+            "der Filter nimmt zu viel weg"
+        )
+
+
 def test_ein_bekannter_docstring_steht_auch_in_der_referenz(abgelegt):
     """Die Probe aufs Exempel: Kommt der Text wirklich in der Seite an?
 

@@ -37,6 +37,14 @@ Gefunden wurde das erst, als die Referenz ins Repository sollte. Der erste
 Waechter baute zweimal **im selben Prozess** - und derselbe Prozess hat
 denselben Seed. Er war gruen, weil er die Frage nicht gestellt hat.
 
+**Was nicht in die Referenz gehoert.** ``pdoc_vorlage/`` ergaenzt pdocs Regel
+um einen Fall: Mitglieder, deren Quelldatei ausserhalb von ``src/crime``
+liegt, werden nicht gezeigt. Betroffen ist genau eines - das ``__init__``, das
+Python dem ``typing.Protocol`` ``S3Client`` anhaengt. pdoc haette neun Zeilen
+CPython in die Seite geschrieben, mit den Zeilennummern aus ``typing.py``.
+Die verschieben sich zwischen Patchversionen, und daran fiel der Waechter auf
+CI durch, waehrend er lokal gruen war.
+
 **Was die Marke soll.** ``erzeugt-mit.json`` haelt fest, welcher Interpreter
 und welche pdoc-Version die abgelegten Seiten geschrieben haben. Die Ausgabe
 ist naemlich nur *innerhalb* einer Python-Version byteweise gleich: 3.13
@@ -69,6 +77,7 @@ from typing import NamedTuple
 PROJEKT = Path(__file__).resolve().parents[1]
 QUELLE = PROJEKT / "src" / "crime"
 ZIEL = PROJEKT / "docs" / "referenz"
+VORLAGE = Path(__file__).resolve().parent / "pdoc_vorlage"
 MARKE = "erzeugt-mit.json"
 
 # Irgendein fester Wert; 0 ist der uebliche. Entscheidend ist nur, dass er
@@ -331,7 +340,9 @@ def baue(ziel: Path = ZIEL) -> Ergebnis:
         footer_text="Crime-Data-Gruppe3 · erzeugt aus den Docstrings",
         search=True,
         show_source=True,
+        template_directory=VORLAGE,
     )
+    pdoc.render.env.globals["aus_fremdem_code"] = aus_fremdem_code
     with warnings.catch_warnings(record=True) as gesammelt:
         warnings.simplefilter("always")
         pdoc.pdoc(*pakete(), output_directory=ziel)
@@ -352,6 +363,32 @@ def baue(ziel: Path = ZIEL) -> Ergebnis:
         dateien=sorted(p for p in ziel.rglob("*") if p.is_file()),
         warnungen=[str(w.message) for w in gesammelt],
     )
+
+
+def aus_fremdem_code(doc: object) -> bool:
+    """Ob ein Mitglied aus einer Datei ausserhalb von ``src/crime`` stammt.
+
+    Die Vorlage unter ``pdoc_vorlage/`` benutzt das, um genau einen Fall
+    auszuschliessen: ``S3Client`` ist ein ``typing.Protocol``, und Python
+    haengt solchen Klassen beim Erzeugen ein ``__init__`` aus ``typing.py``
+    an. pdoc zeigt jedes ``__init__`` mit Parametern - hier also neun Zeilen
+    CPython, mit deren Zeilennummern.
+
+    Das war der Fehler, an dem der Waechter auf CI durchfiel, waehrend er
+    lokal gruen war: Die Zeilennummern in ``typing.py`` verschieben sich
+    zwischen CPython-Patchversionen. Auf 3.13.0 stand die Funktion bei Zeile
+    1940, auf der Version des Linux-Runners anderswo.
+
+    ``<string>`` als Quelldatei heisst *erzeugt*, nicht *fremd* - so tragen es
+    die ``NamedTuple``-Konstruktoren, und die gehoeren in die Referenz.
+    """
+    datei = getattr(doc, "source_file", None)
+    if datei is None:
+        return False
+    pfad = Path(datei)
+    if not pfad.is_absolute() or not pfad.exists():
+        return False
+    return not pfad.resolve().is_relative_to(QUELLE.resolve())
 
 
 def erzeugt_mit() -> dict[str, str]:

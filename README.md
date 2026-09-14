@@ -200,7 +200,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet werden **978 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **980 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -567,7 +567,7 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 python -m pytest
 ```
 
-**978 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**980 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -601,7 +601,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **922 der 978 Tests**. Die übrigen 56 überspringen
+In einem frischen Klon laufen **924 der 980 Tests**. Die übrigen 56 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
