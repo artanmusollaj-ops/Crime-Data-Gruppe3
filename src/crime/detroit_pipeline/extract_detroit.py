@@ -27,6 +27,7 @@ from uuid import uuid4
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from manifeste import code_stand
 from storage import get_storage
 from .bronze_parquet import schema_for, schema_hash, to_row
 
@@ -38,6 +39,12 @@ from .detroit_arcgis import (
     build_year_where,
     resolve_daily_window,
 )
+
+
+# Der Ladevertrag. Steht auf 2, seit das Abfragefenster am 11.9.2026 in
+# Detroiter Ortszeit statt in UTC gezogen wird (Konzept 8.6) - Laeufe davor
+# enthielten 66 Faelle aus 2023. Siehe "Vertragsversionen" in AENDERUNGEN.md.
+CONTRACT_VERSION = 2
 
 
 class Mitschrift:
@@ -273,6 +280,11 @@ def _extract_where(
     # SCHRITT 5: Das Manifest macht Vollstaendigkeit, Laufzeit, Filter und
     # Quellzustand maschinenlesbar und kann spaeter vom Monitoring gelesen werden.
     manifest = {
+        # Detroit fuehrt seit jeher drei feinere Vertraege (bronze_, raw_,
+        # window_). contract_version ist die gemeinsame Angabe aller fuenf
+        # Quellen und traegt hier dieselbe Zahl wie der Bronze-Vertrag.
+        "contract_version": CONTRACT_VERSION,
+        "code_version": code_stand(),
         "bronze_contract_version": 2,
         "storage_format": "PARQUET",
         "compression": "ZSTD",

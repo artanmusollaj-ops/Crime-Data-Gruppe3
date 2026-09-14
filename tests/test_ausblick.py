@@ -84,11 +84,15 @@ def test_duckdb_hat_wirklich_keine_grenzen(text):
     )
 
 
-def test_nur_detroit_hat_vertragsversionen(text):
-    """Das Vorbild aus Abschnitt 2. Ziehen andere Quellen nach, gilt der
-    Satz 'nur fuer Detroit' nicht mehr."""
-    if "nur für Detroit" not in text:
-        pytest.skip("Das Dokument behauptet es nicht mehr")
+def test_alle_quellen_haben_vertragsversionen(text):
+    """Umgekehrter Waechter: Punkt 2 ist seit dem 14.9. gebaut.
+
+    Vorher stand hier "nur fuer Detroit". Jetzt muessen es alle sein - wer
+    eine Quelle ohne Vertrag laesst, macht aus einem erledigten Punkt wieder
+    eine Luecke.
+    """
+    if "erledigt am 14.9." not in text:
+        pytest.skip("Das Dokument fuehrt den Punkt nicht als erledigt")
     # Die drei Versionen liegen in drei Modulen - bronze_ und raw_ in
     # extract_detroit, window_ in detroit_arcgis. Gesucht wird deshalb im Paket.
     detroit = "".join(
@@ -101,16 +105,16 @@ def test_nur_detroit_hat_vertragsversionen(text):
         f"Detroits Vertragsversionen {fehlend} sind weg - Abschnitt 2 verliert "
         "sein Vorbild"
     )
-    andere = [
+    ohne = [
         pfad for pfad in ("chicago_pipeline/download_chicago.py",
                           "census_pipeline/download_acs.py",
                           "census_pipeline/download_tiger.py",
                           "weather_pipeline/download_noaa.py")
-        if "contract_version" in code(*pfad.split("/"))
+        if "CONTRACT_VERSION" not in code(*pfad.split("/"))
     ]
-    assert not andere, (
-        f"{andere} haben jetzt auch Vertragsversionen - Abschnitt 2 und die "
-        "Reihenfolge in 5 anpassen"
+    assert not ohne, (
+        f"{ohne} haben keine Vertragsversion mehr - der Ausblick sagt, der "
+        "Punkt sei erledigt"
     )
 
 
@@ -132,16 +136,21 @@ def test_die_herkunftskette_bleibt_geschlossen(text):
     )
 
 
-def test_keine_code_version_in_den_manifesten(text):
-    """Vorschlag 1 aus Abschnitt 2. Sobald sie drinsteht, ist es kein Ausblick mehr."""
-    if "Code-Version in jedes Lauf-Manifest" not in text:
-        pytest.skip("Das Dokument schlaegt es nicht mehr vor")
+def test_die_code_version_steht_in_den_manifesten(text):
+    """Umgekehrter Waechter zu Vorschlag 1, gebaut am 14.9."""
+    if "Code-Version in jedem Manifest" not in text:
+        pytest.skip("Das Dokument fuehrt es nicht als erledigt")
+    assert "def code_stand" in code("manifeste", "__init__.py"), (
+        "code_stand ist weg - Abschnitt 2 anpassen"
+    )
     gefunden = [
         str(p.relative_to(QUELLE))
         for p in QUELLE.rglob("*.py")
-        if re.search(r'"(git_commit|code_version|commit_sha)"', p.read_text(encoding="utf-8"))
+        if '"code_version": code_stand()' in p.read_text(encoding="utf-8")
     ]
-    assert not gefunden, f"Die Code-Version steht schon in {gefunden} - Abschnitt 2 anpassen"
+    assert len(gefunden) >= 9, (
+        f"nur {len(gefunden)} Manifeste tragen die Code-Version: {gefunden}"
+    )
 
 
 def test_aufraeumen_kennt_noch_keine_gepinnten_laeufe(text):

@@ -52,7 +52,7 @@ from typing import Any, NamedTuple
 
 import duckdb
 
-from manifeste import eingabe_abdruck, referenz, referenzdatei
+from manifeste import code_stand, eingabe_abdruck, referenz, referenzdatei
 from storage import StorageError, for_root, manifest_von
 from gold_pipeline import (
     GATE_HOECHSTENS,
@@ -74,6 +74,12 @@ from silver_pipeline import (
     schema_of,
 )
 
+
+# Der Deutungsvertrag: Was diese Tabelle bedeutet - Korn, Regeln, Spalten -
+# nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
+# zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
+# "Vertragsversionen"; ein Test prueft das.
+CONTRACT_VERSION = 1
 
 DEFAULT_VINTAGE = 2024
 NIBRS_CODES = "nibrs_offense_codes_2025.csv"
@@ -773,6 +779,8 @@ def build_manifest(
     herkunft = [herkunft_der_quelle(q) for q in quellen]
     manifest = {
         "status": "complete",
+        "contract_version": CONTRACT_VERSION,
+        "code_version": code_stand(),
         "layer": GOLD_LAYER,
         "table": tabelle,
         "grain": korn,
