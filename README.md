@@ -48,6 +48,7 @@ Wo etwas ausführlich steht:
 | Konzept, Methode, Befunde | [`docs/ln1_konzept.md`](docs/ln1_konzept.md) |
 | Wie der Aufbau zusammenhängt | [`docs/architektur.md`](docs/architektur.md) |
 | Woher eine Zahl kommt, Stufe für Stufe | [`docs/eine-zahl.md`](docs/eine-zahl.md) |
+| Jedes Modul, jede Funktion | `python tools/build_referenz.py` → `docs/referenz/` |
 | Was jede Spalte bedeutet | [`docs/feldkatalog.md`](docs/feldkatalog.md) |
 | Was sich wann geändert hat und warum | [`docs/AENDERUNGEN.md`](docs/AENDERUNGEN.md) |
 | Würfel und Sternschema erklärt | [`docs/sternschema-und-wuerfel.md`](docs/sternschema-und-wuerfel.md) |
@@ -199,12 +200,26 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet werden **959 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **976 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
 Bei der weiteren Arbeit genügt `source .venv/bin/activate`; verlassen wird die
 Umgebung mit `deactivate`.
+
+### 1.5 Die Code-Referenz
+
+```bash
+python tools/build_referenz.py
+```
+
+Erzeugt `docs/referenz/` und nennt am Schluss die Datei zum Öffnen: eine Seite
+je Modul, mit Suche und dem Quelltext daneben — aus den Docstrings, die im Code
+stehen. Das Verzeichnis ist nicht versioniert und entsteht in gut einer Sekunde
+neu; nach jeder Änderung am Code also einfach nochmal aufrufen.
+
+Wer nichts installieren will, lädt es stattdessen herunter: Jeder Lauf auf
+`main` hängt es unter *Actions → Tests → code-referenz* als Artefakt an.
 
 ---
 
@@ -544,7 +559,7 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 python -m pytest
 ```
 
-**959 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**976 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -578,7 +593,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **904 der 959 Tests**. Die übrigen 55 überspringen
+In einem frischen Klon laufen **921 der 976 Tests**. Die übrigen 55 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter

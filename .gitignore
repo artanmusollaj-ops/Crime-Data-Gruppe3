@@ -20,5 +20,9 @@ data/pipeline_run.json
 build/
 dist/
 .DS_Store
+# Die Code-Referenz aus den Docstrings: 25 Seiten, gut 7 MB, in Sekunden neu
+# erzeugt mit 'python tools/build_referenz.py'. Versioniert waere sie bei jeder
+# geaenderten Zeile Docstring ein Diff ueber fuenfundzwanzig Dateien.
+docs/referenz/
 # Generierte Testprotokolle des Test-Runners.
 logs/
