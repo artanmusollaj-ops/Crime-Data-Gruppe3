@@ -58,7 +58,7 @@ from silver_pipeline import (
 
 TABLE = "tract"
 
-# Der Deutungsvertrag: Was diese Tabelle bedeutet - Korn, Regeln, Spalten -
+# Der Deutungsvertrag: Was diese Tabelle bedeutet - Granularität, Regeln, Spalten -
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.

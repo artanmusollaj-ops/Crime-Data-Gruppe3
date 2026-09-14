@@ -75,7 +75,7 @@ from silver_pipeline import (
 )
 
 
-# Der Deutungsvertrag: Was diese Tabelle bedeutet - Korn, Regeln, Spalten -
+# Der Deutungsvertrag: Was diese Tabelle bedeutet - Granularität, Regeln, Spalten -
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
@@ -469,7 +469,7 @@ def fact_offense_query(offense: Quelle, tracts: str = "dim_tract") -> str:
 
     Dazu kommt ``counts_case`` unveraendert aus Silver: je **Fall** eine Zeile,
     die mit dem schwersten Delikt. Chicago fuehrt je Vorfall ein Delikt,
-    Detroit jedes - auf Tatkorn zaehlt Detroit 6,4 Prozent, die Chicago nie
+    Detroit jedes - auf Tatebene zaehlt Detroit 6,4 Prozent, die Chicago nie
     zaehlt. Wer beide Staedte auf Chicagos Zaehlweise vergleichen will, filtert
     auf ``counts_case``; die Tatzahlen bleiben, wie sie sind.
 
@@ -774,7 +774,7 @@ def build_manifest(
     quellen: list[Quelle],
     started: datetime,
     nachweis: dict[str, Any] | None,
-    korn: str,
+    granularitaet: str,
     notizen: dict[str, str],
 ) -> dict[str, Any]:
     herkunft = [herkunft_der_quelle(q) for q in quellen]
@@ -784,7 +784,7 @@ def build_manifest(
         "code_version": code_stand(),
         "layer": GOLD_LAYER,
         "table": tabelle,
-        "grain": korn,
+        "grain": granularitaet,
         "built_at_utc": started.isoformat().replace("+00:00", "Z"),
         "tool": f"duckdb {duckdb.__version__} mit spatial",
         "format": "parquet (snappy)",
@@ -837,7 +837,7 @@ def build(data_root: Path, config_root: Path, vintage: int) -> dict[str, Path]:
 
         bauplan = [
             ("fact_offense", "eine Tat", [offense],
-             {"korn": (
+             {"granularitaet": (
                  "eine Zeile je Tat. Detroits Zeilen sind Anklagen - je Tat "
                  "zaehlt eine; Chicagos Zeile ist schon die Tat. Ohne das "
                  "waere Detroit um 3,8 Prozent zu hoch gezaehlt"),
@@ -883,11 +883,11 @@ def build(data_root: Path, config_root: Path, vintage: int) -> dict[str, Path]:
             ("dim_city_day", "eine Stadt an einem Tag", [weather, offense],
              {"spanne": "auf die Spanne der Falldaten beschnitten"}),
         ]
-        for tabelle, korn, quellen, notizen in bauplan:
+        for tabelle, granularitaet, quellen, notizen in bauplan:
             manifest = build_manifest(
                 con, tabelle, quellen, started,
                 nachweis if tabelle == "fact_offense" else None,
-                korn, notizen,
+                granularitaet, notizen,
             )
             ziele[tabelle] = publish(
                 con, tabelle, table_dir(data_root, tabelle), manifest

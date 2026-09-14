@@ -53,9 +53,9 @@ eine eigene Stelle, an der Zahlen auseinanderlaufen können.
 
 ---
 
-## 2 · Das Sternschema: das Korn behalten
+## 2 · Das Sternschema: die Granularität behalten
 
-**Eine Faktentabelle im feinsten Korn, kleine Dimensionen daneben.**
+**Eine Faktentabelle im feinsten Granularität, kleine Dimensionen daneben.**
 
 Das Sternschema dreht die Reihenfolge um: erst speichern, dann zählen. In der
 Mitte steht **eine** Tabelle mit einer Zeile je Tat. Sie trägt nur
@@ -91,9 +91,9 @@ alle 366 Tage von 2024, ob etwas passiert ist oder nicht.
 
 **Der Unterschied zwischen den Bauweisen ist kein Feinschliff.**
 
-![Vier Körner im Vergleich: Silver hält 347'957 Anklagen, Gold 344'617 Taten,
+![Vier Granularitäten im Vergleich: Silver hält 347'957 Anklagen, Gold 344'617 Taten,
 die verworfenen Würfel nur noch 95'219 beziehungsweise 11'156 vorberechnete
-Zellen.](bilder/korn.svg)
+Zellen.](bilder/granularitaet.svg)
 
 *Was eine Zeile ist. Der Schritt von Silver zu Gold kostet 3'340 Zeilen, der
 Schritt zum Würfel 249'398 — und mit ihnen jede feinere Frage.*
@@ -171,7 +171,7 @@ WHERE  monat   = '2024-11'   -- der 9. ist nicht mehr da
 
 Das Ergebnis wäre nicht ungenau, sondern eine **andere Zahl** — alle Diebstähle
 eines ganzen Monats statt einer Deliktart an einem Tag. Genau solche
-Verwechslungen sind der Grund, warum das Korn in der Dokumentation an jeder
+Verwechslungen sind der Grund, warum die Granularität in der Dokumentation an jeder
 Tabelle dransteht.
 
 ---
@@ -188,13 +188,13 @@ dieselbe Auswertung, jeden Morgen dieselben Achsen.
 
 Bei uns trifft keines der drei zu: ein Jahrgang zweier Städte, eine
 Auswertungsplattform, die explizit für *unvorhergesehene* Fragen gebaut wird,
-und ein einstelliger Nutzerkreis. Das Sternschema behält das Korn und bleibt
+und ein einstelliger Nutzerkreis. Das Sternschema behält die Granularität und bleibt
 trotzdem schnell — und wenn die Daten einmal um zwei Grössenordnungen wachsen,
 lässt sich ein Würfel jederzeit *daraus* erzeugen. Umgekehrt geht es nicht.
 
 ### Was das für die Abgabe heisst
 
-1. Gold ist ein Sternschema mit dem Korn **eine Tat** — nicht, weil es
+1. Gold ist ein Sternschema mit der Granularität **eine Tat** — nicht, weil es
    Lehrbuchform ist, sondern weil die Messung die Alternative widerlegt hat.
 2. Der verworfene Entwurf bleibt dokumentiert. Eine Entscheidung ohne die
    verworfene Variante ist keine Entscheidung, sondern eine Behauptung.

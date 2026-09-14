@@ -86,7 +86,7 @@ def test_der_kopf_nennt_die_testzahl(stand):
 
 @pytest.mark.referenzstand
 def test_der_kopf_nennt_die_zeilenzahlen(stand):
-    """Silver und Gold - die beiden Zahlen, die das Korn unterscheiden."""
+    """Silver und Gold - die beiden Zahlen, die die Granularität unterscheiden."""
     duckdb = pytest.importorskip("duckdb")
     if not (SILVER.exists() and GOLD.exists()):
         pytest.skip("Silver oder Gold nicht gebaut")
@@ -193,7 +193,7 @@ def test_die_eintraege_und_die_ausgelassenen_ueberschneiden_sich_nicht(text):
 
 
 @pytest.mark.referenzstand
-def test_der_kopf_nennt_das_fallkorn(stand):
+def test_der_kopf_nennt_das_fallebene(stand):
     """Die zweite Zaehlweise, seit #66 - je Fall eine Zeile, beide Staedte gleich."""
     duckdb = pytest.importorskip("duckdb")
     if not GOLD.exists():
@@ -207,7 +207,7 @@ def test_der_kopf_nennt_das_fallkorn(stand):
     finally:
         con.close()
     for stadt in ("Chicago", "Detroit"):
-        genannt = zahl(stand, rf"\| Fallkorn.*?{stadt} ([0-9']+)")
+        genannt = zahl(stand, rf"\| Fallebene.*?{stadt} ([0-9']+)")
         assert genannt == echt[stadt.lower()], (
-            f"Fallkorn {stadt}: genannt {genannt:,}, tatsaechlich {echt[stadt.lower()]:,}"
+            f"Fallebene {stadt}: genannt {genannt:,}, tatsaechlich {echt[stadt.lower()]:,}"
         )

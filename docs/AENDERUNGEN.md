@@ -35,7 +35,7 @@ Eintrag hier sagt, was das war.
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
 | Detroit | 84'658 Delikte · 638'635 Einwohner · **132,6** je 1'000 |
-| Fallkorn (`counts_case`) | Chicago 259'243 · Detroit 80'229 Fälle; Detroit **124,6** je 1'000 |
+| Fallebene (`counts_case`) | Chicago 259'243 · Detroit 80'229 Fälle; Detroit **124,6** je 1'000 |
 
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
@@ -46,7 +46,7 @@ Eintrag hier sagt, was das war.
 ## Vertragsversionen
 
 Was sich ändert, wenn eine dieser Zahlen steigt: **was** geladen oder gedeutet
-wird — Zeitfenster, Feldauswahl, Dedup-Regel, Korn. Nicht, *wie* der Code es
+wird — Zeitfenster, Feldauswahl, Dedup-Regel, Granularität. Nicht, *wie* der Code es
 tut; dafür steht der Git-Commit im selben Manifest.
 
 Jeder Lauf trägt seine Version bei sich. *„Ab wann wurde anders geladen?"* ist
@@ -78,10 +78,47 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 > **und** es stimmt. Bis dahin ist der erzeugte Stand wiederhergestellt.
 
 **Version 1 heisst „der Vertrag, wie er am 14.9.2026 gilt".** Frühere
-Änderungen — das Tatkorn, das Fallkorn, die Mehrheitsregel — stehen als
+Änderungen — das Tatebene, das Fallebene, die Mehrheitsregel — stehen als
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 14.09.2026 · Korn wird Granularität (#85)
+
+**Was.** Der Begriff *Korn* heisst im ganzen Projekt jetzt **Granularität**,
+die beiden Prägungen *Tatkorn* und *Fallkorn* heissen **Tatebene** und
+**Fallebene**. 160 Stellen in 29 Dateien: Code, Tests, Notebooks, README und
+die Abgabedokumente.
+
+**Warum.** „Korn" ist eine wörtliche Übersetzung von Kimballs *grain*; im
+deutschen Data Engineering ist **Granularität** der eingeführte Begriff, und
+„Korn" lässt zuerst an Getreide denken. Christian hat es angemerkt, und er
+hat recht: In einer Abgabe liest sich das als Übersetzungsfehler.
+
+**Warum nicht „Tatgranularität".** Korrekt, aber unlesbar. *Ebene* ist in der
+Dimensionsmodellierung eingeführt und trägt dieselbe Unterscheidung in zwei
+Silben. Wo es um den Begriff geht, steht *Granularität*; wo es um die beiden
+konkreten geht, *Tat-* und *Fallebene*.
+
+**Was dabei zu beachten war.** *Korn* ist sächlich, *Granularität* weiblich —
+die Artikel mussten mit (`das Korn` → `die Granularität`). Und mehrere Muster
+im Code lesen Dokumenttext: `orchestration.drift` sucht `\| Fallkorn.*?` im
+Kopf von `AENDERUNGEN.md`, `test_abgabedokumente` sucht
+`\| Delikte \(Tatkorn\)` im Konzept. Text und Muster wurden zusammen
+geändert, sonst hätte die Drift-Messung ins Leere gegriffen.
+
+**Nicht angefasst: die datierten Einträge in dieser Datei.** Das Projekt hält
+in `test_aenderungen` fest, dass sie Vergangenes beschreiben und sich nicht
+ändern sollen. Nur der Kopf ist nachgezogen. Ebenso unberührt bleiben die
+Manifest-Schlüssel — dort heisst es weiterhin `grain`, englisch wie alle
+anderen Schlüssel.
+
+**Mitgezogen.** `docs/bilder/korn.svg` → `granularitaet.svg`, die Testnamen,
+der Schlüssel `detroit_rate_fallkorn` in `drift.py`.
+
+**Zahlen.** 935 Tests, unverändert — eine Begriffsumstellung ändert keine Zahl.
 
 ---
 

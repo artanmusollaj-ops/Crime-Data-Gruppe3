@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 322" role="img" width="100%" height="auto"
-     aria-label="Vier Körner im Vergleich: Silver hält 347957 Anklagen, Gold 344617 Taten, die verworfenen Würfel nur noch 95219 beziehungsweise 11156 vorberechnete Zellen.">
+     aria-label="Vier Granularitäten im Vergleich: Silver hält 347957 Anklagen, Gold 344617 Taten, die verworfenen Würfel nur noch 95219 beziehungsweise 11156 vorberechnete Zellen.">
 <style>
   svg { color: #14304a; }
   .signal { fill: #c2410c; }
@@ -18,7 +18,7 @@
   <text x="184" y="135" text-anchor="end" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.62">eine Tat</text>
   <rect x="196" y="106" width="372.4" height="32" rx="3" class="signal" fill-opacity="0.82" stroke="none"/>
   <text x="580.4" y="121" font-family="ui-monospace SFMono-Regular Menlo monospace" font-size="12" fill="currentColor" font-weight="600">344 617</text>
-  <text x="580.4" y="136" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" fill="currentColor" fill-opacity="0.6">je Tat eine zählende Zeile · das gebaute Korn</text>
+  <text x="580.4" y="136" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" fill="currentColor" fill-opacity="0.6">je Tat eine zählende Zeile · das gebaute Granularität</text>
   <text x="184" y="182" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12.5" font-weight="600" fill="currentColor">fact_tract_month</text>
   <text x="184" y="197" text-anchor="end" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.62">Tract × Monat × Familie</text>
   <rect x="196" y="168" width="102.9" height="32" rx="3" fill="currentColor" fill-opacity="0.07" stroke="currentColor" stroke-width="1.1" stroke-dasharray="4 3" stroke-opacity="0.55"/>

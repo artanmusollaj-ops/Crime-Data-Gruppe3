@@ -16,7 +16,7 @@ Tabelle, sondern drei:
 Sie in eine Tabelle zu zwingen wuerde entweder Zeilen vervielfachen - ein
 Wetterwert an jedem Delikt derselben Stadt und desselben Tages - oder
 Information wegwerfen. Zusammengefuehrt wird erst in Gold, dort auf dem
-Aggregationskorn.
+Aggregationsebene.
 
 Werkzeug ist DuckDB, fuer den raeumlichen Join mit der ``spatial``-Extension
 (Absprache 5.3). Es liest Bronze direkt, gleichgueltig ob Parquet oder NDJSON,

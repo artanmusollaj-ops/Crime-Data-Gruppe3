@@ -395,7 +395,7 @@ wird. Konkret:
 Wichtig: Punkt 5 behält auch die **nicht verorteten** Fälle, mit einer Kennzeichnung.
 Sonst verschwindet die Verzerrung aus Abschnitt 2.4 unbemerkt.
 
-**Nachtrag 8.9.2026: drei Körner, nicht eine Tabelle.** Der Vorschlag oben
+**Nachtrag 8.9.2026: drei Granularitäten, nicht eine Tabelle.** Der Vorschlag oben
 entstand vor der Wetterquelle und spricht von „einer Tabelle". Das geht nicht
 auf, weil die Quellen drei verschiedene Granularitäten haben:
 
@@ -408,9 +408,9 @@ auf, weil die Quellen drei verschiedene Granularitäten haben:
 Alles in eine Tabelle zu zwingen hiesse, einen Wetterwert an jedes Delikt
 derselben Stadt und desselben Tages zu hängen — Zeilen vervielfachen sich, und
 jede Aggregation über Wetter zählt danach falsch. Zusammengeführt wird deshalb
-erst in Gold, dort auf dem Aggregationskorn.
+erst in Gold, dort auf dem Aggregationsebene.
 
-Zum Korn der Faktentabelle: **Delikt, nicht Fall.** Detroit liefert das schon
+Zum Granularität der Faktentabelle: **Delikt, nicht Fall.** Detroit liefert das schon
 fertig mit `offense_key` und `event_key` für die 1:n-Beziehung; Chicago hat `id`
 als Schlüssel, `case_number` taugt nicht (25 Nummern kommen mehrfach vor, siehe
 Abschnitt 8).

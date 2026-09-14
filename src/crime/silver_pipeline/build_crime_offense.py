@@ -42,7 +42,7 @@ Was hier gedeutet wird und in Bronze bewusst nicht:
    weil die Staedte verschieden zaehlen: Chicago fuehrt je Vorfall **ein**
    Delikt (259'272 Zeilen auf 259'243 Faelle; die einzigen Mehrfachzeilen
    sind Mordopfer, ein Datensatz je Opfer), Detroit fuehrt je Vorfall
-   **jedes** Delikt (85'345 Taten auf 80'229 Faelle). Auf Tatkorn zaehlt
+   **jedes** Delikt (85'345 Taten auf 80'229 Faelle). Auf Tatebene zaehlt
    Detroit damit 6,4 Prozent, die Chicago nie zaehlt. Die Rangfolge steht in
    ``FALLKORN_RANG`` und gilt fuer beide Staedte gleich - eine Regel nur fuer
    eine Stadt waere die naechste Schieflage.
@@ -87,7 +87,7 @@ LOG = logging.getLogger("build_crime_offense")
 
 TABLE = "crime_offense"
 
-# Der Deutungsvertrag: Was diese Tabelle bedeutet - Korn, Regeln, Spalten -
+# Der Deutungsvertrag: Was diese Tabelle bedeutet - Granularität, Regeln, Spalten -
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
@@ -147,7 +147,7 @@ MAPPING_STATUS = {
 }
 AUFFANG_CODE = "90Z"
 
-# Das Fallkorn: je Fall zaehlt die Zeile mit dem schwersten Delikt. Die
+# Das Fallebene: je Fall zaehlt die Zeile mit dem schwersten Delikt. Die
 # Reihenfolge ist die Hierarchieregel des UCR Handbook (FBI 2004, "Hierarchy
 # Rule"), auf NIBRS-Codes uebersetzt: Toetung, Vergewaltigung, Raub, schwere
 # Koerperverletzung, Einbruch, Diebstahl, Fahrzeugdiebstahl, Brandstiftung.
@@ -527,12 +527,12 @@ def build_query(
         JOIN tract t ON ST_Within(ST_Point(b.longitude, b.latitude), t.geom)
         WHERE b.latitude IS NOT NULL AND b.longitude IS NOT NULL
     ),
-    -- Das Fallkorn: unter den zaehlenden Zeilen eines Falls die mit dem
+    -- Das Fallebene: unter den zaehlenden Zeilen eines Falls die mit dem
     -- schwersten Delikt; bei gleichem Delikt (mehrere Opfer) die frueheste.
     -- Eine Zeile ohne Fallnummer ist ihr eigener Fall. Codes ausserhalb der
     -- Hierarchie ordnen sich hinter ihr ein, nach crime_against, dann Code;
     -- ohne NIBRS-Code ganz hinten.
-    fallkorn AS (
+    fallebene AS (
         SELECT b.city, b.offense_id,
                row_number() OVER (
                    PARTITION BY b.city, coalesce(b.event_id, b.offense_id)
@@ -582,7 +582,7 @@ def build_query(
     LEFT JOIN status s ON b.nibrs_match = s.nibrs_match
     LEFT JOIN verortet v
       ON b.city = v.city AND b.offense_id = v.offense_id
-    LEFT JOIN fallkorn f
+    LEFT JOIN fallebene f
       ON b.city = f.city AND b.offense_id = f.offense_id
     ORDER BY b.city, b.occurred_at_utc, b.offense_id
     """
@@ -638,20 +638,20 @@ def reconcile(
             raise TransformError(
                 f"{stadt}: {zahlen['rows']} Zeilen, aber nur "
                 f"{zahlen['distinct_offense_id']} verschiedene offense_id - "
-                "das Korn ist nicht ein Delikt je Zeile"
+                "die Granularität ist nicht ein Delikt je Zeile"
             )
         if zahlen["without_timestamp"]:
             raise TransformError(
                 f"{stadt}: {zahlen['without_timestamp']} Zeilen ohne Zeitpunkt"
             )
-        # Das Fallkorn ist genau dann richtig, wenn je Fall mit zaehlender
+        # Das Fallebene ist genau dann richtig, wenn je Fall mit zaehlender
         # Zeile genau eine als counts_case markiert ist - nicht mehr, nicht
         # weniger. Eine Zeile, die nicht zaehlt, kann auch nicht je Fall zaehlen.
         if zahlen["counts_case"] != zahlen["distinct_counted_event_id"]:
             raise TransformError(
                 f"{stadt}: {zahlen['counts_case']} Zeilen mit counts_case, aber "
                 f"{zahlen['distinct_counted_event_id']} Faelle mit zaehlender "
-                "Zeile - das Fallkorn ist nicht eine Zeile je Fall"
+                "Zeile - das Fallebene ist nicht eine Zeile je Fall"
             )
 
     # Eine neue Herkunft in einem Crosswalk darf nicht stillschweigend

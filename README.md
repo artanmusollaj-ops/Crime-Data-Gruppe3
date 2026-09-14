@@ -306,7 +306,7 @@ Anders als Bronze wird Silver **ersetzt und nicht angehäuft** — die Schicht i
 abgeleitet und jederzeit neu erzeugbar. Das Manifest nennt trotzdem die `run_id`
 jedes Bronze-Laufs, aus dem die Tabelle entstand.
 
-Vier Tabellen, weil die Quellen vier Körner haben. Sie in eine zu zwingen würde
+Vier Tabellen, weil die Quellen vier Granularitäten haben. Sie in eine zu zwingen würde
 Zeilen vervielfachen — ein Wetterwert an jedem Delikt derselben Stadt und
 desselben Tages — oder Information wegwerfen:
 
@@ -346,7 +346,7 @@ python -m serving.export_geojson      # die Tract-Umrisse für eine Karte
 ```
 
 Gold ist ein **Sternschema**: eine Faktentabelle `fact_offense` mit einer Zeile
-je **Tat** und vier Dimensionen daneben. Der Unterschied zu Silver ist das Korn
+je **Tat** und vier Dimensionen daneben. Der Unterschied zu Silver ist die Granularität
 — Detroit liefert je Vorfall mehrere Anklagen; wer Zeilen zählt, zählt Detroit
 um 3,9 % zu hoch. Warum kein vorberechneter Würfel gebaut wurde, steht in
 [`docs/sternschema-und-wuerfel.md`](docs/sternschema-und-wuerfel.md).
@@ -552,7 +552,7 @@ python -m pytest
   **reproduzieren** lässt: Das Werkzeug läuft in ein temporäres Verzeichnis,
   und das Ergebnis muss byteweise mit der versionierten Datei übereinstimmen.
   Ohne diese Prüfung wäre „nicht von Hand gepflegt" eine Behauptung.
-* **Silver und Gold** — Korn, Deduplikation, Zeitzonen, der räumliche Join, die
+* **Silver und Gold** — Granularität, Deduplikation, Zeitzonen, der räumliche Join, die
   Stadtzuordnung und die zurückgezogenen NIBRS-Codes.
 * **Die Dokumente** — `tests/test_abgabedokumente.py` und
   `tests/test_aenderungen.py` prüfen die Zahlen in `docs/` gegen die gebauten

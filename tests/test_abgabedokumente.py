@@ -11,7 +11,7 @@ stimmt nicht mit der Zahl im Konzept ueberein, und niemand weiss mehr, welche
 die richtige ist.
 
 Geprueft werden deshalb die Zahlen, die eine Aussage tragen - Zeilenzahlen der
-Schichten, die Raten je Einwohner, das Korn. **Nicht** geprueft wird der
+Schichten, die Raten je Einwohner, die Granularität. **Nicht** geprueft wird der
 Fliesstext: Er beschreibt Entscheidungen und Vergangenes und soll sich nicht
 mit jedem Ladelauf aendern.
 
@@ -126,12 +126,12 @@ def test_gold_tabelle_in_52(con, konzept, dataset, muster):
 
 
 # --------------------------------------------------------------------------
-# Das Korn - die Zahl, an der Detroit und Chicago auseinandergehen
+# Die Granularität - die Zahl, an der Detroit und Chicago auseinandergehen
 # --------------------------------------------------------------------------
 
 
 @pytest.mark.referenzstand
-def test_detroits_korn_in_der_kurzfassung(con, konzept):
+def test_detroits_granularitaet_in_der_kurzfassung(con, konzept):
     """Kapitel 1: "88'685 Anklagen zu N Taten"."""
     pfad = parquet(SILVER, "crime_offense")
     if pfad is None:
@@ -146,7 +146,7 @@ def test_detroits_korn_in_der_kurzfassung(con, konzept):
 
 
 @pytest.mark.referenzstand
-def test_gold_korn_in_der_absprache(con, absprache):
+def test_gold_granularitaet_in_der_absprache(con, absprache):
     """Die Absprache nennt dieselbe Gold-Zeilenzahl wie das Konzept."""
     assert genannt(absprache, r"Gold kommt damit auf ([0-9']+)\)") == zeilen(
         con, parquet(GOLD, "fact_offense")
@@ -197,7 +197,7 @@ def test_rate_je_einwohner(con, konzept, stadt):
 
 @pytest.mark.referenzstand
 def test_h3_tabelle_in_85(con, konzept):
-    """Die Tatkorn-Zahlen, mit denen H3 teilweise falsifiziert wird."""
+    """Die Tatebene-Zahlen, mit denen H3 teilweise falsifiziert wird."""
     fakt = parquet(GOLD, "fact_offense")
     silber = parquet(SILVER, "crime_offense")
     if fakt is None or silber is None:
@@ -211,9 +211,9 @@ def test_h3_tabelle_in_85(con, konzept):
 
     assert genannt(konzept, r"über die ([0-9']+) Delikte des Jahrgangs 2024") == gesamt
     treffer = re.search(
-        r"\| Delikte \(Tatkorn\) \| ([0-9']+) \| ([0-9']+) \| ([0-9']+) \|", konzept
+        r"\| Delikte \(Tatebene\) \| ([0-9']+) \| ([0-9']+) \| ([0-9']+) \|", konzept
     )
-    assert treffer, "Tatkorn-Zeile in 8.5 nicht gefunden"
+    assert treffer, "Tatebene-Zeile in 8.5 nicht gefunden"
     chi, det, zusammen = (int(g.replace("'", "")) for g in treffer.groups())
     assert (chi, det, zusammen) == (
         je_stadt["chicago"], je_stadt["detroit"], gesamt

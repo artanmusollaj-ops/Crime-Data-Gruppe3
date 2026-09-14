@@ -173,8 +173,8 @@
     <h2>Inhalt</h2>
     <ol>
       <li><a href="#wuerfel">1 · Der Würfel: vorher zählen</a></li>
-      <li><a href="#stern">2 · Das Sternschema: das Korn behalten</a></li>
-      <li><a href="#korn">3 · Was die Wahl kostet, in Zeilen</a></li>
+      <li><a href="#stern">2 · Das Sternschema: die Granularität behalten</a></li>
+      <li><a href="#granularitaet">3 · Was die Wahl kostet, in Zeilen</a></li>
       <li><a href="#messung">4 · Die Messung, die entschieden hat</a></li>
       <li><a href="#sql">5 · Wie sich das anfühlt: dieselbe Frage, zweimal</a></li>
       <li><a href="#wann">6 · Wann ein Würfel trotzdem richtig ist</a></li>
@@ -264,8 +264,8 @@
   </section>
 
   <section id="stern">
-    <h2>2 · Das Sternschema: das Korn behalten</h2>
-    <p class="lede">Eine Faktentabelle im feinsten Korn, kleine Dimensionen daneben.</p>
+    <h2>2 · Das Sternschema: die Granularität behalten</h2>
+    <p class="lede">Eine Faktentabelle im feinsten Granularität, kleine Dimensionen daneben.</p>
 
     <p>
       Das Sternschema dreht die Reihenfolge um: erst speichern, dann zählen. In der
@@ -344,13 +344,13 @@
     </p>
   </section>
 
-  <section id="korn">
+  <section id="granularitaet">
     <h2>3 · Was die Wahl kostet, in Zeilen</h2>
     <p class="lede">Der Unterschied zwischen den Bauweisen ist kein Feinschliff.</p>
 
     <figure>
 <svg viewBox="0 0 860 322" role="img" width="100%" height="auto"
-     aria-label="Vier Körner im Vergleich: Silver hält 347957 Anklagen, Gold 344617 Taten, die verworfenen Würfel nur noch 95219 beziehungsweise 11156 vorberechnete Zellen.">
+     aria-label="Vier Granularitäten im Vergleich: Silver hält 347957 Anklagen, Gold 344617 Taten, die verworfenen Würfel nur noch 95219 beziehungsweise 11156 vorberechnete Zellen.">
   <text x="184" y="58" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12.5" font-weight="600" fill="currentColor">silver/crime_offense</text>
   <text x="184" y="73" text-anchor="end" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.62">eine Anklage</text>
   <rect x="196" y="44" width="376.0" height="32" rx="3" fill="var(--signal)" fill-opacity="0.82" stroke="none"/>
@@ -360,7 +360,7 @@
   <text x="184" y="135" text-anchor="end" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.62">eine Tat</text>
   <rect x="196" y="106" width="372.4" height="32" rx="3" fill="var(--signal)" fill-opacity="0.82" stroke="none"/>
   <text x="580.4" y="121" font-family="ui-monospace SFMono-Regular Menlo monospace" font-size="12" fill="currentColor" font-weight="600">344 617</text>
-  <text x="580.4" y="136" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" fill="currentColor" fill-opacity="0.6">je Tat eine zählende Zeile · das gebaute Korn</text>
+  <text x="580.4" y="136" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" fill="currentColor" fill-opacity="0.6">je Tat eine zählende Zeile · das gebaute Granularität</text>
   <text x="184" y="182" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12.5" font-weight="600" fill="currentColor">fact_tract_month</text>
   <text x="184" y="197" text-anchor="end" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.62">Tract × Monat × Familie</text>
   <rect x="196" y="168" width="102.9" height="32" rx="3" fill="currentColor" fill-opacity="0.07" stroke="currentColor" stroke-width="1.1" stroke-dasharray="4 3" stroke-opacity="0.55"/>
@@ -454,7 +454,7 @@ WHERE  monat  = <span class="bad">'2024-11'</span>   <span class="cmt">-- der 9.
     <p>
       Das Ergebnis wäre nicht ungenau, sondern eine <strong>andere Zahl</strong> —
       alle Diebstähle eines ganzen Monats statt einer Deliktart an einem Tag. Genau
-      solche Verwechslungen sind der Grund, warum das Korn in der Dokumentation an
+      solche Verwechslungen sind der Grund, warum die Granularität in der Dokumentation an
       jeder Tabelle dransteht.
     </p>
   </section>
@@ -473,7 +473,7 @@ WHERE  monat  = <span class="bad">'2024-11'</span>   <span class="cmt">-- der 9.
     <p>
       Bei uns trifft keines der drei zu: ein Jahrgang zweier Städte, eine
       Auswertungsplattform, die explizit für <em>unvorhergesehene</em> Fragen gebaut
-      wird, und ein einstelliger Nutzerkreis. Das Sternschema behält das Korn und
+      wird, und ein einstelliger Nutzerkreis. Das Sternschema behält die Granularität und
       bleibt trotzdem schnell — und wenn die Daten einmal um zwei Grössenordnungen
       wachsen, lässt sich ein Würfel jederzeit <em>daraus</em> erzeugen. Umgekehrt
       geht es nicht.
@@ -482,7 +482,7 @@ WHERE  monat  = <span class="bad">'2024-11'</span>   <span class="cmt">-- der 9.
     <div class="decision">
       <h3>Was das für die Abgabe heisst</h3>
       <ol>
-        <li>Gold ist ein Sternschema mit dem Korn <strong>eine Tat</strong> — nicht, weil es Lehrbuchform ist, sondern weil die Messung die Alternative widerlegt hat.</li>
+        <li>Gold ist ein Sternschema mit der Granularität <strong>eine Tat</strong> — nicht, weil es Lehrbuchform ist, sondern weil die Messung die Alternative widerlegt hat.</li>
         <li>Der verworfene Entwurf bleibt dokumentiert. Eine Entscheidung ohne die verworfene Variante ist keine Entscheidung, sondern eine Behauptung.</li>
         <li>Die Grenze ist benannt: Bei deutlich mehr Daten kehrt sich die Rechnung um, und der Würfel liesse sich aus dem Stern jederzeit nachbauen.</li>
       </ol>

@@ -7,7 +7,7 @@ Kommandozeilenprogramm dazu ist ``extract_detroit.py``.
 
 Was die Zeilen *bedeuten*, steht bewusst nicht hier. Die fachliche
 Transformation beider Staedte liegt in ``silver_pipeline.build_crime_offense``
-- eine Stelle, ein Korn, ein Crosswalk. Dieses Modul laedt, es deutet nicht.
+- eine Stelle, eine Granularität, ein Crosswalk. Dieses Modul laedt, es deutet nicht.
 
 Der Download verwendet nur die Standardbibliothek. Dadurch laeuft die
 Bronze-Extraktion auch in einer sehr schlanken Laufzeitumgebung; ``pyarrow``

@@ -276,11 +276,11 @@ def baue() -> str:
             continue
         teile += [f"## {schicht}", ""]
         for name, m in dieser:
-            korn = m.get("grain", "—")
+            granularitaet = m.get("grain", "—")
             zeilen = m.get("row_count") or m.get("rows")
             kopf = f"### `{name}`"
             teile += [kopf, ""]
-            teile.append(f"Eine Zeile ist: **{korn}**."
+            teile.append(f"Eine Zeile ist: **{granularitaet}**."
                          + (f" {zeilen:,} Zeilen.".replace(",", "'") if zeilen else ""))
             teile += ["", "| Spalte | Typ | Bedeutung |", "| --- | --- | --- |"]
             for spalte, typ in m.get("schema", {}).items():

@@ -15,11 +15,11 @@ genau das, was die Auswertungsplattform koennen soll: ``fact_tract_month`` kennt
 keine Tage, ``fact_city_day`` keine Tracts, und beide fassen 59 Delikte zu 25
 Familien zusammen - "nur Shoplifting" waere nicht mehr zu beantworten.
 
-Gold behaelt deshalb das Korn und macht die Faktentabelle **abfragbar**: ein
+Gold behaelt deshalb die Granularität und macht die Faktentabelle **abfragbar**: ein
 Sternschema mit einer Faktentabelle je Delikt und vier kleinen Dimensionen.
 Jede Frage wird damit ein Filter und ein ``GROUP BY`` auf einer Tabelle.
 
-| Tabelle | Korn |
+| Tabelle | Granularität |
 | --- | --- |
 | ``fact_offense`` | ein Delikt |
 | ``dim_tract`` | ein Census Tract, mit Stadtzuordnung und Einwohnerzahl |
