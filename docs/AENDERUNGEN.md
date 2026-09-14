@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **924** |
+| Tests | **931** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -71,6 +71,43 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 14.09.2026 · Gepinnte Läufe: aus erklärbar wird reproduzierbar (#79)
+
+**Was.** `orchestration.aufraeumen` hat eine **Regel 0**: Was in
+`config/referenzstand.csv` steht, wird nie aufgeräumt. `--pinnen LN1` trägt
+den Stand ein, auf dem die gebauten Gold-Tabellen ruhen. Artans Punkt 1,
+Stufe B ([`ausblick.md`](ausblick.md)).
+
+**Warum.** Die Aufbewahrungsregel von #65 behält, was **das aktuelle** Silver
+nennt. Nach einem Neubau werden die Läufe des vorigen Stands entbehrlich — und
+eine veröffentlichte Zahl von letzter Woche wäre nicht mehr nachzubauen. Für
+den Arbeitsalltag war die Regel richtig, für die Historisierung falsch. Der
+Konflikt fiel bei der Analyse von Artans Punkten auf (#76).
+
+**Abgeleitet, nicht getippt** — das ist der Ertrag der geschlossenen
+Herkunftskette (#77): Weil ein Gold-Manifest seine Silver-Quelle samt deren
+Herkunft nennt, stehen die Bronze-Läufe darin. `--pinnen` liest sie heraus.
+Gegen die echten Daten: **neun Läufe über alle fünf Quellen**. Der NOAA-Lauf
+vom 7.9. ist nicht dabei — Silver nimmt den jüngsten, also ruht keine Zahl
+auf ihm. Genau das soll ein Referenzstand leisten.
+
+**Versioniert, nicht in `data/`.** Ein Referenzstand ist eine Verabredung des
+Teams, kein Zustand eines Rechners; seit die Läufe auf SeaweedFS liegen,
+gelten die Kennungen für beide. Die Datei gehört mit committet.
+
+**Damit ist Absprache 7.1 beantwortet.** Dort stand die Frage *„Wie kommen wir
+zum gleichen Datenstand?"* mit dem Vorschlag, einen Referenzstand zu
+verabreden. Er ist jetzt kein Zettel, sondern eine Datei — und die Läufe
+dahinter überleben jedes Aufräumen.
+
+**Wächter.** Zehn Tests in `tests/orchestration/test_aufraeumen.py`: gepinntes
+überlebt, wird nicht gelöscht, Detroits nackte UUID wird erkannt, zweimal
+pinnen schreibt nicht doppelt, und gepinnt wird nur, was es auch gibt.
+
+**Zahlen.** 924 → **931 Tests**.
 
 ---
 

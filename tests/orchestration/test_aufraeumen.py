@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -184,3 +185,111 @@ def test_loesche_ueberspringt_was_bleibt(tmp_path):
     alle = au.bericht(tmp_path)
     assert au.loesche(alle, tmp_path) == []
     assert (tmp_path / "bronze" / "dataset=noaa_ghcnd" / "run_01").is_dir()
+
+
+# --------------------------------------------------------------------------
+# Regel 0: Gepinnt bleibt (seit 14.9.2026)
+#
+# Die drei anderen Regeln stehen der Historisierung im Weg: Regel 2 haelt nur,
+# was das *aktuelle* Silver nennt. Nach einem Neubau werden die Laeufe des
+# vorigen Stands entbehrlich - und eine veroeffentlichte Zahl von letzter
+# Woche waere nicht mehr nachzubauen. Artans Punkt 1, Stufe B.
+# --------------------------------------------------------------------------
+
+
+def register(config_root: Path, *kennungen: str, grund: str = "LN1") -> None:
+    config_root.mkdir(parents=True, exist_ok=True)
+    zeilen = ["run_id,quelle,grund,seit"]
+    zeilen += [f"{k},city=chicago,{grund},2026-09-14" for k in kennungen]
+    (config_root / au.REFERENZSTAND_DATEI).write_text(
+        "\n".join(zeilen) + "\n", encoding="utf-8")
+
+
+def test_ein_gepinnter_lauf_ueberlebt_das_aufraeumen(tmp_path):
+    """Der aelteste Lauf waere entbehrlich - gepinnt bleibt er."""
+    for i in (1, 2, 3):
+        lauf(tmp_path, "dataset=noaa_ghcnd", f"run_0{i}", wann=f"2026-09-0{i}T10:00:00")
+    config = tmp_path / "config"
+    register(config, "run_01")
+    gruende = {e.bestand.run_id: e.grund for e in au.bericht(tmp_path, config)}
+    assert gruende["run_01"] == au.GEPINNT
+    assert all(e.bleibt for e in au.bericht(tmp_path, config))
+
+
+def test_ohne_register_bleibt_alles_wie_bisher(tmp_path):
+    for i in (1, 2, 3):
+        lauf(tmp_path, "dataset=noaa_ghcnd", f"run_0{i}", wann=f"2026-09-0{i}T10:00:00")
+    assert gruende(tmp_path, "dataset=noaa_ghcnd")["run_01"] is None
+
+
+def test_ein_gepinnter_lauf_wird_nicht_geloescht(tmp_path, monkeypatch):
+    for i in (1, 2, 3):
+        lauf(tmp_path, "city=chicago", f"run_0{i}", wann=f"2026-09-0{i}T10:00:00",
+             teile=(f"ingest_date=2026-09-0{i}",))
+    config = tmp_path / "config"
+    register(config, "run_01")
+    monkeypatch.setattr(sys, "argv", ["aufraeumen", "--data-root", str(tmp_path),
+                                      "--config-root", str(config), "--loeschen"])
+    assert au.main() == 0
+    assert (tmp_path / "bronze" / "city=chicago" / "ingest_date=2026-09-01" / "run_01").is_dir()
+
+
+def test_detroits_nackte_uuid_wird_erkannt(tmp_path):
+    """Silver nennt Detroit ohne das Praefix - das Register auch."""
+    lauf(tmp_path, "city=detroit", "run_uuid-01", wann="2026-09-11T10:00:00",
+         teile=("full/year=2024",), detroit=True)
+    lauf(tmp_path, "city=detroit", "run_uuid-02", wann="2026-09-12T10:00:00",
+         teile=("full/year=2024",), detroit=True)
+    lauf(tmp_path, "city=detroit", "run_uuid-03", wann="2026-09-13T10:00:00",
+         teile=("full/year=2024",), detroit=True)
+    config = tmp_path / "config"
+    register(config, "uuid-01")
+    gruende_ = {e.bestand.run_id: e.grund for e in au.bericht(tmp_path, config)}
+    assert gruende_["uuid-01"] == au.GEPINNT
+
+
+# --------------------------------------------------------------------------
+# Pinnen: abgeleitet, nicht getippt
+# --------------------------------------------------------------------------
+
+
+def gold(data_root: Path, derived_from) -> None:
+    ordner = data_root / "gold" / "dataset=fact_offense"
+    ordner.mkdir(parents=True, exist_ok=True)
+    (ordner / "manifest.json").write_text(
+        json.dumps({"status": "complete", "derived_from": derived_from}), encoding="utf-8")
+
+
+def test_gepinnt_wird_woran_gold_haengt(tmp_path):
+    """Der Ertrag der geschlossenen Herkunftskette: Ein Gold-Manifest nennt
+    seine Silver-Quelle samt deren Herkunft - darin stehen die Bronze-Laeufe.
+    Der Referenzstand wird daraus **abgeleitet**, nicht getippt."""
+    for i in (1, 2):
+        lauf(tmp_path, "city=chicago", f"run_0{i}", wann=f"2026-09-0{i}T10:00:00",
+             teile=(f"ingest_date=2026-09-0{i}",))
+    gold(tmp_path, [{"layer": "silver", "table": "crime_offense",
+                     "derived_from": {"chicago_bronze_runs": ["run_01"]}}])
+    config = tmp_path / "config"
+    assert au.pinne(tmp_path, config, "LN1", jetzt=date(2026, 9, 14)) == ["run_01"]
+
+    inhalt = (config / au.REFERENZSTAND_DATEI).read_text(encoding="utf-8")
+    assert inhalt.splitlines()[0] == "run_id,quelle,grund,seit"
+    assert "run_01,city=chicago,LN1,2026-09-14" in inhalt
+    assert "run_02" not in inhalt, "Gold ruht nicht darauf"
+
+
+def test_zweimal_pinnen_schreibt_nicht_doppelt(tmp_path):
+    lauf(tmp_path, "city=chicago", "run_01", wann="2026-09-01T10:00:00")
+    gold(tmp_path, [{"derived_from": {"chicago_bronze_runs": ["run_01"]}}])
+    config = tmp_path / "config"
+    assert au.pinne(tmp_path, config, "LN1") == ["run_01"]
+    assert au.pinne(tmp_path, config, "LN2") == []
+    inhalt = (config / au.REFERENZSTAND_DATEI).read_text(encoding="utf-8")
+    assert inhalt.count("run_01") == 1 and "LN2" not in inhalt
+
+
+def test_gepinnt_wird_nur_was_es_gibt(tmp_path):
+    """Ein Manifest kann eine Kennung nennen, deren Lauf laengst weg ist."""
+    lauf(tmp_path, "city=chicago", "run_01", wann="2026-09-01T10:00:00")
+    gold(tmp_path, [{"derived_from": {"chicago_bronze_runs": ["run_01", "run_weg"]}}])
+    assert au.pinne(tmp_path, tmp_path / "config", "LN1") == ["run_01"]

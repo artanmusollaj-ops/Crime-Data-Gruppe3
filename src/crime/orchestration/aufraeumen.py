@@ -1,12 +1,20 @@
 """Was von Raw und Bronze bleiben muss - und was weg darf.
 
-    python -m orchestration.aufraeumen             # zeigen, nichts loeschen
-    python -m orchestration.aufraeumen --loeschen  # entbehrliche Laeufe loeschen
+    python -m orchestration.aufraeumen              # zeigen, nichts loeschen
+    python -m orchestration.aufraeumen --loeschen   # entbehrliche Laeufe loeschen
+    python -m orchestration.aufraeumen --pinnen LN1 # den heutigen Stand festhalten
 
 Raw und Bronze wachsen mit jedem Lauf, und bis hierher sagte nichts, wann
 etwas weg darf. Die Regel, je Quelle (``city=chicago``, ``dataset=noaa_ghcnd``,
 ...), juengster Lauf zuerst:
 
+0. **Gepinnt bleibt.** Ein Lauf, auf den sich eine veroeffentlichte Zahl
+   bezieht - eine Abgabe, eine Folie, ein Referenzstand -, steht in
+   ``config/referenzstand.csv`` und wird nie aufgeraeumt. Diese Regel kam am
+   14.9.2026 dazu, weil die drei folgenden der Historisierung im Weg stehen:
+   Regel 2 haelt nur, was das **aktuelle** Silver nennt - nach einem Neubau
+   werden die Laeufe des vorigen Stands entbehrlich, und eine Zahl von
+   letzter Woche waere nicht mehr nachzubauen.
 1. **Der juengste Lauf und der davor** bleiben. Der zweite ist der vorherige
    Schnappschuss - die einzige Moeglichkeit, eine Quelle gegen sich selbst zu
    pruefen. Detroit aendert abgeschlossene Faelle nachtraeglich (Notebook 13,
@@ -36,8 +44,10 @@ Maschine und braucht sie nicht.
 from __future__ import annotations
 
 import argparse
+import csv
 import logging
 import shutil
+from datetime import date
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -50,6 +60,10 @@ LOG = logging.getLogger("aufraeumen")
 SCHNAPPSCHUESSE = 2   # der juengste Lauf und der davor
 DELTA_MODI = frozenset({"delta", "incremental"})
 
+REFERENZSTAND_DATEI = "referenzstand.csv"
+SPALTEN = ("run_id", "quelle", "grund", "seit")
+
+GEPINNT = "Referenzstand"
 JUENGSTER = "juengster Lauf"
 VORHERIGER = "vorheriger Schnappschuss"
 GENANNT = "von Silver genannt"
@@ -155,11 +169,68 @@ def genannt_in_silver(data_root: Path) -> set[str]:
     return kennungen
 
 
-def entscheide(laeufe: list[Bestand], genannt: set[str]) -> list[Entscheid]:
+def kennungen_aus(data_root: Path, schichten: tuple[str, ...]) -> set[str]:
+    """Jede Zeichenkette unter ``derived_from`` der genannten Schichten."""
+    kennungen: set[str] = set()
+
+    def sammle(wert: Any) -> None:
+        if isinstance(wert, str):
+            kennungen.add(wert)
+        elif isinstance(wert, dict):
+            for v in wert.values():
+                sammle(v)
+        elif isinstance(wert, list):
+            for v in wert:
+                sammle(v)
+
+    for tabelle in tabellen(data_root, schichten):
+        sammle(tabelle.manifest.get("derived_from"))
+    return kennungen
+
+
+def gepinnte_laeufe(config_root: Path) -> dict[str, str]:
+    """Das Register: Lauf-Kennung -> Grund. Leer, wenn es die Datei nicht gibt.
+
+    Die Datei ist **versioniert**, anders als ``data/``: Ein Referenzstand ist
+    eine Verabredung des Teams, kein Zustand eines Rechners. Seit die Laeufe
+    auf SeaweedFS liegen, gelten die Kennungen fuer beide.
+    """
+    pfad = config_root / REFERENZSTAND_DATEI
+    if not pfad.exists():
+        return {}
+    with pfad.open(encoding="utf-8", newline="") as datei:
+        return {
+            zeile["run_id"]: zeile.get("grund", "")
+            for zeile in csv.DictReader(datei)
+            if zeile.get("run_id")
+        }
+
+
+def stand_der_auswertung(data_root: Path) -> set[str]:
+    """Jede Lauf-Kennung, auf der das gebaute Gold ruht.
+
+    Das ist der Ertrag der geschlossenen Herkunftskette (#77): Ein
+    Gold-Manifest nennt seine Silver-Quelle samt deren eigener Herkunft, und
+    darin stehen die Bronze-Laeufe. Der Referenzstand laesst sich damit
+    **ableiten** statt von Hand pflegen - und er beschreibt genau das, worauf
+    die veroeffentlichten Zahlen beruhen.
+    """
+    return kennungen_aus(data_root, ("gold",))
+
+
+def entscheide(laeufe: list[Bestand], genannt: set[str],
+               gepinnt: dict[str, str] | None = None) -> list[Entscheid]:
     """Die Regel, angewandt auf eine Quelle. ``laeufe`` juengster zuerst."""
+    gepinnt = gepinnt or {}
+
+    def ist_gepinnt(b: Bestand) -> bool:
+        return b.run_id in gepinnt or any(v.name in gepinnt for v in b.bronze)
+
     gruende: list[str | None] = []
     for i, b in enumerate(laeufe):
-        if i == 0:
+        if ist_gepinnt(b):
+            gruende.append(GEPINNT)
+        elif i == 0:
             gruende.append(JUENGSTER)
         elif i < SCHNAPPSCHUESSE:
             gruende.append(VORHERIGER)
@@ -179,12 +250,50 @@ def entscheide(laeufe: list[Bestand], genannt: set[str]) -> list[Entscheid]:
     return [Entscheid(b, g) for b, g in zip(laeufe, gruende)]
 
 
-def bericht(data_root: Path) -> list[Entscheid]:
+def bericht(data_root: Path, config_root: Path | None = None) -> list[Entscheid]:
     genannt = genannt_in_silver(data_root)
+    gepinnt = gepinnte_laeufe(config_root) if config_root else {}
     alle: list[Entscheid] = []
     for laeufe in bestaende(data_root).values():
-        alle.extend(entscheide(laeufe, genannt))
+        alle.extend(entscheide(laeufe, genannt, gepinnt))
     return alle
+
+
+def pinne(data_root: Path, config_root: Path, grund: str, *,
+          jetzt: date | None = None) -> list[str]:
+    """Haelt den Stand fest, auf dem die gebauten Gold-Tabellen ruhen.
+
+    Abgeleitet, nicht getippt: Welche Laeufe das sind, steht in den
+    Manifesten. Wer eine Zahl in eine Abgabe uebernimmt, pinnt danach - und
+    die Laeufe dahinter ueberleben jedes Aufraeumen.
+
+    Bereits gepinnte Laeufe bleiben unveraendert; ihr erster Grund zaehlt.
+    """
+    vorhanden = gepinnte_laeufe(config_root)
+    quelle_von = {
+        b.run_id: b.quelle
+        for laeufe in bestaende(data_root).values() for b in laeufe
+    }
+    quelle_von.update({
+        v.name: b.quelle
+        for laeufe in bestaende(data_root).values() for b in laeufe for v in b.bronze
+    })
+    neu = sorted(k for k in stand_der_auswertung(data_root)
+                 if k in quelle_von and k not in vorhanden)
+    if not neu:
+        return []
+
+    pfad = config_root / REFERENZSTAND_DATEI
+    pfad.parent.mkdir(parents=True, exist_ok=True)
+    frisch = not pfad.exists()
+    tag = (jetzt or date.today()).isoformat()
+    with pfad.open("a", encoding="utf-8", newline="") as datei:
+        schreiber = csv.writer(datei, lineterminator="\n")
+        if frisch:
+            schreiber.writerow(SPALTEN)
+        for kennung in neu:
+            schreiber.writerow([kennung, quelle_von[kennung], grund, tag])
+    return neu
 
 
 def zeige(entscheide: list[Entscheid]) -> None:
@@ -235,8 +344,13 @@ def arguments() -> argparse.Namespace:
     )
     p.add_argument("--data-root", type=Path, default=None,
                    help="lokale Wurzel (Vorgabe: LOCAL_DATA_ROOT oder data). Aufgeraeumt wird nur lokal")
+    p.add_argument("--config-root", type=Path, default=Path("config"),
+                   help="wo das Register referenzstand.csv liegt (Vorgabe: config)")
     p.add_argument("--loeschen", action="store_true",
                    help="entbehrliche Laeufe wirklich loeschen, Raw und Bronze zusammen")
+    p.add_argument("--pinnen", metavar="GRUND",
+                   help="den Stand, auf dem das gebaute Gold ruht, ins Register "
+                        "aufnehmen - er ueberlebt danach jedes Aufraeumen")
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args()
 
@@ -248,7 +362,19 @@ def main() -> int:
         format="%(levelname)s %(message)s",
     )
     data_root = for_root(args.data_root).local_root
-    alle = bericht(data_root)
+    if args.pinnen:
+        neu = pinne(data_root, args.config_root, args.pinnen)
+        ziel = args.config_root / REFERENZSTAND_DATEI
+        if neu:
+            print(f"{len(neu)} Lauf/Laeufe als '{args.pinnen}' festgehalten in {ziel}:")
+            for kennung in neu:
+                print(f"  {kennung}")
+            print("\nDie Datei ist versioniert - bitte mit committen.")
+        else:
+            print(f"Nichts hinzugefuegt: Der Stand steht schon in {ziel}.")
+        print()
+
+    alle = bericht(data_root, args.config_root)
     zeige(alle)
     entbehrlich = [e for e in alle if not e.bleibt]
     if not entbehrlich:
