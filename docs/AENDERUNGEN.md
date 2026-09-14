@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **959** |
+| Tests | **976** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -87,6 +87,61 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 14.09.2026 · Die Docstrings werden blaetterbar (#89)
+
+**Was.** `python tools/build_referenz.py` erzeugt `docs/referenz/` — eine Seite
+je Modul, mit Suche und Quelltext daneben, aus den Docstrings. Das Verzeichnis
+ist nicht versioniert; es entsteht in gut einer Sekunde neu. Auf `main` baut
+es ein CI-Job und haengt es als Artefakt an den Lauf, damit es auch ohne
+Python zu oeffnen ist.
+
+**Warum.** Der vorige Eintrag hielt fest, dass dieses Projekt **mehr Erklaerung
+als Code** hat. Der groesste Teil davon steht in Docstrings — an der einzigen
+Stelle also, an der man ihn nur findet, wenn man schon weiss, wo man suchen
+muss. `architektur.md` zeigt seither den Aufbau, `eine-zahl.md` den Weg einer
+Zahl. Was fehlte, war das Nachschlagewerk dazwischen.
+
+**Die Luecke, die dabei auffiel.** `chicago_pipeline` hatte eine
+**vollstaendig leere `__init__.py`** — das Paket der wichtigsten Quelle des
+Projekts, ohne eine Zeile Erklaerung. Im Quelltext faellt das niemandem auf,
+weil man ohnehin gleich ins Modul springt. In einer Referenz ist es eine leere
+Seite. Der Docstring steht jetzt da, und ein Test haelt fest, dass jedes Paket
+und jedes Modul einen hat.
+
+**Die Startseite ist abgeleitet, nicht gepflegt.** pdoc erzeugt als Startseite
+eine nackte Modulliste mit Fremdlogo. Stattdessen stehen die zehn Pakete in
+der Reihenfolge des Gesamtlaufs: Fundament, dann die vier Gruppen aus
+`run_all.STUFEN`, dann was zu keiner Stufe gehoert. Die Stufenzahlen kommen aus
+`STUFEN`, jede Kurzbeschreibung ist die erste Zeile des Paket-Docstrings. Ein
+neues Paket erscheint damit von selbst an der richtigen Stelle.
+
+**Zwei Entwuerfe, die verworfen wurden.** Der erste gruppierte nach der Tiefe
+im Importgraph — das ergab lesbare Zahlen und falsche Namen: `orchestration`
+landete unter *Ableitung*, `gold_pipeline` in einer Ebene ohne Titel. Die
+Tiefe bedeutet etwas anderes als die Schicht. Der zweite schrieb ueber jede
+Gruppe, was die Schicht tut — und wiederholte damit bei `silver_pipeline` und
+`gold_pipeline` den Docstring, der einen Zentimeter darunter nochmal stand.
+Beides prueft jetzt je ein Test.
+
+**Was pdoc nebenbei zeigte.** Rund dreissig Typannotationen kann es nicht
+aufloesen. Dreiundzwanzig sind `NamedTuple`-Felder, ein bekannter Fall bei
+aufgeschobenen Annotationen. Die uebrigen vier sind echt: Die Methode `list`
+der drei S3-Klassen in `storage` verdeckt im Klassenkoerper das eingebaute
+`list`. Zur Laufzeit stoert das nichts, und der Name bleibt, weil er die
+S3-Schnittstelle spiegelt — aber er steht jetzt begruendet im Code statt
+unbemerkt darin. Das Werkzeug sammelt die Warnungen ein und meldet eine Zeile
+statt dreissig.
+
+**Waechter.** 17 Tests: jedes Paket und jedes Modul hat einen Docstring, jede
+erste Zeile ist ein ganzer Satz, jedes Paket bekommt eine Seite, kein Verweis
+der Startseite ist tot, keine Seite traegt einen Rechnerpfad — und **ein
+zweiter Lauf liefert dieselben Dateien**, dieselbe Regel wie bei den
+Crosswalks, dem Feldkatalog und den Architekturbildern.
+
+**Zahlen.** 959 → **976 Tests**.
 
 ---
 

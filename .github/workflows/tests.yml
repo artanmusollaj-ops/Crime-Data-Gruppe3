@@ -8,7 +8,7 @@
 # Was hier NICHT geprueft wird: die Zahlen gegen die gebauten Daten. `data/`
 # ist aus der Versionierung ausgeschlossen, ein frischer Klon hat es also
 # nicht - die betroffenen Tests ueberspringen sich selbst. Was laeuft, ist
-# alles uebrige: 689 von 729 Tests, darunter beide Testzahl-Waechter, die
+# alles uebrige: 921 von 976 Tests, darunter beide Testzahl-Waechter, die
 # Reproduzierbarkeit der Crosswalks aus den PDFs und die Form der Dokumente.
 
 name: Tests
@@ -98,3 +98,37 @@ jobs:
         # Kein Netz noetig und kein Schluessel: Die Werkzeug-Tests fallen auf
         # die versionierten Kataloge zurueck, wenn ein Portal nicht antwortet.
         run: python -m pytest -q -rs
+
+  referenz:
+    # Baut die Code-Referenz aus den Docstrings und haengt sie an den Lauf.
+    #
+    # Warum nur auf main: Dass der Bau gelingt, pruefen die Tests auf jedem
+    # Pull Request ohnehin - sie bauen ihn sogar zweimal. Was dieser Job
+    # hinzufuegt, ist das fertige Nachschlagewerk zum Herunterladen, ohne dass
+    # jemand Python installiert. Das braucht es fuer den Stand auf main, nicht
+    # fuer jeden Zwischenstand.
+    if: github.event_name == 'push'
+    needs: pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.lock
+      - name: Abhaengigkeiten installieren
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.lock
+          python -m pip install -e . --no-deps
+      - name: Referenz bauen
+        run: python tools/build_referenz.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: code-referenz
+          path: docs/referenz/
+          # Laenger als der Abstand zweier Pushes auf main, kuerzer als der
+          # Vorrat, den niemand mehr zuordnen kann.
+          retention-days: 30

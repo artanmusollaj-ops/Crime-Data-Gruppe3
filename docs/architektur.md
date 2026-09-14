@@ -1,7 +1,7 @@
 # Der Aufbau, in zwei Bildern und einem Lesepfad
 
 Dieses Projekt hat **mehr Erklärung als Code** — rund 11'600 Zeilen Prosa
-gegen 10'569 Zeilen Produktionscode, verteilt auf 294 Docstrings, 495
+gegen 10'569 Zeilen Produktionscode, verteilt auf 295 Docstrings, 512
 Test-Docstrings und zwölf Dokumente. Was fehlte, war kein weiterer Text,
 sondern ein **Weg hinein**. Der steht hier.
 
@@ -98,7 +98,7 @@ Danach lohnen sich je nach Interesse:
 
 ### Die Tests sind der zweite Lesepfad
 
-495 Test-Docstrings, und sie sind keine Floskeln — sie sagen, *warum* eine
+512 Test-Docstrings, und sie sind keine Floskeln — sie sagen, *warum* eine
 Zusage besteht:
 
 > *„Die Drift, die dreimal passiert ist: eine Lücke, die längst geschlossen
@@ -110,6 +110,20 @@ python -m pytest --collect-only -q
 ```
 
 Das ist die Liste dessen, was dieses Projekt über sich selbst prüft.
+
+### Der dritte Lesepfad: das Nachschlagewerk
+
+Die 295 Docstrings stehen im Code — und damit an der einzigen Stelle, an der
+man sie nur findet, wenn man schon weiss, wo man suchen muss. Ein Aufruf macht
+sie blätterbar:
+
+```bash
+python tools/build_referenz.py
+```
+
+Das schreibt `docs/referenz/`: eine Seite je Modul, durchsuchbar, mit dem
+Quelltext daneben. Die Startseite ordnet die zehn Pakete in der Reihenfolge
+des Gesamtlaufs — auch sie erzeugt, aus `run_all.STUFEN`.
 
 ### Und vier Befehle, die zeigen statt behaupten
 
