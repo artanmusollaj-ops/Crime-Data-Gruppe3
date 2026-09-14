@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **873** |
+| Tests | **883** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -40,6 +40,63 @@ Eintrag hier sagt, was das war.
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
 > jeder Kategorie mehr Fälle.
+
+---
+
+## 14.09.2026 · Artans zwei Punkte analysiert: Lineage und Ladelogik (#76)
+
+**Was.** [`docs/ausblick.md`](ausblick.md) — Material für LN2. Zwei Punkte
+von Artan, analysiert gegen den Code, dazu die Gedankenspiele zu Skalierung
+und Cloud mit Messwerten.
+
+**Artans Punkt 1: Stichtagskonsistenz.** *„Werte vom Tag X → Silver-Load Y →
+Bronze Load XY am Tag X."* Die Kette ist links stark und rechts gerissen:
+Silver nennt jeden Bronze-Lauf **namentlich**, Gold nennt seine Silver-Quelle
+nur als **Pfad** — und ein Pfad zeigt auf das, was gerade dort liegt. Dasselbe
+gilt für die Crosswalks. Von einer Gold-Zahl aus lässt sich heute nicht sagen,
+welcher Silver-Stand gemeint war.
+
+Der billige Teil der Lösung braucht **keine** Historisierung: Es genügt, dass
+Gold die *Identität* des Silver-Stands festhält (Zeitpunkt und Fingerabdruck
+seiner Eingaben) — dann schliesst sich die Kette transitiv bis zu Raw.
+
+**Ein Konflikt, den dabei niemand gesucht hat:** Die Aufbewahrungsregel von
+#65 behält, was **das aktuelle** Silver nennt. Nach einem Neubau werden die
+Läufe des vorigen Stands entbehrlich — und wären beim nächsten `--loeschen`
+weg. Für den Arbeitsalltag richtig, für die Historisierung falsch. Es braucht
+eine vierte Regel: *gepinnt bleibt.*
+
+**Artans Punkt 2: die Ladelogik versionieren.** *„Nicht nur in GitHub, sondern
+ab wann die Daten anders geladen werden."* Der Anlass steht im Projekt schon:
+Am 11.9. wurde Detroits Fenster von UTC auf Ortszeit umgestellt; Läufe davor
+enthielten 66 Fälle aus 2023. Zwei Läufe, gleiche Struktur, anders geladen —
+ohne Vermerk sieht man das keinem an.
+
+**Und es gibt bereits ein Vorbild: Detroit.** `window_contract_version: 2`,
+`bronze_contract_version: 2`, `raw_contract_version: 1` — genau das, was Artan
+vorschlägt, nur für eine Quelle und verteilt über drei Module. Chicago, Census
+und NOAA haben nichts Vergleichbares; die Silver-Manifeste halten `"tool":
+"duckdb 1.5.5 …"` fest, also die **Engine**, nicht unseren Code.
+
+Der Vorschlag trennt drei Fragen, die leicht verwechselt werden: *welcher Code
+lief* (Git-Commit, automatisch), *hat sich die Bedeutung geändert*
+(Vertragsversion, von Hand), *ab wann gilt das Neue*. Die dritte braucht keine
+eigene Antwort: Wenn jeder Lauf seine Vertragsversion trägt und Läufe
+unveränderlich sind, ist „ab wann" eine **Abfrage** — der erste Lauf mit
+Version 2 — und kein Register, das jemand pflegen muss.
+
+**Dazu Skalierung und Cloud**, gemessen: 23,1 s für die ganze Ableitung. Was
+zuerst bricht, ist nicht die Engine, sondern der Vollneubau; der einzige echte
+Blocker für eine dritte Stadt sind zwei handgeschriebene CTEs. Für die Cloud
+hat der Storage-Umbau die Entkopplung schon erledigt — es fehlen zwei
+Konfigurationsfelder (`region_name`, `addressing_style` sind fest verdrahtet).
+
+**Wächter.** `tests/test_ausblick.py`: Solange das Dokument eine Lücke
+**behauptet**, muss sie noch da sein. Wer eine schliesst, fällt durch und zieht
+den Ausblick mit — und die Meldung nennt den Abschnitt. Dieselbe Drift hatte
+Tabelle 5.3 dreimal erwischt.
+
+**Zahlen.** 873 → **883 Tests**.
 
 ---
 
