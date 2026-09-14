@@ -191,3 +191,55 @@ def test_artans_punkte_sind_als_solche_gekennzeichnet(text):
 def test_das_konzept_verweist_auf_den_ausblick():
     konzept = (PROJECT_ROOT / "docs" / "ln1_konzept.md").read_text(encoding="utf-8")
     assert "ausblick.md" in konzept, "Kapitel 11 nennt den Ausblick nicht"
+
+
+# --------------------------------------------------------------------------
+# Abschnitt 5: die Analyseplattform
+# --------------------------------------------------------------------------
+
+
+def test_es_gibt_weiterhin_keinen_wuerfel(text):
+    """Die Zusage aus Abschnitt 5 - und aus Konzept 5.2, zweimal gemessen.
+
+    Ein vorberechnetes Aggregat fuer das Dashboard waere 86 Prozent so gross
+    wie die Faktentabelle und wuerfe jede Dimension weg, die niemand vorher
+    festgelegt hat. Wer es doch materialisiert, faellt hier durch.
+    """
+    if "Das Format ist der Würfel" not in text:
+        pytest.skip("Das Dokument sagt es nicht mehr")
+    gold = PROJECT_ROOT / "data" / "gold"
+    wuerfel = [p.name for p in gold.glob("dataset=*")
+               if p.name.startswith(("dataset=fact_tract", "dataset=fact_city",
+                                     "dataset=agg_", "dataset=dashboard"))]
+    assert not wuerfel, f"vorberechnete Aggregate in Gold: {wuerfel}"
+    # Ein Wuerfel waere eine **geschriebene** Parquet-Datei. Weder GROUP BY
+    # noch der Dateiname allein sagen etwas: Ersteres steht in den Docstrings
+    # als Abfragebeispiel, Letzteres ist die Konstante zum Lesen.
+    serving = PROJECT_ROOT / "src" / "crime" / "serving"
+    schreibt = re.compile(r"COPY\s.*\sTO\s'|write_table\(|to_parquet\(")
+    materialisiert = [
+        p.name for p in serving.glob("*.py")
+        if schreibt.search(p.read_text(encoding="utf-8"))
+    ]
+    assert not materialisiert, (
+        f"{materialisiert} schreibt Parquet in der Serving-Schicht - Abschnitt 5 "
+        "sagt, aggregiert wird in der Abfrage, nicht im Speicher"
+    )
+
+
+def test_das_konzept_verspricht_weiterhin_keine_aggregate(text):
+    """Abschnitt 5 beruft sich woertlich auf Konzept 5.2."""
+    if "Keine vorberechneten Aggregate" not in text:
+        pytest.skip("Das Dokument beruft sich nicht darauf")
+    konzept = (PROJECT_ROOT / "docs" / "ln1_konzept.md").read_text(encoding="utf-8")
+    assert "Keine vorberechneten Aggregate" in konzept, (
+        "Die Zusage steht nicht mehr im Konzept - Abschnitt 5 zitiert ins Leere"
+    )
+
+
+def test_die_beiden_bauarten_nennen_vorhandene_artefakte(text):
+    """Die Karte ist geloest - solange das GeoJSON-Werkzeug existiert."""
+    if "1'055 Tract-Umrisse" not in text:
+        pytest.skip("Das Dokument nennt sie nicht")
+    assert (PROJECT_ROOT / "src" / "crime" / "serving" / "export_geojson.py").exists()
+    assert (PROJECT_ROOT / "src" / "crime" / "serving" / "build_analysis_db.py").exists()

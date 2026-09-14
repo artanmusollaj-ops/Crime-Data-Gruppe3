@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **932** |
+| Tests | **935** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -71,6 +71,55 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 14.09.2026 · Die Analyseplattform durchdacht — und der Würfel zum zweiten Mal verworfen (#83)
+
+**Was.** [`ausblick.md`](ausblick.md) hat einen Abschnitt 5: die
+Analyseplattform für LN2. Messwerte, die Bewertung von Streamlit, ClickHouse
+und OpenSearch, zwei Bauarten — und drei Entwurfsgrundsätze, die aus diesem
+Projekt kommen und nicht aus einem Dashboard-Lehrbuch.
+
+**Die Zahl, an der alles hängt.** DuckDB beantwortet die typischen
+Dashboard-Abfragen auf der **rohen** Faktentabelle in **2 bis 7
+Millisekunden**. Ein Mensch erwartet unter 200 ms. Damit ist die
+Werkzeugfrage keine Leistungsfrage: ClickHouse wäre bei 344'617 Zeilen rund
+tausendfach überdimensioniert, OpenSearch hat die falsche Form — unsere
+Fragen sind Aggregationen über ein Sternschema.
+
+**Ein Vorschlag, den Christian zurückgewiesen hat — zu Recht.** Der erste
+Entwurf sah eine vorberechnete Datei fürs Dashboard vor. Sein Einwand: *„Dann
+können wir genauso gut zurück zum Würfel."* Die Messung gibt ihm recht:
+
+| | Zeilen |
+| --- | ---: |
+| `fact_offense` | 344'617 |
+| Aggregat Tract × Tag × Familie | 296'651 — **86 %** davon |
+
+14 % weniger Zeilen ist keine Aggregation. Die scheinbare Ersparnis kam
+daher, dass **Spalten** wegfielen — und genau das leistet Parquet von selbst:
+Eine Kartenabfrage liest vier Spalten, 0,69 MB, **5 % der Datei**. Das
+Aggregat wäre grösser gewesen als die kostenlose Spaltenauswahl und hätte
+dafür jede Dimension weggeworfen, die niemand vorab festgelegt hat.
+
+**Das Format ist der Würfel** — einer, den niemand vorher entscheiden muss.
+Und der Wunsch nach dynamischen Filtern ist das stärkste Argument dagegen,
+nicht dafür. Dieselbe Messung hatte `fact_tract_month` und `fact_city_day`
+schon einmal verworfen; Konzept 5.2 führt es als Zusage.
+
+**Wächter.** `tests/test_ausblick.py` prüft, dass kein Aggregat in Gold
+liegt und die Serving-Schicht keine Parquet-Datei **schreibt**. Zwei
+Fehlversuche beim Bauen des Wächters sind lehrreich: Ein Prüfen auf
+`GROUP BY` schlug an — das steht in den Docstrings als Abfragebeispiel; ein
+Prüfen auf `.parquet` ebenso — das ist die Konstante zum **Lesen**.
+
+**Zur Begriffswahl.** Der neue Abschnitt sagt **Granularität**, wo das
+übrige Projekt *Korn* sagt. „Granularität" ist der eingeführte deutsche
+Begriff für Kimballs *grain*. Die Umstellung betrifft 128 Stellen in 27
+Dateien und steht als eigener Punkt in der Reihenfolge.
+
+**Zahlen.** 932 → **935 Tests**.
 
 ---
 

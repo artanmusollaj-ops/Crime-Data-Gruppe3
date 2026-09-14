@@ -14,6 +14,7 @@ vorn.
 | [2 · Die Ladelogik versionieren](#2--die-ladelogik-versionieren) | Artan | **erledigt am 14.9.** (#78) |
 | [3 · Skalieren](#3--skalieren) | Gedankenspiel | mittel — erst relevant ab Stadt drei |
 | [4 · In die Cloud](#4--in-die-cloud) | Gedankenspiel | niedrig — technisch fast vorbereitet, fachlich unnötig |
+| [5 · Die Analyseplattform](#5--die-analyseplattform) | Christian | **hoch** — LN2 im Dezember |
 
 ---
 
@@ -376,7 +377,164 @@ doch"*, ist stärker als ein Architekturdiagramm ohne Zahlen.
 
 ---
 
-## 5 · Reihenfolge
+## 5 · Die Analyseplattform
+
+Für den zweiten Leistungsnachweis. Die Anforderung steht seit dem 13.9.:
+Tag, Monat und Jahr wählbar, beide Städte gegeneinander **und** einzeln, das
+Stadtgebiet mit seinen Tracts eingefärbt nach Filter.
+
+### Die Zahlen, an denen die Werkzeugfrage hängt
+
+Gemessen am 14.9.2026 auf `gold/fact_offense` (344'617 Zeilen, 14,8 MB),
+ohne Index, ohne Vorberechnung:
+
+| Abfrage, wie ein Dashboard sie stellt | Zeit |
+| --- | ---: |
+| Karte: Tract × Monat, auf einen Monat gefiltert | **2 ms** |
+| Zeitreihe beider Städte über ein Jahr | **2 ms** |
+| Rate je Tract, mit Einwohnern als Nenner | **7 ms** |
+
+Ein Mensch klickt einen Filter und erwartet eine Antwort unter etwa 200 ms.
+Wir haben das Hundertfache an Luft — auf der **rohen** Faktentabelle, ohne
+Server.
+
+### Streamlit, ClickHouse, OpenSearch
+
+| | Wofür gebaut | Wann es richtig wird | Hier |
+| --- | --- | --- | --- |
+| **Streamlit** | Python-Oberflächen für wenige Nutzer | sofort, bei 1–20 Nutzern | **passt** |
+| **ClickHouse** | Milliarden Zeilen, viele gleichzeitige Abfragen | ab ~50–100 Mio Zeilen oder vielen parallelen Nutzern | ~1000× zu gross |
+| **OpenSearch** | Volltext, Exploration ohne festes Schema | wenn die Frage *„finde alles mit dem Wort X"* lautet | falsche **Form** |
+
+**ClickHouse** ist keine Stufe, in die wir hineinwachsen. Zehn Städte über
+zehn Jahre wären rund 20 Mio Zeilen — das rechnet DuckDB auf einem Laptop
+weiterhin interaktiv. Erst bei etwa fünfzig Städten über zwanzig Jahre, oder
+wenn zwanzig Leute gleichzeitig schwere Aggregationen fahren, lohnt sich der
+Serverbetrieb.
+
+**OpenSearch** ist die falsche Form, nicht die falsche Grösse: Unsere Fragen
+sind Aggregationen über ein Sternschema, und das ist SQLs Heimat. Der eine
+Fall, in dem es gepasst hätte, war Artans Fund über die
+`offense_description` (eine Larceny-Zeile mit CSC-Text) — eine einmalige
+Untersuchung, keine Plattformanforderung. Dafür genügt eine Abfrage auf
+`analyse.duckdb`.
+
+### Kein Würfel — zum zweiten Mal gemessen
+
+Ein erster Entwurf sah eine vorberechnete Datei für das Dashboard vor
+(Tract × Tag × Deliktfamilie). Christian hat eingewandt, das sei der Würfel,
+den das Projekt schon einmal verworfen hat. Die Messung gibt ihm recht:
+
+| | Zeilen |
+| --- | ---: |
+| Granularität `fact_offense` | 344'617 |
+| Aggregat Tract × Tag × Familie | 296'651 — **86 %** davon |
+
+**14 % weniger Zeilen ist keine Aggregation.** Die scheinbare Ersparnis
+(0,73 statt 14,8 MB) kam fast vollständig daher, dass Spalten wegfielen —
+nicht Zeilen. Und genau das leistet Parquet von selbst:
+
+```text
+Eine Kartenabfrage liest 4 Spalten:   0,69 MB   =  5 % der Datei
+Das materialisierte Aggregat:         0,73 MB
+```
+
+Das Aggregat wäre **grösser gewesen als die Spaltenauswahl, die ohnehin
+kostenlos ist** — und hätte dafür jede Dimension weggeworfen, die niemand
+vorher festgelegt hat. Dazu kommen Row Groups mit Min/Max je Spalte, über
+die ein Zeitfilter ganze Blöcke überspringt.
+
+**Das Format ist der Würfel** — einer, den niemand vorab entscheiden muss.
+
+Und der Wunsch nach *dynamischen* Ansichten ist das stärkste Argument
+dagegen, nicht dafür: Ein Würfel legt Dimensionen und Granularität vorab
+fest. Wer danach nach `arrest`, `mapping_status`, Tageszeit oder
+`geo_status` filtern will, findet sie dort nicht; in der Faktentabelle
+schon. Die Umschaltung zwischen Tat- und Fallebene wären im Würfel zwei
+Würfel.
+
+Damit bestätigt sich, was Konzept 5.2 als Zusage führt — dort noch mit dem
+alten Wort *Korn*, siehe die Anmerkung zur Begriffswahl unten: *„Keine
+vorberechneten Aggregate. Gold behält das Korn — eine Zeile je Tat, mit
+Zeitpunkt und Koordinate. Aggregiert wird in der Abfrage, nicht im
+Speicher."* Dieselbe Messung hatte schon `fact_tract_month` (95'219) und
+`fact_city_day` (11'156) verworfen.
+
+> **Zur Begriffswahl.** Dieser Abschnitt sagt **Granularität**, wo das
+> übrige Projekt bislang *Korn* sagt, und **Tat-/Fallebene** statt
+> *Tatkorn/Fallkorn*. „Granularität" ist der eingeführte deutsche Begriff
+> für Kimballs *grain*; „Korn" ist eine wörtliche Übersetzung, die im
+> deutschen Data Engineering unüblich ist. Christian hat das am 14.9.
+> angemerkt. Der Begriff kommt an 128 Stellen in 27 Dateien vor — die
+> Umstellung ist ein eigener Schritt und steht in der Reihenfolge unten.
+
+### Die eigentliche Schwierigkeit ist nicht die Menge
+
+Sie ist die **Bedeutung**. Jede angezeigte Zahl trägt eine Entscheidung, die
+dieses Projekt bewusst sichtbar gemacht hat:
+
+- **Welche Granularität?** Detroit steht auf Tatebene bei 132,6 je 1'000,
+  auf Fallebene bei 124,6. Beide richtig, verschiedene Aussagen.
+- **Was zählt mit?** `geo_status` sagt, warum eine Zeile in einer
+  Tract-Auswertung fehlt — 6'445 Fälle liegen ausserhalb, 0,58 % haben
+  keine Koordinate.
+- **Wie sicher ist die Zuordnung?** `mapping_status`: `exact`, `ambiguous`,
+  `fallback_90Z`.
+- **Absolut oder je Einwohner?** Absolut liegt Chicago fast überall vorn, je
+  Einwohner Detroit.
+- **Die Mehrheitsregel** untertreibt Chicagos Rate um gut einen Punkt (94,5
+  statt 95,6).
+
+Ein Dashboard, das eine dieser Entscheidungen still trifft und eine Zahl
+hinstellt, macht die Arbeit dieses Projekts zunichte. Daraus folgen drei
+Grundsätze:
+
+1. **Die Granularität ist ein Schalter, keine Annahme.** Tat- oder Fallebene
+   gehört sichtbar in die Kopfzeile, nicht in eine Fussnote.
+2. **Jede Kennzahl nennt ihren Nenner und ihre Ausschlüsse.** *„94,5 je
+   1'000 — von 251'516 Delikten in Tracts der Stadt; 1'753 ohne Koordinate
+   nicht enthalten."*
+3. **Was fehlt, wird gezeigt, nicht weggelassen.** Ein Tract ohne Einwohner
+   bekommt keine Rate, sondern eine eigene Farbe. Sonst liest jemand die
+   Null als Sicherheit.
+
+Das spricht **gegen** ein fertiges BI-Werkzeug: Metabase oder Superset
+stellen gern eine Zahl ohne Fussnote hin.
+
+### Zwei Bauarten
+
+| | Woher gelesen wird | Bewertung |
+| --- | --- | --- |
+| **A · Streamlit** (serverseitig) | DuckDB direkt auf `fact_offense` und `dim_tract`, lokal oder `s3://` | Vorschlag für LN2: an einem Wochenende lauffähig, passt zu unseren Fähigkeiten |
+| **B · Statische Seite** (DuckDB-WASM) | dieselben Parquet-Dateien über HTTP-Range-Requests, nur die gebrauchten Spalten | eleganter — kein Server, erfüllt Anforderung 5 aus 7.1 wörtlich; aber neu für uns |
+
+In **beiden** Fällen: keine neue Datei, keine neue Schicht. Die
+Serving-Schicht bekommt allenfalls eine *Sicht* in `analyse.duckdb` — einen
+Namen, keine Daten.
+
+Die Karte ist gelöst: 1'055 Tract-Umrisse liegen als GeoJSON mit 0,55 MB
+bereit, auf rund 2 m vereinfacht. Die Geometrie geht **einmal** an den
+Browser, bei jedem Filterwechsel nur noch ein Wert je `geoid`. Die Geometrie
+ist das Schwere — und sie ändert sich nie.
+
+Eine ehrliche Grenze: Die Faktentabelle hat nur **drei Row Groups**, das
+Überspringen per Zeitfilter ist also grob. Bei 2 ms ist das gleichgültig;
+falls es je zählt, wäre der Hebel „nach Datum sortiert schreiben, mehr Row
+Groups" — und immer noch kein Würfel.
+
+### Was zu entscheiden ist, und es ist nicht technisch
+
+Drei Fragen für die Absprache, die den Aufbau stärker bestimmen als jedes
+Werkzeug:
+
+1. Welche Granularität ist die **Hauptaussage** — Tat oder Fall?
+2. Absolute Zahlen oder Raten als Voreinstellung?
+3. Erzählt das Dashboard eine **Geschichte** (kuratiert) oder lässt es
+   **erkunden** (Filter über alles)?
+
+---
+
+## 6 · Reihenfolge
 
 Nach Nutzen je Aufwand, nicht nach Reiz:
 
@@ -389,6 +547,8 @@ Nach Nutzen je Aufwand, nicht nach Reiz:
 | **5** | Quellprofil statt zwei CTEs | der einzige echte Blocker für eine dritte Stadt |
 | **6** | Partitioniertes Silver mit Fingerabdruck je Partition | linear → konstant; unabhängig von Infrastruktur |
 | **7** | Cloud Stufe 1 | danach ein Nachmittag, kein Projekt |
+| **8** | *Korn* → *Granularität* durchgehend (128 Stellen, 27 Dateien) | der eingeführte Begriff; betrifft auch Artans Dokumente |
+| **8** | Dashboard für LN2 (Abschnitt 5) | eigener Zeitplan — Dezember |
 
 Die Punkte 1 bis 3 sind Artans, sie sind zusammen überschaubar, und sie
 betreffen etwas, das **heute schon** unvollständig ist — nicht erst bei
