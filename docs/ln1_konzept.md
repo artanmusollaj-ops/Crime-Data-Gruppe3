@@ -230,7 +230,7 @@ beide fassen 59 Delikte zu 25 Familien zusammen. *„Nur Shoplifting am
 9. November"* wäre nicht mehr zu beantworten — also genau das, wofür eine
 Auswertungsplattform da ist.
 
-**Gold behält deshalb das Korn** und wird statt dessen abfragbar gemacht: ein
+**Gold behält deshalb die Granularität** und wird statt dessen abfragbar gemacht: ein
 Sternschema mit einer Faktentabelle je Delikt und vier kleinen Dimensionen.
 Aufgesetzt wird auf `silver/crime_offense` — was dort gedeutet und
 zusammengeführt wurde, steht in [8.2](#82-was-silver-deutet); Gold ordnet es
@@ -293,7 +293,7 @@ Messung und Methodik: [`notebooks/33_serving_evaluation.ipynb`](../notebooks/33_
 
 #### Wer konsumiert
 
-| Konsument | Zugriff | Korn |
+| Konsument | Zugriff | Granularität |
 | --- | --- | --- |
 | Dashboard (primär) | über Sichten in einer DuckDB-Datei | aggregiert |
 | Ad-hoc-Auswertung im Team | SQL auf dieselben Sichten | aggregiert, bei Bedarf Silver |
@@ -303,7 +303,7 @@ der Auswertungsumgebung.
 
 #### Was geliefert wird: fünf Gold-Tabellen
 
-| Tabelle | Korn | Zeilen |
+| Tabelle | Granularität | Zeilen |
 | --- | --- | ---: |
 | `fact_offense` | **eine Tat** | 344'617 |
 | `dim_tract` | ein Census Tract, mit **Stadtzuordnung** und Einwohnerzahl | 6'282 |
@@ -368,7 +368,7 @@ war falsch, und zwar an vier Stellen:
 
 Das Präfix bleibt als technischer Schlüssel erhalten; wer gruppiert, nimmt die
 Kategorie. In den Falldaten 2024 sind **30 Kategorien** belegt, **23 davon in
-beiden Städten**, und diese 23 decken **99,5 %** der Fälle (auf Tatkorn, siehe
+beiden Städten**, und diese 23 decken **99,5 %** der Fälle (auf Tatebene, siehe
 5.2). Die übrigen kommen
 nur in einer Stadt vor — Embezzlement, Pornografie, Bestechung, Menschenhandel
 und Tierquälerei in Chicago, Bad Checks und Runaway in Detroit.
@@ -385,7 +385,7 @@ jede Zeile nennt ihr Dokument.
 > handgepflegte Übersetzung neben der belegten — und die 20 Familien leisten
 > dasselbe, ohne gepflegt werden zu müssen.
 
-#### Das Korn: Detroits Zeilen sind Anklagen, Chicagos sind Delikte
+#### Die Granularität: Detroits Zeilen sind Anklagen, Chicagos sind Delikte
 
 **Das ist der einzige Stellenwechsel zwischen Silver und Gold** — und er war
 nötig, weil die beiden Städte verschieden feine Zeilen liefern. Ein Überfall mit
@@ -422,7 +422,7 @@ Gold nimmt nur die zählenden. Wer die Anklagen braucht — *„wie oft wurde
 zusätzlich Sachbeschädigung angezeigt"* — findet sie vollständig in
 `silver/crime_offense`, mit `counts` und `counts_reason` je Zeile.
 
-**Ein zweites Korn seit 13.9.2026: der Fall.** Das Tatkorn gleicht Detroits
+**Ein zweites Granularität seit 13.9.2026: der Fall.** Das Tatebene gleicht Detroits
 Anklagen an — aber nicht die Zählweise der beiden Städte. Chicago führt je
 Vorfall **ein** Delikt (die einzigen Mehrfachzeilen sind Mordopfer, ein
 Datensatz je Opfer), Detroit führt je Vorfall **jedes** Delikt. `counts_case`
@@ -435,11 +435,11 @@ auf NIBRS übersetzt), bei gleichem Delikt die früheste Zeile.
 | Taten (`counts`) | 259'272 | 85'345 |
 | Fälle (`counts_case`) | 259'243 | 80'229 |
 | Taten je Fall | 1,000 | **1,064** |
-| Rate je 1'000, Tatkorn | 94,5 | 132,6 |
-| Rate je 1'000, Fallkorn | 94,5 | **124,6** |
+| Rate je 1'000, Tatebene | 94,5 | 132,6 |
+| Rate je 1'000, Fallebene | 94,5 | **124,6** |
 
 Beide Masse liegen in Gold; die Tatzahlen ändern sich nicht. Welche Zählweise
-die Aussage trägt, ist ein Entscheid — Chicagos Zählweise ist das Fallkorn.
+die Aussage trägt, ist ein Entscheid — Chicagos Zählweise ist das Fallebene.
 
 **Gefunden hat das Artan**, an einer Zeile mit `offense_category` LARCENY und
 `offense_description` *CSC 3rd Degree*. Sie gehört zu einem Vorfall mit zwei
@@ -533,7 +533,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 
 #### Was ausdrücklich nicht geliefert wird
 
-- **Keine vorberechneten Aggregate.** Gold behält das Korn — eine Zeile je Tat,
+- **Keine vorberechneten Aggregate.** Gold behält die Granularität — eine Zeile je Tat,
   mit Zeitpunkt und Koordinate. Aggregiert wird in der Abfrage, nicht im
   Speicher; die Messung dazu steht weiter oben in diesem Kapitel. Wer nur
   Summen braucht, bekommt sie über ein `GROUP BY`.
@@ -548,7 +548,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 > **Korrektur, 12.9.2026.** Hier stand bis heute *„Keine zeilenweisen
 > Falldaten. Gold ist aggregiert."* Das war ein Überbleibsel des
 > Würfel-Entwurfs und widersprach der Messung, die ihn verworfen hat: Gold
-> behält das Korn, genau das ist die Entscheidung. Siehe
+> behält die Granularität, genau das ist die Entscheidung. Siehe
 > [`AENDERUNGEN.md`](AENDERUNGEN.md).
 
 ### 5.3 Unterströmungen
@@ -836,7 +836,7 @@ ableiten, ohne die API erneut zu befragen.
 
 ### 8.2 Was Silver deutet
 
-Die Quellen haben **verschiedene Körner**. Sie in eine Tabelle zu zwingen
+Die Quellen haben **verschiedene Granularitäten**. Sie in eine Tabelle zu zwingen
 würde Zeilen vervielfachen — ein Wetterwert an jedem Delikt derselben Stadt und
 desselben Tages — oder Information wegwerfen. Deshalb vier Tabellen:
 
@@ -954,11 +954,11 @@ NIBRS abbilden. Seit `silver/crime_offense` beide Crosswalks auf die Falldaten
 anwendet, ist das gemessen — und die Antwort hängt daran, was „vollständig"
 heissen soll.
 
-Gemessen auf Tatkorn über die 344'617 Delikte des Jahrgangs 2024:
+Gemessen auf Tatebene über die 344'617 Delikte des Jahrgangs 2024:
 
 | | Chicago | Detroit | zusammen |
 | --- | ---: | ---: | ---: |
-| Delikte (Tatkorn) | 259'272 | 85'345 | 344'617 |
+| Delikte (Tatebene) | 259'272 | 85'345 | 344'617 |
 | Quellcode im Crosswalk bekannt | **100 %** | **100 %** | **100 %** |
 | davon Auffang `90Z` | 7'695 | 2'747 | 10'442 |
 | **mit einem echten NIBRS-Delikt** | **97,0 %** | **96,8 %** | **97,0 %** |
@@ -1038,7 +1038,7 @@ vom Handbuch abweichen und ihren Beleg mitführen.
 **Ein Vorbehalt bleibt.** Bei 40 der 1'447 Zeilen weicht `offense_description`
 von `charge_description` ab: Die Anklage lautet auf Retail Fraud, der Vorfall
 ist als Körperverletzung oder Sachbeschädigung erfasst. Das ist kein
-Widerspruch, sondern die Körnung der Quelle — eine Zeile ist eine Anklage, nicht
+Widerspruch, sondern die Granularität der Quelle — eine Zeile ist eine Anklage, nicht
 der Vorfall.
 
 **Was die Tabelle über die Hypothese hinaus zeigt.** Zum ersten Mal lassen sich
@@ -1179,8 +1179,8 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
   wirkt damit ungleich auf die beiden Städte.
 - **Die Städte zählen verschieden.** Chicago führt je Vorfall ein Delikt
   (Mordopfer ausgenommen: ein Datensatz je Opfer), Detroit jedes Delikt eines
-  Vorfalls — 6,4 % mehr Taten als Fälle. Auf Tatkorn liegt Detroit bei 132,6
-  je 1'000, auf Fallkorn (`counts_case`, beide Städte dieselbe Regel) bei
+  Vorfalls — 6,4 % mehr Taten als Fälle. Auf Tatebene liegt Detroit bei 132,6
+  je 1'000, auf Fallebene (`counts_case`, beide Städte dieselbe Regel) bei
   124,6; Chicago in beiden bei 94,5. Die Reihenfolge bleibt, der Abstand
   schrumpft. Beide Masse sind in Gold; welches die Aussage trägt, ist zu
   entscheiden (5.2).
@@ -1352,7 +1352,7 @@ zwanzig Sekunden gekostet und an einer Netzverbindung gehangen.
 Damit dieses Dokument vollständig ist, fehlen:
 
 - **Entscheid über Forschungsfragen und Hypothesen** (Kapitel 3) — Gold ist
-  bewusst so gebaut, dass er nichts daran ändert: Das Korn bleibt, und jede
+  bewusst so gebaut, dass er nichts daran ändert: Die Granularität bleibt, und jede
   Frage ist ein Filter darauf (5.2)
 - **Ein Notebook, das den Vergleich über alle Hypothesen rechnet.** Die Rate je
   Einwohner steht seit Gold zur Verfügung (5.2) und ist in Notebook 34

@@ -139,7 +139,7 @@ def test_jeder_waechter_der_zahlen_gegen_daten_haelt_traegt_den_marker():
             dekoratoren, name, parameter = m.groups()
             braucht_daten = "con" in parameter.split(",") or "con," in parameter.replace(" ", "")
             if name in ("test_der_kopf_nennt_die_zeilenzahlen", "test_der_kopf_nennt_die_raten",
-                        "test_der_kopf_nennt_das_fallkorn"):
+                        "test_der_kopf_nennt_das_fallebene"):
                 braucht_daten = True
             if braucht_daten and "referenzstand" not in dekoratoren:
                 fehlend.append(f"{datei}::{name}")

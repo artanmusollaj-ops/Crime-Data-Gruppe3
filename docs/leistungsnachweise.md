@@ -577,7 +577,7 @@ ergibt sich folgender Stand:
 | --- | --- | --- | --- |
 | 1 | **Forschungsfragen** — FF1 bis FF3 übernehmen oder anders schneiden? | ○ **offen** | [Absprache 5.2](projektabsprache.md) sagt ausdrücklich „Forschungsfragen noch definieren" |
 | 2 | **Hypothesen** — H1 bis H5 Pflicht, H6 bis H8 Kür? | ○ **offen** | – |
-| 3 | **Serving-Option** — A, B oder C? | ● **A · Analytik** | Abschnitt 6; gebaut als Sternschema auf Deliktkorn statt als Aggregat — die Messung dazu in Notebook 34 |
+| 3 | **Serving-Option** — A, B oder C? | ● **A · Analytik** | Abschnitt 6; gebaut als Sternschema auf Deliktebene statt als Aggregat — die Messung dazu in Notebook 34 |
 | 4 | **Wetterquelle** — im Scope? | ● **ja** | [Absprache 2.1](projektabsprache.md) Variante **D**; Quelle gebaut, getestet, geladen, dokumentiert |
 | 5 | **Storage-Begründung** | ● **erledigt** | Notebook 31 misst NDJSON gegen Parquet, Kapitel 7 schreibt es aus; das Bronze-Format ist mit [Absprache 4.1](projektabsprache.md) auf Parquet entschieden |
 | 6 | **Arbeitsteilung** | ● **geregelt am 12.9.2026** | Christian: Silver, Gold, Pipeline. Artan: Dokumentation, Präsentation, Hypothesen |

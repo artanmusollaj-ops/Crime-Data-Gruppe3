@@ -91,12 +91,12 @@ def spalte(tabelle, name):
 
 
 # --------------------------------------------------------------------------
-# Korn und Ablage
+# Granularität und Ablage
 # --------------------------------------------------------------------------
 
 
 def test_grain_is_city_and_day(tmp_path):
-    """Ein anderes Korn als die Faktentabelle - deshalb eine eigene Tabelle."""
+    """Eine andere Granularität als die Faktentabelle - deshalb eine eigene Tabelle."""
     _, manifest, tabelle = gebaut(tmp_path)
     assert manifest["grain"] == "eine Stadt an einem Tag"
     assert manifest["join_keys"] == ["city", "date"]
@@ -110,7 +110,7 @@ def test_table_dir_has_no_vintage():
 
 
 def test_two_stations_for_one_city_is_an_error(tmp_path):
-    """O'Hare und Midway sind beide Chicago - das Korn braeche."""
+    """O'Hare und Midway sind beide Chicago - die Granularität braeche."""
     data_root = tmp_path / "data"
     write_bronze_run(data_root, OHARE)
     write_bronze_run(data_root, MIDWAY)

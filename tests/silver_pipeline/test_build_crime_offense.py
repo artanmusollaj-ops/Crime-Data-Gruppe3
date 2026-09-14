@@ -99,7 +99,7 @@ def detroit_saetze(zeilen: list[dict]) -> list[dict]:
         "incident_entry_id": z["incident_entry_id"],
         "report_number": z.get("report_number"),
         # Der Vorfall, zu dem die Zeile gehoert. Mehrere Anklagen zur selben
-        # Tat teilen ihn sich; ohne ihn laesst sich das Tatkorn nicht bilden.
+        # Tat teilen ihn sich; ohne ihn laesst sich das Tatebene nicht bilden.
         "case_id": z.get("case_id", z["incident_entry_id"]),
         "state_offense_code": z.get("state_offense_code"),
         # Die Anklage. Sie faellt bei 3,6 Prozent der echten Zeilen von der
@@ -193,7 +193,7 @@ def schreibe_config(config_root: Path) -> None:
         "2307,23007,LARCENY - OTHER,A,90Z,All Other Offenses,6,micr_manual_1110_2024,true,true,\n"
         "1201,12001,CARJACKING,A,13A,Aggravated Assault,3,micr_manual_1110_2024,true,true,\n"
         "2901,29000,DAMAGE TO PROPERTY,A,90Z,All Other Offenses,16,micr_manual_1110_2024,true,true,\n"
-        # Fuer das Fallkorn: ein Eigentumsdelikt aus der Hierarchie (240) neben
+        # Fuer das Fallebene: ein Eigentumsdelikt aus der Hierarchie (240) neben
         # einem Personendelikt (13A) und einem Auffangcode (90Z).
         "2401,24001,MOTOR VEHICLE THEFT,A,240,Motor Vehicle Theft,7,micr_manual_1110_2024,true,true,\n",
         encoding="utf-8")
@@ -237,7 +237,7 @@ DET = [{"incident_entry_id": "D1", "report_number": "R1", "case_id": "F1",
 
 
 # --------------------------------------------------------------------------
-# Korn und Zusammenfuehrung
+# Granularität und Zusammenfuehrung
 # --------------------------------------------------------------------------
 
 
@@ -246,7 +246,7 @@ def test_beide_staedte_landen_in_einer_tabelle(tmp_path):
     assert [z["city"] for z in zeilen] == ["chicago", "detroit"]
 
 
-def test_korn_ist_ein_delikt(tmp_path):
+def test_granularitaet_ist_ein_delikt(tmp_path):
     ziel = baue(tmp_path, CHI, DET)
     pruefung = manifest_von(ziel)["checks"]["per_city"]
     for stadt, zahlen in pruefung.items():
@@ -594,18 +594,18 @@ def test_manifest_nennt_die_zeitzonen(tmp_path):
     }
 
 
-def test_manifest_nennt_das_korn(tmp_path):
-    """Seit dem Tatkorn-Umbau ist eine Zeile eine **Anklage**, kein Delikt.
+def test_manifest_nennt_das_granularitaet(tmp_path):
+    """Seit dem Tatebene-Umbau ist eine Zeile eine **Anklage**, kein Delikt.
 
     Das Manifest sagte bis zum 12.9. weiter "ein Delikt" - und der Feldkatalog,
-    der das Korn aus den Manifesten liest, haette es so uebernommen. Genau
-    dafuer steht es hier als Test: Das Korn ist die Aussage, die eine Tabelle
+    der die Granularität aus den Manifesten liest, haette es so uebernommen. Genau
+    dafuer steht es hier als Test: Die Granularität ist die Aussage, die eine Tabelle
     ueber sich selbst macht, und Detroits Zeilen sind Anklagen.
     """
-    korn = manifest_von(baue(tmp_path, CHI, DET))["grain"]
-    assert korn.startswith("eine Anklage"), korn
-    assert "counts" in korn, "das Korn muss sagen, welche Zeile zaehlt"
-    assert "counts_case" in korn, "und welche je Fall zaehlt"
+    granularitaet = manifest_von(baue(tmp_path, CHI, DET))["grain"]
+    assert granularitaet.startswith("eine Anklage"), granularitaet
+    assert "counts" in granularitaet, "die Granularität muss sagen, welche Zeile zaehlt"
+    assert "counts_case" in granularitaet, "und welche je Fall zaehlt"
 
 
 def test_unvollstaendiger_lauf_wird_uebergangen(tmp_path):
@@ -722,7 +722,7 @@ def test_tabellenverzeichnis_traegt_keine_vintage():
 
 
 # --------------------------------------------------------------------------
-# Tatkorn: welche Zeile zaehlt
+# Tatebene: welche Zeile zaehlt
 # --------------------------------------------------------------------------
 #
 # Detroits Zeilen sind Anklagen, Chicagos sind Delikte. Ein Ueberfall mit
@@ -874,12 +874,12 @@ def test_der_auffangcode_ist_keine_exakte_zuordnung():
 
 
 # --------------------------------------------------------------------------
-# Das Fallkorn: je Fall zaehlt eine Zeile, fuer beide Staedte nach derselben
+# Das Fallebene: je Fall zaehlt eine Zeile, fuer beide Staedte nach derselben
 # Regel.
 #
 # Chicago fuehrt je Vorfall ein Delikt - die einzigen Mehrfachzeilen sind
 # Mordopfer, ein Datensatz je Opfer (25 Faelle in 2024). Detroit fuehrt je
-# Vorfall jedes Delikt (4'658 Faelle mit 2-4 Taten). Auf Tatkorn zaehlt
+# Vorfall jedes Delikt (4'658 Faelle mit 2-4 Taten). Auf Tatebene zaehlt
 # Detroit damit 6,4 Prozent, die Chicago nie zaehlt. ``counts_case`` gleicht
 # das an: die Zeile mit dem schwersten Delikt, bei gleichem Delikt die
 # frueheste. Christian hat gefragt, ob das fuer beide Staedte gelten muesse -
@@ -893,7 +893,7 @@ def chi_zeile(nr: str, fall: str | None, datum: str, iucr: str = "0110") -> dict
             "updated_on": "2024-02-01T00:00:00.000"}
 
 
-def fallkorn(tmp_path, chicago, detroit, stadt) -> dict[str, tuple[bool, bool]]:
+def fallebene(tmp_path, chicago, detroit, stadt) -> dict[str, tuple[bool, bool]]:
     """offense_id -> (counts, counts_case) fuer eine Stadt."""
     return {z["offense_id"]: (z["counts"], z["counts_case"])
             for z in lies(baue(tmp_path, chicago, detroit)) if z["city"] == stadt}
@@ -907,7 +907,7 @@ def test_chicagos_mordopfer_zaehlen_je_fall_einmal(tmp_path):
     """
     chicago = [chi_zeile("2", "JH1", "2024-01-03T20:59:00.000"),
                chi_zeile("1", "JH1", "2024-01-01T00:56:00.000")]
-    assert fallkorn(tmp_path, chicago, DET, "chicago") == {
+    assert fallebene(tmp_path, chicago, DET, "chicago") == {
         "1": (True, True), "2": (True, False),
     }
 
@@ -918,7 +918,7 @@ def test_detroits_mehrere_taten_zaehlen_je_fall_einmal(tmp_path):
         det_zeile("D1", "F1", "2307", "LARCENY - OTHER", "LARCENY - OTHER"),
         det_zeile("D2", "F1", "1302", "AGGRAVATED ASSAULT", "AGGRAVATED ASSAULT"),
     ]
-    assert fallkorn(tmp_path, CHI, detroit, "detroit") == {
+    assert fallebene(tmp_path, CHI, detroit, "detroit") == {
         "D1": (True, False), "D2": (True, True),
     }
 
@@ -932,7 +932,7 @@ def test_die_rangfolge_ist_die_hierarchieregel(tmp_path):
         det_zeile("D4", "F2", "2401", "MOTOR VEHICLE THEFT", "MOTOR VEHICLE THEFT"),
         det_zeile("D5", "F2", "2307", "LARCENY - OTHER", "LARCENY - OTHER"),
     ]
-    ergebnis = fallkorn(tmp_path, CHI, detroit, "detroit")
+    ergebnis = fallebene(tmp_path, CHI, detroit, "detroit")
     assert [k for k, (_, fall) in ergebnis.items() if fall] == ["D3", "D4"]
     assert bc.FALLKORN_RANG[0] == "09A", "Toetung steht ganz oben"
     assert bc.FALLKORN_RANG.index("13A") < bc.FALLKORN_RANG.index("240")
@@ -944,7 +944,7 @@ def test_eine_anklage_die_nicht_zaehlt_zaehlt_auch_nicht_je_fall(tmp_path):
         det_zeile("D1", "F1", "2307", "LARCENY - OTHER", "CSC 3RD DEGREE"),
         det_zeile("D2", "F1", "1172", "CSC 3RD DEGREE", "CSC 3RD DEGREE"),
     ]
-    assert fallkorn(tmp_path, CHI, detroit, "detroit") == {
+    assert fallebene(tmp_path, CHI, detroit, "detroit") == {
         "D1": (False, False), "D2": (True, True),
     }
 
@@ -953,12 +953,12 @@ def test_ohne_fallnummer_ist_die_zeile_ihr_eigener_fall(tmp_path):
     """Sonst fielen alle Zeilen ohne Nummer in einen Fall zusammen."""
     chicago = [chi_zeile("1", None, "2024-01-01T00:56:00.000"),
                chi_zeile("2", None, "2024-01-02T00:56:00.000")]
-    assert fallkorn(tmp_path, chicago, DET, "chicago") == {
+    assert fallebene(tmp_path, chicago, DET, "chicago") == {
         "1": (True, True), "2": (True, True),
     }
 
 
-def test_das_fallkorn_gilt_fuer_beide_staedte_gleich(tmp_path):
+def test_das_fallebene_gilt_fuer_beide_staedte_gleich(tmp_path):
     """Dieselbe Regel, derselbe Code, beide Staedte: kein Sonderweg."""
     chicago = [chi_zeile("1", "JH1", "2024-01-01T00:56:00.000"),
                chi_zeile("2", "JH1", "2024-01-01T00:57:00.000")]

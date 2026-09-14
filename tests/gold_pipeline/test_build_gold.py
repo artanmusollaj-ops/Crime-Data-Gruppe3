@@ -143,7 +143,7 @@ def offense_quelle(tmp_path: Path, zeilen) -> bg.Quelle:
         "counts_reason": pa.array(
             ["eine_zeile_ist_ein_delikt" if (len(z) < 6 or z[5])
              else "weitere_anklage_zur_selben_tat" for z in zeilen]),
-        # Jede Zeile ist hier ihr eigener Fall: Fallkorn gleich Tatkorn.
+        # Jede Zeile ist hier ihr eigener Fall: Fallebene gleich Tatebene.
         "counts_case": pa.array([z[5] if len(z) > 5 else True for z in zeilen]),
     }))
 
@@ -515,7 +515,7 @@ def baue(con, tmp_path, zeilen, tracts=None):
     return offense
 
 
-def test_das_korn_bleibt_erhalten(con, tmp_path):
+def test_das_granularitaet_bleibt_erhalten(con, tmp_path):
     """Gold aggregiert nicht - eine Zeile je Delikt, auch bei gleichem Tag und Code."""
     zeilen = [
         (f"id{i}", "chicago", date(2024, 3, 1), "13A", "17031010100")
@@ -688,11 +688,11 @@ def test_in_der_echten_schicht_zeigt_kein_schluessel_ins_leere(con):
         assert verwaist == 0, f"{verwaist} Zeilen zeigen auf keine Zeile in {name}"
 
 
-def test_die_echte_faktentabelle_traegt_das_tatkorn(con):
+def test_die_echte_faktentabelle_traegt_das_tatebene(con):
     """Gold zaehlt Taten, Silver haelt Anklagen.
 
     Detroits Zeilen sind Anklagen, Chicagos sind Delikte. Waere Gold auf
-    Anklagekorn, stuende Detroit um 3,8 Prozent zu hoch in jedem Vergleich.
+    Anklageebene, stuende Detroit um 3,8 Prozent zu hoch in jedem Vergleich.
     """
     fakt = gold("fact_offense")
     silber = PROJECT_ROOT / "data" / "silver" / "dataset=crime_offense" / "part-0001.parquet"
@@ -890,7 +890,7 @@ def test_kein_delikt_landet_in_der_falschen_stadt(con):
     )
 
 
-def test_fact_offense_traegt_das_fallkorn(tmp_path):
+def test_fact_offense_traegt_das_fallebene(tmp_path):
     """``counts_case`` kommt unveraendert aus Silver - Gold entscheidet nichts neu."""
     import duckdb
     quelle = offense_quelle(tmp_path, [

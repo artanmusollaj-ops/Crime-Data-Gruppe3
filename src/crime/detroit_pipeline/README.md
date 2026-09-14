@@ -9,7 +9,7 @@ Aktuelle vollständige Anleitung: ../../../docs/DETROIT_PIPELINE_ANLEITUNG.md.
 - __init__.py: Paketexporte.
 
 **Dieses Paket lädt, es deutet nicht.** Was Detroits Zeilen fachlich bedeuten —
-Korn, NIBRS-Zuordnung, Raum und Zeitachse —, entscheidet
+Granularität, NIBRS-Zuordnung, Raum und Zeitachse —, entscheidet
 `silver_pipeline/build_crime_offense.py` gemeinsam für beide Städte. Eine
 zweite, Detroit-eigene Normalisierung gab es bis September 2026
 (`transform_detroit.py`); sie ist entfernt, weil zwei Kategorienzuordnungen für

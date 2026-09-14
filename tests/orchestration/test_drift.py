@@ -28,7 +28,7 @@ KOPF = """# Titel
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
 | Detroit | 84'658 Delikte · 638'635 Einwohner · **132,6** je 1'000 |
-| Fallkorn (`counts_case`) | Chicago 259'243 · Detroit 80'229 Fälle; Detroit **124,6** je 1'000 |
+| Fallebene (`counts_case`) | Chicago 259'243 · Detroit 80'229 Fälle; Detroit **124,6** je 1'000 |
 
 ---
 
@@ -43,7 +43,7 @@ def test_der_kopf_wird_gelesen():
     assert dok["chicago_rate"] == 94.5
     assert dok["detroit_einwohner"] == 638635
     assert dok["detroit_faelle"] == 80229
-    assert dok["detroit_rate_fallkorn"] == 124.6
+    assert dok["detroit_rate_fallebene"] == 124.6
 
 
 def test_dieselben_muster_wie_die_waechter():
@@ -82,7 +82,7 @@ def test_gemessen_liest_die_tabellen(tmp_path):
     assert mess["chicago_delikte"] == 2 and mess["chicago_einwohner"] == 1000
     assert mess["chicago_rate"] == 2.0            # 2 * 1000 / 1000
     assert mess["chicago_faelle"] == 1
-    assert mess["detroit_rate"] == 2.0 and mess["detroit_rate_fallkorn"] == 2.0
+    assert mess["detroit_rate"] == 2.0 and mess["detroit_rate_fallebene"] == 2.0
 
 
 def test_ohne_daten_ist_nichts_gemessen_und_nichts_kaputt(tmp_path):

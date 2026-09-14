@@ -61,20 +61,20 @@ GROESSEN: tuple[tuple[str, str, str, int], ...] = (
      r"\| Chicago \| ([0-9']+) Delikte", 0),
     ("chicago_einwohner", "Chicago, Einwohner",
      r"\| Chicago \| [0-9']+ Delikte · ([0-9']+) Einwohner", 0),
-    ("chicago_rate", "Chicago, je 1'000 (Tatkorn)",
+    ("chicago_rate", "Chicago, je 1'000 (Tatebene)",
      r"\| Chicago \|.*?\*\*([0-9]+,[0-9])\*\* je 1'000", 1),
     ("detroit_delikte", "Detroit, Delikte in der Stadt",
      r"\| Detroit \| ([0-9']+) Delikte", 0),
     ("detroit_einwohner", "Detroit, Einwohner",
      r"\| Detroit \| [0-9']+ Delikte · ([0-9']+) Einwohner", 0),
-    ("detroit_rate", "Detroit, je 1'000 (Tatkorn)",
+    ("detroit_rate", "Detroit, je 1'000 (Tatebene)",
      r"\| Detroit \|.*?\*\*([0-9]+,[0-9])\*\* je 1'000", 1),
-    ("chicago_faelle", "Chicago, Fälle (Fallkorn)",
-     r"\| Fallkorn.*?Chicago ([0-9']+)", 0),
-    ("detroit_faelle", "Detroit, Fälle (Fallkorn)",
-     r"\| Fallkorn.*?Detroit ([0-9']+)", 0),
-    ("detroit_rate_fallkorn", "Detroit, je 1'000 (Fallkorn)",
-     r"\| Fallkorn.*?Detroit \*\*([0-9]+,[0-9])\*\* je 1'000", 1),
+    ("chicago_faelle", "Chicago, Fälle (Fallebene)",
+     r"\| Fallebene.*?Chicago ([0-9']+)", 0),
+    ("detroit_faelle", "Detroit, Fälle (Fallebene)",
+     r"\| Fallebene.*?Detroit ([0-9']+)", 0),
+    ("detroit_rate_fallebene", "Detroit, je 1'000 (Fallebene)",
+     r"\| Fallebene.*?Detroit \*\*([0-9]+,[0-9])\*\* je 1'000", 1),
 )
 
 
@@ -171,7 +171,7 @@ def gemessen(data_root: Path) -> dict[str, float]:
                 werte[f"{stadt}_einwohner"] = einwohner
                 werte[f"{stadt}_rate"] = rate
                 if stadt == "detroit":
-                    werte["detroit_rate_fallkorn"] = rate_fall
+                    werte["detroit_rate_fallebene"] = rate_fall
     finally:
         con.close()
     return werte

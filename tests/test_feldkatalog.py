@@ -124,13 +124,13 @@ def test_jede_spalte_steht_auch_im_dokument(gebaut):
     )
 
 
-def test_das_korn_jeder_tabelle_steht_drin(gebaut):
+def test_das_granularitaet_jeder_tabelle_steht_drin(gebaut):
     text = KATALOG.read_text(encoding="utf-8")
     for _, name, manifest in gebaut:
         assert f"### `{name}`" in text, f"{name} fehlt im Katalog"
-        korn = manifest.get("grain")
-        if korn:
-            assert korn in text, f"Korn von {name} fehlt: {korn}"
+        granularitaet = manifest.get("grain")
+        if granularitaet:
+            assert granularitaet in text, f"Granularität von {name} fehlt: {granularitaet}"
 
 
 # --------------------------------------------------------------------------

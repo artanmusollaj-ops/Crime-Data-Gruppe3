@@ -1,10 +1,10 @@
 """Baut die Silver-Tabelle ``weather_day`` aus den NOAA-Stationsreihen.
 
-Eine Zeile je **Stadt und Tag**. Das ist ein anderes Korn als die
+Eine Zeile je **Stadt und Tag**. Das ist eine andere Granularität als die
 Faktentabelle, und genau deshalb ist es eine eigene Tabelle: Ein Wetterwert
 an jedes Delikt derselben Stadt und desselben Tages zu haengen wuerde Zeilen
 vervielfachen, und jede spaetere Aggregation ueber Wetter zaehlte falsch.
-Verbunden wird erst in Gold, dort auf dem Aggregationskorn.
+Verbunden wird erst in Gold, dort auf dem Aggregationsebene.
 
 Aufruf aus dem Projekt-Root:
 
@@ -67,7 +67,7 @@ from weather_pipeline import STATIONS
 
 TABLE = "weather_day"
 
-# Der Deutungsvertrag: Was diese Tabelle bedeutet - Korn, Regeln, Spalten -
+# Der Deutungsvertrag: Was diese Tabelle bedeutet - Granularität, Regeln, Spalten -
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
@@ -108,7 +108,7 @@ def arguments() -> argparse.Namespace:
         help=(
             "Stations-ID; mehrfach moeglich. Ohne Angabe je Stadt die "
             "Flughafenstation. Zwei Stationen derselben Stadt sind ein Fehler, "
-            "weil das Korn Stadt und Tag ist."
+            "weil die Granularität Stadt und Tag ist."
         ),
     )
     args = parser.parse_args()
@@ -140,7 +140,7 @@ def newest_bronze_run(data_root: Path, station: str) -> Source:
 
 
 def collect_sources(data_root: Path, stations: list[str]) -> list[Source]:
-    """Je Stadt genau eine Station - sonst bricht das Korn.
+    """Je Stadt genau eine Station - sonst bricht die Granularität.
 
     Absprache 3 hat "eine Station je Stadt" entschieden. Zwei Stationen
     derselben Stadt wuerden zwei Zeilen fuer denselben Tag ergeben; das faellt
@@ -157,7 +157,7 @@ def collect_sources(data_root: Path, stations: list[str]) -> list[Source]:
     }
     if doppelt:
         raise TransformError(
-            "Mehr als eine Station je Stadt, das Korn ist Stadt und Tag: "
+            "Mehr als eine Station je Stadt, die Granularität ist Stadt und Tag: "
             f"{doppelt}. Absprache 3 sieht eine Station je Stadt vor."
         )
     return quellen
@@ -255,7 +255,7 @@ def build_query(sources: list[Source]) -> str:
 def reconcile(
     con: duckdb.DuckDBPyConnection, relation: str, sources: list[Source]
 ) -> dict[str, Any]:
-    """Weist nach, dass das Korn haelt und keine Zeile verloren ging."""
+    """Weist nach, dass die Granularität haelt und keine Zeile verloren ging."""
     quellzeilen = sum(
         con.execute(
             f"SELECT count(*) FROM read_parquet('{quelle.parquet}')"
@@ -274,7 +274,7 @@ def reconcile(
     if doppelte:
         raise TransformError(
             f"{doppelte} Kombinationen aus Stadt und Tag kommen mehrfach vor; "
-            "das Korn dieser Tabelle ist Stadt und Tag"
+            "die Granularität dieser Tabelle ist Stadt und Tag"
         )
     if ohne_datum:
         raise TransformError(f"{ohne_datum} Zeilen ohne lesbares Datum")

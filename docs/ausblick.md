@@ -306,7 +306,7 @@ zwei Städte war das die ehrliche Lösung. Für zehn ist es keine.
 
 Der Ausweg ist nicht „noch eine CTE", sondern ein **Quellprofil**: eine
 Datenstruktur je Stadt mit Leser, Zeitzone, Crosswalk, Spaltenzuordnung und
-Kornregel; die Abfrage wird aus einer Liste solcher Profile erzeugt. Danach
+Regel zur Granularität; die Abfrage wird aus einer Liste solcher Profile erzeugt. Danach
 ist eine dritte Socrata-Stadt mit IUCR eine Konfigurationszeile statt
 SQL-Arbeit.
 
@@ -454,16 +454,16 @@ schon. Die Umschaltung zwischen Tat- und Fallebene wären im Würfel zwei
 Würfel.
 
 Damit bestätigt sich, was Konzept 5.2 als Zusage führt — dort noch mit dem
-alten Wort *Korn*, siehe die Anmerkung zur Begriffswahl unten: *„Keine
-vorberechneten Aggregate. Gold behält das Korn — eine Zeile je Tat, mit
+alten Wort *Granularität*, siehe die Anmerkung zur Begriffswahl unten: *„Keine
+vorberechneten Aggregate. Gold behält die Granularität — eine Zeile je Tat, mit
 Zeitpunkt und Koordinate. Aggregiert wird in der Abfrage, nicht im
 Speicher."* Dieselbe Messung hatte schon `fact_tract_month` (95'219) und
 `fact_city_day` (11'156) verworfen.
 
 > **Zur Begriffswahl.** Dieser Abschnitt sagt **Granularität**, wo das
-> übrige Projekt bislang *Korn* sagt, und **Tat-/Fallebene** statt
-> *Tatkorn/Fallkorn*. „Granularität" ist der eingeführte deutsche Begriff
-> für Kimballs *grain*; „Korn" ist eine wörtliche Übersetzung, die im
+> übrige Projekt bislang *Granularität* sagt, und **Tat-/Fallebene** statt
+> *Tatebene/Fallebene*. „Granularität" ist der eingeführte deutsche Begriff
+> für Kimballs *grain*; „Granularität" ist eine wörtliche Übersetzung, die im
 > deutschen Data Engineering unüblich ist. Christian hat das am 14.9.
 > angemerkt. Der Begriff kommt an 128 Stellen in 27 Dateien vor — die
 > Umstellung ist ein eigener Schritt und steht in der Reihenfolge unten.
@@ -547,7 +547,7 @@ Nach Nutzen je Aufwand, nicht nach Reiz:
 | **5** | Quellprofil statt zwei CTEs | der einzige echte Blocker für eine dritte Stadt |
 | **6** | Partitioniertes Silver mit Fingerabdruck je Partition | linear → konstant; unabhängig von Infrastruktur |
 | **7** | Cloud Stufe 1 | danach ein Nachmittag, kein Projekt |
-| **8** | *Korn* → *Granularität* durchgehend (128 Stellen, 27 Dateien) | der eingeführte Begriff; betrifft auch Artans Dokumente |
+| **8** | *Granularität* → *Granularität* durchgehend (128 Stellen, 27 Dateien) | der eingeführte Begriff; betrifft auch Artans Dokumente |
 | **8** | Dashboard für LN2 (Abschnitt 5) | eigener Zeitplan — Dezember |
 
 Die Punkte 1 bis 3 sind Artans, sie sind zusammen überschaubar, und sie

@@ -35,7 +35,7 @@ Eintrag hier sagt, was das war.
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
 | Detroit | 84'658 Delikte · 638'635 Einwohner · **132,6** je 1'000 |
-| Fallkorn (`counts_case`) | Chicago 259'243 · Detroit 80'229 Fälle; Detroit **124,6** je 1'000 |
+| Fallebene (`counts_case`) | Chicago 259'243 · Detroit 80'229 Fälle; Detroit **124,6** je 1'000 |
 
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
@@ -46,7 +46,7 @@ Eintrag hier sagt, was das war.
 ## Vertragsversionen
 
 Was sich ändert, wenn eine dieser Zahlen steigt: **was** geladen oder gedeutet
-wird — Zeitfenster, Feldauswahl, Dedup-Regel, Korn. Nicht, *wie* der Code es
+wird — Zeitfenster, Feldauswahl, Dedup-Regel, Granularität. Nicht, *wie* der Code es
 tut; dafür steht der Git-Commit im selben Manifest.
 
 Jeder Lauf trägt seine Version bei sich. *„Ab wann wurde anders geladen?"* ist
@@ -67,7 +67,7 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `gold/*` | 1 | 14.09.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung |
 
 **Version 1 heisst „der Vertrag, wie er am 14.9.2026 gilt".** Frühere
-Änderungen — das Tatkorn, das Fallkorn, die Mehrheitsregel — stehen als
+Änderungen — das Tatebene, das Fallebene, die Mehrheitsregel — stehen als
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
