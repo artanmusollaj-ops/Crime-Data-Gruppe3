@@ -1,4 +1,5 @@
 {
   "pdoc": "15.0.4",
+  "plattform": "posix",
   "python": "3.13"
 }

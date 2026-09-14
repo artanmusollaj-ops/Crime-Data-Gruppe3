@@ -50,9 +50,15 @@ und welche pdoc-Version die abgelegten Seiten geschrieben haben. Die Ausgabe
 ist naemlich nur *innerhalb* einer Python-Version byteweise gleich: 3.13
 schreibt ``pathlib._local.Path``, wo 3.12 noch ``pathlib.Path`` schreibt, und
 zeigt fuer ``__init__`` einen Quelltext, den 3.12 nicht hat. Neunzehn von
-fuenfundzwanzig Dateien sind deshalb zwischen 3.12 und 3.13 verschieden. Der
-Waechter vergleicht Bytes nur, wenn er auf derselben Version laeuft, und sagt
-sonst, warum er es nicht tut.
+fuenfundzwanzig Dateien sind deshalb zwischen 3.12 und 3.13 verschieden.
+
+Dasselbe gilt fuer die Plattform, und zwar aus einem Grund, der sich nicht
+wegkonfigurieren laesst: Ein ``Path``-Vorgabewert in einer Signatur ist unter
+Windows eine ``WindowsPath`` und sonst eine ``PosixPath``, und pdoc druckt den
+Klassennamen mit. ``os.name`` steht deshalb ebenfalls in der Marke.
+
+Der Waechter vergleicht Bytes nur, wenn Version und Plattform stimmen, und
+sagt sonst, warum er es nicht tut.
 
 **Was der Waechter prueft.** ``tests/test_referenz.py`` haelt fest, dass jedes
 Paket einen Docstring hat, dass die Startseite jedes Paket nennt, und dass ein
@@ -404,6 +410,7 @@ def erzeugt_mit() -> dict[str, str]:
     return {
         "python": f"{sys.version_info.major}.{sys.version_info.minor}",
         "pdoc": pdoc.__version__,
+        "plattform": os.name,
     }
 
 

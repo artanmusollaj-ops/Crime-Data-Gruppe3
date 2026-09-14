@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import re
 import subprocess
 import sys
@@ -316,6 +317,7 @@ def test_die_marke_nennt_womit_gebaut_wurde(abgelegt):
     marke = json.loads((abgelegt / br.MARKE).read_text(encoding="utf-8"))
     assert re.fullmatch(r"3\.\d+", marke["python"]), marke
     assert re.fullmatch(r"\d+\.\d+\.\d+", marke["pdoc"]), marke
+    assert marke["plattform"] in ("posix", "nt"), marke
 
 
 def test_ein_zweiter_lauf_liefert_dieselben_dateien(tmp_path, abgelegt):
@@ -324,21 +326,30 @@ def test_ein_zweiter_lauf_liefert_dieselben_dateien(tmp_path, abgelegt):
     Der Bau laeuft als eigener Prozess - genau so, wie ein Mensch das Werkzeug
     aufruft, und nur so mit einem anderen Hash-Seed als der Testprozess.
 
-    Verglichen wird nur auf den Versionen, die das Abgelegte geschrieben haben.
-    pdocs Ausgabe ist zwischen Python-Versionen verschieden: 3.13 schreibt
-    ``pathlib._local.Path``, wo 3.12 ``pathlib.Path`` schreibt. Neunzehn von
-    fuenfundzwanzig Dateien weichen dadurch ab, ohne dass etwas kaputt waere.
-    Ein Test, der das ignoriert, waere auf der halben Testmatrix rot - und ein
-    Alarm, der immer klingelt, ist keiner.
+    Verglichen wird nur dort, wo das Abgelegte auch entstanden sein koennte.
+    pdocs Ausgabe unterscheidet sich zwischen Python-Versionen - 3.13 schreibt
+    ``pathlib._local.Path``, wo 3.12 ``pathlib.Path`` schreibt, 19 von 25
+    Dateien weichen ab - und zwischen Plattformen: Ein ``Path``-Vorgabewert
+    heisst unter Windows ``WindowsPath`` und sonst ``PosixPath``, und pdoc
+    druckt den Klassennamen mit. Beides laesst sich nicht wegkonfigurieren.
+
+    Der Vergleich laeuft deshalb auf Linux und macOS mit der Python-Version
+    aus der Marke - in CI also im 3.13-Job unter Ubuntu, auf jedem Push. Ein
+    Test, der auch unter Windows Bytes vergliche, waere dort dauerhaft rot,
+    ohne dass etwas kaputt waere. Dieselbe Ueberlegung wie bei den drei
+    PDF-Reproduktionen, die nur unter Linux laufen.
     """
     pdoc = pytest.importorskip("pdoc")
     marke = json.loads((abgelegt / br.MARKE).read_text(encoding="utf-8"))
     jetzt = f"{sys.version_info.major}.{sys.version_info.minor}"
-    if (jetzt, pdoc.__version__) != (marke["python"], marke["pdoc"]):
+    if (jetzt, pdoc.__version__, os.name) != (
+        marke["python"], marke["pdoc"], marke["plattform"]
+    ):
         pytest.skip(
-            f"abgelegt mit Python {marke['python']} und pdoc {marke['pdoc']}, "
-            f"hier laeuft Python {jetzt} mit pdoc {pdoc.__version__} - "
-            "Bytes sind zwischen Versionen erwartbar verschieden"
+            f"abgelegt mit Python {marke['python']}, pdoc {marke['pdoc']}, "
+            f"{marke['plattform']}; hier laeuft Python {jetzt}, pdoc "
+            f"{pdoc.__version__}, {os.name} - Bytes sind zwischen Versionen "
+            "und Plattformen erwartbar verschieden"
         )
 
     ziel = tmp_path / "referenz"

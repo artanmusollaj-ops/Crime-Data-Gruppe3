@@ -123,9 +123,16 @@ es aufruft.
 Python-Version gleich. 3.13 schreibt `pathlib._local.Path`, wo 3.12 noch
 `pathlib.Path` schreibt, und zeigt fuer `__init__` einen Quelltext, den 3.12
 nicht hat: **19 von 25 Dateien** unterscheiden sich zwischen den beiden.
-Der Vergleich laeuft deshalb nur auf den Versionen, die in der Marke stehen,
-und sagt sonst, warum nicht. Ein Waechter, der auf der halben Testmatrix rot
-ist, ohne dass etwas kaputt waere, ist keiner.
+Dasselbe gilt fuer die Plattform, aus einem Grund, der sich nicht
+wegkonfigurieren laesst: Ein `Path`-Vorgabewert in einer Signatur ist unter
+Windows eine `WindowsPath` und sonst eine `PosixPath`, und pdoc druckt den
+Klassennamen mit. `os.name` steht deshalb ebenfalls in der Marke.
+
+Der Vergleich laeuft damit auf Linux und macOS mit der Python-Version aus der
+Marke — in CI also im 3.13-Job unter Ubuntu, auf jedem Push. Dieselbe
+Ueberlegung wie bei den drei PDF-Reproduktionen, die nur unter Linux laufen:
+Ein Waechter, der auf der halben Testmatrix rot ist, ohne dass etwas kaputt
+waere, ist keiner.
 
 **Was `.gitattributes` klarstellt.** `docs/referenz/**` wird mit LF abgelegt,
 sonst waere ein Windows-Bau auf Linux erwartbar verschieden. Die Regel gilt
