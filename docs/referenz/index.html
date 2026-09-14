@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code-Referenz &ndash; Crime-Data-Gruppe3</title>
+<style>
+:root {
+  --grund: #ffffff; --text: #14304a; --matt: #5b7086;
+  --linie: #d7dee6; --signal: #c2410c; --feld: #f6f8fa;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --grund: #0f1922; --text: #dde5ee; --matt: #94a6b8;
+    --linie: #27384a; --signal: #dda05c; --feld: #16222e;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--grund); color: var(--text);
+  font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 52rem; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+h1 { font-size: 1.9rem; line-height: 1.25; margin: 0 0 .4rem; text-wrap: balance; }
+h2 {
+  font-size: .78rem; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--matt); margin: 2.6rem 0 .2rem; font-weight: 600;
+}
+h2 span { text-transform: none; letter-spacing: 0; font-weight: 400; }
+p { margin: .4rem 0; }
+.vorspann { color: var(--matt); max-width: 40rem; }
+.gruppe { border-top: 1px solid var(--linie); margin-top: .7rem; }
+.paket {
+  display: grid; grid-template-columns: 13rem 1fr; gap: 0 1.5rem;
+  padding: .75rem 0; border-bottom: 1px solid var(--linie); align-items: baseline;
+}
+.paket a {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .95rem; color: var(--signal); text-decoration: none;
+}
+.paket a:hover, .paket a:focus { text-decoration: underline; }
+.paket p { color: var(--matt); font-size: .95rem; margin: 0; }
+.zaehler {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .8rem; color: var(--matt);
+}
+.fuss {
+  margin-top: 3.5rem; padding-top: 1.2rem; border-top: 1px solid var(--linie);
+  color: var(--matt); font-size: .9rem;
+}
+.fuss a { color: var(--signal); }
+code {
+  background: var(--feld); padding: .1rem .35rem; border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .88em;
+}
+@media (max-width: 34rem) { .paket { grid-template-columns: 1fr; gap: .15rem; } }
+</style>
+</head><body><main>
+<h1>Code-Referenz</h1>
+<p class="vorspann">Jedes Paket, jedes Modul, jede Funktion &ndash; mit dem Docstring, der dort steht, und dem Quelltext daneben. Die Seiten sind durchsuchbar. Erzeugt aus dem Code, nicht gepflegt.</p>
+<h2>Fundament <span>&middot; keine Stufe im Lauf - alles andere haengt daran</span></h2>
+<div class="gruppe">
+<div class="paket"><div><a href="manifeste.html">manifeste</a><div class="zaehler">1 Module</div></div><p>Ein Leser fuer die Manifeste - statt elf.</p></div>
+<div class="paket"><div><a href="storage.html">storage</a><div class="zaehler">6 Module</div></div><p>Die Datenablage: lokal, SeaweedFS ueber S3, oder hybrid.</p></div>
+</div>
+<h2>Ingestion <span>&middot; 6 Stufen im Gesamtlauf</span></h2>
+<div class="gruppe">
+<div class="paket"><div><a href="chicago_pipeline.html">chicago_pipeline</a><div class="zaehler">2 Module</div></div><p>Ingestion der Chicagoer Deliktdaten aus dem Socrata-Portal der Stadt.</p></div>
+<div class="paket"><div><a href="detroit_pipeline.html">detroit_pipeline</a><div class="zaehler">6 Module</div></div><p>Werkzeuge fuer die Detroit-ArcGIS-Ingestion.</p></div>
+<div class="paket"><div><a href="census_pipeline.html">census_pipeline</a><div class="zaehler">3 Module</div></div><p>Ingestion der Referenzdaten des US Census Bureau.</p></div>
+<div class="paket"><div><a href="weather_pipeline.html">weather_pipeline</a><div class="zaehler">2 Module</div></div><p>Ingestion der taeglichen Wetterreihen des GHCN-Daily (NOAA).</p></div>
+</div>
+<h2>Silver <span>&middot; 4 Stufen im Gesamtlauf</span></h2>
+<div class="gruppe">
+<div class="paket"><div><a href="silver_pipeline.html">silver_pipeline</a><div class="zaehler">5 Module</div></div><p>Die Silver-Schicht: aus mehreren Quellen werden vergleichbare Tabellen.</p></div>
+</div>
+<h2>Gold <span>&middot; 1 Stufe im Gesamtlauf</span></h2>
+<div class="gruppe">
+<div class="paket"><div><a href="gold_pipeline.html">gold_pipeline</a><div class="zaehler">2 Module</div></div><p>Gold: die Schicht, auf der ausgewertet wird.</p></div>
+</div>
+<h2>Serving <span>&middot; 2 Stufen im Gesamtlauf</span></h2>
+<div class="gruppe">
+<div class="paket"><div><a href="serving.html">serving</a><div class="zaehler">3 Module</div></div><p>Die Serving-Schicht: die Auswertungsumgebung des Projekts.</p></div>
+</div>
+<h2>Steuerung <span>&middot; faehrt die 13 Stufen und raeumt auf</span></h2>
+<div class="gruppe">
+<div class="paket"><div><a href="orchestration.html">orchestration</a><div class="zaehler">4 Module</div></div><p>Die Reihenfolge, in der die Schichten entstehen - und ihr Gesamtmanifest.</p></div>
+</div>
+<p class="fuss">Erzeugt von <code>tools/build_referenz.py</code>. Wie der Aufbau zusammenh&auml;ngt, steht in <a href="../architektur.md">architektur.md</a>; woher eine Zahl kommt, in <a href="../eine-zahl.md">eine-zahl.md</a>.</p>
+</main></body></html>

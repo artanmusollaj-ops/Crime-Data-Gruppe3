@@ -7,16 +7,28 @@ Docstring erzeugt eine leere Seite, und niemand merkt es, weil die Seite ja
 entsteht. Genau so war es bei ``chicago_pipeline``: das Paket der wichtigsten
 Quelle des Projekts, ohne eine Zeile Erklaerung, bis die Referenz es zeigte.
 
-Die Referenz selbst wird nicht versioniert. Geprueft wird deshalb nicht eine
-abgelegte Datei, sondern dass ein Bau gelingt, jedes Paket erreicht und ein
-zweiter Lauf dieselben Dateien liefert - dieselbe Regel wie bei den
-Crosswalks, beim Feldkatalog und bei den Architekturbildern.
+Die Referenz liegt im Repository, wie die Crosswalks, der Feldkatalog und die
+Architekturbilder. Geprueft wird deshalb das Abgelegte selbst - und dass ein
+frischer Bau dieselben Bytes liefert.
+
+**Warum dieser Vergleich in einem eigenen Prozess laeuft.** Der erste Entwurf
+baute zweimal hintereinander im Testprozess und verglich die Ergebnisse. Er
+war gruen und wertlos: Manche Vorgabewerte im Code sind Mengen, pdoc druckt
+sie mit ``repr``, und die Reihenfolge einer Menge von Zeichenketten haengt am
+Hashwert - der ist je *Prozess* zufaellig, innerhalb eines Prozesses aber
+fest. Zwei Baeufe im selben Prozess koennen also gar nicht abweichen. Erst
+fuenf Laeufe in fuenf Prozessen zeigten bis zu vier verschiedene Dateien.
+Seither setzt das Werkzeug ``PYTHONHASHSEED``, und dieser Test ruft es so auf,
+wie ein Mensch es aufruft.
 """
 
 from __future__ import annotations
 
 import ast
+import json
+import os
 import re
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -27,6 +39,7 @@ import pytest
 PROJEKT = Path(__file__).resolve().parents[1]
 QUELLE = PROJEKT / "src" / "crime"
 WERKZEUGE = PROJEKT / "tools"
+REFERENZ = PROJEKT / "docs" / "referenz"
 
 if str(WERKZEUGE) not in sys.path:
     sys.path.insert(0, str(WERKZEUGE))
@@ -197,116 +210,232 @@ def test_die_startseite_ist_wohlgeformt():
     assert not waage.stapel, f"nie geschlossen: {waage.stapel}"
 
 
-# ------------------------------------------------------------------- Bauen
+# --------------------------------------------------- Die abgelegte Referenz
 
 
 @pytest.fixture(scope="module")
-def gebaut(tmp_path_factory) -> tuple[br.Ergebnis, br.Ergebnis]:
-    """Zwei Baeufe in getrennte Verzeichnisse - fuer alle Bau-Tests einer.
-
-    Der Bau importiert jedes Modul und dauert gut eine Sekunde. Ihn je Test zu
-    wiederholen waere die Art von Testsuite, die man irgendwann nicht mehr
-    laufen laesst.
-    """
-    pytest.importorskip("pdoc")
-    wurzel = tmp_path_factory.mktemp("referenz")
-    return br.baue(wurzel / "a"), br.baue(wurzel / "b")
+def abgelegt() -> Path:
+    """Das versionierte ``docs/referenz/``."""
+    if not (REFERENZ / "index.html").is_file():
+        pytest.skip(f"{REFERENZ} ist nicht gebaut - python tools/build_referenz.py")
+    return REFERENZ
 
 
-def test_jedes_paket_bekommt_eine_seite(gebaut):
-    erst, _ = gebaut
-    namen = {p.name for p in erst.dateien}
-    for paket in br.pakete():
-        assert f"{paket}.html" in namen, f"keine Seite fuer {paket}"
+def test_jedes_paket_hat_eine_abgelegte_seite(abgelegt):
+    fehlend = [p for p in br.pakete() if not (abgelegt / f"{p}.html").is_file()]
+    assert not fehlend, (
+        f"keine abgelegte Seite fuer: {fehlend}. Die Referenz ist aelter als "
+        "der Code - python tools/build_referenz.py"
+    )
 
 
-def test_ein_zweiter_lauf_liefert_dieselben_dateien(gebaut):
-    """Dieselbe Regel wie bei den Crosswalks, dem Feldkatalog und den Bildern.
-
-    Ein erzeugtes Artefakt, das sich bei jedem Lauf aendert, laesst sich nicht
-    pruefen - und man merkt nicht mehr, ob eine Aenderung vom Code kommt oder
-    vom Werkzeug.
-    """
-    erst, zweit = gebaut
-    wurzel_a = _wurzel(erst)
-    wurzel_b = _wurzel(zweit)
-    rel_a = sorted(p.relative_to(wurzel_a).as_posix() for p in erst.dateien)
-    rel_b = sorted(p.relative_to(wurzel_b).as_posix() for p in zweit.dateien)
-    assert rel_a == rel_b, "der zweite Lauf schreibt andere Dateien"
-    for rel in rel_a:
-        assert (wurzel_a / rel).read_bytes() == (wurzel_b / rel).read_bytes(), (
-            f"{rel} unterscheidet sich zwischen zwei Laeufen"
-        )
-
-
-def test_die_seiten_tragen_keine_rechnerpfade(gebaut):
-    """Ein absoluter Pfad in der Ausgabe waere auf jedem Rechner ein anderer.
-
-    Er waere damit nicht nur unreproduzierbar, sondern stuende auch in einem
-    Artefakt, das man weitergibt.
-    """
-    erst, _ = gebaut
-    wurzel = _wurzel(erst)
-    heimat = str(Path.home())
-    for pfad in erst.dateien:
-        if pfad.suffix not in (".html", ".js"):
-            continue
-        inhalt = pfad.read_text(encoding="utf-8", errors="replace")
-        assert heimat not in inhalt, (
-            f"{pfad.relative_to(wurzel)} nennt einen absoluten Pfad"
-        )
-
-
-def test_jeder_verweis_der_startseite_trifft(gebaut):
-    erst, _ = gebaut
-    wurzel = _wurzel(erst)
-    seite = (wurzel / "index.html").read_text(encoding="utf-8")
+def test_jeder_verweis_der_startseite_trifft(abgelegt):
+    seite = (abgelegt / "index.html").read_text(encoding="utf-8")
     ziele = [z for z in re.findall(r'href="([^"]+)"', seite) if z.endswith(".html")]
     assert ziele, "die Startseite verweist auf nichts"
-    tot = [z for z in ziele if not (wurzel / z).is_file()]
+    tot = [z for z in ziele if not (abgelegt / z).is_file()]
     assert not tot, f"tote Verweise auf der Startseite: {tot}"
 
 
-def test_ein_bekannter_docstring_steht_auch_in_der_referenz(gebaut):
+def test_die_seiten_tragen_keine_rechnerpfade(abgelegt):
+    """Ein absoluter Pfad waere auf jedem Rechner ein anderer.
+
+    Er waere damit nicht nur unreproduzierbar, sondern stuende auch in einem
+    Verzeichnis, das im Repository liegt und weitergegeben wird.
+    """
+    heimat = str(Path.home())
+    schuldig = [
+        str(pfad.relative_to(abgelegt).as_posix())
+        for pfad in abgelegt.rglob("*")
+        if pfad.is_file() and pfad.suffix in (".html", ".js")
+        and heimat in pfad.read_text(encoding="utf-8", errors="replace")
+    ]
+    assert not schuldig, f"diese Seiten nennen einen absoluten Pfad: {schuldig}"
+
+
+def test_die_referenz_zeigt_keinen_fremden_quelltext(abgelegt):
+    """Nur unser Code gehoert hinein - und nur er ist reproduzierbar.
+
+    ``S3Client`` ist ein ``typing.Protocol``; Python haengt solchen Klassen ein
+    ``__init__`` aus ``typing.py`` an, und pdoc zeigte dessen neun Zeilen
+    CPython samt Zeilennummern. Die verschieben sich zwischen
+    Patchversionen - der Byte-Vergleich war lokal gruen und auf CI rot, und
+    die Ursache stand in einer von 12'000 Zeilen.
+
+    Geprueft wird der Effekt, nicht die Ursache: Steht irgendwo Quelltext, den
+    wir nicht geschrieben haben, faellt der Test.
+    """
+    verraeter = ("_no_init_or_replace_init", "S3Client.__init__")
+    gefunden = {
+        str(pfad.relative_to(abgelegt).as_posix()): [
+            v for v in verraeter if v in pfad.read_text(encoding="utf-8")
+        ]
+        for pfad in abgelegt.rglob("*.html")
+    }
+    schuldig = {name: was for name, was in gefunden.items() if was}
+    assert not schuldig, (
+        f"fremder Quelltext in der Referenz: {schuldig}. "
+        "aus_fremdem_code() in tools/build_referenz.py greift nicht mehr."
+    )
+
+
+def test_der_filter_fuer_fremden_code_trifft_nur_fremden(abgelegt):
+    """Er darf nicht zu viel wegnehmen.
+
+    Ein erster Entwurf fragte nur, ob die Quelldatei unter ``src/crime``
+    liegt - und warf damit auch alle ``NamedTuple``-Konstruktoren heraus, denn
+    die tragen ``<string>`` als Quelldatei. Weg waren ``Lauf``, ``Tabelle``,
+    ``Quelle`` und ``Standvergleich``.
+    """
+    erwartet = {
+        "manifeste.html": ("Lauf.__init__", "Tabelle.__init__"),
+        "storage.html": ("Standvergleich.__init__", "Boto3Client.__init__"),
+        "gold_pipeline/build_gold.html": ("Quelle.__init__",),
+    }
+    for seite, namen in erwartet.items():
+        inhalt = (abgelegt / seite).read_text(encoding="utf-8")
+        fehlend = [n for n in namen if n not in inhalt]
+        assert not fehlend, (
+            f"{seite}: diese eigenen Konstruktoren fehlen: {fehlend} - "
+            "der Filter nimmt zu viel weg"
+        )
+
+
+def test_ein_bekannter_docstring_steht_auch_in_der_referenz(abgelegt):
     """Die Probe aufs Exempel: Kommt der Text wirklich in der Seite an?
 
     Alles andere hier prueft Dateien und Namen. Dieser Test prueft, dass die
     Referenz tatsaechlich das zeigt, wofuer es sie gibt.
     """
-    erst, _ = gebaut
-    seite = (_wurzel(erst) / "silver_pipeline.html").read_text(encoding="utf-8")
+    seite = (abgelegt / "silver_pipeline.html").read_text(encoding="utf-8")
     assert "Silver-Schicht" in seite
     assert "STUDIENSTAEDTE" in seite, "die Konstanten fehlen in der Referenz"
 
 
-def _wurzel(ergebnis: br.Ergebnis) -> Path:
-    """Das Ausgabeverzeichnis eines Baus, aus seinen Dateien erschlossen."""
-    return Path(*_gemeinsamer_anfang(ergebnis.dateien))
+def test_die_marke_nennt_womit_gebaut_wurde(abgelegt):
+    """Ohne sie waere nicht zu sagen, ob ein Byte-Vergleich ueberhaupt gilt."""
+    marke = json.loads((abgelegt / br.MARKE).read_text(encoding="utf-8"))
+    assert re.fullmatch(r"3\.\d+", marke["python"]), marke
+    assert re.fullmatch(r"\d+\.\d+\.\d+", marke["pdoc"]), marke
+    assert marke["plattform"] in ("posix", "nt"), marke
 
 
-def _gemeinsamer_anfang(pfade: list[Path]) -> tuple[str, ...]:
-    teile = [p.parts for p in pfade]
-    gemeinsam: list[str] = []
-    for stuecke in zip(*teile):
-        if len(set(stuecke)) != 1:
-            break
-        gemeinsam.append(stuecke[0])
-    return tuple(gemeinsam)
+def test_ein_zweiter_lauf_liefert_dieselben_dateien(tmp_path, abgelegt):
+    """Dieselbe Regel wie bei den Crosswalks, dem Feldkatalog und den Bildern.
+
+    Der Bau laeuft als eigener Prozess - genau so, wie ein Mensch das Werkzeug
+    aufruft, und nur so mit einem anderen Hash-Seed als der Testprozess.
+
+    Verglichen wird nur dort, wo das Abgelegte auch entstanden sein koennte.
+    pdocs Ausgabe unterscheidet sich zwischen Python-Versionen - 3.13 schreibt
+    ``pathlib._local.Path``, wo 3.12 ``pathlib.Path`` schreibt, 19 von 25
+    Dateien weichen ab - und zwischen Plattformen: Ein ``Path``-Vorgabewert
+    heisst unter Windows ``WindowsPath`` und sonst ``PosixPath``, und pdoc
+    druckt den Klassennamen mit. Beides laesst sich nicht wegkonfigurieren.
+
+    Der Vergleich laeuft deshalb auf Linux und macOS mit der Python-Version
+    aus der Marke - in CI also im 3.13-Job unter Ubuntu, auf jedem Push. Ein
+    Test, der auch unter Windows Bytes vergliche, waere dort dauerhaft rot,
+    ohne dass etwas kaputt waere. Dieselbe Ueberlegung wie bei den drei
+    PDF-Reproduktionen, die nur unter Linux laufen.
+    """
+    pdoc = pytest.importorskip("pdoc")
+    marke = json.loads((abgelegt / br.MARKE).read_text(encoding="utf-8"))
+    jetzt = f"{sys.version_info.major}.{sys.version_info.minor}"
+    if (jetzt, pdoc.__version__, os.name) != (
+        marke["python"], marke["pdoc"], marke["plattform"]
+    ):
+        pytest.skip(
+            f"abgelegt mit Python {marke['python']}, pdoc {marke['pdoc']}, "
+            f"{marke['plattform']}; hier laeuft Python {jetzt}, pdoc "
+            f"{pdoc.__version__}, {os.name} - Bytes sind zwischen Versionen "
+            "und Plattformen erwartbar verschieden"
+        )
+
+    ziel = tmp_path / "referenz"
+    fertig = subprocess.run(
+        [sys.executable, str(WERKZEUGE / "build_referenz.py"), "--ziel", str(ziel)],
+        capture_output=True, text=True, cwd=PROJEKT,
+    )
+    assert fertig.returncode == 0, fertig.stderr[-2000:]
+
+    frisch = {p.relative_to(ziel).as_posix() for p in ziel.rglob("*") if p.is_file()}
+    alt = {p.relative_to(abgelegt).as_posix() for p in abgelegt.rglob("*") if p.is_file()}
+    assert frisch == alt, (
+        f"nur frisch: {sorted(frisch - alt)}; nur abgelegt: {sorted(alt - frisch)}. "
+        "python tools/build_referenz.py"
+    )
+    anders = [
+        rel for rel in sorted(alt)
+        if _ohne_zeilenenden(abgelegt / rel) != _ohne_zeilenenden(ziel / rel)
+    ]
+    assert not anders, (
+        f"{len(anders)} Datei(en) weichen vom frischen Bau ab: {anders[:5]}.\n"
+        + _erste_abweichung(abgelegt / anders[0], ziel / anders[0])
+        + "\nDie abgelegte Referenz ist aelter als der Code - "
+        "python tools/build_referenz.py"
+    )
+
+
+def _erste_abweichung(abgelegt: Path, frisch: Path) -> str:
+    """Die erste Zeile, in der sich zwei Seiten unterscheiden.
+
+    Ohne sie sagt der Test nur *dass* etwas abweicht. Beim ersten roten Lauf
+    war genau das das Problem: eine Datei, ein Name, und keine Ahnung, woran
+    es liegt - die Ursache lag in einer von 12'000 Zeilen.
+    """
+    from difflib import unified_diff
+
+    zeilen = list(unified_diff(
+        _ohne_zeilenenden(abgelegt).decode("utf-8", "replace").splitlines(),
+        _ohne_zeilenenden(frisch).decode("utf-8", "replace").splitlines(),
+        fromfile="abgelegt", tofile="frisch", n=0, lineterm="",
+    ))
+    gekuerzt = [z[:400] for z in zeilen[:12]]
+    return "\n".join(gekuerzt)
+
+
+def _ohne_zeilenenden(pfad: Path) -> bytes:
+    """Der Inhalt, unabhaengig davon, ob CRLF oder LF darin steht.
+
+    ``.gitattributes`` legt die Referenz mit LF ab; ein Windows-Bau schreibt
+    aber CRLF. Der Unterschied sagt nichts ueber den Inhalt aus.
+    """
+    return pfad.read_bytes().replace(b"\r\n", b"\n")
 
 
 # --------------------------------------------------------------- Einbettung
 
 
-def test_die_referenz_ist_nicht_versioniert():
-    """7 MB erzeugtes HTML gehoeren nicht in die Historie.
+def test_die_referenz_ist_versioniert():
+    """Erzeugte Artefakte liegen in diesem Projekt im Repository.
 
-    Sie waeren bei jeder geaenderten Zeile Docstring ein Diff ueber
-    fuenfundzwanzig Dateien - und in einem Jahr der Grund, warum niemand mehr
-    einen Pull Request liest.
+    Dieselbe Regel wie bei den Crosswalks, dem Feldkatalog und den
+    Architekturbildern: Was sich reproduzieren laesst, gehoert hinein - dann
+    ist es pruefbar, und es ist da, ohne dass jemand etwas installiert.
     """
-    regeln = (PROJEKT / ".gitignore").read_text(encoding="utf-8").splitlines()
-    assert any(z.strip().rstrip("/") == "docs/referenz" for z in regeln), (
-        "docs/referenz/ fehlt in .gitignore"
+    verfolgt = subprocess.run(
+        ["git", "ls-files", "docs/referenz"],
+        capture_output=True, text=True, cwd=PROJEKT,
+    )
+    if verfolgt.returncode != 0:
+        pytest.skip("kein git-Repository")
+    dateien = [z for z in verfolgt.stdout.splitlines() if z.strip()]
+    assert len(dateien) >= 25, (
+        f"nur {len(dateien)} Dateien unter docs/referenz sind versioniert"
+    )
+    assert "docs/referenz/index.html" in dateien
+
+
+def test_die_referenz_wird_mit_lf_abgelegt():
+    """Sonst legt ein Windows-Bau sie mit CRLF ab und der Vergleich wackelt."""
+    regeln = (PROJEKT / ".gitattributes").read_text(encoding="utf-8")
+    assert re.search(r"^docs/referenz/\*\* .*eol=lf", regeln, re.M), (
+        "die eol-Regel fuer docs/referenz fehlt in .gitattributes"
+    )
+    assert "config/" not in regeln.split("# Bewusst nur hier")[0], (
+        "die Crosswalks unter config/ sind mit CRLF abgelegt und duerfen "
+        "keine eol-Regel bekommen - drei Tests vergleichen ihre Bytes"
     )
 
 

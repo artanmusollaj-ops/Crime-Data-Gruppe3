@@ -8,7 +8,7 @@
 # Was hier NICHT geprueft wird: die Zahlen gegen die gebauten Daten. `data/`
 # ist aus der Versionierung ausgeschlossen, ein frischer Klon hat es also
 # nicht - die betroffenen Tests ueberspringen sich selbst. Was laeuft, ist
-# alles uebrige: 921 von 976 Tests, darunter beide Testzahl-Waechter, die
+# alles uebrige: 924 von 980 Tests, darunter beide Testzahl-Waechter, die
 # Reproduzierbarkeit der Crosswalks aus den PDFs und die Form der Dokumente.
 
 name: Tests

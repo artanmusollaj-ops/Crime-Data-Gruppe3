@@ -1,0 +1,22 @@
+{% extends "default/module.html.jinja2" %}
+{% import "default/module.html.jinja2" as vorgabe with context %}
+
+{#
+  Eine einzige Ergaenzung zu pdocs Regel, welche Mitglieder gezeigt werden.
+
+  ``S3Client`` ist ein ``typing.Protocol``. Python haengt solchen Klassen beim
+  Erzeugen ein ``__init__`` aus ``typing.py`` an, und pdoc zeigt jedes
+  ``__init__`` mit Parametern - hier also den Quelltext von CPython, samt
+  seiner Zeilennummern. Das ist zweierlei Aerger: Es ist nicht unser Code, und
+  die Zeilennummern verschieben sich zwischen CPython-Patchversionen. Genau
+  daran fiel der Waechter auf CI durch, waehrend er lokal gruen war.
+
+  ``aus_fremdem_code`` wird in tools/build_referenz.py an die Vorlage gereicht.
+  Alles Uebrige entscheidet weiterhin pdoc selbst.
+#}
+{% macro is_public(doc) %}
+    {% if doc.name == "__init__" and aus_fremdem_code(doc) %}
+    {% else %}
+        {{ vorgabe.is_public(doc) }}
+    {% endif %}
+{% endmacro %}

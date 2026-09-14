@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **976** |
+| Tests | **980** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -87,6 +87,83 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 14.09.2026 · Die Referenz gehoert ins Repository (#90)
+
+**Was.** `docs/referenz/` ist jetzt versioniert. Dazu drei Aenderungen, ohne
+die das nicht geht: Der Bau setzt `PYTHONHASHSEED` und startet sich einmal
+selbst neu, eine Marke `erzeugt-mit.json` haelt fest, womit die abgelegten
+Seiten geschrieben wurden, und `.gitattributes` legt sie ueberall mit LF ab.
+
+**Warum.** In diesem Projekt liegen erzeugte Artefakte im Repository — die
+Crosswalks, der Feldkatalog, die beiden Architekturbilder. Die Regel dahinter
+ist nicht die Groesse, sondern die Reproduzierbarkeit: Was ein zweiter Lauf
+byteweise wiederholt, gehoert hinein, weil es dann pruefbar ist. #89 hatte die
+Referenz wegen ihrer 7 MB davon ausgenommen und damit die Regel gegen ihr
+eigenes Kriterium eingetauscht.
+
+**Der Fehler, den das aufgedeckt hat.** Der Waechter aus #89 behauptete
+*„ein zweiter Lauf liefert dieselben Dateien"* und war gruen. Er war es aus
+dem falschen Grund: Er baute **zweimal im selben Prozess**. Manche
+Vorgabewerte im Code sind Mengen, pdoc druckt sie mit `repr`, und die
+Reihenfolge einer Menge von Zeichenketten haengt an deren Hashwerten — die
+sind je Prozess zufaellig, innerhalb eines Prozesses aber fest. Zwei Baeufe im
+selben Prozess konnten also gar nicht abweichen.
+
+Fuenf Laeufe in fuenf Prozessen zeigten dann bis zu **vier verschiedene
+Dateien**, ohne dass sich eine Zeile Code geaendert haette:
+`frozenset({'complete', 'success'})` im einen Lauf, `frozenset({'success',
+'complete'})` im naechsten. Mit festem Hash-Seed sind sechs Laeufe identisch.
+Der Test ruft das Werkzeug jetzt als eigenen Prozess auf — so, wie ein Mensch
+es aufruft.
+
+**Warum eine Marke noetig ist.** pdocs Ausgabe ist nur *innerhalb* einer
+Python-Version gleich. 3.13 schreibt `pathlib._local.Path`, wo 3.12 noch
+`pathlib.Path` schreibt, und zeigt fuer `__init__` einen Quelltext, den 3.12
+nicht hat: **19 von 25 Dateien** unterscheiden sich zwischen den beiden.
+Dasselbe gilt fuer die Plattform, aus einem Grund, der sich nicht
+wegkonfigurieren laesst: Ein `Path`-Vorgabewert in einer Signatur ist unter
+Windows eine `WindowsPath` und sonst eine `PosixPath`, und pdoc druckt den
+Klassennamen mit. `os.name` steht deshalb ebenfalls in der Marke.
+
+Der Vergleich laeuft damit auf Linux und macOS mit der Python-Version aus der
+Marke — in CI also im 3.13-Job unter Ubuntu, auf jedem Push. Dieselbe
+Ueberlegung wie bei den drei PDF-Reproduktionen, die nur unter Linux laufen:
+Ein Waechter, der auf der halben Testmatrix rot ist, ohne dass etwas kaputt
+waere, ist keiner.
+
+**Was `.gitattributes` klarstellt.** `docs/referenz/**` wird mit LF abgelegt,
+sonst waere ein Windows-Bau auf Linux erwartbar verschieden. Die Regel gilt
+**nur dort**: Die Crosswalks unter `config/` liegen mit CRLF im Repository, so
+wie die Werkzeuge sie aus den amtlichen PDFs schreiben, und drei Tests
+vergleichen genau diese Bytes. Eine eol-Regel darueber haette sie beim
+naechsten Checkout umgeschrieben und die Reproduktion gebrochen.
+
+**Der zweite Fehler, den erst CI zeigte.** Der Byte-Vergleich war lokal
+gruen und auf beiden 3.13-Runnern rot — eine einzige Datei, `storage.html`,
+und keine Ahnung woran. Die Ursache stand in einer von 12'000 Zeilen:
+`S3Client` ist ein `typing.Protocol`, und Python haengt solchen Klassen ein
+`__init__` aus `typing.py` an. pdoc zeigt jedes `__init__` mit Parametern —
+also standen **neun Zeilen CPython** in der Seite, samt ihrer Zeilennummern.
+Die verschieben sich zwischen Patchversionen; auf 3.13.0 lag die Funktion bei
+Zeile 1940, auf dem Runner anderswo.
+
+Gefiltert wird das ueber pdocs eigenen Ausstieg: `tools/pdoc_vorlage/`
+ueberschreibt das Makro `is_public` und laesst Mitglieder weg, deren
+Quelldatei ausserhalb von `src/crime` liegt. Ein erster Entwurf nahm zu viel
+weg — `<string>` als Quelldatei heisst *erzeugt*, nicht *fremd*, und damit
+verschwanden auch alle `NamedTuple`-Konstruktoren. Beide Faelle stehen jetzt
+als Test.
+
+Nebenbei: Dass der Waechter nur *„storage.html weicht ab"* sagte, war selbst
+ein Mangel. Er nennt jetzt die erste abweichende Zeile.
+
+**Zahlen.** 976 → **980 Tests**. Das Repository waechst von 9,0 auf 9,6 MB
+(gemessen an zwei gepackten Klonen). Die 7,2 MB HTML kosten also rund 0,6 MB,
+weil fuenfundzwanzig Seiten dasselbe CSS tragen und sich entsprechend gut
+packen lassen.
 
 ---
 
