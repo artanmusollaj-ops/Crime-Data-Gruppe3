@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'006** |
+| Tests | **1'013** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -87,6 +87,66 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 15.09.2026 · Die Kontrollen an einem Ort, vorgeführt (#95)
+
+**Was.** [`notebooks/35_kontrollen.ipynb`](../notebooks/35_kontrollen.ipynb)
+zeigt alle **41 Kontrollen** der Strecke in der Reihenfolge, in der sie
+greifen — von der Ingestion bis Gold, dazu Ablage, Serving und
+Orchestrierung. Jede wird **zweimal** vorgeführt: einmal mit Daten, die sie
+durchlässt, und einmal mit Daten, die sie fangen soll.
+
+**Warum.** Die Kontrollen liegen dort, wo sie wirken, und das ist richtig so.
+Nur muss man dafür zehn Pakete durchsehen, um die Frage zu beantworten, die
+in einem Kolloquium zuerst kommt: *Was prüft ihr eigentlich?*
+
+**Die zweite Vorführung ist die wichtigere.** Eine Kontrolle, von der man nur
+gesehen hat, dass sie schweigt, hat man nicht gesehen. Deshalb fällt im
+Notebook der Vollständigkeitsnachweis über eine verlorene Seite, das
+Publish-Gate über eine verdeckte Stadt, `reconcile` über einen doppelten
+Deliktschlüssel und `verify` über eine Datei, die keine Parquet-Datei ist.
+
+**Ein Fall reist durch.** `JH100028`, der erste Mordfall des Jahrgangs mit
+seinen zwei Opferzeilen, geht am Schluss durch alle Schichten, und daneben
+steht, welche Kontrolle ihn angesehen hat und was sie gesagt hat.
+
+**Die Unterscheidung, die das Notebook trägt.** *Hart* bricht ab, *weich*
+markiert und zählt. Hart ist richtig, wo etwas **still** schieflaufen kann;
+weich, wo etwas **unvollständig** ist. Eine harte Kontrolle auf fehlende
+Koordinaten hiesse, dass Chicagos Jahrgang gar nicht entsteht — 1'748 Delikte
+tragen keine. Die weiche macht die Lücke abfragbar statt unsichtbar.
+
+| Schicht | hart | weich |
+| --- | ---: | ---: |
+| Ingestion | 9 | 6 |
+| Ablage | 5 | 1 |
+| Silver | 6 | 1 |
+| Gold | 4 | 1 |
+| Serving | 2 | 1 |
+| Orchestrierung | 4 | 1 |
+| **gesamt** | **30** | **11** |
+
+Zwei Beobachtungen aus dieser Verteilung stehen im Notebook: Die Ingestion
+trägt die meisten harten Kontrollen, weil nur dort noch etwas über die
+**Quelle** zu sagen ist. Und genau **eine** Kontrolle verhindert eine
+Veröffentlichung, nämlich das Publish-Gate; alle anderen brechen ab, bevor
+etwas entsteht.
+
+**Es läuft überall.** Das Notebook erzeugt seine Beispiele selbst und braucht
+kein gebautes `data/`. Es läuft ab sofort im wöchentlichen Datenlauf mit,
+damit eine Vorführung, die nicht mehr funktioniert, auffällt.
+
+**Wächter.** Sieben Tests. Der wichtigste hält jeden in der Landkarte
+genannten Namen gegen den Code — beim Schreiben stand dort
+`detroit_arcgis.get_object_ids`, und das ist eine Methode von `ArcGISClient`.
+Das Notebook hat es beim ersten Lauf selbst gemeldet; der Test wiederholt die
+Prüfung auf jedem Pull Request, damit es nicht erst eine Woche später
+auffällt.
+
+**Zahlen.** 1'006 → **1'013 Tests**. Dreizehn Notebooks, sieben davon im
+Datenlauf.
 
 ---
 

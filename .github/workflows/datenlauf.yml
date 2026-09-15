@@ -108,7 +108,8 @@ jobs:
           fi
 
       - name: Die Notebooks, die Zahlen belegen
-        # Sechs von zwoelf. Die Linie: Notebooks, die Zahlen belegen, laufen;
+        # Sieben von dreizehn. Die Linie: Notebooks, die Zahlen belegen,
+        # laufen;
         # Notebooks, die laden (01, 02, 11, 12, 21, 22), nicht - sie wuerden
         # hier zusaetzliche Bronze-Laeufe erzeugen.
         #
@@ -121,7 +122,8 @@ jobs:
           set -euo pipefail
           for nb in 03_chicago_data_quality 13_detroit_data_quality \
                     31_storage_evaluation 32_nibrs_source \
-                    33_serving_evaluation 34_gold_sternschema; do
+                    33_serving_evaluation 34_gold_sternschema \
+                    35_kontrollen; do
             echo "== $nb"
             python -m jupyter nbconvert --to notebook --execute \
               --ExecutePreprocessor.timeout=1200 \
