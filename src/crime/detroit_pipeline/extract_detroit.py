@@ -28,7 +28,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from manifeste import code_stand
-from storage import get_storage
+from storage import for_root, get_storage
 from .bronze_parquet import schema_for, schema_hash, to_row
 
 from .detroit_arcgis import (
@@ -516,11 +516,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--data-root",
+        type=Path,
+        default=None,
+        help="Wurzel der Schichten (Vorgabe: LOCAL_DATA_ROOT). Setzt "
+             "--output-dir und --raw-dir, wenn die nicht einzeln genannt sind",
+    )
+    parser.add_argument(
         "--output-dir",
         type=Path,
         default=None,
         help="Zielverzeichnis fuer Bronze und Manifest "
-             "(Vorgabe: <LOCAL_DATA_ROOT>/bronze/city=detroit)",
+             "(Vorgabe: <data-root>/bronze/city=detroit)",
     )
     parser.add_argument(
         "--raw-dir",
@@ -554,7 +561,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="INFO",
     )
     args = parser.parse_args(argv)
-    wurzel = get_storage().local_root
+    # Dieselbe Option wie bei den uebrigen elf Stufen. Sie fehlte hier, und
+    # damit lief Detroit auch dann im Standardverzeichnis, wenn der
+    # Gesamtlauf mit --data-root auf ein anderes gerichtet war.
+    wurzel = for_root(args.data_root).local_root
     if args.output_dir is None:
         args.output_dir = wurzel / "bronze" / "city=detroit"
     if args.raw_dir is None:

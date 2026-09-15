@@ -12,6 +12,7 @@ Sichten nichts kennen.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import duckdb
@@ -345,3 +346,68 @@ def test_pfad_liegt_in_der_serving_schicht(tmp_path):
     ziel = bad.database_path(tmp_path / "data")
     assert ziel.parent.name == "serving"
     assert ziel.name == "analyse.duckdb"
+
+
+# --------------------------------------------------------------------------
+# Eigene Tabellen ueberleben den Neubau (externe Pruefung vom 15.9.2026)
+# --------------------------------------------------------------------------
+
+
+def test_eine_eigene_tabelle_ueberlebt_den_neubau(tmp_path):
+    """Konzept 5.2 laedt dazu ein - und der Neubau nahm sie stillschweigend weg.
+
+    Beim Bau entsteht eine neue Datei, die die bisherige ersetzt. Alles, was
+    jemand daneben angelegt hatte, war damit weg, ohne Meldung.
+    """
+    data_root = tmp_path / "data"
+    schreibe_tabelle(data_root, "fact_offense", 4, layer="gold")
+
+    ziel = bad.build(data_root)
+    con = duckdb.connect(str(ziel))
+    con.execute("CREATE TABLE meins AS SELECT 42 AS meine_zahl")
+    con.close()
+
+    bad.build(data_root)
+
+    con = duckdb.connect(str(ziel))
+    try:
+        assert con.execute("SELECT meine_zahl FROM meins").fetchall() == [(42,)]
+        assert con.execute("SELECT count(*) FROM fact_offense").fetchone()[0] > 0, (
+            "die Sichten muessen daneben weiterhin stehen"
+        )
+    finally:
+        con.close()
+
+
+def test_eine_eigene_tabelle_verdeckt_keine_sicht(tmp_path, caplog):
+    """Sonst rechnete jemand still auf einem eingefrorenen Zwischenergebnis."""
+    data_root = tmp_path / "data"
+    schreibe_tabelle(data_root, "fact_offense", 4, layer="gold")
+
+    ziel = bad.build(data_root)
+    con = duckdb.connect(str(ziel))
+    con.execute("DROP VIEW IF EXISTS fact_offense")
+    con.execute("CREATE TABLE fact_offense AS SELECT 1 AS alt")
+    con.close()
+
+    with caplog.at_level(logging.WARNING):
+        bad.build(data_root)
+
+    con = duckdb.connect(str(ziel))
+    try:
+        art = con.execute(
+            "SELECT count(*) FROM duckdb_views() WHERE view_name = 'fact_offense'"
+        ).fetchone()[0]
+        assert art == 1, "die Sicht wurde von der eigenen Tabelle verdraengt"
+    finally:
+        con.close()
+    assert "nicht uebernommen" in caplog.text
+
+
+def test_ohne_vorherige_datenbank_wird_nichts_uebernommen(tmp_path):
+    data_root = tmp_path / "data"
+    schreibe_tabelle(data_root, "fact_offense", 4, layer="gold")
+
+    ziel = bad.build(data_root)
+    assert ziel.is_file()
+

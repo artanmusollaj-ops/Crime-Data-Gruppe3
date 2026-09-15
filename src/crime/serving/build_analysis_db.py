@@ -176,6 +176,51 @@ def verify(con: duckdb.DuckDBPyConnection, tabellen: list[Tabelle]) -> dict[str,
     return zeilen
 
 
+def uebernimm_eigene_tabellen(con: duckdb.DuckDBPyConnection, alt: Path) -> list[str]:
+    """Kopiert selbst angelegte Tabellen aus der bisherigen Datenbank herueber.
+
+    **Warum das noetig ist.** Konzept 5.2 laedt ausdruecklich dazu ein: *"wer
+    ein Zwischenergebnis behalten will, legt daneben ``CREATE TABLE meins AS
+    SELECT …`` an"*, und die Hinweistabelle der Datenbank sagt dasselbe. Nur
+    entstand beim Neubau eine **neue Datei**, die die bisherige ersetzte - die
+    eigene Tabelle war weg, ohne Meldung. Eine externe Pruefung hat das am
+    15.9.2026 vorgefuehrt; die Einladung stand da seit dem ersten Tag.
+
+    Uebernommen wird, was eine echte Tabelle ist. Alles, was dieses Modul
+    anlegt, sind Sichten - was also als Tabelle dasteht, hat jemand selbst
+    angelegt. Traegt eine davon den Namen einer Sicht, gewinnt die Sicht und
+    die Tabelle wird mit Meldung uebergangen: Sonst verdeckte ein
+    Zwischenergebnis stillschweigend die Daten, ueber die es gerechnet wurde.
+    """
+    if not alt.is_file():
+        return []
+    eigene: list[str] = []
+    con.execute(f"ATTACH '{alt}' AS vorher (READ_ONLY)")
+    try:
+        sichten = {r[0] for r in con.execute(
+            "SELECT view_name FROM duckdb_views() WHERE NOT internal"
+        ).fetchall()}
+        namen = [r[0] for r in con.execute(
+            "SELECT table_name FROM duckdb_tables() "
+            "WHERE database_name = 'vorher' AND NOT internal ORDER BY table_name"
+        ).fetchall()]
+        for name in namen:
+            if name in sichten:
+                LOG.warning(
+                    "Eigene Tabelle %r nicht uebernommen: Eine Sicht dieses "
+                    "Namens gehoert zur Auswertung. Erst umbenennen, dann neu "
+                    "bauen.", name,
+                )
+                continue
+            con.execute(f'CREATE TABLE "{name}" AS SELECT * FROM vorher."{name}"')
+            eigene.append(name)
+    except duckdb.Error as fehler:
+        LOG.warning("Eigene Tabellen nicht uebernommen: %s", fehler)
+    finally:
+        con.execute("DETACH vorher")
+    return eigene
+
+
 def build(data_root: Path) -> Path:
     tabellen = discover(data_root)
     if not tabellen:
@@ -206,6 +251,7 @@ def build(data_root: Path) -> Path:
 
         create_views(con, tabellen)
         zeilen = verify(con, tabellen)
+        uebernommen = uebernimm_eigene_tabellen(con, ziel)
     except BaseException:
         # Eine halbe Datenbank ist schlimmer als keine: In ihr fehlt ein Teil
         # der Sichten, ohne dass man es ihr ansieht.
@@ -218,6 +264,8 @@ def build(data_root: Path) -> Path:
     arbeit.replace(ziel)
     for name, n in zeilen.items():
         LOG.info("  %-18s %8d Zeilen", name, n)
+    if uebernommen:
+        LOG.info("  eigene Tabellen uebernommen: %s", ", ".join(uebernommen))
     LOG.info("%s: %d Sichten, %.1f KB",
              ziel, len(tabellen), ziel.stat().st_size / 1024)
     return ziel

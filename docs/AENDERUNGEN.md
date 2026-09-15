@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'001** |
+| Tests | **1'006** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -87,6 +87,47 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 15.09.2026 · Zwei Optionen, die nirgends ankamen (#94)
+
+**Was.** Die beiden letzten Befunde der externen Prüfung, beide klein und
+beide mit derselben Form: Etwas ist ausdrücklich angeboten und wirkt nicht.
+
+**1 · `--data-root` erreichte die Stufen nicht.** Der Gesamtlauf wertete die
+Option aus und benutzte sie für Inventar und Protokoll — die dreizehn
+Unterprozesse bekamen sie nie. Wer den Lauf auf ein anderes Verzeichnis
+richtete, baute im Standardordner und protokollierte anderswo. Die abgefangenen
+Befehlszeilen zeigten es: keine einzige trug die Option.
+
+Jetzt trägt sie jede, und zwar **immer** — auch ohne `--data-root` steht der
+aufgelöste Pfad in der Befehlszeile. Das beseitigt eine zweite Fehlerquelle:
+Vater und Kind lesen dieselbe Umgebung, aber nicht mehr notwendigerweise
+gleich.
+
+**Ein Modul kannte die Option gar nicht.** `detroit_pipeline.extract_detroit`
+nahm `--output-dir` und `--raw-dir` einzeln. Es hat jetzt dieselbe Option wie
+die übrigen elf, und ein Test hält fest, dass jedes Stufenmodul sie kennt —
+sie weiterzureichen hilft nur, wenn sie drüben ankommt.
+
+**2 · Eigene Tabellen in der Serving-Datenbank gingen beim Neubau verloren.**
+Konzept 5.2 lädt ausdrücklich dazu ein: *„wer ein Zwischenergebnis behalten
+will, legt daneben `CREATE TABLE meins AS SELECT …` an"*, und die
+Hinweistabelle der Datenbank sagt dasselbe. Nur entstand beim Bau eine **neue
+Datei**, die die bisherige ersetzte. Die eigene Tabelle war weg, ohne Meldung.
+
+Sie werden jetzt übernommen. Alles, was dieses Modul anlegt, sind Sichten —
+was also als Tabelle dasteht, hat jemand selbst angelegt. Trägt eine davon den
+Namen einer Sicht, gewinnt die Sicht und die Tabelle wird mit Meldung
+übergangen: Sonst verdeckte ein eingefrorenes Zwischenergebnis stillschweigend
+die Daten, über die es gerechnet wurde.
+
+**Wächter.** Vier Tests, alle vier fallen gegen den Stand von gestern: jede
+Stufe bekommt die Wurzel, jedes Stufenmodul kennt die Option, eine eigene
+Tabelle überlebt den Neubau, und sie verdeckt dabei keine Sicht.
+
+**Zahlen.** 1'001 → **1'006 Tests**.
 
 ---
 
