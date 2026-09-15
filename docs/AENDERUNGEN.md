@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'013** |
+| Tests | **1'015** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -64,7 +64,7 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `silver/place` | 1 | 14.09.2026 | ein Ort je Zeile, Geometrie für die Stadtgrenze |
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
 | `silver/crime_offense` | 1 | 14.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse |
-| `gold/*` | **2** | 14.09.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT` |
+| `gold/*` | **3** | 15.09.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken |
 
 > **Der Feldkatalog wird erzeugt, nicht gepflegt.** Am 14.9. wurde
 > `docs/feldkatalog.md` von Hand bearbeitet (`f1c9b42`): Spaltentypen von
@@ -87,6 +87,44 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 15.09.2026 · Ein Messwert 0 ist nicht trocken (#96)
+
+**Was.** `gold/dim_city_day` führt jetzt `precipitation_trace` und
+`snowfall_trace` mit. Die Vertragsversion von Gold steigt auf **3**.
+
+**Warum.** NOAA kennt das Messflag `T`: gefallen, aber unter der Auflösung des
+Geräts. Der Messwert ist dann `0`, und das heisst etwas anderes als *trocken*.
+Silver hält den Unterschied seit jeher; Gold liess beide Spalten fallen.
+
+Gemessen war das keine Feinheit:
+
+| | Tage mit 0 mm Niederschlag | davon Spurentage |
+| --- | ---: | ---: |
+| Chicago | 241 | 45 |
+| Detroit | 240 | 68 |
+| **zusammen** | **481** | **113** |
+
+Fast ein Viertel der scheinbar trockenen Tage war nicht trocken, und der
+Tabelle war es nicht anzusehen. Beim Schnee sind es weitere 55 Tage.
+
+**Woher der Befund kommt.** Aus Artans Konzeptentwurf für Leistungsnachweis 1,
+Abschnitt 9.3: *„Spurenmengen von Niederschlag und Schnee müssen in Gold
+erhalten bleiben. Ein Messwert 0 mit Trace-Flag bedeutet nicht dasselbe wie
+sicher trocken."* Der Satz stand als Anforderung da und war nicht umgesetzt.
+
+**Was der Feldkatalog dazu lernt.** Die beiden Beschreibungen wandern von
+`JE_TABELLE` nach `GEMEINSAM` in `tools/build_feldkatalog.py` — die Spalten
+bedeuten in Silver und Gold dasselbe, und zwei Einträge wären zwei Stellen, an
+denen dieselbe Erklärung veralten kann.
+
+**Wächter.** Zwei Tests. Der erste baut einen Tag mit 0 mm und Spurenflag und
+einen ohne und verlangt, dass sie unterscheidbar bleiben; der zweite hält die
+Vertragsversion. Beide fallen gegen den Stand von gestern.
+
+**Zahlen.** 1'013 → **1'015 Tests**. Gold-Vertrag 2 → **3**.
 
 ---
 
