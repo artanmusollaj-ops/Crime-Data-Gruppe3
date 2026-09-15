@@ -26,6 +26,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from collections.abc import Iterable
 from typing import NamedTuple
 
 from manifeste import fingerabdruck as manifeste_fingerabdruck
@@ -43,6 +44,12 @@ class Stufe(NamedTuple):
     name: str
     modul: str
     argumente: tuple[str, ...] = ()
+    # Welchen Bronze-Bestand diese Stufe fuellt, so wie ``aktualitaet`` ihn
+    # benennt. Nur Ingestion-Stufen haben einen. Damit ist die Liste der
+    # *erwarteten* Quellen abgeleitet statt gepflegt - und eine Quelle, die
+    # gar nicht da ist, faellt auf. Vorher wurde nur geprueft, was schon
+    # existierte: Ein leerer Bestand galt als frisch.
+    quelle: str = ""
 
     @property
     def befehl(self) -> list[str]:
@@ -56,15 +63,18 @@ class Stufe(NamedTuple):
 #     Stadtzuordnung - und der Bau scheitert dabei nicht.
 #   * ``build_crime_offense`` liest ``silver/tract``, muss also nach ihm laufen.
 STUFEN: tuple[Stufe, ...] = (
-    Stufe("ingestion", "chicago", "chicago_pipeline.download_chicago"),
+    Stufe("ingestion", "chicago", "chicago_pipeline.download_chicago",
+          quelle="city=chicago"),
     Stufe("ingestion", "detroit", "detroit_pipeline.extract_detroit",
-          ("--mode", "full", "--years", "2024")),
+          ("--mode", "full", "--years", "2024"), quelle="city=detroit"),
     Stufe("ingestion", "tiger_tract", "census_pipeline.download_tiger",
-          ("--auslieferung", "tract")),
+          ("--auslieferung", "tract"), quelle="dataset=tiger_tract"),
     Stufe("ingestion", "tiger_place", "census_pipeline.download_tiger",
-          ("--auslieferung", "place")),
-    Stufe("ingestion", "acs", "census_pipeline.download_acs"),
-    Stufe("ingestion", "noaa", "weather_pipeline.download_noaa"),
+          ("--auslieferung", "place"), quelle="dataset=tiger_place"),
+    Stufe("ingestion", "acs", "census_pipeline.download_acs",
+          quelle="dataset=acs5_tract"),
+    Stufe("ingestion", "noaa", "weather_pipeline.download_noaa",
+          quelle="dataset=noaa_ghcnd"),
 
     Stufe("silver", "tract", "silver_pipeline.build_tract"),
     Stufe("silver", "place", "silver_pipeline.build_place"),
@@ -78,6 +88,11 @@ STUFEN: tuple[Stufe, ...] = (
 )
 
 GRUPPEN = ("ingestion", "silver", "gold", "serving")
+
+# Die Bestaende, die nach einer vollstaendigen Ingestion dasein muessen.
+ERWARTETE_QUELLEN: tuple[str, ...] = tuple(
+    sorted(s.quelle for s in STUFEN if s.quelle)
+)
 
 
 # ---------------------------------------------------------------------------
@@ -122,21 +137,35 @@ def aktualitaet(data_root: Path) -> dict[str, str]:
 
 
 def veraltete_quellen(
-    data_root: Path, maximal_alter_tage: float, *, jetzt: datetime | None = None
-) -> dict[str, float]:
-    """Quellen, deren juengster Lauf aelter ist als erlaubt - mit ihrem Alter in Tagen.
+    data_root: Path, maximal_alter_tage: float, *, jetzt: datetime | None = None,
+    erwartet: Iterable[str] | None = None,
+) -> dict[str, float | None]:
+    """Quellen, die zu alt sind oder ganz fehlen - mit ihrem Alter in Tagen.
 
     Bis hierher wurde die Aktualitaet nur **aufgezeichnet**: Das Gesamtmanifest
     nannte je Quelle den juengsten Lauf, und niemand las es. Eine Zahl, die
     niemand gegen etwas haelt, ist keine Kontrolle. Hier wird sie gegen eine
     Schwelle gehalten.
 
-    Eine Quelle ohne einzigen fertigen Lauf zaehlt als unendlich alt: Sie ist
-    nicht "frisch", sie ist nicht da.
+    Eine Quelle ohne einzigen fertigen Lauf steht mit ``None`` da - sie ist
+    nicht "frisch", sie ist nicht da. Der Docstring sagte das schon, der Code
+    tat es nicht: Geprueft wurde nur, was ``aktualitaet`` gefunden hatte, und
+    das sind genau die vorhandenen Quellen. Bei leerem Bestand kam ``{}``
+    heraus, also "alles in Ordnung". Eine externe Pruefung hat das am
+    15.9.2026 vorgerechnet.
+
+    ``erwartet`` kommt aus ``ERWARTETE_QUELLEN`` und damit aus den Stufen
+    selbst. Eine sechste Quelle taucht hier auf, sobald sie eine Stufe hat.
     """
     jetzt = jetzt or datetime.now(timezone.utc)
-    zu_alt: dict[str, float] = {}
-    for quelle, wann in aktualitaet(data_root).items():
+    erwartet = ERWARTETE_QUELLEN if erwartet is None else erwartet
+    vorhanden = aktualitaet(data_root)
+    zu_alt: dict[str, float | None] = {}
+    for quelle in sorted(set(erwartet) | set(vorhanden)):
+        wann = vorhanden.get(quelle)
+        if wann is None:
+            zu_alt[quelle] = None
+            continue
         stempel = datetime.fromisoformat(wann.replace("Z", "+00:00"))
         if stempel.tzinfo is None:
             stempel = stempel.replace(tzinfo=timezone.utc)
@@ -144,6 +173,13 @@ def veraltete_quellen(
         if alter > maximal_alter_tage:
             zu_alt[quelle] = round(alter, 1)
     return zu_alt
+
+
+def alterssatz(quelle: str, tage: float | None, schwelle: float) -> str:
+    """Eine Zeile fuer Log und Zusammenfassung - fehlend liest sich anders als alt."""
+    if tage is None:
+        return f"{quelle}: kein fertiger Lauf vorhanden"
+    return f"{quelle}: {tage:.1f} Tage alt, erlaubt sind {schwelle}"
 
 
 def zeilenzahlen(data_root: Path) -> dict[str, int]:
@@ -215,29 +251,43 @@ def lauf(data_root: Path, projekt_root: Path, *,
          maximal_alter_tage: float | None = None) -> dict:
     stufen = auswahl(ohne_ingestion, bis)
     begonnen = datetime.now(timezone.utc)
-    zu_alt: dict[str, float] = {}
+    zu_alt: dict[str, float | None] = {}
 
     # Ohne Ingestion werden die Daten nicht frischer. Sind sie schon zu alt,
     # lohnt sich keine Stufe - und ein Gold auf veraltetem Bronze waere genau
     # die Zahl, die dann auf einer Folie landet.
     if maximal_alter_tage is not None and ohne_ingestion:
         zu_alt = veraltete_quellen(data_root, maximal_alter_tage)
-        if zu_alt:
-            for quelle, tage in zu_alt.items():
-                LOG.error("%s ist %.1f Tage alt, erlaubt sind %s. Nichts gebaut.",
-                          quelle, tage, maximal_alter_tage)
-
-    protokoll = fahre(stufen, projekt_root) if not zu_alt else []
-    gelaufen = all(s["exit"] == 0 for s in protokoll) and len(protokoll) == len(stufen)
-
-    # Mit Ingestion erst danach: Jetzt sollten alle Quellen frisch sein. Sind
-    # sie es nicht, hat eine Quelle nichts Neues geliefert - das ist der Fall,
-    # den man erfahren will, bevor die alte Zahl weiterlebt.
-    if maximal_alter_tage is not None and not ohne_ingestion and gelaufen:
-        zu_alt = veraltete_quellen(data_root, maximal_alter_tage)
         for quelle, tage in zu_alt.items():
-            LOG.error("%s ist nach der Ingestion %.1f Tage alt, erlaubt sind %s.",
-                      quelle, tage, maximal_alter_tage)
+            LOG.error("%s. Nichts gebaut.",
+                      alterssatz(quelle, tage, maximal_alter_tage))
+
+    # Mit Ingestion in zwei Schritten: erst laden, dann pruefen, dann ableiten.
+    #
+    # Bis zum 15.9.2026 lief die Pruefung nach **allen** dreizehn Stufen. Der
+    # Lauf endete dann zwar mit "failed", aber Gold und Serving waren gebaut -
+    # aus Daten, die der Lauf selbst als zu alt erkannt hatte. Eine externe
+    # Pruefung hat genau das vorgefuehrt. Eine Kontrolle, die erst nach der
+    # Veroeffentlichung greift, ist ein Protokoll, keine Kontrolle.
+    geladen = [s for s in stufen if s.gruppe == "ingestion"]
+    abgeleitet = [s for s in stufen if s.gruppe != "ingestion"]
+
+    protokoll: list[dict] = []
+    if not zu_alt:
+        protokoll = fahre(geladen, projekt_root)
+        ingestion_ok = (all(s["exit"] == 0 for s in protokoll)
+                        and len(protokoll) == len(geladen))
+
+        if maximal_alter_tage is not None and not ohne_ingestion and ingestion_ok:
+            zu_alt = veraltete_quellen(data_root, maximal_alter_tage)
+            for quelle, tage in zu_alt.items():
+                LOG.error("%s. Nichts abgeleitet.",
+                          alterssatz(quelle, tage, maximal_alter_tage))
+
+        if ingestion_ok and not zu_alt:
+            protokoll += fahre(abgeleitet, projekt_root)
+
+    gelaufen = all(s["exit"] == 0 for s in protokoll) and len(protokoll) == len(stufen)
 
     geschafft = gelaufen and not zu_alt
     laeufe = bronze_laeufe(data_root)
@@ -303,7 +353,10 @@ def main() -> int:
     if manifest["status"] != "complete":
         zu_alt = manifest["freshness_check"]["stale"]
         if zu_alt:
-            alt_ = ", ".join(f"{q} ({t} Tage)" for q, t in zu_alt.items())
+            alt_ = ", ".join(
+                f"{q} (fehlt)" if t is None else f"{q} ({t} Tage)"
+                for q, t in zu_alt.items()
+            )
             print(f"Zu alt: {alt_}. Erlaubt: {args.maximal_alter_tage} Tage.")
         else:
             gescheitert = next(s for s in manifest["stages"] if s["exit"] != 0)

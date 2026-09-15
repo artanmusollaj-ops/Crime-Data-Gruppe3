@@ -997,3 +997,74 @@ def test_die_tatstunde_ist_ein_tinyint(con, tmp_path):
     typen = dict(con.execute("SELECT column_name, column_type "
                              "FROM (DESCRIBE fact_offense)").fetchall())
     assert typen["hour_of_day"] == "TINYINT"
+
+
+# --------------------------------------------------------------------------
+# Das Gate je Stadt (externe Pruefung vom 15.9.2026)
+# --------------------------------------------------------------------------
+
+
+def gate_bestand(con, zeilen: list[tuple[str, str, str, int]]) -> None:
+    """``fact_offense`` nur mit den drei Spalten, die das Gate liest."""
+    teile = " UNION ALL ".join(
+        f"SELECT '{stadt}' AS reporting_city, '{mapping}' AS mapping_status, "
+        f"'{geo}' AS geo_status FROM range({n})"
+        for stadt, mapping, geo, n in zeilen
+    )
+    con.execute(f"CREATE OR REPLACE TABLE fact_offense AS {teile}")
+
+
+def test_eine_grosse_stadt_verdeckt_die_kleine_nicht_mehr(con):
+    """Der nachgestellte Befund: 92,5 % gemeinsam, 70 % in Detroit.
+
+    Chicago ist dreimal so gross wie Detroit. Der Gesamtanteil traegt deshalb
+    Chicagos Zahl - Detroits Crosswalk haette zu einem Drittel brechen
+    koennen, ohne dass das Gate faellt.
+    """
+    gate_bestand(con, [
+        ("chicago", "exact", "inside_city", 750),
+        ("detroit", "exact", "inside_city", 175),
+        ("detroit", "fallback_90Z", "inside_city", 75),
+    ])
+    anteile = bg.abdeckung(con)
+    je_stadt = bg.abdeckung_je_stadt(con)
+
+    assert anteile["exact"] == 92.5, "der Gesamtanteil haelt die Schwelle"
+    assert je_stadt["detroit"]["exact"] == 70.0
+
+    with pytest.raises(TransformError, match="detroit"):
+        bg.pruefe_gate(anteile, je_stadt)
+
+
+def test_ohne_die_staedtezahlen_bleibt_es_beim_gesamtanteil(con):
+    """Die Gegenprobe: Der Gesamtanteil allein laesst den Fall weiterhin durch.
+
+    Damit ist belegt, dass die Korrektur an den Staedtezahlen haengt und nicht
+    an einer nebenbei verschaerften Schwelle.
+    """
+    gate_bestand(con, [
+        ("chicago", "exact", "inside_city", 750),
+        ("detroit", "exact", "inside_city", 175),
+        ("detroit", "fallback_90Z", "inside_city", 75),
+    ])
+    bg.pruefe_gate(bg.abdeckung(con))
+
+
+def test_beide_staedte_gut_gehen_durch(con):
+    gate_bestand(con, [
+        ("chicago", "exact", "inside_city", 700),
+        ("chicago", "fallback_90Z", "inside_city", 30),
+        ("detroit", "exact", "inside_city", 240),
+        ("detroit", "fallback_90Z", "inside_city", 10),
+    ])
+    je_stadt = bg.abdeckung_je_stadt(con)
+    assert sorted(je_stadt) == ["chicago", "detroit"]
+    bg.pruefe_gate(bg.abdeckung(con), je_stadt)
+
+
+def test_die_staedtezahlen_stehen_im_nachweis(con):
+    """Sonst liesse sich nicht nachlesen, worauf das Gate entschieden hat."""
+    gate_bestand(con, [("chicago", "exact", "inside_city", 10)])
+    je_stadt = bg.abdeckung_je_stadt(con)
+    assert je_stadt["chicago"]["exact"] == 100.0
+    assert je_stadt["chicago"]["outside_city"] == 0.0
