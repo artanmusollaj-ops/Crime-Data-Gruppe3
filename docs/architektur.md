@@ -77,6 +77,17 @@ diese sechs Stellen in dieser Reihenfolge. Zusammen sind es rund 400 Zeilen.
 | 5 | dieselbe Datei → `build_query` | wie das in SQL aussieht: zwei Städte, zwei CTEs, ein `UNION ALL` |
 | 6 | `gold_pipeline/build_gold.py` → `fact_offense_query` | der einzige Stellenwechsel zwischen Silver und Gold, und warum es ihn braucht |
 
+### Der Lesepfad für die Kontrollen
+
+Wer wissen will, **was eigentlich geprüft wird**, findet es in
+[`notebooks/35_kontrollen.ipynb`](../notebooks/35_kontrollen.ipynb). Dort
+stehen alle 41 Kontrollen der Strecke an einem Ort, in der Reihenfolge, in der
+sie greifen, und jede wird zweimal vorgeführt: einmal mit Daten, die sie
+durchlässt, und einmal mit Daten, die sie fangen soll. Am Schluss reist ein
+einzelner Fall durch alle Schichten.
+
+Das Notebook erzeugt seine Beispiele selbst und braucht keine gebauten Daten.
+
 ### Der Lesepfad für die Zahlen
 
 Der Pfad oben geht durch den Code. Wen stattdessen interessiert, **woher eine
