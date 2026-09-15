@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **995** |
+| Tests | **1'001** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -87,6 +87,57 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 15.09.2026 · Kontrollen, die vor der Veröffentlichung greifen (#93)
+
+**Was.** Drei Befunde derselben externen Prüfung, alle an Kontrollen, die
+Probleme zwar erkannten, ihre Veröffentlichung aber nicht verhinderten.
+
+**1 · Das Publish-Gate rechnete über beide Städte gemittelt.** Ein Mittel
+verdeckt. Vorgerechnet: 750 Chicagoer Zeilen zu 100 % exakt und 250 Detroiter
+zu 70 % ergeben 92,5 % gemeinsam — bestanden, bei einer Schwelle von 85 %.
+Detroits Crosswalk hätte zu einem Drittel brechen können, ohne dass etwas rot
+wird. Chicago ist dreimal so gross wie Detroit; der Gesamtanteil trägt deshalb
+Chicagos Zahl.
+
+Das Gate prüft jetzt den Gesamtanteil **und jede Stadt für sich**, mit
+denselben Schwellen: Wer den Vergleich zweier Städte baut, muss ihn für beide
+tragen können. Die Zahlen je Stadt stehen im Nachweis, damit nachlesbar ist,
+worauf entschieden wurde. Der echte Stand trägt es bequem — Chicago 95,61 %,
+Detroit 95,14 % exakt.
+
+**2 · Eine fehlende Quelle galt als frisch.** Geprüft wurde nur, was
+`aktualitaet` gefunden hatte, und das sind genau die *vorhandenen* Quellen.
+Bei vier fehlenden von fünf kam `{}` heraus, also „alles in Ordnung" — obwohl
+der Docstring seit jeher sagte, eine Quelle ohne fertigen Lauf zähle als
+unendlich alt. Jetzt tut der Code das auch.
+
+Die Liste der erwarteten Bestände ist **abgeleitet, nicht gepflegt**: Jede
+Ingestion-Stufe nennt in `STUFEN`, welchen Bronze-Bestand sie füllt. Eine
+sechste Quelle taucht in der Prüfung auf, sobald sie eine Stufe hat.
+
+**3 · Die Frische wurde nach allen dreizehn Stufen geprüft.** Der Lauf endete
+zwar mit `failed`, aber Gold und Serving waren gebaut — aus Daten, die er
+selbst als zu alt erkannt hatte. Eine Kontrolle, die erst nach der
+Veröffentlichung greift, ist ein Protokoll, keine Kontrolle. Der Lauf ist
+jetzt zweigeteilt: laden, prüfen, ableiten.
+
+**Was offen bleibt.** Geprüft wird das Ladedatum, nicht der Inhalt. Ein frisch
+geladener, inhaltlich alter Bestand fällt damit nicht auf. Und die
+Census-Vintage ist bewusst eingefroren; für sie wäre eine eigene Regel
+richtig, statt sie an derselben Achttagesschwelle zu messen. Beides steht im
+Ausblick.
+
+**Wächter.** Sieben Tests. Vier fallen gegen den Stand von gestern: die
+verdeckte Stadt, die fehlende Quelle, die Reihenfolge, die abgeleitete
+Quellenliste. Drei sind Gegenproben — der Gesamtanteil allein lässt den Fall
+weiterhin durch (die Korrektur hängt also an den Städtezahlen, nicht an einer
+nebenbei verschärften Schwelle), zwei gute Städte gehen durch, und die
+Städtezahlen stehen im Nachweis.
+
+**Zahlen.** 995 → **1'001 Tests**.
 
 ---
 

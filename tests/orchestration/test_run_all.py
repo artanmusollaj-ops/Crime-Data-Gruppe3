@@ -213,7 +213,8 @@ def test_veraltete_quellen_nennt_quelle_und_alter(tmp_path):
     data_root = tmp_path / "data"
     bronze(data_root, "city=chicago", "run_A", wann=stempel(2))
     bronze(data_root, "city=detroit", "run_B", wann=stempel(20))
-    zu_alt = ra.veraltete_quellen(data_root, maximal_alter_tage=8)
+    zu_alt = ra.veraltete_quellen(data_root, maximal_alter_tage=8,
+                                  erwartet=("city=chicago", "city=detroit"))
     assert list(zu_alt) == ["city=detroit"]
     assert 19.9 < zu_alt["city=detroit"] < 20.1
 
@@ -257,22 +258,58 @@ def test_ohne_ingestion_faellt_ein_veralteter_bestand_vor_der_ersten_stufe(tmp_p
     assert "city=chicago" in manifest["freshness_check"]["stale"]
 
 
-def test_mit_ingestion_wird_nach_der_strecke_geprueft(tmp_path, monkeypatch):
-    """Nach der Ingestion sollte alles frisch sein. Ist es das nicht, hat
-    eine Quelle nichts Neues geliefert - der Lauf soll das melden."""
+def test_mit_ingestion_wird_vor_dem_ableiten_geprueft(tmp_path, monkeypatch):
+    """Die Frische entscheidet, bevor Gold entsteht - nicht danach.
+
+    Bis zum 15.9.2026 lief die Pruefung nach allen dreizehn Stufen. Der Lauf
+    endete mit "failed", aber Gold und Serving waren gebaut - aus Daten, die
+    er selbst als zu alt erkannt hatte. Eine externe Pruefung hat das
+    vorgefuehrt; dieser Test haelt die Korrektur fest.
+    """
     data_root = tmp_path / "data"
     bronze(data_root, "city=chicago", "run_A", wann=stempel(30))
     spur = tmp_path / "spur.txt"
-    stufen = [falsche_stufe(tmp_path, "eins", 0, spur)]
+    stufen = [
+        falsche_stufe(tmp_path, "laden", 0, spur)._replace(gruppe="ingestion"),
+        falsche_stufe(tmp_path, "ableiten", 0, spur)._replace(gruppe="gold"),
+    ]
     monkeypatch.syspath_prepend(str(tmp_path))
     monkeypatch.setattr(ra, "auswahl", lambda *_a, **_k: stufen)
 
     manifest = ra.lauf(data_root, tmp_path, maximal_alter_tage=8)
 
-    assert spur.exists(), "die Strecke muss gelaufen sein"
+    gefahren = spur.read_text(encoding="utf-8").split()
+    assert gefahren == ["laden"], (
+        f"abgeleitet wurde trotz veralteter Quelle: {gefahren}"
+    )
     assert manifest["status"] == "failed"
-    assert manifest["freshness_check"]["stale"] == {"city=chicago": manifest["freshness_check"]["stale"]["city=chicago"]}
+    assert "city=chicago" in manifest["freshness_check"]["stale"]
     assert manifest["output_rows"] == {}
+
+
+def test_eine_fehlende_quelle_faellt_auf(tmp_path, monkeypatch):
+    """Der Befund der externen Pruefung: leerer Bestand galt als frisch.
+
+    Geprueft wurde nur, was ``aktualitaet`` gefunden hatte - also genau die
+    vorhandenen Quellen. Vier fehlende von fuenf ergaben ``{}``.
+    """
+    data_root = tmp_path / "data"
+    bronze(data_root, "city=chicago", "run_A", wann=stempel(1))
+    zu_alt = ra.veraltete_quellen(
+        data_root, maximal_alter_tage=8,
+        erwartet=("city=chicago", "city=detroit", "dataset=noaa_ghcnd"),
+    )
+    assert zu_alt == {"city=detroit": None, "dataset=noaa_ghcnd": None}
+    assert "kein fertiger Lauf" in ra.alterssatz("city=detroit", None, 8.0)
+
+
+def test_die_erwarteten_quellen_kommen_aus_den_stufen():
+    """Sonst waere es eine zweite Liste, die als erste veraltet."""
+    aus_stufen = sorted(s.quelle for s in ra.STUFEN if s.quelle)
+    assert sorted(ra.ERWARTETE_QUELLEN) == aus_stufen
+    assert len(aus_stufen) == sum(1 for s in ra.STUFEN if s.gruppe == "ingestion"), (
+        "jede Ingestion-Stufe muss den Bestand nennen, den sie fuellt"
+    )
 
 
 def test_frische_daten_gehen_durch(tmp_path, monkeypatch):
@@ -281,6 +318,7 @@ def test_frische_daten_gehen_durch(tmp_path, monkeypatch):
     stufen = [falsche_stufe(tmp_path, "eins", 0)]
     monkeypatch.syspath_prepend(str(tmp_path))
     monkeypatch.setattr(ra, "auswahl", lambda *_a, **_k: stufen)
+    monkeypatch.setattr(ra, "ERWARTETE_QUELLEN", ("city=chicago",))
     manifest = ra.lauf(data_root, tmp_path, ohne_ingestion=True, maximal_alter_tage=8)
     assert manifest["status"] == "complete"
     assert manifest["freshness_check"]["stale"] == {}

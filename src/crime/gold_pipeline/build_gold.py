@@ -570,28 +570,74 @@ def abdeckung(con: duckdb.DuckDBPyConnection) -> dict[str, float]:
     return anteile
 
 
-def pruefe_gate(anteile: dict[str, float]) -> None:
+def abdeckung_je_stadt(con: duckdb.DuckDBPyConnection) -> dict[str, dict[str, float]]:
+    """Dieselben Anteile, aber je meldender Stadt.
+
+    **Warum das noetig ist.** Der Gesamtanteil ist ein Mittel, und ein Mittel
+    verdeckt. Eine externe Pruefung hat das am 15.9.2026 vorgerechnet: 750
+    Chicagoer Zeilen zu 100 % exakt und 250 Detroiter zu 70 % ergeben 92,5 %
+    gemeinsam - bestanden, bei einer Schwelle von 85 %. Detroits Crosswalk
+    haette also zu einem Drittel brechen koennen, ohne dass etwas rot wird.
+
+    Chicago ist dreimal so gross wie Detroit. Genau deshalb traegt der
+    Gesamtanteil Chicagos Zahl und nicht Detroits.
+    """
+    zeilen = con.execute("""
+        SELECT reporting_city, geo_status, mapping_status, count(*)
+        FROM fact_offense GROUP BY 1, 2, 3
+    """).fetchall()
+    gesamt: dict[str, int] = {}
+    treffer: dict[str, dict[str, int]] = {}
+    for stadt, geo, mapping, n in zeilen:
+        gesamt[stadt] = gesamt.get(stadt, 0) + n
+        je = treffer.setdefault(stadt, {})
+        for wert in (geo, mapping):
+            je[wert] = je.get(wert, 0) + n
+
+    ergebnis: dict[str, dict[str, float]] = {}
+    for stadt, n_gesamt in sorted(gesamt.items()):
+        je = treffer.get(stadt, {})
+        ergebnis[stadt] = {
+            wert: round(100.0 * je.get(wert, 0) / n_gesamt, 4) if n_gesamt else 0.0
+            for wert in sorted(set(GEO_STATUS_WERTE) | set(MAPPING_STATUS_WERTE))
+        }
+    return ergebnis
+
+
+def pruefe_gate(anteile: dict[str, float],
+                je_stadt: dict[str, dict[str, float]] | None = None) -> None:
     """Das Publish-Gate: Gold wird nur veroeffentlicht, wenn die Abdeckung traegt.
 
     Gerufen wird es von ``build`` und nicht von ``reconcile`` - ein Nachweis
     misst, ein Gate entscheidet. Warum die Schwellen so weit unter den
     gemessenen Werten liegen, steht bei ``GATE_MINDESTENS``.
+
+    Geprueft wird der Gesamtanteil **und jede Stadt fuer sich**. Dieselben
+    Schwellen: Wer den Vergleich zweier Staedte baut, muss ihn fuer beide
+    tragen koennen. Ein Mittel ueber beide verdeckt sonst genau die Stadt, die
+    bricht - siehe ``abdeckung_je_stadt``.
     """
+    _gegen_schwellen(anteile, woher="insgesamt")
+    for stadt, ihre in (je_stadt or {}).items():
+        _gegen_schwellen(ihre, woher=stadt)
+
+
+def _gegen_schwellen(anteile: dict[str, float], *, woher: str) -> None:
     for wert, boden in GATE_MINDESTENS.items():
         ist = anteile.get(wert, 0.0)
         if ist < boden:
             raise TransformError(
-                f"Abdeckung reisst die Schwelle: {wert} bei {ist} %, verlangt "
-                f"sind mindestens {boden} %. Die Schwelle liegt weit unter dem "
-                "gemessenen Stand - vor dem Hochsetzen pruefen, ob der "
-                "raeumliche Join oder ein Crosswalk gebrochen ist."
+                f"Abdeckung reisst die Schwelle ({woher}): {wert} bei {ist} %, "
+                f"verlangt sind mindestens {boden} %. Die Schwelle liegt weit "
+                "unter dem gemessenen Stand - vor dem Hochsetzen pruefen, ob "
+                "der raeumliche Join oder ein Crosswalk gebrochen ist."
             )
     for wert, decke in GATE_HOECHSTENS.items():
         ist = anteile.get(wert, 0.0)
         if ist > decke:
             raise TransformError(
-                f"Abdeckung reisst die Schwelle: {wert} bei {ist} %, erlaubt "
-                f"sind hoechstens {decke} %."
+                f"Abdeckung reisst die Schwelle ({woher}): {wert} bei {ist} %, "
+                f"erlaubt sind hoechstens {decke} %."
             )
 
 
@@ -729,9 +775,11 @@ def reconcile(
         "verified": True,
         "grain": "eine Tat; Detroits weitere Anklagen bleiben in Silver",
         "coverage_percent": anteile,
+        "coverage_percent_by_city": abdeckung_je_stadt(con),
         "coverage_gate": {
             "minimum": GATE_MINDESTENS,
             "maximum": GATE_HOECHSTENS,
+            "applies_to": "insgesamt und je meldender Stadt",
         },
         "fact_rows": gold,
         "silver_rows": silber,
@@ -837,7 +885,8 @@ def build(data_root: Path, config_root: Path, vintage: int) -> dict[str, Path]:
         # Erst hier, nicht im Nachweis: Was gemessen wurde, steht im Manifest;
         # ob es reicht, entscheidet das Gate - und zwar bevor irgendeine
         # Tabelle veroeffentlicht wird.
-        pruefe_gate(nachweis["coverage_percent"])
+        pruefe_gate(nachweis["coverage_percent"],
+                    nachweis.get("coverage_percent_by_city"))
 
         bauplan = [
             ("fact_offense", "eine Tat", [offense],

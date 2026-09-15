@@ -585,6 +585,20 @@ Gesamtläufe sich nicht verschränken. Eine Datei unter `data/` mit der
 Prozessnummer und ein Abbruch mit klarer Meldung reichen; verteiltes Sperren
 über S3 braucht es bei zwei Personen nicht.
 
+### Was die Frischeprüfung noch nicht kann
+
+Geprüft wird das **Ladedatum**, nicht der Inhalt. Ein Lauf, der heute lädt und
+dabei denselben Stand wie vor drei Wochen bekommt, gilt als frisch. Den Fall
+erkennt nur ein Vergleich der Daten selbst — der Schema-Abdruck und die
+Zeilenzahl liegen im Manifest, ein Abdruck über den Inhalt wäre der nächste
+Schritt.
+
+Und alle Quellen werden an derselben Achttagesschwelle gemessen. Für Chicago
+und Detroit ist das richtig, für die **eingefrorene Census-Vintage** nicht: Sie
+soll sich nicht ändern. Heute rettet sie nur, dass der wöchentliche Lauf sie
+jedes Mal neu lädt. Sauber wäre eine Regel je Quelle — fortlaufend gegen eine
+Frist, eingefroren gegen eine erwartete Vintage.
+
 ---
 
 ## 7 · Reihenfolge
