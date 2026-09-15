@@ -534,7 +534,60 @@ Werkzeug:
 
 ---
 
-## 6 · Reihenfolge
+## 6 · Ein gemeinsamer Veröffentlichungsstand
+
+Eine externe Prüfung am 15.9.2026 hat hier zwei Fehlerfälle gezeigt, von denen
+einer behoben ist und einer bleibt.
+
+**Behoben.** Beim Aktualisieren *einer* Tabelle auf S3 wurde zuerst die
+Parquet-Datei überschrieben und danach das Manifest. Brach der zweite Schritt
+ab, lag oben der neue Inhalt unter einem Manifest, das den alten Stand
+behauptete — und weiterhin `complete` sagte. Seither fällt zuerst der Status
+auf `publishing`, und `tabellen()` beachtet ihn. Ein Leser sieht danach der
+Reihe nach den vollständigen alten Stand, dann keinen, dann den vollständigen
+neuen. Lokal tragen die Arbeitsverzeichnisse jetzt die Prozessnummer, damit
+zwei Läufe einander nicht das halbfertige Ergebnis wegräumen.
+
+**Offen.** Die fünf Gold-Tabellen werden weiterhin **nacheinander**
+veröffentlicht. Zwischen `fact_offense` und `dim_city_day` liegt ein Fenster,
+in dem eine Abfrage über beide einen gemischten Stand sieht. Dasselbe gilt für
+zwei gleichzeitige Gesamtläufe.
+
+### Was es dafür bräuchte
+
+Der übliche Bau ist ein **Versionspfad plus ein Verweis**:
+
+```text
+gold/dataset=fact_offense/v=2026-09-15T17-15-06/part-0001.parquet
+gold/dataset=fact_offense/v=2026-09-15T17-15-06/manifest.json
+gold/AKTUELL.json          ← nennt je Tabelle die freigegebene Version
+```
+
+Geschrieben wird vollständig unter einer neuen Version und geprüft. Erst dann
+wird `AKTUELL.json` ersetzt — ein einziges Objekt, und dessen Ersetzung ist
+sowohl lokal (`rename`) als auch auf S3 (`PUT`) unteilbar. Damit wechseln alle
+fünf Tabellen gemeinsam, und ein Abbruch an jeder Stelle lässt den alten Stand
+gültig.
+
+**Was daran hängt.** Jeder Leser müsste die Tabelle über den Verweis auflösen
+statt über den festen Pfad — `storage.tabellen`, die Serving-Sichten, die
+Notebooks, `drift`, `aufraeumen`. Das ist kein grosser Eingriff, aber ein
+breiter. Und das Aufräumen bekäme eine neue Aufgabe: alte Versionen entfernen,
+die kein Verweis mehr nennt.
+
+**Warum es nicht sofort gebaut wurde.** Der Nutzen ist heute klein: Gold wird
+von einem Lauf geschrieben, und niemand fragt währenddessen ab. Der Nutzen
+entsteht, sobald ein Dashboard danebensteht — also für LN2. Dann aber gehört
+er dazu, nicht danach.
+
+Ergänzend gehört eine **Sperre über den ganzen Lauf** dazu, damit zwei
+Gesamtläufe sich nicht verschränken. Eine Datei unter `data/` mit der
+Prozessnummer und ein Abbruch mit klarer Meldung reichen; verteiltes Sperren
+über S3 braucht es bei zwei Personen nicht.
+
+---
+
+## 7 · Reihenfolge
 
 Nach Nutzen je Aufwand, nicht nach Reiz:
 
@@ -549,6 +602,8 @@ Nach Nutzen je Aufwand, nicht nach Reiz:
 | **7** | Cloud Stufe 1 | danach ein Nachmittag, kein Projekt |
 | **8** | *Granularität* → *Granularität* durchgehend (128 Stellen, 27 Dateien) | der eingeführte Begriff; betrifft auch Artans Dokumente |
 | **8** | Dashboard für LN2 (Abschnitt 5) | eigener Zeitplan — Dezember |
+| **8** | Versionspfad und Verweis für einen gemeinsamen Stand (Abschnitt 6) | gehört zum Dashboard: erst dann liest jemand, während gebaut wird |
+| **9** | Sperre über den ganzen Lauf | klein; verhindert verschränkte Gesamtläufe |
 
 Die Punkte 1 bis 3 sind Artans, sie sind zusammen überschaubar, und sie
 betreffen etwas, das **heute schon** unvollständig ist — nicht erst bei

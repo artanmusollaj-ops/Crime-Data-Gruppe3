@@ -547,7 +547,13 @@ class Storage:
         return [gefunden[k] for k in sorted(gefunden)]
 
     def tabellen(self, schichten: tuple[str, ...] = ("silver", "gold")) -> list[Tabelle]:
-        """Gebaute Silver- und Gold-Tabellen, mit relativem Ablagepfad."""
+        """Fertige Silver- und Gold-Tabellen, mit relativem Ablagepfad.
+
+        *Fertig* heisst hier dasselbe wie bei ``laeufe``: Das Manifest sagt es.
+        Bis zum 15.9.2026 galt jede Tabelle mit Manifest als gebaut, egal was
+        darin stand - eine Tabelle mitten im Publizieren also auch. Damit half
+        der Status niemandem: Er wurde gesetzt und nie gelesen.
+        """
         gefunden: dict[str, Tabelle] = {}
         if self.config.liest_lokal:
             for t in tabellen(self.local_root, schichten):
@@ -566,7 +572,14 @@ class Storage:
                     manifest = json.loads(self.client.get(objekt.key).decode("utf-8"))
                     gefunden[rel_dir] = Tabelle(schicht, name, self.local_path(rel_dir),
                                                 manifest, rel_dir)
-        return sorted(gefunden.values(), key=lambda t: (t.schicht, t.name))
+        fertig = {}
+        for rel, tabelle in gefunden.items():
+            status = str((tabelle.manifest or {}).get("status", "")).lower()
+            if status in FERTIG:
+                fertig[rel] = tabelle
+            else:
+                LOG.warning("Tabelle uebersprungen, nicht fertig (%s): %s", status or "ohne Status", rel)
+        return sorted(fertig.values(), key=lambda t: (t.schicht, t.name))
 
     # -- Publizieren ---------------------------------------------------------
 
@@ -594,10 +607,7 @@ class Storage:
 
             vorhanden = self.client.head(rel)
             if vorhanden is not None:
-                gleich = vorhanden.size == len(daten) and (
-                    etag_md5(vorhanden.etag) in (None, md5)
-                )
-                if gleich:
+                if self._ist_identisch(rel, vorhanden, daten, md5):
                     LOG.info("Already published, identical: %s", rel)
                     oben.append(rel)
                     continue
@@ -620,11 +630,42 @@ class Storage:
                     f"Upload nicht bestaetigt: {self.s3_path(rel)} "
                     f"({'fehlt' if nachher is None else f'{nachher.size} statt {len(daten)} Bytes'})"
                 )
-            if etag_md5(nachher.etag) not in (None, md5):
+            if not self._ist_identisch(rel, nachher, daten, md5):
                 raise PublishError(f"Pruefsumme nach Upload weicht ab: {self.s3_path(rel)}")
             LOG.info("Published: %s", rel)
             oben.append(rel)
         return oben
+
+    def _ist_identisch(self, rel: str, oben: Objekt, daten: bytes, md5: str) -> bool:
+        """Ob das Objekt oben byteweise dasselbe ist wie ``daten``.
+
+        **Gleiche Groesse ist kein Beweis.** Genau das stand hier bis zum
+        15.9.2026: Liess sich das ETag nicht als MD5 lesen, genuegte die
+        Byteanzahl - und drei Bytes ``NEU`` galten als identisch mit drei
+        Bytes ``ALT``. Der Upload unterblieb, und die Zusage unveraenderlicher
+        Laeufe ruhte auf einem Zufall.
+
+        Ein ETag ist nicht immer eine Pruefsumme: Bei mehrteiligen Uploads
+        setzt S3 einen Hash ueber die Teil-Hashes mit angehaengtem ``-N``.
+        Dann bleibt nur, den Inhalt zu holen und zu vergleichen. Das kostet
+        einen Download - aber nur dann, wenn die Groessen ohnehin gleich sind
+        und die Pruefsumme nichts hergibt.
+        """
+        if oben.size != len(daten):
+            return False
+        bekannt = etag_md5(oben.etag)
+        if bekannt is not None:
+            return bekannt == md5
+        LOG.info("ETag ist keine Pruefsumme (%s), Inhalt wird geholt: %s",
+                 oben.etag, self.s3_path(rel))
+        try:
+            return self.client.get(rel) == daten
+        except Exception as fehler:  # noqa: BLE001 - jede Transportstoerung ist hier gleich
+            raise PublishError(
+                f"Inhalt nicht pruefbar: {self.s3_path(rel)}: {fehler}. Das ETag "
+                "ist keine Pruefsumme, und der Vergleichsdownload scheiterte - "
+                "gleiche Groesse allein gilt nicht als gleicher Inhalt."
+            ) from fehler
 
     def _dateien_unter(self, rel_dir: str) -> list[str]:
         wurzel = self.local_path(rel_dir)
@@ -675,10 +716,59 @@ class Storage:
                     "dann publizieren. Wer wirklich zurueckdrehen will: "
                     "publish_table(..., erzwingen=True)."
                 )
+        self._entwerte_entferntes_manifest(rel)
         oben = self.publish_files(self._dateien_unter(rel), ueberschreiben=True)
         self._entfernte_manifeste.pop(rel, None)
         self._lokal_entfernen_falls_s3(rel)
         return oben
+
+    def _entwerte_entferntes_manifest(self, rel: str) -> None:
+        """Das entfernte Manifest auf ``publishing`` setzen, bevor Daten fallen.
+
+        **Warum das noetig ist.** ``manifest.json`` zuletzt zu schreiben
+        schuetzt einen *neuen* Lauf: Ohne Manifest gilt er nicht. Eine
+        *bestehende* Tabelle schuetzt es nicht. Wird ihre Parquet-Datei
+        ueberschrieben und bricht danach der Manifest-Upload ab, liegt oben
+        der neue Inhalt unter dem alten Manifest - und das sagt weiterhin
+        ``complete``. Genau das war am 15.9.2026 in einer Gegenprobe zu sehen:
+        neue Daten, Bauzeitpunkt vom 1. August, Status ``complete``.
+
+        Deshalb faellt zuerst der Status. Ein Leser sieht danach der Reihe nach
+        den vollstaendigen alten Stand, dann *keinen* (``publishing`` zaehlt
+        nicht als fertig, siehe ``tabellen``), dann den vollstaendigen neuen.
+        Ein Abbruch dazwischen laesst die Tabelle unbrauchbar zurueck, nicht
+        falsch - und der naechste Lauf stellt sie her.
+
+        Was das **nicht** loest: Die fuenf Gold-Tabellen werden weiterhin
+        nacheinander publiziert. Ein gemeinsamer, konsistenter Stand ueber
+        alle Tabellen braucht Versionspfade und einen Verweis, der umgelegt
+        wird; das steht im Ausblick.
+        """
+        if not self.config.publiziert:
+            return
+        schluessel = paths.relativ(rel, MANIFEST)
+        oben = self.client.head(schluessel)
+        if oben is None:
+            return
+        try:
+            manifest = json.loads(self.client.get(schluessel).decode("utf-8"))
+        except (OSError, ValueError) as fehler:
+            raise PublishError(
+                f"Entferntes Manifest nicht lesbar: {self.s3_path(schluessel)}: {fehler}"
+            ) from fehler
+        if str(manifest.get("status", "")).lower() not in FERTIG:
+            return
+        manifest["status"] = "publishing"
+        manifest["superseded_at_utc"] = datetime.now(timezone.utc).isoformat(
+            timespec="seconds").replace("+00:00", "Z")
+        try:
+            self.client.put(schluessel, json.dumps(manifest, indent=2).encode("utf-8"))
+        except Exception as fehler:  # noqa: BLE001 - jede Transportstoerung ist hier gleich
+            raise PublishError(
+                f"Tabelle nicht entwertet, nichts angefasst: "
+                f"{self.s3_path(schluessel)}: {fehler}"
+            ) from fehler
+        LOG.info("Entferntes Manifest auf 'publishing' gesetzt: %s", schluessel)
 
     def _lokal_entfernen_falls_s3(self, rel: str) -> None:
         if self.backend == "s3":

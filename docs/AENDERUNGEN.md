@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **986** |
+| Tests | **995** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -87,6 +87,60 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 15.09.2026 · Gleiche Grösse ist kein gleicher Inhalt (#92)
+
+**Was.** Drei Befunde einer externen Prüfung an der Ablage, alle nachgestellt
+und behoben.
+
+**1 · Die Integritätsprüfung nahm Byteanzahl für Inhalt.** Liess sich das ETag
+eines S3-Objekts nicht als MD5 lesen, genügte die gleiche Grösse für
+„identisch" — der Upload unterblieb. In der Gegenprobe galten drei Bytes `NEU`
+als identisch mit drei Bytes `ALT`, und oben blieb der alte Inhalt stehen. Ein
+ETag ist nicht immer eine Prüfsumme: Bei mehrteiligen Uploads setzt S3 einen
+Hash über die Teil-Hashes mit angehängtem `-N`. Ist es unbrauchbar, wird der
+Inhalt jetzt geholt und verglichen — und das kostet nur dann einen Download,
+wenn die Grössen ohnehin gleich sind. **Unbekannte Prüfsumme gilt nicht als
+Gleichheit.**
+
+**2 · „Manifest zuletzt" schützt keine bestehende Tabelle.** Es schützt einen
+*neuen* Lauf: ohne Manifest gilt er nicht. Wird dagegen eine vorhandene
+Tabelle aktualisiert, fällt zuerst die Parquet-Datei. Bricht danach der
+Manifest-Upload ab, liegt oben der neue Inhalt unter dem alten Manifest — mit
+Bauzeitpunkt vom 1. August und Status `complete`. Genau so war es in der
+Gegenprobe zu sehen.
+
+Seither fällt **zuerst der Status**: Das entfernte Manifest wird auf
+`publishing` gesetzt, bevor eine Datei fällt. Scheitert schon das, ist nichts
+angefasst. Ein Leser sieht danach der Reihe nach den vollständigen alten
+Stand, dann *keinen*, dann den vollständigen neuen.
+
+**Damit das wirkt, musste `tabellen()` den Status lesen.** Er wurde bisher
+geschrieben und nie gelesen — jede Tabelle mit Manifest galt als gebaut, auch
+eine mitten im Publizieren. Jetzt gilt derselbe Massstab wie bei `laeufe()`.
+
+**3 · Die Arbeitsverzeichnisse hiessen für alle gleich.** `.<name>.part` und
+`.<name>.superseded`, und jeder Lauf räumte sie zu Beginn weg — auch die eines
+anderen, der gerade schrieb. Sie tragen jetzt die Prozessnummer.
+
+**Was offen bleibt, und warum.** Die fünf Gold-Tabellen werden weiterhin
+nacheinander veröffentlicht; zwischen `fact_offense` und `dim_city_day` liegt
+ein Fenster mit gemischtem Stand. Ein gemeinsamer Stand braucht Versionspfade
+und einen Verweis, der umgelegt wird — ein kleiner, aber breiter Eingriff, weil
+jeder Leser die Tabelle dann über den Verweis auflöst. Der Nutzen entsteht,
+sobald ein Dashboard danebensteht, also für LN2. `ausblick.md` Abschnitt 6
+beschreibt den Bau, `ausblick.md` Abschnitt 7 ordnet ihn ein.
+
+**Wächter.** Neun Tests. Sechs davon fallen gegen den Stand von gestern:
+gleiche Grösse ohne Prüfsumme, der abgebrochene Manifest-Upload, die
+gescheiterte Entwertung, die unfertige Tabelle, das fremde
+Arbeitsverzeichnis. Drei sind Gegenproben, damit die Korrektur nicht zu viel
+tut: identischer Inhalt wird nicht erneut geladen, eine **neue** Tabelle wird
+nicht entwertet, ein gescheiterter Lauf lässt den alten Stand stehen.
+
+**Zahlen.** 986 → **995 Tests**.
 
 ---
 

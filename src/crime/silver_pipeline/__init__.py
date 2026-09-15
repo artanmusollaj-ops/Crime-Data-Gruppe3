@@ -35,6 +35,7 @@ Laufauswahl, Verbindung und das atomare Veroeffentlichen.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from pathlib import Path
 
@@ -143,9 +144,22 @@ def publish(
     trotzdem in drei Schritten, damit nie ein halber Stand sichtbar ist: neu
     schreiben, alt beiseiteschieben, neu einhaengen, alt entfernen. Scheitert
     etwas, bleibt der vorherige Stand unberuehrt.
+
+    **Warum die Arbeitsverzeichnisse die Prozessnummer tragen.** Sie hiessen
+    bis zum 15.9.2026 fest ``.<name>.part`` und ``.<name>.superseded``, und
+    jeder Lauf raeumte sie zu Beginn weg - auch die eines anderen, der gerade
+    schrieb. Zwei gleichzeitige Laeufe derselben Tabelle zerstoerten einander
+    also das halbfertige Ergebnis. Mit eigenem Namen je Prozess kann das nicht
+    mehr passieren; das abschliessende ``rename`` ist atomar, ein Leser sieht
+    danach den einen oder den anderen vollstaendigen Stand.
+
+    Was das **nicht** loest: Zwei gleichzeitige Gesamtlaeufe koennen die fuenf
+    Gold-Tabellen verschraenkt ersetzen. Dagegen hilft nur eine Sperre ueber
+    den ganzen Lauf; das steht im Ausblick.
     """
-    arbeit = target.parent / f".{target.name}.part"
-    verdraengt = target.parent / f".{target.name}.superseded"
+    kennung = f"{os.getpid()}"
+    arbeit = target.parent / f".{target.name}.{kennung}.part"
+    verdraengt = target.parent / f".{target.name}.{kennung}.superseded"
     shutil.rmtree(arbeit, ignore_errors=True)
     shutil.rmtree(verdraengt, ignore_errors=True)
     arbeit.mkdir(parents=True)
