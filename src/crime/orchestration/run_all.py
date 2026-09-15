@@ -51,9 +51,23 @@ class Stufe(NamedTuple):
     # existierte: Ein leerer Bestand galt als frisch.
     quelle: str = ""
 
-    @property
-    def befehl(self) -> list[str]:
-        return [sys.executable, "-m", self.modul, *self.argumente]
+    def befehl(self, data_root: Path | None = None) -> list[str]:
+        """Der Aufruf, mit dem diese Stufe laeuft.
+
+        ``--data-root`` wird **immer** mitgegeben, nicht nur wenn jemand es
+        getippt hat. Bis zum 15.9.2026 wurde es gar nicht weitergereicht: Der
+        Gesamtlauf inventarisierte und protokollierte im gewaehlten
+        Verzeichnis, die dreizehn Unterprozesse arbeiteten im Standardordner.
+        Eine externe Pruefung hat die abgefangenen Befehlszeilen gezeigt -
+        keine einzige trug die Option.
+
+        Auch ohne ``--data-root`` steht hier jetzt der aufgeloeste Pfad. Das
+        ist kein Mehraufwand und beseitigt eine zweite Fehlerquelle: Vater und
+        Kind lesen dieselbe Umgebung, aber nicht mehr notwendigerweise
+        gleich - etwa wenn ein Unterprozess eine andere ``.env`` faende.
+        """
+        wurzel = [] if data_root is None else ["--data-root", str(data_root)]
+        return [sys.executable, "-m", self.modul, *self.argumente, *wurzel]
 
 
 # Die Reihenfolge ist die Aussage dieses Moduls. Alles andere ist Buchhaltung.
@@ -205,7 +219,8 @@ def auswahl(ohne_ingestion: bool, bis: str | None) -> list[Stufe]:
     return stufen
 
 
-def fahre(stufen: list[Stufe], projekt_root: Path) -> list[dict]:
+def fahre(stufen: list[Stufe], projekt_root: Path,
+          data_root: Path | None = None) -> list[dict]:
     """Eine Stufe nach der anderen. Beim ersten Fehler ist Schluss.
 
     Weiterzulaufen waere schlimmer als abzubrechen: Die naechste Stufe baute
@@ -214,13 +229,14 @@ def fahre(stufen: list[Stufe], projekt_root: Path) -> list[dict]:
     protokoll: list[dict] = []
     for i, stufe in enumerate(stufen, 1):
         LOG.info("[%d/%d] %s · %s", i, len(stufen), stufe.gruppe, stufe.name)
+        befehl = stufe.befehl(data_root)
         start = time.perf_counter()
-        fertig = subprocess.run(stufe.befehl, cwd=projekt_root)
+        fertig = subprocess.run(befehl, cwd=projekt_root)
         dauer = round(time.perf_counter() - start, 1)
         protokoll.append({
             "gruppe": stufe.gruppe,
             "name": stufe.name,
-            "befehl": " ".join(stufe.befehl[1:]),
+            "befehl": " ".join(befehl[1:]),
             "sekunden": dauer,
             "exit": fertig.returncode,
         })
@@ -274,7 +290,7 @@ def lauf(data_root: Path, projekt_root: Path, *,
 
     protokoll: list[dict] = []
     if not zu_alt:
-        protokoll = fahre(geladen, projekt_root)
+        protokoll = fahre(geladen, projekt_root, data_root)
         ingestion_ok = (all(s["exit"] == 0 for s in protokoll)
                         and len(protokoll) == len(geladen))
 
@@ -285,7 +301,7 @@ def lauf(data_root: Path, projekt_root: Path, *,
                           alterssatz(quelle, tage, maximal_alter_tage))
 
         if ingestion_ok and not zu_alt:
-            protokoll += fahre(abgeleitet, projekt_root)
+            protokoll += fahre(abgeleitet, projekt_root, data_root)
 
     gelaufen = all(s["exit"] == 0 for s in protokoll) and len(protokoll) == len(stufen)
 

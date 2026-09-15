@@ -322,3 +322,51 @@ def test_frische_daten_gehen_durch(tmp_path, monkeypatch):
     manifest = ra.lauf(data_root, tmp_path, ohne_ingestion=True, maximal_alter_tage=8)
     assert manifest["status"] == "complete"
     assert manifest["freshness_check"]["stale"] == {}
+
+
+# --------------------------------------------------------------------------
+# --data-root erreicht die Stufen (externe Pruefung vom 15.9.2026)
+# --------------------------------------------------------------------------
+
+
+def test_jede_stufe_bekommt_die_datenwurzel(tmp_path, monkeypatch):
+    """Der Befund: Der Lauf inventarisierte anderswo, als er baute.
+
+    ``--data-root`` wurde ausgewertet, aber nicht weitergereicht. Die
+    dreizehn Unterprozesse arbeiteten im Standardverzeichnis, waehrend
+    Inventar und Protokoll im gewaehlten lagen.
+    """
+    data_root = tmp_path / "anderswo"
+    for quelle in ra.ERWARTETE_QUELLEN:
+        bronze(data_root, quelle, "run_A", wann=stempel(1))
+
+    befehle: list[list[str]] = []
+
+    class Fertig:
+        returncode = 0
+
+    monkeypatch.setattr(ra.subprocess, "run",
+                        lambda cmd, cwd=None, **_: (befehle.append(cmd), Fertig())[1])
+    ra.lauf(data_root, tmp_path, maximal_alter_tage=8)
+
+    assert len(befehle) == len(ra.STUFEN)
+    ohne = [c[2] for c in befehle if "--data-root" not in c]
+    assert not ohne, f"diese Stufen bekamen die Wurzel nicht: {ohne}"
+    for c in befehle:
+        assert c[c.index("--data-root") + 1] == str(data_root)
+
+
+def test_jedes_stufenmodul_kennt_die_option():
+    """Die Option weiterzureichen hilft nur, wenn sie drueben ankommt.
+
+    ``detroit_pipeline.extract_detroit`` kannte sie als einziges Modul nicht -
+    es nahm ``--output-dir`` und ``--raw-dir`` einzeln.
+    """
+    wurzel = Path(ra.__file__).resolve().parents[1]
+    ohne = []
+    for stufe in ra.STUFEN:
+        datei = wurzel / (stufe.modul.replace(".", "/") + ".py")
+        if datei.is_file() and "--data-root" not in datei.read_text(encoding="utf-8"):
+            ohne.append(stufe.modul)
+    assert not ohne, f"diese Module kennen --data-root nicht: {sorted(set(ohne))}"
+
