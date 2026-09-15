@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **980** |
+| Tests | **986** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -87,6 +87,52 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 15.09.2026 · Das dritte Abgabedokument bekommt seinen Wächter (#91)
+
+**Was.** `leistungsnachweise.md` führte acht überholte Aussagen. Sie sind
+korrigiert, und `tests/test_unterstroemungen.py` prüft jetzt **beide**
+Unterströmungs-Tabellen statt nur einer, dazu die Lebenszyklus-Tabelle und
+zwei Sätze im Fliesstext.
+
+**Warum.** Dieselbe Tabelle gibt es zweimal, in `ln1_konzept.md` und in
+`leistungsnachweise.md`. Der Wächter deckte nur die erste ab. Die zweite ist
+genau so veraltet, wie die erste es dreimal war — nur unbemerkt, weil sie
+niemand prüfte:
+
+| Was dort stand | Was gilt |
+| --- | --- |
+| „keine CI, keine Alarmierung" | fünf Jobs auf jedem Pull Request seit dem 12.9. |
+| Lücke „Architekturdiagramm" | zwei Bilder, aus dem Code erzeugt |
+| Lücke „Katalog/Glossar der Felder" | `feldkatalog.md`, aus den Manifesten erzeugt |
+| Orchestration: „grösste Lücke, heute manuelle Aufrufe" | `run_all`, dreizehn Stufen |
+| „Evaluation schriftlich, Silver/Gold leer" | beides gebaut, Evaluation in Kapitel 7 |
+| Lücke „Qualitätsanalyse Detroit" | Notebook 13 |
+| Lücke „Detroit-Quellnotebook" | Notebook 11 |
+| „233 Tests" und an anderer Stelle „633 Tests" | 986 |
+
+**Das Dokument widersprach sich dabei selbst.** Abschnitt 1 schrieb „Silver ist
+leer"; zwei Zeilen darüber stand in derselben Tabelle „vier Silver-Tabellen,
+`crime_offense` mit 347'957 Zeilen".
+
+**Zwei weitere Funde nebenbei.** `ln1_konzept.md` führte unter Orchestration
+„keine Zeitplanung" — den wöchentlichen Datenlauf gibt es seit dem 13.9.
+Und `projektabsprache.md` führte „Weiterhin offen: keine CI. Niemand führt
+diese Tests bei einem Push aus", drei Tage nachdem die CI stand und während
+sie genau diesen Satz prüfte. Beides korrigiert.
+
+**Wächter.** Die drei bestehenden Prüfungen laufen jetzt über beide Tabellen,
+dazu zwei neue: die vierspaltige Lebenszyklus-Tabelle, und ein Test gegen
+Sätze im Fliesstext, der etwas als offen führt, das es gibt. Letzterer
+vergleicht **exakte Formulierungen**, keine Suchmuster: Dieselben Dokumente
+erwähnen vergangene Lücken absichtlich („das stand als Lücke in Tabelle 5.3"),
+und ein unscharfer Treffer darauf wäre ein falscher Alarm.
+
+Alle acht Altlasten wurden einzeln wieder eingesetzt; jede fällt durch.
+
+**Zahlen.** 980 → **986 Tests**.
 
 ---
 

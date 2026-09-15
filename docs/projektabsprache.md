@@ -661,9 +661,12 @@ echten Suite tut — und das hiesse, pytest in pytest zu starten.
 Anspruch für neue Pipelines: Tests laufen ohne Netz und ohne Schlüssel, so wie
 die bestehenden.
 
-**Weiterhin offen: keine CI.** Niemand führt diese Tests bei einem Push aus;
-das Abgabedokument nennt es unter DataOps als Lücke. Ein Runner mit
-maschinenlesbarem Report ist die Vorarbeit dafür, mehr nicht.
+**Nachtrag 12.9.2026 — die CI steht.** Der Absatz hier führte die fehlende
+CI als offen: Niemand führe die Tests bei einem Push aus. Seit dem 12.9.2026
+tun das GitHub Actions bei jedem Push und Pull Request, über zwei
+Betriebssysteme und zwei Python-Versionen, mit `ruff` davor; am 13.9. kam der
+wöchentliche Datenlauf dazu. Der Runner mit maschinenlesbarem Report war
+tatsächlich die Vorarbeit.
 
 ### 7.3 Rollen und Reihenfolge
 
