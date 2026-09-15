@@ -149,8 +149,10 @@ def test_list_files_mit_glob_semantik(tmp_path):
 
 def test_tabellen_lokal_und_auf_s3(tmp_path):
     storage, fake = ablage(tmp_path, "hybrid")
-    lokal_schreiben(storage, "silver/dataset=tract/vintage=2024/manifest.json", b'{"row_count": 3}')
-    fake.put("gold/dataset=fact_offense/manifest.json", b'{"row_count": 9}')
+    lokal_schreiben(storage, "silver/dataset=tract/vintage=2024/manifest.json",
+                    b'{"status": "complete", "row_count": 3}')
+    fake.put("gold/dataset=fact_offense/manifest.json",
+             b'{"status": "complete", "row_count": 9}')
     assert [(t.schicht, t.name, t.zeilen, t.relativ) for t in storage.tabellen()] == [
         ("gold", "fact_offense", 9, "gold/dataset=fact_offense"),
         ("silver", "tract", 3, "silver/dataset=tract/vintage=2024"),
@@ -419,3 +421,146 @@ def test_ein_endgueltiger_fehler_wird_nicht_wiederholt(monkeypatch):
     with pytest.raises(StorageError, match="InvalidAccessKeyId"):
         client.put("bronze/x", b"x")
     assert pausen == []
+
+
+# --------------------------------------------------------------------------
+# Integritaet und konsistenter Stand (externe Pruefung vom 15.9.2026)
+# --------------------------------------------------------------------------
+
+
+class EtagOhneMD5(FakeS3Client):
+    """Ein Speicher, dessen ETag keine Pruefsumme ist.
+
+    So verhaelt sich S3 nach einem mehrteiligen Upload: Das ETag ist ein Hash
+    ueber die Teil-Hashes, mit angehaengter Teilezahl. SeaweedFS kann sich
+    ebenso verhalten.
+    """
+
+    def head(self, key: str):
+        objekt = super().head(key)
+        if objekt is None:
+            return None
+        return objekt._replace(etag='"d41d8cd98f00b204e9800998ecf8427e-2"')
+
+
+def tabelle_schreiben(storage: Storage, rel_dir: str, inhalt: bytes,
+                      *, gebaut: str = "2026-09-15T10:00:00Z") -> None:
+    lokal_schreiben(storage, f"{rel_dir}/part-0001.parquet", inhalt)
+    lokal_schreiben(storage, f"{rel_dir}/manifest.json", json.dumps(
+        {"status": "complete", "built_at_utc": gebaut}).encode())
+
+
+def test_gleiche_groesse_ist_kein_beweis_fuer_gleichen_inhalt(tmp_path):
+    """Der Befund der externen Pruefung: drei Bytes NEU galten als drei Bytes ALT.
+
+    Liess sich das ETag nicht als MD5 lesen, genuegte die Byteanzahl fuer
+    "identisch" - der Upload unterblieb, und oben blieb der alte Inhalt unter
+    einem Manifest, das den neuen behauptete.
+    """
+    fake = EtagOhneMD5()
+    config = Config(backend="s3", local_root=tmp_path / "data",
+                    s3_access_key="k", s3_secret_key="s")
+    storage = Storage(config, fake)
+    rel = "gold/dataset=fact_offense"
+    tabelle_schreiben(storage, rel, b"NEU")
+    fake.objekte[f"{rel}/part-0001.parquet"] = b"ALT"
+    fake.objekte[f"{rel}/manifest.json"] = b'{"status": "complete"}'
+
+    storage.publish_table(tmp_path / "data" / rel, erzwingen=True)
+    assert fake.objekte[f"{rel}/part-0001.parquet"] == b"NEU", (
+        "gleiche Groesse wurde wieder als gleicher Inhalt genommen"
+    )
+
+
+def test_gleicher_inhalt_ohne_pruefsumme_wird_nicht_erneut_geladen(tmp_path):
+    """Die Gegenprobe: Der Download darf nur pruefen, nicht Arbeit erzeugen."""
+    fake = EtagOhneMD5()
+    config = Config(backend="s3", local_root=tmp_path / "data",
+                    s3_access_key="k", s3_secret_key="s")
+    storage = Storage(config, fake)
+    rel = "bronze/city=chicago/ingest_date=2026-09-15/run_x"
+    lauf_schreiben(storage, rel)
+    fake.objekte[f"{rel}/part-0001.parquet"] = b"PAR1"
+    fake.objekte[f"{rel}/manifest.json"] = storage.local_path(f"{rel}/manifest.json").read_bytes()
+
+    fake.uploads.clear()
+    storage.publish_run(tmp_path / "data" / rel)
+    assert fake.uploads == [], "identischer Inhalt wurde erneut hochgeladen"
+
+
+def test_ein_abgebrochener_manifest_upload_laesst_keinen_gemischten_stand(tmp_path):
+    """Der zweite Befund: neue Daten unter altem Manifest, weiterhin complete.
+
+    ``manifest.json`` zuletzt schuetzt einen neuen Lauf, nicht eine bestehende
+    Tabelle. Seit dem 15.9.2026 faellt zuerst der Status - ein Leser sieht
+    danach den alten Stand, dann keinen, dann den neuen.
+    """
+    class ManifestFaelltAus(FakeS3Client):
+        def put(self, key: str, daten: bytes) -> None:
+            if key.endswith("manifest.json") and b'"publishing"' not in daten:
+                raise OSError("Verbindung abgebrochen")
+            super().put(key, daten)
+
+    fake = ManifestFaelltAus()
+    config = Config(backend="s3", local_root=tmp_path / "data",
+                    s3_access_key="k", s3_secret_key="s")
+    storage = Storage(config, fake)
+    rel = "gold/dataset=fact_offense"
+    tabelle_schreiben(storage, rel, b"NEUER STAND")
+    fake.objekte[f"{rel}/part-0001.parquet"] = b"ALTER STAND"
+    fake.objekte[f"{rel}/manifest.json"] = json.dumps(
+        {"status": "complete", "built_at_utc": "2026-08-01T10:00:00Z"}).encode()
+
+    with pytest.raises(PublishError):
+        storage.publish_table(tmp_path / "data" / rel, erzwingen=True)
+
+    oben = json.loads(fake.objekte[f"{rel}/manifest.json"])
+    assert oben["status"] == "publishing", (
+        "das Manifest sagt weiterhin complete, obwohl die Daten schon neu sind"
+    )
+    assert storage.tabellen(("gold",)) == [], (
+        "eine Tabelle mitten im Publizieren gilt weiterhin als gebaut"
+    )
+
+
+def test_scheitert_die_entwertung_bleibt_alles_unberuehrt(tmp_path):
+    """Faellt schon der erste Schritt, darf keine Datei angefasst sein."""
+    class EntwertungFaelltAus(FakeS3Client):
+        def put(self, key: str, daten: bytes) -> None:
+            if b'"publishing"' in daten:
+                raise OSError("Verbindung abgebrochen")
+            super().put(key, daten)
+
+    fake = EntwertungFaelltAus()
+    config = Config(backend="s3", local_root=tmp_path / "data",
+                    s3_access_key="k", s3_secret_key="s")
+    storage = Storage(config, fake)
+    rel = "gold/dataset=fact_offense"
+    tabelle_schreiben(storage, rel, b"NEUER STAND")
+    fake.objekte[f"{rel}/part-0001.parquet"] = b"ALTER STAND"
+    fake.objekte[f"{rel}/manifest.json"] = json.dumps({"status": "complete"}).encode()
+
+    with pytest.raises(PublishError, match="nichts angefasst"):
+        storage.publish_table(tmp_path / "data" / rel, erzwingen=True)
+    assert fake.objekte[f"{rel}/part-0001.parquet"] == b"ALTER STAND"
+    assert json.loads(fake.objekte[f"{rel}/manifest.json"])["status"] == "complete"
+
+
+def test_eine_neue_tabelle_wird_nicht_entwertet(tmp_path):
+    """Oben liegt nichts - dann gibt es auch nichts zu entwerten."""
+    storage, fake = ablage(tmp_path, "s3")
+    rel = "gold/dataset=dim_date"
+    tabelle_schreiben(storage, rel, b"ERSTER STAND")
+    storage.publish_table(tmp_path / "data" / rel)
+    assert json.loads(fake.objekte[f"{rel}/manifest.json"])["status"] == "complete"
+    assert not any(b'"publishing"' in w for w in fake.objekte.values())
+
+
+def test_eine_unfertige_tabelle_zaehlt_nicht_als_gebaut(tmp_path):
+    """Derselbe Massstab wie bei Laeufen: Das Manifest sagt, ob es gilt."""
+    storage, fake = ablage(tmp_path, "hybrid")
+    lokal_schreiben(storage, "silver/dataset=tract/vintage=2024/manifest.json",
+                    b'{"status": "publishing", "row_count": 3}')
+    fake.put("gold/dataset=fact_offense/manifest.json",
+             b'{"status": "complete", "row_count": 9}')
+    assert [t.name for t in storage.tabellen()] == ["fact_offense"]
