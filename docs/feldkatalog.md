@@ -7,7 +7,7 @@ gebauten Tabellen, die Bedeutung aus [`tools/build_feldkatalog.py`](../tools/bui
 python tools/build_feldkatalog.py
 ```
 
-**133 Spalten in 9 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
+**135 Spalten in 9 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
 soll einen Satz darüber schreiben müssen. `tests/test_feldkatalog.py` prüft, dass der Katalog vollständig und reproduzierbar ist.
 
 Die Rohschichten stehen hier nicht: **Bronze deutet nicht**, seine Spalten sind die der Quelle. Was sie bedeuten, sagen die
@@ -126,6 +126,8 @@ Eine Zeile ist: **eine Stadt an einem Tag**. 732 Zeilen.
 | `temp_min_c` | `DOUBLE` | Tagestiefsttemperatur in Grad Celsius. |
 | `precipitation_mm` | `DOUBLE` | Niederschlag in Millimetern. **`NULL` heisst nicht gemessen, `0` heisst trocken** - der Unterschied entscheidet jede Wetterauswertung. |
 | `snowfall_mm` | `DOUBLE` | Schneefall in Millimetern. GHCN führt ihn bereits in Millimetern, anders als Temperatur und Niederschlag. |
+| `precipitation_trace` | `BOOLEAN` | Spurenmenge Niederschlag - messbar, aber unter der Auflösung. `precipitation_mm = 0` mit diesem Flag heisst **nicht** trocken. |
+| `snowfall_trace` | `BOOLEAN` | Spurenmenge Schnee, analog. |
 | `quality_flags` | `VARCHAR[]` | Auffälligkeiten, die **benannt und nicht entfernt** werden - etwa `MISSING_MEDIAN_INCOME` oder `SUSPECT_SNOWFALL`. Leer, wenn nichts auffiel. |
 
 ### `dim_date`

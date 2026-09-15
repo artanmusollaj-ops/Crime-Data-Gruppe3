@@ -79,7 +79,7 @@ from silver_pipeline import (
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
-CONTRACT_VERSION = 2
+CONTRACT_VERSION = 3
 
 DEFAULT_VINTAGE = 2024
 NIBRS_CODES = "nibrs_offense_codes_2025.csv"
@@ -431,6 +431,18 @@ def dim_city_day_query(weather: Quelle, offense: Quelle) -> str:
     Die Wetterquelle reicht bis 1942 zurueck. Fuer Gold zaehlt der Jahrgang,
     den die Falldaten abdecken; alles andere blaeht die Dimension auf, ohne
     eine Frage zu beantworten.
+
+    **Warum die beiden Spurenspalten mitkommen.** NOAA kennt ein Messflag
+    ``T``: gefallen, aber unter der Aufloesung des Geraets. Der Messwert ist
+    dann ``0``, und das heisst etwas anderes als *trocken*. Silver haelt den
+    Unterschied seit jeher in ``precipitation_trace`` und ``snowfall_trace``;
+    Gold liess beide Spalten bis zum 15.9.2026 fallen.
+
+    Gemessen war das keine Feinheit: Von den 481 Gold-Tagen mit ``0`` mm
+    Niederschlag sind **113 Spurentage** - 45 in Chicago, 68 in Detroit. Eine
+    Abfrage nach trockenen Tagen zaehlte sie mit, und niemand konnte es der
+    Tabelle ansehen. Konzept 9.3 verlangt ausdruecklich, dass die
+    Spurenmengen in Gold erhalten bleiben.
     """
     return f"""
     WITH spanne AS (
@@ -446,6 +458,8 @@ def dim_city_day_query(weather: Quelle, offense: Quelle) -> str:
         w.temp_min_c                                    AS temp_min_c,
         w.precipitation_mm                              AS precipitation_mm,
         w.snowfall_mm                                   AS snowfall_mm,
+        w.precipitation_trace                           AS precipitation_trace,
+        w.snowfall_trace                                AS snowfall_trace,
         w.quality_flags                                 AS quality_flags
     FROM {weather.relation} w, spanne
     WHERE w.date BETWEEN spanne.von AND spanne.bis
@@ -934,7 +948,12 @@ def build(data_root: Path, config_root: Path, vintage: int) -> dict[str, Path]:
              {"vollstaendig": "auch Tage ohne Delikt, sonst zeigt eine "
                               "Zeitreihe eine Luecke als Nicht-Ereignis"}),
             ("dim_city_day", "eine Stadt an einem Tag", [weather, offense],
-             {"spanne": "auf die Spanne der Falldaten beschnitten"}),
+             {"spanne": "auf die Spanne der Falldaten beschnitten",
+              "spurenmengen": (
+                  "precipitation_trace und snowfall_trace tragen NOAAs Flag "
+                  "T: gefallen, aber unter der Aufloesung. Der Messwert ist "
+                  "dann 0 und bedeutet nicht trocken - wer trockene Tage "
+                  "zaehlt, muss die Spalte lesen")}),
         ]
         for tabelle, granularitaet, quellen, notizen in bauplan:
             manifest = build_manifest(

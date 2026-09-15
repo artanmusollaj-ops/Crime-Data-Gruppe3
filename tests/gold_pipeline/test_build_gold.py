@@ -1068,3 +1068,62 @@ def test_die_staedtezahlen_stehen_im_nachweis(con):
     je_stadt = bg.abdeckung_je_stadt(con)
     assert je_stadt["chicago"]["exact"] == 100.0
     assert je_stadt["chicago"]["outside_city"] == 0.0
+
+
+# --------------------------------------------------------------------------
+# Spurenmengen ueberleben bis Gold (Konzept 9.3)
+# --------------------------------------------------------------------------
+
+
+def test_dim_city_day_fuehrt_die_spurenspalten(con, tmp_path):
+    """Ein Messwert 0 mit Spurenflag ist nicht trocken.
+
+    NOAA kennt das Flag ``T``: gefallen, aber unter der Aufloesung des
+    Geraets. Silver haelt den Unterschied seit jeher; Gold liess beide
+    Spalten bis zum 15.9.2026 fallen. Von den 481 Gold-Tagen mit 0 mm
+    Niederschlag waren **113 Spurentage**, und der Tabelle war es nicht
+    anzusehen. Konzept 9.3 verlangt ausdruecklich, dass sie erhalten bleiben.
+    """
+    wetter = schreibe(tmp_path, "weather_day", pa.table({
+        "city": ["chicago", "chicago", "detroit"],
+        "date": [date(2024, 1, 1), date(2024, 1, 2), date(2024, 1, 1)],
+        "station_id": ["S1", "S1", "S2"],
+        "station_name": ["OHare", "OHare", "Metro"],
+        "temp_max_c": [1.0, 2.0, 3.0],
+        "temp_min_c": [-1.0, 0.0, 1.0],
+        "precipitation_mm": [0.0, 0.0, 5.0],
+        "snowfall_mm": [0.0, 0.0, 0.0],
+        "precipitation_trace": [True, False, False],
+        "snowfall_trace": [False, True, False],
+        "quality_flags": pa.array([[], [], []], type=pa.list_(pa.string())),
+    }))
+    # Die Abfrage liest von den Falldaten nur die Spanne.
+    delikte = schreibe(tmp_path, "crime_offense", pa.table({
+        "occurred_date_local": [date(2024, 1, 1), date(2024, 1, 2)],
+    }))
+    con.execute(
+        f"CREATE TABLE dim_city_day AS {bg.dim_city_day_query(wetter, delikte)}"
+    )
+
+    spalten = [r[0] for r in con.execute("DESCRIBE dim_city_day").fetchall()]
+    for name in ("precipitation_trace", "snowfall_trace"):
+        assert name in spalten, f"{name} fehlt in dim_city_day"
+
+    trocken, spuren = con.execute("""
+        SELECT count(*) FILTER (precipitation_mm = 0),
+               count(*) FILTER (precipitation_mm = 0 AND precipitation_trace)
+        FROM dim_city_day
+    """).fetchone()
+    assert trocken == 2 and spuren == 1, (
+        "ein Tag mit 0 mm und Spurenflag muss von einem trockenen "
+        "unterscheidbar bleiben"
+    )
+
+
+def test_der_vertrag_steht_auf_drei_seit_den_spurenspalten():
+    """Gold deutet etwas anderes als vorher - das gehoert in die Version."""
+    assert bg.CONTRACT_VERSION >= 3, (
+        "dim_city_day fuehrt seit dem 15.9.2026 zwei Spalten mehr; die "
+        "Vertragsversion muss das nennen"
+    )
+

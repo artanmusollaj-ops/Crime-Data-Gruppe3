@@ -38,6 +38,12 @@ SCHICHTEN = ("silver", "gold")
 # ehrlicher, als denselben Satz neunmal zu wiederholen und beim zehnten Mal
 # leicht anders.
 GEMEINSAM: dict[str, str] = {
+    # Steht seit dem 15.9.2026 in silver/weather_day **und** gold/dim_city_day
+    # und bedeutet dort dasselbe.
+    "precipitation_trace":
+        "Spurenmenge Niederschlag - messbar, aber unter der Auflösung. "
+        "`precipitation_mm = 0` mit diesem Flag heisst **nicht** trocken.",
+    "snowfall_trace": "Spurenmenge Schnee, analog.",
     "geoid": "Census-GEOID der Raumeinheit, die sie eindeutig macht. "
              "Der Schlüssel, über den Delikte, Einwohner und Geometrie zusammenfinden.",
     "state_fips": "Zwei Ziffern des Bundesstaats: `17` Illinois, `26` Michigan.",
@@ -153,10 +159,6 @@ JE_TABELLE: dict[tuple[str, str], str] = {
     ("tract", "population_below_poverty"):
         "Absolute Zahl der Menschen unter der Armutsgrenze. Bleibt erhalten, "
         "auch wo `poverty_rate` `NULL` ist.",
-    ("weather_day", "precipitation_trace"):
-        "Spurenmenge Niederschlag - messbar, aber unter der Auflösung. "
-        "`precipitation_mm = 0` mit diesem Flag heisst **nicht** trocken.",
-    ("weather_day", "snowfall_trace"): "Spurenmenge Schnee, analog.",
     ("dim_date", "year"): "Kalenderjahr.",
     ("dim_date", "month"): "Monat als Zahl, 1 bis 12.",
     ("dim_date", "quarter"): "Quartal, 1 bis 4.",
