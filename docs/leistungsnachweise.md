@@ -23,7 +23,7 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 | **Problemstellung, Ausgangslage** | ● geschrieben | [`ln1_konzept.md`](ln1_konzept.md) Kapitel 2 |
 | **Forschungsfragen, Hypothesen** | ◐ Vorschlag steht, vier bereits vorgeprüft | Auswahl und Formulierung entscheiden → Abschnitt 2.2 / 2.3 |
 | **Vorgehen und Methoden** | ◐ implizit im Code | Methodenteil ausformulieren → Abschnitt 2.4 |
-| **Entwurf DE-Lebenszyklus** | ◐ gebaut, nicht benannt | Zuordnung dokumentieren → Abschnitt 3 |
+| **Entwurf DE-Lebenszyklus** | ● benannt | Abschnitt 3; ausführlich in [`ln1_konzept.md`](ln1_konzept.md) Kapitel 5 |
 | **Ingestion: Quellen, Beschaffung** | ● fertig | fünf Quellen, je ein Quellnotebook |
 | **Storage: Evaluation, Wahl, Implementierung** | ● fertig | gemessen in Notebook 31 (NDJSON gegen Parquet), verschriftlicht in [`ln1_konzept.md`](ln1_konzept.md) Kapitel 7 |
 | **Transformation 1: Analyse, Hypothesentest** | ◐ Qualität beider Städte fertig | der eigentliche Hypothesentest → Abschnitt 5 |
@@ -33,15 +33,16 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 ● fertig ◐ teilweise ○ offen
 
 **Die gute Nachricht:** Ingestion und Storage — die beiden praktisch
-aufwendigsten Blöcke — stehen. 633 Tests, fünf Quellen in vier Pipelines,
+aufwendigsten Blöcke — stehen. 986 Tests, fünf Quellen in vier Pipelines,
 nachgewiesene Vollständigkeit. Und weil die Hypothesen Fragen des Data Engineering sind
 (Abschnitt 2.0), sind fünf davon durch die bisherige Arbeit **bereits
 gemessen**: Wir haben Befunde, bevor wir die Hypothesen formuliert haben — und
 mit H7 auch eine falsifizierte.
 
-**Die Baustelle:** Der konzeptionelle Teil ist noch nicht aufgeschrieben, und
-Silver ist leer. Ohne formulierte Hypothesen gibt es keinen ausweisbaren
-Hypothesentest, auch wenn die Messungen längst vorliegen.
+**Die Baustelle:** Der konzeptionelle Teil steht inzwischen in
+[`ln1_konzept.md`](ln1_konzept.md), Silver und Gold sind gebaut. Offen ist die
+Auswahl und Formulierung der Hypothesen. Ohne formulierte Hypothesen gibt es
+keinen ausweisbaren Hypothesentest, auch wenn die Messungen längst vorliegen.
 
 ---
 
@@ -278,28 +279,29 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 
 | Phase | Was wir haben | Beleg | Lücke |
 | --- | --- | --- | --- |
-| **Generation** | Fünf Quellsysteme: Socrata (Chicago), ArcGIS REST (Detroit), HTTPS-Dateien (TIGER und NOAA), JSON-API (ACS). Je Quelle dokumentiert: Aktualisierungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 21, 22 | Detroit-Quellnotebook |
+| **Generation** | Fünf Quellsysteme: Socrata (Chicago), ArcGIS REST (Detroit), HTTPS-Dateien (TIGER und NOAA), JSON-API (ACS). Je Quelle dokumentiert: Aktualisierungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 11, 21, 22, 32 | – |
 | **Ingestion** | Vier Pipelines. Batch, kein Streaming. Chicago inkrementell über Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` | – |
-| **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest | `data/`, Abschnitt 4 | Evaluation schriftlich, Silver/Gold leer |
-| **Transformation** | Bronze bewusst ohne Transformation. Silver und Gold gebaut, Qualitätsanalyse für Chicago fertig | Notebook 03, 34 | Qualitätsanalyse Detroit |
+| **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest. Ablage wahlweise lokal, SeaweedFS über S3 oder hybrid | `data/`, Abschnitt 4, [`storage-architektur.md`](storage-architektur.md) | – |
+| **Transformation** | Bronze bewusst ohne Transformation. Silver und Gold gebaut, Qualitätsanalyse beider Städte fertig | Notebook 03, 13, 34 | – |
 | **Serving** | Option **A · Analytik** gewählt: Auswertungsdatenbank auf der Gold-Schicht | Abschnitt 6, Notebook 33 | gebaut: neun Sichten über Silver und Gold; das Dashboard darauf fehlt |
 
 ### Unterströmungen
 
 | Unterströmung | Was wir haben | Lücke |
 | --- | --- | --- |
-| **Security** | Schlüssel nur in `.env`, nie im Manifest oder in abgelegten URLs; `.env` und `data/` aus Git ausgeschlossen | Datenschutz-Abschnitt schriftlich |
-| **Data Management** | Manifest je Lauf, Herkunftsnachweis über `derived_from`, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust | Katalog/Glossar der Felder |
-| **DataOps** | 233 automatisierte Tests, alle ohne Netz und ohne Schlüssel | keine CI, keine Alarmierung |
-| **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (raw) und Ableitung (bronze) | Architekturdiagramm |
-| **Orchestration** | – | **grösste Lücke**: heute manuelle Aufrufe, keine Reihenfolge, keine Wiederholbarkeit |
+| **Security** | Schlüssel nur in `.env`, nie im Manifest oder in abgelegten URLs; drei Tests prüfen das. `.env` und `data/` aus Git ausgeschlossen, `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
+| **Data Management** | Manifest je Lauf, Herkunftsnachweis über `derived_from` und `input_fingerprint` durchgehend bis Gold, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog aus den Manifesten erzeugt, Aufbewahrungsregel mit `orchestration.aufraeumen` | das Aufräumen ist ein Handgriff, kein Automatismus |
+| **DataOps** | 986 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions über zwei Betriebssysteme und zwei Python-Versionen; dazu der wöchentliche Datenlauf | keine Alarmierung ausser dem roten Lauf selbst |
+| **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (raw) und Ableitung (bronze). Zwei Architekturbilder, aus dem Code erzeugt ([`architektur.md`](architektur.md)) | Vintage 2024 hart verdrahtet |
+| **Orchestration** | `orchestration.run_all`: 13 Stufen in Reihenfolge, Abbruch beim ersten Fehler, Gesamtmanifest über alle Eingabe-Läufe | der geplante Lauf ist wöchentlich, die Quellen ändern sich täglich; keine Wiederaufnahme nach Abbruch, bewusst |
 | **Software Engineering** | Modulare Pakete, Typannotationen, ausführliche Docstrings, Fehlerbehandlung mit Wiederholungen | – |
 
-**Die zwei echten Lücken sind Serving und Orchestrierung.** Für die
-Orchestrierung reicht in diesem Rahmen ein bescheidener Ansatz — ein `Makefile`
-oder ein Skript, das die Pipelines in der richtigen Reihenfolge aufruft und
-protokolliert. Airflow oder Prefect wären für vier Batch-Läufe unangemessen; das
-lässt sich in der Präsentation gut begründen.
+**Beide damaligen Lücken sind geschlossen.** Für die Orchestrierung war der
+bescheidene Ansatz angesetzt — ein Skript, das die Pipelines in der richtigen
+Reihenfolge aufruft und protokolliert. Genau das ist `orchestration.run_all`
+geworden. Airflow oder Prefect wären für vier Batch-Läufe unangemessen; das
+lässt sich in der Präsentation gut begründen. Beim Serving stehen neun Sichten;
+offen ist allein das Dashboard darauf, und das gehört bewusst in LN2.
 
 ---
 
