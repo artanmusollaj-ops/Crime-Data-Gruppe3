@@ -64,7 +64,7 @@ def test_er_committet_keine_daten():
 BELEGEN = ("03_chicago_data_quality", "13_detroit_data_quality",
            "31_storage_evaluation", "32_nibrs_source",
            "33_serving_evaluation", "34_gold_sternschema",
-           "35_kontrollen")
+           "35_kontrollen", "36_hypothesen")
 LADEN = ("01_chicago_source", "02_chicago_bronze_ingestion",
          "11_detroit_source", "12_detroit_bronze_ingestion",
          "21_census_source", "22_weather_source")

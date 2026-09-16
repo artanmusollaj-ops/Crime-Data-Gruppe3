@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'015** |
+| Tests | **1'023** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -87,6 +87,57 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 16.09.2026 · Die Hypothesen H1 bis H6, nachgewiesen (#97)
+
+**Was.** [`notebooks/36_hypothesen.ipynb`](../notebooks/36_hypothesen.ipynb)
+misst die sechs Hypothesen aus Kapitel 3 der Konzeptfassung und weist je
+Hypothese aus, ob sie hält. Kapitel 4 verlangt drei getrennte Evidenzarten und,
+wo gemessen wird, drei Wiederholungen mit Median und Spannweite. Genau so ist
+es gemacht.
+
+| | Hypothese | Ergebnis |
+| --- | --- | --- |
+| H1 | gelieferte IDs == Erwartungsmenge | hält, wörtlich für Chicago und Detroit |
+| H2 | Wiederholung erzeugt denselben Inhalt | hält, drei Neubauten, sechs Tabellen |
+| H3 | Tageszuordnung zeitzonenunabhängig, Sonderfälle ausgewiesen | **hält zur Hälfte** |
+| H4 | Codes zeigen mehr Mehrdeutigkeit als Namen | hält deutlich, 71 % der Zeilen |
+| H5 | fixierter Eingabestand, gleiches Ergebnis | hält für den gepinnten Stand |
+| H6 | Aufbau unter zehn Minuten | hält, Median 2,3 s |
+
+**Der Befund, für den sich das Notebook gelohnt hat.** H3 verlangt, dass
+*„nicht existente oder mehrdeutige lokale Quellzeiten ausdrücklich als
+Sonderfälle ausgewiesen"* werden. Die Unabhängigkeit von der Rechnerzeitzone
+hält über vier Zonen von Kiritimati bis Anchorage. Die Ausweisung fehlt:
+**48 Chicagoer Zeilen** liegen in der doppelten Stunde am 3. November, und
+weder eine Spalte noch das Manifest noch eine Warnung nennt sie.
+
+**Und ein Docstring, der etwas Falsches behauptete.**
+`silver_pipeline.build_crime_offense` sagte, `reconcile` zähle die Fälle in
+der nicht existenten Stunde. Das tut er nicht — `checks` enthält keinen
+solchen Zähler. Der Satz ist korrigiert und benennt die Lücke jetzt offen; ein
+Test hält fest, dass er nicht zurückkommt, solange es den Zähler nicht gibt.
+
+**Was H4 so deutlich macht.** Chicago liefert zu jeder Zeile den Code `iucr`
+**und** die Kategorie `primary_type`. Damit lässt sich direkt zählen, was eine
+Zuordnung nach Namen verlöre: 19 von 31 Bezeichnungen decken mehr als einen
+NIBRS-Code ab, `THEFT` allein sieben. **185'004 von 259'272 Zeilen**, also
+71,4 Prozent, liegen unter einer solchen Bezeichnung.
+
+**Drei Formulierungen, die nachgezogen gehören.** H1 braucht einen Zusatz für
+Quellen ohne Identifikatormenge — TIGER, ACS und NOAA belegen Vollständigkeit
+anders. H3 muss entweder eingelöst oder auf den haltenden Teil zugespitzt
+werden. Und H6 beruft sich auf einen *„vereinbarten Referenzrechner"*, den
+weder Konzept noch Absprache festlegen.
+
+**Wächter.** Acht Tests. Alle sechs Hypothesen müssen als Abschnitt vorkommen,
+jede ein Ergebnis nennen, in der Bilanz stehen und wörtlich zitiert sein; das
+Notebook misst dreimal mit Median und Spannweite und sagt, was es nicht zeigt.
+
+**Zahlen.** 1'015 → **1'023 Tests**. Vierzehn Notebooks, acht davon im
+Datenlauf.
 
 ---
 
