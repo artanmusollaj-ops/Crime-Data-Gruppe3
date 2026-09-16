@@ -7,7 +7,7 @@ gebauten Tabellen, die Bedeutung aus [`tools/build_feldkatalog.py`](../tools/bui
 python tools/build_feldkatalog.py
 ```
 
-**135 Spalten in 9 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
+**138 Spalten in 9 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
 soll einen Satz darüber schreiben müssen. `tests/test_feldkatalog.py` prüft, dass der Katalog vollständig und reproduzierbar ist.
 
 Die Rohschichten stehen hier nicht: **Bronze deutet nicht**, seine Spalten sind die der Quelle. Was sie bedeuten, sagen die
@@ -27,6 +27,8 @@ Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert, je Fa
 | `occurred_at_utc` | `TIMESTAMP` | Tatzeitpunkt in UTC. Die Achse, auf der sich beide Städte vergleichen lassen. |
 | `occurred_at_local` | `TIMESTAMP` | Tatzeitpunkt in Ortszeit der Stadt. Für die Frage, was *in der Stadt* für eine Uhrzeit war. |
 | `occurred_date_local` | `DATE` | Tatdatum in Ortszeit. Der Schlüssel für den Join auf `weather_day`. |
+| `local_time_nonexistent` | `BOOLEAN` | Die Ortszeit gab es **nicht** - der Wechsel zur Sommerzeit. DuckDB rechnet sie als Winterzeit um. |
+| `local_time_ambiguous` | `BOOLEAN` | Die Ortszeit gab es **zweimal** - der Wechsel zurück von der Sommerzeit. Betrifft nur Chicago, das Wanduhrzeit ohne Zone liefert; Detroit liefert einen Zeitpunkt und hat den Fall nicht. |
 | `source_offense_code` | `VARCHAR` | Der Deliktcode, wie die Quelle ihn führt: Chicagos `iucr`, Detroits `state_offense_code` (MICR). |
 | `source_offense_description` | `VARCHAR` | Die Deliktbezeichnung der Quelle, unverändert. Bleibt stehen, damit jede Zuordnung nachprüfbar ist. |
 | `nibrs_code` | `VARCHAR` | NIBRS-Deliktcode des FBI, etwa `13A`. Die gemeinsame Sprache beider Städte - erst über ihn wird IUCR mit MICR vergleichbar. |
@@ -200,6 +202,7 @@ Eine Zeile ist: **eine Tat**. 344'617 Zeilen.
 | `occurred_at_local` | `TIMESTAMP` | Tatzeitpunkt in Ortszeit der Stadt. Für die Frage, was *in der Stadt* für eine Uhrzeit war. |
 | `date` | `DATE` | Tatdatum in Ortszeit. Schlüssel auf `dim_date`. |
 | `hour_of_day` | `TINYINT` | Tatstunde in Ortszeit, 0 bis 23. |
+| `local_time_ambiguous` | `BOOLEAN` | Die Ortszeit gab es **zweimal** - der Wechsel zurück von der Sommerzeit. Betrifft nur Chicago, das Wanduhrzeit ohne Zone liefert; Detroit liefert einen Zeitpunkt und hat den Fall nicht. |
 | `tract_geoid` | `VARCHAR` | GEOID des Census Tracts, in dem der Punkt liegt - aus dem eigenen räumlichen Join, nicht aus der Quelle. |
 | `nibrs_code` | `VARCHAR` | NIBRS-Deliktcode des FBI, etwa `13A`. Die gemeinsame Sprache beider Städte - erst über ihn wird IUCR mit MICR vergleichbar. |
 | `nibrs_family` | `VARCHAR` | Die ersten beiden Zeichen des Codes. **Keine amtliche Gliederung** - zum Gruppieren gehört `nibrs_category`. |

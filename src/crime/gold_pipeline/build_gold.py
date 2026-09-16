@@ -79,7 +79,7 @@ from silver_pipeline import (
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
-CONTRACT_VERSION = 3
+CONTRACT_VERSION = 4
 
 DEFAULT_VINTAGE = 2024
 NIBRS_CODES = "nibrs_offense_codes_2025.csv"
@@ -506,6 +506,12 @@ def fact_offense_query(offense: Quelle, tracts: str = "dim_tract") -> str:
         o.occurred_at_local                             AS occurred_at_local,
         o.occurred_date_local                           AS date,
         CAST(hour(o.occurred_at_local) AS TINYINT)      AS hour_of_day,
+        -- Genau hier wird die Spalte gebraucht: Eine Stundenverteilung ueber
+        -- hour_of_day zaehlt eine mehrdeutige Ortszeit in einen der beiden
+        -- Toepfe, und ohne diese Spalte ist nicht zu sehen, welche Zeilen das
+        -- betrifft. Chicago liefert Wanduhrzeit ohne Zone; 48 Zeilen liegen in
+        -- der Stunde, die es am 3.11.2024 zweimal gab.
+        o.local_time_ambiguous                          AS local_time_ambiguous,
         o.tract_geoid                                   AS tract_geoid,
         o.nibrs_code                                    AS nibrs_code,
         left(o.nibrs_code, 2)                           AS nibrs_family,
@@ -911,7 +917,12 @@ def build(data_root: Path, config_root: Path, vintage: int) -> dict[str, Path]:
               "alle_anklagen": (
                   "vollstaendig in silver/crime_offense, mit counts und "
                   "counts_reason je Zeile"),
-              "reporting_city": "die meldende Stadt, nicht die Stadt des Tracts"}),
+              "reporting_city": "die meldende Stadt, nicht die Stadt des Tracts",
+              "local_time_ambiguous": (
+                  "die Ortszeit gab es zweimal - der Wechsel zurueck von der "
+                  "Sommerzeit. Betrifft nur Chicago, das Wanduhrzeit ohne Zone "
+                  "liefert; Detroit liefert einen Zeitpunkt. Wer hour_of_day "
+                  "auswertet, sollte die Spalte kennen")}),
             ("dim_tract", "ein Census Tract", [tract, place],
              {"stadtzuordnung": (
                  f"Mehrheitsregel: Flaechenanteil ueber {STADT_SCHWELLE}. "

@@ -122,6 +122,10 @@ def offense_quelle(tmp_path: Path, zeilen) -> bg.Quelle:
             pa.timestamp("us"),
         ),
         "occurred_date_local": pa.array([z[2] for z in zeilen], pa.date32()),
+        # Seit Vertrag 2 fuehrt Silver die beiden Zeitzonen-Randfaelle; Gold
+        # nimmt local_time_ambiguous mit, weil dort hour_of_day gerechnet wird.
+        "local_time_ambiguous": pa.array([False] * n),
+        "local_time_nonexistent": pa.array([False] * n),
         "source_offense_code": pa.array(["0110"] * n),
         "source_offense_description": pa.array(["TEST"] * n),
         "nibrs_code": pa.array([z[3] for z in zeilen]),

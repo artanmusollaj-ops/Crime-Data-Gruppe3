@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'023** |
+| Tests | **1'026** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -63,8 +63,8 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `silver/tract` | **2** | 14.09.2026 | ein Census Tract je Zeile, TIGER und ACS über einen vollen äusseren Join. Version 2: `median_household_income_usd` und `population_below_poverty` als `INTEGER` statt `BIGINT` — die Einwohnerzahl bleibt `BIGINT`, sie ist der Nenner jeder Rate |
 | `silver/place` | 1 | 14.09.2026 | ein Ort je Zeile, Geometrie für die Stadtgrenze |
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
-| `silver/crime_offense` | 1 | 14.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse |
-| `gold/*` | **3** | 15.09.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken |
+| `silver/crime_offense` | **2** | 16.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus |
+| `gold/*` | **4** | 16.09.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird |
 
 > **Der Feldkatalog wird erzeugt, nicht gepflegt.** Am 14.9. wurde
 > `docs/feldkatalog.md` von Hand bearbeitet (`f1c9b42`): Spaltentypen von
@@ -87,6 +87,57 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 16.09.2026 · H3 eingelöst: die zwei Stunden im Jahr (#98)
+
+**Was.** `silver/crime_offense` führt `local_time_ambiguous` und
+`local_time_nonexistent`, `reconcile` zählt beide je Stadt ins Manifest, und
+`local_time_ambiguous` geht bis `gold/fact_offense` mit. Silver-Vertrag 1 → 2,
+Gold-Vertrag 3 → 4.
+
+**Warum.** H3 verlangt, dass *„nicht existente oder mehrdeutige lokale
+Quellzeiten ausdrücklich als Sonderfälle ausgewiesen"* werden. Die Messung in
+`notebooks/36_hypothesen.ipynb` hatte gezeigt, dass die Unabhängigkeit von der
+Rechnerzeitzone hält, die Ausweisung aber fehlt: **48 Chicagoer Zeilen** liegen
+in der Stunde, die es am 3. November zweimal gab, und nichts machte sie
+sichtbar.
+
+**Wie erkannt wird.** Ohne jedes Wissen über Wechseldaten, allein aus der
+Zeitzonendatenbank:
+
+* *Nicht existent:* Hin und zurück gerechnet kommt eine **andere** Ortszeit
+  heraus. Die Uhr wurde vorgestellt, die genannte Zeit gab es nie.
+* *Mehrdeutig:* Eine Stunde vor **oder** nach dem gewählten Zeitpunkt führt auf
+  **dieselbe** Ortszeit. Die Uhr wurde zurückgestellt, es gab sie zweimal.
+
+Beide Prädikate sind gegen sieben Zeitpunkte geprüft, davon vier Randfälle
+einschliesslich der Minuten knapp davor und danach.
+
+**Warum Detroit beide Spalten trägt, obwohl sie dort immer falsch sind.** Die
+Quelle liefert Millisekunden seit Epoch, also einen **Zeitpunkt**; daraus
+entsteht immer eine eindeutige Ortszeit. Mehrdeutig wird es erst, wenn eine
+Quelle Wanduhrzeit **ohne Zone** liefert, und das tut nur Chicago. Die Spalte
+steht trotzdem in beiden Städten, damit die Tabelle eine Granularität hat und
+nicht zwei.
+
+**Warum es bis Gold mitgeht.** Weil `hour_of_day` dort gerechnet wird. Eine
+Stundenverteilung zählt die 48 Zeilen in einen der beiden Töpfe; ohne die
+Spalte wäre nicht zu sehen, welche das sind. Dieselbe Überlegung wie bei den
+Spurenmengen am Vortag.
+
+**Was dabei sonst noch stimmte.** Der Modul-Docstring behauptete, `reconcile`
+zähle diese Fälle. Das tat er nicht. Jetzt tut er es, und ein Test hält
+Docstring und Code aneinander.
+
+**Wächter.** Drei neue Tests, dazu ein angepasster. Der wichtigste prüft beide
+Prädikate gegen sieben Zeitpunkte; zwei weitere halten fest, dass die Spalten
+in der Endauswahl stehen und dass `reconcile` sie zählt. Zwei davon fallen
+gegen den Stand von gestern.
+
+**Zahlen.** 1'023 → **1'026 Tests**. Silver-Vertrag 1 → 2, Gold 3 → 4.
+Zeilenzahlen und Raten ändern sich nicht.
 
 ---
 
