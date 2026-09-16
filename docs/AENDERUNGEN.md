@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'067** |
+| Tests | **1'071** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -87,6 +87,62 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.09.2026 · Die Beschreibung ist nicht das Delikt (#105)
+
+**Was.** Der schwächste Punkt in `docs/zaehlperspektiven.md` 3 lautete:
+*„Gleiche Beschreibung heisst nicht gleiches Delikt. Textvarianten sind
+Kandidaten für ein Review, keine Regel zum Zusammenlegen."* Die Überschrift
+behauptete das eine, der Satz darunter das Gegenteil, und belegt war keines von
+beidem. Nachgemessen ist der Befund viel stärker.
+
+**Chicago: 23,3 % der Zeilen tragen eine mehrdeutige Beschreibung.** 60'478
+Stück. Der Grund ist strukturell: Die IUCR-Bezeichnung besteht aus zwei
+Hälften, und Silver führt nur die zweite (`description`, nicht `primary_type`).
+
+| in Silver | IUCR | die volle Bezeichnung | NIBRS |
+| --- | --- | --- | ---: |
+| `SIMPLE` | 0460 | BATTERY · SIMPLE | 13B |
+| | 0560 | ASSAULT · SIMPLE | 13C |
+| `AGGRAVATED - HANDGUN` | 0261 | CRIMINAL SEXUAL ASSAULT · … | 11A |
+| | 041A | BATTERY · … | 13A |
+
+`SIMPLE` allein steht **31'565-mal** und meint einmal Körperverletzung, einmal
+Bedrohung. In Detroit sind 54 Beschreibungen betroffen; `ASSAULT AND
+BATTERY/SIMPLE ASSAULT` deckt **26 verschiedene NIBRS-Codes** über 16'837
+Zeilen ab, weil die MICR-Beschreibung eine Ebene über dem Code steht.
+
+**Die Umkehrung gilt auch:** 34 der 53 Chicagoer und 43 der 50 Detroiter
+NIBRS-Codes tragen mehr als eine Beschreibung. Damit ist die ursprüngliche
+Aussage über Textvarianten nicht falsch — sie war nur die kleinere Hälfte.
+
+**Die Regel daraus:** nie nach `source_offense_description` gruppieren, immer
+nach `nibrs_code` oder `source_offense_code`. Der Text ist zum Lesen da, nicht
+zum Zählen.
+
+**Gleich mitkorrigiert: „die 16 Zuordnungen".** Der Abschnitt über den
+Crosswalk sprach von 16 Zuordnungen, die wir als `ambiguous` entschieden haben.
+Gemessen sind es **20 in den Crosswalks**, von denen **16** Zeilen im Jahrgang
+2024 haben (5'140 Zeilen). Vier Entscheidungen sind getroffen, aber nicht
+belegt — sie betreffen Codes, die 2024 nicht vorkommen.
+
+**Was geprüft und nicht geändert wurde.** Die übrigen Behauptungen des
+Abschnitts halten: Das Publish-Gate prüft tatsächlich nur Abdeckung
+(`GATE_MINDESTENS` = inside_city 90 %, exact 85 %; `GATE_HOECHSTENS` =
+unmapped 1 %), Silver führt keinen Freigabestatus, und eine Tat ohne Datum
+bliebe wirklich schon am Jahresfilter hängen — beide Ingestionen filtern mit
+einem Bereichsvergleich auf dem Datumsfeld, den NULL nicht besteht.
+
+**Vier neue Wächter**, alle mit `referenzstand`: die Prozentzahl und die
+Zeilenzahl der mehrdeutigen Chicagoer Beschreibungen, der grösste Detroiter
+Fall, die Umkehrung je Stadt, und die 20 gegen die 16.
+
+**Zahlen.** 1'067 → **1'071 Tests**.
+
+**Nachlesen.** `docs/zaehlperspektiven.md` · `tests/test_zaehlperspektiven.py`
+· PR #105
 
 ---
 

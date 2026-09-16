@@ -240,6 +240,100 @@ def test_die_event_id_falle_nennt_den_richtigen_ausdruck(text, con):
     assert "keine einzige Zeile" in text
 
 
+def test_die_mehrdeutigen_beschreibungen_stimmen(text, con):
+    """Der Punkt, der vorher gar keine Zahl hatte.
+
+    Bis zum 17.9.2026 stand hier nur "Gleiche Beschreibung heisst nicht
+    gleiches Delikt. Textvarianten sind Kandidaten fuer ein Review, keine
+    Regel zum Zusammenlegen." Die Ueberschrift sagte das eine, der Satz das
+    Gegenteil, und belegt war keines von beidem. Gemessen ist der Befund
+    deutlich staerker, als der Satz vermuten liess.
+    """
+    chi_zeilen, chi_anteil = con.execute("""
+        WITH je AS (SELECT source_offense_description AS t
+                    FROM s WHERE city = 'chicago'
+                    GROUP BY 1 HAVING count(DISTINCT nibrs_code) > 1)
+        SELECT count(*), round(100.0 * count(*) /
+               (SELECT count(*) FROM s WHERE city = 'chicago'), 1)
+        FROM s WHERE city = 'chicago'
+          AND source_offense_description IN (SELECT t FROM je)
+    """).fetchone()
+    # Der Prozentwert steht mit Komma im Text, DuckDB liefert ihn mit Punkt.
+    assert f"{chi_anteil:.1f} %".replace(".", ",") in text, (
+        f"gemessen {chi_anteil} %, das Dokument nennt etwas anderes"
+    )
+    assert zahl(text, r"— ([\d']+) — tragen eine Beschreibung") == chi_zeilen
+
+    simple = con.execute(
+        "SELECT count(*) FROM s WHERE city = 'chicago' "
+        "AND source_offense_description = 'SIMPLE'"
+    ).fetchone()[0]
+    assert zahl(text, r"steht ([\d']+)-mal") == simple
+
+    det = con.execute("""
+        SELECT count(*) FROM (SELECT source_offense_description FROM s
+            WHERE city = 'detroit' AND source_offense_description IS NOT NULL
+            GROUP BY 1 HAVING count(DISTINCT nibrs_code) > 1)
+    """).fetchone()[0]
+    assert zahl(text, r"In Detroit sind es (\d+)\n?Beschreibungen") == det
+
+
+def test_der_groesste_detroiter_fall_stimmt(text, con):
+    """Eine Beschreibung ueber 26 NIBRS-Codes - das ist das Argument."""
+    codes, zeilen = con.execute("""
+        SELECT count(DISTINCT nibrs_code), count(*) FROM s
+        WHERE city = 'detroit'
+          AND source_offense_description = 'ASSAULT AND BATTERY/SIMPLE ASSAULT'
+    """).fetchone()
+    assert zahl(text, r"\*\*(\d+) verschiedene") == codes
+    assert zahl(text, r"über ([\d']+) Zeilen ab") == zeilen
+
+
+def test_die_umkehrung_stimmt_auch(text, con):
+    """Verschiedene Texte, gleicher Code - die andere Haelfte des Befunds."""
+    for stadt, muster in (("chicago", r"\*\*(\d+) der (\d+)\*\* Chicagoer"),
+                          ("detroit", r"\*\*(\d+) der (\d+)\*\* Detroiter")):
+        mehrfach, codes = con.execute(f"""
+            WITH je AS (SELECT nibrs_code, count(DISTINCT source_offense_description) AS n
+                        FROM s WHERE city = '{stadt}' AND nibrs_code IS NOT NULL GROUP BY 1)
+            SELECT count(*) FILTER (n > 1), count(*) FROM je
+        """).fetchone()
+        treffer = re.search(muster, " ".join(text.split()))
+        assert treffer, f"{stadt}: die Umkehrung fehlt im Dokument"
+        assert (int(treffer.group(1)), int(treffer.group(2))) == (mehrfach, codes), (
+            f"{stadt}: genannt {treffer.groups()}, gemessen ({mehrfach}, {codes})"
+        )
+
+
+def test_die_ambiguous_zuordnungen_stimmen(text, con):
+    """20 im Crosswalk, 16 in den Daten - der Unterschied war vorher unterschlagen."""
+    im_crosswalk = sum(
+        con.execute(
+            f"SELECT count(*) FROM read_csv('{PROJECT_ROOT / 'config' / datei}', "
+            f"header = true, all_varchar = true) "
+            f"WHERE mapped = 'true' AND match IN ({herkuenfte})"
+        ).fetchone()[0]
+        for datei, herkuenfte in (("iucr_nibrs_mapping.csv", "'nibrs_ermessen'"),
+                                  ("micr_nibrs_mapping.csv", "'detroit_charge_file_class'"))
+    )
+    codes, zeilen = con.execute(
+        "SELECT count(DISTINCT source_offense_code), count(*) FROM s "
+        "WHERE mapping_status = 'ambiguous'"
+    ).fetchone()
+    ohne_umbrueche = " ".join(text.split())
+    assert f"**{im_crosswalk} in den Crosswalks, davon {codes} mit Zeilen" in ohne_umbrueche, (
+        f"gemessen {im_crosswalk} im Crosswalk und {codes} in den Daten"
+    )
+    assert f"({zeilen:,} Zeilen)".replace(",", "'") in ohne_umbrueche, (
+        f"die Zeilenzahl der ambiguous-Zuordnungen ist {zeilen}"
+    )
+    assert im_crosswalk - codes == 4, (
+        f"{im_crosswalk - codes} Zuordnungen ohne Zeilen im Jahrgang - "
+        "das Dokument sagt vier"
+    )
+    assert "übrigen vier" in ohne_umbrueche
+
+
 def test_die_bronze_only_felder_fehlen_wirklich(text, con):
     """Der Absatz nennt Spalten - Spaltennamen veralten am schnellsten.
 
