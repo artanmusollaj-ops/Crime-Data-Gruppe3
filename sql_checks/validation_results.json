@@ -1,0 +1,737 @@
+{
+  "engine": "1.5.5",
+  "actual_data": "uploaded 2024 Silver plus rebuilt schema",
+  "statements": [
+    {
+      "file": "00_setup.sql",
+      "statement": 1,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "00_setup.sql",
+      "statement": 2,
+      "result_rows": 1,
+      "sample": [
+        {
+          "Count": 1
+        }
+      ]
+    },
+    {
+      "file": "00_setup.sql",
+      "statement": 3,
+      "result_rows": 1,
+      "sample": [
+        {
+          "parameter_check": "OK: gueltiges Analysefenster"
+        }
+      ]
+    },
+    {
+      "file": "00_setup.sql",
+      "statement": 4,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "00_setup.sql",
+      "statement": 5,
+      "result_rows": 1,
+      "sample": [
+        {
+          "Count": 562
+        }
+      ]
+    },
+    {
+      "file": "00_setup.sql",
+      "statement": 6,
+      "result_rows": 1,
+      "sample": [
+        {
+          "Count": 85
+        }
+      ]
+    },
+    {
+      "file": "00_setup.sql",
+      "statement": 7,
+      "result_rows": 1,
+      "sample": [
+        {
+          "reference_key_check": "OK: eindeutige Mapping- und Kategorieschluessel"
+        }
+      ]
+    },
+    {
+      "file": "00_setup.sql",
+      "statement": 8,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "00_setup.sql",
+      "statement": 9,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "01_schluessel_zaehlregeln.sql",
+      "statement": 1,
+      "result_rows": 2,
+      "sample": [
+        {
+          "city": "chicago",
+          "silver_zeilen": 259615,
+          "offense_ids": 259615,
+          "reports": 259586,
+          "counts_zeilen": 259615,
+          "counts_case_zeilen": 259586
+        },
+        {
+          "city": "detroit",
+          "silver_zeilen": 88686,
+          "offense_ids": 88686,
+          "reports": 80230,
+          "counts_zeilen": 85386,
+          "counts_case_zeilen": 80230
+        }
+      ]
+    },
+    {
+      "file": "01_schluessel_zaehlregeln.sql",
+      "statement": 2,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "01_schluessel_zaehlregeln.sql",
+      "statement": 3,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "01_schluessel_zaehlregeln.sql",
+      "statement": 4,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "01_schluessel_zaehlregeln.sql",
+      "statement": 5,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "01_schluessel_zaehlregeln.sql",
+      "statement": 6,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "01_schluessel_zaehlregeln.sql",
+      "statement": 7,
+      "result_rows": 2763,
+      "sample": [
+        {
+          "city": "detroit",
+          "offense_group_id": "1004480|MURDER / NON-NEGLIGENT MANSLAUGHTER (VOLUNTARY)",
+          "zeilen": 4,
+          "zielcodes": [
+            "09A",
+            "13A",
+            "240",
+            "290"
+          ],
+          "ausgewaehlt": 1
+        },
+        {
+          "city": "detroit",
+          "offense_group_id": "1014533|FORGERY / COUNTERFEITING",
+          "zeilen": 4,
+          "zielcodes": [
+            "250",
+            "280",
+            "520",
+            "90Z"
+          ],
+          "ausgewaehlt": 1
+        },
+        {
+          "city": "detroit",
+          "offense_group_id": "1028718|VIOLATION OF CONTROLED SUBSTANCE ACT - (VCSA)",
+          "zeilen": 4,
+          "zielcodes": [
+            "35A",
+            "520",
+            "90J",
+            "90Z"
+          ],
+          "ausgewaehlt": 1
+        }
+      ]
+    },
+    {
+      "file": "01_schluessel_zaehlregeln.sql",
+      "statement": 8,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "01_schluessel_zaehlregeln.sql",
+      "statement": 9,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "02_mapping.sql",
+      "statement": 1,
+      "result_rows": 7,
+      "sample": [
+        {
+          "city": "chicago",
+          "mapping_status": "ambiguous",
+          "offenses": 3717,
+          "reports": 3717,
+          "anteil_prozent": 1.43
+        },
+        {
+          "city": "chicago",
+          "mapping_status": "exact",
+          "offenses": 248179,
+          "reports": 248150,
+          "anteil_prozent": 95.6
+        },
+        {
+          "city": "chicago",
+          "mapping_status": "fallback_90Z",
+          "offenses": 7716,
+          "reports": 7716,
+          "anteil_prozent": 2.97
+        }
+      ]
+    },
+    {
+      "file": "02_mapping.sql",
+      "statement": 2,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "02_mapping.sql",
+      "statement": 3,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "02_mapping.sql",
+      "statement": 4,
+      "result_rows": 1,
+      "sample": [
+        {
+          "city": "chicago",
+          "source_offense_code": "1481",
+          "source_offense_description": "CONCEALED CARRY LICENSE REVOCATION",
+          "offenses": 3,
+          "reports": 3
+        }
+      ]
+    },
+    {
+      "file": "02_mapping.sql",
+      "statement": 5,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "02_mapping.sql",
+      "statement": 6,
+      "result_rows": 12941,
+      "sample": [
+        {
+          "city": "chicago",
+          "occurred_date_local": "2024-01-01",
+          "kategorie": "All Other Offenses",
+          "offenses": 29,
+          "nicht_exakt": 29,
+          "betroffene_reports": 29,
+          "nicht_exakt_prozent": 100.0
+        },
+        {
+          "city": "chicago",
+          "occurred_date_local": "2024-01-02",
+          "kategorie": "All Other Offenses",
+          "offenses": 21,
+          "nicht_exakt": 21,
+          "betroffene_reports": 21,
+          "nicht_exakt_prozent": 100.0
+        },
+        {
+          "city": "chicago",
+          "occurred_date_local": "2024-01-03",
+          "kategorie": "All Other Offenses",
+          "offenses": 28,
+          "nicht_exakt": 28,
+          "betroffene_reports": 28,
+          "nicht_exakt_prozent": 100.0
+        }
+      ]
+    },
+    {
+      "file": "02_mapping.sql",
+      "statement": 7,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "02_mapping.sql",
+      "statement": 8,
+      "result_rows": 818,
+      "sample": [
+        {
+          "city": "chicago",
+          "source_offense_code": "0486",
+          "source_offense_description": "DOMESTIC BATTERY SIMPLE",
+          "nibrs_code": "13B",
+          "mapping_status": "exact",
+          "offenses": 20430,
+          "reports": 20430,
+          "ausgewaehlte_zeilen": 20430
+        },
+        {
+          "city": "chicago",
+          "source_offense_code": "0820",
+          "source_offense_description": "$500 AND UNDER",
+          "nibrs_code": "23H",
+          "mapping_status": "exact",
+          "offenses": 19279,
+          "reports": 19279,
+          "ausgewaehlte_zeilen": 19279
+        },
+        {
+          "city": "chicago",
+          "source_offense_code": "0810",
+          "source_offense_description": "OVER $500",
+          "nibrs_code": "23H",
+          "mapping_status": "exact",
+          "offenses": 18057,
+          "reports": 18057,
+          "ausgewaehlte_zeilen": 18057
+        }
+      ]
+    },
+    {
+      "file": "02_mapping.sql",
+      "statement": 9,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "03_zeitfenster.sql",
+      "statement": 1,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "03_zeitfenster.sql",
+      "statement": 2,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "03_zeitfenster.sql",
+      "statement": 3,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "03_zeitfenster.sql",
+      "statement": 4,
+      "result_rows": 2,
+      "sample": [
+        {
+          "city": "chicago",
+          "min_lokal": "2024-01-01 00:00:00",
+          "max_lokal": "2024-12-31 23:58:00",
+          "min_utc": "2024-01-01 06:00:00",
+          "max_utc": "2025-01-01 05:58:00",
+          "ohne_tatzeit": 0
+        },
+        {
+          "city": "detroit",
+          "min_lokal": "2024-01-01 00:00:00",
+          "max_lokal": "2024-12-31 23:59:00",
+          "min_utc": "2024-01-01 05:00:00",
+          "max_utc": "2025-01-01 04:59:00",
+          "ohne_tatzeit": 0
+        }
+      ]
+    },
+    {
+      "file": "03_zeitfenster.sql",
+      "statement": 5,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "03_zeitfenster.sql",
+      "statement": 6,
+      "result_rows": 6,
+      "sample": [
+        {
+          "city": "chicago",
+          "event_id": "JH100028",
+          "tage": 2,
+          "erster_tag": "2024-01-01",
+          "letzter_tag": "2024-01-03"
+        },
+        {
+          "city": "chicago",
+          "event_id": "JH166819",
+          "tage": 2,
+          "erster_tag": "2024-02-26",
+          "letzter_tag": "2024-02-28"
+        },
+        {
+          "city": "chicago",
+          "event_id": "JH208794",
+          "tage": 2,
+          "erster_tag": "2024-04-01",
+          "letzter_tag": "2024-04-07"
+        }
+      ]
+    },
+    {
+      "file": "03_zeitfenster.sql",
+      "statement": 7,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "03_zeitfenster.sql",
+      "statement": 8,
+      "result_rows": 732,
+      "sample": [
+        {
+          "city": "chicago",
+          "tatdatum": "2024-01-01",
+          "start_utc": "2024-01-01 06:00:00+00:00",
+          "ende_utc_exklusiv": "2024-01-02 06:00:00+00:00",
+          "stunden": 24.0
+        },
+        {
+          "city": "chicago",
+          "tatdatum": "2024-01-02",
+          "start_utc": "2024-01-02 06:00:00+00:00",
+          "ende_utc_exklusiv": "2024-01-03 06:00:00+00:00",
+          "stunden": 24.0
+        },
+        {
+          "city": "chicago",
+          "tatdatum": "2024-01-03",
+          "start_utc": "2024-01-03 06:00:00+00:00",
+          "ende_utc_exklusiv": "2024-01-04 06:00:00+00:00",
+          "stunden": 24.0
+        }
+      ]
+    },
+    {
+      "file": "04_aggregate.sql",
+      "statement": 1,
+      "result_rows": 54,
+      "sample": [
+        {
+          "city": "chicago",
+          "kategorie": "All Other Offenses",
+          "aktuelle_offense_zeilen": 7716,
+          "ausgewaehlte_deliktzeilen": 7716,
+          "reports_alle_offenses": 7716,
+          "reports_ausgewaehlte_offenses": 7716,
+          "hauptdelikt_zeilen": 7716
+        },
+        {
+          "city": "chicago",
+          "kategorie": "Animal Cruelty",
+          "aktuelle_offense_zeilen": 166,
+          "ausgewaehlte_deliktzeilen": 166,
+          "reports_alle_offenses": 166,
+          "reports_ausgewaehlte_offenses": 166,
+          "hauptdelikt_zeilen": 166
+        },
+        {
+          "city": "chicago",
+          "kategorie": "Arson",
+          "aktuelle_offense_zeilen": 478,
+          "ausgewaehlte_deliktzeilen": 478,
+          "reports_alle_offenses": 478,
+          "reports_ausgewaehlte_offenses": 478,
+          "hauptdelikt_zeilen": 478
+        }
+      ]
+    },
+    {
+      "file": "04_aggregate.sql",
+      "statement": 2,
+      "result_rows": 15953,
+      "sample": [
+        {
+          "ebene": "MONAT",
+          "periode": "2024-01-01",
+          "city": "chicago",
+          "kategorie": "All Other Offenses",
+          "deliktzeilen": 617,
+          "reports": 617,
+          "hauptdelikt_zeilen": 617
+        },
+        {
+          "ebene": "MONAT",
+          "periode": "2024-01-01",
+          "city": "chicago",
+          "kategorie": "Animal Cruelty",
+          "deliktzeilen": 23,
+          "reports": 23,
+          "hauptdelikt_zeilen": 23
+        },
+        {
+          "ebene": "MONAT",
+          "periode": "2024-01-01",
+          "city": "chicago",
+          "kategorie": "Arson",
+          "deliktzeilen": 43,
+          "reports": 43,
+          "hauptdelikt_zeilen": 43
+        }
+      ]
+    },
+    {
+      "file": "04_aggregate.sql",
+      "statement": 3,
+      "result_rows": 8,
+      "sample": [
+        {
+          "ebene": "MONAT",
+          "city": "chicago",
+          "periode": "2024-01-01",
+          "category": "Homicide Offenses",
+          "summe_tage": 33,
+          "direkt": 32,
+          "differenz": 1
+        },
+        {
+          "ebene": "MONAT",
+          "city": "chicago",
+          "periode": "2024-02-01",
+          "category": "Homicide Offenses",
+          "summe_tage": 31,
+          "direkt": 30,
+          "differenz": 1
+        },
+        {
+          "ebene": "MONAT",
+          "city": "chicago",
+          "periode": "2024-04-01",
+          "category": "Homicide Offenses",
+          "summe_tage": 41,
+          "direkt": 40,
+          "differenz": 1
+        }
+      ]
+    },
+    {
+      "file": "04_aggregate.sql",
+      "statement": 4,
+      "result_rows": 22,
+      "sample": [
+        {
+          "city": "detroit",
+          "category": "Destruction/Damage/Vandalism of Property",
+          "report_kategorien_ohne_counts": 1244
+        },
+        {
+          "city": "detroit",
+          "category": "All Other Offenses",
+          "report_kategorien_ohne_counts": 341
+        },
+        {
+          "city": "detroit",
+          "category": "Weapon Law Violations",
+          "report_kategorien_ohne_counts": 322
+        }
+      ]
+    },
+    {
+      "file": "04_aggregate.sql",
+      "statement": 5,
+      "result_rows": 6,
+      "sample": [
+        {
+          "city": "chicago",
+          "vergleichskategorie": "ARSON",
+          "deliktzeilen": 478,
+          "reports": 478,
+          "hauptdelikt_zeilen": 478
+        },
+        {
+          "city": "chicago",
+          "vergleichskategorie": "ASSAULT",
+          "deliktzeilen": 74323,
+          "reports": 74323,
+          "hauptdelikt_zeilen": 74323
+        },
+        {
+          "city": "chicago",
+          "vergleichskategorie": "VEHICLE_THEFT",
+          "deliktzeilen": 22100,
+          "reports": 22100,
+          "hauptdelikt_zeilen": 22100
+        }
+      ]
+    },
+    {
+      "file": "04_aggregate.sql",
+      "statement": 6,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "05_snapshot_vorher.sql",
+      "statement": 1,
+      "result_rows": 1,
+      "sample": [
+        {
+          "Count": 348301
+        }
+      ]
+    },
+    {
+      "file": "05_snapshot_vorher.sql",
+      "statement": 2,
+      "result_rows": 1,
+      "sample": [
+        {
+          "Count": 1
+        }
+      ]
+    },
+    {
+      "file": "05_snapshot_vorher.sql",
+      "statement": 3,
+      "result_rows": 1,
+      "sample": [
+        {
+          "Count": 85
+        }
+      ]
+    },
+    {
+      "file": "05_snapshot_vorher.sql",
+      "statement": 4,
+      "result_rows": 1,
+      "sample": [
+        {
+          "Count": 562
+        }
+      ]
+    },
+    {
+      "file": "05_snapshot_vorher.sql",
+      "statement": 5,
+      "result_rows": 1,
+      "sample": [
+        {
+          "hinweis": "Snapshot im Speicher; nun ETL separat ausfuehren",
+          "zeilen": 348301
+        }
+      ]
+    },
+    {
+      "file": "06_reprocessing_vergleich.sql",
+      "statement": 1,
+      "result_rows": 1,
+      "sample": [
+        {
+          "Count": 348301
+        }
+      ]
+    },
+    {
+      "file": "06_reprocessing_vergleich.sql",
+      "statement": 2,
+      "result_rows": 1,
+      "sample": [
+        {
+          "schluessel_check": "OK: vergleichbare Zeilenschluessel"
+        }
+      ]
+    },
+    {
+      "file": "06_reprocessing_vergleich.sql",
+      "statement": 3,
+      "result_rows": 3,
+      "sample": [
+        {
+          "objekt": "parameter",
+          "unterschiedliche_zeilen": 0
+        },
+        {
+          "objekt": "mapping",
+          "unterschiedliche_zeilen": 0
+        },
+        {
+          "objekt": "kategorien",
+          "unterschiedliche_zeilen": 0
+        }
+      ]
+    },
+    {
+      "file": "06_reprocessing_vergleich.sql",
+      "statement": 4,
+      "result_rows": 2,
+      "sample": [
+        {
+          "richtung": "nur_vorher",
+          "zeilen": 0
+        },
+        {
+          "richtung": "nur_nachher",
+          "zeilen": 0
+        }
+      ]
+    },
+    {
+      "file": "06_reprocessing_vergleich.sql",
+      "statement": 5,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "06_reprocessing_vergleich.sql",
+      "statement": 6,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "06_reprocessing_vergleich.sql",
+      "statement": 7,
+      "result_rows": 0,
+      "sample": []
+    },
+    {
+      "file": "06_reprocessing_vergleich.sql",
+      "statement": 8,
+      "result_rows": 0,
+      "sample": []
+    }
+  ],
+  "checks": {
+    "unchanged_snapshot_no_delta": true,
+    "unchanged_snapshot_no_aggregate_delta": true,
+    "detroit_2024_11_09_82_80_78": true,
+    "detroit_june_2208_2195": true,
+    "old_and_new_periods_detected": true,
+    "duplicate_snapshot_rejected": true,
+    "rebuilt_schema_all_checks_executable": true,
+    "combined_sql_executable": true
+  }
+}

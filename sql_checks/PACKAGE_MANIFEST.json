@@ -1,0 +1,44 @@
+{
+  "files": [
+    {
+      "name": "00_setup.sql",
+      "sha256": "20781e52b3a449312fa4169a123b3ba68de825fca22d82bd917c4415920b1800"
+    },
+    {
+      "name": "01_schluessel_zaehlregeln.sql",
+      "sha256": "03de2db72e250a860ca390791a0b410b7252b3be27a992662dc8fa55a5db057a"
+    },
+    {
+      "name": "02_mapping.sql",
+      "sha256": "69e5f03b004dde49f4bf8c978b5cdc507415bcfc4c1f0b30cd5da877e47cd1e8"
+    },
+    {
+      "name": "03_zeitfenster.sql",
+      "sha256": "dd5b565e5eb079e4560b5328d42572f2afc452981199415e1c92db3fee6fb5aa"
+    },
+    {
+      "name": "04_aggregate.sql",
+      "sha256": "845750d650fee8c14e0c11ae71f61bf2a9db0fa483444d67cf2a4124637bc429"
+    },
+    {
+      "name": "05_snapshot_vorher.sql",
+      "sha256": "b31e3b8a9b9b4e1052ced8cffea12fb187ed9ac8939ee27f26bc5c53fb18d213"
+    },
+    {
+      "name": "06_reprocessing_vergleich.sql",
+      "sha256": "56ed53302ca84d976f027c2c9d79f2ae5cfec14f37eab903c12bf3ca6f28e2f2"
+    },
+    {
+      "name": "README.md",
+      "sha256": "873335755049ff582232b187e6dfd9ef9680826e422f8c08ca9cbcb1276e266a"
+    },
+    {
+      "name": "SILVER_CHECKS_GESAMT.sql",
+      "sha256": "034261465077315f9be5d3beda8581258d8fe1a4f07d832c06a839530fd4a5ed"
+    },
+    {
+      "name": "validation_results.json",
+      "sha256": "96e087be9f1304b9b56ec6e38872b4f2345e3f8c650fbe673adebe3b7be8b837"
+    }
+  ]
+}
