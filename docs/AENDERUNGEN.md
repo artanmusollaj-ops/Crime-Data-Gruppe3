@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'065** |
+| Tests | **1'067** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -3073,4 +3073,5 @@ Versehen. Jeder Pull Request ab #24 ist entweder oben ein Eintrag oder hier.
 | #81 | `docs/chicago-ingestion.html` entfernt — eine dritte, unverlinkte Beschreibung derselben Pipeline | veraltet (kein Storage-Backend, keine `contract_version`, 259 270 statt 259 272 Zeilen) und nirgends verlinkt; der Inhalt steht im Modul-Docstring, in Notebook 02, README 2.1 und Konzept 6 |
 | #84 | `docs/feldkatalog.md` neu erzeugt, nachdem er von Hand bearbeitet worden war | kein inhaltlicher Entscheid, sondern die Wiederherstellung des erzeugten Stands; die Begründung steht als Anmerkung unter *Vertragsversionen* |
 | #68 | `orchestration.drift` las den Fingerabdruck unter einem falschen Schlüssel (`fingerprint` statt `input_fingerprint`) — der erste Lauf zeigte `None` | Fehlerbehebung mit Test, ändert keine Aussage |
+| #104 | der Übergang in `zaehlperspektiven.md` 3 neu gefasst — „Auch die 28 beweisen weniger…“ sagte nicht, was gemeint war | Formulierung, keine geänderte Aussage; die Aussage selbst war schon richtig, nur unlesbar neben dem Absatz davor. Christian hat nachgefragt |
 
