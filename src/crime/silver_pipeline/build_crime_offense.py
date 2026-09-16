@@ -52,10 +52,21 @@ Faelle noch solche ohne NIBRS-Zuordnung noch Detroits ``UNFOUNDED``-Faelle.
 Alle drei sind gekennzeichnet, damit eine Auswertung sie bewusst ein- oder
 ausschliessen kann.
 
-Zum Zeitzonen-Randfall: In der Stunde, die es beim Wechsel zur Sommerzeit
-nicht gibt (Chicago, 10.3.2024 zwischen 02:00 und 03:00), rechnet DuckDB die
-Ortszeit als Winterzeit um. Betroffen waeren nur Faelle, deren Quelle eine
-nicht existierende Ortszeit nennt; ``reconcile`` zaehlt sie.
+Zu den zwei Zeitzonen-Randfaellen, und was von ihnen heute **nicht** geprueft
+wird:
+
+*Die Stunde, die es nicht gibt.* Beim Wechsel zur Sommerzeit (Chicago,
+10.3.2024 zwischen 02:00 und 03:00) rechnet DuckDB die Ortszeit als
+Winterzeit um. Im Jahrgang 2024 nennt keine Quellzeile eine solche Ortszeit.
+
+*Die Stunde, die es zweimal gibt.* Beim Wechsel zurueck (3.11.2024 zwischen
+01:00 und 02:00) ist die Ortszeit mehrdeutig; DuckDB waehlt eine der beiden
+Moeglichkeiten. **48 Chicagoer Zeilen** liegen dort.
+
+Beide Faelle werden bisher **nicht ausgewiesen** - weder als Spalte noch im
+Manifest. ``reconcile`` zaehlt sie nicht; ein frueherer Stand dieses
+Docstrings behauptete das und lag falsch. Gemessen und aufgeschrieben ist es
+in ``notebooks/36_hypothesen.ipynb`` unter H3.
 """
 
 from __future__ import annotations
