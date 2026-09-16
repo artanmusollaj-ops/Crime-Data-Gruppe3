@@ -144,3 +144,80 @@ def test_das_notebook_braucht_keine_gebauten_daten(zellen):
         f"greift auf gebaute Daten zu: {verdaechtig}. Das Notebook soll seine "
         "Beispiele selbst erzeugen."
     )
+
+
+# --------------------------------------------------------------------------
+# Die Landkarte gegen das, was docs/zaehlperspektiven.md ueber sie behauptet
+# --------------------------------------------------------------------------
+# Das Dokument eroeffnet seinen Abschnitt "Was die Pruefungen nicht beweisen"
+# mit den Zahlen dieser Liste. Ein erster Entwurf sagte dort "42 Kontrollen,
+# 31 davon brechen ab" - und war damit selbst ein Beispiel fuer das, wovor der
+# Abschnitt warnt: Drei der 31 brechen naemlich nichts ab.
+
+DOKUMENT = PROJECT_ROOT / "docs" / "zaehlperspektiven.md"
+
+# Sie sind zu Recht als hart gefuehrt - "hart" ist die Einstufung der Sache,
+# nicht ihrer Wirkung. Die beiden Konstanten sind die Schwellen, gegen die
+# ``pruefe_gate`` und ``veraltete_quellen`` pruefen; ``gepinnte_laeufe``
+# verhindert eine Loeschung, statt einen Bau abzubrechen.
+OHNE_ABBRUCH = {
+    "gold_pipeline.GATE_MINDESTENS",
+    "orchestration.run_all.ERWARTETE_QUELLEN",
+    "orchestration.aufraeumen.gepinnte_laeufe",
+}
+
+
+@pytest.fixture(scope="module")
+def dokument() -> str:
+    if not DOKUMENT.is_file():
+        pytest.skip(f"{DOKUMENT} fehlt")
+    return DOKUMENT.read_text(encoding="utf-8")
+
+
+def zahl(text: str, muster: str) -> int:
+    import re
+    treffer = re.search(muster, text)
+    assert treffer, f"nicht im Dokument gefunden: {muster}"
+    return int(treffer.group(1))
+
+
+def test_das_dokument_nennt_die_zahlen_der_landkarte(dokument, kontrollen):
+    """Drei Zahlen, drei Stellen, an denen sie auseinanderlaufen koennen."""
+    hart = [k for k in kontrollen if k[3] == "hart"]
+    assert zahl(dokument, r"\*\*(\d+) Kontrollen\*\*") == len(kontrollen)
+    assert zahl(dokument, r"(\d+) davon als hart") == len(hart)
+    assert zahl(dokument, r"\*\*Abbrechen tun (\d+)\.\*\*") == len(hart) - len(OHNE_ABBRUCH)
+
+
+def test_die_drei_ausnahmen_stehen_im_dokument(dokument, kontrollen):
+    """Eine Zahl ohne die Namen dahinter waere nicht nachpruefbar."""
+    for ort in sorted(OHNE_ABBRUCH):
+        assert any(k[1] == ort and k[3] == "hart" for k in kontrollen), (
+            f"{ort} steht nicht mehr als harte Kontrolle in der Landkarte"
+        )
+        assert f"`{ort.split('.')[-1]}`" in dokument, (
+            f"{ort} wird im Dokument nicht als Ausnahme genannt"
+        )
+
+
+def test_die_beiden_schwellen_sind_wirklich_konstanten(kontrollen):
+    """Wuerde eine davon zur Funktion, waere die Ausnahme keine mehr."""
+    for ort in ("gold_pipeline.GATE_MINDESTENS",
+                "orchestration.run_all.ERWARTETE_QUELLEN"):
+        wert = aufloesen(ort)
+        assert wert is not None, f"{ort} gibt es nicht mehr"
+        assert not callable(wert), (
+            f"{ort} ist jetzt aufrufbar - dann ist die Liste der Ausnahmen falsch"
+        )
+
+
+def test_gepinnte_laeufe_bricht_nichts_ab():
+    """Sie schuetzt, sie beanstandet nicht - darauf beruht die Zahl 28."""
+    import ast
+    import inspect
+    import textwrap
+    quelle = textwrap.dedent(inspect.getsource(
+        aufloesen("orchestration.aufraeumen.gepinnte_laeufe")))
+    assert not any(isinstance(n, ast.Raise) for n in ast.walk(ast.parse(quelle))), (
+        "gepinnte_laeufe wirft jetzt - dann bricht sie ab und gehoert zu den 28"
+    )
