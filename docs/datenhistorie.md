@@ -1,0 +1,225 @@
+# Was wir verlieren, wenn wir Läufe löschen
+
+**Stand: 16.9.2026. Zur gemeinsamen Entscheidung am Freitag, 18.9.2026.**
+
+Für die Auswertung zählt der aktuelle Stand. Die Quellen bewegen sich aber:
+Detroit ändert Einträge noch Jahre nach der Tat, Chicago liefert Deltas. Diese
+Bewegung ist selbst ein Gegenstand — *was ändert sich, wie oft, welcher Art,
+und was verschwindet.* Heute steckt diese Information implizit in den
+Bronze-Läufen. Sobald `orchestration.aufraeumen` einen löscht, ist sie weg.
+
+Dieses Dokument misst, was auf dem Spiel steht, und schlägt vor, wie man es
+behält, ohne die Läufe aufzuheben.
+
+---
+
+## 1 · Was tatsächlich passiert, gemessen
+
+Detroit hat zwei vollständige Schnappschüsse desselben Bestands, geladen am
+11.9. um 12:50 und am 12.9. um 09:34 — rund 21 Stunden auseinander. Sie lassen
+sich Zeile für Zeile vergleichen.
+
+| | Zeilen |
+| --- | ---: |
+| in beiden Schnappschüssen | 88'685 |
+| neu hinzugekommen | 0 |
+| verschwunden | 0 |
+| **mit echter Inhaltsänderung** | **102** |
+| nur `updated_at` bewegt, sonst nichts | 147 |
+
+Welche Felder sich geändert haben:
+
+| Feld | Zeilen | Bedeutung |
+| --- | ---: | --- |
+| `ESRI_OID` | 88'677 | interne ArcGIS-Zeilennummer, **ohne Aussage** |
+| `updated_at` | 249 | Änderungsstempel der Quelle |
+| `offense_description` | 160 | davon **150 reine Leerzeichen** |
+| `updated_in_ibr_at` | 121 | Stempel der IBR-Meldung |
+| `case_status` | 89 | Ermittlungsstand |
+| `state_offense_code` | 14 | **der Deliktcode selbst** |
+| `offense_category` | 1 | |
+
+### Die vierzehn Codeänderungen haben ein Muster
+
+```text
+3072 -> 3002    4801 -> 4800    1178 -> 1108    2099 -> 2000
+1201 -> 1200    5001 -> 5000    1174 -> 1104    7070 -> 7000
+```
+
+Durchweg vom spezifischen zum allgemeinen Code. Das ist keine Korrektur
+einzelner Tippfehler, das sieht nach einer Regel aus.
+
+`3072` ist dabei kein beliebiger Code. Er trägt **1'443 Anklagen** in
+`silver/crime_offense` und davon **1'403 zählende Taten** in
+`gold/fact_offense` — alle mit `mapping_status = ambiguous`. Eine Umcodierung
+dort verschiebt die NIBRS-Zuordnung und damit die Vergleichszahl.
+
+---
+
+## 2 · Die Falle: ein naiver Vergleich ist Rauschen
+
+| Vergleich | geänderte Zeilen |
+| --- | ---: |
+| alle Felder, wie geliefert | 88'677 |
+| ohne `ESRI_OID`, ohne Zeitstempel, Text getrimmt | **102** |
+
+Der Unterschied ist Faktor 870. Zwei Quellen erzeugen ihn:
+
+**`ESRI_OID` ändert sich bei praktisch jeder Zeile.** Es ist die Zeilennummer
+der ArcGIS-Antwort, nicht die Identität des Falls. Das Projekt weiss das
+bereits — Absprache 8.1 hält fest, dass die fachliche Identität aus
+Quellsystem und Vorfall-ID entsteht, nicht aus `ESRI_OID`.
+
+**150 der 160 Beschreibungsänderungen sind Leerzeichen.** Die Quelle füllt
+inzwischen auf feste Breite auf. Echt sind zehn, darunter eine Umklassierung
+von `BURGLARY - FORCED ENTRY` zu `DAMAGE TO PROPERTY`.
+
+Wer das nicht normalisiert, erzeugt ein Änderungsprotokoll, in dem die zehn
+echten Fälle nicht zu finden sind.
+
+---
+
+## 3 · Was heute verlorengeht
+
+Nichts — noch. `aufraeumen` meldet *„10 Läufe, 0 entbehrlich"*, weil alle im
+Referenzstand gepinnt sind. Die Frage ist, was beim ersten echten Aufräumen
+passiert.
+
+Die Rechnung ist unangenehm: Zwei Detroit-Schnappschüsse belegen **31,9 MB**,
+um **102 geänderte Zeilen** zu bewahren. Bei einem Lauf pro Woche wächst das
+linear, und irgendwann räumt jemand auf. Dann ist der Vergleichspunkt weg, und
+mit ihm die Antwort auf jede Frage nach Veränderung.
+
+---
+
+## 4 · Der Vorschlag
+
+**Nicht die Läufe aufheben, sondern den Unterschied herausziehen, bevor sie
+gelöscht werden dürfen.**
+
+Der Denkfehler bei „wir dürfen nichts löschen" ist das Verhältnis: 31,9 MB für
+102 Zeilen. Wird der Unterschied bei der Ingestion extrahiert, bleibt eine
+schmale Tabelle, und die Schnappschüsse sind danach entbehrlich.
+
+### Die Tabelle
+
+Eine neue Silver-Tabelle, **append-only**, eine Zeile je geändertem Feld:
+
+| Spalte | Inhalt |
+| --- | --- |
+| `city`, `offense_id` | die fachliche Identität, **nicht** `ESRI_OID` |
+| `run_id`, `beobachtet_am` | wann wir es gesehen haben |
+| `art` | `neu`, `geaendert`, `verschwunden` |
+| `feld`, `wert_alt`, `wert_neu` | nur bei `geaendert` |
+
+Grössenordnung: rund 250 Zeilen je Schnappschusspaar. Bei einem Lauf pro Woche
+sind das etwa 13'000 Zeilen im Jahr — ein Bruchteil eines Megabytes.
+
+### Die neue Aufräumregel
+
+> Ein Lauf darf erst gelöscht werden, wenn sein Unterschied herausgezogen ist.
+
+Das fügt sich in die bestehende Regelkette von `orchestration.aufraeumen` ein,
+neben *gepinnt bleibt*, *der jüngste und der davor*, *alles von Silver
+Genannte* und *die Basis jedes Deltas*.
+
+---
+
+## 5 · Vier Entscheidungen für Freitag
+
+### 5.1 Welche Felder zählen als Änderung?
+
+| Option | Folge |
+| --- | --- |
+| **A** alle Felder | 88'677 Zeilen je Paar, unbrauchbar |
+| **B** ohne `ESRI_OID`, ohne Zeitstempel, Text getrimmt | 102 Zeilen je Paar |
+| **C** nur fachliche Felder: Code, Kategorie, Beschreibung, Status, Ort, Zeit | etwas weniger als B |
+
+**Empfehlung: B.** C verliert die Information, dass die Quelle eine Zeile
+angefasst hat, ohne dass sich fachlich etwas änderte — und genau das ist eine
+eigene Beobachtung. Die 147 Zeilen, bei denen sich nur `updated_at` bewegte,
+sind ein Befund über die Meldepraxis, kein Rauschen.
+
+### 5.2 Wollen wir Löschungen überhaupt erkennen können?
+
+Löschungen sind nur zwischen **zwei vollständigen Schnappschüssen desselben
+Bestands** erkennbar. Detroit hat zwei. Chicago hat einen Vollschnappschuss
+und zwei Deltas — dort lässt sich heute **nicht** sagen, ob etwas gelöscht
+wurde.
+
+Konzept 6.3 empfiehlt bereits *„periodische Full Loads beziehungsweise
+Bestandsabgleiche"*. Das hier wäre der konkrete Grund dafür.
+
+**Empfehlung: ja, mit einem Vollschnappschuss je Stadt und Monat.** Ohne ihn
+ist die Frage „was wird gelöscht" für Chicago dauerhaft unbeantwortbar.
+
+### 5.3 Wie oft laden wir?
+
+Die Auflösung der Historie ist der Ladeabstand. Bei einem Lauf pro Woche sieht
+man den Nettoeffekt der Woche; zwei Änderungen, die sich aufheben, sind
+unsichtbar.
+
+**Empfehlung: beim wöchentlichen Lauf bleiben.** Für die Frage „wie lange nach
+der Tat ändert sich ein Datensatz" reicht Wochenauflösung. Täglich zu laden
+wäre Aufwand ohne Erkenntnisgewinn, solange niemand eine Frage hat, die
+Tagesauflösung braucht.
+
+### 5.4 Wo liegt die Tabelle?
+
+| Option | Folge |
+| --- | --- |
+| **A** Silver, vor der Harmonisierung | Änderungen in Quellbegriffen sichtbar, `3072 -> 3002` |
+| **B** Silver, nach der Harmonisierung | Änderungen in NIBRS-Begriffen, aber Umcodierungen innerhalb desselben NIBRS-Codes verschwinden |
+
+**Empfehlung: A.** Sonst sieht man nur die Änderungen, die es durch den
+Crosswalk schaffen — und ausgerechnet die interessanten sind die, bei denen
+sich die Zuordnung ändert.
+
+---
+
+## 6 · Was das für die Forschung öffnet
+
+Vier Fragen, die die Gold-Schicht heute nicht stellen kann:
+
+1. **Wie lange nach der Tat hört ein Datensatz auf, sich zu ändern?** Eine
+   Stabilitätskurve je Delikttyp. Sie sagt, ab wann ein Jahrgang als
+   abgeschlossen gelten darf.
+2. **Welche Delikttypen werden umklassiert, und in welche Richtung?** Die
+   vierzehn gemessenen Fälle deuten auf spezifisch → allgemein.
+3. **Was wird gelöscht, und hängt das am Delikttyp?** Detroit führt bereits
+   ein `unfounded`-Kennzeichen; eine Löschung ist etwas anderes.
+4. **Revidieren Chicago und Detroit unterschiedlich stark?** Das ist die
+   unangenehmste. Wenn ja, ist es eine Bedrohung der Vergleichbarkeit, die
+   heute unsichtbar ist — und ein eigener Befund, der direkt an der
+   Forschungsfrage hängt.
+
+---
+
+## 7 · Aufwand und Grenzen
+
+**Aufwand:** geschätzt ein Arbeitstag. Eine Vergleichsfunktion, eine
+Silver-Tabelle, die neue Vorbedingung in `aufraeumen`, Tests.
+
+**Was es nicht löst:**
+
+* **Die Historie beginnt mit der Beobachtung, nicht mit der Tat.** Ein Fall
+  vom Januar 2024, den wir erstmals im September 2026 gesehen haben, hat bei
+  uns keine Vorgeschichte. Das gehört in jede Auswertung, sonst liest es sich
+  wie eine Aussage über die Polizei statt über unsere Pipeline.
+* **Was zwischen zwei Läufen zweimal geändert wurde, sieht man einmal.**
+* **Es ersetzt keine versionierte Ablage von Silver und Gold.** Das ist Stufe
+  C aus [`ausblick.md`](ausblick.md) Abschnitt 1 und bleibt eine eigene,
+  teurere Frage.
+
+---
+
+## 8 · Was am Freitag zu entscheiden ist
+
+1. Bauen wir es? **Vorher nicht aufräumen** — die Vergleichspunkte sind noch
+   da, aber nur solange die Läufe gepinnt bleiben.
+2. Welche Felder zählen (5.1)?
+3. Monatlicher Vollschnappschuss je Stadt (5.2)?
+4. Tabelle vor oder nach der Harmonisierung (5.4)?
+
+Punkt 1 ist der einzige, der Zeitdruck hat. Die übrigen drei lassen sich auch
+später ändern, solange die Rohläufe noch liegen.
