@@ -562,19 +562,69 @@ zwei gleichzeitige Gesamtläufe.
 
 ### Was es dafür bräuchte
 
-Der übliche Bau ist ein **Versionspfad plus ein Verweis**:
+Der übliche Bau ist ein **Versionspfad plus ein Verweis**. Ein erster Entwurf
+versionierte jede Tabelle für sich; seit dem 17.9. ist es **ein Verzeichnis je
+Release**:
 
 ```text
-gold/dataset=fact_offense/v=2026-09-15T17-15-06/part-0001.parquet
-gold/dataset=fact_offense/v=2026-09-15T17-15-06/manifest.json
-gold/AKTUELL.json          ← nennt je Tabelle die freigegebene Version
+gold/release=2026-09-15T17-15-06/dataset=fact_offense/part-0001.parquet
+gold/release=2026-09-15T17-15-06/dataset=fact_offense/manifest.json
+gold/release=2026-09-15T17-15-06/serving/analyse.duckdb
+gold/release=2026-09-15T17-15-06/release.json
+gold/AKTUELL.json          ← nennt die freigegebene Release-Kennung
 ```
 
-Geschrieben wird vollständig unter einer neuen Version und geprüft. Erst dann
+Geschrieben wird vollständig unter einer neuen Kennung und geprüft. Erst dann
 wird `AKTUELL.json` ersetzt — ein einziges Objekt, und dessen Ersetzung ist
 sowohl lokal (`rename`) als auch auf S3 (`PUT`) unteilbar. Damit wechseln alle
 fünf Tabellen gemeinsam, und ein Abbruch an jeder Stelle lässt den alten Stand
 gültig.
+
+**Warum eine Kennung je Release und nicht je Tabelle.** Der erste Entwurf
+liess jede Tabelle ihre eigene Version tragen und `AKTUELL.json` je Tabelle
+eine nennen. Das ist beweglicher — und genau die Beweglichkeit brauchen wir
+nicht: Gold wird immer als Ganzes gebaut. Sie wäre nur die Möglichkeit, aus
+der ein gemischter Stand entsteht, also das Problem, das der ganze Abschnitt
+löst. Ein Verzeichnis je Release ist ausserdem das, was man von Hand
+herunterlädt, ohne fünf Pfade aufzulösen.
+
+**`analyse.duckdb` gehört ins Release.** Sie entsteht heute in Stufe 7 und
+bleibt lokal — jeder von uns baut seine eigene. Als Teil des Release, mit
+Prüfsumme im `release.json`, ist sie das bequeme Serving-Paket: ein Download,
+fertige Sichten, für beide derselbe Stand. **Der Bestand bleibt Parquet.** Die
+DuckDB-Datei ist eine Ableitung davon und darf jederzeit neu entstehen; sie
+hängt an einer DuckDB-Version und an Extensions, Parquet nicht.
+
+**Was ein Release kostet.** Gemessen am Stand vom 17.9.2026: 14 MB
+`fact_offense`, 296 KB `dim_tract`, die drei übrigen Dimensionen je 12–16 KB,
+dazu 808 KB Serving — **rund 15 MB**. Ein Jahr wöchentlicher Releases wären
+etwa 780 MB. Das Aufheben ist damit kein Kostenproblem, sondern nur eine
+Aufräumregel. Was dabei entsteht, ist eine Historie der **veröffentlichten
+Stände** — nicht der Quelländerungen; die misst
+[`datenhistorie.md`](datenhistorie.md), und die beiden Fragen sollten nicht
+zusammenfallen.
+
+### Was ein Release **nicht** enthält
+
+Ein externer Rat vom 17.9.2026 hat diesen Bau bestätigt und dabei einen
+Verzeichnisbaum vorgeschlagen, der neben den fünf Gold-Tabellen auch
+`comparison_day.parquet`, `comparison_week.parquet`,
+`comparison_month.parquet` und `quality/partition_quality.parquet` vorsah.
+Beides übernehmen wir nicht.
+
+Die drei `comparison_*` sind **vorberechnete Aggregate** — Würfel. Genau diese
+Entscheidung ist in Notebook 34 gemessen und in Abschnitt 5 begründet worden:
+Bei 344'617 Zeilen spart eine Vorberechnung nichts, was ein Mensch bemerkt,
+und kostet die Beweglichkeit, für die die Plattform da ist. Der Vorschlag
+hätte sogar drei Würfel statt der zwei, die der ursprüngliche Entwurf hatte.
+Konzept 5.2 sagt *„Keine vorberechneten Aggregate"* zu, und
+`tests/test_ausblick.py` hält die Zusage fest.
+
+`partition_quality.parquet` wäre eine zweite Ablage für Zahlen, die bereits in
+jedem Manifest unter `checks` stehen — also eine zweite Stelle, an der sie
+auseinanderlaufen können. Der Rat kannte unsere Gold-Tabellen nicht; das ist
+kein Widerspruch in der Sache, aber es zeigt, warum ein Verzeichnisbaum nicht
+ohne die Tabellen dahinter gelesen werden sollte.
 
 **Was daran hängt.** Jeder Leser müsste die Tabelle über den Verweis auflösen
 statt über den festen Pfad — `storage.tabellen`, die Serving-Sichten, die

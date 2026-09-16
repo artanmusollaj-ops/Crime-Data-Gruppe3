@@ -223,3 +223,12 @@ Silver-Tabelle, die neue Vorbedingung in `aufraeumen`, Tests.
 
 Punkt 1 ist der einzige, der Zeitdruck hat. Die übrigen drei lassen sich auch
 später ändern, solange die Rohläufe noch liegen.
+
+> **Nicht zu verwechseln: der Veröffentlichungsstand.** Für LN2 ist ein
+> Release-Verzeichnis je freigegebenem Gold-Stand geplant, mit einem Verweis
+> darauf — [`ausblick.md`](ausblick.md) Abschnitt 6. Aufgehobene Releases sind
+> eine Historie der **veröffentlichten Stände** und beantworten nicht, was
+> dieses Dokument misst: was die **Quellen** zwischen zwei Läufen ändern. Ein
+> Release hält fest, was wir gesagt haben; diese Tabelle hält fest, was die
+> Stadt geändert hat. Beides ist nützlich, keines ersetzt das andere, und für
+> Freitag steht nur das Zweite zur Entscheidung.

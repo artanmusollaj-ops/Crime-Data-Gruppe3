@@ -243,3 +243,63 @@ def test_die_beiden_bauarten_nennen_vorhandene_artefakte(text):
         pytest.skip("Das Dokument nennt sie nicht")
     assert (PROJECT_ROOT / "src" / "crime" / "serving" / "export_geojson.py").exists()
     assert (PROJECT_ROOT / "src" / "crime" / "serving" / "build_analysis_db.py").exists()
+
+
+# --------------------------------------------------------------------------
+# Abschnitt 6: der Veroeffentlichungsstand, wie er ab LN2 gebaut wird
+# --------------------------------------------------------------------------
+# Ein externer Rat vom 17.9.2026 hat den Bau bestaetigt und dabei einen
+# Verzeichnisbaum mit drei vorberechneten Aggregaten vorgeschlagen. Der
+# Abschnitt lehnt sie begruendet ab - und genau solche Ablehnungen sind das,
+# was ein halbes Jahr spaeter niemand mehr erinnert, wenn derselbe Vorschlag
+# ein zweites Mal kommt.
+
+VERWORFENE_AGGREGATE = ("comparison_day", "comparison_week", "comparison_month")
+
+
+def test_die_luecke_besteht_noch(text):
+    """Solange publish_table am festen Pfad ueberschreibt, gilt der Abschnitt."""
+    if "Versionspfad plus ein Verweis" not in text:
+        pytest.skip("Das Dokument beschreibt den Bau nicht mehr")
+    backend = (QUELLE / "storage" / "backend.py").read_text(encoding="utf-8")
+    assert "release=" not in backend, (
+        "Der Versionspfad ist gebaut - dann gehoert Abschnitt 6 nicht mehr in "
+        "einen Ausblick, sondern seine Zusage dorthin, wo sie gilt"
+    )
+
+
+def test_die_verworfenen_aggregate_bleiben_verworfen(text):
+    """Sie stehen namentlich da, damit der Vorschlag nicht zweimal kommt."""
+    if "Was ein Release **nicht** enthält" not in text:
+        pytest.skip("Der Abschnitt nennt die Ablehnung nicht")
+    for name in VERWORFENE_AGGREGATE:
+        assert f"`{name}.parquet`" in text, (
+            f"{name} wird nicht mehr namentlich abgelehnt"
+        )
+    gold = PROJECT_ROOT / "data" / "gold"
+    if gold.is_dir():
+        gebaut = {p.name.removeprefix("dataset=") for p in gold.iterdir() if p.is_dir()}
+        drin = gebaut & set(VERWORFENE_AGGREGATE)
+        assert not drin, (
+            f"{sorted(drin)} ist in Gold gebaut worden - der Ausblick lehnt es ab "
+            "und Konzept 5.2 sagt 'Keine vorberechneten Aggregate' zu"
+        )
+
+
+def test_die_beiden_historien_werden_auseinandergehalten(text):
+    """Release-Historie und Quellhistorie sind zwei Fragen, nicht eine.
+
+    Beide Dokumente sagen es, und zwar gegenseitig: Ohne den Verweis landet
+    am Freitag eine Entscheidung auf dem Tisch, die gar nicht ansteht.
+    """
+    if "datenhistorie.md" not in text:
+        pytest.skip("Abschnitt 6 verweist nicht auf das Entscheidungspapier")
+    assert "veröffentlichten" in text and "Quelländerungen" in text
+    papier = PROJECT_ROOT / "docs" / "datenhistorie.md"
+    if not papier.is_file():
+        pytest.skip("das Entscheidungspapier fehlt")
+    gegenrichtung = papier.read_text(encoding="utf-8")
+    assert "ausblick.md" in gegenrichtung, (
+        "datenhistorie.md verweist nicht zurueck - dann trennt nur eine Seite "
+        "die beiden Fragen"
+    )

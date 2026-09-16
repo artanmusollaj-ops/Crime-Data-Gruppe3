@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'071** |
+| Tests | **1'074** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -87,6 +87,62 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.09.2026 · Der Veröffentlichungsstand bekommt eine Release-Kennung (#106)
+
+**Was.** Ein externer Rat hat den Bau aus `ausblick.md` Abschnitt 6 bestätigt
+und in zwei Punkten verbessert. Der Abschnitt ist nachgezogen. **Gebaut wird
+nichts** — das bleibt LN2, Priorität 8.
+
+**Was der Rat bestätigt hat.** Versionierte Parquet-Dateien plus ein Verweis
+auf den freigegebenen Stand, atomar umgelegt; Parquet als Bestand, DuckDB als
+bequemes Serving-Paket; und dass der Nutzen erst entsteht, wenn ein Dashboard
+danebensteht. Das stand seit dem 15.9. so im Abschnitt, bis hin zum Namen des
+Verweises (`AKTUELL.json` gegen `current_release.json`).
+
+**Was übernommen wird.**
+
+1. **Eine Kennung je Release statt je Tabelle.** Der erste Entwurf liess jede
+   Tabelle ihre eigene Version tragen. Das ist beweglicher — und genau die
+   Beweglichkeit ist die Möglichkeit, aus der ein gemischter Stand entsteht,
+   also das Problem, das der Abschnitt löst. Gold wird ohnehin immer als
+   Ganzes gebaut.
+2. **`analyse.duckdb` gehört ins Release.** Sie entsteht heute in Stufe 7 und
+   bleibt lokal; jeder von uns baut seine eigene. Mit Prüfsumme im Release
+   wäre sie ein Download und für beide derselbe Stand. Der Bestand bleibt
+   Parquet — die DuckDB-Datei hängt an einer Version und an Extensions.
+
+**Was nicht übernommen wird.** Der vorgeschlagene Verzeichnisbaum enthielt
+`comparison_day/week/month.parquet` und `quality/partition_quality.parquet`.
+Die drei `comparison_*` sind **vorberechnete Aggregate** — der Würfel, den
+Notebook 34 gemessen und Abschnitt 5 verworfen hat, diesmal in dreifacher
+Ausführung. Konzept 5.2 sagt *„Keine vorberechneten Aggregate"* zu.
+`partition_quality` wäre eine zweite Ablage für Zahlen, die in jedem Manifest
+unter `checks` stehen. Der Rat kannte unsere fünf Gold-Tabellen nicht; das ist
+kein Widerspruch in der Sache, aber ein Grund, einen Verzeichnisbaum nicht
+ohne die Tabellen dahinter zu lesen.
+
+**Was ein Release kostet, gemessen.** 14 MB `fact_offense`, 296 KB
+`dim_tract`, drei Dimensionen je 12–16 KB, 808 KB Serving — **rund 15 MB**.
+Ein Jahr wöchentlicher Releases wären etwa 780 MB. Das Aufheben ist damit kein
+Kostenproblem, sondern eine Aufräumregel.
+
+**Keine fünfte Entscheidung für Freitag.** `datenhistorie.md` stellt vier
+Fragen, die offen sind und Artan brauchen. Der Veröffentlichungsstand ist
+entschieden, nur noch nicht gebaut. Beide Dokumente verweisen jetzt
+gegenseitig darauf, dass eine Release-Historie die **veröffentlichten Stände**
+festhält und nicht die **Quelländerungen** — sonst landet am Freitag eine
+Entscheidung auf dem Tisch, die gar nicht ansteht.
+
+**Zahlen.** 1'071 → **1'074 Tests**. Die drei neuen halten fest, dass die
+Lücke noch besteht (`release=` kommt im Storage-Backend nicht vor), dass die
+drei Aggregate namentlich abgelehnt bleiben und in Gold nicht auftauchen, und
+dass beide Dokumente aufeinander verweisen.
+
+**Nachlesen.** `docs/ausblick.md` 6 · `docs/datenhistorie.md` 8 ·
+`tests/test_ausblick.py` · PR #106
 
 ---
 
