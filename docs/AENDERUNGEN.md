@@ -90,6 +90,28 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 16.09.2026 · Der Einstieg von Notebook 36 sagte noch das Alte (#99)
+
+**Was.** Ein Absatz. `notebooks/36_hypothesen.ipynb` fasste im Einstieg
+zusammen, eine Hypothese sei *„in einem Teil nicht erfüllt"*. Seit #98 ist H3
+eingelöst, und der Abschnitt zu H3 sagt das auch — nur die Zusammenfassung
+ganz oben nicht.
+
+**Warum das mehr ist als ein Tippfehler.** Der Einstieg ist die Stelle, die
+jemand liest, der nicht das ganze Notebook durchgeht. Hätte er sie
+übernommen, stünde in der Präsentation ein Befund, den es nicht mehr gibt.
+
+**Was jetzt dort steht.** Alle sechs halten. Zwei tragen eine Einschränkung,
+die im Konzept nachgezogen gehört: H1 ist für die drei Referenzquellen anders
+zu formulieren, und H6 beruft sich auf einen Referenzrechner, den niemand
+festgelegt hat. Dazu die Geschichte von H3 als das, was sie ist — eine
+Hypothese, die beim ersten Lauf nicht hielt und noch am selben Tag eingelöst
+wurde.
+
+**Zahlen.** Unverändert 1'026 Tests.
+
+---
+
 ## 16.09.2026 · H3 eingelöst: die zwei Stunden im Jahr (#98)
 
 **Was.** `silver/crime_offense` führt `local_time_ambiguous` und
