@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'058** |
+| Tests | **1'061** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -87,6 +87,46 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.09.2026 · Der Rückgriff auf Bronze war falsch beschrieben (#102)
+
+**Was.** Der letzte Absatz von
+[`docs/zaehlperspektiven.md`](zaehlperspektiven.md) sagte, ein Widerspruch in
+den Bronze-Feldern brauche „den Rückgriff auf den Bronze-Lauf, aus dem die
+Zeile stammt — das Manifest nennt ihn namentlich". Beides stimmt nicht.
+
+**Was stimmt.** Anklagetext (`charge_description`, `arrest_charge`),
+Quellkategorie (`offense_category`, `primary_type`, `fbi_code`) und der
+Zeitpunkt der letzten Quelländerung (`updated_on`, `updated_at`) stehen
+tatsächlich nicht in Silver. Nur eben gar nicht statt „nicht durchgängig":
+Silvers 28 Spalten führen keine davon.
+
+**Was falsch war.** Das Manifest nennt unter `derived_from` **alle** Läufe, aus
+denen die Tabelle entstanden ist — drei für Chicago, zwei für Detroit —, nicht
+den einen je Zeile. **Silver führt überhaupt keine Zeilen-Herkunft.** Und für
+Detroit gibt es den einen Lauf gar nicht: Gemessen stehen **alle 88'685
+Detroiter Zeilen in beiden Schnappschüssen**; bei Chicago sind es 42 von
+259'272, die in mehr als einem Lauf vorkommen. Wer zurückverfolgen will, sucht
+den Schlüssel in den genannten Läufen; die Zeilen-Lineage selbst liegt in den
+Bronze-Manifesten.
+
+**Wie es dazu kam.** Der Satz stammt sinngemäss aus Artans README, wo er über
+*seine* Prüfskripte gesagt war, und ist beim Übernehmen nicht nachgemessen
+worden — im Unterschied zu allen Zahlen desselben Dokuments. Gefragt hat
+Christian, nicht ein Test.
+
+**Damit das nicht wieder still altert.** Drei neue Wächter in
+`tests/test_zaehlperspektiven.py`: Sie halten die sieben genannten Spaltennamen
+gegen das tatsächliche Silver-Schema, prüfen die Zahl der Bronze-Läufe gegen
+das Manifest und die 88'685 gegen die Tabelle. Ein Absatz, der Spaltennamen
+nennt, veraltet sonst schneller als einer, der Zahlen nennt.
+
+**Zahlen.** 1'058 → **1'061 Tests**.
+
+**Nachlesen.** `docs/zaehlperspektiven.md` · `tests/test_zaehlperspektiven.py`
+· PR #102
 
 ---
 

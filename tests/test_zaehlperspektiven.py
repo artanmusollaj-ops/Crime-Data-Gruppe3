@@ -14,6 +14,7 @@ dass etwas kaputt waere.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -237,6 +238,53 @@ def test_die_event_id_falle_nennt_den_richtigen_ausdruck(text, con):
         f"{ohne} Zeilen ohne event_id - das Dokument sagt 'keine einzige Zeile'"
     )
     assert "keine einzige Zeile" in text
+
+
+def test_die_bronze_only_felder_fehlen_wirklich(text, con):
+    """Der Absatz nennt Spalten - Spaltennamen veralten am schnellsten.
+
+    Ein erster Entwurf sagte hier ausserdem, das Manifest nenne den
+    Bronze-Lauf, aus dem eine Zeile stammt. Das tut es nicht: Es nennt alle
+    Laeufe, aus denen die Tabelle entstand. Fuer Detroit gibt es den einen
+    Lauf gar nicht, weil beide Schnappschuesse alle Zeilen enthalten.
+    """
+    vorhanden = {r[0] for r in con.execute("DESCRIBE SELECT * FROM s").fetchall()}
+    assert len(vorhanden) == 28, f"Silver hat {len(vorhanden)} Spalten, nicht 28"
+    assert re.search(r"Silver führt 28\s+Spalten", text), (
+        "die genannte Spaltenzahl stimmt nicht"
+    )
+
+    for spalte in ("charge_description", "arrest_charge", "offense_category",
+                   "primary_type", "fbi_code", "updated_on", "updated_at"):
+        assert spalte not in vorhanden, (
+            f"{spalte} steht inzwischen in Silver - der Absatz behauptet das "
+            "Gegenteil"
+        )
+        assert f"`{spalte}`" in text, f"{spalte} wird im Absatz nicht genannt"
+
+    assert "run" not in vorhanden and "run_id" not in vorhanden, (
+        "Silver fuehrt jetzt eine Zeilen-Herkunft - der Absatz sagt, es tue es nicht"
+    )
+
+
+def test_der_manifesteintrag_nennt_die_zahl_der_laeufe(text):
+    """Drei und zwei - beides steht im Manifest der gebauten Tabelle."""
+    manifest = PROJECT_ROOT / "data" / "silver" / "dataset=crime_offense" / "manifest.json"
+    if not manifest.is_file():
+        pytest.skip("silver nicht gebaut")
+    herkunft = json.loads(manifest.read_text(encoding="utf-8"))["derived_from"]
+    chi = len(herkunft["chicago_bronze_runs"])
+    det = len(herkunft["detroit_bronze_runs"])
+    assert (chi, det) == (3, 2), (
+        f"das Dokument nennt drei Chicago- und zwei Detroit-Laeufe, "
+        f"das Manifest hat {chi} und {det}"
+    )
+
+
+def test_alle_detroit_zeilen_stehen_in_beiden_schnappschuessen(text, con):
+    """Die Zahl, die den Rueckgriff auf einen einzelnen Lauf unmoeglich macht."""
+    zeilen = con.execute("SELECT count(*) FROM s WHERE city = 'detroit'").fetchone()[0]
+    assert zahl(text, r"\*\*alle ([\d']+) Zeilen\*\*") == zeilen
 
 
 def test_das_dokument_nennt_seine_herkunft(text):
