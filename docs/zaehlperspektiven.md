@@ -155,11 +155,40 @@ Richtigkeit.
 **Ein Abgleich mit derselben CSV prüft Umsetzung, nicht Fachlichkeit.** Die
 Prüfung `gegen_crosswalk` stellt sicher, dass Silver das trägt, was der
 Crosswalk *heute* sagt. Ob der Crosswalk recht hat, steht darin nicht. Dafür
-gibt es nur die amtlichen Handbücher und die 16 Zuordnungen, die als
-`ambiguous` markiert sind, weil wir sie entschieden haben.
+gibt es nur die amtlichen Handbücher und die Zuordnungen, die als
+`ambiguous` markiert sind, weil wir sie entschieden haben: **20 in den
+Crosswalks, davon 16 mit Zeilen im Jahrgang 2024** (5'140 Zeilen). Die übrigen
+vier sind Entscheidungen zu Codes, die 2024 nicht vorkommen — getroffen, aber
+nicht belegt.
 
-**Gleiche Beschreibung heisst nicht gleiches Delikt.** Textvarianten sind
-Kandidaten für ein Review, keine Regel zum Zusammenlegen.
+**Die Beschreibung ist nicht das Delikt.** Der Text in
+`source_offense_description` identifiziert die Tat nicht — das tut der Code.
+Für Chicago ist das strukturell: Die IUCR-Bezeichnung hat zwei Hälften, und
+Silver führt nur die zweite.
+
+| dieselbe Beschreibung in Silver | IUCR | die volle Bezeichnung | NIBRS |
+| --- | --- | --- | ---: |
+| `SIMPLE` | 0460 | BATTERY · SIMPLE | 13B |
+| | 0560 | ASSAULT · SIMPLE | 13C |
+| `AGGRAVATED - HANDGUN` | 0261 | CRIMINAL SEXUAL ASSAULT · AGGRAVATED - HANDGUN | 11A |
+| | 041A | BATTERY · AGGRAVATED - HANDGUN | 13A |
+
+**23,3 % der Chicagoer Zeilen** — 60'478 — tragen eine Beschreibung, die für
+sich genommen mehrdeutig ist. `SIMPLE` allein steht 31'565-mal und meint
+einmal Körperverletzung, einmal Bedrohung. In Detroit sind es 54
+Beschreibungen; `ASSAULT AND BATTERY/SIMPLE ASSAULT` deckt **26 verschiedene
+NIBRS-Codes** über 16'837 Zeilen ab, weil die MICR-Beschreibung auf der Ebene
+der Deliktklasse steht und der Code eine Ebene darunter.
+
+Umgekehrt gilt dasselbe: **34 der 53** Chicagoer und **43 der 50** Detroiter
+NIBRS-Codes tragen mehr als eine Beschreibung. Wer gleiche Texte zusammenlegt,
+vermischt Delikte; wer verschiedene trennt, zerlegt eines.
+
+**Was das für eine Auswertung heisst:** nie nach
+`source_offense_description` gruppieren, immer nach `nibrs_code` oder
+`source_offense_code`. Der Text ist zum Lesen da, nicht zum Zählen. Dass der
+fehlende erste Teil der Chicagoer Bezeichnung (`primary_type`) nur in Bronze
+steht, ist derselbe Befund wie im letzten Punkt dieses Abschnitts.
 
 **Keine Lücke heisst nicht vollständig.** Silver hat null Zeilen ohne
 Zeitpunkt. Das beweist nicht, dass die Quelle vollständig ist — eine Tat ohne
