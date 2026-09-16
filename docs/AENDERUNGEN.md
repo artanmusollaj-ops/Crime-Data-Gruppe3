@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'074** |
+| Tests | **1'082** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -87,6 +87,85 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.09.2026 · Der Würfel wird gebaut statt behauptet — und Notebook 34 war kaputt (#107)
+
+**Der Anlass.** Christian hat eingewandt, die Ablehnung der Aggregate ruhe auf
+einem Geschwindigkeitsargument — für ein Studienprojekt könne ein Würfel aber
+**Nachweiswert** haben. Das ist ein eigenes Kriterium, und es fehlte in der
+Abwägung.
+
+**Die Antwort: bauen, aber im Notebook.** Notebook 34 *zählte* bisher nur, wie
+viele Zeilen `fact_tract_month` und `fact_city_day` hätten. Jetzt werden beide
+Würfel wirklich gebaut, gegen den Stern gestellt und mit denselben drei Fragen
+geprüft:
+
+| Frage | Stern | tract_month | city_day |
+| --- | ---: | --- | --- |
+| nur Ladendiebstahl 23C, Jahr | 16'773 | nur Familie 23 | nur Familie 23 (77'752) |
+| der 9. November, beide Städte | 960 | nur Monate | 960 |
+| ein Tract, ganzes Jahr | 3'878 | 3'878 | nur Städte |
+
+Dazu die Gegenprobe (die Würfelzellen summieren sich auf 344'617 Taten — ein
+Würfel ist nicht falsch, er ist **ärmer**) und der faire Gegentest: Dieselbe
+Frage kostet auf dem Stern 0,73 ms und auf dem Würfel 0,23 ms. Der Würfel
+gewinnt, und der Gewinn ist unsichtbar.
+
+**Gebaut werden sie im Notebook und nirgends sonst** — nicht in `data/gold/`,
+nicht im Veröffentlichungsstand. Eine Tabelle in der Pipeline ist ein
+Bauauftrag, ein Test und eine zweite Stelle, an der Zahlen auseinanderlaufen;
+eine im Notebook ist ein Beleg, der bei jedem Lauf neu entsteht. Die Zusage
+aus Konzept 5.2 bleibt.
+
+### Dabei gefunden: Notebook 34 lief seit dem 14.9. nicht mehr
+
+**Was.** Am 14.9.2026 um 12:34 UTC wurde die doppelte Zuordnung GEOID →
+Stadtname entflochten (`9d287a1`): `silver_pipeline.STUDIENSTAEDTE` trägt
+`'Chicago'`, der abgeleitete `gold_pipeline.STADT_SCHLUESSEL` trägt
+`'chicago'`. Das Notebook importierte weiter `STUDIENSTAEDTE` und griff mit
+`werte['chicago']` zu — **`KeyError`**. Damit war alles ab der
+Einwohnerrechnung tot: Stadtzuordnung, Mehrheitsregel, die Raten 94,5 und
+132,6, der Vergleich der Kategorien.
+
+**Warum es niemand sah.** Der Datenlauf jenes Tages lief um **06:05 UTC**,
+sechs Stunden vor dem Commit. Der nächste ist montags. Drei Tage lang war ein
+Beleg der Abgabe kaputt, ohne dass etwas rot wurde — derselbe Fall wie
+Notebook 32 nach der `city=`-Umbenennung, und aus demselben Grund: Der einzige
+Ort, an dem diese Notebooks ausgeführt werden, läuft wöchentlich.
+
+**Eine zweite Stelle wäre schlimmer gewesen.** Die Zelle mit der Rate filtert
+`WHERE t.city = ?`. Mit dem grossgeschriebenen Wert hätte sie **nicht
+gescheitert, sondern null Zeilen gezählt** — ein stiller falscher Wert statt
+eines Abbruchs. Sie kam nur nicht dazu, weil der `KeyError` vorher fiel.
+
+**Behoben.** Beide Zellen benutzen jetzt `STADT_SCHLUESSEL`, und die Namen
+werden aus der Konstante abgeleitet statt eingetippt. Der Kommentar an
+`STADT_SCHLUESSEL` hatte den Fall wörtlich vorhergesagt: *„Wer die falsche
+importierte, bekam stillschweigend etwas anderes."* Genau das ist passiert.
+
+**Gegengeprüft.** Das Notebook läuft wieder vollständig durch und liefert die
+bekannten Zahlen: Mehrheitsregel 2'661'953 und 638'635 Einwohner, Raten 94,5
+und 132,6, Grenzvariante 95,6.
+
+**Nebenbei angeglichen:** Die ältere Zelle zählte die Würfelzeilen ohne
+`WHERE counts` und nannte deshalb 95'609 statt 95'219 — zwei Zahlen für
+dieselbe Tabelle in benachbarten Zellen. Jetzt rechnen beide auf der Tatebene.
+
+**Acht neue Wächter** in `tests/test_notebook_sternschema.py`, alle ohne
+gebaute Daten und damit auf jedem Pull Request: dass jeder importierte Name
+existiert, dass die beiden Zuordnungen sich wirklich in der Schreibweise
+unterscheiden (sonst wäre die Falle weg und die Prüfung überflüssig), dass das
+Notebook `STADT_SCHLUESSEL` benutzt und `STUDIENSTAEDTE` nur im Kommentar,
+dass beide Würfel gebaut werden, dass sie **nicht** in `data/gold` landen,
+dass die Gegenprobe drinsteht, keine Ausgaben gespeichert sind und die
+Abschnitte fortlaufend nummeriert bleiben.
+
+**Zahlen.** 1'074 → **1'082 Tests**.
+
+**Nachlesen.** `notebooks/34_gold_sternschema.ipynb` ·
+`tests/test_notebook_sternschema.py` · PR #107
 
 ---
 
