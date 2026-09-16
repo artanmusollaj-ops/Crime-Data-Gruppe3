@@ -163,6 +163,13 @@ jüngsten, also ruht keine Zahl auf ihm.
 | ~~**B**~~ | ~~Gepinnte Läufe, die das Aufräumen überleben~~ — **erledigt 14.9.2026 (#79)** | klein | jede gepinnte Zahl **reproduzieren** |
 | **C** | Silver und Gold versioniert ablegen (`vintage=`/`asof=`), statt zu ersetzen | mittel–gross | **mehrere** Stände nebeneinander halten und vergleichen |
 
+**Eine fünfte Frage ist inzwischen dazugekommen und hat ein eigenes
+Dokument.** Nicht *„welchen Stand hatten die Daten"*, sondern *„was hat sich
+verändert"* — und was davon verlorengeht, sobald ein Lauf aufgeräumt wird.
+Gemessen an zwei Detroit-Schnappschüssen: 102 echte Inhaltsänderungen, davon
+14 am Deliktcode selbst. Siehe [`datenhistorie.md`](datenhistorie.md), zu
+entscheiden am 18.9.2026.
+
 Stufe A und B sind gebaut und lösen Artans Punkt. **Stufe C ist ausdrücklich
 optional** — sie ist die teure Variante und hebt die Entscheidung auf, dass
 abgeleitete Schichten ersetzt und nicht angehäuft werden (Konzept 7.4). Ich

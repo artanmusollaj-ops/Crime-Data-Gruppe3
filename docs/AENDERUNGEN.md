@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'026** |
+| Tests | **1'035** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -87,6 +87,57 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 16.09.2026 · Was beim Aufräumen verlorenginge (#100)
+
+**Was.** [`docs/datenhistorie.md`](datenhistorie.md) misst, was die Quellen
+zwischen zwei Läufen tatsächlich verändern, und schlägt vor, wie sich das
+behalten lässt, ohne die Läufe aufzuheben. Entscheidungsvorlage für den 18.9.
+
+**Warum.** Für die Auswertung zählt der aktuelle Stand. Die Bewegung der
+Quellen ist aber selbst ein Gegenstand — *was ändert sich, wie oft, welcher
+Art, und was verschwindet.* Heute steckt diese Information implizit in den
+Bronze-Läufen; sobald `aufraeumen` einen löscht, ist sie weg.
+
+**Die Messung.** Detroit hat zwei vollständige Schnappschüsse desselben
+Bestands, 21 Stunden auseinander:
+
+| | Zeilen |
+| --- | ---: |
+| in beiden | 88'685 |
+| neu, verschwunden | 0, 0 |
+| **echte Inhaltsänderung** | **102** |
+| nur `updated_at` bewegt | 147 |
+
+Darunter **14 geänderte Deliktcodes**, und die haben ein Muster: durchweg vom
+spezifischen zum allgemeinen Code, `3072 → 3002`, `4801 → 4800`, `1178 → 1108`
+und so fort. `3072` trägt allein 1'403 zählende Taten, alle als `ambiguous`
+markiert — eine Umcodierung dort verschiebt die Vergleichszahl.
+
+**Die Falle, ohne die der Vorschlag nicht trüge.** Ein naiver Vergleich meldet
+**88'677** geänderte Zeilen statt 102, Faktor 870. Zwei Quellen erzeugen das
+Rauschen: `ESRI_OID` ändert sich bei praktisch jeder Zeile und ist eine
+ArcGIS-Zeilennummer ohne Aussage; und 150 der 160 Beschreibungsänderungen sind
+reine Leerzeichen, weil die Quelle auf feste Breite auffüllt. Echt sind zehn,
+darunter `BURGLARY - FORCED ENTRY` → `DAMAGE TO PROPERTY`.
+
+**Der Vorschlag.** Nicht die Läufe aufheben, sondern den Unterschied
+herausziehen, bevor sie gelöscht werden dürfen. 31,9 MB lagern, um 102 Zeilen
+zu bewahren, ist das falsche Verhältnis. Eine append-only Silver-Tabelle mit
+einer Zeile je geändertem Feld, dazu eine neue Vorbedingung in `aufraeumen`.
+
+**Vier Entscheidungen stehen offen**, jede mit Empfehlung und Folge: welche
+Felder als Änderung zählen, ob Löschungen erkennbar sein sollen, wie oft
+geladen wird, und ob die Tabelle vor oder nach der Harmonisierung liegt.
+
+**Wächter.** Neun Tests gegen die gepinnten Läufe. Einer fand beim ersten Lauf
+einen Fehler im Dokument: Ich hatte eine Gold-Zahl genannt und Silver
+darübergeschrieben, 1'403 zählende Taten gegen 1'443 Anklagen. Genau die
+Granularität, die man an dieser Stelle verwechselt.
+
+**Zahlen.** 1'026 → **1'035 Tests**.
 
 ---
 
