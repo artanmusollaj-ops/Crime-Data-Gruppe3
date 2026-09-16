@@ -120,9 +120,16 @@ obwohl jede Tat darin im Jahrgang liegt.
 
 ## 3 · Was die Prüfungen nicht beweisen
 
-42 Kontrollen stehen auf der Strecke, 31 davon brechen ab
-([`notebooks/35_kontrollen.ipynb`](../notebooks/35_kontrollen.ipynb)). Sie
-beweisen weniger, als ihre Zahl vermuten lässt.
+Die Landkarte in
+[`notebooks/35_kontrollen.ipynb`](../notebooks/35_kontrollen.ipynb) führt
+**42 Kontrollen**, 31 davon als hart. **Abbrechen tun 28.** Bei den übrigen
+dreien ist „hart" die Einstufung der Sache, nicht ihrer Wirkung:
+`GATE_MINDESTENS` und `ERWARTETE_QUELLEN` sind die Schwellen, gegen die andere
+Kontrollen prüfen — nicht der Abbruch selbst —, und `gepinnte_laeufe` bricht
+nichts ab, sondern **schützt**: Ein Referenzstand wird beim Aufräumen
+übergangen.
+
+Auch die 28 beweisen weniger, als ihre Zahl vermuten lässt.
 
 **Eine Zuordnungsquote ist keine Reviewquote.** `mapping_status` sagt, wie eine
 Zeile zu ihrem NIBRS-Code gekommen ist — nicht, ob das fachlich stimmt. Am

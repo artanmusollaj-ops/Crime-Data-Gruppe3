@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'061** |
+| Tests | **1'065** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -87,6 +87,50 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.09.2026 · „31 davon brechen ab" waren 28 (#103)
+
+**Was.** `docs/zaehlperspektiven.md` eröffnete den Abschnitt *Was die Prüfungen
+nicht beweisen* mit „42 Kontrollen stehen auf der Strecke, 31 davon brechen
+ab". Die 42 und die 31 stimmen — die Behauptung über die 31 nicht.
+
+**Drei der 31 brechen nichts ab.** Das Notebook definiert *hart* als „bricht
+ab, nichts wird geschrieben". Danach gemessen:
+
+| | was sie ist | was sie tut |
+| --- | --- | --- |
+| `GATE_MINDESTENS` | Schwellenwerte | `pruefe_gate` prüft dagegen und bricht ab |
+| `ERWARTETE_QUELLEN` | Liste der Bestände | `veraltete_quellen` prüft dagegen |
+| `gepinnte_laeufe` | Register des Referenzstands | **schützt** — der Lauf wird beim Aufräumen übergangen |
+
+Sie sind zu Recht als hart geführt: „hart" ist die Einstufung der Sache, nicht
+ihrer Wirkung. Falsch war nur, die Einstufung mit dem Abbruch gleichzusetzen.
+**28 der 42 Kontrollen brechen tatsächlich ab.**
+
+**Die Ironie gehört zum Befund.** Der Satz stand als erster in einem Abschnitt,
+der davor warnt, eine Zahl für einen Beweis zu halten — und war selbst genau
+das. Gefragt hat wieder Christian, nicht ein Test.
+
+**Geprüft wurde vorher.** Dass 31 Einträge „hart" tragen, ist beim Schreiben
+des Dokuments aus der Landkarte ausgelesen worden; dass jeder davon abbricht,
+wurde angenommen. Der Unterschied zwischen *ausgelesen* und *angenommen* ist
+der ganze Fehler.
+
+**Damit das nicht wieder passiert.** Vier Wächter in
+`tests/test_notebook_kontrollen.py` — sie laufen ohne gebaute Daten auf jedem
+Pull Request mit: die drei Zahlen des Dokuments gegen die Landkarte, die drei
+Ausnahmen namentlich, und die Gegenprobe, dass die beiden Schwellen wirklich
+Konstanten sind und `gepinnte_laeufe` wirklich nicht wirft. Wird eine davon zur
+abbrechenden Prüfung, fällt der Test — und die 28 stimmen wieder nicht.
+
+Notebook 35 sagt es jetzt selbst, direkt unter der hart/weich-Tabelle.
+
+**Zahlen.** 1'061 → **1'065 Tests**.
+
+**Nachlesen.** `docs/zaehlperspektiven.md` · `notebooks/35_kontrollen.ipynb` ·
+`tests/test_notebook_kontrollen.py` · PR #103
 
 ---
 
