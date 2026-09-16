@@ -287,6 +287,45 @@ def test_alle_detroit_zeilen_stehen_in_beiden_schnappschuessen(text, con):
     assert zahl(text, r"\*\*alle ([\d']+) Zeilen\*\*") == zeilen
 
 
+def test_die_angekuendigten_sieben_punkte_sind_sieben(text):
+    """Der Uebergang nennt eine Zahl - dann muss sie auch stimmen.
+
+    Ein frueherer Uebergang lautete nur "Auch die 28 beweisen weniger, als
+    ihre Zahl vermuten laesst". Direkt hinter einem Absatz, der 31 auf 28
+    herunterrechnet, las sich das wie die Fortsetzung dieser Rechnung statt
+    wie die Aussage des Abschnitts. Seither nennt der Uebergang die Zahl der
+    Punkte - und diese Zahl kann veralten.
+    """
+    anfang = text.index("## 3 · Was die Prüfungen nicht beweisen")
+    ende = text.index("## Wo das weiterführt")
+    abschnitt = text[anfang:ende]
+    # Ein Punkt ist ein fetter Vorspann am Zeilenanfang, der einen ganzen
+    # Satz bildet - erkennbar am Punkt vor den Sternen. Fette Hervorhebungen
+    # im Fliesstext ("**42 Kontrollen**") tun das nicht.
+    punkte = [p for p in re.findall(r"^\*\*[^*]+\*\*", abschnitt, re.M)
+              if p.endswith(".**")]
+    zahlwort = {"drei": 3, "vier": 4, "fünf": 5, "sechs": 6, "sieben": 7,
+                "acht": 8, "neun": 9, "zehn": 10}
+    treffer = re.search(r"folgenden (\w+) Punkte", text)
+    assert treffer, "der Übergang kündigt keine Zahl von Punkten an"
+    genannt = zahlwort[treffer.group(1)]
+    assert genannt == len(punkte), (
+        f"der Übergang kündigt {genannt} Punkte an, der Abschnitt hat "
+        f"{len(punkte)}: {punkte}"
+    )
+
+
+def test_der_uebergang_sagt_was_eine_gruene_pruefung_bedeutet(text):
+    """Die Kernaussage des Abschnitts, nicht nur seine sieben Beispiele.
+
+    Ohne sie ist der Abschnitt eine Liste von Eigenheiten; mit ihr ist er ein
+    Argument.
+    """
+    ohne_umbrueche = " ".join(text.split())
+    assert "zeigt, dass der Bau getan hat, was ihm aufgetragen wurde" in ohne_umbrueche
+    assert "nicht, dass das Ergebnis die Wirklichkeit richtig beschreibt" in ohne_umbrueche
+
+
 def test_das_dokument_nennt_seine_herkunft(text):
     """Die Gliederung ist Artans Arbeit - das gehoert dahin, wo sie steht."""
     assert "sql_check_scripts" in text

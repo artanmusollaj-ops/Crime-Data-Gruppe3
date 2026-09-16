@@ -129,7 +129,13 @@ Kontrollen prüfen — nicht der Abbruch selbst —, und `gepinnte_laeufe` brich
 nichts ab, sondern **schützt**: Ein Referenzstand wird beim Aufräumen
 übergangen.
 
-Auch die 28 beweisen weniger, als ihre Zahl vermuten lässt.
+Um diese 28 geht es hier — und sie beweisen etwas anderes, als ihre Zahl
+vermuten lässt. **Eine bestandene harte Kontrolle zeigt, dass der Bau getan
+hat, was ihm aufgetragen wurde. Sie zeigt nicht, dass das Ergebnis die
+Wirklichkeit richtig beschreibt.** Beides zu verwechseln ist der Grund, warum
+eine Liste von 28 grünen Prüfungen beruhigender wirkt, als sie sein darf.
+
+Die folgenden sieben Punkte sagen, wo der Unterschied konkret liegt.
 
 **Eine Zuordnungsquote ist keine Reviewquote.** `mapping_status` sagt, wie eine
 Zeile zu ihrem NIBRS-Code gekommen ist — nicht, ob das fachlich stimmt. Am
