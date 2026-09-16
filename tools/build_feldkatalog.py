@@ -38,6 +38,14 @@ SCHICHTEN = ("silver", "gold")
 # ehrlicher, als denselben Satz neunmal zu wiederholen und beim zehnten Mal
 # leicht anders.
 GEMEINSAM: dict[str, str] = {
+    # Steht seit dem 16.9.2026 in silver/crime_offense und gold/fact_offense.
+    "local_time_ambiguous":
+        "Die Ortszeit gab es **zweimal** - der Wechsel zurück von der "
+        "Sommerzeit. Betrifft nur Chicago, das Wanduhrzeit ohne Zone liefert; "
+        "Detroit liefert einen Zeitpunkt und hat den Fall nicht.",
+    "local_time_nonexistent":
+        "Die Ortszeit gab es **nicht** - der Wechsel zur Sommerzeit. DuckDB "
+        "rechnet sie als Winterzeit um.",
     # Steht seit dem 15.9.2026 in silver/weather_day **und** gold/dim_city_day
     # und bedeutet dort dasselbe.
     "precipitation_trace":

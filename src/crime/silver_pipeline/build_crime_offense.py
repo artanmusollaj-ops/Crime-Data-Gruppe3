@@ -63,10 +63,20 @@ Winterzeit um. Im Jahrgang 2024 nennt keine Quellzeile eine solche Ortszeit.
 01:00 und 02:00) ist die Ortszeit mehrdeutig; DuckDB waehlt eine der beiden
 Moeglichkeiten. **48 Chicagoer Zeilen** liegen dort.
 
-Beide Faelle werden bisher **nicht ausgewiesen** - weder als Spalte noch im
-Manifest. ``reconcile`` zaehlt sie nicht; ein frueherer Stand dieses
-Docstrings behauptete das und lag falsch. Gemessen und aufgeschrieben ist es
-in ``notebooks/36_hypothesen.ipynb`` unter H3.
+Beide Faelle werden **je Zeile ausgewiesen**: ``local_time_nonexistent`` und
+``local_time_ambiguous``, und ``reconcile`` zaehlt sie je Stadt ins Manifest.
+Fuer Detroit sind beide immer falsch - die Quelle liefert Millisekunden seit
+Epoch, also einen Zeitpunkt, und aus dem entsteht die Ortszeit. Mehrdeutig
+wird es erst, wenn eine Quelle Wanduhrzeit ohne Zone liefert.
+
+Erkannt wird ohne Wissen ueber Wechseldaten: Hin und zurueck gerechnet muss
+dieselbe Ortszeit herauskommen, sonst gab es sie nicht; fuehrt eine Stunde
+davor oder danach auf dieselbe Ortszeit, gab es sie zweimal.
+
+Bis zum 16.9.2026 geschah beides stillschweigend, und ein frueherer Stand
+dieses Docstrings behauptete faelschlich, ``reconcile`` zaehle die Faelle.
+Gemessen und aufgeschrieben ist der Weg dorthin in
+``notebooks/36_hypothesen.ipynb`` unter H3.
 """
 
 from __future__ import annotations
@@ -102,7 +112,7 @@ TABLE = "crime_offense"
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
-CONTRACT_VERSION = 1
+CONTRACT_VERSION = 2
 
 
 CHICAGO = "chicago"
@@ -412,6 +422,22 @@ def build_query(
             CAST(timezone('{TIMEZONES[CHICAGO]}',
                  CAST(c.date AS TIMESTAMP)) AS TIMESTAMP)  AS occurred_at_utc,
             CAST(c.date AS TIMESTAMP)                      AS occurred_at_local,
+            -- Die beiden Zeitzonen-Randfaelle, je Zeile beantwortet.
+            -- Hin und zurueck: Kommt eine andere Ortszeit heraus, gab es die
+            -- genannte nicht (Uhr vorgestellt).
+            CAST(timezone('{TIMEZONES[CHICAGO]}',
+                 timezone('{TIMEZONES[CHICAGO]}', CAST(c.date AS TIMESTAMP))
+                 ) AS TIMESTAMP) <> CAST(c.date AS TIMESTAMP)
+                                                           AS local_time_nonexistent,
+            -- Eine Stunde vor oder nach dem gewaehlten Zeitpunkt fuehrt auf
+            -- dieselbe Ortszeit: Dann gab es sie zweimal (Uhr zurueckgestellt).
+            (CAST(timezone('{TIMEZONES[CHICAGO]}',
+                  timezone('{TIMEZONES[CHICAGO]}', CAST(c.date AS TIMESTAMP))
+                  - INTERVAL 1 HOUR) AS TIMESTAMP) = CAST(c.date AS TIMESTAMP)
+             OR CAST(timezone('{TIMEZONES[CHICAGO]}',
+                  timezone('{TIMEZONES[CHICAGO]}', CAST(c.date AS TIMESTAMP))
+                  + INTERVAL 1 HOUR) AS TIMESTAMP) = CAST(c.date AS TIMESTAMP))
+                                                           AS local_time_ambiguous,
             nullif(trim(c.iucr), '')                       AS source_offense_code,
             nullif(trim(c.description), '')                AS source_offense_description,
             m.nibrs_code                                   AS nibrs_code,
@@ -485,6 +511,12 @@ def build_query(
             timezone('{TIMEZONES[DETROIT]}',
                 epoch_ms(d.attributes.incident_occurred_at)
                 AT TIME ZONE 'UTC')                        AS occurred_at_local,
+            -- Detroit liefert Millisekunden seit Epoch, also einen Zeitpunkt.
+            -- Die Ortszeit wird daraus abgeleitet und kann deshalb weder
+            -- fehlen noch doppelt sein - die Mehrdeutigkeit entsteht erst,
+            -- wenn eine Quelle Wanduhrzeit ohne Zone liefert.
+            FALSE                                          AS local_time_nonexistent,
+            FALSE                                          AS local_time_ambiguous,
             nullif(trim(d.attributes.state_offense_code), '') AS source_offense_code,
             nullif(trim(d.attributes.offense_description), '') AS source_offense_description,
             m.nibrs_code                                   AS nibrs_code,
@@ -565,6 +597,8 @@ def build_query(
         b.occurred_at_utc,
         b.occurred_at_local,
         CAST(b.occurred_at_local AS DATE)                  AS occurred_date_local,
+        b.local_time_nonexistent,
+        b.local_time_ambiguous,
         b.source_offense_code,
         b.source_offense_description,
         b.nibrs_code,
@@ -615,7 +649,8 @@ def reconcile(
     Geprueft wird, was stillschweigend schieflaufen kann: ein doppelter
     Deliktschluessel, ein verlorener Fall, ein Zeitpunkt ausserhalb des
     Jahrgangs. Was nur unvollstaendig ist - fehlende Koordinaten, fehlende
-    NIBRS-Zuordnung - wird gezaehlt und nicht beanstandet.
+    NIBRS-Zuordnung, eine mehrdeutige Ortszeit - wird gezaehlt und nicht
+    beanstandet.
     """
     je_stadt = {
         stadt: {
@@ -628,9 +663,15 @@ def reconcile(
             "counts": taten,
             "counts_case": faelle,
             "distinct_counted_event_id": gezaehlte_faelle,
+            # Die beiden Zeitzonen-Randfaelle. Sie beanstanden nichts - sie
+            # machen sichtbar, wie viele Zeilen eine Ortszeit tragen, die es
+            # nicht oder zweimal gab. Ohne diese Zahl weiss niemand, ob eine
+            # Stundenverteilung davon beruehrt ist.
+            "local_time_nonexistent": nicht_existent,
+            "local_time_ambiguous": mehrdeutig,
         }
         for stadt, zeilen, eindeutig, ereignisse, zugeordnet, verortet, ohne_zeit,
-            taten, faelle, gezaehlte_faelle
+            taten, faelle, gezaehlte_faelle, nicht_existent, mehrdeutig
         in con.execute(f"""
             SELECT city, count(*), count(DISTINCT offense_id),
                    count(DISTINCT event_id),
@@ -639,7 +680,9 @@ def reconcile(
                    count(*) FILTER (occurred_at_utc IS NULL),
                    count(*) FILTER (counts),
                    count(*) FILTER (counts_case),
-                   count(DISTINCT coalesce(event_id, offense_id)) FILTER (counts)
+                   count(DISTINCT coalesce(event_id, offense_id)) FILTER (counts),
+                   count(*) FILTER (local_time_nonexistent),
+                   count(*) FILTER (local_time_ambiguous)
             FROM {relation} GROUP BY city ORDER BY city
         """).fetchall()
     }

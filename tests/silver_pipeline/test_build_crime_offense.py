@@ -1044,3 +1044,83 @@ def test_ein_geaenderter_crosswalk_aendert_den_abdruck(tmp_path):
                     "1310,CRIMINAL DAMAGE,X,I,true,290,DESTRUCTION,nibrs_definition,true,\n",
                     encoding="utf-8")
     assert manifest_von(bc.build(data_root, config_root))["input_fingerprint"] != vorher
+
+
+# --------------------------------------------------------------------------
+# Die beiden Zeitzonen-Randfaelle (H3 aus dem Konzept)
+# --------------------------------------------------------------------------
+
+
+def test_die_beiden_zeitzonen_randfaelle_werden_erkannt():
+    """H3 verlangt, dass sie ausdruecklich als Sonderfaelle ausgewiesen werden.
+
+    Chicago liefert Wanduhrzeit **ohne Zone**. Zweimal im Jahr ist das nicht
+    eindeutig: Beim Vorstellen der Uhr gibt es eine Stunde nicht, beim
+    Zurueckstellen gibt es eine zweimal. Bis zum 16.9.2026 wurde beides
+    stillschweigend umgerechnet; 48 Chicagoer Zeilen lagen in der doppelten
+    Stunde, ohne dass es ihnen anzusehen war.
+
+    Erkannt wird ohne Sonderwissen ueber Wechseldaten: Hin und zurueck
+    gerechnet muss dieselbe Ortszeit herauskommen, sonst gab es sie nicht.
+    Und fuehrt eine Stunde davor oder danach auf dieselbe Ortszeit, gab es
+    sie zweimal.
+    """
+    con = duckdb.connect()
+    try:
+        con.execute("INSTALL icu")
+        con.execute("LOAD icu")
+        con.execute("SET TimeZone='UTC'")
+        zone = bc.TIMEZONES[bc.CHICAGO]
+        faelle = [
+            ("gewoehnlich",    "2024-06-15 12:00:00", False, False),
+            ("Mitternacht",    "2024-01-01 00:56:00", False, False),
+            ("Jahresgrenze",   "2024-12-31 23:30:00", False, False),
+            ("nicht existent", "2024-03-10 02:30:00", True,  False),
+            ("doppelt",        "2024-11-03 01:30:00", False, True),
+            ("knapp davor",    "2024-11-03 00:59:00", False, False),
+            ("knapp danach",   "2024-11-03 02:00:00", False, False),
+        ]
+        for name, ortszeit, erwartet_nicht, erwartet_doppelt in faelle:
+            nicht, doppelt = con.execute(f"""
+                WITH x AS (SELECT CAST('{ortszeit}' AS TIMESTAMP) AS lokal),
+                     y AS (SELECT lokal, timezone('{zone}', lokal) AS instant FROM x)
+                SELECT CAST(timezone('{zone}', instant) AS TIMESTAMP) <> lokal,
+                       CAST(timezone('{zone}', instant - INTERVAL 1 HOUR)
+                            AS TIMESTAMP) = lokal
+                    OR CAST(timezone('{zone}', instant + INTERVAL 1 HOUR)
+                            AS TIMESTAMP) = lokal
+                FROM y
+            """).fetchone()
+            assert (nicht, doppelt) == (erwartet_nicht, erwartet_doppelt), (
+                f"{name} ({ortszeit}): erkannt als "
+                f"nicht_existent={nicht}, doppelt={doppelt}"
+            )
+    finally:
+        con.close()
+
+
+def test_die_abfrage_liefert_beide_spalten():
+    """Sie muessen in der Endauswahl stehen, nicht nur in einem CTE."""
+    quelle = Path(bc.__file__).read_text(encoding="utf-8")
+    for spalte in ("local_time_ambiguous", "local_time_nonexistent"):
+        assert f"b.{spalte}" in quelle, (
+            f"{spalte} fehlt in der Endauswahl der Silver-Abfrage"
+        )
+    assert "FALSE                                          AS local_time_nonexistent" in quelle, (
+        "Detroit muss die Spalten fuehren, auch wenn sie dort immer falsch sind"
+    )
+
+
+def test_reconcile_zaehlt_die_randfaelle():
+    """Der Docstring hat das behauptet, bevor es stimmte.
+
+    Eine Zahl, die niemand gegen etwas haelt, ist keine Kontrolle - aber eine
+    Zahl, die gar nicht erst entsteht, ist noch weniger.
+    """
+    quelle = Path(bc.__file__).read_text(encoding="utf-8")
+    for spalte in ("local_time_ambiguous", "local_time_nonexistent"):
+        assert f'"{spalte}":' in quelle, f"{spalte} fehlt in den checks"
+        assert f"count(*) FILTER ({spalte})" in quelle, (
+            f"{spalte} wird in reconcile nicht gezaehlt"
+        )
+

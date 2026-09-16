@@ -73,21 +73,19 @@ def test_der_docstring_behauptet_nicht_mehr_reconcile_zaehle_die_randfaelle():
     """Der Fehler, den das Notebook gefunden hat.
 
     Der Modul-Docstring sagte, ``reconcile`` zaehle die Faelle in der nicht
-    existenten Stunde. Das tut er nicht - ``checks`` enthaelt keinen solchen
-    Zaehler. Der Satz ist am 16.9.2026 korrigiert worden; dieser Test haelt
-    fest, dass er nicht zurueckkommt, solange es den Zaehler nicht gibt.
+    existenten Stunde. Das tat er nicht. Seit dem 16.9.2026 tut er es - und
+    dieser Test haelt fest, dass Docstring und Code dasselbe sagen.
     """
     quelle = OFFENSE.read_text(encoding="utf-8")
     kopf = quelle[:quelle.index('"""', quelle.index('"""') + 3)]
-    behauptet = re.search(r"``reconcile`` zaehlt sie(?! nicht)", kopf)
-    assert behauptet is None, (
-        "der Docstring behauptet wieder, reconcile zaehle die Zeitzonen-"
-        "Randfaelle. Entweder den Zaehler bauen oder den Satz lassen."
+    assert "je Zeile ausgewiesen" in kopf, (
+        "der Docstring soll sagen, dass die beiden Randfaelle ausgewiesen werden"
     )
-    assert "nicht ausgewiesen" in kopf, (
-        "der Docstring soll offen sagen, dass die beiden Randfaelle heute "
-        "nicht ausgewiesen werden"
-    )
+    for spalte in ("local_time_nonexistent", "local_time_ambiguous"):
+        assert spalte in kopf, f"{spalte} wird im Docstring nicht genannt"
+        assert f"count(*) FILTER ({spalte})" in quelle, (
+            f"der Docstring nennt {spalte}, reconcile zaehlt es nicht"
+        )
 
 
 def test_das_notebook_speichert_keine_ausgaben(zellen):
