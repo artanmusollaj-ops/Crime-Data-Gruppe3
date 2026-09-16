@@ -81,7 +81,7 @@ diese sechs Stellen in dieser Reihenfolge. Zusammen sind es rund 400 Zeilen.
 
 Wer wissen will, **was eigentlich geprüft wird**, findet es in
 [`notebooks/35_kontrollen.ipynb`](../notebooks/35_kontrollen.ipynb). Dort
-stehen alle 41 Kontrollen der Strecke an einem Ort, in der Reihenfolge, in der
+stehen alle 42 Kontrollen der Strecke an einem Ort, in der Reihenfolge, in der
 sie greifen, und jede wird zweimal vorgeführt: einmal mit Daten, die sie
 durchlässt, und einmal mit Daten, die sie fangen soll. Am Schluss reist ein
 einzelner Fall durch alle Schichten.

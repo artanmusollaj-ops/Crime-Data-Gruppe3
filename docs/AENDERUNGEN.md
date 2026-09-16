@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'035** |
+| Tests | **1'058** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -87,6 +87,99 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.09.2026 · Vier Prüfungen aus Artans SQL-Sammlung geerntet (#101)
+
+**Was.** Artan hat am Wochenende 37 DuckDB-Abfragen gegen die gebauten
+Schichten geschrieben und im Branch `sql_check_scripts` abgelegt — entgegen der
+Absprache, dass Silver und Gold bei Christian liegen. Der Branch wird **nicht
+gemergt und nicht gelöscht**: Er bleibt als Nachweis stehen. Vier seiner
+Prüfungen sind in den Bau übernommen worden, und zwei Abschnitte seines README
+als Dokumentation.
+
+**Warum nicht mergen.** Die Abfragen laufen, wenn jemand daran denkt. Eine
+Prüfung, die im Bau steht, läuft immer — und bricht ab, statt eine Zeile in
+einer Ergebnisdatei zu erzeugen, die niemand liest. Dazu kommt, dass die
+Zeilenzahlen im README (259.615 / 88.686) zwei Läufe alt waren und die
+mitgelieferte `validation_results.json` einen Zustand festhält, der nicht mehr
+gilt; ein Ergebnis mit Verfallsdatum im Repository wäre schlechter als keines.
+
+**Die vier, in `silver_pipeline.build_crime_offense.reconcile`:**
+
+| | was sie prüft | hart? | was sie verhindert |
+| --- | --- | --- | --- |
+| **S04** | keine Zeile mit `counts_case`, die nicht auch `counts` trägt | hart | die beiden Zählperspektiven liessen sich nicht mehr ineinander überführen |
+| **Z05** | jeder UTC-Zeitpunkt ergibt zurückgerechnet dieselbe Ortszeit | hart | eine vertauschte Stadtzeitzone verschöbe jede Stundenverteilung |
+| **M03** | jede Zeile trägt den Code, den der Crosswalk **heute** nennt | hart | eine geänderte Mapping-CSV ohne Neubau — Silver driftet von seiner Referenz weg |
+| **S03** | Zeilen ohne `event_id`, Leerraum zählt als fehlend | **weich** | nichts — sie macht sichtbar, worauf eine Abfrage von Hand achten muss |
+
+**S03 ist weich, und das ist der lehrreichste Teil der Ernte.** Als harte
+Prüfung eingebaut, machte sie sofort einen bestehenden Test rot:
+`test_ohne_fallnummer_ist_die_zeile_ihr_eigener_fall`. `event_id` ist die
+**Fallnummer der Quelle**, und die darf fehlen; der Bau setzt sie dann auf NULL
+und zählt die Zeile über `coalesce(event_id, offense_id)` als ihren eigenen
+Fall — sonst fielen alle Zeilen ohne Nummer in einen einzigen Fall zusammen.
+Hart eingebaut hätte S03 einen Bestand unbaubar gemacht, den der Entwurf
+ausdrücklich vorsieht.
+
+Artans Sorge bleibt trotzdem richtig, sie trifft nur eine andere Stelle: nicht
+den Bau, sondern **jede Abfrage von Hand**. `count(DISTINCT event_id)`
+überspringt NULL stillschweigend. Die Zahl steht deshalb im Manifest, und der
+Hinweis steht in `docs/zaehlperspektiven.md`. Heute ist sie null, weil beide
+Quellen durchgehend Fallnummern liefern — dass sie null *ist*, heisst nicht,
+dass sie null *sein muss*.
+
+**M03 ist die eigentliche Lücke.** Der Bau wendet den Crosswalk als Join an und
+ist im Moment des Baus zwangsläufig konsistent. Die Lücke öffnet sich erst
+danach: Wird die CSV geändert und Silver nicht neu gebaut, behauptet die
+Tabelle etwas anderes als ihre Referenz. Das Manifest hielt die Prüfsumme der
+CSV zwar fest — nur verglich sie niemand mit der Datei auf der Platte.
+
+**Gegengeprüft, nicht angenommen.** Jede der vier ist gegen eine eingebaute
+Verletzung gehalten worden: eine Zeile als Fall ohne Tat, eine um eine
+Stunde verschobene Ortszeit, ganz Detroit mit Chicagos Zone gerechnet, ein
+geänderter `ibr_code`, ein geändertes `match`, eine auf `false` gesetzte
+Zuordnung. Alle brechen ab; ohne diese Gegenprobe wäre eine grüne Prüfung nur
+eine Vermutung. Genauso geprüft ist, dass S03 **nicht** abbricht, sondern
+zählt — und dass Z05 die nicht existente Ortszeit aussen vor lässt, sonst
+schlüge sie bei jedem Vorstellen der Uhr an.
+
+**Eine Grenze, die dabei sichtbar wurde.** Beim Zurückstellen der Uhr hat
+Detroit schon EST, während Chicago noch CDT hat — für genau eine Stunde im Jahr
+fallen beide Zonen zusammen. **30 der 88'685** Detroiter Zeilen liegen darin
+und blieben einem vertauschten Zonennamen gegenüber blind. Die übrigen
+**88'655** fielen auf. Das steht als Kommentar an der Prüfung, nicht als
+Fussnote irgendwo.
+
+**Nicht übernommen: A06.** Sie vergleicht die Zeilenzahl von `fact_offense`
+mit der Zahl der `counts`-Zeilen in Silver. Beide Wege messen 344'617 — weil
+Gold genau diese Auswahl übernimmt. Eine Prüfung, die zwei Namen für dieselbe
+Rechnung gegeneinanderhält, kann nicht scheitern.
+
+**Was als Dokumentation geblieben ist.**
+[`docs/zaehlperspektiven.md`](zaehlperspektiven.md) — die vier Arten zu zählen,
+was sich aus ihnen nicht addieren lässt, und was die 42 Kontrollen **nicht**
+beweisen. Die Gliederung ist Artans; alle Zahlen sind am Referenzstand neu
+gemessen, weil die seinen veraltet waren. Zwei Befunde daraus sind neu:
+**5,2 %** der Detroiter Vorfälle enthalten Delikte aus mehr als einer
+NIBRS-Familie — wer Vorfälle je Familie zählt und addiert, liegt **4'474**
+(5,6 %) zu hoch. Und die letzte Woche des Jahrgangs hat zwei Tage: 1'647 Taten
+gegen 6'694 in einer vollen Woche.
+
+**Die Landkarte in Notebook 35** führt jetzt **42 Kontrollen** statt 41,
+31 hart statt 30: `gegen_crosswalk` ist als eigener Ort im Code dazugekommen.
+Der Wächter über die Liste hat dabei einen ersten Versuch abgelehnt, der
+`reconcile` zweimal aufführte — einmal hart, einmal weich. Ein Ort im Code,
+ein Eintrag; die weiche Zählung steht im Manifest, nicht in der Landkarte.
+
+**Zahlen.** 1'035 → **1'058 Tests** (zehn Gegenproben zu den neuen Prüfungen,
+elf Wächter über das neue Dokument). `silver/crime_offense` bleibt bei 347'957
+Zeilen — die Prüfungen zählen alle null, sie sollen es bleiben.
+
+**Nachlesen.** `src/crime/silver_pipeline/build_crime_offense.py` ·
+`docs/zaehlperspektiven.md` · `tests/test_zaehlperspektiven.py` · PR #101
 
 ---
 

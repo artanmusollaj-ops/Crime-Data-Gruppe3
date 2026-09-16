@@ -638,11 +638,64 @@ def build_query(
 # ---------------------------------------------------------------------------
 
 
+def gegen_crosswalk(
+    con: duckdb.DuckDBPyConnection, relation: str, config_root: Path
+) -> dict[str, int]:
+    """Traegt jede Zeile den Zielcode, den der Crosswalk **heute** nennt?
+
+    **Warum das keine Tautologie ist.** Der Bau wendet den Crosswalk als Join
+    an, das Ergebnis ist also im Moment des Baus konsistent. Wird die CSV
+    danach geaendert und Silver nicht neu gebaut, driftet die Tabelle von ihrer
+    Referenz weg - und nichts merkt es. Das Manifest haelt zwar die Pruefsumme
+    der CSV fest, aber niemand vergleicht sie mit der Datei auf der Platte.
+
+    Gefunden hat die Luecke Artans SQL-Pruefung M03 am 16.9.2026. Sie stand
+    dort als Review-Abfrage; hier ist sie hart, weil ein Silver, das etwas
+    anderes behauptet als sein Crosswalk, keine Grundlage fuer eine Zahl ist.
+
+    Geprueft wird gegen dieselbe Auswahl, die der Bau benutzt: nur Zeilen mit
+    ``mapped = 'true'``. Ein Code ohne aktivierte Zuordnung fuehrt in Silver zu
+    ``nibrs_code IS NULL``, und genau das muss dann auch dastehen.
+    """
+    iucr = (config_root / IUCR_MAPPING).as_posix()
+    micr = (config_root / MICR_MAPPING).as_posix()
+    abweichungen = con.execute(f"""
+        WITH referenz AS (
+            SELECT '{CHICAGO}' AS city, iucr AS quellcode,
+                   ibr_code AS nibrs_code, match AS nibrs_match
+            FROM read_csv('{iucr}', header = true, all_varchar = true)
+            WHERE mapped = 'true'
+            UNION ALL
+            SELECT '{DETROIT}', micr_code, nibrs_code, match
+            FROM read_csv('{micr}', header = true, all_varchar = true)
+            WHERE mapped = 'true'
+        )
+        SELECT s.city, count(*)
+        FROM {relation} s
+        LEFT JOIN referenz r
+          ON r.city = s.city AND r.quellcode = trim(s.source_offense_code)
+        WHERE s.nibrs_code IS DISTINCT FROM r.nibrs_code
+           OR (r.nibrs_code IS NOT NULL
+               AND s.nibrs_match IS DISTINCT FROM r.nibrs_match)
+        GROUP BY 1 ORDER BY 1
+    """).fetchall()
+    if abweichungen:
+        wo = ", ".join(f"{stadt}: {n:,} Zeilen" for stadt, n in abweichungen)
+        raise TransformError(
+            f"Silver weicht vom heutigen Crosswalk ab ({wo}). Entweder wurde "
+            "eine Mapping-CSV geaendert, ohne Silver neu zu bauen, oder die "
+            "Zuordnung im Bau stimmt nicht mehr mit der Referenz ueberein. "
+            "Neu bauen: python -m orchestration.run_all --ohne-ingestion"
+        )
+    return {"abweichungen": 0}
+
+
 def reconcile(
     con: duckdb.DuckDBPyConnection,
     relation: str,
     chicago: Source,
     detroit: Source,
+    config_root: Path | None = None,
 ) -> dict[str, Any]:
     """Was die Tabelle ueber sich selbst behaupten darf.
 
@@ -669,9 +722,28 @@ def reconcile(
             # Stundenverteilung davon beruehrt ist.
             "local_time_nonexistent": nicht_existent,
             "local_time_ambiguous": mehrdeutig,
+            # Die drei folgenden kamen am 17.9.2026 aus Artans SQL-Pruefungen
+            # (S03, S04, Z05). S04 und Z05 brechen ab; S03 zaehlt nur.
+            #
+            # Warum S03 weich ist: ``event_id`` ist die Fallnummer der Quelle,
+            # und die darf fehlen. Der Bau setzt sie dann auf NULL und behandelt
+            # die Zeile ueber ``coalesce(event_id, offense_id)`` als ihren
+            # eigenen Fall - sonst fielen alle Zeilen ohne Nummer in einen Fall
+            # zusammen. Das ist Absicht und in
+            # ``test_ohne_fallnummer_ist_die_zeile_ihr_eigener_fall`` festgehalten.
+            #
+            # Artans Sorge bleibt trotzdem berechtigt, nur trifft sie nicht den
+            # Bau, sondern jede Abfrage von Hand: ``count(DISTINCT event_id)``
+            # ueberspringt NULL stillschweigend. Deshalb steht die Zahl im
+            # Manifest, statt den Bau abzubrechen. Heute ist sie null, weil
+            # beide Quellen durchgehend Fallnummern liefern.
+            "ohne_event_id": ohne_vorfall,
+            "fall_ohne_tat": fall_ohne_tat,
+            "without_zeitpunkt_unstimmig": unstimmig,
         }
         for stadt, zeilen, eindeutig, ereignisse, zugeordnet, verortet, ohne_zeit,
-            taten, faelle, gezaehlte_faelle, nicht_existent, mehrdeutig
+            taten, faelle, gezaehlte_faelle, nicht_existent, mehrdeutig,
+            ohne_vorfall, fall_ohne_tat, unstimmig
         in con.execute(f"""
             SELECT city, count(*), count(DISTINCT offense_id),
                    count(DISTINCT event_id),
@@ -682,7 +754,25 @@ def reconcile(
                    count(*) FILTER (counts_case),
                    count(DISTINCT coalesce(event_id, offense_id)) FILTER (counts),
                    count(*) FILTER (local_time_nonexistent),
-                   count(*) FILTER (local_time_ambiguous)
+                   count(*) FILTER (local_time_ambiguous),
+                   count(*) FILTER (event_id IS NULL OR trim(event_id) = ''),
+                   count(*) FILTER (counts_case AND NOT counts),
+                   -- Hin und zurueck: Aus dem UTC-Zeitpunkt muss dieselbe
+                   -- Ortszeit entstehen, die dasteht. Ausgenommen ist der
+                   -- dokumentierte Fall einer Ortszeit, die es nie gab.
+                   -- Eine Stunde im Jahr sieht die Pruefung nichts: Beim
+                   -- Zurueckstellen der Uhr hat Detroit schon EST, Chicago
+                   -- noch CDT, und beide Zonen fallen zusammen. Gemessen am
+                   -- 17.9.2026 waren das 30 der 88'685 Detroit-Zeilen; ein
+                   -- systematischer Zonenfehler faellt trotzdem 88'655-fach
+                   -- auf.
+                   count(*) FILTER (
+                       NOT local_time_nonexistent
+                       AND occurred_at_utc IS NOT NULL
+                       AND occurred_at_local IS DISTINCT FROM CAST(timezone(
+                           CASE city WHEN '{CHICAGO}' THEN '{TIMEZONES[CHICAGO]}'
+                                     ELSE '{TIMEZONES[DETROIT]}' END,
+                           occurred_at_utc AT TIME ZONE 'UTC') AS TIMESTAMP))
             FROM {relation} GROUP BY city ORDER BY city
         """).fetchall()
     }
@@ -693,6 +783,20 @@ def reconcile(
                 f"{stadt}: {zahlen['rows']} Zeilen, aber nur "
                 f"{zahlen['distinct_offense_id']} verschiedene offense_id - "
                 "die Granularität ist nicht ein Delikt je Zeile"
+            )
+        if zahlen["without_zeitpunkt_unstimmig"]:
+            raise TransformError(
+                f"{stadt}: {zahlen['without_zeitpunkt_unstimmig']} Zeilen, deren "
+                "UTC-Zeitpunkt nicht zur Ortszeit passt. Entweder ist die "
+                "Zeitzonenumrechnung gebrochen oder die Stadtzeitzone stimmt "
+                "nicht mehr. Nicht existierende Ortszeiten sind hier bereits "
+                "ausgenommen, die traegt local_time_nonexistent."
+            )
+        if zahlen["fall_ohne_tat"]:
+            raise TransformError(
+                f"{stadt}: {zahlen['fall_ohne_tat']} Zeilen zaehlen als Fall, "
+                "aber nicht als Tat. Ein Fall besteht aus Taten; die Auswahl "
+                "je Fall muss eine der zaehlenden Zeilen treffen."
             )
         if zahlen["without_timestamp"]:
             raise TransformError(
@@ -713,6 +817,9 @@ def reconcile(
     # trotzdem ein leeres ``mapping_status``. Wer danach filtert, verloere
     # sie - genau die Sorte Verlust, die diese Spalte verhindern soll.
     bekannt = ", ".join(repr(k) for k in sorted(MAPPING_STATUS))
+    if config_root is not None:
+        gegen_crosswalk(con, relation, config_root)
+
     unbekannt = con.execute(f"""
         SELECT nibrs_match, count(*) FROM {relation}
         WHERE nibrs_code IS NOT NULL AND nibrs_code <> '{AUFFANG_CODE}'
@@ -887,7 +994,7 @@ def build(data_root: Path, config_root: Path) -> Path:
             f"CREATE TABLE {TABLE} AS "
             + build_query(chicago, detroit, tract, config_root)
         )
-        pruefung = reconcile(con, TABLE, chicago, detroit)
+        pruefung = reconcile(con, TABLE, chicago, detroit, config_root)
         manifest = build_manifest(
             con, TABLE, chicago, detroit, tract, config_root, pruefung
         )

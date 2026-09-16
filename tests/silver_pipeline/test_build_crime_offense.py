@@ -1124,3 +1124,241 @@ def test_reconcile_zaehlt_die_randfaelle():
             f"{spalte} wird in reconcile nicht gezaehlt"
         )
 
+
+
+# --------------------------------------------------------------------------
+# Die Pruefungen aus Artans SQL-Sammlung (S03, S04, Z05, M03)
+# --------------------------------------------------------------------------
+# Artan hat am Wochenende 37 SQL-Abfragen gegen die gebauten Schichten
+# geschrieben und im Branch ``sql_check_scripts`` abgelegt. Vier davon haben
+# etwas gefunden, was der Bau nicht selbst prueft. Sie stehen seit dem
+# 17.9.2026 hart in ``reconcile`` - eine Review-Abfrage laeuft, wenn jemand
+# daran denkt, eine harte Pruefung laeuft immer.
+#
+# Geprueft wird hier nicht, dass die Zahlen heute null sind - das tut der Bau
+# selbst. Geprueft wird, dass die Kontrolle **anschlaegt**, wenn sie es nicht
+# mehr sind. Eine Kontrolle, die nie jemand hat fallen sehen, ist eine
+# Vermutung.
+
+
+ZEITZONE_SPALTE = (
+    "CAST(timezone(CASE city WHEN 'chicago' THEN 'America/Chicago' "
+    "ELSE 'America/Detroit' END, u AT TIME ZONE 'UTC') AS TIMESTAMP)"
+)
+
+# Eine Relation, die fuer sich gueltig ist: zwei Staedte, je ein Fall mit zwei
+# Anklagen, davon eine zaehlend je Tat und je Fall. Die Quellcodes und ihre
+# Zuordnungen sind dieselben, die ``schreibe_config`` in die Testcrosswalks
+# schreibt - sonst koennte M03 unten nichts belegen.
+GUELTIG = f"""
+    WITH roh(city, offense_id, event_id, u, counts, counts_case,
+             source_offense_code, nibrs_code, nibrs_match) AS (VALUES
+        ('chicago', 'c1', 'F1', TIMESTAMP '2024-06-15 17:30:00', TRUE,  TRUE,
+         '0110', '13A', 'nibrs_definition'),
+        ('chicago', 'c2', 'F1', TIMESTAMP '2024-06-15 17:30:00', TRUE,  FALSE,
+         '0910', '240', 'nibrs_definition'),
+        ('detroit', 'd1', 'G1', TIMESTAMP '2024-06-15 16:00:00', TRUE,  TRUE,
+         '2401', '240', 'micr_manual_1110_2024'),
+        ('detroit', 'd2', 'G1', TIMESTAMP '2024-06-15 16:00:00', FALSE, FALSE,
+         '2901', '90Z', 'micr_manual_1110_2024')
+    )
+    SELECT city, offense_id, event_id, u AS occurred_at_utc,
+           {ZEITZONE_SPALTE} AS occurred_at_local,
+           counts, counts_case, source_offense_code, nibrs_code, nibrs_match,
+           TRUE AS nibrs_mapped, TRUE AS located,
+           FALSE AS local_time_nonexistent, FALSE AS local_time_ambiguous
+    FROM roh
+"""
+
+QUELLEN = (
+    bc.Source(bc.CHICAGO, [], [], row_count=1000),
+    bc.Source(bc.DETROIT, [], [], row_count=1000),
+)
+
+
+@pytest.fixture
+def con():
+    verbindung = duckdb.connect()
+    verbindung.execute("INSTALL icu")
+    verbindung.execute("LOAD icu")
+    verbindung.execute("SET TimeZone='UTC'")
+    try:
+        yield verbindung
+    finally:
+        verbindung.close()
+
+
+def pruefe(con, ersetzung: str = "") -> str | None:
+    """``reconcile`` auf die gueltige Relation, wahlweise mit einer Verletzung.
+
+    Gibt die Fehlermeldung zurueck, oder ``None``, wenn nichts beanstandet
+    wurde. ``ersetzung`` ist ein REPLACE-Ausdruck von DuckDB und aendert genau
+    eine Spalte genau einer Zeile.
+    """
+    auswahl = f"SELECT * {ersetzung} FROM ({GUELTIG})" if ersetzung else GUELTIG
+    con.execute(f"CREATE OR REPLACE VIEW probe AS {auswahl}")
+    try:
+        bc.reconcile(con, "probe", *QUELLEN)
+    except bc.TransformError as fehler:
+        return " ".join(str(fehler).split())
+    return None
+
+
+def test_die_gueltige_relation_geht_durch(con):
+    """Der Nullpunkt: Ohne ihn belegt kein einziger Fall darunter etwas."""
+    assert pruefe(con) is None
+
+
+def zaehlung(con, ersetzung: str = "") -> dict:
+    """Die Zaehlungen je Stadt, ohne dass ein Abbruch erwartet wird."""
+    auswahl = f"SELECT * {ersetzung} FROM ({GUELTIG})" if ersetzung else GUELTIG
+    con.execute(f"CREATE OR REPLACE VIEW probe AS {auswahl}")
+    return bc.reconcile(con, "probe", *QUELLEN)["per_city"]
+
+
+def test_s03_eine_zeile_ohne_event_id_wird_gezaehlt_nicht_beanstandet(con):
+    """Artans S03 - aber weich, und das ist der interessante Teil.
+
+    Seine Sorge stimmt: ``count(DISTINCT event_id)`` ueberspringt NULL, und
+    eine Auswertung je Vorfall verloere die Zeile stillschweigend. Nur trifft
+    das nicht den Bau. ``event_id`` ist die **Fallnummer der Quelle**, und die
+    darf fehlen; der Bau rechnet solche Zeilen ueber
+    ``coalesce(event_id, offense_id)`` als ihren eigenen Fall - siehe
+    ``test_ohne_fallnummer_ist_die_zeile_ihr_eigener_fall``.
+
+    Haette S03 hart abgebrochen, waere ein Bestand unbaubar geworden, den der
+    Entwurf ausdruecklich vorsieht. Die Zahl steht deshalb im Manifest und
+    bricht nichts ab.
+    """
+    # Genommen wird ``d1``: die Zeile ist schon jetzt die zaehlende ihres
+    # Falls. Ohne Fallnummer wird sie ihr eigener Fall - und bleibt es.
+    # (Bei ``c2``, die zu einem fremden Fall gehoert, entstuende dagegen ein
+    # zweiter Fall ohne markierte Zeile, und das beanstandet der Bau zu Recht.)
+    je_stadt = zaehlung(con, "REPLACE (CASE WHEN offense_id = 'd1' THEN NULL "
+                             "ELSE event_id END AS event_id)")
+    assert je_stadt["detroit"]["ohne_event_id"] == 1
+    assert je_stadt["chicago"]["ohne_event_id"] == 0
+
+
+def test_s03_zaehlt_auch_leerraum_als_fehlend(con):
+    """Eine leere Zeichenkette ist kein Vorfall, sie sieht nur aus wie einer."""
+    je_stadt = zaehlung(con, "REPLACE (CASE WHEN offense_id = 'd1' THEN '   ' "
+                             "ELSE event_id END AS event_id)")
+    assert je_stadt["detroit"]["ohne_event_id"] == 1
+
+
+def test_s03_ist_am_referenzstand_null(con):
+    """Der Normalfall: Beide Quellen liefern durchgehend Fallnummern."""
+    je_stadt = zaehlung(con)
+    assert [z["ohne_event_id"] for z in je_stadt.values()] == [0, 0]
+
+
+def test_s04_ein_fall_ohne_zaehlende_tat_bricht_ab(con):
+    """Ein Fall besteht aus Taten; die Fallebene muss eine davon treffen.
+
+    Artans S04. Waere eine Zeile je Fall markiert, die je Tat nicht zaehlt,
+    lieferten die beiden Zaehlperspektiven Ergebnisse, die sich nicht mehr
+    ineinander ueberfuehren lassen - ohne dass eine Summe auffaellig waere.
+    """
+    meldung = pruefe(con, "REPLACE (CASE WHEN offense_id = 'd2' THEN TRUE "
+                          "ELSE counts_case END AS counts_case)")
+    assert meldung and "1 Zeilen zaehlen als Fall, aber nicht als Tat" in meldung
+
+
+def test_z05_eine_verschobene_ortszeit_bricht_ab(con):
+    """Hin und zurueck gerechnet muss dieselbe Ortszeit herauskommen."""
+    meldung = pruefe(con, "REPLACE (CASE WHEN offense_id = 'd1' "
+                          "THEN occurred_at_local + INTERVAL 1 HOUR "
+                          "ELSE occurred_at_local END AS occurred_at_local)")
+    assert meldung and "nicht zur Ortszeit passt" in meldung
+
+
+def test_z05_findet_die_falsche_stadtzeitzone(con):
+    """Der Fall, fuer den die Pruefung eigentlich da ist.
+
+    Eine einzelne verschobene Zeile ist ein Datenfehler; eine Stadt, die mit
+    der Zone der anderen gerechnet wird, ist ein Codefehler - und der verschoebe
+    jede Stundenverteilung, jede Nacht-Tag-Auswertung, jede Hypothese ueber
+    Tageszeiten.
+    """
+    meldung = pruefe(con, "REPLACE (CASE WHEN city = 'detroit' "
+                          "THEN CAST(timezone('America/Chicago', "
+                          "occurred_at_utc AT TIME ZONE 'UTC') AS TIMESTAMP) "
+                          "ELSE occurred_at_local END AS occurred_at_local)")
+    assert meldung and "detroit" in meldung and "nicht zur Ortszeit passt" in meldung
+
+
+def test_z05_nimmt_die_nicht_existente_ortszeit_aus(con):
+    """Sonst schluege die Pruefung bei jedem Vorstellen der Uhr an.
+
+    Eine Ortszeit, die es nicht gab, kann nicht zurueckgerechnet werden - das
+    ist der dokumentierte Fall, den ``local_time_nonexistent`` traegt, und
+    keine Unstimmigkeit.
+    """
+    con.execute(f"""
+        CREATE OR REPLACE VIEW probe AS
+        SELECT * REPLACE (
+            TIMESTAMP '2024-03-10 02:30:00' AS occurred_at_local,
+            TRUE AS local_time_nonexistent)
+        FROM ({GUELTIG}) WHERE offense_id = 'c1'
+        UNION ALL
+        SELECT * FROM ({GUELTIG}) WHERE offense_id <> 'c1'
+    """)
+    bc.reconcile(con, "probe", *QUELLEN)  # bricht nicht ab
+
+
+def test_m03_ein_geaenderter_crosswalk_wird_bemerkt(tmp_path, con):
+    """Silver darf nicht etwas anderes behaupten als sein eigener Crosswalk.
+
+    Artans M03. Der Bau wendet den Crosswalk als Join an und ist im Moment des
+    Baus zwangslaeufig konsistent; die Luecke oeffnet sich erst danach. Wird
+    die CSV geaendert und Silver nicht neu gebaut, driftet die Tabelle von
+    ihrer Referenz weg - und das Manifest haelt zwar die Pruefsumme der CSV
+    fest, aber niemand vergleicht sie mit der Datei auf der Platte.
+    """
+    config_root = tmp_path / "config"
+    schreibe_config(config_root)
+    con.execute(f"CREATE OR REPLACE VIEW probe AS {GUELTIG}")
+
+    # Erst der Nullpunkt: Die Relation traegt genau das, was der Crosswalk
+    # sagt. Ohne diesen Schritt belegt der zweite nichts.
+    assert bc.gegen_crosswalk(con, "probe", config_root) == {"abweichungen": 0}
+
+    pfad = config_root / bc.IUCR_MAPPING
+    pfad.write_text(
+        pfad.read_text(encoding="utf-8").replace(",13A,", ",09A,"),
+        encoding="utf-8")
+    with pytest.raises(bc.TransformError, match="weicht vom heutigen Crosswalk ab"):
+        bc.gegen_crosswalk(con, "probe", config_root)
+
+
+def test_m03_bemerkt_auch_eine_zurueckgezogene_zuordnung(tmp_path, con):
+    """``mapped = false`` heisst: Die Zeile soll in Silver keinen Code tragen.
+
+    Das ist der Fall, den ein Vergleich nur der Codes uebersieht - er findet
+    dann auf beiden Seiten nichts und ist zufrieden.
+    """
+    config_root = tmp_path / "config"
+    schreibe_config(config_root)
+    con.execute(f"CREATE OR REPLACE VIEW probe AS {GUELTIG}")
+
+    pfad = config_root / bc.MICR_MAPPING
+    pfad.write_text(
+        pfad.read_text(encoding="utf-8").replace(
+            "2401,24001,MOTOR VEHICLE THEFT,A,240,Motor Vehicle Theft,7,"
+            "micr_manual_1110_2024,true,true,",
+            "2401,24001,MOTOR VEHICLE THEFT,A,240,Motor Vehicle Theft,7,"
+            "micr_manual_1110_2024,false,true,"),
+        encoding="utf-8")
+    with pytest.raises(bc.TransformError, match="detroit"):
+        bc.gegen_crosswalk(con, "probe", config_root)
+
+
+def test_m03_laeuft_im_bau_mit(tmp_path):
+    """Die Pruefung nuetzt nur, wenn ``build`` sie auch aufruft."""
+    ziel = baue(tmp_path, CHI, DET)
+    assert ziel.exists()
+    quelle = Path(bc.__file__).read_text(encoding="utf-8")
+    assert "reconcile(con, TABLE, chicago, detroit, config_root)" in quelle, (
+        "build ruft reconcile ohne config_root auf - gegen_crosswalk liefe nie"
+    )
