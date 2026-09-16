@@ -164,11 +164,22 @@ Ein vertauschter Zonenname fiele trotzdem 88'655-fach auf.
 ohne Zone. Die 48 Zeilen in der doppelten Stunde tragen seit dem 16.9. ein
 Kennzeichen — auflösen lässt sich die Mehrdeutigkeit nachträglich nicht.
 
-**Was nur in Bronze steht, kann Silver nicht prüfen.** Anklagetext,
-Quellkategorie und der Zeitpunkt der letzten Quelländerung sind im gemeinsamen
-Silver nicht durchgängig vorhanden. Widersprüche darin brauchen den Rückgriff
-auf den Bronze-Lauf, aus dem die Zeile stammt — das Manifest nennt ihn
-namentlich.
+**Was nur in Bronze steht, kann Silver nicht prüfen.** Silver führt 28
+Spalten. Nicht darunter: der **Anklagetext** (`charge_description`,
+`arrest_charge`), die **Quellkategorie** (`offense_category` in Detroit,
+`primary_type` und `fbi_code` in Chicago) und der **Zeitpunkt der letzten
+Quelländerung** (`updated_on`, `updated_at`). Sie fehlen nicht teilweise,
+sondern ganz: Silver deutet, was für den Vergleich beider Städte nötig ist, und
+lässt den Rest in Bronze stehen.
+
+Ein Widerspruch in diesen Feldern braucht deshalb den Rückgriff auf Bronze —
+und der ist umständlicher, als er klingt, denn **Silver führt keine
+Zeilen-Herkunft**. Das Manifest nennt unter `derived_from` die Läufe, aus denen
+die Tabelle entstanden ist (drei für Chicago, zwei für Detroit), aber nicht,
+aus welchem eine bestimmte Zeile stammt. Für Detroit gibt es diesen einen Lauf
+gar nicht: Beide Schnappschüsse enthalten **alle 88'685 Zeilen**. Wer
+zurückverfolgen will, sucht den Schlüssel in den genannten Läufen — die
+Zeilen-Lineage selbst liegt in den Bronze-Manifesten, nicht in Silver.
 
 ---
 
