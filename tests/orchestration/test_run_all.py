@@ -370,3 +370,88 @@ def test_jedes_stufenmodul_kennt_die_option():
             ohne.append(stufe.modul)
     assert not ohne, f"diese Module kennen --data-root nicht: {sorted(set(ohne))}"
 
+
+
+# --------------------------------------------------------------------------
+# Das Release am Ende eines gruenen Laufs (seit 17.9.2026)
+# --------------------------------------------------------------------------
+# Ein Release ist der ganze Stand unter einer Kennung. Es entsteht nur nach
+# einem vollstaendigen gruenen Lauf - und in publizierenden Modi von selbst.
+# Ein halber Stand bekommt keine Kennung; ein Modus, der publizieren soll und
+# es nicht kann, hat den Lauf nicht geschafft.
+
+from storage import Config, FakeS3Client, Storage, set_storage  # noqa: E402
+from tests.storage.test_release import gebaut as gold_und_serving  # noqa: E402
+
+
+def gruener_lauf(tmp_path, monkeypatch, *, backend: str = "local", **kw) -> tuple[dict, Path, FakeS3Client]:
+    data_root = tmp_path / "data"
+    bronze(data_root, "city=chicago", "run_A")
+    gold_und_serving(data_root)
+    fake = FakeS3Client()
+    set_storage(Storage(Config(backend=backend, local_root=data_root,
+                               s3_access_key="k", s3_secret_key="s"), fake))
+    stufen = [falsche_stufe(tmp_path, "eins", 0)]
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(ra, "auswahl", lambda *_a, **_k: stufen)
+    return ra.lauf(data_root, tmp_path, **kw), data_root, fake
+
+
+def test_lokal_entsteht_ohne_ausdruecklichen_wunsch_kein_release(tmp_path, monkeypatch):
+    manifest, data_root, _ = gruener_lauf(tmp_path, monkeypatch)
+    assert manifest["status"] == "complete"
+    assert manifest["release"] is None
+    assert not (data_root / "releases").exists()
+
+
+def test_release_erzwingt_eines_auch_lokal(tmp_path, monkeypatch):
+    manifest, data_root, fake = gruener_lauf(tmp_path, monkeypatch, release=True)
+    assert manifest["release"]["published"] is False
+    kennung = manifest["release"]["release_id"]
+    assert (data_root / "releases" / f"release={kennung}" / "release.json").is_file()
+    assert fake.uploads == []
+
+
+def test_im_hybridmodus_entsteht_es_von_selbst_und_geht_hoch(tmp_path, monkeypatch):
+    manifest, _, fake = gruener_lauf(tmp_path, monkeypatch, backend="hybrid")
+    assert manifest["release"]["published"] is True
+    assert fake.uploads[-1] == "releases/AKTUELL.json"
+    assert json.loads(fake.get("releases/AKTUELL.json"))["release_id"] == manifest["release"]["release_id"]
+
+
+def test_ohne_release_unterlaesst_es_auch_im_hybridmodus(tmp_path, monkeypatch):
+    manifest, _, fake = gruener_lauf(tmp_path, monkeypatch, backend="hybrid", release=False)
+    assert manifest["release"] is None and fake.uploads == []
+
+
+def test_ein_roter_lauf_bekommt_kein_release(tmp_path, monkeypatch):
+    data_root = tmp_path / "data"
+    bronze(data_root, "city=chicago", "run_A")
+    gold_und_serving(data_root)
+    set_storage(Storage(Config(backend="hybrid", local_root=data_root,
+                               s3_access_key="k", s3_secret_key="s"), FakeS3Client()))
+    stufen = [falsche_stufe(tmp_path, "kaputt", 2)]
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(ra, "auswahl", lambda *_a, **_k: stufen)
+    manifest = ra.lauf(data_root, tmp_path)
+    assert manifest["status"] == "failed" and manifest["release"] is None
+    assert not (data_root / "releases").exists()
+
+
+def test_bis_vor_serving_bekommt_kein_release(tmp_path, monkeypatch):
+    manifest, _, _ = gruener_lauf(tmp_path, monkeypatch, backend="hybrid", bis="gold")
+    assert manifest["status"] == "complete" and manifest["release"] is None
+
+
+def test_ein_gescheitertes_release_macht_den_lauf_rot(tmp_path, monkeypatch):
+    """Ein publizierender Modus, der nicht publiziert, hat nichts geschafft."""
+    from orchestration import release as rel
+    from storage.release import ReleaseFehler
+
+    def kaputt(*_a, **_k):
+        raise ReleaseFehler("Platte voll")
+
+    monkeypatch.setattr(rel, "bilde_und_publiziere", kaputt)
+    manifest, _, _ = gruener_lauf(tmp_path, monkeypatch, backend="hybrid")
+    assert manifest["status"] == "failed"
+    assert manifest["release"] == {"status": "failed", "error": "Platte voll"}

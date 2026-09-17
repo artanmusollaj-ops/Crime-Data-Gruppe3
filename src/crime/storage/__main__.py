@@ -4,6 +4,10 @@
     python -m storage publizieren              # zeigen, welche lokalen Laeufe oben fehlen
     python -m storage publizieren --wirklich   # sie hochbringen, Raw vor Bronze
 
+Releases (der ganze Stand unter einer Kennung) bildet und listet
+``python -m orchestration.release`` - dort, weil die Datenbank im Release aus
+``serving`` kommt und ``storage`` als Fundament nichts davon wissen darf.
+
 Die Pruefung zeigt Modus, Wurzel, Endpoint und Bucket (nie die Schluessel),
 loest den Hostnamen auf und listet, was unter ``silver/`` liegt. Exit 0, wenn
 die Ablage antwortet; 1 mit einem Satz, wenn nicht.

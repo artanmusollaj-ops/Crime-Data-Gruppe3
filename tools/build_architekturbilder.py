@@ -251,7 +251,7 @@ def bild_datenfluss() -> str:
         "ingestion": ("raw + bronze", "je Lauf ein Verzeichnis, unveränderlich"),
         "silver": ("silver", "gedeutet: Typen, Einheiten, Schlüssel"),
         "gold": ("gold", "Sternschema, eine Zeile je Tat"),
-        "serving": ("serving", "bleibt immer lokal"),
+        "serving": ("serving", "lokal gebaut; als Release publiziert"),
     }
     KASTEN_H, ZEILE_H, RAND, BREITE = 52, 104, 24, 860
     hoehe = RAND + len(run_all.GRUPPEN) * ZEILE_H + 34
@@ -279,7 +279,7 @@ def bild_datenfluss() -> str:
     beschreibung = (
         f"Der Datenfluss in vier Gruppen mit {len(run_all.STUFEN)} Stufen: "
         "Ingestion schreibt raw und bronze, silver deutet, gold baut das "
-        "Sternschema, serving stellt bereit."
+        "Sternschema, serving stellt bereit - und ein gruener Lauf wird zum Release."
     )
     return (KOPF.format(breite=BREITE, hoehe=hoehe, beschreibung=beschreibung)
             + "\n".join(teile) + "\n</svg>\n")

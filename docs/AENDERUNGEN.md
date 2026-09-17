@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'095** |
+| Tests | **1'119** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,65 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.09.2026 · Der Veröffentlichungsstand ist gebaut: ein Release je Kennung (#109)
+
+**Was.** Etappe 2 des Umbaus nach dem externen Rat. `storage.release` bildet
+nach jedem grünen Gesamtlauf ein Verzeichnis je Kennung —
+`data/releases/release=2026-09-17T16-31-45Z/` — mit den fünf Gold-Tabellen,
+den vier Serving-Tabellen, dem GeoJSON, einer **selbständigen**
+`analyse.duckdb` und `release.json`. Publiziert wird es unveränderlich wie ein
+Lauf, `release.json` zuletzt; erst danach wird `releases/AKTUELL.json`
+umgelegt — ein Objekt, dessen Ersetzung lokal wie auf S3 unteilbar ist. Alle
+Tabellen wechseln gemeinsam; ein Abbruch an jeder Stelle lässt den alten Stand
+gültig. Die festen Pfade `gold/dataset=…` werden weiterhin bedient.
+
+**Gemessen am Referenzstand.** 21 Dateien, **42,3 MB** — 14 MB Parquet plus
+eine **26,5 MB** grosse Datenbank mit zehn Tabellen. `release.json` trägt
+SHA-256 je Datei, die Vertragsversionen (`gold` 4, `serving/comparison_*` 1),
+den Code-Stand, das Publish-Gate und die Herkunft bis zu den fünf Bronze-Läufen
+und den drei Crosswalk-Prüfsummen. Ein Jahr wöchentlicher Releases: rund 2 GB.
+
+**Die Datenbank im Release hält Tabellen, nicht Sichten.** Die
+Arbeitsdatenbank `data/serving/analyse.duckdb` bleibt Sichten — ihre Pfade
+sind absolut, auf einem anderen Rechner wäre sie wertlos. Ein Release ist
+unveränderlich; eine Kopie darin kann nicht veralten. `release_info` nennt
+Kennung und Zeitpunkt, damit ein Dashboard sagen kann, welchen Stand es zeigt.
+
+**Je Modus.** `local`: nur mit `run_all --release`, bleibt lokal. `hybrid`:
+nach jedem grünen Gesamtlauf von selbst, lokale Kopie bleibt. `s3`: wie
+`hybrid`, lokale Kopie danach entfernt. Ein Release entsteht nur nach einem
+vollständigen grünen Lauf bis einschliesslich Serving; ein halber Stand
+bekommt keine Kennung. **Scheitert das Publizieren, ist der Lauf gescheitert.**
+
+**Ein Importzyklus, vom Wächter gefunden.** Der erste Entwurf liess
+`storage.release` die Datenbank selbst bauen — ein Import aus `serving` in
+einem Fundament. `test_die_fundamente_haengen_an_nichts` hat es beim ersten
+vollen Lauf gemeldet. Seither reicht der Aufrufer den Haken:
+`orchestration.release` kennt `serving`, `storage.release` kennt nur Dateien.
+Die Befehle heissen deshalb `python -m orchestration.release erstellen | liste
+| aktuell`, nicht `python -m storage release`.
+
+**Und ein Beinahe-Commit.** `data/releases/` war nicht in `.gitignore` — 42 MB
+wären untracked in den ersten Commit gewandert. Jetzt ignoriert wie `serving/`.
+
+**Nachgezogen.** Ausblick 6 führt den Bau als *gebaut* statt *offen*, der
+Wächter prüft das Gegenteil von vorher; `storage-architektur.md` 6a, 9, 12;
+README 2.5; Datenflussbild („serving: lokal gebaut; als Release publiziert").
+Bewusst noch nicht umgestellt: die Leser der festen Pfade — der feste Pfad ist
+die Arbeitskopie, das Release der freigegebene Stand.
+
+**Offen, für Freitag.** Releases werden aufgehoben; welche und wie lange,
+entscheidet `datenhistorie.md` (Etappe 6).
+
+**Zahlen.** 1'095 → **1'119 Tests** (17 für das Release, 7 für den Lauf).
+Frischklon 1'038 von 1'119.
+
+**Nachlesen.** `src/crime/storage/release.py` ·
+`src/crime/orchestration/release.py` · `tests/storage/test_release.py` ·
+PR #109
 
 ---
 
