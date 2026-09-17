@@ -180,6 +180,28 @@ def pakete() -> list[str]:
     )
 
 
+def module() -> list[str]:
+    """Jedes Paket **und jedes seiner Module**, ausdruecklich.
+
+    pdoc findet Untermodule von selbst - ausser ein Paket definiert
+    ``__all__``: Dann dokumentiert es nur, was darin steht, und ``storage``
+    tut genau das. Bis zum 17.9.2026 hatten ``storage.backend``,
+    ``storage.config`` und ``storage.release`` deshalb keine Seite; die
+    Ablage, die alles traegt, war die einzige Schicht ohne Referenz.
+    Ausdruecklich uebergeben werden sie unabhaengig davon gerendert.
+    ``__main__`` bleibt draussen - eine Befehlszeile ist keine API.
+    """
+    gefunden: list[str] = []
+    for paket in pakete():
+        gefunden.append(paket)
+        for pfad in sorted((QUELLE / paket).rglob("*.py")):
+            if "__pycache__" in pfad.parts or pfad.stem in ("__init__", "__main__"):
+                continue
+            teile = pfad.relative_to(QUELLE).with_suffix("").parts
+            gefunden.append(".".join(teile))
+    return gefunden
+
+
 def beschreibung(paket: str) -> str:
     """Die erste Zeile des Paket-Docstrings, ohne den Schlusspunkt zu verlieren.
 
@@ -351,7 +373,7 @@ def baue(ziel: Path = ZIEL) -> Ergebnis:
     pdoc.render.env.globals["aus_fremdem_code"] = aus_fremdem_code
     with warnings.catch_warnings(record=True) as gesammelt:
         warnings.simplefilter("always")
-        pdoc.pdoc(*pakete(), output_directory=ziel)
+        pdoc.pdoc(*module(), output_directory=ziel)
 
     (ziel / "index.html").write_text(startseite(), encoding="utf-8")
     (ziel / MARKE).write_text(
