@@ -53,7 +53,7 @@ import hashlib
 import json
 import logging
 import shutil
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -78,6 +78,15 @@ INHALT: tuple[tuple[str, str], ...] = (
     ("serving", "tracts.geojson"),
     ("serving", "tracts.manifest.json"),
 )
+# Was mindestens dasein muss, damit ein Release eines ist. ``storage`` kennt
+# nur Dateien, nicht die Schichten darueber - deshalb ist das hier ein Boden,
+# und der Aufrufer reicht die vollstaendige Liste nach (``orchestration.release``).
+#
+# Warum es diesen Parameter gibt: Am 17.9.2026 wurde ``data/serving/``
+# beiseitegeschoben und ein Release gebildet. Es entstand mit 11 statt 21
+# Dateien - ohne die vier Vergleichstabellen, ohne die Karte - und nannte sich
+# ``complete``. Ein Teilstand, dem man es nicht ansieht, ist schlimmer als
+# keiner.
 PFLICHT = ("gold/dataset=fact_offense",)
 
 
@@ -213,6 +222,7 @@ Ergaenzung = Callable[[Path, dict[str, Any]], None]
 
 
 def erstelle(data_root: Path, *, ergaenze: Ergaenzung | None = None,
+             pflicht: Iterable[str] = PFLICHT,
              kennung_: str | None = None, jetzt: datetime | None = None) -> Path:
     """Bildet ein Release lokal - vollstaendig oder gar nicht.
 
@@ -236,12 +246,16 @@ def erstelle(data_root: Path, *, ergaenze: Ergaenzung | None = None,
                             "unveraenderlich; eine neue Kennung bekommt der naechste Lauf.")
 
     dateien = sammle(data_root)
-    vorhanden = {rel.rsplit("/", 1)[0] for _, rel in dateien}
-    fehlend = [p for p in PFLICHT if p not in vorhanden]
+    # Ein Eintrag der Pflichtliste ist entweder ein Tabellenverzeichnis
+    # (``gold/dataset=fact_offense``) oder eine Datei (``serving/tracts.geojson``).
+    vorhanden = {rel for _, rel in dateien} | {rel.rsplit("/", 1)[0] for _, rel in dateien}
+    fehlend = [p for p in pflicht if p not in vorhanden]
     if fehlend:
         raise ReleaseFehler(
-            f"Kein Release ohne {', '.join(fehlend)} - Gold ist nicht gebaut. "
-            "Zuerst: python -m orchestration.run_all --ohne-ingestion"
+            f"Kein Release, es fehlt: {', '.join(fehlend)}. Ein Release ist der "
+            "ganze Stand oder keiner - ein Teilstand, dem man es nicht ansieht, "
+            "waere schlimmer als gar keiner. Zuerst bauen: "
+            "python -m orchestration.run_all --ohne-ingestion"
         )
 
     arbeit = ziel.parent / f".{ziel.name}.part"
@@ -337,9 +351,10 @@ def publiziere(storage: Storage, verzeichnis_: Path) -> list[str]:
 
 
 def erstelle_und_publiziere(data_root: Path, storage: Storage, *,
-                            ergaenze: Ergaenzung | None = None) -> dict[str, Any]:
+                            ergaenze: Ergaenzung | None = None,
+                            pflicht: Iterable[str] = PFLICHT) -> dict[str, Any]:
     """Der Schritt am Ende eines gruenen Gesamtlaufs."""
-    ziel = erstelle(data_root, ergaenze=ergaenze)
+    ziel = erstelle(data_root, ergaenze=ergaenze, pflicht=pflicht)
     manifest = lies(ziel)
     oben = publiziere(storage, ziel)
     return {

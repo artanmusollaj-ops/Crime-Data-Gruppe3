@@ -62,6 +62,7 @@ from gold_pipeline import (
     MAPPING_STATUS_WERTE,
     STADT_SCHWELLE,
     STADT_SCHLUESSEL,
+    TABELLEN,
     table_dir,
 )
 from silver_pipeline import (
@@ -966,6 +967,13 @@ def build(data_root: Path, config_root: Path, vintage: int) -> dict[str, Path]:
                   "dann 0 und bedeutet nicht trocken - wer trockene Tage "
                   "zaehlt, muss die Spalte lesen")}),
         ]
+        gebaut = tuple(z[0] for z in bauplan)
+        if gebaut != TABELLEN:
+            raise TransformError(
+                f"Der Bauplan nennt {gebaut}, gold_pipeline.TABELLEN sagt "
+                f"{TABELLEN}. Beide muessen dasselbe sagen - ein Release "
+                "leitet daraus ab, was vollstaendig heisst."
+            )
         for tabelle, granularitaet, quellen, notizen in bauplan:
             manifest = build_manifest(
                 con, tabelle, quellen, started,

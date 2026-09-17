@@ -90,6 +90,16 @@ GATE_HOECHSTENS = {
 }
 
 
+# Die fuenf Tabellen des Sternschemas, in der Reihenfolge des Bauplans.
+# ``build_gold`` prueft sich dagegen: Kommt eine dazu und fehlt sie hier, faellt
+# der Bau auf. Gebraucht wird die Liste ausserhalb, damit ein Release sagen
+# kann, was vollstaendig heisst - ohne die fuenf Namen ein zweites Mal zu
+# tippen (siehe ``orchestration.release``).
+TABELLEN: tuple[str, ...] = (
+    "fact_offense", "dim_tract", "dim_offense", "dim_date", "dim_city_day",
+)
+
+
 def table_dir(data_root: Path, table: str) -> Path:
     """Wohin eine Gold-Tabelle geschrieben wird."""
     return data_root / GOLD_LAYER / f"dataset={table}"
