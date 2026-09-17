@@ -267,7 +267,7 @@ def schreibe_manifest(data_root: Path, manifest: dict) -> Path:
 def lauf(data_root: Path, projekt_root: Path, *,
          ohne_ingestion: bool = False, bis: str | None = None,
          maximal_alter_tage: float | None = None,
-         release: bool | None = None) -> dict:
+         release: bool | None = None, holen: bool = True) -> dict:
     """Die ganze Strecke - und am Ende, wenn alles gruen ist, ein Release.
 
     ``release``: ``None`` heisst *wenn die Ablage publiziert* (hybrid, s3),
@@ -276,10 +276,27 @@ def lauf(data_root: Path, projekt_root: Path, *,
     Serving - ein halber Stand bekommt keine Kennung. Scheitert das Release,
     ist der Lauf gescheitert: Ein publizierender Modus, der nicht publiziert,
     hat sein Versprechen nicht gehalten.
+
+    ``holen``: In einem Modus mit S3 werden zuerst alle Raw- und
+    Bronze-Laeufe geholt, die oben liegen und lokal fehlen - jeder Rechner
+    soll den ganzen Bestand haben, und Laeufe sind unveraenderlich, eine
+    Kopie kann nicht veralten. Scheitert das Holen, laeuft nichts weiter:
+    Silver auf einem halben Bronze waere genau der Stand, den niemand
+    erklaeren kann.
     """
     stufen = auswahl(ohne_ingestion, bis)
     begonnen = datetime.now(timezone.utc)
     zu_alt: dict[str, float | None] = {}
+
+    geholt: list[str] = []
+    holen_gescheitert: str | None = None
+    ablage = for_root(data_root)
+    if holen and ablage.config.remote:
+        try:
+            geholt = ablage.hole_fehlende_laeufe(("raw", "bronze"))
+        except StorageError as fehler:
+            holen_gescheitert = str(fehler)
+            LOG.error("Laeufe nicht geholt: %s. Nichts gebaut.", fehler)
 
     # Ohne Ingestion werden die Daten nicht frischer. Sind sie schon zu alt,
     # lohnt sich keine Stufe - und ein Gold auf veraltetem Bronze waere genau
@@ -301,7 +318,7 @@ def lauf(data_root: Path, projekt_root: Path, *,
     abgeleitet = [s for s in stufen if s.gruppe != "ingestion"]
 
     protokoll: list[dict] = []
-    if not zu_alt:
+    if not zu_alt and holen_gescheitert is None:
         protokoll = fahre(geladen, projekt_root, data_root)
         ingestion_ok = (all(s["exit"] == 0 for s in protokoll)
                         and len(protokoll) == len(geladen))
@@ -317,11 +334,10 @@ def lauf(data_root: Path, projekt_root: Path, *,
 
     gelaufen = all(s["exit"] == 0 for s in protokoll) and len(protokoll) == len(stufen)
 
-    geschafft = gelaufen and not zu_alt
+    geschafft = gelaufen and not zu_alt and holen_gescheitert is None
 
     freigabe: dict | None = None
     if geschafft and bis is None:
-        ablage = for_root(data_root)
         if release is True or (release is None and ablage.config.publiziert):
             from orchestration import release as release_modul
             try:
@@ -337,6 +353,8 @@ def lauf(data_root: Path, projekt_root: Path, *,
     laeufe = bronze_laeufe(data_root)
     manifest = {
         "status": "complete" if geschafft else "failed",
+        "fetched_runs": geholt,
+        "fetch_error": holen_gescheitert,
         "release": freigabe,
         "started_at_utc": begonnen.isoformat(),
         "finished_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -367,6 +385,8 @@ def arguments() -> argparse.Namespace:
                    help="nach dieser Gruppe aufhoeren")
     p.add_argument("--trocken", action="store_true",
                    help="nur zeigen, was liefe")
+    p.add_argument("--ohne-holen", dest="holen", action="store_false",
+                   help="fehlende Raw- und Bronze-Laeufe nicht von SeaweedFS holen")
     freigabe = p.add_mutually_exclusive_group()
     freigabe.add_argument("--release", dest="release", action="store_true", default=None,
                           help="nach gruenem Lauf ein Release bilden, auch im local-Modus")
@@ -398,7 +418,7 @@ def main() -> int:
     manifest = lauf(for_root(args.data_root).local_root, projekt_root,
                     ohne_ingestion=args.ohne_ingestion, bis=args.bis,
                     maximal_alter_tage=args.maximal_alter_tage,
-                    release=args.release)
+                    release=args.release, holen=args.holen)
 
     print()
     if manifest["status"] != "complete":
@@ -409,6 +429,8 @@ def main() -> int:
                 for q, t in zu_alt.items()
             )
             print(f"Zu alt: {alt_}. Erlaubt: {args.maximal_alter_tage} Tage.")
+        elif manifest.get("fetch_error"):
+            print(f"Laeufe nicht geholt: {manifest['fetch_error']}")
         elif (manifest.get("release") or {}).get("status") == "failed":
             print(f"Strecke gruen, Release gescheitert: {manifest['release']['error']}")
         else:
@@ -416,6 +438,8 @@ def main() -> int:
             print(f"Abgebrochen bei {gescheitert['gruppe']} · {gescheitert['name']}.")
         return 1
     gesamt = sum(s["sekunden"] for s in manifest["stages"])
+    if manifest.get("fetched_runs"):
+        print(f"{len(manifest['fetched_runs'])} Lauf/Laeufe von SeaweedFS geholt.")
     print(f"{len(manifest['stages'])} Stufen in {gesamt:.0f} s.")
     print(f"Fingerabdruck der Eingaben: {manifest['input_fingerprint'][:16]}")
     if manifest.get("release"):

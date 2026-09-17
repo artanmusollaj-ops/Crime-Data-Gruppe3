@@ -280,3 +280,98 @@ def test_erstelle_und_publiziere_meldet_was_geschah(tmp_path):
     assert ergebnis["published"] is True
     assert ergebnis["files"] == len(release.lies(
         release.verzeichnis(data_root, ergebnis["release_id"]))["files"])
+
+
+# --------------------------------------------------------------------------
+# Holen und einsetzen (Etappe 3)
+# --------------------------------------------------------------------------
+
+
+def publiziert(tmp_path: Path) -> tuple[Storage, FakeS3Client, Path, Path]:
+    """Ein Release, das ein anderer Rechner publiziert hat: nur oben, nicht hier."""
+    storage, fake, data_root = ablage(tmp_path, "hybrid")
+    gebaut(data_root)
+    ziel = bilde(data_root, jetzt=JETZT)
+    release.publiziere(storage, ziel)
+    # Der andere Rechner: dieselbe Ablage, leere lokale Wurzel.
+    hier = tmp_path / "hier"
+    storage2 = Storage(Config(backend="hybrid", local_root=hier,
+                              s3_access_key="k", s3_secret_key="s"), fake)
+    return storage2, fake, hier, ziel
+
+
+def test_holen_aktuell_bringt_das_ganze_release_geprueft_herunter(tmp_path):
+    storage, _, hier, original = publiziert(tmp_path)
+    ziel = release.hole(storage, "aktuell")
+    assert ziel == hier / "releases" / f"release={KENNUNG}"
+    manifest = release.lies(ziel)
+    for rel, angabe in manifest["files"].items():
+        assert release.sha256(ziel / rel) == angabe["sha256"], rel
+    assert (ziel / "serving" / "analyse.duckdb").read_bytes() == \
+        (original / "serving" / "analyse.duckdb").read_bytes()
+    assert json.loads((hier / "releases" / "AKTUELL.json").read_text())["release_id"] == KENNUNG
+
+
+def test_holen_nur_datenbank_holt_genau_eine_datei(tmp_path):
+    storage, fake, hier, _ = publiziert(tmp_path)
+    geholt = []
+    echt = fake.get
+    fake.get = lambda key: geholt.append(key) or echt(key)
+    ziel = release.hole(storage, KENNUNG, nur_datenbank=True)
+    assert sorted(geholt) == sorted([
+        f"releases/release={KENNUNG}/release.json",
+        f"releases/release={KENNUNG}/serving/analyse.duckdb",
+    ])
+    assert (ziel / "serving" / "analyse.duckdb").is_file()
+    assert not (ziel / "gold").exists()
+    assert not (hier / "releases" / "AKTUELL.json").exists(), (
+        "nur die Datenbank ist kein ganzer Stand - der Zeiger bleibt aus"
+    )
+
+
+def test_holen_ist_idempotent(tmp_path):
+    storage, fake, _, _ = publiziert(tmp_path)
+    release.hole(storage, "aktuell")
+    geholt = []
+    echt = fake.get
+    fake.get = lambda key: geholt.append(key) or echt(key)
+    release.hole(storage, "aktuell")
+    assert geholt == [], (
+        "beim zweiten Mal wird nichts geladen - auch release.json liegt identisch da; "
+        "verglichen wird ueber head(), nicht ueber get()"
+    )
+
+
+def test_eine_datei_die_nicht_zum_manifest_passt_wird_verworfen(tmp_path):
+    storage, fake, hier, _ = publiziert(tmp_path)
+    fake.put(f"releases/release={KENNUNG}/gold/dataset=dim_date/part-0001.parquet", b"VERTAUSCHT")
+    with pytest.raises(release.ReleaseFehler, match="SHA-256 stimmt nicht"):
+        release.hole(storage, "aktuell")
+    assert not (hier / "releases" / f"release={KENNUNG}" / "gold" / "dataset=dim_date"
+                / "part-0001.parquet").exists()
+
+
+def test_ohne_zeiger_ein_klarer_fehler(tmp_path):
+    storage, _, _ = ablage(tmp_path, "hybrid")
+    with pytest.raises(release.ReleaseFehler, match="Kein Zeiger"):
+        release.hole(storage, "aktuell")
+
+
+def test_einsetzen_bringt_die_tabellen_an_ihre_festen_pfade(tmp_path):
+    storage, _, hier, _ = publiziert(tmp_path)
+    ziel = release.hole(storage, "aktuell")
+    eingesetzt = release.einsetzen(hier, ziel)
+    assert (hier / "gold" / "dataset=fact_offense" / "manifest.json").is_file()
+    assert (hier / "serving" / "dataset=comparison_day" / "part-0001.parquet").is_file()
+    assert (hier / "serving" / "tracts.geojson").is_file()
+    assert json.loads((hier / "gold" / "dataset=fact_offense" / "manifest.json").read_text())["row_count"] == 5
+    assert len(eingesetzt) == 5
+    assert not list((hier / "gold").glob(".*")), "kein .part, kein .superseded"
+
+
+def test_einsetzen_ersetzt_einen_aelteren_stand_unteilbar(tmp_path):
+    storage, _, hier, _ = publiziert(tmp_path)
+    alt = tabelle(hier, "gold", "fact_offense", 99)
+    ziel = release.hole(storage, "aktuell")
+    release.einsetzen(hier, ziel)
+    assert json.loads((alt / "manifest.json").read_text())["row_count"] == 5

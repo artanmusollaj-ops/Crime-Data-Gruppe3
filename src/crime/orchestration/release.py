@@ -4,6 +4,9 @@
     python -m orchestration.release aktuell                  # worauf der Zeiger zeigt
     python -m orchestration.release erstellen                # aus Gold und Serving bilden
     python -m orchestration.release erstellen --publizieren  # ... hochbringen, Zeiger umlegen
+    python -m orchestration.release holen                    # das aktuelle Release herunterladen
+    python -m orchestration.release holen 2026-09-17T16-31-45Z --nur-datenbank
+    python -m orchestration.release holen --einsetzen        # ... und an die festen Pfade setzen
 
 Die Ablage (``storage.release``) weiss, wie ein Release liegt und publiziert
 wird. Was **hinein** gehoert, ausser Kopien, weiss sie nicht - das ist die
@@ -46,9 +49,15 @@ def bilde_und_publiziere(data_root: Path, storage) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="python -m orchestration.release", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("was", choices=("erstellen", "liste", "aktuell"))
+    p.add_argument("was", choices=("erstellen", "liste", "aktuell", "holen"))
+    p.add_argument("kennung", nargs="?", default="aktuell",
+                   help="holen: eine Release-Kennung oder 'aktuell' (Vorgabe)")
     p.add_argument("--publizieren", action="store_true",
-                   help="nach dem Bilden hochbringen und AKTUELL.json umlegen")
+                   help="erstellen: nach dem Bilden hochbringen und AKTUELL.json umlegen")
+    p.add_argument("--nur-datenbank", action="store_true",
+                   help="holen: nur serving/analyse.duckdb")
+    p.add_argument("--einsetzen", action="store_true",
+                   help="holen: die Tabellen danach an die festen Pfade setzen")
     p.add_argument("--data-root", type=Path, default=None,
                    help="Wurzel der Schichten (Vorgabe: LOCAL_DATA_ROOT oder data)")
     args = p.parse_args(argv)
@@ -77,6 +86,17 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             for k, v in zeiger.items():
                 print(f"  {k:16}: {v}")
+            return 0
+        if args.was == "holen":
+            ziel = release.hole(ablage, args.kennung, nur_datenbank=args.nur_datenbank)
+            manifest = release.lies(ziel)
+            print(f"Release {manifest['release_id']} geholt -> {ziel}")
+            if args.einsetzen:
+                if args.nur_datenbank:
+                    print("--einsetzen braucht das ganze Release, nicht nur die Datenbank.")
+                    return 1
+                eingesetzt = release.einsetzen(ablage.local_root, ziel)
+                print(f"Eingesetzt: {len(eingesetzt)} Ziel(e) unter {ablage.local_root}")
             return 0
         ziel = bilde(ablage.local_root)
         manifest = release.lies(ziel)

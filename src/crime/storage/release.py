@@ -351,6 +351,99 @@ def erstelle_und_publiziere(data_root: Path, storage: Storage, *,
 
 
 # ---------------------------------------------------------------------------
+# Holen und einsetzen
+# ---------------------------------------------------------------------------
+
+
+def hole(storage: Storage, was: str = "aktuell", *, nur_datenbank: bool = False) -> Path:
+    """Ein Release von SeaweedFS in die lokale Wurzel - geprueft gegen ``release.json``.
+
+    ``was`` ist eine Kennung oder ``aktuell``. Zuerst kommt ``release.json``,
+    dann jede Datei darin; jede wird gegen ihre SHA-256 gehalten, nicht nur
+    gegen das ETag. ``nur_datenbank`` holt allein ``serving/analyse.duckdb`` -
+    fuer ein Dashboard, das nichts anderes braucht (Rat vom 17.9.2026,
+    Schritte 3 bis 5). Was schon identisch da ist, wird nicht erneut geladen.
+    """
+    if was == "aktuell":
+        zeiger = aktuell(storage)
+        if zeiger is None:
+            raise ReleaseFehler("Kein Zeiger - es wurde noch kein Release publiziert.")
+        was = zeiger["release_id"]
+    rel = relativ(was)
+    manifest_pfad = storage.hole(paths.relativ(rel, RELEASE_MANIFEST))
+    manifest = lies(manifest_pfad.parent)
+    gewollt = [r for r in manifest["files"]
+               if not nur_datenbank or r.endswith("/" + DATENBANK)]
+    if nur_datenbank and not gewollt:
+        raise ReleaseFehler(f"Release {was} enthaelt keine {DATENBANK}")
+    for r in gewollt:
+        pfad = storage.local_path(rel, r)
+        angabe = manifest["files"][r]
+        if pfad.is_file() and pfad.stat().st_size == angabe["bytes"] \
+                and sha256(pfad) == angabe["sha256"]:
+            continue
+        storage.hole(paths.relativ(rel, r))
+        if sha256(pfad) != angabe["sha256"]:
+            pfad.unlink(missing_ok=True)
+            raise ReleaseFehler(
+                f"{r}: SHA-256 stimmt nicht mit release.json ueberein - die Datei "
+                "oben ist nicht die, die das Release beschreibt. Geloescht."
+            )
+    ziel = manifest_pfad.parent
+    if not nur_datenbank:
+        setze_aktuell(storage.local_path(RELEASES, AKTUELL), manifest)
+    LOG.info("Release %s geholt: %d Datei(en) -> %s", was, len(gewollt), ziel)
+    return ziel
+
+
+def einsetzen(data_root: Path, verzeichnis_: Path) -> list[Path]:
+    """Die Tabellen eines Release an ihre festen Pfade setzen - Tabelle fuer Tabelle unteilbar.
+
+    Danach liest, wer ``gold/dataset=...`` liest, genau den freigegebenen
+    Stand. Die Manifeste kommen mit, deshalb sieht auch der Standvergleich der
+    Ablage (Abschnitt 8) denselben Bauzeitpunkt wie oben. Eingesetzt wird nur,
+    was das Release gegen seine Pruefsummen bestanden hat - also nur, was
+    ``hole`` oder ``erstelle`` hingelegt hat.
+    """
+    manifest = lies(verzeichnis_)
+    tabellen = sorted({r.rsplit("/", 1)[0] for r in manifest["files"] if "/dataset=" in r})
+    eingesetzt: list[Path] = []
+    for rel_dir in tabellen:
+        quelle = verzeichnis_ / rel_dir
+        for r, angabe in manifest["files"].items():
+            if r.startswith(rel_dir + "/") and sha256(verzeichnis_ / r) != angabe["sha256"]:
+                raise ReleaseFehler(f"{r}: Pruefsumme stimmt nicht - nicht eingesetzt")
+        ziel = data_root / rel_dir
+        arbeit = ziel.parent / f".{ziel.name}.release.part"
+        verdraengt = ziel.parent / f".{ziel.name}.release.superseded"
+        shutil.rmtree(arbeit, ignore_errors=True)
+        shutil.rmtree(verdraengt, ignore_errors=True)
+        shutil.copytree(quelle, arbeit)
+        try:
+            if ziel.exists():
+                ziel.rename(verdraengt)
+            arbeit.rename(ziel)
+            shutil.rmtree(verdraengt, ignore_errors=True)
+        except BaseException:
+            shutil.rmtree(arbeit, ignore_errors=True)
+            if verdraengt.exists() and not ziel.exists():
+                verdraengt.rename(ziel)
+            raise
+        eingesetzt.append(ziel)
+    for name in ("tracts.geojson", "tracts.manifest.json"):
+        quelle = verzeichnis_ / "serving" / name
+        if quelle.is_file():
+            ziel = data_root / "serving" / name
+            ziel.parent.mkdir(parents=True, exist_ok=True)
+            arbeit = ziel.with_name(f".{name}.release.part")
+            shutil.copy2(quelle, arbeit)
+            arbeit.replace(ziel)
+            eingesetzt.append(ziel)
+    LOG.info("Release %s eingesetzt: %d Tabellen", manifest["release_id"], len(tabellen))
+    return eingesetzt
+
+
+# ---------------------------------------------------------------------------
 # Lesen
 # ---------------------------------------------------------------------------
 
