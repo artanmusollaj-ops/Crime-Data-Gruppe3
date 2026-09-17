@@ -536,3 +536,20 @@ def test_scheitert_das_holen_laeuft_nichts(tmp_path, monkeypatch):
     assert manifest["status"] == "failed"
     assert "Download fehlgeschlagen" in manifest["fetch_error"]
     assert manifest["stages"] == [] and not spur.exists(), "keine Stufe ist gelaufen"
+
+
+def test_im_s3_modus_wird_nicht_von_selbst_geholt(tmp_path, monkeypatch):
+    """s3 ist definiert als ohne lokalen Bestand - ein Lauf, der ihn fuellte,
+    widerspraeche der eigenen Definition. Von Hand geht es weiterhin."""
+    data_root = tmp_path / "data"
+    fake = FakeS3Client()
+    oben_lauf(fake, "bronze/city=chicago/ingest_date=2026-09-06/run_A")
+    set_storage(Storage(Config(backend="s3", local_root=data_root,
+                               s3_access_key="k", s3_secret_key="s"), fake))
+    stufen = [falsche_stufe(tmp_path, "eins", 0)]
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(ra, "auswahl", lambda *_a, **_k: stufen)
+    manifest = ra.lauf(data_root, tmp_path, release=False)
+    assert manifest["status"] == "complete"
+    assert manifest["fetched_runs"] == []
+    assert not (data_root / "bronze").exists()

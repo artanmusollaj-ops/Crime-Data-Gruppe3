@@ -277,12 +277,15 @@ def lauf(data_root: Path, projekt_root: Path, *,
     ist der Lauf gescheitert: Ein publizierender Modus, der nicht publiziert,
     hat sein Versprechen nicht gehalten.
 
-    ``holen``: In einem Modus mit S3 werden zuerst alle Raw- und
-    Bronze-Laeufe geholt, die oben liegen und lokal fehlen - jeder Rechner
-    soll den ganzen Bestand haben, und Laeufe sind unveraenderlich, eine
-    Kopie kann nicht veralten. Scheitert das Holen, laeuft nichts weiter:
-    Silver auf einem halben Bronze waere genau der Stand, den niemand
-    erklaeren kann.
+    ``holen``: Im Hybridmodus werden zuerst alle Raw- und Bronze-Laeufe
+    geholt, die oben liegen und lokal fehlen - jeder Rechner soll den ganzen
+    Bestand haben, und Laeufe sind unveraenderlich, eine Kopie kann nicht
+    veralten. Scheitert das Holen, laeuft nichts weiter: Silver auf einem
+    halben Bronze waere genau der Stand, den niemand erklaeren kann. Im
+    ``s3``-Modus wird **nicht** geholt: Er ist als *ohne lokalen Bestand*
+    definiert, und ein Lauf, der ihn fuellte, widerspraeche seiner eigenen
+    Definition - dort liest Silver Bronze direkt von S3. Von Hand geht es
+    trotzdem (``python -m storage holen --wirklich``).
     """
     stufen = auswahl(ohne_ingestion, bis)
     begonnen = datetime.now(timezone.utc)
@@ -291,7 +294,7 @@ def lauf(data_root: Path, projekt_root: Path, *,
     geholt: list[str] = []
     holen_gescheitert: str | None = None
     ablage = for_root(data_root)
-    if holen and ablage.config.remote:
+    if holen and ablage.backend == "hybrid":
         try:
             geholt = ablage.hole_fehlende_laeufe(("raw", "bronze"))
         except StorageError as fehler:

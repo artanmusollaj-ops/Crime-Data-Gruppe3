@@ -605,11 +605,14 @@ hängt an einer DuckDB-Version und an Extensions, Parquet nicht.
 **Was ein Release kostet.** Gemessen am Stand vom 17.9.2026: 14 MB
 `fact_offense`, 296 KB `dim_tract`, die drei übrigen Dimensionen je 12–16 KB,
 dazu 808 KB Serving — **rund 15 MB**. Ein Jahr wöchentlicher Releases wären
-etwa 780 MB. Das Aufheben ist damit kein Kostenproblem, sondern nur eine
-Aufräumregel. Was dabei entsteht, ist eine Historie der **veröffentlichten
-Stände** — nicht der Quelländerungen; die misst
-[`datenhistorie.md`](datenhistorie.md), und die beiden Fragen sollten nicht
-zusammenfallen.
+etwa 780 MB Parquet — gebaut sind es mit der selbständigen Datenbank 42,3 MB
+je Release, rund 2,2 GB im Jahr. Das Aufheben ist damit kein Kostenproblem,
+sondern eine Aufräumregel. **Releases werden aufgehoben, bis diese Regel
+entschieden ist** — Entscheidung 5.5 in
+[`datenhistorie.md`](datenhistorie.md). Was dabei entsteht, ist eine Historie
+der **veröffentlichten Stände** — nicht der Quelländerungen; die misst
+dasselbe Papier in den Abschnitten 1 bis 4, und die beiden Fragen sollten
+nicht zusammenfallen.
 
 ### Was ein Release enthält — und die Aggregate, die es doch gibt
 

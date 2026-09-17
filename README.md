@@ -204,7 +204,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet werden **1'142 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **1'149 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -470,11 +470,11 @@ Befehle bleiben dieselben, die Struktur unter der Wurzel auch —
 `bronze/city=chicago/ingest_date=…/run_…/part-0001.parquet` heisst lokal
 `data/…` und auf SeaweedFS `s3://urban-crime/…`.
 
-| Modus | Lesen | Schreiben |
-| --- | --- | --- |
-| `local` (Vorgabe) | `data/` | `data/` — genau wie bisher |
-| `hybrid` | lokal, wenn die Datei da ist, **sonst SeaweedFS** | lokal, prüfen, **dann gezielt publizieren** |
-| `s3` | immer SeaweedFS | lokal als Arbeitsverzeichnis, prüfen, publizieren, lokale Kopie entfernen |
+| Modus | Lesen | Schreiben | Holt Raw/Bronze | Release |
+| --- | --- | --- | --- | --- |
+| `local` (Vorgabe) | `data/` | `data/` — genau wie bisher | — | nur mit `--release`, bleibt lokal |
+| `hybrid` | lokal, wenn die Datei da ist, **sonst SeaweedFS** | lokal, prüfen, **dann gezielt publizieren** | **ja**, vor jedem Lauf | nach jedem grünen Lauf, publiziert |
+| `s3` | immer SeaweedFS | lokal als Arbeitsverzeichnis, prüfen, publizieren, lokale Kopie entfernen | von Hand | nach jedem grünen Lauf, publiziert, lokale Kopie entfernt |
 
 **Hybrid ist der Modus für die Zusammenarbeit.** SeaweedFS ist der gemeinsame
 veröffentlichte Bestand, `data/` die Arbeitskopie. Wer eine Tabelle lokal
@@ -620,7 +620,7 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 python -m pytest
 ```
 
-**1'142 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'149 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -654,7 +654,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'061 der 1'142 Tests**. Die übrigen 81 überspringen
+In einem frischen Klon laufen **1'068 der 1'149 Tests**. Die übrigen 81 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter

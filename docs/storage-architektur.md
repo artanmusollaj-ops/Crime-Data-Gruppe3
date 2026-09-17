@@ -281,11 +281,16 @@ unveränderlich, identisch oben übersprungen, anders oben ein Fehler;
 Objekt, dessen Ersetzung lokal wie auf S3 unteilbar ist. Alle Tabellen
 wechseln gemeinsam; ein Abbruch an jeder Stelle lässt den alten Stand gültig.
 
-| Modus | Release |
-| --- | --- |
-| `local` | nur mit `run_all --release`; bleibt lokal, `AKTUELL.json` lokal |
-| `hybrid` | nach jedem grünen Gesamtlauf; lokal gebildet, hochgebracht, lokale Kopie bleibt |
-| `s3` | wie `hybrid`, lokale Kopie danach entfernt |
+| Modus | Holt Raw/Bronze vor dem Lauf | Release |
+| --- | --- | --- |
+| `local` | nein — es gibt kein S3 | nur mit `run_all --release`; bleibt lokal, `AKTUELL.json` lokal |
+| `hybrid` | **ja**, was oben liegt und lokal fehlt | nach jedem grünen Gesamtlauf; lokal gebildet, hochgebracht, lokale Kopie bleibt |
+| `s3` | nein — von Hand mit `python -m storage holen --wirklich` | wie `hybrid`, lokale Kopie danach entfernt |
+
+Automatisch holt nur `hybrid`. `s3` ist als *ohne lokalen Bestand* definiert;
+ein Lauf, der ihn füllte, widerspräche der eigenen Definition — dort liest
+Silver Bronze direkt von S3. `tests/storage/test_modi.py` hält diese Matrix
+fest.
 
 Ein Release entsteht nur nach einem **vollständigen** grünen Lauf bis
 einschliesslich Serving — ein halber Stand bekommt keine Kennung. Scheitert
