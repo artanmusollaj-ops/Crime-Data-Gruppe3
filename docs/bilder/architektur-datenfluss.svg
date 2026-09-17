@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 474" role="img" width="100%" height="auto"
-     aria-label="Der Datenfluss in vier Gruppen mit 13 Stufen: Ingestion schreibt raw und bronze, silver deutet, gold baut das Sternschema, serving stellt bereit.">
+     aria-label="Der Datenfluss in vier Gruppen mit 14 Stufen: Ingestion schreibt raw und bronze, silver deutet, gold baut das Sternschema, serving stellt bereit.">
 <style>
   svg { color: #14304a; }
   .signal { fill: #c2410c; }
@@ -39,7 +39,7 @@
   <g>
     <rect x="274" y="336" width="562" height="52" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
     <text x="555" y="361" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" font-weight="600" fill="currentColor">serving</text>
-    <text x="555" y="378" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.72">2 Stufen: analyse_db, tracts_geojson</text>
+    <text x="555" y="378" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.72">3 Stufen: comparison, analyse_db, tracts_geojson</text>
   </g>
   <text x="24" y="358" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="0.8">serving</text>
   <text x="24" y="376" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">bleibt immer lokal</text>

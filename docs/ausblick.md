@@ -604,43 +604,32 @@ Stände** — nicht der Quelländerungen; die misst
 [`datenhistorie.md`](datenhistorie.md), und die beiden Fragen sollten nicht
 zusammenfallen.
 
-### Was ein Release **nicht** enthält
+### Was ein Release enthält — und die Aggregate, die es doch gibt
 
-Ein externer Rat vom 17.9.2026 hat diesen Bau bestätigt und dabei einen
+Ein externer Rat vom 17.9.2026 hat diesen Bau bestätigt und einen
 Verzeichnisbaum vorgeschlagen, der neben den fünf Gold-Tabellen auch
-`comparison_day.parquet`, `comparison_week.parquet`,
-`comparison_month.parquet` und `quality/partition_quality.parquet` vorsah.
-Beides übernehmen wir nicht.
+`comparison_day`, `comparison_week`, `comparison_month` und
+`partition_quality` vorsieht. Der erste Reflex war, sie abzulehnen: Es sind
+vorberechnete Aggregate, und Notebook 34 hat gemessen, dass sie bei 344'617
+Zeilen nichts sparen, was ein Mensch bemerkt.
 
-Die drei `comparison_*` sind **vorberechnete Aggregate** — Würfel. Genau diese
-Entscheidung ist in Notebook 34 gemessen und in Abschnitt 5 begründet worden:
-Bei 344'617 Zeilen spart eine Vorberechnung nichts, was ein Mensch bemerkt,
-und kostet die Beweglichkeit, für die die Plattform da ist. Der Vorschlag
-hätte sogar drei Würfel statt der zwei, die der ursprüngliche Entwurf hatte.
-Konzept 5.2 sagt *„Keine vorberechneten Aggregate"* zu, und
-`tests/test_ausblick.py` hält die Zusage fest.
+**Christian hat anders entschieden, und der Grund trägt.** Die Ablehnung
+ruhte allein auf dem Geschwindigkeitsargument. Für ein Studienprojekt zählt
+ein zweites: dass beide Bauweisen **gebaut** nebeneinander stehen, nicht nur
+die gemessene Entscheidung für eine davon. Seit dem 17.9. liegen die vier
+Tabellen deshalb in **Serving** (`serving.build_comparison`), nicht in Gold —
+Gold bleibt der Stern und die Quelle der Wahrheit, Serving ist das, was ein
+Dashboard liest und was ein Release enthält. Jede der drei Vergleichstabellen
+summiert sich nachweislich auf die Faktentabelle, Taten wie Fälle; Teilperioden
+am Rand des Jahrgangs sind je Zeile ausgewiesen (`days_in_window`).
+Konzept 5.2 sagt es seither wörtlich: *„Keine vorberechneten Aggregate in
+Gold.“*
 
-`partition_quality.parquet` wäre eine zweite Ablage für Zahlen, die bereits in
-jedem Manifest unter `checks` stehen — also eine zweite Stelle, an der sie
-auseinanderlaufen können. Der Rat kannte unsere Gold-Tabellen nicht; das ist
-kein Widerspruch in der Sache, aber es zeigt, warum ein Verzeichnisbaum nicht
-ohne die Tabellen dahinter gelesen werden sollte.
-
-**Was daran hängt.** Jeder Leser müsste die Tabelle über den Verweis auflösen
-statt über den festen Pfad — `storage.tabellen`, die Serving-Sichten, die
-Notebooks, `drift`, `aufraeumen`. Das ist kein grosser Eingriff, aber ein
-breiter. Und das Aufräumen bekäme eine neue Aufgabe: alte Versionen entfernen,
-die kein Verweis mehr nennt.
-
-**Warum es nicht sofort gebaut wurde.** Der Nutzen ist heute klein: Gold wird
-von einem Lauf geschrieben, und niemand fragt währenddessen ab. Der Nutzen
-entsteht, sobald ein Dashboard danebensteht — also für LN2. Dann aber gehört
-er dazu, nicht danach.
-
-Ergänzend gehört eine **Sperre über den ganzen Lauf** dazu, damit zwei
-Gesamtläufe sich nicht verschränken. Eine Datei unter `data/` mit der
-Prozessnummer und ein Abbruch mit klarer Meldung reichen; verteiltes Sperren
-über S3 braucht es bei zwei Personen nicht.
+Ein Release enthält damit: die fünf Gold-Tabellen, die vier Serving-Tabellen,
+das GeoJSON, eine **selbständige** `analyse.duckdb` mit Tabellen statt Sichten
+(die Sichten der Arbeitsdatenbank tragen absolute Pfade und sind auf einem
+anderen Rechner wertlos) und `release.json` mit Prüfsummen, Vertrags- und
+Code-Versionen.
 
 ### Was die Frischeprüfung noch nicht kann
 

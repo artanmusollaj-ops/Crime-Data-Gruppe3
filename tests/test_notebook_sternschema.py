@@ -143,11 +143,11 @@ def test_die_verworfenen_wuerfel_werden_wirklich_gebaut(code):
 
 
 def test_die_wuerfel_bleiben_im_notebook(code):
-    """Gebaut zum Vorfuehren, nicht zum Ablegen.
+    """Gebaut zum Vorfuehren, nicht zum Ablegen - jedenfalls nicht in Gold.
 
-    Ein Wuerfel in ``data/gold`` waere ein Bauauftrag, ein Test und eine
-    zweite Stelle, an der Zahlen auseinanderlaufen - und er widerspraeche der
-    Zusage aus Konzept 5.2.
+    Seit dem 17.9.2026 gibt es in *Serving* vier Vergleichstabellen aus
+    ``build_comparison``. Die beiden hier sind die urspruenglich geplanten
+    Wuerfel und bleiben ein Beleg: Gold aggregiert nicht (Konzept 5.2).
     """
     assert "data/gold" not in code and "dataset=fact_tract_month" not in code
     gold = PROJECT_ROOT / "data" / "gold"

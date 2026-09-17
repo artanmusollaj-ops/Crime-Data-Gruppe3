@@ -115,7 +115,7 @@ def test_die_bildbeschreibung_nennt_die_echten_zahlen(werkzeug):
     from orchestration import run_all
 
     assert stufen, "das Datenflussbild nennt keine Stufenzahl"
-    assert sum(1 for _ in run_all.STUFEN) == 13
+    assert sum(1 for _ in run_all.STUFEN) == 14   # seit 17.9.: serving/comparison
 
 
 def test_jedes_paket_steht_im_bild(werkzeug):

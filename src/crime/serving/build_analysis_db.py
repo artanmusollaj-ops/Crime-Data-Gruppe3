@@ -55,7 +55,11 @@ PARQUET_FILE = "part-0001.parquet"
 # Die Schichten, die abfragbar gemacht werden. Beide sind gebaut: vier
 # Silver-Tabellen und die fuenf des Sternschemas, zusammen neun Sichten. Als
 # Gold dazukam, war dafuer nichts zu tun - discover() nimmt auf, was da ist.
-SCHICHTEN = ("silver", "gold")
+# Seit dem 17.9.2026 auch serving: die vier Vergleichstabellen aus
+# build_comparison bekommen Sichten wie jede andere Tabelle. Die Datenbank
+# selbst liegt zwar auch unter serving/, aber nicht unter dataset= - der
+# Glob findet sie nicht.
+SCHICHTEN = ("silver", "gold", "serving")
 
 
 class Tabelle(NamedTuple):

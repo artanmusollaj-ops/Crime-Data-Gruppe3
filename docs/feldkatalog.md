@@ -7,7 +7,7 @@ gebauten Tabellen, die Bedeutung aus [`tools/build_feldkatalog.py`](../tools/bui
 python tools/build_feldkatalog.py
 ```
 
-**138 Spalten in 9 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
+**174 Spalten in 13 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
 soll einen Satz darüber schreiben müssen. `tests/test_feldkatalog.py` prüft, dass der Katalog vollständig und reproduzierbar ist.
 
 Die Rohschichten stehen hier nicht: **Bronze deutet nicht**, seine Spalten sind die der Quelle. Was sie bedeuten, sagen die
@@ -217,3 +217,69 @@ Eine Zeile ist: **eine Tat**. 344'617 Zeilen.
 | `unfounded` | `BOOLEAN` | Ob der Fall als unbegründet zurückgezogen wurde. Nur Detroit führt das; die Zeilen bleiben erhalten und werden gekennzeichnet statt entfernt. |
 | `offense_group_id` | `VARCHAR` | Schlüssel der **Tat**: Vorfall plus Deliktbeschreibung. Detroits mehrere Anklagen zu einer Tat teilen ihn. |
 | `counts_case` | `BOOLEAN` | **Die zählende Zeile je Fall** - die mit dem schwersten Delikt (Rangfolge `FALLKORN_RANG`, für beide Städte gleich). Chicago führt je Vorfall ein Delikt, Detroit jedes; wer auf Chicagos Zählweise vergleicht, filtert hierauf. |
+
+## serving
+
+### `comparison_day`
+
+Eine Zeile ist: **eine Stadt, ein Tag, eine NIBRS-Kategorie**. 13'246 Zeilen.
+
+| Spalte | Typ | Bedeutung |
+| --- | --- | --- |
+| `reporting_city` | `VARCHAR` | Die meldende Stadt - `chicago` oder `detroit`. |
+| `date` | `DATE` | Tatdatum in Ortszeit. |
+| `nibrs_category` | `VARCHAR` | Die amtliche NIBRS-Kategorie aus `dim_offense`; `unmapped` für die Taten ohne Code, damit sie zählbar bleiben. |
+| `nibrs_family` | `VARCHAR` | Die ersten beiden Zeichen des Codes. **Keine amtliche Gliederung** - zum Gruppieren gehört `nibrs_category`. |
+| `offenses` | `BIGINT` | **Taten.** Summiert sich je Stadt auf `fact_offense` - jede Tat trägt genau eine Kategorie. |
+| `cases` | `BIGINT` | **Fälle.** Summe von `counts_case`; genau eine Zeile je Fall, deshalb ebenfalls additiv über Kategorien. |
+
+### `comparison_month`
+
+Eine Zeile ist: **eine Stadt, ein Monat, eine NIBRS-Kategorie**. 620 Zeilen.
+
+| Spalte | Typ | Bedeutung |
+| --- | --- | --- |
+| `reporting_city` | `VARCHAR` | Die meldende Stadt - `chicago` oder `detroit`. |
+| `month` | `DATE` | Monatserster. |
+| `month_end` | `DATE` | Monatsletzter. |
+| `nibrs_category` | `VARCHAR` | Die amtliche NIBRS-Kategorie aus `dim_offense`; `unmapped` für die Taten ohne Code, damit sie zählbar bleiben. |
+| `nibrs_family` | `VARCHAR` | Die ersten beiden Zeichen des Codes. **Keine amtliche Gliederung** - zum Gruppieren gehört `nibrs_category`. |
+| `offenses` | `BIGINT` | **Taten.** Summiert sich je Stadt auf `fact_offense` - jede Tat trägt genau eine Kategorie. |
+| `cases` | `BIGINT` | **Fälle.** Summe von `counts_case`; genau eine Zeile je Fall, deshalb ebenfalls additiv über Kategorien. |
+| `days_in_period` | `BIGINT` | Kalendertage der Periode: 7 je Woche, 28 bis 31 je Monat. |
+| `days_in_window` | `BIGINT` | Davon im Zeitfenster der Daten (`min(date)` bis `max(date)` der Faktentabelle). Kleiner als `days_in_period` heisst **Teilperiode** - die Woche ab 30.12. hat zwei Tage, nicht sieben. |
+
+### `comparison_week`
+
+Eine Zeile ist: **eine Stadt, eine Woche ab Montag, eine NIBRS-Kategorie**. 2'502 Zeilen.
+
+| Spalte | Typ | Bedeutung |
+| --- | --- | --- |
+| `reporting_city` | `VARCHAR` | Die meldende Stadt - `chicago` oder `detroit`. |
+| `week_start` | `DATE` | Montag der Woche (ISO). |
+| `week_end` | `DATE` | Sonntag der Woche - auch wenn er ausserhalb des Fensters liegt. |
+| `nibrs_category` | `VARCHAR` | Die amtliche NIBRS-Kategorie aus `dim_offense`; `unmapped` für die Taten ohne Code, damit sie zählbar bleiben. |
+| `nibrs_family` | `VARCHAR` | Die ersten beiden Zeichen des Codes. **Keine amtliche Gliederung** - zum Gruppieren gehört `nibrs_category`. |
+| `offenses` | `BIGINT` | **Taten.** Summiert sich je Stadt auf `fact_offense` - jede Tat trägt genau eine Kategorie. |
+| `cases` | `BIGINT` | **Fälle.** Summe von `counts_case`; genau eine Zeile je Fall, deshalb ebenfalls additiv über Kategorien. |
+| `days_in_period` | `BIGINT` | Kalendertage der Periode: 7 je Woche, 28 bis 31 je Monat. |
+| `days_in_window` | `BIGINT` | Davon im Zeitfenster der Daten (`min(date)` bis `max(date)` der Faktentabelle). Kleiner als `days_in_period` heisst **Teilperiode** - die Woche ab 30.12. hat zwei Tage, nicht sieben. |
+
+### `partition_quality`
+
+Eine Zeile ist: **eine Stadt, ein Monat**. 24 Zeilen.
+
+| Spalte | Typ | Bedeutung |
+| --- | --- | --- |
+| `reporting_city` | `VARCHAR` | Die meldende Stadt - `chicago` oder `detroit`. |
+| `month` | `DATE` | Monatserster - die Partition, über die die Anteile gerechnet sind. |
+| `offenses` | `BIGINT` | Taten in dieser Stadt und diesem Monat. |
+| `share_exact` | `DOUBLE` | Anteil `mapping_status = exact` in Prozent. |
+| `share_ambiguous` | `DOUBLE` | Anteil `mapping_status = ambiguous` in Prozent. |
+| `share_fallback_90z` | `DOUBLE` | Anteil `mapping_status = fallback_90Z` in Prozent. |
+| `share_unmapped` | `DOUBLE` | Anteil `mapping_status = unmapped` in Prozent. |
+| `share_inside_city` | `DOUBLE` | Anteil `geo_status = inside_city` in Prozent. |
+| `share_outside_city` | `DOUBLE` | Anteil `geo_status = outside_city` in Prozent. |
+| `share_no_tract` | `DOUBLE` | Anteil `geo_status = no_tract` in Prozent. |
+| `share_missing_coordinate` | `DOUBLE` | Anteil `geo_status = missing_coordinate` in Prozent. |
+| `local_time_ambiguous` | `BIGINT` | Zahl der Taten in der doppelten Stunde beim Zurückstellen der Uhr (nur Chicago). Eine Zahl, kein Anteil. |

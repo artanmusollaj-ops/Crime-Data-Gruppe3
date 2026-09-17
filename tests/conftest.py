@@ -15,7 +15,7 @@ from chicago_pipeline import download_chicago
 from gold_pipeline import build_gold
 import manifeste
 from orchestration import aufraeumen, drift, run_all
-from serving import build_analysis_db, export_geojson
+from serving import build_analysis_db, build_comparison, export_geojson
 from silver_pipeline import (
     build_crime_offense,
     build_place,
@@ -25,6 +25,7 @@ from silver_pipeline import (
 from weather_pipeline import download_noaa
 
 sys.modules["build_analysis_db"] = build_analysis_db
+sys.modules["build_comparison"] = build_comparison
 sys.modules["export_geojson"] = export_geojson
 sys.modules["build_crime_offense"] = build_crime_offense
 sys.modules["build_gold"] = build_gold
