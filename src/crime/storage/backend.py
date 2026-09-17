@@ -288,7 +288,12 @@ class Standvergleich(NamedTuple):
 
     @property
     def veraltet(self) -> bool:
-        """Aelter gebaut, oder auf weniger Bronze-Laeufen gebaut."""
+        """Aelter gebaut, oder auf Laeufen, die hier gar nicht erreichbar sind.
+
+        ``fehlende_eingaben`` sind **nicht** einfach die Laeufe, die der Stand
+        oben nennt und der hiesige nicht - das waere zu streng. Siehe
+        ``Storage.vergleiche_stand``.
+        """
         return self.aelter or bool(self.fehlende_eingaben)
 
     def satz(self) -> str:
@@ -317,6 +322,7 @@ class Storage:
         self.config = config
         self._client = client
         self._entfernte_manifeste: dict[str, dict[str, Any] | None] = {}
+        self._verfuegbar: dict[str, frozenset[str]] = {}
         self._gewarnt: set[str] = set()
 
     # -- Aufbau --------------------------------------------------------------
@@ -368,12 +374,48 @@ class Storage:
         self._entfernte_manifeste[verzeichnis] = manifest
         return manifest
 
+    def verfuegbare_laeufe(self, schicht: str = "bronze") -> frozenset[str]:
+        """Jede Laufkennung, die hier erreichbar ist - lokal oder auf S3.
+
+        Gelesen werden die Manifeste, nicht die Verzeichnisnamen: Detroit
+        nennt seine Kennung ``pipeline_run_id``, die uebrigen ``run_id``.
+        Einmal je Ablage ermittelt; ``hole_lauf`` verwirft den Zwischenstand,
+        weil danach mehr da ist.
+        """
+        if schicht not in self._verfuegbar:
+            self._verfuegbar[schicht] = frozenset(
+                lauf.run_id for lauf in self.laeufe(schicht, "**/manifest.json",
+                                                    streng=False)
+            )
+        return self._verfuegbar[schicht]
+
     def vergleiche_stand(self, verzeichnis: str, lokal: dict[str, Any] | None = None, *,
                          frisch: bool = False) -> Standvergleich | None:
         """Vergleicht die lokale Tabelle mit der auf SeaweedFS.
 
         ``None``, wenn nichts zu vergleichen ist: keine der beiden Seiten da,
         oder eine Schicht, in der Staende einander nicht verdraengen.
+
+        **Was als fehlend zaehlt.** Bis zum 17.9.2026 galt jeder Lauf als
+        fehlend, den der Stand oben nennt und der hiesige nicht. Das war zu
+        streng, und es hat an diesem Abend einen Gesamtlauf abgebrochen:
+
+            silver/dataset=weather_day: hier gebaut 19:30 UTC, auf SeaweedFS
+            16:05 UTC; dort stecken 1 Bronze-Lauf/Laeufe, die hier fehlen
+            (run_20260908T201217784384Z)
+
+        Der hiesige Stand war **neuer** und ruhte auf einem **neueren**
+        NOAA-Lauf. NOAA liefert Vollschnappschuesse, und
+        ``build_weather_day`` nimmt deshalb nur den juengsten - der Lauf vom
+        8.9. war nicht verloren, sondern abgeloest. Er lag die ganze Zeit
+        unter ``data/bronze``.
+
+        Deshalb zaehlt jetzt, ob ein Lauf hier **erreichbar** ist, nicht ob
+        der Bau ihn benutzt hat. Die Absicht der Regel bleibt: Wer einen Lauf
+        geloescht oder nie geholt hat und daraus neu baut, verdraengt einen
+        reicheren Stand - und genau dann ist der Lauf auch nicht erreichbar.
+        Bei Chicagos Deltas aendert sich nichts: ``crime_offense`` liest alle
+        Laeufe, ein erreichbarer taucht dort immer auch in der Herkunft auf.
         """
         if verzeichnis.split("/")[0] not in ABGELEITET or not self.config.remote:
             return None
@@ -390,7 +432,7 @@ class Storage:
             return None
         return Standvergleich(
             verzeichnis, zeitpunkt(lokal), zeitpunkt(dort),
-            eingaben(dort) - eingaben(lokal),
+            eingaben(dort) - eingaben(lokal) - self.verfuegbare_laeufe(),
         )
 
     def _warne_wenn_veraltet(self, rel: str) -> None:
@@ -837,7 +879,9 @@ class Storage:
         if not objekte:
             raise StorageError(f"kein Lauf unter {self.s3_path(rel_dir)}")
         reihenfolge = sorted(objekte, key=lambda k: (k.rsplit("/", 1)[-1] == MANIFEST, k))
-        return [self.hole(k) for k in reihenfolge]
+        geholt = [self.hole(k) for k in reihenfolge]
+        self._verfuegbar.clear()   # jetzt ist hier mehr erreichbar als vorher
+        return geholt
 
     def fehlende_laeufe(self, schichten: tuple[str, ...] = ("raw", "bronze")) -> list[str]:
         """Laeufe, die oben liegen und lokal fehlen - als relative Verzeichnisse.

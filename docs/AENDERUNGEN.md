@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'153** |
+| Tests | **1'158** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,55 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.09.2026 · Ein abgelöster Vollschnappschuss ist kein Rückschritt (#116)
+
+**Der Abbruch.** Christians Gesamtlauf mit Ingestion scheiterte um 21:30:
+
+> `silver/dataset=weather_day`: hier gebaut 19:30 UTC, auf SeaweedFS 16:05
+> UTC; dort stecken 1 Bronze-Lauf/Läufe, die hier fehlen
+> (`run_20260908T201217784384Z`)
+
+Die Meldung widerspricht sich selbst: Der hiesige Stand war **neuer** und
+ruhte auf einem **neueren** NOAA-Lauf (`run_20260917T193036783822Z`, 55'465
+Zeilen gegen 55'449). Der Lauf vom 8.9. war nicht verloren — er lag die ganze
+Zeit unter `data/bronze`.
+
+**Die Ursache.** Die Publish-Sperre verglich die Laufkennungen als Mengen: was
+der Stand oben nennt und der hiesige nicht, galt als fehlend. Das stimmt für
+Chicagos **Deltas**, die sich ergänzen und alle gelesen werden. Für NOAA
+stimmt es nicht: Die Quelle liefert **Vollschnappschüsse**, und
+`build_weather_day` nimmt über `newest_complete_run` nur den jüngsten. Nach
+dem ersten Neuladen wäre `weather_day` damit nie wieder publizierbar gewesen —
+dieselbe Sperre hätte auch `tract` und `place` getroffen, sobald TIGER oder
+ACS neu geladen werden.
+
+**Der Bau.** Ein Lauf zählt jetzt nur als fehlend, wenn er hier **nicht
+erreichbar** ist — lokal oder auf SeaweedFS, gelesen aus den Manifesten
+(Detroit nennt seine Kennung `pipeline_run_id`). Die Absicht der Regel bleibt
+unberührt: Wer einen Lauf gelöscht oder nie geholt hat und daraus neu baut,
+verdrängt einen reicheren Stand — und genau dann ist der Lauf auch nicht
+erreichbar. Der Zwischenstand wird nach jedem `hole_lauf` verworfen.
+
+**Nachweis.** Fünf neue Tests, darunter das Gegenstück: derselbe Aufbau ohne
+den alten Lauf in Bronze bricht weiterhin ab. Christians Lauf geht seither
+durch — acht Stufen, Release `2026-09-17T19-42-24Z` mit 21 Dateien publiziert.
+
+**Was dabei in Bewegung geraten ist.** Der Lauf hat mit frischer Ingestion
+gebaut; die Quellen hatten sich seit dem 5.–8. September bewegt.
+`orchestration.drift` misst: `silver/crime_offense` +354 Zeilen (+0,10 %),
+`gold/fact_offense` +433 Taten (+0,13 %), Detroits Rate 132,6 → **132,7**
+(+0,1, „über der Toleranz“). Chicagos Rate, beide Einwohnerzahlen und die
+Fallebene stehen unverändert. **Der Referenzstand im Kopf dieses Dokuments ist
+bewusst nicht nachgezogen** — das ist eine Verabredung des Teams, keine Zahl,
+die ein Lauf verschiebt.
+
+**Zahlen.** 1'153 → **1'158 Tests**. Frischklon 1'077 von 1'158.
+
+**Nachlesen.** `src/crime/storage/backend.py` (`verfuegbare_laeufe`,
+`vergleiche_stand`) · `tests/storage/test_stand.py` · PR #116
 
 ---
 
