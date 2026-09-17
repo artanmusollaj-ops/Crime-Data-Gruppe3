@@ -177,6 +177,41 @@ sich die Zuordnung ändert.
 
 ---
 
+### 5.5 Was von den Releases bleibt?
+
+Seit dem 17.9.2026 bildet jeder grüne Gesamtlauf ein **Release** — der ganze
+veröffentlichte Stand unter einer Kennung, unveränderlich, mit Prüfsummen
+(`ausblick.md` 6). Damit gibt es eine zweite Historie neben der, um die es in
+diesem Papier geht: nicht *was die Quellen geändert haben*, sondern *was wir
+wann gesagt haben*. Sie wird heute nur angehäuft; `aufraeumen` fasst
+Releases nicht an, weder lokal noch auf SeaweedFS.
+
+Gemessen am 17.9.: ein Release hat **42,3 MB** — 14 MB Parquet plus eine
+26,5 MB grosse selbständige Datenbank. Wöchentlich ein Release ergibt rund
+**2,2 GB im Jahr**; täglich rund 15 GB. Zum Vergleich liegen heute 93 MB
+Raw, 93 MB Bronze und 49 MB Silver auf SeaweedFS.
+
+Drei Möglichkeiten:
+
+| | was bleibt | was es kostet | was verlorengeht |
+| --- | --- | --- | --- |
+| **alles** | jedes Release | ~2 GB/Jahr bei wöchentlichem Lauf | nichts — aber die Liste wird lang |
+| **gepinnt + die letzten n** | Referenzstände (Abgabe, Folie) für immer, dazu die n jüngsten | ~n × 42 MB plus die gepinnten | Zwischenstände, die niemand zitiert hat |
+| **nur der aktuelle** | ein Release | 42 MB | jede Möglichkeit, eine ältere Aussage nachzubauen |
+
+**Empfehlung:** *gepinnt + die letzten n*, mit demselben Register wie für
+Läufe (`config/referenzstand.csv`, Regel 0 von `aufraeumen`) und n = 8 —
+zwei Monate wöchentlicher Releases. Das ist dieselbe Logik wie bei Raw und
+Bronze, nur eine Schicht höher: Was eine veröffentlichte Zahl trägt, bleibt;
+was niemand zitiert hat, darf gehen. Zu bauen wäre eine Regel in
+`aufraeumen`, die `releases/` kennt — lokal **und** auf SeaweedFS, denn
+anders als Läufe liegen Releases dort als der gemeinsame Stand. Nicht vor
+Freitag; bis dahin wird nichts gelöscht.
+
+**Was die Entscheidung nicht ersetzt:** die Tabelle aus Abschnitt 4. Ein
+Release hält fest, was *wir* gesagt haben; die Änderungstabelle hält fest,
+was die *Stadt* geändert hat. Beides ist eine Historie, keines ist die andere.
+
 ## 6 · Was das für die Forschung öffnet
 
 Vier Fragen, die die Gold-Schicht heute nicht stellen kann:
@@ -220,6 +255,8 @@ Silver-Tabelle, die neue Vorbedingung in `aufraeumen`, Tests.
 2. Welche Felder zählen (5.1)?
 3. Monatlicher Vollschnappschuss je Stadt (5.2)?
 4. Tabelle vor oder nach der Harmonisierung (5.4)?
+5. Welche Releases bleiben — alle, gepinnt + die letzten n, oder nur das
+   aktuelle (5.5)? Bis zur Entscheidung wird keines gelöscht.
 
 Punkt 1 ist der einzige, der Zeitdruck hat. Die übrigen drei lassen sich auch
 später ändern, solange die Rohläufe noch liegen.

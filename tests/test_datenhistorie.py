@@ -178,10 +178,22 @@ def test_das_dokument_nennt_seine_grenzen(text):
 
 
 def test_jede_offene_entscheidung_hat_eine_empfehlung(text):
-    """Vier Fragen, vier Empfehlungen - sonst ist es keine Vorlage."""
+    """Fuenf Fragen, fuenf Empfehlungen - sonst ist es keine Vorlage.
+
+    Die fuenfte kam am 17.9.2026 mit den Releases dazu: eine zweite Historie
+    neben der, um die es hier geht.
+    """
     fragen = re.findall(r"^### 5\.\d ", text, re.M)
     empfehlungen = re.findall(r"\*\*Empfehlung:", text)
-    assert len(fragen) == 4, f"{len(fragen)} Entscheidungen gefunden"
-    assert len(empfehlungen) >= 4, (
+    assert len(fragen) == 5, f"{len(fragen)} Entscheidungen gefunden"
+    assert len(empfehlungen) >= 5, (
         f"nur {len(empfehlungen)} Empfehlungen zu {len(fragen)} Entscheidungen"
     )
+
+
+def test_die_release_groesse_stimmt_mit_dem_ausblick_ueberein(text):
+    """Dieselbe Zahl an zwei Stellen - sie darf nur einmal veralten."""
+    ausblick = (PROJECT_ROOT / "docs" / "ausblick.md").read_text(encoding="utf-8")
+    assert "42,3 MB" in text
+    assert "26,5 MB" in text
+    assert "Releases werden aufgehoben" in ausblick or "aufgehoben" in ausblick

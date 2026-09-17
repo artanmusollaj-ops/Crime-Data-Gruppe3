@@ -10,11 +10,15 @@ Drei Betriebsarten, gewaehlt ueber ``STORAGE_BACKEND``:
     trotzdem zuerst lokal - die Pipelines brauchen ein Arbeitsverzeichnis fuer
     ``.part`` und Umbenennen -, nach bestandener Pruefung publiziert, und die
     lokale Kopie danach entfernt. Ein lokaler Datenbestand ist weder noetig
-    noch bleibt einer zurueck.
+    noch bleibt einer zurueck - deshalb holt der Gesamtlauf hier auch keine
+    Raw- und Bronze-Laeufe herunter (von Hand: ``python -m storage holen``).
+    Ein Release wird gebildet, publiziert und lokal wieder entfernt.
 ``hybrid``
     Lesen: lokal, wenn die Datei da ist, sonst SeaweedFS. Schreiben: lokal,
     pruefen, dann gezielt publizieren. Das lokale ``data/`` ist Arbeitskopie
-    und Cache, SeaweedFS der gemeinsame veroeffentlichte Bestand.
+    und Cache, SeaweedFS der gemeinsame veroeffentlichte Bestand. Seit dem
+    17.9.2026 holt der Gesamtlauf zuerst alle Raw- und Bronze-Laeufe, die oben
+    liegen und lokal fehlen, und bildet am Ende ein Release, das er publiziert.
 
 Schluessel kommen aus der Umgebung oder ``.env``; ``.env`` ist nicht
 versioniert. Nichts hiervon wird protokolliert.

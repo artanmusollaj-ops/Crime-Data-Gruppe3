@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'142** |
+| Tests | **1'149** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,48 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.09.2026 · Die drei Modi geprüft — und die fünfte Entscheidung für Freitag (#111)
+
+**Was.** Etappen 5 und 6 des Umbaus nach dem externen Rat.
+
+**Die Modi, als Matrix.** Beim Durchsehen fiel ein Widerspruch auf, den
+keiner der drei Einzeltests sehen konnte, weil jeder nur seinen Modus sah:
+`s3` ist definiert als *ohne lokalen Bestand* — und das automatische Holen
+von Raw und Bronze (#110) hätte ihn genau damit gefüllt. Seither holt der
+Gesamtlauf **nur im Hybridmodus** von selbst; in `s3` liest Silver Bronze
+direkt von SeaweedFS, und von Hand geht `python -m storage holen --wirklich`
+weiterhin. `tests/storage/test_modi.py` hält die Matrix fest, und
+`storage-architektur.md` 6a sagt dasselbe — ein Test prüft, dass beide
+übereinstimmen:
+
+| Modus | holt Raw/Bronze | Release | publiziert | lokale Kopie bleibt |
+| --- | --- | --- | --- | --- |
+| `local` | nein | nur mit `--release` | nein | ja |
+| `hybrid` | **ja** | nach jedem grünen Lauf | ja | ja |
+| `s3` | von Hand | nach jedem grünen Lauf | ja | nein |
+
+**Die fünfte Entscheidung.** `datenhistorie.md` 5.5: Was von den Releases
+bleibt? Seit #109 entsteht neben der Quellhistorie eine zweite — *was wir
+wann gesagt haben* —, und sie wird nur angehäuft; `aufraeumen` fasst Releases
+nicht an. Gemessen: 42,3 MB je Release, rund 2,2 GB im Jahr bei wöchentlichem
+Lauf. Drei Möglichkeiten stehen mit Kosten und Verlust nebeneinander;
+**empfohlen** ist *gepinnt + die letzten n* mit demselben Register wie für
+Läufe (`config/referenzstand.csv`) und n = 8. Nicht vor Freitag; bis dahin
+wird nichts gelöscht. Der Ausblick sagt es jetzt an derselben Stelle, und ein
+Wächter hält die Zahl an beiden Orten gleich.
+
+**Damit ist der Umbau nach dem Rat vollständig** — sechs Etappen in vier
+Pull Requests (#108 bis #111): Aggregate in Serving, Release je Kennung mit
+Zeiger, Holen von Releases und Läufen, die Modi geprüft, die Löschfrage
+vorbereitet.
+
+**Zahlen.** 1'142 → **1'149 Tests**. Frischklon 1'068 von 1'149.
+
+**Nachlesen.** `tests/storage/test_modi.py` · `docs/datenhistorie.md` 5.5 ·
+`docs/storage-architektur.md` 6a · PR #111
 
 ---
 
