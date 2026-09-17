@@ -328,3 +328,102 @@ def test_standvergleich_ohne_unterschied_ist_nicht_veraltet():
     gleich = Standvergleich("silver/x", zeitpunkt({"built_at_utc": NEU}),
                             zeitpunkt({"built_at_utc": NEU}), frozenset())
     assert not gleich.veraltet and not gleich.aelter
+
+
+# --------------------------------------------------------------------------
+# Ein abgeloester Vollschnappschuss ist kein Rueckschritt
+# --------------------------------------------------------------------------
+# Am 17.9.2026 um 21:30 brach ein Gesamtlauf ab:
+#
+#   silver/dataset=weather_day: hier gebaut 19:30 UTC, auf SeaweedFS 16:05 UTC;
+#   dort stecken 1 Bronze-Lauf/Laeufe, die hier fehlen (run_20260908...)
+#
+# Der hiesige Stand war neuer und ruhte auf einem neueren NOAA-Lauf. NOAA
+# liefert Vollschnappschuesse, und ``build_weather_day`` nimmt nur den
+# juengsten - der Lauf vom 8.9. war nicht verloren, sondern abgeloest, und lag
+# die ganze Zeit unter ``data/bronze``.
+
+
+def bronze_lauf(storage: Storage, rel_dir: str, run_id: str, *,
+                schluessel: str = "run_id") -> None:
+    """Ein fertiger Bronze-Lauf in der lokalen Wurzel."""
+    ordner = storage.local_path(rel_dir)
+    ordner.mkdir(parents=True, exist_ok=True)
+    (ordner / "part-0001.parquet").write_bytes(b"PAR1")
+    (ordner / "manifest.json").write_text(
+        json.dumps({"status": "complete", schluessel: run_id}), encoding="utf-8")
+
+
+def wetter(gebaut: str, runs: tuple[str, ...]) -> dict:
+    """Ein weather_day-Manifest - Liste von Eintraegen mit ``run_id``."""
+    return {"status": "complete", "row_count": 55_000, "built_at_utc": gebaut,
+            "derived_from": [{"layer": "bronze", "dataset": "noaa_ghcnd",
+                              "run_id": r} for r in runs]}
+
+
+WETTER = "silver/dataset=weather_day"
+
+
+def test_ein_abgeloester_vollschnappschuss_ist_kein_rueckschritt(tmp_path):
+    """Der Fall vom 17.9.2026, als Test.
+
+    Der alte Lauf liegt noch in Bronze - er fehlt also nicht, er wurde
+    abgeloest. Ohne diese Unterscheidung laesst sich eine Quelle, die
+    Vollschnappschuesse liefert, nach dem ersten Neuladen nie mehr
+    publizieren.
+    """
+    storage, fake = ablage(tmp_path)
+    bronze_lauf(storage, "bronze/dataset=noaa_ghcnd/station=A/run_alt", "run_alt")
+    bronze_lauf(storage, "bronze/dataset=noaa_ghcnd/station=A/run_neu", "run_neu")
+    lege_an(storage, fake, tabelle=WETTER,
+            hier=wetter(NEU, ("run_neu",)),
+            dort=wetter(ALT, ("run_alt",)))
+
+    befund = storage.vergleiche_stand(WETTER, frisch=True)
+    assert befund is not None and not befund.veraltet, befund.satz()
+    assert storage.publish_table(WETTER), "der neuere Stand muss hochgehen"
+
+
+def test_ein_wirklich_fehlender_lauf_blockiert_weiterhin(tmp_path):
+    """Die Absicht der Regel bleibt: derselbe Aufbau, nur ohne den alten Lauf."""
+    storage, fake = ablage(tmp_path)
+    bronze_lauf(storage, "bronze/dataset=noaa_ghcnd/station=A/run_neu", "run_neu")
+    lege_an(storage, fake, tabelle=WETTER,
+            hier=wetter(NEU, ("run_neu",)),
+            dort=wetter(ALT, ("run_alt",)))
+
+    fake.uploads.clear()
+    with pytest.raises(PublishError, match="run_alt"):
+        storage.publish_table(WETTER)
+    assert fake.uploads == []
+
+
+def test_ein_lauf_der_nur_auf_seaweedfs_liegt_zaehlt_als_erreichbar(tmp_path):
+    """Im Hybridmodus liest ein Bau ihn ohnehin - er fehlt nicht."""
+    storage, fake = ablage(tmp_path)
+    bronze_lauf(storage, "bronze/dataset=noaa_ghcnd/station=A/run_neu", "run_neu")
+    fake.put("bronze/dataset=noaa_ghcnd/station=A/run_alt/manifest.json",
+             json.dumps({"status": "complete", "run_id": "run_alt"}).encode())
+    lege_an(storage, fake, tabelle=WETTER,
+            hier=wetter(NEU, ("run_neu",)),
+            dort=wetter(ALT, ("run_alt",)))
+    assert not storage.vergleiche_stand(WETTER, frisch=True).veraltet
+
+
+def test_detroits_eigene_kennung_wird_erkannt(tmp_path):
+    """Detroit nennt sie ``pipeline_run_id`` - gelesen wird das Manifest."""
+    storage, _ = ablage(tmp_path)
+    bronze_lauf(storage, "bronze/city=detroit/full/run_x", "abc-123",
+                schluessel="pipeline_run_id")
+    assert "abc-123" in storage.verfuegbare_laeufe()
+
+
+def test_ein_geholter_lauf_zaehlt_sofort(tmp_path):
+    """Der Zwischenstand darf nach dem Holen nicht veralten."""
+    storage, fake = ablage(tmp_path)
+    assert storage.verfuegbare_laeufe() == frozenset()
+    fake.put("bronze/city=chicago/ingest_date=2026-09-17/run_neu/part-0001.parquet", b"PAR1")
+    fake.put("bronze/city=chicago/ingest_date=2026-09-17/run_neu/manifest.json",
+             json.dumps({"status": "complete", "run_id": "run_neu"}).encode())
+    storage.hole_lauf("bronze/city=chicago/ingest_date=2026-09-17/run_neu")
+    assert "run_neu" in storage.verfuegbare_laeufe()
