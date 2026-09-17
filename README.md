@@ -215,6 +215,16 @@ Erwartet werden **1'158 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
+> **Wer schon Daten gebaut hat, sieht mehr.** Die Wächter mit dem Marker
+> `referenzstand` halten die dokumentierten Zahlen gegen die Parquet-Dateien.
+> Sobald eine frische Ingestion gelaufen ist, stehen die Daten vor dem
+> dokumentierten Stand, und diese Wächter werden rot — das ist ihre Aufgabe,
+> kein Fehler in der Einrichtung. Wie weit es auseinander ist, sagt
+> `python -m orchestration.drift`; nur die eigenen Zahlen prüft
+> `python -m pytest -m "not referenzstand"`. Stand 17.9.2026: 33 der 70 sind
+> rot, die Entscheidung dazu steht in
+> [`docs/datenhistorie.md`](docs/datenhistorie.md) 8.
+
 Bei der weiteren Arbeit genügt `source .venv/bin/activate`; verlassen wird die
 Umgebung mit `deactivate`.
 

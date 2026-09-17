@@ -142,6 +142,13 @@ nicht zu denen, die dem Lauf folgen. Zurückgenommen; er ist jetzt rot wie die
 übrigen 35 Wächter, bis der Referenzstand nachgezogen oder die Daten
 zurückgeholt sind.
 
+**Christians Entscheidung (17.9.2026): nicht nachziehen.** Der Referenzstand
+bleibt der Bau vom 16:05 UTC, die Drift ist gemessen und steht in
+[`datenhistorie.md`](datenhistorie.md) 8. **33 der 70 `referenzstand`-Wächter
+sind auf einem Rechner mit frischen Daten rot** — das ist ihre Aufgabe. CI und
+frischer Klon sind davon nicht berührt, dort gibt es keine Daten. Wann
+nachgezogen wird, ist Punkt 6 für den Freitag.
+
 **Zahlen.** 1'153 → **1'158 Tests**. Frischklon 1'077 von 1'158.
 
 **Nachlesen.** `src/crime/storage/backend.py` (`verfuegbare_laeufe`,
