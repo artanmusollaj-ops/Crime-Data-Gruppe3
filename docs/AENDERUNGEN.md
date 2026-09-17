@@ -133,6 +133,15 @@ Fallebene stehen unverändert. **Der Referenzstand im Kopf dieses Dokuments ist
 bewusst nicht nachgezogen** — das ist eine Verabredung des Teams, keine Zahl,
 die ein Lauf verschiebt.
 
+**Auch `docs/feldkatalog.md` bleibt beim Referenzstand.** Er wird aus den
+Manifesten erzeugt und stand nach dem Lauf auf 348'311 statt 347'957 — einmal
+regeneriert und committet. Das war falsch: Sein Wächter
+`test_ein_zweiter_lauf_liefert_dieselbe_datei` trägt `referenzstand`, der
+Katalog gehört also zu den Dokumenten, die den **gepinnten** Stand zeigen, und
+nicht zu denen, die dem Lauf folgen. Zurückgenommen; er ist jetzt rot wie die
+übrigen 35 Wächter, bis der Referenzstand nachgezogen oder die Daten
+zurückgeholt sind.
+
 **Zahlen.** 1'153 → **1'158 Tests**. Frischklon 1'077 von 1'158.
 
 **Nachlesen.** `src/crime/storage/backend.py` (`verfuegbare_laeufe`,
