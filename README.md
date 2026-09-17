@@ -582,8 +582,37 @@ python -m orchestration.release holen --einsetzen         # ... und die Tabellen
 ```
 
 Releases werden **aufgehoben**, bis eine Regel dafür entschieden ist
-([`docs/datenhistorie.md`](docs/datenhistorie.md)); rund 15 MB Parquet plus
-die Datenbank je Release.
+([`docs/datenhistorie.md`](docs/datenhistorie.md) 5.5); 42 MB je Release —
+14 MB Parquet plus die Datenbank.
+
+**Der Ablauf, Schritt für Schritt.** Zwei Rollen, zwei Befehle.
+
+*Wer baut* (`hybrid`, mit Schlüsseln in `.env`):
+
+```bash
+python -m orchestration.run_all --ohne-ingestion   # oder mit Ingestion
+```
+
+Der Lauf holt zuerst, was an Raw und Bronze oben liegt und lokal fehlt, baut
+Silver, Gold und Serving, publiziert Silver und Gold an ihren festen Pfaden —
+und bildet, **nur wenn alles davor grün war**, das Release, lädt es hoch und
+legt `AKTUELL.json` um. `gold/` und `silver/` bleiben lokal liegen: Sie sind
+die Arbeitskopie, und aus `gold/` und `serving/` wird das Release
+zusammengesetzt. `--bis gold` gibt kein Release; scheitert das Hochladen, ist
+der Lauf rot, das lokale Gold trotzdem gebaut — `python -m
+orchestration.release erstellen --publizieren` holt es nach. Der Datenlauf in
+GitHub läuft ohne S3 und bildet keine Releases; sie kommen vom Rechner.
+
+*Wer liest* (Artan, ein Dashboard, ein zweiter Rechner):
+
+```bash
+python -m orchestration.release holen --nur-datenbank   # 26 MB, zehn fertige Tabellen
+duckdb data/releases/release=<Kennung>/serving/analyse.duckdb
+```
+
+`release_info` darin sagt, welcher Stand es ist. Wer die Parquets oder die
+Notebooks braucht: `holen --einsetzen` bringt das ganze Release und setzt die
+Tabellen nach `gold/` und `serving/` — ohne selbst zu bauen.
 
 **Bestehende Läufe nachpublizieren.** Die Pipelines publizieren nur den
 Lauf, den sie gerade schreiben. Was vorher da war — Chicagos
