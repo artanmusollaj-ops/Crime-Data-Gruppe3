@@ -55,13 +55,23 @@ def test_es_ist_wohlgeformtes_svg(pfad):
 
 
 def test_ein_zweiter_lauf_liefert_dieselben_dateien():
-    """Wie bei den drei Crosswalk-Werkzeugen: erzeugt heisst wiederholbar."""
+    """Wie bei den drei Crosswalk-Werkzeugen: erzeugt heisst wiederholbar.
+
+    Die Bilder werden danach wiederhergestellt - aus demselben Grund wie beim
+    Feldkatalog: Das Werkzeug kennt kein Ausgabeverzeichnis, und ein
+    scheiternder Test liess die neu erzeugten SVG im Arbeitsbaum liegen.
+    """
     vorher = {p: p.read_text(encoding="utf-8") for p in (PAKETE, FLUSS)}
-    fertig = subprocess.run([sys.executable, str(WERKZEUG)],
-                            capture_output=True, text=True, cwd=PROJEKT)
+    try:
+        fertig = subprocess.run([sys.executable, str(WERKZEUG)],
+                                capture_output=True, text=True, cwd=PROJEKT)
+        nachher = {p: p.read_text(encoding="utf-8") for p in vorher}
+    finally:
+        for pfad, text in vorher.items():
+            pfad.write_text(text, encoding="utf-8")
     assert fertig.returncode == 0, fertig.stderr or fertig.stdout
-    for pfad, alt in vorher.items():
-        assert pfad.read_text(encoding="utf-8") == alt, (
+    for pfad, text in vorher.items():
+        assert nachher[pfad] == text, (
             f"{pfad.name} sieht nach einem zweiten Lauf anders aus - dann ist "
             "es nicht reproduzierbar aus dem Code abgeleitet"
         )

@@ -17,7 +17,7 @@ Quellnotebooks 01, 11, 21 und 22.
 
 ### `crime_offense`
 
-Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert, je Fall eine mit counts_case**. 348'311 Zeilen.
+Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert, je Fall eine mit counts_case**. 347'957 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -96,7 +96,7 @@ Eine Zeile ist: **ein Census Tract**. 6'282 Zeilen.
 
 ### `weather_day`
 
-Eine Zeile ist: **eine Stadt an einem Tag**. 55'465 Zeilen.
+Eine Zeile ist: **eine Stadt an einem Tag**. 55'449 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -191,7 +191,7 @@ Eine Zeile ist: **ein Census Tract**. 6'282 Zeilen.
 
 ### `fact_offense`
 
-Eine Zeile ist: **eine Tat**. 345'050 Zeilen.
+Eine Zeile ist: **eine Tat**. 344'617 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -222,7 +222,7 @@ Eine Zeile ist: **eine Tat**. 345'050 Zeilen.
 
 ### `comparison_day`
 
-Eine Zeile ist: **eine Stadt, ein Tag, eine NIBRS-Kategorie**. 13'264 Zeilen.
+Eine Zeile ist: **eine Stadt, ein Tag, eine NIBRS-Kategorie**. 13'246 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -251,7 +251,7 @@ Eine Zeile ist: **eine Stadt, ein Monat, eine NIBRS-Kategorie**. 620 Zeilen.
 
 ### `comparison_week`
 
-Eine Zeile ist: **eine Stadt, eine Woche ab Montag, eine NIBRS-Kategorie**. 2'506 Zeilen.
+Eine Zeile ist: **eine Stadt, eine Woche ab Montag, eine NIBRS-Kategorie**. 2'502 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
