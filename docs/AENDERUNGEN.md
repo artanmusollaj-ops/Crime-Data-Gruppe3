@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'149** |
+| Tests | **1'153** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,50 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.09.2026 · Ein Release ist der ganze Stand oder keiner (#114)
+
+**Wie es auffiel.** Christian hat gefragt, ob der lokale `serving/`-Ordner noch
+gebraucht wird. Statt zu antworten, wurde er beiseitegeschoben und ein Release
+gebildet. Es entstand — mit **11 statt 21 Dateien**, ohne die vier
+Vergleichstabellen, ohne die Karte, und mit `status: complete`. Ein Teilstand,
+dem man es nicht ansieht, ist schlimmer als gar keiner.
+
+**Die Ursache.** `storage.release.PFLICHT` verlangte genau eine Tabelle:
+`gold/dataset=fact_offense`. Alles andere wurde eingesammelt, wenn es dalag,
+und sonst eben nicht. `storage` kann das auch nicht besser wissen — es kennt
+Dateien, nicht die Schichten darüber; ein Import aus `serving` wäre der
+Zyklus, den der Wächter über den Importgraphen schon einmal gemeldet hat
+(#109).
+
+**Der Bau.** Die Pflichtliste wird jetzt **hereingereicht**, wie der Haken für
+die Datenbank: `orchestration.release.VOLLSTAENDIG` leitet sie aus den
+Schichten selbst ab — `gold_pipeline.TABELLEN` (neu, und `build_gold` prüft
+seinen Bauplan dagegen), `serving.build_comparison.TABELLEN` und
+`export_geojson.GEOJSON_NAME`. Zehn Einträge, keiner abgeschrieben; kommt eine
+Tabelle dazu, steht sie von allein darin. Ohne `serving/` bricht das Bilden
+jetzt ab, nennt jede fehlende Tabelle und legt nichts an — Exit-Code 1.
+
+**Die Antwort auf die Frage:** Ja, `data/serving/` wird gebraucht. Er ist
+nicht nur Arbeitsstand, sondern die **Quelle**, aus der das Release
+zusammengesetzt wird (`sammle` liest `gold/dataset=*` und `serving/`). Löschen
+darf man ihn jederzeit — er ist abgeleitet, und `run_all --ohne-ingestion`
+baut ihn in Sekunden neu; nur ein Release lässt sich in der Zwischenzeit nicht
+bilden. 920 KB.
+
+**Nebenbei aufgeräumt.** Zwei Release-Verzeichnisse aus meinen eigenen
+Proben (`16-31-45Z`, `18-36-15Z`) sind entfernt; der lokale Zeiger steht
+wieder auf dem Release, das Christian um 18:31 UTC selbst gebildet und
+publiziert hat — 21 Dateien, vollständig, lokal und auf SeaweedFS derselbe
+Stand.
+
+**Zahlen.** 1'149 → **1'153 Tests**. Frischklon 1'072 von 1'153.
+
+**Nachlesen.** `src/crime/orchestration/release.py` (`VOLLSTAENDIG`) ·
+`src/crime/gold_pipeline/__init__.py` (`TABELLEN`) ·
+`tests/storage/test_release.py` · PR #114
 
 ---
 

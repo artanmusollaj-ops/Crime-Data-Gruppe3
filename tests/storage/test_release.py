@@ -17,6 +17,7 @@ Datenbank darin antwortet auf jedem Rechner.
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -54,12 +55,23 @@ def tabelle(data_root: Path, schicht: str, name: str, zeilen: int, **manifest) -
 
 
 def gebaut(data_root: Path) -> None:
-    """Ein kleiner Stand: zwei Gold-Tabellen, eine Serving-Tabelle, die Karte."""
+    """Ein **vollstaendiger** kleiner Stand - alles, was ein Release verlangt.
+
+    Seit dem 17.9.2026 muss er das sein: ``orchestration.release.bilde``
+    besteht auf jeder Gold- und Serving-Tabelle. Ein Teilstand ist genau der
+    Fall, den ``test_ohne_serving_entsteht_kein_release`` prueft.
+    """
+    from gold_pipeline import TABELLEN as GOLD
+    from serving.build_comparison import TABELLEN as SERVING
+
     tabelle(data_root, "gold", "fact_offense", 5, contract_version=4,
             derived_from={"silver_crime_offense": {"path": "x"}},
             reconciliation={"coverage_percent": {"inside_city": 97.5}})
-    tabelle(data_root, "gold", "dim_date", 3, contract_version=4)
-    tabelle(data_root, "serving", "comparison_day", 2)
+    for name in GOLD:
+        if name != "fact_offense":
+            tabelle(data_root, "gold", name, 3, contract_version=4)
+    for name in SERVING:
+        tabelle(data_root, "serving", name, 2)
     serving = data_root / "serving"
     (serving / "tracts.geojson").write_text('{"type":"FeatureCollection","features":[]}')
     (serving / "tracts.manifest.json").write_text('{"features": 0}')
@@ -87,7 +99,9 @@ def test_ein_release_enthaelt_gold_serving_karte_datenbank_und_manifest(tmp_path
     }
     assert "release.json" not in manifest["files"], "das Manifest prueft nicht sich selbst"
     assert manifest["release_id"] == KENNUNG
-    assert manifest["contract_versions"] == {"gold": 4, "serving/comparison_day": 1}
+    assert manifest["contract_versions"]["gold"] == 4
+    assert manifest["contract_versions"]["serving/comparison_day"] == 1
+    assert len(manifest["tables"]) == 9, "fuenf Gold- und vier Serving-Tabellen"
     assert manifest["input_fingerprint"] == "fp-fact_offense"
     assert manifest["gate"] == {"inside_city": 97.5}
     assert manifest["tables"]["gold/fact_offense"]["rows"] == 5
@@ -117,7 +131,9 @@ def test_die_datenbank_im_release_ist_selbstaendig(tmp_path):
         arten = dict(con.execute(
             "SELECT table_type, count(*) FROM information_schema.tables GROUP BY 1"
         ).fetchall())
-        assert "VIEW" not in arten and arten["BASE TABLE"] == 4
+        assert "VIEW" not in arten and arten["BASE TABLE"] == 10, (
+            "neun Tabellen plus release_info - und keine einzige Sicht"
+        )
         assert con.execute("SELECT count(*) FROM fact_offense").fetchone()[0] == 5
         assert con.execute("SELECT release_id FROM release_info").fetchone()[0] == KENNUNG
     finally:
@@ -138,7 +154,7 @@ def test_der_lokale_zeiger_zeigt_auf_das_neueste_release(tmp_path):
 def test_ohne_gold_kein_release(tmp_path):
     _, _, data_root = ablage(tmp_path, "local")
     tabelle(data_root, "serving", "comparison_day", 2)
-    with pytest.raises(release.ReleaseFehler, match="Gold ist nicht gebaut"):
+    with pytest.raises(release.ReleaseFehler, match="gold/dataset=fact_offense"):
         release.erstelle(data_root, jetzt=JETZT)
     assert not (data_root / "releases").exists() or not list((data_root / "releases").glob("*"))
 
@@ -146,9 +162,10 @@ def test_ohne_gold_kein_release(tmp_path):
 def test_eine_unfertige_tabelle_kommt_nicht_mit(tmp_path):
     _, _, data_root = ablage(tmp_path, "local")
     gebaut(data_root)
-    tabelle(data_root, "gold", "dim_tract", 9, status="publishing")
+    tabelle(data_root, "gold", "dim_weather_extra", 9, status="publishing")
     ziel = release.erstelle(data_root, jetzt=JETZT)
-    assert not any(r.startswith("gold/dataset=dim_tract") for r in release.lies(ziel)["files"])
+    assert not any(r.startswith("gold/dataset=dim_weather_extra")
+                   for r in release.lies(ziel)["files"])
 
 
 def test_releases_sind_unveraenderlich(tmp_path):
@@ -365,7 +382,7 @@ def test_einsetzen_bringt_die_tabellen_an_ihre_festen_pfade(tmp_path):
     assert (hier / "serving" / "dataset=comparison_day" / "part-0001.parquet").is_file()
     assert (hier / "serving" / "tracts.geojson").is_file()
     assert json.loads((hier / "gold" / "dataset=fact_offense" / "manifest.json").read_text())["row_count"] == 5
-    assert len(eingesetzt) == 5
+    assert len(eingesetzt) == 11, "neun Tabellen, GeoJSON und sein Manifest"
     assert not list((hier / "gold").glob(".*")), "kein .part, kein .superseded"
 
 
@@ -375,3 +392,65 @@ def test_einsetzen_ersetzt_einen_aelteren_stand_unteilbar(tmp_path):
     ziel = release.hole(storage, "aktuell")
     release.einsetzen(hier, ziel)
     assert json.loads((alt / "manifest.json").read_text())["row_count"] == 5
+
+
+# --------------------------------------------------------------------------
+# Vollstaendigkeit: ein Release ist der ganze Stand oder keiner
+# --------------------------------------------------------------------------
+# Am 17.9.2026 wurde ``data/serving/`` beiseitegeschoben und ein Release
+# gebildet. Es entstand mit 11 statt 21 Dateien - ohne die vier
+# Vergleichstabellen, ohne die Karte - und nannte sich ``complete``. Gesucht
+# hatte danach niemand; die Frage war, ob der Ordner ueberhaupt noch gebraucht
+# wird. Die Antwort ist ja, und das hier haelt sie fest.
+
+
+def test_ohne_serving_entsteht_kein_release(tmp_path):
+    """Der Fall, fuer den es die Pflichtliste gibt."""
+    from orchestration.release import VOLLSTAENDIG
+
+    _, _, data_root = ablage(tmp_path, "local")
+    gebaut(data_root)
+    assert bilde(data_root, jetzt=JETZT).is_dir()
+
+    shutil.rmtree(data_root / "serving")
+    with pytest.raises(release.ReleaseFehler, match="serving/dataset=comparison_day"):
+        bilde(data_root, jetzt=datetime(2026, 9, 18, tzinfo=timezone.utc))
+    assert len(list((data_root / "releases").glob("release=*"))) == 1, (
+        "es darf kein zweites, halbes Release entstanden sein"
+    )
+    assert "serving/tracts.geojson" in VOLLSTAENDIG
+
+
+def test_die_pflichtliste_kommt_aus_den_schichten_selbst():
+    """Kommt eine Tabelle dazu, steht sie von allein darin - nicht abgeschrieben."""
+    from gold_pipeline import TABELLEN as gold
+    from orchestration.release import VOLLSTAENDIG
+    from serving.build_comparison import TABELLEN as serving
+
+    for name in gold:
+        assert f"gold/dataset={name}" in VOLLSTAENDIG
+    for name in serving:
+        assert f"serving/dataset={name}" in VOLLSTAENDIG
+    assert len(VOLLSTAENDIG) == len(gold) + len(serving) + 1
+
+
+def test_eine_fehlende_gold_tabelle_faellt_ebenso_auf(tmp_path):
+    _, _, data_root = ablage(tmp_path, "local")
+    gebaut(data_root)
+    shutil.rmtree(data_root / "gold" / "dataset=dim_tract")
+    with pytest.raises(release.ReleaseFehler, match="gold/dataset=dim_tract"):
+        bilde(data_root, jetzt=JETZT)
+
+
+def test_der_boden_in_storage_bleibt_minimal(tmp_path):
+    """``storage`` kennt nur Dateien - die volle Liste reicht der Aufrufer nach.
+
+    Ohne ``pflicht`` gilt weiterhin nur ``gold/dataset=fact_offense``. Das ist
+    Absicht: Ein Fundament darf nicht wissen, welche Schichten es ueber ihm
+    gibt (der Waechter ueber den Importgraphen hat genau das schon einmal
+    gemeldet).
+    """
+    _, _, data_root = ablage(tmp_path, "local")
+    gebaut(data_root)
+    assert release.erstelle(data_root, jetzt=JETZT).is_dir()
+    assert release.PFLICHT == ("gold/dataset=fact_offense",)

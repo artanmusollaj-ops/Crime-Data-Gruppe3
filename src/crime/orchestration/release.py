@@ -23,9 +23,28 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from gold_pipeline import TABELLEN as GOLD_TABELLEN
 from serving.build_analysis_db import build_selbststaendig
+from serving.build_comparison import TABELLEN as SERVING_TABELLEN
+from serving.export_geojson import GEOJSON_NAME
 from storage import StorageError, for_root, release
 from storage.config import StorageConfigError
+
+
+# Was in einem vollstaendigen Release stehen muss - abgeleitet aus den
+# Schichten selbst, nicht abgeschrieben. Kommt eine Gold- oder
+# Serving-Tabelle dazu, steht sie hier von allein.
+#
+# Warum es das braucht: Wird ``data/serving/`` beiseitegeschoben, sammelt
+# ``storage.release`` einfach weniger ein - am 17.9.2026 entstand so ein
+# Release mit 11 statt 21 Dateien, das sich ``complete`` nannte. ``storage``
+# kann das nicht bemerken; es kennt nur Dateien. Diese Liste ist die Stelle,
+# an der jemand weiss, was dazugehoert.
+VOLLSTAENDIG: tuple[str, ...] = (
+    tuple(f"gold/dataset={t}" for t in GOLD_TABELLEN)
+    + tuple(f"serving/dataset={t}" for t in SERVING_TABELLEN)
+    + (f"serving/{GEOJSON_NAME}",)
+)
 
 
 def datenbank(arbeit: Path, kern: dict[str, Any]) -> None:
@@ -38,12 +57,15 @@ def datenbank(arbeit: Path, kern: dict[str, Any]) -> None:
 
 
 def bilde(data_root: Path, **kw: Any) -> Path:
-    """Ein Release mit allem, was hineingehoert."""
+    """Ein Release mit allem, was hineingehoert - und nur dann."""
+    kw.setdefault("pflicht", VOLLSTAENDIG)
     return release.erstelle(data_root, ergaenze=datenbank, **kw)
 
 
 def bilde_und_publiziere(data_root: Path, storage) -> dict[str, Any]:
-    return release.erstelle_und_publiziere(data_root, storage, ergaenze=datenbank)
+    return release.erstelle_und_publiziere(
+        data_root, storage, ergaenze=datenbank, pflicht=VOLLSTAENDIG
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
