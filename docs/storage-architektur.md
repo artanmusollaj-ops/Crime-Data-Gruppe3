@@ -231,6 +231,43 @@ der nicht bestätigt ist, gilt nicht als erfolgt.
 
 ---
 
+## 6a · Das Release: der ganze Stand unter einer Kennung
+
+Seit dem 17.9.2026 (`storage.release`). Silver und Gold werden weiterhin je
+Tabelle an festen Pfaden veröffentlicht — nacheinander, und zwischen zwei
+Tabellen liegt ein Fenster mit gemischtem Stand. Wer einen **ganzen** Stand
+braucht, liest ein Release:
+
+```text
+releases/release=2026-09-17T15-04-05Z/gold/dataset=fact_offense/...
+releases/release=2026-09-17T15-04-05Z/serving/dataset=comparison_day/...
+releases/release=2026-09-17T15-04-05Z/serving/analyse.duckdb     selbständig
+releases/release=2026-09-17T15-04-05Z/serving/tracts.geojson
+releases/release=2026-09-17T15-04-05Z/release.json               Prüfsummen
+releases/AKTUELL.json                                             der Zeiger
+```
+
+Gebildet wird es lokal, vollständig oder gar nicht (`.part`, dann `rename`),
+mit SHA-256 je Datei in `release.json`. Publiziert wird es **wie ein Lauf**:
+unveränderlich, identisch oben übersprungen, anders oben ein Fehler;
+`release.json` zuletzt, und erst danach wird `AKTUELL.json` ersetzt — ein
+Objekt, dessen Ersetzung lokal wie auf S3 unteilbar ist. Alle Tabellen
+wechseln gemeinsam; ein Abbruch an jeder Stelle lässt den alten Stand gültig.
+
+| Modus | Release |
+| --- | --- |
+| `local` | nur mit `run_all --release`; bleibt lokal, `AKTUELL.json` lokal |
+| `hybrid` | nach jedem grünen Gesamtlauf; lokal gebildet, hochgebracht, lokale Kopie bleibt |
+| `s3` | wie `hybrid`, lokale Kopie danach entfernt |
+
+Ein Release entsteht nur nach einem **vollständigen** grünen Lauf bis
+einschliesslich Serving — ein halber Stand bekommt keine Kennung. Scheitert
+das Publizieren, ist der Lauf gescheitert.
+
+Releases werden aufgehoben; eine Löschregel ist offen (`datenhistorie.md`).
+
+---
+
 ## 7 · Zwei Sorten Ziele, zwei Regeln
 
 | | `raw/`, `bronze/` | `silver/`, `gold/` |
@@ -308,6 +345,10 @@ Sie ist abgeleitet, in Sekunden neu gebaut und auf einem anderen Rechner
 wertlos — sie zu teilen brächte nichts und ginge schief. Wohin ihre Sichten
 zeigen, entscheidet dagegen der Modus: im Hybridbetrieb je Datei dorthin, wo
 sie liegt.
+
+Die `analyse.duckdb` **in einem Release** (Abschnitt 6a) ist ein anderes
+Artefakt: Sie hält **Tabellen**, ist selbständig und wird geteilt — gerade
+weil ein Release unveränderlich ist, kann eine Kopie darin nicht veralten.
 
 Ebenfalls lokal: `data/pipeline_run.json` (das Protokoll des letzten
 Gesamtlaufs), `data/drift.json` und alle `.part`/`.partial`-Verzeichnisse.
@@ -397,6 +438,12 @@ erste Befehl, wenn etwas nicht stimmt.
 gerade schreiben. Ein Bestand, der vor der Umstellung entstanden ist, kommt
 so hoch — idempotent, in der richtigen Reihenfolge, ohne Sync in die
 Gegenrichtung.
+
+```bash
+python -m orchestration.release liste                    # jedes Release, lokal und oben
+python -m orchestration.release aktuell                  # worauf der Zeiger zeigt
+python -m orchestration.release erstellen --publizieren  # bilden, hochbringen, Zeiger umlegen
+```
 
 ---
 

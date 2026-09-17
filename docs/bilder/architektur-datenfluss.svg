@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 474" role="img" width="100%" height="auto"
-     aria-label="Der Datenfluss in vier Gruppen mit 14 Stufen: Ingestion schreibt raw und bronze, silver deutet, gold baut das Sternschema, serving stellt bereit.">
+     aria-label="Der Datenfluss in vier Gruppen mit 14 Stufen: Ingestion schreibt raw und bronze, silver deutet, gold baut das Sternschema, serving stellt bereit - und ein gruener Lauf wird zum Release.">
 <style>
   svg { color: #14304a; }
   .signal { fill: #c2410c; }
@@ -42,7 +42,7 @@
     <text x="555" y="378" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.72">3 Stufen: comparison, analyse_db, tracts_geojson</text>
   </g>
   <text x="24" y="358" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="0.8">serving</text>
-  <text x="24" y="376" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">bleibt immer lokal</text>
+  <text x="24" y="376" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">lokal gebaut; als Release publiziert</text>
   <line x1="555" y1="284" x2="555" y2="332" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
   <text x="24" y="462" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">Aus orchestration.run_all.STUFEN erzeugt. Abbruch beim ersten Fehler; die Reihenfolge ist real, nicht dekorativ.</text>
 </svg>

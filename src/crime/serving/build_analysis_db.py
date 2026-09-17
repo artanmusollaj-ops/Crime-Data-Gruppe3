@@ -38,6 +38,7 @@ import argparse
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 from typing import NamedTuple
 
 import duckdb
@@ -272,6 +273,52 @@ def build(data_root: Path) -> Path:
         LOG.info("  eigene Tabellen uebernommen: %s", ", ".join(uebernommen))
     LOG.info("%s: %d Sichten, %.1f KB",
              ziel, len(tabellen), ziel.stat().st_size / 1024)
+    return ziel
+
+
+def build_selbststaendig(
+    tabellen: list[tuple[str, Path]],
+    ziel: Path,
+    release: dict[str, Any],
+) -> Path:
+    """Eine Datenbank mit **Tabellen** statt Sichten - fuer ein Release.
+
+    Alles oben gilt weiter: Die Arbeitsdatenbank haelt Sichten, weil Sichten
+    nie veralten und keinen zweiten Bestand bilden. Ein Release ist etwas
+    anderes. Es ist unveraenderlich - eine Kopie darin kann nicht veralten,
+    weil sich nichts darunter mehr bewegt - und es wird auf einen anderen
+    Rechner geholt, wo Sichten mit absoluten Pfaden ins Leere zeigten.
+
+    ``release_info`` traegt Kennung und Zeitpunkt, damit ein Dashboard sagen
+    kann, welchen Stand es zeigt (Rat vom 17.9.2026, Schritt 6).
+    """
+    ziel.parent.mkdir(parents=True, exist_ok=True)
+    arbeit = ziel.with_name(f".{ziel.name}.part")
+    arbeit.unlink(missing_ok=True)
+    con = duckdb.connect(str(arbeit))
+    try:
+        try:
+            con.execute("INSTALL spatial")
+            con.execute("LOAD spatial")
+        except duckdb.Error as fehler:
+            LOG.warning("spatial nicht verfuegbar, Geometrie bleibt WKB: %s", fehler)
+        for name, parquet in tabellen:
+            con.execute(
+                f'CREATE TABLE "{name}" AS SELECT * FROM read_parquet(?)',
+                [str(parquet)],
+            )
+        con.execute(
+            "CREATE TABLE release_info AS SELECT ? AS release_id, ? AS created_at_utc",
+            [release["release_id"], release["created_at_utc"]],
+        )
+    except BaseException:
+        con.close()
+        arbeit.unlink(missing_ok=True)
+        raise
+    finally:
+        con.close()
+    arbeit.replace(ziel)
+    LOG.info("%s: %d Tabellen, %.1f MB", ziel, len(tabellen), ziel.stat().st_size / 1e6)
     return ziel
 
 

@@ -22,3 +22,6 @@ dist/
 .DS_Store
 # Generierte Testprotokolle des Test-Runners.
 logs/
+
+# Releases: der ganze Stand unter einer Kennung, wie serving/ abgeleitet und nicht versioniert.
+data/releases/

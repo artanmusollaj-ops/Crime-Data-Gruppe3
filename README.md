@@ -204,7 +204,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet werden **1'095 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **1'119 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -545,6 +545,30 @@ Pipeline nur noch einen Satz — *nicht erreichbar*, *lehnt ab* mit dem Code —
 statt eines boto3-Tracebacks. Vorübergehende Aussetzer (403, 5xx,
 Verbindungsabbruch) werden bis zu viermal mit Pause wiederholt.
 
+**Ein Release: der ganze Stand unter einer Kennung.** Seit dem 17.9.2026
+bildet jeder grüne Gesamtlauf in einem publizierenden Modus (`hybrid`, `s3`)
+ein Release: `data/releases/release=<Kennung>/` mit den fünf Gold-Tabellen,
+den vier Serving-Tabellen, dem GeoJSON, einer **selbständigen**
+`analyse.duckdb` (Tabellen statt Sichten — sie antwortet auf jedem Rechner)
+und `release.json` mit SHA-256 je Datei, Vertrags- und Code-Versionen und den
+Bronze-Läufen, auf denen alles ruht. Es geht unveränderlich nach SeaweedFS,
+`release.json` zuletzt, und erst dann wird `releases/AKTUELL.json` umgelegt —
+ein Objekt, unteilbar. Alle Tabellen wechseln gemeinsam; ein Abbruch an jeder
+Stelle lässt den alten Stand gültig. Die festen Pfade `gold/dataset=…`
+werden weiterhin bedient.
+
+```bash
+python -m orchestration.run_all --release        # auch im local-Modus ein Release bilden
+python -m orchestration.run_all --ohne-release   # keines, auch wenn die Ablage publiziert
+python -m orchestration.release liste                  # jedes Release, lokal und oben
+python -m orchestration.release aktuell                # worauf der Zeiger zeigt
+python -m orchestration.release erstellen --publizieren   # von Hand: bilden, hochbringen, Zeiger umlegen
+```
+
+Releases werden **aufgehoben**, bis eine Regel dafür entschieden ist
+([`docs/datenhistorie.md`](docs/datenhistorie.md)); rund 15 MB Parquet plus
+die Datenbank je Release.
+
 **Bestehende Läufe nachpublizieren.** Die Pipelines publizieren nur den
 Lauf, den sie gerade schreiben. Was vorher da war — Chicagos
 Vollschnappschuss, die Deltas, Detroit, Census, NOAA — kommt so hoch, Raw vor
@@ -580,7 +604,7 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 python -m pytest
 ```
 
-**1'095 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'119 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -614,7 +638,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'014 der 1'095 Tests**. Die übrigen 81 überspringen
+In einem frischen Klon laufen **1'038 der 1'119 Tests**. Die übrigen 81 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter

@@ -31,7 +31,7 @@ from typing import NamedTuple
 
 from manifeste import fingerabdruck as manifeste_fingerabdruck
 from orchestration import LAUF_MANIFEST
-from storage import for_root
+from storage import StorageError, for_root
 
 
 LOG = logging.getLogger("run_all")
@@ -266,7 +266,17 @@ def schreibe_manifest(data_root: Path, manifest: dict) -> Path:
 
 def lauf(data_root: Path, projekt_root: Path, *,
          ohne_ingestion: bool = False, bis: str | None = None,
-         maximal_alter_tage: float | None = None) -> dict:
+         maximal_alter_tage: float | None = None,
+         release: bool | None = None) -> dict:
+    """Die ganze Strecke - und am Ende, wenn alles gruen ist, ein Release.
+
+    ``release``: ``None`` heisst *wenn die Ablage publiziert* (hybrid, s3),
+    ``True`` erzwingt eines auch lokal, ``False`` unterlaesst es. Ein Release
+    entsteht nur nach einem vollstaendigen, gruenen Lauf bis einschliesslich
+    Serving - ein halber Stand bekommt keine Kennung. Scheitert das Release,
+    ist der Lauf gescheitert: Ein publizierender Modus, der nicht publiziert,
+    hat sein Versprechen nicht gehalten.
+    """
     stufen = auswahl(ohne_ingestion, bis)
     begonnen = datetime.now(timezone.utc)
     zu_alt: dict[str, float | None] = {}
@@ -308,9 +318,26 @@ def lauf(data_root: Path, projekt_root: Path, *,
     gelaufen = all(s["exit"] == 0 for s in protokoll) and len(protokoll) == len(stufen)
 
     geschafft = gelaufen and not zu_alt
+
+    freigabe: dict | None = None
+    if geschafft and bis is None:
+        ablage = for_root(data_root)
+        if release is True or (release is None and ablage.config.publiziert):
+            from orchestration import release as release_modul
+            try:
+                freigabe = release_modul.bilde_und_publiziere(data_root, ablage)
+                LOG.info("Release %s: %d Dateien%s", freigabe["release_id"],
+                         freigabe["files"],
+                         ", publiziert" if freigabe["published"] else ", nur lokal")
+            except StorageError as fehler:
+                LOG.error("Release gescheitert: %s", fehler)
+                freigabe = {"status": "failed", "error": str(fehler)}
+                geschafft = False
+
     laeufe = bronze_laeufe(data_root)
     manifest = {
         "status": "complete" if geschafft else "failed",
+        "release": freigabe,
         "started_at_utc": begonnen.isoformat(),
         "finished_at_utc": datetime.now(timezone.utc).isoformat(),
         "stages": protokoll,
@@ -340,6 +367,11 @@ def arguments() -> argparse.Namespace:
                    help="nach dieser Gruppe aufhoeren")
     p.add_argument("--trocken", action="store_true",
                    help="nur zeigen, was liefe")
+    freigabe = p.add_mutually_exclusive_group()
+    freigabe.add_argument("--release", dest="release", action="store_true", default=None,
+                          help="nach gruenem Lauf ein Release bilden, auch im local-Modus")
+    freigabe.add_argument("--ohne-release", dest="release", action="store_false",
+                          help="kein Release, auch wenn die Ablage publiziert")
     p.add_argument("--maximal-alter-tage", type=float, default=None, metavar="TAGE",
                    help="scheitern, wenn der juengste Lauf einer Quelle aelter ist "
                         "(ohne Angabe wird die Aktualitaet nur aufgezeichnet)")
@@ -365,7 +397,8 @@ def main() -> int:
 
     manifest = lauf(for_root(args.data_root).local_root, projekt_root,
                     ohne_ingestion=args.ohne_ingestion, bis=args.bis,
-                    maximal_alter_tage=args.maximal_alter_tage)
+                    maximal_alter_tage=args.maximal_alter_tage,
+                    release=args.release)
 
     print()
     if manifest["status"] != "complete":
@@ -376,6 +409,8 @@ def main() -> int:
                 for q, t in zu_alt.items()
             )
             print(f"Zu alt: {alt_}. Erlaubt: {args.maximal_alter_tage} Tage.")
+        elif (manifest.get("release") or {}).get("status") == "failed":
+            print(f"Strecke gruen, Release gescheitert: {manifest['release']['error']}")
         else:
             gescheitert = next(s for s in manifest["stages"] if s["exit"] != 0)
             print(f"Abgebrochen bei {gescheitert['gruppe']} · {gescheitert['name']}.")
@@ -383,6 +418,11 @@ def main() -> int:
     gesamt = sum(s["sekunden"] for s in manifest["stages"])
     print(f"{len(manifest['stages'])} Stufen in {gesamt:.0f} s.")
     print(f"Fingerabdruck der Eingaben: {manifest['input_fingerprint'][:16]}")
+    if manifest.get("release"):
+        r = manifest["release"]
+        print(f"Release {r['release_id']}: {r['files']} Dateien, "
+              f"{'publiziert' if r['published'] else 'nur lokal'} "
+              f"({for_root(args.data_root).local_root / 'releases'})")
     print(f"Protokoll: {for_root(args.data_root).local_root / LAUF_MANIFEST}")
     return 0
 

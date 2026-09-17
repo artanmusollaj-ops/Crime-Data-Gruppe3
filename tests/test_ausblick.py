@@ -258,15 +258,15 @@ AGGREGATE = ("comparison_day", "comparison_week", "comparison_month",
              "partition_quality")
 
 
-def test_die_luecke_besteht_noch(text):
-    """Solange publish_table am festen Pfad ueberschreibt, gilt der Abschnitt."""
+def test_der_versionspfad_ist_gebaut_und_der_abschnitt_sagt_es(text):
+    """Am 17.9.2026 wurde die Luecke geschlossen - der Abschnitt darf sie nicht
+    mehr als offen fuehren, und die Zusage liegt dort, wo sie gilt."""
     if "Versionspfad plus ein Verweis" not in text:
         pytest.skip("Das Dokument beschreibt den Bau nicht mehr")
-    backend = (QUELLE / "storage" / "backend.py").read_text(encoding="utf-8")
-    assert "release=" not in backend, (
-        "Der Versionspfad ist gebaut - dann gehoert Abschnitt 6 nicht mehr in "
-        "einen Ausblick, sondern seine Zusage dorthin, wo sie gilt"
-    )
+    assert (QUELLE / "storage" / "release.py").is_file()
+    assert (PROJECT_ROOT / "tests" / "storage" / "test_release.py").is_file()
+    assert "**Gebaut am 17.9.2026" in text
+    assert "**Offen.** Die fünf Gold-Tabellen" not in text
 
 
 def test_die_aggregate_liegen_in_serving_nicht_in_gold(text):

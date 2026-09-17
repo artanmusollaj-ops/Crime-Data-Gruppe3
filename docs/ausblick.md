@@ -555,16 +555,23 @@ Reihe nach den vollständigen alten Stand, dann keinen, dann den vollständigen
 neuen. Lokal tragen die Arbeitsverzeichnisse jetzt die Prozessnummer, damit
 zwei Läufe einander nicht das halbfertige Ergebnis wegräumen.
 
-**Offen.** Die fünf Gold-Tabellen werden weiterhin **nacheinander**
-veröffentlicht. Zwischen `fact_offense` und `dim_city_day` liegt ein Fenster,
-in dem eine Abfrage über beide einen gemischten Stand sieht. Dasselbe gilt für
-zwei gleichzeitige Gesamtläufe.
+**Gebaut am 17.9.2026 (#109).** Die fünf Gold-Tabellen werden an ihren festen
+Pfaden weiterhin nacheinander veröffentlicht — wer dort liest, liest weiter,
+und das Fenster mit gemischtem Stand besteht dort fort. Was einen **ganzen**
+Stand braucht, liest seither ein **Release**: `storage.release` bildet nach
+jedem grünen Gesamtlauf ein Verzeichnis je Kennung, publiziert es
+unveränderlich und legt danach den Zeiger um. Die Zusage steht in
+`tests/storage/test_release.py`; dieser Abschnitt beschreibt den Bau, wie er
+ist. Bewusst noch nicht umgestellt sind die Leser der festen Pfade —
+`storage.tabellen`, die Sichten der Arbeitsdatenbank, die Notebooks, `drift`,
+`aufraeumen`. Der feste Pfad ist die Arbeitskopie, das Release der
+freigegebene Stand; das Dashboard (LN2) liest das Release. Zwei gleichzeitige
+Gesamtläufe bleiben ein offener Punkt (Sperre, unten).
 
-### Was es dafür bräuchte
+### Der Bau
 
-Der übliche Bau ist ein **Versionspfad plus ein Verweis**. Ein erster Entwurf
-versionierte jede Tabelle für sich; seit dem 17.9. ist es **ein Verzeichnis je
-Release**:
+Ein **Versionspfad plus ein Verweis**. Ein erster Entwurf versionierte jede
+Tabelle für sich; gebaut ist **ein Verzeichnis je Release**:
 
 ```text
 gold/release=2026-09-15T17-15-06/dataset=fact_offense/part-0001.parquet
