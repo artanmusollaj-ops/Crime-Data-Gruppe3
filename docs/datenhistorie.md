@@ -125,7 +125,7 @@ Genannte* und *die Basis jedes Deltas*.
 
 ---
 
-## 5 · Vier Entscheidungen für Freitag
+## 5 · Fünf Entscheidungen für Freitag
 
 ### 5.1 Welche Felder zählen als Änderung?
 
@@ -269,3 +269,23 @@ später ändern, solange die Rohläufe noch liegen.
 > Release hält fest, was wir gesagt haben; diese Tabelle hält fest, was die
 > Stadt geändert hat. Beides ist nützlich, keines ersetzt das andere, und für
 > Freitag steht nur das Zweite zur Entscheidung.
+
+### Ausserdem am Freitag — nicht Teil dieses Papiers
+
+Vier offene Punkte aus dem Chat, damit sie nicht verlorengehen:
+
+6. **Chicagos Beschreibung aus beiden IUCR-Hälften bauen?** Silver führt für
+   Chicago nur `description`, nicht `primary_type`. Deshalb ist
+   `source_offense_description` in **23,3 %** der Chicagoer Zeilen für sich
+   genommen mehrdeutig — `SIMPLE` steht 31'565-mal und meint einmal
+   Körperverletzung (0460, 13B), einmal Bedrohung (0560, 13C); `AGGRAVATED -
+   HANDGUN` ist einmal 11A, einmal 13A (`zaehlperspektiven.md` 3). Vorschlag:
+   `BATTERY · SIMPLE` statt `SIMPLE`. Kostet Silver-Vertrag 3, Gold-Vertrag 5,
+   einen Neubau und Nachführen der Dokumente; gewinnt eine Spalte, die sich
+   ohne den Code lesen lässt. **Christian hat entschieden, die Frage offen zu
+   lassen und am Freitag zu klären.**
+7. **Die `ambiguous`-Zuordnungen durchgehen:** 20 in den Crosswalks, 16
+   davon mit Zeilen im Jahrgang 2024 (5'140 Zeilen). Vier Entscheidungen sind
+   getroffen, aber nicht belegt.
+8. **H1 und H6 im Wortlaut** (Notebook 36, Bilanz).
+9. **Ist „Anklage" der richtige Begriff** für Detroits Zeilen?
