@@ -140,14 +140,26 @@ def test_das_granularitaet_jeder_tabelle_steht_drin(gebaut):
 
 @pytest.mark.referenzstand
 def test_ein_zweiter_lauf_liefert_dieselbe_datei(gebaut):
-    """Wie bei den drei Crosswalk-Werkzeugen: erzeugt heisst wiederholbar."""
+    """Wie bei den drei Crosswalk-Werkzeugen: erzeugt heisst wiederholbar.
+
+    **Der Katalog wird danach wiederhergestellt.** Das Werkzeug kennt kein
+    Ausgabeverzeichnis, es schreibt immer nach ``docs/feldkatalog.md`` - ein
+    scheiternder Test liess die neu erzeugte Datei also im Arbeitsbaum liegen.
+    Am 17.9.2026 ist sie dadurch zweimal in einen Commit geraten und hat den
+    Katalog vom Referenzstand weggezogen, waehrend alle uebrigen Dokumente
+    dort blieben. Ein Test darf messen; veraendern darf er nichts.
+    """
     vorher = KATALOG.read_text(encoding="utf-8")
-    fertig = subprocess.run(
-        [sys.executable, str(WERKZEUG)],
-        capture_output=True, text=True, cwd=PROJECT_ROOT,
-    )
+    try:
+        fertig = subprocess.run(
+            [sys.executable, str(WERKZEUG)],
+            capture_output=True, text=True, cwd=PROJECT_ROOT,
+        )
+        nachher = KATALOG.read_text(encoding="utf-8")
+    finally:
+        KATALOG.write_text(vorher, encoding="utf-8")
     assert fertig.returncode == 0, fertig.stderr
-    assert KATALOG.read_text(encoding="utf-8") == vorher, (
+    assert nachher == vorher, (
         "Ein zweiter Lauf liefert eine andere Datei - dann ist der Katalog "
         "nicht reproduzierbar aus den Manifesten abgeleitet"
     )

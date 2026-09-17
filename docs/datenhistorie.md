@@ -257,9 +257,40 @@ Silver-Tabelle, die neue Vorbedingung in `aufraeumen`, Tests.
 4. Tabelle vor oder nach der Harmonisierung (5.4)?
 5. Welche Releases bleiben — alle, gepinnt + die letzten n, oder nur das
    aktuelle (5.5)? Bis zur Entscheidung wird keines gelöscht.
+6. **Wann ziehen wir den Referenzstand nach?** Er ist seit dem 17.9. überholt
+   — siehe unten.
 
 Punkt 1 ist der einzige, der Zeitdruck hat. Die übrigen drei lassen sich auch
 später ändern, solange die Rohläufe noch liegen.
+
+### Offen seit dem 17.9.2026: der Referenzstand ist überholt
+
+Am Abend des 17.9. lief die Strecke erstmals seit dem 5.–8. September wieder
+**mit Ingestion**. Die Quellen hatten sich in diesen zehn Tagen bewegt, und
+der gebaute Stand steht seither vor dem dokumentierten:
+
+| Grösse | dokumentiert | gemessen am 17.9. | Drift |
+| --- | ---: | ---: | ---: |
+| `silver/crime_offense` | 347'957 | 348'311 | +0,10 % |
+| `gold/fact_offense` | 344'617 | 345'050 | +0,13 % |
+| Chicago, je 1'000 | 94,5 | 94,5 | 0,0 |
+| Detroit, je 1'000 (Tatebene) | 132,6 | **132,7** | +0,1 — über der Toleranz |
+| Fallebene, beide Städte | unverändert | unverändert | 0,0 |
+
+**Christian hat entschieden, den Referenzstand vorerst nicht nachzuziehen**
+(17.9.2026). Er ist eine Verabredung des Teams, keine Zahl, die ein Lauf
+verschiebt — und die Abgabedokumente stehen kurz vor der Besprechung. Die
+Folge ist sichtbar und gewollt: Auf einem Rechner mit frisch gebauten Daten
+sind **33 der 70 Wächter mit dem Marker `referenzstand` rot**. Das ist ihre
+Aufgabe, nicht ein Fehler; `python -m orchestration.drift` sagt in einer
+Tabelle, wie weit es auseinander ist. In CI und in einem frischen Klon ändert
+sich nichts, dort gibt es keine Daten.
+
+Zu entscheiden ist, **wann** nachgezogen wird: jetzt, nach Freitag, oder erst
+vor der Abgabe. Nachziehen heisst — in einem Zug — alle dokumentierten Zahlen
+auf den neuen Stand, `aufraeumen --pinnen` für die neuen Läufe, und
+`docs/feldkatalog.md` neu erzeugen. Bis dahin gilt: Was in den Dokumenten
+steht, ist der Stand vom 17.9.2026, 16:05 UTC.
 
 > **Nicht zu verwechseln: der Veröffentlichungsstand.** Für LN2 ist ein
 > Release-Verzeichnis je freigegebenem Gold-Stand geplant, mit einem Verweis
