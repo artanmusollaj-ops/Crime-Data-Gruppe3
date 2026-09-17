@@ -33,7 +33,7 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 ● fertig ◐ teilweise ○ offen
 
 **Die gute Nachricht:** Ingestion und Storage — die beiden praktisch
-aufwendigsten Blöcke — stehen. 1'082 Tests, fünf Quellen in vier Pipelines,
+aufwendigsten Blöcke — stehen. 1'095 Tests, fünf Quellen in vier Pipelines,
 nachgewiesene Vollständigkeit. Und weil die Hypothesen Fragen des Data Engineering sind
 (Abschnitt 2.0), sind fünf davon durch die bisherige Arbeit **bereits
 gemessen**: Wir haben Befunde, bevor wir die Hypothesen formuliert haben — und
@@ -283,7 +283,7 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 | **Ingestion** | Vier Pipelines. Batch, kein Streaming. Chicago inkrementell über Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` | – |
 | **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest. Ablage wahlweise lokal, SeaweedFS über S3 oder hybrid | `data/`, Abschnitt 4, [`storage-architektur.md`](storage-architektur.md) | – |
 | **Transformation** | Bronze bewusst ohne Transformation. Silver und Gold gebaut, Qualitätsanalyse beider Städte fertig | Notebook 03, 13, 34 | – |
-| **Serving** | Option **A · Analytik** gewählt: Auswertungsdatenbank auf der Gold-Schicht | Abschnitt 6, Notebook 33 | gebaut: neun Sichten über Silver und Gold; das Dashboard darauf fehlt |
+| **Serving** | Option **A · Analytik** gewählt: Auswertungsdatenbank auf der Gold-Schicht | Abschnitt 6, Notebook 33 | gebaut: dreizehn Sichten über Silver, Gold und die vier Vergleichstabellen in Serving; das Dashboard darauf fehlt |
 
 ### Unterströmungen
 
@@ -291,7 +291,7 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie im Manifest oder in abgelegten URLs; drei Tests prüfen das. `.env` und `data/` aus Git ausgeschlossen, `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf, Herkunftsnachweis über `derived_from` und `input_fingerprint` durchgehend bis Gold, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog aus den Manifesten erzeugt, Aufbewahrungsregel mit `orchestration.aufraeumen` | das Aufräumen ist ein Handgriff, kein Automatismus |
-| **DataOps** | 1'082 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions über zwei Betriebssysteme und zwei Python-Versionen; dazu der wöchentliche Datenlauf | keine Alarmierung ausser dem roten Lauf selbst |
+| **DataOps** | 1'095 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions über zwei Betriebssysteme und zwei Python-Versionen; dazu der wöchentliche Datenlauf | keine Alarmierung ausser dem roten Lauf selbst |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (raw) und Ableitung (bronze). Zwei Architekturbilder, aus dem Code erzeugt ([`architektur.md`](architektur.md)) | Vintage 2024 hart verdrahtet |
 | **Orchestration** | `orchestration.run_all`: 13 Stufen in Reihenfolge, Abbruch beim ersten Fehler, Gesamtmanifest über alle Eingabe-Läufe | der geplante Lauf ist wöchentlich, die Quellen ändern sich täglich; keine Wiederaufnahme nach Abbruch, bewusst |
 | **Software Engineering** | Modulare Pakete, Typannotationen, ausführliche Docstrings, Fehlerbehandlung mit Wiederholungen | – |
@@ -300,7 +300,7 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 bescheidene Ansatz angesetzt — ein Skript, das die Pipelines in der richtigen
 Reihenfolge aufruft und protokolliert. Genau das ist `orchestration.run_all`
 geworden. Airflow oder Prefect wären für vier Batch-Läufe unangemessen; das
-lässt sich in der Präsentation gut begründen. Beim Serving stehen neun Sichten;
+lässt sich in der Präsentation gut begründen. Beim Serving stehen dreizehn Sichten und vier vorberechnete Vergleichstabellen;
 offen ist allein das Dashboard darauf, und das gehört bewusst in LN2.
 
 ---

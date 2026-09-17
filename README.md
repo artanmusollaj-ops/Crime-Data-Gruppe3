@@ -204,7 +204,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet werden **1'082 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **1'095 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -380,6 +380,14 @@ je **Tat** und vier Dimensionen daneben. Der Unterschied zu Silver ist die Granu
 um 3,9 % zu hoch. Warum kein vorberechneter Würfel gebaut wurde, steht in
 [`docs/sternschema-und-wuerfel.md`](docs/sternschema-und-wuerfel.md).
 
+`build_comparison` leitet aus Gold **vier Vergleichstabellen** für das
+Dashboard ab — `comparison_day`, `comparison_week`, `comparison_month` je
+Stadt und NIBRS-Kategorie, dazu `partition_quality` je Stadt und Monat. Sie
+liegen in `data/serving/`, nicht in Gold: Gold bleibt der Stern, die Tabellen
+sind jederzeit daraus neu erzeugbar und summieren sich nachweislich auf die
+Faktentabelle. Teilperioden am Rand des Jahrgangs sind je Zeile ausgewiesen
+(`days_in_window`).
+
 `build_analysis_db` erzeugt `data/serving/analyse.duckdb` — eine DuckDB-Datei
 mit **Sichten** über die Parquet-Schichten, keine Kopie. Ein Silver- oder
 Gold-Neubau ist darin sofort sichtbar.
@@ -476,8 +484,9 @@ Bestand: je Lauf oder Tabelle, `manifest.json` zuletzt. Läufe (`run_…`)
 werden nie überschrieben — liegt einer schon anders oben, ist das ein
 Fehler. Silver- und Gold-Tabellen werden überschrieben, wie lokal auch.
 
-**Immer lokal:** `data/serving/` — die Auswertungsdatenbank und das
-GeoJSON. Die Sichten in `analyse.duckdb` zeigen je Datei dorthin, wo sie
+**Immer lokal:** `data/serving/` — die Auswertungsdatenbank, das GeoJSON
+und die vier Vergleichstabellen aus `build_comparison`; Letztere erreichen
+SeaweedFS nur als Teil eines Release, nie an einem festen Pfad. Die Sichten in `analyse.duckdb` zeigen je Datei dorthin, wo sie
 liegt. Wer sie im Hybrid- oder S3-Modus öffnet, braucht dieselbe Verbindung
 wie die Pipeline — `httpfs` und ein temporäres Secret, nichts wird
 persistiert:
@@ -571,7 +580,7 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 python -m pytest
 ```
 
-**1'082 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'095 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -605,7 +614,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'003 der 1'082 Tests**. Die übrigen 79 überspringen
+In einem frischen Klon laufen **1'014 der 1'095 Tests**. Die übrigen 81 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter

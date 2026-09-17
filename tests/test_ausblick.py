@@ -254,7 +254,8 @@ def test_die_beiden_bauarten_nennen_vorhandene_artefakte(text):
 # was ein halbes Jahr spaeter niemand mehr erinnert, wenn derselbe Vorschlag
 # ein zweites Mal kommt.
 
-VERWORFENE_AGGREGATE = ("comparison_day", "comparison_week", "comparison_month")
+AGGREGATE = ("comparison_day", "comparison_week", "comparison_month",
+             "partition_quality")
 
 
 def test_die_luecke_besteht_noch(text):
@@ -268,22 +269,28 @@ def test_die_luecke_besteht_noch(text):
     )
 
 
-def test_die_verworfenen_aggregate_bleiben_verworfen(text):
-    """Sie stehen namentlich da, damit der Vorschlag nicht zweimal kommt."""
-    if "Was ein Release **nicht** enthält" not in text:
-        pytest.skip("Der Abschnitt nennt die Ablehnung nicht")
-    for name in VERWORFENE_AGGREGATE:
-        assert f"`{name}.parquet`" in text, (
-            f"{name} wird nicht mehr namentlich abgelehnt"
-        )
+def test_die_aggregate_liegen_in_serving_nicht_in_gold(text):
+    """Die Entscheidung vom 17.9.2026: gebaut, aber nicht in Gold.
+
+    Ein erster Entwurf lehnte sie ab; Christian hat entschieden, dass fuer ein
+    Studienprojekt der gebaute Gegenentwurf zaehlt. Der Abschnitt sagt seither,
+    wo sie liegen - und Konzept 5.2 sagt weiterhin: keine Aggregate in Gold.
+    """
+    if "Was ein Release enthält" not in text:
+        pytest.skip("Der Abschnitt nennt den Inhalt eines Release nicht")
+    for name in AGGREGATE:
+        assert f"`{name}`" in text, f"{name} wird im Ausblick nicht genannt"
+    assert "serving.build_comparison" in text
     gold = PROJECT_ROOT / "data" / "gold"
     if gold.is_dir():
         gebaut = {p.name.removeprefix("dataset=") for p in gold.iterdir() if p.is_dir()}
-        drin = gebaut & set(VERWORFENE_AGGREGATE)
+        drin = gebaut & set(AGGREGATE)
         assert not drin, (
-            f"{sorted(drin)} ist in Gold gebaut worden - der Ausblick lehnt es ab "
-            "und Konzept 5.2 sagt 'Keine vorberechneten Aggregate' zu"
+            f"{sorted(drin)} ist in Gold gebaut worden - sie gehoeren nach serving/, "
+            "Konzept 5.2 sagt 'keine Aggregate in Gold'"
         )
+    konzept = (PROJECT_ROOT / "docs" / "ln1_konzept.md").read_text(encoding="utf-8")
+    assert "Keine vorberechneten Aggregate in Gold" in konzept
 
 
 def test_die_beiden_historien_werden_auseinandergehalten(text):

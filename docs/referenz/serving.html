@@ -32,6 +32,7 @@
             <h2>Submodules</h2>
             <ul>
                     <li><a href="serving/build_analysis_db.html">build_analysis_db</a></li>
+                    <li><a href="serving/build_comparison.html">build_comparison</a></li>
                     <li><a href="serving/export_geojson.html">export_geojson</a></li>
             </ul>
 
@@ -114,6 +115,14 @@ Rohdaten und eigene Arbeit bleiben getrennt, ohne zwei Dateien zu jonglieren.</p
 
 <p>Die Datei selbst ist <strong>abgeleitet und wegwerfbar</strong>: Sie wird nicht versioniert
 und jederzeit aus den Schichten neu erzeugt.</p>
+
+<p><strong>Seit dem 17.9.2026 liegen hier auch vier Tabellen</strong> - <code>comparison_day</code>,
+<code>comparison_week</code>, <code>comparison_month</code> und <code>partition_quality</code> aus
+<code>build_comparison</code>. Das widerspricht dem Gesagten nicht: Die Datenbank
+bleibt Sichten, und die vier Tabellen sind kein zweiter Bestand, sondern
+abgeleitete Parquet-Dateien fuer das Dashboard und den Veroeffentlichungsstand,
+jederzeit aus Gold neu erzeugbar. Warum es sie gibt, obwohl Notebook 34
+gemessen hat, dass sie nichts sparen, steht in <code>build_comparison</code>.</p>
 </div>
 
                         <input id="mod-serving-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
@@ -170,12 +179,20 @@ und jederzeit aus den Schichten neu erzeugt.</p>
 </span><span id="L-48"><a href="#L-48"><span class="linenos">48</span></a>
 </span><span id="L-49"><a href="#L-49"><span class="linenos">49</span></a><span class="sd">Die Datei selbst ist **abgeleitet und wegwerfbar**: Sie wird nicht versioniert</span>
 </span><span id="L-50"><a href="#L-50"><span class="linenos">50</span></a><span class="sd">und jederzeit aus den Schichten neu erzeugt.</span>
-</span><span id="L-51"><a href="#L-51"><span class="linenos">51</span></a><span class="sd">"""</span>
-</span><span id="L-52"><a href="#L-52"><span class="linenos">52</span></a>
-</span><span id="L-53"><a href="#L-53"><span class="linenos">53</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
-</span><span id="L-54"><a href="#L-54"><span class="linenos">54</span></a>
-</span><span id="L-55"><a href="#L-55"><span class="linenos">55</span></a><span class="n">SERVING_LAYER</span> <span class="o">=</span> <span class="s2">"serving"</span>
-</span><span id="L-56"><a href="#L-56"><span class="linenos">56</span></a><span class="n">DATABASE_NAME</span> <span class="o">=</span> <span class="s2">"analyse.duckdb"</span>
+</span><span id="L-51"><a href="#L-51"><span class="linenos">51</span></a>
+</span><span id="L-52"><a href="#L-52"><span class="linenos">52</span></a><span class="sd">**Seit dem 17.9.2026 liegen hier auch vier Tabellen** - ``comparison_day``,</span>
+</span><span id="L-53"><a href="#L-53"><span class="linenos">53</span></a><span class="sd">``comparison_week``, ``comparison_month`` und ``partition_quality`` aus</span>
+</span><span id="L-54"><a href="#L-54"><span class="linenos">54</span></a><span class="sd">``build_comparison``. Das widerspricht dem Gesagten nicht: Die Datenbank</span>
+</span><span id="L-55"><a href="#L-55"><span class="linenos">55</span></a><span class="sd">bleibt Sichten, und die vier Tabellen sind kein zweiter Bestand, sondern</span>
+</span><span id="L-56"><a href="#L-56"><span class="linenos">56</span></a><span class="sd">abgeleitete Parquet-Dateien fuer das Dashboard und den Veroeffentlichungsstand,</span>
+</span><span id="L-57"><a href="#L-57"><span class="linenos">57</span></a><span class="sd">jederzeit aus Gold neu erzeugbar. Warum es sie gibt, obwohl Notebook 34</span>
+</span><span id="L-58"><a href="#L-58"><span class="linenos">58</span></a><span class="sd">gemessen hat, dass sie nichts sparen, steht in ``build_comparison``.</span>
+</span><span id="L-59"><a href="#L-59"><span class="linenos">59</span></a><span class="sd">"""</span>
+</span><span id="L-60"><a href="#L-60"><span class="linenos">60</span></a>
+</span><span id="L-61"><a href="#L-61"><span class="linenos">61</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span id="L-62"><a href="#L-62"><span class="linenos">62</span></a>
+</span><span id="L-63"><a href="#L-63"><span class="linenos">63</span></a><span class="n">SERVING_LAYER</span> <span class="o">=</span> <span class="s2">"serving"</span>
+</span><span id="L-64"><a href="#L-64"><span class="linenos">64</span></a><span class="n">DATABASE_NAME</span> <span class="o">=</span> <span class="s2">"analyse.duckdb"</span>
 </span></pre></div>
 
 

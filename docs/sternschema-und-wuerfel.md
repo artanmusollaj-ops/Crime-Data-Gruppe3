@@ -200,6 +200,13 @@ lässt sich ein Würfel jederzeit *daraus* erzeugen. Umgekehrt geht es nicht.
    verworfene Variante ist keine Entscheidung, sondern eine Behauptung.
 3. Die Grenze ist benannt: Bei deutlich mehr Daten kehrt sich die Rechnung um,
    und der Würfel liesse sich aus dem Stern jederzeit nachbauen.
+4. **Seit dem 17.9.2026 gibt es ihn trotzdem — in Serving, nicht in Gold.**
+   Vier Vergleichstabellen (`comparison_day`, `comparison_week`,
+   `comparison_month`, `partition_quality`) werden aus dem Stern abgeleitet,
+   summieren sich nachweislich auf ihn und liegen im Veröffentlichungsstand
+   für das Dashboard. Nicht, weil die Messung oben falsch wäre — sie steht —,
+   sondern weil für ein Studienprojekt zählt, dass beide Bauweisen **gebaut**
+   nebeneinander stehen. Die Quelle der Wahrheit bleibt der Stern.
 
 ---
 

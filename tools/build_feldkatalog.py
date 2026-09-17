@@ -32,7 +32,8 @@ from manifeste import tabellen  # noqa: E402
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ZIEL = PROJECT_ROOT / "docs" / "feldkatalog.md"
 
-SCHICHTEN = ("silver", "gold")
+# serving seit 17.9.2026: die vier Vergleichstabellen aus build_comparison.
+SCHICHTEN = ("silver", "gold", "serving")
 
 # Spalten, die ueberall dasselbe bedeuten. Sie hier einmal zu erklaeren ist
 # ehrlicher, als denselben Satz neunmal zu wiederholen und beim zehnten Mal
@@ -219,6 +220,63 @@ JE_TABELLE: dict[tuple[str, str], str] = {
         "Warum eine Zeile in einer Tract-Auswertung fehlt - oder dass sie nicht "
         "fehlt: `inside_city`, `outside_city` (Tract gehört einer anderen "
         "Gemeinde), `no_tract`, `missing_coordinate`.",
+
+    # --- serving: die vier Vergleichstabellen aus Gold -----------------------
+    # Was hier keine Achse ist, existiert hier nicht. Die Quelle der Wahrheit
+    # bleibt der Stern; diese Tabellen sind jederzeit daraus neu erzeugbar.
+    **{
+        (tabelle, "reporting_city"): "Die meldende Stadt - `chicago` oder `detroit`."
+        for tabelle in ("comparison_day", "comparison_week", "comparison_month",
+                        "partition_quality")
+    },
+    **{
+        (tabelle, "nibrs_category"):
+            "Die amtliche NIBRS-Kategorie aus `dim_offense`; `unmapped` für die "
+            "Taten ohne Code, damit sie zählbar bleiben."
+        for tabelle in ("comparison_day", "comparison_week", "comparison_month")
+    },
+    **{
+        (tabelle, "offenses"):
+            "**Taten.** Summiert sich je Stadt auf `fact_offense` - jede Tat "
+            "trägt genau eine Kategorie."
+        for tabelle in ("comparison_day", "comparison_week", "comparison_month")
+    },
+    **{
+        (tabelle, "cases"):
+            "**Fälle.** Summe von `counts_case`; genau eine Zeile je Fall, "
+            "deshalb ebenfalls additiv über Kategorien."
+        for tabelle in ("comparison_day", "comparison_week", "comparison_month")
+    },
+    **{
+        (tabelle, "days_in_period"):
+            "Kalendertage der Periode: 7 je Woche, 28 bis 31 je Monat."
+        for tabelle in ("comparison_week", "comparison_month")
+    },
+    **{
+        (tabelle, "days_in_window"):
+            "Davon im Zeitfenster der Daten (`min(date)` bis `max(date)` der "
+            "Faktentabelle). Kleiner als `days_in_period` heisst **Teilperiode** - "
+            "die Woche ab 30.12. hat zwei Tage, nicht sieben."
+        for tabelle in ("comparison_week", "comparison_month")
+    },
+    ("comparison_day", "date"): "Tatdatum in Ortszeit.",
+    ("comparison_week", "week_start"): "Montag der Woche (ISO).",
+    ("comparison_week", "week_end"): "Sonntag der Woche - auch wenn er ausserhalb des Fensters liegt.",
+    ("comparison_month", "month"): "Monatserster.",
+    ("comparison_month", "month_end"): "Monatsletzter.",
+    ("partition_quality", "month"): "Monatserster - die Partition, über die die Anteile gerechnet sind.",
+    ("partition_quality", "offenses"): "Taten in dieser Stadt und diesem Monat.",
+    ("partition_quality", "share_exact"): "Anteil `mapping_status = exact` in Prozent.",
+    ("partition_quality", "share_ambiguous"): "Anteil `mapping_status = ambiguous` in Prozent.",
+    ("partition_quality", "share_fallback_90z"): "Anteil `mapping_status = fallback_90Z` in Prozent.",
+    ("partition_quality", "share_unmapped"): "Anteil `mapping_status = unmapped` in Prozent.",
+    ("partition_quality", "share_inside_city"): "Anteil `geo_status = inside_city` in Prozent.",
+    ("partition_quality", "share_outside_city"): "Anteil `geo_status = outside_city` in Prozent.",
+    ("partition_quality", "share_no_tract"): "Anteil `geo_status = no_tract` in Prozent.",
+    ("partition_quality", "share_missing_coordinate"): "Anteil `geo_status = missing_coordinate` in Prozent.",
+    ("partition_quality", "local_time_ambiguous"):
+        "Zahl der Taten in der doppelten Stunde beim Zurückstellen der Uhr "
+        "(nur Chicago). Eine Zahl, kein Anteil.",
 }
 
 

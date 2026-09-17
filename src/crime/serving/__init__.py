@@ -48,6 +48,14 @@ Rohdaten und eigene Arbeit bleiben getrennt, ohne zwei Dateien zu jonglieren.
 
 Die Datei selbst ist **abgeleitet und wegwerfbar**: Sie wird nicht versioniert
 und jederzeit aus den Schichten neu erzeugt.
+
+**Seit dem 17.9.2026 liegen hier auch vier Tabellen** - ``comparison_day``,
+``comparison_week``, ``comparison_month`` und ``partition_quality`` aus
+``build_comparison``. Das widerspricht dem Gesagten nicht: Die Datenbank
+bleibt Sichten, und die vier Tabellen sind kein zweiter Bestand, sondern
+abgeleitete Parquet-Dateien fuer das Dashboard und den Veroeffentlichungsstand,
+jederzeit aus Gold neu erzeugbar. Warum es sie gibt, obwohl Notebook 34
+gemessen hat, dass sie nichts sparen, steht in ``build_comparison``.
 """
 
 from __future__ import annotations

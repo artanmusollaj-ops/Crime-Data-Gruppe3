@@ -37,6 +37,7 @@ MODULE = {
     "silver/weather_day": "silver_pipeline.build_weather_day",
     "silver/crime_offense": "silver_pipeline.build_crime_offense",
     "gold/*": "gold_pipeline.build_gold",
+    "serving/comparison_*": "serving.build_comparison",
 }
 
 
@@ -133,6 +134,7 @@ def test_ohne_git_scheitert_kein_lauf(monkeypatch):
 @pytest.mark.parametrize("schicht, tabelle", [
     ("silver", "dataset=crime_offense"),
     ("gold", "dataset=fact_offense"),
+    ("serving", "dataset=comparison_month"),
 ])
 def test_die_gebauten_manifeste_tragen_beides(schicht, tabelle):
     """Auf gebauten Daten: Die Angaben muessen wirklich ankommen."""

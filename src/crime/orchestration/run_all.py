@@ -97,6 +97,8 @@ STUFEN: tuple[Stufe, ...] = (
 
     Stufe("gold", "gold", "gold_pipeline.build_gold"),
 
+    # Die Vergleichstabellen vor der Datenbank, damit sie Sichten bekommen.
+    Stufe("serving", "comparison", "serving.build_comparison"),
     Stufe("serving", "analyse_db", "serving.build_analysis_db"),
     Stufe("serving", "tracts_geojson", "serving.export_geojson"),
 )

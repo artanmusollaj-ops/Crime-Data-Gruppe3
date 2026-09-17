@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'082** |
+| Tests | **1'095** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -65,6 +65,7 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
 | `silver/crime_offense` | **2** | 16.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus |
 | `gold/*` | **4** | 16.09.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird |
+| `serving/comparison_*` | 1 | 17.09.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` |
 
 > **Der Feldkatalog wird erzeugt, nicht gepflegt.** Am 14.9. wurde
 > `docs/feldkatalog.md` von Hand bearbeitet (`f1c9b42`): Spaltentypen von
@@ -87,6 +88,59 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.09.2026 · Vier Vergleichstabellen in Serving — der Würfel, den es doch gibt (#108)
+
+**Was.** Eine neue Stufe `serving/comparison` (`serving.build_comparison`)
+leitet aus Gold vier Tabellen ab: `comparison_day`, `comparison_week`,
+`comparison_month` — je Stadt, Periode und NIBRS-Kategorie, Taten und
+Fälle — und `partition_quality` je Stadt und Monat mit den Anteilen von
+`mapping_status` und `geo_status`. Sie liegen unter `data/serving/dataset=…`,
+bekommen Sichten in `analyse.duckdb` (jetzt 13 statt 9) und stehen im
+Feldkatalog (174 Spalten in 13 Tabellen).
+
+**Warum, obwohl Notebook 34 gemessen hat, dass sie nichts sparen.** Die
+Ablehnung der Aggregate ruhte allein auf dem Geschwindigkeitsargument.
+Christian hat entschieden, dass für ein Studienprojekt ein zweites zählt: Beide
+Bauweisen sollen **gebaut** nebeneinander stehen, und der externe Rat vom
+17.9. hatte die Tabellen als Teil des Veröffentlichungsstands vorgeschlagen.
+Die Messung bleibt richtig, die Folgerung daraus war zu eng.
+
+**Wo sie liegen — und wo nicht.** In **Serving**, nicht in Gold. Gold bleibt der
+Stern und die Quelle der Wahrheit; Serving ist das, was ein Dashboard liest
+und was ein Release enthält. Die Tabellen sind jederzeit aus Gold neu
+erzeugbar und erreichen SeaweedFS nie an einem festen Pfad, nur als Teil
+eines Release (Etappe 2). Konzept 5.2 sagt seither *„Keine vorberechneten
+Aggregate in Gold"* — eine Sachkorrektur in Artans Dokument, die Struktur
+bleibt.
+
+**Die Gegenprobe ist hart.** Jede der drei Vergleichstabellen muss sich je
+Stadt auf `fact_offense` aufsummieren, Taten wie Fälle — sonst bricht der Bau
+ab. Das geht, weil jede Tat genau eine Kategorie trägt und `counts_case` genau
+eine Zeile je Fall markiert (`zaehlperspektiven.md`). Gemessen: 344'617 Taten,
+339'472 Fälle, in allen drei Tabellen. Die drei Chicagoer Taten ohne Code
+tragen die Kategorie `unmapped`, damit sie zählbar bleiben; ein **vorhandener**
+Code ohne Kategorie bricht ab.
+
+**Teilperioden sind ausgewiesen.** `days_in_window` gegen `days_in_period`:
+Die Woche ab 30.12. hat sieben Tage, zwei davon im Fenster, 1'647 Taten. Wer
+das nicht liest, sieht am Jahresende einen Einbruch, der keiner ist.
+
+**Nachgezogen.** 14 statt 13 Stufen (`run_all`, Architekturbilder, Konzept 5.3,
+`architektur.md`); Absprache 7.3 mit einer Zeile für `comparison`;
+Ausblick 6 sagt jetzt, was ein Release enthält, statt was nicht;
+`sternschema-und-wuerfel.md` samt HTML-Zwilling mit einem vierten Punkt;
+Notebook 34 unterscheidet die nachgebauten Würfel vom Bestand;
+Leistungsnachweis-Dokument: dreizehn Sichten statt neun. Vertragsversion
+`serving/comparison_*` = 1 im Register.
+
+**Zahlen.** 1'082 → **1'095 Tests** (zehn für die Stufe, drei angepasste
+Wächter). Frischklon 1'014 von 1'095.
+
+**Nachlesen.** `src/crime/serving/build_comparison.py` ·
+`tests/serving/test_build_comparison.py` · PR #108
 
 ---
 
