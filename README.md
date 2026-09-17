@@ -204,7 +204,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet werden **1'119 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **1'142 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -524,9 +524,22 @@ Der Ausweg ist immer derselbe: `python -m orchestration.run_all
 denen von SeaweedFS. Läufe unter `bronze/` und `raw/` sind davon nicht
 betroffen: Sie sind unveränderlich und ergänzen einander.
 
-**Bewusst nicht:** kein automatisches Herunterladen (was fehlt, wird von
-S3 *gelesen*, nicht kopiert), keine Synchronisation zurück, kein
-Dual-Write. `orchestration.aufraeumen` räumt weiterhin nur lokal auf.
+**Raw und Bronze kommen von selbst.** Seit dem 17.9.2026 holt jeder
+Gesamtlauf in einem Modus mit S3 zuerst alle Raw- und Bronze-Läufe, die oben
+liegen und lokal fehlen — Manifest zuletzt, geprüft, unteilbar. Läufe sind
+unveränderlich, eine Kopie kann nicht veralten, und jeder Rechner soll den
+ganzen Bestand haben. Scheitert das Holen, läuft nichts weiter. Von Hand:
+
+```bash
+python -m storage holen              # zeigt, was oben liegt und lokal fehlt
+python -m storage holen --wirklich   # holt es, Raw vor Bronze
+python -m orchestration.run_all --ohne-holen   # einmal ohne
+```
+
+**Bewusst nicht:** Silver und Gold werden weiterhin *gelesen*, nicht kopiert
+— ein stiller Cache wäre eine zweite Wahrheit mit eigenem Alter. Keine
+Synchronisation zurück, kein Dual-Write. `orchestration.aufraeumen` räumt
+weiterhin nur lokal auf.
 
 In Notebooks und Skripten liefert `from storage import resolve_read_path`
 den Pfad, den `read_parquet` lesen soll — lokal oder `s3://`, ohne dass der
@@ -563,6 +576,9 @@ python -m orchestration.run_all --ohne-release   # keines, auch wenn die Ablage 
 python -m orchestration.release liste                  # jedes Release, lokal und oben
 python -m orchestration.release aktuell                # worauf der Zeiger zeigt
 python -m orchestration.release erstellen --publizieren   # von Hand: bilden, hochbringen, Zeiger umlegen
+python -m orchestration.release holen                     # das aktuelle Release herunterladen, geprüft
+python -m orchestration.release holen --nur-datenbank     # nur analyse.duckdb - für ein Dashboard
+python -m orchestration.release holen --einsetzen         # ... und die Tabellen an die festen Pfade setzen
 ```
 
 Releases werden **aufgehoben**, bis eine Regel dafür entschieden ist
@@ -604,7 +620,7 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 python -m pytest
 ```
 
-**1'119 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'142 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -638,7 +654,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'038 der 1'119 Tests**. Die übrigen 81 überspringen
+In einem frischen Klon laufen **1'061 der 1'142 Tests**. Die übrigen 81 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter

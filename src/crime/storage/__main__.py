@@ -3,6 +3,8 @@
     python -m storage                          # Verbindung pruefen
     python -m storage publizieren              # zeigen, welche lokalen Laeufe oben fehlen
     python -m storage publizieren --wirklich   # sie hochbringen, Raw vor Bronze
+    python -m storage holen                    # zeigen, welche Laeufe oben liegen und lokal fehlen
+    python -m storage holen --wirklich         # sie herunterladen, Raw vor Bronze
 
 Releases (der ganze Stand unter einer Kennung) bildet und listet
 ``python -m orchestration.release`` - dort, weil die Datenbank im Release aus
@@ -17,7 +19,10 @@ nur den Lauf, den sie gerade schreiben. Was vorher da war - Chicagos
 Vollschnappschuss, die Deltas, Detroit, Census, NOAA - kommt nur so nach
 SeaweedFS. Es ist dieselbe Regel wie in den Pipelines: je Lauf, Manifest
 zuletzt, unveraenderlich (identisch oben: uebersprungen; anders oben: Fehler).
-Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberuehrt.
+Die Gegenrichtung gibt es seit dem 17.9.2026: ``holen`` bringt jeden Lauf,
+der oben liegt und lokal fehlt, herunter - Manifest zuletzt, geprueft. Der
+Gesamtlauf tut dasselbe von selbst, bevor er ableitet. Fuer Silver und Gold
+gilt das weiterhin nicht: Sie werden gelesen, nicht kopiert.
 """
 
 from __future__ import annotations
@@ -152,6 +157,40 @@ def publizieren(schichten: tuple[str, ...], wirklich: bool) -> int:
     return 0
 
 
+def holen(schichten: tuple[str, ...], wirklich: bool) -> int:
+    try:
+        ablage = get_storage()
+    except StorageConfigError as fehler:
+        print(f"Konfiguration: {fehler}")
+        return 1
+    if not ablage.config.remote:
+        print(f"STORAGE_BACKEND={ablage.backend}: hier gibt es nichts zu holen.")
+        return 1
+    try:
+        fehlend = ablage.fehlende_laeufe(schichten)
+    except StorageError as fehler:
+        print(f"Verbindung: {fehler}")
+        return 1
+    if not fehlend:
+        print("Nichts zu tun: jeder Lauf auf SeaweedFS liegt schon lokal.")
+        return 0
+    print(f"{len(fehlend)} Lauf/Laeufe auf SeaweedFS, aber nicht lokal:")
+    for rel in fehlend:
+        print(f"  {rel}")
+    if not wirklich:
+        print("\nNichts geholt. Mit --wirklich kommen sie herunter, Raw vor Bronze.")
+        return 0
+    for i, rel in enumerate(fehlend, 1):
+        try:
+            dateien = ablage.hole_lauf(rel)
+        except StorageError as fehler:
+            print(f"\n[{i}/{len(fehlend)}] {rel}: {fehler}")
+            return 1
+        print(f"[{i}/{len(fehlend)}] {rel}: {len(dateien)} Datei(en)")
+    print(f"\nFertig: {len(fehlend)} Laeufe geholt.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="python -m storage", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -159,9 +198,14 @@ def main(argv: list[str] | None = None) -> int:
     pub = unter.add_parser("publizieren", help="bestehende lokale Laeufe nach SeaweedFS bringen")
     pub.add_argument("--schichten", nargs="+", default=list(SCHICHTEN), choices=SCHICHTEN)
     pub.add_argument("--wirklich", action="store_true", help="nicht nur zeigen, sondern hochladen")
+    hol = unter.add_parser("holen", help="Laeufe von SeaweedFS holen, die lokal fehlen")
+    hol.add_argument("--schichten", nargs="+", default=list(SCHICHTEN), choices=SCHICHTEN)
+    hol.add_argument("--wirklich", action="store_true", help="nicht nur zeigen, sondern herunterladen")
     args = p.parse_args(argv)
     if args.befehl == "publizieren":
         return publizieren(tuple(args.schichten), args.wirklich)
+    if args.befehl == "holen":
+        return holen(tuple(args.schichten), args.wirklich)
     return pruefen()
 
 

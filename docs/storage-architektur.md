@@ -193,6 +193,33 @@ bekommt alle drei. Läufe verdrängen einander nie — sie ergänzen sich.
 
 ---
 
+## 5a · Holen: Raw, Bronze und Releases
+
+Seit dem 17.9.2026. Die Regel „lesen, nicht kopieren" (Abschnitt 5) bleibt
+für Silver und Gold. Für das Unveränderliche gilt sie nicht — eine Kopie
+eines Laufs kann nicht veralten, und jeder Rechner soll den ganzen Bestand
+haben:
+
+* `Storage.hole(rel)` holt ein Objekt in die lokale Wurzel: in eine
+  `.part`-Datei, verglichen (Grösse, dann MD5 gegen das ETag), dann umbenannt.
+  Was lokal identisch liegt, wird nicht erneut geladen.
+* `Storage.hole_lauf(rel_dir)` holt einen Lauf ganz, `manifest.json` zuletzt —
+  wie beim Publizieren ist das Manifest das Zeichen, dass er ganz da ist.
+* `Storage.fehlende_laeufe()` nennt, was oben liegt und lokal kein Manifest
+  hat; `hole_fehlende_laeufe()` holt es, Raw vor Bronze.
+* `storage.release.hole()` holt ein Release — `release.json` zuerst, dann
+  jede Datei gegen ihre SHA-256; `--nur-datenbank` allein die
+  `analyse.duckdb`; `einsetzen()` setzt die Tabellen unteilbar an die festen
+  Pfade.
+
+Der Gesamtlauf holt in jedem Modus mit S3 zuerst alle fehlenden Raw- und
+Bronze-Läufe; scheitert das, läuft nichts weiter (`--ohne-holen` schaltet es
+ab). Von Hand: `python -m storage holen [--wirklich]` und
+`python -m orchestration.release holen [KENNUNG|aktuell] [--nur-datenbank]
+[--einsetzen]`.
+
+---
+
 ## 6 · Schreiben und Publizieren
 
 Gebaut wird immer lokal, mit `.part`-Verzeichnis und atomarem Umbenennen wie
@@ -449,10 +476,11 @@ python -m orchestration.release erstellen --publizieren  # bilden, hochbringen, 
 
 ## 13 · Was bewusst nicht gebaut ist
 
-* **Kein automatisches Herunterladen.** Was lokal fehlt, wird von S3
-  *gelesen*, nicht kopiert. Ein stiller Cache wäre eine zweite Wahrheit mit
-  eigenem Alter — genau das Problem, das Abschnitt 8 behandelt. Nachrüstbar,
-  wenn die Leselatenz je stört.
+* **Kein automatisches Herunterladen von Silver und Gold.** Was lokal fehlt,
+  wird von S3 *gelesen*, nicht kopiert. Ein stiller Cache wäre eine zweite
+  Wahrheit mit eigenem Alter — genau das Problem, das Abschnitt 8 behandelt.
+  Für **Raw, Bronze und Releases** gilt das seit dem 17.9.2026 nicht mehr: Sie
+  sind unveränderlich, eine Kopie kann nicht veralten — siehe Abschnitt 5a.
 * **Keine Synchronisation zurück.** SeaweedFS ist der veröffentlichte
   Bestand, nicht ein Spiegel des Arbeitsverzeichnisses.
 * **Kein gleichzeitiges Schreiben in beide Richtungen.**

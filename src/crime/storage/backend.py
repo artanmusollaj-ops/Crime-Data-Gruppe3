@@ -2,8 +2,13 @@
 
 Lesen im Hybridmodus: **lokal zuerst, sonst S3.** Schreiben: **lokal,
 pruefen, dann publizieren.** Kein Dual-Write, keine Synchronisation in beide
-Richtungen, kein automatisches Herunterladen. Das lokale Verzeichnis ist
-Arbeitskopie und Cache; SeaweedFS ist der gemeinsame veroeffentlichte Bestand.
+Richtungen. Das lokale Verzeichnis ist Arbeitskopie und Cache; SeaweedFS ist
+der gemeinsame veroeffentlichte Bestand.
+
+**Geholt** wird seit dem 17.9.2026, was unveraenderlich ist: Raw- und
+Bronze-Laeufe (``hole_fehlende_laeufe``) und Releases (``storage.release``).
+Silver und Gold werden weiterhin gelesen, nicht kopiert - ein stiller Cache
+waere eine zweite Wahrheit mit eigenem Alter.
 
 Publizieren ist gezielt: die Dateien **eines** Laufs oder **einer** Tabelle,
 ``manifest.json`` zuletzt - so ist das Manifest auf S3 das Zeichen, dass ein
@@ -769,6 +774,102 @@ class Storage:
                 f"{self.s3_path(schluessel)}: {fehler}"
             ) from fehler
         LOG.info("Entferntes Manifest auf 'publishing' gesetzt: %s", schluessel)
+
+    # -- Holen ---------------------------------------------------------------
+    #
+    # Bis zum 17.9.2026 galt: kein automatisches Herunterladen - was lokal
+    # fehlt, wird von S3 gelesen, nicht kopiert. Das bleibt fuer Silver und
+    # Gold richtig (Abschnitt 8 der Storage-Architektur: ein stiller Cache
+    # waere eine zweite Wahrheit mit eigenem Alter). Fuer Raw und Bronze gilt
+    # es nicht: Laeufe sind unveraenderlich, eine Kopie kann nicht veralten,
+    # und jeder Rechner soll den ganzen Bestand haben - Christian, 17.9.2026.
+    # Releases sind ebenso unveraenderlich; sie werden mit ``storage.release``
+    # geholt, ueber dieselben Bausteine hier.
+
+    def hole(self, rel: str | Path) -> Path:
+        """Ein Objekt von S3 in die lokale Wurzel - geprueft und unteilbar.
+
+        Liegt es lokal schon identisch, passiert nichts. Geschrieben wird in
+        eine ``.part``-Datei daneben, verglichen (Groesse, dann MD5 gegen das
+        ETag, wo der Dienst eines liefert), dann umbenannt.
+        """
+        rel = paths.relativ(rel)
+        if not self.config.remote:
+            raise PublishError(f"STORAGE_BACKEND={self.backend} kennt kein S3 - nichts zu holen")
+        oben = self.client.head(rel)
+        if oben is None:
+            raise StorageError(f"nicht auf SeaweedFS: {self.s3_path(rel)}")
+        ziel = self.local_path(rel)
+        if ziel.is_file() and ziel.stat().st_size == oben.size:
+            bekannt = etag_md5(oben.etag)
+            if bekannt is None or bekannt == hashlib.md5(ziel.read_bytes()).hexdigest():
+                LOG.debug("Already local, identical: %s", rel)
+                return ziel
+        try:
+            daten = self.client.get(rel)
+        except Exception as fehler:  # noqa: BLE001 - jede Transportstoerung ist hier gleich
+            raise StorageError(f"Download fehlgeschlagen: {self.s3_path(rel)}: {fehler}") from fehler
+        if len(daten) != oben.size:
+            raise StorageError(
+                f"Download unvollstaendig: {self.s3_path(rel)} "
+                f"({len(daten)} statt {oben.size} Bytes)"
+            )
+        bekannt = etag_md5(oben.etag)
+        if bekannt is not None and bekannt != hashlib.md5(daten).hexdigest():
+            raise StorageError(f"Pruefsumme nach Download weicht ab: {self.s3_path(rel)}")
+        ziel.parent.mkdir(parents=True, exist_ok=True)
+        arbeit = ziel.with_name(f".{ziel.name}.{id(self) & 0xffff:x}.part")
+        arbeit.write_bytes(daten)
+        arbeit.replace(ziel)
+        LOG.info("Fetched: %s", rel)
+        return ziel
+
+    def hole_lauf(self, rel_dir: str | Path) -> list[Path]:
+        """Einen Lauf ganz holen - alle Objekte darunter, ``manifest.json`` zuletzt.
+
+        Wie beim Publizieren ist das Manifest das Zeichen, dass der Lauf ganz
+        da ist: Bricht der Download davor ab, liegt lokal ein Verzeichnis ohne
+        Manifest, und das gilt nirgends als Lauf.
+        """
+        rel_dir = paths.relativ(rel_dir)
+        objekte = [o.key for o in self.client.list(rel_dir + "/")
+                   if not paths.versteckt(o.key[len(rel_dir) + 1:])]
+        if not objekte:
+            raise StorageError(f"kein Lauf unter {self.s3_path(rel_dir)}")
+        reihenfolge = sorted(objekte, key=lambda k: (k.rsplit("/", 1)[-1] == MANIFEST, k))
+        return [self.hole(k) for k in reihenfolge]
+
+    def fehlende_laeufe(self, schichten: tuple[str, ...] = ("raw", "bronze")) -> list[str]:
+        """Laeufe, die oben liegen und lokal fehlen - als relative Verzeichnisse.
+
+        *Fehlt* heisst: kein lokales Manifest. Ein lokaler Lauf ohne Manifest
+        ist ein abgebrochener Download oder Bau und wird erneut geholt.
+        """
+        if not self.config.remote:
+            return []
+        fehlend: list[str] = []
+        for schicht in schichten:   # in dieser Reihenfolge: Raw vor Bronze
+            je_schicht = []
+            for objekt in self.client.list(schicht + "/"):
+                if not objekt.key.endswith("/" + MANIFEST):
+                    continue
+                rel_dir = objekt.key[: -len("/" + MANIFEST)]
+                if paths.versteckt(rel_dir):
+                    continue
+                if not (self.local_path(rel_dir) / MANIFEST).is_file():
+                    je_schicht.append(rel_dir)
+            fehlend += sorted(je_schicht)
+        return fehlend
+
+    def hole_fehlende_laeufe(self, schichten: tuple[str, ...] = ("raw", "bronze")) -> list[str]:
+        """Holt jeden Lauf, der oben liegt und lokal fehlt. Raw vor Bronze."""
+        geholt = []
+        for rel_dir in self.fehlende_laeufe(schichten):
+            self.hole_lauf(rel_dir)
+            geholt.append(rel_dir)
+        if geholt:
+            LOG.info("%d Lauf/Laeufe geholt: %s", len(geholt), ", ".join(geholt))
+        return geholt
 
     def _lokal_entfernen_falls_s3(self, rel: str) -> None:
         if self.backend == "s3":

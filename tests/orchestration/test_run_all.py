@@ -455,3 +455,84 @@ def test_ein_gescheitertes_release_macht_den_lauf_rot(tmp_path, monkeypatch):
     manifest, _, _ = gruener_lauf(tmp_path, monkeypatch, backend="hybrid")
     assert manifest["status"] == "failed"
     assert manifest["release"] == {"status": "failed", "error": "Platte voll"}
+
+
+# --------------------------------------------------------------------------
+# Raw und Bronze holen, bevor irgendetwas laeuft (seit 17.9.2026)
+# --------------------------------------------------------------------------
+
+
+def oben_lauf(fake: FakeS3Client, rel_dir: str) -> None:
+    fake.put(f"{rel_dir}/part-0001.parquet", b"PAR1")
+    fake.put(f"{rel_dir}/manifest.json",
+             json.dumps({"status": "complete", "run_id": rel_dir.rsplit("/", 1)[-1],
+                         "completed_at_utc": "2026-09-17T00:00:00+00:00"}).encode())
+
+
+def test_im_hybridmodus_werden_fehlende_laeufe_zuerst_geholt(tmp_path, monkeypatch):
+    data_root = tmp_path / "data"
+    fake = FakeS3Client()
+    oben_lauf(fake, "raw/city=chicago/ingest_date=2026-09-06/run_A")
+    oben_lauf(fake, "bronze/city=chicago/ingest_date=2026-09-06/run_A")
+    set_storage(Storage(Config(backend="hybrid", local_root=data_root,
+                               s3_access_key="k", s3_secret_key="s"), fake))
+    spur = tmp_path / "spur.txt"
+    stufen = [falsche_stufe(tmp_path, "eins", 0, spur)]
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(ra, "auswahl", lambda *_a, **_k: stufen)
+
+    manifest = ra.lauf(data_root, tmp_path, release=False)
+    assert manifest["fetched_runs"] == [
+        "raw/city=chicago/ingest_date=2026-09-06/run_A",
+        "bronze/city=chicago/ingest_date=2026-09-06/run_A",
+    ]
+    assert (data_root / "bronze/city=chicago/ingest_date=2026-09-06/run_A/manifest.json").is_file()
+    assert manifest["status"] == "complete"
+    assert manifest["input_bronze_runs"] == {"city=chicago": ["run_A"]}, (
+        "der geholte Lauf gehoert zum Stand dieses Laufs"
+    )
+
+
+def test_lokal_wird_nichts_geholt(tmp_path, monkeypatch):
+    manifest, _, _ = gruener_lauf(tmp_path, monkeypatch)
+    assert manifest["fetched_runs"] == [] and manifest["fetch_error"] is None
+
+
+def test_ohne_holen_unterlaesst_es(tmp_path, monkeypatch):
+    data_root = tmp_path / "data"
+    fake = FakeS3Client()
+    oben_lauf(fake, "bronze/city=chicago/ingest_date=2026-09-06/run_A")
+    bronze(data_root, "city=chicago", "run_B")
+    set_storage(Storage(Config(backend="hybrid", local_root=data_root,
+                               s3_access_key="k", s3_secret_key="s"), fake))
+    stufen = [falsche_stufe(tmp_path, "eins", 0)]
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(ra, "auswahl", lambda *_a, **_k: stufen)
+    manifest = ra.lauf(data_root, tmp_path, release=False, holen=False)
+    assert manifest["fetched_runs"] == []
+    assert not (data_root / "bronze/city=chicago/ingest_date=2026-09-06/run_A").exists()
+
+
+def test_scheitert_das_holen_laeuft_nichts(tmp_path, monkeypatch):
+    """Silver auf einem halben Bronze waere der Stand, den niemand erklaeren kann."""
+    data_root = tmp_path / "data"
+    fake = FakeS3Client()
+    oben_lauf(fake, "bronze/city=chicago/ingest_date=2026-09-06/run_A")
+    echt = fake.get
+
+    def kaputt(key):
+        if key.endswith("part-0001.parquet"):
+            raise OSError("Verbindung weg")
+        return echt(key)
+
+    fake.get = kaputt
+    set_storage(Storage(Config(backend="hybrid", local_root=data_root,
+                               s3_access_key="k", s3_secret_key="s"), fake))
+    spur = tmp_path / "spur.txt"
+    stufen = [falsche_stufe(tmp_path, "eins", 0, spur)]
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(ra, "auswahl", lambda *_a, **_k: stufen)
+    manifest = ra.lauf(data_root, tmp_path, release=False)
+    assert manifest["status"] == "failed"
+    assert "Download fehlgeschlagen" in manifest["fetch_error"]
+    assert manifest["stages"] == [] and not spur.exists(), "keine Stufe ist gelaufen"

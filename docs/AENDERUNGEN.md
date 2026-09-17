@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'119** |
+| Tests | **1'142** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,55 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.09.2026 · Holen: Releases herunterladen, Raw und Bronze auf jeden Rechner (#110)
+
+**Was.** Etappen 3 und 4 des Umbaus nach dem externen Rat, in einem Zug,
+weil sie sich eine Grundlage teilen: `Storage.hole` bringt ein Objekt geprüft
+und unteilbar in die lokale Wurzel — in eine `.part`-Datei, Grösse und MD5
+gegen das ETag, dann `rename`; was identisch da ist, wird nicht erneut
+geladen. Darauf ruhen zwei Dinge:
+
+**Releases holen.** `python -m orchestration.release holen [KENNUNG|aktuell]`
+holt `release.json` zuerst und dann jede Datei darin, jede gegen ihre SHA-256
+aus dem Manifest — nicht nur gegen das ETag. Eine Datei, die nicht zum
+Manifest passt, wird verworfen und der Abbruch gemeldet. `--nur-datenbank`
+holt allein `serving/analyse.duckdb` — die Schritte 3 bis 5 des Rats für ein
+Dashboard, das nichts anderes braucht — und legt den Zeiger bewusst nicht um:
+Nur die Datenbank ist kein ganzer Stand. `--einsetzen` setzt die Tabellen
+danach Tabelle für Tabelle unteilbar an die festen Pfade `gold/dataset=…` und
+`serving/dataset=…`; wer dort liest, liest dann den freigegebenen Stand.
+
+**Raw und Bronze auf jeden Rechner.** Bis heute galt „kein automatisches
+Herunterladen". Für Silver und Gold bleibt das richtig — ein stiller Cache
+wäre eine zweite Wahrheit mit eigenem Alter. Für Läufe gilt es nicht: Sie sind
+unveränderlich, eine Kopie kann nicht veralten, und Christian will den ganzen
+Bestand auf jedem Rechner. Jeder Gesamtlauf in einem Modus mit S3 holt
+deshalb **zuerst** alle Raw- und Bronze-Läufe, die oben liegen und lokal
+fehlen — Raw vor Bronze, je Lauf `manifest.json` zuletzt, so dass ein
+abgebrochener Download nirgends als Lauf gilt. Scheitert das Holen, läuft
+nichts weiter: Silver auf einem halben Bronze wäre der Stand, den niemand
+erklären kann. `--ohne-holen` schaltet es ab; von Hand `python -m storage
+holen [--wirklich]`.
+
+**Gemessen.** Am 17.9. liegen 14 Raw- und 15 Bronze-Läufe oben und
+dieselben lokal — `python -m storage holen` meldet *nichts zu tun*. Ein
+`release holen` ohne publiziertes Release nennt den fehlenden Pfad, statt
+etwas zu erfinden.
+
+**Was sich damit umkehrt.** `storage-architektur.md` 13 und README 2.5 sagten
+„kein automatisches Herunterladen". Sie sagen es jetzt nur noch für Silver
+und Gold; Abschnitt 5a beschreibt das Holen. Der Modul-Docstring von
+`storage.backend` ebenso.
+
+**Zahlen.** 1'119 → **1'142 Tests** (zwölf für das Holen, sieben für das
+Release-Holen und -Einsetzen, vier für den Lauf). Frischklon 1'061 von 1'142.
+
+**Nachlesen.** `src/crime/storage/backend.py` (`hole`, `hole_lauf`,
+`fehlende_laeufe`) · `src/crime/storage/release.py` (`hole`, `einsetzen`) ·
+`tests/storage/test_holen.py` · PR #110
 
 ---
 
