@@ -91,6 +91,39 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 17.09.2026 · Das README auf den heutigen Stand gebracht (#115)
+
+**Was.** Christian hatte den Eindruck, diverse Stellen im README zeigten noch
+den alten Verlauf. Das Dokument ist Zeile für Zeile gegen die Wirklichkeit
+gehalten worden. Elf Stellen waren veraltet, keine davon falsch gerechnet —
+alle waren **stehengeblieben**, während der Umbau sie überholt hat.
+
+| Stelle | war | ist |
+| --- | --- | --- |
+| Schichtenbild | endete bei `serving` | `… ─▶ serving ─▶ releases` |
+| Schichtentabelle | `serving` = nur DuckDB-Sichten | dazu vier Vergleichstabellen; eigene Zeile für `releases` |
+| Dokumentenliste | ohne `storage-architektur`, `ausblick`, `projektabsprache`, `leistungsnachweise` | alle vier verlinkt |
+| Paketbaum 1.1 | sieben Pakete | zehn — `manifeste`, `storage`, `orchestration` fehlten |
+| 2.0 Gesamtlauf | ohne Holen und Release | beide Schritte erklärt, drei Schalter genannt |
+| 2.2 NIBRS | „Beide Städte zu 100 % zugeordnet“ | Detroit vollständig, Chicago bis auf drei Zeilen (`unmapped`) |
+| 2.3 Befehle | ohne `serving.build_comparison` | mit, und an der richtigen Stelle vor der Datenbank |
+| 2.3 `SHOW TABLES` | „fünf Gold-, vier Silver- und zwei Metasichten“ | 15 Sichten, die vier Serving-Sichten dazu |
+| 3 Wenn etwas klemmt | ohne Ablage und Release | zwei Zeilen, mit Verweis auf `storage-architektur.md` 14 |
+| 4 Tests | „Die 40 Tests, die ein PR überspringt“ | 81 — und 70 tragen `referenzstand` |
+| 4 Datenlauf | „sechs Notebooks … 03, 13, 31, 32, 33, 34“ | acht, mit 35 und 36 |
+
+**Nachgeprüft und richtig geblieben:** alle Zahlen im Kopf (347'957, 344'617,
+94,5 und 132,6), die vier Silver-Zeilenzahlen, die Verortungsquoten (Chicago
+99,3 %, Detroit 99,7 %), Detroits 3,9 %, die 1'055 Tract-Umrisse mit 0,55 MB.
+Sie stehen unter Wächtern und haben sich deshalb nicht bewegt — die elf
+veralteten Stellen waren genau die, die **keiner** hatten.
+
+**Zahlen.** Unverändert 1'153 Tests.
+
+**Nachlesen.** `README.md` · PR #115
+
+---
+
 ## 17.09.2026 · Ein Release ist der ganze Stand oder keiner (#114)
 
 **Wie es auffiel.** Christian hat gefragt, ob der lokale `serving/`-Ordner noch

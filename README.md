@@ -19,9 +19,9 @@ vergleichbare Tabelle macht:
 ```text
         Chicago ─┐
         Detroit ─┤
-  Census TIGER ──┼──▶  raw ──▶ bronze ──▶ silver ──▶ gold ──▶ serving
-    Census ACS ──┤       │        │          │         │         │
-     NOAA GHCN ──┘    Beweis   geparst    gedeutet   Stern    Abfragen
+  Census TIGER ──┼──▶  raw ─▶ bronze ─▶ silver ─▶ gold ─▶ serving ─▶ releases
+    Census ACS ──┤       │       │         │        │        │           │
+     NOAA GHCN ──┘    Beweis  geparst   gedeutet  Stern   Abfragen   freigegeben
 ```
 
 | Schicht | Was sie ist |
@@ -30,7 +30,8 @@ vergleichbare Tabelle macht:
 | **bronze** | daraus abgeleitetes Parquet mit gepinntem Schema. Deutet nichts |
 | **silver** | die erste deutende Schicht: Typen, Einheiten, Zeitzonen, NIBRS, Raum |
 | **gold** | Sternschema mit einer Faktentabelle je Tat und vier Dimensionen |
-| **serving** | DuckDB-Sichten über die Schichten, für die Auswertung |
+| **serving** | DuckDB-Sichten über die Schichten, dazu vier aus Gold abgeleitete Vergleichstabellen |
+| **releases** | ein freigegebener Gesamtstand unter einer Kennung, unveränderlich, mit Prüfsummen |
 
 **Der Stand in Zahlen** — was gerade in den Schichten liegt:
 
@@ -56,6 +57,9 @@ Wo etwas ausführlich steht:
 | Was jede Spalte bedeutet | [`docs/feldkatalog.md`](docs/feldkatalog.md) |
 | Was sich wann geändert hat und warum | [`docs/AENDERUNGEN.md`](docs/AENDERUNGEN.md) |
 | Würfel und Sternschema erklärt | [`docs/sternschema-und-wuerfel.md`](docs/sternschema-und-wuerfel.md) |
+| Wie die Ablage funktioniert: Modi, Publizieren, Holen, Releases | [`docs/storage-architektur.md`](docs/storage-architektur.md) |
+| Was als Nächstes anstünde und warum nicht jetzt | [`docs/ausblick.md`](docs/ausblick.md) |
+| Absprache und Leistungsnachweise | [`docs/projektabsprache.md`](docs/projektabsprache.md), [`docs/leistungsnachweise.md`](docs/leistungsnachweise.md) |
 | Detroit-Pipeline im Detail | [`docs/DETROIT_PIPELINE_ANLEITUNG.md`](docs/DETROIT_PIPELINE_ANLEITUNG.md) |
 | Die Quellen einzeln erklärt | [`notebooks/`](notebooks/) 01, 11, 21, 22, 32 |
 | Datenqualität je Stadt | [`notebooks/03`](notebooks/03_chicago_data_quality.ipynb), [`notebooks/13`](notebooks/13_detroit_data_quality.ipynb) |
@@ -101,7 +105,10 @@ src/crime/
 ├── weather_pipeline/   → import weather_pipeline
 ├── silver_pipeline/    → import silver_pipeline
 ├── gold_pipeline/      → import gold_pipeline
-└── serving/            → import serving
+├── serving/            → import serving
+├── manifeste/          → import manifeste      (ein Leser für alle Manifeste)
+├── storage/            → import storage        (lokal, SeaweedFS, Releases)
+└── orchestration/      → import orchestration  (Gesamtlauf, Aufräumen, Drift)
 ```
 
 **Anaconda oder Miniconda installiert?** Dann ist `python` in einer frischen
@@ -257,9 +264,21 @@ ab und schreibt `data/pipeline_run.json`. Mit `--maximal-alter-tage 8` scheitert
 er ausserdem, wenn der jüngste Lauf einer Quelle älter ist — bei
 `--ohne-ingestion` schon **vor** der ersten Stufe, weil die Daten dabei nicht
 frischer werden. Das Manifest enthält: welche Stufen liefen, **auf welchen
-Bronze-Läufen** das Ergebnis ruht, wie alt jede Quelle ist, und einen
-Fingerabdruck über die Eingaben. Zwei Läufe auf demselben Stand tragen
-denselben Fingerabdruck.
+Bronze-Läufen** das Ergebnis ruht, wie alt jede Quelle ist, welche Läufe von
+SeaweedFS geholt wurden, ob ein Release entstand, und einen Fingerabdruck über
+die Eingaben. Zwei Läufe auf demselben Stand tragen denselben Fingerabdruck.
+
+Im **Hybridmodus** kommen zwei Schritte dazu, die man nicht aufrufen muss:
+Vorher werden alle Raw- und Bronze-Läufe geholt, die auf SeaweedFS liegen und
+lokal fehlen; nachher — und nur nach einem vollständigen grünen Lauf — entsteht
+ein **Release**, das publiziert wird. Beides lässt sich abschalten, und im
+`local`-Modus lässt sich das Release erzwingen (Abschnitt 2.5):
+
+```bash
+python -m orchestration.run_all --ohne-holen     # nichts von SeaweedFS holen
+python -m orchestration.run_all --ohne-release   # kein Release bilden
+python -m orchestration.run_all --release        # auch im local-Modus eines bilden
+```
 
 Die Abschnitte darunter erklären, was er tut — und sie sind der Weg, wenn nur
 eine Stufe neu laufen soll.
@@ -352,7 +371,8 @@ Fehlerherd:
 * **Delikte.** Chicagos `iucr` und Detroits `state_offense_code` gehen über
   [`config/iucr_nibrs_mapping.csv`](config/) und
   [`config/micr_nibrs_mapping.csv`](config/) auf **NIBRS**, die bundesweite
-  Codeliste. Beide Städte zu 100 % zugeordnet.
+  Codeliste. Detroit vollständig, Chicago bis auf **drei Zeilen** ohne Code —
+  sie tragen `mapping_status = unmapped` und bleiben zählbar.
 * **Zeit.** Chicagos `date` sieht aus wie ein Zeitstempel, ist aber Ortszeit
   ohne Zone; Detroits Feld ist bereits UTC. Wer beide gleich behandelt,
   vergleicht Städte, die je nach Jahreszeit ein bis zwei Stunden
@@ -370,6 +390,7 @@ ein- oder ausschliessen kann und dabei sieht, wie viele Zeilen es betrifft.
 
 ```bash
 python -m gold_pipeline.build_gold
+python -m serving.build_comparison    # die Vergleichstabellen, vor der Datenbank
 python -m serving.build_analysis_db
 python -m serving.export_geojson      # die Tract-Umrisse für eine Karte
 ```
@@ -397,7 +418,7 @@ duckdb -readonly data/serving/analyse.duckdb
 ```
 
 ```sql
-SHOW TABLES;              -- fünf Gold-, vier Silver- und zwei Metasichten
+SHOW TABLES;              -- 15: fünf Gold-, vier Silver-, vier Serving- und zwei Metasichten
 SELECT * FROM tabellen;   -- welche Sicht auf welche Datei zeigt
 ```
 
@@ -484,12 +505,12 @@ Bestand: je Lauf oder Tabelle, `manifest.json` zuletzt. Läufe (`run_…`)
 werden nie überschrieben — liegt einer schon anders oben, ist das ein
 Fehler. Silver- und Gold-Tabellen werden überschrieben, wie lokal auch.
 
-**Immer lokal:** `data/serving/` — die Auswertungsdatenbank, das GeoJSON
-und die vier Vergleichstabellen aus `build_comparison`; Letztere erreichen
-SeaweedFS nur als Teil eines Release, nie an einem festen Pfad. Die Sichten in `analyse.duckdb` zeigen je Datei dorthin, wo sie
-liegt. Wer sie im Hybrid- oder S3-Modus öffnet, braucht dieselbe Verbindung
-wie die Pipeline — `httpfs` und ein temporäres Secret, nichts wird
-persistiert:
+**Immer lokal:** `data/serving/` — die Auswertungsdatenbank, das GeoJSON und
+die vier Vergleichstabellen aus `build_comparison`; Letztere erreichen
+SeaweedFS nur als Teil eines Release, nie an einem festen Pfad. Die Sichten in
+`analyse.duckdb` zeigen je Datei dorthin, wo sie liegt. Wer sie im Hybrid-
+oder S3-Modus öffnet, braucht dieselbe Verbindung wie die Pipeline — `httpfs`
+und ein temporäres Secret, nichts wird persistiert:
 
 ```python
 from storage import get_storage
@@ -571,14 +592,15 @@ Stelle lässt den alten Stand gültig. Die festen Pfade `gold/dataset=…`
 werden weiterhin bedient.
 
 ```bash
-python -m orchestration.run_all --release        # auch im local-Modus ein Release bilden
-python -m orchestration.run_all --ohne-release   # keines, auch wenn die Ablage publiziert
-python -m orchestration.release liste                  # jedes Release, lokal und oben
-python -m orchestration.release aktuell                # worauf der Zeiger zeigt
-python -m orchestration.release erstellen --publizieren   # von Hand: bilden, hochbringen, Zeiger umlegen
-python -m orchestration.release holen                     # das aktuelle Release herunterladen, geprüft
-python -m orchestration.release holen --nur-datenbank     # nur analyse.duckdb - für ein Dashboard
-python -m orchestration.release holen --einsetzen         # ... und die Tabellen an die festen Pfade setzen
+python -m orchestration.run_all --release       # auch im local-Modus eines bilden
+python -m orchestration.run_all --ohne-release  # keines, trotz publizierender Ablage
+
+python -m orchestration.release liste           # jedes Release, lokal und oben
+python -m orchestration.release aktuell         # worauf der Zeiger zeigt
+python -m orchestration.release erstellen --publizieren   # bilden und hochbringen
+python -m orchestration.release holen           # das aktuelle, gegen SHA-256 geprüft
+python -m orchestration.release holen --nur-datenbank  # nur die analyse.duckdb
+python -m orchestration.release holen --einsetzen      # und an die festen Pfade
 ```
 
 Releases werden **aufgehoben**, bis eine Regel dafür entschieden ist
@@ -638,6 +660,8 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 | Census antwortet mit „Missing Key" trotz Schlüssel | Der Schlüssel steht in `.env`, aber das Programm läuft aus einem anderen Verzeichnis. `.env` wird ab dem **aktuellen** Verzeichnis gesucht — aus dem Projekt-Root starten. |
 | `Kein erfolgreicher Detroit-Bronze-Lauf` beim Silver-Bau | Bronze fehlt oder kein Lauf trägt `status: SUCCESS`. Erst die Ingestion aus 2.1. |
 | `Nur NDJSON-Bestände aus der Zeit vor dem Zeitzonen-Fix` | Alte Detroit-Daten. Ihr Jahresfenster war in UTC gezogen statt in Detroiter Ortszeit und enthält Fälle aus dem falschen Jahr. Neu laden: `python -m detroit_pipeline.extract_detroit --mode full --years 2024`. |
+| `Kein Release, es fehlt: serving/dataset=…` | Die Serving-Tabellen sind nicht gebaut. Ein Release ist der ganze Stand oder keiner: `python -m orchestration.run_all --ohne-ingestion`. |
+| SeaweedFS antwortet nicht, oder ein Upload scheitert | `python -m storage` zeigt Modus, Endpoint, DNS und Verbindung, ohne Schlüssel zu drucken. Die übrigen Fälle stehen in [`docs/storage-architektur.md`](docs/storage-architektur.md) 14. |
 | DuckDB meldet, die Datei sei gesperrt | Eine andere Sitzung hält `analyse.duckdb` schreibend offen. Mit `-readonly` beziehungsweise `read_only=True` können beliebig viele Leser gleichzeitig zugreifen. |
 | Dateien mit „ 2" im Namen, wechselnde Rechte | Ein Sync-Dienst greift in den Ordner. Konfliktkopien entfernen — auch die ohne Endung, etwa `METADATA 2` (`find .venv \( -name "* [0-9]" -o -name "* [0-9].*" \) -delete`) —, neu installieren, und das Projekt aus dem Sync-Ordner nehmen. |
 
@@ -661,6 +685,9 @@ python -m pytest
   Ohne diese Prüfung wäre „nicht von Hand gepflegt" eine Behauptung.
 * **Silver und Gold** — Granularität, Deduplikation, Zeitzonen, der räumliche Join, die
   Stadtzuordnung und die zurückgezogenen NIBRS-Codes.
+* **Die Ablage** — die drei Modi als Matrix, das gezielte Publizieren, das
+  Holen mit Prüfsumme, und dass ein Release der ganze Stand ist oder keiner.
+  S3 ist dabei ein `dict` im Speicher; kein Test braucht SeaweedFS.
 * **Die Dokumente** — `tests/test_abgabedokumente.py` und
   `tests/test_aenderungen.py` prüfen die Zahlen in `docs/` gegen die gebauten
   Parquet-Dateien. Eine Zahl auf einer Folie, die der Zahl im Konzept
@@ -672,10 +699,10 @@ python -m pytest
 ruff check src tests tools
 ```
 
-Pyflakes-Regeln plus `raise … from`: ungenutzte Importe, undefinierte Namen,
-verschluckte Ursachen. Das sind die Fehler, die eine Testsuite nicht sieht —
-zwei davon sind an einem Tag durchgerutscht, bevor es die Prüfung gab. CI führt
-sie vor der Suite aus.
+Pyflakes-Regeln plus `raise … from` und ungenutzte entpackte Variablen:
+ungenutzte Importe, undefinierte Namen, verschluckte Ursachen. Das sind die
+Fehler, die eine Testsuite nicht sieht — zwei davon sind an einem Tag
+durchgerutscht, bevor es die Prüfung gab. CI führt sie vor der Suite aus.
 
 ### Sie laufen auch ohne dich
 
@@ -691,24 +718,26 @@ aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
 
 ### Einmal die Woche mit echten Daten
 
-Die 40 Tests, die ein Pull Request überspringt, sind ausgerechnet die
+Die 81 Tests, die ein Pull Request überspringt, sind ausgerechnet die
 Wächter — Zahlen gegen Parquet, die Einwohnerprobe, „kein Delikt in der
 falschen Stadt". Der Workflow `datenlauf.yml` fährt deshalb **montags** die
 ganze Strecke: alle fünf Quellen laden, Silver, Gold und Serving bauen, dann
-die komplette Suite. Von Hand startbar unter *Actions → Datenlauf*.
+die komplette Suite. Von Hand startbar unter *Actions → Datenlauf*. Er läuft
+ohne S3 und bildet deshalb **kein Release**.
 
-Nach dem Bau führt er die **sechs Notebooks aus, die Zahlen belegen** — 03,
-13, 31, 32, 33, 34 — und legt sie mit Ausgaben als Artefakt ab. Die sechs, die
-laden, laufen bewusst nicht: Sie würden zusätzliche Bronze-Läufe erzeugen.
-Notebook 32 war vor dieser Prüfung einen Tag lang still kaputt.
+Nach dem Bau führt er die **acht Notebooks aus, die Zahlen belegen** — 03, 13,
+31, 32, 33, 34, 35, 36 — und legt sie mit Ausgaben als Artefakt ab. Die sechs,
+die laden, laufen bewusst nicht: Sie würden zusätzliche Bronze-Läufe erzeugen.
+Notebook 32 war vor dieser Prüfung einen Tag lang still kaputt, Notebook 34
+später noch einmal drei Tage.
 
 Er braucht `CENSUS_API_KEY` als Repository-Secret; der erste Schritt prüft
 das und sagt, was fehlt.
 
 **Drift statt Rot.** Die Quellen bewegen sich jede Woche — Detroit ändert
 Einträge noch Jahre nach der Tat, Chicago liefert Deltas. Die Wächter, die
-dokumentierte Zahlen gegen Parquet halten (Marker `referenzstand`), laufen im
-Datenlauf deshalb **nicht**; sie gelten für den Referenzstand auf deinem
+dokumentierte Zahlen gegen Parquet halten (Marker `referenzstand`, 70 Stück),
+laufen im Datenlauf deshalb **nicht**; sie gelten für den Referenzstand auf deinem
 Rechner. Stattdessen weist `orchestration.drift` je Grösse aus, wie weit der
 dokumentierte Stand vom frischen entfernt ist — als Tabelle in der
 Job-Zusammenfassung (*Actions → Datenlauf → Lauf → Summary*) und als
