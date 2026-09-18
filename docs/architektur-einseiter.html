@@ -1,0 +1,363 @@
+<title>Architektur auf einer Seite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap">
+<style>
+  :root {
+    --paper:#f6f8fa; --surface:#ffffff; --sunk:#eef1f5; --ink:#141b25;
+    --muted:#5b6a7d; --rule:#d7dee7; --rule-2:#bfc9d6;
+    --accent:#17627f; --accent-soft:#dcecf3; --signal:#9c5010; --signal-soft:#f6e7d6;
+    --f-head:"IBM Plex Serif",Georgia,"Times New Roman",serif;
+    --f-body:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    color-scheme: light;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--sunk); color:var(--ink);
+    font-family:var(--f-body); -webkit-font-smoothing:antialiased;
+  }
+
+  /* Ein Blatt A4. Auf dem Bildschirm als Blatt sichtbar, im Druck die Seite. */
+  .blatt {
+    width:210mm; min-height:297mm; margin:8mm auto; padding:11mm 13mm 9mm;
+    background:var(--surface); box-shadow:0 2px 18px rgba(20,27,37,.14);
+    display:flex; flex-direction:column; gap:3.4mm;
+  }
+
+  .kopf { border-bottom:1.6pt solid var(--ink); padding-bottom:2.4mm; }
+  .eyebrow {
+    font-family:var(--f-mono); font-size:7pt; letter-spacing:.11em;
+    text-transform:uppercase; color:var(--muted); margin:0 0 1.4mm;
+  }
+  h1 {
+    font-family:var(--f-head); font-weight:600; font-size:19pt; line-height:1.08;
+    letter-spacing:-.012em; margin:0 0 1.6mm;
+  }
+  .lead { font-size:8.6pt; line-height:1.45; color:var(--muted); margin:0; max-width:165mm; }
+  .lead strong { color:var(--ink); font-weight:600; }
+
+  h2 {
+    font-family:var(--f-head); font-weight:600; font-size:11.5pt; margin:0 0 1.8mm;
+    line-height:1.25;
+  }
+  h2 .marke {
+    font-family:var(--f-mono); font-size:7pt; letter-spacing:.09em; text-transform:uppercase;
+    padding:.6mm 1.6mm; border-radius:1mm; font-weight:500; margin-right:2.4mm;
+    position:relative; top:-.6mm;
+  }
+  .ist .marke { background:var(--accent-soft); color:var(--accent); }
+  .ziel .marke { background:var(--signal-soft); color:var(--signal); }
+  h2 .zusatz { font-family:var(--f-body); font-size:8pt; font-weight:400; color:var(--muted); }
+
+  figure { margin:0; }
+  svg { display:block; width:100%; height:auto; }
+  figcaption {
+    font-size:7.4pt; line-height:1.4; color:var(--muted); margin-top:1.4mm;
+  }
+  figcaption strong { color:var(--ink); font-weight:600; }
+
+  .zahlen {
+    display:grid; grid-template-columns:repeat(5,1fr); gap:2.2mm; margin-top:1mm;
+  }
+  .zahl {
+    background:var(--sunk); border-left:1.6pt solid var(--accent);
+    padding:1.6mm 2.2mm; border-radius:0 1mm 1mm 0;
+  }
+  .zahl b {
+    display:block; font-family:var(--f-mono); font-size:11pt; font-weight:500;
+    letter-spacing:-.01em; line-height:1.15;
+  }
+  .zahl span { font-size:6.9pt; line-height:1.3; color:var(--muted); display:block; margin-top:.5mm; }
+
+  .strategien {
+    display:grid; grid-template-columns:repeat(3,1fr); gap:3.4mm; margin-top:2.4mm;
+    font-size:7.6pt; line-height:1.4; color:var(--muted);
+  }
+  .strategien > div { border-top:1.2pt solid var(--rule-2); padding-top:1.4mm; }
+  .strategien b { display:block; color:var(--ink); font-size:8.2pt; margin-bottom:.8mm; }
+  .hebt { color:var(--signal); font-weight:600; }
+
+  .skala .marke { background:var(--sunk); color:var(--muted); }
+  table { width:100%; border-collapse:collapse; font-size:8pt; line-height:1.35; }
+  th {
+    text-align:left; font-family:var(--f-mono); font-size:6.9pt; font-weight:500;
+    letter-spacing:.08em; text-transform:uppercase; color:var(--muted);
+    border-bottom:1pt solid var(--ink); padding:0 2.4mm 1mm 0;
+  }
+  td { padding:1.3mm 2.4mm 1.3mm 0; border-bottom:.6pt solid var(--rule); vertical-align:top; }
+  td:first-child { font-weight:600; width:26mm; }
+  td:nth-child(2) { width:44mm; color:var(--muted); }
+  td:nth-child(3) { width:30mm; color:var(--muted); }
+  .mono { font-family:var(--f-mono); font-size:7.6pt; }
+
+  .schluss {
+    margin-top:auto; border-top:.8pt solid var(--rule); padding-top:2.2mm;
+    display:flex; gap:5mm; align-items:flex-start;
+  }
+  .schluss p { margin:0; font-size:7.6pt; line-height:1.45; color:var(--muted); }
+  .schluss p strong { color:var(--ink); font-weight:600; }
+  .quelle {
+    font-family:var(--f-mono); font-size:6.6pt; color:var(--muted);
+    text-align:right; white-space:nowrap; margin-left:auto; line-height:1.5;
+  }
+
+  @page { size:A4 portrait; margin:0; }
+  @media print {
+    body { background:#fff; }
+    .blatt { margin:0; box-shadow:none; width:auto; min-height:auto; height:297mm; }
+  }
+</style>
+
+<div class="blatt">
+
+  <header class="kopf">
+    <p class="eyebrow">Crime-Data-Gruppe3 · Chicago und Detroit 2024 · Stand 18.09.2026</p>
+    <h1>Die Architektur auf einer Seite</h1>
+    <p class="lead">Oben, was <strong>läuft</strong> — jede Zahl darin steht unter einem Test.
+      Unten, was für LN2 <strong>geplant</strong> ist. Die Trennung ist die Aussage: Wer
+      beides vermischt, schreibt eine Absichtserklärung und nennt sie Dokumentation.</p>
+  </header>
+
+  <section class="ist">
+    <h2><span class="marke">Heute</span> Sechs Schichten, eine Zuständigkeit je Schicht
+      <span class="zusatz">— eine Entwicklungsmaschine, ein CI-Dienst, ein Objektspeicher</span></h2>
+
+    <figure>
+      <svg viewBox="0 0 1000 232" role="img"
+           aria-label="Der Datenfluss: fünf Quellen laufen in raw, von dort über bronze, silver, gold und serving bis zu den Releases. Jede Schicht trägt ihre Aufgabe, ihre Grösse und das, was sie ausdrücklich nicht tut.">
+        <defs>
+          <marker id="pfeil" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#5b6a7d"/>
+          </marker>
+        </defs>
+
+        <!-- Quellen -->
+        <text x="0" y="14" font-family="IBM Plex Mono, monospace" font-size="11"
+              fill="#5b6a7d" letter-spacing="1.2">FÜNF QUELLEN</text>
+        <g font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="#141b25">
+          <text x="0" y="40">Chicago · Socrata</text>
+          <text x="0" y="60">Detroit · ArcGIS</text>
+          <text x="0" y="80">Census TIGER</text>
+          <text x="0" y="100">Census ACS</text>
+          <text x="0" y="120">NOAA GHCN-D</text>
+        </g>
+        <path d="M128,75 L168,75" stroke="#5b6a7d" stroke-width="1.6" marker-end="url(#pfeil)"/>
+
+        <!-- Die sechs Schichten -->
+        <g>
+          <rect x="176" y="24" width="122" height="104" rx="4" fill="#dcecf3" stroke="#17627f" stroke-width="1.4"/>
+          <rect x="312" y="24" width="122" height="104" rx="4" fill="#dcecf3" stroke="#17627f" stroke-width="1.4"/>
+          <rect x="448" y="24" width="122" height="104" rx="4" fill="#eef1f5" stroke="#bfc9d6" stroke-width="1.4"/>
+          <rect x="584" y="24" width="122" height="104" rx="4" fill="#eef1f5" stroke="#bfc9d6" stroke-width="1.4"/>
+          <rect x="720" y="24" width="122" height="104" rx="4" fill="#eef1f5" stroke="#bfc9d6" stroke-width="1.4"/>
+          <rect x="856" y="24" width="144" height="104" rx="4" fill="#f6e7d6" stroke="#9c5010" stroke-width="1.4"/>
+        </g>
+
+        <g font-family="IBM Plex Mono, monospace" font-size="13" font-weight="500" fill="#141b25">
+          <text x="188" y="45">raw</text>
+          <text x="324" y="45">bronze</text>
+          <text x="460" y="45">silver</text>
+          <text x="596" y="45">gold</text>
+          <text x="732" y="45">serving</text>
+          <text x="868" y="45">releases</text>
+        </g>
+
+        <g font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#141b25">
+          <text x="188" y="66">Beweisstück,</text><text x="188" y="80">Byte für Byte</text>
+          <text x="324" y="66">geparst,</text><text x="324" y="80">Schema gepinnt</text>
+          <text x="460" y="66">gedeutet: Zeit,</text><text x="460" y="80">NIBRS, Raum</text>
+          <text x="596" y="66">Sternschema,</text><text x="596" y="80">eine Zeile je Tat</text>
+          <text x="732" y="66">Sichten + vier</text><text x="732" y="80">Vergleichstabellen</text>
+          <text x="868" y="66">ein freigegebener</text><text x="868" y="80">Stand, unveränderlich</text>
+        </g>
+
+        <g font-family="IBM Plex Sans, sans-serif" font-size="10" fill="#5b6a7d" font-style="italic">
+          <text x="188" y="100">deutet nichts</text>
+          <text x="324" y="100">deutet nichts</text>
+          <text x="460" y="100">wirft nichts weg</text>
+          <text x="596" y="100">aggregiert nicht</text>
+          <text x="732" y="100">ist nicht der Bestand</text>
+          <text x="868" y="100">ändert sich nie</text>
+        </g>
+
+        <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#5b6a7d">
+          <text x="188" y="120">130 MB</text>
+          <text x="324" y="120">124 MB</text>
+          <text x="460" y="120">47 MB</text>
+          <text x="596" y="120">15 MB</text>
+          <text x="732" y="120">0,9 MB</text>
+          <text x="868" y="120">42 MB je Stand</text>
+        </g>
+
+        <g stroke="#5b6a7d" stroke-width="1.6" marker-end="url(#pfeil)">
+          <path d="M298,76 L308,76"/><path d="M434,76 L444,76"/>
+          <path d="M570,76 L580,76"/><path d="M706,76 L716,76"/>
+          <path d="M842,76 L852,76"/>
+        </g>
+
+        <!-- Querschnitt -->
+        <line x1="0" y1="150" x2="1000" y2="150" stroke="#d7dee7" stroke-width="1"/>
+        <text x="0" y="170" font-family="IBM Plex Mono, monospace" font-size="10"
+              fill="#5b6a7d" letter-spacing="1.1">DURCHGEHEND</text>
+        <g font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="#141b25">
+          <text x="0" y="192">Manifest je Lauf und Tabelle: <tspan font-family="IBM Plex Mono, monospace" font-size="10.5">derived_from</tspan>, <tspan font-family="IBM Plex Mono, monospace" font-size="10.5">input_fingerprint</tspan>, <tspan font-family="IBM Plex Mono, monospace" font-size="10.5">contract_version</tspan>, <tspan font-family="IBM Plex Mono, monospace" font-size="10.5">code_version</tspan></text>
+          <text x="0" y="212">42 Kontrollen, davon 28 mit Abbruch · Läufe unveränderlich · Publish-Gate vor Gold · Ablage lokal, SeaweedFS oder hybrid</text>
+        </g>
+      </svg>
+      <figcaption><strong>Die Reihenfolge ist real, nicht dekorativ.</strong>
+        <code>silver/tract</code> braucht beide Census-Quellen, <code>crime_offense</code>
+        zusätzlich <code>tract</code>. Die erste gescheiterte der vierzehn Stufen bricht die
+        Kette ab — jede weitere baute sonst auf einem halben Stand.</figcaption>
+    </figure>
+
+    <div class="zahlen">
+      <div class="zahl"><b>347'957</b><span>Zeilen Silver — eine Anklage</span></div>
+      <div class="zahl"><b>344'617</b><span>Taten in Gold — eine Zeile je Tat</span></div>
+      <div class="zahl"><b>94,5 / 132,6</b><span>Delikte je 1'000 Einwohner</span></div>
+      <div class="zahl"><b>1'179</b><span>Tests, ohne Netz und Schlüssel</span></div>
+      <div class="zahl"><b>10 / 14</b><span>Pakete, zyklenfrei / Stufen</span></div>
+    </div>
+    <div class="strategien">
+      <div>
+        <b>Chicago — Delta mit Rückgriff</b>
+        Nach dem ersten vollen Jahrgang nur noch Änderungen, 14 Tage überlappend.
+        Ein Wasserzeichen sagt, ab wann.
+      </div>
+      <div>
+        <b>Detroit — Vollschnappschuss</b>
+        <span class="hebt">54,6 %</span> des Jahrgangs wurden mehr als ein Jahr nach
+        der Tat noch geändert. Ein Delta nach Tatdatum verpasst genau das.
+      </div>
+      <div>
+        <b>Census, NOAA — eingefroren, bzw. voll</b>
+        TIGER und ACS sind eine feste Vintage und werden nicht neu geladen; NOAA
+        liefert je Station den ganzen Verlauf.
+      </div>
+    </div>
+  </section>
+
+  <section class="ziel">
+    <h2><span class="marke">Ziel LN2</span> Ein Verbund hinter einem Tor
+      <span class="zusatz">— nichts davon ist gebaut</span></h2>
+
+    <figure>
+      <svg viewBox="0 0 1000 236" role="img"
+           aria-label="Die Ziel-Architektur: Aus dem Internet führt der Weg über Cloudflare mit Zugangskontrolle und Web Application Firewall durch einen ausgehend aufgebauten Tunnel auf einen privaten Server. Dort laufen sieben Dienste in Docker: homepage, Admin-Oberfläche, Elasticsearch, Kibana, Grafana, die Pipeline und die Sicherung. Darunter bleibt SeaweedFS die Quelle der Wahrheit.">
+        <defs>
+          <marker id="pfeil2" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#9c5010"/>
+          </marker>
+        </defs>
+
+        <!-- Internet und Cloudflare -->
+        <text x="30" y="20" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="#5b6a7d">Internet</text>
+        <path d="M78,15 L128,15" stroke="#9c5010" stroke-width="1.6" marker-end="url(#pfeil2)"/>
+        <rect x="136" y="2" width="250" height="28" rx="4" fill="#f6e7d6" stroke="#9c5010" stroke-width="1.4"/>
+        <text x="148" y="21" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="#141b25">
+          Cloudflare · Access + WAF</text>
+        <text x="398" y="21" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#5b6a7d" font-style="italic">
+          Anmeldung zentral — kein offener Port am Server</text>
+
+        <path d="M260,30 L260,52" stroke="#9c5010" stroke-width="1.6" marker-end="url(#pfeil2)"/>
+        <text x="270" y="47" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#9c5010">
+          Tunnel, vom Server aus aufgebaut</text>
+
+        <!-- Docker-Verbund -->
+        <rect x="0" y="58" width="1000" height="112" rx="5" fill="#fff" stroke="#141b25" stroke-width="1.6"/>
+        <text x="12" y="76" font-family="IBM Plex Mono, monospace" font-size="10.5"
+              fill="#5b6a7d" letter-spacing="1">PRIVATER SERVER · DOCKER COMPOSE  (PoC)</text>
+
+        <g>
+          <rect x="12" y="86" width="132" height="34" rx="3" fill="#eef1f5" stroke="#bfc9d6"/>
+          <rect x="152" y="86" width="132" height="34" rx="3" fill="#dcecf3" stroke="#17627f" stroke-width="1.4"/>
+          <rect x="292" y="86" width="132" height="34" rx="3" fill="#dcecf3" stroke="#17627f" stroke-width="1.4"/>
+          <rect x="432" y="86" width="132" height="34" rx="3" fill="#eef1f5" stroke="#bfc9d6"/>
+          <rect x="572" y="86" width="132" height="34" rx="3" fill="#eef1f5" stroke="#bfc9d6"/>
+          <rect x="712" y="86" width="132" height="34" rx="3" fill="#eef1f5" stroke="#bfc9d6"/>
+          <rect x="852" y="86" width="136" height="34" rx="3" fill="#eef1f5" stroke="#bfc9d6"/>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="11.5" font-weight="500" fill="#141b25">
+          <text x="22" y="101">homepage</text>
+          <text x="162" y="101">admin-web</text>
+          <text x="302" y="101">elasticsearch</text>
+          <text x="442" y="101">kibana</text>
+          <text x="582" y="101">grafana</text>
+          <text x="722" y="101">pipeline</text>
+          <text x="862" y="101">backup</text>
+        </g>
+        <g font-family="IBM Plex Sans, sans-serif" font-size="10" fill="#5b6a7d">
+          <text x="22" y="114">alle Dienste</text>
+          <text x="162" y="114">Läufe, Releases, Freigabe</text>
+          <text x="302" y="114">Index, aus Gold gespeist</text>
+          <text x="442" y="114">Karte, Volltext</text>
+          <text x="582" y="114">Betrieb, Alarm</text>
+          <text x="722" y="114">die Strecke, zeitgesteuert</text>
+          <text x="862" y="114">täglich + wöchentlich</text>
+        </g>
+        <text x="12" y="140" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#141b25">
+          <tspan font-weight="600">Zu bauen ist eigentlich nur</tspan>
+          <tspan fill="#5b6a7d"> </tspan>
+          <tspan font-family="IBM Plex Mono, monospace" font-size="10.5">admin-web</tspan>
+          <tspan fill="#5b6a7d"> — sie zeigt, was die Strecke ohnehin in ihre Manifeste schreibt. Die übrigen sechs sind fertige Bilder.</tspan>
+        </text>
+        <text x="12" y="158" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#5b6a7d">
+          Vorbereitet für Google Cloud: ein Adressraum für alles Persistierte, kein Pfad im Code, Läufe unveränderlich — ein Backend mehr, kein Umbau.
+        </text>
+
+        <path d="M500,170 L500,192" stroke="#5b6a7d" stroke-width="1.6" marker-end="url(#pfeil)"/>
+        <rect x="290" y="198" width="420" height="30" rx="4" fill="#eef1f5" stroke="#bfc9d6" stroke-width="1.4"/>
+        <text x="304" y="218" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="#141b25">
+          SeaweedFS — raw, bronze, silver, gold, releases</text>
+        <text x="722" y="218" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#5b6a7d" font-style="italic">
+          bleibt die Quelle der Wahrheit</text>
+      </svg>
+      <figcaption><strong>Elasticsearch kommt neben den Stern, nicht an seine Stelle.</strong>
+        Der Ausblick hatte OpenSearch als „falsche Form" verworfen — richtig für die Frage
+        <em>ersetzt es DuckDB?</em> Als Serving-Index trägt es drei Dinge, die SQL hier nicht
+        leistet: eine fertige Oberfläche samt Karte für 1'055 Tract-Umrisse, Volltext für die
+        <strong>23,3 %</strong> mehrdeutigen Chicagoer Beschreibungen, und mehrere Leser
+        gleichzeitig. Bedingung: abgeleitet, jederzeit neu aufzubauen, mit der Release-Kennung
+        versehen.</figcaption>
+    </figure>
+  </section>
+
+  <section class="skala">
+    <h2><span class="marke ton-ist">Offen</span> Was bei zehn Städten zuerst bricht
+      <span class="zusatz">— und es ist nicht die Datenmenge</span></h2>
+    <table>
+      <tr>
+        <th>Achse</th><th>heute</th><th>bei zehn Städten</th><th>was zu tun ist</th>
+      </tr>
+      <tr>
+        <td>Zeilen</td>
+        <td><span class="mono">347'957</span></td>
+        <td>rund 1,7 Mio</td>
+        <td><em>nichts</em> — DuckDB rechnet das weiterhin interaktiv</td>
+      </tr>
+      <tr>
+        <td>Laufzeit Ingestion</td>
+        <td>Detroit 168 s, davon rund 60 s Warten</td>
+        <td>seriell, also zehnfach</td>
+        <td>nebenläufig laden — sechs Stufen, keine hängt an der anderen</td>
+      </tr>
+      <tr>
+        <td>Code je Quelle</td>
+        <td>zwei Sonderwege in <span class="mono">build_crime_offense</span></td>
+        <td>zehn Sonderwege</td>
+        <td><strong>Quellprofil statt CTE</strong> — der einzige echte Blocker</td>
+      </tr>
+    </table>
+  </section>
+
+  <footer class="schluss">
+    <p><strong>Was offen ist.</strong> Ob Elasticsearch auch die Aggregationen übernimmt oder
+      nur Exploration, Karte und Volltext · wie die Prüfenden Zugang bekommen, wenn alles
+      hinter Cloudflare Access liegt · welche Releases aufgehoben werden · wann der
+      Referenzstand nachgezogen wird.</p>
+    <p class="quelle">ausführlich:<br>docs/architektur-ist-und-ziel.md<br>docs/storage-architektur.md</p>
+  </footer>
+
+</div>

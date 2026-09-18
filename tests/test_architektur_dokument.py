@@ -213,3 +213,89 @@ def test_jeder_baustein_nennt_was_er_kostet(teil_b):
 def test_die_offenen_punkte_stehen_am_schluss(text):
     assert "Was dieser Text nicht behauptet" in text
     assert "datenhistorie.md" in text, "die offene Drift gehoert erwaehnt"
+
+
+# --------------------------------------------------------------------------
+# Der Einseiter
+# --------------------------------------------------------------------------
+# docs/architektur-einseiter.html ist dasselbe in klein: zum Ausdrucken und
+# in den Leistungsnachweis legen. Seine Zusage steht im Namen - eine Seite -
+# und seine Zahlen sind dieselben wie im langen Text. Beides veraltet, sobald
+# jemand eine der beiden Dateien allein anfasst.
+
+EINSEITER = PROJECT_ROOT / "docs" / "architektur-einseiter.html"
+CHROME = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
+
+
+@pytest.fixture(scope="module")
+def blatt() -> str:
+    if not EINSEITER.is_file():
+        pytest.skip(f"{EINSEITER} fehlt")
+    return EINSEITER.read_text(encoding="utf-8")
+
+
+def test_der_einseiter_traegt_dieselben_zahlen(blatt, text):
+    """Dieselbe Zahl an zwei Stellen darf nur einmal veralten."""
+    for wert in ("347'957", "344'617", "94,5", "132,6", "42 Kontrollen",
+                 "1'055", "23,3 %", "54,6 %"):
+        assert wert in blatt, f"{wert} fehlt im Einseiter"
+        assert wert in text or wert.replace("'", "") in text, (
+            f"{wert} steht im Einseiter, aber nicht im langen Text"
+        )
+
+
+def test_der_einseiter_nennt_die_gepruefte_testzahl(blatt):
+    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    assert zahl(blatt, r"<b>([\d']+)</b><span>Tests") == \
+        zahl(readme, r"\*\*([\d']+) Tests\*\*, alle ohne")
+
+
+def test_der_einseiter_haelt_ist_und_ziel_auseinander(blatt):
+    """Die Aussage des Blattes, nicht seine Verzierung."""
+    assert "nichts davon ist gebaut" in blatt
+    assert 'class="ist"' in blatt and 'class="ziel"' in blatt
+    assert "Absichtserklärung" in blatt, "die Begründung der Trennung fehlt"
+
+
+def test_der_einseiter_ist_selbsttragend(blatt):
+    """Kein Bild von aussen - er muss auch ohne Netz drucken.
+
+    Erlaubt ist allein die Schriftart von Google Fonts; faellt sie aus, greift
+    die Ersatzkette. Ein ``<img>`` oder ein externes SVG waere im Ausdruck ein
+    weisses Rechteck.
+    """
+    assert "<img" not in blatt and "<script" not in blatt
+    fremd = re.findall(r'(?:src|href)="(https?://[^"]+)"', blatt)
+    assert all("fonts.googleapis.com" in u or "fonts.gstatic.com" in u for u in fremd), fremd
+    assert blatt.count("<svg") == 2, "zwei Bilder, beide inline"
+
+
+def test_beide_bilder_haben_eine_beschreibung(blatt):
+    """Ein Bild ohne Beschreibung ist fuer einen Screenreader nichts."""
+    assert blatt.count('role="img"') == 2
+    assert blatt.count("aria-label=") == 2
+
+
+@pytest.mark.referenzstand
+def test_der_einseiter_passt_auf_eine_seite():
+    """Die Zusage im Namen - gemessen, nicht behauptet.
+
+    Gedruckt wird mit Chrome nach PDF und die Zahl der Seiten gezaehlt. Ohne
+    Chrome wird uebersprungen; die Pruefung gehoert an den Rechner, an dem
+    jemand das Blatt auch wirklich ausdruckt.
+    """
+    import subprocess
+    import tempfile
+
+    if not CHROME.exists():
+        pytest.skip("Chrome nicht vorhanden - Seitenzahl nicht messbar")
+    with tempfile.TemporaryDirectory() as ordner:
+        pdf = Path(ordner) / "blatt.pdf"
+        fertig = subprocess.run(
+            [str(CHROME), "--headless", "--disable-gpu", "--no-pdf-header-footer",
+             f"--print-to-pdf={pdf}", EINSEITER.as_uri()],
+            capture_output=True, timeout=120,
+        )
+        assert pdf.is_file(), fertig.stderr.decode()[-400:]
+        seiten = len(re.findall(rb"/Type\s*/Page[^s]", pdf.read_bytes()))
+    assert seiten == 1, f"{seiten} Seiten - der Einseiter ist keiner mehr"

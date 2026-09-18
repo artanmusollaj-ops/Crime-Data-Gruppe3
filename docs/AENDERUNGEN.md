@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'173** |
+| Tests | **1'179** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,39 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 18.09.2026 · Dieselbe Architektur auf einer A4-Seite (#120)
+
+**Was.** [`architektur-einseiter.html`](architektur-einseiter.html) — das
+Architekturkapitel aus #119 als **ein Blatt zum Ausdrucken**, mit zwei
+gezeichneten Bildern: der Datenfluss über die sechs Schichten, und der geplante
+Verbund hinter Cloudflare. Dazu die fünf Kennzahlen, die drei Ladestrategien,
+und die Tabelle, was bei zehn Städten zuerst bricht.
+
+**Gemessen, nicht behauptet.** Ein Test druckt das Blatt mit Chrome nach PDF
+und zählt die Seiten; bei zwei Seiten fällt er. Er trägt `referenzstand` und
+überspringt sich ohne Chrome — die Prüfung gehört an den Rechner, an dem
+jemand wirklich druckt.
+
+**Was die Wächter dabei gefunden haben.** Der Einseiter nennt Detroits
+**54,6 %** — der Anteil des Jahrgangs, der mehr als ein Jahr nach der Tat noch
+geändert wurde, und der Grund für den Vollschnappschuss. Ein Test hält beide
+Dokumente auf dieselben Zahlen, und dabei fiel auf, dass der **lange Text die
+Ladestrategien überhaupt nicht behandelte**. Er hat jetzt eine Tabelle dazu —
+Delta mit Überlappung, Vollschnappschuss, eingefrorene Vintage — samt der
+Zeile, die erklärt, warum die Publish-Sperre am 17.9. umgebaut werden musste:
+Sie hielt einen abgelösten NOAA-Lauf für einen fehlenden.
+
+**Sechs weitere Wächter:** dieselben Zahlen wie im langen Text, die Testzahl
+gegen das README, die Trennung von Ist und Ziel, keine Bilder von aussen
+(sonst wäre der Ausdruck ein weisses Rechteck), und eine Beschreibung je Bild.
+
+**Zahlen.** 1'173 → **1'179 Tests**. Frischklon 1'098 von 1'179.
+
+**Nachlesen.** `docs/architektur-einseiter.html` ·
+`tests/test_architektur_dokument.py` · PR #120
 
 ---
 
