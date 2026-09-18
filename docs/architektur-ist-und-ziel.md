@@ -60,6 +60,21 @@ im einstelligen Millisekundenbereich. Ein vorberechneter Würfel spart nichts,
 was ein Mensch bemerkt, und kostet drei Fragen, die er nicht mehr beantwortet.
 Die Entscheidung ist ein **Messergebnis**, keine Stilfrage.
 
+### Drei Quellen, drei Ladestrategien
+
+Die fünf Quellen ändern sich unterschiedlich, und die Ladestrategie folgt dem
+Änderungsverhalten — nicht der Bequemlichkeit:
+
+| Quelle | Strategie | Warum |
+| --- | --- | --- |
+| Chicago | **Delta** mit 14 Tagen Überlappung | Ein Wasserzeichen sagt, ab wann; die Überlappung fängt Nachmeldungen |
+| Detroit | **Vollschnappschuss** | **54,6 %** des Jahrgangs 2024 wurden *mehr als ein Jahr nach der Tat* noch geändert. Ein Delta nach Tatdatum verpasst genau diese Korrekturen |
+| TIGER, ACS | **eingefroren** | Eine feste Vintage; ein erneutes Laden wäre ein anderer Jahrgang, kein neuerer Stand |
+| NOAA | **Vollschnappschuss je Station** | Die Quelle liefert den ganzen Verlauf; der jüngste Lauf löst den vorigen ab |
+
+Die letzte Zeile ist der Grund, warum die Publish-Sperre am 17.9.2026 umgebaut
+werden musste: Sie hielt einen **abgelösten** Lauf für einen **fehlenden**.
+
 ## A.2 Der Code: zehn Pakete, gerichtete Abhängigkeiten
 
 ```text
@@ -192,8 +207,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'173 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'092 davon — die übrigen 81 brauchen gebaute Daten | |
+| **Pull Request** | 1'179 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'098 davon — die übrigen 81 brauchen gebaute Daten | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 70 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
