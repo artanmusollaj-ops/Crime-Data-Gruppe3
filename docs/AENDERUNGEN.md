@@ -91,7 +91,7 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
-## 18.09.2026 · Der Standardlauf ist wieder grün (#122)
+## 18.09.2026 · Der Standardlauf ist wieder grün (#121)
 
 **Was.** `python -m pytest` wählt den Marker `referenzstand` ab. Die Wächter
 sind nicht abgeschaltet, sie haben einen eigenen Aufruf:
