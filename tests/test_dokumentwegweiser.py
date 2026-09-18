@@ -105,6 +105,81 @@ def test_die_quellen_liegen_im_eigenen_ordner():
     assert len(quellen) == 7, f"sieben amtliche Unterlagen erwartet, {len(quellen)} gefunden"
 
 
+def abschnitt(text: str, von: str, bis: str | None) -> str:
+    anfang = text.index(von)
+    return text[anfang:text.index(bis)] if bis else text[anfang:]
+
+
+def verlinkte_dokumente(text: str) -> set[str]:
+    return {m for m in re.findall(r"\]\(([\w.-]+\.(?:md|html))\)", text)}
+
+
+def test_wegweiser_und_konzept_teilen_dieselbe_einteilung():
+    """Zwei Orte, eine Wahrheit - sonst driften sie auseinander.
+
+    ``docs/README.md`` teilt die Dokumente in Abgabe und intern; Kapitel 11.3
+    und 11.5 des Konzepts tun dasselbe noch einmal, weil die Abgabe ihre
+    eigenen Anhaenge nennen muss. Am 18.9.2026 stimmten sie *nicht* ueberein:
+    Das Konzept verlinkte ``leistungsnachweise.md`` mitten im Kapitel ueber
+    die Hypothesen - ein Dokument, das ausdruecklich nicht zur Abgabe gehoert
+    und Luecken auflistet -, und vier fuer den LN geschriebene Dokumente
+    kamen darin ueberhaupt nicht vor.
+    """
+    wegweiser = WEGWEISER.read_text(encoding="utf-8")
+    konzept = (DOCS / "ln1_konzept.md").read_text(encoding="utf-8")
+
+    w_abgabe = verlinkte_dokumente(abschnitt(wegweiser, ABSCHNITTE[0], ABSCHNITTE[1]))
+    w_intern = verlinkte_dokumente(abschnitt(wegweiser, ABSCHNITTE[1], ABSCHNITTE[2]))
+    k_abgabe = verlinkte_dokumente(
+        abschnitt(konzept, "### 11.3 Anhang zu diesem Leistungsnachweis",
+                  "### 11.4 Amtliche Quellen"))
+    k_intern = verlinkte_dokumente(
+        abschnitt(konzept, "### 11.5 Interne Arbeitsgrundlagen", "Die Einteilung dieses"))
+
+    # Das Konzept selbst steht im Wegweiser, nennt sich aber nicht im Anhang.
+    w_abgabe.discard("ln1_konzept.md")
+    assert w_abgabe == k_abgabe, (
+        f"Anhang weicht ab.\n  nur im Wegweiser: {sorted(w_abgabe - k_abgabe)}"
+        f"\n  nur im Konzept 11.3: {sorted(k_abgabe - w_abgabe)}"
+    )
+    assert w_intern == k_intern, (
+        f"intern weicht ab.\n  nur im Wegweiser: {sorted(w_intern - k_intern)}"
+        f"\n  nur im Konzept 11.5: {sorted(k_intern - w_intern)}"
+    )
+
+
+# Diese internen Dokumente duerfen im Fliesstext der Abgabe nicht auftauchen.
+# ``AENDERUNGEN.md`` steht bewusst **nicht** darin: Kapitel 5.2 verweist in
+# einer Selbstkorrektur darauf ("hier stand bis heute ..."), und das ist ein
+# Beleg, kein Eingestaendnis - der Aenderungsnachweis traegt die Begruendung,
+# die der Satz behauptet. Die drei hier dagegen fuehren offene Entscheide und
+# Luecken; ein Verweis darauf mitten in der Argumentation zeigt auf das, was
+# noch fehlt.
+NICHT_IM_FLIESSTEXT = ("leistungsnachweise.md", "projektabsprache.md",
+                       "datenhistorie.md")
+
+
+def test_das_konzept_verlinkt_keine_maengelliste_im_fliesstext():
+    """Der Fehler, der den Umbau ausgeloest hat.
+
+    In Kapitel 3 - Forschungsfragen und Hypothesen, dem Kern der Abgabe -
+    stand *"der Entscheid ist offen; siehe leistungsnachweise.md Abschnitt
+    2.3"*. Wer dem folgte, landete in "Anforderungen, Stand, Luecken". In
+    Kapitel 11.5 duerfen diese Dokumente stehen, dort ist der Vorbehalt dabei;
+    im Fliesstext davor nicht.
+    """
+    konzept = (DOCS / "ln1_konzept.md").read_text(encoding="utf-8")
+    davor = konzept[:konzept.index("## 11 · Wo was liegt")]
+    # Der Vorspann vor Kapitel 1 nennt die Arbeitsgrundlagen ausdruecklich als
+    # solche - das ist gewollt und gehoert nicht in die Pruefung.
+    haupttext = davor[davor.index("## 1 "):] if "## 1 " in davor else davor
+    gefunden = sorted(n for n in NICHT_IM_FLIESSTEXT if f"]({n})" in haupttext)
+    assert not gefunden, (
+        f"internes Dokument im Fliesstext der Abgabe verlinkt: {gefunden}. "
+        "In Kapitel 11.5 gehoert es hin, davor nicht."
+    )
+
+
 def test_das_projekt_readme_fuehrt_zum_wegweiser():
     """Sonst findet ihn nur, wer ihn schon kennt."""
     readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")

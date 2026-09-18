@@ -42,7 +42,7 @@ Raumeinheit. Darauf steht das **Gold-Sternschema** aus einer Faktentabelle
 und vier Dimensionen (5.2), darauf die Auswertungsumgebung. Die Schichten
 liegen wahlweise lokal oder auf einem gemeinsamen Objektspeicher (7.4).
 Jede Quelle weist ihre Vollständigkeit nach, statt sie zu behaupten.
-**1'222 automatisierte Tests** laufen ohne Netzzugriff und ohne Schlüssel.
+**1'224 automatisierte Tests** laufen ohne Netzzugriff und ohne Schlüssel.
 
 | | |
 | --- | --- |
@@ -97,8 +97,8 @@ Studie.
 
 ## 3 · Forschungsfragen und Hypothesen
 
-> **Entwurf.** Der Entscheid über Auswahl und Formulierung ist offen; siehe
-> [`leistungsnachweise.md`](leistungsnachweise.md) Abschnitt 2.3.
+> **Entwurf.** Der Entscheid über Auswahl und Formulierung der Hypothesen ist
+> offen und wird im Team getroffen.
 
 ### 3.1 Zwei Ebenen von Fragen
 
@@ -563,7 +563,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; drei Tests prüfen das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel. `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id` — durchgehend bis Gold: jede abgeleitete Tabelle trägt einen `input_fingerprint` über ihre Eingaben, nennt Vorgänger mit Bauzeitpunkt und Abdruck statt nur mit Pfad, Referenzdateien mit SHA-256. Jedes Manifest nennt ausserdem `contract_version` (was geladen oder gedeutet wird) und `code_version` (welcher Commit, und ob der Arbeitsbaum sauber war), gegen ein Register in `AENDERUNGEN.md` getestet. Unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog mit 133 Spalten, erzeugt aus den Manifesten und getestet. Gesamtmanifest je Lauf mit allen Eingabe-Läufen und Fingerabdruck. Verantwortliche je Datensatz in Absprache 7.3, gegen die Stufenliste getestet. Aufbewahrungsregel mit `orchestration.aufraeumen`: **gepinnt** bleibt (Register `config/referenzstand.csv`, versioniert), dazu der jüngste Lauf und der davor, alles von Silver Genannte und die Basis jedes Deltas; gelöscht wird nur auf Wunsch, Raw und Bronze zusammen. `--pinnen` leitet den Referenzstand aus den Gold-Manifesten ab, statt ihn tippen zu lassen. Datenablage wahlweise lokal, SeaweedFS (S3) oder hybrid (`storage`): lesen lokal zuerst, S3 als Rückfall; schreiben lokal, prüfen, gezielt publizieren, `manifest.json` zuletzt. Ein veralteter lokaler Stand einer abgeleiteten Tabelle wird beim Lesen gemeldet und beim Publizieren abgelehnt — verglichen werden `built_at_utc` und die Bronze-Läufe aus `derived_from` | das Aufräumen ist ein Handgriff, kein Automatismus; ein Stand wird gepinnt, wenn jemand daran denkt; Detroits Lauf vom 11.9. bleibt bewusst ohne Raw-Gegenstück — er ist der vorherige Schnappschuss, der die Instabilität der Quelle belegt; die Ablage lädt nichts automatisch herunter und synchronisiert nicht zurück — bewusst, Version 1 |
-| **DataOps** | 1'222 Tests ohne Netz und Schlüssel, auf jedem Pull Request in GitHub Actions — Linux und Windows, Python 3.11 und 3.13; `ruff` davor. Schreiben über `.part` und atomares Umbenennen. Publish-Gate: Gold entsteht nur, wenn die Abdeckung Schwellen hält | die 40 datengebundenen Wächter laufen auf Pull Requests nicht — dafür gibt es seit dem 13.9. den wöchentlichen Datenlauf (`datenlauf.yml`), der alle Quellen lädt, die Strecke baut und dann die ganze Suite fährt; er braucht `CENSUS_API_KEY` als Repository-Secret und ist bis zum ersten grünen Lauf eine Einrichtung, kein Nachweis. Aktualität wird im Datenlauf gegen eine Schwelle von acht Tagen geprüft, **nach der Ingestion und vor dem Ableiten** — eine Quelle, die nichts Neues liefert oder ganz fehlt, lässt ihn scheitern, bevor Gold darauf entsteht; keine Alarmierung ausser dem roten Lauf selbst |
+| **DataOps** | 1'224 Tests ohne Netz und Schlüssel, auf jedem Pull Request in GitHub Actions — Linux und Windows, Python 3.11 und 3.13; `ruff` davor. Schreiben über `.part` und atomares Umbenennen. Publish-Gate: Gold entsteht nur, wenn die Abdeckung Schwellen hält | die 40 datengebundenen Wächter laufen auf Pull Requests nicht — dafür gibt es seit dem 13.9. den wöchentlichen Datenlauf (`datenlauf.yml`), der alle Quellen lädt, die Strecke baut und dann die ganze Suite fährt; er braucht `CENSUS_API_KEY` als Repository-Secret und ist bis zum ersten grünen Lauf eine Einrichtung, kein Nachweis. Aktualität wird im Datenlauf gegen eine Schwelle von acht Tagen geprüft, **nach der Ingestion und vor dem Ableiten** — eine Quelle, die nichts Neues liefert oder ganz fehlt, lässt ihn scheitern, bevor Gold darauf entsteht; keine Alarmierung ausser dem roten Lauf selbst |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel. `mapping_status` und `geo_status` machen die Vergleichbarkeit je Zeile abfragbar. Ein Manifest-Leser (`manifeste`) für alle Schichten statt elf. Zwei Architekturbilder, **aus dem Code erzeugt** — Abhängigkeiten und Datenfluss, mit einem Test gegen Zyklen ([`architektur.md`](architektur.md)) | Vintage 2024 hart verdrahtet — für mehrere Jahrgänge muss sie je Jahr mitlaufen |
 | **Orchestration** | `orchestration.run_all`: 14 Stufen in Reihenfolge, Abbruch beim ersten Fehler, Gesamtmanifest mit allen Bronze-Läufen und Fingerabdruck über die Eingaben | der geplante Lauf ist wöchentlich (`datenlauf.yml`, montags), die Quellen ändern sich täglich; ausserhalb davon startet er, wenn jemand daran denkt; keine Wiederaufnahme, bewusst |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen. `ruff` mit Pyflakes und `raise … from`, Lockfile, CI-Matrix über zwei Betriebssysteme | die sechs Notebooks, die Zahlen belegen, laufen seit dem 13.9. im wöchentlichen Datenlauf — nicht auf Pull Requests, weil sie `data/` brauchen. Notebook 32 war bis dahin einen Tag lang still kaputt. Die sechs ladenden Notebooks laufen bewusst nirgends automatisch |
@@ -1236,7 +1236,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 1'222 bestandene Tests
+python -m pytest                       # erwartet 1'224 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
@@ -1299,6 +1299,8 @@ python -m orchestration.run_all --ohne-ingestion    # Silver, Gold und Serving d
 
 ## 11 · Wo was liegt
 
+### 11.1 Der Code
+
 | Was | Wo |
 | --- | --- |
 | Ingestion, vier Pipelines | `src/crime/{chicago,detroit,census,weather}_pipeline/` |
@@ -1312,6 +1314,11 @@ python -m orchestration.run_all --ohne-ingestion    # Silver, Gold und Serving d
 | **Tract-Umrisse für eine Karte** | `src/crime/serving/export_geojson.py` → `data/serving/tracts.geojson` |
 | **Der Städtevergleich selbst** | `src/crime/silver_pipeline/build_crime_offense.py` → `data/silver/dataset=crime_offense/` |
 | Tests | `tests/`, nach Pipeline gegliedert |
+
+### 11.2 Die Notebooks: der Rechenweg
+
+| Was | Wo |
+| --- | --- |
 | Quelle Chicago erklärt | [`notebooks/01_chicago_source.ipynb`](../notebooks/01_chicago_source.ipynb) |
 | Chicago-Ingestion vorgeführt | [`notebooks/02_chicago_bronze_ingestion.ipynb`](../notebooks/02_chicago_bronze_ingestion.ipynb) |
 | Datenqualität Chicago | [`notebooks/03_chicago_data_quality.ipynb`](../notebooks/03_chicago_data_quality.ipynb) |
@@ -1324,15 +1331,28 @@ python -m orchestration.run_all --ohne-ingestion    # Silver, Gold und Serving d
 | Serving-Messung: Sichten oder Kopie | [`notebooks/33_serving_evaluation.ipynb`](../notebooks/33_serving_evaluation.ipynb) |
 | Referenzquelle NIBRS, Mapping-Herkunft | [`notebooks/32_nibrs_source.ipynb`](../notebooks/32_nibrs_source.ipynb) |
 | Gold-Sternschema, Stadtzuordnung | [`notebooks/34_gold_sternschema.ipynb`](../notebooks/34_gold_sternschema.ipynb) |
+
+### 11.3 Anhang zu diesem Leistungsnachweis
+
+Diese Dokumente vertiefen einzelne Kapitel. Sie sind für jemanden geschrieben,
+der das Projekt nicht kennt, und gehören zur Abgabe.
+
+| Was | Wo |
+| --- | --- |
+| **Ist- und Ziel-Architektur** | [`architektur-ist-und-ziel.md`](architektur-ist-und-ziel.md) — Teil A, was gebaut ist; Teil B, wohin es geht (Container, Zugang, Auswertung, Sicherung, Cloud) |
+| **Dieselbe Architektur auf einer A4-Seite** | [`architektur-einseiter.html`](architektur-einseiter.html) — zum Ausdrucken, mit zwei gezeichneten Bildern |
 | **Der Aufbau in zwei Bildern** | [`architektur.md`](architektur.md) — Abhängigkeiten und Datenfluss, erzeugt von [`tools/build_architekturbilder.py`](../tools/build_architekturbilder.py), dazu ein Lesepfad |
-| **Was nach LN1 kommt** | [`ausblick.md`](ausblick.md) — Lineage und Stichtagskonsistenz, Versionierung der Ladelogik, Skalierung, Cloud; mit Messwerten und Reihenfolge |
+| **Vier Arten zu zählen** | [`zaehlperspektiven.md`](zaehlperspektiven.md) — Anklage, Tat, Fall, Vorfall; welche Zahl welche Frage beantwortet und was sich nicht addiert |
+| **Eine Zahl über sieben Schichten** | [`eine-zahl.md`](eine-zahl.md) — eine einzelne Zahl von der Quelle bis Gold zurückverfolgt |
 | **Die Datenablage im Aufbau** | [`storage-architektur.md`](storage-architektur.md) — die drei Modi, was zugesichert wird, die API und die Fehlerbilder |
 | **Würfel und Sternschema erklärt** | [`sternschema-und-wuerfel.md`](sternschema-und-wuerfel.md) — die beiden Bauweisen mit Diagrammen, als Vorlage für die Präsentation. Dieselbe Darstellung mit durchgehendem Layout: [`sternschema-und-wuerfel.html`](sternschema-und-wuerfel.html) |
-| Technische Entscheide | [`projektabsprache.md`](projektabsprache.md) |
-| Anforderungen gegen Stand | [`leistungsnachweise.md`](leistungsnachweise.md) |
-| Detroit-Pipeline im Detail | [`DETROIT_PIPELINE_ANLEITUNG.md`](DETROIT_PIPELINE_ANLEITUNG.md) |
-| **Feldkatalog** | [`feldkatalog.md`](feldkatalog.md) — 133 Spalten in 9 Tabellen, erzeugt von [`tools/build_feldkatalog.py`](../tools/build_feldkatalog.py) |
-| **Was sich wann geändert hat** | [`AENDERUNGEN.md`](AENDERUNGEN.md) — ein Eintrag je Pull Request, mit den Zahlen und ihrer Begründung |
+| **Feldkatalog** | [`feldkatalog.md`](feldkatalog.md) — 174 Spalten in 13 Tabellen, erzeugt von [`tools/build_feldkatalog.py`](../tools/build_feldkatalog.py) |
+| **Was nach LN1 kommt** | [`ausblick.md`](ausblick.md) — Lineage und Stichtagskonsistenz, Versionierung der Ladelogik, Skalierung, Cloud; mit Messwerten und Reihenfolge |
+
+### 11.4 Amtliche Quellen und die daraus erzeugten Crosswalks
+
+| Was | Wo |
+| --- | --- |
 | **NIBRS-Codeliste, amtlich** | `config/nibrs_offense_codes_2025.csv` — 81 Codes aus Anhang A von [`nibrs_technical_specification_2025.pdf`](quellen/nibrs_technical_specification_2025.pdf) |
 | IUCR nach NIBRS (Chicago) | `config/iucr_nibrs_mapping.csv`, erzeugt von [`tools/build_iucr_nibrs_mapping.py`](../tools/build_iucr_nibrs_mapping.py); Katalog vom [Datenportal der Stadt](https://data.cityofchicago.org/resource/c7ck-438e.json) |
 | MICR nach NIBRS (Detroit) | `config/micr_nibrs_mapping.csv`, erweitert von [`tools/extend_micr_arrest_charges.py`](../tools/extend_micr_arrest_charges.py); Quellen [`micr_manual_1110_2024.pdf`](quellen/micr_manual_1110_2024.pdf) und [`micr_appendix_f_2009.pdf`](quellen/micr_appendix_f_2009.pdf) |
@@ -1340,6 +1360,24 @@ python -m orchestration.run_all --ohne-ingestion    # Silver, Gold und Serving d
 | **Amtliche Deliktkategorien** | `config/nibrs_offense_categories_2025.csv`, gelesen von [`tools/build_nibrs_categories.py`](../tools/build_nibrs_categories.py) aus [`nibrs-user-manual-2025-0-062625.pdf`](quellen/nibrs-user-manual-2025-0-062625.pdf) — 28 + 10 Kategorien |
 | Die vier zurückgezogenen Codes | [`NIBRS_Offense_Codes.pdf`](quellen/NIBRS_Offense_Codes.pdf), Fassung 2011 — überholt, aber der einzige Beleg für `90A`, `90E`, `90H`, `90I` |
 | Zweite Abschrift der Codeliste | [`illinois_nibrs_iepd_2023.xlsx`](quellen/illinois_nibrs_iepd_2023.xlsx), Blatt `OffenseCode` — Illinois' eigene Abschrift derselben FBI-Liste; belegt alle 81 Bezeichnungen statt zehn Stichproben |
+
+### 11.5 Interne Arbeitsgrundlagen — nicht Teil der Abgabe
+
+Diese Dokumente setzen voraus, dass man am Projekt arbeitet. Sie stehen hier,
+damit die Ablage vollständig beschrieben ist, **nicht** als Anhang: Sie halten
+offene Entscheide, Lücken und den Arbeitsverlauf fest und sind für uns
+geschrieben, nicht für eine Leserin der Abgabe.
+
+| Was | Wo |
+| --- | --- |
+| Technische Entscheide | [`projektabsprache.md`](projektabsprache.md) |
+| Anforderungen gegen Stand, offene Lücken | [`leistungsnachweise.md`](leistungsnachweise.md) |
+| Was sich wann geändert hat | [`AENDERUNGEN.md`](AENDERUNGEN.md) — ein Eintrag je Pull Request, mit den Zahlen und ihrer Begründung |
+| Was beim Aufräumen verlorenginge | [`datenhistorie.md`](datenhistorie.md) — Entscheidungspapier zur Aufbewahrung |
+| Detroit-Pipeline Schritt für Schritt | [`DETROIT_PIPELINE_ANLEITUNG.md`](DETROIT_PIPELINE_ANLEITUNG.md) |
+
+Die Einteilung dieses Kapitels ist auch in [`docs/README.md`](README.md)
+festgehalten und wird dort von `tests/test_dokumentwegweiser.py` geprüft.
 
 **Keine dieser Konfigurationsdateien wird von Hand gepflegt** — jede wird
 von einem Werkzeug erzeugt, und seit dem 12.9. prüft je ein Test, dass sich das

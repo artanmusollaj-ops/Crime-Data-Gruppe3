@@ -12,24 +12,30 @@ Hier steht, was es sonst noch gibt.
 
 ## Abgabe — was zum Leistungsnachweis gehört
 
-Diese Dokumente schreiben wir **für jemanden, der das Projekt nicht kennt.**
-Sie müssen ohne uns verständlich sein.
+**Die Abgabe ist ein Dokument:** [`ln1_konzept.md`](ln1_konzept.md). Alles
+Weitere hier ist **Anhang** — es vertieft ein Kapitel daraus, und das Konzept
+verweist in 11.3 darauf. Geschrieben sind sie alle für jemanden, der das
+Projekt nicht kennt; sie müssen ohne uns verständlich sein.
 
 | Dokument | Was darin steht |
 | --- | --- |
 | [`ln1_konzept.md`](ln1_konzept.md) | Konzept, Methode, Befunde — **das ist der Leistungsnachweis** |
 | [`architektur-ist-und-ziel.md`](architektur-ist-und-ziel.md) | Ist- und Ziel-Architektur, Teil A und Teil B |
 | [`architektur-einseiter.html`](architektur-einseiter.html) | dieselbe Architektur auf **einer A4-Seite**, zum Ausdrucken |
+| [`architektur.md`](architektur.md) | der Aufbau in zwei erzeugten Bildern, dazu ein Lesepfad |
 | [`sternschema-und-wuerfel.md`](sternschema-und-wuerfel.md) · [`.html`](sternschema-und-wuerfel.html) | warum Gold ein Stern ist und kein Würfel — die begründete Entwurfsentscheidung |
 | [`zaehlperspektiven.md`](zaehlperspektiven.md) | vier Arten zu zählen, und was sich nicht addiert |
 | [`eine-zahl.md`](eine-zahl.md) | eine Zahl über sieben Schichten zurückverfolgt |
-| [`feldkatalog.md`](feldkatalog.md) | was jede Spalte bedeutet — Anhang, und **erzeugt** (siehe unten) |
+| [`storage-architektur.md`](storage-architektur.md) | die Ablage im Aufbau: Modi, Zusagen, API, Fehlerbilder — LN1 verlangt die Storage-Evaluation ausdrücklich |
+| [`feldkatalog.md`](feldkatalog.md) | was jede Spalte bedeutet, 174 Spalten in 13 Tabellen — und **erzeugt** (siehe unten) |
+| [`ausblick.md`](ausblick.md) | was nach LN1 käme, mit Messwerten und Reihenfolge |
 
 ## Intern — was wir beim Arbeiten brauchen
 
 Diese Dokumente setzen voraus, dass man am Projekt arbeitet. Sie gehören
 **nicht** in die Abgabe; einige widersprächen ihr sogar dem Ton nach, weil sie
-offene Fragen und Lücken benennen.
+offene Fragen und Lücken benennen. Das Konzept führt sie in 11.5 unter genau
+diesem Vorbehalt.
 
 | Dokument | Was darin steht |
 | --- | --- |
@@ -37,9 +43,6 @@ offene Fragen und Lücken benennen.
 | [`leistungsnachweise.md`](leistungsnachweise.md) | Anforderungen, Stand, Lücken — ist *über* den LN, nicht Teil davon |
 | [`AENDERUNGEN.md`](AENDERUNGEN.md) | das Projektgedächtnis: was sich wann geändert hat und warum |
 | [`datenhistorie.md`](datenhistorie.md) | was beim Aufräumen verlorenginge — Entscheidungspapier |
-| [`ausblick.md`](ausblick.md) | was als Nächstes anstünde und warum nicht jetzt |
-| [`architektur.md`](architektur.md) | Lesepfade: wo man anfängt, wenn man den Code nicht kennt |
-| [`storage-architektur.md`](storage-architektur.md) | Betriebsanleitung der Ablage: Modi, Publizieren, Holen, Releases |
 | [`DETROIT_PIPELINE_ANLEITUNG.md`](DETROIT_PIPELINE_ANLEITUNG.md) | Detroit-Pipeline Schritt für Schritt (Windows) |
 
 ## Erzeugt — nie von Hand ändern

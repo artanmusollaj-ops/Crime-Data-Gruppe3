@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'222** |
+| Tests | **1'224** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,67 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 18.09.2026 · Die Abgabe zeigte auf ihre eigene Mängelliste (#121)
+
+**Der Befund.** `leistungsnachweise.md` sagt in Zeile 8 über sich selbst:
+*„Die Abgabe selbst ist `ln1_konzept.md` — dieses Dokument ist Arbeitsgrundlage
+und **nicht Teil der Abgabe**."* Das Konzept verlinkte es trotzdem — und einmal
+an der teuersten Stelle:
+
+> Kapitel 3 · Forschungsfragen und Hypothesen:
+> *„Der Entscheid über Auswahl und Formulierung ist offen; siehe
+> `leistungsnachweise.md` Abschnitt 2.3."*
+
+Wer dem Verweis mitten im Kernkapitel folgte, landete in *„Anforderungen,
+Stand, Lücken"*. Der Satz bleibt — der Entscheid **ist** offen —, der Verweis
+nach draussen ist weg.
+
+**Der zweite Befund, umgekehrt.** Das Konzept verwies auf **keines** der vier
+Dokumente, die ausdrücklich für LN1 geschrieben wurden:
+`architektur-ist-und-ziel.md`, `architektur-einseiter.html`,
+`zaehlperspektiven.md`, `eine-zahl.md`. Sie existierten, aber die Abgabe wusste
+nichts von ihnen — gelesen hätte sie niemand.
+
+**Kapitel 11 gegliedert.** Aus einer Tabelle mit 42 Zeilen, in der Code,
+Notebooks, Anhänge, amtliche Quellen und interne Arbeitspapiere durcheinander
+standen, wurden fünf:
+
+| | |
+| --- | --- |
+| 11.1 | Der Code |
+| 11.2 | Die Notebooks: der Rechenweg |
+| **11.3** | **Anhang zu diesem Leistungsnachweis** — die vier verwaisten sind jetzt darin |
+| 11.4 | Amtliche Quellen und die daraus erzeugten Crosswalks |
+| **11.5** | **Interne Arbeitsgrundlagen — nicht Teil der Abgabe**, mit dem Vorbehalt im Vorspann |
+
+**Eine falsche Zahl dabei gefunden.** Der Feldkatalog-Eintrag nannte *„133
+Spalten in 9 Tabellen"*. Nachgezählt sind es **174 Spalten in 13 Tabellen** —
+die vier Serving-Tabellen aus #108 fehlten, und die Zahl war schon vorher zu
+niedrig.
+
+**Drei Wächter dazu.** Der wichtigste hält Wegweiser und Kapitel 11 auf
+**dieselbe** Einteilung: Was in `docs/README.md` als Anhang steht, muss in 11.3
+stehen, und was intern ist, in 11.5. Zwei Orte, eine Wahrheit — sonst driften
+sie, und genau das war der Ausgangszustand.
+
+Der zweite verbietet Verweise auf Mängellisten im Fliesstext der Abgabe. Er
+schlug beim ersten Lauf **ein zweites Mal** an: `AENDERUNGEN.md` in Kapitel 5.2.
+Diese Stelle bleibt — sie ist eine Selbstkorrektur (*„hier stand bis heute …"*)
+und zeigt auf den **Beleg**, nicht auf eine Lücke. Der Wächter nennt deshalb
+drei Dokumente namentlich, statt „intern" pauschal zu verbieten; die Begründung
+steht als Kommentar daneben.
+
+**Was das für die Einteilung heisst.** `architektur.md`, `storage-architektur.md`
+und `ausblick.md` waren im Wegweiser vom Vormittag als *intern* eingeordnet.
+Das war falsch: Das Konzept verweist auf alle drei, LN1 verlangt die
+Storage-Evaluation ausdrücklich, und ein Ausblick gehört in einen solchen
+Bericht. Sie stehen jetzt im Anhang. Abgabe und Anhang sind damit **zehn**
+Dokumente, intern **fünf**.
+
+**Zahlen.** 1'222 → **1'224 Tests**.
 
 ---
 
@@ -150,7 +211,7 @@ sind nicht abgeschaltet, sie haben einen eigenen Aufruf:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese 71 Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'222
+python -m pytest -m ""               # beides zusammen, alle 1'224
 ```
 
 **Warum.** Am Morgen meldete die Suite **34 Fehlschläge**. Keiner davon war ein
@@ -178,7 +239,7 @@ statt der Summenzeile nur noch die Zahlen je Datei, und die Regex fand nichts.
 Zwei Tests standen auf grün, ohne je etwas geprüft zu haben. Der Wächter misst
 seither die **Ausgabe** statt der Einstellung.
 
-**Zahlen.** 1'211 → **1'222 Tests** (fünf neue in
+**Zahlen.** 1'211 → **1'224 Tests** (fünf neue in
 `tests/test_referenzstand_marker.py`). Standardlauf: 1'145 ausgeführt, 71
 abgewählt. Frischer Klon: 1'125 von 1'145, die übrigen 20 brauchen Daten.
 
@@ -248,7 +309,7 @@ Beschluss keine mehr dazu.** Das verschiebt nichts an der Empfehlung in
 [`datenhistorie.md`](datenhistorie.md) 5.2 — es macht sie dringlicher und gilt
 jetzt für beide Städte.
 
-**Wächter.** 1'179 → **1'222 Tests**. 25 davon in
+**Wächter.** 1'179 → **1'224 Tests**. 25 davon in
 `tests/detroit_pipeline/test_detroit_delta.py`, und dort wendet der
 Fake-Client den Delta-Filter *wirklich* an, statt immer alles zu liefern — ein
 Fake, der alles zurückgibt, bestünde auch einen Test, dessen Abfrage nichts
