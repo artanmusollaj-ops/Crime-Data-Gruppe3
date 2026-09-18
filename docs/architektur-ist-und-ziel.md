@@ -60,20 +60,29 @@ im einstelligen Millisekundenbereich. Ein vorberechneter Würfel spart nichts,
 was ein Mensch bemerkt, und kostet drei Fragen, die er nicht mehr beantwortet.
 Die Entscheidung ist ein **Messergebnis**, keine Stilfrage.
 
-### Drei Quellen, drei Ladestrategien
+### Drei Ladestrategien für fünf Quellen
 
 Die fünf Quellen ändern sich unterschiedlich, und die Ladestrategie folgt dem
 Änderungsverhalten — nicht der Bequemlichkeit:
 
 | Quelle | Strategie | Warum |
 | --- | --- | --- |
-| Chicago | **Delta** mit 14 Tagen Überlappung | Ein Wasserzeichen sagt, ab wann; die Überlappung fängt Nachmeldungen |
-| Detroit | **Vollschnappschuss** | **54,6 %** des Jahrgangs 2024 wurden *mehr als ein Jahr nach der Tat* noch geändert. Ein Delta nach Tatdatum verpasst genau diese Korrekturen |
+| Chicago | **Delta** über `updated_on`, 14 Tage Überlappung | Ein Wasserzeichen sagt, ab wann; die Überlappung fängt Nachmeldungen |
+| Detroit | **Delta** über `updated_at` im Tatjahrgang, 14 Tage Überlappung | Derselbe Weg, aber mit zwei Bedingungen: **54,6 %** des Jahrgangs 2024 wurden *mehr als ein Jahr nach der Tat* noch geändert — ein Delta nach Tatdatum verpasst genau diese Korrekturen |
 | TIGER, ACS | **eingefroren** | Eine feste Vintage; ein erneutes Laden wäre ein anderer Jahrgang, kein neuerer Stand |
 | NOAA | **Vollschnappschuss je Station** | Die Quelle liefert den ganzen Verlauf; der jüngste Lauf löst den vorigen ab |
 
 Die letzte Zeile ist der Grund, warum die Publish-Sperre am 17.9.2026 umgebaut
 werden musste: Sie hielt einen **abgelösten** Lauf für einen **fehlenden**.
+
+**Detroits zweite Bedingung ist die eigentliche Arbeit.** Die 54,6 % sagen
+nicht, dass kein Delta geht, sondern worauf es gehen muss. Gemessen über vier
+Schnappschüsse: 1'270 Zeilen änderten sich inhaltlich, **jede einzelne** mit
+einem neuen `updated_at`, keine ohne. Der Jahresfilter bleibt auf der Tatzeit —
+sonst kämen Fälle aus jedem Tatjahr —, ausgewählt wird darin nach
+Änderungszeit. Die vier Zeilen ohne Stempel kommen über `OR updated_at IS NULL`
+immer mit. Seit dem 18.9.2026 lädt ein Detroit-Lauf so **3'184 statt 88'686
+Zeilen**; der erste Lauf auf einem leeren Rechner bleibt ein Vollschnappschuss.
 
 ## A.2 Der Code: zehn Pakete, gerichtete Abhängigkeiten
 
@@ -207,8 +216,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'179 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'098 davon — die übrigen 81 brauchen gebaute Daten | |
+| **Pull Request** | 1'211 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'130 davon — die übrigen 81 brauchen gebaute Daten | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 70 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
@@ -435,7 +444,7 @@ Die Ingestion ist der Teil, der bei mehr Städten zuerst bricht, und es ist
 | Achse | heute | was passiert bei zehn Städten |
 | --- | --- | --- |
 | Zeilen | 347'957 | rund 1,7 Mio — DuckDB rechnet das weiterhin interaktiv |
-| Laufzeit Ingestion | Detroit 168 s, davon ~60 s Wartezeit | linear, aber **seriell**: zehn Städte nacheinander |
+| Laufzeit Ingestion | Detroit 7 s im Delta, 100 s beim ersten vollen Lauf | linear, aber **seriell**: zehn Städte nacheinander |
 | Code je Quelle | zwei Pipelines mit je eigener Logik | zehn Pipelines, zehnmal derselbe Fehler |
 
 Zwei Umbauten stehen deshalb an, und sie sind unterschiedlich dringend:

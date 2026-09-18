@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'179** |
+| Tests | **1'211** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -56,7 +56,7 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | Datensatz | Version | seit | was der Vertrag festlegt |
 | --- | ---: | --- | --- |
 | `bronze/city=chicago` | 1 | 14.09.2026 | Jahresfenster über `date`, Delta über `updated_on` mit 14 Tagen Rückgriff, feste id-Liste als Vollständigkeitsnachweis |
-| `bronze/city=detroit` | **2** | 11.09.2026 | Abfragefenster in **Detroiter Ortszeit** statt UTC (Konzept 8.6). Version 1 zog es in UTC — jene Läufe enthielten 66 Fälle aus 2023 und vermissten 56 vom Jahresende 2024 |
+| `bronze/city=detroit` | **3** | 18.09.2026 | Abfragefenster in **Detroiter Ortszeit** statt UTC (Konzept 8.6). Version 1 zog es in UTC — jene Läufe enthielten 66 Fälle aus 2023 und vermissten 56 vom Jahresende 2024. Version 3: **Delta über `updated_at` mit 14 Tagen Rückgriff** innerhalb des Tatjahrgangs, Zeilen ohne Stempel immer dabei — der erste Lauf bleibt ein Vollschnappschuss |
 | `bronze/dataset=tiger_tract`, `bronze/dataset=tiger_place` | 1 | 14.09.2026 | Vintage-Archiv je Bundesstaat, Geometrie als WKB in EPSG:4269, Feld-Allowlist mit `_extra` |
 | `bronze/dataset=acs5_tract` | 1 | 14.09.2026 | fünf Variablen je Tract, Fehlwert `-666666666` bleibt unverändert stehen |
 | `bronze/dataset=noaa_ghcnd` | 1 | 14.09.2026 | Vollschnappschuss je Station, bedingter Abruf über ETag, Mindestabstand sieben Tage |
@@ -88,6 +88,81 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 18.09.2026 · Detroit lädt Deltas — auf `updated_at`, nicht auf dem Tatdatum (#121)
+
+**Was.** Detroits Ingestion lädt seit heute wie Chicagos: ein Wasserzeichen,
+14 Tage Rückgriff, und nur noch das Geänderte. `--mode delta` ist der Modus des
+Gesamtlaufs; `--mode full` bleibt für Backfills und Bestandsabgleiche.
+Bronze-Vertrag **2 → 3**.
+
+**Warum das vorher nicht ging — und warum es jetzt geht.** Der erste Versuch
+scheiterte an einer Messung: **54,6 %** des Jahrgangs 2024 wurden mehr als ein
+Jahr nach der Tat noch geändert (Notebook 13, Schritt 12). Ein Delta nach
+*Tatdatum* hätte keine dieser Korrekturen gesehen, und Detroit lud seither jedes
+Mal den ganzen Jahrgang.
+
+Die Messung sagt aber nicht, dass kein Delta geht, sondern **worauf** es gehen
+muss. Über vier volle Schnappschüsse (11.9., 12.9., 17.9., 18.9.) haben wir
+nachgerechnet, ob `updated_at` als Änderungsmarke trägt:
+
+* **1'270** Zeilen änderten sich inhaltlich — Beschreibung, Code, Kategorie,
+  Fallstatus, Tatzeitpunkt oder Koordinate.
+* **Jede einzelne** trug dabei einen neuen `updated_at`. **Keine** änderte sich
+  ohne bewegten Stempel.
+* Umgekehrt bewegte sich der Stempel **499**-mal ohne inhaltliche Änderung. Das
+  kostet doppelt geladene Zeilen, die Silver über `incident_entry_id` und den
+  jüngsten `updated_at` ohnehin dedupliziert.
+* **4** von 88'686 Zeilen tragen gar kein `updated_at`, stabil über alle vier
+  Schnappschüsse.
+
+**Wie die Abfrage aussieht.** Zwei Bedingungen, und je eine allein wäre falsch:
+der Jahrgang nach `incident_occurred_at` — sonst kämen Fälle aus jedem Tatjahr —
+und darin `updated_at >= Wasserzeichen − 14 Tage`. Die vier Zeilen ohne Stempel
+kommen über `OR updated_at IS NULL` immer mit; sie hätten sonst nie wieder eine
+Chance, in einen Lauf zu geraten.
+
+**Was das kostet und bringt.** Der erste Lauf auf einem leeren Rechner findet
+kein Wasserzeichen und lädt voll: 88'686 Zeilen in 100 s. Der zweite lud
+**3'184 Zeilen in 7 s**.
+
+**Was dabei aufgefallen ist.** Drei Dinge, die ohne den Umbau still geblieben
+wären:
+
+1. **`_extract_where` kannte den Modus nicht** und brach mit *„Nicht
+   unterstuetzter Extraction Mode: DELTA"* ab. Die Vertragstabelle dort ist
+   Absicht — sie verhindert, dass ein Umbau einen Jahresbestand nach Update-Zeit
+   zieht. DELTA brauchte deshalb einen eigenen Eintrag, und zwar mit **zwei**
+   Feldern: `window_field` trägt das Fenster (Tatzeit), `date_field` die Auswahl
+   (Änderungszeit). Bei FULL und INCREMENTAL ist es dasselbe Feld, bei DELTA
+   nicht.
+2. **Die Delta-Bedingung wurde zweimal gebraucht** — einmal zum Bauen der
+   Abfrage, einmal zum Prüfen, dass die übergebene Abfrage die richtige ist.
+   Zwei getippte Fassungen derselben Zeichenkette wären früher oder später zwei
+   verschiedene; sie steht jetzt als `delta_bedingung()` an einer Stelle.
+3. **Die Aufräumregel trug die Antwort schon.** `DELTA_MODI` kennt `delta` und
+   `incremental`, und Detroits neues `extraction_mode: DELTA` fällt darunter —
+   ein Delta hält seitdem auch bei Detroit alles bis zum nächsten vollen Lauf
+   fest. Ein Test hält das fest, weil beide Städte den Modus **anders schreiben**
+   (`mode` gegen `extraction_mode`) und ein Tippfehler dort still die Basis eines
+   Deltas löschen würde.
+
+**Was das für die Historie heisst.** Löschungen sind nur zwischen zwei vollen
+Schnappschüssen erkennbar. Fünf davon liegen für Detroit vor; **neue kommen ohne
+Beschluss keine mehr dazu.** Das verschiebt nichts an der Empfehlung in
+[`datenhistorie.md`](datenhistorie.md) 5.2 — es macht sie dringlicher und gilt
+jetzt für beide Städte.
+
+**Wächter.** 1'179 → **1'211 Tests**. 25 davon in
+`tests/detroit_pipeline/test_detroit_delta.py`, und dort wendet der
+Fake-Client den Delta-Filter *wirklich* an, statt immer alles zu liefern — ein
+Fake, der alles zurückgibt, bestünde auch einen Test, dessen Abfrage nichts
+einschränkt. Dazu fünf CLI-Tests, der Detroit-Fall in `test_aufraeumen.py` und
+einer in `test_build_crime_offense.py`: Ein Delta darf den Bestand darunter
+nicht verschwinden lassen. Fiele der, wäre es der Tabelle nicht anzusehen — sie
+wäre nur kürzer, um alles, was sich nicht geändert hat.
 
 ---
 

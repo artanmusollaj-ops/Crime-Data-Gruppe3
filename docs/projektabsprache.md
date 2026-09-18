@@ -770,8 +770,8 @@ Wenn die Zeit knapp ist, sind das die Punkte, ohne die es nicht weitergeht:
 # Chicago, Jahrgang 2024 (erster Aufruf lädt voll, spätere als Delta)
 python -m chicago_pipeline.download_chicago --year 2024
 
-# Detroit, Jahrgang 2024
-python -m detroit_pipeline.extract_detroit --year 2024
+# Detroit, Jahrgang 2024 (erster Aufruf lädt voll, spätere als Delta)
+python -m detroit_pipeline.extract_detroit --mode delta --years 2024
 
 # Census: Geometrien und Attribute, beide Bundesstaaten
 python -m census_pipeline.download_tiger --vintage 2024

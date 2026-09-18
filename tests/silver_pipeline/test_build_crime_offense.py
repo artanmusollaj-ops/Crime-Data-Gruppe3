@@ -302,6 +302,41 @@ def test_ueberlappende_detroit_laeufe_erzeugen_keine_doppelten_zeilen(tmp_path):
     assert zeilen[0]["source_offense_description"] == "NEU"
 
 
+def test_ein_detroit_delta_loescht_den_bestand_darunter_nicht(tmp_path):
+    """Seit dem 18.9.2026 bringt ein Detroit-Lauf nur noch das Geaenderte.
+
+    Damit haengt Silver an der Vereinigung **aller** Laeufe, nicht mehr am
+    juengsten allein. Wuerde hier nur der letzte gelesen, saehe man es der
+    Tabelle nicht an: Sie waere nur kuerzer - um alles, was sich seit dem
+    Vollschnappschuss nicht geaendert hat.
+    """
+    data_root = tmp_path / "data"
+    config_root = tmp_path / "config"
+    schreibe_tract(data_root)
+    schreibe_chicago(data_root, CHI)
+    schreibe_detroit(data_root, [dict(DET[0], incident_entry_id="RUHIG",
+                                      offense_description="UNBERUEHRT",
+                                      updated_at=1000),
+                                 dict(DET[0], incident_entry_id="BEWEGT",
+                                      offense_description="ALT",
+                                      updated_at=1000)],
+                     lauf="run_voll", unterpfad="full/year=2024")
+    schreibe_detroit(data_root, [dict(DET[0], incident_entry_id="BEWEGT",
+                                      offense_description="NEU",
+                                      updated_at=2000)],
+                     lauf="run_delta", unterpfad="full/year=2024")
+    schreibe_config(config_root)
+
+    zeilen = {z["offense_id"]: z for z in lies(bc.build(data_root, config_root))
+              if z["city"] == "detroit"}
+    assert set(zeilen) == {"RUHIG", "BEWEGT"}, (
+        "der Bestand aus dem Vollschnappschuss fehlt - Silver liest nur den "
+        "juengsten Lauf statt aller"
+    )
+    assert zeilen["BEWEGT"]["source_offense_description"] == "NEU"
+    assert zeilen["RUHIG"]["source_offense_description"] == "UNBERUEHRT"
+
+
 # --------------------------------------------------------------------------
 # Der Formatwechsel: Detroit schrieb frueher NDJSON, jetzt Parquet
 # --------------------------------------------------------------------------

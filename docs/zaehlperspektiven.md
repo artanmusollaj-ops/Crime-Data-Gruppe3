@@ -226,6 +226,14 @@ gar nicht: Beide Schnappschüsse enthalten **alle 88'685 Zeilen**. Wer
 zurückverfolgen will, sucht den Schlüssel in den genannten Läufen — die
 Zeilen-Lineage selbst liegt in den Bronze-Manifesten, nicht in Silver.
 
+> **Das gilt für den Referenzstand, nicht für die Zukunft.** Seit dem 18.9.2026
+> lädt Detroit Deltas über `updated_at`. Ein Delta-Lauf enthält nur die seither
+> bewegten Zeilen, nicht den Bestand — die Aussage „beide Schnappschüsse
+> enthalten alle Zeilen" trifft dann nur noch auf die fünf vollen Läufe vom
+> 11. bis 18.9. zu. Der Rückgriff wird dadurch *leichter*: Wer wissen will, wann
+> eine Zeile zuletzt bewegt wurde, findet sie ab dann in genau dem Delta-Lauf,
+> der sie brachte.
+
 ---
 
 ## Wo das weiterführt

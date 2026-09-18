@@ -143,15 +143,23 @@ sind ein Befund über die Meldepraxis, kein Rauschen.
 ### 5.2 Wollen wir Löschungen überhaupt erkennen können?
 
 Löschungen sind nur zwischen **zwei vollständigen Schnappschüssen desselben
-Bestands** erkennbar. Detroit hat zwei. Chicago hat einen Vollschnappschuss
-und zwei Deltas — dort lässt sich heute **nicht** sagen, ob etwas gelöscht
-wurde.
+Bestands** erkennbar. Chicago hat einen Vollschnappschuss und vier Deltas —
+dort lässt sich heute **nicht** sagen, ob etwas gelöscht wurde.
+
+**Seit dem 18.9.2026 gilt das für beide Städte.** Detroit lud bis dahin bei
+jedem Lauf den ganzen Jahrgang; fünf solche Schnappschüsse liegen vor (11.9.,
+12.9., 17.9. und zweimal am 18.9.). Sie sind der Grund, warum wir überhaupt
+messen konnten, dass `updated_at` jede inhaltliche Änderung mitträgt — und mit
+diesem Ergebnis lädt Detroit seither ebenfalls Deltas. Die fünf bleiben als
+Vergleichspaare erhalten; **neue kommen ohne Entscheidung keine mehr dazu.**
 
 Konzept 6.3 empfiehlt bereits *„periodische Full Loads beziehungsweise
 Bestandsabgleiche"*. Das hier wäre der konkrete Grund dafür.
 
 **Empfehlung: ja, mit einem Vollschnappschuss je Stadt und Monat.** Ohne ihn
-ist die Frage „was wird gelöscht" für Chicago dauerhaft unbeantwortbar.
+ist die Frage „was wird gelöscht" für beide Städte dauerhaft unbeantwortbar.
+Der Aufruf steht bereit — `--mode full` lädt weiterhin den ganzen Jahrgang;
+es fehlt nur der Beschluss, ihn regelmässig zu starten.
 
 ### 5.3 Wie oft laden wir?
 

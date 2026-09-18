@@ -187,6 +187,51 @@ def build_updated_where(start_date: date, end_date: date) -> str:
     return build_field_date_where("updated_at", start_date, end_date)
 
 
+def build_delta_where(year: int, updated_from: datetime | None) -> str:
+    """Der Jahrgang nach **Tatzeitpunkt**, davon nur das seit ``updated_from`` Geaenderte.
+
+    Beide Bedingungen zusammen sind die Aussage, und je eine allein waere
+    falsch:
+
+    * **Nur ``updated_at``** brachte Faelle aus jedem Tatjahr - der Jahrgang
+      2024 ist aber der Gegenstand der Arbeit.
+    * **Nur ``incident_occurred_at``** brachte jedes Mal den ganzen Jahrgang.
+      Ein Delta darauf waere sinnlos: Das Tatdatum aendert sich nicht, wenn ein
+      Fall korrigiert wird. Genau daran ist der erste Versuch gescheitert -
+      **54,6 %** des Jahrgangs 2024 wurden mehr als ein Jahr nach der Tat noch
+      geaendert (Notebook 13, Schritt 12), und ein Delta nach Tatdatum haette
+      keine einzige dieser Korrekturen gesehen.
+
+    ``updated_from`` ist ein Zeitpunkt, kein Datum: Das Wasserzeichen kommt aus
+    dem letzten Lauf und liegt mitten am Tag. ``None`` heisst *kein
+    Wasserzeichen* - dann ist es ein Vollschnappschuss des Jahrgangs.
+
+    **Zeilen ohne ``updated_at`` kommen immer mit.** Am 18.9.2026 waren das
+    vier von 88'686, stabil ueber alle vier Schnappschuesse. Sie haetten sonst
+    nie wieder eine Chance, in einen Lauf zu geraten.
+    """
+    jahr = build_year_where(year)
+    if updated_from is None:
+        return jahr
+    return f"{jahr} AND {delta_bedingung(updated_from)}"
+
+
+def delta_bedingung(updated_from: datetime) -> str:
+    """Die Zusatzbedingung eines Deltas, allein und ohne den Jahresfilter.
+
+    Sie steht eigens hier, weil zwei Stellen sie brauchen und sie sich nicht
+    unterscheiden duerfen: ``build_delta_where`` baut die Abfrage, und
+    ``extract_detroit._extract_where`` prueft, dass die uebergebene Abfrage
+    genau die zum Fenster und zum Wasserzeichen passende ist. Zwei getippte
+    Fassungen derselben Zeichenkette waeren frueher oder spaeter zwei
+    verschiedene.
+    """
+    if updated_from.tzinfo is None or updated_from.utcoffset() is None:
+        raise ValueError("updated_from muss eine Zeitzone tragen")
+    stempel = updated_from.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    return f"(updated_at >= TIMESTAMP '{stempel}' OR updated_at IS NULL)"
+
+
 def build_year_where(year: int) -> str:
     """Komfortfunktion fuer einen vollstaendigen Kalenderjahresfilter."""
 

@@ -11,6 +11,22 @@ from detroit_pipeline.extract_detroit import main, parse_args
 class DetroitCliTests(unittest.TestCase):
     """Prueft Parametervertraege und die Auswahl des richtigen Extractors."""
 
+    def test_delta_accepts_years(self):
+        args = parse_args(["--mode", "delta", "--years", "2024"])
+        self.assertEqual(args.mode, "delta")
+        self.assertEqual(args.years, [2024])
+
+    def test_delta_requires_years(self):
+        """Ohne Jahrgang waere nicht entschieden, wessen Wasserzeichen gilt."""
+        with self.assertRaises(SystemExit):
+            parse_args(["--mode", "delta"])
+
+    def test_delta_rejects_reference_date(self):
+        """--reference-date gehoert zu daily; ein Delta folgt dem Wasserzeichen."""
+        with self.assertRaises(SystemExit):
+            parse_args(["--mode", "delta", "--years", "2024",
+                        "--reference-date", "2026-09-07"])
+
     def test_full_accepts_multiple_years(self):
         args = parse_args(["--mode", "full", "--years", "2024", "2025"])
         self.assertEqual(args.mode, "full")
@@ -88,6 +104,53 @@ class DetroitCliTests(unittest.TestCase):
             ],
         )
         self.assertEqual(print_result.call_count, 2)
+
+    @patch("detroit_pipeline.extract_detroit.publiziere")
+    @patch("detroit_pipeline.extract_detroit.print_extraction_result")
+    @patch("detroit_pipeline.extract_detroit.previous_watermark")
+    @patch("detroit_pipeline.extract_detroit.extract_delta")
+    def test_delta_reicht_das_gelesene_wasserzeichen_weiter(
+        self, extract, watermark, print_result, publiziere
+    ):
+        """Die CLI liest es einmal und gibt es mit - sie raet es nicht neu.
+
+        Waere das Wasserzeichen nur ein Vorschlag, den ``extract_delta`` auch
+        verwerfen kann, stuende in der Logzeile etwas anderes als in der
+        Abfrage. Genau das soll nicht passieren.
+        """
+        watermark.return_value = "2026-09-17T10:33:22.317+00:00"
+        extract.return_value = (Path("bronze/part-0001.parquet"),
+                                Path("bronze/manifest.json"))
+
+        result = main(["--mode", "delta", "--years", "2024",
+                       "--output-dir", "bronze", "--raw-dir", "roh"])
+
+        self.assertEqual(result, 0)
+        self.assertEqual(extract.call_count, 1)
+        kwargs = extract.call_args.kwargs
+        self.assertEqual(kwargs["year"], 2024)
+        self.assertEqual(kwargs["output_dir"], Path("bronze/full/year=2024"))
+        self.assertEqual(kwargs["raw_dir"], Path("roh/full/year=2024"))
+        self.assertEqual(kwargs["watermark"], "2026-09-17T10:33:22.317+00:00")
+
+    @patch("detroit_pipeline.extract_detroit.publiziere")
+    @patch("detroit_pipeline.extract_detroit.print_extraction_result")
+    @patch("detroit_pipeline.extract_detroit.previous_watermark")
+    @patch("detroit_pipeline.extract_detroit.extract_delta")
+    def test_delta_ohne_wasserzeichen_laeuft_trotzdem(
+        self, extract, watermark, print_result, publiziere
+    ):
+        """Der erste Aufruf auf einem leeren Rechner: kein Vorlauf, kein Fehler."""
+        watermark.return_value = None
+        extract.return_value = (Path("bronze/part-0001.parquet"),
+                                Path("bronze/manifest.json"))
+
+        self.assertEqual(
+            main(["--mode", "delta", "--years", "2024",
+                  "--output-dir", "bronze", "--raw-dir", "roh"]),
+            0,
+        )
+        self.assertIsNone(extract.call_args.kwargs["watermark"])
 
     @patch("detroit_pipeline.extract_detroit.print_extraction_result")
     @patch("detroit_pipeline.extract_detroit.extract_updated_window")

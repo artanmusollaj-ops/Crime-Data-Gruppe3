@@ -213,7 +213,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet werden **1'179 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
+Erwartet werden **1'211 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
 Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
 Fixtures und simulierten Quellen.
 
@@ -306,8 +306,9 @@ teilen dieselbe `run_id`. Frühere Läufe werden nie überschrieben.
 # spätere erkennen das Wasserzeichen und laden ein Delta mit 14 Tagen Überlappung
 python -m chicago_pipeline.download_chicago
 
-# Detroit — immer ein voller Jahrgang, siehe unten warum
-python -m detroit_pipeline.extract_detroit --mode full --years 2024
+# Detroit — genauso: erster Aufruf lädt 2024 vollständig,
+# spätere laden nur, was sich seit dem Wasserzeichen geändert hat
+python -m detroit_pipeline.extract_detroit --mode delta --years 2024
 
 # Census: Geometrien (Tracts und Stadtgrenzen) und Einwohnerzahlen
 python -m census_pipeline.download_tiger --auslieferung tract
@@ -318,11 +319,24 @@ python -m census_pipeline.download_acs
 python -m weather_pipeline.download_noaa
 ```
 
-**Warum Detroit keine Deltas lädt.** 54,6 % des Jahrgangs 2024 wurden *mehr als
-ein Jahr nach der Tat* noch geändert. Ein Delta nach Tatdatum verpasst diese
-Korrekturen. Bei 88'685 Zeilen und 97 Sekunden Laufzeit ist der volle Snapshot
-die einfachere und die richtigere Variante — gemessen in
-[Notebook 13](notebooks/13_detroit_data_quality.ipynb), Schritt 12.
+**Worauf Detroits Delta geht — und warum nicht aufs Tatdatum.** 54,6 % des
+Jahrgangs 2024 wurden *mehr als ein Jahr nach der Tat* noch geändert
+([Notebook 13](notebooks/13_detroit_data_quality.ipynb), Schritt 12). Ein Delta
+nach Tatdatum hätte keine einzige dieser Korrekturen gesehen — daran ist der
+erste Versuch gescheitert, und bis zum 18.9.2026 lud Detroit deshalb jedes Mal
+den ganzen Jahrgang.
+
+Die Messung sagt aber nicht, dass kein Delta geht, sondern **worauf** es gehen
+muss. Über vier Schnappschüsse haben sich 1'270 Zeilen inhaltlich geändert —
+Beschreibung, Code, Kategorie, Fallstatus, Tatzeitpunkt oder Koordinate. *Jede
+einzelne* trug dabei einen neuen `updated_at`; keine änderte sich ohne. Der
+Ladeweg ist deshalb derselbe wie bei Chicago, nur mit zwei Bedingungen statt
+einer: **der Jahrgang nach Tatzeit, darin das Geänderte nach `updated_at`**, mit
+denselben 14 Tagen Rückgriff. Vier Zeilen tragen gar keinen Stempel; sie kommen
+über `OR updated_at IS NULL` immer mit, sonst hätten sie nie wieder eine Chance.
+
+Der erste Aufruf auf einem leeren Rechner findet kein Wasserzeichen und lädt den
+Jahrgang voll — 88'686 Zeilen. Der zweite lud 3'184.
 
 **Was raw und bronze unterscheidet.** Raw ist das Beweisstück: die Antwort Byte
 für Byte, gzip-komprimiert mit `mtime=0`, damit der SHA-256 im Manifest allein
@@ -685,7 +699,7 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 python -m pytest
 ```
 
-**1'179 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'211 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -722,7 +736,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'098 der 1'179 Tests**. Die übrigen 81 überspringen
+In einem frischen Klon laufen **1'130 der 1'211 Tests**. Die übrigen 81 überspringen
 sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter

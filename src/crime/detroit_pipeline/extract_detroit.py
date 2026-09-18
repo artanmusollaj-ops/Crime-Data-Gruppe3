@@ -2,6 +2,7 @@
 
 Beispiele:
 
+    python -m detroit_pipeline.extract_detroit --mode delta --years 2024
     python -m detroit_pipeline.extract_detroit --mode full \
         --years 2024 2025 --output-dir data/bronze/city=detroit
 
@@ -34,7 +35,9 @@ from .bronze_parquet import schema_for, schema_hash, to_row
 from .detroit_arcgis import (
     ArcGISClient,
     DataQualityError,
+    build_delta_where,
     build_local_date_window,
+    delta_bedingung,
     build_updated_where,
     build_year_where,
     resolve_daily_window,
@@ -44,7 +47,14 @@ from .detroit_arcgis import (
 # Der Ladevertrag. Steht auf 2, seit das Abfragefenster am 11.9.2026 in
 # Detroiter Ortszeit statt in UTC gezogen wird (Konzept 8.6) - Laeufe davor
 # enthielten 66 Faelle aus 2023. Siehe "Vertragsversionen" in AENDERUNGEN.md.
-CONTRACT_VERSION = 2
+CONTRACT_VERSION = 3
+
+# Wie weit ein Delta hinter das Wasserzeichen zurueckgreift. Dieselben 14 Tage
+# wie bei Chicago, und aus demselben Grund: Ein Lauf sieht den Stand der Quelle
+# zu einem Zeitpunkt; was in den Stunden davor noch geschrieben wurde, kann ihm
+# entgangen sein. Der Rueckgriff kostet doppelt geladene Zeilen - Silver
+# dedupliziert sie ueber ``incident_entry_id`` und den juengsten ``updated_at``.
+LOOKBACK_DAYS = 14
 
 
 class Mitschrift:
@@ -101,6 +111,14 @@ def write_json_atomic(path: Path, payload: dict) -> None:
     temporary_path.replace(path)
 
 
+def _iso_utc(millisekunden: int | None) -> str | None:
+    """Detroits Millisekunden seit Epoch als ISO-Zeitpunkt in UTC."""
+    if millisekunden is None:
+        return None
+    return datetime.fromtimestamp(millisekunden / 1000, timezone.utc).isoformat(
+        timespec="milliseconds")
+
+
 def _extract_where(
     where: str,
     output_dir: Path,
@@ -115,6 +133,8 @@ def _extract_where(
     batch_size: int | None = None,
     pause_seconds: float = 0.05,
     client: ArcGISClient | None = None,
+    watermark_vorher: str | None = None,
+    delta_ab: datetime | None = None,
 ) -> tuple[Path, Path]:
     """Fuehrt einen count-verifizierten Snapshot fuer eine WHERE-Klausel aus.
 
@@ -138,17 +158,27 @@ def _extract_where(
     run_id = str(uuid4())
     started_at = datetime.now(timezone.utc)
 
-    # FULL und INCREMENTAL besitzen bewusst unterschiedliche fachliche
-    # Zeitachsen. Diese Invarianten verhindern, dass ein spaeterer Umbau einen
-    # Jahresbestand versehentlich nach Update-Zeit oder einen Daily Load nach
-    # Tatzeit selektiert.
+    # Die drei Modi besitzen bewusst unterschiedliche fachliche Zeitachsen.
+    # ``window_field`` traegt das Fenster, ``date_field`` die Auswahl - bei
+    # FULL und INCREMENTAL dasselbe Feld, bei DELTA nicht: Das Fenster ist der
+    # Tatjahrgang, ausgewaehlt wird darin nach Aenderungszeit. Diese
+    # Invarianten verhindern, dass ein spaeterer Umbau einen Jahresbestand
+    # versehentlich nach Update-Zeit oder einen Daily Load nach Tatzeit
+    # selektiert.
     extraction_contracts = {
         "FULL": {
             "date_field": "incident_occurred_at",
+            "window_field": "incident_occurred_at",
             "selection_basis": "INCIDENT_OCCURRENCE_TIME",
+        },
+        "DELTA": {
+            "date_field": "updated_at",
+            "window_field": "incident_occurred_at",
+            "selection_basis": "SOURCE_LAST_UPDATED_TIME_WITHIN_INCIDENT_YEAR",
         },
         "INCREMENTAL": {
             "date_field": "updated_at",
+            "window_field": "updated_at",
             "selection_basis": "SOURCE_LAST_UPDATED_TIME",
         },
     }
@@ -160,18 +190,27 @@ def _extract_where(
             f"{extraction_mode} muss {contract['date_field']} verwenden, "
             f"nicht {date_field}"
         )
+    if (delta_ab is not None) != (extraction_mode == "DELTA"):
+        raise DataQualityError(
+            "Ein Startzeitpunkt gehoert zu DELTA und nur zu DELTA "
+            f"(Modus {extraction_mode}, delta_ab={delta_ab!r})"
+        )
 
     # Abfrage und Manifest muessen denselben lokalen Fenstervertrag erfuellen.
     window = build_local_date_window(window_start, window_end_exclusive)
-    if where != window.where(date_field):
+    erwartet = window.where(contract["window_field"])
+    if delta_ab is not None:
+        erwartet = f"{erwartet} AND {delta_bedingung(delta_ab)}"
+    if where != erwartet:
         raise DataQualityError("WHERE-Klausel passt nicht zum Detroit-Zeitfenster")
 
     # SCHRITT 1: Metadaten liefern Object-ID-Feld, Seitengroesse und Schema-Hash.
     layer_info = client.get_layer_info()
-    if date_field not in layer_info.fields:
-        raise DataQualityError(
-            f"Erforderliches Datumsfeld fehlt im ArcGIS-Schema: {date_field}"
-        )
+    for feld in {date_field, contract["window_field"]}:
+        if feld not in layer_info.fields:
+            raise DataQualityError(
+                f"Erforderliches Datumsfeld fehlt im ArcGIS-Schema: {feld}"
+            )
     effective_batch_size = min(
         batch_size or layer_info.max_record_count,
         layer_info.max_record_count,
@@ -221,6 +260,11 @@ def _extract_where(
     # sofort geschrieben. Fachliche Transformationen gehoeren nicht in Bronze.
     downloaded_count = 0
     offense_category_counts: dict[str, int] = {}
+    # Der hoechste gesehene Aenderungszeitpunkt - das Wasserzeichen des
+    # naechsten Laufs. Gelesen wird die rohe Quellzahl (Millisekunden seit
+    # Epoch), abgelegt wird sie als ISO-Zeitpunkt in UTC: lesbar, sortierbar,
+    # und ohne Zeitzone kein Missverstaendnis.
+    max_updated_at: int | None = None
     remaining_ids = set(object_ids)
     extra_rows = 0
     try:
@@ -251,6 +295,10 @@ def _extract_where(
                 offense_category_counts[category] = (
                     offense_category_counts.get(category, 0) + 1
                 )
+                stempel = (feature.get("attributes") or {}).get("updated_at")
+                if type(stempel) is int and (max_updated_at is None
+                                             or stempel > max_updated_at):
+                    max_updated_at = stempel
             if rows:
                 writer.write_table(pa.Table.from_pylist(rows, schema=schema))
         if downloaded_count != len(object_ids):
@@ -343,6 +391,22 @@ def _extract_where(
         "duration_seconds": round((finished_at - started_at).total_seconds(), 3),
         "bronze_file": "part-0001.parquet",
         "bronze_sha256": checksum,
+        # Das Wasserzeichen: der hoechste gesehene Aenderungszeitpunkt, und der
+        # vorherige daneben. Es rueckt nie zurueck - ein Lauf, der nichts
+        # Neueres sieht, laesst es stehen.
+        "watermark": {
+            "field": "updated_at",
+            "maximum_seen": max(
+                [w for w in (watermark_vorher, _iso_utc(max_updated_at)) if w],
+                default=None,
+            ),
+            "previous_maximum": watermark_vorher,
+            "lookback_days": LOOKBACK_DAYS,
+            # Ab wo dieser Lauf tatsaechlich gesucht hat: Wasserzeichen minus
+            # Rueckgriff. ``None`` heisst Vollschnappschuss.
+            "delta_from_utc": delta_ab.astimezone(timezone.utc).isoformat()
+                              if delta_ab is not None else None,
+        },
     }
     # Raw zuerst veroeffentlichen, Bronze danach. Ein Raw-Lauf ohne
     # Bronze-Zwilling kostet eine Wiederholung; umgekehrt stuende eine
@@ -380,6 +444,101 @@ def _extract_where(
             shutil.rmtree(raw_work, ignore_errors=True)
         raise
     return final_path, manifest_path
+
+
+def previous_watermark(data_root: Path, year: int) -> str | None:
+    """Das hoechste Wasserzeichen aus vollstaendigen Detroit-Bronze-Laeufen.
+
+    Dasselbe Muster wie bei Chicago, und aus demselben Grund: Bronze wird
+    zuletzt veroeffentlicht, das Wasserzeichen rueckt also erst vor, wenn der
+    ganze Lauf stand. Ein Raw-Lauf ohne Bronze-Zwilling kostet eine
+    Wiederholung, nie eine Luecke.
+
+    **Warum nicht ein Kalenderrueckgriff.** ``--mode daily`` zieht ein Fenster
+    von *gestern minus vierzehn Tagen*. Laeuft die Strecke drei Wochen nicht,
+    fehlt eine Woche - und niemand sieht es den Daten an. Ein Wasserzeichen
+    kennt den letzten wirklich geladenen Stand; der Rueckgriff ist dann eine
+    Sicherheitsmarge, keine Annahme ueber die Laufhaeufigkeit.
+
+    Gezaehlt werden nur Laeufe desselben Jahrgangs und ohne ``--max-records``:
+    Ein abgeschnittener Testlauf darf das Wasserzeichen nicht vorruecken.
+    """
+    werte: list[str] = []
+    laeufe = for_root(data_root).laeufe(
+        "bronze/city=detroit", "**/run_*/manifest.json",
+        streng=False, fehler=DataQualityError,
+    )
+    for lauf in laeufe:
+        manifest = lauf.manifest
+        if (
+            str(manifest.get("status", "")).upper() == "SUCCESS"
+            and manifest.get("year") == year
+            and manifest.get("max_records") is None
+        ):
+            wert = (manifest.get("watermark") or {}).get("maximum_seen")
+            if wert:
+                werte.append(str(wert))
+    # Textvergleich; die Werte sind ISO-Zeitpunkte fester Breite in UTC.
+    return max(werte, default=None)
+
+
+def delta_start(watermark: str | None) -> datetime | None:
+    """Das Wasserzeichen minus dem Rueckgriff - oder ``None`` beim ersten Lauf."""
+    if watermark is None:
+        return None
+    try:
+        wert = datetime.fromisoformat(str(watermark).replace("Z", "+00:00"))
+    except ValueError as fehler:
+        raise DataQualityError(f"Unlesbares Wasserzeichen: {watermark!r}") from fehler
+    if wert.tzinfo is None:
+        wert = wert.replace(tzinfo=timezone.utc)
+    return wert - timedelta(days=LOOKBACK_DAYS)
+
+
+def extract_delta(
+    year: int,
+    output_dir: Path,
+    *,
+    data_root: Path | None = None,
+    raw_dir: Path | None = None,
+    batch_size: int | None = None,
+    pause_seconds: float = 0.05,
+    client: ArcGISClient | None = None,
+    watermark: str | None = None,
+) -> tuple[Path, Path]:
+    """Der Jahrgang beim ersten Lauf, danach nur noch das Geaenderte.
+
+    Genau wie Chicago: Ohne Wasserzeichen ein Vollschnappschuss, mit einem nur
+    die Zeilen, deren ``updated_at`` seit dem letzten Lauf (minus Rueckgriff)
+    bewegt wurde. Der Jahresfilter bleibt in beiden Faellen.
+
+    **Dass das traegt, ist gemessen.** Zwischen vier Schnappschuessen haben
+    sich 1'270 Zeilen inhaltlich geaendert - Beschreibung, Code, Kategorie,
+    Fallstatus, Tatzeitpunkt oder Koordinate. **Jede einzelne** trug dabei
+    einen neuen ``updated_at``; keine aenderte sich ohne. Umgekehrt bewegte
+    sich der Stempel 499-mal ohne inhaltliche Aenderung - das kostet nur
+    doppelt geladene Zeilen, die Silver ohnehin dedupliziert.
+    """
+    if watermark is None and data_root is not None:
+        watermark = previous_watermark(data_root, year)
+    ab = delta_start(watermark)
+    return _extract_where(
+        build_delta_where(year, ab),
+        output_dir,
+        raw_dir=raw_dir,
+        file_stem=(f"detroit_rms_crime_{year}" if ab is None
+                   else f"detroit_rms_crime_delta_{year}_{ab.date().isoformat()}"),
+        extraction_mode="FULL" if ab is None else "DELTA",
+        date_field="incident_occurred_at" if ab is None else "updated_at",
+        window_start=date(year, 1, 1),
+        window_end_exclusive=date(year + 1, 1, 1),
+        year=year,
+        batch_size=batch_size,
+        pause_seconds=pause_seconds,
+        client=client,
+        watermark_vorher=watermark,
+        delta_ab=ab,
+    )
 
 
 def extract_year(
@@ -491,8 +650,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--mode",
         required=True,
-        choices=("full", "daily"),
-        help="Extraktionsmodus: full oder daily",
+        choices=("delta", "full", "daily"),
+        help="delta (Vorgabe fuer den Gesamtlauf): erster Aufruf laedt den "
+             "Jahrgang voll, spaetere nur Geaendertes seit dem Wasserzeichen. "
+             "full: immer der ganze Jahrgang. daily: Kalenderfenster, ohne "
+             "Wasserzeichen",
     )
     parser.add_argument(
         "--years",
@@ -570,9 +732,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     if args.raw_dir is None:
         args.raw_dir = wurzel / "raw" / "city=detroit"
 
-    if args.mode == "full":
+    if args.mode in ("full", "delta"):
         if not args.years:
-            parser.error("--years ist fuer --mode full erforderlich")
+            parser.error(f"--years ist fuer --mode {args.mode} erforderlich")
         if args.reference_date is not None:
             parser.error("--reference-date ist nur fuer --mode daily erlaubt")
     else:
@@ -610,6 +772,30 @@ def main(argv: list[str] | None = None) -> int:
         level=getattr(logging, args.log_level),
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+
+    if args.mode == "delta":
+        for year in args.years:
+            wurzel = for_root(args.data_root).local_root
+            watermark = previous_watermark(wurzel, year)
+            logging.info(
+                "Starte Detroit %s fuer %s%s",
+                "Full Load" if watermark is None else "Delta",
+                year,
+                "" if watermark is None else f" (Wasserzeichen {watermark})",
+            )
+            raw_dir = None if args.no_raw else args.raw_dir / "full" / f"year={year}"
+            bronze_path, manifest_path = extract_delta(
+                year=year,
+                output_dir=args.output_dir / "full" / f"year={year}",
+                data_root=wurzel,
+                raw_dir=raw_dir,
+                batch_size=args.batch_size,
+                pause_seconds=args.pause_seconds,
+                watermark=watermark,
+            )
+            print_extraction_result(bronze_path, manifest_path)
+            publiziere(bronze_path.parent, raw_dir)
+        return 0
 
     if args.mode == "full":
         for year in args.years:
