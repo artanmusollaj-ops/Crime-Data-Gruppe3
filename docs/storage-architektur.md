@@ -509,6 +509,49 @@ python -m orchestration.release erstellen --publizieren  # bilden, hochbringen, 
 | `SeaweedFS lehnt ab: NoSuchBucket` | `S3_BUCKET` stimmt nicht oder existiert noch nicht |
 | `existiert bereits mit anderem Inhalt` | ein Lauf soll überschrieben werden — Abschnitt 7 |
 | `Nicht publiziert, das waere ein Rueckschritt` | veralteter eigener Stand — Abschnitt 8 |
+| `ConnectionClosedError` / `Connection reset by peer` bei jedem Zugriff | die Verbindung wird auf dem Netzweg abgeschnitten — siehe unten |
+
+### Wenn die Verbindung abgeschnitten wird
+
+Am 17.9.2026 antwortete `s3.datenwerft.ch` von einem Hochschulnetz aus auf
+**keinen** Zugriff mehr, während Uploads Minuten vorher noch durchliefen. Kein
+Schlüssel, kein Bucket, kein DNS-Problem — der TLS-Handshake selbst wurde
+zurückgesetzt. Drei Messungen grenzen so etwas in einer Minute ein:
+
+```bash
+# 1 · Was sagt der eigene Resolver, was sagen öffentliche?
+dig +short s3.datenwerft.ch ; dig +short @1.1.1.1 s3.datenwerft.ch
+
+# 2 · Kommt überhaupt eine TLS-Verbindung zustande?
+curl -sS -o /dev/null -w "%{http_code} %{remote_ip}\n" https://s3.datenwerft.ch/
+```
+
+```python
+# 3 · Der entscheidende Test: dieselbe IP, zwei verschiedene Hostnamen im
+#     ClientHello. Klappt der eine und der andere nicht, liest ein Gerät auf
+#     dem Weg den Namen mit und schneidet gezielt ab.
+import socket, ssl
+for sni in ("s3.datenwerft.ch", "www.cloudflare.com"):
+    s = socket.create_connection(("188.114.96.12", 443), timeout=8)
+    try:
+        ssl.create_default_context().wrap_socket(s, server_hostname=sni)
+        print(sni, "TLS ok")
+    except Exception as e:
+        print(sni, type(e).__name__, e)
+    finally:
+        s.close()
+```
+
+Genau das war der Befund: **TCP stand, TLS mit `www.cloudflare.com` klappte,
+TLS mit `s3.datenwerft.ch` wurde zurückgesetzt** — an derselben Adresse. Das
+ist keine Frage der Konfiguration; es hilft nur ein anderer Netzweg (anderes
+WLAN, Mobilfunk, VPN) oder das Netz zu fragen. Nebenbei fiel dabei auf, dass
+der Resolver des Netzes andere Cloudflare-Adressen lieferte als 1.1.1.1, 8.8.8.8
+und 9.9.9.9 — nicht die Ursache, aber ein Hinweis auf einen Mittelsmann.
+
+**Bis dahin lokal weiterarbeiten.** `STORAGE_BACKEND=local` in `.env`: Die ganze
+Strecke läuft, nur publiziert wird nichts. Gemessen am selben Abend: acht Stufen
+in drei Sekunden.
 
 Vorübergehende Störungen — HTTP 403 als Aussetzer, 5xx, abgebrochene
 Verbindungen — werden bis zu **viermal** wiederholt, mit Pausen von 1, 3 und

@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'158** |
+| Tests | **1'161** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,56 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 18.09.2026 · Ohne Ablage ein Satz, kein Stapel (#118)
+
+**Was passiert ist.** Christians Lauf brach ab, weil `s3.datenwerft.ch` nicht
+mehr antwortete. Die erste Hälfte war richtig: *„Laeufe nicht geholt … Nichts
+gebaut“*. Danach druckte derselbe Lauf **sechzig Zeilen botocore-Stapel** —
+das Aufnehmen des Bestands für das Manifest griff erneut nach S3, und dort war
+nichts abgefangen. Das README sagt an genau dieser Stelle „ein Satz statt
+eines boto3-Tracebacks“ zu.
+
+**Der Bau.** `bronze_laeufe` und `aktualitaet` laufen jetzt in einem
+`try`/`except StorageError`: Der Lauf gilt als gescheitert, das Protokoll wird
+trotzdem geschrieben — mit `inventory_error` und dem, was lokal sichtbar ist.
+Dazu ein Schlussfang in `main()`, damit kein Weg übrigbleibt, der einen Stapel
+druckt. Die Meldung nennt jetzt auch den Ausweg:
+
+```
+Die Ablage antwortet nicht: SeaweedFS: ConnectionClosedError bei LIST raw/…
+Ohne SeaweedFS baut nichts. Entweder die Verbindung herstellen
+('python -m storage' prueft sie), oder lokal weiterarbeiten:
+STORAGE_BACKEND=local in .env.
+```
+
+Beides am echten Ausfall geprüft: Exit-Code 1 ohne Stapel, und
+`STORAGE_BACKEND=local` fährt dieselbe Strecke in drei Sekunden durch.
+
+**Die Ursache lag nicht im Projekt.** Eingegrenzt in drei Messungen: TCP stand,
+TLS mit SNI `www.cloudflare.com` klappte an derselben Adresse, TLS mit SNI
+`s3.datenwerft.ch` wurde zurückgesetzt. Ein Gerät auf dem Netzweg liest den
+Hostnamen im ClientHello und schneidet gezielt ab. Nebenbei lieferte der
+Resolver des Netzes andere Cloudflare-Adressen als 1.1.1.1, 8.8.8.8 und
+9.9.9.9 — nicht die Ursache, aber ein Hinweis. Das Rezept steht jetzt in
+`storage-architektur.md` 14, damit die nächste Eingrenzung eine Minute dauert
+statt einer Stunde.
+
+**Nicht geändert: die 403-Wiederholung.** Im Log steht je neuer Datei einmal
+*„ClientError bei HEAD … Versuch 1 von 4, Pause 1 s“*. Das ist SeaweedFS'
+Antwort auf ein fehlendes Objekt und seit `ee08274` bewusst als vorübergehend
+eingestuft (Abschnitt 14). Es kostet rund eine Sekunde je neuem Objekt — bei
+Detroits 46 Raw-Dateien etwa 60 der 168 Sekunden. Korrekt, nur langsam; eine
+Abkürzung würde die Zusage unveränderlicher Läufe berühren und gehört
+besprochen, nicht nebenbei gebaut.
+
+**Zahlen.** 1'158 → **1'161 Tests**. Frischklon 1'080 von 1'161.
+
+**Nachlesen.** `src/crime/orchestration/run_all.py` ·
+`docs/storage-architektur.md` 14 · `tests/orchestration/test_run_all.py` ·
+PR #118
 
 ---
 
@@ -3622,4 +3672,5 @@ Versehen. Jeder Pull Request ab #24 ist entweder oben ein Eintrag oder hier.
 | #104 | der Übergang in `zaehlperspektiven.md` 3 neu gefasst — „Auch die 28 beweisen weniger…“ sagte nicht, was gemeint war | Formulierung, keine geänderte Aussage; die Aussage selbst war schon richtig, nur unlesbar neben dem Absatz davor. Christian hat nachgefragt |
 | #112 | `datenhistorie.md` 8: die vier offenen Punkte aus dem Chat für Freitag notiert (Chicagos Beschreibung aus beiden IUCR-Hälften, die 20/16 `ambiguous`-Zuordnungen, H1/H6, „Anklage“); §5 heisst „Fünf“ statt „Vier“ | Agenda, keine geänderte Aussage; die Zahlen stehen bereits in `zaehlperspektiven.md` und sind dort bewacht. Christian hat entschieden, die Beschreibungsfrage offen zu lassen |
 | #113 | README 2.5: der Release-Ablauf Schritt für Schritt, je Rolle (wer baut, wer liest); `tools/build_referenz.py` übergibt jedes Modul ausdrücklich an pdoc, weil ein Paket mit `__all__` sonst keine Unterseiten bekommt - `storage.backend`, `storage.config` und `storage.release` hatten bis dahin keine | Bedienungsanleitung und Werkzeug, keine geänderte Aussage. Christian hat gefragt, „wo ist das beschrieben“ |
+| #117 | die gemessene Drift festgehalten (Christians Entscheidung: nicht nachziehen), README 1.4 erklärt die roten `referenzstand`-Wächter, und zwei Tests räumen wieder auf, statt Feldkatalog und SVG im Arbeitsbaum zu hinterlassen | Dokumentation und ein Testfehler; die Sache selbst steht im Eintrag zu #116, wo sie aufgefallen ist |
 
