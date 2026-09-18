@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'161** |
+| Tests | **1'173** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,60 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 18.09.2026 · Ein Architekturkapitel für LN1 — Ist und Ziel getrennt (#119)
+
+**Was.** [`architektur-ist-und-ziel.md`](architektur-ist-und-ziel.md), als
+Kapitel für den Leistungsnachweis gedacht. Zwei Teile, und die Trennung ist
+die Aussage: **Teil A** beschreibt, was läuft, mit Zahlen aus dem
+Referenzstand; **Teil B** beschreibt die Ziel-Architektur und sagt an jeder
+Stelle, was sie kosten würde.
+
+**Teil A** führt die sechs Schichten mit ihrer je einen Aufgabe und dem, was
+sie ausdrücklich nicht tun; die zehn Pakete mit den zwei Regeln, die sie
+zusammenhalten (keine Zyklen, das Fundament hängt an nichts); die vierzehn
+Stufen; die drei Betriebsarten der Ablage mit ihren vier Zusagen; die Herkunft
+über `derived_from`, `contract_version` und `code_version`; die 42 Kontrollen,
+von denen 28 abbrechen; und was heute wo läuft — **eine Entwicklungsmaschine,
+ein CI-Dienst, ein Objektspeicher**.
+
+**Teil B** ist Christians Zielbild: Docker-Verbund auf einem privaten Server,
+Cloudflare-Tunnel ohne offenen Port, Anmeldung über Cloudflare Access,
+Elasticsearch und Kibana als Auswertung, `homepage` als Dienstübersicht, eine
+eigene Admin-Oberfläche, Grafana für den Betrieb, tägliche und wöchentliche
+Sicherung, vorbereitet für einen automatisierten Rollout nach Google Cloud,
+und eine skalierbare Ingestion.
+
+**Der Widerspruch, den der Text auflöst.** `ausblick.md` 5 hat OpenSearch
+geprüft und verworfen — *„die falsche Form, nicht die falsche Grösse“*.
+Diese Bewertung war richtig für die damalige Frage: *Ersetzt es DuckDB?* Nein.
+Elasticsearch kommt jetzt als **Serving-Index neben dem Stern**, und dafür
+sprechen drei messbare Dinge: Kibana ist eine fertige Oberfläche samt Karte für
+die 1'055 Tract-Umrisse; Volltext ist keine hypothetische Anforderung, weil
+23,3 % der Chicagoer Beschreibungen mehrdeutig sind; und eine DuckDB-Datei ist
+für einen Leser gedacht, ein Index für mehrere. **Bedingung:** abgeleitet,
+jederzeit neu aufzubauen, mit der Release-Kennung versehen — Parquet bleibt die
+Quelle der Wahrheit.
+
+**Zwölf Wächter**, alle ohne gebaute Daten. Sie halten Teil A gegen den Code
+(Stufen je Gruppe, Pakete, Schichten, Kontrollen, Betriebsarten, Testzahlen
+gegen das README, Referenzzahlen gegen dieses Dokument) und **Teil B gegen die
+Abwesenheit**: Solange der Text sagt, nichts davon sei gebaut, darf kein
+`docker-compose.yml` und kein Elasticsearch in `requirements.txt` stehen.
+Entsteht eines, fällt der Test — und der Baustein gehört dann nach Teil A, mit
+Zahlen. Ein weiterer prüft, dass der Widerspruch zum Ausblick benannt bleibt.
+
+**Drei Lücken, die die Wächter beim Schreiben gefunden haben:** Das Paketbild
+nannte vier Pakete nur silbenweise umbrochen; Teil A hatte keine Zahlentabelle,
+obwohl er sich darauf berief; und drei der sieben Bausteine in Teil B nannten
+keinen Preis. Alle drei geschlossen, bevor der Text stand.
+
+**Zahlen.** 1'161 → **1'173 Tests**. Frischklon 1'092 von 1'173.
+
+**Nachlesen.** `docs/architektur-ist-und-ziel.md` ·
+`tests/test_architektur_dokument.py` · PR #119
 
 ---
 
