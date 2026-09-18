@@ -40,7 +40,7 @@ Aufruf aus dem Projekt-Root::
 
     python tools/extend_micr_arrest_charges.py
 
-Das Skript braucht ``pdftotext`` und liest ``docs/micr_manual_1110_2024.pdf``.
+Das Skript braucht ``pdftotext`` und liest ``docs/quellen/micr_manual_1110_2024.pdf``.
 Es ist idempotent: ein zweiter Lauf aendert nichts.
 """
 
@@ -58,7 +58,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MAPPING = PROJECT_ROOT / "config" / "micr_nibrs_mapping.csv"
-MANUAL = PROJECT_ROOT / "docs" / "micr_manual_1110_2024.pdf"
+MANUAL = PROJECT_ROOT / "docs" / "quellen" / "micr_manual_1110_2024.pdf"
 
 # Herkunft der neuen Zeilen. Sie unterscheidet sich bewusst von
 # micr_manual_1110_2024: jene Zeilen stehen direkt in der File-Class-Liste,

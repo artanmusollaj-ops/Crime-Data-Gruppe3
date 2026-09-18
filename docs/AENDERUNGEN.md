@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'216** |
+| Tests | **1'222** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -91,6 +91,57 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 18.09.2026 · docs/ sagt jetzt, welches Dokument für wen ist (#121)
+
+**Was.** Ein Wegweiser [`docs/README.md`](README.md), zwei neue Ordner
+[`quellen/`](quellen/) und [`archiv/`](archiv/), und die Einteilung in **Abgabe,
+intern, erzeugt** ist aufgeschrieben statt erinnert.
+
+**Der Befund vorher.** Fünfzehn Markdown-Dateien, zwei HTML-Seiten und **8,8 MB
+amtliche PDFs** lagen flach nebeneinander. Nichts daran sagte, welches Dokument
+in den Leistungsnachweis gehört und welches nur wir brauchen — und bei einigen
+ist der Unterschied wesentlich: `leistungsnachweise.md` ist *über* den LN und
+benennt Lücken; in der Abgabe wäre das ein Eigentor.
+
+| | vorher | nachher |
+| --- | ---: | ---: |
+| Dateien direkt in `docs/` | 24 | 17 |
+| davon Binärdateien | 8,8 MB | 0 |
+
+**Was verschoben wurde.** Die sieben amtlichen Unterlagen nach `quellen/` —
+NIBRS-Spezifikation und -Handbuch, Michigans MICR-Handbücher, Illinois'
+Codetabellen. Sie bleiben im Repository, weil `tests/config/` die Crosswalks
+daraus **neu baut und byteweise vergleicht**; ein Crosswalk ohne seine Quelle
+wäre eine Behauptung. `DETROIT_TIMEZONE_AENDERUNGEN.md` (11 Zeilen, Stand
+9.9.2026) nach `archiv/` — der Inhalt steht seither im Code und hier.
+
+**Was der Umzug gekostet hat.** Elf Dateien mit Pfadangaben: drei Werkzeuge,
+vier Crosswalk-Tests, das Konzept, zwei Notebooks und ein Bericht. Die
+erzeugten CSVs blieben unberührt — sie führen den **Dateinamen ohne Pfad** als
+Herkunft, und genau deshalb hat der Umzug keinen einzigen Byte-Vergleich
+gebrochen.
+
+**Was dabei aufgefallen ist.** Notebook 32 überschrieb seine Tabelle mit *„Sechs
+Dokumente, und warum jedes einzeln nötig war"* — die Tabelle hatte **sieben**
+Zeilen. Der Fehler stand dort, seit das siebte Dokument dazukam.
+
+**Sechs Wächter** in `tests/test_dokumentwegweiser.py`. Ein Wegweiser, den
+niemand nachführt, ist schlimmer als keiner: Er sieht nach Ordnung aus. Geprüft
+wird deshalb in beide Richtungen — jedes Dokument steht darin, kein Verweis
+darin ist tot, kein Dokument steht in zwei Abschnitten (die Einteilung wäre dann
+nicht entschieden), und `docs/` enthält keine losen PDFs mehr.
+
+Die Ausnahme ist `feldkatalog.md`: Anhang der Abgabe **und** erzeugt. Beides ist
+wahr, und der Wegweiser muss es an der ersten Stelle dazusagen — auch das ist
+getestet.
+
+**Was bewusst nicht geschah.** Kein Dokument wurde umbenannt und keines in einen
+Unterordner verschoben. Die Dokumentnamen stehen **448-mal in 143 Dateien**, und
+es gibt keinen repo-weiten Wächter über tote Verweise. Der kommt zuerst; alles
+Weitere danach.
+
+---
+
 ## 18.09.2026 · Der Standardlauf ist wieder grün (#121)
 
 **Was.** `python -m pytest` wählt den Marker `referenzstand` ab. Die Wächter
@@ -99,7 +150,7 @@ sind nicht abgeschaltet, sie haben einen eigenen Aufruf:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese 71 Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'216
+python -m pytest -m ""               # beides zusammen, alle 1'222
 ```
 
 **Warum.** Am Morgen meldete die Suite **34 Fehlschläge**. Keiner davon war ein
@@ -127,7 +178,7 @@ statt der Summenzeile nur noch die Zahlen je Datei, und die Regex fand nichts.
 Zwei Tests standen auf grün, ohne je etwas geprüft zu haben. Der Wächter misst
 seither die **Ausgabe** statt der Einstellung.
 
-**Zahlen.** 1'211 → **1'216 Tests** (fünf neue in
+**Zahlen.** 1'211 → **1'222 Tests** (fünf neue in
 `tests/test_referenzstand_marker.py`). Standardlauf: 1'145 ausgeführt, 71
 abgewählt. Frischer Klon: 1'125 von 1'145, die übrigen 20 brauchen Daten.
 
@@ -197,7 +248,7 @@ Beschluss keine mehr dazu.** Das verschiebt nichts an der Empfehlung in
 [`datenhistorie.md`](datenhistorie.md) 5.2 — es macht sie dringlicher und gilt
 jetzt für beide Städte.
 
-**Wächter.** 1'179 → **1'216 Tests**. 25 davon in
+**Wächter.** 1'179 → **1'222 Tests**. 25 davon in
 `tests/detroit_pipeline/test_detroit_delta.py`, und dort wendet der
 Fake-Client den Delta-Filter *wirklich* an, statt immer alles zu liefern — ein
 Fake, der alles zurückgibt, bestünde auch einen Test, dessen Abfrage nichts
@@ -3837,7 +3888,7 @@ Jahr und vermissen **56** vom Jahresende 2024. Sie werden seither nicht mehr
 gelesen: `silver_pipeline` bricht mit einem klaren Fehler ab, statt sie mit
 einer Warnung einzulesen, die man überliest.
 
-**Nachlesen.** `docs/DETROIT_TIMEZONE_AENDERUNGEN.md` · PR #25
+**Nachlesen.** [`docs/archiv/2026-09-09-detroit-zeitzonenvertrag.md`](archiv/2026-09-09-detroit-zeitzonenvertrag.md) · PR #25 — am 18.9.2026 ins Archiv verschoben, der Inhalt steht seither im Code und in diesem Dokument
 
 ---
 

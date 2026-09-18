@@ -14,7 +14,7 @@ Embezzlement.
 
 Die Zuordnung entsteht deshalb hier neu: aus Chicagos eigener Beschreibung des
 Delikts gegen die Deliktdefinitionen der NIBRS Technical Specification 2025
-(docs/nibrs_technical_specification_2025.pdf, Anhang A; als Tabelle in
+(docs/quellen/nibrs_technical_specification_2025.pdf, Anhang A; als Tabelle in
 config/nibrs_offense_codes_2025.csv). Kein Code ist geraten und keiner stammt
 aus einer Positionsentsprechung - jede Zeile unten ist eine gelesene
 Entscheidung.

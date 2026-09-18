@@ -28,12 +28,12 @@ CODELISTE = PROJECT_ROOT / "config" / "nibrs_offense_codes_2025.csv"
 WERKZEUG = PROJECT_ROOT / "tools" / "build_nibrs_categories.py"
 
 # Original: le.fbi.gov, "2025.0 NIBRS User Manual" vom 23.06.2025.
-HANDBUCH = PROJECT_ROOT / "docs" / "nibrs-user-manual-2025-0-062625.pdf"
+HANDBUCH = PROJECT_ROOT / "docs" / "quellen" / "nibrs-user-manual-2025-0-062625.pdf"
 QUELLE = "nibrs_user_manual_2025_0"
 
 # Original: fbi.gov, "NIBRS Offense Codes", Fassung 2011. Ueberholt, aber der
 # einzige Beleg fuer die vier zurueckgezogenen Codes.
-ALTE_LISTE = PROJECT_ROOT / "docs" / "NIBRS_Offense_Codes.pdf"
+ALTE_LISTE = PROJECT_ROOT / "docs" / "quellen" / "NIBRS_Offense_Codes.pdf"
 QUELLE_ALT = "nibrs_offense_codes_2011"
 ZURUECKGEZOGEN = {"90A", "90E", "90H", "90I"}
 

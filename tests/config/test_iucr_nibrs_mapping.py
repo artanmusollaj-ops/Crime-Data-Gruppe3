@@ -270,7 +270,7 @@ def test_gewaltdelikte_liegen_im_person_namensraum(zeilen, amtlich):
 # --------------------------------------------------------------------------
 
 # Original: isp.illinois.gov/CrimeReporting/NIBRS, "NIBRS Code Table".
-ISP_TABELLE = PROJECT_ROOT / "docs" / "isp_nibrs_code_table_2026.xlsx"
+ISP_TABELLE = PROJECT_ROOT / "docs" / "quellen" / "isp_nibrs_code_table_2026.xlsx"
 
 # Woerter, die in fast jeder Deliktbeschreibung stehen und deshalb nichts ueber
 # Uebereinstimmung aussagen.
