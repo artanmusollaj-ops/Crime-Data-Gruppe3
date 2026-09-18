@@ -213,18 +213,26 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet werden **1'211 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
-Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
-Fixtures und simulierten Quellen.
+Erwartet wird **grün**: 1'145 ausgeführte Tests, ohne Netzzugriff und ohne
+Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
+mit kleinen Fixtures und simulierten Quellen.
 
-> **Wer schon Daten gebaut hat, sieht mehr.** Die Wächter mit dem Marker
-> `referenzstand` halten die dokumentierten Zahlen gegen die Parquet-Dateien.
-> Sobald eine frische Ingestion gelaufen ist, stehen die Daten vor dem
-> dokumentierten Stand, und diese Wächter werden rot — das ist ihre Aufgabe,
-> kein Fehler in der Einrichtung. Wie weit es auseinander ist, sagt
-> `python -m orchestration.drift`; nur die eigenen Zahlen prüft
-> `python -m pytest -m "not referenzstand"`. Stand 17.9.2026: 33 der 70 sind
-> rot, die Entscheidung dazu steht in
+Die Summenzeile nennt daneben **71 abgewählte**. Das sind die Wächter mit dem
+Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
+
+```bash
+python -m pytest                     # alles ausser dem Referenzstand
+python -m pytest -m referenzstand    # genau diese Wächter
+python -m pytest -m ""               # beides zusammen, alle 1'216
+```
+
+> **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
+> Zahlen gegen die gebauten Parquet-Dateien. Sobald eine frische Ingestion
+> gelaufen ist, stehen die Daten vor dem dokumentierten Stand, und diese
+> Wächter werden rot — das ist ihre Aufgabe, kein Fehler in der Einrichtung.
+> Am 18.9.2026 waren es 34 von 71 auf einmal, und in diesem roten Rauschen
+> wäre ein echter Fehlschlag untergegangen. Wie weit es auseinander ist, sagt
+> `python -m orchestration.drift`; die Entscheidung dazu steht in
 > [`docs/datenhistorie.md`](docs/datenhistorie.md) 8.
 
 Bei der weiteren Arbeit genügt `source .venv/bin/activate`; verlassen wird die
@@ -699,7 +707,7 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 python -m pytest
 ```
 
-**1'211 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'216 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -736,8 +744,9 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'130 der 1'211 Tests**. Die übrigen 81 überspringen
-sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
+In einem frischen Klon laufen **1'125 der 1'145 Tests** des Standardlaufs. Die
+übrigen 20 überspringen sich selbst, weil sie gebaute Daten brauchen und `data/`
+nicht versioniert ist; die 71 Referenzstand-Wächter sind ohnehin abgewählt.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
 über die Testzahl in diesem README und in `AENDERUNGEN.md`.

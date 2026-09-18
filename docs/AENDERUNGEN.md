@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'211** |
+| Tests | **1'216** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,48 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 18.09.2026 · Der Standardlauf ist wieder grün (#122)
+
+**Was.** `python -m pytest` wählt den Marker `referenzstand` ab. Die Wächter
+sind nicht abgeschaltet, sie haben einen eigenen Aufruf:
+
+```bash
+python -m pytest                     # alles ausser dem Referenzstand
+python -m pytest -m referenzstand    # genau diese 71 Wächter
+python -m pytest -m ""               # beides zusammen, alle 1'216
+```
+
+**Warum.** Am Morgen meldete die Suite **34 Fehlschläge**. Keiner davon war ein
+Fehler: Alle 34 halten eine dokumentierte Zahl gegen die *gebauten* Daten, und
+die Daten sind seit dem gepinnten Referenzstand weitergelaufen — vier
+Chicago-Deltas und Detroits neuer Ladeweg. Ein normaler Zwischenzustand, aber
+er hatte zwei Kosten: Die Suite sah kaputt aus, obwohl sie es nicht war, und
+**ein echter Fehlschlag wäre in diesem roten Rauschen nicht aufgefallen**.
+
+Das war keine neue Erkenntnis — der Datenlauf wählt den Marker seit dem
+13.9. ab, und `-m "not referenzstand"` stand als Empfehlung im README. Nur
+musste man sie kennen und tippen. Jetzt ist die Vorgabe das, was man ohnehin
+will, und die Ausnahme braucht das Argument.
+
+**Was gleich bleibt.** Die Summenzeile nennt die abgewählten weiterhin
+(`71 deselected`) — stumm abwählen wäre der nächste Verwirrungsgrund. Und
+`datenlauf.yml` behält sein eigenes `-m "not referenzstand"`: Was in GitHub
+Actions läuft, soll in der Workflow-Datei stehen und nicht in einer Vorgabe,
+die drei Verzeichnisse weiter jemand ändert.
+
+**Was der Umbau gekostet hat, bevor er saß.** Der erste Entwurf des Wächters
+übersprang sich stillschweigend. Grund: Er gab `--collect-only -q` mit, und
+zusammen mit dem `-q` aus `addopts` wurde daraus `-qq` — dann druckt pytest
+statt der Summenzeile nur noch die Zahlen je Datei, und die Regex fand nichts.
+Zwei Tests standen auf grün, ohne je etwas geprüft zu haben. Der Wächter misst
+seither die **Ausgabe** statt der Einstellung.
+
+**Zahlen.** 1'211 → **1'216 Tests** (fünf neue in
+`tests/test_referenzstand_marker.py`). Standardlauf: 1'145 ausgeführt, 71
+abgewählt. Frischer Klon: 1'125 von 1'145, die übrigen 20 brauchen Daten.
 
 ---
 
@@ -155,7 +197,7 @@ Beschluss keine mehr dazu.** Das verschiebt nichts an der Empfehlung in
 [`datenhistorie.md`](datenhistorie.md) 5.2 — es macht sie dringlicher und gilt
 jetzt für beide Städte.
 
-**Wächter.** 1'179 → **1'211 Tests**. 25 davon in
+**Wächter.** 1'179 → **1'216 Tests**. 25 davon in
 `tests/detroit_pipeline/test_detroit_delta.py`, und dort wendet der
 Fake-Client den Delta-Filter *wirklich* an, statt immer alles zu liefern — ein
 Fake, der alles zurückgibt, bestünde auch einen Test, dessen Abfrage nichts

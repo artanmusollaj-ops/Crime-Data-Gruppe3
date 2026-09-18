@@ -289,10 +289,16 @@ der gebaute Stand steht seither vor dem dokumentierten:
 (17.9.2026). Er ist eine Verabredung des Teams, keine Zahl, die ein Lauf
 verschiebt — und die Abgabedokumente stehen kurz vor der Besprechung. Die
 Folge ist sichtbar und gewollt: Auf einem Rechner mit frisch gebauten Daten
-sind **33 der 70 Wächter mit dem Marker `referenzstand` rot**. Das ist ihre
+sind **34 der 71 Wächter mit dem Marker `referenzstand` rot**. Das ist ihre
 Aufgabe, nicht ein Fehler; `python -m orchestration.drift` sagt in einer
 Tabelle, wie weit es auseinander ist. In CI und in einem frischen Klon ändert
 sich nichts, dort gibt es keine Daten.
+
+Seit dem 18.9.2026 stehen sie dabei nicht mehr im Weg: `python -m pytest`
+wählt den Marker ab und ist grün, `python -m pytest -m referenzstand` ruft
+genau diese 71 auf. Der Grund war ein praktischer — 34 rote Zeilen im
+Standardlauf sahen aus wie eine kaputte Einrichtung, und ein echter
+Fehlschlag wäre darin nicht aufgefallen.
 
 Zu entscheiden ist, **wann** nachgezogen wird: jetzt, nach Freitag, oder erst
 vor der Abgabe. Nachziehen heisst — in einem Zug — alle dokumentierten Zahlen
