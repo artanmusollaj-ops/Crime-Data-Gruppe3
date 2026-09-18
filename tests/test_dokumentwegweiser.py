@@ -2,8 +2,12 @@
 
 Am 18.9.2026 lagen fuenfzehn Markdown-Dateien, zwei HTML-Seiten und 8,8 MB
 amtliche PDFs flach nebeneinander in ``docs/``. Nichts daran sagte, welches
-Dokument in die Abgabe gehoert und welches nur wir brauchen - die Einteilung
+Dokument in die Abgabe einfliesst und welches nur wir brauchen - die Einteilung
 existierte, aber nur in unseren Koepfen.
+
+**Die Abgabe selbst liegt nicht hier.** Sie entsteht als eigenes
+Word-Dokument, geschrieben aus ``ln1_konzept.md``. Zwei Dokumente behaupteten
+bis zum 19.9.2026 etwas anderes - deshalb prueft diese Datei auch das.
 
 Seither steht sie in ``docs/README.md``. Ein Wegweiser, den niemand nachfuehrt,
 ist allerdings schlimmer als keiner: Er sieht nach Ordnung aus. Diese Datei
@@ -26,7 +30,7 @@ WEGWEISER = DOCS / "README.md"
 # Die drei Ueberschriften, unter denen ein Dokument stehen kann. Faellt eine
 # weg, ist die Einteilung keine mehr.
 ABSCHNITTE = (
-    "## Abgabe — was zum Leistungsnachweis gehört",
+    "## Abgabe — was in das Word-Dokument fliesst",
     "## Intern — was wir beim Arbeiten brauchen",
     "## Erzeugt — nie von Hand ändern",
     "## Quellen — die amtlichen Unterlagen",
@@ -131,12 +135,13 @@ def test_wegweiser_und_konzept_teilen_dieselbe_einteilung():
     w_abgabe = verlinkte_dokumente(abschnitt(wegweiser, ABSCHNITTE[0], ABSCHNITTE[1]))
     w_intern = verlinkte_dokumente(abschnitt(wegweiser, ABSCHNITTE[1], ABSCHNITTE[2]))
     k_abgabe = verlinkte_dokumente(
-        abschnitt(konzept, "### 11.3 Anhang zu diesem Leistungsnachweis",
+        abschnitt(konzept, "### 11.3 Vertiefungen, die in die Abgabe einfliessen",
                   "### 11.4 Amtliche Quellen"))
     k_intern = verlinkte_dokumente(
         abschnitt(konzept, "### 11.5 Interne Arbeitsgrundlagen", "Die Einteilung dieses"))
 
-    # Das Konzept selbst steht im Wegweiser, nennt sich aber nicht im Anhang.
+    # Das Konzept ist die Hauptquelle des Word-Dokuments und steht deshalb im
+    # Wegweiser; in seiner eigenen Vertiefungsliste nennt es sich nicht.
     w_abgabe.discard("ln1_konzept.md")
     assert w_abgabe == k_abgabe, (
         f"Anhang weicht ab.\n  nur im Wegweiser: {sorted(w_abgabe - k_abgabe)}"
@@ -178,6 +183,43 @@ def test_das_konzept_verlinkt_keine_maengelliste_im_fliesstext():
         f"internes Dokument im Fliesstext der Abgabe verlinkt: {gefunden}. "
         "In Kapitel 11.5 gehoert es hin, davor nicht."
     )
+
+
+def test_kein_dokument_erklaert_sich_zur_abgabe():
+    """Die Abgabe liegt nicht in ``docs/`` - sie ist ein eigenes Word-Dokument.
+
+    Am 18.9.2026 stand in zwei Dokumenten, ``ln1_konzept.md`` sei *die Abgabe*;
+    einen Tag spaeter stimmte das nicht mehr. Die Behauptung ist billig
+    hingeschrieben und teuer, wenn sie falsch ist: Sie entscheidet, welcher
+    Text lektoriert wird und welcher nicht.
+
+    Geprueft wird deshalb die Behauptung selbst, nicht ihr Gegenstand. Wer sie
+    wieder aufstellen will, aendert diesen Test - und trifft damit bewusst eine
+    Entscheidung, statt einen Satz stehen zu lassen.
+    """
+    verdaechtig = ("ist die Abgabe", "Dieses Dokument ist die Abgabe",
+                   "das ist der Leistungsnachweis")
+    gefunden = []
+    for pfad in sorted(DOCS.glob("*.md")):
+        text = pfad.read_text(encoding="utf-8")
+        # AENDERUNGEN.md zitiert alte Staende - das ist seine Aufgabe.
+        if pfad.name == "AENDERUNGEN.md":
+            continue
+        for satz in verdaechtig:
+            if satz in text:
+                gefunden.append(f"{pfad.name}: {satz!r}")
+    assert not gefunden, (
+        f"erklaert sich zur Abgabe: {gefunden}. Die Abgabe ist ein eigenes "
+        "Word-Dokument; die Dokumente hier sind seine Quelle."
+    )
+
+
+def test_der_wegweiser_sagt_wo_die_abgabe_wirklich_liegt(text):
+    """Sonst sucht sie jemand in docs/ und findet die Quelle fuer sie."""
+    assert "Word-Dokument" in text, (
+        "der Wegweiser muss sagen, dass die Abgabe ein eigenes Word-Dokument ist"
+    )
+    assert "Die Abgabe liegt nicht in diesem Ordner" in text
 
 
 def test_das_projekt_readme_fuehrt_zum_wegweiser():

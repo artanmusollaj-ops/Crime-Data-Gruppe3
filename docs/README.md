@@ -10,16 +10,23 @@ Hier steht, was es sonst noch gibt.
 
 ---
 
-## Abgabe — was zum Leistungsnachweis gehört
+## Abgabe — was in das Word-Dokument fliesst
 
-**Die Abgabe ist ein Dokument:** [`ln1_konzept.md`](ln1_konzept.md). Alles
-Weitere hier ist **Anhang** — es vertieft ein Kapitel daraus, und das Konzept
-verweist in 11.3 darauf. Geschrieben sind sie alle für jemanden, der das
-Projekt nicht kennt; sie müssen ohne uns verständlich sein.
+**Die Abgabe liegt nicht in diesem Ordner.** Sie entsteht als eigenes
+Word-Dokument; geschrieben wird es aus [`ln1_konzept.md`](ln1_konzept.md).
+Die Dokumente hier sind seine **Quelle**: Ihr Inhalt wandert hinein, oder das
+Word-Dokument nennt sie als Anhang im Repository. Geschrieben sind sie alle für
+jemanden, der das Projekt nicht kennt; sie müssen ohne uns verständlich sein.
+
+> **Die Fassung hier ist die belastbarere.** Jede Zahl in diesen Dokumenten
+> wird von der Testsuite gegen die gebauten Daten gehalten. Im Word-Dokument
+> gilt das nicht mehr — dort ist eine Zahl so aktuell wie der Tag, an dem sie
+> kopiert wurde. Deshalb spät übertragen, und danach
+> `python -m pytest -m referenzstand` laufen lassen.
 
 | Dokument | Was darin steht |
 | --- | --- |
-| [`ln1_konzept.md`](ln1_konzept.md) | Konzept, Methode, Befunde — **das ist der Leistungsnachweis** |
+| [`ln1_konzept.md`](ln1_konzept.md) | Konzept, Methode, Befunde — **die Hauptquelle des Word-Dokuments** |
 | [`architektur-ist-und-ziel.md`](architektur-ist-und-ziel.md) | Ist- und Ziel-Architektur, Teil A und Teil B |
 | [`architektur-einseiter.html`](architektur-einseiter.html) | dieselbe Architektur auf **einer A4-Seite**, zum Ausdrucken |
 | [`architektur.md`](architektur.md) | der Aufbau in zwei erzeugten Bildern, dazu ein Lesepfad |
@@ -36,6 +43,10 @@ Diese Dokumente setzen voraus, dass man am Projekt arbeitet. Sie gehören
 **nicht** in die Abgabe; einige widersprächen ihr sogar dem Ton nach, weil sie
 offene Fragen und Lücken benennen. Das Konzept führt sie in 11.5 unter genau
 diesem Vorbehalt.
+
+Wird das Repository mit abgegeben, liegen sie zwar bei — das lässt sich nicht
+trennen und soll es auch nicht. Was sich steuern lässt, ist, **worauf das
+Word-Dokument verweist**: auf keines davon.
 
 | Dokument | Was darin steht |
 | --- | --- |

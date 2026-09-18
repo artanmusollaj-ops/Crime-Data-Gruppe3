@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'224** |
+| Tests | **1'226** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -91,9 +91,57 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 19.09.2026 · Die Abgabe liegt gar nicht im Repository (#121)
+
+**Die Korrektur.** Gestern stand hier, die Abgabe sei `ln1_konzept.md`. Sie ist
+es nicht: Die Abgabe entsteht als eigenes **Word-Dokument**, und das Konzept ist
+seine Hauptquelle. Damit ist **kein** Dokument in `docs/` die Abgabe — die
+Einteilung von gestern war eine Ebene zu tief angesetzt.
+
+**Was sich dadurch ändert.** Wenig am Inhalt, viel an der Beschriftung:
+
+| | gestern | heute |
+| --- | --- | --- |
+| `ln1_konzept.md` | „die Abgabe" | **Hauptquelle** des Word-Dokuments |
+| Kapitel 11.3 | „Anhang zu diesem Leistungsnachweis" | „Vertiefungen, die in die Abgabe einfliessen" |
+| Kapitel 11.5 | „nicht Teil der Abgabe" | „fliessen nicht ein" — plus der Hinweis, dass sie beiliegen, wenn das Repository abgegeben wird |
+| `docs/README.md` | „Abgabe — was zum LN gehört" | „Abgabe — was in das Word-Dokument fliesst" |
+
+**Was dabei richtig bleibt.** Der Befund von gestern — ein Verweis auf die
+eigene Mängelliste mitten im Hypothesen-Kapitel — war nicht weniger schlimm,
+sondern genauso: Dieser Text wandert ins Word-Dokument, und der Satz wäre
+mitgewandert.
+
+**Der neue Punkt, der vorher nicht sichtbar war.** Die Fassung im Repository
+ist die **belastbarere**: Jede Zahl darin wird von der Testsuite gegen die
+gebauten Daten gehalten. Im Word-Dokument gilt das nicht mehr — dort ist eine
+Zahl so aktuell wie der Tag, an dem sie kopiert wurde. Beide Dokumente sagen das
+jetzt, mit der praktischen Folge: **spät übertragen**, und danach
+`python -m pytest -m referenzstand` laufen lassen.
+
+**Zwei neue Wächter.** Einer prüft, dass sich **kein** Dokument in `docs/` zur
+Abgabe erklärt. Die Behauptung ist billig hingeschrieben und teuer, wenn sie
+falsch ist: Sie entscheidet, welcher Text lektoriert wird. Wer sie wieder
+aufstellen will, muss den Test ändern — und trifft damit eine Entscheidung,
+statt einen Satz stehen zu lassen. Der zweite hält fest, dass der Wegweiser
+sagt, **wo** die Abgabe stattdessen liegt.
+
+Der Eintrag vom 18.9. hat einen Nachtrag bekommen, statt umgeschrieben zu
+werden. Er beschreibt, was damals galt.
+
+**Zahlen.** 1'224 → **1'226 Tests**.
+
+---
+
 ## 18.09.2026 · Die Abgabe zeigte auf ihre eigene Mängelliste (#121)
 
-**Der Befund.** `leistungsnachweise.md` sagt in Zeile 8 über sich selbst:
+> **Nachtrag vom 19.9.2026.** Die Prämisse dieses Eintrags stimmte nur einen
+> Tag: `ln1_konzept.md` ist ebenfalls nicht die Abgabe. Sie entsteht als
+> eigenes Word-Dokument. Was hier beschrieben ist, bleibt richtig und wichtig —
+> der Verweis auf die Mängelliste stand im Text, der ins Word-Dokument wandert.
+> Siehe den Eintrag vom 19.9.
+
+**Der Befund.** `leistungsnachweise.md` sagte in Zeile 8 über sich selbst:
 *„Die Abgabe selbst ist `ln1_konzept.md` — dieses Dokument ist Arbeitsgrundlage
 und **nicht Teil der Abgabe**."* Das Konzept verlinkte es trotzdem — und einmal
 an der teuersten Stelle:
@@ -148,7 +196,7 @@ Storage-Evaluation ausdrücklich, und ein Ausblick gehört in einen solchen
 Bericht. Sie stehen jetzt im Anhang. Abgabe und Anhang sind damit **zehn**
 Dokumente, intern **fünf**.
 
-**Zahlen.** 1'222 → **1'224 Tests**.
+**Zahlen.** 1'222 → **1'226 Tests**.
 
 ---
 
@@ -211,7 +259,7 @@ sind nicht abgeschaltet, sie haben einen eigenen Aufruf:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese 71 Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'224
+python -m pytest -m ""               # beides zusammen, alle 1'226
 ```
 
 **Warum.** Am Morgen meldete die Suite **34 Fehlschläge**. Keiner davon war ein
@@ -239,7 +287,7 @@ statt der Summenzeile nur noch die Zahlen je Datei, und die Regex fand nichts.
 Zwei Tests standen auf grün, ohne je etwas geprüft zu haben. Der Wächter misst
 seither die **Ausgabe** statt der Einstellung.
 
-**Zahlen.** 1'211 → **1'224 Tests** (fünf neue in
+**Zahlen.** 1'211 → **1'226 Tests** (fünf neue in
 `tests/test_referenzstand_marker.py`). Standardlauf: 1'145 ausgeführt, 71
 abgewählt. Frischer Klon: 1'125 von 1'145, die übrigen 20 brauchen Daten.
 
@@ -309,7 +357,7 @@ Beschluss keine mehr dazu.** Das verschiebt nichts an der Empfehlung in
 [`datenhistorie.md`](datenhistorie.md) 5.2 — es macht sie dringlicher und gilt
 jetzt für beide Städte.
 
-**Wächter.** 1'179 → **1'224 Tests**. 25 davon in
+**Wächter.** 1'179 → **1'226 Tests**. 25 davon in
 `tests/detroit_pipeline/test_detroit_delta.py`, und dort wendet der
 Fake-Client den Delta-Filter *wirklich* an, statt immer alles zu liefern — ein
 Fake, der alles zurückgibt, bestünde auch einen Test, dessen Abfrage nichts

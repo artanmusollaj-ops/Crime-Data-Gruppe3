@@ -6,15 +6,22 @@ CAS Data Engineering · Gruppe 3 · Christian Antonucci, Artan Musollaj
 
 ---
 
-Dieses Dokument ist die Abgabe zu Leistungsnachweis 1. Es beschreibt, was gebaut
-wurde und warum es so gebaut wurde.
+Dieses Dokument ist die **Arbeitsfassung** zu Leistungsnachweis 1: Es beschreibt,
+was gebaut wurde und warum es so gebaut wurde. Die Abgabe selbst entsteht als
+eigenes Word-Dokument und wird aus diesem hier geschrieben.
 
-Zwei Dokumente ergänzen es und sind **nicht** Teil der Abgabe, sondern
-Arbeitsgrundlage: [`projektabsprache.md`](projektabsprache.md) hält die
-technischen Entscheide mit ihrer Begründung, [`leistungsnachweise.md`](leistungsnachweise.md)
-stellt die Anforderungen dem Stand gegenüber. Wo eine Aussage hier auf einer
-Messung beruht, steht der Verweis auf das Notebook, das sie erzeugt — die Zahlen
-sind nachrechenbar, nicht abgeschrieben.
+**Warum die Fassung hier die belastbarere ist.** Jede Zahl darin wird von der
+Testsuite gegen die gebauten Daten gehalten; eine veraltete Zahl lässt einen
+Test fallen. Im Word-Dokument gilt das nicht mehr — dort ist eine Zahl so
+aktuell wie der Tag, an dem sie kopiert wurde. Wer überträgt, überträgt am
+besten kurz vor der Abgabe und prüft danach `python -m pytest -m referenzstand`.
+
+Zwei weitere Dokumente ergänzen dieses und fliessen **nicht** in die Abgabe ein:
+[`projektabsprache.md`](projektabsprache.md) hält die technischen Entscheide mit
+ihrer Begründung, [`leistungsnachweise.md`](leistungsnachweise.md) stellt die
+Anforderungen dem Stand gegenüber. Wo eine Aussage hier auf einer Messung
+beruht, steht der Verweis auf das Notebook, das sie erzeugt — die Zahlen sind
+nachrechenbar, nicht abgeschrieben.
 
 > **Was Entwurf ist und was gebaut.** Kapitel 3 (Forschungsfragen und
 > Hypothesen) ist Entwurf, weil der Entscheid offen ist. Kapitel 5.2 (Serving)
@@ -42,7 +49,7 @@ Raumeinheit. Darauf steht das **Gold-Sternschema** aus einer Faktentabelle
 und vier Dimensionen (5.2), darauf die Auswertungsumgebung. Die Schichten
 liegen wahlweise lokal oder auf einem gemeinsamen Objektspeicher (7.4).
 Jede Quelle weist ihre Vollständigkeit nach, statt sie zu behaupten.
-**1'224 automatisierte Tests** laufen ohne Netzzugriff und ohne Schlüssel.
+**1'226 automatisierte Tests** laufen ohne Netzzugriff und ohne Schlüssel.
 
 | | |
 | --- | --- |
@@ -563,7 +570,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; drei Tests prüfen das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel. `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id` — durchgehend bis Gold: jede abgeleitete Tabelle trägt einen `input_fingerprint` über ihre Eingaben, nennt Vorgänger mit Bauzeitpunkt und Abdruck statt nur mit Pfad, Referenzdateien mit SHA-256. Jedes Manifest nennt ausserdem `contract_version` (was geladen oder gedeutet wird) und `code_version` (welcher Commit, und ob der Arbeitsbaum sauber war), gegen ein Register in `AENDERUNGEN.md` getestet. Unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog mit 133 Spalten, erzeugt aus den Manifesten und getestet. Gesamtmanifest je Lauf mit allen Eingabe-Läufen und Fingerabdruck. Verantwortliche je Datensatz in Absprache 7.3, gegen die Stufenliste getestet. Aufbewahrungsregel mit `orchestration.aufraeumen`: **gepinnt** bleibt (Register `config/referenzstand.csv`, versioniert), dazu der jüngste Lauf und der davor, alles von Silver Genannte und die Basis jedes Deltas; gelöscht wird nur auf Wunsch, Raw und Bronze zusammen. `--pinnen` leitet den Referenzstand aus den Gold-Manifesten ab, statt ihn tippen zu lassen. Datenablage wahlweise lokal, SeaweedFS (S3) oder hybrid (`storage`): lesen lokal zuerst, S3 als Rückfall; schreiben lokal, prüfen, gezielt publizieren, `manifest.json` zuletzt. Ein veralteter lokaler Stand einer abgeleiteten Tabelle wird beim Lesen gemeldet und beim Publizieren abgelehnt — verglichen werden `built_at_utc` und die Bronze-Läufe aus `derived_from` | das Aufräumen ist ein Handgriff, kein Automatismus; ein Stand wird gepinnt, wenn jemand daran denkt; Detroits Lauf vom 11.9. bleibt bewusst ohne Raw-Gegenstück — er ist der vorherige Schnappschuss, der die Instabilität der Quelle belegt; die Ablage lädt nichts automatisch herunter und synchronisiert nicht zurück — bewusst, Version 1 |
-| **DataOps** | 1'224 Tests ohne Netz und Schlüssel, auf jedem Pull Request in GitHub Actions — Linux und Windows, Python 3.11 und 3.13; `ruff` davor. Schreiben über `.part` und atomares Umbenennen. Publish-Gate: Gold entsteht nur, wenn die Abdeckung Schwellen hält | die 40 datengebundenen Wächter laufen auf Pull Requests nicht — dafür gibt es seit dem 13.9. den wöchentlichen Datenlauf (`datenlauf.yml`), der alle Quellen lädt, die Strecke baut und dann die ganze Suite fährt; er braucht `CENSUS_API_KEY` als Repository-Secret und ist bis zum ersten grünen Lauf eine Einrichtung, kein Nachweis. Aktualität wird im Datenlauf gegen eine Schwelle von acht Tagen geprüft, **nach der Ingestion und vor dem Ableiten** — eine Quelle, die nichts Neues liefert oder ganz fehlt, lässt ihn scheitern, bevor Gold darauf entsteht; keine Alarmierung ausser dem roten Lauf selbst |
+| **DataOps** | 1'226 Tests ohne Netz und Schlüssel, auf jedem Pull Request in GitHub Actions — Linux und Windows, Python 3.11 und 3.13; `ruff` davor. Schreiben über `.part` und atomares Umbenennen. Publish-Gate: Gold entsteht nur, wenn die Abdeckung Schwellen hält | die 40 datengebundenen Wächter laufen auf Pull Requests nicht — dafür gibt es seit dem 13.9. den wöchentlichen Datenlauf (`datenlauf.yml`), der alle Quellen lädt, die Strecke baut und dann die ganze Suite fährt; er braucht `CENSUS_API_KEY` als Repository-Secret und ist bis zum ersten grünen Lauf eine Einrichtung, kein Nachweis. Aktualität wird im Datenlauf gegen eine Schwelle von acht Tagen geprüft, **nach der Ingestion und vor dem Ableiten** — eine Quelle, die nichts Neues liefert oder ganz fehlt, lässt ihn scheitern, bevor Gold darauf entsteht; keine Alarmierung ausser dem roten Lauf selbst |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel. `mapping_status` und `geo_status` machen die Vergleichbarkeit je Zeile abfragbar. Ein Manifest-Leser (`manifeste`) für alle Schichten statt elf. Zwei Architekturbilder, **aus dem Code erzeugt** — Abhängigkeiten und Datenfluss, mit einem Test gegen Zyklen ([`architektur.md`](architektur.md)) | Vintage 2024 hart verdrahtet — für mehrere Jahrgänge muss sie je Jahr mitlaufen |
 | **Orchestration** | `orchestration.run_all`: 14 Stufen in Reihenfolge, Abbruch beim ersten Fehler, Gesamtmanifest mit allen Bronze-Läufen und Fingerabdruck über die Eingaben | der geplante Lauf ist wöchentlich (`datenlauf.yml`, montags), die Quellen ändern sich täglich; ausserhalb davon startet er, wenn jemand daran denkt; keine Wiederaufnahme, bewusst |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen. `ruff` mit Pyflakes und `raise … from`, Lockfile, CI-Matrix über zwei Betriebssysteme | die sechs Notebooks, die Zahlen belegen, laufen seit dem 13.9. im wöchentlichen Datenlauf — nicht auf Pull Requests, weil sie `data/` brauchen. Notebook 32 war bis dahin einen Tag lang still kaputt. Die sechs ladenden Notebooks laufen bewusst nirgends automatisch |
@@ -1236,7 +1243,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # erwartet 1'224 bestandene Tests
+python -m pytest                       # erwartet 1'226 bestandene Tests
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
@@ -1332,10 +1339,11 @@ python -m orchestration.run_all --ohne-ingestion    # Silver, Gold und Serving d
 | Referenzquelle NIBRS, Mapping-Herkunft | [`notebooks/32_nibrs_source.ipynb`](../notebooks/32_nibrs_source.ipynb) |
 | Gold-Sternschema, Stadtzuordnung | [`notebooks/34_gold_sternschema.ipynb`](../notebooks/34_gold_sternschema.ipynb) |
 
-### 11.3 Anhang zu diesem Leistungsnachweis
+### 11.3 Vertiefungen, die in die Abgabe einfliessen
 
 Diese Dokumente vertiefen einzelne Kapitel. Sie sind für jemanden geschrieben,
-der das Projekt nicht kennt, und gehören zur Abgabe.
+der das Projekt nicht kennt: Ihr Inhalt wandert entweder ins Word-Dokument oder
+wird von dort als Anhang im Repository genannt.
 
 | Was | Wo |
 | --- | --- |
@@ -1361,12 +1369,13 @@ der das Projekt nicht kennt, und gehören zur Abgabe.
 | Die vier zurückgezogenen Codes | [`NIBRS_Offense_Codes.pdf`](quellen/NIBRS_Offense_Codes.pdf), Fassung 2011 — überholt, aber der einzige Beleg für `90A`, `90E`, `90H`, `90I` |
 | Zweite Abschrift der Codeliste | [`illinois_nibrs_iepd_2023.xlsx`](quellen/illinois_nibrs_iepd_2023.xlsx), Blatt `OffenseCode` — Illinois' eigene Abschrift derselben FBI-Liste; belegt alle 81 Bezeichnungen statt zehn Stichproben |
 
-### 11.5 Interne Arbeitsgrundlagen — nicht Teil der Abgabe
+### 11.5 Interne Arbeitsgrundlagen — fliessen nicht ein
 
 Diese Dokumente setzen voraus, dass man am Projekt arbeitet. Sie stehen hier,
 damit die Ablage vollständig beschrieben ist, **nicht** als Anhang: Sie halten
 offene Entscheide, Lücken und den Arbeitsverlauf fest und sind für uns
-geschrieben, nicht für eine Leserin der Abgabe.
+geschrieben, nicht für eine Leserin der Abgabe. Wird das Repository mit
+abgegeben, liegen sie zwar bei — aber niemand wird darauf verwiesen.
 
 | Was | Wo |
 | --- | --- |
