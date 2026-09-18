@@ -353,22 +353,40 @@ def lauf(data_root: Path, projekt_root: Path, *,
                 freigabe = {"status": "failed", "error": str(fehler)}
                 geschafft = False
 
-    laeufe = bronze_laeufe(data_root)
+    # Der Bestand fuer das Manifest liest im Hybridmodus auch S3. Faellt die
+    # Ablage aus, ist das kein Grund fuer einen Traceback: Der Lauf ist dann
+    # ohnehin gescheitert, und das Protokoll soll trotzdem geschrieben werden -
+    # mit dem, was lokal sichtbar ist, und mit dem Grund. Am 17.9.2026 hat
+    # genau hier ein Netzausfall sechzig Zeilen botocore-Stapel gedruckt,
+    # obwohl die Zeile darueber schon "Nichts gebaut" gemeldet hatte.
+    bestand_fehler: str | None = None
+    try:
+        laeufe = bronze_laeufe(data_root)
+        frische = aktualitaet(data_root)
+    except StorageError as fehler:
+        bestand_fehler = str(fehler)
+        LOG.error("Bestand nicht aufnehmbar: %s", fehler)
+        laeufe, frische = {}, {}
+        geschafft = False
+
     manifest = {
         "status": "complete" if geschafft else "failed",
         "fetched_runs": geholt,
         "fetch_error": holen_gescheitert,
+        "inventory_error": bestand_fehler,
         "release": freigabe,
         "started_at_utc": begonnen.isoformat(),
         "finished_at_utc": datetime.now(timezone.utc).isoformat(),
         "stages": protokoll,
         "input_bronze_runs": laeufe,
         "input_fingerprint": fingerabdruck(laeufe),
-        "source_freshness": aktualitaet(data_root),
+        "source_freshness": frische,
         "freshness_check": {
             "max_age_days": maximal_alter_tage,
             "stale": zu_alt,
         },
+        # Liest ebenfalls die Ablage; nach einem gescheiterten Lauf wird es
+        # ohnehin uebersprungen, und wenn nicht, gilt dasselbe wie oben.
         "output_rows": zeilenzahlen(data_root) if geschafft else {},
     }
     schreibe_manifest(data_root, manifest)
@@ -418,10 +436,19 @@ def main() -> int:
                   f"python -m {s.modul} {' '.join(s.argumente)}".rstrip())
         return 0
 
-    manifest = lauf(for_root(args.data_root).local_root, projekt_root,
-                    ohne_ingestion=args.ohne_ingestion, bis=args.bis,
-                    maximal_alter_tage=args.maximal_alter_tage,
-                    release=args.release, holen=args.holen)
+    try:
+        manifest = lauf(for_root(args.data_root).local_root, projekt_root,
+                        ohne_ingestion=args.ohne_ingestion, bis=args.bis,
+                        maximal_alter_tage=args.maximal_alter_tage,
+                        release=args.release, holen=args.holen)
+    except StorageError as fehler:
+        # Der Schlussfang. Was die Ablage angeht, ist innen schon abgefangen;
+        # hier steht er, damit kein Weg uebrigbleibt, der einen botocore-Stapel
+        # druckt - das README sagt "ein Satz statt eines Tracebacks" zu.
+        print(f"\nDie Ablage antwortet nicht: {fehler}")
+        print("'python -m storage' prueft die Verbindung. Lokal weiterarbeiten: "
+              "STORAGE_BACKEND=local in .env.")
+        return 1
 
     print()
     if manifest["status"] != "complete":
@@ -432,8 +459,12 @@ def main() -> int:
                 for q, t in zu_alt.items()
             )
             print(f"Zu alt: {alt_}. Erlaubt: {args.maximal_alter_tage} Tage.")
-        elif manifest.get("fetch_error"):
-            print(f"Laeufe nicht geholt: {manifest['fetch_error']}")
+        elif manifest.get("fetch_error") or manifest.get("inventory_error"):
+            print(f"Die Ablage antwortet nicht: "
+                  f"{manifest.get('fetch_error') or manifest['inventory_error']}")
+            print("Ohne SeaweedFS baut nichts. Entweder die Verbindung "
+                  "herstellen ('python -m storage' prueft sie), oder lokal "
+                  "weiterarbeiten: STORAGE_BACKEND=local in .env.")
         elif (manifest.get("release") or {}).get("status") == "failed":
             print(f"Strecke gruen, Release gescheitert: {manifest['release']['error']}")
         else:

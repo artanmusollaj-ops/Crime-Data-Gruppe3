@@ -380,6 +380,8 @@ def test_jedes_stufenmodul_kennt_die_option():
 # Ein halber Stand bekommt keine Kennung; ein Modus, der publizieren soll und
 # es nicht kann, hat den Lauf nicht geschafft.
 
+import sys  # noqa: E402
+
 from storage import Config, FakeS3Client, Storage, set_storage  # noqa: E402
 from tests.storage.test_release import gebaut as gold_und_serving  # noqa: E402
 
@@ -553,3 +555,82 @@ def test_im_s3_modus_wird_nicht_von_selbst_geholt(tmp_path, monkeypatch):
     assert manifest["status"] == "complete"
     assert manifest["fetched_runs"] == []
     assert not (data_root / "bronze").exists()
+
+
+# --------------------------------------------------------------------------
+# Wenn die Ablage nicht antwortet
+# --------------------------------------------------------------------------
+# Am 17.9.2026 wurde s3.datenwerft.ch auf dem Netzweg blockiert (TLS-Reset je
+# nach SNI). Der Lauf meldete korrekt "Laeufe nicht geholt ... Nichts gebaut"
+# - und druckte danach sechzig Zeilen botocore-Stapel, weil das Aufnehmen des
+# Bestands fuer das Manifest erneut nach S3 griff. Das README sagt an dieser
+# Stelle "ein Satz statt eines boto3-Tracebacks" zu.
+
+
+class ToterClient(FakeS3Client):
+    """Ein S3, das auf jeden Zugriff mit einem StorageError antwortet."""
+
+    def _tot(self, *_a, **_k):
+        from storage import StorageError
+        raise StorageError("SeaweedFS: ConnectionClosedError bei LIST")
+
+    head = get = put = list = _tot
+
+
+def tote_ablage(tmp_path, monkeypatch) -> Path:
+    data_root = tmp_path / "data"
+    bronze(data_root, "city=chicago", "run_A")
+    set_storage(Storage(Config(backend="hybrid", local_root=data_root,
+                               s3_access_key="k", s3_secret_key="s"), ToterClient()))
+    stufen = [falsche_stufe(tmp_path, "eins", 0)]
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(ra, "auswahl", lambda *_a, **_k: stufen)
+    return data_root
+
+
+def test_ohne_ablage_gibt_es_kein_traceback_sondern_ein_manifest(tmp_path, monkeypatch):
+    data_root = tote_ablage(tmp_path, monkeypatch)
+    manifest = ra.lauf(data_root, tmp_path)
+
+    assert manifest["status"] == "failed"
+    assert "ConnectionClosedError" in manifest["fetch_error"]
+    assert manifest["stages"] == [], "ohne Ablage laeuft keine Stufe"
+    assert (data_root / ra.LAUF_MANIFEST).is_file(), (
+        "das Protokoll muss trotzdem geschrieben sein - es nennt den Grund"
+    )
+
+
+def test_faellt_die_ablage_erst_beim_bestand_aus_haelt_der_lauf_das_aus(tmp_path, monkeypatch):
+    """Der Weg, der den Stapel gedruckt hat: Holen ging, das Inventar nicht."""
+    data_root = tmp_path / "data"
+    bronze(data_root, "city=chicago", "run_A")
+    fake = FakeS3Client()
+    set_storage(Storage(Config(backend="hybrid", local_root=data_root,
+                               s3_access_key="k", s3_secret_key="s"), fake))
+    stufen = [falsche_stufe(tmp_path, "eins", 0)]
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(ra, "auswahl", lambda *_a, **_k: stufen)
+
+    from storage import StorageError
+
+    def stirbt(*_a, **_k):
+        raise StorageError("SeaweedFS: ConnectionClosedError bei LIST bronze/")
+
+    monkeypatch.setattr(ra, "bronze_laeufe", stirbt)
+    manifest = ra.lauf(data_root, tmp_path, release=False)
+
+    assert manifest["status"] == "failed"
+    assert "ConnectionClosedError" in manifest["inventory_error"]
+    assert manifest["input_bronze_runs"] == {} and manifest["source_freshness"] == {}
+    assert (data_root / ra.LAUF_MANIFEST).is_file()
+
+
+def test_die_meldung_nennt_den_ausweg(tmp_path, monkeypatch, capsys):
+    """Ein Satz, und er sagt, was man tun kann."""
+    tote_ablage(tmp_path, monkeypatch)
+    monkeypatch.setattr(sys, "argv", ["run_all", "--data-root", str(tmp_path / "data")])
+    assert ra.main() == 1
+    ausgabe = capsys.readouterr().out
+    assert "Die Ablage antwortet nicht" in ausgabe
+    assert "python -m storage" in ausgabe and "STORAGE_BACKEND=local" in ausgabe
+    assert "Traceback" not in ausgabe
