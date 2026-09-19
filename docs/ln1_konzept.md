@@ -943,8 +943,22 @@ Gemessen gegen `silver/tract`:
 **83 % ist keine Reproduktion. H7 ist in dieser Form falsifiziert.** Die
 naheliegenden Erklärungen greifen nicht: Alle 275 von Detroit genannten Tracts
 existieren in TIGER 2024, es ist also kein Vintage-Problem; der Unterschied
-zwischen NAD83 und WGS84 liegt unter einem Meter; und 337 Fälle in einem anderen
-County sind keine Grenzungenauigkeit.
+zwischen NAD83 und WGS84 liegt bei ein bis zwei Metern; und 337 Fälle in einem
+anderen County sind keine Grenzungenauigkeit.
+
+> **Nachgemessen am 19.09.2026 (Christian).** Die Grenzlage erklärt den
+> Unterschied doch: Von den abweichenden Fällen liegen **93,0 % näher als rund
+> 9 Meter** an genau dem Tract, das Detroit nennt, und 49,4 % näher als einen
+> Meter — der Punkt sitzt also auf der gemeinsamen Kante beider Tracts. Ursache
+> ist die Verortung auf Strassenachsen: TIGER schneidet Tract-Grenzen entlang
+> derselben Strassen, auf die beide Städte ihre Koordinaten setzen. Dazu kommt,
+> dass NAD83 und WGS84 ein bis zwei Meter auseinanderliegen und die Pipeline
+> **nicht** umrechnet. Die Zahlen stammen aus der Neuberechnung auf dem
+> aktuellen Stand (79'874 vergleichbare Zeilen, 83,44 % Übereinstimmung);
+> Notebook 21, Abschnitte 5.3 und 6.7, misst denselben Effekt an beiden Städten.
+> **Der Schluss auf H7 gehört damit nochmals angesehen** — die Bewertung bleibt
+> Artans.
+
 
 Der Join selbst ist nachweislich sauber: 88'278 Quellzeilen ergeben 88'278
 Zeilen nach dem Join, Tracts überlappen also nicht und jeder Punkt liegt in

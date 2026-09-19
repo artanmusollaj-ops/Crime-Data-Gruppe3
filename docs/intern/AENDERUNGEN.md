@@ -91,6 +91,73 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 19.09.2026 · Der räumliche Join rechnet nicht um — und das ist messbar (#121)
+
+Notebook 21 behauptete in 5.3: „[der Unterschied NAD83/WGS84] wird beim Join
+ausdrücklich umgerechnet statt stillschweigend gleichgesetzt". Derselbe Satz
+stand als Kommentar in `download_tiger.py`, und `projektabsprache.md` 
+plante den Join von Anfang an „mit Umrechnung WGS84 → NAD83".
+
+**Es gibt keine Umrechnung.** `build_crime_offense` joint mit
+`ST_Within(ST_Point(longitude, latitude), geom)`; `ST_Transform` kommt in der
+ganzen Pipeline nicht vor. Die beiden Bezugssysteme werden gleichgesetzt.
+
+### Warum das mehr ist als ein falscher Kommentar
+
+Die Rechtfertigung lautete überall „der Unterschied liegt unter einem Meter,
+also folgenlos". Tatsächlich sind es ein bis zwei Meter, und die Messung am
+Tatjahrgang 2024 zeigt, dass diese Grössenordnung sehr wohl entscheidet:
+
+| Abstand zur Grenze des eigenen Tracts | Anteil der verorteten Fälle |
+| --- | --- |
+| näher als 1 cm | 1,11 % |
+| näher als 8 cm | 11,31 % |
+| näher als ~1 m | **25,37 %** |
+| näher als ~9 m | 30,90 % |
+| näher als ~90 m | 53,36 % |
+
+Eine Gleichverteilung innerhalb der Tracts liesse 6,00 % im Ein-Meter-Streifen
+erwarten — gemessen ist es gut das Vierfache. Der Grund ist nicht das Datum,
+sondern die Verortung: Beide Städte setzen ihre Koordinaten auf Strassenachsen,
+und TIGER schneidet die Tract-Grenzen entlang genau derselben Strassen.
+
+### Was das für H7 bedeutet
+
+Detroit liefert sein eigenes Tract mit (`census_block_2020_geoid`). Die
+Nachrechnung auf dem aktuellen Stand ergibt 79'874 vergleichbare Zeilen und
+**83,44 % Übereinstimmung** — praktisch dieselben 83,35 %, mit denen
+`ln1_konzept.md` und `leistungsnachweise.md` H7 als falsifiziert bewerten. Beide
+Dokumente schliessen das Koordinatensystem als Erklärung aus. Das hält nicht:
+
+| Abweichende Fälle (13'228) | Abstand zu dem Tract, **das Detroit nennt** |
+| --- | --- |
+| näher als ~1 m | 6'537 — 49,42 % |
+| näher als ~9 m | 12'309 — **93,05 %** |
+| näher als ~90 m | 13'162 — 99,50 % |
+
+Der Punkt sitzt also fast immer auf der gemeinsamen Kante beider Tracts. Die
+Abweichung ist eine Frage der Kante, keine falsche Verortung.
+
+**Geändert wurde nur die Sachaussage**, in beiden Dokumenten als datierte
+Anmerkung neben der bestehenden Argumentation. Die Bewertung von H7 ist Artans
+und bleibt unangetastet — sie gehört aber nochmals angesehen.
+
+### Was sonst noch fehlte
+
+Notebook 21 dokumentierte die Quelle nur zur Hälfte: Die zweite TIGER-
+Auslieferung `place` — die Stadtgrenzen, ohne die es keinen Nenner für eine Rate
+gibt — kam im ganzen Notebook nicht vor, auch nicht im Aufruf unter 9. Wer sich
+daran hielt, lud nur Tracts. Ergänzt in Kopf, 1., 3., 8., 9. und Appendix A.
+
+### Geprüft und unverändert
+
+`STATES`, beide Vintage-Vorgaben, `EXPECTED_CRS`, die Pflichtdateien, die drei
+ACS-Variablen, der Sentinel `-666666666` (Michigan: 146 Tracts, bestätigt), die
+Missing-Key-Falle (HTTP 200, `text/html`), die Schema-Drift über `GEOIDFQ`, der
+Kreuzabgleich TIGER/ACS (3'017 zu 3'017, deckungsgleich) und die FIPS-Tabelle.
+
+---
+
 ## 19.09.2026 · Notebook 13 widersprach sich selbst (#121)
 
 **Anlass.** Die Textkontrolle, nachdem heute Vormittag die Laufauswahl repariert
