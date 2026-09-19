@@ -136,3 +136,31 @@ def test_ein_ladendes_notebook_schreibt_nicht_unbemerkt_in_den_bestand(stem, sch
         f"{stem}: {schalter} steht auf True und der Zielordner ist der echte "
         "Bestand - ein unbedachter Lauf erzeugt damit Bronze-Laeufe"
     )
+
+
+def test_kein_notebook_speichert_seine_ausgaben():
+    """Notebooks liegen ohne Ausgaben im Repository - alle vierzehn.
+
+    ``test_notebook_sternschema.py`` verlangte das bis zum 20.9.2026 nur fuer
+    Notebook 34, mit der Begruendung *"So halten es die uebrigen dreizehn
+    auch."* Sie hielten es so, aber niemand prueft es - und beim Durchgehen der
+    Notebooks in dieser Woche wurden sechs davon mit ``nbconvert --execute
+    --inplace`` ausgefuehrt und mit ihren Ausgaben eingecheckt, ohne dass etwas
+    rot wurde.
+
+    Warum die Konvention gilt: Eine gespeicherte Ausgabe ist eine Zahl, die
+    niemand nachrechnet. Sie veraltet still, sie blaeht jeden Diff auf, und sie
+    behauptet einen Stand, den die Datei daneben laengst nicht mehr hat. Wer
+    die Zahlen sehen will, fuehrt das Notebook aus.
+    """
+    mit: dict[str, list[int]] = {}
+    for pfad in NOTEBOOKS:
+        zellen = json.loads(pfad.read_text(encoding="utf-8"))["cells"]
+        treffer = [i for i, z in enumerate(zellen)
+                   if z["cell_type"] == "code" and z.get("outputs")]
+        if treffer:
+            mit[pfad.name] = treffer
+    assert not mit, (
+        f"Notebooks mit gespeicherter Ausgabe: {mit}. "
+        "Leeren mit: jupyter nbconvert --clear-output --inplace notebooks/<datei>.ipynb"
+    )

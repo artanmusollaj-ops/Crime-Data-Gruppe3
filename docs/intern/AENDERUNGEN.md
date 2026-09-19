@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'292** |
+| Tests | **1'293** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,57 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 20.09.2026 · Sechs Notebooks trugen ihre Ausgaben mit — mein Fehler (#121)
+
+Notebooks liegen in diesem Repository **ohne** gespeicherte Ausgaben. Beim
+Durchgehen der Notebooks habe ich sie mit
+`nbconvert --execute --inplace` ausgeführt und damit die Ausgaben eingecheckt —
+in 21, 22, 31, 32 und 33, alle fünf bereits gepusht. Aufgefallen ist es erst bei
+34, weil dort als einzigem ein Wächter steht:
+`test_das_notebook_speichert_keine_ausgaben`, mit der Begründung *„So halten es
+die übrigen dreizehn auch."*
+
+Sie hielten es so — nur prüfte es niemand. Alle sechs sind geleert (70 Zellen),
+und der Wächter gilt jetzt für **alle vierzehn**:
+`tests/test_notebooks.py::test_kein_notebook_speichert_seine_ausgaben`.
+
+Warum die Konvention gilt: Eine gespeicherte Ausgabe ist eine Zahl, die niemand
+nachrechnet. Sie veraltet still, sie bläht jeden Diff auf, und sie behauptet
+einen Stand, den die Datei daneben längst nicht mehr hat — genau das Problem,
+das diese ganze Durchsicht aufräumt.
+
+### Notebook 34 selbst
+
+Der Inhalt hält der Nachrechnung fast vollständig stand: die 3,7 % Detroiter
+Anklagenüberhang, 16 und 38 Prozent Überzählung der naiven Regel, 78 nur
+berührte Detroit-Tracts, 5'249 Chicagoer Grenzfälle auf 23'143 anteiligen
+Einwohnern (227 gegen 94,5 Delikte je 1'000), Raten 94,5 gegen 132,7, der
+einzelne Fall von 251'516 in der Gegenrichtung, 967 Zeilen unter `90I`, die
+Geo-Lücke mit 0,81 % gegen 0,29 % und dem Faktor 20 bei Betrug — alles
+nachgemessen und unverändert.
+
+Vier Stellen waren es nicht:
+
+| Stelle | stand da | jetzt |
+| --- | --- | --- |
+| Kopf, Aufzählung | Punkte `1.`, `0.`, `2.` | fortlaufend |
+| Kopf, Standdatum | 12. September 2026 | 20. September 2026 — der Text nannte selbst schon den 17.9. |
+| 2.2 Überschrift | „das Tatebene" | „die Tatebene" |
+| 6. Grenzen | „die 42 amtlichen Kategorien aus dem User Manual 2025.0" | **38** aus dem Handbuch, **4** aus der Codeliste 2011 |
+
+Die letzte ist die inhaltliche: `config/nibrs_offense_categories_2025.csv` führt
+42 Kategorien, aber nur 38 davon (28 Group A, 10 Group B) stammen aus dem
+Handbuch. Die vier übrigen — *Bad Checks*, *Drunkenness*, *Peeping Tom*,
+*Runaway* — gehören zu den zurückgezogenen Codes und stehen nur in der Fassung
+2011. Notebook 32 und `feldkatalog.md` sagen „28 + 10" und meinen das Handbuch;
+Notebook 34 sagte „42" und schrieb sie alle dem Handbuch zu. Beide Zahlen
+stimmen, die Zuschreibung stimmte nicht. Die Spalte `source` der Datei sagt es je
+Zeile.
+
+**Zahlen.** 1'292 → **1'293 Tests**.
 
 ---
 
