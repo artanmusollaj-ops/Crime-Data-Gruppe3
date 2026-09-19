@@ -91,6 +91,51 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 19.09.2026 · Notebook 11 begründete seine Ladestrategie falsch (#121)
+
+**Anlass.** Dieselbe Kontrolle wie bei 01, 02 und 03, jetzt auch für die
+**Texte**, nicht nur die Zahlen. Das Notebook sagt über sich selbst: *„Es
+behauptet so wenig wie möglich. Jede Zahl wird von einer Zelle gerechnet."*
+Genau daran habe ich es gemessen.
+
+**Der Hauptbefund.** Abschnitt 5 begründete die ID-basierte Paginierung so:
+
+> *„Der Layer meldet **kein** `supportsPagination`. Ein `resultOffset` ist damit
+> nicht verlässlich."*
+
+Gegen den Dienst geprüft: Er meldet **`supportsPagination: true`**. Die
+Begründung trägt nicht.
+
+**Die Entscheidung bleibt trotzdem richtig**, nur aus einem anderen Grund — und
+der ist der bessere. Es geht nicht darum, dass Offsets nicht *gehen*, sondern
+darum, dass sie nichts *belegen*: Bei Offset-Paginierung steht erst am Ende
+fest, welche Zeilen man hat. Die feste ID-Liste steht **vor** dem ersten
+Datenabruf fest, liegt als `snapshot_ids_sha256` im Manifest, und der Lauf
+bricht ab, wenn die geladene Menge abweicht.
+
+Dass der Weg gangbar ist, ist dabei ebenfalls nachgemessen: `returnIdsOnly`
+liefert **827'419 IDs in einem Zug**, bei einem Abruflimit von 2000 Zeilen.
+
+**Zwei weitere Korrekturen.**
+
+*„Zeitraum: ab 2016 belastbar"* — der Dienst sagt etwas anderes. 2016 trägt
+**6'367** Fälle, 2017 dagegen **83'092**. Belastbar ist der Bestand ab 2017;
+2016 ist der eine Monat ab Dezember, mit dem die Quelle beginnt.
+
+*„`arrest_charge` ist fünfstellig"* — bei 88'684 von 88'686 Zeilen. Zwei tragen
+statt einer Kennziffer die Zeichen `%` und `/`.
+
+**Eine Lücke geschlossen.** Die Entscheidungstabelle in Abschnitt 9 kannte den
+Delta-Ladeweg nicht — das Notebook trug noch den Stand vom 11.9. Die
+Entscheidung steht jetzt darin, mit der Begründung aus Abschnitt 8: Über die
+Hälfte des Jahrgangs wird mehr als ein Jahr nach der Tat noch geändert, ein
+Delta nach Tatdatum sähe keine dieser Korrekturen.
+
+**Stand der Dokumentation** von 11.9. auf 19.9. gesetzt — nach den Eingriffen
+von heute und gestern wäre das alte Datum eine Behauptung gewesen.
+
+---
+
 ## 19.09.2026 · Notebook 03 verschwieg einen eigenen Befund (#121)
 
 **Anlass.** Dieselbe Kontrolle wie bei 01 und 02, diesmal für Chicagos
