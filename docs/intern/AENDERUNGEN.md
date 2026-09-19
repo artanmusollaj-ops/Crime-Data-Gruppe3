@@ -91,6 +91,60 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 20.09.2026 · Das erste Release aus sauberem Arbeitsbaum (#121)
+
+**Neues Release** `2026-09-19T23-05-26Z`, 21 Dateien, 42,2 MB — und das erste
+mit **`git_dirty: false`**. Commit `8bc6fd6`.
+
+Bis hierher trug jedes Release `git_dirty: true`. Damit reicht der Commit als
+Herkunftsnachweis nicht: Was im Arbeitsbaum stand, ist nirgends festgehalten,
+und ein Wiederaufbau aus dem Commit könnte etwas anderes ergeben. Die Zahlen,
+die in `ln1_konzept.md` und `leistungsnachweise.md` stehen, haben jetzt eine
+zitierfähige Kennung.
+
+Gebaut wurde die ganze Kette neu (`run_all --ohne-ingestion --release`), damit
+auch die Manifeste von Silver und Gold den sauberen Commit tragen und nicht nur
+das Release selbst.
+
+| | |
+| --- | ---: |
+| `gold/fact_offense` | 345'073 |
+| `gold/dim_tract` | 6'282 |
+| `gold/dim_offense` | 85 |
+| `gold/dim_date` | 366 |
+| `gold/dim_city_day` | 732 |
+| `serving/comparison_day` | 13'264 |
+| `serving/comparison_week` | 2'506 |
+| `serving/comparison_month` | 620 |
+| `serving/partition_quality` | 24 |
+
+Gate: `inside_city` 97,451 %, `exact` 95,491 %, `unmapped` 0,0009 % — alle drei
+weit über beziehungsweise unter ihren Schwellen.
+
+### 25 Releases lokal aufgeräumt
+
+Es waren 28 lokale Releases à rund 42 MB aufgelaufen, zusammen 1,1 GB. Der
+Grund: `run_all` bildet je grünem Lauf ein Release, und die Notebooks 31, 33 und
+36 rufen `run_all` auf — Notebook 36 allein dreimal je Durchlauf. Beim
+Gegenlesen der Notebooks sind so an einem Tag zwanzig entstanden.
+
+Lokal entfernt wurden 25, **1,06 GB frei**. Behalten sind drei: das aktuelle und
+die beiden, die weiter oben in dieser Datei als Beleg zitiert werden
+(`2026-09-17T19-42-24Z`, `2026-09-19T15-12-28Z`).
+
+**Auf SeaweedFS steht alles unverändert.** Der Modus ist `hybrid`; die 25 zeigen
+in `release liste` jetzt `oben` statt `beide` und sind mit
+`python -m orchestration.release holen <Kennung>` wieder da. Gelöscht wurde
+nichts, was nur einmal existierte.
+
+### Eine Ungenauigkeit, die dabei auffiel
+
+Der Kommentar an `GATE_MINDESTENS` nennt als gemessenen Wert `inside_city`
+97,55 %. Das Release misst **97,451 %**. `exact` (95,49) und `unmapped` (0,0009)
+stimmen weiterhin. Noch nicht korrigiert.
+
+---
+
 ## 20.09.2026 · Notebook 36: zwei Nummernkreise heissen beide H1 bis H6 (#121)
 
 Das Hypothesen-Notebook prüft H1 bis H6 und zitiert sie wörtlich. **Kapitel 3.3
