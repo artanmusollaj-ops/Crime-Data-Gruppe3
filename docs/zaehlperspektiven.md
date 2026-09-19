@@ -166,19 +166,17 @@ nicht belegt.
 
 **Die Beschreibung ist nicht das Delikt.** Der Text in
 `source_offense_description` identifiziert die Tat nicht — das tut der Code.
-Für Chicago ist das strukturell: Die IUCR-Bezeichnung hat zwei Hälften, und
-Silver führt nur die zweite.
 
-| dieselbe Beschreibung in Silver | IUCR | die volle Bezeichnung | NIBRS |
-| --- | --- | --- | ---: |
-| `SIMPLE` | 0460 | BATTERY · SIMPLE | 13B |
-| | 0560 | ASSAULT · SIMPLE | 13C |
-| `AGGRAVATED - HANDGUN` | 0261 | CRIMINAL SEXUAL ASSAULT · AGGRAVATED - HANDGUN | 11A |
-| | 041A | BATTERY · AGGRAVATED - HANDGUN | 13A |
+> **Behoben am 19.9.2026, Silver-Vertrag 3.** Chicagos IUCR-Bezeichnung hat
+> zwei Hälften, und Silver führte nur die zweite. `SIMPLE` stand 31'565-mal
+> und meinte einmal Körperverletzung (0460, 13B), einmal Bedrohung (0560,
+> 13C); **23,3 % der Chicagoer Zeilen** trugen eine für sich genommen
+> mehrdeutige Beschreibung. Seither steht dort `BATTERY: SIMPLE` —
+> **beide Hälften, getrennt durch `: `**. Der Anteil mehrdeutiger
+> Beschreibungen ist damit **null**.
 
-**23,3 % der Chicagoer Zeilen** — 60'478 — tragen eine Beschreibung, die für
-sich genommen mehrdeutig ist. `SIMPLE` allein steht 31'565-mal und meint
-einmal Körperverletzung, einmal Bedrohung. In Detroit sind es 54
+Für Detroit bleibt der Befund bestehen, und er hat eine andere Ursache: Dort
+sind es 54
 Beschreibungen; `ASSAULT AND BATTERY/SIMPLE ASSAULT` deckt **26 verschiedene
 NIBRS-Codes** über 16'837 Zeilen ab, weil die MICR-Beschreibung auf der Ebene
 der Deliktklasse steht und der Code eine Ebene darunter.
@@ -189,9 +187,10 @@ vermischt Delikte; wer verschiedene trennt, zerlegt eines.
 
 **Was das für eine Auswertung heisst:** nie nach
 `source_offense_description` gruppieren, immer nach `nibrs_code` oder
-`source_offense_code`. Der Text ist zum Lesen da, nicht zum Zählen. Dass der
-fehlende erste Teil der Chicagoer Bezeichnung (`primary_type`) nur in Bronze
-steht, ist derselbe Befund wie im letzten Punkt dieses Abschnitts.
+`source_offense_code`. Der Text ist zum Lesen da, nicht zum Zählen. Dass
+Chicagos Beschreibung seit Vertrag 3 eindeutig ist, ändert daran nichts — für
+Detroit gilt die Warnung unverändert, und eine Regel, die nur für eine Stadt
+gilt, ist keine.
 
 **Keine Lücke heisst nicht vollständig.** Silver hat null Zeilen ohne
 Zeitpunkt. Das beweist nicht, dass die Quelle vollständig ist — eine Tat ohne

@@ -63,8 +63,8 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `silver/tract` | **2** | 14.09.2026 | ein Census Tract je Zeile, TIGER und ACS über einen vollen äusseren Join. Version 2: `median_household_income_usd` und `population_below_poverty` als `INTEGER` statt `BIGINT` — die Einwohnerzahl bleibt `BIGINT`, sie ist der Nenner jeder Rate |
 | `silver/place` | 1 | 14.09.2026 | ein Ort je Zeile, Geometrie für die Stadtgrenze |
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
-| `silver/crime_offense` | **2** | 16.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus |
-| `gold/*` | **4** | 16.09.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird |
+| `silver/crime_offense` | **3** | 19.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig |
+| `gold/*` | **5** | 19.09.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften |
 | `serving/comparison_*` | 1 | 17.09.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` |
 
 > **Der Feldkatalog wird erzeugt, nicht gepflegt.** Am 14.9. wurde
@@ -88,6 +88,78 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 19.09.2026 · Chicagos Beschreibung trägt jetzt beide IUCR-Hälften (#121)
+
+**Silver-Vertrag 2 → 3, Gold-Vertrag 4 → 5.**
+
+**Das Problem.** Chicago beschreibt ein Delikt in **zwei** Feldern, und Silver
+führte nur das zweite:
+
+| Quelle liefert | Silver behielt |
+| --- | --- |
+| `THEFT` + `$500 AND UNDER` | `$500 AND UNDER` |
+| `MOTOR VEHICLE THEFT` + `AUTOMOBILE` | `AUTOMOBILE` |
+| `BATTERY` + `SIMPLE` | `SIMPLE` |
+
+„AUTOMOBILE" ist kein Delikt. Schlimmer: Dieselbe Beschreibung stand unter
+verschiedenen Delikttypen.
+
+```
+SIMPLE                →  BATTERY / ASSAULT / STALKING           31'632 Zeilen
+AGGRAVATED - HANDGUN  →  ASSAULT / CRIMINAL SEXUAL ASSAULT /
+                         BATTERY                                 6'413 Zeilen
+TO VEHICLE            →  CRIMINAL TRESPASS / CRIMINAL DAMAGE    15'857 Zeilen
+```
+
+**23,7 % aller Chicagoer Zeilen** trugen eine Beschreibung, die für sich
+genommen mehrdeutig war. Der `source_offense_code` daneben war eindeutig — zwei
+Spalten für dieselbe Sache, und nur eine hielt.
+
+**Die Lösung.** `source_offense_description` trägt für Chicago beide Hälften,
+getrennt durch `": "`:
+
+```
+0486  BATTERY: DOMESTIC BATTERY SIMPLE
+0820  THEFT: $500 AND UNDER
+0910  MOTOR VEHICLE THEFT: AUTOMOBILE
+```
+
+Das Trennzeichen ist geprüft: `":"` kommt in **keinem** Chicagoer Quelltext vor.
+`" - "` wäre kollidiert — es steht 43'139-mal in den Beschreibungen selbst
+(`AGGRAVATED - KNIFE / CUTTING INSTRUMENT`).
+
+Drei Randfälle sind abgefangen: fehlt eine Hälfte, steht die andere allein;
+sind beide gleich, steht sie einmal (180 Zeilen, etwa `INTIMIDATION`).
+
+**Detroit bleibt unverändert** — dort ist `offense_description` bereits
+vollständig (`ASSAULT AND BATTERY/SIMPLE ASSAULT`).
+
+**Das Ergebnis, gemessen.**
+
+| | vorher | nachher |
+| --- | ---: | ---: |
+| mehrdeutige Beschreibungen, Chicago | 23,7 % | **0,00 %** |
+| Zeilen Chicago | 259'625 | 259'625 |
+
+Die Zeilenzahlen bewegen sich nicht — es ist eine reine Deutungsänderung. Genau
+dafür gibt es die Vertragsversion.
+
+**Warum jetzt und nicht nach der Abgabe.** Ich hatte empfohlen, es zu
+verschieben und in der Präsentation aktiv zu benennen. Christian hat anders
+entschieden: zu grosses Problem, sofort umsetzen. Die Entscheidung war richtig
+— eine Spalte, die in fast einem Viertel der Zeilen das Falsche behaupten kann,
+ist kein Nachtrag wert.
+
+**Nachgeführt.** `zaehlperspektiven.md` 3 (der Befund ist für Chicago erledigt,
+für Detroit steht er unverändert — dort hat er eine andere Ursache),
+`datenhistorie.md` 8 Punkt 6 (war die offene Freitagsfrage), der Feldkatalog
+über sein Werkzeug, Notebook 01, und die Testfixturen in
+`test_build_crime_offense.py`.
+
+**Neues Release** `2026-09-19T15-12-28Z`, 21 Dateien.
 
 ---
 

@@ -114,9 +114,14 @@ GEMEINSAM: dict[str, str] = {
                          "was *in der Stadt* für eine Uhrzeit war.",
     "source_offense_code": "Der Deliktcode, wie die Quelle ihn führt: Chicagos "
                            "`iucr`, Detroits `state_offense_code` (MICR).",
-    "source_offense_description": "Die Deliktbezeichnung der Quelle, unverändert. "
-                                  "Bleibt stehen, damit jede Zuordnung "
-                                  "nachprüfbar ist.",
+    "source_offense_description": "Die Deliktbezeichnung der Quelle. Detroit "
+                                  "liefert sie in einem Feld; für Chicago "
+                                  "stehen **beide IUCR-Hälften**, getrennt "
+                                  "durch `: ` — `BATTERY: SIMPLE`. Die zweite "
+                                  "allein war bei 23,7 % der Chicagoer Zeilen "
+                                  "mehrdeutig (Silver-Vertrag 3). Bleibt "
+                                  "stehen, damit jede Zuordnung nachprüfbar "
+                                  "ist.",
     "tract_geoid": "GEOID des Census Tracts, in dem der Punkt liegt - aus dem "
                    "eigenen räumlichen Join, nicht aus der Quelle.",
     "located": "Ob die Zeile einem Tract zugeordnet werden konnte. **Warum "

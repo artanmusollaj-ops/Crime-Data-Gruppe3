@@ -319,16 +319,12 @@ steht, ist der Stand vom 17.9.2026, 16:05 UTC.
 
 Vier offene Punkte aus dem Chat, damit sie nicht verlorengehen:
 
-6. **Chicagos Beschreibung aus beiden IUCR-Hälften bauen?** Silver führt für
-   Chicago nur `description`, nicht `primary_type`. Deshalb ist
-   `source_offense_description` in **23,3 %** der Chicagoer Zeilen für sich
-   genommen mehrdeutig — `SIMPLE` steht 31'565-mal und meint einmal
-   Körperverletzung (0460, 13B), einmal Bedrohung (0560, 13C); `AGGRAVATED -
-   HANDGUN` ist einmal 11A, einmal 13A (`zaehlperspektiven.md` 3). Vorschlag:
-   `BATTERY · SIMPLE` statt `SIMPLE`. Kostet Silver-Vertrag 3, Gold-Vertrag 5,
-   einen Neubau und Nachführen der Dokumente; gewinnt eine Spalte, die sich
-   ohne den Code lesen lässt. **Christian hat entschieden, die Frage offen zu
-   lassen und am Freitag zu klären.**
+6. ~~**Chicagos Beschreibung aus beiden IUCR-Hälften bauen?**~~ →
+   **entschieden und umgesetzt am 19.9.2026.** `source_offense_description`
+   trägt für Chicago jetzt `primary_type: description`, also `BATTERY: SIMPLE`
+   statt `SIMPLE`. Der Anteil mehrdeutiger Beschreibungen fiel von **23,7 %
+   auf null**. Gekostet hat es Silver-Vertrag 3, Gold-Vertrag 5, einen Neubau
+   und ein neues Release.
 7. **Die `ambiguous`-Zuordnungen durchgehen:** 20 in den Crosswalks, 16
    davon mit Zeilen im Jahrgang 2024 (5'140 Zeilen). Vier Entscheidungen sind
    getroffen, aber nicht belegt.

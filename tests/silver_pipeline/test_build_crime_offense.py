@@ -75,7 +75,9 @@ def schreibe_chicago(
 ) -> Path:
     ziel = data_root / "bronze" / "city=chicago" / f"ingest_date={ingest_date}" / run_id
     ziel.mkdir(parents=True, exist_ok=True)
-    spalten = ["id", "case_number", "date", "iucr", "description",
+    # ``primary_type`` seit Silver-Vertrag 3: Chicagos Beschreibung besteht
+    # aus zwei Haelften, und die Silber-Spalte fuehrt beide.
+    spalten = ["id", "case_number", "date", "iucr", "primary_type", "description",
                "latitude", "longitude", "updated_on"]
     tabelle = pa.table({
         s: pa.array([str(z.get(s)) if z.get(s) is not None else None for z in zeilen],
@@ -226,7 +228,8 @@ def manifest_von(ziel: Path) -> dict:
 
 
 CHI = [{"id": "1", "case_number": "JA1", "date": "2024-01-15T08:30:00.000",
-        "iucr": "0110", "description": "FIRST DEGREE MURDER",
+        "iucr": "0110", "primary_type": "HOMICIDE",
+        "description": "FIRST DEGREE MURDER",
         "latitude": IN_CHICAGO[0], "longitude": IN_CHICAGO[1],
         "updated_on": "2024-02-01T00:00:00.000", "arrest": True}]
 # 2024-01-15 13:30 UTC entspricht 08:30 Ortszeit in Detroit (EST, UTC-5).
@@ -272,7 +275,8 @@ def test_ueberlappende_delta_laeufe_erzeugen_keine_doppelten_zeilen(tmp_path):
     zeilen = [z for z in lies(bc.build(data_root, config_root))
               if z["city"] == "chicago"]
     assert len(zeilen) == 1
-    assert zeilen[0]["source_offense_description"] == "NEUE FASSUNG", (
+    # Seit Vertrag 3 traegt die Spalte beide Haelften: "HOMICIDE: NEUE FASSUNG".
+    assert zeilen[0]["source_offense_description"] == "HOMICIDE: NEUE FASSUNG", (
         "behalten werden muss die Fassung mit dem juengsten updated_on"
     )
 

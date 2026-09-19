@@ -112,7 +112,7 @@ TABLE = "crime_offense"
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
-CONTRACT_VERSION = 2
+CONTRACT_VERSION = 3
 
 
 CHICAGO = "chicago"
@@ -439,7 +439,21 @@ def build_query(
                   + INTERVAL 1 HOUR) AS TIMESTAMP) = CAST(c.date AS TIMESTAMP))
                                                            AS local_time_ambiguous,
             nullif(trim(c.iucr), '')                       AS source_offense_code,
-            nullif(trim(c.description), '')                AS source_offense_description,
+            -- Chicago beschreibt ein Delikt in ZWEI Feldern, und keines
+            -- traegt allein: ``description`` = '$500 AND UNDER' ist ohne
+            -- ``primary_type`` = 'THEFT' bedeutungslos. Schlimmer, es ist
+            -- mehrdeutig - 'SIMPLE' steht unter BATTERY, ASSAULT und
+            -- STALKING. Seit Vertrag 3 werden beide Haelften gefuehrt,
+            -- getrennt durch ': ' (kommt in keinem Quelltext vor).
+            CASE
+                WHEN nullif(trim(c.primary_type), '') IS NULL
+                    THEN nullif(trim(c.description), '')
+                WHEN nullif(trim(c.description), '') IS NULL
+                    THEN trim(c.primary_type)
+                WHEN trim(c.primary_type) = trim(c.description)
+                    THEN trim(c.primary_type)
+                ELSE trim(c.primary_type) || ': ' || trim(c.description)
+            END                                            AS source_offense_description,
             m.nibrs_code                                   AS nibrs_code,
             m.nibrs_match                                  AS nibrs_match,
             TRY_CAST(c.latitude AS DOUBLE)                 AS latitude,

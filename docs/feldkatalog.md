@@ -17,7 +17,7 @@ Quellnotebooks 01, 11, 21 und 22.
 
 ### `crime_offense`
 
-Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert, je Fall eine mit counts_case**. 347'957 Zeilen.
+Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert, je Fall eine mit counts_case**. 348'311 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -30,7 +30,7 @@ Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert, je Fa
 | `local_time_nonexistent` | `BOOLEAN` | Die Ortszeit gab es **nicht** - der Wechsel zur Sommerzeit. DuckDB rechnet sie als Winterzeit um. |
 | `local_time_ambiguous` | `BOOLEAN` | Die Ortszeit gab es **zweimal** - der Wechsel zurück von der Sommerzeit. Betrifft nur Chicago, das Wanduhrzeit ohne Zone liefert; Detroit liefert einen Zeitpunkt und hat den Fall nicht. |
 | `source_offense_code` | `VARCHAR` | Der Deliktcode, wie die Quelle ihn führt: Chicagos `iucr`, Detroits `state_offense_code` (MICR). |
-| `source_offense_description` | `VARCHAR` | Die Deliktbezeichnung der Quelle, unverändert. Bleibt stehen, damit jede Zuordnung nachprüfbar ist. |
+| `source_offense_description` | `VARCHAR` | Die Deliktbezeichnung der Quelle. Detroit liefert sie in einem Feld; für Chicago stehen **beide IUCR-Hälften**, getrennt durch `: ` — `BATTERY: SIMPLE`. Die zweite allein war bei 23,7 % der Chicagoer Zeilen mehrdeutig (Silver-Vertrag 3). Bleibt stehen, damit jede Zuordnung nachprüfbar ist. |
 | `nibrs_code` | `VARCHAR` | NIBRS-Deliktcode des FBI, etwa `13A`. Die gemeinsame Sprache beider Städte - erst über ihn wird IUCR mit MICR vergleichbar. |
 | `nibrs_description` | `VARCHAR` | Bezeichnung des NIBRS-Codes, etwa *Aggravated Assault*. |
 | `nibrs_group` | `VARCHAR` | `A` oder `B`. Group A meldet NIBRS vollständig, Group B nur bei Festnahme. |
@@ -96,7 +96,7 @@ Eine Zeile ist: **ein Census Tract**. 6'282 Zeilen.
 
 ### `weather_day`
 
-Eine Zeile ist: **eine Stadt an einem Tag**. 55'449 Zeilen.
+Eine Zeile ist: **eine Stadt an einem Tag**. 55'465 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -191,7 +191,7 @@ Eine Zeile ist: **ein Census Tract**. 6'282 Zeilen.
 
 ### `fact_offense`
 
-Eine Zeile ist: **eine Tat**. 344'617 Zeilen.
+Eine Zeile ist: **eine Tat**. 345'073 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -207,7 +207,7 @@ Eine Zeile ist: **eine Tat**. 344'617 Zeilen.
 | `nibrs_code` | `VARCHAR` | NIBRS-Deliktcode des FBI, etwa `13A`. Die gemeinsame Sprache beider Städte - erst über ihn wird IUCR mit MICR vergleichbar. |
 | `nibrs_family` | `VARCHAR` | Die ersten beiden Zeichen des Codes. **Keine amtliche Gliederung** - zum Gruppieren gehört `nibrs_category`. |
 | `source_offense_code` | `VARCHAR` | Der Deliktcode, wie die Quelle ihn führt: Chicagos `iucr`, Detroits `state_offense_code` (MICR). |
-| `source_offense_description` | `VARCHAR` | Die Deliktbezeichnung der Quelle, unverändert. Bleibt stehen, damit jede Zuordnung nachprüfbar ist. |
+| `source_offense_description` | `VARCHAR` | Die Deliktbezeichnung der Quelle. Detroit liefert sie in einem Feld; für Chicago stehen **beide IUCR-Hälften**, getrennt durch `: ` — `BATTERY: SIMPLE`. Die zweite allein war bei 23,7 % der Chicagoer Zeilen mehrdeutig (Silver-Vertrag 3). Bleibt stehen, damit jede Zuordnung nachprüfbar ist. |
 | `latitude` | `DOUBLE` | Breitengrad des Tatorts, WGS84. `NULL`, wo die Quelle keine Koordinate liefert. |
 | `longitude` | `DOUBLE` | Längengrad des Tatorts, WGS84. |
 | `located` | `BOOLEAN` | Ob die Zeile einem Tract zugeordnet werden konnte. **Warum nicht**, sagt `geo_status` in Gold. |
@@ -222,7 +222,7 @@ Eine Zeile ist: **eine Tat**. 344'617 Zeilen.
 
 ### `comparison_day`
 
-Eine Zeile ist: **eine Stadt, ein Tag, eine NIBRS-Kategorie**. 13'246 Zeilen.
+Eine Zeile ist: **eine Stadt, ein Tag, eine NIBRS-Kategorie**. 13'264 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -251,7 +251,7 @@ Eine Zeile ist: **eine Stadt, ein Monat, eine NIBRS-Kategorie**. 620 Zeilen.
 
 ### `comparison_week`
 
-Eine Zeile ist: **eine Stadt, eine Woche ab Montag, eine NIBRS-Kategorie**. 2'502 Zeilen.
+Eine Zeile ist: **eine Stadt, eine Woche ab Montag, eine NIBRS-Kategorie**. 2'506 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
