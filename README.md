@@ -747,8 +747,8 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'183 der 1'203 Tests** des Standardlaufs. Die
-übrigen 20 überspringen sich selbst, weil sie gebaute Daten brauchen und `data/`
+In einem frischen Klon laufen **1'176 der 1'203 Tests** des Standardlaufs. Die
+übrigen 27 überspringen sich selbst, weil sie gebaute Daten brauchen und `data/`
 nicht versioniert ist; die 71 Referenzstand-Wächter sind ohnehin abgewählt.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
