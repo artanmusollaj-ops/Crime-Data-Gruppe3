@@ -91,6 +91,44 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 19.09.2026 · Notebook 03 verschwieg einen eigenen Befund (#121)
+
+**Anlass.** Dieselbe Kontrolle wie bei 01 und 02, diesmal für Chicagos
+Datenqualität. Das Notebook ist **technisch das sauberste von allen**: Es
+entdoppelt korrekt und sagt es auch, alle Prüfungen laufen, jede Zahl in der
+Prosa deckt sich mit der Ausgabe. Es *verschweigt* aber einen Befund, den es
+selbst ausdruckt.
+
+**Der Fund.** In der Distriktverteilung stehen zwei Nummern, die es in Chicago
+nicht gibt — `031` mit 14 Fällen und `061` mit **331**. Die Prosa nannte nur
+`031` und erklärte es als Erfassungsartefakt. `061` kam nirgends vor, obwohl es
+23-mal grösser ist.
+
+Nachgemessen ist es kein Artefakt:
+
+```
+Beat 6100 / District 061 / community_area 0 :  334 Zeilen
+davon ohne Koordinate                       :  331
+häufigste Delikte: Criminal Sexual Assault 116,
+                   Offense Involving Children 60, Sex Offense 42
+```
+
+**Chicago markiert die unterdrückten Orte doppelt.** Wo die Stadt die Koordinate
+zurückhält, setzt sie auch Distrikt, Beat und Community Area auf Werte
+ausserhalb des Schemas. Diese 331 Zeilen sind **16 % aller Zeilen ohne
+Koordinate** — ein zweiter, unabhängiger Beleg für den Befund aus Schritt 6,
+und er stand die ganze Zeit in der Ausgabe.
+
+**Warum das mehr ist als eine Ergänzung.** Wer nach District gruppiert und `061`
+für einen Erfassungsfehler hält — so wie es die Prosa nahelegte —, wirft genau
+die Delikte weg, bei denen die Stadt den Ort bewusst schützt. Das steht jetzt
+ausdrücklich im Ergebnis.
+
+**Ausserdem präzisiert:** *„eine Handvoll Zeilen, bei denen `beat` und `district`
+nicht zusammenpassen"* sind **20**.
+
+---
+
 ## 19.09.2026 · Alle vierzehn Notebooks Satz für Satz gegengelesen (#121)
 
 **Anlass.** Bei 01, 02 und 13 war es dasselbe Muster: Der Code stimmt, die Prosa
