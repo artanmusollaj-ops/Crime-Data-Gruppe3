@@ -91,6 +91,58 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 20.09.2026 · Notebook 36: zwei Nummernkreise heissen beide H1 bis H6 (#121)
+
+Das Hypothesen-Notebook prüft H1 bis H6 und zitiert sie wörtlich. **Kapitel 3.3
+von `ln1_konzept.md` führt ebenfalls Hypothesen unter H1 bis H8 — und es sind
+andere.** H3 heisst im Notebook *Zeitliche Konsistenz*, im Konzept *Die
+Deliktschlüssel beider Städte lassen sich vollständig auf NIBRS abbilden*. Wer
+die Nummern vergleicht, vergleicht Verschiedenes.
+
+Die Notebook-Fassung stammt aus **Artans Konzeptfassung**, die nicht im
+Repository liegt; genau deshalb zitiert das Notebook sie wörtlich, und
+`tests/test_notebook_hypothesen.py` erzwingt das. Beide Nummerierungen sind also
+in ihrem eigenen Dokument richtig. Das Notebook trägt jetzt oben einen
+Hinweiskasten, der die Kollision benennt. **Welche Nummerierung in der Abgabe
+gilt, entscheidet Artan** — hier wird nichts umbenannt.
+
+### Vier Zahlen waren veraltet
+
+| Stelle | stand da | gemessen |
+| --- | --- | --- |
+| H3, doppelte Stunde | 48 Chicagoer Zeilen | **49** (dreimal im Text) |
+| H6, Bilanz | Median 2 bis 3 Sekunden | **Median 27 s**, Spannweite 27 bis 31 s |
+| H6, Ergebnis | „zwei Grössenordnungen unter dem Budget" | **Faktor 22**, also rund eine |
+| Was nicht gezeigt wird | „Sechzehn Zuordnungen" offen | **17** mit `match = nibrs_ermessen` |
+
+Der Rest hält: `verified = true` in allen fertigen Läufen, drei Neubauten mit
+identischem sortiertem Inhalt über sechs Tabellen, vier Rechnerzeitzonen mit
+demselben UTC-Zeitpunkt, 71,3 % der Chicagoer Zeilen unter mehrdeutiger
+Kategoriebezeichnung, alle vier Reproduzierbarkeits-Voraussetzungen belegt,
+`git_dirty = false`, neun gepinnte Läufe.
+
+### Die Hypothesentabelle des Konzepts war überholt
+
+Beim Gegenlesen von Notebook 34 fiel auf, dass Kapitel 8.5 und die H1-Zeile in
+3.3 auf einem älteren Datenstand ruhen. Beide sind nachgeführt, jeweils mit
+datierter Anmerkung:
+
+| Stelle | stand da | gemessen |
+| --- | --- | --- |
+| 8.5 Delikte Tatebene | 344'617 | **345'073** (Chicago 259'625, Detroit 85'448) |
+| 8.5 Auffang `90Z` | 10'442 | **10'475** (7'717 / 2'758) |
+| 3.3 H1: Sexualdelikte Chicago | 6,5-Faches | **12,0-Faches** |
+| 3.3 H1: Sexualdelikte Detroit | 5,1-Faches | **5,2-Faches** |
+| 3.3 H1: Betrug, Faktor | 18 | **20** (3,78 % gegen 0,19 %) |
+
+**Die Prozentsätze und damit beide Aussagen sind unverändert** — 100 % Abdeckung,
+97,0 % echte NIBRS-Delikte, und die Geo-Lücke trifft Sexualdelikte in beiden
+Städten gleichgerichtet, Betrug nur in Chicago. Der Zuwachs kommt aus Detroits
+Delta-Läufen und den nachgezogenen Chicago-Deltas, nicht aus geänderten
+Zuordnungen.
+
+---
+
 ## 20.09.2026 · Notebook 35: der Beispielfall trug erfundene Koordinaten (#121)
 
 Das Kontrollen-Notebook hält der Nachrechnung als einziges fast lückenlos stand

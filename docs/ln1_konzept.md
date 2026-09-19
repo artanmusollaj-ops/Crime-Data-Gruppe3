@@ -137,9 +137,9 @@ bestätigt oder vorgeprüft, **eine falsifiziert, eine teilweise falsifiziert.**
 
 | | Hypothese | Verfahren | Stand |
 | --- | --- | --- | --- |
-| **H1** | Fehlende Koordinaten treten **nicht zufällig** auf, sondern hängen vom Delikttyp ab. | Chi-Quadrat-Unabhängigkeitstest | vorgeprüft in **beiden** Städten. Auf gemeinsamer NIBRS-Achse: Sexualdelikte fehlen in Chicago beim 6,5-Fachen, in Detroit beim 5,1-Fachen des Stadtschnitts — Betrug dagegen **nur** in Chicago (Faktor 18 zwischen den Städten). Notebook 34, Abschnitt 5.2 |
+| **H1** | Fehlende Koordinaten treten **nicht zufällig** auf, sondern hängen vom Delikttyp ab. | Chi-Quadrat-Unabhängigkeitstest | vorgeprüft in **beiden** Städten. Auf gemeinsamer NIBRS-Achse: Sexualdelikte fehlen in Chicago beim 12,0-Fachen, in Detroit beim 5,2-Fachen des Stadtschnitts — Betrug dagegen **nur** in Chicago (Faktor 20 zwischen den Städten). Notebook 34, Abschnitt 5.2 |
 | **H2** | Der Überlapp der Delta-Läufe erzeugt ausschliesslich **Duplikate**, keine **Dubletten**. | Vergleich aller Attribute je Schlüssel | bestätigt |
-| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Anwendung beider Crosswalks in `silver/crime_offense` | **teilweise falsifiziert**, siehe 8.5. Beide Städte sind **100 %** zugeordnet — aber nur **97,0 %** aller Fälle tragen ein echtes NIBRS-Delikt; 10'442 landen im Auffang `90Z`. Die Abdeckung stimmt, die Abbildung nicht |
+| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Anwendung beider Crosswalks in `silver/crime_offense` | **teilweise falsifiziert**, siehe 8.5. Beide Städte sind **100 %** zugeordnet — aber nur **97,0 %** aller Fälle tragen ein echtes NIBRS-Delikt; 10'475 landen im Auffang `90Z`. Die Abdeckung stimmt, die Abbildung nicht |
 | **H4** | Ein gepinntes Schema plus Auffangspalte fängt Schema-Drift **vollständig** auf. | Fingerabdruck über Feldtypen, Inhalt von `_extra` | bestätigt |
 | **H5** | Auffällige Werte in den Verwaltungsschlüsseln sind **Artefakte**, keine echten Ausreisser. | Häufigkeitsanalyse plus Konsistenzregel | vorgeprüft |
 | **H6** | Die Zusammenführung der drei Zeitachsen gelingt allein durch **Aggregation**; Imputation ist nicht nötig. | Granularitätsanalyse je Quelle | offen |
@@ -1002,17 +1002,23 @@ NIBRS abbilden. Seit `silver/crime_offense` beide Crosswalks auf die Falldaten
 anwendet, ist das gemessen — und die Antwort hängt daran, was „vollständig"
 heissen soll.
 
-Gemessen auf Tatebene über die 344'617 Delikte des Jahrgangs 2024:
+Gemessen auf Tatebene über die 345'073 Delikte des Jahrgangs 2024:
 
 | | Chicago | Detroit | zusammen |
 | --- | ---: | ---: | ---: |
-| Delikte (Tatebene) | 259'272 | 85'345 | 344'617 |
+| Delikte (Tatebene) | 259'625 | 85'448 | 345'073 |
 | Quellcode im Crosswalk bekannt | **100 %** | **100 %** | **100 %** |
-| davon Auffang `90Z` | 7'695 | 2'747 | 10'442 |
+| davon Auffang `90Z` | 7'717 | 2'758 | 10'475 |
 | **mit einem echten NIBRS-Delikt** | **97,0 %** | **96,8 %** | **97,0 %** |
 
+> **Nachgemessen am 20.09.2026 (Christian).** Die Zahlen sind auf den aktuellen
+> Stand gehoben; zuvor standen hier 344'617 Delikte und 10'442 im Auffang. Der
+> Zuwachs kommt aus Detroits Delta-Läufen und den nachgezogenen Chicago-Deltas,
+> nicht aus einer geänderten Zuordnung. **Die Prozentsätze und damit die
+> Aussage sind unverändert.**
+
 **Abdeckung ja, Abbildung nein.** Kein Chicago-Code fällt stillschweigend
-heraus, das war die eigentliche Sorge. Aber 10'442 Fälle tragen ein Delikt, das
+heraus, das war die eigentliche Sorge. Aber 10'475 Fälle tragen ein Delikt, das
 NIBRS nicht kennt: Verstösse gegen Registrierungspflichten, Bewährungsauflagen,
 Illinois-Eigenheiten wie *Criminal Fortification*. Sie landen auf `90Z All Other
 Offenses` — ein Code, der gültig ist, für einen Deliktvergleich aber nichts
