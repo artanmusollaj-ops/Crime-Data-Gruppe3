@@ -91,6 +91,44 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 19.09.2026 · Notebook 12 verschwieg, wohin es schreibt (#121)
+
+**Anlass.** Die Textkontrolle, nachdem heute Vormittag schon die Technik daran
+repariert wurde — Projektwurzel, Delta-Modus, Ausgabeverzeichnis, Parquet statt
+NDJSON.
+
+**Der Befund.** Das Notebook sagte nur: *„`RUN_DOWNLOAD` ist absichtlich
+zunächst `False`."* Warum das hier mehr wiegt als bei Chicago, stand nirgends.
+
+`02_chicago_bronze_ingestion` schreibt in ein Wegwerfverzeichnis unter
+`$TMPDIR` und räumt danach auf — dort ist ein eingeschalteter Download
+harmlos. **Notebook 12 schreibt in den echten Bestand** unter `data/`. Ein
+Lauf erzeugt dort einen unveränderlichen Bronze-Lauf und rückt bei `DELTA` das
+Wasserzeichen vor. Das steht jetzt als Warnkasten darin, zusammen mit dem
+Gegenstück: Nach SeaweedFS publiziert das Notebook **nicht**, das tut nur
+`main()` der CLI.
+
+Dieselbe Unterscheidung prüft seit heute
+`tests/test_notebooks.py::test_ein_ladendes_notebook_schreibt_nicht_unbemerkt_in_den_bestand`
+— jetzt steht sie auch dort, wo sie jemand liest.
+
+**Eine Zusage war zu schwach formuliert.** Zum DuckDB-Import stand nur
+*„derselbe Quelllauf wird übersprungen"*. `load_run` kann mehr, und das ist die
+interessantere Hälfte: Bei bekannter Run-ID mit **anderen Bytes** bricht es ab
+— *„Run-ID bereits mit anderen Bytes importiert"*. Dieselbe Kennung mit anderem
+Inhalt ist ein Widerspruch, kein Update. Die drei Ausgänge stehen jetzt als
+Tabelle darin.
+
+**Zwei ungenutzte Importe** entfernt (`SOURCE_TIMEZONE`, `datetime`).
+
+**Was geprüft wurde und hält:** Parquet mit ZSTD, Raw vor Bronze
+veröffentlicht, `DELTA` und `FULL` nach `full/year=…` partitioniert, `DAILY`
+ohne Jahresfilter und ohne Wasserzeichen, die Kategoriesumme gegen
+`downloaded_count`, `__MISSING__` für fehlende Kategorien, die vier Zeilen ohne
+Änderungsstempel.
+
+---
+
 ## 19.09.2026 · Notebook 11 begründete seine Ladestrategie falsch (#121)
 
 **Anlass.** Dieselbe Kontrolle wie bei 01, 02 und 03, jetzt auch für die
