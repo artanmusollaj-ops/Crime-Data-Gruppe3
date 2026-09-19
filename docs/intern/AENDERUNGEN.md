@@ -91,6 +91,45 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 20.09.2026 · Notebook 35: der Beispielfall trug erfundene Koordinaten (#121)
+
+Das Kontrollen-Notebook hält der Nachrechnung als einziges fast lückenlos stand
+— 31 harte und 11 weiche Kontrollen über sechs Stufen, jede zweimal vorgeführt.
+Geprüft und unverändert: die 2'098 Chicagoer Delikte ohne Koordinate, die 29
+Delikte Unterschied zwischen Tat- und Fallebene, Chicagos Anteil von drei
+Vierteln aller Zeilen, 14 Stufen in 4 Gruppen, `compare_with_tiger` als einziger
+Vollständigkeitsvergleich, der nur warnt und `verified` auf `true` lässt, und
+alle sechs Verweise am Ende. Auch die „dreizehn Stufen" in 6.3 stimmen: Am
+15.9.2026 waren es dreizehn, die vierzehnte kam danach.
+
+### Der Fehler steckt im Beispielfall
+
+Abschnitt „Ein Fall von Anfang bis Ende" sagt ausdrücklich, der Fall werde
+nachgebaut **„mit den Werten, die er im echten Jahrgang trägt"**. Die
+Koordinaten trugen das nicht:
+
+| | stand da | in Bronze |
+| --- | --- | --- |
+| `latitude` | `41.79` | **`41.766555312`** |
+| `longitude` | `-87.60` | **`-87.623323691`** |
+
+Rund 2,6 Kilometer daneben. Alles andere am Fall stimmt auf die Stelle: ids
+27932 und 27933, die Zeitpunkte 2024-01-01T00:56 und 2024-01-03T20:59, `iucr`
+0110, `arrest` false — und `JH100028` ist tatsächlich der erste Mordfall des
+Jahrgangs 2024 mit genau zwei Zeilen.
+
+### Die Zahl in „Zwei Arten von Kontrolle" wird jetzt gerechnet
+
+Dort stand *„von den 31 harten Kontrollen brechen 28 tatsächlich ab"* — beides
+von Hand gezählt, während die Landkarte darunter eine Datenstruktur ist, die
+sich zählen lässt. Die Liste trägt jetzt `HART_OHNE_ABBRUCH` mit den drei
+Ausnahmen (`GATE_MINDESTENS`, `ERWARTETE_QUELLEN`, `gepinnte_laeufe`), eine
+Zusicherung prüft, dass alle drei überhaupt als hart geführt sind, und die
+Auszählung gibt „31 harte, davon 28 abbrechend" selbst aus. Kommt eine
+Kontrolle dazu, wandert die Zahl mit.
+
+---
+
 ## 20.09.2026 · Sechs Notebooks trugen ihre Ausgaben mit — mein Fehler (#121)
 
 Notebooks liegen in diesem Repository **ohne** gespeicherte Ausgaben. Beim
