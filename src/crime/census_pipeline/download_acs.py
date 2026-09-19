@@ -8,7 +8,7 @@ Schicht.
 
 Die Werte behalten den Typ, den die API sendet: alles ist Text, auch Zahlen.
 Auch die Fehlwert-Kennung ``-666666666`` bleibt unveraendert stehen - sie zu
-deuten ist Aufgabe der Staging-Schicht, nicht der Ingestion.
+deuten ist Aufgabe der Silver-Schicht, nicht der Ingestion.
 
 Zwei Eigenheiten dieser Quelle sind der Grund fuer eigene Pruefungen:
 
@@ -82,7 +82,7 @@ GEOID_COLUMN = "GEOID"
 GEOID_LENGTH = 11
 # Der ACS kennzeichnet nicht schaetzbare Werte mit negativen Sentinels,
 # etwa das Median-Einkommen eines Tracts ohne Einwohner. Bronze laesst sie
-# unveraendert stehen; sie zu deuten ist Aufgabe der Staging-Schicht.
+# unveraendert stehen; sie zu deuten ist Aufgabe der Silver-Schicht.
 MISSING_VALUE_CODE = "-666666666"
 EXTRA_COLUMN = "_extra"
 

@@ -91,6 +91,51 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 19.09.2026 · Notebook 02: eine Zusage, die nur lokal gilt (#121)
+
+**Anlass.** Dasselbe Durchsehen wie bei Notebook 01, diesmal für die
+Chicago-Ingestion. Das Notebook **läuft** und der weitaus grösste Teil stimmt —
+nachgemessen: 22 Quellfelder plus `_extra` ergeben 23 Spalten, davon 19 der
+Quellfelder `string`, zwei `bool`, eines `struct`; Keyset-Pagination über
+`id > <letzte>`; `.{run_id}.part`; `STALE_PARTIAL_HOURS = 24`;
+`whole_records: true`; `derived_from` zeigt auf den Raw-Lauf. Alles wie
+beschrieben.
+
+**Der Fund.** Schritt 9 versprach:
+
+> *„Bei einem Testlauf bleibt es bewusst bei `None`. Der nächste Lauf wäre also
+> weiterhin ein Vollabzug."*
+
+Die Ausgabe desselben Notebooks sagte daneben:
+
+```
+Wasserzeichen im Datenordner: 2026-09-17T15:43:58.000
+Nächster Modus              : delta
+```
+
+**Warum.** Der Testlauf schreibt in einen Ordner unter `$TMPDIR` — das isoliert
+das **Schreiben**. `previous_watermark()` liest aber über die Ablage, und die
+steht auf `hybrid`: Sie sieht damit auch die Läufe auf SeaweedFS. Ein leerer
+Testordner heisst deshalb nicht, dass es kein Wasserzeichen gibt. Der Testlauf
+startete als **Delta**, während der Text einen Vollabzug beschrieb.
+
+**Kein Schaden, und das ist nachgesehen.** Publiziert wird in `main()`, nicht in
+`write_run()` — das Notebook ruft beide direkt auf. Ein Testlauf schreibt also
+weder nach `data/` noch nach SeaweedFS.
+
+**Korrigiert statt kaschiert.** Beide Stellen sagen jetzt, wovon es abhängt: bei
+`STORAGE_BACKEND=local` steht `None`, bei `hybrid` und `s3` das Wasserzeichen des
+Projekts. Beides ist richtig — die Funktion beantwortet *„was haben wir schon
+geladen"*, und in der hybriden Ablage gehören die Läufe auf dem Server dazu. Wer
+den Vollabzug sehen will, nimmt `FORCE_FULL = True` oder startet lokal.
+
+**Ein Begriff, den es nicht gibt.** *„Staging-Schicht"* stand an fünf Stellen —
+in Notebook 02, Notebook 21 und zweimal in `download_acs.py`. Die Schicht heisst
+**Silver**. Ein Leser der Abgabe hätte nach einer Schicht gesucht, die es nie
+gab.
+
+---
+
 ## 19.09.2026 · Chicagos Beschreibung trägt jetzt beide IUCR-Hälften (#121)
 
 **Silver-Vertrag 2 → 3, Gold-Vertrag 4 → 5.**
