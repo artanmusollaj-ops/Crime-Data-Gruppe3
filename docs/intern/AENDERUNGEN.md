@@ -91,6 +91,56 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 19.09.2026 · Notebook 13 widersprach sich selbst (#121)
+
+**Anlass.** Die Textkontrolle, nachdem heute Vormittag die Laufauswahl repariert
+wurde. Hier war die Ausbeute am grössten — das Notebook trug noch die Welt vor
+dem Delta-Umbau.
+
+**Der schwerste Befund: eine Zusammenfassung, die dem eigenen Schritt 7
+widerspricht.** Das Ergebnis schloss mit
+
+> *„… und dass die Lücke hier nicht systematisch nach Delikttyp verzerrt ist."*
+
+Schritt 7 desselben Notebooks zeigt das Gegenteil, mit Zahlen: Sexualdelikte
+1,84 %, Familiendelikte 2,27 %, `OTHER` 2,65 % — das Sechs- bis Neunfache des
+Schnitts von 0,29 %. Wer nur die Zusammenfassung liest, zieht den falschen
+Schluss. Sie sagt jetzt, was gemessen wurde: **dieselbe Schlagseite wie bei
+Chicago, nur um eine Grössenordnung kleiner** — 16 von 869 Sexualdelikten gegen
+Chicagos 171 von 1'746.
+
+**Das Argument stand auf dem Kopf.** Schritt 12 hiess: *„sie ist der Grund,
+warum die Pipeline bei vollen Snapshots bleibt"*, und schloss mit *„Detroit lädt
+deshalb den vollen Jahrgang neu — was bei 88'685 Zeilen und 97 Sekunden die
+einfachere und die richtigere Variante ist."* Seit dem 18.9. ist genau das
+Gegenteil der Fall. Die Messung trägt jetzt die richtige Folgerung: Sie sagt
+nicht, dass kein Delta geht, sondern **worauf** es gehen muss.
+
+**Sieben Zahlen nachgeführt:**
+
+| | war | ist |
+| --- | ---: | ---: |
+| umklassierte Delikte zwischen zwei Ständen | 10 in 20 Stunden | **113 in knapp 7 Tagen** |
+| Überzählung durch Zeilen statt Taten | 3,9 % | **3,7 %** |
+| Anklage weicht von der Tat ab | 3,6 % | **3,5 %** |
+| Chicagos Geo-Lücke zum Vergleich | 0,7 % | **0,81 %** |
+| Zuordnung aus dem MICR-Handbuch | 94,4 % | **94,5 %** |
+| Sommer über Februar | 25 % | **33 %** |
+| vorliegende Schnappschüsse | zwei, 20 Stunden | **fünf, knapp 7 Tage** |
+
+**Eine Folge ergänzt.** Schritt 2 sagt richtig, dass Löschungen erst der
+Vergleich zweier Schnappschüsse zeigt. Seit dem Delta-Umbau entstehen keine
+neuen mehr — die fünf vorliegenden sind das Fenster. Das steht jetzt dabei, mit
+dem Verweis auf die offene Entscheidung in `datenhistorie.md` 5.2.
+
+**Was geprüft wurde und hält:** die 46 Raw-Antworten, `ESRI_OID` als Nicht-
+Schlüssel, die 15 Zeilen mit leerer statt fehlender Beschreibung, 152 gegen 81
+beziehungsweise 79 Beschreibungen ungetrimmt/getrimmt, ein Viertel ohne
+`updated_in_ibr_at`, die drei Zeilen mit `updated_at` vor der Tat, kein Tag
+ohne Fall, kein Schema-Drift.
+
+---
+
 ## 19.09.2026 · Notebook 12 verschwieg, wohin es schreibt (#121)
 
 **Anlass.** Die Textkontrolle, nachdem heute Vormittag schon die Technik daran
