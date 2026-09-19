@@ -91,6 +91,54 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 19.09.2026 · Notebook 22 zählte vier Flag-Aussagen falsch (#121)
+
+Die Wetterquelle ist die am gründlichsten erkundete des Projekts — und genau in
+den ausgezählten Feststellungen steckten die Fehler. Alle vier am Lauf vom
+17.09.2026 nachgemessen:
+
+| Aussage | stand da | gemessen |
+| --- | --- | --- |
+| 5.5: was die Zeilen vor dem Messbeginn tragen | „nur `TAVG` und einige Wolkenparameter" | **nur `TAVG` und `TAVG_ATTRIBUTES`** — genau zwei Schlüssel, keine Wolkenparameter |
+| 5.6 / Appendix B: das Quellenflag `Z` | „bei Detroits `SNOW` auch `Z`" | `0`, `1`, `W`, `X`, `Z` an **beiden** Stationen in **allen** vier Grössen |
+| 5.8: der literale Text `null` | „in 919 Zeilen `T,,0,null`" | **1'090** Zeilen: 919 als `,,0,null`, 171 als `T,,0,null` — die Zahl gehörte zum anderen Muster |
+| Appendix B: Spurenmengen | „rund 4'200 Zeilen je Station" | **4'192** an O'Hare, **4'493** an Detroit Metro |
+
+Dazu zwei Genauigkeiten: `TMAX` ist an O'Hare in 84,9 % der Zeilen belegt, an
+Detroit Metro in 94,2 % — die bisherigen „rund 85 %" galten nur für O'Hare, weil
+dort 4'402 Zeilen vor dem Messbeginn liegen statt 1'515. Und O'Hares
+`SNOW_ATTRIBUTES` führt die Beobachtungszeit nicht durchgehend leer, sondern
+1'094-mal als `2400`.
+
+### Die Feststellungen standen in falscher Reihenfolge
+
+5.9 stand vor 5.8 — beide Nummern werden aus Abschnitt 2, 6.7 und Appendix B
+heraus referenziert. Getauscht.
+
+### Eine Zahl war falsch, eine hielt stand
+
+Abschnitt 6.1 sprach von „24 MB", die man mit einem `HEAD` spart. Die beiden
+Standardstationen liefern zusammen **21,1 MB** (10,9 + 10,1). Korrigiert.
+
+Beim Nachrechnen des Jahresbedarfs habe ich dagegen zuerst danebengegriffen: Die
+8,3 GB aus Projektabsprache 3.1 sind die **Platte** (23,3 MB je Lauf × 365), das
+Netz sind 7,5 GB. Beides stimmt, die Tabelle ist korrekt. Im Notebook steht jetzt,
+welche Spalte gemeint ist.
+
+### Geprüft und unverändert
+
+112 gegen 116 Quellspalten, die vier `I`-Beanstandungen bei O'Hares `SNOW`
+(1999-01-09 bis 2011-01-24, vier von 24'603), leeres Q-Flag bei `TMAX`, `TMIN`
+und `PRCP` an beiden Stationen, die Feldzahlen je Spalte (3/3/4 und `SNOW` 4
+gegen 3), Reihenbeginn 1946-10-09 mit `TMAX` ab 1958-11-01, 100 % Belegung ab
+den 1960ern, der Nachlauf der Quelle, das gepinnte Schema mit 15 Spalten, die
+Stationsliste, `join_keys`, `value_encoding` und der Manifest-Nachweis. Auch
+Feststellung 5.9 hält: Der Vergleich der Läufe vom 7. und 8.9. ergibt je Station
+2 neue Zeilen, 0 entfernte, O'Hare 0 geänderte und Detroit genau 1 — die Zeile
+vom 2026-09-02, die nachträglich `SNWD` bekommen hat.
+
+---
+
 ## 19.09.2026 · Der räumliche Join rechnet nicht um — und das ist messbar (#121)
 
 Notebook 21 behauptete in 5.3: „[der Unterschied NAD83/WGS84] wird beim Join
