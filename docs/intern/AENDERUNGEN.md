@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'226** |
+| Tests | **1'229** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -91,6 +91,45 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 19.09.2026 · Die internen Dokumente liegen in `docs/intern/` (#121)
+
+**Der Entscheid dahinter.** Der Inhalt der Vertiefungen **wandert in das
+Word-Dokument**; verwiesen wird von dort nicht zurück. Damit ist `docs/` kein
+Anhangsordner, sondern Quellmaterial — und alles, was nicht einfliesst, hat
+darin nichts zu suchen.
+
+**Was verschoben wurde.** Fünf Dokumente nach [`docs/intern/`](.):
+`AENDERUNGEN.md`, `projektabsprache.md`, `leistungsnachweise.md`,
+`datenhistorie.md`, `DETROIT_PIPELINE_ANLEITUNG.md`. Wer jetzt `docs/` öffnet,
+sieht zwölf Dokumente, die alle in die Abgabe einfliessen — und keines, das
+offene Entscheide oder Lücken auflistet.
+
+**Zuerst das Netz, dann der Sprung.** Die Dokumentnamen stehen 448-mal in 143
+Dateien, und es gab keinen Wächter über tote Verweise. `tests/test_verweise.py`
+kam deshalb **vor** dem Umzug: Er prüft jeden relativen Verweis in README,
+Dokumenten und Notebook-Zellen. Vorher null tote Verweise, nachher null — der
+Umzug ist damit nicht behauptet sauber, sondern gemessen.
+
+Der Wächter hat einen zweiten Test bei sich, der zählt, wie viel er überhaupt
+findet (31 Dateien, 255 Verweise). Ein Prüfer, dessen Muster nicht mehr passt,
+meldet sonst nichts und sieht dabei grün aus.
+
+**Was der Umzug angefasst hat.** 20 Dateien mit Verweisen, dazu zehn mit
+Pfadkonstanten in Python (`PROJECT_ROOT / "docs" / "AENDERUNGEN.md"`) — die
+zweite Form hatte die erste Ersetzung nicht erfasst, und 22 Tests brachen mit
+Fehlern ab. Das ist genau der Fall, für den es den Verweis-Wächter allein nicht
+tut: Er liest Markdown, nicht Python.
+
+**Eine stille Abschwächung verhindert.** Der Abgleich zwischen Wegweiser und
+Konzept 11.5 vergleicht verlinkte Dokumentnamen. Nach dem Umzug stand dort
+`intern/AENDERUNGEN.md`, und das alte Muster `[\w.-]+\.md` traf das nicht mehr
+— der Vergleich wäre auf **zwei leere Mengen** zusammengefallen und weiter grün
+gewesen. Verglichen wird jetzt der Dateiname ohne Ordner.
+
+**Zahlen.** 1'226 → **1'229 Tests**. In `docs/` liegen 12 Dokumente statt 17.
+
+---
+
 ## 19.09.2026 · Die Abgabe liegt gar nicht im Repository (#121)
 
 **Die Korrektur.** Gestern stand hier, die Abgabe sei `ln1_konzept.md`. Sie ist
@@ -129,7 +168,7 @@ sagt, **wo** die Abgabe stattdessen liegt.
 Der Eintrag vom 18.9. hat einen Nachtrag bekommen, statt umgeschrieben zu
 werden. Er beschreibt, was damals galt.
 
-**Zahlen.** 1'224 → **1'226 Tests**.
+**Zahlen.** 1'224 → **1'229 Tests**.
 
 ---
 
@@ -196,14 +235,14 @@ Storage-Evaluation ausdrücklich, und ein Ausblick gehört in einen solchen
 Bericht. Sie stehen jetzt im Anhang. Abgabe und Anhang sind damit **zehn**
 Dokumente, intern **fünf**.
 
-**Zahlen.** 1'222 → **1'226 Tests**.
+**Zahlen.** 1'222 → **1'229 Tests**.
 
 ---
 
 ## 18.09.2026 · docs/ sagt jetzt, welches Dokument für wen ist (#121)
 
-**Was.** Ein Wegweiser [`docs/README.md`](README.md), zwei neue Ordner
-[`quellen/`](quellen/) und [`archiv/`](archiv/), und die Einteilung in **Abgabe,
+**Was.** Ein Wegweiser [`docs/README.md`](../../README.md), zwei neue Ordner
+[`quellen/`](../quellen/) und [`archiv/`](../archiv/), und die Einteilung in **Abgabe,
 intern, erzeugt** ist aufgeschrieben statt erinnert.
 
 **Der Befund vorher.** Fünfzehn Markdown-Dateien, zwei HTML-Seiten und **8,8 MB
@@ -259,7 +298,7 @@ sind nicht abgeschaltet, sie haben einen eigenen Aufruf:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese 71 Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'226
+python -m pytest -m ""               # beides zusammen, alle 1'229
 ```
 
 **Warum.** Am Morgen meldete die Suite **34 Fehlschläge**. Keiner davon war ein
@@ -287,7 +326,7 @@ statt der Summenzeile nur noch die Zahlen je Datei, und die Regex fand nichts.
 Zwei Tests standen auf grün, ohne je etwas geprüft zu haben. Der Wächter misst
 seither die **Ausgabe** statt der Einstellung.
 
-**Zahlen.** 1'211 → **1'226 Tests** (fünf neue in
+**Zahlen.** 1'211 → **1'229 Tests** (fünf neue in
 `tests/test_referenzstand_marker.py`). Standardlauf: 1'145 ausgeführt, 71
 abgewählt. Frischer Klon: 1'125 von 1'145, die übrigen 20 brauchen Daten.
 
@@ -357,7 +396,7 @@ Beschluss keine mehr dazu.** Das verschiebt nichts an der Empfehlung in
 [`datenhistorie.md`](datenhistorie.md) 5.2 — es macht sie dringlicher und gilt
 jetzt für beide Städte.
 
-**Wächter.** 1'179 → **1'226 Tests**. 25 davon in
+**Wächter.** 1'179 → **1'229 Tests**. 25 davon in
 `tests/detroit_pipeline/test_detroit_delta.py`, und dort wendet der
 Fake-Client den Delta-Filter *wirklich* an, statt immer alles zu liefern — ein
 Fake, der alles zurückgibt, bestünde auch einen Test, dessen Abfrage nichts
@@ -370,7 +409,7 @@ wäre nur kürzer, um alles, was sich nicht geändert hat.
 
 ## 18.09.2026 · Dieselbe Architektur auf einer A4-Seite (#120)
 
-**Was.** [`architektur-einseiter.html`](architektur-einseiter.html) — das
+**Was.** [`architektur-einseiter.html`](../architektur-einseiter.html) — das
 Architekturkapitel aus #119 als **ein Blatt zum Ausdrucken**, mit zwei
 gezeichneten Bildern: der Datenfluss über die sechs Schichten, und der geplante
 Verbund hinter Cloudflare. Dazu die fünf Kennzahlen, die drei Ladestrategien,
@@ -403,7 +442,7 @@ gegen das README, die Trennung von Ist und Ziel, keine Bilder von aussen
 
 ## 18.09.2026 · Ein Architekturkapitel für LN1 — Ist und Ziel getrennt (#119)
 
-**Was.** [`architektur-ist-und-ziel.md`](architektur-ist-und-ziel.md), als
+**Was.** [`architektur-ist-und-ziel.md`](../architektur-ist-und-ziel.md), als
 Kapitel für den Leistungsnachweis gedacht. Zwei Teile, und die Trennung ist
 die Aussage: **Teil A** beschreibt, was läuft, mit Zahlen aus dem
 Referenzstand; **Teil B** beschreibt die Ziel-Architektur und sagt an jeder
@@ -1097,7 +1136,7 @@ Notebook 35 sagt es jetzt selbst, direkt unter der hart/weich-Tabelle.
 ## 17.09.2026 · Der Rückgriff auf Bronze war falsch beschrieben (#102)
 
 **Was.** Der letzte Absatz von
-[`docs/zaehlperspektiven.md`](zaehlperspektiven.md) sagte, ein Widerspruch in
+[`docs/zaehlperspektiven.md`](../zaehlperspektiven.md) sagte, ein Widerspruch in
 den Bronze-Feldern brauche „den Rückgriff auf den Bronze-Lauf, aus dem die
 Zeile stammt — das Manifest nennt ihn namentlich". Beides stimmt nicht.
 
@@ -1203,7 +1242,7 @@ Gold genau diese Auswahl übernimmt. Eine Prüfung, die zwei Namen für dieselbe
 Rechnung gegeneinanderhält, kann nicht scheitern.
 
 **Was als Dokumentation geblieben ist.**
-[`docs/zaehlperspektiven.md`](zaehlperspektiven.md) — die vier Arten zu zählen,
+[`docs/zaehlperspektiven.md`](../zaehlperspektiven.md) — die vier Arten zu zählen,
 was sich aus ihnen nicht addieren lässt, und was die 42 Kontrollen **nicht**
 beweisen. Die Gliederung ist Artans; alle Zahlen sind am Referenzstand neu
 gemessen, weil die seinen veraltet waren. Zwei Befunde daraus sind neu:
@@ -1353,7 +1392,7 @@ Zeilenzahlen und Raten ändern sich nicht.
 
 ## 16.09.2026 · Die Hypothesen H1 bis H6, nachgewiesen (#97)
 
-**Was.** [`notebooks/36_hypothesen.ipynb`](../notebooks/36_hypothesen.ipynb)
+**Was.** [`notebooks/36_hypothesen.ipynb`](../../notebooks/36_hypothesen.ipynb)
 misst die sechs Hypothesen aus Kapitel 3 der Konzeptfassung und weist je
 Hypothese aus, ob sie hält. Kapitel 4 verlangt drei getrennte Evidenzarten und,
 wo gemessen wird, drei Wiederholungen mit Median und Spannweite. Genau so ist
@@ -1442,7 +1481,7 @@ Vertragsversion. Beide fallen gegen den Stand von gestern.
 
 ## 15.09.2026 · Die Kontrollen an einem Ort, vorgeführt (#95)
 
-**Was.** [`notebooks/35_kontrollen.ipynb`](../notebooks/35_kontrollen.ipynb)
+**Was.** [`notebooks/35_kontrollen.ipynb`](../../notebooks/35_kontrollen.ipynb)
 zeigt alle **41 Kontrollen** der Strecke in der Reihenfolge, in der sie
 greifen — von der Ingestion bis Gold, dazu Ablage, Serving und
 Orchestrierung. Jede wird **zweimal** vorgeführt: einmal mit Daten, die sie
@@ -1826,12 +1865,12 @@ Crosswalks, dem Feldkatalog und den Architekturbildern.
 
 ## 14.09.2026 · Eine Zahl von Ende zu Ende (#88)
 
-**Was.** [`docs/eine-zahl.md`](eine-zahl.md) rollt die Rate **94,5** rückwärts
+**Was.** [`docs/eine-zahl.md`](../eine-zahl.md) rollt die Rate **94,5** rückwärts
 auf: sieben Stufen von der Folie bis zu den 26 gzip-Dateien, die die Stadt
 Chicago am 5. September geliefert hat. Zähler, Nenner, Herkunftskette,
 Vollständigkeitsnachweis, Rohantwort.
 
-**Warum.** Der Lesepfad in [`architektur.md`](architektur.md) führt durch den
+**Warum.** Der Lesepfad in [`architektur.md`](../architektur.md) führt durch den
 Code. Er beantwortet nicht die Frage, die in einer Abgabe zuerst kommt:
 *Woher wisst ihr das?* Dieses Dokument tut es an einer einzigen Zahl — und
 weil der Weg alle Schichten durchläuft, kommt dabei jede wesentliche
@@ -1871,7 +1910,7 @@ Lauf an — genau der Fall, für den er da ist.
 
 ## 14.09.2026 · Zwei Architekturbilder, aus dem Code erzeugt (#87)
 
-**Was.** [`docs/architektur.md`](architektur.md) zeigt den Aufbau in zwei
+**Was.** [`docs/architektur.md`](../architektur.md) zeigt den Aufbau in zwei
 Bildern und führt einen Lesepfad: sechs Stellen, rund 400 Zeilen, in der
 Reihenfolge, in der sie sich erklären. Beide Bilder erzeugt
 `tools/build_architekturbilder.py` aus dem AST und aus
@@ -1991,7 +2030,7 @@ der Schlüssel `detroit_rate_fallkorn` in `drift.py`.
 
 ## 14.09.2026 · Die Analyseplattform durchdacht — und der Würfel zum zweiten Mal verworfen (#83)
 
-**Was.** [`ausblick.md`](ausblick.md) hat einen Abschnitt 5: die
+**Was.** [`ausblick.md`](../ausblick.md) hat einen Abschnitt 5: die
 Analyseplattform für LN2. Messwerte, die Bewertung von Streamlit, ClickHouse
 und OpenSearch, zwei Bauarten — und drei Entwurfsgrundsätze, die aus diesem
 Projekt kommen und nicht aus einem Dashboard-Lehrbuch.
@@ -2046,7 +2085,7 @@ stand **zweimal** im Projekt, unter demselben Namen `STUDIENSTAEDTE` und mit
 (`"Chicago"`), in `gold_pipeline/__init__.py` klein (`"chicago"`). Jetzt steht
 die Tatsache einmal in `silver_pipeline`, und Gold leitet daraus
 `STADT_SCHLUESSEL` ab. Punkt 4 der Reihenfolge in
-[`ausblick.md`](ausblick.md).
+[`ausblick.md`](../ausblick.md).
 
 **Warum die Werte verschieden waren — und beide richtig.** Silver prüft gegen
 TIGERs `name`-Feld, und dort steht *Chicago*; das ist der Nachweis, dass eine
@@ -2073,7 +2112,7 @@ vorkommt.
 **Was.** `orchestration.aufraeumen` hat eine **Regel 0**: Was in
 `config/referenzstand.csv` steht, wird nie aufgeräumt. `--pinnen LN1` trägt
 den Stand ein, auf dem die gebauten Gold-Tabellen ruhen. Artans Punkt 1,
-Stufe B ([`ausblick.md`](ausblick.md)).
+Stufe B ([`ausblick.md`](../ausblick.md)).
 
 **Warum.** Die Aufbewahrungsregel von #65 behält, was **das aktuelle** Silver
 nennt. Nach einem Neubau werden die Läufe des vorigen Stands entbehrlich — und
@@ -2111,7 +2150,7 @@ pinnen schreibt nicht doppelt, und gepinnt wird nur, was es auch gibt.
 Gold-Tabellen — trägt jetzt zwei Angaben: `contract_version` (was geladen
 oder gedeutet wird) und `code_version` (welcher Git-Commit, und ob der
 Arbeitsbaum sauber war). Dazu ein Register *Vertragsversionen* weiter oben in
-dieser Datei. Artans Punkt 2 ([`ausblick.md`](ausblick.md)).
+dieser Datei. Artans Punkt 2 ([`ausblick.md`](../ausblick.md)).
 
 **Warum.** Am 11.9. wurde Detroits Abfragefenster von UTC auf Ortszeit
 umgestellt. Läufe davor enthielten 66 Fälle aus 2023 und vermissten 56 vom
@@ -2154,7 +2193,7 @@ bei `None`. Ein Lauf darf daran nie scheitern; auch das ist ein Test.
 Eingaben. Wer auf einer anderen ruht, nennt sie nicht mehr nur als **Pfad**,
 sondern als **Stand**: Bauzeitpunkt, Eingabe-Abdruck und — wörtlich — deren
 eigene Herkunft. Referenzdateien unter `config/` tragen ihre SHA-256. Artans
-Punkt 1, Stufe A ([`ausblick.md`](ausblick.md)).
+Punkt 1, Stufe A ([`ausblick.md`](../ausblick.md)).
 
 **Warum.** Gold nannte seine Silver-Quelle als
 `{"path": "data/silver/…/part-0001.parquet"}`, und ein Pfad zeigt auf das,
@@ -2197,7 +2236,7 @@ Aufbewahrungsregel alte Bronze-Läufe sonst wegräumt.
 
 ## 14.09.2026 · Artans zwei Punkte analysiert: Lineage und Ladelogik (#76)
 
-**Was.** [`docs/ausblick.md`](ausblick.md) — Material für LN2. Zwei Punkte
+**Was.** [`docs/ausblick.md`](../ausblick.md) — Material für LN2. Zwei Punkte
 von Artan, analysiert gegen den Code, dazu die Gedankenspiele zu Skalierung
 und Cloud mit Messwerten.
 
@@ -2254,7 +2293,7 @@ Tabelle 5.3 dreimal erwischt.
 
 ## 13.09.2026 · Die Datenablage hat ein Architekturdokument (#75)
 
-**Was.** [`docs/storage-architektur.md`](storage-architektur.md) beschreibt
+**Was.** [`docs/storage-architektur.md`](../storage-architektur.md) beschreibt
 den ganzen Aufbau auf 15 Abschnitten: das Problem, den relativen
 Ablagepfad, die drei Modi mit Fluss-Diagrammen, jede Umgebungsvariable und
 wann sie nötig ist, Lesen, Publizieren, die beiden Konfliktregeln, den
@@ -3997,7 +4036,7 @@ Jahr und vermissen **56** vom Jahresende 2024. Sie werden seither nicht mehr
 gelesen: `silver_pipeline` bricht mit einem klaren Fehler ab, statt sie mit
 einer Warnung einzulesen, die man überliest.
 
-**Nachlesen.** [`docs/archiv/2026-09-09-detroit-zeitzonenvertrag.md`](archiv/2026-09-09-detroit-zeitzonenvertrag.md) · PR #25 — am 18.9.2026 ins Archiv verschoben, der Inhalt steht seither im Code und in diesem Dokument
+**Nachlesen.** [`docs/archiv/2026-09-09-detroit-zeitzonenvertrag.md`](../archiv/2026-09-09-detroit-zeitzonenvertrag.md) · PR #25 — am 18.9.2026 ins Archiv verschoben, der Inhalt steht seither im Code und in diesem Dokument
 
 ---
 

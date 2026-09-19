@@ -146,7 +146,7 @@ def test_die_testzahlen_stimmen_mit_dem_readme(teil_a):
 
 def test_die_referenzzahlen_stimmen_mit_den_uebrigen_dokumenten(teil_a):
     """347'957 und 344'617 - der gepinnte Stand, nicht der gebaute."""
-    aenderungen = (PROJECT_ROOT / "docs" / "AENDERUNGEN.md").read_text(encoding="utf-8")
+    aenderungen = (PROJECT_ROOT / "docs" / "intern" / "AENDERUNGEN.md").read_text(encoding="utf-8")
     for muster_hier, muster_dort in (
         (r"Bei ([\d']+) Zeilen liegt jede realistische", r"`gold/fact_offense` \| \*\*([\d']+)\*\*"),
         (r"`silver/crime_offense` \| ([\d']+) Zeilen", r"`silver/crime_offense` \| ([\d']+) Zeilen"),

@@ -137,7 +137,7 @@
 python -m <a href="">orchestration.drift</a> --summary "$GITHUB_STEP_SUMMARY" --json data/drift.json
 </code></pre>
 
-<p>Gelesen wird der Kopfabschnitt <em>Der Stand in Zahlen</em> aus <code>docs/AENDERUNGEN.md</code></p>
+<p>Gelesen wird der Kopfabschnitt <em>Der Stand in Zahlen</em> aus <code>docs/intern/AENDERUNGEN.md</code></p>
 
 <ul>
 <li>dieselben Zahlen, die die Waechter mit dem Marker <code>referenzstand</code> lokal
@@ -178,7 +178,7 @@ Toleranz; <code>--nur-melden</code> schaltet das ab.</p>
 </span><span id="L-3"><a href="#L-3"><span class="linenos">  3</span></a><span class="sd">    python -m orchestration.drift                          # Tabelle auf stdout</span>
 </span><span id="L-4"><a href="#L-4"><span class="linenos">  4</span></a><span class="sd">    python -m orchestration.drift --summary "$GITHUB_STEP_SUMMARY" --json data/drift.json</span>
 </span><span id="L-5"><a href="#L-5"><span class="linenos">  5</span></a>
-</span><span id="L-6"><a href="#L-6"><span class="linenos">  6</span></a><span class="sd">Gelesen wird der Kopfabschnitt *Der Stand in Zahlen* aus ``docs/AENDERUNGEN.md``</span>
+</span><span id="L-6"><a href="#L-6"><span class="linenos">  6</span></a><span class="sd">Gelesen wird der Kopfabschnitt *Der Stand in Zahlen* aus ``docs/intern/AENDERUNGEN.md``</span>
 </span><span id="L-7"><a href="#L-7"><span class="linenos">  7</span></a><span class="sd">- dieselben Zahlen, die die Waechter mit dem Marker ``referenzstand`` lokal</span>
 </span><span id="L-8"><a href="#L-8"><span class="linenos">  8</span></a><span class="sd">gegen den Referenzstand halten. Hier wird nichts gehalten, nur gemessen.</span>
 </span><span id="L-9"><a href="#L-9"><span class="linenos">  9</span></a>
@@ -216,7 +216,7 @@ Toleranz; <code>--nur-melden</code> schaltet das ab.</p>
 </span><span id="L-41"><a href="#L-41"><span class="linenos"> 41</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">storage</span><span class="w"> </span><span class="kn">import</span> <span class="n">duckdb</span> <span class="k">as</span> <span class="n">storage_duckdb</span>
 </span><span id="L-42"><a href="#L-42"><span class="linenos"> 42</span></a>
 </span><span id="L-43"><a href="#L-43"><span class="linenos"> 43</span></a>
-</span><span id="L-44"><a href="#L-44"><span class="linenos"> 44</span></a><span class="n">AENDERUNGEN</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"docs"</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"AENDERUNGEN.md"</span>
+</span><span id="L-44"><a href="#L-44"><span class="linenos"> 44</span></a><span class="n">AENDERUNGEN</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"docs"</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"intern"</span> <span class="o">/</span> <span class="s2">"AENDERUNGEN.md"</span>
 </span><span id="L-45"><a href="#L-45"><span class="linenos"> 45</span></a><span class="n">ANFANG</span> <span class="o">=</span> <span class="s2">"## Der Stand in Zahlen"</span>
 </span><span id="L-46"><a href="#L-46"><span class="linenos"> 46</span></a>
 </span><span id="L-47"><a href="#L-47"><span class="linenos"> 47</span></a><span class="c1"># Die Toleranz. Raten absolut (je 1'000 Einwohner, eine Nachkommastelle),</span>
@@ -381,7 +381,7 @@ Toleranz; <code>--nur-melden</code> schaltet das ab.</p>
 </span><span id="L-206"><a href="#L-206"><span class="linenos">206</span></a>    <span class="k">if</span> <span class="n">fingerabdruck</span><span class="p">:</span>
 </span><span id="L-207"><a href="#L-207"><span class="linenos">207</span></a>        <span class="n">kopf</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Frischer Lauf, Fingerabdruck der Eingaben `</span><span class="si">{</span><span class="n">fingerabdruck</span><span class="si">}</span><span class="s2">`."</span><span class="p">)</span>
 </span><span id="L-208"><a href="#L-208"><span class="linenos">208</span></a>    <span class="n">kopf</span> <span class="o">+=</span> <span class="p">[</span>
-</span><span id="L-209"><a href="#L-209"><span class="linenos">209</span></a>        <span class="s2">"*Dokumentiert* ist der Kopf von `docs/AENDERUNGEN.md` (der Referenzstand), "</span>
+</span><span id="L-209"><a href="#L-209"><span class="linenos">209</span></a>        <span class="s2">"*Dokumentiert* ist der Kopf von `docs/intern/AENDERUNGEN.md` (der Referenzstand), "</span>
 </span><span id="L-210"><a href="#L-210"><span class="linenos">210</span></a>        <span class="s2">"*gemessen* der Lauf von heute. Die Drift ist eine Zahl, keine Farbe - "</span>
 </span><span id="L-211"><a href="#L-211"><span class="linenos">211</span></a>        <span class="sa">f</span><span class="s2">"rot wird es erst über der Toleranz: Raten ab </span><span class="si">{</span><span class="n">format_zahl</span><span class="p">(</span><span class="n">max_rate</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="si">}</span><span class="s2"> je 1'000, "</span>
 </span><span id="L-212"><a href="#L-212"><span class="linenos">212</span></a>        <span class="sa">f</span><span class="s2">"Zahlen über </span><span class="si">{</span><span class="n">format_zahl</span><span class="p">(</span><span class="n">max_prozent</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="si">}</span><span class="s2"> %."</span><span class="p">,</span>
@@ -495,7 +495,7 @@ Toleranz; <code>--nur-melden</code> schaltet das ab.</p>
                 <section id="AENDERUNGEN">
                     <div class="attr variable">
             <span class="name">AENDERUNGEN</span>        =
-<span class="default_value">PosixPath(&#39;docs/AENDERUNGEN.md&#39;)</span>
+<span class="default_value">PosixPath(&#39;docs/intern/AENDERUNGEN.md&#39;)</span>
 
         
     </div>
@@ -968,7 +968,7 @@ Toleranz; <code>--nur-melden</code> schaltet das ab.</p>
 </span><span id="tabelle-207"><a href="#tabelle-207"><span class="linenos">207</span></a>    <span class="k">if</span> <span class="n">fingerabdruck</span><span class="p">:</span>
 </span><span id="tabelle-208"><a href="#tabelle-208"><span class="linenos">208</span></a>        <span class="n">kopf</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Frischer Lauf, Fingerabdruck der Eingaben `</span><span class="si">{</span><span class="n">fingerabdruck</span><span class="si">}</span><span class="s2">`."</span><span class="p">)</span>
 </span><span id="tabelle-209"><a href="#tabelle-209"><span class="linenos">209</span></a>    <span class="n">kopf</span> <span class="o">+=</span> <span class="p">[</span>
-</span><span id="tabelle-210"><a href="#tabelle-210"><span class="linenos">210</span></a>        <span class="s2">"*Dokumentiert* ist der Kopf von `docs/AENDERUNGEN.md` (der Referenzstand), "</span>
+</span><span id="tabelle-210"><a href="#tabelle-210"><span class="linenos">210</span></a>        <span class="s2">"*Dokumentiert* ist der Kopf von `docs/intern/AENDERUNGEN.md` (der Referenzstand), "</span>
 </span><span id="tabelle-211"><a href="#tabelle-211"><span class="linenos">211</span></a>        <span class="s2">"*gemessen* der Lauf von heute. Die Drift ist eine Zahl, keine Farbe - "</span>
 </span><span id="tabelle-212"><a href="#tabelle-212"><span class="linenos">212</span></a>        <span class="sa">f</span><span class="s2">"rot wird es erst über der Toleranz: Raten ab </span><span class="si">{</span><span class="n">format_zahl</span><span class="p">(</span><span class="n">max_rate</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="si">}</span><span class="s2"> je 1'000, "</span>
 </span><span id="tabelle-213"><a href="#tabelle-213"><span class="linenos">213</span></a>        <span class="sa">f</span><span class="s2">"Zahlen über </span><span class="si">{</span><span class="n">format_zahl</span><span class="p">(</span><span class="n">max_prozent</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="si">}</span><span class="s2"> %."</span><span class="p">,</span>

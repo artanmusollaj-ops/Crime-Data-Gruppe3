@@ -167,7 +167,7 @@ jüngsten, also ruht keine Zahl auf ihm.
 Dokument.** Nicht *„welchen Stand hatten die Daten"*, sondern *„was hat sich
 verändert"* — und was davon verlorengeht, sobald ein Lauf aufgeräumt wird.
 Gemessen an zwei Detroit-Schnappschüssen: 102 echte Inhaltsänderungen, davon
-14 am Deliktcode selbst. Siehe [`datenhistorie.md`](datenhistorie.md), zu
+14 am Deliktcode selbst. Siehe [`datenhistorie.md`](intern/datenhistorie.md), zu
 entscheiden am 18.9.2026.
 
 Stufe A und B sind gebaut und lösen Artans Punkt. **Stufe C ist ausdrücklich
@@ -609,7 +609,7 @@ etwa 780 MB Parquet — gebaut sind es mit der selbständigen Datenbank 42,3 MB
 je Release, rund 2,2 GB im Jahr. Das Aufheben ist damit kein Kostenproblem,
 sondern eine Aufräumregel. **Releases werden aufgehoben, bis diese Regel
 entschieden ist** — Entscheidung 5.5 in
-[`datenhistorie.md`](datenhistorie.md). Was dabei entsteht, ist eine Historie
+[`datenhistorie.md`](intern/datenhistorie.md). Was dabei entsteht, ist eine Historie
 der **veröffentlichten Stände** — nicht der Quelländerungen; die misst
 dasselbe Papier in den Abschnitten 1 bis 4, und die beiden Fragen sollten
 nicht zusammenfallen.

@@ -105,7 +105,7 @@ Danach lohnen sich je nach Interesse:
 * **Wo die Daten liegen** → [`storage-architektur.md`](storage-architektur.md)
 * **Was eine Spalte bedeutet** → [`feldkatalog.md`](feldkatalog.md), erzeugt
   aus den Manifesten
-* **Warum etwas so gekommen ist** → [`AENDERUNGEN.md`](AENDERUNGEN.md)
+* **Warum etwas so gekommen ist** → [`AENDERUNGEN.md`](intern/AENDERUNGEN.md)
 
 ### Die Tests sind der zweite Lesepfad
 

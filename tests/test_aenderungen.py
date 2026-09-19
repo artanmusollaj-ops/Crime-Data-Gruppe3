@@ -1,4 +1,4 @@
-"""Prueft, dass ``docs/AENDERUNGEN.md`` nicht still veraltet.
+"""Prueft, dass ``docs/intern/AENDERUNGEN.md`` nicht still veraltet.
 
 Die Datei haelt fest, was sich an den Zahlen geaendert hat und warum - sie ist
 die Uebergabe von Silver und Gold an Dokumentation und Praesentation. Genau
@@ -21,7 +21,7 @@ import pytest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-AENDERUNGEN = PROJECT_ROOT / "docs" / "AENDERUNGEN.md"
+AENDERUNGEN = PROJECT_ROOT / "docs" / "intern" / "AENDERUNGEN.md"
 SILVER = PROJECT_ROOT / "data" / "silver" / "dataset=crime_offense" / "part-0001.parquet"
 GOLD = PROJECT_ROOT / "data" / "gold" / "dataset=fact_offense" / "part-0001.parquet"
 

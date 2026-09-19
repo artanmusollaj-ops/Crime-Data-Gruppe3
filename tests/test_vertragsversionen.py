@@ -21,7 +21,7 @@ import pytest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-AENDERUNGEN = PROJECT_ROOT / "docs" / "AENDERUNGEN.md"
+AENDERUNGEN = PROJECT_ROOT / "docs" / "intern" / "AENDERUNGEN.md"
 
 # Datensatz im Register -> Modul, das seinen Vertrag haelt. Beide
 # TIGER-Auslieferungen kommen aus demselben Modul und teilen sich die Version.

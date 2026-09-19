@@ -302,7 +302,7 @@ def test_die_beiden_historien_werden_auseinandergehalten(text):
     if "datenhistorie.md" not in text:
         pytest.skip("Abschnitt 6 verweist nicht auf das Entscheidungspapier")
     assert "veröffentlichten" in text and "Quelländerungen" in text
-    papier = PROJECT_ROOT / "docs" / "datenhistorie.md"
+    papier = PROJECT_ROOT / "docs" / "intern" / "datenhistorie.md"
     if not papier.is_file():
         pytest.skip("das Entscheidungspapier fehlt")
     gegenrichtung = papier.read_text(encoding="utf-8")

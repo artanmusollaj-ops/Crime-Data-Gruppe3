@@ -50,7 +50,8 @@ def dokumente() -> list[Path]:
     Laerm. Der Wegweiser nennt den Ordner, und das genuegt.
     """
     return sorted(p for p in DOCS.glob("*.md") if p.name != "README.md") + \
-        sorted(DOCS.glob("*.html")) + sorted(DOCS.glob("archiv/*.md"))
+        sorted(DOCS.glob("*.html")) + sorted(DOCS.glob("intern/*.md")) + \
+        sorted(DOCS.glob("archiv/*.md"))
 
 
 def test_der_wegweiser_kennt_jedes_dokument(text):
@@ -115,7 +116,15 @@ def abschnitt(text: str, von: str, bis: str | None) -> str:
 
 
 def verlinkte_dokumente(text: str) -> set[str]:
-    return {m for m in re.findall(r"\]\(([\w.-]+\.(?:md|html))\)", text)}
+    """Die verlinkten Dokumentnamen, ohne Ordner.
+
+    Seit die internen Dokumente in ``docs/intern/`` liegen, steht im Wegweiser
+    ``intern/AENDERUNGEN.md`` und im Konzept dasselbe. Verglichen wird der
+    Name - sonst haette der Umzug den Abgleich still auf zwei leere Mengen
+    zurueckgefuehrt, und der Test waere gruen geblieben, ohne etwas zu pruefen.
+    """
+    return {Path(m).name
+            for m in re.findall(r"\]\(([\w./-]+\.(?:md|html))\)", text)}
 
 
 def test_wegweiser_und_konzept_teilen_dieselbe_einteilung():
@@ -178,7 +187,8 @@ def test_das_konzept_verlinkt_keine_maengelliste_im_fliesstext():
     # Der Vorspann vor Kapitel 1 nennt die Arbeitsgrundlagen ausdruecklich als
     # solche - das ist gewollt und gehoert nicht in die Pruefung.
     haupttext = davor[davor.index("## 1 "):] if "## 1 " in davor else davor
-    gefunden = sorted(n for n in NICHT_IM_FLIESSTEXT if f"]({n})" in haupttext)
+    gefunden = sorted(n for n in NICHT_IM_FLIESSTEXT
+                      if f"]({n})" in haupttext or f"](intern/{n})" in haupttext)
     assert not gefunden, (
         f"internes Dokument im Fliesstext der Abgabe verlinkt: {gefunden}. "
         "In Kapitel 11.5 gehoert es hin, davor nicht."
@@ -200,7 +210,7 @@ def test_kein_dokument_erklaert_sich_zur_abgabe():
     verdaechtig = ("ist die Abgabe", "Dieses Dokument ist die Abgabe",
                    "das ist der Leistungsnachweis")
     gefunden = []
-    for pfad in sorted(DOCS.glob("*.md")):
+    for pfad in sorted(DOCS.glob("*.md")) + sorted(DOCS.glob("intern/*.md")):
         text = pfad.read_text(encoding="utf-8")
         # AENDERUNGEN.md zitiert alte Staende - das ist seine Aufgabe.
         if pfad.name == "AENDERUNGEN.md":
@@ -220,6 +230,27 @@ def test_der_wegweiser_sagt_wo_die_abgabe_wirklich_liegt(text):
         "der Wegweiser muss sagen, dass die Abgabe ein eigenes Word-Dokument ist"
     )
     assert "Die Abgabe liegt nicht in diesem Ordner" in text
+
+
+def test_die_internen_dokumente_liegen_im_eigenen_ordner():
+    """``docs/`` selbst soll nur noch enthalten, was in die Abgabe einfliesst.
+
+    Die Trennung ist das eigentliche Ergebnis: Wer ``docs/`` oeffnet, sieht
+    Quellmaterial fuer das Word-Dokument - und nichts, was offene Entscheide
+    oder Luecken auflistet.
+    """
+    intern = {p.name for p in (DOCS / "intern").glob("*.md")}
+    assert intern, "docs/intern/ ist leer"
+    verirrt = sorted(intern & {p.name for p in DOCS.glob("*.md")})
+    assert not verirrt, f"liegt doppelt in docs/ und docs/intern/: {verirrt}"
+
+    wegweiser = WEGWEISER.read_text(encoding="utf-8")
+    w_intern = verlinkte_dokumente(
+        abschnitt(wegweiser, ABSCHNITTE[1], ABSCHNITTE[2]))
+    assert w_intern == intern, (
+        f"Wegweiser und docs/intern/ weichen ab.\n  nur im Wegweiser: "
+        f"{sorted(w_intern - intern)}\n  nur im Ordner: {sorted(intern - w_intern)}"
+    )
 
 
 def test_das_projekt_readme_fuehrt_zum_wegweiser():

@@ -186,7 +186,7 @@ Jeder Lauf und jede Tabelle trägt ein `manifest.json` mit:
 Der Unterschied zwischen `contract_version` und `code_version` ist die
 forensische Hälfte: *„Ab wann wurde anders geladen?"* ist damit eine Abfrage —
 der erste Lauf mit der höheren Zahl — und kein Eintrag, den jemand pflegen
-muss. Ein Register in [`AENDERUNGEN.md`](AENDERUNGEN.md) sagt, was jede Zahl
+muss. Ein Register in [`AENDERUNGEN.md`](intern/AENDERUNGEN.md) sagt, was jede Zahl
 bedeutet; ein Test hält Code und Register zusammen.
 
 [`eine-zahl.md`](eine-zahl.md) rollt eine einzelne Zahl — Chicagos 94,5 je
@@ -216,8 +216,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'226 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'135 davon — die übrigen 20 brauchen gebaute Daten; 71 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 1'229 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'138 davon — die übrigen 20 brauchen gebaute Daten; 71 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 70 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
@@ -413,7 +413,7 @@ hoffentlich vollständig.
 
 **Was es kostet.** Platz und eine Regel. Ein Release sind rund 42 MB; ohne
 Aufräumregel wächst das linear, und genau diese Regel ist noch nicht
-entschieden ([`datenhistorie.md`](datenhistorie.md) 5.5). Eine Sicherung ohne
+entschieden ([`datenhistorie.md`](intern/datenhistorie.md) 5.5). Eine Sicherung ohne
 Löschregel ist nur ein Aufschub.
 
 ## B.7 Cloud: vorbereitet, nicht umgezogen
@@ -486,7 +486,7 @@ entschieden:
    liegt — B.3.
 3. **Wann der Referenzstand nachgezogen wird.** Seit dem 17.9.2026 steht der
    gebaute Stand vor dem dokumentierten; die Drift ist gemessen und in
-   [`datenhistorie.md`](datenhistorie.md) 8 festgehalten.
+   [`datenhistorie.md`](intern/datenhistorie.md) 8 festgehalten.
 
 ---
 
@@ -495,7 +495,7 @@ entschieden:
 dem Marker `referenzstand` gegen die Parquet-Dateien halten. Der gebaute Stand
 auf dem Entwicklungsrechner ist seit einer frischen Ingestion am Abend des
 17.9. geringfügig weiter (silver +0,10 %, gold +0,13 %, Detroits Rate 132,6 →
-132,7); die Drift ist gemessen und in [`datenhistorie.md`](datenhistorie.md) 8
+132,7); die Drift ist gemessen und in [`datenhistorie.md`](intern/datenhistorie.md) 8
 festgehalten. Die Speichergrössen in A.1 sind dagegen der tatsächliche Stand
 auf der Platte am 18.9.2026 — sie stehen unter keinem Test und sind als
 Grössenordnung gemeint.

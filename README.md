@@ -52,18 +52,18 @@ Wo etwas ausführlich steht:
 | Ist- und Ziel-Architektur, für den Leistungsnachweis | [`docs/architektur-ist-und-ziel.md`](docs/architektur-ist-und-ziel.md) |
 | Dieselbe Architektur auf **einer A4-Seite**, zum Ausdrucken | [`docs/architektur-einseiter.html`](docs/architektur-einseiter.html) |
 | Woher eine Zahl kommt, Stufe für Stufe | [`docs/eine-zahl.md`](docs/eine-zahl.md) |
-| Was beim Aufräumen verlorenginge | [`docs/datenhistorie.md`](docs/datenhistorie.md) |
+| Was beim Aufräumen verlorenginge | [`docs/intern/datenhistorie.md`](docs/intern/datenhistorie.md) |
 | Vier Arten zu zählen, und was sich nicht addiert | [`docs/zaehlperspektiven.md`](docs/zaehlperspektiven.md) |
 | Welche Kontrolle wo greift, vorgeführt | [`notebooks/35`](notebooks/35_kontrollen.ipynb) |
 | Die Hypothesen H1 bis H6, nachgewiesen | [`notebooks/36`](notebooks/36_hypothesen.ipynb) |
 | Jedes Modul, jede Funktion | [`docs/referenz/`](docs/referenz/index.html) |
 | Was jede Spalte bedeutet | [`docs/feldkatalog.md`](docs/feldkatalog.md) |
-| Was sich wann geändert hat und warum | [`docs/AENDERUNGEN.md`](docs/AENDERUNGEN.md) |
+| Was sich wann geändert hat und warum | [`docs/intern/AENDERUNGEN.md`](docs/intern/AENDERUNGEN.md) |
 | Würfel und Sternschema erklärt | [`docs/sternschema-und-wuerfel.md`](docs/sternschema-und-wuerfel.md) |
 | Wie die Ablage funktioniert: Modi, Publizieren, Holen, Releases | [`docs/storage-architektur.md`](docs/storage-architektur.md) |
 | Was als Nächstes anstünde und warum nicht jetzt | [`docs/ausblick.md`](docs/ausblick.md) |
-| Absprache und Leistungsnachweise | [`docs/projektabsprache.md`](docs/projektabsprache.md), [`docs/leistungsnachweise.md`](docs/leistungsnachweise.md) |
-| Detroit-Pipeline im Detail | [`docs/DETROIT_PIPELINE_ANLEITUNG.md`](docs/DETROIT_PIPELINE_ANLEITUNG.md) |
+| Absprache und Leistungsnachweise | [`docs/intern/projektabsprache.md`](docs/intern/projektabsprache.md), [`docs/intern/leistungsnachweise.md`](docs/intern/leistungsnachweise.md) |
+| Detroit-Pipeline im Detail | [`docs/intern/DETROIT_PIPELINE_ANLEITUNG.md`](docs/intern/DETROIT_PIPELINE_ANLEITUNG.md) |
 | Die Quellen einzeln erklärt | [`notebooks/`](notebooks/) 01, 11, 21, 22, 32 |
 | Datenqualität je Stadt | [`notebooks/03`](notebooks/03_chicago_data_quality.ipynb), [`notebooks/13`](notebooks/13_detroit_data_quality.ipynb) |
 
@@ -214,7 +214,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 1'155 ausgeführte Tests, ohne Netzzugriff und ohne
+Erwartet wird **grün**: 1'158 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -224,7 +224,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'226
+python -m pytest -m ""               # beides zusammen, alle 1'229
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -234,7 +234,7 @@ python -m pytest -m ""               # beides zusammen, alle 1'226
 > Am 18.9.2026 waren es 34 von 71 auf einmal, und in diesem roten Rauschen
 > wäre ein echter Fehlschlag untergegangen. Wie weit es auseinander ist, sagt
 > `python -m orchestration.drift`; die Entscheidung dazu steht in
-> [`docs/datenhistorie.md`](docs/datenhistorie.md) 8.
+> [`docs/intern/datenhistorie.md`](docs/intern/datenhistorie.md) 8.
 
 Bei der weiteren Arbeit genügt `source .venv/bin/activate`; verlassen wird die
 Umgebung mit `deactivate`.
@@ -639,7 +639,7 @@ python -m orchestration.release holen --einsetzen      # und an die festen Pfade
 ```
 
 Releases werden **aufgehoben**, bis eine Regel dafür entschieden ist
-([`docs/datenhistorie.md`](docs/datenhistorie.md) 5.5); 42 MB je Release —
+([`docs/intern/datenhistorie.md`](docs/intern/datenhistorie.md) 5.5); 42 MB je Release —
 14 MB Parquet plus die Datenbank.
 
 **Der Ablauf, Schritt für Schritt.** Zwei Rollen, zwei Befehle.
@@ -708,7 +708,7 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 python -m pytest
 ```
 
-**1'226 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'229 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -745,7 +745,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'135 der 1'155 Tests** des Standardlaufs. Die
+In einem frischen Klon laufen **1'138 der 1'158 Tests** des Standardlaufs. Die
 übrigen 20 überspringen sich selbst, weil sie gebaute Daten brauchen und `data/`
 nicht versioniert ist; die 71 Referenzstand-Wächter sind ohnehin abgewählt.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks

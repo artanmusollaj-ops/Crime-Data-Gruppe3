@@ -48,7 +48,7 @@ def test_der_kopf_wird_gelesen():
 
 def test_dieselben_muster_wie_die_waechter():
     """Was hier gelesen wird, muss auch AENDERUNGEN.md heute hergeben."""
-    echt = Path(__file__).resolve().parents[2] / "docs" / "AENDERUNGEN.md"
+    echt = Path(__file__).resolve().parents[2] / "docs" / "intern" / "AENDERUNGEN.md"
     dok = dr.dokumentiert(echt.read_text(encoding="utf-8"))
     assert set(dok) == {s for s, *_ in dr.GROESSEN}, (
         f"nicht gefunden: {sorted({s for s, *_ in dr.GROESSEN} - set(dok))}"

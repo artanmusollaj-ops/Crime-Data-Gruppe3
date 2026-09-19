@@ -301,7 +301,7 @@ neu ableiten, ohne die API erneut zu befragen.
 
 **Angeschaut am 9.9.2026 — Parquet ist besser.** Gemessen an denselben Daten in
 beiden Formaten, reproduzierbar in
-[`notebooks/31_storage_evaluation.ipynb`](../notebooks/31_storage_evaluation.ipynb):
+[`notebooks/31_storage_evaluation.ipynb`](../../notebooks/31_storage_evaluation.ipynb):
 
 | Kriterium | Ergebnis |
 | --- | --- |
@@ -523,7 +523,7 @@ die sie ersetzen sollte.
 
 Auch hier sind Sichten nicht langsamer, teils schneller. Ergebnisse in beiden
 Messungen identisch geprüft. Methodik:
-[`notebooks/33_serving_evaluation.ipynb`](../notebooks/33_serving_evaluation.ipynb).
+[`notebooks/33_serving_evaluation.ipynb`](../../notebooks/33_serving_evaluation.ipynb).
 
 **Entscheid: Sichten, keine Kopie.** Nicht wegen der Geschwindigkeit — die ist
 ein Gleichstand —, sondern weil eine Kopie veralten kann, ohne dass man es ihr
@@ -648,7 +648,7 @@ Census, Wetter, Silver und die Referenztabellen sind Modulfunktionen mit
 `assert`, und `unittest` lädt die `conftest.py` gar nicht.
 
 Ein Runner weniger verhindert das nicht. Was es verhindert, ist
-[`tests/test_run_tests.py`](../tests/test_run_tests.py): Der Runner bekommt
+[`tests/test_run_tests.py`](../../tests/test_run_tests.py): Der Runner bekommt
 dort ein winziges Verzeichnis mit **je einem Test beider Stile** und muss beide
 finden. Gemessen wird die Fähigkeit, nicht der Bestand — der Test veraltet
 also nicht mit jeder neuen Testdatei. Gegenprobe: Dreht man den Runner auf

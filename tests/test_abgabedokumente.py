@@ -31,7 +31,7 @@ import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 KONZEPT = PROJECT_ROOT / "docs" / "ln1_konzept.md"
-ABSPRACHE = PROJECT_ROOT / "docs" / "projektabsprache.md"
+ABSPRACHE = PROJECT_ROOT / "docs" / "intern" / "projektabsprache.md"
 README = PROJECT_ROOT / "README.md"
 
 SILVER = PROJECT_ROOT / "data" / "silver"

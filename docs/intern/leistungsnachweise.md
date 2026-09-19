@@ -6,7 +6,7 @@ tatsächlichen Projektstand gegenüber und benennt, was bis zur Abgabe fehlt.
 Es ergänzt [`projektabsprache.md`](projektabsprache.md): Dort stehen die
 technischen Entscheide (Bronze-Konventionen, Werkzeuge, Zusammenarbeit), hier
 die Abgabe-Sicht. Die **Abgabe selbst** entsteht als eigenes **Word-Dokument**;
-geschrieben wird es aus [`ln1_konzept.md`](ln1_konzept.md). Weder jenes noch
+geschrieben wird es aus [`ln1_konzept.md`](../ln1_konzept.md). Weder jenes noch
 dieses ist damit Teil der Abgabe — beide sind Arbeitsgrundlage. Wo ein Entscheid aus der Absprache eine Anforderung erfüllt,
 ist er verlinkt.
 
@@ -20,12 +20,12 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 
 | Anforderung | Stand | Was fehlt |
 | --- | --- | --- |
-| **Problemstellung, Ausgangslage** | ● geschrieben | [`ln1_konzept.md`](ln1_konzept.md) Kapitel 2 |
+| **Problemstellung, Ausgangslage** | ● geschrieben | [`ln1_konzept.md`](../ln1_konzept.md) Kapitel 2 |
 | **Forschungsfragen, Hypothesen** | ◐ Vorschlag steht, vier bereits vorgeprüft | Auswahl und Formulierung entscheiden → Abschnitt 2.2 / 2.3 |
 | **Vorgehen und Methoden** | ◐ implizit im Code | Methodenteil ausformulieren → Abschnitt 2.4 |
-| **Entwurf DE-Lebenszyklus** | ● benannt | Abschnitt 3; ausführlich in [`ln1_konzept.md`](ln1_konzept.md) Kapitel 5 |
+| **Entwurf DE-Lebenszyklus** | ● benannt | Abschnitt 3; ausführlich in [`ln1_konzept.md`](../ln1_konzept.md) Kapitel 5 |
 | **Ingestion: Quellen, Beschaffung** | ● fertig | fünf Quellen, je ein Quellnotebook |
-| **Storage: Evaluation, Wahl, Implementierung** | ● fertig | gemessen in Notebook 31 (NDJSON gegen Parquet), verschriftlicht in [`ln1_konzept.md`](ln1_konzept.md) Kapitel 7 |
+| **Storage: Evaluation, Wahl, Implementierung** | ● fertig | gemessen in Notebook 31 (NDJSON gegen Parquet), verschriftlicht in [`ln1_konzept.md`](../ln1_konzept.md) Kapitel 7 |
 | **Transformation 1: Analyse, Hypothesentest** | ◐ Qualität beider Städte fertig | der eigentliche Hypothesentest → Abschnitt 5 |
 | **Initiale Datenbereinigung** | ● fertig | vier Silver-Tabellen, `crime_offense` mit 347'957 Zeilen |
 | **Beantwortung der Forschungsfragen** | ○ | folgt aus allem davor |
@@ -33,14 +33,14 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 ● fertig ◐ teilweise ○ offen
 
 **Die gute Nachricht:** Ingestion und Storage — die beiden praktisch
-aufwendigsten Blöcke — stehen. 1'226 Tests, fünf Quellen in vier Pipelines,
+aufwendigsten Blöcke — stehen. 1'229 Tests, fünf Quellen in vier Pipelines,
 nachgewiesene Vollständigkeit. Und weil die Hypothesen Fragen des Data Engineering sind
 (Abschnitt 2.0), sind fünf davon durch die bisherige Arbeit **bereits
 gemessen**: Wir haben Befunde, bevor wir die Hypothesen formuliert haben — und
 mit H7 auch eine falsifizierte.
 
 **Die Baustelle:** Der konzeptionelle Teil steht inzwischen in
-[`ln1_konzept.md`](ln1_konzept.md), Silver und Gold sind gebaut. Offen ist die
+[`ln1_konzept.md`](../ln1_konzept.md), Silver und Gold sind gebaut. Offen ist die
 Auswahl und Formulierung der Hypothesen. Ohne formulierte Hypothesen gibt es
 keinen ausweisbaren Hypothesentest, auch wenn die Messungen längst vorliegen.
 
@@ -281,7 +281,7 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 | --- | --- | --- | --- |
 | **Generation** | Fünf Quellsysteme: Socrata (Chicago), ArcGIS REST (Detroit), HTTPS-Dateien (TIGER und NOAA), JSON-API (ACS). Je Quelle dokumentiert: Aktualisierungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 11, 21, 22, 32 | – |
 | **Ingestion** | Vier Pipelines. Batch, kein Streaming. Chicago inkrementell über Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` | – |
-| **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest. Ablage wahlweise lokal, SeaweedFS über S3 oder hybrid | `data/`, Abschnitt 4, [`storage-architektur.md`](storage-architektur.md) | – |
+| **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest. Ablage wahlweise lokal, SeaweedFS über S3 oder hybrid | `data/`, Abschnitt 4, [`storage-architektur.md`](../storage-architektur.md) | – |
 | **Transformation** | Bronze bewusst ohne Transformation. Silver und Gold gebaut, Qualitätsanalyse beider Städte fertig | Notebook 03, 13, 34 | – |
 | **Serving** | Option **A · Analytik** gewählt: Auswertungsdatenbank auf der Gold-Schicht | Abschnitt 6, Notebook 33 | gebaut: dreizehn Sichten über Silver, Gold und die vier Vergleichstabellen in Serving; das Dashboard darauf fehlt |
 
@@ -291,8 +291,8 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie im Manifest oder in abgelegten URLs; drei Tests prüfen das. `.env` und `data/` aus Git ausgeschlossen, `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf, Herkunftsnachweis über `derived_from` und `input_fingerprint` durchgehend bis Gold, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog aus den Manifesten erzeugt, Aufbewahrungsregel mit `orchestration.aufraeumen` | das Aufräumen ist ein Handgriff, kein Automatismus |
-| **DataOps** | 1'226 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions über zwei Betriebssysteme und zwei Python-Versionen; dazu der wöchentliche Datenlauf | keine Alarmierung ausser dem roten Lauf selbst |
-| **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (raw) und Ableitung (bronze). Zwei Architekturbilder, aus dem Code erzeugt ([`architektur.md`](architektur.md)) | Vintage 2024 hart verdrahtet |
+| **DataOps** | 1'229 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions über zwei Betriebssysteme und zwei Python-Versionen; dazu der wöchentliche Datenlauf | keine Alarmierung ausser dem roten Lauf selbst |
+| **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (raw) und Ableitung (bronze). Zwei Architekturbilder, aus dem Code erzeugt ([`architektur.md`](../architektur.md)) | Vintage 2024 hart verdrahtet |
 | **Orchestration** | `orchestration.run_all`: 13 Stufen in Reihenfolge, Abbruch beim ersten Fehler, Gesamtmanifest über alle Eingabe-Läufe | der geplante Lauf ist wöchentlich, die Quellen ändern sich täglich; keine Wiederaufnahme nach Abbruch, bewusst |
 | **Software Engineering** | Modulare Pakete, Typannotationen, ausführliche Docstrings, Fehlerbehandlung mit Wiederholungen | – |
 
@@ -351,7 +351,7 @@ aus zwei Fragen, die oft vermischt werden:
    Cloud? Dazu unten die Anforderungen und Optionen.
 2. **Das Format innerhalb der Schichten** — NDJSON oder Parquet? Diese Frage
    ist **gemessen** und in
-   [`notebooks/31_storage_evaluation.ipynb`](../notebooks/31_storage_evaluation.ipynb)
+   [`notebooks/31_storage_evaluation.ipynb`](../../notebooks/31_storage_evaluation.ipynb)
    reproduzierbar.
 
 ### Das Bronze-Format: gemessen, nicht behauptet

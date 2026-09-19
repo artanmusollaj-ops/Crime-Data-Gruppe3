@@ -112,7 +112,7 @@ def test_die_dokumente_nennen_den_eigenen_aufruf():
     """Ein abgewaehlter Test, dessen Aufruf nirgends steht, ist ein geloeschter."""
     fehlend = [name for name, pfad in (
         ("README.md", PROJECT_ROOT / "README.md"),
-        ("AENDERUNGEN.md", PROJECT_ROOT / "docs" / "AENDERUNGEN.md"),
+        ("AENDERUNGEN.md", PROJECT_ROOT / "docs" / "intern" / "AENDERUNGEN.md"),
     ) if f"pytest -m {MARKER}" not in pfad.read_text(encoding="utf-8")]
     assert not fehlend, f"nennt den Aufruf nicht: {fehlend}"
 

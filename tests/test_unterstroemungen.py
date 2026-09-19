@@ -44,7 +44,7 @@ import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 KONZEPT = PROJECT_ROOT / "docs" / "ln1_konzept.md"
-NACHWEISE = PROJECT_ROOT / "docs" / "leistungsnachweise.md"
+NACHWEISE = PROJECT_ROOT / "docs" / "intern" / "leistungsnachweise.md"
 
 # Dokument -> (Ueberschrift der Unterstroemungs-Tabelle, erwartete Zeilenzahl).
 TABELLEN: dict[str, tuple[Path, str]] = {
@@ -133,7 +133,7 @@ UEBERHOLTE_AUSSAGEN: dict[str, str] = {
     "Niemand führt diese Tests bei einem Push aus": "github actions",
 }
 
-ABGABEDOKUMENTE = (KONZEPT, NACHWEISE, PROJECT_ROOT / "docs" / "projektabsprache.md")
+ABGABEDOKUMENTE = (KONZEPT, NACHWEISE, PROJECT_ROOT / "docs" / "intern" / "projektabsprache.md")
 
 
 def test_kein_fliesstext_fuehrt_etwas_als_offen_das_es_gibt():
@@ -248,7 +248,7 @@ def test_die_testzahl_in_der_tabelle_stimmt(benannte_zeilen):
 # Verantwortliche je Datensatz (Absprache 7.3)
 # --------------------------------------------------------------------------
 
-ABSPRACHE = PROJECT_ROOT / "docs" / "projektabsprache.md"
+ABSPRACHE = PROJECT_ROOT / "docs" / "intern" / "projektabsprache.md"
 
 
 def verantwortliche() -> dict[str, str]:

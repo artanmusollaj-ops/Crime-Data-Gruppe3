@@ -251,7 +251,7 @@ Silver-Tabelle, die neue Vorbedingung in `aufraeumen`, Tests.
   wie eine Aussage über die Polizei statt über unsere Pipeline.
 * **Was zwischen zwei Läufen zweimal geändert wurde, sieht man einmal.**
 * **Es ersetzt keine versionierte Ablage von Silver und Gold.** Das ist Stufe
-  C aus [`ausblick.md`](ausblick.md) Abschnitt 1 und bleibt eine eigene,
+  C aus [`ausblick.md`](../ausblick.md) Abschnitt 1 und bleibt eine eigene,
   teurere Frage.
 
 ---
@@ -308,7 +308,7 @@ steht, ist der Stand vom 17.9.2026, 16:05 UTC.
 
 > **Nicht zu verwechseln: der Veröffentlichungsstand.** Für LN2 ist ein
 > Release-Verzeichnis je freigegebenem Gold-Stand geplant, mit einem Verweis
-> darauf — [`ausblick.md`](ausblick.md) Abschnitt 6. Aufgehobene Releases sind
+> darauf — [`ausblick.md`](../ausblick.md) Abschnitt 6. Aufgehobene Releases sind
 > eine Historie der **veröffentlichten Stände** und beantworten nicht, was
 > dieses Dokument misst: was die **Quellen** zwischen zwei Läufen ändern. Ein
 > Release hält fest, was wir gesagt haben; diese Tabelle hält fest, was die

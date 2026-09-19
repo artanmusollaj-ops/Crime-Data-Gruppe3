@@ -14,9 +14,11 @@ Hier steht, was es sonst noch gibt.
 
 **Die Abgabe liegt nicht in diesem Ordner.** Sie entsteht als eigenes
 Word-Dokument; geschrieben wird es aus [`ln1_konzept.md`](ln1_konzept.md).
-Die Dokumente hier sind seine **Quelle**: Ihr Inhalt wandert hinein, oder das
-Word-Dokument nennt sie als Anhang im Repository. Geschrieben sind sie alle für
-jemanden, der das Projekt nicht kennt; sie müssen ohne uns verständlich sein.
+Die Dokumente hier sind seine **Quelle**: Ihr Inhalt wandert hinein. Das
+Word-Dokument verweist **nicht** auf sie zurück — es steht für sich, und wer es
+liest, soll nicht ins Repository springen müssen (Entscheid vom 19.9.2026).
+Geschrieben sind sie trotzdem alle für jemanden, der das Projekt nicht kennt:
+Was sich nicht ohne uns lesen lässt, lässt sich auch nicht übertragen.
 
 > **Die Fassung hier ist die belastbarere.** Jede Zahl in diesen Dokumenten
 > wird von der Testsuite gegen die gebauten Daten gehalten. Im Word-Dokument
@@ -39,6 +41,9 @@ jemanden, der das Projekt nicht kennt; sie müssen ohne uns verständlich sein.
 
 ## Intern — was wir beim Arbeiten brauchen
 
+Sie liegen seit dem 19.9.2026 in [`intern/`](intern/), damit dieser Ordner nur
+noch enthält, was in die Abgabe einfliesst.
+
 Diese Dokumente setzen voraus, dass man am Projekt arbeitet. Sie gehören
 **nicht** in die Abgabe; einige widersprächen ihr sogar dem Ton nach, weil sie
 offene Fragen und Lücken benennen. Das Konzept führt sie in 11.5 unter genau
@@ -50,11 +55,11 @@ Word-Dokument verweist**: auf keines davon.
 
 | Dokument | Was darin steht |
 | --- | --- |
-| [`projektabsprache.md`](projektabsprache.md) | Absprachen und Entscheide im Team |
-| [`leistungsnachweise.md`](leistungsnachweise.md) | Anforderungen, Stand, Lücken — ist *über* den LN, nicht Teil davon |
-| [`AENDERUNGEN.md`](AENDERUNGEN.md) | das Projektgedächtnis: was sich wann geändert hat und warum |
-| [`datenhistorie.md`](datenhistorie.md) | was beim Aufräumen verlorenginge — Entscheidungspapier |
-| [`DETROIT_PIPELINE_ANLEITUNG.md`](DETROIT_PIPELINE_ANLEITUNG.md) | Detroit-Pipeline Schritt für Schritt (Windows) |
+| [`projektabsprache.md`](intern/projektabsprache.md) | Absprachen und Entscheide im Team |
+| [`leistungsnachweise.md`](intern/leistungsnachweise.md) | Anforderungen, Stand, Lücken — ist *über* den LN, nicht Teil davon |
+| [`AENDERUNGEN.md`](intern/AENDERUNGEN.md) | das Projektgedächtnis: was sich wann geändert hat und warum |
+| [`datenhistorie.md`](intern/datenhistorie.md) | was beim Aufräumen verlorenginge — Entscheidungspapier |
+| [`DETROIT_PIPELINE_ANLEITUNG.md`](intern/DETROIT_PIPELINE_ANLEITUNG.md) | Detroit-Pipeline Schritt für Schritt (Windows) |
 
 ## Erzeugt — nie von Hand ändern
 

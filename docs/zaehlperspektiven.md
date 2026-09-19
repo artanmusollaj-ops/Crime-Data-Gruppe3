@@ -13,7 +13,7 @@ eine geprüfte Zahl wie eine bewiesene.
 > 16.9.2026 (Branch `sql_check_scripts`, `README.md` Abschnitte 4 und 5). Die
 > Skripte selbst sind nicht übernommen worden — vier ihrer Prüfungen stehen
 > seit dem 17.9. im Bau, drei davon hart (siehe
-> [`AENDERUNGEN.md`](AENDERUNGEN.md)). Die
+> [`AENDERUNGEN.md`](intern/AENDERUNGEN.md)). Die
 > Überlegungen dahinter sind es wert, zu bleiben. **Alle Zahlen hier sind am
 > Referenzstand neu gemessen**, nicht aus dem Branch übernommen; die dortigen
 > waren zwei Läufe alt.
