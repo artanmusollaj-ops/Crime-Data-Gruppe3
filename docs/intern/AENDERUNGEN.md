@@ -91,6 +91,56 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 19.09.2026 · Notebook 01 beschrieb einen Plan, nicht die Umsetzung (#121)
+
+**Anlass.** Eine Nachfrage zu einem Absatz in
+[`01_chicago_source.ipynb`](../../notebooks/01_chicago_source.ipynb). Das
+Notebook trägt den Stand **3.9.2026** — es beschreibt, was wir *vorhatten*. An
+drei Stellen ist die Umsetzung anders ausgefallen, an einer war die Aussage
+schlicht falsch.
+
+**Die falsche Aussage.** *„Homicide erhält die Kennzeichnung
+`record_granularity = VICTIM`, die übrigen Kategorien `record_granularity =
+INCIDENT`."* Ein solches Feld gibt es für Chicago **nirgends** — weder als
+Spalte noch im Manifest. `record_granularity` existiert nur in Detroits
+Bronze-Manifest, als Angabe für den ganzen Lauf mit dem Wert
+`INCIDENT_OFFENSE`.
+
+Die Sache dahinter stimmt und ist gelöst — nur anders: Chicago führt bei
+Tötungsdelikten **eine Zeile je Opfer**, im Jahrgang 2024 sind das **597 Zeilen
+auf 568 Fälle**, und alle **25** Chicagoer Fälle mit mehr als einer Zeile
+tragen NIBRS `09A`. Getrennt wird das über `counts` (Tatebene) und
+`counts_case` (Fallebene).
+
+**Zwei bewusst verworfene Pläne**, die im Notebook noch als Absicht standen:
+
+| geplant | umgesetzt |
+| --- | --- |
+| „Das Ingestion-Skript soll sich nur auf die benötigten Spalten beschränken" | ohne `$select`, alle 22 Quellfelder gepinnt — *„a new field lands in EXTRA_COLUMN rather than being lost"* |
+| „Der ursprüngliche Wert aus `primary_type` bleibt unverändert erhalten" | in Bronze ja; Silver führt ihn **nicht** weiter, dort steht Chicagos `description` als `source_offense_description` |
+
+Der zweite Punkt ist die offene Frage aus
+[`datenhistorie.md`](datenhistorie.md) 8 von der anderen Seite: `0820` heisst
+in Silver nur noch *„$500 AND UNDER"* — ohne das `THEFT` aus `primary_type`
+bedeutungslos.
+
+**Was dagegen exakt stimmt.** Gegen den Live-Endpunkt nachgemessen: Appendix A
+nennt **31 Felder mit identischen Namen und identischen Positionen** — 22
+Quellfelder plus 9 von Socrata berechnete. Die 22 decken sich eins zu eins mit
+dem gepinnten `FIELDS` im Code. Und Entscheidung 4 wurde ausgeführt:
+`case_number` kommt **25-mal** mehrfach vor und taugt deshalb nicht als
+Deliktschlüssel — in Silver ist `id` der `offense_id`, `case_number` der
+`event_id`.
+
+**Nachgeführt statt umgeschrieben.** Die verworfenen Pläne stehen weiter da,
+mit einem datierten Nachtrag daneben. Ein Quellnotebook, das nur den Endstand
+zeigt, verschweigt die Entscheidung — und die ist hier das Interessante.
+
+**Eine Randzahl.** *„ohne die jeweils jüngsten sieben Tage"* — am 19.9.2026
+gemessen sind es acht. Jetzt als „rund sieben" mit dem Messwert daneben.
+
+---
+
 ## 19.09.2026 · Drei Notebooks liefen nicht mehr (#121)
 
 **Anlass.** Alle vierzehn Notebooks einmal ausgeführt und ihren Inhalt gegen
