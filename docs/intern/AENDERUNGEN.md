@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'274** |
+| Tests | **1'292** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,77 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 19.09.2026 · Die sieben amtlichen Unterlagen haben jetzt eine Herkunft (#121)
+
+`docs/quellen/` hielt sieben Binärdateien — 8,8 MB PDF und XLSX —, aus denen die
+Referenztabellen in `config/` reproduziert werden. **Keine einzige trug einen
+Quellenverweis.** Kein Herausgeber, keine Fassung, keine Adresse, keine
+Prüfsumme. Wer ein Dokument neu holen oder prüfen wollte, ob es noch das richtige
+ist, musste raten. Für Belege, auf denen jede Deliktzuordnung des Projekts ruht,
+ist das die schwächste Stelle der ganzen Kette.
+
+### Neu: `docs/quellen/README.md`
+
+Je Dokument Titel, Herausgeber, Fassung, Umfang, Adresse, Grösse, SHA-256 und
+wofür es gebraucht wird. **Fünf der sieben sind per Prüfsumme belegt** — am
+19.09.2026 unter der angegebenen Adresse heruntergeladen und byteweise mit der
+hier liegenden Datei verglichen, alle fünf identisch:
+
+| Dokument | Adresse | belegt |
+| --- | --- | --- |
+| `nibrs_technical_specification_2025.pdf` | `le.fbi.gov/file-repository/2025-0-nibrs-technical-specification-062625.pdf` | Prüfsumme |
+| `nibrs-user-manual-2025-0-062625.pdf` | `le.fbi.gov/file-repository/nibrs-user-manual-2025-0-062625.pdf` | Prüfsumme |
+| `NIBRS_Offense_Codes.pdf` | `ucr.fbi.gov/nibrs/2011/resources/nibrs-offense-codes` | Prüfsumme |
+| `isp_nibrs_code_table_2026.xlsx` | `isp.illinois.gov/…/NIBRS Code Table 2026.xlsx` | Prüfsumme |
+| `illinois_nibrs_iepd_2023.xlsx` | `isp.illinois.gov/…/2025 nibrs_CodesTables.xlsx` | Prüfsumme |
+| `micr_manual_1110_2024.pdf` | `michigan.gov/…/micr-assets/MICR-Manual_1110.pdf` | nur Adresse |
+| `micr_appendix_f_2009.pdf` | `michigan.gov/…/micr-assets/2009/diappf.pdf` | nur Adresse |
+
+Die beiden Michigan-Dokumente lassen sich von hier aus nicht nachziehen:
+`michigan.gov` beantwortet **jeden** automatisierten Abruf mit HTTP 403, auch mit
+Browser-Kennung. Das stand schon in Notebook 32 und ist der Grund, warum sie
+überhaupt als Datei im Repository liegen.
+
+### Ein Dateiname führte in die Irre
+
+`illinois_nibrs_iepd_2023.xlsx` stammt aus der ISP-Arbeitsmappe
+**`2025 nibrs_CodesTables.xlsx`**. Die `2023` im lokalen Namen gehört zum Blatt
+`OffenseILUCRCode` (Fassung 2023.0), nicht zur Arbeitsmappe — gebraucht wird das
+Blatt `OffenseCode`. Der Name bleibt, weil `tests/config/test_nibrs_offense_codes.py`
+ihn führt; der Herkunftsnachweis sagt jetzt, was wirklich zu holen ist.
+
+Nebenbei sichtbar geworden: Michigan führt die Handbuchreihe inzwischen als
+`MICR-Manual_1122` (Juli 2025) und `_1130` weiter. Unsere Fassung 1110 ist
+überholt — sie bleibt, weil `config/micr_nibrs_mapping.csv` gegen sie gebaut ist;
+ein Wechsel ist ein eigener Schritt mit eigenem Abgleich.
+
+### Der Wächter dazu
+
+`tests/test_quellenverzeichnis.py`, 18 Tests. Jede Datei in `docs/quellen/`
+braucht einen Eintrag mit Adresse, Belegstufe und Verwendungszweck; jeder Eintrag
+braucht seine Datei; **und die genannte SHA-256 muss zur Datei passen.** Der
+letzte Punkt fängt den Fehler, den sonst niemand bemerkt: ein Dokument
+austauschen und den Eintrag stehen lassen.
+
+### Notebook 32 nebenbei nachgeführt
+
+| Aussage | stand da | gemessen |
+| --- | --- | --- |
+| 6.1 angeschlossene Arrest Charges | „20 der 23" | **alle 23** — die drei offenen sind seit dem Anschluss von `3072`, `5421`, `5422` zugeordnet |
+| 6.2 MICR-Codes mit mehr als einer Kategorie | „zwei von 97" | **zwei von 96** |
+| 8. Zahl der Dokumente | „alle sechs Dokumente" | **sieben** — Abschnitt 1.1 führt sieben |
+| 3. Ablage der Codeliste | „liegt als PDF unter `docs/`" | `docs/quellen/` |
+
+Geprüft und unverändert: die 81 amtlichen Codes, 54 Chicago- und 63
+Detroit-Zielcodes, die vier zurückgezogenen Codes, 66 wörtliche und 15 erklärte
+Bezeichnungen gegen Illinois, 103 zu 8 bei der ISP-Gegenprobe, 152 gegen 81
+Detroit-Beschreibungen, 97,0 % echte NIBRS-Delikte und 10'475 im Auffang `90Z`,
+Detroits Abdeckung bei 100,00 %.
+
+**Zahlen.** 1'274 → **1'292 Tests**.
 
 ---
 

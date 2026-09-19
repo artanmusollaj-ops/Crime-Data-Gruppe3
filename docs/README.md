@@ -86,6 +86,14 @@ daraus neu und vergleicht byteweise.
 
 Zusammen 8,8 MB. Bis zum 18.9.2026 lagen sie zwischen der Prosa.
 
+**Woher jedes Dokument stammt**, steht in
+[`quellen/README.md`](quellen/README.md): Adresse, Herausgeber, Fassung, Grösse
+und SHA-256 je Datei. Fünf der sieben sind dort per Prüfsumme gegen die Quelle
+belegt — am 19.9.2026 heruntergeladen und byteweise verglichen; die beiden
+Michigan-Dokumente nur per Adresse, weil `michigan.gov` automatisierte Abrufe
+mit HTTP 403 beantwortet. `tests/test_quellenverzeichnis.py` hält die Liste
+vollständig: eine Unterlage ohne Eintrag lässt die Suite fallen.
+
 ## Archiv — überholt, aber nicht gelöscht
 
 [`archiv/`](archiv/) hält Dokumente, deren Inhalt anderswo aufgegangen ist.

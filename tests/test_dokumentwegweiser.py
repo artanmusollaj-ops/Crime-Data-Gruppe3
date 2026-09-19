@@ -102,12 +102,20 @@ def test_jedes_dokument_steht_in_genau_einem_abschnitt(text):
 
 
 def test_die_quellen_liegen_im_eigenen_ordner():
-    """Die 8,8 MB amtliche Unterlagen gehoeren nicht zwischen die Prosa."""
+    """Die 8,8 MB amtliche Unterlagen gehoeren nicht zwischen die Prosa.
+
+    Seit dem 19.9.2026 liegt neben ihnen ein ``README.md`` mit dem
+    Herkunftsnachweis je Dokument. Es zaehlt nicht als Unterlage; was drinsteht,
+    prueft ``tests/test_quellenverzeichnis.py``.
+    """
     lose = sorted(p.name for p in DOCS.glob("*")
                   if p.suffix.lower() in {".pdf", ".xlsx", ".xls", ".docx"})
     assert not lose, f"Quelldateien liegen flach in docs/: {lose}"
-    quellen = sorted((DOCS / "quellen").glob("*"))
+    quellen = sorted(p for p in (DOCS / "quellen").glob("*") if p.name != "README.md")
     assert len(quellen) == 7, f"sieben amtliche Unterlagen erwartet, {len(quellen)} gefunden"
+    assert (DOCS / "quellen" / "README.md").is_file(), (
+        "docs/quellen/README.md fehlt - die Unterlagen haetten keinen Quellenverweis"
+    )
 
 
 def abschnitt(text: str, von: str, bis: str | None) -> str:
