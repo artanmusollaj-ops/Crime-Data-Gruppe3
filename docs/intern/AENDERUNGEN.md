@@ -137,11 +137,26 @@ in `release liste` jetzt `oben` statt `beide` und sind mit
 `python -m orchestration.release holen <Kennung>` wieder da. Gelöscht wurde
 nichts, was nur einmal existierte.
 
-### Eine Ungenauigkeit, die dabei auffiel
+### Eine Ungenauigkeit, die dabei auffiel — korrigiert
 
-Der Kommentar an `GATE_MINDESTENS` nennt als gemessenen Wert `inside_city`
+Der Kommentar an `GATE_MINDESTENS` nannte als gemessenen Wert `inside_city`
 97,55 %. Das Release misst **97,451 %**. `exact` (95,49) und `unmapped` (0,0009)
-stimmen weiterhin. Noch nicht korrigiert.
+stimmen weiterhin.
+
+Mitgezogen ist der Schnappschuss in
+`test_das_gate_haelt_die_gemessene_abdeckung_aus`: Er führte acht Anteile, von
+denen sechs veraltet waren (`outside_city` 1,87 statt 1,8689,
+`missing_coordinate` 0,58 statt 0,6799, `no_tract` 0,0 statt 0,0003, `ambiguous`
+1,48 statt 1,473, `fallback_90Z` 3,03 statt 3,0356). Sie tragen jetzt die Werte
+aus Release `2026-09-19T23-05-26Z` und sagen im Docstring, woher sie stammen.
+Ebenso die beiden Vergleiche in `test_die_schwellen_liegen_unter_dem_gemessenen_stand`,
+die den Fünf-Punkte-Abstand prüfen.
+
+**Warum das niemand gemerkt hat:** Der Schnappschuss steht als Zahl im Test,
+damit er ohne gebaute Daten läuft — und genau deshalb kann er von den Daten
+wegdriften, ohne dass etwas rot wird. Ein Wächter, der ihn gegen
+`release.json` hält, wäre die eigentliche Lösung; er bräuchte die Marke
+`referenzstand` und liefe damit nicht auf Pull Requests.
 
 ---
 

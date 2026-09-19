@@ -72,7 +72,7 @@ GEO_STATUS_WERTE = {"inside_city", "outside_city", "no_tract", "missing_coordina
 # Untergrenzen fuer die Veroeffentlichung, in Prozent der Faktenzeilen.
 #
 # **Es sind Boeden, keine Ziele.** Am Jahrgang 2024 gemessen liegen die Werte
-# weit darueber: inside_city 97,55 %, exact 95,49 %, unmapped 0,0009 %. Die
+# weit darueber: inside_city 97,45 %, exact 95,49 %, unmapped 0,0009 %. Die
 # Schwellen haben absichtlich viel Luft - sie sollen einen *Einsturz*
 # abfangen, nicht die normale Bewegung der Quelle. Ein gebrochener raeumlicher
 # Join oder ein Crosswalk, der ins Leere laeuft, faellt hier auf; dass die
@@ -82,7 +82,7 @@ GEO_STATUS_WERTE = {"inside_city", "outside_city", "no_tract", "missing_coordina
 # Datenbewegung rot, und die erste Reaktion waere, sie hochzusetzen statt
 # hinzusehen.
 GATE_MINDESTENS = {
-    "inside_city": 90.0,      # gemessen 97,55
+    "inside_city": 90.0,      # gemessen 97,45
     "exact": 85.0,            # gemessen 95,49
 }
 GATE_HOECHSTENS = {
