@@ -91,6 +91,77 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 19.09.2026 · Alle vierzehn Notebooks Satz für Satz gegengelesen (#121)
+
+**Anlass.** Bei 01, 02 und 13 war es dasselbe Muster: Der Code stimmt, die Prosa
+daneben ist älter als er. Also alle vierzehn durchgegangen und jede Zahl in der
+Prosa gegen die Ausgabe derselben Zelle gehalten.
+
+### Zwei Notebooks lasen ihren eigenen Bestand falsch
+
+Das ist der schwerwiegendere Teil. `11_detroit_source` und `32_nibrs_source`
+lesen Bronze über `read_parquet` **aller** Laufdateien — ohne Entdopplung. Mit
+einem Lauf war das richtig. Heute liegen acht Detroit-Läufe übereinander, und
+das Notebook rechnete auf **452'980 Zeilen** für einen Jahrgang von 88'686:
+
+```
+Zeilen (Delikte)            : 452,980      →   88,686
+Vorfaelle (case_id)         :  80,234      →   80,234
+davon mit >1 Delikt         : 100.0%       →    9.4%
+Delikte je Vorfall im Mittel:   5.65       →    1.11
+```
+
+*„Delikte je Vorfall im Mittel: 5,65"* und *„100 % der Vorfälle haben mehr als
+ein Delikt"* — beides stand so im Beleg-Notebook zur Quelle. Beide Notebooks
+entdoppeln jetzt wie Silver: je Schlüssel die Fassung mit dem jüngsten
+Änderungsstempel. Bei Notebook 32 betraf es beide Städte (Chicago 260'852 →
+259'625).
+
+Damit fielen auch abgeleitete Zahlen an ihren Platz: Detroits Randleerzeichen
+von 145'374 auf 28'058, „ohne Koordinate" von 1'298 auf 259.
+
+### 24 Zahlen in der Prosa nachgeführt
+
+| Notebook | Beispiel | war | ist |
+| --- | --- | ---: | ---: |
+| 03 | Chicagoer Fälle ohne Koordinate | 0,7 % | **0,81 %** |
+| 11 | Chicago Zeilen / Fälle | 259'272 / 259'243 | **259'625 / 259'596** |
+| 11 | Detroit Taten / Fälle | 85'345 / 80'229 | **85'448 / 80'230** |
+| 11 | die drei offenen MICR-Codes | 1'647 Zeilen | **1'594** |
+| 22 | Schneeflag-Ausnahmen | 4 von 24'593 | **4 von 24'603** |
+| 31 | gesparter Platz | 85 % | **81 %** |
+| 32 | Zeilen auf `90Z` | 10'442 | **10'475** |
+| 34 | Chicagos Geo-Ausfall insgesamt | 0,67 % | **0,81 %** |
+| 34 | Betrug, Faktor zwischen den Städten | 18 | **20** |
+| 35 | Chicagoer Delikte ohne Koordinate | 1'748 | **2'098** |
+
+Dazu die Zahlen in der SVG-Grafik von Notebook 34 — sie trug noch 347'957 und
+344'617 und damit den Referenzstand vom 17.9.
+
+### Was geprüft wurde und stimmt
+
+**H4 hält weiterhin**: 185'228 von 259'625 Zeilen (71,3 %) stehen unter einer
+mehrdeutigen Kategoriebezeichnung. Die Hypothese hängt an Chicagos
+`primary_type` und ist von der heutigen Änderung an
+`source_offense_description` **nicht** berührt — das war die naheliegende
+Sorge und sie trifft nicht zu.
+
+Ebenfalls unverändert richtig: Notebook 03 entdoppelt korrekt und meldet es
+auch; Notebook 21 und 33 arbeiten auf Silver und sind davon nicht betroffen;
+die 434 IUCR- und 128 MICR-Zeilen, die 81 amtlichen NIBRS-Codes und die vier
+zurückgezogenen stehen unverändert.
+
+### Der Befund hinter dem Befund
+
+Zwei der drei ernsten Fehler dieser Woche haben dieselbe Ursache: **Ein
+Notebook, das „den Bestand" lesen will, liest in Wahrheit alle Läufe.** Das
+war richtig, solange es einen gab. Seit beide Städte Deltas laden, ist es
+falsch — und es fällt nicht auf, weil das Ergebnis plausibel aussieht.
+
+Gegenprobe nach allen Korrekturen: **14 von 14 grün**, kein neuer Bronze-Lauf.
+
+---
+
 ## 19.09.2026 · Notebook 02: eine Zusage, die nur lokal gilt (#121)
 
 **Anlass.** Dasselbe Durchsehen wie bei Notebook 01, diesmal für die
