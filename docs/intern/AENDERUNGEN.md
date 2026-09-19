@@ -91,6 +91,64 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 19.09.2026 · Notebook 31 stand noch vor seinem eigenen Entscheid (#121)
+
+Das Speicher-Notebook ist die Begründung dafür, dass Detroit auf Parquet
+umgestellt wurde. Es war aber durchgehend in der Zeitform von **vor** dieser
+Umstellung geschrieben: „Detroit legt NDJSON ab", „Heute übernimmt Detroits
+NDJSON beide Rollen", „Detroit kann die fehlende Raw-Schicht bekommen". Alles
+drei ist seit dem 11. beziehungsweise 14.09.2026 überholt — Detroit schreibt
+Parquet und hat eine eigene Raw-Schicht. Wer das Notebook heute liest, hielt den
+Ist-Zustand für den Plan.
+
+### Drei Faktoren waren veraltet
+
+Neu gemessen am Lauf `run_dd30…` (88'686 Zeilen, ganzer Tatjahrgang 2024):
+
+| Aussage in Abschnitt 7 | stand da | gemessen |
+| --- | --- | --- |
+| Parquet gegen NDJSON | rund 19-mal kleiner | **rund 14-mal** (89,4 gegen 6,5 MB) |
+| Parquet gegen gzip-NDJSON | rund 1,8-mal kleiner | **rund 1,7-mal** (10,9 gegen 6,5 MB) |
+| fünf Spalten über alle Zeilen | rund 6-mal schneller | **rund 5-mal** |
+
+Ebenso sprach Abschnitt 1 von einer „120-MB-Datei"; das rekonstruierte NDJSON
+misst 89,4 MB.
+
+### Neu: die Vorhersage gegen die Wirklichkeit
+
+Das Notebook hatte 81 % Platzersparnis versprochen. Der neue Abschnitt 9 rechnet
+nach, was davon eingetroffen ist:
+
+| | Modell (Abschnitt 6) | umgesetzt |
+| --- | --- | --- |
+| Raw | 10,9 MB | 10,4 MB |
+| Bronze | 6,5 MB | **16,7 MB** |
+| zusammen | 17,4 MB | **27,1 MB** |
+| gegenüber 89,4 MB NDJSON | 81 % weniger | **70 % weniger** |
+
+Die Lücke steckt vollständig in Bronze: **ohne `_feature_json` wären es 6,0 MB
+statt 16,7** — das Modell hat Bronze also fast auf das MB genau getroffen. Die
+10,7 MB Differenz sind eine Entscheidung, die nach dieser Evaluation fiel: Bronze
+behielt die Spalte mit dem geparsten Quellfeature, obwohl Raw seit dem 14.9. die
+HTTP-Bytes ohnehin aufbewahrt. Die Antwort der Quelle liegt damit zweimal auf der
+Platte — bewusst, denn das geparste Feature „genügt für die Auswertung, ist aber
+kein Beweis" (Modulkopf `extract_detroit`).
+
+**Die 81 % sind damit nicht erreicht und dürfen nicht als erreicht zitiert
+werden.** Erreicht sind 70 %, und die Begründung für die Differenz steht jetzt im
+Notebook.
+
+### Geprüft und unverändert
+
+Der Befund selbst hält in jedem Punkt: `count(*)` liest bei Parquet nur die
+Metadaten (`COLUMN_DATA_SCAN` gegen `READ_JSON_AUTO`), das vollständige
+Materialisieren bleibt bei Faktor 1,3, und NDJSON rät sein Schema über alle drei
+Stichprobengrössen stabil — das Argument *für* NDJSON, das das Notebook
+ausdrücklich stehen lässt. Auch der Verweis auf Absprache 4.2 („Hängt von 4.1
+ab") stimmt weiterhin.
+
+---
+
 ## 19.09.2026 · Notebook 22 zählte vier Flag-Aussagen falsch (#121)
 
 Die Wetterquelle ist die am gründlichsten erkundete des Projekts — und genau in

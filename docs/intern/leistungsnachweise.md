@@ -404,9 +404,9 @@ oder pyarrow. Für die Fehlersuche an einer neuen Quelle ist das ein echter
 Vorteil.
 
 **Der stärkste Befund ist nicht die Geschwindigkeit.** Detroits NDJSON
-übernimmt heute zwei Rollen gleichzeitig: Beweisstück und abgeleitete Tabelle.
-Zieht man es auf die Konvention der anderen drei Quellen nach, kostet die
-zusätzliche Schicht nichts, sie spart:
+übernahm bis zum 11.9.2026 zwei Rollen gleichzeitig: Beweisstück und abgeleitete
+Tabelle. Zieht man es auf die Konvention der anderen drei Quellen nach, kostet
+die zusätzliche Schicht nichts, sie spart:
 
 ```text
 heute        Bronze NDJSON                89,4 MB
@@ -414,6 +414,16 @@ nachgezogen  Raw    NDJSON + gzip          10,9 MB
              Bronze Parquet snappy          6,5 MB
              zusammen                       17,4 MB   → 81 % weniger
 ```
+
+> **Nachgerechnet am 19.09.2026 (Christian).** Das sind die Zahlen der
+> *Evaluation*, also des Modells. In der Umsetzung liegen Raw und Bronze
+> zusammen bei **27,1 MB** statt 17,4 — das sind **70 % weniger**, nicht 81 %.
+> Bronze traf das Modell fast genau (6,0 statt 6,5 MB), trägt aber zusätzlich
+> `_feature_json` mit dem geparsten Quellfeature und kommt damit auf 16,7 MB.
+> Diese Spalte kam nach der Evaluation dazu und ist Absicht: Raw hält die
+> HTTP-Bytes als Beweis, `_feature_json` die auswertbare Fassung. Die 81 %
+> bleiben als Messergebnis richtig, sind aber nicht der erreichte Wert;
+> Notebook 31 Abschnitt 9 rechnet beides gegeneinander.
 
 **Ergebnis:** Parquet in Bronze, NDJSON komprimiert in Raw. Damit ist auch
 [Absprache 4.2](projektabsprache.md) entsperrt, deren Entscheid „Hängt von 4.1
