@@ -287,7 +287,16 @@ Millisekunde nimmt niemand wahr. Den Ausschlag geben drei Eigenschaften, die
 sich nicht messen lassen: Eine Kopie **kann veralten** — nach einem
 Silver-Neubau zeigt sie den alten Stand, ohne dass man es ihr ansieht. Sie ist
 eine **zweite Wahrheit** neben den Schichten, was Kapitel 7.2 ausdrücklich
-ausschliesst. Und sie kostet das 150-fache an Platz.
+ausschliesst. Und sie kostet gut das 200-fache an Platz.
+
+> **Nachgemessen am 20.09.2026 (Christian).** Die Messung stammt von drei
+> Silver-Tabellen; seither ist `place` dazugekommen. Auf dem heutigen Stand sind
+> es **vier Tabellen mit 412'264 Zeilen und 49,4 MB Parquet**. Die Zeiten halten
+> sich (Sichten weiter gleich schnell bis knapp schneller, Ergebnisse identisch
+> geprüft), der Platzunterschied wächst: Sichten 0,3 MB gegen Kopie rund 62 MB,
+> also **gut das 200-fache** statt des 150-fachen. Notebook 33 rechnet den Faktor
+> jetzt selbst aus, damit er nicht wieder veraltet.
+
 
 **Eigene Abfragen und eigene Tabellen.** Die Datei ist eine echte Datenbank;
 wer ein Zwischenergebnis behalten will, legt daneben `CREATE TABLE meins AS

@@ -525,6 +525,15 @@ Auch hier sind Sichten nicht langsamer, teils schneller. Ergebnisse in beiden
 Messungen identisch geprüft. Methodik:
 [`notebooks/33_serving_evaluation.ipynb`](../../notebooks/33_serving_evaluation.ipynb).
 
+> **Nachgemessen am 20.09.2026 (Christian).** Die Messung stammt von drei
+> Silver-Tabellen; seither ist `place` dazugekommen. Auf dem heutigen Stand sind
+> es **vier Tabellen mit 412'264 Zeilen und 49,4 MB Parquet**. Die Zeiten halten
+> sich (Sichten weiter gleich schnell bis knapp schneller, Ergebnisse identisch
+> geprüft), der Platzunterschied wächst: Sichten 0,3 MB gegen Kopie rund 62 MB,
+> also **gut das 200-fache** statt des 150-fachen. Notebook 33 rechnet den Faktor
+> jetzt selbst aus, damit er nicht wieder veraltet.
+
+
 **Entscheid: Sichten, keine Kopie.** Nicht wegen der Geschwindigkeit — die ist
 ein Gleichstand —, sondern weil eine Kopie veralten kann, ohne dass man es ihr
 ansieht, und weil sie eine zweite Wahrheit neben den unveränderlichen Schichten

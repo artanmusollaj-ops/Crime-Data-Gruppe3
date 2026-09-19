@@ -91,6 +91,41 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 20.09.2026 · Notebook 33 zählte noch drei Silver-Tabellen (#121)
+
+Die Serving-Evaluation vergleicht Sichten gegen Kopie über „die drei
+Silver-Tabellen, 410'000 Zeilen". Seit `place` dazukam sind es **vier**, und die
+Zahlen darunter wachsen mit:
+
+| Aussage | stand da | gemessen |
+| --- | --- | --- |
+| Tabellen und Zeilen | drei, 410'000 | **vier, 412'264** |
+| Parquet zusammen | 36 MB | **49,4 MB** |
+| Platzfaktor Kopie zu Sichten | das 150-fache | **gut das 200-fache** (0,3 gegen rund 62 MB) |
+
+Der Befund selbst ist davon unberührt und hat sich sogar verstärkt: Sichten
+bleiben gleich schnell bis knapp schneller, alle vier Gegenproben liefern
+identische Ergebnisse, und die Kopie zeigt nach einem Neubau der Quelle weiter
+den alten Stand (1 statt 100 Zeilen), während die Sicht sofort nachzieht.
+
+### Der Faktor wird jetzt gerechnet
+
+Die Zelle in Abschnitt 2 gibt ihn selbst aus, statt ihn in der Prosa
+festzuschreiben. Er hängt an der Zahl der Silver-Tabellen und schwankt zudem um
+ein paar Prozent, weil DuckDB seine Datei nicht byteweise gleich gross baut —
+zwei Läufe ergaben 225 und 227. Eine feste Zahl im Text wäre genau die Sorte
+Angabe, die beim nächsten Silver-Neubau still falsch wird.
+
+### In den Abgabedokumenten nachgeführt
+
+`ln1_konzept.md` 7.3 nannte das 150-fache; korrigiert auf gut das 200-fache. In
+`projektabsprache.md` 7.1 bleibt das Messprotokoll von damals stehen — es ist ein
+Protokoll, kein Ist-Zustand — und trägt jetzt eine datierte Anmerkung mit den
+Zahlen des heutigen Stands. Die Millisekunden-Werte in beiden Dokumenten liegen
+weiter im Rahmen der Neumessung und bleiben unverändert.
+
+---
+
 ## 19.09.2026 · Die sieben amtlichen Unterlagen haben jetzt eine Herkunft (#121)
 
 `docs/quellen/` hielt sieben Binärdateien — 8,8 MB PDF und XLSX —, aus denen die
