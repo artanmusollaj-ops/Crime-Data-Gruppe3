@@ -68,14 +68,14 @@ Die fünf Quellen ändern sich unterschiedlich, und die Ladestrategie folgt dem
 | Quelle | Strategie | Warum |
 | --- | --- | --- |
 | Chicago | **Delta** über `updated_on`, 14 Tage Überlappung | Ein Wasserzeichen sagt, ab wann; die Überlappung fängt Nachmeldungen |
-| Detroit | **Delta** über `updated_at` im Tatjahrgang, 14 Tage Überlappung | Derselbe Weg, aber mit zwei Bedingungen: **54,6 %** des Jahrgangs 2024 wurden *mehr als ein Jahr nach der Tat* noch geändert — ein Delta nach Tatdatum verpasst genau diese Korrekturen |
+| Detroit | **Delta** über `updated_at` im Tatjahrgang, 14 Tage Überlappung | Derselbe Weg, aber mit zwei Bedingungen: **55,9 %** des Jahrgangs 2024 wurden *mehr als ein Jahr nach der Tat* noch geändert — ein Delta nach Tatdatum verpasst genau diese Korrekturen |
 | TIGER, ACS | **eingefroren** | Eine feste Vintage; ein erneutes Laden wäre ein anderer Jahrgang, kein neuerer Stand |
 | NOAA | **Vollschnappschuss je Station** | Die Quelle liefert den ganzen Verlauf; der jüngste Lauf löst den vorigen ab |
 
 Die letzte Zeile ist der Grund, warum die Publish-Sperre am 17.9.2026 umgebaut
 werden musste: Sie hielt einen **abgelösten** Lauf für einen **fehlenden**.
 
-**Detroits zweite Bedingung ist die eigentliche Arbeit.** Die 54,6 % sagen
+**Detroits zweite Bedingung ist die eigentliche Arbeit.** Die 55,9 % sagen
 nicht, dass kein Delta geht, sondern worauf es gehen muss. Gemessen über vier
 Schnappschüsse: 1'270 Zeilen änderten sich inhaltlich, **jede einzelne** mit
 einem neuen `updated_at`, keine ohne. Der Jahresfilter bleibt auf der Tatzeit —
@@ -216,8 +216,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'229 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'138 davon — die übrigen 20 brauchen gebaute Daten; 71 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 1'274 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'183 davon — die übrigen 20 brauchen gebaute Daten; 71 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 70 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 

@@ -214,7 +214,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 1'158 ausgeführte Tests, ohne Netzzugriff und ohne
+Erwartet wird **grün**: 1'203 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -224,7 +224,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'229
+python -m pytest -m ""               # beides zusammen, alle 1'274
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -328,9 +328,11 @@ python -m census_pipeline.download_acs
 python -m weather_pipeline.download_noaa
 ```
 
-**Worauf Detroits Delta geht — und warum nicht aufs Tatdatum.** 54,6 % des
-Jahrgangs 2024 wurden *mehr als ein Jahr nach der Tat* noch geändert
-([Notebook 13](notebooks/13_detroit_data_quality.ipynb), Schritt 12). Ein Delta
+**Worauf Detroits Delta geht — und warum nicht aufs Tatdatum.** **55,9 %** des
+Jahrgangs 2024 wurden *mehr als ein Jahr nach der Tat* noch geändert — gemessen
+am Schnappschuss vom 18.9.2026 in
+[Notebook 13](notebooks/13_detroit_data_quality.ipynb), Schritt 12. Die Zahl
+steigt mit jedem Schnappschuss; am 17.9. waren es 54,6 %. Ein Delta
 nach Tatdatum hätte keine einzige dieser Korrekturen gesehen — daran ist der
 erste Versuch gescheitert, und bis zum 18.9.2026 lud Detroit deshalb jedes Mal
 den ganzen Jahrgang.
@@ -708,7 +710,7 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 python -m pytest
 ```
 
-**1'229 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'274 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -745,7 +747,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'138 der 1'158 Tests** des Standardlaufs. Die
+In einem frischen Klon laufen **1'183 der 1'203 Tests** des Standardlaufs. Die
 übrigen 20 überspringen sich selbst, weil sie gebaute Daten brauchen und `data/`
 nicht versioniert ist; die 71 Referenzstand-Wächter sind ohnehin abgewählt.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks

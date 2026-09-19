@@ -2,7 +2,7 @@
 
 Bis zum 18.9.2026 lud Detroit den Jahrgang 2024 bei jedem Gesamtlauf ganz -
 88'686 Zeilen fuer die paar Dutzend, die sich geaendert hatten. Chicago machte
-es laengst anders. Der Grund fuer den Unterschied war ein gemessener: **54,6 %**
+es laengst anders. Der Grund fuer den Unterschied war ein gemessener: **55,9 %**
 des Jahrgangs 2024 wurden mehr als ein Jahr nach der Tat noch geaendert
 (Notebook 13, Schritt 12) - ein Delta nach *Tatdatum* haette keine dieser
 Korrekturen gesehen.

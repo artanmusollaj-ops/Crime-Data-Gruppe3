@@ -198,7 +198,7 @@ def build_delta_where(year: int, updated_from: datetime | None) -> str:
     * **Nur ``incident_occurred_at``** brachte jedes Mal den ganzen Jahrgang.
       Ein Delta darauf waere sinnlos: Das Tatdatum aendert sich nicht, wenn ein
       Fall korrigiert wird. Genau daran ist der erste Versuch gescheitert -
-      **54,6 %** des Jahrgangs 2024 wurden mehr als ein Jahr nach der Tat noch
+      **55,9 %** des Jahrgangs 2024 wurden mehr als ein Jahr nach der Tat noch
       geaendert (Notebook 13, Schritt 12), und ein Delta nach Tatdatum haette
       keine einzige dieser Korrekturen gesehen.
 

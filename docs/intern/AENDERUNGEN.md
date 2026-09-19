@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'229** |
+| Tests | **1'274** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -91,6 +91,66 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 19.09.2026 · Drei Notebooks liefen nicht mehr (#121)
+
+**Anlass.** Alle vierzehn Notebooks einmal ausgeführt und ihren Inhalt gegen
+den gebauten Stand gehalten. **Elf liefen, drei nicht.**
+
+| Notebook | Ursache | seit |
+| --- | --- | --- |
+| `12_detroit_bronze_ingestion` | sucht das Paket im Projekt-Root, es liegt unter `src/crime/` | dem Umzug des Codes |
+| `13_detroit_data_quality` | nimmt den jüngsten Lauf als Jahresschnappschuss | dem Delta-Umbau, 18.9. |
+| `35_kontrollen` | baut eine Minimaltabelle mit „genau den Spalten, die `reconcile` liest" | der Erweiterung von `reconcile` |
+
+**Notebook 13 ist der inhaltlich wichtigste Fall.** Es beschreibt Detroits
+Jahrgang und nahm dafür `laeufe[-1]`. Seit dem 18.9. ist das ein **Delta** mit
+3'184 Zeilen — eine Änderungsmenge, kein Bestand. Schritt 3 verglich damit
+einen Vollschnappschuss gegen ein Delta, fand keine Feldunterschiede und stürzte
+beim Sortieren einer leeren Tabelle ab.
+
+Es trennt jetzt Schnappschüsse von Deltas und rechnet auf dem jüngsten
+Vollschnappschuss. Schritt 3 vergleicht den **ältesten gegen den jüngsten** —
+alle fünf ziehen dasselbe Abfragefenster, sind also vergleichbar, und die
+weiteste Spanne ist die stärkste Evidenz. Statt drei Stunden liegen nun
+**6 Tage 22 Stunden** dazwischen: 1'129 geänderte Beschreibungen, davon 113 mit
+wirklich anderem Wert.
+
+**Eine Zahl ist dabei gewandert.** Das Notebook misst den Anteil des Jahrgangs,
+der mehr als ein Jahr nach der Tat noch geändert wurde. Dokumentiert waren
+**54,6 %**; auf dem Schnappschuss vom 18.9. sind es **55,9 %**. Nachgeführt in
+README 2.1, `architektur-ist-und-ziel.md`, dem Einseiter, dem Docstring von
+`build_delta_where` und den beiden Testdateien. Die Aussage wird dadurch
+stärker, nicht schwächer — und der Weg der Zahl steht jetzt im README.
+
+**Was den Fund verzögert hat.** Der wöchentliche Datenlauf führt **8 der 14**
+Notebooks aus; die sechs ladenden bleiben bewusst aussen vor, weil sie an sechs
+fremden Diensten hängen. Notebook 12 gehört dazu — es war seit Wochen kaputt,
+und kein roter Lauf zeigte darauf.
+
+Die Lücke schliesst jetzt `tests/test_notebooks.py` von der anderen Seite:
+**ohne Ausführung, ohne Netz.** Geprüft wird, dass jede Wurzelprobe auf einen
+vorhandenen Pfad zeigt, dass jeder importierte Name der Strecke existiert und
+dass ein ladendes Notebook nicht unbemerkt in den Bestand schreibt. Genau das
+hätte Notebook 12 auf jedem Pull Request gefangen.
+
+**Zwei Regeln des Wächters waren zuerst falsch** — und die Notebooks hatten
+recht:
+
+* `02_chicago_bronze_ingestion` lädt mit `RUN_DOWNLOAD = True`, schreibt aber
+  in ein Wegwerfverzeichnis unter `tempfile.gettempdir()` und räumt auf. Dort
+  ist der eingeschaltete Download richtig; ohne ihn wäre die Vorführung
+  wertlos. Die Regel lautet jetzt: **Schalter aus oder Wegwerfverzeichnis.**
+* `32_nibrs_source` legt bewusst den Projekt-Root auf `sys.path` — es
+  importiert `tests.config.*`, nicht die Strecke. Die Regel gilt jetzt nur für
+  Notebooks, die ein Paket aus `src/crime` importieren.
+
+**Gegenprobe.** Nach den Reparaturen alle vierzehn ausgeführt: **14 von 14
+grün**, und kein einziger neuer Bronze-Lauf dabei entstanden.
+
+**Zahlen.** 1'229 → **1'274 Tests**.
+
+---
+
 ## 19.09.2026 · Die internen Dokumente liegen in `docs/intern/` (#121)
 
 **Der Entscheid dahinter.** Der Inhalt der Vertiefungen **wandert in das
@@ -126,7 +186,7 @@ Konzept 11.5 vergleicht verlinkte Dokumentnamen. Nach dem Umzug stand dort
 — der Vergleich wäre auf **zwei leere Mengen** zusammengefallen und weiter grün
 gewesen. Verglichen wird jetzt der Dateiname ohne Ordner.
 
-**Zahlen.** 1'226 → **1'229 Tests**. In `docs/` liegen 12 Dokumente statt 17.
+**Zahlen.** 1'226 → **1'274 Tests**. In `docs/` liegen 12 Dokumente statt 17.
 
 ---
 
@@ -168,7 +228,7 @@ sagt, **wo** die Abgabe stattdessen liegt.
 Der Eintrag vom 18.9. hat einen Nachtrag bekommen, statt umgeschrieben zu
 werden. Er beschreibt, was damals galt.
 
-**Zahlen.** 1'224 → **1'229 Tests**.
+**Zahlen.** 1'224 → **1'274 Tests**.
 
 ---
 
@@ -235,7 +295,7 @@ Storage-Evaluation ausdrücklich, und ein Ausblick gehört in einen solchen
 Bericht. Sie stehen jetzt im Anhang. Abgabe und Anhang sind damit **zehn**
 Dokumente, intern **fünf**.
 
-**Zahlen.** 1'222 → **1'229 Tests**.
+**Zahlen.** 1'222 → **1'274 Tests**.
 
 ---
 
@@ -298,7 +358,7 @@ sind nicht abgeschaltet, sie haben einen eigenen Aufruf:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese 71 Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'229
+python -m pytest -m ""               # beides zusammen, alle 1'274
 ```
 
 **Warum.** Am Morgen meldete die Suite **34 Fehlschläge**. Keiner davon war ein
@@ -326,7 +386,7 @@ statt der Summenzeile nur noch die Zahlen je Datei, und die Regex fand nichts.
 Zwei Tests standen auf grün, ohne je etwas geprüft zu haben. Der Wächter misst
 seither die **Ausgabe** statt der Einstellung.
 
-**Zahlen.** 1'211 → **1'229 Tests** (fünf neue in
+**Zahlen.** 1'211 → **1'274 Tests** (fünf neue in
 `tests/test_referenzstand_marker.py`). Standardlauf: 1'145 ausgeführt, 71
 abgewählt. Frischer Klon: 1'125 von 1'145, die übrigen 20 brauchen Daten.
 
@@ -396,7 +456,7 @@ Beschluss keine mehr dazu.** Das verschiebt nichts an der Empfehlung in
 [`datenhistorie.md`](datenhistorie.md) 5.2 — es macht sie dringlicher und gilt
 jetzt für beide Städte.
 
-**Wächter.** 1'179 → **1'229 Tests**. 25 davon in
+**Wächter.** 1'179 → **1'274 Tests**. 25 davon in
 `tests/detroit_pipeline/test_detroit_delta.py`, und dort wendet der
 Fake-Client den Delta-Filter *wirklich* an, statt immer alles zu liefern — ein
 Fake, der alles zurückgibt, bestünde auch einen Test, dessen Abfrage nichts
