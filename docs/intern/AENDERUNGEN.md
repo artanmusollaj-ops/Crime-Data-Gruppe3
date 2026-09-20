@@ -91,6 +91,44 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 20.09.2026 · Der Cachezustand in H6 war behauptet, nicht gemessen (#121)
+
+Christian ist beim Lesen von Notebook 36 über diese Zeile gestolpert:
+
+```python
+print(f"   Cachezustand: warm -- die Daten lagen vom vorigen Lauf im "
+      f"Seitencache des Betriebssystems")
+```
+
+**Zu Recht.** Im Block „Umgebung" wird alles andere gemessen —
+`platform.system()`, `duckdb.__version__`, die Dateigrösse aus `stat()`. Der
+Cachezustand war der einzige fest verdrahtete String, und er trug eine
+Begründung mit sich, die selbst eine Annahme über das Betriebssystem ist.
+
+Inhaltlich war die Aussage plausibel: Die drei Läufe folgen unmittelbar
+aufeinander, und H2 liest kurz davor alle sechs Tabellen. Plausibel ist aber
+nicht gemessen, und genau das ist der Anspruch dieses Notebooks.
+
+### Jetzt wird es gezeigt
+
+Wer alle Parquet-Dateien liest und dabei einen Durchsatz erreicht, den keine
+SSD liefert, hat sie aus dem Arbeitsspeicher gelesen. Gemessen: **61,6 MB in 9
+Dateien in 4 ms, also 16 bis 18 GB/s** — ein Mehrfaches dessen, was eine
+NVMe-SSD schafft. Die Zelle prüft die Schwelle selbst und schreibt
+„Cachezustand: unklar", wenn der Durchsatz unter 10 GB/s liegt; dann wäre er
+auch von Platte möglich.
+
+### Und dass es für den Befund nicht trägt
+
+Der wichtigere Teil. Das vollständige Lesen kostet 4 ms; selbst zwanzigmal
+langsamer wären es 0,1 s gegen rund 27 s Laufzeit. Der warme Cache ist hier
+also **keine Einschränkung**, sondern eine Randnotiz — anders als in den
+Notebooks 31 und 33, wo Lesen gegen Lesen verglichen wird und er den
+gemessenen Vorteil tatsächlich drückt. Auch das steht jetzt gerechnet in der
+Zelle statt als Vorbehalt in der Prosa.
+
+---
+
 ## 20.09.2026 · Das erste Release aus sauberem Arbeitsbaum (#121)
 
 **Neues Release** `2026-09-19T23-05-26Z`, 21 Dateien, 42,2 MB — und das erste
