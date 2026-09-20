@@ -49,8 +49,8 @@ Welche Felder sich geändert haben:
 Durchweg vom spezifischen zum allgemeinen Code. Das ist keine Korrektur
 einzelner Tippfehler, das sieht nach einer Regel aus.
 
-`3072` ist dabei kein beliebiger Code. Er trägt **1'443 Anklagen** in
-`silver/crime_offense` und davon **1'403 zählende Taten** in
+`3072` ist dabei kein beliebiger Code. Er trägt **1'404 Anklagen** in
+`silver/crime_offense` und davon **1'365 zählende Taten** in
 `gold/fact_offense` — alle mit `mapping_status = ambiguous`. Eine Umcodierung
 dort verschiebt die NIBRS-Zuordnung und damit die Vergleichszahl.
 

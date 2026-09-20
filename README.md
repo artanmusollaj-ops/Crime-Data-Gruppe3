@@ -218,13 +218,13 @@ Erwartet wird **grün**: 1'203 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
-Die Summenzeile nennt daneben **71 abgewählte**. Das sind die Wächter mit dem
+Die Summenzeile nennt daneben **75 abgewählte**. Das sind die Wächter mit dem
 Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'293
+python -m pytest -m ""               # beides zusammen, alle 1'297
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -710,7 +710,7 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 python -m pytest
 ```
 
-**1'293 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'297 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -774,7 +774,7 @@ das und sagt, was fehlt.
 
 **Drift statt Rot.** Die Quellen bewegen sich jede Woche — Detroit ändert
 Einträge noch Jahre nach der Tat, Chicago liefert Deltas. Die Wächter, die
-dokumentierte Zahlen gegen Parquet halten (Marker `referenzstand`, 70 Stück),
+dokumentierte Zahlen gegen Parquet halten (Marker `referenzstand`, 74 Stück),
 laufen im Datenlauf deshalb **nicht**; sie gelten für den Referenzstand auf deinem
 Rechner. Stattdessen weist `orchestration.drift` je Grösse aus, wie weit der
 dokumentierte Stand vom frischen entfernt ist — als Tabelle in der

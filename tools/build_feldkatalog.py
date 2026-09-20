@@ -155,7 +155,7 @@ JE_TABELLE: dict[tuple[str, str], str] = {
     ("crime_offense", "counts"):
         "**Die zählende Zeile je Tat.** Detroit liefert je Vorfall mehrere "
         "Anklagen; genau eine trägt `true`. Gold nimmt nur diese - sonst "
-        "zählte Detroit 3,9 % zu hoch.",
+        "zählte Detroit 3,8 % zu hoch.",
     ("crime_offense", "counts_reason"):
         "Warum diese Zeile zählt oder nicht: `eine_zeile_ist_ein_delikt` "
         "(Chicago), `anklage_ist_die_tat`, `schwerste_anklage`, "

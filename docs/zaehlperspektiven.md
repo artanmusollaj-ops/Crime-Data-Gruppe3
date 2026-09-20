@@ -61,7 +61,7 @@ das Ergebnis, erscheint dieser Vorfall zweimal.
 | | Vorfälle | davon in mehr als einer Familie | je Familie summiert |
 | --- | ---: | ---: | ---: |
 | Chicago | 259'596 | 0 (0,0 %) | 259'596 — passt |
-| Detroit | 80'230 | 6'758 (8,4 %) | 87'607 — **7'377 zu viel (9,2 %)** |
+| Detroit | 80'230 | 4'233 (5,3 %) | 84'799 — **4'569 zu viel (5,7 %)** |
 
 Chicagos Null ist keine bessere Datenlage, sondern dieselbe
 Granularitäts-Eigenheit wie oben: Ein Chicagoer „Vorfall" ist fast immer ein
@@ -111,8 +111,8 @@ Wochen beginnen am Montag, der Jahrgang beginnt am 1. Januar. Das passt
 selten zusammen.
 
 * **2024** beginnt an einem Montag — die erste Woche ist ausnahmsweise
-  vollständig: 6'694 Taten.
-* Die letzte Woche (ab Montag, 30.12.) enthält nur **zwei Tage**: 1'647 Taten.
+  vollständig: 6'711 Taten.
+* Die letzte Woche (ab Montag, 30.12.) enthält nur **zwei Tage**: 1'650 Taten.
 
 Wer die Wochenreihe ohne Hinweis zeichnet, sieht am Jahresende einen Einbruch
 um drei Viertel, der keiner ist. **Der Beginn einer Periode ist nicht das
@@ -160,8 +160,8 @@ Prüfung `gegen_crosswalk` stellt sicher, dass Silver das trägt, was der
 Crosswalk *heute* sagt. Ob der Crosswalk recht hat, steht darin nicht. Dafür
 gibt es nur die amtlichen Handbücher und die Zuordnungen, die als
 `ambiguous` markiert sind, weil wir sie entschieden haben: **20 in den
-Crosswalks, davon 16 mit Zeilen im Jahrgang 2024** (5'140 Zeilen). Die übrigen
-vier sind Entscheidungen zu Codes, die 2024 nicht vorkommen — getroffen, aber
+Crosswalks, davon 17 mit Zeilen im Jahrgang 2024** (5'122 Zeilen). Die übrigen
+drei sind Entscheidungen zu Codes, die 2024 nicht vorkommen — getroffen, aber
 nicht belegt.
 
 **Die Beschreibung ist nicht das Delikt.** Der Text in
@@ -178,10 +178,10 @@ nicht belegt.
 Für Detroit bleibt der Befund bestehen, und er hat eine andere Ursache: Dort
 sind es 54
 Beschreibungen; `ASSAULT AND BATTERY/SIMPLE ASSAULT` deckt **26 verschiedene
-NIBRS-Codes** über 16'837 Zeilen ab, weil die MICR-Beschreibung auf der Ebene
+NIBRS-Codes** über 16'806 Zeilen ab, weil die MICR-Beschreibung auf der Ebene
 der Deliktklasse steht und der Code eine Ebene darunter.
 
-Umgekehrt gilt dasselbe: **34 der 53** Chicagoer und **43 der 50** Detroiter
+Umgekehrt gilt dasselbe: **35 der 53** Chicagoer und **42 der 50** Detroiter
 NIBRS-Codes tragen mehr als eine Beschreibung. Wer gleiche Texte zusammenlegt,
 vermischt Delikte; wer verschiedene trennt, zerlegt eines.
 
@@ -219,9 +219,10 @@ lässt den Rest in Bronze stehen.
 Ein Widerspruch in diesen Feldern braucht deshalb den Rückgriff auf Bronze —
 und der ist umständlicher, als er klingt, denn **Silver führt keine
 Zeilen-Herkunft**. Das Manifest nennt unter `derived_from` die Läufe, aus denen
-die Tabelle entstanden ist (drei für Chicago, zwei für Detroit), aber nicht,
-aus welchem eine bestimmte Zeile stammt. Für Detroit gibt es diesen einen Lauf
-gar nicht: Beide Schnappschüsse enthalten **alle 88'685 Zeilen**. Wer
+die Tabelle entstanden ist (sieben für Chicago, acht für Detroit), aber nicht,
+aus welchem eine bestimmte Zeile stammt. Für Detroit half das lange gar nicht:
+Bis zum 18.9.2026 lud jeder Lauf den ganzen Jahrgang, und jeder Schnappschuss
+enthielt damit **alle 88'686 Zeilen**. Wer
 zurückverfolgen will, sucht den Schlüssel in den genannten Läufen — die
 Zeilen-Lineage selbst liegt in den Bronze-Manifesten, nicht in Silver.
 

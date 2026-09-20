@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'293** |
+| Tests | **1'297** |
 | `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,82 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 20.09.2026 · Ein Wächter hält die Dokumentzahlen gegen das Release (#121)
+
+`tests/test_dokumentzahlen.py`, vier Tests, Marke `referenzstand`. Er schliesst
+die Lücke, durch die in dieser Woche die halbe Dokumentation veraltet ist, ohne
+dass etwas rot wurde.
+
+### Wie er prüft
+
+**Nicht** „steht Zahl X an Stelle Y" — das wäre eine zweite Liste, die selbst
+veraltet. Sondern umgekehrt: Er misst die Kennzahlen aus `release.json` und den
+Schichten darunter, sammelt jede Tausenderzahl aus den Dokumenten und meldet
+jede, die einer Kennzahl **nahe** ist, ohne eine zu sein. Das ist genau die
+Signatur einer veralteten Fassung.
+
+Die Schwelle liegt bei **0,3 %**. Die tatsächlich gefundenen Abweichungen lagen
+zwischen 0,001 % und 0,14 %; die nächstgelegene echte Nachbarzahl (`88'278`
+gegen `88'686`) bei 0,46 %. Gegengeprobt: `348'311` in `README.md` zu `347'957`
+zurückgedreht meldet er
+
+```
+README.md:40  347'957 sieht aus wie eine veraltete Fassung von
+              silver/crime_offense = 348'311
+```
+
+Zahlen auf `'000` bleiben aussen vor — „rund 348'000" ist eine Näherung, keine
+Kennzahl. Zeilen, die einen Lauf oder eine datierte Messung festhalten, stehen
+in `SCHUTZ` und dürfen veralten; das ist ihr Zweck.
+
+**Wann er läuft.** Weder auf Pull Requests noch im Datenlauf — beide hätten den
+falschen Datenstand, der eine gar keinen, der andere einen frischeren als die
+Dokumente. Er gehört zu `python -m pytest -m referenzstand`, gegen den
+gepinnten Stand, und dort vor allem vor einer Abgabe.
+
+### Der volle `referenzstand`-Lauf deckte zehn weitere Stellen auf
+
+Zum ersten Mal in dieser Woche komplett gefahren. Er fand, was der
+Zahlensweep nicht sehen konnte:
+
+| Dokument | stand da | gemessen |
+| --- | --- | --- |
+| `zaehlperspektiven.md` erste Woche 2024 | 6'694 Taten | **6'711** |
+| letzte Woche 2024 | 1'647 Taten | **1'650** |
+| `ASSAULT AND BATTERY/SIMPLE ASSAULT` | 16'837 Zeilen | **16'806** |
+| Codes mit mehreren Beschreibungen | 34 Chicago, 43 Detroit | **35** und **42** |
+| `ambiguous` mit Zeilen 2024 | 16 (5'140 Zeilen) | **17** (5'122), übrige **drei** |
+| Läufe im Silver-Manifest | drei Chicago, zwei Detroit | **sieben** und **acht** |
+| Detroit-Zeilen in Silver | 88'685 | **88'686** |
+| `datenhistorie.md`, Code `3072` | 1'443 Anklagen, 1'403 Taten | **1'404** und **1'365** |
+
+### Eine eigene Korrektur
+
+Meine Nachführung von Detroits Mehrfamilien-Vorfällen war **falsch**: Ich hatte
+auf allen Silver-Zeilen gerechnet und kam auf 6'758 (8,4 %). Das Dokument
+rechnet auf der **Tatebene**, also auf `fact_offense`, und dort sind es
+**4'233 (5,3 %)**, der Überhang **4'569 statt 7'377**. Aufgefallen ist es dem
+bestehenden Wächter `test_die_mehrfamilien_vorfaelle_stimmen`, nicht mir. Der
+neue Wächter rechnet jetzt ebenfalls auf der Tatebene, und ein Kommentar
+dort sagt, warum.
+
+### Zwei Wächter spiegelten selbst einen überholten Stand
+
+`test_der_manifesteintrag_nennt_die_zahl_der_laeufe` verlangte fest `(3, 2)`
+Läufe; beide Städte laden inzwischen Deltas, und die Zahl wächst mit jedem. Und
+`test_die_mehrdeutigen_beschreibungen_stimmen` prüfte Chicagos
+Beschreibungs-Mehrdeutigkeit gegen einen Vertrag, den es seit dem 19.9. nicht
+mehr gibt — seit beide IUCR-Hälften in `source_offense_description` stehen, ist
+der Anteil null. Er prüft jetzt die Null.
+
+Ausserdem trug `tools/build_feldkatalog.py` Detroits Überzählung mit „3,9 %"
+hartkodiert; der Feldkatalog ist erzeugt, und eine Handkorrektur darin hätte der
+nächste Lauf überschrieben.
+
+**Zahlen.** 1'293 → **1'297 Tests**, davon 75 abgewählt.
 
 ---
 
