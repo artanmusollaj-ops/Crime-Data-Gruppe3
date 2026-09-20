@@ -91,7 +91,7 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
-## 20.09.2026 · Das erste Architekturbild zählte 19 Kanten, hatte aber 23
+## 20.09.2026 · Das erste Architekturbild zählte 19 Kanten, hatte aber 23 (direkt auf main)
 
 Christian ist beim Lesen von `architektur.md` über das erste Bild gestolpert.
 **Zu Recht, und schlimmer als gedacht.**

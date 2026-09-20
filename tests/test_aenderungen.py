@@ -136,12 +136,20 @@ def test_der_kopf_nennt_die_raten(stand):
         )
 
 
-def test_jeder_eintrag_nennt_seinen_pull_request(text):
-    """Ohne die Nummer laesst sich die Begruendung nicht nachlesen."""
+def test_jeder_eintrag_nennt_seine_herkunft(text):
+    """Ohne den Verweis laesst sich die Begruendung nicht nachlesen.
+
+    Bis zum 20.9.2026 war das immer eine PR-Nummer. Seit PR #121 gemergt und
+    sein Branch geloescht ist, entsteht Arbeit auch direkt auf ``main`` - dann
+    ist der Commit der Verweis, und der Eintrag sagt ``(direkt auf main)``.
+    Verlangt bleibt, dass jeder Eintrag *irgendeine* nachschlagbare Herkunft
+    nennt; was nicht geht, ist gar keine.
+    """
     eintraege = re.findall(r"^## ([0-9]{2}\.[0-9]{2}\.[0-9]{4}.*)$", text, re.M)
     assert len(eintraege) >= 8, f"nur {len(eintraege)} Eintraege gefunden"
-    ohne = [e for e in eintraege if not re.search(r"\(#[0-9]+\)", e)]
-    assert not ohne, f"Eintraege ohne PR-Nummer: {ohne}"
+    ohne = [e for e in eintraege
+            if not re.search(r"\(#[0-9]+\)", e) and "(direkt auf main)" not in e]
+    assert not ohne, f"Eintraege ohne PR-Nummer oder Herkunftsvermerk: {ohne}"
 
 
 def test_die_eintraege_stehen_neueste_zuerst(text):
