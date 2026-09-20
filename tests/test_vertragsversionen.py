@@ -21,7 +21,7 @@ import pytest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-AENDERUNGEN = PROJECT_ROOT / "docs" / "AENDERUNGEN.md"
+AENDERUNGEN = PROJECT_ROOT / "docs" / "intern" / "AENDERUNGEN.md"
 
 # Datensatz im Register -> Modul, das seinen Vertrag haelt. Beide
 # TIGER-Auslieferungen kommen aus demselben Modul und teilen sich die Version.
@@ -87,16 +87,24 @@ def test_das_register_erfindet_keinen_datensatz(register):
     assert not unbekannt, f"im Register, aber ohne Code: {unbekannt}"
 
 
-def test_detroits_vertrag_steht_auf_zwei():
-    """Die Ausnahme mit Geschichte: seit dem Zeitzonen-Fix vom 11.9.2026.
+def test_detroits_vertrag_faellt_nie_zurueck():
+    """Die Ausnahme mit Geschichte - zwei Stufen, beide in den Daten sichtbar.
 
-    Detroit hatte die Idee vor allen anderen - die Zahl steht seither in den
-    Daten. Wer sie auf 1 zuruecksetzt, behauptet, die Laeufe vor dem Fix und
-    danach seien gleich zu lesen. Sie sind es nicht: 66 Faelle aus 2023.
+    Version 2 kam mit dem Zeitzonen-Fix vom 11.9.2026: Wer sie auf 1
+    zuruecksetzt, behauptet, die Laeufe davor und danach seien gleich zu lesen.
+    Sie sind es nicht - 66 Faelle aus 2023.
+
+    Version 3 kam am 18.9.2026 mit dem Delta-Ladeweg. Vorher enthielt jeder
+    Lauf den ganzen Jahrgang, seither nur noch das seit dem Wasserzeichen
+    Geaenderte. Wer einen Bestand zaehlt, muss das wissen: Ein Lauf ist seither
+    kein Bestand mehr, sondern eine Aenderungsmenge.
+
+    Geprueft wird nur die Richtung. Dass die Zahl *genau* die ist, die das
+    Register nennt, steht schon in ``test_die_version_steht_im_register``.
     """
     from detroit_pipeline import extract_detroit
 
-    assert extract_detroit.CONTRACT_VERSION == 2
+    assert extract_detroit.CONTRACT_VERSION >= 3
 
 
 # --------------------------------------------------------------------------

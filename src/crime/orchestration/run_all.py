@@ -79,8 +79,12 @@ class Stufe(NamedTuple):
 STUFEN: tuple[Stufe, ...] = (
     Stufe("ingestion", "chicago", "chicago_pipeline.download_chicago",
           quelle="city=chicago"),
+    # Seit dem 18.9.2026 ein Delta wie bei Chicago: Der erste Aufruf laedt den
+    # Jahrgang voll, spaetere nur, was sich seit dem Wasserzeichen geaendert
+    # hat. Der Filter geht ueber ``updated_at``, nicht ueber das Tatdatum -
+    # ein Delta nach Tatdatum saehe keine einzige Korrektur.
     Stufe("ingestion", "detroit", "detroit_pipeline.extract_detroit",
-          ("--mode", "full", "--years", "2024"), quelle="city=detroit"),
+          ("--mode", "delta", "--years", "2024"), quelle="city=detroit"),
     Stufe("ingestion", "tiger_tract", "census_pipeline.download_tiger",
           ("--auslieferung", "tract"), quelle="dataset=tiger_tract"),
     Stufe("ingestion", "tiger_place", "census_pipeline.download_tiger",

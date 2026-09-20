@@ -42,7 +42,7 @@ werden weiterhin bedient - wer heute dort liest, liest weiter; das Release ist
 der Weg fuer alles, was einen **ganzen** Stand braucht.
 
 **Was bewusst nicht hier steht:** Loeschen. Releases werden aufgehoben, bis
-eine Regel dafuer entschieden ist (``docs/datenhistorie.md``). Rund 15 MB
+eine Regel dafuer entschieden ist (``docs/intern/datenhistorie.md``). Rund 15 MB
 Parquet plus die Datenbank je Release - ein Jahr woechentlicher Releases ist
 unter einem Gigabyte.
 """

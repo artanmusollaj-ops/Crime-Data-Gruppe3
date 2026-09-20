@@ -20,8 +20,8 @@ den geladenen Daten erhoben, nicht geschätzt.
 
 | Quelle | Stand | Umfang | Schichten |
 | --- | --- | --- | --- |
-| **Chicago** | Pipeline fertig, getestet | 259'272 Fälle 2024, 3 Läufe (1 voll, 2 Delta) | raw + bronze |
-| **Detroit** | Pipeline fertig | 88'685 Fälle 2024, 1 Lauf, 32 Deliktkategorien | nur bronze |
+| **Chicago** | Pipeline fertig, getestet | 259'625 Fälle 2024, 3 Läufe (1 voll, 2 Delta) | raw + bronze |
+| **Detroit** | Pipeline fertig | 88'686 Fälle 2024, 1 Lauf, 32 Deliktkategorien | nur bronze |
 | **Census TIGER** | Pipeline fertig, getestet | 3'265 Tracts Illinois, 3'017 Michigan (Vintage 2024) | raw + bronze |
 | **Census ACS** | Pipeline fertig, getestet | dieselben Tracts, 3 Variablen | raw + bronze |
 | **Wetter (NOAA)** | Pipeline fertig, getestet | 29'181 Tage O'Hare (ab 1946), 26'264 Detroit Metro (ab 1942) | raw + bronze |
@@ -96,7 +96,7 @@ Leser aussagekräftiger ist.
 
 ### 2.4 Umgang mit der Geo-Lücke
 
-**Stand.** Aus dem Qualitäts-Notebook: 1'748 Chicago-Fälle (0,67 %) haben keine
+**Stand.** Aus dem Qualitäts-Notebook: 2'098 Chicago-Fälle (0,81 %) haben keine
 Koordinaten, und der Ausfall ist **nicht zufällig** — 4,3 % bei Delikten an
 Kindern, 3,7 % bei Sexualdelikten, gegenüber 0,4 % bei Diebstahl. Die Stadt
 unterdrückt die Verortung bei sensiblen Delikten.
@@ -301,7 +301,7 @@ neu ableiten, ohne die API erneut zu befragen.
 
 **Angeschaut am 9.9.2026 — Parquet ist besser.** Gemessen an denselben Daten in
 beiden Formaten, reproduzierbar in
-[`notebooks/31_storage_evaluation.ipynb`](../notebooks/31_storage_evaluation.ipynb):
+[`notebooks/31_storage_evaluation.ipynb`](../../notebooks/31_storage_evaluation.ipynb):
 
 | Kriterium | Ergebnis |
 | --- | --- |
@@ -375,8 +375,8 @@ Fälle nachträglich ändert.
 
 ## 5 · Silver und Gold
 
-**Stand.** Beide Schichten sind gebaut: `silver/crime_offense` (347'957
-Zeilen) und das Gold-Sternschema darauf (`fact_offense`, 344'617 Zeilen). Der
+**Stand.** Beide Schichten sind gebaut: `silver/crime_offense` (348'311
+Zeilen) und das Gold-Sternschema darauf (`fact_offense`, 345'073 Zeilen). Der
 früher hier genannte Detroit-eigene Normalisierer `transform_detroit.py` ist
 entfernt — er hätte eine zweite, unbelegte Kategorienzuordnung neben dem
 NIBRS-Crosswalk gehalten.
@@ -434,10 +434,10 @@ trägt.
 
 **Stand.** Alle vier Tabellen sind gebaut, jeweils mit Herkunftsnachweis über
 die Bronze-Läufe im Manifest: `tract` (6'282 Zeilen), `place` (2'206 Zeilen,
-die Stadtgrenzen), `weather_day` (55'449
-Zeilen, zwei Städte) und seit dem 10.9. `crime_offense` (347'957 Zeilen,
-259'272 Chicago und 88'685 Detroit; Detroits Zeilen sind Anklagen, je Tat
-zählt eine — Gold kommt damit auf 344'617).
+die Stadtgrenzen), `weather_day` (55'465
+Zeilen, zwei Städte) und seit dem 10.9. `crime_offense` (348'311 Zeilen,
+259'625 Chicago und 88'686 Detroit; Detroits Zeilen sind Anklagen, je Tat
+zählt eine — Gold kommt damit auf 345'073).
 
 Der frühere Vorbehalt, `crime_offense` müsse auf Artans Zeitzonen-Fix warten,
 trägt nicht mehr: Sein Branch ändert das **Abfragefenster** — welche Zeilen in
@@ -523,7 +523,16 @@ die sie ersetzen sollte.
 
 Auch hier sind Sichten nicht langsamer, teils schneller. Ergebnisse in beiden
 Messungen identisch geprüft. Methodik:
-[`notebooks/33_serving_evaluation.ipynb`](../notebooks/33_serving_evaluation.ipynb).
+[`notebooks/33_serving_evaluation.ipynb`](../../notebooks/33_serving_evaluation.ipynb).
+
+> **Nachgemessen am 20.09.2026 (Christian).** Die Messung stammt von drei
+> Silver-Tabellen; seither ist `place` dazugekommen. Auf dem heutigen Stand sind
+> es **vier Tabellen mit 412'264 Zeilen und 49,4 MB Parquet**. Die Zeiten halten
+> sich (Sichten weiter gleich schnell bis knapp schneller, Ergebnisse identisch
+> geprüft), der Platzunterschied wächst: Sichten 0,3 MB gegen Kopie rund 62 MB,
+> also **gut das 200-fache** statt des 150-fachen. Notebook 33 rechnet den Faktor
+> jetzt selbst aus, damit er nicht wieder veraltet.
+
 
 **Entscheid: Sichten, keine Kopie.** Nicht wegen der Geschwindigkeit — die ist
 ein Gleichstand —, sondern weil eine Kopie veralten kann, ohne dass man es ihr
@@ -648,7 +657,7 @@ Census, Wetter, Silver und die Referenztabellen sind Modulfunktionen mit
 `assert`, und `unittest` lädt die `conftest.py` gar nicht.
 
 Ein Runner weniger verhindert das nicht. Was es verhindert, ist
-[`tests/test_run_tests.py`](../tests/test_run_tests.py): Der Runner bekommt
+[`tests/test_run_tests.py`](../../tests/test_run_tests.py): Der Runner bekommt
 dort ein winziges Verzeichnis mit **je einem Test beider Stile** und muss beide
 finden. Gemessen wird die Fähigkeit, nicht der Bestand — der Test veraltet
 also nicht mit jeder neuen Testdatei. Gegenprobe: Dreht man den Runner auf
@@ -770,8 +779,8 @@ Wenn die Zeit knapp ist, sind das die Punkte, ohne die es nicht weitergeht:
 # Chicago, Jahrgang 2024 (erster Aufruf lädt voll, spätere als Delta)
 python -m chicago_pipeline.download_chicago --year 2024
 
-# Detroit, Jahrgang 2024
-python -m detroit_pipeline.extract_detroit --year 2024
+# Detroit, Jahrgang 2024 (erster Aufruf lädt voll, spätere als Delta)
+python -m detroit_pipeline.extract_detroit --mode delta --years 2024
 
 # Census: Geometrien und Attribute, beide Bundesstaaten
 python -m census_pipeline.download_tiger --vintage 2024

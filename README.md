@@ -37,32 +37,33 @@ vergleichbare Tabelle macht:
 
 | | |
 | --- | ---: |
-| `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | 344'617 Zeilen (eine Tat) |
+| `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | 345'073 Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 84'658 Delikte · 638'635 Einwohner · **132,6** je 1'000 |
+| Detroit | 84'761 Delikte · 638'635 Einwohner · **132,7** je 1'000 |
 
 Wo etwas ausführlich steht:
 
 | Was | Wo |
 | --- | --- |
+| **Welches Dokument für wen** — Abgabe, intern, erzeugt | [`docs/README.md`](docs/README.md) |
 | Konzept, Methode, Befunde | [`docs/ln1_konzept.md`](docs/ln1_konzept.md) |
 | Wie der Aufbau zusammenhängt | [`docs/architektur.md`](docs/architektur.md) |
 | Ist- und Ziel-Architektur, für den Leistungsnachweis | [`docs/architektur-ist-und-ziel.md`](docs/architektur-ist-und-ziel.md) |
 | Dieselbe Architektur auf **einer A4-Seite**, zum Ausdrucken | [`docs/architektur-einseiter.html`](docs/architektur-einseiter.html) |
 | Woher eine Zahl kommt, Stufe für Stufe | [`docs/eine-zahl.md`](docs/eine-zahl.md) |
-| Was beim Aufräumen verlorenginge | [`docs/datenhistorie.md`](docs/datenhistorie.md) |
+| Was beim Aufräumen verlorenginge | [`docs/intern/datenhistorie.md`](docs/intern/datenhistorie.md) |
 | Vier Arten zu zählen, und was sich nicht addiert | [`docs/zaehlperspektiven.md`](docs/zaehlperspektiven.md) |
 | Welche Kontrolle wo greift, vorgeführt | [`notebooks/35`](notebooks/35_kontrollen.ipynb) |
 | Die Hypothesen H1 bis H6, nachgewiesen | [`notebooks/36`](notebooks/36_hypothesen.ipynb) |
 | Jedes Modul, jede Funktion | [`docs/referenz/`](docs/referenz/index.html) |
 | Was jede Spalte bedeutet | [`docs/feldkatalog.md`](docs/feldkatalog.md) |
-| Was sich wann geändert hat und warum | [`docs/AENDERUNGEN.md`](docs/AENDERUNGEN.md) |
+| Was sich wann geändert hat und warum | [`docs/intern/AENDERUNGEN.md`](docs/intern/AENDERUNGEN.md) |
 | Würfel und Sternschema erklärt | [`docs/sternschema-und-wuerfel.md`](docs/sternschema-und-wuerfel.md) |
 | Wie die Ablage funktioniert: Modi, Publizieren, Holen, Releases | [`docs/storage-architektur.md`](docs/storage-architektur.md) |
 | Was als Nächstes anstünde und warum nicht jetzt | [`docs/ausblick.md`](docs/ausblick.md) |
-| Absprache und Leistungsnachweise | [`docs/projektabsprache.md`](docs/projektabsprache.md), [`docs/leistungsnachweise.md`](docs/leistungsnachweise.md) |
-| Detroit-Pipeline im Detail | [`docs/DETROIT_PIPELINE_ANLEITUNG.md`](docs/DETROIT_PIPELINE_ANLEITUNG.md) |
+| Absprache und Leistungsnachweise | [`docs/intern/projektabsprache.md`](docs/intern/projektabsprache.md), [`docs/intern/leistungsnachweise.md`](docs/intern/leistungsnachweise.md) |
+| Detroit-Pipeline im Detail | [`docs/intern/DETROIT_PIPELINE_ANLEITUNG.md`](docs/intern/DETROIT_PIPELINE_ANLEITUNG.md) |
 | Die Quellen einzeln erklärt | [`notebooks/`](notebooks/) 01, 11, 21, 22, 32 |
 | Datenqualität je Stadt | [`notebooks/03`](notebooks/03_chicago_data_quality.ipynb), [`notebooks/13`](notebooks/13_detroit_data_quality.ipynb) |
 
@@ -213,19 +214,27 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet werden **1'179 bestandene Tests**, ohne Netzzugriff und ohne Schlüssel.
-Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten mit kleinen
-Fixtures und simulierten Quellen.
+Erwartet wird **grün**: 1'203 ausgeführte Tests, ohne Netzzugriff und ohne
+Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
+mit kleinen Fixtures und simulierten Quellen.
 
-> **Wer schon Daten gebaut hat, sieht mehr.** Die Wächter mit dem Marker
-> `referenzstand` halten die dokumentierten Zahlen gegen die Parquet-Dateien.
-> Sobald eine frische Ingestion gelaufen ist, stehen die Daten vor dem
-> dokumentierten Stand, und diese Wächter werden rot — das ist ihre Aufgabe,
-> kein Fehler in der Einrichtung. Wie weit es auseinander ist, sagt
-> `python -m orchestration.drift`; nur die eigenen Zahlen prüft
-> `python -m pytest -m "not referenzstand"`. Stand 17.9.2026: 33 der 70 sind
-> rot, die Entscheidung dazu steht in
-> [`docs/datenhistorie.md`](docs/datenhistorie.md) 8.
+Die Summenzeile nennt daneben **75 abgewählte**. Das sind die Wächter mit dem
+Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
+
+```bash
+python -m pytest                     # alles ausser dem Referenzstand
+python -m pytest -m referenzstand    # genau diese Wächter
+python -m pytest -m ""               # beides zusammen, alle 1'297
+```
+
+> **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
+> Zahlen gegen die gebauten Parquet-Dateien. Sobald eine frische Ingestion
+> gelaufen ist, stehen die Daten vor dem dokumentierten Stand, und diese
+> Wächter werden rot — das ist ihre Aufgabe, kein Fehler in der Einrichtung.
+> Am 18.9.2026 waren es 34 von 71 auf einmal, und in diesem roten Rauschen
+> wäre ein echter Fehlschlag untergegangen. Wie weit es auseinander ist, sagt
+> `python -m orchestration.drift`; die Entscheidung dazu steht in
+> [`docs/intern/datenhistorie.md`](docs/intern/datenhistorie.md) 8.
 
 Bei der weiteren Arbeit genügt `source .venv/bin/activate`; verlassen wird die
 Umgebung mit `deactivate`.
@@ -306,8 +315,9 @@ teilen dieselbe `run_id`. Frühere Läufe werden nie überschrieben.
 # spätere erkennen das Wasserzeichen und laden ein Delta mit 14 Tagen Überlappung
 python -m chicago_pipeline.download_chicago
 
-# Detroit — immer ein voller Jahrgang, siehe unten warum
-python -m detroit_pipeline.extract_detroit --mode full --years 2024
+# Detroit — genauso: erster Aufruf lädt 2024 vollständig,
+# spätere laden nur, was sich seit dem Wasserzeichen geändert hat
+python -m detroit_pipeline.extract_detroit --mode delta --years 2024
 
 # Census: Geometrien (Tracts und Stadtgrenzen) und Einwohnerzahlen
 python -m census_pipeline.download_tiger --auslieferung tract
@@ -318,11 +328,26 @@ python -m census_pipeline.download_acs
 python -m weather_pipeline.download_noaa
 ```
 
-**Warum Detroit keine Deltas lädt.** 54,6 % des Jahrgangs 2024 wurden *mehr als
-ein Jahr nach der Tat* noch geändert. Ein Delta nach Tatdatum verpasst diese
-Korrekturen. Bei 88'685 Zeilen und 97 Sekunden Laufzeit ist der volle Snapshot
-die einfachere und die richtigere Variante — gemessen in
-[Notebook 13](notebooks/13_detroit_data_quality.ipynb), Schritt 12.
+**Worauf Detroits Delta geht — und warum nicht aufs Tatdatum.** **55,9 %** des
+Jahrgangs 2024 wurden *mehr als ein Jahr nach der Tat* noch geändert — gemessen
+am Schnappschuss vom 18.9.2026 in
+[Notebook 13](notebooks/13_detroit_data_quality.ipynb), Schritt 12. Die Zahl
+steigt mit jedem Schnappschuss; am 17.9. waren es 54,6 %. Ein Delta
+nach Tatdatum hätte keine einzige dieser Korrekturen gesehen — daran ist der
+erste Versuch gescheitert, und bis zum 18.9.2026 lud Detroit deshalb jedes Mal
+den ganzen Jahrgang.
+
+Die Messung sagt aber nicht, dass kein Delta geht, sondern **worauf** es gehen
+muss. Über vier Schnappschüsse haben sich 1'270 Zeilen inhaltlich geändert —
+Beschreibung, Code, Kategorie, Fallstatus, Tatzeitpunkt oder Koordinate. *Jede
+einzelne* trug dabei einen neuen `updated_at`; keine änderte sich ohne. Der
+Ladeweg ist deshalb derselbe wie bei Chicago, nur mit zwei Bedingungen statt
+einer: **der Jahrgang nach Tatzeit, darin das Geänderte nach `updated_at`**, mit
+denselben 14 Tagen Rückgriff. Vier Zeilen tragen gar keinen Stempel; sie kommen
+über `OR updated_at IS NULL` immer mit, sonst hätten sie nie wieder eine Chance.
+
+Der erste Aufruf auf einem leeren Rechner findet kein Wasserzeichen und lädt den
+Jahrgang voll — 88'686 Zeilen. Der zweite lud 3'184.
 
 **Was raw und bronze unterscheidet.** Raw ist das Beweisstück: die Antwort Byte
 für Byte, gzip-komprimiert mit `mtime=0`, damit der SHA-256 im Manifest allein
@@ -374,8 +399,8 @@ desselben Tages — oder Information wegwerfen:
 | --- | --- | ---: |
 | `tract` | ein Census Tract | 6'282 |
 | `place` | ein Ort (Stadtgrenze) | 2'206 |
-| `weather_day` | eine Stadt an einem Tag | 55'449 |
-| `crime_offense` | eine **Anklage**; je Tat zählt eine | 347'957 |
+| `weather_day` | eine Stadt an einem Tag | 55'465 |
+| `crime_offense` | eine **Anklage**; je Tat zählt eine | 348'311 |
 
 `crime_offense` leistet drei Übersetzungen auf einmal, und jede ist ein eigener
 Fehlerherd:
@@ -410,7 +435,7 @@ python -m serving.export_geojson      # die Tract-Umrisse für eine Karte
 Gold ist ein **Sternschema**: eine Faktentabelle `fact_offense` mit einer Zeile
 je **Tat** und vier Dimensionen daneben. Der Unterschied zu Silver ist die Granularität
 — Detroit liefert je Vorfall mehrere Anklagen; wer Zeilen zählt, zählt Detroit
-um 3,9 % zu hoch. Warum kein vorberechneter Würfel gebaut wurde, steht in
+um 3,8 % zu hoch. Warum kein vorberechneter Würfel gebaut wurde, steht in
 [`docs/sternschema-und-wuerfel.md`](docs/sternschema-und-wuerfel.md).
 
 `build_comparison` leitet aus Gold **vier Vergleichstabellen** für das
@@ -616,7 +641,7 @@ python -m orchestration.release holen --einsetzen      # und an die festen Pfade
 ```
 
 Releases werden **aufgehoben**, bis eine Regel dafür entschieden ist
-([`docs/datenhistorie.md`](docs/datenhistorie.md) 5.5); 42 MB je Release —
+([`docs/intern/datenhistorie.md`](docs/intern/datenhistorie.md) 5.5); 42 MB je Release —
 14 MB Parquet plus die Datenbank.
 
 **Der Ablauf, Schritt für Schritt.** Zwei Rollen, zwei Befehle.
@@ -685,7 +710,7 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 python -m pytest
 ```
 
-**1'179 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'297 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -722,8 +747,9 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'098 der 1'179 Tests**. Die übrigen 81 überspringen
-sich selbst, weil sie gebaute Daten brauchen und `data/` nicht versioniert ist.
+In einem frischen Klon laufen **1'176 der 1'203 Tests** des Standardlaufs. Die
+übrigen 27 überspringen sich selbst, weil sie gebaute Daten brauchen und `data/`
+nicht versioniert ist; die 71 Referenzstand-Wächter sind ohnehin abgewählt.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
 über die Testzahl in diesem README und in `AENDERUNGEN.md`.
@@ -748,7 +774,7 @@ das und sagt, was fehlt.
 
 **Drift statt Rot.** Die Quellen bewegen sich jede Woche — Detroit ändert
 Einträge noch Jahre nach der Tat, Chicago liefert Deltas. Die Wächter, die
-dokumentierte Zahlen gegen Parquet halten (Marker `referenzstand`, 70 Stück),
+dokumentierte Zahlen gegen Parquet halten (Marker `referenzstand`, 74 Stück),
 laufen im Datenlauf deshalb **nicht**; sie gelten für den Referenzstand auf deinem
 Rechner. Stattdessen weist `orchestration.drift` je Grösse aus, wie weit der
 dokumentierte Stand vom frischen entfernt ist — als Tabelle in der

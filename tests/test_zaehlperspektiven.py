@@ -249,33 +249,32 @@ def test_die_mehrdeutigen_beschreibungen_stimmen(text, con):
     Gegenteil, und belegt war keines von beidem. Gemessen ist der Befund
     deutlich staerker, als der Satz vermuten liess.
     """
-    chi_zeilen, chi_anteil = con.execute("""
+    # Chicago hatte den Befund bis zum 19.9.2026: Silver fuehrte nur die zweite
+    # IUCR-Haelfte, und 23,3 % der Zeilen trugen damit eine fuer sich genommen
+    # mehrdeutige Beschreibung. Seit Vertrag 3 stehen beide Haelften da, und der
+    # Anteil ist null. Geprueft wird deshalb die Null - nicht mehr die alte
+    # Quote, die im Dokument nur noch als Vorgeschichte steht.
+    chi_zeilen = con.execute("""
         WITH je AS (SELECT source_offense_description AS t
                     FROM s WHERE city = 'chicago'
                     GROUP BY 1 HAVING count(DISTINCT nibrs_code) > 1)
-        SELECT count(*), round(100.0 * count(*) /
-               (SELECT count(*) FROM s WHERE city = 'chicago'), 1)
-        FROM s WHERE city = 'chicago'
+        SELECT count(*) FROM s WHERE city = 'chicago'
           AND source_offense_description IN (SELECT t FROM je)
-    """).fetchone()
-    # Der Prozentwert steht mit Komma im Text, DuckDB liefert ihn mit Punkt.
-    assert f"{chi_anteil:.1f} %".replace(".", ",") in text, (
-        f"gemessen {chi_anteil} %, das Dokument nennt etwas anderes"
+    """).fetchone()[0]
+    assert chi_zeilen == 0, (
+        f"{chi_zeilen} Chicagoer Zeilen tragen wieder eine mehrdeutige "
+        "Beschreibung - dann stimmt der Silver-Vertrag 3 nicht mehr"
     )
-    assert zahl(text, r"— ([\d']+) — tragen eine Beschreibung") == chi_zeilen
-
-    simple = con.execute(
-        "SELECT count(*) FROM s WHERE city = 'chicago' "
-        "AND source_offense_description = 'SIMPLE'"
-    ).fetchone()[0]
-    assert zahl(text, r"steht ([\d']+)-mal") == simple
+    assert "ist damit **null**" in " ".join(text.split()), (
+        "das Dokument nennt die Null nicht mehr"
+    )
 
     det = con.execute("""
         SELECT count(*) FROM (SELECT source_offense_description FROM s
             WHERE city = 'detroit' AND source_offense_description IS NOT NULL
             GROUP BY 1 HAVING count(DISTINCT nibrs_code) > 1)
     """).fetchone()[0]
-    assert zahl(text, r"In Detroit sind es (\d+)\n?Beschreibungen") == det
+    assert zahl(text, r"Dort\nsind es (\d+)\nBeschreibungen") == det
 
 
 def test_der_groesste_detroiter_fall_stimmt(text, con):
@@ -306,7 +305,7 @@ def test_die_umkehrung_stimmt_auch(text, con):
 
 
 def test_die_ambiguous_zuordnungen_stimmen(text, con):
-    """20 im Crosswalk, 16 in den Daten - der Unterschied war vorher unterschlagen."""
+    """20 im Crosswalk, 17 in den Daten - der Unterschied war vorher unterschlagen."""
     im_crosswalk = sum(
         con.execute(
             f"SELECT count(*) FROM read_csv('{PROJECT_ROOT / 'config' / datei}', "
@@ -327,11 +326,11 @@ def test_die_ambiguous_zuordnungen_stimmen(text, con):
     assert f"({zeilen:,} Zeilen)".replace(",", "'") in ohne_umbrueche, (
         f"die Zeilenzahl der ambiguous-Zuordnungen ist {zeilen}"
     )
-    assert im_crosswalk - codes == 4, (
+    assert im_crosswalk - codes == 3, (
         f"{im_crosswalk - codes} Zuordnungen ohne Zeilen im Jahrgang - "
-        "das Dokument sagt vier"
+        "das Dokument sagt drei"
     )
-    assert "übrigen vier" in ohne_umbrueche
+    assert "übrigen drei" in ohne_umbrueche
 
 
 def test_die_bronze_only_felder_fehlen_wirklich(text, con):
@@ -362,15 +361,19 @@ def test_die_bronze_only_felder_fehlen_wirklich(text, con):
 
 
 def test_der_manifesteintrag_nennt_die_zahl_der_laeufe(text):
-    """Drei und zwei - beides steht im Manifest der gebauten Tabelle."""
+    """Sieben und acht - beides steht im Manifest der gebauten Tabelle.
+
+    Bis zum 20.9.2026 standen hier drei und zwei. Beide Staedte laden seither
+    Deltas; die Zahl der Laeufe waechst mit jedem, und das Dokument muss mit.
+    """
     manifest = PROJECT_ROOT / "data" / "silver" / "dataset=crime_offense" / "manifest.json"
     if not manifest.is_file():
         pytest.skip("silver nicht gebaut")
     herkunft = json.loads(manifest.read_text(encoding="utf-8"))["derived_from"]
     chi = len(herkunft["chicago_bronze_runs"])
     det = len(herkunft["detroit_bronze_runs"])
-    assert (chi, det) == (3, 2), (
-        f"das Dokument nennt drei Chicago- und zwei Detroit-Laeufe, "
+    assert (chi, det) == (7, 8), (
+        f"das Dokument nennt sieben Chicago- und acht Detroit-Laeufe, "
         f"das Manifest hat {chi} und {det}"
     )
 

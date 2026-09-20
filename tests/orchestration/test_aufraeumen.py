@@ -91,6 +91,28 @@ def test_ein_delta_haelt_seine_basis_fest(tmp_path):
     }
 
 
+def test_auch_detroits_delta_haelt_seine_basis_fest(tmp_path):
+    """Seit dem 18.9.2026 laedt Detroit ebenso - und heisst den Modus anders.
+
+    Detroit schreibt ``extraction_mode: DELTA``, Chicago ``mode: delta``. Faellt
+    dieser Test, haelt die Regel eine Stadt fuer eine Folge von Vollbestaenden,
+    die keine mehr ist: Ein geloeschter Vollschnappschuss macht jedes Delta
+    darueber wertlos.
+    """
+    lauf(tmp_path, "city=detroit", "run_uuid-01", wann="2026-09-01T10:00:00",
+         teile=("full/year=2024",), detroit=True, mode="FULL")
+    lauf(tmp_path, "city=detroit", "run_uuid-02", wann="2026-09-02T10:00:00",
+         teile=("full/year=2024",), detroit=True, mode="FULL")
+    lauf(tmp_path, "city=detroit", "run_uuid-03", wann="2026-09-03T10:00:00",
+         teile=("full/year=2024",), detroit=True, mode="DELTA")
+    lauf(tmp_path, "city=detroit", "run_uuid-04", wann="2026-09-04T10:00:00",
+         teile=("full/year=2024",), detroit=True, mode="DELTA")
+    assert gruende(tmp_path, "city=detroit") == {
+        "uuid-04": au.JUENGSTER, "uuid-03": au.VORHERIGER,
+        "uuid-02": au.BASIS, "uuid-01": None,
+    }
+
+
 def test_ein_delta_das_geht_braucht_keine_basis(tmp_path):
     """Nach zwei neuen vollen Laeufen ist ein altes Delta samt Basis entbehrlich."""
     lauf(tmp_path, "city=chicago", "run_01", wann="2026-09-01T10:00:00", mode="full_snapshot")

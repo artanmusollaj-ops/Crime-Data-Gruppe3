@@ -30,12 +30,12 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'179** |
-| `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
+| Tests | **1'297** |
+| `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 84'658 Delikte · 638'635 Einwohner · **132,6** je 1'000 |
-| Fallebene (`counts_case`) | Chicago 259'243 · Detroit 80'229 Fälle; Detroit **124,6** je 1'000 |
+| Detroit | 84'761 Delikte · 638'635 Einwohner · **132,7** je 1'000 |
+| Fallebene (`counts_case`) | Chicago 259'596 · Detroit 80'230 Fälle; Detroit **124,6** je 1'000 |
 
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
@@ -56,15 +56,15 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | Datensatz | Version | seit | was der Vertrag festlegt |
 | --- | ---: | --- | --- |
 | `bronze/city=chicago` | 1 | 14.09.2026 | Jahresfenster über `date`, Delta über `updated_on` mit 14 Tagen Rückgriff, feste id-Liste als Vollständigkeitsnachweis |
-| `bronze/city=detroit` | **2** | 11.09.2026 | Abfragefenster in **Detroiter Ortszeit** statt UTC (Konzept 8.6). Version 1 zog es in UTC — jene Läufe enthielten 66 Fälle aus 2023 und vermissten 56 vom Jahresende 2024 |
+| `bronze/city=detroit` | **3** | 18.09.2026 | Abfragefenster in **Detroiter Ortszeit** statt UTC (Konzept 8.6). Version 1 zog es in UTC — jene Läufe enthielten 66 Fälle aus 2023 und vermissten 56 vom Jahresende 2024. Version 3: **Delta über `updated_at` mit 14 Tagen Rückgriff** innerhalb des Tatjahrgangs, Zeilen ohne Stempel immer dabei — der erste Lauf bleibt ein Vollschnappschuss |
 | `bronze/dataset=tiger_tract`, `bronze/dataset=tiger_place` | 1 | 14.09.2026 | Vintage-Archiv je Bundesstaat, Geometrie als WKB in EPSG:4269, Feld-Allowlist mit `_extra` |
 | `bronze/dataset=acs5_tract` | 1 | 14.09.2026 | fünf Variablen je Tract, Fehlwert `-666666666` bleibt unverändert stehen |
 | `bronze/dataset=noaa_ghcnd` | 1 | 14.09.2026 | Vollschnappschuss je Station, bedingter Abruf über ETag, Mindestabstand sieben Tage |
 | `silver/tract` | **2** | 14.09.2026 | ein Census Tract je Zeile, TIGER und ACS über einen vollen äusseren Join. Version 2: `median_household_income_usd` und `population_below_poverty` als `INTEGER` statt `BIGINT` — die Einwohnerzahl bleibt `BIGINT`, sie ist der Nenner jeder Rate |
 | `silver/place` | 1 | 14.09.2026 | ein Ort je Zeile, Geometrie für die Stadtgrenze |
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
-| `silver/crime_offense` | **2** | 16.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus |
-| `gold/*` | **4** | 16.09.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird |
+| `silver/crime_offense` | **3** | 19.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig |
+| `gold/*` | **5** | 19.09.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften |
 | `serving/comparison_*` | 1 | 17.09.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` |
 
 > **Der Feldkatalog wird erzeugt, nicht gepflegt.** Am 14.9. wurde
@@ -91,9 +91,1472 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 20.09.2026 · Ein Wächter hält die Dokumentzahlen gegen das Release (#121)
+
+`tests/test_dokumentzahlen.py`, vier Tests, Marke `referenzstand`. Er schliesst
+die Lücke, durch die in dieser Woche die halbe Dokumentation veraltet ist, ohne
+dass etwas rot wurde.
+
+### Wie er prüft
+
+**Nicht** „steht Zahl X an Stelle Y" — das wäre eine zweite Liste, die selbst
+veraltet. Sondern umgekehrt: Er misst die Kennzahlen aus `release.json` und den
+Schichten darunter, sammelt jede Tausenderzahl aus den Dokumenten und meldet
+jede, die einer Kennzahl **nahe** ist, ohne eine zu sein. Das ist genau die
+Signatur einer veralteten Fassung.
+
+Die Schwelle liegt bei **0,3 %**. Die tatsächlich gefundenen Abweichungen lagen
+zwischen 0,001 % und 0,14 %; die nächstgelegene echte Nachbarzahl (`88'278`
+gegen `88'686`) bei 0,46 %. Gegengeprobt: `348'311` in `README.md` zu `347'957`
+zurückgedreht meldet er
+
+```
+README.md:40  347'957 sieht aus wie eine veraltete Fassung von
+              silver/crime_offense = 348'311
+```
+
+Zahlen auf `'000` bleiben aussen vor — „rund 348'000" ist eine Näherung, keine
+Kennzahl. Zeilen, die einen Lauf oder eine datierte Messung festhalten, stehen
+in `SCHUTZ` und dürfen veralten; das ist ihr Zweck.
+
+**Wann er läuft.** Weder auf Pull Requests noch im Datenlauf — beide hätten den
+falschen Datenstand, der eine gar keinen, der andere einen frischeren als die
+Dokumente. Er gehört zu `python -m pytest -m referenzstand`, gegen den
+gepinnten Stand, und dort vor allem vor einer Abgabe.
+
+### Der volle `referenzstand`-Lauf deckte zehn weitere Stellen auf
+
+Zum ersten Mal in dieser Woche komplett gefahren. Er fand, was der
+Zahlensweep nicht sehen konnte:
+
+| Dokument | stand da | gemessen |
+| --- | --- | --- |
+| `zaehlperspektiven.md` erste Woche 2024 | 6'694 Taten | **6'711** |
+| letzte Woche 2024 | 1'647 Taten | **1'650** |
+| `ASSAULT AND BATTERY/SIMPLE ASSAULT` | 16'837 Zeilen | **16'806** |
+| Codes mit mehreren Beschreibungen | 34 Chicago, 43 Detroit | **35** und **42** |
+| `ambiguous` mit Zeilen 2024 | 16 (5'140 Zeilen) | **17** (5'122), übrige **drei** |
+| Läufe im Silver-Manifest | drei Chicago, zwei Detroit | **sieben** und **acht** |
+| Detroit-Zeilen in Silver | 88'685 | **88'686** |
+| `datenhistorie.md`, Code `3072` | 1'443 Anklagen, 1'403 Taten | **1'404** und **1'365** |
+
+### Eine eigene Korrektur
+
+Meine Nachführung von Detroits Mehrfamilien-Vorfällen war **falsch**: Ich hatte
+auf allen Silver-Zeilen gerechnet und kam auf 6'758 (8,4 %). Das Dokument
+rechnet auf der **Tatebene**, also auf `fact_offense`, und dort sind es
+**4'233 (5,3 %)**, der Überhang **4'569 statt 7'377**. Aufgefallen ist es dem
+bestehenden Wächter `test_die_mehrfamilien_vorfaelle_stimmen`, nicht mir. Der
+neue Wächter rechnet jetzt ebenfalls auf der Tatebene, und ein Kommentar
+dort sagt, warum.
+
+### Zwei Wächter spiegelten selbst einen überholten Stand
+
+`test_der_manifesteintrag_nennt_die_zahl_der_laeufe` verlangte fest `(3, 2)`
+Läufe; beide Städte laden inzwischen Deltas, und die Zahl wächst mit jedem. Und
+`test_die_mehrdeutigen_beschreibungen_stimmen` prüfte Chicagos
+Beschreibungs-Mehrdeutigkeit gegen einen Vertrag, den es seit dem 19.9. nicht
+mehr gibt — seit beide IUCR-Hälften in `source_offense_description` stehen, ist
+der Anteil null. Er prüft jetzt die Null.
+
+Ausserdem trug `tools/build_feldkatalog.py` Detroits Überzählung mit „3,9 %"
+hartkodiert; der Feldkatalog ist erzeugt, und eine Handkorrektur darin hätte der
+nächste Lauf überschrieben.
+
+**Zahlen.** 1'293 → **1'297 Tests**, davon 75 abgewählt.
+
+---
+
+## 20.09.2026 · Alle Dokumente gegen Release `2026-09-19T23-05-26Z` nachgeführt (#121)
+
+Die Frage war: Stimmen die Referenzzahlen in den Dokumenten noch mit dem
+aktuellen Release? **Bei den meisten nicht.** 117 verschiedene Tausenderzahlen
+stehen in den fünfzehn Dokumenten, und ausgerechnet die am häufigsten
+wiederholten waren die veralteten — `259'272` allein 23-mal, `347'957` und
+`344'617` je zwölfmal.
+
+Nachgeführt sind **81 Zeilen in neun Dokumenten** plus die Stand-Tabelle in
+dieser Datei, der Einseiter und die Literalliste im Wächter.
+
+### Die Kennzahlen
+
+| | stand da | Release `…23-05-26Z` |
+| --- | --- | --- |
+| `silver/crime_offense`, Zeilen | 347'957 | **348'311** |
+| `gold/fact_offense`, Taten | 344'617 | **345'073** |
+| Chicago, Taten | 259'272 | **259'625** |
+| Chicago, Fälle und Vorfälle | 259'243 | **259'596** |
+| Detroit, Anklagen | 88'685 | **88'686** |
+| Detroit, Taten | 85'345 | **85'448** |
+| Detroit, Fälle und Vorfälle | 80'229 | **80'230** |
+| `weather_day` | 55'449 | **55'465** |
+| Detroit, Delikte in der Rate | 84'658 | **84'761** |
+| Detroit, Rate je 1'000 | 132,6 | **132,7** |
+
+### Die abgeleiteten Tabellen
+
+`mapping_status` auf Tatebene: Chicago 247'877/3'697/7'695/3 →
+**248'187/3'718/7'717/3**, Detroit 81'195/1'403/2'747/0 →
+**81'325/1'365/2'758/0**. `geo_status` in `eine-zahl.md`: `outside_city` 6'007 →
+**6'010**, `missing_coordinate` 1'748 → **2'098**.
+
+In `zaehlperspektiven.md` mussten drei Tabellen neu gerechnet werden. Die
+auffälligste: Detroits Vorfälle in mehr als einer Deliktfamilie stiegen von
+4'148 (5,2 %) auf **6'758 (8,4 %)**, der Überhang beim Summieren je Familie von
+4'474 auf **7'377 (9,2 %)**. Das ist kein Rundungsdrift, sondern eine Folge der
+angeschlossenen Arrest Charges.
+
+### Die Prozentangaben
+
+| | stand da | gemessen |
+| --- | --- | --- |
+| Chicago ohne Koordinate | 0,67 % | **0,81 %** |
+| Chicago Verortungsquote | 99,33 % | **99,19 %** |
+| Detroit zählt zu hoch | 3,9 % | **3,8 %** |
+| Zeilen in der doppelten Stunde | 48 | **49** |
+
+### Was stehen bleibt, und warum
+
+Historische Belege sind **nicht** angefasst: die Manifestauszüge des Laufs
+`run_20260905T174633859259Z` in `eine-zahl.md` und `ln1_konzept.md` 8.3, die
+datierten Messungen in `ausblick.md` („gemessen am 13.9.2026", „am 14.9.2026"),
+die Speicher-Evaluation mit Detroits damaligen 88'685 Zeilen, der Satz über die
+beiden Vollschnappschüsse, und `datenhistorie.md` als Ganzes — das Dokument
+*ist* der Verlauf.
+
+### Geprüft und richtig
+
+`6'282` Tracts, `2'206` Orte, `13'264`/`2'506`/`620`/`24` in Serving, `251'516`
+Chicago-Delikte, `2'661'953` und `638'635` Einwohner, Rate `94,5`, Fallebene
+`124,6`, `10'475` im Auffang `90Z`, `97,0 %` echte NIBRS-Delikte, Detroit
+`0,29 %` ohne Koordinate, die ACS-Lücken (Wayne 9,6 % und 6,4 %, Cook 1,7 % und
+0,3 %), `83,35 %`/`83,44 %`/`93,0 %`/`49,4 %` zu H7, `55,9 %` gegen `54,6 %` am
+17.9., und die sieben Prüfsummen in `docs/quellen/README.md`.
+
+**Was dabei auffiel:** `test_architektur_dokument.py` hält den Einseiter gegen
+den langen Text und die Stand-Tabelle — dieser Wächter hat die Inkonsistenz
+sofort gemeldet. Für die übrigen 80 Zeilen gibt es keinen. Ein Wächter, der die
+Kennzahlen der Dokumente gegen `release.json` hält, wäre die eigentliche
+Lösung; er bräuchte die Marke `referenzstand`.
+
+---
+
+## 20.09.2026 · Der Cachezustand in H6 war behauptet, nicht gemessen (#121)
+
+Christian ist beim Lesen von Notebook 36 über diese Zeile gestolpert:
+
+```python
+print(f"   Cachezustand: warm -- die Daten lagen vom vorigen Lauf im "
+      f"Seitencache des Betriebssystems")
+```
+
+**Zu Recht.** Im Block „Umgebung" wird alles andere gemessen —
+`platform.system()`, `duckdb.__version__`, die Dateigrösse aus `stat()`. Der
+Cachezustand war der einzige fest verdrahtete String, und er trug eine
+Begründung mit sich, die selbst eine Annahme über das Betriebssystem ist.
+
+Inhaltlich war die Aussage plausibel: Die drei Läufe folgen unmittelbar
+aufeinander, und H2 liest kurz davor alle sechs Tabellen. Plausibel ist aber
+nicht gemessen, und genau das ist der Anspruch dieses Notebooks.
+
+### Jetzt wird es gezeigt
+
+Wer alle Parquet-Dateien liest und dabei einen Durchsatz erreicht, den keine
+SSD liefert, hat sie aus dem Arbeitsspeicher gelesen. Gemessen: **61,6 MB in 9
+Dateien in 4 ms, also 16 bis 18 GB/s** — ein Mehrfaches dessen, was eine
+NVMe-SSD schafft. Die Zelle prüft die Schwelle selbst und schreibt
+„Cachezustand: unklar", wenn der Durchsatz unter 10 GB/s liegt; dann wäre er
+auch von Platte möglich.
+
+### Und dass es für den Befund nicht trägt
+
+Der wichtigere Teil. Das vollständige Lesen kostet 4 ms; selbst zwanzigmal
+langsamer wären es 0,1 s gegen rund 27 s Laufzeit. Der warme Cache ist hier
+also **keine Einschränkung**, sondern eine Randnotiz — anders als in den
+Notebooks 31 und 33, wo Lesen gegen Lesen verglichen wird und er den
+gemessenen Vorteil tatsächlich drückt. Auch das steht jetzt gerechnet in der
+Zelle statt als Vorbehalt in der Prosa.
+
+---
+
+## 20.09.2026 · Das erste Release aus sauberem Arbeitsbaum (#121)
+
+**Neues Release** `2026-09-19T23-05-26Z`, 21 Dateien, 42,2 MB — und das erste
+mit **`git_dirty: false`**. Commit `8bc6fd6`.
+
+Bis hierher trug jedes Release `git_dirty: true`. Damit reicht der Commit als
+Herkunftsnachweis nicht: Was im Arbeitsbaum stand, ist nirgends festgehalten,
+und ein Wiederaufbau aus dem Commit könnte etwas anderes ergeben. Die Zahlen,
+die in `ln1_konzept.md` und `leistungsnachweise.md` stehen, haben jetzt eine
+zitierfähige Kennung.
+
+Gebaut wurde die ganze Kette neu (`run_all --ohne-ingestion --release`), damit
+auch die Manifeste von Silver und Gold den sauberen Commit tragen und nicht nur
+das Release selbst.
+
+| | |
+| --- | ---: |
+| `gold/fact_offense` | 345'073 |
+| `gold/dim_tract` | 6'282 |
+| `gold/dim_offense` | 85 |
+| `gold/dim_date` | 366 |
+| `gold/dim_city_day` | 732 |
+| `serving/comparison_day` | 13'264 |
+| `serving/comparison_week` | 2'506 |
+| `serving/comparison_month` | 620 |
+| `serving/partition_quality` | 24 |
+
+Gate: `inside_city` 97,451 %, `exact` 95,491 %, `unmapped` 0,0009 % — alle drei
+weit über beziehungsweise unter ihren Schwellen.
+
+### 25 Releases lokal aufgeräumt
+
+Es waren 28 lokale Releases à rund 42 MB aufgelaufen, zusammen 1,1 GB. Der
+Grund: `run_all` bildet je grünem Lauf ein Release, und die Notebooks 31, 33 und
+36 rufen `run_all` auf — Notebook 36 allein dreimal je Durchlauf. Beim
+Gegenlesen der Notebooks sind so an einem Tag zwanzig entstanden.
+
+Lokal entfernt wurden 25, **1,06 GB frei**. Behalten sind drei: das aktuelle und
+die beiden, die weiter oben in dieser Datei als Beleg zitiert werden
+(`2026-09-17T19-42-24Z`, `2026-09-19T15-12-28Z`).
+
+**Auf SeaweedFS steht alles unverändert.** Der Modus ist `hybrid`; die 25 zeigen
+in `release liste` jetzt `oben` statt `beide` und sind mit
+`python -m orchestration.release holen <Kennung>` wieder da. Gelöscht wurde
+nichts, was nur einmal existierte.
+
+### Eine Ungenauigkeit, die dabei auffiel — korrigiert
+
+Der Kommentar an `GATE_MINDESTENS` nannte als gemessenen Wert `inside_city`
+97,55 %. Das Release misst **97,451 %**. `exact` (95,49) und `unmapped` (0,0009)
+stimmen weiterhin.
+
+Mitgezogen ist der Schnappschuss in
+`test_das_gate_haelt_die_gemessene_abdeckung_aus`: Er führte acht Anteile, von
+denen sechs veraltet waren (`outside_city` 1,87 statt 1,8689,
+`missing_coordinate` 0,58 statt 0,6799, `no_tract` 0,0 statt 0,0003, `ambiguous`
+1,48 statt 1,473, `fallback_90Z` 3,03 statt 3,0356). Sie tragen jetzt die Werte
+aus Release `2026-09-19T23-05-26Z` und sagen im Docstring, woher sie stammen.
+Ebenso die beiden Vergleiche in `test_die_schwellen_liegen_unter_dem_gemessenen_stand`,
+die den Fünf-Punkte-Abstand prüfen.
+
+**Warum das niemand gemerkt hat:** Der Schnappschuss steht als Zahl im Test,
+damit er ohne gebaute Daten läuft — und genau deshalb kann er von den Daten
+wegdriften, ohne dass etwas rot wird. Ein Wächter, der ihn gegen
+`release.json` hält, wäre die eigentliche Lösung; er bräuchte die Marke
+`referenzstand` und liefe damit nicht auf Pull Requests.
+
+---
+
+## 20.09.2026 · Notebook 36: zwei Nummernkreise heissen beide H1 bis H6 (#121)
+
+Das Hypothesen-Notebook prüft H1 bis H6 und zitiert sie wörtlich. **Kapitel 3.3
+von `ln1_konzept.md` führt ebenfalls Hypothesen unter H1 bis H8 — und es sind
+andere.** H3 heisst im Notebook *Zeitliche Konsistenz*, im Konzept *Die
+Deliktschlüssel beider Städte lassen sich vollständig auf NIBRS abbilden*. Wer
+die Nummern vergleicht, vergleicht Verschiedenes.
+
+Die Notebook-Fassung stammt aus **Artans Konzeptfassung**, die nicht im
+Repository liegt; genau deshalb zitiert das Notebook sie wörtlich, und
+`tests/test_notebook_hypothesen.py` erzwingt das. Beide Nummerierungen sind also
+in ihrem eigenen Dokument richtig. Das Notebook trägt jetzt oben einen
+Hinweiskasten, der die Kollision benennt. **Welche Nummerierung in der Abgabe
+gilt, entscheidet Artan** — hier wird nichts umbenannt.
+
+### Vier Zahlen waren veraltet
+
+| Stelle | stand da | gemessen |
+| --- | --- | --- |
+| H3, doppelte Stunde | 48 Chicagoer Zeilen | **49** (dreimal im Text) |
+| H6, Bilanz | Median 2 bis 3 Sekunden | **Median 27 s**, Spannweite 27 bis 31 s |
+| H6, Ergebnis | „zwei Grössenordnungen unter dem Budget" | **Faktor 22**, also rund eine |
+| Was nicht gezeigt wird | „Sechzehn Zuordnungen" offen | **17** mit `match = nibrs_ermessen` |
+
+Der Rest hält: `verified = true` in allen fertigen Läufen, drei Neubauten mit
+identischem sortiertem Inhalt über sechs Tabellen, vier Rechnerzeitzonen mit
+demselben UTC-Zeitpunkt, 71,3 % der Chicagoer Zeilen unter mehrdeutiger
+Kategoriebezeichnung, alle vier Reproduzierbarkeits-Voraussetzungen belegt,
+`git_dirty = false`, neun gepinnte Läufe.
+
+### Die Hypothesentabelle des Konzepts war überholt
+
+Beim Gegenlesen von Notebook 34 fiel auf, dass Kapitel 8.5 und die H1-Zeile in
+3.3 auf einem älteren Datenstand ruhen. Beide sind nachgeführt, jeweils mit
+datierter Anmerkung:
+
+| Stelle | stand da | gemessen |
+| --- | --- | --- |
+| 8.5 Delikte Tatebene | 344'617 | **345'073** (Chicago 259'625, Detroit 85'448) |
+| 8.5 Auffang `90Z` | 10'442 | **10'475** (7'717 / 2'758) |
+| 3.3 H1: Sexualdelikte Chicago | 6,5-Faches | **12,0-Faches** |
+| 3.3 H1: Sexualdelikte Detroit | 5,1-Faches | **5,2-Faches** |
+| 3.3 H1: Betrug, Faktor | 18 | **20** (3,78 % gegen 0,19 %) |
+
+**Die Prozentsätze und damit beide Aussagen sind unverändert** — 100 % Abdeckung,
+97,0 % echte NIBRS-Delikte, und die Geo-Lücke trifft Sexualdelikte in beiden
+Städten gleichgerichtet, Betrug nur in Chicago. Der Zuwachs kommt aus Detroits
+Delta-Läufen und den nachgezogenen Chicago-Deltas, nicht aus geänderten
+Zuordnungen.
+
+---
+
+## 20.09.2026 · Notebook 35: der Beispielfall trug erfundene Koordinaten (#121)
+
+Das Kontrollen-Notebook hält der Nachrechnung als einziges fast lückenlos stand
+— 31 harte und 11 weiche Kontrollen über sechs Stufen, jede zweimal vorgeführt.
+Geprüft und unverändert: die 2'098 Chicagoer Delikte ohne Koordinate, die 29
+Delikte Unterschied zwischen Tat- und Fallebene, Chicagos Anteil von drei
+Vierteln aller Zeilen, 14 Stufen in 4 Gruppen, `compare_with_tiger` als einziger
+Vollständigkeitsvergleich, der nur warnt und `verified` auf `true` lässt, und
+alle sechs Verweise am Ende. Auch die „dreizehn Stufen" in 6.3 stimmen: Am
+15.9.2026 waren es dreizehn, die vierzehnte kam danach.
+
+### Der Fehler steckt im Beispielfall
+
+Abschnitt „Ein Fall von Anfang bis Ende" sagt ausdrücklich, der Fall werde
+nachgebaut **„mit den Werten, die er im echten Jahrgang trägt"**. Die
+Koordinaten trugen das nicht:
+
+| | stand da | in Bronze |
+| --- | --- | --- |
+| `latitude` | `41.79` | **`41.766555312`** |
+| `longitude` | `-87.60` | **`-87.623323691`** |
+
+Rund 2,6 Kilometer daneben. Alles andere am Fall stimmt auf die Stelle: ids
+27932 und 27933, die Zeitpunkte 2024-01-01T00:56 und 2024-01-03T20:59, `iucr`
+0110, `arrest` false — und `JH100028` ist tatsächlich der erste Mordfall des
+Jahrgangs 2024 mit genau zwei Zeilen.
+
+### Die Zahl in „Zwei Arten von Kontrolle" wird jetzt gerechnet
+
+Dort stand *„von den 31 harten Kontrollen brechen 28 tatsächlich ab"* — beides
+von Hand gezählt, während die Landkarte darunter eine Datenstruktur ist, die
+sich zählen lässt. Die Liste trägt jetzt `HART_OHNE_ABBRUCH` mit den drei
+Ausnahmen (`GATE_MINDESTENS`, `ERWARTETE_QUELLEN`, `gepinnte_laeufe`), eine
+Zusicherung prüft, dass alle drei überhaupt als hart geführt sind, und die
+Auszählung gibt „31 harte, davon 28 abbrechend" selbst aus. Kommt eine
+Kontrolle dazu, wandert die Zahl mit.
+
+---
+
+## 20.09.2026 · Sechs Notebooks trugen ihre Ausgaben mit — mein Fehler (#121)
+
+Notebooks liegen in diesem Repository **ohne** gespeicherte Ausgaben. Beim
+Durchgehen der Notebooks habe ich sie mit
+`nbconvert --execute --inplace` ausgeführt und damit die Ausgaben eingecheckt —
+in 21, 22, 31, 32 und 33, alle fünf bereits gepusht. Aufgefallen ist es erst bei
+34, weil dort als einzigem ein Wächter steht:
+`test_das_notebook_speichert_keine_ausgaben`, mit der Begründung *„So halten es
+die übrigen dreizehn auch."*
+
+Sie hielten es so — nur prüfte es niemand. Alle sechs sind geleert (70 Zellen),
+und der Wächter gilt jetzt für **alle vierzehn**:
+`tests/test_notebooks.py::test_kein_notebook_speichert_seine_ausgaben`.
+
+Warum die Konvention gilt: Eine gespeicherte Ausgabe ist eine Zahl, die niemand
+nachrechnet. Sie veraltet still, sie bläht jeden Diff auf, und sie behauptet
+einen Stand, den die Datei daneben längst nicht mehr hat — genau das Problem,
+das diese ganze Durchsicht aufräumt.
+
+### Notebook 34 selbst
+
+Der Inhalt hält der Nachrechnung fast vollständig stand: die 3,7 % Detroiter
+Anklagenüberhang, 16 und 38 Prozent Überzählung der naiven Regel, 78 nur
+berührte Detroit-Tracts, 5'249 Chicagoer Grenzfälle auf 23'143 anteiligen
+Einwohnern (227 gegen 94,5 Delikte je 1'000), Raten 94,5 gegen 132,7, der
+einzelne Fall von 251'516 in der Gegenrichtung, 967 Zeilen unter `90I`, die
+Geo-Lücke mit 0,81 % gegen 0,29 % und dem Faktor 20 bei Betrug — alles
+nachgemessen und unverändert.
+
+Vier Stellen waren es nicht:
+
+| Stelle | stand da | jetzt |
+| --- | --- | --- |
+| Kopf, Aufzählung | Punkte `1.`, `0.`, `2.` | fortlaufend |
+| Kopf, Standdatum | 12. September 2026 | 20. September 2026 — der Text nannte selbst schon den 17.9. |
+| 2.2 Überschrift | „das Tatebene" | „die Tatebene" |
+| 6. Grenzen | „die 42 amtlichen Kategorien aus dem User Manual 2025.0" | **38** aus dem Handbuch, **4** aus der Codeliste 2011 |
+
+Die letzte ist die inhaltliche: `config/nibrs_offense_categories_2025.csv` führt
+42 Kategorien, aber nur 38 davon (28 Group A, 10 Group B) stammen aus dem
+Handbuch. Die vier übrigen — *Bad Checks*, *Drunkenness*, *Peeping Tom*,
+*Runaway* — gehören zu den zurückgezogenen Codes und stehen nur in der Fassung
+2011. Notebook 32 und `feldkatalog.md` sagen „28 + 10" und meinen das Handbuch;
+Notebook 34 sagte „42" und schrieb sie alle dem Handbuch zu. Beide Zahlen
+stimmen, die Zuschreibung stimmte nicht. Die Spalte `source` der Datei sagt es je
+Zeile.
+
+**Zahlen.** 1'292 → **1'293 Tests**.
+
+---
+
+## 20.09.2026 · Notebook 33 zählte noch drei Silver-Tabellen (#121)
+
+Die Serving-Evaluation vergleicht Sichten gegen Kopie über „die drei
+Silver-Tabellen, 410'000 Zeilen". Seit `place` dazukam sind es **vier**, und die
+Zahlen darunter wachsen mit:
+
+| Aussage | stand da | gemessen |
+| --- | --- | --- |
+| Tabellen und Zeilen | drei, 410'000 | **vier, 412'264** |
+| Parquet zusammen | 36 MB | **49,4 MB** |
+| Platzfaktor Kopie zu Sichten | das 150-fache | **gut das 200-fache** (0,3 gegen rund 62 MB) |
+
+Der Befund selbst ist davon unberührt und hat sich sogar verstärkt: Sichten
+bleiben gleich schnell bis knapp schneller, alle vier Gegenproben liefern
+identische Ergebnisse, und die Kopie zeigt nach einem Neubau der Quelle weiter
+den alten Stand (1 statt 100 Zeilen), während die Sicht sofort nachzieht.
+
+### Der Faktor wird jetzt gerechnet
+
+Die Zelle in Abschnitt 2 gibt ihn selbst aus, statt ihn in der Prosa
+festzuschreiben. Er hängt an der Zahl der Silver-Tabellen und schwankt zudem um
+ein paar Prozent, weil DuckDB seine Datei nicht byteweise gleich gross baut —
+zwei Läufe ergaben 225 und 227. Eine feste Zahl im Text wäre genau die Sorte
+Angabe, die beim nächsten Silver-Neubau still falsch wird.
+
+### In den Abgabedokumenten nachgeführt
+
+`ln1_konzept.md` 7.3 nannte das 150-fache; korrigiert auf gut das 200-fache. In
+`projektabsprache.md` 7.1 bleibt das Messprotokoll von damals stehen — es ist ein
+Protokoll, kein Ist-Zustand — und trägt jetzt eine datierte Anmerkung mit den
+Zahlen des heutigen Stands. Die Millisekunden-Werte in beiden Dokumenten liegen
+weiter im Rahmen der Neumessung und bleiben unverändert.
+
+---
+
+## 19.09.2026 · Die sieben amtlichen Unterlagen haben jetzt eine Herkunft (#121)
+
+`docs/quellen/` hielt sieben Binärdateien — 8,8 MB PDF und XLSX —, aus denen die
+Referenztabellen in `config/` reproduziert werden. **Keine einzige trug einen
+Quellenverweis.** Kein Herausgeber, keine Fassung, keine Adresse, keine
+Prüfsumme. Wer ein Dokument neu holen oder prüfen wollte, ob es noch das richtige
+ist, musste raten. Für Belege, auf denen jede Deliktzuordnung des Projekts ruht,
+ist das die schwächste Stelle der ganzen Kette.
+
+### Neu: `docs/quellen/README.md`
+
+Je Dokument Titel, Herausgeber, Fassung, Umfang, Adresse, Grösse, SHA-256 und
+wofür es gebraucht wird. **Fünf der sieben sind per Prüfsumme belegt** — am
+19.09.2026 unter der angegebenen Adresse heruntergeladen und byteweise mit der
+hier liegenden Datei verglichen, alle fünf identisch:
+
+| Dokument | Adresse | belegt |
+| --- | --- | --- |
+| `nibrs_technical_specification_2025.pdf` | `le.fbi.gov/file-repository/2025-0-nibrs-technical-specification-062625.pdf` | Prüfsumme |
+| `nibrs-user-manual-2025-0-062625.pdf` | `le.fbi.gov/file-repository/nibrs-user-manual-2025-0-062625.pdf` | Prüfsumme |
+| `NIBRS_Offense_Codes.pdf` | `ucr.fbi.gov/nibrs/2011/resources/nibrs-offense-codes` | Prüfsumme |
+| `isp_nibrs_code_table_2026.xlsx` | `isp.illinois.gov/…/NIBRS Code Table 2026.xlsx` | Prüfsumme |
+| `illinois_nibrs_iepd_2023.xlsx` | `isp.illinois.gov/…/2025 nibrs_CodesTables.xlsx` | Prüfsumme |
+| `micr_manual_1110_2024.pdf` | `michigan.gov/…/micr-assets/MICR-Manual_1110.pdf` | nur Adresse |
+| `micr_appendix_f_2009.pdf` | `michigan.gov/…/micr-assets/2009/diappf.pdf` | nur Adresse |
+
+Die beiden Michigan-Dokumente lassen sich von hier aus nicht nachziehen:
+`michigan.gov` beantwortet **jeden** automatisierten Abruf mit HTTP 403, auch mit
+Browser-Kennung. Das stand schon in Notebook 32 und ist der Grund, warum sie
+überhaupt als Datei im Repository liegen.
+
+### Ein Dateiname führte in die Irre
+
+`illinois_nibrs_iepd_2023.xlsx` stammt aus der ISP-Arbeitsmappe
+**`2025 nibrs_CodesTables.xlsx`**. Die `2023` im lokalen Namen gehört zum Blatt
+`OffenseILUCRCode` (Fassung 2023.0), nicht zur Arbeitsmappe — gebraucht wird das
+Blatt `OffenseCode`. Der Name bleibt, weil `tests/config/test_nibrs_offense_codes.py`
+ihn führt; der Herkunftsnachweis sagt jetzt, was wirklich zu holen ist.
+
+Nebenbei sichtbar geworden: Michigan führt die Handbuchreihe inzwischen als
+`MICR-Manual_1122` (Juli 2025) und `_1130` weiter. Unsere Fassung 1110 ist
+überholt — sie bleibt, weil `config/micr_nibrs_mapping.csv` gegen sie gebaut ist;
+ein Wechsel ist ein eigener Schritt mit eigenem Abgleich.
+
+### Der Wächter dazu
+
+`tests/test_quellenverzeichnis.py`, 18 Tests. Jede Datei in `docs/quellen/`
+braucht einen Eintrag mit Adresse, Belegstufe und Verwendungszweck; jeder Eintrag
+braucht seine Datei; **und die genannte SHA-256 muss zur Datei passen.** Der
+letzte Punkt fängt den Fehler, den sonst niemand bemerkt: ein Dokument
+austauschen und den Eintrag stehen lassen.
+
+### Notebook 32 nebenbei nachgeführt
+
+| Aussage | stand da | gemessen |
+| --- | --- | --- |
+| 6.1 angeschlossene Arrest Charges | „20 der 23" | **alle 23** — die drei offenen sind seit dem Anschluss von `3072`, `5421`, `5422` zugeordnet |
+| 6.2 MICR-Codes mit mehr als einer Kategorie | „zwei von 97" | **zwei von 96** |
+| 8. Zahl der Dokumente | „alle sechs Dokumente" | **sieben** — Abschnitt 1.1 führt sieben |
+| 3. Ablage der Codeliste | „liegt als PDF unter `docs/`" | `docs/quellen/` |
+
+Geprüft und unverändert: die 81 amtlichen Codes, 54 Chicago- und 63
+Detroit-Zielcodes, die vier zurückgezogenen Codes, 66 wörtliche und 15 erklärte
+Bezeichnungen gegen Illinois, 103 zu 8 bei der ISP-Gegenprobe, 152 gegen 81
+Detroit-Beschreibungen, 97,0 % echte NIBRS-Delikte und 10'475 im Auffang `90Z`,
+Detroits Abdeckung bei 100,00 %.
+
+**Zahlen.** 1'274 → **1'292 Tests**.
+
+---
+
+## 19.09.2026 · Notebook 31 stand noch vor seinem eigenen Entscheid (#121)
+
+Das Speicher-Notebook ist die Begründung dafür, dass Detroit auf Parquet
+umgestellt wurde. Es war aber durchgehend in der Zeitform von **vor** dieser
+Umstellung geschrieben: „Detroit legt NDJSON ab", „Heute übernimmt Detroits
+NDJSON beide Rollen", „Detroit kann die fehlende Raw-Schicht bekommen". Alles
+drei ist seit dem 11. beziehungsweise 14.09.2026 überholt — Detroit schreibt
+Parquet und hat eine eigene Raw-Schicht. Wer das Notebook heute liest, hielt den
+Ist-Zustand für den Plan.
+
+### Drei Faktoren waren veraltet
+
+Neu gemessen am Lauf `run_dd30…` (88'686 Zeilen, ganzer Tatjahrgang 2024):
+
+| Aussage in Abschnitt 7 | stand da | gemessen |
+| --- | --- | --- |
+| Parquet gegen NDJSON | rund 19-mal kleiner | **rund 14-mal** (89,4 gegen 6,5 MB) |
+| Parquet gegen gzip-NDJSON | rund 1,8-mal kleiner | **rund 1,7-mal** (10,9 gegen 6,5 MB) |
+| fünf Spalten über alle Zeilen | rund 6-mal schneller | **rund 5-mal** |
+
+Ebenso sprach Abschnitt 1 von einer „120-MB-Datei"; das rekonstruierte NDJSON
+misst 89,4 MB.
+
+### Neu: die Vorhersage gegen die Wirklichkeit
+
+Das Notebook hatte 81 % Platzersparnis versprochen. Der neue Abschnitt 9 rechnet
+nach, was davon eingetroffen ist:
+
+| | Modell (Abschnitt 6) | umgesetzt |
+| --- | --- | --- |
+| Raw | 10,9 MB | 10,4 MB |
+| Bronze | 6,5 MB | **16,7 MB** |
+| zusammen | 17,4 MB | **27,1 MB** |
+| gegenüber 89,4 MB NDJSON | 81 % weniger | **70 % weniger** |
+
+Die Lücke steckt vollständig in Bronze: **ohne `_feature_json` wären es 6,0 MB
+statt 16,7** — das Modell hat Bronze also fast auf das MB genau getroffen. Die
+10,7 MB Differenz sind eine Entscheidung, die nach dieser Evaluation fiel: Bronze
+behielt die Spalte mit dem geparsten Quellfeature, obwohl Raw seit dem 14.9. die
+HTTP-Bytes ohnehin aufbewahrt. Die Antwort der Quelle liegt damit zweimal auf der
+Platte — bewusst, denn das geparste Feature „genügt für die Auswertung, ist aber
+kein Beweis" (Modulkopf `extract_detroit`).
+
+**Die 81 % sind damit nicht erreicht und dürfen nicht als erreicht zitiert
+werden.** Erreicht sind 70 %, und die Begründung für die Differenz steht jetzt im
+Notebook.
+
+### Geprüft und unverändert
+
+Der Befund selbst hält in jedem Punkt: `count(*)` liest bei Parquet nur die
+Metadaten (`COLUMN_DATA_SCAN` gegen `READ_JSON_AUTO`), das vollständige
+Materialisieren bleibt bei Faktor 1,3, und NDJSON rät sein Schema über alle drei
+Stichprobengrössen stabil — das Argument *für* NDJSON, das das Notebook
+ausdrücklich stehen lässt. Auch der Verweis auf Absprache 4.2 („Hängt von 4.1
+ab") stimmt weiterhin.
+
+---
+
+## 19.09.2026 · Notebook 22 zählte vier Flag-Aussagen falsch (#121)
+
+Die Wetterquelle ist die am gründlichsten erkundete des Projekts — und genau in
+den ausgezählten Feststellungen steckten die Fehler. Alle vier am Lauf vom
+17.09.2026 nachgemessen:
+
+| Aussage | stand da | gemessen |
+| --- | --- | --- |
+| 5.5: was die Zeilen vor dem Messbeginn tragen | „nur `TAVG` und einige Wolkenparameter" | **nur `TAVG` und `TAVG_ATTRIBUTES`** — genau zwei Schlüssel, keine Wolkenparameter |
+| 5.6 / Appendix B: das Quellenflag `Z` | „bei Detroits `SNOW` auch `Z`" | `0`, `1`, `W`, `X`, `Z` an **beiden** Stationen in **allen** vier Grössen |
+| 5.8: der literale Text `null` | „in 919 Zeilen `T,,0,null`" | **1'090** Zeilen: 919 als `,,0,null`, 171 als `T,,0,null` — die Zahl gehörte zum anderen Muster |
+| Appendix B: Spurenmengen | „rund 4'200 Zeilen je Station" | **4'192** an O'Hare, **4'493** an Detroit Metro |
+
+Dazu zwei Genauigkeiten: `TMAX` ist an O'Hare in 84,9 % der Zeilen belegt, an
+Detroit Metro in 94,2 % — die bisherigen „rund 85 %" galten nur für O'Hare, weil
+dort 4'402 Zeilen vor dem Messbeginn liegen statt 1'515. Und O'Hares
+`SNOW_ATTRIBUTES` führt die Beobachtungszeit nicht durchgehend leer, sondern
+1'094-mal als `2400`.
+
+### Die Feststellungen standen in falscher Reihenfolge
+
+5.9 stand vor 5.8 — beide Nummern werden aus Abschnitt 2, 6.7 und Appendix B
+heraus referenziert. Getauscht.
+
+### Eine Zahl war falsch, eine hielt stand
+
+Abschnitt 6.1 sprach von „24 MB", die man mit einem `HEAD` spart. Die beiden
+Standardstationen liefern zusammen **21,1 MB** (10,9 + 10,1). Korrigiert.
+
+Beim Nachrechnen des Jahresbedarfs habe ich dagegen zuerst danebengegriffen: Die
+8,3 GB aus Projektabsprache 3.1 sind die **Platte** (23,3 MB je Lauf × 365), das
+Netz sind 7,5 GB. Beides stimmt, die Tabelle ist korrekt. Im Notebook steht jetzt,
+welche Spalte gemeint ist.
+
+### Geprüft und unverändert
+
+112 gegen 116 Quellspalten, die vier `I`-Beanstandungen bei O'Hares `SNOW`
+(1999-01-09 bis 2011-01-24, vier von 24'603), leeres Q-Flag bei `TMAX`, `TMIN`
+und `PRCP` an beiden Stationen, die Feldzahlen je Spalte (3/3/4 und `SNOW` 4
+gegen 3), Reihenbeginn 1946-10-09 mit `TMAX` ab 1958-11-01, 100 % Belegung ab
+den 1960ern, der Nachlauf der Quelle, das gepinnte Schema mit 15 Spalten, die
+Stationsliste, `join_keys`, `value_encoding` und der Manifest-Nachweis. Auch
+Feststellung 5.9 hält: Der Vergleich der Läufe vom 7. und 8.9. ergibt je Station
+2 neue Zeilen, 0 entfernte, O'Hare 0 geänderte und Detroit genau 1 — die Zeile
+vom 2026-09-02, die nachträglich `SNWD` bekommen hat.
+
+---
+
+## 19.09.2026 · Der räumliche Join rechnet nicht um — und das ist messbar (#121)
+
+Notebook 21 behauptete in 5.3: „[der Unterschied NAD83/WGS84] wird beim Join
+ausdrücklich umgerechnet statt stillschweigend gleichgesetzt". Derselbe Satz
+stand als Kommentar in `download_tiger.py`, und `projektabsprache.md` 
+plante den Join von Anfang an „mit Umrechnung WGS84 → NAD83".
+
+**Es gibt keine Umrechnung.** `build_crime_offense` joint mit
+`ST_Within(ST_Point(longitude, latitude), geom)`; `ST_Transform` kommt in der
+ganzen Pipeline nicht vor. Die beiden Bezugssysteme werden gleichgesetzt.
+
+### Warum das mehr ist als ein falscher Kommentar
+
+Die Rechtfertigung lautete überall „der Unterschied liegt unter einem Meter,
+also folgenlos". Tatsächlich sind es ein bis zwei Meter, und die Messung am
+Tatjahrgang 2024 zeigt, dass diese Grössenordnung sehr wohl entscheidet:
+
+| Abstand zur Grenze des eigenen Tracts | Anteil der verorteten Fälle |
+| --- | --- |
+| näher als 1 cm | 1,11 % |
+| näher als 8 cm | 11,31 % |
+| näher als ~1 m | **25,37 %** |
+| näher als ~9 m | 30,90 % |
+| näher als ~90 m | 53,36 % |
+
+Eine Gleichverteilung innerhalb der Tracts liesse 6,00 % im Ein-Meter-Streifen
+erwarten — gemessen ist es gut das Vierfache. Der Grund ist nicht das Datum,
+sondern die Verortung: Beide Städte setzen ihre Koordinaten auf Strassenachsen,
+und TIGER schneidet die Tract-Grenzen entlang genau derselben Strassen.
+
+### Was das für H7 bedeutet
+
+Detroit liefert sein eigenes Tract mit (`census_block_2020_geoid`). Die
+Nachrechnung auf dem aktuellen Stand ergibt 79'874 vergleichbare Zeilen und
+**83,44 % Übereinstimmung** — praktisch dieselben 83,35 %, mit denen
+`ln1_konzept.md` und `leistungsnachweise.md` H7 als falsifiziert bewerten. Beide
+Dokumente schliessen das Koordinatensystem als Erklärung aus. Das hält nicht:
+
+| Abweichende Fälle (13'228) | Abstand zu dem Tract, **das Detroit nennt** |
+| --- | --- |
+| näher als ~1 m | 6'537 — 49,42 % |
+| näher als ~9 m | 12'309 — **93,05 %** |
+| näher als ~90 m | 13'162 — 99,50 % |
+
+Der Punkt sitzt also fast immer auf der gemeinsamen Kante beider Tracts. Die
+Abweichung ist eine Frage der Kante, keine falsche Verortung.
+
+**Geändert wurde nur die Sachaussage**, in beiden Dokumenten als datierte
+Anmerkung neben der bestehenden Argumentation. Die Bewertung von H7 ist Artans
+und bleibt unangetastet — sie gehört aber nochmals angesehen.
+
+### Was sonst noch fehlte
+
+Notebook 21 dokumentierte die Quelle nur zur Hälfte: Die zweite TIGER-
+Auslieferung `place` — die Stadtgrenzen, ohne die es keinen Nenner für eine Rate
+gibt — kam im ganzen Notebook nicht vor, auch nicht im Aufruf unter 9. Wer sich
+daran hielt, lud nur Tracts. Ergänzt in Kopf, 1., 3., 8., 9. und Appendix A.
+
+### Geprüft und unverändert
+
+`STATES`, beide Vintage-Vorgaben, `EXPECTED_CRS`, die Pflichtdateien, die drei
+ACS-Variablen, der Sentinel `-666666666` (Michigan: 146 Tracts, bestätigt), die
+Missing-Key-Falle (HTTP 200, `text/html`), die Schema-Drift über `GEOIDFQ`, der
+Kreuzabgleich TIGER/ACS (3'017 zu 3'017, deckungsgleich) und die FIPS-Tabelle.
+
+---
+
+## 19.09.2026 · Notebook 13 widersprach sich selbst (#121)
+
+**Anlass.** Die Textkontrolle, nachdem heute Vormittag die Laufauswahl repariert
+wurde. Hier war die Ausbeute am grössten — das Notebook trug noch die Welt vor
+dem Delta-Umbau.
+
+**Der schwerste Befund: eine Zusammenfassung, die dem eigenen Schritt 7
+widerspricht.** Das Ergebnis schloss mit
+
+> *„… und dass die Lücke hier nicht systematisch nach Delikttyp verzerrt ist."*
+
+Schritt 7 desselben Notebooks zeigt das Gegenteil, mit Zahlen: Sexualdelikte
+1,84 %, Familiendelikte 2,27 %, `OTHER` 2,65 % — das Sechs- bis Neunfache des
+Schnitts von 0,29 %. Wer nur die Zusammenfassung liest, zieht den falschen
+Schluss. Sie sagt jetzt, was gemessen wurde: **dieselbe Schlagseite wie bei
+Chicago, nur um eine Grössenordnung kleiner** — 16 von 869 Sexualdelikten gegen
+Chicagos 171 von 1'746.
+
+**Das Argument stand auf dem Kopf.** Schritt 12 hiess: *„sie ist der Grund,
+warum die Pipeline bei vollen Snapshots bleibt"*, und schloss mit *„Detroit lädt
+deshalb den vollen Jahrgang neu — was bei 88'685 Zeilen und 97 Sekunden die
+einfachere und die richtigere Variante ist."* Seit dem 18.9. ist genau das
+Gegenteil der Fall. Die Messung trägt jetzt die richtige Folgerung: Sie sagt
+nicht, dass kein Delta geht, sondern **worauf** es gehen muss.
+
+**Sieben Zahlen nachgeführt:**
+
+| | war | ist |
+| --- | ---: | ---: |
+| umklassierte Delikte zwischen zwei Ständen | 10 in 20 Stunden | **113 in knapp 7 Tagen** |
+| Überzählung durch Zeilen statt Taten | 3,9 % | **3,7 %** |
+| Anklage weicht von der Tat ab | 3,6 % | **3,5 %** |
+| Chicagos Geo-Lücke zum Vergleich | 0,7 % | **0,81 %** |
+| Zuordnung aus dem MICR-Handbuch | 94,4 % | **94,5 %** |
+| Sommer über Februar | 25 % | **33 %** |
+| vorliegende Schnappschüsse | zwei, 20 Stunden | **fünf, knapp 7 Tage** |
+
+**Eine Folge ergänzt.** Schritt 2 sagt richtig, dass Löschungen erst der
+Vergleich zweier Schnappschüsse zeigt. Seit dem Delta-Umbau entstehen keine
+neuen mehr — die fünf vorliegenden sind das Fenster. Das steht jetzt dabei, mit
+dem Verweis auf die offene Entscheidung in `datenhistorie.md` 5.2.
+
+**Was geprüft wurde und hält:** die 46 Raw-Antworten, `ESRI_OID` als Nicht-
+Schlüssel, die 15 Zeilen mit leerer statt fehlender Beschreibung, 152 gegen 81
+beziehungsweise 79 Beschreibungen ungetrimmt/getrimmt, ein Viertel ohne
+`updated_in_ibr_at`, die drei Zeilen mit `updated_at` vor der Tat, kein Tag
+ohne Fall, kein Schema-Drift.
+
+---
+
+## 19.09.2026 · Notebook 12 verschwieg, wohin es schreibt (#121)
+
+**Anlass.** Die Textkontrolle, nachdem heute Vormittag schon die Technik daran
+repariert wurde — Projektwurzel, Delta-Modus, Ausgabeverzeichnis, Parquet statt
+NDJSON.
+
+**Der Befund.** Das Notebook sagte nur: *„`RUN_DOWNLOAD` ist absichtlich
+zunächst `False`."* Warum das hier mehr wiegt als bei Chicago, stand nirgends.
+
+`02_chicago_bronze_ingestion` schreibt in ein Wegwerfverzeichnis unter
+`$TMPDIR` und räumt danach auf — dort ist ein eingeschalteter Download
+harmlos. **Notebook 12 schreibt in den echten Bestand** unter `data/`. Ein
+Lauf erzeugt dort einen unveränderlichen Bronze-Lauf und rückt bei `DELTA` das
+Wasserzeichen vor. Das steht jetzt als Warnkasten darin, zusammen mit dem
+Gegenstück: Nach SeaweedFS publiziert das Notebook **nicht**, das tut nur
+`main()` der CLI.
+
+Dieselbe Unterscheidung prüft seit heute
+`tests/test_notebooks.py::test_ein_ladendes_notebook_schreibt_nicht_unbemerkt_in_den_bestand`
+— jetzt steht sie auch dort, wo sie jemand liest.
+
+**Eine Zusage war zu schwach formuliert.** Zum DuckDB-Import stand nur
+*„derselbe Quelllauf wird übersprungen"*. `load_run` kann mehr, und das ist die
+interessantere Hälfte: Bei bekannter Run-ID mit **anderen Bytes** bricht es ab
+— *„Run-ID bereits mit anderen Bytes importiert"*. Dieselbe Kennung mit anderem
+Inhalt ist ein Widerspruch, kein Update. Die drei Ausgänge stehen jetzt als
+Tabelle darin.
+
+**Zwei ungenutzte Importe** entfernt (`SOURCE_TIMEZONE`, `datetime`).
+
+**Was geprüft wurde und hält:** Parquet mit ZSTD, Raw vor Bronze
+veröffentlicht, `DELTA` und `FULL` nach `full/year=…` partitioniert, `DAILY`
+ohne Jahresfilter und ohne Wasserzeichen, die Kategoriesumme gegen
+`downloaded_count`, `__MISSING__` für fehlende Kategorien, die vier Zeilen ohne
+Änderungsstempel.
+
+---
+
+## 19.09.2026 · Notebook 11 begründete seine Ladestrategie falsch (#121)
+
+**Anlass.** Dieselbe Kontrolle wie bei 01, 02 und 03, jetzt auch für die
+**Texte**, nicht nur die Zahlen. Das Notebook sagt über sich selbst: *„Es
+behauptet so wenig wie möglich. Jede Zahl wird von einer Zelle gerechnet."*
+Genau daran habe ich es gemessen.
+
+**Der Hauptbefund.** Abschnitt 5 begründete die ID-basierte Paginierung so:
+
+> *„Der Layer meldet **kein** `supportsPagination`. Ein `resultOffset` ist damit
+> nicht verlässlich."*
+
+Gegen den Dienst geprüft: Er meldet **`supportsPagination: true`**. Die
+Begründung trägt nicht.
+
+**Die Entscheidung bleibt trotzdem richtig**, nur aus einem anderen Grund — und
+der ist der bessere. Es geht nicht darum, dass Offsets nicht *gehen*, sondern
+darum, dass sie nichts *belegen*: Bei Offset-Paginierung steht erst am Ende
+fest, welche Zeilen man hat. Die feste ID-Liste steht **vor** dem ersten
+Datenabruf fest, liegt als `snapshot_ids_sha256` im Manifest, und der Lauf
+bricht ab, wenn die geladene Menge abweicht.
+
+Dass der Weg gangbar ist, ist dabei ebenfalls nachgemessen: `returnIdsOnly`
+liefert **827'419 IDs in einem Zug**, bei einem Abruflimit von 2000 Zeilen.
+
+**Zwei weitere Korrekturen.**
+
+*„Zeitraum: ab 2016 belastbar"* — der Dienst sagt etwas anderes. 2016 trägt
+**6'367** Fälle, 2017 dagegen **83'092**. Belastbar ist der Bestand ab 2017;
+2016 ist der eine Monat ab Dezember, mit dem die Quelle beginnt.
+
+*„`arrest_charge` ist fünfstellig"* — bei 88'684 von 88'686 Zeilen. Zwei tragen
+statt einer Kennziffer die Zeichen `%` und `/`.
+
+**Eine Lücke geschlossen.** Die Entscheidungstabelle in Abschnitt 9 kannte den
+Delta-Ladeweg nicht — das Notebook trug noch den Stand vom 11.9. Die
+Entscheidung steht jetzt darin, mit der Begründung aus Abschnitt 8: Über die
+Hälfte des Jahrgangs wird mehr als ein Jahr nach der Tat noch geändert, ein
+Delta nach Tatdatum sähe keine dieser Korrekturen.
+
+**Stand der Dokumentation** von 11.9. auf 19.9. gesetzt — nach den Eingriffen
+von heute und gestern wäre das alte Datum eine Behauptung gewesen.
+
+---
+
+## 19.09.2026 · Notebook 03 verschwieg einen eigenen Befund (#121)
+
+**Anlass.** Dieselbe Kontrolle wie bei 01 und 02, diesmal für Chicagos
+Datenqualität. Das Notebook ist **technisch das sauberste von allen**: Es
+entdoppelt korrekt und sagt es auch, alle Prüfungen laufen, jede Zahl in der
+Prosa deckt sich mit der Ausgabe. Es *verschweigt* aber einen Befund, den es
+selbst ausdruckt.
+
+**Der Fund.** In der Distriktverteilung stehen zwei Nummern, die es in Chicago
+nicht gibt — `031` mit 14 Fällen und `061` mit **331**. Die Prosa nannte nur
+`031` und erklärte es als Erfassungsartefakt. `061` kam nirgends vor, obwohl es
+23-mal grösser ist.
+
+Nachgemessen ist es kein Artefakt:
+
+```
+Beat 6100 / District 061 / community_area 0 :  334 Zeilen
+davon ohne Koordinate                       :  331
+häufigste Delikte: Criminal Sexual Assault 116,
+                   Offense Involving Children 60, Sex Offense 42
+```
+
+**Chicago markiert die unterdrückten Orte doppelt.** Wo die Stadt die Koordinate
+zurückhält, setzt sie auch Distrikt, Beat und Community Area auf Werte
+ausserhalb des Schemas. Diese 331 Zeilen sind **16 % aller Zeilen ohne
+Koordinate** — ein zweiter, unabhängiger Beleg für den Befund aus Schritt 6,
+und er stand die ganze Zeit in der Ausgabe.
+
+**Warum das mehr ist als eine Ergänzung.** Wer nach District gruppiert und `061`
+für einen Erfassungsfehler hält — so wie es die Prosa nahelegte —, wirft genau
+die Delikte weg, bei denen die Stadt den Ort bewusst schützt. Das steht jetzt
+ausdrücklich im Ergebnis.
+
+**Ausserdem präzisiert:** *„eine Handvoll Zeilen, bei denen `beat` und `district`
+nicht zusammenpassen"* sind **20**.
+
+---
+
+## 19.09.2026 · Alle vierzehn Notebooks Satz für Satz gegengelesen (#121)
+
+**Anlass.** Bei 01, 02 und 13 war es dasselbe Muster: Der Code stimmt, die Prosa
+daneben ist älter als er. Also alle vierzehn durchgegangen und jede Zahl in der
+Prosa gegen die Ausgabe derselben Zelle gehalten.
+
+### Zwei Notebooks lasen ihren eigenen Bestand falsch
+
+Das ist der schwerwiegendere Teil. `11_detroit_source` und `32_nibrs_source`
+lesen Bronze über `read_parquet` **aller** Laufdateien — ohne Entdopplung. Mit
+einem Lauf war das richtig. Heute liegen acht Detroit-Läufe übereinander, und
+das Notebook rechnete auf **452'980 Zeilen** für einen Jahrgang von 88'686:
+
+```
+Zeilen (Delikte)            : 452,980      →   88,686
+Vorfaelle (case_id)         :  80,234      →   80,234
+davon mit >1 Delikt         : 100.0%       →    9.4%
+Delikte je Vorfall im Mittel:   5.65       →    1.11
+```
+
+*„Delikte je Vorfall im Mittel: 5,65"* und *„100 % der Vorfälle haben mehr als
+ein Delikt"* — beides stand so im Beleg-Notebook zur Quelle. Beide Notebooks
+entdoppeln jetzt wie Silver: je Schlüssel die Fassung mit dem jüngsten
+Änderungsstempel. Bei Notebook 32 betraf es beide Städte (Chicago 260'852 →
+259'625).
+
+Damit fielen auch abgeleitete Zahlen an ihren Platz: Detroits Randleerzeichen
+von 145'374 auf 28'058, „ohne Koordinate" von 1'298 auf 259.
+
+### 24 Zahlen in der Prosa nachgeführt
+
+| Notebook | Beispiel | war | ist |
+| --- | --- | ---: | ---: |
+| 03 | Chicagoer Fälle ohne Koordinate | 0,7 % | **0,81 %** |
+| 11 | Chicago Zeilen / Fälle | 259'272 / 259'243 | **259'625 / 259'596** |
+| 11 | Detroit Taten / Fälle | 85'345 / 80'229 | **85'448 / 80'230** |
+| 11 | die drei offenen MICR-Codes | 1'647 Zeilen | **1'594** |
+| 22 | Schneeflag-Ausnahmen | 4 von 24'593 | **4 von 24'603** |
+| 31 | gesparter Platz | 85 % | **81 %** |
+| 32 | Zeilen auf `90Z` | 10'442 | **10'475** |
+| 34 | Chicagos Geo-Ausfall insgesamt | 0,67 % | **0,81 %** |
+| 34 | Betrug, Faktor zwischen den Städten | 18 | **20** |
+| 35 | Chicagoer Delikte ohne Koordinate | 1'748 | **2'098** |
+
+Dazu die Zahlen in der SVG-Grafik von Notebook 34 — sie trug noch 347'957 und
+344'617 und damit den Referenzstand vom 17.9.
+
+### Was geprüft wurde und stimmt
+
+**H4 hält weiterhin**: 185'228 von 259'625 Zeilen (71,3 %) stehen unter einer
+mehrdeutigen Kategoriebezeichnung. Die Hypothese hängt an Chicagos
+`primary_type` und ist von der heutigen Änderung an
+`source_offense_description` **nicht** berührt — das war die naheliegende
+Sorge und sie trifft nicht zu.
+
+Ebenfalls unverändert richtig: Notebook 03 entdoppelt korrekt und meldet es
+auch; Notebook 21 und 33 arbeiten auf Silver und sind davon nicht betroffen;
+die 434 IUCR- und 128 MICR-Zeilen, die 81 amtlichen NIBRS-Codes und die vier
+zurückgezogenen stehen unverändert.
+
+### Der Befund hinter dem Befund
+
+Zwei der drei ernsten Fehler dieser Woche haben dieselbe Ursache: **Ein
+Notebook, das „den Bestand" lesen will, liest in Wahrheit alle Läufe.** Das
+war richtig, solange es einen gab. Seit beide Städte Deltas laden, ist es
+falsch — und es fällt nicht auf, weil das Ergebnis plausibel aussieht.
+
+Gegenprobe nach allen Korrekturen: **14 von 14 grün**, kein neuer Bronze-Lauf.
+
+---
+
+## 19.09.2026 · Notebook 02: eine Zusage, die nur lokal gilt (#121)
+
+**Anlass.** Dasselbe Durchsehen wie bei Notebook 01, diesmal für die
+Chicago-Ingestion. Das Notebook **läuft** und der weitaus grösste Teil stimmt —
+nachgemessen: 22 Quellfelder plus `_extra` ergeben 23 Spalten, davon 19 der
+Quellfelder `string`, zwei `bool`, eines `struct`; Keyset-Pagination über
+`id > <letzte>`; `.{run_id}.part`; `STALE_PARTIAL_HOURS = 24`;
+`whole_records: true`; `derived_from` zeigt auf den Raw-Lauf. Alles wie
+beschrieben.
+
+**Der Fund.** Schritt 9 versprach:
+
+> *„Bei einem Testlauf bleibt es bewusst bei `None`. Der nächste Lauf wäre also
+> weiterhin ein Vollabzug."*
+
+Die Ausgabe desselben Notebooks sagte daneben:
+
+```
+Wasserzeichen im Datenordner: 2026-09-17T15:43:58.000
+Nächster Modus              : delta
+```
+
+**Warum.** Der Testlauf schreibt in einen Ordner unter `$TMPDIR` — das isoliert
+das **Schreiben**. `previous_watermark()` liest aber über die Ablage, und die
+steht auf `hybrid`: Sie sieht damit auch die Läufe auf SeaweedFS. Ein leerer
+Testordner heisst deshalb nicht, dass es kein Wasserzeichen gibt. Der Testlauf
+startete als **Delta**, während der Text einen Vollabzug beschrieb.
+
+**Kein Schaden, und das ist nachgesehen.** Publiziert wird in `main()`, nicht in
+`write_run()` — das Notebook ruft beide direkt auf. Ein Testlauf schreibt also
+weder nach `data/` noch nach SeaweedFS.
+
+**Korrigiert statt kaschiert.** Beide Stellen sagen jetzt, wovon es abhängt: bei
+`STORAGE_BACKEND=local` steht `None`, bei `hybrid` und `s3` das Wasserzeichen des
+Projekts. Beides ist richtig — die Funktion beantwortet *„was haben wir schon
+geladen"*, und in der hybriden Ablage gehören die Läufe auf dem Server dazu. Wer
+den Vollabzug sehen will, nimmt `FORCE_FULL = True` oder startet lokal.
+
+**Ein Begriff, den es nicht gibt.** *„Staging-Schicht"* stand an fünf Stellen —
+in Notebook 02, Notebook 21 und zweimal in `download_acs.py`. Die Schicht heisst
+**Silver**. Ein Leser der Abgabe hätte nach einer Schicht gesucht, die es nie
+gab.
+
+---
+
+## 19.09.2026 · Chicagos Beschreibung trägt jetzt beide IUCR-Hälften (#121)
+
+**Silver-Vertrag 2 → 3, Gold-Vertrag 4 → 5.**
+
+**Das Problem.** Chicago beschreibt ein Delikt in **zwei** Feldern, und Silver
+führte nur das zweite:
+
+| Quelle liefert | Silver behielt |
+| --- | --- |
+| `THEFT` + `$500 AND UNDER` | `$500 AND UNDER` |
+| `MOTOR VEHICLE THEFT` + `AUTOMOBILE` | `AUTOMOBILE` |
+| `BATTERY` + `SIMPLE` | `SIMPLE` |
+
+„AUTOMOBILE" ist kein Delikt. Schlimmer: Dieselbe Beschreibung stand unter
+verschiedenen Delikttypen.
+
+```
+SIMPLE                →  BATTERY / ASSAULT / STALKING           31'632 Zeilen
+AGGRAVATED - HANDGUN  →  ASSAULT / CRIMINAL SEXUAL ASSAULT /
+                         BATTERY                                 6'413 Zeilen
+TO VEHICLE            →  CRIMINAL TRESPASS / CRIMINAL DAMAGE    15'857 Zeilen
+```
+
+**23,7 % aller Chicagoer Zeilen** trugen eine Beschreibung, die für sich
+genommen mehrdeutig war. Der `source_offense_code` daneben war eindeutig — zwei
+Spalten für dieselbe Sache, und nur eine hielt.
+
+**Die Lösung.** `source_offense_description` trägt für Chicago beide Hälften,
+getrennt durch `": "`:
+
+```
+0486  BATTERY: DOMESTIC BATTERY SIMPLE
+0820  THEFT: $500 AND UNDER
+0910  MOTOR VEHICLE THEFT: AUTOMOBILE
+```
+
+Das Trennzeichen ist geprüft: `":"` kommt in **keinem** Chicagoer Quelltext vor.
+`" - "` wäre kollidiert — es steht 43'139-mal in den Beschreibungen selbst
+(`AGGRAVATED - KNIFE / CUTTING INSTRUMENT`).
+
+Drei Randfälle sind abgefangen: fehlt eine Hälfte, steht die andere allein;
+sind beide gleich, steht sie einmal (180 Zeilen, etwa `INTIMIDATION`).
+
+**Detroit bleibt unverändert** — dort ist `offense_description` bereits
+vollständig (`ASSAULT AND BATTERY/SIMPLE ASSAULT`).
+
+**Das Ergebnis, gemessen.**
+
+| | vorher | nachher |
+| --- | ---: | ---: |
+| mehrdeutige Beschreibungen, Chicago | 23,7 % | **0,00 %** |
+| Zeilen Chicago | 259'625 | 259'625 |
+
+Die Zeilenzahlen bewegen sich nicht — es ist eine reine Deutungsänderung. Genau
+dafür gibt es die Vertragsversion.
+
+**Warum jetzt und nicht nach der Abgabe.** Ich hatte empfohlen, es zu
+verschieben und in der Präsentation aktiv zu benennen. Christian hat anders
+entschieden: zu grosses Problem, sofort umsetzen. Die Entscheidung war richtig
+— eine Spalte, die in fast einem Viertel der Zeilen das Falsche behaupten kann,
+ist kein Nachtrag wert.
+
+**Nachgeführt.** `zaehlperspektiven.md` 3 (der Befund ist für Chicago erledigt,
+für Detroit steht er unverändert — dort hat er eine andere Ursache),
+`datenhistorie.md` 8 Punkt 6 (war die offene Freitagsfrage), der Feldkatalog
+über sein Werkzeug, Notebook 01, und die Testfixturen in
+`test_build_crime_offense.py`.
+
+**Neues Release** `2026-09-19T15-12-28Z`, 21 Dateien.
+
+---
+
+## 19.09.2026 · Notebook 01 beschrieb einen Plan, nicht die Umsetzung (#121)
+
+**Anlass.** Eine Nachfrage zu einem Absatz in
+[`01_chicago_source.ipynb`](../../notebooks/01_chicago_source.ipynb). Das
+Notebook trägt den Stand **3.9.2026** — es beschreibt, was wir *vorhatten*. An
+drei Stellen ist die Umsetzung anders ausgefallen, an einer war die Aussage
+schlicht falsch.
+
+**Die falsche Aussage.** *„Homicide erhält die Kennzeichnung
+`record_granularity = VICTIM`, die übrigen Kategorien `record_granularity =
+INCIDENT`."* Ein solches Feld gibt es für Chicago **nirgends** — weder als
+Spalte noch im Manifest. `record_granularity` existiert nur in Detroits
+Bronze-Manifest, als Angabe für den ganzen Lauf mit dem Wert
+`INCIDENT_OFFENSE`.
+
+Die Sache dahinter stimmt und ist gelöst — nur anders: Chicago führt bei
+Tötungsdelikten **eine Zeile je Opfer**, im Jahrgang 2024 sind das **597 Zeilen
+auf 568 Fälle**, und alle **25** Chicagoer Fälle mit mehr als einer Zeile
+tragen NIBRS `09A`. Getrennt wird das über `counts` (Tatebene) und
+`counts_case` (Fallebene).
+
+**Zwei bewusst verworfene Pläne**, die im Notebook noch als Absicht standen:
+
+| geplant | umgesetzt |
+| --- | --- |
+| „Das Ingestion-Skript soll sich nur auf die benötigten Spalten beschränken" | ohne `$select`, alle 22 Quellfelder gepinnt — *„a new field lands in EXTRA_COLUMN rather than being lost"* |
+| „Der ursprüngliche Wert aus `primary_type` bleibt unverändert erhalten" | in Bronze ja; Silver führt ihn **nicht** weiter, dort steht Chicagos `description` als `source_offense_description` |
+
+Der zweite Punkt ist die offene Frage aus
+[`datenhistorie.md`](datenhistorie.md) 8 von der anderen Seite: `0820` heisst
+in Silver nur noch *„$500 AND UNDER"* — ohne das `THEFT` aus `primary_type`
+bedeutungslos.
+
+**Was dagegen exakt stimmt.** Gegen den Live-Endpunkt nachgemessen: Appendix A
+nennt **31 Felder mit identischen Namen und identischen Positionen** — 22
+Quellfelder plus 9 von Socrata berechnete. Die 22 decken sich eins zu eins mit
+dem gepinnten `FIELDS` im Code. Und Entscheidung 4 wurde ausgeführt:
+`case_number` kommt **25-mal** mehrfach vor und taugt deshalb nicht als
+Deliktschlüssel — in Silver ist `id` der `offense_id`, `case_number` der
+`event_id`.
+
+**Nachgeführt statt umgeschrieben.** Die verworfenen Pläne stehen weiter da,
+mit einem datierten Nachtrag daneben. Ein Quellnotebook, das nur den Endstand
+zeigt, verschweigt die Entscheidung — und die ist hier das Interessante.
+
+**Eine Randzahl.** *„ohne die jeweils jüngsten sieben Tage"* — am 19.9.2026
+gemessen sind es acht. Jetzt als „rund sieben" mit dem Messwert daneben.
+
+---
+
+## 19.09.2026 · Drei Notebooks liefen nicht mehr (#121)
+
+**Anlass.** Alle vierzehn Notebooks einmal ausgeführt und ihren Inhalt gegen
+den gebauten Stand gehalten. **Elf liefen, drei nicht.**
+
+| Notebook | Ursache | seit |
+| --- | --- | --- |
+| `12_detroit_bronze_ingestion` | sucht das Paket im Projekt-Root, es liegt unter `src/crime/` | dem Umzug des Codes |
+| `13_detroit_data_quality` | nimmt den jüngsten Lauf als Jahresschnappschuss | dem Delta-Umbau, 18.9. |
+| `35_kontrollen` | baut eine Minimaltabelle mit „genau den Spalten, die `reconcile` liest" | der Erweiterung von `reconcile` |
+
+**Notebook 13 ist der inhaltlich wichtigste Fall.** Es beschreibt Detroits
+Jahrgang und nahm dafür `laeufe[-1]`. Seit dem 18.9. ist das ein **Delta** mit
+3'184 Zeilen — eine Änderungsmenge, kein Bestand. Schritt 3 verglich damit
+einen Vollschnappschuss gegen ein Delta, fand keine Feldunterschiede und stürzte
+beim Sortieren einer leeren Tabelle ab.
+
+Es trennt jetzt Schnappschüsse von Deltas und rechnet auf dem jüngsten
+Vollschnappschuss. Schritt 3 vergleicht den **ältesten gegen den jüngsten** —
+alle fünf ziehen dasselbe Abfragefenster, sind also vergleichbar, und die
+weiteste Spanne ist die stärkste Evidenz. Statt drei Stunden liegen nun
+**6 Tage 22 Stunden** dazwischen: 1'129 geänderte Beschreibungen, davon 113 mit
+wirklich anderem Wert.
+
+**Eine Zahl ist dabei gewandert.** Das Notebook misst den Anteil des Jahrgangs,
+der mehr als ein Jahr nach der Tat noch geändert wurde. Dokumentiert waren
+**54,6 %**; auf dem Schnappschuss vom 18.9. sind es **55,9 %**. Nachgeführt in
+README 2.1, `architektur-ist-und-ziel.md`, dem Einseiter, dem Docstring von
+`build_delta_where` und den beiden Testdateien. Die Aussage wird dadurch
+stärker, nicht schwächer — und der Weg der Zahl steht jetzt im README.
+
+**Was den Fund verzögert hat.** Der wöchentliche Datenlauf führt **8 der 14**
+Notebooks aus; die sechs ladenden bleiben bewusst aussen vor, weil sie an sechs
+fremden Diensten hängen. Notebook 12 gehört dazu — es war seit Wochen kaputt,
+und kein roter Lauf zeigte darauf.
+
+Die Lücke schliesst jetzt `tests/test_notebooks.py` von der anderen Seite:
+**ohne Ausführung, ohne Netz.** Geprüft wird, dass jede Wurzelprobe auf einen
+vorhandenen Pfad zeigt, dass jeder importierte Name der Strecke existiert und
+dass ein ladendes Notebook nicht unbemerkt in den Bestand schreibt. Genau das
+hätte Notebook 12 auf jedem Pull Request gefangen.
+
+**Zwei Regeln des Wächters waren zuerst falsch** — und die Notebooks hatten
+recht:
+
+* `02_chicago_bronze_ingestion` lädt mit `RUN_DOWNLOAD = True`, schreibt aber
+  in ein Wegwerfverzeichnis unter `tempfile.gettempdir()` und räumt auf. Dort
+  ist der eingeschaltete Download richtig; ohne ihn wäre die Vorführung
+  wertlos. Die Regel lautet jetzt: **Schalter aus oder Wegwerfverzeichnis.**
+* `32_nibrs_source` legt bewusst den Projekt-Root auf `sys.path` — es
+  importiert `tests.config.*`, nicht die Strecke. Die Regel gilt jetzt nur für
+  Notebooks, die ein Paket aus `src/crime` importieren.
+
+**Gegenprobe.** Nach den Reparaturen alle vierzehn ausgeführt: **14 von 14
+grün**, und kein einziger neuer Bronze-Lauf dabei entstanden.
+
+**Zahlen.** 1'229 → **1'274 Tests**.
+
+---
+
+## 19.09.2026 · Die internen Dokumente liegen in `docs/intern/` (#121)
+
+**Der Entscheid dahinter.** Der Inhalt der Vertiefungen **wandert in das
+Word-Dokument**; verwiesen wird von dort nicht zurück. Damit ist `docs/` kein
+Anhangsordner, sondern Quellmaterial — und alles, was nicht einfliesst, hat
+darin nichts zu suchen.
+
+**Was verschoben wurde.** Fünf Dokumente nach [`docs/intern/`](.):
+`AENDERUNGEN.md`, `projektabsprache.md`, `leistungsnachweise.md`,
+`datenhistorie.md`, `DETROIT_PIPELINE_ANLEITUNG.md`. Wer jetzt `docs/` öffnet,
+sieht zwölf Dokumente, die alle in die Abgabe einfliessen — und keines, das
+offene Entscheide oder Lücken auflistet.
+
+**Zuerst das Netz, dann der Sprung.** Die Dokumentnamen stehen 448-mal in 143
+Dateien, und es gab keinen Wächter über tote Verweise. `tests/test_verweise.py`
+kam deshalb **vor** dem Umzug: Er prüft jeden relativen Verweis in README,
+Dokumenten und Notebook-Zellen. Vorher null tote Verweise, nachher null — der
+Umzug ist damit nicht behauptet sauber, sondern gemessen.
+
+Der Wächter hat einen zweiten Test bei sich, der zählt, wie viel er überhaupt
+findet (31 Dateien, 255 Verweise). Ein Prüfer, dessen Muster nicht mehr passt,
+meldet sonst nichts und sieht dabei grün aus.
+
+**Was der Umzug angefasst hat.** 20 Dateien mit Verweisen, dazu zehn mit
+Pfadkonstanten in Python (`PROJECT_ROOT / "docs" / "AENDERUNGEN.md"`) — die
+zweite Form hatte die erste Ersetzung nicht erfasst, und 22 Tests brachen mit
+Fehlern ab. Das ist genau der Fall, für den es den Verweis-Wächter allein nicht
+tut: Er liest Markdown, nicht Python.
+
+**Eine stille Abschwächung verhindert.** Der Abgleich zwischen Wegweiser und
+Konzept 11.5 vergleicht verlinkte Dokumentnamen. Nach dem Umzug stand dort
+`intern/AENDERUNGEN.md`, und das alte Muster `[\w.-]+\.md` traf das nicht mehr
+— der Vergleich wäre auf **zwei leere Mengen** zusammengefallen und weiter grün
+gewesen. Verglichen wird jetzt der Dateiname ohne Ordner.
+
+**Zahlen.** 1'226 → **1'274 Tests**. In `docs/` liegen 12 Dokumente statt 17.
+
+---
+
+## 19.09.2026 · Die Abgabe liegt gar nicht im Repository (#121)
+
+**Die Korrektur.** Gestern stand hier, die Abgabe sei `ln1_konzept.md`. Sie ist
+es nicht: Die Abgabe entsteht als eigenes **Word-Dokument**, und das Konzept ist
+seine Hauptquelle. Damit ist **kein** Dokument in `docs/` die Abgabe — die
+Einteilung von gestern war eine Ebene zu tief angesetzt.
+
+**Was sich dadurch ändert.** Wenig am Inhalt, viel an der Beschriftung:
+
+| | gestern | heute |
+| --- | --- | --- |
+| `ln1_konzept.md` | „die Abgabe" | **Hauptquelle** des Word-Dokuments |
+| Kapitel 11.3 | „Anhang zu diesem Leistungsnachweis" | „Vertiefungen, die in die Abgabe einfliessen" |
+| Kapitel 11.5 | „nicht Teil der Abgabe" | „fliessen nicht ein" — plus der Hinweis, dass sie beiliegen, wenn das Repository abgegeben wird |
+| `docs/README.md` | „Abgabe — was zum LN gehört" | „Abgabe — was in das Word-Dokument fliesst" |
+
+**Was dabei richtig bleibt.** Der Befund von gestern — ein Verweis auf die
+eigene Mängelliste mitten im Hypothesen-Kapitel — war nicht weniger schlimm,
+sondern genauso: Dieser Text wandert ins Word-Dokument, und der Satz wäre
+mitgewandert.
+
+**Der neue Punkt, der vorher nicht sichtbar war.** Die Fassung im Repository
+ist die **belastbarere**: Jede Zahl darin wird von der Testsuite gegen die
+gebauten Daten gehalten. Im Word-Dokument gilt das nicht mehr — dort ist eine
+Zahl so aktuell wie der Tag, an dem sie kopiert wurde. Beide Dokumente sagen das
+jetzt, mit der praktischen Folge: **spät übertragen**, und danach
+`python -m pytest -m referenzstand` laufen lassen.
+
+**Zwei neue Wächter.** Einer prüft, dass sich **kein** Dokument in `docs/` zur
+Abgabe erklärt. Die Behauptung ist billig hingeschrieben und teuer, wenn sie
+falsch ist: Sie entscheidet, welcher Text lektoriert wird. Wer sie wieder
+aufstellen will, muss den Test ändern — und trifft damit eine Entscheidung,
+statt einen Satz stehen zu lassen. Der zweite hält fest, dass der Wegweiser
+sagt, **wo** die Abgabe stattdessen liegt.
+
+Der Eintrag vom 18.9. hat einen Nachtrag bekommen, statt umgeschrieben zu
+werden. Er beschreibt, was damals galt.
+
+**Zahlen.** 1'224 → **1'274 Tests**.
+
+---
+
+## 18.09.2026 · Die Abgabe zeigte auf ihre eigene Mängelliste (#121)
+
+> **Nachtrag vom 19.9.2026.** Die Prämisse dieses Eintrags stimmte nur einen
+> Tag: `ln1_konzept.md` ist ebenfalls nicht die Abgabe. Sie entsteht als
+> eigenes Word-Dokument. Was hier beschrieben ist, bleibt richtig und wichtig —
+> der Verweis auf die Mängelliste stand im Text, der ins Word-Dokument wandert.
+> Siehe den Eintrag vom 19.9.
+
+**Der Befund.** `leistungsnachweise.md` sagte in Zeile 8 über sich selbst:
+*„Die Abgabe selbst ist `ln1_konzept.md` — dieses Dokument ist Arbeitsgrundlage
+und **nicht Teil der Abgabe**."* Das Konzept verlinkte es trotzdem — und einmal
+an der teuersten Stelle:
+
+> Kapitel 3 · Forschungsfragen und Hypothesen:
+> *„Der Entscheid über Auswahl und Formulierung ist offen; siehe
+> `leistungsnachweise.md` Abschnitt 2.3."*
+
+Wer dem Verweis mitten im Kernkapitel folgte, landete in *„Anforderungen,
+Stand, Lücken"*. Der Satz bleibt — der Entscheid **ist** offen —, der Verweis
+nach draussen ist weg.
+
+**Der zweite Befund, umgekehrt.** Das Konzept verwies auf **keines** der vier
+Dokumente, die ausdrücklich für LN1 geschrieben wurden:
+`architektur-ist-und-ziel.md`, `architektur-einseiter.html`,
+`zaehlperspektiven.md`, `eine-zahl.md`. Sie existierten, aber die Abgabe wusste
+nichts von ihnen — gelesen hätte sie niemand.
+
+**Kapitel 11 gegliedert.** Aus einer Tabelle mit 42 Zeilen, in der Code,
+Notebooks, Anhänge, amtliche Quellen und interne Arbeitspapiere durcheinander
+standen, wurden fünf:
+
+| | |
+| --- | --- |
+| 11.1 | Der Code |
+| 11.2 | Die Notebooks: der Rechenweg |
+| **11.3** | **Anhang zu diesem Leistungsnachweis** — die vier verwaisten sind jetzt darin |
+| 11.4 | Amtliche Quellen und die daraus erzeugten Crosswalks |
+| **11.5** | **Interne Arbeitsgrundlagen — nicht Teil der Abgabe**, mit dem Vorbehalt im Vorspann |
+
+**Eine falsche Zahl dabei gefunden.** Der Feldkatalog-Eintrag nannte *„133
+Spalten in 9 Tabellen"*. Nachgezählt sind es **174 Spalten in 13 Tabellen** —
+die vier Serving-Tabellen aus #108 fehlten, und die Zahl war schon vorher zu
+niedrig.
+
+**Drei Wächter dazu.** Der wichtigste hält Wegweiser und Kapitel 11 auf
+**dieselbe** Einteilung: Was in `docs/README.md` als Anhang steht, muss in 11.3
+stehen, und was intern ist, in 11.5. Zwei Orte, eine Wahrheit — sonst driften
+sie, und genau das war der Ausgangszustand.
+
+Der zweite verbietet Verweise auf Mängellisten im Fliesstext der Abgabe. Er
+schlug beim ersten Lauf **ein zweites Mal** an: `AENDERUNGEN.md` in Kapitel 5.2.
+Diese Stelle bleibt — sie ist eine Selbstkorrektur (*„hier stand bis heute …"*)
+und zeigt auf den **Beleg**, nicht auf eine Lücke. Der Wächter nennt deshalb
+drei Dokumente namentlich, statt „intern" pauschal zu verbieten; die Begründung
+steht als Kommentar daneben.
+
+**Was das für die Einteilung heisst.** `architektur.md`, `storage-architektur.md`
+und `ausblick.md` waren im Wegweiser vom Vormittag als *intern* eingeordnet.
+Das war falsch: Das Konzept verweist auf alle drei, LN1 verlangt die
+Storage-Evaluation ausdrücklich, und ein Ausblick gehört in einen solchen
+Bericht. Sie stehen jetzt im Anhang. Abgabe und Anhang sind damit **zehn**
+Dokumente, intern **fünf**.
+
+**Zahlen.** 1'222 → **1'274 Tests**.
+
+---
+
+## 18.09.2026 · docs/ sagt jetzt, welches Dokument für wen ist (#121)
+
+**Was.** Ein Wegweiser [`docs/README.md`](../../README.md), zwei neue Ordner
+[`quellen/`](../quellen/) und [`archiv/`](../archiv/), und die Einteilung in **Abgabe,
+intern, erzeugt** ist aufgeschrieben statt erinnert.
+
+**Der Befund vorher.** Fünfzehn Markdown-Dateien, zwei HTML-Seiten und **8,8 MB
+amtliche PDFs** lagen flach nebeneinander. Nichts daran sagte, welches Dokument
+in den Leistungsnachweis gehört und welches nur wir brauchen — und bei einigen
+ist der Unterschied wesentlich: `leistungsnachweise.md` ist *über* den LN und
+benennt Lücken; in der Abgabe wäre das ein Eigentor.
+
+| | vorher | nachher |
+| --- | ---: | ---: |
+| Dateien direkt in `docs/` | 24 | 17 |
+| davon Binärdateien | 8,8 MB | 0 |
+
+**Was verschoben wurde.** Die sieben amtlichen Unterlagen nach `quellen/` —
+NIBRS-Spezifikation und -Handbuch, Michigans MICR-Handbücher, Illinois'
+Codetabellen. Sie bleiben im Repository, weil `tests/config/` die Crosswalks
+daraus **neu baut und byteweise vergleicht**; ein Crosswalk ohne seine Quelle
+wäre eine Behauptung. `DETROIT_TIMEZONE_AENDERUNGEN.md` (11 Zeilen, Stand
+9.9.2026) nach `archiv/` — der Inhalt steht seither im Code und hier.
+
+**Was der Umzug gekostet hat.** Elf Dateien mit Pfadangaben: drei Werkzeuge,
+vier Crosswalk-Tests, das Konzept, zwei Notebooks und ein Bericht. Die
+erzeugten CSVs blieben unberührt — sie führen den **Dateinamen ohne Pfad** als
+Herkunft, und genau deshalb hat der Umzug keinen einzigen Byte-Vergleich
+gebrochen.
+
+**Was dabei aufgefallen ist.** Notebook 32 überschrieb seine Tabelle mit *„Sechs
+Dokumente, und warum jedes einzeln nötig war"* — die Tabelle hatte **sieben**
+Zeilen. Der Fehler stand dort, seit das siebte Dokument dazukam.
+
+**Sechs Wächter** in `tests/test_dokumentwegweiser.py`. Ein Wegweiser, den
+niemand nachführt, ist schlimmer als keiner: Er sieht nach Ordnung aus. Geprüft
+wird deshalb in beide Richtungen — jedes Dokument steht darin, kein Verweis
+darin ist tot, kein Dokument steht in zwei Abschnitten (die Einteilung wäre dann
+nicht entschieden), und `docs/` enthält keine losen PDFs mehr.
+
+Die Ausnahme ist `feldkatalog.md`: Anhang der Abgabe **und** erzeugt. Beides ist
+wahr, und der Wegweiser muss es an der ersten Stelle dazusagen — auch das ist
+getestet.
+
+**Was bewusst nicht geschah.** Kein Dokument wurde umbenannt und keines in einen
+Unterordner verschoben. Die Dokumentnamen stehen **448-mal in 143 Dateien**, und
+es gibt keinen repo-weiten Wächter über tote Verweise. Der kommt zuerst; alles
+Weitere danach.
+
+---
+
+## 18.09.2026 · Der Standardlauf ist wieder grün (#121)
+
+**Was.** `python -m pytest` wählt den Marker `referenzstand` ab. Die Wächter
+sind nicht abgeschaltet, sie haben einen eigenen Aufruf:
+
+```bash
+python -m pytest                     # alles ausser dem Referenzstand
+python -m pytest -m referenzstand    # genau diese 71 Wächter
+python -m pytest -m ""               # beides zusammen, alle 1'274
+```
+
+**Warum.** Am Morgen meldete die Suite **34 Fehlschläge**. Keiner davon war ein
+Fehler: Alle 34 halten eine dokumentierte Zahl gegen die *gebauten* Daten, und
+die Daten sind seit dem gepinnten Referenzstand weitergelaufen — vier
+Chicago-Deltas und Detroits neuer Ladeweg. Ein normaler Zwischenzustand, aber
+er hatte zwei Kosten: Die Suite sah kaputt aus, obwohl sie es nicht war, und
+**ein echter Fehlschlag wäre in diesem roten Rauschen nicht aufgefallen**.
+
+Das war keine neue Erkenntnis — der Datenlauf wählt den Marker seit dem
+13.9. ab, und `-m "not referenzstand"` stand als Empfehlung im README. Nur
+musste man sie kennen und tippen. Jetzt ist die Vorgabe das, was man ohnehin
+will, und die Ausnahme braucht das Argument.
+
+**Was gleich bleibt.** Die Summenzeile nennt die abgewählten weiterhin
+(`71 deselected`) — stumm abwählen wäre der nächste Verwirrungsgrund. Und
+`datenlauf.yml` behält sein eigenes `-m "not referenzstand"`: Was in GitHub
+Actions läuft, soll in der Workflow-Datei stehen und nicht in einer Vorgabe,
+die drei Verzeichnisse weiter jemand ändert.
+
+**Was der Umbau gekostet hat, bevor er saß.** Der erste Entwurf des Wächters
+übersprang sich stillschweigend. Grund: Er gab `--collect-only -q` mit, und
+zusammen mit dem `-q` aus `addopts` wurde daraus `-qq` — dann druckt pytest
+statt der Summenzeile nur noch die Zahlen je Datei, und die Regex fand nichts.
+Zwei Tests standen auf grün, ohne je etwas geprüft zu haben. Der Wächter misst
+seither die **Ausgabe** statt der Einstellung.
+
+**Zahlen.** 1'211 → **1'274 Tests** (fünf neue in
+`tests/test_referenzstand_marker.py`). Standardlauf: 1'145 ausgeführt, 71
+abgewählt. Frischer Klon: 1'125 von 1'145, die übrigen 20 brauchen Daten.
+
+---
+
+## 18.09.2026 · Detroit lädt Deltas — auf `updated_at`, nicht auf dem Tatdatum (#121)
+
+**Was.** Detroits Ingestion lädt seit heute wie Chicagos: ein Wasserzeichen,
+14 Tage Rückgriff, und nur noch das Geänderte. `--mode delta` ist der Modus des
+Gesamtlaufs; `--mode full` bleibt für Backfills und Bestandsabgleiche.
+Bronze-Vertrag **2 → 3**.
+
+**Warum das vorher nicht ging — und warum es jetzt geht.** Der erste Versuch
+scheiterte an einer Messung: **54,6 %** des Jahrgangs 2024 wurden mehr als ein
+Jahr nach der Tat noch geändert (Notebook 13, Schritt 12). Ein Delta nach
+*Tatdatum* hätte keine dieser Korrekturen gesehen, und Detroit lud seither jedes
+Mal den ganzen Jahrgang.
+
+Die Messung sagt aber nicht, dass kein Delta geht, sondern **worauf** es gehen
+muss. Über vier volle Schnappschüsse (11.9., 12.9., 17.9., 18.9.) haben wir
+nachgerechnet, ob `updated_at` als Änderungsmarke trägt:
+
+* **1'270** Zeilen änderten sich inhaltlich — Beschreibung, Code, Kategorie,
+  Fallstatus, Tatzeitpunkt oder Koordinate.
+* **Jede einzelne** trug dabei einen neuen `updated_at`. **Keine** änderte sich
+  ohne bewegten Stempel.
+* Umgekehrt bewegte sich der Stempel **499**-mal ohne inhaltliche Änderung. Das
+  kostet doppelt geladene Zeilen, die Silver über `incident_entry_id` und den
+  jüngsten `updated_at` ohnehin dedupliziert.
+* **4** von 88'686 Zeilen tragen gar kein `updated_at`, stabil über alle vier
+  Schnappschüsse.
+
+**Wie die Abfrage aussieht.** Zwei Bedingungen, und je eine allein wäre falsch:
+der Jahrgang nach `incident_occurred_at` — sonst kämen Fälle aus jedem Tatjahr —
+und darin `updated_at >= Wasserzeichen − 14 Tage`. Die vier Zeilen ohne Stempel
+kommen über `OR updated_at IS NULL` immer mit; sie hätten sonst nie wieder eine
+Chance, in einen Lauf zu geraten.
+
+**Was das kostet und bringt.** Der erste Lauf auf einem leeren Rechner findet
+kein Wasserzeichen und lädt voll: 88'686 Zeilen in 100 s. Der zweite lud
+**3'184 Zeilen in 7 s**.
+
+**Was dabei aufgefallen ist.** Drei Dinge, die ohne den Umbau still geblieben
+wären:
+
+1. **`_extract_where` kannte den Modus nicht** und brach mit *„Nicht
+   unterstuetzter Extraction Mode: DELTA"* ab. Die Vertragstabelle dort ist
+   Absicht — sie verhindert, dass ein Umbau einen Jahresbestand nach Update-Zeit
+   zieht. DELTA brauchte deshalb einen eigenen Eintrag, und zwar mit **zwei**
+   Feldern: `window_field` trägt das Fenster (Tatzeit), `date_field` die Auswahl
+   (Änderungszeit). Bei FULL und INCREMENTAL ist es dasselbe Feld, bei DELTA
+   nicht.
+2. **Die Delta-Bedingung wurde zweimal gebraucht** — einmal zum Bauen der
+   Abfrage, einmal zum Prüfen, dass die übergebene Abfrage die richtige ist.
+   Zwei getippte Fassungen derselben Zeichenkette wären früher oder später zwei
+   verschiedene; sie steht jetzt als `delta_bedingung()` an einer Stelle.
+3. **Die Aufräumregel trug die Antwort schon.** `DELTA_MODI` kennt `delta` und
+   `incremental`, und Detroits neues `extraction_mode: DELTA` fällt darunter —
+   ein Delta hält seitdem auch bei Detroit alles bis zum nächsten vollen Lauf
+   fest. Ein Test hält das fest, weil beide Städte den Modus **anders schreiben**
+   (`mode` gegen `extraction_mode`) und ein Tippfehler dort still die Basis eines
+   Deltas löschen würde.
+
+**Was das für die Historie heisst.** Löschungen sind nur zwischen zwei vollen
+Schnappschüssen erkennbar. Fünf davon liegen für Detroit vor; **neue kommen ohne
+Beschluss keine mehr dazu.** Das verschiebt nichts an der Empfehlung in
+[`datenhistorie.md`](datenhistorie.md) 5.2 — es macht sie dringlicher und gilt
+jetzt für beide Städte.
+
+**Wächter.** 1'179 → **1'274 Tests**. 25 davon in
+`tests/detroit_pipeline/test_detroit_delta.py`, und dort wendet der
+Fake-Client den Delta-Filter *wirklich* an, statt immer alles zu liefern — ein
+Fake, der alles zurückgibt, bestünde auch einen Test, dessen Abfrage nichts
+einschränkt. Dazu fünf CLI-Tests, der Detroit-Fall in `test_aufraeumen.py` und
+einer in `test_build_crime_offense.py`: Ein Delta darf den Bestand darunter
+nicht verschwinden lassen. Fiele der, wäre es der Tabelle nicht anzusehen — sie
+wäre nur kürzer, um alles, was sich nicht geändert hat.
+
+---
+
 ## 18.09.2026 · Dieselbe Architektur auf einer A4-Seite (#120)
 
-**Was.** [`architektur-einseiter.html`](architektur-einseiter.html) — das
+**Was.** [`architektur-einseiter.html`](../architektur-einseiter.html) — das
 Architekturkapitel aus #119 als **ein Blatt zum Ausdrucken**, mit zwei
 gezeichneten Bildern: der Datenfluss über die sechs Schichten, und der geplante
 Verbund hinter Cloudflare. Dazu die fünf Kennzahlen, die drei Ladestrategien,
@@ -126,7 +1589,7 @@ gegen das README, die Trennung von Ist und Ziel, keine Bilder von aussen
 
 ## 18.09.2026 · Ein Architekturkapitel für LN1 — Ist und Ziel getrennt (#119)
 
-**Was.** [`architektur-ist-und-ziel.md`](architektur-ist-und-ziel.md), als
+**Was.** [`architektur-ist-und-ziel.md`](../architektur-ist-und-ziel.md), als
 Kapitel für den Leistungsnachweis gedacht. Zwei Teile, und die Trennung ist
 die Aussage: **Teil A** beschreibt, was läuft, mit Zahlen aus dem
 Referenzstand; **Teil B** beschreibt die Ziel-Architektur und sagt an jeder
@@ -820,7 +2283,7 @@ Notebook 35 sagt es jetzt selbst, direkt unter der hart/weich-Tabelle.
 ## 17.09.2026 · Der Rückgriff auf Bronze war falsch beschrieben (#102)
 
 **Was.** Der letzte Absatz von
-[`docs/zaehlperspektiven.md`](zaehlperspektiven.md) sagte, ein Widerspruch in
+[`docs/zaehlperspektiven.md`](../zaehlperspektiven.md) sagte, ein Widerspruch in
 den Bronze-Feldern brauche „den Rückgriff auf den Bronze-Lauf, aus dem die
 Zeile stammt — das Manifest nennt ihn namentlich". Beides stimmt nicht.
 
@@ -926,7 +2389,7 @@ Gold genau diese Auswahl übernimmt. Eine Prüfung, die zwei Namen für dieselbe
 Rechnung gegeneinanderhält, kann nicht scheitern.
 
 **Was als Dokumentation geblieben ist.**
-[`docs/zaehlperspektiven.md`](zaehlperspektiven.md) — die vier Arten zu zählen,
+[`docs/zaehlperspektiven.md`](../zaehlperspektiven.md) — die vier Arten zu zählen,
 was sich aus ihnen nicht addieren lässt, und was die 42 Kontrollen **nicht**
 beweisen. Die Gliederung ist Artans; alle Zahlen sind am Referenzstand neu
 gemessen, weil die seinen veraltet waren. Zwei Befunde daraus sind neu:
@@ -1076,7 +2539,7 @@ Zeilenzahlen und Raten ändern sich nicht.
 
 ## 16.09.2026 · Die Hypothesen H1 bis H6, nachgewiesen (#97)
 
-**Was.** [`notebooks/36_hypothesen.ipynb`](../notebooks/36_hypothesen.ipynb)
+**Was.** [`notebooks/36_hypothesen.ipynb`](../../notebooks/36_hypothesen.ipynb)
 misst die sechs Hypothesen aus Kapitel 3 der Konzeptfassung und weist je
 Hypothese aus, ob sie hält. Kapitel 4 verlangt drei getrennte Evidenzarten und,
 wo gemessen wird, drei Wiederholungen mit Median und Spannweite. Genau so ist
@@ -1165,7 +2628,7 @@ Vertragsversion. Beide fallen gegen den Stand von gestern.
 
 ## 15.09.2026 · Die Kontrollen an einem Ort, vorgeführt (#95)
 
-**Was.** [`notebooks/35_kontrollen.ipynb`](../notebooks/35_kontrollen.ipynb)
+**Was.** [`notebooks/35_kontrollen.ipynb`](../../notebooks/35_kontrollen.ipynb)
 zeigt alle **41 Kontrollen** der Strecke in der Reihenfolge, in der sie
 greifen — von der Ingestion bis Gold, dazu Ablage, Serving und
 Orchestrierung. Jede wird **zweimal** vorgeführt: einmal mit Daten, die sie
@@ -1549,12 +3012,12 @@ Crosswalks, dem Feldkatalog und den Architekturbildern.
 
 ## 14.09.2026 · Eine Zahl von Ende zu Ende (#88)
 
-**Was.** [`docs/eine-zahl.md`](eine-zahl.md) rollt die Rate **94,5** rückwärts
+**Was.** [`docs/eine-zahl.md`](../eine-zahl.md) rollt die Rate **94,5** rückwärts
 auf: sieben Stufen von der Folie bis zu den 26 gzip-Dateien, die die Stadt
 Chicago am 5. September geliefert hat. Zähler, Nenner, Herkunftskette,
 Vollständigkeitsnachweis, Rohantwort.
 
-**Warum.** Der Lesepfad in [`architektur.md`](architektur.md) führt durch den
+**Warum.** Der Lesepfad in [`architektur.md`](../architektur.md) führt durch den
 Code. Er beantwortet nicht die Frage, die in einer Abgabe zuerst kommt:
 *Woher wisst ihr das?* Dieses Dokument tut es an einer einzigen Zahl — und
 weil der Weg alle Schichten durchläuft, kommt dabei jede wesentliche
@@ -1594,7 +3057,7 @@ Lauf an — genau der Fall, für den er da ist.
 
 ## 14.09.2026 · Zwei Architekturbilder, aus dem Code erzeugt (#87)
 
-**Was.** [`docs/architektur.md`](architektur.md) zeigt den Aufbau in zwei
+**Was.** [`docs/architektur.md`](../architektur.md) zeigt den Aufbau in zwei
 Bildern und führt einen Lesepfad: sechs Stellen, rund 400 Zeilen, in der
 Reihenfolge, in der sie sich erklären. Beide Bilder erzeugt
 `tools/build_architekturbilder.py` aus dem AST und aus
@@ -1714,7 +3177,7 @@ der Schlüssel `detroit_rate_fallkorn` in `drift.py`.
 
 ## 14.09.2026 · Die Analyseplattform durchdacht — und der Würfel zum zweiten Mal verworfen (#83)
 
-**Was.** [`ausblick.md`](ausblick.md) hat einen Abschnitt 5: die
+**Was.** [`ausblick.md`](../ausblick.md) hat einen Abschnitt 5: die
 Analyseplattform für LN2. Messwerte, die Bewertung von Streamlit, ClickHouse
 und OpenSearch, zwei Bauarten — und drei Entwurfsgrundsätze, die aus diesem
 Projekt kommen und nicht aus einem Dashboard-Lehrbuch.
@@ -1769,7 +3232,7 @@ stand **zweimal** im Projekt, unter demselben Namen `STUDIENSTAEDTE` und mit
 (`"Chicago"`), in `gold_pipeline/__init__.py` klein (`"chicago"`). Jetzt steht
 die Tatsache einmal in `silver_pipeline`, und Gold leitet daraus
 `STADT_SCHLUESSEL` ab. Punkt 4 der Reihenfolge in
-[`ausblick.md`](ausblick.md).
+[`ausblick.md`](../ausblick.md).
 
 **Warum die Werte verschieden waren — und beide richtig.** Silver prüft gegen
 TIGERs `name`-Feld, und dort steht *Chicago*; das ist der Nachweis, dass eine
@@ -1796,7 +3259,7 @@ vorkommt.
 **Was.** `orchestration.aufraeumen` hat eine **Regel 0**: Was in
 `config/referenzstand.csv` steht, wird nie aufgeräumt. `--pinnen LN1` trägt
 den Stand ein, auf dem die gebauten Gold-Tabellen ruhen. Artans Punkt 1,
-Stufe B ([`ausblick.md`](ausblick.md)).
+Stufe B ([`ausblick.md`](../ausblick.md)).
 
 **Warum.** Die Aufbewahrungsregel von #65 behält, was **das aktuelle** Silver
 nennt. Nach einem Neubau werden die Läufe des vorigen Stands entbehrlich — und
@@ -1834,7 +3297,7 @@ pinnen schreibt nicht doppelt, und gepinnt wird nur, was es auch gibt.
 Gold-Tabellen — trägt jetzt zwei Angaben: `contract_version` (was geladen
 oder gedeutet wird) und `code_version` (welcher Git-Commit, und ob der
 Arbeitsbaum sauber war). Dazu ein Register *Vertragsversionen* weiter oben in
-dieser Datei. Artans Punkt 2 ([`ausblick.md`](ausblick.md)).
+dieser Datei. Artans Punkt 2 ([`ausblick.md`](../ausblick.md)).
 
 **Warum.** Am 11.9. wurde Detroits Abfragefenster von UTC auf Ortszeit
 umgestellt. Läufe davor enthielten 66 Fälle aus 2023 und vermissten 56 vom
@@ -1877,7 +3340,7 @@ bei `None`. Ein Lauf darf daran nie scheitern; auch das ist ein Test.
 Eingaben. Wer auf einer anderen ruht, nennt sie nicht mehr nur als **Pfad**,
 sondern als **Stand**: Bauzeitpunkt, Eingabe-Abdruck und — wörtlich — deren
 eigene Herkunft. Referenzdateien unter `config/` tragen ihre SHA-256. Artans
-Punkt 1, Stufe A ([`ausblick.md`](ausblick.md)).
+Punkt 1, Stufe A ([`ausblick.md`](../ausblick.md)).
 
 **Warum.** Gold nannte seine Silver-Quelle als
 `{"path": "data/silver/…/part-0001.parquet"}`, und ein Pfad zeigt auf das,
@@ -1920,7 +3383,7 @@ Aufbewahrungsregel alte Bronze-Läufe sonst wegräumt.
 
 ## 14.09.2026 · Artans zwei Punkte analysiert: Lineage und Ladelogik (#76)
 
-**Was.** [`docs/ausblick.md`](ausblick.md) — Material für LN2. Zwei Punkte
+**Was.** [`docs/ausblick.md`](../ausblick.md) — Material für LN2. Zwei Punkte
 von Artan, analysiert gegen den Code, dazu die Gedankenspiele zu Skalierung
 und Cloud mit Messwerten.
 
@@ -1977,7 +3440,7 @@ Tabelle 5.3 dreimal erwischt.
 
 ## 13.09.2026 · Die Datenablage hat ein Architekturdokument (#75)
 
-**Was.** [`docs/storage-architektur.md`](storage-architektur.md) beschreibt
+**Was.** [`docs/storage-architektur.md`](../storage-architektur.md) beschreibt
 den ganzen Aufbau auf 15 Abschnitten: das Problem, den relativen
 Ablagepfad, die drei Modi mit Fluss-Diagrammen, jede Umgebungsvariable und
 wann sie nötig ist, Lesen, Publizieren, die beiden Konfliktregeln, den
@@ -3720,7 +5183,7 @@ Jahr und vermissen **56** vom Jahresende 2024. Sie werden seither nicht mehr
 gelesen: `silver_pipeline` bricht mit einem klaren Fehler ab, statt sie mit
 einer Warnung einzulesen, die man überliest.
 
-**Nachlesen.** `docs/DETROIT_TIMEZONE_AENDERUNGEN.md` · PR #25
+**Nachlesen.** [`docs/archiv/2026-09-09-detroit-zeitzonenvertrag.md`](../archiv/2026-09-09-detroit-zeitzonenvertrag.md) · PR #25 — am 18.9.2026 ins Archiv verschoben, der Inhalt steht seither im Code und in diesem Dokument
 
 ---
 

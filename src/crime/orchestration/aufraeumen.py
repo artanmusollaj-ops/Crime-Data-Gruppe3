@@ -22,8 +22,9 @@ etwas weg darf. Die Regel, je Quelle (``city=chicago``, ``dataset=noaa_ghcnd``,
 2. **Von Silver genannt** bleibt. Jedes Silver-Manifest nennt unter
    ``derived_from`` die Laeufe, auf denen es ruht. Sie zu loeschen hiesse, den
    Stand nicht mehr erklaeren zu koennen.
-3. **Die Basis eines Delta-Laufs** bleibt. Chicago laedt seit dem ersten vollen
-   Schnappschuss nur Aenderungen (``mode: delta``); ohne den Schnappschuss
+3. **Die Basis eines Delta-Laufs** bleibt. Beide Staedte laden seit dem ersten
+   vollen Schnappschuss nur Aenderungen - Chicago als ``mode: delta``, Detroit
+   seit dem 18.9.2026 als ``extraction_mode: DELTA``; ohne den Schnappschuss
    darunter sind die Deltas wertlos. Ein Delta, das bleibt, haelt alles bis zum
    naechsten vollen Lauf fest.
 4. Alles andere ist **entbehrlich**. Gezeigt wird es immer; geloescht nur mit
@@ -104,7 +105,8 @@ class Entscheid(NamedTuple):
 
 
 def ist_delta(manifest: dict[str, Any]) -> bool:
-    # Chicago: mode = full_snapshot | delta. Detroit: extraction_mode = FULL | INCREMENTAL.
+    # Chicago: mode = full_snapshot | delta.
+    # Detroit: extraction_mode = FULL | DELTA | INCREMENTAL.
     modus = str(manifest.get("mode") or manifest.get("extraction_mode") or "")
     return modus.lower() in DELTA_MODI
 

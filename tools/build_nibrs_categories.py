@@ -45,12 +45,12 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-HANDBUCH = PROJECT_ROOT / "docs" / "nibrs-user-manual-2025-0-062625.pdf"
+HANDBUCH = PROJECT_ROOT / "docs" / "quellen" / "nibrs-user-manual-2025-0-062625.pdf"
 # Die Fassung 2011 derselben Codeliste. Sie ist ueberholt - 22 statt 28
 # Kategorien, 46 statt 71 Delikte -, aber der einzige Beleg fuer vier Codes,
 # die das FBI zurueckgezogen hat und die kein aktuelles Dokument mehr fuehrt.
 # Zwei davon stehen in den Falldaten 2024.
-ALTE_LISTE = PROJECT_ROOT / "docs" / "NIBRS_Offense_Codes.pdf"
+ALTE_LISTE = PROJECT_ROOT / "docs" / "quellen" / "NIBRS_Offense_Codes.pdf"
 CODELISTE = PROJECT_ROOT / "config" / "nibrs_offense_codes_2025.csv"
 ZIEL = PROJECT_ROOT / "config" / "nibrs_offense_categories_2025.csv"
 

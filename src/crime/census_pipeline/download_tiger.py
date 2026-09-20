@@ -82,9 +82,14 @@ STALE_PARTIAL_HOURS = 24
 # Ein Shapefile besteht aus mehreren Dateien. Ohne diese vier ist es unlesbar,
 # ihr Fehlen ist deshalb ein Abbruchgrund und keine Warnung.
 REQUIRED_MEMBERS = (".shp", ".shx", ".dbf", ".prj")
-# TIGER liefert NAD83. Die Koordinaten der Falldaten sind WGS84; der Unterschied
-# liegt unter einem Meter, wird beim Join aber ausdruecklich umgerechnet statt
-# stillschweigend gleichgesetzt.
+# TIGER liefert NAD83. Die Koordinaten der Falldaten sind WGS84; in den
+# kontinentalen USA liegen beide ein bis zwei Meter auseinander. Umgerechnet
+# wird nicht - build_crime_offense joint mit ST_Within, ein ST_Transform kommt
+# in der Pipeline nicht vor. Das ist hinnehmbar, aber nicht folgenlos: gemessen
+# am 19.9.2026 liegt rund ein Viertel der verorteten Faelle naeher als einen
+# Meter an der Grenze des eigenen Tracts, weil beide Staedte auf Strassenachsen
+# verorten und TIGER die Tract-Grenzen entlang derselben Strassen schneidet.
+# Notebook 21, Abschnitte 5.3 und 6.7, misst das nach.
 EXPECTED_CRS = "EPSG:4269"
 
 # Das gepinnte Spaltenset. Es ist die Schnittmenge ueber die Vintages: Spalten,

@@ -26,9 +26,9 @@ IUCR_MAPPING = PROJECT_ROOT / "config" / "iucr_nibrs_mapping.csv"
 # Original: le.fbi.gov, "2025.0 NIBRS Technical Specification", Anhang A.
 # Liegt wie die MICR-Dokumente im Repository, damit die Herkunft nachlesbar
 # bleibt und nicht von einer erreichbaren Webseite abhaengt.
-SPEZIFIKATION = PROJECT_ROOT / "docs" / "nibrs_technical_specification_2025.pdf"
+SPEZIFIKATION = PROJECT_ROOT / "docs" / "quellen" / "nibrs_technical_specification_2025.pdf"
 # Original: isp.illinois.gov/CrimeReporting/NIBRS, "NIBRS Code Table".
-ISP_TABELLE = PROJECT_ROOT / "docs" / "isp_nibrs_code_table_2026.xlsx"
+ISP_TABELLE = PROJECT_ROOT / "docs" / "quellen" / "isp_nibrs_code_table_2026.xlsx"
 
 SPALTEN = [
     "nibrs_code",
@@ -255,7 +255,7 @@ def test_zurueckgezogene_codes_sind_wirklich_zurueckgezogen(codes):
 # 2023.0 vom 28.02.2024. Blatt OffenseILUCRCode ist die aeltere Ausgabe der
 # Tabelle, die ISP_TABELLE in der Fassung 2026 enthaelt; gebraucht wird hier
 # nur das Blatt OffenseCode.
-IEPD_TABELLE = PROJECT_ROOT / "docs" / "illinois_nibrs_iepd_2023.xlsx"
+IEPD_TABELLE = PROJECT_ROOT / "docs" / "quellen" / "illinois_nibrs_iepd_2023.xlsx"
 
 # Illinois schreibt die Fassung 2023.0 ab, wir die Fassung 2025. Wo die beiden
 # sich unterscheiden, steht hier der Grund. Jede Zeile ist entweder eine reine

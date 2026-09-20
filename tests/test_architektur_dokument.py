@@ -146,7 +146,7 @@ def test_die_testzahlen_stimmen_mit_dem_readme(teil_a):
 
 def test_die_referenzzahlen_stimmen_mit_den_uebrigen_dokumenten(teil_a):
     """347'957 und 344'617 - der gepinnte Stand, nicht der gebaute."""
-    aenderungen = (PROJECT_ROOT / "docs" / "AENDERUNGEN.md").read_text(encoding="utf-8")
+    aenderungen = (PROJECT_ROOT / "docs" / "intern" / "AENDERUNGEN.md").read_text(encoding="utf-8")
     for muster_hier, muster_dort in (
         (r"Bei ([\d']+) Zeilen liegt jede realistische", r"`gold/fact_offense` \| \*\*([\d']+)\*\*"),
         (r"`silver/crime_offense` \| ([\d']+) Zeilen", r"`silver/crime_offense` \| ([\d']+) Zeilen"),
@@ -236,8 +236,8 @@ def blatt() -> str:
 
 def test_der_einseiter_traegt_dieselben_zahlen(blatt, text):
     """Dieselbe Zahl an zwei Stellen darf nur einmal veralten."""
-    for wert in ("347'957", "344'617", "94,5", "132,6", "42 Kontrollen",
-                 "1'055", "23,3 %", "54,6 %"):
+    for wert in ("348'311", "345'073", "94,5", "132,7", "42 Kontrollen",
+                 "1'055", "23,3 %", "55,9 %"):
         assert wert in blatt, f"{wert} fehlt im Einseiter"
         assert wert in text or wert.replace("'", "") in text, (
             f"{wert} steht im Einseiter, aber nicht im langen Text"

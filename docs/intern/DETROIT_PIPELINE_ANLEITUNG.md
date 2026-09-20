@@ -80,7 +80,21 @@ Text- und JSON-Protokolle entstehen unter `logs/tests/`. Einzelne `error:`-Ausga
 
 Alternativ verwendest du die CLI-Befehle in den folgenden Abschnitten. Führe denselben Download nicht gleichzeitig im Notebook und per CLI aus.
 
-## 3. Full Load
+## 3. Delta Load — der Normalfall seit dem 18.9.2026
+```powershell
+.\.venv314\Scripts\python.exe -m detroit_pipeline.extract_detroit --mode delta --years 2024
+```
+
+Der erste Aufruf findet kein Wasserzeichen und lädt den Jahrgang vollständig.
+Jeder weitere liest das höchste `updated_at` aus den eigenen Bronze-Manifesten,
+zieht 14 Tage Rückgriff ab und lädt nur noch, was seitdem bewegt wurde — der
+Jahresfilter auf `incident_occurred_at` bleibt dabei stehen. Zeilen ohne
+`updated_at` kommen immer mit. Gemessen am 18.9.2026: 3'184 statt 88'686 Zeilen,
+7 statt 100 Sekunden.
+
+Der Gesamtlauf (`python -m orchestration.run_all`) verwendet genau diesen Modus.
+
+## 4. Full Load — für Backfills und Bestandsabgleiche
 ```powershell
 .\.venv314\Scripts\python.exe -m detroit_pipeline.extract_detroit --mode full --years 2020 2021 2022 2023 2024 2025 2026
 ```
@@ -105,7 +119,7 @@ Der Ordner heisst seit dem 12.9. `city=detroit` statt `detroit` — dasselbe Mus
 
 Direkte Python-Aufrufe extract_year(..., output_dir=..., raw_dir=...) legen nur run_<UUID> unter den übergebenen Verzeichnissen an. Jahrespartitionierung erledigt der Aufrufer.
 
-## 4. Daily und Backfill
+## 5. Daily und Backfill
 ```powershell
 .\.venv314\Scripts\python.exe -m detroit_pipeline.extract_detroit --mode daily --lookback-days 14
 .\.venv314\Scripts\python.exe -m detroit_pipeline.extract_detroit --mode daily --lookback-days 14 --reference-date 2026-09-07
@@ -123,7 +137,7 @@ Nicht garantiert erfasst werden: NULL updated_at, rückdatierte Updates außerha
 14 Tage Overlap reduzieren Risiken, garantieren keine vollständige CDC. Nach längeren Ausfällen ein größeres Fenster/backfill verwenden und periodische Full-Abgleiche einplanen.
 Ein fixer Scheduler ersetzt keinen gespeicherten Wasserstand; automatische Watermark-Fortschreibung ist nicht implementiert.
 
-## 5. Veröffentlichung und Datenvertrag
+## 6. Veröffentlichung und Datenvertrag
 Die ID-Liste wird vor dem Download fixiert. Doppelte/unerwartete IDs, unvollständige Mengen und Count-Abweichungen brechen den Run ab.
 Die API liefert damit dennoch keinen transaktional eingefrorenen Datenstand: fachliche Änderungen während des Downloads sind möglich.
 Zuerst entsteht .run_<UUID>.partial. Parquet wird in begrenzten Batches mit ZSTD geschrieben.
@@ -151,7 +165,7 @@ Das Manifest enthält unter anderem Status, Quellschema, Speicherschema, Query, 
 SUCCESS ist der technische Abschluss des Downloads, kein Beweis fachlicher Vollständigkeit der Quelle.
 Die Kategorienstatistik zählt rohe Offense-Zeilen; sie ist keine Event- oder Canonical-Category-Statistik.
 
-## 6. DuckDB laden
+## 7. DuckDB laden
 ```powershell
 .\.venv314\Scripts\python.exe -m detroit_pipeline.load_duckdb --manifest "data/bronze/city=detroit/full/year=2025/run_<UUID>/manifest.json" --database "data/warehouse/crime.duckdb"
 ```
@@ -174,7 +188,7 @@ Parquet bleibt die wiederherstellbare Dateibasis; DuckDB ist die lokale Arbeitsd
 Nur einen schreibenden Prozess für diese DuckDB-Datei betreiben. Chicago/Detroit-Importe serialisieren; Dashboard-Verbindungen bei Wartung berücksichtigen.
 Es wird keine vorhandene Tabelle automatisch migriert. Namens-/Schema-Konflikte mit einer vorhandenen Datenbank zuerst in einer Kopie prüfen.
 
-## 7. Orchestrierung
+## 8. Orchestrierung
 CLI ist für Cron/Windows-Aufgabenplanung verwendbar. Diese Lieferung installiert keinen Scheduler.
 Scheduler setzt Arbeitsverzeichnis und den absoluten Pfad zur .venv314/Scripts/python.exe unter Windows beziehungsweise zum regulären venv-Interpreter unter Linux; stdout/stderr und Exit-Code protokollieren.
 Extraktion vor Import ausführen; nach Extraktionsfehler keinen Import anstoßen.
@@ -187,7 +201,7 @@ Täglich z. B. 07:00 Europe/Zurich planen. Detroit-Vortag wird im Code bestimmt;
 Monitoring: Job-Exitcode, letzte erfolgreiche Referenz, Count-Veränderungen, fehlende IDs/Datumswerte, extra_rows, Schemas, Importstatus und Speicherplatz beobachten.
 Periodische Full-Abgleiche ergänzen Daily. Fehlende Zeilen erst nach erfolgreicher, vergleichbarer Vollaufnahme als mögliche Löschung markieren.
 
-## 8. Silver und Gold
+## 9. Silver und Gold
 
 **Gebaut, und zwar anders als hier ursprünglich geplant.** An dieser Stelle
 stand ein Entwurf für eine Detroit-eigene Silver-Schicht mit `offense_key`,
@@ -213,7 +227,7 @@ an der lokalen Tagesreferenz und Census an Gebiet plus Vintage, und
 Kategoriesummen können die Zahl der Vorfälle überschreiten — bei Detroit um
 3,9 Prozent, siehe Notebook 13, Schritt 5.
 
-## 9. Tests
+## 10. Tests
 ```powershell
 .\.venv314\Scripts\python.exe -m tests.run_tests
 ```
@@ -233,7 +247,7 @@ Die Statistik mit fünf Datensätzen ist eine Test-Fixture, kein echter Detroit-
 Prüfstand für dieses Paket: Offline-Tests unter CPython 3.14.7/Windows AMD64 sowie Python 3.12/Linux bestanden. Die Tests verwenden kleine Fixtures und simulierte Quellen.
 Live-API, großer Jahresdownload, realer Scheduler und gemeinsame Chicago-Integration sind durch diese Offline-Tests nicht verifiziert.
 
-## 10. Bestehende NDJSON-Dateien
+## 11. Bestehende NDJSON-Dateien
 Nicht einfach die Endung ändern. Die NDJSON-Bestände stammen aus der Zeit vor
 dem Zeitzonen-Fix: Ihr Jahresfenster war in UTC gezogen statt in Detroiter
 Ortszeit, weshalb sie Fälle vom 31.12.2023 enthalten und solche vom Jahresende
@@ -245,13 +259,13 @@ einzulesen, die man überliest. Ein Migrator existiert bewusst nicht: Der
 richtige Weg ist ein neuer Full Load (97 Sekunden). Alte Rohdaten archivieren
 und keine alten und neuen Bestände ungeprüft für Statistiken zusammenzählen.
 
-## 11. Projektintegration und Funktionsumfang
+## 12. Projektintegration und Funktionsumfang
 
 Die Pipeline legt jede ArcGIS-Antwort unverändert in der Raw-Schicht ab, extrahiert sie in Parquet-Runs und importiert sie optional transaktional in DuckDB-Bronze. Silver und Gold liegen nicht in diesem Paket, sondern in `silver_pipeline` und `gold_pipeline` — gemeinsam für beide Städte.
 
 Bei Übernahme in das gemeinsame Repository ausschließlich die Detroit-Dateien integrieren. Gemeinsame Requirements und Test-Runner zusammenführen. `.venv314/`, andere virtuelle Umgebungen, `data/` und `logs/` in `.gitignore` ausschließen. Für geplante Jobs denselben Interpreter wie für die erfolgreichen Tests verwenden.
 
-## 12. Fehlerbehebung
+## 13. Fehlerbehebung
 
 | Problem | Vorgehen |
 |---|---|

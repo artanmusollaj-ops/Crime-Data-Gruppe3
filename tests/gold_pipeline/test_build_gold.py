@@ -818,12 +818,17 @@ def test_ein_unbekannter_statuswert_laesst_den_bau_stehen(con, tmp_path):
 
 
 def test_das_gate_haelt_die_gemessene_abdeckung_aus():
-    """Die Schwellen sind Boeden, keine Ziele - der echte Stand muss durchgehen."""
+    """Die Schwellen sind Boeden, keine Ziele - der echte Stand muss durchgehen.
+
+    Die Werte sind der Schnappschuss aus Release ``2026-09-19T23-05-26Z``, dem
+    ersten mit ``git_dirty: false``. Sie stehen hier als Zahlen und nicht als
+    Verweis auf ``release.json``, damit der Test ohne gebaute Daten laeuft.
+    """
     gemessen = {
-        "inside_city": 97.55, "outside_city": 1.87,
-        "missing_coordinate": 0.58, "no_tract": 0.0,
-        "exact": 95.49, "ambiguous": 1.48,
-        "fallback_90Z": 3.03, "unmapped": 0.0009,
+        "inside_city": 97.451, "outside_city": 1.8689,
+        "missing_coordinate": 0.6799, "no_tract": 0.0003,
+        "exact": 95.4905, "ambiguous": 1.473,
+        "fallback_90Z": 3.0356, "unmapped": 0.0009,
     }
     bg.pruefe_gate(gemessen)  # darf nicht werfen
 
@@ -848,8 +853,8 @@ def test_die_schwellen_liegen_unter_dem_gemessenen_stand():
     Prozentpunkte. Wer die Schwelle enger zieht, muss diesen Test anfassen -
     und damit die Entscheidung sichtbar machen.
     """
-    assert bg.GATE_MINDESTENS["inside_city"] <= 97.55 - 5
-    assert bg.GATE_MINDESTENS["exact"] <= 95.49 - 5
+    assert bg.GATE_MINDESTENS["inside_city"] <= 97.451 - 5
+    assert bg.GATE_MINDESTENS["exact"] <= 95.4905 - 5
 
 
 def test_kein_delikt_landet_in_der_falschen_stadt(con):

@@ -3,7 +3,7 @@
     python -m orchestration.drift                          # Tabelle auf stdout
     python -m orchestration.drift --summary "$GITHUB_STEP_SUMMARY" --json data/drift.json
 
-Gelesen wird der Kopfabschnitt *Der Stand in Zahlen* aus ``docs/AENDERUNGEN.md``
+Gelesen wird der Kopfabschnitt *Der Stand in Zahlen* aus ``docs/intern/AENDERUNGEN.md``
 - dieselben Zahlen, die die Waechter mit dem Marker ``referenzstand`` lokal
 gegen den Referenzstand halten. Hier wird nichts gehalten, nur gemessen.
 
@@ -41,7 +41,7 @@ from storage import for_root
 from storage import duckdb as storage_duckdb
 
 
-AENDERUNGEN = Path("docs") / "AENDERUNGEN.md"
+AENDERUNGEN = Path("docs") / "intern" / "AENDERUNGEN.md"
 ANFANG = "## Der Stand in Zahlen"
 
 # Die Toleranz. Raten absolut (je 1'000 Einwohner, eine Nachkommastelle),
@@ -206,7 +206,7 @@ def tabelle(alle: list[Zeile], fingerabdruck: str | None = None, *,
     if fingerabdruck:
         kopf.append(f"Frischer Lauf, Fingerabdruck der Eingaben `{fingerabdruck}`.")
     kopf += [
-        "*Dokumentiert* ist der Kopf von `docs/AENDERUNGEN.md` (der Referenzstand), "
+        "*Dokumentiert* ist der Kopf von `docs/intern/AENDERUNGEN.md` (der Referenzstand), "
         "*gemessen* der Lauf von heute. Die Drift ist eine Zahl, keine Farbe - "
         f"rot wird es erst über der Toleranz: Raten ab {format_zahl(max_rate, 1)} je 1'000, "
         f"Zahlen über {format_zahl(max_prozent, 1)} %.",

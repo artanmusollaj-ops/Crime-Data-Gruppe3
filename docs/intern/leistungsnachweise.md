@@ -5,9 +5,9 @@ tatsächlichen Projektstand gegenüber und benennt, was bis zur Abgabe fehlt.
 
 Es ergänzt [`projektabsprache.md`](projektabsprache.md): Dort stehen die
 technischen Entscheide (Bronze-Konventionen, Werkzeuge, Zusammenarbeit), hier
-die Abgabe-Sicht. Die **Abgabe selbst** ist
-[`ln1_konzept.md`](ln1_konzept.md) — dieses Dokument ist Arbeitsgrundlage und
-nicht Teil der Abgabe. Wo ein Entscheid aus der Absprache eine Anforderung erfüllt,
+die Abgabe-Sicht. Die **Abgabe selbst** entsteht als eigenes **Word-Dokument**;
+geschrieben wird es aus [`ln1_konzept.md`](../ln1_konzept.md). Weder jenes noch
+dieses ist damit Teil der Abgabe — beide sind Arbeitsgrundlage. Wo ein Entscheid aus der Absprache eine Anforderung erfüllt,
 ist er verlinkt.
 
 Alle Zahlen sind am 8. September 2026 aus dem Repository erhoben. Die
@@ -20,27 +20,27 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 
 | Anforderung | Stand | Was fehlt |
 | --- | --- | --- |
-| **Problemstellung, Ausgangslage** | ● geschrieben | [`ln1_konzept.md`](ln1_konzept.md) Kapitel 2 |
+| **Problemstellung, Ausgangslage** | ● geschrieben | [`ln1_konzept.md`](../ln1_konzept.md) Kapitel 2 |
 | **Forschungsfragen, Hypothesen** | ◐ Vorschlag steht, vier bereits vorgeprüft | Auswahl und Formulierung entscheiden → Abschnitt 2.2 / 2.3 |
 | **Vorgehen und Methoden** | ◐ implizit im Code | Methodenteil ausformulieren → Abschnitt 2.4 |
-| **Entwurf DE-Lebenszyklus** | ● benannt | Abschnitt 3; ausführlich in [`ln1_konzept.md`](ln1_konzept.md) Kapitel 5 |
+| **Entwurf DE-Lebenszyklus** | ● benannt | Abschnitt 3; ausführlich in [`ln1_konzept.md`](../ln1_konzept.md) Kapitel 5 |
 | **Ingestion: Quellen, Beschaffung** | ● fertig | fünf Quellen, je ein Quellnotebook |
-| **Storage: Evaluation, Wahl, Implementierung** | ● fertig | gemessen in Notebook 31 (NDJSON gegen Parquet), verschriftlicht in [`ln1_konzept.md`](ln1_konzept.md) Kapitel 7 |
+| **Storage: Evaluation, Wahl, Implementierung** | ● fertig | gemessen in Notebook 31 (NDJSON gegen Parquet), verschriftlicht in [`ln1_konzept.md`](../ln1_konzept.md) Kapitel 7 |
 | **Transformation 1: Analyse, Hypothesentest** | ◐ Qualität beider Städte fertig | der eigentliche Hypothesentest → Abschnitt 5 |
-| **Initiale Datenbereinigung** | ● fertig | vier Silver-Tabellen, `crime_offense` mit 347'957 Zeilen |
+| **Initiale Datenbereinigung** | ● fertig | vier Silver-Tabellen, `crime_offense` mit 348'311 Zeilen |
 | **Beantwortung der Forschungsfragen** | ○ | folgt aus allem davor |
 
 ● fertig ◐ teilweise ○ offen
 
 **Die gute Nachricht:** Ingestion und Storage — die beiden praktisch
-aufwendigsten Blöcke — stehen. 1'179 Tests, fünf Quellen in vier Pipelines,
+aufwendigsten Blöcke — stehen. 1'297 Tests, fünf Quellen in vier Pipelines,
 nachgewiesene Vollständigkeit. Und weil die Hypothesen Fragen des Data Engineering sind
 (Abschnitt 2.0), sind fünf davon durch die bisherige Arbeit **bereits
 gemessen**: Wir haben Befunde, bevor wir die Hypothesen formuliert haben — und
 mit H7 auch eine falsifizierte.
 
 **Die Baustelle:** Der konzeptionelle Teil steht inzwischen in
-[`ln1_konzept.md`](ln1_konzept.md), Silver und Gold sind gebaut. Offen ist die
+[`ln1_konzept.md`](../ln1_konzept.md), Silver und Gold sind gebaut. Offen ist die
 Auswahl und Formulierung der Hypothesen. Ohne formulierte Hypothesen gibt es
 keinen ausweisbaren Hypothesentest, auch wenn die Messungen längst vorliegen.
 
@@ -119,7 +119,7 @@ Notebooks, den Läufen im Repository und der Silver-Tabelle `tract`.
 | --- | --- | --- | --- |
 | **H1** | Fehlende Koordinaten treten **nicht zufällig** auf, sondern hängen vom Delikttyp ab (MNAR statt MCAR). | Chi-Quadrat-Unabhängigkeitstest | vorgeprüft: 4,3 % bei Delikten an Kindern gegen 0,4 % bei Diebstahl |
 | **H2** | Der Überlapp der Delta-Läufe erzeugt ausschliesslich **Duplikate** (in allen Attributen identisch), keine **Dubletten**. | Vergleich aller Attribute je Schlüssel | **bestätigt**: 42 von 42 mehrfachen `id` in jedem Attribut identisch |
-| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Abgleich gegen die Mapping-Tabelle | Chicago bestätigt (0 von 259'272 ohne Zuordnung), Detroit offen |
+| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Abgleich gegen die Mapping-Tabelle | Chicago bestätigt (0 von 259'625 ohne Zuordnung), Detroit offen |
 | **H4** | Ein gepinntes Schema plus Auffangspalte fängt Schema-Drift **vollständig** auf, ohne Datenverlust. | Fingerabdruck über Feldtypen, Inhalt von `_extra` | bestätigt: Chicago driftfrei, TIGER fängt `GEOIDFQ` auf |
 | **H5** | Auffällige Werte in den Verwaltungsschlüsseln sind **Artefakte** (systematische Erfassungsfehler), keine echten Ausreisser. | Häufigkeitsanalyse plus feldübergreifende Konsistenzregel | vorgeprüft: District `031`, 13 Fälle, deren `beat` auf 016/024 zeigt |
 | **H6** | Die Zusammenführung der drei Zeitachsen gelingt allein durch **Aggregation**; **Imputation** ist nicht nötig. | Granularitätsanalyse je Quelle | offen — ACS ist eine 5-Jahres-Schätzung und dürfte die Ausnahme sein |
@@ -148,8 +148,22 @@ naheliegenden Erklärungen greifen nicht:
 - **Kein Vintage-Problem.** Alle 275 von Detroit genannten Tracts existieren in
   TIGER 2024.
 - **Keine Frage des Koordinatensystems.** Der Unterschied zwischen NAD83 und
-  WGS84 liegt unter einem Meter und erklärt keine 17 %.
+  WGS84 liegt bei ein bis zwei Metern und erklärt keine 17 %.
 - **Keine Grenzungenauigkeit.** 337 Fälle landen in einem anderen *County*.
+
+> **Nachgemessen am 19.09.2026 (Christian).** Die Grenzlage erklärt den
+> Unterschied doch: Von den abweichenden Fällen liegen **93,0 % näher als rund
+> 9 Meter** an genau dem Tract, das Detroit nennt, und 49,4 % näher als einen
+> Meter — der Punkt sitzt also auf der gemeinsamen Kante beider Tracts. Ursache
+> ist die Verortung auf Strassenachsen: TIGER schneidet Tract-Grenzen entlang
+> derselben Strassen, auf die beide Städte ihre Koordinaten setzen. Dazu kommt,
+> dass NAD83 und WGS84 ein bis zwei Meter auseinanderliegen und die Pipeline
+> **nicht** umrechnet. Die Zahlen stammen aus der Neuberechnung auf dem
+> aktuellen Stand (79'874 vergleichbare Zeilen, 83,44 % Übereinstimmung);
+> Notebook 21, Abschnitte 5.3 und 6.7, misst denselben Effekt an beiden Städten.
+> **Der Schluss auf H7 gehört damit nochmals angesehen** — die Bewertung bleibt
+> Artans.
+
 
 Der Join selbst ist nachweislich sauber: 88'278 Quellzeilen ergeben 88'278
 Zeilen nach dem Join, Tracts überlappen also nicht und jeder Punkt liegt in
@@ -197,12 +211,12 @@ mit einer Kennzahl, die sich tatsächlich berechnen lässt:
 | Vollständigkeit (Feld) | Füllgrad je Pflichtspalte | 100 % |
 | Eindeutigkeit | Anteil doppelter Schlüssel nach Dedup | 0 % |
 | Gültigkeit | Anteil Werte im erlaubten Bereich | 100 % (Jahr, Koordinaten, `community_area`) |
-| Konsistenz | Anteil Zeilen ohne Feldwiderspruch | 99,993 % (17 von 259'272) |
-| Genauigkeit | Anteil verortbarer Fälle | 99,33 % |
+| Konsistenz | Anteil Zeilen ohne Feldwiderspruch | 99,993 % (17 von 259'625) |
+| Genauigkeit | Anteil verortbarer Fälle | 99,19 % |
 | Aktualität | Abstand des jüngsten `updated_on` | im Manifest |
 
 Der Verwendungszweck legt die Schwellen fest: Für eine Rate je Tract ist eine
-Verortungsquote von 99,33 % gut — aber nur, solange die fehlenden 0,67 % nicht
+Verortungsquote von 99,19 % gut — aber nur, solange die fehlenden 0,81 % nicht
 systematisch verzerrt sind. Genau das prüft H1, und genau deshalb hängen die
 beiden Ebenen aus Abschnitt 2.0 zusammen.
 
@@ -220,7 +234,7 @@ Hypothesen, sondern Methodenkritik:
   Kriminalität, nicht Kriminalität.
 - **Ungleiche Datenlücken.** In Wayne County fehlt bei 9,6 % der Tracts der
   Einkommenswert und 6,4 % haben keine Einwohner; in Cook County sind es 1,7 %
-  und 0,3 %. Auch die Geo-Lücke ist ungleich: 0,67 % in Chicago gegen 0,29 % in
+  und 0,3 %. Auch die Geo-Lücke ist ungleich: 0,81 % in Chicago gegen 0,29 % in
   Detroit. Die Verzerrung ist also **nicht symmetrisch** zwischen den Städten.
 
 ### 2.4 Vorgehen und Methoden
@@ -260,7 +274,7 @@ Für Fragen und Hypothesen folgt daraus:
 
 **Der Zeitraum ist auf 2024 festgelegt** ([Absprache 2.2](projektabsprache.md)).
 Die vorgeprüften Zahlen zu H1 bis H5 stammen aus dem Chicago-Vollbestand von
-259'272 Fällen; für den ausweisbaren Test müssen sie auf 2024 neu gerechnet oder
+259'625 Fällen; für den ausweisbaren Test müssen sie auf 2024 neu gerechnet oder
 der Bezug ausdrücklich benannt werden.
 
 **Eine Einschränkung, die aus 7.1 folgt.** Der Entscheid verlangt, dass bei einem
@@ -281,7 +295,7 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 | --- | --- | --- | --- |
 | **Generation** | Fünf Quellsysteme: Socrata (Chicago), ArcGIS REST (Detroit), HTTPS-Dateien (TIGER und NOAA), JSON-API (ACS). Je Quelle dokumentiert: Aktualisierungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 11, 21, 22, 32 | – |
 | **Ingestion** | Vier Pipelines. Batch, kein Streaming. Chicago inkrementell über Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` | – |
-| **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest. Ablage wahlweise lokal, SeaweedFS über S3 oder hybrid | `data/`, Abschnitt 4, [`storage-architektur.md`](storage-architektur.md) | – |
+| **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest. Ablage wahlweise lokal, SeaweedFS über S3 oder hybrid | `data/`, Abschnitt 4, [`storage-architektur.md`](../storage-architektur.md) | – |
 | **Transformation** | Bronze bewusst ohne Transformation. Silver und Gold gebaut, Qualitätsanalyse beider Städte fertig | Notebook 03, 13, 34 | – |
 | **Serving** | Option **A · Analytik** gewählt: Auswertungsdatenbank auf der Gold-Schicht | Abschnitt 6, Notebook 33 | gebaut: dreizehn Sichten über Silver, Gold und die vier Vergleichstabellen in Serving; das Dashboard darauf fehlt |
 
@@ -291,8 +305,8 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie im Manifest oder in abgelegten URLs; drei Tests prüfen das. `.env` und `data/` aus Git ausgeschlossen, `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf, Herkunftsnachweis über `derived_from` und `input_fingerprint` durchgehend bis Gold, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog aus den Manifesten erzeugt, Aufbewahrungsregel mit `orchestration.aufraeumen` | das Aufräumen ist ein Handgriff, kein Automatismus |
-| **DataOps** | 1'179 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions über zwei Betriebssysteme und zwei Python-Versionen; dazu der wöchentliche Datenlauf | keine Alarmierung ausser dem roten Lauf selbst |
-| **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (raw) und Ableitung (bronze). Zwei Architekturbilder, aus dem Code erzeugt ([`architektur.md`](architektur.md)) | Vintage 2024 hart verdrahtet |
+| **DataOps** | 1'297 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions über zwei Betriebssysteme und zwei Python-Versionen; dazu der wöchentliche Datenlauf | keine Alarmierung ausser dem roten Lauf selbst |
+| **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (raw) und Ableitung (bronze). Zwei Architekturbilder, aus dem Code erzeugt ([`architektur.md`](../architektur.md)) | Vintage 2024 hart verdrahtet |
 | **Orchestration** | `orchestration.run_all`: 13 Stufen in Reihenfolge, Abbruch beim ersten Fehler, Gesamtmanifest über alle Eingabe-Läufe | der geplante Lauf ist wöchentlich, die Quellen ändern sich täglich; keine Wiederaufnahme nach Abbruch, bewusst |
 | **Software Engineering** | Modulare Pakete, Typannotationen, ausführliche Docstrings, Fehlerbehandlung mit Wiederholungen | – |
 
@@ -351,7 +365,7 @@ aus zwei Fragen, die oft vermischt werden:
    Cloud? Dazu unten die Anforderungen und Optionen.
 2. **Das Format innerhalb der Schichten** — NDJSON oder Parquet? Diese Frage
    ist **gemessen** und in
-   [`notebooks/31_storage_evaluation.ipynb`](../notebooks/31_storage_evaluation.ipynb)
+   [`notebooks/31_storage_evaluation.ipynb`](../../notebooks/31_storage_evaluation.ipynb)
    reproduzierbar.
 
 ### Das Bronze-Format: gemessen, nicht behauptet
@@ -390,9 +404,9 @@ oder pyarrow. Für die Fehlersuche an einer neuen Quelle ist das ein echter
 Vorteil.
 
 **Der stärkste Befund ist nicht die Geschwindigkeit.** Detroits NDJSON
-übernimmt heute zwei Rollen gleichzeitig: Beweisstück und abgeleitete Tabelle.
-Zieht man es auf die Konvention der anderen drei Quellen nach, kostet die
-zusätzliche Schicht nichts, sie spart:
+übernahm bis zum 11.9.2026 zwei Rollen gleichzeitig: Beweisstück und abgeleitete
+Tabelle. Zieht man es auf die Konvention der anderen drei Quellen nach, kostet
+die zusätzliche Schicht nichts, sie spart:
 
 ```text
 heute        Bronze NDJSON                89,4 MB
@@ -400,6 +414,16 @@ nachgezogen  Raw    NDJSON + gzip          10,9 MB
              Bronze Parquet snappy          6,5 MB
              zusammen                       17,4 MB   → 81 % weniger
 ```
+
+> **Nachgerechnet am 19.09.2026 (Christian).** Das sind die Zahlen der
+> *Evaluation*, also des Modells. In der Umsetzung liegen Raw und Bronze
+> zusammen bei **27,1 MB** statt 17,4 — das sind **70 % weniger**, nicht 81 %.
+> Bronze traf das Modell fast genau (6,0 statt 6,5 MB), trägt aber zusätzlich
+> `_feature_json` mit dem geparsten Quellfeature und kommt damit auf 16,7 MB.
+> Diese Spalte kam nach der Evaluation dazu und ist Absicht: Raw hält die
+> HTTP-Bytes als Beweis, `_feature_json` die auswertbare Fassung. Die 81 %
+> bleiben als Messergebnis richtig, sind aber nicht der erreichte Wert;
+> Notebook 31 Abschnitt 9 rechnet beides gegeneinander.
 
 **Ergebnis:** Parquet in Bronze, NDJSON komprimiert in Raw. Damit ist auch
 [Absprache 4.2](projektabsprache.md) entsperrt, deren Entscheid „Hängt von 4.1
@@ -484,13 +508,18 @@ beiden Städten nicht zufällig, aber er ist **nicht durchweg derselbe**. Auf
 gemeinsamer NIBRS-Achse gemessen (Notebook 34, Abschnitt 5.2):
 
 * **Sexualdelikte** fehlen in beiden Städten deutlich überproportional —
-  Chicago beim 6,5-Fachen des Stadtschnitts, Detroit beim 5,1-Fachen. Gleiche
+  Chicago beim 12,0-Fachen des Stadtschnitts, Detroit beim 5,2-Fachen. Gleiche
   Richtung, vermutlich gleiche Ursache: die zurückgehaltene Adresse. Dieser
   Teil der Lücke verzerrt den Vergleich **nicht**, er trifft beide Seiten.
-* **Betrug** fehlt dagegen nur in Chicago: 3,5 % gegen 0,19 % — Faktor 18
+* **Betrug** fehlt dagegen nur in Chicago: 3,78 % gegen 0,19 % — Faktor 20
   zwischen den Städten. Hier ist Chicagos Zahl die untererfasste.
 
-Für den Vergleich der Gesamtraten trägt das (0,67 % gegen 0,29 % Ausfall
+> **Nachgemessen am 20.09.2026 (Christian).** Die Faktoren sind auf den
+> aktuellen Stand gehoben (zuvor 6,5 / 5,1 / 3,5 % / Faktor 18). Die Richtung
+> und damit die Argumentation ändern sich nicht — Chicagos Sexualdelikte
+> fallen sogar deutlicher aus als bisher notiert.
+
+Für den Vergleich der Gesamtraten trägt das (0,81 % gegen 0,29 % Ausfall
 verschieben keine Rangfolge); für einen Vergleich **je Delikttyp** muss bei
 Betrug die Abdeckung danebenstehen.
 
@@ -545,9 +574,9 @@ Kategorie. Das ist der Grund, weshalb der Entscheid nicht warten kann.
 | 5 | Storage-Evaluation verschriftlichen | Abschnitt 4 als Präsentationsteil | | |
 | 6 | ~~Datenqualität Detroit~~ | erledigt am 12.9.2026: Notebook 13 | Christian | ✓ |
 | 7 | ~~Detroit-Bronze angleichen~~ | erledigt am 12.9.2026: Raw-Schicht und `city=`-Partition wie Chicago | Christian | ✓ |
-| 8 | ~~Silver: Dedup, Typen, räumlicher Join~~ | erledigt: `silver/crime_offense`, 347'957 Zeilen | Christian | ✓ |
+| 8 | ~~Silver: Dedup, Typen, räumlicher Join~~ | erledigt: `silver/crime_offense`, 348'311 Zeilen | Christian | ✓ |
 | 9 | ~~NIBRS-Harmonisierung über beide Städte~~ | erledigt: beide Crosswalks angewandt, H3 dabei teilweise falsifiziert | Christian | ✓ |
-| 10 | ~~Gold: Raten je Tract~~ | erledigt: Sternschema, Chicago 94,5 / Detroit 132,6 je 1'000 | Christian | ✓ |
+| 10 | ~~Gold: Raten je Tract~~ | erledigt: Sternschema, Chicago 94,5 / Detroit 132,7 je 1'000 | Christian | ✓ |
 | 11 | Hypothesentest H1–H4 | Notebook mit Ergebnissen | | |
 | 12 | Präsentation | Abgabe | beide | |
 
@@ -809,7 +838,7 @@ Wir sind in der umgekehrten Lage: Unsere Limitationen sind **gemessen**, mit
 Zahlen und mit Begründung. Das gehört selbstbewusst vorgetragen, nicht
 entschuldigend:
 
-- 0,67 % der Chicago-Fälle ohne Koordinaten — und der Ausfall ist nach
+- 0,81 % der Chicago-Fälle ohne Koordinaten — und der Ausfall ist nach
   Delikttyp verzerrt, 4,3 % gegen 0,4 %
 - Detroit dagegen nur 0,29 % — die Verzerrung ist zwischen den Städten **nicht
   symmetrisch**
@@ -832,7 +861,7 @@ stehen alle in diesen beiden Dokumenten, sie müssen nur sitzen:
 | Warum Dateien und keine Datenbank? | Abschnitt 4, Optionsvergleich |
 | Wie stellt ihr sicher, dass ein Lauf vollständig ist? | id-Liste vorher, Abgleich danach; ZIP-CRC; ACS gegen TIGER |
 | Was genau meint ihr mit Wasserzeichen? | **Achtung, zwei Bedeutungen** — Abschnitt 3a |
-| 0,67 % fehlen — warum löscht ihr sie nicht einfach? | H1, MNAR statt MCAR |
+| 0,81 % fehlen — warum löscht ihr sie nicht einfach? | H1, MNAR statt MCAR |
 | Ist das nicht ein ökologischer Fehlschluss? | Abschnitt 2.3.2 |
 | Warum Census Tracts und nicht Community Areas? | Vergleichbarkeit zwischen den Städten |
 | Wie reproduzierbar ist ein Lauf? | ehrlich: Raw ja, Delta-Läufe nein — deshalb der Referenzstand |

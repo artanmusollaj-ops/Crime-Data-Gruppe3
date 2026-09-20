@@ -26,12 +26,12 @@ MAPPING = PROJECT_ROOT / "config" / "micr_nibrs_mapping.csv"
 # benannt. Liegt im Repository, weil michigan.gov automatisierte Abrufe
 # mit HTTP 403 beantwortet.
 QUELLEN = {
-    "micr_manual_1110_2024": PROJECT_ROOT / "docs" / "micr_manual_1110_2024.pdf",
+    "micr_manual_1110_2024": PROJECT_ROOT / "docs" / "quellen" / "micr_manual_1110_2024.pdf",
     # Dieselbe Quelle, anderer Abschnitt: die Arrest-Charge-Liste statt der
     # File-Class-Liste. Die Herkunft bleibt getrennt, weil die Zuordnung eine
     # Stufe mehr durchlaeuft - Arrest Charge, File Class, dann NIBRS.
-    "micr_arrest_charge_1110_2024": PROJECT_ROOT / "docs" / "micr_manual_1110_2024.pdf",
-    "appendix_f_2009": PROJECT_ROOT / "docs" / "micr_appendix_f_2009.pdf",
+    "micr_arrest_charge_1110_2024": PROJECT_ROOT / "docs" / "quellen" / "micr_manual_1110_2024.pdf",
+    "appendix_f_2009": PROJECT_ROOT / "docs" / "quellen" / "micr_appendix_f_2009.pdf",
 }
 
 # Eine Herkunft, deren Beleg kein Dokument ist, sondern die Quelle selbst: Zu
@@ -463,7 +463,7 @@ def ohne_pdftotext(fertig: subprocess.CompletedProcess) -> bool:
     werden soll.
     """
     return fertig.returncode != 0 and "pdftotext nicht gefunden" in fertig.stderr
-MANUAL = PROJECT_ROOT / "docs" / "micr_manual_1110_2024.pdf"
+MANUAL = PROJECT_ROOT / "docs" / "quellen" / "micr_manual_1110_2024.pdf"
 
 # Die Herkunftswerte, fuer die dieses Werkzeug zustaendig ist. Zeilen mit einer
 # anderen Herkunft stammen aus den Handbuechern und sind seine Eingabe.

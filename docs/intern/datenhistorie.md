@@ -49,8 +49,8 @@ Welche Felder sich geändert haben:
 Durchweg vom spezifischen zum allgemeinen Code. Das ist keine Korrektur
 einzelner Tippfehler, das sieht nach einer Regel aus.
 
-`3072` ist dabei kein beliebiger Code. Er trägt **1'443 Anklagen** in
-`silver/crime_offense` und davon **1'403 zählende Taten** in
+`3072` ist dabei kein beliebiger Code. Er trägt **1'404 Anklagen** in
+`silver/crime_offense` und davon **1'365 zählende Taten** in
 `gold/fact_offense` — alle mit `mapping_status = ambiguous`. Eine Umcodierung
 dort verschiebt die NIBRS-Zuordnung und damit die Vergleichszahl.
 
@@ -143,15 +143,23 @@ sind ein Befund über die Meldepraxis, kein Rauschen.
 ### 5.2 Wollen wir Löschungen überhaupt erkennen können?
 
 Löschungen sind nur zwischen **zwei vollständigen Schnappschüssen desselben
-Bestands** erkennbar. Detroit hat zwei. Chicago hat einen Vollschnappschuss
-und zwei Deltas — dort lässt sich heute **nicht** sagen, ob etwas gelöscht
-wurde.
+Bestands** erkennbar. Chicago hat einen Vollschnappschuss und vier Deltas —
+dort lässt sich heute **nicht** sagen, ob etwas gelöscht wurde.
+
+**Seit dem 18.9.2026 gilt das für beide Städte.** Detroit lud bis dahin bei
+jedem Lauf den ganzen Jahrgang; fünf solche Schnappschüsse liegen vor (11.9.,
+12.9., 17.9. und zweimal am 18.9.). Sie sind der Grund, warum wir überhaupt
+messen konnten, dass `updated_at` jede inhaltliche Änderung mitträgt — und mit
+diesem Ergebnis lädt Detroit seither ebenfalls Deltas. Die fünf bleiben als
+Vergleichspaare erhalten; **neue kommen ohne Entscheidung keine mehr dazu.**
 
 Konzept 6.3 empfiehlt bereits *„periodische Full Loads beziehungsweise
 Bestandsabgleiche"*. Das hier wäre der konkrete Grund dafür.
 
 **Empfehlung: ja, mit einem Vollschnappschuss je Stadt und Monat.** Ohne ihn
-ist die Frage „was wird gelöscht" für Chicago dauerhaft unbeantwortbar.
+ist die Frage „was wird gelöscht" für beide Städte dauerhaft unbeantwortbar.
+Der Aufruf steht bereit — `--mode full` lädt weiterhin den ganzen Jahrgang;
+es fehlt nur der Beschluss, ihn regelmässig zu starten.
 
 ### 5.3 Wie oft laden wir?
 
@@ -243,7 +251,7 @@ Silver-Tabelle, die neue Vorbedingung in `aufraeumen`, Tests.
   wie eine Aussage über die Polizei statt über unsere Pipeline.
 * **Was zwischen zwei Läufen zweimal geändert wurde, sieht man einmal.**
 * **Es ersetzt keine versionierte Ablage von Silver und Gold.** Das ist Stufe
-  C aus [`ausblick.md`](ausblick.md) Abschnitt 1 und bleibt eine eigene,
+  C aus [`ausblick.md`](../ausblick.md) Abschnitt 1 und bleibt eine eigene,
   teurere Frage.
 
 ---
@@ -281,10 +289,16 @@ der gebaute Stand steht seither vor dem dokumentierten:
 (17.9.2026). Er ist eine Verabredung des Teams, keine Zahl, die ein Lauf
 verschiebt — und die Abgabedokumente stehen kurz vor der Besprechung. Die
 Folge ist sichtbar und gewollt: Auf einem Rechner mit frisch gebauten Daten
-sind **33 der 70 Wächter mit dem Marker `referenzstand` rot**. Das ist ihre
+sind **34 der 71 Wächter mit dem Marker `referenzstand` rot**. Das ist ihre
 Aufgabe, nicht ein Fehler; `python -m orchestration.drift` sagt in einer
 Tabelle, wie weit es auseinander ist. In CI und in einem frischen Klon ändert
 sich nichts, dort gibt es keine Daten.
+
+Seit dem 18.9.2026 stehen sie dabei nicht mehr im Weg: `python -m pytest`
+wählt den Marker ab und ist grün, `python -m pytest -m referenzstand` ruft
+genau diese 71 auf. Der Grund war ein praktischer — 34 rote Zeilen im
+Standardlauf sahen aus wie eine kaputte Einrichtung, und ein echter
+Fehlschlag wäre darin nicht aufgefallen.
 
 Zu entscheiden ist, **wann** nachgezogen wird: jetzt, nach Freitag, oder erst
 vor der Abgabe. Nachziehen heisst — in einem Zug — alle dokumentierten Zahlen
@@ -294,7 +308,7 @@ steht, ist der Stand vom 17.9.2026, 16:05 UTC.
 
 > **Nicht zu verwechseln: der Veröffentlichungsstand.** Für LN2 ist ein
 > Release-Verzeichnis je freigegebenem Gold-Stand geplant, mit einem Verweis
-> darauf — [`ausblick.md`](ausblick.md) Abschnitt 6. Aufgehobene Releases sind
+> darauf — [`ausblick.md`](../ausblick.md) Abschnitt 6. Aufgehobene Releases sind
 > eine Historie der **veröffentlichten Stände** und beantworten nicht, was
 > dieses Dokument misst: was die **Quellen** zwischen zwei Läufen ändern. Ein
 > Release hält fest, was wir gesagt haben; diese Tabelle hält fest, was die
@@ -305,16 +319,12 @@ steht, ist der Stand vom 17.9.2026, 16:05 UTC.
 
 Vier offene Punkte aus dem Chat, damit sie nicht verlorengehen:
 
-6. **Chicagos Beschreibung aus beiden IUCR-Hälften bauen?** Silver führt für
-   Chicago nur `description`, nicht `primary_type`. Deshalb ist
-   `source_offense_description` in **23,3 %** der Chicagoer Zeilen für sich
-   genommen mehrdeutig — `SIMPLE` steht 31'565-mal und meint einmal
-   Körperverletzung (0460, 13B), einmal Bedrohung (0560, 13C); `AGGRAVATED -
-   HANDGUN` ist einmal 11A, einmal 13A (`zaehlperspektiven.md` 3). Vorschlag:
-   `BATTERY · SIMPLE` statt `SIMPLE`. Kostet Silver-Vertrag 3, Gold-Vertrag 5,
-   einen Neubau und Nachführen der Dokumente; gewinnt eine Spalte, die sich
-   ohne den Code lesen lässt. **Christian hat entschieden, die Frage offen zu
-   lassen und am Freitag zu klären.**
+6. ~~**Chicagos Beschreibung aus beiden IUCR-Hälften bauen?**~~ →
+   **entschieden und umgesetzt am 19.9.2026.** `source_offense_description`
+   trägt für Chicago jetzt `primary_type: description`, also `BATTERY: SIMPLE`
+   statt `SIMPLE`. Der Anteil mehrdeutiger Beschreibungen fiel von **23,7 %
+   auf null**. Gekostet hat es Silver-Vertrag 3, Gold-Vertrag 5, einen Neubau
+   und ein neues Release.
 7. **Die `ambiguous`-Zuordnungen durchgehen:** 20 in den Crosswalks, 16
    davon mit Zeilen im Jahrgang 2024 (5'140 Zeilen). Vier Entscheidungen sind
    getroffen, aber nicht belegt.

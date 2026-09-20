@@ -2,7 +2,7 @@
 Aktuelle vollständige Anleitung: ../../../docs/DETROIT_PIPELINE_ANLEITUNG.md.
 
 - detroit_arcgis.py: Quellmetadaten, HTTP-Client mit Retry und ID-Pagination, Filterfenster.
-- extract_detroit.py: Full-/Daily-Orchestrierung, Snapshot-Gates, Raw-Ablage, Parquet-Publikation und Manifest.
+- extract_detroit.py: Delta-/Full-/Daily-Orchestrierung, Wasserzeichen, Snapshot-Gates, Raw-Ablage, Parquet-Publikation und Manifest.
 - bronze_parquet.py: explizites Arrow-Schema, Typprüfung, vollständiges Quellfeature.
 - bronze_manifest.py: Validierung veröffentlichter Parquet-Runs.
 - load_duckdb.py: transaktionaler und auf Run-Ebene idempotenter Bronze-Import.

@@ -1,4 +1,4 @@
-"""Prueft die Zahlen in ``docs/datenhistorie.md`` gegen die gepinnten Laeufe.
+"""Prueft die Zahlen in ``docs/intern/datenhistorie.md`` gegen die gepinnten Laeufe.
 
 Das Dokument entscheidet nichts, es misst - und die Messung ist das einzige
 Argument darin. Detroit hat zwei vollstaendige Schnappschuesse desselben
@@ -24,7 +24,7 @@ import pytest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DOKUMENT = PROJECT_ROOT / "docs" / "datenhistorie.md"
+DOKUMENT = PROJECT_ROOT / "docs" / "intern" / "datenhistorie.md"
 BRONZE = PROJECT_ROOT / "data" / "bronze" / "city=detroit"
 
 pytestmark = pytest.mark.referenzstand

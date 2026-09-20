@@ -213,10 +213,10 @@
     </figure>
 
     <div class="zahlen">
-      <div class="zahl"><b>347'957</b><span>Zeilen Silver — eine Anklage</span></div>
-      <div class="zahl"><b>344'617</b><span>Taten in Gold — eine Zeile je Tat</span></div>
-      <div class="zahl"><b>94,5 / 132,6</b><span>Delikte je 1'000 Einwohner</span></div>
-      <div class="zahl"><b>1'179</b><span>Tests, ohne Netz und Schlüssel</span></div>
+      <div class="zahl"><b>348'311</b><span>Zeilen Silver — eine Anklage</span></div>
+      <div class="zahl"><b>345'073</b><span>Taten in Gold — eine Zeile je Tat</span></div>
+      <div class="zahl"><b>94,5 / 132,7</b><span>Delikte je 1'000 Einwohner</span></div>
+      <div class="zahl"><b>1'297</b><span>Tests, ohne Netz und Schlüssel</span></div>
       <div class="zahl"><b>10 / 14</b><span>Pakete, zyklenfrei / Stufen</span></div>
     </div>
     <div class="strategien">
@@ -226,9 +226,10 @@
         Ein Wasserzeichen sagt, ab wann.
       </div>
       <div>
-        <b>Detroit — Vollschnappschuss</b>
-        <span class="hebt">54,6 %</span> des Jahrgangs wurden mehr als ein Jahr nach
-        der Tat noch geändert. Ein Delta nach Tatdatum verpasst genau das.
+        <b>Detroit — Delta im Tatjahrgang</b>
+        <span class="hebt">55,9 %</span> des Jahrgangs wurden mehr als ein Jahr nach
+        der Tat noch geändert — ein Delta nach Tatdatum verpasst genau das. Es geht
+        deshalb auf <span class="mono">updated_at</span>: 3'184 statt 88'686 Zeilen.
       </div>
       <div>
         <b>Census, NOAA — eingefroren, bzw. voll</b>
@@ -333,13 +334,13 @@
       </tr>
       <tr>
         <td>Zeilen</td>
-        <td><span class="mono">347'957</span></td>
+        <td><span class="mono">348'311</span></td>
         <td>rund 1,7 Mio</td>
         <td><em>nichts</em> — DuckDB rechnet das weiterhin interaktiv</td>
       </tr>
       <tr>
         <td>Laufzeit Ingestion</td>
-        <td>Detroit 168 s, davon rund 60 s Warten</td>
+        <td>Detroit 7 s im Delta, 100 s beim ersten vollen Lauf</td>
         <td>seriell, also zehnfach</td>
         <td>nebenläufig laden — sechs Stufen, keine hängt an der anderen</td>
       </tr>

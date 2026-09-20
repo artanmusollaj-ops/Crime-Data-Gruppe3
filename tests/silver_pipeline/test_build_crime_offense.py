@@ -75,7 +75,9 @@ def schreibe_chicago(
 ) -> Path:
     ziel = data_root / "bronze" / "city=chicago" / f"ingest_date={ingest_date}" / run_id
     ziel.mkdir(parents=True, exist_ok=True)
-    spalten = ["id", "case_number", "date", "iucr", "description",
+    # ``primary_type`` seit Silver-Vertrag 3: Chicagos Beschreibung besteht
+    # aus zwei Haelften, und die Silber-Spalte fuehrt beide.
+    spalten = ["id", "case_number", "date", "iucr", "primary_type", "description",
                "latitude", "longitude", "updated_on"]
     tabelle = pa.table({
         s: pa.array([str(z.get(s)) if z.get(s) is not None else None for z in zeilen],
@@ -226,7 +228,8 @@ def manifest_von(ziel: Path) -> dict:
 
 
 CHI = [{"id": "1", "case_number": "JA1", "date": "2024-01-15T08:30:00.000",
-        "iucr": "0110", "description": "FIRST DEGREE MURDER",
+        "iucr": "0110", "primary_type": "HOMICIDE",
+        "description": "FIRST DEGREE MURDER",
         "latitude": IN_CHICAGO[0], "longitude": IN_CHICAGO[1],
         "updated_on": "2024-02-01T00:00:00.000", "arrest": True}]
 # 2024-01-15 13:30 UTC entspricht 08:30 Ortszeit in Detroit (EST, UTC-5).
@@ -272,7 +275,8 @@ def test_ueberlappende_delta_laeufe_erzeugen_keine_doppelten_zeilen(tmp_path):
     zeilen = [z for z in lies(bc.build(data_root, config_root))
               if z["city"] == "chicago"]
     assert len(zeilen) == 1
-    assert zeilen[0]["source_offense_description"] == "NEUE FASSUNG", (
+    # Seit Vertrag 3 traegt die Spalte beide Haelften: "HOMICIDE: NEUE FASSUNG".
+    assert zeilen[0]["source_offense_description"] == "HOMICIDE: NEUE FASSUNG", (
         "behalten werden muss die Fassung mit dem juengsten updated_on"
     )
 
@@ -300,6 +304,41 @@ def test_ueberlappende_detroit_laeufe_erzeugen_keine_doppelten_zeilen(tmp_path):
               if z["city"] == "detroit"]
     assert len(zeilen) == 1
     assert zeilen[0]["source_offense_description"] == "NEU"
+
+
+def test_ein_detroit_delta_loescht_den_bestand_darunter_nicht(tmp_path):
+    """Seit dem 18.9.2026 bringt ein Detroit-Lauf nur noch das Geaenderte.
+
+    Damit haengt Silver an der Vereinigung **aller** Laeufe, nicht mehr am
+    juengsten allein. Wuerde hier nur der letzte gelesen, saehe man es der
+    Tabelle nicht an: Sie waere nur kuerzer - um alles, was sich seit dem
+    Vollschnappschuss nicht geaendert hat.
+    """
+    data_root = tmp_path / "data"
+    config_root = tmp_path / "config"
+    schreibe_tract(data_root)
+    schreibe_chicago(data_root, CHI)
+    schreibe_detroit(data_root, [dict(DET[0], incident_entry_id="RUHIG",
+                                      offense_description="UNBERUEHRT",
+                                      updated_at=1000),
+                                 dict(DET[0], incident_entry_id="BEWEGT",
+                                      offense_description="ALT",
+                                      updated_at=1000)],
+                     lauf="run_voll", unterpfad="full/year=2024")
+    schreibe_detroit(data_root, [dict(DET[0], incident_entry_id="BEWEGT",
+                                      offense_description="NEU",
+                                      updated_at=2000)],
+                     lauf="run_delta", unterpfad="full/year=2024")
+    schreibe_config(config_root)
+
+    zeilen = {z["offense_id"]: z for z in lies(bc.build(data_root, config_root))
+              if z["city"] == "detroit"}
+    assert set(zeilen) == {"RUHIG", "BEWEGT"}, (
+        "der Bestand aus dem Vollschnappschuss fehlt - Silver liest nur den "
+        "juengsten Lauf statt aller"
+    )
+    assert zeilen["BEWEGT"]["source_offense_description"] == "NEU"
+    assert zeilen["RUHIG"]["source_offense_description"] == "UNBERUEHRT"
 
 
 # --------------------------------------------------------------------------

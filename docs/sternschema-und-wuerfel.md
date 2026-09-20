@@ -6,7 +6,7 @@
 
 | | |
 | --- | --- |
-| Faktentabelle | 344'617 Zeilen |
+| Faktentabelle | 345'073 Zeilen |
 | Dimensionen | 4 · 7'465 Zeilen |
 | Verworfen | 2 Würfel |
 | Gerechnet in | [`notebooks/34_gold_sternschema.ipynb`](../notebooks/34_gold_sternschema.ipynb) |
@@ -71,13 +71,13 @@ Dimensionen die Bedeutung. Jede Kante ist ein JOIN-Schlüssel.*
 
 ### Warum die Dimensionen getrennt stehen
 
-**Die Faktentabelle bleibt schlank.** Stünde in jeder der 344'617 Zeilen der
+**Die Faktentabelle bleibt schlank.** Stünde in jeder der 345'073 Zeilen der
 Text `Larceny/Theft Offenses`, läge derselbe Satz zehntausendfach auf der
 Platte. Statt dessen steht dort `23C` — drei Zeichen — und die Bedeutung genau
 einmal in `dim_offense`.
 
 **Die Dimensionen tragen die Auswahllisten.** Eine Oberfläche, die „Delikt
-wählen" anbieten will, liest 85 Zeilen aus `dim_offense` statt 344'617
+wählen" anbieten will, liest 85 Zeilen aus `dim_offense` statt 345'073
 Faktenzeilen zu durchsuchen. Dasselbe gilt für Städte, Tage und Tracts.
 
 **`dim_date` wird erzeugt, nicht abgeleitet.** Ein Tag ohne Delikt hat keine
@@ -91,7 +91,7 @@ alle 366 Tage von 2024, ob etwas passiert ist oder nicht.
 
 **Der Unterschied zwischen den Bauweisen ist kein Feinschliff.**
 
-![Vier Granularitäten im Vergleich: Silver hält 347'957 Anklagen, Gold 344'617 Taten,
+![Vier Granularitäten im Vergleich: Silver hält 348'311 Anklagen, Gold 345'073 Taten,
 die verworfenen Würfel nur noch 95'219 beziehungsweise 11'156 vorberechnete
 Zellen.](bilder/granularitaet.svg)
 
@@ -100,14 +100,14 @@ Schritt zum Würfel 249'398 — und mit ihnen jede feinere Frage.*
 
 | Tabelle | eine Zeile ist | Zeilen |
 | --- | --- | ---: |
-| `silver/crime_offense` | eine Anklage | 347'957 |
-| `gold/fact_offense` | eine Tat | 344'617 |
+| `silver/crime_offense` | eine Anklage | 348'311 |
+| `gold/fact_offense` | eine Tat | 345'073 |
 | ~~`fact_tract_month`~~ | Tract × Monat × Familie | 95'219 |
 | ~~`fact_city_day`~~ | Stadt × Tag × Familie | 11'156 |
 
 Silver hält jede **Anklage**, Gold jede **Tat**. Das ist ein kleiner Schritt —
 3'340 Zeilen, Detroits Mehrfachanklagen zum selben Vorfall. Er ist nötig, weil
-Detroit sonst 3,9 % zu hoch zählt.
+Detroit sonst 3,8 % zu hoch zählt.
 
 Der Schritt zum Würfel ist ein anderes Kaliber: **249'398 Zeilen**, und mit
 ihnen jede Frage, die feiner ist als Monat und Deliktfamilie.
@@ -125,7 +125,7 @@ alle vier Achsen bleibt unter einer Zehntelsekunde.
 
 > **Der Befund**
 >
-> **Der Engpass ist nicht die Datenmenge.** Bei 344'617 Zeilen gewinnt eine
+> **Der Engpass ist nicht die Datenmenge.** Bei 345'073 Zeilen gewinnt eine
 > Vorberechnung nichts, was ein Mensch bemerken würde. Sie kostet aber genau
 > die Beweglichkeit, für die eine Auswertungsplattform da ist.
 

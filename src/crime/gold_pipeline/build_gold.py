@@ -80,7 +80,7 @@ from silver_pipeline import (
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
-CONTRACT_VERSION = 4
+CONTRACT_VERSION = 5
 
 DEFAULT_VINTAGE = 2024
 NIBRS_CODES = "nibrs_offense_codes_2025.csv"

@@ -71,7 +71,7 @@ verifizierten Crosswalk, und nennt 1 319 betroffene Juni-Zeilen. **Er hat recht,
 und der Beleg lag im Repository.**
 
 Die ILCS-Tabelle der Illinois State Police
-(`docs/isp_nibrs_code_table_2026.xlsx`) enthält zwei Zeilen der 13er-Familie,
+(`docs/quellen/isp_nibrs_code_table_2026.xlsx`) enthält zwei Zeilen der 13er-Familie,
 deren Wortlaut wirklich zu Chicagos Katalog passt:
 
 | ILCS | Wortlaut | I-UCR | IBR |
