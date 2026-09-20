@@ -37,10 +37,10 @@ vergleichbare Tabelle macht:
 
 | | |
 | --- | ---: |
-| `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | 344'617 Zeilen (eine Tat) |
+| `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | 345'073 Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 84'658 Delikte · 638'635 Einwohner · **132,6** je 1'000 |
+| Detroit | 84'761 Delikte · 638'635 Einwohner · **132,7** je 1'000 |
 
 Wo etwas ausführlich steht:
 
@@ -399,8 +399,8 @@ desselben Tages — oder Information wegwerfen:
 | --- | --- | ---: |
 | `tract` | ein Census Tract | 6'282 |
 | `place` | ein Ort (Stadtgrenze) | 2'206 |
-| `weather_day` | eine Stadt an einem Tag | 55'449 |
-| `crime_offense` | eine **Anklage**; je Tat zählt eine | 347'957 |
+| `weather_day` | eine Stadt an einem Tag | 55'465 |
+| `crime_offense` | eine **Anklage**; je Tat zählt eine | 348'311 |
 
 `crime_offense` leistet drei Übersetzungen auf einmal, und jede ist ein eigener
 Fehlerherd:
@@ -435,7 +435,7 @@ python -m serving.export_geojson      # die Tract-Umrisse für eine Karte
 Gold ist ein **Sternschema**: eine Faktentabelle `fact_offense` mit einer Zeile
 je **Tat** und vier Dimensionen daneben. Der Unterschied zu Silver ist die Granularität
 — Detroit liefert je Vorfall mehrere Anklagen; wer Zeilen zählt, zählt Detroit
-um 3,9 % zu hoch. Warum kein vorberechneter Würfel gebaut wurde, steht in
+um 3,8 % zu hoch. Warum kein vorberechneter Würfel gebaut wurde, steht in
 [`docs/sternschema-und-wuerfel.md`](docs/sternschema-und-wuerfel.md).
 
 `build_comparison` leitet aus Gold **vier Vergleichstabellen** für das

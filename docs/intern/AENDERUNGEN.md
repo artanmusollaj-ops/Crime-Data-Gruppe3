@@ -31,11 +31,11 @@ Eintrag hier sagt, was das war.
 | | |
 | --- | ---: |
 | Tests | **1'293** |
-| `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
+| `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 84'658 Delikte · 638'635 Einwohner · **132,6** je 1'000 |
-| Fallebene (`counts_case`) | Chicago 259'243 · Detroit 80'229 Fälle; Detroit **124,6** je 1'000 |
+| Detroit | 84'761 Delikte · 638'635 Einwohner · **132,7** je 1'000 |
+| Fallebene (`counts_case`) | Chicago 259'596 · Detroit 80'230 Fälle; Detroit **124,6** je 1'000 |
 
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
@@ -88,6 +88,80 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 20.09.2026 · Alle Dokumente gegen Release `2026-09-19T23-05-26Z` nachgeführt (#121)
+
+Die Frage war: Stimmen die Referenzzahlen in den Dokumenten noch mit dem
+aktuellen Release? **Bei den meisten nicht.** 117 verschiedene Tausenderzahlen
+stehen in den fünfzehn Dokumenten, und ausgerechnet die am häufigsten
+wiederholten waren die veralteten — `259'272` allein 23-mal, `347'957` und
+`344'617` je zwölfmal.
+
+Nachgeführt sind **81 Zeilen in neun Dokumenten** plus die Stand-Tabelle in
+dieser Datei, der Einseiter und die Literalliste im Wächter.
+
+### Die Kennzahlen
+
+| | stand da | Release `…23-05-26Z` |
+| --- | --- | --- |
+| `silver/crime_offense`, Zeilen | 347'957 | **348'311** |
+| `gold/fact_offense`, Taten | 344'617 | **345'073** |
+| Chicago, Taten | 259'272 | **259'625** |
+| Chicago, Fälle und Vorfälle | 259'243 | **259'596** |
+| Detroit, Anklagen | 88'685 | **88'686** |
+| Detroit, Taten | 85'345 | **85'448** |
+| Detroit, Fälle und Vorfälle | 80'229 | **80'230** |
+| `weather_day` | 55'449 | **55'465** |
+| Detroit, Delikte in der Rate | 84'658 | **84'761** |
+| Detroit, Rate je 1'000 | 132,6 | **132,7** |
+
+### Die abgeleiteten Tabellen
+
+`mapping_status` auf Tatebene: Chicago 247'877/3'697/7'695/3 →
+**248'187/3'718/7'717/3**, Detroit 81'195/1'403/2'747/0 →
+**81'325/1'365/2'758/0**. `geo_status` in `eine-zahl.md`: `outside_city` 6'007 →
+**6'010**, `missing_coordinate` 1'748 → **2'098**.
+
+In `zaehlperspektiven.md` mussten drei Tabellen neu gerechnet werden. Die
+auffälligste: Detroits Vorfälle in mehr als einer Deliktfamilie stiegen von
+4'148 (5,2 %) auf **6'758 (8,4 %)**, der Überhang beim Summieren je Familie von
+4'474 auf **7'377 (9,2 %)**. Das ist kein Rundungsdrift, sondern eine Folge der
+angeschlossenen Arrest Charges.
+
+### Die Prozentangaben
+
+| | stand da | gemessen |
+| --- | --- | --- |
+| Chicago ohne Koordinate | 0,67 % | **0,81 %** |
+| Chicago Verortungsquote | 99,33 % | **99,19 %** |
+| Detroit zählt zu hoch | 3,9 % | **3,8 %** |
+| Zeilen in der doppelten Stunde | 48 | **49** |
+
+### Was stehen bleibt, und warum
+
+Historische Belege sind **nicht** angefasst: die Manifestauszüge des Laufs
+`run_20260905T174633859259Z` in `eine-zahl.md` und `ln1_konzept.md` 8.3, die
+datierten Messungen in `ausblick.md` („gemessen am 13.9.2026", „am 14.9.2026"),
+die Speicher-Evaluation mit Detroits damaligen 88'685 Zeilen, der Satz über die
+beiden Vollschnappschüsse, und `datenhistorie.md` als Ganzes — das Dokument
+*ist* der Verlauf.
+
+### Geprüft und richtig
+
+`6'282` Tracts, `2'206` Orte, `13'264`/`2'506`/`620`/`24` in Serving, `251'516`
+Chicago-Delikte, `2'661'953` und `638'635` Einwohner, Rate `94,5`, Fallebene
+`124,6`, `10'475` im Auffang `90Z`, `97,0 %` echte NIBRS-Delikte, Detroit
+`0,29 %` ohne Koordinate, die ACS-Lücken (Wayne 9,6 % und 6,4 %, Cook 1,7 % und
+0,3 %), `83,35 %`/`83,44 %`/`93,0 %`/`49,4 %` zu H7, `55,9 %` gegen `54,6 %` am
+17.9., und die sieben Prüfsummen in `docs/quellen/README.md`.
+
+**Was dabei auffiel:** `test_architektur_dokument.py` hält den Einseiter gegen
+den langen Text und die Stand-Tabelle — dieser Wächter hat die Inkonsistenz
+sofort gemeldet. Für die übrigen 80 Zeilen gibt es keinen. Ein Wächter, der die
+Kennzahlen der Dokumente gegen `release.json` hält, wäre die eigentliche
+Lösung; er bräuchte die Marke `referenzstand`.
 
 ---
 

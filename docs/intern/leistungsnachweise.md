@@ -27,7 +27,7 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 | **Ingestion: Quellen, Beschaffung** | ● fertig | fünf Quellen, je ein Quellnotebook |
 | **Storage: Evaluation, Wahl, Implementierung** | ● fertig | gemessen in Notebook 31 (NDJSON gegen Parquet), verschriftlicht in [`ln1_konzept.md`](../ln1_konzept.md) Kapitel 7 |
 | **Transformation 1: Analyse, Hypothesentest** | ◐ Qualität beider Städte fertig | der eigentliche Hypothesentest → Abschnitt 5 |
-| **Initiale Datenbereinigung** | ● fertig | vier Silver-Tabellen, `crime_offense` mit 347'957 Zeilen |
+| **Initiale Datenbereinigung** | ● fertig | vier Silver-Tabellen, `crime_offense` mit 348'311 Zeilen |
 | **Beantwortung der Forschungsfragen** | ○ | folgt aus allem davor |
 
 ● fertig ◐ teilweise ○ offen
@@ -119,7 +119,7 @@ Notebooks, den Läufen im Repository und der Silver-Tabelle `tract`.
 | --- | --- | --- | --- |
 | **H1** | Fehlende Koordinaten treten **nicht zufällig** auf, sondern hängen vom Delikttyp ab (MNAR statt MCAR). | Chi-Quadrat-Unabhängigkeitstest | vorgeprüft: 4,3 % bei Delikten an Kindern gegen 0,4 % bei Diebstahl |
 | **H2** | Der Überlapp der Delta-Läufe erzeugt ausschliesslich **Duplikate** (in allen Attributen identisch), keine **Dubletten**. | Vergleich aller Attribute je Schlüssel | **bestätigt**: 42 von 42 mehrfachen `id` in jedem Attribut identisch |
-| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Abgleich gegen die Mapping-Tabelle | Chicago bestätigt (0 von 259'272 ohne Zuordnung), Detroit offen |
+| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Abgleich gegen die Mapping-Tabelle | Chicago bestätigt (0 von 259'625 ohne Zuordnung), Detroit offen |
 | **H4** | Ein gepinntes Schema plus Auffangspalte fängt Schema-Drift **vollständig** auf, ohne Datenverlust. | Fingerabdruck über Feldtypen, Inhalt von `_extra` | bestätigt: Chicago driftfrei, TIGER fängt `GEOIDFQ` auf |
 | **H5** | Auffällige Werte in den Verwaltungsschlüsseln sind **Artefakte** (systematische Erfassungsfehler), keine echten Ausreisser. | Häufigkeitsanalyse plus feldübergreifende Konsistenzregel | vorgeprüft: District `031`, 13 Fälle, deren `beat` auf 016/024 zeigt |
 | **H6** | Die Zusammenführung der drei Zeitachsen gelingt allein durch **Aggregation**; **Imputation** ist nicht nötig. | Granularitätsanalyse je Quelle | offen — ACS ist eine 5-Jahres-Schätzung und dürfte die Ausnahme sein |
@@ -211,12 +211,12 @@ mit einer Kennzahl, die sich tatsächlich berechnen lässt:
 | Vollständigkeit (Feld) | Füllgrad je Pflichtspalte | 100 % |
 | Eindeutigkeit | Anteil doppelter Schlüssel nach Dedup | 0 % |
 | Gültigkeit | Anteil Werte im erlaubten Bereich | 100 % (Jahr, Koordinaten, `community_area`) |
-| Konsistenz | Anteil Zeilen ohne Feldwiderspruch | 99,993 % (17 von 259'272) |
-| Genauigkeit | Anteil verortbarer Fälle | 99,33 % |
+| Konsistenz | Anteil Zeilen ohne Feldwiderspruch | 99,993 % (17 von 259'625) |
+| Genauigkeit | Anteil verortbarer Fälle | 99,19 % |
 | Aktualität | Abstand des jüngsten `updated_on` | im Manifest |
 
 Der Verwendungszweck legt die Schwellen fest: Für eine Rate je Tract ist eine
-Verortungsquote von 99,33 % gut — aber nur, solange die fehlenden 0,67 % nicht
+Verortungsquote von 99,19 % gut — aber nur, solange die fehlenden 0,81 % nicht
 systematisch verzerrt sind. Genau das prüft H1, und genau deshalb hängen die
 beiden Ebenen aus Abschnitt 2.0 zusammen.
 
@@ -234,7 +234,7 @@ Hypothesen, sondern Methodenkritik:
   Kriminalität, nicht Kriminalität.
 - **Ungleiche Datenlücken.** In Wayne County fehlt bei 9,6 % der Tracts der
   Einkommenswert und 6,4 % haben keine Einwohner; in Cook County sind es 1,7 %
-  und 0,3 %. Auch die Geo-Lücke ist ungleich: 0,67 % in Chicago gegen 0,29 % in
+  und 0,3 %. Auch die Geo-Lücke ist ungleich: 0,81 % in Chicago gegen 0,29 % in
   Detroit. Die Verzerrung ist also **nicht symmetrisch** zwischen den Städten.
 
 ### 2.4 Vorgehen und Methoden
@@ -274,7 +274,7 @@ Für Fragen und Hypothesen folgt daraus:
 
 **Der Zeitraum ist auf 2024 festgelegt** ([Absprache 2.2](projektabsprache.md)).
 Die vorgeprüften Zahlen zu H1 bis H5 stammen aus dem Chicago-Vollbestand von
-259'272 Fällen; für den ausweisbaren Test müssen sie auf 2024 neu gerechnet oder
+259'625 Fällen; für den ausweisbaren Test müssen sie auf 2024 neu gerechnet oder
 der Bezug ausdrücklich benannt werden.
 
 **Eine Einschränkung, die aus 7.1 folgt.** Der Entscheid verlangt, dass bei einem
@@ -519,7 +519,7 @@ gemeinsamer NIBRS-Achse gemessen (Notebook 34, Abschnitt 5.2):
 > und damit die Argumentation ändern sich nicht — Chicagos Sexualdelikte
 > fallen sogar deutlicher aus als bisher notiert.
 
-Für den Vergleich der Gesamtraten trägt das (0,67 % gegen 0,29 % Ausfall
+Für den Vergleich der Gesamtraten trägt das (0,81 % gegen 0,29 % Ausfall
 verschieben keine Rangfolge); für einen Vergleich **je Delikttyp** muss bei
 Betrug die Abdeckung danebenstehen.
 
@@ -574,9 +574,9 @@ Kategorie. Das ist der Grund, weshalb der Entscheid nicht warten kann.
 | 5 | Storage-Evaluation verschriftlichen | Abschnitt 4 als Präsentationsteil | | |
 | 6 | ~~Datenqualität Detroit~~ | erledigt am 12.9.2026: Notebook 13 | Christian | ✓ |
 | 7 | ~~Detroit-Bronze angleichen~~ | erledigt am 12.9.2026: Raw-Schicht und `city=`-Partition wie Chicago | Christian | ✓ |
-| 8 | ~~Silver: Dedup, Typen, räumlicher Join~~ | erledigt: `silver/crime_offense`, 347'957 Zeilen | Christian | ✓ |
+| 8 | ~~Silver: Dedup, Typen, räumlicher Join~~ | erledigt: `silver/crime_offense`, 348'311 Zeilen | Christian | ✓ |
 | 9 | ~~NIBRS-Harmonisierung über beide Städte~~ | erledigt: beide Crosswalks angewandt, H3 dabei teilweise falsifiziert | Christian | ✓ |
-| 10 | ~~Gold: Raten je Tract~~ | erledigt: Sternschema, Chicago 94,5 / Detroit 132,6 je 1'000 | Christian | ✓ |
+| 10 | ~~Gold: Raten je Tract~~ | erledigt: Sternschema, Chicago 94,5 / Detroit 132,7 je 1'000 | Christian | ✓ |
 | 11 | Hypothesentest H1–H4 | Notebook mit Ergebnissen | | |
 | 12 | Präsentation | Abgabe | beide | |
 
@@ -838,7 +838,7 @@ Wir sind in der umgekehrten Lage: Unsere Limitationen sind **gemessen**, mit
 Zahlen und mit Begründung. Das gehört selbstbewusst vorgetragen, nicht
 entschuldigend:
 
-- 0,67 % der Chicago-Fälle ohne Koordinaten — und der Ausfall ist nach
+- 0,81 % der Chicago-Fälle ohne Koordinaten — und der Ausfall ist nach
   Delikttyp verzerrt, 4,3 % gegen 0,4 %
 - Detroit dagegen nur 0,29 % — die Verzerrung ist zwischen den Städten **nicht
   symmetrisch**
@@ -861,7 +861,7 @@ stehen alle in diesen beiden Dokumenten, sie müssen nur sitzen:
 | Warum Dateien und keine Datenbank? | Abschnitt 4, Optionsvergleich |
 | Wie stellt ihr sicher, dass ein Lauf vollständig ist? | id-Liste vorher, Abgleich danach; ZIP-CRC; ACS gegen TIGER |
 | Was genau meint ihr mit Wasserzeichen? | **Achtung, zwei Bedeutungen** — Abschnitt 3a |
-| 0,67 % fehlen — warum löscht ihr sie nicht einfach? | H1, MNAR statt MCAR |
+| 0,81 % fehlen — warum löscht ihr sie nicht einfach? | H1, MNAR statt MCAR |
 | Ist das nicht ein ökologischer Fehlschluss? | Abschnitt 2.3.2 |
 | Warum Census Tracts und nicht Community Areas? | Vergleichbarkeit zwischen den Städten |
 | Wie reproduzierbar ist ein Lauf? | ehrlich: Raw ja, Delta-Läufe nein — deshalb der Referenzstand |

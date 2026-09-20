@@ -53,10 +53,10 @@ Jede Quelle weist ihre Vollständigkeit nach, statt sie zu behaupten.
 
 | | |
 | --- | --- |
-| Chicago, Jahrgang 2024 | 259'272 Delikte |
-| Detroit, Jahrgang 2024 | 88'685 Anklagen zu 85'345 Taten |
+| Chicago, Jahrgang 2024 | 259'625 Delikte |
+| Detroit, Jahrgang 2024 | 88'686 Anklagen zu 85'448 Taten |
 | Census Tracts, Illinois und Michigan | 6'282, mit Geometrie und Sozialdaten |
-| Wetter, zwei Stationen | 55'449 Stadt-Tage, zurück bis 1942 |
+| Wetter, zwei Stationen | 55'465 Stadt-Tage, zurück bis 1942 |
 
 **Drei Befunde sind dabei entstanden, die keine Fehlermeldung erzeugt hätten.**
 Der räumliche Join reproduziert Detroits eigene Tract-Angabe nicht (8.4). Der
@@ -321,7 +321,7 @@ der Auswertungsumgebung.
 
 | Tabelle | Granularität | Zeilen |
 | --- | --- | ---: |
-| `fact_offense` | **eine Tat** | 344'617 |
+| `fact_offense` | **eine Tat** | 345'073 |
 | `dim_tract` | ein Census Tract, mit **Stadtzuordnung** und Einwohnerzahl | 6'282 |
 | `dim_offense` | ein NIBRS-Delikt | 85 |
 | `dim_date` | ein Kalendertag | 366 |
@@ -430,8 +430,8 @@ und 16 Sachbeschädigung: Es gilt die schwerste Anklage.
 
 | | Detroit |
 | --- | ---: |
-| Zeilen in Silver (eine Anklage) | 88'685 |
-| davon zählend (**eine Tat**) | **85'345** |
+| Zeilen in Silver (eine Anklage) | 88'686 |
+| davon zählend (**eine Tat**) | **85'448** |
 | Unterschied | −3'350 = **−3,8 %** |
 
 Gold nimmt nur die zählenden. Wer die Anklagen braucht — *„wie oft wurde
@@ -448,10 +448,10 @@ auf NIBRS übersetzt), bei gleichem Delikt die früheste Zeile.
 
 | | Chicago | Detroit |
 | --- | ---: | ---: |
-| Taten (`counts`) | 259'272 | 85'345 |
-| Fälle (`counts_case`) | 259'243 | 80'229 |
+| Taten (`counts`) | 259'625 | 85'448 |
+| Fälle (`counts_case`) | 259'596 | 80'230 |
 | Taten je Fall | 1,000 | **1,064** |
-| Rate je 1'000, Tatebene | 94,5 | 132,6 |
+| Rate je 1'000, Tatebene | 94,5 | 132,7 |
 | Rate je 1'000, Fallebene | 94,5 | **124,6** |
 
 Beide Masse liegen in Gold; die Tatzahlen ändern sich nicht. Welche Zählweise
@@ -505,7 +505,7 @@ Damit ist die Frage beantwortet, die das Projekt von Anfang an stellen wollte:
 | | Delikte | Einwohner | je 1'000 |
 | --- | ---: | ---: | ---: |
 | Chicago | 251'516 | 2'661'953 | **94,5** |
-| Detroit | 84'658 | 638'635 | **132,6** |
+| Detroit | 84'761 | 638'635 | **132,7** |
 
 Absolute Fallzahlen hätten das Gegenteil nahegelegt.
 
@@ -878,8 +878,8 @@ desselben Tages — oder Information wegwerfen. Deshalb vier Tabellen:
 | --- | --- | --- |
 | `tract` | ein Census Tract | **gebaut**, 6'282 Zeilen |
 | `place` | ein Ort (Stadtgrenze) | **gebaut**, 2'206 Zeilen |
-| `weather_day` | eine Stadt an einem Tag | **gebaut**, 55'449 Zeilen |
-| `crime_offense` | eine **Anklage**; je Tat zählt eine (`counts`), je Fall eine (`counts_case`, 5.2) | **gebaut**, 347'957 Zeilen |
+| `weather_day` | eine Stadt an einem Tag | **gebaut**, 55'465 Zeilen |
+| `crime_offense` | eine **Anklage**; je Tat zählt eine (`counts`), je Fall eine (`counts_case`, 5.2) | **gebaut**, 348'311 Zeilen |
 
 `tract` verbindet TIGER-Geometrie mit ACS-Attributen. Gedeutet wird: Text zu
 Zahlen, `-666666666` zu `NULL`, die Armutsquote abgeleitet — und bei Tracts ohne
@@ -892,8 +892,8 @@ Rekorden plausibilisiert. Ein leeres Feld wird `NULL` und **nicht** `0` — bei
 Niederschlag der entscheidende Unterschied. Das Messflag `T` für Spurenmengen
 bekommt eine eigene Spalte, weil `0` mit `T` nicht „trocken" heisst.
 
-`crime_offense` ist die Tabelle, die den Vergleich trägt — 347'957 Zeilen,
-259'272 aus Chicago und 88'685 aus Detroit. Detroits Zeilen sind Anklagen; je
+`crime_offense` ist die Tabelle, die den Vergleich trägt — 348'311 Zeilen,
+259'625 aus Chicago und 88'686 aus Detroit. Detroits Zeilen sind Anklagen; je
 Tat ist eine als zählend markiert, und Gold nimmt nur diese (5.2). Sie leistet drei Übersetzungen auf
 einmal, und jede davon ist ein eigener Fehlerherd:
 
@@ -939,8 +939,8 @@ Läufe gelesen werden; sie ist eine Eigenschaft der Architektur und keine
 Ungenauigkeit. Welche Läufe den Referenzstand bilden, ist deshalb ausdrücklich
 festzulegen.
 
-Nebenbei: `case_number` ist **kein** Schlüssel. 259'272 Delikte verteilen sich
-auf 259'243 Fallnummern — ein Fall kann mehrere Straftaten umfassen. Verknüpft
+Nebenbei: `case_number` ist **kein** Schlüssel. 259'625 Delikte verteilen sich
+auf 259'596 Fallnummern — ein Fall kann mehrere Straftaten umfassen. Verknüpft
 wird über `id`.
 
 ### 8.4 Ein falsifizierter Befund: H7
@@ -1233,7 +1233,7 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
   wirkt damit ungleich auf die beiden Städte.
 - **Die Städte zählen verschieden.** Chicago führt je Vorfall ein Delikt
   (Mordopfer ausgenommen: ein Datensatz je Opfer), Detroit jedes Delikt eines
-  Vorfalls — 6,4 % mehr Taten als Fälle. Auf Tatebene liegt Detroit bei 132,6
+  Vorfalls — 6,4 % mehr Taten als Fälle. Auf Tatebene liegt Detroit bei 132,7
   je 1'000, auf Fallebene (`counts_case`, beide Städte dieselbe Regel) bei
   124,6; Chicago in beiden bei 94,5. Die Reihenfolge bleibt, der Abstand
   schrumpft. Beide Masse sind in Gold; welches die Aussage trägt, ist zu

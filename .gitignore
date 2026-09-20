@@ -25,3 +25,6 @@ logs/
 
 # Releases: der ganze Stand unter einer Kennung, wie serving/ abgeleitet und nicht versioniert.
 data/releases/
+# Claude AI related files
+.claude/
+Claude outputs/

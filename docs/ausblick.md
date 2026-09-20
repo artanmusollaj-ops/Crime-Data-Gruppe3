@@ -434,7 +434,7 @@ den das Projekt schon einmal verworfen hat. Die Messung gibt ihm recht:
 
 | | Zeilen |
 | --- | ---: |
-| Granularität `fact_offense` | 344'617 |
+| Granularität `fact_offense` | 345'073 |
 | Aggregat Tract × Tag × Familie | 296'651 — **86 %** davon |
 
 **14 % weniger Zeilen ist keine Aggregation.** Die scheinbare Ersparnis
@@ -480,7 +480,7 @@ Speicher."* Dieselbe Messung hatte schon `fact_tract_month` (95'219) und
 Sie ist die **Bedeutung**. Jede angezeigte Zahl trägt eine Entscheidung, die
 dieses Projekt bewusst sichtbar gemacht hat:
 
-- **Welche Granularität?** Detroit steht auf Tatebene bei 132,6 je 1'000,
+- **Welche Granularität?** Detroit steht auf Tatebene bei 132,7 je 1'000,
   auf Fallebene bei 124,6. Beide richtig, verschiedene Aussagen.
 - **Was zählt mit?** `geo_status` sagt, warum eine Zeile in einer
   Tract-Auswertung fehlt — 6'445 Fälle liegen ausserhalb, 0,58 % haben
@@ -620,7 +620,7 @@ Ein externer Rat vom 17.9.2026 hat diesen Bau bestätigt und einen
 Verzeichnisbaum vorgeschlagen, der neben den fünf Gold-Tabellen auch
 `comparison_day`, `comparison_week`, `comparison_month` und
 `partition_quality` vorsieht. Der erste Reflex war, sie abzulehnen: Es sind
-vorberechnete Aggregate, und Notebook 34 hat gemessen, dass sie bei 344'617
+vorberechnete Aggregate, und Notebook 34 hat gemessen, dass sie bei 345'073
 Zeilen nichts sparen, was ein Mensch bemerkt.
 
 **Christian hat anders entschieden, und der Grund trägt.** Die Ablehnung

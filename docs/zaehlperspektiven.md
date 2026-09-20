@@ -24,18 +24,18 @@ eine geprüfte Zahl wie eine bewiesene.
 
 | | Chicago | Detroit | was eine Zeile ist |
 | --- | ---: | ---: | --- |
-| **Anklagen** — alle Silver-Zeilen | 259'272 | 88'685 | eine Anklage |
-| **Taten** — `counts` | 259'272 | 85'345 | eine Tat |
-| **Fälle** — `counts_case` | 259'243 | 80'229 | ein Fall, sein schwerstes Delikt |
-| **Vorfälle** — `count(DISTINCT event_id)` | 259'243 | 80'229 | ein Vorfall |
+| **Anklagen** — alle Silver-Zeilen | 259'625 | 88'686 | eine Anklage |
+| **Taten** — `counts` | 259'625 | 85'448 | eine Tat |
+| **Fälle** — `counts_case` | 259'596 | 80'230 | ein Fall, sein schwerstes Delikt |
+| **Vorfälle** — `count(DISTINCT event_id)` | 259'596 | 80'230 | ein Vorfall |
 
-`gold/fact_offense` ist die zweite Zeile: **344'617 Taten**. Gold nimmt nur,
+`gold/fact_offense` ist die zweite Zeile: **345'073 Taten**. Gold nimmt nur,
 was `counts` trägt.
 
 **Chicago fällt zwischen den ersten beiden Zeilen nicht auseinander**, weil die
 Quelle bereits eine Zeile je Delikt liefert. Detroit liefert Anklagen: ein
 Vorfall mit einer Tat kann drei Anklagen tragen. Ohne die Auswahl über `counts`
-zählte Detroit **3,9 % zu hoch** — und zwar nicht gleichmässig über die
+zählte Detroit **3,8 % zu hoch** — und zwar nicht gleichmässig über die
 Kategorien, sondern dort am stärksten, wo die Staatsanwaltschaft breit anklagt.
 
 Der Unterschied zwischen Taten und Fällen ist ein anderer: Er ist keine
@@ -60,8 +60,8 @@ das Ergebnis, erscheint dieser Vorfall zweimal.
 
 | | Vorfälle | davon in mehr als einer Familie | je Familie summiert |
 | --- | ---: | ---: | ---: |
-| Chicago | 259'243 | 0 (0,0 %) | 259'243 — passt |
-| Detroit | 80'229 | 4'148 (5,2 %) | 84'703 — **4'474 zu viel (5,6 %)** |
+| Chicago | 259'596 | 0 (0,0 %) | 259'596 — passt |
+| Detroit | 80'230 | 6'758 (8,4 %) | 87'607 — **7'377 zu viel (9,2 %)** |
 
 Chicagos Null ist keine bessere Datenlage, sondern dieselbe
 Granularitäts-Eigenheit wie oben: Ein Chicagoer „Vorfall" ist fast immer ein
@@ -81,8 +81,8 @@ reichen, erscheint an zwei Kalendertagen.
 
 | | Tage summiert | Monate summiert | Jahr direkt |
 | --- | ---: | ---: | ---: |
-| Chicago | 259'247 | 259'243 | 259'243 |
-| Detroit | 80'231 | 80'229 | 80'229 |
+| Chicago | 259'600 | 259'596 | 259'596 |
+| Detroit | 80'232 | 80'230 | 80'230 |
 
 Vier Chicagoer und zwei Detroiter Vorfälle. Die Abweichung ist winzig — und
 genau deshalb gefährlich: Sie fällt bei keiner Plausibilitätsprüfung auf,
@@ -146,8 +146,8 @@ Referenzstand:
 
 | | exact | ambiguous | fallback_90Z | unmapped |
 | --- | ---: | ---: | ---: | ---: |
-| Chicago | 247'877 | 3'697 | 7'695 | 3 |
-| Detroit | 81'195 | 1'403 | 2'747 | 0 |
+| Chicago | 248'187 | 3'718 | 7'717 | 3 |
+| Detroit | 81'325 | 1'365 | 2'758 | 0 |
 
 Ein `exact` kann eine widersprüchliche Quellbeschreibung tragen, die noch
 niemand gesehen hat; ein `fallback_90Z` kann für eine Auswertung völlig in
@@ -201,11 +201,11 @@ gemeldet wurde, sagt nichts darüber, ob alles gemeldet wurde.
 **Die Zeitprüfung hat eine blinde Stunde.** `reconcile` rechnet jeden
 UTC-Zeitpunkt in die Ortszeit zurück und vergleicht. Beim Zurückstellen der Uhr
 hat Detroit schon EST, während Chicago noch CDT hat — für genau eine Stunde im
-Jahr fallen beide Zonen zusammen. 30 der 88'685 Detroiter Zeilen liegen darin.
-Ein vertauschter Zonenname fiele trotzdem 88'655-fach auf.
+Jahr fallen beide Zonen zusammen. 30 der 88'686 Detroiter Zeilen liegen darin.
+Ein vertauschter Zonenname fiele trotzdem 88'656-fach auf.
 
 **Eine mehrdeutige Ortszeit bleibt mehrdeutig.** Chicago liefert Wanduhrzeit
-ohne Zone. Die 48 Zeilen in der doppelten Stunde tragen seit dem 16.9. ein
+ohne Zone. Die 49 Zeilen in der doppelten Stunde tragen seit dem 16.9. ein
 Kennzeichen — auflösen lässt sich die Mehrdeutigkeit nachträglich nicht.
 
 **Was nur in Bronze steht, kann Silver nicht prüfen.** Silver führt 28
