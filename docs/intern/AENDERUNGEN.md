@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'297** |
+| Tests | **1'298** |
 | `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,76 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 20.09.2026 · Das erste Architekturbild zählte 19 Kanten, hatte aber 23
+
+Christian ist beim Lesen von `architektur.md` über das erste Bild gestolpert.
+**Zu Recht, und schlimmer als gedacht.**
+
+### Das Bild log über sich selbst
+
+`tools/build_architekturbilder.py` rechnet die gezeichneten Pfeile aus — und
+schrieb die Gesamtzahl daneben als feste `19`. Der Importgraph hat **23**
+Kanten. In der Fusszeile stand damit *„Nur 6 der 19 Kanten sind gezeichnet"*,
+und das Dokument schrieb es ab.
+
+Das ist der unangenehmste Fall dieser ganzen Durchsicht: Das Bild wird aus dem
+Code erzeugt, ein Test prüft die byteweise Reproduzierbarkeit, und genau
+deshalb glaubt man ihm. Eine hartkodierte Zahl darin ist ein gezeichnetes Bild
+mit einem Generator davor.
+
+Zwei weitere Fehler im selben Bild: Die Beschreibung nannte *„Zuoberst
+gold_pipeline"* — zuoberst steht längst `orchestration`, das Gold und Serving
+anstösst. Und die Fusszeile endete auf *„manifeste alle ausser "* mit nichts
+dahinter, weil inzwischen jedes Paket `manifeste` benutzt und die Liste leer
+blieb. Alle drei rechnet der Generator jetzt.
+
+### Das Dokument dazu
+
+| Aussage | stand da | gemessen |
+| --- | --- | --- |
+| Kanten im Importgraph | 19 | **23** |
+| gezeichnete Pfeile | drei | **sechs** |
+| Kanten auf die Fundamente | sechzehn | **siebzehn** |
+| Ingestion-Pakete | fünf | **vier** |
+| Produktionscode | 10'569 Zeilen | **12'704** |
+| Prosa | 11'600 Zeilen | **12'983** |
+| Docstrings | 295 | **339** |
+| Test-Docstrings | 512 | **733** |
+| Dokumente | zwölf | **sechzehn** |
+
+Der Kopfsatz *„mehr Erklärung als Code"* stimmt weiterhin — aber der Abstand
+ist von einem Zehntel auf zwei Prozent geschmolzen. Das steht jetzt dort.
+
+### Die Würfel fehlten ganz
+
+Auf die Frage, ob das Dokument die drei festen Würfel vermerkt: **nein**, mit
+keinem Wort. Und sie liegen auch nicht dort, wo man sie vermutet — nicht in
+Gold, sondern in **Serving**. Gold hält den Stern und aggregiert nicht;
+`serving.build_comparison` baut `comparison_day`, `_week`, `_month` und dazu
+`partition_quality`, das je Stadt und Monat die Güte der Zuordnungen darunter
+ausweist. Neuer Abschnitt *„Gold ist der Stern — die Würfel liegen in
+Serving"*.
+
+Nebenbei trug der Modulkopf von `build_comparison` noch die alte Zeilenzahl
+344'617; jetzt 345'073.
+
+### Der Wächter, der das hätte fangen müssen
+
+`test_die_bildbeschreibung_nennt_die_echten_zahlen` gab es bereits — er prüfte
+aber nur die **Paketzahl** im `aria-label`. Die Kantenzahl lief daneben frei.
+Er prüft jetzt beide, dazu die Fusszeile und die Stufenzahl des zweiten Bildes
+(die er vorher zwar auslas, aber nie verglich).
+
+Dazu neu `test_das_dokument_nennt_dieselben_kanten_wie_der_graph`. Ein erster
+Entwurf davon suchte die Zahl *irgendwo* im Text und ging durch, obwohl die
+Aussage daneben zurückgedreht war — die Zahl stand noch an einer zweiten
+Stelle. Er prüft jetzt die **Sätze** und liest dabei auch ausgeschriebene
+Zahlwörter.
+
+**Zahlen.** 1'297 → **1'298 Tests**.
 
 ---
 

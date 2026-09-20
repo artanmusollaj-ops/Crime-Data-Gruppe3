@@ -215,21 +215,32 @@ def bild_pakete(kanten: dict[str, set[str]]) -> str:
     benutzt_storage = sorted(p for p, z in kanten.items() if "storage" in z)
     ohne_manifeste = sorted(p for p in kanten
                             if p not in FUNDAMENT and "manifeste" not in kanten[p])
+    # Die Gesamtzahl wird gerechnet und nicht geschrieben: Sie stand bis zum
+    # 20.9.2026 als "19" im Text, waehrend der Graph laengst 23 Kanten hatte.
+    # Ein erzeugtes Bild, das eine feste Zahl mitfuehrt, ist kein erzeugtes Bild.
+    gesamt = sum(len(z) for z in kanten.values())
     fuss = [
         beschriftung(RAND, hoehe - 32,
                      f"Pfeil bedeutet: benutzt den Code von. Nur {sum(len(z) for z in oben.values())} "
-                     "der 19 Kanten sind gezeichnet."),
+                     f"der {gesamt} Kanten sind gezeichnet."),
         beschriftung(RAND, hoehe - 14,
                      f"Die {len(fundament)} Fundamente benutzen alle übrigen Pakete "
-                     f"({len(benutzt_storage)} × storage; manifeste alle ausser "
-                     f"{', '.join(ohne_manifeste)}) - ihre Pfeile sind weggelassen."),
+                     f"({len(benutzt_storage)} × storage; manifeste "
+                     # Solange jedes Paket manifeste benutzt, bleibt die Liste
+                     # leer - dann darf da kein "ausser" stehen.
+                     + (f"alle ausser {', '.join(ohne_manifeste)}"
+                        if ohne_manifeste else "ausnahmslos alle")
+                     + ") - ihre Pfeile sind weggelassen."),
     ]
+    stufen = tiefen(kanten)
+    oberste = max(stufen.values(), default=0)
+    zuoberst = ", ".join(p for p, s in sorted(stufen.items()) if s == oberste)
     beschreibung = (
-        f"Abhängigkeiten zwischen den {len(kanten)} Paketen unter src/crime. "
-        "Zuoberst gold_pipeline, darunter silver_pipeline, das census_pipeline "
-        "und weather_pipeline benutzt; daneben die übrigen Ingestion-Pakete. "
-        "Unten als Band die beiden Fundamente manifeste und storage, die "
-        "praktisch alle Pakete benutzen."
+        f"Abhängigkeiten zwischen den {len(kanten)} Paketen unter src/crime, "
+        f"{gesamt} Kanten. Zuoberst {zuoberst}, darunter silver_pipeline, das "
+        "census_pipeline und weather_pipeline benutzt; daneben die übrigen "
+        "Ingestion-Pakete. Unten als Band die beiden Fundamente manifeste und "
+        "storage, die praktisch alle Pakete benutzen."
     )
     return (KOPF.format(breite=breite, hoehe=hoehe, beschreibung=beschreibung)
             + "\n".join(striche + kaesten + band + fuss) + "\n</svg>\n")

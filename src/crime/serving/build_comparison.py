@@ -8,7 +8,7 @@ sagt je Stadt und Monat, wie gut die Zuordnungen sind, auf denen diese Zahlen
 ruhen.
 
 **Warum es sie gibt, obwohl Gold sie nicht braucht.** Notebook 34 hat gemessen,
-dass eine Vorberechnung bei 344'617 Zeilen nichts spart, was ein Mensch
+dass eine Vorberechnung bei 345'073 Zeilen nichts spart, was ein Mensch
 bemerkt; Konzept 5.2 hielt deshalb fest, Gold aggregiere nicht. Beides gilt
 weiter - **Gold** aggregiert nicht. Diese Tabellen liegen in **Serving**: Sie
 sind das, was ein Dashboard liest und was ein Release enthaelt, und sie sind

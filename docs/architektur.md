@@ -1,9 +1,11 @@
 # Der Aufbau, in zwei Bildern und einem Lesepfad
 
-Dieses Projekt hat **mehr Erklärung als Code** — rund 11'600 Zeilen Prosa
-gegen 10'569 Zeilen Produktionscode, verteilt auf 295 Docstrings, 512
-Test-Docstrings und zwölf Dokumente. Was fehlte, war kein weiterer Text,
-sondern ein **Weg hinein**. Der steht hier.
+Dieses Projekt hat **mehr Erklärung als Code** — rund 12'980 Zeilen Prosa
+gegen 12'700 Zeilen Produktionscode, verteilt auf 339 Docstrings, 733
+Test-Docstrings und sechzehn Dokumente. Der Abstand ist dabei geschmolzen: Im
+Juli standen 11'600 gegen 10'569, ein Zehntel mehr Prosa; heute sind es zwei
+Prozent. Was fehlte, war ohnehin kein weiterer Text, sondern ein **Weg
+hinein**. Der steht hier.
 
 Beide Bilder werden von
 [`tools/build_architekturbilder.py`](../tools/build_architekturbilder.py)
@@ -17,19 +19,25 @@ Feldkatalog. Ein von Hand gezeichnetes Bild wäre am Tag darauf falsch.
 
 ![Abhängigkeiten zwischen den Paketen](bilder/architektur-pakete.svg)
 
-Zehn Pakete, 19 Kanten, **keine Zyklen** — das prüft ein Test, denn es ist
+Zehn Pakete, 23 Kanten, **keine Zyklen** — das prüft ein Test, denn es ist
 eine Aussage über die Architektur und nicht über die Zeichnung.
 
-**Warum nur drei Pfeile gezeichnet sind.** Sechzehn der neunzehn Kanten
-zeigen auf `manifeste` und `storage`. Alle zu zeichnen ergibt ein Knäuel, in
-dem die drei übrigen untergehen — und genau die tragen die Aussage. Die
-beiden Fundamente stehen deshalb als Band darunter, und die Bildunterschrift
-sagt, wer sie benutzt.
+**Warum nur sechs Pfeile gezeichnet sind.** Siebzehn der 23 Kanten zeigen auf
+`manifeste` und `storage`. Alle zu zeichnen ergibt ein Knäuel, in dem die
+sechs übrigen untergehen — und genau die tragen die Aussage. Die beiden
+Fundamente stehen deshalb als Band darunter, und die Bildunterschrift sagt,
+wer sie benutzt.
+
+> **Das Bild führte diese Zahl bis zum 20.9.2026 selbst falsch.** Der
+> Generator rechnete die gezeichneten Pfeile aus, schrieb die Gesamtzahl aber
+> als feste `19` daneben. Ein erzeugtes Bild, das eine Zahl mitführt statt sie
+> zu rechnen, ist kein erzeugtes Bild — es ist ein gezeichnetes mit einem
+> Generator davor.
 
 **Was das Bild über den Entwurf sagt.** `manifeste` hängt an nichts,
-`storage` nur an `manifeste`. Darüber liegt alles andere, und zwischen den
-fünf Ingestion-Paketen gibt es **keine einzige Kante**: Chicago weiss nichts
-von Detroit. Sie teilen sich nur, wie ein Lauf aussieht (`manifeste`) und wo
+`storage` nur an `manifeste`. Zuoberst steht `orchestration`, das Gold und
+Serving anstösst. Und zwischen den vier Ingestion-Paketen gibt es **keine
+einzige Kante**: Chicago weiss nichts von Detroit. Sie teilen sich nur, wie ein Lauf aussieht (`manifeste`) und wo
 er liegt (`storage`).
 
 **Die Lücke, die dieses Bild geschlossen hat.** Konzept 5.3 führte unter
@@ -44,6 +52,37 @@ er liegt (`storage`).
 Erzeugt aus `orchestration.run_all.STUFEN` — die vierzehn Stufen sind im Code
 bereits eine Datenstruktur, das Bild liest sie nur ab. Kommt eine Stufe dazu,
 steht sie hier, ohne dass jemand daran denken muss.
+
+### Gold ist der Stern — die Würfel liegen in Serving
+
+Das wird leicht verwechselt, auch von uns. **Gold aggregiert nicht.** Es hält
+das Sternschema: `fact_offense` mit einer Zeile je Tat, daneben vier
+Dimensionen (`dim_tract`, `dim_offense`, `dim_date`, `dim_city_day`). Notebook
+34 hat gemessen, warum — eine Vorberechnung spart bei 345'073 Zeilen nichts,
+was ein Mensch bemerkt, kostet aber die Beweglichkeit, für die die Schicht da
+ist.
+
+**Drei feste Würfel gibt es trotzdem, eine Schicht weiter.**
+`serving.build_comparison` baut sie aus Gold:
+
+| Tabelle | eine Zeile ist | Zeilen |
+| --- | --- | ---: |
+| `comparison_day` | Stadt × Tag × NIBRS-Kategorie | 13'264 |
+| `comparison_week` | Stadt × Woche × Kategorie | 2'506 |
+| `comparison_month` | Stadt × Monat × Kategorie | 620 |
+| `partition_quality` | Stadt × Monat, Güte der Zuordnungen darunter | 24 |
+
+Sie zählen Taten **und** Fälle, nie Vorfälle — warum, steht in
+[`zaehlperspektiven.md`](zaehlperspektiven.md). Ihre Summen gehen nachweislich
+auf `fact_offense` auf; ein Test rechnet das nach. Sie sind das, was ein
+Dashboard liest und was ein Release mitbringt, und sie ersetzen den Stern
+nicht, sondern liegen daneben: Was ein Würfel nicht vorgesehen hat, beantwortet
+weiterhin nur `fact_offense`.
+
+`partition_quality` ist dabei kein Würfel, sondern die Fussnote dazu — sie sagt
+je Stadt und Monat, wie gut die Zuordnungen sind, auf denen die drei Zahlen
+ruhen. Eine Vergleichszahl ohne ihre Abdeckung wäre genau die Art Zahl, vor der
+dieses Projekt sonst warnt.
 
 ### Die beiden Bilder sagen Verschiedenes — und das ist die Pointe
 

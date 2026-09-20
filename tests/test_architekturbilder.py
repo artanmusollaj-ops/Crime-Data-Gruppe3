@@ -116,16 +116,83 @@ def test_die_fundamente_haengen_an_nichts(werkzeug):
 
 
 def test_die_bildbeschreibung_nennt_die_echten_zahlen(werkzeug):
-    """Sonst steht im ``aria-label`` eine Zahl von gestern."""
-    kanten = werkzeug.importgraph()
-    beschreibung = ET.fromstring(PAKETE.read_text(encoding="utf-8")).get("aria-label")
-    assert f"{len(kanten)} Paketen" in beschreibung, beschreibung
+    """Sonst steht im ``aria-label`` eine Zahl von gestern.
 
-    stufen = re.search(r"(\d+) Stufen", FLUSS.read_text(encoding="utf-8"))
+    Bis zum 20.9.2026 pruefte dieser Test nur die **Paketzahl**. Die
+    Kantenzahl stand derweil als feste ``19`` in der Fusszeile des Bildes,
+    waehrend der Graph laengst auf 23 gewachsen war - und im Dokument daneben
+    ebenso. Ein erzeugtes Bild, das eine Zahl mitfuehrt statt sie zu rechnen,
+    ist ein gezeichnetes mit einem Generator davor.
+    """
+    kanten = werkzeug.importgraph()
+    gesamt = sum(len(z) for z in kanten.values())
+    svg = PAKETE.read_text(encoding="utf-8")
+
+    beschreibung = ET.fromstring(svg).get("aria-label")
+    assert f"{len(kanten)} Paketen" in beschreibung, beschreibung
+    assert f"{gesamt} Kanten" in beschreibung, beschreibung
+    assert f"der {gesamt} Kanten sind gezeichnet" in svg, (
+        f"die Fusszeile des Bildes nennt nicht die gemessenen {gesamt} Kanten"
+    )
+
     from orchestration import run_all
 
+    stufen = re.search(r"(\d+) Stufen", FLUSS.read_text(encoding="utf-8"))
     assert stufen, "das Datenflussbild nennt keine Stufenzahl"
-    assert sum(1 for _ in run_all.STUFEN) == 14   # seit 17.9.: serving/comparison
+    assert int(stufen.group(1)) == sum(1 for _ in run_all.STUFEN), (
+        "das Datenflussbild nennt eine andere Stufenzahl als run_all.STUFEN"
+    )
+
+
+def test_das_dokument_nennt_dieselben_kanten_wie_der_graph(werkzeug):
+    """``architektur.md`` beschreibt das Bild - dann mit denselben Zahlen.
+
+    Der Text trug ``19 Kanten``, ``drei Pfeile`` und ``fuenf
+    Ingestion-Pakete``, als es 23, sechs und vier waren. Gefunden hat das ein
+    Mensch beim Lesen, nicht die Suite.
+
+    Geprueft werden die **Saetze**, nicht das blosse Vorkommen der Zahl: Ein
+    erster Entwurf dieses Tests suchte "23 Kanten" irgendwo im Text und ging
+    durch, obwohl die Aussage daneben auf 19 zurueckgedreht war - die Zahl
+    stand noch an einer zweiten Stelle.
+    """
+    kanten = werkzeug.importgraph()
+    gesamt = sum(len(z) for z in kanten.values())
+    gezeichnet = sum(1 for p, ziele in kanten.items() if p not in werkzeug.FUNDAMENT
+                     for z in ziele if z not in werkzeug.FUNDAMENT)
+    ingestion = sum(1 for p in kanten
+                    if p.endswith("_pipeline") and p not in ("silver_pipeline",
+                                                             "gold_pipeline"))
+    # Ohne Zeilenumbrueche: Die Saetze brechen im Dokument um, die Muster nicht.
+    text = " ".join((PROJEKT / "docs" / "architektur.md")
+                    .read_text(encoding="utf-8").split())
+    wort = {v: k for k, v in ZAHLWORT.items()}
+
+    for muster, erwartet, was in (
+        (r"Pakete, (\d+) Kanten", gesamt, "die Zahl der Kanten"),
+        (r"Warum nur (\w+) Pfeile gezeichnet sind", gezeichnet, "die gezeichneten Pfeile"),
+        (r"(\w+) der (\d+) Kanten zeigen auf", gesamt - gezeichnet,
+         "die Kanten auf die Fundamente"),
+        (r"zwischen den (\w+) Ingestion-Paketen", ingestion, "die Ingestion-Pakete"),
+        (r"die (\w+) übrigen untergehen", gezeichnet, "die uebrigen Kanten"),
+    ):
+        treffer = re.search(muster, text)
+        assert treffer, f"{was}: der Satz zu /{muster}/ fehlt im Dokument"
+        roh = treffer.group(1)
+        genannt = int(roh) if roh.isdigit() else wort.get(roh.lower())
+        assert genannt == erwartet, (
+            f"{was}: das Dokument sagt {roh!r}, gemessen sind {erwartet}"
+        )
+
+
+# Das Dokument schreibt kleine Zahlen aus. Der Test muss beides lesen koennen.
+ZAHLWORT = {
+    1: "eine", 2: "zwei", 3: "drei", 4: "vier", 5: "fünf", 6: "sechs",
+    7: "sieben", 8: "acht", 9: "neun", 10: "zehn", 11: "elf", 12: "zwölf",
+    13: "dreizehn", 14: "vierzehn", 15: "fünfzehn", 16: "sechzehn",
+    17: "siebzehn", 18: "achtzehn", 19: "neunzehn", 20: "zwanzig",
+    21: "einundzwanzig", 22: "zweiundzwanzig", 23: "dreiundzwanzig",
+}
 
 
 def test_jedes_paket_steht_im_bild(werkzeug):
