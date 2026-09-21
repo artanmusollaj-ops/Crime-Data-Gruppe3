@@ -921,6 +921,13 @@ class Storage:
             LOG.info("Local working copy removed (STORAGE_BACKEND=s3): %s", rel)
 
 
+#: ``fnmatch.translate`` haengt ans Ende jedes Musters einen Anker fuer das
+#: Stringende: bis Python 3.13 ``\Z``, seit 3.14 ``\z``. Ein Segment ist aber
+#: nur ein Stueck Pfad, also muss der Anker weg - sonst steht ein Stringende
+#: mitten im Muster und ``station=*/run_*/manifest.json`` passt auf nichts mehr.
+ENDANKER = re.compile(r"\\[Zz]$")
+
+
 def glob_regex(muster: str) -> re.Pattern[str]:
     """``Path.glob``-Semantik als Regex: ``*`` bleibt in seiner Ebene, ``**``
     deckt null oder mehr Ebenen ab."""
@@ -931,9 +938,7 @@ def glob_regex(muster: str) -> re.Pattern[str]:
         if teil == "**":
             ausdruck += ".*" if letzter else "(?:[^/]+/)*"
             continue
-        segment = glob_translate(teil)
-        if segment.endswith(r"\Z"):
-            segment = segment[:-2]
+        segment = ENDANKER.sub("", glob_translate(teil))
         ausdruck += segment.replace(".*", "[^/]*") + ("" if letzter else "/")
     return re.compile(ausdruck + "$")
 

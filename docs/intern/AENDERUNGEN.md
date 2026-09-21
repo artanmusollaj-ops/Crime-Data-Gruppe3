@@ -91,6 +91,75 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 22.09.2026 · Ein Pfadmuster fand unter Python 3.14 keinen einzigen Lauf (direkt auf main)
+
+Zehn Tests in `tests/storage/` wurden auf meiner Maschine rot, auf einem
+sauberen `main` und ohne dass jemand Code angefasst hätte. Die Ursache lag
+nicht im Projekt, sondern eine Schicht darunter.
+
+`glob_regex` in `storage/backend.py` baut aus einem Muster wie
+`**/run_*/manifest.json` einen regulären Ausdruck — Segment für Segment, und
+jedes Segment über `fnmatch.translate`. Das hängt an jedes Ergebnis einen Anker
+für das **Stringende**. Der musste weg, sonst stünde mitten im Pfadmuster ein
+Stringende; die Zeile schnitt dafür ein `\Z` ab.
+
+**Python 3.14 schreibt `\z`.** Kleingeschrieben. Das Abschneiden griff nicht
+mehr, der Anker blieb stehen:
+
+```
+^(?s:station=[^/]*)\z/(?s:run_[^/]*)\z/(?s:manifest\.json)\z$
+```
+
+Ein Stringende vor einem `/` ist eine Bedingung, die nichts erfüllt. Jedes
+Muster mit einem Platzhalter in einem **nicht letzten** Segment traf ab da auf
+gar nichts. Muster, deren einziger Platzhalter hinten stand, liefen weiter —
+deshalb fielen von acht Glob-Fällen genau fünf um und nicht alle.
+
+`Storage.laeufe` und `list_files` schicken jeden S3-Schlüssel durch diesen
+Filter. Die S3-Seite des `hybrid`-Modus fand damit **null Läufe**, still und
+ohne Fehlermeldung: leere Listen, ein `KeyError: 'fact_offense'`, ein
+„Kein vollständiger Bronze-Lauf". Alle zehn roten Tests hingen an dieser einen
+Zeile.
+
+Sie schneidet jetzt beide Schreibweisen ab.
+
+### Ändern sich dadurch die Zahlen? Nein — nachgemessen, nicht angenommen
+
+Auf 3.12 und 3.13 erzeugen alte und neue Fassung **byte-identische** Ausdrücke;
+für `run_*`, `manifest.json`, `**`, `dataset=*`, `a*b*c` und `*` einzeln
+verglichen. `fnmatch.translate` liefert dort ausschliesslich `\Z`, und genau
+das schnitt die alte Zeile ab. Der Unterschied besteht allein unter 3.14, und
+dort nur zwischen „kaputt" und „richtig".
+
+Die volle Testsuite gegen drei Interpreter:
+
+| | Suite | `referenzstand` |
+| --- | ---: | ---: |
+| 3.12.8 | 1'214 grün | 75 grün |
+| 3.13.0 | 1'215 grün | 75 grün |
+| 3.14.6 | 1'214 grün | 75 grün |
+
+3.13 zählt einen Test mehr, weil `test_ein_zweiter_lauf_liefert_dieselben_dateien`
+nur dort läuft — die Marke in `docs/referenz/erzeugt-mit.json` nennt 3.13, und
+unter 3.14 überspringt sich der Test.
+
+Alle Zahlen der Abgabe entstanden unter 3.13. Sie gelten unverändert für
+Release `2026-09-21T12-55-05Z`.
+
+### Zwei Dinge, die dabei sichtbar wurden
+
+**Die API-Referenz war überholt**, sobald die Zeile geändert war — der Wächter
+auf 3.13 hat es gefangen, `docs/referenz/` ist neu gebaut (drei Dateien,
+Zeilennummern und die neue Konstante). Unter 3.14 hätte niemand es gemerkt:
+Dort überspringt sich derselbe Wächter.
+
+**Getestet wird, was nicht zugesagt ist.** `pyproject.toml` sagt
+`requires-python = ">=3.11"` ohne obere Grenze; die CI-Matrix fährt `3.11` und
+`3.13`. 3.14 ist damit eine Version, die das Projekt verspricht und nie prüft —
+weshalb dieser Fehler auf jeder Maschine grün war ausser meiner.
+
+---
+
 ## 21.09.2026 · Das Release der Abgabe (direkt auf main)
 
 **`2026-09-21T12-55-05Z`**, 21 Dateien, 42,5 MB, Commit `1fc6bba` — dem Kopf
