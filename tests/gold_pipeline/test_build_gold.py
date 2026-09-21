@@ -820,8 +820,9 @@ def test_ein_unbekannter_statuswert_laesst_den_bau_stehen(con, tmp_path):
 def test_das_gate_haelt_die_gemessene_abdeckung_aus():
     """Die Schwellen sind Boeden, keine Ziele - der echte Stand muss durchgehen.
 
-    Die Werte sind der Schnappschuss aus Release ``2026-09-19T23-05-26Z``, dem
-    ersten mit ``git_dirty: false``. Sie stehen hier als Zahlen und nicht als
+    Die Werte sind der Schnappschuss aus Release ``2026-09-21T12-55-05Z`` -
+    dem Stand der Abgabe, gebaut auf Commit ``1fc6bba`` mit sauberem
+    Arbeitsbaum. Sie sind seit ``2026-09-19T23-05-26Z`` unveraendert. Sie stehen hier als Zahlen und nicht als
     Verweis auf ``release.json``, damit der Test ohne gebaute Daten laeuft.
     """
     gemessen = {

@@ -91,6 +91,50 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 21.09.2026 · Das Release der Abgabe (direkt auf main)
+
+**`2026-09-21T12-55-05Z`**, 21 Dateien, 42,5 MB, Commit `1fc6bba` — dem Kopf
+von `main` — mit **`git_dirty: false`**. Alle 21 Prüfsummen nachgerechnet.
+
+Bis hierher zeigte `AKTUELL` auf ein Release, das ein Notebook-Lauf nebenbei
+erzeugt hatte: Im `hybrid`-Modus bildet **jeder grüne Gesamtlauf** ein Release
+und legt den Zeiger um, und Notebook 36 ruft `run_all` dreimal je Durchlauf.
+Zeiger, Code und Dokumentation standen dadurch auf drei verschiedenen Commits.
+Jetzt auf einem.
+
+### Ändern sich dadurch die Zahlen? Nein — nachgemessen, nicht angenommen
+
+Vor dem Bau wurde je Tabelle ein Abdruck über den **sortierten Inhalt** aller
+Spalten genommen, danach noch einmal. **Alle dreizehn Tabellen sind identisch**,
+in Zeilenzahl und Inhalt:
+
+| | Zeilen |
+| --- | ---: |
+| `silver/crime_offense` | 348'311 |
+| `silver/tract` · `place` · `weather_day` | 6'282 · 2'206 · 55'465 |
+| `gold/fact_offense` | 345'073 |
+| `gold/dim_tract` · `dim_offense` · `dim_date` · `dim_city_day` | 6'282 · 85 · 366 · 732 |
+| `serving/comparison_day` · `_week` · `_month` | 13'264 · 2'506 · 620 |
+| `serving/partition_quality` | 24 |
+
+Das Gate ebenso: `inside_city` 97,451 %, `exact` 95,4905 %, `unmapped`
+0,0009 %.
+
+**Warum es auch nicht anders sein konnte:** Zwischen dem Commit des vorigen
+Release und `main` hat sich unter `src/crime/` **genau eine Zeile** geändert —
+eine Zahl in einem Docstring von `build_comparison`. Keine Logik. Dazu kommt
+die Idempotenz, die Notebook 36 mit drei Neubauten belegt.
+
+**Für die Abgabe heisst das:** Jede Zahl in `ln1_konzept.md`,
+`leistungsnachweise.md`, im README und in den Notebooks gilt unverändert für
+Release `2026-09-21T12-55-05Z`. Es gibt nichts nachzuziehen.
+
+Lokal liegen noch vier Releases (161 MB): dieses, das erste saubere vom
+19.9. und die beiden, die weiter unten als Beleg zitiert werden. Alles übrige
+steht auf SeaweedFS.
+
+---
+
 ## 20.09.2026 · Das erste Architekturbild zählte 19 Kanten, hatte aber 23 (direkt auf main)
 
 Christian ist beim Lesen von `architektur.md` über das erste Bild gestolpert.
