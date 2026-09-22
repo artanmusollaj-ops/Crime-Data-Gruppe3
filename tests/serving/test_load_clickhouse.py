@@ -88,7 +88,7 @@ class FalscheDatenbank:
 
 def antworten_aus(parquet: Path) -> dict[str, list[tuple]]:
     """Eine Datenbank, die genau das enthaelt, was im Release steht."""
-    echt = lc.abgleich_release(parquet)
+    echt = lc.abgleich_release(parquet, lc.NACH_NAME["fact_offense"])
     return {"zeilen": [(echt["zeilen"],)],
             "schluessel": [(echt["schluessel"],)],
             "verteilung": echt["verteilung"]}
@@ -136,11 +136,12 @@ def test_lowcardinality_liegt_aussen_um_nullable(tmp_path):
 
 def test_jede_spalte_steht_in_der_ddl(tmp_path):
     felder = lc.spalten(beispiel(tmp_path))
-    anweisung = lc.ddl("ziel", felder)
+    fakten = lc.NACH_NAME["fact_offense"]
+    anweisung = lc.ddl("ziel", felder, fakten)
     for s in felder:
         assert f"    {s.name} {s.clickhouse}" in anweisung, s.name
-    assert f"ORDER BY ({', '.join(lc.SORTIERUNG)})" in anweisung
-    assert f"PARTITION BY {lc.PARTITION}" in anweisung
+    assert f"ORDER BY ({', '.join(fakten.sortierung)})" in anweisung
+    assert f"PARTITION BY {fakten.partition}" in anweisung
 
 
 def test_ein_unentschiedener_typ_bricht_ab_statt_zu_raten():
@@ -154,7 +155,7 @@ def test_ein_nullbarer_sortierschluessel_bricht_ab(tmp_path):
               else lc.Spalte(s.name, s.arrow, True)
               for s in lc.spalten(beispiel(tmp_path))]
     with pytest.raises(lc.LadeFehler, match="traegt NULL und steht im Schluessel"):
-        lc.ddl("ziel", felder)
+        lc.ddl("ziel", felder, lc.NACH_NAME["fact_offense"])
 
 
 def test_der_tabellenname_traegt_das_release(tmp_path):
@@ -220,21 +221,6 @@ def test_eine_verschobene_verteilung_faellt_auch_auf(tmp_path):
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.referenzstand
-def test_fuer_jede_gold_spalte_ist_ein_typ_entschieden():
-    """Kommt eine Spalte in Gold dazu, faellt hier der Test - nicht der Ladelauf."""
-    wurzel = Path(__file__).resolve().parents[2] / "data"
-    try:
-        _, parquet = lc.aktuelles_release(wurzel)
-    except lc.LadeFehler as fehler:
-        pytest.skip(str(fehler))
-    felder = lc.spalten(parquet)
-    assert felder, "das Release hat keine Spalten?"
-    for s in felder:
-        s.clickhouse          # wirft LadeFehler, wenn ein Typ fehlt
-    lc.ddl(lc.tabellenname("2026-09-21T12-55-05Z"), felder)
-
-
 # --------------------------------------------------------------------------
 # Gegen ein echtes ClickHouse - wenn eines laeuft
 # --------------------------------------------------------------------------
@@ -264,13 +250,14 @@ class HttpKlient:
             raise AssertionError(f"{antwort.status_code}: {antwort.text[:300]}")
 
     def abfrage(self, sql: str) -> list[tuple]:
+        # JSONCompact und nicht TSV: TSV liefert alles als Text, und wer ihn
+        # zurueckrät, macht aus dem County '001' die Zahl 1.
         antwort = self.requests.post(
-            self.url, data=(sql + " FORMAT TSV").encode("utf-8"), timeout=60)
+            self.url, data=(sql + " FORMAT JSONCompact").encode("utf-8"),
+            timeout=60)
         if antwort.status_code != 200:
             raise AssertionError(f"{antwort.status_code}: {antwort.text[:300]}")
-        return [tuple(int(f) if f.lstrip("-").isdigit() else f
-                      for f in zeile.split("\t"))
-                for zeile in antwort.text.strip().splitlines()]
+        return [tuple(zeile) for zeile in antwort.json()["data"]]
 
 
 @pytest.fixture
@@ -346,3 +333,62 @@ def test_ein_unvollstaendiger_lauf_bewegt_die_sicht_nicht(tmp_path, clickhouse):
         for kennung in (voll, halb):
             clickhouse.befehl(f"DROP TABLE IF EXISTS {lc.tabellenname(kennung)}")
         clickhouse.befehl("DROP VIEW IF EXISTS fact_offense")
+
+
+# --------------------------------------------------------------------------
+# Die Entscheidungen je Ziel
+# --------------------------------------------------------------------------
+
+
+def test_jedes_ziel_hat_eine_quelle_im_release():
+    """Ein Ziel ohne Datei waere eine Entscheidung ohne Gegenstand."""
+    for ziel in lc.ZIELE:
+        assert ziel.quelle_im_release.startswith("gold/dataset=")
+        assert ziel.quelle_im_release.endswith("part-0001.parquet")
+    assert [z.name for z in lc.ZIELE][0] == "fact_offense", "die Fakten zuerst"
+
+
+def test_schluessel_und_sortierung_stehen_in_der_verteilung_nicht_im_weg():
+    """Wahrheitswerte gehoeren nicht in den Abgleich.
+
+    DuckDB liefert ``True``, ClickHouse ueber TSV ``1`` - der Vergleich
+    schlaege an, ohne dass etwas fehlt. Deshalb nur Text und ganze Zahlen.
+    """
+    for ziel in lc.ZIELE:
+        assert ziel.verteilung, f"{ziel.name} hat keine Verteilung"
+        assert ziel.schluessel, f"{ziel.name} hat keinen Schluessel"
+        assert ziel.sortierung, f"{ziel.name} hat keine Sortierung"
+
+
+def test_kleine_dimensionen_tragen_kein_lowcardinality():
+    """Bei 85 Zeilen ist das Woerterbuch teurer als der Text."""
+    for name in ("dim_offense", "dim_date", "dim_city_day"):
+        assert not lc.NACH_NAME[name].niedrige_kardinalitaet, name
+    assert lc.NACH_NAME["fact_offense"].niedrige_kardinalitaet
+    assert lc.NACH_NAME["dim_tract"].niedrige_kardinalitaet
+
+
+def test_ein_nullbares_array_bricht_ab():
+    """ClickHouse: *Nested type Array(String) cannot be inside Nullable type*."""
+    with pytest.raises(lc.LadeFehler, match="nicht in Nullable"):
+        lc.Spalte("quality_flags", "list<element: string>", True,
+                  "dim_city_day").clickhouse
+
+
+def test_ein_array_ohne_null_geht_durch():
+    assert lc.Spalte("quality_flags", "list<element: string>", False,
+                     "dim_city_day").clickhouse == "Array(String)"
+
+
+@pytest.mark.referenzstand
+def test_fuer_jede_spalte_jedes_ziels_ist_ein_typ_entschieden():
+    """Nicht nur fuer die Fakten - auch die vier Dimensionen."""
+    wurzel = Path(__file__).resolve().parents[2] / "data"
+    try:
+        kennung, verzeichnis = lc.aktuelles_release(wurzel)
+    except lc.LadeFehler as fehler:
+        pytest.skip(str(fehler))
+    for ziel in lc.ZIELE:
+        felder = lc.spalten(lc.quelle(verzeichnis, ziel), ziel.name)
+        assert felder, ziel.name
+        lc.ddl(lc.tabellenname(kennung, ziel.name), felder, ziel)

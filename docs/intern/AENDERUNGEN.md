@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'317** |
+| Tests | **1'322** |
 | `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -157,6 +157,71 @@ Dort überspringt sich derselbe Wächter.
 `requires-python = ">=3.11"` ohne obere Grenze; die CI-Matrix fährt `3.11` und
 `3.13`. 3.14 ist damit eine Version, die das Projekt verspricht und nie prüft —
 weshalb dieser Fehler auf jeder Maschine grün war ausser meiner.
+
+---
+
+## 22.09.2026 · Auch die vier Dimensionen kommen nach ClickHouse (direkt auf main)
+
+Das Modul war auf `fact_offense` verdrahtet. Jetzt trägt es fünf `Ziel`-Sätze —
+je Tabelle Sortierung, Schlüssel, Verteilung für den Abgleich, optional
+Partitionierung und `LowCardinality`.
+
+### Was der Versuch mit ClickHouses eigener Ableitung gezeigt hat
+
+Die Dimensionen von Hand über `CREATE TABLE … AS SELECT * FROM file(…)` zu
+laden lief **sofort in denselben Fehler**, den `ddl()` abfängt: *Sorting key
+contains nullable columns*. Parquet meldet alles als nullbar, also auch jeden
+Sortierschlüssel. Man kommt mit `assumeNotNull()` durch — und hat dann eine
+Tabelle, die nicht sagt, welche Spalten wirklich leer sein dürfen.
+
+### Drei Entscheidungen, die nicht ableitbar sind
+
+**`LowCardinality` nur für die grossen zwei.** Bei 85 Zeilen (`dim_offense`),
+366 (`dim_date`) oder 732 (`dim_city_day`) ist das Wörterbuch teurer als der
+Text. Nur `fact_offense` und `dim_tract` tragen welche.
+
+**Die Verteilung meidet Wahrheitswerte.** DuckDB liefert `True`, ClickHouse
+über TSV `1` — der Abgleich schlüge an, ohne dass etwas fehlt. Deshalb nur Text
+und ganze Zahlen.
+
+**`dim_tract` gruppiert über `(state_fips, county_fips)`, nicht über `city`.**
+Letzteres trägt bei 5'227 der 6'282 Tracts NULL, und wie zwei Engines NULL
+sortieren, ist nichts, worauf ein Nachweis ruhen sollte.
+
+### Der Schlüssel darf zusammengesetzt sein
+
+`dim_city_day` hat 732 Zeilen, aber nur 366 verschiedene Daten — über `date`
+allein hätte der Abgleich die Hälfte nicht geprüft. Der Schlüssel ist jetzt ein
+Tupel, gezählt über `count(DISTINCT (a, b))` beziehungsweise `uniqExact(a, b)`.
+
+### Und ein Fehler, der genau die Warnung war, die ich selbst gegeben hatte
+
+Der erste Ladelauf von `dim_tract` scheiterte am Abgleich: *`('17', '001', 19)`
+fehlt in ClickHouse*. Nichts fehlte. Mein HTTP-Klient las TSV und verwandelte
+alles Ziffernförmige in `int` — aus County `'001'` wurde die Zahl `1`. Genau
+die führenden Nullen, vor denen Projektabsprache Punkt 2 warnt und die ich zwei
+Antworten zuvor als Elasticsearch-Falle beschrieben hatte.
+
+Behoben mit `FORMAT JSONCompact`, das die Typen mitliefert. Das `Klient`-
+Protokoll sagt jetzt ausdrücklich, dass `abfrage` Werte mit ihrem Typ
+zurückgeben muss — wer TSV liest und rät, baut sich diesen Fehler ein.
+
+### Geladen und geprüft
+
+Gegen ClickHouse 26.9.1, aus Release `2026-09-21T12-55-05Z`:
+
+| Ziel | Zeilen | Schlüssel | Spalten |
+| --- | ---: | ---: | ---: |
+| `fact_offense` | 345'073 | 345'073 | 22 |
+| `dim_offense` | 85 | 85 | 11 |
+| `dim_tract` | 6'282 | 6'282 | 14 |
+| `dim_date` | 366 | 366 | 11 |
+| `dim_city_day` | 732 | 732 | 11 |
+
+Alle fünf Abgleiche bestanden, alle fünf Sichten umgelegt, zusammen unter einer
+Sekunde.
+
+**Zahlen.** 1'317 → **1'322 Tests**.
 
 ---
 

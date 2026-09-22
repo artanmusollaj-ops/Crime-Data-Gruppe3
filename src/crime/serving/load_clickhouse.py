@@ -38,41 +38,99 @@ from typing import Any, Protocol
 import pyarrow.parquet as pq
 
 DATENWURZEL = Path("data")
-TABELLE = "fact_offense"
-QUELLE_IM_RELEASE = "gold/dataset=fact_offense/part-0001.parquet"
+
 
 # --------------------------------------------------------------------------
 # Die Entscheidungen. Alles hier ist Abwaegung, keine Ableitung.
 # --------------------------------------------------------------------------
 
-#: ClickHouse legt die Zeilen physisch in dieser Reihenfolge ab und baut darauf
-#: seinen duennen Index. Eine Abfrage, die nach einem Praefix davon filtert,
-#: liest ein paar Bloecke; eine andere liest die Tabelle.
-#:
-#: Naheliegend waere ``(reporting_city, date, nibrs_code)`` gewesen - Stadt,
-#: Zeitraum, Delikt ist die Frage des Dashboards. ``nibrs_code`` traegt aber
-#: drei NULL (die unmapped-Zeilen aus Chicago), und ein nullbarer
-#: Sortierschluessel verlangt in ClickHouse ``allow_nullable_key``. Drei Zeilen
-#: von 345'073 sind diesen Schalter nicht wert; innerhalb eines Tages einer
-#: Stadt ist der Rest ohnehin ein kleiner Block.
-SORTIERUNG = ("reporting_city", "date")
 
-#: Ein Jahrgang braucht das nicht. Kommt der zweite dazu, kann ClickHouse ganze
-#: Monate ueberspringen, statt sie zu lesen.
-PARTITION = "toYYYYMM(date)"
+@dataclass(frozen=True)
+class Ziel:
+    """Was fuer eine Tabelle entschieden werden muss, damit sie in ClickHouse taugt."""
 
-#: Der Schluessel, gegen den der Abgleich zaehlt.
-SCHLUESSEL = "offense_id"
+    name: str
+    #: ClickHouse legt die Zeilen physisch so ab und baut darauf seinen duennen
+    #: Index. Ein Filter auf ein Praefix davon liest ein paar Bloecke, jeder
+    #: andere die ganze Tabelle.
+    sortierung: tuple[str, ...]
+    #: Wogegen der Abgleich seine Eindeutigkeit zaehlt. Mehrspaltig, wo der
+    #: Schluessel zusammengesetzt ist: ``dim_city_day`` haette ueber ``date``
+    #: allein nur 366 statt 732 gezaehlt und die Haelfte nicht geprueft.
+    schluessel: tuple[str, ...]
+    #: Spalten, ueber die der Abgleich zusaetzlich gruppiert. Bewusst nur Text
+    #: und ganze Zahlen: Ein Wahrheitswert kommt aus DuckDB als ``True`` und
+    #: aus ClickHouse als ``1``, und der Vergleich schlaege an, ohne dass
+    #: etwas fehlt.
+    verteilung: tuple[str, ...]
+    partition: str | None = None
+    niedrige_kardinalitaet: frozenset[str] = frozenset()
 
-#: Woerterbuch statt Text. Gemessen am Jahrgang 2024: reporting_city 2,
-#: mapping_status 4, geo_status 4, nibrs_family 25, nibrs_code 59,
-#: source_offense_code 429, tract_geoid 1'146 verschiedene Werte. Oberhalb von
-#: rund zehntausend kippt der Vorteil - offense_id (345'073) gehoert deshalb
-#: nicht dazu, obwohl es verlockend aussieht.
-NIEDRIGE_KARDINALITAET = frozenset({
-    "reporting_city", "nibrs_code", "nibrs_family", "tract_geoid",
-    "source_offense_code", "mapping_status", "geo_status",
-})
+    @property
+    def quelle_im_release(self) -> str:
+        return f"gold/dataset={self.name}/part-0001.parquet"
+
+
+#: ``LowCardinality`` lohnt erst, wenn viele Zeilen wenige Werte wiederholen.
+#: Bei 85 Zeilen (dim_offense), 366 (dim_date) oder 732 (dim_city_day) ist das
+#: Woerterbuch teurer als der Text - deshalb tragen nur die beiden grossen
+#: Tabellen welche.
+ZIELE: tuple[Ziel, ...] = (
+    Ziel(
+        name="fact_offense",
+        # Naheliegend waere ``(reporting_city, date, nibrs_code)`` gewesen -
+        # Stadt, Zeitraum, Delikt ist die Frage des Dashboards. ``nibrs_code``
+        # traegt aber drei NULL (die unmapped-Zeilen aus Chicago), und ein
+        # nullbarer Sortierschluessel verlangt ``allow_nullable_key``. Drei
+        # Zeilen von 345'073 sind diesen Schalter nicht wert.
+        sortierung=("reporting_city", "date"),
+        schluessel=("offense_id",),
+        verteilung=("reporting_city", "mapping_status", "geo_status"),
+        # Ein Jahrgang braucht das nicht. Kommt der zweite dazu, kann
+        # ClickHouse ganze Monate ueberspringen, statt sie zu lesen.
+        partition="toYYYYMM(date)",
+        # Gemessen am Jahrgang 2024: reporting_city 2, mapping_status 4,
+        # geo_status 4, nibrs_family 25, nibrs_code 59, source_offense_code
+        # 429, tract_geoid 1'146 verschiedene Werte. Oberhalb von rund
+        # zehntausend kippt der Vorteil - offense_id (345'073) gehoert deshalb
+        # nicht dazu, obwohl es verlockend aussieht.
+        niedrige_kardinalitaet=frozenset({
+            "reporting_city", "nibrs_code", "nibrs_family", "tract_geoid",
+            "source_offense_code", "mapping_status", "geo_status"}),
+    ),
+    Ziel(
+        name="dim_offense",
+        sortierung=("nibrs_code",),
+        schluessel=("nibrs_code",),
+        verteilung=("nibrs_group", "crime_against"),
+    ),
+    Ziel(
+        name="dim_tract",
+        sortierung=("geoid",),
+        schluessel=("geoid",),
+        # Nicht ueber ``city``: Das traegt bei 5'227 der 6'282 Tracts NULL, und
+        # wie zwei Engines NULL sortieren, ist nichts, worauf ein Nachweis
+        # ruhen sollte.
+        verteilung=("state_fips", "county_fips"),
+        niedrige_kardinalitaet=frozenset({
+            "city", "city_geoid", "state_fips", "state_name", "county_fips"}),
+    ),
+    Ziel(
+        name="dim_date",
+        sortierung=("date",),
+        schluessel=("date",),
+        verteilung=("quarter", "month"),
+    ),
+    Ziel(
+        name="dim_city_day",
+        sortierung=("city", "date"),
+        schluessel=("city", "date"),
+        verteilung=("city", "station_id"),
+    ),
+)
+
+NACH_NAME = {z.name: z for z in ZIELE}
+
 
 #: Arrow sagt, was in der Datei steht; ClickHouse braucht seinen eigenen Namen
 #: dafuer. Kein Eintrag heisst: Diese Spalte ist noch nicht entschieden, und
@@ -89,7 +147,13 @@ TYPEN = {
     "timestamp[us]": "DateTime64(6)",
     "timestamp[ms]": "DateTime64(3)",
     "timestamp[s]": "DateTime",
+    "list<element: string>": "Array(String)",
 }
+
+#: ClickHouse laesst diese Typen nicht in ``Nullable`` stehen. Beide Faelle
+#: sehen im erzeugten Text voellig richtig aus und fallen erst der Datenbank
+#: auf - deshalb stehen sie hier und nicht in einem Kommentar.
+NICHT_NULLBAR = ("Array(",)
 
 
 class LadeFehler(RuntimeError):
@@ -101,6 +165,7 @@ class Spalte:
     name: str
     arrow: str
     nullable: bool
+    ziel: str = "fact_offense"
 
     @property
     def clickhouse(self) -> str:
@@ -110,16 +175,21 @@ class Spalte:
                 f"Fuer {self.name} ({self.arrow}) ist kein ClickHouse-Typ "
                 f"entschieden. Eintrag in TYPEN ergaenzen - geraten wird nicht."
             )
-        if self.name in NIEDRIGE_KARDINALITAET and grund != "String":
+        klein = NACH_NAME[self.ziel].niedrige_kardinalitaet
+        if self.name in klein and grund != "String":
             raise LadeFehler(
-                f"{self.name} steht in NIEDRIGE_KARDINALITAET, ist aber "
+                f"{self.name} steht in niedrige_kardinalitaet, ist aber "
                 f"{grund} - LowCardinality lohnt nur fuer String.")
         # Die Schachtelung ist nicht beliebig: ClickHouse verweigert
         # ``Nullable(LowCardinality(String))`` mit *Nested type cannot be
         # inside Nullable type*. Richtig herum ist LowCardinality aussen.
         if self.nullable:
+            if grund.startswith(NICHT_NULLBAR):
+                raise LadeFehler(
+                    f"{self.name} traegt NULL, aber ClickHouse laesst {grund} "
+                    f"nicht in Nullable stehen.")
             grund = f"Nullable({grund})"
-        if self.name in NIEDRIGE_KARDINALITAET:
+        if self.name in klein:
             grund = f"LowCardinality({grund})"
         return grund
 
@@ -129,7 +199,7 @@ class Spalte:
 # --------------------------------------------------------------------------
 
 
-def spalten(parquet: Path) -> list[Spalte]:
+def spalten(parquet: Path, ziel: str = "fact_offense") -> list[Spalte]:
     """Die Spalten aus der Datei - nicht aus einer zweiten Liste.
 
     Bewusst ueber das Arrow-Schema und nicht ueber ``DESCRIBE``: DuckDB
@@ -154,17 +224,18 @@ def spalten(parquet: Path) -> list[Spalte]:
             f"SELECT {teile} FROM read_parquet('{parquet}')").fetchone()
     finally:
         con.close()
-    return [Spalte(f.name, str(f.type), n > 0) for f, n in zip(schema, leer)]
+    return [Spalte(f.name, str(f.type), n > 0, ziel)
+            for f, n in zip(schema, leer)]
 
 
-def tabellenname(release_id: str) -> str:
+def tabellenname(release_id: str, ziel: str = "fact_offense") -> str:
     """``2026-09-21T12-55-05Z`` -> ``fact_offense_20260921T125505Z``.
 
     ClickHouse-Bezeichner vertragen weder Bindestrich noch Doppelpunkt. Die
     Kennung bleibt trotzdem lesbar, und genau darum geht es: Wer die Tabelle
     sieht, weiss, aus welchem Release sie stammt.
     """
-    return f"{TABELLE}_{re.sub(r'[^0-9A-Za-z]', '', release_id)}"
+    return f"{ziel}_{re.sub(r'[^0-9A-Za-z]', '', release_id)}"
 
 
 # --------------------------------------------------------------------------
@@ -172,7 +243,7 @@ def tabellenname(release_id: str) -> str:
 # --------------------------------------------------------------------------
 
 
-def ddl(tabelle: str, felder: list[Spalte]) -> str:
+def ddl(tabelle: str, felder: list[Spalte], ziel: Ziel) -> str:
     """Die Anweisung - und die Zusicherung, dass der Schluessel traegt.
 
     Ein nullbarer Sortierschluessel ist in ClickHouse nur mit einem Schalter
@@ -181,7 +252,7 @@ def ddl(tabelle: str, felder: list[Spalte]) -> str:
     gehoert angesehen und nicht umschifft.
     """
     nach_name = {s.name: s for s in felder}
-    for name in (*SORTIERUNG, SCHLUESSEL):
+    for name in (*ziel.sortierung, *ziel.schluessel):
         s = nach_name.get(name)
         if s is None:
             raise LadeFehler(f"{name} steht im Schluessel, aber nicht im Release")
@@ -190,10 +261,12 @@ def ddl(tabelle: str, felder: list[Spalte]) -> str:
                 f"{name} traegt NULL und steht im Schluessel. Entweder die "
                 f"Sortierung aendern oder klaeren, warum Gold dort NULL liefert.")
     zeilen = ",\n".join(f"    {s.name} {s.clickhouse}" for s in felder)
-    return (f"CREATE TABLE IF NOT EXISTS {tabelle} (\n{zeilen}\n)\n"
-            f"ENGINE = MergeTree\n"
-            f"PARTITION BY {PARTITION}\n"
-            f"ORDER BY ({', '.join(SORTIERUNG)})")
+    teile = [f"CREATE TABLE IF NOT EXISTS {tabelle} (\n{zeilen}\n)",
+             "ENGINE = MergeTree"]
+    if ziel.partition:
+        teile.append(f"PARTITION BY {ziel.partition}")
+    teile.append(f"ORDER BY ({', '.join(ziel.sortierung)})")
+    return "\n".join(teile)
 
 
 def einfuegen_aus_s3(tabelle: str, url: str, schluessel: str, geheim: str) -> str:
@@ -217,9 +290,9 @@ def einfuegen_aus_datei(tabelle: str, pfad: str) -> str:
     return f"INSERT INTO {tabelle} SELECT * FROM file('{pfad}', 'Parquet')"
 
 
-def sicht_umlegen(tabelle: str) -> str:
+def sicht_umlegen(tabelle: str, ziel: Ziel) -> str:
     """Der Zeigerwechsel. Bis hierher sieht niemand den neuen Stand."""
-    return f"CREATE OR REPLACE VIEW {TABELLE} AS SELECT * FROM {tabelle}"
+    return f"CREATE OR REPLACE VIEW {ziel.name} AS SELECT * FROM {tabelle}"
 
 
 # --------------------------------------------------------------------------
@@ -230,35 +303,43 @@ def sicht_umlegen(tabelle: str) -> str:
 # von Zahlen und Zeitstempeln. Diese drei Fragen haengen daran nicht.
 
 
-def abgleich_clickhouse(tabelle: str) -> dict[str, str]:
+def abgleich_clickhouse(tabelle: str, ziel: Ziel) -> dict[str, str]:
+    spalten_liste = ", ".join(ziel.verteilung)
+    nummern = ", ".join(str(i + 1) for i in range(len(ziel.verteilung)))
     return {
         "zeilen": f"SELECT count() FROM {tabelle}",
-        "schluessel": f"SELECT uniqExact({SCHLUESSEL}) FROM {tabelle}",
-        "verteilung": (
-            f"SELECT reporting_city, mapping_status, geo_status, count() "
-            f"FROM {tabelle} GROUP BY 1, 2, 3 ORDER BY 1, 2, 3"),
+        "schluessel": (f"SELECT uniqExact({', '.join(ziel.schluessel)}) "
+                       f"FROM {tabelle}"),
+        "verteilung": (f"SELECT {spalten_liste}, count() FROM {tabelle} "
+                       f"GROUP BY {nummern} ORDER BY {nummern}"),
     }
 
 
-def abgleich_release(parquet: Path) -> dict[str, Any]:
+def abgleich_release(parquet: Path, ziel: Ziel) -> dict[str, Any]:
     import duckdb
 
+    spalten_liste = ", ".join(ziel.verteilung)
+    nummern = ", ".join(str(i + 1) for i in range(len(ziel.verteilung)))
     con = duckdb.connect()
     quelle = f"read_parquet('{parquet}')"
     try:
         return {
             "zeilen": con.execute(f"SELECT count(*) FROM {quelle}").fetchone()[0],
+            # Der Zeilenkonstruktor, damit auch ein zusammengesetzter
+            # Schluessel zaehlt - ClickHouse nimmt dafuer mehrere Argumente.
             "schluessel": con.execute(
-                f"SELECT count(DISTINCT {SCHLUESSEL}) FROM {quelle}").fetchone()[0],
+                f"SELECT count(DISTINCT ({', '.join(ziel.schluessel)})) "
+                f"FROM {quelle}").fetchone()[0],
             "verteilung": [tuple(z) for z in con.execute(
-                f"SELECT reporting_city, mapping_status, geo_status, count(*) "
-                f"FROM {quelle} GROUP BY 1, 2, 3 ORDER BY 1, 2, 3").fetchall()],
+                f"SELECT {spalten_liste}, count(*) FROM {quelle} "
+                f"GROUP BY {nummern} ORDER BY {nummern}").fetchall()],
         }
     finally:
         con.close()
 
 
-def vergleiche(erwartet: dict[str, Any], gefunden: dict[str, Any]) -> None:
+def vergleiche(erwartet: dict[str, Any], gefunden: dict[str, Any],
+               ziel: Ziel = ZIELE[0]) -> None:
     """Weicht etwas ab, wird nichts umgelegt."""
     for name in ("zeilen", "schluessel"):
         if erwartet[name] != gefunden[name]:
@@ -268,8 +349,8 @@ def vergleiche(erwartet: dict[str, Any], gefunden: dict[str, Any]) -> None:
     if erwartet["verteilung"] != gefunden["verteilung"]:
         nur_hier = set(erwartet["verteilung"]) - set(gefunden["verteilung"])
         raise LadeFehler(
-            f"Die Verteilung ueber Stadt, mapping_status und geo_status "
-            f"stimmt nicht: {sorted(nur_hier)[:3]} fehlen in ClickHouse.")
+            f"Die Verteilung ueber {', '.join(ziel.verteilung)} stimmt nicht: "
+            f"{sorted(nur_hier, key=str)[:3]} fehlen in ClickHouse.")
 
 
 # --------------------------------------------------------------------------
@@ -282,6 +363,13 @@ class Klient(Protocol):
 
     Damit laeuft der Test mit einem Dictionary statt einer Datenbank - genau
     wie ``FakeS3Client`` in ``storage``.
+
+    **Eine Zusage macht ``abfrage`` trotzdem:** Werte kommen mit ihrem Typ
+    zurueck, nicht als geratener Text. Ein Klient, der TSV liest und alles
+    Ziffernfoermige in ``int`` verwandelt, macht aus dem County ``'001'`` die
+    Zahl ``1`` - und der Abgleich schlaegt an, obwohl nichts fehlt. Genau das
+    ist beim ersten Laden von ``dim_tract`` passiert. ``FORMAT JSONCompact``
+    liefert die Typen mit; TSV tut es nicht.
     """
 
     def befehl(self, sql: str) -> None: ...
@@ -289,41 +377,50 @@ class Klient(Protocol):
 
 
 def aktuelles_release(datenwurzel: Path) -> tuple[str, Path]:
+    """Die Kennung, auf die der Zeiger zeigt, und das Verzeichnis dazu."""
     zeiger = datenwurzel / "releases" / "AKTUELL.json"
     if not zeiger.is_file():
         raise LadeFehler(f"{zeiger} fehlt - erst 'run_all --release' laufen lassen")
     kennung = json.loads(zeiger.read_text(encoding="utf-8"))["release_id"]
-    parquet = datenwurzel / "releases" / f"release={kennung}" / QUELLE_IM_RELEASE
+    verzeichnis = datenwurzel / "releases" / f"release={kennung}"
+    if not verzeichnis.is_dir():
+        raise LadeFehler(f"Release {kennung} liegt nicht lokal: {verzeichnis}")
+    return kennung, verzeichnis
+
+
+def quelle(verzeichnis: Path, ziel: Ziel) -> Path:
+    parquet = verzeichnis / ziel.quelle_im_release
     if not parquet.is_file():
-        raise LadeFehler(f"{parquet} fehlt - Release {kennung} liegt nicht lokal")
-    return kennung, parquet
+        raise LadeFehler(f"{parquet} fehlt im Release")
+    return parquet
 
 
 def lade(klient: Klient, kennung: str, parquet: Path, *,
-         einfuegen: Callable[[str], str]) -> dict[str, Any]:
+         einfuegen: Callable[[str], str],
+         ziel: Ziel = ZIELE[0]) -> dict[str, Any]:
     """Anlegen, fuellen, pruefen, umlegen - in dieser Reihenfolge.
 
     ``einfuegen`` bekommt den Zieltabellennamen und liefert die
     Insert-Anweisung. Damit weiss dieser Ablauf nicht, ob die Daten aus S3
     oder aus einem eingehaengten Verzeichnis kommen - und muss es nicht.
     """
-    ziel = tabellenname(kennung)
-    felder = spalten(parquet)
+    tabelle = tabellenname(kennung, ziel.name)
+    felder = spalten(parquet, ziel.name)
 
-    klient.befehl(ddl(ziel, felder))
-    klient.befehl(einfuegen(ziel))
+    klient.befehl(ddl(tabelle, felder, ziel))
+    klient.befehl(einfuegen(tabelle))
 
-    fragen = abgleich_clickhouse(ziel)
+    fragen = abgleich_clickhouse(tabelle, ziel)
     gefunden = {
         "zeilen": klient.abfrage(fragen["zeilen"])[0][0],
         "schluessel": klient.abfrage(fragen["schluessel"])[0][0],
         "verteilung": [tuple(z) for z in klient.abfrage(fragen["verteilung"])],
     }
-    erwartet = abgleich_release(parquet)
-    vergleiche(erwartet, gefunden)          # wirft, bevor irgendetwas sichtbar wird
+    erwartet = abgleich_release(parquet, ziel)
+    vergleiche(erwartet, gefunden, ziel)    # wirft, bevor etwas sichtbar wird
 
-    klient.befehl(sicht_umlegen(ziel))
-    return {"release_id": kennung, "tabelle": ziel, "spalten": len(felder),
+    klient.befehl(sicht_umlegen(tabelle, ziel))
+    return {"release_id": kennung, "tabelle": tabelle, "spalten": len(felder),
             **{k: erwartet[k] for k in ("zeilen", "schluessel")}}
 
 
@@ -340,17 +437,20 @@ def main(argv: list[str] | None = None) -> int:
     # Waechter in tests/storage/test_pipelines_hybrid.py haelt das fest.
     from storage import for_root
 
-    kennung, parquet = aktuelles_release(for_root(args.data_root).local_root)
-    ziel = tabellenname(kennung)
-    felder = spalten(parquet)
+    kennung, verzeichnis = aktuelles_release(for_root(args.data_root).local_root)
 
     if args.trocken:
-        print(ddl(ziel, felder))
-        print()
-        print(einfuegen_aus_s3(ziel, f"…/release={kennung}/{QUELLE_IM_RELEASE}",
-                               "$S3_ACCESS_KEY", "$S3_SECRET_KEY"))
-        print()
-        print(sicht_umlegen(ziel))
+        for ziel in ZIELE:
+            tabelle = tabellenname(kennung, ziel.name)
+            felder = spalten(quelle(verzeichnis, ziel), ziel.name)
+            print(ddl(tabelle, felder, ziel))
+            print()
+            print(einfuegen_aus_s3(
+                tabelle, f"…/release={kennung}/{ziel.quelle_im_release}",
+                "$S3_ACCESS_KEY", "$S3_SECRET_KEY"))
+            print()
+            print(sicht_umlegen(tabelle, ziel))
+            print("\n" + "-" * 72 + "\n")
         return 0
 
     raise SystemExit(
