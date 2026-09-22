@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'303** |
+| Tests | **1'315** |
 | `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -157,6 +157,71 @@ Dort überspringt sich derselbe Wächter.
 `requires-python = ">=3.11"` ohne obere Grenze; die CI-Matrix fährt `3.11` und
 `3.13`. 3.14 ist damit eine Version, die das Projekt verspricht und nie prüft —
 weshalb dieser Fehler auf jeder Maschine grün war ausser meiner.
+
+---
+
+## 22.09.2026 · Der erste Schritt zur Analyseplattform: ClickHouse (direkt auf main)
+
+`serving/load_clickhouse.py`. Noch kein Docker, keine laufende Datenbank — der
+Teil, der die Arbeit macht: DDL und Ladeschicht für `fact_offense`.
+
+### Die Zusage, die nicht verlorengehen darf
+
+Alles bis hierher ruht auf unveränderlichen Läufen: Ein Stand ist ganz da oder
+gar nicht. Eine Datenbank kennt das nicht. Deshalb lädt das Modul **nie** in
+`fact_offense`, sondern in `fact_offense_<Release>`, prüft, und legt erst dann
+die Sicht darauf um. Fällt die Prüfung, bleibt der alte Stand stehen — dieselbe
+Zusage wie beim `.part`-Umbenennen in `storage`.
+
+### Abgelesen gegen entschieden
+
+Die Spaltenliste kommt aus dem Parquet des Releases, damit eine neue
+Gold-Spalte nicht stillschweigend fehlt. Entschieden sind Sortierung,
+Partitionierung und `LowCardinality`. Ein Test hält beides gegeneinander: Für
+jede Spalte muss ein Typ entschieden sein, sonst bricht der Bau — statt zu
+raten.
+
+### Drei Dinge, die erst beim Bauen auffielen
+
+**Parquet markiert jede Spalte als nullbar.** Übernähme man das, wären alle 22
+Spalten `Nullable` — gemessen sind es **acht**. Die Nullbarkeit wird jetzt
+gezählt, nicht geglaubt.
+
+**`nibrs_code` trägt drei NULL** (die unmapped-Zeilen aus Chicago) und wäre der
+natürliche dritte Sortierschlüssel gewesen. Ein nullbarer Sortierschlüssel
+verlangt in ClickHouse `allow_nullable_key`. Drei Zeilen von 345'073 sind
+diesen Schalter nicht wert; die Sortierung ist `(reporting_city, date)`, und
+`ddl()` weist zurück, wenn eine Schlüsselspalte NULL bekommt.
+
+**`Nullable(LowCardinality(String))` verweigert ClickHouse** — die Schachtelung
+muss andersherum. Fällt ohne laufende Datenbank nicht auf; ein Test hält es
+jetzt fest.
+
+### Der Abgleich
+
+Zeilenzahl, `count(distinct offense_id)` und die Verteilung über Stadt ×
+`mapping_status` × `geo_status`. Eine Prüfsumme über den Inhalt wäre stärker,
+liesse sich zwischen zwei Engines aber nicht ehrlich vergleichen — sie hängt an
+der Textdarstellung von Zahlen und Zeitstempeln.
+
+### Zwölf Tests, keiner braucht ClickHouse
+
+`FalscheDatenbank` ist ein paar Listen, wie `FakeS3Client` in `storage`. Die
+beiden wichtigsten sind die Gegenproben: Eine fehlende Zeile und eine
+verschobene Verteilung lassen die Sicht **stehen**. Nur eine Prüfung fasst das
+echte Release an — ob für jede Gold-Spalte ein Typ entschieden ist; sie trägt
+`referenzstand`.
+
+**Zwei eigene Fehler unterwegs**, beide im Test und nicht im Modul: Das
+Beispiel-Parquet liess DuckDB `41.7` als `DECIMAL` lesen statt als `DOUBLE`,
+und der gefälschte Klient ordnete die Verteilungsabfrage der Zeilenzahl zu,
+weil auch sie `count()` enthält. Das Modul hat sich in beiden Fällen korrekt
+geweigert.
+
+Dazu ein dritter, den ein bestehender Wächter fand: `args.data_root` muss durch
+`for_root` gehen, sonst scheitert der Lauf im `s3`-Modus. Nachgezogen.
+
+**Zahlen.** 1'303 → **1'315 Tests**.
 
 ---
 
