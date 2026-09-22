@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 600" role="img" width="100%" height="auto"
+     aria-label="Systemkontext und interne Architektur in vier Baendern: Entwicklungswerkzeuge, Steuerung, Datenfluss von vier Quellen ueber raw, bronze, silver, gold und serving zur Analyse, sowie die Speicherorte lokal, SeaweedFS, DuckDB und Releases.">
+<style>
+  svg { color: #14304a; }
+  .signal { fill: #c2410c; }
+  .signal-strich { stroke: #c2410c; }
+  @media (prefers-color-scheme: dark) {
+    svg { color: #dde5ee; }
+    .signal { fill: #dda05c; }
+    .signal-strich { stroke: #dda05c; }
+  }
+</style>
+<defs><marker id="pfeil" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="currentColor"/></marker><marker id="pfeil-signal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" class="signal"/></marker></defs>
+<text x="20" y="52" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="0.8">entwicklungswerkzeuge</text>
+<text x="20" y="69" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.6">was am Code arbeitet,</text>
+<text x="20" y="82" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.6">bevor Daten fliessen</text>
+<rect x="196.0" y="34" width="199.75" height="62" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="295.875" y="53" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12" font-weight="600" fill="currentColor" fill-opacity="1.0">Git · GitHub</text>
+<text x="295.875" y="69" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">ein Pull Request je Änderung,</text>
+<text x="295.875" y="82" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">Review im Team</text>
+<rect x="410.75" y="34" width="199.75" height="62" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="510.625" y="53" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12" font-weight="600" fill="currentColor" fill-opacity="1.0">ruff</text>
+<text x="510.625" y="69" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">Lint über src, tests und tools,</text>
+<text x="510.625" y="82" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">vor jedem Testlauf</text>
+<rect x="625.5" y="34" width="199.75" height="62" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="725.375" y="53" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12" font-weight="600" fill="currentColor" fill-opacity="1.0">pytest</text>
+<text x="725.375" y="69" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">1'298 Tests, ohne Netz</text>
+<text x="725.375" y="82" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">und ohne Schlüssel</text>
+<rect x="840.25" y="34" width="199.75" height="62" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="940.125" y="53" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12" font-weight="600" fill="currentColor" fill-opacity="1.0">GitHub Actions</text>
+<text x="940.125" y="69" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">Linux und Windows, Python 3.11</text>
+<text x="940.125" y="82" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">und 3.13; wöchentlich ein Datenlauf</text>
+<text x="20" y="156" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="0.8">steuerung</text>
+<text x="20" y="173" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.6">ein Befehl, feste Reihenfolge,</text>
+<text x="20" y="186" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.6">Abbruch beim ersten Fehler</text>
+<rect x="196.0" y="138" width="271.3333333333333" height="66" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="331.66666666666663" y="157" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12" font-weight="600" fill="currentColor" fill-opacity="1.0">orchestration.run_all</text>
+<text x="331.66666666666663" y="173" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">14 Stufen in vier Gruppen;</text>
+<text x="331.66666666666663" y="186" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">je Lauf ein Manifest</text>
+<rect x="482.3333333333333" y="138" width="271.3333333333333" height="66" rx="5" fill="currentColor" fill-opacity="0.075" stroke="currentColor" stroke-width="1.1" class="signal-strich"/>
+<text x="618.0" y="157" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12" font-weight="600" class="signal" fill-opacity="1.0">Publish-Gate</text>
+<text x="618.0" y="173" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">Stadtzuordnung, Mapping, Partitionen:</text>
+<text x="618.0" y="186" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">hart bricht ab, weich wird gezählt</text>
+<rect x="768.6666666666666" y="138" width="271.3333333333333" height="66" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="904.3333333333333" y="157" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12" font-weight="600" fill="currentColor" fill-opacity="1.0">Release</text>
+<text x="904.3333333333333" y="173" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">SHA-256 je Datei, Commit und git_dirty;</text>
+<text x="904.3333333333333" y="186" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">AKTUELL zeigt auf den gültigen Stand</text>
+<text x="20" y="282" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="0.8">datenfluss</text>
+<text x="20" y="299" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.6">von der Quellantwort</text>
+<text x="20" y="312" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.6">zur freigegebenen Analyse</text>
+<rect x="196" y="281" width="126" height="104" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="259.0" y="299" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="1.0">Quellen</text>
+<text x="259.0" y="317" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">Chicago · Socrata</text>
+<text x="259.0" y="332" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">Detroit · ArcGIS</text>
+<text x="259.0" y="347" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">Census TIGER + ACS</text>
+<text x="259.0" y="362" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">NOAA GHCN-Daily</text>
+<rect x="344" y="306" width="104" height="54" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="396.0" y="325" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" font-weight="600" fill="currentColor" fill-opacity="1.0">raw</text>
+<text x="396.0" y="341" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">die Antwort,</text>
+<text x="396.0" y="354" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">unverändert</text>
+<rect x="458" y="306" width="104" height="54" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="510.0" y="325" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" font-weight="600" fill="currentColor" fill-opacity="1.0">bronze</text>
+<text x="510.0" y="341" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">6 Ingestions-</text>
+<text x="510.0" y="354" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">stufen</text>
+<line x1="446" y1="333.0" x2="456" y2="333.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
+<rect x="572" y="306" width="104" height="54" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="624.0" y="325" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" font-weight="600" fill="currentColor" fill-opacity="1.0">silver</text>
+<text x="624.0" y="341" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">4 Stufen,</text>
+<text x="624.0" y="354" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">gedeutet</text>
+<line x1="560" y1="333.0" x2="570" y2="333.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
+<rect x="686" y="306" width="104" height="54" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="738.0" y="325" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" font-weight="600" fill="currentColor" fill-opacity="1.0">gold</text>
+<text x="738.0" y="341" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">1 Stufe,</text>
+<text x="738.0" y="354" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">Sternschema</text>
+<line x1="674" y1="333.0" x2="684" y2="333.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
+<rect x="800" y="306" width="104" height="54" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="852.0" y="325" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" font-weight="600" fill="currentColor" fill-opacity="1.0">serving</text>
+<text x="852.0" y="341" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">3 Stufen,</text>
+<text x="852.0" y="354" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">abfragefertig</text>
+<line x1="788" y1="333.0" x2="798" y2="333.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
+<line x1="324" y1="333.0" x2="340" y2="333.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
+<rect x="916" y="306" width="124" height="54" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="978.0" y="325" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="1.0">Analyse</text>
+<text x="978.0" y="341" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">Notebooks 35 und 36,</text>
+<text x="978.0" y="354" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">DuckDB-Abfragen</text>
+<line x1="906" y1="333.0" x2="912" y2="333.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
+<text x="20" y="462" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="0.8">speicherorte</text>
+<text x="20" y="479" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.6">wo eine Schicht liegt,</text>
+<text x="20" y="492" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.6">ist eine Einstellung</text>
+<rect x="196.0" y="444" width="199.75" height="64" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="295.875" y="463" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12" font-weight="600" fill="currentColor" fill-opacity="1.0">data/ (lokal)</text>
+<text x="295.875" y="479" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">Arbeitskopie und Zwischenstand,</text>
+<text x="295.875" y="492" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">aus der Versionierung ausgenommen</text>
+<rect x="410.75" y="444" width="199.75" height="64" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="510.625" y="463" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12" font-weight="600" fill="currentColor" fill-opacity="1.0">SeaweedFS über S3</text>
+<text x="510.625" y="479" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">der veröffentlichte Stand; geschrieben</text>
+<text x="510.625" y="492" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">erst nach bestandener Prüfung</text>
+<rect x="625.5" y="444" width="199.75" height="64" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="725.375" y="463" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12" font-weight="600" fill="currentColor" fill-opacity="1.0">serving/analyse.duckdb</text>
+<text x="725.375" y="479" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">immer lokal; Sichten auf Parquet,</text>
+<text x="725.375" y="492" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">im Release als eigenständige Datei</text>
+<rect x="840.25" y="444" width="199.75" height="64" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="940.125" y="463" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12" font-weight="600" fill="currentColor" fill-opacity="1.0">data/releases/</text>
+<text x="940.125" y="479" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">unveränderlich, je Datei eine</text>
+<text x="940.125" y="492" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.72">Prüfsumme; vier Stände lokal</text>
+<line x1="296" y1="99" x2="296" y2="134" stroke="currentColor" stroke-opacity="0.4" stroke-width="1.1" stroke-dasharray="4 4" marker-end="url(#pfeil)"/>
+<text x="306" y="125" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.55">erst grün, dann laufen lassen</text>
+<line x1="396" y1="207" x2="396" y2="302" stroke="currentColor" stroke-opacity="0.4" stroke-width="1.1" stroke-dasharray="4 4" marker-end="url(#pfeil)"/>
+<line x1="738" y1="207" x2="738" y2="302" stroke="currentColor" stroke-opacity="0.4" stroke-width="1.1" class="signal-strich" stroke-dasharray="4 4" marker-end="url(#pfeil-signal)"/>
+<text x="728" y="280" text-anchor="end" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" class="signal" fill-opacity="0.75">das Gate steht vor gold</text>
+<line x1="852" y1="302" x2="852" y2="207" stroke="currentColor" stroke-opacity="0.4" stroke-width="1.1" stroke-dasharray="4 4" marker-end="url(#pfeil)"/>
+<text x="862" y="280" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.55">ein grüner Lauf wird zum Release</text>
+<line x1="396" y1="363" x2="396" y2="440" stroke="currentColor" stroke-opacity="0.4" stroke-width="1.1" marker-start="url(#pfeil)" marker-end="url(#pfeil)"/>
+<line x1="852" y1="363" x2="852" y2="440" stroke="currentColor" stroke-opacity="0.4" stroke-width="1.1" marker-start="url(#pfeil)" marker-end="url(#pfeil)"/>
+<text x="624" y="416" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.6">lesen: lokal zuerst, S3 als Rückfall</text>
+<text x="624" y="430" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.6">schreiben: lokal, prüfen, dann gezielt publizieren</text>
+<text x="20" y="554" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="600" fill="currentColor" fill-opacity="0.75">Gestrichelt: Steuerung und Freigabe. Durchgezogen: Daten.</text>
+<text x="20" y="572" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">Vier Bänder, eine Strecke: die Werkzeuge prüfen den Code, die Steuerung ruft die Stufen in fester Reihenfolge auf, der Datenfluss durchläuft fünf Schichten —</text>
+<text x="20" y="586" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">und jede Schicht liegt an einem benannten Ort. Stufen und Reihenfolge aus orchestration.run_all.STUFEN, Speicherorte aus docs/storage-architektur.md.</text>
+</svg>

@@ -28,6 +28,8 @@ WERKZEUG = PROJEKT / "tools" / "build_architekturbilder.py"
 BILDER = PROJEKT / "docs" / "bilder"
 PAKETE = BILDER / "architektur-pakete.svg"
 FLUSS = BILDER / "architektur-datenfluss.svg"
+KONTEXT = BILDER / "architektur-kontext.svg"
+ALLE = (PAKETE, FLUSS, KONTEXT)
 
 sys.path.insert(0, str(PROJEKT / "tools"))
 
@@ -39,12 +41,13 @@ def werkzeug():
     return build_architekturbilder
 
 
-def test_beide_bilder_liegen_im_repository():
-    for pfad in (PAKETE, FLUSS):
+def test_alle_bilder_liegen_im_repository():
+    for pfad in ALLE:
         assert pfad.exists(), f"{pfad} fehlt - erzeugen mit {WERKZEUG.name}"
 
 
-@pytest.mark.parametrize("pfad", [PAKETE, FLUSS], ids=["pakete", "datenfluss"])
+@pytest.mark.parametrize("pfad", ALLE,
+                         ids=["pakete", "datenfluss", "kontext"])
 def test_es_ist_wohlgeformtes_svg(pfad):
     wurzel = ET.fromstring(pfad.read_text(encoding="utf-8"))
     assert wurzel.tag.endswith("svg")
@@ -61,7 +64,7 @@ def test_ein_zweiter_lauf_liefert_dieselben_dateien():
     Feldkatalog: Das Werkzeug kennt kein Ausgabeverzeichnis, und ein
     scheiternder Test liess die neu erzeugten SVG im Arbeitsbaum liegen.
     """
-    vorher = {p: p.read_text(encoding="utf-8") for p in (PAKETE, FLUSS)}
+    vorher = {p: p.read_text(encoding="utf-8") for p in ALLE}
     try:
         fertig = subprocess.run([sys.executable, str(WERKZEUG)],
                                 capture_output=True, text=True, cwd=PROJEKT)
@@ -201,3 +204,57 @@ def test_jedes_paket_steht_im_bild(werkzeug):
     svg = PAKETE.read_text(encoding="utf-8")
     fehlend = [p for p in werkzeug.importgraph() if f">{p}<" not in svg]
     assert not fehlend, f"nicht im Bild: {fehlend}"
+
+
+# --------------------------------------------------------------------------
+# Das dritte Bild: Systemkontext neben innerer Architektur
+# --------------------------------------------------------------------------
+
+
+def test_das_kontextbild_nennt_die_gemessenen_zahlen(werkzeug):
+    """Quellen, Schichten, Steuerungsmodule - alle drei aus dem Code gelesen.
+
+    Die Bildunterschrift im Konzept behauptet *"programmatisch erzeugt aus dem
+    beschriebenen Architekturstand"*. Dann muss auch jede Zahl darin aus dem
+    Code stammen und nicht aus der Erinnerung - genau daran ist das erste Bild
+    am 20.9.2026 gescheitert, das seine Kantenzahl als feste 19 mitfuehrte.
+    """
+    from orchestration import run_all
+
+    quellen = {werkzeug._quellname(s.modul) for s in run_all.STUFEN if s.quelle}
+    steuerung = [p.stem for p in (werkzeug.QUELLE / "orchestration").glob("*.py")
+                 if p.stem != "__init__"]
+    beschreibung = ET.fromstring(KONTEXT.read_text(encoding="utf-8")).get("aria-label")
+
+    assert f"{len(quellen)} öffentliche" in beschreibung, beschreibung
+    assert f"{len(run_all.GRUPPEN)} Schichten" in beschreibung, beschreibung
+    assert f"{len(steuerung)} Modulen" in beschreibung, beschreibung
+
+
+def test_jede_quelle_und_jede_schicht_steht_im_kontextbild(werkzeug):
+    """Kommt eine sechste Quelle dazu, darf sie nicht stillschweigend fehlen."""
+    from orchestration import run_all
+
+    svg = KONTEXT.read_text(encoding="utf-8")
+    fehlend = [werkzeug._quellname(s.modul) for s in run_all.STUFEN
+               if s.quelle and f">{werkzeug._quellname(s.modul)}<" not in svg]
+    assert not fehlend, f"Quellen fehlen im Bild: {sorted(set(fehlend))}"
+    for schicht in ("raw + bronze", "silver", "gold", "serving"):
+        assert f">{schicht}<" in svg, f"Schicht fehlt im Bild: {schicht}"
+
+
+def test_das_kontextbild_nennt_die_gepinnte_duckdb_version(werkzeug):
+    """Nicht die zufaellig installierte - sonst haengt das Bild am Rechner."""
+    gepinnt = werkzeug._gepinnt("duckdb")
+    assert gepinnt, "requirements.lock nennt keine DuckDB-Version"
+    svg = KONTEXT.read_text(encoding="utf-8")
+    assert f"DuckDB {gepinnt}" in svg, f"das Bild nennt nicht DuckDB {gepinnt}"
+
+
+def test_die_speichermodi_im_bild_sind_die_erlaubten(werkzeug):
+    from storage import config
+
+    svg = KONTEXT.read_text(encoding="utf-8")
+    assert " | ".join(config.BACKENDS) in svg, (
+        f"das Bild nennt andere Modi als {config.BACKENDS}"
+    )

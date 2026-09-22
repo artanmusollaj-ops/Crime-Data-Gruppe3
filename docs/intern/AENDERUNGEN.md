@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'298** |
+| Tests | **1'303** |
 | `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -157,6 +157,67 @@ Dort überspringt sich derselbe Wächter.
 `requires-python = ">=3.11"` ohne obere Grenze; die CI-Matrix fährt `3.11` und
 `3.13`. 3.14 ist damit eine Version, die das Projekt verspricht und nie prüft —
 weshalb dieser Fehler auf jeder Maschine grün war ausser meiner.
+
+---
+
+## 22.09.2026 · Ein drittes Architekturbild: der Systemkontext (direkt auf main)
+
+Die beiden bisherigen Bilder zeigen je eine **Innenansicht** — wer wessen Code
+benutzt, und was `run_all` tut. Was fehlte, war die Aussensicht: woher die
+Daten kommen, wer die Strecke anstösst, wo sie liegt und womit sie gebaut ist.
+
+`docs/bilder/architektur-kontext.svg`, erzeugt von demselben Werkzeug wie die
+anderen beiden. Vier Bänder, weil das vier verschiedene Fragen sind:
+**Entwicklungswerkzeuge**, **Systemkontext** mit den fünf Quellen, **Datenfluss**
+über die vier Schichten, **Steuerung** links mit gestrichelten Pfeilen, und
+**Speicherorte** unten.
+
+### Jede Zahl darin ist gelesen, keine geschrieben
+
+Das ist der Punkt, an dem das erste Bild zwei Tage zuvor gescheitert war — es
+führte seine Kantenzahl als feste `19` mit, während der Graph 23 hatte. Hier
+kommen sie alle aus dem Code:
+
+| im Bild | gelesen aus |
+| --- | --- |
+| die fünf Quellen | `run_all.STUFEN`, über das Modul je Stufe mit `quelle` |
+| die vier Schichten | `run_all.GRUPPEN` |
+| die vier Steuerungsmodule | das Verzeichnis `orchestration/` |
+| `local \| s3 \| hybrid` | `storage.config.BACKENDS` |
+| DuckDB 1.5.5 | **`requirements.lock`**, nicht die installierte Umgebung |
+| 14 Notebooks, 6 Generatoren | die Verzeichnisse selbst |
+
+Die DuckDB-Version aus der Sperrdatei statt aus `importlib.metadata` zu lesen
+ist kein Detail: Sonst hinge das Bild am Rechner, auf dem es entsteht, und der
+Reproduzierbarkeitstest wäre anderswo rot.
+
+**Warum DuckDB erst ab Silver eingerahmt ist.** Raw und Bronze entstehen mit
+Python und pyarrow — dort wird abgelegt, nicht gerechnet. Erst Silver rechnet,
+und in Serving kommt die zweite Rolle dazu: derselbe Motor ist der Zugang für
+eigene Abfragen. Der gestrichelte Rahmen sagt das, statt es der Bildunterschrift
+zu überlassen.
+
+### Fünf neue Wächter
+
+Reproduzierbarkeit und Wohlgeformtheit gelten jetzt für alle drei Bilder
+(`ALLE` statt `(PAKETE, FLUSS)`). Dazu vier eigene: die Zahlen im `aria-label`,
+jede Quelle und jede Schicht als sichtbarer Kasten, die gepinnte
+DuckDB-Version, und die Speichermodi gegen `BACKENDS`. Kommt eine sechste
+Quelle dazu, fällt der Test — statt dass sie still fehlt.
+
+### Beim Zeichnen aufgefallen
+
+Drei Kollisionen im ersten Entwurf: Die Beschriftung *Datenfluss* lag im
+Pfeilbündel der Quellen, die Untertitel der Speicherkästen sassen auf der
+Kastenkante, und der DuckDB-Rahmen reichte eine Zeile zu weit nach unten in die
+Speicherorte hinein. Alle drei sind Rechenfehler in den Masszahlen, keine
+Geschmacksfragen — und sie fallen nur auf, wenn man das Bild ansieht statt nur
+das SVG zu lesen.
+
+`docs/architektur.md` heisst jetzt *„in drei Bildern"*, die Übersicht steht als
+Abschnitt 1 davor, die übrigen sind nachnummeriert.
+
+**Zahlen.** 1'298 → **1'303 Tests**.
 
 ---
 

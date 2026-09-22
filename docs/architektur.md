@@ -1,4 +1,4 @@
-# Der Aufbau, in zwei Bildern und einem Lesepfad
+# Der Aufbau, in drei Bildern und einem Lesepfad
 
 Dieses Projekt hat **mehr Erklärung als Code** — rund 12'980 Zeilen Prosa
 gegen 12'700 Zeilen Produktionscode, verteilt auf 339 Docstrings, 733
@@ -7,7 +7,7 @@ Juli standen 11'600 gegen 10'569, ein Zehntel mehr Prosa; heute sind es zwei
 Prozent. Was fehlte, war ohnehin kein weiterer Text, sondern ein **Weg
 hinein**. Der steht hier.
 
-Beide Bilder werden von
+Alle drei Bilder werden von
 [`tools/build_architekturbilder.py`](../tools/build_architekturbilder.py)
 **aus dem Code erzeugt**, nicht gezeichnet. Ein Test prüft, dass ein zweiter
 Lauf dieselbe Datei liefert — dieselbe Regel wie bei den Crosswalks und beim
@@ -15,7 +15,34 @@ Feldkatalog. Ein von Hand gezeichnetes Bild wäre am Tag darauf falsch.
 
 ---
 
-## 1 · Wer wessen Code benutzt
+## 1 · Die Übersicht
+
+Die Übersicht verknüpft den Systemkontext mit der internen Architektur. Sie
+differenziert Entwicklungswerkzeuge, Steuerung, Datenfluss und Speicherorte.
+
+![Komponenten und Beziehungen der Plattform](bilder/architektur-kontext.svg)
+
+*Komponenten und Beziehungen der Plattform. Quelle: eigene Darstellung,
+programmatisch erzeugt aus dem beschriebenen Architekturstand. DuckDB ist
+Verarbeitungsengine und SQL-Zugang; SeaweedFS ist die optionale Dateiablage.
+Nicht alle Steuerungspfeile sind eingezeichnet.*
+
+**Was daran gelesen wird und was nicht.** Die fünf Quellen kommen aus
+`run_all.STUFEN`, die vier Schichten aus `run_all.GRUPPEN`, die
+Steuerungsmodule aus dem Verzeichnis `orchestration/`, die Speichermodi aus
+`storage.config.BACKENDS` und die DuckDB-Version aus `requirements.lock` —
+nicht aus der installierten Umgebung, sonst hinge das Bild am Rechner, auf dem
+es entsteht. Fest geschrieben sind nur die Sätze, die nichts zählen, etwa
+*„unveränderliche Läufe"*.
+
+**Warum DuckDB erst ab Silver eingerahmt ist.** Raw und Bronze entstehen mit
+Python und pyarrow; dort wird nichts gerechnet, sondern abgelegt. Erst Silver
+rechnet, und in Serving kommt die zweite Rolle dazu: derselbe Motor ist der
+Zugang für eigene Abfragen.
+
+---
+
+## 2 · Wer wessen Code benutzt
 
 ![Abhängigkeiten zwischen den Paketen](bilder/architektur-pakete.svg)
 
@@ -45,7 +72,7 @@ er liegt (`storage`).
 
 ---
 
-## 2 · Was beim Laufen geschieht
+## 3 · Was beim Laufen geschieht
 
 ![Der Datenfluss in vier Gruppen](bilder/architektur-datenfluss.svg)
 
@@ -84,9 +111,9 @@ je Stadt und Monat, wie gut die Zuordnungen sind, auf denen die drei Zahlen
 ruhen. Eine Vergleichszahl ohne ihre Abdeckung wäre genau die Art Zahl, vor der
 dieses Projekt sonst warnt.
 
-### Die beiden Bilder sagen Verschiedenes — und das ist die Pointe
+### Die beiden Innenansichten sagen Verschiedenes — und das ist die Pointe
 
-Im ersten Bild fehlt eine Kante von `silver_pipeline` zu
+In Bild 2 fehlt eine Kante von `silver_pipeline` zu
 `chicago_pipeline`, obwohl Silver Chicagos Daten liest. Im zweiten Bild steht
 sie. Kein Widerspruch, sondern der Entwurf:
 
@@ -102,7 +129,7 @@ erzwingt — und warum der Storage-Umbau die Pipelines nicht angefasst hat.
 
 ---
 
-## 3 · Ein Lesepfad
+## 4 · Ein Lesepfad
 
 Wer zwanzig Minuten hat und verstehen will, wie das Ganze funktioniert, liest
 diese sechs Stellen in dieser Reihenfolge. Zusammen sind es rund 400 Zeilen.

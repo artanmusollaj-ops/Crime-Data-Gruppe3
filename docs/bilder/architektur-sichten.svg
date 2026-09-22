@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 628" role="img" width="100%" height="auto"
+     aria-label="Das konzeptionelle Modell nach ISO/IEC/IEEE 42010:2022, besetzt mit diesem Projekt: fuenf Stakeholder mit je einem Anliegen, das ein Viewpoint rahmt und der eine konkrete Architektursicht im Repository entspricht; darunter die Korrespondenzen als Tests.">
+<style>
+  svg { color: #14304a; }
+  .signal { fill: #c2410c; }
+  .signal-strich { stroke: #c2410c; }
+  @media (prefers-color-scheme: dark) {
+    svg { color: #dde5ee; }
+    .signal { fill: #dda05c; }
+    .signal-strich { stroke: #dda05c; }
+  }
+</style>
+<defs><marker id="pfeil" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="currentColor"/></marker><marker id="pfeil-signal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" class="signal"/></marker></defs>
+<text x="20" y="26" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="0.85">Stakeholder</text>
+<text x="20" y="41" text-anchor="start" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.5">stakeholder</text>
+<text x="240" y="26" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="0.85">Anliegen</text>
+<text x="240" y="41" text-anchor="start" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.5">concern</text>
+<text x="574" y="26" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="0.85">Viewpoint</text>
+<text x="574" y="41" text-anchor="start" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.5">architecture viewpoint</text>
+<text x="786" y="26" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="0.85">Architektursicht</text>
+<text x="786" y="41" text-anchor="start" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.5">architecture view</text>
+<text x="218.0" y="26" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.55">hat</text>
+<text x="553.0" y="26" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.55">rahmt</text>
+<text x="764.0" y="26" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.55">regelt</text>
+<rect x="20" y="50" width="176" height="72" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="108.0" y="80" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="1.0">Bewertung</text>
+<text x="108.0" y="97" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.68">Dozierende, Review-Zugang</text>
+<rect x="240" y="50" width="292" height="72" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="386.0" y="80" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" font-weight="400" fill="currentColor" fill-opacity="0.85">Lässt sich jede Zahl auf einen benannten Stand</text>
+<text x="386.0" y="95" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" font-weight="400" fill="currentColor" fill-opacity="0.85">zurückführen — und noch einmal erzeugen?</text>
+<rect x="574" y="50" width="168" height="72" rx="5" fill="currentColor" fill-opacity="0.075" stroke="currentColor" stroke-width="1.1" class="signal-strich"/>
+<text x="658.0" y="92" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="13" font-weight="600" class="signal" fill-opacity="1.0">Nachweis</text>
+<rect x="786" y="50" width="314" height="72" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="943.0" y="80" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.8">docs/eine-zahl.md · release.json mit SHA-256</text>
+<text x="943.0" y="95" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.8">je Datei · AKTUELL · pytest -m referenzstand</text>
+<line x1="199" y1="86.0" x2="235" y2="86.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
+<line x1="571" y1="86.0" x2="537" y2="86.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" class="signal-strich" marker-end="url(#pfeil-signal)"/>
+<line x1="745" y1="86.0" x2="781" y2="86.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" class="signal-strich" marker-end="url(#pfeil-signal)"/>
+<rect x="20" y="133" width="176" height="72" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="108.0" y="163" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="1.0">Projektteam</text>
+<text x="108.0" y="180" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.68">Christian, Artan</text>
+<rect x="240" y="133" width="292" height="72" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="386.0" y="163" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" font-weight="400" fill="currentColor" fill-opacity="0.85">Wer benutzt wessen Code, und bleibt der</text>
+<text x="386.0" y="178" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" font-weight="400" fill="currentColor" fill-opacity="0.85">Abhängigkeitsgraph zyklenfrei?</text>
+<rect x="574" y="133" width="168" height="72" rx="5" fill="currentColor" fill-opacity="0.075" stroke="currentColor" stroke-width="1.1" class="signal-strich"/>
+<text x="658.0" y="175" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="13" font-weight="600" class="signal" fill-opacity="1.0">Baustein</text>
+<rect x="786" y="133" width="314" height="72" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="943.0" y="163" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.8">docs/bilder/architektur-pakete.svg ·</text>
+<text x="943.0" y="178" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.8">docs/architektur.md §1 · 10 Pakete, 23 Kanten</text>
+<line x1="199" y1="169.0" x2="235" y2="169.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
+<line x1="571" y1="169.0" x2="537" y2="169.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" class="signal-strich" marker-end="url(#pfeil-signal)"/>
+<line x1="745" y1="169.0" x2="781" y2="169.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" class="signal-strich" marker-end="url(#pfeil-signal)"/>
+<rect x="20" y="216" width="176" height="72" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="108.0" y="246" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="1.0">Betrieb</text>
+<text x="108.0" y="263" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.68">wer den Lauf wiederholt</text>
+<rect x="240" y="216" width="292" height="72" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="386.0" y="246" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" font-weight="400" fill="currentColor" fill-opacity="0.85">Was läuft in welcher Reihenfolge — und was</text>
+<text x="386.0" y="261" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" font-weight="400" fill="currentColor" fill-opacity="0.85">geschieht beim ersten Fehler?</text>
+<rect x="574" y="216" width="168" height="72" rx="5" fill="currentColor" fill-opacity="0.075" stroke="currentColor" stroke-width="1.1" class="signal-strich"/>
+<text x="658.0" y="258" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="13" font-weight="600" class="signal" fill-opacity="1.0">Laufzeit</text>
+<rect x="786" y="216" width="314" height="72" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="943.0" y="246" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.8">docs/bilder/architektur-datenfluss.svg ·</text>
+<text x="943.0" y="261" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.8">run_all.STUFEN · 14 Stufen in vier Gruppen</text>
+<line x1="199" y1="252.0" x2="235" y2="252.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
+<line x1="571" y1="252.0" x2="537" y2="252.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" class="signal-strich" marker-end="url(#pfeil-signal)"/>
+<line x1="745" y1="252.0" x2="781" y2="252.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" class="signal-strich" marker-end="url(#pfeil-signal)"/>
+<rect x="20" y="299" width="176" height="72" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="108.0" y="329" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="1.0">Auswertung</text>
+<text x="108.0" y="346" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.68">wer die Fragen stellt</text>
+<rect x="240" y="299" width="292" height="72" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="386.0" y="329" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" font-weight="400" fill="currentColor" fill-opacity="0.85">Was zählt eine Kennzahl, auf welcher</text>
+<text x="386.0" y="344" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" font-weight="400" fill="currentColor" fill-opacity="0.85">Granularität, und was ist vergleichbar?</text>
+<rect x="574" y="299" width="168" height="72" rx="5" fill="currentColor" fill-opacity="0.075" stroke="currentColor" stroke-width="1.1" class="signal-strich"/>
+<text x="658.0" y="341" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="13" font-weight="600" class="signal" fill-opacity="1.0">Daten</text>
+<rect x="786" y="299" width="314" height="72" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="943.0" y="329" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.8">docs/bilder/stern.svg und granularitaet.svg ·</text>
+<text x="943.0" y="344" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.8">feldkatalog.md · zaehlperspektiven.md</text>
+<line x1="199" y1="335.0" x2="235" y2="335.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
+<line x1="571" y1="335.0" x2="537" y2="335.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" class="signal-strich" marker-end="url(#pfeil-signal)"/>
+<line x1="745" y1="335.0" x2="781" y2="335.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" class="signal-strich" marker-end="url(#pfeil-signal)"/>
+<rect x="20" y="382" width="176" height="72" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="108.0" y="412" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="1.0">Datenhaltung</text>
+<text x="108.0" y="429" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.68">zwei Rechner, ein Stand</text>
+<rect x="240" y="382" width="292" height="72" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="386.0" y="412" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" font-weight="400" fill="currentColor" fill-opacity="0.85">Wo liegt eine Schicht, und wie kommen beide</text>
+<text x="386.0" y="427" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" font-weight="400" fill="currentColor" fill-opacity="0.85">zum selben Datenstand?</text>
+<rect x="574" y="382" width="168" height="72" rx="5" fill="currentColor" fill-opacity="0.075" stroke="currentColor" stroke-width="1.1" class="signal-strich"/>
+<text x="658.0" y="424" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="13" font-weight="600" class="signal" fill-opacity="1.0">Verteilung</text>
+<rect x="786" y="382" width="314" height="72" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="943.0" y="412" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.8">docs/storage-architektur.md ·</text>
+<text x="943.0" y="427" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.8">architektur-uebersicht.svg · lokal oder S3</text>
+<line x1="199" y1="418.0" x2="235" y2="418.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
+<line x1="571" y1="418.0" x2="537" y2="418.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" class="signal-strich" marker-end="url(#pfeil-signal)"/>
+<line x1="745" y1="418.0" x2="781" y2="418.0" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" class="signal-strich" marker-end="url(#pfeil-signal)"/>
+<rect x="20" y="483" width="1080" height="74" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+<text x="38" y="507" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="1.0">Korrespondenzen</text>
+<text x="38" y="524" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.6">im Repository als Wächter, nicht als Zusage</text>
+<text x="300" y="507" text-anchor="start" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" font-weight="600" class="signal" fill-opacity="1.0">test_architekturbilder</text>
+<text x="300" y="524" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.7">Bild und Importgraph nennen dieselben Kanten</text>
+<text x="568" y="507" text-anchor="start" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" font-weight="600" class="signal" fill-opacity="1.0">test_dokumentzahlen</text>
+<text x="568" y="524" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.7">Dokumente und Release nennen dieselbe Zahl</text>
+<text x="836" y="507" text-anchor="start" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" font-weight="600" class="signal" fill-opacity="1.0">test_referenz</text>
+<text x="836" y="524" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10" font-weight="400" fill="currentColor" fill-opacity="0.7">API-Referenz und Code stimmen überein</text>
+<text x="20" y="598" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">Die Pfeilrichtungen folgen dem konzeptionellen Modell der Norm: ein Stakeholder hat ein Anliegen, ein Viewpoint rahmt dieses Anliegen und regelt die Sicht, die es anspricht.</text>
+<text x="20" y="614" text-anchor="start" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">Die Sichten sind keine Absichtserklärung — jede Zeile der rechten Spalte ist eine Datei im Repository. Stand: Release 2026-09-21T12-55-05Z.</text>
+</svg>

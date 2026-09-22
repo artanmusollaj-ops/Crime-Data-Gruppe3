@@ -296,11 +296,172 @@ def bild_datenfluss() -> str:
             + "\n".join(teile) + "\n</svg>\n")
 
 
+# ---------------------------------------------------------------------------
+# Bild 3: der Systemkontext neben der inneren Architektur
+# ---------------------------------------------------------------------------
+# Die beiden anderen Bilder zeigen je eine Innenansicht. Dieses hier setzt sie
+# in ihre Umgebung: Wer stoesst die Strecke an, woher kommen die Daten, wo
+# liegen sie, und womit ist das gebaut. Vier Baender, weil das vier
+# verschiedene Fragen sind, die man sonst in einem Knaeuel beantwortet.
+
+
+def _quellname(modul: str) -> str:
+    """``census_pipeline.download_tiger`` -> ``TIGER``."""
+    letzt = modul.rsplit(".", 1)[-1]
+    roh = letzt.replace("download_", "").replace("extract_", "")
+    return {"acs": "ACS", "tiger": "TIGER", "noaa": "NOAA"}.get(roh, roh.capitalize())
+
+
+def _gepinnt(paket: str) -> str:
+    """Die Version aus requirements.lock - nicht die zufaellig installierte.
+
+    Eine ``importlib.metadata``-Abfrage haette das Bild vom Rechner abhaengig
+    gemacht, auf dem es entsteht. Die Sperrdatei liegt im Repository.
+    """
+    sperre = PROJEKT / "requirements.lock"
+    if sperre.is_file():
+        for zeile in sperre.read_text(encoding="utf-8").splitlines():
+            if zeile.lower().startswith(paket + "=="):
+                return zeile.split("==", 1)[1].strip()
+    return ""
+
+
+def bild_kontext() -> str:
+    from orchestration import run_all
+    from storage import config as speicherconfig
+
+    quellen = sorted({_quellname(s.modul) for s in run_all.STUFEN if s.quelle})
+    schichten = [("raw + bronze", "unveränderliche Läufe"),
+                 ("silver", "gedeutet, zwei Städte eine Tabelle"),
+                 ("gold", "Sternschema + drei Würfel in serving"),
+                 ("serving", "Sichten, Vergleichstabellen, Release")]
+    steuerung = sorted(p.stem for p in (QUELLE / "orchestration").glob("*.py")
+                       if p.stem != "__init__")
+    werkzeuge = sorted(p.stem for p in (PROJEKT / "tools").glob("*.py"))
+    notebooks = len(list((PROJEKT / "notebooks").glob("*.ipynb")))
+    duckdb_version = _gepinnt("duckdb")
+
+    B, RAND = 980, 26
+    SP_B, SP_H = 168, 44          # Spalten- und Kastenmasse der Mitte
+    MITTE_X = 330
+    band_y = RAND + 20
+    quell_y = band_y + 74
+    schicht_y = quell_y + 104
+    ZEILE = 66
+    speicher_y = schicht_y + len(schichten) * ZEILE + 34
+    hoehe = speicher_y + 126
+
+    teile: list[str] = []
+
+    def rahmen(x, y, b, h, titel):
+        teile.append(
+            f'  <rect x="{x:.0f}" y="{y:.0f}" width="{b:.0f}" height="{h:.0f}" rx="7" '
+            f'fill="currentColor" fill-opacity="0.028" stroke="currentColor" '
+            f'stroke-opacity="0.35" stroke-width="1" stroke-dasharray="5 4"/>')
+        teile.append(beschriftung(x, y - 6, titel, gross=True))
+
+    # --- 1 Entwicklungswerkzeuge, als Band ueber allem ---------------------
+    rahmen(RAND, band_y, B - 2 * RAND, 48, "Entwicklungswerkzeuge")
+    teile.append(beschriftung(
+        RAND + 14, band_y + 21,
+        f"Python · DuckDB {duckdb_version} mit spatial · pytest · ruff · "
+        f"{notebooks} Notebooks · {len(werkzeuge)} Generatoren unter tools/"))
+    teile.append(beschriftung(
+        RAND + 14, band_y + 38,
+        "erzeugt mit: " + ", ".join(werkzeuge[:3]) + " …"))
+
+    # --- 2 Systemkontext: die Quellen --------------------------------------
+    beschriftung_y = quell_y - 6
+    teile.append(beschriftung(RAND, beschriftung_y,
+                              f"Systemkontext · {len(quellen)} öffentliche Quellen",
+                              gross=True))
+    q_b = (B - 2 * RAND - (len(quellen) - 1) * 12) / len(quellen)
+    for i, name in enumerate(quellen):
+        x = RAND + i * (q_b + 12)
+        teile.append(kasten(x, quell_y, q_b, 38, name))
+        teile.append(pfeil(x + q_b / 2, quell_y + 38,
+                           MITTE_X + SP_B / 2, schicht_y - 4))
+
+    # --- 3 Datenfluss: die Schichten, als Kette ----------------------------
+    # An den linken Rand wie die uebrigen vier Bandtitel - in der Mitte lag er
+    # im Pfeilbuendel der Quellen.
+    teile.append(beschriftung(RAND, schicht_y - 28, "Datenfluss", gross=True))
+    for i, (name, was) in enumerate(schichten):
+        y = schicht_y + i * ZEILE
+        teile.append(kasten(MITTE_X, y, SP_B, SP_H, name))
+        teile.append(beschriftung(MITTE_X + SP_B + 14, y + 27, was))
+        if i:
+            teile.append(pfeil(MITTE_X + SP_B / 2, y - ZEILE + SP_H,
+                               MITTE_X + SP_B / 2, y - 4))
+
+    # --- 3b DuckDB, als Rahmen um die Schichten, die es traegt -------------
+    # raw und bronze entstehen mit Python und pyarrow; erst ab silver rechnet
+    # DuckDB, und in serving ist es zusaetzlich der Zugang fuer eigene Abfragen.
+    duck_y = schicht_y + ZEILE - 10
+    duck_h = (len(schichten) - 2) * ZEILE + SP_H + 20
+    teile.append(
+        f'  <rect x="{MITTE_X - 12:.0f}" y="{duck_y:.0f}" '
+        f'width="{B - RAND - MITTE_X + 12:.0f}" height="{duck_h:.0f}" rx="7" '
+        f'fill="none" stroke="currentColor" stroke-opacity="0.28" '
+        f'stroke-width="1" stroke-dasharray="2 4"/>')
+    teile.append(beschriftung(
+        MITTE_X - 12, duck_y + duck_h + 16,
+        f"DuckDB {duckdb_version} — Verarbeitungsengine (silver, gold) "
+        "und SQL-Zugang (serving)"))
+
+    # --- 4 Steuerung, links, mit gestrichelten Pfeilen ---------------------
+    st_h = len(steuerung) * 17 + 26
+    st_y = schicht_y + 18
+    rahmen(RAND, st_y, MITTE_X - RAND - 54, st_h, "Steuerung")
+    for i, modul in enumerate(steuerung):
+        teile.append(beschriftung(RAND + 12, st_y + 20 + i * 17,
+                                  f"orchestration.{modul}"))
+    for i in range(len(schichten)):
+        y = schicht_y + i * ZEILE + SP_H / 2
+        teile.append(pfeil(MITTE_X - 50, min(max(y, st_y + 10), st_y + st_h - 10),
+                           MITTE_X - 4, y, gestrichelt=True))
+
+    # --- 5 Speicherorte, unten ---------------------------------------------
+    rahmen(RAND, speicher_y, B - 2 * RAND, 72, "Speicherorte")
+    orte = [("data/ lokal", "alle Schichten, je Lauf ein Verzeichnis"),
+            ("SeaweedFS", "optional, S3-kompatibel"),
+            ("releases/", "gold + serving, mit Prüfsummen")]
+    o_b = (B - 2 * RAND - 28 - (len(orte) - 1) * 14) / len(orte)
+    for i, (name, was) in enumerate(orte):
+        x = RAND + 14 + i * (o_b + 14)
+        teile.append(kasten(x, speicher_y + 12, o_b, 50, name, was,
+                            betont=(name == "SeaweedFS")))
+    teile.append(pfeil(MITTE_X + SP_B / 2,
+                       schicht_y + (len(schichten) - 1) * ZEILE + SP_H,
+                       MITTE_X + SP_B / 2, speicher_y - 4))
+
+    teile.append(beschriftung(
+        RAND, hoehe - 34,
+        f"Modi der Ablage: {' | '.join(speicherconfig.BACKENDS)} — "
+        "local ohne SeaweedFS, s3 ohne lokalen Bestand, hybrid beides."))
+    teile.append(beschriftung(
+        RAND, hoehe - 16,
+        "Durchgezogen: Datenfluss. Gestrichelt: Steuerung — nicht alle "
+        "Steuerungspfeile sind eingezeichnet. DuckDB ist Verarbeitungsengine "
+        "und SQL-Zugang zugleich."))
+
+    beschreibung = (
+        f"Komponenten und Beziehungen der Plattform: {len(quellen)} öffentliche "
+        f"Quellen speisen {len(schichten)} Schichten, gesteuert von "
+        f"{len(steuerung)} Modulen unter orchestration; abgelegt lokal unter "
+        f"data/, optional auf SeaweedFS, veröffentlicht als Release. "
+        f"Entwickelt mit Python, DuckDB {duckdb_version}, pytest und ruff."
+    )
+    return (KOPF.format(breite=B, hoehe=hoehe, beschreibung=beschreibung)
+            + "\n".join(teile) + "\n</svg>\n")
+
+
 def main() -> int:
     BILDER.mkdir(parents=True, exist_ok=True)
     for name, inhalt in (
         ("architektur-pakete.svg", bild_pakete(importgraph())),
         ("architektur-datenfluss.svg", bild_datenfluss()),
+        ("architektur-kontext.svg", bild_kontext()),
     ):
         (BILDER / name).write_text(inhalt, encoding="utf-8")
         print(f"docs/bilder/{name} geschrieben")
