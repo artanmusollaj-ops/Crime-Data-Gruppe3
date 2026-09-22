@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 
@@ -237,15 +238,25 @@ CLICKHOUSE = os.environ.get("CLICKHOUSE_URL", "http://localhost:18123/")
 
 
 class HttpKlient:
-    """So duenn, wie das Modul es verlangt: ``befehl`` und ``abfrage``."""
+    """So duenn, wie das Modul es verlangt: ``befehl`` und ``abfrage``.
 
-    def __init__(self, url: str):
+    ``datenbank`` ist nicht Bequemlichkeit, sondern Notwendigkeit:
+    ``sicht_umlegen`` benennt die Sicht immer nach dem Ziel, also
+    ``fact_offense``. Liefe der Test in ``default``, loeschte sein Aufraeumen
+    die Sicht, die dort einen echten Stand bedient - genau das ist beim ersten
+    Lauf passiert. Er bekommt deshalb eine eigene Datenbank und raeumt die ganz
+    weg.
+    """
+
+    def __init__(self, url: str, datenbank: str = "default"):
         import requests
 
         self.url, self.requests = url, requests
+        self.datenbank = datenbank
 
     def befehl(self, sql: str) -> None:
-        antwort = self.requests.post(self.url, data=sql.encode("utf-8"), timeout=60)
+        antwort = self.requests.post(f"{self.url}?database={self.datenbank}",
+                                     data=sql.encode("utf-8"), timeout=60)
         if antwort.status_code != 200:
             raise AssertionError(f"{antwort.status_code}: {antwort.text[:300]}")
 
@@ -253,8 +264,8 @@ class HttpKlient:
         # JSONCompact und nicht TSV: TSV liefert alles als Text, und wer ihn
         # zurueckrät, macht aus dem County '001' die Zahl 1.
         antwort = self.requests.post(
-            self.url, data=(sql + " FORMAT JSONCompact").encode("utf-8"),
-            timeout=60)
+            f"{self.url}?database={self.datenbank}",
+            data=(sql + " FORMAT JSONCompact").encode("utf-8"), timeout=60)
         if antwort.status_code != 200:
             raise AssertionError(f"{antwort.status_code}: {antwort.text[:300]}")
         return [tuple(zeile) for zeile in antwort.json()["data"]]
@@ -262,13 +273,21 @@ class HttpKlient:
 
 @pytest.fixture
 def clickhouse():
+    """Eine eigene Datenbank je Test - und sie verschwindet danach ganz."""
     requests = pytest.importorskip("requests")
     try:
         antwort = requests.post(CLICKHOUSE, data=b"SELECT 1", timeout=2)
         antwort.raise_for_status()
     except Exception:
         pytest.skip(f"kein ClickHouse unter {CLICKHOUSE}")
-    return HttpKlient(CLICKHOUSE)
+
+    name = f"pruefung_{uuid4().hex[:12]}"
+    verwalter = HttpKlient(CLICKHOUSE)
+    verwalter.befehl(f"CREATE DATABASE {name}")
+    try:
+        yield HttpKlient(CLICKHOUSE, name)
+    finally:
+        verwalter.befehl(f"DROP DATABASE IF EXISTS {name}")
 
 
 def werte_anweisung(parquet: Path):
@@ -299,40 +318,38 @@ def test_clickhouse_nimmt_die_erzeugte_ddl_an(tmp_path, clickhouse):
     """Der Test, der die Schachtelung von LowCardinality gefunden haette."""
     parquet = beispiel(tmp_path)
     kennung = "9999-01-01T00-00-00Z"
-    ziel = lc.tabellenname(kennung)
-    try:
-        bericht = lc.lade(clickhouse, kennung, parquet,
-                          einfuegen=werte_anweisung(parquet))
-        assert bericht["zeilen"] == 3
-        assert clickhouse.abfrage(f"SELECT count() FROM {ziel}")[0][0] == 3
-        typen = dict(clickhouse.abfrage(
-            f"SELECT name, type FROM system.columns WHERE table='{ziel}'"))
-        assert typen["reporting_city"] == "LowCardinality(String)"
-        assert typen["nibrs_code"] == "LowCardinality(Nullable(String))"
-        assert typen["offense_id"] == "String", "ohne NULL kein Nullable"
-    finally:
-        clickhouse.befehl(f"DROP TABLE IF EXISTS {ziel}")
-        clickhouse.befehl("DROP VIEW IF EXISTS fact_offense")
+    tabelle = lc.tabellenname(kennung)
+
+    bericht = lc.lade(clickhouse, kennung, parquet,
+                      einfuegen=werte_anweisung(parquet))
+
+    assert bericht["zeilen"] == 3
+    assert clickhouse.abfrage(f"SELECT count() FROM {tabelle}")[0][0] == 3
+    typen = dict(clickhouse.abfrage(
+        f"SELECT name, type FROM system.columns WHERE table = '{tabelle}' "
+        f"AND database = '{clickhouse.datenbank}'"))
+    assert typen["reporting_city"] == "LowCardinality(String)"
+    assert typen["nibrs_code"] == "LowCardinality(Nullable(String))"
+    assert typen["offense_id"] == "String", "ohne NULL kein Nullable"
 
 
 def test_ein_unvollstaendiger_lauf_bewegt_die_sicht_nicht(tmp_path, clickhouse):
     """Dieselbe Gegenprobe wie oben, nur gegen eine echte Datenbank."""
     parquet = beispiel(tmp_path)
     voll, halb = "9999-01-01T00-00-00Z", "9999-02-02T00-00-00Z"
-    try:
-        lc.lade(clickhouse, voll, parquet, einfuegen=werte_anweisung(parquet))
-        vorher = clickhouse.abfrage("SELECT count() FROM fact_offense")[0][0]
+    einfuegen = werte_anweisung(parquet)
 
-        einfuegen = werte_anweisung(parquet)
-        with pytest.raises(lc.LadeFehler, match="zeilen"):
-            lc.lade(clickhouse, halb, parquet,
-                    einfuegen=lambda z: einfuegen(z).rsplit(", (", 1)[0])
+    lc.lade(clickhouse, voll, parquet, einfuegen=einfuegen)
+    vorher = clickhouse.abfrage("SELECT count() FROM fact_offense")[0][0]
 
-        assert clickhouse.abfrage("SELECT count() FROM fact_offense")[0][0] == vorher
-    finally:
-        for kennung in (voll, halb):
-            clickhouse.befehl(f"DROP TABLE IF EXISTS {lc.tabellenname(kennung)}")
-        clickhouse.befehl("DROP VIEW IF EXISTS fact_offense")
+    with pytest.raises(lc.LadeFehler, match="zeilen"):
+        lc.lade(clickhouse, halb, parquet,
+                einfuegen=lambda z: einfuegen(z).rsplit(", (", 1)[0])
+
+    assert clickhouse.abfrage("SELECT count() FROM fact_offense")[0][0] == vorher
+    assert clickhouse.abfrage(
+        f"SELECT count() FROM {lc.tabellenname(halb)}")[0][0] == 2, (
+        "die halbe Tabelle liegt daneben und stoert niemanden")
 
 
 # --------------------------------------------------------------------------

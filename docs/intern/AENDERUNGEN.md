@@ -221,6 +221,20 @@ Gegen ClickHouse 26.9.1, aus Release `2026-09-21T12-55-05Z`:
 Alle fünf Abgleiche bestanden, alle fünf Sichten umgelegt, zusammen unter einer
 Sekunde.
 
+### Ein Mangel in den eigenen Integrationstests
+
+Nach dem Laden aller fünf war die Sicht `fact_offense` plötzlich weg — die
+Dimensionen standen, die Fakten nicht. Ursache: Die beiden Integrationstests
+liefen in `default` und räumten im `finally` `DROP VIEW fact_offense` auf.
+`sicht_umlegen` benennt die Sicht immer nach dem Ziel, also legen sie dieselbe
+Sicht an wie ein echter Ladelauf — **und löschen beim Aufräumen eine, die ihnen
+nicht gehört.**
+
+Auf einem ClickHouse, das einen echten Stand bedient, hätte ein Testlauf ihn
+abgeschaltet. Behoben: Jeder Test bekommt eine eigene Datenbank
+(`pruefung_<zufall>`), die danach ganz verschwindet. `default` bleibt unberührt
+— nachgeprüft.
+
 **Zahlen.** 1'317 → **1'322 Tests**.
 
 ---
