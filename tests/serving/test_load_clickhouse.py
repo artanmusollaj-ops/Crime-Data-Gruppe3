@@ -12,6 +12,7 @@ entschieden ist; sie traegt deshalb ``referenzstand``.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -171,7 +172,7 @@ def test_der_gute_fall_legt_die_sicht_zuletzt_um(tmp_path):
     parquet = beispiel(tmp_path)
     db = FalscheDatenbank(antworten_aus(parquet))
     bericht = lc.lade(db, "2026-09-21T12-55-05Z", parquet,
-                      s3_url="u", s3_schluessel="k", s3_geheim="g")
+                      einfuegen=lambda z: lc.einfuegen_aus_s3(z, "u", "k", "g"))
 
     assert bericht["zeilen"] == 3 and bericht["schluessel"] == 3
     assert db.befehle[0].startswith("CREATE TABLE")
@@ -194,7 +195,7 @@ def test_eine_fehlende_zeile_laesst_die_sicht_stehen(tmp_path):
 
     with pytest.raises(lc.LadeFehler, match="zeilen"):
         lc.lade(db, "2026-09-21T12-55-05Z", parquet,
-                s3_url="u", s3_schluessel="k", s3_geheim="g")
+                einfuegen=lambda z: lc.einfuegen_aus_s3(z, "u", "k", "g"))
     assert not any(b.startswith("CREATE OR REPLACE VIEW") for b in db.befehle), (
         "nach einem gescheiterten Abgleich darf die Sicht nicht wandern"
     )
@@ -211,7 +212,7 @@ def test_eine_verschobene_verteilung_faellt_auch_auf(tmp_path):
 
     with pytest.raises(lc.LadeFehler, match="Verteilung"):
         lc.lade(db, "2026-09-21T12-55-05Z", parquet,
-                s3_url="u", s3_schluessel="k", s3_geheim="g")
+                einfuegen=lambda z: lc.einfuegen_aus_s3(z, "u", "k", "g"))
 
 
 # --------------------------------------------------------------------------
@@ -232,3 +233,116 @@ def test_fuer_jede_gold_spalte_ist_ein_typ_entschieden():
     for s in felder:
         s.clickhouse          # wirft LadeFehler, wenn ein Typ fehlt
     lc.ddl(lc.tabellenname("2026-09-21T12-55-05Z"), felder)
+
+
+# --------------------------------------------------------------------------
+# Gegen ein echtes ClickHouse - wenn eines laeuft
+# --------------------------------------------------------------------------
+# Die uebrigen Tests pruefen erzeugten Text. Ob ClickHouse ihn auch annimmt,
+# sagen sie nicht: ``Nullable(LowCardinality(String))`` sah bis zum ersten
+# echten Lauf voellig richtig aus und wird von ClickHouse verweigert. Dieser
+# Test schliesst die Luecke und ueberspringt sich, wo keine Datenbank steht.
+#
+#     docker run -d --name crime-clickhouse -p 18123:8123 \
+#         clickhouse/clickhouse-server:latest
+#     CLICKHOUSE_URL=http://localhost:18123/ python -m pytest tests/serving
+
+CLICKHOUSE = os.environ.get("CLICKHOUSE_URL", "http://localhost:18123/")
+
+
+class HttpKlient:
+    """So duenn, wie das Modul es verlangt: ``befehl`` und ``abfrage``."""
+
+    def __init__(self, url: str):
+        import requests
+
+        self.url, self.requests = url, requests
+
+    def befehl(self, sql: str) -> None:
+        antwort = self.requests.post(self.url, data=sql.encode("utf-8"), timeout=60)
+        if antwort.status_code != 200:
+            raise AssertionError(f"{antwort.status_code}: {antwort.text[:300]}")
+
+    def abfrage(self, sql: str) -> list[tuple]:
+        antwort = self.requests.post(
+            self.url, data=(sql + " FORMAT TSV").encode("utf-8"), timeout=60)
+        if antwort.status_code != 200:
+            raise AssertionError(f"{antwort.status_code}: {antwort.text[:300]}")
+        return [tuple(int(f) if f.lstrip("-").isdigit() else f
+                      for f in zeile.split("\t"))
+                for zeile in antwort.text.strip().splitlines()]
+
+
+@pytest.fixture
+def clickhouse():
+    requests = pytest.importorskip("requests")
+    try:
+        antwort = requests.post(CLICKHOUSE, data=b"SELECT 1", timeout=2)
+        antwort.raise_for_status()
+    except Exception:
+        pytest.skip(f"kein ClickHouse unter {CLICKHOUSE}")
+    return HttpKlient(CLICKHOUSE)
+
+
+def werte_anweisung(parquet: Path):
+    """Die Zeilen des Beispiels als INSERT - der Weg der Daten ist hier egal."""
+    import duckdb
+
+    con = duckdb.connect()
+    try:
+        felder = [s.name for s in lc.spalten(parquet)]
+        zeilen = con.execute(f"SELECT * FROM read_parquet('{parquet}')").fetchall()
+    finally:
+        con.close()
+
+    def als_wert(v):
+        if v is None:
+            return "NULL"
+        if isinstance(v, bool):
+            return "1" if v else "0"
+        if isinstance(v, (int, float)):
+            return str(v)
+        return "'" + str(v).replace("'", "\\'") + "'"
+
+    tupel = ", ".join("(" + ", ".join(als_wert(v) for v in z) + ")" for z in zeilen)
+    return lambda ziel: f"INSERT INTO {ziel} ({', '.join(felder)}) VALUES {tupel}"
+
+
+def test_clickhouse_nimmt_die_erzeugte_ddl_an(tmp_path, clickhouse):
+    """Der Test, der die Schachtelung von LowCardinality gefunden haette."""
+    parquet = beispiel(tmp_path)
+    kennung = "9999-01-01T00-00-00Z"
+    ziel = lc.tabellenname(kennung)
+    try:
+        bericht = lc.lade(clickhouse, kennung, parquet,
+                          einfuegen=werte_anweisung(parquet))
+        assert bericht["zeilen"] == 3
+        assert clickhouse.abfrage(f"SELECT count() FROM {ziel}")[0][0] == 3
+        typen = dict(clickhouse.abfrage(
+            f"SELECT name, type FROM system.columns WHERE table='{ziel}'"))
+        assert typen["reporting_city"] == "LowCardinality(String)"
+        assert typen["nibrs_code"] == "LowCardinality(Nullable(String))"
+        assert typen["offense_id"] == "String", "ohne NULL kein Nullable"
+    finally:
+        clickhouse.befehl(f"DROP TABLE IF EXISTS {ziel}")
+        clickhouse.befehl("DROP VIEW IF EXISTS fact_offense")
+
+
+def test_ein_unvollstaendiger_lauf_bewegt_die_sicht_nicht(tmp_path, clickhouse):
+    """Dieselbe Gegenprobe wie oben, nur gegen eine echte Datenbank."""
+    parquet = beispiel(tmp_path)
+    voll, halb = "9999-01-01T00-00-00Z", "9999-02-02T00-00-00Z"
+    try:
+        lc.lade(clickhouse, voll, parquet, einfuegen=werte_anweisung(parquet))
+        vorher = clickhouse.abfrage("SELECT count() FROM fact_offense")[0][0]
+
+        einfuegen = werte_anweisung(parquet)
+        with pytest.raises(lc.LadeFehler, match="zeilen"):
+            lc.lade(clickhouse, halb, parquet,
+                    einfuegen=lambda z: einfuegen(z).rsplit(", (", 1)[0])
+
+        assert clickhouse.abfrage("SELECT count() FROM fact_offense")[0][0] == vorher
+    finally:
+        for kennung in (voll, halb):
+            clickhouse.befehl(f"DROP TABLE IF EXISTS {lc.tabellenname(kennung)}")
+        clickhouse.befehl("DROP VIEW IF EXISTS fact_offense")

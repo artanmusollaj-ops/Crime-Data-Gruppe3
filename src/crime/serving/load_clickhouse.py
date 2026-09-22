@@ -32,6 +32,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from collections.abc import Callable
 from typing import Any, Protocol
 
 import pyarrow.parquet as pq
@@ -206,6 +207,16 @@ def einfuegen_aus_s3(tabelle: str, url: str, schluessel: str, geheim: str) -> st
             f"'{url}', '{schluessel}', '{geheim}', 'Parquet')")
 
 
+def einfuegen_aus_datei(tabelle: str, pfad: str) -> str:
+    """Derselbe Insert, aber aus ``user_files`` statt aus S3.
+
+    Fuer den Fall, dass ClickHouse das Release-Verzeichnis eingehaengt
+    bekommt - beim Entwickeln, im Test, und ueberall dort, wo man den Weg
+    beweisen will, ohne Zugangsdaten in eine Kommandozeile zu schreiben.
+    """
+    return f"INSERT INTO {tabelle} SELECT * FROM file('{pfad}', 'Parquet')"
+
+
 def sicht_umlegen(tabelle: str) -> str:
     """Der Zeigerwechsel. Bis hierher sieht niemand den neuen Stand."""
     return f"CREATE OR REPLACE VIEW {TABELLE} AS SELECT * FROM {tabelle}"
@@ -288,14 +299,19 @@ def aktuelles_release(datenwurzel: Path) -> tuple[str, Path]:
     return kennung, parquet
 
 
-def lade(klient: Klient, kennung: str, parquet: Path, *, s3_url: str,
-         s3_schluessel: str, s3_geheim: str) -> dict[str, Any]:
-    """Anlegen, fuellen, pruefen, umlegen - in dieser Reihenfolge."""
+def lade(klient: Klient, kennung: str, parquet: Path, *,
+         einfuegen: Callable[[str], str]) -> dict[str, Any]:
+    """Anlegen, fuellen, pruefen, umlegen - in dieser Reihenfolge.
+
+    ``einfuegen`` bekommt den Zieltabellennamen und liefert die
+    Insert-Anweisung. Damit weiss dieser Ablauf nicht, ob die Daten aus S3
+    oder aus einem eingehaengten Verzeichnis kommen - und muss es nicht.
+    """
     ziel = tabellenname(kennung)
     felder = spalten(parquet)
 
     klient.befehl(ddl(ziel, felder))
-    klient.befehl(einfuegen_aus_s3(ziel, s3_url, s3_schluessel, s3_geheim))
+    klient.befehl(einfuegen(ziel))
 
     fragen = abgleich_clickhouse(ziel)
     gefunden = {

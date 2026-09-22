@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'315** |
+| Tests | **1'317** |
 | `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -221,7 +221,45 @@ geweigert.
 Dazu ein dritter, den ein bestehender Wächter fand: `args.data_root` muss durch
 `for_root` gehen, sonst scheitert der Lauf im `s3`-Modus. Nachgezogen.
 
-**Zahlen.** 1'303 → **1'315 Tests**.
+### Nachgereicht: gegen ein echtes ClickHouse
+
+Der Docker-Daemon lief eine Stunde später, und damit liess sich prüfen, was
+erzeugter Text nie zeigt. **Die Schachtelung war der Beweis wert**:
+`Nullable(LowCardinality(String))` sah richtig aus und wird von ClickHouse
+verweigert — ohne laufende Datenbank wäre das bis zum ersten Ladelauf
+unentdeckt geblieben.
+
+Gegen ClickHouse 26.9.1, aus dem Release `2026-09-21T12-55-05Z` geladen:
+
+| | |
+| --- | --- |
+| Zeilen | 345'073, Abgleich bestanden, Sicht umgelegt |
+| auf der Platte | 17,4 MiB in 12 Parts (Parquet: 14,3 MB) |
+| `reporting_city` | `LowCardinality(String)` |
+| `nibrs_code` | `LowCardinality(Nullable(String))` |
+| `offense_id` | `String` — ohne NULL kein Nullable |
+
+**Der Sortierschlüssel wirkt messbar.** Dieselben Fragen wie in Notebook 34:
+
+| Abfrage | gelesene Zeilen von 345'073 |
+| --- | ---: |
+| Stadt + Code + ein Tag | **8'192** |
+| Code + ein Monat, beide Städte | **30'684** |
+| Deliktfamilie, ohne Stadt- und Datumsfilter | 345'073 |
+
+8'192 ist eine Granule — ClickHouse überspringt den Rest, weil
+`(reporting_city, date)` die Sortierung ist. Die Zeiten liegen bei 3 bis 5 ms
+und damit **nicht** unter DuckDB (0,4 bis 4,5 ms). Bei diesem Umfang gewinnt
+ClickHouse nichts; der Gewinn läge bei vielen gleichzeitigen Lesern.
+
+**Die Gegenprobe am echten System:** Ein Ladelauf, der nur 1'000 statt 345'073
+Zeilen schreibt, lässt die Sicht stehen. Die halbe Tabelle liegt daneben und
+stört niemanden — genau wie ein abgebrochener `.part`-Upload.
+
+Zwei Tests halten das fest; sie überspringen sich, wo kein ClickHouse läuft
+(`CLICKHOUSE_URL`, Vorgabe `http://localhost:18123/`).
+
+**Zahlen.** 1'303 → **1'317 Tests**.
 
 ---
 
