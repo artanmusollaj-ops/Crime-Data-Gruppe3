@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'353** |
+| Tests | **1'404** |
 | `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,80 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 28.09.2026 · Kibana, und die Dashboards stehen als Code (#PR)
+
+Ein im Browser zusammengeklicktes Dashboard lebt in Kibanas eigenem Index. Es
+laesst sich nicht lesen, nicht vergleichen, nicht begruenden, und es ist weg,
+sobald jemand den Container neu aufsetzt. Alles andere in diesem Projekt ist
+reproduzierbar; das waere die eine Stelle, an der man sich auf einen Zustand
+verlaesst, den niemand nachbauen kann.
+
+`serving/build_kibana` beschreibt die Dashboards deshalb und legt sie ueber die
+Saved-Objects-Schnittstelle an. **Drei Bretter, 13 Tafeln, 17 Objekte.**
+
+**Eine Beschreibung, zwei Darstellungen.** Jede `Tafel` sagt einmal, was sie
+zeigt. Daraus entsteht beides: das Lens-Dokument fuer Kibana **und** die
+gleichwertige Elasticsearch-Abfrage. Ein Test stellt sie wirklich und prueft,
+dass etwas zurueckkommt. Damit ist nicht nur belegt, dass das JSON angenommen
+wurde, sondern dass die Tafel auch etwas anzeigen *kann* — ein Dashboard, das
+sauber importiert und leer bleibt, ist bei erzeugten Dashboards der Normalfall.
+
+**Die erste Datei mit Docker.** Bis hierher liefen ClickHouse und
+Elasticsearch von Hand gestartet, und das ging, solange sie nichts voneinander
+wollten. Kibana will: Es braucht Elasticsearch unter einem aufloesbaren Namen,
+und auf Dockers Standardbruecke gibt es keine Namensaufloesung. Ein Netz, das
+jemand von Hand anlegt, ist genau die Voraussetzung, die beim Nachbauen fehlt —
+also `docker-compose.yml`, mit allen drei Diensten und benannten Volumes.
+
+**Was Kibana nicht prueft, und wir jetzt schon.**
+
+- *Das Zeitfenster.* Kibana zeigt beim Oeffnen die letzten 15 Minuten; unsere
+  Daten enden 2024. Ohne `timeRestore` oeffnet sich jedes Dashboard leer, und
+  nichts deutet darauf hin, dass nur der Zeitraum falsch steht. Das Fenster
+  kommt aus dem Release.
+- *Gruppieren auf `text`.* `source_offense_description` liegt als `text` mit
+  `.keyword`-Unterfeld. Eine Tafel, die das Feld direkt gruppiert, importiert
+  anstandslos und bleibt leer. Ein Test haelt die Entscheidung gegen die echte
+  Abbildung im Index — und prueft auch die Gegenrichtung, damit niemand
+  vorsorglich ein `.keyword` an ein Feld haengt, das schon `keyword` ist.
+- *Verweise ins Leere.* Kibana legt ein Dashboard auch dann an, wenn seine
+  Tafeln fehlen; beim Oeffnen steht dann *Could not locate that panel*.
+- *Kacheln, die nichts anzeigen.* Ein XY-Diagramm zeigt genau einen
+  Gruppierungs- und einen Aufteilungsverweis. Eine dritte Gruppierung laege in
+  den Spalten und wuerde nirgends verwendet.
+
+**Zwei Fehler im eigenen Entwurf, gefunden am Bild.**
+
+1. Drei Bretter haben je eine Tafel `gesamt`, zwei davon heissen verschieden —
+   *Delikte insgesamt* und *Treffer*. Ohne den Brettnamen in der Kennung
+   ueberschrieb das letzte Anlegen die anderen. Jetzt traegt jede Kennung ihr
+   Brett, und ein Test haelt die Eindeutigkeit fest.
+2. Der Tagesverlauf war nach Haeufigkeit sortiert (0, 12, 17, 16, …) und damit
+   eine Rangliste statt eines Verlaufs. `Eimer` kennt jetzt eine Ordnung, und
+   sie gilt in beiden Darstellungen gleich.
+
+**`unique_count` schaetzt.** Kibana setzt es auf `cardinality` um, und das ist
+HyperLogLog — bis zur Genauigkeitsschwelle exakt, darueber ungefaehr, ohne dass
+die Kachel es sagt. Die Schwelle wird jetzt gesetzt statt der Voreinstellung
+ueberlassen. Gemessen liegen die beiden Kacheln bei **1'146** Tracts und
+**429** Quellcodes, weit darunter.
+
+**Die Bilder entstehen, statt abgelegt zu werden.**
+`tools/build_dashboardbilder.py` fotografiert die laufenden Dashboards nach
+`docs/bilder/`. Ein Werkzeug und kein Test: Es braucht die Dienste, geladene
+Daten und einen Chrome, und das gehoert in die Hand dessen, der die Abgabe
+baut. Kibanas eigene Bildausgabe (*Reporting*) braucht eine kostenpflichtige
+Lizenz.
+
+**Der README kannte die Analyseplattform bisher gar nicht** — auch ClickHouse
+nicht. Abschnitt 2.6 traegt sie jetzt nach, mit Ports, Zusagen und der
+Begruendung, warum die Ports verschoben sind.
+
+**Zahlen.** 1'353 → **1'404 Tests**. Der Standardlauf sammelt davon **1'327**;
+das Konzept nennt beide.
 
 ---
 

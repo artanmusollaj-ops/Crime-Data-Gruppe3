@@ -1,0 +1,90 @@
+# Die Analyseplattform - ein Aufruf statt drei gemerkter Kommandozeilen.
+#
+#     docker compose up -d
+#     python -m serving.load_elasticsearch
+#     python -m serving.build_kibana
+#
+# **Warum es diese Datei gibt.** Bis hierher liefen ClickHouse und
+# Elasticsearch von Hand gestartet, und das ging, solange sie nichts
+# voneinander wollten. Kibana will: Es braucht Elasticsearch unter einem
+# Namen, den es aufloesen kann. Auf Dockers Standardbruecke gibt es keine
+# Namensaufloesung, also brauchte es ohnehin ein eigenes Netz - und ein Netz,
+# das jemand von Hand anlegt, ist genau die Art Voraussetzung, die beim
+# Nachbauen fehlt.
+#
+# **Die Ports sind bewusst verschoben.** 9200 und 5601 sind die
+# Voreinstellungen und auf Entwicklungsrechnern regelmaessig belegt - auf
+# diesem sass auf 9200 ein OpenSearch aus einem anderen Projekt. Ein eigener
+# Port kostet nichts und nimmt niemandem seinen Dienst weg.
+#
+# **Die Daten liegen in benannten Volumes.** Ein Neustart verliert damit
+# nichts. Loeschen darf man sie trotzdem jederzeit: Alles darin ist aus einem
+# Release in Sekunden wieder herstellbar, und keine Zahl der Abgabe haengt an
+# diesen Diensten - sie haengt am Release.
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    ports:
+      - "18123:8123"      # HTTP, hierueber laeuft load_clickhouse
+      - "19000:9000"      # natives Protokoll, fuer clickhouse-client
+    ulimits:
+      # ClickHouse oeffnet im Betrieb sehr viele Dateien. Ohne das warnt es
+      # beim Start und arbeitet langsamer, als es muesste.
+      nofile: {soft: 262144, hard: 262144}
+    volumes:
+      - clickhouse-daten:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    environment:
+      discovery.type: single-node
+      # Ein Dienst neben der Pipeline, nicht im Netz: Ohne diese Zeile
+      # verlangt Elasticsearch 8 Zertifikate und Passwoerter, und der erste
+      # Zugriff scheitert an einer Einrichtung, die hier nichts schuetzt.
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+    ports:
+      - "19200:9200"
+    volumes:
+      - elasticsearch-daten:/usr/share/elasticsearch/data
+    healthcheck:
+      # Gelb genuegt: Ein einzelner Knoten bekommt seine Repliken nie
+      # zugewiesen. Unsere Indizes fordern deshalb gar keine (siehe
+      # ``load_elasticsearch.mapping``), aber Kibanas eigene tun es.
+      test: ["CMD-SHELL", "curl -fs 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s'"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.0
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      # Der Dienstname aus dieser Datei - genau deshalb gibt es sie.
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      # Kibana legt seine gespeicherten Objekte unter einer Kennung ab, die
+      # es sich sonst zufaellig waehlt. Fest vergeben heisst: Ein neu
+      # aufgesetztes Kibana findet dieselben Dashboards wieder.
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: "bitte_nur_lokal_verwenden_mindestens_32_zeichen"
+    ports:
+      - "15601:5601"
+    volumes:
+      - kibana-daten:/usr/share/kibana/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:5601/api/status | grep -q '\"level\":\"available\"'"]
+      interval: 10s
+      timeout: 10s
+      retries: 40
+
+volumes:
+  clickhouse-daten:
+  elasticsearch-daten:
+  kibana-daten:

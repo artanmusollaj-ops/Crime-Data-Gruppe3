@@ -162,8 +162,12 @@ def test_die_referenzzahlen_stimmen_mit_den_uebrigen_dokumenten(teil_a):
 # --------------------------------------------------------------------------
 
 
+# ``docker-compose.yml`` stand hier bis zum 28.9.2026 und ist seitdem gebaut -
+# allerdings nur fuer die drei Analysedienste, nicht fuer den Betrieb. Teil B
+# benennt die Ausnahme ausdruecklich; bewacht wird weiter der Schritt, um den
+# es in B.2 eigentlich geht: ein Image fuer die Strecke selbst.
 GEPLANT = {
-    "Docker": ("docker-compose.yml", "compose.yaml", "Dockerfile"),
+    "Docker": ("Dockerfile",),
     "Elasticsearch": (),
     "Grafana": (),
 }
