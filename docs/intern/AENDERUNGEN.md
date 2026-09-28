@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'322** |
+| Tests | **1'353** |
 | `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,60 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 28.09.2026 · Elasticsearch neben ClickHouse — für die Fragen, die SQL schlecht stellt (#122)
+
+Zwei Kopien derselben Daten sind ein Fehler, solange beide dasselbe können.
+Diese kann etwas anderes, und das ist gemessen und nicht behauptet:
+
+- **Volltext.** `source_offense_description` trägt **421** verschiedene
+  Beschreibungen. Wer „explosive" sucht, findet in Elasticsearch **12** Fälle
+  über **drei** Beschreibungen hinweg, ohne eine davon zu kennen. In ClickHouse
+  wäre das `LIKE '%EXPLOSIVE%'` über 345'073 Zeilen.
+- **Umkreis.** **342'727** der 345'073 Zeilen tragen Koordinaten. *Alle Delikte
+  im Umkreis von 500 m* ist eine `geo_distance`-Zeile — im Chicagoer Loop sind
+  das **3'394**. Genau diese Frageform braucht eine Wirkungsanalyse zu einer
+  ortsgebundenen Massnahme.
+
+**Drei Indizes, nicht fünf.** `dim_date` (Kalender) und `dim_city_day`
+(Wetterzahlen) tragen weder Text noch Ort. Sie liegen in ClickHouse und
+gehören nicht ein zweites Mal abgelegt — dasselbe Argument, mit dem
+`serving/__init__` gegen materialisierte Tabellen argumentiert.
+
+**Dieselbe Zusage wie bei ClickHouse.** Geladen wird in einen Index, dessen
+Name das Release trägt; erst nach bestandenem Abgleich zeigt der **Alias**
+darauf. Elasticsearch legt einen Aliaswechsel atomar um, wenn Entfernen und
+Hinzufügen in einem Aufruf stehen.
+
+**Eindeutigkeit wird erzwungen statt geschätzt.** Elasticsearch hat keine
+exakte Zählung verschiedener Werte — `cardinality` schätzt (HyperLogLog) und
+trägt keinen Nachweis. Stattdessen ist der Schlüssel die Dokumentkennung: Zwei
+gleiche Schlüssel ergeben ein Dokument, und die Zeilenzahl fällt. Die
+Zeilenprüfung **ist** damit die Schlüsselprüfung. Ein Test hält das fest.
+
+**Was der Lauf gegen einen echten Dienst gefunden hat.** Das Testdoppel hatte
+`GET /_alias/<name>` als gutmütig nachgebildet. Der echte Dienst antwortet mit
+**404**, solange der Alias nicht existiert — also beim allerersten Laden immer,
+und `ignore_unavailable` hilft dort nicht, es gilt für fehlende Indizes.
+Gefragt wird deshalb die Gesamtliste und in Python gefiltert. Dieselbe Lehre
+wie beim ClickHouse-Teil: Ein Doppel prüft, was man ihm beigebracht hat.
+
+**Gemessen statt angenommen.** Kein einziger der 345'073 Zeitstempel trägt
+Bruchteile einer Sekunde. Elasticsearchs `date` löst Millisekunden auf und
+verliert hier also nichts — aber das ist eine Messung und keine Eigenschaft der
+Welt, und deshalb hält `pruefe_zeitgenauigkeit` sie fest, statt sie zu glauben.
+
+**Der Lauf.** 351'440 Dokumente in drei Indizes, in 10 Sekunden, jeder gegen
+das Release abgeglichen (Zeilen, Schlüssel, Verteilung). Release
+`2026-09-21T12-55-05Z`, unverändert — es wurde nichts neu gebaut.
+
+**Nebenbei richtiggestellt.** Konzept 10 versprach, `python -m pytest` liefere
+die Gesamtzahl. Der Standardlauf wählt die Referenzwächter ab und sammelt
+**1'276** von 1'353; die Zeile nennt jetzt beide.
+
+**Zahlen.** 1'322 → **1'353 Tests**.
 
 ---
 

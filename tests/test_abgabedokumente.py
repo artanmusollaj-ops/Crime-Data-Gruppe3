@@ -305,22 +305,41 @@ def test_das_konzept_nennt_die_testzahl_ueberall_gleich(konzept):
     aber 864 - dasselbe Dokument, zwei Zahlen, und die falsche stand vorn.
     Geprueft wird deshalb **jede** Stelle: Kurzfassung, Tabelle 5.3 und der
     Reproduktionsweg in Kapitel 10.
+
+    **Zwei Zahlen sind erlaubt, aber nur diese zwei.** Kapitel 10 beschreibt
+    ``python -m pytest``, und der Standardlauf waehlt die Referenzwaechter ab:
+    Er sammelt weniger als das Ganze. Bis zum 28.9. nannte das Konzept auch
+    dort die Gesamtzahl, und dieser Test bestand darauf - die Zusage war
+    dadurch bewacht **und** falsch. Gemessen werden jetzt beide Staende;
+    genannt werden darf nur, was einer von ihnen ist. Gegen den Fall von
+    damals schuetzt das unveraendert: 627 ist keiner von beiden.
     """
     genannte = {
         int(z.replace("'", ""))
         for z in re.findall(r"([0-9']+) (?:automatisierte |bestandene )?Tests?\b", konzept)
     }
     assert len(genannte) >= 1, "Das Konzept nennt keine Testzahl"
-    fertig = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only",
-         "-o", "addopts=", "-p", "no:cacheprovider"],
-        capture_output=True, text=True, cwd=PROJECT_ROOT,
-    )
-    treffer = re.search(r"([0-9]+) tests? collected", fertig.stdout)
+
+    def sammle(*zusatz: str) -> str:
+        return subprocess.run(
+            [sys.executable, "-m", "pytest", "--collect-only",
+             "-p", "no:cacheprovider", *zusatz],
+            capture_output=True, text=True, cwd=PROJECT_ROOT,
+        ).stdout
+
+    treffer = re.search(r"([0-9]+) tests? collected", sammle("-o", "addopts="))
     if treffer is None:
-        pytest.skip(f"Sammellauf lieferte keine Zahl: {fertig.stdout[-200:]}")
+        pytest.skip("Sammellauf lieferte keine Zahl")
     gesammelt = int(treffer.group(1))
-    assert genannte == {gesammelt}, (
-        f"Das Konzept nennt {sorted(genannte)} Tests, gesammelt werden {gesammelt}. "
+
+    # Der Standardlauf meldet "1276/1353 tests collected (77 deselected)".
+    # Fehlt der Schraegstrich, waehlt gerade nichts ab - dann gibt es auch
+    # keine zweite gueltige Zahl.
+    eng = re.search(r"([0-9]+)/[0-9]+ tests? collected", sammle())
+    erlaubt = {gesammelt} | ({int(eng.group(1))} if eng else set())
+
+    assert genannte <= erlaubt and gesammelt in genannte, (
+        f"Das Konzept nennt {sorted(genannte)} Tests, gueltig sind "
+        f"{sorted(erlaubt)} (ganz / ohne Referenzwaechter). "
         "Alle drei Stellen mitziehen: Kurzfassung, Tabelle 5.3, Kapitel 10."
     )

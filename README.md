@@ -224,7 +224,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'322
+python -m pytest -m ""               # beides zusammen, alle 1'353
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -710,7 +710,7 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 python -m pytest
 ```
 
-**1'322 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'353 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
