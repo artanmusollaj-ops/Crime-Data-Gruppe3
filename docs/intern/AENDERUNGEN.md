@@ -91,7 +91,7 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
-## 28.09.2026 · Kibana, und die Dashboards stehen als Code (#PR)
+## 28.09.2026 · Kibana, und die Dashboards stehen als Code (#123)
 
 Ein im Browser zusammengeklicktes Dashboard lebt in Kibanas eigenem Index. Es
 laesst sich nicht lesen, nicht vergleichen, nicht begruenden, und es ist weg,
