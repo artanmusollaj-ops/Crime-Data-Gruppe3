@@ -91,7 +91,7 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
-## 28.09.2026 · Elasticsearch neben ClickHouse — für die Fragen, die SQL schlecht stellt (direkt auf main)
+## 28.09.2026 · Elasticsearch neben ClickHouse — für die Fragen, die SQL schlecht stellt (#122)
 
 Zwei Kopien derselben Daten sind ein Fehler, solange beide dasselbe können.
 Diese kann etwas anderes, und das ist gemessen und nicht behauptet:
