@@ -216,7 +216,7 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'353 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Pull Request** | 1'404 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
 | **Frischer Klon** | 1'176 davon — die übrigen 27 brauchen gebaute Daten; 71 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 70 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
@@ -246,9 +246,16 @@ Oberfläche ausser Notebooks und der DuckDB-Konsole. Genau hier setzt Teil B an.
 
 # Teil B · Die Ziel-Architektur
 
-**Nichts in diesem Teil ist gebaut.** Er beschreibt, wie die Plattform für LN2
-und einen echten Betrieb aussehen soll, und nennt zu jedem Baustein, was er
-löst und was er kostet.
+**Nichts in diesem Teil ist gebaut** — mit einer Ausnahme, die seit dem
+28.9.2026 gilt und hier benannt gehört, statt den Satz aufzuweichen: Ein
+`docker-compose.yml` für die drei **Analysedienste** (ClickHouse,
+Elasticsearch, Kibana) existiert und läuft lokal, siehe README 2.6. Das ist
+der Verbund auf dem Entwicklungsrechner, nicht der Betrieb: kein Server, kein
+Tunnel, keine Anmeldung, und die Pipeline selbst ist weiterhin ein Skript.
+
+Ansonsten beschreibt dieser Teil, wie die Plattform für LN2 und einen echten
+Betrieb aussehen soll, und nennt zu jedem Baustein, was er löst und was er
+kostet.
 
 ## B.1 Das Bild
 
@@ -281,6 +288,12 @@ löst und was er kostet.
 **Was.** Jede Komponente als Docker-Image, zusammengehalten von einem
 Compose-Verbund. Die Pipeline selbst wird ein Container, der zeitgesteuert
 läuft, statt eines Skripts, das jemand auf seinem Laptop startet.
+
+**Halb gebaut.** Der Compose-Verbund gibt es für die Analysedienste; sie
+starten mit einem Befehl und finden einander über ein eigenes Netz. Was fehlt,
+ist der Schritt, um den es hier eigentlich geht: **ein Image für die Strecke
+selbst.** Solange das nicht steht, ist der Verbund eine Bequemlichkeit beim
+Entwickeln und keine Betriebszusage.
 
 **Was es löst.** Heute läuft die Strecke auf genau einer Maschine, und ihre
 Abhängigkeiten sind ein `requirements.lock` plus die Hoffnung, dass der

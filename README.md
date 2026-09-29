@@ -224,7 +224,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'353
+python -m pytest -m ""               # beides zusammen, alle 1'404
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -685,6 +685,65 @@ python -m storage publizieren --wirklich   # lädt es hoch
 
 Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 
+### 2.6 Die Analyseplattform — ClickHouse, Elasticsearch, Kibana
+
+Bis hierher sind die Daten aufbereitet. Wer sie *befragen* will, ohne DuckDB zu
+starten, bekommt drei Dienste:
+
+```bash
+docker compose up -d                    # ClickHouse, Elasticsearch, Kibana
+python -m serving.load_clickhouse        # Sternschema für SQL
+python -m serving.load_elasticsearch     # Volltext und Umkreis
+python -m serving.build_kibana           # die Dashboards anlegen
+```
+
+| Dienst | Port | wofür |
+| --- | ---: | --- |
+| ClickHouse | 18123 | SQL über das Sternschema, Aggregationen über Millionen Zeilen |
+| Elasticsearch | 19200 | Volltext über die Deliktbeschreibung, Umkreissuche über `geo_point` |
+| Kibana | 15601 | die Dashboards, und die Suchleiste als Einstieg |
+
+Die Ports sind bewusst verschoben. 9200 und 5601 sind die Voreinstellungen und
+auf Entwicklungsrechnern regelmässig belegt — auf einem lief bereits ein
+fremdes OpenSearch auf 9200. Ein eigener Port kostet nichts und nimmt niemandem
+seinen Dienst weg.
+
+**Beide Ladeschichten laden nie in den sichtbaren Namen.** Sie schreiben in
+eine Tabelle beziehungsweise einen Index, dessen Name das Release trägt,
+prüfen danach gegen das Release (Zeilen, Schlüssel, Verteilung) und legen erst
+dann die Sicht beziehungsweise den Alias darauf um. Fällt die Prüfung, bleibt
+der alte Stand stehen — dasselbe Versprechen wie das `.part`-Umbenennen in
+`storage`.
+
+**Die Dashboards stehen als Code.** Ein im Browser zusammengeklicktes Dashboard
+lebt in Kibanas eigenem Index: nicht lesbar, nicht vergleichbar, und weg,
+sobald jemand den Container neu aufsetzt. `serving/build_kibana` beschreibt sie
+stattdessen und legt sie über die Schnittstelle an. Drei gibt es:
+
+| Dashboard | zeigt |
+| --- | --- |
+| Überblick | Gesamtzahl, Verlauf je Monat getrennt nach Stadt, Deliktfamilien, häufigste Delikte |
+| Datenqualität | dieselben Grössen, gegen die das Publish-Gate prüft: Zuordnung auf NIBRS und Verortung |
+| Deliktarten | Tagesverlauf und Beschreibungen der Quelle — Einstieg für die Volltextsuche |
+
+![Überblick](docs/bilder/dashboard-crime-ueberblick.png)
+
+Die Bilder entstehen aus den laufenden Dashboards und veralten deshalb nicht
+still:
+
+```bash
+python tools/build_dashboardbilder.py    # braucht die Dienste und einen Chrome
+```
+
+> **Warum das Zeitfenster festgeschrieben ist.** Kibana zeigt beim Öffnen die
+> letzten 15 Minuten. Unsere Daten enden 2024. Ohne festes Fenster öffnete sich
+> jedes Dashboard leer, und nichts deutete darauf hin, dass nur der Zeitraum
+> falsch steht. Es kommt deshalb aus dem Release.
+
+Alles in diesen Diensten ist **abgeleitet und wegwerfbar**: `docker compose
+down -v` löscht es, die drei Befehle oben stellen es in Sekunden wieder her.
+Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.
+
 ## 3 · Wenn etwas klemmt
 
 | Symptom | Ursache und Abhilfe |
@@ -710,7 +769,7 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 python -m pytest
 ```
 
-**1'353 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'404 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
