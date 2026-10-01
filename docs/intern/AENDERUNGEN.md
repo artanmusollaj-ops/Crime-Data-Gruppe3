@@ -91,7 +91,7 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
-## 01.10.2026 · Was die Quelle geaendert hat, steht jetzt in einer Tabelle (#PR)
+## 01.10.2026 · Was die Quelle geändert hat, steht jetzt in einer Tabelle (#126)
 
 `docs/intern/datenhistorie.md` rechnete am 16.9. vor, was beim Aufraeumen
 verlorengeht: **31,9 MB Schnappschuesse fuer 102 geaenderte Zeilen.** Die
