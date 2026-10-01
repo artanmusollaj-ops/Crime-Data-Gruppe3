@@ -5942,7 +5942,6 @@ Versehen. Jeder Pull Request ab #24 ist entweder oben ein Eintrag oder hier.
 | #34 | erste Fassung der Deliktgliederung | **nicht gemergt** — ersetzt durch #35 |
 | #41 | erste Fassung des toten Zwillings | **nicht gemergt** — durch das Löschen des Basis-Branches geschlossen, neu als #42 |
 | #125 | erste Fassung dieser Einstiegsseite | **nicht gemergt** — GitHub schloss ihn, als beim Merge von #124 dessen Branch gelöscht wurde; er war darauf aufgebaut. Neu als #127 |
-| #126 | Änderungstabelle aus den Bronze-Schnappschüssen | **offen** — sein Eintrag steht im Pull Request selbst und kommt beim Merge hierher; diese Zeile entfällt dann |
 | #50 | ein überholter Kommentar in `build_analysis_db.py` | eine Zeile, ändert keine Aussage |
 | #80 | `docs/detroit-schichten.html` entfernt — der Entwurf „Detroit-Schichten angleichen" aus der Zeit vor #39 | veraltet und nirgends verlinkt; was daraus wurde, steht in `DETROIT_PIPELINE_ANLEITUNG.md` und Konzept 7.3. Christian hat es entschieden |
 | #81 | `docs/chicago-ingestion.html` entfernt — eine dritte, unverlinkte Beschreibung derselben Pipeline | veraltet (kein Storage-Backend, keine `contract_version`, 259 270 statt 259 272 Zeilen) und nirgends verlinkt; der Inhalt steht im Modul-Docstring, in Notebook 02, README 2.1 und Konzept 6 |
