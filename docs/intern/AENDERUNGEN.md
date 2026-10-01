@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'445** |
+| Tests | **1'470** |
 | `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -157,7 +157,7 @@ den fuenf vorhandenen Schnappschuessen entsteht kein neues Vergleichspaar
 mehr** - die Tabelle hoert auf zu wachsen, nicht weil sich nichts aendert,
 sondern weil wir nicht mehr hinsehen.
 
-**Zahlen.** 1'404 → **1'429 Tests**.
+**Zahlen.** 1'445 → **1'470 Tests**.
 ## 01.10.2026 · Die Einstiegsseite — eine Datei, kein Dienst (#127)
 
 Wer ankommt, will wissen: Was liegt hier, und wo frage ich es? Das brauchte
