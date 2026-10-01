@@ -91,7 +91,7 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
-## 01.10.2026 · Vier Orte, und niemand verglich sie (#PR)
+## 01.10.2026 · Vier Orte, und niemand verglich sie (#124)
 
 Es gibt inzwischen vier Stellen, die behaupten, die Daten zu zeigen: die
 Arbeits-Gold-Schicht (auf der die DuckDB-Sichten liegen), ClickHouse,
