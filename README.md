@@ -488,6 +488,46 @@ können.
 
 ---
 
+### 2.3b Was die Quelle geändert hat
+
+Für die Auswertung zählt der aktuelle Stand. Die Quellen bewegen sich aber:
+Detroit ändert Einträge noch Jahre nach der Tat. Diese Bewegung ist selbst ein
+Gegenstand — und sie steckt nur implizit in den Bronze-Läufen, bis jemand
+aufräumt.
+
+```bash
+python -m silver_pipeline.build_source_change            # Unterschiede herausziehen
+python -m silver_pipeline.build_source_change --trocken  # nur zeigen, welche Paare
+```
+
+Verglichen werden aufeinanderfolgende **Vollschnappschüsse** derselben Stadt;
+heraus kommt `silver/dataset=source_change`, append-only, eine Zeile je
+geändertem Feld:
+
+| `art` | heisst |
+| --- | --- |
+| `geaendert` | etwas Fachliches hat sich bewegt |
+| `beruehrt` | nur ein Zeitstempel — die Quelle hat die Zeile angefasst, ohne dass sich fachlich etwas änderte |
+| `neu` / `verschwunden` | der Schlüssel steht nur in einem der beiden Schnappschüsse |
+| `unveraendert` | zwischen diesen beiden hat sich **nichts** bewegt (auch das ist ein Befund) |
+
+> **Warum nicht einfach alle Felder vergleichen.** `ESRI_OID` ist die
+> Zeilennummer der ArcGIS-Antwort und bewegt sich bei **88'677 von 88'685**
+> Zeilen; 150 von 160 Beschreibungsänderungen waren reine Leerzeichen, weil die
+> Quelle auf feste Breite auffüllt. Ein naiver Vergleich erzeugt Faktor **870**
+> Rauschen, in dem die hundert echten Änderungen nicht zu finden sind. Die
+> Rechnung steht in [`docs/intern/datenhistorie.md`](docs/intern/datenhistorie.md).
+
+Die Tabelle ist über `build_analysis_db` sofort in DuckDB abfragbar:
+
+```sql
+SELECT wert_alt, wert_neu, count(*) FROM source_change
+WHERE feld = 'state_offense_code' GROUP BY 1, 2 ORDER BY 3 DESC;
+```
+
+**Das Aufräumen kennt sie.** Ein Vollschnappschuss, dessen Unterschied noch
+nicht gezogen ist, bleibt stehen — siehe 2.4, Regel 4.
+
 ### 2.4 Aufräumen — was von Raw und Bronze bleiben muss
 
 Jeder Lauf legt ein neues Verzeichnis an, nichts wird überschrieben. Das ist

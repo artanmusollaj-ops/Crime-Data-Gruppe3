@@ -46,12 +46,12 @@ Zugang für eigene Abfragen.
 
 ![Abhängigkeiten zwischen den Paketen](bilder/architektur-pakete.svg)
 
-Zehn Pakete, 23 Kanten, **keine Zyklen** — das prüft ein Test, denn es ist
+Zehn Pakete, 24 Kanten, **keine Zyklen** — das prüft ein Test, denn es ist
 eine Aussage über die Architektur und nicht über die Zeichnung.
 
-**Warum nur sechs Pfeile gezeichnet sind.** Siebzehn der 23 Kanten zeigen auf
+**Warum nur sieben Pfeile gezeichnet sind.** Siebzehn der 24 Kanten zeigen auf
 `manifeste` und `storage`. Alle zu zeichnen ergibt ein Knäuel, in dem die
-sechs übrigen untergehen — und genau die tragen die Aussage. Die beiden
+sieben übrigen untergehen — und genau die tragen die Aussage. Die beiden
 Fundamente stehen deshalb als Band darunter, und die Bildunterschrift sagt,
 wer sie benutzt.
 
