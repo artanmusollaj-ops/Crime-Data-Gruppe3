@@ -224,7 +224,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'435
+python -m pytest -m ""               # beides zusammen, alle 1'445
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -740,6 +740,25 @@ python tools/build_dashboardbilder.py    # braucht die Dienste und einen Chrome
 > jedes Dashboard leer, und nichts deutete darauf hin, dass nur der Zeitraum
 > falsch steht. Es kommt deshalb aus dem Release.
 
+**Wo ein Analyst anfängt.**
+
+```bash
+python tools/build_einstieg.py           # erzeugt docs/einstieg.html
+```
+
+Eine Datei, kein Dienst — [`docs/einstieg.html`](docs/einstieg.html) öffnet man
+mit einem Doppelklick. Darauf steht, was im aktuellen Release liegt
+(Zeilen, Spalten, Zeitraum, Vertragsversion, Code-Verweis), die Kennzahlen
+beider Städte, die Güteziffern gegen die Schwellen des Publish-Gates, und wo
+man was fragt. **Jede Zahl wird beim Erzeugen gemessen**, keine ist
+abgeschrieben.
+
+> **Kein Zeitstempel, kein eingefrorener Dienstzustand.** Beides machte die
+> Seite unreproduzierbar, und ein festgehaltenes „alles in Ordnung" wäre eine
+> Behauptung über die Vergangenheit — eine Seite, die sagt, Kibana laufe, weil
+> es vor drei Tagen lief. Für alles Lebendige nennt sie den Befehl statt eines
+> alten Ergebnisses. Ein Test hält das fest.
+
 **Zeigen alle vier noch dasselbe?**
 
 ```bash
@@ -797,7 +816,7 @@ Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.
 python -m pytest
 ```
 
-**1'435 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'445 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen

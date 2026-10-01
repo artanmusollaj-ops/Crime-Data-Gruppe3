@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="de">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Einstieg · Release 2026-09-21T12-55-05Z</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap">
+<style>
+  :root {
+    --paper:#f6f8fa; --surface:#ffffff; --sunk:#eef1f5; --ink:#141b25;
+    --muted:#5b6a7d; --rule:#d7dee7; --rule-2:#bfc9d6;
+    --accent:#17627f; --accent-soft:#dcecf3;
+    --signal:#9c5010; --signal-soft:#f6e7d6;
+    --gut:#1d6b4f; --gut-soft:#dcefe6;
+    --f-head:"IBM Plex Serif",Georgia,"Times New Roman",serif;
+    --f-body:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    color-scheme: light;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--sunk); color:var(--ink);
+    font-family:var(--f-body); -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+  }
+  main { max-width:1040px; margin:0 auto; padding:32px 16px 72px; }
+
+  header.kopf { border-bottom:2px solid var(--ink); padding-bottom:18px; margin-bottom:28px; }
+  .eyebrow {
+    font-family:var(--f-mono); font-size:11px; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--muted); margin:0 0 8px;
+  }
+  h1 { font-family:var(--f-head); font-weight:600; font-size:34px; margin:0 0 10px;
+       letter-spacing:-.015em; line-height:1.1; }
+  .lead { color:var(--muted); margin:0; max-width:68ch; }
+  .lead strong { color:var(--ink); font-weight:600; }
+
+  section { margin:0 0 34px; }
+  h2 { font-family:var(--f-head); font-weight:600; font-size:20px; margin:0 0 4px; }
+  .unter { color:var(--muted); font-size:14px; margin:0 0 14px; max-width:68ch; }
+
+  table { border-collapse:collapse; width:100%; background:var(--surface);
+          border:1px solid var(--rule); font-size:14px; }
+  caption { text-align:left; color:var(--muted); font-size:13px; padding:0 0 6px; }
+  th, td { padding:7px 12px; text-align:left; border-bottom:1px solid var(--rule); }
+  thead th { background:var(--paper); font-weight:600; font-size:12.5px;
+             letter-spacing:.02em; color:var(--muted); }
+  tbody tr:last-child td { border-bottom:0; }
+  td.n, th.n { text-align:right; font-family:var(--f-mono);
+               font-variant-numeric:tabular-nums; }
+  td.name { font-family:var(--f-mono); }
+
+  .karten { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); }
+  .karte { background:var(--surface); border:1px solid var(--rule);
+           border-top:3px solid var(--accent); padding:16px 18px 18px; }
+  .karte h3 { font-family:var(--f-head); font-size:17px; margin:0 0 2px; }
+  .karte .rolle { font-family:var(--f-mono); font-size:11px; letter-spacing:.08em;
+                  text-transform:uppercase; color:var(--accent); margin:0 0 10px; }
+  .karte p { font-size:13.5px; color:var(--muted); margin:0 0 12px; }
+  .karte a.knopf {
+    display:inline-block; font-family:var(--f-mono); font-size:12.5px;
+    color:var(--accent); text-decoration:none; border:1px solid var(--rule-2);
+    padding:5px 11px; background:var(--paper);
+  }
+  .karte a.knopf:hover { background:var(--accent-soft); border-color:var(--accent); }
+
+  pre { font-family:var(--f-mono); font-size:12.5px; line-height:1.55;
+        background:var(--paper); border:1px solid var(--rule);
+        padding:11px 13px; overflow-x:auto; margin:0 0 12px; }
+  code { font-family:var(--f-mono); font-size:.93em; }
+
+  .marke { font-family:var(--f-mono); font-size:11px; padding:2px 7px;
+           border-radius:3px; font-weight:500; white-space:nowrap; }
+  .marke.gut { background:var(--gut-soft); color:var(--gut); }
+  .marke.warn { background:var(--signal-soft); color:var(--signal); }
+
+  .hinweis { border-left:3px solid var(--signal); background:var(--signal-soft);
+             padding:11px 15px; font-size:13.5px; margin:14px 0 0; }
+  .hinweis strong { font-weight:600; }
+
+  dl.fakten { display:grid; grid-template-columns:auto 1fr; gap:5px 18px;
+              margin:0; font-size:14px; }
+  dl.fakten dt { color:var(--muted); }
+  dl.fakten dd { margin:0; font-family:var(--f-mono); }
+
+  footer { border-top:1px solid var(--rule); margin-top:40px; padding-top:14px;
+           color:var(--muted); font-size:12.5px; }
+  @media (max-width:640px) { h1 { font-size:26px; } main { padding:22px 16px 48px; } }
+</style>
+<main>
+<header class="kopf">
+  <p class="eyebrow">Chicago · Detroit · Vergleich der Kriminalitätslage</p>
+  <h1>Einstieg</h1>
+  <p class="lead">Was hier liegt, und wo man es fragt. Alles auf dieser Seite
+  ist aus dem Release <strong>2026-09-21T12-55-05Z</strong> gemessen — keine
+  Zahl ist abgeschrieben. Die Seite wird erzeugt, nicht gepflegt.</p>
+</header>
+
+<section>
+  <h2>Der Stand</h2>
+  <p class="unter">Jede Zahl im Projekt lässt sich auf genau dieses Release
+  zurückführen. Der Code-Verweis sagt, mit welchem Stand es gebaut wurde.</p>
+  <dl class="fakten"><dt>Release</dt><dd>2026-09-21T12-55-05Z</dd><dt>erstellt</dt><dd>2026-09-21T12:55:05Z</dd><dt>Zeitraum der Daten</dt><dd>2024-01-01 bis 2024-12-31</dd><dt>Vertrag gold</dt><dd>5</dd><dt>Code</dt><dd>1fc6bbaa7278</dd><dt>Eingangs-Fingerabdruck</dt><dd>74404b8b71d8ce39…</dd></dl>
+</section>
+
+<section>
+  <h2>Was drin liegt</h2>
+  <p class="unter">Ein Sternschema: eine Faktentabelle, vier Dimensionen.</p>
+  <table><thead><tr><th>Datensatz</th><th class="n">Zeilen</th><th class="n">Spalten</th><th class="n">MB</th></tr></thead><tbody><tr><td><span class="name">dim_city_day</span></td><td class="n">732</td><td class="n">11</td><td class="n">&lt; 0,1</td></tr><tr><td><span class="name">dim_date</span></td><td class="n">366</td><td class="n">11</td><td class="n">&lt; 0,1</td></tr><tr><td><span class="name">dim_offense</span></td><td class="n">85</td><td class="n">11</td><td class="n">&lt; 0,1</td></tr><tr><td><span class="name">dim_tract</span></td><td class="n">6'282</td><td class="n">14</td><td class="n">0,3</td></tr><tr><td><span class="name">fact_offense</span></td><td class="n">345'073</td><td class="n">22</td><td class="n">14,3</td></tr></tbody></table>
+</section>
+
+<section>
+  <h2>Die beiden Städte</h2>
+  <p class="unter">Gezählt werden nur Delikte in Tracts, die einer der beiden
+  Städte zugeordnet sind — sonst verglichen man Stadtgebiete verschiedenen
+  Zuschnitts.</p>
+  <table><thead><tr><th>Stadt</th><th class="n">Delikte</th><th class="n">Einwohner</th><th class="n">je 1&#x27;000</th></tr></thead><tbody><tr><td><strong>Chicago</strong></td><td class="n">251'516</td><td class="n">2'661'953</td><td class="n"><strong>94,5</strong></td></tr><tr><td><strong>Detroit</strong></td><td class="n">84'761</td><td class="n">638'635</td><td class="n"><strong>132,7</strong></td></tr></tbody></table>
+  <p class="hinweis"><strong>Absolute Zahlen führen hier in die Irre.</strong>
+  Chicago hat in fast jeder Kategorie mehr Fälle und ist zugleich viermal so
+  gross. Erst die Rate macht die beiden vergleichbar.</p>
+</section>
+
+<section>
+  <h2>Güte der Daten</h2>
+  <p class="unter">Keine Zahl ohne ihre Unsicherheit.</p>
+  <table><caption>Dieselben Grössen, gegen die das Publish-Gate prüft. Gold entsteht nur, wenn jede Stadt jede Schwelle hält.</caption><thead><tr><th>Stadt</th><th class="n">im Stadtgebiet verortet</th><th class="n">exakt auf NIBRS</th><th class="n">nicht zugeordnet</th></tr></thead><tbody><tr><td><strong>Chicago</strong></td><td class="n">96,88 %&nbsp;<span class="marke gut">mindestens 90</span></td><td class="n">95,59 %&nbsp;<span class="marke gut">mindestens 85</span></td><td class="n">0,00 %&nbsp;<span class="marke gut">höchstens 1</span></td></tr><tr><td><strong>Detroit</strong></td><td class="n">99,20 %&nbsp;<span class="marke gut">mindestens 90</span></td><td class="n">95,17 %&nbsp;<span class="marke gut">mindestens 85</span></td><td class="n">0,00 %&nbsp;<span class="marke gut">höchstens 1</span></td></tr></tbody></table>
+</section>
+
+<section>
+  <h2>Wo man fragt</h2>
+  <p class="unter">Drei Zugänge, je nach Frage. Die Verweise zeigen auf den
+  lokalen Verbund — sie tragen nur, wenn er läuft.</p>
+  <div class="karten"><article class="karte"><p class="rolle">SQL über das Sternschema</p><h3>ClickHouse</h3><p>Aggregationen über Millionen Zeilen. Die eingebaute Konsole liegt unter <code>/play</code> — kein weiteres Werkzeug nötig.</p><pre>SELECT reporting_city,
+       nibrs_family,
+       count() AS n
+FROM fact_offense
+GROUP BY 1, 2
+ORDER BY n DESC
+LIMIT 10</pre><a class="knopf" href="http://localhost:18123/play">ClickHouse öffnen</a></article><article class="karte"><p class="rolle">Volltext und Umkreis</p><h3>Elasticsearch</h3><p>Was SQL schlecht kann: ein Wort in der Beschreibung finden, oder alles im Umkreis von 500 m um einen Punkt.</p><pre>GET /fact_offense/_search
+{&quot;query&quot;: {
+  &quot;geo_distance&quot;: {
+    &quot;distance&quot;: &quot;500m&quot;,
+    &quot;standort&quot;: {
+      &quot;lat&quot;: 41.8827,
+      &quot;lon&quot;: -87.6233}}}}</pre><a class="knopf" href="http://localhost:19200/fact_offense/_search?pretty">Elasticsearch öffnen</a></article><article class="karte"><p class="rolle">Die Dashboards</p><h3>Kibana</h3><p>Drei Bretter, als Code gebaut. Die Suchleiste oben durchsucht die Beschreibung der Quelle.</p><a class="knopf" href="http://localhost:15601/app/dashboards">Kibana öffnen</a></article></div>
+</section>
+
+<section>
+  <h2>Starten</h2>
+  <p class="unter">Alles in diesen Diensten ist abgeleitet und wegwerfbar.
+  Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.</p>
+  <pre>docker compose up -d
+python -m serving.load_clickhouse
+python -m serving.load_elasticsearch
+python -m serving.build_kibana</pre>
+  <p class="unter">Ob danach alle vier Orte denselben Stand zeigen, beantwortet
+  ein Befehl. Diese Seite beantwortet es <em>nicht</em>: Sie ist eine Datei und
+  weiss nichts davon, was gerade läuft — ein festgehaltenes „alles in Ordnung"
+  wäre eine Behauptung über die Vergangenheit.</p>
+  <pre>python -m serving.pruefe_stand</pre>
+</section>
+
+<footer>
+  Erzeugt von <code>tools/build_einstieg.py</code> aus Release
+  2026-09-21T12-55-05Z. Nicht von Hand ändern — der nächste Lauf
+  überschreibt es. Weiter: <a href="referenz/index.html">Code-Referenz</a> ·
+  <a href="architektur-ist-und-ziel.md">Architektur</a>
+</footer>
+</main>
+</html>

@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'435** |
+| Tests | **1'445** |
 | `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,49 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 01.10.2026 · Die Einstiegsseite — eine Datei, kein Dienst (#127)
+
+Wer ankommt, will wissen: Was liegt hier, und wo frage ich es? Das brauchte
+bisher jemanden, der es erklaert. `tools/build_einstieg.py` schreibt
+`docs/einstieg.html` - **erzeugt, nicht gepflegt.** Dieselbe Bauart wie
+`build_referenz.py` und `build_architekturbilder.py`.
+
+Kein zusaetzlicher Dienst: Die Frage *"was liegt hier?"* braucht keinen
+laufenden Prozess, sondern eine Antwort, die stimmt. Auf der Seite stehen
+Release-Kennung, Vertragsversion und Code-Verweis, die Datensaetze mit Zeilen-
+und Spaltenzahlen, die Kennzahlen beider Staedte, die Gueteziffern gegen die
+Schwellen des Publish-Gates, und die drei Zugaenge mit je einem Beispiel.
+**Jede Zahl wird beim Erzeugen gemessen.**
+
+**Kein Zeitstempel - und das ist die Entscheidung, die die Seite traegt.** Ein
+*"zuletzt erzeugt am ..."* waere verlockend und machte zwei Laeufe
+unvergleichbar; ein festgehaltener Dienstzustand waere schlimmer: eine Seite,
+die behauptet, Kibana laufe, weil es vor drei Tagen lief. Fuer alles Lebendige
+nennt sie den Befehl (`serving.pruefe_stand`) statt eines Ergebnisses von
+gestern. Ein Test prueft, dass **kein** Datum darauf steht, das nicht aus dem
+Release kommt.
+
+**Die Rate je 1'000 ist nicht neu erfunden.** Sie kommt aus derselben Abfrage,
+mit der `tests/test_aenderungen.py` die Zahl hier im Protokoll bewacht. Eine
+zweite Definition waere eine zweite Wahrheit.
+
+**Was beim Bauen schiefging, und was es lehrt.** Die erste Fassung zeigte
+ueberall **zwei Spalten zu viel** - 24 statt 22 bei `fact_offense`. Ursache:
+`DESCRIBE SELECT * FROM read_parquet(...)` zaehlt die Hive-Spalten mit, die
+DuckDB aus dem Pfad ableitet, und im Release sind das **zwei**: `dataset` und
+`release`. Der Docstring von `load_elasticsearch.felder` warnt seit dem 28.9.
+genau davor - und zwar vor der ersten; die zweite steuert das
+Release-Verzeichnis bei. Jetzt kommt die Spaltenzahl aus dem Arrow-Schema, und
+ein Waechter rechnet sie gegen die Dateien nach.
+
+Ausserdem gefunden und behoben: kleingeschriebene Staedtenamen in einer von
+zwei Tabellen, `0,0 MB` fuer alles unter 50 KB (jetzt `< 0,1`), zwei
+abgeschnittene Beispielabfragen, eine unsinnige CSS-Regel.
+
+**Zahlen.** 1'435 → **1'445 Tests**.
 
 ---
 
@@ -5831,6 +5874,8 @@ Versehen. Jeder Pull Request ab #24 ist entweder oben ein Eintrag oder hier.
 | #27 | Tests aufgeräumt, ein Runner statt zwei | Aufräumen |
 | #34 | erste Fassung der Deliktgliederung | **nicht gemergt** — ersetzt durch #35 |
 | #41 | erste Fassung des toten Zwillings | **nicht gemergt** — durch das Löschen des Basis-Branches geschlossen, neu als #42 |
+| #125 | erste Fassung dieser Einstiegsseite | **nicht gemergt** — GitHub schloss ihn, als beim Merge von #124 dessen Branch gelöscht wurde; er war darauf aufgebaut. Neu als #127 |
+| #126 | Änderungstabelle aus den Bronze-Schnappschüssen | **offen** — sein Eintrag steht im Pull Request selbst und kommt beim Merge hierher; diese Zeile entfällt dann |
 | #50 | ein überholter Kommentar in `build_analysis_db.py` | eine Zeile, ändert keine Aussage |
 | #80 | `docs/detroit-schichten.html` entfernt — der Entwurf „Detroit-Schichten angleichen" aus der Zeit vor #39 | veraltet und nirgends verlinkt; was daraus wurde, steht in `DETROIT_PIPELINE_ANLEITUNG.md` und Konzept 7.3. Christian hat es entschieden |
 | #81 | `docs/chicago-ingestion.html` entfernt — eine dritte, unverlinkte Beschreibung derselben Pipeline | veraltet (kein Storage-Backend, keine `contract_version`, 259 270 statt 259 272 Zeilen) und nirgends verlinkt; der Inhalt steht im Modul-Docstring, in Notebook 02, README 2.1 und Konzept 6 |
