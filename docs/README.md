@@ -70,7 +70,9 @@ Eine Handänderung hier ist beim nächsten Lauf weg. Wer den Inhalt ändern will
 | --- | --- |
 | [`feldkatalog.md`](feldkatalog.md) | `tools/build_feldkatalog.py`, aus den Manifesten |
 | [`referenz/`](referenz/index.html) | `tools/build_referenz.py` (pdoc), eine Seite je Modul |
-| `bilder/architektur-pakete.svg`, `bilder/architektur-datenfluss.svg` | `tools/build_architekturbilder.py`, aus dem Importgraphen |
+| [`einstieg.html`](einstieg.html) | `tools/build_einstieg.py`, aus dem aktuellen Release — **wo ein Analyst anfängt** |
+| `bilder/architektur-pakete.svg`, `bilder/architektur-datenfluss.svg`, `bilder/architektur-kontext.svg` | `tools/build_architekturbilder.py`, aus dem Importgraphen |
+| `bilder/dashboard-*.png` | `tools/build_dashboardbilder.py`, fotografiert die laufenden Kibana-Dashboards |
 
 Die übrigen Dateien in [`bilder/`](bilder/) sind von Hand gezeichnet
 (`granularitaet.svg`, `stern.svg`, `wuerfel.svg`) beziehungsweise für Folien
