@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'404** |
+| Tests | **1'435** |
 | `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,69 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 01.10.2026 · Vier Orte, und niemand verglich sie (#124)
+
+Es gibt inzwischen vier Stellen, die behaupten, die Daten zu zeigen: die
+Arbeits-Gold-Schicht (auf der die DuckDB-Sichten liegen), ClickHouse,
+Elasticsearch und die Kibana-Dashboards. Jede prueft sich **beim Laden** gegen
+das Release. Danach prueft niemand mehr, ob sie noch dasselbe sagen.
+
+Das Szenario ist nicht ausgedacht: Ein neues Release entsteht, ClickHouse wird
+nachgezogen, Elasticsearch vergessen. Die Dashboards zeigen weiter den alten
+Stand - ohne Hinweis, weil der Alias brav irgendwohin zeigt und alle Zahlen in
+sich stimmig sind. **Jede Stelle ist konsistent, und das Ganze ist falsch.**
+
+`serving.pruefe_stand` stellt eine Frage an alle vier und nimmt das Release als
+Massstab. Dass jede Tabelle und jeder Index die Release-Kennung im Namen
+traegt, war bisher Lesbarkeit; jetzt ist es die Grundlage der Antwort.
+
+Vorgefuehrt: Alias auf einen alten Index umgelegt, Werkzeug gelaufen -
+*weicht ab, z.B. fact_offense-19990101t000000z*, Rueckgabewert 1, mit dem
+Befehl, der es zusammenbraechte. Zurueckgelegt, wieder gruen.
+
+**Was das Werkzeug gefunden hat, bevor es fertig war.** Drei Fehler, alle in
+Sachen, die seit Tagen als erledigt galten:
+
+1. **Der Compose-ClickHouse war unbenutzbar.** Der Einstiegspunkt meldet
+   *"neither CLICKHOUSE_USER nor CLICKHOUSE_PASSWORD is set, disabling network
+   access for user 'default'"* - der Dienst antwortete nur von innen. Der
+   Healthcheck merkte nichts davon, weil `/ping` keine Anmeldung braucht: Der
+   Container stand auf **healthy** und war trotzdem nicht ansprechbar. Behoben
+   mit `CLICKHOUSE_SKIP_USER_SETUP`.
+2. **`load_clickhouse` war nicht wiederholbar.** `CREATE TABLE IF NOT EXISTS`
+   plus bedingungsloser Insert heisst: Ein zweiter Lauf fuegt ein zweites Mal
+   ein. Aus 345'073 Zeilen wurden 690'146. Aufgefallen ist das, als ein Lauf
+   nach einem gescheiterten Abgleich wiederholt wurde - also genau dann, wenn
+   man es am wenigsten gebrauchen kann. Jetzt `CREATE OR REPLACE TABLE`, das
+   ClickHouse atomar ausfuehrt.
+3. **Die Zahlen kamen als Text.** ClickHouse liefert `UInt64` in JSON je nach
+   Einstellung als `"345073"` statt `345073`; JSON kann 64 Bit nicht
+   verlustfrei als Zahl. Unter `:latest` ging es gut, unter dem in
+   `docker-compose.yml` gepinnten **24.8** schlug jeder Abgleich an, obwohl
+   nichts fehlte. Der Testklient verliess sich auf eine Servervoreinstellung;
+   die Fassung im Modul setzt sie ausdruecklich.
+
+**Und die Fehlermeldung stuerzte dabei selbst ab.** `f"{wert:,}"` wirft bei
+allem, was keine Zahl ist - die Meldung ueber einen Abgleichsfehler war also
+genau dann unbrauchbar, wenn die Abweichung der *Typ* war. Jetzt nennt sie
+Wert und Typ, und das war es, was den Fehler sichtbar machte.
+
+**Der ClickHouse-Klient ist ins Modul gezogen.** Bis hierher weigerte sich
+`load_clickhouse.main`, ohne `--trocken` zu laufen: Ein Klient werde gereicht
+und nicht gebaut. Als Trennung gedacht, hiess das praktisch, dass das Modul
+seine eigene Aufgabe nicht erledigen konnte und jeder Aufrufer denselben
+Klienten neu schrieb - der Test tat es, `pruefe_stand` haette es wieder getan.
+`python -m serving.load_clickhouse` laeuft jetzt zum ersten Mal durch; das
+Release liegt dafuer lesend in ClickHouses `user_files`.
+
+**Nebenbei: die Ports haengen jetzt an 127.0.0.1.** Keiner dieser drei Dienste
+verlangt eine Anmeldung, und Docker schreibt seine Weiterleitungen an der
+Rechnerfirewall vorbei.
+
+**Zahlen.** 1'404 → **1'435 Tests**.
 
 ---
 
