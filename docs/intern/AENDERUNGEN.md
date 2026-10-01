@@ -91,7 +91,7 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
-## 01.10.2026 · Die Einstiegsseite - eine Datei, kein Dienst (#PR)
+## 01.10.2026 · Die Einstiegsseite — eine Datei, kein Dienst (#125)
 
 Wer ankommt, will wissen: Was liegt hier, und wo frage ich es? Das brauchte
 bisher jemanden, der es erklaert. `tools/build_einstieg.py` schreibt
