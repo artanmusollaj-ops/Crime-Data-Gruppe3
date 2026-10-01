@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 722 500" role="img" width="100%" height="auto"
-     aria-label="Abhängigkeiten zwischen den 10 Paketen unter src/crime, 23 Kanten. Zuoberst orchestration, darunter silver_pipeline, das census_pipeline und weather_pipeline benutzt; daneben die übrigen Ingestion-Pakete. Unten als Band die beiden Fundamente manifeste und storage, die praktisch alle Pakete benutzen.">
+     aria-label="Abhängigkeiten zwischen den 10 Paketen unter src/crime, 24 Kanten. Zuoberst orchestration, darunter silver_pipeline, das census_pipeline und weather_pipeline benutzt; daneben die übrigen Ingestion-Pakete. Unten als Band die beiden Fundamente manifeste und storage, die praktisch alle Pakete benutzen.">
 <style>
   svg { color: #14304a; }
   .signal { fill: #c2410c; }
@@ -16,6 +16,7 @@
   <line x1="284" y1="142" x2="361" y2="188" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
   <line x1="361" y1="58" x2="284" y2="104" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
   <line x1="361" y1="58" x2="438" y2="104" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
+  <line x1="361" y1="58" x2="361" y2="188" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
   <line x1="438" y1="142" x2="361" y2="188" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
   <line x1="361" y1="226" x2="273" y2="272" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
   <line x1="361" y1="226" x2="445" y2="272" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
@@ -61,6 +62,6 @@
     <rect x="372" y="374" width="132" height="34" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
     <text x="438" y="396" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" font-weight="600" class="signal" fill="currentColor">storage</text>
   </g>
-  <text x="24" y="468" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">Pfeil bedeutet: benutzt den Code von. Nur 6 der 23 Kanten sind gezeichnet.</text>
+  <text x="24" y="468" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">Pfeil bedeutet: benutzt den Code von. Nur 7 der 24 Kanten sind gezeichnet.</text>
   <text x="24" y="486" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">Die 2 Fundamente benutzen alle übrigen Pakete (8 × storage; manifeste ausnahmslos alle) - ihre Pfeile sind weggelassen.</text>
 </svg>

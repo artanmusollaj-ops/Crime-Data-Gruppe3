@@ -63,6 +63,11 @@ SCHUTZ = (
     # Die drei Regeln der Stadtzuordnung nennen absichtlich die *verworfenen*
     # Einwohnerzahlen nebeneinander, dazu die amtliche des Zensus 2020.
     "Flächengewichtung", "Zensus 2020", "alle berührten Tracts",
+    # Das Rauschen im Schnappschussvergleich: 88'677 von 88'685 Zeilen mit
+    # bewegter ESRI_OID. Beide Zahlen messen das Paar vom 11./12.9.2026 und
+    # sehen dem heutigen Detroit-Bestand (88'686) nur aehnlich. Sie duerfen
+    # veralten - sie beschreiben zwei bestimmte Laeufe, nicht den Stand.
+    "Zeilennummer der ArcGIS-Antwort",
 )
 
 # datenhistorie.md *ist* der Verlauf; archiv/ haelt Ueberholtes absichtlich.

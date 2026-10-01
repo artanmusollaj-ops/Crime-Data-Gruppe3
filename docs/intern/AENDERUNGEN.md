@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'445** |
+| Tests | **1'470** |
 | `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -91,6 +91,73 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 01.10.2026 · Was die Quelle geändert hat, steht jetzt in einer Tabelle (#126)
+
+`docs/intern/datenhistorie.md` rechnete am 16.9. vor, was beim Aufraeumen
+verlorengeht: **31,9 MB Schnappschuesse fuer 102 geaenderte Zeilen.** Die
+Bewegung der Quellen - Detroit aendert Eintraege noch Jahre nach der Tat - ist
+selbst ein Gegenstand, und sie steckte nur implizit in den Bronze-Laeufen.
+
+`silver_pipeline.build_source_change` zieht sie heraus:
+`silver/dataset=source_change`, **append-only**, eine Zeile je geaendertem
+Feld. Aus den fuenf vorhandenen Detroit-Schnappschuessen sind das **4'292
+Zeilen** ueber vier Paare, in 1,3 Sekunden.
+
+**Die Messungen des Papiers wurden nachgerechnet und stimmen** - Zeile fuer
+Zeile: 102 mit echter Inhaltsaenderung, 147 nur `updated_at` bewegt, und je
+Feld 249 / 121 / 89 / 14 / 1 sowie zehn echte Beschreibungsaenderungen. Ein
+Waechter mit dem Marker `referenzstand` haelt das fest. Das Papier hatte von
+Hand gemessen; jetzt misst der Code dasselbe.
+
+**Was ohne Normalisierung passiert waere.** `ESRI_OID` ist die Zeilennummer
+der ArcGIS-Antwort und bewegt sich bei **88'677 von 88'685** Zeilen; 150 von
+160 Beschreibungsaenderungen waren reine Leerzeichen. Faktor **870** Rauschen,
+in dem die hundert echten Aenderungen nicht zu finden sind.
+
+**Eine Mehrdeutigkeit im Papier war aufzuloesen.** Abschnitt 5.1 nennt die
+Option *"ohne Zeitstempel"*, begruendet die Empfehlung aber damit, dass eine
+nur beruehrte Zeile "eine eigene Beobachtung" sei. Beides zusammen geht nicht.
+Aufgeloest: Zeitstempel zaehlen nicht als Inhaltsaenderung, werden aber
+aufgezeichnet, und eine Zeile, an der sich nur sie bewegt haben, traegt
+`art = 'beruehrt'`. Davon gab es im ersten Paar 147.
+
+**Das Aufraeumen kennt die Tabelle jetzt.** Neue Regel: Ein Vollschnappschuss,
+dessen Unterschied noch nicht gezogen ist, bleibt stehen. Sie steht am
+**Ende** der Kette, und das ist Absicht - sie ist die einzige Regel, die von
+allein vergeht. Stuende sie weiter vorn, verdeckte eine voruebergehende
+Bedingung die dauerhafte, und ein Lauf saehe nach *"einmal ziehen, dann darf
+es weg"* aus, wo in Wahrheit ein Delta darueber haengt.
+
+**Zwei Fehler beim Bauen, beide lehrreich.**
+
+1. **Ein Paar ohne Aenderung war nicht von einem ungeprueften zu
+   unterscheiden.** Zwischen den beiden Schnappschuessen vom 18.9. (07:51 und
+   11:02) hatte sich in drei Stunden nichts bewegt - also schrieb der
+   Vergleich keine Zeile, und die neue Aufraeumregel haette die beiden Laeufe
+   **fuer immer** gesperrt. Jetzt traegt ein solches Paar eine Markierungszeile
+   mit `art = 'unveraendert'`, und das ist selbst eine Beobachtung.
+2. **Zum dritten Mal in zwei Wochen die Hive-Spalten.** Beim Anhaengen an den
+   Bestand passten die Spaltenzahlen nicht: DuckDB leitet aus dem Pfad
+   `dataset=source_change` eine Spalte `dataset` ab, die in keiner Datei
+   steht. Dieselbe Falle traf am 28.9. `load_elasticsearch` (dort als Warnung
+   im Docstring festgehalten) und am 1.10. die Einstiegsseite, wo sie zwei
+   Spalten zu viel anzeigte. Konsequenz hier: Die Spalten stehen ausgeschrieben
+   in `SPALTEN`, kein `SELECT *`.
+
+**Fuer die Analyse bereit, ohne Zusatzcode.** `build_analysis_db` findet
+Silver-Tabellen von selbst; `source_change` ist damit sofort in DuckDB
+abfragbar. Erste Befunde: `3072 -> 3002` ist mit 43 Faellen die haeufigste
+Umcodierung - genau der Code, den das Papier mit 1'404 Anklagen und
+`mapping_status = ambiguous` markiert hat. Und es gibt deutliche
+Umklassierungen, etwa 43-mal von Koerperverletzung auf Sachbeschaedigung.
+
+**Offen und draengend.** Papier 5.2 empfahl einen Vollschnappschuss je Stadt
+und Monat. Nicht umgesetzt: `run_all` laedt Detroit mit `--mode delta`. **Nach
+den fuenf vorhandenen Schnappschuessen entsteht kein neues Vergleichspaar
+mehr** - die Tabelle hoert auf zu wachsen, nicht weil sich nichts aendert,
+sondern weil wir nicht mehr hinsehen.
+
+**Zahlen.** 1'445 → **1'470 Tests**.
 ## 01.10.2026 · Die Einstiegsseite — eine Datei, kein Dienst (#127)
 
 Wer ankommt, will wissen: Was liegt hier, und wo frage ich es? Das brauchte
@@ -5875,7 +5942,6 @@ Versehen. Jeder Pull Request ab #24 ist entweder oben ein Eintrag oder hier.
 | #34 | erste Fassung der Deliktgliederung | **nicht gemergt** — ersetzt durch #35 |
 | #41 | erste Fassung des toten Zwillings | **nicht gemergt** — durch das Löschen des Basis-Branches geschlossen, neu als #42 |
 | #125 | erste Fassung dieser Einstiegsseite | **nicht gemergt** — GitHub schloss ihn, als beim Merge von #124 dessen Branch gelöscht wurde; er war darauf aufgebaut. Neu als #127 |
-| #126 | Änderungstabelle aus den Bronze-Schnappschüssen | **offen** — sein Eintrag steht im Pull Request selbst und kommt beim Merge hierher; diese Zeile entfällt dann |
 | #50 | ein überholter Kommentar in `build_analysis_db.py` | eine Zeile, ändert keine Aussage |
 | #80 | `docs/detroit-schichten.html` entfernt — der Entwurf „Detroit-Schichten angleichen" aus der Zeit vor #39 | veraltet und nirgends verlinkt; was daraus wurde, steht in `DETROIT_PIPELINE_ANLEITUNG.md` und Konzept 7.3. Christian hat es entschieden |
 | #81 | `docs/chicago-ingestion.html` entfernt — eine dritte, unverlinkte Beschreibung derselben Pipeline | veraltet (kein Storage-Backend, keine `contract_version`, 259 270 statt 259 272 Zeilen) und nirgends verlinkt; der Inhalt steht im Modul-Docstring, in Notebook 02, README 2.1 und Konzept 6 |

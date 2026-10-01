@@ -107,9 +107,13 @@ def test_auch_detroits_delta_haelt_seine_basis_fest(tmp_path):
          teile=("full/year=2024",), detroit=True, mode="DELTA")
     lauf(tmp_path, "city=detroit", "run_uuid-04", wann="2026-09-04T10:00:00",
          teile=("full/year=2024",), detroit=True, mode="DELTA")
+    # uuid-01 war bis zum 1.10.2026 entbehrlich. Seit Regel 2a haelt ihn die
+    # Aenderungstabelle: Er ist der aeltere Partner des Paars 01/02, und
+    # dessen Unterschied ist hier nicht gezogen. Woran dieser Test haengt,
+    # bleibt davon unberuehrt - uuid-02 ist BASIS, nicht UNGEZOGEN.
     assert gruende(tmp_path, "city=detroit") == {
         "uuid-04": au.JUENGSTER, "uuid-03": au.VORHERIGER,
-        "uuid-02": au.BASIS, "uuid-01": None,
+        "uuid-02": au.BASIS, "uuid-01": au.UNGEZOGEN,
     }
 
 
@@ -225,6 +229,49 @@ def register(config_root: Path, *kennungen: str, grund: str = "LN1") -> None:
     zeilen += [f"{k},city=chicago,{grund},2026-09-14" for k in kennungen]
     (config_root / au.REFERENZSTAND_DATEI).write_text(
         "\n".join(zeilen) + "\n", encoding="utf-8")
+
+
+def test_ein_lauf_ohne_gezogenen_unterschied_bleibt():
+    """Regel 2a: Ein Vollschnappschuss traegt mehr als seinen Inhalt.
+
+    Gegen seinen Vorgaenger gehalten sagt er, *was die Quelle geaendert hat*.
+    Bis das herausgezogen ist, ist er unersetzlich - danach genuegt die
+    schmale Aenderungstabelle.
+    """
+    laeufe = [au.Bestand("city=detroit", f"run_0{i}", f"2026-09-0{i}T10:00:00",
+                         False, (), (), 10)
+              for i in (4, 3, 2, 1)]
+    ohne = {e.bestand.run_id: e.grund for e in au.entscheide(laeufe, set())}
+    assert ohne["run_01"] is None, "ohne die Regel waere er entbehrlich"
+
+    mit = {e.bestand.run_id: e.grund
+           for e in au.entscheide(laeufe, set(), None, {"run_01"})}
+    assert mit["run_01"] == au.UNGEZOGEN
+
+
+def test_die_neue_regel_ueberschreibt_keinen_staerkeren_grund():
+    """Sie haelt zusaetzlich, sie verdraengt nicht."""
+    laeufe = [au.Bestand("city=detroit", f"run_0{i}", f"2026-09-0{i}T10:00:00",
+                         False, (), (), 10)
+              for i in (2, 1)]
+    gruende = {e.bestand.run_id: e.grund for e in au.entscheide(
+        laeufe, set(), {"run_01": "LN1"}, {"run_01", "run_02"})}
+    assert gruende["run_01"] == au.GEPINNT
+    assert gruende["run_02"] == au.JUENGSTER
+
+
+def test_eine_unlesbare_aenderungstabelle_gibt_nichts_frei(tmp_path, monkeypatch):
+    """Die Auskunft darf nur zusaetzlich halten, nie zusaetzlich loeschen.
+
+    Faellt sie aus, ist die Antwort *keine Freigabe* - also eine leere Menge,
+    und die uebrigen Regeln entscheiden wie bisher.
+    """
+    def kaputt(_wurzel):
+        raise RuntimeError("Tabelle unlesbar")
+
+    monkeypatch.setattr(
+        "silver_pipeline.build_source_change.ungezogene_laeufe", kaputt)
+    assert au.ungezogen_laut_tabelle(tmp_path) == set()
 
 
 def test_ein_gepinnter_lauf_ueberlebt_das_aufraeumen(tmp_path):

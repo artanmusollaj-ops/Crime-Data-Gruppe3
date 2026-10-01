@@ -22,12 +22,22 @@ etwas weg darf. Die Regel, je Quelle (``city=chicago``, ``dataset=noaa_ghcnd``,
 2. **Von Silver genannt** bleibt. Jedes Silver-Manifest nennt unter
    ``derived_from`` die Laeufe, auf denen es ruht. Sie zu loeschen hiesse, den
    Stand nicht mehr erklaeren zu koennen.
+4. **Dessen Unterschied noch nicht gezogen ist, bleibt.** Ein
+   Vollschnappschuss traegt mehr als seinen Inhalt: Gegen seinen Vorgaenger
+   gehalten sagt er, *was die Quelle geaendert hat*. Das zieht
+   ``silver_pipeline.build_source_change`` heraus; bis dahin ist der Lauf
+   unersetzlich. Danach genuegt die schmale Aenderungstabelle - 31,9 MB
+   Schnappschuesse fuer 102 geaenderte Zeilen war das Verhaeltnis, das
+   ``docs/intern/datenhistorie.md`` ausgerechnet hat. Diese Regel kam am
+   1.10.2026 dazu, zusammen mit der Tabelle. Sie steht **zuletzt**, weil sie
+   die einzige ist, die von allein vergeht: Ein Lauf, den sie haelt, wird
+   durch einen Befehl frei.
 3. **Die Basis eines Delta-Laufs** bleibt. Beide Staedte laden seit dem ersten
    vollen Schnappschuss nur Aenderungen - Chicago als ``mode: delta``, Detroit
    seit dem 18.9.2026 als ``extraction_mode: DELTA``; ohne den Schnappschuss
    darunter sind die Deltas wertlos. Ein Delta, das bleibt, haelt alles bis zum
    naechsten vollen Lauf fest.
-4. Alles andere ist **entbehrlich**. Gezeigt wird es immer; geloescht nur mit
+5. Alles andere ist **entbehrlich**. Gezeigt wird es immer; geloescht nur mit
    ``--loeschen``, und dann Raw und Bronze zusammen - ein Bronze ohne sein Raw
    waere ein Ergebnis ohne Beweisstueck, ein Raw ohne Bronze ein Beweis ohne
    Ergebnis.
@@ -69,6 +79,7 @@ JUENGSTER = "juengster Lauf"
 VORHERIGER = "vorheriger Schnappschuss"
 GENANNT = "von Silver genannt"
 BASIS = "Basis eines Delta-Laufs"
+UNGEZOGEN = "Unterschied nicht gezogen"
 
 
 class Bestand(NamedTuple):
@@ -221,9 +232,11 @@ def stand_der_auswertung(data_root: Path) -> set[str]:
 
 
 def entscheide(laeufe: list[Bestand], genannt: set[str],
-               gepinnt: dict[str, str] | None = None) -> list[Entscheid]:
+               gepinnt: dict[str, str] | None = None,
+               ungezogen: set[str] | None = None) -> list[Entscheid]:
     """Die Regel, angewandt auf eine Quelle. ``laeufe`` juengster zuerst."""
     gepinnt = gepinnt or {}
+    ungezogen = ungezogen or set()
 
     def ist_gepinnt(b: Bestand) -> bool:
         return b.run_id in gepinnt or any(v.name in gepinnt for v in b.bronze)
@@ -249,15 +262,45 @@ def entscheide(laeufe: list[Bestand], genannt: set[str],
             gruende[i] = BASIS
         if gruende[i] is not None:
             braucht_basis = b.delta
+
+    # Zuletzt, und das ist Absicht: ``UNGEZOGEN`` ist der **schwaechste**
+    # Grund. Er geht weg, sobald jemand build_source_change laufen laesst;
+    # ``BASIS`` und die uebrigen sind strukturell. Stuende er weiter vorn,
+    # verdeckte eine voruebergehende Bedingung die dauerhafte, und der
+    # Bericht saehe nach "einmal ziehen, dann darf es weg" aus, wo in
+    # Wahrheit ein Delta darueber haengt.
+    for i, b in enumerate(laeufe):
+        if gruende[i] is None and (
+                b.run_id in ungezogen
+                or any(v.name in ungezogen for v in b.bronze)):
+            gruende[i] = UNGEZOGEN
     return [Entscheid(b, g) for b, g in zip(laeufe, gruende)]
+
+
+def ungezogen_laut_tabelle(data_root: Path) -> set[str]:
+    """Spaet importiert, damit ``aufraeumen`` ohne Silver-Code lauffaehig bleibt.
+
+    Fehlt das Modul oder scheitert die Auskunft, gibt es **keine** Freigabe,
+    sondern eine leere Menge: Diese Regel darf nur zusaetzlich halten, nie
+    zusaetzlich loeschen.
+    """
+    try:
+        from silver_pipeline.build_source_change import ungezogene_laeufe
+
+        return ungezogene_laeufe(data_root)
+    except Exception as fehler:          # noqa: BLE001 - Auskunft, kein Zwang
+        LOG.warning("Aenderungstabelle nicht lesbar (%s) - Regel 2a greift "
+                    "nicht. Die uebrigen Regeln gelten unveraendert.", fehler)
+        return set()
 
 
 def bericht(data_root: Path, config_root: Path | None = None) -> list[Entscheid]:
     genannt = genannt_in_silver(data_root)
     gepinnt = gepinnte_laeufe(config_root) if config_root else {}
+    ungezogen = ungezogen_laut_tabelle(data_root)
     alle: list[Entscheid] = []
     for laeufe in bestaende(data_root).values():
-        alle.extend(entscheide(laeufe, genannt, gepinnt))
+        alle.extend(entscheide(laeufe, genannt, gepinnt, ungezogen))
     return alle
 
 

@@ -1,0 +1,470 @@
+"""Was die Quelle zwischen zwei Schnappschuessen geaendert hat.
+
+    python -m silver_pipeline.build_source_change
+    python -m silver_pipeline.build_source_change --trocken   # nur zeigen
+
+**Warum es diese Tabelle gibt.** Fuer die Auswertung zaehlt der aktuelle
+Stand. Die Quellen bewegen sich aber: Detroit aendert Eintraege noch Jahre
+nach der Tat, Chicago liefert Deltas. Diese Bewegung ist selbst ein
+Gegenstand - *was aendert sich, wie oft, welcher Art, und was verschwindet.*
+Heute steckt sie implizit in den Bronze-Laeufen, und sobald
+``orchestration.aufraeumen`` einen loescht, ist sie weg.
+
+``docs/intern/datenhistorie.md`` hat das Verhaeltnis ausgerechnet: **31,9 MB
+Schnappschuesse fuer 102 geaenderte Zeilen.** Dieses Modul zieht den
+Unterschied heraus, bevor die Laeufe entbehrlich werden - danach bleibt eine
+schmale Tabelle statt zweier Vollbestaende.
+
+**Was verglichen wird und was nicht.**
+
+``ESRI_OID`` steht in ``RAUSCHEN`` und wird nie aufgezeichnet: Es ist die
+Zeilennummer der ArcGIS-Antwort und bewegte sich bei **88'677 von 88'685**
+Zeilen. Wer es mitvergleicht, erzeugt ein Protokoll, in dem die hundert
+echten Aenderungen nicht zu finden sind - Faktor 870 Rauschen.
+
+Text wird vor dem Vergleich getrimmt. Von 160 Aenderungen an
+``offense_description`` waren **150 reine Leerzeichen**, weil die Quelle
+inzwischen auf feste Breite auffuellt. Echt waren zehn.
+
+**Zwei Arten von Beruehrung, und das ist eine Entscheidung.** Das Papier
+nennt unter 5.1 die Option *"ohne Zeitstempel"*, begruendet die Empfehlung
+aber damit, dass eine Zeile, die die Quelle **ohne** fachliche Aenderung
+angefasst hat, "eine eigene Beobachtung" sei - 147 solche Zeilen gab es im
+gemessenen Paar. Beides zusammen geht nicht. Aufgeloest wird es so: Die
+Zeitstempel zaehlen nicht als *Inhaltsaenderung*, werden aber aufgezeichnet.
+Eine Zeile ist
+
+``geaendert``
+    wenn sich etwas ausserhalb von ``RAUSCHEN`` und ``STEMPEL`` bewegt hat,
+
+``beruehrt``
+    wenn sich **nur** Stempel bewegt haben - die Quelle hat die Zeile
+    angefasst, ohne dass sich fachlich etwas aenderte,
+
+``neu`` / ``verschwunden``
+    wenn der Schluessel im einen Schnappschuss steht und im anderen nicht.
+
+**Nur Vollschnappschuesse.** Verglichen werden ausschliesslich Laeufe mit
+``extraction_mode = FULL``: Ein Delta enthaelt nur die bewegten Zeilen, und
+*was fehlt* laesst sich daraus nicht von *was sich nicht geaendert hat*
+unterscheiden. Verschwundene Zeilen waeren dort nicht Abwesenheit, sondern
+Ruhe.
+
+**Das ist zugleich die Grenze.** Seit dem 18.9.2026 laedt
+``orchestration.run_all`` Detroit mit ``--mode delta``, und ein regelmaessiger
+Vollschnappschuss ist nicht beschlossen (Papier 5.2 empfiehlt einen je Stadt
+und Monat). Nach den fuenf vorhandenen Schnappschuessen entsteht also kein
+neues Vergleichspaar mehr. Dieses Modul sagt das beim Lauf, statt eine
+Tabelle zu schreiben, die still aufhoert zu wachsen.
+"""
+
+from __future__ import annotations
+
+import argparse
+import logging
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+import duckdb
+
+from manifeste import code_stand
+from silver_pipeline import (
+    BRONZE_LAYER,
+    PARQUET_FILE,
+    SILVER_LAYER,
+    TransformError,
+    connect,
+    publish,
+    read_manifest,
+)
+from storage import for_root
+
+log = logging.getLogger(__name__)
+
+TABLE = "source_change"
+CONTRACT_VERSION = 1
+
+#: Die Spalten, in dieser Reihenfolge. Ausgeschrieben und nicht ``SELECT *``:
+#: DuckDB leitet aus dem Pfad ``dataset=source_change`` eine Hive-Spalte
+#: ``dataset`` ab, die in keiner Datei steht. Beim Anhaengen passten die
+#: Spaltenzahlen dann nicht mehr - und beim Lesen haette die Tabelle eine
+#: Spalte mehr gehabt, als sie hat.
+SPALTEN = ("city", "offense_id", "vorher_run_id", "run_id",
+           "vorher_am", "beobachtet_am", "art", "feld", "wert_alt", "wert_neu")
+
+#: Nur diese Laeufe lassen sich vergleichen - siehe Modulkopf.
+VERGLEICHBAR = frozenset({"FULL"})
+
+
+@dataclass(frozen=True)
+class Quelle:
+    """Eine Stadt, und woran sich ihre Zeilen wiedererkennen lassen."""
+
+    stadt: str
+    praefix: str
+    #: Das Feld in ``attributes``, das die **fachliche** Identitaet traegt.
+    #: Dieselbe Wahl wie in ``build_crime_offense``: nicht ``ESRI_OID``.
+    schluessel: str
+    #: Felder, die nie aufgezeichnet werden. Reine Transportartefakte.
+    rauschen: frozenset[str] = frozenset()
+    #: Felder, deren Bewegung keine Inhaltsaenderung ist - aber eine
+    #: Beobachtung.
+    stempel: frozenset[str] = frozenset()
+
+
+QUELLEN: tuple[Quelle, ...] = (
+    Quelle(
+        stadt="detroit",
+        praefix=f"{BRONZE_LAYER}/city=detroit",
+        schluessel="incident_entry_id",
+        # Gemessen am Paar 11.9./12.9.: bewegt sich bei 88'677 von 88'685
+        # Zeilen und sagt nichts. Absprache 8.1 haelt ohnehin fest, dass die
+        # fachliche Identitaet nicht daran haengt.
+        rauschen=frozenset({"ESRI_OID"}),
+        stempel=frozenset({"updated_at", "updated_in_ibr_at",
+                           "case_status_updated_at"}),
+    ),
+    # Chicago fehlt hier mit Absicht: Es gibt genau **einen**
+    # Vollschnappschuss (5.9.2026) und seither nur Deltas. Ein Paar braucht
+    # zwei. Sobald ein zweiter geladen wird, gehoert hier eine Zeile hin -
+    # der Schluessel waere ``id``, siehe build_crime_offense.
+)
+
+
+@dataclass(frozen=True)
+class Schnappschuss:
+    run_id: str
+    pfad: str
+    beobachtet_am: str
+
+    def __str__(self) -> str:
+        return f"{self.run_id[:8]} ({self.beobachtet_am[:19]})"
+
+
+# --------------------------------------------------------------------------
+# Reine Funktionen - pruefbar ohne Bestand
+# --------------------------------------------------------------------------
+
+
+def schnappschuesse(laeufe: list[Any]) -> list[Schnappschuss]:
+    """Die vergleichbaren Laeufe, aelteste zuerst.
+
+    Sortiert wird nach ``started_at`` und nicht nach dem Laufnamen: Detroits
+    Laufverzeichnisse heissen nach einer UUID, und die sagt nichts ueber die
+    Reihenfolge. Chicagos Namen traegen zwar einen Zeitstempel, aber eine
+    Sortierregel, die nur fuer eine Stadt stimmt, ist keine.
+    """
+    gefunden = []
+    for lauf in laeufe:
+        manifest = lauf.manifest
+        if str(manifest.get("extraction_mode", "")).upper() not in VERGLEICHBAR:
+            continue
+        wann = manifest.get("started_at") or manifest.get("finished_at")
+        if not wann:
+            raise TransformError(
+                f"{lauf.run_id}: Manifest ohne Zeitstempel - ohne ihn laesst "
+                f"sich die Reihenfolge nicht bestimmen.")
+        gefunden.append(Schnappschuss(lauf.run_id, lauf.relativ, str(wann)))
+    return sorted(gefunden, key=lambda s: (s.beobachtet_am, s.run_id))
+
+
+def paare(alle: list[Schnappschuss]) -> list[tuple[Schnappschuss, Schnappschuss]]:
+    """Aufeinanderfolgende Paare - nicht jedes gegen jedes.
+
+    Jedes gegen jedes waere quadratisch und saehe dieselbe Aenderung mehrfach:
+    Was sich zwischen dem ersten und dem zweiten Schnappschuss bewegt hat,
+    stuende auch im Vergleich des ersten mit dem dritten. Die Kette zaehlt
+    jede Bewegung genau einmal.
+    """
+    return list(zip(alle, alle[1:]))
+
+
+def felder(con: duckdb.DuckDBPyConnection, pfad: str) -> list[str]:
+    """Die Quellfelder aus ``attributes`` - aus der Datei, nicht aus einer Liste."""
+    zeilen = con.execute(
+        f"SELECT unnest(attributes) FROM read_parquet('{pfad}') LIMIT 0").description
+    if zeilen:
+        return [z[0] for z in zeilen]
+    raise TransformError(f"{pfad}: kein attributes-Struct")
+
+
+def vergleichbar(name: str, quelle: Quelle) -> str:
+    """Wie ein Feld vor dem Vergleich normalisiert wird.
+
+    Getrimmt wird jedes Feld, nicht nur die, von denen man es erwartet: Die
+    Quelle hat angefangen, ``offense_description`` auf feste Breite
+    aufzufuellen, und niemand hatte das angekuendigt.
+    """
+    return f"nullif(trim(CAST(attributes.\"{name}\" AS VARCHAR)), '')"
+
+
+def vergleich_sql(a: str, b: str, namen: list[str], quelle: Quelle) -> str:
+    """Die Abfrage, die aus zwei Schnappschuessen Aenderungszeilen macht.
+
+    Lang, aber geradeaus: zwei normalisierte Sichten, ein voller Aussenjoin,
+    und je Feld ein ``UNION ALL``-Zweig fuer *hat sich bewegt*. Die
+    Alternative - ``attributes`` in Schluessel/Wert-Paare entfalten - waere
+    kuerzer und muesste jeden Wert durch ``VARCHAR`` schicken, bevor sie
+    weiss, ob sie ihn braucht.
+    """
+    aufgezeichnet = [n for n in namen if n not in quelle.rauschen]
+    if quelle.schluessel not in namen:
+        raise TransformError(
+            f"{quelle.stadt}: Schluesselfeld {quelle.schluessel} steht nicht "
+            f"in der Quelle")
+
+    def sicht(pfad: str) -> str:
+        spalten = ", ".join(
+            f"{vergleichbar(n, quelle)} AS \"{n}\"" for n in aufgezeichnet)
+        return (f"SELECT {vergleichbar(quelle.schluessel, quelle)} AS _id, "
+                f"{spalten} FROM read_parquet('{pfad}') "
+                f"WHERE {vergleichbar(quelle.schluessel, quelle)} IS NOT NULL")
+
+    zweige = [
+        f'SELECT _id, \'{n}\' AS feld, alt."{n}" AS wert_alt, '
+        f'neu."{n}" AS wert_neu FROM beide '
+        f'WHERE alt._id IS NOT NULL AND neu._id IS NOT NULL '
+        f'AND alt."{n}" IS DISTINCT FROM neu."{n}"'
+        for n in aufgezeichnet if n != quelle.schluessel
+    ]
+    return f"""
+        WITH alt AS ({sicht(a)}), neu AS ({sicht(b)}),
+        beide AS (
+            SELECT coalesce(alt._id, neu._id) AS _id, alt, neu
+            FROM alt FULL OUTER JOIN neu ON alt._id = neu._id
+        ),
+        bewegt AS ({' UNION ALL '.join(zweige)}),
+        fehlt AS (
+            SELECT _id, NULL AS feld, NULL AS wert_alt, NULL AS wert_neu,
+                   CASE WHEN alt._id IS NULL THEN 'neu' ELSE 'verschwunden' END AS art
+            FROM beide WHERE alt._id IS NULL OR neu._id IS NULL
+        ),
+        eingestuft AS (
+            SELECT _id,
+                   CASE WHEN count(*) FILTER (
+                            WHERE feld NOT IN ({_liste(quelle.stempel)})) > 0
+                        THEN 'geaendert' ELSE 'beruehrt' END AS art
+            FROM bewegt GROUP BY 1
+        )
+        SELECT b._id AS offense_id, e.art, b.feld, b.wert_alt, b.wert_neu
+        FROM bewegt b JOIN eingestuft e USING (_id)
+        UNION ALL
+        SELECT _id, art, feld, wert_alt, wert_neu FROM fehlt
+    """
+
+
+def _liste(werte: frozenset[str]) -> str:
+    """Eine SQL-Liste - auch wenn sie leer ist."""
+    return ", ".join(f"'{w}'" for w in sorted(werte)) or "''"
+
+
+# --------------------------------------------------------------------------
+# Der Ablauf
+# --------------------------------------------------------------------------
+
+
+def tabellenverzeichnis(data_root: Path) -> Path:
+    return for_root(data_root).local_path(f"{SILVER_LAYER}/dataset={TABLE}")
+
+
+def bereits_gezogen(verzeichnis: Path) -> set[tuple[str, str]]:
+    """Welche Paare schon in der Tabelle stehen.
+
+    Der Grund, warum diese Tabelle **nicht** einfach neu gebaut wird wie die
+    uebrigen Silver-Tabellen: Ihr Rohstoff verschwindet. Ist ein Lauf
+    aufgeraeumt, laesst sich sein Vergleich nicht wiederherstellen - was
+    einmal herausgezogen wurde, bleibt deshalb stehen.
+    """
+    datei = verzeichnis / PARQUET_FILE
+    if not datei.is_file():
+        return set()
+    con = duckdb.connect()
+    try:
+        return {(a, b) for a, b in con.execute(
+            f"SELECT DISTINCT vorher_run_id, run_id "
+            f"FROM read_parquet('{datei}')").fetchall()}
+    finally:
+        con.close()
+
+
+def ungezogene_laeufe(data_root: Path) -> set[str]:
+    """Vollschnappschuesse, deren Vergleich noch nicht herausgezogen ist.
+
+    Die Auskunft, die ``orchestration.aufraeumen`` fuer ihre letzte Regel braucht. Sie
+    steht hier und nicht dort, weil hier bekannt ist, was ein Paar ist: Ein
+    Lauf bleibt unersetzlich, solange **irgendein** Paar, an dem er beteiligt
+    ist, noch nicht in der Tabelle steht - als aelterer wie als juengerer.
+
+    Der juengste Schnappschuss einer Stadt ist nie gezogen (er hat noch keinen
+    Nachfolger) und steht hier trotzdem nicht: Ihn haelt bereits Regel 1.
+    Sonst waere diese Regel eine, die nie etwas freigibt.
+    """
+    ablage = for_root(data_root)
+    schon = bereits_gezogen(tabellenverzeichnis(data_root))
+    offen: set[str] = set()
+    for quelle in QUELLEN:
+        try:
+            alle = schnappschuesse(ablage.laeufe(quelle.praefix,
+                                                 fehler=TransformError))
+        except TransformError:
+            continue
+        for vorher, nachher in paare(alle):
+            if (vorher.run_id, nachher.run_id) not in schon:
+                offen.update({vorher.run_id, nachher.run_id})
+    return offen
+
+
+def ziehe(con: duckdb.DuckDBPyConnection, quelle: Quelle, ablage: Any,
+          vorher: Schnappschuss, nachher: Schnappschuss) -> int:
+    """Ein Paar vergleichen und als Zeilen in ``neue_zeilen`` legen.
+
+    **Auch ein Paar ohne Aenderung wird festgehalten.** Sonst waere *nichts
+    gefunden* nicht von *noch nicht verglichen* zu unterscheiden, und die
+    beiden Laeufe blieben nach Regel 2a fuer immer gesperrt. Genau das ist
+    beim ersten Lauf passiert: Zwischen den beiden Schnappschuessen vom
+    18.9. (07:51 und 11:02) hatte sich in drei Stunden nichts bewegt, und die
+    Tabelle kannte danach nur drei der vier Paare. Die Markierungszeile
+    traegt ``art = 'unveraendert'`` und keine ``offense_id`` - sie ist selbst
+    eine Beobachtung: *in diesem Zeitraum hat die Quelle nichts angefasst.*
+    """
+    a = ablage.resolve_read_path(vorher.pfad, PARQUET_FILE)
+    b = ablage.resolve_read_path(nachher.pfad, PARQUET_FILE)
+    sql = vergleich_sql(a, b, felder(con, a), quelle)
+    kopf = (f"'{quelle.stadt}' AS city", f"'{vorher.run_id}' AS vorher_run_id",
+            f"'{nachher.run_id}' AS run_id",
+            f"TIMESTAMP '{vorher.beobachtet_am[:19]}' AS vorher_am",
+            f"TIMESTAMP '{nachher.beobachtet_am[:19]}' AS beobachtet_am")
+    vorher_zahl = con.execute("SELECT count(*) FROM neue_zeilen").fetchone()[0]
+    con.execute(f"""
+        INSERT INTO neue_zeilen
+        SELECT {kopf[0]}, offense_id, {', '.join(kopf[1:])},
+               art, feld, wert_alt, wert_neu
+        FROM ({sql})
+    """)
+    gefunden = con.execute(
+        "SELECT count(*) FROM neue_zeilen").fetchone()[0] - vorher_zahl
+    if gefunden == 0:
+        con.execute(f"""
+            INSERT INTO neue_zeilen
+            SELECT {kopf[0]}, NULL, {', '.join(kopf[1:])},
+                   'unveraendert', NULL, NULL, NULL
+        """)
+    return gefunden
+
+
+def baue(data_root: Path, *, trocken: bool = False) -> dict[str, Any]:
+    begonnen = datetime.now(timezone.utc)
+    ablage = for_root(data_root)
+    verzeichnis = tabellenverzeichnis(data_root)
+    schon = bereits_gezogen(verzeichnis)
+
+    con = connect()
+    try:
+        con.execute("""
+            CREATE TABLE neue_zeilen (
+                city VARCHAR, offense_id VARCHAR,
+                vorher_run_id VARCHAR, run_id VARCHAR,
+                vorher_am TIMESTAMP, beobachtet_am TIMESTAMP,
+                art VARCHAR, feld VARCHAR, wert_alt VARCHAR, wert_neu VARCHAR)
+        """)
+        bericht: dict[str, Any] = {"quellen": [], "paare": 0, "uebersprungen": 0}
+        for quelle in QUELLEN:
+            alle = schnappschuesse(ablage.laeufe(quelle.praefix,
+                                                 fehler=TransformError))
+            offen = [(a, b) for a, b in paare(alle)
+                     if (a.run_id, b.run_id) not in schon]
+            bericht["quellen"].append({
+                "stadt": quelle.stadt, "schnappschuesse": len(alle),
+                "paare_gesamt": len(paare(alle)), "paare_neu": len(offen)})
+            bericht["uebersprungen"] += len(paare(alle)) - len(offen)
+            for vorher, nachher in offen:
+                log.info("  %s: %s -> %s", quelle.stadt, vorher, nachher)
+                if not trocken:
+                    ziehe(con, quelle, ablage, vorher, nachher)
+                bericht["paare"] += 1
+
+        if trocken:
+            return bericht
+
+        # Das Bestehende kommt dazu, nicht weg: Sein Rohstoff ist moeglicher-
+        # weise schon aufgeraeumt.
+        alt = verzeichnis / PARQUET_FILE
+        liste = ", ".join(SPALTEN)
+        bestand = (f"SELECT {liste} FROM read_parquet('{alt}') UNION ALL "
+                   if alt.is_file() else "")
+        con.execute(f"CREATE TABLE {TABLE} AS {bestand} "
+                    f"SELECT {liste} FROM neue_zeilen")
+        bericht["row_count"] = con.execute(
+            f"SELECT count(*) FROM {TABLE}").fetchone()[0]
+
+        if bericht["paare"] or not alt.is_file():
+            publish(con, TABLE, verzeichnis,
+                    manifest(con, bericht, begonnen))
+        return bericht
+    finally:
+        con.close()
+
+
+def manifest(con: duckdb.DuckDBPyConnection, bericht: dict[str, Any],
+             begonnen: datetime) -> dict[str, Any]:
+    arten = dict(con.execute(
+        f"SELECT art, count(*) FROM {TABLE} GROUP BY 1 ORDER BY 1").fetchall())
+    return {
+        "status": "complete",
+        "contract_version": CONTRACT_VERSION,
+        "code_version": code_stand(),
+        "layer": SILVER_LAYER,
+        "table": TABLE,
+        "grain": "ein geaendertes Feld einer Zeile zwischen zwei Schnappschuessen",
+        "built_at_utc": begonnen.isoformat().replace("+00:00", "Z"),
+        "tool": f"duckdb {duckdb.__version__}",
+        "format": "parquet (snappy)",
+        "row_count": bericht["row_count"],
+        "append_only": True,
+        "arten": arten,
+        "quellen": bericht["quellen"],
+        "hinweis": (
+            "Append-only: Was einmal herausgezogen wurde, bleibt stehen, auch "
+            "wenn die Bronze-Laeufe aufgeraeumt sind. Nur Laeufe mit "
+            "extraction_mode=FULL werden verglichen."),
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    zerleger = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    zerleger.add_argument("--data-root", type=Path, default=None)
+    zerleger.add_argument("--trocken", action="store_true",
+                          help="nur zeigen, welche Paare gezogen wuerden")
+    args = zerleger.parse_args(argv)
+
+    wurzel = for_root(args.data_root).local_root
+    bericht = baue(wurzel, trocken=args.trocken)
+
+    for q in bericht["quellen"]:
+        log.info("%s: %s Schnappschuesse, %s Paare (%s neu)",
+                 q["stadt"], q["schnappschuesse"], q["paare_gesamt"],
+                 q["paare_neu"])
+        if q["schnappschuesse"] < 2:
+            log.warning(
+                "  %s hat weniger als zwei Vollschnappschuesse - ohne einen "
+                "zweiten laesst sich nichts vergleichen.", q["stadt"])
+
+    if args.trocken:
+        log.info("Trockenlauf: %s Paare waeren zu ziehen.", bericht["paare"])
+        return 0
+
+    log.info("%s: %s Zeilen (%s Paare neu, %s schon gezogen)",
+             TABLE, f"{bericht['row_count']:,}", bericht["paare"],
+             bericht["uebersprungen"])
+    if bericht["paare"]:
+        gelesen = read_manifest(tabellenverzeichnis(wurzel))
+        for art, n in sorted(gelesen.get("arten", {}).items()):
+            log.info("  %-14s %s", art, f"{n:,}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

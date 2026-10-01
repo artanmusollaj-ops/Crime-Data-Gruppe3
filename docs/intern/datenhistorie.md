@@ -2,6 +2,53 @@
 
 **Stand: 16.9.2026. Zur gemeinsamen Entscheidung am Freitag, 18.9.2026.**
 
+> ## Nachtrag 1.10.2026 — gebaut, mit einer offenen Flanke
+>
+> **Abschnitt 4 ist umgesetzt.** `silver_pipeline.build_source_change` zieht
+> den Unterschied zwischen aufeinanderfolgenden Vollschnappschüssen heraus und
+> legt ihn in `silver/dataset=source_change` ab — append-only, eine Zeile je
+> geändertem Feld. Aus den fünf vorhandenen Detroit-Schnappschüssen sind das
+> **4'292 Zeilen** über vier Paare. Die Tabelle ist über `build_analysis_db`
+> sofort in DuckDB abfragbar.
+>
+> **Die Messungen dieses Papiers wurden dabei nachgerechnet und stimmen** —
+> Zeile für Zeile: 102 mit echter Inhaltsänderung, 147 nur `updated_at`
+> bewegt, und je Feld 249 / 121 / 89 / 14 / 1 sowie zehn echte
+> Beschreibungsänderungen. Ein Test mit dem Marker `referenzstand` hält das
+> fest, damit es nicht stillschweigend auseinanderläuft.
+>
+> **Die Aufräumregel (Abschnitt 4, zweiter Teil) steht ebenfalls.**
+> `orchestration.aufraeumen` hält jeden Vollschnappschuss, dessen Unterschied
+> noch nicht gezogen ist. Sie steht bewusst am **Ende** der Regelkette: Sie ist
+> die einzige, die von allein vergeht — ein Befehl macht den Lauf frei.
+>
+> **Entschieden wie empfohlen:** 5.1 Option B (ohne `ESRI_OID`, ohne
+> Zeitstempel als Inhaltsänderung, Text getrimmt) und 5.4 Option A (vor der
+> Harmonisierung, in Quellbegriffen). Zu 5.1 war eine Mehrdeutigkeit
+> aufzulösen — siehe den Modulkopf von `build_source_change`: Zeitstempel
+> zählen nicht als Inhaltsänderung, werden aber aufgezeichnet, und eine Zeile,
+> an der sich nur sie bewegt haben, trägt `art = 'beruehrt'`.
+>
+> ### Offen und drängend: 5.2, die Löschungen
+>
+> Die Empfehlung lautete *„ja, mit einem Vollschnappschuss je Stadt und
+> Monat"*. Sie wurde **nicht umgesetzt.** `orchestration.run_all` lädt Detroit
+> seit dem 18.9.2026 mit `--mode delta`, und ein regelmässiger Vollschnappschuss
+> ist nirgends eingeplant.
+>
+> Die Folge ist konkret: **Nach den fünf vorhandenen Schnappschüssen entsteht
+> kein neues Vergleichspaar mehr.** Die Tabelle hört auf zu wachsen — nicht
+> weil sich nichts ändert, sondern weil wir nicht mehr hinsehen. Die Fragen aus
+> Abschnitt 6 (Stabilitätskurve, Umklassierung, Löschungen) bleiben auf den
+> Zeitraum 11.–18.9.2026 beschränkt.
+>
+> Zu entscheiden bleibt nur, **wann** ein Vollschnappschuss läuft. Der Aufruf
+> steht seit je bereit:
+>
+> ```bash
+> python -m detroit_pipeline.extract_detroit --mode full --years 2024
+> ```
+
 Für die Auswertung zählt der aktuelle Stand. Die Quellen bewegen sich aber:
 Detroit ändert Einträge noch Jahre nach der Tat, Chicago liefert Deltas. Diese
 Bewegung ist selbst ein Gegenstand — *was ändert sich, wie oft, welcher Art,
