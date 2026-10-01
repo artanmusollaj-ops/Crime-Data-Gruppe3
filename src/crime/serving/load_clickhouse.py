@@ -30,6 +30,9 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import urllib.error
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from collections.abc import Callable
@@ -38,6 +41,14 @@ from typing import Any, Protocol
 import pyarrow.parquet as pq
 
 DATENWURZEL = Path("data")
+
+#: Der Port aus ``docker-compose.yml`` - verschoben, weil 8123 belegt sein
+#: kann, und an 127.0.0.1 gebunden, weil dieser Dienst keine Anmeldung hat.
+STANDARD_URL = "http://localhost:18123"
+
+#: Wo die Releases im Container liegen. ``file()`` loest relativ zu
+#: ``user_files`` auf, deshalb steht hier kein fuehrender Schraegstrich.
+EINGEHAENGT = "releases"
 
 
 # --------------------------------------------------------------------------
@@ -250,6 +261,15 @@ def ddl(tabelle: str, felder: list[Spalte], ziel: Ziel) -> str:
     erlaubt. Statt ihn zu setzen, faellt hier der Bau: Wenn eine
     Schluesselspalte NULL bekommt, hat sich etwas in Gold geaendert, und das
     gehoert angesehen und nicht umschifft.
+
+    **``OR REPLACE`` und nicht ``IF NOT EXISTS``.** Mit ``IF NOT EXISTS`` war
+    ein zweiter Lauf kein zweiter Lauf, sondern ein zweites Einfuegen: Die
+    Tabelle stand schon, der Insert lief noch einmal, und aus 345'073 Zeilen
+    wurden 690'146. Aufgefallen ist das erst, als ein Lauf nach einem
+    gescheiterten Abgleich wiederholt wurde - also genau dann, wenn man es am
+    wenigsten gebrauchen kann. ClickHouse fuehrt ``CREATE OR REPLACE TABLE``
+    atomar aus (Anlegen und Tauschen), die Sicht sieht also nie einen halben
+    Stand.
     """
     nach_name = {s.name: s for s in felder}
     for name in (*ziel.sortierung, *ziel.schluessel):
@@ -261,7 +281,7 @@ def ddl(tabelle: str, felder: list[Spalte], ziel: Ziel) -> str:
                 f"{name} traegt NULL und steht im Schluessel. Entweder die "
                 f"Sortierung aendern oder klaeren, warum Gold dort NULL liefert.")
     zeilen = ",\n".join(f"    {s.name} {s.clickhouse}" for s in felder)
-    teile = [f"CREATE TABLE IF NOT EXISTS {tabelle} (\n{zeilen}\n)",
+    teile = [f"CREATE OR REPLACE TABLE {tabelle} (\n{zeilen}\n)",
              "ENGINE = MergeTree"]
     if ziel.partition:
         teile.append(f"PARTITION BY {ziel.partition}")
@@ -338,14 +358,29 @@ def abgleich_release(parquet: Path, ziel: Ziel) -> dict[str, Any]:
         con.close()
 
 
+def _lesbar(wert: Any) -> str:
+    """Tausendertrennung, wo sie geht - und sonst der Wert mit seinem Typ.
+
+    ``f"{wert:,}"`` wirft bei allem, was keine Zahl ist. Die Meldung ueber
+    einen Abgleichsfehler darf aber nicht selbst abstuerzen: Genau dann
+    braucht sie jemand. Und wenn die Abweichung der **Typ** ist - ClickHouse
+    gab "345073", das Release 345073 - dann ist das die Auskunft, die
+    weiterhilft.
+    """
+    if isinstance(wert, int) and not isinstance(wert, bool):
+        return f"{wert:,}"
+    return f"{wert!r} ({type(wert).__name__})"
+
+
 def vergleiche(erwartet: dict[str, Any], gefunden: dict[str, Any],
                ziel: Ziel = ZIELE[0]) -> None:
     """Weicht etwas ab, wird nichts umgelegt."""
     for name in ("zeilen", "schluessel"):
         if erwartet[name] != gefunden[name]:
             raise LadeFehler(
-                f"{name}: Release sagt {erwartet[name]:,}, ClickHouse "
-                f"{gefunden[name]:,} - die Sicht bleibt auf dem alten Stand.")
+                f"{name}: Release sagt {_lesbar(erwartet[name])}, ClickHouse "
+                f"{_lesbar(gefunden[name])} - die Sicht bleibt auf dem alten "
+                f"Stand.")
     if erwartet["verteilung"] != gefunden["verteilung"]:
         nur_hier = set(erwartet["verteilung"]) - set(gefunden["verteilung"])
         raise LadeFehler(
@@ -374,6 +409,55 @@ class Klient(Protocol):
 
     def befehl(self, sql: str) -> None: ...
     def abfrage(self, sql: str) -> list[tuple]: ...
+
+
+class HttpKlient:
+    """Der schmale Weg ueber die HTTP-Schnittstelle - ohne neue Abhaengigkeit.
+
+    **Warum er jetzt hier steht.** Bis zum 1.10.2026 weigerte sich ``main``,
+    ohne ``--trocken`` zu laufen, mit der Begruendung, ein Klient werde
+    gereicht und nicht gebaut. Das war als Trennung gedacht, hiess praktisch
+    aber: Das Modul konnte seine eigene Aufgabe nicht erledigen, und jeder
+    Aufrufer schrieb sich denselben Klienten neu - der Test tat es, und
+    ``pruefe_stand`` haette es wieder getan. ``load_elasticsearch`` hat es von
+    Anfang an andersherum gehalten; diese Fassung zieht nach. Die Trennung
+    bleibt, wo sie zaehlt: ``lade`` nimmt weiterhin **irgendeinen** Klienten
+    entgegen und weiss nichts von HTTP.
+    """
+
+    def __init__(self, url: str = STANDARD_URL, datenbank: str = "default"):
+        self.url = url.rstrip("/")
+        self.datenbank = datenbank
+
+    def _sende(self, sql: str) -> bytes:
+        einstellungen = {
+            "database": self.datenbank,
+            # Ohne das liefert ClickHouse jede UInt64 als **Zeichenkette** -
+            # JSON kann 64 Bit nicht verlustfrei als Zahl. ``count()`` kaeme
+            # also als "345073" zurueck, DuckDB liefert 345073, und der
+            # Abgleich schluege an, obwohl nichts fehlt. Dieselbe Falle wie
+            # TSV, nur eine Ebene tiefer.
+            "output_format_json_quote_64bit_integers": "0",
+        }
+        ziel = f"{self.url}/?{urllib.parse.urlencode(einstellungen)}"
+        anfrage = urllib.request.Request(ziel, data=sql.encode("utf-8"),
+                                         method="POST")
+        try:
+            with urllib.request.urlopen(anfrage, timeout=600) as antwort:
+                return antwort.read()
+        except urllib.error.HTTPError as fehler:
+            text = fehler.read().decode("utf-8", "replace")[:600]
+            raise LadeFehler(f"ClickHouse: HTTP {fehler.code}: {text}") from fehler
+
+    def befehl(self, sql: str) -> None:
+        self._sende(sql)
+
+    def abfrage(self, sql: str) -> list[tuple]:
+        # JSONCompact und nicht TSV: TSV liefert alles als Text, und wer ihn
+        # zurueckraet, macht aus dem County '001' die Zahl 1. Genau das ist
+        # beim ersten Laden von dim_tract passiert.
+        roh = self._sende(sql + " FORMAT JSONCompact")
+        return [tuple(zeile) for zeile in json.loads(roh)["data"]]
 
 
 def aktuelles_release(datenwurzel: Path) -> tuple[str, Path]:
@@ -428,6 +512,8 @@ def main(argv: list[str] | None = None) -> int:
     zerleger = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     zerleger.add_argument("--data-root", type=Path, default=None,
                           help="lokale Wurzel; ohne Angabe entscheidet die Ablage")
+    zerleger.add_argument("--url", default=STANDARD_URL,
+                          help=f"ClickHouse (Standard: {STANDARD_URL})")
     zerleger.add_argument("--trocken", action="store_true",
                           help="nur die Anweisungen zeigen, nichts ausfuehren")
     args = zerleger.parse_args(argv)
@@ -453,10 +539,18 @@ def main(argv: list[str] | None = None) -> int:
             print("\n" + "-" * 72 + "\n")
         return 0
 
-    raise SystemExit(
-        "Ohne --trocken braucht es einen ClickHouse-Klienten. "
-        "Er wird gereicht, nicht hier gebaut: 'lade(klient, …)'."
-    )
+    klient = HttpKlient(args.url)
+    for ziel in ZIELE:
+        # Der Pfad, unter dem ClickHouse das Release sieht - nicht der, unter
+        # dem wir es sehen. Die Einhaengung steht in docker-compose.yml.
+        drinnen = (f"{EINGEHAENGT}/release={kennung}/{ziel.quelle_im_release}")
+        ergebnis = lade(
+            klient, kennung, quelle(verzeichnis, ziel),
+            einfuegen=lambda tabelle, p=drinnen: einfuegen_aus_datei(tabelle, p),
+            ziel=ziel)
+        print(f"{ergebnis['tabelle']:<40} {ergebnis['zeilen']:>9,} Zeilen, "
+              f"{ergebnis['spalten']} Spalten")
+    return 0
 
 
 if __name__ == "__main__":

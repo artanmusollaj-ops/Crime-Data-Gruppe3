@@ -177,7 +177,9 @@ def test_der_gute_fall_legt_die_sicht_zuletzt_um(tmp_path):
                       einfuegen=lambda z: lc.einfuegen_aus_s3(z, "u", "k", "g"))
 
     assert bericht["zeilen"] == 3 and bericht["schluessel"] == 3
-    assert db.befehle[0].startswith("CREATE TABLE")
+    # OR REPLACE und nicht IF NOT EXISTS: Sonst fuegt ein Wiederholungslauf
+    # ein zweites Mal ein, statt neu zu bauen - siehe ddl().
+    assert db.befehle[0].startswith("CREATE OR REPLACE TABLE")
     assert db.befehle[1].startswith("INSERT INTO")
     assert db.befehle[-1].startswith("CREATE OR REPLACE VIEW fact_offense"), (
         "die Sicht muss zuletzt kommen - vorher darf niemand den neuen Stand sehen"
@@ -237,38 +239,13 @@ def test_eine_verschobene_verteilung_faellt_auch_auf(tmp_path):
 CLICKHOUSE = os.environ.get("CLICKHOUSE_URL", "http://localhost:18123/")
 
 
-class HttpKlient:
-    """So duenn, wie das Modul es verlangt: ``befehl`` und ``abfrage``.
-
-    ``datenbank`` ist nicht Bequemlichkeit, sondern Notwendigkeit:
-    ``sicht_umlegen`` benennt die Sicht immer nach dem Ziel, also
-    ``fact_offense``. Liefe der Test in ``default``, loeschte sein Aufraeumen
-    die Sicht, die dort einen echten Stand bedient - genau das ist beim ersten
-    Lauf passiert. Er bekommt deshalb eine eigene Datenbank und raeumt die ganz
-    weg.
-    """
-
-    def __init__(self, url: str, datenbank: str = "default"):
-        import requests
-
-        self.url, self.requests = url, requests
-        self.datenbank = datenbank
-
-    def befehl(self, sql: str) -> None:
-        antwort = self.requests.post(f"{self.url}?database={self.datenbank}",
-                                     data=sql.encode("utf-8"), timeout=60)
-        if antwort.status_code != 200:
-            raise AssertionError(f"{antwort.status_code}: {antwort.text[:300]}")
-
-    def abfrage(self, sql: str) -> list[tuple]:
-        # JSONCompact und nicht TSV: TSV liefert alles als Text, und wer ihn
-        # zurueckrät, macht aus dem County '001' die Zahl 1.
-        antwort = self.requests.post(
-            f"{self.url}?database={self.datenbank}",
-            data=(sql + " FORMAT JSONCompact").encode("utf-8"), timeout=60)
-        if antwort.status_code != 200:
-            raise AssertionError(f"{antwort.status_code}: {antwort.text[:300]}")
-        return [tuple(zeile) for zeile in antwort.json()["data"]]
+# Der Klient kommt aus dem Modul. Bis zum 1.10.2026 stand hier eine zweite
+# Fassung, und sie verliess sich auf eine Servervoreinstellung: ClickHouse
+# liefert UInt64 in JSON je nach Fassung als Zahl oder als Zeichenkette. Unter
+# ``:latest`` ging es gut, unter dem in docker-compose.yml gepinnten 24.8 kam
+# ``count()`` als "3" zurueck, und der Abgleich schlug an, obwohl nichts
+# fehlte. Die Fassung im Modul setzt die Einstellung ausdruecklich.
+HttpKlient = lc.HttpKlient
 
 
 @pytest.fixture
@@ -350,6 +327,35 @@ def test_ein_unvollstaendiger_lauf_bewegt_die_sicht_nicht(tmp_path, clickhouse):
     assert clickhouse.abfrage(
         f"SELECT count() FROM {lc.tabellenname(halb)}")[0][0] == 2, (
         "die halbe Tabelle liegt daneben und stoert niemanden")
+
+
+def test_ein_zweiter_lauf_verdoppelt_nicht(tmp_path, clickhouse):
+    """Der Fehler, der aus 345'073 Zeilen 690'146 machte.
+
+    Mit ``CREATE TABLE IF NOT EXISTS`` stand die Tabelle beim zweiten Lauf
+    schon, und der Insert lief trotzdem noch einmal. Aufgefallen ist das erst,
+    als ein Lauf nach einem gescheiterten Abgleich wiederholt wurde - also
+    genau dann, wenn man es am wenigsten gebrauchen kann.
+    """
+    parquet = beispiel(tmp_path)
+    kennung = "9999-03-03T00-00-00Z"
+    einfuegen = werte_anweisung(parquet)
+
+    lc.lade(clickhouse, kennung, parquet, einfuegen=einfuegen)
+    lc.lade(clickhouse, kennung, parquet, einfuegen=einfuegen)
+
+    assert clickhouse.abfrage(
+        f"SELECT count() FROM {lc.tabellenname(kennung)}")[0][0] == 3
+
+
+def test_die_zaehlung_kommt_als_zahl_zurueck_nicht_als_text(tmp_path, clickhouse):
+    """Die Zusage aus dem ``Klient``-Protokoll, an der echten Datenbank.
+
+    ClickHouse liefert UInt64 in JSON je nach Einstellung als "3" statt 3.
+    Dann schlaegt jeder Abgleich an, ohne dass etwas fehlt.
+    """
+    wert = clickhouse.abfrage("SELECT count() FROM system.tables")[0][0]
+    assert isinstance(wert, int), f"{wert!r} ist {type(wert).__name__}"
 
 
 # --------------------------------------------------------------------------

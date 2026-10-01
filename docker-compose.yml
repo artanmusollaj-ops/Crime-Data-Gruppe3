@@ -12,10 +12,12 @@
 # das jemand von Hand anlegt, ist genau die Art Voraussetzung, die beim
 # Nachbauen fehlt.
 #
-# **Die Ports sind bewusst verschoben.** 9200 und 5601 sind die
+# **Die Ports sind bewusst verschoben und gebunden.** 9200 und 5601 sind die
 # Voreinstellungen und auf Entwicklungsrechnern regelmaessig belegt - auf
 # diesem sass auf 9200 ein OpenSearch aus einem anderen Projekt. Ein eigener
-# Port kostet nichts und nimmt niemandem seinen Dienst weg.
+# Port kostet nichts und nimmt niemandem seinen Dienst weg. Alle drei haengen
+# ausserdem an ``127.0.0.1``: Keiner dieser Dienste verlangt eine Anmeldung,
+# und Docker schreibt seine Weiterleitungen an der Rechnerfirewall vorbei.
 #
 # **Die Daten liegen in benannten Volumes.** Ein Neustart verliert damit
 # nichts. Loeschen darf man sie trotzdem jederzeit: Alles darin ist aus einem
@@ -25,15 +27,33 @@
 services:
   clickhouse:
     image: clickhouse/clickhouse-server:24.8
+    environment:
+      # Ohne das meldet der Einstiegspunkt "neither CLICKHOUSE_USER nor
+      # CLICKHOUSE_PASSWORD is set, disabling network access for user
+      # 'default'" - und dann antwortet der Dienst nur noch von innen. Der
+      # Healthcheck merkt davon nichts, weil ``/ping`` keine Anmeldung
+      # braucht: Der Container steht auf "healthy" und ist trotzdem
+      # unbenutzbar. Gefunden hat das erst ``serving.pruefe_stand``.
+      CLICKHOUSE_SKIP_USER_SETUP: "1"
     ports:
-      - "18123:8123"      # HTTP, hierueber laeuft load_clickhouse
-      - "19000:9000"      # natives Protokoll, fuer clickhouse-client
+      # An 127.0.0.1 gebunden, nicht an alle Schnittstellen: Diese Dienste
+      # haben keine Anmeldung, und was keine Anmeldung hat, gehoert nicht ins
+      # Netz. Docker umgeht ausserdem die Rechnerfirewall, wenn man ihm das
+      # nicht ausdruecklich abnimmt.
+      - "127.0.0.1:18123:8123"   # HTTP, hierueber laeuft load_clickhouse
+      - "127.0.0.1:19000:9000"   # natives Protokoll, fuer clickhouse-client
     ulimits:
       # ClickHouse oeffnet im Betrieb sehr viele Dateien. Ohne das warnt es
       # beim Start und arbeitet langsamer, als es muesste.
       nofile: {soft: 262144, hard: 262144}
     volumes:
       - clickhouse-daten:/var/lib/clickhouse
+      # Die Releases liegen lesend im ``user_files``-Verzeichnis. Damit kann
+      # ClickHouse die Parquet-Dateien mit ``file()`` selbst einlesen - der
+      # Weg, fuer den ``load_clickhouse.einfuegen_aus_datei`` geschrieben
+      # wurde. Die Alternative waere, 42 MB durch eine Kommandozeile zu
+      # schieben oder S3-Zugangsdaten hineinzureichen.
+      - ./data/releases:/var/lib/clickhouse/user_files/releases:ro
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8123/ping"]
       interval: 10s
@@ -50,7 +70,7 @@ services:
       xpack.security.enabled: "false"
       ES_JAVA_OPTS: "-Xms1g -Xmx1g"
     ports:
-      - "19200:9200"
+      - "127.0.0.1:19200:9200"
     volumes:
       - elasticsearch-daten:/usr/share/elasticsearch/data
     healthcheck:
@@ -75,7 +95,7 @@ services:
       # aufgesetztes Kibana findet dieselben Dashboards wieder.
       XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: "bitte_nur_lokal_verwenden_mindestens_32_zeichen"
     ports:
-      - "15601:5601"
+      - "127.0.0.1:15601:5601"
     volumes:
       - kibana-daten:/usr/share/kibana/data
     healthcheck:

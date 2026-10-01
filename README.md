@@ -224,7 +224,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'404
+python -m pytest -m ""               # beides zusammen, alle 1'435
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -740,8 +740,36 @@ python tools/build_dashboardbilder.py    # braucht die Dienste und einen Chrome
 > jedes Dashboard leer, und nichts deutete darauf hin, dass nur der Zeitraum
 > falsch steht. Es kommt deshalb aus dem Release.
 
+**Zeigen alle vier noch dasselbe?**
+
+```bash
+python -m serving.pruefe_stand           # Bericht, Rückgabewert 0 oder 1
+python -m serving.pruefe_stand --knapp   # nur die Abweichungen
+```
+
+Vier Orte behaupten, die Daten zu zeigen: die Arbeits-Gold-Schicht (auf der
+die DuckDB-Sichten liegen), ClickHouse, Elasticsearch und die Dashboards.
+Jeder prüft sich **beim Laden** gegen das Release. Danach prüfte bis zum
+1.10.2026 niemand mehr, ob sie noch dasselbe sagen.
+
+Das Szenario ist nicht ausgedacht: Ein neues Release entsteht, ClickHouse wird
+nachgezogen, Elasticsearch vergessen. Die Dashboards zeigen weiter den alten
+Stand — ohne Hinweis, weil der Alias brav irgendwohin zeigt und alle Zahlen in
+sich stimmig sind. Jede Stelle ist konsistent, das Ganze ist falsch.
+
+| Ort | woran der Stand erkennbar ist |
+| --- | --- |
+| Gold (Arbeitsschicht) | SHA-256 je Datei gegen die des Releases |
+| ClickHouse | die Tabelle hinter der Sicht trägt die Release-Kennung |
+| Elasticsearch | der Index hinter dem Alias trägt sie ebenfalls |
+| Kibana | das eingebackene Zeitfenster deckt den Datenbereich ab |
+
+> **Nicht im wöchentlichen Datenlauf.** Nach einer frischen Ingestion weicht
+> Gold vom Release ab — richtigerweise, denn es ist neuer. Der Lauf wäre jede
+> Woche rot. Die zugehörige Prüfung trägt deshalb `referenzstand`.
+
 Alles in diesen Diensten ist **abgeleitet und wegwerfbar**: `docker compose
-down -v` löscht es, die drei Befehle oben stellen es in Sekunden wieder her.
+down -v` löscht es, die Befehle oben stellen es in Sekunden wieder her.
 Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.
 
 ## 3 · Wenn etwas klemmt
@@ -769,7 +797,7 @@ Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.
 python -m pytest
 ```
 
-**1'404 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'435 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
