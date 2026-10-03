@@ -40,6 +40,15 @@
             <li>
                     <a class="variable" href="#STATES">STATES</a>
             </li>
+            <li>
+                    <a class="variable" href="#NEWEST_VINTAGE">NEWEST_VINTAGE</a>
+            </li>
+            <li>
+                    <a class="function" href="#vintage_for">vintage_for</a>
+            </li>
+            <li>
+                    <a class="function" href="#vintages_for">vintages_for</a>
+            </li>
     </ul>
 
 
@@ -91,6 +100,32 @@ Raumeinheiten (community_area, ward, Bezirk) sind es nicht.</p>
 </span><span id="L-17"><a href="#L-17"><span class="linenos">17</span></a>    <span class="s2">"17"</span><span class="p">:</span> <span class="s2">"illinois"</span><span class="p">,</span>  <span class="c1"># Cook County, Chicago</span>
 </span><span id="L-18"><a href="#L-18"><span class="linenos">18</span></a>    <span class="s2">"26"</span><span class="p">:</span> <span class="s2">"michigan"</span><span class="p">,</span>  <span class="c1"># Wayne County, Detroit</span>
 </span><span id="L-19"><a href="#L-19"><span class="linenos">19</span></a><span class="p">}</span>
+</span><span id="L-20"><a href="#L-20"><span class="linenos">20</span></a>
+</span><span id="L-21"><a href="#L-21"><span class="linenos">21</span></a><span class="c1"># Das juengste ACS-5-Jahres-Vintage, das es gibt. Am 3.10.2026 an der</span>
+</span><span id="L-22"><a href="#L-22"><span class="linenos">22</span></a><span class="c1"># Census-API gemessen: 2025 und 2026 sind nicht veroeffentlicht und werden es</span>
+</span><span id="L-23"><a href="#L-23"><span class="linenos">23</span></a><span class="c1"># bis zur Abgabe auch nicht sein.</span>
+</span><span id="L-24"><a href="#L-24"><span class="linenos">24</span></a><span class="c1">#</span>
+</span><span id="L-25"><a href="#L-25"><span class="linenos">25</span></a><span class="c1"># Die Regel steht hier und nicht bei ihren beiden Benutzern. Der Gesamtlauf</span>
+</span><span id="L-26"><a href="#L-26"><span class="linenos">26</span></a><span class="c1"># braucht sie, um zu wissen, welche Vintages er laedt; Gold braucht sie, um</span>
+</span><span id="L-27"><a href="#L-27"><span class="linenos">27</span></a><span class="c1"># jeder Tat ihren Nenner zuzuordnen. Zweimal geschrieben waere sie zweimal zu</span>
+</span><span id="L-28"><a href="#L-28"><span class="linenos">28</span></a><span class="c1"># pflegen - und die Fassung, die niemand anpasst, ist die, die rechnet.</span>
+</span><span id="L-29"><a href="#L-29"><span class="linenos">29</span></a><span class="n">NEWEST_VINTAGE</span> <span class="o">=</span> <span class="mi">2024</span>
+</span><span id="L-30"><a href="#L-30"><span class="linenos">30</span></a>
+</span><span id="L-31"><a href="#L-31"><span class="linenos">31</span></a>
+</span><span id="L-32"><a href="#L-32"><span class="linenos">32</span></a><span class="k">def</span><span class="w"> </span><span class="nf">vintage_for</span><span class="p">(</span><span class="n">year</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span id="L-33"><a href="#L-33"><span class="linenos">33</span></a><span class="w">    </span><span class="sd">"""Which ACS vintage serves as the denominator for this year.</span>
+</span><span id="L-34"><a href="#L-34"><span class="linenos">34</span></a>
+</span><span id="L-35"><a href="#L-35"><span class="linenos">35</span></a><span class="sd">    Up to and including ``NEWEST_VINTAGE`` every year has its own. Beyond it</span>
+</span><span id="L-36"><a href="#L-36"><span class="linenos">36</span></a><span class="sd">    the newest available one stays in use - that is not an extrapolation but a</span>
+</span><span id="L-37"><a href="#L-37"><span class="linenos">37</span></a><span class="sd">    **borrowed** population, and it has to be labelled as such wherever a rate</span>
+</span><span id="L-38"><a href="#L-38"><span class="linenos">38</span></a><span class="sd">    is shown.</span>
+</span><span id="L-39"><a href="#L-39"><span class="linenos">39</span></a><span class="sd">    """</span>
+</span><span id="L-40"><a href="#L-40"><span class="linenos">40</span></a>    <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">year</span><span class="p">,</span> <span class="n">NEWEST_VINTAGE</span><span class="p">)</span>
+</span><span id="L-41"><a href="#L-41"><span class="linenos">41</span></a>
+</span><span id="L-42"><a href="#L-42"><span class="linenos">42</span></a>
+</span><span id="L-43"><a href="#L-43"><span class="linenos">43</span></a><span class="k">def</span><span class="w"> </span><span class="nf">vintages_for</span><span class="p">(</span><span class="n">years</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+</span><span id="L-44"><a href="#L-44"><span class="linenos">44</span></a><span class="w">    </span><span class="sd">"""The vintages these years need, each one once, ascending."""</span>
+</span><span id="L-45"><a href="#L-45"><span class="linenos">45</span></a>    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">({</span><span class="n">vintage_for</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">years</span><span class="p">}))</span>
 </span></pre></div>
 
 
@@ -105,6 +140,73 @@ Raumeinheiten (community_area, ward, Bezirk) sind es nicht.</p>
     <a class="headerlink" href="#STATES"></a>
     
     
+
+                </section>
+                <section id="NEWEST_VINTAGE">
+                    <div class="attr variable">
+            <span class="name">NEWEST_VINTAGE</span>        =
+<span class="default_value">2024</span>
+
+        
+    </div>
+    <a class="headerlink" href="#NEWEST_VINTAGE"></a>
+    
+    
+
+                </section>
+                <section id="vintage_for">
+                            <input id="vintage_for-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">vintage_for</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">year</span><span class="p">:</span> <span class="nb">int</span></span><span class="return-annotation">) -> <span class="nb">int</span>:</span></span>
+
+                <label class="view-source-button" for="vintage_for-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#vintage_for"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="vintage_for-33"><a href="#vintage_for-33"><span class="linenos">33</span></a><span class="k">def</span><span class="w"> </span><span class="nf">vintage_for</span><span class="p">(</span><span class="n">year</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span id="vintage_for-34"><a href="#vintage_for-34"><span class="linenos">34</span></a><span class="w">    </span><span class="sd">"""Which ACS vintage serves as the denominator for this year.</span>
+</span><span id="vintage_for-35"><a href="#vintage_for-35"><span class="linenos">35</span></a>
+</span><span id="vintage_for-36"><a href="#vintage_for-36"><span class="linenos">36</span></a><span class="sd">    Up to and including ``NEWEST_VINTAGE`` every year has its own. Beyond it</span>
+</span><span id="vintage_for-37"><a href="#vintage_for-37"><span class="linenos">37</span></a><span class="sd">    the newest available one stays in use - that is not an extrapolation but a</span>
+</span><span id="vintage_for-38"><a href="#vintage_for-38"><span class="linenos">38</span></a><span class="sd">    **borrowed** population, and it has to be labelled as such wherever a rate</span>
+</span><span id="vintage_for-39"><a href="#vintage_for-39"><span class="linenos">39</span></a><span class="sd">    is shown.</span>
+</span><span id="vintage_for-40"><a href="#vintage_for-40"><span class="linenos">40</span></a><span class="sd">    """</span>
+</span><span id="vintage_for-41"><a href="#vintage_for-41"><span class="linenos">41</span></a>    <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">year</span><span class="p">,</span> <span class="n">NEWEST_VINTAGE</span><span class="p">)</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>Which ACS vintage serves as the denominator for this year.</p>
+
+<p>Up to and including <code><a href="#NEWEST_VINTAGE">NEWEST_VINTAGE</a></code> every year has its own. Beyond it
+the newest available one stays in use - that is not an extrapolation but a
+<strong>borrowed</strong> population, and it has to be labelled as such wherever a rate
+is shown.</p>
+</div>
+
+
+                </section>
+                <section id="vintages_for">
+                            <input id="vintages_for-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">vintages_for</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">years</span></span><span class="return-annotation">) -> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>:</span></span>
+
+                <label class="view-source-button" for="vintages_for-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#vintages_for"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="vintages_for-44"><a href="#vintages_for-44"><span class="linenos">44</span></a><span class="k">def</span><span class="w"> </span><span class="nf">vintages_for</span><span class="p">(</span><span class="n">years</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+</span><span id="vintages_for-45"><a href="#vintages_for-45"><span class="linenos">45</span></a><span class="w">    </span><span class="sd">"""The vintages these years need, each one once, ascending."""</span>
+</span><span id="vintages_for-46"><a href="#vintages_for-46"><span class="linenos">46</span></a>    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">({</span><span class="n">vintage_for</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">years</span><span class="p">}))</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>The vintages these years need, each one once, ascending.</p>
+</div>
+
 
                 </section>
     </main>

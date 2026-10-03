@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from gold_pipeline import einwohner_je_stadt
 
 PROJEKT = Path(__file__).resolve().parents[1]
 WERKZEUG = PROJEKT / "tools" / "build_einstieg.py"
@@ -165,14 +166,13 @@ def test_jede_zahl_der_seite_steht_so_im_release(text):
             f"gescheitert.")
 
     tract = gold / "dataset=dim_tract/part-0001.parquet"
+    acs = gold / "dataset=dim_tract_acs/part-0001.parquet"
     fakt = gold / "dataset=fact_offense/part-0001.parquet"
     con = duckdb.connect()
     try:
         raten = con.execute(f"""
-            WITH e AS (
-                SELECT city, sum(population) AS n
-                FROM read_parquet('{tract}') WHERE city IS NOT NULL GROUP BY 1
-            )
+            WITH e AS ({einwohner_je_stadt(
+                f"read_parquet('{tract}')", f"read_parquet('{acs}')")})
             SELECT t.city, round(count(*) * 1000.0 / any_value(e.n), 1)
             FROM read_parquet('{fakt}') f
             JOIN read_parquet('{tract}') t ON t.geoid = f.tract_geoid

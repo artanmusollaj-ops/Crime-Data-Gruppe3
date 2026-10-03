@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from gold_pipeline import einwohner_je_stadt
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -108,15 +109,14 @@ def test_der_kopf_nennt_die_raten(stand):
     """Die Rate je 1'000 Einwohner - was am ehesten auf eine Folie kommt."""
     duckdb = pytest.importorskip("duckdb")
     tract = PROJECT_ROOT / "data" / "gold" / "dataset=dim_tract" / "part-0001.parquet"
-    if not (GOLD.exists() and tract.exists()):
+    acs = PROJECT_ROOT / "data" / "gold" / "dataset=dim_tract_acs" / "part-0001.parquet"
+    if not (GOLD.exists() and tract.exists() and acs.exists()):
         pytest.skip("Gold nicht gebaut")
     con = duckdb.connect()
     try:
         echt = dict(con.execute(f"""
-            WITH e AS (
-                SELECT city, sum(population) AS n
-                FROM read_parquet('{tract}') WHERE city IS NOT NULL GROUP BY 1
-            )
+            WITH e AS ({einwohner_je_stadt(
+                f"read_parquet('{tract}')", f"read_parquet('{acs}')")})
             SELECT t.city, round(count(*) * 1000.0 / any_value(e.n), 1)
             FROM read_parquet('{GOLD}') f
             JOIN read_parquet('{tract}') t ON t.geoid = f.tract_geoid

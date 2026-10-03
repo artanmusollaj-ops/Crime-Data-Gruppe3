@@ -27,6 +27,9 @@ from silver_pipeline import TransformError, connect
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+# Das Referenz-Vintage dieser Tests. Seit Vertrag 6 nimmt dim_tract_query es
+# entgegen, weil die Stadtzuordnung sagen muss, aus welchem Jahrgang sie kommt.
+VINTAGE = 2024
 CHICAGO = "1714000"
 DETROIT = "2622000"
 
@@ -54,10 +57,14 @@ def schreibe(tmp_path: Path, name: str, table: pa.Table) -> bg.Quelle:
     return bg.Quelle(name, pfad)
 
 
-def tract_quelle(tmp_path: Path, tracts) -> bg.Quelle:
-    """tracts: (geoid, population, geometrie)."""
+def tract_quelle(tmp_path: Path, tracts, name: str = "tract") -> bg.Quelle:
+    """tracts: (geoid, population, geometrie).
+
+    ``name`` trennt mehrere Vintages: Seit Vertrag 6 liest Gold ``silver/tract``
+    je Vintage, und zwei Quellen brauchen zwei Dateien.
+    """
     n = len(tracts)
-    return schreibe(tmp_path, "tract", pa.table({
+    return schreibe(tmp_path, name, pa.table({
         "geoid": pa.array([t[0] for t in tracts]),
         "state_fips": pa.array([t[0][:2] for t in tracts]),
         "state_name": pa.array(["illinois"] * n),
@@ -204,7 +211,7 @@ def test_stadtzuordnung_folgt_der_mehrheitsregel(
         ("17031010100", 1000, wkb_rechteck(10 - breite_innen, 1, 1.0, 1.0)),
     ])
     con.execute(
-        f"CREATE OR REPLACE TEMP VIEW d AS {bg.dim_tract_query(tract, place_quelle(tmp_path))}"
+        f"CREATE OR REPLACE TEMP VIEW d AS {bg.dim_tract_query(tract, place_quelle(tmp_path), VINTAGE)}"
     )
     stadt, gemessen = con.execute(
         "SELECT city, city_area_share FROM d"
@@ -219,7 +226,7 @@ def test_der_flaechenanteil_bleibt_auch_unterhalb_der_schwelle(con, tmp_path):
         ("17031010100", 1000, wkb_rechteck(9.7, 1, 1.0, 1.0)),
     ])
     con.execute(
-        f"CREATE OR REPLACE TEMP VIEW d AS {bg.dim_tract_query(tract, place_quelle(tmp_path))}"
+        f"CREATE OR REPLACE TEMP VIEW d AS {bg.dim_tract_query(tract, place_quelle(tmp_path), VINTAGE)}"
     )
     stadt, anteil = con.execute("SELECT city, city_area_share FROM d").fetchone()
     assert stadt is None
@@ -233,7 +240,7 @@ def test_jeder_tract_steht_genau_einmal(con, tmp_path):
         ("17031010200", 2000, wkb_rechteck(50, 50, 2, 2)),
     ])
     con.execute(
-        f"CREATE OR REPLACE TEMP VIEW d AS {bg.dim_tract_query(tract, place_quelle(tmp_path))}"
+        f"CREATE OR REPLACE TEMP VIEW d AS {bg.dim_tract_query(tract, place_quelle(tmp_path), VINTAGE)}"
     )
     assert con.execute("SELECT count(*) FROM d").fetchone()[0] == 2
     assert con.execute(
@@ -247,10 +254,12 @@ def test_ein_tract_ausserhalb_beider_staedte_bleibt_erhalten(con, tmp_path):
         ("17031010200", 2000, wkb_rechteck(50, 50, 2, 2)),
     ])
     con.execute(
-        f"CREATE OR REPLACE TEMP VIEW d AS {bg.dim_tract_query(tract, place_quelle(tmp_path))}"
+        f"CREATE OR REPLACE TEMP VIEW d AS {bg.dim_tract_query(tract, place_quelle(tmp_path), VINTAGE)}"
     )
-    zeile = con.execute("SELECT geoid, city, city_area_share, population FROM d").fetchone()
-    assert zeile == ("17031010200", None, 0.0, 2000)
+    zeile = con.execute(
+        "SELECT geoid, city, city_area_share, reference_vintage FROM d"
+    ).fetchone()
+    assert zeile == ("17031010200", None, 0.0, VINTAGE)
 
 
 # --------------------------------------------------------------------------
@@ -492,7 +501,7 @@ DETROIT_TRACT = ("26163500100", 700, wkb_rechteck(101, 101, 2, 2))
 
 
 def baue(con, tmp_path, zeilen, tracts=None):
-    """Legt alle fuenf Relationen an, wie ``build`` es tut."""
+    """Legt alle sechs Relationen an, wie ``build`` es tut."""
     tracts = list(tracts or [("17031010100", 1000, wkb_rechteck(1, 1, 2, 2))])
     if not any(t[0].startswith("26") for t in tracts):
         tracts.append(DETROIT_TRACT)
@@ -500,7 +509,14 @@ def baue(con, tmp_path, zeilen, tracts=None):
     tract = tract_quelle(tmp_path, tracts)
     place = place_quelle(tmp_path)
     weather = weather_quelle(tmp_path, [z[2] for z in zeilen])
-    con.execute(f"CREATE OR REPLACE TABLE dim_tract AS {bg.dim_tract_query(tract, place)}")
+    con.execute(
+        "CREATE OR REPLACE TABLE dim_tract AS "
+        + bg.dim_tract_query(tract, place, VINTAGE)
+    )
+    con.execute(
+        "CREATE OR REPLACE TABLE dim_tract_acs AS "
+        + bg.dim_tract_acs_query({VINTAGE: tract})
+    )
     con.execute(
         "CREATE OR REPLACE TABLE dim_offense (nibrs_code VARCHAR, nibrs_description VARCHAR, "
         "nibrs_category VARCHAR, nibrs_family VARCHAR, nibrs_group VARCHAR, "
@@ -544,7 +560,7 @@ def test_der_nachweis_geht_durch(con, tmp_path):
         ("a", "chicago", date(2024, 3, 1), "13A", "17031010100"),
         ("b", "chicago", date(2024, 3, 2), "23C", "17031010100"),
     ])
-    nachweis = bg.reconcile(con, offense)
+    nachweis = bg.reconcile(con, offense, VINTAGE)
     assert nachweis["verified"] is True
     assert nachweis["fact_rows"] == nachweis["silver_rows"] == 2
     assert nachweis["orphan_keys"] == {"dim_offense": 0, "dim_tract": 0, "dim_date": 0}
@@ -557,7 +573,7 @@ def test_eine_verlorene_zeile_faellt_auf(con, tmp_path):
     ])
     con.execute("DELETE FROM fact_offense WHERE offense_id = 'b'")
     with pytest.raises(TransformError, match="silver/crime_offense"):
-        bg.reconcile(con, offense)
+        bg.reconcile(con, offense, VINTAGE)
 
 
 def test_ein_verwaister_deliktschluessel_faellt_auf(con, tmp_path):
@@ -567,7 +583,7 @@ def test_ein_verwaister_deliktschluessel_faellt_auf(con, tmp_path):
     ])
     con.execute("DELETE FROM dim_offense WHERE nibrs_code = '13A'")
     with pytest.raises(TransformError, match="dim_offense"):
-        bg.reconcile(con, offense)
+        bg.reconcile(con, offense, VINTAGE)
 
 
 def test_ein_ungeloester_code_in_den_daten_laesst_den_bau_scheitern(con, tmp_path):
@@ -576,7 +592,7 @@ def test_ein_ungeloester_code_in_den_daten_laesst_den_bau_scheitern(con, tmp_pat
         ("a", "chicago", date(2024, 3, 1), "90E", "17031010100"),
     ])
     with pytest.raises(TransformError, match="ohne Aufloesung"):
-        bg.reconcile(con, offense)
+        bg.reconcile(con, offense, VINTAGE)
 
 
 def test_ein_aufgeloester_code_in_den_daten_geht_durch(con, tmp_path):
@@ -584,7 +600,7 @@ def test_ein_aufgeloester_code_in_den_daten_geht_durch(con, tmp_path):
         ("a", "chicago", date(2024, 3, 1), "90A", "17031010100"),
         ("b", "chicago", date(2024, 3, 2), "90I", "17031010100"),
     ])
-    nachweis = bg.reconcile(con, offense)
+    nachweis = bg.reconcile(con, offense, VINTAGE)
     assert nachweis["retired_codes"]["90A"]["replaced_by"] == "26A"
     assert nachweis["retired_codes"]["90A"]["offenses"] == 1
     assert nachweis["retired_codes"]["90I"]["resolution"] == "not_an_offense"
@@ -596,7 +612,7 @@ def test_eine_fehlende_begruendung_faellt_auf(con, tmp_path):
     ])
     con.execute("UPDATE dim_offense SET retirement_note = NULL WHERE retired")
     with pytest.raises(TransformError, match="ohne Begruendung"):
-        bg.reconcile(con, offense)
+        bg.reconcile(con, offense, VINTAGE)
 
 
 def test_ein_verwaister_tract_faellt_auf(con, tmp_path):
@@ -605,7 +621,7 @@ def test_ein_verwaister_tract_faellt_auf(con, tmp_path):
     ])
     con.execute("DELETE FROM dim_tract")
     with pytest.raises(TransformError, match="dim_tract"):
-        bg.reconcile(con, offense)
+        bg.reconcile(con, offense, VINTAGE)
 
 
 def test_ohne_zugeordnete_tracts_scheitert_der_bau(con, tmp_path):
@@ -616,7 +632,7 @@ def test_ohne_zugeordnete_tracts_scheitert_der_bau(con, tmp_path):
         tracts=[("17031010200", 2000, wkb_rechteck(50, 50, 2, 2))],
     )
     with pytest.raises(TransformError, match="Keine Tracts der Stadt zugeordnet"):
-        bg.reconcile(con, offense)
+        bg.reconcile(con, offense, VINTAGE)
 
 
 def test_der_nachweis_misst_die_randfaelle(con, tmp_path):
@@ -632,7 +648,7 @@ def test_der_nachweis_misst_die_randfaelle(con, tmp_path):
             ("17031010300", 500, wkb_rechteck(9.7, 1, 1.0, 1.0)),
         ],
     )
-    nachweis = bg.reconcile(con, offense)
+    nachweis = bg.reconcile(con, offense, VINTAGE)
     assert nachweis["offenses_whose_tract_belongs_to_no_study_city"] == 1
     assert nachweis["city_assignment"]["chicago"]["population"] == 1000
 
@@ -655,12 +671,18 @@ def test_die_echte_stadtzuordnung_trifft_die_amtliche_einwohnerzahl(con):
     Variante "alle beruehrten Tracts" tut genau das (Detroit 884'691).
     """
     pfad = gold("dim_tract")
-    if pfad is None:
+    acs = gold("dim_tract_acs")
+    if pfad is None or acs is None:
         pytest.skip("keine gebaute Gold-Schicht vorhanden")
+    # Seit Vertrag 6 steht die Einwohnerzahl in dim_tract_acs, je Vintage.
+    # Verbunden wird ueber geoid UND vintage - ohne das zweite Praedikat
+    # summiert diese Abfrage jeden Tract so oft, wie Vintages geladen sind.
     einwohner = dict(
         con.execute(
-            f"SELECT city, sum(population) FROM read_parquet('{pfad}') "
-            "WHERE city IS NOT NULL GROUP BY city"
+            f"SELECT d.city, sum(a.population) FROM read_parquet('{pfad}') d "
+            f"JOIN read_parquet('{acs}') a "
+            "  ON a.geoid = d.geoid AND a.vintage = d.reference_vintage "
+            "WHERE d.city IS NOT NULL GROUP BY d.city"
         ).fetchall()
     )
     assert set(einwohner) == set(STADT_SCHLUESSEL.values())
@@ -1137,3 +1159,129 @@ def test_der_vertrag_steht_auf_drei_seit_den_spurenspalten():
         "Vertragsversion muss das nennen"
     )
 
+
+
+# --------------------------------------------------------------------------
+# dim_tract_acs und population_vintage (FR-35)
+# --------------------------------------------------------------------------
+
+
+def acs_quellen(tmp_path, je_vintage: dict[int, int]) -> dict[int, bg.Quelle]:
+    """Je Vintage eine Tract-Quelle mit eigener Einwohnerzahl."""
+    return {
+        vintage: tract_quelle(
+            tmp_path,
+            [("17031010100", einwohner, wkb_rechteck(1, 1, 2, 2))],
+            name=f"tract_{vintage}",
+        )
+        for vintage, einwohner in je_vintage.items()
+    }
+
+
+def test_jedes_vintage_bringt_seine_eigene_einwohnerzahl(con, tmp_path):
+    """Der Grund fuer die ganze Tabelle: eine Zeile je Tract kann nur eine tragen."""
+    quellen = acs_quellen(tmp_path, {2021: 900, 2024: 1000})
+    con.execute(f"CREATE OR REPLACE TEMP VIEW a AS {bg.dim_tract_acs_query(quellen)}")
+    assert con.execute(
+        "SELECT vintage, population FROM a ORDER BY vintage"
+    ).fetchall() == [(2021, 900), (2024, 1000)]
+
+
+def test_die_acs_tabelle_steht_aufsteigend_nach_vintage(con, tmp_path):
+    quellen = acs_quellen(tmp_path, {2024: 1000, 2021: 900, 2022: 950})
+    con.execute(f"CREATE OR REPLACE TEMP VIEW a AS {bg.dim_tract_acs_query(quellen)}")
+    vintages = [z[0] for z in con.execute("SELECT vintage FROM a").fetchall()]
+    assert vintages == sorted(vintages)
+
+
+def test_wer_nur_den_tract_verbindet_vervielfacht(con, tmp_path):
+    """Die Falle, die diese Tabelle mitbringt - deshalb steht sie im Feldkatalog.
+
+    Vier Vintages und ein Verbund ohne ``vintage`` ergeben die vierfache
+    Einwohnerzahl, und das Ergebnis sieht aus wie eine Zahl.
+    """
+    quellen = acs_quellen(tmp_path, {2021: 900, 2022: 950, 2023: 975, 2024: 1000})
+    con.execute(f"CREATE OR REPLACE TEMP VIEW a AS {bg.dim_tract_acs_query(quellen)}")
+    con.execute(
+        "CREATE OR REPLACE TEMP VIEW d AS "
+        + bg.dim_tract_query(quellen[2024], place_quelle(tmp_path), 2024)
+    )
+    ohne = con.execute(
+        "SELECT count(*) FROM d JOIN a ON a.geoid = d.geoid"
+    ).fetchone()[0]
+    mit = con.execute(
+        "SELECT count(*) FROM d JOIN a "
+        "ON a.geoid = d.geoid AND a.vintage = d.reference_vintage"
+    ).fetchone()[0]
+    assert (ohne, mit) == (4, 1)
+
+
+def test_eine_tat_nennt_das_vintage_ihres_eigenen_jahres(con, tmp_path):
+    offense = offense_quelle(tmp_path, [
+        ("a", "chicago", date(2022, 3, 1), "13A", "17031010100"),
+    ])
+    con.execute(
+        "CREATE OR REPLACE TABLE dim_tract AS "
+        + bg.dim_tract_query(tract_quelle(tmp_path, [DETROIT_TRACT]),
+                             place_quelle(tmp_path), 2024)
+    )
+    con.execute("CREATE OR REPLACE TABLE f AS "
+                + bg.fact_offense_query(offense, vintages=(2021, 2022, 2023, 2024)))
+    assert con.execute("SELECT population_vintage FROM f").fetchone()[0] == 2022
+
+
+@pytest.mark.parametrize("jahr, erwartet", [
+    (2021, 2021), (2024, 2024),
+    # Ab 2025 gibt es kein eigenes Vintage - die Bevoelkerung wird geliehen.
+    (2025, 2024), (2026, 2024),
+    # Vor der geladenen Spanne: geklammert, damit die Zeile nicht ins Leere zeigt.
+    (2019, 2021),
+])
+def test_das_vintage_wird_auf_die_geladene_spanne_geklammert(
+    con, tmp_path, jahr, erwartet
+):
+    offense = offense_quelle(tmp_path, [
+        ("a", "chicago", date(jahr, 3, 1), "13A", "17031010100"),
+    ])
+    con.execute(
+        "CREATE OR REPLACE TABLE dim_tract AS "
+        + bg.dim_tract_query(tract_quelle(tmp_path, [DETROIT_TRACT]),
+                             place_quelle(tmp_path), 2024)
+    )
+    con.execute("CREATE OR REPLACE TABLE f AS "
+                + bg.fact_offense_query(offense, vintages=(2021, 2022, 2023, 2024)))
+    assert con.execute("SELECT population_vintage FROM f").fetchone()[0] == erwartet
+
+
+def test_keine_tat_zeigt_auf_ein_fehlendes_vintage(con, tmp_path):
+    """Der Verbund muss aufgehen, sonst ruht eine Rate auf keinem Nenner."""
+    quellen = acs_quellen(tmp_path, {2021: 900, 2022: 950, 2023: 975, 2024: 1000})
+    offense = offense_quelle(tmp_path, [
+        (f"id{jahr}", "chicago", date(jahr, 3, 1), "13A", "17031010100")
+        for jahr in (2021, 2022, 2023, 2024, 2025, 2026)
+    ])
+    con.execute(f"CREATE OR REPLACE TABLE dim_tract_acs AS {bg.dim_tract_acs_query(quellen)}")
+    con.execute(
+        "CREATE OR REPLACE TABLE dim_tract AS "
+        + bg.dim_tract_query(quellen[2024], place_quelle(tmp_path), 2024)
+    )
+    con.execute("CREATE OR REPLACE TABLE fact_offense AS "
+                + bg.fact_offense_query(offense, vintages=tuple(quellen)))
+    verwaist = con.execute(
+        "SELECT count(*) FROM fact_offense f LEFT JOIN dim_tract_acs a "
+        "  ON a.geoid = f.tract_geoid AND a.vintage = f.population_vintage "
+        "WHERE f.tract_geoid IS NOT NULL AND a.geoid IS NULL"
+    ).fetchone()[0]
+    assert verwaist == 0
+    # Und die beiden Jahre ohne eigenes Vintage leihen sich 2024.
+    assert con.execute(
+        "SELECT count(*) FROM fact_offense WHERE population_vintage = 2024"
+    ).fetchone()[0] == 3
+
+
+def test_ein_zu_neues_vintage_wird_abgelehnt():
+    """``--acs-vintages 2025`` gibt es nicht, und das soll es sagen."""
+    import argparse
+    with pytest.raises(argparse.ArgumentTypeError, match="juengste"):
+        bg.acs_vintages("2021,2025")
+    assert bg.acs_vintages("2023, 2021,2021") == (2021, 2023)

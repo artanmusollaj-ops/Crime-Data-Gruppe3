@@ -7,7 +7,7 @@ gebauten Tabellen, die Bedeutung aus [`tools/build_feldkatalog.py`](../tools/bui
 python tools/build_feldkatalog.py
 ```
 
-**187 Spalten in 14 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
+**191 Spalten in 15 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
 soll einen Satz darüber schreiben müssen. `tests/test_feldkatalog.py` prüft, dass der Katalog vollständig und reproduzierbar ist.
 
 Die Rohschichten stehen hier nicht: **Bronze deutet nicht**, seine Spalten sind die der Quelle. Was sie bedeuten, sagen die
@@ -108,7 +108,7 @@ Eine Zeile ist: **ein Census Tract**. 6'282 Zeilen.
 | `centroid_lat` | `DOUBLE` | Breitengrad des Flächenschwerpunkts. Für eine Karte, die Punkte statt Flächen zeigt. |
 | `centroid_lon` | `DOUBLE` | Längengrad des Flächenschwerpunkts. |
 | `geometry` | `BLOB` | Der Umriss als WKB. Kein Browser liest das - für eine Karte schreibt `serving.export_geojson` daraus GeoJSON. |
-| `population` | `BIGINT` | Einwohnerzahl aus der ACS-5-Jahres-Schätzung. Der Nenner jeder Rate. `0` kommt vor - Wasserflächen, Flughäfen, Industriegebiete. |
+| `population` | `BIGINT` | Einwohnerzahl aus der ACS-5-Jahres-Schätzung. Der Nenner jeder Rate. `0` kommt vor - Wasserflächen, Flughäfen, Industriegebiete. In Gold liegt sie **je Vintage** in `dim_tract_acs`, nicht in `dim_tract`. |
 | `median_household_income_usd` | `INTEGER` | Medianes Haushaltseinkommen in Dollar, ACS. `NULL`, wo die Schätzung zu unsicher ist - in Wayne County öfter als in Cook County. |
 | `population_below_poverty` | `INTEGER` | Absolute Zahl der Menschen unter der Armutsgrenze. Bleibt erhalten, auch wo `poverty_rate` `NULL` ist. |
 | `poverty_rate` | `DOUBLE` | Anteil der Menschen unter der Armutsgrenze, 0 bis 1. `NULL` bei null Einwohnern statt einer Division durch null. |
@@ -202,12 +202,22 @@ Eine Zeile ist: **ein Census Tract**. 6'282 Zeilen.
 | `state_name` | `VARCHAR` | Name des Bundesstaats, kleingeschrieben. |
 | `county_fips` | `VARCHAR` | Drei Ziffern des County innerhalb des Bundesstaats: `031` Cook (Chicago), `163` Wayne (Detroit). |
 | `tract_name` | `VARCHAR` | Bezeichnung des Tracts. |
-| `population` | `BIGINT` | Einwohnerzahl aus der ACS-5-Jahres-Schätzung. Der Nenner jeder Rate. `0` kommt vor - Wasserflächen, Flughäfen, Industriegebiete. |
-| `median_household_income_usd` | `INTEGER` | Medianes Haushaltseinkommen in Dollar, ACS. `NULL`, wo die Schätzung zu unsicher ist - in Wayne County öfter als in Cook County. |
-| `poverty_rate` | `DOUBLE` | Anteil der Menschen unter der Armutsgrenze, 0 bis 1. `NULL` bei null Einwohnern statt einer Division durch null. |
+| `reference_vintage` | `SMALLINT` | Aus diesem ACS-Vintage stammen Stadtzuordnung, Name, Fläche und Schwerpunkt. Sie werden **nicht je Jahrgang neu gerechnet**: Ein Tract soll dauerhaft eine Stadt haben, sonst springt eine Rate aus einem Grund, der nichts mit Kriminalität zu tun hat. Die Einwohnerzahlen liegen dagegen je Vintage in `dim_tract_acs` - verbunden wird über `geoid` **und** `vintage`. |
 | `land_area_m2` | `BIGINT` | Landfläche in Quadratmetern, aus TIGER/Line. Ohne Wasser - für eine Flächendichte die richtige Grösse. |
 | `centroid_lat` | `DOUBLE` | Breitengrad des Flächenschwerpunkts. Für eine Karte, die Punkte statt Flächen zeigt. |
 | `centroid_lon` | `DOUBLE` | Längengrad des Flächenschwerpunkts. |
+
+### `dim_tract_acs`
+
+Eine Zeile ist: **ein Census Tract in einem ACS-Vintage**. 6'282 Zeilen.
+
+| Spalte | Typ | Bedeutung |
+| --- | --- | --- |
+| `geoid` | `VARCHAR` | GEOID des Tracts. Zusammen mit `vintage` der Schlüssel dieser Tabelle. |
+| `vintage` | `SMALLINT` | Der Jahrgang der ACS-5-Jahres-Schätzung, aus der die Werte dieser Zeile stammen. Teil des Schlüssels: Ein Tract steht hier so oft, wie Vintages geladen sind. |
+| `population` | `BIGINT` | Einwohnerzahl aus der ACS-5-Jahres-Schätzung. Der Nenner jeder Rate. `0` kommt vor - Wasserflächen, Flughäfen, Industriegebiete. In Gold liegt sie **je Vintage** in `dim_tract_acs`, nicht in `dim_tract`. |
+| `median_household_income_usd` | `INTEGER` | Medianes Haushaltseinkommen in Dollar, ACS. `NULL`, wo die Schätzung zu unsicher ist - in Wayne County öfter als in Cook County. |
+| `poverty_rate` | `DOUBLE` | Anteil der Menschen unter der Armutsgrenze, 0 bis 1. `NULL` bei null Einwohnern statt einer Division durch null. |
 
 ### `fact_offense`
 
@@ -224,6 +234,7 @@ Eine Zeile ist: **eine Tat**. 345'091 Zeilen.
 | `hour_of_day` | `TINYINT` | Tatstunde in Ortszeit, 0 bis 23. |
 | `local_time_ambiguous` | `BOOLEAN` | Die Ortszeit gab es **zweimal** - der Wechsel zurück von der Sommerzeit. Betrifft nur Chicago, das Wanduhrzeit ohne Zone liefert; Detroit liefert einen Zeitpunkt und hat den Fall nicht. |
 | `tract_geoid` | `VARCHAR` | GEOID des Census Tracts, in dem der Punkt liegt - aus dem eigenen räumlichen Join, nicht aus der Quelle. |
+| `population_vintage` | `SMALLINT` | Welcher ACS-Jahrgang der **Nenner dieser Zeile** ist. Bis 2024 das eigene Jahr, darüber der jüngste vorhandene: Eine Rate für 2025 ruht auf der Bevölkerung von 2024. Das steht hier in den Daten statt in einer Fussnote. Verbunden wird `dim_tract_acs` über `tract_geoid` **und** diese Spalte - wer nur den Tract verbindet, bekommt je Tract so viele Zeilen, wie Vintages geladen sind. |
 | `nibrs_code` | `VARCHAR` | NIBRS-Deliktcode des FBI, etwa `13A`. Die gemeinsame Sprache beider Städte - erst über ihn wird IUCR mit MICR vergleichbar. |
 | `nibrs_family` | `VARCHAR` | Die ersten beiden Zeichen des Codes. **Keine amtliche Gliederung** - zum Gruppieren gehört `nibrs_category`. |
 | `source_offense_code` | `VARCHAR` | Der Deliktcode, wie die Quelle ihn führt: Chicagos `iucr`, Detroits `state_offense_code` (MICR). |

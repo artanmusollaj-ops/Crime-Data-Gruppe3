@@ -124,7 +124,7 @@ von selbst; eine Zahl im Bild, die nicht mehr stimmt, lässt einen Test fallen.
 | --- | ---: | --- |
 | ingestion | 6 | chicago, detroit, tiger_tract, tiger_place, acs, noaa |
 | silver | 4 | tract, place, weather_day, crime_offense |
-| gold | 1 | die fünf Sterntabellen in einem Zug |
+| gold | 1 | die sechs Sterntabellen in einem Zug |
 | serving | 3 | comparison, analyse_db, tracts_geojson |
 
 Die Reihenfolge ist keine Kosmetik: `silver/tract` braucht beide
@@ -216,7 +216,7 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'532 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Pull Request** | 1'542 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
 | **Frischer Klon** | 1'176 davon — die übrigen 27 brauchen gebaute Daten; 71 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 70 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |

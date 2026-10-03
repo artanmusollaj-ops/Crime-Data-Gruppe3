@@ -86,11 +86,13 @@ def messe(verzeichnis: Path) -> dict[str, Any]:
     """Alles, was die Seite zeigt - aus dem Release gelesen, nicht abgeschrieben."""
     from storage.duckdb import verbinde
 
+    from gold_pipeline import einwohner_je_stadt
     from storage import parquet_spalten
 
     gold = verzeichnis / "gold"
     fakt = gold / "dataset=fact_offense/part-0001.parquet"
     tract = gold / "dataset=dim_tract/part-0001.parquet"
+    acs = gold / "dataset=dim_tract_acs/part-0001.parquet"
     con = verbinde()
     try:
         datensaetze = []
@@ -106,12 +108,15 @@ def messe(verzeichnis: Path) -> dict[str, Any]:
             datensaetze.append((name, anzahl, spalten,
                                 pfad.stat().st_size))
 
-        # Dieselbe Abfrage wie in tests/test_aenderungen.py - eine Definition.
+        # Der Nenner steht in gold_pipeline.einwohner_je_stadt. Hier stand bis
+        # zum 3.10.2026 eine Kopie mit dem Kommentar "dieselbe Abfrage wie in
+        # tests/test_aenderungen.py - eine Definition". Zwei Fassungen sind
+        # keine Definition; seit Vertrag 6 waeren es neun gewesen.
+        nenner = einwohner_je_stadt(
+            f"read_parquet('{tract}')", f"read_parquet('{acs}')"
+        )
         staedte = con.execute(f"""
-            WITH e AS (
-                SELECT city, sum(population) AS n
-                FROM read_parquet('{tract}') WHERE city IS NOT NULL GROUP BY 1
-            )
+            WITH e AS ({nenner})
             SELECT t.city, count(*), any_value(e.n),
                    round(count(*) * 1000.0 / any_value(e.n), 1)
             FROM read_parquet('{fakt}') f

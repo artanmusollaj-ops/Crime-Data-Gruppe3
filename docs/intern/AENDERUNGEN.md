@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'532** |
+| Tests | **1'542** |
 | `silver/crime_offense` | 348'329 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'091** Zeilen (eine Tat) |
 | Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -65,7 +65,7 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
 | `silver/crime_offense` | **3** | 19.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig |
 | `silver/source_change` | **3** | 03.10.2026 | Unterschied zwischen aufeinanderfolgenden **Vollabzügen** je Quelle, eine Zeile je geändertem Feld; `ESRI_OID` und reine Leerzeichen ausgenommen, Zeitstempel als `beruehrt` statt als Inhaltsänderung. Version 2 ergänzte die **Datierung aus den Deltas**: `zuerst_gesehen_in`, `zuerst_gesehen_am` und `datierung` mit `delta` / `kein_delta` / `nicht_datierbar`. Gefunden wird weiter nur zwischen Vollabzügen — aus einem Delta liesse sich *verschwunden* nicht von *ruhig* unterscheiden. Version 3: Die Datierung **klebt** — sie nennt den besten je bestimmten Befund, nicht den heutigen, sonst löschte das Aufräumen der Deltas sie wieder |
-| `gold/*` | **5** | 19.09.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften |
+| `gold/*` | **6** | 03.10.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften | Version 6: Die ACS-Masse liegen **je Vintage** in der neuen Tabelle `dim_tract_acs` (`population`, `median_household_income_usd`, `poverty_rate`); `dim_tract` behält die Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie kommt; `fact_offense` trägt `population_vintage` und sagt damit je Zeile, welcher Nenner für sie gilt. Eine Tabelle mit einer Zeile je Tract konnte nur eine Einwohnerzahl tragen — über mehrere Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021
 | `serving/comparison_*` | 1 | 17.09.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` |
 
 > **Der Feldkatalog wird erzeugt, nicht gepflegt.** Am 14.9. wurde
@@ -91,6 +91,66 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 03.10.2026 · Die Einwohnerzahl bekommt eine Zeitachse (Branch `mehrjaehrigkeit`)
+
+FR-35, und damit ist Welle 1 auf dem Weg: `run_all --jahre 2021-2026` läuft
+jetzt durch bis Serving. Der Riegel vor Gold von heute Morgen ist weg, weil der
+Grund dafür behoben ist.
+
+**Der Grund.** `dim_tract` trug `population`, `median_household_income_usd` und
+`poverty_rate`, und das ging, solange es einen einzigen Jahrgang gab: Eine
+Tabelle mit einer Zeile je Tract kann nur **eine** Einwohnerzahl tragen. Über
+sechs Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021 —
+und das Ergebnis hätte vollständig ausgesehen.
+
+**Vertrag `gold/*` 5 → 6.** Die drei ACS-Masse liegen in der neuen Tabelle
+`dim_tract_acs`, je Tract **und Vintage**. `dim_tract` behält die
+Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie
+kommt. `fact_offense` trägt `population_vintage` und sagt damit je Zeile,
+welcher Nenner für sie gilt: bis 2024 das eigene Jahr, darüber der jüngste
+vorhandene. **Damit steht FR-36 in den Daten und nicht in einer Fussnote** —
+eine Rate für 2025 ruht auf der Bevölkerung von 2024, und die Zeile sagt es
+selbst. Geklammert wird auf die geladene Spanne, damit keine Tat auf eine
+fehlende Zeile zeigt; ein Wächter prüft das für alle sechs Jahrgänge.
+
+**Die Stadtzuordnung wird nicht je Vintage neu gerechnet.** Das war eine
+Entscheidung und keine Auslassung: Ein Tract soll dauerhaft zu einer Stadt
+gehören. Würde die Mehrheitsregel gegen die Ortsgrenzen jedes Vintages laufen,
+könnte ein Tract 2021 zu Chicago gehören und 2024 nicht — dann sprünge die Rate
+aus einem Grund, der nichts mit Kriminalität zu tun hat. `reference_vintage`
+macht sichtbar, aus welchem Stand sie stammt.
+
+**Der Nebenbefund war die eigentliche Arbeit.** Die Abfrage „Einwohner je
+Stadt" stand an **neun** Stellen im Projekt: im Driftbericht, auf der
+Einstiegsseite und in sieben Wächtern, die die Raten in den Abgabedokumenten
+halten. In `tools/build_einstieg.py` stand sogar der Kommentar *„Dieselbe
+Abfrage wie in tests/test_aenderungen.py — eine Definition"* — zwei Fassungen
+sind keine Definition, und mit dem Verbund über zwei Spalten wären es neun
+Gelegenheiten geworden, das zweite Prädikat zu vergessen. Wer nur `geoid`
+verbindet, bekommt je Tract so viele Zeilen, wie Vintages geladen sind, und das
+Ergebnis sieht aus wie eine Zahl. Die Regel steht jetzt einmal in
+`gold_pipeline.einwohner_je_stadt`, und ein Test führt die Vervielfachung vor.
+
+**Zwei Tests haben ihre eigene Falle verloren.** `test_architektur_dokument`
+verdrahtete die Fünf doppelt — als Zahl und als Zahlwort —, und die Release-Tests
+nannten 9, 10 und 11 Tabellen als Konstanten. Beide lesen die Zahl jetzt aus
+`gold_pipeline.TABELLEN` und `serving.build_comparison.TABELLEN`.
+
+**Zahlen.** 1'532 → **1'542 Tests**, Standardlauf **1'461**. Die Raten sind
+**unverändert**: Chicago 94,5, Detroit 132,7 — dieselben 2'661'953 und 638'635
+Einwohner, nur aus einer anderen Tabelle. Gold und Serving neu gebaut, ein
+lokales Release `2026-10-03T17-26-24Z`, `docs/feldkatalog.md`,
+`docs/referenz/`, die drei Architekturbilder und `docs/einstieg.html` neu
+erzeugt. `docs/architektur.md`: 24 → 26 Importkanten, sieben → neun gezeichnete
+Pfeile — `gold_pipeline` und `orchestration` greifen jetzt nach
+`census_pipeline`, wo die Vintage-Regel wohnt.
+
+**Offen.** Elasticsearch und ClickHouse halten weiterhin das vorige Release;
+`pruefe_stand` meldet das zu Recht. Sie werden mit
+`python -m serving.load_elasticsearch` beziehungsweise `load_clickhouse`
+nachgezogen — das rührt an laufende Container und ist deshalb nicht Teil dieser
+Änderung.
 
 ## 03.10.2026 · Der Gesamtlauf nimmt einen Jahresbereich, und Gold sagt Nein (Branch `mehrjaehrigkeit`)
 

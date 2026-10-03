@@ -87,9 +87,13 @@ GEMEINSAM: dict[str, str] = {
     "quality_flags": "Auffälligkeiten, die **benannt und nicht entfernt** "
                      "werden - etwa `MISSING_MEDIAN_INCOME` oder "
                      "`SUSPECT_SNOWFALL`. Leer, wenn nichts auffiel.",
+    "vintage": "Der Jahrgang der ACS-5-Jahres-Schätzung, aus der die Werte "
+               "dieser Zeile stammen. Teil des Schlüssels: Ein Tract steht "
+               "hier so oft, wie Vintages geladen sind.",
     "population": "Einwohnerzahl aus der ACS-5-Jahres-Schätzung. Der Nenner "
                   "jeder Rate. `0` kommt vor - Wasserflächen, Flughäfen, "
-                  "Industriegebiete.",
+                  "Industriegebiete. In Gold liegt sie **je Vintage** in "
+                  "`dim_tract_acs`, nicht in `dim_tract`.",
     "median_household_income_usd": "Medianes Haushaltseinkommen in Dollar, ACS. "
                                    "`NULL`, wo die Schätzung zu unsicher ist - "
                                    "in Wayne County öfter als in Cook County.",
@@ -268,11 +272,27 @@ JE_TABELLE: dict[tuple[str, str], str] = {
         "den jede Auswertung braucht**: `dim_tract` enthält alle Tracts beider "
         "Countys, auch die ausserhalb der Städte.",
     ("dim_tract", "city_geoid"): "GEOID der Stadt aus `silver/place`.",
+    ("dim_tract", "reference_vintage"):
+        "Aus diesem ACS-Vintage stammen Stadtzuordnung, Name, Fläche und "
+        "Schwerpunkt. Sie werden **nicht je Jahrgang neu gerechnet**: Ein Tract "
+        "soll dauerhaft eine Stadt haben, sonst springt eine Rate aus einem "
+        "Grund, der nichts mit Kriminalität zu tun hat. Die Einwohnerzahlen "
+        "liegen dagegen je Vintage in `dim_tract_acs` - verbunden wird über "
+        "`geoid` **und** `vintage`.",
     ("dim_tract", "city_area_share"):
         "Welcher Anteil der Tractfläche in der Stadt liegt, 0 bis 1. Ueber 0,5 "
         "gehört der Tract zur Stadt (Mehrheitsregel). Der Wert bleibt "
         "erhalten, damit sich auch flächengewichtet rechnen lässt.",
     ("dim_tract", "tract_name"): "Bezeichnung des Tracts.",
+    ("dim_tract_acs", "geoid"):
+        "GEOID des Tracts. Zusammen mit `vintage` der Schlüssel dieser Tabelle.",
+    ("fact_offense", "population_vintage"):
+        "Welcher ACS-Jahrgang der **Nenner dieser Zeile** ist. Bis 2024 das "
+        "eigene Jahr, darüber der jüngste vorhandene: Eine Rate für 2025 ruht "
+        "auf der Bevölkerung von 2024. Das steht hier in den Daten statt in "
+        "einer Fussnote. Verbunden wird `dim_tract_acs` über `tract_geoid` "
+        "**und** diese Spalte - wer nur den Tract verbindet, bekommt je Tract "
+        "so viele Zeilen, wie Vintages geladen sind.",
     ("fact_offense", "reporting_city"):
         "Die Stadt, deren Polizei den Fall gemeldet hat. **Nicht dasselbe wie "
         "`dim_tract.city`** - die Stadtpolizei erfasst auch jenseits der "

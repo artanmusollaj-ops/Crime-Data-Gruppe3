@@ -751,39 +751,41 @@ def test_die_reihenfolge_haelt_auch_entfaltet():
 
 
 # --------------------------------------------------------------------------
-# Der Riegel vor Gold (bis FR-35 steht)
+# Gold bekommt alle Vintages auf einmal
 # --------------------------------------------------------------------------
 
 
-def test_ein_jahrgang_darf_bis_gold():
-    stufen = ra.auswahl(ohne_ingestion=False, bis=None)
-    assert ra.gold_haelt_mehrere_vintages_nicht(stufen, (2024,)) is None
+def test_gold_laeuft_einmal_und_bekommt_alle_vintages():
+    """Bis zum 3.10.2026 stand hier ein Riegel.
 
-
-def test_zwei_jahre_mit_einem_vintage_duerfen_auch():
-    """2025 und 2026 teilen sich den 2024er Nenner - das ist ein Vintage."""
-    stufen = ra.auswahl(ohne_ingestion=False, bis=None, jahre=(2025, 2026))
-    assert ra.gold_haelt_mehrere_vintages_nicht(stufen, (2025, 2026)) is None
-
-
-def test_mehrere_vintages_bis_silver_duerfen():
-    stufen = ra.auswahl(ohne_ingestion=False, bis="silver", jahre=range(2021, 2027))
-    assert ra.gold_haelt_mehrere_vintages_nicht(stufen, range(2021, 2027)) is None
-
-
-def test_mehrere_vintages_bis_gold_werden_abgelehnt():
-    """Gold nimmt ein --vintage und verbindet alles damit.
-
-    Bei vier Vintages bekaeme jede Tat denselben Nenner, auch die von 2021 -
-    und das Ergebnis saehe vollstaendig aus.
+    ``build_gold`` nahm ein einzelnes ``--vintage`` und verband alles damit;
+    bei vier Vintages haette jede Tat von 2021 den Nenner von 2024 bekommen.
+    Der Gesamtlauf lehnte solche Laeufe deshalb vorher ab. Seit Vertrag 6 legt
+    Gold ``dim_tract_acs`` je Vintage an - der Riegel ist weg, und statt
+    seiner steht diese Zusage.
     """
     stufen = ra.auswahl(ohne_ingestion=False, bis=None, jahre=range(2021, 2027))
-    grund = ra.gold_haelt_mehrere_vintages_nicht(stufen, range(2021, 2027))
-    assert grund and "4 Vintages" in grund and "--bis silver" in grund
+    gold = [s for s in stufen if s.gruppe == "gold"]
+    assert len(gold) == 1, "Gold laeuft einmal, nicht je Vintage"
+    assert gold[0].befehl()[-2:] == ["--acs-vintages", "2021,2022,2023,2024"]
 
 
-def test_mit_mehreren_vintages_wird_nichts_gebaut(tmp_path, monkeypatch):
-    """Vor dem ersten Byte scheitern, nicht nach einer Stunde Ingestion."""
+def test_mit_einem_jahrgang_bekommt_gold_genau_dieses_vintage():
+    gold = [s for s in ra.auswahl(ohne_ingestion=False, bis=None)
+            if s.gruppe == "gold"]
+    assert gold[0].befehl()[-2:] == ["--acs-vintages", "2024"]
+
+
+def test_2025_und_2026_leihen_sich_das_2024er_vintage():
+    """Zwei Jahrgaenge, ein Vintage - Gold bekommt es einmal."""
+    gold = [s for s in ra.auswahl(ohne_ingestion=False, bis=None,
+                                  jahre=(2025, 2026))
+            if s.gruppe == "gold"]
+    assert gold[0].befehl()[-2:] == ["--acs-vintages", "2024"]
+
+
+def test_mehrere_vintages_laufen_jetzt_durch(tmp_path, monkeypatch):
+    """Der Lauf wird nicht mehr vorab abgelehnt."""
     befehle: list[list[str]] = []
 
     class Fertig:
@@ -792,15 +794,12 @@ def test_mit_mehreren_vintages_wird_nichts_gebaut(tmp_path, monkeypatch):
     monkeypatch.setattr(ra.subprocess, "run",
                         lambda cmd, cwd=None, **_: (befehle.append(cmd), Fertig())[1])
     manifest = ra.lauf(tmp_path / "data", tmp_path, jahre=range(2021, 2027))
-
-    assert befehle == [], "es lief eine Stufe, obwohl der Lauf gesperrt war"
-    assert manifest["status"] == "failed"
-    assert "4 Vintages" in manifest["gold_blocked"]
+    assert len(befehle) == 39
     assert manifest["years"] == list(range(2021, 2027))
     assert manifest["vintages"] == [2021, 2022, 2023, 2024]
 
 
-def test_das_manifest_nennt_jahre_und_vintages_auch_im_guten_fall(tmp_path, monkeypatch):
+def test_das_manifest_nennt_jahre_und_vintages(tmp_path, monkeypatch):
     class Fertig:
         returncode = 0
 
@@ -809,4 +808,3 @@ def test_das_manifest_nennt_jahre_und_vintages_auch_im_guten_fall(tmp_path, monk
     manifest = ra.lauf(tmp_path / "data", tmp_path, jahre=(2025, 2026))
     assert manifest["years"] == [2025, 2026]
     assert manifest["vintages"] == [2024]
-    assert manifest["gold_blocked"] is None

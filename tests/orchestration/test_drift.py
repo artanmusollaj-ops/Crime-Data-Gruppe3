@@ -64,9 +64,14 @@ def baue_daten(data_root: Path) -> None:
          "SELECT * FROM (VALUES "
          "('chicago', 'T1', true), ('chicago', 'T1', false), "
          "('detroit', 'T2', true)) AS t(reporting_city, tract_geoid, counts_case)"),
+        # Seit Vertrag 6 traegt dim_tract die Stadtzuordnung und ihr
+        # Referenz-Vintage, die Einwohnerzahl steht in dim_tract_acs je Vintage.
         ("gold/dataset=dim_tract",
-         "SELECT * FROM (VALUES ('T1', 'chicago', 1000), ('T2', 'detroit', 500)) "
-         "AS t(geoid, city, population)"),
+         "SELECT * FROM (VALUES ('T1', 'chicago', 2024), ('T2', 'detroit', 2024)) "
+         "AS t(geoid, city, reference_vintage)"),
+        ("gold/dataset=dim_tract_acs",
+         "SELECT * FROM (VALUES ('T1', 2024, 1000), ('T2', 2024, 500)) "
+         "AS t(geoid, vintage, population)"),
     ):
         ordner = data_root / tabelle
         ordner.mkdir(parents=True)
