@@ -232,8 +232,11 @@ def felder(parquet: Path, index: str = "fact_offense") -> list[Feld]:
     Elasticsearch kennt keine Nullbarkeit. Ein Feld ist in einem Dokument da
     oder nicht, und beides ist erlaubt.
     """
-    schema = pq.ParquetFile(parquet).schema_arrow
-    return [Feld(f.name, str(f.type), index) for f in schema]
+    from storage import parquet_schema
+
+    # Nicht ueber ``DESCRIBE``: DuckDB erfindet aus einem Hive-Pfad Spalten
+    # dazu, die in keiner Datei stehen. Siehe ``storage.parquet``.
+    return [Feld(f.name, str(f.type), index) for f in parquet_schema(parquet)]
 
 
 def indexname(release_id: str, index: str = "fact_offense") -> str:

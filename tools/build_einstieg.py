@@ -85,7 +85,8 @@ def groesse(bytes_: int) -> str:
 def messe(verzeichnis: Path) -> dict[str, Any]:
     """Alles, was die Seite zeigt - aus dem Release gelesen, nicht abgeschrieben."""
     import duckdb
-    import pyarrow.parquet as pq
+
+    from storage import parquet_spalten
 
     gold = verzeichnis / "gold"
     fakt = gold / "dataset=fact_offense/part-0001.parquet"
@@ -97,13 +98,11 @@ def messe(verzeichnis: Path) -> dict[str, Any]:
             name = pfad.parent.name.removeprefix("dataset=")
             anzahl = con.execute(
                 f"SELECT count(*) FROM read_parquet('{pfad}')").fetchone()[0]
-            # Ueber das Arrow-Schema und nicht ueber DESCRIBE: DuckDB
-            # ergaenzt aus dem Pfad zwei Hive-Spalten, ``dataset`` und
-            # ``release``, die in keiner Datei stehen. Die erste Fassung
-            # dieser Seite zeigte deshalb ueberall zwei Spalten zu viel -
-            # dieselbe Falle, vor der load_elasticsearch.felder warnt, nur
-            # dass das Release-Verzeichnis eine zweite beisteuert.
-            spalten = len(pq.ParquetFile(pfad).schema_arrow)
+            # Nicht ueber DESCRIBE: DuckDB ergaenzt aus dem Pfad zwei
+            # Hive-Spalten, ``dataset`` und ``release``, die in keiner Datei
+            # stehen. Die erste Fassung dieser Seite zeigte deshalb ueberall
+            # zwei Spalten zu viel. Begruendung in ``storage.parquet``.
+            spalten = len(parquet_spalten(pfad))
             datensaetze.append((name, anzahl, spalten,
                                 pfad.stat().st_size))
 

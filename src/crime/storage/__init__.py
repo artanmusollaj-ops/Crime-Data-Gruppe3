@@ -33,11 +33,13 @@ from storage.backend import (
     zeitpunkt,
 )
 from storage.config import BACKENDS, Config, StorageConfigError, load
+from storage.parquet import schema as parquet_schema, spalten as parquet_spalten
 
 __all__ = [
     "ABGELEITET", "BACKENDS", "Boto3Client", "Config", "FakeS3Client", "PublishError",
     "S3Client", "Standvergleich", "Storage", "StorageConfigError", "StorageError",
     "eingaben", "load", "manifest_von", "zeitpunkt",
+    "parquet_schema", "parquet_spalten",
     "get_storage", "set_storage", "for_root",
     "storage_path", "local_path", "s3_path", "resolve_read_path",
     "publish_to_shared_storage", "exists", "list_files", "read_text", "write_text",

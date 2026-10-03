@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'470** |
+| Tests | **1'476** |
 | `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,42 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 03.10.2026 · Die Hive-Falle hat jetzt eine Stelle statt drei Kommentare (direkt auf main)
+
+DuckDB leitet aus einem Pfad im Hive-Muster Spalten ab, die in keiner Datei
+stehen: unter `dataset=fact_offense/release=.../part-0001.parquet` ergaenzt
+`DESCRIBE SELECT *` die Spalten `dataset` und `release`. Dreimal in zwei
+Wochen hat das etwas kaputt gemacht - `load_elasticsearch` haette zwei Felder
+zu viel abgebildet, die Einstiegsseite zeigte je Datensatz **24 statt 22**
+Spalten, und beim Anhaengen in `build_source_change` passten die Spaltenzahlen
+nicht mehr. Behoben wurde es jedes Mal an der betroffenen Stelle, mit
+demselben Kommentar daneben. Drei Kommentare sind kein Schutz, sondern drei
+Gelegenheiten, den vierten zu vergessen.
+
+`storage.parquet` ist diese eine Stelle: `parquet_schema` und
+`parquet_spalten` lesen das Arrow-Schema der Datei, nicht eine Abfrage
+darueber. Die Begruendung steht einmal im Modulkopf; `load_clickhouse.felder`,
+`load_elasticsearch.felder` und `tools/build_einstieg.messe` verweisen nur
+noch darauf.
+
+`silver_pipeline.schema_of` bleibt unveraendert. Es faehrt `DESCRIBE` ueber
+Relationen mit ausgeschriebenen Spalten, und ein Vergleich der gebauten
+Manifeste gegen die Arrow-Schemata zeigt beidseitig dieselben Spalten -
+`crime_offense` 27 zu 27, `weather_day` 11 zu 11. Die Falle hat nur
+`SELECT *`.
+
+**Was der neue Waechter prueft.** `tests/storage/test_parquet.py` haelt beide
+Seiten fest: dass der Helfer die Spalten der Datei nennt, und dass `DESCRIBE`
+sie weiterhin dazuerfindet - mit Einzelpfad wie mit Dateiliste. Faellt die
+zweite Haelfte eines Tages, hat DuckDB sich geaendert, und dann gehoeren die
+Warnungen nachgezogen statt der Test angepasst. Eine Warnung vor einer Falle,
+die es nicht mehr gibt, ist genauso irrefuehrend wie keine.
+
+**Zahlen.** 1'470 -> **1'476 Tests**. `docs/referenz/` neu gebaut (43 Seiten),
+weil `storage/parquet.py` hinzukommt.
 
 ---
 

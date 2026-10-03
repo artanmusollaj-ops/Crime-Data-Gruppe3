@@ -38,7 +38,6 @@ from pathlib import Path
 from collections.abc import Callable
 from typing import Any, Protocol
 
-import pyarrow.parquet as pq
 
 DATENWURZEL = Path("data")
 
@@ -213,10 +212,10 @@ class Spalte:
 def spalten(parquet: Path, ziel: str = "fact_offense") -> list[Spalte]:
     """Die Spalten aus der Datei - nicht aus einer zweiten Liste.
 
-    Bewusst ueber das Arrow-Schema und nicht ueber ``DESCRIBE``: DuckDB
-    ergaenzt aus dem Pfad ``dataset=fact_offense`` eine Hive-Spalte
-    ``dataset``, die in der Datei gar nicht steht. Sie gehoert nicht in die
-    Zieltabelle.
+    Die Spalten kommen aus ``storage.parquet_schema`` und nicht aus
+    ``DESCRIBE``: DuckDB ergaenzt aus dem Pfad ``dataset=fact_offense`` eine
+    Hive-Spalte ``dataset``, die in der Datei gar nicht steht. Sie gehoert
+    nicht in die Zieltabelle - die Begruendung steht in ``storage.parquet``.
 
     **Nullbarkeit wird gezaehlt, nicht geglaubt.** Parquet markiert jede Spalte
     als nullbar, auch wo nie ein NULL steht - uebernaehme man das, waeren alle
@@ -225,7 +224,9 @@ def spalten(parquet: Path, ziel: str = "fact_offense") -> list[Spalte]:
     """
     import duckdb
 
-    schema = pq.ParquetFile(parquet).schema_arrow
+    from storage import parquet_schema
+
+    schema = parquet_schema(parquet)
     namen = [f.name for f in schema]
     teile = ", ".join(
         f'count(*) FILTER (WHERE "{n}" IS NULL)' for n in namen)

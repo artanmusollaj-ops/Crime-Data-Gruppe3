@@ -306,6 +306,12 @@
                     <a class="function" href="#zeitpunkt">zeitpunkt</a>
             </li>
             <li>
+                    <a class="function" href="#parquet_schema">parquet_schema</a>
+            </li>
+            <li>
+                    <a class="function" href="#parquet_spalten">parquet_spalten</a>
+            </li>
+            <li>
                     <a class="function" href="#get_storage">get_storage</a>
             </li>
             <li>
@@ -373,7 +379,7 @@ Pipelines holen sich die Ablage mit <code><a href="#get_storage">get_storage()</
 <p>Die kleine API fuer Notebooks und Skripte (an der Standardablage)::</p>
 
 <pre><code>from storage import resolve_read_path, exists, read_text
-pfad = resolve_read_path("silver", "dataset=crime_offense", "part-0001.parquet")
+pfad = resolve_read_path("silver", "dataset=crime_offense", "part-0001<a href="storage/parquet.html">storage.parquet</a>")
 </code></pre>
 </div>
 
@@ -416,86 +422,88 @@ pfad = resolve_read_path("silver", "dataset=crime_offense", "part-0001.parquet")
 </span><span id="L-33"><a href="#L-33"><span class="linenos"> 33</span></a>    <span class="n">zeitpunkt</span><span class="p">,</span>
 </span><span id="L-34"><a href="#L-34"><span class="linenos"> 34</span></a><span class="p">)</span>
 </span><span id="L-35"><a href="#L-35"><span class="linenos"> 35</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">storage.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">BACKENDS</span><span class="p">,</span> <span class="n">Config</span><span class="p">,</span> <span class="n">StorageConfigError</span><span class="p">,</span> <span class="n">load</span>
-</span><span id="L-36"><a href="#L-36"><span class="linenos"> 36</span></a>
-</span><span id="L-37"><a href="#L-37"><span class="linenos"> 37</span></a><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="L-38"><a href="#L-38"><span class="linenos"> 38</span></a>    <span class="s2">"ABGELEITET"</span><span class="p">,</span> <span class="s2">"BACKENDS"</span><span class="p">,</span> <span class="s2">"Boto3Client"</span><span class="p">,</span> <span class="s2">"Config"</span><span class="p">,</span> <span class="s2">"FakeS3Client"</span><span class="p">,</span> <span class="s2">"PublishError"</span><span class="p">,</span>
-</span><span id="L-39"><a href="#L-39"><span class="linenos"> 39</span></a>    <span class="s2">"S3Client"</span><span class="p">,</span> <span class="s2">"Standvergleich"</span><span class="p">,</span> <span class="s2">"Storage"</span><span class="p">,</span> <span class="s2">"StorageConfigError"</span><span class="p">,</span> <span class="s2">"StorageError"</span><span class="p">,</span>
-</span><span id="L-40"><a href="#L-40"><span class="linenos"> 40</span></a>    <span class="s2">"eingaben"</span><span class="p">,</span> <span class="s2">"load"</span><span class="p">,</span> <span class="s2">"manifest_von"</span><span class="p">,</span> <span class="s2">"zeitpunkt"</span><span class="p">,</span>
-</span><span id="L-41"><a href="#L-41"><span class="linenos"> 41</span></a>    <span class="s2">"get_storage"</span><span class="p">,</span> <span class="s2">"set_storage"</span><span class="p">,</span> <span class="s2">"for_root"</span><span class="p">,</span>
-</span><span id="L-42"><a href="#L-42"><span class="linenos"> 42</span></a>    <span class="s2">"storage_path"</span><span class="p">,</span> <span class="s2">"local_path"</span><span class="p">,</span> <span class="s2">"s3_path"</span><span class="p">,</span> <span class="s2">"resolve_read_path"</span><span class="p">,</span>
-</span><span id="L-43"><a href="#L-43"><span class="linenos"> 43</span></a>    <span class="s2">"publish_to_shared_storage"</span><span class="p">,</span> <span class="s2">"exists"</span><span class="p">,</span> <span class="s2">"list_files"</span><span class="p">,</span> <span class="s2">"read_text"</span><span class="p">,</span> <span class="s2">"write_text"</span><span class="p">,</span>
-</span><span id="L-44"><a href="#L-44"><span class="linenos"> 44</span></a><span class="p">]</span>
-</span><span id="L-45"><a href="#L-45"><span class="linenos"> 45</span></a>
-</span><span id="L-46"><a href="#L-46"><span class="linenos"> 46</span></a><span class="n">_standard</span><span class="p">:</span> <span class="n">Storage</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="L-36"><a href="#L-36"><span class="linenos"> 36</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">storage.parquet</span><span class="w"> </span><span class="kn">import</span> <span class="n">schema</span> <span class="k">as</span> <span class="n">parquet_schema</span><span class="p">,</span> <span class="n">spalten</span> <span class="k">as</span> <span class="n">parquet_spalten</span>
+</span><span id="L-37"><a href="#L-37"><span class="linenos"> 37</span></a>
+</span><span id="L-38"><a href="#L-38"><span class="linenos"> 38</span></a><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="L-39"><a href="#L-39"><span class="linenos"> 39</span></a>    <span class="s2">"ABGELEITET"</span><span class="p">,</span> <span class="s2">"BACKENDS"</span><span class="p">,</span> <span class="s2">"Boto3Client"</span><span class="p">,</span> <span class="s2">"Config"</span><span class="p">,</span> <span class="s2">"FakeS3Client"</span><span class="p">,</span> <span class="s2">"PublishError"</span><span class="p">,</span>
+</span><span id="L-40"><a href="#L-40"><span class="linenos"> 40</span></a>    <span class="s2">"S3Client"</span><span class="p">,</span> <span class="s2">"Standvergleich"</span><span class="p">,</span> <span class="s2">"Storage"</span><span class="p">,</span> <span class="s2">"StorageConfigError"</span><span class="p">,</span> <span class="s2">"StorageError"</span><span class="p">,</span>
+</span><span id="L-41"><a href="#L-41"><span class="linenos"> 41</span></a>    <span class="s2">"eingaben"</span><span class="p">,</span> <span class="s2">"load"</span><span class="p">,</span> <span class="s2">"manifest_von"</span><span class="p">,</span> <span class="s2">"zeitpunkt"</span><span class="p">,</span>
+</span><span id="L-42"><a href="#L-42"><span class="linenos"> 42</span></a>    <span class="s2">"parquet_schema"</span><span class="p">,</span> <span class="s2">"parquet_spalten"</span><span class="p">,</span>
+</span><span id="L-43"><a href="#L-43"><span class="linenos"> 43</span></a>    <span class="s2">"get_storage"</span><span class="p">,</span> <span class="s2">"set_storage"</span><span class="p">,</span> <span class="s2">"for_root"</span><span class="p">,</span>
+</span><span id="L-44"><a href="#L-44"><span class="linenos"> 44</span></a>    <span class="s2">"storage_path"</span><span class="p">,</span> <span class="s2">"local_path"</span><span class="p">,</span> <span class="s2">"s3_path"</span><span class="p">,</span> <span class="s2">"resolve_read_path"</span><span class="p">,</span>
+</span><span id="L-45"><a href="#L-45"><span class="linenos"> 45</span></a>    <span class="s2">"publish_to_shared_storage"</span><span class="p">,</span> <span class="s2">"exists"</span><span class="p">,</span> <span class="s2">"list_files"</span><span class="p">,</span> <span class="s2">"read_text"</span><span class="p">,</span> <span class="s2">"write_text"</span><span class="p">,</span>
+</span><span id="L-46"><a href="#L-46"><span class="linenos"> 46</span></a><span class="p">]</span>
 </span><span id="L-47"><a href="#L-47"><span class="linenos"> 47</span></a>
-</span><span id="L-48"><a href="#L-48"><span class="linenos"> 48</span></a>
-</span><span id="L-49"><a href="#L-49"><span class="linenos"> 49</span></a><span class="k">def</span><span class="w"> </span><span class="nf">get_storage</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Storage</span><span class="p">:</span>
-</span><span id="L-50"><a href="#L-50"><span class="linenos"> 50</span></a><span class="w">    </span><span class="sd">"""Die Ablage aus der Umgebung - einmal gelesen, dann wiederverwendet."""</span>
-</span><span id="L-51"><a href="#L-51"><span class="linenos"> 51</span></a>    <span class="k">global</span> <span class="n">_standard</span>
-</span><span id="L-52"><a href="#L-52"><span class="linenos"> 52</span></a>    <span class="k">if</span> <span class="n">_standard</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="L-53"><a href="#L-53"><span class="linenos"> 53</span></a>        <span class="n">_standard</span> <span class="o">=</span> <span class="n">Storage</span><span class="p">(</span><span class="n">load</span><span class="p">())</span>
-</span><span id="L-54"><a href="#L-54"><span class="linenos"> 54</span></a>    <span class="k">return</span> <span class="n">_standard</span>
-</span><span id="L-55"><a href="#L-55"><span class="linenos"> 55</span></a>
-</span><span id="L-56"><a href="#L-56"><span class="linenos"> 56</span></a>
-</span><span id="L-57"><a href="#L-57"><span class="linenos"> 57</span></a><span class="k">def</span><span class="w"> </span><span class="nf">set_storage</span><span class="p">(</span><span class="n">storage</span><span class="p">:</span> <span class="n">Storage</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="L-58"><a href="#L-58"><span class="linenos"> 58</span></a><span class="w">    </span><span class="sd">"""Fuer Tests: eine bestimmte Ablage unterschieben, oder mit None vergessen."""</span>
-</span><span id="L-59"><a href="#L-59"><span class="linenos"> 59</span></a>    <span class="k">global</span> <span class="n">_standard</span>
-</span><span id="L-60"><a href="#L-60"><span class="linenos"> 60</span></a>    <span class="n">_standard</span> <span class="o">=</span> <span class="n">storage</span>
-</span><span id="L-61"><a href="#L-61"><span class="linenos"> 61</span></a>
-</span><span id="L-62"><a href="#L-62"><span class="linenos"> 62</span></a>
-</span><span id="L-63"><a href="#L-63"><span class="linenos"> 63</span></a><span class="k">def</span><span class="w"> </span><span class="nf">for_root</span><span class="p">(</span><span class="n">data_root</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Storage</span><span class="p">:</span>
-</span><span id="L-64"><a href="#L-64"><span class="linenos"> 64</span></a><span class="w">    </span><span class="sd">"""Die Standardablage, bei Bedarf mit der lokalen Wurzel aus ``--data-root``."""</span>
-</span><span id="L-65"><a href="#L-65"><span class="linenos"> 65</span></a>    <span class="n">basis</span> <span class="o">=</span> <span class="n">get_storage</span><span class="p">()</span>
-</span><span id="L-66"><a href="#L-66"><span class="linenos"> 66</span></a>    <span class="k">if</span> <span class="n">data_root</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="L-67"><a href="#L-67"><span class="linenos"> 67</span></a>        <span class="k">return</span> <span class="n">basis</span>
-</span><span id="L-68"><a href="#L-68"><span class="linenos"> 68</span></a>    <span class="k">return</span> <span class="n">basis</span><span class="o">.</span><span class="n">mit_wurzel</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">data_root</span><span class="p">))</span>
-</span><span id="L-69"><a href="#L-69"><span class="linenos"> 69</span></a>
-</span><span id="L-70"><a href="#L-70"><span class="linenos"> 70</span></a>
-</span><span id="L-71"><a href="#L-71"><span class="linenos"> 71</span></a><span class="c1"># -- Bequeme Funktionen an der Standardablage --------------------------------</span>
+</span><span id="L-48"><a href="#L-48"><span class="linenos"> 48</span></a><span class="n">_standard</span><span class="p">:</span> <span class="n">Storage</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="L-49"><a href="#L-49"><span class="linenos"> 49</span></a>
+</span><span id="L-50"><a href="#L-50"><span class="linenos"> 50</span></a>
+</span><span id="L-51"><a href="#L-51"><span class="linenos"> 51</span></a><span class="k">def</span><span class="w"> </span><span class="nf">get_storage</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Storage</span><span class="p">:</span>
+</span><span id="L-52"><a href="#L-52"><span class="linenos"> 52</span></a><span class="w">    </span><span class="sd">"""Die Ablage aus der Umgebung - einmal gelesen, dann wiederverwendet."""</span>
+</span><span id="L-53"><a href="#L-53"><span class="linenos"> 53</span></a>    <span class="k">global</span> <span class="n">_standard</span>
+</span><span id="L-54"><a href="#L-54"><span class="linenos"> 54</span></a>    <span class="k">if</span> <span class="n">_standard</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="L-55"><a href="#L-55"><span class="linenos"> 55</span></a>        <span class="n">_standard</span> <span class="o">=</span> <span class="n">Storage</span><span class="p">(</span><span class="n">load</span><span class="p">())</span>
+</span><span id="L-56"><a href="#L-56"><span class="linenos"> 56</span></a>    <span class="k">return</span> <span class="n">_standard</span>
+</span><span id="L-57"><a href="#L-57"><span class="linenos"> 57</span></a>
+</span><span id="L-58"><a href="#L-58"><span class="linenos"> 58</span></a>
+</span><span id="L-59"><a href="#L-59"><span class="linenos"> 59</span></a><span class="k">def</span><span class="w"> </span><span class="nf">set_storage</span><span class="p">(</span><span class="n">storage</span><span class="p">:</span> <span class="n">Storage</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="L-60"><a href="#L-60"><span class="linenos"> 60</span></a><span class="w">    </span><span class="sd">"""Fuer Tests: eine bestimmte Ablage unterschieben, oder mit None vergessen."""</span>
+</span><span id="L-61"><a href="#L-61"><span class="linenos"> 61</span></a>    <span class="k">global</span> <span class="n">_standard</span>
+</span><span id="L-62"><a href="#L-62"><span class="linenos"> 62</span></a>    <span class="n">_standard</span> <span class="o">=</span> <span class="n">storage</span>
+</span><span id="L-63"><a href="#L-63"><span class="linenos"> 63</span></a>
+</span><span id="L-64"><a href="#L-64"><span class="linenos"> 64</span></a>
+</span><span id="L-65"><a href="#L-65"><span class="linenos"> 65</span></a><span class="k">def</span><span class="w"> </span><span class="nf">for_root</span><span class="p">(</span><span class="n">data_root</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Storage</span><span class="p">:</span>
+</span><span id="L-66"><a href="#L-66"><span class="linenos"> 66</span></a><span class="w">    </span><span class="sd">"""Die Standardablage, bei Bedarf mit der lokalen Wurzel aus ``--data-root``."""</span>
+</span><span id="L-67"><a href="#L-67"><span class="linenos"> 67</span></a>    <span class="n">basis</span> <span class="o">=</span> <span class="n">get_storage</span><span class="p">()</span>
+</span><span id="L-68"><a href="#L-68"><span class="linenos"> 68</span></a>    <span class="k">if</span> <span class="n">data_root</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="L-69"><a href="#L-69"><span class="linenos"> 69</span></a>        <span class="k">return</span> <span class="n">basis</span>
+</span><span id="L-70"><a href="#L-70"><span class="linenos"> 70</span></a>    <span class="k">return</span> <span class="n">basis</span><span class="o">.</span><span class="n">mit_wurzel</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">data_root</span><span class="p">))</span>
+</span><span id="L-71"><a href="#L-71"><span class="linenos"> 71</span></a>
 </span><span id="L-72"><a href="#L-72"><span class="linenos"> 72</span></a>
-</span><span id="L-73"><a href="#L-73"><span class="linenos"> 73</span></a><span class="k">def</span><span class="w"> </span><span class="nf">storage_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="L-74"><a href="#L-74"><span class="linenos"> 74</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">storage_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
-</span><span id="L-75"><a href="#L-75"><span class="linenos"> 75</span></a>
-</span><span id="L-76"><a href="#L-76"><span class="linenos"> 76</span></a>
-</span><span id="L-77"><a href="#L-77"><span class="linenos"> 77</span></a><span class="k">def</span><span class="w"> </span><span class="nf">local_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-</span><span id="L-78"><a href="#L-78"><span class="linenos"> 78</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">local_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
-</span><span id="L-79"><a href="#L-79"><span class="linenos"> 79</span></a>
-</span><span id="L-80"><a href="#L-80"><span class="linenos"> 80</span></a>
-</span><span id="L-81"><a href="#L-81"><span class="linenos"> 81</span></a><span class="k">def</span><span class="w"> </span><span class="nf">s3_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="L-82"><a href="#L-82"><span class="linenos"> 82</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">s3_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
-</span><span id="L-83"><a href="#L-83"><span class="linenos"> 83</span></a>
-</span><span id="L-84"><a href="#L-84"><span class="linenos"> 84</span></a>
-</span><span id="L-85"><a href="#L-85"><span class="linenos"> 85</span></a><span class="k">def</span><span class="w"> </span><span class="nf">resolve_read_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="L-86"><a href="#L-86"><span class="linenos"> 86</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">resolve_read_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
-</span><span id="L-87"><a href="#L-87"><span class="linenos"> 87</span></a>
-</span><span id="L-88"><a href="#L-88"><span class="linenos"> 88</span></a>
-</span><span id="L-89"><a href="#L-89"><span class="linenos"> 89</span></a><span class="k">def</span><span class="w"> </span><span class="nf">exists</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="L-90"><a href="#L-90"><span class="linenos"> 90</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
-</span><span id="L-91"><a href="#L-91"><span class="linenos"> 91</span></a>
-</span><span id="L-92"><a href="#L-92"><span class="linenos"> 92</span></a>
-</span><span id="L-93"><a href="#L-93"><span class="linenos"> 93</span></a><span class="k">def</span><span class="w"> </span><span class="nf">list_files</span><span class="p">(</span><span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">muster</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"**/*"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-</span><span id="L-94"><a href="#L-94"><span class="linenos"> 94</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">list_files</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="n">muster</span><span class="p">)</span>
-</span><span id="L-95"><a href="#L-95"><span class="linenos"> 95</span></a>
-</span><span id="L-96"><a href="#L-96"><span class="linenos"> 96</span></a>
-</span><span id="L-97"><a href="#L-97"><span class="linenos"> 97</span></a><span class="k">def</span><span class="w"> </span><span class="nf">read_text</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="L-98"><a href="#L-98"><span class="linenos"> 98</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
-</span><span id="L-99"><a href="#L-99"><span class="linenos"> 99</span></a>
-</span><span id="L-100"><a href="#L-100"><span class="linenos">100</span></a>
-</span><span id="L-101"><a href="#L-101"><span class="linenos">101</span></a><span class="k">def</span><span class="w"> </span><span class="nf">write_text</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-</span><span id="L-102"><a href="#L-102"><span class="linenos">102</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="o">*</span><span class="n">teile</span><span class="p">)</span>
-</span><span id="L-103"><a href="#L-103"><span class="linenos">103</span></a>
-</span><span id="L-104"><a href="#L-104"><span class="linenos">104</span></a>
-</span><span id="L-105"><a href="#L-105"><span class="linenos">105</span></a><span class="k">def</span><span class="w"> </span><span class="nf">publish_to_shared_storage</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-</span><span id="L-106"><a href="#L-106"><span class="linenos">106</span></a><span class="w">    </span><span class="sd">"""Ein Verzeichnis (Lauf oder Tabelle) gezielt publizieren.</span>
-</span><span id="L-107"><a href="#L-107"><span class="linenos">107</span></a>
-</span><span id="L-108"><a href="#L-108"><span class="linenos">108</span></a><span class="sd">    Ein ``run_&lt;id&gt;``-Verzeichnis gilt als unveraenderlich, alles andere als</span>
-</span><span id="L-109"><a href="#L-109"><span class="linenos">109</span></a><span class="sd">    abgeleitete Tabelle, die ueberschrieben werden darf.</span>
-</span><span id="L-110"><a href="#L-110"><span class="linenos">110</span></a><span class="sd">    """</span>
-</span><span id="L-111"><a href="#L-111"><span class="linenos">111</span></a>    <span class="n">storage</span> <span class="o">=</span> <span class="n">get_storage</span><span class="p">()</span>
-</span><span id="L-112"><a href="#L-112"><span class="linenos">112</span></a>    <span class="n">rel</span> <span class="o">=</span> <span class="n">storage</span><span class="o">.</span><span class="n">storage_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
-</span><span id="L-113"><a href="#L-113"><span class="linenos">113</span></a>    <span class="k">if</span> <span class="n">rel</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">"/"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"run_"</span><span class="p">):</span>
-</span><span id="L-114"><a href="#L-114"><span class="linenos">114</span></a>        <span class="k">return</span> <span class="n">storage</span><span class="o">.</span><span class="n">publish_run</span><span class="p">(</span><span class="n">rel</span><span class="p">)</span>
-</span><span id="L-115"><a href="#L-115"><span class="linenos">115</span></a>    <span class="k">return</span> <span class="n">storage</span><span class="o">.</span><span class="n">publish_table</span><span class="p">(</span><span class="n">rel</span><span class="p">)</span>
+</span><span id="L-73"><a href="#L-73"><span class="linenos"> 73</span></a><span class="c1"># -- Bequeme Funktionen an der Standardablage --------------------------------</span>
+</span><span id="L-74"><a href="#L-74"><span class="linenos"> 74</span></a>
+</span><span id="L-75"><a href="#L-75"><span class="linenos"> 75</span></a><span class="k">def</span><span class="w"> </span><span class="nf">storage_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="L-76"><a href="#L-76"><span class="linenos"> 76</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">storage_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
+</span><span id="L-77"><a href="#L-77"><span class="linenos"> 77</span></a>
+</span><span id="L-78"><a href="#L-78"><span class="linenos"> 78</span></a>
+</span><span id="L-79"><a href="#L-79"><span class="linenos"> 79</span></a><span class="k">def</span><span class="w"> </span><span class="nf">local_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+</span><span id="L-80"><a href="#L-80"><span class="linenos"> 80</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">local_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
+</span><span id="L-81"><a href="#L-81"><span class="linenos"> 81</span></a>
+</span><span id="L-82"><a href="#L-82"><span class="linenos"> 82</span></a>
+</span><span id="L-83"><a href="#L-83"><span class="linenos"> 83</span></a><span class="k">def</span><span class="w"> </span><span class="nf">s3_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="L-84"><a href="#L-84"><span class="linenos"> 84</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">s3_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
+</span><span id="L-85"><a href="#L-85"><span class="linenos"> 85</span></a>
+</span><span id="L-86"><a href="#L-86"><span class="linenos"> 86</span></a>
+</span><span id="L-87"><a href="#L-87"><span class="linenos"> 87</span></a><span class="k">def</span><span class="w"> </span><span class="nf">resolve_read_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="L-88"><a href="#L-88"><span class="linenos"> 88</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">resolve_read_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
+</span><span id="L-89"><a href="#L-89"><span class="linenos"> 89</span></a>
+</span><span id="L-90"><a href="#L-90"><span class="linenos"> 90</span></a>
+</span><span id="L-91"><a href="#L-91"><span class="linenos"> 91</span></a><span class="k">def</span><span class="w"> </span><span class="nf">exists</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="L-92"><a href="#L-92"><span class="linenos"> 92</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
+</span><span id="L-93"><a href="#L-93"><span class="linenos"> 93</span></a>
+</span><span id="L-94"><a href="#L-94"><span class="linenos"> 94</span></a>
+</span><span id="L-95"><a href="#L-95"><span class="linenos"> 95</span></a><span class="k">def</span><span class="w"> </span><span class="nf">list_files</span><span class="p">(</span><span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">muster</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"**/*"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+</span><span id="L-96"><a href="#L-96"><span class="linenos"> 96</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">list_files</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="n">muster</span><span class="p">)</span>
+</span><span id="L-97"><a href="#L-97"><span class="linenos"> 97</span></a>
+</span><span id="L-98"><a href="#L-98"><span class="linenos"> 98</span></a>
+</span><span id="L-99"><a href="#L-99"><span class="linenos"> 99</span></a><span class="k">def</span><span class="w"> </span><span class="nf">read_text</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="L-100"><a href="#L-100"><span class="linenos">100</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
+</span><span id="L-101"><a href="#L-101"><span class="linenos">101</span></a>
+</span><span id="L-102"><a href="#L-102"><span class="linenos">102</span></a>
+</span><span id="L-103"><a href="#L-103"><span class="linenos">103</span></a><span class="k">def</span><span class="w"> </span><span class="nf">write_text</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+</span><span id="L-104"><a href="#L-104"><span class="linenos">104</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="o">*</span><span class="n">teile</span><span class="p">)</span>
+</span><span id="L-105"><a href="#L-105"><span class="linenos">105</span></a>
+</span><span id="L-106"><a href="#L-106"><span class="linenos">106</span></a>
+</span><span id="L-107"><a href="#L-107"><span class="linenos">107</span></a><span class="k">def</span><span class="w"> </span><span class="nf">publish_to_shared_storage</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+</span><span id="L-108"><a href="#L-108"><span class="linenos">108</span></a><span class="w">    </span><span class="sd">"""Ein Verzeichnis (Lauf oder Tabelle) gezielt publizieren.</span>
+</span><span id="L-109"><a href="#L-109"><span class="linenos">109</span></a>
+</span><span id="L-110"><a href="#L-110"><span class="linenos">110</span></a><span class="sd">    Ein ``run_&lt;id&gt;``-Verzeichnis gilt als unveraenderlich, alles andere als</span>
+</span><span id="L-111"><a href="#L-111"><span class="linenos">111</span></a><span class="sd">    abgeleitete Tabelle, die ueberschrieben werden darf.</span>
+</span><span id="L-112"><a href="#L-112"><span class="linenos">112</span></a><span class="sd">    """</span>
+</span><span id="L-113"><a href="#L-113"><span class="linenos">113</span></a>    <span class="n">storage</span> <span class="o">=</span> <span class="n">get_storage</span><span class="p">()</span>
+</span><span id="L-114"><a href="#L-114"><span class="linenos">114</span></a>    <span class="n">rel</span> <span class="o">=</span> <span class="n">storage</span><span class="o">.</span><span class="n">storage_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
+</span><span id="L-115"><a href="#L-115"><span class="linenos">115</span></a>    <span class="k">if</span> <span class="n">rel</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">"/"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"run_"</span><span class="p">):</span>
+</span><span id="L-116"><a href="#L-116"><span class="linenos">116</span></a>        <span class="k">return</span> <span class="n">storage</span><span class="o">.</span><span class="n">publish_run</span><span class="p">(</span><span class="n">rel</span><span class="p">)</span>
+</span><span id="L-117"><a href="#L-117"><span class="linenos">117</span></a>    <span class="k">return</span> <span class="n">storage</span><span class="o">.</span><span class="n">publish_table</span><span class="p">(</span><span class="n">rel</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -3338,6 +3346,50 @@ Secrets setzen, ohne dass eine mitgebrachte Datei dazwischenfunkt.</p>
 
 
                 </section>
+                <section id="parquet_schema">
+                            <input id="parquet_schema-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">parquet_schema</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">datei</span><span class="p">:</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">_local</span><span class="o">.</span><span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span></span><span class="return-annotation">) -> <span class="n">pyarrow</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">Schema</span>:</span></span>
+
+                <label class="view-source-button" for="parquet_schema-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#parquet_schema"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="parquet_schema-31"><a href="#parquet_schema-31"><span class="linenos">31</span></a><span class="k">def</span><span class="w"> </span><span class="nf">schema</span><span class="p">(</span><span class="n">datei</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span><span class="p">:</span>
+</span><span id="parquet_schema-32"><a href="#parquet_schema-32"><span class="linenos">32</span></a><span class="w">    </span><span class="sd">"""Das Arrow-Schema der Datei: genau die Spalten, die darin stehen."""</span>
+</span><span id="parquet_schema-33"><a href="#parquet_schema-33"><span class="linenos">33</span></a>    <span class="k">return</span> <span class="n">pq</span><span class="o">.</span><span class="n">ParquetFile</span><span class="p">(</span><span class="n">datei</span><span class="p">)</span><span class="o">.</span><span class="n">schema_arrow</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>Das Arrow-Schema der Datei: genau die Spalten, die darin stehen.</p>
+</div>
+
+
+                </section>
+                <section id="parquet_spalten">
+                            <input id="parquet_spalten-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">parquet_spalten</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">datei</span><span class="p">:</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">_local</span><span class="o">.</span><span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span></span><span class="return-annotation">) -> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>:</span></span>
+
+                <label class="view-source-button" for="parquet_spalten-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#parquet_spalten"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="parquet_spalten-36"><a href="#parquet_spalten-36"><span class="linenos">36</span></a><span class="k">def</span><span class="w"> </span><span class="nf">spalten</span><span class="p">(</span><span class="n">datei</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+</span><span id="parquet_spalten-37"><a href="#parquet_spalten-37"><span class="linenos">37</span></a><span class="w">    </span><span class="sd">"""Die Spaltennamen der Datei, in der Reihenfolge der Datei."""</span>
+</span><span id="parquet_spalten-38"><a href="#parquet_spalten-38"><span class="linenos">38</span></a>    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">feld</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">feld</span> <span class="ow">in</span> <span class="n">schema</span><span class="p">(</span><span class="n">datei</span><span class="p">))</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>Die Spaltennamen der Datei, in der Reihenfolge der Datei.</p>
+</div>
+
+
+                </section>
                 <section id="get_storage">
                             <input id="get_storage-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr function">
@@ -3349,12 +3401,12 @@ Secrets setzen, ohne dass eine mitgebrachte Datei dazwischenfunkt.</p>
 
     </div>
     <a class="headerlink" href="#get_storage"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="get_storage-50"><a href="#get_storage-50"><span class="linenos">50</span></a><span class="k">def</span><span class="w"> </span><span class="nf">get_storage</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Storage</span><span class="p">:</span>
-</span><span id="get_storage-51"><a href="#get_storage-51"><span class="linenos">51</span></a><span class="w">    </span><span class="sd">"""Die Ablage aus der Umgebung - einmal gelesen, dann wiederverwendet."""</span>
-</span><span id="get_storage-52"><a href="#get_storage-52"><span class="linenos">52</span></a>    <span class="k">global</span> <span class="n">_standard</span>
-</span><span id="get_storage-53"><a href="#get_storage-53"><span class="linenos">53</span></a>    <span class="k">if</span> <span class="n">_standard</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="get_storage-54"><a href="#get_storage-54"><span class="linenos">54</span></a>        <span class="n">_standard</span> <span class="o">=</span> <span class="n">Storage</span><span class="p">(</span><span class="n">load</span><span class="p">())</span>
-</span><span id="get_storage-55"><a href="#get_storage-55"><span class="linenos">55</span></a>    <span class="k">return</span> <span class="n">_standard</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="get_storage-52"><a href="#get_storage-52"><span class="linenos">52</span></a><span class="k">def</span><span class="w"> </span><span class="nf">get_storage</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Storage</span><span class="p">:</span>
+</span><span id="get_storage-53"><a href="#get_storage-53"><span class="linenos">53</span></a><span class="w">    </span><span class="sd">"""Die Ablage aus der Umgebung - einmal gelesen, dann wiederverwendet."""</span>
+</span><span id="get_storage-54"><a href="#get_storage-54"><span class="linenos">54</span></a>    <span class="k">global</span> <span class="n">_standard</span>
+</span><span id="get_storage-55"><a href="#get_storage-55"><span class="linenos">55</span></a>    <span class="k">if</span> <span class="n">_standard</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="get_storage-56"><a href="#get_storage-56"><span class="linenos">56</span></a>        <span class="n">_standard</span> <span class="o">=</span> <span class="n">Storage</span><span class="p">(</span><span class="n">load</span><span class="p">())</span>
+</span><span id="get_storage-57"><a href="#get_storage-57"><span class="linenos">57</span></a>    <span class="k">return</span> <span class="n">_standard</span>
 </span></pre></div>
 
 
@@ -3374,10 +3426,10 @@ Secrets setzen, ohne dass eine mitgebrachte Datei dazwischenfunkt.</p>
 
     </div>
     <a class="headerlink" href="#set_storage"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="set_storage-58"><a href="#set_storage-58"><span class="linenos">58</span></a><span class="k">def</span><span class="w"> </span><span class="nf">set_storage</span><span class="p">(</span><span class="n">storage</span><span class="p">:</span> <span class="n">Storage</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="set_storage-59"><a href="#set_storage-59"><span class="linenos">59</span></a><span class="w">    </span><span class="sd">"""Fuer Tests: eine bestimmte Ablage unterschieben, oder mit None vergessen."""</span>
-</span><span id="set_storage-60"><a href="#set_storage-60"><span class="linenos">60</span></a>    <span class="k">global</span> <span class="n">_standard</span>
-</span><span id="set_storage-61"><a href="#set_storage-61"><span class="linenos">61</span></a>    <span class="n">_standard</span> <span class="o">=</span> <span class="n">storage</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="set_storage-60"><a href="#set_storage-60"><span class="linenos">60</span></a><span class="k">def</span><span class="w"> </span><span class="nf">set_storage</span><span class="p">(</span><span class="n">storage</span><span class="p">:</span> <span class="n">Storage</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="set_storage-61"><a href="#set_storage-61"><span class="linenos">61</span></a><span class="w">    </span><span class="sd">"""Fuer Tests: eine bestimmte Ablage unterschieben, oder mit None vergessen."""</span>
+</span><span id="set_storage-62"><a href="#set_storage-62"><span class="linenos">62</span></a>    <span class="k">global</span> <span class="n">_standard</span>
+</span><span id="set_storage-63"><a href="#set_storage-63"><span class="linenos">63</span></a>    <span class="n">_standard</span> <span class="o">=</span> <span class="n">storage</span>
 </span></pre></div>
 
 
@@ -3397,12 +3449,12 @@ Secrets setzen, ohne dass eine mitgebrachte Datei dazwischenfunkt.</p>
 
     </div>
     <a class="headerlink" href="#for_root"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="for_root-64"><a href="#for_root-64"><span class="linenos">64</span></a><span class="k">def</span><span class="w"> </span><span class="nf">for_root</span><span class="p">(</span><span class="n">data_root</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Storage</span><span class="p">:</span>
-</span><span id="for_root-65"><a href="#for_root-65"><span class="linenos">65</span></a><span class="w">    </span><span class="sd">"""Die Standardablage, bei Bedarf mit der lokalen Wurzel aus ``--data-root``."""</span>
-</span><span id="for_root-66"><a href="#for_root-66"><span class="linenos">66</span></a>    <span class="n">basis</span> <span class="o">=</span> <span class="n">get_storage</span><span class="p">()</span>
-</span><span id="for_root-67"><a href="#for_root-67"><span class="linenos">67</span></a>    <span class="k">if</span> <span class="n">data_root</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="for_root-68"><a href="#for_root-68"><span class="linenos">68</span></a>        <span class="k">return</span> <span class="n">basis</span>
-</span><span id="for_root-69"><a href="#for_root-69"><span class="linenos">69</span></a>    <span class="k">return</span> <span class="n">basis</span><span class="o">.</span><span class="n">mit_wurzel</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">data_root</span><span class="p">))</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="for_root-66"><a href="#for_root-66"><span class="linenos">66</span></a><span class="k">def</span><span class="w"> </span><span class="nf">for_root</span><span class="p">(</span><span class="n">data_root</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Storage</span><span class="p">:</span>
+</span><span id="for_root-67"><a href="#for_root-67"><span class="linenos">67</span></a><span class="w">    </span><span class="sd">"""Die Standardablage, bei Bedarf mit der lokalen Wurzel aus ``--data-root``."""</span>
+</span><span id="for_root-68"><a href="#for_root-68"><span class="linenos">68</span></a>    <span class="n">basis</span> <span class="o">=</span> <span class="n">get_storage</span><span class="p">()</span>
+</span><span id="for_root-69"><a href="#for_root-69"><span class="linenos">69</span></a>    <span class="k">if</span> <span class="n">data_root</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="for_root-70"><a href="#for_root-70"><span class="linenos">70</span></a>        <span class="k">return</span> <span class="n">basis</span>
+</span><span id="for_root-71"><a href="#for_root-71"><span class="linenos">71</span></a>    <span class="k">return</span> <span class="n">basis</span><span class="o">.</span><span class="n">mit_wurzel</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">data_root</span><span class="p">))</span>
 </span></pre></div>
 
 
@@ -3422,8 +3474,8 @@ Secrets setzen, ohne dass eine mitgebrachte Datei dazwischenfunkt.</p>
 
     </div>
     <a class="headerlink" href="#storage_path"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="storage_path-74"><a href="#storage_path-74"><span class="linenos">74</span></a><span class="k">def</span><span class="w"> </span><span class="nf">storage_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="storage_path-75"><a href="#storage_path-75"><span class="linenos">75</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">storage_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="storage_path-76"><a href="#storage_path-76"><span class="linenos">76</span></a><span class="k">def</span><span class="w"> </span><span class="nf">storage_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="storage_path-77"><a href="#storage_path-77"><span class="linenos">77</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">storage_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -3441,8 +3493,8 @@ Secrets setzen, ohne dass eine mitgebrachte Datei dazwischenfunkt.</p>
 
     </div>
     <a class="headerlink" href="#local_path"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="local_path-78"><a href="#local_path-78"><span class="linenos">78</span></a><span class="k">def</span><span class="w"> </span><span class="nf">local_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-</span><span id="local_path-79"><a href="#local_path-79"><span class="linenos">79</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">local_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="local_path-80"><a href="#local_path-80"><span class="linenos">80</span></a><span class="k">def</span><span class="w"> </span><span class="nf">local_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+</span><span id="local_path-81"><a href="#local_path-81"><span class="linenos">81</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">local_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -3460,8 +3512,8 @@ Secrets setzen, ohne dass eine mitgebrachte Datei dazwischenfunkt.</p>
 
     </div>
     <a class="headerlink" href="#s3_path"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="s3_path-82"><a href="#s3_path-82"><span class="linenos">82</span></a><span class="k">def</span><span class="w"> </span><span class="nf">s3_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="s3_path-83"><a href="#s3_path-83"><span class="linenos">83</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">s3_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="s3_path-84"><a href="#s3_path-84"><span class="linenos">84</span></a><span class="k">def</span><span class="w"> </span><span class="nf">s3_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="s3_path-85"><a href="#s3_path-85"><span class="linenos">85</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">s3_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -3479,8 +3531,8 @@ Secrets setzen, ohne dass eine mitgebrachte Datei dazwischenfunkt.</p>
 
     </div>
     <a class="headerlink" href="#resolve_read_path"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="resolve_read_path-86"><a href="#resolve_read_path-86"><span class="linenos">86</span></a><span class="k">def</span><span class="w"> </span><span class="nf">resolve_read_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="resolve_read_path-87"><a href="#resolve_read_path-87"><span class="linenos">87</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">resolve_read_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="resolve_read_path-88"><a href="#resolve_read_path-88"><span class="linenos">88</span></a><span class="k">def</span><span class="w"> </span><span class="nf">resolve_read_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="resolve_read_path-89"><a href="#resolve_read_path-89"><span class="linenos">89</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">resolve_read_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -3498,17 +3550,17 @@ Secrets setzen, ohne dass eine mitgebrachte Datei dazwischenfunkt.</p>
 
     </div>
     <a class="headerlink" href="#publish_to_shared_storage"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="publish_to_shared_storage-106"><a href="#publish_to_shared_storage-106"><span class="linenos">106</span></a><span class="k">def</span><span class="w"> </span><span class="nf">publish_to_shared_storage</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-</span><span id="publish_to_shared_storage-107"><a href="#publish_to_shared_storage-107"><span class="linenos">107</span></a><span class="w">    </span><span class="sd">"""Ein Verzeichnis (Lauf oder Tabelle) gezielt publizieren.</span>
-</span><span id="publish_to_shared_storage-108"><a href="#publish_to_shared_storage-108"><span class="linenos">108</span></a>
-</span><span id="publish_to_shared_storage-109"><a href="#publish_to_shared_storage-109"><span class="linenos">109</span></a><span class="sd">    Ein ``run_&lt;id&gt;``-Verzeichnis gilt als unveraenderlich, alles andere als</span>
-</span><span id="publish_to_shared_storage-110"><a href="#publish_to_shared_storage-110"><span class="linenos">110</span></a><span class="sd">    abgeleitete Tabelle, die ueberschrieben werden darf.</span>
-</span><span id="publish_to_shared_storage-111"><a href="#publish_to_shared_storage-111"><span class="linenos">111</span></a><span class="sd">    """</span>
-</span><span id="publish_to_shared_storage-112"><a href="#publish_to_shared_storage-112"><span class="linenos">112</span></a>    <span class="n">storage</span> <span class="o">=</span> <span class="n">get_storage</span><span class="p">()</span>
-</span><span id="publish_to_shared_storage-113"><a href="#publish_to_shared_storage-113"><span class="linenos">113</span></a>    <span class="n">rel</span> <span class="o">=</span> <span class="n">storage</span><span class="o">.</span><span class="n">storage_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
-</span><span id="publish_to_shared_storage-114"><a href="#publish_to_shared_storage-114"><span class="linenos">114</span></a>    <span class="k">if</span> <span class="n">rel</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">"/"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"run_"</span><span class="p">):</span>
-</span><span id="publish_to_shared_storage-115"><a href="#publish_to_shared_storage-115"><span class="linenos">115</span></a>        <span class="k">return</span> <span class="n">storage</span><span class="o">.</span><span class="n">publish_run</span><span class="p">(</span><span class="n">rel</span><span class="p">)</span>
-</span><span id="publish_to_shared_storage-116"><a href="#publish_to_shared_storage-116"><span class="linenos">116</span></a>    <span class="k">return</span> <span class="n">storage</span><span class="o">.</span><span class="n">publish_table</span><span class="p">(</span><span class="n">rel</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="publish_to_shared_storage-108"><a href="#publish_to_shared_storage-108"><span class="linenos">108</span></a><span class="k">def</span><span class="w"> </span><span class="nf">publish_to_shared_storage</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+</span><span id="publish_to_shared_storage-109"><a href="#publish_to_shared_storage-109"><span class="linenos">109</span></a><span class="w">    </span><span class="sd">"""Ein Verzeichnis (Lauf oder Tabelle) gezielt publizieren.</span>
+</span><span id="publish_to_shared_storage-110"><a href="#publish_to_shared_storage-110"><span class="linenos">110</span></a>
+</span><span id="publish_to_shared_storage-111"><a href="#publish_to_shared_storage-111"><span class="linenos">111</span></a><span class="sd">    Ein ``run_&lt;id&gt;``-Verzeichnis gilt als unveraenderlich, alles andere als</span>
+</span><span id="publish_to_shared_storage-112"><a href="#publish_to_shared_storage-112"><span class="linenos">112</span></a><span class="sd">    abgeleitete Tabelle, die ueberschrieben werden darf.</span>
+</span><span id="publish_to_shared_storage-113"><a href="#publish_to_shared_storage-113"><span class="linenos">113</span></a><span class="sd">    """</span>
+</span><span id="publish_to_shared_storage-114"><a href="#publish_to_shared_storage-114"><span class="linenos">114</span></a>    <span class="n">storage</span> <span class="o">=</span> <span class="n">get_storage</span><span class="p">()</span>
+</span><span id="publish_to_shared_storage-115"><a href="#publish_to_shared_storage-115"><span class="linenos">115</span></a>    <span class="n">rel</span> <span class="o">=</span> <span class="n">storage</span><span class="o">.</span><span class="n">storage_path</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
+</span><span id="publish_to_shared_storage-116"><a href="#publish_to_shared_storage-116"><span class="linenos">116</span></a>    <span class="k">if</span> <span class="n">rel</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">"/"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"run_"</span><span class="p">):</span>
+</span><span id="publish_to_shared_storage-117"><a href="#publish_to_shared_storage-117"><span class="linenos">117</span></a>        <span class="k">return</span> <span class="n">storage</span><span class="o">.</span><span class="n">publish_run</span><span class="p">(</span><span class="n">rel</span><span class="p">)</span>
+</span><span id="publish_to_shared_storage-118"><a href="#publish_to_shared_storage-118"><span class="linenos">118</span></a>    <span class="k">return</span> <span class="n">storage</span><span class="o">.</span><span class="n">publish_table</span><span class="p">(</span><span class="n">rel</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -3531,8 +3583,8 @@ abgeleitete Tabelle, die ueberschrieben werden darf.</p>
 
     </div>
     <a class="headerlink" href="#exists"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="exists-90"><a href="#exists-90"><span class="linenos">90</span></a><span class="k">def</span><span class="w"> </span><span class="nf">exists</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="exists-91"><a href="#exists-91"><span class="linenos">91</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="exists-92"><a href="#exists-92"><span class="linenos">92</span></a><span class="k">def</span><span class="w"> </span><span class="nf">exists</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="exists-93"><a href="#exists-93"><span class="linenos">93</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -3550,8 +3602,8 @@ abgeleitete Tabelle, die ueberschrieben werden darf.</p>
 
     </div>
     <a class="headerlink" href="#list_files"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="list_files-94"><a href="#list_files-94"><span class="linenos">94</span></a><span class="k">def</span><span class="w"> </span><span class="nf">list_files</span><span class="p">(</span><span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">muster</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"**/*"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-</span><span id="list_files-95"><a href="#list_files-95"><span class="linenos">95</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">list_files</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="n">muster</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="list_files-96"><a href="#list_files-96"><span class="linenos">96</span></a><span class="k">def</span><span class="w"> </span><span class="nf">list_files</span><span class="p">(</span><span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">muster</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"**/*"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+</span><span id="list_files-97"><a href="#list_files-97"><span class="linenos">97</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">list_files</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="n">muster</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -3569,8 +3621,8 @@ abgeleitete Tabelle, die ueberschrieben werden darf.</p>
 
     </div>
     <a class="headerlink" href="#read_text"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="read_text-98"><a href="#read_text-98"><span class="linenos">98</span></a><span class="k">def</span><span class="w"> </span><span class="nf">read_text</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="read_text-99"><a href="#read_text-99"><span class="linenos">99</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="read_text-100"><a href="#read_text-100"><span class="linenos">100</span></a><span class="k">def</span><span class="w"> </span><span class="nf">read_text</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="read_text-101"><a href="#read_text-101"><span class="linenos">101</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="o">*</span><span class="n">teile</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -3588,8 +3640,8 @@ abgeleitete Tabelle, die ueberschrieben werden darf.</p>
 
     </div>
     <a class="headerlink" href="#write_text"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="write_text-102"><a href="#write_text-102"><span class="linenos">102</span></a><span class="k">def</span><span class="w"> </span><span class="nf">write_text</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-</span><span id="write_text-103"><a href="#write_text-103"><span class="linenos">103</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="o">*</span><span class="n">teile</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="write_text-104"><a href="#write_text-104"><span class="linenos">104</span></a><span class="k">def</span><span class="w"> </span><span class="nf">write_text</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="n">teile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+</span><span id="write_text-105"><a href="#write_text-105"><span class="linenos">105</span></a>    <span class="k">return</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="o">*</span><span class="n">teile</span><span class="p">)</span>
 </span></pre></div>
 
 
