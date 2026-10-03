@@ -28,3 +28,10 @@ data/releases/
 # Claude AI related files
 .claude/
 Claude outputs/
+# Agent Files
+.agents/
+AGENTS.md
+skills-lock.json
+# BMAD method folder
+_bmad/
+_bmad-output
