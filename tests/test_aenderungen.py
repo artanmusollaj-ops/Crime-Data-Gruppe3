@@ -142,14 +142,23 @@ def test_jeder_eintrag_nennt_seine_herkunft(text):
     Bis zum 20.9.2026 war das immer eine PR-Nummer. Seit PR #121 gemergt und
     sein Branch geloescht ist, entsteht Arbeit auch direkt auf ``main`` - dann
     ist der Commit der Verweis, und der Eintrag sagt ``(direkt auf main)``.
+
+    Seit dem 3.10.2026 kommt eine dritte Form dazu: ``(Branch `name`)``, fuer
+    Arbeit, die auf einem Branch entsteht und ohne Pull Request gemergt wird.
+    Die beiden alten Formen deckten das nicht ab - eine PR-Nummer gibt es
+    nicht, und ``direkt auf main`` waere falsch. Eine erfundene Nummer ist
+    schlimmer als keine: Sie sieht nachschlagbar aus und fuehrt ins Leere.
+
     Verlangt bleibt, dass jeder Eintrag *irgendeine* nachschlagbare Herkunft
     nennt; was nicht geht, ist gar keine.
     """
     eintraege = re.findall(r"^## ([0-9]{2}\.[0-9]{2}\.[0-9]{4}.*)$", text, re.M)
     assert len(eintraege) >= 8, f"nur {len(eintraege)} Eintraege gefunden"
     ohne = [e for e in eintraege
-            if not re.search(r"\(#[0-9]+\)", e) and "(direkt auf main)" not in e]
-    assert not ohne, f"Eintraege ohne PR-Nummer oder Herkunftsvermerk: {ohne}"
+            if not re.search(r"\(#[0-9]+\)", e)
+            and "(direkt auf main)" not in e
+            and not re.search(r"\(Branch `[^`]+`\)", e)]
+    assert not ohne, f"Eintraege ohne nachschlagbare Herkunft: {ohne}"
 
 
 def test_die_eintraege_stehen_neueste_zuerst(text):

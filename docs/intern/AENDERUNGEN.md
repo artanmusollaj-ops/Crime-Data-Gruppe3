@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'496** |
+| Tests | **1'507** |
 | `silver/crime_offense` | 348'329 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'091** Zeilen (eine Tat) |
 | Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -91,6 +91,50 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 03.10.2026 · DuckDB bekommt Grenzen, und keine Verbindung kommt daran vorbei (Branch `mehrjaehrigkeit`)
+
+Erste Anforderung aus dem LN2-PRD (FR-61), und sie stand vor dem
+Mehrjahreslauf, nicht danach: **Ohne `memory_limit` nimmt DuckDB rund 80 % des
+Arbeitsspeichers der Maschine.** Auf einem Laptop, der nur die Strecke fährt,
+ist das richtig. Auf `srv01` mit 7,7 GiB und fünfzehn Diensten ist es die
+Stelle, an der ein Lauf über sechs Jahrgänge stirbt — und er stirbt nicht
+allein, er nimmt die Nachbardienste mit.
+
+`DUCKDB_MEMORY_LIMIT` und `DUCKDB_THREADS` kommen jetzt aus der Umgebung und
+werden auf **jeder** Verbindung gesetzt, die `storage.duckdb` herstellt. Ohne
+Angabe bleibt DuckDBs eigene Vorgabe: Wer nichts setzt, merkt nichts.
+
+**Der eigentliche Befund lag daneben.** Der Docstring von `storage/duckdb.py`
+las sich schon immer so, als ginge jede Verbindung durch dieses Modul.
+Tatsächlich riefen **neun Stellen** `duckdb.connect()` selbst auf — darunter
+`build_source_change`, das über alle Bronze-Läufe liest, und
+`build_analysis_db`, das die Serving-Datenbank schreibt. Eine Grenze nur im
+Modul wäre also eine Zusage gewesen, die an den beiden grössten Abfragen
+vorbeigeht. Alle neun laufen jetzt über `storage.duckdb.verbinde`, und ein
+Wächter hält das: `test_keine_verbindung_umgeht_die_grenzen` liest `src/` und
+`tools/` und nennt jede Stelle, die wieder selbst verbindet.
+
+Ein Wert, den DuckDB ablehnt, lässt die Verbindung **scheitern** statt still zu
+verfallen. Eine stillschweigend verworfene Grenze wäre schlimmer als keine: Der
+Lauf liefe weiter, mit der Zusage im Protokoll und ohne sie im Prozess. Ein
+leerer Wert ist dabei keine Angabe und keine Null — sonst schaltete
+`DUCKDB_THREADS=` in einer `.env` die Parallelität ab, ohne dass jemand das
+gemeint hätte.
+
+**Zahlen.** 1'496 -> **1'507 Tests**, Standardlauf **1'426** (8 übersprungen,
+81 Referenzwächter abgewählt). Elf neue Tests, davon einer der Strukturwächter
+oben. `docs/referenz/` neu gebaut — neun Seiten haben sich geändert. Die
+Testzahl wurde in `README.md`, `docs/architektur-ist-und-ziel.md`,
+`docs/architektur-einseiter.html`, `docs/ln1_konzept.md` (drei Stellen),
+`docs/intern/leistungsnachweise.md` (zwei Stellen) und im Kopf dieser Datei
+nachgezogen. Kein Datenvertrag ändert sich: Es wird nichts anders geladen oder
+gedeutet, nur anders begrenzt.
+
+Die Zeile in Kapitel 10 des Konzepts sagte *„erwartet 1'415 bestandene Tests"*.
+Das war schon vorher unscharf — der Standardlauf **sammelt** 1'426 und
+überspringt davon 8, bestanden werden also 1'418. Jetzt steht die gesammelte
+Zahl dort, und dass acht übersprungen werden.
 
 ## 03.10.2026 · Das Notebook erklaert jetzt auch, wie die Historisierung haelt (direkt auf main)
 

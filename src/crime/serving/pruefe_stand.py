@@ -285,10 +285,10 @@ def pruefe_kibana(klient: Klient, daten_von: str, daten_bis: str) -> Befund:
 
 def datenbereich(verzeichnis: Path) -> tuple[str, str]:
     """Von wann bis wann das Release reicht - fuer die Kibana-Pruefung."""
-    import duckdb
+    from storage.duckdb import verbinde
 
     parquet = verzeichnis / "gold/dataset=fact_offense/part-0001.parquet"
-    con = duckdb.connect()
+    con = verbinde()
     try:
         von, bis = con.execute(
             f"SELECT min(occurred_at_utc), max(occurred_at_utc) "

@@ -6,7 +6,7 @@ Only one external writer process should own the local database at a time.
 import argparse
 import json
 from pathlib import Path
-import duckdb
+from storage.duckdb import verbinde
 from .bronze_manifest import validate_manifest
 from .detroit_arcgis import DataQualityError
 
@@ -15,7 +15,7 @@ def load_run(manifest_path: Path, database: Path) -> str:
     file, m = validate_manifest(manifest_path)
     database = Path(database)
     database.parent.mkdir(parents=True, exist_ok=True)
-    with duckdb.connect(str(database)) as con:
+    with verbinde(database) as con:
         con.execute('BEGIN TRANSACTION')
         try:
             con.execute('CREATE SCHEMA IF NOT EXISTS bronze')

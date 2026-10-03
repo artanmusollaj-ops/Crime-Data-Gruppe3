@@ -92,6 +92,7 @@ from silver_pipeline import (
     schema_of,
 )
 from storage import for_root
+from storage.duckdb import verbinde
 
 log = logging.getLogger(__name__)
 
@@ -532,7 +533,7 @@ def gelesene_datierung(datei: Path) -> dict[str, int] | None:
     from storage import parquet_spalten
     if "datierung" not in parquet_spalten(datei):
         return None
-    con = duckdb.connect()
+    con = verbinde()
     try:
         return dict(con.execute(
             f"SELECT coalesce(datierung, 'ohne_schluessel'), count(*) "
@@ -552,7 +553,7 @@ def bereits_gezogen(verzeichnis: Path) -> set[tuple[str, str]]:
     datei = verzeichnis / PARQUET_FILE
     if not datei.is_file():
         return set()
-    con = duckdb.connect()
+    con = verbinde()
     try:
         return {(a, b) for a, b in con.execute(
             f"SELECT DISTINCT vorher_run_id, run_id "

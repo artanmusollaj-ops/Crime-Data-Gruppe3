@@ -84,14 +84,14 @@ def groesse(bytes_: int) -> str:
 
 def messe(verzeichnis: Path) -> dict[str, Any]:
     """Alles, was die Seite zeigt - aus dem Release gelesen, nicht abgeschrieben."""
-    import duckdb
+    from storage.duckdb import verbinde
 
     from storage import parquet_spalten
 
     gold = verzeichnis / "gold"
     fakt = gold / "dataset=fact_offense/part-0001.parquet"
     tract = gold / "dataset=dim_tract/part-0001.parquet"
-    con = duckdb.connect()
+    con = verbinde()
     try:
         datensaetze = []
         for pfad in sorted(gold.glob("dataset=*/part-0001.parquet")):

@@ -8,10 +8,28 @@ Schluessel kommen aus der Konfiguration, nie ins Log.
 Abfragen sehen danach gleich aus::
 
     con.execute(f"SELECT count(*) FROM read_parquet('{storage.resolve_read_path(...)}')")
+
+**Grenzen.** Ohne ``memory_limit`` nimmt DuckDB rund 80 % des Arbeitsspeichers
+der Maschine. Auf einem Rechner, der nur die Strecke faehrt, ist das richtig;
+auf einer geteilten Maschine ist es die Stelle, an der ein Mehrjahreslauf
+stirbt, und zwar nicht allein - er nimmt die Nachbardienste mit. ``threads``
+hat denselben Charakter: Jeder Thread haelt eigene Puffer.
+
+Beide kommen deshalb aus der Umgebung (``DUCKDB_MEMORY_LIMIT``,
+``DUCKDB_THREADS``) und werden auf **jeder** Verbindung gesetzt, die dieses
+Modul herstellt. Ohne Angabe bleibt DuckDBs eigene Vorgabe - der heutige
+Zustand aendert sich also nicht, solange niemand etwas setzt.
+
+Wer nur lokale Dateien liest, nimmt ``verbinde``; wer die Ablage braucht,
+``connect`` mit der Konfiguration. Beide Wege setzen die Grenzen. Ein eigenes
+``duckdb.connect()`` umgeht sie - genau das war bis zum 3.10.2026 an neun
+Stellen der Fall.
 """
 
 from __future__ import annotations
 
+import os
+from collections.abc import Mapping
 from pathlib import Path
 
 import duckdb
@@ -20,7 +38,56 @@ from storage.config import Config
 
 
 class DuckDBFehler(RuntimeError):
-    """Eine Extension oder das Secret liess sich nicht einrichten."""
+    """Eine Extension, das Secret oder eine Grenze liess sich nicht setzen."""
+
+
+# Leer heisst: nicht setzen, DuckDB entscheidet wie bisher.
+VORGABE_MEMORY_LIMIT = ""
+VORGABE_THREADS = ""
+
+
+def grenzen(env: Mapping[str, str] | None = None) -> dict[str, str]:
+    """``memory_limit`` und ``threads``, soweit die Umgebung sie vorgibt.
+
+    Nur was gesetzt ist, steht im Ergebnis. Ein leerer Wert ist keine Angabe
+    und keine Null - sonst wuerde ``DUCKDB_THREADS=`` in einer ``.env`` die
+    Parallelitaet abschalten, ohne dass jemand das gemeint hat.
+    """
+    umgebung = os.environ if env is None else env
+    gesetzt: dict[str, str] = {}
+
+    speicher = (umgebung.get("DUCKDB_MEMORY_LIMIT") or VORGABE_MEMORY_LIMIT).strip()
+    if speicher:
+        gesetzt["memory_limit"] = speicher
+
+    faeden = (umgebung.get("DUCKDB_THREADS") or VORGABE_THREADS).strip()
+    if faeden:
+        if not faeden.isdigit() or int(faeden) < 1:
+            raise DuckDBFehler(
+                f"DUCKDB_THREADS={faeden!r} - erwartet ist eine ganze Zahl ab 1"
+            )
+        gesetzt["threads"] = faeden
+
+    return gesetzt
+
+
+def grenzen_setzen(con: duckdb.DuckDBPyConnection,
+                   env: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Setzt die Grenzen auf dieser Verbindung und gibt zurueck, was gilt.
+
+    Ein Wert, den DuckDB ablehnt, scheitert hier laut. Eine still verworfene
+    Grenze waere schlimmer als keine: Der Lauf liefe weiter, mit der Zusage im
+    Protokoll und ohne sie im Prozess.
+    """
+    gesetzt = grenzen(env)
+    for name, wert in gesetzt.items():
+        try:
+            con.execute(f"SET {name}=?", [wert])
+        except duckdb.Error as fehler:
+            raise DuckDBFehler(
+                f"{name}={wert!r} hat DuckDB nicht angenommen: {fehler}"
+            ) from fehler
+    return gesetzt
 
 
 def secret_sql(config: Config, name: str = "seaweedfs") -> str:
@@ -52,10 +119,31 @@ def s3_einrichten(con: duckdb.DuckDBPyConnection, config: Config) -> None:
         ) from None
 
 
+def verbinde(database: str | Path = ":memory:", *,
+             read_only: bool = False,
+             env: Mapping[str, str] | None = None) -> duckdb.DuckDBPyConnection:
+    """Eine Verbindung ohne S3, aber mit den Grenzen.
+
+    Fuer die Stellen, die nur lokale Dateien lesen oder eine Datenbank
+    schreiben. Wer die Ablage braucht, nimmt ``connect``.
+    """
+    con = duckdb.connect(str(database), read_only=read_only)
+    try:
+        grenzen_setzen(con, env)
+    except DuckDBFehler:
+        con.close()
+        raise
+    return con
+
+
 def connect(config: Config, database: str | Path = ":memory:", *,
             read_only: bool = False) -> duckdb.DuckDBPyConnection:
     """Eine Verbindung, die die Ablage lesen kann - lokal oder S3."""
-    con = duckdb.connect(str(database), read_only=read_only)
+    con = verbinde(database, read_only=read_only)
     if config.remote:
-        s3_einrichten(con, config)
+        try:
+            s3_einrichten(con, config)
+        except DuckDBFehler:
+            con.close()
+            raise
     return con
