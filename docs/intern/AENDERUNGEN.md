@@ -92,6 +92,51 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 03.10.2026 · Das Notebook erklaert jetzt auch, wie die Historisierung haelt (direkt auf main)
+
+Gefragt war, ob `notebooks/37_quellbewegung.ipynb` exakt erklaert, wie die
+Historisierung funktioniert. Antwort: Es erklaerte, **wie Aenderungen gefunden
+werden** - nicht, **wodurch sie ein Aufraeumen ueberleben.** Das ist aber der
+Unterschied zwischen einem Differenzbericht und einer Historisierung.
+
+Der neue Abschnitt nennt die Mechanik: Die Tabelle ist append-only und
+`aufraeumen` fasst nur Raw und Bronze an, Silber nie. Die Datierung klebt, ein
+aufgeraeumtes Delta loescht sie nicht. Sie liegt unter
+`data/silver/dataset=source_change/` und im hybrid-Modus auf SeaweedFS, nicht
+in Git. Dazu Regel 4 - ein Vollabzug bleibt, bis sein Unterschied gezogen ist,
+und faellt die Auskunft aus, gibt es keine Freigabe - und Regel 0, der
+Referenzstand.
+
+**Vorgefuehrt statt behauptet**, und die Vorfuehrung hat etwas aufgedeckt. Der
+Aufraeumbericht laeuft im Notebook **zweimal**, einmal mit den Pins und einmal
+ohne, weil sonst ueberall nur "Referenzstand" steht und keine Regel sichtbar
+wird. Das Ergebnis ist unbequem:
+
+* **Regel 4 kommt nicht vor.** Kein Lauf wird gehalten, weil sein Unterschied
+  noch nicht gezogen waere - er ist ueberall gezogen.
+* **Die Pins halten heute nichts, was nicht ohnehin gehalten wuerde.** Ohne sie
+  waere genau derselbe eine Lauf entbehrlich. Fast alles traegt *"von Silver
+  genannt"*: Silber entdoppelt ueber **alle** Laeufe und nennt sie deshalb alle
+  in `derived_from`, und Regel 2 haelt, was Silber nennt.
+
+Daraus folgt: **Fuer die beiden Kriminalitaetsquellen laesst sich derzeit
+praktisch nichts aufraeumen.** Von 22 Laeufen ist einer entbehrlich, 24,5 MB,
+und der gehoert NOAA. Die Rechnung *"31,9 MB Schnappschuesse fuer 102
+geaenderte Zeilen"* beschreibt, was zu gewinnen waere - eingeloest ist sie
+nicht. Wer das aendern will, muss an Regel 2 oder an Silber: Ein Silber, das
+vom letzten Vollabzug plus den Deltas danach baut, braeuchte die aelteren
+nicht mehr, und erst dann traegt der Referenzstand wirklich etwas.
+
+Die Lage ist also: Die Aenderungsgeschichte **ist** gesichert und wuerde ein
+Aufraeumen ueberleben. Nur findet das Aufraeumen noch nicht statt. Das steht
+jetzt so im Notebook, statt dass die Rechnung aus der `datenhistorie.md` als
+erreicht gelesen werden kann.
+
+**Nicht geaendert:** Die LN1-Pins bleiben, bis die Rueckmeldung der Pruefenden
+vorliegt. Sie sind die Belege fuer die Zahlen vom 25.9.
+
+---
+
 ## 03.10.2026 · Silber neu gebaut, Referenzstand nachgezogen (direkt auf main)
 
 Der zweite Chicago-Vollabzug lag seit dem Morgen in Bronze, ohne dass Silber
