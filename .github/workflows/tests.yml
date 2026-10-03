@@ -7,9 +7,20 @@
 #
 # Was hier NICHT geprueft wird: die Zahlen gegen die gebauten Daten. `data/`
 # ist aus der Versionierung ausgeschlossen, ein frischer Klon hat es also
-# nicht - die betroffenen Tests ueberspringen sich selbst. Was laeuft, ist
-# alles uebrige: 1'098 von 1'179 Tests, darunter beide Testzahl-Waechter, die
+# nicht. Der Standardlauf waehlt diese 81 Waechter ohnehin ab (Marker
+# `referenzstand`, Begruendung in pyproject.toml), und die uebrigen
+# datengebundenen Tests ueberspringen sich selbst. Was laeuft, sind die 1'401
+# von 1'482 Tests des Standardlaufs: beide Testzahl-Waechter, die
 # Reproduzierbarkeit der Crosswalks aus den PDFs und die Form der Dokumente.
+#
+# **Warum so wenige Jobs.** Bis zum 3.10.2026 lief eine Matrix aus zwei
+# Betriebssystemen und zwei Python-Versionen, dazu ruff und der Referenzbau -
+# sechs Jobs, rund 34 verrechnete Minuten je Lauf. Windows wird zum doppelten
+# Satz abgerechnet und brauchte doppelt so lange wie Linux: allein die beiden
+# Windows-Jobs waren 26 dieser 34 Minuten. Am 1. Oktober liefen acht Laeufe,
+# also etwa 270 Minuten an einem Tag, und das Budget war weg. Seither gilt der
+# Zuschnitt unten: ein Pull Request kostet rund vier Minuten, ein Push auf
+# main siebzehn.
 
 name: Tests
 
@@ -17,6 +28,11 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    # Montags 05:00 UTC, eine Stunde vor dem Datenlauf: der Kanarienvogel
+    # unten soll nicht mit ihm um einen Runner konkurrieren.
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -27,59 +43,75 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ruff:
-    # Zuerst und allein: Pyflakes findet in Sekunden, wofuer die Suite zwei
-    # Minuten braucht - und Fehler, die kein Test sieht.
+  pruefung:
+    # Der Job, der auf jedem Pull Request laeuft - und der einzige.
+    #
+    # Python 3.11, installiert aus den Bereichen in pyproject.toml: Das
+    # Lockfile kann es nicht, numpy 2.5 verlangt Python 3.12. Genau das ist
+    # der Zweck - die Zusage `requires-python = ">=3.11"` muss mit den
+    # erlaubten Bereichen noch stimmen. Faellt dieser Job an der
+    # Installation, ist die Untergrenze keine Zusage mehr, sondern eine
+    # Behauptung.
+    #
+    # Linux, weil die drei PDF-Reproduktionen hier zuhause sind: Windows hat
+    # ein anderes pdftotext, ein anderer Poppler-Build setzt die Spalten
+    # anders, und alle drei Tests haengen am Layout. Sie sind gegen
+    # poppler-utils definiert und ueberspringen sich anderswo.
+    #
+    # ruff laeuft im selben Job statt in einem eigenen. Pyflakes braucht
+    # vierzehn Sekunden, ein eigener Job wird trotzdem mit einer ganzen
+    # Minute verrechnet. Vorangestellt bleibt es: es findet in Sekunden, wofuer
+    # die Suite Minuten braucht, und Fehler, die kein Test sieht.
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
-      - run: python -m pip install ruff==0.16.7
-      - run: ruff check src tests tools
+          python-version: "3.11"
 
-  pytest:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # 3.11 ist die Untergrenze aus pyproject.toml, 3.13 die Version, auf
-        # der entwickelt wird. Windows, weil Artan darauf entwickelt - eine
-        # Anleitung mit PowerShell-Befehlen und ein CI, das sie nie ausfuehrt,
-        # widersprechen sich.
-        os: [ubuntu-latest, windows-latest]
-        python: ["3.11", "3.13"]
+      - name: poppler-utils
+        # Liefert pdftotext fuer die drei PDF-Reproduktionen.
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
 
+      - name: Abhaengigkeiten installieren
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: ruff
+        run: ruff check src tests tools
+
+      - name: Tests
+        # Kein Netz noetig und kein Schluessel: Die Werkzeug-Tests fallen auf
+        # die versionierten Kataloge zurueck, wenn ein Portal nicht antwortet.
+        run: python -m pytest -q -rs
+
+  windows:
+    # Nur auf main, nicht auf jedem Pull Request. Windows hat genau einen
+    # Fehler gefunden, der sonst niemandem auffiel - beide PDF-Werkzeuge
+    # trennten auf `\n` und liessen das `\r` an jeder Zeile stehen, ein
+    # echter Portabilitaetsfehler. Das ist wertvoll und rechtfertigt nicht,
+    # dreizehn Minuten je Push zu bezahlen. Artan entwickelt auf Windows;
+    # eine Anleitung mit PowerShell-Befehlen und ein CI, das sie nie
+    # ausfuehrt, widersprechen sich weiterhin - nur eben je main-Push.
+    #
+    # Hier das Lockfile und Python 3.13: derselbe Stand wie ein Entwickler,
+    # der ihn nachstellt. Der Bereichs-Pfad ist oben abgedeckt.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python }}
+          python-version: "3.13"
           cache: pip
           cache-dependency-path: requirements.lock
 
-      - name: poppler-utils
-        # Liefert pdftotext. Die Werkzeuge unter tools/ lesen damit die
-        # amtlichen PDFs, und drei Tests pruefen, dass sich die Crosswalks
-        # daraus byteweise reproduzieren lassen. Nur unter Linux: Der
-        # Windows-Runner hat zwar ein pdftotext, aber ein anderer Build setzt
-        # die Spalten anders, und alle drei PDF-Reproduktionen haengen am
-        # Layout. Sie sind gegen poppler-utils definiert und ueberspringen
-        # sich unter Windows mit genau dieser Begruendung. Windows prueft, ob
-        # der Code laeuft - und hat dabei den \r-Fehler in beiden
-        # PDF-Werkzeugen gefunden.
-        if: runner.os == 'Linux'
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
-
       - name: Abhaengigkeiten installieren
-        # Zwei Wege, mit Absicht. 3.13 installiert aus dem Lockfile: derselbe
-        # Stand wie ein Entwickler, der ihn nachstellt. 3.11 installiert aus
-        # den Bereichen in pyproject.toml - das Lockfile kann es nicht, numpy
-        # 2.5 verlangt Python 3.12, und genau das prueft dieser Job: dass die
-        # Zusage "3.11 oder neuer" mit den erlaubten Bereichen noch stimmt.
-        #
         # shell: bash auch unter Windows. PowerShell bricht bei einem
         # gescheiterten pip nicht ab - der erste Windows-Lauf installierte
         # nichts und meldete dann "No module named pytest".
@@ -87,48 +119,53 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          if [ "${{ matrix.python }}" = "3.13" ]; then
-            python -m pip install -r requirements.lock
-            python -m pip install -e . --no-deps
-          else
-            python -m pip install -r requirements.txt
-          fi
+          python -m pip install -r requirements.lock
+          python -m pip install -e . --no-deps
 
       - name: Tests
-        # Kein Netz noetig und kein Schluessel: Die Werkzeug-Tests fallen auf
-        # die versionierten Kataloge zurueck, wenn ein Portal nicht antwortet.
+        # Die drei PDF-Reproduktionen ueberspringen sich hier mit Begruendung;
+        # -rs macht das sichtbar, statt es zu verschweigen.
         run: python -m pytest -q -rs
 
-  referenz:
-    # Baut die Code-Referenz aus den Docstrings und haengt sie an den Lauf.
+  kanarienvogel:
+    # Woechentlich, auf dem neuesten stabilen Python.
     #
-    # Warum nur auf main: Dass der Bau gelingt, pruefen die Tests auf jedem
-    # Pull Request ohnehin - sie bauen ihn sogar zweimal. Was dieser Job
-    # hinzufuegt, ist das fertige Nachschlagewerk zum Herunterladen, ohne dass
-    # jemand Python installiert. Das braucht es fuer den Stand auf main, nicht
-    # fuer jeden Zwischenstand.
-    if: github.event_name == 'push'
-    needs: pytest
+    # Warum es das braucht: pyproject.toml sagt `>=3.11` ohne Obergrenze, und
+    # das soll so bleiben. Eine Zusage nach oben offen zu halten und nie zu
+    # pruefen, ist aber genau der Zustand, in dem Python 3.14 `\z` statt `\Z`
+    # schrieb: `glob_regex` schnitt nur `\Z` ab, jedes Muster mit Platzhalter
+    # in einem nicht letzten Segment traf auf nichts, und die S3-Seite des
+    # hybrid-Modus fand **still null Laeufe**. Behoben ist das (siehe
+    # storage.backend); unbemerkt bleiben soll der naechste solche Fall nicht.
+    #
+    # `3.x` loest absichtlich auf die jeweils neueste Fassung auf. Dieser Job
+    # darf rot werden, ohne dass jemand etwas geaendert hat - das ist sein
+    # Zweck, und deshalb blockiert er keinen Pull Request. Installiert wird
+    # aus den Bereichen: das Lockfile hat fuer eine brandneue Version noch
+    # keine Wheels.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
-          cache: pip
-          cache-dependency-path: requirements.lock
+          python-version: "3.x"
+
+      - name: Welches Python ist das?
+        # In der Zusammenfassung nachlesbar, ohne das Protokoll zu oeffnen.
+        run: |
+          echo "### Kanarienvogel auf $(python -V)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: poppler-utils
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
+
       - name: Abhaengigkeiten installieren
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.lock
-          python -m pip install -e . --no-deps
-      - name: Referenz bauen
-        run: python tools/build_referenz.py
-      - uses: actions/upload-artifact@v4
-        with:
-          name: code-referenz
-          path: docs/referenz/
-          # Laenger als der Abstand zweier Pushes auf main, kuerzer als der
-          # Vorrat, den niemand mehr zuordnen kann.
-          retention-days: 30
+          python -m pip install -r requirements.txt
+
+      - name: Tests
+        run: python -m pytest -q -rs

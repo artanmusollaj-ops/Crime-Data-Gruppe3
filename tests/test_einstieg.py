@@ -89,24 +89,34 @@ def test_die_seite_traegt_keinen_erzeugungszeitstempel(text):
     eine Seite, die behauptet, Kibana laufe, weil es vor drei Tagen lief.
     Geprueft wird deshalb, dass **kein** Datum darauf steht ausser denen, die
     aus dem Release kommen.
+
+    **Ohne Release wird uebersprungen, nicht geurteilt.** Die Erlaubnisliste
+    entsteht erst aus dem Release: seiner Kennung und dem Datumsbereich der
+    Faktentabelle. Fehlt es, ist die Liste leer - und dann ist jedes Datum auf
+    der Seite ein Fremdkoerper, auch das richtige. Genau so stand dieser Test
+    vom 1. bis zum 3.10.2026 auf jedem Pull Request rot und meldete
+    ``2024-01-01`` und ``2024-12-31`` als Zeitstempel, obwohl beide die
+    Jahresgrenzen der Faktentabelle sind. ``data/`` ist nicht versioniert, ein
+    frischer Klon hat also nie ein Release. Geprueft wird dort, wo die Daten
+    liegen: auf dem eigenen Rechner und im woechentlichen Datenlauf.
     """
+    if not AKTUELL.is_file():
+        pytest.skip("kein Release - die Erlaubnisliste waere leer")
     daten = set(re.findall(r"\b20\d\d-\d\d-\d\d\b", text))
-    erlaubt = set()
-    if AKTUELL.is_file():
-        kennung = json.loads(AKTUELL.read_text(encoding="utf-8"))["release_id"]
-        erlaubt.add(kennung[:10])
-        verzeichnis = AKTUELL.parent / f"release={kennung}"
-        fakt = verzeichnis / "gold/dataset=fact_offense/part-0001.parquet"
-        if fakt.is_file():
-            duckdb = pytest.importorskip("duckdb")
-            con = duckdb.connect()
-            try:
-                von, bis = con.execute(
-                    f"SELECT min(date), max(date) FROM read_parquet('{fakt}')"
-                ).fetchone()
-            finally:
-                con.close()
-            erlaubt |= {von.isoformat(), bis.isoformat()}
+    kennung = json.loads(AKTUELL.read_text(encoding="utf-8"))["release_id"]
+    erlaubt = {kennung[:10]}
+    verzeichnis = AKTUELL.parent / f"release={kennung}"
+    fakt = verzeichnis / "gold/dataset=fact_offense/part-0001.parquet"
+    if fakt.is_file():
+        duckdb = pytest.importorskip("duckdb")
+        con = duckdb.connect()
+        try:
+            von, bis = con.execute(
+                f"SELECT min(date), max(date) FROM read_parquet('{fakt}')"
+            ).fetchone()
+        finally:
+            con.close()
+        erlaubt |= {von.isoformat(), bis.isoformat()}
     fremd = daten - erlaubt
     assert not fremd, (
         f"{sorted(fremd)} steht auf der Seite, kommt aber nicht aus dem "

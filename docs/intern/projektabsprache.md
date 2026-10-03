@@ -11,8 +11,13 @@ einig werden müssen), **Vorschlag** (Empfehlung mit Begründung) und eine Zeile
 > Die Leitfrage in Abschnitt 2.1 wird durch die dortigen Forschungsfragen
 > abgelöst; beide Dokumente gehören in dieselbe Sitzung.
 
-Alle Zahlen in diesem Dokument sind am 6. September 2026 aus dem Repository und
-den geladenen Daten erhoben, nicht geschätzt.
+Die Zahlen in diesem Dokument sind aus dem Repository und den geladenen Daten
+erhoben, nicht geschätzt. Der Grundstand datiert vom **6. September 2026**; was
+später dazukam, trägt sein eigenes Datum als `Nachtrag` oder `Nachgemessen` —
+das jüngste vom 20. September. Dieses Papier ist damit ein Schnappschuss der
+Abstimmung und wächst nicht mit; die laufenden Zahlen stehen im Kopfabschnitt
+von [`AENDERUNGEN.md`](AENDERUNGEN.md) und werden dort gegen die gebauten
+Daten geprüft.
 
 ---
 

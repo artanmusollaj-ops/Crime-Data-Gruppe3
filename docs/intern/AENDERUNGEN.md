@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'476** |
+| Tests | **1'482** |
 | `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,99 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 03.10.2026 · Vier Jobs weniger, und ein Waechter, der ohne Daten nicht urteilt (direkt auf main)
+
+**Der rote Lauf.** Seit dem 1. Oktober war CI auf jedem Pull Request rot, und
+zwar an einer Stelle: `test_einstieg.py` meldete `2024-01-01` und `2024-12-31`
+als Erzeugungszeitstempel auf der Einstiegsseite. Es ging zwei Tage als
+"Actions gehen nicht" durch. Beide Daten sind aber die Jahresgrenzen der
+Faktentabelle und kommen nachweislich aus dem Release - lokal stehen sie auf
+der Erlaubnisliste, und der Test ist gruen.
+
+Der Fehler lag im Waechter. Seine Erlaubnisliste entsteht erst aus dem
+Release; `data/` ist nicht versioniert, ein frischer Klon hat also keines, und
+dann ist die Liste leer und **jedes** Datum ein Fremdkoerper, auch das
+richtige. Er ueberspringt sich jetzt mit `kein Release - die Erlaubnisliste
+waere leer`, so wie drei andere Tests derselben Datei es schon taten. Geprueft
+wird damit dort, wo die Daten liegen: auf dem eigenen Rechner und im
+Datenlauf. Beide Richtungen sind belegt - mit Release prueft er, ohne Release
+ueberspringt er.
+
+**Der Zuschnitt der Actions.** Bis heute lief eine Matrix aus zwei
+Betriebssystemen und zwei Python-Versionen, dazu ruff und der Referenzbau:
+sechs Jobs, rund **34 verrechnete Minuten** je Lauf. Windows wird zum
+doppelten Satz abgerechnet und brauchte doppelt so lange wie Linux - allein
+die beiden Windows-Jobs waren 26 dieser 34 Minuten. Am 1. Oktober liefen acht
+Laeufe, also etwa 270 Minuten an einem Tag. Seit dem 21.9. weist GitHub den
+Wochenlauf mit *"The job was not started because recent account payments have
+failed or your spending limit needs to be increased"* ab; er scheiterte
+zweimal nach drei Sekunden, ohne je zu starten. Dass dabei ein Schluessel
+fehle, war eine Fehldiagnose: `CENSUS_API_KEY` liegt seit dem 13.9. als Secret
+vor.
+
+Drei Jobs statt sechs:
+
+| Job | Wann | Verrechnet |
+| --- | --- | ---: |
+| `pruefung` - Linux 3.11, aus den Bereichen, ruff vorangestellt | jeder Pull Request und Push | ~4 |
+| `windows` - Windows, Lockfile-Stand 3.13 | nur Push auf main | ~13 |
+| `kanarienvogel` - Linux, `3.x` | woechentlich, darf rot werden | ~3 |
+
+Ein Pull Request kostet damit **vier statt vierunddreissig** Minuten.
+
+Was jeder Job traegt, und warum nicht anders: Linux **3.11** installiert aus
+den Bereichen in `pyproject.toml` - das Lockfile kann es nicht, numpy 2.5
+verlangt 3.12 - und ist damit der einzige Beleg, dass die Zusage
+`requires-python = ">=3.11"` noch stimmt. Linux, weil die drei
+PDF-Reproduktionen gegen `poppler-utils` definiert sind und sich anderswo
+ueberspringen. `ruff` im selben Job statt in einem eigenen: vierzehn Sekunden
+werden sonst als ganze Minute verrechnet. Windows nur auf main - es hat genau
+einen Fehler gefunden, den `\r`-Fehler in beiden PDF-Werkzeugen, und das
+rechtfertigt keine dreizehn Minuten je Push. Der Kanarienvogel haelt die
+Zusage nach oben offen ehrlich: `pyproject.toml` nennt keine Obergrenze, und
+genau das war der Zustand, in dem Python 3.14 mit `\z` statt `\Z` die S3-Seite
+des hybrid-Modus still null Laeufe finden liess. Er loest absichtlich auf die
+neueste Fassung auf und darf rot werden, ohne dass jemand etwas geaendert hat.
+
+Der Job `referenz` faellt weg. Er baute die Code-Referenz und haengte sie als
+Artefakt an - aber `docs/referenz/` ist versioniert, das Artefakt war eine
+Kopie dessen, was ohnehin im Repository liegt, und die Tests bauen es auf
+jedem Pull Request zweimal.
+
+**Zahlen.** Die Differenz zwischen Standardlauf und ganzer Suite stand noch
+als `40` in `ln1_konzept.md` und als `658 von 698` im Kopf von
+`datenlauf.yml`; richtig sind **1'401 von 1'482**, also 81. 1'476 -> **1'482
+Tests** durch den neuen Waechter unten.
+
+`projektabsprache.md` nennt weiterhin 633 Tests, und das ist richtig: Das
+Papier ist ein Schnappschuss der Abstimmung, kein mitwachsendes Dokument.
+Falsch war seine Stichtagszeile - sie behauptete, **alle** Zahlen seien am
+6. September erhoben, waehrend das Papier ausdruecklich datierte `Nachtrag`-
+und `Nachgemessen`-Bloecke bis zum 20. September traegt. Sie sagt das jetzt:
+Grundstand 6. September, Spaeteres mit eigenem Datum, dazu der Verweis auf den
+Kopfabschnitt von `AENDERUNGEN.md` fuer die laufenden Zahlen. Die Zahl zu
+aendern haette das Papier nur anders falsch gemacht.
+
+**Und ein Waechter dafuer.** Dass diese Zeile zwei Wochen zurueckhing, hat
+kein Test gesehen - sie ist keine Zahl, sondern ein Satz ueber Zahlen.
+`tests/test_projektabsprache.py` prueft jetzt die eine nachpruefbare Zusage
+darin: dass das genannte juengste Datum das juengste ist. Dazu, dass jeder
+`Nachtrag`-Marker ein lesbares Datum traegt, dass keiner vor dem Grundstand
+liegt, dass alle im selben Jahr liegen - sonst waere `vom 20. September` ohne
+Jahresangabe nicht eindeutig - und dass das Muster ueberhaupt etwas findet.
+Diese letzte Probe ist die Lehre vom 19.9.: Ein Muster, das nach einem Umzug
+nichts mehr trifft, laesst den Vergleich auf zwei leere Mengen fallen und
+bleibt gruen.
+
+Vorgefuehrt statt behauptet: Gegen vier veraenderte Fassungen des Papiers -
+Zeile nennt das alte Datum, neuer Nachtrag ohne Nachziehen, Nachtrag ohne
+Datum, Zeile ganz entfernt - wird der Waechter rot; gegen das echte Papier
+gruen. Der Marker `referenzstand` fehlt ihm absichtlich: Er haelt Prosa gegen
+Prosa, braucht keine gebauten Daten und soll deshalb auf jedem Pull Request
+laufen.
 
 ---
 
