@@ -53,7 +53,7 @@ Jede Quelle weist ihre Vollständigkeit nach, statt sie zu behaupten.
 
 | | |
 | --- | --- |
-| Chicago, Jahrgang 2024 | 259'625 Delikte |
+| Chicago, Jahrgang 2024 | 259'643 Delikte |
 | Detroit, Jahrgang 2024 | 88'686 Anklagen zu 85'448 Taten |
 | Census Tracts, Illinois und Michigan | 6'282, mit Geometrie und Sozialdaten |
 | Wetter, zwei Stationen | 55'465 Stadt-Tage, zurück bis 1942 |
@@ -139,7 +139,7 @@ bestätigt oder vorgeprüft, **eine falsifiziert, eine teilweise falsifiziert.**
 | --- | --- | --- | --- |
 | **H1** | Fehlende Koordinaten treten **nicht zufällig** auf, sondern hängen vom Delikttyp ab. | Chi-Quadrat-Unabhängigkeitstest | vorgeprüft in **beiden** Städten. Auf gemeinsamer NIBRS-Achse: Sexualdelikte fehlen in Chicago beim 12,0-Fachen, in Detroit beim 5,2-Fachen des Stadtschnitts — Betrug dagegen **nur** in Chicago (Faktor 20 zwischen den Städten). Notebook 34, Abschnitt 5.2 |
 | **H2** | Der Überlapp der Delta-Läufe erzeugt ausschliesslich **Duplikate**, keine **Dubletten**. | Vergleich aller Attribute je Schlüssel | bestätigt |
-| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Anwendung beider Crosswalks in `silver/crime_offense` | **teilweise falsifiziert**, siehe 8.5. Beide Städte sind **100 %** zugeordnet — aber nur **97,0 %** aller Fälle tragen ein echtes NIBRS-Delikt; 10'475 landen im Auffang `90Z`. Die Abdeckung stimmt, die Abbildung nicht |
+| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Anwendung beider Crosswalks in `silver/crime_offense` | **teilweise falsifiziert**, siehe 8.5. Beide Städte sind **100 %** zugeordnet — aber nur **97,0 %** aller Fälle tragen ein echtes NIBRS-Delikt; 10'476 landen im Auffang `90Z`. Die Abdeckung stimmt, die Abbildung nicht |
 | **H4** | Ein gepinntes Schema plus Auffangspalte fängt Schema-Drift **vollständig** auf. | Fingerabdruck über Feldtypen, Inhalt von `_extra` | bestätigt |
 | **H5** | Auffällige Werte in den Verwaltungsschlüsseln sind **Artefakte**, keine echten Ausreisser. | Häufigkeitsanalyse plus Konsistenzregel | vorgeprüft |
 | **H6** | Die Zusammenführung der drei Zeitachsen gelingt allein durch **Aggregation**; Imputation ist nicht nötig. | Granularitätsanalyse je Quelle | offen |
@@ -321,7 +321,7 @@ der Auswertungsumgebung.
 
 | Tabelle | Granularität | Zeilen |
 | --- | --- | ---: |
-| `fact_offense` | **eine Tat** | 345'073 |
+| `fact_offense` | **eine Tat** | 345'091 |
 | `dim_tract` | ein Census Tract, mit **Stadtzuordnung** und Einwohnerzahl | 6'282 |
 | `dim_offense` | ein NIBRS-Delikt | 85 |
 | `dim_date` | ein Kalendertag | 366 |
@@ -448,8 +448,8 @@ auf NIBRS übersetzt), bei gleichem Delikt die früheste Zeile.
 
 | | Chicago | Detroit |
 | --- | ---: | ---: |
-| Taten (`counts`) | 259'625 | 85'448 |
-| Fälle (`counts_case`) | 259'596 | 80'230 |
+| Taten (`counts`) | 259'643 | 85'448 |
+| Fälle (`counts_case`) | 259'614 | 80'230 |
 | Taten je Fall | 1,000 | **1,064** |
 | Rate je 1'000, Tatebene | 94,5 | 132,7 |
 | Rate je 1'000, Fallebene | 94,5 | **124,6** |
@@ -504,7 +504,7 @@ Damit ist die Frage beantwortet, die das Projekt von Anfang an stellen wollte:
 
 | | Delikte | Einwohner | je 1'000 |
 | --- | ---: | ---: | ---: |
-| Chicago | 251'516 | 2'661'953 | **94,5** |
+| Chicago | 251'517 | 2'661'953 | **94,5** |
 | Detroit | 84'761 | 638'635 | **132,7** |
 
 Absolute Fallzahlen hätten das Gegenteil nahegelegt.
@@ -879,7 +879,7 @@ desselben Tages — oder Information wegwerfen. Deshalb vier Tabellen:
 | `tract` | ein Census Tract | **gebaut**, 6'282 Zeilen |
 | `place` | ein Ort (Stadtgrenze) | **gebaut**, 2'206 Zeilen |
 | `weather_day` | eine Stadt an einem Tag | **gebaut**, 55'465 Zeilen |
-| `crime_offense` | eine **Anklage**; je Tat zählt eine (`counts`), je Fall eine (`counts_case`, 5.2) | **gebaut**, 348'311 Zeilen |
+| `crime_offense` | eine **Anklage**; je Tat zählt eine (`counts`), je Fall eine (`counts_case`, 5.2) | **gebaut**, 348'329 Zeilen |
 
 `tract` verbindet TIGER-Geometrie mit ACS-Attributen. Gedeutet wird: Text zu
 Zahlen, `-666666666` zu `NULL`, die Armutsquote abgeleitet — und bei Tracts ohne
@@ -892,8 +892,8 @@ Rekorden plausibilisiert. Ein leeres Feld wird `NULL` und **nicht** `0` — bei
 Niederschlag der entscheidende Unterschied. Das Messflag `T` für Spurenmengen
 bekommt eine eigene Spalte, weil `0` mit `T` nicht „trocken" heisst.
 
-`crime_offense` ist die Tabelle, die den Vergleich trägt — 348'311 Zeilen,
-259'625 aus Chicago und 88'686 aus Detroit. Detroits Zeilen sind Anklagen; je
+`crime_offense` ist die Tabelle, die den Vergleich trägt — 348'329 Zeilen,
+259'643 aus Chicago und 88'686 aus Detroit. Detroits Zeilen sind Anklagen; je
 Tat ist eine als zählend markiert, und Gold nimmt nur diese (5.2). Sie leistet drei Übersetzungen auf
 einmal, und jede davon ist ein eigener Fehlerherd:
 
@@ -939,8 +939,8 @@ Läufe gelesen werden; sie ist eine Eigenschaft der Architektur und keine
 Ungenauigkeit. Welche Läufe den Referenzstand bilden, ist deshalb ausdrücklich
 festzulegen.
 
-Nebenbei: `case_number` ist **kein** Schlüssel. 259'625 Delikte verteilen sich
-auf 259'596 Fallnummern — ein Fall kann mehrere Straftaten umfassen. Verknüpft
+Nebenbei: `case_number` ist **kein** Schlüssel. 259'643 Delikte verteilen sich
+auf 259'614 Fallnummern — ein Fall kann mehrere Straftaten umfassen. Verknüpft
 wird über `id`.
 
 ### 8.4 Ein falsifizierter Befund: H7
@@ -1002,13 +1002,13 @@ NIBRS abbilden. Seit `silver/crime_offense` beide Crosswalks auf die Falldaten
 anwendet, ist das gemessen — und die Antwort hängt daran, was „vollständig"
 heissen soll.
 
-Gemessen auf Tatebene über die 345'073 Delikte des Jahrgangs 2024:
+Gemessen auf Tatebene über die 345'091 Delikte des Jahrgangs 2024:
 
 | | Chicago | Detroit | zusammen |
 | --- | ---: | ---: | ---: |
-| Delikte (Tatebene) | 259'625 | 85'448 | 345'073 |
+| Delikte (Tatebene) | 259'643 | 85'448 | 345'091 |
 | Quellcode im Crosswalk bekannt | **100 %** | **100 %** | **100 %** |
-| davon Auffang `90Z` | 7'717 | 2'758 | 10'475 |
+| davon Auffang `90Z` | 7'718 | 2'758 | 10'476 |
 | **mit einem echten NIBRS-Delikt** | **97,0 %** | **96,8 %** | **97,0 %** |
 
 > **Nachgemessen am 20.09.2026 (Christian).** Die Zahlen sind auf den aktuellen
@@ -1018,7 +1018,7 @@ Gemessen auf Tatebene über die 345'073 Delikte des Jahrgangs 2024:
 > Aussage sind unverändert.**
 
 **Abdeckung ja, Abbildung nein.** Kein Chicago-Code fällt stillschweigend
-heraus, das war die eigentliche Sorge. Aber 10'475 Fälle tragen ein Delikt, das
+heraus, das war die eigentliche Sorge. Aber 10'476 Fälle tragen ein Delikt, das
 NIBRS nicht kennt: Verstösse gegen Registrierungspflichten, Bewährungsauflagen,
 Illinois-Eigenheiten wie *Criminal Fortification*. Sie landen auf `90Z All Other
 Offenses` — ein Code, der gültig ist, für einen Deliktvergleich aber nichts

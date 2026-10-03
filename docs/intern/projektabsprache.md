@@ -25,7 +25,7 @@ Daten geprüft.
 
 | Quelle | Stand | Umfang | Schichten |
 | --- | --- | --- | --- |
-| **Chicago** | Pipeline fertig, getestet | 259'625 Fälle 2024, 3 Läufe (1 voll, 2 Delta) | raw + bronze |
+| **Chicago** | Pipeline fertig, getestet | 259'643 Fälle 2024, 3 Läufe (1 voll, 2 Delta) | raw + bronze |
 | **Detroit** | Pipeline fertig | 88'686 Fälle 2024, 1 Lauf, 32 Deliktkategorien | nur bronze |
 | **Census TIGER** | Pipeline fertig, getestet | 3'265 Tracts Illinois, 3'017 Michigan (Vintage 2024) | raw + bronze |
 | **Census ACS** | Pipeline fertig, getestet | dieselben Tracts, 3 Variablen | raw + bronze |
@@ -101,7 +101,7 @@ Leser aussagekräftiger ist.
 
 ### 2.4 Umgang mit der Geo-Lücke
 
-**Stand.** Aus dem Qualitäts-Notebook: 2'098 Chicago-Fälle (0,81 %) haben keine
+**Stand.** Aus dem Qualitäts-Notebook: 2'115 Chicago-Fälle (0,81 %) haben keine
 Koordinaten, und der Ausfall ist **nicht zufällig** — 4,3 % bei Delikten an
 Kindern, 3,7 % bei Sexualdelikten, gegenüber 0,4 % bei Diebstahl. Die Stadt
 unterdrückt die Verortung bei sensiblen Delikten.
@@ -380,8 +380,8 @@ Fälle nachträglich ändert.
 
 ## 5 · Silver und Gold
 
-**Stand.** Beide Schichten sind gebaut: `silver/crime_offense` (348'311
-Zeilen) und das Gold-Sternschema darauf (`fact_offense`, 345'073 Zeilen). Der
+**Stand.** Beide Schichten sind gebaut: `silver/crime_offense` (348'329
+Zeilen) und das Gold-Sternschema darauf (`fact_offense`, 345'091 Zeilen). Der
 früher hier genannte Detroit-eigene Normalisierer `transform_detroit.py` ist
 entfernt — er hätte eine zweite, unbelegte Kategorienzuordnung neben dem
 NIBRS-Crosswalk gehalten.
@@ -440,9 +440,9 @@ trägt.
 **Stand.** Alle vier Tabellen sind gebaut, jeweils mit Herkunftsnachweis über
 die Bronze-Läufe im Manifest: `tract` (6'282 Zeilen), `place` (2'206 Zeilen,
 die Stadtgrenzen), `weather_day` (55'465
-Zeilen, zwei Städte) und seit dem 10.9. `crime_offense` (348'311 Zeilen,
-259'625 Chicago und 88'686 Detroit; Detroits Zeilen sind Anklagen, je Tat
-zählt eine — Gold kommt damit auf 345'073).
+Zeilen, zwei Städte) und seit dem 10.9. `crime_offense` (348'329 Zeilen,
+259'643 Chicago und 88'686 Detroit; Detroits Zeilen sind Anklagen, je Tat
+zählt eine — Gold kommt damit auf 345'091).
 
 Der frühere Vorbehalt, `crime_offense` müsse auf Artans Zeitzonen-Fix warten,
 trägt nicht mehr: Sein Branch ändert das **Abfragefenster** — welche Zeilen in

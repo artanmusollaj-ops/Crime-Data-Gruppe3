@@ -361,10 +361,17 @@ def test_die_bronze_only_felder_fehlen_wirklich(text, con):
 
 
 def test_der_manifesteintrag_nennt_die_zahl_der_laeufe(text):
-    """Sieben und acht - beides steht im Manifest der gebauten Tabelle.
+    """Acht und acht - beides steht im Manifest der gebauten Tabelle.
 
-    Bis zum 20.9.2026 standen hier drei und zwei. Beide Staedte laden seither
-    Deltas; die Zahl der Laeufe waechst mit jedem, und das Dokument muss mit.
+    Bis zum 20.9.2026 standen hier drei und zwei, bis zum 3.10. sieben und
+    acht; der zweite Chicago-Vollabzug machte daraus acht und acht. Beide
+    Staedte laden Deltas, die Zahl waechst mit jedem Lauf, und das Dokument
+    muss mit.
+
+    Die erwartete Paarung steht hier von Hand und nicht im Dokument gelesen -
+    das ist die schwache Stelle dieses Waechters: Er faengt eine Abweichung,
+    nennt aber nicht die Stelle im Text, die nachzuziehen ist (es ist der
+    Abschnitt zu den Delta-Laeufen).
     """
     manifest = PROJECT_ROOT / "data" / "silver" / "dataset=crime_offense" / "manifest.json"
     if not manifest.is_file():
@@ -372,8 +379,8 @@ def test_der_manifesteintrag_nennt_die_zahl_der_laeufe(text):
     herkunft = json.loads(manifest.read_text(encoding="utf-8"))["derived_from"]
     chi = len(herkunft["chicago_bronze_runs"])
     det = len(herkunft["detroit_bronze_runs"])
-    assert (chi, det) == (7, 8), (
-        f"das Dokument nennt sieben Chicago- und acht Detroit-Laeufe, "
+    assert (chi, det) == (8, 8), (
+        f"das Dokument nennt acht Chicago- und acht Detroit-Laeufe, "
         f"das Manifest hat {chi} und {det}"
     )
 

@@ -24,7 +24,7 @@ Nenner dreht das Bild.
 ## Stufe 1 · Die Rechnung
 
 ```text
-251'516 Delikte  /  2'661'953 Einwohner  ×  1000  =  94,49
+251'517 Delikte  /  2'661'953 Einwohner  ×  1000  =  94,49
 ```
 
 Zwei Fragen stecken darin, und beide sind Entscheidungen: **Welche Einwohner?**
@@ -51,16 +51,16 @@ definiert.
 
 ## Stufe 3 · Der Zähler — welche Delikte zählen mit?
 
-Chicago meldet **259'625** Delikte im Jahrgang 2024. In die Rate gehen
-**251'516**. Der Unterschied ist vollständig erklärt:
+Chicago meldet **259'643** Delikte im Jahrgang 2024. In die Rate gehen
+**251'517**. Der Unterschied ist vollständig erklärt:
 
 | `geo_status` | Delikte | was es bedeutet |
 | --- | ---: | --- |
-| `inside_city` | 251'516 | zählt |
+| `inside_city` | 251'517 | zählt |
 | `outside_city` | 6'010 | liegt in einem Tract, der nicht zu Chicago gehört |
-| `missing_coordinate` | 2'098 | die Stadt hat keine Koordinate geliefert |
+| `missing_coordinate` | 2'115 | die Stadt hat keine Koordinate geliefert |
 | `no_tract` | 1 | Koordinate in keinem Tract |
-| **Summe** | **259'625** | |
+| **Summe** | **259'643** | |
 
 Die Summe geht **exakt** auf. Das ist der Zweck der Spalte: Was fehlt, wird
 gezählt und benannt, nicht stillschweigend weggelassen.
@@ -71,20 +71,20 @@ steht je Zeile:
 
 | `mapping_status` | Zeilen | |
 | --- | ---: | --- |
-| `exact` | 248'187 | ein amtliches Dokument belegt die Zuordnung |
-| `fallback_90Z` | 7'717 | Auffangcode, weil keine Kategorie passt |
-| `ambiguous` | 3'718 | mehrere wären vertretbar, wir haben entschieden |
+| `exact` | 248'203 | ein amtliches Dokument belegt die Zuordnung |
+| `fallback_90Z` | 7'718 | Auffangcode, weil keine Kategorie passt |
+| `ambiguous` | 3'719 | mehrere wären vertretbar, wir haben entschieden |
 | `unmapped` | 3 | |
 
 ## Stufe 4 · Gold ← Silver: welche Zeile zählt?
 
 `gold/fact_offense` nimmt aus `silver/crime_offense` nur die Zeilen mit
-`counts`. Für Chicago sind das alle **259'625** — eine Chicagoer Zeile ist
+`counts`. Für Chicago sind das alle **259'643** — eine Chicagoer Zeile ist
 bereits ein Delikt. Für Detroit sind es 85'448 von 88'686 Zeilen: Detroit
 führt je Delikt einer Anzeige eine Zeile, und Nebendelikte zählen nach der
 Hierarchieregel nicht mit.
 
-Auf **Fallebene** bleiben in Chicago 259'596 Zeilen, also 29 weniger. Die
+Auf **Fallebene** bleiben in Chicago 259'614 Zeilen, also 29 weniger. Die
 Differenz sind Mordfälle: Chicago führt je **Opfer** einen Datensatz. **25
 Chicagoer Fälle** haben mehr als eine Zeile, und es sind ausnahmslos diese.
 

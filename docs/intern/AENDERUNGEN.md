@@ -31,11 +31,11 @@ Eintrag hier sagt, was das war.
 | | |
 | --- | ---: |
 | Tests | **1'496** |
-| `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
-| Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
+| `silver/crime_offense` | 348'329 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | **345'091** Zeilen (eine Tat) |
+| Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
 | Detroit | 84'761 Delikte · 638'635 Einwohner · **132,7** je 1'000 |
-| Fallebene (`counts_case`) | Chicago 259'596 · Detroit 80'230 Fälle; Detroit **124,6** je 1'000 |
+| Fallebene (`counts_case`) | Chicago 259'614 · Detroit 80'230 Fälle; Detroit **124,6** je 1'000 |
 
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
@@ -89,6 +89,65 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 03.10.2026 · Silber neu gebaut, Referenzstand nachgezogen (direkt auf main)
+
+Der zweite Chicago-Vollabzug lag seit dem Morgen in Bronze, ohne dass Silber
+ihn kannte. Acht Stufen neu gebaut - Silber, Gold, Serving - in 26 Sekunden,
+dazu ein Release und ein nachgezogener Referenzstand.
+
+**Die Verschiebung ist klein und sie erklaert sich selbst.**
+
+| | vorher | nachher | |
+| --- | ---: | ---: | ---: |
+| `silver/crime_offense` | 348'311 | **348'329** | +18 |
+| `gold/fact_offense` | 345'073 | **345'091** | +18 |
+| Chicago, Anklagen | 259'625 | **259'643** | +18 |
+| Chicago, Vorfaelle | 259'596 | **259'614** | +18 |
+| Chicago, verortete Delikte | 251'516 | **251'517** | +1 |
+| Raten je 1'000 | 94,5 / 132,7 | **94,5 / 132,7** | unveraendert |
+
+**Warum nur 18 und nicht 366.** Der neue Vollabzug hat 259'638 Zeilen gegen
+259'272 am 5.9., also 366 mehr. In Silber kommen davon nur **18** an - und das
+ist genau die Zahl, die `source_change` vorhergesagt hat: Von den 371 neuen
+Delikten trugen **353 schon die Deltas** vom 17. und 18.9. ein, lange bevor
+der Vollabzug lief. Nur 18 trug kein Delta. Die Datierung hat sich damit
+selbst bestaetigt, an einer Zahl, die nicht aus ihr stammt.
+
+Und die fuenf **verschwundenen** Delikte? Silber entdoppelt, es loescht nicht -
+sie stehen weiter drin, und Gold zaehlt sie mit. Deshalb +18 und nicht +13.
+Dass die Quelle sie zurueckgezogen hat, steht in `source_change`; dass sie
+trotzdem in der Auswertung sind, ist eine Entscheidung und kein Versehen.
+
+**Der Referenzstand.** `aufraeumen --pinnen stand-2026-10-03` haelt die zwoelf
+Laeufe fest, auf denen das neue Gold ruht. Die neun **LN1-Pins bleiben
+unangetastet**: Bereits gepinnte Laeufe behalten ihren ersten Grund, und damit
+bleiben die abgegebenen Zahlen vom 25.9. reproduzierbar. Beides steht jetzt
+nebeneinander in `config/referenzstand.csv`, unterscheidbar an der Spalte
+`grund`.
+
+**Release 2026-10-03T10-56-39Z** gebildet und publiziert, 21 Dateien, 42,2 MB;
+`AKTUELL.json` zeigt darauf. Danach ClickHouse und Elasticsearch nachgeladen -
+`serving.pruefe_stand` hatte gemeldet, dass fuenf Sichten und drei Aliasse noch
+das Release vom 21.9. bedienten. Vier Orte, ein Stand.
+
+**78 Zahlen in zwoelf Dokumenten nachgezogen**, von den Waechtern benannt und
+nicht gesucht. Unberuehrt geblieben sind die datierten Eintraege dieses
+Protokolls und `datenhistorie.md` - was dort steht, war zu seinem Zeitpunkt
+richtig und bleibt es. Im Kopfabschnitt oben stehen die neuen Zahlen.
+
+**Zwei Waechter trugen Zahlen von Hand**, und das ist ihre schwache Stelle:
+`test_der_einseiter_traegt_dieselben_zahlen` fuehrt eine Liste der Werte, die
+an zwei Stellen stehen muessen, und `test_der_manifesteintrag_nennt_die_zahl_der_laeufe`
+vergleicht gegen ein festes Paar statt gegen den Text. Beide sind nachgezogen,
+beide mit einem Kommentar, der sagt, dass die Zahl dort von Hand gefuehrt wird.
+
+**Der Nebeneffekt, um den es eigentlich ging:** Jetzt laesst sich aufraeumen.
+Der Bericht nennt einen entbehrlichen NOAA-Lauf (24,5 MB). Dass die
+Aenderungsgeschichte davon unberuehrt bleibt, haelt der Waechter von heute
+Nachmittag fest - die Datierung klebt.
 
 ---
 

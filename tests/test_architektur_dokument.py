@@ -240,7 +240,10 @@ def blatt() -> str:
 
 def test_der_einseiter_traegt_dieselben_zahlen(blatt, text):
     """Dieselbe Zahl an zwei Stellen darf nur einmal veralten."""
-    for wert in ("348'311", "345'073", "94,5", "132,7", "42 Kontrollen",
+    # Diese Liste ist von Hand gefuehrt und muss nach einem Neubau mitgezogen
+    # werden - sie sagt, **welche** Zahlen an beiden Stellen stehen muessen,
+    # und das laesst sich aus den Daten nicht ableiten.
+    for wert in ("348'329", "345'091", "94,5", "132,7", "42 Kontrollen",
                  "1'055", "23,3 %", "55,9 %"):
         assert wert in blatt, f"{wert} fehlt im Einseiter"
         assert wert in text or wert.replace("'", "") in text, (

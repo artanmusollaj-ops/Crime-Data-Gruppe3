@@ -43,9 +43,9 @@ Abgabedokumente beziehen:
 
 | | |
 | --- | ---: |
-| `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
-| Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
+| `silver/crime_offense` | 348'329 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | **345'091** Zeilen (eine Tat) |
+| Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
 | Detroit | 84'761 Delikte · 638'635 Einwohner · **132,7** je 1'000 |
 
 **Warum raw und bronze getrennt sind.** Raw ist das Beweisstück: Ein Delta-Lauf
@@ -55,7 +55,7 @@ erzeugbar. Diese Trennung kostet 130 MB und ist der Grund, warum sich jede Zahl
 bis zur gzip-Datei zurückverfolgen lässt.
 
 **Warum Gold nicht aggregiert.** Notebook 34 hat beide Bauweisen gebaut und
-gemessen: Bei 345'073 Zeilen liegt jede realistische Frage direkt auf dem Stern
+gemessen: Bei 345'091 Zeilen liegt jede realistische Frage direkt auf dem Stern
 im einstelligen Millisekundenbereich. Ein vorberechneter Würfel spart nichts,
 was ein Mensch bemerkt, und kostet drei Fragen, die er nicht mehr beantwortet.
 Die Entscheidung ist ein **Messergebnis**, keine Stilfrage.
@@ -203,7 +203,7 @@ Entscheidung, keine Eigenschaft der Daten:
 | **weich** | schreibt das Ergebnis in eine Spalte und zählt | wenn etwas **unvollständig** ist: eine fehlende Koordinate, eine unsichere Zuordnung |
 
 Eine harte Kontrolle auf fehlende Koordinaten hiesse, dass Chicagos Jahrgang
-gar nicht erst entsteht — 2'098 Delikte tragen keine. Eine weiche macht die
+gar nicht erst entsteht — 2'115 Delikte tragen keine. Eine weiche macht die
 Lücke **abfragbar** statt unsichtbar. Hart wird es erst dort, wo die Lücke die
 Zahl unbrauchbar machte: beim **Publish-Gate** in Gold, der einzigen Kontrolle,
 die eine Veröffentlichung verhindert.
@@ -456,7 +456,7 @@ Die Ingestion ist der Teil, der bei mehr Städten zuerst bricht, und es ist
 
 | Achse | heute | was passiert bei zehn Städten |
 | --- | --- | --- |
-| Zeilen | 348'311 | rund 1,7 Mio — DuckDB rechnet das weiterhin interaktiv |
+| Zeilen | 348'329 | rund 1,7 Mio — DuckDB rechnet das weiterhin interaktiv |
 | Laufzeit Ingestion | Detroit 7 s im Delta, 100 s beim ersten vollen Lauf | linear, aber **seriell**: zehn Städte nacheinander |
 | Code je Quelle | zwei Pipelines mit je eigener Logik | zehn Pipelines, zehnmal derselbe Fehler |
 

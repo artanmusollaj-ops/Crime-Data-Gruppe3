@@ -37,9 +37,9 @@ vergleichbare Tabelle macht:
 
 | | |
 | --- | ---: |
-| `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | 345'073 Zeilen (eine Tat) |
-| Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
+| `silver/crime_offense` | 348'329 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | 345'091 Zeilen (eine Tat) |
+| Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
 | Detroit | 84'761 Delikte · 638'635 Einwohner · **132,7** je 1'000 |
 
 Wo etwas ausführlich steht:
@@ -401,7 +401,7 @@ desselben Tages — oder Information wegwerfen:
 | `tract` | ein Census Tract | 6'282 |
 | `place` | ein Ort (Stadtgrenze) | 2'206 |
 | `weather_day` | eine Stadt an einem Tag | 55'465 |
-| `crime_offense` | eine **Anklage**; je Tat zählt eine | 348'311 |
+| `crime_offense` | eine **Anklage**; je Tat zählt eine | 348'329 |
 
 `crime_offense` leistet drei Übersetzungen auf einmal, und jede ist ein eigener
 Fehlerherd:
