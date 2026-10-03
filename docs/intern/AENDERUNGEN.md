@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'482** |
+| Tests | **1'486** |
 | `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -88,6 +88,84 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 03.10.2026 · Chicago bewegt sich anders als Detroit, und jetzt sieht man es (direkt auf main)
+
+**Entschieden: ein Vollschnappschuss je Stadt und Monat.** Damit ist Punkt 3
+aus Abschnitt 8 von `datenhistorie.md` beantwortet und die offene Flanke des
+Nachtrags vom 1.10. geschlossen - `source_change` hoert nicht mehr nach den
+fuenf Detroit-Schnappschuessen auf zu wachsen.
+
+**Chicagos zweiter Vollabzug** lief am 3.10. um 09:30 UTC: **259'638 Zeilen**
+gegen 259'272 am 5.9., Vollstaendigkeit nachgewiesen, Schema-Fingerabdruck
+unveraendert. `silver/source_change` waechst von 4'292 auf **4'718 Zeilen**.
+
+**Vier Asymmetrien standen dem im Weg, nicht die eine, die der Code
+erwartete.** Im Modul stand *"sobald ein zweiter geladen wird, gehoert hier
+eine Zeile hin"*. Das war zu optimistisch:
+
+| Was | Chicago | Detroit |
+| --- | --- | --- |
+| Lademodus | `mode = full_snapshot` | `extraction_mode = FULL` |
+| Startzeitpunkt | `started_at_utc` | `started_at` |
+| Form der Bronze-Datei | flache Spalten | Struct `attributes` |
+| Schluessel | `id` | `incident_entry_id` |
+
+Die ersten zwei wohnen jetzt im gemeinsamen Manifestleser
+(`manifeste.Lauf.vollabzug`, `manifeste.Lauf.begonnen_um`) - dieselbe Loesung
+wie bei `FERTIG`, wo `complete` und `SUCCESS` beide gelten. Die anderen zwei
+sind Eigenschaften der Quelle (`Quelle.struct`, `Quelle.schluessel`). Ohne das
+haette das Modul auch zwei Chicago-Vollabzuege nicht gefunden: Es las nur
+`extraction_mode`.
+
+Beim Lesen der flachen Spalten kommt `storage.parquet_spalten` zum Einsatz und
+nicht `DESCRIBE` - der Pfad traegt `city=` und `ingest_date=`, und daraus
+haette DuckDB zwei Hive-Spalten abgeleitet und als Quellfelder verglichen. Zwei
+Felder, die sich je Lauf aendern und nichts bedeuten.
+
+**Das Testdoppel ist weg.** `FalscherLauf` war eine eigene Klasse mit drei
+Attributen, kannte nur Detroits Vokabular und waere beim Umbau gruen
+geblieben - ein Doppel prueft, was man ihm beigebracht hat. Jetzt baut der
+Test echte `manifeste.Lauf`-Objekte, und `test_nur_vollschnappschuesse_werden_verglichen`
+laeuft ueber **beide** Staedte.
+
+**Der Befund.** Das Paar 5.9./3.10. - 28 Tage - bringt 371 neu, 49 geaendert,
+5 verschwunden, 1 beruehrt. Die Gegenprobe stimmt auf die Zeile: 371 - 5 = 366,
+und genau 366 Zeilen mehr hat der neue Schnappschuss. **`verschwunden` hat
+damit zum ersten Mal Belege** - fuenf Delikte, die Chicago aus dem Jahrgang
+2024 entfernt hat.
+
+Die beiden Staedte bewegen sich sichtbar unterschiedlich. Bei Detroit sind
+78 % aller Feldbewegungen die drei Zeitstempel, und von den fachlichen 22 % ist
+`case_status` allein 70 % - die Quelle fuehrt den Verfahrensstand nach. Bei
+Chicago sind 62 % der Bewegungen fachlich, und sie sind Umklassierungen:
+`arrest` 15-mal, davon **13-mal von `false` auf `true`** und zweimal zurueck -
+ein Haftvermerk wird auch zuruckgenommen -, dazu `fbi_code`, `description`,
+`iucr` und `primary_type`. Dass diese vier dieselbe Umklassierung beschreiben,
+ist gemessen und nicht behauptet: Drei Delikte bewegten alle vier Felder, eines
+drei von vier, keines nur eines.
+
+Einmal bewegte sich der Tatzeitpunkt selbst - Chicago vom 12.5. auf den
+4.1.2024, Detroit ein Fall um sieben Tage. Das betrifft jede Zeitreihe und
+jede Monatszelle in Gold.
+
+`location`, `latitude`, `longitude` und `_extra` ruehrten sich **nicht**.
+Chicagos `rauschen` bleibt deshalb leer, und das ist ein Messergebnis:
+`location` galt als Rauschkandidat, weil es die Koordinaten doppelt fuehrt.
+
+**`notebooks/37_quellbewegung.ipynb`** fuehrt das alles vor - mit der
+Gegenprobe gegen die Bronze-Manifeste, den Beispielen woertlich aus der
+Tabelle, und einem Abschnitt, der die Grenzen ausdruecklich nennt: nur
+Vollabzuege, nur was zwischen zwei Aufnahmen sichtbar ist, und zwei ungleiche
+Fenster von sieben und 28 Tagen, aus denen sich keine Rate je Monat rechnen
+laesst. Es steht in `BELEGEN` und laeuft im Datenlauf nach dem Bau; es sind
+reine Abfragen, also Sekunden.
+
+**Zahlen.** 1'483 -> **1'486 Tests**, Standardlauf 1'405. `docs/referenz/`,
+`docs/feldkatalog.md` und die drei Architektur-SVGs neu gebaut - der
+Importgraph hat mit `storage/parquet.py` ein Modul mehr.
 
 ---
 

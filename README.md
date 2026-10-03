@@ -56,6 +56,7 @@ Wo etwas ausführlich steht:
 | Vier Arten zu zählen, und was sich nicht addiert | [`docs/zaehlperspektiven.md`](docs/zaehlperspektiven.md) |
 | Welche Kontrolle wo greift, vorgeführt | [`notebooks/35`](notebooks/35_kontrollen.ipynb) |
 | Die Hypothesen H1 bis H6, nachgewiesen | [`notebooks/36`](notebooks/36_hypothesen.ipynb) |
+| Wie sich die Quellen bewegen — was sie nachträglich ändern | [`notebooks/37`](notebooks/37_quellbewegung.ipynb) |
 | Jedes Modul, jede Funktion | [`docs/referenz/`](docs/referenz/index.html) |
 | Was jede Spalte bedeutet | [`docs/feldkatalog.md`](docs/feldkatalog.md) |
 | Was sich wann geändert hat und warum | [`docs/intern/AENDERUNGEN.md`](docs/intern/AENDERUNGEN.md) |
@@ -224,7 +225,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'482
+python -m pytest -m ""               # beides zusammen, alle 1'486
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -856,7 +857,7 @@ Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.
 python -m pytest
 ```
 
-**1'482 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'486 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen

@@ -17,6 +17,7 @@ from pathlib import Path
 
 import pytest
 
+from manifeste import Lauf
 from silver_pipeline import PARQUET_FILE, TransformError
 from silver_pipeline import build_source_change as bsc
 
@@ -28,14 +29,33 @@ DETROIT = bsc.QUELLEN[0]
 # --------------------------------------------------------------------------
 
 
-class FalscherLauf:
-    def __init__(self, run_id: str, modus: str = "FULL", wann: str = "",
-                 relativ: str = ""):
-        self.run_id = run_id
-        self.relativ = relativ or f"bronze/city=detroit/run_{run_id}"
-        self.manifest = {"extraction_mode": modus}
-        if wann:
-            self.manifest["started_at"] = wann
+#: Wie die beiden Staedte denselben Sachverhalt schreiben. Chicagos
+#: Ingestion nennt den Schluessel ``mode`` und den Vollabzug
+#: ``full_snapshot``, Detroits ``extraction_mode`` und ``FULL``; beim
+#: Startzeitpunkt steht ``started_at_utc`` gegen ``started_at``. Beides
+#: nebeneinander hier, damit der Test nicht nur eine Stadt beweist.
+VOKABULAR = {
+    "detroit": ("extraction_mode", "FULL", "DELTA", "started_at"),
+    "chicago": ("mode", "full_snapshot", "delta", "started_at_utc"),
+}
+
+
+def lauf(run_id: str, *, voll: bool = True, wann: str = "",
+         relativ: str = "", stadt: str = "detroit") -> Lauf:
+    """Ein Lauf als **echter** ``manifeste.Lauf``, nicht als Doppel.
+
+    Vorher stand hier eine eigene Klasse mit drei Attributen. Sie kannte nur
+    Detroits Vokabular und waere gruen geblieben, als ``schnappschuesse`` auf
+    den gemeinsamen Manifestleser umgestellt wurde - ein Doppel prueft, was
+    man ihm beigebracht hat. Mit dem echten Typ kann es nicht auseinander
+    laufen.
+    """
+    feld, ja, nein, zeitfeld = VOKABULAR[stadt]
+    manifest: dict[str, object] = {"run_id": run_id, feld: ja if voll else nein}
+    if wann:
+        manifest[zeitfeld] = wann
+    return Lauf(Path(f"/gibt-es-nicht/{run_id}"), manifest,
+                relativ or f"bronze/city={stadt}/run_{run_id}")
 
 
 def schnappschuss(wurzel: Path, run_id: str, zeilen: list[dict], *,
@@ -98,28 +118,33 @@ def gelesen(wurzel: Path) -> list[dict]:
 # --------------------------------------------------------------------------
 
 
-def test_nur_vollschnappschuesse_werden_verglichen():
+@pytest.mark.parametrize("stadt", sorted(VOKABULAR))
+def test_nur_vollschnappschuesse_werden_verglichen(stadt):
     """Ein Delta enthaelt nur die bewegten Zeilen.
 
     *Was fehlt* liesse sich daraus nicht von *was sich nicht geaendert hat*
     unterscheiden - jede Zeile ausserhalb des Deltas saehe verschwunden aus.
+
+    Geprueft wird fuer **beide** Staedte: Bis zum 3.10.2026 las dieses Modul
+    nur ``extraction_mode`` und haette Chicagos Vollabzuege auch dann nicht
+    gefunden, wenn zwei dagelegen haetten.
     """
-    laeufe = [FalscherLauf("a", "FULL", "2026-09-11T12:00:00"),
-              FalscherLauf("b", "DELTA", "2026-09-12T12:00:00"),
-              FalscherLauf("c", "FULL", "2026-09-13T12:00:00")]
+    laeufe = [lauf("a", voll=True, wann="2026-09-11T12:00:00", stadt=stadt),
+              lauf("b", voll=False, wann="2026-09-12T12:00:00", stadt=stadt),
+              lauf("c", voll=True, wann="2026-09-13T12:00:00", stadt=stadt)]
     assert [s.run_id for s in bsc.schnappschuesse(laeufe)] == ["a", "c"]
 
 
 def test_sortiert_wird_nach_der_zeit_nicht_nach_dem_namen():
     """Detroits Laufverzeichnisse heissen nach einer UUID - die sagt nichts."""
-    laeufe = [FalscherLauf("zzz", "FULL", "2026-09-11T12:00:00"),
-              FalscherLauf("aaa", "FULL", "2026-09-12T12:00:00")]
+    laeufe = [lauf("zzz", wann="2026-09-11T12:00:00"),
+              lauf("aaa", wann="2026-09-12T12:00:00")]
     assert [s.run_id for s in bsc.schnappschuesse(laeufe)] == ["zzz", "aaa"]
 
 
 def test_ein_manifest_ohne_zeitstempel_bricht_ab():
     with pytest.raises(TransformError, match="ohne ihn"):
-        bsc.schnappschuesse([FalscherLauf("a", "FULL", "")])
+        bsc.schnappschuesse([lauf("a", wann="")])
 
 
 def test_paare_sind_aufeinanderfolgend_nicht_jedes_gegen_jedes():

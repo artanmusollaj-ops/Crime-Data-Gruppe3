@@ -73,7 +73,7 @@ Eine Zeile ist: **ein Ort (Census Place)**. 2'206 Zeilen.
 
 ### `source_change`
 
-Eine Zeile ist: **ein geaendertes Feld einer Zeile zwischen zwei Schnappschuessen**. 4'292 Zeilen.
+Eine Zeile ist: **ein geaendertes Feld einer Zeile zwischen zwei Schnappschuessen**. 4'718 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |

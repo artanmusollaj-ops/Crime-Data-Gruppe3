@@ -44,18 +44,29 @@ Eine Zeile ist
 ``neu`` / ``verschwunden``
     wenn der Schluessel im einen Schnappschuss steht und im anderen nicht.
 
-**Nur Vollschnappschuesse.** Verglichen werden ausschliesslich Laeufe mit
-``extraction_mode = FULL``: Ein Delta enthaelt nur die bewegten Zeilen, und
-*was fehlt* laesst sich daraus nicht von *was sich nicht geaendert hat*
-unterscheiden. Verschwundene Zeilen waeren dort nicht Abwesenheit, sondern
-Ruhe.
+**Nur Vollschnappschuesse.** Verglichen werden ausschliesslich Laeufe, die
+``manifeste.Lauf.vollabzug`` bejaht: Ein Delta enthaelt nur die bewegten
+Zeilen, und *was fehlt* laesst sich daraus nicht von *was sich nicht geaendert
+hat* unterscheiden. Verschwundene Zeilen waeren dort nicht Abwesenheit,
+sondern Ruhe.
 
-**Das ist zugleich die Grenze.** Seit dem 18.9.2026 laedt
-``orchestration.run_all`` Detroit mit ``--mode delta``, und ein regelmaessiger
-Vollschnappschuss ist nicht beschlossen (Papier 5.2 empfiehlt einen je Stadt
-und Monat). Nach den fuenf vorhandenen Schnappschuessen entsteht also kein
-neues Vergleichspaar mehr. Dieses Modul sagt das beim Lauf, statt eine
-Tabelle zu schreiben, die still aufhoert zu wachsen.
+Dass die Pruefung im gemeinsamen Manifestleser wohnt und nicht hier, hat einen
+Grund: Die beiden Staedte sagen dasselbe in zwei Schluesseln und zwei
+Vokabularen - Chicago ``mode = full_snapshot``, Detroit
+``extraction_mode = FULL``. Dieses Modul las nur Detroits Fassung und haette
+Chicagos Vollabzuege auch dann nicht gefunden, wenn zwei dagelegen haetten.
+Dieselbe Asymmetrie gilt fuer den Startzeitpunkt (``started_at`` gegen
+``started_at_utc``), nach dem die Schnappschuesse geordnet werden.
+
+**Beide Staedte, seit dem 3.10.2026.** Chicago hatte lange genau einen
+Vollschnappschuss (5.9.2026) und seither nur Deltas; ein Paar braucht zwei.
+Mit dem Entscheid, je Stadt und Monat einen Vollabzug zu fahren (Papier 5.2),
+und einem zweiten Chicago-Abzug ist die Tabelle zweistaedtig. Vorher stand
+hier, dass nach den fuenf Detroit-Schnappschuessen kein neues Paar mehr
+entsteht - das war die Grenze, und sie ist mit dem Takt weggefallen.
+
+Entsteht trotzdem kein Paar, sagt das Modul es beim Lauf, statt eine Tabelle
+zu schreiben, die still aufhoert zu wachsen.
 """
 
 from __future__ import annotations
@@ -94,8 +105,6 @@ CONTRACT_VERSION = 1
 SPALTEN = ("city", "offense_id", "vorher_run_id", "run_id",
            "vorher_am", "beobachtet_am", "art", "feld", "wert_alt", "wert_neu")
 
-#: Nur diese Laeufe lassen sich vergleichen - siehe Modulkopf.
-VERGLEICHBAR = frozenset({"FULL"})
 
 
 @dataclass(frozen=True)
@@ -104,9 +113,13 @@ class Quelle:
 
     stadt: str
     praefix: str
-    #: Das Feld in ``attributes``, das die **fachliche** Identitaet traegt.
-    #: Dieselbe Wahl wie in ``build_crime_offense``: nicht ``ESRI_OID``.
+    #: Das Feld, das die **fachliche** Identitaet traegt. Dieselbe Wahl wie in
+    #: ``build_crime_offense``: nicht ``ESRI_OID``.
     schluessel: str
+    #: Wo die Quellfelder in der Bronze-Datei liegen. Detroits ArcGIS-Antwort
+    #: verschachtelt sie in einem Struct ``attributes``; Chicagos Socrata-Zeilen
+    #: liegen flach als Spalten. ``None`` heisst flach.
+    struct: str | None = "attributes"
     #: Felder, die nie aufgezeichnet werden. Reine Transportartefakte.
     rauschen: frozenset[str] = frozenset()
     #: Felder, deren Bewegung keine Inhaltsaenderung ist - aber eine
@@ -126,10 +139,26 @@ QUELLEN: tuple[Quelle, ...] = (
         stempel=frozenset({"updated_at", "updated_in_ibr_at",
                            "case_status_updated_at"}),
     ),
-    # Chicago fehlt hier mit Absicht: Es gibt genau **einen**
-    # Vollschnappschuss (5.9.2026) und seither nur Deltas. Ein Paar braucht
-    # zwei. Sobald ein zweiter geladen wird, gehoert hier eine Zeile hin -
-    # der Schluessel waere ``id``, siehe build_crime_offense.
+    Quelle(
+        stadt="chicago",
+        praefix=f"{BRONZE_LAYER}/city=chicago",
+        # Dieselbe Wahl wie in build_crime_offense: die fachliche Identitaet,
+        # nicht die Zeilennummer der Antwort.
+        schluessel="id",
+        # Socrata liefert flache Spalten, kein attributes-Struct.
+        struct=None,
+        # Leer, und das ist gemessen: Im Paar 5.9./3.10. bewegten sich genau
+        # sieben Felder - updated_on (19), arrest (15), fbi_code, description,
+        # iucr, primary_type, date. ``location``, ``latitude``, ``longitude``
+        # und ``_extra`` ruehrten sich nicht, obwohl location die Koordinaten
+        # doppelt fuehrt und als Rauschkandidat gehandelt wurde. Chicago hat
+        # auch kein Gegenstueck zu Detroits ESRI_OID: Socratas eigene
+        # ":"-Spalten verwirft schon die Ingestion, und eine Zeilennummer
+        # liefert die API nicht mit.
+        rauschen=frozenset(),
+        # Das Feld, an dem auch die Delta-Ingestion ihr Wasserzeichen fuehrt.
+        stempel=frozenset({"updated_on"}),
+    ),
 )
 
 
@@ -158,10 +187,9 @@ def schnappschuesse(laeufe: list[Any]) -> list[Schnappschuss]:
     """
     gefunden = []
     for lauf in laeufe:
-        manifest = lauf.manifest
-        if str(manifest.get("extraction_mode", "")).upper() not in VERGLEICHBAR:
+        if not lauf.vollabzug:
             continue
-        wann = manifest.get("started_at") or manifest.get("finished_at")
+        wann = lauf.begonnen_um or lauf.manifest.get("finished_at")
         if not wann:
             raise TransformError(
                 f"{lauf.run_id}: Manifest ohne Zeitstempel - ohne ihn laesst "
@@ -181,13 +209,32 @@ def paare(alle: list[Schnappschuss]) -> list[tuple[Schnappschuss, Schnappschuss]
     return list(zip(alle, alle[1:]))
 
 
-def felder(con: duckdb.DuckDBPyConnection, pfad: str) -> list[str]:
-    """Die Quellfelder aus ``attributes`` - aus der Datei, nicht aus einer Liste."""
-    zeilen = con.execute(
-        f"SELECT unnest(attributes) FROM read_parquet('{pfad}') LIMIT 0").description
-    if zeilen:
-        return [z[0] for z in zeilen]
-    raise TransformError(f"{pfad}: kein attributes-Struct")
+def felder(con: duckdb.DuckDBPyConnection, pfad: str,
+           quelle: Quelle) -> list[str]:
+    """Die Quellfelder - aus der Datei, nicht aus einer Liste.
+
+    Zwei Formen. Detroits ArcGIS-Antwort liegt in einem Struct
+    ``attributes``, und ``unnest`` nennt dessen Felder. Chicagos
+    Socrata-Zeilen liegen flach; dort sind die Spalten der Datei die Felder.
+
+    Flach wird ueber ``storage.parquet_spalten`` gelesen und **nicht** ueber
+    ``DESCRIBE``: Der Pfad traegt ``city=`` und ``ingest_date=``, und DuckDB
+    haette daraus zwei Hive-Spalten abgeleitet, die in keiner Datei stehen.
+    Sie waeren als Quellfelder in den Vergleich gegangen - zwei Felder, die
+    sich je Lauf aendern und nichts bedeuten.
+    """
+    if quelle.struct:
+        zeilen = con.execute(
+            f"SELECT unnest({quelle.struct}) FROM read_parquet('{pfad}') "
+            f"LIMIT 0").description
+        if zeilen:
+            return [z[0] for z in zeilen]
+        raise TransformError(f"{pfad}: kein {quelle.struct}-Struct")
+    from storage import parquet_spalten
+    namen = list(parquet_spalten(pfad))
+    if namen:
+        return namen
+    raise TransformError(f"{pfad}: keine Spalten")
 
 
 def vergleichbar(name: str, quelle: Quelle) -> str:
@@ -197,7 +244,8 @@ def vergleichbar(name: str, quelle: Quelle) -> str:
     Quelle hat angefangen, ``offense_description`` auf feste Breite
     aufzufuellen, und niemand hatte das angekuendigt.
     """
-    return f"nullif(trim(CAST(attributes.\"{name}\" AS VARCHAR)), '')"
+    spalte = f'{quelle.struct}."{name}"' if quelle.struct else f'"{name}"'
+    return f"nullif(trim(CAST({spalte} AS VARCHAR)), '')"
 
 
 def vergleich_sql(a: str, b: str, namen: list[str], quelle: Quelle) -> str:
@@ -331,7 +379,7 @@ def ziehe(con: duckdb.DuckDBPyConnection, quelle: Quelle, ablage: Any,
     """
     a = ablage.resolve_read_path(vorher.pfad, PARQUET_FILE)
     b = ablage.resolve_read_path(nachher.pfad, PARQUET_FILE)
-    sql = vergleich_sql(a, b, felder(con, a), quelle)
+    sql = vergleich_sql(a, b, felder(con, a, quelle), quelle)
     kopf = (f"'{quelle.stadt}' AS city", f"'{vorher.run_id}' AS vorher_run_id",
             f"'{nachher.run_id}' AS run_id",
             f"TIMESTAMP '{vorher.beobachtet_am[:19]}' AS vorher_am",
@@ -427,8 +475,8 @@ def manifest(con: duckdb.DuckDBPyConnection, bericht: dict[str, Any],
         "quellen": bericht["quellen"],
         "hinweis": (
             "Append-only: Was einmal herausgezogen wurde, bleibt stehen, auch "
-            "wenn die Bronze-Laeufe aufgeraeumt sind. Nur Laeufe mit "
-            "extraction_mode=FULL werden verglichen."),
+            "wenn die Bronze-Laeufe aufgeraeumt sind. Verglichen werden nur "
+            "Vollabzuege (manifeste.Lauf.vollabzug)."),
     }
 
 

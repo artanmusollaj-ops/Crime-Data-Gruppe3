@@ -2,8 +2,8 @@
 # Serving - und laesst dann die Tests laufen, die ein frischer Klon nicht
 # ausfuehren kann.
 #
-# Warum es das braucht: tests.yml prueft auf jedem Pull Request 1'401 von
-# 1'482 Tests. Die 81 uebrigen brauchen gebaute Daten - und das sind
+# Warum es das braucht: tests.yml prueft auf jedem Pull Request 1'405 von
+# 1'486 Tests. Die 81 uebrigen brauchen gebaute Daten - und das sind
 # ausgerechnet die Waechter: Zahlen in den Abgabedokumenten gegen die Parquet-Dateien, die
 # Einwohnerprobe der Stadtzuordnung, "kein Delikt in der falschen Stadt".
 # Bis zu diesem Workflow liefen sie nur, wenn jemand lokal pytest tippte.
@@ -108,7 +108,7 @@ jobs:
           fi
 
       - name: Die Notebooks, die Zahlen belegen
-        # Acht von vierzehn. Die Linie: Notebooks, die Zahlen belegen,
+        # Neun von fuenfzehn. Die Linie: Notebooks, die Zahlen belegen,
         # laufen;
         # Notebooks, die laden (01, 02, 11, 12, 21, 22), nicht - sie wuerden
         # hier zusaetzliche Bronze-Laeufe erzeugen.
@@ -123,7 +123,7 @@ jobs:
           for nb in 03_chicago_data_quality 13_detroit_data_quality \
                     31_storage_evaluation 32_nibrs_source \
                     33_serving_evaluation 34_gold_sternschema \
-                    35_kontrollen 36_hypothesen; do
+                    35_kontrollen 36_hypothesen 37_quellbewegung; do
             echo "== $nb"
             python -m jupyter nbconvert --to notebook --execute \
               --ExecutePreprocessor.timeout=1200 \

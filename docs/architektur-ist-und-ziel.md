@@ -216,7 +216,7 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'482 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Pull Request** | 1'486 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
 | **Frischer Klon** | 1'176 davon — die übrigen 27 brauchen gebaute Daten; 71 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 70 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |

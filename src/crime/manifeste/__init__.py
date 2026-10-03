@@ -46,6 +46,14 @@ PARQUET_FILE = "part-0001.parquet"
 # geschriebene Manifest ungueltig machen, fuer einen kosmetischen Gewinn.
 FERTIG = frozenset({"complete", "success"})
 
+# Dasselbe noch einmal, fuer den Lademodus - nur steht er zusaetzlich in zwei
+# verschiedenen Schluesseln. Chicagos Ingestion schreibt ``mode`` mit
+# ``full_snapshot``, Detroits ``extraction_mode`` mit ``FULL``. Census, TIGER
+# und NOAA nennen gar keinen Modus; sie laden immer voll, und ein Lauf ohne
+# Angabe gilt deshalb **nicht** als Vollabzug - wer die Unterscheidung
+# braucht, soll sie im Manifest finden und nicht erraten.
+VOLLABZUG = frozenset({"full", "full_snapshot"})
+
 
 class ManifestFehler(RuntimeError):
     """Ein Manifest liegt da, laesst sich aber nicht lesen."""
@@ -71,6 +79,32 @@ class Lauf(NamedTuple):
             or self.manifest.get("pipeline_run_id")
             or self.verzeichnis.name
         )
+
+    @property
+    def begonnen_um(self) -> str:
+        # started_at bei Detroit, started_at_utc bei Chicago, Census, TIGER
+        # und NOAA. Gebraucht wird er, wo Laeufe in ihre zeitliche Reihenfolge
+        # gebracht werden muessen: Detroits Laufverzeichnisse heissen nach
+        # einer UUID und sagen nichts ueber die Reihenfolge.
+        return str(
+            self.manifest.get("started_at")
+            or self.manifest.get("started_at_utc")
+            or ""
+        )
+
+    @property
+    def vollabzug(self) -> bool:
+        """Ob der Lauf ein Vollschnappschuss ist - und nicht ein Delta.
+
+        Wer Schnappschuesse vergleicht, darf nur Vollabzuege nehmen: Ein Delta
+        enthaelt nur die bewegten Zeilen, und *was fehlt* laesst sich darin
+        nicht von *was sich nicht geaendert hat* unterscheiden.
+        """
+        return str(
+            self.manifest.get("extraction_mode")
+            or self.manifest.get("mode")
+            or ""
+        ).lower() in VOLLABZUG
 
     @property
     def abgeschlossen_um(self) -> str:
