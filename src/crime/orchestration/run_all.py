@@ -4,6 +4,13 @@
     python -m orchestration.run_all --ohne-ingestion # nur neu ableiten
     python -m orchestration.run_all --bis silver     # bis zu einer Stufe
     python -m orchestration.run_all --trocken        # nur zeigen, was liefe
+    python -m orchestration.run_all --jahre 2021-2026 --bis silver
+
+``--jahre`` nimmt einen Jahrgang, einen Bereich oder eine Liste; Vorgabe ist
+2024. Die Kriminalquellen laufen je Jahrgang, die Census-Stufen je Vintage,
+alles andere einmal. Ab 2025 bleibt es beim 2024er Vintage - ein neueres gibt
+es nicht. Mehrere Vintages **und** Gold im Lauf lehnt der Controller ab, weil
+``build_gold`` noch ein einzelnes ``--vintage`` nimmt.
 
 Am Ende steht ``data/pipeline_run.json``: welche Stufen liefen, wie lange, auf
 **welchen Bronze-Laeufen** das Ergebnis ruht, und ein Fingerabdruck darueber.
@@ -50,6 +57,12 @@ class Stufe(NamedTuple):
     # gar nicht da ist, faellt auf. Vorher wurde nur geprueft, was schon
     # existierte: Ein leerer Bestand galt als frisch.
     quelle: str = ""
+    # Worueber diese Stufe sich wiederholt, wenn mehrere Jahrgaenge laufen:
+    # "jahr" (die Kriminalquellen), "vintage" (Census und seine Silver-Tabellen)
+    # oder "" (einmal, egal wie viele Jahre). ``flagge`` ist die Option, mit der
+    # die Stufe die Zahl annimmt - sie heisst nicht ueberall gleich.
+    je: str = ""
+    flagge: str = ""
 
     def befehl(self, data_root: Path | None = None) -> list[str]:
         """Der Aufruf, mit dem diese Stufe laeuft.
@@ -78,24 +91,29 @@ class Stufe(NamedTuple):
 #   * ``build_crime_offense`` liest ``silver/tract``, muss also nach ihm laufen.
 STUFEN: tuple[Stufe, ...] = (
     Stufe("ingestion", "chicago", "chicago_pipeline.download_chicago",
-          quelle="city=chicago"),
+          quelle="city=chicago", je="jahr", flagge="--year"),
     # Seit dem 18.9.2026 ein Delta wie bei Chicago: Der erste Aufruf laedt den
     # Jahrgang voll, spaetere nur, was sich seit dem Wasserzeichen geaendert
     # hat. Der Filter geht ueber ``updated_at``, nicht ueber das Tatdatum -
     # ein Delta nach Tatdatum saehe keine einzige Korrektur.
     Stufe("ingestion", "detroit", "detroit_pipeline.extract_detroit",
-          ("--mode", "delta", "--years", "2024"), quelle="city=detroit"),
+          ("--mode", "delta"), quelle="city=detroit",
+          je="jahr", flagge="--years"),
     Stufe("ingestion", "tiger_tract", "census_pipeline.download_tiger",
-          ("--auslieferung", "tract"), quelle="dataset=tiger_tract"),
+          ("--auslieferung", "tract"), quelle="dataset=tiger_tract",
+          je="vintage", flagge="--vintage"),
     Stufe("ingestion", "tiger_place", "census_pipeline.download_tiger",
-          ("--auslieferung", "place"), quelle="dataset=tiger_place"),
+          ("--auslieferung", "place"), quelle="dataset=tiger_place",
+          je="vintage", flagge="--vintage"),
     Stufe("ingestion", "acs", "census_pipeline.download_acs",
-          quelle="dataset=acs5_tract"),
+          quelle="dataset=acs5_tract", je="vintage", flagge="--vintage"),
     Stufe("ingestion", "noaa", "weather_pipeline.download_noaa",
           quelle="dataset=noaa_ghcnd"),
 
-    Stufe("silver", "tract", "silver_pipeline.build_tract"),
-    Stufe("silver", "place", "silver_pipeline.build_place"),
+    Stufe("silver", "tract", "silver_pipeline.build_tract",
+          je="vintage", flagge="--vintage"),
+    Stufe("silver", "place", "silver_pipeline.build_place",
+          je="vintage", flagge="--vintage"),
     Stufe("silver", "weather_day", "silver_pipeline.build_weather_day"),
     Stufe("silver", "crime_offense", "silver_pipeline.build_crime_offense"),
 
@@ -111,8 +129,113 @@ GRUPPEN = ("ingestion", "silver", "gold", "serving")
 
 # Die Bestaende, die nach einer vollstaendigen Ingestion dasein muessen.
 ERWARTETE_QUELLEN: tuple[str, ...] = tuple(
-    sorted(s.quelle for s in STUFEN if s.quelle)
+    sorted({s.quelle for s in STUFEN if s.quelle})
 )
+
+
+# ---------------------------------------------------------------------------
+# Jahrgaenge und Vintages
+# ---------------------------------------------------------------------------
+
+# Der Jahrgang, auf dem das Projekt bis zum 3.10.2026 stand. Vorgabe bleibt er,
+# damit ein Aufruf ohne ``--jahre`` dasselbe tut wie vorher - ein Mehrjahreslauf
+# ist eine Ansage, kein Nebeneffekt eines Updates.
+VORGABE_JAHRE: tuple[int, ...] = (2024,)
+
+# Das juengste ACS-5-Jahres-Vintage. Am 3.10.2026 an der Census-API gemessen:
+# 2025 und 2026 gibt es nicht und werden es auch bis zur Abgabe nicht geben.
+# Eine Rate fuer 2025 ruht deshalb auf der Bevoelkerung von 2024 - und genau
+# das muss ueberall dabeistehen (FR-36).
+JUENGSTES_VINTAGE = 2024
+
+# Chicago reicht bis 2001 zurueck; frueher gibt es keinen Jahrgang.
+FRUEHESTES_JAHR = 2001
+
+
+def vintage_fuer(jahr: int) -> int:
+    """Welches ACS-Vintage der Nenner dieses Jahrgangs ist.
+
+    Fuer jedes Jahr bis einschliesslich ``JUENGSTES_VINTAGE`` ist es sein
+    eigenes. Darueber bleibt es beim juengsten vorhandenen - das ist keine
+    Hochrechnung, sondern eine **geliehene** Bevoelkerung, und sie wird als
+    solche gekennzeichnet (FR-36).
+    """
+    return min(jahr, JUENGSTES_VINTAGE)
+
+
+def vintages_fuer(jahre: Iterable[int]) -> tuple[int, ...]:
+    """Die Vintages, die diese Jahrgaenge brauchen - jedes genau einmal."""
+    return tuple(sorted({vintage_fuer(j) for j in jahre}))
+
+
+def jahre_aus_text(text: str) -> tuple[int, ...]:
+    """``2024``, ``2021-2026`` oder ``2021,2023,2024`` - immer aufsteigend.
+
+    Doppelte Angaben fallen weg: Ein Jahrgang zweimal zu laden ergaebe zwei
+    Laeufe mit demselben Inhalt, und die Entdoppelung in Silver verbirgt das.
+    """
+    gefunden: set[int] = set()
+    for teil in text.split(","):
+        teil = teil.strip()
+        if not teil:
+            continue
+        if "-" in teil.lstrip("-"):
+            von_bis = teil.split("-", 1)
+            try:
+                von, bis = int(von_bis[0]), int(von_bis[1])
+            except ValueError:
+                raise ValueError(f"{teil!r} ist kein Jahresbereich") from None
+            if von > bis:
+                raise ValueError(f"{teil!r} laeuft rueckwaerts")
+            gefunden.update(range(von, bis + 1))
+        else:
+            try:
+                gefunden.add(int(teil))
+            except ValueError:
+                raise ValueError(f"{teil!r} ist kein Jahr") from None
+
+    if not gefunden:
+        raise ValueError("kein Jahr angegeben")
+    obergrenze = datetime.now(timezone.utc).year + 1
+    daneben = sorted(j for j in gefunden if not FRUEHESTES_JAHR <= j <= obergrenze)
+    if daneben:
+        raise ValueError(
+            f"{', '.join(str(j) for j in daneben)} liegt ausserhalb von "
+            f"{FRUEHESTES_JAHR} bis {obergrenze}"
+        )
+    return tuple(sorted(gefunden))
+
+
+def jahre_argument(text: str) -> tuple[int, ...]:
+    """``jahre_aus_text`` fuer argparse - mit erhaltener Begruendung.
+
+    Argparse faengt ``ValueError`` aus einem ``type=``-Aufruf und ersetzt die
+    Meldung durch *"invalid ... value"*. Der Benutzer erfuehre damit, dass
+    seine Angabe falsch ist, aber nicht warum - und das Warum ist der ganze
+    Sinn der Pruefung. ``ArgumentTypeError`` reicht argparse durch.
+    """
+    try:
+        return jahre_aus_text(text)
+    except ValueError as fehler:
+        raise argparse.ArgumentTypeError(str(fehler)) from None
+
+
+def entfalte(stufe: Stufe, jahre: Iterable[int]) -> list[Stufe]:
+    """Eine Stufe, so oft wie ihre Achse es verlangt.
+
+    Der Name bekommt die Zahl angehaengt, damit das Protokoll in
+    ``pipeline_run.json`` sagt, welcher Jahrgang wie lange brauchte, und ein
+    Abbruch die Stelle nennt statt nur die Stufe.
+    """
+    if not stufe.je:
+        return [stufe]
+    zahlen = (tuple(sorted(set(jahre))) if stufe.je == "jahr"
+              else vintages_fuer(jahre))
+    return [
+        stufe._replace(name=f"{stufe.name}_{z}",
+                       argumente=(*stufe.argumente, stufe.flagge, str(z)))
+        for z in zahlen
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -216,13 +339,44 @@ def zeilenzahlen(data_root: Path) -> dict[str, int]:
 # ---------------------------------------------------------------------------
 
 
-def auswahl(ohne_ingestion: bool, bis: str | None) -> list[Stufe]:
+def auswahl(ohne_ingestion: bool, bis: str | None,
+            jahre: Iterable[int] = VORGABE_JAHRE) -> list[Stufe]:
+    """Welche Stufen laufen, in welcher Reihenfolge, fuer welche Jahrgaenge.
+
+    Mit einem einzigen Jahrgang ist die Entfaltung die Identitaet: Es kommen
+    genau die vierzehn Stufen heraus, die ``STUFEN`` nennt. ``STUFEN``
+    beschreibt die **Form** der Strecke - daraus entstehen das Architekturbild
+    und die Referenz-Startseite, und die zaehlen vierzehn. Wie oft eine Stufe
+    laeuft, ist dagegen eine Eigenschaft des Laufs und steht hier.
+    """
     stufen = [s for s in STUFEN
               if not (ohne_ingestion and s.gruppe == "ingestion")]
     if bis:
         grenze = GRUPPEN.index(bis)
         stufen = [s for s in stufen if GRUPPEN.index(s.gruppe) <= grenze]
-    return stufen
+    return [entfaltet for s in stufen for entfaltet in entfalte(s, jahre)]
+
+
+def gold_haelt_mehrere_vintages_nicht(stufen: list[Stufe],
+                                      jahre: Iterable[int]) -> str | None:
+    """Warum dieser Lauf nicht bis Gold gehen darf - oder ``None``.
+
+    ``silver/tract`` und ``silver/place`` liegen je Vintage, Gold nimmt aber
+    **ein** ``--vintage`` und verbindet alles damit. Bei mehreren Vintages
+    bekaeme jede Tat denselben Nenner, auch die von 2021 - und das Ergebnis
+    saehe vollstaendig aus. Lieber hier scheitern als eine Rate publizieren,
+    die auf der falschen Bevoelkerung ruht (FR-35 schliesst das).
+    """
+    vintages = vintages_fuer(jahre)
+    if len(vintages) < 2:
+        return None
+    if not any(GRUPPEN.index(s.gruppe) >= GRUPPEN.index("gold") for s in stufen):
+        return None
+    return (
+        f"{len(vintages)} Vintages ({', '.join(str(v) for v in vintages)}), "
+        "und Gold waehlt noch keines je Jahrgang. Entweder '--bis silver', "
+        "oder ein Jahrgang je Lauf."
+    )
 
 
 def fahre(stufen: list[Stufe], projekt_root: Path,
@@ -271,7 +425,8 @@ def schreibe_manifest(data_root: Path, manifest: dict) -> Path:
 def lauf(data_root: Path, projekt_root: Path, *,
          ohne_ingestion: bool = False, bis: str | None = None,
          maximal_alter_tage: float | None = None,
-         release: bool | None = None, holen: bool = True) -> dict:
+         release: bool | None = None, holen: bool = True,
+         jahre: Iterable[int] = VORGABE_JAHRE) -> dict:
     """Die ganze Strecke - und am Ende, wenn alles gruen ist, ein Release.
 
     ``release``: ``None`` heisst *wenn die Ablage publiziert* (hybrid, s3),
@@ -291,14 +446,22 @@ def lauf(data_root: Path, projekt_root: Path, *,
     Definition - dort liest Silver Bronze direkt von S3. Von Hand geht es
     trotzdem (``python -m storage holen --wirklich``).
     """
-    stufen = auswahl(ohne_ingestion, bis)
+    jahre = tuple(sorted(set(jahre)))
+    stufen = auswahl(ohne_ingestion, bis, jahre)
     begonnen = datetime.now(timezone.utc)
     zu_alt: dict[str, float | None] = {}
+
+    # Vor dem ersten Byte: Sechs Jahrgaenge zu laden und erst in Gold zu
+    # merken, dass sie dort nicht zusammenpassen, kostet eine Stunde und
+    # produziert einen halben Stand.
+    gold_sperre = gold_haelt_mehrere_vintages_nicht(stufen, jahre)
+    if gold_sperre:
+        LOG.error("%s Nichts gebaut.", gold_sperre)
 
     geholt: list[str] = []
     holen_gescheitert: str | None = None
     ablage = for_root(data_root)
-    if holen and ablage.backend == "hybrid":
+    if holen and not gold_sperre and ablage.backend == "hybrid":
         try:
             geholt = ablage.hole_fehlende_laeufe(("raw", "bronze"))
         except StorageError as fehler:
@@ -308,7 +471,7 @@ def lauf(data_root: Path, projekt_root: Path, *,
     # Ohne Ingestion werden die Daten nicht frischer. Sind sie schon zu alt,
     # lohnt sich keine Stufe - und ein Gold auf veraltetem Bronze waere genau
     # die Zahl, die dann auf einer Folie landet.
-    if maximal_alter_tage is not None and ohne_ingestion:
+    if maximal_alter_tage is not None and ohne_ingestion and not gold_sperre:
         zu_alt = veraltete_quellen(data_root, maximal_alter_tage)
         for quelle, tage in zu_alt.items():
             LOG.error("%s. Nichts gebaut.",
@@ -325,7 +488,7 @@ def lauf(data_root: Path, projekt_root: Path, *,
     abgeleitet = [s for s in stufen if s.gruppe != "ingestion"]
 
     protokoll: list[dict] = []
-    if not zu_alt and holen_gescheitert is None:
+    if not zu_alt and holen_gescheitert is None and not gold_sperre:
         protokoll = fahre(geladen, projekt_root, data_root)
         ingestion_ok = (all(s["exit"] == 0 for s in protokoll)
                         and len(protokoll) == len(geladen))
@@ -341,7 +504,8 @@ def lauf(data_root: Path, projekt_root: Path, *,
 
     gelaufen = all(s["exit"] == 0 for s in protokoll) and len(protokoll) == len(stufen)
 
-    geschafft = gelaufen and not zu_alt and holen_gescheitert is None
+    geschafft = (gelaufen and not zu_alt and holen_gescheitert is None
+                 and not gold_sperre)
 
     freigabe: dict | None = None
     if geschafft and bis is None:
@@ -375,6 +539,9 @@ def lauf(data_root: Path, projekt_root: Path, *,
 
     manifest = {
         "status": "complete" if geschafft else "failed",
+        "years": list(jahre),
+        "vintages": list(vintages_fuer(jahre)),
+        "gold_blocked": gold_sperre,
         "fetched_runs": geholt,
         "fetch_error": holen_gescheitert,
         "inventory_error": bestand_fehler,
@@ -408,6 +575,12 @@ def arguments() -> argparse.Namespace:
                    help="nur neu ableiten, ohne die Quellen anzufassen")
     p.add_argument("--bis", choices=GRUPPEN,
                    help="nach dieser Gruppe aufhoeren")
+    p.add_argument("--jahre", type=jahre_argument, default=VORGABE_JAHRE,
+                   metavar="JAHRE",
+                   help="Jahrgaenge: 2024, 2021-2026 oder 2021,2023 "
+                        f"(Vorgabe {VORGABE_JAHRE[0]}). Die Census-Vintages "
+                        f"folgen daraus; ab {JUENGSTES_VINTAGE + 1} bleibt es "
+                        f"beim {JUENGSTES_VINTAGE}er")
     p.add_argument("--trocken", action="store_true",
                    help="nur zeigen, was liefe")
     p.add_argument("--ohne-holen", dest="holen", action="store_false",
@@ -432,9 +605,15 @@ def main() -> int:
     )
     projekt_root = Path(__file__).resolve().parents[3]
 
-    stufen = auswahl(args.ohne_ingestion, args.bis)
+    stufen = auswahl(args.ohne_ingestion, args.bis, args.jahre)
     if args.trocken:
-        print(f"{len(stufen)} Stufen, in dieser Reihenfolge:\n")
+        jahrtext = ", ".join(str(j) for j in args.jahre)
+        vintagetext = ", ".join(str(v) for v in vintages_fuer(args.jahre))
+        print(f"Jahrgaenge {jahrtext}; Census-Vintages {vintagetext}")
+        sperre = gold_haelt_mehrere_vintages_nicht(stufen, args.jahre)
+        if sperre:
+            print(f"So nicht lauffaehig: {sperre}")
+        print(f"\n{len(stufen)} Stufen, in dieser Reihenfolge:\n")
         for i, s in enumerate(stufen, 1):
             print(f"  {i:>2}. {s.gruppe:<10} {s.name:<16} "
                   f"python -m {s.modul} {' '.join(s.argumente)}".rstrip())
@@ -444,7 +623,8 @@ def main() -> int:
         manifest = lauf(for_root(args.data_root).local_root, projekt_root,
                         ohne_ingestion=args.ohne_ingestion, bis=args.bis,
                         maximal_alter_tage=args.maximal_alter_tage,
-                        release=args.release, holen=args.holen)
+                        release=args.release, holen=args.holen,
+                        jahre=args.jahre)
     except StorageError as fehler:
         # Der Schlussfang. Was die Ablage angeht, ist innen schon abgefangen;
         # hier steht er, damit kein Weg uebrigbleibt, der einen botocore-Stapel
@@ -456,6 +636,9 @@ def main() -> int:
 
     print()
     if manifest["status"] != "complete":
+        if manifest.get("gold_blocked"):
+            print(f"Nicht gelaufen: {manifest['gold_blocked']}")
+            return 1
         zu_alt = manifest["freshness_check"]["stale"]
         if zu_alt:
             alt_ = ", ".join(

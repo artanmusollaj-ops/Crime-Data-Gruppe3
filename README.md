@@ -225,7 +225,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'507
+python -m pytest -m ""               # beides zusammen, alle 1'532
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -279,7 +279,21 @@ leeren `data/` aus sind es drei Blöcke.
 python -m orchestration.run_all                  # alles, inklusive Ingestion
 python -m orchestration.run_all --ohne-ingestion # nur neu ableiten
 python -m orchestration.run_all --trocken        # nur zeigen, was liefe
+python -m orchestration.run_all --jahre 2021-2026 --bis silver   # mehrere Jahrgänge
 ```
+
+`--jahre` nimmt `2024`, `2021-2026` oder `2021,2023`; Vorgabe ist 2024, ein
+Aufruf ohne die Option tut also genau das, was er vorher tat. Die
+Kriminalquellen laufen **je Jahrgang**, die Census-Stufen **je Vintage**, NOAA
+und die abgeleiteten Stufen einmal — aus 2021–2026 werden so 39 Stufen statt
+14. Ab 2025 bleibt es beim 2024er Vintage, weil es kein neueres gibt; eine Rate
+für 2025 ruht damit auf der Bevölkerung von 2024.
+
+Mehr als ein Vintage und **Gold im Lauf** lehnt der Controller vorerst ab, mit
+Grund und **vor der ersten Stufe**: `build_gold` nimmt ein einzelnes
+`--vintage` und verbindet alles damit, jede Tat von 2021 bekäme also den
+Nenner von 2024 — und das Ergebnis sähe vollständig aus. Bis Gold je Jahrgang
+wählt, geht ein Mehrjahreslauf mit `--bis silver`.
 
 Der Controller kennt die Reihenfolge, bricht bei der ersten gescheiterten Stufe
 ab und schreibt `data/pipeline_run.json`. Mit `--maximal-alter-tage 8` scheitert
@@ -857,7 +871,7 @@ Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.
 python -m pytest
 ```
 
-**1'507 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'532 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen

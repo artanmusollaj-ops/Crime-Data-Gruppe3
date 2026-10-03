@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'507** |
+| Tests | **1'532** |
 | `silver/crime_offense` | 348'329 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'091** Zeilen (eine Tat) |
 | Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -91,6 +91,67 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 03.10.2026 · Der Gesamtlauf nimmt einen Jahresbereich, und Gold sagt Nein (Branch `mehrjaehrigkeit`)
+
+FR-34 aus dem LN2-PRD. `run_all` nahm bisher keinen Jahrgang an: Chicago lief
+auf dem Standardwert seines Moduls, und für Detroit stand `--years 2024` als
+Konstante in der Stufenliste. `--jahre` nimmt jetzt `2024`, `2021-2026` oder
+`2021,2023`. **Vorgabe bleibt 2024** — ein Aufruf ohne die Option tut
+byteweise dasselbe wie vorher, ein Mehrjahreslauf ist eine Ansage und kein
+Nebeneffekt eines Updates.
+
+**Die Entfaltung gehört nicht in `STUFEN`.** Das war der entscheidende Punkt
+am Entwurf: `STUFEN` beschreibt die **Form** der Strecke, und daraus entstehen
+das Datenflussbild (`tools/build_architekturbilder.py`) und die Stufenzahlen
+auf der Referenz-Startseite — drei Wächter zählen dort vierzehn. Hätte die
+Jahresentfaltung `STUFEN` selbst verlängert, wären aus vierzehn Stufen
+plötzlich neununddreissig geworden, samt zwei erzeugten Artefakten und ihren
+Wächtern. Wie oft eine Stufe läuft, ist deshalb eine Eigenschaft des **Laufs**
+und steht in `auswahl`. Jede Stufe sagt über zwei neue Felder, worüber sie sich
+wiederholt: `je="jahr"` für die Kriminalquellen, `je="vintage"` für Census und
+seine Silver-Tabellen, nichts für NOAA und alles Abgeleitete. Aus 2021–2026
+werden so 39 Stufen — nicht 84, weil NOAA je Station einen Vollschnappschuss
+lädt und sechs Aufrufe sechsmal dasselbe geholt hätten.
+
+**Ab 2025 bleibt es beim 2024er Vintage.** `vintage_fuer(jahr)` ist
+`min(jahr, 2024)`, mit der Messung vom 3.10.2026 als Begründung: Das jüngste
+verfügbare ACS-5-Jahres-Vintage **ist** 2024. Sechs Jahrgänge brauchen deshalb
+vier Vintages, nicht sechs. Eine Rate für 2025 ruht damit auf der Bevölkerung
+von 2024 — das ist keine Hochrechnung, sondern eine geliehene Bevölkerung, und
+FR-36 verlangt, dass es überall dabeisteht. Hier steht erst die Mechanik; die
+Kennzeichnung in Gold, auf den Dashboards und auf der Seite fehlt noch.
+
+**Mehrere Vintages und Gold im selben Lauf werden abgelehnt, vor der ersten
+Stufe.** `build_gold` nimmt ein einzelnes `--vintage` und verbindet alles
+damit. Bei vier Vintages bekäme jede Tat von 2021 den Nenner von 2024 — und
+das Ergebnis sähe vollständig aus. Sechs Jahrgänge zu laden und das erst in
+Gold zu merken, kostet eine Stunde und hinterlässt einen halben Stand; der
+Riegel greift deshalb, bevor ein Byte fliesst. Ein Mehrjahreslauf geht
+vorerst mit `--bis silver`. Das schliesst **FR-35**, und das ist der nächste
+Schritt: `silver/tract` und `silver/place` liegen schon je Vintage, Gold muss
+je Jahrgang das passende wählen — und das ändert das Sternschema, also einen
+Datenvertrag.
+
+**Nebenbefund.** Argparse fängt `ValueError` aus einem `type=`-Aufruf und
+ersetzt die Meldung durch *„invalid jahre_aus_text value: '1999'"*. Der
+Benutzer hätte erfahren, dass seine Angabe falsch ist, aber nicht warum — und
+das Warum ist der ganze Sinn der Prüfung. `jahre_argument` reicht die
+Begründung als `ArgumentTypeError` durch: *„1999 liegt ausserhalb von 2001 bis
+2027"*, *„'2021-2019' läuft rückwärts"*.
+
+**Offen geblieben, bewusst:** `leistungsnachweise.md` 7.3 sagt *„Der Zeitraum
+ist auf 2024 festgelegt"* und verweist auf die Projektabsprache. Das stimmt
+weiterhin — der Controller **kann** jetzt mehr, gebaut wird aber nichts
+anderes, solange Gold nur ein Vintage verbindet. Die Absprache zu ändern ist
+Artans Teil und gehört zu FR-53 bis FR-55.
+
+**Zahlen.** 1'507 -> **1'532 Tests**, Standardlauf **1'451**. 25 neue Tests:
+die Jahresarithmetik, die sechs Leseformen und fünf Fehlerfälle von `--jahre`,
+die Entfaltung je Achse, und vier Tests um den Gold-Riegel — darunter einer,
+der prüft, dass bei mehreren Vintages **keine** Stufe startet. `docs/referenz/`
+neu gebaut. Kein Datenvertrag ändert sich: Bei der Vorgabe 2024 sind die
+Befehlszeilen identisch.
 
 ## 03.10.2026 · DuckDB bekommt Grenzen, und keine Verbindung kommt daran vorbei (Branch `mehrjaehrigkeit`)
 

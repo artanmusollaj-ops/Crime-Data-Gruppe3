@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 
 import run_all as ra
 
@@ -64,7 +65,9 @@ def test_beide_tiger_auslieferungen_stehen_drin():
 def test_ohne_ingestion_bleibt_die_ableitung_vollstaendig():
     stufen = ra.auswahl(ohne_ingestion=True, bis=None)
     assert not any(s.gruppe == "ingestion" for s in stufen)
-    assert [s.name for s in stufen][:2] == ["tract", "place"]
+    # Die Namen tragen seit dem 3.10.2026 ihren Jahrgang beziehungsweise ihr
+    # Vintage, damit das Protokoll sagt, welcher Durchgang wie lange brauchte.
+    assert [s.name for s in stufen][:2] == ["tract_2024", "place_2024"]
 
 
 def test_bis_schneidet_hinten_ab():
@@ -634,3 +637,176 @@ def test_die_meldung_nennt_den_ausweg(tmp_path, monkeypatch, capsys):
     assert "Die Ablage antwortet nicht" in ausgabe
     assert "python -m storage" in ausgabe and "STORAGE_BACKEND=local" in ausgabe
     assert "Traceback" not in ausgabe
+
+
+# --------------------------------------------------------------------------
+# Jahrgaenge und Vintages (FR-34)
+# --------------------------------------------------------------------------
+
+
+def test_bis_2024_ist_jedes_jahr_sein_eigener_nenner():
+    assert [ra.vintage_fuer(j) for j in (2021, 2022, 2023, 2024)] == \
+        [2021, 2022, 2023, 2024]
+
+
+def test_ab_2025_bleibt_es_beim_2024er_vintage():
+    """Am 3.10.2026 an der Census-API gemessen: 2025 und 2026 gibt es nicht.
+
+    Keine Hochrechnung, sondern eine geliehene Bevoelkerung - und sie muss
+    ueberall dabeistehen (FR-36).
+    """
+    assert ra.vintage_fuer(2025) == 2024
+    assert ra.vintage_fuer(2026) == 2024
+
+
+def test_sechs_jahrgaenge_brauchen_vier_vintages():
+    assert ra.vintages_fuer(range(2021, 2027)) == (2021, 2022, 2023, 2024)
+
+
+@pytest.mark.parametrize("text, erwartet", [
+    ("2024", (2024,)),
+    ("2021-2026", (2021, 2022, 2023, 2024, 2025, 2026)),
+    ("2021,2023", (2021, 2023)),
+    ("2023, 2021", (2021, 2023)),
+    ("2024,2024", (2024,)),
+    ("2021-2023,2026", (2021, 2022, 2023, 2026)),
+])
+def test_jahresangaben_werden_gelesen(text, erwartet):
+    assert ra.jahre_aus_text(text) == erwartet
+
+
+@pytest.mark.parametrize("text, grund", [
+    ("1999", "ausserhalb"),
+    ("2021-2019", "rueckwaerts"),
+    ("zwanzig", "kein Jahr"),
+    ("2021-zwei", "kein Jahresbereich"),
+    ("", "kein Jahr angegeben"),
+])
+def test_unbrauchbare_jahresangaben_scheitern_mit_grund(text, grund):
+    with pytest.raises(ValueError, match=grund):
+        ra.jahre_aus_text(text)
+
+
+def test_argparse_behaelt_die_begruendung():
+    """``type=`` schluckt ValueError und ersetzt die Meldung.
+
+    Dann erfuehre der Benutzer, dass 1999 falsch ist, aber nicht warum - und
+    das Warum ist der ganze Sinn der Pruefung.
+    """
+    import argparse
+    with pytest.raises(argparse.ArgumentTypeError, match="ausserhalb"):
+        ra.jahre_argument("1999")
+
+
+def test_ein_einzelner_jahrgang_aendert_nichts_an_der_strecke():
+    """Die Vorgabe muss genau das tun, was sie vor FR-34 tat.
+
+    ``STUFEN`` beschreibt die Form der Strecke - Architekturbild und
+    Referenz-Startseite zaehlen daraus vierzehn. Die Entfaltung ist bei einem
+    Jahrgang die Identitaet.
+    """
+    stufen = ra.auswahl(ohne_ingestion=False, bis=None)
+    assert len(stufen) == len(ra.STUFEN)
+    befehle = {" ".join(s.befehl()[1:]) for s in stufen}
+    assert "-m chicago_pipeline.download_chicago --year 2024" in befehle
+    assert "-m detroit_pipeline.extract_detroit --mode delta --years 2024" in befehle
+    assert "-m census_pipeline.download_acs --vintage 2024" in befehle
+
+
+def test_sechs_jahrgaenge_entfalten_die_quellen_aber_nicht_das_wetter():
+    """Die Kriminalquellen je Jahr, Census je Vintage, NOAA einmal.
+
+    NOAA laedt je Station einen Vollschnappschuss - ein Jahresfilter gibt es
+    dort nicht, und sechs Aufrufe luden sechsmal dasselbe.
+    """
+    stufen = ra.auswahl(ohne_ingestion=False, bis=None, jahre=range(2021, 2027))
+    wie_oft = {}
+    for s in stufen:
+        wurzel = s.name.rsplit("_", 1)[0] if s.je else s.name
+        wie_oft[wurzel] = wie_oft.get(wurzel, 0) + 1
+    assert wie_oft["chicago"] == 6 and wie_oft["detroit"] == 6
+    assert wie_oft["tiger_tract"] == 4 and wie_oft["acs"] == 4
+    assert wie_oft["tract"] == 4 and wie_oft["place"] == 4
+    assert wie_oft["noaa"] == 1 and wie_oft["weather_day"] == 1
+    assert wie_oft["crime_offense"] == 1 and wie_oft["gold"] == 1
+
+
+def test_die_entfalteten_stufen_behalten_ihre_quelle():
+    """Sonst faende die Aktualitaetspruefung sechs Quellen statt zwei."""
+    stufen = ra.auswahl(ohne_ingestion=False, bis=None, jahre=(2023, 2024))
+    chicago = [s for s in stufen if s.name.startswith("chicago")]
+    assert len(chicago) == 2
+    assert {s.quelle for s in chicago} == {"city=chicago"}
+    assert sorted(ra.ERWARTETE_QUELLEN) == sorted(set(ra.ERWARTETE_QUELLEN))
+
+
+def test_die_reihenfolge_haelt_auch_entfaltet():
+    """Jedes tract-Vintage vor crime_offense, jedes Jahr vor Gold."""
+    stufen = ra.auswahl(ohne_ingestion=False, bis=None, jahre=(2023, 2024))
+    gruppen = [ra.GRUPPEN.index(s.gruppe) for s in stufen]
+    assert gruppen == sorted(gruppen)
+    namen = [s.name for s in stufen]
+    assert max(namen.index(n) for n in namen if n.startswith("tract_")) < \
+        namen.index("crime_offense")
+
+
+# --------------------------------------------------------------------------
+# Der Riegel vor Gold (bis FR-35 steht)
+# --------------------------------------------------------------------------
+
+
+def test_ein_jahrgang_darf_bis_gold():
+    stufen = ra.auswahl(ohne_ingestion=False, bis=None)
+    assert ra.gold_haelt_mehrere_vintages_nicht(stufen, (2024,)) is None
+
+
+def test_zwei_jahre_mit_einem_vintage_duerfen_auch():
+    """2025 und 2026 teilen sich den 2024er Nenner - das ist ein Vintage."""
+    stufen = ra.auswahl(ohne_ingestion=False, bis=None, jahre=(2025, 2026))
+    assert ra.gold_haelt_mehrere_vintages_nicht(stufen, (2025, 2026)) is None
+
+
+def test_mehrere_vintages_bis_silver_duerfen():
+    stufen = ra.auswahl(ohne_ingestion=False, bis="silver", jahre=range(2021, 2027))
+    assert ra.gold_haelt_mehrere_vintages_nicht(stufen, range(2021, 2027)) is None
+
+
+def test_mehrere_vintages_bis_gold_werden_abgelehnt():
+    """Gold nimmt ein --vintage und verbindet alles damit.
+
+    Bei vier Vintages bekaeme jede Tat denselben Nenner, auch die von 2021 -
+    und das Ergebnis saehe vollstaendig aus.
+    """
+    stufen = ra.auswahl(ohne_ingestion=False, bis=None, jahre=range(2021, 2027))
+    grund = ra.gold_haelt_mehrere_vintages_nicht(stufen, range(2021, 2027))
+    assert grund and "4 Vintages" in grund and "--bis silver" in grund
+
+
+def test_mit_mehreren_vintages_wird_nichts_gebaut(tmp_path, monkeypatch):
+    """Vor dem ersten Byte scheitern, nicht nach einer Stunde Ingestion."""
+    befehle: list[list[str]] = []
+
+    class Fertig:
+        returncode = 0
+
+    monkeypatch.setattr(ra.subprocess, "run",
+                        lambda cmd, cwd=None, **_: (befehle.append(cmd), Fertig())[1])
+    manifest = ra.lauf(tmp_path / "data", tmp_path, jahre=range(2021, 2027))
+
+    assert befehle == [], "es lief eine Stufe, obwohl der Lauf gesperrt war"
+    assert manifest["status"] == "failed"
+    assert "4 Vintages" in manifest["gold_blocked"]
+    assert manifest["years"] == list(range(2021, 2027))
+    assert manifest["vintages"] == [2021, 2022, 2023, 2024]
+
+
+def test_das_manifest_nennt_jahre_und_vintages_auch_im_guten_fall(tmp_path, monkeypatch):
+    class Fertig:
+        returncode = 0
+
+    monkeypatch.setattr(ra.subprocess, "run",
+                        lambda cmd, cwd=None, **_: Fertig())
+    manifest = ra.lauf(tmp_path / "data", tmp_path, jahre=(2025, 2026))
+    assert manifest["years"] == [2025, 2026]
+    assert manifest["vintages"] == [2024]
+    assert manifest["gold_blocked"] is None
