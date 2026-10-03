@@ -92,6 +92,52 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 03.10.2026 · Notebook 34 kennt die sechste Sterntabelle — und drei Zahlen stimmten schon vorher nicht (Branch `mehrjaehrigkeit`)
+
+Der offene Punkt aus dem Eintrag zu FR-35. `notebooks/34_gold_sternschema.ipynb`
+las in vier Zellen `sum(population) FROM dim_tract`, und sein Sternschema-Bild
+zeigte vier Dimensionen. **Kein Test hat das gemeldet**: Notebooks laufen nur im
+wöchentlichen Datenlauf, und dort wäre es als Fehler aufgeschlagen — genau die
+Falle, die in `AGENTS.md` unter den Fallstricken steht.
+
+Das Notebook benutzt jetzt `gold_pipeline.einwohner_je_stadt` statt einer
+eigenen Fassung — und **zeigt den Nenner im Klartext**, bevor es ihn verwendet:
+
+```
+SELECT d.city AS city, sum(a.population) AS n FROM dim_tract d
+JOIN dim_tract_acs a ON a.geoid = d.geoid AND a.vintage = d.reference_vintage
+WHERE d.city IS NOT NULL GROUP BY d.city
+```
+
+Das ist der Punkt, an dem ein Notebook mehr kann als eine Funktion: Es erklärt
+den Verbund über **zwei** Spalten an der Stelle, an der er zum ersten Mal
+gebraucht wird, ohne eine zweite Fassung davon anzulegen. Die Tabellenliste
+kommt aus `gold_pipeline.TABELLEN`, nicht mehr aus einem Tupel von Hand — eine
+siebte Sterntabelle erscheint dort künftig von selbst. Das Sternschema-Bild hat
+einen fünften Strahl bekommen, an zwei Spalten statt an einer, und `dim_tract`
+führt dort jetzt `reference_vintage` statt `population`.
+
+**Drei Zahlen stimmten schon vor dieser Änderung nicht.** Sie sind beim Lesen
+der Zelle aufgefallen, nicht durch einen Test:
+
+| | stand im Notebook | gemessen am 3.10.2026 |
+| --- | ---: | ---: |
+| `fact_offense` (zweimal genannt) | 345'073 | **345'091** |
+| `silver/crime_offense` im Bild | 348'311 | **348'329** |
+| Schritt Silver → Gold (dreimal) | 3'340 | **3'238** |
+
+Die ersten beiden sind die achtzehn Zeilen, die mit der Quellbewegung
+dazugekommen sind. Die 3'340 war nie richtig: Der Schritt ist die Zahl der
+nicht zählenden Anklagen, und die waren auch mit den alten Zahlen 3'238
+(348'311 − 345'073). Eine Zahl, die aus zwei anderen folgt, war von Hand
+daneben geschrieben.
+
+**Geprüft und unverändert:** Notebook 33 liest die Serving-Sicht auf Silber,
+nicht Gold; Notebook 36 nennt `gold/dim_tract` nur als Pfad. Beide brauchten
+nichts. Das Notebook ist mit `nbconvert --execute` durchgelaufen, die Raten
+bestätigen die Abgabezahlen: Chicago 94,5, Detroit 132,7, mit den
+Grenzfällen 95,6.
+
 ## 03.10.2026 · Die Einwohnerzahl bekommt eine Zeitachse (Branch `mehrjaehrigkeit`)
 
 FR-35, und damit ist Welle 1 auf dem Weg: `run_all --jahre 2021-2026` läuft
