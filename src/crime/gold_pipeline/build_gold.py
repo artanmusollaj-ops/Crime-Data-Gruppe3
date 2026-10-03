@@ -749,6 +749,136 @@ def abdeckung_je_stadt(con: duckdb.DuckDBPyConnection) -> dict[str, dict[str, fl
     return ergebnis
 
 
+def zuordnung_je_jahrgang(
+    con: duckdb.DuckDBPyConnection,
+) -> dict[str, dict[str, Any]]:
+    """Wie die NIBRS-Zuordnung je Jahrgang traegt - und was sich bewegt hat (FR-38).
+
+    ``abdeckung`` misst ueber die **ganze** Faktentabelle, ``abdeckung_je_stadt``
+    je Stadt. Beides ist ueber die Zeit gemittelt, und ein Mittel verdeckt:
+    Ueber sechs Jahrgaenge verschwindet ein schlechter im Durchschnitt der
+    uebrigen. Ein Crosswalk, der ab 2026 ins Leere laeuft, bliebe bei einer
+    Schwelle von 85 % unsichtbar, solange die fuenf Jahrgaenge davor tragen -
+    dasselbe Argument, mit dem ``abdeckung_je_stadt`` entstand, nur auf der
+    Zeitachse.
+
+    Dies ist **Zuordnungs**abdeckung und steht deshalb neben
+    ``jahresabdeckung`` und nicht darin: jene misst, welche *Tage* abgedeckt
+    sind, diese, welche *Quellcodes* einen NIBRS-Code bekamen.
+
+    Drei Dinge nennt der Nachweis **namentlich**, weil ein Prozentsatz sie
+    nicht sagt:
+
+    ``unmapped_codes``       welcher Quellcode unzugeordnet blieb, mit Stadt
+                             und Zahl, absteigend - der teuerste zuerst
+    ``new_source_codes``     welcher Code im Vorjahrgang nicht vorkam
+    ``retired_source_codes`` welcher im Vorjahrgang vorkam und jetzt fehlt
+
+    Die Stadt steht ueberall dabei, weil derselbe vierstellige Code in beiden
+    Staedten etwas voellig anderes bedeutet: ``1101`` ist in Chicagos IUCR
+    *Public Aid Wire/Mail Fraud* und fuehrt auf 26D Welfare Fraud, in Detroits
+    MICR *Sexual Penetration Penis/Vagina CSC1* und fuehrt auf 11A Rape. Sieben
+    Codes stehen in beiden Tabellen (``1101``, ``1102``, ``1200``, ``2900``,
+    ``4800``, ``5000``, ``5001``); ohne die Stadt ist keine Zeile der Liste
+    aufloesbar.
+
+    **Ein Teiljahrgang wird gemeldet, aber nicht verglichen.** Fuer einen
+    Jahrgang mit ``year_is_complete = false`` bleiben beide Codelisten leer,
+    und der Vergleich ueberspringt ihn: Der naechste **volle** Jahrgang
+    vergleicht gegen den letzten vollen. 2026 hat am 3.10. neun Monate - jeder
+    Code, der dort nur noch nicht vorkam, waere sonst "weggefallen". Das ist
+    dieselbe Regel, die FR-37 eine Spalte zuvor gesetzt hat: Ein Teiljahr
+    gehoert nicht in einen Jahresvergleich, und ``retired_source_codes`` ist
+    einer. Der Preis ist bewusst getragen - ein echter neuer Code von 2026
+    wird erst sichtbar, wenn 2026 voll ist.
+
+    **Die Differenz, kein Inventar.** Ein volles Codeinventar je Jahrgang
+    waeren fuer Chicago rund 400 Codes mal sechs - kein Manifest, das jemand
+    liest. Gefragt ist die **Aenderung**: neu und weggefallen. Das sind je
+    Jahrgang eine Handvoll Zeilen.
+
+    Die Jahrgaenge kommen aus ``dim_date`` und nicht aus den Fakten: Ein
+    Jahrgang mit Tagen, aber ohne Taten, ist eine Aussage und darf nicht
+    fehlen. Er traegt ``offenses`` 0 und Anteile 0.0.
+
+    **Gemessen, nicht entschieden.** Das Publish-Gate bleibt global (siehe
+    ``pruefe_gate``) - ein Bau soll nicht an einem Jahrgang scheitern, dessen
+    Daten erst halb da sind. Ob ein Jahrgang die Schwellen haelt, haelt ein
+    Test gegen dieses Manifest; dann scheitert die Suite und nicht der Bau.
+    """
+    def benannt(paare: set[tuple[str, str]]) -> list[dict[str, str]]:
+        return [{"city": stadt, "code": code} for stadt, code in sorted(paare)]
+
+    zeilen = con.execute("""
+        SELECT d.year, any_value(d.year_is_complete), f.reporting_city,
+               f.source_offense_code, f.mapping_status, count(f.offense_id)
+        FROM dim_date d LEFT JOIN fact_offense f ON f.date = d.date
+        GROUP BY 1, 3, 4, 5
+    """).fetchall()
+
+    gesamt: dict[int, int] = {}
+    ganz: dict[int, bool] = {}
+    je_status: dict[int, dict[str, int]] = {}
+    offen: dict[int, list[tuple[str, str, int]]] = {}
+    codes: dict[int, set[tuple[str, str]]] = {}
+    for jahr, vollstaendig, stadt, code, status, n in zeilen:
+        gesamt.setdefault(jahr, 0)
+        ganz[jahr] = bool(vollstaendig)
+        je_status.setdefault(jahr, {})
+        offen.setdefault(jahr, [])
+        codes.setdefault(jahr, set())
+        # Ein Jahrgang ohne Taten kommt aus dem LEFT JOIN mit lauter NULL und
+        # count 0. Er bekommt seinen Eintrag, aber nichts gezaehlt.
+        if stadt is None:
+            continue
+        gesamt[jahr] += n
+        je_status[jahr][status] = je_status[jahr].get(status, 0) + n
+        # Ein Code, den die Quelle nicht mitliefert, laesst sich nicht beim
+        # Namen nennen. Er zaehlt im Anteil mit und fehlt in den Listen - das
+        # ist die ehrlichere von zwei Moeglichkeiten.
+        if code is not None:
+            codes[jahr].add((stadt, code))
+            if status == "unmapped":
+                offen[jahr].append((stadt, code, n))
+
+    ergebnis: dict[str, dict[str, Any]] = {}
+    vorher: set[tuple[str, str]] | None = None
+    for jahr in sorted(gesamt):
+        n_gesamt = gesamt[jahr]
+        eintrag: dict[str, Any] = {"offenses": n_gesamt}
+        for wert in sorted(MAPPING_STATUS_WERTE):
+            n = je_status[jahr].get(wert, 0)
+            eintrag[wert] = round(100.0 * n / n_gesamt, 4) if n_gesamt else 0.0
+        eintrag["unmapped_codes"] = [
+            {"city": stadt, "code": code, "offenses": n}
+            for stadt, code, n in sorted(offen[jahr],
+                                         key=lambda z: (-z[2], z[0], z[1]))
+        ]
+        # Wer am Vergleich teilnimmt: nur ein **ganzer** Jahrgang mit Taten.
+        #
+        # Der aelteste hat keinen Vorgaenger - "alle Codes neu" waere dort
+        # keine Aussage, sondern ein Inventar. Ein **Teiljahrgang** wird
+        # gemeldet, aber nicht verglichen (siehe Docstring). Und ein Jahrgang
+        # **ohne Taten** hat einen leeren Codesatz; stuende er im Vergleich,
+        # waere dort jeder Code weggefallen und im naechsten wieder neu - eine
+        # Bewegung, die es nie gab.
+        #
+        # In allen drei Faellen bleiben beide Listen leer, und ``vorher``
+        # bleibt stehen: Verglichen wird gegen den letzten ganzen Jahrgang mit
+        # Taten.
+        vergleichbar = bool(n_gesamt and ganz[jahr])
+        if vergleichbar and vorher is not None:
+            eintrag["new_source_codes"] = benannt(codes[jahr] - vorher)
+            eintrag["retired_source_codes"] = benannt(vorher - codes[jahr])
+        else:
+            eintrag["new_source_codes"] = []
+            eintrag["retired_source_codes"] = []
+        ergebnis[str(jahr)] = eintrag
+        if vergleichbar:
+            vorher = codes[jahr]
+    return ergebnis
+
+
 def pruefe_gate(anteile: dict[str, float],
                 je_stadt: dict[str, dict[str, float]] | None = None) -> None:
     """Das Publish-Gate: Gold wird nur veroeffentlicht, wenn die Abdeckung traegt.
@@ -931,6 +1061,11 @@ def reconcile(
         # FR-39: je Jahrgang, was abgedeckt ist. Beim Einjahresbau ist es ein
         # Eintrag - die Aussage ist dieselbe, nur kuerzer.
         "year_coverage": jahresabdeckung(con),
+        # FR-38: dieselbe Frage fuer die Zuordnung, und mit den Codes beim
+        # Namen. ``coverage_percent`` ist ein Mittel ueber alle Jahrgaenge und
+        # verdeckt einen schlechten; ein unzugeordneter Code stand bis hierher
+        # nur als Prozentsatz da, nie als Code.
+        "mapping_by_year": zuordnung_je_jahrgang(con),
         "coverage_gate": {
             "minimum": GATE_MINDESTENS,
             "maximum": GATE_HOECHSTENS,

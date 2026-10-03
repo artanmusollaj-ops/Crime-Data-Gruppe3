@@ -13,6 +13,7 @@ werden als kleine Parquet-Dateien zur Laufzeit erzeugt.
 
 from __future__ import annotations
 
+import json
 import struct
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -22,7 +23,7 @@ import pyarrow.parquet as pq
 import pytest
 
 import build_gold as bg
-from gold_pipeline import STADT_SCHLUESSEL
+from gold_pipeline import GATE_HOECHSTENS, GATE_MINDESTENS, STADT_SCHLUESSEL
 from silver_pipeline import TransformError, connect
 
 
@@ -114,7 +115,16 @@ def offense_quelle(tmp_path: Path, zeilen) -> bg.Quelle:
     Optional als sechstes Element ``counts``; ohne Angabe zaehlt die Zeile.
     Silver haelt jede Anklage und markiert je Tat eine als zaehlend - Gold
     nimmt nur diese, sonst waere Detroit um 3,8 Prozent zu hoch gezaehlt.
+
+    Optional als siebtes und achtes Element ``mapping_status`` und
+    ``source_offense_code``; ohne Angabe ``exact`` und ``0110``. Gebraucht
+    werden beide nur von der Zuordnungsabdeckung je Jahrgang (FR-38) -
+    ueberall sonst ist die Vorgabe gemeint, und eine Vorrichtung, die sie
+    verlangte, waere in hundert Tests Rauschen.
     """
+    def wahl(z, i, vorgabe):
+        return z[i] if len(z) > i else vorgabe
+
     n = len(zeilen)
     return schreibe(tmp_path, "crime_offense", pa.table({
         "city": pa.array([z[1] for z in zeilen]),
@@ -133,7 +143,7 @@ def offense_quelle(tmp_path: Path, zeilen) -> bg.Quelle:
         # nimmt local_time_ambiguous mit, weil dort hour_of_day gerechnet wird.
         "local_time_ambiguous": pa.array([False] * n),
         "local_time_nonexistent": pa.array([False] * n),
-        "source_offense_code": pa.array(["0110"] * n),
+        "source_offense_code": pa.array([wahl(z, 7, "0110") for z in zeilen]),
         "source_offense_description": pa.array(["TEST"] * n),
         "nibrs_code": pa.array([z[3] for z in zeilen]),
         "nibrs_description": pa.array(["Test"] * n),
@@ -141,7 +151,7 @@ def offense_quelle(tmp_path: Path, zeilen) -> bg.Quelle:
         "crime_against": pa.array(["Person"] * n),
         "nibrs_match": pa.array(["nibrs_definition"] * n),
         "nibrs_mapped": pa.array([True] * n),
-        "mapping_status": pa.array(["exact"] * n),
+        "mapping_status": pa.array([wahl(z, 6, "exact") for z in zeilen]),
         "latitude": pa.array([41.8] * n, pa.float64()),
         "longitude": pa.array([-87.6] * n, pa.float64()),
         "tract_geoid": pa.array([z[4] for z in zeilen]),
@@ -1384,3 +1394,347 @@ def test_der_nachweis_traegt_die_jahresabdeckung(con, tmp_path):
     assert nachweis["year_coverage"]["2024"]["complete"] is False, (
         "ein einzelner Maerztag deckt 2024 nicht ab"
     )
+
+
+# --------------------------------------------------------------------------
+# Die Zuordnung je Jahrgang (FR-38)
+# --------------------------------------------------------------------------
+#
+# ``abdeckung`` mittelt ueber die ganze Faktentabelle und damit ueber alle
+# Jahrgaenge. Ueber sechs davon verschwindet ein schlechter im Mittel der
+# uebrigen - dasselbe Argument, mit dem ``abdeckung_je_stadt`` entstand, nur
+# auf der Zeitachse. Die Tests folgen der I/O-Matrix von FR-38.
+
+
+def test_ein_ganz_zugeordneter_jahrgang_hat_nichts_zu_melden(con, tmp_path):
+    """Der Normalfall: ein Jahrgang, alles zugeordnet, drei leere Listen."""
+    baue(con, tmp_path, [
+        ("a", "chicago", date(2024, 3, 1), "13A", "17031010100"),
+        ("b", "chicago", date(2024, 7, 1), "13A", "17031010100"),
+    ])
+    jahre = bg.zuordnung_je_jahrgang(con)
+    assert set(jahre) == {"2024"}
+    z = jahre["2024"]
+    assert z["offenses"] == 2
+    assert z["exact"] == 100.0
+    assert z["unmapped_codes"] == []
+    assert z["new_source_codes"] == []
+    assert z["retired_source_codes"] == []
+
+
+def test_ein_schlechter_jahrgang_verschwindet_nicht_mehr_im_mittel(con, tmp_path):
+    """Der Fall, um den es FR-38 geht - und er ist kein Gedankenspiel.
+
+    Fuenf gute Jahrgaenge zu 40 Zeilen und ein sechster, in dem zwei von fuenf
+    Zeilen unzugeordnet sind: Der Gesamtanteil liegt bei 0,98 Prozent und
+    haelt damit ``GATE_HOECHSTENS["unmapped"]`` von 1,0. Der Jahrgang 2026
+    liegt bei 40 Prozent. Genau diese Rechnung hat ``abdeckung_je_stadt``
+    fuer die Staedte vorgefuehrt; hier ist sie auf der Zeitachse.
+
+    Gemessen wird trotzdem bis zum Ende - ein Nachweis darf auch dann Zahlen
+    liefern, wenn sie schlecht aussehen.
+    """
+    zeilen = [
+        (f"g{jahr}-{i}", "chicago", date(jahr, 6, 1), "13A", "17031010100")
+        for jahr in range(2021, 2026) for i in range(40)
+    ] + [
+        ("x1", "chicago", date(2026, 6, 1), "13A", "17031010100", True, "exact", "0110"),
+        ("x2", "chicago", date(2026, 6, 2), "13A", "17031010100", True, "exact", "0110"),
+        ("x3", "chicago", date(2026, 6, 3), "13A", "17031010100", True, "exact", "0110"),
+        ("x4", "chicago", date(2026, 6, 4), "90Z", "17031010100", True, "unmapped", "9998"),
+        ("x5", "chicago", date(2026, 6, 5), "90Z", "17031010100", True, "unmapped", "9999"),
+    ]
+    baue(con, tmp_path, zeilen)
+
+    jahre = bg.zuordnung_je_jahrgang(con)
+    assert sorted(jahre) == [str(j) for j in range(2021, 2027)]
+    assert jahre["2026"]["offenses"] == 5
+    assert jahre["2026"]["unmapped"] == 40.0
+    # Und die Codes beim Namen, mit Stadt und Zahl - absteigend.
+    assert jahre["2026"]["unmapped_codes"] == [
+        {"city": "chicago", "code": "9998", "offenses": 1},
+        {"city": "chicago", "code": "9999", "offenses": 1},
+    ]
+    # Das Mittel, das es bis hierher allein zu sehen gab, bleibt unauffaellig.
+    assert bg.abdeckung(con)["unmapped"] < GATE_HOECHSTENS["unmapped"]
+
+
+def test_der_teuerste_unzugeordnete_code_steht_oben(con, tmp_path):
+    """Wer eine Luecke schliesst, faengt beim groessten Posten an."""
+    baue(con, tmp_path, [
+        ("a", "chicago", date(2024, 6, 1), "90Z", "17031010100", True, "unmapped", "9998"),
+        ("b", "chicago", date(2024, 6, 2), "90Z", "17031010100", True, "unmapped", "9999"),
+        ("c", "chicago", date(2024, 6, 3), "90Z", "17031010100", True, "unmapped", "9999"),
+        ("d", "chicago", date(2024, 6, 4), "90Z", "17031010100", True, "unmapped", "9999"),
+    ])
+    assert bg.zuordnung_je_jahrgang(con)["2024"]["unmapped_codes"] == [
+        {"city": "chicago", "code": "9999", "offenses": 3},
+        {"city": "chicago", "code": "9998", "offenses": 1},
+    ]
+
+
+def test_der_unzugeordnete_code_traegt_seine_stadt(con, tmp_path):
+    """``1101`` heisst in den beiden Staedten etwas voellig Verschiedenes.
+
+    In Chicagos IUCR ist es *Public Aid Wire/Mail Fraud* und fuehrt auf 26D
+    Welfare Fraud, in Detroits MICR *Sexual Penetration Penis/Vagina CSC1* und
+    fuehrt auf 11A Rape - nachzulesen in beiden Crosswalks unter diesem Code.
+    Sieben Codes stehen in beiden Tabellen. Ohne die Stadt waere eine Zeile
+    der Liste deshalb nicht aufloesbar: Der Code allein sagt nicht, in welchem
+    Crosswalk er fehlt.
+    """
+    baue(con, tmp_path, [
+        ("a", "chicago", date(2024, 6, 1), "90Z", "17031010100", True, "unmapped", "1101"),
+        ("b", "detroit", date(2024, 6, 2), "90Z", "26163500100", True, "unmapped", "1101"),
+    ])
+    assert bg.zuordnung_je_jahrgang(con)["2024"]["unmapped_codes"] == [
+        {"city": "chicago", "code": "1101", "offenses": 1},
+        {"city": "detroit", "code": "1101", "offenses": 1},
+    ]
+
+
+def test_ein_neuer_quellcode_steht_nur_in_seinem_jahrgang(con, tmp_path):
+    """IUCR 9999 kommt erst 2026 vor - und nur dort darf es stehen.
+
+    Die Spanne laeuft vom 1.1.2024 bis zum 31.12.2026, damit alle drei
+    Jahrgaenge **ganz** sind: Ein Teiljahrgang nimmt am Vergleich nicht teil,
+    und dann stuende hier nichts.
+    """
+    baue(con, tmp_path, [
+        ("a", "chicago", date(2024, 1, 1), "13A", "17031010100", True, "exact", "0110"),
+        ("b", "chicago", date(2025, 6, 1), "13A", "17031010100", True, "exact", "0110"),
+        ("c", "chicago", date(2026, 6, 1), "13A", "17031010100", True, "exact", "0110"),
+        ("d", "chicago", date(2026, 12, 31), "90Z", "17031010100", True, "fallback_90Z", "9999"),
+    ])
+    jahre = bg.zuordnung_je_jahrgang(con)
+    assert jahre["2026"]["new_source_codes"] == [{"city": "chicago", "code": "9999"}]
+    for jahr in ("2024", "2025"):
+        assert jahre[jahr]["new_source_codes"] == [], jahr
+    # Und er gilt nicht gleich wieder als weggefallen.
+    assert all(not z["retired_source_codes"] for z in jahre.values())
+
+
+def test_ein_weggefallener_code_steht_im_jahrgang_seines_wegfalls(con, tmp_path):
+    """MICR 2307 bis 2023, danach nicht mehr - gemeldet wird es bei 2024.
+
+    Beide Jahrgaenge liegen ganz in der Spanne (1.1.2023 bis 31.12.2024);
+    waere 2024 ein Teiljahrgang, wuerde er nicht verglichen.
+    """
+    baue(con, tmp_path, [
+        ("a", "detroit", date(2023, 1, 1), "13A", "26163500100", True, "exact", "1301"),
+        ("b", "detroit", date(2023, 6, 2), "90Z", "26163500100", True, "fallback_90Z", "2307"),
+        ("c", "detroit", date(2024, 12, 31), "13A", "26163500100", True, "exact", "1301"),
+    ])
+    jahre = bg.zuordnung_je_jahrgang(con)
+    assert jahre["2024"]["retired_source_codes"] == [
+        {"city": "detroit", "code": "2307"}]
+    assert jahre["2023"]["retired_source_codes"] == []
+    assert jahre["2024"]["new_source_codes"] == []
+
+
+def test_ein_teiljahrgang_wird_gemeldet_aber_nicht_verglichen(con, tmp_path):
+    """Entscheidung 3 von FR-38: Ein Teiljahr gehoert nicht in einen Vergleich.
+
+    2026 endet am 3.10. und ist damit ``year_is_complete = false``. Jeder
+    Code, der dort nur **noch nicht** vorkam, waere sonst "weggefallen" - und
+    das ist dieselbe Falle, gegen die FR-37 eine Spalte zuvor
+    ``year_is_complete`` gesetzt hat. Der Teiljahrgang wird gemeldet (Zahlen
+    und unzugeordnete Codes stehen da), aber beide Codelisten bleiben leer.
+    """
+    baue(con, tmp_path, [
+        ("a", "chicago", date(2025, 1, 1), "13A", "17031010100", True, "exact", "0110"),
+        ("b", "chicago", date(2025, 6, 1), "90Z", "17031010100", True, "unmapped", "2307"),
+        ("c", "chicago", date(2025, 12, 31), "13A", "17031010100", True, "exact", "0110"),
+        ("d", "chicago", date(2026, 10, 3), "13A", "17031010100", True, "exact", "0110"),
+    ])
+    jahre = bg.zuordnung_je_jahrgang(con)
+    # Gemeldet: die Zahlen und der unzugeordnete Code stehen weiter da.
+    assert jahre["2026"]["offenses"] == 1
+    assert jahre["2026"]["exact"] == 100.0
+    # Nicht verglichen: 2307 kam 2025 vor und 2026 nicht - das ist kein
+    # Wegfall, sondern ein Jahr, das noch laeuft.
+    assert jahre["2026"]["retired_source_codes"] == []
+    assert jahre["2026"]["new_source_codes"] == []
+
+
+def test_nach_einem_teiljahrgang_wird_gegen_den_letzten_ganzen_verglichen(con, tmp_path):
+    """Der Teiljahrgang verschiebt den Massstab nicht.
+
+    2026 ist ganz (die Spanne reicht bis zum 31.12.), 2027 ist das Teiljahr.
+    Faellt 2027 aus dem Vergleich, muss der Massstab fuer einen spaeteren
+    Jahrgang weiter 2026 sein - sonst waere der uebersprungene Jahrgang doch
+    wieder der Vergleichspunkt.
+    """
+    baue(con, tmp_path, [
+        ("a", "chicago", date(2026, 1, 1), "13A", "17031010100", True, "exact", "0110"),
+        ("b", "chicago", date(2026, 6, 1), "90Z", "17031010100", True, "fallback_90Z", "2307"),
+        ("c", "chicago", date(2026, 12, 31), "13A", "17031010100", True, "exact", "0110"),
+        # 2027 bleibt ein Teiljahr: nur ein Tag, und er traegt 2307 nicht.
+        ("d", "chicago", date(2027, 3, 1), "13A", "17031010100", True, "exact", "0110"),
+    ])
+    jahre = bg.zuordnung_je_jahrgang(con)
+    assert jahre["2027"]["retired_source_codes"] == []
+    assert jahre["2027"]["new_source_codes"] == []
+    # Und ``vorher`` steht noch auf 2026, nicht auf dem duennen 2027: Waere es
+    # umgesetzt worden, zeigte 2026 selbst eine Bewegung.
+    assert jahre["2026"]["new_source_codes"] == []
+
+
+def test_der_aelteste_jahrgang_hat_keine_neuen_codes(con, tmp_path):
+    """Sonst stuende dort das ganze Inventar und sagte nichts.
+
+    Der aelteste Jahrgang hat keinen Vorgaenger. "Alle Codes neu" waere fuer
+    Chicago eine Liste von rund 400 Zeilen - und keine Aussage.
+    """
+    baue(con, tmp_path, [
+        ("a", "chicago", date(2023, 1, 1), "13A", "17031010100", True, "exact", "0110"),
+        ("b", "chicago", date(2023, 6, 2), "13A", "17031010100", True, "exact", "0810"),
+        ("c", "chicago", date(2024, 6, 1), "13A", "17031010100", True, "exact", "0110"),
+        ("d", "chicago", date(2024, 12, 31), "13A", "17031010100", True, "exact", "0810"),
+    ])
+    jahre = bg.zuordnung_je_jahrgang(con)
+    assert jahre["2023"]["new_source_codes"] == []
+    assert jahre["2023"]["retired_source_codes"] == []
+    # 2024 ist ganz und wird verglichen - die Listen sind leer, weil beide
+    # Jahrgaenge dieselben zwei Codes tragen, nicht weil nicht verglichen wird.
+    assert jahre["2024"]["new_source_codes"] == []
+    assert jahre["2024"]["retired_source_codes"] == []
+
+
+def test_ein_jahrgang_ohne_taten_teilt_nicht_durch_null(con, tmp_path):
+    """``dim_date`` hat die Tage, ``fact_offense`` keine Zeile - 2024 dazwischen.
+
+    Der Jahrgang muss dastehen: Dass ein Jahr in der Spanne liegt und keine
+    Tat traegt, ist eine Aussage und keine Luecke, die man weglaesst. Und er
+    verschiebt den Codevergleich nicht - sonst stuende jeder Code 2024 als
+    weggefallen und 2025 wieder als neu da.
+    """
+    baue(con, tmp_path, [
+        ("a", "chicago", date(2023, 12, 30), "13A", "17031010100"),
+        ("b", "chicago", date(2025, 1, 2), "13A", "17031010100"),
+    ])
+    jahre = bg.zuordnung_je_jahrgang(con)
+    assert set(jahre) == {"2023", "2024", "2025"}
+    z = jahre["2024"]
+    assert z["offenses"] == 0
+    assert [z[w] for w in sorted(bg.MAPPING_STATUS_WERTE)] == [0.0, 0.0, 0.0, 0.0]
+    assert z["unmapped_codes"] == []
+    assert z["new_source_codes"] == [] and z["retired_source_codes"] == []
+    assert jahre["2025"]["new_source_codes"] == []
+
+
+def test_die_vier_anteile_eines_jahrgangs_summieren_auf_hundert(con, tmp_path):
+    """Die vier Werte von ``mapping_status`` zerlegen den Jahrgang vollstaendig.
+
+    Faellt der Test, zaehlt eine Zeile zweimal oder keinmal - etwa weil der
+    Nenner aus ``dim_date`` und der Zaehler aus den Fakten kaeme.
+
+    **Ausser bei einem Jahrgang ohne Taten.** Dort ist nichts zu zerlegen, und
+    alle vier Anteile stehen auf 0.0 - sie summieren auf 0 und nicht auf 100.
+    2025 liegt hier genau dafuer leer zwischen den beiden besetzten
+    Jahrgaengen; ohne diese Unterscheidung behauptete der Test etwas Falsches.
+    """
+    baue(con, tmp_path, [
+        ("a", "chicago", date(2024, 6, 1), "13A", "17031010100", True, "exact", "0110"),
+        ("b", "chicago", date(2024, 6, 2), "13A", "17031010100", True, "ambiguous", "0760"),
+        ("c", "chicago", date(2024, 6, 3), "90Z", "17031010100", True, "fallback_90Z", "1481"),
+        ("d", "chicago", date(2026, 6, 1), "90Z", "17031010100", True, "unmapped", "9999"),
+        ("e", "chicago", date(2026, 6, 2), "13A", "17031010100", True, "exact", "0110"),
+        ("f", "chicago", date(2026, 6, 3), "13A", "17031010100", True, "exact", "0110"),
+    ])
+    jahre = bg.zuordnung_je_jahrgang(con)
+    assert jahre["2025"]["offenses"] == 0, "2025 muss leer sein, sonst prueft der Test die Haelfte"
+    for jahr, z in jahre.items():
+        summe = sum(z[wert] for wert in bg.MAPPING_STATUS_WERTE)
+        erwartet = 100.0 if z["offenses"] else 0.0
+        assert summe == pytest.approx(erwartet, abs=0.01), f"{jahr}: {summe}"
+
+
+def test_der_nachweis_traegt_die_zuordnung_je_jahrgang(con, tmp_path):
+    """``mapping_by_year`` steht neben ``year_coverage``, nicht darin.
+
+    Beim Einjahresbau muss der Jahreswert dem Gesamtanteil entsprechen - tut
+    er es nicht, zaehlt eine der beiden Messungen anders, und dann ist nicht
+    zu sagen, welche stimmt.
+    """
+    offense = baue(con, tmp_path, [
+        ("a", "chicago", date(2024, 6, 1), "13A", "17031010100", True, "exact", "0110"),
+        ("b", "chicago", date(2024, 6, 2), "90Z", "17031010100", True, "unmapped", "9999"),
+    ])
+    nachweis = bg.reconcile(con, offense, VINTAGE)
+    jahre = nachweis["mapping_by_year"]
+    assert set(jahre) == {"2024"}
+    for wert in bg.MAPPING_STATUS_WERTE:
+        assert jahre["2024"][wert] == nachweis["coverage_percent"][wert], wert
+    assert jahre["2024"]["unmapped_codes"] == [
+        {"city": "chicago", "code": "9999", "offenses": 1}]
+
+
+def schwellenverletzungen(jahre: dict) -> list[tuple]:
+    """Welche Jahrgaenge ``GATE_MINDESTENS``/``GATE_HOECHSTENS`` nicht halten.
+
+    ``inside_city`` kommt dabei nie vor: Das ist raeumliche Abdeckung und
+    steht in ``geo_status``, nicht in ``mapping_status``. Geprueft wird, was
+    dieser Nachweis traegt - deshalb das ``wert in z``.
+
+    **Ein Jahrgang ohne Taten wird uebersprungen.** Dort steht ``exact`` auf
+    0.0, und 0.0 liegt unter 85.0 - gemeldet waere eine Verletzung, die es
+    nicht gibt. Nichts zugeordnet zu haben ist keine schlechte Zuordnung,
+    sondern keine Daten; wer die Luecke sehen will, liest ``year_coverage``.
+    """
+    verletzt = []
+    for jahr, z in sorted(jahre.items()):
+        if not z["offenses"]:
+            continue
+        for wert, boden in GATE_MINDESTENS.items():
+            if wert in z and z[wert] < boden:
+                verletzt.append((jahr, wert, z[wert], f">= {boden}",
+                                 z["unmapped_codes"][:3]))
+        for wert, decke in GATE_HOECHSTENS.items():
+            if wert in z and z[wert] > decke:
+                verletzt.append((jahr, wert, z[wert], f"<= {decke}",
+                                 z["unmapped_codes"][:3]))
+    return verletzt
+
+
+def test_jeder_jahrgang_des_gebauten_gold_haelt_die_schwellen():
+    """Entscheidung 2 von FR-38: Das Tor bleibt global, der Waechter wird jaehrlich.
+
+    ``pruefe_gate`` haelt den Gesamtanteil und jede Stadt - nicht jeden
+    Jahrgang. Das ist Absicht: Ein Bau soll nicht an einem Jahrgang
+    scheitern, dessen Daten erst halb geladen sind; ein halber Jahrgang ist
+    kein Einsturz. Die Jahreszahlen stehen aber im Manifest, und hier haelt
+    sie ein **Test** gegen dieselben Schwellen. Faellt also etwas, scheitert
+    die Suite und nicht die Strecke - und erst, wenn die Daten da sind.
+    """
+    pfad = PROJECT_ROOT / "data" / "gold" / "dataset=fact_offense" / "manifest.json"
+    if not pfad.exists():
+        pytest.skip("keine gebaute Gold-Schicht vorhanden")
+    nachweis = json.loads(pfad.read_text(encoding="utf-8")).get("reconciliation") or {}
+    jahre = nachweis.get("mapping_by_year")
+    if jahre is None:
+        pytest.skip("das gebaute Manifest ist aelter als FR-38 - Gold neu bauen")
+
+    verletzt = schwellenverletzungen(jahre)
+    assert not verletzt, (
+        f"Jahrgaenge unter der Schwelle (Jahr, Wert, gemessen, verlangt, "
+        f"die teuersten unzugeordneten Codes): {verletzt}"
+    )
+
+
+def test_ein_jahrgang_ohne_taten_ist_keine_schwellenverletzung(con, tmp_path):
+    """Der Fall, den ``run_all --jahre 2021,2026`` baut.
+
+    ``dim_date`` laeuft durchgehend von 2021 bis 2026; dazwischen liegen vier
+    Jahrgaenge mit Tagen und ohne Taten. Deren ``exact`` steht auf 0.0, und
+    ohne das Ueberspringen meldete der Waechter vier Verletzungen, die keine
+    sind - im **Standardlauf**, denn er traegt keine ``referenzstand``-Marke.
+    """
+    baue(con, tmp_path, [
+        ("a", "chicago", date(2021, 6, 1), "13A", "17031010100", True, "exact", "0110"),
+        ("b", "chicago", date(2026, 6, 1), "13A", "17031010100", True, "exact", "0110"),
+    ])
+    jahre = bg.zuordnung_je_jahrgang(con)
+    leer = [j for j, z in jahre.items() if not z["offenses"]]
+    assert leer == ["2022", "2023", "2024", "2025"], leer
+    assert schwellenverletzungen(jahre) == []

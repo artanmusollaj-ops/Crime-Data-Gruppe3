@@ -8,6 +8,18 @@ stammt.
 
 Die Pruefungen gegen die echten Detroit-Daten ueberspringen sich selbst, wenn
 kein Bronze-Lauf vorliegt - ``data/`` ist nicht versioniert.
+
+**Was hier nicht mehr steht.** Bis zum 3.10.2026 trug die Tabelle eine Spalte
+``seen_in_detroit_2024``, und ein Test hielt sie gegen die Daten. Beide sind
+weg: Die Spalte war auf **einen** Jahrgang festgenagelt und wurde von Hand
+gepflegt, waehrend ``detroit_codes()`` unten alle Laeufe liest - sobald mehr
+als 2024 geladen war, brach jener Test an etwas, das kein Fehler ist. Ob ein
+Code **vorkommt**, ist eine Eigenschaft der Daten; nachgewiesen wird sie jetzt
+je Jahrgang in Gold, mit ``mapping_by_year`` im Manifest von ``fact_offense``
+(FR-38, ``gold_pipeline.build_gold.zuordnung_je_jahrgang``). Was die Tabelle
+abdecken muss, pruefen unveraendert
+``test_jeder_code_der_daten_steht_in_der_tabelle`` und
+``test_abdeckung_der_faelle_ist_ausgewiesen``.
 """
 
 from __future__ import annotations
@@ -53,7 +65,6 @@ SPALTEN = [
     "hierarchy",
     "match",
     "mapped",
-    "seen_in_detroit_2024",
     "note",
 ]
 
@@ -410,17 +421,6 @@ def test_abdeckung_der_faelle_ist_ausgewiesen(zeilen):
     # spaeteren Jahrgang soll den Test nicht sofort fallen lassen, sondern der
     # Test oben, der die Luecke beim Namen nennt.
     assert anteil > 0.999, f"nur {anteil:.1%} der Faelle zugeordnet"
-
-
-def test_seen_in_detroit_stimmt_mit_den_daten(zeilen):
-    daten = detroit_codes()
-    if daten is None:
-        pytest.skip("kein Detroit-Bronze-Lauf vorhanden")
-    behauptet = {z["micr_code"] for z in zeilen if z["seen_in_detroit_2024"] == "true"}
-    assert behauptet == set(daten), (
-        f"nur in der Tabelle: {sorted(behauptet - set(daten))}, "
-        f"nur in den Daten: {sorted(set(daten) - behauptet)}"
-    )
 
 
 # --------------------------------------------------------------------------

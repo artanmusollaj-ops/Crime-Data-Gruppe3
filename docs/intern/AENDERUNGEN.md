@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'550** |
+| Tests | **1'564** |
 | `silver/crime_offense` | 348'329 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'091** Zeilen (eine Tat) |
 | Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -89,6 +89,118 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 03.10.2026 · Die NIBRS-Zuordnung über sechs Jahrgänge (Branch `mehrjaehrigkeit`)
+
+FR-38, und es ist dieselbe Rechnung wie bei `coverage_percent_by_city` — nur
+auf der Zeitachse. Die Zuordnung war nirgends jahresbezogen: `abdeckung()`
+misst über die **ganze** Faktentabelle, Silbers `reconcile()` je Stadt. Über
+2021–2026 verschwindet damit ein schlechter Jahrgang im Mittel von sechs. Ein
+Crosswalk, der ab 2026 ins Leere läuft, bliebe bei einer Schwelle von 85 %
+unsichtbar, solange die fünf Jahrgänge davor tragen.
+
+**`mapping_by_year` steht jetzt im Manifest von `fact_offense`** — neben
+`year_coverage` und nicht darin: jenes ist zeitliche Abdeckung, dies ist
+Zuordnungsabdeckung. Je Jahrgang die Zahl der Taten, die Anteile der vier
+`mapping_status`-Werte, und drei Dinge **beim Namen**:
+
+| | |
+| --- | --- |
+| `unmapped_codes` | welcher Quellcode unzugeordnet blieb, mit Stadt und Zahl, absteigend |
+| `new_source_codes` | welcher Code im Vorjahrgang nicht vorkam |
+| `retired_source_codes` | welcher im Vorjahrgang vorkam und jetzt fehlt |
+
+Bis hierher war eine Lücke **nur ein Prozentsatz**. Welcher Code sie
+verursacht, stand nirgends — und ohne den Code ist nicht zu entscheiden, ob
+eine Zeile im Crosswalk fehlt oder die Stadt etwas Neues codiert. Die Stadt
+steht überall dabei, weil derselbe vierstellige Code in beiden Städten etwas
+völlig anderes bedeuten kann: `1101` ist in Chicagos IUCR *Public Aid
+Wire/Mail Fraud* und führt auf 26D Welfare Fraud, in Detroits MICR *Sexual
+Penetration Penis/Vagina CSC1* und führt auf 11A Rape. Sieben Codes stehen in
+beiden Tabellen (`1101`, `1102`, `1200`, `2900`, `4800`, `5000`, `5001`).
+
+**Die Differenz und kein Inventar.** Ein volles Codeinventar je Jahrgang wären
+für Chicago rund 400 Codes mal sechs — kein Manifest, das jemand liest.
+Gefragt ist die Änderung: neu und weggefallen, je Jahrgang eine Handvoll
+Zeilen. Der älteste Jahrgang hat keinen Vorgänger und damit keine neuen Codes;
+„alle Codes neu" wäre dort keine Aussage.
+
+Für den heutigen Einjahresbau liest sich der Nachweis so — und er nennt den
+Code, den `unmapped: 0.0009` bisher verschwieg:
+
+```json
+"2024": { "offenses": 345091,
+          "exact": 95.4902, "ambiguous": 1.4732,
+          "fallback_90Z": 3.0357, "unmapped": 0.0009,
+          "unmapped_codes": [{"city": "chicago", "code": "1481", "offenses": 3}],
+          "new_source_codes": [], "retired_source_codes": [] }
+```
+
+**Ein Teiljahrgang wird gemeldet, aber nicht verglichen.** FR-37 sagt einen
+Commit zuvor: Ein Teiljahr darf nicht in einen Jahresvergleich geraten — und
+`retired_source_codes` ist einer. Für einen Jahrgang mit
+`year_is_complete = false` bleiben beide Codelisten deshalb leer, und der
+Vergleich überspringt ihn: Der nächste **volle** Jahrgang vergleicht gegen den
+letzten vollen. Ohne diese Regel erschiene an 2026 jeder Code, der dort nur
+**noch nicht** vorkam, als weggefallen — bei neun von zwölf Monaten wären das
+die meisten. Der Preis ist bewusst getragen: Ein echter neuer Code von 2026
+wird erst sichtbar, wenn 2026 voll ist. Dieselbe Zurückhaltung gilt für einen
+Jahrgang **ohne Taten**: gemeldet mit `offenses` 0, aber nicht verglichen, denn
+ein leerer Codesatz liesse jeden Code erst wegfallen und im nächsten Jahrgang
+wieder neu erscheinen.
+
+**Das Tor bleibt global.** `pruefe_gate` prüft weiter den Gesamtanteil und jede
+Stadt, nicht jeden Jahrgang: Ein Bau soll nicht an einem Jahrgang scheitern,
+dessen Daten erst halb geladen sind — ein halber Jahrgang ist kein Einsturz.
+Die Jahreszahlen stehen aber im Manifest, und ein **Test** hält sie gegen
+`GATE_MINDESTENS`/`GATE_HOECHSTENS`. Fällt also etwas, scheitert die Suite und
+nicht die Strecke — und erst, wenn die Daten da sind. Ein Jahrgang **ohne
+Taten** wird dabei übersprungen: Dort steht `exact` auf 0,0, und das ist keine
+schlechte Zuordnung, sondern keine Daten. `run_all --jahre 2021,2026` hätte
+sonst vier Scheinverletzungen gemeldet.
+
+**`seen_in_detroit_2024` entfällt.** Die Spalte stand als elfte in
+`config/micr_nibrs_mapping.csv`, 128-mal `true`, von Hand gepflegt — und ihr
+Wächter `test_seen_in_detroit_stimmt_mit_den_daten` wäre gebrochen, sobald mehr
+als 2024 geladen ist: Er vergleicht sie mit `detroit_codes()`, und das liest
+**alle** Bronze-Läufe. Ob ein Code **vorkommt**, ist eine Eigenschaft der Daten
+und keine der Zuordnungstabelle. Zwei Ersatzspalten (`erstmals_gesehen`,
+`zuletzt_gesehen`) hätten dasselbe Problem eine Ebene später — sie müssten bei
+jedem Jahrgang nachgezogen werden, und `tools/extend_micr_arrest_charges.py`
+berechnet sie nicht. An ihre Stelle tritt `mapping_by_year`. Die Datei hat
+jetzt **11 Spalten** und behält ihre 129 CRLF-Zeilen; erzeugt wurde sie vom
+Werkzeug, nicht von Hand.
+
+**Chicagos Crosswalk bekommt den Wächter, den Detroits längst hatte.**
+`tests/config/test_iucr_nibrs_mapping.py` prüfte die Tabelle nur gegen
+**Kataloge** — Chicagos IUCR-Katalog, die NIBRS-Codeliste, die ILCS-Tabelle der
+Landespolizei. Keiner davon sagt, was in den Falldaten steht. Jetzt steht dort
+der Wächter, der eine Lücke beim Namen nennt: jeder `iucr` der Bronze-Läufe
+muss im Crosswalk stehen. Gemessen: 341 verschiedene Codes in den Läufen, alle
+in der Tabelle. Einen **Fallanteil** wie bei Detroit gibt es hier bewusst
+nicht — Bronze hält jeden Lauf, und Chicago lädt Deltas mit 14 Tagen
+Überlappung: 8 Läufe, 520'490 Zeilen für 259'643 verschiedene ids, Faktor 2,00.
+Ein solcher Anteil wäre nach Ingestionshäufigkeit gewichtet und nicht nach
+Fällen. Auf entdoppelter Basis und je Jahrgang steht er in `mapping_by_year`.
+
+**Kein Vertragssprung.** Keine Tabelle und keine Spalte in Gold ändert sich;
+`mapping_by_year` ist ein Nachweis im Manifest, kein Schema. Die
+Zuordnungslogik selbst ist unangetastet — dies ist eine Mess- und
+Nachweisänderung, nicht eine Änderung daran, *wie* zugeordnet wird.
+
+**Zahlen.** 1'550 → **1'564 Tests**, Standardlauf **1'483**. Fünfzehn neue,
+einer entfallen: je Zeile der I/O-Matrix einer (ein ganz zugeordneter Jahrgang,
+der schlechte Jahrgang im Mittel von sechs, der neue Code, der weggefallene,
+der älteste ohne Vorgänger, der Jahrgang ohne Taten, der Teiljahrgang), dazu
+der Massstab nach einem Teiljahrgang, die Reihenfolge der unzugeordneten Codes,
+die Stadt an jeder Zeile, die Summe der vier Anteile auf 100 — und auf 0 beim
+leeren Jahrgang —, der Nachweis im Manifest, der Schwellenwächter je Jahrgang,
+der leere Jahrgang als Nicht-Verletzung, und der Chicagoer Datenwächter. Gold und Serving neu gebaut, lokales Release
+`2026-10-03T19-53-12Z`, ClickHouse und Elasticsearch darauf geladen;
+Feldkatalog, Referenz, Einstiegsseite und Notebook 32 nachgezogen. Die Raten
+bleiben bei 94,5 und 132,7.
 
 ---
 

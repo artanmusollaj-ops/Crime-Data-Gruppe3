@@ -1,129 +1,129 @@
-micr_code,micr_code_type,micr_file_class,micr_description,nibrs_group,nibrs_code,nibrs_description,hierarchy,match,mapped,seen_in_detroit_2024,note
-0100,file_class,01000,Sovereignty,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
-0200,file_class,02000,Military,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
-0300,file_class,03000,Immigration,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
-0901,file_class,09001,Murder/Non-Negligent Manslaughter,A,09A,Murder and Non-Negligent Manslaughter,1,micr_manual_1110_2024,true,true,
-0902,file_class,09002,Negligent Homicide/Manslaughter,A,09B,Negligent Manslaughter,1,micr_manual_1110_2024,true,true,
-0903,file_class,09003,Negligent Homicide Vehicle/Boat/ Snowmobile/ORV,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
-0904,file_class,09004,Justifiable Homicide,A,09C,Justifiable Homicide,27,micr_manual_1110_2024,true,true,
-1001,file_class,10001,Kidnapping/Abduction,A,100,Kidnapping/Abduction,12,micr_manual_1110_2024,true,true,
-1002,file_class,10002,Parental Kidnapping,A,100,Kidnapping/Abduction,12,micr_manual_1110_2024,true,true,
-1101,file_class,11001,Sexual Penetration Penis/Vagina CSC1,A,11A,Rape,2,micr_manual_1110_2024,true,true,
-1102,file_class,11002,Sexual Penetration Penis/Vagina CSC3,A,11A,Rape,2,micr_manual_1110_2024,true,true,
-1103,file_class,11003,Sexual Penetration Oral/Anal CSC1,A,11B,Sodomy,2,micr_manual_1110_2024,true,true,
-1104,file_class,11004,Sexual Penetration Oral/Anal CSC3,A,11B,Sodomy,2,micr_manual_1110_2024,true,true,
-1105,file_class,11005,Sexual Penetration Object CSC1,A,11C,Sexual Assault with an Object,2,micr_manual_1110_2024,true,true,
-1106,file_class,11006,Sexual Penetration Object CSC3,A,11C,Sexual Assault with an Object,2,micr_manual_1110_2024,true,true,
-1107,file_class,11007,Sexual Contact Forcible CSC2,A,11D,Fondling,4,micr_manual_1110_2024,true,true,
-1108,file_class,11008,Sexual Contact Forcible CSC4,A,11D,Fondling,4,micr_manual_1110_2024,true,true,
-1171,arrest_charge,11001,CSC 1ST DEGREE - PENIS / VAGINA,A,11A,Rape,2,micr_arrest_charge_1110_2024,true,true,"Arrest Charge 'Penis/Vagina, CSC 1st Degree' unter File Class 11001 (Sexual Penetration Penis/Vagina CSC1); NIBRS von dort uebernommen"
-1172,arrest_charge,11002,CSC 3RD DEGREE - PENIS / VAGINA,A,11A,Rape,2,micr_arrest_charge_1110_2024,true,true,"Arrest Charge 'Penis/Vagina, CSC 3rd Degree' unter File Class 11002 (Sexual Penetration Penis/Vagina CSC3); NIBRS von dort uebernommen"
-1173,arrest_charge,11003,CSC 1ST DEGREE - ORAL / ANAL,A,11B,Sodomy,2,micr_arrest_charge_1110_2024,true,true,"Arrest Charge 'Oral/Anal, CSC 1st Degree' unter File Class 11003 (Sexual Penetration Oral/Anal CSC1); NIBRS von dort uebernommen"
-1174,arrest_charge,11004,CSC 3RD DEGREE - ORAL / ANAL,A,11B,Sodomy,2,micr_arrest_charge_1110_2024,true,true,"Arrest Charge 'Oral/Anal, CSC 3rd Degree' unter File Class 11004 (Sexual Penetration Oral/Anal CSC3); NIBRS von dort uebernommen"
-1175,arrest_charge,11005,CSC 1ST DEGREE - OBJECT,A,11C,Sexual Assault with an Object,2,micr_arrest_charge_1110_2024,true,true,"Arrest Charge 'Object, CSC 1st Degree' unter File Class 11005 (Sexual Penetration Object CSC1); NIBRS von dort uebernommen"
-1176,arrest_charge,11006,CSC 3RD DEGREE - OBJECT,A,11C,Sexual Assault with an Object,2,micr_arrest_charge_1110_2024,true,true,"Arrest Charge 'Object, CSC 3rd Degree' unter File Class 11006 (Sexual Penetration Object CSC3); NIBRS von dort uebernommen"
-1177,arrest_charge,11007,CSC 2ND DEGREE - FORCIBLE CONTACT,A,11D,Fondling,4,micr_arrest_charge_1110_2024,true,true,"Arrest Charge 'Forcible Contact, CSC 2nd Degree' unter File Class 11007 (Sexual Contact Forcible CSC2); NIBRS von dort uebernommen"
-1178,arrest_charge,11008,CSC 4TH DEGREE - FORCIBLE CONTACT,A,11D,Fondling,4,micr_arrest_charge_1110_2024,true,true,"Arrest Charge 'Forcible Contact, CSC 4th Degree' unter File Class 11008 (Sexual Contact Forcible CSC4); NIBRS von dort uebernommen"
-1200,file_class,12000,Robbery,A,120,Robbery,3,micr_manual_1110_2024,true,true,
-1201,file_class,12001,Carjacking,A,120,Robbery,3,micr_manual_1110_2024,true,true,
-1301,file_class,13001,Non-Aggravated Assault,A,13B,Simple Assault,11,micr_manual_1110_2024,true,true,
-1302,file_class,13002,Aggravated/Felonious Assault,A,13A,Aggravated Assault,4,micr_manual_1110_2024,true,true,
-1303,file_class,13003,Intimidation/Stalking,A,13C,Intimidation,11,micr_manual_1110_2024,true,true,
-1304,file_class,13004,Non-Fatal Shooting,A,13A,Aggravated Assault,4,micr_manual_1110_2024,true,true,
-1400,file_class,14000,Abortion,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
-2000,file_class,20000,Arson,A,200,Arson,8,micr_manual_1110_2024,true,true,
-2099,arrest_charge,20000,ARSON,A,200,Arson,8,micr_arrest_charge_1110_2024,true,true,Arrest Charge 'Arson (other)' unter File Class 20000 (Arson); NIBRS von dort uebernommen
-2100,file_class,21000,Extortion,A,210,Extortion/Blackmail,27,micr_manual_1110_2024,true,true,
-2101,arrest_charge,21000,EXTORTION,A,210,Extortion/Blackmail,27,micr_arrest_charge_1110_2024,true,true,Arrest Charge 'Threat to Injure Person' unter File Class 21000 (Extortion); NIBRS von dort uebernommen
-2201,file_class,22001,Burglary - Forced Entry,A,220,Burglary/Breaking & Entering,5,micr_manual_1110_2024,true,true,
-2202,file_class,22002,Burglary - Entry W/Out Force (Intent),A,220,Burglary/Breaking & Entering,5,micr_manual_1110_2024,true,true,
-2203,file_class,22003,Burglary - Unlawful Entry (No Intent),B,90J,Trespass of Real Property,27,micr_manual_1110_2024,true,true,2009 fuehrte 90Z; Fassung 2024 gilt
-2204,file_class,22004,Possession of Burglary Tools,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
-2301,file_class,23001,Larceny - Pocket Picking,A,23A,Pocket-Picking,6,micr_manual_1110_2024,true,true,
-2302,file_class,23002,Larceny - Purse Snatching,A,23B,Purse Snatching,6,micr_manual_1110_2024,true,true,
-2303,file_class,23003,Larceny - Theft from Building,A,23D,Theft from Building,6,micr_manual_1110_2024,true,true,
-2304,file_class,23004,Larceny - Theft from Coin Operated,A,23E,Theft from Coin Operated Machine/Device,6,micr_manual_1110_2024,true,true,
-2305,file_class,23005,Larceny - Theft from Motor Vehicle,A,23F,Theft from Motor Vehicle,6,micr_manual_1110_2024,true,true,
-2306,file_class,23006,Larceny - Theft of Motor Vehicle Parts/,A,23G,Accessories,6,micr_manual_1110_2024,true,true,
-2307,file_class,23007,Larceny - Other,A,23H,All Other Larceny,6,micr_manual_1110_2024,true,true,
-2401,file_class,24001,Motor Vehicle Theft,A,240,Motor Vehicle Theft,7,micr_manual_1110_2024,true,true,
-2402,file_class,24002,Motor Vehicle as Stolen Property,A,280,Stolen Property,15,micr_manual_1110_2024,true,true,
-2403,file_class,24003,Motor Vehicle Fraud,A,26A,Confidence Game  Credit Card/Automated Teller Machine,13,micr_manual_1110_2024,true,true,
-2500,file_class,25000,Forgery/Counterfeiting,A,250,Counterfeiting/Forgery,12,micr_manual_1110_2024,true,true,
-2501,arrest_charge,25000,Forgery of Checks,A,250,Counterfeiting/Forgery,12,micr_arrest_charge_1110_2024,true,true,"Arrest Charge 'Forgery of Checks' unter File Class 25000 (Forgery/Counterfeiting); NIBRS von dort uebernommen; In den Detroit-Daten stand 'LARCENY - OTHER'. Das ist weder der Name der Anklage noch der ihrer File Class: Das Handbuch fuehrt 2501 als 'Forgery of Checks' unter File Class 25000 Forgery/Counterfeiting, und Detroit selbst liefert zu allen 78 Zeilen arrest_charge 25000 und charge_description 'FORGERY / COUNTERFEITING'. Die Bezeichnung kam aus einer einzelnen abweichenden Zeile"
-2601,file_class,26001,Fraud - False Pretense/Swindle/Confidence Game,A,26A,Confidence Game  Credit Card/Automated Teller Machine,13,micr_manual_1110_2024,true,true,
-2602,file_class,26002,Fraud - Credit Card/ATM,A,26B,Credit Card/ATM,13,micr_manual_1110_2024,true,true,
-2603,file_class,26003,Fraud - Impersonation,A,26C,Impersonation,13,micr_manual_1110_2024,true,true,
-2604,file_class,26004,Fraud - Welfare,A,26D,Welfare Fraud,13,micr_manual_1110_2024,true,true,
-2605,file_class,26005,Fraud - Wire,A,26E,Wire Fraud,13,micr_manual_1110_2024,true,true,
-2606,file_class,26006,Fraud - Bad Checks,B,90A,Bad Checks,,appendix_f_2009,true,true,nur in Appendix F 2009; im Manual 1110 nicht mehr gefuehrt; NIBRS 90A (Bad Checks) ist zurueckgezogen; die Fassung 2025 fuehrt den Code nicht mehr
-2607,file_class,26007,"Fraud, Identity Theft",A,26F,Identity Theft,13,micr_manual_1110_2024,true,true,
-2608,file_class,26008,"Fraud, Computer Hacking/Invasion",A,26G,Hacking/Computer Invasion,13,micr_manual_1110_2024,true,true,
-2700,file_class,27000,Embezzlement,A,270,Embezzlement,14,micr_manual_1110_2024,true,false,
-2800,file_class,28000,Stolen Property,A,280,Stolen Property,15,micr_manual_1110_2024,true,true,
-2801,arrest_charge,28000,STOLEN PROPERTY,A,280,Stolen Property,15,micr_arrest_charge_1110_2024,true,true,Arrest Charge 'Sale of Stolen Property' unter File Class 28000 (Stolen Property); NIBRS von dort uebernommen
-2900,file_class,29000,Damage to Property,A,290,Destruction/Damage/ Vandalism of,16,micr_manual_1110_2024,true,true,
-3001,file_class,30001,Retail Fraud - Misrepresentation,A,26A,Confidence Game  Credit Card/Automated Teller Machine,13,micr_manual_1110_2024,true,true,
-3002,file_class,30002,Retail Fraud - Theft,A,23C,Shoplifting,6,micr_manual_1110_2024,true,true,
-3003,file_class,30003,Retail Fraud - Refund/Exchange,A,26A,Confidence Game  Credit Card/Automated Teller Machine,13,micr_manual_1110_2024,true,false,
-3004,file_class,30004,Organized Retail Fraud,A,23C,Shoplifting,6,micr_manual_1110_2024,true,false,
-3071,arrest_charge,30001,RETAIL FRAUD - MISREPRESENTATION,A,26A,Confidence Game  Credit Card/Automated Teller Machine,13,micr_arrest_charge_1110_2024,true,true,Arrest Charge 'Retail Fraud Misrepresentation 1st Degree' unter File Class 30001 (Retail Fraud - Misrepresentation); NIBRS von dort uebernommen
-3072,arrest_charge,30002,RETAIL FRAUD - THEFT,A,23C,Shoplifting,6,detroit_charge_file_class,true,true,"Das Handbuch fuehrt 3072 als Retail Fraud Misrepresentation 2nd Degree unter File Class 30001; das waere 26A False Pretenses. Detroit liefert zu allen 1447 Zeilen arrest_charge 30002 und charge_description 'RETAIL FRAUD - THEFT' - den Namen, den 30002 im Handbuch traegt. Detroit benutzt daneben 3002, dieselbe File Class"
-3501,file_class,35001,Violation of Controlled Substance,A,35A,Drug/Narcotic Violations,19,micr_manual_1110_2024,true,true,
-3502,file_class,35002,Narcotic Equipment Violations,A,35B,Drug Equipment Violations,19,micr_manual_1110_2024,true,true,
-3601,file_class,36001,Sexual Penetration - Non-forcible - Blood Affinity,A,36A,Incest,11,micr_manual_1110_2024,true,true,
-3602,file_class,36002,Sexual Penetration - Non-forcible - Other,A,36B,Statutory Rape,11,micr_manual_1110_2024,true,false,
-3603,file_class,36003,Peeping Tom,B,90H,Peeping Tom,27,micr_manual_1110_2024,true,false,NIBRS 90H (Peeping Tom) ist zurueckgezogen; die Fassung 2025 fuehrt den Code nicht mehr
-3604,file_class,36004,Sex Offense - Other,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
-3692,arrest_charge,36002,SEX OFFENSE - OTHER,A,36B,Statutory Rape,11,micr_arrest_charge_1110_2024,true,true,Arrest Charge 'Sexual Penetration (other)' unter File Class 36002 (Sexual Penetration - Non-forcible - Other); NIBRS von dort uebernommen
-3700,file_class,37000,Obscenity,A,370,Pornography/Obscene Material,25,micr_manual_1110_2024,true,false,
-3801,file_class,38001,Family - Abuse/Neglect Nonviolent,B,90F,"Family, Non-Violent",21,micr_manual_1110_2024,true,true,
-3802,file_class,38002,Family - Nonsupport,B,90F,"Family, Non-Violent",21,micr_manual_1110_2024,true,false,
-3803,file_class,38003,Family - Other,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
-3901,file_class,39001,Gambling - Betting/Wagering,A,39A,Betting/Wagering,20,micr_manual_1110_2024,true,true,2009 fuehrte 39B; Fassung 2024 gilt
-3902,file_class,39002,Gambling - Operating/Promoting/Assisting,A,39B,Betting/Wagering,20,micr_manual_1110_2024,true,false,2009 fuehrte 39A; Fassung 2024 gilt
-3903,file_class,39003,Gambling - Equipment Violations,A,39C,Gambling Equipment Violations,20,micr_manual_1110_2024,true,false,
-3904,file_class,39004,Gambling - Sports Tampering,A,39D,Sports Tampering,20,micr_manual_1110_2024,true,false,
-3905,file_class,39005,"Gambling, Other",B,90Z,All Other,27,micr_manual_1110_2024,true,false,
-4001,file_class,40001,Commercialized Sex - Prostitution,A,40A,Prostitution,18,micr_manual_1110_2024,true,true,
-4002,file_class,40002,Commercialized Sex - Assisting/Promoting,A,40B,Assisting/Promoting Prostitution,18,micr_manual_1110_2024,true,true,
-4003,file_class,40003,Purchasing Prostitution,A,40C,Purchasing Prostitution,18,micr_manual_1110_2024,true,true,
-4101,file_class,41001,Liquor License - Establishment,B,90G,Liquor Law Violations,23,micr_manual_1110_2024,true,false,
-4102,file_class,41002,Liquor Violations - Other,B,90G,Liquor Law Violations,23,micr_manual_1110_2024,true,true,
-4200,file_class,42000,Drunkenness,B,90E,Drunkenness,24,micr_manual_1110_2024,true,false,NIBRS 90E (Drunkenness) ist zurueckgezogen; die Fassung 2025 fuehrt den Code nicht mehr
-4800,file_class,48000,Obstructing Police,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
-4801,arrest_charge,48000,OBSTRUCTING POLICE,B,90Z,All Other,27,micr_arrest_charge_1110_2024,true,true,Arrest Charge 'Resisting Officer' unter File Class 48000 (Obstructing Police); NIBRS von dort uebernommen
-4900,file_class,49000,Escape/Flight,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
-5000,file_class,50000,Obstructing Justice,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
-5001,arrest_charge,50000,OBSTRUCTING JUSTICE,B,90Z,All Other,27,micr_arrest_charge_1110_2024,true,true,"Arrest Charge 'Bail, Secured Bond' unter File Class 50000 (Obstructing Justice); NIBRS von dort uebernommen"
-5100,file_class,51000,Bribery,A,510,Bribery,27,micr_manual_1110_2024,true,false,
-5201,file_class,52001,Weapons Offense - Concealed,A,520,Weapon Law Violations,17,micr_manual_1110_2024,true,true,
-5202,file_class,52002,Weapons Offense - Explosives,A,520,Weapon Law Violations,17,micr_manual_1110_2024,true,true,
-5203,file_class,52003,Weapons Offense - Other,A,520,Weapon Law Violations,17,micr_manual_1110_2024,true,true,
-5301,file_class,53001,Disorderly Conduct,B,90C,Disorderly Conduct,25,micr_manual_1110_2024,true,true,
-5302,file_class,53002,Public Peace - Other,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
-5401,file_class,54001,Hit and Run Motor Vehicle Accident,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
-5402,file_class,54002,OUIL or OUID,B,90D,Driving Under the Influence,22,micr_manual_1110_2024,true,false,
-5421,arrest_charge,54001,"ACCIDENT, HIT & RUN",B,90Z,All Other,27,detroit_charge_file_class,true,true,"Das Handbuch fuehrt 5421 als Operating ORV Under the Influence unter File Class 54002. Detroit liefert zu allen 100 Zeilen arrest_charge 54001 und charge_description 'ACCIDENT, HIT & RUN' - den Namen, den 54001 im Handbuch traegt"
-5422,arrest_charge,54001,"ACCIDENT, HIT & RUN",B,90Z,All Other,27,detroit_charge_file_class,true,true,"Das Handbuch fuehrt 5422 als Permitted Person Under the Influence to Operate unter File Class 54002. Detroit liefert zu allen 100 Zeilen arrest_charge 54001 und charge_description 'ACCIDENT, HIT & RUN' - den Namen, den 54001 im Handbuch traegt; gleiche Lage wie bei 5421"
-5500,file_class,55000,Health and Safety,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
-5501,arrest_charge,55000,HEALTH AND SAFETY,B,90Z,All Other,27,micr_arrest_charge_1110_2024,true,true,"Arrest Charge 'Drugs, Adulterated' unter File Class 55000 (Health and Safety); NIBRS von dort uebernommen"
-5600,file_class,56000,Civil Rights,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
-5701,file_class,57001,Trespass,B,90J,Trespass of Real Property,27,micr_manual_1110_2024,true,true,
-5702,file_class,57002,Invasion of Privacy - Other,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
-5800,file_class,58000,Smuggling,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
-5900,file_class,59000,Election Laws,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
-6000,file_class,60000,Antitrust,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
-6100,file_class,61000,Tax/Revenue,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
-6200,file_class,62000,Conservation,B,90Z,All Other,27,micr_manual_1110_2024,true,false,
-6300,file_class,63000,Vagrancy,B,90B,Curfew/Loitering/Vagrancy,26,micr_manual_1110_2024,true,false,
-6401,file_class,64001,"Human Trafficking, Commercial Sex Acts",A,64A,"Human Trafficking, Commercial Sex Acts",9,micr_manual_1110_2024,true,false,
-6402,file_class,64002,"Human Trafficking, Involuntary Servitude",A,64B,"Human Trafficking, Involuntary Servitude",10,micr_manual_1110_2024,true,false,
-7000,file_class,70000,Juvenile Runaway,B,90I,Runaway,,appendix_f_2009,true,true,nur in Appendix F 2009; im Manual 1110 nicht mehr gefuehrt; NIBRS 90I (Runaway) ist zurueckgezogen; die Fassung 2025 fuehrt den Code nicht mehr
-7070,arrest_charge,70000,RUNAWAY,B,90I,Runaway,,micr_arrest_charge_1110_2024,true,true,Arrest Charge 'Runaway' unter File Class 70000 (Juvenile Runaway); NIBRS von dort uebernommen; NIBRS 90I ist beim FBI zurueckgezogen
-7200,file_class,72000,Animal Cruelty,A,720,Animal Cruelty,18,micr_manual_1110_2024,true,false,
-7300,file_class,73000,Miscellaneous Criminal Offense,B,90Z,All Other,27,micr_manual_1110_2024,true,true,
-7399,arrest_charge,73000,MISCELLANEOUS CRIMINAL OFFENSE,B,90Z,All Other,27,micr_arrest_charge_1110_2024,true,true,Arrest Charge 'Miscellaneous Arrest' unter File Class 73000 (Miscellaneous Criminal Offense); NIBRS von dort uebernommen
-7500,file_class,75000,Solicitation (all crimes except prostitution),B,90Z,All Other,27,micr_manual_1110_2024,true,true,
-7571,arrest_charge,75000,SOLICITATION (ALL CRIMES EXCEPT PROSTITUTION),B,90Z,All Other,27,micr_arrest_charge_1110_2024,true,true,Arrest Charge 'Solicitation' unter File Class 75000 (Solicitation (all crimes except prostitution)); NIBRS von dort uebernommen
-7700,file_class,77000,Conspiracy (all crimes),B,90Z,All Other,27,micr_manual_1110_2024,true,false,
+micr_code,micr_code_type,micr_file_class,micr_description,nibrs_group,nibrs_code,nibrs_description,hierarchy,match,mapped,note
+0100,file_class,01000,Sovereignty,B,90Z,All Other,27,micr_manual_1110_2024,true,
+0200,file_class,02000,Military,B,90Z,All Other,27,micr_manual_1110_2024,true,
+0300,file_class,03000,Immigration,B,90Z,All Other,27,micr_manual_1110_2024,true,
+0901,file_class,09001,Murder/Non-Negligent Manslaughter,A,09A,Murder and Non-Negligent Manslaughter,1,micr_manual_1110_2024,true,
+0902,file_class,09002,Negligent Homicide/Manslaughter,A,09B,Negligent Manslaughter,1,micr_manual_1110_2024,true,
+0903,file_class,09003,Negligent Homicide Vehicle/Boat/ Snowmobile/ORV,B,90Z,All Other,27,micr_manual_1110_2024,true,
+0904,file_class,09004,Justifiable Homicide,A,09C,Justifiable Homicide,27,micr_manual_1110_2024,true,
+1001,file_class,10001,Kidnapping/Abduction,A,100,Kidnapping/Abduction,12,micr_manual_1110_2024,true,
+1002,file_class,10002,Parental Kidnapping,A,100,Kidnapping/Abduction,12,micr_manual_1110_2024,true,
+1101,file_class,11001,Sexual Penetration Penis/Vagina CSC1,A,11A,Rape,2,micr_manual_1110_2024,true,
+1102,file_class,11002,Sexual Penetration Penis/Vagina CSC3,A,11A,Rape,2,micr_manual_1110_2024,true,
+1103,file_class,11003,Sexual Penetration Oral/Anal CSC1,A,11B,Sodomy,2,micr_manual_1110_2024,true,
+1104,file_class,11004,Sexual Penetration Oral/Anal CSC3,A,11B,Sodomy,2,micr_manual_1110_2024,true,
+1105,file_class,11005,Sexual Penetration Object CSC1,A,11C,Sexual Assault with an Object,2,micr_manual_1110_2024,true,
+1106,file_class,11006,Sexual Penetration Object CSC3,A,11C,Sexual Assault with an Object,2,micr_manual_1110_2024,true,
+1107,file_class,11007,Sexual Contact Forcible CSC2,A,11D,Fondling,4,micr_manual_1110_2024,true,
+1108,file_class,11008,Sexual Contact Forcible CSC4,A,11D,Fondling,4,micr_manual_1110_2024,true,
+1171,arrest_charge,11001,CSC 1ST DEGREE - PENIS / VAGINA,A,11A,Rape,2,micr_arrest_charge_1110_2024,true,"Arrest Charge 'Penis/Vagina, CSC 1st Degree' unter File Class 11001 (Sexual Penetration Penis/Vagina CSC1); NIBRS von dort uebernommen"
+1172,arrest_charge,11002,CSC 3RD DEGREE - PENIS / VAGINA,A,11A,Rape,2,micr_arrest_charge_1110_2024,true,"Arrest Charge 'Penis/Vagina, CSC 3rd Degree' unter File Class 11002 (Sexual Penetration Penis/Vagina CSC3); NIBRS von dort uebernommen"
+1173,arrest_charge,11003,CSC 1ST DEGREE - ORAL / ANAL,A,11B,Sodomy,2,micr_arrest_charge_1110_2024,true,"Arrest Charge 'Oral/Anal, CSC 1st Degree' unter File Class 11003 (Sexual Penetration Oral/Anal CSC1); NIBRS von dort uebernommen"
+1174,arrest_charge,11004,CSC 3RD DEGREE - ORAL / ANAL,A,11B,Sodomy,2,micr_arrest_charge_1110_2024,true,"Arrest Charge 'Oral/Anal, CSC 3rd Degree' unter File Class 11004 (Sexual Penetration Oral/Anal CSC3); NIBRS von dort uebernommen"
+1175,arrest_charge,11005,CSC 1ST DEGREE - OBJECT,A,11C,Sexual Assault with an Object,2,micr_arrest_charge_1110_2024,true,"Arrest Charge 'Object, CSC 1st Degree' unter File Class 11005 (Sexual Penetration Object CSC1); NIBRS von dort uebernommen"
+1176,arrest_charge,11006,CSC 3RD DEGREE - OBJECT,A,11C,Sexual Assault with an Object,2,micr_arrest_charge_1110_2024,true,"Arrest Charge 'Object, CSC 3rd Degree' unter File Class 11006 (Sexual Penetration Object CSC3); NIBRS von dort uebernommen"
+1177,arrest_charge,11007,CSC 2ND DEGREE - FORCIBLE CONTACT,A,11D,Fondling,4,micr_arrest_charge_1110_2024,true,"Arrest Charge 'Forcible Contact, CSC 2nd Degree' unter File Class 11007 (Sexual Contact Forcible CSC2); NIBRS von dort uebernommen"
+1178,arrest_charge,11008,CSC 4TH DEGREE - FORCIBLE CONTACT,A,11D,Fondling,4,micr_arrest_charge_1110_2024,true,"Arrest Charge 'Forcible Contact, CSC 4th Degree' unter File Class 11008 (Sexual Contact Forcible CSC4); NIBRS von dort uebernommen"
+1200,file_class,12000,Robbery,A,120,Robbery,3,micr_manual_1110_2024,true,
+1201,file_class,12001,Carjacking,A,120,Robbery,3,micr_manual_1110_2024,true,
+1301,file_class,13001,Non-Aggravated Assault,A,13B,Simple Assault,11,micr_manual_1110_2024,true,
+1302,file_class,13002,Aggravated/Felonious Assault,A,13A,Aggravated Assault,4,micr_manual_1110_2024,true,
+1303,file_class,13003,Intimidation/Stalking,A,13C,Intimidation,11,micr_manual_1110_2024,true,
+1304,file_class,13004,Non-Fatal Shooting,A,13A,Aggravated Assault,4,micr_manual_1110_2024,true,
+1400,file_class,14000,Abortion,B,90Z,All Other,27,micr_manual_1110_2024,true,
+2000,file_class,20000,Arson,A,200,Arson,8,micr_manual_1110_2024,true,
+2099,arrest_charge,20000,ARSON,A,200,Arson,8,micr_arrest_charge_1110_2024,true,Arrest Charge 'Arson (other)' unter File Class 20000 (Arson); NIBRS von dort uebernommen
+2100,file_class,21000,Extortion,A,210,Extortion/Blackmail,27,micr_manual_1110_2024,true,
+2101,arrest_charge,21000,EXTORTION,A,210,Extortion/Blackmail,27,micr_arrest_charge_1110_2024,true,Arrest Charge 'Threat to Injure Person' unter File Class 21000 (Extortion); NIBRS von dort uebernommen
+2201,file_class,22001,Burglary - Forced Entry,A,220,Burglary/Breaking & Entering,5,micr_manual_1110_2024,true,
+2202,file_class,22002,Burglary - Entry W/Out Force (Intent),A,220,Burglary/Breaking & Entering,5,micr_manual_1110_2024,true,
+2203,file_class,22003,Burglary - Unlawful Entry (No Intent),B,90J,Trespass of Real Property,27,micr_manual_1110_2024,true,2009 fuehrte 90Z; Fassung 2024 gilt
+2204,file_class,22004,Possession of Burglary Tools,B,90Z,All Other,27,micr_manual_1110_2024,true,
+2301,file_class,23001,Larceny - Pocket Picking,A,23A,Pocket-Picking,6,micr_manual_1110_2024,true,
+2302,file_class,23002,Larceny - Purse Snatching,A,23B,Purse Snatching,6,micr_manual_1110_2024,true,
+2303,file_class,23003,Larceny - Theft from Building,A,23D,Theft from Building,6,micr_manual_1110_2024,true,
+2304,file_class,23004,Larceny - Theft from Coin Operated,A,23E,Theft from Coin Operated Machine/Device,6,micr_manual_1110_2024,true,
+2305,file_class,23005,Larceny - Theft from Motor Vehicle,A,23F,Theft from Motor Vehicle,6,micr_manual_1110_2024,true,
+2306,file_class,23006,Larceny - Theft of Motor Vehicle Parts/,A,23G,Accessories,6,micr_manual_1110_2024,true,
+2307,file_class,23007,Larceny - Other,A,23H,All Other Larceny,6,micr_manual_1110_2024,true,
+2401,file_class,24001,Motor Vehicle Theft,A,240,Motor Vehicle Theft,7,micr_manual_1110_2024,true,
+2402,file_class,24002,Motor Vehicle as Stolen Property,A,280,Stolen Property,15,micr_manual_1110_2024,true,
+2403,file_class,24003,Motor Vehicle Fraud,A,26A,Confidence Game  Credit Card/Automated Teller Machine,13,micr_manual_1110_2024,true,
+2500,file_class,25000,Forgery/Counterfeiting,A,250,Counterfeiting/Forgery,12,micr_manual_1110_2024,true,
+2501,arrest_charge,25000,Forgery of Checks,A,250,Counterfeiting/Forgery,12,micr_arrest_charge_1110_2024,true,"Arrest Charge 'Forgery of Checks' unter File Class 25000 (Forgery/Counterfeiting); NIBRS von dort uebernommen; In den Detroit-Daten stand 'LARCENY - OTHER'. Das ist weder der Name der Anklage noch der ihrer File Class: Das Handbuch fuehrt 2501 als 'Forgery of Checks' unter File Class 25000 Forgery/Counterfeiting, und Detroit selbst liefert zu allen 78 Zeilen arrest_charge 25000 und charge_description 'FORGERY / COUNTERFEITING'. Die Bezeichnung kam aus einer einzelnen abweichenden Zeile"
+2601,file_class,26001,Fraud - False Pretense/Swindle/Confidence Game,A,26A,Confidence Game  Credit Card/Automated Teller Machine,13,micr_manual_1110_2024,true,
+2602,file_class,26002,Fraud - Credit Card/ATM,A,26B,Credit Card/ATM,13,micr_manual_1110_2024,true,
+2603,file_class,26003,Fraud - Impersonation,A,26C,Impersonation,13,micr_manual_1110_2024,true,
+2604,file_class,26004,Fraud - Welfare,A,26D,Welfare Fraud,13,micr_manual_1110_2024,true,
+2605,file_class,26005,Fraud - Wire,A,26E,Wire Fraud,13,micr_manual_1110_2024,true,
+2606,file_class,26006,Fraud - Bad Checks,B,90A,Bad Checks,,appendix_f_2009,true,nur in Appendix F 2009; im Manual 1110 nicht mehr gefuehrt; NIBRS 90A (Bad Checks) ist zurueckgezogen; die Fassung 2025 fuehrt den Code nicht mehr
+2607,file_class,26007,"Fraud, Identity Theft",A,26F,Identity Theft,13,micr_manual_1110_2024,true,
+2608,file_class,26008,"Fraud, Computer Hacking/Invasion",A,26G,Hacking/Computer Invasion,13,micr_manual_1110_2024,true,
+2700,file_class,27000,Embezzlement,A,270,Embezzlement,14,micr_manual_1110_2024,true,
+2800,file_class,28000,Stolen Property,A,280,Stolen Property,15,micr_manual_1110_2024,true,
+2801,arrest_charge,28000,STOLEN PROPERTY,A,280,Stolen Property,15,micr_arrest_charge_1110_2024,true,Arrest Charge 'Sale of Stolen Property' unter File Class 28000 (Stolen Property); NIBRS von dort uebernommen
+2900,file_class,29000,Damage to Property,A,290,Destruction/Damage/ Vandalism of,16,micr_manual_1110_2024,true,
+3001,file_class,30001,Retail Fraud - Misrepresentation,A,26A,Confidence Game  Credit Card/Automated Teller Machine,13,micr_manual_1110_2024,true,
+3002,file_class,30002,Retail Fraud - Theft,A,23C,Shoplifting,6,micr_manual_1110_2024,true,
+3003,file_class,30003,Retail Fraud - Refund/Exchange,A,26A,Confidence Game  Credit Card/Automated Teller Machine,13,micr_manual_1110_2024,true,
+3004,file_class,30004,Organized Retail Fraud,A,23C,Shoplifting,6,micr_manual_1110_2024,true,
+3071,arrest_charge,30001,RETAIL FRAUD - MISREPRESENTATION,A,26A,Confidence Game  Credit Card/Automated Teller Machine,13,micr_arrest_charge_1110_2024,true,Arrest Charge 'Retail Fraud Misrepresentation 1st Degree' unter File Class 30001 (Retail Fraud - Misrepresentation); NIBRS von dort uebernommen
+3072,arrest_charge,30002,RETAIL FRAUD - THEFT,A,23C,Shoplifting,6,detroit_charge_file_class,true,"Das Handbuch fuehrt 3072 als Retail Fraud Misrepresentation 2nd Degree unter File Class 30001; das waere 26A False Pretenses. Detroit liefert zu allen 1447 Zeilen arrest_charge 30002 und charge_description 'RETAIL FRAUD - THEFT' - den Namen, den 30002 im Handbuch traegt. Detroit benutzt daneben 3002, dieselbe File Class"
+3501,file_class,35001,Violation of Controlled Substance,A,35A,Drug/Narcotic Violations,19,micr_manual_1110_2024,true,
+3502,file_class,35002,Narcotic Equipment Violations,A,35B,Drug Equipment Violations,19,micr_manual_1110_2024,true,
+3601,file_class,36001,Sexual Penetration - Non-forcible - Blood Affinity,A,36A,Incest,11,micr_manual_1110_2024,true,
+3602,file_class,36002,Sexual Penetration - Non-forcible - Other,A,36B,Statutory Rape,11,micr_manual_1110_2024,true,
+3603,file_class,36003,Peeping Tom,B,90H,Peeping Tom,27,micr_manual_1110_2024,true,NIBRS 90H (Peeping Tom) ist zurueckgezogen; die Fassung 2025 fuehrt den Code nicht mehr
+3604,file_class,36004,Sex Offense - Other,B,90Z,All Other,27,micr_manual_1110_2024,true,
+3692,arrest_charge,36002,SEX OFFENSE - OTHER,A,36B,Statutory Rape,11,micr_arrest_charge_1110_2024,true,Arrest Charge 'Sexual Penetration (other)' unter File Class 36002 (Sexual Penetration - Non-forcible - Other); NIBRS von dort uebernommen
+3700,file_class,37000,Obscenity,A,370,Pornography/Obscene Material,25,micr_manual_1110_2024,true,
+3801,file_class,38001,Family - Abuse/Neglect Nonviolent,B,90F,"Family, Non-Violent",21,micr_manual_1110_2024,true,
+3802,file_class,38002,Family - Nonsupport,B,90F,"Family, Non-Violent",21,micr_manual_1110_2024,true,
+3803,file_class,38003,Family - Other,B,90Z,All Other,27,micr_manual_1110_2024,true,
+3901,file_class,39001,Gambling - Betting/Wagering,A,39A,Betting/Wagering,20,micr_manual_1110_2024,true,2009 fuehrte 39B; Fassung 2024 gilt
+3902,file_class,39002,Gambling - Operating/Promoting/Assisting,A,39B,Betting/Wagering,20,micr_manual_1110_2024,true,2009 fuehrte 39A; Fassung 2024 gilt
+3903,file_class,39003,Gambling - Equipment Violations,A,39C,Gambling Equipment Violations,20,micr_manual_1110_2024,true,
+3904,file_class,39004,Gambling - Sports Tampering,A,39D,Sports Tampering,20,micr_manual_1110_2024,true,
+3905,file_class,39005,"Gambling, Other",B,90Z,All Other,27,micr_manual_1110_2024,true,
+4001,file_class,40001,Commercialized Sex - Prostitution,A,40A,Prostitution,18,micr_manual_1110_2024,true,
+4002,file_class,40002,Commercialized Sex - Assisting/Promoting,A,40B,Assisting/Promoting Prostitution,18,micr_manual_1110_2024,true,
+4003,file_class,40003,Purchasing Prostitution,A,40C,Purchasing Prostitution,18,micr_manual_1110_2024,true,
+4101,file_class,41001,Liquor License - Establishment,B,90G,Liquor Law Violations,23,micr_manual_1110_2024,true,
+4102,file_class,41002,Liquor Violations - Other,B,90G,Liquor Law Violations,23,micr_manual_1110_2024,true,
+4200,file_class,42000,Drunkenness,B,90E,Drunkenness,24,micr_manual_1110_2024,true,NIBRS 90E (Drunkenness) ist zurueckgezogen; die Fassung 2025 fuehrt den Code nicht mehr
+4800,file_class,48000,Obstructing Police,B,90Z,All Other,27,micr_manual_1110_2024,true,
+4801,arrest_charge,48000,OBSTRUCTING POLICE,B,90Z,All Other,27,micr_arrest_charge_1110_2024,true,Arrest Charge 'Resisting Officer' unter File Class 48000 (Obstructing Police); NIBRS von dort uebernommen
+4900,file_class,49000,Escape/Flight,B,90Z,All Other,27,micr_manual_1110_2024,true,
+5000,file_class,50000,Obstructing Justice,B,90Z,All Other,27,micr_manual_1110_2024,true,
+5001,arrest_charge,50000,OBSTRUCTING JUSTICE,B,90Z,All Other,27,micr_arrest_charge_1110_2024,true,"Arrest Charge 'Bail, Secured Bond' unter File Class 50000 (Obstructing Justice); NIBRS von dort uebernommen"
+5100,file_class,51000,Bribery,A,510,Bribery,27,micr_manual_1110_2024,true,
+5201,file_class,52001,Weapons Offense - Concealed,A,520,Weapon Law Violations,17,micr_manual_1110_2024,true,
+5202,file_class,52002,Weapons Offense - Explosives,A,520,Weapon Law Violations,17,micr_manual_1110_2024,true,
+5203,file_class,52003,Weapons Offense - Other,A,520,Weapon Law Violations,17,micr_manual_1110_2024,true,
+5301,file_class,53001,Disorderly Conduct,B,90C,Disorderly Conduct,25,micr_manual_1110_2024,true,
+5302,file_class,53002,Public Peace - Other,B,90Z,All Other,27,micr_manual_1110_2024,true,
+5401,file_class,54001,Hit and Run Motor Vehicle Accident,B,90Z,All Other,27,micr_manual_1110_2024,true,
+5402,file_class,54002,OUIL or OUID,B,90D,Driving Under the Influence,22,micr_manual_1110_2024,true,
+5421,arrest_charge,54001,"ACCIDENT, HIT & RUN",B,90Z,All Other,27,detroit_charge_file_class,true,"Das Handbuch fuehrt 5421 als Operating ORV Under the Influence unter File Class 54002. Detroit liefert zu allen 100 Zeilen arrest_charge 54001 und charge_description 'ACCIDENT, HIT & RUN' - den Namen, den 54001 im Handbuch traegt"
+5422,arrest_charge,54001,"ACCIDENT, HIT & RUN",B,90Z,All Other,27,detroit_charge_file_class,true,"Das Handbuch fuehrt 5422 als Permitted Person Under the Influence to Operate unter File Class 54002. Detroit liefert zu allen 100 Zeilen arrest_charge 54001 und charge_description 'ACCIDENT, HIT & RUN' - den Namen, den 54001 im Handbuch traegt; gleiche Lage wie bei 5421"
+5500,file_class,55000,Health and Safety,B,90Z,All Other,27,micr_manual_1110_2024,true,
+5501,arrest_charge,55000,HEALTH AND SAFETY,B,90Z,All Other,27,micr_arrest_charge_1110_2024,true,"Arrest Charge 'Drugs, Adulterated' unter File Class 55000 (Health and Safety); NIBRS von dort uebernommen"
+5600,file_class,56000,Civil Rights,B,90Z,All Other,27,micr_manual_1110_2024,true,
+5701,file_class,57001,Trespass,B,90J,Trespass of Real Property,27,micr_manual_1110_2024,true,
+5702,file_class,57002,Invasion of Privacy - Other,B,90Z,All Other,27,micr_manual_1110_2024,true,
+5800,file_class,58000,Smuggling,B,90Z,All Other,27,micr_manual_1110_2024,true,
+5900,file_class,59000,Election Laws,B,90Z,All Other,27,micr_manual_1110_2024,true,
+6000,file_class,60000,Antitrust,B,90Z,All Other,27,micr_manual_1110_2024,true,
+6100,file_class,61000,Tax/Revenue,B,90Z,All Other,27,micr_manual_1110_2024,true,
+6200,file_class,62000,Conservation,B,90Z,All Other,27,micr_manual_1110_2024,true,
+6300,file_class,63000,Vagrancy,B,90B,Curfew/Loitering/Vagrancy,26,micr_manual_1110_2024,true,
+6401,file_class,64001,"Human Trafficking, Commercial Sex Acts",A,64A,"Human Trafficking, Commercial Sex Acts",9,micr_manual_1110_2024,true,
+6402,file_class,64002,"Human Trafficking, Involuntary Servitude",A,64B,"Human Trafficking, Involuntary Servitude",10,micr_manual_1110_2024,true,
+7000,file_class,70000,Juvenile Runaway,B,90I,Runaway,,appendix_f_2009,true,nur in Appendix F 2009; im Manual 1110 nicht mehr gefuehrt; NIBRS 90I (Runaway) ist zurueckgezogen; die Fassung 2025 fuehrt den Code nicht mehr
+7070,arrest_charge,70000,RUNAWAY,B,90I,Runaway,,micr_arrest_charge_1110_2024,true,Arrest Charge 'Runaway' unter File Class 70000 (Juvenile Runaway); NIBRS von dort uebernommen; NIBRS 90I ist beim FBI zurueckgezogen
+7200,file_class,72000,Animal Cruelty,A,720,Animal Cruelty,18,micr_manual_1110_2024,true,
+7300,file_class,73000,Miscellaneous Criminal Offense,B,90Z,All Other,27,micr_manual_1110_2024,true,
+7399,arrest_charge,73000,MISCELLANEOUS CRIMINAL OFFENSE,B,90Z,All Other,27,micr_arrest_charge_1110_2024,true,Arrest Charge 'Miscellaneous Arrest' unter File Class 73000 (Miscellaneous Criminal Offense); NIBRS von dort uebernommen
+7500,file_class,75000,Solicitation (all crimes except prostitution),B,90Z,All Other,27,micr_manual_1110_2024,true,
+7571,arrest_charge,75000,SOLICITATION (ALL CRIMES EXCEPT PROSTITUTION),B,90Z,All Other,27,micr_arrest_charge_1110_2024,true,Arrest Charge 'Solicitation' unter File Class 75000 (Solicitation (all crimes except prostitution)); NIBRS von dort uebernommen
+7700,file_class,77000,Conspiracy (all crimes),B,90Z,All Other,27,micr_manual_1110_2024,true,
