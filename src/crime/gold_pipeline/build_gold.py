@@ -81,7 +81,7 @@ from silver_pipeline import (
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
-CONTRACT_VERSION = 6
+CONTRACT_VERSION = 7
 
 DEFAULT_VINTAGE = 2024
 NIBRS_CODES = "nibrs_offense_codes_2025.csv"
@@ -489,8 +489,17 @@ def dim_date_query(offense: Quelle) -> str:
         monthname(tag)                                  AS month_name,
         CAST(date_trunc('month', tag) AS DATE)          AS month_start,
         dayofweek(tag) IN (0, 6)                        AS is_weekend,
-        CAST(dayofyear(tag) AS SMALLINT)                AS day_of_year
-    FROM spanne, unnest(generate_series(von, bis, INTERVAL 1 DAY)) AS t(tag)
+        CAST(dayofyear(tag) AS SMALLINT)                AS day_of_year,
+        -- FR-37: Ob der Jahrgang dieses Tages **ganz** in den Daten liegt.
+        -- Ein Teiljahr darf nicht in einen Jahresvergleich geraten: 2026 hat
+        -- am 3.10. neun Monate, und neun Monate gegen zwoelf gestellt ergeben
+        -- einen Rueckgang, den es nicht gibt. Die Spanne steht schon in
+        -- ``spanne`` - gefragt ist nur, ob sie den 1.1. und den 31.12. dieses
+        -- Jahres einschliesst. Eine Luecke **innerhalb** des Jahres faellt
+        -- damit nicht auf; die misst der Nachweis je Jahrgang (FR-39).
+        (s.von <= make_date(year(tag), 1, 1)
+         AND s.bis >= make_date(year(tag), 12, 31))    AS year_is_complete
+    FROM spanne s, unnest(generate_series(s.von, s.bis, INTERVAL 1 DAY)) AS t(tag)
     ORDER BY date
     """
 
@@ -668,6 +677,42 @@ def abdeckung(con: duckdb.DuckDBPyConnection) -> dict[str, float]:
             anteile[wert] = round(100.0 * n / gesamt, 4) if gesamt else 0.0
 
     return anteile
+
+
+def jahresabdeckung(con: duckdb.DuckDBPyConnection) -> dict[str, dict[str, Any]]:
+    """Was je Jahrgang abgedeckt ist - und was fehlt (FR-39).
+
+    ``year_is_complete`` in ``dim_date`` sagt nur, ob die Spanne den 1.1. und
+    den 31.12. einschliesst. Eine Luecke **innerhalb** des Jahres sieht man
+    daran nicht: Ein Jahrgang, dem der halbe Juli fehlt, bleibt dort "ganz".
+    Deshalb stehen hier beide Zahlen - ``days_with_offenses`` gegen
+    ``days_in_year``. Wer eine Zeitreihe baut, braucht die zweite.
+
+    ``days_with_offenses`` zaehlt Tage mit mindestens einer Tat. Bei zwei
+    Grossstaedten ist jeder Tag besetzt; faellt die Zahl unter die Tage des
+    Jahres, fehlt wirklich etwas.
+    """
+    return {
+        str(z[0]): {
+            "offenses": z[1],
+            "first_date": z[2].isoformat() if z[2] else None,
+            "last_date": z[3].isoformat() if z[3] else None,
+            "days_with_offenses": z[4],
+            "days_in_year": z[5],
+            "complete": bool(z[6]),
+        }
+        for z in con.execute("""
+            SELECT d.year,
+                   count(f.offense_id),
+                   min(f.date),
+                   max(f.date),
+                   count(DISTINCT f.date),
+                   CAST(dayofyear(make_date(d.year, 12, 31)) AS INTEGER),
+                   any_value(d.year_is_complete)
+            FROM dim_date d LEFT JOIN fact_offense f ON f.date = d.date
+            GROUP BY d.year ORDER BY d.year
+        """).fetchall()
+    }
 
 
 def abdeckung_je_stadt(con: duckdb.DuckDBPyConnection) -> dict[str, dict[str, float]]:
@@ -883,6 +928,9 @@ def reconcile(
         "grain": "eine Tat; Detroits weitere Anklagen bleiben in Silver",
         "coverage_percent": anteile,
         "coverage_percent_by_city": abdeckung_je_stadt(con),
+        # FR-39: je Jahrgang, was abgedeckt ist. Beim Einjahresbau ist es ein
+        # Eintrag - die Aussage ist dieselbe, nur kuerzer.
+        "year_coverage": jahresabdeckung(con),
         "coverage_gate": {
             "minimum": GATE_MINDESTENS,
             "maximum": GATE_HOECHSTENS,

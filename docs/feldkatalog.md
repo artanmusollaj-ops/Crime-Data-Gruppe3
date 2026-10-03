@@ -7,7 +7,7 @@ gebauten Tabellen, die Bedeutung aus [`tools/build_feldkatalog.py`](../tools/bui
 python tools/build_feldkatalog.py
 ```
 
-**191 Spalten in 15 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
+**192 Spalten in 15 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
 soll einen Satz darüber schreiben müssen. `tests/test_feldkatalog.py` prüft, dass der Katalog vollständig und reproduzierbar ist.
 
 Die Rohschichten stehen hier nicht: **Bronze deutet nicht**, seine Spalten sind die der Quelle. Was sie bedeuten, sagen die
@@ -169,6 +169,7 @@ Eine Zeile ist: **ein Kalendertag**. 366 Zeilen.
 | `month_start` | `DATE` | Erster Tag des Monats - zum Gruppieren, ohne in der Abfrage zu rechnen. |
 | `is_weekend` | `BOOLEAN` | Samstag oder Sonntag. |
 | `day_of_year` | `SMALLINT` | Tag im Jahr, 1 bis 366. |
+| `year_is_complete` | `BOOLEAN` | Ob der Jahrgang dieses Tages **ganz** in den Daten liegt — also ob die Spanne den 1. Januar und den 31. Dezember einschliesst. **Ein Jahresvergleich filtert darauf**: 2026 hat am 3.10. neun Monate, und neun Monate gegen zwölf gestellt ergeben einen Rückgang, den es nicht gibt. Eine Lücke *innerhalb* des Jahres fällt hier nicht auf; die misst `year_coverage` im Manifest von `fact_offense`, mit `days_with_offenses` gegen `days_in_year`. |
 
 ### `dim_offense`
 

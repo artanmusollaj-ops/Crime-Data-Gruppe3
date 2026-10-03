@@ -1285,3 +1285,102 @@ def test_ein_zu_neues_vintage_wird_abgelehnt():
     with pytest.raises(argparse.ArgumentTypeError, match="juengste"):
         bg.acs_vintages("2021,2025")
     assert bg.acs_vintages("2023, 2021,2021") == (2021, 2023)
+
+
+# --------------------------------------------------------------------------
+# Das Teiljahr (FR-37) und die Abdeckung je Jahrgang (FR-39)
+# --------------------------------------------------------------------------
+
+
+def jahrestage(con, tmp_path, tage) -> None:
+    """Legt dim_tract, dim_date und fact_offense ueber genau diese Tage an.
+
+    ``dim_tract`` muss dabei sein: ``fact_offense_query`` liest daraus die
+    Stadtzuordnung fuer ``geo_status``.
+    """
+    offense = offense_quelle(tmp_path, [
+        (f"id{n}", "chicago", tag, "13A", "17031010100")
+        for n, tag in enumerate(tage)
+    ])
+    con.execute(
+        "CREATE OR REPLACE TABLE dim_tract AS "
+        + bg.dim_tract_query(
+            tract_quelle(tmp_path, [("17031010100", 1000, wkb_rechteck(1, 1, 2, 2))]),
+            place_quelle(tmp_path), VINTAGE)
+    )
+    con.execute(f"CREATE OR REPLACE TABLE dim_date AS {bg.dim_date_query(offense)}")
+    con.execute("CREATE OR REPLACE TABLE fact_offense AS "
+                + bg.fact_offense_query(offense, vintages=(VINTAGE,)))
+
+
+def test_ein_ganzer_jahrgang_gilt_als_ganz(con, tmp_path):
+    jahrestage(con, tmp_path, [date(2023, 1, 1), date(2023, 7, 1), date(2023, 12, 31)])
+    assert con.execute(
+        "SELECT DISTINCT year_is_complete FROM dim_date"
+    ).fetchall() == [(True,)]
+
+
+def test_ein_jahrgang_der_im_oktober_endet_ist_nicht_ganz(con, tmp_path):
+    """Der Fall 2026: neun Monate, und sie duerfen nicht gegen zwoelf stehen."""
+    jahrestage(con, tmp_path, [date(2026, 1, 1), date(2026, 10, 3)])
+    assert con.execute(
+        "SELECT DISTINCT year_is_complete FROM dim_date"
+    ).fetchall() == [(False,)]
+
+
+def test_ein_jahrgang_dem_der_anfang_fehlt_ist_auch_nicht_ganz(con, tmp_path):
+    """Unvollstaendig ist nicht nur "noch nicht zu Ende"."""
+    jahrestage(con, tmp_path, [date(2022, 3, 15), date(2022, 12, 31)])
+    assert con.execute(
+        "SELECT DISTINCT year_is_complete FROM dim_date"
+    ).fetchall() == [(False,)]
+
+
+def test_bei_mehreren_jahrgaengen_ist_nur_der_letzte_offen(con, tmp_path):
+    jahrestage(con, tmp_path, [date(2024, 1, 1), date(2025, 6, 1), date(2026, 10, 3)])
+    assert dict(con.execute(
+        "SELECT year, any_value(year_is_complete) FROM dim_date GROUP BY 1 ORDER BY 1"
+    ).fetchall()) == {2024: True, 2025: True, 2026: False}
+
+
+def test_die_abdeckung_nennt_tage_und_spanne_je_jahrgang(con, tmp_path):
+    jahrestage(con, tmp_path, [date(2026, 1, 1), date(2026, 1, 2), date(2026, 3, 5)])
+    abdeckung = bg.jahresabdeckung(con)
+    assert set(abdeckung) == {"2026"}
+    z = abdeckung["2026"]
+    assert z["offenses"] == 3
+    assert (z["first_date"], z["last_date"]) == ("2026-01-01", "2026-03-05")
+    assert z["days_with_offenses"] == 3
+    assert z["days_in_year"] == 365
+    assert z["complete"] is False
+
+
+def test_das_schaltjahr_hat_366_tage(con, tmp_path):
+    jahrestage(con, tmp_path, [date(2024, 1, 1), date(2024, 12, 31)])
+    assert bg.jahresabdeckung(con)["2024"]["days_in_year"] == 366
+
+
+def test_eine_luecke_mitten_im_jahr_sieht_man_nur_an_den_tagen(con, tmp_path):
+    """Die dokumentierte Grenze von ``year_is_complete`` - und warum es FR-39 gibt.
+
+    Die Spalte prueft nur, ob der 1.1. und der 31.12. in der Spanne liegen. Ein
+    Jahrgang, dem der halbe Juli fehlt, bleibt dort "ganz". Erst
+    ``days_with_offenses`` gegen ``days_in_year`` zeigt es.
+    """
+    jahrestage(con, tmp_path, [date(2023, 1, 1), date(2023, 12, 31)])
+    z = bg.jahresabdeckung(con)["2023"]
+    assert z["complete"] is True, "die Spanne schliesst beide Enden ein"
+    assert z["days_with_offenses"] == 2 and z["days_in_year"] == 365, (
+        "und genau daran sieht man, dass 363 Tage fehlen"
+    )
+
+
+def test_der_nachweis_traegt_die_jahresabdeckung(con, tmp_path):
+    offense = baue(con, tmp_path, [
+        ("a", "chicago", date(2024, 3, 1), "13A", "17031010100"),
+    ])
+    nachweis = bg.reconcile(con, offense, VINTAGE)
+    assert nachweis["year_coverage"]["2024"]["offenses"] == 1
+    assert nachweis["year_coverage"]["2024"]["complete"] is False, (
+        "ein einzelner Maerztag deckt 2024 nicht ab"
+    )

@@ -284,6 +284,14 @@ JE_TABELLE: dict[tuple[str, str], str] = {
         "gehört der Tract zur Stadt (Mehrheitsregel). Der Wert bleibt "
         "erhalten, damit sich auch flächengewichtet rechnen lässt.",
     ("dim_tract", "tract_name"): "Bezeichnung des Tracts.",
+    ("dim_date", "year_is_complete"):
+        "Ob der Jahrgang dieses Tages **ganz** in den Daten liegt — also ob die "
+        "Spanne den 1. Januar und den 31. Dezember einschliesst. **Ein "
+        "Jahresvergleich filtert darauf**: 2026 hat am 3.10. neun Monate, und "
+        "neun Monate gegen zwölf gestellt ergeben einen Rückgang, den es nicht "
+        "gibt. Eine Lücke *innerhalb* des Jahres fällt hier nicht auf; die "
+        "misst `year_coverage` im Manifest von `fact_offense`, mit "
+        "`days_with_offenses` gegen `days_in_year`.",
     ("dim_tract_acs", "geoid"):
         "GEOID des Tracts. Zusammen mit `vintage` der Schlüssel dieser Tabelle.",
     ("fact_offense", "population_vintage"):

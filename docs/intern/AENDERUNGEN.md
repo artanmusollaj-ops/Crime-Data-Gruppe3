@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'542** |
+| Tests | **1'550** |
 | `silver/crime_offense` | 348'329 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'091** Zeilen (eine Tat) |
 | Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -65,7 +65,7 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
 | `silver/crime_offense` | **3** | 19.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig |
 | `silver/source_change` | **3** | 03.10.2026 | Unterschied zwischen aufeinanderfolgenden **Vollabzügen** je Quelle, eine Zeile je geändertem Feld; `ESRI_OID` und reine Leerzeichen ausgenommen, Zeitstempel als `beruehrt` statt als Inhaltsänderung. Version 2 ergänzte die **Datierung aus den Deltas**: `zuerst_gesehen_in`, `zuerst_gesehen_am` und `datierung` mit `delta` / `kein_delta` / `nicht_datierbar`. Gefunden wird weiter nur zwischen Vollabzügen — aus einem Delta liesse sich *verschwunden* nicht von *ruhig* unterscheiden. Version 3: Die Datierung **klebt** — sie nennt den besten je bestimmten Befund, nicht den heutigen, sonst löschte das Aufräumen der Deltas sie wieder |
-| `gold/*` | **6** | 03.10.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften | Version 6: Die ACS-Masse liegen **je Vintage** in der neuen Tabelle `dim_tract_acs` (`population`, `median_household_income_usd`, `poverty_rate`); `dim_tract` behält die Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie kommt; `fact_offense` trägt `population_vintage` und sagt damit je Zeile, welcher Nenner für sie gilt. Eine Tabelle mit einer Zeile je Tract konnte nur eine Einwohnerzahl tragen — über mehrere Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021
+| `gold/*` | **7** | 03.10.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften | Version 6: Die ACS-Masse liegen **je Vintage** in der neuen Tabelle `dim_tract_acs` (`population`, `median_household_income_usd`, `poverty_rate`); `dim_tract` behält die Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie kommt; `fact_offense` trägt `population_vintage` und sagt damit je Zeile, welcher Nenner für sie gilt. Eine Tabelle mit einer Zeile je Tract konnte nur eine Einwohnerzahl tragen — über mehrere Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021 Version 7: `dim_date` trägt `year_is_complete` — ob der Jahrgang dieses Tages ganz in den Daten liegt. Ein Teiljahr darf nicht in einen Jahresvergleich geraten: 2026 hat am 3.10. neun Monate, und neun gegen zwölf gestellt ergeben einen Rückgang, den es nicht gibt. Dazu im Manifest von `fact_offense` der Nachweis `year_coverage` je Jahrgang, mit `days_with_offenses` gegen `days_in_year` — denn eine Lücke **innerhalb** des Jahres sieht man an der Spalte nicht
 | `serving/comparison_*` | 1 | 17.09.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` |
 
 > **Der Feldkatalog wird erzeugt, nicht gepflegt.** Am 14.9. wurde
@@ -91,6 +91,57 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 03.10.2026 · Ein Teiljahr sagt, dass es eines ist (Branch `mehrjaehrigkeit`)
+
+FR-37 und FR-39, und sie gehören zusammen: Das eine kennzeichnet, das andere
+misst.
+
+**`dim_date` trägt `year_is_complete`** — ob der Jahrgang dieses Tages ganz in
+den Daten liegt. Der Grund ist eine Zahl, die sonst entsteht: **2026 hat am
+3.10. neun Monate.** Neun Monate gegen zwölf gestellt ergeben einen Rückgang
+der Kriminalität von einem Viertel, und den gibt es nicht. Die Spalte sitzt am
+Datum und nicht in einer eigenen Tabelle, weil sie ein Jahresattribut eines
+Tages ist — jede Abfrage, die nach Jahr gruppiert, hat sie damit zur Hand.
+
+Geprüft wird, ob die Datenspanne den 1. Januar **und** den 31. Dezember des
+Jahres einschliesst. Unvollständig ist deshalb nicht nur „noch nicht zu Ende":
+Ein Jahrgang, der erst im März beginnt, ist es auch — ein eigener Test hält
+das.
+
+**Das Projekt hatte diese Disziplin schon, eine Ebene tiefer.**
+`comparison_week` und `comparison_month` führen `days_in_period` gegen
+`days_in_window`: Eine Woche, die am 30. Dezember beginnt, hat sieben Tage,
+aber nur zwei im Datenfenster, und das steht daneben. FR-37 zieht dieselbe
+Ehrlichkeit auf die Jahresebene hoch. Eine Jahresvergleichstabelle, in die ein
+Teiljahr geraten könnte, gibt es noch nicht; wenn sie kommt, filtert sie auf
+die Spalte.
+
+**Die Grenze der Spalte ist benannt, und dafür gibt es FR-39.**
+`year_is_complete` sieht nur die Enden. Einem Jahrgang könnte der halbe Juli
+fehlen, und die Spalte sagte weiter „ganz". Das Manifest von `fact_offense`
+trägt deshalb `year_coverage` je Jahrgang: Zahl der Taten, erster und letzter
+abgedeckter Tag, **`days_with_offenses` gegen `days_in_year`**. Bei zwei
+Grossstädten ist jeder Tag besetzt — fällt die erste Zahl unter die zweite,
+fehlt wirklich etwas. Ein Test führt genau diesen Fall vor: zwei Tage am 1.1.
+und 31.12., `complete` sagt wahr, und 363 fehlende Tage stehen direkt daneben.
+
+Für den heutigen Einjahresbau liest sich der Nachweis so:
+
+```json
+"2024": { "offenses": 345091, "first_date": "2024-01-01",
+          "last_date": "2024-12-31", "days_with_offenses": 366,
+          "days_in_year": 366, "complete": true }
+```
+
+**Vertrag `gold/*` 6 → 7**, weil `dim_date` eine Spalte bekommt.
+
+**Zahlen.** 1'542 → **1'550 Tests**, Standardlauf **1'469**. Acht neue Tests:
+der ganze Jahrgang, der im Oktober endende, der im März beginnende, drei
+Jahrgänge gemischt, die Abdeckung mit Spanne und Tagen, das Schaltjahr mit 366,
+die benannte Lücke mitten im Jahr, und der Nachweis im Manifest. Gold und
+Serving neu gebaut, lokales Release `2026-10-03T17-49-45Z`, Feldkatalog,
+Referenz und Einstiegsseite neu erzeugt. Die Raten bleiben bei 94,5 und 132,7.
 
 ## 03.10.2026 · Notebook 34 kennt die sechste Sterntabelle — und drei Zahlen stimmten schon vorher nicht (Branch `mehrjaehrigkeit`)
 
