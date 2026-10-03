@@ -472,14 +472,11 @@ def test_die_markierungszeile_bleibt_undatiert(tmp_path):
     assert zeilen[0]["zuerst_gesehen_in"] is None
 
 
-def test_die_datierung_wird_bei_jedem_bau_neu_gerechnet(tmp_path):
-    """Sie ist eine Annotation, keine Tatsache des Paares.
+def test_die_datierung_wird_nachgerechnet_wenn_sie_besser_wird(tmp_path):
+    """Nach oben offen: Ein Delta, das dazukommt, datiert nachtraeglich.
 
-    Das ist der Unterschied zu den uebrigen Spalten: Was einmal
-    herausgezogen wurde, bleibt stehen - aber die Datierung darf besser
-    werden, sobald ein Delta dazukommt. Ohne diese Eigenschaft waeren die
-    bereits gezogenen Paare fuer immer undatiert, und Vertrag 2 haette nur
-    fuer kuenftige Paare einen Wert.
+    Ohne diese Eigenschaft waeren die bereits gezogenen Paare fuer immer
+    undatiert, und der Vertrag haette nur fuer kuenftige Paare einen Wert.
     """
     schnappschuss(tmp_path, "f1", [zeile("1")], wann="2026-09-01T12:00:00")
     schnappschuss(tmp_path, "f2", [zeile("1", case_status="CLOSED")],
@@ -495,3 +492,61 @@ def test_die_datierung_wird_bei_jedem_bau_neu_gerechnet(tmp_path):
     for z in nur_mit_schluessel(tmp_path):
         assert z["datierung"] == "delta", "die Datierung wurde nicht nachgerechnet"
         assert z["zuerst_gesehen_in"] == "d1"
+
+
+def test_die_datierung_verblasst_nicht_wenn_die_deltas_weg_sind(tmp_path):
+    """Der Grund, warum die Datierung klebt - und warum Aufraeumen geht.
+
+    Der erste Entwurf rechnete bei jedem Bau frisch. Loeschte man die Deltas,
+    wurde aus ``delta`` wieder ``nicht_datierbar``: Die Aenderungszeile blieb,
+    ihre Datierung war weg. Das ist genau das, wogegen diese Tabelle gebaut
+    ist - den Unterschied herausziehen, **bevor** der Rohstoff entbehrlich
+    wird. Aufraeumen ist ein Ziel, nicht ein Unfall; eine Spalte, die daran
+    zerbricht, verhindert es.
+    """
+    import shutil
+
+    schnappschuss(tmp_path, "f1", [zeile("1")], wann="2026-09-01T12:00:00")
+    schnappschuss(tmp_path, "d1", [zeile("1", case_status="CLOSED")],
+                  wann="2026-09-05T12:00:00", modus="DELTA")
+    schnappschuss(tmp_path, "f2", [zeile("1", case_status="CLOSED")],
+                  wann="2026-09-30T12:00:00")
+    erst = baue_in(tmp_path)
+    vorher = [(z["datierung"], z["zuerst_gesehen_in"], z["zuerst_gesehen_am"])
+              for z in nur_mit_schluessel(tmp_path)]
+    assert vorher and all(d == "delta" for d, _, _ in vorher)
+
+    shutil.rmtree(tmp_path / "bronze" / "city=detroit" / "run_d1")
+    zweit = baue_in(tmp_path)
+
+    assert zweit["row_count"] == erst["row_count"], "der Bestand ging verloren"
+    nachher = [(z["datierung"], z["zuerst_gesehen_in"], z["zuerst_gesehen_am"])
+               for z in nur_mit_schluessel(tmp_path)]
+    assert nachher == vorher, (
+        "die Datierung ist mit dem Delta verschwunden - sie soll kleben")
+
+
+def test_eine_bessere_datierung_verdraengt_eine_schlechtere(tmp_path):
+    """Die Rangfolge, an einem Fall: nicht_datierbar -> delta, nie zurueck."""
+    schnappschuss(tmp_path, "f1", [zeile("1"), zeile("2")],
+                  wann="2026-09-01T12:00:00")
+    schnappschuss(tmp_path, "d1", [zeile("2")],
+                  wann="2026-09-05T12:00:00", modus="DELTA")
+    schnappschuss(tmp_path, "f2",
+                  [zeile("1", case_status="CLOSED"), zeile("2", case_status="CLOSED")],
+                  wann="2026-09-30T12:00:00")
+    baue_in(tmp_path)
+    erst = {z["offense_id"]: z["datierung"] for z in nur_mit_schluessel(tmp_path)}
+    assert erst["1"] == "kein_delta", "Zeile 1 stand in keinem Delta"
+    assert erst["2"] == "delta"
+
+    # Ein Delta, das nun auch Zeile 1 traegt - die schlechtere Auskunft weicht.
+    schnappschuss(tmp_path, "d2", [zeile("1"), zeile("2")],
+                  wann="2026-09-20T12:00:00", modus="DELTA")
+    baue_in(tmp_path)
+    zweit = {z["offense_id"]: z["datierung"] for z in nur_mit_schluessel(tmp_path)}
+    assert zweit["1"] == "delta", "die bessere Datierung kam nicht durch"
+    assert zweit["2"] == "delta"
+    bleibt = {z["offense_id"]: z["zuerst_gesehen_in"]
+              for z in nur_mit_schluessel(tmp_path)}
+    assert bleibt["2"] == "d1", "das erste Delta wurde durch ein spaeteres ersetzt"

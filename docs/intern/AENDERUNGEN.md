@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'494** |
+| Tests | **1'496** |
 | `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -64,7 +64,7 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `silver/place` | 1 | 14.09.2026 | ein Ort je Zeile, Geometrie für die Stadtgrenze |
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
 | `silver/crime_offense` | **3** | 19.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig |
-| `silver/source_change` | **2** | 03.10.2026 | Unterschied zwischen aufeinanderfolgenden **Vollabzügen** je Quelle, eine Zeile je geändertem Feld; `ESRI_OID` und reine Leerzeichen ausgenommen, Zeitstempel als `beruehrt` statt als Inhaltsänderung. Version 2 ergänzt die **Datierung aus den Deltas**: `zuerst_gesehen_in`, `zuerst_gesehen_am` und `datierung` mit `delta` / `kein_delta` / `nicht_datierbar`. Gefunden wird weiter nur zwischen Vollabzügen — aus einem Delta liesse sich *verschwunden* nicht von *ruhig* unterscheiden |
+| `silver/source_change` | **3** | 03.10.2026 | Unterschied zwischen aufeinanderfolgenden **Vollabzügen** je Quelle, eine Zeile je geändertem Feld; `ESRI_OID` und reine Leerzeichen ausgenommen, Zeitstempel als `beruehrt` statt als Inhaltsänderung. Version 2 ergänzte die **Datierung aus den Deltas**: `zuerst_gesehen_in`, `zuerst_gesehen_am` und `datierung` mit `delta` / `kein_delta` / `nicht_datierbar`. Gefunden wird weiter nur zwischen Vollabzügen — aus einem Delta liesse sich *verschwunden* nicht von *ruhig* unterscheiden. Version 3: Die Datierung **klebt** — sie nennt den besten je bestimmten Befund, nicht den heutigen, sonst löschte das Aufräumen der Deltas sie wieder |
 | `gold/*` | **5** | 19.09.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften |
 | `serving/comparison_*` | 1 | 17.09.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` |
 
@@ -89,6 +89,65 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 03.10.2026 · Die Datierung klebt, damit das Aufraeumen gehen kann (direkt auf main)
+
+Gefragt war, ob die historischen Aenderungen erhalten bleiben, wenn Raw- und
+Bronze-Laeufe geloescht werden. Die Antwort war: ja - **ausser der
+Datierung**. Und das war ein Mangel in dem, was drei Stunden vorher gebaut
+wurde.
+
+**Was bleibt, und wo.** `silver/source_change` ist append-only. Die Tabelle
+liegt unter `data/silver/dataset=source_change/` und im hybrid-Modus zusaetzlich
+auf SeaweedFS. `orchestration.aufraeumen` fasst nur Raw und Bronze an, Silver
+nie. Regel 4 fragt `build_source_change` direkt: Ein Vollabzug, dessen
+Unterschied noch nicht gezogen ist, bleibt - und faellt die Auskunft aus, gibt
+es keine Freigabe, sondern eine leere Menge. Je Zeile erhalten: Stadt,
+Schluessel, Vergleichspaar, beide Zeitpunkte, Art, Feld, alter und neuer Wert.
+**4'718 Zeilen gegen 113,6 MB Bronze - Verhaeltnis 1'581 zu 1.**
+
+**Was nicht blieb.** Die Datierung war als Annotation ausgelegt, bei jedem Bau
+frisch gerechnet. Nachgestellt im Wegwerfverzeichnis: Loescht man das Delta,
+wird aus `('delta', 'd1')` wieder `('nicht_datierbar', None)` - die
+Aenderungszeile bleibt, ihre Datierung ist weg. Dazu kam: **Keine
+Aufraeumregel haelt ein Delta, weil die Datierung es braucht.** Heute sind
+Chicagos Deltas zufaellig geschuetzt, als "Referenzstand" oder "von Silver
+genannt". Nach einem Silver-Neubau und einem verschobenen Referenzstand werden
+sie entbehrlich, und der 17.9. waere an 369 Zeilen nicht mehr nachzulesen.
+
+Das widerspricht dem Zweck der Tabelle: den Unterschied herausziehen,
+**bevor** der Rohstoff entbehrlich wird. Fuer die zehn Tatsachenspalten galt
+das. Fuer die drei Datierungsspalten war es gebrochen.
+
+**Vertrag 3: die Datierung klebt.** Sie nennt den besten Befund, der je
+bestimmt wurde, nicht den heutigen. Nachgerechnet wird, was besser wird -
+Rangfolge `delta` > `kein_delta` > `nicht_datierbar` -, und nie abwaerts. Die
+Spalten sind dieselben, ihre Bedeutung ist es nicht, und deshalb steigt die
+Zahl.
+
+Damit braucht es **keine** neue Aufraeumregel: Die Deltas duerfen weg, sobald
+ihre Auskunft in der Tabelle steht. Das ist der Punkt - Aufraeumen ist ein
+Ziel des Lebenszyklus, nicht ein Unfall, und eine Spalte, die daran zerbricht,
+verhindert es.
+
+Der Preis, ausdrücklich: Eine einmal falsch bestimmte Datierung waere
+eingefroren. Sie entsteht deterministisch aus den Laeufen, ein Fehler kaeme
+also nur aus einem Programmfehler - und dagegen ist Datenverlust der
+schlechtere Tausch.
+
+**Zwei Waechter halten das fest.**
+`test_die_datierung_verblasst_nicht_wenn_die_deltas_weg_sind` baut, loescht das
+Delta, baut erneut und verlangt dieselbe Datierung bei gleicher Zeilenzahl.
+`test_eine_bessere_datierung_verdraengt_eine_schlechtere` zeigt die Rangfolge
+an einem Fall: `kein_delta` wird zu `delta`, sobald ein Delta den Schluessel
+traegt - und das zuerst getroffene Delta bleibt dabei stehen, es wird nicht
+durch ein spaeteres ersetzt.
+
+**Zahlen.** 1'494 -> **1'496 Tests**, Standardlauf 1'415. `docs/referenz/` und
+`docs/feldkatalog.md` neu gebaut; die Beschreibung von `datierung` nennt jetzt
+das Kleben.
 
 ---
 
@@ -144,7 +203,9 @@ dem Vollabzug; sechs weitere auf den 18.9., zwei auf den 5.9. Aus
 **Die Datierung ist eine Annotation, keine Tatsache des Paares.** Sie wird bei
 jedem Bau neu gerechnet, auch fuer die 4'718 schon gezogenen Zeilen - sonst
 haette Vertrag 2 nur fuer kuenftige Paare einen Wert gehabt. Sie wird besser,
-sobald ein Delta dazukommt, und verblasst, wenn die Deltas aufgeraeumt sind;
+sobald ein Delta dazukommt, und verblasst, wenn die Deltas aufgeraeumt sind
+(**so war es am Nachmittag noch; der Eintrag darueber macht die Datierung
+klebrig, weil das Verblassen Datenverlust war**);
 die zehn Tatsachenspalten bleiben unberuehrt. Ein Test haelt genau das fest:
 bauen, ein Delta nachlegen, nochmals bauen - die Zeilenzahl bleibt, die
 Datierung springt von `nicht_datierbar` auf `delta`.

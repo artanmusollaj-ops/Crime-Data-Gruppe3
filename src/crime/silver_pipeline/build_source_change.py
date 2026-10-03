@@ -98,7 +98,11 @@ log = logging.getLogger(__name__)
 TABLE = "source_change"
 #: 2 seit dem 3.10.2026: Die Deltas datieren, was die Vollabzuege finden
 #: (``zuerst_gesehen_in``, ``zuerst_gesehen_am``, ``datierung``).
-CONTRACT_VERSION = 2
+#: 3 am selben Tag: Die Datierung **klebt**. Sie nennt nicht den heutigen
+#: Befund, sondern den besten, der je bestimmt wurde - sonst haette das
+#: Aufraeumen der Deltas sie wieder gelöscht. Die Spalten sind dieselben, ihre
+#: Bedeutung ist es nicht, und deshalb steigt die Zahl.
+CONTRACT_VERSION = 3
 
 #: Die Spalten, in dieser Reihenfolge. Ausgeschrieben und nicht ``SELECT *``:
 #: DuckDB leitet aus dem Pfad ``dataset=source_change`` eine Hive-Spalte
@@ -111,10 +115,10 @@ SPALTEN_ROH = ("city", "offense_id", "vorher_run_id", "run_id",
                "wert_alt", "wert_neu")
 
 #: Dazu die Datierung aus den Deltas. Sie ist **keine** Tatsache des Paares,
-#: sondern eine Annotation: Sie wird bei jedem Bau neu gerechnet und kann
-#: besser werden (ein Delta liegt noch da) oder verblassen (es ist
-#: aufgeraeumt). Deshalb drei Zustaende statt einer Leerstelle - siehe
-#: ``datiere``.
+#: sondern eine Annotation: Sie wird nachgerechnet, solange sie **besser**
+#: werden kann, und nie schlechter. Ein aufgeraeumtes Delta loescht sie nicht
+#: mehr - siehe ``DATIERUNG_SQL``. Drei Zustaende statt einer Leerstelle,
+#: Begruendung in ``datiere``.
 SPALTEN_DATIERUNG = ("zuerst_gesehen_in", "zuerst_gesehen_am", "datierung")
 
 SPALTEN = SPALTEN_ROH + SPALTEN_DATIERUNG
@@ -255,8 +259,8 @@ def datiere(con: duckdb.DuckDBPyConnection, quelle: Quelle, ablage: Any,
     weil sie die Datierung je Quelle pruefen und nicht nur die Gesamtzahl.
 
     Gibt zurueck, wie viele Deltas tatsaechlich gelesen werden konnten. Eines,
-    dessen Datei aufgeraeumt ist, wird uebersprungen - die Datierung verblasst
-    dann, statt zu luegen.
+    dessen Datei aufgeraeumt ist, wird uebersprungen - was damit frueher
+    bestimmt wurde, bleibt trotzdem stehen, denn die Datierung klebt.
 
     **Warum die Datierung drei Zustaende hat.** Eine Leerstelle waere
     mehrdeutig: Sie koennte heissen *kein Delta trug diesen Schluessel* oder
@@ -302,6 +306,16 @@ def datiere(con: duckdb.DuckDBPyConnection, quelle: Quelle, ablage: Any,
     return gelesen
 
 
+#: Wie viel eine Datierung aussagt. Gebraucht, damit eine schon bestimmte
+#: nicht durch eine schlechtere ersetzt wird.
+RANG_SQL = """
+    CREATE OR REPLACE TEMP MACRO rang(d) AS
+        CASE d WHEN 'delta' THEN 3
+               WHEN 'kein_delta' THEN 2
+               WHEN 'nicht_datierbar' THEN 1
+               ELSE 0 END
+"""
+
 #: Die Datierung, als Abfrage ueber die rohe Tabelle. Je Fenster - also je
 #: Paar und Stadt - das **erste** Delta, das den Schluessel trug.
 #:
@@ -309,6 +323,15 @@ def datiere(con: duckdb.DuckDBPyConnection, quelle: Quelle, ablage: Any,
 #: Grenze des aelteren Vollabzugs gehoert nicht ins Fenster (``>``), eines auf
 #: der Grenze des neueren schon (``<=``) - es ist die letzte Gelegenheit, die
 #: Aenderung gesehen zu haben.
+#:
+#: **Und sie klebt.** Was einmal bestimmt war, bleibt stehen; neu gerechnet
+#: wird nur, was besser wird. Der erste Entwurf rechnete bei jedem Bau frisch,
+#: und das war ein Mangel: Loeschte man die Deltas - und Aufraeumen ist ein
+#: Ziel, nicht ein Unfall -, wurde aus ``delta`` wieder ``nicht_datierbar``.
+#: Die Aenderungszeile blieb, ihre Datierung war weg. Genau das, wogegen diese
+#: Tabelle gebaut ist: den Unterschied herausziehen, **bevor** der Rohstoff
+#: entbehrlich wird. Fuer die zehn Tatsachenspalten galt das von Anfang an,
+#: fuer die Datierung erst seit dem 3.10.2026 nachmittags.
 DATIERUNG_SQL = """
     WITH fenster AS (
         SELECT DISTINCT city, offense_id, vorher_run_id, run_id,
@@ -331,20 +354,32 @@ DATIERUNG_SQL = """
           ON d.city = f.city AND d._id = f.offense_id
          AND d.am > f.vorher_am AND d.am <= f.beobachtet_am
         GROUP BY 1, 2, 3, 4
+    ),
+    frisch AS (
+        SELECT r.*,
+               t.zuerst_gesehen_in AS f_in, t.zuerst_gesehen_am AS f_am,
+               CASE
+                   WHEN r.offense_id IS NULL              THEN NULL
+                   WHEN t.zuerst_gesehen_in IS NOT NULL   THEN 'delta'
+                   WHEN coalesce(v.deltas_im_fenster, 0) > 0 THEN 'kein_delta'
+                   ELSE 'nicht_datierbar'
+               END AS f_datierung,
+               a.zuerst_gesehen_in AS a_in, a.zuerst_gesehen_am AS a_am,
+               a.datierung AS a_datierung
+        FROM roh r
+        LEFT JOIN vorrat v USING (city, offense_id, vorher_run_id, run_id)
+        LEFT JOIN treffer t USING (city, offense_id, vorher_run_id, run_id)
+        LEFT JOIN alt_datierung a USING (city, offense_id, vorher_run_id, run_id)
     )
-    SELECT r.city, r.offense_id, r.vorher_run_id, r.run_id,
-           r.vorher_am, r.beobachtet_am, r.art, r.feld,
-           r.wert_alt, r.wert_neu,
-           t.zuerst_gesehen_in, t.zuerst_gesehen_am,
-           CASE
-               WHEN r.offense_id IS NULL              THEN NULL
-               WHEN t.zuerst_gesehen_in IS NOT NULL   THEN 'delta'
-               WHEN coalesce(v.deltas_im_fenster, 0) > 0 THEN 'kein_delta'
-               ELSE 'nicht_datierbar'
-           END AS datierung
-    FROM roh r
-    LEFT JOIN vorrat v USING (city, offense_id, vorher_run_id, run_id)
-    LEFT JOIN treffer t USING (city, offense_id, vorher_run_id, run_id)
+    SELECT city, offense_id, vorher_run_id, run_id,
+           vorher_am, beobachtet_am, art, feld, wert_alt, wert_neu,
+           CASE WHEN rang(a_datierung) > rang(f_datierung)
+                THEN a_in ELSE f_in END AS zuerst_gesehen_in,
+           CASE WHEN rang(a_datierung) > rang(f_datierung)
+                THEN a_am ELSE f_am END AS zuerst_gesehen_am,
+           CASE WHEN rang(a_datierung) > rang(f_datierung)
+                THEN a_datierung ELSE f_datierung END AS datierung
+    FROM frisch
 """
 
 
@@ -639,10 +674,29 @@ def baue(data_root: Path, *, trocken: bool = False) -> dict[str, Any]:
                     f"SELECT {roh} FROM neue_zeilen")
 
         # Die Datierung laeuft ueber die **ganze** Tabelle, nicht nur ueber die
-        # neuen Paare: Sie ist eine Annotation und wird bei jedem Bau neu
-        # gerechnet. Ein Paar, das beim ersten Mal nicht datierbar war, wird es,
-        # sobald ein Delta dazukommt - und umgekehrt verblasst es, wenn die
-        # Deltas aufgeraeumt sind. Die Tatsachenspalten bleiben unberuehrt.
+        # neuen Paare: Ein Paar, das beim ersten Mal nicht datierbar war, wird
+        # es, sobald ein Delta dazukommt. Umgekehrt gilt es nicht - wird ein
+        # Delta aufgeraeumt, bleibt die einmal bestimmte Datierung stehen. Die
+        # Tatsachenspalten bleiben in beiden Faellen unberuehrt.
+        # Was schon datiert war, kommt mit - die Datierung klebt. Steht die
+        # Spalte noch nicht in der Datei, stammt sie aus Vertrag 1, und es
+        # gibt nichts zu bewahren.
+        con.execute("""
+            CREATE TEMP TABLE alt_datierung (
+                city VARCHAR, offense_id VARCHAR,
+                vorher_run_id VARCHAR, run_id VARCHAR,
+                zuerst_gesehen_in VARCHAR, zuerst_gesehen_am TIMESTAMP,
+                datierung VARCHAR)
+        """)
+        if alt.is_file() and SPALTEN_DATIERUNG[2] in abgelegtes_schema(verzeichnis):
+            con.execute(f"""
+                INSERT INTO alt_datierung
+                SELECT DISTINCT city, offense_id, vorher_run_id, run_id,
+                       zuerst_gesehen_in, zuerst_gesehen_am, datierung
+                FROM read_parquet('{alt}') WHERE offense_id IS NOT NULL
+            """)
+
+        con.execute(RANG_SQL)
         con.execute("""
             CREATE OR REPLACE TEMP TABLE delta_schluessel (
                 city VARCHAR, run_id VARCHAR, am TIMESTAMP, _id VARCHAR)

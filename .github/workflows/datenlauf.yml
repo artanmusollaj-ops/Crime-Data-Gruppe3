@@ -2,8 +2,8 @@
 # Serving - und laesst dann die Tests laufen, die ein frischer Klon nicht
 # ausfuehren kann.
 #
-# Warum es das braucht: tests.yml prueft auf jedem Pull Request 1'413 von
-# 1'494 Tests. Die 81 uebrigen brauchen gebaute Daten - und das sind
+# Warum es das braucht: tests.yml prueft auf jedem Pull Request 1'415 von
+# 1'496 Tests. Die 81 uebrigen brauchen gebaute Daten - und das sind
 # ausgerechnet die Waechter: Zahlen in den Abgabedokumenten gegen die Parquet-Dateien, die
 # Einwohnerprobe der Stadtzuordnung, "kein Delikt in der falschen Stadt".
 # Bis zu diesem Workflow liefen sie nur, wenn jemand lokal pytest tippte.

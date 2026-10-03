@@ -197,9 +197,11 @@ JE_TABELLE: dict[tuple[str, str], str] = {
         "geschah, oder dass die Zeile schon weg war; die drei sind von hier "
         "aus nicht zu trennen. `nicht_datierbar`: kein lesbares Delta liegt "
         "im Fenster. Leer bei der Markierungszeile - ohne Schluessel gibt es "
-        "nichts zu datieren. **Diese Spalte ist eine Annotation, keine "
-        "Tatsache des Paares**: Sie wird bei jedem Bau neu gerechnet und "
-        "kann besser werden oder verblassen.",
+        "nichts zu datieren. **Diese Spalte klebt**: Sie nennt den besten "
+        "Befund, der je bestimmt wurde, nicht den heutigen. Nachgerechnet "
+        "wird, was besser wird - `delta` schlaegt `kein_delta` schlaegt "
+        "`nicht_datierbar` -, und nie abwaerts. Sonst haette das Aufraeumen "
+        "der Deltas eine einmal bestimmte Datierung wieder geloescht.",
     ("crime_offense", "nibrs_match"):
         "Woher die Zuordnung stammt, etwa `nibrs_definition` oder "
         "`micr_manual_1110_2024`. `mapping_status` fasst das zusammen.",
