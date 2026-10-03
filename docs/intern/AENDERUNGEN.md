@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'486** |
+| Tests | **1'494** |
 | `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
 | Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -64,6 +64,7 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `silver/place` | 1 | 14.09.2026 | ein Ort je Zeile, Geometrie für die Stadtgrenze |
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
 | `silver/crime_offense` | **3** | 19.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig |
+| `silver/source_change` | **2** | 03.10.2026 | Unterschied zwischen aufeinanderfolgenden **Vollabzügen** je Quelle, eine Zeile je geändertem Feld; `ESRI_OID` und reine Leerzeichen ausgenommen, Zeitstempel als `beruehrt` statt als Inhaltsänderung. Version 2 ergänzt die **Datierung aus den Deltas**: `zuerst_gesehen_in`, `zuerst_gesehen_am` und `datierung` mit `delta` / `kein_delta` / `nicht_datierbar`. Gefunden wird weiter nur zwischen Vollabzügen — aus einem Delta liesse sich *verschwunden* nicht von *ruhig* unterscheiden |
 | `gold/*` | **5** | 19.09.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften |
 | `serving/comparison_*` | 1 | 17.09.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` |
 
@@ -88,6 +89,104 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 03.10.2026 · Die Deltas datieren, was die Vollabzuege finden (direkt auf main)
+
+Gefragt war, ob sich auch die Deltas vergleichen lassen, statt nur die
+Vollabzuege. Die Antwort war dreiteilig, und die mittlere Fassung hat gewonnen.
+
+**Warum ein Delta nicht vergleichen kann.** Es enthaelt nur die bewegten
+Zeilen. Eine Zeile, die nicht darin steht, ist entweder unveraendert oder
+gelöscht - `verschwunden` ist daraus nicht entscheidbar. Ein naiver Vergleich
+haette 88'000 ruhige Zeilen als verschwunden gemeldet. Dazu kommt: Ein Delta
+wird ueber das Stempelfeld ausgewaehlt und findet nur, was die Quelle selbst
+gemeldet hat.
+
+**Diese blinde Stelle ist jetzt beziffert**, an den Vollabzuegen, die beides
+sehen: Ein Delta haette **99 %** von Detroits und **100 %** von Chicagos
+Inhaltsaenderungen gefunden. Die acht Ausnahmen sind alle dasselbe Feld,
+`nearest_intersection`, und dieselbe Korrektur bei mehreren Delikten -
+`Ashley Ave & Ashley Dr` -> `Ashley Ave & Mack Ave` viermal, `Brush St &
+Gratiot Ave` -> `Brush St & Clinton St` dreimal -, ohne dass ein Stempel sich
+bewegte. Das sieht nach einer Neuberechnung auf Quellseite aus und nicht nach
+Einzelbearbeitungen. Fuer die Abgabezahlen harmlos: Das Feld kommt nie nach
+Silver.
+
+**Gewaehlt ist die Fassung, die nichts riskiert.** Gefunden wird weiter nur
+zwischen Vollabzuegen. Die Deltas erzeugen keine Zeile - sie **datieren**, was
+die Vollabzuege finden. Vertrag 2 ergaenzt dafuer drei Spalten:
+
+| `datierung` | heisst |
+| --- | --- |
+| `delta` | ein Delta im Fenster trug den Schluessel; `zuerst_gesehen_in` nennt das **erste** |
+| `kein_delta` | Deltas lagen vor, keines trug den Schluessel |
+| `nicht_datierbar` | kein lesbares Delta liegt im Fenster |
+
+Drei Zustaende statt einer Leerstelle, aus demselben Grund, aus dem es die
+Markierungszeile `art = 'unveraendert'` gibt: *nichts gefunden* ist nicht
+dasselbe wie *nicht nachgesehen*. Und `kein_delta` heisst ausdruecklich nicht
+*"nicht angemeldet"* - es hat drei Ursachen, die von dort aus nicht zu trennen
+sind: die Quelle hat nichts gemeldet, oder die Aenderung kam nach dem letzten
+Delta, oder die Zeile war schon weg.
+
+**Was es bringt, in Zahlen.** Chicagos Fenster ist 28 Tage breit. 369 der
+dort gefundenen Zeilen sind jetzt auf den **17.9.** datiert, also 16 Tage vor
+dem Vollabzug; sechs weitere auf den 18.9., zwei auf den 5.9. Aus
+*irgendwann in dreissig Tagen* wird damit ein Tag.
+
+**Detroit datiert nichts, und das ist richtig.** Seine drei Deltas liefen am
+18.9. um 11:08, 11:57 und 14:33 - das letzte Vergleichsfenster endet um
+**11:02**. Sechs Minuten zu spaet. Kein Delta liegt in einem Fenster, also
+`nicht_datierbar`. Mit dem Monatstakt loest sich das von selbst.
+
+**Die Datierung ist eine Annotation, keine Tatsache des Paares.** Sie wird bei
+jedem Bau neu gerechnet, auch fuer die 4'718 schon gezogenen Zeilen - sonst
+haette Vertrag 2 nur fuer kuenftige Paare einen Wert gehabt. Sie wird besser,
+sobald ein Delta dazukommt, und verblasst, wenn die Deltas aufgeraeumt sind;
+die zehn Tatsachenspalten bleiben unberuehrt. Ein Test haelt genau das fest:
+bauen, ein Delta nachlegen, nochmals bauen - die Zeilenzahl bleibt, die
+Datierung springt von `nicht_datierbar` auf `delta`.
+
+**Ein Fehler, den die Tests gefangen haben.** Der erste Entwurf legte die
+Schluesseltabelle in `datiere` mit `CREATE OR REPLACE` an - je Quelle. Damit
+loeschte der Durchgang fuer Chicago die Deltas von Detroit wieder, und nur die
+letzte Quelle ueberlebte. Aufgefallen ist es, weil die Tests die Datierung je
+Quelle pruefen und nicht die Gesamtzahl. Die Tabelle wird jetzt einmal
+angelegt, und `datiere` fuellt nur.
+
+**Nachgetragen: `silver/source_change` stand nicht im Vertragsregister.** Das
+Modul fuehrte `CONTRACT_VERSION` seit dem 1.10., aber kein Test hielt die Zahl
+gegen den Abschnitt "Vertragsversionen"; der Datensatz fehlte in der Abbildung
+von `test_vertragsversionen.py`. Beides ist ergaenzt - die Version steigt also
+nicht nur, sie wird jetzt auch bewacht.
+
+**`notebooks/37_quellbewegung.ipynb`** zeigt die Datierung mit: auf welches
+Delta wie viele Zeilen datiert sind und wie weit vor dem Vollabzug, dazu die
+Gegenprobe, welches Fenster ueberhaupt Deltas traf. Der Grenzen-Abschnitt ist
+nachgezogen - Punkt 1 lautete "nur Vollabzuege" und heisst jetzt praeziser
+"gefunden wird nur zwischen Vollabzuegen, datiert wird mit den Deltas".
+
+**Und noch eine Luecke, auf die das gestossen ist.** Der Feldkatalog leitet
+Spalten und Typen aus den Manifesten der gebauten Tabellen ab. Das Manifest von
+`source_change` trug **kein `schema`** - als einzige Silver-Tabelle. Folge: Der
+Abschnitt im Katalog war **leer**, eine Ueberschrift mit einer Kopfzeile und
+nichts darunter, und der Waechter, der jede gebaute Spalte auf eine
+Beschreibung haelt, pruefte fuer diese Tabelle gar nichts. Der Werkzeugkopf
+verspricht *"der Lauf scheitert und nennt die Spalte"* - er konnte es nie,
+weil er keine Spalte sah.
+
+Das Manifest traegt jetzt sein Schema, und damit scheiterte der Lauf wie
+vorgesehen und nannte elf Spalten ohne Beschreibung. Alle dreizehn sind
+eingetragen; der Katalog hat zum ersten Mal einen gefuellten
+`source_change`-Abschnitt. Dabei fiel noch auf, dass ein Vertragswechsel allein
+nicht zum Schreiben fuehrte: Die Tabelle ist append-only, und ohne neues Paar
+hielt der Lauf sich fuer fertig. Jetzt publiziert er auch, wenn sich Vertrag
+oder Schema bewegt haben.
+
+**Zahlen.** 1'486 -> **1'494 Tests**, Standardlauf 1'413. `docs/referenz/` und
+`docs/feldkatalog.md` neu gebaut.
 
 ---
 

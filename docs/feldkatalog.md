@@ -7,7 +7,7 @@ gebauten Tabellen, die Bedeutung aus [`tools/build_feldkatalog.py`](../tools/bui
 python tools/build_feldkatalog.py
 ```
 
-**174 Spalten in 14 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
+**187 Spalten in 14 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
 soll einen Satz darüber schreiben müssen. `tests/test_feldkatalog.py` prüft, dass der Katalog vollständig und reproduzierbar ist.
 
 Die Rohschichten stehen hier nicht: **Bronze deutet nicht**, seine Spalten sind die der Quelle. Was sie bedeuten, sagen die
@@ -77,6 +77,19 @@ Eine Zeile ist: **ein geaendertes Feld einer Zeile zwischen zwei Schnappschuesse
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
+| `city` | `VARCHAR` | Stadt, kleingeschrieben: `chicago` oder `detroit`. |
+| `offense_id` | `VARCHAR` | Schlüssel der Zeile. Chicagos `id`, Detroits `incident_entry_id`. |
+| `vorher_run_id` | `VARCHAR` | Der **aeltere** der beiden Vollabzuege, gegen den verglichen wurde. |
+| `run_id` | `VARCHAR` | Der **neuere** der beiden Vollabzuege. Zusammen mit `vorher_run_id` ist das das Vergleichspaar; verglichen werden nur aufeinanderfolgende Paare, damit jede Bewegung genau einmal zaehlt. |
+| `vorher_am` | `TIMESTAMP` | Wann der aeltere Vollabzug begann - die untere Grenze des Fensters, in dem die Aenderung geschah. |
+| `beobachtet_am` | `TIMESTAMP` | Wann der neuere Vollabzug begann - die obere Grenze. Nicht der Zeitpunkt der Aenderung: Der liegt irgendwo dazwischen, und genau dafuer gibt es `zuerst_gesehen_am`. |
+| `art` | `VARCHAR` | Welche Art von Bewegung. `geaendert`: etwas ausserhalb von Rauschen und Zeitstempeln hat sich bewegt. `beruehrt`: **nur** Zeitstempel - die Quelle hat die Zeile angefasst, ohne dass sich fachlich etwas aenderte. `neu` und `verschwunden`: der Schluessel steht im einen Schnappschuss und im anderen nicht. `unveraendert`: eine Markierungszeile ohne `offense_id` fuer ein Paar, in dem sich nichts bewegt hat - ohne sie waere *nichts gefunden* nicht von *noch nicht verglichen* zu unterscheiden. |
+| `feld` | `VARCHAR` | Das Quellfeld, das sich bewegt hat - in den Begriffen der Quelle, nicht in denen von Silver. Leer bei `neu`, `verschwunden` und `unveraendert`: Dort bewegt sich kein einzelnes Feld. |
+| `wert_alt` | `VARCHAR` | Der Wert im aelteren Schnappschuss, getrimmt und als Text. Getrimmt wird jedes Feld: Von 160 Aenderungen an `offense_description` waren 150 reine Leerzeichen, weil die Quelle angefangen hatte, auf feste Breite aufzufuellen. |
+| `wert_neu` | `VARCHAR` | Der Wert im neueren Schnappschuss, gleich behandelt. |
+| `zuerst_gesehen_in` | `VARCHAR` | Das **erste** Delta zwischen den beiden Vollabzuegen, das diesen Schluessel trug. Es grenzt die Aenderung ein: Bei Monatsabstand wird aus *irgendwann in dreissig Tagen* ein Tag. Leer, wenn `datierung` nicht `delta` ist. |
+| `zuerst_gesehen_am` | `TIMESTAMP` | Wann dieses Delta lief - die **obere Schranke** fuer den Zeitpunkt der Aenderung, nicht der Zeitpunkt selbst. |
+| `datierung` | `VARCHAR` | Wie verlaesslich die Datierung ist, in drei Zustaenden. `delta`: Ein Delta im Fenster trug den Schluessel. `kein_delta`: Deltas lagen vor, keines trug ihn - das kann heissen, dass die Quelle die Aenderung nicht angemeldet hat, dass sie nach dem letzten Delta geschah, oder dass die Zeile schon weg war; die drei sind von hier aus nicht zu trennen. `nicht_datierbar`: kein lesbares Delta liegt im Fenster. Leer bei der Markierungszeile - ohne Schluessel gibt es nichts zu datieren. **Diese Spalte ist eine Annotation, keine Tatsache des Paares**: Sie wird bei jedem Bau neu gerechnet und kann besser werden oder verblassen. |
 
 ### `tract`
 

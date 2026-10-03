@@ -382,3 +382,116 @@ def test_die_zahlen_des_papiers_werden_reproduziert():
     # 160 Aenderungen minus 150 reine Leerzeichen.
     assert felder.get("offense_description") == 10
     assert "ESRI_OID" not in felder, "88'677 Zeilen Rauschen"
+
+
+# --------------------------------------------------------------------------
+# Die Datierung aus den Deltas (Vertrag 2)
+# --------------------------------------------------------------------------
+#
+# Gefunden wird eine Aenderung weiter nur zwischen zwei Vollabzuegen - aus
+# einem Delta liesse sich *verschwunden* nicht von *ruhig* unterscheiden. Die
+# Deltas tragen eine andere Aufgabe: Sie sagen, **wann** innerhalb des
+# Fensters die Aenderung zuerst zu sehen war. Bei Monatsabstand macht das aus
+# "irgendwann in dreissig Tagen" wenige Tage.
+
+
+def nur_mit_schluessel(wurzel):
+    """Die Zeilen, die datiert werden koennen - die Markierungszeile nicht."""
+    return [z for z in gelesen(wurzel) if z["offense_id"] is not None]
+
+
+def test_eine_aenderung_wird_auf_das_erste_delta_datiert(tmp_path):
+    """Das erste, nicht das naechstgelegene: Es ist die obere Schranke."""
+    schnappschuss(tmp_path, "f1", [zeile("1")], wann="2026-09-01T12:00:00")
+    schnappschuss(tmp_path, "d1", [zeile("1", case_status="CLOSED")],
+                  wann="2026-09-05T12:00:00", modus="DELTA")
+    schnappschuss(tmp_path, "d2", [zeile("1", case_status="CLOSED")],
+                  wann="2026-09-10T12:00:00", modus="DELTA")
+    schnappschuss(tmp_path, "f2", [zeile("1", case_status="CLOSED")],
+                  wann="2026-09-30T12:00:00")
+    baue_in(tmp_path)
+    zeilen = nur_mit_schluessel(tmp_path)
+    assert zeilen, "keine datierbare Zeile gebaut"
+    for z in zeilen:
+        assert z["datierung"] == "delta"
+        assert z["zuerst_gesehen_in"] == "d1", "nicht das erste Delta"
+        assert str(z["zuerst_gesehen_am"]).startswith("2026-09-05")
+
+
+def test_ein_delta_das_den_schluessel_nicht_traegt_ergibt_kein_delta(tmp_path):
+    """Die Quelle hat die Aenderung nicht angemeldet - oder sie kam spaeter.
+
+    Beides laesst sich von hier aus nicht trennen, und deshalb heisst der
+    Zustand ``kein_delta`` und nicht *"nicht angemeldet"*.
+    """
+    schnappschuss(tmp_path, "f1", [zeile("1"), zeile("2")],
+                  wann="2026-09-01T12:00:00")
+    schnappschuss(tmp_path, "d1", [zeile("2")],
+                  wann="2026-09-05T12:00:00", modus="DELTA")
+    schnappschuss(tmp_path, "f2", [zeile("1", case_status="CLOSED"), zeile("2")],
+                  wann="2026-09-30T12:00:00")
+    baue_in(tmp_path)
+    betroffen = [z for z in nur_mit_schluessel(tmp_path) if z["offense_id"] == "1"]
+    assert betroffen, "die Aenderung an Zeile 1 fehlt"
+    for z in betroffen:
+        assert z["datierung"] == "kein_delta"
+        assert z["zuerst_gesehen_in"] is None
+
+
+def test_ohne_delta_im_fenster_ist_nichts_datierbar(tmp_path):
+    """Keine Leerstelle: Eine Luecke im Vorrat ist kein Befund."""
+    schnappschuss(tmp_path, "f1", [zeile("1")], wann="2026-09-01T12:00:00")
+    schnappschuss(tmp_path, "f2", [zeile("1", case_status="CLOSED")],
+                  wann="2026-09-30T12:00:00")
+    baue_in(tmp_path)
+    for z in nur_mit_schluessel(tmp_path):
+        assert z["datierung"] == "nicht_datierbar"
+
+
+def test_ein_delta_ausserhalb_des_fensters_zaehlt_nicht(tmp_path):
+    """Sonst datierte ein spaeteres Delta eine frueher gefundene Aenderung."""
+    schnappschuss(tmp_path, "f1", [zeile("1")], wann="2026-09-01T12:00:00")
+    schnappschuss(tmp_path, "f2", [zeile("1", case_status="CLOSED")],
+                  wann="2026-09-10T12:00:00")
+    schnappschuss(tmp_path, "d1", [zeile("1", case_status="CLOSED")],
+                  wann="2026-09-20T12:00:00", modus="DELTA")
+    baue_in(tmp_path)
+    for z in nur_mit_schluessel(tmp_path):
+        assert z["datierung"] == "nicht_datierbar", (
+            "ein Delta nach dem Fenster wurde mitgezaehlt")
+
+
+def test_die_markierungszeile_bleibt_undatiert(tmp_path):
+    """Sie traegt keinen Schluessel - es gibt nichts zu datieren."""
+    schnappschuss(tmp_path, "f1", [zeile("1")], wann="2026-09-01T12:00:00")
+    schnappschuss(tmp_path, "f2", [zeile("1")], wann="2026-09-30T12:00:00")
+    baue_in(tmp_path)
+    zeilen = gelesen(tmp_path)
+    assert [z["art"] for z in zeilen] == ["unveraendert"]
+    assert zeilen[0]["datierung"] is None
+    assert zeilen[0]["zuerst_gesehen_in"] is None
+
+
+def test_die_datierung_wird_bei_jedem_bau_neu_gerechnet(tmp_path):
+    """Sie ist eine Annotation, keine Tatsache des Paares.
+
+    Das ist der Unterschied zu den uebrigen Spalten: Was einmal
+    herausgezogen wurde, bleibt stehen - aber die Datierung darf besser
+    werden, sobald ein Delta dazukommt. Ohne diese Eigenschaft waeren die
+    bereits gezogenen Paare fuer immer undatiert, und Vertrag 2 haette nur
+    fuer kuenftige Paare einen Wert.
+    """
+    schnappschuss(tmp_path, "f1", [zeile("1")], wann="2026-09-01T12:00:00")
+    schnappschuss(tmp_path, "f2", [zeile("1", case_status="CLOSED")],
+                  wann="2026-09-30T12:00:00")
+    erst = baue_in(tmp_path)
+    assert {z["datierung"] for z in nur_mit_schluessel(tmp_path)} == {"nicht_datierbar"}
+
+    schnappschuss(tmp_path, "d1", [zeile("1", case_status="CLOSED")],
+                  wann="2026-09-05T12:00:00", modus="DELTA")
+    zweit = baue_in(tmp_path)
+    assert zweit["paare"] == 0, "es kam kein neues Paar dazu"
+    assert zweit["row_count"] == erst["row_count"], "die Tatsachen bewegten sich"
+    for z in nur_mit_schluessel(tmp_path):
+        assert z["datierung"] == "delta", "die Datierung wurde nicht nachgerechnet"
+        assert z["zuerst_gesehen_in"] == "d1"

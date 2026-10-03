@@ -89,21 +89,35 @@ from silver_pipeline import (
     connect,
     publish,
     read_manifest,
+    schema_of,
 )
 from storage import for_root
 
 log = logging.getLogger(__name__)
 
 TABLE = "source_change"
-CONTRACT_VERSION = 1
+#: 2 seit dem 3.10.2026: Die Deltas datieren, was die Vollabzuege finden
+#: (``zuerst_gesehen_in``, ``zuerst_gesehen_am``, ``datierung``).
+CONTRACT_VERSION = 2
 
 #: Die Spalten, in dieser Reihenfolge. Ausgeschrieben und nicht ``SELECT *``:
 #: DuckDB leitet aus dem Pfad ``dataset=source_change`` eine Hive-Spalte
 #: ``dataset`` ab, die in keiner Datei steht. Beim Anhaengen passten die
 #: Spaltenzahlen dann nicht mehr - und beim Lesen haette die Tabelle eine
 #: Spalte mehr gehabt, als sie hat.
-SPALTEN = ("city", "offense_id", "vorher_run_id", "run_id",
-           "vorher_am", "beobachtet_am", "art", "feld", "wert_alt", "wert_neu")
+#: Die Tatsachenspalten - das, was ``ziehe`` aus einem Paar herausholt.
+SPALTEN_ROH = ("city", "offense_id", "vorher_run_id", "run_id",
+               "vorher_am", "beobachtet_am", "art", "feld",
+               "wert_alt", "wert_neu")
+
+#: Dazu die Datierung aus den Deltas. Sie ist **keine** Tatsache des Paares,
+#: sondern eine Annotation: Sie wird bei jedem Bau neu gerechnet und kann
+#: besser werden (ein Delta liegt noch da) oder verblassen (es ist
+#: aufgeraeumt). Deshalb drei Zustaende statt einer Leerstelle - siehe
+#: ``datiere``.
+SPALTEN_DATIERUNG = ("zuerst_gesehen_in", "zuerst_gesehen_am", "datierung")
+
+SPALTEN = SPALTEN_ROH + SPALTEN_DATIERUNG
 
 
 
@@ -207,6 +221,131 @@ def paare(alle: list[Schnappschuss]) -> list[tuple[Schnappschuss, Schnappschuss]
     jede Bewegung genau einmal.
     """
     return list(zip(alle, alle[1:]))
+
+
+def delta_laeufe(laeufe: list[Any]) -> list[Schnappschuss]:
+    """Die Deltas, aelteste zuerst - das Gegenstueck zu ``schnappschuesse``.
+
+    Verglichen wird weiter nur zwischen Vollabzuegen. Die Deltas tragen hier
+    eine andere Aufgabe: Sie **datieren**, was die Vollabzuege finden. Ein
+    Monatsabstand sagt nur *irgendwann in diesen dreissig Tagen*; das erste
+    Delta, das den Schluessel enthaelt, macht daraus wenige Tage.
+    """
+    gefunden = []
+    for lauf in laeufe:
+        if lauf.vollabzug:
+            continue
+        wann = lauf.begonnen_um or lauf.manifest.get("finished_at")
+        if not wann:
+            raise TransformError(
+                f"{lauf.run_id}: Delta ohne Zeitstempel - ohne ihn laesst sich "
+                f"nicht sagen, in welches Fenster es gehoert.")
+        gefunden.append(Schnappschuss(lauf.run_id, lauf.relativ, str(wann)))
+    return sorted(gefunden, key=lambda s: (s.beobachtet_am, s.run_id))
+
+
+def datiere(con: duckdb.DuckDBPyConnection, quelle: Quelle, ablage: Any,
+            deltas: list[Schnappschuss]) -> int:
+    """Traegt die Schluessel aller lesbaren Deltas dieser Quelle nach.
+
+    Schreibt in die Tabelle ``delta_schluessel``, die der Aufrufer **einmal**
+    anlegt. Sie hier anzulegen war der erste Entwurf und falsch: Ein
+    ``CREATE OR REPLACE`` je Quelle liess nur die letzte uebrig, und Detroits
+    Deltas verschwanden, sobald Chicago dran war. Die Tests haben es gefangen,
+    weil sie die Datierung je Quelle pruefen und nicht nur die Gesamtzahl.
+
+    Gibt zurueck, wie viele Deltas tatsaechlich gelesen werden konnten. Eines,
+    dessen Datei aufgeraeumt ist, wird uebersprungen - die Datierung verblasst
+    dann, statt zu luegen.
+
+    **Warum die Datierung drei Zustaende hat.** Eine Leerstelle waere
+    mehrdeutig: Sie koennte heissen *kein Delta trug diesen Schluessel* oder
+    *es lag ueberhaupt keines vor*. Dieselbe Unterscheidung, aus der es die
+    Markierungszeile ``art = 'unveraendert'`` gibt.
+
+    ``delta``
+        Mindestens ein lesbares Delta im Fenster trug den Schluessel; genannt
+        wird das **erste**.
+    ``kein_delta``
+        Deltas lagen im Fenster, aber keines trug den Schluessel. Das hat
+        **drei** moegliche Ursachen, und sie sind von hier aus nicht zu
+        trennen: Die Quelle hat die Aenderung nicht angemeldet - so wie die
+        acht Korrekturen an ``nearest_intersection``, bei denen sich kein
+        Stempel bewegte. Oder sie geschah erst **nach** dem letzten Delta;
+        Chicagos 26 undatierte Aenderungen sind von dieser Sorte, die Deltas
+        enden am 18.9. und das Fenster am 3.10. Oder die Zeile war, bei
+        ``art = 'verschwunden'``, schon nicht mehr da.
+    ``nicht_datierbar``
+        Kein lesbares Delta liegt im Fenster. Detroits Paare sind alle so: die
+        drei Deltas vom 18.9. liegen nach dem letzten Paar.
+
+    Bei einer Zeile ohne Schluessel - der Markierungszeile - bleibt die
+    Datierung leer; es gibt nichts zu datieren.
+    """
+    gelesen = 0
+    for delta in deltas:
+        try:
+            pfad = ablage.resolve_read_path(delta.pfad, PARQUET_FILE)
+        except Exception as fehler:          # noqa: BLE001 - Ablage, nicht Logik
+            log.warning("  %s: Delta %s nicht lesbar (%s) - wird fuer die "
+                        "Datierung uebersprungen", quelle.stadt, delta, fehler)
+            continue
+        con.execute(f"""
+            INSERT INTO delta_schluessel
+            SELECT '{quelle.stadt}', '{delta.run_id}',
+                   TIMESTAMP '{delta.beobachtet_am[:19]}',
+                   {vergleichbar(quelle.schluessel, quelle)}
+            FROM read_parquet('{pfad}')
+            WHERE {vergleichbar(quelle.schluessel, quelle)} IS NOT NULL
+        """)
+        gelesen += 1
+    return gelesen
+
+
+#: Die Datierung, als Abfrage ueber die rohe Tabelle. Je Fenster - also je
+#: Paar und Stadt - das **erste** Delta, das den Schluessel trug.
+#:
+#: ``arg_min`` nimmt den Lauf zum kleinsten Zeitpunkt; ein Delta genau auf der
+#: Grenze des aelteren Vollabzugs gehoert nicht ins Fenster (``>``), eines auf
+#: der Grenze des neueren schon (``<=``) - es ist die letzte Gelegenheit, die
+#: Aenderung gesehen zu haben.
+DATIERUNG_SQL = """
+    WITH fenster AS (
+        SELECT DISTINCT city, offense_id, vorher_run_id, run_id,
+               vorher_am, beobachtet_am
+        FROM roh WHERE offense_id IS NOT NULL
+    ),
+    vorrat AS (
+        SELECT f.city, f.offense_id, f.vorher_run_id, f.run_id,
+               count(DISTINCT d.run_id) AS deltas_im_fenster
+        FROM fenster f LEFT JOIN delta_schluessel d
+          ON d.city = f.city
+         AND d.am > f.vorher_am AND d.am <= f.beobachtet_am
+        GROUP BY 1, 2, 3, 4
+    ),
+    treffer AS (
+        SELECT f.city, f.offense_id, f.vorher_run_id, f.run_id,
+               arg_min(d.run_id, d.am) AS zuerst_gesehen_in,
+               min(d.am) AS zuerst_gesehen_am
+        FROM fenster f JOIN delta_schluessel d
+          ON d.city = f.city AND d._id = f.offense_id
+         AND d.am > f.vorher_am AND d.am <= f.beobachtet_am
+        GROUP BY 1, 2, 3, 4
+    )
+    SELECT r.city, r.offense_id, r.vorher_run_id, r.run_id,
+           r.vorher_am, r.beobachtet_am, r.art, r.feld,
+           r.wert_alt, r.wert_neu,
+           t.zuerst_gesehen_in, t.zuerst_gesehen_am,
+           CASE
+               WHEN r.offense_id IS NULL              THEN NULL
+               WHEN t.zuerst_gesehen_in IS NOT NULL   THEN 'delta'
+               WHEN coalesce(v.deltas_im_fenster, 0) > 0 THEN 'kein_delta'
+               ELSE 'nicht_datierbar'
+           END AS datierung
+    FROM roh r
+    LEFT JOIN vorrat v USING (city, offense_id, vorher_run_id, run_id)
+    LEFT JOIN treffer t USING (city, offense_id, vorher_run_id, run_id)
+"""
 
 
 def felder(con: duckdb.DuckDBPyConnection, pfad: str,
@@ -317,6 +456,56 @@ def tabellenverzeichnis(data_root: Path) -> Path:
     return for_root(data_root).local_path(f"{SILVER_LAYER}/dataset={TABLE}")
 
 
+def abgelegtes_schema(verzeichnis: Path) -> set[str]:
+    """Die Spalten, die das abgelegte Manifest nennt - leer, wenn keines da ist.
+
+    Gebraucht, weil diese Tabelle append-only ist und ohne neues Paar sonst
+    nie wieder geschrieben wuerde. Genau daran blieb das Schema zuerst aus:
+    Der Vertrag stand schon auf 2, die Datierung hatte sich nicht bewegt, und
+    der Lauf meinte, es gaebe nichts zu tun.
+    """
+    datei = verzeichnis / "manifest.json"
+    if not datei.is_file():
+        return set()
+    try:
+        return set(read_manifest(verzeichnis).get("schema") or {})
+    except (TransformError, OSError, TypeError, ValueError):
+        return set()
+
+
+def abgelegter_vertrag(verzeichnis: Path) -> int | None:
+    """Welche Vertragsversion in der abgelegten Tabelle steht - oder ``None``."""
+    datei = verzeichnis / "manifest.json"
+    if not datei.is_file():
+        return None
+    try:
+        return int(read_manifest(verzeichnis).get("contract_version", 0))
+    except (TransformError, OSError, TypeError, ValueError):
+        return None
+
+
+def gelesene_datierung(datei: Path) -> dict[str, int] | None:
+    """Die Datierungsverteilung der abgelegten Tabelle - oder ``None``.
+
+    ``None`` heisst: Die Datei kennt die Spalte noch nicht, stammt also aus
+    Vertrag 1. Dann ist jede Datierung neu, und die Tabelle wird geschrieben.
+
+    Gelesen wird ueber ``storage.parquet_spalten`` statt ueber ``DESCRIBE``:
+    Der Pfad traegt ``dataset=source_change``, und daraus leitete DuckDB eine
+    Spalte ``dataset`` ab, die in keiner Datei steht.
+    """
+    from storage import parquet_spalten
+    if "datierung" not in parquet_spalten(datei):
+        return None
+    con = duckdb.connect()
+    try:
+        return dict(con.execute(
+            f"SELECT coalesce(datierung, 'ohne_schluessel'), count(*) "
+            f"FROM read_parquet('{datei}') GROUP BY 1 ORDER BY 1").fetchall())
+    finally:
+        con.close()
+
+
 def bereits_gezogen(verzeichnis: Path) -> set[tuple[str, str]]:
     """Welche Paare schon in der Tabelle stehen.
 
@@ -418,13 +607,17 @@ def baue(data_root: Path, *, trocken: bool = False) -> dict[str, Any]:
                 art VARCHAR, feld VARCHAR, wert_alt VARCHAR, wert_neu VARCHAR)
         """)
         bericht: dict[str, Any] = {"quellen": [], "paare": 0, "uebersprungen": 0}
+        vorrat: list[tuple[Quelle, list[Schnappschuss]]] = []
         for quelle in QUELLEN:
-            alle = schnappschuesse(ablage.laeufe(quelle.praefix,
-                                                 fehler=TransformError))
+            laeufe = ablage.laeufe(quelle.praefix, fehler=TransformError)
+            alle = schnappschuesse(laeufe)
+            deltas = delta_laeufe(laeufe)
+            vorrat.append((quelle, deltas))
             offen = [(a, b) for a, b in paare(alle)
                      if (a.run_id, b.run_id) not in schon]
             bericht["quellen"].append({
                 "stadt": quelle.stadt, "schnappschuesse": len(alle),
+                "deltas": len(deltas),
                 "paare_gesamt": len(paare(alle)), "paare_neu": len(offen)})
             bericht["uebersprungen"] += len(paare(alle)) - len(offen)
             for vorher, nachher in offen:
@@ -439,15 +632,43 @@ def baue(data_root: Path, *, trocken: bool = False) -> dict[str, Any]:
         # Das Bestehende kommt dazu, nicht weg: Sein Rohstoff ist moeglicher-
         # weise schon aufgeraeumt.
         alt = verzeichnis / PARQUET_FILE
-        liste = ", ".join(SPALTEN)
-        bestand = (f"SELECT {liste} FROM read_parquet('{alt}') UNION ALL "
+        roh = ", ".join(SPALTEN_ROH)
+        bestand = (f"SELECT {roh} FROM read_parquet('{alt}') UNION ALL "
                    if alt.is_file() else "")
-        con.execute(f"CREATE TABLE {TABLE} AS {bestand} "
-                    f"SELECT {liste} FROM neue_zeilen")
+        con.execute(f"CREATE TEMP TABLE roh AS {bestand} "
+                    f"SELECT {roh} FROM neue_zeilen")
+
+        # Die Datierung laeuft ueber die **ganze** Tabelle, nicht nur ueber die
+        # neuen Paare: Sie ist eine Annotation und wird bei jedem Bau neu
+        # gerechnet. Ein Paar, das beim ersten Mal nicht datierbar war, wird es,
+        # sobald ein Delta dazukommt - und umgekehrt verblasst es, wenn die
+        # Deltas aufgeraeumt sind. Die Tatsachenspalten bleiben unberuehrt.
+        con.execute("""
+            CREATE OR REPLACE TEMP TABLE delta_schluessel (
+                city VARCHAR, run_id VARCHAR, am TIMESTAMP, _id VARCHAR)
+        """)
+        gelesen = 0
+        for quelle, deltas in vorrat:
+            gelesen += datiere(con, quelle, ablage, deltas)
+        bericht["deltas_gelesen"] = gelesen
+        con.execute(f"CREATE TABLE {TABLE} AS {DATIERUNG_SQL}")
+
         bericht["row_count"] = con.execute(
             f"SELECT count(*) FROM {TABLE}").fetchone()[0]
+        bericht["datierung"] = dict(con.execute(
+            f"SELECT coalesce(datierung, 'ohne_schluessel'), count(*) "
+            f"FROM {TABLE} GROUP BY 1 ORDER BY 1").fetchall())
 
-        if bericht["paare"] or not alt.is_file():
+        # Auch ohne neues Paar kann sich die Datierung bewegt haben - und ein
+        # neuer Vertrag muss ankommen, selbst wenn sich keine Zahl bewegt.
+        # Letzteres fehlte zuerst: Das Schema im Manifest blieb aus, weil der
+        # Lauf nichts zu publizieren meinte.
+        datierung_neu = bericht["datierung"] != (
+            gelesene_datierung(alt) if alt.is_file() else None)
+        vertrag_neu = abgelegter_vertrag(verzeichnis) != CONTRACT_VERSION
+        schema_neu = abgelegtes_schema(verzeichnis) != set(SPALTEN)
+        if (bericht["paare"] or not alt.is_file()
+                or datierung_neu or vertrag_neu or schema_neu):
             publish(con, TABLE, verzeichnis,
                     manifest(con, bericht, begonnen))
         return bericht
@@ -462,6 +683,13 @@ def manifest(con: duckdb.DuckDBPyConnection, bericht: dict[str, Any],
     return {
         "status": "complete",
         "contract_version": CONTRACT_VERSION,
+        # Bis zum 3.10.2026 fehlte das hier, und es fiel niemandem auf: Der
+        # Feldkatalog leitet Spalten und Typen aus dem Manifest ab, und ohne
+        # ``schema`` blieb der Abschnitt dieser Tabelle **leer** - eine
+        # Ueberschrift mit einer Tabellenkopfzeile und nichts darunter. Auch
+        # der Waechter, der jede gebaute Spalte auf eine Beschreibung haelt,
+        # pruefte dadurch nichts. Die einzige Silver-Tabelle ohne Schema.
+        "schema": schema_of(con, TABLE),
         "code_version": code_stand(),
         "layer": SILVER_LAYER,
         "table": TABLE,
