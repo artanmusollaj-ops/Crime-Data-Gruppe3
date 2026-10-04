@@ -31,12 +31,20 @@ Die Strecke führt zwei unvergleichbare Quellen in eine vergleichbare Tabelle
 
 | Schicht | Aufgabe | Was sie ausdrücklich **nicht** tut | Grösse |
 | --- | --- | --- | ---: |
-| **raw** | die Antwort der Quelle, Byte für Byte, mit SHA-256 | nichts deuten, nichts umformen | 130 MB |
-| **bronze** | Parquet mit gepinntem Schema, Originaltypen | nichts deuten; Unerwartetes nach `_extra` statt in den Papierkorb | 124 MB |
-| **silver** | deuten: Typen, Einheiten, Zeitzonen, NIBRS, Raum | nichts wegwerfen — Lücken werden gekennzeichnet, nicht gefiltert | 47 MB |
-| **gold** | Sternschema, eine Zeile je **Tat** | nicht aggregieren | 15 MB |
+| **raw** | die Antwort der Quelle, Byte für Byte, mit SHA-256 | nichts deuten, nichts umformen | 143,5 MB |
+| **bronze** | Parquet mit gepinntem Schema, Originaltypen | nichts deuten; Unerwartetes nach `_extra` statt in den Papierkorb | 162,2 MB |
+| **silver** | deuten: Typen, Einheiten, Zeitzonen, NIBRS, Raum | nichts wegwerfen — Lücken werden gekennzeichnet, nicht gefiltert | 49,5 MB |
+| **gold** | Sternschema, eine Zeile je **Tat** | nicht aggregieren | 15,3 MB |
 | **serving** | abfragbar machen: Sichten, vier Vergleichstabellen, Karte | nicht der Bestand sein | 0,9 MB |
-| **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 121 MB |
+| **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 254,1 MB |
+
+Die Grössen sind **gemessen, nicht geschätzt** — `python -m
+orchestration.platzbedarf` liest sie über `storage` aus den Schichten, und
+[`intern/platzbedarf.md`](intern/platzbedarf.md) rechnet sie dort je Quelle auf
+die Jahrgänge 2021–2026 hoch. `tests/test_platzbedarf_dokumente.py` hält diese
+Tabelle und dieselbe Tabelle im
+[Einseiter](architektur-einseiter.html) gegen eine frische Messung; eine Stelle
+allein nachzuziehen genügt nicht.
 
 **Der Stand in Zahlen** — der Referenzstand, auf den sich alle
 Abgabedokumente beziehen:
@@ -51,7 +59,7 @@ Abgabedokumente beziehen:
 **Warum raw und bronze getrennt sind.** Raw ist das Beweisstück: Ein Delta-Lauf
 hält Datensätze so fest, wie sie in diesem Moment waren, und das lässt sich
 später nicht rekonstruieren. Bronze ist daraus abgeleitet und jederzeit neu
-erzeugbar. Diese Trennung kostet 130 MB und ist der Grund, warum sich jede Zahl
+erzeugbar. Diese Trennung kostet 143,5 MB und ist der Grund, warum sich jede Zahl
 bis zur gzip-Datei zurückverfolgen lässt.
 
 **Warum Gold nicht aggregiert.** Notebook 34 hat beide Bauweisen gebaut und
@@ -216,10 +224,10 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'606 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'176 davon — die übrigen 27 brauchen gebaute Daten; 82 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 1'679 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'176 davon — die übrigen 27 brauchen gebaute Daten; 99 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
-| **Referenzstand** | 82 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
+| **Referenzstand** | 99 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
 Der letzte Punkt ist die interessanteste Entscheidung: Die Quellen bewegen
 sich. Ein Test, der die dokumentierte Zahl gegen den frischen Stand hält, wäre
@@ -370,7 +378,7 @@ Wahrheit mit eigenem Alter.
 Release entsteht — es braucht also einen Neuaufbau je Release und eine sichtbare
 Angabe, welchen Stand der Index zeigt. Dazu Speicher: Elasticsearch braucht
 für 345'000 Dokumente mit Geo- und Textfeldern erfahrungsgemäss ein Mehrfaches
-der 15 MB Parquet.
+der 15,3 MB Parquet.
 
 **Offen:** ob die Aggregationen für das Dashboard aus Elasticsearch kommen oder
 weiterhin aus den vorberechneten Vergleichstabellen. Beides geht; die Antwort
@@ -504,7 +512,7 @@ entschieden:
 ---
 
 **Zu den Zahlen.** Teil A nennt den **Referenzstand** — den Bau vom 17.9.2026,
-16:05 UTC, auf den sich alle Abgabedokumente beziehen und den 82 Wächter mit
+16:05 UTC, auf den sich alle Abgabedokumente beziehen und den 99 Wächter mit
 dem Marker `referenzstand` gegen die Parquet-Dateien halten. Der gebaute Stand
 auf dem Entwicklungsrechner ist seit einer frischen Ingestion am Abend des
 17.9. geringfügig weiter (silver +0,10 %, gold +0,13 %, Detroits Rate 132,7 →

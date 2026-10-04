@@ -43,7 +43,7 @@ from typing import NamedTuple
 
 import duckdb
 
-from storage import for_root
+from storage import TABELLENSCHICHTEN, for_root
 from storage import duckdb as storage_duckdb
 
 from serving import DATABASE_NAME, SERVING_LAYER
@@ -60,7 +60,9 @@ PARQUET_FILE = "part-0001.parquet"
 # build_comparison bekommen Sichten wie jede andere Tabelle. Die Datenbank
 # selbst liegt zwar auch unter serving/, aber nicht unter dataset= - der
 # Glob findet sie nicht.
-SCHICHTEN = ("silver", "gold", "serving")
+# Die Liste steht kanonisch in ``storage.backend``; hier ist sie die Auswahl
+# daraus - ein Name, keine zweite Fassung.
+SCHICHTEN = TABELLENSCHICHTEN
 
 
 class Tabelle(NamedTuple):

@@ -79,6 +79,27 @@ MD5 = re.compile(r"^[0-9a-f]{32}$")
 # "wessen Stand ist neuer?" ueberhaupt sinnvoll. Laeufe sind unveraenderlich.
 ABGELEITET = ("silver", "gold")
 
+# Die Schichten der Strecke, in der Reihenfolge, in der sie entstehen - die
+# kanonische Liste. Bis zum 4.10.2026 stand sie dreimal im Projekt und keine
+# zwei Fassungen waren gleich: ``storage/__main__.py`` kannte ``raw`` und
+# ``bronze``, ``serving/build_analysis_db.py`` und ``tools/build_feldkatalog.py``
+# kannten ``silver``, ``gold`` und ``serving``. Keine davon war falsch - jede
+# war der Ausschnitt, den ihr Aufrufer braucht -, aber keine liess sich fragen,
+# *welche* Schichten es gibt. Genau das braucht ``orchestration.platzbedarf``,
+# um die Belegung je Schicht zu messen. Die drei Ausschnitte stehen weiter bei
+# ihren Benutzern, aber als Auswahl aus dieser Liste.
+SCHICHTEN = ("raw", "bronze", "silver", "gold", "serving", "releases")
+
+#: Die Schichten, die aus unveraenderlichen Laeufen bestehen und anhaeufen.
+LAUFSCHICHTEN = ("raw", "bronze")
+
+#: Die Schichten, die Tabellen fuehren - ersetzt, nicht angehaeuft. ``serving``
+#: steht dabei, obwohl es nichts entwertet: Es traegt die vier
+#: Vergleichstabellen aus ``build_comparison``, und sie sind Tabellen wie jede
+#: andere. ``ABGELEITET`` ist die engere Menge - nur dort ist der
+#: Standvergleich sinnvoll.
+TABELLENSCHICHTEN = ("silver", "gold", "serving")
+
 
 class StorageError(RuntimeError):
     """Die Ablage ist nicht erreichbar oder lehnt ab - ohne Traceback aus boto3."""
@@ -570,6 +591,62 @@ class Storage:
                     continue
                 gefunden.add(paths.relativ(praefix, rel))
         return sorted(gefunden)
+
+    def groessen_unter(self, prefix: str | Path, muster: str = "**/*", *,
+                       lokal: bool = False) -> dict[str, int]:
+        """Jede Datei unter ``prefix`` mit ihrer Groesse in Bytes.
+
+        Dieselbe Auswahl wie ``list_files`` und darum dieselben Regeln:
+        Versteckte Teile (``.part``, ``.partial``) zaehlen nie, und im
+        Hybridmodus gewinnt die lokale Datei - dieselbe Datei wird **einmal**
+        gezaehlt, nicht zweimal. Gemessen wird lokal mit ``st_size``, auf S3
+        mit ``Objekt.size``; S3 wird zuerst gelesen, damit die lokale Groesse
+        sie ueberschreibt.
+
+        ``lokal=True`` misst nur die Arbeitskopie auf dieser Platte, auch im
+        ``s3``-Modus, in dem die Ablage sonst gar nicht lokal liest. Das ist
+        die Frage, die ``aufraeumen`` stellt (was gibt das Loeschen frei?) und
+        die ``python -m storage publizieren`` stellt (was ist noch
+        hochzuladen?) - beide meinen Bytes auf der Platte, nicht den
+        gemeinsamen Bestand.
+        """
+        praefix = paths.relativ(prefix)
+        gefunden: dict[str, int] = {}
+        if self.config.remote and not lokal:
+            for objekt in self.client.list(praefix + "/" if praefix else ""):
+                rel = objekt.key[len(praefix) + 1:] if praefix else objekt.key
+                if paths.versteckt(rel) or not passt(rel, muster):
+                    continue
+                gefunden[paths.relativ(praefix, rel)] = objekt.size
+        if self.config.liest_lokal or lokal:
+            wurzel = self.local_path(praefix)
+            if wurzel.exists():
+                for pfad in wurzel.glob(muster):
+                    if not pfad.is_file():
+                        continue
+                    rel = pfad.relative_to(wurzel).as_posix()
+                    if not paths.versteckt(rel):
+                        gefunden[paths.relativ(praefix, rel)] = pfad.stat().st_size
+        return dict(sorted(gefunden.items()))
+
+    def bytes_unter(self, prefix: str | Path, muster: str = "**/*", *,
+                    lokal: bool = False) -> int:
+        """Die Belegung unter ``prefix`` in Bytes - **die** Byte-Summe.
+
+        Sie stand bis zum 4.10.2026 dreimal ausgeschrieben im Projekt
+        (``storage/__main__.py``, ``orchestration.aufraeumen``,
+        ``tools/build_referenz.py``), jedes Mal als ``sum(p.stat().st_size for
+        p in ...rglob("*"))`` - und damit jedes Mal nur im ``local``-Modus
+        richtig, jedes Mal mit den ``.part``-Verzeichnissen drin, und einmal
+        geteilt durch 1'048'576, wo alle anderen durch 1e6 teilten. Ein fehlendes
+        Praefix ist kein Fehler, sondern 0 Bytes: Eine Schicht, die es noch
+        nicht gibt, belegt nichts.
+
+        Unberuehrt bleibt die Summe in ``storage.release``: Sie zaehlt die
+        Dateien **eines** Release-Manifests, steht in unveraenderlichen
+        Manifesten und darf sich nie anders rechnen als damals.
+        """
+        return sum(self.groessen_unter(prefix, muster, lokal=lokal).values())
 
     def laeufe(self, prefix: str | Path, muster: str = f"**/run_*/{MANIFEST}", *,
                status: frozenset[str] = FERTIG, streng: bool = False,

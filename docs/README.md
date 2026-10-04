@@ -59,6 +59,7 @@ Word-Dokument verweist**: auf keines davon.
 | [`leistungsnachweise.md`](intern/leistungsnachweise.md) | Anforderungen, Stand, Lücken — ist *über* den LN, nicht Teil davon |
 | [`AENDERUNGEN.md`](intern/AENDERUNGEN.md) | das Projektgedächtnis: was sich wann geändert hat und warum |
 | [`datenhistorie.md`](intern/datenhistorie.md) | was beim Aufräumen verlorenginge — Entscheidungspapier |
+| [`platzbedarf.md`](intern/platzbedarf.md) | was die Strecke an Platz braucht, gemessen und auf 2021–2026 hochgerechnet — **erzeugt** (siehe unten) |
 | [`DETROIT_PIPELINE_ANLEITUNG.md`](intern/DETROIT_PIPELINE_ANLEITUNG.md) | Detroit-Pipeline Schritt für Schritt (Windows) |
 
 ## Erzeugt — nie von Hand ändern
@@ -69,6 +70,7 @@ Eine Handänderung hier ist beim nächsten Lauf weg. Wer den Inhalt ändern will
 | Was | Erzeugt von |
 | --- | --- |
 | [`feldkatalog.md`](feldkatalog.md) | `tools/build_feldkatalog.py`, aus den Manifesten |
+| [`intern/platzbedarf.md`](intern/platzbedarf.md) | `tools/build_platzbedarf.py`, aus der gemessenen Belegung je Schicht — und die Quelle der Grössentabelle in `architektur-ist-und-ziel.md` und im Einseiter |
 | [`referenz/`](referenz/index.html) | `tools/build_referenz.py` (pdoc), eine Seite je Modul |
 | [`einstieg.html`](einstieg.html) | `tools/build_einstieg.py`, aus dem aktuellen Release — **wo ein Analyst anfängt** |
 | `bilder/architektur-pakete.svg`, `bilder/architektur-datenfluss.svg`, `bilder/architektur-kontext.svg` | `tools/build_architekturbilder.py`, aus dem Importgraphen |

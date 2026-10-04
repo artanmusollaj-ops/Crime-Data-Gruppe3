@@ -21,6 +21,9 @@ from pathlib import Path
 
 from storage.backend import (
     ABGELEITET,
+    LAUFSCHICHTEN,
+    SCHICHTEN,
+    TABELLENSCHICHTEN,
     Boto3Client,
     FakeS3Client,
     PublishError,
@@ -36,13 +39,15 @@ from storage.config import BACKENDS, Config, StorageConfigError, load
 from storage.parquet import schema as parquet_schema, spalten as parquet_spalten
 
 __all__ = [
-    "ABGELEITET", "BACKENDS", "Boto3Client", "Config", "FakeS3Client", "PublishError",
+    "ABGELEITET", "BACKENDS", "LAUFSCHICHTEN", "SCHICHTEN", "TABELLENSCHICHTEN",
+    "Boto3Client", "Config", "FakeS3Client", "PublishError",
     "S3Client", "Standvergleich", "Storage", "StorageConfigError", "StorageError",
     "eingaben", "load", "manifest_von", "zeitpunkt",
     "parquet_schema", "parquet_spalten",
     "get_storage", "set_storage", "for_root",
     "storage_path", "local_path", "s3_path", "resolve_read_path",
     "publish_to_shared_storage", "exists", "list_files", "read_text", "write_text",
+    "bytes_unter", "groessen_unter",
 ]
 
 _standard: Storage | None = None
@@ -94,6 +99,16 @@ def exists(*teile: str | Path) -> bool:
 
 def list_files(prefix: str | Path, muster: str = "**/*") -> list[str]:
     return get_storage().list_files(prefix, muster)
+
+
+def groessen_unter(prefix: str | Path, muster: str = "**/*", *,
+                   lokal: bool = False) -> dict[str, int]:
+    return get_storage().groessen_unter(prefix, muster, lokal=lokal)
+
+
+def bytes_unter(prefix: str | Path, muster: str = "**/*", *,
+                lokal: bool = False) -> int:
+    return get_storage().bytes_unter(prefix, muster, lokal=lokal)
 
 
 def read_text(*teile: str | Path) -> str:

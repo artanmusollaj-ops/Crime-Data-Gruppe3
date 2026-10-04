@@ -457,7 +457,18 @@ def main(argv: list[str] | None = None) -> int:
     ziel = argumente.ziel
     dateien, warnungen = baue(ziel)
     seiten = [p for p in dateien if p.suffix == ".html"]
-    groesse = sum(p.stat().st_size for p in dateien) / 1_048_576
+    # Die Byte-Summe ueber ein Verzeichnis steht einmal im Projekt, als
+    # ``Storage.bytes_unter`` - ``baue`` leert ``ziel`` vorher, es liegt also
+    # genau das darin, was gerade geschrieben wurde. Die Ablage wird hier
+    # bewusst ohne ``load()`` gebaut: ``docs/`` hat mit STORAGE_BACKEND nichts
+    # zu tun, und ein Werkzeug soll nicht an einer .env scheitern.
+    #
+    # Geteilt wird durch 1e6, nicht mehr durch 1'048'576. Alle uebrigen
+    # MB-Angaben im Projekt rechnen dezimal; diese eine rechnete binaer und
+    # nannte dieselbe Referenz um 4,8 % kleiner als jede andere Stelle.
+    from storage import Config, Storage
+
+    groesse = Storage(Config(local_root=ziel.parent)).bytes_unter(ziel.name) / 1e6
     wohin = ziel if not ziel.is_relative_to(PROJEKT) else ziel.relative_to(PROJEKT)
     print(f"{len(seiten)} Seiten, {groesse:.1f} MB -> {wohin}")
     if warnungen:

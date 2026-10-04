@@ -734,3 +734,123 @@ def test_entferne_oben_geht_im_lokalen_modus_nicht(tmp_path):
     storage._client = None          # kein untergeschobener Fake
     with pytest.raises(PublishError, match="kennt kein S3"):
         storage.entferne_oben("releases/release=A")
+
+
+# --------------------------------------------------------------------------
+# Die Byte-Summe ueber ein Praefix
+# --------------------------------------------------------------------------
+#
+# Sie stand bis zum 4.10.2026 dreimal ausgeschrieben im Projekt und war jedes
+# Mal nur im local-Modus richtig. Seither gibt es sie einmal, und hier stehen
+# die Faelle, in denen die drei alten Fassungen falsch gerechnet haben.
+
+
+def test_bytes_unter_zaehlt_lokal_ueber_st_size(tmp_path):
+    storage, _ = ablage(tmp_path, "local")
+    lokal_schreiben(storage, "bronze/city=chicago/run_a/part-0001.parquet", b"x" * 300)
+    lokal_schreiben(storage, "bronze/city=chicago/run_a/manifest.json", b"y" * 40)
+    assert storage.bytes_unter("bronze") == 340
+    assert storage.bytes_unter("bronze/city=chicago/run_a") == 340
+
+
+def test_bytes_unter_laesst_part_verzeichnisse_weg(tmp_path):
+    """Ein abgebrochener Lauf ist nichts Veroeffentlichtes - und belegt nichts.
+
+    Die drei ausgeschriebenen Fassungen nahmen ``rglob("*")`` und zaehlten
+    ``.part`` mit.
+    """
+    storage, _ = ablage(tmp_path, "local")
+    lokal_schreiben(storage, "silver/dataset=x/part-0001.parquet", b"x" * 100)
+    lokal_schreiben(storage, "silver/.part-dataset=x/part-0001.parquet", b"x" * 9999)
+    assert storage.bytes_unter("silver") == 100
+
+
+def test_bytes_unter_ist_null_wo_nichts_liegt(tmp_path):
+    """Eine Schicht, die es noch nicht gibt, belegt nichts - und bricht nicht."""
+    storage, _ = ablage(tmp_path, "local")
+    assert storage.bytes_unter("serving") == 0
+    assert storage.groessen_unter("serving") == {}
+    assert not (tmp_path / "data" / "serving").exists(), "messen legt nichts an"
+
+
+def test_bytes_unter_nimmt_im_s3_modus_die_objektgroesse(tmp_path):
+    storage, fake = ablage(tmp_path, "s3")
+    fake.put("gold/dataset=fact_offense/part-0001.parquet", b"z" * 4096)
+    assert storage.bytes_unter("gold") == 4096
+
+
+def test_bytes_unter_zaehlt_im_hybridmodus_einmal_und_lokal_gewinnt(tmp_path):
+    """Dieselbe Datei lokal und oben ist eine Datei - wie beim Lesen."""
+    storage, fake = ablage(tmp_path, "hybrid")
+    rel = "gold/dataset=fact_offense/part-0001.parquet"
+    lokal_schreiben(storage, rel, b"x" * 100)
+    fake.put(rel, b"z" * 4096)
+    assert storage.bytes_unter("gold") == 100
+    assert storage.groessen_unter("gold") == {rel: 100}
+
+
+def test_bytes_unter_vereint_im_hybridmodus_beide_seiten(tmp_path):
+    storage, fake = ablage(tmp_path, "hybrid")
+    lokal_schreiben(storage, "gold/dataset=a/part-0001.parquet", b"x" * 100)
+    fake.put("gold/dataset=b/part-0001.parquet", b"z" * 50)
+    assert storage.bytes_unter("gold") == 150
+
+
+def test_bytes_unter_sieht_mit_lokal_wahr_nur_die_platte(tmp_path):
+    """Was von hier hochgehen muss, steht nicht oben - und im s3-Modus liest
+    die Ablage gar nicht lokal."""
+    storage, fake = ablage(tmp_path, "s3")
+    lokal_schreiben(storage, "bronze/city=chicago/run_a/part-0001.parquet", b"x" * 70)
+    fake.put("bronze/city=detroit/run_b/part-0001.parquet", b"z" * 4096)
+    assert storage.bytes_unter("bronze") == 4096, "ohne lokal: der Bestand oben"
+    assert storage.bytes_unter("bronze", lokal=True) == 70
+
+
+def test_bytes_unter_versteht_ein_muster(tmp_path):
+    storage, _ = ablage(tmp_path, "local")
+    lokal_schreiben(storage, "bronze/city=chicago/run_a/part-0001.parquet", b"x" * 100)
+    lokal_schreiben(storage, "bronze/city=chicago/run_a/manifest.json", b"y" * 10)
+    assert storage.bytes_unter("bronze", "**/*.parquet") == 100
+
+
+def test_bytes_unter_und_list_files_waehlen_dasselbe_aus(tmp_path):
+    """Ein Unterschied zwischen beiden waere eine Dateizahl ohne ihre Bytes."""
+    storage, fake = ablage(tmp_path, "hybrid")
+    lokal_schreiben(storage, "silver/dataset=a/part-0001.parquet", b"x" * 100)
+    lokal_schreiben(storage, "silver/.part-dataset=b/part-0001.parquet", b"x" * 5)
+    fake.put("silver/dataset=c/part-0001.parquet", b"z" * 50)
+    assert list(storage.groessen_unter("silver")) == storage.list_files("silver")
+
+
+def test_die_schichtenliste_steht_kanonisch_in_storage():
+    """Drei widersprechende Fassungen waren vorher - jetzt ist es eine.
+
+    Geprueft wird **Gleichheit**, nicht Teilmenge: ``basis_je_jahrgang`` laeuft
+    ueber ``LAUFSCHICHTEN``, ``TABELLENSCHICHTEN`` und ``releases`` und deckt
+    damit genau dann alles ab, was ``belegung`` messen kann, wenn die drei
+    ``SCHICHTEN`` erschoepfen. Eine siebte Schicht wuerde sonst gemessen und
+    fiele still aus der Hochrechnung.
+    """
+    from storage import ABGELEITET, LAUFSCHICHTEN, SCHICHTEN, TABELLENSCHICHTEN
+    from storage import release
+
+    assert SCHICHTEN == ("raw", "bronze", "silver", "gold", "serving", "releases")
+    assert (set(LAUFSCHICHTEN) | set(TABELLENSCHICHTEN) | {release.RELEASES}
+            == set(SCHICHTEN)), (
+        "die drei Teile, aus denen platzbedarf.basis_je_jahrgang besteht, "
+        "deckten SCHICHTEN nicht mehr ab"
+    )
+    assert not set(LAUFSCHICHTEN) & set(TABELLENSCHICHTEN)
+    assert release.RELEASES not in set(LAUFSCHICHTEN) | set(TABELLENSCHICHTEN)
+    assert set(ABGELEITET) < set(TABELLENSCHICHTEN), \
+        "ABGELEITET ist die engere Menge - nur dort ist der Standvergleich sinnvoll"
+
+
+def test_die_drei_ausschnitte_kommen_aus_der_kanonischen_liste():
+    """Sonst waeren es wieder drei Listen, die auseinanderlaufen koennen."""
+    import storage.__main__ as cli
+    from serving import build_analysis_db
+    from storage import LAUFSCHICHTEN, TABELLENSCHICHTEN
+
+    assert cli.SCHICHTEN == LAUFSCHICHTEN
+    assert build_analysis_db.SCHICHTEN == TABELLENSCHICHTEN

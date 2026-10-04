@@ -27,13 +27,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src" / "crime"))
 from manifeste import tabellen  # noqa: E402
+from storage import TABELLENSCHICHTEN  # noqa: E402
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ZIEL = PROJECT_ROOT / "docs" / "feldkatalog.md"
 
 # serving seit 17.9.2026: die vier Vergleichstabellen aus build_comparison.
-SCHICHTEN = ("silver", "gold", "serving")
+# Die Liste steht kanonisch in ``storage.backend``; hier ist sie die Auswahl
+# daraus. Die Reihenfolge ist dieselbe und bestimmt die Abschnitte im Katalog.
+SCHICHTEN = TABELLENSCHICHTEN
 
 # Spalten, die ueberall dasselbe bedeuten. Sie hier einmal zu erklaeren ist
 # ehrlicher, als denselben Satz neunmal zu wiederholen und beim zehnten Mal

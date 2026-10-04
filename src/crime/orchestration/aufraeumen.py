@@ -134,6 +134,13 @@ class Bestand(NamedTuple):
     bronze: tuple[Path, ...]
     raw: tuple[Path, ...]
     zeilen: int
+    #: Die Ablagewurzel, unter der ``bronze`` und ``raw`` liegen. Sie steht
+    #: hier, damit ``bytes`` ueber ``storage`` zaehlen kann statt ueber offene
+    #: Pfade. **Pflicht**, ohne Vorgabewert: Mit ``None`` lag jedes
+    #: Verzeichnis ausserhalb der Wurzel, und ``bytes`` meldete 0 - ein
+    #: fehlender Wert haette sich als falsches Ergebnis gezeigt, nicht als
+    #: Fehler.
+    data_root: Path
 
     @property
     def ohne_raw(self) -> bool:
@@ -141,11 +148,34 @@ class Bestand(NamedTuple):
 
     @property
     def bytes(self) -> int:
-        return sum(
-            f.stat().st_size
-            for verzeichnis in self.bronze + self.raw
-            for f in verzeichnis.rglob("*") if f.is_file()
-        )
+        """Was das Loeschen dieses Laufs freigibt - Bronze und Raw zusammen.
+
+        Gezaehlt wird ueber ``Storage.bytes_unter``: Die Byte-Summe ueber ein
+        Praefix steht seit dem 4.10.2026 einmal im Projekt und nicht dreimal
+        ausgeschrieben. ``lokal=True``, weil Laeufe nur lokal aufgeraeumt
+        werden - im ``s3``-Modus laese die Ablage sonst gar nicht hier.
+
+        Die Entscheidung haengt an keiner dieser Zahlen: ``entscheide``
+        kennt nur Reihenfolge, Register und Manifeste. Diese Summe steht im
+        Bericht und sonst nirgends.
+
+        Ein Verzeichnis ausserhalb der Wurzel ist ein **Fehler**, kein
+        uebersprungener Posten: Stillschweigend weggelassen zeigte sich die
+        falsche Wurzel als zu kleine Zahl statt als Abbruch - genau die Falle,
+        die ``AGENTS.md`` unter dem fehlenden Census-Schluessel beschreibt.
+        """
+        ablage = for_root(self.data_root)
+        summe = 0
+        for verzeichnis in self.bronze + self.raw:
+            rel = ablage.relativ(verzeichnis)
+            if rel is None:
+                raise ValueError(
+                    f"{verzeichnis} liegt nicht unter der Ablagewurzel "
+                    f"{ablage.local_root} - die Belegung dieses Laufs liesse "
+                    f"sich nur zu klein angeben."
+                )
+            summe += ablage.bytes_unter(rel, lokal=True)
+        return summe
 
 
 class Entscheid(NamedTuple):
@@ -221,7 +251,7 @@ def bestaende(data_root: Path) -> dict[str, list[Bestand]]:
     for (quelle, run_id), e in gruppen.items():
         je_quelle.setdefault(quelle, []).append(Bestand(
             quelle, run_id, e["abgeschlossen"], e["delta"],
-            tuple(e["bronze"]), tuple(e["raw"]), e["zeilen"],
+            tuple(e["bronze"]), tuple(e["raw"]), e["zeilen"], data_root,
         ))
     for laeufe in je_quelle.values():
         laeufe.sort(key=lambda b: (b.abgeschlossen, b.run_id), reverse=True)
