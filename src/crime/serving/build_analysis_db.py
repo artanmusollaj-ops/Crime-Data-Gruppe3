@@ -295,7 +295,7 @@ def build_selbststaendig(
     ziel.parent.mkdir(parents=True, exist_ok=True)
     arbeit = ziel.with_name(f".{ziel.name}.part")
     arbeit.unlink(missing_ok=True)
-    con = duckdb.connect(str(arbeit))
+    con = storage_duckdb.verbinde(arbeit)
     try:
         try:
             con.execute("INSTALL spatial")

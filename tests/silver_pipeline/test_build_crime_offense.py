@@ -184,20 +184,20 @@ def schreibe_config(config_root: Path) -> None:
         encoding="utf-8")
     (config_root / bc.MICR_MAPPING).write_text(
         "micr_code,micr_file_class,micr_description,nibrs_group,nibrs_code,"
-        "nibrs_description,hierarchy,match,mapped,seen_in_detroit_2024,note\n"
-        "1301,13001,ASSAULT,A,13A,Aggravated Assault,1,micr_manual_1110_2024,true,true,\n"
-        "0910,09010,SOMETHING ELSE,B,90Z,All Other Offenses,9,micr_manual_1110_2024,true,true,\n"
+        "nibrs_description,hierarchy,match,mapped,note\n"
+        "1301,13001,ASSAULT,A,13A,Aggravated Assault,1,micr_manual_1110_2024,true,\n"
+        "0910,09010,SOMETHING ELSE,B,90Z,All Other Offenses,9,micr_manual_1110_2024,true,\n"
         # Fuer die Auswahl der zaehlenden Zeile: zwei Codes mit verschiedenem
         # Rang. Im echten Handbuch steht 1302 auf 4 und 2901 auf 16 - hier
         # genuegt, dass der eine schwerer wiegt als der andere.
-        "1302,13002,AGGRAVATED ASSAULT,A,13A,Aggravated Assault,4,micr_manual_1110_2024,true,true,\n"
-        "1172,11002,CSC 3RD DEGREE,A,13A,Aggravated Assault,2,micr_arrest_charge_1110_2024,true,true,\n"
-        "2307,23007,LARCENY - OTHER,A,90Z,All Other Offenses,6,micr_manual_1110_2024,true,true,\n"
-        "1201,12001,CARJACKING,A,13A,Aggravated Assault,3,micr_manual_1110_2024,true,true,\n"
-        "2901,29000,DAMAGE TO PROPERTY,A,90Z,All Other Offenses,16,micr_manual_1110_2024,true,true,\n"
+        "1302,13002,AGGRAVATED ASSAULT,A,13A,Aggravated Assault,4,micr_manual_1110_2024,true,\n"
+        "1172,11002,CSC 3RD DEGREE,A,13A,Aggravated Assault,2,micr_arrest_charge_1110_2024,true,\n"
+        "2307,23007,LARCENY - OTHER,A,90Z,All Other Offenses,6,micr_manual_1110_2024,true,\n"
+        "1201,12001,CARJACKING,A,13A,Aggravated Assault,3,micr_manual_1110_2024,true,\n"
+        "2901,29000,DAMAGE TO PROPERTY,A,90Z,All Other Offenses,16,micr_manual_1110_2024,true,\n"
         # Fuer das Fallebene: ein Eigentumsdelikt aus der Hierarchie (240) neben
         # einem Personendelikt (13A) und einem Auffangcode (90Z).
-        "2401,24001,MOTOR VEHICLE THEFT,A,240,Motor Vehicle Theft,7,micr_manual_1110_2024,true,true,\n",
+        "2401,24001,MOTOR VEHICLE THEFT,A,240,Motor Vehicle Theft,7,micr_manual_1110_2024,true,\n",
         encoding="utf-8")
 
 
@@ -1385,9 +1385,9 @@ def test_m03_bemerkt_auch_eine_zurueckgezogene_zuordnung(tmp_path, con):
     pfad.write_text(
         pfad.read_text(encoding="utf-8").replace(
             "2401,24001,MOTOR VEHICLE THEFT,A,240,Motor Vehicle Theft,7,"
-            "micr_manual_1110_2024,true,true,",
+            "micr_manual_1110_2024,true,",
             "2401,24001,MOTOR VEHICLE THEFT,A,240,Motor Vehicle Theft,7,"
-            "micr_manual_1110_2024,false,true,"),
+            "micr_manual_1110_2024,false,"),
         encoding="utf-8")
     with pytest.raises(bc.TransformError, match="detroit"):
         bc.gegen_crosswalk(con, "probe", config_root)

@@ -478,14 +478,14 @@ def pruefe_zeitgenauigkeit(parquet: Path, liste: list[Feld]) -> None:
     Welt. Traegt Gold eines Tages Mikrosekunden, soll es hier auffallen und
     nicht in einer Auswertung.
     """
-    import duckdb
+    from storage.duckdb import verbinde
 
     spalten = [f.name for f in liste if f.arrow.startswith("timestamp")]
     if not spalten:
         return
     teile = ", ".join(
         f'count(*) FILTER (WHERE epoch_us("{s}") % 1000 <> 0)' for s in spalten)
-    con = duckdb.connect()
+    con = verbinde()
     try:
         feiner = con.execute(
             f"SELECT {teile} FROM read_parquet('{parquet}')").fetchone()

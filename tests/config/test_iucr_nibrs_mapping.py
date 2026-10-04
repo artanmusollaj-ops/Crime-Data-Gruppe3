@@ -413,6 +413,78 @@ def test_jede_deliktgruppe_ist_zugeordnet(zeilen):
 
 
 # --------------------------------------------------------------------------
+# Abdeckung der echten Daten, wenn vorhanden
+# --------------------------------------------------------------------------
+#
+# Diese Pruefung hat dem Chicagoer Crosswalk bis zum 3.10.2026 gefehlt. Alles
+# oberhalb vergleicht die Tabelle mit **Katalogen** - Chicagos IUCR-Katalog,
+# der NIBRS-Codeliste, der ILCS-Tabelle der Landespolizei. Keiner davon sagt,
+# was in den Falldaten wirklich steht. Ein Code, den Chicago vergibt, ohne ihn
+# im Katalog zu fuehren, faellt deshalb nirgends auf; Detroits Crosswalk hat
+# diesen Waechter seit laengerem (``tests/config/test_micr_nibrs_mapping.py``),
+# und er ist hier nach demselben Muster gebaut.
+#
+# **Ein Anteil steht hier bewusst nicht.** Detroits Entsprechung rechnet einen
+# Fallanteil aus denselben Zaehlungen; das traegt nicht, denn Bronze haelt
+# jeden Lauf, und Chicago laedt Deltas mit 14 Tagen Ueberlappung. Gemessen am
+# 3.10.2026: 8 Laeufe, 520'490 Zeilen fuer 259'643 verschiedene ids - Faktor
+# 2,00. Ein solcher Anteil waere nach Ingestionshaeufigkeit gewichtet und
+# nicht nach Faellen. Je Jahrgang und auf entdoppelter Basis steht er in Gold,
+# als ``mapping_by_year`` im Manifest von ``fact_offense`` (FR-38).
+
+
+def chicago_codes() -> dict[str, int] | None:
+    """Die IUCR-Codes der Chicago-Bronze-Laeufe, oder None.
+
+    Gelesen werden **alle** Laeufe und nicht nur der juengste. Das ist hier
+    Absicht und kein Verstoss gegen die Entdoppelungsregel: Gefragt ist die
+    *Menge* der vorkommenden Codes, und ein Code, der nur in einem aelteren
+    Delta steht, muss genauso zugeordnet sein. Die Zahlen daneben sind
+    Groessenordnungen fuer die Fehlermeldung, keine Statistik - mehrfach
+    geladene Zeilen zaehlen darin mehrfach.
+    """
+    wurzel = PROJECT_ROOT / "data" / "bronze" / "city=chicago"
+    treffer = sorted(
+        q for q in wurzel.glob("**/run_*/*.parquet")
+        if not any(teil.startswith(".") for teil in q.parts)
+    ) if wurzel.exists() else []
+    if not treffer:
+        return None
+    duckdb = pytest.importorskip("duckdb")
+    con = duckdb.connect()
+    try:
+        return {
+            code: anzahl
+            for code, anzahl in con.execute(f"""
+                SELECT iucr, count(*)
+                FROM read_parquet({[str(q) for q in treffer]!r})
+                WHERE iucr IS NOT NULL
+                GROUP BY 1
+            """).fetchall()
+        }
+    finally:
+        con.close()
+
+
+def test_jeder_code_der_daten_steht_in_der_tabelle(zeilen):
+    """Ein unbekannter Code darf nicht stillschweigend durchfallen.
+
+    Faellt er, nennt die Meldung ihn beim Namen - sonst sieht man die Luecke
+    nur als Prozentsatz in ``mapping_status = 'unmapped'``, und ein
+    Prozentsatz sagt nicht, welche Zeile im Crosswalk fehlt.
+    """
+    daten = chicago_codes()
+    if daten is None:
+        pytest.skip("kein Chicago-Bronze-Lauf vorhanden")
+    bekannt = {z["iucr"] for z in zeilen}
+    fehlend = sorted(set(daten) - bekannt)
+    assert not fehlend, (
+        f"in den Daten, aber nicht in der Tabelle: "
+        f"{[(c, daten[c]) for c in fehlend]}"
+    )
+
+
+# --------------------------------------------------------------------------
 # Reproduzierbarkeit
 # --------------------------------------------------------------------------
 

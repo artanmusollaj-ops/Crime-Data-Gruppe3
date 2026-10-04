@@ -46,12 +46,12 @@ Zugang für eigene Abfragen.
 
 ![Abhängigkeiten zwischen den Paketen](bilder/architektur-pakete.svg)
 
-Zehn Pakete, 24 Kanten, **keine Zyklen** — das prüft ein Test, denn es ist
+Zehn Pakete, 26 Kanten, **keine Zyklen** — das prüft ein Test, denn es ist
 eine Aussage über die Architektur und nicht über die Zeichnung.
 
-**Warum nur sieben Pfeile gezeichnet sind.** Siebzehn der 24 Kanten zeigen auf
+**Warum nur neun Pfeile gezeichnet sind.** Siebzehn der 26 Kanten zeigen auf
 `manifeste` und `storage`. Alle zu zeichnen ergibt ein Knäuel, in dem die
-sieben übrigen untergehen — und genau die tragen die Aussage. Die beiden
+neun übrigen untergehen — und genau die tragen die Aussage. Die beiden
 Fundamente stehen deshalb als Band darunter, und die Bildunterschrift sagt,
 wer sie benutzt.
 
@@ -85,7 +85,7 @@ steht sie hier, ohne dass jemand daran denken muss.
 Das wird leicht verwechselt, auch von uns. **Gold aggregiert nicht.** Es hält
 das Sternschema: `fact_offense` mit einer Zeile je Tat, daneben vier
 Dimensionen (`dim_tract`, `dim_offense`, `dim_date`, `dim_city_day`). Notebook
-34 hat gemessen, warum — eine Vorberechnung spart bei 345'073 Zeilen nichts,
+34 hat gemessen, warum — eine Vorberechnung spart bei 345'091 Zeilen nichts,
 was ein Mensch bemerkt, kostet aber die Beweglichkeit, für die die Schicht da
 ist.
 
@@ -120,9 +120,14 @@ sie. Kein Widerspruch, sondern der Entwurf:
 > **Die Schichten hängen an Dateien, nicht aneinander.**
 
 `silver_pipeline` liest Chicagos Bronze-Läufe über die Ablage — über
-`manifest.json` und Parquet, nicht über einen Import. Die einzigen beiden
-Code-Kanten nach unten (`census_pipeline`, `weather_pipeline`) holen
-Konstanten: die Bundesstaatsnummern und die Stationskennungen.
+`manifest.json` und Parquet, nicht über einen Import. Die Code-Kanten nach
+unten holen **Konstanten und Regeln**, keine Daten: `census_pipeline` die
+Bundesstaatsnummern, `weather_pipeline` die Stationskennungen. Seit dem
+3.10.2026 greifen auch `gold_pipeline` und `orchestration` nach
+`census_pipeline` — dort steht, welches ACS-Vintage als Nenner eines
+Jahrgangs gilt. Die Regel gehört zur Quelle, und beide brauchen sie: der
+Gesamtlauf, um die richtigen Vintages zu laden, Gold, um jeder Tat ihren
+Nenner zuzuordnen.
 
 Das ist der Grund, warum eine dritte Stadt keine Änderung an Silver
 erzwingt — und warum der Storage-Umbau die Pipelines nicht angefasst hat.

@@ -7,7 +7,7 @@ gebauten Tabellen, die Bedeutung aus [`tools/build_feldkatalog.py`](../tools/bui
 python tools/build_feldkatalog.py
 ```
 
-**174 Spalten in 14 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
+**192 Spalten in 15 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
 soll einen Satz darüber schreiben müssen. `tests/test_feldkatalog.py` prüft, dass der Katalog vollständig und reproduzierbar ist.
 
 Die Rohschichten stehen hier nicht: **Bronze deutet nicht**, seine Spalten sind die der Quelle. Was sie bedeuten, sagen die
@@ -17,7 +17,7 @@ Quellnotebooks 01, 11, 21 und 22.
 
 ### `crime_offense`
 
-Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert, je Fall eine mit counts_case**. 348'311 Zeilen.
+Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert, je Fall eine mit counts_case**. 348'329 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -73,10 +73,23 @@ Eine Zeile ist: **ein Ort (Census Place)**. 2'206 Zeilen.
 
 ### `source_change`
 
-Eine Zeile ist: **ein geaendertes Feld einer Zeile zwischen zwei Schnappschuessen**. 4'292 Zeilen.
+Eine Zeile ist: **ein geaendertes Feld einer Zeile zwischen zwei Schnappschuessen**. 4'718 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
+| `city` | `VARCHAR` | Stadt, kleingeschrieben: `chicago` oder `detroit`. |
+| `offense_id` | `VARCHAR` | Schlüssel der Zeile. Chicagos `id`, Detroits `incident_entry_id`. |
+| `vorher_run_id` | `VARCHAR` | Der **aeltere** der beiden Vollabzuege, gegen den verglichen wurde. |
+| `run_id` | `VARCHAR` | Der **neuere** der beiden Vollabzuege. Zusammen mit `vorher_run_id` ist das das Vergleichspaar; verglichen werden nur aufeinanderfolgende Paare, damit jede Bewegung genau einmal zaehlt. |
+| `vorher_am` | `TIMESTAMP` | Wann der aeltere Vollabzug begann - die untere Grenze des Fensters, in dem die Aenderung geschah. |
+| `beobachtet_am` | `TIMESTAMP` | Wann der neuere Vollabzug begann - die obere Grenze. Nicht der Zeitpunkt der Aenderung: Der liegt irgendwo dazwischen, und genau dafuer gibt es `zuerst_gesehen_am`. |
+| `art` | `VARCHAR` | Welche Art von Bewegung. `geaendert`: etwas ausserhalb von Rauschen und Zeitstempeln hat sich bewegt. `beruehrt`: **nur** Zeitstempel - die Quelle hat die Zeile angefasst, ohne dass sich fachlich etwas aenderte. `neu` und `verschwunden`: der Schluessel steht im einen Schnappschuss und im anderen nicht. `unveraendert`: eine Markierungszeile ohne `offense_id` fuer ein Paar, in dem sich nichts bewegt hat - ohne sie waere *nichts gefunden* nicht von *noch nicht verglichen* zu unterscheiden. |
+| `feld` | `VARCHAR` | Das Quellfeld, das sich bewegt hat - in den Begriffen der Quelle, nicht in denen von Silver. Leer bei `neu`, `verschwunden` und `unveraendert`: Dort bewegt sich kein einzelnes Feld. |
+| `wert_alt` | `VARCHAR` | Der Wert im aelteren Schnappschuss, getrimmt und als Text. Getrimmt wird jedes Feld: Von 160 Aenderungen an `offense_description` waren 150 reine Leerzeichen, weil die Quelle angefangen hatte, auf feste Breite aufzufuellen. |
+| `wert_neu` | `VARCHAR` | Der Wert im neueren Schnappschuss, gleich behandelt. |
+| `zuerst_gesehen_in` | `VARCHAR` | Das **erste** Delta zwischen den beiden Vollabzuegen, das diesen Schluessel trug. Es grenzt die Aenderung ein: Bei Monatsabstand wird aus *irgendwann in dreissig Tagen* ein Tag. Leer, wenn `datierung` nicht `delta` ist. |
+| `zuerst_gesehen_am` | `TIMESTAMP` | Wann dieses Delta lief - die **obere Schranke** fuer den Zeitpunkt der Aenderung, nicht der Zeitpunkt selbst. |
+| `datierung` | `VARCHAR` | Wie verlaesslich die Datierung ist, in drei Zustaenden. `delta`: Ein Delta im Fenster trug den Schluessel. `kein_delta`: Deltas lagen vor, keines trug ihn - das kann heissen, dass die Quelle die Aenderung nicht angemeldet hat, dass sie nach dem letzten Delta geschah, oder dass die Zeile schon weg war; die drei sind von hier aus nicht zu trennen. `nicht_datierbar`: kein lesbares Delta liegt im Fenster. Leer bei der Markierungszeile - ohne Schluessel gibt es nichts zu datieren. **Diese Spalte klebt**: Sie nennt den besten Befund, der je bestimmt wurde, nicht den heutigen. Nachgerechnet wird, was besser wird - `delta` schlaegt `kein_delta` schlaegt `nicht_datierbar` -, und nie abwaerts. Sonst haette das Aufraeumen der Deltas eine einmal bestimmte Datierung wieder geloescht. |
 
 ### `tract`
 
@@ -95,7 +108,7 @@ Eine Zeile ist: **ein Census Tract**. 6'282 Zeilen.
 | `centroid_lat` | `DOUBLE` | Breitengrad des Flächenschwerpunkts. Für eine Karte, die Punkte statt Flächen zeigt. |
 | `centroid_lon` | `DOUBLE` | Längengrad des Flächenschwerpunkts. |
 | `geometry` | `BLOB` | Der Umriss als WKB. Kein Browser liest das - für eine Karte schreibt `serving.export_geojson` daraus GeoJSON. |
-| `population` | `BIGINT` | Einwohnerzahl aus der ACS-5-Jahres-Schätzung. Der Nenner jeder Rate. `0` kommt vor - Wasserflächen, Flughäfen, Industriegebiete. |
+| `population` | `BIGINT` | Einwohnerzahl aus der ACS-5-Jahres-Schätzung. Der Nenner jeder Rate. `0` kommt vor - Wasserflächen, Flughäfen, Industriegebiete. In Gold liegt sie **je Vintage** in `dim_tract_acs`, nicht in `dim_tract`. |
 | `median_household_income_usd` | `INTEGER` | Medianes Haushaltseinkommen in Dollar, ACS. `NULL`, wo die Schätzung zu unsicher ist - in Wayne County öfter als in Cook County. |
 | `population_below_poverty` | `INTEGER` | Absolute Zahl der Menschen unter der Armutsgrenze. Bleibt erhalten, auch wo `poverty_rate` `NULL` ist. |
 | `poverty_rate` | `DOUBLE` | Anteil der Menschen unter der Armutsgrenze, 0 bis 1. `NULL` bei null Einwohnern statt einer Division durch null. |
@@ -156,6 +169,7 @@ Eine Zeile ist: **ein Kalendertag**. 366 Zeilen.
 | `month_start` | `DATE` | Erster Tag des Monats - zum Gruppieren, ohne in der Abfrage zu rechnen. |
 | `is_weekend` | `BOOLEAN` | Samstag oder Sonntag. |
 | `day_of_year` | `SMALLINT` | Tag im Jahr, 1 bis 366. |
+| `year_is_complete` | `BOOLEAN` | Ob der Jahrgang dieses Tages **ganz** in den Daten liegt — also ob die Spanne den 1. Januar und den 31. Dezember einschliesst. **Ein Jahresvergleich filtert darauf**: 2026 hat am 3.10. neun Monate, und neun Monate gegen zwölf gestellt ergeben einen Rückgang, den es nicht gibt. Eine Lücke *innerhalb* des Jahres fällt hier nicht auf; die misst `year_coverage` im Manifest von `fact_offense`, mit `days_with_offenses` gegen `days_in_year`. |
 
 ### `dim_offense`
 
@@ -189,16 +203,26 @@ Eine Zeile ist: **ein Census Tract**. 6'282 Zeilen.
 | `state_name` | `VARCHAR` | Name des Bundesstaats, kleingeschrieben. |
 | `county_fips` | `VARCHAR` | Drei Ziffern des County innerhalb des Bundesstaats: `031` Cook (Chicago), `163` Wayne (Detroit). |
 | `tract_name` | `VARCHAR` | Bezeichnung des Tracts. |
-| `population` | `BIGINT` | Einwohnerzahl aus der ACS-5-Jahres-Schätzung. Der Nenner jeder Rate. `0` kommt vor - Wasserflächen, Flughäfen, Industriegebiete. |
-| `median_household_income_usd` | `INTEGER` | Medianes Haushaltseinkommen in Dollar, ACS. `NULL`, wo die Schätzung zu unsicher ist - in Wayne County öfter als in Cook County. |
-| `poverty_rate` | `DOUBLE` | Anteil der Menschen unter der Armutsgrenze, 0 bis 1. `NULL` bei null Einwohnern statt einer Division durch null. |
+| `reference_vintage` | `SMALLINT` | Aus diesem ACS-Vintage stammen Stadtzuordnung, Name, Fläche und Schwerpunkt. Sie werden **nicht je Jahrgang neu gerechnet**: Ein Tract soll dauerhaft eine Stadt haben, sonst springt eine Rate aus einem Grund, der nichts mit Kriminalität zu tun hat. Die Einwohnerzahlen liegen dagegen je Vintage in `dim_tract_acs` - verbunden wird über `geoid` **und** `vintage`. |
 | `land_area_m2` | `BIGINT` | Landfläche in Quadratmetern, aus TIGER/Line. Ohne Wasser - für eine Flächendichte die richtige Grösse. |
 | `centroid_lat` | `DOUBLE` | Breitengrad des Flächenschwerpunkts. Für eine Karte, die Punkte statt Flächen zeigt. |
 | `centroid_lon` | `DOUBLE` | Längengrad des Flächenschwerpunkts. |
 
+### `dim_tract_acs`
+
+Eine Zeile ist: **ein Census Tract in einem ACS-Vintage**. 6'282 Zeilen.
+
+| Spalte | Typ | Bedeutung |
+| --- | --- | --- |
+| `geoid` | `VARCHAR` | GEOID des Tracts. Zusammen mit `vintage` der Schlüssel dieser Tabelle. |
+| `vintage` | `SMALLINT` | Der Jahrgang der ACS-5-Jahres-Schätzung, aus der die Werte dieser Zeile stammen. Teil des Schlüssels: Ein Tract steht hier so oft, wie Vintages geladen sind. |
+| `population` | `BIGINT` | Einwohnerzahl aus der ACS-5-Jahres-Schätzung. Der Nenner jeder Rate. `0` kommt vor - Wasserflächen, Flughäfen, Industriegebiete. In Gold liegt sie **je Vintage** in `dim_tract_acs`, nicht in `dim_tract`. |
+| `median_household_income_usd` | `INTEGER` | Medianes Haushaltseinkommen in Dollar, ACS. `NULL`, wo die Schätzung zu unsicher ist - in Wayne County öfter als in Cook County. |
+| `poverty_rate` | `DOUBLE` | Anteil der Menschen unter der Armutsgrenze, 0 bis 1. `NULL` bei null Einwohnern statt einer Division durch null. |
+
 ### `fact_offense`
 
-Eine Zeile ist: **eine Tat**. 345'073 Zeilen.
+Eine Zeile ist: **eine Tat**. 345'091 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -211,6 +235,7 @@ Eine Zeile ist: **eine Tat**. 345'073 Zeilen.
 | `hour_of_day` | `TINYINT` | Tatstunde in Ortszeit, 0 bis 23. |
 | `local_time_ambiguous` | `BOOLEAN` | Die Ortszeit gab es **zweimal** - der Wechsel zurück von der Sommerzeit. Betrifft nur Chicago, das Wanduhrzeit ohne Zone liefert; Detroit liefert einen Zeitpunkt und hat den Fall nicht. |
 | `tract_geoid` | `VARCHAR` | GEOID des Census Tracts, in dem der Punkt liegt - aus dem eigenen räumlichen Join, nicht aus der Quelle. |
+| `population_vintage` | `SMALLINT` | Welcher ACS-Jahrgang der **Nenner dieser Zeile** ist. Bis 2024 das eigene Jahr, darüber der jüngste vorhandene: Eine Rate für 2025 ruht auf der Bevölkerung von 2024. Das steht hier in den Daten statt in einer Fussnote. Verbunden wird `dim_tract_acs` über `tract_geoid` **und** diese Spalte - wer nur den Tract verbindet, bekommt je Tract so viele Zeilen, wie Vintages geladen sind. |
 | `nibrs_code` | `VARCHAR` | NIBRS-Deliktcode des FBI, etwa `13A`. Die gemeinsame Sprache beider Städte - erst über ihn wird IUCR mit MICR vergleichbar. |
 | `nibrs_family` | `VARCHAR` | Die ersten beiden Zeichen des Codes. **Keine amtliche Gliederung** - zum Gruppieren gehört `nibrs_category`. |
 | `source_offense_code` | `VARCHAR` | Der Deliktcode, wie die Quelle ihn führt: Chicagos `iucr`, Detroits `state_offense_code` (MICR). |

@@ -87,9 +87,13 @@ GEMEINSAM: dict[str, str] = {
     "quality_flags": "Auffälligkeiten, die **benannt und nicht entfernt** "
                      "werden - etwa `MISSING_MEDIAN_INCOME` oder "
                      "`SUSPECT_SNOWFALL`. Leer, wenn nichts auffiel.",
+    "vintage": "Der Jahrgang der ACS-5-Jahres-Schätzung, aus der die Werte "
+               "dieser Zeile stammen. Teil des Schlüssels: Ein Tract steht "
+               "hier so oft, wie Vintages geladen sind.",
     "population": "Einwohnerzahl aus der ACS-5-Jahres-Schätzung. Der Nenner "
                   "jeder Rate. `0` kommt vor - Wasserflächen, Flughäfen, "
-                  "Industriegebiete.",
+                  "Industriegebiete. In Gold liegt sie **je Vintage** in "
+                  "`dim_tract_acs`, nicht in `dim_tract`.",
     "median_household_income_usd": "Medianes Haushaltseinkommen in Dollar, ACS. "
                                    "`NULL`, wo die Schätzung zu unsicher ist - "
                                    "in Wayne County öfter als in Cook County.",
@@ -144,6 +148,64 @@ GEMEINSAM: dict[str, str] = {
 
 # Spalten, deren Bedeutung an der Tabelle haengt.
 JE_TABELLE: dict[tuple[str, str], str] = {
+    # --- source_change: die Bewegung der Quellen -------------------------
+    #
+    # Eine Zeile ist ein geaendertes Feld, nicht eine geaenderte Zeile. Ein
+    # Delikt, an dem sich drei Felder bewegt haben, steht dreimal darin.
+    ("source_change", "vorher_run_id"):
+        "Der **aeltere** der beiden Vollabzuege, gegen den verglichen wurde.",
+    ("source_change", "run_id"):
+        "Der **neuere** der beiden Vollabzuege. Zusammen mit "
+        "`vorher_run_id` ist das das Vergleichspaar; verglichen werden nur "
+        "aufeinanderfolgende Paare, damit jede Bewegung genau einmal zaehlt.",
+    ("source_change", "vorher_am"):
+        "Wann der aeltere Vollabzug begann - die untere Grenze des Fensters, "
+        "in dem die Aenderung geschah.",
+    ("source_change", "beobachtet_am"):
+        "Wann der neuere Vollabzug begann - die obere Grenze. Nicht der "
+        "Zeitpunkt der Aenderung: Der liegt irgendwo dazwischen, und genau "
+        "dafuer gibt es `zuerst_gesehen_am`.",
+    ("source_change", "art"):
+        "Welche Art von Bewegung. `geaendert`: etwas ausserhalb von Rauschen "
+        "und Zeitstempeln hat sich bewegt. `beruehrt`: **nur** Zeitstempel - "
+        "die Quelle hat die Zeile angefasst, ohne dass sich fachlich etwas "
+        "aenderte. `neu` und `verschwunden`: der Schluessel steht im einen "
+        "Schnappschuss und im anderen nicht. `unveraendert`: eine "
+        "Markierungszeile ohne `offense_id` fuer ein Paar, in dem sich nichts "
+        "bewegt hat - ohne sie waere *nichts gefunden* nicht von *noch nicht "
+        "verglichen* zu unterscheiden.",
+    ("source_change", "feld"):
+        "Das Quellfeld, das sich bewegt hat - in den Begriffen der Quelle, "
+        "nicht in denen von Silver. Leer bei `neu`, `verschwunden` und "
+        "`unveraendert`: Dort bewegt sich kein einzelnes Feld.",
+    ("source_change", "wert_alt"):
+        "Der Wert im aelteren Schnappschuss, getrimmt und als Text. "
+        "Getrimmt wird jedes Feld: Von 160 Aenderungen an "
+        "`offense_description` waren 150 reine Leerzeichen, weil die Quelle "
+        "angefangen hatte, auf feste Breite aufzufuellen.",
+    ("source_change", "wert_neu"):
+        "Der Wert im neueren Schnappschuss, gleich behandelt.",
+    ("source_change", "zuerst_gesehen_in"):
+        "Das **erste** Delta zwischen den beiden Vollabzuegen, das diesen "
+        "Schluessel trug. Es grenzt die Aenderung ein: Bei Monatsabstand wird "
+        "aus *irgendwann in dreissig Tagen* ein Tag. Leer, wenn `datierung` "
+        "nicht `delta` ist.",
+    ("source_change", "zuerst_gesehen_am"):
+        "Wann dieses Delta lief - die **obere Schranke** fuer den Zeitpunkt "
+        "der Aenderung, nicht der Zeitpunkt selbst.",
+    ("source_change", "datierung"):
+        "Wie verlaesslich die Datierung ist, in drei Zustaenden. `delta`: Ein "
+        "Delta im Fenster trug den Schluessel. `kein_delta`: Deltas lagen "
+        "vor, keines trug ihn - das kann heissen, dass die Quelle die "
+        "Aenderung nicht angemeldet hat, dass sie nach dem letzten Delta "
+        "geschah, oder dass die Zeile schon weg war; die drei sind von hier "
+        "aus nicht zu trennen. `nicht_datierbar`: kein lesbares Delta liegt "
+        "im Fenster. Leer bei der Markierungszeile - ohne Schluessel gibt es "
+        "nichts zu datieren. **Diese Spalte klebt**: Sie nennt den besten "
+        "Befund, der je bestimmt wurde, nicht den heutigen. Nachgerechnet "
+        "wird, was besser wird - `delta` schlaegt `kein_delta` schlaegt "
+        "`nicht_datierbar` -, und nie abwaerts. Sonst haette das Aufraeumen "
+        "der Deltas eine einmal bestimmte Datierung wieder geloescht.",
     ("crime_offense", "nibrs_match"):
         "Woher die Zuordnung stammt, etwa `nibrs_definition` oder "
         "`micr_manual_1110_2024`. `mapping_status` fasst das zusammen.",
@@ -210,11 +272,35 @@ JE_TABELLE: dict[tuple[str, str], str] = {
         "den jede Auswertung braucht**: `dim_tract` enthält alle Tracts beider "
         "Countys, auch die ausserhalb der Städte.",
     ("dim_tract", "city_geoid"): "GEOID der Stadt aus `silver/place`.",
+    ("dim_tract", "reference_vintage"):
+        "Aus diesem ACS-Vintage stammen Stadtzuordnung, Name, Fläche und "
+        "Schwerpunkt. Sie werden **nicht je Jahrgang neu gerechnet**: Ein Tract "
+        "soll dauerhaft eine Stadt haben, sonst springt eine Rate aus einem "
+        "Grund, der nichts mit Kriminalität zu tun hat. Die Einwohnerzahlen "
+        "liegen dagegen je Vintage in `dim_tract_acs` - verbunden wird über "
+        "`geoid` **und** `vintage`.",
     ("dim_tract", "city_area_share"):
         "Welcher Anteil der Tractfläche in der Stadt liegt, 0 bis 1. Ueber 0,5 "
         "gehört der Tract zur Stadt (Mehrheitsregel). Der Wert bleibt "
         "erhalten, damit sich auch flächengewichtet rechnen lässt.",
     ("dim_tract", "tract_name"): "Bezeichnung des Tracts.",
+    ("dim_date", "year_is_complete"):
+        "Ob der Jahrgang dieses Tages **ganz** in den Daten liegt — also ob die "
+        "Spanne den 1. Januar und den 31. Dezember einschliesst. **Ein "
+        "Jahresvergleich filtert darauf**: 2026 hat am 3.10. neun Monate, und "
+        "neun Monate gegen zwölf gestellt ergeben einen Rückgang, den es nicht "
+        "gibt. Eine Lücke *innerhalb* des Jahres fällt hier nicht auf; die "
+        "misst `year_coverage` im Manifest von `fact_offense`, mit "
+        "`days_with_offenses` gegen `days_in_year`.",
+    ("dim_tract_acs", "geoid"):
+        "GEOID des Tracts. Zusammen mit `vintage` der Schlüssel dieser Tabelle.",
+    ("fact_offense", "population_vintage"):
+        "Welcher ACS-Jahrgang der **Nenner dieser Zeile** ist. Bis 2024 das "
+        "eigene Jahr, darüber der jüngste vorhandene: Eine Rate für 2025 ruht "
+        "auf der Bevölkerung von 2024. Das steht hier in den Daten statt in "
+        "einer Fussnote. Verbunden wird `dim_tract_acs` über `tract_geoid` "
+        "**und** diese Spalte - wer nur den Tract verbindet, bekommt je Tract "
+        "so viele Zeilen, wie Vintages geladen sind.",
     ("fact_offense", "reporting_city"):
         "Die Stadt, deren Polizei den Fall gemeldet hat. **Nicht dasselbe wie "
         "`dim_tract.city`** - die Stadtpolizei erfasst auch jenseits der "

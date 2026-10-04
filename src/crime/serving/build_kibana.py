@@ -532,11 +532,11 @@ def dashboard_objekt(brett: Brett) -> dict[str, Any]:
 
 def zeitfenster(datenwurzel: Path) -> tuple[str, str]:
     """Das Fenster kommt aus dem Release, nicht aus einer Voreinstellung."""
-    import duckdb
+    from storage.duckdb import verbinde
 
     _, verzeichnis = aktuelles_release(datenwurzel)
     parquet = verzeichnis / "gold/dataset=fact_offense/part-0001.parquet"
-    con = duckdb.connect()
+    con = verbinde()
     try:
         von, bis = con.execute(
             f"SELECT min(occurred_at_utc), max(occurred_at_utc) "

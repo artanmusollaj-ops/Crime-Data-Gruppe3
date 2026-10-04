@@ -37,6 +37,7 @@ import re
 from pathlib import Path
 from typing import Any, NamedTuple
 
+from gold_pipeline import einwohner_je_stadt
 from storage import for_root
 from storage import duckdb as storage_duckdb
 
@@ -136,9 +137,13 @@ def gemessen(data_root: Path) -> dict[str, float]:
         "silver": "silver/dataset=crime_offense/part-0001.parquet",
         "gold": "gold/dataset=fact_offense/part-0001.parquet",
         "tract": "gold/dataset=dim_tract/part-0001.parquet",
+        "acs": "gold/dataset=dim_tract_acs/part-0001.parquet",
     }
     da = {name: ablage.exists(r) for name, r in rel.items()}
-    silver, gold, tract = (ablage.resolve_read_path(rel[n]) for n in ("silver", "gold", "tract"))
+    silver, gold, tract, acs = (
+        ablage.resolve_read_path(rel[n])
+        for n in ("silver", "gold", "tract", "acs")
+    )
     werte: dict[str, float] = {}
     con = storage_duckdb.connect(ablage.config)
     try:
@@ -153,12 +158,15 @@ def gemessen(data_root: Path) -> dict[str, float]:
                 FROM read_parquet('{gold}') GROUP BY 1
             """).fetchall():
                 werte[f"{stadt}_faelle"] = faelle
-        if da["gold"] and da["tract"]:
+        if da["gold"] and da["tract"] and da["acs"]:
+            # Der Nenner kommt aus gold_pipeline.einwohner_je_stadt - seit
+            # Vertrag 6 liegt die Einwohnerzahl je Vintage in einer eigenen
+            # Tabelle, und ein Verbund nur ueber geoid vervielfachte sie.
+            nenner = einwohner_je_stadt(
+                f"read_parquet('{tract}')", f"read_parquet('{acs}')"
+            )
             for stadt, delikte, einwohner, rate, rate_fall in con.execute(f"""
-                WITH e AS (
-                    SELECT city, sum(population) AS n
-                    FROM read_parquet('{tract}') WHERE city IS NOT NULL GROUP BY 1
-                )
+                WITH e AS ({nenner})
                 SELECT t.city, count(*), any_value(e.n),
                        round(count(*) * 1000.0 / any_value(e.n), 1),
                        round(count(*) FILTER (f.counts_case) * 1000.0 / any_value(e.n), 1)

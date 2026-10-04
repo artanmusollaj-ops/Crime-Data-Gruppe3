@@ -33,6 +33,7 @@ import re
 from pathlib import Path
 
 import pytest
+from gold_pipeline import einwohner_je_stadt
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -95,6 +96,7 @@ def kennzahlen() -> dict[str, int]:
     duckdb = pytest.importorskip("duckdb")
     silber = DATEN / "silver" / "dataset=crime_offense" / "part-0001.parquet"
     tracts = DATEN / "gold" / "dataset=dim_tract" / "part-0001.parquet"
+    acs = DATEN / "gold" / "dataset=dim_tract_acs" / "part-0001.parquet"
     if not silber.is_file() or not tracts.is_file():
         pytest.skip("Silver oder Gold fehlt")
     con = duckdb.connect()
@@ -121,9 +123,8 @@ def kennzahlen() -> dict[str, int]:
             WHERE counts GROUP BY 1, 2""").fetchall():
         zahlen[f"{stadt}/{art}"] = n
 
-    for stadt, ew in con.execute(f"""
-            SELECT city, sum(population) FROM read_parquet('{tracts}')
-            WHERE city IS NOT NULL GROUP BY 1""").fetchall():
+    for stadt, ew in con.execute(einwohner_je_stadt(
+            f"read_parquet('{tracts}')", f"read_parquet('{acs}')")).fetchall():
         zahlen[f"{stadt}/einwohner"] = int(ew)
 
     for name, muster in (("silver/tract", "dataset=tract/**/*.parquet"),

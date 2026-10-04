@@ -24,12 +24,12 @@ eine geprüfte Zahl wie eine bewiesene.
 
 | | Chicago | Detroit | was eine Zeile ist |
 | --- | ---: | ---: | --- |
-| **Anklagen** — alle Silver-Zeilen | 259'625 | 88'686 | eine Anklage |
-| **Taten** — `counts` | 259'625 | 85'448 | eine Tat |
-| **Fälle** — `counts_case` | 259'596 | 80'230 | ein Fall, sein schwerstes Delikt |
-| **Vorfälle** — `count(DISTINCT event_id)` | 259'596 | 80'230 | ein Vorfall |
+| **Anklagen** — alle Silver-Zeilen | 259'643 | 88'686 | eine Anklage |
+| **Taten** — `counts` | 259'643 | 85'448 | eine Tat |
+| **Fälle** — `counts_case` | 259'614 | 80'230 | ein Fall, sein schwerstes Delikt |
+| **Vorfälle** — `count(DISTINCT event_id)` | 259'614 | 80'230 | ein Vorfall |
 
-`gold/fact_offense` ist die zweite Zeile: **345'073 Taten**. Gold nimmt nur,
+`gold/fact_offense` ist die zweite Zeile: **345'091 Taten**. Gold nimmt nur,
 was `counts` trägt.
 
 **Chicago fällt zwischen den ersten beiden Zeilen nicht auseinander**, weil die
@@ -60,7 +60,7 @@ das Ergebnis, erscheint dieser Vorfall zweimal.
 
 | | Vorfälle | davon in mehr als einer Familie | je Familie summiert |
 | --- | ---: | ---: | ---: |
-| Chicago | 259'596 | 0 (0,0 %) | 259'596 — passt |
+| Chicago | 259'614 | 0 (0,0 %) | 259'614 — passt |
 | Detroit | 80'230 | 4'233 (5,3 %) | 84'799 — **4'569 zu viel (5,7 %)** |
 
 Chicagos Null ist keine bessere Datenlage, sondern dieselbe
@@ -81,7 +81,7 @@ reichen, erscheint an zwei Kalendertagen.
 
 | | Tage summiert | Monate summiert | Jahr direkt |
 | --- | ---: | ---: | ---: |
-| Chicago | 259'600 | 259'596 | 259'596 |
+| Chicago | 259'618 | 259'614 | 259'614 |
 | Detroit | 80'232 | 80'230 | 80'230 |
 
 Vier Chicagoer und zwei Detroiter Vorfälle. Die Abweichung ist winzig — und
@@ -112,7 +112,7 @@ selten zusammen.
 
 * **2024** beginnt an einem Montag — die erste Woche ist ausnahmsweise
   vollständig: 6'711 Taten.
-* Die letzte Woche (ab Montag, 30.12.) enthält nur **zwei Tage**: 1'650 Taten.
+* Die letzte Woche (ab Montag, 30.12.) enthält nur **zwei Tage**: 1'651 Taten.
 
 Wer die Wochenreihe ohne Hinweis zeichnet, sieht am Jahresende einen Einbruch
 um drei Viertel, der keiner ist. **Der Beginn einer Periode ist nicht das
@@ -146,7 +146,7 @@ Referenzstand:
 
 | | exact | ambiguous | fallback_90Z | unmapped |
 | --- | ---: | ---: | ---: | ---: |
-| Chicago | 248'187 | 3'718 | 7'717 | 3 |
+| Chicago | 248'203 | 3'719 | 7'718 | 3 |
 | Detroit | 81'325 | 1'365 | 2'758 | 0 |
 
 Ein `exact` kann eine widersprüchliche Quellbeschreibung tragen, die noch
@@ -160,7 +160,7 @@ Prüfung `gegen_crosswalk` stellt sicher, dass Silver das trägt, was der
 Crosswalk *heute* sagt. Ob der Crosswalk recht hat, steht darin nicht. Dafür
 gibt es nur die amtlichen Handbücher und die Zuordnungen, die als
 `ambiguous` markiert sind, weil wir sie entschieden haben: **20 in den
-Crosswalks, davon 17 mit Zeilen im Jahrgang 2024** (5'122 Zeilen). Die übrigen
+Crosswalks, davon 17 mit Zeilen im Jahrgang 2024** (5'123 Zeilen). Die übrigen
 drei sind Entscheidungen zu Codes, die 2024 nicht vorkommen — getroffen, aber
 nicht belegt.
 
@@ -219,7 +219,7 @@ lässt den Rest in Bronze stehen.
 Ein Widerspruch in diesen Feldern braucht deshalb den Rückgriff auf Bronze —
 und der ist umständlicher, als er klingt, denn **Silver führt keine
 Zeilen-Herkunft**. Das Manifest nennt unter `derived_from` die Läufe, aus denen
-die Tabelle entstanden ist (sieben für Chicago, acht für Detroit), aber nicht,
+die Tabelle entstanden ist (acht für Chicago, acht für Detroit), aber nicht,
 aus welchem eine bestimmte Zeile stammt. Für Detroit half das lange gar nicht:
 Bis zum 18.9.2026 lud jeder Lauf den ganzen Jahrgang, und jeder Schnappschuss
 enthielt damit **alle 88'686 Zeilen**. Wer

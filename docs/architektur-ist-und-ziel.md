@@ -43,9 +43,9 @@ Abgabedokumente beziehen:
 
 | | |
 | --- | ---: |
-| `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
-| Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
+| `silver/crime_offense` | 348'329 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | **345'091** Zeilen (eine Tat) |
+| Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
 | Detroit | 84'761 Delikte · 638'635 Einwohner · **132,7** je 1'000 |
 
 **Warum raw und bronze getrennt sind.** Raw ist das Beweisstück: Ein Delta-Lauf
@@ -55,7 +55,7 @@ erzeugbar. Diese Trennung kostet 130 MB und ist der Grund, warum sich jede Zahl
 bis zur gzip-Datei zurückverfolgen lässt.
 
 **Warum Gold nicht aggregiert.** Notebook 34 hat beide Bauweisen gebaut und
-gemessen: Bei 345'073 Zeilen liegt jede realistische Frage direkt auf dem Stern
+gemessen: Bei 345'091 Zeilen liegt jede realistische Frage direkt auf dem Stern
 im einstelligen Millisekundenbereich. Ein vorberechneter Würfel spart nichts,
 was ein Mensch bemerkt, und kostet drei Fragen, die er nicht mehr beantwortet.
 Die Entscheidung ist ein **Messergebnis**, keine Stilfrage.
@@ -124,7 +124,7 @@ von selbst; eine Zahl im Bild, die nicht mehr stimmt, lässt einen Test fallen.
 | --- | ---: | --- |
 | ingestion | 6 | chicago, detroit, tiger_tract, tiger_place, acs, noaa |
 | silver | 4 | tract, place, weather_day, crime_offense |
-| gold | 1 | die fünf Sterntabellen in einem Zug |
+| gold | 1 | die sechs Sterntabellen in einem Zug |
 | serving | 3 | comparison, analyse_db, tracts_geojson |
 
 Die Reihenfolge ist keine Kosmetik: `silver/tract` braucht beide
@@ -203,7 +203,7 @@ Entscheidung, keine Eigenschaft der Daten:
 | **weich** | schreibt das Ergebnis in eine Spalte und zählt | wenn etwas **unvollständig** ist: eine fehlende Koordinate, eine unsichere Zuordnung |
 
 Eine harte Kontrolle auf fehlende Koordinaten hiesse, dass Chicagos Jahrgang
-gar nicht erst entsteht — 2'098 Delikte tragen keine. Eine weiche macht die
+gar nicht erst entsteht — 2'115 Delikte tragen keine. Eine weiche macht die
 Lücke **abfragbar** statt unsichtbar. Hart wird es erst dort, wo die Lücke die
 Zahl unbrauchbar machte: beim **Publish-Gate** in Gold, der einzigen Kontrolle,
 die eine Veröffentlichung verhindert.
@@ -216,10 +216,10 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'482 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'176 davon — die übrigen 27 brauchen gebaute Daten; 71 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 1'566 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'176 davon — die übrigen 27 brauchen gebaute Daten; 82 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
-| **Referenzstand** | 70 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
+| **Referenzstand** | 82 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
 Der letzte Punkt ist die interessanteste Entscheidung: Die Quellen bewegen
 sich. Ein Test, der die dokumentierte Zahl gegen den frischen Stand hält, wäre
@@ -456,7 +456,7 @@ Die Ingestion ist der Teil, der bei mehr Städten zuerst bricht, und es ist
 
 | Achse | heute | was passiert bei zehn Städten |
 | --- | --- | --- |
-| Zeilen | 348'311 | rund 1,7 Mio — DuckDB rechnet das weiterhin interaktiv |
+| Zeilen | 348'329 | rund 1,7 Mio — DuckDB rechnet das weiterhin interaktiv |
 | Laufzeit Ingestion | Detroit 7 s im Delta, 100 s beim ersten vollen Lauf | linear, aber **seriell**: zehn Städte nacheinander |
 | Code je Quelle | zwei Pipelines mit je eigener Logik | zehn Pipelines, zehnmal derselbe Fehler |
 
@@ -504,7 +504,7 @@ entschieden:
 ---
 
 **Zu den Zahlen.** Teil A nennt den **Referenzstand** — den Bau vom 17.9.2026,
-16:05 UTC, auf den sich alle Abgabedokumente beziehen und den 70 Wächter mit
+16:05 UTC, auf den sich alle Abgabedokumente beziehen und den 82 Wächter mit
 dem Marker `referenzstand` gegen die Parquet-Dateien halten. Der gebaute Stand
 auf dem Entwicklungsrechner ist seit einer frischen Ingestion am Abend des
 17.9. geringfügig weiter (silver +0,10 %, gold +0,13 %, Detroits Rate 132,7 →

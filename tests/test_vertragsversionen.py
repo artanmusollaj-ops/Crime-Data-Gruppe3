@@ -36,6 +36,7 @@ MODULE = {
     "silver/place": "silver_pipeline.build_place",
     "silver/weather_day": "silver_pipeline.build_weather_day",
     "silver/crime_offense": "silver_pipeline.build_crime_offense",
+    "silver/source_change": "silver_pipeline.build_source_change",
     "gold/*": "gold_pipeline.build_gold",
     "serving/comparison_*": "serving.build_comparison",
 }

@@ -65,6 +65,11 @@ MANUAL = PROJECT_ROOT / "docs" / "quellen" / "micr_manual_1110_2024.pdf"
 # diese sind ueber die Arrest-Charge-Liste hergeleitet.
 HERKUNFT = "micr_arrest_charge_1110_2024"
 
+# Ob ein Code in den Daten **vorkommt**, stand bis zum 3.10.2026 als
+# seen_in_detroit_2024 mit in der Tabelle - auf einen Jahrgang festgenagelt,
+# von Hand gepflegt, und dieses Werkzeug berechnete sie nie. Sie ist eine
+# Eigenschaft der Daten und keine der Zuordnungstabelle; nachgewiesen wird sie
+# jetzt je Jahrgang in Gold (``mapping_by_year``, FR-38).
 SPALTEN = [
     "micr_code",
     "micr_code_type",
@@ -76,7 +81,6 @@ SPALTEN = [
     "hierarchy",
     "match",
     "mapped",
-    "seen_in_detroit_2024",
     "note",
 ]
 

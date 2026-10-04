@@ -30,12 +30,12 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'482** |
-| `silver/crime_offense` | 348'311 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | **345'073** Zeilen (eine Tat) |
-| Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
+| Tests | **1'566** |
+| `silver/crime_offense` | 348'329 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | **345'091** Zeilen (eine Tat) |
+| Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
 | Detroit | 84'761 Delikte · 638'635 Einwohner · **132,7** je 1'000 |
-| Fallebene (`counts_case`) | Chicago 259'596 · Detroit 80'230 Fälle; Detroit **124,6** je 1'000 |
+| Fallebene (`counts_case`) | Chicago 259'614 · Detroit 80'230 Fälle; Detroit **124,6** je 1'000 |
 
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
@@ -64,7 +64,8 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `silver/place` | 1 | 14.09.2026 | ein Ort je Zeile, Geometrie für die Stadtgrenze |
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
 | `silver/crime_offense` | **3** | 19.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig |
-| `gold/*` | **5** | 19.09.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften |
+| `silver/source_change` | **3** | 03.10.2026 | Unterschied zwischen aufeinanderfolgenden **Vollabzügen** je Quelle, eine Zeile je geändertem Feld; `ESRI_OID` und reine Leerzeichen ausgenommen, Zeitstempel als `beruehrt` statt als Inhaltsänderung. Version 2 ergänzte die **Datierung aus den Deltas**: `zuerst_gesehen_in`, `zuerst_gesehen_am` und `datierung` mit `delta` / `kein_delta` / `nicht_datierbar`. Gefunden wird weiter nur zwischen Vollabzügen — aus einem Delta liesse sich *verschwunden* nicht von *ruhig* unterscheiden. Version 3: Die Datierung **klebt** — sie nennt den besten je bestimmten Befund, nicht den heutigen, sonst löschte das Aufräumen der Deltas sie wieder |
+| `gold/*` | **7** | 03.10.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften | Version 6: Die ACS-Masse liegen **je Vintage** in der neuen Tabelle `dim_tract_acs` (`population`, `median_household_income_usd`, `poverty_rate`); `dim_tract` behält die Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie kommt; `fact_offense` trägt `population_vintage` und sagt damit je Zeile, welcher Nenner für sie gilt. Eine Tabelle mit einer Zeile je Tract konnte nur eine Einwohnerzahl tragen — über mehrere Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021 Version 7: `dim_date` trägt `year_is_complete` — ob der Jahrgang dieses Tages ganz in den Daten liegt. Ein Teiljahr darf nicht in einen Jahresvergleich geraten: 2026 hat am 3.10. neun Monate, und neun gegen zwölf gestellt ergeben einen Rückgang, den es nicht gibt. Dazu im Manifest von `fact_offense` der Nachweis `year_coverage` je Jahrgang, mit `days_with_offenses` gegen `days_in_year` — denn eine Lücke **innerhalb** des Jahres sieht man an der Spalte nicht
 | `serving/comparison_*` | 1 | 17.09.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` |
 
 > **Der Feldkatalog wird erzeugt, nicht gepflegt.** Am 14.9. wurde
@@ -88,6 +89,806 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 04.10.2026 · Gold ist byteweise reproduzierbar, weil fact_offense jetzt eine Reihenfolge hat (Branch `mehrjaehrigkeit`)
+
+Der Befund vom 3.10. war richtig, aber die Ursache falsch benannt. Ich hatte
+geschrieben, der Inhalt sei identisch und nur die Parquet-Kodierung weiche ab.
+Der Inhalt ist als **Multimenge** identisch — mein Hash hatte ein `ORDER BY` in
+der Aggregation und hat damit genau das verdeckt, worum es geht.
+
+**Gemessen am 4.10.2026: 245'760 von 345'091 Zeilen lagen zwischen zwei Läufen
+an anderer Position.** 71 Prozent der Tabelle. Die Zeilengruppengrenzen waren
+identisch, und fast jede Spalte jeder Gruppe hatte eine andere komprimierte
+Grösse — die Signatur vertauschter Zeilen, nicht die einer anderen Kodierung.
+Die Dateigrösse schwankte dabei zwischen Aufrufen (14'947'218 bis 15'001'199
+Bytes) und war in einem Paar sogar gleich, während die Bytes abwichen: Eine
+gleiche Grösse beweist hier nichts.
+
+**Die Ursache ist eine fehlende Klausel.** `fact_offense_query` war die
+**einzige** Abfrage der ganzen Strecke ohne `ORDER BY`. Vier Dimensionsabfragen
+haben eine — `dim_tract`, `dim_tract_acs`, `dim_date`, `dim_city_day`;
+`dim_offense` entsteht gar nicht aus einer Abfrage, sondern aus `CREATE TABLE`
+plus `executemany`, und folgt der Codeliste. Alle fünf Dimensionen waren
+byteweise stabil, nachgeprüft.
+`build_crime_offense.build_query` endet mit `ORDER BY b.city,
+b.occurred_at_utc, b.offense_id`, `serving.build_comparison` ebenso. Ohne die
+Klausel entscheidet der Hash-Join mit vierzehn Threads, in welcher Reihenfolge
+die Zeilen fallen.
+
+Sortiert wird jetzt nach `date`, dann `offense_id`. Der Tag ist die Achse, auf
+der am meisten gefiltert wird, also kann die Zeilengruppenstatistik greifen;
+die Kennung macht die Ordnung eindeutig. Der sortierte Stand reproduziert sich
+exakt bei **15'808'123 Bytes**; gegen die schwankende unsortierte Spanne sind
+das **5,4 bis 5,8 Prozent** mehr Platz, bei keiner messbaren Zeit (0,09 gegen
+0,08 Sekunden). `ORDER BY offense_id` allein wären rund 7,7 Prozent gewesen.
+
+**Nicht gewählt: `DUCKDB_THREADS=1`.** Das macht die Bytes ebenfalls stabil,
+aber nur weil es die Scanreihenfolge erzwingt — es hätte die fehlende
+Sortierung maskiert und die Parallelität des ganzen Laufs gekostet. Die
+Schraube aus FR-61 bleibt, wofür sie gedacht war: Speicher und Fäden auf einer
+geteilten Maschine zu begrenzen.
+
+**Zwei Wächter, und der Byte-Vergleich allein hätte nicht gereicht.** Die
+Review hat vorgerechnet, dass ein Vergleich von genau zwei Läufen eine fehlende
+Klausel nur sporadisch fängt — nachgemessen **drei von sechs Durchgängen**. Das
+ist der Fall aus `AGENTS.md`: „der Wächter war grün und wertlos". Die erste
+Fassung dieses Eintrags behauptete „in beide Richtungen geprüft" und ruhte auf
+einem einzigen glücklichen Lauf.
+
+Deshalb stehen jetzt zwei Wächter da.
+`test_die_faktentabelle_ist_nach_tag_und_kennung_sortiert` prüft nicht Bytes,
+sondern die **Eigenschaft**: Die Vorrichtung liefert die Zeilen in verkehrter
+Tagesreihenfolge, ohne Klausel kommen sie so wieder heraus. Deterministisch,
+**sechs von sechs** gefangen, und ohne `referenzstand`-Marke — er läuft bei
+jedem Push mit. `test_ein_zweiter_lauf_liefert_dieselben_bytes` baut Gold
+zweimal als eigenen Unterprozess und vergleicht die Prüfsummen aller sechs
+Tabellen; er bleibt für das, was eine Eigenschaftsprüfung nicht sieht —
+Nichtbestimmtheit im Schreiber selbst, bei gleicher Zeilenfolge. Sein Docstring
+sagt jetzt, was er wert ist. Er trägt die `referenzstand`-Marke, weil er
+gebautes Silber braucht, läuft nicht unter Windows (Symlink), und prüft
+`dim_tract_acs` nur in der Einzel-Vintage-Gestalt, weil das Silber nur
+`vintage=2024` hat.
+
+**Was das für §3 heisst.** Das Erfolgskriterium „Reproduzierbarkeit — zweiter
+Lauf, gleiche Prüfsummen" war für Gold **nicht erfüllt**, obwohl NFR-1 sie als
+„gehalten, nicht neu zu bauen" führt. Jetzt ist sie es, und ein Wächter hält
+sie. Nebeneffekt: `serving.pruefe_stand` meldete Gold nach jedem Neubau als
+„anders", obwohl kein Wert sich geändert hatte — das hört auf.
+
+**Kein Vertragssprung.** `CONTRACT_VERSION` beschreibt Bedeutung,
+Granularität, Regeln und Spalten. Die Zeilenreihenfolge ist keines davon, und
+kein Verbraucher darf sich auf sie stützen.
+
+**Noch zu tun, nicht Teil dieser Änderung:** Das gebaute `data/gold` trägt
+weiterhin die alte Reihenfolge. Der erste Neubau verschiebt seine Bytes
+**einmal**; danach stehen sie. Nachzuziehen sind dann: Serving, ein neues
+Release, die geladenen Elasticsearch- und ClickHouse-Stände — und
+`docs/einstieg.html`, das je Datensatz die Dateigrösse nennt und für
+`fact_offense` heute 14,3 MB zeigt, nach der Sortierung rund 15,1. Der Wächter
+`test_die_abgelegte_seite_ist_nicht_aelter_als_das_release` fällt, bis
+`python tools/build_einstieg.py` neu gelaufen ist. Das Nachladen der Stores
+rührt an laufende Container.
+
+**Zahlen.** 1'564 → **1'566 Tests**, Standardlauf **1'484**, Referenzwächter
+82 statt 81. Zwei neue: der Sortierungstest laeuft im Standardlauf mit, der
+Byte-Vergleich ist abgewählt.
+`docs/referenz/` neu erzeugt.
+
+## 03.10.2026 · Die NIBRS-Zuordnung über sechs Jahrgänge (Branch `mehrjaehrigkeit`)
+
+FR-38, und es ist dieselbe Rechnung wie bei `coverage_percent_by_city` — nur
+auf der Zeitachse. Die Zuordnung war nirgends jahresbezogen: `abdeckung()`
+misst über die **ganze** Faktentabelle, Silbers `reconcile()` je Stadt. Über
+2021–2026 verschwindet damit ein schlechter Jahrgang im Mittel von sechs. Ein
+Crosswalk, der ab 2026 ins Leere läuft, bliebe bei einer Schwelle von 85 %
+unsichtbar, solange die fünf Jahrgänge davor tragen.
+
+**`mapping_by_year` steht jetzt im Manifest von `fact_offense`** — neben
+`year_coverage` und nicht darin: jenes ist zeitliche Abdeckung, dies ist
+Zuordnungsabdeckung. Je Jahrgang die Zahl der Taten, die Anteile der vier
+`mapping_status`-Werte, und drei Dinge **beim Namen**:
+
+| | |
+| --- | --- |
+| `unmapped_codes` | welcher Quellcode unzugeordnet blieb, mit Stadt und Zahl, absteigend |
+| `new_source_codes` | welcher Code im Vorjahrgang nicht vorkam |
+| `retired_source_codes` | welcher im Vorjahrgang vorkam und jetzt fehlt |
+
+Bis hierher war eine Lücke **nur ein Prozentsatz**. Welcher Code sie
+verursacht, stand nirgends — und ohne den Code ist nicht zu entscheiden, ob
+eine Zeile im Crosswalk fehlt oder die Stadt etwas Neues codiert. Die Stadt
+steht überall dabei, weil derselbe vierstellige Code in beiden Städten etwas
+völlig anderes bedeuten kann: `1101` ist in Chicagos IUCR *Public Aid
+Wire/Mail Fraud* und führt auf 26D Welfare Fraud, in Detroits MICR *Sexual
+Penetration Penis/Vagina CSC1* und führt auf 11A Rape. Sieben Codes stehen in
+beiden Tabellen (`1101`, `1102`, `1200`, `2900`, `4800`, `5000`, `5001`).
+
+**Die Differenz und kein Inventar.** Ein volles Codeinventar je Jahrgang wären
+für Chicago rund 400 Codes mal sechs — kein Manifest, das jemand liest.
+Gefragt ist die Änderung: neu und weggefallen, je Jahrgang eine Handvoll
+Zeilen. Der älteste Jahrgang hat keinen Vorgänger und damit keine neuen Codes;
+„alle Codes neu" wäre dort keine Aussage.
+
+Für den heutigen Einjahresbau liest sich der Nachweis so — und er nennt den
+Code, den `unmapped: 0.0009` bisher verschwieg:
+
+```json
+"2024": { "offenses": 345091,
+          "exact": 95.4902, "ambiguous": 1.4732,
+          "fallback_90Z": 3.0357, "unmapped": 0.0009,
+          "unmapped_codes": [{"city": "chicago", "code": "1481", "offenses": 3}],
+          "new_source_codes": [], "retired_source_codes": [] }
+```
+
+**Ein Teiljahrgang wird gemeldet, aber nicht verglichen.** FR-37 sagt einen
+Commit zuvor: Ein Teiljahr darf nicht in einen Jahresvergleich geraten — und
+`retired_source_codes` ist einer. Für einen Jahrgang mit
+`year_is_complete = false` bleiben beide Codelisten deshalb leer, und der
+Vergleich überspringt ihn: Der nächste **volle** Jahrgang vergleicht gegen den
+letzten vollen. Ohne diese Regel erschiene an 2026 jeder Code, der dort nur
+**noch nicht** vorkam, als weggefallen — bei neun von zwölf Monaten wären das
+die meisten. Der Preis ist bewusst getragen: Ein echter neuer Code von 2026
+wird erst sichtbar, wenn 2026 voll ist. Dieselbe Zurückhaltung gilt für einen
+Jahrgang **ohne Taten**: gemeldet mit `offenses` 0, aber nicht verglichen, denn
+ein leerer Codesatz liesse jeden Code erst wegfallen und im nächsten Jahrgang
+wieder neu erscheinen.
+
+**Das Tor bleibt global.** `pruefe_gate` prüft weiter den Gesamtanteil und jede
+Stadt, nicht jeden Jahrgang: Ein Bau soll nicht an einem Jahrgang scheitern,
+dessen Daten erst halb geladen sind — ein halber Jahrgang ist kein Einsturz.
+Die Jahreszahlen stehen aber im Manifest, und ein **Test** hält sie gegen
+`GATE_MINDESTENS`/`GATE_HOECHSTENS`. Fällt also etwas, scheitert die Suite und
+nicht die Strecke — und erst, wenn die Daten da sind. Ein Jahrgang **ohne
+Taten** wird dabei übersprungen: Dort steht `exact` auf 0,0, und das ist keine
+schlechte Zuordnung, sondern keine Daten. `run_all --jahre 2021,2026` hätte
+sonst vier Scheinverletzungen gemeldet.
+
+**`seen_in_detroit_2024` entfällt.** Die Spalte stand als elfte in
+`config/micr_nibrs_mapping.csv`, 128-mal `true`, von Hand gepflegt — und ihr
+Wächter `test_seen_in_detroit_stimmt_mit_den_daten` wäre gebrochen, sobald mehr
+als 2024 geladen ist: Er vergleicht sie mit `detroit_codes()`, und das liest
+**alle** Bronze-Läufe. Ob ein Code **vorkommt**, ist eine Eigenschaft der Daten
+und keine der Zuordnungstabelle. Zwei Ersatzspalten (`erstmals_gesehen`,
+`zuletzt_gesehen`) hätten dasselbe Problem eine Ebene später — sie müssten bei
+jedem Jahrgang nachgezogen werden, und `tools/extend_micr_arrest_charges.py`
+berechnet sie nicht. An ihre Stelle tritt `mapping_by_year`. Die Datei hat
+jetzt **11 Spalten** und behält ihre 129 CRLF-Zeilen; erzeugt wurde sie vom
+Werkzeug, nicht von Hand.
+
+**Chicagos Crosswalk bekommt den Wächter, den Detroits längst hatte.**
+`tests/config/test_iucr_nibrs_mapping.py` prüfte die Tabelle nur gegen
+**Kataloge** — Chicagos IUCR-Katalog, die NIBRS-Codeliste, die ILCS-Tabelle der
+Landespolizei. Keiner davon sagt, was in den Falldaten steht. Jetzt steht dort
+der Wächter, der eine Lücke beim Namen nennt: jeder `iucr` der Bronze-Läufe
+muss im Crosswalk stehen. Gemessen: 341 verschiedene Codes in den Läufen, alle
+in der Tabelle. Einen **Fallanteil** wie bei Detroit gibt es hier bewusst
+nicht — Bronze hält jeden Lauf, und Chicago lädt Deltas mit 14 Tagen
+Überlappung: 8 Läufe, 520'490 Zeilen für 259'643 verschiedene ids, Faktor 2,00.
+Ein solcher Anteil wäre nach Ingestionshäufigkeit gewichtet und nicht nach
+Fällen. Auf entdoppelter Basis und je Jahrgang steht er in `mapping_by_year`.
+
+**Kein Vertragssprung.** Keine Tabelle und keine Spalte in Gold ändert sich;
+`mapping_by_year` ist ein Nachweis im Manifest, kein Schema. Die
+Zuordnungslogik selbst ist unangetastet — dies ist eine Mess- und
+Nachweisänderung, nicht eine Änderung daran, *wie* zugeordnet wird.
+
+**Zahlen.** 1'550 → **1'564 Tests**, Standardlauf **1'483**. Fünfzehn neue,
+einer entfallen: je Zeile der I/O-Matrix einer (ein ganz zugeordneter Jahrgang,
+der schlechte Jahrgang im Mittel von sechs, der neue Code, der weggefallene,
+der älteste ohne Vorgänger, der Jahrgang ohne Taten, der Teiljahrgang), dazu
+der Massstab nach einem Teiljahrgang, die Reihenfolge der unzugeordneten Codes,
+die Stadt an jeder Zeile, die Summe der vier Anteile auf 100 — und auf 0 beim
+leeren Jahrgang —, der Nachweis im Manifest, der Schwellenwächter je Jahrgang,
+der leere Jahrgang als Nicht-Verletzung, und der Chicagoer Datenwächter. Gold und Serving neu gebaut, lokales Release
+`2026-10-03T19-53-12Z`, ClickHouse und Elasticsearch darauf geladen;
+Feldkatalog, Referenz, Einstiegsseite und Notebook 32 nachgezogen. Die Raten
+bleiben bei 94,5 und 132,7.
+
+---
+
+## 03.10.2026 · Ein Teiljahr sagt, dass es eines ist (Branch `mehrjaehrigkeit`)
+
+FR-37 und FR-39, und sie gehören zusammen: Das eine kennzeichnet, das andere
+misst.
+
+**`dim_date` trägt `year_is_complete`** — ob der Jahrgang dieses Tages ganz in
+den Daten liegt. Der Grund ist eine Zahl, die sonst entsteht: **2026 hat am
+3.10. neun Monate.** Neun Monate gegen zwölf gestellt ergeben einen Rückgang
+der Kriminalität von einem Viertel, und den gibt es nicht. Die Spalte sitzt am
+Datum und nicht in einer eigenen Tabelle, weil sie ein Jahresattribut eines
+Tages ist — jede Abfrage, die nach Jahr gruppiert, hat sie damit zur Hand.
+
+Geprüft wird, ob die Datenspanne den 1. Januar **und** den 31. Dezember des
+Jahres einschliesst. Unvollständig ist deshalb nicht nur „noch nicht zu Ende":
+Ein Jahrgang, der erst im März beginnt, ist es auch — ein eigener Test hält
+das.
+
+**Das Projekt hatte diese Disziplin schon, eine Ebene tiefer.**
+`comparison_week` und `comparison_month` führen `days_in_period` gegen
+`days_in_window`: Eine Woche, die am 30. Dezember beginnt, hat sieben Tage,
+aber nur zwei im Datenfenster, und das steht daneben. FR-37 zieht dieselbe
+Ehrlichkeit auf die Jahresebene hoch. Eine Jahresvergleichstabelle, in die ein
+Teiljahr geraten könnte, gibt es noch nicht; wenn sie kommt, filtert sie auf
+die Spalte.
+
+**Die Grenze der Spalte ist benannt, und dafür gibt es FR-39.**
+`year_is_complete` sieht nur die Enden. Einem Jahrgang könnte der halbe Juli
+fehlen, und die Spalte sagte weiter „ganz". Das Manifest von `fact_offense`
+trägt deshalb `year_coverage` je Jahrgang: Zahl der Taten, erster und letzter
+abgedeckter Tag, **`days_with_offenses` gegen `days_in_year`**. Bei zwei
+Grossstädten ist jeder Tag besetzt — fällt die erste Zahl unter die zweite,
+fehlt wirklich etwas. Ein Test führt genau diesen Fall vor: zwei Tage am 1.1.
+und 31.12., `complete` sagt wahr, und 363 fehlende Tage stehen direkt daneben.
+
+Für den heutigen Einjahresbau liest sich der Nachweis so:
+
+```json
+"2024": { "offenses": 345091, "first_date": "2024-01-01",
+          "last_date": "2024-12-31", "days_with_offenses": 366,
+          "days_in_year": 366, "complete": true }
+```
+
+**Vertrag `gold/*` 6 → 7**, weil `dim_date` eine Spalte bekommt.
+
+**Zahlen.** 1'542 → **1'550 Tests**, Standardlauf **1'469**. Acht neue Tests:
+der ganze Jahrgang, der im Oktober endende, der im März beginnende, drei
+Jahrgänge gemischt, die Abdeckung mit Spanne und Tagen, das Schaltjahr mit 366,
+die benannte Lücke mitten im Jahr, und der Nachweis im Manifest. Gold und
+Serving neu gebaut, lokales Release `2026-10-03T17-49-45Z`, Feldkatalog,
+Referenz und Einstiegsseite neu erzeugt. Die Raten bleiben bei 94,5 und 132,7.
+
+## 03.10.2026 · Notebook 34 kennt die sechste Sterntabelle — und drei Zahlen stimmten schon vorher nicht (Branch `mehrjaehrigkeit`)
+
+Der offene Punkt aus dem Eintrag zu FR-35. `notebooks/34_gold_sternschema.ipynb`
+las in vier Zellen `sum(population) FROM dim_tract`, und sein Sternschema-Bild
+zeigte vier Dimensionen. **Kein Test hat das gemeldet**: Notebooks laufen nur im
+wöchentlichen Datenlauf, und dort wäre es als Fehler aufgeschlagen — genau die
+Falle, die in `AGENTS.md` unter den Fallstricken steht.
+
+Das Notebook benutzt jetzt `gold_pipeline.einwohner_je_stadt` statt einer
+eigenen Fassung — und **zeigt den Nenner im Klartext**, bevor es ihn verwendet:
+
+```
+SELECT d.city AS city, sum(a.population) AS n FROM dim_tract d
+JOIN dim_tract_acs a ON a.geoid = d.geoid AND a.vintage = d.reference_vintage
+WHERE d.city IS NOT NULL GROUP BY d.city
+```
+
+Das ist der Punkt, an dem ein Notebook mehr kann als eine Funktion: Es erklärt
+den Verbund über **zwei** Spalten an der Stelle, an der er zum ersten Mal
+gebraucht wird, ohne eine zweite Fassung davon anzulegen. Die Tabellenliste
+kommt aus `gold_pipeline.TABELLEN`, nicht mehr aus einem Tupel von Hand — eine
+siebte Sterntabelle erscheint dort künftig von selbst. Das Sternschema-Bild hat
+einen fünften Strahl bekommen, an zwei Spalten statt an einer, und `dim_tract`
+führt dort jetzt `reference_vintage` statt `population`.
+
+**Drei Zahlen stimmten schon vor dieser Änderung nicht.** Sie sind beim Lesen
+der Zelle aufgefallen, nicht durch einen Test:
+
+| | stand im Notebook | gemessen am 3.10.2026 |
+| --- | ---: | ---: |
+| `fact_offense` (zweimal genannt) | 345'073 | **345'091** |
+| `silver/crime_offense` im Bild | 348'311 | **348'329** |
+| Schritt Silver → Gold (dreimal) | 3'340 | **3'238** |
+
+Die ersten beiden sind die achtzehn Zeilen, die mit der Quellbewegung
+dazugekommen sind. Die 3'340 war nie richtig: Der Schritt ist die Zahl der
+nicht zählenden Anklagen, und die waren auch mit den alten Zahlen 3'238
+(348'311 − 345'073). Eine Zahl, die aus zwei anderen folgt, war von Hand
+daneben geschrieben.
+
+**Geprüft und unverändert:** Notebook 33 liest die Serving-Sicht auf Silber,
+nicht Gold; Notebook 36 nennt `gold/dim_tract` nur als Pfad. Beide brauchten
+nichts. Das Notebook ist mit `nbconvert --execute` durchgelaufen, die Raten
+bestätigen die Abgabezahlen: Chicago 94,5, Detroit 132,7, mit den
+Grenzfällen 95,6.
+
+## 03.10.2026 · Die Einwohnerzahl bekommt eine Zeitachse (Branch `mehrjaehrigkeit`)
+
+FR-35, und damit ist Welle 1 auf dem Weg: `run_all --jahre 2021-2026` läuft
+jetzt durch bis Serving. Der Riegel vor Gold von heute Morgen ist weg, weil der
+Grund dafür behoben ist.
+
+**Der Grund.** `dim_tract` trug `population`, `median_household_income_usd` und
+`poverty_rate`, und das ging, solange es einen einzigen Jahrgang gab: Eine
+Tabelle mit einer Zeile je Tract kann nur **eine** Einwohnerzahl tragen. Über
+sechs Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021 —
+und das Ergebnis hätte vollständig ausgesehen.
+
+**Vertrag `gold/*` 5 → 6.** Die drei ACS-Masse liegen in der neuen Tabelle
+`dim_tract_acs`, je Tract **und Vintage**. `dim_tract` behält die
+Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie
+kommt. `fact_offense` trägt `population_vintage` und sagt damit je Zeile,
+welcher Nenner für sie gilt: bis 2024 das eigene Jahr, darüber der jüngste
+vorhandene. **Damit steht FR-36 in den Daten und nicht in einer Fussnote** —
+eine Rate für 2025 ruht auf der Bevölkerung von 2024, und die Zeile sagt es
+selbst. Geklammert wird auf die geladene Spanne, damit keine Tat auf eine
+fehlende Zeile zeigt; ein Wächter prüft das für alle sechs Jahrgänge.
+
+**Die Stadtzuordnung wird nicht je Vintage neu gerechnet.** Das war eine
+Entscheidung und keine Auslassung: Ein Tract soll dauerhaft zu einer Stadt
+gehören. Würde die Mehrheitsregel gegen die Ortsgrenzen jedes Vintages laufen,
+könnte ein Tract 2021 zu Chicago gehören und 2024 nicht — dann sprünge die Rate
+aus einem Grund, der nichts mit Kriminalität zu tun hat. `reference_vintage`
+macht sichtbar, aus welchem Stand sie stammt.
+
+**Der Nebenbefund war die eigentliche Arbeit.** Die Abfrage „Einwohner je
+Stadt" stand an **neun** Stellen im Projekt: im Driftbericht, auf der
+Einstiegsseite und in sieben Wächtern, die die Raten in den Abgabedokumenten
+halten. In `tools/build_einstieg.py` stand sogar der Kommentar *„Dieselbe
+Abfrage wie in tests/test_aenderungen.py — eine Definition"* — zwei Fassungen
+sind keine Definition, und mit dem Verbund über zwei Spalten wären es neun
+Gelegenheiten geworden, das zweite Prädikat zu vergessen. Wer nur `geoid`
+verbindet, bekommt je Tract so viele Zeilen, wie Vintages geladen sind, und das
+Ergebnis sieht aus wie eine Zahl. Die Regel steht jetzt einmal in
+`gold_pipeline.einwohner_je_stadt`, und ein Test führt die Vervielfachung vor.
+
+**Zwei Tests haben ihre eigene Falle verloren.** `test_architektur_dokument`
+verdrahtete die Fünf doppelt — als Zahl und als Zahlwort —, und die Release-Tests
+nannten 9, 10 und 11 Tabellen als Konstanten. Beide lesen die Zahl jetzt aus
+`gold_pipeline.TABELLEN` und `serving.build_comparison.TABELLEN`.
+
+**Zahlen.** 1'532 → **1'542 Tests**, Standardlauf **1'461**. Die Raten sind
+**unverändert**: Chicago 94,5, Detroit 132,7 — dieselben 2'661'953 und 638'635
+Einwohner, nur aus einer anderen Tabelle. Gold und Serving neu gebaut, ein
+lokales Release `2026-10-03T17-26-24Z`, `docs/feldkatalog.md`,
+`docs/referenz/`, die drei Architekturbilder und `docs/einstieg.html` neu
+erzeugt. `docs/architektur.md`: 24 → 26 Importkanten, sieben → neun gezeichnete
+Pfeile — `gold_pipeline` und `orchestration` greifen jetzt nach
+`census_pipeline`, wo die Vintage-Regel wohnt.
+
+**Offen.** Elasticsearch und ClickHouse halten weiterhin das vorige Release;
+`pruefe_stand` meldet das zu Recht. Sie werden mit
+`python -m serving.load_elasticsearch` beziehungsweise `load_clickhouse`
+nachgezogen — das rührt an laufende Container und ist deshalb nicht Teil dieser
+Änderung.
+
+## 03.10.2026 · Der Gesamtlauf nimmt einen Jahresbereich, und Gold sagt Nein (Branch `mehrjaehrigkeit`)
+
+FR-34 aus dem LN2-PRD. `run_all` nahm bisher keinen Jahrgang an: Chicago lief
+auf dem Standardwert seines Moduls, und für Detroit stand `--years 2024` als
+Konstante in der Stufenliste. `--jahre` nimmt jetzt `2024`, `2021-2026` oder
+`2021,2023`. **Vorgabe bleibt 2024** — ein Aufruf ohne die Option tut
+byteweise dasselbe wie vorher, ein Mehrjahreslauf ist eine Ansage und kein
+Nebeneffekt eines Updates.
+
+**Die Entfaltung gehört nicht in `STUFEN`.** Das war der entscheidende Punkt
+am Entwurf: `STUFEN` beschreibt die **Form** der Strecke, und daraus entstehen
+das Datenflussbild (`tools/build_architekturbilder.py`) und die Stufenzahlen
+auf der Referenz-Startseite — drei Wächter zählen dort vierzehn. Hätte die
+Jahresentfaltung `STUFEN` selbst verlängert, wären aus vierzehn Stufen
+plötzlich neununddreissig geworden, samt zwei erzeugten Artefakten und ihren
+Wächtern. Wie oft eine Stufe läuft, ist deshalb eine Eigenschaft des **Laufs**
+und steht in `auswahl`. Jede Stufe sagt über zwei neue Felder, worüber sie sich
+wiederholt: `je="jahr"` für die Kriminalquellen, `je="vintage"` für Census und
+seine Silver-Tabellen, nichts für NOAA und alles Abgeleitete. Aus 2021–2026
+werden so 39 Stufen — nicht 84, weil NOAA je Station einen Vollschnappschuss
+lädt und sechs Aufrufe sechsmal dasselbe geholt hätten.
+
+**Ab 2025 bleibt es beim 2024er Vintage.** `vintage_fuer(jahr)` ist
+`min(jahr, 2024)`, mit der Messung vom 3.10.2026 als Begründung: Das jüngste
+verfügbare ACS-5-Jahres-Vintage **ist** 2024. Sechs Jahrgänge brauchen deshalb
+vier Vintages, nicht sechs. Eine Rate für 2025 ruht damit auf der Bevölkerung
+von 2024 — das ist keine Hochrechnung, sondern eine geliehene Bevölkerung, und
+FR-36 verlangt, dass es überall dabeisteht. Hier steht erst die Mechanik; die
+Kennzeichnung in Gold, auf den Dashboards und auf der Seite fehlt noch.
+
+**Mehrere Vintages und Gold im selben Lauf werden abgelehnt, vor der ersten
+Stufe.** `build_gold` nimmt ein einzelnes `--vintage` und verbindet alles
+damit. Bei vier Vintages bekäme jede Tat von 2021 den Nenner von 2024 — und
+das Ergebnis sähe vollständig aus. Sechs Jahrgänge zu laden und das erst in
+Gold zu merken, kostet eine Stunde und hinterlässt einen halben Stand; der
+Riegel greift deshalb, bevor ein Byte fliesst. Ein Mehrjahreslauf geht
+vorerst mit `--bis silver`. Das schliesst **FR-35**, und das ist der nächste
+Schritt: `silver/tract` und `silver/place` liegen schon je Vintage, Gold muss
+je Jahrgang das passende wählen — und das ändert das Sternschema, also einen
+Datenvertrag.
+
+**Nebenbefund.** Argparse fängt `ValueError` aus einem `type=`-Aufruf und
+ersetzt die Meldung durch *„invalid jahre_aus_text value: '1999'"*. Der
+Benutzer hätte erfahren, dass seine Angabe falsch ist, aber nicht warum — und
+das Warum ist der ganze Sinn der Prüfung. `jahre_argument` reicht die
+Begründung als `ArgumentTypeError` durch: *„1999 liegt ausserhalb von 2001 bis
+2027"*, *„'2021-2019' läuft rückwärts"*.
+
+**Offen geblieben, bewusst:** `leistungsnachweise.md` 7.3 sagt *„Der Zeitraum
+ist auf 2024 festgelegt"* und verweist auf die Projektabsprache. Das stimmt
+weiterhin — der Controller **kann** jetzt mehr, gebaut wird aber nichts
+anderes, solange Gold nur ein Vintage verbindet. Die Absprache zu ändern ist
+Artans Teil und gehört zu FR-53 bis FR-55.
+
+**Zahlen.** 1'507 -> **1'532 Tests**, Standardlauf **1'451**. 25 neue Tests:
+die Jahresarithmetik, die sechs Leseformen und fünf Fehlerfälle von `--jahre`,
+die Entfaltung je Achse, und vier Tests um den Gold-Riegel — darunter einer,
+der prüft, dass bei mehreren Vintages **keine** Stufe startet. `docs/referenz/`
+neu gebaut. Kein Datenvertrag ändert sich: Bei der Vorgabe 2024 sind die
+Befehlszeilen identisch.
+
+## 03.10.2026 · DuckDB bekommt Grenzen, und keine Verbindung kommt daran vorbei (Branch `mehrjaehrigkeit`)
+
+Erste Anforderung aus dem LN2-PRD (FR-61), und sie stand vor dem
+Mehrjahreslauf, nicht danach: **Ohne `memory_limit` nimmt DuckDB rund 80 % des
+Arbeitsspeichers der Maschine.** Auf einem Laptop, der nur die Strecke fährt,
+ist das richtig. Auf `srv01` mit 7,7 GiB und fünfzehn Diensten ist es die
+Stelle, an der ein Lauf über sechs Jahrgänge stirbt — und er stirbt nicht
+allein, er nimmt die Nachbardienste mit.
+
+`DUCKDB_MEMORY_LIMIT` und `DUCKDB_THREADS` kommen jetzt aus der Umgebung und
+werden auf **jeder** Verbindung gesetzt, die `storage.duckdb` herstellt. Ohne
+Angabe bleibt DuckDBs eigene Vorgabe: Wer nichts setzt, merkt nichts.
+
+**Der eigentliche Befund lag daneben.** Der Docstring von `storage/duckdb.py`
+las sich schon immer so, als ginge jede Verbindung durch dieses Modul.
+Tatsächlich riefen **neun Stellen** `duckdb.connect()` selbst auf — darunter
+`build_source_change`, das über alle Bronze-Läufe liest, und
+`build_analysis_db`, das die Serving-Datenbank schreibt. Eine Grenze nur im
+Modul wäre also eine Zusage gewesen, die an den beiden grössten Abfragen
+vorbeigeht. Alle neun laufen jetzt über `storage.duckdb.verbinde`, und ein
+Wächter hält das: `test_keine_verbindung_umgeht_die_grenzen` liest `src/` und
+`tools/` und nennt jede Stelle, die wieder selbst verbindet.
+
+Ein Wert, den DuckDB ablehnt, lässt die Verbindung **scheitern** statt still zu
+verfallen. Eine stillschweigend verworfene Grenze wäre schlimmer als keine: Der
+Lauf liefe weiter, mit der Zusage im Protokoll und ohne sie im Prozess. Ein
+leerer Wert ist dabei keine Angabe und keine Null — sonst schaltete
+`DUCKDB_THREADS=` in einer `.env` die Parallelität ab, ohne dass jemand das
+gemeint hätte.
+
+**Zahlen.** 1'496 -> **1'507 Tests**, Standardlauf **1'426** (8 übersprungen,
+81 Referenzwächter abgewählt). Elf neue Tests, davon einer der Strukturwächter
+oben. `docs/referenz/` neu gebaut — neun Seiten haben sich geändert. Die
+Testzahl wurde in `README.md`, `docs/architektur-ist-und-ziel.md`,
+`docs/architektur-einseiter.html`, `docs/ln1_konzept.md` (drei Stellen),
+`docs/intern/leistungsnachweise.md` (zwei Stellen) und im Kopf dieser Datei
+nachgezogen. Kein Datenvertrag ändert sich: Es wird nichts anders geladen oder
+gedeutet, nur anders begrenzt.
+
+Die Zeile in Kapitel 10 des Konzepts sagte *„erwartet 1'415 bestandene Tests"*.
+Das war schon vorher unscharf — der Standardlauf **sammelt** 1'426 und
+überspringt davon 8, bestanden werden also 1'418. Jetzt steht die gesammelte
+Zahl dort, und dass acht übersprungen werden.
+
+## 03.10.2026 · Das Notebook erklaert jetzt auch, wie die Historisierung haelt (direkt auf main)
+
+Gefragt war, ob `notebooks/37_quellbewegung.ipynb` exakt erklaert, wie die
+Historisierung funktioniert. Antwort: Es erklaerte, **wie Aenderungen gefunden
+werden** - nicht, **wodurch sie ein Aufraeumen ueberleben.** Das ist aber der
+Unterschied zwischen einem Differenzbericht und einer Historisierung.
+
+Der neue Abschnitt nennt die Mechanik: Die Tabelle ist append-only und
+`aufraeumen` fasst nur Raw und Bronze an, Silber nie. Die Datierung klebt, ein
+aufgeraeumtes Delta loescht sie nicht. Sie liegt unter
+`data/silver/dataset=source_change/` und im hybrid-Modus auf SeaweedFS, nicht
+in Git. Dazu Regel 4 - ein Vollabzug bleibt, bis sein Unterschied gezogen ist,
+und faellt die Auskunft aus, gibt es keine Freigabe - und Regel 0, der
+Referenzstand.
+
+**Vorgefuehrt statt behauptet**, und die Vorfuehrung hat etwas aufgedeckt. Der
+Aufraeumbericht laeuft im Notebook **zweimal**, einmal mit den Pins und einmal
+ohne, weil sonst ueberall nur "Referenzstand" steht und keine Regel sichtbar
+wird. Das Ergebnis ist unbequem:
+
+* **Regel 4 kommt nicht vor.** Kein Lauf wird gehalten, weil sein Unterschied
+  noch nicht gezogen waere - er ist ueberall gezogen.
+* **Die Pins halten heute nichts, was nicht ohnehin gehalten wuerde.** Ohne sie
+  waere genau derselbe eine Lauf entbehrlich. Fast alles traegt *"von Silver
+  genannt"*: Silber entdoppelt ueber **alle** Laeufe und nennt sie deshalb alle
+  in `derived_from`, und Regel 2 haelt, was Silber nennt.
+
+Daraus folgt: **Fuer die beiden Kriminalitaetsquellen laesst sich derzeit
+praktisch nichts aufraeumen.** Von 22 Laeufen ist einer entbehrlich, 24,5 MB,
+und der gehoert NOAA. Die Rechnung *"31,9 MB Schnappschuesse fuer 102
+geaenderte Zeilen"* beschreibt, was zu gewinnen waere - eingeloest ist sie
+nicht. Wer das aendern will, muss an Regel 2 oder an Silber: Ein Silber, das
+vom letzten Vollabzug plus den Deltas danach baut, braeuchte die aelteren
+nicht mehr, und erst dann traegt der Referenzstand wirklich etwas.
+
+Die Lage ist also: Die Aenderungsgeschichte **ist** gesichert und wuerde ein
+Aufraeumen ueberleben. Nur findet das Aufraeumen noch nicht statt. Das steht
+jetzt so im Notebook, statt dass die Rechnung aus der `datenhistorie.md` als
+erreicht gelesen werden kann.
+
+**Nicht geaendert:** Die LN1-Pins bleiben, bis die Rueckmeldung der Pruefenden
+vorliegt. Sie sind die Belege fuer die Zahlen vom 25.9.
+
+---
+
+## 03.10.2026 · Silber neu gebaut, Referenzstand nachgezogen (direkt auf main)
+
+Der zweite Chicago-Vollabzug lag seit dem Morgen in Bronze, ohne dass Silber
+ihn kannte. Acht Stufen neu gebaut - Silber, Gold, Serving - in 26 Sekunden,
+dazu ein Release und ein nachgezogener Referenzstand.
+
+**Die Verschiebung ist klein und sie erklaert sich selbst.**
+
+| | vorher | nachher | |
+| --- | ---: | ---: | ---: |
+| `silver/crime_offense` | 348'311 | **348'329** | +18 |
+| `gold/fact_offense` | 345'073 | **345'091** | +18 |
+| Chicago, Anklagen | 259'625 | **259'643** | +18 |
+| Chicago, Vorfaelle | 259'596 | **259'614** | +18 |
+| Chicago, verortete Delikte | 251'516 | **251'517** | +1 |
+| Raten je 1'000 | 94,5 / 132,7 | **94,5 / 132,7** | unveraendert |
+
+**Warum nur 18 und nicht 366.** Der neue Vollabzug hat 259'638 Zeilen gegen
+259'272 am 5.9., also 366 mehr. In Silber kommen davon nur **18** an - und das
+ist genau die Zahl, die `source_change` vorhergesagt hat: Von den 371 neuen
+Delikten trugen **353 schon die Deltas** vom 17. und 18.9. ein, lange bevor
+der Vollabzug lief. Nur 18 trug kein Delta. Die Datierung hat sich damit
+selbst bestaetigt, an einer Zahl, die nicht aus ihr stammt.
+
+Und die fuenf **verschwundenen** Delikte? Silber entdoppelt, es loescht nicht -
+sie stehen weiter drin, und Gold zaehlt sie mit. Deshalb +18 und nicht +13.
+Dass die Quelle sie zurueckgezogen hat, steht in `source_change`; dass sie
+trotzdem in der Auswertung sind, ist eine Entscheidung und kein Versehen.
+
+**Der Referenzstand.** `aufraeumen --pinnen stand-2026-10-03` haelt die zwoelf
+Laeufe fest, auf denen das neue Gold ruht. Die neun **LN1-Pins bleiben
+unangetastet**: Bereits gepinnte Laeufe behalten ihren ersten Grund, und damit
+bleiben die abgegebenen Zahlen vom 25.9. reproduzierbar. Beides steht jetzt
+nebeneinander in `config/referenzstand.csv`, unterscheidbar an der Spalte
+`grund`.
+
+**Release 2026-10-03T10-56-39Z** gebildet und publiziert, 21 Dateien, 42,2 MB;
+`AKTUELL.json` zeigt darauf. Danach ClickHouse und Elasticsearch nachgeladen -
+`serving.pruefe_stand` hatte gemeldet, dass fuenf Sichten und drei Aliasse noch
+das Release vom 21.9. bedienten. Vier Orte, ein Stand.
+
+**78 Zahlen in zwoelf Dokumenten nachgezogen**, von den Waechtern benannt und
+nicht gesucht. Unberuehrt geblieben sind die datierten Eintraege dieses
+Protokolls und `datenhistorie.md` - was dort steht, war zu seinem Zeitpunkt
+richtig und bleibt es. Im Kopfabschnitt oben stehen die neuen Zahlen.
+
+**Zwei Waechter trugen Zahlen von Hand**, und das ist ihre schwache Stelle:
+`test_der_einseiter_traegt_dieselben_zahlen` fuehrt eine Liste der Werte, die
+an zwei Stellen stehen muessen, und `test_der_manifesteintrag_nennt_die_zahl_der_laeufe`
+vergleicht gegen ein festes Paar statt gegen den Text. Beide sind nachgezogen,
+beide mit einem Kommentar, der sagt, dass die Zahl dort von Hand gefuehrt wird.
+
+**Der Nebeneffekt, um den es eigentlich ging:** Jetzt laesst sich aufraeumen.
+Der Bericht nennt einen entbehrlichen NOAA-Lauf (24,5 MB). Dass die
+Aenderungsgeschichte davon unberuehrt bleibt, haelt der Waechter von heute
+Nachmittag fest - die Datierung klebt.
+
+---
+
+## 03.10.2026 · Die Datierung klebt, damit das Aufraeumen gehen kann (direkt auf main)
+
+Gefragt war, ob die historischen Aenderungen erhalten bleiben, wenn Raw- und
+Bronze-Laeufe geloescht werden. Die Antwort war: ja - **ausser der
+Datierung**. Und das war ein Mangel in dem, was drei Stunden vorher gebaut
+wurde.
+
+**Was bleibt, und wo.** `silver/source_change` ist append-only. Die Tabelle
+liegt unter `data/silver/dataset=source_change/` und im hybrid-Modus zusaetzlich
+auf SeaweedFS. `orchestration.aufraeumen` fasst nur Raw und Bronze an, Silver
+nie. Regel 4 fragt `build_source_change` direkt: Ein Vollabzug, dessen
+Unterschied noch nicht gezogen ist, bleibt - und faellt die Auskunft aus, gibt
+es keine Freigabe, sondern eine leere Menge. Je Zeile erhalten: Stadt,
+Schluessel, Vergleichspaar, beide Zeitpunkte, Art, Feld, alter und neuer Wert.
+**4'718 Zeilen gegen 113,6 MB Bronze - Verhaeltnis 1'581 zu 1.**
+
+**Was nicht blieb.** Die Datierung war als Annotation ausgelegt, bei jedem Bau
+frisch gerechnet. Nachgestellt im Wegwerfverzeichnis: Loescht man das Delta,
+wird aus `('delta', 'd1')` wieder `('nicht_datierbar', None)` - die
+Aenderungszeile bleibt, ihre Datierung ist weg. Dazu kam: **Keine
+Aufraeumregel haelt ein Delta, weil die Datierung es braucht.** Heute sind
+Chicagos Deltas zufaellig geschuetzt, als "Referenzstand" oder "von Silver
+genannt". Nach einem Silver-Neubau und einem verschobenen Referenzstand werden
+sie entbehrlich, und der 17.9. waere an 369 Zeilen nicht mehr nachzulesen.
+
+Das widerspricht dem Zweck der Tabelle: den Unterschied herausziehen,
+**bevor** der Rohstoff entbehrlich wird. Fuer die zehn Tatsachenspalten galt
+das. Fuer die drei Datierungsspalten war es gebrochen.
+
+**Vertrag 3: die Datierung klebt.** Sie nennt den besten Befund, der je
+bestimmt wurde, nicht den heutigen. Nachgerechnet wird, was besser wird -
+Rangfolge `delta` > `kein_delta` > `nicht_datierbar` -, und nie abwaerts. Die
+Spalten sind dieselben, ihre Bedeutung ist es nicht, und deshalb steigt die
+Zahl.
+
+Damit braucht es **keine** neue Aufraeumregel: Die Deltas duerfen weg, sobald
+ihre Auskunft in der Tabelle steht. Das ist der Punkt - Aufraeumen ist ein
+Ziel des Lebenszyklus, nicht ein Unfall, und eine Spalte, die daran zerbricht,
+verhindert es.
+
+Der Preis, ausdrücklich: Eine einmal falsch bestimmte Datierung waere
+eingefroren. Sie entsteht deterministisch aus den Laeufen, ein Fehler kaeme
+also nur aus einem Programmfehler - und dagegen ist Datenverlust der
+schlechtere Tausch.
+
+**Zwei Waechter halten das fest.**
+`test_die_datierung_verblasst_nicht_wenn_die_deltas_weg_sind` baut, loescht das
+Delta, baut erneut und verlangt dieselbe Datierung bei gleicher Zeilenzahl.
+`test_eine_bessere_datierung_verdraengt_eine_schlechtere` zeigt die Rangfolge
+an einem Fall: `kein_delta` wird zu `delta`, sobald ein Delta den Schluessel
+traegt - und das zuerst getroffene Delta bleibt dabei stehen, es wird nicht
+durch ein spaeteres ersetzt.
+
+**Zahlen.** 1'494 -> **1'496 Tests**, Standardlauf 1'415. `docs/referenz/` und
+`docs/feldkatalog.md` neu gebaut; die Beschreibung von `datierung` nennt jetzt
+das Kleben.
+
+---
+
+## 03.10.2026 · Die Deltas datieren, was die Vollabzuege finden (direkt auf main)
+
+Gefragt war, ob sich auch die Deltas vergleichen lassen, statt nur die
+Vollabzuege. Die Antwort war dreiteilig, und die mittlere Fassung hat gewonnen.
+
+**Warum ein Delta nicht vergleichen kann.** Es enthaelt nur die bewegten
+Zeilen. Eine Zeile, die nicht darin steht, ist entweder unveraendert oder
+gelöscht - `verschwunden` ist daraus nicht entscheidbar. Ein naiver Vergleich
+haette 88'000 ruhige Zeilen als verschwunden gemeldet. Dazu kommt: Ein Delta
+wird ueber das Stempelfeld ausgewaehlt und findet nur, was die Quelle selbst
+gemeldet hat.
+
+**Diese blinde Stelle ist jetzt beziffert**, an den Vollabzuegen, die beides
+sehen: Ein Delta haette **99 %** von Detroits und **100 %** von Chicagos
+Inhaltsaenderungen gefunden. Die acht Ausnahmen sind alle dasselbe Feld,
+`nearest_intersection`, und dieselbe Korrektur bei mehreren Delikten -
+`Ashley Ave & Ashley Dr` -> `Ashley Ave & Mack Ave` viermal, `Brush St &
+Gratiot Ave` -> `Brush St & Clinton St` dreimal -, ohne dass ein Stempel sich
+bewegte. Das sieht nach einer Neuberechnung auf Quellseite aus und nicht nach
+Einzelbearbeitungen. Fuer die Abgabezahlen harmlos: Das Feld kommt nie nach
+Silver.
+
+**Gewaehlt ist die Fassung, die nichts riskiert.** Gefunden wird weiter nur
+zwischen Vollabzuegen. Die Deltas erzeugen keine Zeile - sie **datieren**, was
+die Vollabzuege finden. Vertrag 2 ergaenzt dafuer drei Spalten:
+
+| `datierung` | heisst |
+| --- | --- |
+| `delta` | ein Delta im Fenster trug den Schluessel; `zuerst_gesehen_in` nennt das **erste** |
+| `kein_delta` | Deltas lagen vor, keines trug den Schluessel |
+| `nicht_datierbar` | kein lesbares Delta liegt im Fenster |
+
+Drei Zustaende statt einer Leerstelle, aus demselben Grund, aus dem es die
+Markierungszeile `art = 'unveraendert'` gibt: *nichts gefunden* ist nicht
+dasselbe wie *nicht nachgesehen*. Und `kein_delta` heisst ausdruecklich nicht
+*"nicht angemeldet"* - es hat drei Ursachen, die von dort aus nicht zu trennen
+sind: die Quelle hat nichts gemeldet, oder die Aenderung kam nach dem letzten
+Delta, oder die Zeile war schon weg.
+
+**Was es bringt, in Zahlen.** Chicagos Fenster ist 28 Tage breit. 369 der
+dort gefundenen Zeilen sind jetzt auf den **17.9.** datiert, also 16 Tage vor
+dem Vollabzug; sechs weitere auf den 18.9., zwei auf den 5.9. Aus
+*irgendwann in dreissig Tagen* wird damit ein Tag.
+
+**Detroit datiert nichts, und das ist richtig.** Seine drei Deltas liefen am
+18.9. um 11:08, 11:57 und 14:33 - das letzte Vergleichsfenster endet um
+**11:02**. Sechs Minuten zu spaet. Kein Delta liegt in einem Fenster, also
+`nicht_datierbar`. Mit dem Monatstakt loest sich das von selbst.
+
+**Die Datierung ist eine Annotation, keine Tatsache des Paares.** Sie wird bei
+jedem Bau neu gerechnet, auch fuer die 4'718 schon gezogenen Zeilen - sonst
+haette Vertrag 2 nur fuer kuenftige Paare einen Wert gehabt. Sie wird besser,
+sobald ein Delta dazukommt, und verblasst, wenn die Deltas aufgeraeumt sind
+(**so war es am Nachmittag noch; der Eintrag darueber macht die Datierung
+klebrig, weil das Verblassen Datenverlust war**);
+die zehn Tatsachenspalten bleiben unberuehrt. Ein Test haelt genau das fest:
+bauen, ein Delta nachlegen, nochmals bauen - die Zeilenzahl bleibt, die
+Datierung springt von `nicht_datierbar` auf `delta`.
+
+**Ein Fehler, den die Tests gefangen haben.** Der erste Entwurf legte die
+Schluesseltabelle in `datiere` mit `CREATE OR REPLACE` an - je Quelle. Damit
+loeschte der Durchgang fuer Chicago die Deltas von Detroit wieder, und nur die
+letzte Quelle ueberlebte. Aufgefallen ist es, weil die Tests die Datierung je
+Quelle pruefen und nicht die Gesamtzahl. Die Tabelle wird jetzt einmal
+angelegt, und `datiere` fuellt nur.
+
+**Nachgetragen: `silver/source_change` stand nicht im Vertragsregister.** Das
+Modul fuehrte `CONTRACT_VERSION` seit dem 1.10., aber kein Test hielt die Zahl
+gegen den Abschnitt "Vertragsversionen"; der Datensatz fehlte in der Abbildung
+von `test_vertragsversionen.py`. Beides ist ergaenzt - die Version steigt also
+nicht nur, sie wird jetzt auch bewacht.
+
+**`notebooks/37_quellbewegung.ipynb`** zeigt die Datierung mit: auf welches
+Delta wie viele Zeilen datiert sind und wie weit vor dem Vollabzug, dazu die
+Gegenprobe, welches Fenster ueberhaupt Deltas traf. Der Grenzen-Abschnitt ist
+nachgezogen - Punkt 1 lautete "nur Vollabzuege" und heisst jetzt praeziser
+"gefunden wird nur zwischen Vollabzuegen, datiert wird mit den Deltas".
+
+**Und noch eine Luecke, auf die das gestossen ist.** Der Feldkatalog leitet
+Spalten und Typen aus den Manifesten der gebauten Tabellen ab. Das Manifest von
+`source_change` trug **kein `schema`** - als einzige Silver-Tabelle. Folge: Der
+Abschnitt im Katalog war **leer**, eine Ueberschrift mit einer Kopfzeile und
+nichts darunter, und der Waechter, der jede gebaute Spalte auf eine
+Beschreibung haelt, pruefte fuer diese Tabelle gar nichts. Der Werkzeugkopf
+verspricht *"der Lauf scheitert und nennt die Spalte"* - er konnte es nie,
+weil er keine Spalte sah.
+
+Das Manifest traegt jetzt sein Schema, und damit scheiterte der Lauf wie
+vorgesehen und nannte elf Spalten ohne Beschreibung. Alle dreizehn sind
+eingetragen; der Katalog hat zum ersten Mal einen gefuellten
+`source_change`-Abschnitt. Dabei fiel noch auf, dass ein Vertragswechsel allein
+nicht zum Schreiben fuehrte: Die Tabelle ist append-only, und ohne neues Paar
+hielt der Lauf sich fuer fertig. Jetzt publiziert er auch, wenn sich Vertrag
+oder Schema bewegt haben.
+
+**Zahlen.** 1'486 -> **1'494 Tests**, Standardlauf 1'413. `docs/referenz/` und
+`docs/feldkatalog.md` neu gebaut.
+
+---
+
+## 03.10.2026 · Chicago bewegt sich anders als Detroit, und jetzt sieht man es (direkt auf main)
+
+**Entschieden: ein Vollschnappschuss je Stadt und Monat.** Damit ist Punkt 3
+aus Abschnitt 8 von `datenhistorie.md` beantwortet und die offene Flanke des
+Nachtrags vom 1.10. geschlossen - `source_change` hoert nicht mehr nach den
+fuenf Detroit-Schnappschuessen auf zu wachsen.
+
+**Chicagos zweiter Vollabzug** lief am 3.10. um 09:30 UTC: **259'638 Zeilen**
+gegen 259'272 am 5.9., Vollstaendigkeit nachgewiesen, Schema-Fingerabdruck
+unveraendert. `silver/source_change` waechst von 4'292 auf **4'718 Zeilen**.
+
+**Vier Asymmetrien standen dem im Weg, nicht die eine, die der Code
+erwartete.** Im Modul stand *"sobald ein zweiter geladen wird, gehoert hier
+eine Zeile hin"*. Das war zu optimistisch:
+
+| Was | Chicago | Detroit |
+| --- | --- | --- |
+| Lademodus | `mode = full_snapshot` | `extraction_mode = FULL` |
+| Startzeitpunkt | `started_at_utc` | `started_at` |
+| Form der Bronze-Datei | flache Spalten | Struct `attributes` |
+| Schluessel | `id` | `incident_entry_id` |
+
+Die ersten zwei wohnen jetzt im gemeinsamen Manifestleser
+(`manifeste.Lauf.vollabzug`, `manifeste.Lauf.begonnen_um`) - dieselbe Loesung
+wie bei `FERTIG`, wo `complete` und `SUCCESS` beide gelten. Die anderen zwei
+sind Eigenschaften der Quelle (`Quelle.struct`, `Quelle.schluessel`). Ohne das
+haette das Modul auch zwei Chicago-Vollabzuege nicht gefunden: Es las nur
+`extraction_mode`.
+
+Beim Lesen der flachen Spalten kommt `storage.parquet_spalten` zum Einsatz und
+nicht `DESCRIBE` - der Pfad traegt `city=` und `ingest_date=`, und daraus
+haette DuckDB zwei Hive-Spalten abgeleitet und als Quellfelder verglichen. Zwei
+Felder, die sich je Lauf aendern und nichts bedeuten.
+
+**Das Testdoppel ist weg.** `FalscherLauf` war eine eigene Klasse mit drei
+Attributen, kannte nur Detroits Vokabular und waere beim Umbau gruen
+geblieben - ein Doppel prueft, was man ihm beigebracht hat. Jetzt baut der
+Test echte `manifeste.Lauf`-Objekte, und `test_nur_vollschnappschuesse_werden_verglichen`
+laeuft ueber **beide** Staedte.
+
+**Der Befund.** Das Paar 5.9./3.10. - 28 Tage - bringt 371 neu, 49 geaendert,
+5 verschwunden, 1 beruehrt. Die Gegenprobe stimmt auf die Zeile: 371 - 5 = 366,
+und genau 366 Zeilen mehr hat der neue Schnappschuss. **`verschwunden` hat
+damit zum ersten Mal Belege** - fuenf Delikte, die Chicago aus dem Jahrgang
+2024 entfernt hat.
+
+Die beiden Staedte bewegen sich sichtbar unterschiedlich. Bei Detroit sind
+78 % aller Feldbewegungen die drei Zeitstempel, und von den fachlichen 22 % ist
+`case_status` allein 70 % - die Quelle fuehrt den Verfahrensstand nach. Bei
+Chicago sind 62 % der Bewegungen fachlich, und sie sind Umklassierungen:
+`arrest` 15-mal, davon **13-mal von `false` auf `true`** und zweimal zurueck -
+ein Haftvermerk wird auch zuruckgenommen -, dazu `fbi_code`, `description`,
+`iucr` und `primary_type`. Dass diese vier dieselbe Umklassierung beschreiben,
+ist gemessen und nicht behauptet: Drei Delikte bewegten alle vier Felder, eines
+drei von vier, keines nur eines.
+
+Einmal bewegte sich der Tatzeitpunkt selbst - Chicago vom 12.5. auf den
+4.1.2024, Detroit ein Fall um sieben Tage. Das betrifft jede Zeitreihe und
+jede Monatszelle in Gold.
+
+`location`, `latitude`, `longitude` und `_extra` ruehrten sich **nicht**.
+Chicagos `rauschen` bleibt deshalb leer, und das ist ein Messergebnis:
+`location` galt als Rauschkandidat, weil es die Koordinaten doppelt fuehrt.
+
+**`notebooks/37_quellbewegung.ipynb`** fuehrt das alles vor - mit der
+Gegenprobe gegen die Bronze-Manifeste, den Beispielen woertlich aus der
+Tabelle, und einem Abschnitt, der die Grenzen ausdruecklich nennt: nur
+Vollabzuege, nur was zwischen zwei Aufnahmen sichtbar ist, und zwei ungleiche
+Fenster von sieben und 28 Tagen, aus denen sich keine Rate je Monat rechnen
+laesst. Es steht in `BELEGEN` und laeuft im Datenlauf nach dem Bau; es sind
+reine Abfragen, also Sekunden.
+
+**Zahlen.** 1'483 -> **1'486 Tests**, Standardlauf 1'405. `docs/referenz/`,
+`docs/feldkatalog.md` und die drei Architektur-SVGs neu gebaut - der
+Importgraph hat mit `storage/parquet.py` ein Modul mehr.
 
 ---
 

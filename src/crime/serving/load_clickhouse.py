@@ -222,7 +222,7 @@ def spalten(parquet: Path, ziel: str = "fact_offense") -> list[Spalte]:
     22 Spalten ``Nullable``, obwohl es nur acht sind. Das kostet ein Byte je
     Zeile und Spalte und blockiert Optimierungen, ohne irgendetwas auszusagen.
     """
-    import duckdb
+    from storage.duckdb import verbinde
 
     from storage import parquet_schema
 
@@ -230,7 +230,7 @@ def spalten(parquet: Path, ziel: str = "fact_offense") -> list[Spalte]:
     namen = [f.name for f in schema]
     teile = ", ".join(
         f'count(*) FILTER (WHERE "{n}" IS NULL)' for n in namen)
-    con = duckdb.connect()
+    con = verbinde()
     try:
         leer = con.execute(
             f"SELECT {teile} FROM read_parquet('{parquet}')").fetchone()
@@ -337,11 +337,11 @@ def abgleich_clickhouse(tabelle: str, ziel: Ziel) -> dict[str, str]:
 
 
 def abgleich_release(parquet: Path, ziel: Ziel) -> dict[str, Any]:
-    import duckdb
+    from storage.duckdb import verbinde
 
     spalten_liste = ", ".join(ziel.verteilung)
     nummern = ", ".join(str(i + 1) for i in range(len(ziel.verteilung)))
-    con = duckdb.connect()
+    con = verbinde()
     quelle = f"read_parquet('{parquet}')"
     try:
         return {

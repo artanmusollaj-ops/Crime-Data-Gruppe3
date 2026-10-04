@@ -116,12 +116,27 @@ def test_die_kontrollzahlen_stimmen_mit_der_landkarte(teil_a):
     assert zahl(teil_a, r"davon (\d+) mit Abbruch") == len(hart) - 3
 
 
+# Nur so weit, wie ein Sternschema je kommen wird.
+ZAHLWORT = {4: "vier", 5: "fünf", 6: "sechs", 7: "sieben", 8: "acht"}
+
+
 def test_die_schichten_und_ihre_tabellen_stimmen(teil_a):
+    """Die Zahl kommt aus den Registern, nicht aus diesem Test.
+
+    Bis zum 3.10.2026 stand die Fuenf hier zweimal verdrahtet - als Zahl und
+    als Wort -, und eine sechste Sterntabelle liess beide Haelften gleichzeitig
+    falsch werden. Gelesen wird jetzt ``TABELLEN``; der Test prueft, dass das
+    Dokument dasselbe sagt.
+    """
     from gold_pipeline import TABELLEN as GOLD
     from serving.build_comparison import TABELLEN as SERVING
 
-    assert len(GOLD) == 5 and "fünf Sterntabellen" in teil_a
-    assert len(SERVING) == 4 and "vier Vergleichstabellen" in teil_a
+    assert f"{ZAHLWORT[len(GOLD)]} Sterntabellen" in teil_a, (
+        f"{len(GOLD)} Gold-Tabellen - das Dokument nennt eine andere Zahl"
+    )
+    assert f"{ZAHLWORT[len(SERVING)]} Vergleichstabellen" in teil_a, (
+        f"{len(SERVING)} Vergleichstabellen - das Dokument nennt eine andere Zahl"
+    )
     for schicht in ("raw", "bronze", "silver", "gold", "serving", "releases"):
         assert f"**{schicht}**" in teil_a, f"die Schicht {schicht} fehlt in der Tabelle"
 
@@ -240,7 +255,10 @@ def blatt() -> str:
 
 def test_der_einseiter_traegt_dieselben_zahlen(blatt, text):
     """Dieselbe Zahl an zwei Stellen darf nur einmal veralten."""
-    for wert in ("348'311", "345'073", "94,5", "132,7", "42 Kontrollen",
+    # Diese Liste ist von Hand gefuehrt und muss nach einem Neubau mitgezogen
+    # werden - sie sagt, **welche** Zahlen an beiden Stellen stehen muessen,
+    # und das laesst sich aus den Daten nicht ableiten.
+    for wert in ("348'329", "345'091", "94,5", "132,7", "42 Kontrollen",
                  "1'055", "23,3 %", "55,9 %"):
         assert wert in blatt, f"{wert} fehlt im Einseiter"
         assert wert in text or wert.replace("'", "") in text, (

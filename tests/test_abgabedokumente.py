@@ -27,6 +27,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from gold_pipeline import einwohner_je_stadt
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -162,15 +163,14 @@ def test_gold_granularitaet_in_der_absprache(con, absprache):
 @pytest.mark.referenzstand
 def test_rate_je_einwohner(con, konzept, stadt):
     fakt, dim = parquet(GOLD, "fact_offense"), parquet(GOLD, "dim_tract")
-    if fakt is None or dim is None:
+    acs = parquet(GOLD, "dim_tract_acs")
+    if fakt is None or dim is None or acs is None:
         pytest.skip("Gold nicht gebaut")
     echt = dict(
         (z[0], (z[1], z[2], z[3]))
         for z in con.execute(f"""
-            WITH e AS (
-                SELECT city, sum(population) AS n FROM read_parquet('{dim}')
-                WHERE city IS NOT NULL GROUP BY 1
-            )
+            WITH e AS ({einwohner_je_stadt(
+                f"read_parquet('{dim}')", f"read_parquet('{acs}')")})
             SELECT t.city, count(*), any_value(e.n),
                    round(count(*) * 1000.0 / any_value(e.n), 1)
             FROM read_parquet('{fakt}') f
@@ -245,15 +245,14 @@ def test_readme_nennt_die_zeilenzahlen(con, readme, dataset, schicht, muster):
 @pytest.mark.referenzstand
 def test_readme_nennt_die_raten(con, readme, stadt):
     fakt, dim = parquet(GOLD, "fact_offense"), parquet(GOLD, "dim_tract")
-    if fakt is None or dim is None:
+    acs = parquet(GOLD, "dim_tract_acs")
+    if fakt is None or dim is None or acs is None:
         pytest.skip("Gold nicht gebaut")
     echt = dict(
         (z[0], (z[1], z[2]))
         for z in con.execute(f"""
-            WITH e AS (
-                SELECT city, sum(population) AS n FROM read_parquet('{dim}')
-                WHERE city IS NOT NULL GROUP BY 1
-            )
+            WITH e AS ({einwohner_je_stadt(
+                f"read_parquet('{dim}')", f"read_parquet('{acs}')")})
             SELECT t.city, count(*), round(count(*) * 1000.0 / any_value(e.n), 1)
             FROM read_parquet('{fakt}') f
             JOIN read_parquet('{dim}') t ON t.geoid = f.tract_geoid

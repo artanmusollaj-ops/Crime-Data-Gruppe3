@@ -27,6 +27,8 @@ import pyarrow.parquet as pq
 import pytest
 
 from orchestration.release import bilde
+from gold_pipeline import TABELLEN as GOLD_TABELLEN
+from serving.build_comparison import TABELLEN as SERVING_TABELLEN
 from storage import Config, FakeS3Client, PublishError, Storage, release
 
 
@@ -101,7 +103,12 @@ def test_ein_release_enthaelt_gold_serving_karte_datenbank_und_manifest(tmp_path
     assert manifest["release_id"] == KENNUNG
     assert manifest["contract_versions"]["gold"] == 4
     assert manifest["contract_versions"]["serving/comparison_day"] == 1
-    assert len(manifest["tables"]) == 9, "fuenf Gold- und vier Serving-Tabellen"
+    # Die Zahl kommt aus den Registern, damit eine siebte Gold-Tabelle sie
+    # nicht lautlos falsch macht.
+    assert len(manifest["tables"]) == len(GOLD_TABELLEN) + len(SERVING_TABELLEN), (
+        f"{len(GOLD_TABELLEN)} Gold- und {len(SERVING_TABELLEN)} "
+        "Serving-Tabellen"
+    )
     assert manifest["input_fingerprint"] == "fp-fact_offense"
     assert manifest["gate"] == {"inside_city": 97.5}
     assert manifest["tables"]["gold/fact_offense"]["rows"] == 5
@@ -131,8 +138,9 @@ def test_die_datenbank_im_release_ist_selbstaendig(tmp_path):
         arten = dict(con.execute(
             "SELECT table_type, count(*) FROM information_schema.tables GROUP BY 1"
         ).fetchall())
-        assert "VIEW" not in arten and arten["BASE TABLE"] == 10, (
-            "neun Tabellen plus release_info - und keine einzige Sicht"
+        erwartet = len(GOLD_TABELLEN) + len(SERVING_TABELLEN) + 1
+        assert "VIEW" not in arten and arten["BASE TABLE"] == erwartet, (
+            f"{erwartet - 1} Tabellen plus release_info - und keine Sicht"
         )
         assert con.execute("SELECT count(*) FROM fact_offense").fetchone()[0] == 5
         assert con.execute("SELECT release_id FROM release_info").fetchone()[0] == KENNUNG
@@ -382,7 +390,10 @@ def test_einsetzen_bringt_die_tabellen_an_ihre_festen_pfade(tmp_path):
     assert (hier / "serving" / "dataset=comparison_day" / "part-0001.parquet").is_file()
     assert (hier / "serving" / "tracts.geojson").is_file()
     assert json.loads((hier / "gold" / "dataset=fact_offense" / "manifest.json").read_text())["row_count"] == 5
-    assert len(eingesetzt) == 11, "neun Tabellen, GeoJSON und sein Manifest"
+    assert len(eingesetzt) == len(GOLD_TABELLEN) + len(SERVING_TABELLEN) + 2, (
+        f"{len(GOLD_TABELLEN) + len(SERVING_TABELLEN)} Tabellen, GeoJSON "
+        "und sein Manifest"
+    )
     assert not list((hier / "gold").glob(".*")), "kein .part, kein .superseded"
 
 

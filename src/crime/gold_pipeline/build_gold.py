@@ -52,6 +52,7 @@ from typing import Any, NamedTuple
 
 import duckdb
 
+from census_pipeline import NEWEST_VINTAGE
 from manifeste import code_stand, eingabe_abdruck, referenz, referenzdatei
 from storage import StorageError, for_root, manifest_von
 from gold_pipeline import (
@@ -80,7 +81,7 @@ from silver_pipeline import (
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
-CONTRACT_VERSION = 5
+CONTRACT_VERSION = 7
 
 DEFAULT_VINTAGE = 2024
 NIBRS_CODES = "nibrs_offense_codes_2025.csv"
@@ -177,12 +178,45 @@ class Quelle(NamedTuple):
         return f"read_parquet('{self.pfad}')"
 
 
+def acs_vintages(text: str) -> tuple[int, ...]:
+    """``2021,2022,2023,2024`` - aufsteigend, jedes einmal."""
+    gefunden = set()
+    for teil in text.split(","):
+        teil = teil.strip()
+        if not teil:
+            continue
+        try:
+            gefunden.add(int(teil))
+        except ValueError:
+            raise argparse.ArgumentTypeError(
+                f"{teil!r} ist kein Vintage"
+            ) from None
+    if not gefunden:
+        raise argparse.ArgumentTypeError("kein Vintage angegeben")
+    zu_neu = sorted(v for v in gefunden if v > NEWEST_VINTAGE)
+    if zu_neu:
+        raise argparse.ArgumentTypeError(
+            f"{', '.join(str(v) for v in zu_neu)} gibt es nicht - das juengste "
+            f"ACS-5-Jahres-Vintage ist {NEWEST_VINTAGE}"
+        )
+    return tuple(sorted(gefunden))
+
+
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-root", type=Path, default=None,
                         help="Wurzel der Schichten (Vorgabe: LOCAL_DATA_ROOT oder data)")
     parser.add_argument("--config-root", type=Path, default=Path("config"))
-    parser.add_argument("--vintage", type=int, default=DEFAULT_VINTAGE)
+    parser.add_argument("--vintage", type=int, default=DEFAULT_VINTAGE,
+                        help="Referenz-Vintage fuer Stadtzuordnung und "
+                             f"Geometrie (Vorgabe {DEFAULT_VINTAGE})")
+    parser.add_argument("--acs-vintages", type=acs_vintages, default=None,
+                        metavar="VINTAGES",
+                        help="ACS-Vintages als Nenner, etwa 2021,2022,2023,"
+                             "2024. Ohne Angabe allein das Referenz-Vintage. "
+                             "Welcher Jahrgang welches Vintage leiht, "
+                             "entscheidet census_pipeline.vintage_for - "
+                             "deshalb stehen hier Vintages und keine Jahre")
     return parser.parse_args()
 
 
@@ -232,7 +266,7 @@ def silver_quelle(data_root: Path, name: str, vintage: int | None = None) -> Que
 # --------------------------------------------------------------------------
 
 
-def dim_tract_query(tract: Quelle, place: Quelle) -> str:
+def dim_tract_query(tract: Quelle, place: Quelle, vintage: int) -> str:
     """Ordnet jeden Tract der Stadt zu, die mehr als seine halbe Flaeche deckt.
 
     Der Join ist ein innerer auf ``ST_Intersects`` und danach eine Fensterfunktion:
@@ -283,9 +317,12 @@ def dim_tract_query(tract: Quelle, place: Quelle) -> str:
         t.state_name                                    AS state_name,
         t.county_fips                                   AS county_fips,
         t.name                                          AS tract_name,
-        t.population                                    AS population,
-        t.median_household_income_usd                   AS median_household_income_usd,
-        t.poverty_rate                                  AS poverty_rate,
+        -- Welchem Vintage die Stadtzuordnung und die Geometrie entstammen.
+        -- Sie werden **nicht** je Jahrgang neu gerechnet: Ein Tract soll
+        -- dauerhaft eine Stadt haben, sonst springt eine Rate aus einem Grund,
+        -- der nichts mit Kriminalitaet zu tun hat. Die Einwohnerzahlen liegen
+        -- dagegen je Vintage - in dim_tract_acs.
+        CAST({vintage} AS SMALLINT)                     AS reference_vintage,
         t.land_area_m2                                  AS land_area_m2,
         t.centroid_lat                                  AS centroid_lat,
         t.centroid_lon                                  AS centroid_lon
@@ -293,6 +330,38 @@ def dim_tract_query(tract: Quelle, place: Quelle) -> str:
     LEFT JOIN beste b ON b.geoid = t.geoid
     ORDER BY geoid
     """
+
+
+def dim_tract_acs_query(tracts: dict[int, Quelle]) -> str:
+    """Die ACS-Masse je Tract **und Vintage** - der Nenner jeder Rate.
+
+    Bis zum 3.10.2026 standen ``population``, Einkommen und Armutsquote in
+    ``dim_tract``, und das ging nur, solange es einen einzigen Jahrgang gab:
+    Eine Tabelle mit einer Zeile je Tract kann nur eine Einwohnerzahl tragen.
+    Ueber sechs Jahrgaenge haette jede Tat denselben Nenner bekommen, auch die
+    von 2021 - und das Ergebnis saehe vollstaendig aus.
+
+    Die Masse liegen deshalb hier, je Vintage, und ``fact_offense`` nennt mit
+    ``population_vintage``, welches davon fuer seine Zeile gilt. Verbunden wird
+    ueber beide Spalten. Wer nur ``geoid`` verbindet, bekommt je Tract so viele
+    Zeilen, wie Vintages geladen sind - deshalb steht die Warnung auch im
+    Feldkatalog.
+
+    ``dim_tract`` behaelt die Spalten, die kein Vintage haben: Stadtzuordnung,
+    Flaechenanteil, Name, Flaeche, Schwerpunkt. Sie waren vorher mit den Massen
+    in einer Tabelle, was keine Dopplung war, sondern eine Vermischung.
+    """
+    teile = []
+    for vintage, quelle in sorted(tracts.items()):
+        teile.append(f"""
+    SELECT
+        t.geoid                                         AS geoid,
+        CAST({vintage} AS SMALLINT)                     AS vintage,
+        t.population                                    AS population,
+        t.median_household_income_usd                   AS median_household_income_usd,
+        t.poverty_rate                                  AS poverty_rate
+    FROM {quelle.relation} t""")
+    return "\nUNION ALL\n".join(teile) + "\n    ORDER BY vintage, geoid\n"
 
 
 # --------------------------------------------------------------------------
@@ -420,8 +489,17 @@ def dim_date_query(offense: Quelle) -> str:
         monthname(tag)                                  AS month_name,
         CAST(date_trunc('month', tag) AS DATE)          AS month_start,
         dayofweek(tag) IN (0, 6)                        AS is_weekend,
-        CAST(dayofyear(tag) AS SMALLINT)                AS day_of_year
-    FROM spanne, unnest(generate_series(von, bis, INTERVAL 1 DAY)) AS t(tag)
+        CAST(dayofyear(tag) AS SMALLINT)                AS day_of_year,
+        -- FR-37: Ob der Jahrgang dieses Tages **ganz** in den Daten liegt.
+        -- Ein Teiljahr darf nicht in einen Jahresvergleich geraten: 2026 hat
+        -- am 3.10. neun Monate, und neun Monate gegen zwoelf gestellt ergeben
+        -- einen Rueckgang, den es nicht gibt. Die Spanne steht schon in
+        -- ``spanne`` - gefragt ist nur, ob sie den 1.1. und den 31.12. dieses
+        -- Jahres einschliesst. Eine Luecke **innerhalb** des Jahres faellt
+        -- damit nicht auf; die misst der Nachweis je Jahrgang (FR-39).
+        (s.von <= make_date(year(tag), 1, 1)
+         AND s.bis >= make_date(year(tag), 12, 31))    AS year_is_complete
+    FROM spanne s, unnest(generate_series(s.von, s.bis, INTERVAL 1 DAY)) AS t(tag)
     ORDER BY date
     """
 
@@ -473,7 +551,8 @@ def dim_city_day_query(weather: Quelle, offense: Quelle) -> str:
 # --------------------------------------------------------------------------
 
 
-def fact_offense_query(offense: Quelle, tracts: str = "dim_tract") -> str:
+def fact_offense_query(offense: Quelle, tracts: str = "dim_tract", *,
+                       vintages: tuple[int, ...] = (NEWEST_VINTAGE,)) -> str:
     """Eine Zeile je **Tat**, mit den Schluesseln der Dimensionen.
 
     Hier liegt der einzige Stellenwechsel gegenueber Silver. Detroits Zeilen
@@ -497,7 +576,35 @@ def fact_offense_query(offense: Quelle, tracts: str = "dim_tract") -> str:
     Deliktfamilie. Sie sparen keine Laufzeit - gemessen 0,3 Millisekunden -,
     sondern ersparen jeder Abfrage das Wissen, dass die Familie die ersten
     beiden Zeichen des Codes sind.
+
+    **Die Reihenfolge ist Teil des Ergebnisses.** Ohne ``ORDER BY`` entscheidet
+    sie der Hash-Join und die Zahl der Threads: Am 4.10.2026 gemessen lagen
+    zwischen zwei Laeufen in getrennten Prozessen **245'760 von 345'091 Zeilen**
+    an anderer Position - 71 Prozent der Tabelle, bei identischen
+    Zeilengruppengrenzen. Die Dateigroesse schwankte dabei zwischen Aufrufen
+    (14'947'218 bis 15'001'199 Bytes gemessen) und war in einem Paar sogar
+    gleich, waehrend die Bytes abwichen - eine gleiche Groesse beweist hier also
+    nichts. ``serving.pruefe_stand`` meldete Gold nach jedem Neubau als
+    "anders", obwohl kein Wert sich geaendert hatte; das Erfolgskriterium
+    "zweiter Lauf, gleiche Pruefsummen" war fuer Gold nicht erfuellt.
+
+    Sortiert wird nach ``date`` und dann ``offense_id``. Der Tag ist die Achse,
+    auf der am meisten gefiltert wird - so kann die Zeilengruppenstatistik
+    greifen -, und die Kennung macht die Ordnung eindeutig. Der sortierte Stand
+    reproduziert sich exakt bei **15'808'123 Bytes**; gegen die schwankende
+    unsortierte Spanne sind das 5,4 bis 5,8 Prozent mehr Platz, bei keiner
+    messbaren Zeit. ``ORDER BY offense_id`` allein waere rund 7,7 Prozent
+    gewesen.
+
+    Diese Abfrage war die **einzige der Strecke ohne Reihenfolge**. Vier
+    Dimensionsabfragen haben eine - ``dim_tract``, ``dim_tract_acs``,
+    ``dim_date``, ``dim_city_day`` -, ``build_crime_offense.build_query`` endet
+    mit ``ORDER BY b.city, b.occurred_at_utc, b.offense_id``, und
+    ``serving.build_comparison`` ebenso. ``dim_offense`` entsteht nicht aus
+    einer Abfrage, sondern aus ``CREATE TABLE`` plus ``executemany``; seine
+    Reihenfolge ist die der Codeliste.
     """
+    aeltestes, neuestes = min(vintages), max(vintages)
     return f"""
     SELECT
         o.offense_id                                    AS offense_id,
@@ -514,6 +621,14 @@ def fact_offense_query(offense: Quelle, tracts: str = "dim_tract") -> str:
         -- der Stunde, die es am 3.11.2024 zweimal gab.
         o.local_time_ambiguous                          AS local_time_ambiguous,
         o.tract_geoid                                   AS tract_geoid,
+        -- Welcher ACS-Jahrgang der Nenner dieser Zeile ist. Fuer 2021 bis
+        -- 2024 das eigene Jahr, darueber der juengste vorhandene: Eine Rate
+        -- fuer 2025 ruht auf der Bevoelkerung von 2024, und das steht hier in
+        -- den Daten statt in einer Fussnote (FR-36). Geklammert wird auf die
+        -- geladene Spanne, damit die Zeile auf eine Zeile in dim_tract_acs
+        -- zeigt und nicht ins Leere.
+        CAST(greatest(least(year(o.occurred_date_local), {neuestes}),
+                      {aeltestes}) AS SMALLINT)         AS population_vintage,
         o.nibrs_code                                    AS nibrs_code,
         left(o.nibrs_code, 2)                           AS nibrs_family,
         o.source_offense_code                           AS source_offense_code,
@@ -539,6 +654,7 @@ def fact_offense_query(offense: Quelle, tracts: str = "dim_tract") -> str:
     FROM {offense.relation} o
     LEFT JOIN {tracts} t ON t.geoid = o.tract_geoid
     WHERE o.counts
+    ORDER BY date, offense_id
     """
 
 
@@ -591,6 +707,42 @@ def abdeckung(con: duckdb.DuckDBPyConnection) -> dict[str, float]:
     return anteile
 
 
+def jahresabdeckung(con: duckdb.DuckDBPyConnection) -> dict[str, dict[str, Any]]:
+    """Was je Jahrgang abgedeckt ist - und was fehlt (FR-39).
+
+    ``year_is_complete`` in ``dim_date`` sagt nur, ob die Spanne den 1.1. und
+    den 31.12. einschliesst. Eine Luecke **innerhalb** des Jahres sieht man
+    daran nicht: Ein Jahrgang, dem der halbe Juli fehlt, bleibt dort "ganz".
+    Deshalb stehen hier beide Zahlen - ``days_with_offenses`` gegen
+    ``days_in_year``. Wer eine Zeitreihe baut, braucht die zweite.
+
+    ``days_with_offenses`` zaehlt Tage mit mindestens einer Tat. Bei zwei
+    Grossstaedten ist jeder Tag besetzt; faellt die Zahl unter die Tage des
+    Jahres, fehlt wirklich etwas.
+    """
+    return {
+        str(z[0]): {
+            "offenses": z[1],
+            "first_date": z[2].isoformat() if z[2] else None,
+            "last_date": z[3].isoformat() if z[3] else None,
+            "days_with_offenses": z[4],
+            "days_in_year": z[5],
+            "complete": bool(z[6]),
+        }
+        for z in con.execute("""
+            SELECT d.year,
+                   count(f.offense_id),
+                   min(f.date),
+                   max(f.date),
+                   count(DISTINCT f.date),
+                   CAST(dayofyear(make_date(d.year, 12, 31)) AS INTEGER),
+                   any_value(d.year_is_complete)
+            FROM dim_date d LEFT JOIN fact_offense f ON f.date = d.date
+            GROUP BY d.year ORDER BY d.year
+        """).fetchall()
+    }
+
+
 def abdeckung_je_stadt(con: duckdb.DuckDBPyConnection) -> dict[str, dict[str, float]]:
     """Dieselben Anteile, aber je meldender Stadt.
 
@@ -622,6 +774,136 @@ def abdeckung_je_stadt(con: duckdb.DuckDBPyConnection) -> dict[str, dict[str, fl
             wert: round(100.0 * je.get(wert, 0) / n_gesamt, 4) if n_gesamt else 0.0
             for wert in sorted(set(GEO_STATUS_WERTE) | set(MAPPING_STATUS_WERTE))
         }
+    return ergebnis
+
+
+def zuordnung_je_jahrgang(
+    con: duckdb.DuckDBPyConnection,
+) -> dict[str, dict[str, Any]]:
+    """Wie die NIBRS-Zuordnung je Jahrgang traegt - und was sich bewegt hat (FR-38).
+
+    ``abdeckung`` misst ueber die **ganze** Faktentabelle, ``abdeckung_je_stadt``
+    je Stadt. Beides ist ueber die Zeit gemittelt, und ein Mittel verdeckt:
+    Ueber sechs Jahrgaenge verschwindet ein schlechter im Durchschnitt der
+    uebrigen. Ein Crosswalk, der ab 2026 ins Leere laeuft, bliebe bei einer
+    Schwelle von 85 % unsichtbar, solange die fuenf Jahrgaenge davor tragen -
+    dasselbe Argument, mit dem ``abdeckung_je_stadt`` entstand, nur auf der
+    Zeitachse.
+
+    Dies ist **Zuordnungs**abdeckung und steht deshalb neben
+    ``jahresabdeckung`` und nicht darin: jene misst, welche *Tage* abgedeckt
+    sind, diese, welche *Quellcodes* einen NIBRS-Code bekamen.
+
+    Drei Dinge nennt der Nachweis **namentlich**, weil ein Prozentsatz sie
+    nicht sagt:
+
+    ``unmapped_codes``       welcher Quellcode unzugeordnet blieb, mit Stadt
+                             und Zahl, absteigend - der teuerste zuerst
+    ``new_source_codes``     welcher Code im Vorjahrgang nicht vorkam
+    ``retired_source_codes`` welcher im Vorjahrgang vorkam und jetzt fehlt
+
+    Die Stadt steht ueberall dabei, weil derselbe vierstellige Code in beiden
+    Staedten etwas voellig anderes bedeutet: ``1101`` ist in Chicagos IUCR
+    *Public Aid Wire/Mail Fraud* und fuehrt auf 26D Welfare Fraud, in Detroits
+    MICR *Sexual Penetration Penis/Vagina CSC1* und fuehrt auf 11A Rape. Sieben
+    Codes stehen in beiden Tabellen (``1101``, ``1102``, ``1200``, ``2900``,
+    ``4800``, ``5000``, ``5001``); ohne die Stadt ist keine Zeile der Liste
+    aufloesbar.
+
+    **Ein Teiljahrgang wird gemeldet, aber nicht verglichen.** Fuer einen
+    Jahrgang mit ``year_is_complete = false`` bleiben beide Codelisten leer,
+    und der Vergleich ueberspringt ihn: Der naechste **volle** Jahrgang
+    vergleicht gegen den letzten vollen. 2026 hat am 3.10. neun Monate - jeder
+    Code, der dort nur noch nicht vorkam, waere sonst "weggefallen". Das ist
+    dieselbe Regel, die FR-37 eine Spalte zuvor gesetzt hat: Ein Teiljahr
+    gehoert nicht in einen Jahresvergleich, und ``retired_source_codes`` ist
+    einer. Der Preis ist bewusst getragen - ein echter neuer Code von 2026
+    wird erst sichtbar, wenn 2026 voll ist.
+
+    **Die Differenz, kein Inventar.** Ein volles Codeinventar je Jahrgang
+    waeren fuer Chicago rund 400 Codes mal sechs - kein Manifest, das jemand
+    liest. Gefragt ist die **Aenderung**: neu und weggefallen. Das sind je
+    Jahrgang eine Handvoll Zeilen.
+
+    Die Jahrgaenge kommen aus ``dim_date`` und nicht aus den Fakten: Ein
+    Jahrgang mit Tagen, aber ohne Taten, ist eine Aussage und darf nicht
+    fehlen. Er traegt ``offenses`` 0 und Anteile 0.0.
+
+    **Gemessen, nicht entschieden.** Das Publish-Gate bleibt global (siehe
+    ``pruefe_gate``) - ein Bau soll nicht an einem Jahrgang scheitern, dessen
+    Daten erst halb da sind. Ob ein Jahrgang die Schwellen haelt, haelt ein
+    Test gegen dieses Manifest; dann scheitert die Suite und nicht der Bau.
+    """
+    def benannt(paare: set[tuple[str, str]]) -> list[dict[str, str]]:
+        return [{"city": stadt, "code": code} for stadt, code in sorted(paare)]
+
+    zeilen = con.execute("""
+        SELECT d.year, any_value(d.year_is_complete), f.reporting_city,
+               f.source_offense_code, f.mapping_status, count(f.offense_id)
+        FROM dim_date d LEFT JOIN fact_offense f ON f.date = d.date
+        GROUP BY 1, 3, 4, 5
+    """).fetchall()
+
+    gesamt: dict[int, int] = {}
+    ganz: dict[int, bool] = {}
+    je_status: dict[int, dict[str, int]] = {}
+    offen: dict[int, list[tuple[str, str, int]]] = {}
+    codes: dict[int, set[tuple[str, str]]] = {}
+    for jahr, vollstaendig, stadt, code, status, n in zeilen:
+        gesamt.setdefault(jahr, 0)
+        ganz[jahr] = bool(vollstaendig)
+        je_status.setdefault(jahr, {})
+        offen.setdefault(jahr, [])
+        codes.setdefault(jahr, set())
+        # Ein Jahrgang ohne Taten kommt aus dem LEFT JOIN mit lauter NULL und
+        # count 0. Er bekommt seinen Eintrag, aber nichts gezaehlt.
+        if stadt is None:
+            continue
+        gesamt[jahr] += n
+        je_status[jahr][status] = je_status[jahr].get(status, 0) + n
+        # Ein Code, den die Quelle nicht mitliefert, laesst sich nicht beim
+        # Namen nennen. Er zaehlt im Anteil mit und fehlt in den Listen - das
+        # ist die ehrlichere von zwei Moeglichkeiten.
+        if code is not None:
+            codes[jahr].add((stadt, code))
+            if status == "unmapped":
+                offen[jahr].append((stadt, code, n))
+
+    ergebnis: dict[str, dict[str, Any]] = {}
+    vorher: set[tuple[str, str]] | None = None
+    for jahr in sorted(gesamt):
+        n_gesamt = gesamt[jahr]
+        eintrag: dict[str, Any] = {"offenses": n_gesamt}
+        for wert in sorted(MAPPING_STATUS_WERTE):
+            n = je_status[jahr].get(wert, 0)
+            eintrag[wert] = round(100.0 * n / n_gesamt, 4) if n_gesamt else 0.0
+        eintrag["unmapped_codes"] = [
+            {"city": stadt, "code": code, "offenses": n}
+            for stadt, code, n in sorted(offen[jahr],
+                                         key=lambda z: (-z[2], z[0], z[1]))
+        ]
+        # Wer am Vergleich teilnimmt: nur ein **ganzer** Jahrgang mit Taten.
+        #
+        # Der aelteste hat keinen Vorgaenger - "alle Codes neu" waere dort
+        # keine Aussage, sondern ein Inventar. Ein **Teiljahrgang** wird
+        # gemeldet, aber nicht verglichen (siehe Docstring). Und ein Jahrgang
+        # **ohne Taten** hat einen leeren Codesatz; stuende er im Vergleich,
+        # waere dort jeder Code weggefallen und im naechsten wieder neu - eine
+        # Bewegung, die es nie gab.
+        #
+        # In allen drei Faellen bleiben beide Listen leer, und ``vorher``
+        # bleibt stehen: Verglichen wird gegen den letzten ganzen Jahrgang mit
+        # Taten.
+        vergleichbar = bool(n_gesamt and ganz[jahr])
+        if vergleichbar and vorher is not None:
+            eintrag["new_source_codes"] = benannt(codes[jahr] - vorher)
+            eintrag["retired_source_codes"] = benannt(vorher - codes[jahr])
+        else:
+            eintrag["new_source_codes"] = []
+            eintrag["retired_source_codes"] = []
+        ergebnis[str(jahr)] = eintrag
+        if vergleichbar:
+            vorher = codes[jahr]
     return ergebnis
 
 
@@ -663,7 +945,7 @@ def _gegen_schwellen(anteile: dict[str, float], *, woher: str) -> None:
 
 
 def reconcile(
-    con: duckdb.DuckDBPyConnection, offense: Quelle
+    con: duckdb.DuckDBPyConnection, offense: Quelle, vintage: int
 ) -> dict[str, Any]:
     """Weist nach, dass Gold die Fakten vollstaendig traegt und die Schluessel passen.
 
@@ -748,11 +1030,18 @@ def reconcile(
     if mehrfach:
         raise TransformError(f"{mehrfach} Tracts stehen mehrfach in dim_tract")
 
+    # Die Einwohnerzahl steht seit Vertrag 6 in dim_tract_acs, je Vintage.
+    # Genommen wird das Referenz-Vintage - dasselbe, aus dem die
+    # Stadtzuordnung kommt, die hier nachgewiesen wird. Ein anderes Vintage
+    # waere eine andere Zahl und kein Nachweis derselben Regel.
     einwohner = {
         zeile[0]: {"tracts": zeile[1], "population": zeile[2]}
         for zeile in con.execute(
-            "SELECT city, count(*), sum(population) FROM dim_tract "
-            "WHERE city IS NOT NULL GROUP BY city ORDER BY city"
+            "SELECT d.city, count(*), sum(a.population) "
+            "FROM dim_tract d JOIN dim_tract_acs a "
+            "  ON a.geoid = d.geoid AND a.vintage = ? "
+            "WHERE d.city IS NOT NULL GROUP BY d.city ORDER BY d.city",
+            [vintage],
         ).fetchall()
     }
     fehlend = sorted(set(STADT_SCHLUESSEL.values()) - set(einwohner))
@@ -797,6 +1086,14 @@ def reconcile(
         "grain": "eine Tat; Detroits weitere Anklagen bleiben in Silver",
         "coverage_percent": anteile,
         "coverage_percent_by_city": abdeckung_je_stadt(con),
+        # FR-39: je Jahrgang, was abgedeckt ist. Beim Einjahresbau ist es ein
+        # Eintrag - die Aussage ist dieselbe, nur kuerzer.
+        "year_coverage": jahresabdeckung(con),
+        # FR-38: dieselbe Frage fuer die Zuordnung, und mit den Codes beim
+        # Namen. ``coverage_percent`` ist ein Mittel ueber alle Jahrgaenge und
+        # verdeckt einen schlechten; ein unzugeordneter Code stand bis hierher
+        # nur als Prozentsatz da, nie als Code.
+        "mapping_by_year": zuordnung_je_jahrgang(con),
         "coverage_gate": {
             "minimum": GATE_MINDESTENS,
             "maximum": GATE_HOECHSTENS,
@@ -872,20 +1169,48 @@ def build_manifest(
     return manifest
 
 
-def build(data_root: Path, config_root: Path, vintage: int) -> dict[str, Path]:
-    """Baut alle fuenf Tabellen und veroeffentlicht sie einzeln atomar."""
+def build(data_root: Path, config_root: Path, vintage: int,
+          vintages: tuple[int, ...] | None = None) -> dict[str, Path]:
+    """Baut alle sechs Tabellen und veroeffentlicht sie einzeln atomar.
+
+    ``vintage`` ist das **Referenz**-Vintage: Aus ihm kommen Stadtzuordnung
+    und Geometrie, und sie werden nicht je Jahrgang neu gerechnet.
+
+    ``vintages`` sind die ACS-Vintages, die als Nenner gebraucht werden - nicht
+    die Jahrgaenge. Welcher Jahrgang welches Vintage leiht, entscheidet
+    ``census_pipeline.vintage_for``, und das weiss der Gesamtlauf, der die
+    Jahre kennt. Gold braucht davon nur die Spanne: Eine Tat traegt
+    ``population_vintage`` und zeigt damit auf eine Zeile in ``dim_tract_acs``.
+    Ohne Angabe ist es allein das Referenz-Vintage - dann baut dieser Lauf
+    genau das, was er vor dem 3.10.2026 baute.
+    """
     started = datetime.now(timezone.utc)
+    vintages = tuple(sorted(set(vintages))) if vintages else (vintage,)
     offense = silver_quelle(data_root, "crime_offense")
     tract = silver_quelle(data_root, "tract", vintage)
     place = silver_quelle(data_root, "place", vintage)
     weather = silver_quelle(data_root, "weather_day")
+    # Je Vintage eine eigene Quelle. Das Referenz-Vintage wird nicht zweimal
+    # gelesen - ``silver_quelle`` liest das Manifest mit, und zwei Quellen auf
+    # derselben Datei stuenden zweimal im Eingabe-Abdruck.
+    acs_quellen = {
+        v: (tract if v == vintage else silver_quelle(data_root, "tract", v))
+        for v in vintages
+    }
     for q in (offense, tract, place, weather):
         log.info("Quelle: silver/%s", q.name)
+    log.info("Referenz-Vintage %d; ACS-Vintages %s", vintage,
+             ", ".join(str(v) for v in vintages))
 
     con = connect(spatial=True)
     ziele: dict[str, Path] = {}
     try:
-        con.execute(f"CREATE TABLE dim_tract AS {dim_tract_query(tract, place)}")
+        con.execute(
+            f"CREATE TABLE dim_tract AS {dim_tract_query(tract, place, vintage)}"
+        )
+        con.execute(
+            f"CREATE TABLE dim_tract_acs AS {dim_tract_acs_query(acs_quellen)}"
+        )
         con.execute(
             "CREATE TABLE dim_offense (nibrs_code VARCHAR, nibrs_description VARCHAR, "
             "nibrs_category VARCHAR, nibrs_family VARCHAR, nibrs_group VARCHAR, "
@@ -900,9 +1225,10 @@ def build(data_root: Path, config_root: Path, vintage: int) -> dict[str, Path]:
         con.execute(
             f"CREATE TABLE dim_city_day AS {dim_city_day_query(weather, offense)}"
         )
-        con.execute(f"CREATE TABLE fact_offense AS {fact_offense_query(offense)}")
+        con.execute("CREATE TABLE fact_offense AS "
+                    + fact_offense_query(offense, vintages=vintages))
 
-        nachweis = reconcile(con, offense)
+        nachweis = reconcile(con, offense, vintage)
         # Erst hier, nicht im Nachweis: Was gemessen wurde, steht im Manifest;
         # ob es reicht, entscheidet das Gate - und zwar bevor irgendeine
         # Tabelle veroeffentlicht wird.
@@ -931,7 +1257,28 @@ def build(data_root: Path, config_root: Path, vintage: int) -> dict[str, Path]:
                  "rechnen will"),
               "city_ist_null": (
                   "Tract liegt ausserhalb beider Studienstaedte oder nur "
-                  "teilweise darin")}),
+                  "teilweise darin"),
+              "reference_vintage": (
+                  "aus diesem Vintage kommen Stadtzuordnung, Name, Flaeche "
+                  "und Schwerpunkt. Sie werden nicht je Jahrgang neu "
+                  "gerechnet - ein Tract soll dauerhaft eine Stadt haben"),
+              "keine_einwohnerzahl": (
+                  "population, median_household_income_usd und poverty_rate "
+                  "stehen seit Vertrag 6 in dim_tract_acs, je Vintage. Eine "
+                  "Tabelle mit einer Zeile je Tract kann nur eine "
+                  "Einwohnerzahl tragen")}),
+            ("dim_tract_acs", "ein Census Tract in einem ACS-Vintage",
+             list(acs_quellen.values()),
+             {"nenner": (
+                 "die Einwohnerzahl, auf der jede Rate ruht - je Vintage. "
+                 "fact_offense.population_vintage sagt je Zeile, welches gilt"),
+              "verbund": (
+                  "ueber geoid UND vintage verbinden. Wer nur geoid verbindet, "
+                  "bekommt je Tract so viele Zeilen, wie Vintages geladen sind"),
+              "geliehener_nenner": (
+                  f"ab {NEWEST_VINTAGE + 1} gibt es kein eigenes Vintage mehr; "
+                  f"diese Jahrgaenge zeigen auf {NEWEST_VINTAGE}. Keine "
+                  "Hochrechnung, sondern eine geliehene Bevoelkerung")}),
             ("dim_offense", "ein NIBRS-Delikt", referenzquellen(config_root),
              {"nibrs_category": (
                  "die amtliche Gliederung aus dem NIBRS User Manual 2025.0: "
@@ -1002,7 +1349,8 @@ def build(data_root: Path, config_root: Path, vintage: int) -> dict[str, Path]:
 def main() -> int:
     args = arguments()
     try:
-        ziele = build(for_root(args.data_root).local_root, args.config_root, args.vintage)
+        ziele = build(for_root(args.data_root).local_root, args.config_root,
+                      args.vintage, args.acs_vintages)
         manifest = read_manifest(ziele["fact_offense"])
         nachweis = manifest["reconciliation"]
         log.info("Gold gebaut, %s Tabellen", len(ziele))

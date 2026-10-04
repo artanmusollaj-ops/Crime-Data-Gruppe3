@@ -17,6 +17,7 @@ import re
 from pathlib import Path
 
 import pytest
+from gold_pipeline import einwohner_je_stadt
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -24,6 +25,10 @@ DOKUMENT = PROJECT_ROOT / "docs" / "eine-zahl.md"
 DATA = PROJECT_ROOT / "data"
 GOLD = DATA / "gold" / "dataset=fact_offense" / "part-0001.parquet"
 TRACT = DATA / "gold" / "dataset=dim_tract" / "part-0001.parquet"
+# Seit Vertrag 6 liegt der Nenner je Vintage in einer eigenen Tabelle.
+ACS = DATA / "gold" / "dataset=dim_tract_acs" / "part-0001.parquet"
+NENNER = einwohner_je_stadt(f"read_parquet('{TRACT}')",
+                            f"read_parquet('{ACS}')")
 SILVER = DATA / "silver" / "dataset=crime_offense" / "part-0001.parquet"
 LAUF = "run_20260905T174633859259Z"
 BRONZE = DATA / "bronze" / "city=chicago" / "ingest_date=2026-09-05" / LAUF
@@ -73,10 +78,7 @@ def test_die_ueberschrift_nennt_die_zahl(text, con):
     """94,5 steht im Titel - sie ist der Aufhaenger des ganzen Dokuments."""
     assert text.startswith("# 94,5"), "der Titel nennt die Zahl nicht mehr"
     echt = con.execute(f"""
-        WITH e AS (
-            SELECT city, sum(population) AS n FROM read_parquet('{TRACT}')
-            WHERE city IS NOT NULL GROUP BY 1
-        )
+        WITH e AS ({NENNER})
         SELECT round(count(*) * 1000.0 / any_value(e.n), 1)
         FROM read_parquet('{GOLD}') f
         JOIN read_parquet('{TRACT}') t ON t.geoid = f.tract_geoid
@@ -94,8 +96,7 @@ def test_die_rechnung_geht_auf(text, con):
         SELECT count(*), any_value(e.n)
         FROM read_parquet('{GOLD}') f
         JOIN read_parquet('{TRACT}') t ON t.geoid = f.tract_geoid
-        JOIN (SELECT city, sum(population) AS n FROM read_parquet('{TRACT}')
-              WHERE city IS NOT NULL GROUP BY 1) e ON e.city = t.city
+        JOIN ({NENNER}) e ON e.city = t.city
         WHERE t.city = 'chicago'
     """).fetchone()
     formel = re.search(
@@ -138,8 +139,10 @@ def test_der_nenner_stimmt(text, con):
     )
 
     leer = con.execute(f"""
-        SELECT count(*) FROM read_parquet('{TRACT}')
-        WHERE city = 'chicago' AND population = 0
+        SELECT count(*) FROM read_parquet('{TRACT}') d
+        JOIN read_parquet('{ACS}') a
+          ON a.geoid = d.geoid AND a.vintage = d.reference_vintage
+        WHERE d.city = 'chicago' AND a.population = 0
     """).fetchone()[0]
     wort = {1: "Ein", 2: "Zwei", 3: "Drei", 4: "Vier", 5: "Fuenf"}.get(leer)
     assert wort and f"**{wort}**" in text.replace("Fünf", "Fuenf"), (
@@ -211,8 +214,7 @@ def test_die_granularitaet_stimmt(text, con):
     )
 
     raten = dict(con.execute(f"""
-        WITH e AS (SELECT city, sum(population) AS n FROM read_parquet('{TRACT}')
-                   WHERE city IS NOT NULL GROUP BY 1)
+        WITH e AS ({NENNER})
         SELECT t.city, list_value(
             round(count(*) * 1000.0 / any_value(e.n), 1),
             round(count(*) FILTER (f.counts_case) * 1000.0 / any_value(e.n), 1))
@@ -345,8 +347,11 @@ def test_der_tract_des_einzelfalls_stimmt(text, con):
         f"SELECT count(*) FROM read_parquet('{GOLD}') WHERE tract_geoid = '{tract}'"
     ).fetchone()[0]
     bevoelkerung, anteil = con.execute(
-        f"SELECT population, city_area_share FROM read_parquet('{TRACT}') "
-        f"WHERE geoid = '{tract}'"
+        f"SELECT a.population, d.city_area_share "
+        f"FROM read_parquet('{TRACT}') d "
+        f"JOIN read_parquet('{ACS}') a "
+        f"  ON a.geoid = d.geoid AND a.vintage = d.reference_vintage "
+        f"WHERE d.geoid = '{tract}'"
     ).fetchone()
 
     assert steht_drin(text, delikte), f"{delikte} Delikte im Tract fehlen"

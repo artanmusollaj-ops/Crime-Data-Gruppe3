@@ -2,6 +2,61 @@
 
 **Stand: 16.9.2026. Zur gemeinsamen Entscheidung am Freitag, 18.9.2026.**
 
+> ## Nachtrag 3.10.2026 — der Takt steht, und die Tabelle ist zweistädtig
+>
+> **Entschieden: ein Vollschnappschuss je Stadt und Monat** (Christian,
+> 3.10.2026). Damit ist Punkt 3 aus Abschnitt 8 beantwortet, und die offene
+> Flanke des Nachtrags vom 1.10. ist geschlossen: Die Tabelle hört nicht mehr
+> nach den fünf Detroit-Schnappschüssen auf zu wachsen.
+>
+> **Chicago ist drin.** Am 3.10. um 09:30 UTC lief der zweite
+> Vollschnappschuss: **259'638 Zeilen** gegen 259'272 am 5.9., Vollständigkeit
+> nachgewiesen (`source_count_before == source_count_after`), Schema-Fingerabdruck
+> unverändert. `silver/source_change` wächst damit von 4'292 auf **4'718 Zeilen**.
+>
+> Das Paar 5.9./3.10. — 28 Tage — bringt **371 neu, 49 geändert, 5
+> verschwunden, 1 berührt**. Die Gegenprobe stimmt auf die Zeile: 371 − 5 = 366,
+> und genau 366 Zeilen mehr hat der neue Schnappschuss. **`verschwunden` hat
+> damit zum ersten Mal überhaupt Belege** — fünf Delikte, die Chicago aus dem
+> Jahrgang 2024 entfernt hat.
+>
+> **Die beiden Städte bewegen sich unterschiedlich, und zwar deutlich.** Bei
+> Detroit sind 78 % aller Feldbewegungen die drei Zeitstempel, und von den
+> fachlichen 22 % ist `case_status` allein 70 % — die Quelle führt den
+> Verfahrensstand nach. Chicago bewegte in 28 Tagen sieben Felder:
+>
+> | Feld | Bewegungen |
+> | --- | ---: |
+> | `updated_on` | 19 |
+> | `arrest` | 15 |
+> | `fbi_code` | 4 |
+> | `description` | 4 |
+> | `iucr` | 4 |
+> | `primary_type` | 3 |
+> | `date` | 1 |
+>
+> Das sind **Umklassierungen und Verhaftungen**: `primary_type` von
+> `CRIMINAL SEXUAL ASSAULT` auf `ASSAULT`, `iucr` von `0271` auf `051A`,
+> `fbi_code` von `02` auf `04A` — und fünfzehnmal `arrest` von `false` auf
+> `true`, also eine Verhaftung nach der Erfassung. Einmal bewegte sich `date`
+> selbst, vom 12.5. auf den 4.1.2024; eine Korrektur um vier Monate, die jede
+> Zeitreihe betrifft.
+>
+> `location`, `latitude`, `longitude` und `_extra` rührten sich **nicht** —
+> deshalb ist Chicagos `rauschen` leer, und das ist ein Messergebnis und keine
+> Auslassung. `location` galt als Rauschkandidat, weil es die Koordinaten
+> doppelt führt.
+>
+> **Vier Asymmetrien standen dem im Weg**, nicht die eine, die der Code
+> erwartete („sobald ein zweiter geladen wird, gehört hier eine Zeile hin"):
+> der Modus steht bei Chicago als `mode = full_snapshot`, bei Detroit als
+> `extraction_mode = FULL`; der Startzeitpunkt als `started_at_utc` gegen
+> `started_at`; die Bronze-Form flach gegen ein Struct `attributes`; und der
+> Schlüssel `id` gegen `incident_entry_id`. Die ersten beiden wohnen jetzt im
+> gemeinsamen Manifestleser (`manifeste.Lauf.vollabzug`, `begonnen_um`), die
+> anderen beiden als Eigenschaften der Quelle. Ohne das hätte das Modul auch
+> zwei Chicago-Vollabzüge nicht gefunden.
+
 > ## Nachtrag 1.10.2026 — gebaut, mit einer offenen Flanke
 >
 > **Abschnitt 4 ist umgesetzt.** `silver_pipeline.build_source_change` zieht
@@ -30,6 +85,9 @@
 > an der sich nur sie bewegt haben, trägt `art = 'beruehrt'`.
 >
 > ### Offen und drängend: 5.2, die Löschungen
+>
+> **Erledigt am 3.10.2026 — siehe den Nachtrag oben.** Was hier folgt,
+> war der Stand am 1.10. und bleibt als solcher stehen.
 >
 > Die Empfehlung lautete *„ja, mit einem Vollschnappschuss je Stadt und
 > Monat"*. Sie wurde **nicht umgesetzt.** `orchestration.run_all` lädt Detroit
@@ -308,7 +366,8 @@ Silver-Tabelle, die neue Vorbedingung in `aufraeumen`, Tests.
 1. Bauen wir es? **Vorher nicht aufräumen** — die Vergleichspunkte sind noch
    da, aber nur solange die Läufe gepinnt bleiben.
 2. Welche Felder zählen (5.1)?
-3. Monatlicher Vollschnappschuss je Stadt (5.2)?
+3. ~~Monatlicher Vollschnappschuss je Stadt (5.2)?~~ — **entschieden am
+   3.10.2026: ja, einer je Stadt und Monat.**
 4. Tabelle vor oder nach der Harmonisierung (5.4)?
 5. Welche Releases bleiben — alle, gepinnt + die letzten n, oder nur das
    aktuelle (5.5)? Bis zur Entscheidung wird keines gelöscht.
