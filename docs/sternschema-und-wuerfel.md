@@ -6,8 +6,8 @@
 
 | | |
 | --- | --- |
-| Faktentabelle | 345'091 Zeilen |
-| Dimensionen | 4 · 7'465 Zeilen |
+| Faktentabelle | 1'851'950 Zeilen (Jahrgänge 2021–2026) |
+| Dimensionen | 5 · 37'794 Zeilen |
 | Verworfen | 2 Würfel |
 | Gerechnet in | [`notebooks/34_gold_sternschema.ipynb`](../notebooks/34_gold_sternschema.ipynb) |
 
@@ -71,25 +71,34 @@ Dimensionen die Bedeutung. Jede Kante ist ein JOIN-Schlüssel.*
 
 ### Warum die Dimensionen getrennt stehen
 
-**Die Faktentabelle bleibt schlank.** Stünde in jeder der 345'091 Zeilen der
+**Die Faktentabelle bleibt schlank.** Stünde in jeder der 1'851'950 Zeilen der
 Text `Larceny/Theft Offenses`, läge derselbe Satz zehntausendfach auf der
 Platte. Statt dessen steht dort `23C` — drei Zeichen — und die Bedeutung genau
 einmal in `dim_offense`.
 
 **Die Dimensionen tragen die Auswahllisten.** Eine Oberfläche, die „Delikt
-wählen" anbieten will, liest 85 Zeilen aus `dim_offense` statt 345'091
+wählen" anbieten will, liest 85 Zeilen aus `dim_offense` statt 1'851'950
 Faktenzeilen zu durchsuchen. Dasselbe gilt für Städte, Tage und Tracts.
 
 **`dim_date` wird erzeugt, nicht abgeleitet.** Ein Tag ohne Delikt hat keine
 Faktenzeile. Käme die Zeitachse aus den Fakten, fehlte dieser Tag — und eine
 Zeitreihe zeigte eine Lücke, wo eine Null stehen müsste. Die Dimension kennt
-alle 366 Tage von 2024, ob etwas passiert ist oder nicht.
+alle 2'103 Tage von 2021 bis 2026, ob etwas passiert ist oder nicht — und sagt
+mit `year_is_complete`, welcher Jahrgang ganz in den Daten liegt.
 
 ---
 
 ## 3 · Was die Wahl kostet, in Zeilen
 
 **Der Unterschied zwischen den Bauweisen ist kein Feinschliff.**
+
+> **Dieser Abschnitt rechnet am Jahrgang 2024**, dem Stand, an dem die
+> Entscheidung fiel. Die Würfelzahlen stammen aus Notebook 34, das beide
+> Bauweisen gebaut und gemessen hat; nachgerechnet sind sie über die sechs
+> Jahrgänge nicht, und eine hochgerechnete Zahl wäre hier das Falsche — die
+> Entscheidung fiel an diesen Zeilen. Das Verhältnis ist das Argument, nicht
+> der Absolutwert: Der Schritt zum Würfel kostet zwei Größenordnungen mehr als
+> der Schritt von Silver zu Gold, und daran ändert ein Jahrgang mehr nichts.
 
 ![Vier Granularitäten im Vergleich: Silver hält 348'329 Anklagen, Gold 345'091 Taten,
 die verworfenen Würfel nur noch 95'219 beziehungsweise 11'156 vorberechnete
@@ -125,7 +134,7 @@ alle vier Achsen bleibt unter einer Zehntelsekunde.
 
 > **Der Befund**
 >
-> **Der Engpass ist nicht die Datenmenge.** Bei 345'091 Zeilen gewinnt eine
+> **Der Engpass ist nicht die Datenmenge.** Bei 1'851'950 Zeilen gewinnt eine
 > Vorberechnung nichts, was ein Mensch bemerken würde. Sie kostet aber genau
 > die Beweglichkeit, für die eine Auswertungsplattform da ist.
 

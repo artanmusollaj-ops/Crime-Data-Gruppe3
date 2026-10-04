@@ -27,7 +27,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from gold_pipeline import einwohner_je_stadt
+from gold_pipeline import RATENJAHR, raten_je_stadt
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -133,7 +133,14 @@ def test_gold_tabelle_in_52(con, konzept, dataset, muster):
 
 @pytest.mark.referenzstand
 def test_detroits_granularitaet_in_der_kurzfassung(con, konzept):
-    """Kapitel 1: "88'685 Anklagen zu N Taten"."""
+    """Kapitel 1: "N Anklagen zu M Taten" - der Befund, der Detroit traegt.
+
+    Gezaehlt wird der **ganze Bestand**, nicht ein Jahrgang: Die Aussage ist
+    eine ueber Detroits Erfassungspraxis und nicht ueber ein Jahr, und die
+    Kurzfassung sagt seit dem 4.10.2026 "Jahrgänge 2021–2026" statt "Jahrgang
+    2024". Welche Jahre das sind, steht nicht in dieser Regex - sonst waere
+    hier eine zweite Stelle, die beim naechsten Jahrgang nachzuziehen ist.
+    """
     pfad = parquet(SILVER, "crime_offense")
     if pfad is None:
         pytest.skip("Silver nicht gebaut")
@@ -141,8 +148,8 @@ def test_detroits_granularitaet_in_der_kurzfassung(con, konzept):
         f"SELECT count(*) FILTER (WHERE counts), count(*) FROM read_parquet('{pfad}') "
         "WHERE city = 'detroit'"
     ).fetchone()
-    anklagen = genannt(konzept, r"\| Detroit, Jahrgang 2024 \| ([0-9']+) Anklagen zu")
-    taten = genannt(konzept, r"\| Detroit, Jahrgang 2024 \| [0-9']+ Anklagen zu ([0-9']+) Taten \|")
+    anklagen = genannt(konzept, r"\| Detroit, Jahrgänge [^|]*\| ([0-9']+) Anklagen zu")
+    taten = genannt(konzept, r"\| Detroit, Jahrgänge [^|]*\| [0-9']+ Anklagen zu ([0-9']+) Taten \|")
     assert (taten, anklagen) == echt
 
 
@@ -159,26 +166,39 @@ def test_gold_granularitaet_in_der_absprache(con, absprache):
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("stadt", ["Chicago", "Detroit"])
-@pytest.mark.referenzstand
-def test_rate_je_einwohner(con, konzept, stadt):
+def gemessene_raten(con) -> dict[str, tuple[int, int, int, float, float]]:
+    """Delikte, Faelle, Einwohner und die beiden Raten je Stadt, fuer ein Jahr.
+
+    Aus ``gold_pipeline.raten_je_stadt`` - dieselbe Abfrage, die hinter jeder
+    Ratenzeile des Projekts steht, mit dem Jahresfilter darin. Vor dem
+    4.10.2026 stand sie hier zweimal in Kopie, einmal ohne die Faelle, und
+    beide zaehlten alle Zeilen der Faktentabelle. Das war richtig, solange
+    diese genau einen Jahrgang trug.
+    """
     fakt, dim = parquet(GOLD, "fact_offense"), parquet(GOLD, "dim_tract")
     acs = parquet(GOLD, "dim_tract_acs")
     if fakt is None or dim is None or acs is None:
         pytest.skip("Gold nicht gebaut")
-    echt = dict(
-        (z[0], (z[1], z[2], z[3]))
-        for z in con.execute(f"""
-            WITH e AS ({einwohner_je_stadt(
-                f"read_parquet('{dim}')", f"read_parquet('{acs}')")})
-            SELECT t.city, count(*), any_value(e.n),
-                   round(count(*) * 1000.0 / any_value(e.n), 1)
-            FROM read_parquet('{fakt}') f
-            JOIN read_parquet('{dim}') t ON t.geoid = f.tract_geoid
-            JOIN e ON e.city = t.city
-            WHERE t.city IS NOT NULL GROUP BY 1
-        """).fetchall()
-    )
+    return {
+        z[0]: (z[1], z[2], z[3], z[4], z[5])
+        for z in con.execute(raten_je_stadt(
+            f"read_parquet('{fakt}')", f"read_parquet('{dim}')",
+            f"read_parquet('{acs}')")).fetchall()
+    }
+
+
+@pytest.mark.parametrize("stadt", ["Chicago", "Detroit"])
+@pytest.mark.referenzstand
+def test_rate_je_einwohner(con, konzept, stadt):
+    """Die Ratenzeile in 5.4 - und sie muss ihr Jahr nennen.
+
+    Eine Rate braucht einen Zeitraum, sonst ist sie keine. Mit sechs
+    Jahrgaengen in ``fact_offense`` ergaebe dieselbe Zeile ohne Jahresfilter
+    500,7 fuer Chicago: sechs Jahre Zaehler auf einem Jahr Nenner. Geprueft
+    wird deshalb nicht nur die Zahl, sondern dass die Tabelle ``2024``
+    dasteht - sonst ist die Zahl richtig und die Aussage falsch.
+    """
+    echt = gemessene_raten(con)
     treffer = re.search(
         rf"\| {stadt} \| ([0-9']+) \| ([0-9']+) \| \*\*([0-9]+,[0-9])\*\* \|", konzept
     )
@@ -186,8 +206,18 @@ def test_rate_je_einwohner(con, konzept, stadt):
     delikte = int(treffer.group(1).replace("'", ""))
     einwohner = int(treffer.group(2).replace("'", ""))
     rate = float(treffer.group(3).replace(",", "."))
-    assert (delikte, einwohner) == echt[stadt.lower()][:2]
-    assert rate == pytest.approx(echt[stadt.lower()][2], abs=0.05)
+    delikte_echt, _, einwohner_echt, rate_echt, _ = echt[stadt.lower()]
+    assert (delikte, einwohner) == (delikte_echt, einwohner_echt)
+    assert rate == pytest.approx(rate_echt, abs=0.05)
+    # Die 500 Zeichen vor der Zeile, nicht "der Absatz davor": Eine
+    # Tabellenzeile hat als Absatz die Kopfzeile der Tabelle, und darin steht
+    # kein Jahr. Bemessen, damit das Jahr in der Naehe stehen muss und nicht
+    # irgendwo im Dokument.
+    kopf = konzept[max(0, treffer.start() - 500):treffer.start()]
+    assert str(RATENJAHR) in kopf, (
+        f"die Ratentabelle nennt den Jahrgang {RATENJAHR} nicht - ueber sechs "
+        "Jahrgaenge ist eine Rate ohne Jahr keine"
+    )
 
 
 # --------------------------------------------------------------------------
@@ -209,7 +239,8 @@ def test_h3_tabelle_in_85(con, konzept):
     """).fetchall())
     gesamt = zeilen(con, fakt)
 
-    assert genannt(konzept, r"über die ([0-9']+) Delikte des Jahrgangs 2024") == gesamt
+    assert genannt(
+        konzept, r"über die ([0-9']+) Delikte der Jahrgänge") == gesamt
     treffer = re.search(
         r"\| Delikte \(Tatebene\) \| ([0-9']+) \| ([0-9']+) \| ([0-9']+) \|", konzept
     )
@@ -244,22 +275,8 @@ def test_readme_nennt_die_zeilenzahlen(con, readme, dataset, schicht, muster):
 @pytest.mark.parametrize("stadt", ["Chicago", "Detroit"])
 @pytest.mark.referenzstand
 def test_readme_nennt_die_raten(con, readme, stadt):
-    fakt, dim = parquet(GOLD, "fact_offense"), parquet(GOLD, "dim_tract")
-    acs = parquet(GOLD, "dim_tract_acs")
-    if fakt is None or dim is None or acs is None:
-        pytest.skip("Gold nicht gebaut")
-    echt = dict(
-        (z[0], (z[1], z[2]))
-        for z in con.execute(f"""
-            WITH e AS ({einwohner_je_stadt(
-                f"read_parquet('{dim}')", f"read_parquet('{acs}')")})
-            SELECT t.city, count(*), round(count(*) * 1000.0 / any_value(e.n), 1)
-            FROM read_parquet('{fakt}') f
-            JOIN read_parquet('{dim}') t ON t.geoid = f.tract_geoid
-            JOIN e ON e.city = t.city
-            WHERE t.city IS NOT NULL GROUP BY 1
-        """).fetchall()
-    )
+    """Dieselbe Rate auf der ersten Seite, die jemand liest - mit ihrem Jahr."""
+    echt = gemessene_raten(con)
     treffer = re.search(
         rf"\| {stadt} \| ([0-9']+) Delikte .*?\*\*([0-9]+,[0-9])\*\* je 1'000",
         readme,
@@ -268,7 +285,11 @@ def test_readme_nennt_die_raten(con, readme, stadt):
     delikte = int(treffer.group(1).replace("'", ""))
     rate = float(treffer.group(2).replace(",", "."))
     assert delikte == echt[stadt.lower()][0]
-    assert rate == pytest.approx(echt[stadt.lower()][1], abs=0.05)
+    assert rate == pytest.approx(echt[stadt.lower()][3], abs=0.05)
+    kopf = readme[max(0, treffer.start() - 500):treffer.start()]
+    assert str(RATENJAHR) in kopf, (
+        f"die Ratenzeilen im README nennen den Jahrgang {RATENJAHR} nicht"
+    )
 
 
 def test_readme_nennt_die_testzahl(readme):

@@ -66,10 +66,34 @@ def tabelle(storage: Storage, rel_dir: str, *, bytes_: int) -> None:
     schreibe(storage, f"{rel_dir}/part-0001.parquet", bytes_)
 
 
-def release_(storage: Storage, kennung: str, *, bytes_: int) -> None:
+def release_(storage: Storage, kennung: str, *, bytes_: int,
+             jahre: tuple[int, ...] | None = None) -> None:
     schreibe(storage, f"releases/release={kennung}/gold/dataset=fact_offense/"
                       f"part-0001.parquet", bytes_)
-    schreibe(storage, f"releases/release={kennung}/release.json", 10)
+    manifest: dict = {"status": "complete", "release_id": kennung}
+    if jahre is not None:
+        manifest["years"] = list(jahre)
+    schreibe(storage, f"releases/release={kennung}/release.json", 0).write_text(
+        json.dumps(manifest), encoding="utf-8")
+
+
+def protokoll(storage: Storage, jahre: tuple[int, ...] | None = None,
+              *, release_id: str | None = None, text: str | None = None) -> None:
+    """``data/pipeline_run.json``, wie ``run_all`` es am Ende schreibt."""
+    if text is None:
+        inhalt: dict = {"status": "complete"}
+        if jahre is not None:
+            inhalt["years"] = list(jahre)
+        if release_id is not None:
+            inhalt["release"] = {"release_id": release_id, "published": False}
+        text = json.dumps(inhalt)
+    schreibe(storage, pb.LAUF_MANIFEST, 0).write_text(text, encoding="utf-8")
+
+
+#: 1'874'417 Zeilen fuer 2021-2026 gegen 348'341 fuer 2024 - das 5,38-Fache,
+#: der Faktor, mit dem die Planungsdokumente bis zum 4.10.2026 rechneten.
+FAKTOR = (sum(ZEILEN.values())
+          / sum(ZEILEN[(stadt, 2024)] for stadt in ("chicago", "detroit")))
 
 
 # --------------------------------------------------------------------------
@@ -90,7 +114,8 @@ def test_belegung_nennt_bytes_und_dateizahl_je_schicht(tmp_path):
         {"status": "complete", "run_id": "run_a"}))
     assert je_name["raw"].dateien == 2
     assert je_name["silver"] == pb.Schicht("silver", 500, 1)
-    assert je_name["releases"].bytes == 310
+    assert je_name["releases"].dateien == 2, "Nutzlast und release.json"
+    assert je_name["releases"].bytes > 300, "das Manifest zaehlt mit"
 
 
 def test_eine_fehlende_schicht_ist_null_und_kein_abbruch(tmp_path):
@@ -246,6 +271,151 @@ def test_eine_unbekannte_tabelle_bricht_ab_und_wird_genannt(tmp_path):
         pb.basis_je_jahrgang(storage)
     assert "dataset=dim_wetterlage" in str(fehler.value)
     assert "REGEL_JE_QUELLE" in str(fehler.value)
+
+
+# --------------------------------------------------------------------------
+# Die Jahres-Dimension: was die Basis schon abdeckt, muss erst heraus
+# --------------------------------------------------------------------------
+
+
+def test_ein_stand_mit_sechs_jahrgaengen_wird_nicht_noch_einmal_hochgerechnet(
+        tmp_path, zeilen):
+    """Der Fehler vom 4.10.2026: 9'345 MB statt 2'375 MB.
+
+    Nach dem Mehrjahreslauf trug dieselbe Silver-Datei alle sechs Jahrgaenge,
+    und ``_regel`` teilte sie trotzdem durch die Zeilen von 2024 allein - also
+    noch einmal mit 5,38. Dieselbe Dimension, die bei den Vintages schon
+    behoben war.
+    """
+    storage, _ = ablage(tmp_path)
+    tabelle(storage, "silver/dataset=crime_offense", bytes_=213_800_000)
+    protokoll(storage, JAHRE)
+
+    crime = [h for h in pb.hochrechnung(pb.basis_je_jahrgang(storage), JAHRE, zeilen)
+             if h.basis.quelle == "dataset=crime_offense"][0]
+    assert crime.basis.jahre == JAHRE
+    assert crime.faktor == 1.0, (
+        f"Faktor {crime.faktor:.2f}: sechs gebaute Jahrgaenge auf sechs "
+        f"gefragte sind einer, nicht {FAKTOR:.2f}")
+    assert crime.bytes == crime.basis.bytes
+
+
+def test_ein_stand_mit_einem_jahrgang_wird_weiter_hochgerechnet(tmp_path, zeilen):
+    """Das Gegenstueck: Ohne Protokoll gilt ein Jahrgang - und 5,38."""
+    storage, _ = ablage(tmp_path)
+    tabelle(storage, "silver/dataset=crime_offense", bytes_=213_800_000)
+    protokoll(storage, (pb.BASISJAHR,))
+
+    crime = [h for h in pb.hochrechnung(pb.basis_je_jahrgang(storage), JAHRE, zeilen)
+             if h.basis.quelle == "dataset=crime_offense"][0]
+    assert crime.basis.jahre == (pb.BASISJAHR,)
+    assert abs(crime.faktor - FAKTOR) < 1e-9, f"erwartet {FAKTOR:.2f}"
+
+
+def test_ohne_protokoll_bleibt_es_beim_alten_verhalten(tmp_path, zeilen):
+    """Ein Klon ohne Gesamtlauf rechnet wie vor der Mehrjahrigkeit."""
+    storage, _ = ablage(tmp_path)
+    tabelle(storage, "silver/dataset=crime_offense", bytes_=1000)
+    assert pb.laufstand(storage) == pb.Laufstand()
+    crime = [h for h in pb.hochrechnung(pb.basis_je_jahrgang(storage), JAHRE, zeilen)
+             if h.basis.quelle == "dataset=crime_offense"][0]
+    assert crime.basis.jahre == ()
+    assert abs(crime.faktor - FAKTOR) < 1e-9
+
+
+@pytest.mark.parametrize("text", ['{"years": "2021-2026"}', "{kaputt", "[]",
+                                  '{"status": "failed"}'])
+def test_ein_unbrauchbares_protokoll_bricht_nichts_ab(tmp_path, text):
+    """Messen und rechnen - pruefen tut dieses Modul nicht.
+
+    Ein kaputtes ``pipeline_run.json`` heisst "weiss ich nicht", nicht
+    "Traceback": Die Hochrechnung soll auch dann laufen.
+    """
+    storage, _ = ablage(tmp_path)
+    protokoll(storage, text=text)
+    assert pb.laufstand(storage) == pb.Laufstand()
+
+
+def test_die_laufschichten_bleiben_eine_echte_hochrechnung(tmp_path, zeilen):
+    """Ein Lauf traegt einen Jahrgang - auch wenn sechs gebaut sind.
+
+    ``run_all`` entfaltet die Ingestion je Jahr (``chicago_2021`` ...
+    ``chicago_2026``); der groesste Lauf ist deshalb ein Jahrgang. Die Jahre
+    des Protokolls hier zu uebernehmen wuerde ``raw`` und ``bronze`` um das
+    5,38-Fache zu klein rechnen - und zu klein ist die gefaehrliche Richtung.
+    """
+    storage, _ = ablage(tmp_path)
+    lauf(storage, "bronze/city=chicago/ingest_date=2026-09-05/run_a", bytes_=1000)
+    protokoll(storage, JAHRE)
+    chicago = [h for h in pb.hochrechnung(pb.basis_je_jahrgang(storage), JAHRE, zeilen)
+               if h.basis.quelle == "city=chicago"][0]
+    assert chicago.basis.jahre == ()
+    erwartet = (sum(ZEILEN[("chicago", j)] for j in JAHRE)
+                / ZEILEN[("chicago", pb.BASISJAHR)])
+    assert abs(chicago.faktor - erwartet) < 1e-9
+
+
+def test_ein_release_nimmt_die_jahre_aus_seinem_eigenen_manifest(tmp_path, zeilen):
+    """``release.json`` nennt seit dem 4.10.2026 selbst ``years`` - das gilt."""
+    storage, _ = ablage(tmp_path)
+    release_(storage, "2026-10-04T16-50-47Z", bytes_=1000, jahre=JAHRE)
+    # Das Protokoll nennt einen anderen Stand: Das eigene Manifest hat Vorrang.
+    protokoll(storage, (2024,), release_id="2026-09-17T19-42-24Z")
+    fakt = [h for h in pb.hochrechnung(pb.basis_je_jahrgang(storage), JAHRE, zeilen)
+            if h.basis.quelle == "gold/dataset=fact_offense"][0]
+    assert fakt.basis.jahre == JAHRE
+    assert fakt.faktor == float(pb.RELEASES_N), "nur die Staende, nicht die Jahre"
+
+
+def test_die_jahre_eines_alten_standes_nur_mit_beleg(tmp_path, zeilen):
+    """``pipeline_run.json`` gilt fuer **den** Stand, den es benennt - sonst nicht.
+
+    Ein Manifest von vor dem 4.10.2026 kennt kein ``years``. Die Jahre des
+    letzten Laufs darauf zu uebertragen waere geraten: Der groesste liegende
+    Stand kann aus einem Einjahresbau stammen, waehrend der letzte Lauf sechs
+    Jahrgaenge baute.
+    """
+    storage, _ = ablage(tmp_path)
+    release_(storage, "2026-09-17T19-42-24Z", bytes_=1000)  # ohne years
+    protokoll(storage, JAHRE, release_id="2026-10-04T16-50-47Z")
+    ungenannt = [b for b in pb.basis_je_jahrgang(storage)
+                 if b.quelle == "gold/dataset=fact_offense"][0]
+    assert ungenannt.jahre == (), "ein anderer Stand - also kein Beleg"
+
+    protokoll(storage, JAHRE, release_id="2026-09-17T19-42-24Z")
+    genannt = [b for b in pb.basis_je_jahrgang(storage)
+               if b.quelle == "gold/dataset=fact_offense"][0]
+    assert genannt.jahre == JAHRE, "derselbe Stand - also belegt"
+
+
+def test_ein_abgedecktes_jahr_ohne_zeilenzahl_bricht_ab_und_nennt_es(tmp_path, zeilen):
+    """Ohne die Zeilen eines gebauten Jahrgangs gibt es keine Basis je Jahrgang.
+
+    Ihn weglassen hiesse, die Bytes auf zu wenige Zeilen zu verteilen - also zu
+    viele Bytes je Zeile und eine zu grosse Hochrechnung.
+    """
+    storage, _ = ablage(tmp_path)
+    tabelle(storage, "silver/dataset=crime_offense", bytes_=1000)
+    protokoll(storage, (2019, 2020) + JAHRE)
+    with pytest.raises(SystemExit) as fehler:
+        pb.hochrechnung(pb.basis_je_jahrgang(storage), JAHRE, zeilen)
+    satz = str(fehler.value)
+    assert "2019" in satz and "2020" in satz
+    assert pb.ZEILEN_DATEI in satz and pb.LAUF_MANIFEST in satz
+
+
+def test_die_jahre_stehen_im_json(tmp_path, capsys, monkeypatch):
+    """Wer das JSON liest, soll sehen, welche Jahrgaenge in der Basis stecken."""
+    monkeypatch.chdir(Path(__file__).resolve().parents[2])
+    storage, _ = ablage(tmp_path)
+    tabelle(storage, "silver/dataset=crime_offense", bytes_=1000)
+    protokoll(storage, JAHRE)
+    assert pb.main(["--data-root", str(tmp_path / "data"), "--json"]) == 0
+    gelesen = json.loads(capsys.readouterr().out)
+    crime = [h for h in gelesen["hochrechnung"]
+             if h["quelle"] == "dataset=crime_offense"][0]
+    assert crime["jahre"] == list(JAHRE)
+    assert crime["faktor"] == 1.0
 
 
 # --------------------------------------------------------------------------

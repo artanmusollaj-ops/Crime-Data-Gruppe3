@@ -5,6 +5,14 @@ damit die ausfuehrlichste Sammlung gemessener Zahlen im Projekt - und genau
 deshalb die Datei, die beim naechsten Neubau als erste unbemerkt falsch wird.
 Jede Zahl darin wird hier gegen die gebauten Daten gehalten.
 
+**Das Dokument verfolgt eine Zahl, nicht eine Summe.** Seit dem Mehrjahresbau
+vom 4.10.2026 stehen sechs Jahrgaenge in ``fact_offense``; eine Rate, die
+sechs Jahre zaehlt und ein Jahr als Nenner nimmt, ist keine Rate mehr. Jede
+Abfrage hier filtert deshalb auf ``gold_pipeline.RATENJAHR`` - denselben
+Jahrgang, auf den sich die Ratenzeilen aller Abgabedokumente beziehen -, und
+das Dokument nennt ihn. Gefiltert wird nach **Ortszeit** (``date``), auf
+derselben Achse, auf der die Jahrgaenge geladen sind.
+
 Die Tests tragen ``referenzstand``, weil sie am gepinnten Stand haengen und
 nicht am woechentlichen Datenlauf: Neue Daten duerfen die Zahlen aendern, ohne
 dass der Lauf rot wird. Wer neu baut, zieht das Dokument mit.
@@ -17,7 +25,7 @@ import re
 from pathlib import Path
 
 import pytest
-from gold_pipeline import einwohner_je_stadt
+from gold_pipeline import RATENJAHR, einwohner_je_stadt, raten_je_stadt
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +38,15 @@ ACS = DATA / "gold" / "dataset=dim_tract_acs" / "part-0001.parquet"
 NENNER = einwohner_je_stadt(f"read_parquet('{TRACT}')",
                             f"read_parquet('{ACS}')")
 SILVER = DATA / "silver" / "dataset=crime_offense" / "part-0001.parquet"
+
+#: Die Fakten **eines** Jahrgangs - der Ausschnitt, den das Dokument verfolgt.
+#: Ueberall hier statt ``read_parquet('{GOLD}')``: Eine Zahl ohne Jahrgang
+#: zaehlt seit dem 4.10.2026 sechs davon zusammen.
+FAKTEN = (f"(SELECT * FROM read_parquet('{GOLD}') "
+          f"WHERE year(date) = {RATENJAHR})")
+#: Dasselbe fuer Silver - dort heisst die Ortszeitachse ``occurred_date_local``.
+SILBER = (f"(SELECT * FROM read_parquet('{SILVER}') "
+          f"WHERE year(occurred_date_local) = {RATENJAHR})")
 LAUF = "run_20260905T174633859259Z"
 BRONZE = DATA / "bronze" / "city=chicago" / "ingest_date=2026-09-05" / LAUF
 RAW = DATA / "raw" / "city=chicago" / "ingest_date=2026-09-05" / LAUF
@@ -80,7 +97,7 @@ def test_die_ueberschrift_nennt_die_zahl(text, con):
     echt = con.execute(f"""
         WITH e AS ({NENNER})
         SELECT round(count(*) * 1000.0 / any_value(e.n), 1)
-        FROM read_parquet('{GOLD}') f
+        FROM {FAKTEN} f
         JOIN read_parquet('{TRACT}') t ON t.geoid = f.tract_geoid
         JOIN e ON e.city = t.city
         WHERE t.city = 'chicago'
@@ -94,7 +111,7 @@ def test_die_rechnung_geht_auf(text, con):
     """Zaehler, Nenner und Ergebnis der Stufe 1 - alle drei gemessen."""
     zaehler, nenner = con.execute(f"""
         SELECT count(*), any_value(e.n)
-        FROM read_parquet('{GOLD}') f
+        FROM {FAKTEN} f
         JOIN read_parquet('{TRACT}') t ON t.geoid = f.tract_geoid
         JOIN ({NENNER}) e ON e.city = t.city
         WHERE t.city = 'chicago'
@@ -158,7 +175,7 @@ def test_der_zaehler_ist_vollstaendig_aufgeteilt(text, con):
     nicht mehr aufsummiert, behauptet etwas Falsches.
     """
     zeilen = dict(con.execute(f"""
-        SELECT geo_status, count(*) FROM read_parquet('{GOLD}')
+        SELECT geo_status, count(*) FROM {FAKTEN}
         WHERE reporting_city = 'chicago' GROUP BY 1
     """).fetchall())
     for status, anzahl in zeilen.items():
@@ -178,7 +195,7 @@ def test_der_zaehler_ist_vollstaendig_aufgeteilt(text, con):
 def test_die_guete_der_zuordnung_stimmt(text, con):
     """Stufe 3 - die mapping_status-Tabelle."""
     for status, anzahl in con.execute(f"""
-        SELECT mapping_status, count(*) FROM read_parquet('{GOLD}')
+        SELECT mapping_status, count(*) FROM {FAKTEN}
         WHERE reporting_city = 'chicago' GROUP BY 1
     """).fetchall():
         treffer = re.search(rf"\| `{status}` \| ([\d']+) \|", text)
@@ -191,13 +208,13 @@ def test_die_granularitaet_stimmt(text, con):
     """Stufe 4 - Tat- und Fallebene, Zeilen wie Raten."""
     for stadt, zeilen, faelle in con.execute(f"""
         SELECT reporting_city, count(*), count(*) FILTER (counts_case)
-        FROM read_parquet('{GOLD}') GROUP BY 1
+        FROM {FAKTEN} GROUP BY 1
     """).fetchall():
         assert steht_drin(text, zeilen), f"{stadt}: {zeilen:,} Zeilen fehlen"
         assert steht_drin(text, faelle), f"{stadt}: {faelle:,} Faelle fehlen"
 
     silver_detroit = con.execute(
-        f"SELECT count(*) FROM read_parquet('{SILVER}') WHERE city = 'detroit'"
+        f"SELECT count(*) FROM {SILBER} WHERE city = 'detroit'"
     ).fetchone()[0]
     assert steht_drin(text, silver_detroit), (
         f"Detroits {silver_detroit:,} Silver-Zeilen fehlen in Stufe 4"
@@ -205,7 +222,7 @@ def test_die_granularitaet_stimmt(text, con):
 
     mehrzeilig = con.execute(f"""
         SELECT count(*) FROM (
-            SELECT event_id FROM read_parquet('{SILVER}')
+            SELECT event_id FROM {SILBER}
             WHERE city = 'chicago' GROUP BY 1 HAVING count(*) > 1
         )
     """).fetchone()[0]
@@ -213,16 +230,13 @@ def test_die_granularitaet_stimmt(text, con):
         f"{mehrzeilig} mehrzeilige Faelle - Stufe 4 mitziehen"
     )
 
-    raten = dict(con.execute(f"""
-        WITH e AS ({NENNER})
-        SELECT t.city, list_value(
-            round(count(*) * 1000.0 / any_value(e.n), 1),
-            round(count(*) FILTER (f.counts_case) * 1000.0 / any_value(e.n), 1))
-        FROM read_parquet('{GOLD}') f
-        JOIN read_parquet('{TRACT}') t ON t.geoid = f.tract_geoid
-        JOIN e ON e.city = t.city
-        WHERE t.city IS NOT NULL GROUP BY 1
-    """).fetchall())
+    # Dieselbe Abfrage wie hinter jeder anderen Ratenzeile des Projekts -
+    # aus gold_pipeline, mit dem Jahresfilter darin.
+    raten = {
+        z[0]: (z[4], z[5]) for z in con.execute(raten_je_stadt(
+            f"read_parquet('{GOLD}')", f"read_parquet('{TRACT}')",
+            f"read_parquet('{ACS}')")).fetchall()
+    }
     for stadt, (tat, fall) in raten.items():
         zeile = re.search(rf"\| {stadt.capitalize()} \| \*\*([\d,]+)\*\* \| ([\d,]+) \|", text)
         assert zeile, f"Ratenzeile fuer {stadt} fehlt in Stufe 4"
@@ -314,7 +328,7 @@ def test_der_einzelfall_stimmt(text, con):
         SELECT offense_id, occurred_at_local, occurred_at_utc, hour_of_day,
                source_offense_code, nibrs_code, mapping_status, tract_geoid,
                geo_status, counts_case
-        FROM read_parquet('{GOLD}')
+        FROM {FAKTEN}
         WHERE event_id = 'JH100028' ORDER BY occurred_at_local
     """).fetchall()
     assert len(zeilen) == 2, (
@@ -344,7 +358,7 @@ def test_der_tract_des_einzelfalls_stimmt(text, con):
     """Die 197,6 am Schluss - die Zahl, die zeigt, wie stark Tracts streuen."""
     tract = "17031690400"
     delikte = con.execute(
-        f"SELECT count(*) FROM read_parquet('{GOLD}') WHERE tract_geoid = '{tract}'"
+        f"SELECT count(*) FROM {FAKTEN} WHERE tract_geoid = '{tract}'"
     ).fetchone()[0]
     bevoelkerung, anteil = con.execute(
         f"SELECT a.population, d.city_area_share "

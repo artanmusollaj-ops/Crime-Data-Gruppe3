@@ -4,6 +4,13 @@ Dieses Dokument rollt **eine einzige Zahl** rückwärts auf, von der Folie bis
 zu den Bytes, die die Stadt Chicago geliefert hat. Sieben Stufen, und auf dem
 Weg kommt **jede wesentliche Entscheidung dieses Projekts genau einmal vor**.
 
+Die Zahl ist die Rate **für den Jahrgang 2024**, und das ist keine Fussnote:
+Seit dem 4.10.2026 liegen sechs Jahrgänge (2021–2026) in derselben
+Faktentabelle. Wer sie alle zählt und durch die Einwohner eines Jahres teilt,
+erhält 500,7 — eine Zahl, die nicht zu hoch ist, sondern nichts bedeutet.
+Jede Zahl auf den Stufen 0 bis 4 ist deshalb auf 2024 eingegrenzt; die Stufen
+5 bis 7 verfolgen die Herkunft der ganzen Tabelle.
+
 Es ist damit auch die Antwort auf die Frage, die eine Abgabe verdient: *Woher
 wisst ihr das?*
 
@@ -15,7 +22,7 @@ wisst ihr das?*
 
 ## Stufe 0 · Die Zahl
 
-> **Chicago: 94,5 Delikte je 1'000 Einwohner. Detroit: 132,7.**
+> **Jahrgang 2024 — Chicago: 94,5 Delikte je 1'000 Einwohner. Detroit: 133,1.**
 
 Das ist der Satz, der auf eine Folie kommt. Absolute Zahlen legen das
 Gegenteil nahe — Chicago meldet dreimal so viele Delikte wie Detroit. Erst der
@@ -49,18 +56,24 @@ Die Einwohnerzahl selbst ist die ACS-Variable `B01003_001E`, eine
 Einwohner — Flughafen, Industrie, Sondernutzung. Für sie ist keine Rate
 definiert.
 
+Der Nenner hängt am **ACS-Jahrgang**: `dim_tract_acs` führt für jeden der
+782 Tracts vier Schätzungen (2021 bis 2024), und `fact_offense.population_vintage`
+sagt je Tat, welche für sie gilt. Die 2'661'953 hier sind die Schätzung
+**2024** — dieselbe, die `dim_tract.reference_vintage` für die Stadtzuordnung
+nennt. Für 2021 wären es 2'693'319, und mit ihnen eine andere Rate.
+
 ## Stufe 3 · Der Zähler — welche Delikte zählen mit?
 
-Chicago meldet **259'643** Delikte im Jahrgang 2024. In die Rate gehen
+Chicago meldet **259'650** Delikte im Jahrgang 2024. In die Rate gehen
 **251'517**. Der Unterschied ist vollständig erklärt:
 
 | `geo_status` | Delikte | was es bedeutet |
 | --- | ---: | --- |
 | `inside_city` | 251'517 | zählt |
 | `outside_city` | 6'010 | liegt in einem Tract, der nicht zu Chicago gehört |
-| `missing_coordinate` | 2'115 | die Stadt hat keine Koordinate geliefert |
+| `missing_coordinate` | 2'122 | die Stadt hat keine Koordinate geliefert |
 | `no_tract` | 1 | Koordinate in keinem Tract |
-| **Summe** | **259'643** | |
+| **Summe** | **259'650** | |
 
 Die Summe geht **exakt** auf. Das ist der Zweck der Spalte: Was fehlt, wird
 gezählt und benannt, nicht stillschweigend weggelassen.
@@ -71,7 +84,7 @@ steht je Zeile:
 
 | `mapping_status` | Zeilen | |
 | --- | ---: | --- |
-| `exact` | 248'203 | ein amtliches Dokument belegt die Zuordnung |
+| `exact` | 248'210 | ein amtliches Dokument belegt die Zuordnung |
 | `fallback_90Z` | 7'718 | Auffangcode, weil keine Kategorie passt |
 | `ambiguous` | 3'719 | mehrere wären vertretbar, wir haben entschieden |
 | `unmapped` | 3 | |
@@ -79,16 +92,16 @@ steht je Zeile:
 ## Stufe 4 · Gold ← Silver: welche Zeile zählt?
 
 `gold/fact_offense` nimmt aus `silver/crime_offense` nur die Zeilen mit
-`counts`. Für Chicago sind das alle **259'643** — eine Chicagoer Zeile ist
-bereits ein Delikt. Für Detroit sind es 85'448 von 88'686 Zeilen: Detroit
-führt je Delikt einer Anzeige eine Zeile, und Nebendelikte zählen nach der
-Hierarchieregel nicht mit.
+`counts`. Für Chicago sind das im Jahrgang 2024 alle **259'650** — eine
+Chicagoer Zeile ist bereits ein Delikt. Für Detroit sind es 85'674 von 88'688
+Zeilen: Detroit führt je Delikt einer Anzeige eine Zeile, und Nebendelikte
+zählen nach der Hierarchieregel nicht mit.
 
-Auf **Fallebene** bleiben in Chicago 259'614 Zeilen, also 29 weniger. Die
+Auf **Fallebene** bleiben in Chicago 259'620 Zeilen, also 30 weniger. Die
 Differenz sind Mordfälle: Chicago führt je **Opfer** einen Datensatz. **25
 Chicagoer Fälle** haben mehr als eine Zeile, und es sind ausnahmslos diese.
 
-In Detroit ist der Abstand grösser: 85'448 Delikte gehören zu 80'230 Fällen.
+In Detroit ist der Abstand grösser: 85'674 Delikte gehören zu 80'232 Fällen.
 Dieselbe Regel, zwei verschiedene Erfassungspraxen — genau deshalb steht sie
 für beide Städte im Code und nicht als Chicago-Sonderfall.
 
@@ -97,26 +110,31 @@ Welche Granularität man wählt, verschiebt beide Städte — und Detroit stärk
 | | Tatebene | Fallebene |
 | --- | ---: | ---: |
 | Chicago | **94,5** | 94,5 |
-| Detroit | **132,7** | 124,6 |
+| Detroit | **133,1** | 124,6 |
 
 ## Stufe 5 · Silver ← Bronze: die Herkunftskette
 
 Das Gold-Manifest sagt nicht nur *woher*, sondern *welcher Stand*:
 
 ```text
-gold/fact_offense          Vertrag 2, gebaut 2026-09-14T17:15:06
-└── silver/crime_offense    Eingabeabdruck 1608aec7a14154ca…
+gold/fact_offense          Vertrag 7, gebaut 2026-10-04T16:50:45
+└── silver/crime_offense    Eingabeabdruck b1de2046e67ba45b…
     ├── Chicago Bronze     run_20260905T174633859259Z   Vollschnappschuss
     │                      run_20260905T175700006411Z   Delta
     │                      run_20260906T090714439584Z   Delta
-    ├── Detroit Bronze     1cca323d-…  1d879a0e-…
+    │                      … 11 weitere Läufe, bis 2026-10-04
+    ├── Detroit Bronze     1cca323d-…  1d879a0e-…  … 12 weitere
     ├── silver/tract       Eingabeabdruck 215d02b2753944d9…
     │   ├── TIGER          run_20260906T121504814962Z   (FIPS 17 und 26)
     │   └── ACS 5-Jahre    run_20260906T121507392858Z   (FIPS 17 und 26)
     └── Crosswalks         iucr_nibrs_mapping.csv       sha256 ed361200…
-                           micr_nibrs_mapping.csv       sha256 b4a0099d…
+                           micr_nibrs_mapping.csv       sha256 35b292ac…
                            nibrs_offense_codes_2025.csv sha256 6f650716…
 ```
+
+Die Läufe je Stadt sind **14**, seit der Mehrjahresbau für jeden Jahrgang
+einen eigenen zieht; das Diagramm nennt die ersten und zählt die übrigen.
+Oben stehen die, die im Referenzstand gepinnt sind.
 
 Ein Pfad wäre hier zu wenig: Er zeigt auf das, was gerade dort liegt. Der
 Abdruck sagt, **auf welchen Eingaben** der Stand ruht. Und die Kette hängt
@@ -124,8 +142,11 @@ nicht nur am Zähler — der Nenner hat seine eigene, und die Crosswalks hängen
 mit ihrer Prüfsumme daran, weil eine geänderte Zuordnungstabelle die Zahlen
 genauso verschiebt wie neue Daten.
 
-Alle genannten Läufe sind im Referenzstand gepinnt und überleben jedes
-Aufräumen.
+Alle im Diagramm **genannten** Läufe sind in `config/referenzstand.csv`
+gepinnt und überleben jedes Aufräumen. Die ungenannten der Mehrjahresläufe
+sind es nicht: Sie sind reproduzierbar, weil `silver/crime_offense` seinen
+Eingabeabdruck trägt, und ein Pin ist eine Zusage, die man nur geben soll,
+wenn man sie halten will.
 
 ## Stufe 6 · Bronze ← die Quelle
 
@@ -215,8 +236,11 @@ ihren Nenner nichts sagt.
   erfasst wurde.
 * **Tatort ist nicht Wohnort.** Ein Innenstadt-Tract mit wenigen Einwohnern
   und vielen Pendlern bekommt eine überhöhte Rate — siehe die 197,6 oben.
-* **Der Nenner hat keine Zeitachse.** Die ACS-Schätzung ist über den ganzen
-  Zeitraum konstant.
+* **Der Nenner hat eine gröbere Zeitachse als der Zähler.** Die
+  ACS-Schätzung liegt je Jahrgang vor, aber nur bis 2024: Die Raten für 2025
+  und 2026 ruhen deshalb auf der Bevölkerung von 2024, und
+  `fact_offense.population_vintage` schreibt das je Zeile hin, statt es einer
+  Fussnote zu überlassen.
 * **Die Mehrheitsregel ist nicht neutral.** 94,5 statt 95,6.
 
 ---

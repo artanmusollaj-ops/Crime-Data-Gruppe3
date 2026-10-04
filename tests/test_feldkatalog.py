@@ -34,7 +34,13 @@ import build_feldkatalog as bf  # noqa: E402
 
 
 @pytest.fixture(scope="module")
-def gebaut() -> list[tuple[str, str, dict]]:
+def gebaut() -> list[tuple[str, str, dict, int]]:
+    """Je gebaute Tabelle ein Eintrag - Schicht, Name, Manifest, Vintages.
+
+    Die vierte Stelle kam am 4.10.2026 dazu: Seit dem Mehrjahresbau liegt
+    ``tract`` unter vier ``vintage=``, und ``bf.manifeste`` legt sie zu einem
+    Eintrag zusammen, weil der Katalog Spalten beschreibt und nicht Staende.
+    """
     tabellen = bf.manifeste()
     if not tabellen:
         pytest.skip("keine gebauten Tabellen unter data/")
@@ -77,7 +83,7 @@ def test_keine_beschreibung_ist_leer():
 def test_jede_gebaute_spalte_hat_eine_beschreibung(gebaut):
     fehlend = [
         f"{schicht}/{name}.{spalte}"
-        for schicht, name, manifest in gebaut
+        for schicht, name, manifest, _ in gebaut
         for spalte in manifest.get("schema", {})
         if bf.beschreibung(name, spalte) is None
     ]
@@ -91,7 +97,7 @@ def test_jede_beschreibung_zeigt_auf_eine_echte_spalte(gebaut):
     """Sonst waechst der Katalog um Spalten, die es nicht mehr gibt."""
     echt = {
         (name, spalte)
-        for _, name, manifest in gebaut
+        for _, name, manifest, _ in gebaut
         for spalte in manifest.get("schema", {})
     }
     verwaist = [
@@ -114,7 +120,7 @@ def test_jede_spalte_steht_auch_im_dokument(gebaut):
     text = KATALOG.read_text(encoding="utf-8")
     fehlend = [
         f"{name}.{spalte}"
-        for _, name, manifest in gebaut
+        for _, name, manifest, _ in gebaut
         for spalte in manifest.get("schema", {})
         if f"| `{spalte}` |" not in text
     ]
@@ -126,7 +132,7 @@ def test_jede_spalte_steht_auch_im_dokument(gebaut):
 
 def test_das_granularitaet_jeder_tabelle_steht_drin(gebaut):
     text = KATALOG.read_text(encoding="utf-8")
-    for _, name, manifest in gebaut:
+    for _, name, manifest, _ in gebaut:
         assert f"### `{name}`" in text, f"{name} fehlt im Katalog"
         granularitaet = manifest.get("grain")
         if granularitaet:

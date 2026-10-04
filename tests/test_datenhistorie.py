@@ -12,11 +12,22 @@ Schnappschuss rot, ohne dass etwas kaputt ist.
 Verhaeltnis: 88'677 geaenderte Zeilen bei naivem Vergleich gegen 102 echte.
 Stimmt eine der beiden Zahlen nicht mehr, faellt die Empfehlung in sich
 zusammen - und niemand merkt es, weil beide plausibel aussehen.
+
+**Welche zwei Schnappschuesse das sind, wird gelesen und nicht geraten.** Bis
+zum 4.10.2026 nahm die ``con``-Vorrichtung die ersten zwei Detroit-Laeufe, die
+der Glob fand, und das stimmte, solange alle vierzehn denselben Jahrgang
+trugen. Nach dem Mehrjahresbau sind die ersten zwei ``year=2021`` und
+``year=2022`` - zwei **verschiedene** Bestaende. Der Vergleich lief weiter
+durch und meldete "unterschiedlich gross: 78960 und 83837"; das Dokument sah
+veraltet aus, obwohl keine seiner Zahlen falsch war. Genommen werden jetzt die
+beiden, um die es geht: die mit ``grund = LN1`` in
+``config/referenzstand.csv`` gepinnten Vollschnappschuesse. Der Pin steht
+genau dafuer da, dass diese zwei jedes Aufraeumen ueberleben.
 """
 
 from __future__ import annotations
 
-import glob
+import csv
 import re
 from pathlib import Path
 
@@ -26,6 +37,7 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DOKUMENT = PROJECT_ROOT / "docs" / "intern" / "datenhistorie.md"
 BRONZE = PROJECT_ROOT / "data" / "bronze" / "city=detroit"
+REFERENZSTAND = PROJECT_ROOT / "config" / "referenzstand.csv"
 
 pytestmark = pytest.mark.referenzstand
 
@@ -37,15 +49,37 @@ def text() -> str:
     return DOKUMENT.read_text(encoding="utf-8")
 
 
+def gepinnte_detroit_laeufe() -> list[str]:
+    """Die Detroit-Laeufe, die fuer LN1 gepinnt sind - in Dateireihenfolge.
+
+    Zwei Zeilen in ``config/referenzstand.csv`` tragen ``city=detroit`` mit
+    ``grund = LN1``: die beiden Vollschnappschuesse vom 11. und 12.9.2026, auf
+    denen dieses Dokument ruht. Andere Gruende (etwa ``stand-2026-10-03``)
+    pinnen andere Laeufe aus anderen Anlaessen und gehoeren hier nicht dazu.
+    """
+    if not REFERENZSTAND.is_file():
+        return []
+    with REFERENZSTAND.open(encoding="utf-8", newline="") as datei:
+        return [z["run_id"].strip() for z in csv.DictReader(datei)
+                if z.get("quelle", "").strip() == "city=detroit"
+                and z.get("grund", "").strip() == "LN1"]
+
+
 @pytest.fixture(scope="module")
 def con():
-    """Beide Detroit-Schnappschuesse als ``d1`` und ``d2``."""
+    """Die beiden gepinnten Detroit-Schnappschuesse als ``d1`` und ``d2``."""
     duckdb = pytest.importorskip("duckdb")
-    laeufe = sorted(glob.glob(str(BRONZE / "**" / "part-0001.parquet"), recursive=True))
+    laeufe = gepinnte_detroit_laeufe()
     if len(laeufe) < 2:
-        pytest.skip(f"nur {len(laeufe)} Detroit-Schnappschuss/-schuesse vorhanden")
+        pytest.skip(f"nur {len(laeufe)} Detroit-Lauf/-Laeufe fuer LN1 gepinnt")
+    pfade = []
+    for lauf in laeufe[:2]:
+        treffer = sorted(BRONZE.glob(f"**/run_{lauf}/part-0001.parquet"))
+        if not treffer:
+            pytest.skip(f"Lauf {lauf} liegt nicht unter {BRONZE}")
+        pfade.append(treffer[0])
     verbindung = duckdb.connect()
-    for i, pfad in enumerate(laeufe[:2], 1):
+    for i, pfad in enumerate(pfade, 1):
         verbindung.execute(
             f"CREATE VIEW d{i} AS SELECT attributes.* FROM read_parquet('{pfad}')"
         )
@@ -53,6 +87,22 @@ def con():
         yield verbindung
     finally:
         verbindung.close()
+
+
+def test_genau_zwei_detroit_laeufe_sind_fuer_ln1_gepinnt():
+    """Sonst vergleicht die Vorrichtung oben zwei beliebige Bestaende.
+
+    Kommt ein dritter LN1-Pin dazu, nimmt sie stillschweigend die ersten zwei
+    der Dateireihenfolge - und das waere wieder genau der Fehler, den sie
+    gerade ersetzt hat.
+    """
+    if not REFERENZSTAND.is_file():
+        pytest.skip(f"{REFERENZSTAND} fehlt")
+    laeufe = gepinnte_detroit_laeufe()
+    assert len(laeufe) == 2, (
+        f"{len(laeufe)} Detroit-Laeufe sind fuer LN1 gepinnt: {laeufe}. Das "
+        "Dokument vergleicht genau zwei Vollschnappschuesse."
+    )
 
 
 def zahl(text: str, muster: str) -> int:

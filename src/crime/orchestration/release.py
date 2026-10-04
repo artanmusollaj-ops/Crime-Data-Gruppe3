@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -62,9 +63,19 @@ def bilde(data_root: Path, **kw: Any) -> Path:
     return release.erstelle(data_root, ergaenze=datenbank, **kw)
 
 
-def bilde_und_publiziere(data_root: Path, storage) -> dict[str, Any]:
+def bilde_und_publiziere(data_root: Path, storage,
+                         jahre: Iterable[int] = ()) -> dict[str, Any]:
+    """Bilden und hochbringen - mit den Jahrgaengen, die der Lauf gebaut hat.
+
+    ``jahre`` kommt von ``run_all``, denn nur dort steht, welche Jahrgaenge
+    dieser Stand traegt: Gold und Serving liegen an Pfaden ohne ``year=``.
+    ``storage.release`` schreibt sie als ``years`` ins Manifest, und
+    ``orchestration.platzbedarf`` liest sie dort, statt sie sich ueber
+    ``pipeline_run.json`` zu erschliessen. Ohne Angabe fehlt der Schluessel -
+    geraten wird nichts.
+    """
     return release.erstelle_und_publiziere(
-        data_root, storage, ergaenze=datenbank, pflicht=VOLLSTAENDIG
+        data_root, storage, ergaenze=datenbank, pflicht=VOLLSTAENDIG, jahre=jahre
     )
 
 

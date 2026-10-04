@@ -74,6 +74,13 @@ SCHUTZ = (
     # jemand das aufschrieb, und ist heute 348'329 - er *soll* veraltet sein,
     # sonst waere der Satz keine Kritik an der alten Zahl mehr.
     "war die Antwort **ein Faktor**",
+    # Die Hochrechnung in platzbedarf.md rechnet mit den Zeilen, die am
+    # 3.10.2026 an den beiden APIs *gemessen* wurden
+    # (config/zeilen_je_jahrgang.csv), nicht mit dem gebauten Bestand. Die
+    # beiden Zahlen muessen auseinanderliegen: Geladen wurde am 4.10., und der
+    # laufende Jahrgang waechst taeglich - Detroit 2026 um 240 Zeilen. Waeren
+    # sie gleich, waere eine der beiden abgeschrieben.
+    "Zeilen × ",
 )
 
 # datenhistorie.md *ist* der Verlauf; archiv/ haelt Ueberholtes absichtlich.
@@ -146,24 +153,48 @@ def kennzahlen() -> dict[str, int]:
     # 20.9.2026 eine Korrektur dieses Dokuments zuerst gescheitert.
     con.execute(f"CREATE VIEW fakten AS SELECT * FROM read_parquet"
                 f"('{DATEN}/gold/dataset=fact_offense/part-0001.parquet')")
-    for stadt, vorfaelle, mehrfach, summiert, tage in con.execute("""
+    # ``m`` kam am 4.10.2026 dazu: Seit sechs Jahrgaengen in der Tabelle liegen
+    # summieren sich auch die *Monate* nicht mehr auf die Gesamtzahl (fuenf
+    # Jahreswechsel liegen jetzt innen), und zaehlperspektiven.md nennt die
+    # Monatssumme als eigene Spalte. Ohne sie hier sieht sie wie eine veraltete
+    # Fassung der Gesamtzahl aus - sie liegt nur neun Vorfaelle daneben.
+    for stadt, vorfaelle, mehrfach, summiert, tage, monate in con.execute("""
             WITH v AS (SELECT reporting_city AS city, event_id,
                               count(DISTINCT nibrs_family) AS fam
                        FROM fakten GROUP BY 1, 2),
                  f AS (SELECT reporting_city AS city, nibrs_family AS g,
                               count(DISTINCT event_id) AS n FROM fakten GROUP BY 1, 2),
                  t AS (SELECT reporting_city AS city, date AS d,
+                              count(DISTINCT event_id) AS n FROM fakten GROUP BY 1, 2),
+                 m AS (SELECT reporting_city AS city,
+                              date_trunc('month', date) AS d,
                               count(DISTINCT event_id) AS n FROM fakten GROUP BY 1, 2)
             SELECT v.city, count(*), count(*) FILTER (fam > 1),
                    (SELECT sum(n) FROM f WHERE f.city = v.city),
-                   (SELECT sum(n) FROM t WHERE t.city = v.city)
+                   (SELECT sum(n) FROM t WHERE t.city = v.city),
+                   (SELECT sum(n) FROM m WHERE m.city = v.city)
             FROM v GROUP BY 1""").fetchall():
         zahlen[f"{stadt}/vorfaelle"] = vorfaelle
         zahlen[f"{stadt}/vorfaelle_mehrfamilie"] = mehrfach
         zahlen[f"{stadt}/vorfaelle_je_familie"] = int(summiert)
         zahlen[f"{stadt}/vorfaelle_je_tag"] = int(tage)
+        zahlen[f"{stadt}/vorfaelle_je_monat"] = int(monate)
 
-    zahlen["detroit/ohne_blinde_stunde"] = zahlen["detroit/anklagen"] - 30
+    # Die blinde Stunde wird gemessen, nicht abgezogen. Bis zum 4.10.2026 stand
+    # hier das Literal 30 - die Zahl eines Jahrgangs. Ueber sechs Jahrgaenge
+    # sind es sechs solche Stunden und 118 Zeilen, und zaehlperspektiven.md
+    # nennt die Gegenzahl ("faellt trotzdem 491'607-fach auf"). Mit dem Literal
+    # haette der Waechter sie als veraltete Fassung von detroit/anklagen
+    # beanstandet.
+    blinde_stunde = con.execute(f"""
+        SELECT count(*) FILTER (occurred_at_local IS NOT DISTINCT FROM
+                   CAST(timezone('America/Chicago',
+                        occurred_at_utc AT TIME ZONE 'UTC') AS TIMESTAMP))
+        FROM {S} WHERE city = 'detroit'
+    """).fetchone()[0]
+    zahlen["detroit/blinde_stunde"] = blinde_stunde
+    zahlen["detroit/ohne_blinde_stunde"] = (
+        zahlen["detroit/anklagen"] - blinde_stunde)
     zahlen["auffang_90Z"] = con.execute(
         f"SELECT count(*) FROM {S} WHERE counts AND nibrs_code = '90Z'").fetchone()[0]
     con.close()

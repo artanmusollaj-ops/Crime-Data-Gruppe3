@@ -31,7 +31,9 @@ DuckDB-Datei ist eine Ableitung davon und haengt an einer DuckDB-Version.
 **Was ein Release enthaelt:** die fuenf Gold-Tabellen, die vier
 Serving-Tabellen, das GeoJSON, die selbstaendige Datenbank und
 ``release.json`` mit SHA-256 je Datei, Vertrags- und Code-Versionen, dem
-Eingabe-Abdruck und den Bronze-Laeufen, auf denen alles ruht. Nicht enthalten:
+Eingabe-Abdruck, den Bronze-Laeufen, auf denen alles ruht, und - seit dem
+4.10.2026, in neuen Manifesten - den Jahrgaengen, die der Stand traegt
+(``years``). Nicht enthalten:
 Silver und Bronze - die liegen an ihren festen Pfaden und sind ueber die
 Manifeste erreichbar.
 
@@ -183,8 +185,24 @@ def tabellen_im(arbeit: Path) -> list[tuple[str, Path, dict[str, Any]]]:
     return gefunden
 
 
-def release_manifest(arbeit: Path, kennung_: str, jetzt: datetime) -> dict[str, Any]:
-    """Was ueber diesen Stand gesagt werden darf - aus den Manifesten darin."""
+def release_manifest(arbeit: Path, kennung_: str, jetzt: datetime,
+                     jahre: Iterable[int] = ()) -> dict[str, Any]:
+    """Was ueber diesen Stand gesagt werden darf - aus den Manifesten darin.
+
+    ``jahre`` sind die Jahrgaenge, die der Lauf gebaut hat, der dieses Release
+    bildet (``orchestration.run_all`` kennt sie, ``storage`` nicht). Sie landen
+    als ``years`` im Manifest, denn aus dem Release selbst sind sie nicht
+    ablesbar: Gold und Serving liegen an Pfaden ohne ``year=``, eine
+    Jahresspalte steckt in den Parquet-Dateien, und ``storage`` liest keine
+    Zeilen. Wer wissen will, wie viel Mehrjahrigkeit in diesen Bytes steckt -
+    ``orchestration.platzbedarf`` will es -, musste es bis zum 4.10.2026 ueber
+    ``pipeline_run.json`` erschliessen und durfte es nur glauben, wenn dieses
+    Protokoll genau diesen Stand benannte.
+
+    Leer heisst **nicht** "keine Jahrgaenge", sondern "nicht gesagt": Dann
+    fehlt der Schluessel, wie er in jedem Manifest vor dem 4.10.2026 fehlt.
+    Abgelegte Manifeste bleiben unveraenderlich; nachgetragen wird nichts.
+    """
     tabellen: dict[str, Any] = {}
     vertraege: dict[str, int] = {}
     abdruck = None
@@ -214,10 +232,12 @@ def release_manifest(arbeit: Path, kennung_: str, jetzt: datetime) -> dict[str, 
         for p in sorted(arbeit.rglob("*"))
         if p.is_file() and p.name != RELEASE_MANIFEST
     }
+    gebaut = tuple(sorted({int(jahr) for jahr in jahre}))
     return {
         "status": "complete",
         "release_id": kennung_,
         "created_at_utc": jetzt.isoformat(timespec="seconds").replace("+00:00", "Z"),
+        **({"years": list(gebaut)} if gebaut else {}),
         "code_version": code_stand(),
         "contract_versions": vertraege,
         "input_fingerprint": abdruck,
@@ -233,7 +253,7 @@ Ergaenzung = Callable[[Path, dict[str, Any]], None]
 
 
 def erstelle(data_root: Path, *, ergaenze: Ergaenzung | None = None,
-             pflicht: Iterable[str] = PFLICHT,
+             pflicht: Iterable[str] = PFLICHT, jahre: Iterable[int] = (),
              kennung_: str | None = None, jetzt: datetime | None = None) -> Path:
     """Bildet ein Release lokal - vollstaendig oder gar nicht.
 
@@ -242,6 +262,10 @@ def erstelle(data_root: Path, *, ergaenze: Ergaenzung | None = None,
     Datenbank (``orchestration.release``) -, schreibt ``release.json`` und
     benennt zuletzt um. Danach zeigt das lokale ``AKTUELL.json`` darauf. Ein
     Abbruch laesst nichts Halbes zurueck.
+
+    ``jahre`` nennt die Jahrgaenge, die in diesem Stand stecken - der Aufrufer
+    weiss sie, das Release sagt sie nicht von sich aus (``release_manifest``).
+    Ohne Angabe fehlt der Schluessel; geraten wird hier nichts.
 
     **Warum die Datenbank nicht hier gebaut wird.** ``storage`` ist ein
     Fundament: Es weiss, wie man Dateien ablegt und publiziert, nicht, was
@@ -283,7 +307,7 @@ def erstelle(data_root: Path, *, ergaenze: Ergaenzung | None = None,
                 "created_at_utc": jetzt.isoformat(timespec="seconds").replace("+00:00", "Z"),
             })
 
-        manifest = release_manifest(arbeit, kennung_, jetzt)
+        manifest = release_manifest(arbeit, kennung_, jetzt, jahre)
         (arbeit / RELEASE_MANIFEST).write_text(
             json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         arbeit.rename(ziel)
@@ -363,9 +387,10 @@ def publiziere(storage: Storage, verzeichnis_: Path) -> list[str]:
 
 def erstelle_und_publiziere(data_root: Path, storage: Storage, *,
                             ergaenze: Ergaenzung | None = None,
-                            pflicht: Iterable[str] = PFLICHT) -> dict[str, Any]:
+                            pflicht: Iterable[str] = PFLICHT,
+                            jahre: Iterable[int] = ()) -> dict[str, Any]:
     """Der Schritt am Ende eines gruenen Gesamtlaufs."""
-    ziel = erstelle(data_root, ergaenze=ergaenze, pflicht=pflicht)
+    ziel = erstelle(data_root, ergaenze=ergaenze, pflicht=pflicht, jahre=jahre)
     manifest = lies(ziel)
     oben = publiziere(storage, ziel)
     return {

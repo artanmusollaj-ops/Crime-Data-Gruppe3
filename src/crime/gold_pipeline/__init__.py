@@ -114,6 +114,78 @@ def table_dir(data_root: Path, table: str) -> Path:
     return data_root / GOLD_LAYER / f"dataset={table}"
 
 
+#: Das Jahr, fuer das die Abgabedokumente ihre Raten je 1'000 Einwohner nennen.
+#:
+#: Eine Rate braucht einen Zeitraum, sonst ist sie keine. Bis zum 4.10.2026
+#: stand in den Dokumenten "Chicago 94,5 je 1'000" ohne Jahr, und das ging,
+#: weil genau ein Jahrgang gebaut war. Seit dem Mehrjahresbau zaehlt dieselbe
+#: Abfrage sechs Jahrgaenge zusammen: 500,7 je 1'000 fuer Chicago - eine Zahl,
+#: die nicht zu hoch ist, sondern **nichts bedeutet**, weil ihr Zaehler sechs
+#: Jahre und ihr Nenner eines umfasst.
+#:
+#: 2024 bleibt das Bezugsjahr: Es ist der Jahrgang, auf den die Fragestellung
+#: und die Hypothesen gestellt sind, und der juengste, der vollstaendig
+#: vorliegt (2025 und 2026 sind es nicht - ``dim_date.year_is_complete``
+#: sagt es je Tag). Eine Tabelle mit einer Rate je Jahr waere das Bessere und
+#: ist nicht dasselbe; sie steht aus.
+RATENJAHR = 2024
+
+
+def raten_je_stadt(fact_offense: str, dim_tract: str, dim_tract_acs: str,
+                   jahr: int = RATENJAHR) -> str:
+    """Delikte, Faelle, Einwohner und die beiden Raten je Stadt - fuer **ein** Jahr.
+
+    Die Abfrage, die hinter jeder Ratenzeile der Abgabedokumente steht. Sie
+    liegt hier und nicht bei ihren Benutzern, aus demselben Grund wie
+    ``einwohner_je_stadt``: Gebraucht wird sie im Driftbericht, auf der
+    Einstiegsseite und in den Waechtern ueber ``ln1_konzept.md``, ``README.md``,
+    ``AENDERUNGEN.md`` und ``eine-zahl.md``. Sechs Fassungen waeren fuenf zu
+    viel - und waeren sie es, wuerde eine davon den Jahresfilter vergessen.
+
+    **Gezaehlt wird nach Ortszeit** (``fact_offense.date``), nicht nach UTC:
+    Dieselbe Achse, auf der die Jahrgaenge geladen sind.
+
+    **Der Nenner ist der der Zeile**, nicht der der Tabelle: ``population_vintage``
+    nennt je Tat, welches ACS-Vintage fuer sie gilt, und der Verbund nimmt genau
+    dieses. Ein Jahr, dessen Taten alle dasselbe Vintage tragen, bekommt damit
+    einen Nenner - haette ein Jahr gemischte Vintages, waere die Rate nicht
+    definiert, und die Abfrage ergaebe dann mehr als eine Zeile je Stadt, statt
+    stillschweigend eines davon zu nehmen.
+
+    Die Spalten: ``city``, ``delikte``, ``faelle``, ``einwohner``, ``rate``,
+    ``rate_fallebene``. Gezaehlt werden nur Taten in einem Tract, der einer der
+    beiden Staedte zugeordnet ist - derselbe Ausschnitt, fuer den der Nenner
+    gilt.
+    """
+    # Der Nenner kommt aus ``einwohner_je_stadt`` - mit dem Vintage, das die
+    # Taten dieses Jahres selbst nennen, statt mit dem Referenz-Vintage der
+    # Stadtzuordnung. Beide sind fuer 2024 dasselbe; fuer 2025 und 2026 nicht,
+    # und dort ist genau das die Aussage: Eine Rate fuer 2026 ruht auf der
+    # Bevoelkerung von 2024, weil es keine neuere gibt.
+    nenner = einwohner_je_stadt(
+        dim_tract, dim_tract_acs,
+        "(SELECT any_value(population_vintage) FROM j)",
+    )
+    return f"""
+        WITH j AS (
+            SELECT * FROM {fact_offense} WHERE year(date) = {jahr}
+        ), e AS ({nenner})
+        SELECT t.city                                            AS city,
+               count(*)                                          AS delikte,
+               count(*) FILTER (f.counts_case)                   AS faelle,
+               any_value(e.n)                                    AS einwohner,
+               round(count(*) * 1000.0 / any_value(e.n), 1)      AS rate,
+               round(count(*) FILTER (f.counts_case) * 1000.0
+                     / any_value(e.n), 1)                        AS rate_fallebene
+        FROM j f
+        JOIN {dim_tract} t ON t.geoid = f.tract_geoid
+        JOIN e ON e.city = t.city
+        WHERE t.city IS NOT NULL
+        GROUP BY t.city
+        ORDER BY t.city
+    """
+
+
 def einwohner_je_stadt(dim_tract: str, dim_tract_acs: str,
                        vintage: str = "d.reference_vintage") -> str:
     """Die Einwohnerzahl je Stadt - der Nenner jeder Rate dieses Projekts.

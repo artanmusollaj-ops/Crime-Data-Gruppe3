@@ -31,12 +31,12 @@ Die Strecke führt zwei unvergleichbare Quellen in eine vergleichbare Tabelle
 
 | Schicht | Aufgabe | Was sie ausdrücklich **nicht** tut | Grösse |
 | --- | --- | --- | ---: |
-| **raw** | die Antwort der Quelle, Byte für Byte, mit SHA-256 | nichts deuten, nichts umformen | 143,5 MB |
-| **bronze** | Parquet mit gepinntem Schema, Originaltypen | nichts deuten; Unerwartetes nach `_extra` statt in den Papierkorb | 162,2 MB |
-| **silver** | deuten: Typen, Einheiten, Zeitzonen, NIBRS, Raum | nichts wegwerfen — Lücken werden gekennzeichnet, nicht gefiltert | 49,5 MB |
-| **gold** | Sternschema, eine Zeile je **Tat** | nicht aggregieren | 15,3 MB |
-| **serving** | abfragbar machen: Sichten, vier Vergleichstabellen, Karte | nicht der Bestand sein | 0,9 MB |
-| **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 254,1 MB |
+| **raw** | die Antwort der Quelle, Byte für Byte, mit SHA-256 | nichts deuten, nichts umformen | 358,4 MB |
+| **bronze** | Parquet mit gepinntem Schema, Originaltypen | nichts deuten; Unerwartetes nach `_extra` statt in den Papierkorb | 422,9 MB |
+| **silver** | deuten: Typen, Einheiten, Zeitzonen, NIBRS, Raum | nichts wegwerfen — Lücken werden gekennzeichnet, nicht gefiltert | 213,8 MB |
+| **gold** | Sternschema, eine Zeile je **Tat** | nicht aggregieren | 85,6 MB |
+| **serving** | abfragbar machen: Sichten, vier Vergleichstabellen, Karte | nicht der Bestand sein | 1,2 MB |
+| **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 433,7 MB |
 
 Die Grössen sind **gemessen, nicht geschätzt** — `python -m
 orchestration.platzbedarf` liest sie über `storage` aus den Schichten, und
@@ -49,21 +49,28 @@ allein nachzuziehen genügt nicht.
 **Der Stand in Zahlen** — der Referenzstand, auf den sich alle
 Abgabedokumente beziehen:
 
+Die beiden Zeilenzahlen sind der **Bestand** über alle sechs Jahrgänge, die
+beiden Raten darunter gelten für den **Jahrgang 2024**. Das ist kein
+Versehen, sondern der Unterschied zwischen „was liegt hier?" und „wie hoch ist
+die Rate?": Ein Zähler über sechs Jahre auf einem Nenner von einem ergibt
+500,7 je 1'000 — eine Zahl, die aussieht wie eine Zahl.
+
 | | |
 | --- | ---: |
-| `silver/crime_offense` | 348'329 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | **345'091** Zeilen (eine Tat) |
+| Jahrgänge | **2021–2026**, 2026 als Teiljahr |
+| `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
 | Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 84'761 Delikte · 638'635 Einwohner · **132,7** je 1'000 |
+| Detroit | 84'987 Delikte · 638'635 Einwohner · **133,1** je 1'000 |
 
 **Warum raw und bronze getrennt sind.** Raw ist das Beweisstück: Ein Delta-Lauf
 hält Datensätze so fest, wie sie in diesem Moment waren, und das lässt sich
 später nicht rekonstruieren. Bronze ist daraus abgeleitet und jederzeit neu
-erzeugbar. Diese Trennung kostet 143,5 MB und ist der Grund, warum sich jede Zahl
+erzeugbar. Diese Trennung kostet 358,4 MB und ist der Grund, warum sich jede Zahl
 bis zur gzip-Datei zurückverfolgen lässt.
 
 **Warum Gold nicht aggregiert.** Notebook 34 hat beide Bauweisen gebaut und
-gemessen: Bei 345'091 Zeilen liegt jede realistische Frage direkt auf dem Stern
+gemessen: Bei 1'851'950 Zeilen liegt jede realistische Frage direkt auf dem Stern
 im einstelligen Millisekundenbereich. Ein vorberechneter Würfel spart nichts,
 was ein Mensch bemerkt, und kostet drei Fragen, die er nicht mehr beantwortet.
 Die Entscheidung ist ein **Messergebnis**, keine Stilfrage.
@@ -224,8 +231,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'678 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'550 davon — die übrigen 29 brauchen gebaute Daten; 99 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 1'695 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'565 davon — die übrigen 30 brauchen gebaute Daten; 100 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 99 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
@@ -377,8 +384,8 @@ Wahrheit mit eigenem Alter.
 **Was es kostet.** Ein Index verdoppelt die Daten und altert, sobald ein neues
 Release entsteht — es braucht also einen Neuaufbau je Release und eine sichtbare
 Angabe, welchen Stand der Index zeigt. Dazu Speicher: Elasticsearch braucht
-für 345'000 Dokumente mit Geo- und Textfeldern erfahrungsgemäss ein Mehrfaches
-der 15,3 MB Parquet.
+für 1,85 Mio Dokumente mit Geo- und Textfeldern erfahrungsgemäss ein Mehrfaches
+der 85,6 MB Parquet.
 
 **Offen:** ob die Aggregationen für das Dashboard aus Elasticsearch kommen oder
 weiterhin aus den vorberechneten Vergleichstabellen. Beides geht; die Antwort
@@ -432,7 +439,7 @@ Konzept.
 trägt SHA-256 je Datei. Eine Rückspielung ist damit nachprüfbar und nicht nur
 hoffentlich vollständig.
 
-**Was es kostet.** Platz und eine Regel. Ein Release sind rund 42 MB; ohne
+**Was es kostet.** Platz und eine Regel. Ein Release sind rund 180 MB; ohne
 Aufräumregel wächst das linear, und genau diese Regel ist noch nicht
 entschieden ([`datenhistorie.md`](intern/datenhistorie.md) 5.5). Eine Sicherung ohne
 Löschregel ist nur ein Aufschub.
@@ -464,7 +471,7 @@ Die Ingestion ist der Teil, der bei mehr Städten zuerst bricht, und es ist
 
 | Achse | heute | was passiert bei zehn Städten |
 | --- | --- | --- |
-| Zeilen | 348'329 | rund 1,7 Mio — DuckDB rechnet das weiterhin interaktiv |
+| Zeilen | 1'875'378 | rund 9,4 Mio — DuckDB rechnet das weiterhin interaktiv |
 | Laufzeit Ingestion | Detroit 7 s im Delta, 100 s beim ersten vollen Lauf | linear, aber **seriell**: zehn Städte nacheinander |
 | Code je Quelle | zwei Pipelines mit je eigener Logik | zehn Pipelines, zehnmal derselbe Fehler |
 
@@ -511,15 +518,16 @@ entschieden:
 
 ---
 
-**Zu den Zahlen.** Teil A nennt den **Referenzstand** — den Bau vom 17.9.2026,
-16:05 UTC, auf den sich alle Abgabedokumente beziehen und den 99 Wächter mit
-dem Marker `referenzstand` gegen die Parquet-Dateien halten. Der gebaute Stand
-auf dem Entwicklungsrechner ist seit einer frischen Ingestion am Abend des
-17.9. geringfügig weiter (silver +0,10 %, gold +0,13 %, Detroits Rate 132,7 →
-132,7); die Drift ist gemessen und in [`datenhistorie.md`](intern/datenhistorie.md) 8
-festgehalten. Die Speichergrössen in A.1 sind dagegen der tatsächliche Stand
-auf der Platte am 18.9.2026 — sie stehen unter keinem Test und sind als
-Grössenordnung gemeint.
+**Zu den Zahlen.** Teil A nennt den **Referenzstand** — den Bau vom 4.10.2026,
+16:50 UTC über die Jahrgänge 2021–2026 (Release `2026-10-04T16-50-47Z`), auf
+den sich alle Abgabedokumente beziehen und den 100 Wächter mit dem Marker
+`referenzstand` gegen die Parquet-Dateien halten. Wie weit ein frischer Lauf
+davon abweicht, weist `orchestration.drift` je Grösse aus; die Zahlen der
+Abgabe werden nachgezogen, wenn die Drift eine Toleranz überschreitet, nicht
+bei jeder Bewegung der Quellen. Die Speichergrössen in A.1 sind **gemessen**
+und werden von `tests/test_platzbedarf_dokumente.py` gegen eine frische
+Messung gehalten; nachzuziehen sind sie mit
+`python tools/build_platzbedarf.py`.
 
 Teil B nennt keine Zahl, die nicht aus Teil A oder aus einem protokollierten
 Lauf stammt.

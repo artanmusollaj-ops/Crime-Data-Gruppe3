@@ -115,6 +115,37 @@ def test_ein_release_enthaelt_gold_serving_karte_datenbank_und_manifest(tmp_path
     assert set(manifest["code_version"]) == {"git_commit", "git_dirty"}
 
 
+def test_ein_neues_manifest_nennt_die_gebauten_jahrgaenge(tmp_path):
+    """``years`` - weil es aus dem Release selbst nicht ablesbar ist.
+
+    Gold und Serving liegen an Pfaden ohne ``year=``, die Jahresspalte steckt
+    in den Parquet-Dateien, und ``storage`` liest keine Zeilen. Wer wissen
+    will, wie viel Mehrjahrigkeit in diesen Bytes steckt - so wie
+    ``orchestration.platzbedarf`` -, musste es bis zum 4.10.2026 ueber
+    ``pipeline_run.json`` erschliessen und durfte es nur glauben, wenn jenes
+    Protokoll genau diesen Stand benannte.
+    """
+    _, _, data_root = ablage(tmp_path, "local")
+    gebaut(data_root)
+    ziel = bilde(data_root, jahre=(2024, 2021, 2021, 2022), jetzt=JETZT)
+    assert release.lies(ziel)["years"] == [2021, 2022, 2024], \
+        "sortiert und entdoppelt, wie jede Jahresliste im Projekt"
+
+
+def test_ohne_angabe_fehlt_der_schluessel_statt_leer_dazustehen(tmp_path):
+    """Leer heisst "nicht gesagt", nicht "keine Jahrgaenge" - geraten wird nichts.
+
+    Ein Manifest von vor dem 4.10.2026 nennt keine Jahre; genauso sieht eines
+    aus, dem der Aufrufer keine gab. ``[]`` dagegen waere eine Aussage, und
+    zwar eine falsche.
+    """
+    _, _, data_root = ablage(tmp_path, "local")
+    gebaut(data_root)
+    manifest = release.lies(bilde(data_root, jetzt=JETZT))
+    assert "years" not in manifest
+    assert manifest["release_id"] == KENNUNG, "alles andere steht wie vorher da"
+
+
 def test_jede_datei_traegt_eine_pruefsumme_die_stimmt(tmp_path):
     _, _, data_root = ablage(tmp_path, "local")
     gebaut(data_root)

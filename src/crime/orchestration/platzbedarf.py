@@ -24,6 +24,18 @@ einzeln:
    Basis. Basis je Jahrgang ist deshalb der **groesste** Lauf je Quelle und
    Vintage, nicht die Summe ihrer Laeufe.
 
+**Was die Basis abdeckt, muss erst heraus.** Eine Basis je Jahrgang entsteht
+nur, wenn aus den gemessenen Bytes herausgeteilt wird, was darin schon an
+Mehrjahrigkeit steckt - und das gibt es in zwei Dimensionen. Bei Census sind
+es die **Vintages** (``Basis.vintages``), bei den Taten die **Jahrgaenge**
+(``Basis.jahre``). Fuer ``raw`` und ``bronze`` bleibt die Jahres-Dimension
+leer, und das stimmt: Die Ingestion laeuft je Jahr, ein Lauf traegt einen
+Jahrgang. Fuer Silver, Gold, Serving und ein Release stimmte es bis zum
+4.10.2026 ebenfalls - dann baute der Mehrjahreslauf alle sechs Jahrgaenge in
+dieselben Dateien, und die Rechnung nahm sie trotzdem noch einmal mit 5,38:
+**9'345 MB statt 2'375 MB**. Derselbe Fehler, der bei den Vintages schon
+behoben war, eine Dimension daneben.
+
 Herausgekommen sind aus dem einen Faktor vier Regeln (``ERKLAERUNG``). Das
 Ergebnis steht erzeugt in ``docs/intern/platzbedarf.md``; geschrieben wird es
 von ``tools/build_platzbedarf.py``, das nichts anderes tut als dieses Modul
@@ -51,12 +63,14 @@ from typing import Any, NamedTuple
 
 from census_pipeline import vintages_for
 from chicago_pipeline.download_chicago import DEFAULT_YEAR
+from orchestration import LAUF_MANIFEST
 from orchestration.aufraeumen import RELEASES_N
 from silver_pipeline import STUDIENSTAEDTE
 from storage import (
     LAUFSCHICHTEN,
     Config,
     SCHICHTEN,
+    StorageError,
     TABELLENSCHICHTEN,
     Storage,
     for_root,
@@ -164,6 +178,12 @@ class Basis(NamedTuple):
     ``laeufe`` sagt, aus wie vielen Laeufen der Bestand dieser Quelle besteht -
     ``bytes`` ist der groesste davon, nicht ihre Summe. ``staende`` ist 1,
     ausser bei Releases: Dort bleiben ``RELEASES_N`` Kopien liegen.
+
+    ``vintages`` und ``jahre`` sagen beide, wie viel Mehrjahrigkeit in
+    ``bytes`` schon steckt - ``vintages`` in der Census-Dimension, ``jahre`` in
+    der Jahres-Dimension -, und ``_regel`` teilt beide wieder heraus. Ein
+    leeres ``jahre`` heisst "ein Jahrgang, naemlich ``basisjahr``" und ist das
+    Verhalten, mit dem das Modul begann, als es nur Einjahresbauten gab.
     """
 
     schicht: str
@@ -173,6 +193,7 @@ class Basis(NamedTuple):
     laeufe: int = 1
     vintages: int = 1
     staende: int = 1
+    jahre: tuple[int, ...] = ()
 
 
 class Hochgerechnet(NamedTuple):
@@ -190,6 +211,19 @@ class Zeilen(NamedTuple):
     je_stadt_und_jahr: dict[tuple[str, int], int]
     gemessen_am: str
     quellen: dict[str, str]
+
+
+class Laufstand(NamedTuple):
+    """Was ``data/pipeline_run.json`` ueber den letzten Gesamtlauf sagt.
+
+    ``jahre`` sind die Jahrgaenge, die er gebaut hat, ``release`` die Kennung
+    des Standes, den er dabei gebildet hat (leer, wenn er keinen bildete).
+    Beides leer heisst: Es gibt kein Protokoll, und dann rechnet jede
+    Tabellenschicht wieder mit einem Jahrgang als Basis.
+    """
+
+    jahre: tuple[int, ...] = ()
+    release: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -249,6 +283,66 @@ def regel_fuer(quelle: str) -> str:
         ) from None
 
 
+def _jahre_aus_liste(wert: Any) -> tuple[int, ...]:
+    """``[2021, 2022]`` zu ``(2021, 2022)`` - und alles andere zu ``()``.
+
+    Fremder Inhalt, auch wenn er aus dem eigenen Protokoll kommt: Ein Feld,
+    das nicht so aussieht wie erwartet, heisst hier "weiss ich nicht" und
+    nicht "Traceback".
+    """
+    if not isinstance(wert, list):
+        return ()
+    try:
+        return tuple(sorted({int(jahr) for jahr in wert}))
+    except (TypeError, ValueError):
+        return ()
+
+
+def _gelesen(ablage: Storage, *teile: str) -> dict[str, Any] | None:
+    """Ein kleines JSON aus der Ablage - oder ``None``, wenn es nichts hergibt.
+
+    Erst ``exists``, dann ``read_text``: Ohne die Frage vorher wirft der
+    ``s3``-Modus eine Transportausnahme fuer eine Datei, die einfach nicht da
+    ist. Jede Stoerung beim Lesen und jedes unlesbare JSON gelten hier als
+    "nicht da" - dieses Modul misst und rechnet, es prueft nichts.
+    """
+    if not ablage.exists(*teile):
+        return None
+    try:
+        gelesen = json.loads(ablage.read_text(*teile))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, StorageError):
+        return None
+    return gelesen if isinstance(gelesen, dict) else None
+
+
+def laufstand(ablage: Storage) -> Laufstand:
+    """Die Jahrgaenge des letzten Gesamtlaufs - gelesen, nicht geraten.
+
+    ``run_all`` schreibt am Ende ``data/pipeline_run.json`` und nennt darin
+    ``years`` (die gebauten Jahrgaenge) und ``release`` (den Stand, den er
+    gebildet hat). Genau das braucht die Rechnung: Eine Silver-Tabelle sagt von
+    sich aus nicht, wie viele Jahrgaenge in ihr stehen - sie ist eine Datei an
+    einem Pfad ohne ``year=``.
+
+    Gelesen wird **ueber die Ablage**, nicht ueber einen offenen Pfad: Im
+    ``s3``-Modus liegt das Protokoll oben wie alles andere, und ein
+    ``Path.open`` haette hier nur den ``local``-Modus bedient.
+
+    **Nichts davon ist Pflicht.** Fehlt die Datei, ist sie kaputt oder nennt
+    sie keine ``years``, kommt ein leerer ``Laufstand`` zurueck. Ein Abbruch
+    waere falsch: Die Hochrechnung soll auch in einem Klon laufen, in dem noch
+    kein Gesamtlauf lief, und ohne Protokoll gilt das alte Verhalten - ein
+    Jahrgang je Stand.
+    """
+    protokoll = _gelesen(ablage, LAUF_MANIFEST)
+    if protokoll is None:
+        return Laufstand()
+    freigabe = protokoll.get("release")
+    kennung = freigabe.get("release_id") if isinstance(freigabe, dict) else None
+    return Laufstand(_jahre_aus_liste(protokoll.get("years")),
+                     str(kennung) if kennung else "")
+
+
 def _je_eintrag(ablage: Storage, schicht: str) -> tuple[dict[str, int],
                                                         dict[str, set[str]]]:
     """Bytes je oberstem Eintrag unter ``schicht``, dazu dessen Vintages."""
@@ -286,6 +380,17 @@ def _laufschicht(ablage: Storage, schicht: str) -> list[Basis]:
     NOAA-Lauf unter zwei Stationen. Gruppiert wird deshalb ueber den
     Verzeichnisnamen des Laufs, und die Teile werden addiert - dieselbe
     Einteilung, die ``orchestration.aufraeumen`` trifft.
+
+    **Die Jahre bleiben leer, und hier ist das richtig.** ``jahre=()`` heisst
+    "ein Jahrgang" - und ein Lauf traegt genau einen: ``run_all`` entfaltet die
+    Ingestion je Jahr (``entfalte``, ``je="jahr"``) und ruft sie als
+    ``chicago_2021`` ... ``chicago_2026`` einzeln auf, Detroit ebenso; Detroits
+    Pfad schreibt den Jahrgang sogar als ``year=`` hin. ``max`` ueber die
+    Laeufe liefert deshalb einen Jahrgang und nicht sechs. Das ist der Teil,
+    der leicht wieder falsch wird: Sobald eine Quelle mehrere Jahrgaenge in
+    **einem** Lauf laedt, gehoeren deren Jahre hierhin, sonst rechnet
+    ``_regel`` sie ein zweites Mal hoch - genau der Fehler, den
+    ``_tabellenschicht`` am 4.10.2026 hatte.
     """
     je_quelle: dict[str, dict[tuple[str, str], int]] = {}
     for lauf in ablage.laeufe(schicht):
@@ -306,25 +411,65 @@ def _laufschicht(ablage: Storage, schicht: str) -> list[Basis]:
         gefunden.append(Basis(
             schicht, quelle, regel_fuer(quelle), sum(je_vintage.values()),
             laeufe=len({verzeichnis for _, verzeichnis in laeufe}),
-            vintages=len(je_vintage)))
+            vintages=len(je_vintage), jahre=()))
     return gefunden
 
 
-def _tabellenschicht(ablage: Storage, schicht: str) -> list[Basis]:
-    """Je Tabelle ihr jetziger Stand.
+def _tabellenschicht(ablage: Storage, schicht: str,
+                     jahre: tuple[int, ...] = ()) -> list[Basis]:
+    """Je Tabelle ihr jetziger Stand - und welche Jahrgaenge darin stehen.
 
-    Silver, Gold und Serving werden **ersetzt**, nicht angehaeuft - was
-    dasteht, ist genau ein Stand und damit schon die Basis je Jahrgang.
+    Silver, Gold und Serving werden **ersetzt**, nicht angehaeuft: Was
+    dasteht, ist genau ein Stand. Bis zum 4.10.2026 stand hier weiter, ein
+    Stand sei "damit schon die Basis je Jahrgang" - und das galt nur, solange
+    ein Lauf einen Jahrgang baute. Seit dem Mehrjahreslauf tragen dieselben
+    Dateien alle sechs, und die Rechnung nahm sie trotzdem noch einmal mit
+    5,38: 9'345 MB statt 2'375 MB. ``jahre`` teilt das wieder heraus, genau
+    wie ``vintages`` es fuer die Census-Dimension schon tat.
+
+    Woher die Jahre kommen, sagt ``laufstand``: aus ``pipeline_run.json``, denn
+    eine Silver-Tabelle liegt an einem Pfad ohne ``year=`` und sagt von sich
+    aus nichts darueber. Fehlen sie, bleibt es beim alten Verhalten.
     """
     bytes_je, vintages = _je_eintrag(ablage, schicht)
     return [
         Basis(schicht, eintrag, regel_fuer(eintrag), groesse,
-              vintages=max(len(vintages[eintrag]), 1))
+              vintages=max(len(vintages[eintrag]), 1), jahre=jahre)
         for eintrag, groesse in sorted(bytes_je.items())
     ]
 
 
-def _releases(ablage: Storage) -> list[Basis]:
+def _release_jahre(ablage: Storage, verzeichnis: str,
+                   stand: Laufstand) -> tuple[int, ...]:
+    """Welche Jahrgaenge ein Release-Stand abdeckt - belegt, sonst ``()``.
+
+    Zwei Wege, und der zweite nur mit Beweis:
+
+    1. ``release.json`` nennt seit dem 4.10.2026 selbst ``years``
+       (``storage.release.release_manifest``). Steht es da, gilt es - das ist
+       die direkte Auskunft des Standes ueber sich selbst.
+    2. Ein Stand von davor sagt es nicht: Sein Manifest kennt ``status``,
+       ``release_id``, ``created_at_utc``, ``code_version``,
+       ``contract_versions``, ``input_fingerprint``, ``derived_from``,
+       ``gate``, ``tables``, ``files`` und ``bytes`` - keine Jahre. Dann gelten
+       die Jahre aus ``pipeline_run.json``, **aber nur**, wenn dieses Protokoll
+       genau diesen Stand als sein Release benennt.
+
+    Sonst ``()``, und der Stand wird wie ein Jahrgang gerechnet. Geraten wird
+    nichts: Der groesste liegende Stand kann aus einem Einjahresbau stammen,
+    waehrend der letzte Lauf sechs Jahrgaenge baute - dann waere es die
+    Hochrechnung, die zu klein ausfaellt, und zu klein ist hier die
+    gefaehrliche Richtung.
+    """
+    manifest = _gelesen(ablage, release.RELEASES, verzeichnis,
+                        release.RELEASE_MANIFEST) or {}
+    if (eigene := _jahre_aus_liste(manifest.get("years"))):
+        return eigene
+    kennung = verzeichnis.removeprefix("release=")
+    return stand.jahre if stand.release and stand.release == kennung else ()
+
+
+def _releases(ablage: Storage, stand: Laufstand = Laufstand()) -> list[Basis]:
     """Der groesste Release-Stand, aufgeschluesselt nach seinem Inhalt.
 
     Ein Release ist kein Fass mit einer Groesse, sondern eine eingefrorene
@@ -334,6 +479,10 @@ def _releases(ablage: Storage) -> list[Basis]:
     wenig. Darum wird der Stand nach seinem Inhalt hochgerechnet und erst dann
     mit ``RELEASES_N`` genommen (``staende``). Gemessen wird der **groesste**
     Stand; die Staende unterscheiden sich untereinander um Zehntel-MB.
+
+    Welche Jahrgaenge dieser Stand abdeckt, sagt ``_release_jahre`` - und nur,
+    wenn es dafuer einen Beleg gibt. Ohne ihn wird er wie ein Jahrgang
+    gerechnet, so wie vor dem Mehrjahreslauf.
     """
     staende: dict[str, dict[str, int]] = {}
     daneben: dict[str, int] = {}
@@ -350,25 +499,34 @@ def _releases(ablage: Storage) -> list[Basis]:
 
     gefunden: list[Basis] = []
     if staende:
-        groesster = max(staende.values(), key=lambda inhalt: sum(inhalt.values()))
+        name_groesster, groesster = max(
+            staende.items(), key=lambda eintrag: sum(eintrag[1].values()))
+        jahre = _release_jahre(ablage, name_groesster, stand)
         for inhalt, groesse in sorted(groesster.items()):
             eintrag = inhalt.rsplit("/", 1)[-1]
             gefunden.append(Basis(release.RELEASES, inhalt, regel_fuer(eintrag),
                                   groesse, laeufe=len(staende),
-                                  staende=RELEASES_N))
+                                  staende=RELEASES_N, jahre=jahre))
     for name, groesse in sorted(daneben.items()):
         gefunden.append(Basis(release.RELEASES, name, regel_fuer(name), groesse))
     return gefunden
 
 
 def basis_je_jahrgang(ablage: Storage) -> tuple[Basis, ...]:
-    """Was ein Jahrgang je Quelle und Schicht kostet - die Eingabe der Rechnung."""
+    """Was ein Jahrgang je Quelle und Schicht kostet - die Eingabe der Rechnung.
+
+    Der ``Laufstand`` wird **einmal** gelesen und beiden Seiten gereicht: Die
+    Tabellenschichten tragen die Jahrgaenge des letzten Laufs, ein Release nur
+    dann, wenn es sich als dessen Stand ausweist. Die Laufschichten brauchen
+    ihn nicht - dort traegt ein Lauf einen Jahrgang.
+    """
+    stand = laufstand(ablage)
     gefunden: list[Basis] = []
     for schicht in LAUFSCHICHTEN:
         gefunden.extend(_laufschicht(ablage, schicht))
     for schicht in TABELLENSCHICHTEN:
-        gefunden.extend(_tabellenschicht(ablage, schicht))
-    gefunden.extend(_releases(ablage))
+        gefunden.extend(_tabellenschicht(ablage, schicht, stand.jahre))
+    gefunden.extend(_releases(ablage, stand))
     return tuple(gefunden)
 
 
@@ -429,6 +587,9 @@ def hochrechnung(basis: tuple[Basis, ...], jahre: tuple[int, ...],
     Fehlt fuer ein Jahr eine gemessene Zeilenzahl, bricht das ab und nennt
     Stadt und Jahr: Ein stillschweigend uebersprungenes Jahr waere eine zu
     kleine Zahl, und eine zu kleine Zahl ist hier die gefaehrliche Richtung.
+    Dasselbe gilt fuer die Jahrgaenge, die eine Basis schon abdeckt
+    (``Basis.jahre``) - ohne ihre Zeilen laesst sich kein Jahrgang
+    herausteilen.
     """
     jahre = tuple(sorted(set(jahre)))
     if not jahre:
@@ -445,6 +606,19 @@ def hochrechnung(basis: tuple[Basis, ...], jahre: tuple[int, ...],
             f"Keine gemessene Zeilenzahl fuer das Basisjahr "
             f"({', '.join(basisjahr_fehlt)}) - ohne sie gibt es keine Bytes "
             f"je Zeile."
+        )
+    # Dasselbe fuer die Jahrgaenge, die in den gemessenen Artefakten schon
+    # drinstecken: Ohne ihre Zeilen laesst sich die Basis je Jahrgang nicht
+    # herausteilen. Sie einfach weglassen hiesse, die Bytes auf zu wenige
+    # Zeilen zu verteilen - also zu viele Bytes je Zeile und eine zu grosse
+    # Hochrechnung.
+    abgedeckt = tuple(sorted({jahr for b in basis for jahr in b.jahre}))
+    if (deckung_fehlt := _fehlende_zeilen(abgedeckt, zeilen)):
+        raise SystemExit(
+            f"Keine gemessene Zeilenzahl fuer {', '.join(deckung_fehlt)} - "
+            f"diese Jahrgaenge liegen gebaut da (data/{LAUF_MANIFEST}), also "
+            f"gehoeren sie mit Messdatum und Adresse in "
+            f"config/{ZEILEN_DATEI}."
         )
 
     noetige_vintages = vintages_for(jahre)
@@ -487,7 +661,13 @@ def _regel(b: Basis, jahre: tuple[int, ...], zeilen: Zeilen, basisjahr: int,
                         f"{je_vintage / 1e6:.1f} MB je Vintage")
 
     staedte = _staedte(b.quelle)
-    hier = sum(zeilen.je_stadt_und_jahr[(s, basisjahr)] for s in staedte)
+    # Die Jahres-Dimension, das Gegenstueck zu ``vintages`` darueber: Geteilt
+    # wird durch die Zeilen der Jahrgaenge, die in ``bytes`` schon stecken -
+    # nicht durch die des Basisjahrs. Ein fest angenommenes Basisjahr nahm die
+    # sechs Jahrgaenge eines Silver-Standes noch einmal mit 5,38. Leer heisst
+    # ein Jahrgang, naemlich das Basisjahr, und damit das alte Verhalten.
+    abgedeckt = b.jahre or (basisjahr,)
+    hier = sum(zeilen.je_stadt_und_jahr[(s, j)] for s in staedte for j in abgedeckt)
     dort = sum(zeilen.je_stadt_und_jahr[(s, j)] for s in staedte for j in jahre)
     return dort / hier, (f"{dort:,} Zeilen x {b.bytes / hier:.1f} Bytes je "
                          f"Zeile".replace(",", "'"))
@@ -588,7 +768,13 @@ def zeige(schichten: tuple[Schicht, ...], gerechnet: tuple[Hochgerechnet, ...],
         return
 
     bereich = f"{jahre[0]}-{jahre[-1]}" if len(jahre) > 1 else str(jahre[0])
-    print(f"\nHochrechnung auf {bereich}, Basis {BASISJAHR} "
+    # Welche Jahrgaenge gebaut daliegen, gehoert in die Kopfzeile: "Basis 2024"
+    # allein hiesse, die Tabellenschichten traegen einen Jahrgang - und genau
+    # diese Annahme war der Fehler, den ``Basis.jahre`` behebt.
+    abgedeckt = tuple(sorted({jahr for h in gerechnet for jahr in h.basis.jahre}))
+    gebaut = (f", gebaut liegen {abgedeckt[0]}-{abgedeckt[-1]}"
+              if len(abgedeckt) > 1 else "")
+    print(f"\nHochrechnung auf {bereich}, Basis {BASISJAHR}{gebaut} "
           f"(Zeilen gemessen am {zeilen.gemessen_am})")
     for name, (jetzt, dann) in je_regel(gerechnet).items():
         print(f"  {name:<10} {ERKLAERUNG[name]}")

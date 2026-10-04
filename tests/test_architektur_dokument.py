@@ -160,7 +160,13 @@ def test_die_testzahlen_stimmen_mit_dem_readme(teil_a):
 
 
 def test_die_referenzzahlen_stimmen_mit_den_uebrigen_dokumenten(teil_a):
-    """347'957 und 344'617 - der gepinnte Stand, nicht der gebaute."""
+    """Der gepinnte Stand, nicht der gebaute - und an beiden Stellen derselbe.
+
+    Die Muster verlangen nebenbei, dass beide Dokumente ihre Ratenzeilen
+    gleich beschriften (``| Chicago |``). Das Jahr, fuer das sie gelten, steht
+    in dem Satz darueber, nicht in der Zeile - sonst zerfaellt genau dieser
+    Abgleich, und ``orchestration.drift`` liest denselben Kopfabschnitt.
+    """
     aenderungen = (PROJECT_ROOT / "docs" / "intern" / "AENDERUNGEN.md").read_text(encoding="utf-8")
     for muster_hier, muster_dort in (
         (r"Bei ([\d']+) Zeilen liegt jede realistische", r"`gold/fact_offense` \| \*\*([\d']+)\*\*"),
@@ -258,7 +264,7 @@ def test_der_einseiter_traegt_dieselben_zahlen(blatt, text):
     # Diese Liste ist von Hand gefuehrt und muss nach einem Neubau mitgezogen
     # werden - sie sagt, **welche** Zahlen an beiden Stellen stehen muessen,
     # und das laesst sich aus den Daten nicht ableiten.
-    for wert in ("348'329", "345'091", "94,5", "132,7", "42 Kontrollen",
+    for wert in ("1'875'378", "1'851'950", "94,5", "133,1", "42 Kontrollen",
                  "1'055", "23,3 %", "55,9 %"):
         assert wert in blatt, f"{wert} fehlt im Einseiter"
         assert wert in text or wert.replace("'", "") in text, (

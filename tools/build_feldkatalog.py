@@ -374,12 +374,46 @@ JE_TABELLE: dict[tuple[str, str], str] = {
 }
 
 
-def manifeste() -> list[tuple[str, str, dict]]:
-    """Jede gebaute Tabelle mit ihrem Manifest, nach Schicht und Name sortiert."""
-    return [
-        (t.schicht, t.name, t.manifest)
-        for t in tabellen(PROJECT_ROOT / "data", SCHICHTEN)
-    ]
+def manifeste() -> list[tuple[str, str, dict, int]]:
+    """Jede gebaute Tabelle mit ihrem Manifest, nach Schicht und Name sortiert.
+
+    **Eine Tabelle, ein Eintrag** - auch wenn sie unter mehreren ``vintage=``
+    liegt. ``manifeste.tabellen`` findet je Vintage ein Manifest, und das ist
+    dort richtig: Jedes beschreibt seinen eigenen Stand. Fuer einen *Katalog*
+    ist es falsch. Am 4.10.2026, nach dem Bau mit vier ACS-Vintages, stand
+    ``place`` viermal und ``tract`` viermal im Dokument, mit gleichen Spalten
+    und verschiedenen Zeilenzahlen - "285 Spalten in 21 Tabellen" statt 192 in
+    15. Der Katalog sagt, was eine Spalte **bedeutet**; das haengt nicht am
+    Jahrgang.
+
+    Zusammengelegt wird nur, was zusammenpasst: Weichen die Spalten zweier
+    Vintages voneinander ab, bricht der Lauf ab und nennt die Tabelle. Dann ist
+    nicht der Katalog zu glaetten, sondern ein Stand neu zu bauen.
+
+    Die vierte Stelle je Eintrag ist die Zahl der Vintages - das Dokument
+    schreibt sie neben die Zeilenzahl, damit "25'128 Zeilen" nicht wie eine
+    Zeile je Tract aussieht.
+    """
+    je: dict[tuple[str, str], list] = {}
+    for tab in tabellen(PROJECT_ROOT / "data", SCHICHTEN):
+        schluessel = (tab.schicht, tab.name)
+        if schluessel not in je:
+            je[schluessel] = [dict(tab.manifest), 1]
+            continue
+        erster, anzahl = je[schluessel]
+        if erster.get("schema") != tab.manifest.get("schema"):
+            raise SystemExit(
+                f"{tab.schicht}/{tab.name} hat in zwei Vintages verschiedene "
+                "Spalten. Der Katalog beschreibt eine Tabelle, nicht einen "
+                "Stand - zuerst neu bauen."
+            )
+        zeilen = tab.manifest.get("row_count") or tab.manifest.get("rows") or 0
+        bisher = erster.get("row_count") or erster.get("rows") or 0
+        erster["row_count"] = bisher + zeilen
+        erster.pop("rows", None)
+        je[schluessel] = [erster, anzahl + 1]
+    return [(schicht, name, m, n)
+            for (schicht, name), (m, n) in sorted(je.items())]
 
 
 def beschreibung(tabelle: str, spalte: str) -> str | None:
@@ -396,7 +430,7 @@ def baue() -> str:
 
     fehlend = [
         (schicht, name, spalte)
-        for schicht, name, m in tabellen
+        for schicht, name, m, _ in tabellen
         for spalte in m.get("schema", {})
         if beschreibung(name, spalte) is None
     ]
@@ -408,7 +442,7 @@ def baue() -> str:
             "Spalte ueberall dasselbe bedeutet, sonst in JE_TABELLE."
         )
 
-    spalten_gesamt = sum(len(m.get("schema", {})) for _, _, m in tabellen)
+    spalten_gesamt = sum(len(m.get("schema", {})) for _, _, m, _ in tabellen)
     teile = [
         "# Feldkatalog",
         "",
@@ -433,17 +467,22 @@ def baue() -> str:
     ]
 
     for schicht in SCHICHTEN:
-        dieser = [(n, m) for s, n, m in tabellen if s == schicht]
+        dieser = [(n, m, v) for s, n, m, v in tabellen if s == schicht]
         if not dieser:
             continue
         teile += [f"## {schicht}", ""]
-        for name, m in dieser:
+        for name, m, vintages in dieser:
             granularitaet = m.get("grain", "—")
             zeilen = m.get("row_count") or m.get("rows")
             kopf = f"### `{name}`"
             teile += [kopf, ""]
+            # Ueber mehrere Vintages ist die Zeilenzahl eine Summe. Ohne den
+            # Zusatz liest sie sich wie eine Zeile je Schluessel, und genau
+            # das ist sie dann nicht.
+            ueber = (f" {zeilen:,} Zeilen über {vintages} Vintages."
+                     if vintages > 1 else f" {zeilen:,} Zeilen.")
             teile.append(f"Eine Zeile ist: **{granularitaet}**."
-                         + (f" {zeilen:,} Zeilen.".replace(",", "'") if zeilen else ""))
+                         + (ueber.replace(",", "'") if zeilen else ""))
             teile += ["", "| Spalte | Typ | Bedeutung |", "| --- | --- | --- |"]
             for spalte, typ in m.get("schema", {}).items():
                 teile.append(
