@@ -564,3 +564,173 @@ def test_eine_unfertige_tabelle_zaehlt_nicht_als_gebaut(tmp_path):
     fake.put("gold/dataset=fact_offense/manifest.json",
              b'{"status": "complete", "row_count": 9}')
     assert [t.name for t in storage.tabellen()] == ["fact_offense"]
+
+
+# --------------------------------------------------------------------------
+# Loeschen (seit 4.10.2026)
+#
+# Das Protokoll kannte bis hierher ``head``, ``get``, ``put`` und ``list``.
+# ``delete`` kam dazu, weil ``orchestration.aufraeumen`` seither auch
+# Releases raeumt und die oben liegen (``docs/intern/datenhistorie.md`` 5.5).
+# Fuer Laeufe und Tabellen gilt es nicht - die bleiben unveraenderlich.
+# --------------------------------------------------------------------------
+
+
+def test_das_protokoll_und_beide_klienten_kennen_delete():
+    """Sonst waere eine Ablage ohne ``delete`` noch ein gueltiger S3Client.
+
+    Geprueft wird das Protokoll selbst und beide Umsetzungen. Nicht ueber
+    ``__protocol_attrs__`` - das gibt es erst ab Python 3.12, und die Suite
+    laeuft auch auf 3.11.
+    """
+    from storage import S3Client
+    from storage.backend import Boto3Client
+
+    for traeger in (S3Client, Boto3Client, FakeS3Client):
+        assert callable(getattr(traeger, "delete", None)), traeger.__name__
+
+
+def test_der_fake_loescht_und_merkt_sich_was(tmp_path):
+    _, fake = ablage(tmp_path, "s3")
+    fake.put("releases/release=A/release.json", b"{}")
+    fake.put("releases/release=B/release.json", b"{}")
+    fake.delete("releases/release=A/release.json")
+    assert sorted(fake.objekte) == ["releases/release=B/release.json"]
+    assert fake.geloescht == ["releases/release=A/release.json"]
+
+
+def test_der_fake_nimmt_einen_fehlenden_schluessel_hin(tmp_path):
+    """Wie S3: DELETE auf einen fehlenden Schluessel ist 204, nicht 404.
+
+    Daran haengt, dass ein abgebrochener Lauf wiederholbar ist.
+    """
+    _, fake = ablage(tmp_path, "s3")
+    fake.delete("releases/release=gibtsnicht/release.json")
+    assert fake.objekte == {}
+
+
+def test_boto3_delete_ruft_delete_object():
+    from storage.backend import Boto3Client
+
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s"))
+    gesehen = []
+
+    class Mitschrift:
+        def delete_object(self, **kw):
+            gesehen.append((kw["Bucket"], kw["Key"]))
+            return {}
+
+    client._client = Mitschrift()
+    client.delete("releases/release=A/release.json")
+    assert gesehen == [("urban-crime", "releases/release=A/release.json")]
+
+
+def test_boto3_delete_wird_bei_einem_aussetzer_wiederholt(monkeypatch):
+    from botocore.exceptions import ClientError
+
+    from storage import StorageError, backend
+    from storage.backend import Boto3Client
+
+    pausen = []
+    monkeypatch.setattr(backend.time, "sleep", pausen.append)
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s"))
+
+    class Stur:
+        def delete_object(self, **kw):
+            raise ClientError({"Error": {"Code": "503"}}, "DeleteObject")
+
+    client._client = Stur()
+    with pytest.raises(StorageError, match="503"):
+        client.delete("releases/release=A/release.json")
+    assert len(pausen) == backend.VERSUCHE - 1
+
+
+def test_entferne_oben_leert_ein_praefix_vollstaendig(tmp_path):
+    storage, fake = ablage(tmp_path, "hybrid")
+    for name in ("release.json", "gold/dataset=fact_offense/part-0001.parquet",
+                 "serving/analyse.duckdb"):
+        fake.put(f"releases/release=A/{name}", b"x")
+    fake.put("releases/release=B/release.json", b"{}")
+    fake.put("releases/AKTUELL.json", b"{}")
+
+    weg = storage.entferne_oben("releases/release=A")
+    assert len(weg) == 3
+    assert sorted(fake.objekte) == ["releases/AKTUELL.json",
+                                    "releases/release=B/release.json"]
+
+
+def test_entferne_oben_laesst_lokal_alles_stehen(tmp_path):
+    storage, fake = ablage(tmp_path, "hybrid")
+    fake.put("releases/release=A/release.json", b"{}")
+    lokal = lokal_schreiben(storage, "releases/release=A/release.json", b"{}")
+    assert storage.entferne_oben("releases/release=A") == \
+        ["releases/release=A/release.json"]
+    assert lokal.is_file(), "entferne_oben raeumt nur oben"
+
+
+def test_entferne_oben_trifft_kein_praefix_das_nur_fast_passt(tmp_path):
+    """``release=2026-10-03`` darf ``release=2026-10-03T19-53-12Z`` nicht mitnehmen.
+
+    Ohne den abschliessenden ``/`` waere das ein Praefixtreffer - und ein
+    Release zu viel weg, ohne dass es jemand verlangt hat.
+    """
+    storage, fake = ablage(tmp_path, "hybrid")
+    fake.put("releases/release=2026-10-03/release.json", b"{}")
+    fake.put("releases/release=2026-10-03T19-53-12Z/release.json", b"{}")
+    assert storage.entferne_oben("releases/release=2026-10-03") == \
+        ["releases/release=2026-10-03/release.json"]
+    assert "releases/release=2026-10-03T19-53-12Z/release.json" in fake.objekte
+
+
+def test_entferne_oben_lehnt_ein_leeres_praefix_ab(tmp_path):
+    """Ohne Praefix waere es der ganze Bucket."""
+    storage, fake = ablage(tmp_path, "hybrid")
+    fake.put("releases/release=A/release.json", b"{}")
+    with pytest.raises(PublishError, match="braucht ein Praefix"):
+        storage.entferne_oben("")
+    assert fake.objekte
+
+
+def test_zuletzt_schiebt_das_manifest_ans_ende(tmp_path):
+    """Sortiert liegt ``release.json`` mitten drin: gold/ < release.json < serving/."""
+    storage, fake = ablage(tmp_path, "hybrid")
+    for name in ("gold/part-0001.parquet", "release.json", "serving/analyse.duckdb"):
+        fake.put(f"releases/release=A/{name}", b"x")
+    assert storage.entferne_oben("releases/release=A", zuletzt="release.json") == [
+        "releases/release=A/gold/part-0001.parquet",
+        "releases/release=A/serving/analyse.duckdb",
+        "releases/release=A/release.json",
+    ]
+
+
+def test_entferne_oben_bricht_beim_ersten_fehler_ab(tmp_path):
+    """Was weg ist, bleibt weg; der Rest bleibt stehen - und ist **auffindbar**.
+
+    Entscheidend ist, dass ``release.json`` den Abbruch ueberlebt:
+    ``release.liste`` erkennt ein Release nur daran. Ohne das Manifest waere
+    das halb geleerte Praefix unsichtbar, und ein zweiter Lauf fuende es nicht
+    mehr - die ``analyse.duckdb`` laege fuer immer oben.
+    """
+    class Zickig(FakeS3Client):
+        def delete(self, key: str) -> None:
+            if key.endswith("serving/analyse.duckdb"):
+                raise RuntimeError("SeaweedFS lehnt ab")
+            super().delete(key)
+
+    fake = Zickig()
+    storage = Storage(Config(backend="hybrid", local_root=tmp_path / "data",
+                             s3_access_key="k", s3_secret_key="s"), fake)
+    for name in ("gold/part-0001.parquet", "release.json", "serving/analyse.duckdb"):
+        fake.put(f"releases/release=A/{name}", b"x")
+
+    with pytest.raises(RuntimeError):
+        storage.entferne_oben("releases/release=A", zuletzt="release.json")
+    assert sorted(fake.objekte) == ["releases/release=A/release.json",
+                                    "releases/release=A/serving/analyse.duckdb"]
+
+
+def test_entferne_oben_geht_im_lokalen_modus_nicht(tmp_path):
+    storage, _ = ablage(tmp_path, "local")
+    storage._client = None          # kein untergeschobener Fake
+    with pytest.raises(PublishError, match="kennt kein S3"):
+        storage.entferne_oben("releases/release=A")

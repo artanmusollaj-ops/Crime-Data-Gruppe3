@@ -384,8 +384,12 @@ weil ein Release unveränderlich ist, kann eine Kopie darin nicht veralten.
 
 Ebenfalls lokal: `data/pipeline_run.json` (das Protokoll des letzten
 Gesamtlaufs), `data/drift.json` und alle `.part`/`.partial`-Verzeichnisse.
-`orchestration.aufraeumen` räumt ausschliesslich lokal auf — SeaweedFS wird
-davon nie berührt.
+`orchestration.aufraeumen` räumt Raw- und Bronze-**Läufe** ausschliesslich
+lokal auf — SeaweedFS wird davon nie berührt. Einzige Ausnahme seit dem
+4.10.2026 sind entbehrliche **Releases**: Sie liegen oben als der gemeinsame
+Stand, und die Behalteregel (*gepinnt plus die letzten acht*) gilt dort
+genauso. Auch die gehen oben erst mit `--loeschen --auch-fern` weg — zwei
+Schalter, weil ein Löschen im Bucket jede Maschine betrifft, die davon liest.
 
 ---
 
@@ -438,7 +442,12 @@ Am bequemsten über die Standardablage (`from storage import …`):
 
 Auf dem `Storage`-Objekt zusätzlich: `laeufe()`, `tabellen()`,
 `publish_run()`, `publish_table()`, `publish_files()`, `vergleiche_stand()`,
-`entfernter_stand()`, `relativ()`, `mit_wurzel()`.
+`entfernter_stand()`, `relativ()`, `mit_wurzel()` — und `entferne_oben(prefix)`,
+die **einzige**, die Daten aus dem geteilten Bucket entfernt: Sie zählt über
+`list` auf, löscht `zuletzt` benanntes am Ende (für ein Release das
+`release.json`, damit ein Abbruch es nicht unsichtbar macht), lehnt einen
+leeren Präfix ab und bricht beim ersten Fehler ab. Gebraucht wird sie von
+`orchestration.aufraeumen --loeschen --auch-fern`.
 
 `get_storage()` liest die Konfiguration einmal und merkt sie sich.
 `for_root(data_root)` liefert dieselbe Ablage mit anderer lokaler Wurzel —

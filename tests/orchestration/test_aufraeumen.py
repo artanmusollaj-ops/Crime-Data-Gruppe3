@@ -362,3 +362,489 @@ def test_gepinnt_wird_nur_was_es_gibt(tmp_path):
     lauf(tmp_path, "city=chicago", "run_01", wann="2026-09-01T10:00:00")
     gold(tmp_path, [{"derived_from": {"chicago_bronze_runs": ["run_01", "run_weg"]}}])
     assert au.pinne(tmp_path, tmp_path / "config", "LN1") == ["run_01"]
+
+
+# --------------------------------------------------------------------------
+# Releases: gepinnt plus die letzten acht (seit 4.10.2026)
+#
+# Die zweite Regel, eine Schicht hoeher. Sie ist gefaehrlicher als die fuer
+# Laeufe: Releases liegen auf SeaweedFS als der gemeinsame Stand, und ein
+# Loeschen dort betrifft jede Maschine, die vom Bucket liest. Deshalb steht
+# hier jede Zeile der Entscheidungsmatrix als eigener Test - und zuerst die
+# beiden Zusagen, die ueber allen stehen: **ohne ``--loeschen`` passiert
+# nichts, und ohne ``--auch-fern`` passiert oben nichts.**
+# --------------------------------------------------------------------------
+
+from storage import Config, FakeS3Client, Storage, set_storage   # noqa: E402
+
+RELEASE_DATEIEN = ("gold/dataset=fact_offense/part-0001.parquet",
+                   "serving/analyse.duckdb")
+
+
+def release_manifest(kennung: str, *, bytes_: int) -> str:
+    return json.dumps({
+        "release_id": kennung,
+        "created_at_utc": kennung.replace("T", "T").replace("-", "-"),
+        "bytes": bytes_,
+        "status": "complete",
+    })
+
+
+def release_lokal(data_root: Path, kennung: str, *, bytes_: int = 1_000_000) -> Path:
+    ordner = data_root / "releases" / f"release={kennung}"
+    for name in RELEASE_DATEIEN:
+        pfad = ordner / name
+        pfad.parent.mkdir(parents=True, exist_ok=True)
+        pfad.write_bytes(b"x" * 100)
+    (ordner / "release.json").write_text(release_manifest(kennung, bytes_=bytes_),
+                                         encoding="utf-8")
+    return ordner
+
+
+def release_oben(fake: FakeS3Client, kennung: str, *, bytes_: int = 1_000_000) -> str:
+    praefix = f"releases/release={kennung}"
+    for name in RELEASE_DATEIEN:
+        fake.put(f"{praefix}/{name}", b"x" * 100)
+    fake.put(f"{praefix}/release.json",
+             release_manifest(kennung, bytes_=bytes_).encode("utf-8"))
+    return praefix
+
+
+def zeiger(data_root: Path, kennung: str) -> None:
+    ordner = data_root / "releases"
+    ordner.mkdir(parents=True, exist_ok=True)
+    (ordner / "AKTUELL.json").write_text(json.dumps({
+        "release_id": kennung,
+        "created_at_utc": kennung,
+        "path": f"releases/release={kennung}",
+    }), encoding="utf-8")
+
+
+def ablage(data_root: Path) -> tuple[Storage, FakeS3Client]:
+    """Hybrid: lokal **und** oben, wie der Rechner, auf dem geraeumt wird."""
+    fake = FakeS3Client()
+    hier = Storage(Config(backend="hybrid", local_root=data_root,
+                          s3_access_key="k", s3_secret_key="s"), fake)
+    set_storage(hier)
+    return hier, fake
+
+
+def kennungen(n: int, *, ab: int = 1) -> list[str]:
+    """``n`` Release-Kennungen, aelteste zuerst - die Kennung sortiert selbst."""
+    return [f"2026-09-{tag:02d}T12-00-00Z" for tag in range(ab, ab + n)]
+
+
+def rel_gruende(storage, config_root=None) -> dict[str, str | None]:
+    entscheide, _ = au.release_bericht(storage, config_root)
+    return {e.release_.release_id: e.grund for e in entscheide}
+
+
+# -- Zeile 1: Trockenlauf ---------------------------------------------------
+
+
+def test_der_trockenlauf_nennt_je_release_einen_grund_und_loescht_nichts(
+        tmp_path, monkeypatch, capsys):
+    """Die Zusage ueber allen anderen - auch fuer Releases."""
+    _, fake = ablage(tmp_path)
+    alle = kennungen(12)
+    for k in alle:
+        release_oben(fake, k)
+    for k in alle[-8:]:
+        release_lokal(tmp_path, k)
+    zeiger(tmp_path, alle[-1])
+
+    vorher_lokal = sorted(p for p in tmp_path.rglob("*") if p.is_file())
+    vorher_oben = sorted(fake.objekte)
+    monkeypatch.setattr(sys, "argv", ["aufraeumen"])
+    assert au.main() == 0
+
+    assert sorted(p for p in tmp_path.rglob("*") if p.is_file()) == vorher_lokal
+    assert sorted(fake.objekte) == vorher_oben and fake.geloescht == []
+    out = capsys.readouterr().out
+    assert "12 Releases, 4 entbehrlich" in out
+    assert "MB frei" in out and "ENTBEHRLICH" in out
+    assert "Nichts geloescht" in out
+    # Je Release eine Zeile, und ``wo`` steht dabei.
+    for k in alle:
+        assert k in out
+    assert "lokal" in out and "beide" in out and "oben" in out
+
+
+# -- Zeile 2: Gepinnt bleibt ------------------------------------------------
+
+
+def test_ein_gepinntes_release_bleibt_auch_als_aeltestes(tmp_path):
+    storage, fake = ablage(tmp_path)
+    alle = kennungen(12)
+    for k in alle:
+        release_oben(fake, k)
+    zeiger(tmp_path, alle[-1])
+    config = tmp_path / "config"
+    register(config, alle[0], grund="referenzstand")
+
+    gruende_ = rel_gruende(storage, config)
+    assert gruende_[alle[0]] == au.GEPINNT
+    assert gruende_[alle[1]] is None, "nur das gepinnte, nicht seine Nachbarn"
+
+
+def test_auch_der_verzeichnisname_zaehlt_als_pin(tmp_path):
+    """``release=<Kennung>`` steht im Register genauso gut wie die Kennung.
+
+    Dasselbe Zugestaendnis, das ``ist_gepinnt`` fuer Laeufe schon macht:
+    Chicago schreibt ``run_<Zeit>``, Detroit die nackte UUID - und ein Release
+    heisst in den Pfaden ``release=<Kennung>``.
+    """
+    storage, fake = ablage(tmp_path)
+    alle = kennungen(12)
+    for k in alle:
+        release_oben(fake, k)
+    config = tmp_path / "config"
+    register(config, f"release={alle[0]}", grund="referenzstand")
+    assert rel_gruende(storage, config)[alle[0]] == au.GEPINNT
+
+
+# -- Zeile 3: Der aktuelle Zeiger ------------------------------------------
+
+
+def test_das_release_des_zeigers_bleibt_auch_ausserhalb_der_letzten_acht(tmp_path):
+    """Fuenf Verbraucher loesen ueber ``AKTUELL.json`` auf, keiner sortiert."""
+    storage, fake = ablage(tmp_path)
+    alle = kennungen(12)
+    for k in alle:
+        release_oben(fake, k)
+    zeiger(tmp_path, alle[0])          # der aelteste ist der aktuelle
+
+    gruende_ = rel_gruende(storage)
+    assert gruende_[alle[0]] == au.AKTUELL
+    assert gruende_[alle[-1]] == au.JUENGSTE_N
+    bleiben = [k for k, g in gruende_.items() if g is not None]
+    assert len(bleiben) == au.RELEASES_N + 1
+
+
+def test_das_entbehrliche_release_des_zeigers_wird_nicht_geloescht(tmp_path, monkeypatch):
+    _, fake = ablage(tmp_path)
+    alle = kennungen(12)
+    for k in alle:
+        release_oben(fake, k)
+        release_lokal(tmp_path, k)
+    zeiger(tmp_path, alle[0])
+    monkeypatch.setattr(sys, "argv", ["aufraeumen", "--loeschen", "--auch-fern"])
+    assert au.main() == 0
+    assert (tmp_path / "releases" / f"release={alle[0]}").is_dir()
+    assert f"releases/release={alle[0]}/release.json" in fake.objekte
+
+
+# -- Zeile 4: Nur lokal -----------------------------------------------------
+
+
+def test_loeschen_ohne_auch_fern_raeumt_lokal_und_laesst_seaweedfs(
+        tmp_path, monkeypatch, capsys):
+    _, fake = ablage(tmp_path)
+    alle = kennungen(10)
+    for k in alle:
+        release_oben(fake, k)
+        release_lokal(tmp_path, k)
+    zeiger(tmp_path, alle[-1])
+    oben_vorher = sorted(fake.objekte)
+
+    monkeypatch.setattr(sys, "argv", ["aufraeumen", "--loeschen"])
+    assert au.main() == 0
+
+    assert not (tmp_path / "releases" / f"release={alle[0]}").exists()
+    assert not (tmp_path / "releases" / f"release={alle[1]}").exists()
+    for k in alle[2:]:
+        assert (tmp_path / "releases" / f"release={k}").is_dir()
+    assert sorted(fake.objekte) == oben_vorher, "oben darf nichts fehlen"
+    assert fake.geloescht == []
+    out = capsys.readouterr().out
+    assert "2 Release(s) lokal geloescht, 2.0 MB frei." in out
+    assert "Auf SeaweedFS unveraendert: 2 entbehrliche Release(s), 2.0 MB" in out
+    assert "dafuer braucht es --auch-fern" in out
+
+
+def test_ein_release_das_nur_oben_liegt_wird_nicht_als_frei_gemeldet(
+        tmp_path, monkeypatch, capsys):
+    """Ohne lokales Verzeichnis laeuft kein ``rmtree`` - also ist nichts frei.
+
+    Die erste Fassung las die Summe aus der Entscheidungsliste statt aus dem,
+    was wirklich wegging, und meldete die vollen MB als frei, waehrend der
+    Hinweis darunter das Gegenteil sagte.
+    """
+    _, fake = ablage(tmp_path)
+    alle = kennungen(10)
+    for k in alle:
+        release_oben(fake, k)          # nur oben, nichts lokal
+    zeiger(tmp_path, alle[-1])
+
+    monkeypatch.setattr(sys, "argv", ["aufraeumen", "--loeschen"])
+    assert au.main() == 0
+    out = capsys.readouterr().out
+    assert "0 Release(s) lokal geloescht, 0.0 MB frei." in out
+    assert "Auf SeaweedFS unveraendert: 2 entbehrliche Release(s), 2.0 MB" in out
+    assert fake.geloescht == []
+
+
+def test_auch_fern_wird_ohne_s3_abgelehnt_bevor_etwas_weg_ist(
+        tmp_path, monkeypatch, capsys):
+    """STORAGE_BACKEND=local ist die Vorgabe - ein Satz, kein Traceback.
+
+    Geprueft wird **vor** dem ersten Loeschen: ``loesche_releases`` nimmt das
+    lokale Verzeichnis weg, bevor es nach oben greift, und ``storage.client``
+    wirft unter ``local``. Die Reihenfolge entschied darueber, ob ein
+    abgelehnter Lauf folgenlos ist.
+    """
+    set_storage(Storage(Config(backend="local", local_root=tmp_path)))
+    alle = kennungen(10)
+    for k in alle:
+        release_lokal(tmp_path, k)
+    zeiger(tmp_path, alle[-1])
+    vorher = sorted(p for p in tmp_path.rglob("*") if p.is_file())
+
+    monkeypatch.setattr(sys, "argv", ["aufraeumen", "--loeschen", "--auch-fern"])
+    assert au.main() == 2
+    assert sorted(p for p in tmp_path.rglob("*") if p.is_file()) == vorher
+    out = capsys.readouterr().out
+    assert "--auch-fern braucht eine Ablage mit S3" in out
+    assert "Nichts geloescht" in out
+
+
+# -- Zeile 5: Fern ----------------------------------------------------------
+
+
+def test_loeschen_mit_auch_fern_raeumt_beide_orte_ganz(tmp_path, monkeypatch, capsys):
+    _, fake = ablage(tmp_path)
+    alle = kennungen(10)
+    for k in alle:
+        release_oben(fake, k)
+        release_lokal(tmp_path, k)
+    zeiger(tmp_path, alle[-1])
+
+    monkeypatch.setattr(sys, "argv", ["aufraeumen", "--loeschen", "--auch-fern"])
+    assert au.main() == 0
+
+    for k in alle[:2]:
+        assert not (tmp_path / "releases" / f"release={k}").exists()
+        assert not [s for s in fake.objekte if f"release={k}/" in s], \
+            "je Release alle Objekte, nicht nur das Manifest"
+    for k in alle[2:]:
+        assert (tmp_path / "releases" / f"release={k}").is_dir()
+        assert len([s for s in fake.objekte if f"release={k}/" in s]) == 3
+    out = capsys.readouterr().out
+    assert "2 Release(s) lokal geloescht, 2.0 MB frei." in out
+    assert "2 Release(s) auf SeaweedFS geloescht (6 Objekte), 2.0 MB frei." in out
+
+
+def test_der_zeiger_selbst_wird_nie_angefasst(tmp_path, monkeypatch):
+    """``releases/AKTUELL.json`` liegt ausserhalb jedes Release-Praefixes."""
+    _, fake = ablage(tmp_path)
+    alle = kennungen(10)
+    for k in alle:
+        release_oben(fake, k)
+        release_lokal(tmp_path, k)
+    zeiger(tmp_path, alle[-1])
+    fake.put("releases/AKTUELL.json", b"{}")
+
+    monkeypatch.setattr(sys, "argv", ["aufraeumen", "--loeschen", "--auch-fern"])
+    assert au.main() == 0
+    assert (tmp_path / "releases" / "AKTUELL.json").is_file()
+    assert "releases/AKTUELL.json" in fake.objekte
+
+
+def test_ein_fehlgeschlagenes_delete_bricht_ab_und_laesst_den_rest(tmp_path):
+    """Ein halb geleertes Praefix ist sichtbar; ein zweiter Lauf bringt es zu Ende."""
+    class Zickig(FakeS3Client):
+        def delete(self, key: str) -> None:
+            if key.endswith("analyse.duckdb"):
+                raise RuntimeError("SeaweedFS lehnt ab")
+            super().delete(key)
+
+    fake = Zickig()
+    storage = Storage(Config(backend="hybrid", local_root=tmp_path,
+                             s3_access_key="k", s3_secret_key="s"), fake)
+    alle = kennungen(10)
+    for k in alle:
+        release_oben(fake, k)
+    entscheide, _ = au.release_bericht(storage)
+    with pytest.raises(RuntimeError):
+        au.loesche_releases(entscheide, storage, auch_fern=True)
+    # Geraeumt wird juengstes zuerst, entbehrlich sind die beiden aeltesten -
+    # also bricht es im Praefix von ``alle[1]`` ab. Was dort vor der
+    # ``analyse.duckdb`` lag, ist weg; ``release.json`` geht **zuletzt** und
+    # steht deshalb noch, damit ``release.liste`` das Release weiter findet.
+    praefix = f"releases/release={alle[1]}"
+    assert f"{praefix}/gold/dataset=fact_offense/part-0001.parquet" not in fake.objekte
+    assert f"{praefix}/serving/analyse.duckdb" in fake.objekte
+    assert f"{praefix}/release.json" in fake.objekte, (
+        "ohne das Manifest waere das halb geleerte Release unsichtbar"
+    )
+    assert au.releases(storage)[-1].release_id == alle[0]
+    assert alle[1] in [r.release_id for r in au.releases(storage)]
+    assert len([s for s in fake.objekte if f"release={alle[0]}/" in s]) == 3
+
+
+# -- Zeile 6: --auch-fern allein -------------------------------------------
+
+
+def test_auch_fern_ohne_loeschen_bleibt_ein_trockenlauf(tmp_path, monkeypatch, capsys):
+    _, fake = ablage(tmp_path)
+    alle = kennungen(10)
+    for k in alle:
+        release_oben(fake, k)
+        release_lokal(tmp_path, k)
+    zeiger(tmp_path, alle[-1])
+    oben_vorher = sorted(fake.objekte)
+    lokal_vorher = sorted(p for p in tmp_path.rglob("*") if p.is_file())
+
+    monkeypatch.setattr(sys, "argv", ["aufraeumen", "--auch-fern"])
+    assert au.main() == 0
+
+    assert sorted(fake.objekte) == oben_vorher and fake.geloescht == []
+    assert sorted(p for p in tmp_path.rglob("*") if p.is_file()) == lokal_vorher
+    out = capsys.readouterr().out
+    assert "--auch-fern wirkt nur mit --loeschen" in out
+    assert "Nichts geloescht" in out
+
+
+# -- Zeile 7: Zeiger fehlt --------------------------------------------------
+
+
+def test_ohne_aktuell_json_laeuft_die_regel_und_nennt_den_fehlenden_zeiger(
+        tmp_path, monkeypatch, capsys):
+    storage, fake = ablage(tmp_path)
+    alle = kennungen(10)
+    for k in alle:
+        release_oben(fake, k)
+
+    monkeypatch.setattr(sys, "argv", ["aufraeumen"])
+    assert au.main() == 0
+    out = capsys.readouterr().out
+    assert "AKTUELL.json" in out and "Zeiger fehlt" in out
+    assert "10 Releases, 2 entbehrlich" in out
+    gruende_ = rel_gruende(storage)
+    assert not any(g == au.AKTUELL for g in gruende_.values())
+
+
+# -- Zeile 8: Weniger als n -----------------------------------------------
+
+
+def test_weniger_releases_als_n_bleiben_alle(tmp_path):
+    storage, fake = ablage(tmp_path)
+    alle = kennungen(3)
+    for k in alle:
+        release_oben(fake, k)
+    zeiger(tmp_path, alle[-1])
+    entscheide, _ = au.release_bericht(storage)
+    assert all(e.bleibt for e in entscheide)
+    assert len(entscheide) == 3
+
+
+def test_ohne_releases_meldet_der_bericht_null(tmp_path, monkeypatch, capsys):
+    ablage(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["aufraeumen"])
+    assert au.main() == 0
+    assert "0 Releases, 0 entbehrlich" in capsys.readouterr().out
+
+
+# -- Die Regel selbst, ohne Ablage ----------------------------------------
+
+
+def test_die_achte_bleibt_und_die_neunte_geht():
+    """``RELEASES_N`` ist die Grenze, und sie steht an einer Stelle."""
+    stand = [au.ReleaseStand(f"r{i:02d}", "", 1000, "oben")
+             for i in range(20, 0, -1)]
+    gruende_ = {e.release_.release_id: e.grund
+                for e in au.entscheide_releases(stand)}
+    assert gruende_["r20"] == au.JUENGSTE_N
+    assert gruende_[f"r{21 - au.RELEASES_N:02d}"] == au.JUENGSTE_N
+    assert gruende_[f"r{20 - au.RELEASES_N:02d}"] is None
+    assert au.RELEASES_N == 8, "datenhistorie.md 5.5: zwei Monate woechentlich"
+
+
+def test_ein_gepinntes_release_belegt_einen_der_acht_plaetze():
+    """Wie bei Laeufen: gezaehlt wird ueber die Reihenfolge.
+
+    Das haelt weniger als *acht plus die gepinnten* - und damit nie mehr, als
+    die Rechnung in ``datenhistorie.md`` 5.5 veranschlagt.
+    """
+    stand = [au.ReleaseStand(f"r{i:02d}", "", 1000, "oben")
+             for i in range(20, 0, -1)]
+    entscheide = au.entscheide_releases(stand, {"r18": "referenzstand"})
+    assert sum(1 for e in entscheide if e.bleibt) == au.RELEASES_N
+    assert entscheide[2].grund == au.GEPINNT
+
+
+def test_das_inventar_steht_juengstes_zuerst(tmp_path):
+    storage, fake = ablage(tmp_path)
+    for k in kennungen(5):
+        release_oben(fake, k)
+    assert [r.release_id for r in au.releases(storage)] == \
+        sorted(kennungen(5), reverse=True)
+
+
+# --------------------------------------------------------------------------
+# Dieselbe Zahl steht an vier Stellen - sie darf nur einmal veralten
+#
+# ``datenhistorie.md`` 5.5 entscheidet die Acht, und README wie
+# storage-architektur.md sagen Bedienern, was bleibt. Ohne diesen Waechter
+# veraltet das unbewachte Dokument genauso - einmal waren es acht ueberholte
+# Aussagen auf einmal.
+#
+# **Nicht dabei: das PRD zum LN2** (E6, NFR-7). Es liegt unter
+# ``_bmad-output/``, und das ist nach ``.gitignore`` ungetrackt - ein Waechter
+# darueber waere in jedem frischen Klon und in CI ein ``FileNotFoundError``.
+# Nachgezogen gehoert es trotzdem, nur eben von Hand.
+# --------------------------------------------------------------------------
+
+import re   # noqa: E402
+
+PROJEKT = Path(__file__).resolve().parents[2]
+ZAHLWORT = {3: "drei", 4: "vier", 5: "fünf", 6: "sechs", 7: "sieben",
+            8: "acht", 9: "neun", 10: "zehn", 12: "zwölf"}
+DOKUMENTE = (
+    "README.md",
+    "docs/storage-architektur.md",
+    "docs/intern/datenhistorie.md",
+)
+
+
+def fliesstext(name: str) -> str:
+    """Der Text mit zusammengezogenem Leerraum - Umbrueche zaehlen nicht."""
+    return re.sub(r"\s+", " ", (PROJEKT / name).read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("name", DOKUMENTE)
+def test_jedes_dokument_nennt_die_entschiedene_zahl(name):
+    text = fliesstext(name)
+    assert f"die letzten {ZAHLWORT[au.RELEASES_N]}" in text, (
+        f"{name} nennt nicht 'die letzten {ZAHLWORT[au.RELEASES_N]}' - "
+        f"RELEASES_N ist {au.RELEASES_N}, das Dokument sagt etwas anderes"
+    )
+
+
+@pytest.mark.parametrize("name", DOKUMENTE)
+def test_kein_dokument_nennt_mehr_eine_andere_zahl(name):
+    """Die Zahl stand vorher als fuenf im PRD. Zwei Zahlen sind eine zu viel.
+
+    Die Zahlwoerter selbst bleiben mit Umlaut - sie sind das, was in den
+    Markdown-Dokumenten steht, und werden dort gesucht.
+    """
+    text = fliesstext(name)
+    ueberholt = [w for n, w in ZAHLWORT.items()
+                 if n != au.RELEASES_N and f"die letzten {w} Releases" in text]
+    assert not ueberholt, f"{name} nennt noch: die letzten {ueberholt}"
+
+
+@pytest.mark.parametrize("name", DOKUMENTE)
+def test_jedes_dokument_nennt_den_zweiten_schalter(name):
+    """``--auch-fern`` ist die Zusage, dass ein Lauf den Bucket nicht nebenbei raeumt."""
+    assert "--auch-fern" in fliesstext(name), f"{name} nennt --auch-fern nicht"
+
+
+def test_der_zweite_schalter_gibt_es_wirklich(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["aufraeumen", "--help"])
+    with pytest.raises(SystemExit):
+        au.arguments()
+    hilfe = re.sub(r"\s+", " ", capsys.readouterr().out)
+    assert "--auch-fern" in hilfe
+    assert "nur zusammen mit --loeschen" in hilfe
+    assert "Releases" in hilfe, "die Beschreibung nennt die Releases nicht"

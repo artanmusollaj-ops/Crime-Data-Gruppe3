@@ -101,6 +101,7 @@ class S3Client(Protocol):
     def get(self, key: str) -> bytes: ...
     def put(self, key: str, daten: bytes) -> None: ...
     def list(self, prefix: str) -> list[Objekt]: ...
+    def delete(self, key: str) -> None: ...
 
 
 # Vor dem ersten Nachpublizieren antwortete SeaweedFS auf ein HEAD einmal mit
@@ -215,6 +216,15 @@ class Boto3Client:
 
         return self._mit_wiederholung(f"LIST {prefix}", alle)
 
+    def delete(self, key: str) -> None:
+        # S3 antwortet auf DELETE eines fehlenden Schluessels mit 204, nicht
+        # mit 404 - loeschen ist damit wiederholbar. Das traegt
+        # ``Storage.entferne_oben``: Ein Abbruch mitten im Praefix laesst sich
+        # durch einen zweiten Lauf zu Ende bringen.
+        self._mit_wiederholung(
+            f"DELETE {key}",
+            lambda: self._client.delete_object(Bucket=self.bucket, Key=key))
+
 
 class FakeS3Client:
     """Ein S3 im Speicher - fuer Tests, ohne Netz und ohne SeaweedFS."""
@@ -222,6 +232,7 @@ class FakeS3Client:
     def __init__(self) -> None:
         self.objekte: dict[str, bytes] = {}
         self.uploads: list[str] = []
+        self.geloescht: list[str] = []
 
     def head(self, key: str) -> Objekt | None:
         if key not in self.objekte:
@@ -238,6 +249,11 @@ class FakeS3Client:
 
     def list(self, prefix: str) -> list[Objekt]:
         return [self.head(k) for k in sorted(self.objekte) if k.startswith(prefix)]  # type: ignore[misc]
+
+    def delete(self, key: str) -> None:
+        # Wie S3: ein fehlender Schluessel ist kein Fehler.
+        self.objekte.pop(key, None)
+        self.geloescht.append(key)
 
 
 def zeitpunkt(manifest: dict[str, Any]) -> datetime | None:
@@ -914,6 +930,55 @@ class Storage:
         if geholt:
             LOG.info("%d Lauf/Laeufe geholt: %s", len(geholt), ", ".join(geholt))
         return geholt
+
+    # -- Entfernen -----------------------------------------------------------
+
+    def entferne_oben(self, prefix: str | Path, *, zuletzt: str | None = None) -> list[str]:
+        """Entfernt auf SeaweedFS jedes Objekt unter ``prefix``. Lokal bleibt alles.
+
+        ``prefix`` ist ein **Verzeichnis**: Es wird mit ``/`` abgeschlossen,
+        bevor aufgezaehlt wird. Sonst traefe ``releases/release=2026-10-03``
+        auch ``releases/release=2026-10-03T19-53-12Z/...`` - ein Praefix, das
+        nur fast passt, loescht hier ein ganzes Release zu viel.
+
+        ``zuletzt`` ist der Dateiname, der **ganz am Ende** weggeht - das
+        Spiegelbild von "``release.json`` geht zuletzt hoch" in
+        ``storage.release``. Ohne das loescht die sortierte Aufzaehlung
+        ``release.json`` mitten im Praefix (``gold/`` < ``release.json`` <
+        ``serving/``), und ein Abbruch danach macht das Release **unsichtbar**:
+        ``release.liste`` erkennt es nur an einem Schluessel, der auf
+        ``/release.json`` endet, und die 26,5 MB grosse ``analyse.duckdb``
+        laege fuer immer unauffindbar oben. Solange das Manifest steht, findet
+        ein zweiter Lauf den Rest.
+
+        Aufgezaehlt wird ueber ``list``, nicht geraten: Weg ist nur, was
+        wirklich oben liegt. Ein fehlgeschlagenes ``delete`` **bricht ab** und
+        laesst den Rest stehen - die bis dahin entfernten Objekte bleiben
+        entfernt. Ein zweiter Lauf bringt es zu Ende, weil S3 das Loeschen
+        eines fehlenden Schluessels nicht als Fehler behandelt.
+
+        Dass es diese Methode ueberhaupt gibt, ist eine Entscheidung vom
+        4.10.2026: ``orchestration.aufraeumen`` raeumt seither auch Releases,
+        und die liegen oben als der gemeinsame Stand
+        (``docs/intern/datenhistorie.md`` 5.5). Fuer Laeufe und Tabellen gilt
+        sie nicht - die bleiben unveraenderlich.
+        """
+        rel = paths.relativ(prefix)
+        if not rel:
+            raise PublishError(
+                "entferne_oben braucht ein Praefix - ohne eines waere es der "
+                "ganze Bucket."
+            )
+        schluessel = [o.key for o in self.client.list(rel + "/")]
+        if zuletzt:
+            spaet = [k for k in schluessel if k == f"{rel}/{zuletzt}"]
+            schluessel = [k for k in schluessel if k not in spaet] + spaet
+        geloescht: list[str] = []
+        for key in schluessel:
+            self.client.delete(key)
+            geloescht.append(key)
+            LOG.info("Removed from S3: %s", key)
+        return geloescht
 
     def _lokal_entfernen_falls_s3(self, rel: str) -> None:
         if self.backend == "s3":

@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'566** |
+| Tests | **1'606** |
 | `silver/crime_offense` | 348'329 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'091** Zeilen (eine Tat) |
 | Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -91,6 +91,122 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 04.10.2026 · Releases werden aufgeräumt: gepinnt plus die letzten acht, lokal und auf SeaweedFS (Branch `releases-aufraeumen`)
+
+Releases wurden bis hierher nur angehäuft. `orchestration.aufraeumen` kannte das
+Wort nicht — es räumte Raw- und Bronze-Läufe —, und `storage/release.py` sagte im
+Docstring ausdrücklich: *„Was bewusst nicht hier steht: Loeschen. Releases werden
+aufgehoben, bis eine Regel dafuer entschieden ist."*
+
+**Gemessen am 4.10.2026: 8 Releases lokal (323 MB) und 49 auf SeaweedFS (1'085
+Dateien, rund 2,1 GB).** Releases waren damit 1'085 von 1'464 Objekten im
+Bucket — **74 Prozent**, und nichts verwaltete sie.
+
+**Die Regel ist die, die `docs/intern/datenhistorie.md` 5.5 empfiehlt: gepinnt
+plus die letzten n.** Vier Gründe, jüngstes Release zuerst:
+
+| Grund | was ihn auslöst |
+| --- | --- |
+| `Referenzstand` | das Release steht in `config/referenzstand.csv` — **dasselbe** Register und dieselbe Lesefunktion wie bei Läufen |
+| `aktueller Zeiger` | `releases/AKTUELL.json` nennt es; es bleibt immer, auch ausserhalb der Reihe |
+| `unter den letzten 8` | es liegt unter den acht jüngsten |
+| `ENTBEHRLICH` | alles andere |
+
+**n = 8, und das überholt E6 im PRD zum LN2.** Dort stand *fünf*, als
+*entschieden* geführt und ohne Begründung. §5.5 begründet acht — zwei Monate
+wöchentlicher Releases. Zwei Zahlen für dieselbe Regel sind eine, die veraltet,
+also gilt die begründete. E6 und die Rechnung in NFR-7 (1,1 → 1,8 GB bei sechs
+Jahrgängen) sind nachgezogen, mit einem Vermerk im Dokument, weil es
+`status: final` trägt. §5.5s offene Frage 5 ist damit beantwortet.
+
+**Warum das aktuelle Release eine eigene Regel ist.** Nichts im Projekt sortiert
+Releases, um das neueste zu finden — alles geht über `AKTUELL.json`: ClickHouse,
+Elasticsearch, Kibana, `serving.pruefe_stand` und `tools.build_einstieg`. Ein
+altes Release zu entfernen ist deshalb folgenlos; das aktuelle zu entfernen
+bricht fünf Verbraucher auf einmal. Fehlt der Zeiger, sagt der Bericht das und
+läuft weiter.
+
+**Zwei Schalter, nicht einer.** `--loeschen` wirkt wie bisher **nur lokal**; erst
+`--auch-fern` dazu räumt SeaweedFS. Läufe liegen lokal, Releases liegen oben als
+der gemeinsame Stand — ein Löschen dort betrifft jede Maschine, die vom Bucket
+liest. Rund 900 Objekte aus dem geteilten Speicher zu entfernen soll zwei
+bewusste Entscheidungen kosten, nicht eine; dieselbe Haltung wie `publish_table`
+mit `erzwingen=True`. Der Trockenlauf bleibt die Vorgabe, und `--auch-fern`
+allein bleibt einer und sagt das.
+
+**Das Protokoll `S3Client` hat jetzt `delete`.** Es kannte `head`, `get`, `put`
+und `list`. Dazu auf `Storage` die Methode `entferne_oben(prefix)`: Sie zählt
+über `list` auf, statt Schlüssel zu raten, schliesst den Präfix mit `/` ab —
+sonst träfe `release=2026-10-03` auch `release=2026-10-03T19-53-12Z` — und lehnt
+einen leeren Präfix ab, weil das der ganze Bucket wäre. Ein fehlgeschlagenes
+`delete` bricht ab und lässt den Rest stehen; S3 behandelt das Löschen eines
+fehlenden Schlüssels nicht als Fehler, also ist ein zweiter Lauf wiederholbar.
+**Damit das stimmt, geht `release.json` zuletzt weg** — das Spiegelbild von
+„`release.json` geht zuletzt hoch" in `release.py`. Sortiert liegt es mitten im
+Präfix (`gold/` < `release.json` < `serving/`), und `release.liste` erkennt ein
+Release *nur* an einem Schlüssel, der darauf endet: Wäre es zuerst weg, machte
+ein Abbruch das Release unsichtbar und die 26,5 MB grosse `analyse.duckdb`
+unauffindbar. `releases/AKTUELL.json` liegt ausserhalb jedes Release-Präfixes
+und wird nie angefasst. **Für Läufe und Tabellen gilt das nicht** — die bleiben
+unveränderlich, `erstelle` lehnt eine bestehende Kennung weiterhin ab.
+
+**Der Referenzstand ist gepinnt, vor dem ersten Löschlauf.**
+`release=2026-09-17T19-42-24Z` steht mit `grund=referenzstand` im Register;
+`architektur-ist-und-ziel.md` sagt, 82 Wächter halten die Abgabedokumente gegen
+genau diesen Bau. Er ist das älteste der 49 Releases und wäre ohne den Eintrag
+entbehrlich gewesen. Die neun `grund=LN1`-Einträge sind unberührt. Die
+Release-Kennung steht in der Spalte `run_id` — der Spaltenname wird dadurch
+unscharf, und das ist der Preis dafür, dass es **ein** Register gibt und nicht
+zwei. Wer später eine Typspalte will, findet alle Einträge an einem Ort.
+
+**Gemeldet wird, was wirklich wegging** — getrennt nach Ort, nicht aus der
+Entscheidungsliste. Ein Release, das nur oben liegt, hat kein lokales
+Verzeichnis; `--loeschen` ohne `--auch-fern` entfernt dafür nichts, und die
+Ausgabe sagt beides: „0 Release(s) lokal gelöscht, 0.0 MB frei" und „Auf
+SeaweedFS unverändert: 2 entbehrliche Release(s), …". Und `--auch-fern` wird
+**vor** dem ersten Löschen abgelehnt, wenn die Ablage kein S3 kennt —
+`STORAGE_BACKEND=local` ist die Vorgabe, und `loesche_releases` nimmt das lokale
+Verzeichnis weg, bevor es nach oben greift.
+
+**`storage/release.py` sagt nicht mehr, dass es die Regel nicht gibt.** Der
+Docstring verneinte sie ausdrücklich und rechnete dazu „ein Jahr wöchentlicher
+Releases ist unter einem Gigabyte" — bei 42,3 MB je Release sind es 2,2 GB.
+Beide Sätze sind nachgezogen, mit Verweis auf `orchestration.aufraeumen`.
+Dasselbe in `ausblick.md` 6a („Releases werden aufgehoben, bis diese Regel
+entschieden ist") und in `storage-architektur.md`, wo `entferne_oben` in der
+Methodenliste fehlte.
+
+**Nicht ausgeführt: der scharfe Lauf.** Diese Änderung baut die Regel und weist
+sie im Trockenlauf und mit Tests nach. Der Trockenlauf meldet heute *„49
+Releases, 40 entbehrlich, 1'676,8 MB frei"*. Dass die rund 900 Objekte
+tatsächlich aus dem geteilten Speicher verschwinden, ist eine eigene
+Entscheidung und gehört Christian — wie das Nachladen der Stores. Serverseitige
+Lifecycle-Regeln am Bucket bleiben ausdrücklich aussen vor: Eine Ablaufregel am
+Bucket kann die gepinnten Stände nicht kennen.
+
+**Vier Dokumente sagten etwas, das nicht mehr stimmt** — und sagen es jetzt
+richtig: `storage-architektur.md` 9 (*„räumt ausschliesslich lokal auf"*),
+README 2.5 (*„räumt weiterhin nur lokal auf"*), `ausblick.md` (*„`aufraeumen`
+räumt bisher nur lokal"*) und README 2.4, das die Release-Regel samt beiden
+Schaltern jetzt beschreibt. Dazu ein Wächter über README,
+`storage-architektur.md` und `datenhistorie.md`: Er hält `die letzten acht`
+gegen `aufraeumen.RELEASES_N` und fällt, wenn ein Dokument eine andere Zahl
+nennt oder `--auch-fern` nicht erwähnt. Ohne ihn veraltet das unbewachte
+Dokument genauso. **Das PRD ist bewusst nicht dabei:** Es liegt unter
+`_bmad-output/` und ist ungetrackt — ein Wächter darüber wäre in jedem frischen
+Klon ein `FileNotFoundError`. Es ist von Hand nachgezogen.
+
+**Kein Vertragssprung.** Es ändert sich nichts an Bedeutung, Granularität,
+Regeln oder Spalten einer Tabelle. Was sich ändert, ist, wie lange ein Release
+liegt.
+
+**Zahlen.** 1'566 → **1'606 Tests**, Standardlauf **1'524**, Referenzwächter
+unverändert 82. 40 neue: 28 für die Release-Regel (jede Zeile der
+Entscheidungsmatrix, die beiden Zusagen *ohne `--loeschen` nichts* und *ohne
+`--auch-fern` oben nichts*, der Abbruch mitten im Präfix, die Ablehnung von
+`--auch-fern` ohne S3, und dass ein nur oben liegendes Release keine freien MB
+meldet), 12 für `delete` und `entferne_oben`. `docs/referenz/` neu erzeugt.
 
 ## 04.10.2026 · Gold ist byteweise reproduzierbar, weil fact_offense jetzt eine Reihenfolge hat (Branch `mehrjaehrigkeit`)
 

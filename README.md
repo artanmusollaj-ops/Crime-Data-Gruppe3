@@ -215,7 +215,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 1'484 ausgeführte Tests, ohne Netzzugriff und ohne
+Erwartet wird **grün**: 1'524 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -225,7 +225,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'566
+python -m pytest -m ""               # beides zusammen, alle 1'606
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -543,7 +543,7 @@ WHERE feld = 'state_offense_code' GROUP BY 1, 2 ORDER BY 3 DESC;
 **Das Aufräumen kennt sie.** Ein Vollschnappschuss, dessen Unterschied noch
 nicht gezogen ist, bleibt stehen — siehe 2.4, Regel 4.
 
-### 2.4 Aufräumen — was von Raw und Bronze bleiben muss
+### 2.4 Aufräumen — was von Raw, Bronze und den Releases bleiben muss
 
 Jeder Lauf legt ein neues Verzeichnis an, nichts wird überschrieben. Das ist
 gewollt, und es wächst. Was bleiben muss, sagt ein Werkzeug:
@@ -571,6 +571,22 @@ getippt: Sie nennen ihre Silver-Quelle samt deren Herkunft, und darin stehen
 die Bronze-Läufe. Das Register `config/referenzstand.csv` ist versioniert und
 gehört mit committet — ein Referenzstand ist eine Verabredung des Teams, kein
 Zustand eines Rechners.
+
+**Releases, seit dem 4.10.2026.** Derselbe Aufruf zeigt daneben, was von den
+Releases bleibt: *gepinnt plus die letzten acht*, dazu immer das Release, auf
+das `releases/AKTUELL.json` zeigt — fünf Verbraucher lösen darüber auf, und
+nichts im Projekt sucht das neueste selbst. Gepinnt wird im **selben** Register
+wie bei Läufen. Releases liegen anders als Läufe oben als der gemeinsame Stand,
+darum kostet das Löschen dort einen zweiten Schalter:
+
+```bash
+python -m orchestration.aufraeumen --loeschen              # Releases nur lokal
+python -m orchestration.aufraeumen --loeschen --auch-fern  # auch auf SeaweedFS
+```
+
+Ohne `--loeschen` passiert nichts, und `--auch-fern` allein bleibt ein
+Trockenlauf. Die Begründung für die Acht steht in
+[`docs/intern/datenhistorie.md`](docs/intern/datenhistorie.md) 5.5.
 
 ### 2.5 Ablage: lokal, SeaweedFS oder hybrid
 
@@ -652,7 +668,8 @@ python -m orchestration.run_all --ohne-holen   # einmal ohne
 **Bewusst nicht:** Silver und Gold werden weiterhin *gelesen*, nicht kopiert
 — ein stiller Cache wäre eine zweite Wahrheit mit eigenem Alter. Keine
 Synchronisation zurück, kein Dual-Write. `orchestration.aufraeumen` räumt
-weiterhin nur lokal auf.
+**Läufe** weiterhin nur lokal auf; einzig entbehrliche **Releases** gehen mit
+`--loeschen --auch-fern` auch oben weg (siehe 2.4).
 
 In Notebooks und Skripten liefert `from storage import resolve_read_path`
 den Pfad, den `read_parquet` lesen soll — lokal oder `s3://`, ohne dass der
@@ -871,7 +888,7 @@ Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.
 python -m pytest
 ```
 
-**1'566 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'606 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
