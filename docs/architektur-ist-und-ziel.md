@@ -216,10 +216,10 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'564 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'176 davon — die übrigen 27 brauchen gebaute Daten; 71 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 1'566 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'176 davon — die übrigen 27 brauchen gebaute Daten; 82 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
-| **Referenzstand** | 70 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
+| **Referenzstand** | 82 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
 Der letzte Punkt ist die interessanteste Entscheidung: Die Quellen bewegen
 sich. Ein Test, der die dokumentierte Zahl gegen den frischen Stand hält, wäre
@@ -504,7 +504,7 @@ entschieden:
 ---
 
 **Zu den Zahlen.** Teil A nennt den **Referenzstand** — den Bau vom 17.9.2026,
-16:05 UTC, auf den sich alle Abgabedokumente beziehen und den 70 Wächter mit
+16:05 UTC, auf den sich alle Abgabedokumente beziehen und den 82 Wächter mit
 dem Marker `referenzstand` gegen die Parquet-Dateien halten. Der gebaute Stand
 auf dem Entwicklungsrechner ist seit einer frischen Ingestion am Abend des
 17.9. geringfügig weiter (silver +0,10 %, gold +0,13 %, Detroits Rate 132,7 →

@@ -14,7 +14,10 @@ werden als kleine Parquet-Dateien zur Laufzeit erzeugt.
 from __future__ import annotations
 
 import json
+import os
 import struct
+import subprocess
+import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -23,7 +26,12 @@ import pyarrow.parquet as pq
 import pytest
 
 import build_gold as bg
-from gold_pipeline import GATE_HOECHSTENS, GATE_MINDESTENS, STADT_SCHLUESSEL
+from gold_pipeline import (
+    GATE_HOECHSTENS, GATE_MINDESTENS, STADT_SCHLUESSEL, TABELLEN,
+)
+# Statt einer vierten Fassung: manifeste, serving.pruefe_stand und
+# storage.release rechnen dasselbe SHA-256 schon.
+from manifeste import datei_hash
 from silver_pipeline import TransformError, connect
 
 
@@ -1738,3 +1746,138 @@ def test_ein_jahrgang_ohne_taten_ist_keine_schwellenverletzung(con, tmp_path):
     leer = [j for j, z in jahre.items() if not z["offenses"]]
     assert leer == ["2022", "2023", "2024", "2025"], leer
     assert schwellenverletzungen(jahre) == []
+
+
+# --------------------------------------------------------------------------
+# Die Reihenfolge der Faktentabelle
+# --------------------------------------------------------------------------
+
+
+def test_die_faktentabelle_ist_nach_tag_und_kennung_sortiert(con, tmp_path):
+    """Der Waechter, der eine fehlende ``ORDER BY``-Klausel **immer** faengt.
+
+    Der Byte-Vergleich unten tut das nicht: Ohne die Klausel entscheidet der
+    Hash-Join, in welcher Reihenfolge die Zeilen fallen, und zwei Laeufe
+    stimmen trotzdem haeufig ueberein. Am 4.10.2026 gemessen - sechs Durchgaenge
+    ohne die Klausel, **drei gefangen, drei durchgelassen**. Ein Waechter, der
+    den Fehler in der Haelfte der Faelle verschweigt, ist der Fall aus
+    ``AGENTS.md``: "der Waechter war gruen und wertlos".
+
+    Dieser hier prueft nicht Bytes, sondern die **Eigenschaft**, und die ist
+    deterministisch. Die Vorrichtung liefert die Zeilen absichtlich in
+    verkehrter Tagesreihenfolge: Ohne ``ORDER BY`` kommt sie so wieder heraus
+    und der Test faellt, mit ihr ist sie sortiert. Deshalb traegt er **keine**
+    ``referenzstand``-Marke und laeuft bei jedem Push mit - anders als der
+    Byte-Vergleich, den der Standardlauf und ``datenlauf.yml`` beide abwaehlen.
+    """
+    offense = offense_quelle(tmp_path, [
+        ("c", "chicago", date(2024, 12, 31), "13A", "17031010100"),
+        ("b", "chicago", date(2024, 6, 15), "13A", "17031010100"),
+        ("a", "chicago", date(2024, 1, 2), "13A", "17031010100"),
+    ])
+    con.execute(
+        "CREATE OR REPLACE TABLE dim_tract AS "
+        + bg.dim_tract_query(
+            tract_quelle(tmp_path, [("17031010100", 1000, wkb_rechteck(1, 1, 2, 2))]),
+            place_quelle(tmp_path), VINTAGE)
+    )
+    con.execute("CREATE OR REPLACE TABLE f AS "
+                + bg.fact_offense_query(offense, vintages=(VINTAGE,)))
+    assert con.execute(
+        "SELECT list(offense_id) FROM (SELECT offense_id FROM f)"
+    ).fetchone()[0] == ["a", "b", "c"], (
+        "fact_offense_query liefert die Zeilen nicht nach date, offense_id - "
+        "fehlt der Abfrage das ORDER BY?"
+    )
+    verkehrt = con.execute("""
+        SELECT count(*) FROM (
+            SELECT date, offense_id,
+                   lag(date) OVER () AS vorher_tag,
+                   lag(offense_id) OVER () AS vorher_kennung
+            FROM f)
+        WHERE vorher_tag IS NOT NULL
+          AND (date, offense_id) < (vorher_tag, vorher_kennung)
+    """).fetchone()[0]
+    assert verkehrt == 0, f"{verkehrt} Uebergaenge laufen rueckwaerts"
+
+
+# --------------------------------------------------------------------------
+# Zweiter Lauf, gleiche Bytes
+# --------------------------------------------------------------------------
+
+
+# Die vier Silber-Tabellen, die ``build`` liest (build_gold.py:1182-1185).
+# Fehlt eine, scheitert der Unterprozess mit TransformError - dann soll der
+# Waechter ueberspringen und nicht hart fallen.
+SILBER_EINGABEN = (
+    "dataset=crime_offense/part-0001.parquet",
+    f"dataset=tract/vintage={VINTAGE}/part-0001.parquet",
+    f"dataset=place/vintage={VINTAGE}/part-0001.parquet",
+    "dataset=weather_day/part-0001.parquet",
+)
+
+
+@pytest.mark.referenzstand
+def test_ein_zweiter_lauf_liefert_dieselben_bytes(tmp_path):
+    """Dieselbe Regel wie bei ``docs/referenz/``, dem Feldkatalog und den Bildern.
+
+    **Nie in einem Prozess.** Zwei Baue in derselben Python-Instanz teilen den
+    Hash-Seed und die Threadzahl; sie koennen uebereinstimmen, ohne dass der
+    Bau deterministisch ist. Gebaut wird deshalb zweimal als eigener
+    Unterprozess - genau so, wie ein Mensch das Modul aufruft.
+
+    Der Befund, den dieser Waechter begleitet: Am 4.10.2026 lagen zwischen zwei
+    Laeufen **245'760 von 345'091 Zeilen** von ``fact_offense`` an anderer
+    Position, weil ``fact_offense_query`` als einzige Abfrage der Strecke kein
+    ``ORDER BY`` hatte.
+
+    **Was dieser Test nicht leistet.** Er faengt eine fehlende Klausel nur in
+    etwa der Haelfte der Faelle - gemessen drei von sechs. Dafuer gibt es
+    ``test_die_faktentabelle_ist_nach_tag_und_kennung_sortiert``, der
+    deterministisch ist und im Standardlauf mitlaeuft. Hier geht es um das,
+    was eine Eigenschaftspruefung **nicht** sieht: Nichtbestimmtheit im
+    Schreiber selbst, bei gleicher Zeilenfolge. Deshalb bleibt er, und deshalb
+    steht hier, was er wert ist.
+
+    ``dim_tract_acs`` wird dabei nur in seiner **Einzel-Vintage-Gestalt**
+    geprueft: Gebaut wird ohne ``--acs-vintages``, weil das Silber nur
+    ``vintage=2024`` hat. Die Mehr-Vintage-Gestalt ist ein ``UNION ALL`` mit
+    eigenem ``ORDER BY`` und hier nicht abgedeckt.
+
+    Gelesen wird das echte Silber ueber einen Symlink, geschrieben in zwei
+    eigene Wurzeln unter ``tmp_path``: Ein Test darf messen, nie den
+    Arbeitsbaum veraendern. Unter Windows braucht ein Symlink Sonderrechte,
+    deshalb laeuft er dort nicht - dieselbe Ueberlegung wie bei den drei
+    PDF-Reproduktionen, die nur unter Linux laufen.
+    """
+    if os.name == "nt":
+        pytest.skip("Symlink auf das Silber braucht unter Windows Sonderrechte")
+    silber = PROJECT_ROOT / "data" / "silver"
+    fehlend = [rel for rel in SILBER_EINGABEN if not (silber / rel).is_file()]
+    if fehlend:
+        pytest.skip(f"Silber unvollstaendig, es fehlt: {fehlend}")
+
+    staende = []
+    for lauf in ("eins", "zwei"):
+        wurzel = tmp_path / lauf / "data"
+        wurzel.mkdir(parents=True)
+        (wurzel / "silver").symlink_to(silber, target_is_directory=True)
+        fertig = subprocess.run(
+            [sys.executable, "-m", "gold_pipeline.build_gold",
+             "--data-root", str(wurzel)],
+            capture_output=True, text=True, cwd=PROJECT_ROOT,
+            env={**os.environ, "STORAGE_BACKEND": "local"},
+        )
+        assert fertig.returncode == 0, fertig.stderr[-2000:]
+        staende.append({
+            name: datei_hash(wurzel / "gold" / f"dataset={name}" / "part-0001.parquet")
+            for name in TABELLEN
+        })
+
+    eins, zwei = staende
+    anders = sorted(name for name in TABELLEN if eins[name] != zwei[name])
+    assert not anders, (
+        f"diese Gold-Tabellen sind zwischen zwei Laeufen nicht byteweise "
+        f"gleich: {anders}. Fehlt der Abfrage ein ORDER BY? "
+        f"Erwartet wird gleiche Pruefsumme, siehe NFR-1."
+    )

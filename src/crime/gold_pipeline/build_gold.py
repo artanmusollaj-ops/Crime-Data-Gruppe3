@@ -576,6 +576,33 @@ def fact_offense_query(offense: Quelle, tracts: str = "dim_tract", *,
     Deliktfamilie. Sie sparen keine Laufzeit - gemessen 0,3 Millisekunden -,
     sondern ersparen jeder Abfrage das Wissen, dass die Familie die ersten
     beiden Zeichen des Codes sind.
+
+    **Die Reihenfolge ist Teil des Ergebnisses.** Ohne ``ORDER BY`` entscheidet
+    sie der Hash-Join und die Zahl der Threads: Am 4.10.2026 gemessen lagen
+    zwischen zwei Laeufen in getrennten Prozessen **245'760 von 345'091 Zeilen**
+    an anderer Position - 71 Prozent der Tabelle, bei identischen
+    Zeilengruppengrenzen. Die Dateigroesse schwankte dabei zwischen Aufrufen
+    (14'947'218 bis 15'001'199 Bytes gemessen) und war in einem Paar sogar
+    gleich, waehrend die Bytes abwichen - eine gleiche Groesse beweist hier also
+    nichts. ``serving.pruefe_stand`` meldete Gold nach jedem Neubau als
+    "anders", obwohl kein Wert sich geaendert hatte; das Erfolgskriterium
+    "zweiter Lauf, gleiche Pruefsummen" war fuer Gold nicht erfuellt.
+
+    Sortiert wird nach ``date`` und dann ``offense_id``. Der Tag ist die Achse,
+    auf der am meisten gefiltert wird - so kann die Zeilengruppenstatistik
+    greifen -, und die Kennung macht die Ordnung eindeutig. Der sortierte Stand
+    reproduziert sich exakt bei **15'808'123 Bytes**; gegen die schwankende
+    unsortierte Spanne sind das 5,4 bis 5,8 Prozent mehr Platz, bei keiner
+    messbaren Zeit. ``ORDER BY offense_id`` allein waere rund 7,7 Prozent
+    gewesen.
+
+    Diese Abfrage war die **einzige der Strecke ohne Reihenfolge**. Vier
+    Dimensionsabfragen haben eine - ``dim_tract``, ``dim_tract_acs``,
+    ``dim_date``, ``dim_city_day`` -, ``build_crime_offense.build_query`` endet
+    mit ``ORDER BY b.city, b.occurred_at_utc, b.offense_id``, und
+    ``serving.build_comparison`` ebenso. ``dim_offense`` entsteht nicht aus
+    einer Abfrage, sondern aus ``CREATE TABLE`` plus ``executemany``; seine
+    Reihenfolge ist die der Codeliste.
     """
     aeltestes, neuestes = min(vintages), max(vintages)
     return f"""
@@ -627,6 +654,7 @@ def fact_offense_query(offense: Quelle, tracts: str = "dim_tract", *,
     FROM {offense.relation} o
     LEFT JOIN {tracts} t ON t.geoid = o.tract_geoid
     WHERE o.counts
+    ORDER BY date, offense_id
     """
 
 

@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'564** |
+| Tests | **1'566** |
 | `silver/crime_offense` | 348'329 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'091** Zeilen (eine Tat) |
 | Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -91,6 +91,91 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 04.10.2026 · Gold ist byteweise reproduzierbar, weil fact_offense jetzt eine Reihenfolge hat (Branch `mehrjaehrigkeit`)
+
+Der Befund vom 3.10. war richtig, aber die Ursache falsch benannt. Ich hatte
+geschrieben, der Inhalt sei identisch und nur die Parquet-Kodierung weiche ab.
+Der Inhalt ist als **Multimenge** identisch — mein Hash hatte ein `ORDER BY` in
+der Aggregation und hat damit genau das verdeckt, worum es geht.
+
+**Gemessen am 4.10.2026: 245'760 von 345'091 Zeilen lagen zwischen zwei Läufen
+an anderer Position.** 71 Prozent der Tabelle. Die Zeilengruppengrenzen waren
+identisch, und fast jede Spalte jeder Gruppe hatte eine andere komprimierte
+Grösse — die Signatur vertauschter Zeilen, nicht die einer anderen Kodierung.
+Die Dateigrösse schwankte dabei zwischen Aufrufen (14'947'218 bis 15'001'199
+Bytes) und war in einem Paar sogar gleich, während die Bytes abwichen: Eine
+gleiche Grösse beweist hier nichts.
+
+**Die Ursache ist eine fehlende Klausel.** `fact_offense_query` war die
+**einzige** Abfrage der ganzen Strecke ohne `ORDER BY`. Vier Dimensionsabfragen
+haben eine — `dim_tract`, `dim_tract_acs`, `dim_date`, `dim_city_day`;
+`dim_offense` entsteht gar nicht aus einer Abfrage, sondern aus `CREATE TABLE`
+plus `executemany`, und folgt der Codeliste. Alle fünf Dimensionen waren
+byteweise stabil, nachgeprüft.
+`build_crime_offense.build_query` endet mit `ORDER BY b.city,
+b.occurred_at_utc, b.offense_id`, `serving.build_comparison` ebenso. Ohne die
+Klausel entscheidet der Hash-Join mit vierzehn Threads, in welcher Reihenfolge
+die Zeilen fallen.
+
+Sortiert wird jetzt nach `date`, dann `offense_id`. Der Tag ist die Achse, auf
+der am meisten gefiltert wird, also kann die Zeilengruppenstatistik greifen;
+die Kennung macht die Ordnung eindeutig. Der sortierte Stand reproduziert sich
+exakt bei **15'808'123 Bytes**; gegen die schwankende unsortierte Spanne sind
+das **5,4 bis 5,8 Prozent** mehr Platz, bei keiner messbaren Zeit (0,09 gegen
+0,08 Sekunden). `ORDER BY offense_id` allein wären rund 7,7 Prozent gewesen.
+
+**Nicht gewählt: `DUCKDB_THREADS=1`.** Das macht die Bytes ebenfalls stabil,
+aber nur weil es die Scanreihenfolge erzwingt — es hätte die fehlende
+Sortierung maskiert und die Parallelität des ganzen Laufs gekostet. Die
+Schraube aus FR-61 bleibt, wofür sie gedacht war: Speicher und Fäden auf einer
+geteilten Maschine zu begrenzen.
+
+**Zwei Wächter, und der Byte-Vergleich allein hätte nicht gereicht.** Die
+Review hat vorgerechnet, dass ein Vergleich von genau zwei Läufen eine fehlende
+Klausel nur sporadisch fängt — nachgemessen **drei von sechs Durchgängen**. Das
+ist der Fall aus `AGENTS.md`: „der Wächter war grün und wertlos". Die erste
+Fassung dieses Eintrags behauptete „in beide Richtungen geprüft" und ruhte auf
+einem einzigen glücklichen Lauf.
+
+Deshalb stehen jetzt zwei Wächter da.
+`test_die_faktentabelle_ist_nach_tag_und_kennung_sortiert` prüft nicht Bytes,
+sondern die **Eigenschaft**: Die Vorrichtung liefert die Zeilen in verkehrter
+Tagesreihenfolge, ohne Klausel kommen sie so wieder heraus. Deterministisch,
+**sechs von sechs** gefangen, und ohne `referenzstand`-Marke — er läuft bei
+jedem Push mit. `test_ein_zweiter_lauf_liefert_dieselben_bytes` baut Gold
+zweimal als eigenen Unterprozess und vergleicht die Prüfsummen aller sechs
+Tabellen; er bleibt für das, was eine Eigenschaftsprüfung nicht sieht —
+Nichtbestimmtheit im Schreiber selbst, bei gleicher Zeilenfolge. Sein Docstring
+sagt jetzt, was er wert ist. Er trägt die `referenzstand`-Marke, weil er
+gebautes Silber braucht, läuft nicht unter Windows (Symlink), und prüft
+`dim_tract_acs` nur in der Einzel-Vintage-Gestalt, weil das Silber nur
+`vintage=2024` hat.
+
+**Was das für §3 heisst.** Das Erfolgskriterium „Reproduzierbarkeit — zweiter
+Lauf, gleiche Prüfsummen" war für Gold **nicht erfüllt**, obwohl NFR-1 sie als
+„gehalten, nicht neu zu bauen" führt. Jetzt ist sie es, und ein Wächter hält
+sie. Nebeneffekt: `serving.pruefe_stand` meldete Gold nach jedem Neubau als
+„anders", obwohl kein Wert sich geändert hatte — das hört auf.
+
+**Kein Vertragssprung.** `CONTRACT_VERSION` beschreibt Bedeutung,
+Granularität, Regeln und Spalten. Die Zeilenreihenfolge ist keines davon, und
+kein Verbraucher darf sich auf sie stützen.
+
+**Noch zu tun, nicht Teil dieser Änderung:** Das gebaute `data/gold` trägt
+weiterhin die alte Reihenfolge. Der erste Neubau verschiebt seine Bytes
+**einmal**; danach stehen sie. Nachzuziehen sind dann: Serving, ein neues
+Release, die geladenen Elasticsearch- und ClickHouse-Stände — und
+`docs/einstieg.html`, das je Datensatz die Dateigrösse nennt und für
+`fact_offense` heute 14,3 MB zeigt, nach der Sortierung rund 15,1. Der Wächter
+`test_die_abgelegte_seite_ist_nicht_aelter_als_das_release` fällt, bis
+`python tools/build_einstieg.py` neu gelaufen ist. Das Nachladen der Stores
+rührt an laufende Container.
+
+**Zahlen.** 1'564 → **1'566 Tests**, Standardlauf **1'484**, Referenzwächter
+82 statt 81. Zwei neue: der Sortierungstest laeuft im Standardlauf mit, der
+Byte-Vergleich ist abgewählt.
+`docs/referenz/` neu erzeugt.
 
 ## 03.10.2026 · Die NIBRS-Zuordnung über sechs Jahrgänge (Branch `mehrjaehrigkeit`)
 
