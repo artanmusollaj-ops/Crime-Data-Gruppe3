@@ -424,13 +424,15 @@ def test_jede_deliktgruppe_ist_zugeordnet(zeilen):
 # diesen Waechter seit laengerem (``tests/config/test_micr_nibrs_mapping.py``),
 # und er ist hier nach demselben Muster gebaut.
 #
-# **Ein Anteil steht hier bewusst nicht.** Detroits Entsprechung rechnet einen
-# Fallanteil aus denselben Zaehlungen; das traegt nicht, denn Bronze haelt
+# **Ein Anteil steht hier bewusst nicht.** Er traegt nicht, denn Bronze haelt
 # jeden Lauf, und Chicago laedt Deltas mit 14 Tagen Ueberlappung. Gemessen am
 # 3.10.2026: 8 Laeufe, 520'490 Zeilen fuer 259'643 verschiedene ids - Faktor
 # 2,00. Ein solcher Anteil waere nach Ingestionshaeufigkeit gewichtet und
 # nicht nach Faellen. Je Jahrgang und auf entdoppelter Basis steht er in Gold,
 # als ``mapping_by_year`` im Manifest von ``fact_offense`` (FR-38).
+#
+# Detroits Entsprechung rechnete ihn bis zum 4.10.2026 noch und ist seither
+# aus demselben Grund entfallen - beide Seiten sagen jetzt dasselbe.
 
 
 def chicago_codes() -> dict[str, int] | None:
