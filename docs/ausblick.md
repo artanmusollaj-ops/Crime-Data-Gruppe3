@@ -368,7 +368,9 @@ hat Entsprechungen, keine hat dieselben Namen.
 - Container-Image mit gepinnten Abhängigkeiten — `requirements.lock` gibt es
 - Secret-Verwaltung statt `.env` (die Umgebung schlägt `.env` bereits)
 - Scheduler statt des Cron in `datenlauf.yml`
-- Bucket mit Lifecycle-Regeln — `aufraeumen` räumt bisher nur lokal
+- Bucket mit Lifecycle-Regeln — `aufraeumen` räumt seit dem 4.10.2026 auch
+  Releases im Bucket (`--loeschen --auch-fern`), aber weiterhin auf Zuruf; eine
+  serverseitige Ablaufregel bleibt offen und müsste die gepinnten Stände kennen
 - IAM statt geteilter Schlüssel; heute darf jeder mit den Schlüsseln alles
 - **Alarmierung** — steht als Lücke in Konzept 9. Ohne jemanden, der auf
   *Actions* schaut, ist das in der Cloud keine Lücke mehr, sondern ein Loch
@@ -607,9 +609,11 @@ hängt an einer DuckDB-Version und an Extensions, Parquet nicht.
 dazu 808 KB Serving — **rund 15 MB**. Ein Jahr wöchentlicher Releases wären
 etwa 780 MB Parquet — gebaut sind es mit der selbständigen Datenbank 42,3 MB
 je Release, rund 2,2 GB im Jahr. Das Aufheben ist damit kein Kostenproblem,
-sondern eine Aufräumregel. **Releases werden aufgehoben, bis diese Regel
-entschieden ist** — Entscheidung 5.5 in
-[`datenhistorie.md`](intern/datenhistorie.md). Was dabei entsteht, ist eine Historie
+sondern eine Aufräumregel. Releases wurden aufgehoben, bis diese Regel
+entschieden war; **seit dem 4.10.2026 gilt *gepinnt plus die letzten acht***,
+lokal und auf SeaweedFS — Entscheidung 5.5 in
+[`datenhistorie.md`](intern/datenhistorie.md), gebaut in
+`orchestration.aufraeumen`. Was dabei entsteht, ist eine Historie
 der **veröffentlichten Stände** — nicht der Quelländerungen; die misst
 dasselbe Papier in den Abschnitten 1 bis 4, und die beiden Fragen sollten
 nicht zusammenfallen.

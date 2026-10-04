@@ -290,14 +290,25 @@ sich die Zuordnung ändert.
 
 ---
 
-### 5.5 Was von den Releases bleibt?
+### 5.5 Was von den Releases bleibt? — entschieden am 4.10.2026
+
+> **Entschieden: *gepinnt + die letzten n* mit n = 8, lokal und auf
+> SeaweedFS.** Gebaut als zweite Regel in `orchestration.aufraeumen`
+> (4.10.2026). Zwei Schalter: `--loeschen` räumt wie bisher nur lokal, erst
+> `--auch-fern` dazu räumt SeaweedFS; der Trockenlauf bleibt die Vorgabe.
+> Gepinnt bleibt nach demselben Register, und das Release, auf das
+> `releases/AKTUELL.json` zeigt, bleibt immer. Damit ist auch die offene
+> Frage 5 in Abschnitt 8 beantwortet. Das **überholt E6 im PRD zum LN2**, das
+> fünf Releases vorsah.
 
 Seit dem 17.9.2026 bildet jeder grüne Gesamtlauf ein **Release** — der ganze
 veröffentlichte Stand unter einer Kennung, unveränderlich, mit Prüfsummen
 (`ausblick.md` 6). Damit gibt es eine zweite Historie neben der, um die es in
 diesem Papier geht: nicht *was die Quellen geändert haben*, sondern *was wir
-wann gesagt haben*. Sie wird heute nur angehäuft; `aufraeumen` fasst
-Releases nicht an, weder lokal noch auf SeaweedFS.
+wann gesagt haben*. Bis zum 4.10.2026 wurde sie nur angehäuft; `aufraeumen`
+fasste Releases nicht an, weder lokal noch auf SeaweedFS. Gemessen am 4.10.:
+**8 Releases lokal** und **49 auf SeaweedFS** — 1'085 von 1'464 Objekten im
+Bucket, also 74 Prozent, und nichts verwaltete sie.
 
 Gemessen am 17.9.: ein Release hat **42,3 MB** — 14 MB Parquet plus eine
 26,5 MB grosse selbständige Datenbank. Wöchentlich ein Release ergibt rund
@@ -318,8 +329,21 @@ zwei Monate wöchentlicher Releases. Das ist dieselbe Logik wie bei Raw und
 Bronze, nur eine Schicht höher: Was eine veröffentlichte Zahl trägt, bleibt;
 was niemand zitiert hat, darf gehen. Zu bauen wäre eine Regel in
 `aufraeumen`, die `releases/` kennt — lokal **und** auf SeaweedFS, denn
-anders als Läufe liegen Releases dort als der gemeinsame Stand. Nicht vor
-Freitag; bis dahin wird nichts gelöscht.
+anders als Läufe liegen Releases dort als der gemeinsame Stand.
+
+**So gebaut, am 4.10.2026.** Die Regel steht in `orchestration.aufraeumen`
+neben der für Läufe und kennt vier Gründe: `Referenzstand` (das Register),
+`aktueller Zeiger` (`releases/AKTUELL.json`), `unter den letzten 8` und
+`ENTBEHRLICH`. Gezählt wird wie bei Läufen über die Reihenfolge, ein
+gepinntes Release belegt also einen der acht Plätze — die Rechnung oben
+(`~n × 42 MB plus die gepinnten`) ist damit eine Obergrenze. Der Referenzstand
+`release=2026-09-17T19-42-24Z` steht seit dem 4.10. mit `grund=referenzstand`
+im Register, **vor** dem ersten Löschlauf. Das Löschen selbst bleibt ein
+Handgriff: Der Trockenlauf ist die Vorgabe, `--loeschen` wirkt nur lokal, und
+erst `--auch-fern` dazu räumt SeaweedFS. Rund 900 Objekte aus dem geteilten
+Speicher zu entfernen kostet zwei bewusste Entscheidungen, nicht eine —
+dieselbe Haltung wie `publish_table` mit `erzwingen=True`. Serverseitige
+Lifecycle-Regeln am Bucket bleiben ausdrücklich aussen vor.
 
 **Was die Entscheidung nicht ersetzt:** die Tabelle aus Abschnitt 4. Ein
 Release hält fest, was *wir* gesagt haben; die Änderungstabelle hält fest,
@@ -369,8 +393,10 @@ Silver-Tabelle, die neue Vorbedingung in `aufraeumen`, Tests.
 3. ~~Monatlicher Vollschnappschuss je Stadt (5.2)?~~ — **entschieden am
    3.10.2026: ja, einer je Stadt und Monat.**
 4. Tabelle vor oder nach der Harmonisierung (5.4)?
-5. Welche Releases bleiben — alle, gepinnt + die letzten n, oder nur das
-   aktuelle (5.5)? Bis zur Entscheidung wird keines gelöscht.
+5. ~~Welche Releases bleiben — alle, gepinnt + die letzten n, oder nur das
+   aktuelle (5.5)?~~ — **entschieden am 4.10.2026: gepinnt + die letzten
+   acht, lokal und auf SeaweedFS.** Die Regel ist gebaut; gelöscht wird
+   weiterhin nur auf Zuruf, und auf SeaweedFS nur mit `--auch-fern`.
 6. **Wann ziehen wir den Referenzstand nach?** Er ist seit dem 17.9. überholt
    — siehe unten.
 

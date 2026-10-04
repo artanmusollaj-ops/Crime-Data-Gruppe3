@@ -41,10 +41,21 @@ hoch, dann wird ``AKTUELL.json`` ersetzt. Die festen Pfade ``gold/dataset=...``
 werden weiterhin bedient - wer heute dort liest, liest weiter; das Release ist
 der Weg fuer alles, was einen **ganzen** Stand braucht.
 
-**Was bewusst nicht hier steht:** Loeschen. Releases werden aufgehoben, bis
-eine Regel dafuer entschieden ist (``docs/intern/datenhistorie.md``). Rund 15 MB
-Parquet plus die Datenbank je Release - ein Jahr woechentlicher Releases ist
-unter einem Gigabyte.
+**Was bewusst nicht hier steht:** die Aufbewahrungsregel. Seit dem 4.10.2026
+gibt es sie - *gepinnt plus die letzten acht*, lokal und auf SeaweedFS -, und
+sie steht in ``orchestration.aufraeumen``, nicht hier
+(``docs/intern/datenhistorie.md`` 5.5). Dieses Modul bildet und liest Releases;
+was von ihnen bleibt, ist eine Frage der Steuerung. Entfernt wird ueber
+``Storage.entferne_oben``, und zwar ``release.json`` **zuletzt** - das
+Spiegelbild von "``release.json`` geht zuletzt hoch": Solange das Manifest
+steht, findet ``liste`` das halb geleerte Release wieder.
+
+Gemessen am 4.10.2026: **42,3 MB je Release** - rund 15 MB Parquet plus eine
+26,5 MB grosse Datenbank -, also rund **2,2 GB** bei einem woechentlichen
+Release im Jahr. Die 49 Releases auf SeaweedFS waren zusammen 2,1 GB und 1'085
+von 1'464 Objekten im Bucket; eine fruehere Fassung dieses Docstrings
+rechnete mit "unter einem Gigabyte im Jahr" und lag damit um mehr als das
+Doppelte daneben.
 """
 
 from __future__ import annotations
