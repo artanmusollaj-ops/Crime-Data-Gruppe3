@@ -239,7 +239,7 @@ def test_ein_lauf_ohne_gezogenen_unterschied_bleibt():
     schmale Aenderungstabelle.
     """
     laeufe = [au.Bestand("city=detroit", f"run_0{i}", f"2026-09-0{i}T10:00:00",
-                         False, (), (), 10)
+                         False, (), (), 10, Path("data"))
               for i in (4, 3, 2, 1)]
     ohne = {e.bestand.run_id: e.grund for e in au.entscheide(laeufe, set())}
     assert ohne["run_01"] is None, "ohne die Regel waere er entbehrlich"
@@ -252,7 +252,7 @@ def test_ein_lauf_ohne_gezogenen_unterschied_bleibt():
 def test_die_neue_regel_ueberschreibt_keinen_staerkeren_grund():
     """Sie haelt zusaetzlich, sie verdraengt nicht."""
     laeufe = [au.Bestand("city=detroit", f"run_0{i}", f"2026-09-0{i}T10:00:00",
-                         False, (), (), 10)
+                         False, (), (), 10, Path("data"))
               for i in (2, 1)]
     gruende = {e.bestand.run_id: e.grund for e in au.entscheide(
         laeufe, set(), {"run_01": "LN1"}, {"run_01", "run_02"})}
@@ -848,3 +848,66 @@ def test_der_zweite_schalter_gibt_es_wirklich(monkeypatch, capsys):
     assert "--auch-fern" in hilfe
     assert "nur zusammen mit --loeschen" in hilfe
     assert "Releases" in hilfe, "die Beschreibung nennt die Releases nicht"
+
+
+# --------------------------------------------------------------------------
+# Die Byte-Summe kommt seit dem 4.10.2026 aus storage
+# --------------------------------------------------------------------------
+
+
+def test_die_entscheidung_haengt_an_keiner_byte_summe(tmp_path):
+    """Der Umbau auf ``Storage.bytes_unter`` darf nichts entscheiden.
+
+    ``entscheide`` kennt Reihenfolge, Register und Manifeste - und sonst
+    nichts. Hier steht das als Zusage da: Ein Lauf mit 0 Bytes bekommt
+    denselben Grund wie einer mit vielen.
+    """
+    lauf(tmp_path, "city=chicago", "run_01", wann="2026-09-01T10:00:00")
+    lauf(tmp_path, "city=chicago", "run_02", wann="2026-09-02T10:00:00")
+    lauf(tmp_path, "city=chicago", "run_03", wann="2026-09-03T10:00:00")
+    vorher = {e.bestand.run_id: e.grund for e in au.bericht(tmp_path)}
+
+    for pfad in (tmp_path / "bronze" / "city=chicago").rglob("*.parquet"):
+        pfad.write_bytes(b"")
+    nachher = {e.bestand.run_id: e.grund for e in au.bericht(tmp_path)}
+    assert vorher == nachher
+
+
+def test_bytes_zaehlt_bronze_und_raw_zusammen(tmp_path):
+    lauf(tmp_path, "city=chicago", "run_01", wann="2026-09-01T10:00:00")
+    bestand = au.bestaende(tmp_path)["city=chicago"][0]
+    manifest = (tmp_path / "bronze" / "city=chicago" / "run_01" / "manifest.json")
+    erwartet = 2 * (1000 + manifest.stat().st_size)
+    assert bestand.bytes == erwartet, "Bronze und sein Raw-Gegenstueck zusammen"
+
+
+def test_bytes_laesst_ein_part_verzeichnis_weg(tmp_path):
+    """Vorher zaehlte ``rglob('*')`` es mit - ein ``.part`` ist kein Lauf."""
+    lauf(tmp_path, "city=chicago", "run_01", wann="2026-09-01T10:00:00")
+    bestand = au.bestaende(tmp_path)["city=chicago"][0]
+    schlank = bestand.bytes
+    teil = tmp_path / "bronze" / "city=chicago" / "run_01" / ".part" / "x.parquet"
+    teil.parent.mkdir(parents=True)
+    teil.write_bytes(b"x" * 99_999)
+    assert au.bestaende(tmp_path)["city=chicago"][0].bytes == schlank
+
+
+def test_die_wurzel_ist_pflicht_und_eine_falsche_scheitert(tmp_path):
+    """Eine fehlende oder falsche Wurzel darf keine kleine Zahl ergeben.
+
+    ``data_root`` hat keinen Vorgabewert mehr: Mit ``None`` lag jedes
+    Verzeichnis ausserhalb der Wurzel, und ``bytes`` meldete 0, statt zu
+    sagen, dass es nichts messen konnte. Das ist die Falle "ein fehlender
+    Schluessel zeigt sich als falsches Ergebnis, nicht als Fehler".
+    """
+    with pytest.raises(TypeError):
+        au.Bestand("city=detroit", "run_01", "2026-09-01T10:00:00",
+                   False, (), (), 10)
+
+    lauf(tmp_path, "city=chicago", "run_01", wann="2026-09-01T10:00:00")
+    echt = au.bestaende(tmp_path)["city=chicago"][0]
+    assert echt.bytes > 0
+
+    daneben = echt._replace(data_root=tmp_path / "woanders")
+    with pytest.raises(ValueError, match="Ablagewurzel"):
+        daneben.bytes

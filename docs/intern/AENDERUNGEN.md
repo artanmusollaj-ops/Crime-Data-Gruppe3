@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'606** |
+| Tests | **1'679** |
 | `silver/crime_offense` | 348'329 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'091** Zeilen (eine Tat) |
 | Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -92,7 +92,115 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
-## 04.10.2026 · Releases werden aufgeräumt: gepinnt plus die letzten acht, lokal und auf SeaweedFS (Branch `releases-aufraeumen`)
+## 04.10.2026 · Der Platzbedarf wird gemessen und je Quelle hochgerechnet, nicht mit einem Faktor geschätzt (#130)
+
+Der Speicherbedarf des Mehrjahreslaufs stand als **ein Faktor** in den
+Planungsdokumenten: 1'874'417 Zeilen gegen 348'341 sind das 5,38-Fache,
+aufgerundet 5,5 — und dieser Faktor wurde auf ganz `data/` angewandt. Daran war
+dreierlei falsch, und jedes einzeln:
+
+1. **Ein Zeilenverhältnis ist kein Byteverhältnis.** Gemessen kostet Detroits
+   Zeile in Bronze **189,0 Bytes**, Chicagos **64,4** — fast das Dreifache, weil
+   Detroit mehr und längere Textfelder trägt.
+2. **Nicht alles wächst mit den Jahren.** NOAA liefert mit GHCN-Daily immer die
+   ganze Reihe einer Station; sechs Jahrgänge kosten dort **nichts** zusätzlich.
+   Census wächst nicht mit den Jahren, sondern mit den **Vintages**, und
+   2021–2026 braucht **vier**, nicht sechs: Für 2025 und 2026 gibt es kein
+   ACS-5-Jahres-Vintage, sie borgen das von 2024.
+3. **Die Basis war der Bestand, nicht ein Jahrgang.** `data/` hielt am
+   4.10.2026 acht Chicago-Läufe und sechs Release-Stände. Den Faktor darauf
+   anzuwenden rechnet das Anhäufen mit hoch — dieselbe Falle wie „den Bestand
+   aus Bronze lesen", diesmal in der Basis einer Hochrechnung. Basis je
+   Jahrgang ist deshalb der **grösste Lauf je Quelle und Vintage**: Der
+   grösste über alle Vintages hinweg hätte für Census die Kosten *eines*
+   Vintages mit der Zahl *aller* geteilt.
+
+**Aus dem einen Faktor sind vier Regeln geworden** (`orchestration.platzbedarf`):
+
+| Regel | wie sie rechnet | 2021–2026 |
+| --- | --- | ---: |
+| Taten | Zeilen je Jahr × Bytes je Zeile, **je Stadt** | 498,8 MB |
+| Census | distinkte ACS-Vintages × Kosten je Vintage | 375,9 MB |
+| konstant | wächst nicht mit den Jahren (NOAA, Marken, Zeiger) | 24,9 MB |
+| Releases | 8 Stände × Grösse eines **hochgerechneten** Standes | 1'831,1 MB |
+
+**Das Ergebnis: 2,73 GB statt 3,2 oder 3,5 GB.** Die beiden alten Zahlen standen
+nebeneinander in `addendum.md` und FR-52 und widersprachen sich; beide sind
+ersetzt und verweisen jetzt auf das erzeugte Dokument. Für FR-52 ändert sich die
+Richtung nicht — ohne `releases/` sind es 0,90 GB, und Moodles Grenze von 1 GB
+bleibt die Hürde.
+
+**Die Ausgangsbasis war ebenfalls falsch.** `architektur-ist-und-ziel.md` nannte
+für `releases/` **121 MB**, gemessen sind **254,1 MB** — mehr als das Doppelte.
+Dieselbe Tabelle stand ein zweites Mal als SVG-Text in
+`architektur-einseiter.html`, und **dort stand sie unbewacht**: Der Sammler in
+`tests/test_dokumentzahlen.py` sieht nur tausendergetrennte Ganzzahlen und damit
+keine einzige MB-Angabe. Beide Tabellen sind richtiggestellt:
+
+| Schicht | war | ist |
+| --- | ---: | ---: |
+| raw | 130 MB | **143,5 MB** |
+| bronze | 124 MB | **162,2 MB** |
+| silver | 47 MB | **49,5 MB** |
+| gold | 15 MB | **15,3 MB** |
+| serving | 0,9 MB | 0,9 MB |
+| releases | 121 MB | **254,1 MB** |
+
+**Bewacht wird das jetzt in beiden Dokumenten.**
+`tests/test_platzbedarf_dokumente.py` hält die Schichtentabelle und die Grösse
+je Release gegen eine frische Messung — mit einem MB/GB-Muster statt des
+Ganzzahl-Sammlers, und mit Datei, Zeile und gemessener Zahl in der Meldung. Eine
+Stelle allein nachzuziehen genügt nicht; das ist die Lehre aus den acht
+überholten Aussagen vom 20.9.
+
+**Die Byte-Summe steht jetzt einmal im Projekt.** `Storage.bytes_unter(prefix)`
+ersetzt drei ausgeschriebene Fassungen (`storage/__main__.py`,
+`orchestration.aufraeumen`, `tools/build_referenz.py`). Jede war nur im
+`local`-Modus richtig, jede zählte `.part`-Verzeichnisse mit, und
+`build_referenz.py` teilte durch 1'048'576, wo alle anderen durch 1e6 teilten —
+dieselbe Referenz war dort um 4,8 % kleiner als an jeder anderen Stelle. Die neue
+Summe nimmt lokal `st_size`, auf S3 `Objekt.size` und zählt im Hybridmodus eine
+Datei, die lokal **und** oben liegt, genau einmal. `storage.release` bleibt
+unberührt: Seine Summe steht in unveränderlichen Release-Manifesten.
+
+**Dazu die kanonische Schichtenliste.** `storage.SCHICHTEN` nennt die sechs
+Schichten in der Reihenfolge der Strecke; `LAUFSCHICHTEN` und
+`TABELLENSCHICHTEN` sind Auswahlen daraus. Vorher standen drei einander
+widersprechende `SCHICHTEN` im Projekt — `storage/__main__.py` kannte raw und
+bronze, `serving/build_analysis_db.py` und `tools/build_feldkatalog.py` silver,
+gold und serving. Keine war falsch, aber keine liess sich fragen, *welche*
+Schichten es gibt.
+
+**Ändern sich dadurch Löschentscheidungen? Nein — nachgemessen.**
+`python -m orchestration.aufraeumen` liefert vor und nach dem Umbau **byteweise
+dieselbe Ausgabe**, und ein Test hält fest, dass `entscheide` an keiner
+Byte-Summe hängt: Ein Lauf mit 0 Bytes bekommt denselben Grund wie einer mit
+vielen.
+
+**Die gemessenen Zeilen je Jahrgang liegen unter `config/`.**
+`config/zeilen_je_jahrgang.csv` trägt Stadt, Jahr, Zeilen, Messdatum und
+Adresse — am 3.10.2026 an beiden APIs gemessen. Sie sind Fremddaten und keine
+Konstante im Code; fehlt ein Jahr, bricht die Hochrechnung ab und nennt es,
+statt es stillschweigend zu überspringen. Die Datei liegt mit LF, und `config/`
+bekommt dafür **keine** `eol`-Regel: Die Crosswalks daneben liegen absichtlich
+mit CRLF, und drei Tests vergleichen diese Bytes.
+
+**Was bewusst nicht in dieser Story steckt:** der Mehrjahreslauf selbst. Dies
+baut das Messgerät, die Hochrechnung und die Wächter — ohne Netz und ohne
+`CENSUS_API_KEY`. Gemessen wird danach, und dieser Schritt erledigt den
+ausstehenden Gold-Neubau mit.
+
+**Neu:** `src/crime/orchestration/platzbedarf.py`,
+`tools/build_platzbedarf.py`, `docs/intern/platzbedarf.md` (erzeugt),
+`config/zeilen_je_jahrgang.csv`, `tests/orchestration/test_platzbedarf.py`,
+`tests/test_platzbedarf_dokumente.py`.
+
+**Zahlen.** 1'606 → **1'679 Tests**, Standardlauf **1'580**, Referenzwächter
+82 → **99**. Der Importgraph hat mit `orchestration.platzbedarf` eine Kante
+mehr: 26 → **27**, davon zehn gezeichnet; `docs/architektur.md` und die
+erzeugten Bilder sind nachgezogen.
+
+## 04.10.2026 · Releases werden aufgeräumt: gepinnt plus die letzten acht, lokal und auf SeaweedFS (#129)
 
 Releases wurden bis hierher nur angehäuft. `orchestration.aufraeumen` kannte das
 Wort nicht — es räumte Raw- und Bronze-Läufe —, und `storage/release.py` sagte im
@@ -208,7 +316,7 @@ Entscheidungsmatrix, die beiden Zusagen *ohne `--loeschen` nichts* und *ohne
 `--auch-fern` ohne S3, und dass ein nur oben liegendes Release keine freien MB
 meldet), 12 für `delete` und `entferne_oben`. `docs/referenz/` neu erzeugt.
 
-## 04.10.2026 · Gold ist byteweise reproduzierbar, weil fact_offense jetzt eine Reihenfolge hat (Branch `mehrjaehrigkeit`)
+## 04.10.2026 · Gold ist byteweise reproduzierbar, weil fact_offense jetzt eine Reihenfolge hat (#128)
 
 Der Befund vom 3.10. war richtig, aber die Ursache falsch benannt. Ich hatte
 geschrieben, der Inhalt sei identisch und nur die Parquet-Kodierung weiche ab.
@@ -293,7 +401,7 @@ rührt an laufende Container.
 Byte-Vergleich ist abgewählt.
 `docs/referenz/` neu erzeugt.
 
-## 03.10.2026 · Die NIBRS-Zuordnung über sechs Jahrgänge (Branch `mehrjaehrigkeit`)
+## 03.10.2026 · Die NIBRS-Zuordnung über sechs Jahrgänge (#128)
 
 FR-38, und es ist dieselbe Rechnung wie bei `coverage_percent_by_city` — nur
 auf der Zeitachse. Die Zuordnung war nirgends jahresbezogen: `abdeckung()`
@@ -405,7 +513,7 @@ bleiben bei 94,5 und 132,7.
 
 ---
 
-## 03.10.2026 · Ein Teiljahr sagt, dass es eines ist (Branch `mehrjaehrigkeit`)
+## 03.10.2026 · Ein Teiljahr sagt, dass es eines ist (#128)
 
 FR-37 und FR-39, und sie gehören zusammen: Das eine kennzeichnet, das andere
 misst.
@@ -456,7 +564,7 @@ die benannte Lücke mitten im Jahr, und der Nachweis im Manifest. Gold und
 Serving neu gebaut, lokales Release `2026-10-03T17-49-45Z`, Feldkatalog,
 Referenz und Einstiegsseite neu erzeugt. Die Raten bleiben bei 94,5 und 132,7.
 
-## 03.10.2026 · Notebook 34 kennt die sechste Sterntabelle — und drei Zahlen stimmten schon vorher nicht (Branch `mehrjaehrigkeit`)
+## 03.10.2026 · Notebook 34 kennt die sechste Sterntabelle — und drei Zahlen stimmten schon vorher nicht (#128)
 
 Der offene Punkt aus dem Eintrag zu FR-35. `notebooks/34_gold_sternschema.ipynb`
 las in vier Zellen `sum(population) FROM dim_tract`, und sein Sternschema-Bild
@@ -502,7 +610,7 @@ nichts. Das Notebook ist mit `nbconvert --execute` durchgelaufen, die Raten
 bestätigen die Abgabezahlen: Chicago 94,5, Detroit 132,7, mit den
 Grenzfällen 95,6.
 
-## 03.10.2026 · Die Einwohnerzahl bekommt eine Zeitachse (Branch `mehrjaehrigkeit`)
+## 03.10.2026 · Die Einwohnerzahl bekommt eine Zeitachse (#128)
 
 FR-35, und damit ist Welle 1 auf dem Weg: `run_all --jahre 2021-2026` läuft
 jetzt durch bis Serving. Der Riegel vor Gold von heute Morgen ist weg, weil der
@@ -562,7 +670,7 @@ Pfeile — `gold_pipeline` und `orchestration` greifen jetzt nach
 nachgezogen — das rührt an laufende Container und ist deshalb nicht Teil dieser
 Änderung.
 
-## 03.10.2026 · Der Gesamtlauf nimmt einen Jahresbereich, und Gold sagt Nein (Branch `mehrjaehrigkeit`)
+## 03.10.2026 · Der Gesamtlauf nimmt einen Jahresbereich, und Gold sagt Nein (#128)
 
 FR-34 aus dem LN2-PRD. `run_all` nahm bisher keinen Jahrgang an: Chicago lief
 auf dem Standardwert seines Moduls, und für Detroit stand `--years 2024` als
@@ -623,7 +731,7 @@ der prüft, dass bei mehreren Vintages **keine** Stufe startet. `docs/referenz/`
 neu gebaut. Kein Datenvertrag ändert sich: Bei der Vorgabe 2024 sind die
 Befehlszeilen identisch.
 
-## 03.10.2026 · DuckDB bekommt Grenzen, und keine Verbindung kommt daran vorbei (Branch `mehrjaehrigkeit`)
+## 03.10.2026 · DuckDB bekommt Grenzen, und keine Verbindung kommt daran vorbei (#128)
 
 Erste Anforderung aus dem LN2-PRD (FR-61), und sie stand vor dem
 Mehrjahreslauf, nicht danach: **Ohne `memory_limit` nimmt DuckDB rund 80 % des

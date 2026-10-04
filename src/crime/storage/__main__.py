@@ -32,11 +32,14 @@ import socket
 import sys
 
 from manifeste import MANIFEST
-from storage import StorageError, get_storage
+from storage import LAUFSCHICHTEN, StorageError, get_storage
 from storage.config import StorageConfigError
 
 
-SCHICHTEN = ("raw", "bronze")
+# Nachpublizieren und Holen gelten nur fuer die Schichten aus unveraenderlichen
+# Laeufen; Silver und Gold werden gelesen, nicht kopiert. Die Liste steht
+# kanonisch in ``storage.backend`` - hier ist sie die Auswahl daraus.
+SCHICHTEN = LAUFSCHICHTEN
 
 
 def pruefen() -> int:
@@ -138,7 +141,9 @@ def publizieren(schichten: tuple[str, ...], wirklich: bool) -> int:
     if not fehlend:
         print("Nichts zu tun: jeder fertige lokale Lauf liegt schon oben.")
         return 0
-    mb = sum(p.stat().st_size for lf in fehlend for p in lf.verzeichnis.rglob("*") if p.is_file()) / 1e6
+    # ``lokal=True``: Gemeint sind die Bytes, die von hier hochgehen muessen.
+    # Im ``s3``-Modus liest die Ablage nicht lokal, und die Summe waere 0.
+    mb = sum(ablage.bytes_unter(lauf.relativ, lokal=True) for lauf in fehlend) / 1e6
     print(f"{len(fehlend)} Lauf/Laeufe lokal, aber nicht auf SeaweedFS ({mb:.0f} MB):")
     for lauf in fehlend:
         print(f"  {lauf.relativ}")

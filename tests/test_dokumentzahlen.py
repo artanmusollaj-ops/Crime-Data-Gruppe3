@@ -69,6 +69,11 @@ SCHUTZ = (
     # sehen dem heutigen Detroit-Bestand (88'686) nur aehnlich. Sie duerfen
     # veralten - sie beschreiben zwei bestimmte Laeufe, nicht den Stand.
     "Zeilennummer der ArcGIS-Antwort",
+    # platzbedarf.md zitiert die Rechnung, die es ersetzt: 1'874'417 Zeilen
+    # gegen 348'341 ergaben den 5,5-Faktor. 348'341 war der Zeilenbestand, als
+    # jemand das aufschrieb, und ist heute 348'329 - er *soll* veraltet sein,
+    # sonst waere der Satz keine Kritik an der alten Zahl mehr.
+    "war die Antwort **ein Faktor**",
 )
 
 # datenhistorie.md *ist* der Verlauf; archiv/ haelt Ueberholtes absichtlich.

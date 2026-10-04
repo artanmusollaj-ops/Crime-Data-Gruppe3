@@ -215,17 +215,17 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 1'524 ausgeführte Tests, ohne Netzzugriff und ohne
+Erwartet wird **grün**: 1'580 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
-Die Summenzeile nennt daneben **75 abgewählte**. Das sind die Wächter mit dem
+Die Summenzeile nennt daneben **99 abgewählte**. Das sind die Wächter mit dem
 Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'606
+python -m pytest -m ""               # beides zusammen, alle 1'679
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -888,7 +888,7 @@ Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.
 python -m pytest
 ```
 
-**1'606 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'679 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -927,7 +927,7 @@ Windows, weil Artan darauf entwickelt.
 
 In einem frischen Klon laufen **1'176 der 1'203 Tests** des Standardlaufs. Die
 übrigen 27 überspringen sich selbst, weil sie gebaute Daten brauchen und `data/`
-nicht versioniert ist; die 82 Referenzstand-Wächter sind ohnehin abgewählt.
+nicht versioniert ist; die 99 Referenzstand-Wächter sind ohnehin abgewählt.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
 über die Testzahl in diesem README und in `AENDERUNGEN.md`.

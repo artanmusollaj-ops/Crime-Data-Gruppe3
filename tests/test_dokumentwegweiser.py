@@ -37,6 +37,13 @@ ABSCHNITTE = (
     "## Archiv — überholt, aber nicht gelöscht",
 )
 
+# Dokumente, die in zwei Abschnitten stehen duerfen, weil beides zutrifft:
+# ``feldkatalog.md`` ist Anhang der Abgabe und erzeugt, ``platzbedarf.md``
+# (seit 4.10.2026) ist intern und erzeugt. Mehr als eine Handvoll sollten es
+# nicht werden - dann ist "Erzeugt" keine Einteilung mehr, sondern eine
+# Eigenschaft, und gehoert als Spalte in die anderen Tabellen.
+ZUGLEICH_ERZEUGT = frozenset({"feldkatalog.md", "platzbedarf.md"})
+
 
 @pytest.fixture(scope="module")
 def text() -> str:
@@ -81,9 +88,11 @@ def test_die_einteilung_ist_vollstaendig(text):
 def test_jedes_dokument_steht_in_genau_einem_abschnitt(text):
     """Zweimal genannt heisst: die Einteilung ist noch nicht entschieden.
 
-    Ausnahme ist ``feldkatalog.md``. Es ist Anhang der Abgabe **und** erzeugt -
-    beides ist wahr, und beides muss man wissen. Der Wegweiser sagt es an der
-    ersten Stelle ausdruecklich dazu.
+    Ausnahme sind ``feldkatalog.md`` (Anhang der Abgabe **und** erzeugt) und
+    seit dem 4.10.2026 ``platzbedarf.md`` (intern **und** erzeugt). Beides ist
+    jeweils wahr, und beides muss man wissen - der Wegweiser sagt es an der
+    ersten Stelle ausdruecklich dazu, und genau das prueft die zweite
+    Behauptung unten.
     """
     # Gezaehlt wird der **Verweis**, nicht die Nennung: "ein Eintrag in
     # AENDERUNGEN.md verweist darauf" ist Fliesstext und keine Einordnung.
@@ -93,11 +102,24 @@ def test_jedes_dokument_steht_in_genau_einem_abschnitt(text):
         treffer = [ABSCHNITTE[i] for i in range(len(ABSCHNITTE))
                    if f"]({p.name})" in text[grenzen[i]:grenzen[i + 1]]
                    or f"/{p.name})" in text[grenzen[i]:grenzen[i + 1]]]
-        if len(treffer) > 1 and p.name != "feldkatalog.md":
+        if len(treffer) > 1 and p.name not in ZUGLEICH_ERZEUGT:
             doppelt.append(f"{p.name}: {treffer}")
     assert not doppelt, f"in mehreren Abschnitten: {doppelt}"
-    assert "**erzeugt** (siehe unten)" in text, (
-        "feldkatalog.md steht in zwei Abschnitten - der erste muss sagen, warum"
+
+    # Je Dokument einzeln, nicht gezaehlt: ``count(...) == len(...)`` bestand
+    # auch, wenn beide Marken in derselben Zeile standen oder eine Datei zwei
+    # bekam und die andere keine. Geprueft wird deshalb die Zeile, die das
+    # Dokument verlinkt.
+    ohne_hinweis = [
+        name for name in sorted(ZUGLEICH_ERZEUGT)
+        if not any(f"]({name})" in zeile or f"/{name})" in zeile
+                   for zeile in text.splitlines()
+                   if "**erzeugt** (siehe unten)" in zeile)
+    ]
+    assert not ohne_hinweis, (
+        f"steht in zwei Abschnitten, sagt an der ersten Stelle aber nicht "
+        f"warum: {ohne_hinweis} - erwartet ist '**erzeugt** (siehe unten)' in "
+        f"derselben Zeile wie der Verweis"
     )
 
 

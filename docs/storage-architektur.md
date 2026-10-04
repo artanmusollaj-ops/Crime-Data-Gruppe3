@@ -185,6 +185,14 @@ Für Verzeichnisse und Suchen gilt dasselbe:
   nicht — auch dann nicht, wenn er lokal liegt und SeaweedFS einen fertigen
   hat. Es entscheidet die Manifest-Logik, nicht die Nähe.
 * **`tabellen()`** liefert die gebauten Silver- und Gold-Tabellen.
+* **`groessen_unter(prefix, muster)`** liefert dieselbe Auswahl wie
+  `list_files`, aber als `{Ablagepfad: Bytes}` — lokal aus `st_size`, oben aus
+  `Objekt.size`. **`bytes_unter(prefix, muster)`** ist deren Summe und damit
+  die **eine** Byte-Summe des Projekts; ein Präfix, das es nicht gibt, ist
+  dabei 0 Bytes und kein Fehler. `lokal=True` misst nur die Arbeitskopie,
+  auch im `s3`-Modus, in dem die Ablage sonst gar nicht lokal liest — das
+  fragen `aufraeumen` (was gibt das Löschen frei?) und
+  `python -m storage publizieren` (was ist noch hochzuladen?).
 
 Dass Läufe **vereinigt** werden, ist wichtig und nicht selbstverständlich:
 Chicago lädt einen Vollschnappschuss und danach Deltas, und Silver liest
@@ -437,8 +445,27 @@ Am bequemsten über die Standardablage (`from storage import …`):
 | `storage_path(*teile)` | der relative Ablagepfad |
 | `exists(*teile)` | liegt es lokal oder oben? |
 | `list_files(prefix, muster)` | Dateien, lokal ∪ entfernt |
+| `groessen_unter(prefix, muster)` | dieselbe Auswahl als `{Pfad: Bytes}` |
+| `bytes_unter(prefix, muster)` | deren Summe — die **eine** Byte-Summe |
 | `read_text(*teile)` / `write_text(text, *teile)` | kleine Dateien |
 | `publish_to_shared_storage(*teile)` | ein Verzeichnis publizieren |
+
+Dazu vier Listen von Schichtnamen, kanonisch an **einer** Stelle
+(`storage.backend`), weil es vorher drei einander widersprechende gab. Sie
+stehen hier bewusst nicht als Tabelle: Die Tabelle darüber ist die der
+Umgebungsvariablen, und `tests/storage/test_dokumentation.py` liest sie
+zeilenweise.
+
+* **`SCHICHTEN`** — alle sechs, in der Reihenfolge der Strecke: raw, bronze,
+  silver, gold, serving, releases.
+* **`LAUFSCHICHTEN`** — die aus unveränderlichen Läufen: raw, bronze.
+* **`TABELLENSCHICHTEN`** — die mit Tabellen, ersetzt statt angehäuft: silver,
+  gold, serving.
+* **`ABGELEITET`** — die engere Menge silver, gold; nur dort ist der
+  Standvergleich sinnvoll.
+
+`orchestration.platzbedarf` misst damit die Belegung je Schicht; die
+Hochrechnung daraus steht in `docs/intern/platzbedarf.md`.
 
 Auf dem `Storage`-Objekt zusätzlich: `laeufe()`, `tabellen()`,
 `publish_run()`, `publish_table()`, `publish_files()`, `vergleiche_stand()`,
