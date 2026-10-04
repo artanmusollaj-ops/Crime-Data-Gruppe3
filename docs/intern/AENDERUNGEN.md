@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'679** |
+| Tests | **1'678** |
 | `silver/crime_offense` | 348'329 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **345'091** Zeilen (eine Tat) |
 | Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
@@ -195,10 +195,63 @@ ausstehenden Gold-Neubau mit.
 `config/zeilen_je_jahrgang.csv`, `tests/orchestration/test_platzbedarf.py`,
 `tests/test_platzbedarf_dokumente.py`.
 
-**Zahlen.** 1'606 → **1'679 Tests**, Standardlauf **1'580**, Referenzwächter
+**Zahlen.** 1'606 → **1'678 Tests**, Standardlauf **1'579**, Referenzwächter
 82 → **99**. Der Importgraph hat mit `orchestration.platzbedarf` eine Kante
 mehr: 26 → **27**, davon zehn gezeichnet; `docs/architektur.md` und die
 erzeugten Bilder sind nachgezogen.
+
+## 04.10.2026 · Detroits Fallanteil fällt — Gold sagt dasselbe, nur entdoppelt (#131)
+
+Die Zurückstellung aus der FR-38-Review.
+`test_abdeckung_der_faelle_ist_ausgewiesen` bildete `gedeckt / gesamt` aus den
+Zahlen von `detroit_codes()` und nannte das Ergebnis „Abdeckung der Fälle", mit
+der Schwelle 0,999. `detroit_codes()` liest aber **alle** Läufe unter
+`bronze/city=detroit`.
+
+**Gemessen am 4.10.2026: 8 Läufe, 452'980 Zeilen für 253'838 verschiedene
+`ESRI_OID` — Faktor 1,78.** Der Anteil war damit nach Ingestionshäufigkeit
+gewichtet und nicht nach Fällen. Und 452'980 ist genau die Zahl, die
+`AGENTS.md` unter *Known pitfalls* als Beispiel führt: *„Den Bestand aus Bronze
+zu lesen heisst, alle Läufe zu lesen: 452'980 Zeilen für einen Jahrgang von
+88'686, und das Ergebnis sah plausibel aus."* Der Test ist in die dokumentierte
+Falle getreten, und zwar mit derselben Zahl.
+
+**Die Aussage ist nicht verloren.** Gold liefert sie entdoppelt: je Stadt in
+`coverage_percent_by_city` (Detroit `unmapped` 0,0, `exact` 95,1748) und seit
+FR-38 je Jahrgang in `mapping_by_year`. Die Schwelle, die der Test behauptete,
+erzwingt `pruefe_gate` über `GATE_HOECHSTENS = {"unmapped": 1.0}` sogar **je
+Stadt im Bau** — nicht bloss in einem Test. Der Ersatz ist also strenger als
+das Entfallene.
+
+**Dasselbe war Chicago bei FR-38 schon erspart worden**: Dort wurde der Anteil
+nie gebaut, und an seiner Stelle steht ein Kommentar mit demselben Argument.
+Detroits Fassung war die ältere. Jetzt sagen beide Seiten dasselbe — und
+Chicagos Kommentar ist nachgezogen, weil er auf Detroits Rechnung als
+bestehenden Defekt verwies.
+
+**Ein Docstring hat sich selbst widersprochen.** `detroit_codes()` sagte „Die
+MICR-Codes des **juengsten** Detroit-Bronze-Laufs", während die Funktion immer
+schon alle las. Für ihren Zweck ist das richtig — gefragt ist die *Menge* der
+vorkommenden Codes, und ein Code, der nur in einem älteren Delta steht, muss
+genauso zugeordnet sein. Der Docstring sagt das jetzt, samt dem Hinweis, dass
+die Zahlen daneben Grössenordnungen für die Fehlermeldung sind und keine
+Statistik. `test_jeder_code_der_daten_steht_in_der_tabelle` bleibt unverändert;
+er fragt nach der Menge und ist über alle Läufe richtig.
+
+**Und eine Zahl, die seit dem 3.10. offen war, ist jetzt gemessen.** `README.md`
+und `docs/architektur-ist-und-ziel.md` sagten „1'176 der 1'203 Tests" für einen
+frischen Klon — zweimal zurückgestellt, weil die einzige Messmethode schien,
+`data/` beiseitezuschieben. Die Review hat den besseren Weg gezeigt: eine
+**Kopie** des Baums ohne `data/`, nur mit den vier versionierten `.gitkeep`.
+Gemessen am 4.10.2026 nach dem Rebase auf #130: **1'550 bestanden, 29
+übersprungen** von 1'579. Beide Stellen stehen jetzt richtig, und `README.md`
+sagt statt „75 abgewählte" die gemessenen 99 — die Zahl stand vier Zeilen neben
+der Gesamtzahl und widersprach ihr.
+
+**Zahlen.** 1'679 → **1'678 Tests** — einer weniger, nicht mehr. Standardlauf
+1'579, Referenzwächter unverändert 99. Kein Vertragssprung, keine Datei in
+`config/` angefasst. Die Zahlen sind die nach dem Rebase auf #130; vor dem
+Rebase stand hier 1'605 von 1'523, weil der Branch noch von `147aae1` abzweigte.
 
 ## 04.10.2026 · Releases werden aufgeräumt: gepinnt plus die letzten acht, lokal und auf SeaweedFS (#129)
 

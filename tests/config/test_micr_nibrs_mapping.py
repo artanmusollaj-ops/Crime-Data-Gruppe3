@@ -17,9 +17,10 @@ als 2024 geladen war, brach jener Test an etwas, das kein Fehler ist. Ob ein
 Code **vorkommt**, ist eine Eigenschaft der Daten; nachgewiesen wird sie jetzt
 je Jahrgang in Gold, mit ``mapping_by_year`` im Manifest von ``fact_offense``
 (FR-38, ``gold_pipeline.build_gold.zuordnung_je_jahrgang``). Was die Tabelle
-abdecken muss, pruefen unveraendert
-``test_jeder_code_der_daten_steht_in_der_tabelle`` und
-``test_abdeckung_der_faelle_ist_ausgewiesen``.
+abdecken muss, prueft hier ``test_jeder_code_der_daten_steht_in_der_tabelle``:
+die **Menge** der vorkommenden Codes, nicht ihr Gewicht. Ein Fallanteil stand
+bis zum 4.10.2026 daneben und ist entfallen - die Begruendung steht weiter
+unten, wo er stand.
 """
 
 from __future__ import annotations
@@ -367,11 +368,18 @@ def test_die_tabelle_hat_keine_luecke_mehr(zeilen):
 
 
 def detroit_codes() -> dict[str, int] | None:
-    """Die MICR-Codes des juengsten Detroit-Bronze-Laufs, oder None.
+    """Die MICR-Codes **aller** Detroit-Bronze-Laeufe, oder None.
 
     Detroit schreibt seit dem 11.9. Parquet in Laufverzeichnissen. Der frueher
     gelesene NDJSON-Bestand ist geloescht: Sein Jahresfenster war in UTC
     gezogen statt in Detroiter Ortszeit, er enthielt also Faelle aus 2023.
+
+    Gelesen werden alle Laeufe und nicht nur der juengste - der Docstring sagte
+    bis zum 4.10.2026 das Gegenteil, der Code tat immer schon dies. Fuer den
+    Zweck ist es richtig: Gefragt ist die **Menge** der vorkommenden Codes, und
+    ein Code, der nur in einem aelteren Delta steht, muss genauso zugeordnet
+    sein. Die Zahlen daneben sind Groessenordnungen fuer die Fehlermeldung,
+    **keine Statistik** - mehrfach geladene Zeilen zaehlen darin mehrfach.
     """
     wurzel = PROJECT_ROOT / "data" / "bronze" / "city=detroit"
     treffer = sorted(
@@ -403,24 +411,28 @@ def test_jeder_code_der_daten_steht_in_der_tabelle(zeilen):
         pytest.skip("kein Detroit-Bronze-Lauf vorhanden")
     bekannt = {z["micr_code"] for z in zeilen}
     fehlend = sorted(set(daten) - bekannt)
-    assert not fehlend, f"in den Daten, aber nicht in der Tabelle: {fehlend}"
+    # Mit der Zahl daneben: Ein Code, der zweimal vorkommt, ist ein anderer
+    # Fall als einer mit zehntausend Zeilen - das entscheidet, wie dringend
+    # die Zuordnung ist. Genau dafuer zaehlt ``detroit_codes`` mit.
+    assert not fehlend, (
+        "in den Daten, aber nicht in der Tabelle: "
+        + ", ".join(f"{code} ({daten[code]}x)" for code in fehlend)
+    )
 
 
-def test_abdeckung_der_faelle_ist_ausgewiesen(zeilen):
-    """Die Tabelle deckt nicht alles ab - die Luecke muss messbar bleiben."""
-    daten = detroit_codes()
-    if daten is None:
-        pytest.skip("kein Detroit-Bronze-Lauf vorhanden")
-    zugeordnet = {z["micr_code"] for z in zeilen if z["mapped"] == "true"}
-    gesamt = sum(daten.values())
-    gedeckt = sum(n for code, n in daten.items() if code in zugeordnet)
-    anteil = gedeckt / gesamt
-    # Seit 3072, 5421 und 5422 ueber Detroits eigene Felder angeschlossen sind,
-    # deckt die Tabelle jeden Code ab, der 2024 vorkommt. Die Schwelle steht
-    # trotzdem knapp darunter und nicht bei 100 %: Ein neuer Code in einem
-    # spaeteren Jahrgang soll den Test nicht sofort fallen lassen, sondern der
-    # Test oben, der die Luecke beim Namen nennt.
-    assert anteil > 0.999, f"nur {anteil:.1%} der Faelle zugeordnet"
+# **Ein Fallanteil stand hier bis zum 4.10.2026** und ist entfallen: Er
+# rechnete ``gedeckt / gesamt`` aus den Zaehlungen von ``detroit_codes`` und
+# nannte das Ergebnis "Abdeckung der Faelle". Bronze haelt aber jeden Lauf, und
+# Detroit laedt Deltas - gemessen am 4.10.2026: 8 Laeufe, 452'980 Zeilen fuer
+# 253'838 verschiedene ESRI_OID, Faktor 1,78. Der Anteil war damit nach
+# Ingestionshaeufigkeit gewichtet und nicht nach Faellen. 452'980 ist genau die
+# Zahl, die AGENTS.md unter "Known pitfalls" als Beispiel fuehrt.
+#
+# Die Aussage ist nicht verloren, sie steht richtig an einer anderen Stelle:
+# Gold liefert sie **entdoppelt**, je Stadt in ``coverage_percent_by_city``
+# (Detroit unmapped 0,0) und je Jahrgang in ``mapping_by_year`` (FR-38). Die
+# Schwelle, die der Test behauptete, erzwingt ``pruefe_gate`` ueber
+# GATE_HOECHSTENS je Stadt sogar im **Bau** - nicht bloss in einem Test.
 
 
 # --------------------------------------------------------------------------
