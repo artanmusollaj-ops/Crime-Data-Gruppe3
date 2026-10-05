@@ -123,6 +123,15 @@ def test_jedes_dokument_steht_in_genau_einem_abschnitt(text):
     )
 
 
+# Die eine Ausnahme von der Regel unten: die **abgegebene** Fassung des LN1.
+# Sie ist keine amtliche Unterlage und gehoert nicht nach docs/quellen/ - sie
+# ist die Quelle eines erzeugten Dokuments (docs/forschungsfragen.md) und liegt
+# bewusst ungetrackt (.gitignore, Entscheid vom 5.10.2026). Wer sie hat, liegt
+# damit richtig; wer sie nicht hat, merkt nichts davon. Vor dem 5.10.2026 war
+# dieser Test auf Christians Rechner rot, ohne dass etwas kaputt war.
+NICHT_IM_QUELLENORDNER = frozenset({"Leistungsnachweis_1_Konzept_Gruppe_3.pdf"})
+
+
 def test_die_quellen_liegen_im_eigenen_ordner():
     """Die 8,8 MB amtliche Unterlagen gehoeren nicht zwischen die Prosa.
 
@@ -131,7 +140,8 @@ def test_die_quellen_liegen_im_eigenen_ordner():
     prueft ``tests/test_quellenverzeichnis.py``.
     """
     lose = sorted(p.name for p in DOCS.glob("*")
-                  if p.suffix.lower() in {".pdf", ".xlsx", ".xls", ".docx"})
+                  if p.suffix.lower() in {".pdf", ".xlsx", ".xls", ".docx"}
+                  and p.name not in NICHT_IM_QUELLENORDNER)
     assert not lose, f"Quelldateien liegen flach in docs/: {lose}"
     quellen = sorted(p for p in (DOCS / "quellen").glob("*") if p.name != "README.md")
     assert len(quellen) == 7, f"sieben amtliche Unterlagen erwartet, {len(quellen)} gefunden"

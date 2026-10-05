@@ -231,10 +231,10 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'695 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'565 davon — die übrigen 30 brauchen gebaute Daten; 100 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 1'713 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'582 davon — die übrigen 31 brauchen gebaute Daten oder das ungetrackte LN1-PDF; 100 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
-| **Referenzstand** | 99 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
+| **Referenzstand** | 100 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
 Der letzte Punkt ist die interessanteste Entscheidung: Die Quellen bewegen
 sich. Ein Test, der die dokumentierte Zahl gegen den frischen Stand hält, wäre

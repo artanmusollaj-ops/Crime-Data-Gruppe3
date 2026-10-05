@@ -49,7 +49,7 @@ Raumeinheit. Darauf steht das **Gold-Sternschema** aus einer Faktentabelle
 und fünf Dimensionen (5.2), darauf die Auswertungsumgebung. Die Schichten
 liegen wahlweise lokal oder auf einem gemeinsamen Objektspeicher (7.4).
 Jede Quelle weist ihre Vollständigkeit nach, statt sie zu behaupten.
-**1'695 automatisierte Tests** laufen ohne Netzzugriff und ohne Schlüssel.
+**1'713 automatisierte Tests** laufen ohne Netzzugriff und ohne Schlüssel.
 
 Gebaut sind die **sechs Jahrgänge 2021 bis 2026**; 2026 ist ein Teiljahr und
 als solches gekennzeichnet (`dim_date.year_is_complete`).
@@ -112,8 +112,12 @@ Studie.
 
 ## 3 · Forschungsfragen und Hypothesen
 
-> **Entwurf.** Der Entscheid über Auswahl und Formulierung der Hypothesen ist
-> offen und wird im Team getroffen.
+> **Der Wortlaut dieses Kapitels ist der abgegebene.** Er steht erzeugt in
+> [`forschungsfragen.md`](forschungsfragen.md), aus der eingereichten Fassung
+> gezogen; `tests/test_forschungsfragen.py` hält dieses Kapitel dagegen. Wer
+> hier eine Frage oder eine Hypothese umformuliert, lässt den Wächter fallen —
+> und das ist der Zweck: Der Wortlaut wurde eingereicht und bewertet, er ist
+> Beleg und nicht Entwurf.
 
 ### 3.1 Zwei Ebenen von Fragen
 
@@ -131,39 +135,61 @@ Anwendungsebene ist Rahmen, nicht Prüfgegenstand.
 
 ### 3.2 Forschungsfragen
 
-| | Frage | Modulbezug |
-| --- | --- | --- |
-| **FF1** | Unter welchen Bedingungen lassen sich zwei unabhängig erhobene, unterschiedlich kodierte kommunale Kriminalitätsdatensätze so integrieren, dass ein valider Vergleich möglich wird? | Kompatibilität, Integration |
-| **FF2** | Welches Qualitätsniveau erreichen die fünf Quellen, gemessen an definierten Dimensionen — und genügt es dem festgelegten Verwendungszweck? | Datenqualität, Bewertung |
-| **FF3** | Welche Bereinigungsschritte sind erforderlich, und wie stark verändern sie das Ergebnis? | Datenbereinigung |
+Über den sechs Teilfragen steht eine:
+
+> **Übergeordnete Forschungsfrage.** Wie lässt sich eine schlanke
+> Batch-Datenplattform gestalten, die heterogene Kriminalitätsdaten aus Chicago
+> und Detroit reproduzierbar beschafft, fachlich nachvollziehbar harmonisiert
+> und qualitätsgesichert für analytische Anwendungen bereitstellt?
+
+Die sechs Teilfragen zerlegen sie entlang der Strecke — Beschaffung,
+Verarbeitung, Zeit, Deliktschema, Wiederherstellbarkeit, Technik:
+
+| | Frage |
+| --- | --- |
+| **F1** | Wie werden Downloads trotz Pagination und veränderlicher Quellen abgesichert? |
+| **F2** | Wie wirken sich wiederholte Lieferungen auf Silber und Gold aus? |
+| **F3** | Wie werden lokale Tat-Tage trotz unterschiedlicher Zeitdarstellung korrekt gebildet? |
+| **F4** | Welche Unterschiede bleiben trotz gemeinschaftlichen Deliktschemas bestehen? |
+| **F5** | Welche Voraussetzungen benötigt die Wiederherstellung einer Kennzahl? |
+| **F6** | Reichen Parquet und DuckDB für den Umfang aus? |
 
 ### 3.3 Hypothesen
 
-Alle falsifizierbar, alle mit einem Verfahren aus dem Modul prüfbar, alle mit
-den vorliegenden Daten durchführbar. **Sechs sind bereits gemessen** — vier
-bestätigt oder vorgeprüft, **eine falsifiziert, eine teilweise falsifiziert.**
+Je Frage eine Hypothese, alle falsifizierbar, alle mit einem Verfahren aus dem
+Modul prüfbar, alle mit den vorliegenden Daten durchführbar. Die Spalte
+„Ergebnis" ist die Beantwortung aus Kapitel 11 der Abgabe: **Alle sechs halten,
+zwei mit Einschränkung.** Der Rechenweg steht in
+[`../notebooks/36_hypothesen.ipynb`](../notebooks/36_hypothesen.ipynb), das jede
+Zahl darin selbst nachrechnet.
 
-| | Hypothese | Verfahren | Stand |
-| --- | --- | --- | --- |
-| **H1** | Fehlende Koordinaten treten **nicht zufällig** auf, sondern hängen vom Delikttyp ab. | Chi-Quadrat-Unabhängigkeitstest | vorgeprüft in **beiden** Städten. Auf gemeinsamer NIBRS-Achse: Sexualdelikte fehlen in Chicago beim 12,0-Fachen, in Detroit beim 5,2-Fachen des Stadtschnitts — Betrug dagegen **nur** in Chicago (Faktor 20 zwischen den Städten). Notebook 34, Abschnitt 5.2 |
-| **H2** | Der Überlapp der Delta-Läufe erzeugt ausschliesslich **Duplikate**, keine **Dubletten**. | Vergleich aller Attribute je Schlüssel | bestätigt |
-| **H3** | Die Deliktschlüssel beider Städte lassen sich **vollständig** auf NIBRS abbilden. | Anwendung beider Crosswalks in `silver/crime_offense` | **teilweise falsifiziert**, siehe 8.5. Beide Städte sind **100 %** zugeordnet — aber nur **97,0 %** aller Fälle tragen ein echtes NIBRS-Delikt; 10'476 landen im Auffang `90Z`. Die Abdeckung stimmt, die Abbildung nicht |
-| **H4** | Ein gepinntes Schema plus Auffangspalte fängt Schema-Drift **vollständig** auf. | Fingerabdruck über Feldtypen, Inhalt von `_extra` | bestätigt |
-| **H5** | Auffällige Werte in den Verwaltungsschlüsseln sind **Artefakte**, keine echten Ausreisser. | Häufigkeitsanalyse plus Konsistenzregel | vorgeprüft |
-| **H6** | Die Zusammenführung der drei Zeitachsen gelingt allein durch **Aggregation**; Imputation ist nicht nötig. | Granularitätsanalyse je Quelle | offen |
-| **H7** | Unser räumlicher Join **reproduziert** die Tract-Zuordnung, die Detroit selbst mitliefert. | Übereinstimmungsquote | **falsifiziert**, siehe 8.4 |
-| **H8** | Tract-Zellen mit auffällig hohen Fallzahlen sind echte **Ausreisser**, kein Noise. | Boxplot, Isolation Forest | offen |
+| | Hypothese | Ergebnis |
+| --- | --- | --- |
+| **H1** | Bei einem erfolgreichen Lauf entspricht die gelieferte Menge genau der vorab ermittelten Erwartungsmenge; bei Quellen ohne Identifikator-Menge tritt ein gleichwertiger Nachweis an ihre Stelle. | hält, wörtlich für Chicago und Detroit; die drei Referenzquellen belegen Vollständigkeit gleichwertig |
+| **H2** | Zweimalige Verarbeitung identischer Eingaben und Regeln erzeugt dieselben fachlichen Tabelleninhalte und Kennzahlen. | hält; drei Neubauten, sechs Tabellen, identischer sortierter Inhalt |
+| **H3** | Die lokale Tageszuordnung und die fachlichen Abfragegrenzen sind unabhängig von der Zeitzone des ausführenden Rechners. Nichtexistierende oder mehrdeutige lokale Quellzeiten werden ausdrücklich als Sonderfälle ausgewiesen. | hält in beiden Teilen; die Ausweisung wurde am 16.09.2026 ergänzt |
+| **H4** | Codebasierte und versionierte Zuordnungen machen mehr fachlich relevante Mehrdeutigkeiten sichtbar als eine alleinige Zuordnung nach Kategoriebezeichnung. | hält deutlich; 71 % der Zeilen unter mehrdeutiger Bezeichnung |
+| **H5** | Ein fixierter Eingabestand mit erhaltenen Referenzdateien, Code, Konfiguration und Abhängigkeiten liefert bei erneutem Aufbau dieselben fachlichen Ergebnisse. | hält für den gepinnten Stand; zweite Umgebung offen |
+| **H6** | Silver, Gold und Serving lassen sich auf dem festgelegten Referenzrechner in weniger als zehn Minuten aufbauen. | hält; Median 27 bis 31 Sekunden |
 
-**H2 und H5 sprechen die Begriffe des Moduls präzise an.** Ein *Duplikat* ist in
+**Die Grenze des Nachweises gehört dazu** und steht in der Abgabe direkt unter
+dieser Tabelle: Der Vollständigkeitsnachweis aus H1 betrifft die
+**Mitgliedschaft** der Datensätze, nicht einen transaktional eingefrorenen
+Attributzustand der externen Quelle. Ein Datensatz kann sich während des
+Downloads ändern.
+
+**H2 und H4 sprechen die Begriffe des Moduls präzise an.** Ein *Duplikat* ist in
 jedem Attribut identisch, eine *Dublette* meint dieselbe Sache mit abweichenden
-Werten; *Noise* hat eine systematische Ursache, ein *Ausreisser* ist eine echte
-Beobachtung. Diese Unterscheidungen lassen sich an den vorliegenden Daten mit
-einem belegten Ergebnis zeigen statt mit einer Definition.
+Werten; H2 zeigt an Chicagos absichtlich überlappenden Delta-Läufen, dass der
+Überlapp nur Duplikate erzeugt (8.3). H4 trennt *Code* von *Bezeichnung* — und
+zeigt, dass eine hohe Zuordnungsquote kein Beleg richtiger Zuordnung ist (8.5).
+Beide Unterscheidungen lassen sich an den vorliegenden Daten mit einem belegten
+Ergebnis zeigen statt mit einer Definition.
 
 ### 3.4 Qualitätsdimensionen als Massstab
 
-FF2 braucht einen Massstab. Angelehnt an ISO 8000, jede Dimension mit einer
-Kennzahl, die sich berechnen lässt:
+Ob die Daten „für ihren Zweck taugen", braucht einen Massstab. Angelehnt an
+ISO 8000, jede Dimension mit einer Kennzahl, die sich berechnen lässt:
 
 | Dimension | Kennzahl |
 | --- | --- |
@@ -175,13 +201,34 @@ Kennzahl, die sich berechnen lässt:
 | Genauigkeit | Anteil verortbarer Fälle |
 | Aktualität | Abstand des jüngsten Änderungszeitpunkts |
 
-Der Verwendungszweck legt die Schwellen fest. Für eine Rate je Tract ist eine
+Der Verwendungszweck legt die Schwellen fest, und genau deshalb hängen die
+beiden Ebenen aus 3.1 zusammen. Für eine Rate je Tract ist eine
 Verortungsquote von 99,3 % gut — aber nur, solange die fehlenden 0,7 % nicht
-systematisch verzerrt sind. Genau das prüft H1, und genau deshalb hängen die
-beiden Ebenen aus 3.1 zusammen. Detroit liegt mit 99,7 % besser, aber die Quote
-allein sagt nicht, ob sie trägt: Bei Sexualdelikten fehlen in beiden Städten
-rund fünf- bis sechsmal so viele Koordinaten wie im Schnitt, bei Betrug nur in
-Chicago.
+systematisch verzerrt sind. Detroit liegt mit 99,7 % besser, doch die Quote
+allein sagt nicht, ob sie trägt: Welche Fälle fehlen, hängt am Delikttyp, und
+das ist gemessen. Der Befund steht in 8.7.
+
+### 3.5 Woher diese Nummern kommen
+
+Ein früherer Entwurf dieses Kapitels führte drei Forschungsfragen mit acht
+Hypothesen in einem **eigenen Nummernkreis** — andere Fragen, andere
+Hypothesen, dieselben Buchstaben. Massgeblich ist die eingereichte Fassung:
+sechs Fragen F1 bis F6 mit je einer Hypothese H1 bis H6. Sie gelten im ganzen
+Repository, auch in den Notebooks.
+
+Was der Entwurf **gemessen** hat, ist damit nicht weg. Drei seiner Hypothesen
+waren gerechnet, und ihre Befunde stehen im Analyseteil, wo sie hingehören —
+als Befunde, nicht als Hypothesen:
+
+| Befund | Wo er steht |
+| --- | --- |
+| Der räumliche Join reproduziert Detroits eigene Tract-Angabe nicht | 8.4 |
+| Die Deliktschlüssel sind vollständig abgedeckt, aber nicht durchgehend abgebildet | 8.5 |
+| Fehlende Koordinaten treten nicht zufällig auf, sondern hängen vom Delikttyp ab | 8.7 |
+
+Dass eine Nummer wegfällt, ist kein Grund, eine Messung wegzuwerfen. Und dass
+drei Fassungen derselben Fragen nebeneinander standen, ohne dass es auffiel,
+ist der Grund für den Wächter aus dem Kasten oben.
 
 ---
 
@@ -601,7 +648,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; drei Tests prüfen das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel. `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id` — durchgehend bis Gold: jede abgeleitete Tabelle trägt einen `input_fingerprint` über ihre Eingaben, nennt Vorgänger mit Bauzeitpunkt und Abdruck statt nur mit Pfad, Referenzdateien mit SHA-256. Jedes Manifest nennt ausserdem `contract_version` (was geladen oder gedeutet wird) und `code_version` (welcher Commit, und ob der Arbeitsbaum sauber war), gegen ein Register in `AENDERUNGEN.md` getestet. Unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog mit 133 Spalten, erzeugt aus den Manifesten und getestet. Gesamtmanifest je Lauf mit allen Eingabe-Läufen und Fingerabdruck. Verantwortliche je Datensatz in Absprache 7.3, gegen die Stufenliste getestet. Aufbewahrungsregel mit `orchestration.aufraeumen`: **gepinnt** bleibt (Register `config/referenzstand.csv`, versioniert), dazu der jüngste Lauf und der davor, alles von Silver Genannte und die Basis jedes Deltas; gelöscht wird nur auf Wunsch, Raw und Bronze zusammen. `--pinnen` leitet den Referenzstand aus den Gold-Manifesten ab, statt ihn tippen zu lassen. Datenablage wahlweise lokal, SeaweedFS (S3) oder hybrid (`storage`): lesen lokal zuerst, S3 als Rückfall; schreiben lokal, prüfen, gezielt publizieren, `manifest.json` zuletzt. Ein veralteter lokaler Stand einer abgeleiteten Tabelle wird beim Lesen gemeldet und beim Publizieren abgelehnt — verglichen werden `built_at_utc` und die Bronze-Läufe aus `derived_from` | das Aufräumen ist ein Handgriff, kein Automatismus; ein Stand wird gepinnt, wenn jemand daran denkt; Detroits Lauf vom 11.9. bleibt bewusst ohne Raw-Gegenstück — er ist der vorherige Schnappschuss, der die Instabilität der Quelle belegt; die Ablage lädt nichts automatisch herunter und synchronisiert nicht zurück — bewusst, Version 1 |
-| **DataOps** | 1'695 Tests ohne Netz und Schlüssel, auf jedem Pull Request in GitHub Actions — Linux und Windows, Python 3.11 und 3.13; `ruff` davor. Schreiben über `.part` und atomares Umbenennen. Publish-Gate: Gold entsteht nur, wenn die Abdeckung Schwellen hält | die 100 datengebundenen Wächter laufen auf Pull Requests nicht — dafür gibt es seit dem 13.9. den wöchentlichen Datenlauf (`datenlauf.yml`), der alle Quellen lädt, die Strecke baut und dann die ganze Suite fährt; er braucht `CENSUS_API_KEY` als Repository-Secret und ist bis zum ersten grünen Lauf eine Einrichtung, kein Nachweis. Aktualität wird im Datenlauf gegen eine Schwelle von acht Tagen geprüft, **nach der Ingestion und vor dem Ableiten** — eine Quelle, die nichts Neues liefert oder ganz fehlt, lässt ihn scheitern, bevor Gold darauf entsteht; keine Alarmierung ausser dem roten Lauf selbst |
+| **DataOps** | 1'713 Tests ohne Netz und Schlüssel, auf jedem Pull Request in GitHub Actions — Linux und Windows, Python 3.11 und 3.13; `ruff` davor. Schreiben über `.part` und atomares Umbenennen. Publish-Gate: Gold entsteht nur, wenn die Abdeckung Schwellen hält | die 100 datengebundenen Wächter laufen auf Pull Requests nicht — dafür gibt es seit dem 13.9. den wöchentlichen Datenlauf (`datenlauf.yml`), der alle Quellen lädt, die Strecke baut und dann die ganze Suite fährt; er braucht `CENSUS_API_KEY` als Repository-Secret und ist bis zum ersten grünen Lauf eine Einrichtung, kein Nachweis. Aktualität wird im Datenlauf gegen eine Schwelle von acht Tagen geprüft, **nach der Ingestion und vor dem Ableiten** — eine Quelle, die nichts Neues liefert oder ganz fehlt, lässt ihn scheitern, bevor Gold darauf entsteht; keine Alarmierung ausser dem roten Lauf selbst |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel. `mapping_status` und `geo_status` machen die Vergleichbarkeit je Zeile abfragbar. Ein Manifest-Leser (`manifeste`) für alle Schichten statt elf. Zwei Architekturbilder, **aus dem Code erzeugt** — Abhängigkeiten und Datenfluss, mit einem Test gegen Zyklen ([`architektur.md`](architektur.md)) | Vintage 2024 hart verdrahtet — für mehrere Jahrgänge muss sie je Jahr mitlaufen |
 | **Orchestration** | `orchestration.run_all`: 14 Stufen in Reihenfolge, Abbruch beim ersten Fehler, Gesamtmanifest mit allen Bronze-Läufen und Fingerabdruck über die Eingaben | der geplante Lauf ist wöchentlich (`datenlauf.yml`, montags), die Quellen ändern sich täglich; ausserhalb davon startet er, wenn jemand daran denkt; keine Wiederaufnahme, bewusst |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen. `ruff` mit Pyflakes und `raise … from`, Lockfile, CI-Matrix über zwei Betriebssysteme | die sechs Notebooks, die Zahlen belegen, laufen seit dem 13.9. im wöchentlichen Datenlauf — nicht auf Pull Requests, weil sie `data/` brauchen. Notebook 32 war bis dahin einen Tag lang still kaputt. Die sechs ladenden Notebooks laufen bewusst nirgends automatisch |
@@ -967,7 +1014,11 @@ Nebenbei: `case_number` ist **kein** Schlüssel. 1'383'653 Delikte verteilen sic
 auf 1'383'475 Fallnummern — ein Fall kann mehrere Straftaten umfassen. Verknüpft
 wird über `id`.
 
-### 8.4 Ein falsifizierter Befund: H7
+### 8.4 Ein falsifizierter Befund: der räumliche Join
+
+Dies ist einer der drei Befunde aus 3.5 — gemessen unter einer Hypothese eines
+früheren Entwurfs, die in der Abgabe nicht mehr steht. Der Befund bleibt, die
+Nummer fällt weg.
 
 Detroit liefert in 99,5 % der Zeilen eine eigene 15-stellige
 `census_block_2020_geoid` mit, deren erste elf Stellen die Tract-GEOID sind.
@@ -983,7 +1034,7 @@ Gemessen gegen `silver/tract`:
 | **übereinstimmend** | **73'578 — 83,35 %** |
 | abweichend | 14'700, davon 337 in einem anderen County |
 
-**83 % ist keine Reproduktion. H7 ist in dieser Form falsifiziert.** Die
+**83 % ist keine Reproduktion. Die Annahme ist in dieser Form falsifiziert.** Die
 naheliegenden Erklärungen greifen nicht: Alle 275 von Detroit genannten Tracts
 existieren in TIGER 2024, es ist also kein Vintage-Problem; der Unterschied
 zwischen NAD83 und WGS84 liegt bei ein bis zwei Metern; und 337 Fälle in einem
@@ -999,8 +1050,8 @@ anderen County sind keine Grenzungenauigkeit.
 > **nicht** umrechnet. Die Zahlen stammen aus der Neuberechnung auf dem
 > aktuellen Stand (79'874 vergleichbare Zeilen, 83,44 % Übereinstimmung);
 > Notebook 21, Abschnitte 5.3 und 6.7, misst denselben Effekt an beiden Städten.
-> **Der Schluss auf H7 gehört damit nochmals angesehen** — die Bewertung bleibt
-> Artans.
+> **Der Schluss auf diesen Befund gehört damit nochmals angesehen** — die
+> Bewertung bleibt Artans.
 
 
 Der Join selbst ist nachweislich sauber: 88'278 Quellzeilen ergeben 88'278
@@ -1016,12 +1067,13 @@ Polizeidatensätze häufig tun — das ist eine Vermutung und keine Messung. Als
 Referenz zur Validierung taugt Detroits GEOID jedenfalls nicht, solange das
 nicht geklärt ist.
 
-Dass eine Hypothese fällt, ist kein schlechteres Ergebnis als eine bestätigte:
+Dass eine Annahme fällt, ist kein schlechteres Ergebnis als eine bestätigte:
 Sie zeigt, dass geprüft und nicht angenommen wurde.
 
-### 8.5 Ein zweiter, teilweise falsifizierter Befund: H3
+### 8.5 Ein zweiter, teilweise falsifizierter Befund: die NIBRS-Abbildung
 
-H3 nahm an, die Deliktschlüssel beider Städte liessen sich **vollständig** auf
+Der zweite Befund aus 3.5, und der, an dem F4 hängt: Der frühere Entwurf nahm
+an, die Deliktschlüssel beider Städte liessen sich **vollständig** auf
 NIBRS abbilden. Seit `silver/crime_offense` beide Crosswalks auf die Falldaten
 anwendet, ist das gemessen — und die Antwort hängt daran, was „vollständig"
 heissen soll.
@@ -1218,8 +1270,8 @@ Beim Bau von `crime_offense` trat dasselbe in anderer Gestalt auf (8.2):
 Chicago liefert `date` als **Ortszeit ohne Zonenangabe**, Detroit
 Millisekunden seit Epoch, also einen echten Zeitpunkt. Zwei Delikte um
 `08:30` sind damit **nicht gleichzeitig** — sie liegen je nach Jahreszeit eine
-oder zwei Stunden auseinander. Ein Vergleich nach Tageszeit, wie ihn H6
-braucht, wäre ohne Umrechnung wertlos gewesen.
+oder zwei Stunden auseinander. Ein Vergleich nach Tageszeit wäre ohne
+Umrechnung wertlos gewesen — und F3 fragt genau danach.
 
 #### Was daraus folgt
 
@@ -1240,6 +1292,44 @@ Form prüfen, sondern das, was die Daten über sich behaupten.
 geräuschlos ist. Der ISP-Join (8.5), das Zeitfenster und Detroits zwei
 Codelisten (8.5) haben dasselbe Muster: formal einwandfrei, inhaltlich falsch,
 und keiner von ihnen hat je eine Fehlermeldung erzeugt.
+
+### 8.7 Ein zweiter Befund ohne Hypothese: die fehlenden Koordinaten
+
+Der dritte Befund aus 3.5, und derjenige, der den Massstab aus 3.4 trägt:
+**Fehlende Koordinaten treten nicht zufällig auf, sondern hängen vom
+Delikttyp ab.** Gemessen mit einem Chi-Quadrat-Unabhängigkeitstest, je Stadt
+in Notebook 03 und 13 — und seit Gold auf der **gemeinsamen** NIBRS-Achse in
+Notebook 34, Abschnitt 5.2. Erst sie macht die Frage vergleichbar: Je Stadt
+steht sie sonst in deren eigenen Kategorien, Chicago kennt „Delikte an
+Kindern", Detroit „Family Offense".
+
+Verglichen wird nicht der Prozentsatz, sondern das **Vielfache des
+Stadtschnitts** — Chicago verliert insgesamt 0,81 % der Fälle, Detroit 0,29 %.
+
+| | Chicago | Detroit |
+| --- | ---: | ---: |
+| Sexualdelikte, Vielfaches des Stadtschnitts | **12,0×** | **5,2×** |
+| Betrug, Anteil ohne Koordinate | **3,78 %** | 0,19 % |
+| Betrug, Vielfaches des Stadtschnitts | 4,7× | 0,7× |
+
+**Eine Kategorie trägt in beiden Städten**, und es ist dieselbe: Sexualdelikte.
+Die Ursache liegt nahe und ist in beiden Systemen dieselbe — bei diesen
+Delikten wird die Adresse zurückgehalten. Weil die Richtung übereinstimmt,
+verzerrt dieser Teil der Lücke den Städtevergleich **nicht** systematisch.
+
+**Eine zweite Kategorie trägt nur in Chicago**, und das ist der eigentliche
+Befund: Betrug, mit einem Faktor 20 zwischen den Städten. Plausibel ist, dass
+Chicago Betrug ohne Tatort mitführt, den es telefonisch oder online gab;
+Detroits Erfassung über den Vorfallsbericht verlangt eine Adresse. Das ist
+eine Vermutung und keine Messung.
+
+**Was daraus folgt.** Ein Vergleich der *Gesamtraten* trägt: 0,81 % gegen
+0,29 % Ausfall verschieben keine Rangfolge. Ein Vergleich **je Delikttyp**
+trägt für Sexualdelikte, weil die Verzerrung gleichgerichtet ist — aber
+**nicht für Betrug**. Daraus folgt auch die Entscheidung, fehlende Koordinaten
+zu **markieren statt zu löschen**: Ein nicht zufälliger Ausfall lässt sich
+nicht wegwerfen, ohne die Auswertung zu verzerren. `geo_status` zeigt deshalb
+je Zeile, was fehlt, statt die Zeile wegzulassen.
 
 ---
 
@@ -1313,8 +1403,8 @@ und keiner von ihnen hat je eine Fehlermeldung erzeugt.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # 1'595 Tests, 8 davon übersprungen
-python -m pytest -m ""                 # mit den Referenzwächtern: 1'695
+python -m pytest                       # 1'613 Tests, 8 davon übersprungen
+python -m pytest -m ""                 # mit den Referenzwächtern: 1'713
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
@@ -1480,11 +1570,14 @@ zwanzig Sekunden gekostet und an einer Netzverbindung gehangen.
 
 Damit dieses Dokument vollständig ist, fehlen:
 
-- **Entscheid über Forschungsfragen und Hypothesen** (Kapitel 3) — Gold ist
-  bewusst so gebaut, dass er nichts daran ändert: Die Granularität bleibt, und jede
-  Frage ist ein Filter darauf (5.2)
 - **Ein Notebook, das den Vergleich über alle Hypothesen rechnet.** Die Rate je
   Einwohner steht seit Gold zur Verfügung (5.2) und ist in Notebook 34
   gerechnet; ein Notebook, das den ganzen Vergleich daraus aufbaut, fehlt noch
-- **Ein Notebook, das die Hypothesen rechnet** — die Zahlen zu H1, H2 und H5
-  liegen heute in Notebook 03, H7 in 8.4; ein eigenes Notebook fehlt
+
+**Erledigt seit der Abgabe.** Der *Entscheid über Forschungsfragen und
+Hypothesen* steht: F1 bis F6 mit H1 bis H6, Wortlaut in
+[`forschungsfragen.md`](forschungsfragen.md). Gold war bewusst so gebaut, dass
+er nichts daran ändert — die Granularität bleibt, und jede Frage ist ein Filter
+darauf (5.2). Und das *Notebook, das die Hypothesen rechnet*, ist
+[`../notebooks/36_hypothesen.ipynb`](../notebooks/36_hypothesen.ipynb); es misst
+alle sechs und zitiert sie wörtlich.

@@ -199,6 +199,15 @@ class ReleaseStand(NamedTuple):
 class ReleaseEntscheid(NamedTuple):
     release_: ReleaseStand
     grund: str | None   # None heisst: entbehrlich
+    #: Der Grund aus ``config/referenzstand.csv``, wenn das Release dort
+    #: steht - "LN1", "referenzstand", was auch immer dort getippt wurde.
+    #: Getrennt von ``grund``, weil ``grund`` die **Regel** nennt, die das
+    #: Release haelt, und die Regel heisst immer "Referenzstand". Wofuer
+    #: gepinnt wurde, weiss nur das Register, und im Bericht steht es seit
+    #: dem 5.10.2026 dabei: Zwei Releases sind gepinnt, eines fuer LN1 und
+    #: eines als laufender Referenzstand, und "Referenzstand" allein liess
+    #: sie gleich aussehen.
+    pin: str = ""
 
     @property
     def bleibt(self) -> bool:
@@ -486,15 +495,18 @@ def entscheide_releases(stand: list[ReleaseStand],
     gepinnt = gepinnt or {}
     entschieden: list[ReleaseEntscheid] = []
     for i, r in enumerate(stand):
+        pin = ""
         if r.release_id in gepinnt or f"release={r.release_id}" in gepinnt:
             grund: str | None = GEPINNT
+            pin = (gepinnt.get(r.release_id)
+                   or gepinnt.get(f"release={r.release_id}") or "")
         elif aktuell and r.release_id == aktuell:
             grund = AKTUELL
         elif i < n:
             grund = JUENGSTE_N
         else:
             grund = None
-        entschieden.append(ReleaseEntscheid(r, grund))
+        entschieden.append(ReleaseEntscheid(r, grund, pin))
     return entschieden
 
 
@@ -514,8 +526,14 @@ def zeige_releases(entscheide: list[ReleaseEntscheid], aktuell: str | None) -> N
               f"haelt aber kein Release aus diesem Grund.)")
     for e in entscheide:
         r = e.release_
+        # Beim gepinnten Release steht der Grund aus dem Register dabei. Ohne
+        # ihn hiessen beide Zeilen "Referenzstand", und welches davon das
+        # abgegebene LN1 ist, stuende nur in der CSV.
+        grund = e.grund or "ENTBEHRLICH"
+        if e.pin:
+            grund = f"{grund} ({e.pin})"
         print(f"  {r.release_id:<29} {r.erstellt[:16]:<17} "
-              f"{r.wo:>9} {r.bytes / 1e6:>7.1f} MB  {e.grund or 'ENTBEHRLICH'}")
+              f"{r.wo:>9} {r.bytes / 1e6:>7.1f} MB  {grund}")
     entbehrlich = [e for e in entscheide if not e.bleibt]
     print(f"\n{len(entscheide)} Releases, {len(entbehrlich)} entbehrlich, "
           f"{sum(e.release_.bytes for e in entbehrlich) / 1e6:.1f} MB frei.")
