@@ -163,8 +163,8 @@
   </header>
 
   <dl class="facts">
-    <div class="fact"><dt>Faktentabelle</dt><dd>344 617 Zeilen</dd></div>
-    <div class="fact"><dt>Dimensionen</dt><dd>4 · 7 465 Zeilen</dd></div>
+    <div class="fact"><dt>Faktentabelle</dt><dd>1 851 950 Zeilen (2021–2026)</dd></div>
+    <div class="fact"><dt>Dimensionen</dt><dd>5 · 37 794 Zeilen</dd></div>
     <div class="fact"><dt>Verworfen</dt><dd>2 Würfel</dd></div>
     <div class="fact"><dt>Gemessen</dt><dd>Notebook 34</dd></div>
   </dl>
@@ -277,19 +277,19 @@
 
     <figure>
 <svg viewBox="0 0 800 452" role="img" width="100%" height="auto"
-     aria-label="Das Sternschema: die Faktentabelle fact_offense in der Mitte, darum die vier Dimensionen dim_tract, dim_offense, dim_date und dim_city_day, je über einen Schlüssel verbunden.">
+     aria-label="Das Sternschema: die Faktentabelle fact_offense in der Mitte, darum die fünf Dimensionen dim_tract, dim_tract_acs, dim_offense, dim_date und dim_city_day, je über einen Schlüssel verbunden.">
   <defs><marker id="pfeil" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
     <path d="M 0 1 L 9 5 L 0 9 z" fill="currentColor"/></marker></defs>
   <g>
     <rect x="310" y="26" width="190" height="70" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
     <text x="323" y="50" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">dim_date</text>
-    <text x="323" y="68" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill="currentColor" fill-opacity="0.78">366 Zeilen · ein Kalendertag</text>
+    <text x="323" y="68" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill="currentColor" fill-opacity="0.78">2 103 Zeilen · ein Kalendertag</text>
     <text x="323" y="85" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill="currentColor" fill-opacity="0.55">month · is_weekend</text>
   </g>
   <g>
     <rect x="310" y="356" width="190" height="70" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
     <text x="323" y="380" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">dim_city_day</text>
-    <text x="323" y="398" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill="currentColor" fill-opacity="0.78">732 Zeilen · Stadt und Tag</text>
+    <text x="323" y="398" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill="currentColor" fill-opacity="0.78">4 196 Zeilen · Stadt und Tag</text>
     <text x="323" y="415" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill="currentColor" fill-opacity="0.55">temp_max_c · snowfall_mm</text>
   </g>
   <g>
@@ -307,7 +307,7 @@
   <g>
     <rect x="300" y="182" width="200" height="88" rx="5" fill="var(--signal)" fill-opacity="0.10" stroke="currentColor" stroke-width="1.7"/>
     <text x="313" y="206" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">fact_offense</text>
-    <text x="313" y="224" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill="currentColor" fill-opacity="0.78">344 617 Zeilen · eine Tat</text>
+    <text x="313" y="224" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill="currentColor" fill-opacity="0.78">1 851 950 Zeilen · eine Tat</text>
     <text x="313" y="241" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill="currentColor" fill-opacity="0.55">Schlüssel + Messgrössen</text>
   </g>
   <line x1="400" y1="96" x2="400" y2="178" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.55" marker-end="url(#pfeil)"/>
@@ -326,26 +326,34 @@
     <h3>Warum die Dimensionen getrennt stehen</h3>
     <p>
       <strong>Die Faktentabelle bleibt schlank.</strong> Stünde in jeder der
-      344 617 Zeilen der Text <code>Larceny/Theft Offenses</code>, läge derselbe
+      1 851 950 Zeilen der Text <code>Larceny/Theft Offenses</code>, läge derselbe
       Satz zehntausendfach auf der Platte. Statt dessen steht dort <code>23C</code>
       — drei Zeichen — und die Bedeutung genau einmal in <code>dim_offense</code>.
     </p>
     <p>
       <strong>Die Dimensionen tragen die Auswahllisten.</strong> Eine Oberfläche,
       die „Delikt wählen" anbieten will, liest 85 Zeilen aus
-      <code>dim_offense</code> statt 344 617 Faktenzeilen zu durchsuchen. Dasselbe
+      <code>dim_offense</code> statt 1 851 950 Faktenzeilen zu durchsuchen. Dasselbe
       gilt für Städte, Tage und Tracts.
     </p>
     <p>
       <strong><code>dim_date</code> wird erzeugt, nicht abgeleitet.</strong> Ein Tag
       ohne Delikt hat keine Faktenzeile. Käme die Zeitachse aus den Fakten, fehlte
       dieser Tag — und eine Zeitreihe zeigte eine Lücke, wo eine Null stehen müsste.
-      Die Dimension kennt alle 366 Tage von 2024, ob etwas passiert ist oder nicht.
+      Die Dimension kennt alle 2 103 Tage von 2021 bis 2026, ob etwas passiert ist
+      oder nicht — und sagt mit <code>year_is_complete</code>, welcher Jahrgang ganz
+      in den Daten liegt.
     </p>
   </section>
 
   <section id="granularitaet">
     <h2>3 · Was die Wahl kostet, in Zeilen</h2>
+    <p class="lede">Dieser Abschnitt rechnet am <strong>Jahrgang 2024</strong>, dem
+      Stand, an dem die Entscheidung fiel. Die Würfelzahlen stammen aus Notebook 34,
+      das beide Bauweisen gebaut und gemessen hat; über die sechs Jahrgänge sind sie
+      nicht nachgerechnet, und eine hochgerechnete Zahl wäre hier das Falsche. Das
+      Verhältnis ist das Argument: Der Schritt zum Würfel kostet zwei
+      Größenordnungen mehr als der Schritt von Silver zu Gold.</p>
     <p class="lede">Der Unterschied zwischen den Bauweisen ist kein Feinschliff.</p>
 
     <figure>
@@ -403,7 +411,7 @@
     <div class="note">
       <span class="tag">Der Befund</span>
       <p>
-        <strong>Der Engpass ist nicht die Datenmenge.</strong> Bei 344 617 Zeilen
+        <strong>Der Engpass ist nicht die Datenmenge.</strong> Bei 1 851 950 Zeilen
         gewinnt eine Vorberechnung nichts, was ein Mensch bemerken würde. Sie kostet
         aber genau die Beweglichkeit, für die eine Auswertungsplattform da ist.
       </p>

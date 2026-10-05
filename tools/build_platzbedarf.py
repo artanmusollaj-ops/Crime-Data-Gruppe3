@@ -168,6 +168,20 @@ def schichtentabelle(schichten: tuple[pb.Schicht, ...], stand_: str) -> list[str
     return zeilen
 
 
+def und(namen: list[str]) -> str:
+    """``['raw', 'bronze']`` → "`raw` und `bronze`", mit Komma ab drei.
+
+    Steht hier und nicht bei ``zahlwort``, weil nur dieses Dokument Schichten
+    in einem Satz aufzaehlt.
+    """
+    teile = [f"`{n}`" for n in namen]
+    if not teile:
+        return "keine Schicht"
+    if len(teile) == 1:
+        return teile[0]
+    return ", ".join(teile[:-1]) + " und " + teile[-1]
+
+
 def regeltabelle(gerechnet: tuple[pb.Hochgerechnet, ...], jahre: tuple[int, ...],
                  zeilen_: pb.Zeilen) -> list[str]:
     bereich = bereich_von(jahre)
@@ -181,11 +195,40 @@ def regeltabelle(gerechnet: tuple[pb.Hochgerechnet, ...], jahre: tuple[int, ...]
                      if h.basis.schicht == release.RELEASES and h.basis.staende > 1]
     staende = max((b.laeufe for b in release_basis), default=0)
     stand_bytes = sum(b.bytes for b in release_basis)
+    # Was ein Lauf traegt, ist je Schicht verschieden - und der Satz dazu wird
+    # gemessen, nicht geschrieben. Bis zum 4.10.2026 stand hier "Basis ist der
+    # Jahrgang 2024, den die gebauten Laeufe tragen". Fuer raw und bronze
+    # stimmt das weiter: Dort liegt je Jahr ein eigener Lauf, und ein Lauf ist
+    # eine Basis. Silver, Gold, Serving und Releases werden dagegen ersetzt und
+    # tragen seit dem Mehrjahresbau alle sechs Jahrgaenge in denselben Dateien
+    # - ``Basis.jahre`` sagt es, und ``_regel`` teilt sie wieder heraus.
+    # Haette der Satz dagestanden, haette das erzeugte Dokument beim naechsten
+    # Lauf etwas Falsches behauptet.
+    # Eine Schicht gilt als mehrjaehrig, sobald **eine** ihrer Basen Jahre
+    # traegt: Ein Release-Stand haelt neben den sechs Jahrgaengen auch
+    # Markendateien (``release.json``, ``AKTUELL.json``), und die haengen an
+    # keinem Jahr. Nach Basen statt nach Schichten gefragt, stuende
+    # ``releases`` in beiden Listen - so stand es beim ersten Versuch da.
+    mehrjahrig = sorted({h.basis.schicht for h in gerechnet if h.basis.jahre})
+    einjahrig = sorted({h.basis.schicht for h in gerechnet} - set(mehrjahrig))
+    basissatz = (
+        f"Basis ist **ein** Jahrgang je Quelle. In {und(einjahrig)} liegt je "
+        f"Jahr ein eigener Lauf, ein Lauf ist also schon eine Basis. In "
+        f"{und(mehrjahrig)} stehen dagegen alle Jahrgänge in denselben "
+        f"Dateien — {bereich} in einem Stand —, und dort teilt die Rechnung "
+        f"die {zahlwort(len(jahre))} Jahrgänge wieder heraus."
+        if mehrjahrig and einjahrig else
+        f"Basis ist **ein** Jahrgang je Quelle; die gebauten Läufe tragen "
+        f"{bereich}, und die Rechnung teilt die {zahlwort(len(jahre))} "
+        f"Jahrgänge wieder heraus."
+        if mehrjahrig else
+        f"Basis ist der Jahrgang {pb.BASISJAHR}, den die gebauten Läufe "
+        f"tragen.")
     zeilen = [
         f"## 2 Gerechnet: {zahlwort(len(pb.ERKLAERUNG))} Regeln für {bereich}",
         "",
-        f"Basis ist der Jahrgang {pb.BASISJAHR}, den die gebauten Läufe "
-        "tragen. Basis **je Quelle und Vintage** ist dabei der *grösste* Lauf,",
+        basissatz,
+        "Basis **je Quelle und Vintage** ist dabei der *grösste* Lauf,",
         f"nicht die Summe ihrer Läufe: `{reichste.schicht}/{reichste.quelle}` "
         f"trägt heute {zahlwort(reichste.laeufe)} Läufe. Sie zu addieren",
         "hiesse, das Anhäufen mitzurechnen — dieselbe Falle wie „den Bestand "

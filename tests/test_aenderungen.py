@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from gold_pipeline import einwohner_je_stadt
+from gold_pipeline import RATENJAHR, raten_je_stadt
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -104,9 +104,14 @@ def test_der_kopf_nennt_die_zeilenzahlen(stand):
         con.close()
 
 
-@pytest.mark.referenzstand
-def test_der_kopf_nennt_die_raten(stand):
-    """Die Rate je 1'000 Einwohner - was am ehesten auf eine Folie kommt."""
+def gemessene_raten():
+    """Delikte, Faelle, Einwohner und beide Raten je Stadt - fuer ein Jahr.
+
+    Aus ``gold_pipeline.raten_je_stadt``. Der Jahresfilter steckt darin, und
+    er muss es: Seit dem Mehrjahresbau vom 4.10.2026 traegt ``fact_offense``
+    sechs Jahrgaenge, und derselbe Quotient ergibt dann 500,7 je 1'000 fuer
+    Chicago - sechs Jahre Zaehler auf einem Jahr Nenner.
+    """
     duckdb = pytest.importorskip("duckdb")
     tract = PROJECT_ROOT / "data" / "gold" / "dataset=dim_tract" / "part-0001.parquet"
     acs = PROJECT_ROOT / "data" / "gold" / "dataset=dim_tract_acs" / "part-0001.parquet"
@@ -114,25 +119,39 @@ def test_der_kopf_nennt_die_raten(stand):
         pytest.skip("Gold nicht gebaut")
     con = duckdb.connect()
     try:
-        echt = dict(con.execute(f"""
-            WITH e AS ({einwohner_je_stadt(
-                f"read_parquet('{tract}')", f"read_parquet('{acs}')")})
-            SELECT t.city, round(count(*) * 1000.0 / any_value(e.n), 1)
-            FROM read_parquet('{GOLD}') f
-            JOIN read_parquet('{tract}') t ON t.geoid = f.tract_geoid
-            JOIN e ON e.city = t.city
-            WHERE t.city IS NOT NULL GROUP BY 1
-        """).fetchall())
+        return {
+            z[0]: (z[1], z[2], z[3], z[4], z[5])
+            for z in con.execute(raten_je_stadt(
+                f"read_parquet('{GOLD}')", f"read_parquet('{tract}')",
+                f"read_parquet('{acs}')")).fetchall()
+        }
     finally:
         con.close()
+
+
+@pytest.mark.referenzstand
+def test_der_kopf_nennt_die_raten(stand):
+    """Die Rate je 1'000 Einwohner - was am ehesten auf eine Folie kommt.
+
+    Geprueft wird dazu, dass die Kopftabelle ihren **Jahrgang** nennt: Eine
+    Rate ohne Zeitraum ist keine, und der Driftbericht liest genau diese
+    Zeilen (``orchestration.drift``). Stuende dort eine kumulierte Zahl,
+    waere der woechentliche Datenlauf dauerhaft rot.
+    """
+    echt = gemessene_raten()
+    assert str(RATENJAHR) in stand, (
+        f"der Kopfabschnitt nennt den Jahrgang {RATENJAHR} nicht - die Raten "
+        "darin gelten fuer ein Jahr, nicht fuer den ganzen Bestand"
+    )
     for stadt in ("Chicago", "Detroit"):
         treffer = re.search(
             rf"\| {stadt} \|.*?\*\*([0-9]+,[0-9])\*\* je 1'000", stand
         )
         assert treffer, f"Rate fuer {stadt} nicht im Kopfabschnitt gefunden"
         genannt = float(treffer.group(1).replace(",", "."))
-        assert genannt == pytest.approx(echt[stadt.lower()], abs=0.05), (
-            f"{stadt}: genannt {genannt}, tatsaechlich {echt[stadt.lower()]}"
+        rate = echt[stadt.lower()][3]
+        assert genannt == pytest.approx(rate, abs=0.05), (
+            f"{stadt}: genannt {genannt}, tatsaechlich {rate}"
         )
 
 
@@ -211,20 +230,16 @@ def test_die_eintraege_und_die_ausgelassenen_ueberschneiden_sich_nicht(text):
 
 @pytest.mark.referenzstand
 def test_der_kopf_nennt_das_fallebene(stand):
-    """Die zweite Zaehlweise, seit #66 - je Fall eine Zeile, beide Staedte gleich."""
-    duckdb = pytest.importorskip("duckdb")
-    if not GOLD.exists():
-        pytest.skip("Gold nicht gebaut")
-    con = duckdb.connect()
-    try:
-        echt = dict(con.execute(
-            f"SELECT reporting_city, count(*) FILTER (counts_case) "
-            f"FROM read_parquet('{GOLD}') GROUP BY 1"
-        ).fetchall())
-    finally:
-        con.close()
+    """Die zweite Zaehlweise, seit #66 - je Fall eine Zeile, beide Staedte gleich.
+
+    Dieselbe Zeile wie die Raten, also derselbe Jahrgang: Die Fallzahl steht
+    neben der Fallrate, und zwei verschiedene Zeitraeume in einer Zeile waeren
+    das Schlimmste von beidem.
+    """
+    echt = gemessene_raten()
     for stadt in ("Chicago", "Detroit"):
         genannt = zahl(stand, rf"\| Fallebene.*?{stadt} ([0-9']+)")
-        assert genannt == echt[stadt.lower()], (
-            f"Fallebene {stadt}: genannt {genannt:,}, tatsaechlich {echt[stadt.lower()]:,}"
+        faelle = echt[stadt.lower()][1]
+        assert genannt == faelle, (
+            f"Fallebene {stadt}: genannt {genannt:,}, tatsaechlich {faelle:,}"
         )

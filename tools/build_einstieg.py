@@ -20,10 +20,19 @@ eine Seite, die behauptet, Kibana laufe, weil es vor drei Tagen lief. Fuer
 alles Lebendige nennt die Seite deshalb den **Befehl**
 (``serving.pruefe_stand``) und nicht sein Ergebnis von gestern.
 
-**Die Rate je 1'000 ist nicht neu erfunden.** Sie kommt aus derselben Abfrage,
-mit der ``tests/test_aenderungen.py`` die Zahl im Aenderungsprotokoll bewacht:
-nur Delikte in Tracts, die einer der beiden Staedte zugeordnet sind, geteilt
-durch deren Einwohnerzahl. Eine zweite Definition waere eine zweite Wahrheit.
+**Die Rate je 1'000 ist nicht neu erfunden.** Sie kommt aus
+``gold_pipeline.raten_je_stadt`` - derselben Abfrage, mit der
+``tests/test_aenderungen.py`` die Zahl im Aenderungsprotokoll bewacht: nur
+Delikte in Tracts, die einer der beiden Staedte zugeordnet sind, geteilt durch
+deren Einwohnerzahl. Eine zweite Definition waere eine zweite Wahrheit.
+
+**Und sie nennt ihr Jahr.** Ein Release traegt seit dem 4.10.2026 sechs
+Jahrgaenge. Die Zeilenzahlen der Tabellen sind deshalb der ganze Bestand - das
+ist die Frage "was liegt hier?" -, die Staedtetabelle dagegen zeigt
+``gold_pipeline.RATENJAHR``. Beides auf einer Seite gemischt und beides
+unbeschriftet waere das eine Versehen, das diese Seite nicht machen darf:
+sechs Jahre Zaehler auf einem Jahr Nenner ergeben 500,7 je 1'000, und die Zahl
+sieht aus wie eine Zahl.
 """
 
 from __future__ import annotations
@@ -86,7 +95,7 @@ def messe(verzeichnis: Path) -> dict[str, Any]:
     """Alles, was die Seite zeigt - aus dem Release gelesen, nicht abgeschrieben."""
     from storage.duckdb import verbinde
 
-    from gold_pipeline import einwohner_je_stadt
+    from gold_pipeline import RATENJAHR, raten_je_stadt
     from storage import parquet_spalten
 
     gold = verzeichnis / "gold"
@@ -108,22 +117,17 @@ def messe(verzeichnis: Path) -> dict[str, Any]:
             datensaetze.append((name, anzahl, spalten,
                                 pfad.stat().st_size))
 
-        # Der Nenner steht in gold_pipeline.einwohner_je_stadt. Hier stand bis
-        # zum 3.10.2026 eine Kopie mit dem Kommentar "dieselbe Abfrage wie in
-        # tests/test_aenderungen.py - eine Definition". Zwei Fassungen sind
-        # keine Definition; seit Vertrag 6 waeren es neun gewesen.
-        nenner = einwohner_je_stadt(
-            f"read_parquet('{tract}')", f"read_parquet('{acs}')"
-        )
-        staedte = con.execute(f"""
-            WITH e AS ({nenner})
-            SELECT t.city, count(*), any_value(e.n),
-                   round(count(*) * 1000.0 / any_value(e.n), 1)
-            FROM read_parquet('{fakt}') f
-            JOIN read_parquet('{tract}') t ON t.geoid = f.tract_geoid
-            JOIN e ON e.city = t.city
-            WHERE t.city IS NOT NULL GROUP BY 1 ORDER BY 1
-        """).fetchall()
+        # Die Staedtetabelle steht in gold_pipeline.raten_je_stadt. Hier stand
+        # bis zum 3.10.2026 eine Kopie mit dem Kommentar "dieselbe Abfrage wie
+        # in tests/test_aenderungen.py - eine Definition". Zwei Fassungen sind
+        # keine Definition; seit Vertrag 6 waeren es neun gewesen. Der
+        # Jahresfilter steckt mit darin, seit ein Release sechs Jahrgaenge
+        # traegt.
+        staedte = [
+            (z[0], z[1], z[3], z[4]) for z in con.execute(raten_je_stadt(
+                f"read_parquet('{fakt}')", f"read_parquet('{tract}')",
+                f"read_parquet('{acs}')")).fetchall()
+        ]
 
         guete = con.execute(f"""
             SELECT reporting_city,
@@ -142,7 +146,7 @@ def messe(verzeichnis: Path) -> dict[str, Any]:
     finally:
         con.close()
     return {"datensaetze": datensaetze, "staedte": staedte, "guete": guete,
-            "zeitraum": zeitraum}
+            "zeitraum": zeitraum, "ratenjahr": RATENJAHR}
 
 
 # --------------------------------------------------------------------------
@@ -344,10 +348,11 @@ def seite(kennung: str, manifest: dict, mass: dict) -> str:
 </section>
 
 <section>
-  <h2>Die beiden Städte</h2>
+  <h2>Die beiden Städte im Jahrgang {mass["ratenjahr"]}</h2>
   <p class="unter">Gezählt werden nur Delikte in Tracts, die einer der beiden
   Städte zugeordnet sind — sonst verglichen man Stadtgebiete verschiedenen
-  Zuschnitts.</p>
+  Zuschnitts. Und nur die des Jahrgangs {mass["ratenjahr"]}: Eine Rate braucht
+  einen Zeitraum, das Release trägt sechs.</p>
   {staedte}
   <p class="hinweis"><strong>Absolute Zahlen führen hier in die Irre.</strong>
   Chicago hat in fast jeder Kategorie mehr Fälle und ist zugleich viermal so

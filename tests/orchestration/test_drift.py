@@ -60,17 +60,27 @@ def baue_daten(data_root: Path) -> None:
     for tabelle, sql in (
         ("silver/dataset=crime_offense",
          "SELECT * FROM (VALUES (1), (2), (3), (4)) AS t(x)"),
+        # ``date`` und ``population_vintage`` sind seit dem 4.10.2026 Pflicht:
+        # Die Messung filtert auf gold_pipeline.RATENJAHR und nimmt den Nenner,
+        # den die Taten dieses Jahres selbst nennen. Die vierte Zeile liegt
+        # ausserhalb und darf in keiner Zahl auftauchen - sonst prueft die
+        # Zeile unten den Filter nicht.
         ("gold/dataset=fact_offense",
          "SELECT * FROM (VALUES "
-         "('chicago', 'T1', true), ('chicago', 'T1', false), "
-         "('detroit', 'T2', true)) AS t(reporting_city, tract_geoid, counts_case)"),
+         "('chicago', 'T1', true, DATE '2024-03-01', 2024), "
+         "('chicago', 'T1', false, DATE '2024-03-02', 2024), "
+         "('detroit', 'T2', true, DATE '2024-03-03', 2024), "
+         "('chicago', 'T1', true, DATE '2021-03-01', 2021)) "
+         "AS t(reporting_city, tract_geoid, counts_case, date, "
+         "population_vintage)"),
         # Seit Vertrag 6 traegt dim_tract die Stadtzuordnung und ihr
         # Referenz-Vintage, die Einwohnerzahl steht in dim_tract_acs je Vintage.
         ("gold/dataset=dim_tract",
          "SELECT * FROM (VALUES ('T1', 'chicago', 2024), ('T2', 'detroit', 2024)) "
          "AS t(geoid, city, reference_vintage)"),
         ("gold/dataset=dim_tract_acs",
-         "SELECT * FROM (VALUES ('T1', 2024, 1000), ('T2', 2024, 500)) "
+         "SELECT * FROM (VALUES ('T1', 2024, 1000), ('T2', 2024, 500), "
+         "('T1', 2021, 1200), ('T2', 2021, 600)) "
          "AS t(geoid, vintage, population)"),
     ):
         ordner = data_root / tabelle
@@ -80,10 +90,16 @@ def baue_daten(data_root: Path) -> None:
 
 
 def test_gemessen_liest_die_tabellen(tmp_path):
+    """Bestand kumuliert, Stadtzahlen je Jahr - und der Filter greift wirklich.
+
+    ``gold_rows`` zaehlt alle vier Zeilen, die Stadtzahlen nur die drei aus
+    ``RATENJAHR``. Die vierte liegt in 2021 und haengt an einem anderen
+    Nenner; taucht sie in ``chicago_delikte`` auf, fehlt der Jahresfilter.
+    """
     baue_daten(tmp_path)
     mess = dr.gemessen(tmp_path)
     assert mess["silver_rows"] == 4
-    assert mess["gold_rows"] == 3
+    assert mess["gold_rows"] == 4
     assert mess["chicago_delikte"] == 2 and mess["chicago_einwohner"] == 1000
     assert mess["chicago_rate"] == 2.0            # 2 * 1000 / 1000
     assert mess["chicago_faelle"] == 1

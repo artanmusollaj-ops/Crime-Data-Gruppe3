@@ -36,7 +36,7 @@ Was sich nicht ohne uns lesen lässt, lässt sich auch nicht übertragen.
 | [`zaehlperspektiven.md`](zaehlperspektiven.md) | vier Arten zu zählen, und was sich nicht addiert |
 | [`eine-zahl.md`](eine-zahl.md) | eine Zahl über sieben Schichten zurückverfolgt |
 | [`storage-architektur.md`](storage-architektur.md) | die Ablage im Aufbau: Modi, Zusagen, API, Fehlerbilder — LN1 verlangt die Storage-Evaluation ausdrücklich |
-| [`feldkatalog.md`](feldkatalog.md) | was jede Spalte bedeutet, 174 Spalten in 13 Tabellen — und **erzeugt** (siehe unten) |
+| [`feldkatalog.md`](feldkatalog.md) | was jede Spalte bedeutet, 192 Spalten in 15 Tabellen — und **erzeugt** (siehe unten) |
 | [`ausblick.md`](ausblick.md) | was nach LN1 käme, mit Messwerten und Reihenfolge |
 
 ## Intern — was wir beim Arbeiten brauchen

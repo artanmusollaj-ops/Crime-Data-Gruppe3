@@ -436,10 +436,10 @@ den das Projekt schon einmal verworfen hat. Die Messung gibt ihm recht:
 
 | | Zeilen |
 | --- | ---: |
-| Granularität `fact_offense` | 345'091 |
-| Aggregat Tract × Tag × Familie | 296'651 — **86 %** davon |
+| Granularität `fact_offense` | 1'851'950 |
+| Aggregat Tract × Tag × Familie | 1'603'973 — **87 %** davon |
 
-**14 % weniger Zeilen ist keine Aggregation.** Die scheinbare Ersparnis
+**13 % weniger Zeilen ist keine Aggregation.** Die scheinbare Ersparnis
 (0,73 statt 14,8 MB) kam fast vollständig daher, dass Spalten wegfielen —
 nicht Zeilen. Und genau das leistet Parquet von selbst:
 
@@ -482,10 +482,11 @@ Speicher."* Dieselbe Messung hatte schon `fact_tract_month` (95'219) und
 Sie ist die **Bedeutung**. Jede angezeigte Zahl trägt eine Entscheidung, die
 dieses Projekt bewusst sichtbar gemacht hat:
 
-- **Welche Granularität?** Detroit steht auf Tatebene bei 132,7 je 1'000,
-  auf Fallebene bei 124,6. Beide richtig, verschiedene Aussagen.
+- **Welche Granularität?** Detroit steht im Jahrgang 2024 auf Tatebene bei
+  133,1 je 1'000, auf Fallebene bei 124,6. Beide richtig, verschiedene
+  Aussagen — und beide nur mit ihrem Jahr.
 - **Was zählt mit?** `geo_status` sagt, warum eine Zeile in einer
-  Tract-Auswertung fehlt — 6'445 Fälle liegen ausserhalb, 0,58 % haben
+  Tract-Auswertung fehlt — 33'112 Fälle liegen ausserhalb, 1,14 % haben
   keine Koordinate.
 - **Wie sicher ist die Zuordnung?** `mapping_status`: `exact`, `ambiguous`,
   `fallback_90Z`.
@@ -624,7 +625,7 @@ Ein externer Rat vom 17.9.2026 hat diesen Bau bestätigt und einen
 Verzeichnisbaum vorgeschlagen, der neben den fünf Gold-Tabellen auch
 `comparison_day`, `comparison_week`, `comparison_month` und
 `partition_quality` vorsieht. Der erste Reflex war, sie abzulehnen: Es sind
-vorberechnete Aggregate, und Notebook 34 hat gemessen, dass sie bei 345'091
+vorberechnete Aggregate, und Notebook 34 hat gemessen, dass sie bei 1'851'950
 Zeilen nichts sparen, was ein Mensch bemerkt.
 
 **Christian hat anders entschieden, und der Grund trägt.** Die Ablehnung

@@ -417,6 +417,25 @@ def test_release_erzwingt_eines_auch_lokal(tmp_path, monkeypatch):
     assert fake.uploads == []
 
 
+def test_das_release_traegt_die_jahrgaenge_des_laufs(tmp_path, monkeypatch):
+    """Nur hier steht, welche Jahrgaenge im Stand liegen - also reicht es hier hinein.
+
+    Ein Release sagt es von sich aus nicht: Gold und Serving liegen an Pfaden
+    ohne ``year=``. ``orchestration.platzbedarf`` braucht die Angabe, um die
+    Basis je Jahrgang herauszuteilen; ohne sie rechnet es einen Stand mit sechs
+    Jahrgaengen noch einmal mit 5,38 hoch.
+    """
+    jahre = (2021, 2022, 2023, 2024, 2025, 2026)
+    manifest, data_root, _ = gruener_lauf(tmp_path, monkeypatch, release=True,
+                                          jahre=jahre)
+    kennung = manifest["release"]["release_id"]
+    abgelegt = json.loads(
+        (data_root / "releases" / f"release={kennung}" / "release.json")
+        .read_text(encoding="utf-8"))
+    assert abgelegt["years"] == list(jahre)
+    assert manifest["years"] == list(jahre), "dasselbe im Laufprotokoll"
+
+
 def test_im_hybridmodus_entsteht_es_von_selbst_und_geht_hoch(tmp_path, monkeypatch):
     manifest, _, fake = gruener_lauf(tmp_path, monkeypatch, backend="hybrid")
     assert manifest["release"]["published"] is True

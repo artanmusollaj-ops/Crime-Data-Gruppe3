@@ -13,6 +13,7 @@ beim Verorten verlorengeht.
 
 from __future__ import annotations
 
+import csv
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -703,7 +704,33 @@ def echte_tabelle() -> Path | None:
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_kein_fall_liegt_ausserhalb_seines_jahrgangs():
+def gebaute_jahre() -> tuple[int, ...]:
+    """Die Jahrgaenge, die der letzte Gesamtlauf gebaut hat - gelesen, nicht geraten.
+
+    ``run_all`` schreibt am Ende ``data/pipeline_run.json`` und nennt darin
+    ``years``. Eine Silver-Tabelle sagt es von sich aus nicht: Sie liegt an
+    einem Pfad ohne ``year=``, und genau darum muss die Erwartung von aussen
+    kommen. Bis zum 4.10.2026 stand hier die Zahl 2024 im Test, weil es nur
+    einen Jahrgang gab.
+
+    Gelesen wird die Datei hier direkt und nicht ueber ``storage``: Der Test
+    prueft den Bestand auf dieser Platte, und eine Silver-Pruefung soll nicht
+    das Orchestrierungspaket importieren muessen. Fehlt das Protokoll, kommt
+    ``()`` zurueck - dann ueberspringen die Pruefungen, statt zu raten.
+    """
+    protokoll = PROJECT_ROOT / "data" / "pipeline_run.json"
+    if not protokoll.is_file():
+        return ()
+    try:
+        jahre = json.loads(protokoll.read_text(encoding="utf-8")).get("years")
+    except (OSError, ValueError):
+        return ()
+    if not isinstance(jahre, list):
+        return ()
+    return tuple(sorted(int(j) for j in jahre if isinstance(j, int)))
+
+
+def test_kein_fall_liegt_ausserhalb_der_gebauten_jahrgaenge():
     """Die Pruefung, die das falsche Abfragefenster sichtbar gemacht hat.
 
     Ein Jahrgang 2024 enthaelt keine Faelle aus 2023 - diese Aussage ist
@@ -717,43 +744,104 @@ def test_kein_fall_liegt_ausserhalb_seines_jahrgangs():
     Geprueft wird die **Ortszeit**, nicht UTC. In UTC liegen Faelle vom
     Silvesterabend beider Staedte korrekt im Folgejahr; das ist kein Fehler,
     sondern der Grund, warum die Tabelle beide Achsen fuehrt.
+
+    **Was der Mehrjahresbau an dieser Pruefung aendert.** Mit einem Jahrgang
+    war jede Nachbarjahr-Zeile ein Fund. Mit sechs zusammenhaengenden
+    Jahrgaengen in einer Tabelle faellt ein in UTC gezogenes Fenster nur noch
+    an den **Aussenraendern** auf - Dezember 2020 oder Januar 2027 -, denn
+    innen liegt das Nachbarjahr selbst in der Erwartungsmenge. Der Rand ist
+    geblieben, weil dasselbe Fenster fuer jeden Jahrgang gezogen wird: Zieht
+    es 2021 in UTC, liegen Faelle in 2020, und der Test schlaegt an. Was er
+    nicht mehr sieht, ist eine Verschiebung **nur** in einem Innenjahr.
     """
     tabelle = echte_tabelle()
+    jahre = gebaute_jahre()
     if tabelle is None:
         pytest.skip("silver/crime_offense nicht gebaut")
+    if not jahre:
+        pytest.skip("data/pipeline_run.json nennt keine Jahrgaenge")
 
+    liste = ", ".join(str(j) for j in jahre)
     con = duckdb.connect()
     try:
         falsch = con.execute(f"""
             SELECT city, year(occurred_date_local) AS jahr, count(*)
             FROM read_parquet('{tabelle}')
-            WHERE year(occurred_date_local) <> 2024
+            WHERE year(occurred_date_local) NOT IN ({liste})
             GROUP BY 1, 2 ORDER BY 1, 2
         """).fetchall()
     finally:
         con.close()
     assert not falsch, (
-        f"Faelle ausserhalb des Jahrgangs 2024, nach Ortszeit: {falsch}. "
-        "Ist ein Abfragefenster in UTC statt in Ortszeit gezogen?"
+        f"Faelle ausserhalb der gebauten Jahrgaenge ({liste}), nach "
+        f"Ortszeit: {falsch}. Ist ein Abfragefenster in UTC statt in "
+        "Ortszeit gezogen?"
     )
 
 
-def test_beide_staedte_liegen_im_jahrgang():
-    """Gegenprobe: sonst haelt der Test oben auch bei einer leeren Tabelle."""
+def test_beide_staedte_liegen_in_jedem_gebauten_jahrgang():
+    """Gegenprobe: sonst haelt der Test oben auch bei einer leeren Tabelle.
+
+    Und sie ist seit dem Mehrjahresbau mehr als eine Gegenprobe: Faellt ein
+    Jahrgang beim Bauen aus, bleibt die Tabelle gueltig und die Erwartungsmenge
+    stimmt weiter - nur eine Stadt fehlt dann in einem Jahr. Geprueft wird
+    deshalb jede Paarung aus Stadt und Jahr, nicht die Tabelle als Ganzes.
+    """
     tabelle = echte_tabelle()
+    jahre = gebaute_jahre()
     if tabelle is None:
         pytest.skip("silver/crime_offense nicht gebaut")
+    if not jahre:
+        pytest.skip("data/pipeline_run.json nennt keine Jahrgaenge")
 
     con = duckdb.connect()
     try:
-        je_stadt = dict(con.execute(f"""
-            SELECT city, count(*) FROM read_parquet('{tabelle}')
-            WHERE year(occurred_date_local) = 2024 GROUP BY 1
-        """).fetchall())
+        gezaehlt = dict(
+            ((stadt, jahr), n) for stadt, jahr, n in con.execute(f"""
+                SELECT city, year(occurred_date_local) AS jahr, count(*)
+                FROM read_parquet('{tabelle}') GROUP BY 1, 2
+            """).fetchall()
+        )
     finally:
         con.close()
-    assert set(je_stadt) == {"chicago", "detroit"}, je_stadt
-    assert all(n > 1000 for n in je_stadt.values()), je_stadt
+    erwartet = {(stadt, jahr) for stadt in ("chicago", "detroit")
+                for jahr in jahre}
+    assert set(gezaehlt) == erwartet, sorted(erwartet - set(gezaehlt))
+    assert all(n > 1000 for n in gezaehlt.values()), gezaehlt
+
+
+def test_die_gemessenen_zeilen_je_jahrgang_decken_dieselben_jahre_ab():
+    """``config/zeilen_je_jahrgang.csv`` und der gebaute Stand im Gleichschritt.
+
+    Die CSV traegt die an den beiden APIs **gemessenen** Zeilen je Stadt und
+    Jahr; die Hochrechnung des Platzbedarfs rechnet damit. Verglichen wird hier
+    nur die **Menge** der Jahre, nicht die Zeilenzahl: Die Messung ist vom
+    3.10.2026, geladen wurde am 4.10., und der laufende Jahrgang waechst
+    taeglich - Chicago 2021 weicht um eine Zeile ab, Detroit 2026 um 240. Eine
+    Toleranz, die das traegt, muesste groesser sein als die 66 Zeilen, an denen
+    der Zeitzonenfehler oben haengt; sie waere also eine Zusage, die weniger
+    prueft als ihr eigenes Rauschen. Die Mengenaussage dagegen haelt: Wer einen
+    Jahrgang dazubaut und die Messung nicht nachfuehrt, rechnet den Platzbedarf
+    ohne ihn hoch.
+    """
+    jahre = gebaute_jahre()
+    if not jahre:
+        pytest.skip("data/pipeline_run.json nennt keine Jahrgaenge")
+    pfad = PROJECT_ROOT / "config" / "zeilen_je_jahrgang.csv"
+    if not pfad.is_file():
+        pytest.skip(f"{pfad} fehlt")
+    gemessen: dict[str, set[int]] = {}
+    with pfad.open(encoding="utf-8", newline="") as datei:
+        for zeile in csv.DictReader(datei):
+            if zeile.get("stadt"):
+                gemessen.setdefault(
+                    zeile["stadt"].strip().lower(), set()
+                ).add(int(zeile["jahr"]))
+    assert set(gemessen) == {"chicago", "detroit"}, sorted(gemessen)
+    for stadt, jahrgaenge in sorted(gemessen.items()):
+        assert jahrgaenge == set(jahre), (
+            f"{stadt}: gemessen {sorted(jahrgaenge)}, gebaut {list(jahre)}"
+        )
 
 
 def test_tabellenverzeichnis_traegt_keine_vintage():

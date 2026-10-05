@@ -30,16 +30,27 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'678** |
-| `silver/crime_offense` | 348'329 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | **345'091** Zeilen (eine Tat) |
+| Tests | **1'695** |
+| Jahrgänge | **2021–2026**, 2026 als Teiljahr |
+| `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
 | Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 84'761 Delikte · 638'635 Einwohner · **132,7** je 1'000 |
-| Fallebene (`counts_case`) | Chicago 259'614 · Detroit 80'230 Fälle; Detroit **124,6** je 1'000 |
+| Detroit | 84'987 Delikte · 638'635 Einwohner · **133,1** je 1'000 |
+| Fallebene (`counts_case`) | Chicago 251'487 · Detroit 79'587 Fälle; Detroit **124,6** je 1'000 |
 
+> **Zwei Zeiträume in einer Tabelle, und das ist Absicht.** Die beiden
+> Zeilenzahlen sind der **Bestand** über alle sechs Jahrgänge — die Antwort auf
+> „was liegt hier?". Die drei Zeilen darunter gelten für den **Jahrgang 2024**,
+> den jüngsten vollständigen (`gold_pipeline.RATENJAHR`): Eine Rate braucht
+> einen Zeitraum, und sechs Jahre Zähler auf einem Jahr Nenner ergäben 500,7
+> je 1'000 für Chicago. Das wäre keine zu hohe Rate, sondern keine.
+>
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
-> sind. Absolute Fallzahlen legen das Gegenteil nahe — Chicago hat in fast
-> jeder Kategorie mehr Fälle.
+> sind — die Fallzahlen seit dem 4.10.2026 ebenso, damit Zahl und Rate in einer
+> Zeile dieselbe Grundmenge haben; vorher zählte die Fallzahl über
+> `reporting_city` und damit auch Taten jenseits der Stadtgrenze. Absolute
+> Fallzahlen legen das Gegenteil nahe — Chicago hat in fast jeder Kategorie
+> mehr Fälle.
 
 ---
 
@@ -91,6 +102,186 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 04.10.2026 · Die Dokumente beschreiben sechs Jahrgänge, und jede Rate nennt ihr Jahr (#132)
+
+`data/` ist über **2021–2026** neu gebaut (Release `2026-10-04T16-50-47Z`).
+Danach standen **60 von 99 Referenzstand-Wächtern** rot und drei Tests des
+Standardlaufs. Dieser Eintrag zieht die beschriebene Wirklichkeit nach — und an
+drei Stellen war nicht die Zahl veraltet, sondern die Frage falsch gestellt.
+
+**Eine Rate braucht einen Zeitraum, sonst ist sie keine.** `fact_offense` trägt
+sechs Jahrgänge; derselbe Quotient wie vorher ergab **500,7 je 1'000** für
+Chicago — sechs Jahre Zähler auf einem Jahr Nenner. Diese Zahl ist nicht zu
+hoch, sie bedeutet nichts. Entschieden ist: Die Dokumentzahl ist die Rate **für
+2024** und sagt das Jahr ausdrücklich; der Nenner ist das ACS-Vintage, das
+`fact_offense.population_vintage` für diese Zeilen nennt. Eine Tabelle mit einer
+Rate je Jahr wäre das Bessere und ist nicht dasselbe — sie steht aus.
+
+Dafür gibt es jetzt **eine** Abfrage, `gold_pipeline.raten_je_stadt`, mit dem
+Jahresfilter darin, neben `einwohner_je_stadt` und aus demselben Grund: Sie wird
+im Driftbericht, auf der Einstiegsseite und in den Wächtern über
+`ln1_konzept.md`, `README.md`, `AENDERUNGEN.md` und `eine-zahl.md` gebraucht.
+Sechs Kopien wären fünf zu viel, und eine davon hätte den Filter vergessen.
+`gold_pipeline.RATENJAHR` sagt, welches Jahr gilt.
+
+| | vorher | jetzt |
+| --- | ---: | ---: |
+| `silver/crime_offense` | 348'329 | **1'875'378** |
+| `silver/weather_day` | 55'465 | **55'497** |
+| `gold/fact_offense` | 345'091 | **1'851'950** |
+| `gold/dim_date` | 366 | **2'103** |
+| `gold/dim_city_day` | 732 | **4'196** |
+| `gold/dim_tract_acs` | 6'282 | **25'128** (vier Vintages) |
+| Chicago, Rate 2024 | 94,5 | 94,5 |
+| Detroit, Rate 2024 | 132,7 | **133,1** |
+
+**Vier Wächter prüften eine Annahme, die nicht mehr gilt** — sie sind
+verallgemeinert, nicht abgeschwächt:
+
+* **`test_kein_fall_liegt_ausserhalb_seines_jahrgangs`** hatte `<> 2024` fest
+  eingebaut. Er hat Detroits in UTC statt in Ortszeit gezogenes Abfragefenster
+  gefunden (66 Fälle im falschen Jahr) und prüft deshalb `occurred_date_local`.
+  Die Erwartung kommt jetzt aus `data/pipeline_run.json`. Was er dabei verliert,
+  steht im Docstring: Mit sechs zusammenhängenden Jahrgängen fällt ein
+  UTC-Fenster nur noch an den **Aussenrändern** auf, weil innen das Nachbarjahr
+  selbst in der Erwartungsmenge liegt. Dazu eine Gegenprobe je Stadt **und
+  Jahr** statt je Stadt — fällt ein Jahrgang beim Bauen aus, bleibt die Menge
+  sonst gültig.
+* **`zaehlperspektiven`: Monate summieren sich nicht mehr zum Bestand.** Mit
+  einem Jahrgang lag kein Jahreswechsel in den Daten; mit sechs liegen fünf
+  darin, und Chicagos Monatssumme liegt neun Vorfälle über der Gesamtzahl. Der
+  Wächter verlangt jetzt die **Ordnung** (Tage ≥ Monate ≥ Bestand) und beide
+  Überschüsse im Dokument, statt Gleichheit. Das Dokument hat damit mehr zu
+  sagen, nicht weniger.
+* **`zaehlperspektiven`: beide Ränder des Zeitfensters.** „2024 beginnt an einem
+  Montag" trägt nicht mehr. Das Fenster beginnt am 1.1.2021, einem Freitag (3
+  Tage in der ersten Woche, 2'460 Taten), und endet am Ladetag: Die letzte Woche
+  hat alle sieben Tage und trägt doch nur 1'148 statt 6'248 — kein Teilzeitraum,
+  sondern **Meldeverzug**. Zwei verschiedene Ursachen an zwei Rändern, und nur
+  die zweite füllt sich nach.
+* **`datenhistorie`** verglich „die ersten zwei" Detroit-Schnappschüsse. Nach
+  dem Mehrjahresbau sind das `year=2021` und `year=2022` — zwei verschiedene
+  Bestände; der Vergleich lief durch und meldete „unterschiedlich gross: 78960
+  und 83837". Genommen werden jetzt die beiden mit `grund = LN1` in
+  `config/referenzstand.csv` gepinnten Vollschnappschüsse, dazu ein Wächter,
+  dass es genau zwei sind. **Keine Zahl des Dokuments war falsch**, nur die
+  Auswahl.
+
+Ebenso gelesen statt verdrahtet: die Zahl der Bronze-Läufe je Stadt in
+`zaehlperspektiven.md` (`(8, 8)` als Literal im Test, jetzt aus dem Dokument
+gegen das Manifest — vierzehn und vierzehn) und die blinde Stunde in
+`test_dokumentzahlen.py` (`- 30` als Literal, jetzt gemessen: 118).
+
+**Zwei Fehler im Erzeugten, die der Mehrjahresbau sichtbar gemacht hat:**
+
+* **`tools/build_feldkatalog.py`** führte `place` und `tract` **je Vintage
+  einmal** auf — vier gleiche Abschnitte mit verschiedenen Zeilenzahlen, „285
+  Spalten in 21 Tabellen" statt 192 in 15. Ein Katalog beschreibt eine Tabelle,
+  nicht einen Stand; die Vintages sind jetzt zusammengelegt, die Zeilenzahl
+  summiert und als Summe gekennzeichnet. Weichen die Spalten zweier Vintages
+  ab, bricht der Lauf ab, statt zu glätten.
+* **`tools/build_platzbedarf.py`** hätte beim nächsten Lauf „Basis ist der
+  Jahrgang 2024, den die gebauten Läufe tragen" ins Dokument geschrieben. Für
+  `raw` und `bronze` stimmt das (je Jahr ein Lauf), für die Tabellenschichten
+  nicht. Der Satz wird jetzt aus `Basis.jahre` gebildet und nennt beide Fälle.
+
+**Prosa, die durch sechs Jahrgänge falsch wurde** — nicht nur Werte:
+`ln1_konzept.md` sagte „fünf Gold-Tabellen" und „vier Dimensionen", seit Vertrag
+6 sind es sechs und fünf; `dim_tract_acs` stand in keinem Abgabedokument.
+„Der Nenner hat keine Zeitachse" ist falsch (er hat eine gröbere als der
+Zähler, und nur bis 2024 — 2025 und 2026 borgen das Vintage von 2024).
+`eine-zahl.md` verfolgt jetzt ausdrücklich die Rate **eines** Jahrgangs; seine
+Herkunftskette nennt Vertrag 7, die neuen Abdrücke und, dass vierzehn Läufe je
+Stadt dahinterstehen, von denen das Diagramm die gepinnten nennt.
+`sternschema-und-wuerfel.md` und sein HTML-Zwilling trugen zwei verschiedene
+Stände (345'091 gegen 344'617) — der Zwilling steht unter keinem Wächter, das
+ist notiert.
+
+**Nachgebaut:** `docs/einstieg.html` (nennt jetzt den Jahrgang ihrer
+Ratentabelle), `docs/feldkatalog.md`, `docs/intern/platzbedarf.md`,
+`docs/referenz/`. Die drei Analysedienste sind auf den neuen Stand geladen
+(`serving.load_clickhouse`, `load_elasticsearch`, `build_kibana`) — ohne das
+bleibt `serving.pruefe_stand` rot, und das ist richtig so.
+
+**Zahlen.** 1'693 → **1'695 Tests** (zwei neue Wächter), Standardlauf 1'594 →
+**1'595**, Referenzwächter 99 → **100**, alle grün. Kein Vertragssprung; die
+neun LN1-Pins in `config/referenzstand.csv` sind unberührt.
+
+## 04.10.2026 · Die Hochrechnung teilt auch die Jahrgänge heraus, nicht nur die Vintages (#132)
+
+Die Hochrechnung aus #130 rechnete nach dem Mehrjahreslauf **9'345 MB** für
+2021–2026, gemessen sind die abgeleiteten Schichten zusammen rund ein Zehntel
+davon. Der Fehler ist derselbe, der bei den **Vintages** schon behoben war,
+eine Dimension daneben: Eine Basis je Jahrgang entsteht nur, wenn aus den
+gemessenen Bytes herausgeteilt wird, was darin schon an Mehrjährigkeit steckt.
+`_regel` teilte für die Taten fest durch die Zeilen von 2024 — und dieselbe
+Silver-Datei trug inzwischen alle sechs Jahrgänge. Sie wurde also ein zweites
+Mal mit 5,38 genommen.
+
+**Wo es richtig war und wo nicht.** Für `raw` und `bronze` stimmt das feste
+Basisjahr: `run_all` entfaltet die Ingestion je Jahr (`chicago_2021` …
+`chicago_2026`, Detroit ebenso, dessen Pfad den Jahrgang als `year=` trägt), ein
+Lauf trägt genau einen Jahrgang, und der grösste ist damit die Basis. Für
+`silver`, `gold`, `serving` und ein Release sind es einzelne Artefakte, die alle
+sechs Jahrgänge tragen — dort war es falsch.
+
+**`Basis.jahre` ist die Korrektur**, das Gegenstück zu `Basis.vintages`: die
+Jahrgänge, die das gemessene Artefakt abdeckt. Leer heisst „ein Jahrgang,
+nämlich das Basisjahr" und hält das Verhalten von vor dem Mehrjahreslauf.
+Woher die Jahre kommen:
+
+* **Tabellenschichten** — aus `data/pipeline_run.json`, Schlüssel `years`.
+  Gelesen über `storage`, nicht über einen offenen Pfad. Fehlt die Datei oder
+  der Schlüssel, bleibt es beim alten Verhalten; ein Abbruch wäre falsch, denn
+  in einem frischen Klon lief noch kein Gesamtlauf.
+* **Releases** — aus dem Release selbst, sobald es die Angabe trägt (siehe
+  unten). Ein Stand von vorher nennt sie nicht; dann gelten die Jahre des
+  Laufprotokolls **nur**, wenn dieses genau diesen Stand als sein Release
+  benennt. Sonst leer: Der grösste liegende Stand kann aus einem Einjahresbau
+  stammen, während der letzte Lauf sechs Jahrgänge baute.
+
+**Neue Release-Manifeste nennen ihre Jahrgänge.** `storage.release` schreibt
+`years` mit, gereicht von `run_all` über `orchestration.release` — das Release
+sagt es von sich aus nicht, denn Gold und Serving liegen an Pfaden ohne
+`year=`, und `storage` liest keine Zeilen. Abgelegte Manifeste bleiben
+unverändert; ein fehlendes `years` in einem alten ist kein Fehler, und leer
+heisst „nicht gesagt", nicht „keine Jahrgänge" — darum fehlt der Schlüssel
+dann, statt `[]` dazustehen.
+
+**Was sich an den Zahlen ändert** (gemessener Stand, sechs Jahrgänge gebaut,
+Hochrechnung auf 2021–2026):
+
+| Schicht | gemessen | war hochgerechnet | ist hochgerechnet |
+| --- | ---: | ---: | ---: |
+| raw | 379,5 MB | 269,2 MB | 269,2 MB |
+| bronze | 426,3 MB | 334,3 MB | 334,3 MB |
+| silver | 213,8 MB | 560,9 MB | **213,8 MB** |
+| gold | 85,6 MB | 459,4 MB | **87,7 MB** |
+| serving | 1,2 MB | 5,7 MB | **2,8 MB** |
+| ein Release | 179,6 MB | 7'715,7 MB | **1'466,9 MB** |
+| zusammen | | 9'345,2 MB | **2'374,8 MB** |
+
+`raw` und `bronze` bleiben eine echte Hochrechnung — die Basis dort ist der
+grösste Lauf, und das ist ein Jahrgang. Dass `gold` und `serving` leicht
+wachsen, kommt allein von der Census-Dimension: Vier Vintages kosten mehr als
+die geladenen. Die Releases wachsen um die acht Stände.
+
+**Was fehlt, wird weiter genannt.** Deckt ein Artefakt einen Jahrgang ab, für
+den `config/zeilen_je_jahrgang.csv` keine gemessene Zeilenzahl trägt, bricht die
+Hochrechnung ab und nennt ihn. Ihn weglassen hiesse, die Bytes auf zu wenige
+Zeilen zu verteilen — also zu viele Bytes je Zeile und eine zu grosse Zahl.
+
+**Noch nicht nachgezogen:** `docs/intern/platzbedarf.md` und die Grössentabellen
+in `architektur-ist-und-ziel.md` und im Einseiter. Sie beschreiben einen
+Einjahresbau, und das tun seit dem Mehrjahreslauf 60 der 99
+Referenzstand-Wächter auch — das wird zusammen mit den übrigen Dokumentzahlen
+nachgezogen. Durch diese Änderung kommt kein Wächter dazu und keiner weg: vorher
+und nachher dieselben 60.
+
+**Zahlen.** 1'678 → **1'693 Tests**, Standardlauf 1'579 → **1'594**,
+Referenzwächter unverändert 99. Kein Vertragssprung. `docs/referenz/` ist
+nachgebaut (fünf Seiten).
 
 ## 04.10.2026 · Der Platzbedarf wird gemessen und je Quelle hochgerechnet, nicht mit einem Faktor geschätzt (#130)
 

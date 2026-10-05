@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from gold_pipeline import einwohner_je_stadt
+from gold_pipeline import RATENJAHR, raten_je_stadt
 
 PROJEKT = Path(__file__).resolve().parents[1]
 WERKZEUG = PROJEKT / "tools" / "build_einstieg.py"
@@ -170,18 +170,20 @@ def test_jede_zahl_der_seite_steht_so_im_release(text):
     fakt = gold / "dataset=fact_offense/part-0001.parquet"
     con = duckdb.connect()
     try:
-        raten = con.execute(f"""
-            WITH e AS ({einwohner_je_stadt(
-                f"read_parquet('{tract}')", f"read_parquet('{acs}')")})
-            SELECT t.city, round(count(*) * 1000.0 / any_value(e.n), 1)
-            FROM read_parquet('{fakt}') f
-            JOIN read_parquet('{tract}') t ON t.geoid = f.tract_geoid
-            JOIN e ON e.city = t.city
-            WHERE t.city IS NOT NULL GROUP BY 1
-        """).fetchall()
+        # Aus gold_pipeline, mit dem Jahresfilter darin. Eine Kopie ohne ihn
+        # haette ab dem 4.10.2026 sechs Jahrgaenge gezaehlt und einen Nenner
+        # von einem - und die Seite waere gegen eine Zahl geprueft worden, die
+        # keine Rate ist.
+        raten = con.execute(raten_je_stadt(
+            f"read_parquet('{fakt}')", f"read_parquet('{tract}')",
+            f"read_parquet('{acs}')")).fetchall()
     finally:
         con.close()
-    for stadt, rate in raten:
+    assert f"Jahrgang {RATENJAHR}" in text, (
+        f"die Seite nennt den Jahrgang {RATENJAHR} nicht, fuer den ihre Raten "
+        "gelten - ein Release traegt sechs")
+    for zeile in raten:
+        stadt, rate = zeile[0], zeile[4]
         gesucht = f"{rate:.1f}".replace(".", ",")
         assert f"<strong>{gesucht}</strong>" in text, (
             f"{stadt}: Rate {gesucht} steht nicht auf der Seite")

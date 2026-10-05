@@ -27,6 +27,15 @@ liegen weit darueber.
 Fehlt eine Tabelle, steht "nicht gebaut" in der Zeile - das ist keine Drift,
 die Strecke davor ist dann schon rot. Exit 1 nur bei ueberschrittener
 Toleranz; ``--nur-melden`` schaltet das ab.
+
+**Zwei Zeitraeume, und das steht in den Beschriftungen.** Die Zeilenzahlen von
+Silver und Gold sind der **Bestand** - alles, was gebaut ist, seit dem
+4.10.2026 sechs Jahrgaenge. Die Delikte, Faelle und Raten je Stadt gelten
+dagegen fuer **ein Jahr** (``gold_pipeline.RATENJAHR``), genau wie die Zeilen
+im Kopfabschnitt, die sie messen. Eine Rate ueber sechs Jahrgaenge waere nicht
+nur zu hoch, sie waere keine Rate: sechs Jahre Zaehler auf einem Jahr Nenner.
+Waere hier kumuliert und dort nicht, meldete dieser Bericht jede Woche eine
+Drift von 400 Prozent - und ein Alarm, der immer klingelt, ist keiner.
 """
 
 from __future__ import annotations
@@ -37,7 +46,7 @@ import re
 from pathlib import Path
 from typing import Any, NamedTuple
 
-from gold_pipeline import einwohner_je_stadt
+from gold_pipeline import RATENJAHR, raten_je_stadt
 from storage import for_root
 from storage import duckdb as storage_duckdb
 
@@ -58,23 +67,23 @@ GROESSEN: tuple[tuple[str, str, str, int], ...] = (
      r"`silver/crime_offense` \| ([0-9']+) Zeilen", 0),
     ("gold_rows", "`gold/fact_offense`, Taten",
      r"`gold/fact_offense` \| \*\*([0-9']+)\*\* Zeilen", 0),
-    ("chicago_delikte", "Chicago, Delikte in der Stadt",
+    ("chicago_delikte", f"Chicago, Delikte in der Stadt ({RATENJAHR})",
      r"\| Chicago \| ([0-9']+) Delikte", 0),
     ("chicago_einwohner", "Chicago, Einwohner",
      r"\| Chicago \| [0-9']+ Delikte · ([0-9']+) Einwohner", 0),
-    ("chicago_rate", "Chicago, je 1'000 (Tatebene)",
+    ("chicago_rate", f"Chicago, je 1'000 (Tatebene, {RATENJAHR})",
      r"\| Chicago \|.*?\*\*([0-9]+,[0-9])\*\* je 1'000", 1),
-    ("detroit_delikte", "Detroit, Delikte in der Stadt",
+    ("detroit_delikte", f"Detroit, Delikte in der Stadt ({RATENJAHR})",
      r"\| Detroit \| ([0-9']+) Delikte", 0),
     ("detroit_einwohner", "Detroit, Einwohner",
      r"\| Detroit \| [0-9']+ Delikte · ([0-9']+) Einwohner", 0),
-    ("detroit_rate", "Detroit, je 1'000 (Tatebene)",
+    ("detroit_rate", f"Detroit, je 1'000 (Tatebene, {RATENJAHR})",
      r"\| Detroit \|.*?\*\*([0-9]+,[0-9])\*\* je 1'000", 1),
-    ("chicago_faelle", "Chicago, Fälle (Fallebene)",
+    ("chicago_faelle", f"Chicago, Fälle (Fallebene, {RATENJAHR})",
      r"\| Fallebene.*?Chicago ([0-9']+)", 0),
-    ("detroit_faelle", "Detroit, Fälle (Fallebene)",
+    ("detroit_faelle", f"Detroit, Fälle (Fallebene, {RATENJAHR})",
      r"\| Fallebene.*?Detroit ([0-9']+)", 0),
-    ("detroit_rate_fallebene", "Detroit, je 1'000 (Fallebene)",
+    ("detroit_rate_fallebene", f"Detroit, je 1'000 (Fallebene, {RATENJAHR})",
      r"\| Fallebene.*?Detroit \*\*([0-9]+,[0-9])\*\* je 1'000", 1),
 )
 
@@ -153,29 +162,21 @@ def gemessen(data_root: Path) -> dict[str, float]:
         if da["gold"]:
             werte["gold_rows"] = con.execute(
                 f"SELECT count(*) FROM read_parquet('{gold}')").fetchone()[0]
-            for stadt, faelle in con.execute(f"""
-                SELECT reporting_city, count(*) FILTER (counts_case)
-                FROM read_parquet('{gold}') GROUP BY 1
-            """).fetchall():
-                werte[f"{stadt}_faelle"] = faelle
         if da["gold"] and da["tract"] and da["acs"]:
-            # Der Nenner kommt aus gold_pipeline.einwohner_je_stadt - seit
-            # Vertrag 6 liegt die Einwohnerzahl je Vintage in einer eigenen
-            # Tabelle, und ein Verbund nur ueber geoid vervielfachte sie.
-            nenner = einwohner_je_stadt(
-                f"read_parquet('{tract}')", f"read_parquet('{acs}')"
-            )
-            for stadt, delikte, einwohner, rate, rate_fall in con.execute(f"""
-                WITH e AS ({nenner})
-                SELECT t.city, count(*), any_value(e.n),
-                       round(count(*) * 1000.0 / any_value(e.n), 1),
-                       round(count(*) FILTER (f.counts_case) * 1000.0 / any_value(e.n), 1)
-                FROM read_parquet('{gold}') f
-                JOIN read_parquet('{tract}') t ON t.geoid = f.tract_geoid
-                JOIN e ON e.city = t.city
-                GROUP BY 1
-            """).fetchall():
+            # Delikte, Faelle, Einwohner und beide Raten kommen aus
+            # gold_pipeline.raten_je_stadt - einer Abfrage, mit dem Jahresfilter
+            # und dem Nenner je Vintage darin. Bis zum 4.10.2026 stand hier eine
+            # Kopie ohne Jahresfilter, und die Fallzahlen kamen aus einer
+            # zweiten Abfrage ueber ``reporting_city``: Die Fallzahl zaehlte
+            # damit auch Taten ausserhalb der Stadt, waehrend die Fallrate
+            # daneben nur die darin zaehlte. Eine Zeile, zwei Grundmengen.
+            for stadt, delikte, faelle, einwohner, rate, rate_fall in con.execute(
+                raten_je_stadt(f"read_parquet('{gold}')",
+                               f"read_parquet('{tract}')",
+                               f"read_parquet('{acs}')")
+            ).fetchall():
                 werte[f"{stadt}_delikte"] = delikte
+                werte[f"{stadt}_faelle"] = faelle
                 werte[f"{stadt}_einwohner"] = einwohner
                 werte[f"{stadt}_rate"] = rate
                 if stadt == "detroit":

@@ -51,6 +51,17 @@ def con():
         verbindung.close()
 
 
+#: Zahlwoerter, wie das Dokument sie schreibt. Ein Satz wie "acht fuer Chicago"
+#: liest sich besser als "8 fuer Chicago", und ein Waechter, der nur Ziffern
+#: kennt, zwingt den Text in eine Form, die er nicht braucht.
+WORTZAHL = {
+    "zwei": 2, "drei": 3, "vier": 4, "fünf": 5, "sechs": 6, "sieben": 7,
+    "acht": 8, "neun": 9, "zehn": 10, "elf": 11, "zwölf": 12, "dreizehn": 13,
+    "vierzehn": 14, "fünfzehn": 15, "sechzehn": 16, "siebzehn": 17,
+    "achtzehn": 18, "neunzehn": 19, "zwanzig": 20,
+}
+
+
 def zahl(text: str, muster: str) -> int:
     treffer = re.search(muster, text)
     assert treffer, f"nicht im Dokument gefunden: {muster}"
@@ -145,9 +156,24 @@ def test_die_mehrfamilien_vorfaelle_stimmen(text, con):
 
 
 def test_tage_summieren_sich_nicht_zu_monaten(text, con):
-    """Vier und zwei Vorfaelle - klein genug, um unbemerkt zu bleiben."""
+    """Je feiner gruppiert, desto groesser der Fehler - und er geht nie auf null.
+
+    Bis zum 4.10.2026 verlangte dieser Test ``monate == gesamt``: Mit einem
+    Jahrgang lag jeder Monatswechsel innerhalb der Daten, aber kein
+    Jahreswechsel, und ein Vorfall ueber Mitternacht fiel nur bei
+    Tagesgruppierung auseinander. Mit sechs Jahrgaengen gibt es fuenf
+    Jahreswechsel **in** den Daten; Chicagos Monatssumme liegt seither neun
+    Vorfaelle ueber der Gesamtzahl.
+
+    Das Dokument hat damit nicht weniger, sondern mehr zu sagen - deshalb
+    prueft dieser Test jetzt die Ordnung statt die Gleichheit: Tage ueber
+    Monaten ueber Gesamtzahl, alle drei im Dokument, und beide Ueberschuesse
+    beziffert. Was er dafuer nicht mehr faengt, ist der Fall, dass Monate und
+    Gesamtzahl wieder zusammenfallen; das waere keine Verschlechterung, aber
+    es stuende dann eine Null im Dokument, und die faellt auf.
+    """
     for stadt in ("chicago", "detroit"):
-        tage, monate, jahr = con.execute(f"""
+        tage, monate, gesamt = con.execute(f"""
             SELECT (SELECT sum(n) FROM (SELECT count(DISTINCT event_id) AS n
                         FROM f WHERE reporting_city = '{stadt}' GROUP BY date)),
                    (SELECT sum(n) FROM (SELECT count(DISTINCT event_id) AS n
@@ -156,26 +182,67 @@ def test_tage_summieren_sich_nicht_zu_monaten(text, con):
                    (SELECT count(DISTINCT event_id) FROM f
                         WHERE reporting_city = '{stadt}')
         """).fetchone()
-        assert monate == jahr, (
-            f"{stadt}: Monate summieren sich nicht mehr zum Jahr - dann stimmt "
-            "die Aussage des Abschnitts nicht mehr"
+        assert tage >= monate >= gesamt, (
+            f"{stadt}: Tage {tage}, Monate {monate}, gesamt {gesamt} - "
+            "groeber gruppieren darf nicht mehr Doppelzaehlungen ergeben"
         )
-        beschriftung = f"| {stadt.capitalize()} | {tage:,}".replace(",", "'")
+        beschriftung = (f"| {stadt.capitalize()} | {tage:,} | {monate:,} | "
+                        f"{gesamt:,} |").replace(",", "'")
         assert beschriftung in text, (
-            f"{stadt}: die Zeile mit {tage} Tagen summiert fehlt im Dokument"
+            f"{stadt}: die Zeile {beschriftung!r} fehlt im Dokument"
         )
+        for ueberschuss, was in ((tage - gesamt, "Tagen"),
+                                 (monate - gesamt, "Monaten")):
+            assert f"{ueberschuss} bei {was}" in text, (
+                f"{stadt}: der Ueberschuss von {ueberschuss} bei {was} wird "
+                "nicht genannt"
+            )
 
 
-def test_die_teilwoche_am_jahresende_stimmt(text, con):
-    """Ohne diese Zahl liest sich der Jahresausklang wie ein Einbruch."""
-    erste, letzte = con.execute("""
-        SELECT (SELECT count(*) FROM f
-                WHERE date_trunc('week', date) = (SELECT min(date_trunc('week', date)) FROM f)),
-               (SELECT count(*) FROM f
-                WHERE date_trunc('week', date) = (SELECT max(date_trunc('week', date)) FROM f))
+def test_die_raender_des_zeitfensters_stimmen(text, con):
+    """Ohne diese Zahlen liest sich jeder Rand wie ein Einbruch.
+
+    Bis zum 4.10.2026 hiess dieser Test ``test_die_teilwoche_am_jahresende_stimmt``
+    und suchte zwei Formulierungen, die den Jahrgang 2024 voraussetzten:
+    "vollständig: N Taten" fuer die erste Woche (2024 begann an einem Montag)
+    und "**zwei Tage**: N Taten" fuer die letzte. Beides gilt fuer ein
+    Sechsjahresfenster nicht: Es beginnt am 1.1.2021, einem Freitag, und endet
+    mitten im laufenden Jahr.
+
+    Geprueft wird deshalb, was unabhaengig vom Fenster wahr ist: Die erste und
+    die letzte Woche tragen weniger Taten als eine mittlere, das Dokument
+    nennt beide Zahlen samt der Zahl ihrer Tage, und es nennt die mittlere zum
+    Vergleich. Der Zweck bleibt - wer die Wochenreihe ohne diesen Hinweis
+    zeichnet, sieht an beiden Raendern einen Absturz, der keiner ist.
+    """
+    erste, erste_tage, letzte, letzte_tage, mittel = con.execute("""
+        WITH w AS (SELECT date_trunc('week', date) AS woche, count(*) AS n,
+                          count(DISTINCT date) AS tage
+                   FROM f GROUP BY 1)
+        SELECT (SELECT n FROM w ORDER BY woche LIMIT 1),
+               (SELECT tage FROM w ORDER BY woche LIMIT 1),
+               (SELECT n FROM w ORDER BY woche DESC LIMIT 1),
+               (SELECT tage FROM w ORDER BY woche DESC LIMIT 1),
+               (SELECT CAST(round(median(n)) AS BIGINT) FROM w
+                WHERE woche > (SELECT min(woche) FROM w)
+                  AND woche < (SELECT max(woche) FROM w))
     """).fetchone()
-    assert zahl(text, r"vollständig: ([\d']+) Taten") == erste
-    assert zahl(text, r"\*\*zwei Tage\*\*: ([\d']+) Taten") == letzte
+    # ``[\s\S]{0,400}?`` und nicht ``[^.]*?``: Zwischen "erste Woche" und der
+    # Zahl stehen ein Datum und eine Tageszahl, also Punkte und Umbrueche.
+    assert zahl(text, r"erste Woche[\s\S]{0,400}?: ([\d']+) Taten") == erste
+    assert zahl(text, r"letzte Woche[\s\S]{0,400}?: ([\d']+) Taten") == letzte
+    assert zahl(text, r"mittlere Woche trägt ([\d']+) Taten") == mittel
+    assert f"nur **{erste_tage} Tage**" in text, (
+        f"die erste Woche hat {erste_tage} Tage in den Daten"
+    )
+    assert erste < mittel and letzte < mittel, (
+        f"die Raender sind nicht mehr kleiner als die Mitte: {erste}, "
+        f"{letzte}, Mitte {mittel} - dann ist der Abschnitt gegenstandslos"
+    )
+    assert letzte_tage == 7, (
+        f"die letzte Woche hat {letzte_tage} Kalendertage - das Dokument "
+        "begruendet ihren Einbruch mit dem Meldeverzug, nicht mit fehlenden Tagen"
+    )
 
 
 # --------------------------------------------------------------------------
@@ -361,27 +428,39 @@ def test_die_bronze_only_felder_fehlen_wirklich(text, con):
 
 
 def test_der_manifesteintrag_nennt_die_zahl_der_laeufe(text):
-    """Acht und acht - beides steht im Manifest der gebauten Tabelle.
+    """So viele Laeufe, wie das Manifest der gebauten Tabelle auffuehrt.
 
-    Bis zum 20.9.2026 standen hier drei und zwei, bis zum 3.10. sieben und
-    acht; der zweite Chicago-Vollabzug machte daraus acht und acht. Beide
-    Staedte laden Deltas, die Zahl waechst mit jedem Lauf, und das Dokument
-    muss mit.
+    Bis zum 20.9.2026 standen im Dokument drei und zwei, bis zum 3.10. sieben
+    und acht, dann acht und acht; der Mehrjahresbau vom 4.10. machte daraus
+    vierzehn und vierzehn - je Stadt ein Lauf je Jahrgang. Beide Staedte laden
+    Deltas, die Zahl waechst mit jedem Lauf, und das Dokument muss mit.
 
-    Die erwartete Paarung steht hier von Hand und nicht im Dokument gelesen -
-    das ist die schwache Stelle dieses Waechters: Er faengt eine Abweichung,
-    nennt aber nicht die Stelle im Text, die nachzuziehen ist (es ist der
-    Abschnitt zu den Delta-Laeufen).
+    Bis zum 4.10.2026 stand die erwartete Paarung hier als Literal ``(8, 8)``.
+    Das war die schwache Stelle dieses Waechters: Er fiel bei jedem neuen Lauf,
+    und er fiel an **zwei** Stellen - im Dokument und in seiner eigenen Zeile.
+    Gelesen wird die Zahl jetzt aus dem Dokument. Es nennt sie als Wort
+    ("acht für Chicago"), weil der Satz sie so braucht; die Zuordnung Wort zu
+    Zahl steht in ``WORTZAHL``.
     """
     manifest = PROJECT_ROOT / "data" / "silver" / "dataset=crime_offense" / "manifest.json"
     if not manifest.is_file():
         pytest.skip("silver nicht gebaut")
     herkunft = json.loads(manifest.read_text(encoding="utf-8"))["derived_from"]
-    chi = len(herkunft["chicago_bronze_runs"])
-    det = len(herkunft["detroit_bronze_runs"])
-    assert (chi, det) == (8, 8), (
-        f"das Dokument nennt acht Chicago- und acht Detroit-Laeufe, "
-        f"das Manifest hat {chi} und {det}"
+    gemessen = (len(herkunft["chicago_bronze_runs"]),
+                len(herkunft["detroit_bronze_runs"]))
+    ohne_umbrueche = " ".join(text.split())
+    treffer = re.search(r"\((\w+) für Chicago, (\w+) für Detroit", ohne_umbrueche)
+    assert treffer, (
+        "das Dokument nennt die Zahl der Bronze-Laeufe je Stadt nicht mehr in "
+        "der Form '(N für Chicago, M für Detroit)'"
+    )
+    genannt = tuple(WORTZAHL.get(w.lower()) for w in treffer.groups())
+    assert None not in genannt, (
+        f"unbekanntes Zahlwort in {treffer.groups()} - dann in WORTZAHL ergaenzen"
+    )
+    assert genannt == gemessen, (
+        f"das Dokument nennt {treffer.groups()} Laeufe, das Manifest hat "
+        f"{gemessen}"
     )
 
 

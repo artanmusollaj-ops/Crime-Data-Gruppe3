@@ -37,10 +37,17 @@ vergleichbare Tabelle macht:
 
 | | |
 | --- | ---: |
-| `silver/crime_offense` | 348'329 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | 345'091 Zeilen (eine Tat) |
+| Jahrgänge | **2021–2026**, 2026 als Teiljahr |
+| `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | 1'851'950 Zeilen (eine Tat) |
+
+Und die Raten, **für den Jahrgang 2024** — eine Rate braucht einen Zeitraum,
+der Bestand trägt sechs:
+
+| | |
+| --- | ---: |
 | Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 84'761 Delikte · 638'635 Einwohner · **132,7** je 1'000 |
+| Detroit | 84'987 Delikte · 638'635 Einwohner · **133,1** je 1'000 |
 
 Wo etwas ausführlich steht:
 
@@ -215,17 +222,17 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 1'579 ausgeführte Tests, ohne Netzzugriff und ohne
+Erwartet wird **grün**: 1'595 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
-Die Summenzeile nennt daneben **99 abgewählte**. Das sind die Wächter mit dem
+Die Summenzeile nennt daneben **100 abgewählte**. Das sind die Wächter mit dem
 Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'678
+python -m pytest -m ""               # beides zusammen, alle 1'695
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -414,8 +421,8 @@ desselben Tages — oder Information wegwerfen:
 | --- | --- | ---: |
 | `tract` | ein Census Tract | 6'282 |
 | `place` | ein Ort (Stadtgrenze) | 2'206 |
-| `weather_day` | eine Stadt an einem Tag | 55'465 |
-| `crime_offense` | eine **Anklage**; je Tat zählt eine | 348'329 |
+| `weather_day` | eine Stadt an einem Tag | 55'497 |
+| `crime_offense` | eine **Anklage**; je Tat zählt eine | 1'875'378 |
 
 `crime_offense` leistet drei Übersetzungen auf einmal, und jede ist ein eigener
 Fehlerherd:
@@ -888,7 +895,7 @@ Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.
 python -m pytest
 ```
 
-**1'678 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'695 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -925,9 +932,9 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'550 der 1'579 Tests** des Standardlaufs. Die
-übrigen 29 überspringen sich selbst, weil sie gebaute Daten brauchen und `data/`
-nicht versioniert ist; die 99 Referenzstand-Wächter sind ohnehin abgewählt.
+In einem frischen Klon laufen **1'565 der 1'595 Tests** des Standardlaufs. Die
+übrigen 30 überspringen sich selbst, weil sie gebaute Daten brauchen und `data/`
+nicht versioniert ist; die 100 Referenzstand-Wächter sind ohnehin abgewählt.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
 über die Testzahl in diesem README und in `AENDERUNGEN.md`.

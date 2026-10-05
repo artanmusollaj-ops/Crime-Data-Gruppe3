@@ -476,7 +476,8 @@ def lauf(data_root: Path, projekt_root: Path, *,
         if release is True or (release is None and ablage.config.publiziert):
             from orchestration import release as release_modul
             try:
-                freigabe = release_modul.bilde_und_publiziere(data_root, ablage)
+                freigabe = release_modul.bilde_und_publiziere(
+                    data_root, ablage, jahre)
                 LOG.info("Release %s: %d Dateien%s", freigabe["release_id"],
                          freigabe["files"],
                          ", publiziert" if freigabe["published"] else ", nur lokal")
