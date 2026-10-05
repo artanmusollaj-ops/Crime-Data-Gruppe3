@@ -1,7 +1,7 @@
 """Haelt die Unterstroemungs-Tabellen gegen die Artefakte, die sie behaupten.
 
 Die Tabellen beschreiben je Unterstroemung, was umgesetzt ist und was fehlt.
-Die in ``ln1_konzept.md`` ist dreimal veraltet, waehrend die Arbeit lief, die
+Die in ``ln2_konzept.md`` ist dreimal veraltet, waehrend die Arbeit lief, die
 sie beschreibt: ein Feldkatalog als Luecke, den es schon gab; eine
 Orchestrierung als "bewusst offen", die gebaut war. Genau die Sorte Drift, die
 bei den Zahlen dreimal passiert ist - nur in Worten.
@@ -43,12 +43,12 @@ import pytest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-KONZEPT = PROJECT_ROOT / "docs" / "ln1_konzept.md"
+KONZEPT = PROJECT_ROOT / "docs" / "ln2_konzept.md"
 NACHWEISE = PROJECT_ROOT / "docs" / "intern" / "leistungsnachweise.md"
 
 # Dokument -> (Ueberschrift der Unterstroemungs-Tabelle, erwartete Zeilenzahl).
 TABELLEN: dict[str, tuple[Path, str]] = {
-    "ln1_konzept 5.3": (KONZEPT, "### 5.3 Unterströmungen"),
+    "ln2_konzept 5.3": (KONZEPT, "### 5.3 Unterströmungen"),
     "leistungsnachweise 3": (NACHWEISE, "### Unterströmungen"),
 }
 

@@ -54,7 +54,7 @@ Wo etwas ausführlich steht:
 | Was | Wo |
 | --- | --- |
 | **Welches Dokument für wen** — Abgabe, intern, erzeugt | [`docs/README.md`](docs/README.md) |
-| Konzept, Methode, Befunde | [`docs/ln1_konzept.md`](docs/ln1_konzept.md) |
+| Konzept, Methode, Befunde | [`docs/ln2_konzept.md`](docs/ln2_konzept.md) |
 | Wie der Aufbau zusammenhängt | [`docs/architektur.md`](docs/architektur.md) |
 | Ist- und Ziel-Architektur, für den Leistungsnachweis | [`docs/architektur-ist-und-ziel.md`](docs/architektur-ist-und-ziel.md) |
 | Dieselbe Architektur auf **einer A4-Seite**, zum Ausdrucken | [`docs/architektur-einseiter.html`](docs/architektur-einseiter.html) |

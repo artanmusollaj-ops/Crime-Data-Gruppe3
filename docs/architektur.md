@@ -171,7 +171,7 @@ genau einmal vor. Das ist der kürzere Weg zur Frage, die eine Abgabe verdient:
 
 Danach lohnen sich je nach Interesse:
 
-* **Warum eine Zahl so ist, wie sie ist** → [`ln1_konzept.md`](ln1_konzept.md)
+* **Warum eine Zahl so ist, wie sie ist** → [`ln2_konzept.md`](ln2_konzept.md)
   Kapitel 5.2 (Serving und Gold), 8.5 und 8.6 (zwei Befunde, die keine
   Fehlermeldung erzeugt hätten)
 * **Wo die Daten liegen** → [`storage-architektur.md`](storage-architektur.md)

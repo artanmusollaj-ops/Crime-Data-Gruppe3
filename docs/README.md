@@ -13,7 +13,12 @@ Hier steht, was es sonst noch gibt.
 ## Abgabe — was in das Word-Dokument fliesst
 
 **Die Abgabe liegt nicht in diesem Ordner.** Sie entsteht als eigenes
-Word-Dokument; geschrieben wird es aus [`ln1_konzept.md`](ln1_konzept.md).
+Word-Dokument; geschrieben wird es aus [`ln2_konzept.md`](ln2_konzept.md).
+Gemeint ist seit dem 5.10.2026 das Word-Dokument zu **LN2**: Das von LN1 ist
+abgegeben und wird nicht mehr angefasst, während die Datei hier weiterläuft —
+sie beschreibt seit PR #132 die Jahrgänge 2021–2026 und heisst deshalb
+`ln2_konzept.md`. Der letzte Stand, der den Jahrgang 2024 beschrieb, liegt
+unter *Archiv*.
 Die Dokumente hier sind seine **Quelle**: Ihr Inhalt wandert hinein. Das
 Word-Dokument verweist **nicht** auf sie zurück — es steht für sich, und wer es
 liest, soll nicht ins Repository springen müssen (Entscheid vom 19.9.2026).
@@ -28,7 +33,7 @@ Was sich nicht ohne uns lesen lässt, lässt sich auch nicht übertragen.
 
 | Dokument | Was darin steht |
 | --- | --- |
-| [`ln1_konzept.md`](ln1_konzept.md) | Konzept, Methode, Befunde — **die Hauptquelle des Word-Dokuments** |
+| [`ln2_konzept.md`](ln2_konzept.md) | Konzept, Methode, Befunde — **die Hauptquelle des LN2-Word-Dokuments** |
 | [`architektur-ist-und-ziel.md`](architektur-ist-und-ziel.md) | Ist- und Ziel-Architektur, Teil A und Teil B |
 | [`architektur-einseiter.html`](architektur-einseiter.html) | dieselbe Architektur auf **einer A4-Seite**, zum Ausdrucken |
 | [`architektur.md`](architektur.md) | der Aufbau in zwei erzeugten Bildern, dazu ein Lesepfad |
@@ -104,9 +109,15 @@ vollständig: eine Unterlage ohne Eintrag lässt die Suite fallen.
 Gelöscht werden sie nicht: Ein Eintrag in `AENDERUNGEN.md` verweist darauf, und
 ein toter Verweis wäre schlimmer als eine überholte Datei.
 
+Eine Ausnahme steht darunter: Die LN1-Fassung des Konzepts ist nicht
+aufgegangen, sie ist **abgelöst**. Sie liegt vollständig im Archiv, weil sie die
+Quelle einer abgegebenen Arbeit ist und ihr Studienzeitraum — der Jahrgang
+2024 — in der lebenden Fassung nicht mehr vorkommt.
+
 | Dokument | Aufgegangen in |
 | --- | --- |
 | [`archiv/2026-09-09-detroit-zeitzonenvertrag.md`](archiv/2026-09-09-detroit-zeitzonenvertrag.md) | dem Code (`detroit_arcgis.build_local_date_window`) und `AENDERUNGEN.md` |
+| [`archiv/2026-10-04-ln1-konzept-jahrgang-2024.md`](archiv/2026-10-04-ln1-konzept-jahrgang-2024.md) | nichts — **abgelöst** von `ln2_konzept.md`; der letzte Stand (`9160ff1`), der den Jahrgang 2024 beschrieb, vollständig |
 
 ---
 
