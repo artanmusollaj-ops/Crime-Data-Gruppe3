@@ -20,7 +20,7 @@ nicht, und entsprechend fehlten vier Einträge, bis es am 12.9. auffiel.
 
 **Arbeitsteilung seit 12.9.2026:** Christian bearbeitet Silver und Gold, Artan
 Dokumentation und Präsentation. Wo unsere Arbeit eine Aussage in
-`ln1_konzept.md`, `projektabsprache.md` oder `leistungsnachweise.md` überholt,
+`ln2_konzept.md`, `projektabsprache.md` oder `leistungsnachweise.md` überholt,
 korrigieren wir die **Sachaussage** und lassen Aufbau und Formulierung; der
 Eintrag hier sagt, was das war.
 
@@ -102,6 +102,73 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 05.10.2026 · Das Konzeptdokument heisst jetzt nach dem Leistungsnachweis, den es beschreibt (#133)
+
+**Der Entscheid.** Christian hat festgelegt: **LN1 steht auf dem Jahrgang 2024,
+LN2 steht auf 2021–2026** — erweitert, um die Skalierung aufzuzeigen. Damit war
+der Name der Datei falsch: `ln1_konzept.md` beschrieb seit #132 die sechs
+Jahrgänge, also LN2. Das LN1-Word-Dokument ist abgegeben und wird nicht mehr
+angefasst; die Datei dagegen lief weiter.
+
+**Was daraus folgt**, und es sind zwei Dinge, nicht eines:
+
+* `docs/ln1_konzept.md` → **`docs/ln2_konzept.md`** (`git mv`). Der Name stand
+  **67-mal in 15 Dateien**; nachgezogen sind die **42**, die den Ist-Zustand
+  nennen — Dokumente, vier Wächter, der Wochenlauf, drei Notebooks, der
+  Docstring von `gold_pipeline.raten_je_stadt` — dazu die Zeile in `AGENTS.md`,
+  die nur lokal liegt (gitignored) und deshalb in keinem Diff auftaucht. Die
+  übrigen **25 stehen weiter so da**: Es sind Einträge weiter unten, die
+  beschreiben, was damals an `ln1_konzept.md` geändert wurde. Das war damals
+  richtig, und diese Datei schreibt ihre Geschichte nicht um. **Am Inhalt des
+  Dokuments selbst ändert sich nichts**; die Zahlen darin sind in #132 gemessen
+  und grün.
+* Der letzte Stand, der den **Jahrgang 2024** beschrieb, liegt vollständig
+  unter `docs/archiv/2026-10-04-ln1-konzept-jahrgang-2024.md` — wortgleich der
+  Stand von `9160ff1` (4.10.2026, 18:23), der letzte vor der Erweiterung. Sonst
+  stünde der Studienzeitraum von LN1 nirgends mehr als eigener Stand, und das
+  Repository hätte nur noch die Git-Historie darüber.
+
+**Warum vollständig und nicht als Notiz.** Das Archiv führt bisher eine knappe
+Notiz (`2026-09-09-detroit-zeitzonenvertrag.md`), weil deren Inhalt im Code
+aufgegangen ist. Hier ist nichts aufgegangen: Das Dokument ist die Quelle einer
+**abgegebenen** Arbeit und wurde nicht ersetzt, sondern abgelöst. Sein Kopf sagt
+ausdrücklich, dass es mit dem abgegebenen Word-Dokument **nicht identisch sein
+muss** — jenes wurde früher geschrieben, die Datei lief danach weiter, und ein
+Abgabedatum steht im Repository nirgends. Eines zu erfinden wäre schlimmer als
+keines.
+
+**Verweise im Archiv sind nicht nachgezogen.** Sie beschreiben den Stand vom
+4.10.2026. Dafür nimmt `tests/test_verweise.py` den Ordner jetzt aus, so wie
+`tests/test_dokumentzahlen.py` es schon tat; die Begründung steht dort als
+`AUSGENOMMEN`. Was das kostet, steht daneben: Ein toter Verweis, der beim
+Archivieren entsteht, fällt nicht mehr auf — und trifft nur Dokumente, die
+niemand mehr nachführt. Dass jede Datei im Archiv im Wegweiser steht, hält
+`tests/test_dokumentwegweiser.py` weiterhin fest.
+
+**Zwei offene Punkte sind damit entschieden** und als datierter Nachtrag
+nachgetragen, nicht umgeschrieben — beide Papiere bezeichnen sich selbst als
+Schnappschuss: `projektabsprache.md` 2.2 (`Entscheid: Auf 2024 beschränken …`)
+und Abschnitt 9 Punkt 2 („Zeitraum — nur 2024?"), dazu die Stichtagszeile im
+Kopf, die jetzt den 5. Oktober nennt; `leistungsnachweise.md` („**Der Zeitraum
+ist auf 2024 festgelegt**"). Der alte Satz bleibt stehen — er war für LN1
+richtig.
+
+**Was bewusst nicht geändert wurde.** Die Überschrift des Dokuments heisst
+weiter *„Leistungsnachweis 1: Konzept und Umsetzung"*, und drei Stellen darin
+nennen LN1 (*„LN1 verlangt für den Lebenszyklus …"*, *„Was nach LN1 kommt"*,
+*„Offen für LN1"*). Das sind Aussagen über die **Anforderungen** von LN1, keine
+Verweise auf den Dateinamen; sie auf LN2 umzuschreiben, hiesse zu behaupten, was
+LN2 verlangt, und das steht nicht fest. Es gehört in den ersten inhaltlichen
+Durchgang für LN2.
+
+**Nachgebaut:** `docs/referenz/` (`gold_pipeline.html`, `search.js` — der
+Docstring von `raten_je_stadt` nennt die Wächter).
+
+**Zahlen.** Unverändert **1'695 Tests**, Standardlauf 1'595, Referenzwächter
+100, alle grün; `ruff check src tests tools` sauber. Kein Vertragssprung, keine
+Zahl bewegt, keine neue Tabelle. Die neun LN1-Pins in
+`config/referenzstand.csv` sind unberührt.
 
 ## 04.10.2026 · Die Dokumente beschreiben sechs Jahrgänge, und jede Rate nennt ihr Jahr (#132)
 

@@ -6,7 +6,7 @@ tatsächlichen Projektstand gegenüber und benennt, was bis zur Abgabe fehlt.
 Es ergänzt [`projektabsprache.md`](projektabsprache.md): Dort stehen die
 technischen Entscheide (Bronze-Konventionen, Werkzeuge, Zusammenarbeit), hier
 die Abgabe-Sicht. Die **Abgabe selbst** entsteht als eigenes **Word-Dokument**;
-geschrieben wird es aus [`ln1_konzept.md`](../ln1_konzept.md). Weder jenes noch
+geschrieben wird es aus [`ln2_konzept.md`](../ln2_konzept.md). Weder jenes noch
 dieses ist damit Teil der Abgabe — beide sind Arbeitsgrundlage. Wo ein Entscheid aus der Absprache eine Anforderung erfüllt,
 ist er verlinkt.
 
@@ -20,12 +20,12 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 
 | Anforderung | Stand | Was fehlt |
 | --- | --- | --- |
-| **Problemstellung, Ausgangslage** | ● geschrieben | [`ln1_konzept.md`](../ln1_konzept.md) Kapitel 2 |
+| **Problemstellung, Ausgangslage** | ● geschrieben | [`ln2_konzept.md`](../ln2_konzept.md) Kapitel 2 |
 | **Forschungsfragen, Hypothesen** | ◐ Vorschlag steht, vier bereits vorgeprüft | Auswahl und Formulierung entscheiden → Abschnitt 2.2 / 2.3 |
 | **Vorgehen und Methoden** | ◐ implizit im Code | Methodenteil ausformulieren → Abschnitt 2.4 |
-| **Entwurf DE-Lebenszyklus** | ● benannt | Abschnitt 3; ausführlich in [`ln1_konzept.md`](../ln1_konzept.md) Kapitel 5 |
+| **Entwurf DE-Lebenszyklus** | ● benannt | Abschnitt 3; ausführlich in [`ln2_konzept.md`](../ln2_konzept.md) Kapitel 5 |
 | **Ingestion: Quellen, Beschaffung** | ● fertig | fünf Quellen, je ein Quellnotebook |
-| **Storage: Evaluation, Wahl, Implementierung** | ● fertig | gemessen in Notebook 31 (NDJSON gegen Parquet), verschriftlicht in [`ln1_konzept.md`](../ln1_konzept.md) Kapitel 7 |
+| **Storage: Evaluation, Wahl, Implementierung** | ● fertig | gemessen in Notebook 31 (NDJSON gegen Parquet), verschriftlicht in [`ln2_konzept.md`](../ln2_konzept.md) Kapitel 7 |
 | **Transformation 1: Analyse, Hypothesentest** | ◐ Qualität beider Städte fertig | der eigentliche Hypothesentest → Abschnitt 5 |
 | **Initiale Datenbereinigung** | ● fertig | vier Silver-Tabellen, `crime_offense` mit 1'875'378 Zeilen über 2021–2026 |
 | **Beantwortung der Forschungsfragen** | ○ | folgt aus allem davor |
@@ -40,7 +40,7 @@ gemessen**: Wir haben Befunde, bevor wir die Hypothesen formuliert haben — und
 mit H7 auch eine falsifizierte.
 
 **Die Baustelle:** Der konzeptionelle Teil steht inzwischen in
-[`ln1_konzept.md`](../ln1_konzept.md), Silver und Gold sind gebaut. Offen ist die
+[`ln2_konzept.md`](../ln2_konzept.md), Silver und Gold sind gebaut. Offen ist die
 Auswahl und Formulierung der Hypothesen. Ohne formulierte Hypothesen gibt es
 keinen ausweisbaren Hypothesentest, auch wenn die Messungen längst vorliegen.
 
@@ -276,6 +276,14 @@ Für Fragen und Hypothesen folgt daraus:
 Die vorgeprüften Zahlen zu H1 bis H5 stammen aus dem Chicago-Vollbestand von
 259'643 Fällen; für den ausweisbaren Test müssen sie auf 2024 neu gerechnet oder
 der Bezug ausdrücklich benannt werden.
+
+> **Nachtrag 5.10.2026 (Christian).** Der Satz darüber gilt für **LN1**. Für
+> **LN2** ist der Zeitraum auf **2021–2026** erweitert, um die Skalierung
+> aufzuzeigen; gebaut ist der Mehrjahresbestand seit dem 4.10.2026 (PR #132),
+> 2026 als Teiljahr. Die Raten nennen weiterhin ihr Bezugsjahr 2024
+> (`gold_pipeline.RATENJAHR`) — eine Rate braucht einen Zeitraum. Der
+> Entscheid steht in [Absprache 2.2](projektabsprache.md), der LN1-Stand des
+> Konzepts unter `docs/archiv/2026-10-04-ln1-konzept-jahrgang-2024.md`.
 
 **Eine Einschränkung, die aus 7.1 folgt.** Der Entscheid verlangt, dass bei einem
 Daily Load T-1 geladen wird und dies ausgewiesen wird. Für NOAA ist das **nicht

@@ -9,6 +9,9 @@ funktionierender, bis jemand darauf klickt - und niemand klickt auf alle.
 Geprueft werden **relative** Verweise. Externe URLs bleiben aussen vor; sie
 haengen an fremden Servern, und ein Test, der rote Lampen wegen einer fremden
 Wartung zeigt, wird bald ignoriert.
+
+``docs/archiv/`` bleibt seit dem 5.10.2026 ebenfalls aussen vor - siehe
+``AUSGENOMMEN``.
 """
 
 from __future__ import annotations
@@ -23,19 +26,33 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 # Ein Markdown-Verweis: [Text](ziel). Anker und Suchteile fallen weg.
 VERWEIS = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 
+# Ordner unter ``docs/``, die dieser Waechter nicht ansieht.
+#
+# ``referenz`` sind 37 erzeugte pdoc-Seiten mit tausenden Verweisen, die
+# ``tests/test_referenz.py`` bereits gegen ihre Startseite haelt.
+#
+# ``archiv`` kam am 5.10.2026 dazu, mit der vollstaendigen LN1-Fassung des
+# Konzepts: Ein archiviertes Dokument ist ein **eingefrorener Stand**, und
+# seine Verweise beschreiben die Welt von damals - sie zeigen auf Nachbarn
+# eines anderen Ordners und auf Dateinamen, die es inzwischen nicht mehr gibt.
+# Sie nachzuziehen hiesse, das Archiv zu aendern, und damit waere es keines
+# mehr. ``tests/test_dokumentzahlen.py`` nimmt den Ordner aus demselben Grund
+# aus (``AUSGENOMMEN``), und ``tests/test_dokumentwegweiser.py`` haelt
+# weiterhin fest, dass jede Datei darin im Wegweiser steht.
+#
+# Was das kostet: Ein toter Verweis, der beim Archivieren entsteht, faellt
+# hier nicht auf. Der Preis ist bewusst - er trifft nur Dokumente, die
+# niemand mehr nachfuehrt.
+AUSGENOMMEN = ("referenz", "archiv")
+
 
 def quellen() -> list[tuple[Path, str]]:
-    """Jede Datei, die Verweise enthalten kann - mit ihrem Text.
-
-    ``docs/referenz/`` bleibt aussen vor: 37 erzeugte pdoc-Seiten mit tausenden
-    Verweisen, die ``tests/test_referenz.py`` bereits gegen ihre Startseite
-    haelt.
-    """
+    """Jede Datei, die Verweise enthalten kann - mit ihrem Text."""
     gefunden: list[tuple[Path, str]] = []
     for pfad in sorted(PROJECT_ROOT.glob("*.md")):
         gefunden.append((pfad, pfad.read_text(encoding="utf-8")))
     for pfad in sorted(PROJECT_ROOT.glob("docs/**/*.md")):
-        if "referenz" in pfad.parts:
+        if set(pfad.parts) & set(AUSGENOMMEN):
             continue
         gefunden.append((pfad, pfad.read_text(encoding="utf-8")))
     for pfad in sorted(PROJECT_ROOT.glob("notebooks/*.ipynb")):

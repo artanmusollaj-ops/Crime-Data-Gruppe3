@@ -2,7 +2,7 @@
 
 ``tests/test_aenderungen.py`` bewacht den Kopfabschnitt von ``AENDERUNGEN.md``.
 Das genuegte nicht: Beim Neubau von Silver und Gold am 12.9. blieben fuenf
-Zahlen in ``ln1_konzept.md`` und ``projektabsprache.md`` stehen - 344'607 statt
+Zahlen in ``ln2_konzept.md`` und ``projektabsprache.md`` stehen - 344'607 statt
 344'617, 85'335 statt 85'345, Detroits Rate 132,5 statt 132,6. Alle Tests waren
 gruen, weil keiner diese Dateien ansieht.
 
@@ -31,7 +31,7 @@ from gold_pipeline import RATENJAHR, raten_je_stadt
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-KONZEPT = PROJECT_ROOT / "docs" / "ln1_konzept.md"
+KONZEPT = PROJECT_ROOT / "docs" / "ln2_konzept.md"
 ABSPRACHE = PROJECT_ROOT / "docs" / "intern" / "projektabsprache.md"
 README = PROJECT_ROOT / "README.md"
 

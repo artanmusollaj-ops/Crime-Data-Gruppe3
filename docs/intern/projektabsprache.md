@@ -14,7 +14,7 @@ einig werden müssen), **Vorschlag** (Empfehlung mit Begründung) und eine Zeile
 Die Zahlen in diesem Dokument sind aus dem Repository und den geladenen Daten
 erhoben, nicht geschätzt. Der Grundstand datiert vom **6. September 2026**; was
 später dazukam, trägt sein eigenes Datum als `Nachtrag` oder `Nachgemessen` —
-das jüngste vom 20. September. Dieses Papier ist damit ein Schnappschuss der
+das jüngste vom 5. Oktober. Dieses Papier ist damit ein Schnappschuss der
 Abstimmung und wächst nicht mit; die laufenden Zahlen stehen im Kopfabschnitt
 von [`AENDERUNGEN.md`](AENDERUNGEN.md) und werden dort gegen die gebauten
 Daten geprüft.
@@ -86,6 +86,23 @@ fünf Jahre mit einem stillschweigenden Grenzbruch. Falls Zeit bleibt: 2021–20
 weil das vollständig innerhalb der 2020er-Grenzen liegt.
 
 `Entscheid: Auf 2024 beschränken um im Leistungsnachweis 1 zu zeigen`
+
+**Nachtrag 5.10.2026 — der Entscheid gilt für LN1, nicht für LN2.** Christian
+hat festgelegt: **LN1 steht auf dem Jahrgang 2024, LN2 steht auf 2021–2026** —
+erweitert, um die Skalierung aufzuzeigen. Der Entscheid darüber bleibt
+unverändert richtig; er beschreibt den Zeitraum von LN1, und daran ändert sich
+nichts. Gebaut ist seit dem 4.10.2026 (PR #132) der Mehrjahresbestand
+2021–2026, 2026 als Teiljahr; die Raten nennen weiterhin ihr Bezugsjahr
+(`gold_pipeline.RATENJAHR` = 2024), weil eine Rate einen Zeitraum braucht.
+
+Die Nebenwirkung oben ist damit eingetreten und gelöst, nicht umgangen:
+2021–2026 liegt vollständig innerhalb der 2020er-Tract-Grenzen, und
+`dim_tract_acs` führt die ACS-Vintages nebeneinander statt eines einzigen —
+2025 und 2026 borgen das Vintage von 2024.
+
+Der Stand der LN1-Fassung liegt unter
+`docs/archiv/2026-10-04-ln1-konzept-jahrgang-2024.md`; das lebende
+Konzeptdokument heisst seither `docs/ln2_konzept.md`.
 
 ### 2.3 Räumliche Einheit
 
@@ -772,11 +789,16 @@ Nicht dringend, aber besser aufgeschrieben als vergessen:
 Wenn die Zeit knapp ist, sind das die Punkte, ohne die es nicht weitergeht:
 
 1. **Leitfrage** — A, B, C oder D? (2.1)
-2. **Zeitraum** — nur 2024? (2.2)
+2. **Zeitraum** — nur 2024? (2.2) — **entschieden, siehe Nachtrag unten**
 3. **Detroit-Bronze** — angleichen oder nicht? (4.2)
 4. **Silver-Werkzeug** — DuckDB oder geopandas? (5.3)
 5. **Dokumentationsform** — Notebooks plus Markdown, HTML nur als Export? (6)
 6. **Referenzstand** — worauf beziehen sich unsere Zahlen? (7.1)
+
+**Nachtrag 5.10.2026 — Punkt 2 ist entschieden.** **LN1 steht auf dem Jahrgang
+2024, LN2 steht auf 2021–2026** (Christian), erweitert, um die Skalierung
+aufzuzeigen. Die Begründung und was daran hängt stehen in 2.2; gebaut ist der
+Mehrjahresbestand seit dem 4.10.2026 (PR #132).
 
 ---
 

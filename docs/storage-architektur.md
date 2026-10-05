@@ -14,7 +14,7 @@ Serving DuckDB: immer lokal
 ```
 
 Die Bedienung steht in [`README.md`](../README.md), Abschnitt 2.5. Die
-Einordnung in den Lebenszyklus in [`ln1_konzept.md`](ln1_konzept.md),
+Einordnung in den Lebenszyklus in [`ln2_konzept.md`](ln2_konzept.md),
 Kapitel 7.4. Hier steht das Wie und das Warum.
 
 ---

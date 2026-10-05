@@ -6,7 +6,7 @@ Dokument in die Abgabe einfliesst und welches nur wir brauchen - die Einteilung
 existierte, aber nur in unseren Koepfen.
 
 **Die Abgabe selbst liegt nicht hier.** Sie entsteht als eigenes
-Word-Dokument, geschrieben aus ``ln1_konzept.md``. Zwei Dokumente behaupteten
+Word-Dokument, geschrieben aus ``ln2_konzept.md``. Zwei Dokumente behaupteten
 bis zum 19.9.2026 etwas anderes - deshalb prueft diese Datei auch das.
 
 Seither steht sie in ``docs/README.md``. Ein Wegweiser, den niemand nachfuehrt,
@@ -169,7 +169,7 @@ def test_wegweiser_und_konzept_teilen_dieselbe_einteilung():
     kamen darin ueberhaupt nicht vor.
     """
     wegweiser = WEGWEISER.read_text(encoding="utf-8")
-    konzept = (DOCS / "ln1_konzept.md").read_text(encoding="utf-8")
+    konzept = (DOCS / "ln2_konzept.md").read_text(encoding="utf-8")
 
     w_abgabe = verlinkte_dokumente(abschnitt(wegweiser, ABSCHNITTE[0], ABSCHNITTE[1]))
     w_intern = verlinkte_dokumente(abschnitt(wegweiser, ABSCHNITTE[1], ABSCHNITTE[2]))
@@ -181,7 +181,7 @@ def test_wegweiser_und_konzept_teilen_dieselbe_einteilung():
 
     # Das Konzept ist die Hauptquelle des Word-Dokuments und steht deshalb im
     # Wegweiser; in seiner eigenen Vertiefungsliste nennt es sich nicht.
-    w_abgabe.discard("ln1_konzept.md")
+    w_abgabe.discard("ln2_konzept.md")
     assert w_abgabe == k_abgabe, (
         f"Anhang weicht ab.\n  nur im Wegweiser: {sorted(w_abgabe - k_abgabe)}"
         f"\n  nur im Konzept 11.3: {sorted(k_abgabe - w_abgabe)}"
@@ -212,7 +212,7 @@ def test_das_konzept_verlinkt_keine_maengelliste_im_fliesstext():
     Kapitel 11.5 duerfen diese Dokumente stehen, dort ist der Vorbehalt dabei;
     im Fliesstext davor nicht.
     """
-    konzept = (DOCS / "ln1_konzept.md").read_text(encoding="utf-8")
+    konzept = (DOCS / "ln2_konzept.md").read_text(encoding="utf-8")
     davor = konzept[:konzept.index("## 11 · Wo was liegt")]
     # Der Vorspann vor Kapitel 1 nennt die Arbeitsgrundlagen ausdruecklich als
     # solche - das ist gewollt und gehoert nicht in die Pruefung.
@@ -228,7 +228,7 @@ def test_das_konzept_verlinkt_keine_maengelliste_im_fliesstext():
 def test_kein_dokument_erklaert_sich_zur_abgabe():
     """Die Abgabe liegt nicht in ``docs/`` - sie ist ein eigenes Word-Dokument.
 
-    Am 18.9.2026 stand in zwei Dokumenten, ``ln1_konzept.md`` sei *die Abgabe*;
+    Am 18.9.2026 stand in zwei Dokumenten, ``ln2_konzept.md`` sei *die Abgabe*;
     einen Tag spaeter stimmte das nicht mehr. Die Behauptung ist billig
     hingeschrieben und teuer, wenn sie falsch ist: Sie entscheidet, welcher
     Text lektoriert wird und welcher nicht.

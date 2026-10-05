@@ -189,7 +189,7 @@ def test_artans_punkte_sind_als_solche_gekennzeichnet(text):
 
 
 def test_das_konzept_verweist_auf_den_ausblick():
-    konzept = (PROJECT_ROOT / "docs" / "ln1_konzept.md").read_text(encoding="utf-8")
+    konzept = (PROJECT_ROOT / "docs" / "ln2_konzept.md").read_text(encoding="utf-8")
     assert "ausblick.md" in konzept, "Kapitel 11 nennt den Ausblick nicht"
 
 
@@ -231,7 +231,7 @@ def test_das_konzept_verspricht_weiterhin_keine_aggregate(text):
     """Abschnitt 5 beruft sich woertlich auf Konzept 5.2."""
     if "Keine vorberechneten Aggregate" not in text:
         pytest.skip("Das Dokument beruft sich nicht darauf")
-    konzept = (PROJECT_ROOT / "docs" / "ln1_konzept.md").read_text(encoding="utf-8")
+    konzept = (PROJECT_ROOT / "docs" / "ln2_konzept.md").read_text(encoding="utf-8")
     assert "Keine vorberechneten Aggregate" in konzept, (
         "Die Zusage steht nicht mehr im Konzept - Abschnitt 5 zitiert ins Leere"
     )
@@ -289,7 +289,7 @@ def test_die_aggregate_liegen_in_serving_nicht_in_gold(text):
             f"{sorted(drin)} ist in Gold gebaut worden - sie gehoeren nach serving/, "
             "Konzept 5.2 sagt 'keine Aggregate in Gold'"
         )
-    konzept = (PROJECT_ROOT / "docs" / "ln1_konzept.md").read_text(encoding="utf-8")
+    konzept = (PROJECT_ROOT / "docs" / "ln2_konzept.md").read_text(encoding="utf-8")
     assert "Keine vorberechneten Aggregate in Gold" in konzept
 
 

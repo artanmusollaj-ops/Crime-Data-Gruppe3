@@ -138,7 +138,7 @@ def raten_je_stadt(fact_offense: str, dim_tract: str, dim_tract_acs: str,
     Die Abfrage, die hinter jeder Ratenzeile der Abgabedokumente steht. Sie
     liegt hier und nicht bei ihren Benutzern, aus demselben Grund wie
     ``einwohner_je_stadt``: Gebraucht wird sie im Driftbericht, auf der
-    Einstiegsseite und in den Waechtern ueber ``ln1_konzept.md``, ``README.md``,
+    Einstiegsseite und in den Waechtern ueber ``ln2_konzept.md``, ``README.md``,
     ``AENDERUNGEN.md`` und ``eine-zahl.md``. Sechs Fassungen waeren fuenf zu
     viel - und waeren sie es, wuerde eine davon den Jahresfilter vergessen.
 
