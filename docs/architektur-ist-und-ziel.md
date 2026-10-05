@@ -231,10 +231,10 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'713 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'582 davon — die übrigen 31 brauchen gebaute Daten oder das ungetrackte LN1-PDF; 100 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 1'722 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'587 davon — die übrigen 33 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 102 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
-| **Referenzstand** | 100 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
+| **Referenzstand** | 102 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
 Der letzte Punkt ist die interessanteste Entscheidung: Die Quellen bewegen
 sich. Ein Test, der die dokumentierte Zahl gegen den frischen Stand hält, wäre
@@ -264,9 +264,11 @@ Oberfläche ausser Notebooks und der DuckDB-Konsole. Genau hier setzt Teil B an.
 **Nichts in diesem Teil ist gebaut** — mit einer Ausnahme, die seit dem
 28.9.2026 gilt und hier benannt gehört, statt den Satz aufzuweichen: Ein
 `docker-compose.yml` für die drei **Analysedienste** (ClickHouse,
-Elasticsearch, Kibana) existiert und läuft lokal, siehe README 2.6. Das ist
-der Verbund auf dem Entwicklungsrechner, nicht der Betrieb: kein Server, kein
-Tunnel, keine Anmeldung, und die Pipeline selbst ist weiterhin ein Skript.
+Elasticsearch, Kibana) existiert und läuft lokal, siehe README 2.6 — wobei
+ClickHouse seit dem 5.10.2026 nicht mehr beschickt wird und das Sternschema
+vollständig in Elasticsearch liegt. Das ist der Verbund auf dem
+Entwicklungsrechner, nicht der Betrieb: kein Server, kein Tunnel, keine
+Anmeldung, und die Pipeline selbst ist weiterhin ein Skript.
 
 Ansonsten beschreibt dieser Teil, wie die Plattform für LN2 und einen echten
 Betrieb aussehen soll, und nennt zu jedem Baustein, was er löst und was er
@@ -375,11 +377,21 @@ Dinge, die DuckDB nicht leistet:
    gedacht; ein Index ist ein Dienst.
 
 **Die Bedingung, unter der das trägt.** Elasticsearch ist ein **abgeleiteter
-Index, kein Bestand** — gespeist aus `gold/fact_offense` und den vier
-Vergleichstabellen, jederzeit neu aufzubauen, versehen mit der Release-Kennung,
-aus der er stammt. Die Quelle der Wahrheit bleibt Parquet. Ohne diese Regel
-entstünde genau das, was das Projekt an drei Stellen verhindert: eine zweite
-Wahrheit mit eigenem Alter.
+Index, kein Bestand** — gespeist aus allen sechs Gold-Tabellen, jederzeit neu
+aufzubauen, versehen mit der Release-Kennung, aus der er stammt. Die Quelle der
+Wahrheit bleibt Parquet. Ohne diese Regel entstünde genau das, was das Projekt
+an drei Stellen verhindert: eine zweite Wahrheit mit eigenem Alter.
+
+**Warum alle sechs und nicht nur die mit Text und Ort.** Bis zum 5.10.2026
+lagen drei Tabellen hier und zwei in ClickHouse, nach der Regel *nur was Text
+oder Ort trägt*. Seit ClickHouse nicht mehr geladen wird, ist das keine
+Arbeitsteilung mehr, sondern eine Lücke: `dim_tract_acs` lag in keinem der
+beiden Speicher, und damit fehlte der **Nenner** jeder Rate. `fact_offense`
+trägt mit `population_vintage` nur den Zeiger darauf. Dass die Liste der
+Indizes `gold_pipeline.TABELLEN` erschöpft, ist seither zugesichert und von
+einem Test gehalten — eine siebte Gold-Tabelle fällt nicht mehr still daneben.
+Der Preis: Elasticsearch kennt keinen Join. Wer Tat und Nenner zusammenbringen
+will, stellt zwei Abfragen oder nimmt die DuckDB-Sichten.
 
 **Was es kostet.** Ein Index verdoppelt die Daten und altert, sobald ein neues
 Release entsteht — es braucht also einen Neuaufbau je Release und eine sichtbare
@@ -520,7 +532,7 @@ entschieden:
 
 **Zu den Zahlen.** Teil A nennt den **Referenzstand** — den Bau vom 4.10.2026,
 16:50 UTC über die Jahrgänge 2021–2026 (Release `2026-10-04T16-50-47Z`), auf
-den sich alle Abgabedokumente beziehen und den 100 Wächter mit dem Marker
+den sich alle Abgabedokumente beziehen und den 102 Wächter mit dem Marker
 `referenzstand` gegen die Parquet-Dateien halten. Wie weit ein frischer Lauf
 davon abweicht, weist `orchestration.drift` je Grösse aus; die Zahlen der
 Abgabe werden nachgezogen, wenn die Drift eine Toleranz überschreitet, nicht

@@ -47,17 +47,18 @@ from typing import Any
 PROJEKT = Path(__file__).resolve().parents[1]
 ZIEL = PROJEKT / "docs" / "einstieg.html"
 
-#: Die Dienste, so wie ``docker-compose.yml`` sie veroeffentlicht.
+#: Die Zugaenge, die beschickt werden. ClickHouse steht weiter im
+#: ``docker-compose.yml`` und fehlt hier absichtlich: Seit dem 5.10.2026 wird
+#: es nicht mehr geladen, und ein Knopf zu einer leeren Datenbank ist
+#: schlimmer als keiner - er sieht aus wie eine Auskunft. Das ganze
+#: Sternschema liegt in Elasticsearch (``serving.load_elasticsearch``).
 DIENSTE = (
-    ("ClickHouse", "http://localhost:18123/play", "SQL über das Sternschema",
-     "Aggregationen über Millionen Zeilen. Die eingebaute Konsole liegt "
-     "unter <code>/play</code> — kein weiteres Werkzeug nötig.",
-     "SELECT reporting_city,\n       nibrs_family,\n       count() AS n\n"
-     "FROM fact_offense\nGROUP BY 1, 2\nORDER BY n DESC\nLIMIT 10"),
     ("Elasticsearch", "http://localhost:19200/fact_offense/_search?pretty",
-     "Volltext und Umkreis",
-     "Was SQL schlecht kann: ein Wort in der Beschreibung finden, oder alles "
-     "im Umkreis von 500 m um einen Punkt.",
+     "Das Sternschema, sechs Indizes",
+     "Volltext über die Beschreibung, Umkreissuche über den Ort — und seit "
+     "dem 5.10.2026 auch Kalender, Wetter und die Einwohnerzahlen je Tract "
+     "und Vintage. Ein Alias je Gold-Tabelle, jeder mit der Release-Kennung "
+     "dahinter.",
      'GET /fact_offense/_search\n{"query": {\n'
      '  "geo_distance": {\n'
      '    "distance": "500m",\n'
@@ -68,6 +69,13 @@ DIENSTE = (
      "Drei Bretter, als Code gebaut. Die Suchleiste oben durchsucht die "
      "Beschreibung der Quelle.",
      None),
+    ("DuckDB", "https://duckdb.org/docs/stable/clients/cli/overview",
+     "SQL über den Stern, mit Joins",
+     "Was Elasticsearch nicht kann: Tat und Nenner in einer Abfrage "
+     "verbinden. Die Sichten liegen in <code>data/serving/analyse.duckdb</code>"
+     " und zeigen auf die Parquet-Dateien — keine Kopie, kein Dienst.",
+     "SELECT reporting_city,\n       nibrs_family,\n       count(*) AS n\n"
+     "FROM fact_offense\nGROUP BY 1, 2\nORDER BY n DESC\nLIMIT 10"),
 )
 
 #: Die Schwellen des Publish-Gates. Stehen hier, damit die Seite die
@@ -367,8 +375,8 @@ def seite(kennung: str, manifest: dict, mass: dict) -> str:
 
 <section>
   <h2>Wo man fragt</h2>
-  <p class="unter">Drei Zugänge, je nach Frage. Die Verweise zeigen auf den
-  lokalen Verbund — sie tragen nur, wenn er läuft.</p>
+  <p class="unter">Drei Zugänge, je nach Frage. Die beiden ersten Verweise
+  zeigen auf den lokalen Verbund — sie tragen nur, wenn er läuft.</p>
   <div class="karten">{''.join(karten)}</div>
 </section>
 
@@ -377,10 +385,9 @@ def seite(kennung: str, manifest: dict, mass: dict) -> str:
   <p class="unter">Alles in diesen Diensten ist abgeleitet und wegwerfbar.
   Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.</p>
   <pre>docker compose up -d
-python -m serving.load_clickhouse
 python -m serving.load_elasticsearch
 python -m serving.build_kibana</pre>
-  <p class="unter">Ob danach alle vier Orte denselben Stand zeigen, beantwortet
+  <p class="unter">Ob danach alle geladenen Orte denselben Stand zeigen, beantwortet
   ein Befehl. Diese Seite beantwortet es <em>nicht</em>: Sie ist eine Datei und
   weiss nichts davon, was gerade läuft — ein festgehaltenes „alles in Ordnung"
   wäre eine Behauptung über die Vergangenheit.</p>

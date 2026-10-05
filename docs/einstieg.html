@@ -130,21 +130,21 @@
 
 <section>
   <h2>Wo man fragt</h2>
-  <p class="unter">Drei Zugänge, je nach Frage. Die Verweise zeigen auf den
-  lokalen Verbund — sie tragen nur, wenn er läuft.</p>
-  <div class="karten"><article class="karte"><p class="rolle">SQL über das Sternschema</p><h3>ClickHouse</h3><p>Aggregationen über Millionen Zeilen. Die eingebaute Konsole liegt unter <code>/play</code> — kein weiteres Werkzeug nötig.</p><pre>SELECT reporting_city,
-       nibrs_family,
-       count() AS n
-FROM fact_offense
-GROUP BY 1, 2
-ORDER BY n DESC
-LIMIT 10</pre><a class="knopf" href="http://localhost:18123/play">ClickHouse öffnen</a></article><article class="karte"><p class="rolle">Volltext und Umkreis</p><h3>Elasticsearch</h3><p>Was SQL schlecht kann: ein Wort in der Beschreibung finden, oder alles im Umkreis von 500 m um einen Punkt.</p><pre>GET /fact_offense/_search
+  <p class="unter">Drei Zugänge, je nach Frage. Die beiden ersten Verweise
+  zeigen auf den lokalen Verbund — sie tragen nur, wenn er läuft.</p>
+  <div class="karten"><article class="karte"><p class="rolle">Das Sternschema, sechs Indizes</p><h3>Elasticsearch</h3><p>Volltext über die Beschreibung, Umkreissuche über den Ort — und seit dem 5.10.2026 auch Kalender, Wetter und die Einwohnerzahlen je Tract und Vintage. Ein Alias je Gold-Tabelle, jeder mit der Release-Kennung dahinter.</p><pre>GET /fact_offense/_search
 {&quot;query&quot;: {
   &quot;geo_distance&quot;: {
     &quot;distance&quot;: &quot;500m&quot;,
     &quot;standort&quot;: {
       &quot;lat&quot;: 41.8827,
-      &quot;lon&quot;: -87.6233}}}}</pre><a class="knopf" href="http://localhost:19200/fact_offense/_search?pretty">Elasticsearch öffnen</a></article><article class="karte"><p class="rolle">Die Dashboards</p><h3>Kibana</h3><p>Drei Bretter, als Code gebaut. Die Suchleiste oben durchsucht die Beschreibung der Quelle.</p><a class="knopf" href="http://localhost:15601/app/dashboards">Kibana öffnen</a></article></div>
+      &quot;lon&quot;: -87.6233}}}}</pre><a class="knopf" href="http://localhost:19200/fact_offense/_search?pretty">Elasticsearch öffnen</a></article><article class="karte"><p class="rolle">Die Dashboards</p><h3>Kibana</h3><p>Drei Bretter, als Code gebaut. Die Suchleiste oben durchsucht die Beschreibung der Quelle.</p><a class="knopf" href="http://localhost:15601/app/dashboards">Kibana öffnen</a></article><article class="karte"><p class="rolle">SQL über den Stern, mit Joins</p><h3>DuckDB</h3><p>Was Elasticsearch nicht kann: Tat und Nenner in einer Abfrage verbinden. Die Sichten liegen in <code>data/serving/analyse.duckdb</code> und zeigen auf die Parquet-Dateien — keine Kopie, kein Dienst.</p><pre>SELECT reporting_city,
+       nibrs_family,
+       count(*) AS n
+FROM fact_offense
+GROUP BY 1, 2
+ORDER BY n DESC
+LIMIT 10</pre><a class="knopf" href="https://duckdb.org/docs/stable/clients/cli/overview">DuckDB öffnen</a></article></div>
 </section>
 
 <section>
@@ -152,10 +152,9 @@ LIMIT 10</pre><a class="knopf" href="http://localhost:18123/play">ClickHouse öf
   <p class="unter">Alles in diesen Diensten ist abgeleitet und wegwerfbar.
   Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.</p>
   <pre>docker compose up -d
-python -m serving.load_clickhouse
 python -m serving.load_elasticsearch
 python -m serving.build_kibana</pre>
-  <p class="unter">Ob danach alle vier Orte denselben Stand zeigen, beantwortet
+  <p class="unter">Ob danach alle geladenen Orte denselben Stand zeigen, beantwortet
   ein Befehl. Diese Seite beantwortet es <em>nicht</em>: Sie ist eine Datei und
   weiss nichts davon, was gerade läuft — ein festgehaltenes „alles in Ordnung"
   wäre eine Behauptung über die Vergangenheit.</p>

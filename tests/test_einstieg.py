@@ -77,9 +77,17 @@ def test_die_seite_nennt_das_release(text):
     assert kennung in text, "die Seite nennt ein anderes Release als AKTUELL.json"
 
 
-def test_alle_drei_dienste_sind_verlinkt(text):
-    for port in ("18123", "19200", "15601"):
+def test_jeder_beschickte_dienst_ist_verlinkt(text):
+    """Nur Dienste, in denen etwas liegt.
+
+    ClickHouse (18123) stand bis zum 5.10.2026 mit darauf. Es wird nicht mehr
+    geladen, und ein Knopf zu einer leeren Datenbank sieht aus wie eine
+    Auskunft - deshalb ist sein Fehlen hier die Zusage und nicht die Luecke.
+    """
+    for port in ("19200", "15601"):
         assert f"localhost:{port}" in text, f"kein Verweis auf Port {port}"
+    assert "18123" not in text, (
+        "die Seite verweist wieder auf ClickHouse - dort liegt nichts")
 
 
 def test_die_seite_traegt_keinen_erzeugungszeitstempel(text):

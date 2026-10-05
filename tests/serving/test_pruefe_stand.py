@@ -32,9 +32,15 @@ KURZ = "20260921T125505Z"
 def lege_gold_an(wurzel: Path, release: str = RELEASE, *,
                  abweichend: set[str] = frozenset(),
                  fehlend: set[str] = frozenset()) -> tuple[Path, Path]:
-    """Eine Arbeitsschicht und ein Release - gleich, ausser wo gewollt."""
+    """Eine Arbeitsschicht und ein Release - gleich, ausser wo gewollt.
+
+    Gelegt wird nach ``INDIZES``, nicht nach ``ZIELE``: ``pruefe_gold`` prueft
+    seit dem 5.10.2026 alle sechs Gold-Tabellen, und eine Vorrichtung, die
+    fuenf legt, liesse den Befund "dim_tract_acs fehlt" lauten statt zu
+    pruefen, was sie pruefen will.
+    """
     verzeichnis = wurzel / "releases" / f"release={release}"
-    for ziel in ZIELE:
+    for ziel in INDIZES:
         if ziel.name in fehlend:
             continue
         inhalt = f"inhalt-{ziel.name}".encode()
@@ -166,7 +172,11 @@ def test_ein_fenster_das_zu_spaet_beginnt_faellt_auch_auf():
 def test_gleiche_dateien_sind_gleich(tmp_path):
     wurzel, verzeichnis = lege_gold_an(tmp_path)
     befund = ps.pruefe_gold(wurzel, verzeichnis)
-    assert befund.gut and "5 Dateien" in befund.stand
+    # Abgeleitet, nicht als Literal: Bis zum 5.10.2026 stand hier "5 Dateien",
+    # und genau diese Zahl war falsch - pruefe_gold lief ueber die fuenf
+    # ClickHouse-Ziele und uebersah dim_tract_acs. Eine festgeschriebene Zahl
+    # haette den Fehler mitgetragen statt ihn zu zeigen.
+    assert befund.gut and f"{len(INDIZES)} Dateien" in befund.stand
 
 
 def test_eine_abweichende_datei_wird_benannt(tmp_path):
@@ -199,8 +209,48 @@ def test_eine_fehlende_datei_ist_kein_abweichen_sondern_ein_fehlen(tmp_path):
 
 
 # --------------------------------------------------------------------------
-# ClickHouse
+# ClickHouse - nicht mehr geladen, aber weiter pruefbar
 # --------------------------------------------------------------------------
+
+
+def test_clickhouse_wird_als_nicht_geladen_gemeldet_und_faerbt_nicht_rot():
+    """Der Ort, der absichtlich leer bleibt.
+
+    Seit dem 5.10.2026 liegt das ganze Sternschema in Elasticsearch, und
+    ClickHouse wird nicht mehr beschickt. Ein ``FEHLT`` waere irrefuehrend und
+    liesse den Lauf rot werden; Verschweigen liesse offen, ob der Dienst
+    vergessen oder abgewaehlt wurde.
+    """
+    befund = ps.befund_clickhouse()
+    assert befund.ort == "ClickHouse"
+    assert befund.urteil == ps.Urteil.NICHT_GELADEN
+    assert befund.gut, "ein abgewaehlter Ort ist kein Grund fuer Rueckgabe 1"
+    assert "Elasticsearch" in befund.stand
+    assert not befund.abhilfe, "es ist nichts zu beheben"
+
+
+def test_der_knappe_bericht_verschweigt_den_leeren_dienst_nicht():
+    """``gut`` heisst 'nichts zu tun', nicht 'nicht zu zeigen'."""
+    text = ps.bericht(RELEASE, [ps.Befund("A", ps.Urteil.GLEICH),
+                                ps.befund_clickhouse()], knapp=True)
+    assert "ClickHouse" in text and "nicht geladen" in text
+    assert "\n  A" not in text
+
+
+def test_clickhouse_steht_in_keiner_pruefung_mehr(tmp_path):
+    """Nicht mehr aufgerufen - und genau das ist die Aenderung.
+
+    Geprueft wird es daran, dass ein nicht erreichbares ClickHouse keinen
+    Befund mehr erzeugt, der etwas behauptet: Bis zum 5.10.2026 stand dort
+    'nicht erreichbar' mit 'docker compose up -d clickhouse' daneben.
+    """
+    befunde = [ps.pruefe_gold(*lege_gold_an(tmp_path)),
+               ps.pruefe_elasticsearch(FalscheElastic(), RELEASE),
+               ps.pruefe_kibana(FalscheKibana(), DATEN_VON, DATEN_BIS),
+               ps.befund_clickhouse()]
+    assert [b.ort for b in befunde].count("ClickHouse") == 1
+    assert all(b.gut for b in befunde)
+    assert "docker compose up -d clickhouse" not in ps.bericht(RELEASE, befunde)
 
 
 def test_clickhouse_auf_dem_stand_ist_gruen():
@@ -305,7 +355,7 @@ def test_knapp_zeigt_nur_was_abweicht():
 
 def test_ohne_abweichung_sagt_der_knappe_bericht_das_auch():
     text = ps.bericht(RELEASE, [ps.Befund("A", ps.Urteil.GLEICH)], knapp=True)
-    assert "Alle vier Orte" in text
+    assert "Alle geprueften Orte" in text
 
 
 def test_der_massstab_steht_im_bericht():
@@ -318,12 +368,16 @@ def test_der_massstab_steht_im_bericht():
 
 
 @pytest.mark.referenzstand
-def test_alle_vier_orte_zeigen_den_aktuellen_stand():
+def test_jeder_geladene_ort_zeigt_den_aktuellen_stand():
     """Der Lauf, den dieses Werkzeug im Alltag macht.
 
     Traegt ``referenzstand``, weil er den gebauten Stand anfasst: Nach einer
     frischen Ingestion weicht Gold vom Release ab, und das ist dann richtig
     so und kein Fehler.
+
+    Seit dem 5.10.2026 haengt er nicht mehr an ClickHouse: Solange der Dienst
+    geprueft wurde, uebersprang sich dieser Test, sobald er nicht lief - und
+    damit auch die Pruefung der Orte, die liefen.
     """
     wurzel = Path("data")
     if not (wurzel / "releases" / "AKTUELL.json").is_file():
@@ -348,9 +402,14 @@ def test_alle_vier_orte_zeigen_den_aktuellen_stand():
 
 
 def test_jeder_ort_hat_einen_befund():
-    """Vier Orte, vier Befunde - und die Namen sagen, welche."""
+    """Vier Orte, vier Befunde - und die Namen sagen, welche.
+
+    Drei davon sind Pruefungen, der vierte eine Auskunft; Namen tragen alle
+    vier, weil ein Bericht ohne Namen nicht sagt, wovon er schweigt.
+    """
     namen = {"Gold (Arbeitsschicht)", "ClickHouse", "Elasticsearch", "Kibana"}
-    befunde = [ps.pruefe_clickhouse(FalscheClickHouse(), RELEASE),
+    befunde = [ps.befund_clickhouse(),
+               ps.pruefe_clickhouse(FalscheClickHouse(), RELEASE),
                ps.pruefe_elasticsearch(FalscheElastic(), RELEASE),
                ps.pruefe_kibana(FalscheKibana(), DATEN_VON, DATEN_BIS)]
     assert {b.ort for b in befunde} <= namen
