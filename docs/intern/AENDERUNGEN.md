@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'713** |
+| Tests | **1'722** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -102,6 +102,103 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 05.10.2026 · Elasticsearch trägt das ganze Sternschema, nicht die Hälfte davon (#135)
+
+**Und eine Lücke derselben Klasse, eine Stelle weiter.** `pruefe_stand.pruefe_gold`
+zählte die Gold-Dateien über `load_clickhouse.ZIELE` — fünf Tabellen, `dim_tract_acs`
+fehlt ihnen so, wie sie den Ladern fehlte. Der Bericht meldete deshalb „5 Dateien
+gleich", wo sechs liegen: eine plausibel aussehende falsche Zahl, und niemand hätte
+sie bemerkt. Geprüft wird jetzt über `INDIZES`, das ein Test gegen
+`gold_pipeline.TABELLEN` hält — eine siebte Tabelle ist damit mitgeprüft, ohne dass
+jemand daran denken muss. Der zugehörige Test nagelte „5 Dateien" als Literal fest
+und hätte den Fehler mitgetragen statt ihn zu zeigen; er leitet die Zahl jetzt ab.
+
+**Der Entscheid.** Christian hat festgelegt: **ClickHouse wird im Moment nicht
+mehr verwendet.** Der Lader, seine Tests und seine Dokumentation bleiben — er
+wird nur nicht mehr aufgerufen.
+
+**Was daran kaputt war, und es war nicht der Dienst.** `load_elasticsearch`
+trug nur **drei** der sechs Gold-Tabellen. Die Regel dafür stand im Lader: *„Nur
+was Text oder Ort trägt. `dim_date` (Kalender) und `dim_city_day` (Wetterzahlen)
+haben beides nicht — sie liegen in ClickHouse."* Mit dem Entscheid war die
+Begründung weg, und Kalender und Wetter lagen nirgends mehr abfragbar.
+
+`dim_tract_acs` lag sogar in **keinem** der beiden Speicher: Sie kam mit
+Vertrag 6 und wurde in keinen Lader eingetragen. Das hatte eine Folge, die
+niemand bemerkt hatte, weil nichts davon ein Fehler war — jeder Lauf war grün:
+
+> Vor Vertrag 6 trug `dim_tract` die Einwohnerzahl, seither nicht mehr.
+> `fact_offense` trägt mit `population_vintage` den **Zeiger** auf den richtigen
+> Nenner — der Nenner selbst fehlte. **Kibana konnte aus Elasticsearch allein
+> keine Rate je 1'000 Einwohner rechnen**, und genau das verlangen FR-27 und
+> FR-31.
+
+**Jetzt gehen alle sechs hinein**, Zeit und Zahlen eingeschlossen. Die Regel
+*„nur Text oder Ort"* ist zurückgenommen und durch eine Zusage ersetzt:
+`INDIZES` **erschöpft** `gold_pipeline.TABELLEN`, und ein Test hält das fest
+samt Nennung der fehlenden Tabelle. Eine siebte Gold-Tabelle fällt damit nicht
+mehr still daneben — genau das war der Weg, auf dem `dim_tract_acs` verloren
+ging.
+
+| Index | Schlüssel | Dokumente | warum dieser Schlüssel |
+| --- | --- | ---: | --- |
+| `fact_offense` | `offense_id` | 1'851'950 | unverändert |
+| `dim_offense` | `nibrs_code` | 85 | unverändert |
+| `dim_tract` | `geoid` | 6'282 | unverändert |
+| `dim_tract_acs` | `geoid` + `vintage` | 25'128 | ein Tract kommt je Vintage einmal vor; `geoid` allein wäre viermal belegt, und weil der Schlüssel die Dokument-ID ist, blieben 6'282 Dokumente übrig |
+| `dim_date` | `date` | 2'103 | ein Tag, eine Zeile |
+| `dim_city_day` | `city` + `date` | 4'196 | eine Stadt hat je Tag eine Wetterzeile |
+
+Die Verteilung, über die sich jeder Index gegen das Release prüft, nimmt nur
+Text und Ganzzahlen: Ein Wahrheitswert kommt aus DuckDB als `True` und aus JSON
+als `true`, ein Datum von `composite` als Millisekunden seit 1970 — in beiden
+Fällen schlüge der Abgleich an, ohne dass etwas fehlt. `dim_date` gruppiert
+deshalb über `day_name` und `month_name` (7 × 12 Eimer), `dim_tract_acs` über
+`vintage`.
+
+**Ein verifizierter Defekt in der Testvorrichtung.** `tests/serving/
+test_load_elasticsearch.py` versprach im Docstring *„und er raeumt hinter sich
+auf"*, räumte aber mit `DELETE /{praefix}*` auf — einem **Wildcard**, den der
+Server wegen `action.destructive_requires_name` mit HTTP 400 ablehnt. Der
+`LadeFehler` wurde mit `pass` verschluckt. Ergebnis: **681 Testindizes** hatten
+sich angesammelt, 710 Shards auf einem 1-GiB-Heap. Gelöscht wird jetzt
+**namentlich** (gefragt wird weiter mit dem Platzhalter — lesend ist er
+erlaubt), ein Fehler dabei fällt auf, und zwei neue Prüfungen halten beides
+fest: dass der Dienst die Platzhalter-Löschung ablehnt, und dass nach dem
+Aufräumen **kein** `pruefung-`-Index übrig ist.
+
+**`pruefe_stand` fragt drei Orte statt vier.** ClickHouse steht weiter im
+Bericht, aber als vierter Zustand `nicht geladen` — mit Begründung, ohne
+Abhilfe, und ohne den Rückgabewert auf 1 zu setzen. Weggelassen wäre es
+schlechter: Eine Liste, in der ein Dienst aus dem `docker-compose.yml` fehlt,
+lässt offen, ob er vergessen oder entschieden wurde. Der knappe Bericht zeigt
+diesen Befund trotzdem — er fragt nach dem Urteil, nicht nach „nichts zu tun",
+sonst stünde dort „alles stimmt" über einem leeren Dienst. `pruefe_clickhouse`
+bleibt aufrufbar und geprüft, für den Fall, dass jemand von Hand lädt.
+
+**Nebenbefund:** Der Wächter `test_jeder_geladene_ort_zeigt_den_aktuellen_stand`
+(vorher `…alle_vier_orte…`) übersprang sich bisher, sobald **irgendein** Dienst
+nicht erreichbar war — ClickHouse lief auf keinem Rechner, und damit prüfte er
+auch Elasticsearch und Kibana nie. Jetzt prüft er, was läuft.
+
+**Was nicht geändert wurde.** `orchestration.run_all` und
+`.github/workflows/datenlauf.yml` laden ClickHouse nicht — und haben es nie
+getan: Beide hören nach `serving.export_geojson` auf, die Analysedienste werden
+von Hand beschickt. Der Plan nannte den Punkt, es war nichts zu tun.
+
+**Noch offen:** `pruefe_stand.pruefe_gold` zählt die Gold-Dateien über
+`load_clickhouse.ZIELE` und damit über **fünf** Tabellen — `dim_tract_acs`
+fehlt dort genauso, wie sie den Ladern fehlte. Der Bericht sagt deshalb „5
+Dateien gleich", wo sechs liegen. Dieselbe Klasse Lücke, eine Stelle weiter.
+
+**Zahlen.** 1'713 → **1'722 Tests** (neun neue Wächter), Standardlauf 1'613 →
+**1'620**, Referenzwächter 100 → **102**, alle grün. Kein Vertragssprung, keine
+Daten angefasst; Elasticsearch neu geladen (sechs Indizes, sechs Aliase auf
+Release `2026-10-04T16-50-47Z`). **Nachgebaut:** `docs/einstieg.html` (die
+ClickHouse-Karte ist weg, dafür steht DuckDB als dritter Zugang da — dort
+liegen die Joins, die Elasticsearch nicht kann) und `docs/referenz/`.
+
 
 ## 05.10.2026 · Die abgegebenen Forschungsfragen sind im Repository und werden geprüft (#134)
 

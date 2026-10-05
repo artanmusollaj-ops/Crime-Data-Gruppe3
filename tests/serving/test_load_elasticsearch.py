@@ -6,9 +6,10 @@ zweites Dokument mit derselben Kennung ersetzt das erste, und ``composite``
 blaettert. Gerade diese Eigenheiten traegt das Modul als Zusicherung, und ein
 Doppel, das sie nicht hat, pruefte sie nicht mit.
 
-Drei Pruefungen fassen einen echten Dienst an - sie ueberspringen sich, wenn
-keiner laeuft. Eine fasst das echte Release an und traegt deshalb
-``referenzstand``.
+Fuenf Pruefungen fassen einen echten Dienst an - sie ueberspringen sich, wenn
+keiner laeuft; zwei davon pruefen die Vorrichtung selbst, weil sie bis zum
+5.10.2026 etwas versprach, was sie nicht tat. Drei fassen das echte Release an
+und tragen deshalb ``referenzstand``.
 """
 
 from __future__ import annotations
@@ -442,13 +443,40 @@ def test_ein_feinerer_zeitstempel_bricht_ab(tmp_path):
 # Jeder Test bekommt einen eigenen Namensraum und raeumt ihn weg. Das ist
 # nicht Ordnungsliebe: Ein Test, der in den Namen des echten Standes greift,
 # loescht ihn - genau das ist beim ClickHouse-Teil einmal passiert.
+#
+# Und das Wegraeumen ist selbst geprueft. Bis zum 5.10.2026 stand hier eine
+# Platzhalter-Loeschung, die der Dienst ablehnt, und ihr Fehler wurde
+# verschluckt: 681 Pruefindizes, 710 Shards auf einem 1-GiB-Heap. Siehe
+# ``raeume_auf``.
 
 ELASTICSEARCH = os.environ.get("ELASTICSEARCH_URL", "http://localhost:19200")
 
 
+def raeume_auf(klient, praefix: str) -> None:
+    """Loescht jeden Index des Praefixes - einzeln und mit seinem Namen.
+
+    ``DELETE /{praefix}*`` sah aus wie die kurze Fassung davon und war keine:
+    Elasticsearch laeuft mit ``action.destructive_requires_name`` und weist
+    einen Platzhalter im Loeschpfad mit HTTP 400 zurueck. Der ``LadeFehler``
+    wurde hier mit ``pass`` verschluckt, und so sammelten sich bis zum
+    5.10.2026 **681 Pruefindizes** mit 710 Shards auf einem 1-GiB-Heap an -
+    waehrend der Docstring der Vorrichtung versprach, sie raeume hinter sich
+    auf.
+
+    Gefragt wird mit dem Platzhalter: Lesend ist er erlaubt und antwortet mit
+    einer leeren Liste, wenn nichts passt. Geloescht wird namentlich, und ein
+    Fehler dabei faellt auf, statt verschluckt zu werden - eine Vorrichtung,
+    die ihr Scheitern verschweigt, ist schlimmer als keine.
+    """
+    gefunden = klient.anfrage(
+        "GET", f"/{praefix}*/_settings?filter_path=*.settings.index.uuid")
+    for name in sorted(gefunden):
+        klient.anfrage("DELETE", f"/{name}")
+
+
 @pytest.fixture
 def elastic():
-    """Ein Klient mit eigenem Praefix - und er raeumt hinter sich auf."""
+    """Ein Klient mit eigenem Praefix - und er raeumt namentlich hinter sich auf."""
     klient = le.HttpKlient(ELASTICSEARCH)
     try:
         klient.anfrage("GET", "/")
@@ -459,10 +487,37 @@ def elastic():
     try:
         yield klient, praefix
     finally:
-        try:
-            klient.anfrage("DELETE", f"/{praefix}*")
-        except LadeFehler:
-            pass
+        raeume_auf(klient, praefix)
+
+
+def test_eine_platzhalter_loeschung_weist_der_dienst_zurueck(elastic):
+    """Warum ``raeume_auf`` namentlich loescht - und nicht in einem Aufruf.
+
+    Die Begruendung gehoert gemessen und nicht behauptet: Solange der Dienst
+    mit ``action.destructive_requires_name`` laeuft, ist der kurze Weg keiner.
+    """
+    klient, praefix = elastic
+    klient.anfrage("PUT", f"/{praefix}-eins")
+    with pytest.raises(LadeFehler, match="Wildcard"):
+        klient.anfrage("DELETE", f"/{praefix}*")
+
+
+def test_die_vorrichtung_laesst_keinen_pruefindex_zurueck(elastic):
+    """Die Zusage des Docstrings, an der Vorrichtung selbst geprueft.
+
+    Bis zum 5.10.2026 versprach sie das und tat es nicht. Ein Test, der nur
+    das Aufraeumen *aufruft*, haette das nicht gezeigt - gefragt wird deshalb
+    danach, was uebrig ist.
+    """
+    klient, praefix = elastic
+    for teil in ("a", "b"):
+        klient.anfrage("PUT", f"/{praefix}-{teil}")
+
+    raeume_auf(klient, praefix)
+
+    uebrig = klient.anfrage(
+        "GET", f"/{praefix}*/_settings?filter_path=*.settings.index.uuid")
+    assert uebrig == {}, f"liegen geblieben: {sorted(uebrig)}"
 
 
 def test_elasticsearch_nimmt_die_erzeugte_abbildung_an(tmp_path, elastic):
@@ -516,6 +571,48 @@ def test_der_ganze_weg_gegen_einen_echten_dienst(tmp_path, elastic):
 # --------------------------------------------------------------------------
 
 
+def test_die_indizes_erschoepfen_die_gold_tabellen():
+    """Keine Gold-Tabelle faellt still daneben - weder heute noch als siebte.
+
+    Bis zum 5.10.2026 trug ``INDIZES`` drei der sechs Tabellen; zwei lagen in
+    ClickHouse, und ``dim_tract_acs`` lag in keinem der beiden Lader. Das war
+    kein Fehler, den etwas gemeldet haette: Jeder Lauf war gruen, es fehlte
+    nur der Nenner fuer jede Rate je 1'000 Einwohner. Genau diese Form von
+    Luecke schliesst dieser Test.
+    """
+    from gold_pipeline import TABELLEN
+
+    geladen = {i.name for i in le.INDIZES}
+    fehlend = sorted(set(TABELLEN) - geladen)
+    assert not fehlend, (
+        f"{fehlend} steht in gold_pipeline.TABELLEN, aber nicht in INDIZES - "
+        f"diese Gold-Tabelle liegt nirgends abfragbar. Eintrag in INDIZES "
+        f"ergaenzen, mit Schluessel und verteilung.")
+    ueberzaehlig = sorted(geladen - set(TABELLEN))
+    assert not ueberzaehlig, (
+        f"{ueberzaehlig} steht in INDIZES, aber nicht in "
+        f"gold_pipeline.TABELLEN - ein Index ohne Quelle im Release.")
+    # Und kein Name doppelt: ``NACH_NAME`` wuerde den zweiten still
+    # gewinnen lassen, und ``Feld.abbildung`` entschiede nach ihm.
+    assert len(geladen) == len(le.INDIZES)
+
+
+def test_jeder_schluessel_ist_strukturell_eindeutig_statt_geraten():
+    """Jeder Index braucht einen Schluessel, und raten gilt nicht.
+
+    Der Schluessel wird zur Dokument-ID; darauf ruht die ganze
+    Eindeutigkeitszusage des Moduls (siehe Modulkopf). Ein Index ohne
+    Schluessel haette lauter Dokumente mit der ID ``""`` - genau eines am
+    Ende.
+    """
+    for index in le.INDIZES:
+        assert index.schluessel, f"{index.name} hat keinen Schluessel"
+        assert len(set(index.schluessel)) == len(index.schluessel), index.name
+        assert index.verteilung, (
+            f"{index.name} hat keine verteilung - 'composite' ohne Quellen "
+            f"ist keine Frage, und der Abgleich pruefte nur die Zeilenzahl")
+
+
 def test_jeder_index_hat_eine_quelle_im_release():
     for index in le.INDIZES:
         assert index.quelle_im_release.startswith(f"gold/dataset={index.name}/")
@@ -530,11 +627,11 @@ def test_kein_index_gruppiert_ueber_eine_ortsspalte():
 
 @pytest.mark.referenzstand
 def test_fuer_jede_spalte_jedes_index_ist_ein_typ_entschieden():
-    """Der einzige Test, der das gebaute Release anfasst.
+    """Die Frage, die kein Doppel beantworten kann.
 
-    Er beantwortet die Frage, die kein Doppel beantworten kann: Traegt Gold
-    eine Spalte, fuer die niemand entschieden hat, was sie in Elasticsearch
-    sein soll?
+    Traegt Gold eine Spalte, fuer die niemand entschieden hat, was sie in
+    Elasticsearch sein soll? Deshalb gegen das gebaute Release und nicht
+    gegen das Beispiel.
     """
     wurzel = Path("data")
     kennung, verzeichnis = le.aktuelles_release(wurzel)
@@ -547,3 +644,65 @@ def test_fuer_jede_spalte_jedes_index_ist_ein_typ_entschieden():
         if index.geo:
             erwartet = (erwartet - set(index.geo)) | {"standort"}
         assert vorhanden == erwartet, f"{index.name} in Release {kennung}"
+
+
+@pytest.mark.referenzstand
+def test_die_rate_je_1000_einwohner_ist_aus_elasticsearch_allein_rechenbar():
+    """Zaehler, Zeiger und Nenner - alle drei im selben Speicher.
+
+    Vor Vertrag 6 trug ``dim_tract`` die Einwohnerzahl. Heute traegt
+    ``fact_offense`` mit ``population_vintage`` nur den **Zeiger** auf den
+    richtigen Nenner; der Nenner selbst steht in ``dim_tract_acs``. Lag diese
+    Tabelle in keinem Index, fehlte Kibana genau er - und FR-27 und FR-31
+    verlangen die Rate je 1'000 Einwohner. Das ist der Grund, aus dem alle
+    sechs Tabellen hier liegen, und er gehoert gemessen.
+    """
+    wurzel = Path("data")
+    kennung, verzeichnis = le.aktuelles_release(wurzel)
+
+    def spalten(name: str) -> set[str]:
+        index = le.NACH_NAME[name]
+        return {f.name for f in le.felder(le.quelle(verzeichnis, index), name)}
+
+    fakt, acs, tract = (spalten(n) for n in
+                        ("fact_offense", "dim_tract_acs", "dim_tract"))
+    assert {"offense_id", "tract_geoid", "population_vintage"} <= fakt, kennung
+    assert {"geoid", "vintage", "population"} <= acs, kennung
+    # Der Zeiger zeigt auf das Paar, das ``dim_tract_acs`` eindeutig macht -
+    # sonst waere nicht entscheidbar, welche der vier Zeilen je Tract gilt.
+    assert le.NACH_NAME["dim_tract_acs"].schluessel == ("geoid", "vintage")
+    # Und die Einwohnerzahl steht genau einmal: Traegt ``dim_tract`` sie
+    # wieder, gibt es zwei Nenner und keine Auskunft darueber, welcher gilt.
+    assert "population" not in tract, (
+        "dim_tract traegt wieder eine Einwohnerzahl - dann liegen zwei "
+        "Nenner im Index, und population_vintage zeigt nur auf einen")
+
+
+@pytest.mark.referenzstand
+def test_zeit_und_zahlen_sind_im_index_filterbar():
+    """Was die neuen drei Indizes koennen muessen, Spalte fuer Spalte.
+
+    ``date`` als Datumstyp (sonst waere kein Zeitfilter in Kibana moeglich),
+    ``year_is_complete`` als Wahrheitswert (2025 und 2026 sind unvollstaendig,
+    und das muss filterbar sein), ``quality_flags`` als mehrwertige Kennung,
+    die Einwohnerzahl als Ganzzahl.
+    """
+    _, verzeichnis = le.aktuelles_release(Path("data"))
+
+    def eigenschaften(name: str) -> dict:
+        index = le.NACH_NAME[name]
+        parquet = le.quelle(verzeichnis, index)
+        return le.mapping(le.felder(parquet, name), index)["mappings"]["properties"]
+
+    kalender = eigenschaften("dim_date")
+    assert kalender["date"] == {"type": "date"}
+    assert kalender["year_is_complete"] == {"type": "boolean"}
+
+    wetter = eigenschaften("dim_city_day")
+    assert wetter["date"] == {"type": "date"}
+    # Elasticsearch kennt keinen Listentyp: ein Feld, ein Typ, viele Werte.
+    assert wetter["quality_flags"] == {"type": "keyword"}
+
+    acs = eigenschaften("dim_tract_acs")
+    assert acs["population"] == {"type": "long"}
+    assert acs["poverty_rate"] == {"type": "double"}

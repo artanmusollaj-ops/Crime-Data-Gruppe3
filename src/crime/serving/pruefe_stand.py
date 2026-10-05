@@ -1,19 +1,27 @@
-"""Zeigen alle Orte denselben Stand? - eine Frage an vier Stellen.
+"""Zeigen alle Orte denselben Stand? - eine Frage an drei Stellen.
 
     python -m serving.pruefe_stand           # Bericht, Rueckgabewert 0 oder 1
     python -m serving.pruefe_stand --knapp   # nur die Abweichungen
 
-**Warum es diesen Schritt gibt.** Es gibt inzwischen vier Orte, die behaupten,
-die Daten zu zeigen: die Arbeits-Gold-Schicht (auf der die DuckDB-Sichten
-liegen), ClickHouse, Elasticsearch und die Kibana-Dashboards. Jeder prueft
-sich **beim Laden** gegen das Release. Danach prueft niemand mehr, ob sie noch
-dasselbe sagen.
+**Warum es diesen Schritt gibt.** Es gibt Orte, die behaupten, die Daten zu
+zeigen: die Arbeits-Gold-Schicht (auf der die DuckDB-Sichten liegen),
+Elasticsearch und die Kibana-Dashboards. Jeder prueft sich **beim Laden**
+gegen das Release. Danach prueft niemand mehr, ob sie noch dasselbe sagen.
 
-Das Szenario ist nicht ausgedacht: Ein neues Release entsteht, ClickHouse wird
-nachgezogen, Elasticsearch vergessen. Die Dashboards zeigen weiter den alten
+Das Szenario ist nicht ausgedacht: Ein neues Release entsteht, Gold wird neu
+gebaut, Elasticsearch vergessen. Die Dashboards zeigen weiter den alten
 Stand - ohne jeden Hinweis, weil der Alias brav auf den alten Index zeigt und
 alle Zahlen in sich stimmig sind. Jede einzelne Stelle ist konsistent, und das
 Ganze ist falsch.
+
+**ClickHouse steht in der Liste und wird nicht geprueft.** Es wird seit dem
+5.10.2026 nicht mehr geladen; das ganze Sternschema liegt in Elasticsearch
+(siehe ``load_elasticsearch``). Ein Ort, der nicht geladen wird, kann keinen
+Stand zeigen - der Bericht nennt ihn deshalb als **nicht geladen** und wird
+davon nicht rot. Weggelassen wird er nicht: Eine Liste, in der ein Dienst
+fehlt, der im ``docker-compose.yml`` steht, laesst offen, ob er vergessen oder
+entschieden wurde. ``pruefe_clickhouse`` bleibt aufrufbar und geprueft, fuer
+den Fall, dass jemand von Hand laedt.
 
 **Das Release ist der Massstab.** Nicht eine der Engines, nicht die
 Arbeitsschicht - ``releases/AKTUELL.json`` sagt, was gilt, und alles andere
@@ -25,9 +33,9 @@ Buch zu fuehren.
 
 ===================  ===============================================
 Arbeits-Gold         Pruefsumme je Datei gegen die des Releases
-ClickHouse           Tabelle hinter der Sicht + Zeilenzahl
-Elasticsearch        Index hinter dem Alias + Dokumentzahl
+Elasticsearch        Index hinter jedem der sechs Aliase + Dokumentzahl
 Kibana               Zeitfenster der Dashboards gegen den Datenbereich
+ClickHouse           nichts - nicht geladen, siehe oben
 ===================  ===============================================
 
 Kibana steht mit in der Liste, weil sein Stand nicht am Index haengt: Die
@@ -51,9 +59,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
+# Aus ``load_clickhouse`` kommt noch die gemeinsame Release-Ermittlung. Sein
+# ``HttpKlient`` nicht mehr: Seit dem 5.10.2026 fragt dieses Modul ClickHouse
+# nicht mehr (siehe ``befund_clickhouse``). Und auch seine Tabellenliste
+# ``ZIELE`` nicht mehr - sie kennt fuenf Tabellen, ``dim_tract_acs`` fehlt ihr
+# so, wie sie den Ladern fehlte. Der Bericht meldete dadurch "5 Dateien
+# gleich", wo sechs liegen: eine plausibel aussehende falsche Zahl. Geprueft
+# wird jetzt ueber ``INDIZES``, und ein Test haelt das gegen
+# ``gold_pipeline.TABELLEN`` - eine siebte Tabelle ist damit mitgeprueft,
+# ohne dass jemand daran denken muss. ``ZIELE`` bleibt importiert: Die
+# ClickHouse-Pruefung selbst ist unveraendert und voll getestet, sie wird nur
+# nicht mehr aufgerufen.
 from serving.load_clickhouse import STANDARD_URL as CLICKHOUSE_URL
 from serving.load_clickhouse import ZIELE, LadeFehler, aktuelles_release
-from serving.load_clickhouse import HttpKlient as ClickHouseKlient
 from serving.load_elasticsearch import INDIZES
 from serving.load_elasticsearch import STANDARD_URL as ELASTICSEARCH_URL
 from serving.load_elasticsearch import HttpKlient as ElasticKlient
@@ -67,11 +85,16 @@ BLOCK = 1 << 20
 
 
 class Urteil:
-    """Die drei Zustaende, die ein Ort haben kann."""
+    """Die vier Zustaende, die ein Ort haben kann."""
 
     GLEICH = "stimmt"
     ANDERS = "weicht ab"
     FEHLT = "nicht erreichbar"
+    #: Kein Urteil, sondern eine Auskunft: Dieser Ort wird nicht beschickt und
+    #: kann deshalb keinen Stand zeigen. Faerbt den Lauf nicht rot, wird aber
+    #: auch im knappen Bericht gezeigt - sonst stuende dort "alles stimmt"
+    #: ueber einem Dienst, in dem nichts liegt.
+    NICHT_GELADEN = "nicht geladen"
 
 
 @dataclass(frozen=True)
@@ -86,7 +109,13 @@ class Befund:
 
     @property
     def gut(self) -> bool:
-        return self.urteil == Urteil.GLEICH
+        """Ist hier nichts zu tun?
+
+        ``NICHT_GELADEN`` zaehlt mit: Ein Ort, der absichtlich leer bleibt,
+        ist kein Grund, den Lauf rot zu faerben. Gezeigt wird er trotzdem -
+        darum fragt ``bericht`` nach dem Urteil und nicht nach ``gut``.
+        """
+        return self.urteil in (Urteil.GLEICH, Urteil.NICHT_GELADEN)
 
 
 class Klient(Protocol):
@@ -172,7 +201,7 @@ def pruefe_gold(datenwurzel: Path, verzeichnis: Path) -> Befund:
     waere der Fall, den man am spaetesten bemerkt.
     """
     abweichend, fehlend = [], []
-    for ziel in ZIELE:
+    for ziel in INDIZES:
         arbeit = datenwurzel / "gold" / f"dataset={ziel.name}" / "part-0001.parquet"
         im_release = verzeichnis / ziel.quelle_im_release
         if not arbeit.is_file() or not im_release.is_file():
@@ -187,15 +216,39 @@ def pruefe_gold(datenwurzel: Path, verzeichnis: Path) -> Befund:
     if abweichend:
         return Befund(
             "Gold (Arbeitsschicht)", Urteil.ANDERS,
-            f"{len(abweichend)} von {len(ZIELE)} weichen ab: "
+            f"{len(abweichend)} von {len(INDIZES)} weichen ab: "
             f"{', '.join(abweichend)}",
             "Entweder ein neues Release schneiden (orchestration.release) "
             "oder klaeren, warum Gold vom Release abweicht")
     return Befund("Gold (Arbeitsschicht)", Urteil.GLEICH,
-                  f"{len(ZIELE)} Dateien gleich")
+                  f"{len(INDIZES)} Dateien gleich")
+
+
+def befund_clickhouse() -> Befund:
+    """Die Auskunft ueber den Ort, der nicht beschickt wird.
+
+    Kein Dienst wird dafuer angefasst, und das ist der Punkt: Ob ClickHouse
+    laeuft, ist belanglos, solange nichts darin liegt. Ein ``FEHLT`` waere
+    irrefuehrend (es fehlt nichts, es wurde nichts geladen) und ein ``GLEICH``
+    eine Luege.
+    """
+    return Befund(
+        "ClickHouse", Urteil.NICHT_GELADEN,
+        "wird seit dem 5.10.2026 nicht mehr geladen; das Sternschema liegt "
+        "vollstaendig in Elasticsearch",
+        # Keine Abhilfe: Es ist nichts zu beheben. Wer trotzdem laden will,
+        # findet den Lader unberuehrt vor - und dann sagt ``pruefe_clickhouse``
+        # wieder, ob er auf dem Stand ist.
+        "")
 
 
 def pruefe_clickhouse(klient: Klient, release_id: str) -> Befund:
+    """Traegt die Tabelle hinter jeder Sicht die Kennung des Releases?
+
+    Wird aus ``pruefe_alles`` nicht mehr aufgerufen - ClickHouse wird nicht
+    geladen (siehe ``befund_clickhouse``). Die Pruefung bleibt, weil der Lader
+    bleibt: Wer ihn von Hand aufruft, soll die Frage weiter stellen koennen.
+    """
     try:
         sichten = dict(klient.abfrage(
             "SELECT name, as_select FROM system.tables "
@@ -302,21 +355,34 @@ def datenbereich(verzeichnis: Path) -> tuple[str, str]:
 def pruefe_alles(datenwurzel: Path, *, clickhouse: str = CLICKHOUSE_URL,
                  elasticsearch: str = ELASTICSEARCH_URL,
                  kibana: str = KIBANA_URL) -> tuple[str, list[Befund]]:
+    """Drei Pruefungen und eine Auskunft, in der Reihenfolge des Berichts.
+
+    ``clickhouse`` wird nicht mehr gefragt und bleibt als Angabe stehen: Der
+    Schalter ``--clickhouse`` ist dokumentiert, und ein Aufruf, der ihn
+    mitgibt, soll nicht mit einem Typfehler abbrechen, sondern dieselbe
+    Auskunft bekommen wie jeder andere.
+    """
     kennung, verzeichnis = aktuelles_release(datenwurzel)
     von, bis = datenbereich(verzeichnis)
     return kennung, [
         pruefe_gold(datenwurzel, verzeichnis),
-        pruefe_clickhouse(ClickHouseKlient(clickhouse), kennung),
         pruefe_elasticsearch(ElasticKlient(elasticsearch), kennung),
         pruefe_kibana(KibanaKlient(kibana), von, bis),
+        befund_clickhouse(),
     ]
 
 
 def bericht(kennung: str, befunde: list[Befund], knapp: bool = False) -> str:
     zeilen = [f"Massstab: Release {kennung}", ""]
-    zeigen = [b for b in befunde if not (knapp and b.gut)]
+    # Gefragt wird nach dem Urteil und nicht nach ``gut``: ``NICHT_GELADEN``
+    # faerbt den Lauf nicht rot, gehoert aber in jeden Bericht. Ein knapper
+    # Bericht, der einen leeren Dienst verschweigt, laesst genau die Frage
+    # offen, die er beantworten soll.
+    zeigen = [b for b in befunde if not (knapp and b.urteil == Urteil.GLEICH)]
     if not zeigen:
-        zeilen.append("Alle vier Orte zeigen diesen Stand.")
+        # Nicht "alle vier": Geprueft werden drei Orte, der vierte wird
+        # nicht geladen und steht in diesem Zweig deshalb nie.
+        zeilen.append("Alle geprueften Orte zeigen diesen Stand.")
         return "\n".join(zeilen)
 
     breite = max(len(b.ort) for b in zeigen)

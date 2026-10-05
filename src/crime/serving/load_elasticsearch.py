@@ -3,12 +3,11 @@
     python -m serving.load_elasticsearch              # das aktuelle Release
     python -m serving.load_elasticsearch --trocken    # nur zeigen, was liefe
 
-**Warum es das neben ClickHouse gibt.** Zwei Kopien derselben Daten sind ein
-Fehler, solange beide dasselbe koennen. Diese hier kann etwas anderes:
+**Was dieser Index kann, was eine SQL-Konsole nicht kann.**
 
 1. **Volltext.** ``source_offense_description`` traegt 421 verschiedene
    Beschreibungen wie *ARSON: POSSESSION - EXPLOSIVE / INCENDIARY DEVICE*. Wer
-   "explosive" sucht, muss in ClickHouse ``LIKE '%EXPLOSIVE%'`` schreiben und
+   "explosive" sucht, muesste in SQL ``LIKE '%EXPLOSIVE%'`` schreiben und
    damit jede Zeile lesen. Elasticsearch hat den Wortindex dafuer.
 2. **Umkreis.** 342'727 der 345'073 Zeilen tragen Koordinaten. *Alle Delikte
    im Umkreis von 500 m um diesen Punkt* ist in ``geo_distance`` eine Zeile -
@@ -17,10 +16,27 @@ Fehler, solange beide dasselbe koennen. Diese hier kann etwas anderes:
 3. **Facetten.** Der Einstieg eines Analysten ist ein Suchfeld mit Zaehlern
    daneben, nicht eine leere SQL-Konsole.
 
-Aggregieren ueber Millionen Zeilen bleibt ClickHouse. Deshalb liegen hier auch
-nur **drei** der fuenf Gold-Datasets (siehe ``INDIZES``): ``dim_date`` und
-``dim_city_day`` tragen weder Text noch Ort, und eine Kopie ohne Gegenwert ist
-genau das, wogegen ``serving/__init__`` argumentiert.
+**Warum hier das ganze Sternschema liegt und nicht ein Teil davon.** Bis zum
+5.10.2026 lagen nur drei der sechs Gold-Tabellen hier - "nur was Text oder Ort
+traegt" -, und ``dim_date`` und ``dim_city_day`` lagen in ClickHouse. Diese
+Arbeitsteilung traegt nicht mehr: ClickHouse wird nicht mehr geladen
+(Entscheid 5.10.2026), und damit lagen die Kalender- und die Wetterzahlen
+nirgends mehr abfragbar. ``dim_tract_acs`` lag sogar in **keinem** der beiden
+Speicher - sie kam mit Vertrag 6 und wurde in keinen Lader eingetragen.
+
+Das war kein Fehler, der aufgefallen waere, sondern eine falsche Antwort:
+``fact_offense`` traegt mit ``population_vintage`` nur den **Zeiger** auf den
+richtigen Nenner. Ohne ``dim_tract_acs`` fehlt der Nenner selbst, und eine
+Rate je 1'000 Einwohner ist aus Elasticsearch allein nicht zu rechnen - genau
+die verlangen FR-27 und FR-31. Seither gilt die Zusage, dass ``INDIZES`` die
+Tabellen aus ``gold_pipeline.TABELLEN`` **erschoepft**; ein Test haelt sie
+fest, statt sie zu behaupten.
+
+Ein Stern in sechs Indizes ist kein Stern mehr: Elasticsearch kennt keinen
+Join, und wer Tat und Nenner zusammenbringen will, stellt zwei Abfragen oder
+nimmt Kibanas Verweisfelder. Das ist der Preis dafuer, die Zahlen ueberhaupt
+zu haben; die Quelle der Wahrheit bleibt Parquet, und wer joinen will, nimmt
+die DuckDB-Sichten.
 
 **Die Zusage, die auch hier gilt.** Geladen wird nie in ``fact_offense``,
 sondern in einen Index, dessen Name das Release traegt. Erst nach bestandenem
@@ -103,10 +119,12 @@ class Index:
     #: Wird zur Dokument-ID. Damit ist Eindeutigkeit strukturell zugesichert
     #: und muss nicht geschaetzt werden - siehe Modulkopf.
     schluessel: tuple[str, ...]
-    #: Spalten, ueber die der Abgleich gruppiert. Wie in ``load_clickhouse``
-    #: bewusst nur Text: Ein Wahrheitswert kommt aus DuckDB als ``True`` und
-    #: aus JSON als ``true``, und der Vergleich schluege an, ohne dass etwas
-    #: fehlt.
+    #: Spalten, ueber die der Abgleich gruppiert. Erlaubt sind Text und
+    #: Ganzzahlen, nichts sonst: Ein Wahrheitswert kommt aus DuckDB als
+    #: ``True`` und aus JSON als ``true``, ein Datum als ``date`` und von
+    #: ``composite`` als Millisekunden seit 1970, und eine Gleitkommazahl
+    #: vergleicht sich ohnehin nicht. In allen drei Faellen schluege der
+    #: Abgleich an, ohne dass etwas fehlt.
     verteilung: tuple[str, ...]
     #: Spalten, die zerlegt und wortweise durchsuchbar werden. Alles andere
     #: bleibt ``keyword``: exakt, filterbar, gruppierbar. Die Voreinstellung
@@ -122,9 +140,12 @@ class Index:
         return f"gold/dataset={self.name}/part-0001.parquet"
 
 
-#: Nur was Text oder Ort traegt. ``dim_date`` (Kalender) und ``dim_city_day``
-#: (Wetterzahlen) haben beides nicht - sie liegen in ClickHouse und gehoeren
-#: nicht ein zweites Mal abgelegt.
+#: Alle Gold-Tabellen, Zeit und Zahlen eingeschlossen - und das ist eine
+#: Zusage, nicht eine Aufzaehlung: ``INDIZES`` erschoepft
+#: ``gold_pipeline.TABELLEN``, und ``test_load_elasticsearch`` haelt es fest.
+#: Eine siebte Gold-Tabelle faellt damit nicht mehr still daneben, wie
+#: ``dim_tract_acs`` es von Vertrag 6 bis zum 5.10.2026 tat. Warum nicht mehr
+#: "nur was Text oder Ort traegt" gilt, steht im Modulkopf.
 INDIZES: tuple[Index, ...] = (
     Index(
         name="fact_offense",
@@ -158,6 +179,52 @@ INDIZES: tuple[Index, ...] = (
         # *liegt dieser Punkt im Tract* nicht - das bleibt die Aufgabe der
         # Zuordnung in Silver.
         geo=("centroid_lat", "centroid_lon"),
+    ),
+    Index(
+        name="dim_tract_acs",
+        # Ein Tract kommt je Vintage einmal vor; erst das Paar ist eindeutig.
+        # Gemessen am Release 2026-10-04T16-50-47Z: 25'128 Zeilen, ebenso
+        # viele verschiedene (geoid, vintage) - vier Vintages mal 6'282
+        # Tracts. ``geoid`` allein waere viermal belegt, und weil der
+        # Schluessel die Dokument-ID ist, blieben 6'282 Dokumente uebrig: Der
+        # Abgleich faellt, und zwar genau deshalb (siehe Modulkopf).
+        schluessel=("geoid", "vintage"),
+        # Die einzige Spalte, die sich gruppieren laesst, ohne der Schluessel
+        # selbst zu sein. Eine Verteilung ueber ``geoid`` waere die
+        # Schluesselpruefung ein zweites Mal, in 25'128 Eimern.
+        verteilung=("vintage",),
+        # Kein Volltext: ``geoid`` ist eine Kennung, und wer sie zerlegt,
+        # findet 17031010100 unter 17031. Kein Ort: Die Flaeche steht in
+        # ``dim_tract``, hier steht nur, wie viele Menschen darin leben.
+    ),
+    Index(
+        name="dim_date",
+        schluessel=("date",),
+        # Der Kalender hat keine Statusspalten. ``day_name`` und
+        # ``month_name`` sind das, was sich gruppieren laesst: 7 mal 12
+        # Eimer, und jeder Tag des Jahrgangs faellt in genau einen. Fehlt ein
+        # Wochentag oder ein Monat, faellt es hier auf. ``quarter`` und
+        # ``month`` waeren dasselbe in Zahlen, aber eine Fehlermeldung mit
+        # "Friday" darin liest sich besser als eine mit "5".
+        verteilung=("day_name", "month_name"),
+        # Kein Volltext: ``day_name`` und ``month_name`` sind Aufzaehlungen
+        # mit sieben beziehungsweise zwoelf Werten, keine Sprache.
+    ),
+    Index(
+        name="dim_city_day",
+        # Eine Stadt hat je Tag eine Wetterzeile; erst das Paar ist
+        # eindeutig. Gemessen: 4'196 Zeilen, ebenso viele verschiedene
+        # (city, date).
+        schluessel=("city", "date"),
+        verteilung=("city", "station_id"),
+        # ``station_name`` traegt zwei Werte ("DETROIT METRO AIRPORT, MI US"
+        # und das Chicagoer Gegenstueck). Zwei Auspraegungen rechtfertigen
+        # keinen Wortindex - ``text`` bleibt die Ausnahme, die man begruenden
+        # muss, und hier liesse sie sich nicht begruenden.
+        #
+        # ``quality_flags`` ist eine Liste und bleibt ``keyword``:
+        # Elasticsearch kennt keinen Listentyp, ein Feld nimmt einen Wert
+        # oder viele. Filterbar ist es dadurch wie jede andere Kennung.
     ),
 )
 

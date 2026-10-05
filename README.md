@@ -222,17 +222,17 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 1'613 ausgeführte Tests, ohne Netzzugriff und ohne
+Erwartet wird **grün**: 1'620 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
-Die Summenzeile nennt daneben **100 abgewählte**. Das sind die Wächter mit dem
+Die Summenzeile nennt daneben **102 abgewählte**. Das sind die Wächter mit dem
 Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'713
+python -m pytest -m ""               # beides zusammen, alle 1'722
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -764,22 +764,20 @@ python -m storage publizieren --wirklich   # lädt es hoch
 
 Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 
-### 2.6 Die Analyseplattform — ClickHouse, Elasticsearch, Kibana
+### 2.6 Die Analyseplattform — Elasticsearch und Kibana
 
 Bis hierher sind die Daten aufbereitet. Wer sie *befragen* will, ohne DuckDB zu
-starten, bekommt drei Dienste:
+starten, bekommt zwei Dienste:
 
 ```bash
-docker compose up -d                    # ClickHouse, Elasticsearch, Kibana
-python -m serving.load_clickhouse        # Sternschema für SQL
-python -m serving.load_elasticsearch     # Volltext und Umkreis
+docker compose up -d                    # Elasticsearch, Kibana
+python -m serving.load_elasticsearch     # das ganze Sternschema, sechs Indizes
 python -m serving.build_kibana           # die Dashboards anlegen
 ```
 
 | Dienst | Port | wofür |
 | --- | ---: | --- |
-| ClickHouse | 18123 | SQL über das Sternschema, Aggregationen über Millionen Zeilen |
-| Elasticsearch | 19200 | Volltext über die Deliktbeschreibung, Umkreissuche über `geo_point` |
+| Elasticsearch | 19200 | das Sternschema als sechs Indizes: Volltext über die Deliktbeschreibung, Umkreissuche über `geo_point`, dazu Kalender, Wetter und die Einwohnerzahlen |
 | Kibana | 15601 | die Dashboards, und die Suchleiste als Einstieg |
 
 Die Ports sind bewusst verschoben. 9200 und 5601 sind die Voreinstellungen und
@@ -787,12 +785,23 @@ auf Entwicklungsrechnern regelmässig belegt — auf einem lief bereits ein
 fremdes OpenSearch auf 9200. Ein eigener Port kostet nichts und nimmt niemandem
 seinen Dienst weg.
 
-**Beide Ladeschichten laden nie in den sichtbaren Namen.** Sie schreiben in
-eine Tabelle beziehungsweise einen Index, dessen Name das Release trägt,
-prüfen danach gegen das Release (Zeilen, Schlüssel, Verteilung) und legen erst
-dann die Sicht beziehungsweise den Alias darauf um. Fällt die Prüfung, bleibt
-der alte Stand stehen — dasselbe Versprechen wie das `.part`-Umbenennen in
-`storage`.
+> **ClickHouse steht noch im `docker-compose.yml` und wird nicht mehr
+> geladen** (Entscheid vom 5.10.2026). Bis dahin teilten sich die beiden
+> Dienste die sechs Gold-Tabellen: Elasticsearch nahm, was Text oder Ort trägt,
+> ClickHouse die Zahlen. Mit dem Entscheid war die Begründung weg — und die
+> Zahlen lagen nirgends mehr abfragbar. `dim_tract_acs` lag sogar in keinem der
+> beiden Speicher; `fact_offense` trägt mit `population_vintage` nur den
+> *Zeiger* auf den richtigen Nenner, der Nenner selbst fehlte. Eine Rate je
+> 1'000 Einwohner war aus Elasticsearch allein nicht zu rechnen. Seither lädt
+> `load_elasticsearch` alle sechs Tabellen, und ein Test hält fest, dass die
+> Liste `gold_pipeline.TABELLEN` erschöpft. `serving/load_clickhouse` bleibt
+> unberührt und lauffähig: Wer es braucht, ruft es von Hand auf.
+
+**Die Ladeschicht lädt nie in den sichtbaren Namen.** Sie schreibt in einen
+Index, dessen Name das Release trägt, prüft danach gegen das Release (Zeilen,
+Schlüssel, Verteilung) und legt erst dann den Alias darauf um. Fällt die
+Prüfung, bleibt der alte Stand stehen — dasselbe Versprechen wie das
+`.part`-Umbenennen in `storage`.
 
 **Die Dashboards stehen als Code.** Ein im Browser zusammengeklicktes Dashboard
 lebt in Kibanas eigenem Index: nicht lesbar, nicht vergleichbar, und weg,
@@ -838,29 +847,29 @@ abgeschrieben.
 > es vor drei Tagen lief. Für alles Lebendige nennt sie den Befehl statt eines
 > alten Ergebnisses. Ein Test hält das fest.
 
-**Zeigen alle vier noch dasselbe?**
+**Zeigen alle noch dasselbe?**
 
 ```bash
 python -m serving.pruefe_stand           # Bericht, Rückgabewert 0 oder 1
 python -m serving.pruefe_stand --knapp   # nur die Abweichungen
 ```
 
-Vier Orte behaupten, die Daten zu zeigen: die Arbeits-Gold-Schicht (auf der
-die DuckDB-Sichten liegen), ClickHouse, Elasticsearch und die Dashboards.
-Jeder prüft sich **beim Laden** gegen das Release. Danach prüfte bis zum
-1.10.2026 niemand mehr, ob sie noch dasselbe sagen.
+Drei Orte behaupten, die Daten zu zeigen: die Arbeits-Gold-Schicht (auf der
+die DuckDB-Sichten liegen), Elasticsearch und die Dashboards. Jeder prüft sich
+**beim Laden** gegen das Release. Danach prüfte bis zum 1.10.2026 niemand mehr,
+ob sie noch dasselbe sagen.
 
-Das Szenario ist nicht ausgedacht: Ein neues Release entsteht, ClickHouse wird
-nachgezogen, Elasticsearch vergessen. Die Dashboards zeigen weiter den alten
+Das Szenario ist nicht ausgedacht: Ein neues Release entsteht, Gold wird neu
+gebaut, Elasticsearch vergessen. Die Dashboards zeigen weiter den alten
 Stand — ohne Hinweis, weil der Alias brav irgendwohin zeigt und alle Zahlen in
 sich stimmig sind. Jede Stelle ist konsistent, das Ganze ist falsch.
 
 | Ort | woran der Stand erkennbar ist |
 | --- | --- |
 | Gold (Arbeitsschicht) | SHA-256 je Datei gegen die des Releases |
-| ClickHouse | die Tabelle hinter der Sicht trägt die Release-Kennung |
-| Elasticsearch | der Index hinter dem Alias trägt sie ebenfalls |
+| Elasticsearch | der Index hinter jedem der sechs Aliase trägt die Release-Kennung |
 | Kibana | das eingebackene Zeitfenster deckt den Datenbereich ab |
+| ClickHouse | nichts — der Bericht nennt den Dienst als *nicht geladen* und wird davon nicht rot |
 
 > **Nicht im wöchentlichen Datenlauf.** Nach einer frischen Ingestion weicht
 > Gold vom Release ab — richtigerweise, denn es ist neuer. Der Lauf wäre jede
@@ -895,7 +904,7 @@ Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.
 python -m pytest
 ```
 
-**1'713 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'722 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -932,7 +941,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'582 der 1'613 Tests** des Standardlaufs. Die
+In einem frischen Klon laufen **1'587 der 1'620 Tests** des Standardlaufs. Die
 übrigen 31 überspringen sich selbst, weil sie gebaute Daten brauchen und `data/`
 nicht versioniert ist — dazu seit dem 5.10.2026 die Reproduktion von
 `docs/forschungsfragen.md`, deren Quelle das ungetrackte LN1-PDF ist; die 100 Referenzstand-Wächter sind ohnehin abgewählt.
