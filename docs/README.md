@@ -75,6 +75,7 @@ Eine Handänderung hier ist beim nächsten Lauf weg. Wer den Inhalt ändern will
 | Was | Erzeugt von |
 | --- | --- |
 | [`feldkatalog.md`](feldkatalog.md) | `tools/build_feldkatalog.py`, aus den Manifesten |
+| [`forschungsfragen.md`](forschungsfragen.md) | `tools/build_forschungsfragen.py`, aus dem abgegebenen LN1-PDF (Kapitel 3 und 11) — **der massgebliche Wortlaut** der sechs Fragen und Hypothesen; Kapitel 3 von `ln2_konzept.md` und Notebook 36 werden dagegen gehalten. Das PDF liegt bewusst nicht im Repository, der Reproduktionswächter überspringt ohne es |
 | [`intern/platzbedarf.md`](intern/platzbedarf.md) | `tools/build_platzbedarf.py`, aus der gemessenen Belegung je Schicht — und die Quelle der Grössentabelle in `architektur-ist-und-ziel.md` und im Einseiter |
 | [`referenz/`](referenz/index.html) | `tools/build_referenz.py` (pdoc), eine Seite je Modul |
 | [`einstieg.html`](einstieg.html) | `tools/build_einstieg.py`, aus dem aktuellen Release — **wo ein Analyst anfängt** |

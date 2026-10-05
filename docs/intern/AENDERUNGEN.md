@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'695** |
+| Tests | **1'713** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -102,6 +102,103 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 05.10.2026 · Die abgegebenen Forschungsfragen sind im Repository und werden geprüft (#134)
+
+Drei Fassungen der Forschungsfragen waren im Umlauf, und keine Prüfung hielt sie
+zusammen. Das **abgegebene** LN1 (`docs/Leistungsnachweis_1_Konzept_Gruppe_3.pdf`,
+Kapitel 3) führt sechs Fragen F1–F6 mit je einer Hypothese H1–H6.
+`notebooks/36_hypothesen.ipynb` zitierte dieselben sechs — aber eine Revision
+älter. Und Kapitel 3 von `ln1_konzept.md` trug einen dritten, als **Entwurf**
+markierten Satz: FF1–FF3 mit H1–H8, anderer Nummernkreis, andere Hypothesen.
+
+**Die Abweichung war keine Tippdifferenz.** Das Notebook-H1 sagte *„die Menge
+der gelieferten technischen IDs"*, das abgegebene *„die gelieferte Menge … bei
+Quellen ohne Identifikator-Menge tritt ein gleichwertiger Nachweis an ihre
+Stelle"*. Genau diese Einschränkung hat das Notebook **selbst gemessen** und in
+Prosa erklärt („hält, aber nur für zwei der fünf Quellen wörtlich"); in der
+Abgabe wanderte sie in die Hypothese, und das Zitat blieb zurück.
+`tests/test_notebook_hypothesen.py` prüfte zwar, dass das Notebook seine sechs
+wörtlich festhält — aber **gegen nichts**, weil die massgebliche Fassung nicht
+im Repository lag.
+
+**Das Artefakt wird erzeugt, nicht abgeschrieben.** `docs/forschungsfragen.md`
+kommt aus `tools/build_forschungsfragen.py`: Es liest Kapitel 3 (sechs Paare,
+übergeordnete Frage, die Grenze des Nachweises) und Kapitel 11 (die
+Beantwortung je Hypothese) über `pdftotext -layout`, wie die beiden
+Crosswalk-Werkzeuge auch. Abschreiben hätte eine **vierte** Fassung erzeugt.
+
+**Das PDF bleibt ungetrackt** (`.gitignore`, Christians Entscheid vom
+5.10.2026). Damit ist die Lage dieselbe wie bei `docs/intern/platzbedarf.md`:
+Der Generator läuft dort, wo die Quelle liegt, das erzeugte Dokument ist die
+versionierte Fassung, und der Reproduktionswächter überspringt sauber, wenn die
+Quelle fehlt. **Was immer läuft, ist der Vergleich der drei Fassungen
+gegeneinander** — und genau der hätte die H1-Abweichung gefangen. Der Wert
+liegt weniger im Beweis gegen das PDF als in diesem Vergleich.
+
+**Fünf Zitate wichen ab, nicht drei.** Erwartet waren H1, F4 und H6; der
+Vergleich fand zusätzlich F2 (*„Wie wirken sich … auf Silber und Gold aus?"*
+gegen *„Wie wirken … auf Silver und Gold?"*) und H3, dessen Notebook-Fassung
+einen Satz mehr trug (*„Getestet werden Mitternacht, Jahresgrenzen und
+Sommerzeitwechsel."*). Alle fünf sind auf die abgegebene Fassung gezogen. Die
+**Messungen** darunter sind unberührt — geändert ist nur, was zitiert wird.
+
+**Kapitel 3 des Konzepts trägt jetzt F1–F6/H1–H6** samt der Ergebnisspalte aus
+Kapitel 11 der Abgabe, dazu die übergeordnete Frage und die Grenze des
+Nachweises. Der Entwurfskasten *„Der Entscheid … ist offen"* ist weg; der
+Entscheid ist mit der Abgabe gefallen.
+
+**Die gemessenen Befunde des Entwurfs sind nicht verloren**, sie sind
+umgezogen — als **Befunde** in den Analyseteil, nicht als Hypothesen:
+
+| Befund | vorher | jetzt |
+| --- | --- | --- |
+| Der räumliche Join reproduziert Detroits Tract-Angabe nicht | H7, Kapitel 8.4 | Befund, 8.4 |
+| Vollständig abgedeckt, nicht durchgehend abgebildet | H3, Kapitel 8.5 | Befund, 8.5 (hängt an F4) |
+| Fehlende Koordinaten hängen am Delikttyp | H1, nur in der Tabelle 3.3 | **neu 8.7**, mit allen Zahlen aus Notebook 34 |
+
+Der dritte stand bis heute **nur** in der Hypothesentabelle und in 3.4 — er
+wäre mit dem Entwurf verschwunden. Neues Kapitel 3.5 sagt in drei Zeilen, wo
+jeder von ihnen liegt.
+
+**Nachgezogen, weil die alten Nummern sonst ins Leere zeigen:** Notebook 32
+(Abschnitt 7 hiess *„Was das für H3 bedeutet"* — H3 heisst in der Abgabe etwas
+anderes), Notebook 34 (zwei Verweise auf H7 und H1),
+`docs/intern/leistungsnachweise.md` (die Entscheide 1 und 2 sind beantwortet),
+und die Liste *Offen für LN1* im Konzept.
+
+**Neue Wächter.** `tests/test_forschungsfragen.py`, sechzehn Stück: sechs Paare
+im Dokument, jede Frage mit Fragezeichen, Herkunft und Prüfsumme genannt, kein
+Erzeugungsdatum, Kapitel 3 wörtlich gegen das Dokument, die Befunde noch im
+Analyseteil, die Abbruchfälle (fehlende Marken mit Namen, Frage ohne
+Fragezeichen, fehlende Kopfzeile, fehlendes PDF ohne Traceback), der
+Seitenwechsel mitten in der Tabelle und die Reproduktion in einem **zweiten
+Prozess**. Dazu in `tests/test_notebook_hypothesen.py` der Vergleich, der bei
+einer Abweichung Hypothese **und beide Fassungen** nennt.
+
+**Zwei Nebenbefunde.**
+
+* `tests/test_dokumentwegweiser.py::test_die_quellen_liegen_im_eigenen_ordner`
+  war auf Christians Rechner **rot**, seit das PDF in `docs/` liegt: Es verbietet
+  flache PDFs dort. Die abgegebene Fassung ist aber keine amtliche Unterlage für
+  `docs/quellen/`, sondern die Quelle eines erzeugten Dokuments. Sie steht jetzt
+  als benannte Ausnahme mit Begründung im Test.
+* `aufraeumen` nannte zwei gepinnte Releases beide *„Referenzstand"*. Der Grund
+  aus `config/referenzstand.csv` steht jetzt dabei: `Referenzstand (LN1)` gegen
+  `Referenzstand (referenzstand)`. Dafür trägt `ReleaseEntscheid` ein drittes,
+  vorbelegtes Feld `pin`; `grund` bleibt die **Regel** und damit vergleichbar.
+
+**Gepinnt.** Das LN1-Release `2026-09-21T12-55-05Z` (21 Dateien, 42,5 MB) steht
+mit `grund=LN1` in `config/referenzstand.csv`. Es war nur noch *„unter den
+letzten 8"* und wäre beim neunten Release weggeräumt worden — der Stand, auf
+dem die Abgabe beruht. Nichts entfernt.
+
+**Zahlen.** 1'695 → **1'713 Tests** (siebzehn neue Wächter plus der umgebaute),
+Standardlauf 1'595 → **1'613**, Referenzwächter unverändert **100**, alle grün.
+Kein Vertragssprung, keine Daten angefasst. **Nachgebaut:**
+`docs/forschungsfragen.md`, `docs/bilder/architektur-*.svg` und
+`docs/referenz/` — das neue Werkzeug ist der zehnte Generator unter `tools/`
+und steht damit im Architekturbild.
 
 ## 05.10.2026 · Das Konzeptdokument heisst jetzt nach dem Leistungsnachweis, den es beschreibt (#133)
 

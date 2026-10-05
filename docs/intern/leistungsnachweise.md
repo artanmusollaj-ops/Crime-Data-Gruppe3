@@ -33,7 +33,7 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 ● fertig ◐ teilweise ○ offen
 
 **Die gute Nachricht:** Ingestion und Storage — die beiden praktisch
-aufwendigsten Blöcke — stehen. 1'695 Tests, fünf Quellen in vier Pipelines,
+aufwendigsten Blöcke — stehen. 1'713 Tests, fünf Quellen in vier Pipelines,
 nachgewiesene Vollständigkeit. Und weil die Hypothesen Fragen des Data Engineering sind
 (Abschnitt 2.0), sind fünf davon durch die bisherige Arbeit **bereits
 gemessen**: Wir haben Befunde, bevor wir die Hypothesen formuliert haben — und
@@ -95,6 +95,14 @@ Vorschlag als Ausgangstext, gemeinsam zu schärfen:
 > Einwohnerzahlen als Nenner für Raten.
 
 ### 2.2 Forschungsfragen (Vorschlag)
+
+> **Vorschlag heisst hier wirklich Vorschlag.** Abgegeben und bewertet wurden
+> **sechs** Teilfragen F1 bis F6 unter einer übergeordneten Frage, mit je einer
+> Hypothese H1 bis H6. Ihr Wortlaut steht erzeugt in
+> [`forschungsfragen.md`](../forschungsfragen.md) und ist massgeblich; dieser
+> Abschnitt und 2.3 halten fest, was **vorgeschlagen** war. Drei der Hypothesen
+> hier sind gemessen worden, und ihre Befunde stehen im Konzept (3.5, 8.4, 8.5,
+> 8.7) — als Befunde, nicht als Hypothesen.
 
 Drei Fragen entlang der Modulinhalte — Integration, Bewertung, Bereinigung:
 
@@ -313,7 +321,7 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie im Manifest oder in abgelegten URLs; drei Tests prüfen das. `.env` und `data/` aus Git ausgeschlossen, `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf, Herkunftsnachweis über `derived_from` und `input_fingerprint` durchgehend bis Gold, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog aus den Manifesten erzeugt, Aufbewahrungsregel mit `orchestration.aufraeumen` | das Aufräumen ist ein Handgriff, kein Automatismus |
-| **DataOps** | 1'695 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions über zwei Betriebssysteme und zwei Python-Versionen; dazu der wöchentliche Datenlauf | keine Alarmierung ausser dem roten Lauf selbst |
+| **DataOps** | 1'713 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions über zwei Betriebssysteme und zwei Python-Versionen; dazu der wöchentliche Datenlauf | keine Alarmierung ausser dem roten Lauf selbst |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (raw) und Ableitung (bronze). Zwei Architekturbilder, aus dem Code erzeugt ([`architektur.md`](../architektur.md)) | Vintage 2024 hart verdrahtet |
 | **Orchestration** | `orchestration.run_all`: 13 Stufen in Reihenfolge, Abbruch beim ersten Fehler, Gesamtmanifest über alle Eingabe-Läufe | der geplante Lauf ist wöchentlich, die Quellen ändern sich täglich; keine Wiederaufnahme nach Abbruch, bewusst |
 | **Software Engineering** | Modulare Pakete, Typannotationen, ausführliche Docstrings, Fehlerbehandlung mit Wiederholungen | – |
@@ -614,8 +622,8 @@ ergibt sich folgender Stand:
 
 | | Punkt | Stand | Woher |
 | --- | --- | --- | --- |
-| 1 | **Forschungsfragen** — FF1 bis FF3 übernehmen oder anders schneiden? | ○ **offen** | [Absprache 5.2](projektabsprache.md) sagt ausdrücklich „Forschungsfragen noch definieren" |
-| 2 | **Hypothesen** — H1 bis H5 Pflicht, H6 bis H8 Kür? | ○ **offen** | – |
+| 1 | **Forschungsfragen** — FF1 bis FF3 übernehmen oder anders schneiden? | ● **entschieden mit der Abgabe** | anders geschnitten: sechs Teilfragen F1 bis F6 unter einer übergeordneten Frage. Wortlaut in [`forschungsfragen.md`](../forschungsfragen.md), aus dem eingereichten PDF erzeugt |
+| 2 | **Hypothesen** — H1 bis H5 Pflicht, H6 bis H8 Kür? | ● **entschieden mit der Abgabe** | je Frage eine Hypothese, H1 bis H6, alle sechs gemessen (Notebook 36). Die Hypothesen dieses Dokuments bleiben als **Entwurf** stehen; was davon gerechnet wurde, steht als **Befund** im Konzept (3.5) |
 | 3 | **Serving-Option** — A, B oder C? | ● **A · Analytik** | Abschnitt 6; gebaut als Sternschema auf Deliktebene statt als Aggregat — die Messung dazu in Notebook 34 |
 | 4 | **Wetterquelle** — im Scope? | ● **ja** | [Absprache 2.1](projektabsprache.md) Variante **D**; Quelle gebaut, getestet, geladen, dokumentiert |
 | 5 | **Storage-Begründung** | ● **erledigt** | Notebook 31 misst NDJSON gegen Parquet, Kapitel 7 schreibt es aus; das Bronze-Format ist mit [Absprache 4.1](projektabsprache.md) auf Parquet entschieden |
@@ -625,20 +633,22 @@ Dazu zwei Entscheide, die in dieser Liste bisher fehlten und weiterhin offen
 sind — beide in Abschnitt 10.1: **Sichtbarkeit** des Repositorys und **Ablage**
 der Abgabe. Sie hängen an der Abgabeform, nicht an der Technik.
 
-**Drei echte Entscheidungen bleiben also: 1, 2 und 6.** Die ersten beiden
-hängen zusammen und beide am selben Punkt: Die **Form** von Gold steht seit dem
-Serving-Entscheid fest — Aggregate je Tract, Monat und Kategorie —, aber sein
-**Inhalt** hängt an den Forschungsfragen. Genau das sagt
+**Eine echte Entscheidung bleibt also: 6.** Die Punkte 1 und 2 sind seit der
+Abgabe beantwortet — eingereicht und bewertet wurden sechs Teilfragen mit sechs
+Hypothesen. Sie hingen beide am selben Punkt: Die **Form** von Gold stand seit
+dem Serving-Entscheid fest — Aggregate je Tract, Monat und Kategorie —, aber
+sein **Inhalt** hing an den Forschungsfragen. Genau das sagte
 [Absprache 5.2](projektabsprache.md) mit „Muss noch definiert werden.
-Forschungsfragen noch definieren."
+Forschungsfragen noch definieren." Gold hat das überlebt, weil es die
+Granularität behält: Jede Frage ist ein Filter darauf.
 
 **Eine Spannung, die aus zwei Entscheiden zusammen entsteht.** Abschnitt 6 hat
 Option **B** vorgeschlagen, unter anderem mit der Begründung, sie „macht die
 Wetterdaten nützlich". Gewählt ist **A**, während [Absprache
 2.1](projektabsprache.md) mit Variante **D** das Wetter im Scope behält. Damit
 muss das Wetter seinen Platz in einem Aggregat-Gold verdienen — etwa als
-Dimension neben Tract, Monat und Kategorie. Sonst trägt die Wetterquelle nur zu
-FF2 und H6 bei, nicht zum Serving. Das ist kein Widerspruch, aber es gehört beim
+Dimension neben Tract, Monat und Kategorie. Sonst trägt die Wetterquelle nur zur
+Qualitätsbetrachtung bei, nicht zum Serving. Das ist kein Widerspruch, aber es gehört beim
 Entwurf des Gold-Schemas entschieden.
 
 ### Was aus der Sitzung noch nicht eingearbeitet ist

@@ -8,20 +8,34 @@ Was hier geprueft wird, ist das, was ohne gebaute Daten pruefbar bleibt: dass
 alle sechs Hypothesen vorkommen, dass jede ein Ergebnis nennt, dass das
 Notebook keine Ausgaben mitspeichert - und dass die beiden Stellen, an denen
 es dem Code widerspricht, noch stimmen.
+
+**Seit dem 5.10.2026 auch der Wortlaut.** Die Zitate werden gegen
+``docs/forschungsfragen.md`` gehalten, das aus dem eingereichten PDF erzeugt
+ist. Vorher pruefte dieser Test nur, dass fuenf Zitate *vorkommen* - gegen
+nichts. Genau darin war eine Revision stehengeblieben; der Test dazu steht
+unten und erzaehlt sie.
 """
 
 from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 
 import pytest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+WERKZEUGE = PROJECT_ROOT / "tools"
+if str(WERKZEUGE) not in sys.path:
+    sys.path.insert(0, str(WERKZEUGE))
+
+import build_forschungsfragen as bf  # noqa: E402
+
 NOTEBOOK = PROJECT_ROOT / "notebooks" / "36_hypothesen.ipynb"
 OFFENSE = PROJECT_ROOT / "src" / "crime" / "silver_pipeline" / "build_crime_offense.py"
+FORSCHUNGSFRAGEN = PROJECT_ROOT / "docs" / "forschungsfragen.md"
 
 
 @pytest.fixture(scope="module")
@@ -60,13 +74,66 @@ def test_die_bilanz_fuehrt_alle_sechs(text):
 def test_das_notebook_haelt_die_hypothesen_woertlich_fest(text):
     """Es zitiert sie, statt auf ein Dokument zu verweisen, das anderswo liegt.
 
-    Die H1 bis H6 stehen in Artans Konzeptfassung, nicht im Repository. Ohne
-    das Zitat waere das Notebook in einem halben Jahr nicht mehr lesbar.
+    Ohne das Zitat waere das Notebook in einem halben Jahr nicht mehr lesbar.
     """
     zitate = re.findall(r"^> \*\*H\d:\*\*", text, re.M)
     assert len(zitate) >= 5, (
         f"nur {len(zitate)} Hypothesen sind woertlich zitiert"
     )
+
+
+def test_die_zitate_stimmen_mit_der_abgegebenen_fassung_ueberein(text):
+    """Woertlich heisst: gegen die Abgabe gehalten, nicht nur vorhanden.
+
+    **Der Fehler, der diesen Test ausgeloest hat.** Bis zum 5.10.2026 pruefte
+    der Test darueber nur, dass mindestens fuenf Zitate *vorkommen* - gegen
+    nichts, weil die massgebliche Fassung nicht im Repository lag. Dieses
+    Notebook zitierte deshalb monatelang eine Revision vor der Abgabe: Sein H1
+    sagte "die Menge der gelieferten technischen IDs", das abgegebene "die
+    gelieferte Menge ... bei Quellen ohne Identifikator-Menge tritt ein
+    gleichwertiger Nachweis an ihre Stelle". Ausgerechnet die Einschraenkung,
+    die dieses Notebook selbst gemessen hatte, fehlte in seinem Zitat.
+
+    Massgeblich ist ``docs/forschungsfragen.md`` - aus dem eingereichten PDF
+    erzeugt (``tools/build_forschungsfragen.py``). Der Vergleich braucht das
+    PDF nicht und laeuft deshalb immer.
+    """
+    if not FORSCHUNGSFRAGEN.is_file():
+        pytest.fail(
+            f"{FORSCHUNGSFRAGEN} fehlt - python tools/build_forschungsfragen.py. "
+            "Ohne das Dokument haengen die Zitate hier an nichts")
+    abgegeben = bf.massgeblich(FORSCHUNGSFRAGEN)
+    zitiert = bf.zitate_aus(text)
+
+    fehlend = [m for m in bf.FRAGEN + bf.HYPOTHESEN if m not in zitiert]
+    assert not fehlend, (
+        f"diese Marken werden im Notebook nicht woertlich zitiert: {fehlend}")
+
+    abweichend = [
+        f"{m}\n    abgegeben: {abgegeben[m]}\n    Notebook:  {zitiert[m]}"
+        for m in bf.FRAGEN + bf.HYPOTHESEN
+        if m in zitiert and zitiert[m] != abgegeben[m]
+    ]
+    assert not abweichend, (
+        "das Notebook zitiert nicht die abgegebene Fassung:\n  "
+        + "\n  ".join(abweichend)
+        + "\n\nMassgeblich ist docs/forschungsfragen.md - es wurde "
+        "eingereicht und bewertet. Nachziehen heisst hier: das Zitat im "
+        "Notebook aendern, nicht die Hypothese."
+    )
+
+
+def test_das_notebook_nennt_das_massgebliche_dokument(text):
+    """Ein Zitat ohne Quelle ist eine Behauptung.
+
+    Bis zum 5.10.2026 stand im Notebook, die Hypothesen stuenden "in Artans
+    Konzeptfassung, die nicht im Repository liegt". Das stimmt nicht mehr - und
+    ein Leser, der es glaubt, sucht am falschen Ort.
+    """
+    assert "forschungsfragen.md" in text, (
+        "das Notebook nennt docs/forschungsfragen.md nicht - dann weiss "
+        "niemand, woher die Zitate kommen und was sie belegt")
+    assert "Artans\n> Konzeptfassung" not in text
 
 
 def test_der_docstring_behauptet_nicht_mehr_reconcile_zaehle_die_randfaelle():
