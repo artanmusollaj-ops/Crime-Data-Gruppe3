@@ -135,6 +135,28 @@ VORUEBERGEHEND = {"403", "AccessDenied", "500", "502", "503", "504",
                   "InternalError", "ServiceUnavailable", "SlowDown", "RequestTimeout"}
 
 
+def fehlerkennung(fehler: Exception) -> str:
+    """Wie ein Transportfehler im Protokoll heisst - der Code, nicht die Klasse.
+
+    Bis zum 5.10.2026 schrieb die Wiederholungswarnung
+    ``type(fehler).__name__``, also "ClientError" - und so heisst *jeder*
+    abgelehnte boto-Aufruf. Damit war die Drosselung des Endpunkts (403 auf
+    einen vorhandenen, aber dicht abgefragten Schluessel) nicht von einem
+    fehlenden Schluessel zu unterscheiden, und die Fehlersuche am 5.10.2026
+    lief zweimal in die falsche Richtung, bevor eine Messung die Drosselung
+    zeigte. Seither nennt die Warnung den Code und, wo boto einen mitgibt,
+    den HTTP-Status.
+    """
+    from botocore.exceptions import ClientError
+
+    if isinstance(fehler, ClientError):
+        antwort = fehler.response or {}
+        code = str(antwort.get("Error", {}).get("Code", "")) or "ohne Code"
+        status = (antwort.get("ResponseMetadata") or {}).get("HTTPStatusCode")
+        return f"{code} (HTTP {status})" if status else code
+    return type(fehler).__name__
+
+
 class Boto3Client:
     """S3 ueber boto3, path-style, gegen den konfigurierten Endpoint."""
 
@@ -174,7 +196,7 @@ class Boto3Client:
                 letzter = fehler
             if versuch < VERSUCHE - 1:
                 LOG.warning("SeaweedFS: %s bei %s - Versuch %d von %d, Pause %.0f s",
-                            type(letzter).__name__, was, versuch + 1, VERSUCHE, PAUSEN[versuch])
+                            fehlerkennung(letzter), was, versuch + 1, VERSUCHE, PAUSEN[versuch])
                 time.sleep(PAUSEN[versuch])
         raise self._uebersetzt(letzter, was) from letzter
 
@@ -248,31 +270,56 @@ class Boto3Client:
 
 
 class FakeS3Client:
-    """Ein S3 im Speicher - fuer Tests, ohne Netz und ohne SeaweedFS."""
+    """Ein S3 im Speicher - fuer Tests, ohne Netz und ohne SeaweedFS.
+
+    ``anfragen`` haelt jede gestellte Anfrage in der Reihenfolge, in der sie
+    gestellt wurde (``"HEAD <key>"``, ``"LIST <prefix>"``, ``"GET <key>"``,
+    ``"PUT <key>"``, ``"DELETE <key>"``). Damit laesst sich **zaehlen**, nicht
+    nur pruefen - genau das brauchte der Nachweis, dass ``publish_files`` ein
+    ``list`` je Praefix stellt und kein ``HEAD`` je Datei.
+    """
 
     def __init__(self) -> None:
         self.objekte: dict[str, bytes] = {}
         self.uploads: list[str] = []
         self.geloescht: list[str] = []
+        self.anfragen: list[str] = []
 
-    def head(self, key: str) -> Objekt | None:
+    def _objekt(self, key: str) -> Objekt | None:
+        """Die Auskunft zu einem Schluessel - dieselbe fuer ``head`` und ``list``.
+
+        Beide Wege sagen dasselbe ueber dasselbe Objekt, so wie bei S3:
+        ``ListObjectsV2`` nennt ``Size`` und ``ETag`` je Eintrag, und es sind
+        dieselben Werte, die ein ``HeadObject`` liefert. Wer im Test ein
+        eigenwilliges ETag braucht, ueberschreibt deshalb **diese** Stelle -
+        nicht ``head``, sonst zeigten die beiden Wege Verschiedenes.
+        """
         if key not in self.objekte:
             return None
         daten = self.objekte[key]
         return Objekt(key, len(daten), '"' + hashlib.md5(daten).hexdigest() + '"')
 
+    def head(self, key: str) -> Objekt | None:
+        self.anfragen.append(f"HEAD {key}")
+        return self._objekt(key)
+
     def get(self, key: str) -> bytes:
+        self.anfragen.append(f"GET {key}")
         return self.objekte[key]
 
     def put(self, key: str, daten: bytes) -> None:
+        self.anfragen.append(f"PUT {key}")
         self.objekte[key] = bytes(daten)
         self.uploads.append(key)
 
     def list(self, prefix: str) -> list[Objekt]:
-        return [self.head(k) for k in sorted(self.objekte) if k.startswith(prefix)]  # type: ignore[misc]
+        # Eine Anfrage, wie bei ``Boto3Client.list`` - kein ``HEAD`` je Eintrag.
+        self.anfragen.append(f"LIST {prefix}")
+        return [self._objekt(k) for k in sorted(self.objekte) if k.startswith(prefix)]  # type: ignore[misc]
 
     def delete(self, key: str) -> None:
         # Wie S3: ein fehlender Schluessel ist kein Fehler.
+        self.anfragen.append(f"DELETE {key}")
         self.objekte.pop(key, None)
         self.geloescht.append(key)
 
@@ -729,6 +776,12 @@ class Storage:
         Gibt zurueck, was jetzt oben liegt. Ohne S3 im Backend passiert
         nichts; im Hybridmodus mit ``HYBRID_PUBLISH_AFTER_WRITE=false`` auch
         nicht - dann steht es im Log.
+
+        Was oben schon liegt, wird **einmal je Praefix** aufgelistet, nicht je
+        Datei mit ``HEAD`` erfragt (siehe ``_bestand_oben``). Jede Entscheidung
+        bleibt dieselbe: identisch oben wird uebersprungen, abweichend oben ist
+        ohne ``ueberschreiben`` ein Fehler, und ``_ist_identisch`` entscheidet
+        allein, was "gleich" heisst.
         """
         liste = [paths.relativ(d) for d in dateien]
         if not liste:
@@ -739,13 +792,14 @@ class Storage:
             return []
 
         reihenfolge = sorted(liste, key=lambda r: (r.rsplit("/", 1)[-1] == MANIFEST, r))
+        bestand = self._bestand_oben(reihenfolge)
         oben: list[str] = []
         for rel in reihenfolge:
             lokal = self.local_path(rel)
             daten = lokal.read_bytes()
             md5 = hashlib.md5(daten).hexdigest()
 
-            vorhanden = self.client.head(rel)
+            vorhanden = bestand.get(rel)
             if vorhanden is not None:
                 if self._ist_identisch(rel, vorhanden, daten, md5):
                     LOG.info("Already published, identical: %s", rel)
@@ -775,6 +829,44 @@ class Storage:
             LOG.info("Published: %s", rel)
             oben.append(rel)
         return oben
+
+    def _bestand_oben(self, dateien: list[str]) -> dict[str, Objekt]:
+        """Was von ``dateien`` schon oben liegt - **ein** ``list`` je Praefix.
+
+        Bis zum 5.10.2026 fragte ``publish_files`` je Datei mit ``HEAD``, ob
+        oben schon etwas liegt. Beim Publizieren der sechs Jahrgaenge waren das
+        446 Anfragen in Folge, und der Endpunkt drosselte 350 davon: Unter
+        dichter Anfragefolge antwortet er auf einen fehlenden Schluessel mit
+        403 statt 404. Gemessen am 5.10.2026 - 120 Anfragen in 8,5 s ergaben
+        120 x 403, derselbe fehlende Schluessel einzeln abgefragt 403 einmal
+        und 404 viermal. ``403`` steht in ``VORUEBERGEHEND``, also holte
+        ``_mit_wiederholung`` nach einer Sekunde das ehrliche 404 - das
+        Ergebnis stimmte, der Upload dauerte doppelt so lang.
+
+        Ein ``list`` beantwortet dieselbe Frage fuer alle Dateien eines
+        Verzeichnisses: ``Objekt`` traegt ``key``, ``size`` und ``etag``, und
+        genau das - und nichts darueber hinaus - braucht ``_ist_identisch``.
+        Die Zahl der Anfragen fuer die Vorabpruefung faellt damit von N auf
+        eins je Verzeichnis.
+
+        Aufgelistet wird je **Praefix**, nicht einmal fuer alles: Ein Release
+        traegt Dateien unter ``gold/dataset=...`` und ``serving/dataset=...``,
+        und ein ``list`` auf den gemeinsamen Stamm brachte jedes andere
+        Release mit.
+        """
+        gesucht: dict[str, set[str]] = {}
+        for rel in dateien:
+            verzeichnis = rel.rpartition("/")[0]
+            # Ein Schluessel ohne Verzeichnis (``write_text`` kann einen
+            # anlegen) wird mit sich selbst als Praefix aufgelistet: ``list("")``
+            # waere der ganze Bucket. Nachgeschlagen wird ohnehin exakt.
+            gesucht.setdefault(verzeichnis + "/" if verzeichnis else rel, set()).add(rel)
+        bestand: dict[str, Objekt] = {}
+        for praefix, schluessel in gesucht.items():
+            for objekt in self.client.list(praefix):
+                if objekt.key in schluessel:
+                    bestand[objekt.key] = objekt
+        return bestand
 
     def _ist_identisch(self, rel: str, oben: Objekt, daten: bytes, md5: str) -> bool:
         """Ob das Objekt oben byteweise dasselbe ist wie ``daten``.

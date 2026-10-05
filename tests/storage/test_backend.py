@@ -434,10 +434,14 @@ class EtagOhneMD5(FakeS3Client):
     So verhaelt sich S3 nach einem mehrteiligen Upload: Das ETag ist ein Hash
     ueber die Teil-Hashes, mit angehaengter Teilezahl. SeaweedFS kann sich
     ebenso verhalten.
+
+    Ueberschrieben wird ``_objekt`` und nicht ``head``: Das ETag ist dasselbe,
+    gleich ob es aus einem ``HEAD`` oder aus einem ``LIST`` kommt - und seit
+    dem 5.10.2026 prueft ``publish_files`` ueber ``list``.
     """
 
-    def head(self, key: str):
-        objekt = super().head(key)
+    def _objekt(self, key: str):
+        objekt = super()._objekt(key)
         if objekt is None:
             return None
         return objekt._replace(etag='"d41d8cd98f00b204e9800998ecf8427e-2"')
@@ -564,6 +568,222 @@ def test_eine_unfertige_tabelle_zaehlt_nicht_als_gebaut(tmp_path):
     fake.put("gold/dataset=fact_offense/manifest.json",
              b'{"status": "complete", "row_count": 9}')
     assert [t.name for t in storage.tabellen()] == ["fact_offense"]
+
+
+# --------------------------------------------------------------------------
+# Die Vorabpruefung: ein ``list`` je Praefix (seit 5.10.2026)
+#
+# Beim Publizieren der sechs Jahrgaenge stellte ``publish_files`` 446 ``HEAD``
+# in Folge, und der Endpunkt drosselte 350 davon - unter dichter Anfragefolge
+# antwortet er auf einen fehlenden Schluessel mit 403 statt 404. Die
+# Wiederholung holte jedes Mal das ehrliche 404, der Upload dauerte doppelt so
+# lang. Hier wird deshalb **gezaehlt**, nicht nur geprueft: ``FakeS3Client``
+# fuehrt jede Anfrage in ``anfragen`` mit.
+#
+# Das ``HEAD`` nach dem Upload bleibt. Es ist keine Vorabpruefung, sondern die
+# Bestaetigung, dass das Objekt angekommen ist - und sie muss je Datei
+# geschehen, **bevor** das Manifest hochgeht. Erst eine Bestaetigung nach allen
+# Uploads liesse ein unbestaetigtes Objekt unter einem ``complete``-Manifest
+# zurueck, also genau den gemischten Stand, den die Reihenfolge verhindert.
+# --------------------------------------------------------------------------
+
+
+def lauf_mit_dateien(storage: Storage, rel_dir: str, anzahl: int) -> list[str]:
+    """Ein Lauf mit ``anzahl`` Datendateien und einem Manifest."""
+    namen = [f"part-{i:04d}.parquet" for i in range(1, anzahl + 1)]
+    for i, name in enumerate(namen, start=1):
+        lokal_schreiben(storage, f"{rel_dir}/{name}", f"PAR1-{i}".encode())
+    lokal_schreiben(storage, f"{rel_dir}/manifest.json",
+                    json.dumps({"status": "complete", "run_id": "run_n"}).encode())
+    return [f"{rel_dir}/{n}" for n in namen] + [f"{rel_dir}/manifest.json"]
+
+
+def anfragen_nach(fake: FakeS3Client, art: str) -> list[str]:
+    return [a for a in fake.anfragen if a.startswith(art + " ")]
+
+
+def test_ein_neuer_lauf_wird_einmal_aufgelistet_und_dann_geladen(tmp_path):
+    """Matrixzeile "Neuer Lauf": ein ``list``, dann N Uploads."""
+    storage, fake = ablage(tmp_path, "hybrid")
+    rel = "bronze/city=chicago/ingest_date=2026-10-05/run_neu"
+    dateien = lauf_mit_dateien(storage, rel, 5)
+
+    assert storage.publish_run(rel) == sorted(dateien, key=lambda r: r.endswith("manifest.json"))
+    assert anfragen_nach(fake, "LIST") == [f"LIST {rel}/"], "eine Auskunft fuer alle sechs Dateien"
+    assert len(anfragen_nach(fake, "PUT")) == 6
+    kopfanfragen = [i for i, a in enumerate(fake.anfragen) if a.startswith("HEAD ")]
+    assert all(fake.anfragen[i - 1] == "PUT " + fake.anfragen[i].removeprefix("HEAD ")
+               for i in kopfanfragen), (
+        "jedes HEAD bestaetigt den Upload davor; keines fragt vorab nach")
+
+
+def test_ein_vollstaendig_identischer_lauf_kostet_eine_einzige_anfrage(tmp_path):
+    """Die Zahl, um die es ging: 1 statt N. Vorher waren es N ``HEAD``."""
+    storage, fake = ablage(tmp_path, "hybrid")
+    rel = "bronze/city=detroit/ingest_date=2026-10-05/run_wieder"
+    lauf_mit_dateien(storage, rel, 12)
+    storage.publish_run(rel)
+
+    fake.anfragen.clear()
+    fake.uploads.clear()
+    storage.publish_run(rel)
+    assert fake.anfragen == [f"LIST {rel}/"], (
+        f"13 Dateien, erwartet genau eine Anfrage, gestellt: {fake.anfragen}")
+    assert fake.uploads == [], "identisches wurde nicht erneut geladen"
+
+
+def test_teilweise_oben_laedt_nur_den_rest(tmp_path):
+    """Matrixzeile "Teilweise oben": identische uebersprungen, Rest hochgeladen."""
+    storage, fake = ablage(tmp_path, "hybrid")
+    rel = "bronze/city=chicago/ingest_date=2026-10-05/run_halb"
+    lauf_mit_dateien(storage, rel, 4)
+    for name in ("part-0001.parquet", "part-0003.parquet"):
+        fake.put(f"{rel}/{name}", storage.local_path(f"{rel}/{name}").read_bytes())
+
+    fake.anfragen.clear()
+    fake.uploads.clear()
+    storage.publish_run(rel)
+    assert fake.uploads == [f"{rel}/part-0002.parquet", f"{rel}/part-0004.parquet",
+                            f"{rel}/manifest.json"]
+    assert anfragen_nach(fake, "LIST") == [f"LIST {rel}/"]
+
+
+def test_ein_abweichendes_objekt_nennt_beide_groessen_und_laedt_nichts(tmp_path):
+    """Matrixzeile "Abweichend oben": gleiche Groesse, anderer Inhalt.
+
+    ``PublishError``, und oben bleibt alles, wie es war - auch das Manifest
+    kommt nicht an.
+    """
+    storage, fake = ablage(tmp_path, "hybrid")
+    rel = "bronze/city=chicago/ingest_date=2026-10-05/run_anders"
+    lokal_schreiben(storage, f"{rel}/part-0001.parquet", b"NEU")
+    lokal_schreiben(storage, f"{rel}/manifest.json", b'{"status": "complete"}')
+    fake.put(f"{rel}/part-0001.parquet", b"ALT")
+
+    with pytest.raises(PublishError, match=r"3 Bytes, lokal 3"):
+        storage.publish_run(rel)
+    assert fake.objekte[f"{rel}/part-0001.parquet"] == b"ALT", "nichts wurde ueberschrieben"
+    assert f"{rel}/manifest.json" not in fake.objekte
+    assert anfragen_nach(fake, "PUT") == [f"PUT {rel}/part-0001.parquet"], (
+        "das war der Aufbau, nicht der Lauf")
+
+
+def test_ein_mehrteiliges_etag_wird_weiterhin_ueber_den_inhalt_geprueft(tmp_path):
+    """Matrixzeile "Mehrteiliges ETag": der Vergleichsdownload bleibt.
+
+    Das ``list`` liefert dasselbe ETag wie ein ``HEAD``, und wenn das keine
+    Pruefsumme ist, holt ``_ist_identisch`` den Inhalt - wie bisher.
+    """
+    fake = EtagOhneMD5()
+    storage = Storage(Config(backend="s3", local_root=tmp_path / "data",
+                             s3_access_key="k", s3_secret_key="s"), fake)
+    rel = "bronze/city=detroit/ingest_date=2026-10-05/run_mehrteilig"
+    lauf_mit_dateien(storage, rel, 2)
+    for name in ("part-0001.parquet", "part-0002.parquet", "manifest.json"):
+        fake.objekte[f"{rel}/{name}"] = storage.local_path(f"{rel}/{name}").read_bytes()
+
+    fake.anfragen.clear()
+    fake.uploads.clear()
+    storage.publish_run(tmp_path / "data" / rel)
+    assert fake.uploads == [], "gleicher Inhalt, nichts zu laden"
+    assert anfragen_nach(fake, "LIST") == [f"LIST {rel}/"]
+    assert len(anfragen_nach(fake, "GET")) == 3, "je Datei ein Vergleichsdownload"
+
+
+def test_dateien_aus_mehreren_verzeichnissen_werden_je_praefix_aufgelistet(tmp_path):
+    """Matrixzeile "Dateien aus mehreren Verzeichnissen": ein Release.
+
+    Ein ``list`` je Praefix, nicht eines fuer alles: ``list`` auf den
+    gemeinsamen Stamm brachte jedes andere Release mit.
+    """
+    storage, fake = ablage(tmp_path, "hybrid")
+    wurzel = "releases/release=2026-10-05T12-00-00Z"
+    dateien = [f"{wurzel}/gold/dataset=fact_offense/part-0001.parquet",
+               f"{wurzel}/gold/dataset=dim_date/part-0001.parquet",
+               f"{wurzel}/serving/dataset=comparison_day/part-0001.parquet",
+               f"{wurzel}/serving/tracts.geojson",
+               f"{wurzel}/release.json"]
+    for rel in dateien:
+        lokal_schreiben(storage, rel, rel.encode())
+
+    storage.publish_files(dateien, ueberschreiben=False)
+    gestellt = anfragen_nach(fake, "LIST")
+    assert sorted(gestellt) == sorted([
+        f"LIST {wurzel}/gold/dataset=dim_date/",
+        f"LIST {wurzel}/gold/dataset=fact_offense/",
+        f"LIST {wurzel}/serving/dataset=comparison_day/",
+        f"LIST {wurzel}/serving/",
+        f"LIST {wurzel}/",
+    ]), "je Verzeichnis genau eines, fuenf Verzeichnisse, fuenf Anfragen"
+    assert "LIST releases/" not in gestellt, "der Stamm haette jedes andere Release gebracht"
+
+
+def test_ein_fehler_beim_auflisten_wird_durchgereicht(tmp_path):
+    """Matrixzeile "``list`` schlaegt fehl": der ``StorageError`` kommt durch.
+
+    Nicht als ``PublishError`` verpackt - eine unerreichbare Ablage ist kein
+    Publikationsproblem, und der Satz aus ``_uebersetzt`` nennt den Code.
+    """
+    from storage import StorageError
+
+    storage, _ = ablage(tmp_path, "hybrid")
+    lauf_schreiben(storage, "bronze/x/run_gedrosselt")
+
+    class Gedrosselt(FakeS3Client):
+        def list(self, prefix: str):
+            raise StorageError("SeaweedFS lehnt ab: 403 bei LIST bronze/x/run_gedrosselt/")
+
+    storage._client = gedrosselt = Gedrosselt()
+    with pytest.raises(StorageError, match="403"):
+        storage.publish_run("bronze/x/run_gedrosselt")
+    assert gedrosselt.objekte == {}, "nichts ging hoch"
+
+
+def test_eine_leere_liste_stellt_keine_anfrage(tmp_path):
+    """Matrixzeile "Leere Liste": kein ``list``, kein Upload."""
+    storage, fake = ablage(tmp_path, "hybrid")
+    assert storage.publish_files([]) == []
+    assert fake.anfragen == []
+
+
+def test_die_wiederholungswarnung_nennt_den_fehlercode(monkeypatch, caplog):
+    """"ClientError" sagte nichts - der Code unterscheidet 403 von 404.
+
+    Zwei falsche Diagnosen am 5.10.2026 gingen darauf zurueck, dass die
+    Warnung den Klassennamen schrieb.
+    """
+    from botocore.exceptions import ClientError
+
+    from storage import backend
+    from storage.backend import Boto3Client
+
+    monkeypatch.setattr(backend.time, "sleep", lambda s: None)
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s"))
+    antworten = [ClientError({"Error": {"Code": "403"},
+                              "ResponseMetadata": {"HTTPStatusCode": 403}}, "ListObjectsV2")]
+
+    class Launisch:
+        def get_paginator(self, name):
+            if antworten:
+                raise antworten.pop(0)
+            return self
+
+        def paginate(self, **kw):
+            return [{"Contents": []}]
+
+    client._client = Launisch()
+    with caplog.at_level("WARNING", logger="storage"):
+        assert client.list("bronze/x/") == []
+    assert "403 (HTTP 403)" in caplog.text and "ClientError" not in caplog.text
+
+
+def test_die_fehlerkennung_faellt_auf_den_klassennamen_zurueck():
+    """Ein Fehler ohne Code - dann bleibt nur, wie er heisst."""
+    from storage.backend import fehlerkennung
+
+    from botocore.exceptions import ConnectionClosedError
+
+    assert fehlerkennung(ConnectionClosedError(endpoint_url="https://x")) == "ConnectionClosedError"
 
 
 # --------------------------------------------------------------------------

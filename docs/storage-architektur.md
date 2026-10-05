@@ -264,6 +264,34 @@ Nach jedem Upload wird das Objekt zurückgelesen: Existenz und Grösse immer,
 die MD5-Prüfsumme gegen das ETag, wo der Dienst eines liefert. Ein Upload,
 der nicht bestätigt ist, gilt nicht als erfolgt.
 
+**Was oben schon liegt, wird einmal je Präfix aufgelistet** — seit dem
+5.10.2026. Bis dahin fragte `publish_files` je Datei mit einem `HEAD`, ob dort
+schon etwas liegt. Beim Publizieren der sechs Jahrgänge waren das 446
+Anfragen in Folge, und der Endpunkt drosselte 350 davon: Unter dichter
+Anfragefolge antwortet er auf einen **fehlenden** Schlüssel mit `403` statt
+`404`. Gemessen — 120 Anfragen in 8,5 s ergaben 120 × `403`, derselbe
+fehlende Schlüssel einzeln abgefragt `403` einmal und `404` viermal. `403`
+gilt als vorübergehend, also holte die Wiederholung nach einer Sekunde das
+ehrliche `404`; das Ergebnis stimmte, der Upload dauerte doppelt so lang.
+
+Ein `list` beantwortet dieselbe Frage für alle Dateien eines Verzeichnisses:
+Es nennt je Objekt Schlüssel, Grösse und ETag — und genau das, nicht mehr,
+braucht der Vergleich. Je **Präfix**, nicht einmal für alles: Ein Release
+trägt Dateien unter `gold/dataset=…` und `serving/dataset=…`, und ein `list`
+auf den gemeinsamen Stamm brächte jedes andere Release mit.
+
+Jede Entscheidung bleibt dieselbe — identisch oben wird übersprungen,
+abweichend oben ist ohne `ueberschreiben` ein Fehler, `manifest.json` geht
+zuletzt hoch. Das `HEAD` **nach** dem Upload bleibt ebenso: Es ist keine
+Vorabfrage, sondern die Bestätigung, und sie muss je Datei geschehen, bevor
+das Manifest hochgeht. `tests/storage/test_backend.py` zählt die Anfragen
+mit — ein `list` je Präfix, kein `HEAD` vorab.
+
+Scheitert eine Anfrage wiederholbar, nennt die Warnung im Log den **Fehlercode**
+und, wo boto3 einen mitgibt, den HTTP-Status (`403 (HTTP 403)`). Vorher stand
+dort der Klassenname `ClientError`, und so heisst jeder abgelehnte Aufruf —
+die Drosselung war daran nicht von einem fehlenden Schlüssel zu unterscheiden.
+
 ---
 
 ## 6a · Das Release: der ganze Stand unter einer Kennung

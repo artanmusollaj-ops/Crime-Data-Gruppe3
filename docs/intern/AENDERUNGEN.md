@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'722** |
+| Tests | **1'732** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -102,6 +102,73 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 05.10.2026 · Publizieren fragt einmal je Lauf statt einmal je Datei (#136)
+
+**Was passiert war.** `Storage.publish_files` fragte **je Datei** mit einem
+`HEAD`, ob oben schon etwas liegt. Beim Publizieren der sechs Jahrgänge waren
+das 446 Anfragen in Folge, und der Endpunkt hat **350 davon gedrosselt**:
+Unter dichter Anfragefolge antwortet er auf einen **fehlenden** Schlüssel mit
+`403` statt `404`. Nachgewiesen mit zwei Messungen — 120 Anfragen in 8,5 s
+ergaben 120 × `403`, und derselbe fehlende Schlüssel einzeln abgefragt `403`
+einmal und `404` viermal. `403` steht in `VORUEBERGEHEND`, also hat
+`_mit_wiederholung` jedes Mal nach einer Sekunde das ehrliche `404` geholt.
+**Das Ergebnis war richtig** — publiziert wurde, was publiziert werden
+musste, und nichts wurde überschrieben. Der Upload dauerte dadurch rund
+doppelt so lang.
+
+**Was sich ändert.** Statt je Datei ein `HEAD` wird **einmal je Präfix** ein
+`list` gestellt (`_bestand_oben`). Die Auskunft ist dieselbe: `Objekt` trägt
+`key`, `size` und `etag`, und genau das — und nichts darüber hinaus — braucht
+`_ist_identisch`. Für einen Lauf mit zwölf Dateien fällt die Vorabprüfung
+damit von zwölf Anfragen auf **eine**; liegt der Lauf schon identisch oben,
+ist es die einzige Anfrage überhaupt.
+
+Je **Präfix**, nicht einmal für alles: Ein Release trägt Dateien unter
+`gold/dataset=…` und `serving/dataset=…`, und ein `list` auf den gemeinsamen
+Stamm brächte jedes andere Release mit. Ein Test hält das fest.
+
+**Was ausdrücklich gleich bleibt.** Jede Entscheidung: identisch oben wird
+übersprungen, abweichend oben ist ohne `ueberschreiben` ein Fehler,
+`manifest.json` geht zuletzt hoch, und `_ist_identisch` bleibt die einzige
+Stelle, die „gleich" entscheidet — samt ihrem Vergleichsdownload für
+mehrteilige ETags. Auch das `HEAD` **nach** dem Upload bleibt: Es ist keine
+Vorabfrage, sondern die Bestätigung, dass das Objekt angekommen ist, und sie
+muss je Datei geschehen, **bevor** das Manifest hochgeht. Erst eine
+Bestätigung nach allen Uploads liesse ein unbestätigtes Objekt unter einem
+`complete`-Manifest zurück — genau den gemischten Stand, den die Reihenfolge
+verhindert. `VORUEBERGEHEND` und `PAUSEN` sind unangetastet: Die Drosselung
+**ist** vorübergehend, und wer `403` herausnähme, liesse den Upload am ersten
+gedrosselten `list` scheitern.
+
+**Die Warnung sagt jetzt, was los ist.** Sie schrieb
+`type(fehler).__name__`, also „ClientError" — und so heisst jeder abgelehnte
+boto-Aufruf. Die Drosselung war daran nicht von einem fehlenden Schlüssel zu
+unterscheiden, und die Fehlersuche lief **zweimal in die falsche Richtung**,
+bevor eine Messung sie zeigte. `fehlerkennung()` nennt seither den Code und,
+wo boto3 einen mitgibt, den HTTP-Status: `403 (HTTP 403)`.
+
+**Nebenbefund in der Testvorrichtung.** `FakeS3Client.list` baute seine
+Antwort über `self.head()` — je Eintrag ein `HEAD`, was `Boto3Client.list`
+nie tut (eine Anfrage, paginiert). Die Fassung zeigte damit nicht dieselbe
+Semantik wie die echte, und jede Zählung von Anfragen hätte sie verfälscht.
+Beide Wege gehen jetzt über `_objekt()`, und `FakeS3Client` führt in
+`anfragen` jede gestellte Anfrage mit — damit lässt sich **zählen**, nicht
+nur prüfen.
+
+**Nebenbefund in den Zahlen.** Beim Nachziehen der Testzahl fielen drei
+überholte Angaben auf, die niemand bewacht: Der Reproduktionsabschnitt in
+`ln2_konzept.md` nannte „8 davon übersprungen" (es sind 12), und das README
+sprach von „übrigen 31" bei einer Lücke von 33 und von „100
+Referenzstand-Wächtern", wo seit dem 5.10. 102 stehen. Alle drei
+richtiggestellt.
+
+**Zahlen.** 1'722 → **1'732 Tests** (zehn neue Wächter: jede Zeile der
+Fall-Matrix, dazu zwei, die die Anfragen zählen, und zwei zum Fehlercode),
+Standardlauf 1'620 → **1'630**, Referenzwächter unverändert **102**, alle
+grün. Kein Vertragssprung, keine Daten angefasst, keine Tabelle und keine
+Spalte neu. **Nachgebaut:** `docs/referenz/`.
+
 
 ## 05.10.2026 · Elasticsearch trägt das ganze Sternschema, nicht die Hälfte davon (#135)
 
