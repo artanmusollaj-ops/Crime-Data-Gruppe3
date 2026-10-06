@@ -302,9 +302,16 @@ def test_kibana_nimmt_die_erzeugten_objekte_an(kibana):
 def test_ein_verweis_ins_leere_wird_abgefangen(kibana):
     """Kibana legt das Dashboard auch dann an - beim Oeffnen steht dann
     *Could not locate that panel*."""
-    klient, _ = kibana
+    klient, angelegt = kibana
     kaputt = bk.dashboard_objekt(
         brett(bk.Tafel("fehlt", "Fehlt", "zahl", ZAEHLEN)))
+    # Gerade weil Kibana es anlegt, muss es auch wieder weg: Bis zum
+    # 6.10.2026 verwarf dieser Test die Aufraeumliste (``klient, _``), und
+    # das Brett "Probe" blieb im laufenden Kibana stehen - dort gefunden,
+    # neben den drei echten. Dieselbe Sorte Rueckstand wie die 681
+    # pruefung-Indizes in Elasticsearch, nur unauffaelliger, weil es eines
+    # ist und nicht siebenhundert.
+    angelegt.append((kaputt["type"], kaputt["id"]))
     with pytest.raises(LadeFehler, match="ins Leere"):
         bk.lege_an(klient, [bk.datenansicht(), kaputt])
 

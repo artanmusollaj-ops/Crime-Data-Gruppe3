@@ -56,8 +56,11 @@ from serving.load_elasticsearch import aktuelles_release
 STANDARD_URL = "http://localhost:15601"
 
 #: Die Fassung, die in jedes Tafelobjekt geschrieben wird. Kibana wandert
-#: gespeicherte Objekte anhand dieser Angabe auf neuere Staende.
-FASSUNG = "8.15.0"
+#: gespeicherte Objekte anhand dieser Angabe auf neuere Staende. Sie muss
+#: deshalb zu der Fassung passen, die ``docker-compose.yml`` startet - steht
+#: hier eine aeltere, laesst Kibana bei jedem Laden eine Wanderung ueber die
+#: Objekte laufen, die nichts zu tun hat.
+FASSUNG = "8.19.22"
 
 #: Kibanas Raster ist 48 Spalten breit. Halb heisst 24, ein Drittel 16.
 RASTER = 48
