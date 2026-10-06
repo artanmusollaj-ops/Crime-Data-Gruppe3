@@ -822,18 +822,41 @@ Maschine misst es das Rauschen der Nachbarn.
 [`Dockerfile.jupyter`](../Dockerfile.jupyter) setzt auf dem Strecken-Abbild
 auf, statt eine zweite Abhängigkeitsliste zu führen — die wäre eine zweite
 Wahrheit neben `requirements.lock`. Gebaut werden beide nacheinander, und das
-Grundabbild kommt als Argument herein; auf dem Entwicklungsrechner ist das
-der lokale Name, beim Schieben die per Digest gepinnte Adresse:
+Grundabbild kommt als Argument herein — hier gleich unter der Adresse, unter
+der es geschoben wird, damit das Analyse-Abbild nicht auf einem Namen
+aufsetzt, den es nur auf dem Entwicklungsrechner gibt:
 
 ```bash
-docker build -t urban-crime --build-arg GIT_COMMIT=$(git rev-parse HEAD) .
-docker build -f Dockerfile.jupyter -t urban-crime-jupyter \
-    --build-arg BASIS=urban-crime .
+echo $GHCR_TOKEN | docker login ghcr.io -u datenwerft --password-stdin
 
-docker tag urban-crime-jupyter <registry>/urban-crime-jupyter:<datum>
-docker push <registry>/urban-crime-jupyter:<datum>
-# danach in der .env des Stapels: JUPYTER_IMAGE=<registry>/...@sha256:<digest>
+docker build --platform linux/amd64 \
+    -t ghcr.io/datenwerft/urban-crime:<datum> \
+    --build-arg GIT_COMMIT=$(git rev-parse HEAD) .
+docker build --platform linux/amd64 -f Dockerfile.jupyter \
+    -t ghcr.io/datenwerft/urban-crime-jupyter:<datum> \
+    --build-arg BASIS=ghcr.io/datenwerft/urban-crime:<datum> .
+
+docker push ghcr.io/datenwerft/urban-crime:<datum>
+docker push ghcr.io/datenwerft/urban-crime-jupyter:<datum>
+
+# Der Digest, nicht die Marke, kommt in die .env des Stapels:
+docker inspect --format='{{index .RepoDigests 0}}' \
+    ghcr.io/datenwerft/urban-crime-jupyter:<datum>
 ```
+
+**`--platform linux/amd64` ist keine Vorsichtsmassnahme, sondern Pflicht.**
+Der Entwicklungsrechner ist ein arm64-Mac, `srv01` läuft auf x86-64
+(AMD EPYC Genoa). Ein ohne Plattformangabe gebautes Abbild lässt sich
+anstandslos schieben und scheitert erst auf `srv01` beim Start mit
+`exec format error` — also nach Bau, Schieben und Holen. Gegenprobe vor dem
+Schieben: `docker image inspect --format='{{.Os}}/{{.Architecture}}'`.
+
+Die Marke trägt ein Datum und ist für Menschen; gepinnt wird der Digest, weil
+eine Marke sich umhängen lässt und ein Digest nicht. Die beiden Variablen
+stehen samt dieser Begründung in [`.env.example`](../.env.example). Der
+Namensraum `ghcr.io/datenwerft` hängt am persönlichen Konto und nicht an der
+Organisation des Repositorys; die Pakete sind damit vorgabemäss privat, und
+`srv01` braucht ein eigenes Token mit `read:packages`, um sie zu holen.
 
 **Warum es das Abbild überhaupt braucht.** Das Strecken-Abbild taugt nicht
 als Notebook-Server: `requirements.lock` trägt `ipykernel` und `nbconvert`,
