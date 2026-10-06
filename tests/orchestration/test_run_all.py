@@ -827,3 +827,83 @@ def test_das_manifest_nennt_jahre_und_vintages(tmp_path, monkeypatch):
     manifest = ra.lauf(tmp_path / "data", tmp_path, jahre=(2025, 2026))
     assert manifest["years"] == [2025, 2026]
     assert manifest["vintages"] == [2024]
+
+
+# --------------------------------------------------------------------------
+# Die Projektwurzel (FR-4) und der Eingabe-Fingerabdruck (FR-8)
+# --------------------------------------------------------------------------
+
+
+def test_die_wurzel_kommt_aus_der_umgebung(tmp_path, monkeypatch):
+    """Sie ist das Arbeitsverzeichnis **jedes** Unterprozesses.
+
+    Geprueft wird am Ergebnis und nicht am Weg: ``lauf`` bekommt genau die
+    Wurzel, die die Umgebung nennt.
+    """
+    import manifeste as mf
+
+    wurzel = tmp_path / "projekt"
+    wurzel.mkdir()
+    for zeichen in mf.WURZELZEICHEN:
+        ziel = wurzel / zeichen
+        ziel.write_text("", encoding="utf-8") if ziel.suffix else ziel.mkdir()
+    monkeypatch.setenv(mf.WURZEL_VARIABLE, str(wurzel))
+
+    gesehen = {}
+
+    def merke(data_root, projekt_root, **rest):
+        gesehen["wurzel"] = projekt_root
+        return {"status": "complete", "stages": [], "input_fingerprint": "x" * 64}
+
+    monkeypatch.setattr(ra, "lauf", merke)
+    monkeypatch.setattr(sys, "argv", ["run_all", "--data-root", str(tmp_path / "data")])
+    assert ra.main() == 0
+    assert gesehen["wurzel"] == wurzel.resolve()
+
+
+def test_ohne_ableitbare_wurzel_bricht_es_mit_einem_satz_ab(tmp_path, monkeypatch):
+    """Nicht raten, nicht im falschen Verzeichnis bauen - abbrechen und sagen, was fehlt.
+
+    Ein Lauf im falschen Arbeitsverzeichnis scheitert nicht: Er findet
+    ``config/`` nicht und baut ein Gold ohne Crosswalks. Deshalb hier und
+    nicht spaeter.
+    """
+    import manifeste as mf
+
+    monkeypatch.setattr(ra, "projektwurzel", lambda *a, **k: None)
+    monkeypatch.setattr(sys, "argv", ["run_all", "--trocken"])
+    with pytest.raises(SystemExit) as abbruch:
+        ra.main()
+    meldung = str(abbruch.value)
+    assert mf.WURZEL_VARIABLE in meldung, "die Meldung sagt nicht, was zu setzen ist"
+    for zeichen in mf.WURZELZEICHEN:
+        assert zeichen in meldung
+    assert "pip install -e ." in meldung
+
+
+def test_derselbe_bestand_traegt_denselben_fingerabdruck(tmp_path):
+    """FR-8, soweit es ohne Container pruefbar ist.
+
+    Der Fingerabdruck geht ueber die **Lauf-Kennungen** je Quelle, nicht ueber
+    Pfade: Derselbe Bronze-Stand unter ``/app/data`` und unter
+    ``/Users/.../data`` muss denselben Abdruck ergeben, sonst traegt ein Lauf
+    im Container eine andere Zahl als derselbe Lauf auf dem Host - und die
+    Zusage "derselbe Stand, derselbe Abdruck" ist wertlos.
+
+    Gleichzeitig der Nachweis, dass die Reihenfolge des Findens nichts
+    aendert: Die zweite Wurzel bekommt ihre Laeufe in umgekehrter Folge.
+    """
+    hier, dort = tmp_path / "host", tmp_path / "app"
+    for quelle, lauf_ in (("city=chicago", "run_A"), ("city=detroit", "run_B")):
+        bronze(hier, quelle, lauf_)
+    for quelle, lauf_ in (("city=detroit", "run_B"), ("city=chicago", "run_A")):
+        bronze(dort, quelle, lauf_)
+
+    assert ra.bronze_laeufe(hier) == ra.bronze_laeufe(dort)
+    assert ra.fingerabdruck(ra.bronze_laeufe(hier)) == \
+        ra.fingerabdruck(ra.bronze_laeufe(dort))
+    # Und ein anderer Stand ergibt einen anderen Abdruck - sonst waere die
+    # Gleichheit oben nur die Gleichheit zweier leerer Mengen.
+    bronze(dort, "dataset=noaa_ghcnd", "run_C")
+    assert ra.fingerabdruck(ra.bronze_laeufe(hier)) != \
+        ra.fingerabdruck(ra.bronze_laeufe(dort))

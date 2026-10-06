@@ -200,3 +200,110 @@ def test_referenzdatei_nennt_pfad_und_pruefsumme(tmp_path):
     datei.write_text("x\n", encoding="utf-8")
     eintrag = mf.referenzdatei(datei)
     assert set(eintrag) == {"path", "sha256"} and len(eintrag["sha256"]) == 64
+
+
+# --------------------------------------------------------------------------
+# Die Projektwurzel - genannt oder erkannt, nie geraten
+# --------------------------------------------------------------------------
+# Bis zum 6.10.2026 stand ``Path(__file__).resolve().parents[3]`` an zwei
+# Stellen und traf genau einen Fall: die editierbare Installation im Projekt.
+# Was sie sonst lieferte, war ein Verzeichnis, das zufaellig vier Ebenen
+# hoeher lag - und ``run_all`` machte es zum Arbeitsverzeichnis aller
+# Unterprozesse. Das scheitert nicht, es baut ein Gold ohne Crosswalks.
+
+
+def projekt(wurzel: Path) -> Path:
+    """Ein Verzeichnis mit beiden Kennzeichen - was ``projektwurzel`` sucht."""
+    wurzel.mkdir(parents=True, exist_ok=True)
+    for zeichen in mf.WURZELZEICHEN:
+        ziel = wurzel / zeichen
+        if ziel.suffix:
+            ziel.write_text("", encoding="utf-8")
+        else:
+            ziel.mkdir(parents=True, exist_ok=True)
+    return wurzel
+
+
+def test_die_genannte_wurzel_gilt(tmp_path):
+    """Die Umgebung sagt es, und sie wird nicht nachgerechnet."""
+    gesetzt = projekt(tmp_path / "projekt")
+    assert mf.projektwurzel({mf.WURZEL_VARIABLE: str(gesetzt)}) == gesetzt.resolve()
+
+
+def test_eine_falsche_angabe_wird_nicht_durch_raten_ersetzt(tmp_path):
+    """Ein Konfigurationsfehler ist kein Grund, doch wieder zu raten.
+
+    Sonst liefe ein Lauf mit verschriebener Variable still im Projekt des
+    Entwicklers weiter - und im Abbild irgendwo.
+    """
+    assert mf.projektwurzel({mf.WURZEL_VARIABLE: str(tmp_path / "nirgends")}) is None
+
+
+def test_ohne_angabe_wird_die_paketlage_erkannt():
+    """Der Fall des Entwicklungsrechners: editierbar installiert, kein PROJECT_ROOT."""
+    erkannt = mf.projektwurzel({})
+    assert erkannt == Path(__file__).resolve().parents[2]
+    assert mf.ist_projektwurzel(erkannt)
+
+
+def test_keine_ableitbare_wurzel_ist_ein_none_und_kein_fehler(monkeypatch):
+    """Das installierte Paket in site-packages - dort liegt kein Projekt.
+
+    ``None`` und nicht eine Ausnahme: ``code_stand`` ruft dasselbe, und ein
+    Lauf darf an der Herkunftsangabe nie scheitern.
+    """
+    monkeypatch.setattr(mf, "ist_projektwurzel", lambda pfad: False)
+    assert mf.projektwurzel({}) is None
+
+
+# --------------------------------------------------------------------------
+# Der Commit, wenn kein Repository da ist
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def ohne_git(monkeypatch):
+    """Kein git im Pfad - wie in einem Abbild ohne ``.git/``."""
+    import subprocess
+
+    def kein_git(*a, **kw):
+        raise FileNotFoundError("git")
+
+    monkeypatch.setattr(subprocess, "run", kein_git)
+    mf.code_stand.cache_clear()
+    yield
+    mf.code_stand.cache_clear()
+
+
+def test_der_commit_kommt_aus_der_umgebung(monkeypatch, ohne_git):
+    """Der Weg des Abbilds: ``.git/`` draussen, Herkunft trotzdem da.
+
+    ``dirty`` ist dann ``False`` - keine Annahme, sondern die Lage: Ein Abbild
+    hat keinen Arbeitsbaum, der abweichen koennte.
+    """
+    monkeypatch.setenv(mf.COMMIT_VARIABLE, "a" * 40)
+    assert mf.code_stand() == {"git_commit": "a" * 40, "git_dirty": False}
+
+
+def test_weder_git_noch_angabe_laesst_den_lauf_laufen(ohne_git):
+    """Ein fremdes Abbild, ein installiertes Paket - kein Fehler, nur kein Commit."""
+    assert mf.code_stand() == {"git_commit": None, "git_dirty": None}
+
+
+@pytest.mark.parametrize("wert", ["abc1234", "v1.2", "HEAD", "", "   ",
+                                  "A" * 39, "z" * 40])
+def test_was_keine_volle_commit_kennung_ist_gilt_nicht(monkeypatch, wert):
+    """Eine Kurzform sieht nachschlagbar aus und ist es nicht.
+
+    ``git_commit`` traegt entweder eine volle SHA-1 oder nichts. Eine
+    Zwischenform waere die unangenehmste Variante: Sie steht in tausenden
+    Manifesten und faellt erst auf, wenn jemand sie nachschlagen will.
+    """
+    monkeypatch.setenv(mf.COMMIT_VARIABLE, wert)
+    assert mf.aus_der_umgebung() is None
+
+
+def test_die_grossschreibung_stoert_nicht(monkeypatch):
+    """``git rev-parse`` liefert Kleinbuchstaben; eine Kopie von Hand nicht immer."""
+    monkeypatch.setenv(mf.COMMIT_VARIABLE, "AB" * 20)
+    assert mf.aus_der_umgebung() == "ab" * 20

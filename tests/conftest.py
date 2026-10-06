@@ -38,6 +38,13 @@ sys.modules["drift"] = drift
 # Die Ablage kommt aus der Umgebung und wird einmal gelesen. Zwischen zwei
 # Tests darf davon nichts uebrigbleiben - und kein Test darf versehentlich
 # gegen eine .env des Entwicklers laufen, die auf SeaweedFS zeigt.
+#
+# Seit dem 6.10.2026 stehen fuenf weitere in derselben Liste: PROJECT_ROOT,
+# GIT_COMMIT und die drei Dienst-URLs. Sie gehoeren dem Betrieb im Container
+# (siehe Dockerfile), und jede aendert eine Vorgabe - die Projektwurzel, die
+# Herkunftsangabe, die Adresse eines Laders. Ein Lauf der Suite in einer
+# Umgebung, die sie gesetzt hat, pruefte andere Zusagen als einer auf dem
+# Entwicklungsrechner. Wer sie braucht, setzt sie im Test selbst.
 import pytest  # noqa: E402
 import storage  # noqa: E402
 
@@ -46,7 +53,8 @@ import storage  # noqa: E402
 def _frische_ablage(monkeypatch):
     for name in ("STORAGE_BACKEND", "LOCAL_DATA_ROOT", "S3_ENDPOINT", "S3_ACCESS_KEY",
                  "S3_SECRET_KEY", "S3_BUCKET", "S3_USE_SSL", "HYBRID_READ_PRIORITY",
-                 "HYBRID_PUBLISH_AFTER_WRITE"):
+                 "HYBRID_PUBLISH_AFTER_WRITE", "PROJECT_ROOT", "GIT_COMMIT",
+                 "ELASTICSEARCH_URL", "CLICKHOUSE_URL", "KIBANA_URL"):
         monkeypatch.delenv(name, raising=False)
     storage.set_storage(storage.Storage(storage.Config()))
     yield

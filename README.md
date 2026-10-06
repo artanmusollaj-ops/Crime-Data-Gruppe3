@@ -222,7 +222,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 1'630 ausgeführte Tests, ohne Netzzugriff und ohne
+Erwartet wird **grün**: 1'682 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -232,7 +232,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'732
+python -m pytest -m ""               # beides zusammen, alle 1'784
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -879,6 +879,72 @@ Alles in diesen Diensten ist **abgeleitet und wegwerfbar**: `docker compose
 down -v` löscht es, die Befehle oben stellen es in Sekunden wieder her.
 Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.
 
+### 2.7 Die Strecke im Container
+
+Bis hierher läuft die Strecke, weil jemand sie auf seinem Rechner startet —
+mit dem richtigen Python im `PATH` und einer Umgebung, die zu
+`requirements.lock` passt. Seit dem 6.10.2026 gibt es sie als Abbild:
+
+```bash
+docker build -t urban-crime --build-arg GIT_COMMIT=$(git rev-parse HEAD) .
+docker run --rm -v "$PWD/data:/app/data" --env-file .env urban-crime
+docker run --rm urban-crime python -m orchestration.run_all --trocken --jahre 2021-2026
+```
+
+Der dritte Aufruf ist der billigste Nachweis, dass das Abbild taugt: Er nennt
+dieselben **39 Stufen** wie derselbe Befehl auf dem Rechner. Der eigentliche
+Nachweis ist der Fingerabdruck: Derselbe Bronze-Stand ergibt im Container
+denselben Eingabe-Fingerabdruck wie auf dem Host.
+
+> **Beim Vergleichen den Modus gleichsetzen.** Im Hybridmodus vereinigt die
+> Ablage lokale und veröffentlichte Läufe, der Container ohne `.env` sieht nur
+> den lokalen Bestand — und dann weichen die Abdrücke zu Recht ab, weil es
+> zwei verschiedene Stände sind. `STORAGE_BACKEND=local` auf beiden Seiten
+> vergleicht dasselbe.
+
+| | |
+| --- | --- |
+| Basis | `python:3.13` — dieselbe Nebenversion, für die `requirements.lock` eingefroren ist |
+| Abhängigkeiten | gepinnt aus `requirements.lock`, danach `pip install -e . --no-deps` |
+| DuckDB | `spatial`, `icu` und `httpfs` liegen **zur Bauzeit** darin — zur Laufzeit ist kein Netz zu erwarten, und `INSTALL` scheitert dann hart |
+| Laufzeit-Assets | `config/` und `docs/intern/AENDERUNGEN.md` |
+| Nicht darin | `.env`, `data/`, `.git/`, `logs/`, `.venv/` ([`.dockerignore`](.dockerignore)) |
+| Einstiegspunkt | `python -m orchestration.run_all`, als `CMD` — ein anderer Befehl braucht kein `--entrypoint` |
+
+**Zwei Dinge mussten dafür erst im Code geradegezogen werden**, und beide
+hätten im Container stillschweigend das Falsche getan.
+
+*Die Projektwurzel wurde geraten.* `Path(__file__).resolve().parents[3]` stand
+an zwei Stellen — in `run_all` als Arbeitsverzeichnis aller Unterprozesse und
+in `manifeste.code_stand` als Ziel von `git -C`. Die Formel stimmt genau bei
+der editierbaren Installation im Projekt und zeigt sonst auf ein Verzeichnis,
+das zufällig vier Ebenen höher liegt. Jetzt kommt die Wurzel aus `PROJECT_ROOT`
+oder wird an ihren Kennzeichen erkannt (`pyproject.toml` **und** `config/`);
+ist sie nicht ableitbar, bricht der Lauf mit einem Satz ab. Das ist Absicht:
+Ein Lauf im falschen Verzeichnis scheitert nicht, er baut ein Gold ohne
+Crosswalks.
+
+*Die Herkunftsangabe hing an `.git/`.* Das gehört nicht ins Abbild — und ohne
+es sagte jedes Manifest aus dem Container „welcher Code das erzeugt hat:
+unbekannt". Der Commit kommt deshalb beim Bau als `--build-arg GIT_COMMIT`
+herein; `code_stand` nimmt ihn, wenn kein Repository da ist, und verlangt eine
+volle SHA-1 — eine Kurzform sieht nachschlagbar aus und ist es nicht. Ohne
+Git **und** ohne Argument bleibt `code_version` leer, und der Lauf läuft
+weiter; daran darf er nie scheitern.
+
+**Die Dienst-URLs kommen aus der Umgebung.** `localhost:18123`, `:19200` und
+`:15601` waren Konstanten, nur per `--url` übersteuerbar — im Verbund heisst
+Elasticsearch aber `http://elasticsearch:9200`, und ein Container tippt
+nichts. `CLICKHOUSE_URL`, `ELASTICSEARCH_URL` und `KIBANA_URL` ersetzen die
+Vorgabe, ein getipptes `--url` sticht sie weiterhin, und ohne beides bleibt
+alles wie bisher.
+
+> **Noch kein Betrieb.** Das Abbild ist eine Zusicherung über die
+> Abhängigkeiten, keine über den Lauf. Was fehlt, ist der Pipeline-Dienst im
+> Compose-Verbund: Speichergrenze, Logrotation, Zeitplan — und die Messung,
+> aus der die Grenzen kommen. Das steht in
+> [`docs/architektur-ist-und-ziel.md`](docs/architektur-ist-und-ziel.md) B.2.
+
 ## 3 · Wenn etwas klemmt
 
 | Symptom | Ursache und Abhilfe |
@@ -904,7 +970,7 @@ Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.
 python -m pytest
 ```
 
-**1'732 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'784 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -941,7 +1007,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'597 der 1'630 Tests** des Standardlaufs. Die
+In einem frischen Klon laufen **1'649 der 1'682 Tests** des Standardlaufs. Die
 übrigen 33 überspringen sich selbst, weil sie gebaute Daten brauchen und `data/`
 nicht versioniert ist — dazu seit dem 5.10.2026 die Reproduktion von
 `docs/forschungsfragen.md`, deren Quelle das ungetrackte LN1-PDF ist; die 102 Referenzstand-Wächter sind ohnehin abgewählt.

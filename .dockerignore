@@ -1,0 +1,61 @@
+# Was nicht in den Baukontext gehoert. Das Dockerfile kopiert ohnehin gezielt
+# (requirements.lock, pyproject.toml, src/, config/, eine Datei aus docs/) -
+# diese Liste ist die zweite Sperre: Sie haelt zurueck, was auch durch ein
+# versehentliches COPY nicht hineinkaeme.
+#
+# Die fuenf Eintraege, die FR-2 verlangt, stehen als erste und einzeln
+# begruendet. tests/test_abbild.py haelt sie nach.
+
+# Geheimnisse. CENSUS_API_KEY, SOCRATA_APP_TOKEN und die S3-Schluessel stehen
+# hier drin. Eine eingebackene .env waere in jeder Schicht des Abbilds lesbar,
+# auch nach einem spaeteren rm - der Container bekommt sie zur Laufzeit
+# (--env-file, Secret-Mechanismus der Umgebung).
+.env
+
+# Die Umgebung des Entwicklungsrechners: macOS-Raeder, absolute Pfade, rund
+# 700 MB. Im Abbild wird aus requirements.lock neu installiert.
+.venv/
+
+# Die Daten. Sie sind ein Volume, kein Teil des Abbilds - und allein Chicago
+# und Census belegen rund 70 MB.
+data/
+
+# Testprotokolle. Erzeugt, rechnerlokal, ohne Wert im Abbild.
+logs/
+
+# Die Versionsgeschichte. Mehrere hundert MB, und das Abbild braucht sie
+# nicht: Der Commit kommt als --build-arg GIT_COMMIT herein.
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Zwischenspeicher und Bauartefakte - sie gehoeren dem Host und seiner
+# Python-Version.
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Alles, was der Lauf nicht liest. docs/ steht hier nicht: Das Dockerfile
+# holt docs/intern/AENDERUNGEN.md daraus, und ein Ausschluss machte daraus
+# einen gescheiterten Bau.
+notebooks/
+reports/
+tests/
+tools/
+.DS_Store
+.vscode/
+
+# Werkzeuge der Agenten und die Planungsablage. Sie sind nicht Teil des
+# Projekts und haben im Abbild nichts zu suchen.
+.claude/
+.agents/
+_bmad/
+_bmad-output/
+AGENTS.md
+skills-lock.json

@@ -72,12 +72,15 @@ from typing import Any, Protocol
 # nicht mehr aufgerufen.
 from serving.load_clickhouse import STANDARD_URL as CLICKHOUSE_URL
 from serving.load_clickhouse import ZIELE, LadeFehler, aktuelles_release
+from serving.load_clickhouse import vorgabe_url as clickhouse_vorgabe
 from serving.load_elasticsearch import INDIZES
 from serving.load_elasticsearch import STANDARD_URL as ELASTICSEARCH_URL
 from serving.load_elasticsearch import HttpKlient as ElasticKlient
+from serving.load_elasticsearch import vorgabe_url as elasticsearch_vorgabe
 from serving.build_kibana import BRETTER
 from serving.build_kibana import STANDARD_URL as KIBANA_URL
 from serving.build_kibana import HttpKlient as KibanaKlient
+from serving.build_kibana import vorgabe_url as kibana_vorgabe
 
 #: Wieviel auf einmal gelesen wird, wenn eine Datei gehasht wird. 42 MB am
 #: Stueck in den Speicher zu holen waere unnoetig.
@@ -394,16 +397,28 @@ def bericht(kennung: str, befunde: list[Befund], knapp: bool = False) -> str:
     return "\n".join(zeilen)
 
 
-def main(argv: list[str] | None = None) -> int:
+def kommandozeile() -> argparse.ArgumentParser:
+    """Die Kommandozeile - eigen, damit ihre Vorgaben pruefbar sind.
+
+    Die drei Dienstadressen kommen aus derselben Quelle wie bei den
+    Ladern und werden **beim Aufruf** gelesen, nicht beim Import.
+    """
     zerleger = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     zerleger.add_argument("--data-root", type=Path, default=None)
-    zerleger.add_argument("--clickhouse", default=CLICKHOUSE_URL)
-    zerleger.add_argument("--elasticsearch", default=ELASTICSEARCH_URL)
-    zerleger.add_argument("--kibana", default=KIBANA_URL)
+    # Dieselben drei Vorgaben wie bei den Ladern, und aus derselben Quelle:
+    # Wer die Dienste unter anderen Adressen beschickt, prueft sie dort auch.
+    # Gelesen beim Aufruf, nicht beim Import; ein Argument sticht weiterhin.
+    zerleger.add_argument("--clickhouse", default=clickhouse_vorgabe())
+    zerleger.add_argument("--elasticsearch", default=elasticsearch_vorgabe())
+    zerleger.add_argument("--kibana", default=kibana_vorgabe())
     zerleger.add_argument("--knapp", action="store_true",
                           help="nur zeigen, was abweicht")
     zerleger.add_argument("--json", action="store_true")
-    args = zerleger.parse_args(argv)
+    return zerleger
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = kommandozeile().parse_args(argv)
 
     from storage import for_root
 

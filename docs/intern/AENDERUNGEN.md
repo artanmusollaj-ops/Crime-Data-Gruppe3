@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'732** |
+| Tests | **1'784** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -102,6 +102,93 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 06.10.2026 · Die Strecke wird ein Abbild — und zwei geratene Stellen fallen (#138)
+
+**Was es gibt.** Ein `Dockerfile` auf `python:3.13`, das `python -m
+orchestration.run_all` ausführt: Abhängigkeiten gepinnt aus
+`requirements.lock`, danach `pip install -e . --no-deps`; die drei
+DuckDB-Erweiterungen `spatial`, `icu` und `httpfs` **zur Bauzeit** im Abbild;
+`config/` und `docs/intern/AENDERUNGEN.md` als Laufzeit-Assets; ein für jeden
+Benutzer beschreibbares `$HOME`. Dazu eine `.dockerignore`, die `.env`,
+`.venv/`, `data/`, `logs/` und `.git/` draussen hält. Bedienung in README 2.7.
+
+**Zwei Dinge mussten dafür erst im Code geradegezogen werden**, und beide
+hätten im Container stillschweigend das Falsche getan.
+
+*Die Projektwurzel wurde geraten.* `Path(__file__).resolve().parents[3]` stand
+an **zwei** Stellen — in `run_all.main` als Arbeitsverzeichnis aller
+Unterprozesse und in `manifeste.code_stand` als Ziel von `git -C`. Die Formel
+stimmt genau bei der editierbaren Installation im Projekt; sonst zeigt sie auf
+ein Verzeichnis, das zufällig vier Ebenen höher liegt. Jetzt gibt es
+`manifeste.projektwurzel`: Sie nimmt `PROJECT_ROOT` aus der Umgebung oder
+erkennt die Wurzel an ihren Kennzeichen (`pyproject.toml` **und** `config/`),
+und sie prüft auch eine genannte Angabe — eine verschriebene Variable wird
+nicht stillschweigend durch die geratene Wurzel ersetzt. Ist keine Wurzel
+ableitbar, bricht `run_all` mit einem Satz ab, der sagt, was zu setzen ist.
+Das ist der Punkt: Ein Lauf im falschen Arbeitsverzeichnis **scheitert nicht**
+— er findet `config/` nicht und baut ein Gold ohne Crosswalks.
+
+*Die Herkunftsangabe hing an `.git/`.* Das gehört nicht ins Abbild, und ohne
+es sagte jedes Manifest aus dem Container „welcher Code das erzeugt hat:
+unbekannt" — bei einem Projekt, dessen Kern die Belegbarkeit ist, ein stiller
+Verlust. Der Commit kommt deshalb beim Bau als `--build-arg GIT_COMMIT`
+herein; `code_stand` nimmt ihn, wenn Git nichts hergibt, und `git_dirty` ist
+dann `False` — keine Annahme, sondern die Lage: Ein Abbild hat keinen
+Arbeitsbaum, der abweichen könnte. Verlangt wird eine **volle** SHA-1 aus
+vierzig Hexstellen; eine Kurzform oder ein `v1.2` sieht nachschlagbar aus und
+führt ins Leere. Ohne Git und ohne Argument bleibt es bei `None`, und der Lauf
+läuft weiter — daran darf er nie scheitern, und `code_stand` enthält
+unverändert keine Zeile, die werfen kann.
+
+**Die Dienst-URLs kommen aus der Umgebung** (`CLICKHOUSE_URL`,
+`ELASTICSEARCH_URL`, `KIBANA_URL`). `localhost:18123`, `:19200` und `:15601`
+waren Konstanten, nur per `--url` übersteuerbar — im Verbund heisst
+Elasticsearch `http://elasticsearch:9200`, und ein Container tippt nichts. Die
+Vorgabe wird **beim Aufruf** gelesen und nicht beim Import, sonst sähe sie die
+Umgebung des Interpreterstarts; ein getipptes `--url` sticht sie weiterhin.
+`serving.pruefe_stand` nimmt dieselben drei Funktionen — hätte es eigene
+Vorgaben, wäre sein Befund im Verbund „nicht erreichbar", und das sieht wie
+ein Ausfall aus statt wie ein falsch verdrahteter Bericht.
+
+**FR-8, gemessen.** Derselbe Bronze-Stand, einmal auf dem Host unter
+`data/` und einmal im Container unter `/data` eingehängt, ergibt denselben
+Eingabe-Fingerabdruck: `8d30ca50…`. Der Abdruck geht über die Lauf-Kennungen
+je Quelle und nicht über Pfade, und ein Wächter hält das jetzt auch ohne
+Container fest — derselbe Bestand unter zwei verschiedenen Wurzeln, derselbe
+Abdruck, und ein Lauf mehr ergibt einen anderen.
+
+> **Der erste Vergleich wich ab, und zwar richtigerweise.** Host `31bf5a2a…`,
+> Container `8d30ca50…` — bei NOAA vier Läufe gegen drei. Nicht der Pfad, nicht
+> die Plattform: Die `.env` des Rechners sagt `STORAGE_BACKEND=hybrid`, und
+> dann **vereinigt** die Ablage lokale und veröffentlichte Läufe
+> (`storage-architektur.md` 5). Der Container hat keine `.env` — sie ist
+> ausgeschlossen — und sah nur den lokalen Bestand. Mit
+> `STORAGE_BACKEND=local` auf beiden Seiten stimmen die Abdrücke. Das ist
+> genau die Falle, vor der dieselbe Zusage warnt: „Den Bestand" zu lesen
+> heisst, zu wissen, **welchen**.
+
+**Was ausdrücklich nicht dazugehört.** Kein Pipeline-Dienst im
+`docker-compose.yml`, keine Traefik-Labels, keine Netzwerke, keine
+Speichergrenzen: Das ist der zweite Teil und hängt an einer Messung auf dem
+Server, nicht an einer Schätzung. Das Abbild ist eine Zusicherung über die
+**Abhängigkeiten**, noch keine über den Betrieb — so steht es auch in
+`architektur-ist-und-ziel.md` B.2, das damit von „ganz offen" auf „halb
+gebaut" wechselt.
+
+**Dokumente nachgezogen.** README 2.7 (neu), `architektur-ist-und-ziel.md`
+(Teil B nennt jetzt **zwei** benannte Ausnahmen statt einer; der Wächter
+dagegen ist umgedreht — er verlangt nicht mehr die Abwesenheit des
+`Dockerfile`, sondern dass jedes Gebaute im Text als Ausnahme dasteht),
+`ausblick.md` („Container-Image … gibt es seit dem 6.10.2026").
+
+**Zahlen.** 1'732 → **1'784 Tests** (52 neue Wächter: jede Zeile der
+I/O-Matrix des Plans, die fünf Ausschlüsse aus FR-2 einzeln, die
+DuckDB-Erweiterungen gegen die `INSTALL`-Aufrufe im Code **gemessen** statt
+gepflegt, dazu je Lader die drei Zusagen über die Adresse), Standardlauf
+1'630 → **1'682**, Referenzwächter unverändert **102**, alle grün. Kein
+Vertragssprung, keine Daten angefasst, keine Tabelle und keine Spalte neu.
+**Nachgebaut:** `docs/referenz/`.
 
 ## 06.10.2026 · Elasticsearch und Kibana stehen auf 8.19.22 (#137)
 
