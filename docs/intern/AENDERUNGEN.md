@@ -103,6 +103,48 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 06.10.2026 · Elasticsearch und Kibana stehen auf 8.19.22 (#137)
+
+**Warum.** `LOOKUP JOIN` in ES|QL — die Möglichkeit, Indizes in einer Abfrage zu
+verbinden — ist in **8.18/9.0** als technische Vorschau erschienen und in
+**8.19/9.1** allgemein verfügbar geworden. Der Stand war 8.15.0 vom Jahr 2024,
+also weder das eine noch das andere, und dazwischen liegen zwei Jahre
+Fehlerbehebungen.
+
+**Warum 8.19.22 und nicht 9.5.4.** Beide tragen die Fähigkeit. 9.x ist aber ein
+Hauptsprung, und `build_kibana` spricht die Saved-Objects-API an, die sich
+zwischen 8 und 9 geändert hat; die Elasticsearch-Seite (Mappings, `_bulk`,
+Aliase) wäre unkritisch gewesen. Bis zur Abgabe im Dezember spielt das frühere
+Lebensende von 8.x keine Rolle.
+
+**Wie.** An Ort und Stelle, mit stehenden Volumes — 8.19 liest 8.15-Indizes,
+es ist dieselbe Hauptversion. Danach gemessen: Cluster `green`, alle sechs
+Indizes mit vollen Dokumentzahlen (`fact_offense` 1'851'950), sechs Aliase, die
+drei Dashboards geladen, `pruefe_stand` mit Rückgabewert 0. Ein Neuladen wäre
+der billige Rückfall gewesen, nötig war es nicht.
+
+**`FASSUNG` in `build_kibana` zieht mit.** Die Konstante wird als `"version"` in
+jedes Tafelobjekt geschrieben, und Kibana wandert gespeicherte Objekte anhand
+dieser Angabe. Stünde dort weiter 8.15.0, liefe bei jedem Laden eine Wanderung,
+die nichts zu tun hat.
+
+**Was `LOOKUP JOIN` noch braucht.** Die Fähigkeit ist da, greift aber nicht:
+*„Lookup Join requires a single lookup mode index; [dim_tract_acs] resolves to …
+in [standard] mode."* Die Dimensionsindizes müssten mit `index.mode: lookup`
+angelegt werden. Bewusst **nicht** gebaut — eine Abfragezeit-Verbindung im
+Dashboard entsteht ausserhalb des Testnetzes, und die 102 Referenzwächter halten
+die Abgabezahlen gegen die Parquet-Dateien. Wo Wetter und Sozialdaten mit den
+Taten zusammenkommen sollen, gehört das in eine vorverbundene Tabelle unter
+`serving/`, wie `comparison_day` es vormacht.
+
+**Nebenher ein Testrückstand behoben.** Im laufenden Kibana stand neben den drei
+echten ein viertes Brett namens „Probe".
+`test_ein_verweis_ins_leere_wird_abgefangen` schrieb `klient, _ = kibana` und
+verwarf damit die Aufräumliste — gerade dieser Test prüft, dass Kibana das
+Dashboard **trotz** kaputtem Verweis anlegt, und liess es dann stehen. Dieselbe
+Familie wie die 681 `pruefung-`-Indizes vom 5.10., nur unauffälliger. Nach einem
+vollen Lauf bleiben jetzt genau die drei echten.
+
 ## 05.10.2026 · Publizieren fragt einmal je Lauf statt einmal je Datei (#136)
 
 **Was passiert war.** `Storage.publish_files` fragte **je Datei** mit einem

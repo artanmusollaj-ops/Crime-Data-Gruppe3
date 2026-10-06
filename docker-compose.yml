@@ -61,7 +61,13 @@ services:
       retries: 12
 
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    # 8.19.22 (23.9.2026), die letzte 8er-Nebenversion. Gewaehlt statt 9.x,
+    # weil ``build_kibana`` die Saved-Objects-API anspricht und die sich
+    # zwischen 8 und 9 geaendert hat; die Elasticsearch-Seite (Mappings,
+    # _bulk, Aliase) waere unkritisch. Der Sprung von 8.15.0 braucht hier
+    # keine Migration: Jeder Index wird aus dem Release neu geladen
+    # (``python -m serving.load_elasticsearch``), ein frisches Volume genuegt.
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.22
     environment:
       discovery.type: single-node
       # Ein Dienst neben der Pipeline, nicht im Netz: Ohne diese Zeile
@@ -83,7 +89,8 @@ services:
       retries: 30
 
   kibana:
-    image: docker.elastic.co/kibana/kibana:8.15.0
+    # Muss zur Elasticsearch-Fassung passen.
+    image: docker.elastic.co/kibana/kibana:8.19.22
     depends_on:
       elasticsearch:
         condition: service_healthy

@@ -437,7 +437,7 @@ def test_ein_feinerer_zeitstempel_bricht_ab(tmp_path):
 #
 #     docker run -d --name crime-elasticsearch -p 19200:9200 \
 #         -e discovery.type=single-node -e xpack.security.enabled=false \
-#         docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+#         docker.elastic.co/elasticsearch/elasticsearch:8.19.22
 #     ELASTICSEARCH_URL=http://localhost:19200 python -m pytest tests/serving
 #
 # Jeder Test bekommt einen eigenen Namensraum und raeumt ihn weg. Das ist
