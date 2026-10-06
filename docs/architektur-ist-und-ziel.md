@@ -231,8 +231,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'732 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'597 davon — die übrigen 33 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 102 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 1'784 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'649 davon — die übrigen 33 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 102 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 102 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
@@ -261,14 +261,21 @@ Oberfläche ausser Notebooks und der DuckDB-Konsole. Genau hier setzt Teil B an.
 
 # Teil B · Die Ziel-Architektur
 
-**Nichts in diesem Teil ist gebaut** — mit einer Ausnahme, die seit dem
-28.9.2026 gilt und hier benannt gehört, statt den Satz aufzuweichen: Ein
-`docker-compose.yml` für die drei **Analysedienste** (ClickHouse,
-Elasticsearch, Kibana) existiert und läuft lokal, siehe README 2.6 — wobei
-ClickHouse seit dem 5.10.2026 nicht mehr beschickt wird und das Sternschema
-vollständig in Elasticsearch liegt. Das ist der Verbund auf dem
-Entwicklungsrechner, nicht der Betrieb: kein Server, kein Tunnel, keine
-Anmeldung, und die Pipeline selbst ist weiterhin ein Skript.
+**Nichts in diesem Teil ist gebaut** — mit zwei Ausnahmen, die hier benannt
+gehören, statt den Satz aufzuweichen.
+
+*Die erste, seit dem 28.9.2026:* Ein `docker-compose.yml` für die drei
+**Analysedienste** (ClickHouse, Elasticsearch, Kibana) existiert und läuft
+lokal, siehe README 2.6 — wobei ClickHouse seit dem 5.10.2026 nicht mehr
+beschickt wird und das Sternschema vollständig in Elasticsearch liegt.
+
+*Die zweite, seit dem 6.10.2026:* Ein `Dockerfile` baut die Strecke selbst zu
+einem Abbild, siehe README 2.7. Damit ist B.2 halb erledigt und nicht mehr
+ganz offen.
+
+Beides ist der Verbund auf dem Entwicklungsrechner, nicht der Betrieb: kein
+Server, kein Tunnel, keine Anmeldung, kein Zeitplan — die Strecke läuft
+weiterhin, weil jemand sie startet.
 
 Ansonsten beschreibt dieser Teil, wie die Plattform für LN2 und einen echten
 Betrieb aussehen soll, und nennt zu jedem Baustein, was er löst und was er
@@ -306,11 +313,24 @@ kostet.
 Compose-Verbund. Die Pipeline selbst wird ein Container, der zeitgesteuert
 läuft, statt eines Skripts, das jemand auf seinem Laptop startet.
 
-**Halb gebaut.** Der Compose-Verbund gibt es für die Analysedienste; sie
-starten mit einem Befehl und finden einander über ein eigenes Netz. Was fehlt,
-ist der Schritt, um den es hier eigentlich geht: **ein Image für die Strecke
-selbst.** Solange das nicht steht, ist der Verbund eine Bequemlichkeit beim
-Entwickeln und keine Betriebszusage.
+**Halb gebaut.** Den Compose-Verbund gibt es für die Analysedienste; sie
+starten mit einem Befehl und finden einander über ein eigenes Netz. Und seit
+dem 6.10.2026 gibt es das Abbild der Strecke selbst: `python:3.13`, die
+Abhängigkeiten gepinnt aus `requirements.lock`, die drei DuckDB-Erweiterungen
+zur Bauzeit, `config/` und `AENDERUNGEN.md` als Laufzeit-Assets. Zwei Dinge
+mussten dafür erst im Code geradegezogen werden, und beide sind der Grund,
+warum ein Abbild mehr ist als eine Datei: Die **Projektwurzel** wurde an zwei
+Stellen aus `__file__` geraten, was nur bei der editierbaren Installation im
+Projekt stimmt — sie kommt jetzt aus `PROJECT_ROOT` oder wird an ihren
+Kennzeichen erkannt, und wo sie fehlt, bricht der Lauf mit einem Satz ab statt
+im falschen Verzeichnis zu bauen. Und die **Herkunftsangabe** hing an `.git/`,
+das nicht ins Abbild gehört; der Commit kommt deshalb beim Bau als
+`--build-arg GIT_COMMIT` herein, sonst sagte jedes Manifest aus dem Container
+„welcher Code das erzeugt hat: unbekannt".
+
+Was fehlt, ist der **Betrieb**: der Pipeline-Dienst im Compose-Verbund, mit
+Speichergrenze, Logrotation und Zeitplan. Solange der nicht steht, ist das
+Abbild eine Zusicherung über die Abhängigkeiten und noch keine über den Lauf.
 
 **Was es löst.** Heute läuft die Strecke auf genau einer Maschine, und ihre
 Abhängigkeiten sind ein `requirements.lock` plus die Hoffnung, dass der

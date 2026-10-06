@@ -42,8 +42,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import urllib.error
 import urllib.request
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -54,6 +56,18 @@ from serving.load_elasticsearch import aktuelles_release
 #: Kibana liegt neben Elasticsearch; der Port ist aus demselben Grund
 #: verschoben wie dort (5601 ist die Voreinstellung und oft belegt).
 STANDARD_URL = "http://localhost:15601"
+
+#: Die Variable, mit der die Umgebung diese Adresse ersetzt. Im Verbund heisst
+#: der Dienst nicht ``localhost``, sondern so, wie das Compose-Netz ihn nennt -
+#: und ein Container kann keine Kommandozeile tippen. Das Argument ``--url``
+#: sticht sie weiterhin.
+UMGEBUNGSVARIABLE = "KIBANA_URL"
+
+
+def vorgabe_url(umgebung: Mapping[str, str] | None = None) -> str:
+    """Die Adresse, mit der ohne ``--url`` gearbeitet wird."""
+    umgebung = os.environ if umgebung is None else umgebung
+    return (umgebung.get(UMGEBUNGSVARIABLE) or "").strip() or STANDARD_URL
 
 #: Die Fassung, die in jedes Tafelobjekt geschrieben wird. Kibana wandert
 #: gespeicherte Objekte anhand dieser Angabe auf neuere Staende. Sie muss
@@ -624,14 +638,27 @@ def pruefe_verweise(klient: Klient,
             if (v["type"], v["id"]) not in vorhanden]
 
 
-def main(argv: list[str] | None = None) -> int:
+def kommandozeile() -> argparse.ArgumentParser:
+    """Die Kommandozeile - eigen, damit ihre Vorgaben pruefbar sind.
+
+    Die Vorgabe von ``--url`` kommt aus der Umgebung und wird deshalb
+    **beim Aufruf** gelesen, nicht beim Import. Ein getipptes ``--url``
+    sticht sie; ``tests/serving/test_dienst_urls.py`` haelt beides fest.
+    """
     zerleger = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     zerleger.add_argument("--data-root", type=Path, default=None)
-    zerleger.add_argument("--url", default=STANDARD_URL,
-                          help=f"Kibana (Standard: {STANDARD_URL})")
+    # Die Vorgabe wird hier gelesen, nicht beim Import: So sieht sie die
+    # Umgebung des Aufrufs, und ein getipptes --url sticht sie trotzdem.
+    zerleger.add_argument("--url", default=vorgabe_url(),
+                          help=f"Kibana (Standard: {UMGEBUNGSVARIABLE} "
+                               f"oder {STANDARD_URL})")
     zerleger.add_argument("--trocken", action="store_true",
                           help="nur zeigen, was entstuende")
-    args = zerleger.parse_args(argv)
+    return zerleger
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = kommandozeile().parse_args(argv)
 
     from storage import for_root
 

@@ -76,10 +76,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import urllib.error
 import urllib.request
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
 from math import isfinite
@@ -99,6 +100,20 @@ DATENWURZEL = Path("data")
 #: etwas anderem belegt. Ein eigener Port kostet nichts und nimmt niemandem
 #: seinen Dienst weg.
 STANDARD_URL = "http://localhost:19200"
+
+#: Die Variable, mit der die Umgebung diese Adresse ersetzt. Im Verbund heisst
+#: der Dienst nicht ``localhost``, sondern so, wie das Compose-Netz ihn nennt
+#: (``http://elasticsearch:9200``) - und ein Container kann keine
+#: Kommandozeile tippen. Das Argument ``--url`` sticht sie weiterhin: Was
+#: jemand hinschreibt, gilt vor dem, was in der Umgebung steht.
+UMGEBUNGSVARIABLE = "ELASTICSEARCH_URL"
+
+
+def vorgabe_url(umgebung: Mapping[str, str] | None = None) -> str:
+    """Die Adresse, mit der ohne ``--url`` gearbeitet wird."""
+    umgebung = os.environ if umgebung is None else umgebung
+    return (umgebung.get(UMGEBUNGSVARIABLE) or "").strip() or STANDARD_URL
+
 
 #: Wieviele Dokumente in einen ``_bulk``-Aufruf gehen. Gross genug, dass die
 #: 345'073 Zeilen nicht in 345'073 Anfragen zerfallen; klein genug, dass der
@@ -668,15 +683,28 @@ def lade(klient: Klient, kennung: str, parquet: Path, *,
             **{k: erwartet[k] for k in ("zeilen", "schluessel")}}
 
 
-def main(argv: list[str] | None = None) -> int:
+def kommandozeile() -> argparse.ArgumentParser:
+    """Die Kommandozeile - eigen, damit ihre Vorgaben pruefbar sind.
+
+    Die Vorgabe von ``--url`` kommt aus der Umgebung und wird deshalb
+    **beim Aufruf** gelesen, nicht beim Import. Ein getipptes ``--url``
+    sticht sie; ``tests/serving/test_dienst_urls.py`` haelt beides fest.
+    """
     zerleger = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     zerleger.add_argument("--data-root", type=Path, default=None,
                           help="lokale Wurzel; ohne Angabe entscheidet die Ablage")
-    zerleger.add_argument("--url", default=STANDARD_URL,
-                          help=f"Elasticsearch (Standard: {STANDARD_URL})")
+    # Die Vorgabe wird hier gelesen, nicht beim Import: So sieht sie die
+    # Umgebung des Aufrufs, und ein getipptes --url sticht sie trotzdem.
+    zerleger.add_argument("--url", default=vorgabe_url(),
+                          help=f"Elasticsearch (Standard: {UMGEBUNGSVARIABLE} "
+                               f"oder {STANDARD_URL})")
     zerleger.add_argument("--trocken", action="store_true",
                           help="nur die Abbildungen zeigen, nichts ausfuehren")
-    args = zerleger.parse_args(argv)
+    return zerleger
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = kommandozeile().parse_args(argv)
 
     # Der Pfad geht durch die Ablage und nicht an ihr vorbei: Im s3-Modus gibt
     # es keinen lokalen Bestand, und nur sie weiss, wo die Wurzel liegt.

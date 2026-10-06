@@ -37,7 +37,9 @@ from collections.abc import Iterable
 from typing import NamedTuple
 
 from census_pipeline import NEWEST_VINTAGE, vintage_for, vintages_for
+from manifeste import WURZEL_VARIABLE, WURZELZEICHEN
 from manifeste import fingerabdruck as manifeste_fingerabdruck
+from manifeste import projektwurzel
 from orchestration import LAUF_MANIFEST
 from storage import StorageError, for_root
 
@@ -567,7 +569,21 @@ def main() -> int:
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(levelname)s %(message)s",
     )
-    projekt_root = Path(__file__).resolve().parents[3]
+    # Das Arbeitsverzeichnis **jedes** Unterprozesses (siehe ``fahre``), und
+    # damit die Stelle, gegen die ``config/`` und ``docs/intern/`` aufgeloest
+    # werden. Bis zum 6.10.2026 stand hier ``parents[3]`` - eine Formel, die
+    # nur bei der editierbaren Installation im Projekt stimmt und sonst still
+    # auf ein beliebiges Verzeichnis zeigt. Jetzt kommt die Wurzel aus einer
+    # ausdruecklichen Quelle, und wo sie fehlt, ist hier Schluss: Ein Lauf im
+    # falschen Verzeichnis scheitert nicht, er baut ein Gold ohne Crosswalks.
+    projekt_root = projektwurzel()
+    if projekt_root is None:
+        raise SystemExit(
+            f"Die Projektwurzel ist nicht ableitbar. {WURZEL_VARIABLE} auf das "
+            f"Verzeichnis setzen, das {' und '.join(WURZELZEICHEN)} traegt - "
+            "oder das Paket editierbar installieren "
+            "('python -m pip install -e .')."
+        )
 
     stufen = auswahl(args.ohne_ingestion, args.bis, args.jahre)
     if args.trocken:

@@ -29,13 +29,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, Protocol
 
 
@@ -44,6 +45,18 @@ DATENWURZEL = Path("data")
 #: Der Port aus ``docker-compose.yml`` - verschoben, weil 8123 belegt sein
 #: kann, und an 127.0.0.1 gebunden, weil dieser Dienst keine Anmeldung hat.
 STANDARD_URL = "http://localhost:18123"
+
+#: Die Variable, mit der die Umgebung diese Adresse ersetzt. Im Verbund heisst
+#: der Dienst nicht ``localhost``, sondern so, wie das Compose-Netz ihn nennt -
+#: und ein Container kann keine Kommandozeile tippen. Das Argument ``--url``
+#: sticht sie weiterhin.
+UMGEBUNGSVARIABLE = "CLICKHOUSE_URL"
+
+
+def vorgabe_url(umgebung: Mapping[str, str] | None = None) -> str:
+    """Die Adresse, mit der ohne ``--url`` gearbeitet wird."""
+    umgebung = os.environ if umgebung is None else umgebung
+    return (umgebung.get(UMGEBUNGSVARIABLE) or "").strip() or STANDARD_URL
 
 #: Wo die Releases im Container liegen. ``file()`` loest relativ zu
 #: ``user_files`` auf, deshalb steht hier kein fuehrender Schraegstrich.
@@ -509,15 +522,28 @@ def lade(klient: Klient, kennung: str, parquet: Path, *,
             **{k: erwartet[k] for k in ("zeilen", "schluessel")}}
 
 
-def main(argv: list[str] | None = None) -> int:
+def kommandozeile() -> argparse.ArgumentParser:
+    """Die Kommandozeile - eigen, damit ihre Vorgaben pruefbar sind.
+
+    Die Vorgabe von ``--url`` kommt aus der Umgebung und wird deshalb
+    **beim Aufruf** gelesen, nicht beim Import. Ein getipptes ``--url``
+    sticht sie; ``tests/serving/test_dienst_urls.py`` haelt beides fest.
+    """
     zerleger = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     zerleger.add_argument("--data-root", type=Path, default=None,
                           help="lokale Wurzel; ohne Angabe entscheidet die Ablage")
-    zerleger.add_argument("--url", default=STANDARD_URL,
-                          help=f"ClickHouse (Standard: {STANDARD_URL})")
+    # Die Vorgabe wird hier gelesen, nicht beim Import: So sieht sie die
+    # Umgebung des Aufrufs, und ein getipptes --url sticht sie trotzdem.
+    zerleger.add_argument("--url", default=vorgabe_url(),
+                          help=f"ClickHouse (Standard: {UMGEBUNGSVARIABLE} "
+                               f"oder {STANDARD_URL})")
     zerleger.add_argument("--trocken", action="store_true",
                           help="nur die Anweisungen zeigen, nichts ausfuehren")
-    args = zerleger.parse_args(argv)
+    return zerleger
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = kommandozeile().parse_args(argv)
 
     # Der Pfad geht durch die Ablage und nicht an ihr vorbei: Im s3-Modus gibt
     # es keinen lokalen Bestand, und nur sie weiss, wo die Wurzel liegt. Ein

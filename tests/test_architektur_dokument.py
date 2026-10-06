@@ -183,22 +183,28 @@ def test_die_referenzzahlen_stimmen_mit_den_uebrigen_dokumenten(teil_a):
 # --------------------------------------------------------------------------
 
 
-# ``docker-compose.yml`` stand hier bis zum 28.9.2026 und ist seitdem gebaut -
-# allerdings nur fuer die drei Analysedienste, nicht fuer den Betrieb. Teil B
-# benennt die Ausnahme ausdruecklich; bewacht wird weiter der Schritt, um den
-# es in B.2 eigentlich geht: ein Image fuer die Strecke selbst.
+# Zwei Dateien standen hier und sind inzwischen gebaut: ``docker-compose.yml``
+# seit dem 28.9.2026 (nur fuer die drei Analysedienste), das ``Dockerfile``
+# seit dem 6.10.2026 (das Abbild der Strecke, noch ohne Betrieb). Beide
+# bleiben in dieser Liste - sie wandern nur von "darf nicht existieren" nach
+# "muss als Ausnahme benannt sein". Genau das ist die Zusage, die der Text
+# gibt: nicht, dass nichts gebaut wird, sondern dass kein Gebautes
+# unbeschrieben im Plan steht.
 GEPLANT = {
-    "Docker": ("Dockerfile",),
     "Elasticsearch": (),
     "Grafana": (),
 }
+
+#: Was existiert und deshalb in Teil B ausdruecklich als Ausnahme dastehen
+#: muss - je Datei die Jahreszahl, an der sie entstand.
+AUSNAHMEN = ("docker-compose.yml", "Dockerfile")
 
 
 def test_teil_b_behauptet_nichts_gebautes(teil_b):
     """Solange der Text sagt 'nichts davon ist gebaut', muss das stimmen.
 
     Faellt dieser Test, ist ein Baustein entstanden - dann gehoert er nach
-    Teil A, mit Zahlen, und nicht mehr in den Plan.
+    Teil A, mit Zahlen, oder in die Liste der benannten Ausnahmen.
     """
     assert "Nichts in diesem Teil ist gebaut" in teil_b
     gefunden = [d for dateien in GEPLANT.values() for d in dateien
@@ -209,6 +215,24 @@ def test_teil_b_behauptet_nichts_gebautes(teil_b):
     )
     for paket in ("elasticsearch", "grafana"):
         assert paket not in (PROJECT_ROOT / "requirements.txt").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("datei", AUSNAHMEN)
+def test_jedes_gebaute_wird_als_ausnahme_benannt(teil_b, datei):
+    """Eine Datei, die es gibt, darf nicht als Plan dastehen.
+
+    Das ist die Haelfte der Zusage, die beim ``docker-compose.yml`` ueber eine
+    Woche fehlte: Der Satz "nichts davon ist gebaut" stand weiter da, waehrend
+    drei Dienste liefen. Beim ``Dockerfile`` soll das nicht wieder passieren -
+    es existiert, also muss der Text es nennen.
+    """
+    assert (PROJECT_ROOT / datei).exists(), (
+        f"{datei} gibt es nicht (mehr) - dann gehoert es aus AUSNAHMEN heraus "
+        "und wieder in GEPLANT"
+    )
+    assert f"`{datei}`" in teil_b, (
+        f"{datei} existiert, Teil B nennt es aber nicht als Ausnahme"
+    )
 
 
 def test_der_widerspruch_zum_ausblick_wird_benannt(teil_b):

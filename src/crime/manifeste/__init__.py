@@ -29,9 +29,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import re
 import subprocess
 from functools import lru_cache
 import logging
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -147,6 +150,88 @@ class Tabelle(NamedTuple):
         return int(zahl) if zahl is not None else None
 
 
+# --------------------------------------------------------------------------
+# Die Projektwurzel - genannt oder erkannt, nie geraten
+# --------------------------------------------------------------------------
+# Bis zum 6.10.2026 stand an zwei Stellen dieselbe Formel:
+# ``Path(__file__).resolve().parents[3]``. Sie trifft genau einen Fall, die
+# editierbare Installation im Projekt - und raet in jedem anderen. Im Abbild
+# liegt das Paket zwar wieder editierbar unter ``/app``, aber die Formel sagt
+# das nicht, sie zaehlt nur Ebenen. Hier steht sie einmal, und sie prueft
+# ihr Ergebnis, statt es anzunehmen.
+
+#: Die Umgebungsvariable, die die Wurzel ausdruecklich nennt. Das ``Dockerfile``
+#: setzt sie; auf einem Entwicklungsrechner braucht sie niemand zu setzen.
+WURZEL_VARIABLE = "PROJECT_ROOT"
+
+#: Woran eine Projektwurzel erkennbar ist. ``config/`` steht hier, weil die
+#: Stufen ihre Crosswalks **relativ** aufloesen (``--config-root``, Vorgabe
+#: ``config``) - ein Arbeitsverzeichnis ohne sie laesst Gold mit einer leeren
+#: Dimension durchlaufen. ``pyproject.toml`` steht daneben, damit nicht jedes
+#: Verzeichnis mit einem Ordner ``config`` als Wurzel durchgeht.
+WURZELZEICHEN = ("pyproject.toml", "config")
+
+
+def ist_projektwurzel(pfad: Path) -> bool:
+    """Traegt dieses Verzeichnis beide Kennzeichen?"""
+    return all((pfad / zeichen).exists() for zeichen in WURZELZEICHEN)
+
+
+def projektwurzel(umgebung: Mapping[str, str] | None = None) -> Path | None:
+    """Das Projektverzeichnis - aus der Umgebung oder an der Paketlage erkannt.
+
+    Zwei Quellen, in dieser Reihenfolge:
+
+    1. ``PROJECT_ROOT`` aus der Umgebung. Was dort steht, gilt - und wird
+       geprueft: Zeigt die Angabe auf etwas, das die Kennzeichen nicht traegt,
+       ist das ein Konfigurationsfehler und **kein** Grund, doch wieder zu
+       raten. Dann kommt ``None`` zurueck, mit einer Zeile im Log.
+    2. Die Lage des Pakets. Von diesem Modul aufwaerts, bis ein Verzeichnis
+       beide Kennzeichen traegt. Bei ``pip install -e .`` ist das das Projekt;
+       bei einer gewoehnlichen Installation nach ``site-packages`` findet sich
+       keines - und genau dort log die alte Formel falsch.
+
+    ``None`` heisst *nicht ableitbar*. Wer die Wurzel braucht, bricht damit ab
+    und sagt, was zu setzen ist (``orchestration.run_all``); wer sie nur
+    gebrauchen koennte, laeuft ohne sie weiter (``code_stand``).
+    """
+    umgebung = os.environ if umgebung is None else umgebung
+    genannt = (umgebung.get(WURZEL_VARIABLE) or "").strip()
+    if genannt:
+        wurzel = Path(genannt).expanduser()
+        if ist_projektwurzel(wurzel):
+            return wurzel.resolve()
+        LOG.error("%s=%s traegt nicht %s - die Angabe wird nicht ersetzt.",
+                  WURZEL_VARIABLE, genannt, " und ".join(WURZELZEICHEN))
+        return None
+    for kandidat in Path(__file__).resolve().parents:
+        if ist_projektwurzel(kandidat):
+            return kandidat
+    return None
+
+
+#: Die Umgebungsvariable, aus der der Commit kommt, wenn Git nichts hergibt.
+#: Das ``Dockerfile`` nimmt ihn als ``ARG GIT_COMMIT`` entgegen und setzt ihn
+#: hier hinein. Ohne diesen Weg stuende in jedem Manifest aus dem Container
+#: "welcher Code das erzeugt hat: unbekannt" - denn ``.git/`` gehoert nicht
+#: ins Abbild (FR-2), und ein Projekt, dessen Kern die Belegbarkeit ist, darf
+#: die Herkunft nicht fuer eine Zeile in der ``.dockerignore`` hergeben.
+COMMIT_VARIABLE = "GIT_COMMIT"
+
+
+def aus_der_umgebung(umgebung: Mapping[str, str] | None = None) -> str | None:
+    """Der Commit aus ``GIT_COMMIT`` - oder ``None``, wenn dort nichts Gueltiges steht."""
+    umgebung = os.environ if umgebung is None else umgebung
+    genannt = (umgebung.get(COMMIT_VARIABLE) or "").strip().lower()
+    if not genannt:
+        return None
+    if re.fullmatch(r"[0-9a-f]{40}", genannt):
+        return genannt
+    LOG.warning("%s=%s ist keine volle Commit-Kennung - die Herkunft bleibt leer.",
+                COMMIT_VARIABLE, genannt)
+    return None
+
+
 @lru_cache(maxsize=1)
 def code_stand() -> dict[str, Any]:
     """Welcher Code diesen Lauf erzeugt hat - Commit und Sauberkeit.
@@ -160,12 +245,27 @@ def code_stand() -> dict[str, Any]:
     Arbeitsbaum laesst sich aus dem Commit allein **nicht** nachbauen. Wer
     das spaeter wissen will, findet es hier statt es zu vermuten.
 
-    Ohne Git - installiertes Paket, kein Repository, kein git im Pfad -
-    bleibt es bei ``None``. Ein Lauf darf daran nie scheitern.
+    Drei Wege, in dieser Reihenfolge:
+
+    1. **Git.** Wo ein Repository liegt, ist es die beste Quelle - es kennt
+       auch den Arbeitsbaum und damit ``dirty``.
+    2. **``GIT_COMMIT`` aus der Umgebung.** Der Weg des Abbilds: ``.git/``
+       bleibt draussen, der Commit kommt beim Bau als Argument herein.
+       ``dirty`` ist dann ``False``, und das ist keine Annahme, sondern die
+       Lage - ein Abbild hat keinen Arbeitsbaum, der abweichen koennte. Dass
+       das Abbild aus einem sauberen Stand gebaut wird, sichert der Bau in CI
+       zu (FR-3), nicht dieses Modul. Verlangt wird eine volle SHA-1 aus
+       vierzig Hexstellen: Eine Kurzform oder ein Markenname ("v1.2") sieht
+       nachschlagbar aus und ist es nicht.
+    3. **Nichts von beidem** - installiertes Paket, fremdes Abbild, kein git
+       im Pfad: ``None``. Ein Lauf darf daran nie scheitern, und deshalb
+       steht hier keine einzige Zeile, die werfen kann.
     """
-    wurzel = Path(__file__).resolve().parents[3]
+    wurzel = projektwurzel()
 
     def git(*argumente: str) -> str | None:
+        if wurzel is None:
+            return None
         try:
             fertig = subprocess.run(
                 ["git", "-C", str(wurzel), *argumente],
@@ -177,7 +277,10 @@ def code_stand() -> dict[str, Any]:
 
     commit = git("rev-parse", "HEAD")
     if commit is None:
-        return {"git_commit": None, "git_dirty": None}
+        mitgegeben = aus_der_umgebung()
+        if mitgegeben is None:
+            return {"git_commit": None, "git_dirty": None}
+        return {"git_commit": mitgegeben, "git_dirty": False}
     geaendert = git("status", "--porcelain")
     return {"git_commit": commit, "git_dirty": bool(geaendert)}
 
