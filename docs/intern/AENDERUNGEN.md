@@ -103,6 +103,35 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 06.10.2026 · Die Bauanleitung nennt die Adresse und die Architektur (#141)
+
+**Zwei Lücken, beide beim Anlauf zum Schieben aufgefallen.** Erstens kannte
+`.env.example` weder `PIPELINE_IMAGE` noch `JUPYTER_IMAGE` — die beiden
+einzigen Variablen, ohne die der Stapel auf `srv01` auf den lokal gebauten
+Vorgabenamen zurückfällt und nichts findet. Zweitens führte die Anleitung in
+`storage-architektur.md` den Ablauf mit `<registry>` als Platzhalter und
+ohne Plattformangabe.
+
+**Die Architektur ist die eigentliche Falle.** Der Entwicklungsrechner ist
+ein arm64-Mac, `srv01` läuft auf x86-64 (AMD EPYC Genoa,
+`_bmad-output/referenz/server-srv01.md`). Ein ohne `--platform linux/amd64`
+gebautes Abbild lässt sich anstandslos schieben und scheitert erst dort beim
+Start mit `exec format error` — also nach Bau, Schieben und Holen, an der
+Stelle mit der längsten Rückkopplungsschleife. Die Anleitung trägt das jetzt
+als Pflicht samt Gegenprobe vor dem Schieben, nicht als Hinweis.
+
+**Dazu drei Angaben, die vorher nirgends standen:** die Adresse
+`ghcr.io/datenwerft`, dass das Analyse-Abbild gleich auf dieser Adresse
+aufsetzt statt auf einem nur lokal gültigen Namen, und dass der Namensraum am
+persönlichen Konto hängt und nicht an der Organisation — die Pakete sind
+damit privat, und `srv01` braucht ein eigenes Token mit `read:packages`.
+
+**Was weiterhin gilt:** In einer Registry liegt noch kein Abbild. Die fünf
+Stellen in `storage-architektur.md` und `architektur-ist-und-ziel.md`, die
+das sagen, bleiben richtig und sind nach dem ersten Schieben zu drehen.
+
+---
+
 ## 06.10.2026 · Das Analyse-Abbild gibt es, und zwei Messungen am laufenden Abbild (#140)
 
 **Was es gibt.** `Dockerfile.jupyter` — das zweite Abbild, auf das
