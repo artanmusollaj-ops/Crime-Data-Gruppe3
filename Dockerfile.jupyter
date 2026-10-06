@@ -1,0 +1,111 @@
+# Das Abbild der Analyse: JupyterLab auf dem Strecken-Abbild.
+#
+#   docker build -t urban-crime --build-arg GIT_COMMIT=$(git rev-parse HEAD) .
+#   docker build -f Dockerfile.jupyter -t urban-crime-jupyter \
+#       --build-arg BASIS=urban-crime .
+#   docker run --rm -p 8888:8888 -v "$PWD/data:/app/data:ro" urban-crime-jupyter
+#
+# Die Begruendung jeder Entscheidung steht an ihrer Zeile und nicht in einem
+# Block hier oben - wer eine Zeile aendern will, liest dort, warum sie so ist.
+#
+# Warum ueberhaupt ein zweites Abbild: Das Strecken-Abbild taugt nicht als
+# Notebook-Server. requirements.lock traegt ipykernel und nbconvert, aber
+# **keinen Server**, und .dockerignore haelt notebooks/ draussen (fuer das
+# Strecken-Abbild richtig: der Lauf liest sie nicht). Umgekehrt gehoert
+# jupyterlab nicht in das Abbild, das woechentlich unbeaufsichtigt laeuft -
+# ein Stapellauf braucht keinen Webserver.
+
+# Das Strecken-Abbild ist die Grundlage, und zwar als Argument: Gebaut wird
+# auf einem Entwicklungsrechner gegen den lokalen Namen, geschoben wird
+# gegen die per Digest gepinnte Adresse aus der Registry - dieselbe Datei
+# fuer beides. Gibt es die genannte Kennung nicht, bricht der Bau hier ab
+# und nicht spaeter mit einem fehlenden Modul: Ein Abbild, das seine eigene
+# Abhaengigkeitsliste mitbringt, waere eine zweite Wahrheit neben
+# requirements.lock. Die Vorgabe ist der Name, den docker-compose.srv01.yml
+# fuer die Strecke vorgibt (PIPELINE_IMAGE) - tests/test_jupyter_abbild.py
+# haelt die beiden gegeneinander.
+ARG BASIS=urban-crime:latest
+FROM ${BASIS}
+
+# JupyterLab gepinnt, wie alles andere - eine Fassung je Abbild, nicht "was
+# am Bautag gerade neu ist". Die gemeinsamen Pakete bleiben die des
+# Lockfiles: -c requirements.lock laesst pip die Abhaengigkeiten des Servers
+# aufloesen, verbietet ihm aber, jinja2, tornado, traitlets, nbconvert oder
+# nbformat dabei zu verschieben. Ohne diese Zeile haengt der Server das
+# Lockfile aus, und das Analyse-Abbild rechnete mit anderen Paketen als die
+# Strecke, deren Zahlen es zeigt. Das Lockfile kommt frisch aus dem
+# Baukontext und nicht aus der Schicht darunter: Wo das Grundabbild seine
+# Kopie liegen laesst, ist dessen Sache und darf sich aendern.
+ARG JUPYTERLAB=4.6.4
+COPY requirements.lock /requirements.lock
+RUN python -m pip install --no-cache-dir -c /requirements.lock \
+    "jupyterlab==${JUPYTERLAB}"
+
+# Die drei **lesenden** Notebooks als Vorlagen. Sie liegen bewusst neben dem
+# Arbeitsbereich und nicht darin: Der Arbeitsbereich ist ein Datentraeger und
+# ueberdeckte beim Start alles, was das Abbild dort liegen hat. Das Skript
+# unten legt sie einmal hinein.
+#
+# 35_kontrollen laeuft ohne alles - es erzeugt seine Beispiele selbst; 34 und
+# 37 brauchen gebaute Daten unter data/. **Nicht dabei ist 36_hypothesen**:
+# Es misst Hardware und startet Silber-, Gold- und Serving-Neubauten als
+# Unterprozesse. Auf einer geteilten, auslagernden Maschine misst es das
+# Rauschen der Nachbarn, und das Speicherbudget des Dienstes (768 MiB)
+# sprengte es dabei (E9). Ebenso nicht dabei sind die Notebooks, die Netz
+# brauchen oder in den Bestand schreiben - 12_detroit_bronze_ingestion ist
+# der Fall, gegen den data/ schreibgeschuetzt eingehaengt wird.
+# .dockerignore haelt notebooks/ draussen und holt genau diese drei herein;
+# 36_hypothesen ist damit nicht einmal im Baukontext.
+COPY notebooks/34_gold_sternschema.ipynb \
+     notebooks/35_kontrollen.ipynb \
+     notebooks/37_quellbewegung.ipynb \
+     /vorlagen/
+# Lesbar fuer jeden Benutzer, denn den gibt der Verbund vor (docker run
+# --user ...). Nicht beschreibbar: Die Fassung im Abbild ist die
+# ausgelieferte und bleibt es - wer eine Vorlage aendert, aendert seine Kopie
+# im Arbeitsbereich.
+RUN chmod -R a=rX /vorlagen
+
+# Der Arbeitsbereich. 0777 aus demselben Grund wie $HOME im Grundabbild: Ein
+# Abbild, das nur fuer eine uid funktioniert, klemmt genau dann, wenn der
+# Verbund eine andere vorgibt. Die Rechte gelten auch fuer den benannten
+# Datentraeger, den Docker darueber haengt - er erbt sie beim ersten Anlegen
+# aus dem Abbild.
+#
+# **Warum unter /app und nicht daneben:** Die Notebooks suchen ihre
+# Projektwurzel beim Arbeitsverzeichnis und eine Ebene darueber
+# (Path.cwd(), dann .parent, erkannt an config/). Ein Arbeitsbereich unter
+# /arbeit laege eine Ebene unter der Wurzel des Dateisystems, und jedes der
+# drei Notebooks braeche in seiner ersten Zelle mit "Projektwurzel nicht
+# gefunden" ab. Unter /app/arbeit findet dieselbe Probe /app - mit config/,
+# mit data/ und mit dem editierbar installierten Code.
+# tests/test_jupyter_abbild.py misst das an den Notebooks nach, statt es zu
+# behaupten.
+RUN mkdir -p /app/arbeit && chmod 0777 /app/arbeit
+
+# Die Wurzel des Servers steht in seiner Konfiguration und nicht nur im
+# Startbefehl: Ein ueberschriebenes command (der Verbund tut genau das)
+# darf nicht aus Versehen /app zur Wurzel machen und damit config/, src/ und
+# den ganzen Bestand in den Dateibaum des Browsers legen. Im selben Schritt
+# erlaubt sie den Lauf als root - ohne diese Zusage verweigert
+# jupyter-server den Start, und der Verbund setzt keinen Benutzer.
+COPY docker/jupyter_server_config.py /usr/local/etc/jupyter/jupyter_server_config.py
+
+# Der Einstieg legt die Vorlagen **einmal** in den Arbeitsbereich und fuehrt
+# dann aus, was ihm uebergeben wurde. Als ENTRYPOINT, weil der Dienst sein
+# command mitbringt und die Vorlagen trotzdem liegen sollen; das Skript endet
+# mit exec "$@" und verschluckt deshalb keinen zweiten Befehl - anders als
+# das ENTRYPOINT, das das Grundabbild aus genau diesem Grund nicht hat.
+# chmod im Abbild und nicht nur in Git: Ein Klon auf Windows traegt das
+# Ausfuehrbit nicht.
+COPY docker/jupyter-einstieg.sh /usr/local/bin/jupyter-einstieg
+RUN chmod 0755 /usr/local/bin/jupyter-einstieg
+ENTRYPOINT ["jupyter-einstieg"]
+
+# Kein Token hier, keine Schluessel hier: Das Token kommt als JUPYTER_TOKEN
+# aus der Umgebung (die .env des Stapels), und der Dienst liest die
+# selbstaendige analyse.duckdb aus dem Release - ein lesender
+# Analysedienst braucht keinen Zugang zum Bucket. Die Wurzel steht in der
+# Konfiguration darueber und bewusst nicht hier, damit sie auch ein
+# ueberschriebenes command ueberlebt.
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser"]

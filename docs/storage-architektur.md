@@ -785,8 +785,11 @@ Actions-Budget ist erschöpft. Gebaut wird deshalb auf einem
 Entwicklungsrechner, dann geschoben und per SHA-256-Digest gepinnt; die
 Beschreibung trägt kein `build:`, sondern liest den Namen aus der `.env` des
 Stapels. Zwei Abbilder sind es: das der Strecke und ein zweites für die
-Analyse — das erste plus `jupyterlab` und die Notebooks. Das zweite ist noch
-nicht gebaut.
+Analyse — das erste plus `jupyterlab` und die Notebooks. Beide liegen als
+Beschreibung im Repository ([`Dockerfile`](../Dockerfile) und
+[`Dockerfile.jupyter`](../Dockerfile.jupyter)); in einer Registry liegt
+keines, und damit ist der Abschnitt weiter eine Beschreibung und kein
+Betrieb.
 
 ### Jupyter liest, und zwar aus dem Release
 
@@ -813,6 +816,77 @@ docker compose -f docker-compose.srv01.yml run --rm pipeline \
 Das Notebook, das Hypothesen prüft, bleibt auf dem Entwicklungsrechner: Es
 misst Hardware und startet Neubauten. Auf einer geteilten, auslagernden
 Maschine misst es das Rauschen der Nachbarn.
+
+### Das zweite Abbild: JupyterLab und drei Vorlagen
+
+[`Dockerfile.jupyter`](../Dockerfile.jupyter) setzt auf dem Strecken-Abbild
+auf, statt eine zweite Abhängigkeitsliste zu führen — die wäre eine zweite
+Wahrheit neben `requirements.lock`. Gebaut werden beide nacheinander, und das
+Grundabbild kommt als Argument herein; auf dem Entwicklungsrechner ist das
+der lokale Name, beim Schieben die per Digest gepinnte Adresse:
+
+```bash
+docker build -t urban-crime --build-arg GIT_COMMIT=$(git rev-parse HEAD) .
+docker build -f Dockerfile.jupyter -t urban-crime-jupyter \
+    --build-arg BASIS=urban-crime .
+
+docker tag urban-crime-jupyter <registry>/urban-crime-jupyter:<datum>
+docker push <registry>/urban-crime-jupyter:<datum>
+# danach in der .env des Stapels: JUPYTER_IMAGE=<registry>/...@sha256:<digest>
+```
+
+**Warum es das Abbild überhaupt braucht.** Das Strecken-Abbild taugt nicht
+als Notebook-Server: `requirements.lock` trägt `ipykernel` und `nbconvert`,
+aber **keinen Server**, und `.dockerignore` hält `notebooks/` draussen — für
+ein Abbild, das wöchentlich unbeaufsichtigt durchläuft, beides richtig.
+Dazugelegt wird deshalb `jupyterlab==4.6.4`, gepinnt wie alles andere, und
+zwar mit `-c requirements.lock`: Der Server darf seine Abhängigkeiten
+auflösen, aber keinen Pin verschieben. Ohne diese Nebenbedingung zöge pip
+`jinja2`, `tornado`, `traitlets` oder `nbformat` mit, und das Analyse-Abbild
+rechnete mit anderen Paketen als die Strecke, deren Zahlen es zeigt.
+
+**Mit kommen die drei lesenden Notebooks** — `34_gold_sternschema`,
+`35_kontrollen` und `37_quellbewegung`. `35` läuft ohne alles, `34` und `37`
+brauchen gebaute Daten unter `data/`; Netz braucht keines, und keines
+schreibt in den Bestand. **Nicht mit kommt `36_hypothesen`**: Es misst
+Hardware und startet Silber-, Gold- und Serving-Neubauten als Unterprozesse,
+und 768 MiB sprengt es dabei (E9). Die `.dockerignore` stellt die drei
+einzeln frei und nicht den Ordner — damit liegt `36_hypothesen` nicht einmal
+im Baukontext.
+
+**Die drei sind Vorlagen, keine Arbeitskopien.** Sie liegen im Abbild unter
+`/vorlagen`, nur lesbar, und das Einstiegsskript
+[`docker/jupyter-einstieg.sh`](../docker/jupyter-einstieg.sh) legt sie
+**einmal** in den Arbeitsbereich, solange dort nichts liegt. Liegt dort etwas — und nach dem
+ersten Start ist das der Normalfall —, fasst es nichts an. Wer eine Vorlage
+bearbeitet, bearbeitet damit seine Kopie: Die Notebooks im Repository sind
+versionierte Artefakte, die zwei Testdateien halten, und eine im Browser
+geänderte Fassung hielte niemand mehr — beim nächsten Abbildwechsel wäre sie
+weg. Eigene Analysen liegen im selben Arbeitsbereich und überleben Neustart
+und Abbildwechsel, weil er ein benannter Datenträger ist.
+
+**Der Arbeitsbereich ist `/app/arbeit` und JupyterLabs Wurzel.** Beides hat
+einen Grund. Die Wurzel, weil unter `/app` daneben `config/`, `src/` und der
+ganze eingehängte Bestand liegen und nicht in den Dateibaum eines Browsers
+gehören; sie steht in
+[`docker/jupyter_server_config.py`](../docker/jupyter_server_config.py) und
+nicht nur im Startbefehl, damit ein überschriebenes `command` sie nicht
+aufhebt. Und
+`/app/arbeit` statt `/arbeit`, weil die Notebooks ihre Projektwurzel beim
+Arbeitsverzeichnis und **eine Ebene darüber** suchen, erkannt an `config/`:
+Von `/app/arbeit` aus finden sie `/app`, von `/arbeit` aus nichts — jedes der
+drei bräche in seiner ersten Zelle ab. `tests/test_jupyter_abbild.py` misst
+das an den Notebooks nach, statt es zu behaupten.
+
+**Kein Geheimnis im Abbild.** Kein Token, keine S3-Schlüssel, kein
+`CENSUS_API_KEY`: Das Token kommt als `JUPYTER_TOKEN` aus der `.env` des
+Stapels, und ein lesender Analysedienst braucht den Bucket nicht — er liest
+die selbständige Datenbank aus dem Release. Der Container läuft als root,
+weil der Verbund keinen Benutzer setzt, und die Konfiguration erlaubt das
+ausdrücklich; ohne diese Zusage verweigert `jupyter-server` den Start. Setzt
+der Verbund doch einen Benutzer, bleiben Arbeitsbereich und `$HOME`
+beschreibbar — beide stehen auf `0777`, weil ein Abbild, das nur für eine uid
+funktioniert, genau dann klemmt.
 
 ### Der Stapellauf ist kein Dienst
 

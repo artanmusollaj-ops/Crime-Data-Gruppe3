@@ -231,8 +231,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'816 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'679 davon — die übrigen 35 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 102 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 1'850 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'713 davon — die übrigen 35 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 102 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 102 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
@@ -271,7 +271,11 @@ beschickt wird und das Sternschema vollständig in Elasticsearch liegt.
 
 *Die zweite, seit dem 6.10.2026:* Ein `Dockerfile` baut die Strecke selbst zu
 einem Abbild, siehe README 2.7. Damit ist B.2 halb erledigt und nicht mehr
-ganz offen.
+ganz offen. Daneben liegt seit demselben Tag ein `Dockerfile.jupyter`:
+dasselbe Abbild plus JupyterLab und die drei **lesenden** Notebooks als
+Vorlagen — die Beschreibung des Analysedienstes, nachzulesen in
+`storage-architektur.md`, Abschnitt 16. Gebaut werden kann es, in einer
+Registry liegt es nicht.
 
 *Die dritte, ebenfalls seit dem 6.10.2026:* Ein `docker-compose.srv01.yml`
 **beschreibt** den Serverbetrieb — vier Dienste, die gemessenen

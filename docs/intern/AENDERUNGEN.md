@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'816** |
+| Tests | **1'850** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -102,6 +102,90 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 06.10.2026 · Das Analyse-Abbild gibt es, und zwei Messungen am laufenden Abbild (#140)
+
+**Was es gibt.** `Dockerfile.jupyter` — das zweite Abbild, auf das
+`docker-compose.srv01.yml` seit gestern zeigt und das es nicht gab. Es setzt
+auf dem Strecken-Abbild auf (`ARG BASIS`, in der Vorgabe derselbe Name, den
+der Verbund als Strecke laufen lässt), legt `jupyterlab==4.6.4` dazu und
+bringt die drei **lesenden** Notebooks als Vorlagen mit. Dazu
+`docker/jupyter-einstieg.sh`, das die Vorlagen **einmal** in den
+Arbeitsbereich legt, `docker/jupyter_server_config.py`, die JupyterLabs
+Wurzel setzt, und `tests/test_jupyter_abbild.py` mit 34 Wächtern.
+
+**Keine zweite Abhängigkeitsliste.** `jupyterlab` wird mit
+`-c requirements.lock` installiert: Der Server darf seine Abhängigkeiten
+auflösen, aber keinen Pin verschieben. Ohne diese Nebenbedingung zieht pip
+`jinja2`, `tornado`, `traitlets` oder `nbformat` mit — und das Analyse-Abbild
+rechnete mit anderen Paketen als die Strecke, deren Zahlen es zeigt. Ein
+Test hält auch die Gegenrichtung: Stünde `jupyterlab` eines Tages im
+Lockfile, wäre dieses Abbild unnötig, und er sagt es.
+
+**Vorlagen, keine Arbeitskopien.** Die drei Notebooks liegen im Abbild unter
+`/vorlagen`, nur lesbar; der Einstieg legt sie in den Arbeitsbereich, solange
+dort nichts liegt, und fasst danach nichts mehr an. Wer eine Vorlage
+bearbeitet, bearbeitet seine Kopie — die Notebooks im Repository sind
+versionierte Artefakte, die zwei Testdateien halten, und eine im Browser
+geänderte Fassung hielte niemand mehr; beim nächsten Abbildwechsel wäre sie
+weg. Das `cp` allein genügte dabei nicht: Es übernimmt die Rechte der
+Vorlage, und die ist absichtlich nur lesbar — ohne das `chmod u+w` danach
+liegt die Kopie da und liesse sich nicht speichern, was erst mitten in einer
+Analyse auffiele.
+
+**`36_hypothesen` kommt nicht mit** (E9). Es misst Hardware und startet
+Silber-, Gold- und Serving-Neubauten als Unterprozesse; auf einer geteilten,
+auslagernden Maschine misst es das Rauschen der Nachbarn und sprengte die
+768 MiB des Dienstes. Die `.dockerignore` stellt die drei lesenden Notebooks
+**einzeln** frei statt den Ordner — damit liegt es nicht einmal im
+Baukontext, und zwischen „liegt im Kontext" und „liegt im Abbild" steht
+nicht nur eine Zeile, die jemand ändert.
+
+**Zwei Dinge fielen erst am laufenden Abbild auf**, und beide hätten auf dem
+Server gestanden.
+
+*Der Arbeitsbereich lag falsch.* Die Compose-Beschreibung hängte ihn auf
+`/arbeit`. Die Notebooks suchen ihre Projektwurzel aber beim
+Arbeitsverzeichnis und **eine Ebene darüber**, erkannt an `config/` — von
+`/arbeit` aus findet keines etwas, und alle drei brächen in ihrer ersten
+Zelle mit „Projektwurzel nicht gefunden" ab. Der Arbeitsbereich heisst
+deshalb `/app/arbeit`: Dieselbe Probe findet damit `/app`, mit `config/`, mit
+dem schreibgeschützten `data/` und mit dem installierten Code. Der Wächter
+dazu liest die Probe aus den Notebooks selbst, statt die Tiefe hinzuschreiben.
+
+*Die Gesundheitsprüfung fragte den falschen Endpunkt.* `/api/status` ist die
+naheliegende Probe und antwortet in `jupyter-server` 2.21.1 **ohne Token mit
+403** — am 6.10.2026 im gebauten Abbild gemessen. Der Dienst wäre dauerhaft
+„unhealthy" gewesen, obwohl er läuft. Geprüft wird jetzt `/login`, das
+unangemeldet 200 gibt; das Token mitzugeben hiesse, die Gesundheit des
+Dienstes an einen Eintrag in der `.env` des Stapels zu hängen.
+
+**Was am Abbild gemessen ist, nicht behauptet.** Gebaut und ausgeführt am
+6.10.2026: `jupyter lab --version` antwortet mit `4.6.4`; `/vorlagen` trägt
+die drei Notebooks und kein viertes; ein leerer Datenträger bekommt die drei
+Vorlagen, ein belegter bleibt unberührt, und eine bearbeitete Kopie
+übersteht den Neustart; mit `--user 4242:4242` sind Arbeitsbereich und
+`$HOME` beschreibbar; `data/` als `:ro` eingehängt lässt sich lesen, und der
+Schreibversuch scheitert am Dateisystem; der Server bedient `/app/arbeit`
+und nimmt sein Token aus der Umgebung.
+
+**Was ausdrücklich nicht dazugehört.** Das Abbild liegt in keiner Registry,
+der Dienst läuft auf keinem Server, und Abschnitt 16 bleibt damit eine
+Beschreibung. Was sich geändert hat, ist nur, dass das zweite Abbild
+jetzt **baubar** ist statt angekündigt.
+
+**Dokumente nachgezogen.** `storage-architektur.md` Abschnitt 16 (der neue
+Unterabschnitt „Das zweite Abbild: JupyterLab und drei Vorlagen", mit Bau-
+und Schiebebefehl; „Das zweite ist noch nicht gebaut" ist weg),
+`architektur-ist-und-ziel.md` Teil B (die zweite Ausnahme nennt jetzt auch
+`Dockerfile.jupyter`, und der Wächter dort hält es nach).
+
+**Zahlen.** 1'816 → **1'850 Tests** (34 neue Wächter: jede Zeile der
+I/O-Matrix des Plans, davon sieben als **ausgeführtes** Skript statt als
+Textsuche, dazu die Pfade des Abbilds gegen die Compose-Beschreibung und die
+Wurzelprobe gegen die Notebooks), Standardlauf 1'714 → **1'748**,
+Referenzwächter unverändert **102**, alle grün. Kein Vertragssprung, keine
+Daten angefasst, keine Tabelle und keine Spalte neu.
 
 ## 06.10.2026 · Der Serverbetrieb ist beschrieben, mit gemessenen Grenzen (#139)
 

@@ -259,7 +259,9 @@ services:
     # 36_hypothesen - es misst Hardware und startet Neubauten, und auf einer
     # geteilten, auslagernden Maschine misst es das Rauschen der Nachbarn
     # (E9). Gebaut wird es wie das andere auf einem Entwicklungsrechner und
-    # per Digest in der .env des Stapels gepinnt.
+    # per Digest in der .env des Stapels gepinnt; die Beschreibung ist
+    # Dockerfile.jupyter, der Befehl steht in docs/storage-architektur.md,
+    # Abschnitt 16.
     image: ${JUPYTER_IMAGE:-urban-crime-jupyter:latest}
     restart: unless-stopped
     # Zeitweilig, wie die Pipeline: Das Profil haelt ihn aus "up -d" heraus,
@@ -296,12 +298,27 @@ services:
       #   docker compose -f docker-compose.srv01.yml run --rm pipeline \
       #     python -m orchestration.release holen aktuell --nur-datenbank
       - arbeitsdaten:/app/data:ro
-      # Der eigene beschreibbare Arbeitsbereich. Die Notebooks liegen im
-      # Abbild unter /app/notebooks; wer eines bearbeiten will, kopiert es
-      # hierher - dort ueberlebt es einen Neustart, und die Fassung im Abbild
-      # bleibt die ausgelieferte.
-      - jupyter-arbeit:/arbeit
-    command: ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--ServerApp.root_dir=/arbeit"]
+      # Der eigene beschreibbare Arbeitsbereich - und JupyterLabs Wurzel.
+      # Eigene Analysen liegen hier und ueberleben Neustart und
+      # Abbildwechsel. Die drei mitgelieferten Notebooks liegen im Abbild
+      # unter /vorlagen und werden beim ersten Start **einmal** hierher
+      # gelegt, solange hier nichts liegt; danach fasst der Einstieg nichts
+      # mehr an - wer eine Vorlage bearbeitet, bearbeitet seine Kopie, und
+      # die Fassung im Abbild bleibt die ausgelieferte.
+      #
+      # Unter /app und nicht daneben: Die Notebooks suchen ihre
+      # Projektwurzel beim Arbeitsverzeichnis und eine Ebene darueber
+      # (erkannt an config/). /app/arbeit findet damit /app - mit config/,
+      # mit dem schreibgeschuetzten data/ und mit dem installierten Code;
+      # ein Arbeitsbereich unter /arbeit liesse jedes der drei Notebooks in
+      # seiner ersten Zelle abbrechen.
+      - jupyter-arbeit:/app/arbeit
+    # Die Wurzel steht hier **und** in der Konfiguration im Abbild. Hier,
+    # damit sie beim Lesen dieser Datei nicht geraten werden muss; dort,
+    # damit ein vergessener Schalter nicht /app zur Wurzel macht und config/,
+    # src/ und den ganzen Bestand in den Dateibaum des Browsers legt. Ein
+    # Test haelt die beiden Angaben gegeneinander.
+    command: ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--ServerApp.root_dir=/app/arbeit"]
     # FR-13, gemessen am 6.10.2026: 768 MiB. Zeitweilig, nicht Dauerbetrieb -
     # und ohne die Deckelung von cadvisor auf 256 MiB passt dieser Dienst
     # ueberhaupt nicht.
@@ -314,7 +331,15 @@ services:
         max-size: 10m
         max-file: "3"
     healthcheck:
-      test: ["CMD-SHELL", "curl -fs http://localhost:8888/api/status"]
+      # **Nicht /api/status**: Am 6.10.2026 im gebauten Abbild gemessen
+      # (jupyter-server 2.21.1) antwortet es **ohne Token mit 403**, und der
+      # Dienst waere dauerhaft "unhealthy", obwohl er laeuft. /login gibt
+      # unangemeldet 200 - es ist die Seite, die der Server selbst
+      # ausliefert, also ein Beweis, dass die Anwendung steht und nicht nur
+      # der Port offen ist. Das Token hier mitzugeben waere die schlechtere
+      # Antwort: Dann haengt die Gesundheit des Dienstes daran, dass die .env
+      # des Stapels eines setzt.
+      test: ["CMD-SHELL", "curl -fs http://localhost:8888/login"]
       interval: 30s
       timeout: 10s
       retries: 10
