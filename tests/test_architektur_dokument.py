@@ -197,7 +197,7 @@ GEPLANT = {
 
 #: Was existiert und deshalb in Teil B ausdruecklich als Ausnahme dastehen
 #: muss - je Datei die Jahreszahl, an der sie entstand.
-AUSNAHMEN = ("docker-compose.yml", "Dockerfile")
+AUSNAHMEN = ("docker-compose.yml", "Dockerfile", "Dockerfile.jupyter")
 
 
 def test_teil_b_behauptet_nichts_gebautes(teil_b):

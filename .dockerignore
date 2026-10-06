@@ -45,6 +45,17 @@ dist/
 # holt docs/intern/AENDERUNGEN.md daraus, und ein Ausschluss machte daraus
 # einen gescheiterten Bau.
 notebooks/
+# Drei Ausnahmen, und zwar einzeln benannt: Dockerfile.jupyter baut das
+# Analyse-Abbild aus diesem Baukontext und braucht die **lesenden**
+# Notebooks als Vorlagen darin. Eine Ausnahme fuer den ganzen Ordner waere
+# bequemer und falsch - so ist 36_hypothesen nicht einmal im Baukontext, und
+# die Liste der drei steht an genau einer Stelle mehr: in Dockerfile.jupyter,
+# das tests/test_jupyter_abbild.py gegen diese drei Zeilen haelt.
+# Fuer das Strecken-Abbild kostet das 180 KB Kontext und keine Schicht - es
+# kopiert kein Notebook.
+!notebooks/34_gold_sternschema.ipynb
+!notebooks/35_kontrollen.ipynb
+!notebooks/37_quellbewegung.ipynb
 reports/
 tests/
 tools/
