@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'784** |
+| Tests | **1'816** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -103,6 +103,96 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 06.10.2026 · Der Serverbetrieb ist beschrieben, mit gemessenen Grenzen (#139)
+
+**Was es gibt.** `docker-compose.srv01.yml` — eine zweite Compose-Beschreibung
+neben der Entwicklungsfassung, für den Betrieb auf einem geteilten Server:
+Elasticsearch und Kibana im Dauerbetrieb, die Strecke als **Stapellauf** und
+ein **lesendes** Jupyter als zeitweilige Dienste. Dazu Abschnitt 16 in
+`storage-architektur.md`, der sagt, wie das liegt und was daneben eingerichtet
+werden muss, und `tests/test_srv01_compose.py` mit 32 Wächtern.
+
+**Was sich an einer Zusage ändert: nichts — und das ist der Eintrag.** Die
+Beschreibung ist **nirgends angewandt**. Die Abbilder, auf die sie zeigt, gibt
+es nicht, der wöchentliche Anstoss ist nicht eingerichtet, und auf dem Server
+läuft nichts davon. Der Architekturtext sagt das jetzt in Teil B ausdrücklich
+als *zweite Ausnahme*: gebaut ist eine Beschreibung, kein Betrieb. Ohne diesen
+Satz hätte dort weiter „nichts in diesem Teil ist gebaut" gestanden, während
+eine Datei im Repository das Gegenteil nahelegt.
+
+**Die Grenzen sind gemessen, und die Schätzung war falsch.** Am 6.10.2026 auf
+der laufenden Maschine: 31 Container belegen 3'605 MiB, verfügbar sind
+**4'325 MiB**, 2'418 von 4'095 MB Swap sind schon belegt. Die vorher
+veranschlagten 5'632 MiB lagen **1'307 MiB über** dem Verfügbaren — nicht
+knapp daneben, sondern unmöglich. Gemessen wurde ausserdem, dass
+Elasticsearchs Heap **195 von 1'024 MiB** nutzt und Kibana **771 MiB** belegt.
+Es gilt deshalb: Elasticsearch 1'792 MiB (Heap 768 MiB), Kibana 1'024 MiB,
+Pipeline 1'280 MiB, Jupyter 768 MiB. Dauerbetrieb sind nur die ersten beiden
+mit zusammen 2'816 MiB; Pipeline und Jupyter streiten um denselben Platz, es
+zählt das grössere. Summe **4'096 MiB** gegen 4'325 MiB plus die rund
+792 MiB, die das Deckeln von cadvisor auf 256 MiB freigibt — es belegt heute
+1'047 MiB, 29 % des gesamten Containerspeichers. **Ohne diese Deckelung passt
+Jupyter nicht**, und sie gehört nicht in diese Datei, sondern in den
+Überwachungsstapel.
+
+**Jede Grenze trägt ihre Herkunft an ihrer Zeile**, und ein Test verlangt das:
+In den Zeilen über jedem `mem_limit` müssen die Anforderungsnummer und das
+Messdatum stehen. Eine Zahl ohne Herkunft ist in drei Wochen eine geratene.
+
+**Was die Wächter festhalten, weil man es im Betrieb erst merkt.** Jeder
+Dienst hat eine Grenze — *ein Dienst ohne Grenze startet nicht*. Der
+Stapellauf trägt **kein** `ports:`, **kein** Traefik-Label und **nie**
+`restart: unless-stopped`; aus einem Wochenlauf würde sonst eine Dauerschleife,
+die jede Runde neue Bronze-Läufe anhäuft. Elasticsearch trägt **kein**
+Traefik-Label und liegt **nicht** im Routing-Netz — ein versehentliches Label
+daran wäre ein offener Datenspeicher. Kibana trägt die vollständigen Labels
+samt der `X-Forwarded-Proto: https`-Middleware, und geprüft wird beides: dass
+sie definiert ist **und** dass der Router sie benutzt; eine definierte, nicht
+verwendete Middleware ist der Fehler, den man nicht sieht. Die Hostnamen
+folgen `urbancrime-<dienst>.datenwerft.ch`, damit **eine** Access-Anwendung
+jeden künftigen Dienst mitdeckt. Und die Summe wird nachgerechnet, mit der
+Einteilung in dauernd und zeitweilig **aus der Datei selbst**: Wer ein Profil
+entfernt, macht aus einem zeitweiligen Dienst einen dauernden, und der Test
+fällt.
+
+**Jupyter liest, und zwar aus dem Release.** `data/` ist
+**schreibgeschützt** eingehängt — damit kann das Notebook, das Detroit nach
+Bronze lädt, strukturell nicht in den echten Bestand schreiben; der Versuch
+scheitert am Dateisystem und nicht an einer Absprache. Gelesen wird die
+**selbständige** `analyse.duckdb` aus einem Release (93 MB, Tabellen darin),
+nicht `data/serving/analyse.duckdb`: Die trägt 17 Sichten mit absoluten Pfaden
+auf den Entwicklungsrechner und ist im Container wertlos. Daneben liegt ein
+eigener beschreibbarer Arbeitsbereich, sonst liesse sich kein Notebook
+speichern.
+
+**Keine Geheimnisse in der Datei.** Jede Variable steht dort **ohne Wert** —
+in Compose heisst das *hole ihn aus der Umgebung* —, und geholt wird er aus
+der ignorierten `.env` des Stapels. Zwei Tests prüfen beide Richtungen: dass
+keine Variable mit einem Namen wie `…KEY` oder `…TOKEN` einen Wert trägt, und
+dass die drei, die der Lauf braucht, überhaupt genannt sind. Eine Ausnahme
+trägt bewusst einen Wert: der Ablagemodus `s3`. Er ist kein Geheimnis, und ein
+Serverlauf, der versehentlich lokal liefe, publizierte nichts und sähe dabei
+grün aus.
+
+**Was in dieser Datei ausdrücklich nicht geht.** DuckDB wird von innen
+begrenzt, nicht nur von aussen: Ein Container-Limit tötet den Prozess, es
+bremst ihn nicht, und ohne Angabe rechnet DuckDB mit 80 % des Arbeitsspeichers
+der **Maschine** — hier 6,3 GiB neben fünfzehn fremden Diensten. Nur
+Elasticsearch verbietet sich das Auslagern; Pipeline und Jupyter bekommen die
+Zeile bewusst nicht, denn ein langsamer Wochenlauf ist besser als ein
+getöteter.
+
+**Die Entwicklungsfassung bleibt unangetastet.** Sie bindet Ports an
+`127.0.0.1` und kennt kein Traefik — richtig auf dem Entwicklungsrechner und
+falsch auf dem Server. Eine Datei, die beides sein will, ist in einem der
+beiden Fälle falsch; ein Test hält fest, dass sie weiter so aussieht, wie sie
+aussehen soll.
+
+**Zahlen.** 1'732 → **1'764 Tests** (32 neue Wächter: jede Zeile der Matrix,
+dazu einer über den YAML-Leser selbst), Standardlauf 1'630 → **1'662**,
+Referenzwächter unverändert **102**, alle grün. Kein Vertragssprung, keine
+Daten angefasst, keine Tabelle und keine Spalte neu. Nachgezogen: die Testzahl
+an acht Stellen, der Wegweiser und Teil B des Architekturtexts.
 ## 06.10.2026 · Die Strecke wird ein Abbild — und zwei geratene Stellen fallen (#138)
 
 **Was es gibt.** Ein `Dockerfile` auf `python:3.13`, das `python -m
@@ -182,11 +272,11 @@ dagegen ist umgedreht — er verlangt nicht mehr die Abwesenheit des
 `Dockerfile`, sondern dass jedes Gebaute im Text als Ausnahme dasteht),
 `ausblick.md` („Container-Image … gibt es seit dem 6.10.2026").
 
-**Zahlen.** 1'732 → **1'784 Tests** (52 neue Wächter: jede Zeile der
+**Zahlen.** 1'732 → **1'816 Tests** (52 neue Wächter: jede Zeile der
 I/O-Matrix des Plans, die fünf Ausschlüsse aus FR-2 einzeln, die
 DuckDB-Erweiterungen gegen die `INSTALL`-Aufrufe im Code **gemessen** statt
 gepflegt, dazu je Lader die drei Zusagen über die Adresse), Standardlauf
-1'630 → **1'682**, Referenzwächter unverändert **102**, alle grün. Kein
+1'630 → **1'714**, Referenzwächter unverändert **102**, alle grün. Kein
 Vertragssprung, keine Daten angefasst, keine Tabelle und keine Spalte neu.
 **Nachgebaut:** `docs/referenz/`.
 

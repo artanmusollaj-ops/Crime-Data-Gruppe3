@@ -231,8 +231,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'784 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'649 davon — die übrigen 33 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 102 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 1'816 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'679 davon — die übrigen 35 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 102 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 102 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
@@ -261,7 +261,7 @@ Oberfläche ausser Notebooks und der DuckDB-Konsole. Genau hier setzt Teil B an.
 
 # Teil B · Die Ziel-Architektur
 
-**Nichts in diesem Teil ist gebaut** — mit zwei Ausnahmen, die hier benannt
+**Nichts in diesem Teil ist gebaut** — mit drei Ausnahmen, die hier benannt
 gehören, statt den Satz aufzuweichen.
 
 *Die erste, seit dem 28.9.2026:* Ein `docker-compose.yml` für die drei
@@ -273,9 +273,17 @@ beschickt wird und das Sternschema vollständig in Elasticsearch liegt.
 einem Abbild, siehe README 2.7. Damit ist B.2 halb erledigt und nicht mehr
 ganz offen.
 
-Beides ist der Verbund auf dem Entwicklungsrechner, nicht der Betrieb: kein
-Server, kein Tunnel, keine Anmeldung, kein Zeitplan — die Strecke läuft
-weiterhin, weil jemand sie startet.
+*Die dritte, ebenfalls seit dem 6.10.2026:* Ein `docker-compose.srv01.yml`
+**beschreibt** den Serverbetrieb — vier Dienste, die gemessenen
+Speichergrenzen, die Traefik-Regeln, ein lesendes Jupyter; nachzulesen in
+`storage-architektur.md`, Abschnitt 16.
+
+Alle drei sind der Verbund auf dem Entwicklungsrechner, nicht der Betrieb:
+kein Server, kein Tunnel, keine Anmeldung, kein Zeitplan. Und die dritte ist
+eine **Beschreibung**, kein Betrieb — sie ist nirgends angewandt, und die
+Abbilder, auf die sie zeigt, liegen in keiner Registry. Der Unterschied ist
+der ganze Punkt dieses Dokuments: Was hier steht, ist prüfbar, nicht in
+Betrieb.
 
 Ansonsten beschreibt dieser Teil, wie die Plattform für LN2 und einen echten
 Betrieb aussehen soll, und nennt zu jedem Baustein, was er löst und was er
@@ -328,9 +336,20 @@ das nicht ins Abbild gehört; der Commit kommt deshalb beim Bau als
 `--build-arg GIT_COMMIT` herein, sonst sagte jedes Manifest aus dem Container
 „welcher Code das erzeugt hat: unbekannt".
 
-Was fehlt, ist der **Betrieb**: der Pipeline-Dienst im Compose-Verbund, mit
-Speichergrenze, Logrotation und Zeitplan. Solange der nicht steht, ist das
-Abbild eine Zusicherung über die Abhängigkeiten und noch keine über den Lauf.
+Vom selben Tag stammt die **Beschreibung** des Serverbetriebs
+(`docker-compose.srv01.yml`): der Stapellauf ohne Port und ohne
+`unless-stopped`, Kibana mit den vollständigen Traefik-Labels, Elasticsearch
+ohne Label und ausserhalb des Routing-Netzes, ein lesendes Jupyter — und je
+Dienst eine Speichergrenze, die auf der Maschine **gemessen** wurde, nicht
+geschätzt. Die vorher veranschlagten 5'632 MiB lagen 1'307 MiB über dem
+Verfügbaren; das ist der Grund, warum die Reihenfolge *erst messen, dann
+begrenzen* hier eine eigene Anforderung ist.
+
+Was fehlt, ist der **Betrieb**. Die Beschreibung ist nirgends angewandt, die
+Abbilder liegen in keiner Registry, es gibt keine Access-Anwendung und keinen
+Zeitplan. Solange das so bleibt, ist der Verbund eine Bequemlichkeit beim
+Entwickeln, das Abbild eine Zusicherung über die Abhängigkeiten und die
+Serverbeschreibung ein geprüfter Plan — keines davon eine Betriebszusage.
 
 **Was es löst.** Heute läuft die Strecke auf genau einer Maschine, und ihre
 Abhängigkeiten sind ein `requirements.lock` plus die Hoffnung, dass der

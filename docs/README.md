@@ -40,7 +40,7 @@ Was sich nicht ohne uns lesen lässt, lässt sich auch nicht übertragen.
 | [`sternschema-und-wuerfel.md`](sternschema-und-wuerfel.md) · [`.html`](sternschema-und-wuerfel.html) | warum Gold ein Stern ist und kein Würfel — die begründete Entwurfsentscheidung |
 | [`zaehlperspektiven.md`](zaehlperspektiven.md) | vier Arten zu zählen, und was sich nicht addiert |
 | [`eine-zahl.md`](eine-zahl.md) | eine Zahl über sieben Schichten zurückverfolgt |
-| [`storage-architektur.md`](storage-architektur.md) | die Ablage im Aufbau: Modi, Zusagen, API, Fehlerbilder — LN1 verlangt die Storage-Evaluation ausdrücklich |
+| [`storage-architektur.md`](storage-architektur.md) | die Ablage im Aufbau: Modi, Zusagen, API, Fehlerbilder — LN1 verlangt die Storage-Evaluation ausdrücklich; Abschnitt 16 beschreibt, wie die Strecke auf `srv01` liegt, mit den gemessenen Speichergrenzen |
 | [`feldkatalog.md`](feldkatalog.md) | was jede Spalte bedeutet, 192 Spalten in 15 Tabellen — und **erzeugt** (siehe unten) |
 | [`ausblick.md`](ausblick.md) | was nach LN1 käme, mit Messwerten und Reihenfolge |
 

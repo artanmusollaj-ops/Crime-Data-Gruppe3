@@ -650,3 +650,198 @@ nicht Teil der Suite:
 SELECT count(*) FROM read_parquet(
     's3://urban-crime/silver/dataset=crime_offense/part-0001.parquet');
 ```
+
+---
+
+## 16 · Die Strecke auf `srv01`
+
+Seit dem 6.10.2026 gibt es neben der Entwicklungsfassung eine zweite
+Compose-Beschreibung:
+[`docker-compose.srv01.yml`](../docker-compose.srv01.yml). Sie steht hier,
+weil die Ablage entscheidet, wie sie aussieht: Auf `srv01` ist der Modus `s3`,
+SeaweedFS ist der Bestand, und die lokale Kopie wird nach dem Publizieren
+entfernt. Daraus folgt beides — es braucht **kein dauerhaftes
+`data/`-Volume**, nur einen Arbeitsraum, und `httpfs` wird kritisch statt
+nützlich, weil Silver Bronze direkt von S3 liest.
+
+**Sie ist eine Beschreibung, kein Betrieb.** Angewandt ist sie zum Zeitpunkt
+dieses Abschnitts nirgends: Die Abbilder sind nicht in einer Registry, der
+wöchentliche Anstoss ist nicht eingerichtet, und auf `srv01` läuft nichts
+davon. Was hier steht, sagt, wie es liegen soll, und ist an dieser Stelle
+nachprüfbar — nicht, dass es läuft.
+
+### Warum zwei Dateien
+
+`docker-compose.yml` ist die Entwicklungsfassung: drei Analysedienste, Ports
+an `127.0.0.1` gebunden, kein Traefik, keine Speichergrenzen. Das ist auf dem
+Entwicklungsrechner richtig und auf `srv01` falsch — dort gibt es keinen
+Host-Port 80 oder 443, der Eingang ist ein **ausgehender** Cloudflare-Tunnel
+auf Traefik, und 7,7 GiB tragen bereits fünfzehn fremde Dienste. Eine Datei,
+die beides sein will, ist in einem der beiden Fälle falsch. Die
+Entwicklungsfassung bleibt deshalb unangetastet; ein Test hält fest, dass sie
+weiter an `127.0.0.1` bindet und kein Traefik-Label trägt.
+
+### Die vier Dienste
+
+| Dienst | Was er ist | Wie er erreichbar ist |
+| --- | --- | --- |
+| `elasticsearch` | Dauerbetrieb, **kein** Webdienst | nur im Stapelnetz — kein Port, kein Traefik-Label, nicht im Netz `proxy` |
+| `kibana` | Dauerbetrieb, der eine geroutete Webdienst | `urbancrime-kibana.datenwerft.ch` über Traefik |
+| `pipeline` | **Stapellauf**, läuft einmal durch und endet | gar nicht — kein Port, kein Label, kein `unless-stopped` |
+| `jupyter` | zeitweilig, **lesende** Analyse | `urbancrime-jupyter.datenwerft.ch` über Traefik |
+
+Dass Elasticsearch `proxy` nicht beitritt, ist keine Vorsicht, sondern die
+Vorgabe des Servers: Ein versehentliches Traefik-Label daran wäre ein offener
+Datenspeicher. Geroutet ist nur Kibana — und seit dem Entscheid über einen
+lesenden Notebook-Server auch Jupyter.
+
+Pipeline und Jupyter tragen ein Compose-**Profil** und starten deshalb nicht
+mit `up -d`. Das ist nicht Kosmetik: Die Rechnung unten geht nur auf, solange
+der Dauerbetrieb aus Elasticsearch und Kibana besteht.
+
+### Die Speichergrenzen — gemessen, nicht geschätzt
+
+Am **6.10.2026** auf der laufenden Maschine gemessen: 31 Container belegen
+3'605 MiB, verfügbar sind **4'325 MiB**, und 2'418 von 4'095 MB Swap sind
+bereits belegt. Die vorher veranschlagten 5'632 MiB lagen damit **1'307 MiB
+über** dem Verfügbaren — die Schätzung war nicht knapp, sie war falsch.
+
+| Dienst | Grenze | Woher die Zahl kommt |
+| --- | ---: | --- |
+| `elasticsearch` | 1'792 MiB | 1,75 GiB; der Heap nutzte gemessen **195 von 1'024 MiB** und steht deshalb auf 768 MiB |
+| `kibana` | 1'024 MiB | gemessen belegt **771 MiB**, plus Luft |
+| `pipeline` | 1'280 MiB | 1,25 GiB, zeitweilig |
+| `jupyter` | 768 MiB | zeitweilig; passt nur, wenn cadvisor gedeckelt wird |
+
+**Die Rechnung.** Dauerbetrieb sind Elasticsearch und Kibana mit zusammen
+2'816 MiB. Pipeline und Jupyter sind zeitweilig und streiten um denselben
+Platz, es zählt also das grössere der beiden: 1'280 MiB. Zusammen **4'096
+MiB** gegen 4'325 MiB verfügbar plus die rund 792 MiB, die das Deckeln von
+cadvisor freigibt. `tests/test_srv01_compose.py` rechnet das nach und nimmt
+die Einteilung in dauernd und zeitweilig aus der Datei selbst — wer ein Profil
+entfernt, macht aus einem zeitweiligen Dienst einen dauernden, und der Test
+fällt.
+
+**Die eine Voraussetzung, die nicht in dieser Datei steht:** cadvisor muss auf
+**256 MiB** gedeckelt werden. Es belegt heute 1'047 MiB — 29 % des gesamten
+Containerspeichers und mehr als jeder andere Dienst. Ohne diese Deckelung
+passt Jupyter nicht. cadvisor gehört zum Überwachungsstapel und nicht zu
+diesem; die Deckelung ist dort vorzunehmen.
+
+**DuckDB wird zusätzlich von innen begrenzt.** Ein Container-Limit tötet den
+Prozess, es bremst ihn nicht — und ohne Angabe nimmt DuckDB rund 80 % des
+Arbeitsspeichers der **Maschine**, nicht des Containers; das wären hier
+6,3 GiB auf einer Maschine mit fünfzehn Nachbardiensten. Pipeline und Jupyter
+setzen `memory_limit` und `threads` deshalb über die Umgebung — dieselben zwei
+Variablen, die `src/crime/storage/duckdb.py` auf **jeder** Verbindung setzt und
+die `.env.example` erklärt: 896 MB bei 1'280 MiB Container, 512 MB bei
+768 MiB, zwei Threads von vier vCPU. Ein Test hält fest, dass die innere
+Grenze unter der äusseren liegt.
+
+Nur Elasticsearch verbietet sich das Auslagern (`memswap_limit` gleich der
+Grenze): Ein Heap auf der Platte erzeugt Cluster-Zeitüberschreitungen statt
+Langsamkeit. Pipeline und Jupyter bekommen die Zeile bewusst nicht — dort ist
+Swap der Rettungsanker eines einmaligen Laufs, und ein langsamer Wochenlauf
+ist besser als ein getöteter.
+
+### Was daneben einzurichten ist
+
+Vier Dinge kann eine Compose-Datei nicht sagen, und alle vier sind nötig,
+bevor etwas erreichbar ist.
+
+**Die Tunnel-Route je Hostname.** Auf dem bestehenden Tunnel eine
+veröffentlichte Anwendung anlegen, und zwar so:
+
+```text
+Public hostname: urbancrime-kibana.datenwerft.ch
+Service type:    HTTP
+Service URL:     http://traefik:80
+```
+
+Der Ursprung ist **immer** `http://traefik:80` und **nie** der öffentliche
+Hostname: Zeigt die Route auf sich selbst, läuft der Verkehr zurück durch
+Cloudflare — eine Schleife oder ein HTTP 403. Traefiks `Host(...)`-Regel
+erledigt danach die Zuordnung.
+
+**Eine eigene Access-Anwendung über `urbancrime-*`.** Die bestehende
+Wildcard-Policy greift nur vor `infra-*`, und `infra-*` ist der Infrastruktur
+vorbehalten. Deshalb das Muster: `urbancrime.datenwerft.ch` ist die
+öffentliche Seite, alles Weitere heisst `urbancrime-<dienst>.datenwerft.ch`,
+und **eine** Access-Anwendung über `urbancrime-*` deckt jeden künftigen Dienst
+mit. Eine vergessene Access-Regel ist ein offener Dienst; ein Muster lässt
+sich nicht vergessen. Ein Test hält die Hostnamen am Muster fest. Nach jeder
+neuen Route wird gegen einen **zufälligen** Hostnamen geprüft, dass er die
+Seite nicht erreicht.
+
+**Der Elasticsearch-Datenträger in `config/srv01.yaml`**, damit Restic ihn
+sichert — dasselbe für Kibanas. Ein neu gebauter Index ist in Minuten
+wiederhergestellt; Kibanas gespeicherte Objekte sind es nur, solange der
+Verschlüsselungsschlüssel derselbe bleibt. Der Arbeitsraum der Strecke gehört
+ausdrücklich **nicht** dazu: Was Restic sichern muss, ist der Bucket.
+
+**Die Abbilder in einer Registry.** `srv01` verbietet den Bau auf dem Host —
+*„large frontend builds have previously exhausted RAM"* —, und das
+Actions-Budget ist erschöpft. Gebaut wird deshalb auf einem
+Entwicklungsrechner, dann geschoben und per SHA-256-Digest gepinnt; die
+Beschreibung trägt kein `build:`, sondern liest den Namen aus der `.env` des
+Stapels. Zwei Abbilder sind es: das der Strecke und ein zweites für die
+Analyse — das erste plus `jupyterlab` und die Notebooks. Das zweite ist noch
+nicht gebaut.
+
+### Jupyter liest, und zwar aus dem Release
+
+Drei Auflagen machen aus einem Notebook-Server etwas, das auf einer geteilten
+Maschine vertretbar ist.
+
+`data/` wird **schreibgeschützt** eingehängt. Damit kann das Notebook, das
+Detroit nach Bronze lädt, strukturell nicht in den echten Bestand schreiben —
+der Versuch scheitert am Dateisystem und nicht an einer Absprache. Daneben
+liegt ein eigener beschreibbarer Arbeitsbereich, sonst liesse sich kein
+Notebook speichern.
+
+Gelesen wird die **selbständige** `analyse.duckdb` aus einem Release (93 MB,
+Tabellen darin), nicht `data/serving/analyse.duckdb`. Die trägt 17 Sichten mit
+absoluten Pfaden auf den Entwicklungsrechner und ist im Container wertlos —
+Abschnitt 9 sagt, warum das so ist und warum es so bleibt. Hereingeholt wird
+sie über den Stapellauf:
+
+```bash
+docker compose -f docker-compose.srv01.yml run --rm pipeline \
+    python -m orchestration.release holen aktuell --nur-datenbank
+```
+
+Das Notebook, das Hypothesen prüft, bleibt auf dem Entwicklungsrechner: Es
+misst Hardware und startet Neubauten. Auf einer geteilten, auslagernden
+Maschine misst es das Rauschen der Nachbarn.
+
+### Der Stapellauf ist kein Dienst
+
+Der Pipeline-Container läuft einmal durch und endet. Er trägt **kein**
+`ports:`, **kein** Traefik-Label und **nie** `restart: unless-stopped` — damit
+würde aus einem Wochenlauf eine Dauerschleife, die jede Runde neue
+Bronze-Läufe anhäuft. Gesetzt ist `on-failure:2`: Ein abgebrochener
+Netzzugriff soll nicht den ganzen Lauf verlieren, aber ein Lauf, der dreimal
+scheitert, hat ein Problem und keinen vierten Versuch.
+
+Angestossen wird er von Hand oder vom Zeitplan:
+
+```bash
+docker compose -f docker-compose.srv01.yml run --rm pipeline
+```
+
+Der Zeitplan selbst, die Meldung bei Rot und die Rücknahme eines falsch
+publizierten Standes sind nicht Teil dieser Beschreibung.
+
+### Die Geheimnisse
+
+Keines steht in der Compose-Datei. Jede Variable ist dort **ohne Wert**
+aufgeführt — in Compose heisst das *hole ihn aus der Umgebung* —, und geholt
+wird er aus der ignorierten `.env` des Stapels. Fehlt eine Variable dort,
+erreicht sie den Container nicht; der Schlüssel für Census fällt dann vor dem
+Lauf auf und nicht bei Stufe 5 von 14. Ein Test prüft beide Richtungen: dass
+keine Variable mit einem Namen wie `…KEY` oder `…TOKEN` einen Wert trägt, und
+dass die drei, die der Lauf braucht, überhaupt genannt sind.
+
+Eine Ausnahme von „ohne Wert": Der Ablagemodus steht fest im Text, als `s3`.
+Er ist kein Geheimnis, und ein Serverlauf, der versehentlich in `local` liefe,
+publizierte nichts und sähe dabei grün aus.
