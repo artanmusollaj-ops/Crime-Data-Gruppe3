@@ -665,9 +665,10 @@ entfernt. Daraus folgt beides — es braucht **kein dauerhaftes
 nützlich, weil Silver Bronze direkt von S3 liest.
 
 **Sie ist eine Beschreibung, kein Betrieb.** Angewandt ist sie zum Zeitpunkt
-dieses Abschnitts nirgends: Die Abbilder sind nicht in einer Registry, der
-wöchentliche Anstoss ist nicht eingerichtet, und auf `srv01` läuft nichts
-davon. Was hier steht, sagt, wie es liegen soll, und ist an dieser Stelle
+dieses Abschnitts nirgends: Der wöchentliche Anstoss ist nicht eingerichtet,
+und auf `srv01` läuft nichts davon. Ein Schritt ist seit dem 8.10.2026 getan
+— die Abbilder liegen in einer Registry (unten in diesem Abschnitt) —, aber
+geholt hat sie dort noch kein Dienst. Was hier steht, sagt, wie es liegen soll, und ist an dieser Stelle
 nachprüfbar — nicht, dass es läuft.
 
 ### Warum zwei Dateien
@@ -787,9 +788,16 @@ Beschreibung trägt kein `build:`, sondern liest den Namen aus der `.env` des
 Stapels. Zwei Abbilder sind es: das der Strecke und ein zweites für die
 Analyse — das erste plus `jupyterlab` und die Notebooks. Beide liegen als
 Beschreibung im Repository ([`Dockerfile`](../Dockerfile) und
-[`Dockerfile.jupyter`](../Dockerfile.jupyter)); in einer Registry liegt
-keines, und damit ist der Abschnitt weiter eine Beschreibung und kein
-Betrieb.
+[`Dockerfile.jupyter`](../Dockerfile.jupyter)) und seit dem 8.10.2026 auch
+als Abbild unter `ghcr.io/datenwerft`, je per SHA-256-Digest ansprechbar.
+Damit ist die Voraussetzung erfüllt, die diese Beschreibung an sich selbst
+stellt — ein Betrieb ist sie trotzdem nicht: Auf `srv01` ist der Stapel
+nicht gestartet, und welcher Digest dort gilt, entscheidet dessen `.env`.
+
+Nachprüfbar ist das von aussen **nicht**: Die Pakete sind privat, und ein
+Test ohne Token käme nicht an die Registry. Die Digests des ersten Schiebens
+stehen datiert im Projektgedächtnis; was auf `srv01` wirklich läuft, sagt
+dort `docker compose images`.
 
 ### Jupyter liest, und zwar aus dem Release
 

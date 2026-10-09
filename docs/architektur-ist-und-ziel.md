@@ -274,8 +274,8 @@ einem Abbild, siehe README 2.7. Damit ist B.2 halb erledigt und nicht mehr
 ganz offen. Daneben liegt seit demselben Tag ein `Dockerfile.jupyter`:
 dasselbe Abbild plus JupyterLab und die drei **lesenden** Notebooks als
 Vorlagen — die Beschreibung des Analysedienstes, nachzulesen in
-`storage-architektur.md`, Abschnitt 16. Gebaut werden kann es, in einer
-Registry liegt es nicht.
+`storage-architektur.md`, Abschnitt 16. Gebaut ist es, und seit dem 8.10.2026 liegt
+es neben dem Strecken-Abbild in `ghcr.io/datenwerft`.
 
 *Die dritte, ebenfalls seit dem 6.10.2026:* Ein `docker-compose.srv01.yml`
 **beschreibt** den Serverbetrieb — vier Dienste, die gemessenen
@@ -284,8 +284,9 @@ Speichergrenzen, die Traefik-Regeln, ein lesendes Jupyter; nachzulesen in
 
 Alle drei sind der Verbund auf dem Entwicklungsrechner, nicht der Betrieb:
 kein Server, kein Tunnel, keine Anmeldung, kein Zeitplan. Und die dritte ist
-eine **Beschreibung**, kein Betrieb — sie ist nirgends angewandt, und die
-Abbilder, auf die sie zeigt, liegen in keiner Registry. Der Unterschied ist
+eine **Beschreibung**, kein Betrieb — sie ist nirgends angewandt. Die
+Abbilder, auf die sie zeigt, liegen seit dem 8.10.2026 in einer Registry;
+geholt hat sie dort noch kein Dienst. Der Unterschied ist
 der ganze Punkt dieses Dokuments: Was hier steht, ist prüfbar, nicht in
 Betrieb.
 
@@ -349,9 +350,10 @@ geschätzt. Die vorher veranschlagten 5'632 MiB lagen 1'307 MiB über dem
 Verfügbaren; das ist der Grund, warum die Reihenfolge *erst messen, dann
 begrenzen* hier eine eigene Anforderung ist.
 
-Was fehlt, ist der **Betrieb**. Die Beschreibung ist nirgends angewandt, die
-Abbilder liegen in keiner Registry, es gibt keine Access-Anwendung und keinen
-Zeitplan. Solange das so bleibt, ist der Verbund eine Bequemlichkeit beim
+Was fehlt, ist der **Betrieb**. Die Beschreibung ist nirgends angewandt, es
+gibt keine Access-Anwendung und keinen Zeitplan. Die Abbilder sind seit dem
+8.10.2026 in einer Registry — der einzige Posten dieser Liste, der erledigt
+ist. Solange das so bleibt, ist der Verbund eine Bequemlichkeit beim
 Entwickeln, das Abbild eine Zusicherung über die Abhängigkeiten und die
 Serverbeschreibung ein geprüfter Plan — keines davon eine Betriebszusage.
 

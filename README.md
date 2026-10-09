@@ -949,10 +949,18 @@ Vorgabe, ein getipptes `--url` sticht sie weiterhin, und ohne beides bleibt
 alles wie bisher.
 
 > **Noch kein Betrieb.** Das Abbild ist eine Zusicherung über die
-> Abhängigkeiten, keine über den Lauf. Was fehlt, ist der Pipeline-Dienst im
-> Compose-Verbund: Speichergrenze, Logrotation, Zeitplan — und die Messung,
-> aus der die Grenzen kommen. Das steht in
-> [`docs/architektur-ist-und-ziel.md`](docs/architektur-ist-und-ziel.md) B.2.
+> Abhängigkeiten, keine über den Lauf. Den Pipeline-Dienst gibt es seit dem
+> 6.10.2026 als Beschreibung — mit gemessener Speichergrenze und
+> Logrotation —, seit dem 8.10.2026 liegen die Abbilder in
+> `ghcr.io/datenwerft`, und was noch fehlt, ist der **Zeitplan** und ein
+> Stapel, der tatsächlich läuft. Das steht in
+> [`docs/architektur-ist-und-ziel.md`](docs/architektur-ist-und-ziel.md) B.2,
+> der Ablauf in
+> [`docs/storage-architektur.md`](docs/storage-architektur.md) Abschnitt 16.
+>
+> Der Bau hier ist der für **diesen** Rechner. Für `srv01` gehört
+> `--platform linux/amd64` dazu, sonst scheitert das Abbild erst dort beim
+> Start — Abschnitt 16 sagt, warum.
 
 ## 3 · Wenn etwas klemmt
 

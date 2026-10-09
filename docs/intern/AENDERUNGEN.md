@@ -103,6 +103,45 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 08.10.2026 · Die Abbilder liegen in einer Registry (#142)
+
+**Geschoben, und zwar nachgeprüft.** Beide Abbilder liegen unter
+`ghcr.io/datenwerft`, privat, als OCI-Index mit `linux/amd64`:
+
+| Abbild | Digest des ersten Schiebens |
+| --- | --- |
+| `urban-crime:2026-10-06` | `sha256:0fc9c6ab66d5e9cc154b90b2c21633466b0176b3baca96905ebc8808826201a5` |
+| `urban-crime-jupyter:2026-10-06` | `sha256:25b05b8243524d21489fe1345510ad5ba0cb47eae3241bd353deb2bbeb1847de` |
+
+Beide Digests sind über `docker manifest inspect` auflösbar, und der Index
+nennt für beide `linux/amd64` — die Architekturauflage aus #141 hat gehalten.
+Der zweite Eintrag je Index (`unknown/unknown`) ist die Herkunftsbescheinigung,
+die buildx mitschiebt, kein zweites Abbild.
+
+**Fünf Aussagen in zwei Dokumenten gedreht.** `storage-architektur.md` (zwei
+Stellen) und `architektur-ist-und-ziel.md` (drei) sagten „liegt in keiner
+Registry". Gedreht wurde nur dieser Posten, nicht das Urteil darüber: Die
+Beschreibung ist weiter kein Betrieb, denn auf `srv01` ist der Stapel nicht
+gestartet, es gibt keine Access-Anwendung und keinen Zeitplan. Die Registry
+ist der einzige Posten dieser Liste, der erledigt ist, und so steht es jetzt
+auch da.
+
+**Nachprüfbar ist es von aussen nicht**, und das steht dabei: Die Pakete sind
+privat, ein Test ohne Token käme nicht an die Registry. Deshalb trägt dieser
+Eintrag die Digests — er ist datiert, und ein Dokument, das den jeweils
+gültigen Digest behaupten würde, veraltete mit dem nächsten Bau. Was auf
+`srv01` wirklich läuft, sagt dort `docker compose images`.
+
+**Dabei aufgefallen: README 2.7 war an drei von vier Posten überholt.** Die
+Schlussnotiz zählte „Speichergrenze, Logrotation, Zeitplan — und die Messung"
+als fehlend; `docker-compose.srv01.yml` trägt seit dem 6.10.2026 für jeden
+Dienst ein `mem_limit` aus einer Messung auf der Maschine und `max-size: 10m`
+mit `max-file: 3`. Übrig bleibt der Zeitplan. Dazu der Hinweis, dass der Bau
+in 2.7 der für den Entwicklungsrechner ist und für `srv01`
+`--platform linux/amd64` dazugehört.
+
+---
+
 ## 06.10.2026 · Die Bauanleitung nennt die Adresse und die Architektur (#141)
 
 **Zwei Lücken, beide beim Anlauf zum Schieben aufgefallen.** Erstens kannte
