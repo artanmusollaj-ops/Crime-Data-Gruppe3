@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'850** |
+| Tests | **1'862** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -100,6 +100,145 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 09.10.2026 · Zugang und Anmeldung stehen — gemessen, nicht gemeldet (#143)
+
+**Die Messung, im Wortlaut.** Am 9.10.2026 von Christians
+Entwicklungsrechner aus, gegen die öffentliche Seite von Cloudflare — kein
+Zugriff auf `srv01`, keine Anmeldung durchlaufen:
+
+```text
+urbancrime.datenwerft.ch            DNS=KEINER
+urbancrime-kibana.datenwerft.ch     302 -> homeinegg.cloudflareaccess.com
+urbancrime-jupyter.datenwerft.ch    302 -> homeinegg.cloudflareaccess.com
+urbancrime-2183525128.datenwerft.ch DNS=KEINER
+```
+
+Beide Umleitungen tragen dasselbe `aud` (`7b915eae6e3919a6…`, hier gekürzt)
+und `auth_status: NONE`. Das ist der Beleg für **eine** Access-Anwendung über
+beide Hostnamen, wie FR-22 sie verlangt: Zwei verschiedene Kennungen wären
+zwei Anwendungen gewesen, und das Muster `urbancrime-*` wäre damit nur eine
+Namenskonvention ohne Wirkung. Der Zufallstest aus FR-25 fällt stärker aus
+als gefordert — der gewürfelte Name löst nicht einmal auf, es gibt also
+keinen DNS-Platzhalter, und die beiden Routen sind einzeln angelegt. Dass
+`urbancrime.datenwerft.ch` noch kein DNS hat, ist richtig so: Die öffentliche
+Seite ist Welle 4.
+
+**Was diese Messung ausdrücklich nicht belegt.** Cloudflare Access fängt die
+Anfrage **vor** dem Ursprung ab. Eine 302 beweist damit Cloudflare, DNS und
+die Anwendung — und sagt **nichts** darüber, ob Traefik, Kibana oder Jupyter
+dahinter antworten, ob der Stapel auf `srv01` gestartet ist, ob die Abbilder
+dort geholt wurden oder ob ein Zeitplan existiert. Wer aus dieser 302 „srv01
+läuft" schreibt, hat geschlossen und nicht gemessen. Christian hat `srv01`
+als eingerichtet gemeldet; eine Meldung ist aber kein Beleg, und ein
+Dokument, das „es läuft" sagt, ohne es zu zeigen, ist genau der Fehler, vor
+dem die Kernthese von `architektur-ist-und-ziel.md` warnt. Was dort wirklich
+liegt, sagt `docker compose ps` und `docker compose images` auf der Maschine
+— nachzuholen, wenn es jemand dort abliest.
+
+**Sechs Aussagen in drei Dokumenten gedreht, keine davon ganz.**
+`architektur-ist-und-ziel.md` sagte im Vorspann zu Teil B „kein Server, kein
+Tunnel, keine Anmeldung, kein Zeitplan" (Tunnel und Anmeldung fallen, Server
+und Zeitplan bleiben) und in B.2 „es gibt keine Access-Anwendung und keinen
+Zeitplan" (nur der erste Teil fällt). `storage-architektur.md` führte unter
+„Was daneben einzurichten ist" vier Posten als nötig, „bevor etwas
+erreichbar ist" — drei davon sind eingerichtet, der vierte, der
+Elasticsearch-Datenträger für Restic, steht weiter aus und wird auch nicht
+anders dargestellt: Ein Datenträger, den das Dokument als gesichert ausgibt
+und der es nicht ist, wäre ein stiller Datenverlust. **„Angewandt ist sie
+nirgends"** über `docker-compose.srv01.yml` stand in vier Wortstellungen in
+drei Dokumenten — README, `architektur-ist-und-ziel.md` (Vorspann und B.2),
+`storage-architektur.md` 16 —, und das ist zu absolut geworden. Alle vier
+sind gleich verengt: Die Dienste, Grenzen und Traefik-Regeln darin laufen auf
+keiner Maschine. Nur eine davon zu drehen hätte eine Scheinregel ergeben, drei
+unbewachte Kopien daneben. Was daneben einzurichten war, steht dagegen nicht
+mehr ganz offen; `storage-architektur.md` nennt oben im Abschnitt denselben
+Postenstand wie achtzig Zeilen weiter unten und nicht mehr „einen Schritt".
+
+**Eine vierte Ausnahme, und sie ist keine Datei.** Teil B zählt seine
+Ausnahmen vom Satz „Nichts in diesem Teil ist gebaut" einzeln auf — bisher
+drei, alle Dateien im Repository. Die Tunnel-Routen und die Access-Anwendung
+sind die vierte, seit dem 9.10.2026, und sie liegen bei Cloudflare statt im
+Repository. Deshalb stehen sie jetzt dort mit Datum und Verweis auf B.3:
+`test_jedes_gebaute_wird_als_ausnahme_benannt` prüft Dateinamen und hätte eine
+Einrichtung ohne Datei nie bemerkt. Mitgezogen ist auch der Einseiter — er
+führte „wie die Prüfenden Zugang bekommen" unter „Was offen ist" und nennt es
+jetzt knapp als entschieden, mit FR-23 als zurückgestellt.
+
+**Eine offene Frage ist entschieden, eine Anforderung zurückgestellt mit
+Grund.** Der Abschnitt „Was dieser Text nicht behauptet" führte „wie die
+Prüfenden Zugang bekommen" als eines von drei unentschiedenen Dingen; es sind
+jetzt zwei. Der Zugang läuft über Cloudflare Access, dieselbe Anwendung über
+`urbancrime-*` wie für jeden anderen Dienst. Die eigene, zeitlich befristete
+Policy für die Prüfenden (FR-23) ist **zurückgestellt mit Grund** (Christian,
+9.10.2026): Jetzt angelegt, wäre ihre Frist zum Prüfungstermin abgelaufen.
+Zurückgestellt mit Grund ist nicht dasselbe wie offen — hier fehlt kein
+Entschluss, sondern ein Termin. In der PRD tragen FR-21, FR-22 und FR-25
+einen Erledigungsvermerk mit Datum, FR-15 (wöchentlicher Anstoss auf `srv01`)
+bewusst keinen: Er läuft weiter als GitHub-Action und ist von aussen gar
+nicht sichtbar.
+
+**Die Flanke, durch die derselbe Fehler wieder entstanden wäre.**
+`AUSNAHMEN` in `tests/test_architektur_dokument.py` ist die Liste der
+gebauten Dateien, die Teil B ausdrücklich nennen **muss** — die Hälfte der
+Zusage „kein Gebautes steht unbeschrieben im Plan". `docker-compose.srv01.yml`
+fehlte darin vom 6. bis zum 9.10.2026, obwohl Teil B die Datei an zwei
+Stellen benennt: Die Nennung war also unbewacht, und derselbe Fehler wie beim
+`docker-compose.yml` (damals über eine Woche) hatte sich wiederholt. Die
+Aufnahme war sofort grün; der Wächter läuft jetzt über vier Dateien statt
+drei.
+
+**Zahlen.** 1'850 → **1'862 Tests**, Standardlauf 1'748 → **1'760**,
+Referenzwächter unverändert **102**. Elf davon kommen aus
+`tests/test_betriebsstand.py`, der zwölfte aus dem vierten Eintrag in
+`AUSNAHMEN` (ein parametrisierter Fall). Die Frischklon-Zahl ist **gemessen**, nicht
+fortgeschrieben: in einem Klon dieses Arbeitsstands ohne `data/` laufen
+**1'725 der 1'760**, die übrigen **35** überspringen sich selbst. Keine
+Datenzahl bewegt sich; Silver und Gold sind nicht angefasst.
+
+**Kein Wächter gegen den Server — aber einer über die Dokumente.** Ein Test,
+der `urbancrime-kibana.datenwerft.ch` abfragte, bräuchte Netz; einer, der
+`srv01` oder die private Registry befragte, zusätzlich ein Token. In CI gibt
+es beides nicht, und ein Wächter, der sich selbst überspringt, ist keiner.
+Belegträger für die Messung ist deshalb dieser Eintrag — datiert, mit Methode
+und mit dem Satz, was sie nicht belegt.
+
+Bewacht ist dagegen, was die Dokumente daraus machen:
+`tests/test_betriebsstand.py` hält drei Pflichten. Die gedrehten Aussagen
+dürfen nicht zurückkommen; die unbelegten müssen stehen bleiben; und wer die
+Messung **vorzeigt** — die 302, das Anmeldetor, die gemeinsame
+Anwendungskennung —, muss ihre Grenze in Reichweite nennen: dass Access
+**vor** dem Ursprung greift und die 302 deshalb keinen laufenden Dienst
+belegt. Das README zeigt sie nicht vor, sondern beruft sich auf sie, und
+muss dafür den Abschnitt
+nennen, der sie ausführt; dort greift dieselbe Pflicht, die Kette endet also
+immer an der Grenze und nicht an einem Verweis ins Leere.
+
+**Der erste Entwurf dieses Wächters war grün und wertlos.** Er liess als
+Beleg auch einen Verweis auf `AENDERUNGEN.md` gelten — und darauf verlinkt
+fast jedes Dokument irgendwo, also genügte ein Vorkommen beliebig weit vom
+Absatz entfernt. Aufgefallen ist das erst bei der Mutationsprobe: Die Grenze
+aus dem Messabsatz entfernt, der Test blieb grün. Jetzt zählt nur ein Beleg
+in **1'200 Zeichen** Reichweite; gemessen liegt der weiteste ehrliche Abstand
+bei 842 Zeichen, der nächste unehrliche bei 1'833. Dasselbe Loch steckte ein
+zweites Mal darin: Für `architektur-ist-und-ziel.md` galt auch ein Verweis auf
+`B.3` als Beleg — und die Überschrift „B.3" steht rund 505 Zeichen vor dem
+Messabsatz, der Absatz belegte also sich selbst. Dieselbe Mutation blieb damit
+grün; ohne die Zulassung fällt sie. Für dieses Dokument zählt jetzt nur noch
+die Grenze im Wortlaut. Und die Vollständigkeitsprobe suchte in der
+Handliste der bewachten Dokumente, konnte also nur bemerken, was schon darin
+stand — der Einseiter lag in ihrem blinden Fleck; sie sucht jetzt über
+`docs/**/*.md`, das README und den Einseiter. Nachgeprüft sind **neun**
+Mutationen, jede in einer Kopie des Baumes: acht fängt dieser Wächter, die
+neunte — der gedrehte Satz „nichts davon ist gebaut" im Einseiter — fängt
+`test_der_einseiter_haelt_ist_und_ziel_auseinander`, das es schon gab. Daneben normalisiert der
+Wächter Fettschrift und Zeilenumbrüche weg, weil `**vor** dem Ursprung` sonst
+keiner Suche nach `vor dem Ursprung` begegnet.
+
+Das Ablesen auf der Maschine steht in
+`_bmad-output/initiative-ln2/deferred-work.md`.
 
 ---
 

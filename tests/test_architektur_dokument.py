@@ -197,7 +197,16 @@ GEPLANT = {
 
 #: Was existiert und deshalb in Teil B ausdruecklich als Ausnahme dastehen
 #: muss - je Datei die Jahreszahl, an der sie entstand.
-AUSNAHMEN = ("docker-compose.yml", "Dockerfile", "Dockerfile.jupyter")
+#:
+#: ``docker-compose.srv01.yml`` fehlte hier vom 6. bis zum 9.10.2026 - also
+#: genau der Fehler, den der Kommentar darueber beschreibt, ein zweites Mal:
+#: Die Datei entstand, Teil B nannte sie bei ``:280`` und ``:345``, aber die
+#: Liste wuchs nicht mit, und damit war die Nennung unbewacht. Aufgefallen
+#: ist es nicht beim Bauen, sondern beim Nachzaehlen von aussen. Wer hier
+#: eine Datei dazulegt, legt sie in dieselbe Liste - sie ist der einzige Ort,
+#: der "gebaut" mit "beschrieben" verknuepft.
+AUSNAHMEN = ("docker-compose.yml", "docker-compose.srv01.yml",
+             "Dockerfile", "Dockerfile.jupyter")
 
 
 def test_teil_b_behauptet_nichts_gebautes(teil_b):
