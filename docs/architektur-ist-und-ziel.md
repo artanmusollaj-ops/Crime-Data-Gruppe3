@@ -231,8 +231,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'850 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'713 davon — die übrigen 35 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 102 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 1'862 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'725 davon — die übrigen 35 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 102 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 102 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
@@ -261,7 +261,7 @@ Oberfläche ausser Notebooks und der DuckDB-Konsole. Genau hier setzt Teil B an.
 
 # Teil B · Die Ziel-Architektur
 
-**Nichts in diesem Teil ist gebaut** — mit drei Ausnahmen, die hier benannt
+**Nichts in diesem Teil ist gebaut** — mit vier Ausnahmen, die hier benannt
 gehören, statt den Satz aufzuweichen.
 
 *Die erste, seit dem 28.9.2026:* Ein `docker-compose.yml` für die drei
@@ -282,13 +282,22 @@ es neben dem Strecken-Abbild in `ghcr.io/datenwerft`.
 Speichergrenzen, die Traefik-Regeln, ein lesendes Jupyter; nachzulesen in
 `storage-architektur.md`, Abschnitt 16.
 
-Alle drei sind der Verbund auf dem Entwicklungsrechner, nicht der Betrieb:
-kein Server, kein Tunnel, keine Anmeldung, kein Zeitplan. Und die dritte ist
-eine **Beschreibung**, kein Betrieb — sie ist nirgends angewandt. Die
-Abbilder, auf die sie zeigt, liegen seit dem 8.10.2026 in einer Registry;
-geholt hat sie dort noch kein Dienst. Der Unterschied ist
-der ganze Punkt dieses Dokuments: Was hier steht, ist prüfbar, nicht in
-Betrieb.
+*Die vierte, seit dem 9.10.2026:* die **Tunnel-Routen und die
+Access-Anwendung** über `urbancrime-*`. Sie ist keine Datei im Repository,
+sondern eine Einrichtung bei Cloudflare — deshalb steht sie hier und nicht in
+einer Liste von Dateinamen, und deshalb trägt sie ihren Beleg in B.3.
+
+Alle vier sind der Verbund auf dem Entwicklungsrechner und sein Vorzimmer,
+nicht der Betrieb: kein Server, kein Zeitplan. Und die dritte ist eine
+**Beschreibung**, kein Betrieb — die Dienste, Grenzen und Traefik-Regeln
+darin wirken auf keiner Maschine. Zwei Voraussetzungen vor ihr stehen
+inzwischen: Die Abbilder, auf die sie zeigt, liegen seit dem 8.10.2026 in
+einer Registry — geholt hat sie dort noch kein Dienst —, und seit dem
+9.10.2026 sind die Tunnel-Routen und die Anmeldung von aussen **gemessen**,
+nicht nur geplant (B.3). Dass eine Anmeldung erscheint, sagt dabei nichts
+darüber, ob dahinter etwas antwortet: Cloudflare Access fängt die Anfrage
+**vor** dem Ursprung ab. Der Unterschied ist der ganze Punkt dieses
+Dokuments: Was hier steht, ist prüfbar, nicht in Betrieb.
 
 Ansonsten beschreibt dieser Teil, wie die Plattform für LN2 und einen echten
 Betrieb aussehen soll, und nennt zu jedem Baustein, was er löst und was er
@@ -350,12 +359,15 @@ geschätzt. Die vorher veranschlagten 5'632 MiB lagen 1'307 MiB über dem
 Verfügbaren; das ist der Grund, warum die Reihenfolge *erst messen, dann
 begrenzen* hier eine eigene Anforderung ist.
 
-Was fehlt, ist der **Betrieb**. Die Beschreibung ist nirgends angewandt, es
-gibt keine Access-Anwendung und keinen Zeitplan. Die Abbilder sind seit dem
-8.10.2026 in einer Registry — der einzige Posten dieser Liste, der erledigt
-ist. Solange das so bleibt, ist der Verbund eine Bequemlichkeit beim
-Entwickeln, das Abbild eine Zusicherung über die Abhängigkeiten und die
-Serverbeschreibung ein geprüfter Plan — keines davon eine Betriebszusage.
+Was fehlt, ist der **Betrieb**. Die Dienste, Grenzen und Traefik-Regeln der
+Beschreibung laufen auf keiner Maschine, und es gibt keinen Zeitplan. Zwei Voraussetzungen davor sind dagegen erfüllt:
+Die Abbilder liegen seit dem 8.10.2026 in einer Registry, und die
+Tunnel-Routen samt der Access-Anwendung über `urbancrime-*` sind seit dem
+9.10.2026 eingerichtet und von aussen gemessen (B.3). Solange der Rest so
+bleibt, ist
+der Verbund eine Bequemlichkeit beim Entwickeln, das Abbild eine Zusicherung
+über die Abhängigkeiten und die Serverbeschreibung ein geprüfter Plan —
+keines davon eine Betriebszusage.
 
 **Was es löst.** Heute läuft die Strecke auf genau einer Maschine, und ihre
 Abhängigkeiten sind ein `requirements.lock` plus die Hoffnung, dass der
@@ -378,6 +390,18 @@ Cloudflare-Tunnel wird vom Server aus nach aussen aufgebaut; eingehend ist
 nichts offen. Die Anmeldung übernimmt Cloudflare Access — wer die Dienste
 sieht, entscheidet eine Richtlinie dort, nicht ein Passwort im Container.
 
+**Eingerichtet, und zwar gemessen.** Am 9.10.2026 von aussen geprüft:
+`urbancrime-kibana.datenwerft.ch` und `urbancrime-jupyter.datenwerft.ch`
+antworten beide mit **302** auf das Anmeldetor von Cloudflare Access, und
+beide Umleitungen tragen **dieselbe** Anwendungskennung — eine Anwendung über
+`urbancrime-*`, nicht eine je Dienst. Ein zufällig gewählter Name derselben
+Form löst gar nicht auf; es gibt also keinen Platzhalter, über den ein
+künftiger Name ungeschützt durchkäme. Was die Messung **nicht** zeigt: ob
+hinter dem Tor etwas antwortet. Access fängt die Anfrage vor dem Ursprung ab,
+und eine 302 belegt Cloudflare, DNS und die Anwendung — keinen laufenden
+Dienst. Der Wortlaut der Messung steht in
+[`intern/AENDERUNGEN.md`](intern/AENDERUNGEN.md) zum 9.10.2026.
+
 **Was es löst.** Heute gibt es nichts zu schützen, weil nichts läuft. Sobald
 Kibana, Grafana und eine Admin-Oberfläche stehen, wäre jeder offene Port eine
 Angriffsfläche — und die drei Dienste bringen je ein eigenes, schwaches
@@ -393,8 +417,11 @@ nachgewiesen dadurch, dass dieselbe IP mit einem anderen Hostnamen im
 ClientHello sofort antwortete. Ein Tunnel verschiebt diese Abhängigkeit, er
 beseitigt sie nicht.
 
-**Offen:** ob der Zugang für die Prüfenden der Semesterarbeit über Cloudflare
-läuft oder ob es dafür einen zweiten, einfacheren Weg braucht.
+**Entschieden am 9.10.2026:** Der Zugang für die Prüfenden der Semesterarbeit
+läuft über Cloudflare — dieselbe Anwendung über `urbancrime-*` wie für jeden
+anderen Dienst, kein zweiter Weg daneben. Die eigene, zeitlich befristete
+Policy für die Prüfenden ist **zurückgestellt mit Grund**: Jetzt angelegt,
+wäre ihre Frist zum Prüfungstermin abgelaufen.
 
 ## B.4 Auswertung: Elasticsearch — und der Widerspruch, der aufzulösen ist
 
@@ -562,16 +589,22 @@ Ergebnis.
 
 ## Was dieser Text nicht behauptet
 
-Teil B ist ein Plan, und Pläne altern. Drei Dinge sind ausdrücklich noch nicht
+Teil B ist ein Plan, und Pläne altern. Zwei Dinge sind ausdrücklich noch nicht
 entschieden:
 
 1. **Ob Elasticsearch die Aggregationen übernimmt** oder nur Exploration,
    Volltext und Karte — B.4.
-2. **Wie die Prüfenden Zugang bekommen**, wenn alles hinter Cloudflare Access
-   liegt — B.3.
-3. **Wann der Referenzstand nachgezogen wird.** Seit dem 17.9.2026 steht der
+2. **Wann der Referenzstand nachgezogen wird.** Seit dem 17.9.2026 steht der
    gebaute Stand vor dem dokumentierten; die Drift ist gemessen und in
    [`datenhistorie.md`](intern/datenhistorie.md) 8 festgehalten.
+
+Ein dritter Punkt stand bis zum 9.10.2026 hier: **wie die Prüfenden Zugang
+bekommen**, wenn alles hinter Cloudflare Access liegt. Er ist entschieden —
+über Access, dieselbe Anwendung über `urbancrime-*` wie für jeden anderen
+Dienst, nachgemessen in B.3. Was daran noch fehlt, ist die eigene, zeitlich
+befristete Policy für die Prüfenden; sie ist **zurückgestellt mit Grund** und
+nicht offen, denn jetzt angelegt wäre ihre Frist zum Prüfungstermin
+abgelaufen.
 
 ---
 

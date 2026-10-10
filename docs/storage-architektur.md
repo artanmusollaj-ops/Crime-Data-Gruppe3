@@ -664,11 +664,14 @@ entfernt. Daraus folgt beides — es braucht **kein dauerhaftes
 `data/`-Volume**, nur einen Arbeitsraum, und `httpfs` wird kritisch statt
 nützlich, weil Silver Bronze direkt von S3 liest.
 
-**Sie ist eine Beschreibung, kein Betrieb.** Angewandt ist sie zum Zeitpunkt
-dieses Abschnitts nirgends: Der wöchentliche Anstoss ist nicht eingerichtet,
-und auf `srv01` läuft nichts davon. Ein Schritt ist seit dem 8.10.2026 getan
-— die Abbilder liegen in einer Registry (unten in diesem Abschnitt) —, aber
-geholt hat sie dort noch kein Dienst. Was hier steht, sagt, wie es liegen soll, und ist an dieser Stelle
+**Sie ist eine Beschreibung, kein Betrieb.** Die Dienste, Grenzen und
+Traefik-Regeln darin laufen auf keiner Maschine: Der wöchentliche Anstoss ist
+nicht eingerichtet, und auf `srv01` läuft nichts davon. Was daneben
+einzurichten war, steht dagegen nicht mehr ganz offen — drei der vier Posten
+weiter unten in diesem Abschnitt sind erledigt: die Abbilder seit dem
+8.10.2026 in einer Registry (geholt hat sie dort noch kein Dienst), die
+Tunnel-Routen und die Access-Anwendung seit dem 9.10.2026, von aussen
+gemessen. Was hier steht, sagt, wie es liegen soll, und ist an dieser Stelle
 nachprüfbar — nicht, dass es läuft.
 
 ### Warum zwei Dateien
@@ -748,10 +751,14 @@ ist besser als ein getöteter.
 ### Was daneben einzurichten ist
 
 Vier Dinge kann eine Compose-Datei nicht sagen, und alle vier sind nötig,
-bevor etwas erreichbar ist.
+damit etwas erreichbar **sein kann**. Drei davon sind eingerichtet: die
+Tunnel-Routen und die Access-Anwendung seit dem 9.10.2026, von aussen
+gemessen, und die Abbilder seit dem 8.10.2026 in der Registry. Offen ist
+allein der Datenträger für Restic. Erreichbar heisst das trotzdem
+nicht — was gemessen wurde, liegt vollständig **vor** dem Ursprung.
 
-**Die Tunnel-Route je Hostname.** Auf dem bestehenden Tunnel eine
-veröffentlichte Anwendung anlegen, und zwar so:
+**Die Tunnel-Route je Hostname** — angelegt am 9.10.2026, je Hostname eine
+veröffentlichte Anwendung auf dem bestehenden Tunnel, und zwar so:
 
 ```text
 Public hostname: urbancrime-kibana.datenwerft.ch
@@ -762,10 +769,13 @@ Service URL:     http://traefik:80
 Der Ursprung ist **immer** `http://traefik:80` und **nie** der öffentliche
 Hostname: Zeigt die Route auf sich selbst, läuft der Verkehr zurück durch
 Cloudflare — eine Schleife oder ein HTTP 403. Traefiks `Host(...)`-Regel
-erledigt danach die Zuordnung.
+erledigt danach die Zuordnung. Angelegt sind die beiden Routen für Kibana und
+Jupyter; `urbancrime.datenwerft.ch` hat bewusst noch kein DNS, die
+öffentliche Seite kommt später.
 
-**Eine eigene Access-Anwendung über `urbancrime-*`.** Die bestehende
-Wildcard-Policy greift nur vor `infra-*`, und `infra-*` ist der Infrastruktur
+**Eine eigene Access-Anwendung über `urbancrime-*`** — angelegt am 9.10.2026,
+und zwar als **eine**. Die bestehende Wildcard-Policy greift nur vor
+`infra-*`, und `infra-*` ist der Infrastruktur
 vorbehalten. Deshalb das Muster: `urbancrime.datenwerft.ch` ist die
 öffentliche Seite, alles Weitere heisst `urbancrime-<dienst>.datenwerft.ch`,
 und **eine** Access-Anwendung über `urbancrime-*` deckt jeden künftigen Dienst
@@ -774,9 +784,19 @@ sich nicht vergessen. Ein Test hält die Hostnamen am Muster fest. Nach jeder
 neuen Route wird gegen einen **zufälligen** Hostnamen geprüft, dass er die
 Seite nicht erreicht.
 
-**Der Elasticsearch-Datenträger in `config/srv01.yaml`**, damit Restic ihn
-sichert — dasselbe für Kibanas. Ein neu gebauter Index ist in Minuten
-wiederhergestellt; Kibanas gespeicherte Objekte sind es nur, solange der
+Gemessen am 9.10.2026 von aussen: Beide Hostnamen umleiten mit **302** auf
+das Anmeldetor, beide Umleitungen tragen dieselbe Anwendungskennung — also
+eine Anwendung über beide, nicht zwei nebeneinander. Der Zufallstest fällt
+dabei stärker aus als gefordert: Der gewürfelte Name löst nicht einmal auf,
+es gibt mithin keinen DNS-Platzhalter, der eine künftige Route ungeschützt
+durchliesse. Was die Messung **nicht** belegt, steht in
+[`intern/AENDERUNGEN.md`](intern/AENDERUNGEN.md) zum 9.10.2026: Access greift
+vor dem Ursprung, also sagt eine 302 nichts darüber, ob Traefik, Kibana oder
+Jupyter antworten.
+
+**Einzurichten bleibt der Elasticsearch-Datenträger in `config/srv01.yaml`**,
+damit Restic ihn sichert — dasselbe für Kibanas. Ein neu gebauter Index ist in
+Minuten wiederhergestellt; Kibanas gespeicherte Objekte sind es nur, solange der
 Verschlüsselungsschlüssel derselbe bleibt. Der Arbeitsraum der Strecke gehört
 ausdrücklich **nicht** dazu: Was Restic sichern muss, ist der Bucket.
 
