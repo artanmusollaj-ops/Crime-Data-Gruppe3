@@ -231,8 +231,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'870 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'733 davon — die übrigen 35 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 102 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 1'882 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'745 davon — die übrigen 35 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 102 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 102 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
@@ -298,8 +298,11 @@ alle drei `healthy` und seit zwei bis drei Tagen oben; beide Abbilder sind
 per SHA-256-Digest gepinnt, und die beiden Digests in der `.env` des Stapels
 sind **zeichengleich** mit denen, die hier gebaut und gemessen wurden.
 Daneben steht ein Zeitplan: montags 04:30 über `cron`, mit `flock` gegen
-Überlappung und einem Verteiler, der den ersten Montag im Monat voll und die
-folgenden als Delta fährt. Seit wann er eingetragen ist, sagt ein Crontab
+Überlappung und einem Verteiler, der den zweiten Montag im Monat voll, den
+ersten, dritten und vierten als Delta fährt und einen fünften auslässt. Damit
+kollidiert der schwerste Lauf auch dann nicht mit dem Restic-Vollrestore am
+Monatsersten um 05:00, wenn dieser auf einen Montag fällt. Seit wann der
+Zeitplan eingetragen ist, sagt ein Crontab
 nicht, und von hier aus ist es nicht feststellbar.
 
 *Die fünfte, seit dem 9.10.2026:* die **Tunnel-Routen und die
@@ -317,10 +320,10 @@ Ebenso offen: ob die Strecke selbst dort je durchgelaufen ist. Sie ist ein
 Stapellauf hinter einem `profiles:`-Schlüssel und hinterlässt als
 `--rm`-Lauf keinen Container, den `docker compose ps --all` zeigen könnte.
 
-Und noch eines gehört dazu: Das Skript, das der Zeitplan aufruft
-(`docker/srv01-datenlauf.sh`), liegt **nicht in diesem Repository**. Der
-wöchentliche Anstoss hängt damit an einem Artefakt, das niemand hier prüfen
-und kein Wächter erfassen kann.
+Das Skript, das der Zeitplan aufruft (`docker/srv01-datenlauf.sh`), ist die
+vom Server gelesene Fassung und liegt nun zusammen mit dem Crontab unter
+Versionskontrolle. Seine Verteilung auf Voll-, Delta- und ausgelassene Läufe
+hält ein eigener Wächter fest.
 
 Der Unterschied, auf den dieses Dokument baut, bleibt also bestehen — er ist
 nur verschoben: Nicht mehr „Beschreibung gegen Betrieb", sondern
@@ -392,9 +395,8 @@ Abbilder liegen per Digest gepinnt in der Registry, die Tunnel-Routen und
 die Access-Anwendung sind seit dem 9.10. von aussen gemessen (B.3), und ein
 Zeitplan steht (montags 04:30, `flock`, Voll-/Delta-Verteiler). Offen ist
 nicht mehr die Einrichtung, sondern der **Nachweis**: Der Zeitplan hat noch
-nie gefeuert — erster Termin ist Montag, der 12.10.2026 —, das Skript, das
-er aufruft, liegt nicht im Repository, und ob die Strecke dort je
-durchgelaufen ist, zeigt kein Artefakt, das von hier aus lesbar wäre.
+nie gefeuert — erster Termin ist Montag, der 12.10.2026 —, und ob die Strecke
+dort je durchgelaufen ist, zeigt kein Artefakt, das von hier aus lesbar wäre.
 
 **Was es löst.** Heute läuft die Strecke auf genau einer Maschine, und ihre
 Abhängigkeiten sind ein `requirements.lock` plus die Hoffnung, dass der

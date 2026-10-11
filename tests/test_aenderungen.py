@@ -155,6 +155,26 @@ def test_der_kopf_nennt_die_raten(stand):
         )
 
 
+#: Die Herkunft einer Eintragsueberschrift in Klammern. Seit dem 11.10.2026
+#: darf sie **mehrere** Nummern nennen: An jenem Tag ging eine
+#: zusammenhaengende Arbeit in zwei Pull Requests hinaus (#144 brachte den
+#: Betriebsstand, #145 die Waechter ueber den Serverlauf), und der Eintrag
+#: wurde erweitert statt gespalten - zwei Eintraege fuer einen Vorgang waeren
+#: schlechter zu lesen gewesen. Eine erfundene Nummer bleibt schlimmer als
+#: keine, deshalb muss jede genannte auch nachschlagbar sein.
+HERKUNFT = r"\(#[0-9]+(?:,\s*#[0-9]+)*\)"
+
+#: Eine Eintragsueberschrift mit ihren Nummern.
+UEBERSCHRIFT = re.compile(r"^## [0-9.]+ · .*?\((#[0-9]+(?:,\s*#[0-9]+)*)\)$",
+                          re.M)
+
+
+def pr_nummern(text: str) -> set[int]:
+    """Jede Pull-Request-Nummer, die eine Eintragsueberschrift nennt."""
+    return {int(n) for gruppe in UEBERSCHRIFT.findall(text)
+            for n in re.findall(r"#([0-9]+)", gruppe)}
+
+
 def test_jeder_eintrag_nennt_seine_herkunft(text):
     """Ohne den Verweis laesst sich die Begruendung nicht nachlesen.
 
@@ -174,7 +194,7 @@ def test_jeder_eintrag_nennt_seine_herkunft(text):
     eintraege = re.findall(r"^## ([0-9]{2}\.[0-9]{2}\.[0-9]{4}.*)$", text, re.M)
     assert len(eintraege) >= 8, f"nur {len(eintraege)} Eintraege gefunden"
     ohne = [e for e in eintraege
-            if not re.search(r"\(#[0-9]+\)", e)
+            if not re.search(HERKUNFT, e)
             and "(direkt auf main)" not in e
             and not re.search(r"\(Branch `[^`]+`\)", e)]
     assert not ohne, f"Eintraege ohne nachschlagbare Herkunft: {ohne}"
@@ -201,8 +221,7 @@ def test_keine_pull_request_nummer_faellt_durch(text):
     Eintrag" - beides will man wissen. Ein neuer Pull Request laesst den Test
     fallen, bis er eingeordnet ist; genau das ist der Zweck.
     """
-    eintraege = {int(n) for n in re.findall(r"^## [0-9.]+ · .*?\(#([0-9]+)\)$",
-                                            text, re.M)}
+    eintraege = pr_nummern(text)
     assert eintraege, "keine Eintraege mit PR-Nummer gefunden"
 
     anfang = text.index("## Bewusst ohne Eintrag")
@@ -220,8 +239,7 @@ def test_keine_pull_request_nummer_faellt_durch(text):
 
 def test_die_eintraege_und_die_ausgelassenen_ueberschneiden_sich_nicht(text):
     """Sonst stuende dieselbe Nummer als erledigt und als ausgelassen da."""
-    eintraege = {int(n) for n in re.findall(r"^## [0-9.]+ · .*?\(#([0-9]+)\)$",
-                                            text, re.M)}
+    eintraege = pr_nummern(text)
     anfang = text.index("## Bewusst ohne Eintrag")
     ausgelassen = {int(n) for n in re.findall(r"^\| #([0-9]+) \|", text[anfang:], re.M)}
     doppelt = sorted(eintraege & ausgelassen)

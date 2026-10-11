@@ -671,7 +671,10 @@ des Stapels sind zeichengleich mit den hier gebauten. Drei der vier Posten
 unter „Was daneben einzurichten ist" sind erledigt — die Abbilder seit dem
 8.10.2026 in einer Registry, die Tunnel-Routen und die Access-Anwendung seit
 dem 9.10.2026, von aussen gemessen. Ein Zeitplan steht ebenfalls: montags
-04:30 über `cron`, mit `flock` gegen Überlappung.
+04:30 über `cron`, mit `flock` gegen Überlappung. Der erste Montag fährt
+Delta, der zweite den Volllauf, der dritte und vierte wieder Delta; ein fünfter
+Montag bleibt frei. Der Volllauf liegt bewusst auf dem zweiten Montag, damit
+er nie mit dem Restic-Vollrestore am Monatsersten um 05:00 zusammentrifft.
 
 **Was sie weiter nicht ist: ein Nachweis.** Der Zeitplan hat am 11.10.2026
 noch nie gefeuert — `logs/scheduled-pipeline.log` gibt es nicht, und der
@@ -679,10 +682,10 @@ Crontab schreibt mit `>>` hinein, die Datei entstünde also auch bei einem
 Fehlschlag. Erster Termin ist Montag, der 12.10.2026. Ob die Strecke selbst
 dort je durchgelaufen ist, zeigt kein Artefakt: Sie ist ein Stapellauf hinter
 einem `profiles:`-Schlüssel und lässt als `--rm`-Lauf keinen Container
-zurück. Und das Skript, das der Zeitplan aufruft
-(`docker/srv01-datenlauf.sh`), liegt nicht in diesem Repository — der
-wöchentliche Anstoss hängt damit an einem Artefakt, das hier niemand prüfen
-kann.
+zurück. Das tatsächlich auf `srv01` liegende Skript ist als
+[`docker/srv01-datenlauf.sh`](../docker/srv01-datenlauf.sh) versioniert; die
+Cron-Fassung liegt daneben unter `deploy/cron/` und ihre Voll-/Delta-Verteilung
+wird getestet.
 
 ### Warum zwei Dateien
 

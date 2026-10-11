@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'870** |
+| Tests | **1'882** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -103,7 +103,7 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
-## 11.10.2026 · Der Betrieb ist aufgenommen, der Nachweis fehlt noch (#144)
+## 11.10.2026 · Der Betrieb ist aufgenommen, der Nachweis fehlt noch (#144, #145)
 
 **Abgelesen auf `srv01`, nicht gemeldet bekommen.** `docker compose ps` am
 11.10.2026: Elasticsearch, Kibana und Jupyter laufen, alle drei `healthy`,
@@ -115,8 +115,13 @@ verlangt: hier gebaut, Digest gemessen, genau dieser Digest läuft dort — nich
 „nach Möglichkeit gepinnt", sondern gepinnt und nachgeprüft.
 
 `crontab -l` zeigt einen Zeitplan: montags 04:30, `flock --wait 21600` gegen
-Überlappung, ein Verteiler, der den ersten Montag im Monat voll und die
-folgenden als Delta fährt.
+Überlappung. Die gelesene Serverfassung von `docker/srv01-datenlauf.sh` und
+der Crontab sind nun versioniert. Der Verteiler fährt den ersten Montag als
+Delta, den zweiten voll, den dritten und vierten wieder als Delta und lässt
+einen fünften aus. Der Volllauf lag zuerst auf dem ersten Montag; fällt der
+Monatserste auf einen Montag, kollidiert er dann mit dem Restic-Vollrestore um
+05:00. Die Verschiebung auf den zweiten Montag trennt die beiden schweren
+Läufe, ohne den Wochenrhythmus oder die Uhrzeit zu ändern.
 
 **Was der Zeitplan nicht ist: ein Nachweis.** `logs/scheduled-pipeline.log`
 existiert nicht. Der Crontab schreibt mit `>>` hinein — die Datei entstünde
@@ -190,12 +195,58 @@ Zeilenumbruch kam der **Zitatblock**: Die Stelle im README steht in einem
 Lücke, die es nicht gab. `flach()` entfernt jetzt auch die Zitatzeichen. Alle
 drei Fallen stehen im Docstring, weil jede einzeln zugeschnappt ist.
 
-**Zahlen.** 1'862 → **1'870 Tests**, Standardlauf 1'760 → **1'768**,
-Referenzwächter unverändert **102**. Sieben der acht neuen stehen in
-`test_betriebsstand.py` (die Listen der gedrehten und der bewahrten Aussagen
-sind gewachsen), der achte ist der Versionswächter. Frischklon **1'733 der
-1'768**, 35 übersprungen — **gemessen** in einem `git clone` dieses Stands
-ohne `data/`, nicht fortgeschrieben. Keine Datenzahl bewegt sich.
+**Die Tests hielten den Text des Skripts, nicht seine Aufrufe.** Die
+Verteilung über acht Monatstage, die Crontab-Zeile und die Reihenfolge der
+Abschlussschritte sind bewacht — nicht aber, ob die zehn Module und die acht
+Flaggen, die das Skript aufruft, überhaupt existieren. Eine Umbenennung in
+einem `arguments()` hätte den Montagslauf getötet und keinen Testlauf: genau
+die Falle, die `AGENTS.md` für die Notebooks nennt, *„brechen still und fallen
+erst beim Ausführen auf — und ausgeführt werden sie nur im wöchentlichen
+Datenlauf"*. Dazugekommen sind deshalb zwei Wächter, die die Aufrufe **aus dem
+Skript lesen** statt sie in einer Liste zu führen, und jedes Modul mit
+`--help` im Unterprozess prüfen. Das läuft ohne Netz und ohne Schlüssel, weil
+argparse vor jeder Arbeit abbricht. Von Hand nachgeprüft war am 11.10. alles
+vorhanden: `--full`, `--mode`, `--years`, `--auslieferung`, `--vintage`,
+`--ohne-ingestion`, `--jahre`, `--einsetzen`; auch `release holen aktuell` ist
+richtig, denn `kennung` hat `default="aktuell"`.
+
+**Eine Mutationsprobe in einer Kopie prüft keinen Quellcode.** Beim Absichern
+dieser beiden Wächter blieb die Probe „Flagge im Code entfernt" grün, und es
+sah nach einem Loch aus. Die Ursache war die Probe: Das Paket ist editierbar
+installiert, `python -m orchestration.run_all` löst also auf
+`src/crime/` des **Originals** auf, nicht der Kopie — der veränderte
+Quellcode wurde nie importiert. Mit `PYTHONPATH` auf die Kopie fällt die Probe
+wie erwartet. Dokumentenproben sind davon nicht betroffen, weil die Tests ihre
+Dateien über `Path(__file__).parents[1]` lesen und das in der Kopie auch die
+Kopie ist. Das ist das Geschwister der bekannten Falle *„Reproduzierbarkeit
+nie in einem Prozess prüfen"*: Die Umgebung, in der ein Wächter läuft,
+entscheidet mit, was er überhaupt sehen kann.
+
+**Ein Eintrag, zwei Pull Requests.** Diese Arbeit ging in zwei Teilen
+hinaus — #144 brachte den Betriebsstand, #145 die Wächter über den Serverlauf
+—, und sie steht hier in **einem** Eintrag: Zwei Einträge für einen Vorgang
+desselben Tages wären schlechter zu lesen. Die Herkunftsprüfung in
+`test_aenderungen.py` liess bisher nur **eine** Nummer zu und fiel darüber;
+sie nimmt jetzt mehrere, und die drei Stellen, die Nummern lasen, gehen über
+einen gemeinsamen Leser. Eine erfundene Nummer bleibt dabei verboten — die
+Mutationsprobe mit einer zusätzlichen `#999` fällt.
+
+Dabei kam eine vorbestehende Grenze zum Vorschein: Die Lückenprüfung rechnet
+`range(min, max + 1)`, also ist eine fehlende **höchste** Nummer unsichtbar,
+bis der nächste Pull Request einen Eintrag bekommt. Der Defekt ist „einen
+Pull Request zu spät", nicht „nie"; in `deferred-work.md` festgehalten, weil
+er sich ohne eine Angabe von aussen nicht schliessen lässt — und genau die
+gibt es in CI nicht.
+
+**Zahlen über den ganzen Tag.** 1'862 → **1'882 Tests**, Standardlauf
+1'760 → **1'780**, Referenzwächter unverändert **102**. Die zwanzig neuen
+verteilen sich so: acht aus der ersten Hälfte des Tages — sieben in
+`test_betriebsstand.py`, einer der Versionswächter —, zehn aus
+`test_srv01_datenlauf.py` (die Verteilung über acht Monatstage, der Crontab
+und die Reihenfolge der Abschlussschritte) und zwei aus den beiden Wächtern
+über Modulpfade und Flaggen. Frischklon **1'745 der 1'780**, 35
+übersprungen — **gemessen** in einem `git clone` dieses Stands ohne `data/`,
+nicht fortgeschrieben. Keine Datenzahl bewegt sich.
 
 ---
 
