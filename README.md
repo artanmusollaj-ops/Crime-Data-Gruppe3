@@ -222,17 +222,17 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 1'780 ausgeführte Tests, ohne Netzzugriff und ohne
+Erwartet wird **grün**: 1'834 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
-Die Summenzeile nennt daneben **102 abgewählte**. Das sind die Wächter mit dem
+Die Summenzeile nennt daneben **108 abgewählte**. Das sind die Wächter mit dem
 Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'882
+python -m pytest -m ""               # beides zusammen, alle 1'942
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -806,15 +806,35 @@ Prüfung, bleibt der alte Stand stehen — dasselbe Versprechen wie das
 **Die Dashboards stehen als Code.** Ein im Browser zusammengeklicktes Dashboard
 lebt in Kibanas eigenem Index: nicht lesbar, nicht vergleichbar, und weg,
 sobald jemand den Container neu aufsetzt. `serving/build_kibana` beschreibt sie
-stattdessen und legt sie über die Schnittstelle an. Drei gibt es:
+stattdessen und legt sie über die Schnittstelle an. Vier gibt es:
 
 | Dashboard | zeigt |
 | --- | --- |
 | Überblick | Gesamtzahl, Verlauf je Monat getrennt nach Stadt, Deliktfamilien, häufigste Delikte |
 | Datenqualität | dieselben Grössen, gegen die das Publish-Gate prüft: Zuordnung auf NIBRS und Verortung |
 | Deliktarten | Tagesverlauf und Beschreibungen der Quelle — Einstieg für die Volltextsuche |
+| Raten je 1'000 | die zentrale Zahl des Projekts für 2024, je Stadt und je Tract — dazu die Tracts ohne Einwohner, die keine Rate bekommen |
 
 ![Überblick](docs/bilder/dashboard-crime-ueberblick.png)
+
+> **Die Rate wird im Dashboard gerechnet, nicht vorberechnet.** Seit dem
+> 11.10.2026 trägt das vierte Brett sie über ES|QL und `LOOKUP JOIN`:
+> `fact_offense` liefert den Zähler, `dim_tract_acs` den Nenner, beides in
+> einer Abfrage. Die Zahlen sind zeichengleich mit denen der Abgabedokumente,
+> und ein Referenzstand-Wächter hält sie gegen dieselbe Quelle
+> (`gold_pipeline.raten_je_stadt`) — zusammen mit zwei Gegenproben, denn die
+> beiden Arten, den Nenner falsch zu bilden, werfen keinen Fehler, sondern
+> liefern eine Zahl. Dafür muss `dim_tract_acs` mit `index.mode: lookup`
+> geladen sein; ein Index, der vor dieser Änderung entstand, nimmt den Modus
+> nicht mehr an und muss neu geladen werden.
+>
+> **Fallebene vorn, Tatebene daneben** (Entscheid E5). Die Abgabedokumente
+> führen bis auf Weiteres die Tatebene als kanonische Rate; das Dashboard
+> stellt die Fallebene voran. Für Chicago ist das dieselbe Zahl, für Detroit
+> nicht — beide Spalten stehen deshalb nebeneinander in der Kachel, und der
+> Hinweis darauf steht als Vorbehalt an derselben Kachel. Die beiden Werte
+> stehen hier bewusst nicht als Zahlen: Eine Zahl im Fliesstext, die kein
+> Wächter erreicht, veraltet mit dem nächsten Release.
 
 Die Bilder entstehen aus den laufenden Dashboards und veralten deshalb nicht
 still:
@@ -991,7 +1011,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**1'882 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'942 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -1028,10 +1048,10 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'745 der 1'780 Tests** des Standardlaufs. Die
+In einem frischen Klon laufen **1'799 der 1'834 Tests** des Standardlaufs. Die
 übrigen 35 überspringen sich selbst, weil sie gebaute Daten brauchen und `data/`
 nicht versioniert ist — dazu seit dem 5.10.2026 die Reproduktion von
-`docs/forschungsfragen.md`, deren Quelle das ungetrackte LN1-PDF ist; die 102 Referenzstand-Wächter sind ohnehin abgewählt.
+`docs/forschungsfragen.md`, deren Quelle das ungetrackte LN1-PDF ist; die 108 Referenzstand-Wächter sind ohnehin abgewählt.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
 über die Testzahl in diesem README und in `AENDERUNGEN.md`.

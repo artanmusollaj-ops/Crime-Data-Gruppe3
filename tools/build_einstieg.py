@@ -52,7 +52,24 @@ ZIEL = PROJEKT / "docs" / "einstieg.html"
 #: es nicht mehr geladen, und ein Knopf zu einer leeren Datenbank ist
 #: schlimmer als keiner - er sieht aus wie eine Auskunft. Das ganze
 #: Sternschema liegt in Elasticsearch (``serving.load_elasticsearch``).
-DIENSTE = (
+#: Kleine Zahlen schreibt diese Seite aus - wie die uebrigen Dokumente.
+ZAHLWORT = ("kein", "ein", "zwei", "drei", "vier", "fünf", "sechs", "sieben",
+            "acht", "neun", "zehn")
+
+
+def dienste() -> tuple[tuple, ...]:
+    """Die Zugaenge, die beschickt werden - samt der Zahl der Bretter.
+
+    Eine Funktion und keine Konstante, weil **eine** Angabe darin gemessen
+    wird statt getippt: wie viele Dashboards es gibt. Bis zum 11.10.2026
+    stand hier "Drei Bretter", waehrend ``BRETTER`` vier fuehrte, und
+    ``tests/test_einstieg.py`` hielt die Seite nur gegen ihren Generator -
+    beide sagten dasselbe Falsche.
+    """
+    from serving.build_kibana import BRETTER
+
+    bretter = ZAHLWORT[len(BRETTER)].capitalize()
+    return (
     ("Elasticsearch", "http://localhost:19200/fact_offense/_search?pretty",
      "Das Sternschema, sechs Indizes",
      "Volltext über die Beschreibung, Umkreissuche über den Ort — und seit "
@@ -66,17 +83,20 @@ DIENSTE = (
      '      "lat": 41.8827,\n'
      '      "lon": -87.6233}}}}'),
     ("Kibana", "http://localhost:15601/app/dashboards", "Die Dashboards",
-     "Drei Bretter, als Code gebaut. Die Suchleiste oben durchsucht die "
-     "Beschreibung der Quelle.",
+     f"{bretter} Bretter, als Code gebaut — eines davon rechnet die Rate "
+     "je 1'000 Einwohner in der Kachel. Die "
+     "Suchleiste oben durchsucht die Beschreibung der Quelle.",
      None),
     ("DuckDB", "https://duckdb.org/docs/stable/clients/cli/overview",
      "SQL über den Stern, mit Joins",
-     "Was Elasticsearch nicht kann: Tat und Nenner in einer Abfrage "
-     "verbinden. Die Sichten liegen in <code>data/serving/analyse.duckdb</code>"
-     " und zeigen auf die Parquet-Dateien — keine Kopie, kein Dienst.",
+     "Für alles, was nicht auf einem Brett steht. Tat und Nenner verbindet "
+     "seit 8.19 auch Elasticsearch (ES|QL <code>LOOKUP JOIN</code>) — hier "
+     "liegt dafür der ganze Stern als SQL. Die Sichten liegen in "
+     "<code>data/serving/analyse.duckdb</code> und zeigen auf die "
+     "Parquet-Dateien — keine Kopie, kein Dienst.",
      "SELECT reporting_city,\n       nibrs_family,\n       count(*) AS n\n"
      "FROM fact_offense\nGROUP BY 1, 2\nORDER BY n DESC\nLIMIT 10"),
-)
+    )
 
 #: Die Schwellen des Publish-Gates. Stehen hier, damit die Seite die
 #: Gueteziffern nicht nur nennt, sondern einordnet.
@@ -316,7 +336,7 @@ def seite(kennung: str, manifest: dict, mass: dict) -> str:
         rechts={1, 2, 3})
 
     karten = []
-    for name, url, rolle, text, beispiel in DIENSTE:
+    for name, url, rolle, text, beispiel in dienste():
         block = f"<pre>{html.escape(beispiel)}</pre>" if beispiel else ""
         karten.append(
             f'<article class="karte"><p class="rolle">{html.escape(rolle)}</p>'

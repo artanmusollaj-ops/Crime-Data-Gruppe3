@@ -186,6 +186,53 @@ def raten_je_stadt(fact_offense: str, dim_tract: str, dim_tract_acs: str,
     """
 
 
+def raten_je_tract(fact_offense: str, dim_tract_acs: str,
+                   jahr: int = RATENJAHR) -> str:
+    """Taten, Faelle, Einwohner und beide Raten **je Tract** - fuer ein Jahr.
+
+    Das Gegenstueck zu ``raten_je_stadt`` eine Ebene tiefer, und sie liegt
+    hier aus demselben Grund: Seit dem 11.10.2026 zeigt eine Kibana-Kachel
+    die hoechsten Tract-Raten, und ein Waechter haelt sie dagegen. Stuende
+    die Abfrage im Waechter, waere sie eine Kopie der Kachel - und beide
+    koennten gemeinsam falsch sein, ohne dass etwas auffaellt.
+
+    **Tracts ohne Einwohner sind nicht enthalten.** Fuer sie ist keine Rate
+    definiert; eine gezeigte Null laese sich als Sicherheit, wo in
+    Wirklichkeit niemand wohnt - Flughaefen, Parks, Gewerbegebiete. Sie
+    werden gezaehlt, nicht dividiert.
+
+    **Gruppiert wird nach ``reporting_city``**, nicht nach der Stadtzuordnung
+    des Tracts wie in ``raten_je_stadt``: Auf Tract-Ebene ist die Frage
+    "welche Stadt hat das gemeldet", und ``geo_status = 'inside_city'``
+    stellt ohnehin sicher, dass der Tract im Gebiet dieser Stadt liegt.
+
+    Die Spalten: ``stadt``, ``geoid``, ``faelle``, ``rate_fallebene``,
+    ``taten``, ``rate_tatebene``, ``einwohner`` - dieselben Namen wie in der
+    Kachel, damit der Vergleich keine Umbenennung braucht. Zurueck kommen
+    **alle** Tracts, absteigend nach der Fallebene; die Kachel schneidet
+    selbst ab.
+    """
+    return f"""
+        SELECT f.reporting_city                                   AS stadt,
+               f.tract_geoid                                      AS geoid,
+               count(*) FILTER (f.counts_case)                     AS faelle,
+               round(count(*) FILTER (f.counts_case) * 1000.0
+                     / any_value(a.population), 1)                AS rate_fallebene,
+               count(*)                                           AS taten,
+               round(count(*) * 1000.0
+                     / any_value(a.population), 1)                AS rate_tatebene,
+               any_value(a.population)                            AS einwohner
+        FROM {fact_offense} f
+        JOIN {dim_tract_acs} a
+          ON a.geoid = f.tract_geoid AND a.vintage = f.population_vintage
+        WHERE year(f.date) = {jahr}
+          AND f.geo_status = 'inside_city'
+          AND a.population > 0
+        GROUP BY f.reporting_city, f.tract_geoid
+        ORDER BY rate_fallebene DESC, geoid
+    """
+
+
 def einwohner_je_stadt(dim_tract: str, dim_tract_acs: str,
                        vintage: str = "d.reference_vintage") -> str:
     """Die Einwohnerzahl je Stadt - der Nenner jeder Rate dieses Projekts.
@@ -204,6 +251,14 @@ def einwohner_je_stadt(dim_tract: str, dim_tract_acs: str,
     oder ``read_parquet('...')``. ``vintage`` waehlt den Jahrgang; die Vorgabe
     nimmt das Referenz-Vintage der Stadtzuordnung, also denselben Stand, aus dem
     ``city`` kommt.
+
+    **Gezaehlt wird jeder Tract mit Stadtzuordnung**, auch einer ohne eine
+    einzige Tat. Die ES|QL-Kachel im Dashboard (``serving.build_kibana``)
+    kommt ueber ``LOOKUP JOIN`` von den Taten her und summiert deshalb nur
+    ueber Tracts, die im Jahrgang mindestens eine tragen. Am 11.10.2026 ergeben
+    beide Wege denselben Nenner (2'661'953 und 638'635); ein Tract-Jahr ohne
+    Tat liesse sie auseinanderlaufen, und dann weicht die Dashboardzahl von
+    der Dokumentzahl ab, ohne dass eine von beiden falsch gerechnet waere.
     """
     return f"""
         SELECT d.city AS city, sum(a.population) AS n
