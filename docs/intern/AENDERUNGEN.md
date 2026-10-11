@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'862** |
+| Tests | **1'870** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -100,6 +100,102 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 11.10.2026 · Der Betrieb ist aufgenommen, der Nachweis fehlt noch (#144)
+
+**Abgelesen auf `srv01`, nicht gemeldet bekommen.** `docker compose ps` am
+11.10.2026: Elasticsearch, Kibana und Jupyter laufen, alle drei `healthy`,
+seit zwei bis drei Tagen. Die `.env` des Stapels trägt für beide Abbilder
+einen SHA-256-Digest, und beide sind **zeichengleich** mit denen, die am
+8.10.2026 hier gebaut und gemessen wurden (`0fc9c6ab…6201a5` für die Strecke,
+`25b05b82…1847de` für die Analyse). Damit ist die Kette geschlossen, die FR-3
+verlangt: hier gebaut, Digest gemessen, genau dieser Digest läuft dort — nicht
+„nach Möglichkeit gepinnt", sondern gepinnt und nachgeprüft.
+
+`crontab -l` zeigt einen Zeitplan: montags 04:30, `flock --wait 21600` gegen
+Überlappung, ein Verteiler, der den ersten Montag im Monat voll und die
+folgenden als Delta fährt.
+
+**Was der Zeitplan nicht ist: ein Nachweis.** `logs/scheduled-pipeline.log`
+existiert nicht. Der Crontab schreibt mit `>>` hinein — die Datei entstünde
+also beim ersten Lauf auch dann, wenn er scheitert. Also hat er **noch nie
+gefeuert**; der Stapel ist drei Tage alt, der letzte Montag war der 5.10. und
+lag davor, und der erste Termin ist der **12.10.2026**. Bis zum ersten grünen
+Lauf gilt deshalb dieselbe Elle wie für den Datenlauf in GitHub Actions seit
+dem 13.9.: **eine Einrichtung, kein Nachweis.**
+
+Ebenso unbekannt bleibt, ob die Strecke dort je durchgelaufen ist. Sie liegt
+hinter einem `profiles:`-Schlüssel und läuft als `--rm`, hinterlässt also
+auch in `docker compose ps --all` keinen Container. Das ist keine Schwäche der
+Beschreibung, sondern die Folge davon, dass ein Stapellauf kein Dienst ist.
+
+**Teil B hat seine Zusage gewechselt, nicht aufgeweicht.** Bis zum 6.10. stand
+dort „Nichts in diesem Teil ist gebaut" — erst ohne, dann mit einer, dann mit
+vier Ausnahmen. Mit dem fünften Baustein wäre der Satz eine Lüge mit fünf
+Ausnahmen geworden. An seiner Stelle steht jetzt das Umgekehrte: **Jeder
+Baustein sagt selbst, ob er gebaut ist, seit wann, und was ihn belegt; was
+kein Datum trägt, ist Plan.** Der Wächter prüft entsprechend nicht mehr einen
+Verneinungssatz, sondern dass jeder aufgezählte Baustein ein Datum nennt —
+eine Aufzählung ohne Datum wäre das alte Problem in neuer Form. Dasselbe im
+Einseiter: „nichts davon ist gebaut" heisst jetzt „teils gebaut, je Baustein
+datiert".
+
+Der Unterschied, auf dem dieses Projekt besteht, bleibt damit erhalten. Er ist
+nur verschoben — nicht mehr *Beschreibung gegen Betrieb*, sondern
+**Einrichtung gegen Nachweis**.
+
+**Acht Aussagen in sechs Dokumenten gedreht**, keine davon über den Beleg
+hinaus: „kein Server, kein Dienst, der ständig läuft" (Teil A), „kein
+Zeitplan" (zweimal), „auf `srv01` läuft nichts davon", „der Stapel ist nicht
+gestartet", „Gestartet ist sie nirgends" (README, am 9.10. selbst so
+geschrieben), „Nichts startet den Lauf von selbst" (Konzept 5.3) und „was
+fehlt, ist der Betrieb darum herum" (Ausblick). Stehen geblieben ist alles,
+was den fehlenden Nachweis betrifft, und der vierte Posten unter „Was daneben
+einzurichten ist" — der Elasticsearch-Datenträger für Restic. Der ist am
+11.10. **nicht geprüft** worden: `config/srv01.yaml` liegt in der
+srv01-Infrastruktur, nicht in diesem Repository, und meine Pfadangabe war
+falsch. Ungeprüft ist nicht widerlegt.
+
+**Elasticsearch stand auf dem Server drei Tage falsch.** `docker compose ps`
+zeigte **8.15.0**, während der Entwicklungsstapel seit #137 (7.10.) auf
+**8.19.22** läuft. Die Serverfassung trägt als Kommentar die Zusage *„Dieselbe
+Fassung wie in der Entwicklungsfassung. Ein Index, der hier anders gebaut wird
+als dort, wäre kein Beleg mehr für das, was auf dem Entwicklungsrechner
+geprüft wurde."* — gehalten hat sie niemand, denn #137 hob nur die eine Datei.
+Die Folge ist nicht kosmetisch: **`LOOKUP JOIN` gibt es erst ab 8.19**, und
+ohne es braucht jede Verbundauswertung eine vorverbundene Tabelle in
+`serving/` — es entscheidet also, wie Welle 4 überhaupt gebaut werden kann.
+Beide Dienste stehen jetzt auf 8.19.22, und
+`test_beide_fassungen_binden_dieselbe_elastic_version` hält die Zusage, die
+drei Tage nur als Kommentar dastand. Der Sprung innerhalb der Hauptversion 8
+verlangt keine Neuindizierung; im Zweifel lädt
+`python -m serving.load_elasticsearch` jeden Index aus dem Release neu.
+
+**Zwei Befunde ohne Abhilfe, beide festgehalten.** Erstens liegt
+`docker/srv01-datenlauf.sh` — das Skript, das der Zeitplan aufruft — **nicht
+im Repository** und wird in keinem Dokument erwähnt. FR-15 hängt damit an
+einem Artefakt, das hier niemand prüfen und kein Wächter erfassen kann.
+Zweitens hat **FR-16** einen Fall, der kollidieren kann: Fällt der
+Monatserste auf einen Montag, ist es der erste Montag und damit ein
+*Voll*lauf um 04:30 — während FR-16 für 05:00 den Vollrestore nennt und
+`flock` sechs Stunden Sperrfrist erlaubt. Ein bis zwei Monate im Jahr, und
+genau der schwerste Lauf.
+
+**Eine dritte Falle beim Bewachen von Prosa.** Nach Fettschrift und
+Zeilenumbruch kam der **Zitatblock**: Die Stelle im README steht in einem
+`>`-Block, und aus `von aussen\n> gemessen` wurde beim Normalisieren
+`von aussen > gemessen` — die Suche fand nichts, und der Wächter meldete eine
+Lücke, die es nicht gab. `flach()` entfernt jetzt auch die Zitatzeichen. Alle
+drei Fallen stehen im Docstring, weil jede einzeln zugeschnappt ist.
+
+**Zahlen.** 1'862 → **1'870 Tests**, Standardlauf 1'760 → **1'768**,
+Referenzwächter unverändert **102**. Sieben der acht neuen stehen in
+`test_betriebsstand.py` (die Listen der gedrehten und der bewahrten Aussagen
+sind gewachsen), der achte ist der Versionswächter. Frischklon **1'733 der
+1'768**, 35 übersprungen — **gemessen** in einem `git clone` dieses Stands
+ohne `data/`, nicht fortgeschrieben. Keine Datenzahl bewegt sich.
 
 ---
 

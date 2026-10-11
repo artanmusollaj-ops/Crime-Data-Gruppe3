@@ -231,8 +231,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'862 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'725 davon — die übrigen 35 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 102 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 1'870 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'733 davon — die übrigen 35 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 102 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 102 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
@@ -253,16 +253,26 @@ Laptop (macOS)                     GitHub Actions                SeaweedFS (S3)
   └─ Notebooks                          Artefakt                       + AKTUELL.json
 ```
 
-Das ist der ehrliche Stand: **eine Entwicklungsmaschine, ein CI-Dienst, ein
-Objektspeicher.** Kein Server, kein Dienst, der ständig läuft, keine
-Oberfläche ausser Notebooks und der DuckDB-Konsole. Genau hier setzt Teil B an.
+Das war der ehrliche Stand bis zum 8.10.2026: **eine Entwicklungsmaschine,
+ein CI-Dienst, ein Objektspeicher** — kein Server, kein Dienst, der ständig
+läuft, keine Oberfläche ausser Notebooks und der DuckDB-Konsole. Seit dem
+8.10.2026 laufen auf `srv01` drei Dienste (Elasticsearch, Kibana, Jupyter),
+und seit dem 9.10. liegt eine Anmeldung davor. Die Zahlen dieses Teils
+stammen weiter vom Entwicklungsrechner: Der Server zeigt sie, er erzeugt sie
+nicht. Wie es dort liegt, sagt Teil B samt Datum je Baustein.
 
 ---
 
 # Teil B · Die Ziel-Architektur
 
-**Nichts in diesem Teil ist gebaut** — mit vier Ausnahmen, die hier benannt
-gehören, statt den Satz aufzuweichen.
+**Teil B war ein Plan, und ein Teil davon steht inzwischen.** Bis zum
+6.10.2026 stimmte der Satz, der hier stand — „nichts in diesem Teil ist
+gebaut". In fünf Tagen sind fünf Bausteine daraus Wirklichkeit geworden, und
+damit wäre der Satz eine Lüge mit fünf Ausnahmen. Also steht hier jetzt das
+Gegenteil: **Jeder Baustein dieses Teils sagt selbst, ob er gebaut ist, seit
+wann, und was ihn belegt.** Was kein Datum trägt, ist Plan.
+
+Gebaut ist, mit Datum und Beleg:
 
 *Die erste, seit dem 28.9.2026:* Ein `docker-compose.yml` für die drei
 **Analysedienste** (ClickHouse, Elasticsearch, Kibana) existiert und läuft
@@ -282,22 +292,39 @@ es neben dem Strecken-Abbild in `ghcr.io/datenwerft`.
 Speichergrenzen, die Traefik-Regeln, ein lesendes Jupyter; nachzulesen in
 `storage-architektur.md`, Abschnitt 16.
 
-*Die vierte, seit dem 9.10.2026:* die **Tunnel-Routen und die
+*Die vierte, seit dem 8.10.2026:* der Stapel **läuft** auf `srv01`.
+Elasticsearch, Kibana und Jupyter stehen dort als Dienste, am 11.10.2026
+alle drei `healthy` und seit zwei bis drei Tagen oben; beide Abbilder sind
+per SHA-256-Digest gepinnt, und die beiden Digests in der `.env` des Stapels
+sind **zeichengleich** mit denen, die hier gebaut und gemessen wurden.
+Daneben steht ein Zeitplan: montags 04:30 über `cron`, mit `flock` gegen
+Überlappung und einem Verteiler, der den ersten Montag im Monat voll und die
+folgenden als Delta fährt. Seit wann er eingetragen ist, sagt ein Crontab
+nicht, und von hier aus ist es nicht feststellbar.
+
+*Die fünfte, seit dem 9.10.2026:* die **Tunnel-Routen und die
 Access-Anwendung** über `urbancrime-*`. Sie ist keine Datei im Repository,
 sondern eine Einrichtung bei Cloudflare — deshalb steht sie hier und nicht in
 einer Liste von Dateinamen, und deshalb trägt sie ihren Beleg in B.3.
 
-Alle vier sind der Verbund auf dem Entwicklungsrechner und sein Vorzimmer,
-nicht der Betrieb: kein Server, kein Zeitplan. Und die dritte ist eine
-**Beschreibung**, kein Betrieb — die Dienste, Grenzen und Traefik-Regeln
-darin wirken auf keiner Maschine. Zwei Voraussetzungen vor ihr stehen
-inzwischen: Die Abbilder, auf die sie zeigt, liegen seit dem 8.10.2026 in
-einer Registry — geholt hat sie dort noch kein Dienst —, und seit dem
-9.10.2026 sind die Tunnel-Routen und die Anmeldung von aussen **gemessen**,
-nicht nur geplant (B.3). Dass eine Anmeldung erscheint, sagt dabei nichts
-darüber, ob dahinter etwas antwortet: Cloudflare Access fängt die Anfrage
-**vor** dem Ursprung ab. Der Unterschied ist der ganze Punkt dieses
-Dokuments: Was hier steht, ist prüfbar, nicht in Betrieb.
+**Was davon noch kein Nachweis ist.** Der Zeitplan hat am 11.10.2026 **noch
+nie gefeuert** — `logs/scheduled-pipeline.log` existiert nicht, und der
+Crontab schreibt mit `>>` hinein, die Datei entstünde also beim ersten Lauf
+auch dann, wenn er scheitert. Der erste Termin ist Montag, der 12.10.2026.
+Bis zum ersten grünen Lauf ist er damit **eine Einrichtung, kein Nachweis** —
+dieselbe Elle, die 5.3 an den wöchentlichen Datenlauf in GitHub Actions legt.
+Ebenso offen: ob die Strecke selbst dort je durchgelaufen ist. Sie ist ein
+Stapellauf hinter einem `profiles:`-Schlüssel und hinterlässt als
+`--rm`-Lauf keinen Container, den `docker compose ps --all` zeigen könnte.
+
+Und noch eines gehört dazu: Das Skript, das der Zeitplan aufruft
+(`docker/srv01-datenlauf.sh`), liegt **nicht in diesem Repository**. Der
+wöchentliche Anstoss hängt damit an einem Artefakt, das niemand hier prüfen
+und kein Wächter erfassen kann.
+
+Der Unterschied, auf den dieses Dokument baut, bleibt also bestehen — er ist
+nur verschoben: Nicht mehr „Beschreibung gegen Betrieb", sondern
+**Einrichtung gegen Nachweis.**
 
 Ansonsten beschreibt dieser Teil, wie die Plattform für LN2 und einen echten
 Betrieb aussehen soll, und nennt zu jedem Baustein, was er löst und was er
@@ -359,15 +386,15 @@ geschätzt. Die vorher veranschlagten 5'632 MiB lagen 1'307 MiB über dem
 Verfügbaren; das ist der Grund, warum die Reihenfolge *erst messen, dann
 begrenzen* hier eine eigene Anforderung ist.
 
-Was fehlt, ist der **Betrieb**. Die Dienste, Grenzen und Traefik-Regeln der
-Beschreibung laufen auf keiner Maschine, und es gibt keinen Zeitplan. Zwei Voraussetzungen davor sind dagegen erfüllt:
-Die Abbilder liegen seit dem 8.10.2026 in einer Registry, und die
-Tunnel-Routen samt der Access-Anwendung über `urbancrime-*` sind seit dem
-9.10.2026 eingerichtet und von aussen gemessen (B.3). Solange der Rest so
-bleibt, ist
-der Verbund eine Bequemlichkeit beim Entwickeln, das Abbild eine Zusicherung
-über die Abhängigkeiten und die Serverbeschreibung ein geprüfter Plan —
-keines davon eine Betriebszusage.
+**Was davon steht, und was noch kein Nachweis ist.** Die Beschreibung ist
+seit dem 8.10.2026 angewandt: Drei Dienste laufen auf `srv01`, beide
+Abbilder liegen per Digest gepinnt in der Registry, die Tunnel-Routen und
+die Access-Anwendung sind seit dem 9.10. von aussen gemessen (B.3), und ein
+Zeitplan steht (montags 04:30, `flock`, Voll-/Delta-Verteiler). Offen ist
+nicht mehr die Einrichtung, sondern der **Nachweis**: Der Zeitplan hat noch
+nie gefeuert — erster Termin ist Montag, der 12.10.2026 —, das Skript, das
+er aufruft, liegt nicht im Repository, und ob die Strecke dort je
+durchgelaufen ist, zeigt kein Artefakt, das von hier aus lesbar wäre.
 
 **Was es löst.** Heute läuft die Strecke auf genau einer Maschine, und ihre
 Abhängigkeiten sind ein `requirements.lock` plus die Hoffnung, dass der

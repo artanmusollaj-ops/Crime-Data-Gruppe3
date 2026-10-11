@@ -49,7 +49,7 @@ Raumeinheit. Darauf steht das **Gold-Sternschema** aus einer Faktentabelle
 und fünf Dimensionen (5.2), darauf die Auswertungsumgebung. Die Schichten
 liegen wahlweise lokal oder auf einem gemeinsamen Objektspeicher (7.4).
 Jede Quelle weist ihre Vollständigkeit nach, statt sie zu behaupten.
-**1'862 automatisierte Tests** laufen ohne Netzzugriff und ohne Schlüssel.
+**1'870 automatisierte Tests** laufen ohne Netzzugriff und ohne Schlüssel.
 
 Gebaut sind die **sechs Jahrgänge 2021 bis 2026**; 2026 ist ein Teiljahr und
 als solches gekennzeichnet (`dim_date.year_is_complete`).
@@ -648,7 +648,7 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; drei Tests prüfen das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel. `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id` — durchgehend bis Gold: jede abgeleitete Tabelle trägt einen `input_fingerprint` über ihre Eingaben, nennt Vorgänger mit Bauzeitpunkt und Abdruck statt nur mit Pfad, Referenzdateien mit SHA-256. Jedes Manifest nennt ausserdem `contract_version` (was geladen oder gedeutet wird) und `code_version` (welcher Commit, und ob der Arbeitsbaum sauber war), gegen ein Register in `AENDERUNGEN.md` getestet. Unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog mit 133 Spalten, erzeugt aus den Manifesten und getestet. Gesamtmanifest je Lauf mit allen Eingabe-Läufen und Fingerabdruck. Verantwortliche je Datensatz in Absprache 7.3, gegen die Stufenliste getestet. Aufbewahrungsregel mit `orchestration.aufraeumen`: **gepinnt** bleibt (Register `config/referenzstand.csv`, versioniert), dazu der jüngste Lauf und der davor, alles von Silver Genannte und die Basis jedes Deltas; gelöscht wird nur auf Wunsch, Raw und Bronze zusammen. `--pinnen` leitet den Referenzstand aus den Gold-Manifesten ab, statt ihn tippen zu lassen. Datenablage wahlweise lokal, SeaweedFS (S3) oder hybrid (`storage`): lesen lokal zuerst, S3 als Rückfall; schreiben lokal, prüfen, gezielt publizieren, `manifest.json` zuletzt. Ein veralteter lokaler Stand einer abgeleiteten Tabelle wird beim Lesen gemeldet und beim Publizieren abgelehnt — verglichen werden `built_at_utc` und die Bronze-Läufe aus `derived_from` | das Aufräumen ist ein Handgriff, kein Automatismus; ein Stand wird gepinnt, wenn jemand daran denkt; Detroits Lauf vom 11.9. bleibt bewusst ohne Raw-Gegenstück — er ist der vorherige Schnappschuss, der die Instabilität der Quelle belegt; die Ablage lädt nichts automatisch herunter und synchronisiert nicht zurück — bewusst, Version 1 |
-| **DataOps** | 1'862 Tests ohne Netz und Schlüssel, auf jedem Pull Request in GitHub Actions — Linux und Windows, Python 3.11 und 3.13; `ruff` davor. Schreiben über `.part` und atomares Umbenennen. Publish-Gate: Gold entsteht nur, wenn die Abdeckung Schwellen hält | die 102 datengebundenen Wächter laufen auf Pull Requests nicht — dafür gibt es seit dem 13.9. den wöchentlichen Datenlauf (`datenlauf.yml`), der alle Quellen lädt, die Strecke baut und dann die ganze Suite fährt; er braucht `CENSUS_API_KEY` als Repository-Secret und ist bis zum ersten grünen Lauf eine Einrichtung, kein Nachweis. Aktualität wird im Datenlauf gegen eine Schwelle von acht Tagen geprüft, **nach der Ingestion und vor dem Ableiten** — eine Quelle, die nichts Neues liefert oder ganz fehlt, lässt ihn scheitern, bevor Gold darauf entsteht; keine Alarmierung ausser dem roten Lauf selbst |
+| **DataOps** | 1'870 Tests ohne Netz und Schlüssel, auf jedem Pull Request in GitHub Actions — Linux und Windows, Python 3.11 und 3.13; `ruff` davor. Schreiben über `.part` und atomares Umbenennen. Publish-Gate: Gold entsteht nur, wenn die Abdeckung Schwellen hält | die 102 datengebundenen Wächter laufen auf Pull Requests nicht — dafür gibt es seit dem 13.9. den wöchentlichen Datenlauf (`datenlauf.yml`), der alle Quellen lädt, die Strecke baut und dann die ganze Suite fährt; er braucht `CENSUS_API_KEY` als Repository-Secret und ist bis zum ersten grünen Lauf eine Einrichtung, kein Nachweis. Aktualität wird im Datenlauf gegen eine Schwelle von acht Tagen geprüft, **nach der Ingestion und vor dem Ableiten** — eine Quelle, die nichts Neues liefert oder ganz fehlt, lässt ihn scheitern, bevor Gold darauf entsteht; keine Alarmierung ausser dem roten Lauf selbst |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel. `mapping_status` und `geo_status` machen die Vergleichbarkeit je Zeile abfragbar. Ein Manifest-Leser (`manifeste`) für alle Schichten statt elf. Zwei Architekturbilder, **aus dem Code erzeugt** — Abhängigkeiten und Datenfluss, mit einem Test gegen Zyklen ([`architektur.md`](architektur.md)) | Vintage 2024 hart verdrahtet — für mehrere Jahrgänge muss sie je Jahr mitlaufen |
 | **Orchestration** | `orchestration.run_all`: 14 Stufen in Reihenfolge, Abbruch beim ersten Fehler, Gesamtmanifest mit allen Bronze-Läufen und Fingerabdruck über die Eingaben | der geplante Lauf ist wöchentlich (`datenlauf.yml`, montags), die Quellen ändern sich täglich; ausserhalb davon startet er, wenn jemand daran denkt; keine Wiederaufnahme, bewusst |
 | **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen. `ruff` mit Pyflakes und `raise … from`, Lockfile, CI-Matrix über zwei Betriebssysteme | die sechs Notebooks, die Zahlen belegen, laufen seit dem 13.9. im wöchentlichen Datenlauf — nicht auf Pull Requests, weil sie `data/` brauchen. Notebook 32 war bis dahin einen Tag lang still kaputt. Die sechs ladenden Notebooks laufen bewusst nirgends automatisch |
@@ -657,8 +657,13 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 Batch-Pipelines Aufwand ohne Erkenntnisgewinn. Gebaut ist deshalb ein Skript,
 das die Läufe in der richtigen Reihenfolge aufruft und protokolliert — die
 Reihenfolge ist real, weil `silver/tract` beide Census-Quellen braucht und
-`crime_offense` zusätzlich `tract`. Was fehlt, ist der Anstoss: Nichts startet
-den Lauf von selbst.
+`crime_offense` zusätzlich `tract`. Angestossen wird er inzwischen zweimal:
+seit dem 13.9.2026 wöchentlich in GitHub Actions (`datenlauf.yml`) und seit
+Anfang Oktober 2026 auf `srv01` per `cron` — montags 04:30, mit `flock` gegen
+Überlappung und einem Verteiler, der den ersten Montag im Monat voll und die
+folgenden als Delta fährt. Der zweite hat am 11.10.2026 noch nie gefeuert
+(erster Termin: 12.10.) und ist damit **eine Einrichtung, kein Nachweis** —
+dieselbe Elle wie in 5.3.
 
 **Wozu diese Tabelle einen Wächter hat.** Sie ist dreimal veraltet, während die
 Arbeit lief, die sie beschreibt — ein Feldkatalog als Lücke, den es schon gab;
@@ -1403,8 +1408,8 @@ je Zeile, was fehlt, statt die Zeile wegzulassen.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # 1'760 Tests, 12 davon übersprungen
-python -m pytest -m ""                 # mit den Referenzwächtern: 1'862
+python -m pytest                       # 1'768 Tests, 12 davon übersprungen
+python -m pytest -m ""                 # mit den Referenzwächtern: 1'870
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:

@@ -664,15 +664,25 @@ entfernt. Daraus folgt beides — es braucht **kein dauerhaftes
 `data/`-Volume**, nur einen Arbeitsraum, und `httpfs` wird kritisch statt
 nützlich, weil Silver Bronze direkt von S3 liest.
 
-**Sie ist eine Beschreibung, kein Betrieb.** Die Dienste, Grenzen und
-Traefik-Regeln darin laufen auf keiner Maschine: Der wöchentliche Anstoss ist
-nicht eingerichtet, und auf `srv01` läuft nichts davon. Was daneben
-einzurichten war, steht dagegen nicht mehr ganz offen — drei der vier Posten
-weiter unten in diesem Abschnitt sind erledigt: die Abbilder seit dem
-8.10.2026 in einer Registry (geholt hat sie dort noch kein Dienst), die
-Tunnel-Routen und die Access-Anwendung seit dem 9.10.2026, von aussen
-gemessen. Was hier steht, sagt, wie es liegen soll, und ist an dieser Stelle
-nachprüfbar — nicht, dass es läuft.
+**Sie ist seit dem 8.10.2026 angewandt.** Auf `srv01` laufen Elasticsearch,
+Kibana und Jupyter nach dieser Beschreibung; am 11.10.2026 waren alle drei
+`healthy`, beide Abbilder per Digest gepinnt, und die Digests in der `.env`
+des Stapels sind zeichengleich mit den hier gebauten. Drei der vier Posten
+unter „Was daneben einzurichten ist" sind erledigt — die Abbilder seit dem
+8.10.2026 in einer Registry, die Tunnel-Routen und die Access-Anwendung seit
+dem 9.10.2026, von aussen gemessen. Ein Zeitplan steht ebenfalls: montags
+04:30 über `cron`, mit `flock` gegen Überlappung.
+
+**Was sie weiter nicht ist: ein Nachweis.** Der Zeitplan hat am 11.10.2026
+noch nie gefeuert — `logs/scheduled-pipeline.log` gibt es nicht, und der
+Crontab schreibt mit `>>` hinein, die Datei entstünde also auch bei einem
+Fehlschlag. Erster Termin ist Montag, der 12.10.2026. Ob die Strecke selbst
+dort je durchgelaufen ist, zeigt kein Artefakt: Sie ist ein Stapellauf hinter
+einem `profiles:`-Schlüssel und lässt als `--rm`-Lauf keinen Container
+zurück. Und das Skript, das der Zeitplan aufruft
+(`docker/srv01-datenlauf.sh`), liegt nicht in diesem Repository — der
+wöchentliche Anstoss hängt damit an einem Artefakt, das hier niemand prüfen
+kann.
 
 ### Warum zwei Dateien
 
@@ -811,13 +821,15 @@ Beschreibung im Repository ([`Dockerfile`](../Dockerfile) und
 [`Dockerfile.jupyter`](../Dockerfile.jupyter)) und seit dem 8.10.2026 auch
 als Abbild unter `ghcr.io/datenwerft`, je per SHA-256-Digest ansprechbar.
 Damit ist die Voraussetzung erfüllt, die diese Beschreibung an sich selbst
-stellt — ein Betrieb ist sie trotzdem nicht: Auf `srv01` ist der Stapel
-nicht gestartet, und welcher Digest dort gilt, entscheidet dessen `.env`.
+stellt — und am 11.10.2026 auch eingelöst: Beide Variablen in der `.env` auf
+`srv01` tragen einen Digest, und beide sind **zeichengleich** mit denen, die
+hier gebaut und gemessen wurden. Die Kette ist damit geschlossen: hier
+gebaut, Digest gemessen, genau dieser Digest läuft dort.
 
 Nachprüfbar ist das von aussen **nicht**: Die Pakete sind privat, und ein
-Test ohne Token käme nicht an die Registry. Die Digests des ersten Schiebens
-stehen datiert im Projektgedächtnis; was auf `srv01` wirklich läuft, sagt
-dort `docker compose images`.
+Test ohne Token käme nicht an die Registry. Die Digests stehen datiert im
+Projektgedächtnis; was auf `srv01` wirklich läuft, sagt dort
+`docker compose images` — abgelesen am 11.10.2026.
 
 ### Jupyter liest, und zwar aus dem Release
 

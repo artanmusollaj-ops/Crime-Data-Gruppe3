@@ -669,3 +669,42 @@ def test_die_entwicklungsfassung_bleibt_lauffaehig():
         "die Entwicklungsfassung traegt andere Dienste als die drei "
         "Analysedienste - dann stimmt die Arbeitsteilung der beiden Dateien nicht"
     )
+
+
+def test_beide_fassungen_binden_dieselbe_elastic_version():
+    """Elasticsearch und Kibana muessen in beiden Fassungen gleich sein.
+
+    Die Zusage steht als Kommentar in ``docker-compose.srv01.yml``: *"Dieselbe
+    Fassung wie in der Entwicklungsfassung. Ein Index, der hier anders gebaut
+    wird als dort, waere kein Beleg mehr fuer das, was auf dem
+    Entwicklungsrechner geprueft wurde."* Gehalten hat sie niemand - #137 hob
+    am 7.10.2026 die Entwicklungsfassung auf 8.19.22 und liess die
+    Serverfassung auf 8.15.0 stehen. Aufgefallen ist es am 11.10.2026 an
+    ``docker compose ps`` auf srv01, nicht hier.
+
+    Das ist nicht nur Kosmetik: ``LOOKUP JOIN`` ist erst ab 8.19 allgemein
+    verfuegbar. Auf 8.15 braucht jede Verbundauswertung eine vorverbundene
+    Tabelle in ``serving/`` - der Unterschied entscheidet also, wie Welle 4
+    ueberhaupt gebaut werden kann.
+    """
+    def fassungen(text: str) -> dict[str, str]:
+        gelesen = lade(text)
+        return {
+            name: gelesen["services"][name]["image"]
+            for name in ("elasticsearch", "kibana")
+            if name in gelesen["services"]
+        }
+
+    hier = fassungen(SRV01.read_text(encoding="utf-8"))
+    dort = fassungen(ENTWICKLUNG.read_text(encoding="utf-8"))
+    gemeinsam = set(hier) & set(dort)
+    assert gemeinsam == {"elasticsearch", "kibana"}, (
+        f"nur {sorted(gemeinsam)} in beiden Fassungen - dann greift dieser "
+        "Test nicht mehr, was er greifen soll"
+    )
+    for name in sorted(gemeinsam):
+        assert hier[name] == dort[name], (
+            f"{name}: srv01 bindet {hier[name]!r}, die Entwicklungsfassung "
+            f"{dort[name]!r} - ein Index, der dort anders gebaut wird als "
+            "hier, belegt nichts mehr"
+        )

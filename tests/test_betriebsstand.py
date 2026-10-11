@@ -75,16 +75,39 @@ DOKUMENTE = (
 UEBERHOLT = {
     "keine Access-Anwendung": "die Anwendung ueber urbancrime-* ist angelegt",
     r"[Aa]ngewandt ist (?:sie|es)[^.]{0,60}nirgends|nirgends angewandt":
-        "zu absolut - die Tunnel-Routen und Access stehen; verengen wie im "
-        "README (die Dienste der Beschreibung laufen auf keiner Maschine)",
+        "die Beschreibung ist seit dem 8.10.2026 angewandt - drei Dienste "
+        "laufen auf srv01",
     "kein Tunnel, keine Anmeldung": "beide am 9.10.2026 gemessen",
+    # Dazugekommen am 11.10.2026, als ``docker compose ps`` auf srv01 drei
+    # laufende Dienste und ``crontab -l`` einen Zeitplan zeigte.
+    "Gestartet ist sie nirgends":
+        "der Stapel laeuft seit dem 8.10.2026 auf srv01",
+    r"kein(?:en)? Zeitplan":
+        "es gibt einen: montags 04:30 per cron, mit flock",
+    r"l[äa]uft nichts davon":
+        "Elasticsearch, Kibana und Jupyter laufen dort",
+    r"[Ss]tapel\s+nicht gestartet":
+        "am 11.10.2026 waren alle drei Dienste healthy",
+    "Nichts startet den Lauf von selbst":
+        "zwei Anstoesse: datenlauf.yml seit 13.9., srv01-cron seit Oktober",
+    "nichts davon ist gebaut":
+        "fuenf Bausteine stehen; Teil B und der Einseiter datieren jetzt "
+        "je Baustein",
 }
 
 #: Was **nicht** mitgedreht wurde, weil es unbelegt blieb. Datei -> Phrase.
 NOCH_WAHR = {
-    "docs/architektur-ist-und-ziel.md": "keinen Zeitplan",
+    # Der Zeitplan steht, aber er hat am 11.10.2026 noch nie gefeuert -
+    # ``logs/scheduled-pipeline.log`` gibt es nicht, und der Crontab schreibt
+    # mit ``>>`` hinein. Dieselbe Elle, die 5.3 an den Datenlauf in GitHub
+    # Actions legt: bis zum ersten gruenen Lauf eine Einrichtung.
+    "docs/architektur-ist-und-ziel.md": "Einrichtung, kein Nachweis",
+    "README.md": "Einrichtung, kein Nachweis",
+    "docs/ln2_konzept.md": "Einrichtung, kein Nachweis",
+    # Der vierte Posten unter "Was daneben einzurichten ist": der
+    # Elasticsearch-Datentraeger fuer Restic. Am 11.10.2026 nicht geprueft -
+    # die Datei liegt in der srv01-Infrastruktur, nicht in diesem Repository.
     "docs/storage-architektur.md": "Einzurichten bleibt",
-    "README.md": "Gestartet ist sie nirgends",
 }
 
 #: Woran ein Absatz zu erkennen ist, der die Messung **vorzeigt**. Bewusst das
@@ -127,14 +150,22 @@ README_NAHE = 300
 
 
 def flach(text: str) -> str:
-    """Fettschrift und Zeilenumbrueche weg, damit eine Suche nicht luegt.
+    """Auszeichnung und Umbrueche weg, damit eine Suche nicht luegt.
 
-    Beide Fallen sind hier schon zugeschnappt: ``**vor** dem Ursprung`` findet
-    keine Suche nach ``vor dem Ursprung``, und ein Satz, den der Zeilenumbruch
-    in der Mitte teilt, ebenso nicht. Ein Waechter, der daran scheitert, meldet
-    eine Luecke, die es nicht gibt - oder, schlimmer, keine, die es gibt.
+    Drei Fallen sind hier zugeschnappt, jede einmal:
+
+    * ``**vor** dem Ursprung`` findet keine Suche nach ``vor dem Ursprung``.
+    * Ein Satz, den der Zeilenumbruch in der Mitte teilt, ebenso nicht.
+    * Und im README steht die Stelle in einem **Zitatblock**: Aus
+      ``von aussen\n> gemessen`` wurde mit der ersten Fassung dieser Funktion
+      ``von aussen > gemessen``, und die Suche fand nichts - am 11.10.2026
+      genau so passiert, als der Satz dort umgeschrieben wurde.
+
+    Ein Waechter, der daran scheitert, meldet eine Luecke, die es nicht gibt -
+    oder, schlimmer, keine, die es gibt.
     """
-    return re.sub(r"\s+", " ", text.replace("*", ""))
+    ohne_zitat = re.sub(r"^\s*>\s?", "", text, flags=re.M)
+    return re.sub(r"\s+", " ", ohne_zitat.replace("*", ""))
 
 
 def text_von(rel: str) -> str:

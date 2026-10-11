@@ -195,8 +195,16 @@ GEPLANT = {
     "Grafana": (),
 }
 
-#: Was existiert und deshalb in Teil B ausdruecklich als Ausnahme dastehen
-#: muss - je Datei die Jahreszahl, an der sie entstand.
+#: Welche **Dateien** existieren und deshalb in Teil B mit Datum dastehen
+#: muessen. Seit dem 11.10.2026 heissen sie dort nicht mehr "Ausnahmen" - die
+#: Zusage ist nicht Abwesenheit, sondern Datierung -, aber die Verknuepfung
+#: bleibt dieselbe und bleibt noetig: Eine gebaute Datei, die der Text nicht
+#: nennt, steht unbeschrieben im Plan.
+#:
+#: Nicht jeder gebaute Baustein ist eine Datei. Der laufende Stapel auf srv01
+#: und die Access-Anwendung bei Cloudflare sind keine, und diese Liste kann
+#: sie nicht fassen - dafuer prueft
+#: ``test_teil_b_behauptet_nichts_gebautes`` die Datierung der Aufzaehlung.
 #:
 #: ``docker-compose.srv01.yml`` fehlte hier vom 6. bis zum 9.10.2026 - also
 #: genau der Fehler, den der Kommentar darueber beschreibt, ein zweites Mal:
@@ -210,12 +218,42 @@ AUSNAHMEN = ("docker-compose.yml", "docker-compose.srv01.yml",
 
 
 def test_teil_b_behauptet_nichts_gebautes(teil_b):
-    """Solange der Text sagt 'nichts davon ist gebaut', muss das stimmen.
+    """Teil B verspricht nicht mehr Abwesenheit, sondern Datierung.
 
-    Faellt dieser Test, ist ein Baustein entstanden - dann gehoert er nach
-    Teil A, mit Zahlen, oder in die Liste der benannten Ausnahmen.
+    Bis zum 11.10.2026 stand hier der Satz "Nichts in diesem Teil ist gebaut"
+    - erst ohne, dann mit einer, zuletzt mit vier Ausnahmen. Am 11.10. liefen
+    drei Dienste auf srv01, beide Abbilder waren per Digest gepinnt und ein
+    Zeitplan stand: Der Satz waere eine Luege mit fuenf Ausnahmen geworden.
+
+    An seiner Stelle steht jetzt die umgekehrte Zusage - **jeder Baustein
+    sagt selbst, ob er gebaut ist, seit wann, und was ihn belegt; was kein
+    Datum traegt, ist Plan**. Dieser Test haelt beides: dass die Zusage
+    dasteht, und dass jeder als gebaut aufgefuehrte Baustein ein Datum
+    nennt. Eine Aufzaehlung ohne Datum waere die Rueckkehr zum alten
+    Problem in neuer Form.
     """
-    assert "Nichts in diesem Teil ist gebaut" in teil_b
+    assert "Jeder Baustein dieses Teils sagt selbst" in teil_b, (
+        "die Zusage von Teil B fehlt - steht dort wieder eine Behauptung "
+        "ueber Abwesenheit, muss sie gegen die Wirklichkeit gehalten werden"
+    )
+    assert "Was kein Datum trägt, ist Plan" in teil_b
+
+    # Jeder aufgezaehlte Baustein nennt ein Datum. Das Muster ist die
+    # Aufzaehlung selbst ("*Die vierte, seit dem 8.10.2026:*"), nicht eine
+    # Liste von Dateinamen - der vierte und fuenfte Baustein sind gar keine
+    # Dateien, sondern ein laufender Stapel und eine Einrichtung bei
+    # Cloudflare.
+    bausteine = re.findall(r"\*Die (\w+), (?:ebenfalls )?seit dem "
+                           r"(\d{1,2}\.\d{1,2}\.\d{4}):\*", teil_b)
+    assert len(bausteine) >= 5, (
+        f"nur {len(bausteine)} datierte Bausteine in Teil B, erwartet sind "
+        "mindestens fuenf - ist einer ohne Datum dazugekommen?"
+    )
+    ohne_datum = re.findall(r"\*Die (\w+)(?:, (?:ebenfalls )?seit)?:\*", teil_b)
+    assert not ohne_datum, (
+        f"{ohne_datum} steht ohne Datum da - Teil B verspricht ein Datum je "
+        "Baustein"
+    )
     gefunden = [d for dateien in GEPLANT.values() for d in dateien
                 if (PROJECT_ROOT / d).exists()]
     assert not gefunden, (
@@ -312,8 +350,19 @@ def test_der_einseiter_nennt_die_gepruefte_testzahl(blatt):
 
 
 def test_der_einseiter_haelt_ist_und_ziel_auseinander(blatt):
-    """Die Aussage des Blattes, nicht seine Verzierung."""
-    assert "nichts davon ist gebaut" in blatt
+    """Die Aussage des Blattes, nicht seine Verzierung.
+
+    Bis zum 11.10.2026 stand im Ziel-Teil "nichts davon ist gebaut". Seit auf
+    srv01 drei Dienste laufen, waere das falsch; der Einseiter sagt jetzt
+    "teils gebaut, je Baustein datiert" - dieselbe Umstellung, die Teil B von
+    ``architektur-ist-und-ziel.md`` gemacht hat, und aus demselben Grund.
+    Die Trennung Ist/Ziel bleibt die Aussage des Blattes; nur traegt sie
+    jetzt Daten statt einer Verneinung.
+    """
+    assert "teils gebaut, je Baustein datiert" in blatt, (
+        "der Ziel-Teil sagt nicht mehr, wie er zum Ist steht - stuende dort "
+        "wieder eine Verneinung, muesste sie gegen srv01 gehalten werden"
+    )
     assert 'class="ist"' in blatt and 'class="ziel"' in blatt
     assert "Absichtserklärung" in blatt, "die Begründung der Trennung fehlt"
 
