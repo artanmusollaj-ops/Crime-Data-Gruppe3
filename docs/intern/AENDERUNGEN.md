@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'882** |
+| Tests | **1'942** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -102,6 +102,167 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 11.10.2026 · Die Rate je 1'000 steht im Dashboard (#146)
+
+**Was fehlte.** Kibana trug drei Bretter und vierzehn Kacheln — und **keine
+Rate je 1'000 Einwohner**. Die Beschreibung des Überblicks sagte das selbst
+(*„steht in der DuckDB-Auswertung, nicht hier"*), während
+`test_die_rate_je_1000_einwohner_ist_aus_elasticsearch_allein_rechenbar` seit
+dem 5.10. das Gegenteil zusicherte. Eine der beiden Aussagen musste fallen;
+gefallen ist die Beschreibung. Es gibt jetzt ein **viertes Brett, „Raten je
+1'000"**, mit drei Kacheln: Rate je Stadt, die zwanzig höchsten Raten je
+Tract, und die Tracts ohne Einwohner.
+
+**Gerechnet wird in der Kachel, nicht vorberechnet.** Über ES|QL und
+`LOOKUP JOIN`: `fact_offense` liefert den Zähler, `dim_tract_acs` den Nenner,
+beides in einer Abfrage. Am 11.10.2026 gegen Elasticsearch 8.19.22 gemessen —
+Chicago 251'517 / 2'661'953 / **94,5**, Detroit 84'987 / 638'635 / **133,1**,
+zeichengleich mit `ln2_konzept.md`. Auf Fallebene: Detroit **124,6**, Chicago
+unverändert 94,5.
+
+Damit fällt auch die Aussage *„Elasticsearch kennt keinen Join"* — sie stand
+im Kopf von `load_elasticsearch` und in `architektur-ist-und-ziel.md` und
+stimmt seit 8.19 nicht mehr. Nachgezogen; `storage-architektur.md` traf die
+Aussage nie.
+
+**Vier Bedingungen, jede einzeln nachgewiesen.**
+
+1. Der Nennerindex braucht `index.mode: lookup`. Ohne ihn antwortet
+   Elasticsearch mit *„Lookup Join requires a single lookup mode index"* —
+   und zwar beim **Öffnen** der Kachel, nicht beim Laden. Der Modus ist
+   deshalb am `Index` entschieden (`nachschlag=True`) und wird nicht aus dem
+   Namen geraten; `Abfrage.__post_init__` liest ihn und bricht beim Bauen ab.
+2. `LOOKUP JOIN` verbindet nur **gleichnamige** Felder — daher
+   `RENAME tract_geoid AS geoid`.
+3. Es verbindet über **ein** Feld. Vier ACS-Vintages liegen im Nennerindex,
+   also kommen vier Zeilen je Tat zurück. Ohne
+   `WHERE vintage == population_vintage` danach wird jede Tat vervierfacht:
+   **356,1 statt 94,5**.
+4. `MAX(population)` je `(Stadt, Tract)` **vor** dem Summieren. `SUM` an
+   dieser Stelle ist der stille Fehler — der Nenner wächst um den Faktor
+   „Delikte je Tract", und die Rate fällt auf **0,3**.
+
+**Keiner der drei Fehlerwege wirft.** Alle liefern eine Zahl, die man
+hinschreiben kann: ×4 beim Vintage, ×Delikte-je-Tract beim `SUM`, ×6 beim
+fehlenden Jahresfilter (500,7 — die Zahl, die nichts bedeutet). Ein Wächter,
+der nur den richtigen Fall prüft, hätte alle drei durchgelassen. Deshalb
+stehen in `tests/serving/test_rate_im_dashboard.py` neben dem Abgleich **zwei
+Gegenproben**: Sie stellen die Abfrage ohne Vintage-Filter und mit `SUM` und
+bestehen darauf, dass dabei eine **falsche** Zahl herauskommt. Kommt dieselbe
+heraus, trägt die Bedingung nichts mehr, und der Wächter daneben beweist
+nichts.
+
+**Die Brücke, die bisher unbewacht war.** `test_abgabedokumente.py` hielt die
+Rate der Dokumente gegen `gold_pipeline.raten_je_stadt`,
+`test_build_kibana.py` hielt jede Kachel dagegen, dass überhaupt etwas
+zurückkommt — dazwischen lag nichts. Das Dashboard hätte eine andere Zahl
+zeigen können als die Abgabe, und aufgefallen wäre es erst jemandem, der
+beide nebeneinander liest. Der neue Referenzstand-Wächter stellt **die
+Abfrage der Kachel** und hält ihr Ergebnis gegen dieselbe DuckDB-Abfrage,
+aus der die Dokumente ihre Zahlen beziehen (Toleranz 0,05).
+
+**Fallebene vorn, Tatebene daneben — und die Abweichung steht auf der
+Kachel.** Das Dashboard folgt E5 (Entscheid 5.10.2026). Die Abgabedokumente
+führen bis auf Weiteres die **Tatebene** als kanonische Rate: `eine-zahl.md`
+trägt 94,5 im Titel, `test_eine_zahl.py` prüft genau das. Für Chicago ist das
+dieselbe Zahl, für Detroit **133,1 gegen 124,6**. Dass die Dokumente
+nachziehen müssen, bewegt die zentrale Zahl des Projekts in sechs Dokumenten
+und mehreren Referenzwächtern — das gehört einzeln entschieden und steht als
+eigenes Stück in `deferred-work.md`. Bis dahin **sagt die Kachel es selbst**,
+statt es zu verschweigen.
+
+**FR-27 ist halb erfüllt, und das steht so da.** Jede neue Kachel nennt
+Frage, Nenner und Ausschlüsse, eine Rate zusätzlich ihr Jahr — erzwungen in
+`Tafel.__post_init__`, nicht als gute Absicht. Für die vierzehn vorhandenen
+Kacheln sind die Angaben zurückgestellt (reine Zählungen und Anteile, wo ein
+fehlender Nenner weniger irreführt). Genannt werden Spalten und Gründe, keine
+Zahlen: Eine Zahl im Kacheltext wäre eine, die beim nächsten Release niemand
+nachmisst.
+
+**Was die Rate nicht sagt.** Tracts ohne Einwohner bekommen keine Rate,
+sondern eine eigene Kachel — Chicago 3 Tracts mit 1'447 Taten, Detroit 7 mit
+361. Und die Spitze der Tract-Liste ist kein Wohnrisiko: Chicagos höchster
+Tract kommt auf 541,4, und das sind Innenstadt-Tracts mit wenigen Bewohnern
+und viel Tagesbevölkerung („Tatort ist nicht Wohnort"). Der Vorbehalt steht
+als Ausschluss an der Kachel.
+
+**Die Kachel je Tract war unbewacht, und das fiel erst bei der Matrixprüfung
+auf.** Der Brückenwächter hielt die Stadtrate gegen `raten_je_stadt` — die
+Rate **je Tract** aber gegen nichts. Zwei Mutationsproben belegen es: Wurde
+nur in dieser einen Abfrage `MAX` zu `SUM`, blieb alles grün; verschwand
+`population > 0` daraus, ebenso. Dabei wird genau diese Kachel fotografiert
+und landet in `docs/bilder/` — sie ist eine veröffentlichte Zahl wie die
+Stadtrate.
+
+Geschlossen ist das mit `gold_pipeline.raten_je_tract`, dem Gegenstück zu
+`raten_je_stadt` eine Ebene tiefer, und drei Wächtern darauf: dieselbe Zahl
+je Tract wie aus Parquet, kein Tract ohne Einwohner in der Ratenkachel, und
+die Gegenprobe, dass ohne `population > 0` wirklich ein unbewohnter Tract
+hereinkommt. Verglichen wird **je Tract** statt der Reihe nach — bei gleichen
+Raten dürfen DuckDB und Elasticsearch verschiedene Zwanzig wählen, ohne dass
+einer falsch rechnet; dass es die höchsten sind, prüft der zweite Teil
+(kein Tract aus Gold liegt über dem kleinsten gezeigten). Die Abfrage liegt
+in `gold_pipeline` und nicht im Wächter, aus demselben Grund wie
+`raten_je_stadt`: Eine Kopie im Test könnte mit der Kachel gemeinsam falsch
+sein.
+
+**Eine Mutationsprobe traf einen Kommentar.** Beim Absichern blieb „`MAX` →
+`SUM`" grün, und es sah nach einer Lücke im Wächter aus. Das Suchmuster hatte
+aber die erste Fundstelle erwischt — die Bedingung 4 im Kommentar über den
+Abfragen —, nicht die Abfrage selbst. Vierte Probe dieser Sitzung, die nicht
+der Wächter war, sondern ich. Eine grüne Probe ist erst dann ein Befund,
+wenn die Probe geprüft ist.
+
+**Zahlen.** 1'882 → **1'942 Tests** (60 neue: die Form der ES|QL-Tafel, die
+FR-27-Pflichten samt dem Beleg jedes Ausschlusses in der eigenen Abfrage, der
+Lookup-Modus, die Brücke und ihre Gegenproben, die Brettzahl der
+Einstiegsseite),
+Standardlauf 1'780 → **1'834**, Referenzwächter 102 → **108**. Frischklon
+**1'799 der 1'834**, 35 übersprungen — in einer Kopie des Arbeitsbaums ohne
+`data/` gemessen. Kein Vertragssprung, keine Daten angefasst, keine Tabelle
+und keine Spalte neu. **Nachgebaut:** `docs/referenz/`, die
+Architekturbilder (`serving` benutzt jetzt `gold_pipeline` — 27 → 28 Kanten),
+`docs/einstieg.html` und die vier Dashboard-Bilder.
+
+**Drei Nachbesserungen aus der Review, alle derselben Art.** Erstens teilten
+sich die drei Ratenkacheln ein Ausschluss-Tupel, und die Stadtkachel führte
+darin *„Tracts ohne Einwohner"*, obwohl `RATE_JE_STADT` sie mitzählt — 1'447
+Chicagoer und 361 Detroiter Taten. Die **Zahl** war richtig (`raten_je_stadt`
+zählt ebenso, nur deshalb ist die Brücke grün), der **Text** war falsch.
+Jeder Ausschluss trägt jetzt den Beleg, an dem die Abfrage ihn vollzieht, und
+`Tafel.__post_init__` sucht ihn dort; ein geteiltes Tupel oder ein
+Positionsschnitt daraus gibt es nicht mehr. Zweitens las der Wächter über den
+Lookup-Modus nur `LOOKUP JOIN` in Grossbuchstaben — `lookup join` kommt in
+ES|QL durch und wurde stillschweigend nicht geprüft. Drittens sagte
+`tools/build_einstieg.py` *„Drei Bretter"* und *„Was Elasticsearch nicht kann:
+Tat und Nenner in einer Abfrage verbinden"*; beides steht erzeugt in
+`docs/einstieg.html`, und der Test hielt die Datei gegen ihren Generator —
+beide sagten dasselbe Falsche. Die Brettzahl kommt jetzt aus `BRETTER`, und
+ein Wächter hält sie dagegen.
+
+**Der E5-Hinweis steht an der Kachel, nicht nur am Brett.** Wer eine Kachel
+einzeln öffnet, sieht die Brettbeschreibung nicht. Er liegt deshalb als
+*Vorbehalt* an jeder Ratenkachel — getrennt von den Ausschlüssen, weil ein
+Vorbehalt keinen Beleg in der Abfrage haben kann. Ohne Zahlen: 133,1 und
+124,6 im Fliesstext hätte kein Wächter erreicht, und die Kachel stellt diese
+Regel zwanzig Zeilen weiter oben selbst auf.
+
+**Kibanas Warnung „Your data is not secure" verdeckte eine veröffentlichte
+Zahl.** Im Bild der Ratenkacheln lag das Hinweisfeld über Detroits „Taten
+darin" (361). Ein versioniertes Artefakt mit einer unlesbaren Zahl ist
+schlimmer als keines. `docker-compose.yml` setzt deshalb
+`XPACK_SECURITY_SHOWINSECURECLUSTERWARNING: "false"` — das „Don't show again"
+der Warnung liegt nur im localStorage des jeweiligen Browsers und hätte den
+nächsten Lauf nicht erreicht.
+
+**Ein Index nimmt `index.mode` nicht nachträglich an.** Wer `dim_tract_acs`
+vor dieser Änderung geladen hat, hat ihn im Modus `standard`, und die
+Rate-Kacheln bleiben leer, ohne dass irgendetwas rot wird — der Ladelauf ist
+ja längst durch. Abhilfe: Index löschen und
+`python -m serving.load_elasticsearch` neu laufen lassen.
+`test_der_nennerindex_laeuft_wirklich_im_lookup_modus` hält den laufenden
+Dienst dagegen.
 
 ## 11.10.2026 · Der Betrieb ist aufgenommen, der Nachweis fehlt noch (#144, #145)
 

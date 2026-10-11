@@ -36,6 +36,18 @@ die echte Abbildung im Index.
 Tafel wirklich erscheint, haengt daran, dass jeder Verweis der Darstellung auf
 eine Spalte zeigt, die es gibt - und genau das prueft ``pruefe_tafel``, weil
 Kibana es nicht tut.
+
+**Zwei Sorten Tafel, und die zweite rechnet.** Eine Lens-Tafel aus ``Kennzahl``
+und ``Eimer`` kann zaehlen und gruppieren - nicht aber *teilen*. Eine Rate je
+1'000 Einwohner braucht Zaehler und Nenner aus zwei Indizes und eine Division
+danach; das ist in Lens' Eimersprache nicht sagbar. Dafuer gibt es die ``Art``
+``esql_tabelle``: Sie traegt eine ``Abfrage`` in ES|QL, Kibana nimmt sie als
+``datasourceStates.textBased`` an, und ``LOOKUP JOIN`` holt den Nenner dazu.
+
+*Der stille Fehler dabei ist nicht die Abfrage, sondern der Nenner.* Drei Wege
+fuehren zu einer Zahl, die man hinschreiben kann und die falsch ist, und keiner
+von ihnen wirft einen Fehler - die vier Bedingungen an ``RATE_JE_STADT`` sagen,
+welche es sind.
 """
 
 from __future__ import annotations
@@ -43,6 +55,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 from collections.abc import Mapping
@@ -50,8 +63,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
+# Das Bezugsjahr der Raten kommt aus derselben Quelle wie das der
+# Abgabedokumente. Eine zweite 2024 hier waere die Stelle, an der Dashboard und
+# Dokument auseinanderlaufen, ohne dass jemand es merkt.
+from gold_pipeline import RATENJAHR
 from serving.load_clickhouse import LadeFehler
-from serving.load_elasticsearch import aktuelles_release
+from serving.load_elasticsearch import NACH_NAME, aktuelles_release
 
 #: Kibana liegt neben Elasticsearch; der Port ist aus demselben Grund
 #: verschoben wie dort (5601 ist die Voreinstellung und oft belegt).
@@ -81,7 +98,17 @@ RASTER = 48
 
 #: Die Datenansicht, auf der alle Tafeln liegen. Feste Kennung, damit ein
 #: zweiter Lauf dieselbe trifft statt eine zweite anzulegen.
+#:
+#: **Die ES|QL-Tafeln brauchen sie nicht**, um zu rechnen - ES|QL fragt den
+#: Index direkt, und eine Datenansicht auf ``dim_tract_acs`` waere nutzlos
+#: gewesen (die anfangs vermutete Luecke; die echte war der Indexmodus). Sie
+#: tragen sie trotzdem als Verweis: Daran erkennt Kibana das Zeitfeld, und
+#: ``pruefe_verweise`` prueft fuer jede Tafel dieselbe Frage.
 ANSICHT = "crime-fact-offense"
+
+#: Das Zeitfeld der Datenansicht - und die Achse, auf der das feste
+#: Zeitfenster der Dashboards liegt.
+ZEITFELD = "occurred_at_utc"
 
 #: Lens nennt die Zeilenzahl so. Kein Feld im Index - ein Platzhalter.
 ZEILEN = "___records___"
@@ -212,7 +239,122 @@ ARTEN = {
     "linie": "lnsXY",
     "ring": "lnsPie",
     "tabelle": "lnsDatatable",
+    # Dieselbe Darstellung wie ``tabelle``, aber eine andere Datenquelle:
+    # ``textBased`` statt ``formBased``. Eine eigene Art und kein Schalter an
+    # ``tabelle``, weil die beiden nichts gemeinsam haben ausser dem Aussehen.
+    "esql_tabelle": "lnsDatatable",
 }
+
+#: Die Arten, die ihre Frage in ES|QL stellen statt in Eimern. Als Menge, weil
+#: eine zweite dazukommen kann (ein ES|QL-Balken etwa) und dann jede
+#: Verzweigung von selbst mitzieht.
+ESQL_ARTEN = frozenset({"esql_tabelle"})
+
+
+@dataclass(frozen=True)
+class Spalte:
+    """Eine Spalte, die eine ES|QL-Abfrage zurueckgibt.
+
+    ``kennung`` ist **der Name, unter dem ES|QL die Spalte liefert** - Lens
+    bildet darueber ab (``idMap`` von ``fieldName`` auf ``columnId``). Steht
+    hier ein anderer Name als in der Abfrage, importiert die Tafel sauber und
+    bleibt leer; ``test_jede_esql_tafel_liefert_genau_die_spalten`` stellt
+    deshalb die Abfrage und vergleicht die Namen.
+    """
+
+    kennung: str
+    beschriftung: str
+    #: Was Lens ueber die Spalte wissen muss. ``number`` oder ``string``;
+    #: Elasticsearchs ``long``, ``double`` und ``integer`` sind alle
+    #: ``number``, ``keyword`` ist ``string``.
+    typ: str = "number"
+    #: Ist diese Spalte eine Rate je 1'000 Einwohner?
+    #:
+    #: Nicht Kosmetik, sondern der Ausloeser einer Pflicht: Eine Tafel mit
+    #: einer Rate muss ihren Nenner und ihr Jahr nennen (FR-27), und
+    #: ``Tafel.__post_init__`` laesst sie sonst nicht entstehen. Am Datentyp
+    #: liesse sich das nicht erkennen - eine Rate ist auch nur eine Zahl.
+    ist_rate: bool = False
+
+    @property
+    def lens_spalte(self) -> dict[str, Any]:
+        return {"columnId": self.kennung, "fieldName": self.kennung,
+                "label": self.beschriftung, "customLabel": True,
+                "meta": {"type": self.typ}}
+
+
+@dataclass(frozen=True)
+class Ausschluss:
+    """Was eine Kachel **nicht** zeigt - und woran die Abfrage es vollzieht.
+
+    Beides zusammen und nicht als blosser Text: Ein Ausschluss, der nur
+    dasteht, ist eine Behauptung ueber die Abfrage. Am 11.10.2026 fuehrten
+    alle drei Ratenkacheln dasselbe Tupel, und die Stadtkachel nannte darin
+    *„Tracts ohne Einwohner"*, obwohl ``RATE_JE_STADT`` sie mitzaehlt -
+    1'447 Chicagoer und 361 Detroiter Taten. Die Zahl war richtig, der Text
+    war falsch, und niemand haette es gemerkt.
+
+    ``beleg`` ist die Stelle in der Abfrage, die den Ausschluss ausfuehrt.
+    ``Tafel.__post_init__`` sucht sie dort und laesst die Kachel sonst nicht
+    entstehen. Ein **Vorbehalt** - etwas, das man beim Lesen wissen muss,
+    ohne dass die Abfrage es wegfiltert - gehoert deshalb nicht hierher,
+    sondern nach ``Tafel.vorbehalte``.
+    """
+
+    text: str
+    beleg: str
+
+
+@dataclass(frozen=True)
+class Abfrage:
+    """Eine Frage in ES|QL - mit den Spalten, die sie zurueckgibt.
+
+    **Warum der Nachschlagindex hier geprueft wird und nicht in Kibana.**
+    ``LOOKUP JOIN`` verlangt, dass der rechte Index mit ``index.mode: lookup``
+    angelegt wurde. Ist er es nicht, antwortet Elasticsearch mit *„Lookup Join
+    requires a single lookup mode index"* - und zwar erst, wenn jemand das
+    Dashboard oeffnet. Der Modus steht an ``load_elasticsearch.Index``; diese
+    Klasse liest ihn dort und bricht beim Bauen ab statt beim Anschauen.
+    """
+
+    esql: str
+    spalten: tuple[Spalte, ...]
+
+    def __post_init__(self) -> None:
+        if not self.spalten:
+            raise LadeFehler(
+                "Eine ES|QL-Tafel ohne Spalten zeigt nichts an - Lens braucht "
+                "je Spalte eine Abbildung von Feldname auf Spaltenkennung.")
+        for name in self.nachschlagindizes:
+            index = NACH_NAME.get(name)
+            if index is None:
+                raise LadeFehler(
+                    f"'{name}' steht in einem LOOKUP JOIN, ist aber kein "
+                    f"geladener Index. Bekannt sind "
+                    f"{', '.join(sorted(NACH_NAME))}.")
+            if not index.nachschlag:
+                raise LadeFehler(
+                    f"'{name}' steht in einem LOOKUP JOIN, wird aber ohne "
+                    f"index.mode 'lookup' geladen. Elasticsearch lehnt den "
+                    f"Verbund ab, sobald jemand die Kachel oeffnet - "
+                    f"nachschlag=True an load_elasticsearch.INDIZES setzen "
+                    f"und neu laden.")
+
+    @property
+    def nachschlagindizes(self) -> tuple[str, ...]:
+        """Welche Indizes die Abfrage ueber ``LOOKUP JOIN`` dazunimmt.
+
+        Aus der Abfrage gelesen und nicht daneben gepflegt: Eine zweite Liste
+        waere die Stelle, an der jemand einen Verbund ergaenzt und den
+        Eintrag vergisst - und dann prueft niemand den Indexmodus.
+
+        **Ohne Gross- und Kleinschreibung.** ES|QL nimmt ``lookup join``
+        ebenso an wie ``LOOKUP JOIN``; ein Muster, das nur Grossbuchstaben
+        kennt, findet den Verbund dann nicht und laesst den Indexmodus
+        ungeprueft durch. Genau so liess sich der Waechter umgehen.
+        """
+        return tuple(re.findall(r"LOOKUP\s+JOIN\s+(\S+)", self.esql,
+                                re.IGNORECASE))
 
 
 @dataclass(frozen=True)
@@ -222,28 +364,140 @@ class Tafel:
     kennung: str
     titel: str
     art: str
-    kennzahl: Kennzahl
+    #: Nur fuer die Lens-Arten. Eine ES|QL-Tafel rechnet in der Abfrage; eine
+    #: Kennzahl daneben waere eine zweite, die nichts tut.
+    kennzahl: Kennzahl | None = None
     eimer: tuple[Eimer, ...] = ()
     breite: int = 24
     hoehe: int = 15
+    #: Die Frage in ES|QL - nur und genau fuer die Arten aus ``ESQL_ARTEN``.
+    abfrage: Abfrage | None = None
+    #: **FR-27, die drei Angaben, ohne die eine Zahl irrefuehrt.** Sie stehen
+    #: als Beschreibung am Lens-Objekt und damit im Informationsfeld der
+    #: Kachel. ``docs/ausblick.md`` nennt den Grund: *„Ein Dashboard, das eine
+    #: dieser Entscheidungen still trifft und eine Zahl hinstellt, macht die
+    #: Arbeit dieses Projekts zunichte."*
+    #:
+    #: Fuer die vierzehn vorhandenen Kacheln der drei alten Bretter sind sie
+    #: zurueckgestellt (reine Zaehlungen und Anteile); Pflicht sind sie fuer
+    #: jede ES|QL-Tafel. FR-27 ist damit halb erfuellt und nicht ganz.
+    frage: str = ""
+    nenner: str = ""
+    #: Was die Abfrage wegfiltert, je Kachel einzeln - nie ein geteiltes
+    #: Tupel und nie ein Positionsschnitt daraus. Beides war dieselbe
+    #: Wurzel: Wer die Reihenfolge aendert, aendert still, was eine andere
+    #: Kachel als nicht enthalten ausweist.
+    ausschluesse: tuple[Ausschluss, ...] = ()
+    #: Was man beim Lesen wissen muss, ohne dass die Abfrage es wegfiltert -
+    #: "Tatort ist nicht Wohnort", die Abweichung zu den Abgabedokumenten.
+    #: Getrennt von ``ausschluesse``, weil dort jeder Eintrag einen Beleg in
+    #: der Abfrage braucht und ein Vorbehalt keinen haben kann.
+    vorbehalte: tuple[str, ...] = ()
+    #: Das Jahr, fuer das die Zahl gilt. Pflicht, sobald eine Rate dabei ist:
+    #: Sechs Jahrgaenge auf einen Jahresnenner ergeben 500,7 je 1'000 - keine
+    #: zu hohe Rate, sondern keine.
+    jahr: int | None = None
 
     def __post_init__(self) -> None:
         if self.art not in ARTEN:
             raise LadeFehler(
                 f"{self.kennung}: Art '{self.art}' ist nicht entschieden. "
                 f"Bekannt sind {', '.join(sorted(ARTEN))}.")
-        if self.art == "zahl" and self.eimer:
-            raise LadeFehler(
-                f"{self.kennung}: Eine Zahl zeigt einen Wert und gruppiert "
-                f"nicht.")
-        if self.art in ("balken", "linie", "ring") and not self.eimer:
-            raise LadeFehler(
-                f"{self.kennung}: '{self.art}' braucht mindestens eine "
-                f"Gruppierung, sonst ist es ein einzelner Balken.")
+        if self.ist_esql:
+            self._pruefe_esql()
+        else:
+            if self.abfrage is not None:
+                raise LadeFehler(
+                    f"{self.kennung}: '{self.art}' liest ueber Lens-Eimer, "
+                    f"eine ES|QL-Abfrage bliebe unbenutzt. Art aus "
+                    f"{', '.join(sorted(ESQL_ARTEN))} waehlen.")
+            if self.kennzahl is None:
+                raise LadeFehler(
+                    f"{self.kennung}: '{self.art}' braucht eine Kennzahl - "
+                    f"ohne sie weiss die Tafel nicht, was sie zaehlt.")
+            if self.art == "zahl" and self.eimer:
+                raise LadeFehler(
+                    f"{self.kennung}: Eine Zahl zeigt einen Wert und "
+                    f"gruppiert nicht.")
+            if self.art in ("balken", "linie", "ring") and not self.eimer:
+                raise LadeFehler(
+                    f"{self.kennung}: '{self.art}' braucht mindestens eine "
+                    f"Gruppierung, sonst ist es ein einzelner Balken.")
         if self.breite > RASTER:
             raise LadeFehler(
                 f"{self.kennung}: {self.breite} Spalten passen nicht in ein "
                 f"Raster von {RASTER}.")
+
+    def _pruefe_esql(self) -> None:
+        """Was eine ES|QL-Tafel mitbringen muss, bevor sie entsteht."""
+        if self.abfrage is None:
+            raise LadeFehler(
+                f"{self.kennung}: '{self.art}' braucht eine Abfrage - die "
+                f"Frage steht in ES|QL und nicht in Eimern.")
+        if self.eimer or self.kennzahl is not None:
+            raise LadeFehler(
+                f"{self.kennung}: Eine ES|QL-Tafel gruppiert und zaehlt in "
+                f"der Abfrage. Kennzahl oder Eimer daneben waeren eine "
+                f"zweite Beschreibung, die nichts bewirkt.")
+        # FR-27. Eine Zahl ohne Nenner und ohne Ausschluesse ist genau der
+        # Fall, den ``ausblick.md`` als "die Arbeit dieses Projekts zunichte
+        # machen" beschreibt - und sie faellt niemandem auf, denn sie sieht
+        # aus wie eine Zahl.
+        if not self.frage:
+            raise LadeFehler(
+                f"{self.kennung}: ohne 'frage' sagt die Kachel nicht, was "
+                f"sie beantwortet.")
+        if not self.ausschluesse:
+            raise LadeFehler(
+                f"{self.kennung}: ohne 'ausschluesse' liest jemand die Zahl "
+                f"als vollstaendig.")
+        for a in self.ausschluesse:
+            # Der Ausschluss muss in **dieser** Abfrage stehen, nicht in
+            # irgendeiner. Genau das fehlte, als drei Kacheln sich ein
+            # Tupel teilten (siehe ``Ausschluss``).
+            if a.beleg not in self.abfrage.esql:
+                raise LadeFehler(
+                    f"{self.kennung}: die Kachel nennt den Ausschluss "
+                    f"'{a.text[:60]}…', ihre Abfrage vollzieht ihn aber "
+                    f"nicht - '{a.beleg}' steht nicht darin.")
+        if self.zeigt_rate and not (self.nenner and self.jahr):
+            raise LadeFehler(
+                f"{self.kennung}: eine Rate braucht ihren Nenner und ihr "
+                f"Jahr. Ohne Jahr ist sie keine Rate, sondern ein Quotient "
+                f"aus sechs Jahrgaengen und einem Jahresnenner.")
+
+    @property
+    def ist_esql(self) -> bool:
+        return self.art in ESQL_ARTEN
+
+    @property
+    def zeigt_rate(self) -> bool:
+        """Steht auf dieser Tafel eine Rate je 1'000 Einwohner?"""
+        return self.abfrage is not None and any(
+            s.ist_rate for s in self.abfrage.spalten)
+
+    @property
+    def erlaeuterung(self) -> str:
+        """Frage, Nenner, Jahr und Ausschluesse - als Text an der Kachel.
+
+        Kibana zeigt die Beschreibung eines Lens-Objekts im Informationsfeld
+        der Kachel. Das ist die Stelle, an der FR-27 ankommt: Wer die Zahl
+        liest, liest daneben, wovon sie ein Anteil ist und was nicht
+        mitgezaehlt wurde.
+        """
+        teile = []
+        if self.frage:
+            teile.append(f"Frage: {self.frage}")
+        if self.nenner:
+            teile.append(f"Nenner: {self.nenner}")
+        if self.jahr:
+            teile.append(f"Jahr: {self.jahr}")
+        if self.ausschluesse:
+            teile.append("Nicht enthalten: "
+                         + "; ".join(a.text for a in self.ausschluesse))
+        if self.vorbehalte:
+            teile.append("Zu beachten: " + "; ".join(self.vorbehalte))
+        return " · ".join(teile)
 
     @property
     def schicht(self) -> str:
@@ -251,7 +505,15 @@ class Tafel:
 
     @property
     def spalten(self) -> dict[str, Any]:
-        """Alle Lens-Spalten - Gruppierungen zuerst, dann die Kennzahl."""
+        """Alle Lens-Spalten - Gruppierungen zuerst, dann die Kennzahl.
+
+        Fuer eine ES|QL-Tafel sind es die Spalten, die die Abfrage liefert,
+        in der Reihenfolge, in der sie dastehen.
+        """
+        if self.ist_esql:
+            assert self.abfrage is not None   # __post_init__ hat es geprueft
+            return {s.kennung: s.lens_spalte for s in self.abfrage.spalten}
+        assert self.kennzahl is not None
         spalten = {e.kennung: e.lens_spalte(self.kennzahl.kennung)
                    for e in self.eimer}
         spalten[self.kennzahl.kennung] = self.kennzahl.lens_spalte
@@ -259,15 +521,20 @@ class Tafel:
 
     @property
     def reihenfolge(self) -> list[str]:
+        if self.ist_esql:
+            assert self.abfrage is not None
+            return [s.kennung for s in self.abfrage.spalten]
+        assert self.kennzahl is not None
         return [e.kennung for e in self.eimer] + [self.kennzahl.kennung]
 
     @property
     def darstellung(self) -> dict[str, Any]:
         """Der Teil, der sagt, welche Spalte wo hingehoert."""
         if self.art == "zahl":
+            assert self.kennzahl is not None
             return {"layerId": self.schicht, "layerType": "data",
                     "metricAccessor": self.kennzahl.kennung}
-        if self.art == "tabelle":
+        if self.art in ("tabelle", "esql_tabelle"):
             return {"layerId": self.schicht, "layerType": "data",
                     "columns": [{"columnId": k, "isTransposed": False}
                                 for k in self.reihenfolge]}
@@ -299,7 +566,18 @@ class Tafel:
         Verschachtelt in der Reihenfolge der Eimer - so, wie Lens es auch
         tut. Die Kennzahl haengt innen, ausser sie ist ``count``: Den liefert
         jede Ebene als ``doc_count`` mit.
+
+        **Fuer eine ES|QL-Tafel gibt es die nicht**, und das wirft, statt
+        ``{"size": 0}`` zurueckzugeben. Eine leere Aggregation waere der
+        gefaehrlichere Weg: ``test_jede_tafel_bekommt_auch_wirklich_daten``
+        stellte sie, bekaeme Treffer, und die Kachel waere damit als
+        "zeigt Daten" durchgewinkt, ohne dass die Abfrage je gelaufen ist.
         """
+        if self.ist_esql:
+            raise LadeFehler(
+                f"{self.kennung}: eine ES|QL-Tafel fragt ueber /_query und "
+                f"nicht ueber /_search - ihre Abfrage steht in "
+                f"'abfrage.esql'.")
         innen: dict[str, Any] = {}
         if (kz := self.kennzahl.aggregation) is not None:
             innen = {self.kennzahl.kennung: kz}
@@ -327,6 +605,188 @@ class Brett:
 
 _GESAMT = Kennzahl("anzahl", "Delikte", "count")
 
+#: Zaehler und Nenner, beide aus ``load_elasticsearch.INDIZES`` gelesen statt
+#: getippt. Steht hier ein Name von Hand, laeuft die Abfrage ins Leere, sobald
+#: ein Index umbenannt wird - und zwar erst beim Oeffnen der Kachel.
+_ZAEHLER = NACH_NAME["fact_offense"].name
+_NENNER = NACH_NAME["dim_tract_acs"].name
+
+#: Der Ausschnitt, fuer den der Nenner gilt - und damit der einzige, fuer den
+#: eine Rate definiert ist. Wortgleich in allen drei Abfragen, damit die drei
+#: Kacheln dieselbe Grundmenge zeigen.
+_IM_JAHR_UND_IN_DER_STADT = (
+    f'| WHERE date >= "{RATENJAHR}-01-01" AND date <= "{RATENJAHR}-12-31"\n'
+    f'    AND geo_status == "inside_city"'
+)
+
+# Die Ausschluesse, **einzeln benannt**. Jede Kachel waehlt die ihren aus;
+# ein geteiltes Tupel oder ein Schnitt daraus (``[:2]``) waere beides
+# dieselbe Falle: Die Stadtkachel fuehrte am 11.10.2026 "Tracts ohne
+# Einwohner", obwohl ihre Abfrage sie mitzaehlt, und ein Umsortieren haette
+# still geaendert, was die dritte Kachel ausweist.
+#
+# Der angezeigte Text traegt echte Umlaute: Er steht nicht im Quelltext,
+# sondern in der Kachel. Genannt werden Spalten und Gruende, nicht Zahlen -
+# eine Zahl im Kacheltext misst beim naechsten Release niemand nach. Welche
+# Ausschluesse wie viele Zeilen treffen, steht im Brett "Datenqualität".
+_AUSSERHALB = Ausschluss(
+    "Taten ohne Koordinate, ausserhalb der Stadtgrenze oder ohne Tract "
+    "(`geo_status` ungleich `inside_city`)",
+    'geo_status == "inside_city"',
+)
+_ANDERE_JAHRGAENGE = Ausschluss(
+    f"die Jahrgänge ausser {RATENJAHR} — `dim_date.year_is_complete` sagt, "
+    f"welche überhaupt vollständig sind",
+    f'date >= "{RATENJAHR}-01-01"',
+)
+_OHNE_EINWOHNER = Ausschluss(
+    "Tracts ohne Einwohner — für sie ist keine Rate definiert; sie stehen "
+    "in der Kachel darunter",
+    "population > 0",
+)
+_MIT_EINWOHNERN = Ausschluss(
+    "Tracts mit Einwohnern — die stehen in den beiden Kacheln darüber",
+    "population == 0",
+)
+
+#: Der Vorbehalt, ohne den die Spitze der Tract-Liste falsch gelesen wird.
+#: Kein Ausschluss: Die Abfrage filtert nichts weg, man muss es nur wissen.
+_TATORT_NICHT_WOHNORT = (
+    "**Tatort ist nicht Wohnort.** Ein Tract mit wenigen Bewohnern und viel "
+    "Tagesbevölkerung (Innenstadt, Verkehrsknoten) steht hier oben, ohne "
+    "dass seine Bewohner betroffener wären"
+)
+
+#: Die Abweichung zwischen Dashboard und Abgabe - auf der Kachel, auf der die
+#: Zahl steht, nicht nur in der Brettbeschreibung. Ohne Zahlen: Eine Zahl
+#: hier haette keinen Waechter, und die Kachel stellt zwanzig Zeilen weiter
+#: oben selbst die Regel auf, dass das nicht geht. Die beiden Werte stehen
+#: nebeneinander in der Kachel - wer den Unterschied sehen will, liest ihn
+#: dort ab.
+_FALLEBENE_VORN = (
+    "**Fallebene vorn, Tatebene daneben** (Entscheid E5). Die "
+    "Abgabedokumente führen bis auf Weiteres die *Tatebene* als kanonische "
+    "Rate; das Dashboard stellt die Fallebene voran. Für Chicago ist das "
+    "dieselbe Zahl, für Detroit nicht — beide Spalten stehen deshalb "
+    "nebeneinander"
+)
+
+#: Woher der Nenner kommt, in einem Satz - samt dem, was fuer 2025 und 2026
+#: gilt. ``population_vintage`` nennt je Tat ihren ACS-Jahrgang; einen
+#: neueren als 2024 gibt es nicht, und eine Rate fuer 2026 ruht deshalb
+#: weiter auf der Bevoelkerung von 2024.
+_NENNERTEXT = (
+    f"Einwohner je Tract aus `{_NENNER}`, je Tat mit dem Vintage, das "
+    f"`population_vintage` für sie nennt — je Tract **einmal** gezählt, "
+    f"nicht je Delikt. Für {RATENJAHR} ist das das Vintage {RATENJAHR}; "
+    f"für {RATENJAHR + 1} und {RATENJAHR + 2} bleibt es dasselbe, weil es "
+    f"kein neueres ACS gibt — die Rate dieser Jahre ruht also auf der "
+    f"Bevölkerung von {RATENJAHR}."
+)
+
+# Vier Bedingungen, jede einzeln nachgewiesen am 11.10.2026 gegen
+# Elasticsearch 8.19.22 - und drei davon so, dass ihr Bruch keinen Fehler
+# wirft, sondern eine Zahl, die man hinschreiben kann:
+#
+# 1. Der Nennerindex braucht ``index.mode: lookup``; ohne ihn kein Verbund.
+#    Das ist der eine Fall, der laut auffaellt (``Abfrage.__post_init__``
+#    faengt ihn vorher ab).
+# 2. ``LOOKUP JOIN`` verbindet nur **gleichnamige** Felder, darum das
+#    ``RENAME tract_geoid AS geoid``.
+# 3. Es verbindet ueber **ein** Feld und liefert vier Zeilen je Tat - vier
+#    Vintages a 6'282 Tracts. Ohne ``WHERE vintage == population_vintage``
+#    danach wird jede Tat vervierfacht: 356,1 statt 94,5 fuer Chicago.
+# 4. ``MAX(population)`` je ``(Stadt, Tract)`` **vor** dem Summieren.
+#    ``SUM`` an dieser Stelle ist der stille Fehler: Der Nenner waechst um
+#    den Faktor "Delikte je Tract", und die Rate fiel auf 0,3.
+#
+# **Woran der Nenner haengt, und wann er von Gold abweicht.** Diese Abfrage
+# summiert ueber die Tracts, die im Jahrgang **mindestens eine Tat** tragen;
+# ``gold_pipeline.einwohner_je_stadt`` summiert ueber **jeden** Tract mit
+# einer Stadtzuordnung. Am 11.10.2026 ist das dieselbe Menge - beide Seiten
+# nennen 2'661'953 und 638'635 -, aber es ist keine Identitaet: Ein Tract
+# ohne eine einzige Tat im Jahrgang faellt hier heraus und dort nicht, und
+# der Brueckenwaechter wuerde rot, ohne von sich aus zu sagen, welche Seite
+# recht hat. Seine Fehlermeldung nennt diesen Fall deshalb.
+#
+# Der dritte Weg zur falschen Zahl steht nicht in der Abfrage, sondern im
+# Fehlen des Jahresfilters: sechs Jahrgaenge Zaehler auf einem Jahr Nenner
+# ergeben 500,7. Darum ``_IM_JAHR_UND_IN_DER_STADT`` und darum ``jahr`` als
+# Pflichtangabe an der Tafel.
+RATE_JE_STADT = Abfrage(
+    esql=f"""FROM {_ZAEHLER}
+{_IM_JAHR_UND_IN_DER_STADT}
+| RENAME tract_geoid AS geoid
+| LOOKUP JOIN {_NENNER} ON geoid
+| WHERE vintage == population_vintage
+| STATS faelle = COUNT(*) WHERE counts_case, taten = COUNT(*),
+        einwohner = MAX(population) BY stadt = reporting_city, geoid
+| STATS faelle = SUM(faelle), taten = SUM(taten),
+        einwohner = SUM(einwohner) BY stadt
+| EVAL rate_fallebene = ROUND(faelle * 1000.0 / einwohner, 1),
+       rate_tatebene = ROUND(taten * 1000.0 / einwohner, 1)
+| KEEP stadt, faelle, rate_fallebene, taten, rate_tatebene, einwohner
+| SORT stadt""",
+    spalten=(
+        Spalte("stadt", "Stadt", "string"),
+        # Die Fallebene vorn (E5, entschieden am 5.10.2026): Die
+        # Kriminalstatistik beantwortet traditionell "in wie vielen Faellen
+        # ging es um X" und nicht "wie viele X gab es".
+        Spalte("faelle", "Fälle"),
+        Spalte("rate_fallebene", "Fälle je 1'000", ist_rate=True),
+        # Die Tatebene daneben und nicht statt: Beide sind richtig, es sind
+        # verschiedene Fragen (``docs/zaehlperspektiven.md``, Abschnitt 1).
+        Spalte("taten", "Taten"),
+        Spalte("rate_tatebene", "Taten je 1'000", ist_rate=True),
+        Spalte("einwohner", "Einwohner"),
+    ),
+)
+
+RATE_JE_TRACT = Abfrage(
+    esql=f"""FROM {_ZAEHLER}
+{_IM_JAHR_UND_IN_DER_STADT}
+| RENAME tract_geoid AS geoid
+| LOOKUP JOIN {_NENNER} ON geoid
+| WHERE vintage == population_vintage AND population > 0
+| STATS faelle = COUNT(*) WHERE counts_case, taten = COUNT(*),
+        einwohner = MAX(population) BY stadt = reporting_city, geoid
+| EVAL rate_fallebene = ROUND(faelle * 1000.0 / einwohner, 1),
+       rate_tatebene = ROUND(taten * 1000.0 / einwohner, 1)
+| KEEP stadt, geoid, faelle, rate_fallebene, taten, rate_tatebene, einwohner
+| SORT rate_fallebene DESC
+| LIMIT 20""",
+    spalten=(
+        Spalte("stadt", "Stadt", "string"),
+        Spalte("geoid", "Tract", "string"),
+        Spalte("faelle", "Fälle"),
+        Spalte("rate_fallebene", "Fälle je 1'000", ist_rate=True),
+        Spalte("taten", "Taten"),
+        Spalte("rate_tatebene", "Taten je 1'000", ist_rate=True),
+        Spalte("einwohner", "Einwohner"),
+    ),
+)
+
+# Keine Division, sondern eine Zaehlung: ``population == 0`` heisst nicht
+# "sichere Gegend", sondern "hier wohnt niemand" - Flughaefen, Parks, Gewerbe.
+# Eine Rate waere dort nicht null, sondern undefiniert, und eine gezeigte Null
+# liest sich als Sicherheit (``docs/ausblick.md``, Grundsatz 3).
+TRACTS_OHNE_EINWOHNER = Abfrage(
+    esql=f"""FROM {_ZAEHLER}
+{_IM_JAHR_UND_IN_DER_STADT}
+| RENAME tract_geoid AS geoid
+| LOOKUP JOIN {_NENNER} ON geoid
+| WHERE vintage == population_vintage AND population == 0
+| STATS taten = COUNT(*) BY stadt = reporting_city, geoid
+| STATS tracts = COUNT(*), taten = SUM(taten) BY stadt
+| KEEP stadt, tracts, taten
+| SORT stadt""",
+    spalten=(
+        Spalte("stadt", "Stadt", "string"),
+        Spalte("tracts", "Tracts ohne Einwohner"),
+        Spalte("taten", "Taten darin"),
+    ),
+)
+
 
 BRETTER: tuple[Brett, ...] = (
     Brett(
@@ -334,8 +794,9 @@ BRETTER: tuple[Brett, ...] = (
         titel="Überblick — Chicago gegen Detroit",
         beschreibung=(
             "Der Einstieg. Absolute Zahlen sagen wenig, solange die Städte "
-            "verschieden gross sind — die Rate je 1'000 Einwohner steht in "
-            "der DuckDB-Auswertung, nicht hier."),
+            "verschieden gross sind — die Rate je 1'000 Einwohner steht im "
+            "Brett »Raten je 1'000«, für den Jahrgang "
+            f"{RATENJAHR}."),
         tafeln=(
             Tafel("gesamt", "Delikte insgesamt", "zahl", _GESAMT,
                   breite=12, hoehe=8),
@@ -413,6 +874,56 @@ BRETTER: tuple[Brett, ...] = (
                   breite=48, hoehe=20),
         ),
     ),
+    Brett(
+        kennung="crime-raten",
+        titel="Raten je 1'000 — die zentrale Zahl",
+        beschreibung=(
+            f"Die Zahl, um die es in diesem Projekt geht, für den Jahrgang "
+            f"{RATENJAHR}: Detroit liegt je Einwohner vorn, Chicago absolut. "
+            "Gerechnet wird in der Kachel selbst, über ES|QL und "
+            f"`LOOKUP JOIN` auf `{_NENNER}` — nicht in einer vorberechneten "
+            "Tabelle. **Fallebene vorn, Tatebene daneben** (Entscheid E5 vom "
+            "5.10.2026): Beide sind richtig, es sind verschiedene Fragen. "
+            "Der Hinweis auf die Abgabedokumente steht auf der Kachel, auf "
+            "der die Zahl steht."),
+        tafeln=(
+            Tafel("je_stadt", f"Rate je 1'000 Einwohner, {RATENJAHR}",
+                  "esql_tabelle", abfrage=RATE_JE_STADT,
+                  frage=("Wie viele Fälle und Taten kommen je 1'000 "
+                         "Einwohner auf eine Stadt?"),
+                  nenner=_NENNERTEXT,
+                  # **Ohne** den Tract-Ausschluss: Diese Abfrage filtert
+                  # ``population > 0`` nicht, sie zaehlt die Taten in
+                  # unbewohnten Tracts im Zaehler mit - ebenso wie
+                  # ``gold_pipeline.raten_je_stadt``, und nur deshalb ist
+                  # der Brueckenwaechter gruen. Die Zahl ist richtig; falsch
+                  # waere, hier etwas anderes zu behaupten.
+                  ausschluesse=(_AUSSERHALB, _ANDERE_JAHRGAENGE),
+                  vorbehalte=(_FALLEBENE_VORN,),
+                  jahr=RATENJAHR, breite=48, hoehe=8),
+            Tafel("je_tract",
+                  f"Die zwanzig höchsten Raten je Tract, {RATENJAHR}",
+                  "esql_tabelle", abfrage=RATE_JE_TRACT,
+                  frage=("In welchen Census Tracts ist die Rate am "
+                         "höchsten?"),
+                  nenner=_NENNERTEXT,
+                  # Hier **mit** dem Tract-Ausschluss: Diese Abfrage traegt
+                  # ``population > 0``, weil eine Rate je Tract ohne
+                  # Einwohner nicht definiert waere.
+                  ausschluesse=(_AUSSERHALB, _ANDERE_JAHRGAENGE,
+                                _OHNE_EINWOHNER),
+                  vorbehalte=(_TATORT_NICHT_WOHNORT, _FALLEBENE_VORN),
+                  jahr=RATENJAHR, breite=48, hoehe=24),
+            Tafel("ohne_einwohner",
+                  f"Tracts ohne Einwohner — ohne Rate, {RATENJAHR}",
+                  "esql_tabelle", abfrage=TRACTS_OHNE_EINWOHNER,
+                  frage=("Wie viele Taten liegen in Tracts, für die keine "
+                         "Rate definiert ist?"),
+                  ausschluesse=(_AUSSERHALB, _ANDERE_JAHRGAENGE,
+                                _MIT_EINWOHNERN),
+                  jahr=RATENJAHR, breite=48, hoehe=8),
+        ),
+    ),
 )
 
 
@@ -422,7 +933,7 @@ BRETTER: tuple[Brett, ...] = (
 
 
 def datenansicht(index: str = "fact_offense",
-                 zeitfeld: str = "occurred_at_utc") -> dict[str, Any]:
+                 zeitfeld: str = ZEITFELD) -> dict[str, Any]:
     """Die Datenansicht - auf den **Alias**, nicht auf einen Release-Index.
 
     Damit zeigen die Dashboards nach jedem Ladelauf auf den neuen Stand,
@@ -467,26 +978,64 @@ def lens_objekt(tafel: Tafel, brett: str) -> dict[str, Any]:
     *Treffer*. Ohne den Brettnamen bekaemen sie dieselbe Kennung, und das
     letzte Anlegen ueberschriebe die anderen. Die Tafel des dritten Bretts
     truege dann den Titel des ersten.
+
+    **Zwei Datenquellen, ein Objekt.** Eine Lens-Tafel haengt unter
+    ``formBased`` und bekommt ihre Abfrage von Kibana gebaut; eine
+    ES|QL-Tafel haengt unter ``textBased`` und bringt sie mit. Beide gehen
+    ueber **denselben** ``_bulk_create`` - nachgewiesen gegen Kibana 8.19.22,
+    es braucht keinen zweiten Weg. Der Verweisname ist ein anderer, weil Lens
+    die beiden Datenquellen verschieden benennt
+    (``textBasedLanguages-datasource-layer-…``).
     """
     pruefe_tafel(tafel)
+    if tafel.ist_esql:
+        assert tafel.abfrage is not None
+        zustand: dict[str, Any] = {
+            "datasourceStates": {"textBased": {"layers": {tafel.schicht: {
+                # Die Datenansicht zum Zeitfeld, nicht zum Lesen: ES|QL
+                # nennt den Index in der Abfrage selbst.
+                "index": ANSICHT,
+                "query": {"esql": tafel.abfrage.esql},
+                "columns": list(tafel.spalten.values()),
+                "timeField": ZEITFELD}}}},
+            "filters": [],
+            # Dieselbe Abfrage noch einmal, und das ist nicht doppelt
+            # gemoppelt: Lens liest sie aus der Schicht, die Abfragezeile
+            # oben im Editor aus ``state.query``. Stehen dort zwei
+            # verschiedene, zeigt die Kachel die eine und der Editor die
+            # andere.
+            "query": {"esql": tafel.abfrage.esql},
+            "visualization": tafel.darstellung,
+        }
+        verweisname = f"textBasedLanguages-datasource-layer-{tafel.schicht}"
+    else:
+        zustand = {
+            "datasourceStates": {"formBased": {"layers": {tafel.schicht: {
+                "columns": tafel.spalten,
+                "columnOrder": tafel.reihenfolge,
+                "incompleteColumns": {}}}}},
+            "filters": [],
+            "query": {"language": "kuery", "query": ""},
+            "visualization": tafel.darstellung,
+        }
+        verweisname = f"indexpattern-datasource-layer-{tafel.schicht}"
+
+    merkmale: dict[str, Any] = {
+        "title": tafel.titel,
+        "visualizationType": ARTEN[tafel.art],
+        "state": zustand,
+    }
+    # Frage, Nenner, Jahr und Ausschluesse - dort, wo Kibana sie neben der
+    # Zahl zeigt. Leer bleibt das Feld nur bei den vierzehn alten Kacheln,
+    # deren FR-27-Angaben zurueckgestellt sind.
+    if tafel.erlaeuterung:
+        merkmale["description"] = tafel.erlaeuterung
+
     return {
         "type": "lens", "id": f"lens-{brett}-{tafel.kennung}",
-        "attributes": {
-            "title": tafel.titel,
-            "visualizationType": ARTEN[tafel.art],
-            "state": {
-                "datasourceStates": {"formBased": {"layers": {tafel.schicht: {
-                    "columns": tafel.spalten,
-                    "columnOrder": tafel.reihenfolge,
-                    "incompleteColumns": {}}}}},
-                "filters": [],
-                "query": {"language": "kuery", "query": ""},
-                "visualization": tafel.darstellung,
-            },
-        },
+        "attributes": merkmale,
         "references": [{
-            "type": "index-pattern", "id": ANSICHT,
-            "name": f"indexpattern-datasource-layer-{tafel.schicht}"}],
+            "type": "index-pattern", "id": ANSICHT, "name": verweisname}],
     }
 
 

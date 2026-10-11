@@ -101,6 +101,16 @@ services:
       # es sich sonst zufaellig waehlt. Fest vergeben heisst: Ein neu
       # aufgesetztes Kibana findet dieselben Dashboards wieder.
       XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: "bitte_nur_lokal_verwenden_mindestens_32_zeichen"
+      # Kibana blendet ueber jedem Dashboard eine Warnung ein ("Your data is
+      # not secure"), solange Elasticsearch ohne Anmeldung laeuft - was hier
+      # Absicht ist (siehe oben). Sie steht als Hinweisfeld **ueber** der
+      # Seite und verdeckte in ``docs/bilder/dashboard-crime-raten.png`` eine
+      # veroeffentlichte Zahl. Ein versioniertes Bild mit einer unlesbaren
+      # Zahl ist schlimmer als keines; die Warnung sagt hier ohnehin nichts,
+      # was nicht schon im Kommentar bei Elasticsearch steht. Das
+      # "Don't show again" der Warnung liegt nur im localStorage des
+      # jeweiligen Browsers und haette den naechsten Lauf nicht erreicht.
+      XPACK_SECURITY_SHOWINSECURECLUSTERWARNING: "false"
     ports:
       - "127.0.0.1:15601:5601"
     volumes:

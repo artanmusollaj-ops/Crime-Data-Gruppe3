@@ -32,11 +32,19 @@ die verlangen FR-27 und FR-31. Seither gilt die Zusage, dass ``INDIZES`` die
 Tabellen aus ``gold_pipeline.TABELLEN`` **erschoepft**; ein Test haelt sie
 fest, statt sie zu behaupten.
 
-Ein Stern in sechs Indizes ist kein Stern mehr: Elasticsearch kennt keinen
-Join, und wer Tat und Nenner zusammenbringen will, stellt zwei Abfragen oder
-nimmt Kibanas Verweisfelder. Das ist der Preis dafuer, die Zahlen ueberhaupt
-zu haben; die Quelle der Wahrheit bleibt Parquet, und wer joinen will, nimmt
-die DuckDB-Sichten.
+**Ein Stern in sechs Indizes ist seit dem 11.10.2026 wieder ein Stern.** Bis
+dahin stand hier, Elasticsearch kenne keinen Join und wer Tat und Nenner
+zusammenbringen wolle, stelle zwei Abfragen. Das stimmt seit 8.19 nicht mehr:
+ES|QL hat ``LOOKUP JOIN``, und damit laesst sich die Rate je 1'000 Einwohner in
+**einer** Abfrage rechnen - gemessen und zeichengleich mit den
+Abgabedokumenten (siehe ``serving.build_kibana``).
+
+Die Faehigkeit allein reicht aber nicht: Ein Nachschlagindex muss mit
+``index.mode: lookup`` angelegt sein, sonst antwortet Elasticsearch mit
+*„Lookup Join requires a single lookup mode index"*. Der Modus ist deshalb am
+``Index`` entschieden (``nachschlag``) und wird nicht aus dem Namen geraten.
+Die Quelle der Wahrheit bleibt trotzdem Parquet; wer rechnen will, was nicht
+im Dashboard steht, nimmt die DuckDB-Sichten.
 
 **Die Zusage, die auch hier gilt.** Geladen wird nie in ``fact_offense``,
 sondern in einen Index, dessen Name das Release traegt. Erst nach bestandenem
@@ -149,6 +157,19 @@ class Index:
     #: ``(Breite, Laenge)``. Beide Spalten gehen im Feld ``standort`` auf und
     #: erscheinen nicht noch einmal einzeln: Ein Ort ist ein Wert, nicht zwei.
     geo: tuple[str, str] | None = None
+    #: Darf dieser Index in einem ES|QL-``LOOKUP JOIN`` rechts stehen?
+    #:
+    #: Entschieden am Index und nicht am Namen geraten: ``index.mode: lookup``
+    #: ist eine Eigenschaft, die beim **Anlegen** gesetzt werden muss und
+    #: danach feststeht. Ohne ihn bricht nicht der Ladelauf ab, sondern erst
+    #: die Abfrage - mit *„Lookup Join requires a single lookup mode index;
+    #: [dim_tract_acs] resolves to … in [standard] mode"*, und zwar in Kibana
+    #: vor jemandem, der eine Zahl sehen wollte.
+    #:
+    #: Der Modus kostet eine Einschraenkung: Ein Lookup-Index hat genau einen
+    #: Schnipsel. Elasticsearch weist ``number_of_shards: 2`` dafuer zurueck -
+    #: hier unschaedlich, weil ohnehin einer gesetzt ist (ein Knoten).
+    nachschlag: bool = False
 
     @property
     def quelle_im_release(self) -> str:
@@ -211,6 +232,13 @@ INDIZES: tuple[Index, ...] = (
         # Kein Volltext: ``geoid`` ist eine Kennung, und wer sie zerlegt,
         # findet 17031010100 unter 17031. Kein Ort: Die Flaeche steht in
         # ``dim_tract``, hier steht nur, wie viele Menschen darin leben.
+        #
+        # Der Nennerindex des Projekts - und damit der eine, der in einem
+        # ``LOOKUP JOIN`` rechts stehen muss: Die Rate je 1'000 Einwohner
+        # braucht Zaehler (``fact_offense``) und Nenner (hier) in einer
+        # Abfrage. Die uebrigen fuenf bleiben ``standard``: Ein Modus, den
+        # niemand braucht, ist eine Einschraenkung ohne Gegenwert.
+        nachschlag=True,
     ),
     Index(
         name="dim_date",
@@ -370,14 +398,22 @@ def mapping(liste: list[Feld], index: Index) -> dict[str, Any]:
         if feld.name not in verbraucht:
             eigenschaften[feld.name] = feld.abbildung
 
+    einstellungen: dict[str, Any] = {
+        # Ein Knoten, keine Kopie: Der Dienst laeuft neben der Pipeline
+        # und nicht in einem Rechenzentrum. Eine Replik auf demselben
+        # Knoten bleibt ohnehin unzugewiesen und faerbt den Zustand gelb.
+        "number_of_shards": 1,
+        "number_of_replicas": 0,
+    }
+    if index.nachschlag:
+        # Nur beim Anlegen setzbar, und nur so wird der Index fuer
+        # ``LOOKUP JOIN`` ansprechbar - siehe ``Index.nachschlag``. Ein
+        # nachtraegliches ``PUT /_settings`` lehnt Elasticsearch ab; wer den
+        # Modus will, laedt den Index neu.
+        einstellungen["mode"] = "lookup"
+
     return {
-        "settings": {
-            # Ein Knoten, keine Kopie: Der Dienst laeuft neben der Pipeline
-            # und nicht in einem Rechenzentrum. Eine Replik auf demselben
-            # Knoten bleibt ohnehin unzugewiesen und faerbt den Zustand gelb.
-            "number_of_shards": 1,
-            "number_of_replicas": 0,
-        },
+        "settings": einstellungen,
         "mappings": {"dynamic": "strict", "properties": eigenschaften},
     }
 

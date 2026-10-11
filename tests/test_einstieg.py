@@ -238,3 +238,22 @@ def test_das_werkzeug_steht_im_architekturbild():
     assert f"{anzahl} Generatoren" in text, (
         f"das Bild nennt nicht {anzahl} Generatoren. "
         f"python tools/build_architekturbilder.py")
+
+
+def test_die_seite_nennt_so_viele_bretter_wie_es_gibt(werkzeug, text):
+    """Die Zahl im Generator gegen ``BRETTER``, nicht gegen sich selbst.
+
+    Bis zum 11.10.2026 stand im Generator "Drei Bretter", waehrend
+    ``build_kibana.BRETTER`` vier fuehrte. Aufgefallen ist es nicht, weil
+    ``test_die_abgelegte_seite_ist_nicht_aelter_als_das_release`` die Seite
+    gegen ihren **Generator** haelt - und beide sagten dasselbe Falsche.
+    """
+    from serving.build_kibana import BRETTER
+
+    wort = werkzeug.ZAHLWORT[len(BRETTER)].capitalize()
+    kibana = next(d for d in werkzeug.dienste() if d[0] == "Kibana")
+    assert kibana[3].startswith(f"{wort} Bretter"), (
+        f"der Generator nennt nicht {wort.lower()} Bretter: {kibana[3][:60]}")
+    assert f"{wort} Bretter" in text, (
+        "docs/einstieg.html ist aelter als der Generator. "
+        "python tools/build_einstieg.py")

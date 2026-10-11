@@ -18,6 +18,7 @@ import os
 
 import pytest
 
+from gold_pipeline import RATENJAHR
 from serving import build_kibana as bk
 from serving import load_elasticsearch as le
 from serving.load_clickhouse import LadeFehler
@@ -25,6 +26,21 @@ from serving.load_clickhouse import LadeFehler
 
 ZAEHLEN = bk.Kennzahl("anzahl", "Delikte", "count")
 FENSTER = ("2024-01-01T00:00:00.000Z", "2025-01-01T23:59:59.999Z")
+
+#: Eine ES|QL-Abfrage, die keinen Verbund braucht - fuer die Faelle, in denen
+#: nur die Form der Tafel geprueft wird und nicht der Nennerindex.
+EINFACH = bk.Abfrage("FROM fact_offense | WHERE counts | STATS n = COUNT(*)",
+                     (bk.Spalte("n", "Zeilen"),))
+
+#: Ein Ausschluss, den ``EINFACH`` auch wirklich vollzieht - sonst bricht
+#: schon ``Tafel.__post_init__`` ab, und die Form-Pruefungen traefen ihn
+#: statt dessen, was sie pruefen wollen.
+BELEGT = bk.Ausschluss("Zeilen ohne `counts`", "WHERE counts")
+
+#: Alle Tafeln, einmal mit ihrer Brettkennung - die Grundlage der beiden
+#: parametrisierten Pruefungen weiter unten.
+ALLE_TAFELN = [(b.kennung, t) for b in bk.BRETTER for t in b.tafeln]
+TAFELNAMEN = [f"{k}-{t.kennung}" for k, t in ALLE_TAFELN]
 
 
 def brett(*tafeln: bk.Tafel) -> bk.Brett:
@@ -145,11 +161,213 @@ def test_eine_spalte_die_niemand_anzeigt_faellt_auf():
         bk.pruefe_tafel(tafel)
 
 
-@pytest.mark.parametrize(
-    "tafel", [t for b in bk.BRETTER for t in b.tafeln],
-    ids=[f"{b.kennung}-{t.kennung}" for b in bk.BRETTER for t in b.tafeln])
-def test_jede_echte_tafel_zeigt_alles_was_sie_traegt(tafel):
+@pytest.mark.parametrize("brettname,tafel", ALLE_TAFELN, ids=TAFELNAMEN)
+def test_jede_echte_tafel_zeigt_alles_was_sie_traegt(brettname, tafel):
+    """Gilt fuer beide Sorten Tafel, und zwar aus demselben Grund.
+
+    Eine Lens-Tafel traegt ihre Spalten als ``Kennzahl`` und ``Eimer``, eine
+    ES|QL-Tafel als die Spalten, die ihre Abfrage liefert. In beiden Faellen
+    fragt ``pruefe_tafel`` dasselbe: Zeigt die Darstellung jede Spalte an,
+    die die Tafel mitbringt? Eine, die niemand anzeigt, ist in Kibana nicht
+    sichtbar und faellt dort auch nicht auf.
+    """
     bk.pruefe_tafel(tafel)
+    assert tafel.ist_esql == (tafel.abfrage is not None), brettname
+
+
+# --------------------------------------------------------------------------
+# ES|QL - die Tafeln, die rechnen
+# --------------------------------------------------------------------------
+
+
+def test_eine_esql_tafel_ohne_abfrage_bricht_ab():
+    with pytest.raises(LadeFehler, match="braucht eine Abfrage"):
+        bk.Tafel("t", "T", "esql_tabelle", frage="F", ausschluesse=(BELEGT,))
+
+
+def test_eine_lens_tafel_mit_abfrage_bricht_ab():
+    """Sonst stuende die Abfrage da und niemand stellte sie."""
+    with pytest.raises(LadeFehler, match="bliebe unbenutzt"):
+        bk.Tafel("t", "T", "zahl", ZAEHLEN, abfrage=EINFACH)
+
+
+def test_eine_esql_tafel_mit_kennzahl_bricht_ab():
+    with pytest.raises(LadeFehler, match="zweite Beschreibung"):
+        bk.Tafel("t", "T", "esql_tabelle", ZAEHLEN, abfrage=EINFACH,
+                 frage="F", ausschluesse=(BELEGT,))
+
+
+def test_eine_lens_tafel_ohne_kennzahl_bricht_ab():
+    with pytest.raises(LadeFehler, match="braucht eine Kennzahl"):
+        bk.Tafel("t", "T", "zahl")
+
+
+def test_eine_esql_tafel_ohne_frage_oder_ausschluesse_bricht_ab():
+    """FR-27 als Bedingung des Bauens, nicht als gute Absicht."""
+    with pytest.raises(LadeFehler, match="ohne 'frage'"):
+        bk.Tafel("t", "T", "esql_tabelle", abfrage=EINFACH,
+                 ausschluesse=(BELEGT,))
+    with pytest.raises(LadeFehler, match="ohne 'ausschluesse'"):
+        bk.Tafel("t", "T", "esql_tabelle", abfrage=EINFACH, frage="F")
+
+
+def test_eine_rate_ohne_nenner_oder_jahr_bricht_ab():
+    """Die Zahl, die nichts bedeutet: 500,7 statt 94,5.
+
+    Sechs Jahrgaenge Zaehler auf einem Jahr Nenner. Die Abfrage wirft dabei
+    nichts, das Ergebnis sieht aus wie eine Rate - deshalb ist das Jahr eine
+    Bedingung und keine Empfehlung.
+    """
+    mit_rate = bk.Abfrage(
+        "FROM fact_offense | WHERE counts | EVAL rate = 1.0 | KEEP rate",
+        (bk.Spalte("rate", "Rate", ist_rate=True),))
+    with pytest.raises(LadeFehler, match="Nenner und ihr Jahr"):
+        bk.Tafel("t", "T", "esql_tabelle", abfrage=mit_rate, frage="F",
+                 ausschluesse=(BELEGT,), jahr=RATENJAHR)
+    with pytest.raises(LadeFehler, match="Nenner und ihr Jahr"):
+        bk.Tafel("t", "T", "esql_tabelle", abfrage=mit_rate, frage="F",
+                 ausschluesse=(BELEGT,), nenner="N")
+
+
+def test_ein_verbund_auf_einen_index_ohne_lookup_modus_bricht_ab():
+    """Der Fehler, den sonst erst der Leser der Kachel sieht.
+
+    ``LOOKUP JOIN`` verlangt ``index.mode: lookup`` am rechten Index.
+    Elasticsearch antwortet sonst mit *„Lookup Join requires a single lookup
+    mode index"* - beim Oeffnen des Dashboards, nicht beim Bauen.
+    """
+    standard = next(i.name for i in le.INDIZES if not i.nachschlag)
+    with pytest.raises(LadeFehler, match="lookup"):
+        bk.Abfrage(f"FROM fact_offense | LOOKUP JOIN {standard} ON geoid",
+                   (bk.Spalte("n", "N"),))
+
+
+def test_ein_verbund_auf_einen_unbekannten_index_bricht_ab():
+    with pytest.raises(LadeFehler, match="kein geladener Index"):
+        bk.Abfrage("FROM fact_offense | LOOKUP JOIN gibt_es_nicht ON geoid",
+                   (bk.Spalte("n", "N"),))
+
+
+def test_ein_kleingeschriebener_verbund_faellt_nicht_durch():
+    """ES|QL nimmt ``lookup join`` an - der Waechter muss es auch lesen.
+
+    Nachgestellt am 11.10.2026: Mit einem Muster nur fuer Grossbuchstaben
+    entstand die kleingeschriebene Fassung **ohne Fehler** und meldete
+    ``nachschlagindizes == ()``. Derselbe unbekannte Index wurde gross
+    geschrieben sauber abgelehnt - die Pruefung liess sich also durch
+    Kleinschreibung umgehen.
+    """
+    klein = "FROM fact_offense | lookup join gibt_es_nicht on geoid"
+    with pytest.raises(LadeFehler, match="kein geladener Index"):
+        bk.Abfrage(klein, (bk.Spalte("n", "N"),))
+
+    standard = next(i.name for i in le.INDIZES if not i.nachschlag)
+    with pytest.raises(LadeFehler, match="lookup"):
+        bk.Abfrage(f"FROM fact_offense | lookup join {standard} on geoid",
+                   (bk.Spalte("n", "N"),))
+
+
+def test_ein_ausschluss_ohne_beleg_in_der_abfrage_bricht_ab():
+    """Der Fehler, den drei Kacheln mit einem geteilten Tupel hatten.
+
+    Die Stadtkachel nannte *„Tracts ohne Einwohner"*, waehrend ihre Abfrage
+    sie mitzaehlt - 1'447 Chicagoer und 361 Detroiter Taten. Die Zahl war
+    richtig, der Text war falsch, und kein Test sah hin.
+    """
+    with pytest.raises(LadeFehler, match="vollzieht ihn aber nicht"):
+        bk.Tafel("t", "T", "esql_tabelle", abfrage=EINFACH, frage="F",
+                 ausschluesse=(bk.Ausschluss("Tracts ohne Einwohner",
+                                             "population > 0"),))
+
+
+def test_der_nachschlagindex_wird_aus_der_abfrage_gelesen():
+    """Keine zweite Liste neben der Abfrage - die veraltete still."""
+    assert bk.RATE_JE_STADT.nachschlagindizes == ("dim_tract_acs",)
+    assert le.NACH_NAME["dim_tract_acs"].nachschlag is True
+
+
+def test_eine_esql_tafel_hat_keine_search_aggregation():
+    """Sie wirft, statt ``{"size": 0}`` zu liefern.
+
+    Eine leere Aggregation waere der gefaehrlichere Weg:
+    ``test_jede_tafel_bekommt_auch_wirklich_daten`` stellte sie, bekaeme
+    Treffer und winkte die Kachel als "zeigt Daten" durch, ohne dass ihre
+    Abfrage je gelaufen waere.
+    """
+    tafel = bk.BRETTER[-1].tafeln[0]
+    with pytest.raises(LadeFehler, match="_query"):
+        tafel.aggregation
+
+
+@pytest.mark.parametrize("brettname,tafel", ALLE_TAFELN, ids=TAFELNAMEN)
+def test_jede_esql_tafel_nennt_frage_und_ausschluesse(brettname, tafel):
+    """FR-27 - fuer die neuen Kacheln eingeloest, fuer die alten offen.
+
+    Die vierzehn Kacheln der drei alten Bretter zeigen Zaehlungen und
+    Anteile; ihre Angaben sind zurueckgestellt (siehe ``deferred-work.md``).
+    Jede ES|QL-Kachel traegt sie von Anfang an, und eine mit einer Rate
+    zusaetzlich Nenner und Jahr.
+    """
+    if not tafel.ist_esql:
+        assert not tafel.frage, f"{brettname}: FR-27 war zurueckgestellt"
+        return
+    assert tafel.frage and tafel.ausschluesse
+    assert tafel.erlaeuterung.startswith("Frage: ")
+    assert "Nicht enthalten:" in tafel.erlaeuterung
+    # Jede Kachel nennt **ihre eigenen** Ausschluesse: Was dasteht, muss
+    # diese Abfrage auch vollziehen. Ein geteiltes Tupel ueber drei Kacheln
+    # liess die Stadtkachel einen Ausschluss fuehren, den sie nicht macht.
+    for ausschluss in tafel.ausschluesse:
+        assert ausschluss.beleg in tafel.abfrage.esql, (
+            f"{brettname}/{tafel.kennung}: '{ausschluss.text[:40]}…' steht "
+            f"im Text, '{ausschluss.beleg}' aber nicht in der Abfrage")
+    if tafel.zeigt_rate:
+        assert tafel.nenner, f"{brettname}/{tafel.kennung}: Rate ohne Nenner"
+        assert tafel.jahr == RATENJAHR
+        # Der Hinweis, den die Rate fuer 2025 und 2026 braucht: Es gibt
+        # kein neueres ACS, der Nenner bleibt der von 2024.
+        for spaeter in (RATENJAHR + 1, RATENJAHR + 2):
+            assert str(spaeter) in tafel.nenner, (
+                f"{tafel.kennung}: der Nenner sagt nicht, was fuer "
+                f"{spaeter} gilt")
+
+
+def test_die_rate_steht_im_dashboard_und_nicht_woanders():
+    """Die Beschreibung des Ueberblicks sagte das Gegenteil.
+
+    Bis zum 11.10.2026 stand dort, die Rate je 1'000 Einwohner stehe *„in
+    der DuckDB-Auswertung, nicht hier"* - waehrend
+    ``test_die_rate_je_1000_einwohner_ist_aus_elasticsearch_allein_rechenbar``
+    das Gegenteil zusicherte. Eine der beiden Aussagen musste fallen.
+    """
+    ueberblick = next(b for b in bk.BRETTER if b.kennung == "crime-ueberblick")
+    assert "nicht hier" not in ueberblick.beschreibung
+    raten = [b for b in bk.BRETTER if any(t.zeigt_rate for t in b.tafeln)]
+    assert len(raten) == 1, "genau ein Brett traegt die Raten"
+    assert str(RATENJAHR) in raten[0].beschreibung
+
+
+@pytest.mark.parametrize("brettname,tafel", ALLE_TAFELN, ids=TAFELNAMEN)
+def test_jede_ratenkachel_nennt_die_abweichung_zu_den_dokumenten(brettname,
+                                                                 tafel):
+    """E5 gehoert dorthin, wo die Zahl steht - nicht nur aufs Brett.
+
+    Das Dashboard stellt die Fallebene voran, die Abgabedokumente fuehren
+    die Tatebene. Wer eine Kachel einzeln oeffnet oder ihr Informationsfeld
+    liest, sieht die Brettbeschreibung nicht; der Hinweis muss deshalb an
+    der Kachel haengen. ``deferred-work.md`` stuetzt sich ausdruecklich
+    darauf, dass er dort steht.
+    """
+    if not tafel.zeigt_rate:
+        return
+    hinweis = " ".join(tafel.vorbehalte)
+    assert "Tatebene" in hinweis and "Fallebene" in hinweis, (
+        f"{brettname}/{tafel.kennung}: die Kachel sagt nicht, dass die "
+        f"Dokumente die Tatebene fuehren")
+    # Keine festen Raten im Kacheltext: Eine Zahl, die hier steht, misst
+    # beim naechsten Release niemand nach - die Regel steht im Modul selbst.
+    assert "133,1" not in tafel.erlaeuterung
+    assert "124,6" not in tafel.erlaeuterung
 
 
 # --------------------------------------------------------------------------
@@ -316,16 +534,31 @@ def test_ein_verweis_ins_leere_wird_abgefangen(kibana):
         bk.lege_an(klient, [bk.datenansicht(), kaputt])
 
 
-@pytest.mark.parametrize(
-    "tafel", [t for b in bk.BRETTER for t in b.tafeln],
-    ids=[f"{b.kennung}-{t.kennung}" for b in bk.BRETTER for t in b.tafeln])
-def test_jede_tafel_bekommt_auch_wirklich_daten(tafel, elastic):
+@pytest.mark.parametrize("brettname,tafel", ALLE_TAFELN, ids=TAFELNAMEN)
+def test_jede_tafel_bekommt_auch_wirklich_daten(brettname, tafel, elastic):
     """Die Pruefung, die das Bild ersetzt.
 
     Dieselbe Beschreibung, aus der das Lens-Dokument entsteht, wird hier als
     Elasticsearch-Abfrage gestellt. Kommt nichts zurueck, bleibt die Kachel
     leer - und das faellt hier auf und nicht im Vortrag.
+
+    **Zwei Wege, dieselbe Frage.** Eine Lens-Tafel geht ueber ``_search``
+    und ihre Aggregation, eine ES|QL-Tafel ueber ``_query`` und ihre
+    Abfrage. Der zweite Zweig prueft dabei mehr als "kommt etwas zurueck":
+    Er haelt die Spaltennamen der Antwort gegen die, die die Tafel
+    anzeigt - stimmen sie nicht ueberein, importiert die Kachel sauber und
+    bleibt leer, weil Lens ueber ``fieldName`` abbildet.
     """
+    if tafel.ist_esql:
+        antwort = elastic.anfrage(
+            "POST", "/_query", {"query": tafel.abfrage.esql})
+        assert antwort["values"], f"{tafel.kennung}: keine Zeilen"
+        geliefert = [s["name"] for s in antwort["columns"]]
+        assert geliefert == tafel.reihenfolge, (
+            f"{tafel.kennung}: die Abfrage liefert {geliefert}, die Kachel "
+            f"zeigt {tafel.reihenfolge} - Lens bildet ueber den Feldnamen ab")
+        return
+
     antwort = elastic.anfrage("POST", "/fact_offense/_search", tafel.aggregation)
     assert antwort["hits"]["total"]["value"] > 0, f"{tafel.kennung}: keine Zeilen"
 
@@ -353,3 +586,19 @@ def test_das_unterfeld_ist_noetig_und_nicht_vorsorglich(elastic):
                 art = felder[eimer.feld]["type"]
                 assert eimer.unterfeld_keyword == (art == "text"), (
                     f"{b.kennung}/{tafel.kennung}: {eimer.feld} ist {art}")
+
+
+def test_der_nennerindex_laeuft_wirklich_im_lookup_modus(elastic):
+    """Die Zusage aus ``INDIZES`` gegen den laufenden Dienst gehalten.
+
+    ``index.mode`` laesst sich nur beim **Anlegen** setzen. Ein Index, der
+    vor dieser Aenderung geladen wurde, steht weiter auf ``standard``, und
+    die Rate-Kacheln bleiben leer, ohne dass irgendetwas rot wird - der
+    Ladelauf selbst ist ja laengst durch.
+    """
+    name = le.NACH_NAME["dim_tract_acs"].name
+    antwort = elastic.anfrage("GET", f"/{name}/_settings")
+    modi = {i: e["settings"]["index"].get("mode") for i, e in antwort.items()}
+    assert set(modi.values()) == {"lookup"}, (
+        f"{modi} - erst 'python -m serving.load_elasticsearch' neu laufen "
+        f"lassen; ein bestehender Index nimmt den Modus nicht mehr an")
