@@ -222,7 +222,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 1'760 ausgeführte Tests, ohne Netzzugriff und ohne
+Erwartet wird **grün**: 1'768 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -232,7 +232,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'862
+python -m pytest -m ""               # beides zusammen, alle 1'870
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -884,10 +884,12 @@ Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.
 > auf diesem Rechner richtig. Für den Betrieb auf einem geteilten Server liegt
 > daneben `docker-compose.srv01.yml`: vier Dienste, gemessene
 > Speichergrenzen, die Strecke als Stapellauf und ein lesendes Jupyter.
-> **Gestartet ist sie nirgends** — die Dienste, Grenzen und Traefik-Regeln
-> darin wirken auf keiner Maschine. Was daneben einzurichten ist, steht
-> dagegen nicht mehr ganz offen: Tunnel-Routen und Access-Anwendung sind seit
-> dem 9.10.2026 eingerichtet und von aussen gemessen. Beides in
+> **Seit dem 8.10.2026 läuft sie dort.** Elasticsearch, Kibana und Jupyter
+> stehen auf `srv01`, beide Abbilder per Digest gepinnt; Tunnel-Routen und
+> Access-Anwendung sind seit dem 9.10.2026 eingerichtet und von aussen
+> gemessen. Ein Zeitplan steht auch — montags 04:30 —, hat aber noch nie
+> gefeuert: erster Termin ist der 12.10.2026, bis dahin eine **Einrichtung,
+> kein Nachweis**. Alles dazu in
 > [`docs/storage-architektur.md`](docs/storage-architektur.md), Abschnitt 16.
 
 ### 2.7 Die Strecke im Container
@@ -989,7 +991,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**1'862 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'870 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -1026,7 +1028,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'725 der 1'760 Tests** des Standardlaufs. Die
+In einem frischen Klon laufen **1'733 der 1'768 Tests** des Standardlaufs. Die
 übrigen 35 überspringen sich selbst, weil sie gebaute Daten brauchen und `data/`
 nicht versioniert ist — dazu seit dem 5.10.2026 die Reproduktion von
 `docs/forschungsfragen.md`, deren Quelle das ungetrackte LN1-PDF ist; die 102 Referenzstand-Wächter sind ohnehin abgewählt.

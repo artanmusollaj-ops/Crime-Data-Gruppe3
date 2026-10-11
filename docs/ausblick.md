@@ -366,10 +366,12 @@ hat Entsprechungen, keine hat dieselben Namen.
 ### Was konkret nötig wäre
 
 - Container-Image mit gepinnten Abhängigkeiten — **gibt es seit dem
-  6.10.2026** (`Dockerfile`, aus `requirements.lock`, siehe README 2.7);
-  was fehlt, ist der Betrieb darum herum
+  6.10.2026** (`Dockerfile`, aus `requirements.lock`, siehe README 2.7), und
+  seit dem 8.10.2026 läuft es auf `srv01`, per SHA-256-Digest gepinnt
 - Secret-Verwaltung statt `.env` (die Umgebung schlägt `.env` bereits)
-- Scheduler statt des Cron in `datenlauf.yml`
+- Scheduler statt des Cron in `datenlauf.yml` — auf `srv01` ist es seit
+  Anfang Oktober 2026 ebenfalls ein `cron` (montags 04:30, mit `flock`);
+  ein Scheduler mit Wiederaufnahme und Alarmierung bleibt offen
 - Bucket mit Lifecycle-Regeln — `aufraeumen` räumt seit dem 4.10.2026 auch
   Releases im Bucket (`--loeschen --auch-fern`), aber weiterhin auf Zuruf; eine
   serverseitige Ablaufregel bleibt offen und müsste die gepinnten Stände kennen

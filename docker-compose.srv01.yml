@@ -47,7 +47,22 @@ services:
     # Dieselbe Fassung wie in der Entwicklungsfassung. Ein Index, der hier
     # anders gebaut wird als dort, waere kein Beleg mehr fuer das, was auf dem
     # Entwicklungsrechner geprueft wurde.
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    #
+    # Genau das war vom 7. bis zum 11.10.2026 der Fall: #137 hob die
+    # Entwicklungsfassung auf 8.19.22 und liess diese Datei auf 8.15.0 stehen.
+    # Aufgefallen ist es nicht hier, sondern an ``docker compose ps`` auf
+    # srv01. Die Zusage stand also drei Tage als Kommentar da, ohne dass ein
+    # Test sie hielt - jetzt tut es
+    # ``test_beide_fassungen_binden_dieselbe_elastic_version``.
+    #
+    # Die Fassung selbst (8.19.22, 23.9.2026) ist in der Entwicklungsfassung
+    # begruendet; der Grund, warum sie hier ankommen muss, ist ``LOOKUP JOIN``:
+    # Es ist erst ab 8.19 allgemein verfuegbar, und ohne es braucht jede
+    # Verbundauswertung eine vorverbundene Tabelle in ``serving/``. Der Sprung
+    # innerhalb der Hauptversion 8 verlangt keine Neuindizierung; im Zweifel
+    # laedt ``python -m serving.load_elasticsearch`` jeden Index aus dem
+    # Release neu.
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.22
     restart: unless-stopped
     environment:
       discovery.type: single-node
@@ -99,7 +114,10 @@ services:
   # Kibana - der eine geroutete Webdienst
   # --------------------------------------------------------------------
   kibana:
-    image: docker.elastic.co/kibana/kibana:8.15.0
+    # Dieselbe Fassung wie Elasticsearch und wie die Entwicklungsfassung -
+    # ``build_kibana`` spricht die Saved-Objects-API an, und die ist zwischen
+    # den Nebenversionen das Empfindlichste am Stapel.
+    image: docker.elastic.co/kibana/kibana:8.19.22
     restart: unless-stopped
     depends_on:
       elasticsearch:
