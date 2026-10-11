@@ -663,12 +663,27 @@ _TATORT_NICHT_WOHNORT = (
 #: oben selbst die Regel auf, dass das nicht geht. Die beiden Werte stehen
 #: nebeneinander in der Kachel - wer den Unterschied sehen will, liest ihn
 #: dort ab.
+#:
+#: **Warum die Fallebene vorn steht, und nicht nur "auch".** Bis zum
+#: 11.10.2026 stand hier, beide Masse seien zwei Lesarten derselben Daten.
+#: Das ist zu freundlich. Chicago erfasst **je Fall nur das schwerste
+#: Delikt**, Detroit **jedes** (``docs/feldkatalog.md``, ``counts_case``;
+#: ``counts_reason`` sagt es je Zeile). Gemessen fuer 2024: 1,0001 Taten je
+#: Vorfall in Chicago, 1,0678 in Detroit. Ein Vergleich auf der Tatebene
+#: stellt damit Detroits vollstaendige Anklagen gegen eine Chicagoer Zahl,
+#: die nie alle Delikte enthielt - er misst den Erfassungsunterschied mit.
+#: Die Tatebene ist deshalb nicht die zweite Lesart, sondern die schiefe,
+#: und das gehoert auf die Kachel.
 _FALLEBENE_VORN = (
-    "**Fallebene vorn, Tatebene daneben** (Entscheid E5). Die "
-    "Abgabedokumente führen bis auf Weiteres die *Tatebene* als kanonische "
-    "Rate; das Dashboard stellt die Fallebene voran. Für Chicago ist das "
-    "dieselbe Zahl, für Detroit nicht — beide Spalten stehen deshalb "
-    "nebeneinander"
+    "**Fallebene vorn, Tatebene daneben** (Entscheid E5). Chicago erfasst je "
+    "Fall nur das **schwerste** Delikt, Detroit **jedes**. Ein Vergleich auf "
+    "der Tatebene stellt deshalb Detroits vollständige Anklagen gegen eine "
+    "Chicagoer Zahl, die nie alle Delikte enthielt — er misst den "
+    "Erfassungsunterschied mit, nicht die Kriminalität. Die Fallebene wendet "
+    "dieselbe Hierarchieregel auf beide an und stellt erst her, was "
+    "vergleichbar ist. Die Tatebene steht daneben, weil sie für Anteile je "
+    "Deliktart gebraucht wird — und weil die Abgabedokumente sie bis auf "
+    "Weiteres als kanonische Rate führen"
 )
 
 #: Woher der Nenner kommt, in einem Satz - samt dem, was fuer 2025 und 2026

@@ -364,6 +364,18 @@ def test_jede_ratenkachel_nennt_die_abweichung_zu_den_dokumenten(brettname,
     assert "Tatebene" in hinweis and "Fallebene" in hinweis, (
         f"{brettname}/{tafel.kennung}: die Kachel sagt nicht, dass die "
         f"Dokumente die Tatebene fuehren")
+    # Und sie sagt **warum**, nicht nur **dass**. Bis zum 11.10.2026 stand
+    # dort, beide Masse seien zwei Lesarten derselben Daten - das ist zu
+    # freundlich: Chicago erfasst je Fall nur das schwerste Delikt, Detroit
+    # jedes (``docs/feldkatalog.md``, ``counts_case``). Ein Vergleich auf der
+    # Tatebene misst damit den Erfassungsunterschied mit. Ohne diesen Grund
+    # liest sich die Tatebene wie eine gleichwertige zweite Lesart, und genau
+    # das ist sie nicht.
+    for wort in ("schwerste", "jedes"):
+        assert wort in hinweis, (
+            f"{brettname}/{tafel.kennung}: der Vorbehalt nennt nicht, dass "
+            f"Chicago je Fall nur das schwerste Delikt erfasst und Detroit "
+            f"jedes - ohne das steht die Tatebene als gleichwertig daneben")
     # Keine festen Raten im Kacheltext: Eine Zahl, die hier steht, misst
     # beim naechsten Release niemand nach - die Regel steht im Modul selbst.
     assert "133,1" not in tafel.erlaeuterung
