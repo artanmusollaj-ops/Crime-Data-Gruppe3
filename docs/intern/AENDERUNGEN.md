@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'870** |
+| Tests | **1'880** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -115,8 +115,13 @@ verlangt: hier gebaut, Digest gemessen, genau dieser Digest läuft dort — nich
 „nach Möglichkeit gepinnt", sondern gepinnt und nachgeprüft.
 
 `crontab -l` zeigt einen Zeitplan: montags 04:30, `flock --wait 21600` gegen
-Überlappung, ein Verteiler, der den ersten Montag im Monat voll und die
-folgenden als Delta fährt.
+Überlappung. Die gelesene Serverfassung von `docker/srv01-datenlauf.sh` und
+der Crontab sind nun versioniert. Der Verteiler fährt den ersten Montag als
+Delta, den zweiten voll, den dritten und vierten wieder als Delta und lässt
+einen fünften aus. Der Volllauf lag zuerst auf dem ersten Montag; fällt der
+Monatserste auf einen Montag, kollidiert er dann mit dem Restic-Vollrestore um
+05:00. Die Verschiebung auf den zweiten Montag trennt die beiden schweren
+Läufe, ohne den Wochenrhythmus oder die Uhrzeit zu ändern.
 
 **Was der Zeitplan nicht ist: ein Nachweis.** `logs/scheduled-pipeline.log`
 existiert nicht. Der Crontab schreibt mit `>>` hinein — die Datei entstünde
