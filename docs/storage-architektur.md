@@ -698,23 +698,24 @@ die beides sein will, ist in einem der beiden Fälle falsch. Die
 Entwicklungsfassung bleibt deshalb unangetastet; ein Test hält fest, dass sie
 weiter an `127.0.0.1` bindet und kein Traefik-Label trägt.
 
-### Die vier Dienste
+### Die fünf Dienste
 
 | Dienst | Was er ist | Wie er erreichbar ist |
 | --- | --- | --- |
 | `elasticsearch` | Dauerbetrieb, **kein** Webdienst | nur im Stapelnetz — kein Port, kein Traefik-Label, nicht im Netz `proxy` |
-| `kibana` | Dauerbetrieb, der eine geroutete Webdienst | `urbancrime-kibana.datenwerft.ch` über Traefik |
+| `kibana` | Dauerbetrieb, gerouteter Webdienst | `urbancrime-kibana.datenwerft.ch` über Traefik |
+| `start` | Dauerbetrieb, liefert die Einstiegsseite aus (seit 12.10.2026, FR-31) | `urbancrime-start.datenwerft.ch` über Traefik |
 | `pipeline` | **Stapellauf**, läuft einmal durch und endet | gar nicht — kein Port, kein Label, kein `unless-stopped` |
 | `jupyter` | zeitweilig, **lesende** Analyse | `urbancrime-jupyter.datenwerft.ch` über Traefik |
 
 Dass Elasticsearch `proxy` nicht beitritt, ist keine Vorsicht, sondern die
 Vorgabe des Servers: Ein versehentliches Traefik-Label daran wäre ein offener
-Datenspeicher. Geroutet ist nur Kibana — und seit dem Entscheid über einen
-lesenden Notebook-Server auch Jupyter.
+Datenspeicher. Geroutet sind Kibana, Jupyter und die Einstiegsseite — nicht
+der Datenspeicher darunter.
 
 Pipeline und Jupyter tragen ein Compose-**Profil** und starten deshalb nicht
 mit `up -d`. Das ist nicht Kosmetik: Die Rechnung unten geht nur auf, solange
-der Dauerbetrieb aus Elasticsearch und Kibana besteht.
+der Dauerbetrieb aus Elasticsearch, Kibana und dem kleinen `start` besteht.
 
 ### Die Speichergrenzen — gemessen, nicht geschätzt
 
@@ -727,17 +728,25 @@ bereits belegt. Die vorher veranschlagten 5'632 MiB lagen damit **1'307 MiB
 | --- | ---: | --- |
 | `elasticsearch` | 1'792 MiB | 1,75 GiB; der Heap nutzte gemessen **195 von 1'024 MiB** und steht deshalb auf 768 MiB |
 | `kibana` | 1'024 MiB | gemessen belegt **771 MiB**, plus Luft |
+| `start` | 32 MiB | das obere Ende der Spanne, die ein nginx mit einer statischen Datei belegt (16–32); **nicht** gemessen — gemessen ist der Platz, in den es passt |
 | `pipeline` | 1'280 MiB | 1,25 GiB, zeitweilig |
 | `jupyter` | 768 MiB | zeitweilig; passt nur, wenn cadvisor gedeckelt wird |
 
-**Die Rechnung.** Dauerbetrieb sind Elasticsearch und Kibana mit zusammen
-2'816 MiB. Pipeline und Jupyter sind zeitweilig und streiten um denselben
-Platz, es zählt also das grössere der beiden: 1'280 MiB. Zusammen **4'096
-MiB** gegen 4'325 MiB verfügbar plus die rund 792 MiB, die das Deckeln von
-cadvisor freigibt. `tests/test_srv01_compose.py` rechnet das nach und nimmt
-die Einteilung in dauernd und zeitweilig aus der Datei selbst — wer ein Profil
-entfernt, macht aus einem zeitweiligen Dienst einen dauernden, und der Test
-fällt.
+**Die Rechnung.** Dauerbetrieb sind Elasticsearch, Kibana und `start` mit
+zusammen 2'848 MiB. Pipeline und Jupyter sind zeitweilig und streiten um
+denselben Platz, es zählt also das grössere der beiden: 1'280 MiB. Zusammen
+**4'128 MiB** gegen 4'325 MiB verfügbar plus die rund 792 MiB, die das Deckeln
+von cadvisor freigibt. `tests/test_srv01_compose.py` rechnet das nach und
+nimmt die Einteilung in dauernd und zeitweilig aus der Datei selbst — wer ein
+Profil entfernt, macht aus einem zeitweiligen Dienst einen dauernden, und der
+Test fällt.
+
+**Der dritte dauernde Dienst war eine Entscheidung.** Bis zum 12.10.2026
+liefen genau zwei Dienste dauerhaft, und ein Test hielt das fest. Eine Seite,
+die erreichbar sein soll, muss laufen, wenn jemand ihre Adresse aufruft — also
+wurden es drei. Vertretbar ist das, weil 229 der 4'325 MiB frei waren und ein
+nginx 16–32 davon braucht; entschieden ist es an der Stelle, an der der Test
+heute „Elasticsearch, Kibana und `start`" sagt und seinen Grund dazu.
 
 **Die eine Voraussetzung, die nicht in dieser Datei steht:** cadvisor muss auf
 **256 MiB** gedeckelt werden. Es belegt heute 1'047 MiB — 29 % des gesamten
@@ -764,11 +773,12 @@ ist besser als ein getöteter.
 ### Was daneben einzurichten ist
 
 Vier Dinge kann eine Compose-Datei nicht sagen, und alle vier sind nötig,
-damit etwas erreichbar **sein kann**. Drei davon sind eingerichtet: die
-Tunnel-Routen und die Access-Anwendung seit dem 9.10.2026, von aussen
-gemessen, und die Abbilder seit dem 8.10.2026 in der Registry. Offen ist
-allein der Datenträger für Restic. Erreichbar heisst das trotzdem
-nicht — was gemessen wurde, liegt vollständig **vor** dem Ursprung.
+damit etwas erreichbar **sein kann**. Zwei davon sind eingerichtet: die
+Access-Anwendung seit dem 9.10.2026, von aussen gemessen, und die Abbilder
+seit dem 8.10.2026 in der Registry. Offen sind der Datenträger für Restic und
+— seit dem 12.10.2026 — die Tunnel-Route für `urbancrime-start`: Die beiden
+Routen für Kibana und Jupyter stehen, die dritte nicht. Erreichbar heisst das
+trotzdem nicht — was gemessen wurde, liegt vollständig **vor** dem Ursprung.
 
 **Die Tunnel-Route je Hostname** — angelegt am 9.10.2026, je Hostname eine
 veröffentlichte Anwendung auf dem bestehenden Tunnel, und zwar so:
@@ -783,8 +793,13 @@ Der Ursprung ist **immer** `http://traefik:80` und **nie** der öffentliche
 Hostname: Zeigt die Route auf sich selbst, läuft der Verkehr zurück durch
 Cloudflare — eine Schleife oder ein HTTP 403. Traefiks `Host(...)`-Regel
 erledigt danach die Zuordnung. Angelegt sind die beiden Routen für Kibana und
-Jupyter; `urbancrime.datenwerft.ch` hat bewusst noch kein DNS, die
-öffentliche Seite kommt später.
+Jupyter; für `urbancrime-start.datenwerft.ch` ist sie seit dem 12.10.2026
+**fällig und noch nicht angelegt** — der Dienst steht in der Beschreibung, die
+Route ist eine Cloudflare-Einstellung und keine Compose-Zeile.
+`urbancrime.datenwerft.ch` bleibt dagegen unbesetzt und hat bewusst kein DNS:
+Es ist der **einzige** Hostname, den das Muster `urbancrime-*` nicht deckt,
+und damit der einzige, den die eine Access-Anwendung nicht schützt. Nichts an
+diesem Projekt ist öffentlich — auch die Einstiegsseite nicht.
 
 **Eine eigene Access-Anwendung über `urbancrime-*`** — angelegt am 9.10.2026,
 und zwar als **eine**. Die bestehende Wildcard-Policy greift nur vor
@@ -953,6 +968,62 @@ ausdrücklich; ohne diese Zusage verweigert `jupyter-server` den Start. Setzt
 der Verbund doch einen Benutzer, bleiben Arbeitsbereich und `$HOME`
 beschreibbar — beide stehen auf `0777`, weil ein Abbild, das nur für eine uid
 funktioniert, genau dann klemmt.
+
+### Die Einstiegsseite wird ausgeliefert, nicht eingehängt
+
+Seit dem 12.10.2026 trägt die Beschreibung einen fünften Dienst: ein nginx
+unter `urbancrime-start.datenwerft.ch`, das
+[`docs/einstieg.html`](einstieg.html) ausliefert (FR-31). Die Seite stand
+vorher nur im Repository — erzeugt, geprüft, und für niemanden erreichbar, der
+das Repository nicht hat.
+
+**Woher die Datei kommt, ist die eigentliche Entscheidung.** Ein Bind-Mount
+des Repositorys zeigte das Release des letzten `git pull` und nicht das
+geladene — und wäre im Serverstapel der einzige Einhängepunkt seiner Art. Der
+Weg ist deshalb derselbe wie bei `arbeitsdaten`: Der Stapellauf **schreibt**
+in einen benannten Datenträger, der Dienst **liest** ihn mit `:ro`. Ein
+eigener Datenträger, nicht `arbeitsdaten`: nginx liefert aus seiner Wurzel
+alles aus, was darin liegt, und `arbeitsdaten` trägt den ganzen Arbeitsraum
+samt Release. Nach dem Datenlauf trägt er genau unsere eine Datei — weil der
+Lauf ihn vorher leert, siehe unten.
+
+Geschrieben wird sie am Ende des Datenlaufs, nach `holen aktuell --einsetzen`
+und vor `pruefe_stand`:
+
+```bash
+find /app/startseite -mindepth 1 -delete
+python -m serving.build_einstieg --adressen server \
+    --ziel /app/startseite/index.html
+```
+
+`--adressen server` ist die einzige Umschaltung daran. Ohne sie stünden auf
+der ausgelieferten Seite Verweise auf `localhost:15601` — richtig auf dem
+Entwicklungsrechner und auf dem Server ein Knopf, der im Rechner des Lesenden
+landet. Mit ihr stehen dort `urbancrime-<dienst>.datenwerft.ch`, und zwar nur
+für das, was wirklich geroutet ist: **Elasticsearch bekommt keinen Knopf**,
+weil es nach FR-11 nicht geroutet ist. Der Erzeuger liegt deshalb seit
+demselben Tag unter `src/crime/serving/build_einstieg.py` und nicht mehr unter
+`tools/`: `.dockerignore` hält `tools/` aus dem Baukontext, im Abbild gab es
+ihn also nicht.
+
+**Der Healthcheck greift nach unserer Seite, nicht nach HTTP 200.** Der Grund
+ist am 12.10.2026 am laufenden Docker nachgestellt worden: Docker befüllt
+einen leeren benannten Datenträger beim ersten Start **aus dem Abbild**, und
+das `:ro` auf der lesenden Seite verhindert das nicht. Danach liegen nginx'
+eigene `index.html` (896 Bytes, *Welcome to nginx!*) und `50x.html` darin,
+`curl -fs` antwortet mit 200 — ein Healthcheck darauf meldete den Dienst
+**gesund**, während er hinter Access die Willkommensseite von nginx
+auslieferte. Geprüft wird deshalb ein Kennzeichen unserer Seite
+(`serving.build_einstieg` aus ihrer Fusszeile), und der Datenlauf **leert den
+Datenträger**, bevor er schreibt — sonst bliebe `50x.html` auch danach liegen.
+
+**Der Nachweis fehlt hier noch ganz.** Der Dienst steht in der Beschreibung,
+und das ist alles: Seine Tunnel-Route ist am 12.10.2026 **nicht** angelegt,
+der Stapel auf `srv01` kennt ihn noch nicht, und ohne einen Datenlauf trägt
+der Datenträger keine Seite von uns — der Dienst ist dann `unhealthy` und
+behauptet nichts. Was die Beschreibung zusichert, halten
+`tests/test_srv01_compose.py` und `tests/test_srv01_datenlauf.py`; was auf
+`srv01` steht, sagt dort `docker compose ps`.
 
 ### Der Stapellauf ist kein Dienst
 

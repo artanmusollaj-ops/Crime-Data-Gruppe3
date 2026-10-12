@@ -40,7 +40,7 @@ Was sich nicht ohne uns lesen lässt, lässt sich auch nicht übertragen.
 | [`sternschema-und-wuerfel.md`](sternschema-und-wuerfel.md) · [`.html`](sternschema-und-wuerfel.html) | warum Gold ein Stern ist und kein Würfel — die begründete Entwurfsentscheidung |
 | [`zaehlperspektiven.md`](zaehlperspektiven.md) | vier Arten zu zählen, und was sich nicht addiert |
 | [`eine-zahl.md`](eine-zahl.md) | eine Zahl über sieben Schichten zurückverfolgt |
-| [`storage-architektur.md`](storage-architektur.md) | die Ablage im Aufbau: Modi, Zusagen, API, Fehlerbilder — LN1 verlangt die Storage-Evaluation ausdrücklich; Abschnitt 16 beschreibt, wie die Strecke auf `srv01` liegt, mit den gemessenen Speichergrenzen |
+| [`storage-architektur.md`](storage-architektur.md) | die Ablage im Aufbau: Modi, Zusagen, API, Fehlerbilder — LN1 verlangt die Storage-Evaluation ausdrücklich; Abschnitt 16 beschreibt, wie die Strecke auf `srv01` liegt, mit den gemessenen Speichergrenzen und den fünf Diensten |
 | [`feldkatalog.md`](feldkatalog.md) | was jede Spalte bedeutet, 192 Spalten in 15 Tabellen — und **erzeugt** (siehe unten) |
 | [`ausblick.md`](ausblick.md) | was nach LN1 käme, mit Messwerten und Reihenfolge |
 
@@ -78,7 +78,7 @@ Eine Handänderung hier ist beim nächsten Lauf weg. Wer den Inhalt ändern will
 | [`forschungsfragen.md`](forschungsfragen.md) | `tools/build_forschungsfragen.py`, aus dem abgegebenen LN1-PDF (Kapitel 3 und 11) — **der massgebliche Wortlaut** der sechs Fragen und Hypothesen; Kapitel 3 von `ln2_konzept.md` und Notebook 36 werden dagegen gehalten. Das PDF liegt bewusst nicht im Repository, der Reproduktionswächter überspringt ohne es |
 | [`intern/platzbedarf.md`](intern/platzbedarf.md) | `tools/build_platzbedarf.py`, aus der gemessenen Belegung je Schicht — und die Quelle der Grössentabelle in `architektur-ist-und-ziel.md` und im Einseiter |
 | [`referenz/`](referenz/index.html) | `tools/build_referenz.py` (pdoc), eine Seite je Modul |
-| [`einstieg.html`](einstieg.html) | `tools/build_einstieg.py`, aus dem aktuellen Release — **wo ein Analyst anfängt** |
+| [`einstieg.html`](einstieg.html) | `python -m serving.build_einstieg`, aus dem aktuellen Release — **wo ein Analyst anfängt**. Dieselbe Seite liefert auf `srv01` der Dienst `urbancrime-start` aus, mit Serveradressen statt `localhost` (`--adressen server`); sie liegt dort in einem Datenträger und nicht in diesem Ordner |
 | `bilder/architektur-pakete.svg`, `bilder/architektur-datenfluss.svg`, `bilder/architektur-kontext.svg` | `tools/build_architekturbilder.py`, aus dem Importgraphen |
 | `bilder/dashboard-*.png` | `tools/build_dashboardbilder.py`, fotografiert die laufenden Kibana-Dashboards |
 

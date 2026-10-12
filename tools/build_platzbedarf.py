@@ -21,7 +21,7 @@ Ablage den gemeinsamen Bestand auf SeaweedFS mitzaehlen wuerde. Das Dokument
 soll sagen, was unter ``data/`` liegt, und nicht, wer es gebaut hat - sonst
 waere es nicht reproduzierbar (``orchestration.platzbedarf.nur_lokal``).
 
-**Kein Erzeugungszeitstempel.** Wie bei ``tools/build_einstieg.py``: Ein
+**Kein Erzeugungszeitstempel.** Wie bei ``serving.build_einstieg``: Ein
 ``date.today()`` in der Datei hiesse, dass ein zweiter Lauf eine andere Datei
 liefert, und der Waechter darauf koennte nie gruen sein. Das Messdatum ist
 deshalb der **Stand der Daten** - die Kennung des jüngsten Release
@@ -434,7 +434,7 @@ def baue(data_root: Path | None = None, jahre: tuple[int, ...] = tuple(range(202
 def main(argv: list[str] | None = None) -> int:
     zerleger = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     # --data-root wie an jedem Stufenmodul; --ziel nach dem Muster von
-    # tools/build_einstieg.py, damit der Waechter zweimal nach tmp bauen kann,
+    # serving.build_einstieg, damit der Waechter zweimal nach tmp bauen kann,
     # ohne die abgelegte Datei anzufassen.
     zerleger.add_argument("--data-root", type=Path, default=PROJEKT / "data")
     zerleger.add_argument("--config-root", type=Path, default=PROJEKT / "config")

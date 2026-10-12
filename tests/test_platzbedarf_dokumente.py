@@ -343,7 +343,7 @@ def test_das_dokument_nennt_den_stand_der_daten_statt_eines_datums():
 
     Ein Erzeugungszeitstempel haette den Waechter darueber unmoeglich gemacht:
     Ein zweiter Lauf am naechsten Tag liefert dann eine andere Datei.
-    ``tools/build_einstieg.py`` laesst ihn aus demselben Grund weg. Genannt
+    ``serving.build_einstieg`` laesst ihn aus demselben Grund weg. Genannt
     wird deshalb die Kennung des juengsten Release - sie steht in den Daten
     und ist bei einem zweiten Lauf dieselbe.
     """

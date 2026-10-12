@@ -93,8 +93,10 @@ case "${mode}" in
         ;;
 esac
 
-# Serving is part of a successful publication. Ensure both long-running
+# Serving is part of a successful publication. Ensure the long-running
 # services exist and are healthy even after a host reboot or manual stop.
+# The landing page service (start) is deliberately not in this list: its
+# health check fetches the page itself, and the page is written further down.
 compose up -d --wait elasticsearch kibana
 
 # In s3 mode SeaweedFS is authoritative. Restore and verify the just-published
@@ -102,6 +104,20 @@ compose up -d --wait elasticsearch kibana
 pipeline python -m orchestration.release holen aktuell --einsetzen
 pipeline python -m serving.load_elasticsearch
 pipeline python -m serving.build_kibana
+
+# FR-31: the landing page is generated from the release that was just put in
+# place, not from the checkout, and with the server addresses
+# (urbancrime-<service>.datenwerft.ch) instead of localhost. It goes into the
+# named volume that the start service serves read-only.
+#
+# The volume is emptied first. Docker seeds an empty named volume from the
+# image on first start, so nginx's own index.html and 50x.html end up in it;
+# the read-only mount on the serving side does not prevent that. Without this
+# step the volume would keep serving files that are not ours.
+pipeline find /app/startseite -mindepth 1 -delete
+pipeline python -m serving.build_einstieg --adressen server --ziel /app/startseite/index.html
+compose up -d --wait start
+
 pipeline python -m serving.pruefe_stand
 
 echo "Urban Crime: ${mode} run completed for ${YEAR_RANGE}"

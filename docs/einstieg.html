@@ -64,6 +64,12 @@
     padding:5px 11px; background:var(--paper);
   }
   .karte a.knopf:hover { background:var(--accent-soft); border-color:var(--accent); }
+  /* Steht anstelle des Knopfes, wenn es in dieser Fassung keine Adresse gibt,
+     die der Browser des Lesenden erreicht: ein Dienst nur im Stapelnetz, ein
+     Dienst, den es noch nicht gibt. Ein Knopf waere dort ein toter Link. */
+  .karte p.vermerk { font-family:var(--f-mono); font-size:12px; margin:0;
+                     color:var(--muted); }
+  .karte p.vermerk code { font-size:12px; }
 
   pre { font-family:var(--f-mono); font-size:12.5px; line-height:1.55;
         background:var(--paper); border:1px solid var(--rule);
@@ -74,6 +80,8 @@
            border-radius:3px; font-weight:500; white-space:nowrap; }
   .marke.gut { background:var(--gut-soft); color:var(--gut); }
   .marke.warn { background:var(--signal-soft); color:var(--signal); }
+  .marke.kuenftig { background:var(--signal-soft); color:var(--signal); }
+  .marke.intern { background:var(--sunk); color:var(--muted); }
 
   .hinweis { border-left:3px solid var(--signal); background:var(--signal-soft);
              padding:11px 15px; font-size:13.5px; margin:14px 0 0; }
@@ -130,8 +138,8 @@
 
 <section>
   <h2>Wo man fragt</h2>
-  <p class="unter">Drei Zugänge, je nach Frage. Die beiden ersten Verweise
-  zeigen auf den lokalen Verbund — sie tragen nur, wenn er läuft.</p>
+  <p class="unter">Vier Zugänge, je nach
+  Frage. Die drei Verweise auf <code>localhost</code> tragen nur, solange das Gemeinte auf diesem Rechner läuft — je Karte steht dabei, was dafür zu starten ist. Die <strong>Admin-Konsole</strong> gibt es noch nicht — ihr Eintrag nennt den vorgesehenen Namen und verweist auf nichts.</p>
   <div class="karten"><article class="karte"><p class="rolle">Das Sternschema, sechs Indizes</p><h3>Elasticsearch</h3><p>Volltext über die Beschreibung, Umkreissuche über den Ort — und seit dem 5.10.2026 auch Kalender, Wetter und die Einwohnerzahlen je Tract und Vintage. Ein Alias je Gold-Tabelle, jeder mit der Release-Kennung dahinter.</p><pre>GET /fact_offense/_search
 {&quot;query&quot;: {
   &quot;geo_distance&quot;: {
@@ -144,7 +152,7 @@
 FROM fact_offense
 GROUP BY 1, 2
 ORDER BY n DESC
-LIMIT 10</pre><a class="knopf" href="https://duckdb.org/docs/stable/clients/cli/overview">DuckDB öffnen</a></article></div>
+LIMIT 10</pre><a class="knopf" href="https://duckdb.org/docs/stable/clients/cli/overview">DuckDB öffnen</a></article><article class="karte"><p class="rolle">Notebooks, lesend</p><h3>Jupyter</h3><p>Die drei belegenden Notebooks auf dem Release: Sternschema, Kontrollen, Quellbewegung. <code>data/</code> hängt schreibgeschützt, gelesen wird die selbständige <code>analyse.duckdb</code> aus dem Release — nicht die mit den Sichten, die zeigen auf Pfade dieses Rechners. Der Arbeitsbereich daneben ist beschreibbar, die mitgelieferten Notebooks sind Vorlagen. <strong>Von Hand zu starten:</strong> Der Entwicklungsverbund kennt keinen Notebook-Server; der Verweis trägt, sobald in diesem Verzeichnis <code>jupyter lab</code> läuft.</p><a class="knopf" href="http://localhost:8888/lab">Jupyter öffnen</a></article><article class="karte"><p class="rolle">Betrieb und Kontrolle — künftig</p><h3>Admin-Konsole</h3><p>Vorgesehen für das, wofür es heute nur die Befehlszeile gibt: einen Lauf anstossen, die Releases sehen, prüfen, ob alle geladenen Orte denselben Stand zeigen. <strong>Den Dienst gibt es noch nicht</strong> — der Name steht hier, damit er ins Muster fällt, unter dem die eine Access-Anwendung schützt. Bis dahin tun es <code>python -m orchestration.release liste</code> und <code>python -m serving.pruefe_stand</code>.</p><p class="vermerk"><span class="marke kuenftig">künftig</span> <code>urbancrime-admin.datenwerft.ch</code></p></article></div>
 </section>
 
 <section>
@@ -162,10 +170,9 @@ python -m serving.build_kibana</pre>
 </section>
 
 <footer>
-  Erzeugt von <code>tools/build_einstieg.py</code> aus Release
+  Erzeugt von <code>python -m serving.build_einstieg</code> aus Release
   2026-10-04T16-50-47Z. Nicht von Hand ändern — der nächste Lauf
-  überschreibt es. Weiter: <a href="referenz/index.html">Code-Referenz</a> ·
-  <a href="architektur-ist-und-ziel.md">Architektur</a>
+  überschreibt es. Weiter: <a href="referenz/index.html">Code-Referenz</a> · <a href="architektur-ist-und-ziel.md">Architektur</a>
 </footer>
 </main>
 </html>
