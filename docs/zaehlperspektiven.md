@@ -49,7 +49,23 @@ Der Unterschied zwischen Taten und Fällen ist ein anderer: Er ist keine
 Korrektur, sondern eine **Frage**. „Wie viele Einbrüche gab es?" und „in wie
 vielen Fällen ging es um einen Einbruch?" sind verschiedene Fragen, und die
 Kriminalstatistik beantwortet traditionell die zweite (Hierarchieregel des UCR
-Handbook). Beide Spalten stehen deshalb nebeneinander, statt dass eine gewinnt.
+Handbook). Innerhalb einer Stadt stehen beide Spalten deshalb nebeneinander,
+statt dass eine gewinnt.
+
+**Zwischen den Städten ist die Tatebene aber nicht die neutrale Alternative.**
+Chicago erfasst je Fall nur das **schwerste** Delikt, Detroit **jedes** —
+`counts_reason` sagt es je Zeile (`eine_zeile_ist_ein_delikt` gegen
+`schwerste_anklage` und `weitere_anklage_zur_selben_tat`). Das sieht man daran,
+was die Hierarchieregel übrig lässt: Sie verwirft in Chicago **178** Taten
+(0,013 %), in Detroit **24'854** (5,3 %) — Faktor 400. Chicagos Tatzahl *ist*
+also schon fast seine Fallzahl, Detroits nicht.
+
+Wer die beiden Städte auf der Tatebene vergleicht, stellt damit Detroits
+vollständige Anklagen gegen eine Chicagoer Zahl, die nie alle Delikte enthielt,
+und misst den **Erfassungsunterschied mit**. Die Fallebene wendet dieselbe
+Regel auf beide an und stellt erst her, was vergleichbar ist. Deshalb führt der
+Bericht sie vorn (Entscheid E5); die Tatebene bleibt daneben, weil sich
+Kategorien nur dort addieren — siehe gleich unten.
 
 Dass die letzten beiden Zeilen identisch sind, ist **kein Zufall, sondern eine
 geprüfte Zusage**: `reconcile` bricht ab, wenn `counts_case` nicht genau einmal

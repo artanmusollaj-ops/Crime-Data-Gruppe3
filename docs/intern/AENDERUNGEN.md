@@ -103,6 +103,53 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 11.10.2026 · Warum die Fallebene vorn steht, und zwar schärfer (#147)
+
+**Eine Begründung, die nicht trug.** E5 steht seit dem 5.10.2026 (Fallebene
+vorn, Tatebene daneben), begründet mit dem gemeinsamen amtlichen Massstab.
+Christian hat am 11.10. den schärferen Grund genannt: **Chicago erfasst je
+Fall nur das schwerste Delikt, Detroit jedes.** Ein Vergleich auf der
+Tatebene stellt damit Detroits vollständige Anklagen gegen eine Chicagoer
+Zahl, die nie alle Delikte enthielt — er misst den **Erfassungsunterschied
+mit**, nicht die Kriminalität.
+
+**Nachgemessen, und das Projekt wusste es schon.** `docs/feldkatalog.md:50`
+sagt es seit Vertrag 6 wörtlich: *„Chicago führt je Vorfall ein Delikt,
+Detroit jedes; wer auf Chicagos Zählweise vergleicht, filtert hierauf."* Die
+Zahlen dazu, über die sechs Jahrgänge: Die Hierarchieregel verwirft in
+Chicago **178** Taten (0,013 %), in Detroit **24'854** (5,3 %) — Faktor 400.
+Für 2024 allein sind es 1,0001 Taten je Vorfall in Chicago gegen 1,0678 in
+Detroit, und `event_id` ist bei beiden Städten vollständig besetzt, die Zahl
+ist also kein Artefakt eines fehlenden Schlüssels.
+
+**Was sich daraus ändert.** Die Tatebene ist damit nicht die gleichwertige
+zweite Lesart, sondern die schiefe — und drei Stellen sagten das Gegenteil
+oder zu wenig:
+
+* Der Vorbehalt auf den Ratenkacheln sagte nur, die Abgabedokumente führten
+  die Tatebene. Jetzt nennt er den Erfassungsunterschied, und der Wächter
+  verlangt die beiden tragenden Wörter (`schwerste`, `jedes`) statt nur die
+  Begriffe Tat- und Fallebene. Drei Mutationsproben fallen: die Begründung
+  auf die schwache zurückgedreht, und jedes der beiden Wörter einzeln
+  entfernt.
+* `zaehlperspektiven.md` 1 sagte, beide Spalten stünden nebeneinander,
+  „statt dass eine gewinnt". Das gilt **innerhalb** einer Stadt; zwischen
+  den Städten nicht, und das steht jetzt dort.
+* E5 im PRD trägt die schärfere Begründung nach.
+
+**Keine Zahl bewegt sich.** Die Entscheidung ist dieselbe wie am 5.10.; nur
+ihr Grund ist ein anderer und ein besserer. Artans Bestätigung steht weiter
+aus — FR-56 ist seins.
+
+**Dreimal falsch herum im Raum gestanden.** Die Prämisse „Chicago kennt nur
+die Fallebene" ist in dieser Sitzung dreimal aufgetaucht, und ich habe sie
+zweimal als falsch bezeichnet. Für die *Zeilenkörnung* stimmte das — Chicago
+liefert eine Zeile je Delikt —, für den *Inhalt* nicht: Die Zeile trägt
+bereits nur das schwerste Delikt des Falls. Die Korrektur ging also an der
+Sache vorbei.
+
+---
+
 ## 11.10.2026 · Die Rate je 1'000 steht im Dashboard (#146)
 
 **Was fehlte.** Kibana trug drei Bretter und vierzehn Kacheln — und **keine
