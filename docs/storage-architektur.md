@@ -775,10 +775,14 @@ ist besser als ein getöteter.
 Vier Dinge kann eine Compose-Datei nicht sagen, und alle vier sind nötig,
 damit etwas erreichbar **sein kann**. Zwei davon sind eingerichtet: die
 Access-Anwendung seit dem 9.10.2026, von aussen gemessen, und die Abbilder
-seit dem 8.10.2026 in der Registry. Offen sind der Datenträger für Restic und
-— seit dem 12.10.2026 — die Tunnel-Route für `urbancrime-start`: Die beiden
-Routen für Kibana und Jupyter stehen, die dritte nicht. Erreichbar heisst das
-trotzdem nicht — was gemessen wurde, liegt vollständig **vor** dem Ursprung.
+seit dem 8.10.2026 in der Registry. Offen ist allein der Datenträger für Restic:
+Die dritte Tunnel-Route, die für `urbancrime-start`, ist seit dem 14.10.2026
+angelegt und von aussen gemessen — `urbancrime-start.datenwerft.ch` löst auf
+und antwortet mit **302** auf dasselbe Anmeldetor wie Kibana, ohne dass an
+der Access-Anwendung etwas zu ändern war. Das Muster `urbancrime-*` hat sie
+mitgedeckt, genau wie FR-22 es verspricht. Erreichbar heisst das trotzdem
+nicht, dass dort etwas antwortet — was gemessen wurde, liegt vollständig
+**vor** dem Ursprung.
 
 **Die Tunnel-Route je Hostname** — angelegt am 9.10.2026, je Hostname eine
 veröffentlichte Anwendung auf dem bestehenden Tunnel, und zwar so:

@@ -103,6 +103,53 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 14.10.2026 · Die dritte Route steht, und E5 ist bestätigt (#150)
+
+**Die Tunnel-Route für `urbancrime-start` ist angelegt** — und sie brauchte
+keine Änderung an Cloudflare Access. Von aussen gemessen:
+`urbancrime-start.datenwerft.ch` löst auf und antwortet mit **302** auf
+`homeinegg.cloudflareaccess.com`, dasselbe Anmeldetor wie
+`urbancrime-kibana`. Das Muster `urbancrime-*` hat den Hostnamen mitgedeckt,
+genau wie FR-22 es verspricht: *„Eine vergessene Access-Regel ist ein offener
+Dienst; ein Muster lässt sich nicht vergessen."* Damit ist der dritte der vier
+Posten unter „Was daneben einzurichten ist" erledigt; offen bleibt allein der
+Elasticsearch-Datenträger für Restic.
+
+Was die Messung **nicht** belegt, bleibt dasselbe wie am 9.10.: dass dahinter
+etwas antwortet. Access greift **vor dem Ursprung** — eine 302 beweist
+Cloudflare, DNS und die Anwendung, keinen laufenden Dienst. Der Stapel auf
+`srv01` kennt den Dienst `start` noch nicht.
+
+**E5 ist von Artan bestätigt** — Fallebene vorn, Tatebene sichtbar daneben,
+mit der am 11.10. geschärften Begründung (Chicago erfasst je Fall nur das
+schwerste Delikt, Detroit jedes). Damit fällt die Blockade für **FR-56**: Die
+Fundstelle je Pflichtbestandteil hing daran, dass die kanonische Rate
+feststeht.
+
+**Zwei meiner eigenen Einträge waren veraltet, und einer liess einen
+erledigten Posten offen aussehen.** FR-16 — die Kollision eines
+Monatsersten-Montags mit dem Restic-Vollrestore — war schon behoben, als ich
+die Zurückstellung schrieb: Commit `8b8ddb0` hatte den Volllauf auf das
+Fenster Tag 8–14 gelegt, also auf den zweiten Montag, und das ist genau die
+Abhilfe, die mein eigener Eintrag vorschlug. In der Review zu #145 habe ich
+es bestätigt und dann versäumt, die Liste nachzuziehen. Christian hat darauf
+hingewiesen.
+
+**Ein Befund nebenbei: Die S3-Schlüssel dieses Rechners sind ungültig.** Beim
+Versuch, die Release-Kennung des Serverlaufs selbst zu lesen, antwortete
+SeaweedFS mit `InvalidAccessKeyId`. Das ist mehr als eine Unbequemlichkeit:
+Im Hybridmodus wird gefunden, was lokal liegt, und **nicht** gefunden, was
+nur auf SeaweedFS liegt — ohne dass es auffällt, weil der lokale Fund zuerst
+kommt. Der „ferne" Zeiger, den `release.aktuell` meldete, war in Wahrheit der
+lokale. Zu beheben in der ignorierten `.env` dieses Rechners.
+
+**Was dieser Eintrag noch nicht sagt:** ob der Lauf vom 12.10. durchgelaufen
+ist. Christian hat es gemeldet; der Beleg — die Release-Kennung, die er
+gebaut hat — fehlt hier noch, und ohne ihn bleiben die drei Stellen mit
+„Einrichtung, kein Nachweis" stehen.
+
+---
+
 ## 14.10.2026 · Der Lauf fragt zuerst, ob er durchlaufen kann (#149)
 
 **Eine Zusage, die nur auf dem Papier stand.** `docker-compose.srv01.yml`

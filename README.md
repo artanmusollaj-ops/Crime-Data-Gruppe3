@@ -862,9 +862,10 @@ Publish-Gates, und die vier Zugänge — Elasticsearch, Kibana, DuckDB und
 Jupyter. **Jede Zahl wird beim Erzeugen gemessen**, keine ist abgeschrieben.
 
 > **Für `srv01` ist ein Dienst beschrieben, der sie ausliefert** (seit dem
-> 12.10.2026, FR-31) — beschrieben, **nicht in Betrieb**: Die Tunnel-Route für
-> `urbancrime-start.datenwerft.ch` ist nicht angelegt, und der Stapel dort
-> kennt den Dienst noch nicht. Gedacht ist er hinter derselben
+> 12.10.2026, FR-31) — beschrieben, **nicht in Betrieb**: Der Stapel dort
+> kennt den Dienst noch nicht. Die Tunnel-Route für
+> `urbancrime-start.datenwerft.ch` steht dagegen seit dem 14.10.2026 und ist
+> von aussen geprüft (Abschnitt 16). Gedacht ist er hinter derselben
 > Access-Anwendung wie Kibana und Jupyter; nichts daran soll öffentlich sein.
 > Zwei Seiten wären zwei Wahrheiten über dieselben Zahlen; es ist deshalb
 > dieselbe, nur mit `--adressen server` gebaut: Verweise auf
