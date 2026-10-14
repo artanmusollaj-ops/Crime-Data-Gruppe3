@@ -403,7 +403,7 @@ SeaweedFS —, und das Publizieren geht durch.
 ## 9 · Was immer lokal bleibt
 
 `data/serving/` — die Auswertungsdatenbank `analyse.duckdb`,
-`tracts.geojson` und seit dem 17.9.2026 die vier Vergleichstabellen aus
+`tracts.geojson` und seit dem 17.9.2026 die fünf Vergleichstabellen aus
 `serving.build_comparison`. In **jedem** Modus. Die Vergleichstabellen
 erreichen SeaweedFS nicht an einem festen Pfad wie Silver und Gold, sondern
 nur als Teil eines Release (Ausblick, Abschnitt 6).

@@ -7,7 +7,7 @@ gebauten Tabellen, die Bedeutung aus [`tools/build_feldkatalog.py`](../tools/bui
 python tools/build_feldkatalog.py
 ```
 
-**196 Spalten in 16 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
+**203 Spalten in 17 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
 soll einen Satz darüber schreiben müssen. `tests/test_feldkatalog.py` prüft, dass der Katalog vollständig und reproduzierbar ist.
 
 Die Rohschichten stehen hier nicht: **Bronze deutet nicht**, seine Spalten sind die der Quelle. Was sie bedeuten, sagen die
@@ -326,3 +326,17 @@ Eine Zeile ist: **eine Stadt, ein Monat**. 139 Zeilen.
 | `share_no_tract` | `DOUBLE` | Anteil `geo_status = no_tract` in Prozent. |
 | `share_missing_coordinate` | `DOUBLE` | Anteil `geo_status = missing_coordinate` in Prozent. |
 | `local_time_ambiguous` | `BIGINT` | Zahl der Taten in der doppelten Stunde beim Zurückstellen der Uhr (nur Chicago). Eine Zahl, kein Anteil. |
+
+### `rate_tract`
+
+Eine Zeile ist: **ein Census Tract mit Einwohnern im Bezugsjahr 2024 (gold_pipeline.RATENJAHR)**. 1'045 Zeilen.
+
+| Spalte | Typ | Bedeutung |
+| --- | --- | --- |
+| `stadt` | `VARCHAR` | Die **meldende** Stadt (`reporting_city`), nicht die Stadtzuordnung des Tracts. Auf Tract-Ebene ist die Frage *wer hat das gemeldet*; `geo_status = 'inside_city'` stellt ohnehin sicher, dass der Tract im Gebiet dieser Stadt liegt. |
+| `geoid` | `VARCHAR` | Census-GEOID der Raumeinheit, die sie eindeutig macht. Der Schlüssel, über den Delikte, Einwohner und Geometrie zusammenfinden. |
+| `faelle` | `BIGINT` | Faelle im Bezugsjahr - Taten mit `counts_case`. Die Fallebene steht vorn, weil Chicago je Fall nur das schwerste Delikt erfasst und Detroit jedes. |
+| `rate_fallebene` | `DOUBLE` | Faelle je 1'000 Einwohner im Bezugsjahr, auf eine Nachkommastelle. **Die Zahl, nach der die Karte einfaerbt.** |
+| `taten` | `BIGINT` | Taten im Bezugsjahr - jede Zeile von `fact_offense`, ohne den Fallfilter. |
+| `rate_tatebene` | `DOUBLE` | Taten je 1'000 Einwohner im Bezugsjahr. Daneben zu lesen, nicht statt der Fallebene: Der Unterschied zwischen beiden ist der Erfassungsunterschied der zwei Staedte, nicht ein Unterschied der Kriminalitaet. |
+| `einwohner` | `BIGINT` | Der Nenner: `dim_tract_acs.population` im Vintage, auf den die Tat zeigt (`population_vintage`). **Tracts ohne Einwohner fehlen in dieser Tabelle** - fuer sie ist keine Rate definiert, und eine gezeigte Null liesse sich als Sicherheit lesen, wo in Wirklichkeit niemand wohnt: Flughaefen, Parks, Gewerbegebiete. |

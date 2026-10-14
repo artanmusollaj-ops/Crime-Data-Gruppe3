@@ -154,6 +154,10 @@ REGEL_JE_QUELLE: dict[str, str] = {
     "dataset=comparison_week": TATEN,
     "dataset=comparison_month": TATEN,
     "dataset=partition_quality": TATEN,
+    # Eine Zeile je Tract mit Einwohnern, fuer **ein** Bezugsjahr
+    # (gold_pipeline.RATENJAHR). Ein Jahrgang mehr in den Falldaten
+    # aendert die Zeilenzahl nicht - sie haengt an den Tracts.
+    "dataset=rate_tract": CENSUS,
     # Im Release materialisiert, unter data/serving nur Sichten - dort um
     # zwei Groessenordnungen kleiner. Beide Male haengt die Groesse an den
     # Fakten, und deshalb gilt beide Male dieselbe Regel.

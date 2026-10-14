@@ -180,9 +180,18 @@ class Index:
     #: hier unschaedlich, weil ohnehin einer gesetzt ist (ein Knoten).
     nachschlag: bool = False
 
+    #: Wo die Quelle im Release liegt - leer heisst: die gleichnamige
+    #: Gold-Tabelle.
+    #:
+    #: Gesetzt wird das nur dort, wo ein Index **keine** Gold-Tabelle ist.
+    #: ``rate_tract`` ist der erste Fall: Die Rate je Tract ist eine
+    #: Aggregation, und Gold aggregiert nicht (AGENTS.md). Sie entsteht in
+    #: ``serving.build_comparison`` und liegt im Release unter ``serving/``.
+    quelle_pfad: str = ""
+
     @property
     def quelle_im_release(self) -> str:
-        return f"gold/dataset={self.name}/part-0001.parquet"
+        return self.quelle_pfad or f"gold/dataset={self.name}/part-0001.parquet"
 
 
 #: Alle Gold-Tabellen, Zeit und Zahlen eingeschlossen - und das ist eine
@@ -240,6 +249,27 @@ INDIZES: tuple[Index, ...] = (
         # Tract ueber ``geoid`` dazu. Ohne index.mode lookup lehnt
         # Elasticsearch den Verbund ab - und zwar erst, wenn jemand die Karte
         # oeffnet.
+        nachschlag=True,
+    ),
+    Index(
+        name="rate_tract",
+        # Keine Gold-Tabelle: Die Rate je Tract ist eine Aggregation, und
+        # Gold aggregiert nicht. Sie entsteht in serving.build_comparison
+        # aus derselben Abfrage, die ``gold_pipeline.raten_je_tract`` dem
+        # Waechter der Ratenkachel stellt.
+        #
+        # **Warum sie ueberhaupt in Elasticsearch liegt.** Kibanas Karte
+        # faerbt eine Flaeche nach **einem** Feld und kann zwischen zwei
+        # verbundenen Feldern nicht rechnen. Eine Karte nach Fallzahlen waere
+        # hier irrefuehrend: Die Einwohnerzahl je Tract reicht von 35 bis
+        # 13'521 (2024, Median 2'861). Die Rate muss fertig dastehen, bevor
+        # die Karte sie einfaerbt.
+        quelle_pfad="serving/dataset=rate_tract/part-0001.parquet",
+        # Eine Zeile je Tract mit Einwohnern - 1'045 im Bezugsjahr.
+        schluessel=("geoid",),
+        verteilung=("stadt",),
+        # Die Karte verbindet dim_tract_geo.geoid auf diesen Index; ohne
+        # index.mode lookup lehnt Elasticsearch den Verbund ab.
         nachschlag=True,
     ),
     Index(

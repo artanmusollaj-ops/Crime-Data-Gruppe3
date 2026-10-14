@@ -739,7 +739,7 @@ vollständig: jede Stufe des Run-Controllers muss hier stehen.
 | `noaa` | `bronze/dataset=noaa_ghcnd` | `weather_pipeline.download_noaa` | Christian | Notebook 22 |
 | `tract`, `place`, `weather_day`, `crime_offense` | `silver/` | `silver_pipeline.*` | Christian | Konzept 8, Feldkatalog |
 | `gold` | `gold/` (fünf Tabellen) | `gold_pipeline.build_gold` | Christian | Notebook 34, Konzept 5.2 |
-| `comparison` | `serving/` (vier Vergleichstabellen aus Gold) | `serving.build_comparison` | Christian | Feldkatalog, `zaehlperspektiven.md` |
+| `comparison` | `serving/` (fünf Vergleichstabellen aus Gold) | `serving.build_comparison` | Christian | Feldkatalog, `zaehlperspektiven.md` |
 | `analyse_db`, `tracts_geojson` | `serving/` | `serving.*` | Christian | Notebook 33 |
 | — | Hypothesen (Kapitel 3, Notebook) | — | Artan | Konzept 3 |
 | — | Konzept, Absprache, Leistungsnachweise, Präsentation | — | Artan | `docs/` |

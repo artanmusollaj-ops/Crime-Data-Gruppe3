@@ -59,6 +59,11 @@ SCHUTZ = (
     "Beide Schnappschüsse enthalten", "in beiden Schnappschüssen",
     "Bronze, Abfrage über Detroits",
     "Nachgemessen am", "Nachgerechnet am",
+    # cadvisors Speicherbelegung auf srv01 - 1'047 MiB, gemessen am Container
+    # und nicht an unseren Daten. Sie sieht ``serving/rate_tract`` (1'045
+    # Zeilen) nur aehnlich; die beiden haben miteinander nichts zu tun, und
+    # die MiB-Zahl soll veralten, sobald jemand cadvisor deckelt.
+    "Es belegt heute",
     # Die Messung vom 13.9. steht ueber zwei Zeilen; das Datum traegt die erste.
     "23,1 Sekunden",
     # Die drei Regeln der Stadtzuordnung nennen absichtlich die *verworfenen*

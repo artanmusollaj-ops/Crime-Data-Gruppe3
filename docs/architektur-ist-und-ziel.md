@@ -35,8 +35,8 @@ Die Strecke führt zwei unvergleichbare Quellen in eine vergleichbare Tabelle
 | **bronze** | Parquet mit gepinntem Schema, Originaltypen | nichts deuten; Unerwartetes nach `_extra` statt in den Papierkorb | 422,9 MB |
 | **silver** | deuten: Typen, Einheiten, Zeitzonen, NIBRS, Raum | nichts wegwerfen — Lücken werden gekennzeichnet, nicht gefiltert | 213,8 MB |
 | **gold** | Sternschema, eine Zeile je **Tat** | nicht aggregieren | 85,7 MB |
-| **serving** | abfragbar machen: Sichten, vier Vergleichstabellen, Karte | nicht der Bestand sein | 1,2 MB |
-| **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 614,5 MB |
+| **serving** | abfragbar machen: Sichten, fünf Vergleichstabellen, Karte | nicht der Bestand sein | 1,3 MB |
+| **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 795,8 MB |
 
 Die Grössen sind **gemessen, nicht geschätzt** — `python -m
 orchestration.platzbedarf` liest sie über `storage` aus den Schichten, und

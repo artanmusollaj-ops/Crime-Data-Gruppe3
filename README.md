@@ -460,9 +460,10 @@ je **Tat** und vier Dimensionen daneben. Der Unterschied zu Silver ist die Granu
 um 3,8 % zu hoch. Warum kein vorberechneter Würfel gebaut wurde, steht in
 [`docs/sternschema-und-wuerfel.md`](docs/sternschema-und-wuerfel.md).
 
-`build_comparison` leitet aus Gold **vier Vergleichstabellen** für das
+`build_comparison` leitet aus Gold **fünf Vergleichstabellen** für das
 Dashboard ab — `comparison_day`, `comparison_week`, `comparison_month` je
-Stadt und NIBRS-Kategorie, dazu `partition_quality` je Stadt und Monat. Sie
+Stadt und NIBRS-Kategorie, `partition_quality` je Stadt und Monat und
+`rate_tract` je Tract im Bezugsjahr. Sie
 liegen in `data/serving/`, nicht in Gold: Gold bleibt der Stern, die Tabellen
 sind jederzeit daraus neu erzeugbar und summieren sich nachweislich auf die
 Faktentabelle. Teilperioden am Rand des Jahrgangs sind je Zeile ausgewiesen
@@ -621,7 +622,7 @@ werden nie überschrieben — liegt einer schon anders oben, ist das ein
 Fehler. Silver- und Gold-Tabellen werden überschrieben, wie lokal auch.
 
 **Immer lokal:** `data/serving/` — die Auswertungsdatenbank, das GeoJSON und
-die vier Vergleichstabellen aus `build_comparison`; Letztere erreichen
+die fünf Vergleichstabellen aus `build_comparison`; Letztere erreichen
 SeaweedFS nur als Teil eines Release, nie an einem festen Pfad. Die Sichten in
 `analyse.duckdb` zeigen je Datei dorthin, wo sie liegt. Wer sie im Hybrid-
 oder S3-Modus öffnet, braucht dieselbe Verbindung wie die Pipeline — `httpfs`

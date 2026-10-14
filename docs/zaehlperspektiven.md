@@ -93,7 +93,7 @@ Delikt.
 **Was das für eine Auswertung heisst:** Anteile je Kategorie werden auf der
 **Tatebene** gerechnet (dort summiert sich alles), Vorfallzahlen je Kategorie
 dagegen nie addiert, sondern jede direkt aus den Einzelzeilen. Genau deshalb
-zählen die vier Vergleichstabellen in `serving/` (`comparison_day`, `_week`,
+zählen die Vergleichstabellen in `serving/` (`comparison_day`, `_week`,
 `_month`) **Taten und Fälle**, nie Vorfälle — und ihre Summen gehen
 nachweislich auf die Faktentabelle auf.
 

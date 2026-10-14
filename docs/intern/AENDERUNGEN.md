@@ -77,7 +77,7 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `silver/crime_offense` | **3** | 19.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig |
 | `silver/source_change` | **3** | 03.10.2026 | Unterschied zwischen aufeinanderfolgenden **Vollabzügen** je Quelle, eine Zeile je geändertem Feld; `ESRI_OID` und reine Leerzeichen ausgenommen, Zeitstempel als `beruehrt` statt als Inhaltsänderung. Version 2 ergänzte die **Datierung aus den Deltas**: `zuerst_gesehen_in`, `zuerst_gesehen_am` und `datierung` mit `delta` / `kein_delta` / `nicht_datierbar`. Gefunden wird weiter nur zwischen Vollabzügen — aus einem Delta liesse sich *verschwunden* nicht von *ruhig* unterscheiden. Version 3: Die Datierung **klebt** — sie nennt den besten je bestimmten Befund, nicht den heutigen, sonst löschte das Aufräumen der Deltas sie wieder |
 | `gold/*` | **8** | 14.10.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften | Version 6: Die ACS-Masse liegen **je Vintage** in der neuen Tabelle `dim_tract_acs` (`population`, `median_household_income_usd`, `poverty_rate`); `dim_tract` behält die Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie kommt; `fact_offense` trägt `population_vintage` und sagt damit je Zeile, welcher Nenner für sie gilt. Eine Tabelle mit einer Zeile je Tract konnte nur eine Einwohnerzahl tragen — über mehrere Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021 Version 7: `dim_date` trägt `year_is_complete` — ob der Jahrgang dieses Tages ganz in den Daten liegt. Ein Teiljahr darf nicht in einen Jahresvergleich geraten: 2026 hat am 3.10. neun Monate, und neun gegen zwölf gestellt ergeben einen Rückgang, den es nicht gibt. Dazu im Manifest von `fact_offense` der Nachweis `year_coverage` je Jahrgang, mit `days_with_offenses` gegen `days_in_year` — denn eine Lücke **innerhalb** des Jahres sieht man an der Spalte nicht Version 8: Die neue Tabelle `dim_tract_geo` trägt den **Umriss** je Tract der beiden Studienstädte als WKT — 1'055 Zeilen, vereinfacht mit Douglas-Peucker 0,00002 Grad (rund zwei Meter, 0,0002 % Fläche je Tract). Sie ist die Grundlage der Choroplethenkarte in Kibana, die eine Fläche braucht und mit dem Schwerpunkt in `dim_tract` nichts anfangen kann. **Eigene Tabelle und keine Spalte an `dim_tract`:** Die Dimension deckt beide Countys ab (6'282 Zeilen) und wäre mit Umrissen 26 MB statt 194 KB; `dim_tract_geo` kostet 133 KB. Keine Kennzahl darin — wer färben will, verbindet über `geoid`
-| `serving/comparison_*` | 1 | 17.09.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` |
+| `serving/comparison_*` | **2** | 14.10.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` Version 2: `rate_tract` kommt dazu — eine Zeile je Tract **mit Einwohnern** im Bezugsjahr (`gold_pipeline.RATENJAHR`), mit Fällen, Taten, Einwohnerzahl und beiden Raten je 1'000. Gerechnet wird sie mit **derselben** Abfrage, die `gold_pipeline.raten_je_tract` auch dem Wächter der Kibana-Ratenkachel stellt, nicht mit einer zweiten. Sie entsteht, weil Kibanas Karte eine Fläche nach **einem** Feld einfärbt und zwischen zwei verbundenen Feldern nicht rechnen kann — und eine Karte nach Fallzahlen wäre hier irreführend: Die Einwohnerzahl je Tract reicht von 35 bis 13'521 (2024, Median 2'861). Tracts ohne Einwohner fehlen, für sie ist keine Rate definiert |
 
 > **Der Feldkatalog wird erzeugt, nicht gepflegt.** Am 14.9. wurde
 > `docs/feldkatalog.md` von Hand bearbeitet (`f1c9b42`): Spaltentypen von
@@ -142,6 +142,29 @@ Elasticsearch eine WKT-Zeichenkette für `geo_shape` unmittelbar annimmt;
 WKB müsste der Lader wandeln, GeoJSON als Objekt einbetten. Keine Kennzahl
 darin — wer färben will, verbindet über `geoid`.
 
+**`rate_tract`, damit die Karte eine Rate zeigen kann (Serving-Vertrag 2).**
+Kibana färbt eine Fläche nach **einem** Feld und kann zwischen zwei
+verbundenen Feldern nicht rechnen. Eine Karte nach Fallzahlen wäre hier
+irreführend, und das ist gemessen: Die Einwohnerzahl je Tract reicht von
+**35 bis 13'521** (2024, Median 2'861, Streuung 53,5 %) — Faktor 386 zwischen
+dem kleinsten und dem grössten. Die Rate muss also fertig dastehen, bevor die
+Karte sie einfärbt.
+
+Sie entsteht in `serving.build_comparison` als fünfte Vergleichstabelle,
+1'045 Zeilen — die Tracts mit Einwohnern, zehn weniger als `dim_tract_geo`,
+weil für einen Tract ohne Einwohner keine Rate definiert ist. Gerechnet wird
+sie mit **derselben** Abfrage, die `gold_pipeline.raten_je_tract` auch dem
+Wächter der Ratenkachel stellt; eine zweite daneben könnte mit ihr gemeinsam
+falsch sein, ohne dass etwas auffiele.
+
+**Nicht in Gold**, obwohl der Lader bisher nur dort las: Eine Rate je Tract
+ist eine Aggregation, und Gold aggregiert nicht (`AGENTS.md`). `Index` hat
+deshalb jetzt `quelle_pfad` — gesetzt nur dort, wo ein Index keine
+Gold-Tabelle ist. Der Wächter `test_jeder_index_hat_eine_quelle_im_release`
+verlangte bis heute `gold/dataset={name}/`; das war dasselbe, solange jeder
+Index eine Gold-Tabelle war. Jetzt prüft er, was die Zusage immer meinte:
+dass ein Release die Quelle mitbringt.
+
 Die Toleranz steht jetzt **einmal**: `gold_pipeline.build_gold.VEREINFACHUNG_GRAD`,
 und `export_geojson` liest sie von dort. Zwei Toleranzen nebeneinander
 hiessen, dass die Karte in Kibana und die Karte im Browser verschieden genaue
@@ -162,8 +185,9 @@ echten Meldung.
 **Zahlen.** 1'973 → **1'974 Tests** (einer neu), Standardlauf 1'865 →
 **1'866**, Referenzwächter unverändert **108**. Frischklon **1'831 der
 1'866** — gemessen in einem lokalen Klon des Branches. Gold 85,6 → **85,7 MB**,
-`releases` 433,7 → **614,5 MB** — das neue Release `2026-10-14T14-33-03Z`
-ist dazugekommen, die gepinnten bleiben unberührt. Neu gebaut, weil erzeugt:
+serving 1,2 → **1,3 MB**, `releases` 433,7 → **795,8 MB** — zwei neue
+Releases (`2026-10-14T14-33-03Z` und `2026-10-14T16-40-30Z`) sind
+dazugekommen, die gepinnten bleiben unberührt. Neu gebaut, weil erzeugt:
 `docs/feldkatalog.md`, `docs/intern/platzbedarf.md`, `docs/einstieg.html`,
 `docs/referenz/`, der Einseiter und die Grössentabellen in beiden
 Architekturdokumenten.
