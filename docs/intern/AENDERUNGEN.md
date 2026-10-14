@@ -236,7 +236,8 @@ Zeilenzahl **und** jeden Bretttitel gegen `BRETTER`. Drei Proben dagegen, alle
 rot.
 
 **Zahlen.** 1'973 → **2'012 Tests**, Standardlauf 1'865 → **1'903**,
-Referenzwächter **108 → 109**. Der grösste Teil des Zuwachses sind keine
+Referenzwächter **108 → 109**, Frischklon **1'868 der 1'903** — gemessen in
+einem lokalen Klon des Branches. Der grösste Teil des Zuwachses sind keine
 neuen Testfunktionen, sondern dieselben Wächter über mehr Kacheln: Drei
 Bretter mit zusammen neun Tafeln kommen dazu, und sieben Wächter laufen je
 Tafel. Gold 85,6 → **85,7 MB**,
