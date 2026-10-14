@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'961** |
+| Tests | **1'973** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -100,6 +100,72 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 14.10.2026 · Die Abbilder kommen aus der CI (#151)
+
+**Der Abbildbau ist kein Handwerk mehr.** Bis heute lief er auf dem
+Entwicklungsrechner: bauen, schieben, Digest ablesen, Digest in die `.env` auf
+`srv01` tragen — vier Handgriffe, beschrieben in `docs/storage-architektur.md`.
+Drei davon macht jetzt [`.github/workflows/abbilder.yml`](../../.github/workflows/abbilder.yml).
+
+**Der Grund ist die Plattform, nicht die Bequemlichkeit.** Der
+Entwicklungsrechner ist ein arm64-Mac, `srv01` läuft auf x86-64. Ein ohne
+`--platform linux/amd64` gebautes Abbild lässt sich anstandslos schieben und
+scheitert erst dort beim Start mit `exec format error` — nach Bau, Schieben
+und Holen. Als Flag ist das etwas, das man vergisst; auf `ubuntu-latest` ist
+es die Maschine. Dazu kommt: gebaut wird aus einem frischen Klon auf einem
+bekannten Commit, und `GIT_COMMIT` ist `github.sha` statt des Zustands
+irgendeines Arbeitsbaums.
+
+Der Workflow holt die geschobenen Abbilder **zurück** und prüft sie, statt
+dem Bau zu glauben. Ein Schritt belegt damit dreierlei auf einmal: dass der
+Digest in der Registry liegt, dass er sich holen lässt, und dass
+`linux/amd64` drinsteht. Ein zweiter liest `GIT_COMMIT` aus dem laufenden
+Container und hält es gegen `github.sha` — die Herkunftsangabe ist das
+einzige, was ein Container über seinen Quellstand sagt, und eine falsche wäre
+schlimmer als keine. Das Analyse-Abbild setzt per **Digest** auf dem
+Strecken-Abbild auf, nicht per Marke: Zwischen den beiden Schritten liesse
+sich eine Marke umhängen.
+
+**Was er nicht tut: auf `srv01` schreiben.** Die beiden fertigen
+`.env`-Zeilen stehen in der Job-Zusammenfassung, getragen werden sie von
+Hand. Wer den Bau startet, soll auch entscheiden, wann der Stapel umgestellt
+wird; ein Workflow mit Schreibzugriff auf den Server wäre ein zweiter Weg
+hinein. `test_er_schreibt_nicht_auf_srv01` hält diese Grenze fest — fällt er,
+ist das eine Entscheidung und kein Versehen.
+
+**Kein Zeitplan, kein Anstoss auf Push.** Das Repository ist privat, Minuten
+werden verrechnet, und am 1.10.2026 war das Budget nach acht Läufen weg
+(Begründung in `tests.yml`). Nötig ist ein Abbildbau nur, wenn wirklich
+umgestellt wird — also *Actions → Abbilder → Run workflow*.
+
+Dazu nötig, einmalig und von Hand: **`GHCR_TOKEN` als Repository-Secret.**
+Das eingebaute `GITHUB_TOKEN` darf nur Pakete des Repository-Eigentümers
+schreiben, also unter `ghcr.io/artanmusollaj-ops`; der Namensraum
+`ghcr.io/datenwerft` hängt am persönlichen Konto. Fehlt das Secret, bricht der
+Workflow im ersten Schritt ab und sagt, was fehlt — derselbe Gedanke wie die
+Vorprüfung aus #149.
+
+`tests/test_abbilder_workflow.py` prüft die Form mit zwölf Wächtern. Zwei
+Aussagen werden dabei **abgelesen statt getippt**: die Namen der
+Abbildvariablen aus `.env.example`, die Namen der Abbilder aus
+`docs/storage-architektur.md`. Elf Mutationsproben in einer Baumkopie — unter
+anderem Plattformangabe entfernt, `BASIS` per Marke statt Digest, Anmeldung
+mit `GITHUB_TOKEN`, `ssh srv01` eingebaut — wurden alle entdeckt.
+
+**Zahlen.** 1'961 → **1'973 Tests** (zwölf neue), Standardlauf 1'853 →
+**1'865**, Referenzwächter unverändert **108**. Frischklon **1'830 der
+1'865** — gemessen in einem lokalen Klon des Branches, in dem `data/` nur die
+vier `.gitkeep` trägt; alle zwölf neuen Wächter lesen Repository-Dateien und
+laufen dort mit. Mitgezogen in README,
+`ln2_konzept.md`, `architektur-ist-und-ziel.md`, `leistungsnachweise.md` und
+dem Einseiter — zehn Stellen. Nicht mitgezogen, weil historisch: die
+Zahlenzeile des Eintrags zu #149. Die Kommentare in `tests.yml` und
+`datenlauf.yml` nennen weiterhin 1'415 von 1'496 Tests und 81 Wächter; sie
+waren schon vorher überholt, kein Wächter erfasst sie, und sie bleiben hier
+bewusst unangetastet.
 
 ---
 

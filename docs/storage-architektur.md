@@ -884,9 +884,22 @@ Maschine misst es das Rauschen der Nachbarn.
 [`Dockerfile.jupyter`](../Dockerfile.jupyter) setzt auf dem Strecken-Abbild
 auf, statt eine zweite Abhängigkeitsliste zu führen — die wäre eine zweite
 Wahrheit neben `requirements.lock`. Gebaut werden beide nacheinander, und das
-Grundabbild kommt als Argument herein — hier gleich unter der Adresse, unter
-der es geschoben wird, damit das Analyse-Abbild nicht auf einem Namen
-aufsetzt, den es nur auf dem Entwicklungsrechner gibt:
+Grundabbild kommt als Argument herein — gleich unter der Adresse, unter der es
+geschoben wird, damit das Analyse-Abbild nicht auf einem Namen aufsetzt, den es
+nur auf dem Entwicklungsrechner gibt.
+
+**Seit dem 14.10.2026 baut das die CI**
+([`.github/workflows/abbilder.yml`](../.github/workflows/abbilder.yml)), von
+Hand angestossen über *Actions → Abbilder → Run workflow*. Der Workflow baut
+beide Abbilder, schiebt sie, holt sie zurück, prüft Plattform und
+`GIT_COMMIT` gegen den gebauten Stand und legt die zwei fertigen `.env`-Zeilen
+in die Job-Zusammenfassung. Der Lauf trägt sie **nicht** auf `srv01` ein: Wer
+den Bau startet, entscheidet auch, wann der Stapel umgestellt wird, und ein
+Workflow mit Schreibzugriff auf den Server wäre ein zweiter Weg hinein.
+Ein Zeitplan fehlt absichtlich — ein Abbildbau ist nur nötig, wenn wirklich
+umgestellt wird, und Minuten werden in einem privaten Repository verrechnet.
+
+Von Hand geht es weiter, und so sieht der Weg aus, den der Workflow abkürzt:
 
 ```bash
 echo $GHCR_TOKEN | docker login ghcr.io -u datenwerft --password-stdin
@@ -911,7 +924,12 @@ Der Entwicklungsrechner ist ein arm64-Mac, `srv01` läuft auf x86-64
 (AMD EPYC Genoa). Ein ohne Plattformangabe gebautes Abbild lässt sich
 anstandslos schieben und scheitert erst auf `srv01` beim Start mit
 `exec format error` — also nach Bau, Schieben und Holen. Gegenprobe vor dem
-Schieben: `docker image inspect --format='{{.Os}}/{{.Architecture}}'`.
+Schieben: `docker image inspect --format='{{.Os}}/{{.Architecture}}'`. Beim
+Bau von Hand ist das eine Angabe, die man vergisst; in der CI ist es die
+Maschine — der Runner ist x86-64 — und die Gegenprobe läuft als eigener
+Schritt, der zurückholt statt nur zu bauen und damit in einem Zug belegt, dass
+der Digest in der Registry liegt, dass er sich holen lässt und dass
+`linux/amd64` drinsteht.
 
 Die Marke trägt ein Datum und ist für Menschen; gepinnt wird der Digest, weil
 eine Marke sich umhängen lässt und ein Digest nicht. Die beiden Variablen
@@ -919,6 +937,15 @@ stehen samt dieser Begründung in [`.env.example`](../.env.example). Der
 Namensraum `ghcr.io/datenwerft` hängt am persönlichen Konto und nicht an der
 Organisation des Repositorys; die Pakete sind damit vorgabemäss privat, und
 `srv01` braucht ein eigenes Token mit `read:packages`, um sie zu holen.
+
+Dieselbe Trennung ist der Grund, warum die CI ein eigenes Secret braucht:
+Das eingebaute `GITHUB_TOKEN` darf nur Pakete des Repository-Eigentümers
+schreiben, also unter `ghcr.io/artanmusollaj-ops`. Der Workflow meldet sich
+deshalb mit `GHCR_TOKEN` an — demselben Token mit `write:packages`, mit dem
+auch der Bau von Hand sich anmeldet, hinterlegt unter *Settings → Secrets and
+variables → Actions*. Fehlt es, bricht der Workflow im ersten Schritt ab und
+sagt das; er baut nicht erst zwanzig Minuten und scheitert dann an der
+Anmeldung.
 
 **Warum es das Abbild überhaupt braucht.** Das Strecken-Abbild taugt nicht
 als Notebook-Server: `requirements.lock` trägt `ipykernel` und `nbconvert`,
