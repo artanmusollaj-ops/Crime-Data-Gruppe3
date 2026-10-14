@@ -257,13 +257,13 @@ ARTEN = {
     "esql_tabelle": "lnsDatatable",
     # Zwei Achsen und eine Farbe dazwischen - "Wochentag x Tagesstunde".
     #
-    # **Warum nur als ES|QL-Art.** Der Wochentag steht in keiner Spalte:
-    # ``gold/fact_offense`` traegt ``hour_of_day``, aber kein
-    # ``day_of_week``. Ihn als Gold-Spalte nachzuziehen hiesse, fuenf
-    # Register mitzufuehren (AGENTS.md) fuer eine Groesse, die sich aus
-    # ``occurred_at_local`` ableiten laesst; ES|QL rechnet sie mit
-    # ``DATE_EXTRACT`` beim Lesen. Eine Eimer-Variante gaebe es also gar
-    # nicht zu fuellen.
+    # **Warum nur als ES|QL-Art.** Die beiden Achsen stehen in zwei
+    # Tabellen: ``hour_of_day`` in ``fact_offense``, ``day_name`` und
+    # ``day_of_week`` in ``dim_date``. Genau dafuer gibt es die
+    # Datumsdimension - nachgerechnet wird der Wochentag nirgends. Lens'
+    # ``formBased`` liest aber **eine** Datenansicht und kann nicht
+    # verbinden; ES|QL kann es mit ``LOOKUP JOIN dim_date ON date``. Eine
+    # Eimer-Variante gaebe es also gar nicht zu fuellen.
     "esql_heatmap": "lnsHeatmap",
 }
 
