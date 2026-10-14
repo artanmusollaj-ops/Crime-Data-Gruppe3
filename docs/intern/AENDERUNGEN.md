@@ -156,7 +156,10 @@ anderem Plattformangabe entfernt, `BASIS` per Marke statt Digest, Anmeldung
 mit `GITHUB_TOKEN`, `ssh srv01` eingebaut — wurden alle entdeckt.
 
 **Zahlen.** 1'961 → **1'973 Tests** (zwölf neue), Standardlauf 1'853 →
-**1'865**, Referenzwächter unverändert **108**. Mitgezogen in README,
+**1'865**, Referenzwächter unverändert **108**. Frischklon **1'830 der
+1'865** — gemessen in einem lokalen Klon des Branches, in dem `data/` nur die
+vier `.gitkeep` trägt; alle zwölf neuen Wächter lesen Repository-Dateien und
+laufen dort mit. Mitgezogen in README,
 `ln2_konzept.md`, `architektur-ist-und-ziel.md`, `leistungsnachweise.md` und
 dem Einseiter — zehn Stellen. Nicht mitgezogen, weil historisch: die
 Zahlenzeile des Eintrags zu #149. Die Kommentare in `tests.yml` und
