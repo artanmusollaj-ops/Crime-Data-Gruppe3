@@ -59,7 +59,7 @@ import re
 import urllib.error
 import urllib.request
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -112,6 +112,18 @@ ZEITFELD = "occurred_at_utc"
 
 #: Lens nennt die Zeilenzahl so. Kein Feld im Index - ein Platzhalter.
 ZEILEN = "___records___"
+
+#: Das ``links``-Objekt, das auf jedem Brett oben liegt und auf die uebrigen
+#: zeigt - Kibanas naechster Verwandter zur Reiterleiste des Entwurfs.
+#: Einmal angelegt, von jedem Brett verwiesen.
+NAVIGATION = "crime-navigation"
+
+#: Wie die Navigationskachel auf jedem Brett heisst. Fest, weil jedes Brett
+#: hoechstens eine traegt und zwei gleiche Kennungen auf einem Brett einander
+#: wortlos ueberschrieben.
+NAVIGATION_PANEL = "p-navigation"
+
+NAVIGATION_TITEL = "Urban Crime — die Bretter"
 
 #: Bis hierher zaehlt ``cardinality`` exakt, darueber schaetzt es. Gemessen
 #: liegen die beiden Kacheln, die es benutzen, bei 1'146 Tracts und 429
@@ -243,12 +255,26 @@ ARTEN = {
     # ``textBased`` statt ``formBased``. Eine eigene Art und kein Schalter an
     # ``tabelle``, weil die beiden nichts gemeinsam haben ausser dem Aussehen.
     "esql_tabelle": "lnsDatatable",
+    # Zwei Achsen und eine Farbe dazwischen - "Wochentag x Tagesstunde".
+    #
+    # **Warum nur als ES|QL-Art.** Der Wochentag steht in keiner Spalte:
+    # ``gold/fact_offense`` traegt ``hour_of_day``, aber kein
+    # ``day_of_week``. Ihn als Gold-Spalte nachzuziehen hiesse, fuenf
+    # Register mitzufuehren (AGENTS.md) fuer eine Groesse, die sich aus
+    # ``occurred_at_local`` ableiten laesst; ES|QL rechnet sie mit
+    # ``DATE_EXTRACT`` beim Lesen. Eine Eimer-Variante gaebe es also gar
+    # nicht zu fuellen.
+    "esql_heatmap": "lnsHeatmap",
 }
 
 #: Die Arten, die ihre Frage in ES|QL stellen statt in Eimern. Als Menge, weil
 #: eine zweite dazukommen kann (ein ES|QL-Balken etwa) und dann jede
 #: Verzweigung von selbst mitzieht.
-ESQL_ARTEN = frozenset({"esql_tabelle"})
+ESQL_ARTEN = frozenset({"esql_tabelle", "esql_heatmap"})
+
+#: Was eine Heatmap an Spalten braucht: x, y, Wert - in dieser Reihenfolge.
+#: Als Konstante, damit die Pruefung und die Darstellung dieselbe Zahl lesen.
+HEATMAP_SPALTEN = 3
 
 
 @dataclass(frozen=True)
@@ -460,6 +486,16 @@ class Tafel:
                     f"{self.kennung}: die Kachel nennt den Ausschluss "
                     f"'{a.text[:60]}…', ihre Abfrage vollzieht ihn aber "
                     f"nicht - '{a.beleg}' steht nicht darin.")
+        # Eine Heatmap ohne zweite Achse waere eine eingefaerbte Zeile, eine
+        # mit vier Spalten liesse eine davon unsichtbar. Kibana importiert
+        # beides klaglos; der Fehler faellt erst beim Oeffnen auf,
+        # moeglicherweise vor Publikum.
+        if (self.art == "esql_heatmap"
+                and len(self.abfrage.spalten) != HEATMAP_SPALTEN):
+            raise LadeFehler(
+                f"{self.kennung}: eine Heatmap braucht genau "
+                f"{HEATMAP_SPALTEN} Spalten (x, y, Wert), die Abfrage "
+                f"liefert {len(self.abfrage.spalten)}.")
         if self.zeigt_rate and not (self.nenner and self.jahr):
             raise LadeFehler(
                 f"{self.kennung}: eine Rate braucht ihren Nenner und ihr "
@@ -545,6 +581,25 @@ class Tafel:
                 "metrics": [self.kennzahl.kennung],
                 "numberDisplay": "percent", "categoryDisplay": "default",
                 "legendDisplay": "default", "nestedLegend": False}]}
+        if self.art == "esql_heatmap":
+            assert self.abfrage is not None
+            x, y, wert = (s.kennung for s in self.abfrage.spalten)
+            return {
+                "shape": "heatmap", "layerId": self.schicht,
+                "layerType": "data",
+                "xAccessor": x, "yAccessor": y, "valueAccessor": wert,
+                "legend": {"isVisible": True, "position": "right",
+                           "type": "heatmap_legend"},
+                # Keine Zahl in jede Zelle: Bei 7 x 24 Zellen sind das 168
+                # Beschriftungen, die das Muster zudecken, das die Kachel
+                # zeigen soll.
+                "gridConfig": {"type": "heatmap_grid",
+                               "isCellLabelVisible": False,
+                               "isXAxisLabelVisible": True,
+                               "isYAxisLabelVisible": True,
+                               "isXAxisTitleVisible": False,
+                               "isYAxisTitleVisible": False},
+            }
         reihe = "bar_stacked" if self.art == "balken" else "line"
         schicht: dict[str, Any] = {
             "layerId": self.schicht, "accessors": [self.kennzahl.kennung],
@@ -588,6 +643,45 @@ class Tafel:
 
 
 @dataclass(frozen=True)
+class Steuerung:
+    """Ein Auswahlfeld ueber dem Brett - Kibanas ``optionsListControl``.
+
+    Der Entwurf von Artan setzt drei davon ueber jedes Brett: *Stadt*,
+    *Zeitraum*, *Kategorie*. Zwei davon sind hier; **den Zeitraum gibt es
+    nicht als Steuerung**, weil Kibana ihn ohnehin oben in der Leiste fuehrt.
+    Ein zweites Zeitfeld daneben waere eine zweite Wahrheit: Wer den einen
+    stellt und den anderen vergisst, liest eine Zahl fuer einen Zeitraum, den
+    er nicht gewaehlt hat.
+
+    Eine Steuerung filtert **alle** Kacheln des Bretts gleichzeitig. Sie
+    gehoert deshalb ans Brett und nicht an die Tafel.
+    """
+
+    kennung: str
+    #: Das Feld, ueber das ausgewaehlt wird. Muss im Index stehen;
+    #: ``pruefe_steuerung`` haelt es gegen ``load_elasticsearch``.
+    feldname: str
+    titel: str
+    #: ``small``, ``medium`` oder ``large`` - Kibanas eigene Stufen.
+    breite: str = "medium"
+
+    @property
+    def panel(self) -> dict[str, Any]:
+        return {
+            "type": "optionsListControl", "grow": True, "width": self.breite,
+            "explicitInput": {
+                "id": self.kennung, "fieldName": self.feldname,
+                "title": self.titel, "enhancements": {},
+                "searchTechnique": "prefix", "selectedOptions": [],
+            },
+        }
+
+    @property
+    def verweisname(self) -> str:
+        return f"controlGroup_{self.kennung}:optionsListDataView"
+
+
+@dataclass(frozen=True)
 class Brett:
     """Ein Dashboard."""
 
@@ -596,7 +690,26 @@ class Brett:
     beschreibung: str
     tafeln: tuple[Tafel, ...]
     #: Wird beim Bauen aus dem Release gefuellt, siehe ``zeitfenster``.
+    #:
+    #: **Bleibt das fuenfte Feld.** Mehrere Tests bauen ein ``Brett`` nach
+    #: Position; ein neues Feld davor liesse das Zeitfenster still in der
+    #: falschen Spalte landen. Alles Neue kommt dahinter.
     zeitraum: tuple[str, str] = ("", "")
+    #: Die Auswahlfelder ueber den Kacheln. Leer heisst: kein Steuerbereich.
+    steuerungen: tuple[Steuerung, ...] = ()
+    #: Traegt dieses Brett die Navigation zu den anderen?
+    #:
+    #: Kibana kennt keine Reiterleiste ueber mehreren Dashboards, wie der
+    #: Entwurf sie zeigt. Am naechsten kommt ein ``links``-Objekt (ab 8.15),
+    #: das als Kachel auf jedem Brett liegt und auf die uebrigen zeigt. Es
+    #: wird **einmal** angelegt und von jedem Brett verwiesen.
+    #:
+    #: **Vorgabe aus, an den Brettern eingeschaltet.** Eingeschaltet erzeugt
+    #: ``dashboard_objekt`` einen Verweis auf ein Objekt, das nur
+    #: ``objekte()`` mitliefert. Ein von Hand gebautes Brett zeigte damit ins
+    #: Leere - und genau das hat ``test_kibana_nimmt_die_erzeugten_objekte_an``
+    #: beim ersten Anlauf gemeldet, zu Recht.
+    navigation: bool = False
 
 
 # --------------------------------------------------------------------------
@@ -1080,7 +1193,23 @@ def dashboard_objekt(brett: Brett) -> dict[str, Any]:
             f"Minuten und das Dashboard bleibt leer.")
 
     tafeln, verweise = [], []
+    # Die Navigation liegt oben und ueber die volle Breite - sie ist die
+    # Reiterleiste des Entwurfs, so weit Kibana sie zulaesst.
+    if brett.navigation:
+        tafeln.append({
+            "version": FASSUNG, "type": "links",
+            "gridData": {"x": 0, "y": 0, "w": RASTER, "h": 4,
+                         "i": NAVIGATION_PANEL},
+            "panelIndex": NAVIGATION_PANEL,
+            "embeddableConfig": {"enhancements": {}},
+            "panelRefName": f"panel_{NAVIGATION_PANEL}",
+        })
+        verweise.append({
+            "name": f"{NAVIGATION_PANEL}:panel_{NAVIGATION_PANEL}",
+            "type": "links", "id": NAVIGATION})
+    versatz = 4 if brett.navigation else 0
     for tafel, platz in zip(brett.tafeln, raster(brett.tafeln)):
+        platz = {**platz, "y": platz["y"] + versatz}
         nummer = f"p-{tafel.kennung}"
         tafeln.append({
             "version": FASSUNG, "type": "lens",
@@ -1091,22 +1220,80 @@ def dashboard_objekt(brett: Brett) -> dict[str, Any]:
         verweise.append({"name": f"{nummer}:panel_{nummer}", "type": "lens",
                          "id": lens_objekt(tafel, brett.kennung)["id"]})
 
+    merkmale: dict[str, Any] = {
+        "title": brett.titel,
+        "description": brett.beschreibung,
+        "panelsJSON": json.dumps(tafeln, ensure_ascii=False),
+        "optionsJSON": json.dumps(
+            {"useMargins": True, "syncColors": False,
+             "syncCursor": True, "syncTooltips": False,
+             "hidePanelTitles": False}),
+        # Ohne das steht beim Oeffnen "letzte 15 Minuten" - und unsere
+        # Daten enden am 31.12.2024.
+        "timeRestore": True, "timeFrom": von, "timeTo": bis,
+        "kibanaSavedObjectMeta": {"searchSourceJSON": json.dumps(
+            {"query": {"language": "kuery", "query": ""}, "filter": []})},
+    }
+
+    if brett.steuerungen:
+        merkmale["controlGroupInput"] = {
+            # HIERARCHICAL: Die zweite Auswahl zeigt nur noch, was zur ersten
+            # passt. Waehlt jemand Detroit, bietet "Kategorie" keine
+            # Deliktart an, die es dort nicht gibt - eine leere Kachel nach
+            # zwei Klicks waere sonst der Normalfall.
+            "chainingSystem": "HIERARCHICAL",
+            "controlStyle": "oneLine",
+            # Sofort filtern statt auf einen Knopf zu warten: Bei zwei
+            # Feldern ist ein Bestaetigen mehr Weg als Nutzen.
+            "showApplySelections": False,
+            "ignoreParentSettingsJSON": json.dumps(
+                {"ignoreFilters": False, "ignoreQuery": False,
+                 "ignoreTimerange": False, "ignoreValidations": False}),
+            "panelsJSON": json.dumps(
+                {s.kennung: {**s.panel, "order": i}
+                 for i, s in enumerate(brett.steuerungen)},
+                ensure_ascii=False),
+        }
+        verweise.extend(
+            {"name": s.verweisname, "type": "index-pattern", "id": ANSICHT}
+            for s in brett.steuerungen)
+
     return {
         "type": "dashboard", "id": brett.kennung,
-        "attributes": {
-            "title": brett.titel,
-            "description": brett.beschreibung,
-            "panelsJSON": json.dumps(tafeln, ensure_ascii=False),
-            "optionsJSON": json.dumps(
-                {"useMargins": True, "syncColors": False,
-                 "syncCursor": True, "syncTooltips": False,
-                 "hidePanelTitles": False}),
-            # Ohne das steht beim Oeffnen "letzte 15 Minuten" - und unsere
-            # Daten enden am 31.12.2024.
-            "timeRestore": True, "timeFrom": von, "timeTo": bis,
-            "kibanaSavedObjectMeta": {"searchSourceJSON": json.dumps(
-                {"query": {"language": "kuery", "query": ""}, "filter": []})},
-        },
+        "attributes": merkmale,
+        "references": verweise,
+    }
+
+
+def navigation_objekt(bretter: tuple[Brett, ...]) -> dict[str, Any]:
+    """Die Reiterleiste, so weit Kibana sie kann.
+
+    Ein ``links``-Objekt mit einem Eintrag je Brett, waagerecht, als Kachel
+    oben auf jedem Brett. Es ersetzt die Kopfleiste des Entwurfs nicht - es
+    nimmt ihr aber den Zweck ab, naemlich mit einem Klick auf dem naechsten
+    Thema zu sein statt ueber die Dashboard-Liste.
+
+    **Einmal angelegt, von allen verwiesen.** Je Brett ein eigenes Objekt
+    haette dieselbe Liste fuenfmal gefuehrt; wer ein Brett umbenennt, haette
+    vier Stellen zu pflegen und drei davon vergessen.
+    """
+    eintraege, verweise = [], []
+    for nummer, brett in enumerate(bretter):
+        kennung = f"link-{brett.kennung}"
+        ziel = f"{kennung}_dashboard"
+        eintraege.append({
+            "id": kennung, "type": "dashboardLink", "order": nummer,
+            "destinationRefName": ziel,
+            # Der Titel des Bretts, nicht ein zweiter daneben: Sonst heisst
+            # der Reiter anders als die Seite, auf der man landet.
+            "label": brett.titel.split(" — ")[0],
+        })
+        verweise.append({"name": ziel, "type": "dashboard",
+                         "id": brett.kennung})
+    return {
+        "type": "links", "id": NAVIGATION,
+        "attributes": {"title": NAVIGATION_TITEL, "links": eintraege,
+                       "layout": "horizontal"},
         "references": verweise,
     }
 
@@ -1130,8 +1317,14 @@ def zeitfenster(datenwurzel: Path) -> tuple[str, str]:
 
 
 def objekte(bretter: tuple[Brett, ...]) -> list[dict[str, Any]]:
-    """Alles, was angelegt wird - Datenansicht, Tafeln, Bretter."""
+    """Alles, was angelegt wird - Datenansicht, Navigation, Tafeln, Bretter."""
     alle: list[dict[str, Any]] = [datenansicht()]
+    # Die Navigation zeigt auf alle Bretter, und jedes Brett zeigt auf sie
+    # zurueck. Der Ring ist Absicht und kein Versehen: Kibana prueft Verweise
+    # beim Anlegen nicht, und ``pruefe_verweise`` sieht beide Seiten in
+    # derselben Ladung.
+    if any(b.navigation for b in bretter):
+        alle.append(navigation_objekt(bretter))
     for brett in bretter:
         alle.extend(lens_objekt(t, brett.kennung) for t in brett.tafeln)
         alle.append(dashboard_objekt(brett))
@@ -1227,9 +1420,10 @@ def main(argv: list[str] | None = None) -> int:
     from storage import for_root
 
     fenster = zeitfenster(for_root(args.data_root).local_root)
-    bretter = tuple(
-        Brett(b.kennung, b.titel, b.beschreibung, b.tafeln, fenster)
-        for b in BRETTER)
+    # Mit Namen und nicht nach Position: Ein Feld mehr an ``Brett`` liesse
+    # das Zeitfenster sonst still in der falschen Spalte landen - und ein
+    # Brett ohne Zeitfenster faellt erst beim Oeffnen auf.
+    bretter = tuple(replace(b, zeitraum=fenster) for b in BRETTER)
     alle = objekte(bretter)
 
     if args.trocken:
