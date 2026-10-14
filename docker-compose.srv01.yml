@@ -22,7 +22,12 @@
 # Compose aus der ignorierten .env des Stapels (FR-18); diese Datei nennt nur
 # Namen. Eine Variable, die dort fehlt, wird nicht in den Container gegeben -
 # und CENSUS_API_KEY faellt dann vor dem Lauf auf, nicht bei Stufe 5 von 14
-# (FR-19).
+# (FR-19). **Das stimmte bis zum 12.10.2026 nicht.** Der Anstoss feuerte an
+# jenem Tag zum ersten Mal und brach nach einer halben Stunde ab: Der
+# Volllauf ruft die Pipelines einzeln, und die Pruefung sass dort, wo der
+# Schluessel gebraucht wird. Chicago und Detroit waren da geladen und
+# publiziert. Seither steht `orchestration.vorpruefung` als erste Zeile in
+# docker/srv01-datenlauf.sh, und ein Test haelt die Reihenfolge.
 #
 # **Was diese Datei nicht leisten kann** und was deshalb daneben eingerichtet
 # werden muss, steht in docs/storage-architektur.md, Abschnitt 16: die

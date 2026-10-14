@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 648" role="img" width="100%" height="auto"
-     aria-label="Komponenten und Beziehungen der Plattform: 5 öffentliche Quellen speisen 4 Schichten, gesteuert von 5 Modulen unter orchestration; abgelegt lokal unter data/, optional auf SeaweedFS, veröffentlicht als Release. Entwickelt mit Python, DuckDB 1.5.5, pytest und ruff.">
+     aria-label="Komponenten und Beziehungen der Plattform: 5 öffentliche Quellen speisen 4 Schichten, gesteuert von 6 Modulen unter orchestration; abgelegt lokal unter data/, optional auf SeaweedFS, veröffentlicht als Release. Entwickelt mit Python, DuckDB 1.5.5, pytest und ruff.">
 <style>
   svg { color: #14304a; }
   .signal { fill: #c2410c; }
@@ -69,17 +69,18 @@
   <line x1="414" y1="400" x2="414" y2="418" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" marker-end="url(#pfeil)"/>
   <rect x="318" y="280" width="636" height="196" rx="7" fill="none" stroke="currentColor" stroke-opacity="0.28" stroke-width="1" stroke-dasharray="2 4"/>
   <text x="318" y="492" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">DuckDB 1.5.5 — Verarbeitungsengine (silver, gold) und SQL-Zugang (serving)</text>
-  <rect x="26" y="242" width="250" height="111" rx="7" fill="currentColor" fill-opacity="0.028" stroke="currentColor" stroke-opacity="0.35" stroke-width="1" stroke-dasharray="5 4"/>
+  <rect x="26" y="242" width="250" height="128" rx="7" fill="currentColor" fill-opacity="0.028" stroke="currentColor" stroke-opacity="0.35" stroke-width="1" stroke-dasharray="5 4"/>
   <text x="26" y="236" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="0.8">Steuerung</text>
   <text x="38" y="262" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">orchestration.aufraeumen</text>
   <text x="38" y="279" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">orchestration.drift</text>
   <text x="38" y="296" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">orchestration.platzbedarf</text>
   <text x="38" y="313" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">orchestration.release</text>
   <text x="38" y="330" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">orchestration.run_all</text>
+  <text x="38" y="347" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">orchestration.vorpruefung</text>
   <line x1="280" y1="252" x2="326" y2="246" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" stroke-dasharray="4 3" marker-end="url(#pfeil)"/>
   <line x1="280" y1="312" x2="326" y2="312" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" stroke-dasharray="4 3" marker-end="url(#pfeil)"/>
-  <line x1="280" y1="343" x2="326" y2="378" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" stroke-dasharray="4 3" marker-end="url(#pfeil)"/>
-  <line x1="280" y1="343" x2="326" y2="444" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" stroke-dasharray="4 3" marker-end="url(#pfeil)"/>
+  <line x1="280" y1="360" x2="326" y2="378" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" stroke-dasharray="4 3" marker-end="url(#pfeil)"/>
+  <line x1="280" y1="360" x2="326" y2="444" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.1" stroke-dasharray="4 3" marker-end="url(#pfeil)"/>
   <rect x="26" y="522" width="928" height="72" rx="7" fill="currentColor" fill-opacity="0.028" stroke="currentColor" stroke-opacity="0.35" stroke-width="1" stroke-dasharray="5 4"/>
   <text x="26" y="516" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="0.8">Speicherorte</text>
   <g>
