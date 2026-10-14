@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'974** |
+| Tests | **2'011** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -182,9 +182,47 @@ Gefunden am 14.10.2026 beim ersten Gold-Bau gegen SeaweedFS. Jetzt über
 hält es fest; die Mutationsprobe mit dem alten Code fällt mit genau der
 echten Meldung.
 
-**Zahlen.** 1'973 → **1'974 Tests** (einer neu), Standardlauf 1'865 →
-**1'866**, Referenzwächter unverändert **108**. Frischklon **1'831 der
-1'866** — gemessen in einem lokalen Klon des Branches. Gold 85,6 → **85,7 MB**,
+**Die drei fehlenden Bretter stehen.** `crime-zeitverlauf` (Verlauf je
+Monat als Linie, Heatmap Wochentag × Tagesstunde, Fälle je Jahrgang),
+`crime-geografie` (je Stadt eine Choroplethenkarte, dazu die zwanzig höchsten
+Raten als Tabelle) und `crime-deliktstruktur` (Zahlen und Anteile
+nebeneinander, dazu die häufigsten NIBRS-Codes). Die vier bestehenden Bretter
+bleiben unangetastet — sie sind bewährt und bewacht, und Kacheln zu
+verschieben hätte Risiko ohne Gewinn gebracht. Alle sieben tragen jetzt die
+Links-Navigation, drei tragen Steuerelemente.
+
+**Ein Befund aus dem Blick auf die Heatmap, der mehr wert ist als die Kachel.**
+Stunde 0 und Stunde 12 sind an allen sieben Wochentagen gleichmässig stark —
+kein Tagesrhythmus, sondern ein Platzhalter für eine unbekannte Tatzeit.
+Nachgemessen: Stunde 0 trägt **128'595 Fälle (7,04 %)**, Stunde 12
+**106'277 (5,82 %)**; gleichverteilt wären 4,17 %. Beide Städte zeigen es
+(Chicago 79'586 um 12 Uhr gegen 60'962 um 11 und 62'537 um 13; Detroit 26'691
+gegen 17'862 und 18'988). Ohne diesen Vermerk liest jemand aus der Kachel
+„die meisten Taten passieren um Mitternacht". Der Vorbehalt steht jetzt an
+der Kachel, und `test_die_heatmap_nennt_die_ueberbesetzten_stunden` misst ihn
+nach.
+
+**Vier Wächter mussten die neuen Arten erst lernen** — und einer war dabei
+still wertlos geworden: `test_eine_esql_tafel_hat_keine_search_aggregation`
+griff auf `BRETTER[-1].tafeln[0]`, und das ist seit den neuen Brettern ein
+Balken statt einer ES|QL-Tafel. Der Test lief weiter und prüfte nichts mehr;
+er **sucht** die Tafel jetzt, statt sie zu zählen.
+
+**Was gegen das echte Elasticsearch belegt ist.** Die Tests fragen live
+(`localhost:19200`), und sie meldeten zuerst genau das Erwartete: *„Lookup
+Join requires a single lookup mode index; [dim_date] resolves to … in
+[standard] mode"*. Nach `nachschlag=True` und einem Neuladen läuft der
+Verbund. Die Karte zeichnete beim ersten Bau Chicagos Tracts in abgestuften
+Blautönen — die Verbundschlüssel treffen sich also wirklich. **Danach blieb
+sie leer**, samt Hintergrundkarte und auch einzeln geöffnet; die Ursache ist
+offen und in der Rückstellliste festgehalten, der Verdacht liegt bei der
+Kibana-Instanz und nicht bei der Konfiguration.
+
+**Zahlen.** 1'973 → **2'011 Tests**, Standardlauf 1'865 → **1'902**,
+Referenzwächter **108 → 109**. Der grösste Teil des Zuwachses sind keine
+neuen Testfunktionen, sondern dieselben Wächter über mehr Kacheln: Drei
+Bretter mit zusammen neun Tafeln kommen dazu, und sieben Wächter laufen je
+Tafel. Gold 85,6 → **85,7 MB**,
 serving 1,2 → **1,3 MB**, `releases` 433,7 → **795,8 MB** — zwei neue
 Releases (`2026-10-14T14-33-03Z` und `2026-10-14T16-40-30Z`) sind
 dazugekommen, die gepinnten bleiben unberührt. Neu gebaut, weil erzeugt:

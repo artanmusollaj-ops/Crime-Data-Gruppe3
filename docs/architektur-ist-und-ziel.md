@@ -231,10 +231,10 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'974 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Pull Request** | 2'011 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
 | **Frischer Klon** | 1'831 davon — die übrigen 35 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 108 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
-| **Referenzstand** | 108 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
+| **Referenzstand** | 109 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
 Der letzte Punkt ist die interessanteste Entscheidung: Die Quellen bewegen
 sich. Ein Test, der die dokumentierte Zahl gegen den frischen Stand hält, wäre
@@ -649,7 +649,7 @@ abgelaufen.
 
 **Zu den Zahlen.** Teil A nennt den **Referenzstand** — den Bau vom 4.10.2026,
 16:50 UTC über die Jahrgänge 2021–2026 (Release `2026-10-04T16-50-47Z`), auf
-den sich alle Abgabedokumente beziehen und den 108 Wächter mit dem Marker
+den sich alle Abgabedokumente beziehen und den 109 Wächter mit dem Marker
 `referenzstand` gegen die Parquet-Dateien halten. Wie weit ein frischer Lauf
 davon abweicht, weist `orchestration.drift` je Grösse aus; die Zahlen der
 Abgabe werden nachgezogen, wenn die Drift eine Toleranz überschreitet, nicht

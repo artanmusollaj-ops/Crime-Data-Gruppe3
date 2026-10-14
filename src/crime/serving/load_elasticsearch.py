@@ -308,6 +308,14 @@ INDIZES: tuple[Index, ...] = (
         verteilung=("day_name", "month_name"),
         # Kein Volltext: ``day_name`` und ``month_name`` sind Aufzaehlungen
         # mit sieben beziehungsweise zwoelf Werten, keine Sprache.
+        #
+        # Nachschlag seit dem 14.10.2026: Die Heatmap "Wochentag x
+        # Tagesstunde" braucht beide Achsen, und sie stehen in zwei Tabellen -
+        # ``hour_of_day`` in ``fact_offense``, ``day_name`` hier. Genau dafuer
+        # gibt es die Datumsdimension; nachgerechnet wird der Wochentag
+        # nirgends. Lens' ``formBased`` kann nicht verbinden, ES|QL kann es
+        # mit ``LOOKUP JOIN dim_date ON date``.
+        nachschlag=True,
     ),
     Index(
         name="dim_city_day",

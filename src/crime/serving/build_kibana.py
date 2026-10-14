@@ -130,6 +130,27 @@ NAVIGATION_TITEL = "Urban Crime — die Bretter"
 #: filterte jede Flaeche weg, sobald das Brett sein Fenster setzt.
 ANSICHT_FLAECHEN = "crime-dim-tract-geo"
 
+#: Je Stadt ein Ausschnitt - und deshalb je Stadt eine Karte.
+#:
+#: **Eine gemeinsame Karte waere das Naheliegende und ist unbrauchbar.** Am
+#: 14.10.2026 im Browser gemessen: Zwischen Chicago und Detroit liegen 4,4
+#: Laengengrade, jede Stadt ist aber nur 0,4 breit. Ein Ausschnitt, der beide
+#: fasst, zeigt zwei Flecken von je 50 Pixeln - zu sehen ist, *dass* dort
+#: etwas liegt, nicht *wo es hoeher ist*. Artans Entwurf stellt dieselben
+#: zwei Karten nebeneinander, aus demselben Grund.
+#:
+#: Mitte und Zoom sind aus den gemessenen Grenzen der Umrisse gerechnet:
+#: Chicago -87,96…-87,52 / 41,64…42,02, Detroit -83,29…-82,91 / 42,26…42,45.
+#:
+#: **Kein Eintrag, kein Bau.** Kommt eine dritte Stadt nach
+#: ``silver_pipeline.STUDIENSTAEDTE``, bricht ``karte_objekt`` ab und nennt
+#: sie - geraten wird hier nichts, und eine Karte mit falschem Ausschnitt
+#: zeigt leere Flaechen statt einer Fehlermeldung.
+KARTE_JE_STADT: dict[str, dict[str, float]] = {
+    "chicago": {"lat": 41.83, "lon": -87.74, "zoom": 8},
+    "detroit": {"lat": 42.35, "lon": -83.10, "zoom": 8},
+}
+
 #: Die Datenansicht auf die fertige Rate je Tract. Ebenfalls ohne Zeitfeld -
 #: die Tabelle gilt fuer genau ein Bezugsjahr und traegt kein Datum.
 ANSICHT_RATEN = "crime-rate-tract"
@@ -258,6 +279,12 @@ ARTEN = {
     "zahl": "lnsMetric",
     "balken": "lnsXY",
     "linie": "lnsXY",
+    # Gestapelt auf 100 Prozent - die Frage "wie teilt sich das auf", nicht
+    # "wie viel ist es". Der Entwurf stellt beide nebeneinander, und das ist
+    # der Punkt: Detroit hat weniger Delikte und einen hoeheren Anteil
+    # Diebstahl. Eine Kachel allein beantwortet immer nur eine der beiden
+    # Fragen.
+    "anteilsbalken": "lnsXY",
     "ring": "lnsPie",
     "tabelle": "lnsDatatable",
     # Dieselbe Darstellung wie ``tabelle``, aber eine andere Datenquelle:
@@ -434,6 +461,9 @@ class Tafel:
     #: Getrennt von ``ausschluesse``, weil dort jeder Eintrag einen Beleg in
     #: der Abfrage braucht und ein Vorbehalt keinen haben kann.
     vorbehalte: tuple[str, ...] = ()
+    #: Welche Stadt diese Karte zeigt. Nur fuer ``art="karte"``; sie waehlt
+    #: den Ausschnitt aus ``KARTE_JE_STADT`` und filtert die Schicht.
+    stadt: str = ""
     #: Das Jahr, fuer das die Zahl gilt. Pflicht, sobald eine Rate dabei ist:
     #: Sechs Jahrgaenge auf einen Jahresnenner ergeben 500,7 je 1'000 - keine
     #: zu hohe Rate, sondern keine.
@@ -462,7 +492,8 @@ class Tafel:
                 raise LadeFehler(
                     f"{self.kennung}: Eine Zahl zeigt einen Wert und "
                     f"gruppiert nicht.")
-            if self.art in ("balken", "linie", "ring") and not self.eimer:
+            if (self.art in ("balken", "linie", "ring", "anteilsbalken")
+                    and not self.eimer):
                 raise LadeFehler(
                     f"{self.kennung}: '{self.art}' braucht mindestens eine "
                     f"Gruppierung, sonst ist es ein einzelner Balken.")
@@ -547,6 +578,12 @@ class Tafel:
             raise LadeFehler(
                 f"{self.kennung}: die Karte faerbt nach einer Rate und "
                 f"braucht ihren Nenner und ihr Jahr.")
+        if self.stadt not in KARTE_JE_STADT:
+            raise LadeFehler(
+                f"{self.kennung}: fuer '{self.stadt}' gibt es keinen "
+                f"Ausschnitt. Bekannt sind "
+                f"{', '.join(sorted(KARTE_JE_STADT))} - ein Eintrag in "
+                f"KARTE_JE_STADT fehlt, und geraten wird er nicht.")
 
     @property
     def ist_karte(self) -> bool:
@@ -558,7 +595,16 @@ class Tafel:
 
     @property
     def zeigt_rate(self) -> bool:
-        """Steht auf dieser Tafel eine Rate je 1'000 Einwohner?"""
+        """Steht auf dieser Tafel eine Rate je 1'000 Einwohner?
+
+        **Eine Karte zaehlt immer dazu.** Sie faerbt nach einer Rate, und
+        ``_pruefe_karte`` laesst sie ohne Nenner und Jahr gar nicht
+        entstehen. Haengte die Antwort nur an den Spalten einer Abfrage,
+        traege die Karte eine Rate, ohne als Ratenkachel zu gelten - und
+        jeder Waechter, der "wo stehen Raten" fragt, sähe sie nicht.
+        """
+        if self.ist_karte:
+            return True
         return self.abfrage is not None and any(
             s.ist_rate for s in self.abfrage.spalten)
 
@@ -658,7 +704,9 @@ class Tafel:
                                "isXAxisTitleVisible": False,
                                "isYAxisTitleVisible": False},
             }
-        reihe = "bar_stacked" if self.art == "balken" else "line"
+        reihe = {"balken": "bar_stacked",
+                 "anteilsbalken": "bar_percentage_stacked",
+                 "linie": "line"}[self.art]
         schicht: dict[str, Any] = {
             "layerId": self.schicht, "accessors": [self.kennzahl.kennung],
             "position": "top", "seriesType": reihe, "showGridlines": False,
@@ -952,6 +1000,31 @@ RATE_JE_TRACT = Abfrage(
     ),
 )
 
+_KALENDER = NACH_NAME["dim_date"].name
+
+#: Wann Faelle passieren - Wochentag mal Tagesstunde.
+#:
+#: **Der Wochentag wird nicht gerechnet, sondern nachgeschlagen.**
+#: ``gold/dim_date`` traegt ``day_name`` und ``day_of_week``; genau dafuer
+#: gibt es eine Datumsdimension. ``fact_offense.date`` zeigt darauf, und
+#: ``LOOKUP JOIN`` verbindet beide ueber den gleichnamigen Schluessel.
+#:
+#: Sortiert wird nach ``day_of_week`` und nicht nach ``day_name``: Alphabetisch
+#: begaenne die Woche am Freitag.
+HEATMAP_WOCHE_STUNDE = Abfrage(
+    esql=f"""FROM {_ZAEHLER}
+| WHERE counts_case
+| LOOKUP JOIN {_KALENDER} ON date
+| STATS faelle = COUNT(*) BY day_name, day_of_week, hour_of_day
+| SORT day_of_week, hour_of_day
+| KEEP day_name, hour_of_day, faelle""",
+    spalten=(
+        Spalte("day_name", "Wochentag", "string"),
+        Spalte("hour_of_day", "Lokale Tagesstunde"),
+        Spalte("faelle", "Fälle"),
+    ),
+)
+
 # Keine Division, sondern eine Zaehlung: ``population == 0`` heisst nicht
 # "sichere Gegend", sondern "hier wohnt niemand" - Flughaefen, Parks, Gewerbe.
 # Eine Rate waere dort nicht null, sondern undefiniert, und eine gezeigte Null
@@ -973,6 +1046,65 @@ TRACTS_OHNE_EINWOHNER = Abfrage(
     ),
 )
 
+
+#: Die Heatmap zaehlt Faelle, nicht Taten - ``counts_case`` vollzieht es.
+_NUR_FAELLE = Ausschluss(
+    "Taten, die nicht als eigener Fall zählen (Chicago erfasst je Fall nur "
+    "das schwerste Delikt, Detroit jedes)",
+    "counts_case")
+
+#: Die Stunde ist **lokale** Tatzeit und nicht UTC. Zwischen Chicago und
+#: Detroit liegt eine Stunde; auf einer UTC-Achse laege Detroits Abendspitze
+#: eine Stunde neben Chicagos, ohne dass das etwas ueber die Staedte sagte.
+_ORTSZEIT = (
+    "Die Stunde ist lokale Tatzeit (gold/fact_offense.hour_of_day), nicht "
+    "UTC — sonst läge Detroits Abendspitze eine Stunde neben Chicagos."
+)
+
+#: Mitternacht und Mittag sind ueberbesetzt - und zwar nicht, weil dann mehr
+#: passiert.
+#:
+#: Gemessen am Release 2026-10-14T16-40-30Z ueber alle Faelle: Stunde 0 traegt
+#: 128'595 (7,04 %), Stunde 12 traegt 106'277 (5,82 %); gleichverteilt waeren
+#: 4,17 %. Beide Staedte zeigen es - Chicago 79'586 um 12 Uhr gegen 60'962 um
+#: 11 und 62'537 um 13, Detroit 26'691 gegen 17'862 und 18'988. Das sind
+#: Platzhalter fuer eine unbekannte Tatzeit, kein Tagesrhythmus.
+#:
+#: Ohne diesen Vermerk liest jemand aus der Heatmap "die meisten Taten
+#: passieren um Mitternacht" - und das waere falsch.
+_PLATZHALTERSTUNDEN = (
+    "Mitternacht und Mittag sind überbesetzt: Stunde 0 trägt 7,0 % aller "
+    "Fälle, Stunde 12 trägt 5,8 % — gleichverteilt wären 4,2 %. Beide Städte "
+    "zeigen es. Das sind Platzhalter für eine unbekannte Tatzeit, kein "
+    "Tagesrhythmus."
+)
+
+#: Eine Rate aus einem kleinen Nenner schwankt stark. Der kleinste Tract der
+#: beiden Staedte hat 35 Einwohner; eine einzige Tat ergibt dort 28,6 je
+#: 1'000 - mehr als die hoechste Stadtrate, und sie bedeutet nichts.
+_KLEINE_NENNER = (
+    "Kleine Nenner schwanken stark: Der kleinste Tract mit Einwohnern hat 35, "
+    "der grösste 13'521 (2024). Eine einzelne Tat ergibt dort 28,6 je 1'000 — "
+    "die Spalte »Einwohner« steht deshalb daneben."
+)
+
+#: Die zwei Auswahlfelder aus Artans Entwurf, die Kibana fuehren kann.
+#: Den Zeitraum fuehrt Kibana oben in der Leiste; ein zweites Zeitfeld
+#: daneben waere eine zweite Wahrheit.
+_STEUERUNG = (
+    Steuerung("stadt", "reporting_city", "Stadt", "small"),
+    Steuerung("familie", "nibrs_family", "Deliktfamilie"),
+)
+
+#: Was der Entwurf an jeder Zeitreihe vermerkt und wir sonst unterschlagen
+#: wuerden: Ein Teiljahr darf nicht neben ein ganzes gestellt werden.
+#: ``dim_date.year_is_complete`` sagt je Tag, ob sein Jahrgang ganz vorliegt;
+#: 2026 liegt es nicht.
+_TEILJAHR = (
+    "2026 ist ein Teiljahr — der letzte Monat ist unvollständig, und ein "
+    "Rückgang am rechten Rand ist deshalb keiner. dim_date.year_is_complete "
+    "sagt je Tag, ob sein Jahrgang ganz vorliegt."
+)
 
 BRETTER: tuple[Brett, ...] = (
     Brett(
@@ -1004,6 +1136,7 @@ BRETTER: tuple[Brett, ...] = (
                          Eimer("stadt", "Stadt", "terms", "reporting_city", 5)),
                   breite=24, hoehe=15),
         ),
+        navigation=True,
     ),
     Brett(
         kennung="crime-datenqualitaet",
@@ -1032,6 +1165,7 @@ BRETTER: tuple[Brett, ...] = (
                          Eimer("stadt", "Stadt", "terms", "reporting_city", 5)),
                   breite=24, hoehe=15),
         ),
+        navigation=True,
     ),
     Brett(
         kennung="crime-volltext",
@@ -1059,6 +1193,7 @@ BRETTER: tuple[Brett, ...] = (
                          Eimer("stadt", "Stadt", "terms", "reporting_city", 5)),
                   breite=48, hoehe=20),
         ),
+        navigation=True,
     ),
     Brett(
         kennung="crime-raten",
@@ -1109,6 +1244,115 @@ BRETTER: tuple[Brett, ...] = (
                                 _MIT_EINWOHNERN),
                   jahr=RATENJAHR, breite=48, hoehe=8),
         ),
+        navigation=True,
+    ),
+
+    # ----------------------------------------------------------------
+    # Die drei Themen aus Artans Entwurf, die es noch nicht gab.
+    # ----------------------------------------------------------------
+
+    Brett(
+        kennung="crime-zeitverlauf",
+        titel="Zeitverlauf — wann es passiert",
+        beschreibung=(
+            "Saisonale Muster und die Tagesstunde. Gezählt werden **Fälle**, "
+            "nicht Taten: Chicago erfasst je Fall nur das schwerste Delikt, "
+            "Detroit jedes — ein Vergleich auf Tatebene misst diesen "
+            "Unterschied mit."),
+        tafeln=(
+            Tafel("verlauf", "Fälle je Monat, getrennt nach Stadt", "linie",
+                  _GESAMT,
+                  eimer=(Eimer("monat", "Monat", "date_histogram",
+                               "occurred_at_utc", intervall="1M"),
+                         Eimer("stadt", "Stadt", "terms", "reporting_city", 5)),
+                  breite=48, hoehe=15),
+            Tafel("woche_stunde", "Wochentag × lokale Tagesstunde",
+                  "esql_heatmap", abfrage=HEATMAP_WOCHE_STUNDE,
+                  frage=("Zu welcher Stunde welchen Wochentags passieren "
+                         "Fälle?"),
+                  ausschluesse=(_NUR_FAELLE,),
+                  vorbehalte=(_ORTSZEIT, _PLATZHALTERSTUNDEN, _TEILJAHR),
+                  breite=48, hoehe=20),
+            Tafel("je_jahr", "Fälle je Jahrgang und Stadt", "balken", _GESAMT,
+                  eimer=(Eimer("jahr", "Jahr", "date_histogram",
+                               "occurred_at_utc", intervall="1y"),
+                         Eimer("stadt", "Stadt", "terms", "reporting_city", 5)),
+                  breite=48, hoehe=15),
+        ),
+        steuerungen=_STEUERUNG,
+        navigation=True,
+    ),
+
+    Brett(
+        kennung="crime-geografie",
+        titel="Geografie — wo die Rate höher liegt",
+        beschreibung=(
+            "Die Karte färbt nach der **Rate je 1'000 Einwohner**, nicht nach "
+            "Fallzahlen, für den Jahrgang "
+            f"{RATENJAHR}. Der Grund ist gemessen: Die Einwohnerzahl je Tract "
+            "reicht von 35 bis 13'521 — eine Karte nach Fallzahlen zeigte vor "
+            "allem, wo viele Menschen wohnen."),
+        tafeln=(
+            # Je Stadt eine Karte, nebeneinander - wie im Entwurf. Eine
+            # gemeinsame zeigte zwei Flecken von je 50 Pixeln; die
+            # Begruendung samt Messung steht an ``KARTE_JE_STADT``.
+            *(Tafel(f"karte_{stadt}",
+                    f"{stadt.capitalize()} — Fälle je 1'000 Einwohner "
+                    f"je Tract, {RATENJAHR}",
+                    "karte", stadt=stadt,
+                    frage=(f"In welchen Tracts {stadt.capitalize()}s liegt "
+                           f"die Rate höher?"),
+                    nenner=_NENNERTEXT,
+                    ausschluesse=(_AUSSERHALB, _ANDERE_JAHRGAENGE,
+                                  _OHNE_EINWOHNER),
+                    vorbehalte=(_TATORT_NICHT_WOHNORT, _FALLEBENE_VORN,
+                                _KLEINE_NENNER),
+                    jahr=RATENJAHR, breite=24, hoehe=24)
+              for stadt in sorted(KARTE_JE_STADT)),
+            Tafel("hoechste", f"Die zwanzig höchsten Raten, {RATENJAHR}",
+                  "esql_tabelle", abfrage=RATE_JE_TRACT,
+                  frage=("Welche Tracts tragen die höchsten Raten — und mit "
+                         "wie vielen Einwohnern?"),
+                  nenner=_NENNERTEXT,
+                  ausschluesse=(_AUSSERHALB, _ANDERE_JAHRGAENGE,
+                                _OHNE_EINWOHNER),
+                  vorbehalte=(_TATORT_NICHT_WOHNORT, _FALLEBENE_VORN,
+                              _KLEINE_NENNER),
+                  jahr=RATENJAHR, breite=48, hoehe=20),
+        ),
+        steuerungen=(_STEUERUNG[1],),
+        navigation=True,
+    ),
+
+    Brett(
+        kennung="crime-deliktstruktur",
+        titel="Deliktstruktur — was sich unterscheidet",
+        beschreibung=(
+            "Zwei Fragen nebeneinander, weil eine Kachel immer nur eine "
+            "beantwortet: **wie viel** es ist (Zahlen) und **wie es sich "
+            "aufteilt** (Anteile). Detroit hat weniger Delikte und eine "
+            "andere Mischung."),
+        tafeln=(
+            Tafel("je_familie", "Fälle je Deliktfamilie und Stadt", "balken",
+                  _GESAMT,
+                  eimer=(Eimer("familie", "NIBRS-Familie", "terms",
+                               "nibrs_family", 10),
+                         Eimer("stadt", "Stadt", "terms", "reporting_city", 5)),
+                  breite=24, hoehe=20),
+            Tafel("anteil", "Anteil je Stadt — auf 100 % gestapelt",
+                  "anteilsbalken", _GESAMT,
+                  eimer=(Eimer("stadt", "Stadt", "terms", "reporting_city", 5),
+                         Eimer("familie", "NIBRS-Familie", "terms",
+                               "nibrs_family", 10)),
+                  breite=24, hoehe=20),
+            Tafel("codes", "Die häufigsten NIBRS-Codes je Stadt", "tabelle",
+                  _GESAMT,
+                  eimer=(Eimer("code", "NIBRS-Code", "terms", "nibrs_code", 20),
+                         Eimer("stadt", "Stadt", "terms", "reporting_city", 5)),
+                  breite=48, hoehe=20),
+        ),
+        steuerungen=_STEUERUNG,
+        navigation=True,
     ),
 )
 
@@ -1242,6 +1486,7 @@ def lens_objekt(tafel: Tafel, brett: str) -> dict[str, Any]:
 FLAECHEN_INDEX = NACH_NAME["dim_tract_geo"]
 RATEN_INDEX = NACH_NAME["rate_tract"]
 
+
 #: Welche Spalte die Karte einfaerbt, und wie sie aus ``rate_tract`` kommt.
 #:
 #: ``max`` und nicht ``avg``: ``rate_tract`` haelt **eine** Zeile je Tract,
@@ -1292,11 +1537,19 @@ def karte_objekt(tafel: Tafel, brett: str) -> dict[str, Any]:
     if not tafel.ist_karte:
         raise LadeFehler(f"{tafel.kennung}: keine Karte.")
 
+    ausschnitt = KARTE_JE_STADT[tafel.stadt]
     quelle = "layer_1_source_index_pattern"
     verbund = "layer_1_join_0_index_pattern"
     schicht = {
         "id": f"schicht-{tafel.kennung}",
         "label": tafel.titel,
+        # **Kein Stadtfilter auf der Schicht.** Beide Karten tragen alle
+        # 1'055 Flaechen; getrennt werden sie ueber den Ausschnitt, nicht
+        # ueber eine Abfrage. Am 14.10.2026 im Browser gemessen: Mit einem
+        # ``query`` an dieser Stelle blieb die Karte **leer** - und zwar ohne
+        # Fehlermeldung, was die schlechteste Art des Scheiterns ist. Die
+        # 500 Flaechen der anderen Stadt liegen ausserhalb des Bildes und
+        # kosten nichts, was sich messen liesse.
         "sourceDescriptor": {
             "type": "ES_SEARCH",
             "id": f"umrisse-{tafel.kennung}",
@@ -1350,9 +1603,19 @@ def karte_objekt(tafel: Tafel, brett: str) -> dict[str, Any]:
     }
 
     zustand = {
-        # Beide Staedte im Bild. Chicago und Detroit liegen 383 km
-        # auseinander; ein engerer Ausschnitt zeigte eine von beiden.
-        "zoom": 6, "center": {"lon": -85.6, "lat": 42.0},
+        # Der Ausschnitt deckt beide Staedte, gerechnet aus den gemessenen
+        # Grenzen der Umrisse: Chicago -87,96…-87,52 / 41,64…42,02, Detroit
+        # -83,29…-82,91 / 42,26…42,45. Mitte also -85,44 / 42,05, und Zoom 7
+        # zeigt rund acht Laengengrade - die 5,05 Grad zwischen den Staedten
+        # passen mit Rand hinein.
+        #
+        # **``autoFitToDataBounds`` waere das Naheliegende und ist falsch.**
+        # Am 14.10.2026 im Browser gemessen: Damit zoomt Kibana so weit
+        # hinaus, dass beide Staedte nur noch zwei Flecken sind. Ein fester,
+        # gerechneter Ausschnitt ist hier besser als eine Automatik, die das
+        # Falsche tut.
+        "zoom": ausschnitt["zoom"],
+        "center": {"lon": ausschnitt["lon"], "lat": ausschnitt["lat"]},
         "timeFilters": {"from": "now-15m", "to": "now"},
         "refreshConfig": {"isPaused": True, "interval": 0},
         "query": {"language": "kuery", "query": ""},
@@ -1367,8 +1630,11 @@ def karte_objekt(tafel: Tafel, brett: str) -> dict[str, Any]:
             "description": tafel.erlaeuterung,
             "layerListJSON": json.dumps([schicht], ensure_ascii=False),
             "mapStateJSON": json.dumps(zustand),
+            # Die Ebenenliste zugeklappt: Auf einem Dashboard mit **einer**
+            # Ebene verdeckt sie ein Viertel der Karte und bietet nichts an,
+            # was man dort entscheiden muesste.
             "uiStateJSON": json.dumps(
-                {"isLayerTOCOpen": True, "openTOCDetails": []}),
+                {"isLayerTOCOpen": False, "openTOCDetails": []}),
         },
         "references": [
             {"type": "index-pattern", "id": ANSICHT_FLAECHEN, "name": quelle},
@@ -1424,10 +1690,22 @@ def dashboard_objekt(brett: Brett) -> dict[str, Any]:
         objekt = (karte_objekt(tafel, brett.kennung) if tafel.ist_karte
                   else lens_objekt(tafel, brett.kennung))
         art = objekt["type"]
+        einstellungen: dict[str, Any] = {"enhancements": {}}
+        if tafel.ist_karte:
+            # Kibana liest auf einem Brett **nur** das hier und nicht den
+            # Ausschnitt im Kartenobjekt - ohne diese Zeilen oeffnet die
+            # Karte irgendwo. Die Ebenenliste bleibt zugeklappt: Bei einer
+            # Ebene verdeckt sie ein Viertel der Karte und bietet nichts an.
+            einstellungen |= {
+                "mapCenter": dict(KARTE_JE_STADT[tafel.stadt]),
+                "isLayerTOCOpen": False,
+                "openTOCDetails": [],
+                "hiddenLayers": [],
+            }
         tafeln.append({
             "version": FASSUNG, "type": art,
             "gridData": {**platz, "i": nummer}, "panelIndex": nummer,
-            "embeddableConfig": {"enhancements": {}},
+            "embeddableConfig": einstellungen,
             "panelRefName": f"panel_{nummer}", "title": tafel.titel,
         })
         verweise.append({"name": f"{nummer}:panel_{nummer}", "type": art,
