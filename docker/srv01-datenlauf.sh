@@ -50,6 +50,15 @@ main() {
         fi
     fi
 
+    # Erst fragen, ob der Lauf durchlaufen kann, dann laden. Am 12.10.2026
+    # feuerte der Anstoss zum ersten Mal und brach nach einer halben Stunde
+    # an einem fehlenden CENSUS_API_KEY ab - Chicago und Detroit waren da
+    # vollstaendig geladen, publiziert und die lokalen Kopien entfernt. Der
+    # Volllauf ruft die Pipelines einzeln, die Schluesselpruefung sitzt aber
+    # dort, wo der Schluessel gebraucht wird: in census_pipeline. Diese Zeile
+    # holt sie nach vorn und prueft zugleich die Ablage.
+    pipeline python -m orchestration.vorpruefung
+
 case "${mode}" in
     full)
         echo "Urban Crime: full monthly ingestion for ${YEAR_RANGE}"

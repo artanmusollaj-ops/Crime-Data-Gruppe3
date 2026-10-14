@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'953** |
+| Tests | **1'961** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -100,6 +100,68 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 14.10.2026 · Der Lauf fragt zuerst, ob er durchlaufen kann (#149)
+
+**Eine Zusage, die nur auf dem Papier stand.** `docker-compose.srv01.yml`
+versprach in seinem Kopf: *„Eine Variable, die dort fehlt, wird nicht in den
+Container gegeben — und `CENSUS_API_KEY` fällt dann **vor dem Lauf** auf,
+nicht bei Stufe 5 von 14 (FR-19)."* Am 12.10.2026 feuerte der wöchentliche
+Anstoss zum ersten Mal und widerlegte den Satz: Er brach nach rund einer
+halben Stunde ab, und zwar genau an diesem Schlüssel. Chicago und Detroit
+waren da vollständig geladen, nach SeaweedFS publiziert und die lokalen
+Arbeitskopien entfernt.
+
+**Warum die Prüfung nicht griff.** Der Volllauf in `srv01-datenlauf.sh` ruft
+die Pipelines **einzeln** auf — Chicago, Detroit, TIGER, ACS, NOAA — und erst
+danach `run_all --ohne-ingestion`. Die Schlüsselprüfung sitzt dort, wo der
+Schlüssel gebraucht wird: in `census_pipeline.download_acs`. Eine Vorprüfung
+über alle Stufen gab es nirgends; in `run_all` ebenso wenig.
+
+**`orchestration.vorpruefung`** ist sie jetzt, als erste Zeile des Datenlaufs.
+Sie lädt nichts und schreibt nichts — sie beantwortet eine Frage: *Kann
+dieser Lauf durchlaufen?* Zwei Dinge prüft sie, und beide über vorhandenen
+Code statt über eine eigene Liste: den Namen des Pflichtschlüssels liest sie
+aus `download_acs.KEY_VARIABLE`, und die Ablage baut sie einmal über
+`storage.load()` — das prüft von sich aus `S3_ACCESS_KEY`, `S3_SECRET_KEY`
+und den Bucket, sobald der Modus sie braucht. Eine zweite Liste wäre die, die
+veraltet, sobald eine Quelle dazukommt.
+
+**Dieselbe Sicht wie die Pipeline.** `download_acs` ruft
+`load_dotenv(find_dotenv(usecwd=True))` und liest danach `os.getenv`; die
+Vorprüfung tut es ebenso. Fände sie den Schlüssel nur in der Umgebung,
+meldete sie auf einem Entwicklungsrechner eine Lücke, die der Lauf gar nicht
+hat — und man lernte, sie zu übergehen. Im Container gibt es keine `.env`;
+dort füllt Compose die Umgebung aus der ignorierten `.env` des Stapels. Beide
+Wege enden an derselben Stelle.
+
+**`SOCRATA_APP_TOKEN` bleibt optional.** `download_chicago` nimmt ihn mit
+`os.getenv(...) or None` — ohne ihn antwortet die Quelle weiter, nur mit
+engeren Grenzen. Daran einen Lauf scheitern zu lassen wäre strenger als die
+Wirklichkeit; ihn zu verschweigen auch, denn eine Drosselung sieht später aus
+wie ein Netzproblem. Die Vorprüfung nennt ihn als Hinweis.
+
+**Der wichtigste Test hält eine Reihenfolge, keinen Rückgabewert.** Der Wert
+dieser Prüfung liegt nicht darin, *dass* sie fehlende Schlüssel findet — das
+tat `census_pipeline` schon —, sondern *wann*.
+`test_die_vorpruefung_steht_vor_jeder_ingestion` hält sie vor dem ersten
+Ladeaufruf. Nachgemessen: Verschiebt man sie ans Ende, fällt er; entfernt man
+sie, ebenso. Dazu drei weitere Proben — der Schlüsselname getippt statt
+gelesen, und ein leerer Wert als gesetzt gezählt. Alle vier fallen.
+
+**Ein Test übersprang sich zuerst selbst.** Die Probe auf die Fehlermeldung
+lief im Projektverzeichnis, fand dort die `.env` mit dem Schlüssel und
+übersprang sich. Das ist genau das, was der Wächter über die Messung vom
+9.10. als wertlos benennt. Sie läuft jetzt in einem leeren Verzeichnis und
+besteht auf dem Rückgabewert 1.
+
+**Zahlen.** 1'953 → **1'961 Tests** (acht neue), Standardlauf 1'845 →
+**1'853**, Referenzwächter unverändert **108**. Frischklon **1'818 der
+1'853** — gemessen in einem Klon ohne `data/`. Die Architekturbilder und
+`docs/referenz/` sind neu gebaut: Ein Modul mehr in `orchestration` ändert
+den Importgraphen.
 
 ---
 
