@@ -103,7 +103,7 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
-## 14.10.2026 · Die Abbilder kommen aus der CI (Branch `abbilder-aus-ci`)
+## 14.10.2026 · Die Abbilder kommen aus der CI (#151)
 
 **Der Abbildbau ist kein Handwerk mehr.** Bis heute lief er auf dem
 Entwicklungsrechner: bauen, schieben, Digest ablesen, Digest in die `.env` auf
