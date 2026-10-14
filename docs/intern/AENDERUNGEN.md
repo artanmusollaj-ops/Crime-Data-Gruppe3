@@ -160,7 +160,8 @@ hält es fest; die Mutationsprobe mit dem alten Code fällt mit genau der
 echten Meldung.
 
 **Zahlen.** 1'973 → **1'974 Tests** (einer neu), Standardlauf 1'865 →
-**1'866**, Referenzwächter unverändert **108**. Gold 85,6 → **85,7 MB**,
+**1'866**, Referenzwächter unverändert **108**. Frischklon **1'831 der
+1'866** — gemessen in einem lokalen Klon des Branches. Gold 85,6 → **85,7 MB**,
 `releases` 433,7 → **614,5 MB** — das neue Release `2026-10-14T14-33-03Z`
 ist dazugekommen, die gepinnten bleiben unberührt. Neu gebaut, weil erzeugt:
 `docs/feldkatalog.md`, `docs/intern/platzbedarf.md`, `docs/einstieg.html`,
