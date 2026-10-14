@@ -103,7 +103,7 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
-## 14.10.2026 · Die Karte bekommt ihre Flächen (Branch `dashboards-nach-entwurf`)
+## 14.10.2026 · Die Dashboards folgen Artans Entwürfen (#152)
 
 Artan hat fünf Dashboard-Entwürfe nach `docs/bilder/` gelegt. Sie sind
 Entwürfe und keine Kibana-Aufnahmen — jeder trägt „KONZEPT · FIKTIVE
