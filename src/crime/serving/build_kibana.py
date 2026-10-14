@@ -125,6 +125,15 @@ NAVIGATION_PANEL = "p-navigation"
 
 NAVIGATION_TITEL = "Urban Crime — die Bretter"
 
+#: Die Datenansicht auf die Tract-Umrisse. Eigene Ansicht und nicht ``ANSICHT``:
+#: ``dim_tract_geo`` hat **kein Zeitfeld**, und eine Ansicht mit Zeitfeld
+#: filterte jede Flaeche weg, sobald das Brett sein Fenster setzt.
+ANSICHT_FLAECHEN = "crime-dim-tract-geo"
+
+#: Die Datenansicht auf die fertige Rate je Tract. Ebenfalls ohne Zeitfeld -
+#: die Tabelle gilt fuer genau ein Bezugsjahr und traegt kein Datum.
+ANSICHT_RATEN = "crime-rate-tract"
+
 #: Bis hierher zaehlt ``cardinality`` exakt, darueber schaetzt es. Gemessen
 #: liegen die beiden Kacheln, die es benutzen, bei 1'146 Tracts und 429
 #: Quellcodes - weit darunter. 40'000 ist das Hoechste, was Elasticsearch
@@ -265,7 +274,13 @@ ARTEN = {
     # verbinden; ES|QL kann es mit ``LOOKUP JOIN dim_date ON date``. Eine
     # Eimer-Variante gaebe es also gar nicht zu fuellen.
     "esql_heatmap": "lnsHeatmap",
+    # Kein Lens-Objekt, sondern ein eigener gespeicherter Typ. Eine Karte
+    # verbindet zwei Indizes - Umriss und Rate - und das kann Lens nicht.
+    "karte": "map",
 }
+
+#: Die Arten, die als eigener Objekttyp entstehen statt als Lens.
+KARTEN_ARTEN = frozenset({"karte"})
 
 #: Die Arten, die ihre Frage in ES|QL stellen statt in Eimern. Als Menge, weil
 #: eine zweite dazukommen kann (ein ES|QL-Balken etwa) und dann jede
@@ -429,7 +444,9 @@ class Tafel:
             raise LadeFehler(
                 f"{self.kennung}: Art '{self.art}' ist nicht entschieden. "
                 f"Bekannt sind {', '.join(sorted(ARTEN))}.")
-        if self.ist_esql:
+        if self.ist_karte:
+            self._pruefe_karte()
+        elif self.ist_esql:
             self._pruefe_esql()
         else:
             if self.abfrage is not None:
@@ -502,6 +519,39 @@ class Tafel:
                 f"Jahr. Ohne Jahr ist sie keine Rate, sondern ein Quotient "
                 f"aus sechs Jahrgaengen und einem Jahresnenner.")
 
+    def _pruefe_karte(self) -> None:
+        """Was eine Karte mitbringen muss.
+
+        Weder Kennzahl noch Eimer noch ES|QL: Eine Karte verbindet zwei
+        Indizes und beschreibt das in ihrem eigenen Format. **FR-27 gilt
+        trotzdem**, und hier besonders - die Karte zeigt eine Rate, und eine
+        Flaeche ohne Nenner und ohne Jahr ist genau die Zahl, die
+        ``ausblick.md`` als "die Arbeit dieses Projekts zunichte machen"
+        beschreibt.
+        """
+        if self.kennzahl is not None or self.eimer or self.abfrage is not None:
+            raise LadeFehler(
+                f"{self.kennung}: eine Karte beschreibt ihre Frage als "
+                f"Verbund zweier Indizes. Kennzahl, Eimer oder Abfrage "
+                f"daneben waeren eine zweite Beschreibung, die nichts "
+                f"bewirkt.")
+        if not self.frage:
+            raise LadeFehler(
+                f"{self.kennung}: ohne 'frage' sagt die Karte nicht, was sie "
+                f"beantwortet.")
+        if not self.ausschluesse:
+            raise LadeFehler(
+                f"{self.kennung}: ohne 'ausschluesse' liest jemand die "
+                f"eingefaerbte Flaeche als vollstaendig.")
+        if not (self.nenner and self.jahr):
+            raise LadeFehler(
+                f"{self.kennung}: die Karte faerbt nach einer Rate und "
+                f"braucht ihren Nenner und ihr Jahr.")
+
+    @property
+    def ist_karte(self) -> bool:
+        return self.art in KARTEN_ARTEN
+
     @property
     def ist_esql(self) -> bool:
         return self.art in ESQL_ARTEN
@@ -546,6 +596,10 @@ class Tafel:
         Fuer eine ES|QL-Tafel sind es die Spalten, die die Abfrage liefert,
         in der Reihenfolge, in der sie dastehen.
         """
+        if self.ist_karte:
+            raise LadeFehler(
+                f"{self.kennung}: eine Karte hat keine Lens-Spalten - sie "
+                f"beschreibt sich als Schicht mit Verbund (karte_objekt).")
         if self.ist_esql:
             assert self.abfrage is not None   # __post_init__ hat es geprueft
             return {s.kennung: s.lens_spalte for s in self.abfrage.spalten}
@@ -566,6 +620,10 @@ class Tafel:
     @property
     def darstellung(self) -> dict[str, Any]:
         """Der Teil, der sagt, welche Spalte wo hingehoert."""
+        if self.ist_karte:
+            raise LadeFehler(
+                f"{self.kennung}: eine Karte hat keine Lens-Darstellung - "
+                f"ihre Schichten stehen in karte_objekt.")
         if self.art == "zahl":
             assert self.kennzahl is not None
             return {"layerId": self.schicht, "layerType": "data",
@@ -1061,16 +1119,23 @@ BRETTER: tuple[Brett, ...] = (
 
 
 def datenansicht(index: str = "fact_offense",
-                 zeitfeld: str = ZEITFELD) -> dict[str, Any]:
+                 zeitfeld: str | None = ZEITFELD,
+                 kennung: str = ANSICHT) -> dict[str, Any]:
     """Die Datenansicht - auf den **Alias**, nicht auf einen Release-Index.
 
     Damit zeigen die Dashboards nach jedem Ladelauf auf den neuen Stand,
     ohne dass hier etwas angefasst werden muss. Genau dafuer gibt es den
     Alias in ``load_elasticsearch``.
     """
-    return {"type": "index-pattern", "id": ANSICHT,
-            "attributes": {"title": index, "timeFieldName": zeitfeld},
-            "references": []}
+    merkmale: dict[str, Any] = {"title": index}
+    # Ohne Zeitfeld und nicht mit leerem: ``dim_tract_geo`` und
+    # ``rate_tract`` tragen keines, und eine Ansicht, die trotzdem eines
+    # nennt, filtert unter dem festen Zeitfenster des Bretts **alles** weg -
+    # die Karte bliebe leer, ohne Fehlermeldung.
+    if zeitfeld:
+        merkmale["timeFieldName"] = zeitfeld
+    return {"type": "index-pattern", "id": kennung,
+            "attributes": merkmale, "references": []}
 
 
 def pruefe_tafel(tafel: Tafel) -> None:
@@ -1080,6 +1145,10 @@ def pruefe_tafel(tafel: Tafel) -> None:
     faellt erst auf, wenn jemand das Dashboard oeffnet und eine leere Kachel
     sieht - moeglicherweise in der Praesentation.
     """
+    if tafel.ist_karte:
+        # Eine Karte hat keine Lens-Spalten; ihre eigene Pruefung steht in
+        # ``karte_objekt`` (Verbundfeld, Geofeld, beide Datenansichten).
+        return
     vorhanden = set(tafel.spalten)
     if set(tafel.reihenfolge) != vorhanden:
         raise LadeFehler(
@@ -1167,6 +1236,147 @@ def lens_objekt(tafel: Tafel, brett: str) -> dict[str, Any]:
     }
 
 
+#: Der Index mit den Umrissen - gelesen, nicht getippt. Das Geofeld steht
+#: dort, wo es entschieden wurde (``Index.flaeche``); ein zweiter Name hier
+#: liesse sich auseinanderlaufen, und die Karte faerbte nichts.
+FLAECHEN_INDEX = NACH_NAME["dim_tract_geo"]
+RATEN_INDEX = NACH_NAME["rate_tract"]
+
+#: Welche Spalte die Karte einfaerbt, und wie sie aus ``rate_tract`` kommt.
+#:
+#: ``max`` und nicht ``avg``: ``rate_tract`` haelt **eine** Zeile je Tract,
+#: beide liefern also denselben Wert. ``max`` sagt aber zusaetzlich, dass
+#: nichts gemittelt wird - ein Mittel ueber Raten waere falsch, sobald die
+#: Tabelle je Tract mehr als eine Zeile traegt, und dann faerbte die Karte
+#: still etwas anderes.
+KARTE_MASS = "max"
+KARTE_FELD = "rate_fallebene"
+
+#: Die Kennung der rechten Seite des Verbunds. Kibana baut daraus den Namen
+#: des verbundenen Feldes, und die Einfaerbung muss genau diesen Namen
+#: nennen - sonst zeigt die Karte graue Flaechen und keinen Fehler.
+KARTE_VERBUND = "rate-je-tract"
+
+
+def verbundfeld(mass: str = KARTE_MASS, feld: str = KARTE_FELD,
+                verbund: str = KARTE_VERBUND) -> str:
+    """Wie Kibana das verbundene Feld nennt.
+
+    Gerechnet und nicht getippt: Der Name entsteht aus Mass, Feld und der
+    Kennung der rechten Seite. Stuende er hier als Literal, liesse sich eines
+    der drei aendern, ohne dass der Name mitzieht - und die Karte faerbte
+    nach einem Feld, das es nicht gibt. Kibana meldet das nicht; die
+    Flaechen bleiben einfach grau.
+    """
+    return f"__kbnjoin__{mass}_of_{feld}__{verbund}"
+
+
+def karte_objekt(tafel: Tafel, brett: str) -> dict[str, Any]:
+    """Die Choroplethenkarte: Umrisse aus dem einen Index, Rate aus dem anderen.
+
+    **Warum ein Verbund und keine einzelne Quelle.** Kibana faerbt eine
+    Flaeche nach **einem** Feld und kann zwischen zwei verbundenen Feldern
+    nicht rechnen. Die Umrisse stehen in ``dim_tract_geo``, die fertige Rate
+    in ``serving/rate_tract``; verbunden werden sie ueber ``geoid``.
+
+    **Warum nicht nach Fallzahlen.** Das waere die irrefuehrende Karte, gegen
+    die dieses Projekt sonst ueberall argumentiert: Die Einwohnerzahl je
+    Tract reicht von 35 bis 13'521 (2024, Median 2'861) - Faktor 386 zwischen
+    dem kleinsten und dem groessten Tract.
+
+    **``applyGlobalTime`` steht auf ``false``, und das ist kein Detail.**
+    Keiner der beiden Indizes traegt ein Zeitfeld; das feste Zeitfenster des
+    Bretts wuerde jede Flaeche wegfiltern, und die Karte waere leer - ohne
+    Fehlermeldung.
+    """
+    if not tafel.ist_karte:
+        raise LadeFehler(f"{tafel.kennung}: keine Karte.")
+
+    quelle = "layer_1_source_index_pattern"
+    verbund = "layer_1_join_0_index_pattern"
+    schicht = {
+        "id": f"schicht-{tafel.kennung}",
+        "label": tafel.titel,
+        "sourceDescriptor": {
+            "type": "ES_SEARCH",
+            "id": f"umrisse-{tafel.kennung}",
+            "indexPatternRefName": quelle,
+            # Das Geofeld steht nicht hier getippt, sondern dort, wo es
+            # entschieden wurde: am Index (``Index.flaeche``). Zwei Namen
+            # liessen sich auseinanderlaufen.
+            "geoField": FLAECHEN_INDEX.flaeche,
+            "scalingType": "LIMIT",
+            "filterByMapBounds": False,
+            "tooltipProperties": ["tract_name", "city"],
+            "sortField": "", "sortOrder": "desc",
+            "applyGlobalQuery": True,
+            "applyGlobalTime": False,
+            "applyForceRefresh": True,
+        },
+        "joins": [{
+            "leftField": "geoid",
+            "right": {
+                "type": "ES_TERM_SOURCE",
+                "id": KARTE_VERBUND,
+                "indexPatternRefName": verbund,
+                "term": "geoid",
+                "metrics": [{"type": KARTE_MASS, "field": KARTE_FELD,
+                             "label": tafel.titel}],
+                "applyGlobalQuery": True,
+                "applyGlobalTime": False,
+                "applyForceRefresh": True,
+            },
+        }],
+        "style": {
+            "type": "VECTOR",
+            "properties": {
+                "fillColor": {
+                    "type": "DYNAMIC",
+                    "options": {
+                        "field": {"name": verbundfeld(), "origin": "join"},
+                        "color": "Blues",
+                        "type": "ORDINAL",
+                        "fieldMetaOptions": {"isEnabled": True, "sigma": 3},
+                    },
+                },
+                "lineColor": {"type": "STATIC", "options": {"color": "#3d3d3d"}},
+                "lineWidth": {"type": "STATIC", "options": {"size": 0.5}},
+            },
+            "isTimeAware": False,
+        },
+        "type": "GEOJSON_VECTOR",
+        "visible": True,
+        "alpha": 0.75,
+    }
+
+    zustand = {
+        # Beide Staedte im Bild. Chicago und Detroit liegen 383 km
+        # auseinander; ein engerer Ausschnitt zeigte eine von beiden.
+        "zoom": 6, "center": {"lon": -85.6, "lat": 42.0},
+        "timeFilters": {"from": "now-15m", "to": "now"},
+        "refreshConfig": {"isPaused": True, "interval": 0},
+        "query": {"language": "kuery", "query": ""},
+        "filters": [],
+        "settings": {"autoFitToDataBounds": False},
+    }
+
+    return {
+        "type": "map", "id": f"karte-{brett}-{tafel.kennung}",
+        "attributes": {
+            "title": tafel.titel,
+            "description": tafel.erlaeuterung,
+            "layerListJSON": json.dumps([schicht], ensure_ascii=False),
+            "mapStateJSON": json.dumps(zustand),
+            "uiStateJSON": json.dumps(
+                {"isLayerTOCOpen": True, "openTOCDetails": []}),
+        },
+        "references": [
+            {"type": "index-pattern", "id": ANSICHT_FLAECHEN, "name": quelle},
+            {"type": "index-pattern", "id": ANSICHT_RATEN, "name": verbund},
+        ],
+    }
+
+
 def raster(tafeln: tuple[Tafel, ...]) -> list[dict[str, int]]:
     """Legt die Kacheln zeilenweise um, ohne dass jemand Koordinaten pflegt.
 
@@ -1211,14 +1421,17 @@ def dashboard_objekt(brett: Brett) -> dict[str, Any]:
     for tafel, platz in zip(brett.tafeln, raster(brett.tafeln)):
         platz = {**platz, "y": platz["y"] + versatz}
         nummer = f"p-{tafel.kennung}"
+        objekt = (karte_objekt(tafel, brett.kennung) if tafel.ist_karte
+                  else lens_objekt(tafel, brett.kennung))
+        art = objekt["type"]
         tafeln.append({
-            "version": FASSUNG, "type": "lens",
+            "version": FASSUNG, "type": art,
             "gridData": {**platz, "i": nummer}, "panelIndex": nummer,
             "embeddableConfig": {"enhancements": {}},
             "panelRefName": f"panel_{nummer}", "title": tafel.titel,
         })
-        verweise.append({"name": f"{nummer}:panel_{nummer}", "type": "lens",
-                         "id": lens_objekt(tafel, brett.kennung)["id"]})
+        verweise.append({"name": f"{nummer}:panel_{nummer}", "type": art,
+                         "id": objekt["id"]})
 
     merkmale: dict[str, Any] = {
         "title": brett.titel,
@@ -1319,6 +1532,12 @@ def zeitfenster(datenwurzel: Path) -> tuple[str, str]:
 def objekte(bretter: tuple[Brett, ...]) -> list[dict[str, Any]]:
     """Alles, was angelegt wird - Datenansicht, Navigation, Tafeln, Bretter."""
     alle: list[dict[str, Any]] = [datenansicht()]
+    # Die beiden zeitlosen Ansichten nur, wenn eine Karte sie braucht - ein
+    # Objekt ohne Verwender waere eine Kachel in Kibanas Liste, die nichts
+    # tut, und ``pruefe_verweise`` sieht nur die andere Richtung.
+    if any(t.ist_karte for b in bretter for t in b.tafeln):
+        alle.append(datenansicht(FLAECHEN_INDEX.name, None, ANSICHT_FLAECHEN))
+        alle.append(datenansicht(RATEN_INDEX.name, None, ANSICHT_RATEN))
     # Die Navigation zeigt auf alle Bretter, und jedes Brett zeigt auf sie
     # zurueck. Der Ring ist Absicht und kein Versehen: Kibana prueft Verweise
     # beim Anlegen nicht, und ``pruefe_verweise`` sieht beide Seiten in
@@ -1326,7 +1545,10 @@ def objekte(bretter: tuple[Brett, ...]) -> list[dict[str, Any]]:
     if any(b.navigation for b in bretter):
         alle.append(navigation_objekt(bretter))
     for brett in bretter:
-        alle.extend(lens_objekt(t, brett.kennung) for t in brett.tafeln)
+        alle.extend(
+            karte_objekt(t, brett.kennung) if t.ist_karte
+            else lens_objekt(t, brett.kennung)
+            for t in brett.tafeln)
         alle.append(dashboard_objekt(brett))
     return alle
 
