@@ -231,8 +231,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'942 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'799 davon — die übrigen 35 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 108 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 1'953 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'810 davon — die übrigen 35 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 108 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 108 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
@@ -288,9 +288,10 @@ Vorlagen — die Beschreibung des Analysedienstes, nachzulesen in
 es neben dem Strecken-Abbild in `ghcr.io/datenwerft`.
 
 *Die dritte, ebenfalls seit dem 6.10.2026:* Ein `docker-compose.srv01.yml`
-**beschreibt** den Serverbetrieb — vier Dienste, die gemessenen
-Speichergrenzen, die Traefik-Regeln, ein lesendes Jupyter; nachzulesen in
-`storage-architektur.md`, Abschnitt 16.
+**beschreibt** den Serverbetrieb — seit dem 12.10.2026 fünf Dienste, die
+gemessenen Speichergrenzen, die Traefik-Regeln, ein lesendes Jupyter und ein
+nginx für die Einstiegsseite; nachzulesen in `storage-architektur.md`,
+Abschnitt 16.
 
 *Die vierte, seit dem 8.10.2026:* der Stapel **läuft** auf `srv01`.
 Elasticsearch, Kibana und Jupyter stehen dort als Dienste, am 11.10.2026
@@ -391,12 +392,15 @@ begrenzen* hier eine eigene Anforderung ist.
 
 **Was davon steht, und was noch kein Nachweis ist.** Die Beschreibung ist
 seit dem 8.10.2026 angewandt: Drei Dienste laufen auf `srv01`, beide
-Abbilder liegen per Digest gepinnt in der Registry, die Tunnel-Routen und
-die Access-Anwendung sind seit dem 9.10. von aussen gemessen (B.3), und ein
-Zeitplan steht (montags 04:30, `flock`, Voll-/Delta-Verteiler). Offen ist
-nicht mehr die Einrichtung, sondern der **Nachweis**: Der Zeitplan hat noch
-nie gefeuert — erster Termin ist Montag, der 12.10.2026 —, und ob die Strecke
-dort je durchgelaufen ist, zeigt kein Artefakt, das von hier aus lesbar wäre.
+Abbilder liegen per Digest gepinnt in der Registry, die Tunnel-Routen für
+Kibana und Jupyter und die Access-Anwendung sind seit dem 9.10. von aussen
+gemessen (B.3), und ein Zeitplan steht (montags 04:30, `flock`,
+Voll-/Delta-Verteiler). Offen ist der **Nachweis** — und seit dem 12.10.2026
+wieder ein Stück Einrichtung: Der Zeitplan hat noch nie gefeuert (erster
+Termin ist Montag, der 12.10.2026), ob die Strecke dort je durchgelaufen ist,
+zeigt kein Artefakt, das von hier aus lesbar wäre, und die Tunnel-Route für
+`urbancrime-start` ist nicht angelegt, der Stapel kennt den Dienst noch
+nicht.
 
 **Was es löst.** Heute läuft die Strecke auf genau einer Maschine, und ihre
 Abhängigkeiten sind ein `requirements.lock` plus die Hoffnung, dass der

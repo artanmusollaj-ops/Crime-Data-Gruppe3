@@ -77,7 +77,8 @@ services:
       ES_JAVA_OPTS: "-Xms768m -Xmx768m"
     # FR-11: **kein** Traefik-Label und **nicht** im Netz proxy. Ein
     # versehentliches Label an dieser Stelle waere ein offener Datenspeicher -
-    # geroutet ist nur Kibana.
+    # geroutet sind Kibana, Jupyter und die Einstiegsseite, nicht der
+    # Datenspeicher darunter.
     networks:
       - urbancrime
     volumes:
@@ -111,7 +112,7 @@ services:
       retries: 20
 
   # --------------------------------------------------------------------
-  # Kibana - der eine geroutete Webdienst
+  # Kibana - Dauerbetrieb und geroutet
   # --------------------------------------------------------------------
   kibana:
     # Dieselbe Fassung wie Elasticsearch und wie die Entwicklungsfassung -
@@ -181,6 +182,91 @@ services:
       traefik.http.middlewares.urbancrime-kibana-proto.headers.customrequestheaders.X-Forwarded-Proto: https
       # Der **Container**-Port, nicht ein Host-Port. Es gibt hier keinen.
       traefik.http.services.urbancrime-kibana.loadbalancer.server.port: "5601"
+
+  # --------------------------------------------------------------------
+  # Die Einstiegsseite - der dritte geroutete Webdienst (FR-31)
+  # --------------------------------------------------------------------
+  start:
+    # Das amtliche nginx, per SHA-256-Digest gepinnt wie alles andere hier -
+    # eine Marke laesst sich umhaengen, ein Digest nicht. Der Digest ist der
+    # des Multi-Arch-Index von nginx:1.30.5-alpine, am 12.10.2026 mit
+    # "docker buildx imagetools inspect" abgelesen; srv01 ist x86-64 und
+    # bekommt daraus das amd64-Abbild.
+    #
+    # **Der stabile Zweig, nicht mainline.** nginx fuehrt zwei: 1.31.x bekommt
+    # neue Funktionen, 1.30.x nur Korrekturen - und ``stable-alpine`` zeigt
+    # heute auf genau diese 1.30.5. Ein Dienst, der dauernd und unbeaufsichtigt
+    # eine statische Datei ausliefert, braucht keine neuen Funktionen; er
+    # braucht, dass sich zwischen zwei Digests nichts anderes aendert als
+    # Fehlerbehebungen. Dieselbe Ueberlegung wie bei Elasticsearch, wo die
+    # letzte Nebenversion der 8er-Reihe steht. Die jeweils letzte Fassung des
+    # Zweiges, weil ein zurueckgezogener Zweig auf einem Dauerdienst Monate
+    # fehlender Korrekturen bedeutet.
+    #
+    # Alpine, weil dieser Dienst eine Datei ausliefert und nichts sonst - und
+    # curl und grep liegen darin, der Healthcheck unten braucht beide. Kein
+    # build: und keine Variable: Es ist ein fremdes Abbild aus Docker Hub,
+    # kein hier gebautes (FR-3/E7, Registry).
+    image: nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94
+    restart: unless-stopped
+    networks:
+      # Zwei Netze wie Kibana: proxy, damit Traefik es erreicht, und
+      # urbancrime, damit es im Stapel unter seinem Namen aufloesbar ist.
+      - proxy
+      - urbancrime
+    volumes:
+      # Die Seite kommt aus einem benannten Datentraeger, **nicht** aus einem
+      # Bind-Mount des Repositorys: Ein eingehaengtes docs/einstieg.html
+      # zeigte das Release des letzten "git pull" und nicht das geladene -
+      # und waere im Serverstapel der einzige Einhaengepunkt seiner Art.
+      # Geschrieben wird er vom Stapellauf am Ende des Datenlaufs
+      # (python -m serving.build_einstieg --adressen server), gelesen hier
+      # **nur** lesend. Derselbe Weg wie bei arbeitsdaten, nur ein eigener
+      # Datentraeger: arbeitsdaten traegt den ganzen Arbeitsraum samt
+      # Release, und nginx liefert aus seiner Wurzel alles aus, was darin
+      # liegt.
+      - startseite:/usr/share/nginx/html:ro
+    # FR-13: Die Messung vom 6.10.2026 sagt, wie viel Platz es gibt - 4'325
+    # MiB verfuegbar, davon waren 4'096 MiB verplant, also 229 MiB frei. 32 MiB
+    # ist das obere Ende dessen, was ein nginx mit einer statischen Datei
+    # belegt (16-32 MiB); mehr als eine Datei liefert er hier nicht aus. Mit
+    # diesem Dienst sind es 4'128 MiB verplant und 197 MiB frei.
+    mem_limit: 32m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    healthcheck:
+      # Nicht "der Port ist offen", und auch nicht nur HTTP 200: Geprueft wird
+      # ein Kennzeichen **unserer** Seite. Der Grund ist am 12.10.2026 am
+      # laufenden Docker nachgestellt worden - ein leerer benannter
+      # Datentraeger wird beim ersten Start **aus dem Abbild befuellt**, und
+      # das :ro oben verhindert das nicht. Danach liegen nginx' eigene
+      # index.html und 50x.html darin, HTTP 200 kommt zurueck, und ein
+      # Healthcheck auf "curl -fs" meldete den Dienst gesund, waehrend er
+      # hinter Access die Willkommensseite von nginx auslieferte. Der Griff
+      # nach der Fusszeile unserer Seite faellt genau dann, wenn noch kein
+      # Datenlauf sie geschrieben hat.
+      test: ["CMD-SHELL", "curl -fs http://localhost/ | grep -q 'serving.build_einstieg'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: proxy
+      # FR-22, dasselbe Muster: urbancrime-start.datenwerft.ch. Nicht
+      # urbancrime.datenwerft.ch - das ist der **einzige** Hostname, den das
+      # Muster urbancrime-* nicht deckt, und damit der einzige, den die eine
+      # Access-Anwendung nicht schuetzt. Nichts hier ist oeffentlich.
+      traefik.http.routers.urbancrime-start.rule: Host(`urbancrime-start.datenwerft.ch`)
+      traefik.http.routers.urbancrime-start.entrypoints: web
+      traefik.http.routers.urbancrime-start.middlewares: urbancrime-start-proto
+      traefik.http.routers.urbancrime-start.service: urbancrime-start
+      traefik.http.middlewares.urbancrime-start-proto.headers.customrequestheaders.X-Forwarded-Proto: https
+      traefik.http.services.urbancrime-start.loadbalancer.server.port: "80"
 
   # --------------------------------------------------------------------
   # Die Strecke - ein Stapellauf, kein Dienst
@@ -256,6 +342,13 @@ services:
       # kann und damit er nicht in config/srv01.yaml gehoert: Was Restic
       # sichern muss, ist der Bucket, nicht dieser Zwischenstand.
       - arbeitsdaten:/app/data
+      # Dorthin schreibt der Lauf die Einstiegsseite (FR-31). Er leert das
+      # Verzeichnis vorher (siehe docker/srv01-datenlauf.sh): Docker befuellt
+      # einen leeren benannten Datentraeger beim ersten Start aus dem Abbild,
+      # und nginx' eigene index.html und 50x.html blieben sonst liegen - und
+      # nginx liefert aus seiner Wurzel alles aus, was darin liegt. Nach dem
+      # Lauf traegt der Datentraeger genau unsere eine Datei.
+      - startseite:/app/startseite
     # FR-13, gemessen am 6.10.2026: 1,25 GiB. Zeitweilig, nicht Dauerbetrieb.
     mem_limit: 1280m
     security_opt:
@@ -283,8 +376,10 @@ services:
     image: ${JUPYTER_IMAGE:-urban-crime-jupyter:latest}
     restart: unless-stopped
     # Zeitweilig, wie die Pipeline: Das Profil haelt ihn aus "up -d" heraus,
-    # damit der Dauerbetrieb aus Elasticsearch und Kibana besteht und die
-    # Summe der Grenzen aufgeht (FR-13).
+    # damit der Dauerbetrieb aus Elasticsearch, Kibana und der kleinen
+    # Einstiegsseite besteht und die Summe der Grenzen aufgeht (FR-13).
+    # Gestartet wird er von Hand:
+    #   docker compose -f docker-compose.srv01.yml --profile analyse up -d jupyter
     profiles:
       - analyse
     networks:
@@ -374,12 +469,12 @@ services:
 networks:
   # Traefiks Netz, von der Ingress-Beschreibung angelegt ("docker network
   # create proxy"). external, weil es dieser Stapel nicht besitzt - er tritt
-  # bei. Nur Kibana und Jupyter liegen darin.
+  # bei. Nur Kibana, Jupyter und start liegen darin.
   proxy:
     external: true
-  # Das Netz des Stapels: Hier finden sich Elasticsearch, Kibana, Pipeline und
-  # Jupyter unter ihren Dienstnamen. Es wird von diesem Stapel angelegt und
-  # endet mit ihm.
+  # Das Netz des Stapels: Hier finden sich Elasticsearch, Kibana, Pipeline,
+  # Jupyter und start unter ihren Dienstnamen. Es wird von diesem Stapel
+  # angelegt und endet mit ihm.
   urbancrime:
     driver: bridge
 
@@ -393,3 +488,7 @@ volumes:
   # sicherungswuerdig: Der Bestand liegt auf SeaweedFS.
   arbeitsdaten:
   jupyter-arbeit:
+  # Die Einstiegsseite (FR-31): vom Stapellauf geschrieben, von start
+  # ausgeliefert. Nicht sicherungswuerdig - sie entsteht in Sekunden neu aus
+  # dem Release, und ohne Release ist sie wertlos.
+  startseite:

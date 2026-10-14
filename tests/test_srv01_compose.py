@@ -65,6 +65,12 @@ GRENZEN_MIB = {
     "kibana": 1024,          # 1 GiB; gemessen belegt 771 MiB
     "pipeline": 1280,        # 1,25 GiB; zeitweilig
     "jupyter": 768,          # 768 MiB; zeitweilig
+    # 12.10.2026, FR-31: ein nginx, das eine statische Datei ausliefert. Die
+    # 32 MiB sind nicht gemessen, sondern das obere Ende der bekannten
+    # Spanne (16-32) - gemessen ist der **Platz**, in den sie passen muessen:
+    # 229 MiB waren frei gegen das am 6.10.2026 Verfuegbare, mit diesem
+    # Dienst sind es 197.
+    "start": 32,
 }
 
 # Verfuegbar waren am 6.10.2026 **4'325 MiB** neben 31 Containern. Dazu kommt,
@@ -294,12 +300,30 @@ def test_die_summe_der_grenzen_passt_in_das_gemessene(dienste):
     )
 
 
-def test_der_dauerbetrieb_ist_elasticsearch_und_kibana(dienste):
-    """Die Zusage von FR-13, als Einteilung und nicht nur als Satz."""
+def test_der_dauerbetrieb_ist_elasticsearch_kibana_und_die_startseite(dienste):
+    """Die Zusage von FR-13, als Einteilung und nicht nur als Satz.
+
+    **Bis zum 12.10.2026 waren es zwei.** Dieser Test hiess
+    ``test_der_dauerbetrieb_ist_elasticsearch_und_kibana`` und hielt genau
+    das fest. FR-31 verlangt eine Einstiegsseite, die erreichbar ist - und
+    was erreichbar sein soll, muss laufen, wenn jemand die Adresse aufruft.
+    Aus zwei dauernden Diensten werden damit drei.
+
+    **Das ist eine Entscheidung und keine Nebenwirkung.** Sie steht hier und
+    nicht nur in einer geaenderten Zahl, weil der Dauerbetrieb die Groesse
+    ist, an der die Rechnung von FR-13 haengt: Elasticsearch, Kibana und
+    ``start`` belegen zusammen 2'848 MiB, das groessere Zeitweilige 1'280 -
+    **4'128** von 4'325 gemessen verfuegbaren MiB, also **197 MiB frei**
+    (vorher 4'096 und 229). Ein nginx passt mit 16-32 MiB hinein, und nichts,
+    was wesentlich mehr braucht. Wer einen vierten dauernden Dienst dazulegt,
+    faellt hier durch und soll genau das: nachrechnen, nicht ein Profil
+    weglassen.
+    """
     dauernd = sorted(n for n, d in dienste.items() if not d.get("profiles"))
-    assert dauernd == ["elasticsearch", "kibana"], (
+    assert dauernd == ["elasticsearch", "kibana", "start"], (
         f"Dauerbetrieb ist {dauernd}; FR-13 rechnet mit Elasticsearch und "
-        "Kibana (zusammen 2'816 MiB), Pipeline und Jupyter sind zeitweilig"
+        "Kibana (zusammen 2'816 MiB) und seit FR-31 mit der Einstiegsseite "
+        "(32 MiB), Pipeline und Jupyter sind zeitweilig"
     )
 
 
@@ -439,7 +463,7 @@ def test_kein_webdienst_veroeffentlicht_einen_port(dienste):
 
 def test_der_geroutete_port_ist_der_container_port(dienste):
     """Punkt 3 der Serververeinbarung - und ein Fehler, der still 502 ergibt."""
-    erwartet = {"kibana": "5601", "jupyter": "8888"}
+    erwartet = {"kibana": "5601", "jupyter": "8888", "start": "80"}
     for name, dienst in webdienste(dienste).items():
         port = dienst["labels"][
             f"traefik.http.services.urbancrime-{name}.loadbalancer.server.port"]
@@ -546,6 +570,79 @@ def test_kein_dienst_haengt_die_entwicklungsdatenbank_ein(beschreibung, dienste)
                 verirrt.append(f"{name}: {einhang}")
     assert not verirrt, f"data/serving/analyse.duckdb eingehaengt: {verirrt}"
     assert "arbeitsdaten" in beschreibung["volumes"]
+
+
+# --------------------------------------------------------------------------
+# Die Einstiegsseite: ausgeliefert, nicht eingehaengt (FR-31)
+# --------------------------------------------------------------------------
+
+
+def test_die_startseite_kommt_aus_einem_datentraeger(dienste, beschreibung):
+    """*Ein Bind-Mount aus dem Repository zeigte das Release des letzten
+    ``git pull``, nicht das geladene.*
+
+    Geprueft wird beides, was den Unterschied macht: dass die Seite aus einem
+    **benannten** Datentraeger kommt - demselben Weg, den die Pipeline fuer
+    ``arbeitsdaten`` schon geht - und dass der Dienst sie nur **liest**. Ein
+    schreibender nginx waere der einzige Ort im Stapel, an dem ein Webdienst
+    etwas veraendern koennte.
+    """
+    einhaenge = dienste["start"]["volumes"]
+    assert len(einhaenge) == 1, (
+        f"start haengt {einhaenge} ein - eine Seite braucht genau einen "
+        "Einhaengepunkt, und jeder weitere ist etwas, das nginx mitausliefert"
+    )
+    quelle, _, rest = einhaenge[0].partition(":")
+    assert quelle in beschreibung["volumes"], (
+        f"{quelle!r} ist kein benannter Datentraeger dieses Stapels - ein "
+        "Bind-Mount zeigte das Release des letzten git pull"
+    )
+    assert rest.endswith(":ro"), (
+        f"{einhaenge[0]} ist nicht schreibgeschuetzt"
+    )
+
+
+def test_der_healthcheck_der_startseite_prueft_unsere_seite(dienste):
+    """HTTP 200 genuegt hier nicht - es kommt auch ohne Datenlauf zurueck.
+
+    Am 12.10.2026 am laufenden Docker nachgestellt: Ein leerer benannter
+    Datentraeger wird beim ersten Start **aus dem Abbild befuellt**, und das
+    ``:ro`` auf der lesenden Seite verhindert das nicht. Danach liegen nginx'
+    eigene ``index.html`` (896 Bytes, *Welcome to nginx!*) und ``50x.html``
+    darin, ``curl -fs`` antwortet mit 200, und der Dienst meldete sich
+    **gesund**, ohne dass je eine Seite erzeugt worden waere - hinter Access
+    ausgeliefert haette er die Willkommensseite von nginx.
+
+    Geprueft wird deshalb ein Kennzeichen unserer Seite. ``pruefe_stand``
+    daneben heisst dasselbe eine Ebene hoeher: Ein Dienst, der nicht sagen
+    kann, *was* er zeigt, sagt nichts.
+    """
+    pruefung = dienste["start"]["healthcheck"]["test"]
+    assert "serving.build_einstieg" in pruefung, (
+        f"der Healthcheck prueft kein Kennzeichen unserer Seite: {pruefung}. "
+        "Ein blosses HTTP 200 kommt auch von nginx' Willkommensseite, die "
+        "Docker beim ersten Start in den Datentraeger legt"
+    )
+
+
+def test_der_stapellauf_schreibt_die_seite_in_denselben_datentraeger(dienste):
+    """Sonst liefert der Dienst eine Datei aus, die niemand erneuert.
+
+    Die Seite entsteht im Stapellauf aus dem Release - das ist die Zusage von
+    FR-31, dass die ausgelieferte Seite das Release zeigt, das auf ``srv01``
+    wirklich liegt. Dafuer muss derselbe Datentraeger in beiden Diensten
+    stehen, und im Stapellauf **ohne** ``:ro``.
+    """
+    gelesen = dienste["start"]["volumes"][0].split(":")[0]
+    geschrieben = [v for v in dienste["pipeline"]["volumes"]
+                   if v.split(":")[0] == gelesen]
+    assert geschrieben, (
+        f"der Stapellauf haengt {gelesen!r} nicht ein - dann schreibt die "
+        "Seite niemand, und start liefert aus, was zuletzt darin lag"
+    )
+    assert not geschrieben[0].endswith(":ro"), (
+        f"{geschrieben[0]}: der Lauf muss die Seite schreiben koennen"
+    )
 
 
 # --------------------------------------------------------------------------

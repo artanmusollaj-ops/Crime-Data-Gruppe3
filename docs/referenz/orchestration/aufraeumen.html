@@ -342,7 +342,7 @@ der Spalte <code>run_id</code>; der Spaltenname wird dadurch unscharf, aber es g
 <strong>ein</strong> Register und nicht zwei.</li>
 <li><strong>Das Release, auf das der Zeiger zeigt, bleibt</strong> - auch wenn es aus der
 Reihe fiele. ClickHouse, Elasticsearch, Kibana, <code><a href="../serving/pruefe_stand.html">serving.pruefe_stand</a></code>
-und <code>tools.build_einstieg</code> loesen alle darueber auf; ein altes Release zu
+und <code><a href="../serving/build_einstieg.html">serving.build_einstieg</a></code> loesen alle darueber auf; ein altes Release zu
 entfernen ist folgenlos, das aktuelle bricht fuenf Verbraucher auf einmal.
 Darum ist es eine eigene Regel und kein Nebeneffekt von "die letzten acht".
 Fehlt der Zeiger, sagt der Bericht das und laeuft weiter.</li>
@@ -434,7 +434,7 @@ keines, ein bestehendes wird nie ueberschrieben.</p>
 </span><span id="L-67"><a href="#L-67"><span class="linenos"> 67</span></a><span class="sd">   **ein** Register und nicht zwei.</span>
 </span><span id="L-68"><a href="#L-68"><span class="linenos"> 68</span></a><span class="sd">1. **Das Release, auf das der Zeiger zeigt, bleibt** - auch wenn es aus der</span>
 </span><span id="L-69"><a href="#L-69"><span class="linenos"> 69</span></a><span class="sd">   Reihe fiele. ClickHouse, Elasticsearch, Kibana, ``serving.pruefe_stand``</span>
-</span><span id="L-70"><a href="#L-70"><span class="linenos"> 70</span></a><span class="sd">   und ``tools.build_einstieg`` loesen alle darueber auf; ein altes Release zu</span>
+</span><span id="L-70"><a href="#L-70"><span class="linenos"> 70</span></a><span class="sd">   und ``serving.build_einstieg`` loesen alle darueber auf; ein altes Release zu</span>
 </span><span id="L-71"><a href="#L-71"><span class="linenos"> 71</span></a><span class="sd">   entfernen ist folgenlos, das aktuelle bricht fuenf Verbraucher auf einmal.</span>
 </span><span id="L-72"><a href="#L-72"><span class="linenos"> 72</span></a><span class="sd">   Darum ist es eine eigene Regel und kein Nebeneffekt von "die letzten acht".</span>
 </span><span id="L-73"><a href="#L-73"><span class="linenos"> 73</span></a><span class="sd">   Fehlt der Zeiger, sagt der Bericht das und laeuft weiter.</span>

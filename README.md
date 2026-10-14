@@ -222,7 +222,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 1'834 ausgeführte Tests, ohne Netzzugriff und ohne
+Erwartet wird **grün**: 1'845 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -232,7 +232,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'942
+python -m pytest -m ""               # beides zusammen, alle 1'953
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -851,15 +851,29 @@ python tools/build_dashboardbilder.py    # braucht die Dienste und einen Chrome
 **Wo ein Analyst anfängt.**
 
 ```bash
-python tools/build_einstieg.py           # erzeugt docs/einstieg.html
+python -m serving.build_einstieg         # erzeugt docs/einstieg.html
 ```
 
-Eine Datei, kein Dienst — [`docs/einstieg.html`](docs/einstieg.html) öffnet man
-mit einem Doppelklick. Darauf steht, was im aktuellen Release liegt
+Eine Datei — [`docs/einstieg.html`](docs/einstieg.html) öffnet man mit einem
+Doppelklick. Darauf steht, was im aktuellen Release liegt
 (Zeilen, Spalten, Zeitraum, Vertragsversion, Code-Verweis), die Kennzahlen
-beider Städte, die Güteziffern gegen die Schwellen des Publish-Gates, und wo
-man was fragt. **Jede Zahl wird beim Erzeugen gemessen**, keine ist
-abgeschrieben.
+beider Städte samt Rate je 1'000, die Güteziffern gegen die Schwellen des
+Publish-Gates, und die vier Zugänge — Elasticsearch, Kibana, DuckDB und
+Jupyter. **Jede Zahl wird beim Erzeugen gemessen**, keine ist abgeschrieben.
+
+> **Für `srv01` ist ein Dienst beschrieben, der sie ausliefert** (seit dem
+> 12.10.2026, FR-31) — beschrieben, **nicht in Betrieb**: Die Tunnel-Route für
+> `urbancrime-start.datenwerft.ch` ist nicht angelegt, und der Stapel dort
+> kennt den Dienst noch nicht. Gedacht ist er hinter derselben
+> Access-Anwendung wie Kibana und Jupyter; nichts daran soll öffentlich sein.
+> Zwei Seiten wären zwei Wahrheiten über dieselben Zahlen; es ist deshalb
+> dieselbe, nur mit `--adressen server` gebaut: Verweise auf
+> `urbancrime-<dienst>.datenwerft.ch` statt auf `localhost`, und für
+> Elasticsearch **kein** Verweis, weil es dort bewusst nicht geroutet ist. Der
+> Erzeuger liegt seit demselben Tag in `serving` und nicht mehr unter `tools/`
+> — `tools/` gehört nicht ins Abbild, und im Container muss die Seite
+> entstehen können. Eine fünfte Karte nennt die **künftige** Admin-Konsole:
+> benannter Platzhalter, kein Verweis.
 
 > **Kein Zeitstempel, kein eingefrorener Dienstzustand.** Beides machte die
 > Seite unreproduzierbar, und ein festgehaltenes „alles in Ordnung" wäre eine
@@ -902,12 +916,15 @@ Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.
 > **Das hier ist die Entwicklungsfassung.** `docker-compose.yml` bindet die
 > Ports an `127.0.0.1`, kennt kein Traefik und setzt keine Speichergrenzen —
 > auf diesem Rechner richtig. Für den Betrieb auf einem geteilten Server liegt
-> daneben `docker-compose.srv01.yml`: vier Dienste, gemessene
-> Speichergrenzen, die Strecke als Stapellauf und ein lesendes Jupyter.
+> daneben `docker-compose.srv01.yml`: fünf Dienste, gemessene
+> Speichergrenzen, die Strecke als Stapellauf, ein lesendes Jupyter und seit
+> dem 12.10.2026 ein nginx für die Einstiegsseite.
 > **Seit dem 8.10.2026 läuft sie dort.** Elasticsearch, Kibana und Jupyter
-> stehen auf `srv01`, beide Abbilder per Digest gepinnt; Tunnel-Routen und
-> Access-Anwendung sind seit dem 9.10.2026 eingerichtet und von aussen
-> gemessen. Ein Zeitplan steht auch — montags 04:30 —, hat aber noch nie
+> stehen auf `srv01`, beide Abbilder per Digest gepinnt; die Tunnel-Routen für
+> Kibana und Jupyter und die Access-Anwendung sind seit dem 9.10.2026
+> eingerichtet und von aussen gemessen (Abschnitt 16) — die Route für
+> `urbancrime-start` ist
+> seit dem 12.10.2026 fällig und **nicht** angelegt. Ein Zeitplan steht auch — montags 04:30 —, hat aber noch nie
 > gefeuert: erster Termin ist der 12.10.2026, bis dahin eine **Einrichtung,
 > kein Nachweis**. Alles dazu in
 > [`docs/storage-architektur.md`](docs/storage-architektur.md), Abschnitt 16.
@@ -1011,7 +1028,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**1'942 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'953 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -1048,7 +1065,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'799 der 1'834 Tests** des Standardlaufs. Die
+In einem frischen Klon laufen **1'810 der 1'845 Tests** des Standardlaufs. Die
 übrigen 35 überspringen sich selbst, weil sie gebaute Daten brauchen und `data/`
 nicht versioniert ist — dazu seit dem 5.10.2026 die Reproduktion von
 `docs/forschungsfragen.md`, deren Quelle das ungetrackte LN1-PDF ist; die 108 Referenzstand-Wächter sind ohnehin abgewählt.

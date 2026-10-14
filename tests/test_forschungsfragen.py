@@ -117,7 +117,7 @@ def test_das_dokument_sagt_dass_der_wortlaut_beleg_ist():
 def test_das_dokument_traegt_kein_erzeugungsdatum():
     """Sonst koennte der Reproduktionswaechter nie gruen sein.
 
-    Dieselbe Lehre wie in ``tools/build_einstieg.py`` und
+    Dieselbe Lehre wie in ``serving.build_einstieg`` und
     ``tools/build_platzbedarf.py``: Der Stand kommt aus der **Quelle** - hier
     das Erstellungsdatum des PDF und sein SHA-256.
     """

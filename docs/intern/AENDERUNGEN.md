@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'942** |
+| Tests | **1'953** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -100,6 +100,102 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 12.10.2026 · Die Einstiegsseite steht hinter Access — und wird ausgeliefert (#148)
+
+**Was fehlte.** `docs/einstieg.html` gibt es seit dem 2.10.2026: Zeitraum,
+Release-Kennung, Zeilen- und Spaltenzahlen, die Kennzahlen beider Städte samt
+Rate je 1'000, die Güteziffern gegen die Schwellen des Publish-Gates — alles
+beim Erzeugen gemessen, keine Zahl abgeschrieben. Erreichbar war sie für
+niemanden, der das Repository nicht hat. FR-31 verlangt die Seite; ausgeliefert
+hat sie nichts.
+
+**Drei Entscheidungen, und keine davon ist kosmetisch.**
+
+* **Nichts ist öffentlich.** Die Seite liegt hinter derselben
+  Access-Anwendung wie Kibana und Jupyter, unter
+  `urbancrime-start.datenwerft.ch`. `urbancrime.datenwerft.ch` bleibt
+  unbesetzt: Es ist der **einzige** Hostname, den das Muster `urbancrime-*`
+  nicht deckt, und damit der einzige, den die eine Access-Anwendung nicht
+  schützt.
+* **Der Dauerbetrieb wird von zwei auf drei Dienste erweitert.** Was
+  erreichbar sein soll, muss laufen, wenn jemand die Adresse aufruft. Die
+  Rechnung von FR-13 trägt das: 2'848 MiB dauernd plus 1'280 MiB für das
+  grössere Zeitweilige sind **4'128** von 4'325 gemessen verfügbaren MiB (plus
+  792 MiB aus dem gedeckelten cadvisor). Der Test, der bis heute „genau
+  Elasticsearch und Kibana" sagte, sagt jetzt drei Dienste **und ihren Grund** —
+  die Entscheidung steht an der Stelle, an der sie bricht, wenn jemand einen
+  vierten dazulegt.
+* **Die Admin-Konsole ist ein benannter Platzhalter.** Sie steht als fünfte
+  Karte auf der Seite, mit dem vorgesehenen Namen `urbancrime-admin` und
+  **ohne Verweis**. Ein Knopf auf einen Hostnamen ohne Route sieht aus wie
+  eine Auskunft.
+
+**Der Erzeuger ist umgezogen: `tools/build_einstieg.py` →
+`src/crime/serving/build_einstieg.py`.** Nicht aus Ordnungsliebe, sondern
+weil `.dockerignore` `tools/` aus dem Baukontext hält — im Abbild gab es das
+Modul nicht, und die Seite muss **im Container** entstehen, aus dem Release,
+das auf `srv01` wirklich liegt, und nicht aus dem des letzten Checkouts.
+Aufgerufen wird es jetzt wie `build_kibana`, `load_elasticsearch` und
+`pruefe_stand`: `python -m serving.build_einstieg`. Nachgezogen sind
+`docs/README.md`, der Wächter über die Generatorenzahl (**zehn → neun** unter
+`tools/`, das Architekturbild neu gebaut) und die Code-Referenz, die seither
+eine Seite mehr trägt.
+
+**Zwei Dinge sind beim Umzug aufgefallen, die unter `tools/` keiner sah.** Der
+Erzeuger reichte `args.data_root` ungefiltert weiter statt durch `for_root` —
+eine Regel, die nur für `src/` gilt und die ein Test dort sofort einforderte;
+im `s3`-Modus wäre die Vorgabe falsch gewesen. Und seine beiden
+Pfadkonstanten standen als absolute Pfade dieses Rechners in der erzeugten
+Code-Referenz; sie werden jetzt beim Aufruf aufgelöst.
+
+**Vier Zugänge statt zwei, und die Adressen sind umschaltbar.** Dazu kommen
+Jupyter (lesend, auf dem Release) und die künftige Admin-Konsole; `--adressen
+server` setzt `urbancrime-<dienst>.datenwerft.ch` anstelle von `localhost`.
+**Elasticsearch bekommt in der Serverfassung keinen Knopf** — es ist nach
+FR-11 bewusst nicht geroutet, und ein Verweis auf `localhost:19200` landete im
+Rechner des Lesenden. Die Serverfassung trägt auch keine relativen Verweise
+mehr: Ausgeliefert wird genau eine Datei, und `referenz/index.html` wäre dort
+ein 404.
+
+**Woher die Datei kommt, ist die zweite Weiche.** Ein Bind-Mount des
+Repositorys zeigte das Release des letzten `git pull` und wäre im Serverstapel
+der einzige Einhängepunkt seiner Art. Der Weg ist derselbe wie bei
+`arbeitsdaten`: Der Stapellauf schreibt in einen benannten Datenträger, nginx
+liest ihn mit `:ro`. Ein **eigener** Datenträger, weil nginx aus seiner Wurzel
+alles ausliefert, was darin liegt, und `arbeitsdaten` den ganzen Arbeitsraum
+samt Release trägt. Geschrieben wird die Seite im Datenlauf nach
+`holen aktuell --einsetzen` und vor `pruefe_stand`.
+
+**Ein `:ro`-Mount schützt den Datenträger nicht vor dem Abbild.** Am
+laufenden Docker nachgestellt: Ein leerer benannter Datenträger wird beim
+ersten Start **aus dem Abbild befüllt**, und das `:ro` auf der lesenden Seite
+verhindert das nicht. Danach liegen nginx' eigene `index.html` (896 Bytes,
+*Welcome to nginx!*) und `50x.html` darin, und `curl -fs` antwortet mit
+**HTTP 200** — ein Healthcheck darauf hätte den Dienst gesund gemeldet,
+während er hinter Access die Willkommensseite von nginx auslieferte. Zwei
+Konsequenzen: Der Healthcheck greift nach einem **Kennzeichen unserer Seite**
+(`serving.build_einstieg` aus ihrer Fusszeile), und der Datenlauf **leert den
+Datenträger**, bevor er schreibt — sonst bliebe `50x.html` auch danach liegen.
+Beides hält je ein Wächter.
+
+**Was das nicht ist: ein Nachweis.** Der Dienst steht in der Beschreibung.
+Seine Tunnel-Route ist am 12.10.2026 nicht angelegt, der Stapel auf `srv01`
+kennt ihn nicht, und ohne Datenlauf trägt der Datenträger keine Seite von
+uns — der Dienst ist dann `unhealthy` und behauptet nichts. Unter „Was daneben
+einzurichten ist" steht damit ein Posten mehr offen als gestern.
+
+**Zahlen.** 1'942 → **1'953 Tests** (elf neue: die vier Zugänge gegen die
+Liste im Erzeuger *und* gegen die abgelegte Seite, die Kennzeichnung der
+Admin-Konsole, kein Verweis ins Leere je Fassung, das Hostnamenmuster samt
+Jupyters Portzahl, die benannte Fassung, der Satz auf der Jupyter-Karte, dazu
+drei über Datenträger und Healthcheck und zwei über den Aufruf im
+Datenlauf), Standardlauf 1'834 → **1'845**, frischer Klon 1'799 → **1'810**,
+Referenzwächter unverändert **108**, alle grün. **Keine Zahl der Abgabe
+bewegt sich** — die Seite zeigt dieselben Werte wie vorher, nur an einem Ort
+mehr.
 
 ---
 

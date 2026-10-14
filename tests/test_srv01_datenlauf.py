@@ -67,19 +67,65 @@ def test_der_crontab_ruft_genau_das_versionierte_skript_auf():
 
 
 def test_das_skript_prueft_den_veroeffentlichten_stand_am_ende():
+    """Die Reihenfolge der Abschlussschritte, aus dem Skript gelesen.
+
+    ``build_einstieg`` steht seit dem 12.10.2026 dazwischen und nicht
+    irgendwo: Die Seite wird aus dem **eingesetzten** Release gebaut, also
+    nach ``holen``, und vor ``pruefe_stand``, damit ein rotes Ergebnis den
+    Lauf abbricht, nachdem alles Erzeugte da ist (FR-31).
+    """
     text = SCRIPT.read_text(encoding="utf-8")
     schritte = (
         "orchestration.release holen aktuell --einsetzen",
         "serving.load_elasticsearch",
         "serving.build_kibana",
+        "serving.build_einstieg",
         "serving.pruefe_stand",
     )
     positionen = [text.index(schritt) for schritt in schritte]
     assert positionen == sorted(positionen)
 
 
+def test_die_startseite_wird_mit_den_serveradressen_gebaut():
+    """Sonst stünden auf der ausgelieferten Seite ``localhost``-Verweise.
+
+    Die Vorgabe des Erzeugers ist ``lokal`` - richtig fuer die Fassung, die im
+    Repository liegt, und falsch fuer die, die ein Browser hinter Cloudflare
+    Access oeffnet. Der Datenlauf muss die Umschaltung deshalb **nennen**;
+    eine vergessene Flagge faellt sonst erst jemandem auf, der auf einen
+    Knopf drueckt und in seinem eigenen Rechner landet.
+    """
+    text = SCRIPT.read_text(encoding="utf-8")
+    zeile = next(z for z in text.splitlines() if "serving.build_einstieg" in z)
+    assert "--adressen server" in zeile, (
+        f"die Seite wird ohne Serveradressen gebaut: {zeile.strip()}"
+    )
+    assert "--ziel /app/startseite/" in zeile, (
+        f"die Seite landet nicht im Datentraeger, den start ausliefert: "
+        f"{zeile.strip()}"
+    )
+
+
+def test_der_datentraeger_wird_vor_dem_schreiben_geleert():
+    """Docker befuellt einen leeren benannten Datentraeger aus dem Abbild.
+
+    Am 12.10.2026 nachgestellt: Nach dem ersten Start von ``start`` liegen
+    nginx' eigene ``index.html`` und ``50x.html`` im Datentraeger - das
+    ``:ro`` auf der lesenden Seite verhindert das nicht. Ohne diesen Schritt
+    bliebe ``50x.html`` auch nach dem Datenlauf liegen, und nginx liefert aus
+    seiner Wurzel alles aus, was darin liegt.
+    """
+    text = SCRIPT.read_text(encoding="utf-8")
+    leeren = text.index("find /app/startseite -mindepth 1 -delete")
+    schreiben = text.index("serving.build_einstieg")
+    assert leeren < schreiben, (
+        "der Datentraeger wird nicht vor dem Schreiben geleert"
+    )
+
+
 # --------------------------------------------------------------------------
-# Das Skript ruft sieben Module mit Flaggen auf - beide muessen es geben
+# Das Skript ruft elf Module auf, sieben davon mit Flaggen - beide muessen
+# es geben
 # --------------------------------------------------------------------------
 
 #: Jeder ``python -m <modul> ... --flagge``-Aufruf im Skript, aus dem Text
@@ -130,8 +176,9 @@ def test_jedes_aufgerufene_modul_gibt_es(skript_aufrufe):
 
     Das ist dieselbe Falle, die ``AGENTS.md`` fuer die Notebooks nennt: Was
     nur woechentlich und unbeaufsichtigt laeuft, faellt erst auf, wenn es
-    schon nicht mehr geht. Sieben Modulpfade stehen in diesem Skript, und
-    ohne diesen Test haelt sie nichts.
+    schon nicht mehr geht. Elf Modulpfade stehen in diesem Skript - seit dem
+    12.10.2026 einer mehr, ``serving.build_einstieg`` -, und ohne diesen Test
+    haelt sie nichts.
     """
     for modul in sorted(skript_aufrufe):
         hilfe(modul)
@@ -140,10 +187,12 @@ def test_jedes_aufgerufene_modul_gibt_es(skript_aufrufe):
 def test_jede_flagge_im_skript_gibt_es_auch(skript_aufrufe):
     """Eine Flagge, die es nicht gibt, laesst den Lauf sofort scheitern.
 
-    Gepruefte Form am 11.10.2026: ``--full``, ``--mode``, ``--years``,
-    ``--auslieferung``, ``--vintage``, ``--ohne-ingestion``, ``--jahre`` und
-    ``--einsetzen`` - alle vorhanden. Der Test haelt das, damit eine
-    Umbenennung in einem ``arguments()`` nicht erst am Montag auffaellt.
+    Gepruefte Form am 12.10.2026: ``--full``, ``--mode``, ``--years``,
+    ``--auslieferung``, ``--vintage``, ``--ohne-ingestion``, ``--jahre``,
+    ``--einsetzen`` und, seit die Einstiegsseite mitgebaut wird,
+    ``--adressen`` und ``--ziel`` - alle vorhanden. Der Test haelt das, damit
+    eine Umbenennung in einem ``arguments()`` nicht erst am Montag
+    auffaellt.
     """
     fehler: list[str] = []
     for modul, flaggen in sorted(skript_aufrufe.items()):

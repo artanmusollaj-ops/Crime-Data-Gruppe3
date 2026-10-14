@@ -36,7 +36,7 @@ innerhalb der Tabelle verschiebt poppler sie um vier Zeichen, und eine fest
 verdrahtete Spaltenlage haette F3 bis F6 verloren.
 
 **Kein Erzeugungszeitstempel.** Wie in ``tools/build_platzbedarf.py`` und
-``tools/build_einstieg.py``: Ein ``date.today()`` in der Datei hiesse, dass
+``serving.build_einstieg``: Ein ``date.today()`` in der Datei hiesse, dass
 ein zweiter Lauf eine andere Datei liefert, und der Waechter darauf koennte
 nie gruen sein. Genannt wird deshalb der **Stand der Quelle** - das
 Erstellungsdatum des PDF und sein SHA-256. Beides steht in der Quelle und ist

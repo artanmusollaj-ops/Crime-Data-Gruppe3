@@ -22,16 +22,19 @@ import pytest
 from gold_pipeline import RATENJAHR, raten_je_stadt
 
 PROJEKT = Path(__file__).resolve().parents[1]
-WERKZEUG = PROJEKT / "tools" / "build_einstieg.py"
+#: Der Erzeuger ist seit dem 12.10.2026 ein Modul des Pakets und kein Skript
+#: unter ``tools/``: Die Seite ist ein Serving-Artefakt, und ``tools/`` liegt
+#: nicht im Abbild (``.dockerignore``). Aufgerufen wird er deshalb wie
+#: ``build_kibana`` - ueber ``-m``, aus dem Projektverzeichnis.
+WERKZEUG = ("serving.build_einstieg",)
 SEITE = PROJEKT / "docs" / "einstieg.html"
 AKTUELL = PROJEKT / "data" / "releases" / "AKTUELL.json"
-
-sys.path.insert(0, str(PROJEKT / "tools"))
+SRV01 = PROJEKT / "docker-compose.srv01.yml"
 
 
 @pytest.fixture(scope="module")
 def werkzeug():
-    import build_einstieg
+    from serving import build_einstieg
 
     return build_einstieg
 
@@ -212,7 +215,7 @@ def test_die_abgelegte_seite_ist_nicht_aelter_als_das_release(tmp_path):
     for n in range(2):
         ziel = tmp_path / f"lauf{n}.html"
         fertig = subprocess.run(
-            [sys.executable, str(WERKZEUG), "--ziel", str(ziel)],
+            [sys.executable, "-m", *WERKZEUG, "--ziel", str(ziel)],
             capture_output=True, text=True, cwd=PROJEKT)
         assert fertig.returncode == 0, fertig.stderr[-1500:]
         gebaut.append(ziel.read_text(encoding="utf-8"))
@@ -223,11 +226,21 @@ def test_die_abgelegte_seite_ist_nicht_aelter_als_das_release(tmp_path):
     if SEITE.is_file():
         assert SEITE.read_text(encoding="utf-8") == gebaut[0], (
             "docs/einstieg.html ist aelter als das Release. "
-            "python tools/build_einstieg.py")
+            "python -m serving.build_einstieg")
 
 
-def test_das_werkzeug_steht_im_architekturbild():
-    """Die Generatorenzahl im Bild zaehlt ``tools/`` - also mit."""
+def test_die_generatorenzahl_im_bild_zaehlt_tools():
+    """Die Generatorenzahl im Bild zaehlt ``tools/`` - und dieser Erzeuger
+    steht seit dem 12.10.2026 nicht mehr darin.
+
+    Der Test hiess ``test_das_werkzeug_steht_im_architekturbild``, solange
+    ``build_einstieg`` eines der Werkzeuge unter ``tools/`` war. Mit dem Umzug
+    nach ``serving`` ist er genau der Waechter, der den Umzug sichtbar macht:
+    Die Zahl im Bild fiel von zehn auf neun, und ohne einen frischen Bau des
+    Bildes faellt er. Er bleibt hier und nicht in
+    ``tests/test_architekturbilder.py``, weil der Umzug dieses Erzeugers der
+    Grund fuer die neue Zahl ist.
+    """
     bild = PROJEKT / "docs" / "bilder" / "architektur-kontext.svg"
     if not bild.is_file():
         pytest.skip("Bild nicht gebaut")
@@ -238,6 +251,9 @@ def test_das_werkzeug_steht_im_architekturbild():
     assert f"{anzahl} Generatoren" in text, (
         f"das Bild nennt nicht {anzahl} Generatoren. "
         f"python tools/build_architekturbilder.py")
+    assert not (PROJEKT / "tools" / "build_einstieg.py").exists(), (
+        "build_einstieg liegt wieder unter tools/ - dort ist es nicht im "
+        "Abbild (.dockerignore) und kann die ausgelieferte Seite nicht bauen")
 
 
 def test_die_seite_nennt_so_viele_bretter_wie_es_gibt(werkzeug, text):
@@ -256,4 +272,174 @@ def test_die_seite_nennt_so_viele_bretter_wie_es_gibt(werkzeug, text):
         f"der Generator nennt nicht {wort.lower()} Bretter: {kibana[3][:60]}")
     assert f"{wort} Bretter" in text, (
         "docs/einstieg.html ist aelter als der Generator. "
-        "python tools/build_einstieg.py")
+        "python -m serving.build_einstieg")
+
+
+# --------------------------------------------------------------------------
+# Die Zugaenge (FR-31): vier, und einer, der noch keiner ist
+# --------------------------------------------------------------------------
+
+
+def blatt(werkzeug, fassung: str) -> str:
+    """Die Seite in einer Fassung, aus einem erfundenen Release.
+
+    Die Verweise haengen nicht an den Daten, nur an der Fassung. Mit einem
+    erfundenen Release prueft der Waechter sie deshalb auch auf einem Rechner
+    ohne gebautes ``data/`` - und das ist der Normalfall in CI. Was aus dem
+    Release kommt, prueft der Referenzstand-Waechter oben.
+    """
+    mass = {
+        "datensaetze": [("fact_offense", 1, 2, 3)],
+        "staedte": [("chicago", 1, 2, 3.0)],
+        "guete": [("chicago", 99.0, 99.0, 0.0)],
+        "zeitraum": ("2021-01-01", "2026-06-30"),
+        "ratenjahr": 2024,
+    }
+    return werkzeug.seite("2026-01-01T00-00-00Z", {}, mass, fassung)
+
+
+def test_die_seite_nennt_vier_zugaenge(werkzeug, text):
+    """FR-31 verlangt die Zugaenge auf der Seite - gezaehlt, nicht geglaubt.
+
+    Vier gibt es: Elasticsearch, Kibana, DuckDB und seit dem 12.10.2026
+    Jupyter. Die Admin-Konsole ist ein fuenfter Eintrag und **kein** Zugang;
+    sie zaehlt hier bewusst nicht mit, und der Waechter darunter haelt fest,
+    dass die Seite das auch sagt.
+
+    Geprueft wird beides: die Liste im Erzeuger und die abgelegte Seite. Nur
+    das Erste waere ein Test des Generators gegen sich selbst - genau der
+    Fehler, der "Drei Bretter" vier Tage ueberlebt hat.
+    """
+    zugaenge = [d for d in werkzeug.dienste() if not werkzeug.ist_kuenftig(d)]
+    namen = [d[0] for d in zugaenge]
+    assert namen == ["Elasticsearch", "Kibana", "DuckDB", "Jupyter"], namen
+    wort = werkzeug.ZAHLWORT[len(namen)].capitalize()
+    assert f"{wort} Zugänge" in text, (
+        f"die Seite nennt nicht {wort.lower()} Zugänge. "
+        "python -m serving.build_einstieg")
+    fehlend = [n for n in namen if f"<h3>{n}</h3>" not in text]
+    assert not fehlend, f"keine Karte fuer: {fehlend}"
+
+
+def test_die_admin_konsole_ist_als_kuenftig_gekennzeichnet(werkzeug, text):
+    """Ein Knopf auf einen Hostnamen ohne Route sieht aus wie eine Auskunft.
+
+    Die Admin-Konsole ist ein benannter Platzhalter: Sie nennt den Namen, der
+    ins Muster ``urbancrime-*`` fällt - und damit unter die eine
+    Access-Anwendung -, aber sie verweist auf nichts. Solange es den Dienst
+    nicht gibt, ist das die einzige ehrliche Form.
+    """
+    eintrag = next(d for d in werkzeug.dienste() if d[0] == "Admin-Konsole")
+    assert werkzeug.ist_kuenftig(eintrag), (
+        "die Admin-Konsole ist nicht als kuenftig gekennzeichnet")
+    assert eintrag[1] is None, (
+        f"sie traegt eine Adresse ({eintrag[1]}) - den Dienst gibt es nicht")
+    host = eintrag[5][1]
+    assert host == "urbancrime-admin.datenwerft.ch", host
+
+    for fassung in werkzeug.FASSUNGEN:
+        seite = blatt(werkzeug, fassung)
+        assert f'<code>{host}</code>' in seite, (
+            f"{fassung}: der vorgesehene Name steht nicht auf der Seite")
+        assert f'href="https://{host}' not in seite, (
+            f"{fassung}: die Seite verlinkt {host} - die Route gibt es nicht")
+    assert "künftig" in text and host in text, (
+        "docs/einstieg.html ist aelter als der Generator. "
+        "python -m serving.build_einstieg")
+
+
+def test_kein_verweis_zeigt_ins_leere(werkzeug):
+    """Jeder Verweis trifft etwas - je Fassung geprueft, nicht im Mittel.
+
+    Die beiden Fassungen haben verschiedene Arten, ins Leere zu zeigen. Lokal
+    waere es ein relativer Verweis auf ein Dokument, das es nicht gibt; auf
+    dem Server waere es **jeder** relative Verweis, weil dort genau eine
+    Datei ausgeliefert wird - und ein Hostname ``urbancrime-*``, zu dem keine
+    Route gehoert.
+    """
+    router = re.findall(r"routers\.urbancrime-(\w+)\.rule: Host\(`([^`]+)`\)",
+                        SRV01.read_text(encoding="utf-8"))
+    geroutet = {host for _, host in router}
+    assert geroutet, "keine Traefik-Router in docker-compose.srv01.yml gefunden"
+
+    for fassung in werkzeug.FASSUNGEN:
+        seite = blatt(werkzeug, fassung)
+        ziele = re.findall(r'href="([^"]+)"', seite)
+        relativ = [z for z in ziele if "//" not in z]
+        if fassung == "server":
+            assert not relativ, (
+                f"die Serverfassung verweist relativ auf {relativ} - "
+                "ausgeliefert wird nur diese eine Datei")
+        else:
+            tot = [z for z in relativ
+                   if not (PROJEKT / "docs" / z.split("#")[0]).exists()]
+            assert not tot, f"relativer Verweis ins Leere: {tot}"
+        fremd = [z for z in ziele
+                 if (m := re.match(r"https?://(urbancrime[^/]+)", z))
+                 and m.group(1) not in geroutet]
+        assert not fremd, (
+            f"{fassung}: verweist auf {fremd}, wofuer "
+            f"docker-compose.srv01.yml keine Route traegt")
+
+
+def test_die_adressen_sind_umschaltbar_und_folgen_dem_muster(werkzeug):
+    """Eine Variable, zwei Fassungen - und das Muster, an dem Access haengt.
+
+    Beim Entwickeln zeigen die Verweise auf den lokalen Verbund, auf dem
+    Server auf ``urbancrime-<dienst>.datenwerft.ch``. Dass es dasselbe Muster
+    ist, an dem die **eine** Access-Anwendung haengt, ist der Grund dafuer,
+    dass niemand eine Regel vergessen kann: ``urbancrime.datenwerft.ch`` ist
+    der einzige Hostname, den es nicht deckt, und er bleibt unbesetzt.
+    """
+    lokal = {d[0]: d[1] for d in werkzeug.dienste("lokal")}
+    server = {d[0]: d[1] for d in werkzeug.dienste("server")}
+    assert set(lokal) == set(server), "die Fassungen nennen andere Dienste"
+
+    assert lokal["Kibana"].startswith("http://localhost:15601")
+    assert lokal["Elasticsearch"].startswith("http://localhost:19200")
+    # Die Portzahl, nicht nur das Praefix: 8888 ist die Vorgabe von
+    # ``jupyter lab`` und steht in keiner Compose-Datei - ein verschobener
+    # Port faellt sonst nirgends auf.
+    assert lokal["Jupyter"] == "http://localhost:8888/lab", lokal["Jupyter"]
+    for name in ("Kibana", "Jupyter"):
+        assert server[name].startswith(
+            f"https://urbancrime-{name.lower()}.datenwerft.ch"), server[name]
+    # Elasticsearch ist auf srv01 nicht geroutet (FR-11). Ein Knopf dafuer
+    # waere entweder ein toter Link oder - schlimmer - ein offener
+    # Datenspeicher, wenn jemand die Route nachtraeglich anlegt.
+    assert server["Elasticsearch"] is None, (
+        "die Serverfassung verlinkt Elasticsearch - es ist dort bewusst "
+        "nicht geroutet")
+    assert not any(h for h in server.values()
+                   if h and h.startswith("https://urbancrime.datenwerft.ch")), (
+        "die Seite besetzt urbancrime.datenwerft.ch - der eine Hostname, den "
+        "das Access-Muster urbancrime-* nicht deckt")
+
+
+def test_die_fassung_wird_benannt_und_nicht_geraten(werkzeug):
+    """Ein Tippfehler in ``--adressen`` darf keine halbe Seite ergeben."""
+    with pytest.raises(ValueError):
+        werkzeug.dienste("srv01")
+    zerleger = werkzeug.kommandozeile()
+    assert zerleger.parse_args([]).adressen == "lokal", (
+        "die Vorgabe ist nicht lokal - dann stuenden in der abgelegten Seite "
+        "Serveradressen")
+
+
+def test_die_jupyter_karte_sagt_dass_er_erst_zu_starten_ist(werkzeug):
+    """Jupyter laeuft in **keiner** Fassung von selbst.
+
+    Lokal kennt ``docker-compose.yml`` den Dienst gar nicht (clickhouse,
+    elasticsearch, kibana), und ``jupyterlab`` steht nicht in
+    ``requirements.lock`` - 8888 ist die Vorgabe eines von Hand gestarteten
+    ``jupyter lab``. Auf ``srv01`` haelt ein ``profiles: [analyse]`` den
+    Dienst aus ``up -d`` heraus. Ein Knopf ohne diesen Satz ergaebe auf der
+    dauernd ausgelieferten Seite 404 oder 502.
+    """
+    for fassung, wort in (("lokal", "jupyter lab"),
+                          ("server", "profile analyse")):
+        karte = next(d for d in werkzeug.dienste(fassung) if d[0] == "Jupyter")
+        assert "Zeitweilig" in karte[3] or "Von Hand" in karte[3], (
+            f"{fassung}: die Jupyter-Karte sagt nicht, dass er zu starten ist")
+        assert wort in karte[3], (
+            f"{fassung}: sie nennt nicht, womit - erwartet {wort!r}")

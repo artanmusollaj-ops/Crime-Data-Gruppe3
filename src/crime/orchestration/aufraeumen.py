@@ -67,7 +67,7 @@ selbst und nichts im Projekt sucht das neueste: Alles geht ueber
    **ein** Register und nicht zwei.
 1. **Das Release, auf das der Zeiger zeigt, bleibt** - auch wenn es aus der
    Reihe fiele. ClickHouse, Elasticsearch, Kibana, ``serving.pruefe_stand``
-   und ``tools.build_einstieg`` loesen alle darueber auf; ein altes Release zu
+   und ``serving.build_einstieg`` loesen alle darueber auf; ein altes Release zu
    entfernen ist folgenlos, das aktuelle bricht fuenf Verbraucher auf einmal.
    Darum ist es eine eigene Regel und kein Nebeneffekt von "die letzten acht".
    Fehlt der Zeiger, sagt der Bericht das und laeuft weiter.
