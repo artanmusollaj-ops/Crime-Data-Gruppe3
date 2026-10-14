@@ -232,7 +232,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'961
+python -m pytest -m ""               # beides zusammen, alle 1'973
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -1029,7 +1029,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**1'961 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'973 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen

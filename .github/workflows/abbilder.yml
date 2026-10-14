@@ -1,0 +1,199 @@
+# Baut die beiden Abbilder und schiebt sie nach ghcr.io/datenwerft.
+#
+# Warum es das braucht: Bis zum 14.10.2026 war der Abbildbau Handarbeit auf
+# dem Entwicklungsrechner - gebaut, geschoben, Digest abgelesen, Digest in die
+# `.env` auf `srv01` getragen (docs/storage-architektur.md, "Wie die Abbilder
+# entstehen"). Drei dieser vier Handgriffe sind jetzt hier, und der vierte
+# bleibt bewusst Handarbeit (unten, "Was dieser Workflow nicht tut").
+#
+# **Der eigentliche Grund ist die Plattform, nicht die Bequemlichkeit.** Der
+# Entwicklungsrechner ist ein arm64-Mac, `srv01` laeuft auf x86-64. Ein ohne
+# `--platform linux/amd64` gebautes Abbild laesst sich anstandslos schieben
+# und scheitert erst auf `srv01` beim Start mit `exec format error` - also
+# nach Bau, Schieben und Holen. Als Flag ist das etwas, das man vergisst; auf
+# `ubuntu-latest` ist es die Maschine. Dazu kommt: Gebaut wird aus einem
+# frischen Klon auf einem bekannten Commit, und `GIT_COMMIT` ist
+# `github.sha`, nicht der Zustand irgendeines Arbeitsbaums.
+#
+# **Warum ein Token und nicht `GITHUB_TOKEN`.** Der Namensraum
+# `ghcr.io/datenwerft` haengt am persoenlichen Konto, das Repository an
+# `artanmusollaj-ops`. Das eingebaute `GITHUB_TOKEN` darf nur Pakete des
+# Repository-Eigentuemers schreiben, also `ghcr.io/artanmusollaj-ops/...` -
+# nicht den Namensraum, auf den die `.env` auf `srv01` und beide Dokumente
+# zeigen. Deshalb `GHCR_TOKEN` als Repository-Secret: dasselbe Token mit
+# `write:packages`, mit dem der Bau von Hand sich auch angemeldet hat.
+#
+# **Was dieser Workflow nicht tut: auf `srv01` schreiben.** Die beiden
+# Digests stehen in der Job-Zusammenfassung, fertig zum Einsetzen - getragen
+# werden sie von Hand. Das ist kein fehlendes Stueck: Wer den Bau startet,
+# soll auch entscheiden, wann der Stapel darauf umgestellt wird. Ein Workflow
+# mit Schreibzugriff auf `srv01` waere ein zweiter Weg in den Server hinein,
+# und den gibt es nicht ohne Grund.
+#
+# **Warum kein Anstoss auf jedem Push.** Das Repository ist privat, Minuten
+# werden verrechnet, und am 1.10.2026 war das Budget nach einem Tag weg
+# (Begruendung in tests.yml). Ein Abbildbau dauert Minuten, und noetig ist er
+# nur, wenn der Stapel wirklich umgestellt wird. Also von Hand angestossen.
+
+name: Abbilder
+
+on:
+  workflow_dispatch:
+    inputs:
+      marke:
+        description: "Marke fuer Menschen (leer = heutiges Datum). Gepinnt wird der Digest."
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  # Zwei gleichzeitige Baeue wuerden dieselbe Marke umhaengen. Nicht
+  # abbrechen: ein halb geschobenes Abbild ist schlimmer als ein Warten.
+  group: abbilder
+  cancel-in-progress: false
+
+jobs:
+  bauen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      BASIS_NAME: ghcr.io/datenwerft/urban-crime
+      JUPYTER_NAME: ghcr.io/datenwerft/urban-crime-jupyter
+
+    steps:
+      - name: Secret vorhanden?
+        # Vorab statt nach dem Bau. Derselbe Gedanke wie in datenlauf.yml:
+        # Zwanzig Minuten bauen und dann an der Anmeldung scheitern ist die
+        # teuerste Art, es zu erfahren.
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        run: |
+          if [ -z "$GHCR_TOKEN" ]; then
+            echo "::error::GHCR_TOKEN fehlt als Repository-Secret. Ein Personal Access Token des Kontos datenwerft mit write:packages, dann Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+          echo "GHCR_TOKEN ist gesetzt."
+
+      - name: Marke festlegen
+        # Die Marke traegt ein Datum und ist fuer Menschen; gepinnt wird der
+        # Digest, weil eine Marke sich umhaengen laesst und ein Digest nicht.
+        id: marke
+        run: |
+          set -euo pipefail
+          marke="${{ inputs.marke }}"
+          if [ -z "$marke" ]; then
+            marke="$(date -u +%Y-%m-%d)"
+          fi
+          echo "wert=$marke" >> "$GITHUB_OUTPUT"
+          echo "Marke: $marke"
+
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Bei ghcr.io anmelden
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: datenwerft
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Strecken-Abbild bauen und schieben
+        # docker/build-push-action, Nutzung nach der Dokumentation des
+        # Projekts: https://github.com/docker/build-push-action#usage
+        #
+        # Der Zwischenspeicher liegt im Actions-Cache: Die Schicht mit
+        # requirements.lock ist die teure, und sie aendert sich selten.
+        # mode=max legt auch die Zwischenschichten ab - das Jupyter-Abbild
+        # setzt auf diesem auf und holt sie sich.
+        id: basis
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.BASIS_NAME }}:${{ steps.marke.outputs.wert }}
+          build-args: GIT_COMMIT=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Analyse-Abbild bauen und schieben
+        # BASIS als Digest, nicht als Marke: So kann zwischen den beiden
+        # Schritten niemand die Marke umhaengen, und das Jupyter-Abbild setzt
+        # beweisbar auf genau dem Strecken-Abbild auf, das der Schritt davor
+        # geschoben hat.
+        id: jupyter
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.jupyter
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.JUPYTER_NAME }}:${{ steps.marke.outputs.wert }}
+          # Nur BASIS: Dockerfile.jupyter kennt kein GIT_COMMIT-Argument, es
+          # erbt das ENV aus dem Grundabbild (Dockerfile:95). Ein ungenutztes
+          # --build-arg waere eine Warnung je Bau und eine Zeile, die behauptet
+          # zu wirken.
+          build-args: BASIS=${{ env.BASIS_NAME }}@${{ steps.basis.outputs.digest }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Gegenprobe - holen und Plattform pruefen
+        # Zurueckholen statt nur bauen. Das prueft drei Dinge auf einmal: dass
+        # der Digest wirklich in der Registry liegt, dass er sich holen laesst,
+        # und dass linux/amd64 drin ist. Genau die Gegenprobe, die
+        # docs/storage-architektur.md fuer den Bau von Hand verlangt
+        # (`docker image inspect --format='{{.Os}}/{{.Architecture}}'`) - nur
+        # dass sie hier nicht vergessen werden kann.
+        run: |
+          set -euo pipefail
+          for ref in "${BASIS_NAME}@${{ steps.basis.outputs.digest }}" \
+                     "${JUPYTER_NAME}@${{ steps.jupyter.outputs.digest }}"; do
+            docker pull --quiet "$ref"
+            plattform="$(docker image inspect --format='{{.Os}}/{{.Architecture}}' "$ref")"
+            echo "$ref -> $plattform"
+            if [ "$plattform" != "linux/amd64" ]; then
+              echo "::error::$ref ist $plattform, nicht linux/amd64 - auf srv01 waere das exec format error."
+              exit 1
+            fi
+          done
+
+      - name: Herkunft des Abbilds pruefen
+        # Das Abbild setzt GIT_COMMIT selbst (Dockerfile:94). Wenn die
+        # Herkunftsangabe nicht auf den gebauten Commit zeigt, ist sie
+        # wertlos - und sie ist das einzige, was ein laufender Container
+        # ueber seinen Quellstand sagt.
+        run: |
+          set -euo pipefail
+          gemessen="$(docker run --rm --entrypoint sh \
+            "${BASIS_NAME}@${{ steps.basis.outputs.digest }}" \
+            -c 'printf %s "$GIT_COMMIT"')"
+          echo "GIT_COMMIT im Abbild: $gemessen"
+          if [ "$gemessen" != "${{ github.sha }}" ]; then
+            echo "::error::GIT_COMMIT im Abbild ist $gemessen, gebaut wurde ${{ github.sha }}."
+            exit 1
+          fi
+
+      - name: Die zwei Zeilen fuer die .env
+        # Der eine Handgriff, der bleibt. Fertig zum Kopieren, damit beim
+        # Uebertragen kein Zeichen verloren geht - am 11.10.2026 war die
+        # Zeichengleichheit der Digests das, was die Kette geschlossen hat.
+        run: |
+          {
+            echo "### Abbilder ${{ steps.marke.outputs.wert }}"
+            echo
+            echo "Gebaut aus \`${{ github.sha }}\`, Plattform \`linux/amd64\` gegengeprueft."
+            echo "Diese zwei Zeilen in die \`.env\` des Stapels auf \`srv01\`, dann \`docker compose up -d\`:"
+            echo
+            echo '```'
+            echo "PIPELINE_IMAGE=${BASIS_NAME}@${{ steps.basis.outputs.digest }}"
+            echo "JUPYTER_IMAGE=${JUPYTER_NAME}@${{ steps.jupyter.outputs.digest }}"
+            echo '```'
+            echo
+            echo "Die Marken \`:${{ steps.marke.outputs.wert }}\` zeigen auf dieselben Abbilder und sind fuer Menschen - gepinnt wird der Digest."
+          } >> "$GITHUB_STEP_SUMMARY"
