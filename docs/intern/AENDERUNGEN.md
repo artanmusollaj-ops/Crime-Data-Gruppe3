@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'012** |
+| Tests | **2'013** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -218,6 +218,24 @@ sie leer**, samt Hintergrundkarte und auch einzeln geöffnet; die Ursache ist
 offen und in der Rückstellliste festgehalten, der Verdacht liegt bei der
 Kibana-Instanz und nicht bei der Konfiguration.
 
+**Unter der Beschriftung „Chicago" stand Detroit.** Christian hat es im
+Browser gesehen, und der Fehler sass an einer Stelle, an der alles andere
+stimmte: Beide Karten des Bretts trugen dieselbe Verbundkennung
+(`rate-je-tract`). Titel, Mittelpunkte, Schicht- und Quellkennungen waren
+verschieden — nur diese eine nicht, und Kibana ordnet die Verbunddaten
+darüber zu. Die zuletzt geladene Karte gewinnt, die andere zeigt fremde
+Flächen. **Nichts wurde rot**: Die gespeicherten Objekte waren beide in sich
+richtig.
+
+Dieselbe Falle, die im Modul schon einmal beschrieben steht — bei den
+Lens-Objekten, deren Kennung seit jeher den Brettnamen trägt: *„Ohne den
+Brettnamen bekämen sie dieselbe Kennung, und das letzte Anlegen überschriebe
+die anderen."* Die Verbundkennung heisst jetzt je Karte anders
+(`verbund_kennung`), und weil der Name des Einfärbe-Feldes aus ihr gerechnet
+wird, zieht er von selbst mit. `test_keine_zwei_karten_teilen_sich_eine_verbundkennung`
+hält es fest, über alle Bretter und nicht nur über das eine; zwei Proben
+dagegen, beide rot.
+
 **Neun Mutationsproben gegen die neuen Wächter**, alle entdeckt: Karte gilt
 nicht als Karte, Geografie nennt sein Bezugsjahr nicht, Karte verweist auf die
 Faktenansicht, ES|QL-Tafel liefert eine leere Aggregation statt zu werfen,
@@ -235,8 +253,8 @@ dieselbe Aussage in zwei Dokumenten mit einem Wächter nur über einem.
 Zeilenzahl **und** jeden Bretttitel gegen `BRETTER`. Drei Proben dagegen, alle
 rot.
 
-**Zahlen.** 1'973 → **2'012 Tests**, Standardlauf 1'865 → **1'903**,
-Referenzwächter **108 → 109**, Frischklon **1'868 der 1'903** — gemessen in
+**Zahlen.** 1'973 → **2'013 Tests**, Standardlauf 1'865 → **1'904**,
+Referenzwächter **108 → 109**, Frischklon **1'868 der 1'904** — gemessen in
 einem lokalen Klon des Branches. Der grösste Teil des Zuwachses sind keine
 neuen Testfunktionen, sondern dieselben Wächter über mehr Kacheln: Drei
 Bretter mit zusammen neun Tafeln kommen dazu, und sieben Wächter laufen je

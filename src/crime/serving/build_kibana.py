@@ -1497,14 +1497,30 @@ RATEN_INDEX = NACH_NAME["rate_tract"]
 KARTE_MASS = "max"
 KARTE_FELD = "rate_fallebene"
 
-#: Die Kennung der rechten Seite des Verbunds. Kibana baut daraus den Namen
-#: des verbundenen Feldes, und die Einfaerbung muss genau diesen Namen
-#: nennen - sonst zeigt die Karte graue Flaechen und keinen Fehler.
+#: Der Stamm der Verbundkennung. **Je Karte wird er verlaengert** - siehe
+#: ``verbund_kennung``.
 KARTE_VERBUND = "rate-je-tract"
 
 
-def verbundfeld(mass: str = KARTE_MASS, feld: str = KARTE_FELD,
-                verbund: str = KARTE_VERBUND) -> str:
+def verbund_kennung(tafel: Tafel) -> str:
+    """Die Kennung der rechten Verbundseite - **je Karte eine eigene**.
+
+    Am 14.10.2026 trugen beide Karten des Bretts dieselbe (``rate-je-tract``),
+    und Kibana zeigte unter der Beschriftung *Chicago* die Flaechen von
+    Detroit: Zwei Karten auf einem Brett, die sich eine Verbundkennung
+    teilen, teilen sich auch die Verbunddaten, und die zuletzt geladene
+    gewinnt. Gespeichert war beides richtig - Mittelpunkte, Titel und
+    Schichtkennungen waren verschieden -, nur diese eine Kennung nicht.
+
+    Dieselbe Falle wie bei den Lens-Objekten, wo der Brettname seit jeher in
+    der Kennung steht: *„Ohne den Brettnamen bekaemen sie dieselbe Kennung,
+    und das letzte Anlegen ueberschriebe die anderen."*
+    """
+    return f"{KARTE_VERBUND}-{tafel.kennung}"
+
+
+def verbundfeld(verbund: str, mass: str = KARTE_MASS,
+                feld: str = KARTE_FELD) -> str:
     """Wie Kibana das verbundene Feld nennt.
 
     Gerechnet und nicht getippt: Der Name entsteht aus Mass, Feld und der
@@ -1570,7 +1586,7 @@ def karte_objekt(tafel: Tafel, brett: str) -> dict[str, Any]:
             "leftField": "geoid",
             "right": {
                 "type": "ES_TERM_SOURCE",
-                "id": KARTE_VERBUND,
+                "id": verbund_kennung(tafel),
                 "indexPatternRefName": verbund,
                 "term": "geoid",
                 "metrics": [{"type": KARTE_MASS, "field": KARTE_FELD,
@@ -1586,7 +1602,8 @@ def karte_objekt(tafel: Tafel, brett: str) -> dict[str, Any]:
                 "fillColor": {
                     "type": "DYNAMIC",
                     "options": {
-                        "field": {"name": verbundfeld(), "origin": "join"},
+                        "field": {"name": verbundfeld(verbund_kennung(tafel)),
+                                  "origin": "join"},
                         "color": "Blues",
                         "type": "ORDINAL",
                         "fieldMetaOptions": {"isEnabled": True, "sigma": 3},

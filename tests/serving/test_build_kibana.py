@@ -697,3 +697,38 @@ def test_der_nennerindex_laeuft_wirklich_im_lookup_modus(elastic):
     assert set(modi.values()) == {"lookup"}, (
         f"{modi} - erst 'python -m serving.load_elasticsearch' neu laufen "
         f"lassen; ein bestehender Index nimmt den Modus nicht mehr an")
+
+
+def test_keine_zwei_karten_teilen_sich_eine_verbundkennung():
+    """Zwei Karten auf einem Brett teilen sonst ihre Verbunddaten.
+
+    Am 14.10.2026 trugen beide Karten von ``crime-geografie`` dieselbe
+    Verbundkennung (``rate-je-tract``), und Kibana zeigte unter der
+    Beschriftung *Chicago* die Flaechen von Detroit. Gespeichert war alles
+    uebrige richtig - Titel, Mittelpunkte, Schicht- und Quellkennungen waren
+    verschieden -, nur diese eine nicht, und nichts wurde rot.
+
+    Geprueft wird ueber **alle** Bretter und nicht nur ueber das eine: Ein
+    zweites Brett mit einer Karte faellt sonst in dieselbe Grube.
+    """
+    gesehen: dict[str, str] = {}
+    for brett in bk.BRETTER:
+        for tafel in brett.tafeln:
+            if not tafel.ist_karte:
+                continue
+            schicht = json.loads(bk.karte_objekt(tafel, brett.kennung)
+                                 ["attributes"]["layerListJSON"])[0]
+            kennung = schicht["joins"][0]["right"]["id"]
+            woher = f"{brett.kennung}/{tafel.kennung}"
+            assert kennung not in gesehen, (
+                f"{woher} und {gesehen[kennung]} teilen sich die "
+                f"Verbundkennung '{kennung}' - die zuletzt geladene Karte "
+                f"gewinnt, und die andere zeigt fremde Flaechen")
+            gesehen[kennung] = woher
+            # Und die Einfaerbung nennt genau diese Kennung, nicht eine
+            # andere Karte: Sonst faerbt Chicago nach Detroits Werten.
+            gefaerbt = (schicht["style"]["properties"]["fillColor"]
+                        ["options"]["field"]["name"])
+            assert gefaerbt.endswith(kennung), (
+                f"{woher} faerbt nach '{gefaerbt}', sein Verbund heisst "
+                f"aber '{kennung}'")
