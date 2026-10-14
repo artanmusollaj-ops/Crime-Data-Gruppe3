@@ -398,9 +398,9 @@ gemessen (B.3), und ein Zeitplan steht (montags 04:30, `flock`,
 Voll-/Delta-Verteiler). Offen ist der **Nachweis** — und seit dem 12.10.2026
 wieder ein Stück Einrichtung: Der Zeitplan hat noch nie gefeuert (erster
 Termin ist Montag, der 12.10.2026), ob die Strecke dort je durchgelaufen ist,
-zeigt kein Artefakt, das von hier aus lesbar wäre, und die Tunnel-Route für
-`urbancrime-start` ist nicht angelegt, der Stapel kennt den Dienst noch
-nicht.
+zeigt kein Artefakt, das von hier aus lesbar wäre, und der Stapel kennt den
+Dienst `start` noch nicht. Die Tunnel-Route für `urbancrime-start` ist
+dagegen seit dem 14.10.2026 angelegt und von aussen gemessen.
 
 **Was es löst.** Heute läuft die Strecke auf genau einer Maschine, und ihre
 Abhängigkeiten sind ein `requirements.lock` plus die Hoffnung, dass der
