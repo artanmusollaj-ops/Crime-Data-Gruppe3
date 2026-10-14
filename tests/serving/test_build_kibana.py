@@ -597,6 +597,20 @@ def test_jede_tafel_bekommt_auch_wirklich_daten(brettname, tafel, elastic):
         rechts = schicht["joins"][0]["right"]
         mass = rechts["metrics"][0]
 
+        # Der Name, nach dem eingefaerbt wird, muss der sein, den Kibana
+        # aus Mass, Feld und Verbundkennung bildet. Steht dort ein anderer,
+        # bleiben die Flaechen grau - ohne Fehlermeldung. Gerechnet aus der
+        # Schicht selbst und nicht aus ``bk.verbundfeld()``: Sonst
+        # verglichen sich zwei Aufrufe derselben Funktion.
+        gefaerbt = schicht["style"]["properties"]["fillColor"]["options"]
+        erwartet = (f"__kbnjoin__{mass['type']}_of_{mass['field']}"
+                    f"__{rechts['id']}")
+        assert gefaerbt["field"]["name"] == erwartet, (
+            f"{tafel.kennung}: eingefaerbt wird nach "
+            f"'{gefaerbt['field']['name']}', Kibana bildet aber "
+            f"'{erwartet}'")
+        assert gefaerbt["field"]["origin"] == "join"
+
         umrisse = elastic.anfrage(
             "POST", f"/{bk.FLAECHEN_INDEX.name}/_search",
             {"size": 1, "_source": [geofeld, links],

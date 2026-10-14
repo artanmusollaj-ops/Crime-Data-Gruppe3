@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'011** |
+| Tests | **2'012** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -218,7 +218,24 @@ sie leer**, samt Hintergrundkarte und auch einzeln geöffnet; die Ursache ist
 offen und in der Rückstellliste festgehalten, der Verdacht liegt bei der
 Kibana-Instanz und nicht bei der Konfiguration.
 
-**Zahlen.** 1'973 → **2'011 Tests**, Standardlauf 1'865 → **1'902**,
+**Neun Mutationsproben gegen die neuen Wächter**, alle entdeckt: Karte gilt
+nicht als Karte, Geografie nennt sein Bezugsjahr nicht, Karte verweist auf die
+Faktenansicht, ES|QL-Tafel liefert eine leere Aggregation statt zu werfen,
+Heatmap verliert ihren Vorbehalt, Einfärbung nach einem anderen Feldnamen,
+Verbundschlüssel treffen sich nie, `rate_tract` liegt in keinem Release,
+Geofeld getippt statt aus `Index.flaeche` gelesen. Beim Planen der Proben fiel
+eine Lücke auf: Der Name des Einfärbe-Feldes wurde von keinem Wächter gegen
+den Verbund gehalten — jetzt rechnet der Test ihn aus der Schicht selbst nach.
+
+**Das README nennt die Bretter, und jetzt bewacht das jemand.** Dort stand
+*„Vier gibt es"* mit einer vierzeiligen Tabelle; die Einstiegsseite war seit
+dem 11.10. bewacht, das README nicht — genau der Fall aus den Known pitfalls,
+dieselbe Aussage in zwei Dokumenten mit einem Wächter nur über einem.
+`test_das_readme_nennt_so_viele_dashboards_wie_es_gibt` hält Zahlwort,
+Zeilenzahl **und** jeden Bretttitel gegen `BRETTER`. Drei Proben dagegen, alle
+rot.
+
+**Zahlen.** 1'973 → **2'012 Tests**, Standardlauf 1'865 → **1'903**,
 Referenzwächter **108 → 109**. Der grösste Teil des Zuwachses sind keine
 neuen Testfunktionen, sondern dieselben Wächter über mehr Kacheln: Drei
 Bretter mit zusammen neun Tafeln kommen dazu, und sieben Wächter laufen je
