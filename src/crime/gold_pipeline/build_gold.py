@@ -54,7 +54,7 @@ import duckdb
 
 from census_pipeline import NEWEST_VINTAGE
 from manifeste import code_stand, eingabe_abdruck, referenz, referenzdatei
-from storage import StorageError, for_root, manifest_von
+from storage import StorageError, for_root, get_storage, manifest_von
 from gold_pipeline import (
     GATE_HOECHSTENS,
     GATE_MINDESTENS,
@@ -72,7 +72,6 @@ from silver_pipeline import (
     TransformError,
     connect,
     publish,
-    read_manifest,
     schema_of,
 )
 
@@ -81,7 +80,7 @@ from silver_pipeline import (
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
-CONTRACT_VERSION = 7
+CONTRACT_VERSION = 8
 
 DEFAULT_VINTAGE = 2024
 NIBRS_CODES = "nibrs_offense_codes_2025.csv"
@@ -329,6 +328,55 @@ def dim_tract_query(tract: Quelle, place: Quelle, vintage: int) -> str:
     FROM {tract.relation} t
     LEFT JOIN beste b ON b.geoid = t.geoid
     ORDER BY geoid
+    """
+
+
+#: Douglas-Peucker in Grad - rund zwei Meter.
+#:
+#: **Hier und nicht in ``serving``.** Bis zum 14.10.2026 stand die Zahl allein
+#: in ``export_geojson``; seit ``dim_tract_geo`` vereinfacht Gold selbst, und
+#: zwei Toleranzen nebeneinander hiessen: Die Karte in Kibana und die Karte im
+#: Browser zeigen verschieden genaue Umrisse, ohne dass es jemandem auffiele.
+#: ``export_geojson`` liest die Zahl deshalb von hier.
+#:
+#: Gemessen (Tabelle im Modulkopf von ``serving.export_geojson``): 2,94 MB auf
+#: 0,55 MB, und die Flaeche je Tract verliert 0,0002 Prozent. Der ganze Gewinn
+#: liegt in den ersten zwei Metern - fuenfmal groeber spart noch 0,13 MB.
+VEREINFACHUNG_GRAD = 0.00002
+
+
+def dim_tract_geo_query(tract: Quelle) -> str:
+    """Der Umriss je Tract der beiden Studienstaedte - als WKT.
+
+    **Warum eine eigene Tabelle und keine Spalte an ``dim_tract``.** Die
+    Dimension deckt beide Countys ab, 6'282 Zeilen; mit Umrissen in voller
+    TIGER-Genauigkeit waere sie 26 MB statt 194 KB, und jedes ``SELECT *``
+    schleppte sie mit (``serving.export_geojson`` nennt genau diesen Grund).
+    Diese Tabelle traegt nur die **1'055 Tracts mit Stadt** und nur den
+    vereinfachten Umriss: 0,5 MB.
+
+    **Warum WKT und nicht WKB oder GeoJSON.** Elasticsearch nimmt fuer
+    ``geo_shape`` eine WKT-Zeichenkette unmittelbar an. WKB muesste der Lader
+    erst wandeln, und GeoJSON muesste er als Objekt einbetten statt als Wert
+    durchzureichen - beides waere eine Gabelung in einem Lader, der jede
+    Spalte gleich behandelt.
+
+    **Warum ``city`` mitfaehrt.** Damit die Karte nach Stadt filtern kann,
+    ohne fuer jede Flaeche nach ``dim_tract`` zurueckzuspringen. Eine
+    Einwohnerzahl oder gar eine Rate steht hier **nicht**: Die waere eine
+    zweite Wahrheit, die veraltet, ohne dass man es ihr ansieht.
+    """
+    return f"""
+    SELECT
+        d.geoid,
+        d.city,
+        d.tract_name,
+        ST_AsText(ST_Simplify(ST_GeomFromWKB(t.geometry),
+                              {VEREINFACHUNG_GRAD})) AS boundary_wkt
+    FROM {tract.relation} t
+    JOIN dim_tract d ON d.geoid = t.geoid
+    WHERE t.geometry IS NOT NULL AND d.city IS NOT NULL
+    ORDER BY d.geoid
     """
 
 
@@ -1209,6 +1257,9 @@ def build(data_root: Path, config_root: Path, vintage: int,
             f"CREATE TABLE dim_tract AS {dim_tract_query(tract, place, vintage)}"
         )
         con.execute(
+            f"CREATE TABLE dim_tract_geo AS {dim_tract_geo_query(tract)}"
+        )
+        con.execute(
             f"CREATE TABLE dim_tract_acs AS {dim_tract_acs_query(acs_quellen)}"
         )
         con.execute(
@@ -1267,6 +1318,22 @@ def build(data_root: Path, config_root: Path, vintage: int,
                   "stehen seit Vertrag 6 in dim_tract_acs, je Vintage. Eine "
                   "Tabelle mit einer Zeile je Tract kann nur eine "
                   "Einwohnerzahl tragen")}),
+            ("dim_tract_geo", "der Umriss eines Census Tract", [tract],
+             {"nur_studienstaedte": (
+                 "die 1'055 Tracts mit Stadt, nicht die 6'282 beider "
+                 "Countys. Eine Karte faerbt Stadtflaechen; die uebrigen "
+                 "Umrisse kosteten Platz und zeigten nichts"),
+              "boundary_wkt": (
+                  "der Umriss als WKT in EPSG:4269, vereinfacht mit "
+                  f"Douglas-Peucker {VEREINFACHUNG_GRAD} Grad (rund zwei "
+                  "Meter). Elasticsearch nimmt WKT fuer geo_shape "
+                  "unmittelbar an; die Flaeche je Tract verliert dabei "
+                  "0,0002 Prozent"),
+              "keine_kennzahl": (
+                  "keine Einwohnerzahl, keine Fallzahl, keine Rate. Wer "
+                  "faerben will, verbindet ueber geoid mit fact_offense und "
+                  "dim_tract_acs - eine Kennzahl hier waere eine zweite "
+                  "Wahrheit, die veraltet, ohne dass man es ihr ansieht")}),
             ("dim_tract_acs", "ein Census Tract in einem ACS-Vintage",
              list(acs_quellen.values()),
              {"nenner": (
@@ -1351,7 +1418,17 @@ def main() -> int:
     try:
         ziele = build(for_root(args.data_root).local_root, args.config_root,
                       args.vintage, args.acs_vintages)
-        manifest = read_manifest(ziele["fact_offense"])
+        # Ueber die Ablage und nicht ueber den lokalen Pfad: Im S3-Modus
+        # publiziert ``build`` und **entfernt danach die lokale
+        # Arbeitskopie** ("Local working copy removed"). ``ziele`` zeigt dann
+        # auf eine Datei, die es nicht mehr gibt, und dieser Aufruf hier liess
+        # jeden Gold-Bau im S3-Modus mit "Invalid manifest" und Exitcode 1
+        # enden - obwohl alle Tabellen sauber publiziert waren. Fuer
+        # ``orchestration.run_all`` war das ein gescheiterter Lauf, und zwar
+        # jedesmal. Gefunden am 14.10.2026 beim ersten Gold-Bau gegen
+        # SeaweedFS.
+        manifest = manifest_von(get_storage(), GOLD_LAYER,
+                                "dataset=fact_offense", "manifest.json")
         nachweis = manifest["reconciliation"]
         log.info("Gold gebaut, %s Tabellen", len(ziele))
         for stadt, werte in sorted(nachweis["city_assignment"].items()):

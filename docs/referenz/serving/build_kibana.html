@@ -735,13 +735,13 @@ welche es sind.</p>
 </span><span id="L-257"><a href="#L-257"><span class="linenos"> 257</span></a>    <span class="s2">"esql_tabelle"</span><span class="p">:</span> <span class="s2">"lnsDatatable"</span><span class="p">,</span>
 </span><span id="L-258"><a href="#L-258"><span class="linenos"> 258</span></a>    <span class="c1"># Zwei Achsen und eine Farbe dazwischen - "Wochentag x Tagesstunde".</span>
 </span><span id="L-259"><a href="#L-259"><span class="linenos"> 259</span></a>    <span class="c1">#</span>
-</span><span id="L-260"><a href="#L-260"><span class="linenos"> 260</span></a>    <span class="c1"># **Warum nur als ES|QL-Art.** Der Wochentag steht in keiner Spalte:</span>
-</span><span id="L-261"><a href="#L-261"><span class="linenos"> 261</span></a>    <span class="c1"># ``gold/fact_offense`` traegt ``hour_of_day``, aber kein</span>
-</span><span id="L-262"><a href="#L-262"><span class="linenos"> 262</span></a>    <span class="c1"># ``day_of_week``. Ihn als Gold-Spalte nachzuziehen hiesse, fuenf</span>
-</span><span id="L-263"><a href="#L-263"><span class="linenos"> 263</span></a>    <span class="c1"># Register mitzufuehren (AGENTS.md) fuer eine Groesse, die sich aus</span>
-</span><span id="L-264"><a href="#L-264"><span class="linenos"> 264</span></a>    <span class="c1"># ``occurred_at_local`` ableiten laesst; ES|QL rechnet sie mit</span>
-</span><span id="L-265"><a href="#L-265"><span class="linenos"> 265</span></a>    <span class="c1"># ``DATE_EXTRACT`` beim Lesen. Eine Eimer-Variante gaebe es also gar</span>
-</span><span id="L-266"><a href="#L-266"><span class="linenos"> 266</span></a>    <span class="c1"># nicht zu fuellen.</span>
+</span><span id="L-260"><a href="#L-260"><span class="linenos"> 260</span></a>    <span class="c1"># **Warum nur als ES|QL-Art.** Die beiden Achsen stehen in zwei</span>
+</span><span id="L-261"><a href="#L-261"><span class="linenos"> 261</span></a>    <span class="c1"># Tabellen: ``hour_of_day`` in ``fact_offense``, ``day_name`` und</span>
+</span><span id="L-262"><a href="#L-262"><span class="linenos"> 262</span></a>    <span class="c1"># ``day_of_week`` in ``dim_date``. Genau dafuer gibt es die</span>
+</span><span id="L-263"><a href="#L-263"><span class="linenos"> 263</span></a>    <span class="c1"># Datumsdimension - nachgerechnet wird der Wochentag nirgends. Lens'</span>
+</span><span id="L-264"><a href="#L-264"><span class="linenos"> 264</span></a>    <span class="c1"># ``formBased`` liest aber **eine** Datenansicht und kann nicht</span>
+</span><span id="L-265"><a href="#L-265"><span class="linenos"> 265</span></a>    <span class="c1"># verbinden; ES|QL kann es mit ``LOOKUP JOIN dim_date ON date``. Eine</span>
+</span><span id="L-266"><a href="#L-266"><span class="linenos"> 266</span></a>    <span class="c1"># Eimer-Variante gaebe es also gar nicht zu fuellen.</span>
 </span><span id="L-267"><a href="#L-267"><span class="linenos"> 267</span></a>    <span class="s2">"esql_heatmap"</span><span class="p">:</span> <span class="s2">"lnsHeatmap"</span><span class="p">,</span>
 </span><span id="L-268"><a href="#L-268"><span class="linenos"> 268</span></a><span class="p">}</span>
 </span><span id="L-269"><a href="#L-269"><span class="linenos"> 269</span></a>

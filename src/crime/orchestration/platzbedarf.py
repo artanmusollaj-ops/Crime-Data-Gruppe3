@@ -143,6 +143,10 @@ REGEL_JE_QUELLE: dict[str, str] = {
     # ueberschaetzt sie und darf es.
     "dataset=dim_date": TATEN,
     "dataset=dim_tract": CENSUS,
+    # Eine Zeile je Tract mit Stadt, und der Umriss darin waechst mit
+    # der Flaeche, nicht mit den Taten. Ein Jahrgang mehr kostet hier
+    # keine Byte.
+    "dataset=dim_tract_geo": CENSUS,
     "dataset=dim_tract_acs": CENSUS,
     "dataset=dim_city_day": KONSTANT,
     # Serving

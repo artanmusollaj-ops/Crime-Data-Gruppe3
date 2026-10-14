@@ -98,14 +98,14 @@ GATE_HOECHSTENS = {
 }
 
 
-# Die fuenf Tabellen des Sternschemas, in der Reihenfolge des Bauplans.
+# Die Tabellen des Sternschemas, in der Reihenfolge des Bauplans.
 # ``build_gold`` prueft sich dagegen: Kommt eine dazu und fehlt sie hier, faellt
 # der Bau auf. Gebraucht wird die Liste ausserhalb, damit ein Release sagen
 # kann, was vollstaendig heisst - ohne die fuenf Namen ein zweites Mal zu
 # tippen (siehe ``orchestration.release``).
 TABELLEN: tuple[str, ...] = (
-    "fact_offense", "dim_tract", "dim_tract_acs", "dim_offense", "dim_date",
-    "dim_city_day",
+    "fact_offense", "dim_tract", "dim_tract_geo", "dim_tract_acs",
+    "dim_offense", "dim_date", "dim_city_day",
 )
 
 

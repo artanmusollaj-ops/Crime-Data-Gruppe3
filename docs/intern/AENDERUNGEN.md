@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'973** |
+| Tests | **1'974** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -76,7 +76,7 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
 | `silver/crime_offense` | **3** | 19.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig |
 | `silver/source_change` | **3** | 03.10.2026 | Unterschied zwischen aufeinanderfolgenden **Vollabzügen** je Quelle, eine Zeile je geändertem Feld; `ESRI_OID` und reine Leerzeichen ausgenommen, Zeitstempel als `beruehrt` statt als Inhaltsänderung. Version 2 ergänzte die **Datierung aus den Deltas**: `zuerst_gesehen_in`, `zuerst_gesehen_am` und `datierung` mit `delta` / `kein_delta` / `nicht_datierbar`. Gefunden wird weiter nur zwischen Vollabzügen — aus einem Delta liesse sich *verschwunden* nicht von *ruhig* unterscheiden. Version 3: Die Datierung **klebt** — sie nennt den besten je bestimmten Befund, nicht den heutigen, sonst löschte das Aufräumen der Deltas sie wieder |
-| `gold/*` | **7** | 03.10.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften | Version 6: Die ACS-Masse liegen **je Vintage** in der neuen Tabelle `dim_tract_acs` (`population`, `median_household_income_usd`, `poverty_rate`); `dim_tract` behält die Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie kommt; `fact_offense` trägt `population_vintage` und sagt damit je Zeile, welcher Nenner für sie gilt. Eine Tabelle mit einer Zeile je Tract konnte nur eine Einwohnerzahl tragen — über mehrere Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021 Version 7: `dim_date` trägt `year_is_complete` — ob der Jahrgang dieses Tages ganz in den Daten liegt. Ein Teiljahr darf nicht in einen Jahresvergleich geraten: 2026 hat am 3.10. neun Monate, und neun gegen zwölf gestellt ergeben einen Rückgang, den es nicht gibt. Dazu im Manifest von `fact_offense` der Nachweis `year_coverage` je Jahrgang, mit `days_with_offenses` gegen `days_in_year` — denn eine Lücke **innerhalb** des Jahres sieht man an der Spalte nicht
+| `gold/*` | **8** | 14.10.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften | Version 6: Die ACS-Masse liegen **je Vintage** in der neuen Tabelle `dim_tract_acs` (`population`, `median_household_income_usd`, `poverty_rate`); `dim_tract` behält die Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie kommt; `fact_offense` trägt `population_vintage` und sagt damit je Zeile, welcher Nenner für sie gilt. Eine Tabelle mit einer Zeile je Tract konnte nur eine Einwohnerzahl tragen — über mehrere Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021 Version 7: `dim_date` trägt `year_is_complete` — ob der Jahrgang dieses Tages ganz in den Daten liegt. Ein Teiljahr darf nicht in einen Jahresvergleich geraten: 2026 hat am 3.10. neun Monate, und neun gegen zwölf gestellt ergeben einen Rückgang, den es nicht gibt. Dazu im Manifest von `fact_offense` der Nachweis `year_coverage` je Jahrgang, mit `days_with_offenses` gegen `days_in_year` — denn eine Lücke **innerhalb** des Jahres sieht man an der Spalte nicht Version 8: Die neue Tabelle `dim_tract_geo` trägt den **Umriss** je Tract der beiden Studienstädte als WKT — 1'055 Zeilen, vereinfacht mit Douglas-Peucker 0,00002 Grad (rund zwei Meter, 0,0002 % Fläche je Tract). Sie ist die Grundlage der Choroplethenkarte in Kibana, die eine Fläche braucht und mit dem Schwerpunkt in `dim_tract` nichts anfangen kann. **Eigene Tabelle und keine Spalte an `dim_tract`:** Die Dimension deckt beide Countys ab (6'282 Zeilen) und wäre mit Umrissen 26 MB statt 194 KB; `dim_tract_geo` kostet 133 KB. Keine Kennzahl darin — wer färben will, verbindet über `geoid`
 | `serving/comparison_*` | 1 | 17.09.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` |
 
 > **Der Feldkatalog wird erzeugt, nicht gepflegt.** Am 14.9. wurde
@@ -100,6 +100,72 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 14.10.2026 · Die Karte bekommt ihre Flächen (Branch `dashboards-nach-entwurf`)
+
+Artan hat fünf Dashboard-Entwürfe nach `docs/bilder/` gelegt. Sie sind
+Entwürfe und keine Kibana-Aufnahmen — jeder trägt „KONZEPT · FIKTIVE
+DEMODATEN · NICHT LIVE". Nachgebaut werden die **Inhalte** mit unseren
+gerechneten Zahlen, nicht die Optik: Kibana kennt keine Reiterleiste über
+mehreren Dashboards und keine Kachel mit Symbol. Dieser Eintrag deckt die
+Grundlage dafür; die Bretter selbst folgen.
+
+**Der Generator kann drei Dinge mehr.** `esql_heatmap` zeichnet zwei Achsen
+und eine Farbe dazwischen — Wochentag mal Tagesstunde. Nur als ES|QL-Art,
+und zwar aus diesem Grund: Die beiden Achsen stehen in **zwei** Tabellen,
+`hour_of_day` in `fact_offense`, `day_name` in `dim_date`. Lens' `formBased`
+liest eine Datenansicht und kann nicht verbinden; ES|QL kann es mit
+`LOOKUP JOIN dim_date ON date`. `Steuerung` legt Auswahlfelder über ein
+Brett; den **Zeitraum gibt es bewusst nicht** als Steuerung, weil Kibana ihn
+oben in der Leiste führt und ein zweites Zeitfeld daneben eine zweite
+Wahrheit wäre. `navigation_objekt` legt ein `links`-Objekt an, das auf jedem
+Brett oben liegt — Kibanas nächster Verwandter zur Reiterleiste.
+
+**`dim_tract_geo`, die siebte Gold-Tabelle (Vertrag 8).** Eine
+Choroplethenkarte färbt Flächen, braucht also Polygone. `dim_tract` führt
+nur Zentroide, die Umrisse liegen in `silver/tract` als WKB, und
+`tracts.geojson` ist eine Datei — Kibana zeichnet aber aus einem
+Elasticsearch-Index. Der Lader liest je Index genau eine Datei
+(`gold/dataset=<name>/part-0001.parquet`) und leitet daraus Feldliste,
+Mapping, Dokumente und Zeilenabgleich ab; ihm einen zweiten Quellweg
+beizubringen hiesse, fünf Funktionen zu gabeln.
+
+Also eine Gold-Tabelle — aber **keine Spalte an `dim_tract`**, denn
+`export_geojson` argumentiert ausdrücklich dagegen: Die Dimension deckt
+beide Countys ab, 6'282 Zeilen, und wäre mit Umrissen in voller Genauigkeit
+26 MB statt 194 KB. `dim_tract_geo` trägt nur die **1'055 Tracts mit Stadt**
+(Chicago 782, Detroit 273) und nur den vereinfachten Umriss: **133 KB**.
+Alle 1'055 Geometrien sind gültig, keine ist leer. Als **WKT**, weil
+Elasticsearch eine WKT-Zeichenkette für `geo_shape` unmittelbar annimmt;
+WKB müsste der Lader wandeln, GeoJSON als Objekt einbetten. Keine Kennzahl
+darin — wer färben will, verbindet über `geoid`.
+
+Die Toleranz steht jetzt **einmal**: `gold_pipeline.build_gold.VEREINFACHUNG_GRAD`,
+und `export_geojson` liest sie von dort. Zwei Toleranzen nebeneinander
+hiessen, dass die Karte in Kibana und die Karte im Browser verschieden genaue
+Umrisse zeigen, ohne dass es jemandem auffiele.
+
+**Ein Fehler, der jeden Gold-Bau im S3-Modus scheitern liess.** `main` las
+das Manifest über `ziele["fact_offense"]` — einen **lokalen** Pfad. Im
+S3-Modus publiziert `build` jede Tabelle und entfernt danach die lokale
+Arbeitskopie (*„Local working copy removed (STORAGE_BACKEND=s3)"*). Der
+Aufruf traf also ins Leere, und der Lauf endete mit *„Invalid manifest"* und
+**Exitcode 1 — obwohl alle Tabellen sauber publiziert waren**. Für
+`orchestration.run_all` war das ein gescheiterter Lauf, und zwar jedes Mal.
+Gefunden am 14.10.2026 beim ersten Gold-Bau gegen SeaweedFS. Jetzt über
+`manifest_von`, das aus jeder Ablage liest. `test_der_schlussbericht_liest_ueber_die_ablage_nicht_ueber_den_pfad`
+hält es fest; die Mutationsprobe mit dem alten Code fällt mit genau der
+echten Meldung.
+
+**Zahlen.** 1'973 → **1'974 Tests** (einer neu), Standardlauf 1'865 →
+**1'866**, Referenzwächter unverändert **108**. Gold 85,6 → **85,7 MB**,
+`releases` 433,7 → **614,5 MB** — das neue Release `2026-10-14T14-33-03Z`
+ist dazugekommen, die gepinnten bleiben unberührt. Neu gebaut, weil erzeugt:
+`docs/feldkatalog.md`, `docs/intern/platzbedarf.md`, `docs/einstieg.html`,
+`docs/referenz/`, der Einseiter und die Grössentabellen in beiden
+Architekturdokumenten.
 
 ---
 

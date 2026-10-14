@@ -76,6 +76,7 @@ from pathlib import Path
 
 import duckdb
 
+from gold_pipeline.build_gold import VEREINFACHUNG_GRAD
 from serving import SERVING_LAYER
 from storage import for_root
 from storage import duckdb as storage_duckdb
@@ -88,7 +89,12 @@ MANIFEST_NAME = "tracts.manifest.json"
 PARQUET_FILE = "part-0001.parquet"
 
 # Zwei Meter. Warum gerade die, steht im Modulkopf.
-TOLERANZ = 0.00002
+#
+# Gelesen und nicht getippt: Seit dem 14.10.2026 vereinfacht auch Gold
+# (``dim_tract_geo``, fuer die Karte in Kibana). Zwei Toleranzen nebeneinander
+# hiessen, dass die Karte dort und die Karte im Browser verschieden genaue
+# Umrisse zeigen, ohne dass es jemandem auffiele.
+TOLERANZ = VEREINFACHUNG_GRAD
 
 # Nur die Identitaet. Kennzahlen kommen ueber geoid aus dim_tract.
 EIGENSCHAFTEN = ("geoid", "city", "tract_name")

@@ -287,6 +287,21 @@ JE_TABELLE: dict[tuple[str, str], str] = {
         "gehört der Tract zur Stadt (Mehrheitsregel). Der Wert bleibt "
         "erhalten, damit sich auch flächengewichtet rechnen lässt.",
     ("dim_tract", "tract_name"): "Bezeichnung des Tracts.",
+
+    # --- dim_tract_geo: der Umriss, fuer die Karte ------------------------
+    #
+    # Eigene Tabelle und keine Spalte an dim_tract: Die Dimension deckt beide
+    # Countys ab (6'282 Zeilen) und waere mit Umrissen 26 MB statt 194 KB.
+    # Diese hier traegt nur die 1'055 Tracts mit Stadt.
+    ("dim_tract_geo", "tract_name"): "Bezeichnung des Tracts.",
+    ("dim_tract_geo", "boundary_wkt"):
+        "Der **Umriss** des Tracts als WKT in EPSG:4269, vereinfacht mit "
+        "Douglas-Peucker 0,00002 Grad - rund zwei Meter, und die Flaeche je "
+        "Tract verliert dabei 0,0002 Prozent. WKT und nicht WKB oder "
+        "GeoJSON, weil Elasticsearch eine WKT-Zeichenkette fuer `geo_shape` "
+        "unmittelbar annimmt; alles andere muesste der Lader erst wandeln. "
+        "**Keine Kennzahl steht hier** - wer die Flaeche einfaerben will, "
+        "verbindet ueber `geoid` mit `fact_offense` und `dim_tract_acs`.",
     ("dim_date", "year_is_complete"):
         "Ob der Jahrgang dieses Tages **ganz** in den Daten liegt — also ob die "
         "Spanne den 1. Januar und den 31. Dezember einschliesst. **Ein "

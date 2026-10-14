@@ -222,7 +222,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 1'853 ausgeführte Tests, ohne Netzzugriff und ohne
+Erwartet wird **grün**: 1'866 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -232,7 +232,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'973
+python -m pytest -m ""               # beides zusammen, alle 1'974
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -793,7 +793,7 @@ seinen Dienst weg.
 > beiden Speicher; `fact_offense` trägt mit `population_vintage` nur den
 > *Zeiger* auf den richtigen Nenner, der Nenner selbst fehlte. Eine Rate je
 > 1'000 Einwohner war aus Elasticsearch allein nicht zu rechnen. Seither lädt
-> `load_elasticsearch` alle sechs Tabellen, und ein Test hält fest, dass die
+> `load_elasticsearch` alle sieben Tabellen, und ein Test hält fest, dass die
 > Liste `gold_pipeline.TABELLEN` erschöpft. `serving/load_clickhouse` bleibt
 > unberührt und lauffähig: Wer es braucht, ruft es von Hand auf.
 
@@ -1029,7 +1029,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**1'973 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**1'974 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen

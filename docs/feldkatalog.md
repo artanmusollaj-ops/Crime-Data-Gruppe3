@@ -7,7 +7,7 @@ gebauten Tabellen, die Bedeutung aus [`tools/build_feldkatalog.py`](../tools/bui
 python tools/build_feldkatalog.py
 ```
 
-**192 Spalten in 15 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
+**196 Spalten in 16 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
 soll einen Satz darüber schreiben müssen. `tests/test_feldkatalog.py` prüft, dass der Katalog vollständig und reproduzierbar ist.
 
 Die Rohschichten stehen hier nicht: **Bronze deutet nicht**, seine Spalten sind die der Quelle. Was sie bedeuten, sagen die
@@ -219,6 +219,17 @@ Eine Zeile ist: **ein Census Tract in einem ACS-Vintage**. 25'128 Zeilen.
 | `population` | `BIGINT` | Einwohnerzahl aus der ACS-5-Jahres-Schätzung. Der Nenner jeder Rate. `0` kommt vor - Wasserflächen, Flughäfen, Industriegebiete. In Gold liegt sie **je Vintage** in `dim_tract_acs`, nicht in `dim_tract`. |
 | `median_household_income_usd` | `INTEGER` | Medianes Haushaltseinkommen in Dollar, ACS. `NULL`, wo die Schätzung zu unsicher ist - in Wayne County öfter als in Cook County. |
 | `poverty_rate` | `DOUBLE` | Anteil der Menschen unter der Armutsgrenze, 0 bis 1. `NULL` bei null Einwohnern statt einer Division durch null. |
+
+### `dim_tract_geo`
+
+Eine Zeile ist: **der Umriss eines Census Tract**. 1'055 Zeilen.
+
+| Spalte | Typ | Bedeutung |
+| --- | --- | --- |
+| `geoid` | `VARCHAR` | Census-GEOID der Raumeinheit, die sie eindeutig macht. Der Schlüssel, über den Delikte, Einwohner und Geometrie zusammenfinden. |
+| `city` | `VARCHAR` | Stadt, kleingeschrieben: `chicago` oder `detroit`. |
+| `tract_name` | `VARCHAR` | Bezeichnung des Tracts. |
+| `boundary_wkt` | `VARCHAR` | Der **Umriss** des Tracts als WKT in EPSG:4269, vereinfacht mit Douglas-Peucker 0,00002 Grad - rund zwei Meter, und die Flaeche je Tract verliert dabei 0,0002 Prozent. WKT und nicht WKB oder GeoJSON, weil Elasticsearch eine WKT-Zeichenkette fuer `geo_shape` unmittelbar annimmt; alles andere muesste der Lader erst wandeln. **Keine Kennzahl steht hier** - wer die Flaeche einfaerben will, verbindet ueber `geoid` mit `fact_offense` und `dim_tract_acs`. |
 
 ### `fact_offense`
 

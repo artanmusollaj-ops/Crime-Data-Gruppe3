@@ -157,6 +157,15 @@ class Index:
     #: ``(Breite, Laenge)``. Beide Spalten gehen im Feld ``standort`` auf und
     #: erscheinen nicht noch einmal einzeln: Ein Ort ist ein Wert, nicht zwei.
     geo: tuple[str, str] | None = None
+    #: Die Spalte mit dem Umriss, als WKT. Wird ``geo_shape`` statt
+    #: ``keyword``.
+    #:
+    #: Getrennt von ``geo``: Ein ``geo_point`` entsteht aus **zwei**
+    #: Zahlenspalten und heisst danach ``standort``; eine Flaeche ist **eine**
+    #: Textspalte und behaelt ihren Namen. Ohne diesen Eintrag laege der
+    #: Umriss als ``keyword`` im Index - filterbar, gruppierbar und fuer eine
+    #: Karte vollkommen nutzlos, und zwar ohne Fehlermeldung.
+    flaeche: str | None = None
     #: Darf dieser Index in einem ES|QL-``LOOKUP JOIN`` rechts stehen?
     #:
     #: Entschieden am Index und nicht am Namen geraten: ``index.mode: lookup``
@@ -210,11 +219,28 @@ INDIZES: tuple[Index, ...] = (
         schluessel=("geoid",),
         verteilung=("state_fips", "county_fips"),
         volltext=frozenset({"tract_name"}),
-        # Der Schwerpunkt, nicht die Flaeche: Gold traegt keine Geometrie.
-        # Fuer *welcher Tract liegt in der Naehe* reicht der Punkt; fuer
-        # *liegt dieser Punkt im Tract* nicht - das bleibt die Aufgabe der
-        # Zuordnung in Silver.
+        # Der Schwerpunkt, nicht die Flaeche. Fuer *welcher Tract liegt in
+        # der Naehe* reicht der Punkt; fuer *liegt dieser Punkt im Tract*
+        # nicht - das bleibt die Aufgabe der Zuordnung in Silver. Die
+        # Umrisse stehen seit Vertrag 8 in ``dim_tract_geo``, und zwar
+        # bewusst nicht hier: Diese Dimension deckt beide Countys ab und
+        # waere mit Geometrie 26 MB statt 194 KB.
         geo=("centroid_lat", "centroid_lon"),
+    ),
+    Index(
+        name="dim_tract_geo",
+        # Eine Zeile je Tract mit Stadt - 1'055 von den 6'282 in dim_tract.
+        schluessel=("geoid",),
+        # Nach Stadt laesst sich gruppieren, nach geoid waere es die
+        # Schluesselpruefung ein zweites Mal in 1'055 Eimern.
+        verteilung=("city",),
+        volltext=frozenset({"tract_name"}),
+        flaeche="boundary_wkt",
+        # Fuer die Karte: Kibana faerbt die Flaechen und holt die Rate je
+        # Tract ueber ``geoid`` dazu. Ohne index.mode lookup lehnt
+        # Elasticsearch den Verbund ab - und zwar erst, wenn jemand die Karte
+        # oeffnet.
+        nachschlag=True,
     ),
     Index(
         name="dim_tract_acs",
@@ -393,6 +419,23 @@ def mapping(liste: list[Feld], index: Index) -> dict[str, Any]:
                     f"{feld.arrow} - Koordinaten sind Gleitkommazahlen.")
         verbraucht.update(index.geo)
         eigenschaften["standort"] = {"type": "geo_point"}
+
+    if index.flaeche:
+        feld = nach_name.get(index.flaeche)
+        if feld is None:
+            raise LadeFehler(
+                f"{index.flaeche} ist als Flaechenspalte gesetzt, steht aber "
+                f"nicht im Release")
+        if TYPEN.get(feld.arrow) != "keyword":
+            raise LadeFehler(
+                f"{index.flaeche} ist als Flaechenspalte gesetzt, ist aber "
+                f"{feld.arrow} - ein Umriss kommt als WKT-Zeichenkette.")
+        verbraucht.add(index.flaeche)
+        # ``ignore_malformed`` bewusst **nicht**: Ein Umriss, den
+        # Elasticsearch nicht versteht, soll den Ladelauf anhalten und nicht
+        # als Loch in der Karte erscheinen, das niemand einer Ursache
+        # zuordnen kann.
+        eigenschaften[index.flaeche] = {"type": "geo_shape"}
 
     for feld in liste:
         if feld.name not in verbraucht:

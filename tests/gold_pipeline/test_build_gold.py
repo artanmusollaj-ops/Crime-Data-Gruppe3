@@ -1881,3 +1881,54 @@ def test_ein_zweiter_lauf_liefert_dieselben_bytes(tmp_path):
         f"gleich: {anders}. Fehlt der Abfrage ein ORDER BY? "
         f"Erwartet wird gleiche Pruefsumme, siehe NFR-1."
     )
+
+
+# --------------------------------------------------------------------------
+# Der Schlussbericht im S3-Modus (gefunden am 14.10.2026)
+# --------------------------------------------------------------------------
+
+
+def test_der_schlussbericht_liest_ueber_die_ablage_nicht_ueber_den_pfad(
+        tmp_path, monkeypatch):
+    """``main`` darf das Manifest nicht dort suchen, wo ``build`` es wegraeumt.
+
+    Im S3-Modus publiziert ``build`` jede Tabelle und **entfernt danach die
+    lokale Arbeitskopie** - im Protokoll steht je Tabelle *„Local working copy
+    removed (STORAGE_BACKEND=s3)"*. ``ziele`` zeigt dann auf eine Datei, die
+    es nicht mehr gibt. Bis zum 14.10.2026 las ``main`` genau diesen Pfad und
+    beendete jeden Gold-Bau im S3-Modus mit *„Invalid manifest"* und
+    Exitcode 1 - obwohl alle sieben Tabellen sauber publiziert waren. Fuer
+    ``orchestration.run_all`` war das ein gescheiterter Lauf, und zwar jedes
+    Mal.
+
+    Der Test stellt genau das nach: ``build`` liefert einen Pfad auf eine
+    Datei, die nicht existiert, die Ablage kennt das Manifest aber. Laeuft
+    ``main`` dann durch, fragt es die Ablage; faellt es, fragt es den Pfad.
+    """
+    weggeraeumt = tmp_path / "gold" / "dataset=fact_offense" / "manifest.json"
+    assert not weggeraeumt.exists(), "der Pfad muss ins Leere zeigen"
+
+    inhalt = {
+        "reconciliation": {
+            "city_assignment": {"chicago": {"tracts": 2, "population": 7}},
+            "offenses_in_a_tract": 5,
+            "offenses_whose_tract_belongs_to_no_study_city": 1,
+        }
+    }
+    in_der_ablage = tmp_path / "ablage-manifest.json"
+    in_der_ablage.write_text(json.dumps(inhalt), encoding="utf-8")
+
+    gefragt: list[tuple] = []
+
+    def ablage(_storage, *teile):
+        gefragt.append(teile)
+        return json.loads(in_der_ablage.read_text(encoding="utf-8"))
+
+    monkeypatch.setattr(bg, "manifest_von", ablage)
+    monkeypatch.setattr(bg, "build", lambda *a, **k: {
+        "fact_offense": weggeraeumt})
+    monkeypatch.setattr(sys, "argv", ["build_gold"])
+
+    assert bg.main() == 0, "der Schlussbericht hat den weggeraeumten Pfad gelesen"
+    assert gefragt, "die Ablage wurde gar nicht gefragt"
+    assert gefragt[0][1:] == ("dataset=fact_offense", "manifest.json"), gefragt
