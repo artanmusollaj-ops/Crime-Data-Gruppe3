@@ -222,7 +222,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 1'853 ausgeführte Tests, ohne Netzzugriff und ohne
+Erwartet wird **grün**: 1'914 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -232,7 +232,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 1'973
+python -m pytest -m ""               # beides zusammen, alle 2'023
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -460,9 +460,10 @@ je **Tat** und vier Dimensionen daneben. Der Unterschied zu Silver ist die Granu
 um 3,8 % zu hoch. Warum kein vorberechneter Würfel gebaut wurde, steht in
 [`docs/sternschema-und-wuerfel.md`](docs/sternschema-und-wuerfel.md).
 
-`build_comparison` leitet aus Gold **vier Vergleichstabellen** für das
+`build_comparison` leitet aus Gold **fünf Vergleichstabellen** für das
 Dashboard ab — `comparison_day`, `comparison_week`, `comparison_month` je
-Stadt und NIBRS-Kategorie, dazu `partition_quality` je Stadt und Monat. Sie
+Stadt und NIBRS-Kategorie, `partition_quality` je Stadt und Monat und
+`rate_tract` je Tract im Bezugsjahr. Sie
 liegen in `data/serving/`, nicht in Gold: Gold bleibt der Stern, die Tabellen
 sind jederzeit daraus neu erzeugbar und summieren sich nachweislich auf die
 Faktentabelle. Teilperioden am Rand des Jahrgangs sind je Zeile ausgewiesen
@@ -621,7 +622,7 @@ werden nie überschrieben — liegt einer schon anders oben, ist das ein
 Fehler. Silver- und Gold-Tabellen werden überschrieben, wie lokal auch.
 
 **Immer lokal:** `data/serving/` — die Auswertungsdatenbank, das GeoJSON und
-die vier Vergleichstabellen aus `build_comparison`; Letztere erreichen
+die fünf Vergleichstabellen aus `build_comparison`; Letztere erreichen
 SeaweedFS nur als Teil eines Release, nie an einem festen Pfad. Die Sichten in
 `analyse.duckdb` zeigen je Datei dorthin, wo sie liegt. Wer sie im Hybrid-
 oder S3-Modus öffnet, braucht dieselbe Verbindung wie die Pipeline — `httpfs`
@@ -793,7 +794,7 @@ seinen Dienst weg.
 > beiden Speicher; `fact_offense` trägt mit `population_vintage` nur den
 > *Zeiger* auf den richtigen Nenner, der Nenner selbst fehlte. Eine Rate je
 > 1'000 Einwohner war aus Elasticsearch allein nicht zu rechnen. Seither lädt
-> `load_elasticsearch` alle sechs Tabellen, und ein Test hält fest, dass die
+> `load_elasticsearch` alle sieben Tabellen, und ein Test hält fest, dass die
 > Liste `gold_pipeline.TABELLEN` erschöpft. `serving/load_clickhouse` bleibt
 > unberührt und lauffähig: Wer es braucht, ruft es von Hand auf.
 
@@ -806,7 +807,7 @@ Prüfung, bleibt der alte Stand stehen — dasselbe Versprechen wie das
 **Die Dashboards stehen als Code.** Ein im Browser zusammengeklicktes Dashboard
 lebt in Kibanas eigenem Index: nicht lesbar, nicht vergleichbar, und weg,
 sobald jemand den Container neu aufsetzt. `serving/build_kibana` beschreibt sie
-stattdessen und legt sie über die Schnittstelle an. Vier gibt es:
+stattdessen und legt sie über die Schnittstelle an. Sieben gibt es:
 
 | Dashboard | zeigt |
 | --- | --- |
@@ -814,6 +815,38 @@ stattdessen und legt sie über die Schnittstelle an. Vier gibt es:
 | Datenqualität | dieselben Grössen, gegen die das Publish-Gate prüft: Zuordnung auf NIBRS und Verortung |
 | Deliktarten | Tagesverlauf und Beschreibungen der Quelle — Einstieg für die Volltextsuche |
 | Raten je 1'000 | die zentrale Zahl des Projekts für 2024, je Stadt und je Tract — dazu die Tracts ohne Einwohner, die keine Rate bekommen |
+| Zeitverlauf | Fälle je Monat als Linie, Wochentag × lokale Tagesstunde als Heatmap, Fälle je Jahrgang |
+| Geografie | je Stadt eine Choroplethenkarte nach der Rate je 1'000, dazu die zwanzig höchsten Tract-Raten als Tabelle |
+| Deliktstruktur | Zahlen und Anteile nebeneinander — eine Kachel beantwortet immer nur eine der beiden Fragen |
+
+Die drei letzten sind am 14.10.2026 nach Entwürfen von Artan entstanden
+(`docs/bilder/dashboard_*.png`). Nachgebaut sind die **Inhalte**, nicht die
+Optik: Kibana kennt keine Reiterleiste über mehreren Dashboards und keine
+Kennzahlkachel mit Symbol. Am nächsten kommt ein `links`-Objekt, das auf jedem
+Brett oben liegt und auf die übrigen sechs zeigt; drei Bretter tragen
+zusätzlich Auswahlfelder für Stadt und Deliktfamilie. Den **Zeitraum** gibt es
+bewusst nicht als Auswahlfeld — Kibana führt ihn oben in der Leiste, und ein
+zweites Zeitfeld daneben wäre eine zweite Wahrheit.
+
+> **Warum die Karte zwei Karten sind.** Zwischen Chicago und Detroit liegen
+> 4,4 Längengrade, jede Stadt ist aber nur 0,4 breit. Ein gemeinsamer
+> Ausschnitt zeigt zwei Flecken von je rund 50 Pixeln — zu sehen ist, *dass*
+> dort etwas liegt, nicht *wo es höher ist*.
+>
+> **Warum sie nach der Rate färbt und nicht nach Fallzahlen.** Die
+> Einwohnerzahl je Tract reicht von 35 bis 13'521 (2024, Median 2'861) —
+> Faktor 386. Eine Karte nach Fallzahlen zeigte vor allem, wo viele Menschen
+> wohnen. Kibana kann eine Fläche aber nur nach **einem** Feld einfärben und
+> zwischen zwei verbundenen Feldern nicht rechnen; die Rate steht deshalb
+> fertig in `serving/rate_tract` und wird über `geoid` an die Umrisse aus
+> `gold/dim_tract_geo` gebunden.
+
+> **Mitternacht und Mittag sind überbesetzt, und zwar nicht, weil dann mehr
+> passiert.** Stunde 0 trägt 7,0 % aller Fälle, Stunde 12 trägt 5,8 % —
+> gleichverteilt wären 4,2 %, und beide Städte zeigen es. Das sind Platzhalter
+> für eine unbekannte Tatzeit. Der Vorbehalt steht an der Heatmap, und ein
+> Referenzstand-Wächter misst ihn nach; ohne ihn liest jemand aus der Kachel
+> „die meisten Taten passieren um Mitternacht".
 
 ![Überblick](docs/bilder/dashboard-crime-ueberblick.png)
 
@@ -1029,7 +1062,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**1'973 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**2'023 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -1066,7 +1099,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'818 der 1'853 Tests** des Standardlaufs. Die
+In einem frischen Klon laufen **1'868 der 1'914 Tests** des Standardlaufs. Die
 übrigen 35 überspringen sich selbst, weil sie gebaute Daten brauchen und `data/`
 nicht versioniert ist — dazu seit dem 5.10.2026 die Reproduktion von
 `docs/forschungsfragen.md`, deren Quelle das ungetrackte LN1-PDF ist; die 108 Referenzstand-Wächter sind ohnehin abgewählt.

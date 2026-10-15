@@ -34,9 +34,9 @@ Die Strecke führt zwei unvergleichbare Quellen in eine vergleichbare Tabelle
 | **raw** | die Antwort der Quelle, Byte für Byte, mit SHA-256 | nichts deuten, nichts umformen | 358,4 MB |
 | **bronze** | Parquet mit gepinntem Schema, Originaltypen | nichts deuten; Unerwartetes nach `_extra` statt in den Papierkorb | 422,9 MB |
 | **silver** | deuten: Typen, Einheiten, Zeitzonen, NIBRS, Raum | nichts wegwerfen — Lücken werden gekennzeichnet, nicht gefiltert | 213,8 MB |
-| **gold** | Sternschema, eine Zeile je **Tat** | nicht aggregieren | 85,6 MB |
-| **serving** | abfragbar machen: Sichten, vier Vergleichstabellen, Karte | nicht der Bestand sein | 1,2 MB |
-| **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 433,7 MB |
+| **gold** | Sternschema, eine Zeile je **Tat** | nicht aggregieren | 85,7 MB |
+| **serving** | abfragbar machen: Sichten, fünf Vergleichstabellen, Karte | nicht der Bestand sein | 1,3 MB |
+| **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 795,8 MB |
 
 Die Grössen sind **gemessen, nicht geschätzt** — `python -m
 orchestration.platzbedarf` liest sie über `storage` aus den Schichten, und
@@ -139,7 +139,7 @@ von selbst; eine Zahl im Bild, die nicht mehr stimmt, lässt einen Test fallen.
 | --- | ---: | --- |
 | ingestion | 6 | chicago, detroit, tiger_tract, tiger_place, acs, noaa |
 | silver | 4 | tract, place, weather_day, crime_offense |
-| gold | 1 | die sechs Sterntabellen in einem Zug |
+| gold | 1 | die sieben Sterntabellen in einem Zug |
 | serving | 3 | comparison, analyse_db, tracts_geojson |
 
 Die Reihenfolge ist keine Kosmetik: `silver/tract` braucht beide
@@ -231,10 +231,10 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 1'973 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'818 davon — die übrigen 35 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 108 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 2'023 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'868 davon — die übrigen 35 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 108 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
-| **Referenzstand** | 108 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
+| **Referenzstand** | 109 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
 Der letzte Punkt ist die interessanteste Entscheidung: Die Quellen bewegen
 sich. Ein Test, der die dokumentierte Zahl gegen den frischen Stand hält, wäre
@@ -482,7 +482,7 @@ Dinge, die DuckDB nicht leistet:
    gedacht; ein Index ist ein Dienst.
 
 **Die Bedingung, unter der das trägt.** Elasticsearch ist ein **abgeleiteter
-Index, kein Bestand** — gespeist aus allen sechs Gold-Tabellen, jederzeit neu
+Index, kein Bestand** — gespeist aus allen sieben Gold-Tabellen, jederzeit neu
 aufzubauen, versehen mit der Release-Kennung, aus der er stammt. Die Quelle der
 Wahrheit bleibt Parquet. Ohne diese Regel entstünde genau das, was das Projekt
 an drei Stellen verhindert: eine zweite Wahrheit mit eigenem Alter.
@@ -508,7 +508,7 @@ DuckDB-Sichten.
 Release entsteht — es braucht also einen Neuaufbau je Release und eine sichtbare
 Angabe, welchen Stand der Index zeigt. Dazu Speicher: Elasticsearch braucht
 für 1,85 Mio Dokumente mit Geo- und Textfeldern erfahrungsgemäss ein Mehrfaches
-der 85,6 MB Parquet.
+der 85,7 MB Parquet.
 
 **Offen:** ob die Aggregationen für das Dashboard aus Elasticsearch kommen oder
 weiterhin aus den vorberechneten Vergleichstabellen. Beides geht; die Antwort
@@ -649,7 +649,7 @@ abgelaufen.
 
 **Zu den Zahlen.** Teil A nennt den **Referenzstand** — den Bau vom 4.10.2026,
 16:50 UTC über die Jahrgänge 2021–2026 (Release `2026-10-04T16-50-47Z`), auf
-den sich alle Abgabedokumente beziehen und den 108 Wächter mit dem Marker
+den sich alle Abgabedokumente beziehen und den 109 Wächter mit dem Marker
 `referenzstand` gegen die Parquet-Dateien halten. Wie weit ein frischer Lauf
 davon abweicht, weist `orchestration.drift` je Grösse aus; die Zahlen der
 Abgabe werden nachgezogen, wenn die Drift eine Toleranz überschreitet, nicht

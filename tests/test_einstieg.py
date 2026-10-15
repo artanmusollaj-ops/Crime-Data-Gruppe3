@@ -443,3 +443,46 @@ def test_die_jupyter_karte_sagt_dass_er_erst_zu_starten_ist(werkzeug):
             f"{fassung}: die Jupyter-Karte sagt nicht, dass er zu starten ist")
         assert wort in karte[3], (
             f"{fassung}: sie nennt nicht, womit - erwartet {wort!r}")
+
+
+def test_das_readme_nennt_so_viele_dashboards_wie_es_gibt(werkzeug):
+    """Dieselbe Frage fuer das README - und seine Tabelle zaehlt mit.
+
+    Die Einstiegsseite ist seit dem 11.10.2026 bewacht, das README war es
+    nicht: Dort stand *„Vier gibt es"* mit einer vierzeiligen Tabelle, und
+    beides haette veralten koennen, ohne dass etwas rot wird. Genau der Fall
+    aus den Known pitfalls - dieselbe Aussage in zwei Dokumenten, ein
+    Waechter nur ueber einem.
+
+    Geprueft wird beides: das Zahlwort **und** dass die Tabelle so viele
+    Zeilen hat. Ein Zahlwort allein liesse sich hochzaehlen, ohne die Zeile
+    zu schreiben.
+    """
+
+    from serving.build_kibana import BRETTER
+
+    text = (PROJEKT / "README.md").read_text(encoding="utf-8")
+    wort = werkzeug.ZAHLWORT[len(BRETTER)].capitalize()
+    assert f"{wort} gibt es:" in text, (
+        f"das README nennt nicht '{wort} gibt es:' - "
+        f"build_kibana.BRETTER fuehrt {len(BRETTER)} Bretter")
+
+    tabelle = text[text.index(f"{wort} gibt es:"):]
+    tabelle = tabelle[tabelle.index("| Dashboard | zeigt |"):]
+    # Bis zur ersten Zeile, die keine Tabellenzeile mehr ist. Ein blosses
+    # Filtern haette alle spaeteren Tabellen des README mitgezaehlt - beim
+    # ersten Anlauf waren es 35 statt 7.
+    zeilen = []
+    for z in tabelle.splitlines()[2:]:
+        if not z.startswith("|"):
+            break
+        zeilen.append(z)
+    assert len(zeilen) == len(BRETTER), (
+        f"die Tabelle im README hat {len(zeilen)} Zeilen, "
+        f"BRETTER fuehrt {len(BRETTER)} Bretter")
+
+    # Und jedes Brett kommt darin vor - nicht nur die richtige Anzahl.
+    gelistet = " ".join(zeilen)
+    fehlend = [b.titel.split(" — ")[0] for b in BRETTER
+               if b.titel.split(" — ")[0] not in gelistet]
+    assert not fehlend, f"im README fehlen: {fehlend}"

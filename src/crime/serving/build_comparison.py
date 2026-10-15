@@ -45,6 +45,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from gold_pipeline import RATENJAHR, raten_je_tract
 from manifeste import MANIFEST, code_stand, eingabe_abdruck, read_manifest, referenz
 from serving import SERVING_LAYER
 from silver_pipeline import PARQUET_FILE, TransformError, connect, publish, schema_of
@@ -55,11 +56,11 @@ LOG = logging.getLogger("build_comparison")
 
 # Der Deutungsvertrag dieser Tabellen. Steigt die Zahl, sind aeltere Staende
 # anders zu lesen; jede Erhoehung gehoert in AENDERUNGEN.md.
-CONTRACT_VERSION = 1
+CONTRACT_VERSION = 2
 
 GOLD_LAYER = "gold"
 TABELLEN = ("comparison_day", "comparison_week", "comparison_month",
-            "partition_quality")
+            "partition_quality", "rate_tract")
 
 # Woran eine Woche beginnt. ISO: Montag. Das Fenster der Daten beginnt am
 # 1. Januar - nur 2024 faellt beides zusammen.
@@ -253,6 +254,9 @@ GRANULARITAET = {
     "comparison_week": "eine Stadt, eine Woche ab Montag, eine NIBRS-Kategorie",
     "comparison_month": "eine Stadt, ein Monat, eine NIBRS-Kategorie",
     "partition_quality": "eine Stadt, ein Monat",
+    "rate_tract": (
+        f"ein Census Tract mit Einwohnern im Bezugsjahr {RATENJAHR} "
+        f"(gold_pipeline.RATENJAHR)"),
 }
 
 NOTIZEN = {
@@ -294,7 +298,7 @@ def build_manifest(con: Any, tabelle: str, herkunft: dict[str, Any],
 
 
 def build(data_root: Path) -> dict[str, Path]:
-    """Baut die vier Tabellen und veroeffentlicht sie lokal, jede atomar.
+    """Baut die fuenf Tabellen und veroeffentlicht sie lokal, jede atomar.
 
     Publiziert wird hier **nicht** - Serving-Tabellen erreichen SeaweedFS nur
     als Teil eines Release (``storage.release``), nie an einem festen Pfad.
@@ -302,9 +306,11 @@ def build(data_root: Path) -> dict[str, Path]:
     begonnen = datetime.now(timezone.utc)
     fakten, m_fakten = gold_quelle(data_root, "fact_offense")
     delikte, m_delikte = gold_quelle(data_root, "dim_offense")
+    acs, m_acs = gold_quelle(data_root, "dim_tract_acs")
     herkunft = {
         "gold_fact_offense": referenz(Path(fakten), m_fakten),
         "gold_dim_offense": referenz(Path(delikte), m_delikte),
+        "gold_dim_tract_acs": referenz(Path(acs), m_acs),
     }
 
     con = connect()
@@ -334,6 +340,19 @@ def build(data_root: Path) -> dict[str, Path]:
             + mit_fenster("_monat", "period_start + INTERVAL 1 MONTH - INTERVAL 1 DAY")
         )
         con.execute(f"CREATE TABLE partition_quality AS {QUALITAET_QUERY}")
+        # Die Rate je Tract - **dieselbe** Abfrage, die
+        # ``gold_pipeline.raten_je_tract`` auch dem Waechter der Kibana-Kachel
+        # stellt. Eine zweite hier waere eine Kopie, und beide koennten
+        # gemeinsam falsch sein, ohne dass etwas auffaellt.
+        #
+        # Warum die Tabelle ueberhaupt: Kibanas Karte faerbt eine Flaeche nach
+        # **einem** Feld und kann zwischen zwei verbundenen Feldern nicht
+        # rechnen. Eine Karte nach Fallzahlen waere hier irrefuehrend - die
+        # Einwohnerzahl je Tract reicht von 35 bis 13'521 (2024, Median
+        # 2'861). Die Rate muss also fertig dastehen, bevor die Karte sie
+        # einfaerbt.
+        con.execute("CREATE TABLE rate_tract AS " + raten_je_tract(
+            f"read_parquet('{fakten}')", f"read_parquet('{acs}')", RATENJAHR))
 
         nachweis = reconcile(con)
         # Erst nach dem Nachweis bekommen die Perioden ihren sprechenden Namen.

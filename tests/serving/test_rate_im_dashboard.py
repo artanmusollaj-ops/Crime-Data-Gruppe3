@@ -307,3 +307,66 @@ def test_gegenprobe_ohne_einwohnerfilter_holt_unbewohnte_tracts_herein(
     assert any(z["einwohner"] == 0 for z in gezeigt), (
         "auch ohne den Filter steht kein unbewohnter Tract oben - dann "
         "traegt der Filter nichts, und der Test darueber beweist nichts")
+
+
+# --------------------------------------------------------------------------
+# Die Platzhalterstunden (gefunden am 14.10.2026 beim Blick auf die Heatmap)
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.referenzstand
+def test_die_heatmap_nennt_die_ueberbesetzten_stunden():
+    """Die Kachel behauptet etwas ueber die Daten - stimmt es noch?
+
+    Die Heatmap "Wochentag x Tagesstunde" zeigte beim ersten Blick ein
+    gleichmaessiges Band bei Stunde 0 und Stunde 12 ueber alle sieben Tage -
+    kein Tagesrhythmus, sondern Platzhalter fuer eine unbekannte Tatzeit. Der
+    Vorbehalt an der Kachel nennt seither 7,0 % und 5,8 % gegen 4,2 % bei
+    Gleichverteilung.
+
+    Eine Zahl im Kacheltext ohne Waechter waere genau die Aussage, die
+    veraltet, ohne dass es jemandem auffaellt. Geprueft wird die **Richtung**
+    mit grosszuegiger Schranke: dass beide Stunden deutlich ueber der
+    Gleichverteilung liegen und die Nachbarstunden uebertreffen. Die
+    Nachkommastelle selbst darf sich mit den Daten bewegen.
+    """
+    duckdb = pytest.importorskip("duckdb")
+    parquet = _parquet("fact_offense")
+    if not parquet.is_file():
+        pytest.skip("gold/fact_offense ist nicht gebaut")
+
+    con = duckdb.connect()
+    try:
+        zeilen = con.execute(f"""
+            SELECT hour_of_day, count(*) AS n
+            FROM read_parquet('{parquet}')
+            WHERE counts_case
+            GROUP BY 1 ORDER BY 1
+        """).fetchall()
+    finally:
+        con.close()
+
+    je_stunde = {int(h): n for h, n in zeilen}
+    gesamt = sum(je_stunde.values())
+    gleich = gesamt / 24
+
+    for stunde, nachbarn in ((0, (1, 23)), (12, (11, 13))):
+        anteil = 100.0 * je_stunde[stunde] / gesamt
+        assert anteil > 100.0 / 24, (
+            f"Stunde {stunde} liegt bei {anteil:.1f} % und damit nicht mehr "
+            f"ueber der Gleichverteilung (4,2 %) - der Vorbehalt an der "
+            f"Heatmap behauptet das Gegenteil.")
+        assert je_stunde[stunde] > 1.15 * gleich, (
+            f"Stunde {stunde} ist nur noch {je_stunde[stunde] / gleich:.2f}-mal "
+            f"so stark wie eine gleichverteilte - der Vorbehalt spricht von "
+            f"'ueberbesetzt'.")
+        for nachbar in nachbarn:
+            assert je_stunde[stunde] > je_stunde[nachbar], (
+                f"Stunde {stunde} traegt nicht mehr als Stunde {nachbar} - "
+                f"dann ist es kein Platzhalter mehr.")
+
+    # Und der Vorbehalt steht auch wirklich an der Kachel, nicht nur hier.
+    brett = next(b for b in bk.BRETTER if b.kennung == "crime-zeitverlauf")
+    tafel = next(t for t in brett.tafeln if t.kennung == "woche_stunde")
+    assert any("Platzhalter" in v for v in tafel.vorbehalte), (
+        "die Heatmap traegt den Vorbehalt nicht mehr")

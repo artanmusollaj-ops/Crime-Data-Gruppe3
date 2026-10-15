@@ -270,14 +270,14 @@ aus Silver ableitbar, und die Herkunft steht im Manifest.</p>
 </span><span id="L-98"><a href="#L-98"><span class="linenos"> 98</span></a><span class="p">}</span>
 </span><span id="L-99"><a href="#L-99"><span class="linenos"> 99</span></a>
 </span><span id="L-100"><a href="#L-100"><span class="linenos">100</span></a>
-</span><span id="L-101"><a href="#L-101"><span class="linenos">101</span></a><span class="c1"># Die fuenf Tabellen des Sternschemas, in der Reihenfolge des Bauplans.</span>
+</span><span id="L-101"><a href="#L-101"><span class="linenos">101</span></a><span class="c1"># Die Tabellen des Sternschemas, in der Reihenfolge des Bauplans.</span>
 </span><span id="L-102"><a href="#L-102"><span class="linenos">102</span></a><span class="c1"># ``build_gold`` prueft sich dagegen: Kommt eine dazu und fehlt sie hier, faellt</span>
 </span><span id="L-103"><a href="#L-103"><span class="linenos">103</span></a><span class="c1"># der Bau auf. Gebraucht wird die Liste ausserhalb, damit ein Release sagen</span>
 </span><span id="L-104"><a href="#L-104"><span class="linenos">104</span></a><span class="c1"># kann, was vollstaendig heisst - ohne die fuenf Namen ein zweites Mal zu</span>
 </span><span id="L-105"><a href="#L-105"><span class="linenos">105</span></a><span class="c1"># tippen (siehe ``orchestration.release``).</span>
 </span><span id="L-106"><a href="#L-106"><span class="linenos">106</span></a><span class="n">TABELLEN</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-</span><span id="L-107"><a href="#L-107"><span class="linenos">107</span></a>    <span class="s2">"fact_offense"</span><span class="p">,</span> <span class="s2">"dim_tract"</span><span class="p">,</span> <span class="s2">"dim_tract_acs"</span><span class="p">,</span> <span class="s2">"dim_offense"</span><span class="p">,</span> <span class="s2">"dim_date"</span><span class="p">,</span>
-</span><span id="L-108"><a href="#L-108"><span class="linenos">108</span></a>    <span class="s2">"dim_city_day"</span><span class="p">,</span>
+</span><span id="L-107"><a href="#L-107"><span class="linenos">107</span></a>    <span class="s2">"fact_offense"</span><span class="p">,</span> <span class="s2">"dim_tract"</span><span class="p">,</span> <span class="s2">"dim_tract_geo"</span><span class="p">,</span> <span class="s2">"dim_tract_acs"</span><span class="p">,</span>
+</span><span id="L-108"><a href="#L-108"><span class="linenos">108</span></a>    <span class="s2">"dim_offense"</span><span class="p">,</span> <span class="s2">"dim_date"</span><span class="p">,</span> <span class="s2">"dim_city_day"</span><span class="p">,</span>
 </span><span id="L-109"><a href="#L-109"><span class="linenos">109</span></a><span class="p">)</span>
 </span><span id="L-110"><a href="#L-110"><span class="linenos">110</span></a>
 </span><span id="L-111"><a href="#L-111"><span class="linenos">111</span></a>
@@ -555,7 +555,8 @@ aus Silver ableitbar, und die Herkunft steht im Manifest.</p>
                 <section id="TABELLEN">
                     <div class="attr variable">
             <span class="name">TABELLEN</span><span class="annotation">: tuple[str, ...]</span>        =
-<span class="default_value">(&#39;fact_offense&#39;, &#39;dim_tract&#39;, &#39;dim_tract_acs&#39;, &#39;dim_offense&#39;, &#39;dim_date&#39;, &#39;dim_city_day&#39;)</span>
+<input id="TABELLEN-view-value" class="view-value-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+            <label class="view-value-button pdoc-button" for="TABELLEN-view-value"></label><span class="default_value">(&#39;fact_offense&#39;, &#39;dim_tract&#39;, &#39;dim_tract_geo&#39;, &#39;dim_tract_acs&#39;, &#39;dim_offense&#39;, &#39;dim_date&#39;, &#39;dim_city_day&#39;)</span>
 
         
     </div>

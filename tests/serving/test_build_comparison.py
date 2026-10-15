@@ -47,11 +47,21 @@ def gold(data_root: Path, taten: list[tuple[str, date, str | None, bool]]) -> No
         "mapping_status": ["exact" if t[2] else "unmapped" for t in taten],
         "geo_status": ["inside_city"] * len(taten),
         "local_time_ambiguous": [False] * len(taten),
+        # Seit Vertrag 2 baut build_comparison auch rate_tract. Die Rate
+        # braucht einen Tract und den Zeiger auf ihren Nenner; ohne beides
+        # liefe die Abfrage ins Leere, statt zu scheitern.
+        "tract_geoid": ["17031010100"] * len(taten),
+        "population_vintage": [bc.RATENJAHR] * len(taten),
     })
     schreibe(data_root, "dim_offense", {
         "nibrs_code": ["13A", "23C", "240"],
         "nibrs_category": ["Assault Offenses", "Larceny/Theft Offenses",
                            "Motor Vehicle Theft"],
+    })
+    schreibe(data_root, "dim_tract_acs", {
+        "geoid": ["17031010100"],
+        "vintage": [bc.RATENJAHR],
+        "population": [1000],
     })
 
 
@@ -166,7 +176,8 @@ def test_das_manifest_nennt_gold_als_herkunft(tmp_path):
     manifest = json.loads((ziele["comparison_day"] / "manifest.json").read_text())
     assert manifest["layer"] == "serving"
     assert manifest["contract_version"] == bc.CONTRACT_VERSION
-    assert set(manifest["derived_from"]) == {"gold_fact_offense", "gold_dim_offense"}
+    assert set(manifest["derived_from"]) == {
+        "gold_fact_offense", "gold_dim_offense", "gold_dim_tract_acs"}
     assert manifest["derived_from"]["gold_fact_offense"]["input_fingerprint"] == "abc-fact_offense"
     assert manifest["checks"]["per_city"]["chicago"] == {"offenses": 4, "cases": 4}
     assert "additiv" in manifest["notes"] and "keine_achse" in manifest["notes"]

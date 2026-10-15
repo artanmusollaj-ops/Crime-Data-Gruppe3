@@ -588,10 +588,21 @@ def test_die_indizes_erschoepfen_die_gold_tabellen():
         f"{fehlend} steht in gold_pipeline.TABELLEN, aber nicht in INDIZES - "
         f"diese Gold-Tabelle liegt nirgends abfragbar. Eintrag in INDIZES "
         f"ergaenzen, mit Schluessel und verteilung.")
-    ueberzaehlig = sorted(geladen - set(TABELLEN))
-    assert not ueberzaehlig, (
-        f"{ueberzaehlig} steht in INDIZES, aber nicht in "
-        f"gold_pipeline.TABELLEN - ein Index ohne Quelle im Release.")
+    # Die andere Haelfte: Kein Index ohne Quelle im Release. Bis zum
+    # 14.10.2026 stand hier "steht nicht in gold_pipeline.TABELLEN", und
+    # das war dasselbe, solange jeder Index eine Gold-Tabelle war.
+    # ``rate_tract`` ist der erste, der es nicht ist - die Rate je Tract ist
+    # eine Aggregation, und Gold aggregiert nicht. Geprueft wird deshalb,
+    # was die Zusage immer meinte: dass die Quelle **im Release liegt**.
+    from orchestration.release import VOLLSTAENDIG
+
+    ohne_quelle = sorted(
+        i.name for i in le.INDIZES
+        if not any(i.quelle_im_release.startswith(f"{v}/") for v in VOLLSTAENDIG))
+    assert not ohne_quelle, (
+        f"{ohne_quelle} steht in INDIZES, aber die Quelle liegt in keinem "
+        f"Release - orchestration.release.VOLLSTAENDIG ergaenzen oder den "
+        f"Index entfernen.")
     # Und kein Name doppelt: ``NACH_NAME`` wuerde den zweiten still
     # gewinnen lassen, und ``Feld.abbildung`` entschiede nach ihm.
     assert len(geladen) == len(le.INDIZES)
@@ -614,8 +625,26 @@ def test_jeder_schluessel_ist_strukturell_eindeutig_statt_geraten():
 
 
 def test_jeder_index_hat_eine_quelle_im_release():
+    """Die Quelle muss im Release liegen - nicht zwingend in Gold.
+
+    Bis zum 14.10.2026 stand hier ``gold/dataset={name}/``, und das war
+    dasselbe, solange jeder Index eine Gold-Tabelle war. ``rate_tract`` ist
+    der erste, der es nicht ist: Die Rate je Tract ist eine Aggregation, und
+    Gold aggregiert nicht (AGENTS.md). Geprueft wird deshalb, was die Zusage
+    immer meinte - dass ein Release die Quelle mitbringt. Der Dateiname
+    bleibt verlangt: Ein Praefix allein waere ein Verzeichnis.
+    """
+    from orchestration.release import VOLLSTAENDIG
+
     for index in le.INDIZES:
-        assert index.quelle_im_release.startswith(f"gold/dataset={index.name}/")
+        quelle = index.quelle_im_release
+        assert quelle.endswith("/part-0001.parquet"), index.name
+        assert any(quelle == f"{v}/part-0001.parquet" for v in VOLLSTAENDIG), (
+            f"{index.name}: '{quelle}' liegt in keinem Release - "
+            f"orchestration.release.VOLLSTAENDIG ergaenzen.")
+        assert index.name in quelle, (
+            f"{index.name}: die Quelle '{quelle}' traegt den Indexnamen "
+            f"nicht - zwei Indizes aus derselben Datei waeren ein Versehen.")
 
 
 def test_kein_index_gruppiert_ueber_eine_ortsspalte():

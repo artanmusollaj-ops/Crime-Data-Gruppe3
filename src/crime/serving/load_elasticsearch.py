@@ -157,6 +157,15 @@ class Index:
     #: ``(Breite, Laenge)``. Beide Spalten gehen im Feld ``standort`` auf und
     #: erscheinen nicht noch einmal einzeln: Ein Ort ist ein Wert, nicht zwei.
     geo: tuple[str, str] | None = None
+    #: Die Spalte mit dem Umriss, als WKT. Wird ``geo_shape`` statt
+    #: ``keyword``.
+    #:
+    #: Getrennt von ``geo``: Ein ``geo_point`` entsteht aus **zwei**
+    #: Zahlenspalten und heisst danach ``standort``; eine Flaeche ist **eine**
+    #: Textspalte und behaelt ihren Namen. Ohne diesen Eintrag laege der
+    #: Umriss als ``keyword`` im Index - filterbar, gruppierbar und fuer eine
+    #: Karte vollkommen nutzlos, und zwar ohne Fehlermeldung.
+    flaeche: str | None = None
     #: Darf dieser Index in einem ES|QL-``LOOKUP JOIN`` rechts stehen?
     #:
     #: Entschieden am Index und nicht am Namen geraten: ``index.mode: lookup``
@@ -171,9 +180,18 @@ class Index:
     #: hier unschaedlich, weil ohnehin einer gesetzt ist (ein Knoten).
     nachschlag: bool = False
 
+    #: Wo die Quelle im Release liegt - leer heisst: die gleichnamige
+    #: Gold-Tabelle.
+    #:
+    #: Gesetzt wird das nur dort, wo ein Index **keine** Gold-Tabelle ist.
+    #: ``rate_tract`` ist der erste Fall: Die Rate je Tract ist eine
+    #: Aggregation, und Gold aggregiert nicht (AGENTS.md). Sie entsteht in
+    #: ``serving.build_comparison`` und liegt im Release unter ``serving/``.
+    quelle_pfad: str = ""
+
     @property
     def quelle_im_release(self) -> str:
-        return f"gold/dataset={self.name}/part-0001.parquet"
+        return self.quelle_pfad or f"gold/dataset={self.name}/part-0001.parquet"
 
 
 #: Alle Gold-Tabellen, Zeit und Zahlen eingeschlossen - und das ist eine
@@ -210,11 +228,49 @@ INDIZES: tuple[Index, ...] = (
         schluessel=("geoid",),
         verteilung=("state_fips", "county_fips"),
         volltext=frozenset({"tract_name"}),
-        # Der Schwerpunkt, nicht die Flaeche: Gold traegt keine Geometrie.
-        # Fuer *welcher Tract liegt in der Naehe* reicht der Punkt; fuer
-        # *liegt dieser Punkt im Tract* nicht - das bleibt die Aufgabe der
-        # Zuordnung in Silver.
+        # Der Schwerpunkt, nicht die Flaeche. Fuer *welcher Tract liegt in
+        # der Naehe* reicht der Punkt; fuer *liegt dieser Punkt im Tract*
+        # nicht - das bleibt die Aufgabe der Zuordnung in Silver. Die
+        # Umrisse stehen seit Vertrag 8 in ``dim_tract_geo``, und zwar
+        # bewusst nicht hier: Diese Dimension deckt beide Countys ab und
+        # waere mit Geometrie 26 MB statt 194 KB.
         geo=("centroid_lat", "centroid_lon"),
+    ),
+    Index(
+        name="dim_tract_geo",
+        # Eine Zeile je Tract mit Stadt - 1'055 von den 6'282 in dim_tract.
+        schluessel=("geoid",),
+        # Nach Stadt laesst sich gruppieren, nach geoid waere es die
+        # Schluesselpruefung ein zweites Mal in 1'055 Eimern.
+        verteilung=("city",),
+        volltext=frozenset({"tract_name"}),
+        flaeche="boundary_wkt",
+        # Fuer die Karte: Kibana faerbt die Flaechen und holt die Rate je
+        # Tract ueber ``geoid`` dazu. Ohne index.mode lookup lehnt
+        # Elasticsearch den Verbund ab - und zwar erst, wenn jemand die Karte
+        # oeffnet.
+        nachschlag=True,
+    ),
+    Index(
+        name="rate_tract",
+        # Keine Gold-Tabelle: Die Rate je Tract ist eine Aggregation, und
+        # Gold aggregiert nicht. Sie entsteht in serving.build_comparison
+        # aus derselben Abfrage, die ``gold_pipeline.raten_je_tract`` dem
+        # Waechter der Ratenkachel stellt.
+        #
+        # **Warum sie ueberhaupt in Elasticsearch liegt.** Kibanas Karte
+        # faerbt eine Flaeche nach **einem** Feld und kann zwischen zwei
+        # verbundenen Feldern nicht rechnen. Eine Karte nach Fallzahlen waere
+        # hier irrefuehrend: Die Einwohnerzahl je Tract reicht von 35 bis
+        # 13'521 (2024, Median 2'861). Die Rate muss fertig dastehen, bevor
+        # die Karte sie einfaerbt.
+        quelle_pfad="serving/dataset=rate_tract/part-0001.parquet",
+        # Eine Zeile je Tract mit Einwohnern - 1'045 im Bezugsjahr.
+        schluessel=("geoid",),
+        verteilung=("stadt",),
+        # Die Karte verbindet dim_tract_geo.geoid auf diesen Index; ohne
+        # index.mode lookup lehnt Elasticsearch den Verbund ab.
+        nachschlag=True,
     ),
     Index(
         name="dim_tract_acs",
@@ -252,6 +308,14 @@ INDIZES: tuple[Index, ...] = (
         verteilung=("day_name", "month_name"),
         # Kein Volltext: ``day_name`` und ``month_name`` sind Aufzaehlungen
         # mit sieben beziehungsweise zwoelf Werten, keine Sprache.
+        #
+        # Nachschlag seit dem 14.10.2026: Die Heatmap "Wochentag x
+        # Tagesstunde" braucht beide Achsen, und sie stehen in zwei Tabellen -
+        # ``hour_of_day`` in ``fact_offense``, ``day_name`` hier. Genau dafuer
+        # gibt es die Datumsdimension; nachgerechnet wird der Wochentag
+        # nirgends. Lens' ``formBased`` kann nicht verbinden, ES|QL kann es
+        # mit ``LOOKUP JOIN dim_date ON date``.
+        nachschlag=True,
     ),
     Index(
         name="dim_city_day",
@@ -393,6 +457,23 @@ def mapping(liste: list[Feld], index: Index) -> dict[str, Any]:
                     f"{feld.arrow} - Koordinaten sind Gleitkommazahlen.")
         verbraucht.update(index.geo)
         eigenschaften["standort"] = {"type": "geo_point"}
+
+    if index.flaeche:
+        feld = nach_name.get(index.flaeche)
+        if feld is None:
+            raise LadeFehler(
+                f"{index.flaeche} ist als Flaechenspalte gesetzt, steht aber "
+                f"nicht im Release")
+        if TYPEN.get(feld.arrow) != "keyword":
+            raise LadeFehler(
+                f"{index.flaeche} ist als Flaechenspalte gesetzt, ist aber "
+                f"{feld.arrow} - ein Umriss kommt als WKT-Zeichenkette.")
+        verbraucht.add(index.flaeche)
+        # ``ignore_malformed`` bewusst **nicht**: Ein Umriss, den
+        # Elasticsearch nicht versteht, soll den Ladelauf anhalten und nicht
+        # als Loch in der Karte erscheinen, das niemand einer Ursache
+        # zuordnen kann.
+        eigenschaften[index.flaeche] = {"type": "geo_shape"}
 
     for feld in liste:
         if feld.name not in verbraucht:

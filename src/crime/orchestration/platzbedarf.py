@@ -143,6 +143,10 @@ REGEL_JE_QUELLE: dict[str, str] = {
     # ueberschaetzt sie und darf es.
     "dataset=dim_date": TATEN,
     "dataset=dim_tract": CENSUS,
+    # Eine Zeile je Tract mit Stadt, und der Umriss darin waechst mit
+    # der Flaeche, nicht mit den Taten. Ein Jahrgang mehr kostet hier
+    # keine Byte.
+    "dataset=dim_tract_geo": CENSUS,
     "dataset=dim_tract_acs": CENSUS,
     "dataset=dim_city_day": KONSTANT,
     # Serving
@@ -150,6 +154,10 @@ REGEL_JE_QUELLE: dict[str, str] = {
     "dataset=comparison_week": TATEN,
     "dataset=comparison_month": TATEN,
     "dataset=partition_quality": TATEN,
+    # Eine Zeile je Tract mit Einwohnern, fuer **ein** Bezugsjahr
+    # (gold_pipeline.RATENJAHR). Ein Jahrgang mehr in den Falldaten
+    # aendert die Zeilenzahl nicht - sie haengt an den Tracts.
+    "dataset=rate_tract": CENSUS,
     # Im Release materialisiert, unter data/serving nur Sichten - dort um
     # zwei Groessenordnungen kleiner. Beide Male haengt die Groesse an den
     # Fakten, und deshalb gilt beide Male dieselbe Regel.

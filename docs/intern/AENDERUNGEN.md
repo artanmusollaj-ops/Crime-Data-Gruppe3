@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **1'973** |
+| Tests | **2'023** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -76,8 +76,8 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
 | `silver/crime_offense` | **3** | 19.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig |
 | `silver/source_change` | **3** | 03.10.2026 | Unterschied zwischen aufeinanderfolgenden **Vollabzügen** je Quelle, eine Zeile je geändertem Feld; `ESRI_OID` und reine Leerzeichen ausgenommen, Zeitstempel als `beruehrt` statt als Inhaltsänderung. Version 2 ergänzte die **Datierung aus den Deltas**: `zuerst_gesehen_in`, `zuerst_gesehen_am` und `datierung` mit `delta` / `kein_delta` / `nicht_datierbar`. Gefunden wird weiter nur zwischen Vollabzügen — aus einem Delta liesse sich *verschwunden* nicht von *ruhig* unterscheiden. Version 3: Die Datierung **klebt** — sie nennt den besten je bestimmten Befund, nicht den heutigen, sonst löschte das Aufräumen der Deltas sie wieder |
-| `gold/*` | **7** | 03.10.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften | Version 6: Die ACS-Masse liegen **je Vintage** in der neuen Tabelle `dim_tract_acs` (`population`, `median_household_income_usd`, `poverty_rate`); `dim_tract` behält die Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie kommt; `fact_offense` trägt `population_vintage` und sagt damit je Zeile, welcher Nenner für sie gilt. Eine Tabelle mit einer Zeile je Tract konnte nur eine Einwohnerzahl tragen — über mehrere Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021 Version 7: `dim_date` trägt `year_is_complete` — ob der Jahrgang dieses Tages ganz in den Daten liegt. Ein Teiljahr darf nicht in einen Jahresvergleich geraten: 2026 hat am 3.10. neun Monate, und neun gegen zwölf gestellt ergeben einen Rückgang, den es nicht gibt. Dazu im Manifest von `fact_offense` der Nachweis `year_coverage` je Jahrgang, mit `days_with_offenses` gegen `days_in_year` — denn eine Lücke **innerhalb** des Jahres sieht man an der Spalte nicht
-| `serving/comparison_*` | 1 | 17.09.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` |
+| `gold/*` | **8** | 14.10.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften | Version 6: Die ACS-Masse liegen **je Vintage** in der neuen Tabelle `dim_tract_acs` (`population`, `median_household_income_usd`, `poverty_rate`); `dim_tract` behält die Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie kommt; `fact_offense` trägt `population_vintage` und sagt damit je Zeile, welcher Nenner für sie gilt. Eine Tabelle mit einer Zeile je Tract konnte nur eine Einwohnerzahl tragen — über mehrere Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021 Version 7: `dim_date` trägt `year_is_complete` — ob der Jahrgang dieses Tages ganz in den Daten liegt. Ein Teiljahr darf nicht in einen Jahresvergleich geraten: 2026 hat am 3.10. neun Monate, und neun gegen zwölf gestellt ergeben einen Rückgang, den es nicht gibt. Dazu im Manifest von `fact_offense` der Nachweis `year_coverage` je Jahrgang, mit `days_with_offenses` gegen `days_in_year` — denn eine Lücke **innerhalb** des Jahres sieht man an der Spalte nicht Version 8: Die neue Tabelle `dim_tract_geo` trägt den **Umriss** je Tract der beiden Studienstädte als WKT — 1'055 Zeilen, vereinfacht mit Douglas-Peucker 0,00002 Grad (rund zwei Meter, 0,0002 % Fläche je Tract). Sie ist die Grundlage der Choroplethenkarte in Kibana, die eine Fläche braucht und mit dem Schwerpunkt in `dim_tract` nichts anfangen kann. **Eigene Tabelle und keine Spalte an `dim_tract`:** Die Dimension deckt beide Countys ab (6'282 Zeilen) und wäre mit Umrissen 26 MB statt 194 KB; `dim_tract_geo` kostet 133 KB. Keine Kennzahl darin — wer färben will, verbindet über `geoid`
+| `serving/comparison_*` | **2** | 14.10.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` Version 2: `rate_tract` kommt dazu — eine Zeile je Tract **mit Einwohnern** im Bezugsjahr (`gold_pipeline.RATENJAHR`), mit Fällen, Taten, Einwohnerzahl und beiden Raten je 1'000. Gerechnet wird sie mit **derselben** Abfrage, die `gold_pipeline.raten_je_tract` auch dem Wächter der Kibana-Ratenkachel stellt, nicht mit einer zweiten. Sie entsteht, weil Kibanas Karte eine Fläche nach **einem** Feld einfärbt und zwischen zwei verbundenen Feldern nicht rechnen kann — und eine Karte nach Fallzahlen wäre hier irreführend: Die Einwohnerzahl je Tract reicht von 35 bis 13'521 (2024, Median 2'861). Tracts ohne Einwohner fehlen, für sie ist keine Rate definiert |
 
 > **Der Feldkatalog wird erzeugt, nicht gepflegt.** Am 14.9. wurde
 > `docs/feldkatalog.md` von Hand bearbeitet (`f1c9b42`): Spaltentypen von
@@ -100,6 +100,234 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 14.10.2026 · Die Dashboards folgen Artans Entwürfen (#152)
+
+Artan hat fünf Dashboard-Entwürfe nach `docs/bilder/` gelegt. Sie sind
+Entwürfe und keine Kibana-Aufnahmen — jeder trägt „KONZEPT · FIKTIVE
+DEMODATEN · NICHT LIVE". Nachgebaut werden die **Inhalte** mit unseren
+gerechneten Zahlen, nicht die Optik: Kibana kennt keine Reiterleiste über
+mehreren Dashboards und keine Kachel mit Symbol. Dieser Eintrag deckt die
+Grundlage dafür; die Bretter selbst folgen.
+
+**Der Generator kann drei Dinge mehr.** `esql_heatmap` zeichnet zwei Achsen
+und eine Farbe dazwischen — Wochentag mal Tagesstunde. Nur als ES|QL-Art,
+und zwar aus diesem Grund: Die beiden Achsen stehen in **zwei** Tabellen,
+`hour_of_day` in `fact_offense`, `day_name` in `dim_date`. Lens' `formBased`
+liest eine Datenansicht und kann nicht verbinden; ES|QL kann es mit
+`LOOKUP JOIN dim_date ON date`. `Steuerung` legt Auswahlfelder über ein
+Brett; den **Zeitraum gibt es bewusst nicht** als Steuerung, weil Kibana ihn
+oben in der Leiste führt und ein zweites Zeitfeld daneben eine zweite
+Wahrheit wäre. `navigation_objekt` legt ein `links`-Objekt an, das auf jedem
+Brett oben liegt — Kibanas nächster Verwandter zur Reiterleiste.
+
+**`dim_tract_geo`, die siebte Gold-Tabelle (Vertrag 8).** Eine
+Choroplethenkarte färbt Flächen, braucht also Polygone. `dim_tract` führt
+nur Zentroide, die Umrisse liegen in `silver/tract` als WKB, und
+`tracts.geojson` ist eine Datei — Kibana zeichnet aber aus einem
+Elasticsearch-Index. Der Lader liest je Index genau eine Datei
+(`gold/dataset=<name>/part-0001.parquet`) und leitet daraus Feldliste,
+Mapping, Dokumente und Zeilenabgleich ab; ihm einen zweiten Quellweg
+beizubringen hiesse, fünf Funktionen zu gabeln.
+
+Also eine Gold-Tabelle — aber **keine Spalte an `dim_tract`**, denn
+`export_geojson` argumentiert ausdrücklich dagegen: Die Dimension deckt
+beide Countys ab, 6'282 Zeilen, und wäre mit Umrissen in voller Genauigkeit
+26 MB statt 194 KB. `dim_tract_geo` trägt nur die **1'055 Tracts mit Stadt**
+(Chicago 782, Detroit 273) und nur den vereinfachten Umriss: **133 KB**.
+Alle 1'055 Geometrien sind gültig, keine ist leer. Als **WKT**, weil
+Elasticsearch eine WKT-Zeichenkette für `geo_shape` unmittelbar annimmt;
+WKB müsste der Lader wandeln, GeoJSON als Objekt einbetten. Keine Kennzahl
+darin — wer färben will, verbindet über `geoid`.
+
+**`rate_tract`, damit die Karte eine Rate zeigen kann (Serving-Vertrag 2).**
+Kibana färbt eine Fläche nach **einem** Feld und kann zwischen zwei
+verbundenen Feldern nicht rechnen. Eine Karte nach Fallzahlen wäre hier
+irreführend, und das ist gemessen: Die Einwohnerzahl je Tract reicht von
+**35 bis 13'521** (2024, Median 2'861, Streuung 53,5 %) — Faktor 386 zwischen
+dem kleinsten und dem grössten. Die Rate muss also fertig dastehen, bevor die
+Karte sie einfärbt.
+
+Sie entsteht in `serving.build_comparison` als fünfte Vergleichstabelle,
+1'045 Zeilen — die Tracts mit Einwohnern, zehn weniger als `dim_tract_geo`,
+weil für einen Tract ohne Einwohner keine Rate definiert ist. Gerechnet wird
+sie mit **derselben** Abfrage, die `gold_pipeline.raten_je_tract` auch dem
+Wächter der Ratenkachel stellt; eine zweite daneben könnte mit ihr gemeinsam
+falsch sein, ohne dass etwas auffiele.
+
+**Nicht in Gold**, obwohl der Lader bisher nur dort las: Eine Rate je Tract
+ist eine Aggregation, und Gold aggregiert nicht (`AGENTS.md`). `Index` hat
+deshalb jetzt `quelle_pfad` — gesetzt nur dort, wo ein Index keine
+Gold-Tabelle ist. Der Wächter `test_jeder_index_hat_eine_quelle_im_release`
+verlangte bis heute `gold/dataset={name}/`; das war dasselbe, solange jeder
+Index eine Gold-Tabelle war. Jetzt prüft er, was die Zusage immer meinte:
+dass ein Release die Quelle mitbringt.
+
+Die Toleranz steht jetzt **einmal**: `gold_pipeline.build_gold.VEREINFACHUNG_GRAD`,
+und `export_geojson` liest sie von dort. Zwei Toleranzen nebeneinander
+hiessen, dass die Karte in Kibana und die Karte im Browser verschieden genaue
+Umrisse zeigen, ohne dass es jemandem auffiele.
+
+**Ein Fehler, der jeden Gold-Bau im S3-Modus scheitern liess.** `main` las
+das Manifest über `ziele["fact_offense"]` — einen **lokalen** Pfad. Im
+S3-Modus publiziert `build` jede Tabelle und entfernt danach die lokale
+Arbeitskopie (*„Local working copy removed (STORAGE_BACKEND=s3)"*). Der
+Aufruf traf also ins Leere, und der Lauf endete mit *„Invalid manifest"* und
+**Exitcode 1 — obwohl alle Tabellen sauber publiziert waren**. Für
+`orchestration.run_all` war das ein gescheiterter Lauf, und zwar jedes Mal.
+Gefunden am 14.10.2026 beim ersten Gold-Bau gegen SeaweedFS. Jetzt über
+`manifest_von`, das aus jeder Ablage liest. `test_der_schlussbericht_liest_ueber_die_ablage_nicht_ueber_den_pfad`
+hält es fest; die Mutationsprobe mit dem alten Code fällt mit genau der
+echten Meldung.
+
+**Die drei fehlenden Bretter stehen.** `crime-zeitverlauf` (Verlauf je
+Monat als Linie, Heatmap Wochentag × Tagesstunde, Fälle je Jahrgang),
+`crime-geografie` (je Stadt eine Choroplethenkarte, dazu die zwanzig höchsten
+Raten als Tabelle) und `crime-deliktstruktur` (Zahlen und Anteile
+nebeneinander, dazu die häufigsten NIBRS-Codes). Die vier bestehenden Bretter
+bleiben unangetastet — sie sind bewährt und bewacht, und Kacheln zu
+verschieben hätte Risiko ohne Gewinn gebracht. Alle sieben tragen jetzt die
+Links-Navigation, drei tragen Steuerelemente.
+
+**Ein Befund aus dem Blick auf die Heatmap, der mehr wert ist als die Kachel.**
+Stunde 0 und Stunde 12 sind an allen sieben Wochentagen gleichmässig stark —
+kein Tagesrhythmus, sondern ein Platzhalter für eine unbekannte Tatzeit.
+Nachgemessen: Stunde 0 trägt **128'595 Fälle (7,04 %)**, Stunde 12
+**106'277 (5,82 %)**; gleichverteilt wären 4,17 %. Beide Städte zeigen es
+(Chicago 79'586 um 12 Uhr gegen 60'962 um 11 und 62'537 um 13; Detroit 26'691
+gegen 17'862 und 18'988). Ohne diesen Vermerk liest jemand aus der Kachel
+„die meisten Taten passieren um Mitternacht". Der Vorbehalt steht jetzt an
+der Kachel, und `test_die_heatmap_nennt_die_ueberbesetzten_stunden` misst ihn
+nach.
+
+**Vier Wächter mussten die neuen Arten erst lernen** — und einer war dabei
+still wertlos geworden: `test_eine_esql_tafel_hat_keine_search_aggregation`
+griff auf `BRETTER[-1].tafeln[0]`, und das ist seit den neuen Brettern ein
+Balken statt einer ES|QL-Tafel. Der Test lief weiter und prüfte nichts mehr;
+er **sucht** die Tafel jetzt, statt sie zu zählen.
+
+**Was gegen das echte Elasticsearch belegt ist.** Die Tests fragen live
+(`localhost:19200`), und sie meldeten zuerst genau das Erwartete: *„Lookup
+Join requires a single lookup mode index; [dim_date] resolves to … in
+[standard] mode"*. Nach `nachschlag=True` und einem Neuladen läuft der
+Verbund. Die Karte zeichnete beim ersten Bau Chicagos Tracts in abgestuften
+Blautönen — die Verbundschlüssel treffen sich also wirklich. **Danach blieb
+sie leer**, samt Hintergrundkarte und auch einzeln geöffnet; die Ursache ist
+offen und in der Rückstellliste festgehalten, der Verdacht liegt bei der
+Kibana-Instanz und nicht bei der Konfiguration.
+
+**Unter der Beschriftung „Chicago" stand Detroit.** Christian hat es im
+Browser gesehen, und der Fehler sass an einer Stelle, an der alles andere
+stimmte: Beide Karten des Bretts trugen dieselbe Verbundkennung
+(`rate-je-tract`). Titel, Mittelpunkte, Schicht- und Quellkennungen waren
+verschieden — nur diese eine nicht, und Kibana ordnet die Verbunddaten
+darüber zu. Die zuletzt geladene Karte gewinnt, die andere zeigt fremde
+Flächen. **Nichts wurde rot**: Die gespeicherten Objekte waren beide in sich
+richtig.
+
+Dieselbe Falle, die im Modul schon einmal beschrieben steht — bei den
+Lens-Objekten, deren Kennung seit jeher den Brettnamen trägt: *„Ohne den
+Brettnamen bekämen sie dieselbe Kennung, und das letzte Anlegen überschriebe
+die anderen."* Die Verbundkennung heisst jetzt je Karte anders
+(`verbund_kennung`), und weil der Name des Einfärbe-Feldes aus ihr gerechnet
+wird, zieht er von selbst mit. `test_keine_zwei_karten_teilen_sich_eine_verbundkennung`
+hält es fest, über alle Bretter und nicht nur über das eine; zwei Proben
+dagegen, beide rot.
+
+**Vier Fehler an der Karte, alle von Christian im Browser gefunden, keiner
+von der Suite.** Sie sind die Begründung dafür, dass jeder davon jetzt einen
+Wächter hat.
+
+*Zweimal Detroit unter zwei Beschriftungen.* Nicht die Verbundkennung war die
+Ursache, wie zuerst vermutet, sondern der **fehlende Stadtfilter**: Jede Karte
+trug alle 1'055 Flächen, und ohne Hintergrundkarte unterscheidet sie nur der
+Bildausschnitt. Der Filter war am 14.10. schon einmal da und wurde entfernt,
+weil die Karte danach leer blieb — diese Beobachtung stammte aus einem 240
+Pixel breiten Browserfenster, in dem der Kartenbehälter die Höhe null hat und
+**keine** Karte zeichnet. Sie bewies nichts. Jetzt trägt Chicagos Karte 782
+Flächen und Detroits 273, gegen Elasticsearch nachgemessen.
+
+*Keine Hintergrundkarte.* Nie mitgegeben. Eine Karte, die in Kibanas
+Oberfläche entsteht, bekommt sie dazugelegt; eine über die Schnittstelle
+angelegte nimmt genau die Schichten, die dastehen — und das war eine einzige.
+`EMS_TMS` liegt jetzt zuunterst.
+
+*Beide Karten bewegten sich gemeinsam.* Kibanas Vorgabe für mehrere Karten
+auf einem Brett — richtig für zwei Blickwinkel auf dieselbe Gegend, falsch
+für zwei Städte. `isMovementSynchronized: false` am **Panel**, nicht am
+Kartenobjekt; in allem, was vorher geprüft wurde, war die Einstellung deshalb
+gar nicht sichtbar.
+
+*Geteilte Verbundkennung.* Beide Karten trugen `rate-je-tract`. Das war nicht
+die Ursache des Detroit-Problems, aber ein echter Mangel: Kibana ordnet die
+Verbunddaten darüber zu. `verbund_kennung` hängt jetzt die Tafelkennung an,
+und weil der Name des Einfärbe-Feldes aus ihr gerechnet wird, zieht er mit.
+
+*Ein Auswahlfeld, das nichts bewirken konnte.* Über dem Geografie-Brett
+stand *Deliktfamilie*. Weder `dim_tract_geo` noch `serving/rate_tract` trägt
+`nibrs_family` — die Rate je Tract ist über alle Delikte des Bezugsjahrs
+vorgerechnet. Christian probierte es und sah nichts geschehen; gemessen
+ergibt derselbe Filter gegen die Kartenquelle **null** Flächen, die Karte
+wäre also leer geworden, hätte Kibana ihn durchgereicht. Drei Dinge folgen
+daraus: Das Auswahlfeld ist weg, die Karte hängt nicht mehr an der globalen
+Abfrage (`applyGlobalQuery: false` an Schicht **und** Verbund), und ein
+Vorbehalt sagt, dass die Rate alle Delikte umfasst und wo man nach Deliktart
+fragt. Ein Feld, das dasteht und nichts tut, ist schlimmer als keines — es
+sagt dem Lesenden, die Karte zeige eine Auswahl, die sie nicht zeigt.
+
+**Und noch ein grüner, wertloser Wächter.** Der erste Test auf diesen
+Vorbehalt suchte die Wendung *„alle Delikte"* — die steht aber auch in
+`_FALLEBENE_VORN`. Nach dem Entfernen des Vorbehalts blieb er grün. Gefunden
+hat es die Mutationsprobe, nicht das Nachdenken. Er prüft jetzt den
+tragenden Inhalt: **welche Quelle** die Deliktfamilie nicht kennt.
+
+**Eine Lehre über das Prüfen selbst.** Drei Diagnosen in Folge waren falsch —
+die Verbundkennung, ein degradiertes Kibana, eine unerreichbare Kartenquelle.
+Alle drei stützten sich auf Bilder aus einem Fenster, das zu schmal war, um
+überhaupt eine Karte zu zeigen. Eine Messung, deren Messbedingungen niemand
+prüft, ist schlimmer als keine: Sie trägt die Autorität einer Beobachtung und
+den Inhalt einer Vermutung.
+
+**Sechs Mutationsproben** gegen die vier neuen Kartenwächter, alle entdeckt:
+Stadtfilter entfernt, beide Karten auf dieselbe Stadt gefiltert,
+Verbundkennung wieder geteilt, Einfärbung nennt eine fremde Karte,
+Hintergrundkarte fehlt, gemeinsame Bewegung wieder an. Eine verwaiste Karte
+(`karte-crime-geografie-karte`, die einzelne von vor der Aufteilung) lag noch
+in Kibana und ist entfernt — `build_kibana` legt mit `overwrite=true` an und
+löscht nie; eine umbenannte Kachel bleibt als Leiche liegen. Das steht in der
+Rückstellliste.
+
+**Neun Mutationsproben gegen die neuen Wächter**, alle entdeckt: Karte gilt
+nicht als Karte, Geografie nennt sein Bezugsjahr nicht, Karte verweist auf die
+Faktenansicht, ES|QL-Tafel liefert eine leere Aggregation statt zu werfen,
+Heatmap verliert ihren Vorbehalt, Einfärbung nach einem anderen Feldnamen,
+Verbundschlüssel treffen sich nie, `rate_tract` liegt in keinem Release,
+Geofeld getippt statt aus `Index.flaeche` gelesen. Beim Planen der Proben fiel
+eine Lücke auf: Der Name des Einfärbe-Feldes wurde von keinem Wächter gegen
+den Verbund gehalten — jetzt rechnet der Test ihn aus der Schicht selbst nach.
+
+**Das README nennt die Bretter, und jetzt bewacht das jemand.** Dort stand
+*„Vier gibt es"* mit einer vierzeiligen Tabelle; die Einstiegsseite war seit
+dem 11.10. bewacht, das README nicht — genau der Fall aus den Known pitfalls,
+dieselbe Aussage in zwei Dokumenten mit einem Wächter nur über einem.
+`test_das_readme_nennt_so_viele_dashboards_wie_es_gibt` hält Zahlwort,
+Zeilenzahl **und** jeden Bretttitel gegen `BRETTER`. Drei Proben dagegen, alle
+rot.
+
+**Zahlen.** 1'973 → **2'023 Tests**, Standardlauf 1'865 → **1'914**,
+Referenzwächter **108 → 109**, Frischklon **1'868 der 1'914** — gemessen in
+einem lokalen Klon des Branches. Der grösste Teil des Zuwachses sind keine
+neuen Testfunktionen, sondern dieselben Wächter über mehr Kacheln: Drei
+Bretter mit zusammen neun Tafeln kommen dazu, und sieben Wächter laufen je
+Tafel. Gold 85,6 → **85,7 MB**,
+serving 1,2 → **1,3 MB**, `releases` 433,7 → **795,8 MB** — zwei neue
+Releases (`2026-10-14T14-33-03Z` und `2026-10-14T16-40-30Z`) sind
+dazugekommen, die gepinnten bleiben unberührt. Neu gebaut, weil erzeugt:
+`docs/feldkatalog.md`, `docs/intern/platzbedarf.md`, `docs/einstieg.html`,
+`docs/referenz/`, der Einseiter und die Grössentabellen in beiden
+Architekturdokumenten.
 
 ---
 

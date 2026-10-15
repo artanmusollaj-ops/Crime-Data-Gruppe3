@@ -294,7 +294,10 @@ def test_eine_esql_tafel_hat_keine_search_aggregation():
     Treffer und winkte die Kachel als "zeigt Daten" durch, ohne dass ihre
     Abfrage je gelaufen waere.
     """
-    tafel = bk.BRETTER[-1].tafeln[0]
+    # Gesucht und nicht gezaehlt: ``BRETTER[-1].tafeln[0]`` war bis zum
+    # 14.10.2026 eine ES|QL-Tafel und ist seit den drei neuen Brettern ein
+    # Balken. Der Test lief weiter, haette aber nichts mehr geprueft.
+    tafel = next(t for b in bk.BRETTER for t in b.tafeln if t.ist_esql)
     with pytest.raises(LadeFehler, match="_query"):
         tafel.aggregation
 
@@ -308,12 +311,18 @@ def test_jede_esql_tafel_nennt_frage_und_ausschluesse(brettname, tafel):
     Jede ES|QL-Kachel traegt sie von Anfang an, und eine mit einer Rate
     zusaetzlich Nenner und Jahr.
     """
-    if not tafel.ist_esql:
+    if not (tafel.ist_esql or tafel.ist_karte):
         assert not tafel.frage, f"{brettname}: FR-27 war zurueckgestellt"
         return
     assert tafel.frage and tafel.ausschluesse
     assert tafel.erlaeuterung.startswith("Frage: ")
     assert "Nicht enthalten:" in tafel.erlaeuterung
+    if tafel.ist_karte:
+        # Eine Karte hat keine Abfrage, in der ein Beleg stehen koennte -
+        # ihre Pflicht ist dafuer strenger: Nenner und Jahr sind nicht
+        # optional, ``_pruefe_karte`` laesst sie sonst nicht entstehen.
+        assert tafel.nenner and tafel.jahr, brettname
+        return
     # Jede Kachel nennt **ihre eigenen** Ausschluesse: Was dasteht, muss
     # diese Abfrage auch vollziehen. Ein geteiltes Tupel ueber drei Kacheln
     # liess die Stadtkachel einen Ausschluss fuehren, den sie nicht macht.
@@ -343,8 +352,14 @@ def test_die_rate_steht_im_dashboard_und_nicht_woanders():
     ueberblick = next(b for b in bk.BRETTER if b.kennung == "crime-ueberblick")
     assert "nicht hier" not in ueberblick.beschreibung
     raten = [b for b in bk.BRETTER if any(t.zeigt_rate for t in b.tafeln)]
-    assert len(raten) == 1, "genau ein Brett traegt die Raten"
-    assert str(RATENJAHR) in raten[0].beschreibung
+    assert raten, "kein Brett traegt eine Rate"
+    # Seit dem 14.10.2026 sind es zwei: das Ratenbrett und die Karte. Die
+    # Zahl ist nicht der Punkt - der Punkt ist, dass **jedes** Brett mit
+    # einer Rate sein Bezugsjahr nennt. Eine Rate ohne Jahr ist keine
+    # (sechs Jahrgaenge auf einen Jahresnenner ergeben 500,7 je 1'000).
+    ohne_jahr = [b.kennung for b in raten
+                 if str(RATENJAHR) not in b.beschreibung]
+    assert not ohne_jahr, f"{ohne_jahr} zeigen eine Rate ohne Bezugsjahr"
 
 
 @pytest.mark.parametrize("brettname,tafel", ALLE_TAFELN, ids=TAFELNAMEN)
@@ -426,6 +441,14 @@ def test_die_datenansicht_zeigt_auf_den_alias():
 def test_jede_tafel_verweist_auf_die_datenansicht():
     for b in bk.BRETTER:
         for tafel in b.tafeln:
+            if tafel.ist_karte:
+                # Eine Karte haengt an **zwei** Ansichten, und beide ohne
+                # Zeitfeld: Umriss und Rate tragen keines, und das feste
+                # Zeitfenster des Bretts filterte sonst jede Flaeche weg.
+                verweise = bk.karte_objekt(tafel, b.kennung)["references"]
+                assert [v["id"] for v in verweise] == [
+                    bk.ANSICHT_FLAECHEN, bk.ANSICHT_RATEN]
+                continue
             verweise = bk.lens_objekt(tafel, b.kennung)["references"]
             assert [v["id"] for v in verweise] == [bk.ANSICHT]
             assert verweise[0]["name"].endswith(tafel.schicht)
@@ -561,6 +584,94 @@ def test_jede_tafel_bekommt_auch_wirklich_daten(brettname, tafel, elastic):
     anzeigt - stimmen sie nicht ueberein, importiert die Kachel sauber und
     bleibt leer, weil Lens ueber ``fieldName`` abbildet.
     """
+    if tafel.ist_karte:
+        # Eine Karte stellt keine einzelne Frage - sie verbindet zwei
+        # Indizes. Geprueft wird deshalb, was still schiefgehen kann:
+        # Kommen Umrisse? Kommen Raten? Und **treffen sich die beiden
+        # Schluessel**? Ein Verbund, dessen Schluessel sich nie treffen,
+        # faerbt nichts und meldet nichts - die Flaechen bleiben grau.
+        schichten = json.loads(
+            bk.karte_objekt(tafel, brettname)["attributes"]["layerListJSON"])
+        # Der Hintergrund zuerst, die Daten darueber: Die Reihenfolge ist
+        # die Zeichenreihenfolge. Gesucht statt gezaehlt - eine Schicht mehr
+        # liesse den Test sonst stillschweigend die falsche pruefen.
+        assert schichten[0]["sourceDescriptor"]["type"] == "EMS_TMS", (
+            f"{tafel.kennung}: keine Hintergrundkarte zuunterst - die "
+            f"Flaechen schwebten im Weissen")
+        schicht = next(s for s in schichten
+                       if s["sourceDescriptor"]["type"] == "ES_SEARCH")
+        geofeld = schicht["sourceDescriptor"]["geoField"]
+        links = schicht["joins"][0]["leftField"]
+        rechts = schicht["joins"][0]["right"]
+        mass = rechts["metrics"][0]
+
+        # Der Name, nach dem eingefaerbt wird, muss der sein, den Kibana
+        # aus Mass, Feld und Verbundkennung bildet. Steht dort ein anderer,
+        # bleiben die Flaechen grau - ohne Fehlermeldung. Gerechnet aus der
+        # Schicht selbst und nicht aus ``bk.verbundfeld()``: Sonst
+        # verglichen sich zwei Aufrufe derselben Funktion.
+        gefaerbt = schicht["style"]["properties"]["fillColor"]["options"]
+        erwartet = (f"__kbnjoin__{mass['type']}_of_{mass['field']}"
+                    f"__{rechts['id']}")
+        assert gefaerbt["field"]["name"] == erwartet, (
+            f"{tafel.kennung}: eingefaerbt wird nach "
+            f"'{gefaerbt['field']['name']}', Kibana bildet aber "
+            f"'{erwartet}'")
+        assert gefaerbt["field"]["origin"] == "join"
+
+        # **Der Stadtfilter, und dass er wirklich trennt.** Ohne
+        # Hintergrundkarte sieht man nur die Flaechen; traegt jede Karte
+        # alle, zeigen beide dasselbe, sobald der Ausschnitt nicht greift -
+        # am 15.10.2026 stand so zweimal Detroit unter zwei Beschriftungen.
+        # Geprueft wird deshalb nicht nur, *dass* ein Filter dasteht,
+        # sondern dass er **weniger** zurueckgibt als der ganze Index.
+        filter_text = schicht["query"]["query"]
+        assert tafel.stadt in filter_text, (
+            f"{tafel.kennung}: der Filter '{filter_text}' nennt "
+            f"'{tafel.stadt}' nicht")
+        gefiltert = elastic.anfrage(
+            "POST", f"/{bk.FLAECHEN_INDEX.name}/_count",
+            {"query": {"match": {"city": tafel.stadt}}})["count"]
+        ganz = elastic.anfrage(
+            "POST", f"/{bk.FLAECHEN_INDEX.name}/_count", {})["count"]
+        assert gefiltert, f"{tafel.kennung}: der Filter trifft keine Flaeche"
+        assert gefiltert < ganz, (
+            f"{tafel.kennung}: der Filter laesst alle {ganz} Flaechen durch "
+            f"- beide Karten zeigen dann dasselbe")
+
+        umrisse = elastic.anfrage(
+            "POST", f"/{bk.FLAECHEN_INDEX.name}/_search",
+            {"size": 1, "_source": [geofeld, links],
+             "query": {"exists": {"field": geofeld}}})
+        assert umrisse["hits"]["hits"], f"{tafel.kennung}: keine Umrisse"
+
+        raten = elastic.anfrage(
+            "POST", f"/{bk.RATEN_INDEX.name}/_search",
+            {"size": 0, "aggs": {"schluessel": {
+                "terms": {"field": rechts["term"], "size": 10000},
+                "aggs": {"wert": {mass["type"]: {"field": mass["field"]}}}}}})
+        eimer = raten["aggregations"]["schluessel"]["buckets"]
+        assert eimer, f"{tafel.kennung}: keine Raten"
+        assert any(e["wert"]["value"] is not None for e in eimer), (
+            f"{tafel.kennung}: {mass['type']}({mass['field']}) liefert nur "
+            f"NULL - die Karte faerbte nach nichts")
+
+        # Der Verbund selbst: Wie viele Umrisse finden ihre Rate?
+        schluessel = {e["key"] for e in eimer}
+        alle = elastic.anfrage(
+            "POST", f"/{bk.FLAECHEN_INDEX.name}/_search",
+            {"size": 0, "aggs": {"k": {
+                "terms": {"field": links, "size": 10000}}}})
+        flaechen = {e["key"] for e in alle["aggregations"]["k"]["buckets"]}
+        treffer = flaechen & schluessel
+        assert treffer, (
+            f"{tafel.kennung}: kein einziger Umriss findet seine Rate - "
+            f"'{links}' und '{rechts['term']}' treffen sich nie")
+        assert len(treffer) >= 0.9 * len(schluessel), (
+            f"{tafel.kennung}: nur {len(treffer)} von {len(schluessel)} "
+            f"Raten finden einen Umriss")
+        return
+
     if tafel.ist_esql:
         antwort = elastic.anfrage(
             "POST", "/_query", {"query": tafel.abfrage.esql})
@@ -614,3 +725,143 @@ def test_der_nennerindex_laeuft_wirklich_im_lookup_modus(elastic):
     assert set(modi.values()) == {"lookup"}, (
         f"{modi} - erst 'python -m serving.load_elasticsearch' neu laufen "
         f"lassen; ein bestehender Index nimmt den Modus nicht mehr an")
+
+
+def test_eine_karte_haengt_nicht_an_der_globalen_abfrage():
+    """Ein Filter von aussen leerte die Karte, statt sie zu veraendern.
+
+    Weder ``dim_tract_geo`` noch ``serving/rate_tract`` traegt eine
+    Deliktfamilie oder eine Tatzeit. Ein Filter darauf trifft **null**
+    Flaechen - gemessen am 15.10.2026: ``city: chicago`` ergibt 782,
+    dasselbe mit ``nibrs_family`` ergibt 0. Die Karte waere dann leer statt
+    unveraendert, und zwar ohne Fehlermeldung. Was sie zeigt, sagt ihr
+    Vorbehalt; was sie **nicht** tut, sichert diese Zusage.
+    """
+    for brett in bk.BRETTER:
+        for tafel in brett.tafeln:
+            if not tafel.ist_karte:
+                continue
+            schicht = next(
+                s for s in json.loads(bk.karte_objekt(tafel, brett.kennung)
+                                      ["attributes"]["layerListJSON"])
+                if s["sourceDescriptor"]["type"] == "ES_SEARCH")
+            woher = f"{brett.kennung}/{tafel.kennung}"
+            assert schicht["sourceDescriptor"]["applyGlobalQuery"] is False, (
+                f"{woher}: die Flaechen haengen an der globalen Abfrage")
+            assert schicht["joins"][0]["right"]["applyGlobalQuery"] is False, (
+                f"{woher}: der Verbund haengt an der globalen Abfrage")
+
+
+def test_jede_karte_sagt_dass_ihre_rate_alle_delikte_umfasst():
+    """Sonst liest jemand eine Auswahl hinein, die es nicht gibt.
+
+    ``serving/rate_tract`` ist ueber alle Delikte des Bezugsjahrs
+    vorgerechnet. Ohne diesen Vorbehalt bleibt offen, warum eine Auswahl
+    nach Deliktart die Karte nicht veraendert - und die naheliegende
+    Erklaerung waere die falsche.
+    """
+    for brett in bk.BRETTER:
+        for tafel in brett.tafeln:
+            if not tafel.ist_karte:
+                continue
+            # **Nicht auf "alle Delikte" pruefen.** Die Wendung steht auch
+            # in ``_FALLEBENE_VORN``; ein Test darauf war gruen, nachdem
+            # dieser Vorbehalt entfernt war - gefunden von der
+            # Mutationsprobe am 15.10.2026. Geprueft wird der tragende
+            # Inhalt: **welche Quelle** die Deliktfamilie nicht kennt.
+            assert any("rate_tract" in v and "Deliktfamilie" in v
+                       for v in tafel.vorbehalte), (
+                f"{brett.kennung}/{tafel.kennung}: kein Vorbehalt dazu, "
+                f"dass serving/rate_tract keine Deliktfamilie trägt")
+
+
+def test_karten_bewegen_sich_nicht_gemeinsam():
+    """Kibana bewegt mehrere Karten eines Bretts sonst im Gleichschritt.
+
+    Das ist richtig fuer zwei Blickwinkel auf dieselbe Gegend und falsch
+    fuer zwei Staedte: Wer Chicago zurechtrueckt, schiebt Detroit aus dem
+    Bild. Am 15.10.2026 im Browser gesehen - die Dateien waren alle richtig,
+    nur diese Vorgabe nicht abgeschaltet.
+
+    Geprueft wird am **Panel**, nicht am Kartenobjekt: Die Einstellung
+    gehoert zum Brett, und ein Kartenobjekt allein kennt sie nicht.
+    """
+    for brett in _mit_fenster():
+        if not any(t.ist_karte for t in brett.tafeln):
+            continue
+        panels = json.loads(
+            bk.dashboard_objekt(brett)["attributes"]["panelsJSON"])
+        karten = [p for p in panels if p["type"] == "map"]
+        assert len(karten) > 1 or karten, brett.kennung
+        for p in karten:
+            assert p["embeddableConfig"].get("isMovementSynchronized") is False, (
+                f"{brett.kennung}/{p['panelIndex']}: bewegt sich mit den "
+                f"anderen Karten mit")
+
+
+def test_keine_zwei_karten_teilen_sich_eine_verbundkennung():
+    """Zwei Karten auf einem Brett teilen sonst ihre Verbunddaten.
+
+    Am 14.10.2026 trugen beide Karten von ``crime-geografie`` dieselbe
+    Verbundkennung (``rate-je-tract``), und Kibana zeigte unter der
+    Beschriftung *Chicago* die Flaechen von Detroit. Gespeichert war alles
+    uebrige richtig - Titel, Mittelpunkte, Schicht- und Quellkennungen waren
+    verschieden -, nur diese eine nicht, und nichts wurde rot.
+
+    Geprueft wird ueber **alle** Bretter und nicht nur ueber das eine: Ein
+    zweites Brett mit einer Karte faellt sonst in dieselbe Grube.
+    """
+    gesehen: dict[str, str] = {}
+    for brett in bk.BRETTER:
+        for tafel in brett.tafeln:
+            if not tafel.ist_karte:
+                continue
+            schicht = next(
+                s for s in json.loads(bk.karte_objekt(tafel, brett.kennung)
+                                      ["attributes"]["layerListJSON"])
+                if s["sourceDescriptor"]["type"] == "ES_SEARCH")
+            kennung = schicht["joins"][0]["right"]["id"]
+            woher = f"{brett.kennung}/{tafel.kennung}"
+            assert kennung not in gesehen, (
+                f"{woher} und {gesehen[kennung]} teilen sich die "
+                f"Verbundkennung '{kennung}' - die zuletzt geladene Karte "
+                f"gewinnt, und die andere zeigt fremde Flaechen")
+            gesehen[kennung] = woher
+            # Und die Einfaerbung nennt genau diese Kennung, nicht eine
+            # andere Karte: Sonst faerbt Chicago nach Detroits Werten.
+            gefaerbt = (schicht["style"]["properties"]["fillColor"]
+                        ["options"]["field"]["name"])
+            assert gefaerbt.endswith(kennung), (
+                f"{woher} faerbt nach '{gefaerbt}', sein Verbund heisst "
+                f"aber '{kennung}'")
+
+
+@pytest.mark.parametrize("brett", bk.BRETTER, ids=lambda b: b.kennung)
+def test_ein_auswahlfeld_steht_nur_dort_wo_es_wirkt(brett, elastic):
+    """Ein Steuerelement, das nichts bewirkt, ist schlimmer als keines.
+
+    Am 15.10.2026 stand ueber dem Geografie-Brett ein Auswahlfeld
+    *Deliktfamilie*. Es konnte nichts bewirken: Weder ``dim_tract_geo`` noch
+    ``serving/rate_tract`` traegt ``nibrs_family`` - die Rate je Tract ist
+    ueber alle Delikte des Bezugsjahrs vorgerechnet. Wer es benutzte, sah
+    nichts geschehen und schloss daraus, die Karte zeige eine Auswahl, die
+    sie nicht zeigt. Haette Kibana den Filter durchgereicht, waere die Karte
+    **leer** gewesen - null Flaechen, ohne Fehlermeldung.
+
+    Geprueft wird gegen die **Abbildung im Index**, nicht gegen eine Liste
+    hier: Eine Spalte, die aus Gold verschwindet, faellt damit von selbst
+    auf.
+    """
+    if not brett.steuerungen:
+        return
+    betroffen = {bk.FLAECHEN_INDEX.name, bk.RATEN_INDEX.name} if any(
+        t.ist_karte for t in brett.tafeln) else set()
+    for index in sorted(betroffen):
+        abbildung = elastic.anfrage("GET", f"/{index}/_mapping")
+        felder = set(next(iter(abbildung.values()))["mappings"]["properties"])
+        fehlend = [s.feldname for s in brett.steuerungen
+                   if s.feldname not in felder]
+        assert not fehlend, (
+            f"{brett.kennung}: das Auswahlfeld {fehlend} gibt es in "
+            f"'{index}' nicht - auf den Karten dieses Bretts bewirkt es "
+            f"nichts, und wer es benutzt, liest eine Auswahl hinein")

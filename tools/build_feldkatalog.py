@@ -287,6 +287,59 @@ JE_TABELLE: dict[tuple[str, str], str] = {
         "gehört der Tract zur Stadt (Mehrheitsregel). Der Wert bleibt "
         "erhalten, damit sich auch flächengewichtet rechnen lässt.",
     ("dim_tract", "tract_name"): "Bezeichnung des Tracts.",
+
+    # --- dim_tract_geo: der Umriss, fuer die Karte ------------------------
+    #
+    # Eigene Tabelle und keine Spalte an dim_tract: Die Dimension deckt beide
+    # Countys ab (6'282 Zeilen) und waere mit Umrissen 26 MB statt 194 KB.
+    # Diese hier traegt nur die 1'055 Tracts mit Stadt.
+    ("dim_tract_geo", "tract_name"): "Bezeichnung des Tracts.",
+
+    # --- rate_tract: die Rate je Tract, fuer die Karte --------------------
+    #
+    # Keine Gold-Tabelle: Eine Rate je Tract ist eine Aggregation, und Gold
+    # aggregiert nicht. Sie entsteht in serving.build_comparison aus
+    # derselben Abfrage, die gold_pipeline.raten_je_tract dem Waechter der
+    # Ratenkachel stellt - nicht aus einer zweiten.
+    #
+    # Warum sie ueberhaupt gebraucht wird: Kibanas Karte faerbt eine Flaeche
+    # nach einem Feld und kann zwischen zwei verbundenen Feldern nicht
+    # rechnen. Eine Karte nach Fallzahlen waere irrefuehrend - die
+    # Einwohnerzahl je Tract reicht von 35 bis 13'521 (2024, Median 2'861).
+    ("rate_tract", "stadt"):
+        "Die **meldende** Stadt (`reporting_city`), nicht die Stadtzuordnung "
+        "des Tracts. Auf Tract-Ebene ist die Frage *wer hat das gemeldet*; "
+        "`geo_status = 'inside_city'` stellt ohnehin sicher, dass der Tract "
+        "im Gebiet dieser Stadt liegt.",
+    ("rate_tract", "faelle"):
+        "Faelle im Bezugsjahr - Taten mit `counts_case`. Die Fallebene steht "
+        "vorn, weil Chicago je Fall nur das schwerste Delikt erfasst und "
+        "Detroit jedes.",
+    ("rate_tract", "rate_fallebene"):
+        "Faelle je 1'000 Einwohner im Bezugsjahr, auf eine Nachkommastelle. "
+        "**Die Zahl, nach der die Karte einfaerbt.**",
+    ("rate_tract", "taten"):
+        "Taten im Bezugsjahr - jede Zeile von `fact_offense`, ohne den "
+        "Fallfilter.",
+    ("rate_tract", "rate_tatebene"):
+        "Taten je 1'000 Einwohner im Bezugsjahr. Daneben zu lesen, nicht "
+        "statt der Fallebene: Der Unterschied zwischen beiden ist der "
+        "Erfassungsunterschied der zwei Staedte, nicht ein Unterschied der "
+        "Kriminalitaet.",
+    ("rate_tract", "einwohner"):
+        "Der Nenner: `dim_tract_acs.population` im Vintage, auf den die Tat "
+        "zeigt (`population_vintage`). **Tracts ohne Einwohner fehlen in "
+        "dieser Tabelle** - fuer sie ist keine Rate definiert, und eine "
+        "gezeigte Null liesse sich als Sicherheit lesen, wo in Wirklichkeit "
+        "niemand wohnt: Flughaefen, Parks, Gewerbegebiete.",
+    ("dim_tract_geo", "boundary_wkt"):
+        "Der **Umriss** des Tracts als WKT in EPSG:4269, vereinfacht mit "
+        "Douglas-Peucker 0,00002 Grad - rund zwei Meter, und die Flaeche je "
+        "Tract verliert dabei 0,0002 Prozent. WKT und nicht WKB oder "
+        "GeoJSON, weil Elasticsearch eine WKT-Zeichenkette fuer `geo_shape` "
+        "unmittelbar annimmt; alles andere muesste der Lader erst wandeln. "
+        "**Keine Kennzahl steht hier** - wer die Flaeche einfaerben will, "
+        "verbindet ueber `geoid` mit `fact_offense` und `dim_tract_acs`.",
     ("dim_date", "year_is_complete"):
         "Ob der Jahrgang dieses Tages **ganz** in den Daten liegt — also ob die "
         "Spanne den 1. Januar und den 31. Dezember einschliesst. **Ein "
