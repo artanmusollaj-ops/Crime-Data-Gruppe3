@@ -54,7 +54,7 @@ import duckdb
 
 from census_pipeline import NEWEST_VINTAGE
 from manifeste import code_stand, eingabe_abdruck, referenz, referenzdatei
-from storage import StorageError, for_root, get_storage, manifest_von
+from storage import StorageError, for_root, manifest_von
 from gold_pipeline import (
     GATE_HOECHSTENS,
     GATE_MINDESTENS,
@@ -1427,8 +1427,8 @@ def main() -> int:
         # ``orchestration.run_all`` war das ein gescheiterter Lauf, und zwar
         # jedesmal. Gefunden am 14.10.2026 beim ersten Gold-Bau gegen
         # SeaweedFS.
-        manifest = manifest_von(get_storage(), GOLD_LAYER,
-                                "dataset=fact_offense", "manifest.json")
+        manifest = for_root(args.data_root).tabellen_manifest(
+            ziele["fact_offense"])
         nachweis = manifest["reconciliation"]
         log.info("Gold gebaut, %s Tabellen", len(ziele))
         for stadt, werte in sorted(nachweis["city_assignment"].items()):

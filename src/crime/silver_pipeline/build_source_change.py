@@ -791,7 +791,11 @@ def main(argv: list[str] | None = None) -> int:
              TABLE, f"{bericht['row_count']:,}", bericht["paare"],
              bericht["uebersprungen"])
     if bericht["paare"]:
-        gelesen = read_manifest(tabellenverzeichnis(wurzel))
+        # Ueber die Ablage und nicht ueber den Pfad - dasselbe wie in den
+        # uebrigen Stufenmodulen: Im s3-Modus ist die lokale Arbeitskopie
+        # nach dem Publizieren weg. Siehe ``Storage.tabellen_manifest``.
+        gelesen = for_root(args.data_root).tabellen_manifest(
+            tabellenverzeichnis(wurzel))
         for art, n in sorted(gelesen.get("arten", {}).items()):
             log.info("  %-14s %s", art, f"{n:,}")
     return 0

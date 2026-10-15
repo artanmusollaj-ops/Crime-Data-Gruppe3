@@ -918,6 +918,31 @@ class Storage:
             return rel
         return paths.relativ(ziel)
 
+    def tabellen_manifest(self, ziel: str | Path) -> dict[str, Any]:
+        """Das Manifest einer **publizierten** Tabelle - lokal oder oben.
+
+        **Warum es das gibt.** ``publish_table`` entfernt im s3-Modus die
+        lokale Arbeitskopie; der Pfad, den ``build`` zurueckgibt, zeigt
+        danach ins Leere. Jedes Stufenmodul las ihn trotzdem, um seinen
+        Schlussbericht zu schreiben - und jeder Lauf endete dort mit
+        *„Invalid manifest"* und Exitcode 1, **obwohl die Tabelle sauber
+        publiziert war**. Fuer ``orchestration.run_all`` war das ein
+        gescheiterter Lauf; der Serverlauf vom 12.10.2026 starb genau so bei
+        ``silver tract_2021``, der vom 15.10. wieder.
+
+        Vier Module hatten denselben Fehler (``build_tract``,
+        ``build_place``, ``build_weather_day``, ``build_gold``). Deshalb
+        steht die Antwort hier und nicht viermal dort: Wer eine Tabelle
+        publiziert, fragt die Ablage nach ihrem Manifest, nicht das
+        Dateisystem.
+        """
+        rel = self._rel_dir(ziel)
+        if rel is None:
+            raise StorageError(
+                f"{ziel} liegt ausserhalb von LOCAL_DATA_ROOT "
+                f"({self.local_root}) - dafuer gibt es keinen Ablagepfad.")
+        return json.loads(self.read_text(rel, "manifest.json"))
+
     def publish_run(self, lauf: str | Path) -> list[str]:
         """Einen fertigen, unveraenderlichen Lauf publizieren - alles darin,
         Manifest zuletzt. Im s3-Modus verschwindet die lokale Kopie danach."""
