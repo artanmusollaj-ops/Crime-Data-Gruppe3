@@ -590,8 +590,16 @@ def test_jede_tafel_bekommt_auch_wirklich_daten(brettname, tafel, elastic):
         # Kommen Umrisse? Kommen Raten? Und **treffen sich die beiden
         # Schluessel**? Ein Verbund, dessen Schluessel sich nie treffen,
         # faerbt nichts und meldet nichts - die Flaechen bleiben grau.
-        schicht = json.loads(
-            bk.karte_objekt(tafel, brettname)["attributes"]["layerListJSON"])[0]
+        schichten = json.loads(
+            bk.karte_objekt(tafel, brettname)["attributes"]["layerListJSON"])
+        # Der Hintergrund zuerst, die Daten darueber: Die Reihenfolge ist
+        # die Zeichenreihenfolge. Gesucht statt gezaehlt - eine Schicht mehr
+        # liesse den Test sonst stillschweigend die falsche pruefen.
+        assert schichten[0]["sourceDescriptor"]["type"] == "EMS_TMS", (
+            f"{tafel.kennung}: keine Hintergrundkarte zuunterst - die "
+            f"Flaechen schwebten im Weissen")
+        schicht = next(s for s in schichten
+                       if s["sourceDescriptor"]["type"] == "ES_SEARCH")
         geofeld = schicht["sourceDescriptor"]["geoField"]
         links = schicht["joins"][0]["leftField"]
         rechts = schicht["joins"][0]["right"]
@@ -610,6 +618,26 @@ def test_jede_tafel_bekommt_auch_wirklich_daten(brettname, tafel, elastic):
             f"'{gefaerbt['field']['name']}', Kibana bildet aber "
             f"'{erwartet}'")
         assert gefaerbt["field"]["origin"] == "join"
+
+        # **Der Stadtfilter, und dass er wirklich trennt.** Ohne
+        # Hintergrundkarte sieht man nur die Flaechen; traegt jede Karte
+        # alle, zeigen beide dasselbe, sobald der Ausschnitt nicht greift -
+        # am 15.10.2026 stand so zweimal Detroit unter zwei Beschriftungen.
+        # Geprueft wird deshalb nicht nur, *dass* ein Filter dasteht,
+        # sondern dass er **weniger** zurueckgibt als der ganze Index.
+        filter_text = schicht["query"]["query"]
+        assert tafel.stadt in filter_text, (
+            f"{tafel.kennung}: der Filter '{filter_text}' nennt "
+            f"'{tafel.stadt}' nicht")
+        gefiltert = elastic.anfrage(
+            "POST", f"/{bk.FLAECHEN_INDEX.name}/_count",
+            {"query": {"match": {"city": tafel.stadt}}})["count"]
+        ganz = elastic.anfrage(
+            "POST", f"/{bk.FLAECHEN_INDEX.name}/_count", {})["count"]
+        assert gefiltert, f"{tafel.kennung}: der Filter trifft keine Flaeche"
+        assert gefiltert < ganz, (
+            f"{tafel.kennung}: der Filter laesst alle {ganz} Flaechen durch "
+            f"- beide Karten zeigen dann dasselbe")
 
         umrisse = elastic.anfrage(
             "POST", f"/{bk.FLAECHEN_INDEX.name}/_search",
@@ -699,6 +727,30 @@ def test_der_nennerindex_laeuft_wirklich_im_lookup_modus(elastic):
         f"lassen; ein bestehender Index nimmt den Modus nicht mehr an")
 
 
+def test_karten_bewegen_sich_nicht_gemeinsam():
+    """Kibana bewegt mehrere Karten eines Bretts sonst im Gleichschritt.
+
+    Das ist richtig fuer zwei Blickwinkel auf dieselbe Gegend und falsch
+    fuer zwei Staedte: Wer Chicago zurechtrueckt, schiebt Detroit aus dem
+    Bild. Am 15.10.2026 im Browser gesehen - die Dateien waren alle richtig,
+    nur diese Vorgabe nicht abgeschaltet.
+
+    Geprueft wird am **Panel**, nicht am Kartenobjekt: Die Einstellung
+    gehoert zum Brett, und ein Kartenobjekt allein kennt sie nicht.
+    """
+    for brett in _mit_fenster():
+        if not any(t.ist_karte for t in brett.tafeln):
+            continue
+        panels = json.loads(
+            bk.dashboard_objekt(brett)["attributes"]["panelsJSON"])
+        karten = [p for p in panels if p["type"] == "map"]
+        assert len(karten) > 1 or karten, brett.kennung
+        for p in karten:
+            assert p["embeddableConfig"].get("isMovementSynchronized") is False, (
+                f"{brett.kennung}/{p['panelIndex']}: bewegt sich mit den "
+                f"anderen Karten mit")
+
+
 def test_keine_zwei_karten_teilen_sich_eine_verbundkennung():
     """Zwei Karten auf einem Brett teilen sonst ihre Verbunddaten.
 
@@ -716,8 +768,10 @@ def test_keine_zwei_karten_teilen_sich_eine_verbundkennung():
         for tafel in brett.tafeln:
             if not tafel.ist_karte:
                 continue
-            schicht = json.loads(bk.karte_objekt(tafel, brett.kennung)
-                                 ["attributes"]["layerListJSON"])[0]
+            schicht = next(
+                s for s in json.loads(bk.karte_objekt(tafel, brett.kennung)
+                                      ["attributes"]["layerListJSON"])
+                if s["sourceDescriptor"]["type"] == "ES_SEARCH")
             kennung = schicht["joins"][0]["right"]["id"]
             woher = f"{brett.kennung}/{tafel.kennung}"
             assert kennung not in gesehen, (

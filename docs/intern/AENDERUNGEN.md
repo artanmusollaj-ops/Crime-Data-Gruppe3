@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'013** |
+| Tests | **2'014** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -236,6 +236,51 @@ wird, zieht er von selbst mit. `test_keine_zwei_karten_teilen_sich_eine_verbundk
 hält es fest, über alle Bretter und nicht nur über das eine; zwei Proben
 dagegen, beide rot.
 
+**Vier Fehler an der Karte, alle von Christian im Browser gefunden, keiner
+von der Suite.** Sie sind die Begründung dafür, dass jeder davon jetzt einen
+Wächter hat.
+
+*Zweimal Detroit unter zwei Beschriftungen.* Nicht die Verbundkennung war die
+Ursache, wie zuerst vermutet, sondern der **fehlende Stadtfilter**: Jede Karte
+trug alle 1'055 Flächen, und ohne Hintergrundkarte unterscheidet sie nur der
+Bildausschnitt. Der Filter war am 14.10. schon einmal da und wurde entfernt,
+weil die Karte danach leer blieb — diese Beobachtung stammte aus einem 240
+Pixel breiten Browserfenster, in dem der Kartenbehälter die Höhe null hat und
+**keine** Karte zeichnet. Sie bewies nichts. Jetzt trägt Chicagos Karte 782
+Flächen und Detroits 273, gegen Elasticsearch nachgemessen.
+
+*Keine Hintergrundkarte.* Nie mitgegeben. Eine Karte, die in Kibanas
+Oberfläche entsteht, bekommt sie dazugelegt; eine über die Schnittstelle
+angelegte nimmt genau die Schichten, die dastehen — und das war eine einzige.
+`EMS_TMS` liegt jetzt zuunterst.
+
+*Beide Karten bewegten sich gemeinsam.* Kibanas Vorgabe für mehrere Karten
+auf einem Brett — richtig für zwei Blickwinkel auf dieselbe Gegend, falsch
+für zwei Städte. `isMovementSynchronized: false` am **Panel**, nicht am
+Kartenobjekt; in allem, was vorher geprüft wurde, war die Einstellung deshalb
+gar nicht sichtbar.
+
+*Geteilte Verbundkennung.* Beide Karten trugen `rate-je-tract`. Das war nicht
+die Ursache des Detroit-Problems, aber ein echter Mangel: Kibana ordnet die
+Verbunddaten darüber zu. `verbund_kennung` hängt jetzt die Tafelkennung an,
+und weil der Name des Einfärbe-Feldes aus ihr gerechnet wird, zieht er mit.
+
+**Eine Lehre über das Prüfen selbst.** Drei Diagnosen in Folge waren falsch —
+die Verbundkennung, ein degradiertes Kibana, eine unerreichbare Kartenquelle.
+Alle drei stützten sich auf Bilder aus einem Fenster, das zu schmal war, um
+überhaupt eine Karte zu zeigen. Eine Messung, deren Messbedingungen niemand
+prüft, ist schlimmer als keine: Sie trägt die Autorität einer Beobachtung und
+den Inhalt einer Vermutung.
+
+**Sechs Mutationsproben** gegen die vier neuen Kartenwächter, alle entdeckt:
+Stadtfilter entfernt, beide Karten auf dieselbe Stadt gefiltert,
+Verbundkennung wieder geteilt, Einfärbung nennt eine fremde Karte,
+Hintergrundkarte fehlt, gemeinsame Bewegung wieder an. Eine verwaiste Karte
+(`karte-crime-geografie-karte`, die einzelne von vor der Aufteilung) lag noch
+in Kibana und ist entfernt — `build_kibana` legt mit `overwrite=true` an und
+löscht nie; eine umbenannte Kachel bleibt als Leiche liegen. Das steht in der
+Rückstellliste.
+
 **Neun Mutationsproben gegen die neuen Wächter**, alle entdeckt: Karte gilt
 nicht als Karte, Geografie nennt sein Bezugsjahr nicht, Karte verweist auf die
 Faktenansicht, ES|QL-Tafel liefert eine leere Aggregation statt zu werfen,
@@ -253,8 +298,8 @@ dieselbe Aussage in zwei Dokumenten mit einem Wächter nur über einem.
 Zeilenzahl **und** jeden Bretttitel gegen `BRETTER`. Drei Proben dagegen, alle
 rot.
 
-**Zahlen.** 1'973 → **2'013 Tests**, Standardlauf 1'865 → **1'904**,
-Referenzwächter **108 → 109**, Frischklon **1'868 der 1'904** — gemessen in
+**Zahlen.** 1'973 → **2'014 Tests**, Standardlauf 1'865 → **1'905**,
+Referenzwächter **108 → 109**, Frischklon **1'868 der 1'905** — gemessen in
 einem lokalen Klon des Branches. Der grösste Teil des Zuwachses sind keine
 neuen Testfunktionen, sondern dieselben Wächter über mehr Kacheln: Drei
 Bretter mit zusammen neun Tafeln kommen dazu, und sieben Wächter laufen je

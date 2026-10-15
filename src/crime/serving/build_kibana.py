@@ -1554,18 +1554,42 @@ def karte_objekt(tafel: Tafel, brett: str) -> dict[str, Any]:
         raise LadeFehler(f"{tafel.kennung}: keine Karte.")
 
     ausschnitt = KARTE_JE_STADT[tafel.stadt]
+    # Die Hintergrundkarte - **ausdruecklich mitgegeben und nicht erwartet**.
+    # Eine Karte, die in Kibanas Oberflaeche entsteht, bekommt sie
+    # dazugelegt; eine ueber die Schnittstelle angelegte nimmt genau die
+    # Schichten, die dastehen. Am 15.10.2026 fehlte sie deshalb, und ohne
+    # sie schwebt eine Choroplethe im Weissen: Keine Strasse, kein Seeufer,
+    # nichts, woran sich die Flaechen verorten liessen.
+    #
+    # ``isAutoSelect`` laesst Kibana den passenden Stil waehlen (hell oder
+    # dunkel). Die Kacheln kommen vom Elastic Maps Service - ohne Netz
+    # bleibt der Hintergrund leer, die Flaechen zeichnen trotzdem.
+    hintergrund = {
+        "id": "hintergrund",
+        "label": None,
+        "sourceDescriptor": {"type": "EMS_TMS", "isAutoSelect": True,
+                             "lightModeDefault": "road_map_desaturated"},
+        "type": "EMS_VECTOR_TILE",
+        "minZoom": 0, "maxZoom": 24, "alpha": 1,
+        "visible": True,
+        "style": {"type": "TILE"},
+    }
     quelle = "layer_1_source_index_pattern"
     verbund = "layer_1_join_0_index_pattern"
     schicht = {
         "id": f"schicht-{tafel.kennung}",
         "label": tafel.titel,
-        # **Kein Stadtfilter auf der Schicht.** Beide Karten tragen alle
-        # 1'055 Flaechen; getrennt werden sie ueber den Ausschnitt, nicht
-        # ueber eine Abfrage. Am 14.10.2026 im Browser gemessen: Mit einem
-        # ``query`` an dieser Stelle blieb die Karte **leer** - und zwar ohne
-        # Fehlermeldung, was die schlechteste Art des Scheiterns ist. Die
-        # 500 Flaechen der anderen Stadt liegen ausserhalb des Bildes und
-        # kosten nichts, was sich messen liesse.
+        # **Nur die Flaechen dieser Stadt.** Der Ausschnitt allein genuegt
+        # nicht: Ohne Hintergrundkarte sieht man nur die Flaechen, und wenn
+        # jede Karte alle 1'055 traegt, zeigen beide dasselbe, sobald der
+        # Ausschnitt nicht greift - genau so stand am 15.10.2026 zweimal
+        # Detroit unter zwei Beschriftungen.
+        #
+        # Der Filter war am 14.10. schon einmal hier und wurde entfernt,
+        # weil die Karte danach leer blieb. Diese Beobachtung stammte aus
+        # einem 240 Pixel breiten Browserfenster, in dem der Kartenbehaelter
+        # die Hoehe null hat und **keine** Karte zeichnet. Sie bewies nichts.
+        "query": {"language": "kuery", "query": f'city: "{tafel.stadt}"'},
         "sourceDescriptor": {
             "type": "ES_SEARCH",
             "id": f"umrisse-{tafel.kennung}",
@@ -1645,7 +1669,10 @@ def karte_objekt(tafel: Tafel, brett: str) -> dict[str, Any]:
         "attributes": {
             "title": tafel.titel,
             "description": tafel.erlaeuterung,
-            "layerListJSON": json.dumps([schicht], ensure_ascii=False),
+            # Hintergrund zuerst: Die Reihenfolge ist die Zeichenreihenfolge,
+            # und eine Hintergrundkarte ueber den Flaechen deckte sie zu.
+            "layerListJSON": json.dumps([hintergrund, schicht],
+                                        ensure_ascii=False),
             "mapStateJSON": json.dumps(zustand),
             # Die Ebenenliste zugeklappt: Auf einem Dashboard mit **einer**
             # Ebene verdeckt sie ein Viertel der Karte und bietet nichts an,
@@ -1718,6 +1745,13 @@ def dashboard_objekt(brett: Brett) -> dict[str, Any]:
                 "isLayerTOCOpen": False,
                 "openTOCDetails": [],
                 "hiddenLayers": [],
+                # **Keine gemeinsame Bewegung.** Kibana bewegt mehrere
+                # Karten eines Bretts vorgabemaessig im Gleichschritt - das
+                # ist richtig fuer zwei Blickwinkel auf dieselbe Gegend und
+                # falsch fuer zwei Staedte: Wer Chicago zurechtrueckt,
+                # schiebt Detroit aus dem Bild. Am 15.10.2026 im Browser
+                # gesehen.
+                "isMovementSynchronized": False,
             }
         tafeln.append({
             "version": FASSUNG, "type": art,
