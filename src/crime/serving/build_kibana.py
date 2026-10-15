@@ -1079,6 +1079,17 @@ _PLATZHALTERSTUNDEN = (
     "Tagesrhythmus."
 )
 
+#: Die Rate je Tract ist ueber **alle** Delikte des Bezugsjahrs gerechnet.
+#:
+#: ``serving/rate_tract`` traegt keine Deliktfamilie - eine Karte "nur
+#: Koerperverletzung" liesse sich daraus nicht faerben. Wer nach Deliktart
+#: fragt, fragt auf den Brettern "Deliktstruktur" oder "Ueberblick".
+_RATE_UEBER_ALLE_DELIKTE = (
+    "Die Rate ist über alle Delikte des Bezugsjahrs gerechnet — "
+    "serving/rate_tract trägt keine Deliktfamilie. Nach Deliktart fragen "
+    "die Bretter »Deliktstruktur« und »Überblick«."
+)
+
 #: Eine Rate aus einem kleinen Nenner schwankt stark. Der kleinste Tract der
 #: beiden Staedte hat 35 Einwohner; eine einzige Tat ergibt dort 28,6 je
 #: 1'000 - mehr als die hoechste Stadtrate, und sie bedeutet nichts.
@@ -1306,7 +1317,7 @@ BRETTER: tuple[Brett, ...] = (
                     ausschluesse=(_AUSSERHALB, _ANDERE_JAHRGAENGE,
                                   _OHNE_EINWOHNER),
                     vorbehalte=(_TATORT_NICHT_WOHNORT, _FALLEBENE_VORN,
-                                _KLEINE_NENNER),
+                                _KLEINE_NENNER, _RATE_UEBER_ALLE_DELIKTE),
                     jahr=RATENJAHR, breite=24, hoehe=24)
               for stadt in sorted(KARTE_JE_STADT)),
             Tafel("hoechste", f"Die zwanzig höchsten Raten, {RATENJAHR}",
@@ -1320,7 +1331,12 @@ BRETTER: tuple[Brett, ...] = (
                               _KLEINE_NENNER),
                   jahr=RATENJAHR, breite=48, hoehe=20),
         ),
-        steuerungen=(_STEUERUNG[1],),
+        # **Kein Auswahlfeld auf diesem Brett.** Die Rate je Tract ist ueber
+        # alle Delikte vorgerechnet; weder ``dim_tract_geo`` noch
+        # ``rate_tract`` kennt eine Deliktfamilie. Ein Feld, das dasteht und
+        # nichts bewirkt, ist schlimmer als keines - es sagt dem Lesenden,
+        # die Karte zeige eine Auswahl, die sie nicht zeigt.
+        steuerungen=(),
         navigation=True,
     ),
 
@@ -1602,7 +1618,12 @@ def karte_objekt(tafel: Tafel, brett: str) -> dict[str, Any]:
             "filterByMapBounds": False,
             "tooltipProperties": ["tract_name", "city"],
             "sortField": "", "sortOrder": "desc",
-            "applyGlobalQuery": True,
+            # **Nicht an der globalen Abfrage.** Weder dieser Index noch
+            # der des Verbunds traegt eine Deliktfamilie oder eine
+            # Tatzeit; ein Filter darauf ergaebe null Flaechen, und die
+            # Karte waere leer statt unveraendert - ohne Fehlermeldung.
+            # Was die Kachel zeigt, steht in ihrem Vorbehalt.
+            "applyGlobalQuery": False,
             "applyGlobalTime": False,
             "applyForceRefresh": True,
         },
@@ -1615,7 +1636,7 @@ def karte_objekt(tafel: Tafel, brett: str) -> dict[str, Any]:
                 "term": "geoid",
                 "metrics": [{"type": KARTE_MASS, "field": KARTE_FELD,
                              "label": tafel.titel}],
-                "applyGlobalQuery": True,
+                "applyGlobalQuery": False,
                 "applyGlobalTime": False,
                 "applyForceRefresh": True,
             },

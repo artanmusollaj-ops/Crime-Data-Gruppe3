@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'014** |
+| Tests | **2'023** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -265,6 +265,24 @@ die Ursache des Detroit-Problems, aber ein echter Mangel: Kibana ordnet die
 Verbunddaten darüber zu. `verbund_kennung` hängt jetzt die Tafelkennung an,
 und weil der Name des Einfärbe-Feldes aus ihr gerechnet wird, zieht er mit.
 
+*Ein Auswahlfeld, das nichts bewirken konnte.* Über dem Geografie-Brett
+stand *Deliktfamilie*. Weder `dim_tract_geo` noch `serving/rate_tract` trägt
+`nibrs_family` — die Rate je Tract ist über alle Delikte des Bezugsjahrs
+vorgerechnet. Christian probierte es und sah nichts geschehen; gemessen
+ergibt derselbe Filter gegen die Kartenquelle **null** Flächen, die Karte
+wäre also leer geworden, hätte Kibana ihn durchgereicht. Drei Dinge folgen
+daraus: Das Auswahlfeld ist weg, die Karte hängt nicht mehr an der globalen
+Abfrage (`applyGlobalQuery: false` an Schicht **und** Verbund), und ein
+Vorbehalt sagt, dass die Rate alle Delikte umfasst und wo man nach Deliktart
+fragt. Ein Feld, das dasteht und nichts tut, ist schlimmer als keines — es
+sagt dem Lesenden, die Karte zeige eine Auswahl, die sie nicht zeigt.
+
+**Und noch ein grüner, wertloser Wächter.** Der erste Test auf diesen
+Vorbehalt suchte die Wendung *„alle Delikte"* — die steht aber auch in
+`_FALLEBENE_VORN`. Nach dem Entfernen des Vorbehalts blieb er grün. Gefunden
+hat es die Mutationsprobe, nicht das Nachdenken. Er prüft jetzt den
+tragenden Inhalt: **welche Quelle** die Deliktfamilie nicht kennt.
+
 **Eine Lehre über das Prüfen selbst.** Drei Diagnosen in Folge waren falsch —
 die Verbundkennung, ein degradiertes Kibana, eine unerreichbare Kartenquelle.
 Alle drei stützten sich auf Bilder aus einem Fenster, das zu schmal war, um
@@ -298,8 +316,8 @@ dieselbe Aussage in zwei Dokumenten mit einem Wächter nur über einem.
 Zeilenzahl **und** jeden Bretttitel gegen `BRETTER`. Drei Proben dagegen, alle
 rot.
 
-**Zahlen.** 1'973 → **2'014 Tests**, Standardlauf 1'865 → **1'905**,
-Referenzwächter **108 → 109**, Frischklon **1'868 der 1'905** — gemessen in
+**Zahlen.** 1'973 → **2'023 Tests**, Standardlauf 1'865 → **1'914**,
+Referenzwächter **108 → 109**, Frischklon **1'868 der 1'914** — gemessen in
 einem lokalen Klon des Branches. Der grösste Teil des Zuwachses sind keine
 neuen Testfunktionen, sondern dieselben Wächter über mehr Kacheln: Drei
 Bretter mit zusammen neun Tafeln kommen dazu, und sieben Wächter laufen je

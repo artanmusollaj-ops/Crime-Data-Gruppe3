@@ -727,6 +727,54 @@ def test_der_nennerindex_laeuft_wirklich_im_lookup_modus(elastic):
         f"lassen; ein bestehender Index nimmt den Modus nicht mehr an")
 
 
+def test_eine_karte_haengt_nicht_an_der_globalen_abfrage():
+    """Ein Filter von aussen leerte die Karte, statt sie zu veraendern.
+
+    Weder ``dim_tract_geo`` noch ``serving/rate_tract`` traegt eine
+    Deliktfamilie oder eine Tatzeit. Ein Filter darauf trifft **null**
+    Flaechen - gemessen am 15.10.2026: ``city: chicago`` ergibt 782,
+    dasselbe mit ``nibrs_family`` ergibt 0. Die Karte waere dann leer statt
+    unveraendert, und zwar ohne Fehlermeldung. Was sie zeigt, sagt ihr
+    Vorbehalt; was sie **nicht** tut, sichert diese Zusage.
+    """
+    for brett in bk.BRETTER:
+        for tafel in brett.tafeln:
+            if not tafel.ist_karte:
+                continue
+            schicht = next(
+                s for s in json.loads(bk.karte_objekt(tafel, brett.kennung)
+                                      ["attributes"]["layerListJSON"])
+                if s["sourceDescriptor"]["type"] == "ES_SEARCH")
+            woher = f"{brett.kennung}/{tafel.kennung}"
+            assert schicht["sourceDescriptor"]["applyGlobalQuery"] is False, (
+                f"{woher}: die Flaechen haengen an der globalen Abfrage")
+            assert schicht["joins"][0]["right"]["applyGlobalQuery"] is False, (
+                f"{woher}: der Verbund haengt an der globalen Abfrage")
+
+
+def test_jede_karte_sagt_dass_ihre_rate_alle_delikte_umfasst():
+    """Sonst liest jemand eine Auswahl hinein, die es nicht gibt.
+
+    ``serving/rate_tract`` ist ueber alle Delikte des Bezugsjahrs
+    vorgerechnet. Ohne diesen Vorbehalt bleibt offen, warum eine Auswahl
+    nach Deliktart die Karte nicht veraendert - und die naheliegende
+    Erklaerung waere die falsche.
+    """
+    for brett in bk.BRETTER:
+        for tafel in brett.tafeln:
+            if not tafel.ist_karte:
+                continue
+            # **Nicht auf "alle Delikte" pruefen.** Die Wendung steht auch
+            # in ``_FALLEBENE_VORN``; ein Test darauf war gruen, nachdem
+            # dieser Vorbehalt entfernt war - gefunden von der
+            # Mutationsprobe am 15.10.2026. Geprueft wird der tragende
+            # Inhalt: **welche Quelle** die Deliktfamilie nicht kennt.
+            assert any("rate_tract" in v and "Deliktfamilie" in v
+                       for v in tafel.vorbehalte), (
+                f"{brett.kennung}/{tafel.kennung}: kein Vorbehalt dazu, "
+                f"dass serving/rate_tract keine Deliktfamilie trägt")
+
+
 def test_karten_bewegen_sich_nicht_gemeinsam():
     """Kibana bewegt mehrere Karten eines Bretts sonst im Gleichschritt.
 
@@ -786,3 +834,34 @@ def test_keine_zwei_karten_teilen_sich_eine_verbundkennung():
             assert gefaerbt.endswith(kennung), (
                 f"{woher} faerbt nach '{gefaerbt}', sein Verbund heisst "
                 f"aber '{kennung}'")
+
+
+@pytest.mark.parametrize("brett", bk.BRETTER, ids=lambda b: b.kennung)
+def test_ein_auswahlfeld_steht_nur_dort_wo_es_wirkt(brett, elastic):
+    """Ein Steuerelement, das nichts bewirkt, ist schlimmer als keines.
+
+    Am 15.10.2026 stand ueber dem Geografie-Brett ein Auswahlfeld
+    *Deliktfamilie*. Es konnte nichts bewirken: Weder ``dim_tract_geo`` noch
+    ``serving/rate_tract`` traegt ``nibrs_family`` - die Rate je Tract ist
+    ueber alle Delikte des Bezugsjahrs vorgerechnet. Wer es benutzte, sah
+    nichts geschehen und schloss daraus, die Karte zeige eine Auswahl, die
+    sie nicht zeigt. Haette Kibana den Filter durchgereicht, waere die Karte
+    **leer** gewesen - null Flaechen, ohne Fehlermeldung.
+
+    Geprueft wird gegen die **Abbildung im Index**, nicht gegen eine Liste
+    hier: Eine Spalte, die aus Gold verschwindet, faellt damit von selbst
+    auf.
+    """
+    if not brett.steuerungen:
+        return
+    betroffen = {bk.FLAECHEN_INDEX.name, bk.RATEN_INDEX.name} if any(
+        t.ist_karte for t in brett.tafeln) else set()
+    for index in sorted(betroffen):
+        abbildung = elastic.anfrage("GET", f"/{index}/_mapping")
+        felder = set(next(iter(abbildung.values()))["mappings"]["properties"])
+        fehlend = [s.feldname for s in brett.steuerungen
+                   if s.feldname not in felder]
+        assert not fehlend, (
+            f"{brett.kennung}: das Auswahlfeld {fehlend} gibt es in "
+            f"'{index}' nicht - auf den Karten dieses Bretts bewirkt es "
+            f"nichts, und wer es benutzt, liest eine Auswahl hinein")
