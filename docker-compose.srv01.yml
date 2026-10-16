@@ -312,6 +312,20 @@ services:
       # Serverlauf, der versehentlich in local liefe, publizierte nichts und
       # saehe dabei gruen aus.
       STORAGE_BACKEND: s3
+      # **Auslagern statt abbrechen.** Am 16.10.2026 starb der Lauf bei
+      # ``silver crime_offense``: "could not allocate block of size 256.0 KiB
+      # (854.6 MiB/854.4 MiB used)". DuckDB nimmt sich einen Teil des
+      # Containerspeichers und bricht ab, wenn er nicht reicht - ausser es
+      # darf auf Platte ausweichen. Das Verzeichnis liegt auf dem
+      # ``arbeitsdaten``-Datentraeger, demselben, in dem der Lauf ohnehin
+      # schreibt; Restic sichert es nicht, denn es ist Zwischenstand.
+      #
+      # Die anderen beiden Stellschrauben, die DuckDB selbst nennt, scheiden
+      # aus: ``preserve_insertion_order=false`` aenderte die Zeilenfolge, und
+      # ``publish`` schreibt ohne ORDER BY - zwei Bauten muessen byteweise
+      # gleich sein. Mehr Speicher gaebe es nur auf Kosten anderer Dienste;
+      # am 6.10. belegten 31 Container 3'605 von 4'325 MiB.
+      DUCKDB_TEMP_DIRECTORY: /app/data/duckdb-tmp
       # Ohne Werte: Endpunkt, Bucket und Schluessel kommen aus der .env des
       # Stapels. Der Endpunkt steht nicht hier, weil SeaweedFS auf derselben
       # Maschine laeuft und die .env entscheidet, ob das der oeffentliche Name
@@ -403,6 +417,11 @@ services:
       # dem Release ist selbstaendig, und ein lesender Analysedienst braucht
       # keinen Zugang zum Bucket.
       DUCKDB_MEMORY_LIMIT: 512MB
+      # Auslagern statt abbrechen - derselbe Grund wie bei pipeline.
+      # **Nicht** nach /app/data: Dort haengt der Arbeitsdatentraeger
+      # schreibgeschuetzt (`:ro`), und DuckDB scheiterte beim ersten
+      # Auslagern statt bei der Abfrage - eine Verschlimmbesserung.
+      DUCKDB_TEMP_DIRECTORY: /app/arbeit/duckdb-tmp
       DUCKDB_THREADS: "2"
     volumes:
       # E9, erste Auflage: data/ **schreibgeschuetzt**. Damit kann

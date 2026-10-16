@@ -650,6 +650,32 @@ def test_der_stapellauf_schreibt_die_seite_in_denselben_datentraeger(dienste):
 # --------------------------------------------------------------------------
 
 
+def test_duckdb_lagert_dorthin_aus_wo_der_dienst_schreiben_darf(dienste):
+    """Ein Auslagerungsverzeichnis auf einem ``:ro``-Datentraeger waere schlimmer
+    als keines: DuckDB scheiterte dann beim Auslagern statt bei der Abfrage.
+
+    ``jupyter`` haengt ``arbeitsdaten`` schreibgeschuetzt ein und hat mit
+    ``jupyter-arbeit`` einen eigenen Datentraeger; ``pipeline`` schreibt in
+    ``arbeitsdaten``. Geprueft wird gegen die Einhaengungen des Dienstes,
+    nicht gegen eine Liste hier.
+    """
+    from storage.duckdb import grenzen
+
+    for name in ("pipeline", "jupyter"):
+        ziel = grenzen(dienste[name]["environment"]).get("temp_directory")
+        if ziel is None:
+            continue                     # der Test darueber meldet das schon
+        schreibbar = []
+        for einhaengung in dienste[name].get("volumes", []):
+            teile = str(einhaengung).split(":")
+            if len(teile) >= 2 and "ro" not in teile[2:]:
+                schreibbar.append(teile[1])
+        assert any(ziel.startswith(f"{pfad}/") or ziel == pfad
+                   for pfad in schreibbar), (
+            f"{name}: '{ziel}' liegt auf keinem beschreibbaren Datentraeger "
+            f"(beschreibbar: {schreibbar})")
+
+
 def test_duckdb_wird_von_innen_begrenzt_und_zwar_unterhalb_des_containers(dienste):
     """*Ohne memory_limit nimmt DuckDB rund 80 % des Arbeitsspeichers der
     Maschine* - nicht des Containers. Das Container-Limit allein toetet den
@@ -671,6 +697,15 @@ def test_duckdb_wird_von_innen_begrenzt_und_zwar_unterhalb_des_containers(dienst
             f"{name}: DuckDB darf {innen} MB nehmen, der Container nur "
             f"{aussen} MiB - die innere Grenze muss darunter liegen"
         )
+        # **Und ein Ausweg, sonst ist die Grenze eine Wand.** Am 16.10.2026
+        # starb der Lauf bei ``silver crime_offense`` mit "854.6 MiB/854.4
+        # MiB used" - das sind genau die 896 MB von oben. Ohne
+        # Auslagerungsverzeichnis bricht DuckDB an seiner eigenen Grenze ab,
+        # statt auf Platte auszuweichen. Nachgemessen: dieselbe Abfrage
+        # scheitert ohne und laeuft mit.
+        assert "temp_directory" in gesetzt, (
+            f"{name}: DUCKDB_TEMP_DIRECTORY fehlt - die Speichergrenze ist "
+            f"dann eine Wand statt einer Bremse")
 
 
 # --------------------------------------------------------------------------
