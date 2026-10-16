@@ -66,11 +66,23 @@ def zahl(text: str, muster: str) -> int:
 
 
 def test_die_stufenzahl_stimmt(teil_a):
-    """Vierzehn - und je Gruppe die richtige Zahl."""
+    """So viele, wie der Bauplan fuehrt - und je Gruppe die richtige Zahl.
+
+    **Das Zahlwort wird abgeleitet, nicht getippt.** Bis zum 16.10.2026
+    stand hier ``"vierzehn Stufen" in teil_a`` und ``len(STUFEN) == 14``:
+    zwei Literale, die derselbe Handgriff haette nachziehen muessen. Als
+    ``build_source_change`` in den Bauplan kam, fiel der Test - zu Recht -,
+    aber er sagte nur, dass "vierzehn" fehle, nicht dass das Dokument
+    nachzuziehen sei. Jetzt nennt er die erwartete Zahl.
+    """
+    from serving.build_einstieg import ZAHLWORT
+
     from orchestration.run_all import GRUPPEN, STUFEN
 
-    assert "vierzehn Stufen" in teil_a
-    assert len(STUFEN) == 14
+    wort = ZAHLWORT[len(STUFEN)]
+    assert f"{wort} Stufen" in teil_a, (
+        f"der Bauplan fuehrt {len(STUFEN)} Stufen, das Dokument nennt eine "
+        f"andere Zahl - erwartet: '{wort} Stufen'")
     for gruppe in GRUPPEN:
         echt = sum(1 for s in STUFEN if s.gruppe == gruppe)
         zeile = next((z for z in teil_a.splitlines()

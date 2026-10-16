@@ -96,7 +96,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, NamedTuple
 
-from manifeste import MANIFEST, tabellen
+from manifeste import MANIFEST
 from storage import Storage, for_root, release
 
 #: Die beiden Schichten, die dieses Werkzeug aufraeumt. Als Konstante, damit
@@ -325,7 +325,11 @@ def genannt_in_silver(data_root: Path) -> set[str]:
             for v in wert:
                 sammle(v)
 
-    for tabelle in tabellen(data_root, ("silver",)):
+    # Ueber die Ablage, nicht ueber das Dateisystem: Im ``s3``-Modus liegt
+    # lokal keine Silver-Tabelle, und diese Regel haette **nichts**
+    # geschuetzt - sie haette Laeufe freigegeben, auf denen das aktuelle
+    # Silver ruht. Am 16.10.2026 gefunden, bevor etwas geloescht wurde.
+    for tabelle in for_root(data_root).tabellen(("silver",)):
         sammle(tabelle.manifest.get("derived_from"))
     return kennungen
 
@@ -344,7 +348,7 @@ def kennungen_aus(data_root: Path, schichten: tuple[str, ...]) -> set[str]:
             for v in wert:
                 sammle(v)
 
-    for tabelle in tabellen(data_root, schichten):
+    for tabelle in for_root(data_root).tabellen(schichten):
         sammle(tabelle.manifest.get("derived_from"))
     return kennungen
 

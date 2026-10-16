@@ -813,7 +813,7 @@ def test_mehrere_vintages_laufen_jetzt_durch(tmp_path, monkeypatch):
     monkeypatch.setattr(ra.subprocess, "run",
                         lambda cmd, cwd=None, **_: (befehle.append(cmd), Fertig())[1])
     manifest = ra.lauf(tmp_path / "data", tmp_path, jahre=range(2021, 2027))
-    assert len(befehle) == 39
+    assert len(befehle) == 40
     assert manifest["years"] == list(range(2021, 2027))
     assert manifest["vintages"] == [2021, 2022, 2023, 2024]
 
@@ -907,3 +907,29 @@ def test_derselbe_bestand_traegt_denselben_fingerabdruck(tmp_path):
     bronze(dort, "dataset=noaa_ghcnd", "run_C")
     assert ra.fingerabdruck(ra.bronze_laeufe(hier)) != \
         ra.fingerabdruck(ra.bronze_laeufe(dort))
+
+
+def test_die_historisierung_laeuft_im_gesamtlauf_und_vor_gold():
+    """Eine Historisierung, an die jemand denken muss, ist keine.
+
+    Bis zum 16.10.2026 stand ``build_source_change`` in keinem Bauplan, in
+    keinem Skript und in keinem Zeitplan. Zwei Folgen: Der Unterschied
+    zweier Schnappschuesse wurde nie herausgezogen, und
+    ``orchestration.aufraeumen`` hielt nach seiner Regel 4 jeden
+    Vollschnappschuss fest. Auf ``srv01`` lagen deshalb 141 Bronze-Laeufe,
+    an denen der Silver-Bau erstickte - der Rohstoff staute sich, weil
+    niemand ihn verarbeitete.
+
+    **Nach ``crime_offense`` und vor Gold.** Beide lesen dieselben
+    Schnappschuesse; und was aufgeraeumt werden darf, steht erst fest,
+    wenn der Unterschied gezogen ist.
+    """
+    namen = [s.name for s in ra.STUFEN]
+    assert "source_change" in namen, (
+        "build_source_change steht in keinem Bauplan - dann laeuft die "
+        "Historisierung nur, wenn jemand daran denkt")
+    gruppen = [s.gruppe for s in ra.STUFEN]
+    i = namen.index("source_change")
+    assert gruppen[i] == "silver"
+    assert i > namen.index("crime_offense"), "muss nach crime_offense laufen"
+    assert i < gruppen.index("gold"), "muss vor Gold laufen"

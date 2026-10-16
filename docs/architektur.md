@@ -76,7 +76,7 @@ er liegt (`storage`).
 
 ![Der Datenfluss in vier Gruppen](bilder/architektur-datenfluss.svg)
 
-Erzeugt aus `orchestration.run_all.STUFEN` — die vierzehn Stufen sind im Code
+Erzeugt aus `orchestration.run_all.STUFEN` — die fünfzehn Stufen sind im Code
 bereits eine Datenstruktur, das Bild liest sie nur ab. Kommt eine Stufe dazu,
 steht sie hier, ohne dass jemand daran denken muss.
 
@@ -215,7 +215,7 @@ das Abgelegte gegen einen frischen Bau.
 ### Und vier Befehle, die zeigen statt behaupten
 
 ```bash
-python -m orchestration.run_all --trocken   # 14 Stufen, in Reihenfolge
+python -m orchestration.run_all --trocken   # 15 Stufen, in Reihenfolge
 python -m storage                            # wo die Daten liegen, welcher Stand
 python -m orchestration.drift                # wie weit die Zahlen vom Referenzstand weg sind
 python -m orchestration.aufraeumen           # was bleiben muss und warum

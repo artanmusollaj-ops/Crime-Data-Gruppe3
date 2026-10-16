@@ -92,6 +92,7 @@ from silver_pipeline import (
     schema_of,
 )
 from storage import for_root
+from storage import duckdb as storage_duckdb
 from storage.duckdb import verbinde
 
 log = logging.getLogger(__name__)
@@ -542,22 +543,42 @@ def gelesene_datierung(datei: Path) -> dict[str, int] | None:
         con.close()
 
 
-def bereits_gezogen(verzeichnis: Path) -> set[tuple[str, str]]:
+def bereits_gezogen(verzeichnis: Path,
+                    data_root: Path | None = None) -> set[tuple[str, str]]:
     """Welche Paare schon in der Tabelle stehen.
 
     Der Grund, warum diese Tabelle **nicht** einfach neu gebaut wird wie die
     uebrigen Silver-Tabellen: Ihr Rohstoff verschwindet. Ist ein Lauf
     aufgeraeumt, laesst sich sein Vergleich nicht wiederherstellen - was
     einmal herausgezogen wurde, bleibt deshalb stehen.
+
+    **Gelesen wird ueber die Ablage.** Bis zum 16.10.2026 stand hier
+    ``verzeichnis / PARQUET_FILE`` und ``is_file()`` - im ``s3``-Modus eine
+    Datei, die es lokal nicht gibt, weil die Arbeitskopie nach dem
+    Publizieren entfernt wird. Die Antwort war dann **immer** "noch nichts
+    gezogen", und die Regel, die daran haengt
+    (``orchestration.aufraeumen``, Regel 4), hielt jeden Schnappschuss fest.
+    Das war die ungefaehrliche Richtung des Fehlers - sie macht das
+    Aufraeumen wirkungslos statt gefaehrlich -, aber eine Auskunft, die
+    immer dasselbe sagt, ist keine.
     """
-    datei = verzeichnis / PARQUET_FILE
-    if not datei.is_file():
+    # Ohne ausdrueckliche Wurzel sagt sie das Verzeichnis selbst: Es liegt
+    # als ``<wurzel>/silver/dataset=source_change``. Geraten wird nichts -
+    # passt die Form nicht, bleibt es bei der Vorgabe der Ablage.
+    if data_root is None and verzeichnis.parent.name == SILVER_LAYER:
+        data_root = verzeichnis.parent.parent
+    ablage = for_root(data_root)
+    rel = ablage.relativ(verzeichnis) or f"{SILVER_LAYER}/dataset={TABLE}"
+    if not ablage.exists(rel, PARQUET_FILE):
         return set()
+    quelle = ablage.resolve_read_path(rel, PARQUET_FILE)
     con = verbinde()
     try:
+        if ablage.config.remote:
+            storage_duckdb.s3_einrichten(con, ablage.config)
         return {(a, b) for a, b in con.execute(
             f"SELECT DISTINCT vorher_run_id, run_id "
-            f"FROM read_parquet('{datei}')").fetchall()}
+            f"FROM read_parquet('{quelle}')").fetchall()}
     finally:
         con.close()
 
@@ -575,7 +596,7 @@ def ungezogene_laeufe(data_root: Path) -> set[str]:
     Sonst waere diese Regel eine, die nie etwas freigibt.
     """
     ablage = for_root(data_root)
-    schon = bereits_gezogen(tabellenverzeichnis(data_root))
+    schon = bereits_gezogen(tabellenverzeichnis(data_root), data_root)
     offen: set[str] = set()
     for quelle in QUELLEN:
         try:

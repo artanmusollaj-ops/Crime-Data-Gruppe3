@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 474" role="img" width="100%" height="auto"
-     aria-label="Der Datenfluss in vier Gruppen mit 14 Stufen: Ingestion schreibt raw und bronze, silver deutet, gold baut das Sternschema, serving stellt bereit - und ein gruener Lauf wird zum Release.">
+     aria-label="Der Datenfluss in vier Gruppen mit 15 Stufen: Ingestion schreibt raw und bronze, silver deutet, gold baut das Sternschema, serving stellt bereit - und ein gruener Lauf wird zum Release.">
 <style>
   svg { color: #14304a; }
   .signal { fill: #c2410c; }
@@ -23,7 +23,7 @@
   <g>
     <rect x="274" y="128" width="562" height="52" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
     <text x="555" y="153" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" font-weight="600" fill="currentColor">silver</text>
-    <text x="555" y="170" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.72">4 Stufen: tract, place, weather_day, crime_offense</text>
+    <text x="555" y="170" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.72">5 Stufen: tract, place, weather_day, crime_offense, source_change</text>
   </g>
   <text x="24" y="150" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="0.8">silver</text>
   <text x="24" y="168" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">gedeutet: Typen, Einheiten, Schlüssel</text>
