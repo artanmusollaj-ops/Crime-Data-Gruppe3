@@ -1489,3 +1489,163 @@ def test_m03_laeuft_im_bau_mit(tmp_path):
     assert "reconcile(con, TABLE, chicago, detroit, config_root)" in quelle, (
         "build ruft reconcile ohne config_root auf - gegen_crosswalk liefe nie"
     )
+
+
+# --------------------------------------------------------------------------
+# Wie gebaut wird - nicht nur was herauskommt
+# --------------------------------------------------------------------------
+# Am 16.10.2026 starb dieser Bau auf ``srv01`` viermal an seiner
+# Speichergrenze, zuletzt bei 1,4 GiB und mit "failed to pin block". Gemessen
+# wurde dann: als **eine** Anweisung braucht dieselbe Abfrage 896 MB, in
+# Stufen und mit der Datenbank auf einer Datei laeuft sie mit **256 MB**. Beide
+# Haelften sind noetig; jede allein genuegt nicht. Diese Tests halten sie fest,
+# denn der Unterschied ist an keinem Ergebnis zu sehen - nur an einem Abbruch
+# auf einem Rechner, auf dem die Suite nicht laeuft.
+
+
+def test_der_bau_fuehrt_die_stufen_einzeln_aus(monkeypatch, tmp_path):
+    """Geprueft wird, **was ausgefuehrt wird**, nicht was ``build_query`` zurueckgibt.
+
+    Die erste Fassung dieses Tests pruefte die Form des Rueckgabewerts. Eine
+    Mutationsprobe, die die Stufen wieder zu einem ``WITH`` zusammensetzt,
+    liess sie gruen - und genau das ist der Defekt, der 896 statt 256 MB
+    kostet. Gezaehlt werden deshalb die ``CREATE TABLE``-Anweisungen.
+    """
+    anweisungen = []
+    echt = bc.connect
+
+    class Mitschrift:
+        """Ein Stellvertreter, weil ``execute`` an der Verbindung nicht
+        ueberschreibbar ist. Alles andere geht unveraendert durch."""
+
+        def __init__(self, con):
+            self._con = con
+
+        def execute(self, sql, *rest, **kw):
+            anweisungen.append(sql)
+            return self._con.execute(sql, *rest, **kw)
+
+        def __getattr__(self, name):
+            return getattr(self._con, name)
+
+    def merke(*args, **kwargs):
+        return Mitschrift(echt(*args, **kwargs))
+
+    monkeypatch.setattr(bc, "connect", merke)
+    schreibe_chicago(tmp_path, CHI[:1])
+    schreibe_detroit(tmp_path, DET[:1])
+    schreibe_tract(tmp_path)
+    bc.build(tmp_path, Path("config"))
+
+    bauten = [s for s in anweisungen if s.lstrip().upper().startswith("CREATE TABLE")]
+    assert len(bauten) > 10, (
+        f"nur {len(bauten)} CREATE TABLE - die Stufen werden wieder in einer "
+        f"Anweisung gebaut, und das kostet das Dreieinhalbfache an Speicher")
+    mit_with = [s for s in bauten if " WITH " in s.upper()]
+    assert not mit_with, (
+        f"{len(mit_with)} Stufe(n) tragen eine WITH-Liste - dann ist jede "
+        f"Zwischenstufe wieder gleichzeitig gepinnt")
+
+
+def test_jede_tabelle_die_der_schluss_nennt_wird_vorher_gebaut():
+    """Eine Umbenennung darf nicht erst beim Bau auffallen.
+
+    Die Stufen heissen wie die CTEs, die sie ersetzt haben. Faellt eine weg
+    oder wird sie umbenannt, bindet der Schluss nicht mehr - und zwar erst
+    beim Lauf, nicht hier.
+    """
+    import re
+    stufen, schluss = bc.build_query(
+        bc.Source("chicago", ["a.parquet"], ["r1"], 1),
+        bc.Source("detroit", ["b.parquet"], ["r2"], 1),
+        bc.TractQuelle("t.parquet", "vintage=2024"),
+        Path("config"),
+    )
+    namen = {name for name, _ in stufen}
+    genannt = set(re.findall(r"(?:FROM|JOIN)\s+([a-z_]+)\s", schluss))
+    fehlen = genannt - namen
+    assert not fehlen, f"der Schluss liest {sorted(fehlen)}, gebaut wird das nicht"
+
+
+def test_der_bau_legt_die_datenbank_auf_eine_datei(monkeypatch, tmp_path):
+    """``:memory:`` *ist* der Speicher - ``temp_directory`` erreicht sie nicht.
+
+    Geprueft wird, **womit** ``connect`` gerufen wird, nicht ob der Bau
+    gelingt: Mit einer Speichergrenze von 256 MB gelingt er in beiden
+    Fassungen, wenn die Testdaten klein genug sind. Der Unterschied zeigt sich
+    erst bei 1,9 Mio. Zeilen, und die liegen nicht in der Suite.
+    """
+    gesehen = []
+    echt = bc.connect
+
+    def merke(*args, **kwargs):
+        gesehen.append(kwargs.get("datenbank", ":memory:"))
+        return echt(*args, **kwargs)
+
+    monkeypatch.setattr(bc, "connect", merke)
+    schreibe_chicago(tmp_path, CHI[:1])
+    schreibe_detroit(tmp_path, DET[:1])
+    schreibe_tract(tmp_path)
+    bc.build(tmp_path, Path("config"))
+
+    assert gesehen, "connect wurde nicht gerufen"
+    assert gesehen[0] != ":memory:", (
+        "der Bau laeuft gegen eine Datenbank im Arbeitsspeicher - dann liegen "
+        "die gebaute Tabelle und jede Zwischenstufe darin, und kein "
+        "Auslagerungsverzeichnis hilft")
+    assert str(gesehen[0]).endswith(".duckdb")
+
+
+def test_die_datenbankdatei_bleibt_nicht_liegen(monkeypatch, tmp_path):
+    """Sie ist so gross wie die Tabelle; zwei Laeufe die Woche und der
+    Datentraeger ist voll.
+
+    ``DUCKDB_TEMP_DIRECTORY`` wird hier **gesetzt**, und das ist der Punkt:
+    Die erste Fassung sah unter ``tmp_path`` nach, wo nie etwas lag - ohne die
+    Variable legt der Bau sein Verzeichnis ins System-Temp. Eine
+    Mutationsprobe, die ``mkdtemp`` ohne Aufraeumen benutzt, liess sie gruen.
+    """
+    ablage = tmp_path / "ddtmp"
+    ablage.mkdir()
+    monkeypatch.setenv("DUCKDB_TEMP_DIRECTORY", str(ablage))
+    schreibe_chicago(tmp_path, CHI[:1])
+    schreibe_detroit(tmp_path, DET[:1])
+    schreibe_tract(tmp_path)
+    bc.build(tmp_path, Path("config"))
+    uebrig = list(ablage.iterdir())
+    assert not uebrig, f"im Auslagerungsverzeichnis liegengeblieben: {uebrig}"
+
+
+@pytest.mark.referenzstand
+def test_die_gebaute_datei_steht_in_der_zugesagten_ordnung():
+    """``ORDNUNG`` ist nur dann eine Zusage, wenn sie eindeutig ist.
+
+    Waere der Schluessel nicht eindeutig, bliebe die Ordnung innerhalb der
+    Gruppen offen - und damit haengen die Bytes wieder am Plan, obwohl im
+    Quelltext eine Ordnung steht. Das ist der Fehler, der sich nicht ansehen
+    laesst.
+    """
+    datei = Path("data/silver/dataset=crime_offense") / "part-0001.parquet"
+    if not datei.is_file():
+        pytest.skip("crime_offense nicht gebaut")
+    con = duckdb.connect()
+    try:
+        spalten = ", ".join(bc.ORDNUNG.split(", "))
+        zeilen, gruppen = con.execute(f"""
+            SELECT count(*), count(DISTINCT ({spalten}))
+            FROM read_parquet('{datei}')""").fetchone()
+        assert zeilen == gruppen, (
+            f"{zeilen - gruppen} Zeilen teilen ihren Ordnungsschluessel - "
+            f"'{bc.ORDNUNG}' ist nicht eindeutig, die Bytes haengen wieder "
+            f"am Abfrageplan")
+        unsortiert = con.execute(f"""
+            SELECT count(*) FROM (
+                SELECT row_number() OVER () AS gelesen,
+                       row_number() OVER (ORDER BY {bc.ORDNUNG}) AS erwartet
+                FROM read_parquet('{datei}')
+            ) WHERE gelesen <> erwartet""").fetchone()[0]
+        assert unsortiert == 0, (
+            f"{unsortiert} Zeilen stehen nicht in der Ordnung '{bc.ORDNUNG}' - "
+            f"publish hat nicht sortiert")
+    finally:
+        con.close()

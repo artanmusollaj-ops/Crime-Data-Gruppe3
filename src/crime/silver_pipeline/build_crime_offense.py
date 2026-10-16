@@ -83,6 +83,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -92,6 +93,7 @@ import duckdb
 
 from manifeste import code_stand, eingabe_abdruck, referenz, referenzdatei
 from storage import StorageError, for_root
+from storage.duckdb import grenzen
 from silver_pipeline import (
     BRONZE_LAYER,
     PARQUET_FILE,
@@ -338,12 +340,25 @@ def sql_list(paths: list[str]) -> str:
     return f"[{inhalt}]"
 
 
+#: Die Zeilenordnung der geschriebenen Parquet-Datei - ``city`` plus
+#: ``offense_id`` ist eindeutig, ``occurred_at_utc`` steht dazwischen, damit
+#: die Datei nach Zeit geordnet liegt.
+#:
+#: **Warum sie hier steht und nicht als Schlusssortierung in der Abfrage.**
+#: Ohne ``ordnung`` schreibt ``COPY`` die *physische* Ordnung der Tabelle, und
+#: die haengt an ``threads`` und ``preserve_insertion_order`` - darum
+#: veraenderten beide am 13.10.2026 die Parquet-Bytes und waren als Ausweg
+#: gesperrt. Mit ``ordnung`` haengen die Bytes am Schluessel, und der Plan ist
+#: frei.
+ORDNUNG = "city, occurred_at_utc, offense_id"
+
+
 def build_query(
     chicago: Source,
     detroit: Source,
     tract: TractQuelle,
     config_root: Path,
-) -> str:
+) -> tuple[list[tuple[str, str]], str]:
     """Beide Staedte, auf NIBRS gebracht und raeumlich verortet.
 
     Der Aufbau ist bewusst zweistufig: erst je Stadt eine Relation mit
@@ -368,42 +383,62 @@ def build_query(
     gegen_werte = ", ".join(
         f"('{gegen}', {rang})" for gegen, rang in sorted(CRIME_AGAINST_RANG.items())
     )
-    return f"""
-    WITH status AS (
+    # **Stufe fuer Stufe, nicht als eine Anweisung.** Der Grund ist
+    # gemessen: Als eine Anweisung braucht dieselbe Abfrage 896 MB und
+    # starb auf ``srv01`` viermal daran ("failed to pin block"); gestuft
+    # laeuft sie mit 256 MB durch (16.10.2026, 1,875 Mio. Zeilen). In einer
+    # Anweisung ist jede Zwischenstufe gleichzeitig gepinnt, und deshalb
+    # half auch kein Auslagerungsverzeichnis - DuckDB kann nicht ablegen,
+    # was noch gebraucht wird.
+    #
+    # Die Namen sind dieselben wie vorher, als sie CTEs waren: Eine
+    # spaetere Stufe, die ``bereinigt`` nennt, findet die Tabelle dieses
+    # Namens. So blieb der SQL-Text Zeichen fuer Zeichen derselbe, und die
+    # gebaute Datei ist byteweise dieselbe - das war die Gegenprobe.
+    return [
+        ('status',
+         f"""
         SELECT * FROM (VALUES {status_werte}) AS s(nibrs_match, mapping_status)
-    ),
-    fallrang AS (
+    """),
+        ('fallrang',
+         f"""
         SELECT * FROM (VALUES {rang_werte}) AS r(nibrs_code, rang)
-    ),
-    gegen AS (
+    """),
+        ('gegen',
+         f"""
         SELECT * FROM (VALUES {gegen_werte}) AS g(crime_against, rang)
-    ),
-    nibrs AS (
+    """),
+        ('nibrs',
+         f"""
         SELECT nibrs_code, nibrs_description, nibrs_group, crime_against
         FROM read_csv('{codes}', header = true, all_varchar = true)
-    ),
-    iucr_map AS (
+    """),
+        ('iucr_map',
+         f"""
         SELECT iucr, ibr_code AS nibrs_code, match AS nibrs_match
         FROM read_csv('{iucr}', header = true, all_varchar = true)
         WHERE mapped = 'true'
-    ),
-    micr_map AS (
+    """),
+        ('micr_map',
+         f"""
         SELECT micr_code, nibrs_code, match AS nibrs_match,
                TRY_CAST(hierarchy AS INTEGER) AS hierarchy
         FROM read_csv('{micr}', header = true, all_varchar = true)
         WHERE mapped = 'true'
-    ),
-    tract AS (
+    """),
+        ('tract',
+         f"""
         SELECT geoid, ST_GeomFromWKB(geometry) AS geom
         FROM read_parquet('{tract}')
         WHERE geometry IS NOT NULL
-    ),
-
-    -- Chicago: eine Zeile je id, die Fassung mit dem juengsten updated_on.
-    chicago_roh AS (
+    """),
+        # Chicago: eine Zeile je id, die Fassung mit dem juengsten updated_on.
+        ('chicago_roh',
+         f"""
         SELECT * FROM {chicago.reader}({sql_list(chicago.paths)})
-    ),
-    chicago_eindeutig AS (
+    """),
+        ('chicago_eindeutig',
+         """
         SELECT * FROM (
             SELECT *, row_number() OVER (
                 PARTITION BY id
@@ -411,8 +446,9 @@ def build_query(
             ) AS rang
             FROM chicago_roh
         ) WHERE rang = 1
-    ),
-    chicago_delikte AS (
+    """),
+        ('chicago_delikte',
+         f"""
         SELECT
             '{CHICAGO}'                                    AS city,
             c.id                                           AS offense_id,
@@ -467,17 +503,42 @@ def build_query(
             'eine_zeile_ist_ein_delikt'                    AS counts_reason
         FROM chicago_eindeutig c
         LEFT JOIN iucr_map m ON trim(c.iucr) = m.iucr
-    ),
-
-    -- Detroit: eine Zeile je incident_entry_id.
-    -- Parquet und NDJSON tragen beide die Quellfelder unter 'attributes';
-    -- nur der Leseausdruck unterscheidet sich. Die Geometrie wird nicht
-    -- gebraucht, Detroit fuehrt die Koordinaten auch in den Attributen.
-    detroit_roh AS (
-        SELECT attributes
+    """),
+        # Detroit: eine Zeile je incident_entry_id.
+        # Parquet und NDJSON tragen beide die Quellfelder unter 'attributes';
+        # nur der Leseausdruck unterscheidet sich. Die Geometrie wird nicht
+        # gebraucht, Detroit fuehrt die Koordinaten auch in den Attributen.
+        #
+        # **Die Typen werden hier gesetzt, nicht geerbt.** Bronze deutet
+        # nichts: Ein Feld, das in einem Lauf durchgehend leer ist, kommt
+        # untypisiert zurueck - pyarrow gibt ihm den Null-Typ, DuckDB
+        # materialisiert ihn als INTEGER, und ``trim(INTEGER)`` bindet nicht.
+        # Solange diese Stufe eine inline eingesetzte CTE war, wandelte der
+        # Binder den untypisierten NULL stillschweigend; als eigene Tabelle
+        # tut er es nicht mehr. Der Fehler waere also erst auf ``srv01``
+        # aufgefallen, und zwar an einem Delta-Lauf ohne einen einzigen
+        # ``case_status``. Gecastet werden nur die Textfelder und die
+        # Koordinaten; die beiden Epochenfelder bleiben, wie die Quelle sie
+        # fuehrt - ein Cast dort verschoebe Zeitpunkte.
+        ('detroit_roh',
+         f"""
+        SELECT struct_pack(
+            incident_entry_id   := CAST(attributes.incident_entry_id AS VARCHAR),
+            report_number       := CAST(attributes.report_number AS VARCHAR),
+            case_id             := CAST(attributes.case_id AS VARCHAR),
+            state_offense_code  := CAST(attributes.state_offense_code AS VARCHAR),
+            charge_description  := CAST(attributes.charge_description AS VARCHAR),
+            offense_description := CAST(attributes.offense_description AS VARCHAR),
+            case_status         := CAST(attributes.case_status AS VARCHAR),
+            incident_occurred_at:= attributes.incident_occurred_at,
+            updated_at          := attributes.updated_at,
+            latitude            := CAST(attributes.latitude AS DOUBLE),
+            longitude           := CAST(attributes.longitude AS DOUBLE)
+        ) AS attributes
         FROM {detroit.reader}({sql_list(detroit.paths)})
-    ),
-    detroit_eindeutig AS (
+    """),
+        ('detroit_eindeutig',
+         """
         SELECT * FROM (
             SELECT *, row_number() OVER (
                 PARTITION BY attributes.incident_entry_id
@@ -485,24 +546,25 @@ def build_query(
             ) AS rang
             FROM detroit_roh
         ) WHERE rang = 1
-    ),
-    -- Detroits Zeilen sind Anklagen, Chicagos sind Delikte. Ein Ueberfall mit
-    -- Schuessen und geraubtem Auto steht bei Detroit als fuenf Zeilen, bei
-    -- Chicago als eine. Wer beide Staedte summiert, ohne das zu wissen, zaehlt
-    -- Detroit zu hoch - und zwar um 3,8 Prozent.
-    --
-    -- Welches Feld die Tat traegt, sagen die Daten selbst: Bei Vorfaellen mit
-    -- mehreren Zeilen ist ``offense_description`` in 38,4 Prozent der Faelle
-    -- konstant, ``charge_description`` nur in 2,3 Prozent. Die Tat ist also
-    -- offense_description, die Anklage der Rest der Zeile.
-    --
-    -- Je (Vorfall, Tat) wird eine Zeile als die zaehlende markiert. Gewaehlt
-    -- wird die, deren Anklage die Tat selbst ist - dann traegt sie schon den
-    -- richtigen MICR-Code und es braucht keine Zuordnung ueber Text. Das
-    -- trifft auf 99,98 Prozent der Gruppen zu. Fuer die uebrigen 19
-    -- entscheidet die Hierarchie des MICR-Handbuchs, in der 1 Mord ist und 16
-    -- Sachbeschaedigung: Es gilt die schwerste Anklage.
-    detroit_gewaehlt AS (
+    """),
+        # Detroits Zeilen sind Anklagen, Chicagos sind Delikte. Ein Ueberfall mit
+        # Schuessen und geraubtem Auto steht bei Detroit als fuenf Zeilen, bei
+        # Chicago als eine. Wer beide Staedte summiert, ohne das zu wissen, zaehlt
+        # Detroit zu hoch - und zwar um 3,8 Prozent.
+        # 
+        # Welches Feld die Tat traegt, sagen die Daten selbst: Bei Vorfaellen mit
+        # mehreren Zeilen ist ``offense_description`` in 38,4 Prozent der Faelle
+        # konstant, ``charge_description`` nur in 2,3 Prozent. Die Tat ist also
+        # offense_description, die Anklage der Rest der Zeile.
+        # 
+        # Je (Vorfall, Tat) wird eine Zeile als die zaehlende markiert. Gewaehlt
+        # wird die, deren Anklage die Tat selbst ist - dann traegt sie schon den
+        # richtigen MICR-Code und es braucht keine Zuordnung ueber Text. Das
+        # trifft auf 99,98 Prozent der Gruppen zu. Fuer die uebrigen 19
+        # entscheidet die Hierarchie des MICR-Handbuchs, in der 1 Mord ist und 16
+        # Sachbeschaedigung: Es gilt die schwerste Anklage.
+        ('detroit_gewaehlt',
+         """
         SELECT *, row_number() OVER (
             PARTITION BY trim(attributes.case_id),
                          coalesce(trim(attributes.offense_description), '')
@@ -514,8 +576,9 @@ def build_query(
         ) AS rang_in_tat
         FROM detroit_eindeutig d
         LEFT JOIN micr_map mm ON trim(d.attributes.state_offense_code) = mm.micr_code
-    ),
-    detroit_delikte AS (
+    """),
+        ('detroit_delikte',
+         f"""
         SELECT
             '{DETROIT}'                                    AS city,
             nullif(trim(d.attributes.incident_entry_id), '') AS offense_id,
@@ -554,16 +617,17 @@ def build_query(
             END                                            AS counts_reason
         FROM detroit_gewaehlt d
         LEFT JOIN micr_map m ON trim(d.attributes.state_offense_code) = m.micr_code
-    ),
-
-    beide AS (
+    """),
+        ('beide',
+         """
         SELECT * FROM chicago_delikte
         UNION ALL
         SELECT * FROM detroit_delikte
-    ),
-    -- Platzhalterkoordinaten sind keine Koordinaten. Detroit setzt 0/0,
-    -- Chicago laesst das Feld leer.
-    bereinigt AS (
+    """),
+        # Platzhalterkoordinaten sind keine Koordinaten. Detroit setzt 0/0,
+        # Chicago laesst das Feld leer.
+        ('bereinigt',
+         """
         SELECT
             * EXCLUDE (latitude, longitude),
             CASE WHEN latitude BETWEEN -90 AND 90
@@ -573,23 +637,25 @@ def build_query(
                   AND NOT (latitude = 0 AND longitude = 0)
                  THEN longitude END                        AS longitude
         FROM beide
-    ),
-    -- Der raeumliche Join bewusst als INNER JOIN auf die verortbaren Punkte
-    -- und erst danach zurueckverbunden. Als LEFT JOIN faellt DuckDB auf eine
-    -- verschachtelte Schleife zurueck - 348'000 Punkte gegen 6'282 Polygone,
-    -- und der Lauf endet nicht mehr. So bleibt es bei Sekundenbruchteilen.
-    verortet AS (
+    """),
+        # Der raeumliche Join bewusst als INNER JOIN auf die verortbaren Punkte
+        # und erst danach zurueckverbunden. Als LEFT JOIN faellt DuckDB auf eine
+        # verschachtelte Schleife zurueck - 348'000 Punkte gegen 6'282 Polygone,
+        # und der Lauf endet nicht mehr. So bleibt es bei Sekundenbruchteilen.
+        ('verortet',
+         """
         SELECT b.city, b.offense_id, t.geoid
         FROM bereinigt b
         JOIN tract t ON ST_Within(ST_Point(b.longitude, b.latitude), t.geom)
         WHERE b.latitude IS NOT NULL AND b.longitude IS NOT NULL
-    ),
-    -- Das Fallebene: unter den zaehlenden Zeilen eines Falls die mit dem
-    -- schwersten Delikt; bei gleichem Delikt (mehrere Opfer) die frueheste.
-    -- Eine Zeile ohne Fallnummer ist ihr eigener Fall. Codes ausserhalb der
-    -- Hierarchie ordnen sich hinter ihr ein, nach crime_against, dann Code;
-    -- ohne NIBRS-Code ganz hinten.
-    fallebene AS (
+    """),
+        # Das Fallebene: unter den zaehlenden Zeilen eines Falls die mit dem
+        # schwersten Delikt; bei gleichem Delikt (mehrere Opfer) die frueheste.
+        # Eine Zeile ohne Fallnummer ist ihr eigener Fall. Codes ausserhalb der
+        # Hierarchie ordnen sich hinter ihr ein, nach crime_against, dann Code;
+        # ohne NIBRS-Code ganz hinten.
+        ('fallebene',
+         """
         SELECT b.city, b.offense_id,
                row_number() OVER (
                    PARTITION BY b.city, coalesce(b.event_id, b.offense_id)
@@ -602,7 +668,8 @@ def build_query(
         LEFT JOIN fallrang fr ON b.nibrs_code = fr.nibrs_code
         LEFT JOIN gegen g ON n.crime_against = g.crime_against
         WHERE b.counts
-    )
+    """),
+    ], f"""
 
     SELECT
         b.city,
@@ -643,7 +710,6 @@ def build_query(
       ON b.city = v.city AND b.offense_id = v.offense_id
     LEFT JOIN fallebene f
       ON b.city = f.city AND b.offense_id = f.offense_id
-    ORDER BY b.city, b.occurred_at_utc, b.offense_id
     """
 
 
@@ -991,7 +1057,25 @@ def build(data_root: Path, config_root: Path) -> Path:
         len(chicago.paths), len(detroit.paths), tract.vintage,
     )
 
-    con = connect(spatial=True)
+    # **Die Datenbank auf eine Datei, nicht in den Arbeitsspeicher.** Eine
+    # ``:memory:``-Datenbank *ist* der Speicher: Die gebaute Tabelle und jede
+    # Zwischenstufe liegen darin, und ``temp_directory`` erreicht sie nicht.
+    # Zusammen mit der Stufung (siehe ``build_query``) sind das die zwei
+    # Haelften derselben Messung - eine allein genuegt nicht.
+    #
+    # Die Datei liegt im Auslagerungsverzeichnis, wenn eines gesetzt ist: Auf
+    # ``srv01`` ist das der Datentraeger, der dafuer Platz hat. Sie geht am
+    # Ende mit; sie traegt nichts, was das Manifest nicht beschreibt.
+    with tempfile.TemporaryDirectory(
+            dir=grenzen().get("temp_directory") or None,
+            prefix=".bau-crime_offense-") as bau:
+        return _build(Path(bau) / "bau.duckdb", data_root, config_root,
+                      chicago, detroit, tract)
+
+
+def _build(datenbank: Path, data_root: Path, config_root: Path,
+           chicago: Source, detroit: Source, tract: TractQuelle) -> Path:
+    con = connect(spatial=True, datenbank=datenbank)
     try:
         # Ohne icu kennt DuckDB keine benannten Zeitzonen; ohne UTC als
         # Sitzungszone haengt das Ergebnis an der Zone des Rechners.
@@ -1004,15 +1088,25 @@ def build(data_root: Path, config_root: Path) -> Path:
             ) from error
         con.execute("SET TimeZone='UTC'")
 
-        con.execute(
-            f"CREATE TABLE {TABLE} AS "
-            + build_query(chicago, detroit, tract, config_root)
-        )
+        # Erlaubt, seit ``ORDNUNG`` im ``COPY`` steht: Die Bytes haengen am
+        # Schluessel, nicht daran, in welcher Ordnung die Zeilen in die
+        # Tabelle gelangen. Vorher hat dieses Flag die Parquet-Bytes
+        # veraendert (13.10.2026) und war deshalb gesperrt - obwohl DuckDB es
+        # bei genau diesem Fehler selbst an zweiter Stelle vorschlaegt. Es
+        # gilt nur fuer diese Verbindung; die uebrigen Bauten ruhen noch auf
+        # der Einfuegeordnung.
+        con.execute("SET preserve_insertion_order=false")
+
+        stufen, schluss = build_query(chicago, detroit, tract, config_root)
+        for name, abfrage in stufen:
+            con.execute(f"CREATE TABLE {name} AS {abfrage}")
+        con.execute(f"CREATE TABLE {TABLE} AS {schluss}")
         pruefung = reconcile(con, TABLE, chicago, detroit, config_root)
         manifest = build_manifest(
             con, TABLE, chicago, detroit, tract, config_root, pruefung
         )
-        ziel = publish(con, TABLE, table_dir(data_root), manifest)
+        ziel = publish(con, TABLE, table_dir(data_root), manifest,
+                       ordnung=ORDNUNG)
         LOG.info("%s: %d Zeilen", ziel, pruefung["rows"])
     finally:
         con.close()

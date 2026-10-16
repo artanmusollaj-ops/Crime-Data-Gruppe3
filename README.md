@@ -222,7 +222,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 1'971 ausgeführte Tests, ohne Netzzugriff und ohne
+Erwartet wird **grün**: 1'978 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -232,7 +232,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 2'080
+python -m pytest -m ""               # beides zusammen, alle 2'088
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -1062,7 +1062,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**2'080 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**2'088 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -1099,10 +1099,13 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'868 der 1'971 Tests** des Standardlaufs. Die
-übrigen 35 überspringen sich selbst, weil sie gebaute Daten brauchen und `data/`
-nicht versioniert ist — dazu seit dem 5.10.2026 die Reproduktion von
-`docs/forschungsfragen.md`, deren Quelle das ungetrackte LN1-PDF ist; die 108 Referenzstand-Wächter sind ohnehin abgewählt.
+In einem frischen Klon laufen **1'902 der 1'978 Tests** des Standardlaufs, und
+sie sind grün (am 16.10.2026 in einem Baum ohne `data/` nachgemessen; die drei
+Zahlen davor — 1'868, 35 übersprungene und 108 Wächter — waren alle veraltet).
+Die übrigen 76 überspringen sich selbst, weil sie gebaute Daten brauchen und
+`data/` nicht versioniert ist — dazu seit dem 5.10.2026 die Reproduktion von
+`docs/forschungsfragen.md`, deren Quelle das ungetrackte LN1-PDF ist; die 110
+Referenzstand-Wächter sind ohnehin abgewählt.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
 über die Testzahl in diesem README und in `AENDERUNGEN.md`.

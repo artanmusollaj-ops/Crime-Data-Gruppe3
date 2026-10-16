@@ -82,3 +82,65 @@ def test_ein_gescheiterter_lauf_laesst_den_alten_stand_stehen(con, tmp_path):
 
     assert json.loads((ziel / "manifest.json").read_text())["row_count"] == 1
     assert (ziel / "part-0001.parquet").is_file()
+
+
+# ---------------------------------------------------------------------------
+# Die Zeilenordnung der geschriebenen Datei
+# ---------------------------------------------------------------------------
+# Bis zum 16.10.2026 nahm ``publish`` die *physische* Ordnung der Tabelle, und
+# die haengt am Abfrageplan: ``threads`` und ``preserve_insertion_order``
+# veraendern sie, und damit die Parquet-Bytes. Das war der Grund, warum keiner
+# der drei Auswege, die DuckDB bei einem Speicherfehler vorschlaegt, benutzbar
+# war - die Reproduzierbarkeit ruhte auf einem Zufall statt auf einer Zusage.
+
+
+def test_mit_ordnung_steht_die_datei_in_der_genannten_reihenfolge(tmp_path):
+    """Nicht der SQL-Text wird geprueft, sondern die geschriebene Datei.
+
+    Ein Test, der ``"ORDER BY" in sql`` prueft, bliebe gruen, wenn die
+    Sortierung an der falschen Stelle stuende - genau der Fehler, der hier
+    behoben wurde.
+    """
+    con = duckdb.connect()
+    con.execute("SET preserve_insertion_order=false")
+    con.execute("CREATE TABLE t AS SELECT * FROM (VALUES (3), (1), (2)) AS v(a)")
+    ziel = publish(con, "t", tmp_path / "dataset=x", {"status": "complete"},
+                   ordnung="a")
+    gelesen = con.execute(
+        f"SELECT a FROM read_parquet('{ziel / 'part-0001.parquet'}')"
+    ).fetchall()
+    con.close()
+    assert [z[0] for z in gelesen] == [1, 2, 3], \
+        "die Datei steht nicht in der zugesagten Ordnung"
+
+
+def test_dieselbe_tabelle_in_anderer_einfuegeordnung_gibt_dieselben_bytes(tmp_path):
+    """Die eigentliche Zusage: Die Bytes haengen am Schluessel, nicht am Plan.
+
+    Zweimal dieselben Zeilen, einmal aufsteigend und einmal absteigend
+    eingefuegt. Ohne ``ordnung`` unterscheiden sich die Dateien - mit ihr
+    nicht. Das ist der Unterschied, der ``threads`` und
+    ``preserve_insertion_order`` als Ausweg freigibt.
+    """
+    dateien = []
+    for richtung in ("ASC", "DESC"):
+        con = duckdb.connect()
+        con.execute(
+            f"CREATE TABLE t AS SELECT i AS a, i::VARCHAR AS b "
+            f"FROM range(5000) r(i) ORDER BY i {richtung}"
+        )
+        ziel = publish(con, "t", tmp_path / f"dataset={richtung}",
+                       {"status": "complete"}, ordnung="a")
+        dateien.append((ziel / "part-0001.parquet").read_bytes())
+        con.close()
+    assert dateien[0] == dateien[1], \
+        "die Bytes haengen noch an der Einfuegeordnung, nicht am Schluessel"
+
+
+def test_ohne_ordnung_bleibt_es_beim_alten_verhalten(con, tmp_path):
+    """Sechs Aufrufer nennen noch keine Ordnung - sie brauchen je einen
+    eigenen eindeutigen Schluessel, und einen zu raten waere schlimmer als
+    die heutige Lage. Bis dahin darf ``publish`` ohne Ordnung nicht brechen.
+    """
+    ziel = publish(con, "t", tmp_path / "dataset=x", {"status": "complete"})
+    assert (ziel / "part-0001.parquet").is_file()
