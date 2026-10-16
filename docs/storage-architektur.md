@@ -896,6 +896,29 @@ beide Abbilder, schiebt sie, holt sie zurück, prüft Plattform und
 in die Job-Zusammenfassung. Der Lauf trägt sie **nicht** auf `srv01` ein: Wer
 den Bau startet, entscheidet auch, wann der Stapel umgestellt wird, und ein
 Workflow mit Schreibzugriff auf den Server wäre ein zweiter Weg hinein.
+
+**Auf `srv01` genügt seit dem 16.10.2026 ein Befehl**
+([`docker/srv01-abbild-einsetzen.sh`](../docker/srv01-abbild-einsetzen.sh)):
+
+```bash
+cd /srv/docker/apps/urbancrime && git pull && docker/srv01-abbild-einsetzen.sh
+```
+
+Er schlägt den Digest über die mitwandernde Marke `:aktuell` nach, schreibt
+beide Zeilen in die `.env`, zieht die Abbilder, liest `GIT_COMMIT` aus dem
+neuen Abbild und startet nur neu, was läuft. `--trocken` zeigt, was geschähe.
+Vorher waren es fünf Handgriffe, und der dritte — die `.env` von Hand ändern —
+war der, bei dem ein Zeichen verlorengeht.
+
+**Gepinnt bleibt der Digest.** Die Marke dient nur dem Nachschlagen; in die
+`.env` schreibt das Skript den konkreten Digest, den es gerade gelesen hat.
+Eine Marke lässt sich umhängen, ein Digest nicht — deshalb steht in der `.env`
+des Stapels niemals `:aktuell`, und ein Wächter hält das fest.
+
+**Was das Skript nicht tut: bauen.** Den Workflow anzustossen bräuchte ein
+GitHub-Token mit `workflow`-Recht auf einer Maschine, die von aussen
+erreichbar ist — ein zweites Geheimnis, das mehr kann als Pakete lesen. Das
+`read:packages`-Token, das `srv01` ohnehin hat, genügt für alles andere.
 Ein Zeitplan fehlt absichtlich — ein Abbildbau ist nur nötig, wenn wirklich
 umgestellt wird, und Minuten werden in einem privaten Repository verrechnet.
 

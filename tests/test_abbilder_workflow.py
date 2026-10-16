@@ -177,3 +177,45 @@ def test_zwei_baeue_laufen_nicht_gleichzeitig():
     nebenlauf = t.index("concurrency:")
     assert "cancel-in-progress: false" in t[nebenlauf:nebenlauf + 300], \
         "ein halb geschobenes Abbild ist schlimmer als ein Warten"
+
+
+def test_der_workflow_setzt_die_marke_die_srv01_nachschlaegt():
+    """Ohne sie findet das Einsetz-Skript den neuen Stand nicht.
+
+    ``docker/srv01-abbild-einsetzen.sh`` schlaegt den Digest ueber eine
+    mitwandernde Marke nach, statt das Baudatum zu kennen. Faellt sie hier
+    weg, scheitert das Skript dort mit *„manifest unknown"* - und zwar auf
+    dem Server, nicht hier.
+
+    **Gepinnt wird sie nie.** Das Skript schreibt den gelesenen Digest in
+    die ``.env``; die Marke dient nur dem Nachschlagen. Deshalb prueft
+    dieser Test zusaetzlich, dass sie in der Beschreibung der Abbildvariablen
+    **nicht** vorkommt.
+    """
+    t = text()
+    marke = re.search(r"WANDERNDE_MARKE:\s*(\S+)", t)
+    assert marke, "der Workflow nennt keine wandernde Marke"
+    wert = marke.group(1)
+
+    # Beide Abbilder tragen sie - gezaehlt, nicht geraten.
+    assert t.count("${{ env.WANDERNDE_MARKE }}") >= len(abbildnamen()), (
+        f"nicht jedes Abbild bekommt die Marke ':{wert}'")
+
+    beispiel = (PROJECT_ROOT / ".env.example").read_text(encoding="utf-8")
+    assert f":{wert}" not in beispiel, (
+        f"'.env.example' nennt die wandernde Marke ':{wert}' - gepinnt wird "
+        f"der Digest, eine Marke laesst sich umhaengen")
+
+
+def test_die_zusammenfassung_nennt_den_einen_befehl_fuer_srv01():
+    """Sonst schreibt jemand die Digests wieder von Hand ab.
+
+    Fuenf Handgriffe waren es vorher; der dritte - die ``.env`` aendern - ist
+    der, bei dem ein Zeichen verlorengeht. Die Zusammenfassung des Laufs ist
+    die Stelle, an der jemand steht, wenn er sie braeuchte.
+    """
+    t = text()
+    zusammenfassung = t[t.index("Die zwei Zeilen fuer die .env"):]
+    assert "srv01-abbild-einsetzen.sh" in zusammenfassung, (
+        "die Job-Zusammenfassung nennt den Befehl nicht, der das Abschreiben "
+        "erspart")

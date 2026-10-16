@@ -37,3 +37,14 @@ Start a run manually:
 docker/srv01-datenlauf.sh delta
 docker/srv01-datenlauf.sh full
 ```
+
+Put the images built by the `Abbilder` workflow into service. The script
+resolves the digest behind the moving `:aktuell` tag, writes both lines into
+`.env`, pulls, reports the `GIT_COMMIT` baked into the new image and restarts
+only what is running. `pipeline` is never restarted: it runs as `run --rm` and
+picks up the new image on its next invocation.
+
+```bash
+docker/srv01-abbild-einsetzen.sh --trocken   # show what would change
+docker/srv01-abbild-einsetzen.sh             # do it
+```
