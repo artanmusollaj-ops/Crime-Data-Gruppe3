@@ -111,14 +111,28 @@ def newest_complete_run(storage: Storage, prefix: str, *, what: str) -> Lauf:
     return kandidaten[-1]
 
 
-def connect(*, spatial: bool = False) -> duckdb.DuckDBPyConnection:
+def connect(*, spatial: bool = False,
+            datenbank: str | Path = ":memory:") -> duckdb.DuckDBPyConnection:
     """Eine DuckDB-Verbindung, auf Wunsch mit der ``spatial``-Extension.
 
     Kann die Ablage S3 lesen, bringt die Verbindung ``httpfs`` und ein
     temporaeres Secret mit - siehe ``storage.duckdb``.
+
+    **``datenbank`` entscheidet, wo die gebaute Tabelle liegt.** Mit der
+    Vorgabe ``:memory:`` liegt sie im Arbeitsspeicher, und zwar als Teil der
+    Datenbank - nicht als Arbeitsspeicher, den ``memory_limit`` verwaltet und
+    den DuckDB auslagern koennte. Bei einer Tabelle von 1,9 Mio. Zeilen und 28
+    Spalten ist das der groessere Posten, und kein ``temp_directory`` hilft
+    dagegen: Die Datenbank *ist* der Speicher.
+
+    Gemessen am 16.10.2026 an ``crime_offense``: im Arbeitsspeicher braucht
+    der Bau **896 MB**, auf eine Datei gelegt laufen dieselben Daten mit
+    **256 MB** durch - und zwar mit jeder Zwischenstufe einzeln
+    materialisiert. Fuer kleine Tabellen bleibt ``:memory:`` richtig; eine
+    Datei kostet dort nur Schreibarbeit.
     """
     try:
-        con = storage_duckdb.connect(get_storage().config)
+        con = storage_duckdb.connect(get_storage().config, datenbank)
     except storage_duckdb.DuckDBFehler as error:
         raise TransformError(str(error)) from error
     if spatial:
@@ -137,6 +151,8 @@ def publish(
     relation: str,
     target: Path,
     manifest: dict[str, Any],
+    *,
+    ordnung: str | None = None,
 ) -> Path:
     """Schreibt Parquet und Manifest und veroeffentlicht sie atomar.
 
@@ -144,6 +160,29 @@ def publish(
     trotzdem in drei Schritten, damit nie ein halber Stand sichtbar ist: neu
     schreiben, alt beiseiteschieben, neu einhaengen, alt entfernen. Scheitert
     etwas, bleibt der vorherige Stand unberuehrt.
+
+    **``ordnung`` schreibt die Zeilenordnung fest, und das ist mehr als
+    Kosmetik.** Ohne sie schreibt ``COPY`` die *physische* Ordnung der
+    Tabelle. Die haengt am Abfrageplan: Ein ``ORDER BY`` am Ende eines
+    ``CREATE TABLE AS`` sortiert, aber wie die sortierten Zeilen dann in der
+    Tabelle landen, entscheiden ``threads`` und
+    ``preserve_insertion_order``. Darum veraenderten beide am 13.10.2026 die
+    Parquet-Bytes - und darum war keiner der drei Auswege, die DuckDB bei
+    einem Speicherfehler vorschlaegt, benutzbar: zwei von ihnen brachen die
+    Reproduzierbarkeit, weil die auf einem Zufall ruhte statt auf einer
+    Zusage.
+
+    Mit ``ordnung`` sortiert ``COPY`` selbst. Danach haengen die Bytes am
+    Schluessel und nicht am Plan, und der Plan ist frei. Der Schluessel muss
+    **eindeutig** sein, sonst ist die Ordnung innerhalb der Gruppen wieder
+    offen und es ist nichts gewonnen.
+
+    Ohne ``ordnung`` bleibt es beim alten Verhalten. Das ist kein
+    Wohlfuehl-Vorgabewert, sondern der Stand der sechs uebrigen Aufrufer
+    (Gold, ``comparison``, ``place``, ``tract``, ``weather_day``,
+    ``source_change``): Sie brauchen je einen eigenen eindeutigen Schluessel,
+    und einen zu *raten* waere schlimmer als die heutige Lage, weil die
+    Ordnung dann stillschweigend offen bliebe. Das ist eine eigene Aenderung.
 
     **Warum die Arbeitsverzeichnisse die Prozessnummer tragen.** Sie hiessen
     bis zum 15.9.2026 fest ``.<name>.part`` und ``.<name>.superseded``, und
@@ -166,8 +205,10 @@ def publish(
 
     try:
         parquet = arbeit / PARQUET_FILE
+        quelle = (f"(SELECT * FROM {relation} ORDER BY {ordnung})"
+                  if ordnung else relation)
         con.execute(
-            f"COPY {relation} TO '{parquet}' (FORMAT PARQUET, COMPRESSION SNAPPY)"
+            f"COPY {quelle} TO '{parquet}' (FORMAT PARQUET, COMPRESSION SNAPPY)"
         )
         (arbeit / "manifest.json").write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",

@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'080** |
+| Tests | **2'088** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -100,6 +100,93 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 16.10.2026 · Die Ordnung vor den Plan, dann 256 statt 896 MB (Branch `ordnung-vor-plan`)
+
+Fünfter Anlauf an `silver crime_offense`, und diesmal gemessen statt geraten.
+
+### Was den Speicher hielt
+
+Die drei Auswege, die DuckDB bei einem Speicherfehler selbst vorschlägt, waren
+alle gesperrt — zwei verändern die Parquet-Bytes, der dritte war schon
+zweimal gehoben. Also habe ich gemessen, wo der Speicher hingeht: jede der 18
+CTEs einzeln als Tabelle materialisiert, bei einer Grenze von 256 MB.
+
+**Jede Stufe einzeln geht durch** — auch der räumliche Verbund (1,85 Mio.
+Punkte gegen 6'282 Polygone, 3,0 s) und beide Fensterfunktionen. Nur als
+**eine** Anweisung kippt es. In einer Anweisung ist jede Zwischenstufe
+gleichzeitig gepinnt; daher „failed to pin block", und daher half auch das
+Auslagerungsverzeichnis nicht — DuckDB kann nicht ablegen, was noch gebraucht
+wird.
+
+Dazu der zweite Posten: Die Datenbank lag auf `:memory:`. Eine
+`:memory:`-Datenbank **ist** der Speicher — die gebaute Tabelle und jede
+Zwischenstufe liegen darin, und `temp_directory` erreicht sie nicht.
+
+| Fassung | läuft ab |
+|---|---:|
+| wie bisher | 896 MB |
+| Ordnung im `COPY`, Plan frei | 896 MB |
+| nur Datenbank auf einer Datei | 896 MB |
+| **gestuft und auf einer Datei** | **256 MB** |
+
+Keine Hälfte genügt allein. Gemessen an 1,875 Mio. Zeilen, `threads=2`.
+
+### Die Ordnung musste zuerst festgeschrieben werden
+
+`publish` schrieb `COPY {relation} TO …` **ohne `ORDER BY`**: die physische
+Ordnung der Tabelle. Die Abfrage hatte eine Schlusssortierung, aber wie die
+sortierten Zeilen *in der Tabelle landen*, entscheiden `threads` und
+`preserve_insertion_order`. Darum veränderten beide am 13.10.2026 die Bytes —
+**die Reproduzierbarkeit ruhte auf einem Zufall, nicht auf einer Zusage.** Und
+darum war jeder Hebel gesperrt, der den Plan anfasst, das Zerlegen inbegriffen.
+
+`publish` nimmt jetzt eine `ordnung` und sortiert selbst. Danach hängen die
+Bytes am Schlüssel, und `preserve_insertion_order=false` ist frei. Die
+Schlusssortierung ist aus der Riesenanweisung heraus — sie war dort eine
+Sortierung des ganzen Endergebnisses am Ende der Pipeline, also genau an der
+teuersten Stelle.
+
+**Sechs Aufrufer nennen noch keine Ordnung** (Gold, `comparison`, `place`,
+`tract`, `weather_day`, `source_change`). Sie brauchen je einen eigenen
+eindeutigen Schlüssel, und einen zu *raten* wäre schlimmer als die heutige
+Lage: Die Ordnung bliebe dann stillschweigend offen. Eigene Änderung.
+
+### Ein Fehler, den erst die Stufung sichtbar machte
+
+Als Inline-CTE wandelte der Binder einen untypisierten NULL stillschweigend
+nach VARCHAR; als eigene Tabelle tut er es nicht. Ein Feld, das in einem Lauf
+durchgehend leer ist, kommt untypisiert zurück — pyarrow gibt ihm den
+Null-Typ, DuckDB materialisiert ihn als INTEGER, und `trim(INTEGER)` bindet
+nicht. 49 Tests fielen darüber. **Das wäre sonst auf `srv01` aufgefallen**, an
+einem Delta-Lauf ohne einen einzigen `case_status`. Detroits Rohstufe setzt
+die Typen jetzt selbst — Textfelder und Koordinaten; die beiden Epochenfelder
+bleiben, ein Cast dort verschöbe Zeitpunkte. Das ist auch die Regel des
+Projekts: Bronze deutet nichts, Silver setzt die Typen.
+
+### Gegenprobe
+
+**Byteweise dieselbe Datei**, nach jedem der vier Schritte einzeln geprüft.
+Das war das Orakel für die Zerlegung: Der SQL-Text blieb Zeichen für Zeichen
+derselbe, die Stufen heissen wie die CTEs, die sie ersetzen.
+
+Sechs Mutationsproben, alle rot. **Zwei erst nach einer Nachbesserung:** Der
+Wächter auf das liegengebliebene Bauverzeichnis sah unter `tmp_path` nach, wo
+nie etwas lag — ohne `DUCKDB_TEMP_DIRECTORY` legt der Bau es ins System-Temp.
+Und der Wächter auf die Stufung prüfte die *Form* von `build_query`; eine
+Mutation, die die Stufen wieder zu einem `WITH` zusammensetzt, liess ihn grün.
+Er zählt jetzt die ausgeführten `CREATE TABLE`.
+
+### Zahlen
+
+2'080 → **2'088 Tests**, Standardlauf 1'971 → **1'978**, Referenzwächter
+109 → **110**.
+
+**Frischklon nachgemessen**, in einem Baum ohne `data/`: **1'902 von 1'978,
+76 übersprungen, grün.** Die drei Zahlen, die dort standen — 1'868, 35
+übersprungene, 108 Wächter — waren alle veraltet.
 
 ---
 
