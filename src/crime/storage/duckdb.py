@@ -44,6 +44,7 @@ class DuckDBFehler(RuntimeError):
 # Leer heisst: nicht setzen, DuckDB entscheidet wie bisher.
 VORGABE_MEMORY_LIMIT = ""
 VORGABE_THREADS = ""
+VORGABE_TEMP_DIRECTORY = ""
 
 
 def grenzen(env: Mapping[str, str] | None = None) -> dict[str, str]:
@@ -67,6 +68,34 @@ def grenzen(env: Mapping[str, str] | None = None) -> dict[str, str]:
                 f"DUCKDB_THREADS={faeden!r} - erwartet ist eine ganze Zahl ab 1"
             )
         gesetzt["threads"] = faeden
+
+    # **Wohin DuckDB auslagert, wenn der Speicher nicht reicht.**
+    #
+    # Am 16.10.2026 starb der Serverlauf bei ``silver crime_offense``:
+    # *„could not allocate block of size 256.0 KiB (854.6 MiB/854.4 MiB
+    # used)"*. Der Container hat 1'280 MiB, DuckDB nimmt sich davon einen
+    # Teil - und ohne Auslagerungsverzeichnis bricht es ab, statt auf Platte
+    # auszuweichen.
+    #
+    # **Warum ausgerechnet diese Stellschraube.** DuckDB nennt in seiner
+    # eigenen Fehlermeldung drei: weniger Faeden, ``preserve_insertion_order``
+    # abschalten, mehr Speicher. Die zweite scheidet hier aus: ``publish``
+    # schreibt mit ``COPY {relation} TO ...`` **ohne ORDER BY**, die
+    # Zeilenfolge haengt also an der Einfuegereihenfolge - und zwei Bauten
+    # muessen byteweise gleich sein. Auslagern aendert am Ergebnis nichts,
+    # nur an der Dauer.
+    #
+    # Ein absoluter Pfad ist Pflicht: Ein relativer landete im
+    # Arbeitsverzeichnis des Prozesses, und das ist je nach Aufruf ein
+    # anderes.
+    ablage = (umgebung.get("DUCKDB_TEMP_DIRECTORY")
+              or VORGABE_TEMP_DIRECTORY).strip()
+    if ablage:
+        if not Path(ablage).is_absolute():
+            raise DuckDBFehler(
+                f"DUCKDB_TEMP_DIRECTORY={ablage!r} ist kein absoluter Pfad - "
+                f"relativ haengt er am Arbeitsverzeichnis des Aufrufs.")
+        gesetzt["temp_directory"] = ablage
 
     return gesetzt
 

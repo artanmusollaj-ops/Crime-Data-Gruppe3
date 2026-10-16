@@ -116,3 +116,68 @@ def test_keine_verbindung_umgeht_die_grenzen():
         "diese Stellen verbinden an storage.duckdb vorbei und laufen damit "
         "ohne memory_limit: " + ", ".join(gefunden)
     )
+
+
+# --------------------------------------------------------------------------
+# Das Auslagerungsverzeichnis (gefunden am 16.10.2026 auf srv01)
+# --------------------------------------------------------------------------
+
+
+def test_ein_auslagerungsverzeichnis_wird_uebernommen():
+    """Ohne es ist ``memory_limit`` eine Wand statt einer Bremse.
+
+    Am 16.10.2026 starb der Serverlauf bei ``silver crime_offense``:
+    *„could not allocate block of size 256.0 KiB (854.6 MiB/854.4 MiB
+    used)"* - und 854,4 MiB sind genau die 896 MB, die der Stapel setzt. Die
+    innere Grenze ist Absicht (sonst toetet der Kernel den Container), ihr
+    fehlte nur der Ausweg.
+    """
+    gesetzt = sd.grenzen({"DUCKDB_TEMP_DIRECTORY": "/app/data/duckdb-tmp"})
+    assert gesetzt == {"temp_directory": "/app/data/duckdb-tmp"}
+
+
+def test_ein_relatives_auslagerungsverzeichnis_wird_abgelehnt():
+    """Relativ haengt es am Arbeitsverzeichnis des Aufrufs - und das ist je
+    nach Stufe ein anderes. Ein Verzeichnis, das mal hier und mal dort
+    entsteht, ist schlimmer als keines."""
+    with pytest.raises(sd.DuckDBFehler, match="absoluter Pfad"):
+        sd.grenzen({"DUCKDB_TEMP_DIRECTORY": "duckdb-tmp"})
+
+
+def test_ohne_angabe_bleibt_das_auslagern_DuckDBs_entscheidung():
+    """Leer heisst nicht setzen - wie bei den beiden anderen Grenzen."""
+    assert "temp_directory" not in sd.grenzen({})
+    assert "temp_directory" not in sd.grenzen({"DUCKDB_TEMP_DIRECTORY": "  "})
+
+
+def test_ausgelagert_laeuft_was_sonst_am_speicher_scheitert(tmp_path):
+    """Die Zusage selbst, gemessen statt behauptet.
+
+    Dieselbe Abfrage, einmal ohne und einmal mit Auslagerungsverzeichnis -
+    bei einer Grenze, die sie nicht im Speicher schafft. Ohne das
+    Verzeichnis wirft DuckDB genau die Fehlerform von srv01.
+    """
+    duckdb = pytest.importorskip("duckdb")
+
+    def versuch(ziel: str | None) -> str | None:
+        con = duckdb.connect(":memory:")
+        try:
+            con.execute("SET memory_limit='150MB'")
+            con.execute("SET threads=2")
+            con.execute(f"SET temp_directory='{ziel or ''}'")
+            con.execute("""
+                SELECT count(*) FROM (
+                  SELECT i, repeat(md5(i::VARCHAR), 12) AS breit
+                  FROM range(2500000) AS t(i) ORDER BY breit)""")
+            return None
+        except duckdb.Error as fehler:
+            return str(fehler)
+        finally:
+            con.close()
+
+    ohne = versuch(None)
+    assert ohne is not None and "Out of Memory" in ohne, (
+        "ohne Auslagerung lief die Abfrage durch - dann misst dieser Test "
+        f"nichts mehr: {ohne}")
+    assert versuch(str(tmp_path)) is None, (
+        "mit Auslagerung scheiterte sie trotzdem")

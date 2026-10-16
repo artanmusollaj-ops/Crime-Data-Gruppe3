@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'031** |
+| Tests | **2'036** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -103,6 +103,54 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 16.10.2026 · DuckDB lagert aus, statt abzubrechen (Branch `duckdb-lagert-aus`)
+
+Der Serverlauf kam zum ersten Mal bis **Stufe 10 von 14** — die Behebung von
+#153 trägt. Dort scheiterte er neu:
+
+```
+_duckdb.OutOfMemoryException: could not allocate block of size 256.0 KiB
+                              (854.6 MiB/854.4 MiB used)
+```
+
+**854,4 MiB sind genau die 896 MB**, die `docker-compose.srv01.yml` als
+`DUCKDB_MEMORY_LIMIT` setzt. Die Grenze ist also Absicht und richtig: Ohne
+sie rechnet DuckDB mit dem Speicher der **Maschine**, nicht des Containers,
+und der Kernel tötet den Prozess, statt ihn zu bremsen. Ihr fehlte nur der
+Ausweg — ohne Auslagerungsverzeichnis ist sie eine **Wand** statt einer
+Bremse.
+
+**Warum ausgerechnet diese Stellschraube.** DuckDB nennt in seiner eigenen
+Fehlermeldung drei. Zwei scheiden aus: `preserve_insertion_order=false`
+änderte die Zeilenfolge, und `publish` schreibt mit
+`COPY {relation} TO …` **ohne `ORDER BY`** — zwei Bauten müssen byteweise
+gleich sein. Mehr Speicher gäbe es nur auf Kosten anderer Dienste; am 6.10.
+belegten 31 Container 3'605 von 4'325 MiB. Auslagern ändert am Ergebnis
+nichts, nur an der Dauer.
+
+**Gemessen statt behauptet.** Dieselbe Abfrage bei 150 MB Grenze, einmal
+ohne und einmal mit Auslagerungsverzeichnis:
+
+```
+ohne : Out of Memory Error: failed to allocate data of size 256.0 KiB
+mit  : durchgelaufen, 2'500'000 Zeilen
+```
+
+Das steht als Test in der Suite, nicht nur in diesem Eintrag.
+
+**Jupyter bekommt es auch** — mit einem eigenen Verzeichnis auf
+`jupyter-arbeit`. **Nicht** nach `/app/data`: Dort hängt der
+Arbeitsdatenträger schreibgeschützt, und DuckDB wäre beim Auslagern
+gescheitert statt bei der Abfrage, also eine Verschlimmbesserung. Ein
+Wächter prüft deshalb nicht nur, *dass* ein Verzeichnis gesetzt ist, sondern
+dass es auf einem **beschreibbaren** Datenträger des Dienstes liegt —
+gelesen aus seinen Einhängungen, nicht aus einer Liste im Test.
+
+**Zahlen.** 2'031 → **2'036 Tests**, Standardlauf 1'922 → **1'927**,
+Referenzwächter unverändert **109**.
+
+---
+
 ## 15.10.2026 · Kein Stufenmodul liest seinen Schlussbericht vom Dateisystem (Branch `schlussbericht-ueber-die-ablage`)
 
 **Der Serverlauf starb zum dritten Mal an derselben Stelle.** Am 15.10.2026:
@@ -139,7 +187,7 @@ genau deshalb ist der Fehler so lange durchgerutscht: **Lokal fällt er nie
 auf.** Ein sechstes Modul taucht von selbst in der Liste auf, sobald es
 publiziert.
 
-**Zahlen.** 2'023 → **2'031 Tests**, Standardlauf 1'914 → **1'922**,
+**Zahlen.** 2'023 → **2'036 Tests**, Standardlauf 1'914 → **1'927**,
 Referenzwächter unverändert **109**.
 
 ---
@@ -357,8 +405,8 @@ dieselbe Aussage in zwei Dokumenten mit einem Wächter nur über einem.
 Zeilenzahl **und** jeden Bretttitel gegen `BRETTER`. Drei Proben dagegen, alle
 rot.
 
-**Zahlen.** 1'973 → **2'031 Tests**, Standardlauf 1'865 → **1'922**,
-Referenzwächter **108 → 109**, Frischklon **1'868 der 1'922** — gemessen in
+**Zahlen.** 1'973 → **2'036 Tests**, Standardlauf 1'865 → **1'927**,
+Referenzwächter **108 → 109**, Frischklon **1'868 der 1'927** — gemessen in
 einem lokalen Klon des Branches. Der grösste Teil des Zuwachses sind keine
 neuen Testfunktionen, sondern dieselben Wächter über mehr Kacheln: Drei
 Bretter mit zusammen neun Tafeln kommen dazu, und sieben Wächter laufen je
