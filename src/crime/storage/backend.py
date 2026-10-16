@@ -976,7 +976,7 @@ class Storage:
         self._entwerte_entferntes_manifest(rel)
         oben = self.publish_files(self._dateien_unter(rel), ueberschreiben=True)
         self._entfernte_manifeste.pop(rel, None)
-        self._lokal_entfernen_falls_s3(rel)
+        self._lokal_entfernen_falls_s3(rel, aufschiebbar=True)
         return oben
 
     def _entwerte_entferntes_manifest(self, rel: str) -> None:
@@ -1174,10 +1174,67 @@ class Storage:
             LOG.info("Removed from S3: %s", key)
         return geloescht
 
-    def _lokal_entfernen_falls_s3(self, rel: str) -> None:
-        if self.backend == "s3":
-            shutil.rmtree(self.local_path(rel), ignore_errors=True)
-            LOG.info("Local working copy removed (STORAGE_BACKEND=s3): %s", rel)
+    def _lokal_entfernen_falls_s3(self, rel: str, *,
+                                  aufschiebbar: bool = False) -> None:
+        """``aufschiebbar`` gilt nur fuer **Tabellen**, nie fuer Laeufe.
+
+        Ein Lauf ist unveraenderlich und laesst sich jederzeit wieder holen;
+        ihn lokal zu behalten haeuft nur an - 141 Bronze-Laeufe waren am
+        16.10.2026 der Grund, warum der Silver-Bau erstickte. Eine Tabelle
+        dagegen braucht das Release, und das wird aus dem lokalen Stand
+        gebildet. Deshalb entscheidet nicht der Schalter allein, sondern auch,
+        **was** publiziert wurde: Ein global gesetztes
+        ``STORAGE_KEEP_LOCAL`` kann Raw und Bronze nicht lokal halten.
+        """
+        if self.backend != "s3":
+            return
+        if aufschiebbar and self.config.keep_local:
+            # Aufgeschoben, nicht aufgehoben: ``orchestration.run_all``
+            # entfernt die Kopien nach dem Release in einem Zug. Begruendung
+            # an ``Config.keep_local``.
+            LOG.info("Local working copy kept (STORAGE_KEEP_LOCAL): %s", rel)
+            return
+        shutil.rmtree(self.local_path(rel), ignore_errors=True)
+        LOG.info("Local working copy removed (STORAGE_BACKEND=s3): %s", rel)
+
+    def arbeitskopien_entfernen(
+        self, schichten: tuple[str, ...] = ("silver", "gold", "serving")
+    ) -> list[str]:
+        """Die lokalen Arbeitskopien publizierter Tabellen entfernen.
+
+        Das Gegenstueck zu ``keep_local``: Was die Stufen behalten haben,
+        damit das Release es findet, geht hier weg - **nachdem** das Release
+        gebildet ist.
+
+        **Entfernt wird nur, was oben wirklich liegt.** Je Tabelle wird das
+        entfernte Manifest gefragt; fehlt es, bleibt die Kopie. Sonst wuerde
+        eine Tabelle, deren Upload scheiterte, hier verschwinden - und waere
+        nirgends mehr. Das ist der Unterschied zwischen Aufraeumen und
+        Datenverlust, und er kostet eine Abfrage je Tabelle.
+
+        Ausserhalb von ``s3`` tut die Methode nichts: In ``local`` gibt es
+        kein Oben, in ``hybrid`` ist die lokale Kopie der Bestand.
+        """
+        if self.backend != "s3":
+            return []
+        weg: list[str] = []
+        for schicht in schichten:
+            wurzel = self.local_path(schicht)
+            if not wurzel.is_dir():
+                continue
+            for manifest in sorted(wurzel.rglob(MANIFEST)):
+                verzeichnis = manifest.parent
+                rel = self.relativ(verzeichnis)
+                if rel is None:
+                    continue
+                if not self.exists(rel, MANIFEST):
+                    LOG.warning(
+                        "Nicht oben, lokale Kopie bleibt: %s", rel)
+                    continue
+                shutil.rmtree(verzeichnis, ignore_errors=True)
+                LOG.info("Local working copy removed after release: %s", rel)
+                weg.append(rel)
+        return weg
 
 
 #: ``fnmatch.translate`` haengt ans Ende jedes Musters einen Anker fuer das

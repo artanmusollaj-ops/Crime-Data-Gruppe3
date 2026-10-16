@@ -248,9 +248,43 @@ def test_die_kennzahlen_sind_gemessen_worden(kennzahlen):
         assert pflicht in kennzahlen, f"{pflicht} fehlt in der Messung"
 
 
-def test_keine_dokumentzahl_ist_eine_veraltete_kennzahl(kennzahlen, fundstellen):
+@pytest.fixture(scope="module")
+def testzahlen() -> set[int]:
+    """Die Testzahlen dieses Laufs - gesammelt, nicht getippt.
+
+    **Warum sie hier gebraucht werden.** Dieser Waechter sucht Zahlen, die
+    einer Kennzahl *aehnlich* sind, und haelt sie fuer deren veraltete
+    Fassung. Am 17.10.2026 traf das die Testzahl selbst: **2'100 Tests** liegt
+    drei Zeilen neben ``gold/dim_date`` = 2'103, und die Toleranz ist drei
+    Promille. Die Dokumente waren richtig, der Waechter nicht.
+
+    ``SCHUTZ`` waere die falsche Antwort: Dort stehen Zahlen, die veralten
+    *sollen*. Eine Testzahl soll das nicht - sie hat eigene Waechter
+    (``test_readme_nennt_die_testzahl``, ``test_der_kopf_nennt_die_testzahl``,
+    ``test_die_testzahl_in_der_tabelle_stimmt``). Sie ist keine Kennzahl der
+    Daten, und eine Zahl, die *heute* die richtige Testzahl ist, kann keine
+    veraltete Fassung von irgendetwas sein.
+
+    Gesammelt in einem eigenen Prozess, wie in ``test_referenzstand_marker``:
+    pytest laesst sich nicht in sich selbst starten.
+    """
+    # Der Pfad, damit es *eine* Fassung des Sammellaufs gibt und nicht zwei:
+    # ``tests/`` liegt nicht auf ``sys.path``, die Nachbardatei haelt die
+    # Feinheiten (kein zweites ``-q``, kein ``.pytest_cache``).
+    import sys
+
+    if str(Path(__file__).parent) not in sys.path:
+        sys.path.insert(0, str(Path(__file__).parent))
+    from test_referenzstand_marker import sammle
+
+    ausgewaehlt, abgewaehlt = sammle()
+    return {ausgewaehlt, abgewaehlt, ausgewaehlt + abgewaehlt}
+
+
+def test_keine_dokumentzahl_ist_eine_veraltete_kennzahl(
+        kennzahlen, fundstellen, testzahlen):
     """Nahe an einer Kennzahl, aber keine - das ist ihre veraltete Fassung."""
-    gueltig = set(kennzahlen.values())
+    gueltig = set(kennzahlen.values()) | testzahlen
     beanstandet: list[str] = []
     for datei, zeile, roh in fundstellen:
         wert = _wert(roh)

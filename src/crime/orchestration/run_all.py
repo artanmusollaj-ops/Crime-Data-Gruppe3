@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import subprocess
 import sys
 import time
@@ -370,18 +371,30 @@ def auswahl(ohne_ingestion: bool, bis: str | None,
 
 
 def fahre(stufen: list[Stufe], projekt_root: Path,
-          data_root: Path | None = None) -> list[dict]:
+          data_root: Path | None = None, *,
+          behalte_lokal: bool = False) -> list[dict]:
     """Eine Stufe nach der anderen. Beim ersten Fehler ist Schluss.
 
     Weiterzulaufen waere schlimmer als abzubrechen: Die naechste Stufe baute
     auf einem halben Stand und meldete Erfolg.
+
+    **``behalte_lokal`` muss ueber die Umgebung gehen und nicht im Prozess.**
+    Jede Stufe ist ein eigener Prozess (``sys.executable -m ...``), und was
+    hier an einer ``Config`` gesetzt wuerde, saehe keine von ihnen. Gesetzt
+    wird es, wenn ein Release folgt: Dann brauchen die Stufen ihre lokalen
+    Arbeitskopien noch, weil ``storage.release.sammle`` das Dateisystem liest.
+    Am 16.10.2026 fehlten dem Release sieben Gold-Tabellen bei einer gruenen
+    Strecke, weil jede Stufe ihre Kopie sofort entfernt hatte.
     """
+    umgebung = None
+    if behalte_lokal:
+        umgebung = dict(os.environ, STORAGE_KEEP_LOCAL="1")
     protokoll: list[dict] = []
     for i, stufe in enumerate(stufen, 1):
         LOG.info("[%d/%d] %s · %s", i, len(stufen), stufe.gruppe, stufe.name)
         befehl = stufe.befehl(data_root)
         start = time.perf_counter()
-        fertig = subprocess.run(befehl, cwd=projekt_root)
+        fertig = subprocess.run(befehl, cwd=projekt_root, env=umgebung)
         dauer = round(time.perf_counter() - start, 1)
         protokoll.append({
             "gruppe": stufe.gruppe,
@@ -470,6 +483,14 @@ def lauf(data_root: Path, projekt_root: Path, *,
     geladen = [s for s in stufen if s.gruppe == "ingestion"]
     abgeleitet = [s for s in stufen if s.gruppe != "ingestion"]
 
+    # Folgt ein Release, brauchen die abgeleiteten Stufen ihre lokalen
+    # Arbeitskopien noch: ``storage.release.sammle`` liest das Dateisystem.
+    # Nur sie - die Ingestion publiziert Laeufe, und die sollen weiterhin
+    # sofort weg (``Storage._lokal_entfernen_falls_s3``).
+    folgt_release = bis is None and (
+        release is True or (release is None and ablage.config.publiziert))
+    behalte_lokal = folgt_release and ablage.backend == "s3"
+
     protokoll: list[dict] = []
     if not zu_alt and holen_gescheitert is None:
         protokoll = fahre(geladen, projekt_root, data_root)
@@ -483,26 +504,40 @@ def lauf(data_root: Path, projekt_root: Path, *,
                           alterssatz(quelle, tage, maximal_alter_tage))
 
         if ingestion_ok and not zu_alt:
-            protokoll += fahre(abgeleitet, projekt_root, data_root)
+            protokoll += fahre(abgeleitet, projekt_root, data_root,
+                               behalte_lokal=behalte_lokal)
 
     gelaufen = all(s["exit"] == 0 for s in protokoll) and len(protokoll) == len(stufen)
 
     geschafft = gelaufen and not zu_alt and holen_gescheitert is None
 
     freigabe: dict | None = None
-    if geschafft and bis is None:
-        if release is True or (release is None and ablage.config.publiziert):
-            from orchestration import release as release_modul
-            try:
-                freigabe = release_modul.bilde_und_publiziere(
-                    data_root, ablage, jahre)
-                LOG.info("Release %s: %d Dateien%s", freigabe["release_id"],
-                         freigabe["files"],
-                         ", publiziert" if freigabe["published"] else ", nur lokal")
-            except StorageError as fehler:
-                LOG.error("Release gescheitert: %s", fehler)
-                freigabe = {"status": "failed", "error": str(fehler)}
-                geschafft = False
+    if geschafft and folgt_release:
+        from orchestration import release as release_modul
+        try:
+            freigabe = release_modul.bilde_und_publiziere(
+                data_root, ablage, jahre)
+            LOG.info("Release %s: %d Dateien%s", freigabe["release_id"],
+                     freigabe["files"],
+                     ", publiziert" if freigabe["published"] else ", nur lokal")
+        except StorageError as fehler:
+            LOG.error("Release gescheitert: %s", fehler)
+            freigabe = {"status": "failed", "error": str(fehler)}
+            geschafft = False
+
+    # Jetzt, und nicht in den Stufen: Was ``behalte_lokal`` aufgeschoben hat,
+    # geht hier weg - aber nur, was oben wirklich liegt
+    # (``Storage.arbeitskopien_entfernen`` fragt je Tabelle nach).
+    #
+    # **Auch nach einem gescheiterten Release.** Dann ist der lokale Stand
+    # kein Gewinn: Er ist oben schon vollstaendig, und ein naechster Lauf
+    # baut ihn neu. Ihn liegen zu lassen hiesse, dass ein Modus, der "ohne
+    # lokalen Bestand" heisst, nach jedem Fehlschlag einen behaelt.
+    if behalte_lokal:
+        weg = ablage.arbeitskopien_entfernen()
+        if weg:
+            LOG.info("%d lokale Arbeitskopie(n) nach dem Release entfernt",
+                     len(weg))
 
     # Der Bestand fuer das Manifest liest im Hybridmodus auch S3. Faellt die
     # Ablage aus, ist das kein Grund fuer einen Traceback: Der Lauf ist dann
