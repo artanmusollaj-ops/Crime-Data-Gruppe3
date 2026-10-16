@@ -1918,17 +1918,22 @@ def test_der_schlussbericht_liest_ueber_die_ablage_nicht_ueber_den_pfad(
     in_der_ablage = tmp_path / "ablage-manifest.json"
     in_der_ablage.write_text(json.dumps(inhalt), encoding="utf-8")
 
-    gefragt: list[tuple] = []
+    gefragt: list = []
 
-    def ablage(_storage, *teile):
-        gefragt.append(teile)
-        return json.loads(in_der_ablage.read_text(encoding="utf-8"))
+    class Ablage:
+        """Eine Ablage, deren lokale Kopie weg ist - wie nach s3-Publikation."""
 
-    monkeypatch.setattr(bg, "manifest_von", ablage)
+        local_root = tmp_path
+
+        def tabellen_manifest(self, ziel):
+            gefragt.append(ziel)
+            return json.loads(in_der_ablage.read_text(encoding="utf-8"))
+
+    monkeypatch.setattr(bg, "for_root", lambda *a, **k: Ablage())
     monkeypatch.setattr(bg, "build", lambda *a, **k: {
         "fact_offense": weggeraeumt})
     monkeypatch.setattr(sys, "argv", ["build_gold"])
 
     assert bg.main() == 0, "der Schlussbericht hat den weggeraeumten Pfad gelesen"
-    assert gefragt, "die Ablage wurde gar nicht gefragt"
-    assert gefragt[0][1:] == ("dataset=fact_offense", "manifest.json"), gefragt
+    assert gefragt == [weggeraeumt], (
+        "die Ablage wurde nicht nach der Tabelle gefragt: " + repr(gefragt))

@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'023** |
+| Tests | **2'031** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -100,6 +100,47 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 15.10.2026 · Kein Stufenmodul liest seinen Schlussbericht vom Dateisystem (Branch `schlussbericht-ueber-die-ablage`)
+
+**Der Serverlauf starb zum dritten Mal an derselben Stelle.** Am 15.10.2026:
+
+```
+ERROR Silver-Aufbau fehlgeschlagen: Invalid manifest:
+      data/silver/dataset=tract/vintage=2021/manifest.json
+ERROR silver · tract_2021 ist mit 1 gescheitert. Abgebrochen.
+```
+
+Dieselbe Meldung wie am 12.10., damals ohne erkennbare Ursache — der Lauf
+hatte Bronze vollständig publiziert, genau ein Silver-Objektpaar geschrieben
+und dann aufgehört. Jetzt ist klar, warum: `publish_table` entfernt im
+s3-Modus die lokale Arbeitskopie, und der Schlussbericht in `main` las
+trotzdem den Pfad, den `build` zurückgegeben hatte. **Die Tabelle war sauber
+publiziert; nur der Bericht darüber fiel.** Exitcode 1, und für
+`orchestration.run_all` ein gescheiterter Lauf.
+
+**Fünf Module hatten denselben Fehler** — `build_tract`, `build_place`,
+`build_weather_day`, `build_source_change` und `build_gold`. Den fünften habe
+ich nicht selbst gefunden: Der Wächter hat ihn gemeldet, während ich die
+anderen vier umstellte.
+
+Deshalb steht die Antwort jetzt an **einer** Stelle und nicht fünfmal:
+`Storage.tabellen_manifest(ziel)` fragt die Ablage nach dem Manifest einer
+publizierten Tabelle — lokal oder oben, je nach Modus. Wer eine Tabelle
+publiziert, fragt die Ablage, nicht das Dateisystem.
+
+**Der Wächter liest den Quelltext, nicht die Daten.**
+`tests/test_schlussbericht.py` findet die Stufenmodule selbst (alles, was
+`publish_table` oder `publish` ruft) und verbietet `read_manifest` innerhalb
+von `main`. Statisch, weil ein Lauf im s3-Modus SeaweedFS bräuchte — und
+genau deshalb ist der Fehler so lange durchgerutscht: **Lokal fällt er nie
+auf.** Ein sechstes Modul taucht von selbst in der Liste auf, sobald es
+publiziert.
+
+**Zahlen.** 2'023 → **2'031 Tests**, Standardlauf 1'914 → **1'922**,
+Referenzwächter unverändert **109**.
 
 ---
 
@@ -316,8 +357,8 @@ dieselbe Aussage in zwei Dokumenten mit einem Wächter nur über einem.
 Zeilenzahl **und** jeden Bretttitel gegen `BRETTER`. Drei Proben dagegen, alle
 rot.
 
-**Zahlen.** 1'973 → **2'023 Tests**, Standardlauf 1'865 → **1'914**,
-Referenzwächter **108 → 109**, Frischklon **1'868 der 1'914** — gemessen in
+**Zahlen.** 1'973 → **2'031 Tests**, Standardlauf 1'865 → **1'922**,
+Referenzwächter **108 → 109**, Frischklon **1'868 der 1'922** — gemessen in
 einem lokalen Klon des Branches. Der grösste Teil des Zuwachses sind keine
 neuen Testfunktionen, sondern dieselben Wächter über mehr Kacheln: Drei
 Bretter mit zusammen neun Tafeln kommen dazu, und sieben Wächter laufen je

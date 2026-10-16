@@ -60,7 +60,6 @@ from silver_pipeline import (
     connect,
     newest_complete_run,
     publish,
-    read_manifest,
     schema_of,
 )
 from weather_pipeline import STATIONS
@@ -447,8 +446,14 @@ def build(data_root: Path, stations: list[str]) -> Path:
 def main() -> int:
     args = arguments()
     try:
-        ziel = build(for_root(args.data_root).local_root, args.station)
-        manifest = read_manifest(ziel)
+        # Ueber die Ablage und nicht ueber den Pfad: ``publish_table``
+        # entfernt im s3-Modus die lokale Arbeitskopie, und dieser
+        # Schlussbericht las sie trotzdem - jeder Lauf endete dort mit
+        # "Invalid manifest" und Exitcode 1, obwohl die Tabelle sauber
+        # publiziert war. Siehe ``Storage.tabellen_manifest``.
+        ablage = for_root(args.data_root)
+        ziel = build(ablage.local_root, args.station)
+        manifest = ablage.tabellen_manifest(ziel)
         log.info("Silver-Tabelle geschrieben: %s", ziel)
         log.info("  Zeilen: %s", f"{manifest['row_count']:,}")
         for abdeckung in manifest["coverage"]:
