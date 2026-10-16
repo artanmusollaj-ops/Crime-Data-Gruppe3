@@ -103,6 +103,53 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 16.10.2026 · Gemessen: die Delta-Kette hält, nicht Regel 4 (direkt auf main)
+
+Der erste Trockenlauf von `aufraeumen` auf `srv01` mit sehendem Blick nach
+oben — und er widerlegt die Begründung, mit der ich zwei Stunden vorher die
+Historisierung in `run_all` gehängt habe.
+
+**158 Läufe, einer entbehrlich, 24.5 MB frei.** Die Gründe, gezählt:
+
+| Regel | Grund | Läufe |
+|---:|---|---:|
+| 3 | Basis eines Delta-Laufs | **99** (97 davon selbst Deltas) |
+| 0 | Referenzstand | 21 |
+| 2 | von Silver genannt | 15 |
+| 1 | jüngster / vorheriger Schnappschuss | 12 |
+| 4 | Unterschied nicht gezogen | **10** |
+| 5 | entbehrlich | 1 |
+
+**Regel 4 hält zehn Läufe, nicht 141.** Was festhält, ist die **Delta-Kette**:
+Beide Städte laden seit dem ersten Vollabzug nur Änderungen, und ein Delta,
+das bleibt, hält alles darunter fest — bis zum nächsten Vollabzug
+(`aufraeumen`, Regel 3). `build_source_change` laufen zu lassen gibt zehn
+Läufe frei. Die Kette rührt es nicht an.
+
+**Was die Kette bricht, ist ein Vollabzug.** `docker/srv01-datenlauf.sh` fährt
+vom 8. bis 14. jeden Monats `full`. Genau diese Läufe sind am Speicher
+gescheitert — deshalb liegt der jüngste Vollabzug weit zurück und alles
+darüber hängt. Ein einziger durchgelaufener Vollabzug macht die 97 Deltas
+darunter auf einen Schlag entbehrlich.
+
+**Damit kehrt sich die Reihenfolge um.** Ich hatte „erst aufräumen, dann
+bauen" gesagt, weil ich den Stau für die Ursache des Speicherproblems hielt.
+Richtig ist: erst bauen, und das Aufräumen ist die *Folge* eines geglückten
+Laufs. Aufräumen ist nicht der Hebel gegen den Speicher — 24.5 MB heute,
+geschätzt 80 MB nach einer Historisierung, gegenüber 854 MB Grenze.
+
+**Woran der Fehler lag.** Ich habe die Regelliste gelesen und die Regel
+gewählt, die zur Erzählung passte, statt die Verteilung zu messen. Der
+Trockenlauf, der sie zeigt, war die ganze Zeit einen Befehl weit — und `-v`
+ist dabei unbrauchbar, weil es den Wurzel-Logger auf DEBUG stellt und botocore
+mitredet (eigener Eintrag, sobald behoben).
+
+Keine Codeänderung, zwei Dokumentkorrekturen: die Ursachenbehauptung im
+Eintrag darunter und die geschätzte Freigabemenge im Eintrag vom
+`aufraeumen-auch-fern`-Branch.
+
+---
+
 ## 16.10.2026 · Die Historisierung läuft mit, und zwei Regeln sehen wieder (Branch `historisierung-laeuft-mit`)
 
 Christian fragte vor dem Löschen: *„Werden die historischen Änderungen vorher
@@ -114,10 +161,13 @@ und niemand dachte daran. Eine Historisierung, die von einem Merkzettel
 abhängt, ist keine. Sie ist jetzt Stufe 36, **nach** `crime_offense` (beide
 lesen dieselben Schnappschüsse) und **vor** Gold.
 
-Das erklärt auch den Stau: `aufraeumen` hält nach Regel 4 jeden
-Vollschnappschuss fest, bis sein Unterschied gezogen ist. Wenn nie jemand
-zieht, bleibt alles — 141 Bronze-Läufe, an denen der Silver-Bau erstickte.
-Der Rohstoff staute sich, weil ihn niemand verarbeitete.
+Ich hielt das zuerst für die Ursache des Staus auf `srv01`: Regel 4
+hält jeden Vollschnappschuss fest, bis sein Unterschied gezogen ist, also
+müsste der Stau daherkommen, dass nie jemand zieht. **Das war falsch, und der
+erste Trockenlauf hat es widerlegt** — siehe den Eintrag darunter, „Gemessen:
+die Delta-Kette hält, nicht Regel 4". Regel 4 hält zehn von 158 Läufen. Dass
+die Historisierung in keinem Bauplan stand, bleibt ein Mangel; der Stau hat
+einen anderen Grund.
 
 **Zwei der fünf Regeln lasen noch lokal** — und im `s3`-Modus liegt lokal
 nichts:
@@ -164,8 +214,10 @@ Läufe nach, von 56 auf 141.
 **Das Werkzeug dagegen gab es längst.** `orchestration.aufraeumen` kennt fünf
 Regeln — gepinnt bleibt, die zwei jüngsten bleiben, was Silver nennt bleibt,
 die Basis eines Deltas bleibt, und ein Vollschnappschuss bleibt, bis
-`build_source_change` seinen Unterschied gezogen hat. Nach diesen Regeln wären
-von 141 Läufen rund zwölf übrig.
+`build_source_change` seinen Unterschied gezogen hat. Wie viele Läufe diese
+Regeln freigeben, war hier **geschätzt** („rund zwölf übrig") und ist am
+16.10.2026 nachgemessen worden: **einer von 158**. Die Schätzung hatte die
+Delta-Kette nicht gerechnet.
 
 **Es sah sie nur nicht.** `bestaende()` las `data_root/bronze` über das
 Dateisystem — und im `s3`-Modus gibt es dort nichts, weil die Arbeitskopie

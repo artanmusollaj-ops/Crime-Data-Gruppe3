@@ -651,10 +651,16 @@ def loesche(entscheide: list[Entscheid], data_root: Path, *,
     **Warum es das ferne Loeschen braucht.** Bis zum 16.10.2026 raeumte
     dieses Werkzeug nur lokal auf - und im ``s3``-Modus gibt es lokal nichts,
     weil die Arbeitskopie nach dem Publizieren entfernt wird. Auf ``srv01``
-    haeuften sich deshalb Laeufe an, die die Regeln oben laengst freigeben:
-    141 Parquet-Dateien, zehn Vollschnappschuesse je Jahrgang. Der
-    Silver-Bau erstickte daran, und jeder gescheiterte Versuch legte zwei
-    weitere nach.
+    haeuften sich deshalb Laeufe an, ohne dass es jemand sah: 141
+    Parquet-Dateien, zehn Vollschnappschuesse je Jahrgang, und jeder
+    gescheiterte Versuch legte zwei weitere nach.
+
+    **Freigeben tun die Regeln davon wenig** - der erste Trockenlauf mit
+    sehendem Blick nach oben zaehlte am 16.10.2026 *einen* entbehrlichen Lauf
+    von 158. Was haelt, ist Regel 3: Beide Staedte laden nur Deltas, und ein
+    Delta haelt alles bis zum naechsten Vollabzug. Dieses Werkzeug macht den
+    Bestand also zuerst *sichtbar*; aufgeloest wird die Kette von einem
+    geglueckten Vollabzug, nicht von hier.
 
     Leer gewordene Partitionsverzeichnisse (``ingest_date=...``) gehen lokal
     mit; die Schichtwurzeln ``raw/`` und ``bronze/`` bleiben. Oben gibt es
