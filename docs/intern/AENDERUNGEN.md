@@ -103,6 +103,50 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 16.10.2026 · DuckDB darf 1,5 GB, und das Auslagern war nicht die Rettung (direkt auf main)
+
+Drei Läufe starben bei `silver crime_offense` an derselben Zahl:
+**854.6 MiB/854.4 MiB used** — das sind genau die 896 MB aus
+`DUCKDB_MEMORY_LIMIT`. Zwischen dem zweiten und dritten Lauf hat das
+Aufräumen den gelesenen Bestand gedrittelt (141 → 52 Läufe, Chicago 73 → 26,
+Detroit 68 → 26). **Dieselbe Wand.** Die Menge war nicht der Treiber.
+
+`dmesg` zeigte keinen OOM-Killer, nur UFW-Blöcke. Es war nie der Host — immer
+DuckDBs eigene Grenze, bei 3'726 MiB freiem Arbeitsspeicher.
+
+**Eine Behauptung von vorgestern ist damit widerlegt.** Im Wächter zu den
+Grenzen stand *„Nachgemessen: dieselbe Abfrage scheitert ohne und läuft mit
+`temp_directory`"*. Sie läuft nicht. Mit gesetztem Auslagerungsverzeichnis
+(`/app/data/duckdb-tmp`, im Log bestätigt) ist sie zweimal weiter an
+derselben Grenze gescheitert. Auslagern hilft, wo DuckDB auslagern *kann*;
+dieser Plan hat offenbar einen Operator, der es nicht kann — die
+Fensterfunktion über `SELECT *` oder der räumliche Verbund sind die
+Kandidaten. Das Verzeichnis bleibt verlangt: ohne ist die Grenze sicher eine
+Wand, mit ist sie es manchmal.
+
+**Gehoben.** `DUCKDB_MEMORY_LIMIT` 896MB → **1536MB**, `mem_limit` des
+Dienstes 1'280 → **2'048 MiB**. Von den drei Auswegen, die DuckDB selbst
+vorschlägt, ist das der einzige, der die Parquet-Bytes **nicht** ändert:
+`threads` und `preserve_insertion_order` tun es, am 13.10.2026 gemessen, und
+würden die Reproduzierbarkeitswächter brechen. Das Budget der Messung vom
+6.10.2026 trägt es — Dauerbetrieb 2'848 MiB plus das grösste Zeitweilige
+2'048 macht 4'896 von 5'116 MiB.
+
+**Was das nicht ist: eine Lösung.** Eine Grenze zu heben verschiebt die Wand,
+sie entfernt sie nicht. Der Bedarf wächst mit dem Bestand, und 2024 trägt
+allein 18 Vollschnappschüsse. Offen bleibt das Zerlegen der einen grossen
+`CREATE TABLE AS` in Stufen und das Verengen der Spalten vor der
+Fensterfunktion — `chicago_roh` zieht heute `SELECT *` durch
+`row_number() OVER (PARTITION BY id)`, und das puffert jede Spalte.
+
+Dazu ein zweiter Verdacht, noch nicht geprüft: Weil `chicago_sources` **alle**
+Vollschnappschüsse liest und die Entdoppelung den jüngsten `updated_on`
+gewinnen lässt, überlebt ein an der Quelle gelöschter Datensatz. Bei einem
+Vollabzug heisst Abwesenheit „gelöscht", nicht „unverändert". Das wäre ein
+Fehler im Ergebnis, nicht nur im Verbrauch.
+
+---
+
 ## 16.10.2026 · Gemessen: die Delta-Kette hält, nicht Regel 4 (direkt auf main)
 
 Der erste Trockenlauf von `aufraeumen` auf `srv01` mit sehendem Blick nach

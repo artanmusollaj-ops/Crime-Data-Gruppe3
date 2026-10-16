@@ -347,10 +347,20 @@ services:
       # **Maschine** - nicht des Containers -, und das waeren hier 6,3 GiB auf
       # einer Maschine mit fuenfzehn Nachbardiensten. Das Container-Limit
       # allein genuegt nicht: Es toetet den Prozess, statt ihn zu bremsen.
-      # 896 MiB von 1'280 MiB lassen dem Interpreter, pyarrow und pyogrio den
-      # Rest; zwei Threads von vier vCPU, weil jeder Thread eigene Puffer
-      # haelt.
-      DUCKDB_MEMORY_LIMIT: 896MB
+      # Zwei Threads von vier vCPU, weil jeder Thread eigene Puffer haelt.
+      #
+      # **16.10.2026: von 896MB auf 1536MB.** Drei Laeufe starben bei
+      # ``silver crime_offense`` an genau dieser Grenze ("854.6 MiB/854.4 MiB
+      # used"), der dritte, nachdem das Aufraeumen die gelesenen Laeufe von
+      # 141 auf 52 gedrittelt hatte - die Menge war also nicht der Treiber.
+      # ``dmesg`` zeigte keinen OOM-Killer: Es war immer DuckDBs eigene
+      # Grenze, nie der Host. Von den drei Auswegen, die DuckDB vorschlaegt,
+      # ist dies der einzige, der die Parquet-Bytes **nicht** aendert;
+      # ``threads`` und ``preserve_insertion_order`` tun es, gemessen am
+      # 13.10.2026, und wuerden die Reproduzierbarkeitswaechter brechen.
+      # 1'536 MB von 2'048 MiB lassen dem Interpreter, pyarrow und pyogrio
+      # den Rest.
+      DUCKDB_MEMORY_LIMIT: 1536MB
       DUCKDB_THREADS: "2"
     volumes:
       # Arbeitsraum, kein Bestand: Im Modus s3 ist SeaweedFS der Bestand, und
@@ -368,8 +378,16 @@ services:
       # nginx liefert aus seiner Wurzel alles aus, was darin liegt. Nach dem
       # Lauf traegt der Datentraeger genau unsere eine Datei.
       - startseite:/app/startseite
-    # FR-13, gemessen am 6.10.2026: 1,25 GiB. Zeitweilig, nicht Dauerbetrieb.
-    mem_limit: 1280m
+    # **Am 16.10.2026 von 1,25 auf 2 GiB erhoeht**, weil die innere
+    # DuckDB-Grenze darunter liegen muss und 896 MB dreimal nicht gereicht
+    # haben (Begruendung oben bei DUCKDB_MEMORY_LIMIT). Gegen das heute
+    # Verfuegbare (3'726 MiB) ist das eine Obergrenze, keine Reservierung:
+    # belegt waren im Lauf 854 MiB.
+    #
+    # FR-13, Budget gemessen am 6.10.2026 - Dauerbetrieb 2'848 MiB plus das
+    # groesste Zeitweilige 2'048 macht 4'896 von 5'116 MiB. Zeitweilig, nicht
+    # Dauerbetrieb.
+    mem_limit: 2048m
     security_opt:
       - no-new-privileges:true
     logging:

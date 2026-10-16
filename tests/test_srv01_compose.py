@@ -63,7 +63,11 @@ DOKUMENT = PROJECT_ROOT / "docs" / "storage-architektur.md"
 GRENZEN_MIB = {
     "elasticsearch": 1792,   # 1,75 GiB; Heap 768 MiB, gemessen genutzt 195
     "kibana": 1024,          # 1 GiB; gemessen belegt 771 MiB
-    "pipeline": 1280,        # 1,25 GiB; zeitweilig
+    # 16.10.2026: von 1'280 auf 2'048 MiB. Die innere DuckDB-Grenze muss
+    # darunter liegen, und 896 MB sind dreimal an derselben Abfrage
+    # gescheitert - zuletzt mit gedritteltem Eingabebestand, die Menge war
+    # also nicht der Treiber. Begruendung in der Compose-Datei.
+    "pipeline": 2048,        # 2 GiB; zeitweilig
     "jupyter": 768,          # 768 MiB; zeitweilig
     # 12.10.2026, FR-31: ein nginx, das eine statische Datei ausliefert. Die
     # 32 MiB sind nicht gemessen, sondern das obere Ende der bekannten
@@ -701,8 +705,15 @@ def test_duckdb_wird_von_innen_begrenzt_und_zwar_unterhalb_des_containers(dienst
         # starb der Lauf bei ``silver crime_offense`` mit "854.6 MiB/854.4
         # MiB used" - das sind genau die 896 MB von oben. Ohne
         # Auslagerungsverzeichnis bricht DuckDB an seiner eigenen Grenze ab,
-        # statt auf Platte auszuweichen. Nachgemessen: dieselbe Abfrage
-        # scheitert ohne und laeuft mit.
+        # statt auf Platte auszuweichen.
+        #
+        # **Korrektur vom selben Tag.** Hier stand "Nachgemessen: dieselbe
+        # Abfrage scheitert ohne und laeuft mit". Das war falsch - mit
+        # gesetztem ``temp_directory`` ist dieselbe Abfrage zweimal weiter an
+        # derselben Grenze gescheitert. Auslagern hilft, wo DuckDB auslagern
+        # *kann*; dieser Plan hat offenbar einen Operator, der es nicht kann.
+        # Verlangt bleibt das Verzeichnis trotzdem: Ohne ist die Grenze
+        # sicher eine Wand, mit ist sie es manchmal.
         assert "temp_directory" in gesetzt, (
             f"{name}: DUCKDB_TEMP_DIRECTORY fehlt - die Speichergrenze ist "
             f"dann eine Wand statt einer Bremse")
