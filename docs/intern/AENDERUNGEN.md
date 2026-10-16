@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'036** |
+| Tests | **2'047** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -103,6 +103,55 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 16.10.2026 · Ein Befehl setzt die Abbilder ein (Branch `abbild-einsetzen`)
+
+Für eine Codeänderung waren fünf Handgriffe nötig: Workflow anstossen, zwei
+Digests aus der Job-Zusammenfassung abschreiben, die `.env` auf `srv01` von
+Hand ändern, ziehen, den richtigen Dienst neu starten. Der dritte ist der, bei
+dem ein Zeichen verlorengeht.
+
+**Vier davon sind jetzt einer:**
+
+```bash
+cd /srv/docker/apps/urbancrime && git pull && docker/srv01-abbild-einsetzen.sh
+```
+
+Das Skript schlägt den Digest über die neue mitwandernde Marke `:aktuell`
+nach, schreibt beide Zeilen in die `.env`, zieht, liest `GIT_COMMIT` aus dem
+neuen Abbild und startet nur neu, was läuft. `--trocken` zeigt, was geschähe.
+
+**Gepinnt bleibt der Digest.** Die Marke dient nur dem Nachschlagen; in die
+`.env` schreibt das Skript den konkreten Digest. Ein Wächter hält fest, dass
+`:aktuell` in `.env.example` **nicht** vorkommt — eine Marke lässt sich
+umhängen, ein Digest nicht.
+
+**Was das Skript nicht tut: bauen.** Den Workflow anzustossen bräuchte ein
+GitHub-Token mit `workflow`-Recht auf einer von aussen erreichbaren Maschine
+— ein zweites Geheimnis, das mehr kann als Pakete lesen. Das
+`read:packages`-Token, das `srv01` ohnehin hat, genügt für alles andere.
+Dieselbe Linie wie bei den Dashboards: kein zweiter Weg in den Server hinein.
+
+**`pipeline` wird nie neu gestartet.** Er läuft als `run --rm` und nimmt das
+neue Abbild beim nächsten Lauf von selbst; ein `up -d` darauf machte aus
+einem Wochenlauf eine Dauerschleife (FR-9). Ein Wächter prüft, dass er nicht
+in der Neustartliste steht.
+
+**Der Test führt die `.env`-Bearbeitung wirklich aus**, gegen eine eigene
+Datei im Temporärverzeichnis — mit den Fallen, die eine naive Ersetzung
+zerstört: ein Geheimnis mit `=` und `/` darin, ein Kommentar mit `=`, eine
+leere Variable. Fünf Mutationsproben, alle entdeckt, darunter `sed` statt
+`awk` (zerschneidet am Schrägstrich) und nicht übernommene Dateirechte.
+
+**Kein assoziatives Feld im Skript.** Die gibt es erst ab Bash 4; macOS
+liefert 3.2, und dort laufen die Tests. Ein Skript, das sich nur auf dem
+Server prüfen lässt, scheitert dort zum ersten Mal — diese Woche zweimal
+passiert.
+
+**Zahlen.** 2'036 → **2'047 Tests**, Standardlauf 1'927 → **1'938**,
+Referenzwächter unverändert **109**.
+
+---
+
 ## 16.10.2026 · DuckDB lagert aus, statt abzubrechen (Branch `duckdb-lagert-aus`)
 
 Der Serverlauf kam zum ersten Mal bis **Stufe 10 von 14** — die Behebung von
@@ -146,7 +195,7 @@ Wächter prüft deshalb nicht nur, *dass* ein Verzeichnis gesetzt ist, sondern
 dass es auf einem **beschreibbaren** Datenträger des Dienstes liegt —
 gelesen aus seinen Einhängungen, nicht aus einer Liste im Test.
 
-**Zahlen.** 2'031 → **2'036 Tests**, Standardlauf 1'922 → **1'927**,
+**Zahlen.** 2'031 → **2'047 Tests**, Standardlauf 1'922 → **1'938**,
 Referenzwächter unverändert **109**.
 
 ---
@@ -187,7 +236,7 @@ genau deshalb ist der Fehler so lange durchgerutscht: **Lokal fällt er nie
 auf.** Ein sechstes Modul taucht von selbst in der Liste auf, sobald es
 publiziert.
 
-**Zahlen.** 2'023 → **2'036 Tests**, Standardlauf 1'914 → **1'927**,
+**Zahlen.** 2'023 → **2'047 Tests**, Standardlauf 1'914 → **1'938**,
 Referenzwächter unverändert **109**.
 
 ---
@@ -405,8 +454,8 @@ dieselbe Aussage in zwei Dokumenten mit einem Wächter nur über einem.
 Zeilenzahl **und** jeden Bretttitel gegen `BRETTER`. Drei Proben dagegen, alle
 rot.
 
-**Zahlen.** 1'973 → **2'036 Tests**, Standardlauf 1'865 → **1'927**,
-Referenzwächter **108 → 109**, Frischklon **1'868 der 1'927** — gemessen in
+**Zahlen.** 1'973 → **2'047 Tests**, Standardlauf 1'865 → **1'938**,
+Referenzwächter **108 → 109**, Frischklon **1'868 der 1'938** — gemessen in
 einem lokalen Klon des Branches. Der grösste Teil des Zuwachses sind keine
 neuen Testfunktionen, sondern dieselben Wächter über mehr Kacheln: Drei
 Bretter mit zusammen neun Tafeln kommen dazu, und sieben Wächter laufen je

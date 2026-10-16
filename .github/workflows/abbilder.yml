@@ -63,6 +63,13 @@ jobs:
     env:
       BASIS_NAME: ghcr.io/datenwerft/urban-crime
       JUPYTER_NAME: ghcr.io/datenwerft/urban-crime-jupyter
+      # **Die wandernde Marke.** Sie zeigt immer auf den zuletzt gebauten
+      # Stand, damit ``docker/srv01-abbild-einsetzen.sh`` ihn finden kann,
+      # ohne das Datum zu kennen. **Gepinnt wird sie nie:** Das Skript liest
+      # ueber sie den Digest und schreibt *den* in die ``.env``. Eine Marke
+      # laesst sich umhaengen, ein Digest nicht - und genau deshalb steht in
+      # der ``.env`` des Stapels kein ``:aktuell``.
+      WANDERNDE_MARKE: aktuell
 
     steps:
       - name: Secret vorhanden?
@@ -117,7 +124,9 @@ jobs:
           file: Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ${{ env.BASIS_NAME }}:${{ steps.marke.outputs.wert }}
+          tags: |
+            ${{ env.BASIS_NAME }}:${{ steps.marke.outputs.wert }}
+            ${{ env.BASIS_NAME }}:${{ env.WANDERNDE_MARKE }}
           build-args: GIT_COMMIT=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -134,7 +143,9 @@ jobs:
           file: Dockerfile.jupyter
           platforms: linux/amd64
           push: true
-          tags: ${{ env.JUPYTER_NAME }}:${{ steps.marke.outputs.wert }}
+          tags: |
+            ${{ env.JUPYTER_NAME }}:${{ steps.marke.outputs.wert }}
+            ${{ env.JUPYTER_NAME }}:${{ env.WANDERNDE_MARKE }}
           # Nur BASIS: Dockerfile.jupyter kennt kein GIT_COMMIT-Argument, es
           # erbt das ENV aus dem Grundabbild (Dockerfile:95). Ein ungenutztes
           # --build-arg waere eine Warnung je Bau und eine Zeile, die behauptet
@@ -195,5 +206,11 @@ jobs:
             echo "JUPYTER_IMAGE=${JUPYTER_NAME}@${{ steps.jupyter.outputs.digest }}"
             echo '```'
             echo
-            echo "Die Marken \`:${{ steps.marke.outputs.wert }}\` zeigen auf dieselben Abbilder und sind fuer Menschen - gepinnt wird der Digest."
+            echo "Die Marken \`:${{ steps.marke.outputs.wert }}\` und \`:${{ env.WANDERNDE_MARKE }}\` zeigen auf dieselben Abbilder - gepinnt wird der Digest."
+            echo
+            echo "Auf \`srv01\` genuegt stattdessen ein Befehl, der sich den Digest selbst holt:"
+            echo
+            echo '```bash'
+            echo "cd /srv/docker/apps/urbancrime && git pull && docker/srv01-abbild-einsetzen.sh"
+            echo '```
           } >> "$GITHUB_STEP_SUMMARY"
