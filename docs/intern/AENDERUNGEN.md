@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'047** |
+| Tests | **2'070** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -103,6 +103,44 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 16.10.2026 · Jeder Shell-Block eines Workflows wird geprüft (Branch `workflow-shell-pruefen`)
+
+Der Abbildbau scheiterte auf GitHub:
+
+```
+/home/runner/work/_temp/....sh: line 18: unexpected EOF while looking for
+matching `''
+Error: Process completed with exit code 2.
+```
+
+Ein fehlendes Anführungszeichen, von mir beim Einfügen der neuen
+Zusammenfassungszeilen zerschnitten. **Die YAML-Syntax war in Ordnung**, und
+`test_abbilder_workflow.py` war grün — es liest Text und fragt nicht, ob er
+sich ausführen lässt. Gemerkt hat es erst der Runner, nach vier Minuten Bau
+und verrechneten Minuten.
+
+`bash -n` beantwortet genau diese Frage in Millisekunden.
+`tests/test_workflow_shell.py` stellt sie für **jeden** `run:`-Block aller
+Workflows, nicht nur des einen, der gerade kaputt war. Drei Mutationsproben,
+alle entdeckt — darunter die echte Fehlerform.
+
+**Zwei Dinge, die der Wächter berücksichtigt.** `${{ github.sha }}` ist
+Workflow-Syntax und keine Shell; `bash` läse `${{` als Beginn einer
+Ersetzung und meldete einen Fehler, den es nicht gibt — ersetzt wird deshalb
+vor dem Prüfen. Und ein Schritt mit `shell: python` oder `pwsh` wird
+übersprungen, denn dort wäre `bash -n` die falsche Frage.
+
+**Was das über die Formprüfungen sagt.** Dieses Projekt hat mehrere Wächter,
+die Workflows als *Text* lesen — ob eine Marke dasteht, ob ein Secret vorab
+geprüft wird. Die sind richtig und bleiben. Sie beantworten nur eine andere
+Frage als die, ob der Text läuft, und das war mir bis heute nicht
+aufgefallen.
+
+**Zahlen.** 2'047 → **2'070 Tests**, Standardlauf 1'938 → **1'961**,
+Referenzwächter unverändert **109**.
+
+---
+
 ## 16.10.2026 · Ein Befehl setzt die Abbilder ein (Branch `abbild-einsetzen`)
 
 Für eine Codeänderung waren fünf Handgriffe nötig: Workflow anstossen, zwei
@@ -147,7 +185,7 @@ liefert 3.2, und dort laufen die Tests. Ein Skript, das sich nur auf dem
 Server prüfen lässt, scheitert dort zum ersten Mal — diese Woche zweimal
 passiert.
 
-**Zahlen.** 2'036 → **2'047 Tests**, Standardlauf 1'927 → **1'938**,
+**Zahlen.** 2'036 → **2'070 Tests**, Standardlauf 1'927 → **1'961 **,
 Referenzwächter unverändert **109**.
 
 ---
@@ -195,7 +233,7 @@ Wächter prüft deshalb nicht nur, *dass* ein Verzeichnis gesetzt ist, sondern
 dass es auf einem **beschreibbaren** Datenträger des Dienstes liegt —
 gelesen aus seinen Einhängungen, nicht aus einer Liste im Test.
 
-**Zahlen.** 2'031 → **2'047 Tests**, Standardlauf 1'922 → **1'938**,
+**Zahlen.** 2'031 → **2'070 Tests**, Standardlauf 1'922 → **1'961 **,
 Referenzwächter unverändert **109**.
 
 ---
@@ -236,7 +274,7 @@ genau deshalb ist der Fehler so lange durchgerutscht: **Lokal fällt er nie
 auf.** Ein sechstes Modul taucht von selbst in der Liste auf, sobald es
 publiziert.
 
-**Zahlen.** 2'023 → **2'047 Tests**, Standardlauf 1'914 → **1'938**,
+**Zahlen.** 2'023 → **2'070 Tests**, Standardlauf 1'914 → **1'961 **,
 Referenzwächter unverändert **109**.
 
 ---
@@ -454,8 +492,8 @@ dieselbe Aussage in zwei Dokumenten mit einem Wächter nur über einem.
 Zeilenzahl **und** jeden Bretttitel gegen `BRETTER`. Drei Proben dagegen, alle
 rot.
 
-**Zahlen.** 1'973 → **2'047 Tests**, Standardlauf 1'865 → **1'938**,
-Referenzwächter **108 → 109**, Frischklon **1'868 der 1'938** — gemessen in
+**Zahlen.** 1'973 → **2'070 Tests**, Standardlauf 1'865 → **1'961 **,
+Referenzwächter **108 → 109**, Frischklon **1'868 der 1'961 ** — gemessen in
 einem lokalen Klon des Branches. Der grösste Teil des Zuwachses sind keine
 neuen Testfunktionen, sondern dieselben Wächter über mehr Kacheln: Drei
 Bretter mit zusammen neun Tafeln kommen dazu, und sieben Wächter laufen je

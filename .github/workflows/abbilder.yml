@@ -212,5 +212,5 @@ jobs:
             echo
             echo '```bash'
             echo "cd /srv/docker/apps/urbancrime && git pull && docker/srv01-abbild-einsetzen.sh"
-            echo '```
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
