@@ -4,7 +4,8 @@
     python -m orchestration.aufraeumen --loeschen   # entbehrliche Laeufe und
                                                     # Releases loeschen, nur lokal
     python -m orchestration.aufraeumen --loeschen --auch-fern
-                                                    # Releases auch auf SeaweedFS
+                                                    # Laeufe und Releases auch
+                                                    # auf SeaweedFS
     python -m orchestration.aufraeumen --pinnen LN1 # den heutigen Stand festhalten
 
 Raw und Bronze wachsen mit jedem Lauf, und bis hierher sagte nichts, wann
@@ -95,8 +96,13 @@ from datetime import date
 from pathlib import Path
 from typing import Any, NamedTuple
 
-from manifeste import fertige_laeufe, tabellen
+from manifeste import MANIFEST, tabellen
 from storage import Storage, for_root, release
+
+#: Die beiden Schichten, die dieses Werkzeug aufraeumt. Als Konstante, damit
+#: der Praefix und der Schnitt darunter dieselbe Zeichenkette lesen.
+BRONZE = "bronze"
+RAW = "raw"
 
 
 LOG = logging.getLogger("aufraeumen")
@@ -131,8 +137,17 @@ class Bestand(NamedTuple):
     run_id: str
     abgeschlossen: str
     delta: bool
-    bronze: tuple[Path, ...]
-    raw: tuple[Path, ...]
+    #: Ablagepfade, keine lokalen Pfade.
+    #:
+    #: **Der Unterschied ist der Grund, warum es diesen Umbau gab.** Bis zum
+    #: 16.10.2026 standen hier ``Path``-Objekte aus dem lokalen
+    #: Dateisystem - und im ``s3``-Modus gibt es die nicht: Die lokale Kopie
+    #: wird nach dem Publizieren entfernt. Auf ``srv01`` sah das Werkzeug
+    #: deshalb **keinen einzigen** Lauf und meldete, es sei nichts
+    #: aufzuraeumen, waehrend auf SeaweedFS 141 Laeufe lagen und der
+    #: Silver-Bau an ihnen erstickte.
+    bronze: tuple[str, ...]
+    raw: tuple[str, ...]
     zeilen: int
     #: Die Ablagewurzel, unter der ``bronze`` und ``raw`` liegen. Sie steht
     #: hier, damit ``bytes`` ueber ``storage`` zaehlen kann statt ueber offene
@@ -152,29 +167,33 @@ class Bestand(NamedTuple):
 
         Gezaehlt wird ueber ``Storage.bytes_unter``: Die Byte-Summe ueber ein
         Praefix steht seit dem 4.10.2026 einmal im Projekt und nicht dreimal
-        ausgeschrieben. ``lokal=True``, weil Laeufe nur lokal aufgeraeumt
-        werden - im ``s3``-Modus laese die Ablage sonst gar nicht hier.
+        ausgeschrieben. **Ohne ``lokal=True``** seit dem 16.10.2026: Laeufe
+        werden nicht mehr nur lokal aufgeraeumt, und im ``s3``-Modus laege
+        die Summe sonst immer bei null - eine Zahl, die kein Fehler ist,
+        sondern eine falsche Antwort.
 
         Die Entscheidung haengt an keiner dieser Zahlen: ``entscheide``
         kennt nur Reihenfolge, Register und Manifeste. Diese Summe steht im
         Bericht und sonst nirgends.
 
-        Ein Verzeichnis ausserhalb der Wurzel ist ein **Fehler**, kein
-        uebersprungener Posten: Stillschweigend weggelassen zeigte sich die
-        falsche Wurzel als zu kleine Zahl statt als Abbruch - genau die Falle,
-        die ``AGENTS.md`` unter dem fehlenden Census-Schluessel beschreibt.
+        Ein Lauf, unter dem **nirgends** etwas liegt, ist ein **Fehler**,
+        kein uebersprungener Posten: Stillschweigend weggelassen zeigte sich
+        die falsche Wurzel als zu kleine Zahl statt als Abbruch - genau die
+        Falle, die ``AGENTS.md`` unter dem fehlenden Census-Schluessel
+        beschreibt. Seit die Pfade relativ sind, kann kein Schluessel mehr
+        "ausserhalb" liegen; die Frage lautet jetzt, ob die Ablage ihn
+        ueberhaupt kennt.
         """
         ablage = for_root(self.data_root)
         summe = 0
-        for verzeichnis in self.bronze + self.raw:
-            rel = ablage.relativ(verzeichnis)
-            if rel is None:
+        for rel in self.bronze + self.raw:
+            bytes_hier = ablage.bytes_unter(rel)
+            if bytes_hier == 0 and not ablage.exists(rel, MANIFEST):
                 raise ValueError(
-                    f"{verzeichnis} liegt nicht unter der Ablagewurzel "
-                    f"{ablage.local_root} - die Belegung dieses Laufs liesse "
-                    f"sich nur zu klein angeben."
-                )
-            summe += ablage.bytes_unter(rel, lokal=True)
+                    f"Unter '{rel}' liegt nichts - weder lokal unter "
+                    f"{ablage.local_root} noch oben. Die Belegung dieses "
+                    f"Laufs liesse sich nur zu klein angeben.")
+            summe += bytes_hier
         return summe
 
 
@@ -233,6 +252,16 @@ def ist_delta(manifest: dict[str, Any]) -> bool:
     return modus.lower() in DELTA_MODI
 
 
+def laufname(rel: str) -> str:
+    """Der Laufname aus einem Ablagepfad - sein letztes Segment.
+
+    Einmal benannt statt viermal ausgeschrieben: Bis zum 16.10.2026 stand
+    dort ``Path.name``, und als aus den Pfaden Ablageschluessel wurden,
+    schlug das an vier Stellen fehl. Die fuenfte haette man uebersehen.
+    """
+    return rel.rsplit("/", 1)[-1]
+
+
 def bestaende(data_root: Path) -> dict[str, list[Bestand]]:
     """Alle fertigen Bronze-Laeufe, je Quelle, juengster zuerst.
 
@@ -240,20 +269,28 @@ def bestaende(data_root: Path) -> dict[str, list[Bestand]]:
     wie im Gesamtmanifest von ``run_all``. Das Raw-Gegenstueck ist das
     Verzeichnis mit demselben relativen Pfad unter ``raw/``; fehlt es, ist der
     Lauf ``ohne_raw``.
+
+    **Gelesen wird ueber die Ablage, nicht ueber das Dateisystem.** Bis zum
+    16.10.2026 lief hier ``fertige_laeufe`` auf ``data_root/bronze`` - im
+    ``s3``-Modus ein leeres Verzeichnis, denn die lokale Kopie wird nach dem
+    Publizieren entfernt. Das Werkzeug meldete auf ``srv01`` folglich, es
+    sei nichts aufzuraeumen, waehrend dort 141 Laeufe lagen. ``Storage.laeufe``
+    sieht beides und entscheidet nach dem Modus.
     """
-    bronze = data_root / "bronze"
-    raw = data_root / "raw"
+    ablage = for_root(data_root)
     gruppen: dict[tuple[str, str], dict[str, Any]] = {}
-    for lauf in fertige_laeufe(bronze, streng=False):
-        relativ = lauf.verzeichnis.relative_to(bronze)
-        eintrag = gruppen.setdefault((relativ.parts[0], lauf.run_id), {
+    for lauf in ablage.laeufe(BRONZE, streng=False, fehler=SystemExit):
+        innerhalb = lauf.relativ[len(BRONZE) + 1:]
+        quelle = innerhalb.split("/", 1)[0]
+        eintrag = gruppen.setdefault((quelle, lauf.run_id), {
             "abgeschlossen": "", "delta": ist_delta(lauf.manifest),
             "bronze": [], "raw": [], "zeilen": 0,
         })
         eintrag["abgeschlossen"] = max(eintrag["abgeschlossen"], lauf.abgeschlossen_um)
-        eintrag["bronze"].append(lauf.verzeichnis)
-        if (raw / relativ).is_dir():
-            eintrag["raw"].append(raw / relativ)
+        eintrag["bronze"].append(lauf.relativ)
+        roh = f"{RAW}/{innerhalb}"
+        if ablage.exists(roh, MANIFEST) or ablage.local_path(roh).is_dir():
+            eintrag["raw"].append(roh)
         eintrag["zeilen"] += lauf.zeilen
 
     je_quelle: dict[str, list[Bestand]] = {}
@@ -350,7 +387,11 @@ def entscheide(laeufe: list[Bestand], genannt: set[str],
     ungezogen = ungezogen or set()
 
     def ist_gepinnt(b: Bestand) -> bool:
-        return b.run_id in gepinnt or any(v.name in gepinnt for v in b.bronze)
+        # ``b.bronze`` traegt Ablagepfade; der Laufname ist ihr letztes
+        # Segment. Detroit pinnt seine nackte UUID, Chicago den ganzen
+        # ``run_...``-Namen - beide stehen so im Pfad.
+        return b.run_id in gepinnt or any(
+            laufname(rel) in gepinnt for rel in b.bronze)
 
     gruende: list[str | None] = []
     for i, b in enumerate(laeufe):
@@ -360,7 +401,8 @@ def entscheide(laeufe: list[Bestand], genannt: set[str],
             gruende.append(JUENGSTER)
         elif i < SCHNAPPSCHUESSE:
             gruende.append(VORHERIGER)
-        elif b.run_id in genannt or any(v.name in genannt for v in b.bronze):
+        elif b.run_id in genannt or any(
+                laufname(rel) in genannt for rel in b.bronze):
             gruende.append(GENANNT)
         else:
             gruende.append(None)
@@ -383,7 +425,7 @@ def entscheide(laeufe: list[Bestand], genannt: set[str],
     for i, b in enumerate(laeufe):
         if gruende[i] is None and (
                 b.run_id in ungezogen
-                or any(v.name in ungezogen for v in b.bronze)):
+                or any(laufname(rel) in ungezogen for rel in b.bronze)):
             gruende[i] = UNGEZOGEN
     return [Entscheid(b, g) for b, g in zip(laeufe, gruende)]
 
@@ -431,8 +473,9 @@ def pinne(data_root: Path, config_root: Path, grund: str, *,
         for laeufe in bestaende(data_root).values() for b in laeufe
     }
     quelle_von.update({
-        v.name: b.quelle
-        for laeufe in bestaende(data_root).values() for b in laeufe for v in b.bronze
+        laufname(rel): b.quelle
+        for laeufe in bestaende(data_root).values() for b in laeufe
+        for rel in b.bronze
     })
     neu = sorted(k for k in stand_der_auswertung(data_root)
                  if k in quelle_von and k not in vorhanden)
@@ -593,25 +636,56 @@ def zeige(entscheide: list[Entscheid]) -> None:
           f"{sum(e.bestand.bytes for e in entbehrlich) / 1e6:.1f} MB frei.")
 
 
-def loesche(entscheide: list[Entscheid], data_root: Path) -> list[Path]:
+def loesche(entscheide: list[Entscheid], data_root: Path, *,
+            auch_fern: bool = False) -> list[str]:
     """Loescht, was entbehrlich ist - Raw und Bronze zusammen.
 
-    Leer gewordene Partitionsverzeichnisse (``ingest_date=...``) gehen mit;
-    die Schichtwurzeln ``raw/`` und ``bronze/`` bleiben.
+    Lokal immer, auf SeaweedFS erst mit ``auch_fern``. Dieselbe Trennung wie
+    bei den Releases, und aus demselben Grund: Was oben liegt, sieht auch
+    jemand anders.
+
+    **Warum es das ferne Loeschen braucht.** Bis zum 16.10.2026 raeumte
+    dieses Werkzeug nur lokal auf - und im ``s3``-Modus gibt es lokal nichts,
+    weil die Arbeitskopie nach dem Publizieren entfernt wird. Auf ``srv01``
+    haeuften sich deshalb Laeufe an, die die Regeln oben laengst freigeben:
+    141 Parquet-Dateien, zehn Vollschnappschuesse je Jahrgang. Der
+    Silver-Bau erstickte daran, und jeder gescheiterte Versuch legte zwei
+    weitere nach.
+
+    Leer gewordene Partitionsverzeichnisse (``ingest_date=...``) gehen lokal
+    mit; die Schichtwurzeln ``raw/`` und ``bronze/`` bleiben. Oben gibt es
+    keine Verzeichnisse, nur Praefixe - dort faellt das weg.
+
+    Zurueck kommen die Ablagepfade dessen, was wirklich weg ist.
     """
-    geloescht: list[Path] = []
+    ablage = for_root(data_root)
+    geloescht: list[str] = []
     for e in entscheide:
         if e.bleibt:
             continue
-        for verzeichnis in e.bestand.bronze + e.bestand.raw:
-            shutil.rmtree(verzeichnis)
-            geloescht.append(verzeichnis)
-            LOG.info("geloescht: %s", verzeichnis)
-            schicht = data_root / verzeichnis.relative_to(data_root).parts[0]
-            eltern = verzeichnis.parent
-            while eltern != schicht and eltern.is_dir() and not any(eltern.iterdir()):
-                eltern.rmdir()
-                eltern = eltern.parent
+        for rel in e.bestand.bronze + e.bestand.raw:
+            weg = False
+            verzeichnis = ablage.local_path(rel)
+            if verzeichnis.is_dir():
+                shutil.rmtree(verzeichnis)
+                weg = True
+                LOG.info("geloescht: %s", verzeichnis)
+                schicht = data_root / Path(rel).parts[0]
+                eltern = verzeichnis.parent
+                while (eltern != schicht and eltern.is_dir()
+                       and not any(eltern.iterdir())):
+                    eltern.rmdir()
+                    eltern = eltern.parent
+            if auch_fern and ablage.config.remote:
+                # Manifest zuletzt - wie bei den Releases. Bricht es
+                # dazwischen ab, sagt das Manifest noch "fertig", und der
+                # halbe Lauf faellt beim naechsten Lesen auf statt still zu
+                # fehlen.
+                if ablage.entferne_oben(rel, zuletzt=MANIFEST):
+                    weg = True
+                    LOG.info("oben geloescht: %s", rel)
+            if weg:
+                geloescht.append(rel)
     return geloescht
 
 
@@ -631,8 +705,10 @@ def arguments() -> argparse.Namespace:
                    help="entbehrliche Laeufe wirklich loeschen (Raw und Bronze zusammen) "
                         "und entbehrliche Releases - diese lokal")
     p.add_argument("--auch-fern", action="store_true",
-                   help="entbehrliche Releases ausserdem auf SeaweedFS loeschen. "
-                        "Wirkt nur zusammen mit --loeschen")
+                   help="entbehrliche Laeufe und Releases ausserdem auf "
+                        "SeaweedFS loeschen. Wirkt nur zusammen mit "
+                        "--loeschen. Im s3-Modus ist das der einzige Weg: "
+                        "Lokal liegt dort nichts")
     p.add_argument("--pinnen", metavar="GRUND",
                    help="den Stand, auf dem das gebaute Gold ruht, ins Register "
                         "aufnehmen - er ueberlebt danach jedes Aufraeumen")
@@ -687,8 +763,8 @@ def main() -> int:
 
     if entbehrlich:
         frei = sum(e.bestand.bytes for e in entbehrlich)
-        geloescht = loesche(alle, data_root)
-        print(f"{len(geloescht)} Verzeichnisse geloescht, {frei / 1e6:.1f} MB frei.")
+        geloescht = loesche(alle, data_root, auch_fern=args.auch_fern)
+        print(f"{len(geloescht)} Lauf-Praefixe geloescht, {frei / 1e6:.1f} MB frei.")
     if rel_entbehrlich:
         geraeumt = loesche_releases(rel_entscheide, ablage, auch_fern=args.auch_fern)
         print(f"{len(geraeumt.lokal)} Release(s) lokal geloescht, "

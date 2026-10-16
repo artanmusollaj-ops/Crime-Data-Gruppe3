@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'070** |
+| Tests | **2'077** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -103,6 +103,49 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 16.10.2026 · Aufräumen wirkt auch auf SeaweedFS (Branch `aufraeumen-auch-fern`)
+
+Der Silver-Bau erstickte an der Menge: **141 Parquet-Dateien**, Chicago 73
+Läufe, Detroit 68 — zehn Vollschnappschüsse je Jahrgang, 2024 sogar 18. Die
+Abfrage vereinigt alle und entdoppelt mit einer Fensterfunktion, die
+materialisieren muss; Auslagern half nicht genug. Und es war eine
+**Rückkopplung**: Jeder gescheiterte Versuch lud neu und legte zwei weitere
+Läufe nach, von 56 auf 141.
+
+**Das Werkzeug dagegen gab es längst.** `orchestration.aufraeumen` kennt fünf
+Regeln — gepinnt bleibt, die zwei jüngsten bleiben, was Silver nennt bleibt,
+die Basis eines Deltas bleibt, und ein Vollschnappschuss bleibt, bis
+`build_source_change` seinen Unterschied gezogen hat. Nach diesen Regeln wären
+von 141 Läufen rund zwölf übrig.
+
+**Es sah sie nur nicht.** `bestaende()` las `data_root/bronze` über das
+Dateisystem — und im `s3`-Modus gibt es dort nichts, weil die Arbeitskopie
+nach dem Publizieren entfernt wird. Auf `srv01` meldete das Werkzeug also, es
+sei nichts aufzuräumen, während auf SeaweedFS 141 Läufe lagen. Ein Werkzeug,
+das genau dort blind ist, wo es gebraucht wird.
+
+Jetzt liest es über `Storage.laeufe` — die Ablage weiss, ob lokal, oben oder
+beides. `Bestand` trägt Ablagepfade statt lokaler Pfade, und `--auch-fern`
+wirkt wie bei den Releases auch für Läufe: lokal immer, oben nur auf
+ausdrückliche Ansage.
+
+**Ein Test fiel beim Umbau, und das war richtig.**
+`test_die_wurzel_ist_pflicht_und_eine_falsche_scheitert` sicherte, dass eine
+falsche Wurzel als **Fehler** erscheint und nicht als zu kleine Zahl. Mit
+relativen Pfaden kann nichts mehr „ausserhalb der Wurzel" liegen — die Zusage
+wäre still verschwunden, wenn der Test nur auf das Wort gelauscht hätte. Er
+fiel, die Zusage wurde neu begründet (kennt die Ablage den Pfad überhaupt?),
+und er prüft sie weiter.
+
+Vier Mutationsproben, alle entdeckt: Dateisystem statt Ablage, `--auch-fern`
+ignoriert, `--auch-fern` ungefragt angewandt, gepinnte Läufe nicht mehr
+geprüft.
+
+**Zahlen.** 2'070 → **2'077 Tests**, Standardlauf 1'961 → **1'968**,
+Referenzwächter unverändert **109**.
+
+---
+
 ## 16.10.2026 · Jeder Shell-Block eines Workflows wird geprüft (Branch `workflow-shell-pruefen`)
 
 Der Abbildbau scheiterte auf GitHub:
@@ -136,7 +179,7 @@ geprüft wird. Die sind richtig und bleiben. Sie beantworten nur eine andere
 Frage als die, ob der Text läuft, und das war mir bis heute nicht
 aufgefallen.
 
-**Zahlen.** 2'047 → **2'070 Tests**, Standardlauf 1'938 → **1'961**,
+**Zahlen.** 2'047 → **2'077 Tests**, Standardlauf 1'938 → **1'961**,
 Referenzwächter unverändert **109**.
 
 ---
@@ -185,7 +228,7 @@ liefert 3.2, und dort laufen die Tests. Ein Skript, das sich nur auf dem
 Server prüfen lässt, scheitert dort zum ersten Mal — diese Woche zweimal
 passiert.
 
-**Zahlen.** 2'036 → **2'070 Tests**, Standardlauf 1'927 → **1'961 **,
+**Zahlen.** 2'036 → **2'077 Tests**, Standardlauf 1'927 → **1'961 **,
 Referenzwächter unverändert **109**.
 
 ---
@@ -233,7 +276,7 @@ Wächter prüft deshalb nicht nur, *dass* ein Verzeichnis gesetzt ist, sondern
 dass es auf einem **beschreibbaren** Datenträger des Dienstes liegt —
 gelesen aus seinen Einhängungen, nicht aus einer Liste im Test.
 
-**Zahlen.** 2'031 → **2'070 Tests**, Standardlauf 1'922 → **1'961 **,
+**Zahlen.** 2'031 → **2'077 Tests**, Standardlauf 1'922 → **1'961 **,
 Referenzwächter unverändert **109**.
 
 ---
@@ -274,7 +317,7 @@ genau deshalb ist der Fehler so lange durchgerutscht: **Lokal fällt er nie
 auf.** Ein sechstes Modul taucht von selbst in der Liste auf, sobald es
 publiziert.
 
-**Zahlen.** 2'023 → **2'070 Tests**, Standardlauf 1'914 → **1'961 **,
+**Zahlen.** 2'023 → **2'077 Tests**, Standardlauf 1'914 → **1'961 **,
 Referenzwächter unverändert **109**.
 
 ---
@@ -492,7 +535,7 @@ dieselbe Aussage in zwei Dokumenten mit einem Wächter nur über einem.
 Zeilenzahl **und** jeden Bretttitel gegen `BRETTER`. Drei Proben dagegen, alle
 rot.
 
-**Zahlen.** 1'973 → **2'070 Tests**, Standardlauf 1'865 → **1'961 **,
+**Zahlen.** 1'973 → **2'077 Tests**, Standardlauf 1'865 → **1'961 **,
 Referenzwächter **108 → 109**, Frischklon **1'868 der 1'961 ** — gemessen in
 einem lokalen Klon des Branches. Der grösste Teil des Zuwachses sind keine
 neuen Testfunktionen, sondern dieselben Wächter über mehr Kacheln: Drei
