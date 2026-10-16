@@ -181,3 +181,57 @@ def test_ausgelagert_laeuft_was_sonst_am_speicher_scheitert(tmp_path):
         f"nichts mehr: {ohne}")
     assert versuch(str(tmp_path)) is None, (
         "mit Auslagerung scheiterte sie trotzdem")
+
+
+# --------------------------------------------------------------------------
+# Die Grenzen stehen im Protokoll (gelernt am 16.10.2026)
+# --------------------------------------------------------------------------
+
+
+def test_die_gesetzten_grenzen_stehen_im_protokoll(caplog, monkeypatch):
+    """Sonst bleibt offen, ob eine Einstellung ueberhaupt ankam.
+
+    Derselbe Lauf scheiterte an jenem Tag zweimal an derselben
+    Speichergrenze, und beide Male war unklar, ob das
+    Auslagerungsverzeichnis ankommt: Die Variable stand in
+    ``docker-compose.srv01.yml``, aber ob das **Abbild** sie kennt, sagte
+    niemand - ein altes Abbild ignoriert sie stillschweigend.
+    """
+    monkeypatch.setattr(sd, "_gemeldet", False)
+    con = duckdb.connect(":memory:")
+    try:
+        with caplog.at_level("INFO", logger="storage.duckdb"):
+            sd.grenzen_setzen(con, {"DUCKDB_MEMORY_LIMIT": "512MB",
+                                    "DUCKDB_TEMP_DIRECTORY": "/tmp/x"})
+    finally:
+        con.close()
+    zeile = " ".join(caplog.messages)
+    assert "memory_limit=512MB" in zeile
+    assert "temp_directory=/tmp/x" in zeile
+
+
+def test_auch_keine_grenze_ist_eine_nachricht(caplog, monkeypatch):
+    """*Keine Grenze* heisst: DuckDB rechnet mit der ganzen Maschine. Das ist
+    die wichtigere der beiden Meldungen und darf nicht stumm bleiben."""
+    monkeypatch.setattr(sd, "_gemeldet", False)
+    con = duckdb.connect(":memory:")
+    try:
+        with caplog.at_level("INFO", logger="storage.duckdb"):
+            sd.grenzen_setzen(con, {})
+    finally:
+        con.close()
+    assert "keine gesetzt" in " ".join(caplog.messages)
+
+
+def test_die_meldung_kommt_einmal_je_prozess(caplog, monkeypatch):
+    """Jede Stufe oeffnet mehrere Verbindungen; zehnmal dieselbe Zeile hilft
+    niemandem."""
+    monkeypatch.setattr(sd, "_gemeldet", False)
+    con = duckdb.connect(":memory:")
+    try:
+        with caplog.at_level("INFO", logger="storage.duckdb"):
+            for _ in range(3):
+                sd.grenzen_setzen(con, {"DUCKDB_MEMORY_LIMIT": "512MB"})
+    finally:
+        con.close()
+    assert sum("DuckDB-Grenzen" in m for m in caplog.messages) == 1

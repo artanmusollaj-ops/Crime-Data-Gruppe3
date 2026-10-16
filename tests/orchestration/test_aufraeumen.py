@@ -895,10 +895,17 @@ def test_bytes_laesst_ein_part_verzeichnis_weg(tmp_path):
 def test_die_wurzel_ist_pflicht_und_eine_falsche_scheitert(tmp_path):
     """Eine fehlende oder falsche Wurzel darf keine kleine Zahl ergeben.
 
-    ``data_root`` hat keinen Vorgabewert mehr: Mit ``None`` lag jedes
-    Verzeichnis ausserhalb der Wurzel, und ``bytes`` meldete 0, statt zu
-    sagen, dass es nichts messen konnte. Das ist die Falle "ein fehlender
-    Schluessel zeigt sich als falsches Ergebnis, nicht als Fehler".
+    ``data_root`` hat keinen Vorgabewert: Mit ``None`` meldete ``bytes`` 0,
+    statt zu sagen, dass es nichts messen konnte. Das ist die Falle "ein
+    fehlender Schluessel zeigt sich als falsches Ergebnis, nicht als Fehler".
+
+    **Der Grund hat sich am 16.10.2026 geaendert, die Zusage nicht.** Seit
+    ``Bestand`` Ablagepfade traegt statt lokaler Pfade, kann kein Lauf mehr
+    "ausserhalb der Wurzel" liegen - ein relativer Pfad ist immer drin. Die
+    Frage lautet jetzt, ob die Ablage ihn ueberhaupt kennt; eine falsche
+    Wurzel beantwortet sie mit nein. Haette dieser Test nur auf das Wort
+    "Ablagewurzel" gelauscht, waere er beim Umbau gruen geblieben und die
+    Zusage still verschwunden - er fiel, und das war richtig.
     """
     with pytest.raises(TypeError):
         au.Bestand("city=detroit", "run_01", "2026-09-01T10:00:00",
@@ -909,5 +916,90 @@ def test_die_wurzel_ist_pflicht_und_eine_falsche_scheitert(tmp_path):
     assert echt.bytes > 0
 
     daneben = echt._replace(data_root=tmp_path / "woanders")
-    with pytest.raises(ValueError, match="Ablagewurzel"):
+    with pytest.raises(ValueError, match="liegt nichts"):
         daneben.bytes
+
+
+# --------------------------------------------------------------------------
+# Laeufe, die nur oben liegen (gefunden am 16.10.2026 auf srv01)
+# --------------------------------------------------------------------------
+
+
+def oben(fake, rel: str, *, wann: str, zeilen: int = 10) -> None:
+    """Legt einen fertigen Bronze- und Raw-Lauf **nur** auf S3 ab."""
+    manifest = json.dumps({"status": "complete", "run_id": rel.rsplit("/", 1)[-1],
+                           "completed_at_utc": wann, "row_count": zeilen})
+    for schicht in ("bronze", "raw"):
+        fake.put(f"{schicht}/{rel}/part-0001.parquet", b"x" * 1000)
+        fake.put(f"{schicht}/{rel}/manifest.json", manifest.encode("utf-8"))
+
+
+@pytest.fixture
+def nur_oben(tmp_path):
+    """Eine Ablage im ``s3``-Modus: lokal liegt nichts, alles liegt oben.
+
+    Genau der Zustand auf ``srv01``. Bis zum 16.10.2026 sah das Werkzeug
+    darin **keinen einzigen** Lauf und meldete, es sei nichts aufzuraeumen,
+    waehrend dort 141 lagen und der Silver-Bau an ihnen erstickte.
+    """
+    from storage import Config, FakeS3Client, Storage, set_storage
+
+    fake = FakeS3Client()
+    data_root = tmp_path / "data"
+    set_storage(Storage(Config(backend="s3", local_root=data_root,
+                               s3_access_key="k", s3_secret_key="s"), fake))
+    return data_root, fake
+
+
+def test_laeufe_die_nur_oben_liegen_werden_gesehen(nur_oben):
+    data_root, fake = nur_oben
+    for n in (1, 2, 3):
+        oben(fake, f"city=detroit/run_0{n}", wann=f"2026-09-0{n}T10:00:00")
+
+    gefunden = au.bestaende(data_root)["city=detroit"]
+    assert [b.run_id for b in gefunden] == ["run_03", "run_02", "run_01"]
+    # Und die Belegung zaehlt dort, wo die Laeufe wirklich liegen.
+    assert gefunden[0].bytes > 0
+
+
+def test_ohne_auch_fern_bleibt_oben_alles_stehen(nur_oben):
+    """Dieselbe Trennung wie bei den Releases: Was oben liegt, sieht auch
+    jemand anders - dafuer braucht es eine ausdrueckliche Ansage."""
+    data_root, fake = nur_oben
+    for n in (1, 2, 3):
+        oben(fake, f"city=detroit/run_0{n}", wann=f"2026-09-0{n}T10:00:00")
+    alle = au.bericht(data_root)
+    entbehrlich = [e for e in alle if not e.bleibt]
+    assert entbehrlich, "run_01 muesste entbehrlich sein"
+
+    assert au.loesche(alle, data_root) == []
+    assert fake.head("bronze/city=detroit/run_01/manifest.json") is not None
+
+
+def test_mit_auch_fern_verschwinden_sie_oben(nur_oben):
+    data_root, fake = nur_oben
+    for n in (1, 2, 3):
+        oben(fake, f"city=detroit/run_0{n}", wann=f"2026-09-0{n}T10:00:00")
+    alle = au.bericht(data_root)
+
+    geloescht = au.loesche(alle, data_root, auch_fern=True)
+    assert "bronze/city=detroit/run_01" in geloescht
+    assert "raw/city=detroit/run_01" in geloescht
+    # Der juengste und der davor bleiben - Regel 1.
+    assert fake.head("bronze/city=detroit/run_03/manifest.json") is not None
+    assert fake.head("bronze/city=detroit/run_02/manifest.json") is not None
+    assert fake.head("bronze/city=detroit/run_01/manifest.json") is None
+    assert fake.head("bronze/city=detroit/run_01/part-0001.parquet") is None
+
+
+def test_ein_gepinnter_lauf_ueberlebt_auch_oben(nur_oben, tmp_path):
+    """Regel 0 gilt in beiden Modi - sonst waere das Register nur lokal wahr."""
+    data_root, fake = nur_oben
+    for n in (1, 2, 3):
+        oben(fake, f"city=detroit/run_0{n}", wann=f"2026-09-0{n}T10:00:00")
+    config_root = tmp_path / "config"
+    register(config_root, "run_01")
+
+    alle = au.bericht(data_root, config_root)
+    au.loesche(alle, data_root, auch_fern=True)
+    assert fake.head("bronze/city=detroit/run_01/manifest.json") is not None

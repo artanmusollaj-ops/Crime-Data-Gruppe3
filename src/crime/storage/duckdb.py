@@ -28,6 +28,7 @@ Stellen der Fall.
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Mapping
 from pathlib import Path
@@ -35,6 +36,16 @@ from pathlib import Path
 import duckdb
 
 from storage.config import Config
+
+
+LOG = logging.getLogger("storage.duckdb")
+
+#: Ob die Grenzen in diesem Prozess schon im Protokoll stehen.
+#:
+#: Jede Stufe oeffnet mehrere Verbindungen; dieselbe Zeile zehnmal hilft
+#: niemandem. Einmal je Prozess ist genau richtig - ein Lauf ruft die Stufen
+#: als eigene Prozesse auf, also steht sie je Stufe einmal da.
+_gemeldet = False
 
 
 class DuckDBFehler(RuntimeError):
@@ -108,6 +119,8 @@ def grenzen_setzen(con: duckdb.DuckDBPyConnection,
     Grenze waere schlimmer als keine: Der Lauf liefe weiter, mit der Zusage im
     Protokoll und ohne sie im Prozess.
     """
+    global _gemeldet
+
     gesetzt = grenzen(env)
     for name, wert in gesetzt.items():
         try:
@@ -116,6 +129,22 @@ def grenzen_setzen(con: duckdb.DuckDBPyConnection,
             raise DuckDBFehler(
                 f"{name}={wert!r} hat DuckDB nicht angenommen: {fehler}"
             ) from fehler
+
+    # **Einmal je Prozess ins Protokoll.** Am 16.10.2026 scheiterte derselbe
+    # Lauf zweimal an derselben Speichergrenze, und beide Male war unklar,
+    # ob das Auslagerungsverzeichnis ueberhaupt ankam: Die Variable stand in
+    # ``docker-compose.srv01.yml``, aber ob das Abbild sie kennt, sagte
+    # niemand. Eine Zeile im Protokoll beantwortet das sofort - und zwar
+    # auch, wenn **nichts** gesetzt ist, denn genau das ist dann die
+    # Nachricht.
+    if not _gemeldet:
+        _gemeldet = True
+        if gesetzt:
+            LOG.info("DuckDB-Grenzen: %s",
+                     ", ".join(f"{n}={w}" for n, w in sorted(gesetzt.items())))
+        else:
+            LOG.info("DuckDB-Grenzen: keine gesetzt - DuckDB rechnet mit dem "
+                     "Speicher der Maschine, nicht des Containers")
     return gesetzt
 
 
