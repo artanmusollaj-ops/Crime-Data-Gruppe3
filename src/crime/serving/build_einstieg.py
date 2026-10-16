@@ -93,7 +93,9 @@ def ziel_vorgabe() -> Path | None:
 #: Sternschema liegt in Elasticsearch (``serving.load_elasticsearch``).
 #: Kleine Zahlen schreibt diese Seite aus - wie die uebrigen Dokumente.
 ZAHLWORT = ("kein", "ein", "zwei", "drei", "vier", "fünf", "sechs", "sieben",
-            "acht", "neun", "zehn")
+            "acht", "neun", "zehn", "elf", "zwölf", "dreizehn", "vierzehn",
+            "fünfzehn", "sechzehn", "siebzehn", "achtzehn", "neunzehn",
+            "zwanzig")
 
 
 #: Die beiden Fassungen der Adressen. ``lokal`` ist die Vorgabe und die, die

@@ -1003,3 +1003,63 @@ def test_ein_gepinnter_lauf_ueberlebt_auch_oben(nur_oben, tmp_path):
     alle = au.bericht(data_root, config_root)
     au.loesche(alle, data_root, auch_fern=True)
     assert fake.head("bronze/city=detroit/run_01/manifest.json") is not None
+
+
+def test_regel_zwei_sieht_auch_silver_das_nur_oben_liegt(nur_oben):
+    """Sonst gaebe sie Laeufe frei, auf denen das aktuelle Silver ruht.
+
+    Bis zum 16.10.2026 las ``genannt_in_silver`` ueber das Dateisystem. Im
+    ``s3``-Modus liegt dort keine Silver-Tabelle - die Regel haette
+    **nichts** geschuetzt, und das waere beim Loeschen aufgefallen, nicht
+    davor.
+    """
+    data_root, fake = nur_oben
+    for n in (1, 2, 3, 4):
+        oben(fake, f"city=detroit/run_0{n}", wann=f"2026-09-0{n}T10:00:00")
+    # Ein Silver, das sich ausdruecklich auf den aeltesten stuetzt.
+    fake.put("silver/dataset=crime_offense/manifest.json", json.dumps({
+        "status": "complete", "derived_from": {"detroit": ["run_01"]},
+    }).encode("utf-8"))
+
+    assert "run_01" in au.genannt_in_silver(data_root)
+    gruende = {e.bestand.run_id: e.grund for e in au.bericht(data_root)}
+    assert gruende["run_01"] == "von Silver genannt", gruende
+
+
+def test_regel_vier_liest_ihre_tabelle_auch_oben(nur_oben):
+    """Eine Auskunft, die immer dasselbe sagt, ist keine.
+
+    ``bereits_gezogen`` las die Parquet-Datei lokal. Im ``s3``-Modus gab es
+    sie dort nie, die Antwort war **immer** "noch nichts gezogen", und
+    Regel 4 hielt jeden Schnappschuss fest - das Aufraeumen war wirkungslos.
+    """
+    from silver_pipeline.build_source_change import bereits_gezogen, tabellenverzeichnis
+
+    data_root, _ = nur_oben
+    # Ohne Tabelle: nichts gezogen - das ist richtig und bleibt so.
+    assert bereits_gezogen(tabellenverzeichnis(data_root), data_root) == set()
+
+    # **Und sie fragt die Ablage, nicht das Dateisystem.** Ein echter
+    # Fernlesetest braeuchte ein echtes S3 - DuckDB liest keinen
+    # FakeS3Client. Pruefbar ist dafuer, *wen* sie fragt: Mit der alten
+    # Fassung (``(verzeichnis / PARQUET_FILE).is_file()``) kaeme hier nie
+    # jemand an. Genau diese Mutation blieb am 16.10.2026 gruen, bis dieser
+    # Teil dazukam.
+    from storage import get_storage
+
+    ablage = get_storage()
+    gefragt: list[tuple] = []
+    echt = ablage.exists
+
+    def mitschreiben(*teile):
+        gefragt.append(teile)
+        return echt(*teile)
+
+    ablage.exists = mitschreiben          # type: ignore[method-assign]
+    try:
+        bereits_gezogen(tabellenverzeichnis(data_root), data_root)
+    finally:
+        ablage.exists = echt              # type: ignore[method-assign]
+
+    assert any("dataset=source_change" in str(t[0]) for t in gefragt), (
+        f"die Ablage wurde nicht nach der Tabelle gefragt: {gefragt}")

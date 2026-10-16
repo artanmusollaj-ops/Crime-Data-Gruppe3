@@ -93,6 +93,9 @@ class Stufe(NamedTuple):
 #   * TIGER braucht **zwei** Aufrufe. Ohne ``place`` bekommt dim_tract keine
 #     Stadtzuordnung - und der Bau scheitert dabei nicht.
 #   * ``build_crime_offense`` liest ``silver/tract``, muss also nach ihm laufen.
+#   * ``build_source_change`` laeuft zuletzt in Silver: Es zieht den
+#     Unterschied zweier Schnappschuesse heraus, und erst danach darf
+#     ``orchestration.aufraeumen`` sie wegnehmen.
 STUFEN: tuple[Stufe, ...] = (
     Stufe("ingestion", "chicago", "chicago_pipeline.download_chicago",
           quelle="city=chicago", je="jahr", flagge="--year"),
@@ -120,6 +123,19 @@ STUFEN: tuple[Stufe, ...] = (
           je="vintage", flagge="--vintage"),
     Stufe("silver", "weather_day", "silver_pipeline.build_weather_day"),
     Stufe("silver", "crime_offense", "silver_pipeline.build_crime_offense"),
+    # **Die Historisierung gehoert in den Lauf, nicht in einen Merkzettel.**
+    # Bis zum 16.10.2026 stand ``build_source_change`` hier nicht, und kein
+    # Skript und kein Zeitplan rief es - es lief nur, wenn jemand daran
+    # dachte. Zwei Folgen, beide schlecht: Der Unterschied zweier
+    # Schnappschuesse wurde nie herausgezogen, und ``orchestration.aufraeumen``
+    # hielt nach seiner Regel 4 jeden Vollschnappschuss fest. Auf ``srv01``
+    # lagen deshalb 141 Bronze-Laeufe, an denen der Silver-Bau erstickte.
+    #
+    # Sie laeuft **nach** ``crime_offense``: Beide lesen dieselben
+    # Schnappschuesse, und was die Falldaten nicht tragen, soll zuerst
+    # gebaut sein. Vor dem Aufraeumen muss sie gelaufen sein - danach ist
+    # der Rohstoff entbehrlich, vorher nicht.
+    Stufe("silver", "source_change", "silver_pipeline.build_source_change"),
 
     # Einmal, aber mit **allen** Vintages: Gold legt ``dim_tract_acs`` je
     # Vintage an und gibt jeder Tat mit ``population_vintage`` ihren Nenner.

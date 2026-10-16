@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'077** |
+| Tests | **2'080** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -103,6 +103,55 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 16.10.2026 · Die Historisierung läuft mit, und zwei Regeln sehen wieder (Branch `historisierung-laeuft-mit`)
+
+Christian fragte vor dem Löschen: *„Werden die historischen Änderungen vorher
+herausgeschrieben?"* Die Antwort war **nein**, und sie deckte drei Dinge auf.
+
+**`build_source_change` stand in keinem Bauplan.** Nicht in `run_all`, in
+keinem Skript, in keinem Zeitplan. Es lief nur, wenn jemand daran dachte —
+und niemand dachte daran. Eine Historisierung, die von einem Merkzettel
+abhängt, ist keine. Sie ist jetzt Stufe 36, **nach** `crime_offense` (beide
+lesen dieselben Schnappschüsse) und **vor** Gold.
+
+Das erklärt auch den Stau: `aufraeumen` hält nach Regel 4 jeden
+Vollschnappschuss fest, bis sein Unterschied gezogen ist. Wenn nie jemand
+zieht, bleibt alles — 141 Bronze-Läufe, an denen der Silver-Bau erstickte.
+Der Rohstoff staute sich, weil ihn niemand verarbeitete.
+
+**Zwei der fünf Regeln lasen noch lokal** — und im `s3`-Modus liegt lokal
+nichts:
+
+* **Regel 2** („was Silver nennt, bleibt") las über `manifeste.tabellen` das
+  Dateisystem und fand nichts. Sie hätte Läufe freigegeben, auf denen das
+  aktuelle Silver ruht. `Storage.tabellen` gab es längst; sie wird jetzt
+  benutzt.
+* **Regel 4** las die Parquet-Datei der Änderungstabelle lokal. Die Antwort
+  war **immer** „noch nichts gezogen". Das war die ungefährliche Richtung des
+  Fehlers — sie macht das Aufräumen wirkungslos statt gefährlich —, aber eine
+  Auskunft, die immer dasselbe sagt, ist keine.
+
+**Zwei Fehler, die sich zufällig aufhoben.** Regel 2 hätte zu viel
+freigegeben, Regel 4 hielt alles zurück. Hätte jemand nur Regel 4 behoben,
+wäre aus einem wirkungslosen Werkzeug ein gefährliches geworden — und
+niemand hätte es bemerkt, bis Daten fehlten.
+
+**Ein Wächter hatte sein Zahlwort getippt.** `test_die_stufenzahl_stimmt`
+prüfte `"vierzehn Stufen" in teil_a` und `len(STUFEN) == 14` — zwei Literale,
+die derselbe Handgriff hätte nachziehen müssen. Er fiel zu Recht, sagte aber
+nur, dass „vierzehn" fehle. Jetzt leitet er das Wort aus `len(STUFEN)` ab und
+nennt die erwartete Zahl.
+
+Vier Mutationsproben, alle entdeckt. Eine blieb zuerst grün: Der Test zu
+Regel 4 prüfte nur den leeren Fall, und der sieht in beiden Fassungen gleich
+aus. Ein echter Fernlesetest bräuchte ein echtes S3; prüfbar ist dafür,
+**wen** die Funktion fragt.
+
+**Zahlen.** 2'077 → **2'080 Tests**, Standardlauf 1'968 → **1'971**,
+Stufen 14 → **15**, Referenzwächter unverändert **109**.
+
+---
+
 ## 16.10.2026 · Aufräumen wirkt auch auf SeaweedFS (Branch `aufraeumen-auch-fern`)
 
 Der Silver-Bau erstickte an der Menge: **141 Parquet-Dateien**, Chicago 73
@@ -141,7 +190,7 @@ Vier Mutationsproben, alle entdeckt: Dateisystem statt Ablage, `--auch-fern`
 ignoriert, `--auch-fern` ungefragt angewandt, gepinnte Läufe nicht mehr
 geprüft.
 
-**Zahlen.** 2'070 → **2'077 Tests**, Standardlauf 1'961 → **1'968**,
+**Zahlen.** 2'070 → **2'080 Tests**, Standardlauf 1'961 → **1'971**,
 Referenzwächter unverändert **109**.
 
 ---
@@ -179,7 +228,7 @@ geprüft wird. Die sind richtig und bleiben. Sie beantworten nur eine andere
 Frage als die, ob der Text läuft, und das war mir bis heute nicht
 aufgefallen.
 
-**Zahlen.** 2'047 → **2'077 Tests**, Standardlauf 1'938 → **1'961**,
+**Zahlen.** 2'047 → **2'080 Tests**, Standardlauf 1'938 → **1'961**,
 Referenzwächter unverändert **109**.
 
 ---
@@ -228,7 +277,7 @@ liefert 3.2, und dort laufen die Tests. Ein Skript, das sich nur auf dem
 Server prüfen lässt, scheitert dort zum ersten Mal — diese Woche zweimal
 passiert.
 
-**Zahlen.** 2'036 → **2'077 Tests**, Standardlauf 1'927 → **1'961 **,
+**Zahlen.** 2'036 → **2'080 Tests**, Standardlauf 1'927 → **1'961 **,
 Referenzwächter unverändert **109**.
 
 ---
@@ -276,7 +325,7 @@ Wächter prüft deshalb nicht nur, *dass* ein Verzeichnis gesetzt ist, sondern
 dass es auf einem **beschreibbaren** Datenträger des Dienstes liegt —
 gelesen aus seinen Einhängungen, nicht aus einer Liste im Test.
 
-**Zahlen.** 2'031 → **2'077 Tests**, Standardlauf 1'922 → **1'961 **,
+**Zahlen.** 2'031 → **2'080 Tests**, Standardlauf 1'922 → **1'961 **,
 Referenzwächter unverändert **109**.
 
 ---
@@ -317,7 +366,7 @@ genau deshalb ist der Fehler so lange durchgerutscht: **Lokal fällt er nie
 auf.** Ein sechstes Modul taucht von selbst in der Liste auf, sobald es
 publiziert.
 
-**Zahlen.** 2'023 → **2'077 Tests**, Standardlauf 1'914 → **1'961 **,
+**Zahlen.** 2'023 → **2'080 Tests**, Standardlauf 1'914 → **1'961 **,
 Referenzwächter unverändert **109**.
 
 ---
@@ -535,7 +584,7 @@ dieselbe Aussage in zwei Dokumenten mit einem Wächter nur über einem.
 Zeilenzahl **und** jeden Bretttitel gegen `BRETTER`. Drei Proben dagegen, alle
 rot.
 
-**Zahlen.** 1'973 → **2'077 Tests**, Standardlauf 1'865 → **1'961 **,
+**Zahlen.** 1'973 → **2'080 Tests**, Standardlauf 1'865 → **1'961 **,
 Referenzwächter **108 → 109**, Frischklon **1'868 der 1'961 ** — gemessen in
 einem lokalen Klon des Branches. Der grösste Teil des Zuwachses sind keine
 neuen Testfunktionen, sondern dieselben Wächter über mehr Kacheln: Drei

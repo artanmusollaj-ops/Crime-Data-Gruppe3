@@ -131,14 +131,14 @@ Die beiden Architekturbilder in [`architektur.md`](architektur.md) werden
 **aus dem Code erzeugt**, nicht gezeichnet. Ein Paket, das dazukommt, erscheint
 von selbst; eine Zahl im Bild, die nicht mehr stimmt, lässt einen Test fallen.
 
-## A.3 Orchestrierung: vierzehn Stufen, Abbruch beim ersten Fehler
+## A.3 Orchestrierung: fünfzehn Stufen, Abbruch beim ersten Fehler
 
-`orchestration.run_all` fährt die Strecke in vierzehn Stufen:
+`orchestration.run_all` fährt die Strecke in fünfzehn Stufen:
 
 | Gruppe | Stufen | |
 | --- | ---: | --- |
 | ingestion | 6 | chicago, detroit, tiger_tract, tiger_place, acs, noaa |
-| silver | 4 | tract, place, weather_day, crime_offense |
+| silver | 5 | tract, place, weather_day, crime_offense, source_change |
 | gold | 1 | die sieben Sterntabellen in einem Zug |
 | serving | 3 | comparison, analyse_db, tracts_geojson |
 
@@ -231,7 +231,7 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 2'077 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Pull Request** | 2'080 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
 | **Frischer Klon** | 1'868 davon — die übrigen 35 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 108 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 109 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
