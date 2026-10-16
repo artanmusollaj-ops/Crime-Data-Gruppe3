@@ -99,3 +99,106 @@ def test_ausgeschriebene_spalten_bleiben_unberuehrt(datei):
     finally:
         con.close()
     assert beschrieben == SPALTEN
+
+
+# ---------------------------------------------------------------------------
+# Lesen auf SeaweedFS
+# ---------------------------------------------------------------------------
+# Am 16.10.2026 brach der Lauf auf ``srv01`` bei ``silver source_change`` ab:
+# "Bucket 'urban-crime' not found". Dieses Modul nahm den Pfad, wie er kam, und
+# gab ihn an pyarrow - bei ``s3://...`` loeste pyarrow die Adresse ueber seine
+# eigene S3-Erkennung auf, ohne Endpunkt und ohne Schluessel.
+#
+# Geprueft wird **ohne Netz**, mit einem Stellvertreter: Wichtig ist, dass ein
+# Dateisystem aus der Konfiguration gebaut und der Praefix abgeschnitten wird.
+# Ein Test, der wirklich auf SeaweedFS liest, liefe in CI nicht - und auf dem
+# Entwicklungsrechner gegen die gemeinsame Ablage, was er nicht darf.
+
+
+def test_ein_lokaler_pfad_geht_ohne_dateisystem_durch(tmp_path):
+    datei = tmp_path / "x.parquet"
+    pq.write_table(pa.table({"a": [1]}), datei)
+    from storage import parquet as sp
+
+    assert sp.spalten(datei) == ("a",)
+
+
+def test_ein_s3_pfad_wird_ueber_die_konfigurierte_ablage_gelesen(monkeypatch):
+    """Endpunkt, Schluessel und Pfadstil kommen aus der Konfiguration.
+
+    Weicht das von ``storage.duckdb.secret_sql`` ab, liest DuckDB etwas
+    anderes als dieses Modul - und das waere schlimmer als ein Fehler.
+    """
+    import pyarrow.fs as pafs
+
+    from storage import parquet as sp
+
+    from storage import Config, Storage, set_storage
+
+    set_storage(Storage(Config(
+        backend="s3", s3_endpoint="ablage.example:8333",
+        s3_access_key="schluessel", s3_secret_key="geheim")))
+
+    gebaut = {}
+    gelesen = {}
+
+    class FalschesDateisystem:
+        def __init__(self, **kwargs):
+            gebaut.update(kwargs)
+
+    class FalscheDatei:
+        def __init__(self, pfad, filesystem=None):
+            gelesen["pfad"] = pfad
+            gelesen["filesystem"] = filesystem
+
+        @property
+        def schema_arrow(self):
+            return pa.schema([("a", pa.int64())])
+
+    monkeypatch.setattr(pafs, "S3FileSystem", FalschesDateisystem)
+    monkeypatch.setattr(sp.pq, "ParquetFile", FalscheDatei)
+
+    assert sp.spalten("s3://urban-crime/silver/dataset=x/part-0001.parquet") == ("a",)
+
+    assert gelesen["pfad"] == "urban-crime/silver/dataset=x/part-0001.parquet", \
+        "der s3://-Praefix muss weg - pyarrow erwartet bucket/key"
+    assert gelesen["filesystem"] is not None, \
+        "ohne Dateisystem loest pyarrow die Adresse selbst auf, ohne Endpunkt"
+    assert gebaut["access_key"] == "schluessel"
+    assert gebaut["secret_key"] == "geheim"
+    assert "ablage.example:8333" in gebaut["endpoint_override"]
+    assert gebaut["force_virtual_addressing"] is False, \
+        "SeaweedFS kennt keine Bucket-Subdomains - Pfadstil, wie im DuckDB-Secret"
+
+
+def test_endpunkt_und_pfadstil_stimmen_mit_dem_duckdb_secret_ueberein(monkeypatch):
+    """Zwei Wege in dieselbe Ablage - sie muessen dasselbe sagen.
+
+    Nicht die Zeichenketten werden verglichen, sondern dass beide denselben
+    Endpunkt und beide den Pfadstil nennen. Wer einen davon aendert, ohne den
+    anderen, faellt hier.
+    """
+    import pyarrow.fs as pafs
+
+    from storage import parquet as sp
+    from storage.duckdb import secret_sql
+
+    from storage import Config, Storage, set_storage
+
+    config = Config(backend="s3", s3_endpoint="ablage.example:8333",
+                    s3_access_key="k", s3_secret_key="s")
+    set_storage(Storage(config))
+
+    gebaut = {}
+    monkeypatch.setattr(pafs, "S3FileSystem",
+                        lambda **kw: gebaut.update(kw) or object())
+    monkeypatch.setattr(sp.pq, "ParquetFile",
+                        lambda pfad, filesystem=None: type(
+                            "D", (), {"schema_arrow": pa.schema([])})())
+    sp.spalten("s3://urban-crime/x.parquet")
+
+    sql = secret_sql(config)
+    assert config.s3_endpoint in gebaut["endpoint_override"]
+    assert f"ENDPOINT '{config.s3_endpoint}'" in sql
+    assert "URL_STYLE 'path'" in sql
+    assert gebaut["force_virtual_addressing"] is False

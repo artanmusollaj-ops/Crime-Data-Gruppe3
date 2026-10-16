@@ -31,6 +31,9 @@
             <h2>API Documentation</h2>
                 <ul class="memberlist">
             <li>
+                    <a class="variable" href="#S3_PRAEFIX">S3_PRAEFIX</a>
+            </li>
+            <li>
                     <a class="function" href="#schema">schema</a>
             </li>
             <li>
@@ -104,21 +107,77 @@ ausgeschriebenen Spalten bleibt <code>DESCRIBE</code> richtig - die Falle hat nu
 </span><span id="L-24"><a href="#L-24"><span class="linenos">24</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 </span><span id="L-25"><a href="#L-25"><span class="linenos">25</span></a>
 </span><span id="L-26"><a href="#L-26"><span class="linenos">26</span></a><span class="kn">import</span><span class="w"> </span><span class="nn">pyarrow</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pa</span>
-</span><span id="L-27"><a href="#L-27"><span class="linenos">27</span></a><span class="kn">import</span><span class="w"> </span><span class="nn">pyarrow.parquet</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pq</span>
-</span><span id="L-28"><a href="#L-28"><span class="linenos">28</span></a>
+</span><span id="L-27"><a href="#L-27"><span class="linenos">27</span></a><span class="kn">import</span><span class="w"> </span><span class="nn">pyarrow.fs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pafs</span>
+</span><span id="L-28"><a href="#L-28"><span class="linenos">28</span></a><span class="kn">import</span><span class="w"> </span><span class="nn">pyarrow.parquet</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pq</span>
 </span><span id="L-29"><a href="#L-29"><span class="linenos">29</span></a>
-</span><span id="L-30"><a href="#L-30"><span class="linenos">30</span></a><span class="k">def</span><span class="w"> </span><span class="nf">schema</span><span class="p">(</span><span class="n">datei</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span><span class="p">:</span>
-</span><span id="L-31"><a href="#L-31"><span class="linenos">31</span></a><span class="w">    </span><span class="sd">"""Das Arrow-Schema der Datei: genau die Spalten, die darin stehen."""</span>
-</span><span id="L-32"><a href="#L-32"><span class="linenos">32</span></a>    <span class="k">return</span> <span class="n">pq</span><span class="o">.</span><span class="n">ParquetFile</span><span class="p">(</span><span class="n">datei</span><span class="p">)</span><span class="o">.</span><span class="n">schema_arrow</span>
-</span><span id="L-33"><a href="#L-33"><span class="linenos">33</span></a>
-</span><span id="L-34"><a href="#L-34"><span class="linenos">34</span></a>
-</span><span id="L-35"><a href="#L-35"><span class="linenos">35</span></a><span class="k">def</span><span class="w"> </span><span class="nf">spalten</span><span class="p">(</span><span class="n">datei</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
-</span><span id="L-36"><a href="#L-36"><span class="linenos">36</span></a><span class="w">    </span><span class="sd">"""Die Spaltennamen der Datei, in der Reihenfolge der Datei."""</span>
-</span><span id="L-37"><a href="#L-37"><span class="linenos">37</span></a>    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">feld</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">feld</span> <span class="ow">in</span> <span class="n">schema</span><span class="p">(</span><span class="n">datei</span><span class="p">))</span>
+</span><span id="L-30"><a href="#L-30"><span class="linenos">30</span></a><span class="n">S3_PRAEFIX</span> <span class="o">=</span> <span class="s2">"s3://"</span>
+</span><span id="L-31"><a href="#L-31"><span class="linenos">31</span></a>
+</span><span id="L-32"><a href="#L-32"><span class="linenos">32</span></a>
+</span><span id="L-33"><a href="#L-33"><span class="linenos">33</span></a><span class="k">def</span><span class="w"> </span><span class="nf">_ablage</span><span class="p">(</span><span class="n">pfad</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pafs</span><span class="o">.</span><span class="n">FileSystem</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+</span><span id="L-34"><a href="#L-34"><span class="linenos">34</span></a><span class="w">    </span><span class="sd">"""Dateisystem und Pfad fuer ``pq.ParquetFile`` - lokal oder auf S3.</span>
+</span><span id="L-35"><a href="#L-35"><span class="linenos">35</span></a>
+</span><span id="L-36"><a href="#L-36"><span class="linenos">36</span></a><span class="sd">    **Warum das hier sein muss.** Dieses Modul nahm den Pfad, wie er kam, und</span>
+</span><span id="L-37"><a href="#L-37"><span class="linenos">37</span></a><span class="sd">    gab ihn an pyarrow. Bei einem lokalen Pfad geht das; bei</span>
+</span><span id="L-38"><a href="#L-38"><span class="linenos">38</span></a><span class="sd">    ``s3://urban-crime/...`` loest pyarrow die Adresse ueber seine eigene</span>
+</span><span id="L-39"><a href="#L-39"><span class="linenos">39</span></a><span class="sd">    S3-Erkennung auf - ohne Endpunkt, ohne Schluessel - und meldete auf</span>
+</span><span id="L-40"><a href="#L-40"><span class="linenos">40</span></a><span class="sd">    ``srv01`` am 16.10.2026 *"Bucket 'urban-crime' not found"*. Der Lauf brach</span>
+</span><span id="L-41"><a href="#L-41"><span class="linenos">41</span></a><span class="sd">    bei ``silver source_change`` ab, also an der Stufe, die zwei Tage vorher</span>
+</span><span id="L-42"><a href="#L-42"><span class="linenos">42</span></a><span class="sd">    ueberhaupt erst in den Bauplan kam.</span>
+</span><span id="L-43"><a href="#L-43"><span class="linenos">43</span></a>
+</span><span id="L-44"><a href="#L-44"><span class="linenos">44</span></a><span class="sd">    Dieselbe Krankheit wie bei den Regeln 2 und 4 von ``orchestration.aufraeumen``</span>
+</span><span id="L-45"><a href="#L-45"><span class="linenos">45</span></a><span class="sd">    (#158): ein Modul, das an der Ablage vorbei liest, laeuft nur im</span>
+</span><span id="L-46"><a href="#L-46"><span class="linenos">46</span></a><span class="sd">    ``local``-Modus. ``AGENTS.md`` nennt es unter "Conventions": Dateizugriff</span>
+</span><span id="L-47"><a href="#L-47"><span class="linenos">47</span></a><span class="sd">    ueber ``storage``, nie ueber offene Pfade.</span>
+</span><span id="L-48"><a href="#L-48"><span class="linenos">48</span></a>
+</span><span id="L-49"><a href="#L-49"><span class="linenos">49</span></a><span class="sd">    Die Parameter spiegeln ``storage.duckdb.secret_sql``: derselbe Endpunkt,</span>
+</span><span id="L-50"><a href="#L-50"><span class="linenos">50</span></a><span class="sd">    dieselben Schluessel, **Pfadstil** - SeaweedFS kennt keine</span>
+</span><span id="L-51"><a href="#L-51"><span class="linenos">51</span></a><span class="sd">    Bucket-Subdomains. Weicht das eine vom anderen ab, liest DuckDB etwas</span>
+</span><span id="L-52"><a href="#L-52"><span class="linenos">52</span></a><span class="sd">    anderes als dieses Modul, und das waere schlimmer als ein Fehler.</span>
+</span><span id="L-53"><a href="#L-53"><span class="linenos">53</span></a><span class="sd">    """</span>
+</span><span id="L-54"><a href="#L-54"><span class="linenos">54</span></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">pfad</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">S3_PRAEFIX</span><span class="p">):</span>
+</span><span id="L-55"><a href="#L-55"><span class="linenos">55</span></a>        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">pfad</span>
+</span><span id="L-56"><a href="#L-56"><span class="linenos">56</span></a>    <span class="c1"># Spaet importiert: ``storage/__init__`` holt dieses Modul herein.</span>
+</span><span id="L-57"><a href="#L-57"><span class="linenos">57</span></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">storage</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_storage</span>
+</span><span id="L-58"><a href="#L-58"><span class="linenos">58</span></a>
+</span><span id="L-59"><a href="#L-59"><span class="linenos">59</span></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">get_storage</span><span class="p">()</span><span class="o">.</span><span class="n">config</span>
+</span><span id="L-60"><a href="#L-60"><span class="linenos">60</span></a>    <span class="n">system</span> <span class="o">=</span> <span class="n">pafs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span>
+</span><span id="L-61"><a href="#L-61"><span class="linenos">61</span></a>        <span class="n">access_key</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">s3_access_key</span><span class="p">,</span>
+</span><span id="L-62"><a href="#L-62"><span class="linenos">62</span></a>        <span class="n">secret_key</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">s3_secret_key</span><span class="p">,</span>
+</span><span id="L-63"><a href="#L-63"><span class="linenos">63</span></a>        <span class="n">endpoint_override</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">endpoint_url</span><span class="p">,</span>
+</span><span id="L-64"><a href="#L-64"><span class="linenos">64</span></a>        <span class="n">scheme</span><span class="o">=</span><span class="s2">"https"</span> <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">s3_use_ssl</span> <span class="k">else</span> <span class="s2">"http"</span><span class="p">,</span>
+</span><span id="L-65"><a href="#L-65"><span class="linenos">65</span></a>        <span class="c1"># Pfadstil, wie im DuckDB-Secret (URL_STYLE 'path').</span>
+</span><span id="L-66"><a href="#L-66"><span class="linenos">66</span></a>        <span class="n">force_virtual_addressing</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="L-67"><a href="#L-67"><span class="linenos">67</span></a>    <span class="p">)</span>
+</span><span id="L-68"><a href="#L-68"><span class="linenos">68</span></a>    <span class="k">return</span> <span class="n">system</span><span class="p">,</span> <span class="n">pfad</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">S3_PRAEFIX</span><span class="p">):]</span>
+</span><span id="L-69"><a href="#L-69"><span class="linenos">69</span></a>
+</span><span id="L-70"><a href="#L-70"><span class="linenos">70</span></a>
+</span><span id="L-71"><a href="#L-71"><span class="linenos">71</span></a><span class="k">def</span><span class="w"> </span><span class="nf">schema</span><span class="p">(</span><span class="n">datei</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span><span class="p">:</span>
+</span><span id="L-72"><a href="#L-72"><span class="linenos">72</span></a><span class="w">    </span><span class="sd">"""Das Arrow-Schema der Datei: genau die Spalten, die darin stehen."""</span>
+</span><span id="L-73"><a href="#L-73"><span class="linenos">73</span></a>    <span class="n">system</span><span class="p">,</span> <span class="n">pfad</span> <span class="o">=</span> <span class="n">_ablage</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">datei</span><span class="p">))</span>
+</span><span id="L-74"><a href="#L-74"><span class="linenos">74</span></a>    <span class="k">if</span> <span class="n">system</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="L-75"><a href="#L-75"><span class="linenos">75</span></a>        <span class="k">return</span> <span class="n">pq</span><span class="o">.</span><span class="n">ParquetFile</span><span class="p">(</span><span class="n">pfad</span><span class="p">)</span><span class="o">.</span><span class="n">schema_arrow</span>
+</span><span id="L-76"><a href="#L-76"><span class="linenos">76</span></a>    <span class="k">return</span> <span class="n">pq</span><span class="o">.</span><span class="n">ParquetFile</span><span class="p">(</span><span class="n">pfad</span><span class="p">,</span> <span class="n">filesystem</span><span class="o">=</span><span class="n">system</span><span class="p">)</span><span class="o">.</span><span class="n">schema_arrow</span>
+</span><span id="L-77"><a href="#L-77"><span class="linenos">77</span></a>
+</span><span id="L-78"><a href="#L-78"><span class="linenos">78</span></a>
+</span><span id="L-79"><a href="#L-79"><span class="linenos">79</span></a><span class="k">def</span><span class="w"> </span><span class="nf">spalten</span><span class="p">(</span><span class="n">datei</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+</span><span id="L-80"><a href="#L-80"><span class="linenos">80</span></a><span class="w">    </span><span class="sd">"""Die Spaltennamen der Datei, in der Reihenfolge der Datei."""</span>
+</span><span id="L-81"><a href="#L-81"><span class="linenos">81</span></a>    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">feld</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">feld</span> <span class="ow">in</span> <span class="n">schema</span><span class="p">(</span><span class="n">datei</span><span class="p">))</span>
 </span></pre></div>
 
 
             </section>
+                <section id="S3_PRAEFIX">
+                    <div class="attr variable">
+            <span class="name">S3_PRAEFIX</span>        =
+<span class="default_value">&#39;s3://&#39;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#S3_PRAEFIX"></a>
+    
+    
+
+                </section>
                 <section id="schema">
                             <input id="schema-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr function">
@@ -130,9 +189,12 @@ ausgeschriebenen Spalten bleibt <code>DESCRIBE</code> richtig - die Falle hat nu
 
     </div>
     <a class="headerlink" href="#schema"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="schema-31"><a href="#schema-31"><span class="linenos">31</span></a><span class="k">def</span><span class="w"> </span><span class="nf">schema</span><span class="p">(</span><span class="n">datei</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span><span class="p">:</span>
-</span><span id="schema-32"><a href="#schema-32"><span class="linenos">32</span></a><span class="w">    </span><span class="sd">"""Das Arrow-Schema der Datei: genau die Spalten, die darin stehen."""</span>
-</span><span id="schema-33"><a href="#schema-33"><span class="linenos">33</span></a>    <span class="k">return</span> <span class="n">pq</span><span class="o">.</span><span class="n">ParquetFile</span><span class="p">(</span><span class="n">datei</span><span class="p">)</span><span class="o">.</span><span class="n">schema_arrow</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="schema-72"><a href="#schema-72"><span class="linenos">72</span></a><span class="k">def</span><span class="w"> </span><span class="nf">schema</span><span class="p">(</span><span class="n">datei</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span><span class="p">:</span>
+</span><span id="schema-73"><a href="#schema-73"><span class="linenos">73</span></a><span class="w">    </span><span class="sd">"""Das Arrow-Schema der Datei: genau die Spalten, die darin stehen."""</span>
+</span><span id="schema-74"><a href="#schema-74"><span class="linenos">74</span></a>    <span class="n">system</span><span class="p">,</span> <span class="n">pfad</span> <span class="o">=</span> <span class="n">_ablage</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">datei</span><span class="p">))</span>
+</span><span id="schema-75"><a href="#schema-75"><span class="linenos">75</span></a>    <span class="k">if</span> <span class="n">system</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="schema-76"><a href="#schema-76"><span class="linenos">76</span></a>        <span class="k">return</span> <span class="n">pq</span><span class="o">.</span><span class="n">ParquetFile</span><span class="p">(</span><span class="n">pfad</span><span class="p">)</span><span class="o">.</span><span class="n">schema_arrow</span>
+</span><span id="schema-77"><a href="#schema-77"><span class="linenos">77</span></a>    <span class="k">return</span> <span class="n">pq</span><span class="o">.</span><span class="n">ParquetFile</span><span class="p">(</span><span class="n">pfad</span><span class="p">,</span> <span class="n">filesystem</span><span class="o">=</span><span class="n">system</span><span class="p">)</span><span class="o">.</span><span class="n">schema_arrow</span>
 </span></pre></div>
 
 
@@ -152,9 +214,9 @@ ausgeschriebenen Spalten bleibt <code>DESCRIBE</code> richtig - die Falle hat nu
 
     </div>
     <a class="headerlink" href="#spalten"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="spalten-36"><a href="#spalten-36"><span class="linenos">36</span></a><span class="k">def</span><span class="w"> </span><span class="nf">spalten</span><span class="p">(</span><span class="n">datei</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
-</span><span id="spalten-37"><a href="#spalten-37"><span class="linenos">37</span></a><span class="w">    </span><span class="sd">"""Die Spaltennamen der Datei, in der Reihenfolge der Datei."""</span>
-</span><span id="spalten-38"><a href="#spalten-38"><span class="linenos">38</span></a>    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">feld</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">feld</span> <span class="ow">in</span> <span class="n">schema</span><span class="p">(</span><span class="n">datei</span><span class="p">))</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="spalten-80"><a href="#spalten-80"><span class="linenos">80</span></a><span class="k">def</span><span class="w"> </span><span class="nf">spalten</span><span class="p">(</span><span class="n">datei</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+</span><span id="spalten-81"><a href="#spalten-81"><span class="linenos">81</span></a><span class="w">    </span><span class="sd">"""Die Spaltennamen der Datei, in der Reihenfolge der Datei."""</span>
+</span><span id="spalten-82"><a href="#spalten-82"><span class="linenos">82</span></a>    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">feld</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">feld</span> <span class="ow">in</span> <span class="n">schema</span><span class="p">(</span><span class="n">datei</span><span class="p">))</span>
 </span></pre></div>
 
 
