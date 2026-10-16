@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'088** |
+| Tests | **2'091** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -100,6 +100,50 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 16.10.2026 · `storage.parquet` liest auch auf SeaweedFS (Branch `parquet-liest-ueber-die-ablage`)
+
+**`crime_offense` ist durch.** Die Stufung hat gehalten — der Lauf kam zum
+ersten Mal über Stufe 10 hinaus. Gefallen ist dann Stufe 36, `source_change`:
+
+    OSError: Bucket 'urban-crime' not found
+
+`storage.parquet` nahm den Pfad, wie er kam, und gab ihn an pyarrow. Bei einem
+lokalen Pfad geht das. Bei `s3://urban-crime/...` löst pyarrow die Adresse über
+seine **eigene** S3-Erkennung auf — ohne Endpunkt, ohne Schlüssel, ohne
+Pfadstil.
+
+**Dieselbe Krankheit wie bei den Regeln 2 und 4 von `orchestration.aufraeumen`
+(#158), und sie steht in `AGENTS.md`:** Dateizugriff über `storage`, nie über
+offene Pfade, sonst funktioniert nur der `local`-Modus. Dreimal in drei Tagen
+dieselbe Ursache an drei Stellen. Der Grund, warum sie nicht zusammen
+auffielen: Jede dieser Stellen ist im `local`-Modus still korrekt, und die
+Suite läuft im `local`-Modus.
+
+Dass es gerade `source_change` traf, ist kein Zufall: Die Stufe kam erst
+vorgestern in den Bauplan und war vorher nie im `s3`-Modus gelaufen.
+
+**Behoben, mit denselben Werten wie DuckDB.** `_ablage()` baut für einen
+`s3://`-Pfad ein `S3FileSystem` aus der Konfiguration und schneidet den Präfix
+ab. Endpunkt, Schlüssel und **Pfadstil** spiegeln
+`storage.duckdb.secret_sql` — SeaweedFS kennt keine Bucket-Subdomains. Ein
+Wächter hält beide Seiten gegeneinander: Wer einen Endpunkt oder den Pfadstil
+ändert, ohne den anderen, fällt. Zwei Wege in dieselbe Ablage, die
+Verschiedenes lesen, wären schlimmer als ein Fehler.
+
+Geprüft wird **ohne Netz**, mit einem Stellvertreter. Ein Test, der wirklich
+auf SeaweedFS liest, liefe in CI nicht — und auf dem Entwicklungsrechner gegen
+die gemeinsame Ablage, was er nicht darf. Drei Mutationsproben, alle rot:
+Pfad direkt an pyarrow, Pfadstil auf virtuell, Präfix bleibt dran.
+
+**Nicht betroffen:** `serving.build_einstieg` liest dasselbe Modul, aber über
+ein lokal eingesetztes Release — dort ist kein `s3://`-Pfad im Spiel.
+
+**Zahlen.** 2'088 → **2'091 Tests**, Standardlauf 1'978 → **1'981**,
+Referenzwächter unverändert **110**. Frischklon nachgemessen: **1'905 von
+1'981**, 76 übersprungen, grün.
 
 ---
 
