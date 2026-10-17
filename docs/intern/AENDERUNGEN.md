@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'118** |
+| Tests | **2'124** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,64 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.10.2026 · Halbe Releases sind sichtbar, und ein Fehlschlag kostet keinen Neubau (Branch `halbe-releases-sichtbar`)
+
+Der Korrekturlauf war **grün** — `crime_offense` 1'886'336 → **1'886'251**,
+`source_change` erstmals publiziert, 84 `verschwunden` darin, genau die
+gemessene Zahl. Gescheitert ist nur das Release, und zwar an SeaweedFS:
+
+    InternalError bei PUT releases/.../serving/dataset=rate_tract/manifest.json
+
+### Zwei Lücken, die der Fehlschlag gezeigt hat
+
+**182,3 MB lagen unsichtbar oben.** `publiziere` schickt `release.json`
+zuletzt hinauf — richtig, denn ohne es kann ein halb hochgebrachtes Release
+nie für ein Release gehalten werden. Nur findet `storage.release.liste`
+Releases genau an diesem Manifest, und damit fand **niemand die Reste**: 26
+von 28 Objekten unter `releases/release=2026-10-17T09-28-52Z/`, für jedes
+Werkzeug unsichtbar. `aufraeumen` zeigt sie jetzt als eigenen Block und räumt
+sie mit `--loeschen` weg. Geschützt werden muss dabei nichts: Ein halbes
+Release ist nie gepinnt und nie der Zeiger — beides hängt an einer Kennung,
+die `release.json` trägt.
+
+**Der zweite Versuch brauchte einen ganzen neuen Bau.** Gestern habe ich
+geschrieben, die lokalen Kopien gingen *auch* nach einem gescheiterten Release
+weg, denn „oben liegt er vollständig". Die Begründung stimmt nicht: Ist der
+Upload gescheitert, liegt oben eben **nicht** alles. Zwölf Minuten Lauf, nur
+um wiederherzustellen, was dalag. Jetzt bleiben sie liegen, und der Lauf sagt
+warum.
+
+### Der eigentliche Grund stand im Log des Speichers
+
+Der zweite Lauf scheiterte schon bei Stufe 1, mit demselben
+`InternalError` — viermal mit Pause wiederholt, dann sauber abgebrochen
+(*„Tabelle nicht entwertet, nichts angefasst"*). SeaweedFS sagt, warum:
+
+    read only: /buckets/urban-crime/ (e.g. bucket over quota)
+
+    urban-crime   size: 5'437'988'768   quota: 5'368'709'120   usage: 101.29%
+
+**Der Bucket ist 5 GiB gross und zu 101,29 % voll**, deshalb steht er auf
+nur-lesen. Kein Codefehler, und `tools/build_platzbedarf.py` hat es
+vorhergesagt: Die Hochrechnung dort nennt **8'698,3 MB (8,70 GB)** für den
+vollen Studienzeitraum. Das Kontingent lag immer darunter.
+
+Nebenbei hat der Manifestvergleich von heute früh sein erstes Mal bestanden:
+*„Oben liegt ein anderer Stand, lokale Kopie bleibt: silver/dataset=tract/
+vintage=2021 — sie ist nie hinaufgekommen."* Ohne ihn wäre die frisch gebaute
+Tabelle weg gewesen.
+
+### Prüfung
+
+Drei Mutationsproben, alle rot — darunter die, die ganze Releases als halb
+zählt, und die, die `--auch-fern` ignoriert und oben ohne Erlaubnis löscht.
+
+**Zahlen.** 2'118 → **2'124 Tests**, Standardlauf 2'007 → **2'013**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **1'937 von
+2'013**, 76 übersprungen, grün.
 
 ---
 

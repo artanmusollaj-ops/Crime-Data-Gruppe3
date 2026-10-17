@@ -1003,3 +1003,27 @@ def test_geraeumt_wird_nach_dem_release_nicht_davor():
     raeumen = quelle.index("arbeitskopien_entfernen()")
     assert release < raeumen, (
         "geraeumt wird vor dem Release - dann findet sammle() wieder nichts")
+
+
+def test_nach_einem_gescheiterten_release_bleiben_die_kopien():
+    """Der 17.10.2026, zweiter Teil.
+
+    Hier stand das Gegenteil, mit der Begruendung *"oben liegt er
+    vollstaendig"*. Dann brach ein ``InternalError`` von SeaweedFS den Upload
+    beim 26. von 28 Objekten ab - und danach waren die lokalen Kopien weg,
+    obwohl genau sie fuer den zweiten Versuch gebraucht wurden. Ein Lauf von
+    zwoelf Minuten, nur um wiederherzustellen, was dalag. Die Begruendung
+    stimmte nicht: Ist der Upload gescheitert, liegt oben *nicht* alles.
+
+    Gelesen wird der Quelltext, weil die Bedingung in ``lauf`` steckt und ein
+    echter Lauf hier Netz, Schluessel und Daten braeuchte.
+    """
+    quelle = Path(ra.__file__).read_text(encoding="utf-8")
+    assert 'gescheitert = (freigabe or {}).get("status") == "failed"' in quelle, (
+        "der Lauf unterscheidet nicht mehr, ob das Release gescheitert ist")
+    assert "if behalte_lokal and not gescheitert:" in quelle, (
+        "geraeumt wird wieder unbedingt - dann kostet ein Serverfehler beim "
+        "Upload einen ganzen neuen Bau")
+    raeumen = quelle.index("if behalte_lokal and not gescheitert:")
+    bleiben = quelle.index("if behalte_lokal and gescheitert:")
+    assert bleiben < raeumen, "der Fall 'gescheitert' gehoert zuerst gelesen"

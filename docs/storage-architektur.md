@@ -368,6 +368,17 @@ Release deshalb mit *„es fehlt: gold/dataset=fact_offense, …"* — bei einer
 In die `.env` gehört die Variable nicht. Wer sie dort setzt, hält den ganzen
 abgeleiteten Bestand lokal und hat `s3` zu einem halben `hybrid` gemacht.
 
+**Ein halb hochgebrachtes Release ist sichtbar, seit dem 17.10.2026.**
+`publiziere` schickt `release.json` zuletzt hinauf, damit ein abgebrochener
+Upload nie für ein Release gehalten werden kann — `storage.release.liste`
+findet Releases genau an diesem Manifest. Das hiess aber auch: Niemand fand
+die Reste. Ein `InternalError` von SeaweedFS brach den Upload beim 26. von 28
+Objekten ab und liess 182,3 MB liegen, unsichtbar für jedes Werkzeug.
+`orchestration.aufraeumen` zeigt sie jetzt als eigenen Block und räumt sie mit
+`--loeschen` weg (oben erst mit `--auch-fern`). Geschützt werden muss dabei
+nichts: Ein halbes Release ist nie gepinnt und nie der Zeiger — beides hängt
+an einer Kennung, die `release.json` trägt.
+
 Ein Release entsteht nur nach einem **vollständigen** grünen Lauf bis
 einschliesslich Serving — ein halber Stand bekommt keine Kennung. Scheitert
 das Publizieren, ist der Lauf gescheitert.
