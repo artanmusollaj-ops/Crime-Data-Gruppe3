@@ -351,6 +351,13 @@ Release deshalb mit *„es fehlt: gold/dataset=fact_offense, …"* — bei einer
 * **Entfernt wird nur, was oben liegt.** `arbeitskopien_entfernen` fragt je
   Tabelle das entfernte Manifest. Fehlt es, bleibt die Kopie — sonst
   verschwände eine Tabelle, deren Upload scheiterte, und wäre nirgends mehr.
+* **Gefragt werden nur Silver und Gold** (`Storage.PUBLIZIERTE_SCHICHTEN`).
+  Keine Serving-Tabelle wird je einzeln publiziert: `build_comparison`
+  schreibt lokal und ruft nie `publish_table`. Die Tabellen reisen allein im
+  Release mit, und ihre lokale Kopie *ist* der Bestand — `pruefe_stand` und
+  die Lader lesen sie dort. Stand `serving` in der Liste, meldete jeder Lauf
+  fünfmal *„Nicht oben, lokale Kopie bleibt"*: richtig, harmlos, und eine
+  Warnung, die immer kommt, erzieht dazu, Warnungen zu überlesen.
 
 In die `.env` gehört die Variable nicht. Wer sie dort setzt, hält den ganzen
 abgeleiteten Bestand lokal und hat `s3` zu einem halben `hybrid` gemacht.

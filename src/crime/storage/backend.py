@@ -1197,8 +1197,29 @@ class Storage:
         shutil.rmtree(self.local_path(rel), ignore_errors=True)
         LOG.info("Local working copy removed (STORAGE_BACKEND=s3): %s", rel)
 
+    #: Die Schichten, deren Tabellen einzeln publiziert werden - und nur
+    #: deren lokale Arbeitskopien gibt es nach dem Release aufzuraeumen.
+    #:
+    #: **Warum ``serving`` nicht dabei ist.** Keine Serving-Tabelle wird je
+    #: einzeln publiziert: ``serving.build_comparison`` schreibt lokal
+    #: (``silver_pipeline.publish``) und ruft nie ``publish_table``. Die
+    #: Tabellen reisen allein im Release mit, und ihre lokale Kopie *ist* der
+    #: Bestand - ``serving.pruefe_stand`` und die Lader lesen sie dort.
+    #:
+    #: Stand ``serving`` in der Liste, meldete jeder Lauf fuenfmal
+    #: *"Nicht oben, lokale Kopie bleibt"*. Die Sicherung tat das Richtige,
+    #: nur war die Frage falsch gestellt - und eine Warnung, die immer kommt,
+    #: erzieht dazu, Warnungen zu ueberlesen. Am 17.10.2026 im ersten Lauf
+    #: mit dem neuen Aufraeumen gesehen.
+    #:
+    #: ``tests/storage/test_arbeitskopien.py`` haelt dagegen, dass kein
+    #: Serving-Modul anfaengt, ``publish_table`` zu rufen: Dann waere diese
+    #: Liste zu kurz, und der Test sagt es, statt dass die Kopien liegen
+    #: bleiben.
+    PUBLIZIERTE_SCHICHTEN: tuple[str, ...] = ("silver", "gold")
+
     def arbeitskopien_entfernen(
-        self, schichten: tuple[str, ...] = ("silver", "gold", "serving")
+        self, schichten: tuple[str, ...] | None = None
     ) -> list[str]:
         """Die lokalen Arbeitskopien publizierter Tabellen entfernen.
 
@@ -1218,7 +1239,7 @@ class Storage:
         if self.backend != "s3":
             return []
         weg: list[str] = []
-        for schicht in schichten:
+        for schicht in schichten or self.PUBLIZIERTE_SCHICHTEN:
             wurzel = self.local_path(schicht)
             if not wurzel.is_dir():
                 continue
