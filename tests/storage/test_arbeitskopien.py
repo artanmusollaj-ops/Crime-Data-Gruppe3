@@ -132,3 +132,72 @@ def test_ausserhalb_von_s3_raeumt_es_nichts_weg(tmp_path):
             storage.publish_table(GOLD)
         assert storage.arbeitskopien_entfernen() == []
         assert verzeichnis.exists(), f"{backend}: die Kopie ist der Bestand"
+
+
+# --------------------------------------------------------------------------
+# Welche Schichten ueberhaupt gefragt werden
+# --------------------------------------------------------------------------
+
+
+def test_serving_wird_nicht_gefragt_und_warnt_deshalb_nicht(tmp_path, caplog):
+    """Eine Warnung, die immer kommt, erzieht zum Ueberlesen.
+
+    Am 17.10.2026 meldete der erste Lauf mit dem neuen Aufraeumen fuenfmal
+    *"Nicht oben, lokale Kopie bleibt: serving/dataset=..."*. Die Sicherung
+    tat das Richtige - keine Serving-Tabelle wird je einzeln publiziert, also
+    liegt keine oben. Nur war die Frage falsch gestellt.
+    """
+    storage, _ = ablage(tmp_path, "s3", keep_local=True)
+    serving = lege_tabelle(storage, "serving/dataset=comparison_day")
+    gold = lege_tabelle(storage, GOLD)
+    storage.publish_table(GOLD)
+
+    with caplog.at_level("WARNING"):
+        weg = storage.arbeitskopien_entfernen()
+
+    assert weg == ["gold/dataset=fact_offense"]
+    assert serving.exists(), "die lokale Kopie der Serving-Tabelle ist der Bestand"
+    assert not gold.exists()
+    serving_warnungen = [s for s in caplog.messages if "serving/" in s]
+    assert not serving_warnungen, (
+        f"gewarnt wird ueber eine Schicht, die nie einzeln publiziert wird: "
+        f"{serving_warnungen}")
+
+
+def test_kein_serving_modul_publiziert_einzeln():
+    """Faengt eines damit an, ist ``PUBLIZIERTE_SCHICHTEN`` zu kurz.
+
+    Dann blieben die Arbeitskopien dieser Tabellen nach dem Release liegen,
+    und zwar lautlos - ``arbeitskopien_entfernen`` schaut die Schicht dann
+    gar nicht an. Dieser Test sagt es, statt dass das Volume waechst.
+
+    Geprueft wird der Quelltext, nicht ein Lauf: Ein echter Serving-Bau
+    braeuchte gebautes Gold, und der Test liefe genau dort nicht, wo die
+    Suite laeuft.
+    """
+    from storage import Storage
+
+    serving = Path(__file__).resolve().parents[2] / "src" / "crime" / "serving"
+    publizierend = [
+        datei.name for datei in sorted(serving.glob("*.py"))
+        if "publish_table" in datei.read_text(encoding="utf-8")
+    ]
+    assert not publizierend, (
+        f"{publizierend} ruft publish_table - dann gehoert 'serving' in "
+        f"Storage.PUBLIZIERTE_SCHICHTEN, sonst bleiben die Arbeitskopien "
+        f"nach dem Release liegen. Heute: {Storage.PUBLIZIERTE_SCHICHTEN}")
+
+
+def test_wer_eine_schicht_nennt_bekommt_genau_die(tmp_path):
+    """Das Argument sticht die Vorgabe - fuer einen Aufrufer, der es weiss."""
+    storage, _ = ablage(tmp_path, "s3", keep_local=True)
+    lege_tabelle(storage, GOLD)
+    silber = lege_tabelle(storage, "silver/dataset=crime_offense")
+    storage.publish_table(GOLD)
+    storage.publish_table("silver/dataset=crime_offense")
+
+    weg = storage.arbeitskopien_entfernen(("silver",))
+
+    assert weg == ["silver/dataset=crime_offense"]
+    assert not silber.exists()
+    assert storage.local_path(GOLD).exists(), "gold war nicht gefragt"
