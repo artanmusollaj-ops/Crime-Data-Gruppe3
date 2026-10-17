@@ -526,14 +526,22 @@ def lauf(data_root: Path, projekt_root: Path, *,
             geschafft = False
 
     # Jetzt, und nicht in den Stufen: Was ``behalte_lokal`` aufgeschoben hat,
-    # geht hier weg - aber nur, was oben wirklich liegt
-    # (``Storage.arbeitskopien_entfernen`` fragt je Tabelle nach).
+    # geht hier weg - aber nur, was oben wirklich liegt **und dasselbe ist**
+    # (``Storage.arbeitskopien_entfernen`` vergleicht je Tabelle die
+    # Manifeste).
     #
-    # **Auch nach einem gescheiterten Release.** Dann ist der lokale Stand
-    # kein Gewinn: Er ist oben schon vollstaendig, und ein naechster Lauf
-    # baut ihn neu. Ihn liegen zu lassen hiesse, dass ein Modus, der "ohne
-    # lokalen Bestand" heisst, nach jedem Fehlschlag einen behaelt.
-    if behalte_lokal:
+    # **Nicht nach einem gescheiterten Release.** Hier stand das Gegenteil,
+    # mit der Begruendung "oben liegt er vollstaendig". Am 17.10.2026 hat ein
+    # ``InternalError`` von SeaweedFS den Upload beim 26. von 28 Objekten
+    # abgebrochen - und danach waren die Kopien weg, obwohl genau sie fuer den
+    # zweiten Versuch gebraucht wurden. Ein Lauf von zwoelf Minuten, nur um
+    # wiederherzustellen, was dalag. Die Begruendung stimmte nicht: Ist der
+    # Upload gescheitert, liegt oben *nicht* alles.
+    gescheitert = (freigabe or {}).get("status") == "failed"
+    if behalte_lokal and gescheitert:
+        LOG.info("Lokale Arbeitskopien bleiben: Das Release ist gescheitert, "
+                 "und ohne sie braeuchte der zweite Versuch einen neuen Bau.")
+    if behalte_lokal and not gescheitert:
         weg = ablage.arbeitskopien_entfernen()
         if weg:
             LOG.info("%d lokale Arbeitskopie(n) nach dem Release entfernt",

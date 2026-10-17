@@ -1063,3 +1063,102 @@ def test_regel_vier_liest_ihre_tabelle_auch_oben(nur_oben):
 
     assert any("dataset=source_change" in str(t[0]) for t in gefragt), (
         f"die Ablage wurde nicht nach der Tabelle gefragt: {gefragt}")
+
+
+# --------------------------------------------------------------------------
+# Halbe Releases
+# --------------------------------------------------------------------------
+# Am 17.10.2026 scheiterte ein Upload am 26. von 28 Objekten - SeaweedFS
+# antwortete mit ``InternalError`` - und liess 182,3 MB unter
+# ``releases/release=2026-10-17T09-28-52Z/`` liegen. Der Lauf meldete das
+# Release korrekt als gescheitert, der Zeiger blieb auf dem alten, und nichts
+# davon war falsch. Die 182 MB blieben trotzdem, und **kein Werkzeug sah sie**:
+# ``storage.release.liste`` findet Releases an ihrem ``release.json``, und
+# genau das fehlte.
+
+
+def halbes_release_oben(fake: FakeS3Client, kennung: str, *,
+                        dateien: int = 3) -> str:
+    """Ein Praefix mit Dateien, aber ohne ``release.json``."""
+    praefix = f"releases/release={kennung}"
+    for i in range(dateien):
+        fake.put(f"{praefix}/gold/dataset=t{i}/part-0001.parquet", b"x" * 100)
+    return praefix
+
+
+def halbes_release_lokal(data_root: Path, kennung: str, *,
+                         dateien: int = 3) -> Path:
+    ordner = data_root / "releases" / f"release={kennung}"
+    for i in range(dateien):
+        pfad = ordner / f"gold/dataset=t{i}/part-0001.parquet"
+        pfad.parent.mkdir(parents=True, exist_ok=True)
+        pfad.write_bytes(b"x" * 100)
+    return ordner
+
+
+def test_ein_halbes_release_wird_gefunden(tmp_path):
+    hier, fake = ablage(tmp_path)
+    release_oben(fake, "2026-10-01T00-00-00Z")
+    halbes_release_oben(fake, "2026-10-17T09-28-52Z")
+
+    halbe = au.halbe_releases(hier)
+
+    assert [h.kennung for h in halbe] == ["2026-10-17T09-28-52Z"], (
+        "ohne release.json findet storage.release.liste nichts - dieses "
+        "Werkzeug muss es trotzdem sehen")
+    assert halbe[0].dateien == 3
+    assert halbe[0].bytes == 300
+    assert "oben" in halbe[0].wo
+
+
+def test_ein_vollstaendiges_release_ist_nicht_halb(tmp_path):
+    """Die Gegenprobe - sonst meldete jeder Lauf alles als halb."""
+    hier, fake = ablage(tmp_path)
+    release_oben(fake, "2026-10-01T00-00-00Z")
+    release_lokal(tmp_path, "2026-10-02T00-00-00Z")
+    assert au.halbe_releases(hier) == []
+
+
+def test_lokal_und_oben_werden_zusammengezaehlt(tmp_path):
+    hier, fake = ablage(tmp_path)
+    kennung = "2026-10-17T09-28-52Z"
+    halbes_release_lokal(tmp_path, kennung, dateien=2)
+    halbes_release_oben(fake, kennung, dateien=3)
+
+    halbe = au.halbe_releases(hier)
+
+    assert len(halbe) == 1
+    assert halbe[0].dateien == 5, "lokal 2 plus oben 3"
+    assert halbe[0].wo == "lokal+oben"
+
+
+def test_halbe_releases_gehen_lokal_weg_und_oben_erst_mit_auch_fern(tmp_path):
+    hier, fake = ablage(tmp_path)
+    kennung = "2026-10-17T09-28-52Z"
+    ordner = halbes_release_lokal(tmp_path, kennung)
+    halbes_release_oben(fake, kennung)
+
+    au.loesche_halbe(au.halbe_releases(hier), hier)
+    assert not ordner.exists(), "lokal muss es weg sein"
+    assert any(kennung in s for s in fake.objekte), \
+        "ohne --auch-fern bleibt oben alles liegen"
+
+    au.loesche_halbe(au.halbe_releases(hier), hier, auch_fern=True)
+    assert not any(kennung in s for s in fake.objekte)
+
+
+def test_ein_vollstaendiges_release_wird_dabei_nicht_angefasst(tmp_path):
+    """Der Praefix eines halben darf nicht in ein ganzes hineinreichen.
+
+    ``releases/release=2026-10-03`` traefe als Praefix auch
+    ``releases/release=2026-10-03T19-53-12Z/...`` - deshalb schliesst
+    ``entferne_oben`` mit ``/`` ab. Dieser Test haelt das von hier aus fest.
+    """
+    hier, fake = ablage(tmp_path)
+    ganz = release_oben(fake, "2026-10-17T09-28-52ZZZ")
+    halbes_release_oben(fake, "2026-10-17T09-28-52Z")
+
+    au.loesche_halbe(au.halbe_releases(hier), hier, auch_fern=True)
+
+    assert f"{ganz}/release.json" in fake.objekte, \
+        "das vollstaendige Release wurde mitgeloescht"

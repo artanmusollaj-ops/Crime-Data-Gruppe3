@@ -97,7 +97,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 from manifeste import MANIFEST
-from storage import Storage, for_root, release
+from storage import Storage, for_root, paths, release
 
 #: Die beiden Schichten, die dieses Werkzeug aufraeumt. Als Konstante, damit
 #: der Praefix und der Schnitt darunter dieselbe Zeichenkette lesen.
@@ -521,6 +521,121 @@ def releases(storage: Storage) -> list[ReleaseStand]:
     return gefunden
 
 
+#: Ein Praefix unter ``releases/``, das Dateien traegt, aber kein
+#: ``release.json``.
+class HalbesRelease(NamedTuple):
+    kennung: str
+    dateien: int
+    bytes: int
+    wo: str
+
+
+def halbe_releases(storage: Storage) -> list[HalbesRelease]:
+    """Was ein abgebrochener Upload liegenlaesst - und was niemand sah.
+
+    ``publiziere`` schickt ``release.json`` **zuletzt** hinauf, und das ist
+    richtig: Ohne es kann ein halb hochgebrachtes Release nie fuer ein
+    Release gehalten werden, denn ``storage.release.liste`` findet Releases
+    genau an diesem Manifest. Nur hiess das auch: **niemand findet die
+    Reste.**
+
+    Am 17.10.2026 scheiterte ein Upload am 26. von 28 Objekten - SeaweedFS
+    antwortete mit ``InternalError`` - und liess 182,3 MB unter
+    ``releases/release=2026-10-17T09-28-52Z/`` liegen. Der Lauf meldete das
+    Release korrekt als gescheitert, der Zeiger blieb auf dem alten, und
+    nichts davon war falsch. Die 182 MB blieben trotzdem, unsichtbar fuer
+    jedes Werkzeug.
+
+    Gezaehlt wird je Praefix; ``release.json`` entscheidet. Lokal zaehlt ein
+    Verzeichnis ohne Manifest mit - ein abgebrochenes ``erstelle`` benennt
+    sein ``.part`` nicht um, aber ein Abbruch *nach* dem Umbenennen und *vor*
+    dem Upload sieht genauso aus.
+    """
+    gefunden: dict[str, list[int]] = {}
+    orte: dict[str, set[str]] = {}
+
+    lokal = storage.local_path(release.RELEASES)
+    if storage.config.liest_lokal and lokal.is_dir():
+        for verzeichnis in sorted(lokal.glob("release=*")):
+            if not verzeichnis.is_dir():
+                continue
+            rel = verzeichnis.relative_to(lokal).as_posix()
+            if paths.versteckt(rel):
+                continue
+            if (verzeichnis / release.RELEASE_MANIFEST).is_file():
+                continue
+            dateien = [d for d in verzeichnis.rglob("*") if d.is_file()]
+            kennung = release.kennung_aus(verzeichnis)
+            gefunden[kennung] = [len(dateien),
+                                 sum(d.stat().st_size for d in dateien)]
+            orte.setdefault(kennung, set()).add("lokal")
+
+    if storage.config.remote:
+        je_praefix: dict[str, list[int]] = {}
+        mit_manifest: set[str] = set()
+        for objekt in storage.client.list(release.RELEASES + "/"):
+            teile = objekt.key.split("/")
+            if len(teile) < 3 or not teile[1].startswith("release="):
+                continue
+            kennung = release.kennung_aus(teile[1])
+            if objekt.key.endswith("/" + release.RELEASE_MANIFEST):
+                mit_manifest.add(kennung)
+            zaehler = je_praefix.setdefault(kennung, [0, 0])
+            zaehler[0] += 1
+            zaehler[1] += objekt.size or 0
+        for kennung, (n, b) in je_praefix.items():
+            if kennung in mit_manifest:
+                continue
+            vorhanden = gefunden.setdefault(kennung, [0, 0])
+            vorhanden[0] += n
+            vorhanden[1] += b
+            orte.setdefault(kennung, set()).add("oben")
+
+    return sorted(
+        (HalbesRelease(k, n, b, "+".join(sorted(orte[k])))
+         for k, (n, b) in gefunden.items()),
+        key=lambda h: h.kennung, reverse=True)
+
+
+def zeige_halbe(halbe: list[HalbesRelease]) -> None:
+    if not halbe:
+        return
+    print(f"\n{release.RELEASES} - halb hochgebracht")
+    for h in halbe:
+        print(f"  {h.kennung[:28]:<29} {h.dateien:>4} Dateien "
+              f"{h.bytes / 1e6:>7.1f} MB  {h.wo:6} ohne "
+              f"{release.RELEASE_MANIFEST}")
+    print(f"\n{len(halbe)} halbe(s) Release, "
+          f"{sum(h.bytes for h in halbe) / 1e6:.1f} MB. Sie koennen nie fuer "
+          f"ein Release gehalten werden - aber sie belegen Platz.")
+
+
+def loesche_halbe(halbe: list[HalbesRelease], storage: Storage, *,
+                  auch_fern: bool = False) -> list[str]:
+    """Die Reste wegraeumen - lokal immer, oben erst mit ``auch_fern``.
+
+    **Ein halbes Release ist nie gepinnt und nie der Zeiger.** Beides haengt
+    an einer Kennung, die ``release.json`` traegt; ohne das Manifest kann
+    weder ``config/referenzstand.csv`` darauf zeigen noch ``AKTUELL.json``.
+    Deshalb braucht es hier keine Regel - es gibt nichts zu schuetzen.
+    """
+    weg: list[str] = []
+    for h in halbe:
+        rel = f"{release.RELEASES}/release={h.kennung}"
+        verzeichnis = storage.local_path(rel)
+        if verzeichnis.is_dir():
+            shutil.rmtree(verzeichnis)
+            LOG.info("halbes Release lokal geloescht: %s", rel)
+            weg.append(rel)
+        if auch_fern and storage.config.remote:
+            schluessel = storage.entferne_oben(rel)
+            if schluessel:
+                LOG.info("halbes Release oben geloescht: %s (%d Objekte)",
+                         rel, len(schluessel))
+                weg.extend(schluessel)
+    return weg
+
+
 def aktuelles_release(storage: Storage) -> str | None:
     """Die Kennung aus ``releases/AKTUELL.json``, oder None, wenn er fehlt."""
     zeiger = release.aktuell(storage)
@@ -753,15 +868,17 @@ def main() -> int:
     rel_entscheide, zeiger = release_bericht(ablage, args.config_root)
     zeige_releases(rel_entscheide, zeiger)
     rel_entbehrlich = [e for e in rel_entscheide if not e.bleibt]
+    halbe = halbe_releases(ablage)
+    zeige_halbe(halbe)
 
     if args.auch_fern and not args.loeschen:
         print("\n--auch-fern wirkt nur mit --loeschen. Trockenlauf: Auf "
               "SeaweedFS wurde nichts angefasst.")
     if not args.loeschen:
-        if entbehrlich or rel_entbehrlich:
+        if entbehrlich or rel_entbehrlich or halbe:
             print("\nNichts geloescht. Mit --loeschen gehen die entbehrlichen "
                   "Laeufe und Releases weg - Releases nur lokal, erst mit "
-                  "--auch-fern auch auf SeaweedFS.")
+                  "--auch-fern auch auf SeaweedFS. Halbe Releases ebenso.")
         return 0
     # Vor dem ersten Loeschen, nicht danach: ``storage.client`` wirft unter
     # STORAGE_BACKEND=local, und das ist die Vorgabe. Ein Abbruch mitten in
@@ -775,6 +892,11 @@ def main() -> int:
         frei = sum(e.bestand.bytes for e in entbehrlich)
         geloescht = loesche(alle, data_root, auch_fern=args.auch_fern)
         print(f"{len(geloescht)} Lauf-Praefixe geloescht, {frei / 1e6:.1f} MB frei.")
+    if halbe:
+        weg = loesche_halbe(halbe, ablage, auch_fern=args.auch_fern)
+        print(f"{len(halbe)} halbe(s) Release geraeumt, "
+              f"{sum(h.bytes for h in halbe) / 1e6:.1f} MB frei "
+              f"({len(weg)} Pfade/Objekte).")
     if rel_entbehrlich:
         geraeumt = loesche_releases(rel_entscheide, ablage, auch_fern=args.auch_fern)
         print(f"{len(geraeumt.lokal)} Release(s) lokal geloescht, "
