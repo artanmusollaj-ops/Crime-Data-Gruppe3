@@ -91,3 +91,22 @@ def test_die_dokumentation_nennt_die_matrix():
     assert "| `hybrid` | **ja**, was oben liegt und lokal fehlt | nach jedem grünen Gesamtlauf" in text
     assert "| `s3` | nein — von Hand mit `python -m storage holen --wirklich` | wie `hybrid`, lokale Kopie danach entfernt" in text
     assert "Automatisch holt nur `hybrid`" in text
+
+
+def test_der_fake_scheitert_wie_der_echte_client(tmp_path):
+    """Ein Doppel, das anders scheitert als das Echte, prueft das Falsche.
+
+    Der Boto3-Client uebersetzt ``NoSuchKey`` in einen ``StorageError``;
+    ``FakeS3Client`` warf bis zum 17.10.2026 einen nackten ``KeyError``. Wer
+    darauf ein ``except StorageError`` schreibt, bekommt im Test einen
+    Durchschlag und in der Produktion nicht - genau so passiert, als
+    ``build_source_change`` anfing, das abgelegte Manifest ueber die Ablage zu
+    lesen.
+    """
+    from storage import FakeS3Client, StorageError
+
+    fake = FakeS3Client()
+    fake.put("silver/dataset=x/manifest.json", b"{}")
+    assert fake.get("silver/dataset=x/manifest.json") == b"{}"
+    with pytest.raises(StorageError, match="kein Objekt"):
+        fake.get("silver/dataset=x/gibt-es-nicht.json")

@@ -651,3 +651,100 @@ def test_die_tabelle_wird_auch_hinaufgebracht(tmp_path, monkeypatch):
         "unten und der Stand oben friert ein")
     assert any("source_change" in z for z in gesehen), \
         f"publiziert wurde etwas anderes: {gesehen}"
+
+
+# --------------------------------------------------------------------------
+# Das Bestehende kommt dazu, auch wenn es nur oben liegt
+# --------------------------------------------------------------------------
+
+
+def test_das_bestehende_bleibt_ueber_laeufe_hinweg_stehen(tmp_path):
+    """Die Zusage, auf der das ganze Aufraeumen ruht - funktional geprueft.
+
+    ``bereits_gezogen`` sagt: *"Ist ein Lauf aufgeraeumt, laesst sich sein
+    Vergleich nicht wiederherstellen - was einmal herausgezogen wurde, bleibt
+    deshalb stehen."*
+    """
+    schnappschuss(tmp_path, "a", [zeile("1")], wann="2026-09-11T12:00:00")
+    schnappschuss(tmp_path, "b", [zeile("1", offense_description="X")],
+                  wann="2026-09-12T12:00:00")
+    assert bsc.baue(tmp_path)["paare"] == 1
+
+    schnappschuss(tmp_path, "c", [zeile("1", offense_description="Y")],
+                  wann="2026-09-13T12:00:00")
+    zweiter = bsc.baue(tmp_path)
+
+    assert zweiter["paare"] == 1, "nur das neue Paar ist zu ziehen"
+    assert zweiter["uebersprungen"] == 1, "das alte gilt als schon gezogen"
+    paare = {(z["vorher_run_id"], z["run_id"]) for z in gelesen(tmp_path)}
+    assert len(paare) == 2, (
+        f"nach dem zweiten Lauf stehen {len(paare)} Paare in der Tabelle - "
+        f"das Bestehende ist weggefallen")
+
+
+def test_das_bestehende_wird_dort_gelesen_wo_die_ablage_es_nennt(tmp_path,
+                                                                 monkeypatch):
+    """Die andere Haelfte, und die, die im ``s3``-Modus brach.
+
+    Bis zum 17.10.2026 suchte der Bau das Bestehende ueber ``alt.is_file()`` -
+    also lokal. Im ``s3``-Modus ist die Arbeitskopie nach dem Publizieren
+    entfernt, die Antwort war immer "es gibt nichts", und jeder Lauf schrieb
+    nur, was er selbst gezogen hatte. **29 Paare und 39'650 Zeilen wurden zu
+    7 Paaren und 23'078**; die Vergleiche, deren Schnappschuesse der
+    Aufraeumlauf danach entfernte, sind endgueltig weg.
+
+    **Ein echter Ferntest ginge nicht** - DuckDB liest die Parquet-Datei
+    selbst, und ``FakeS3Client`` ist ein dict, das DuckDB nicht bedienen kann.
+    Pruefbar ist dafuer der Unterschied, der im ``s3``-Modus zaehlt: Die
+    abgelegte Datei liegt **nicht** am lokalen Tabellenpfad, sondern dort, wo
+    die Ablage sie nennt. Wer das Dateisystem fragt, findet nichts; wer die
+    Ablage fragt, findet sie. Ein erster Entwurf dieses Tests sah nur zu, ob
+    ``exists`` gerufen wird - das tut ``bereits_gezogen`` auch, und die
+    Mutationsprobe blieb gruen.
+    """
+    from storage import Storage
+
+    schnappschuss(tmp_path, "a", [zeile("1")], wann="2026-09-11T12:00:00")
+    schnappschuss(tmp_path, "b", [zeile("1", offense_description="X")],
+                  wann="2026-09-12T12:00:00")
+    assert bsc.baue(tmp_path)["paare"] == 1
+
+    # Die abgelegte Tabelle woanders hin - lokal liegt dann nichts mehr,
+    # genau wie nach ``publish_table`` im ``s3``-Modus.
+    tabelle = bsc.tabellenverzeichnis(tmp_path)
+    woanders = tmp_path / "woanders"
+    woanders.mkdir()
+    (tabelle / PARQUET_FILE).rename(woanders / PARQUET_FILE)
+    (tabelle / "manifest.json").rename(woanders / "manifest.json")
+
+    rel_tabelle = f"silver/dataset={bsc.TABLE}"
+    echt_exists, echt_pfad = Storage.exists, Storage.resolve_read_path
+
+    def exists(self, *teile):
+        if teile and str(teile[0]).endswith(f"dataset={bsc.TABLE}"):
+            return (woanders / str(teile[-1])).is_file()
+        return echt_exists(self, *teile)
+
+    def pfad(self, *teile):
+        if teile and str(teile[0]).endswith(f"dataset={bsc.TABLE}"):
+            return str(woanders / str(teile[-1]))
+        return echt_pfad(self, *teile)
+
+    monkeypatch.setattr(Storage, "exists", exists)
+    monkeypatch.setattr(Storage, "resolve_read_path", pfad)
+    monkeypatch.setattr(Storage, "tabellen_manifest",
+                        lambda self, ziel: json.loads(
+                            (woanders / "manifest.json").read_text(encoding="utf-8")))
+
+    schnappschuss(tmp_path, "c", [zeile("1", offense_description="Y")],
+                  wann="2026-09-13T12:00:00")
+    zweiter = bsc.baue(tmp_path)
+
+    assert zweiter["uebersprungen"] == 1, (
+        "das alte Paar wurde nicht erkannt - die Ablage wird nicht gefragt")
+    paare = {(z["vorher_run_id"], z["run_id"]) for z in gelesen(tmp_path)}
+    assert len(paare) == 2, (
+        f"nach dem zweiten Lauf stehen {len(paare)} Paare in der Tabelle. Das "
+        f"Bestehende lag nicht am lokalen Pfad, sondern dort, wo die Ablage "
+        f"es nennt - wer das Dateisystem fragt, verliert es. (rel war "
+        f"{rel_tabelle})")
