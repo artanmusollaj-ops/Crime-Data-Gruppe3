@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'091** |
+| Tests | **2'100** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -100,6 +100,80 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.10.2026 · Das Release wird gebildet, bevor aufgeräumt wird (Branch `release-vor-dem-aufraeumen`)
+
+**Die Strecke war grün.** Alle fünfzehn Stufen durch, `crime_offense` mit der
+Stufung, `source_change` mit 18 gezogenen Paaren, Gold, Serving. Gescheitert
+ist allein das Release:
+
+    es fehlt: gold/dataset=fact_offense, gold/dataset=dim_tract, … (sieben)
+
+Sieben Tabellen, **alle oben, keine unten.** `publish_table` entfernt im Modus
+`s3` die lokale Arbeitskopie sofort, und `storage.release.sammle` liest das
+Dateisystem.
+
+### Der Widerspruch stand im Dokument
+
+Die Modus-Tabelle sagt für `s3`: *„Release: wie `hybrid`, lokale Kopie
+**danach** entfernt."* Zwei Absätze weiter: *„`s3` ist als **ohne lokalen
+Bestand** definiert."* Beides zugleich geht nicht — und die Umsetzung folgte
+dem zweiten Satz, während das Release den ersten brauchte.
+
+Christian hat entschieden: **aus dem lokalen Stand bilden, danach aufräumen.**
+Das ist die Release-Zeile, und es kostet keinen Netzverkehr für Daten, die oben
+schon liegen. Die beiden verworfenen Wege sind genannt, nicht verschwiegen:
+`sammle` über die Ablage lesen lassen hätte ~230 MB herunter und wieder hinauf
+bewegt und die Regel „kein automatisches Holen für Silver und Gold" gebrochen;
+`srv01` auf `hybrid` umzustellen hätte den ganzen Bestand dauerhaft lokal
+gehalten.
+
+### Umgesetzt
+
+`STORAGE_KEEP_LOCAL` schiebt das lokale Aufräumen auf. `run_all` setzt es für
+die **abgeleiteten** Stufen, wenn ein Release folgt, und räumt danach in einem
+Zug (`Storage.arbeitskopien_entfernen`).
+
+**Über die Umgebung, nicht im Prozess** — jede Stufe ist ein eigener
+`subprocess`, und was am Elternprozess gesetzt wäre, sähe keine von ihnen.
+
+Zwei Grenzen gehören dazu, und beide sind geprüft:
+
+* **Nur Tabellen, nie Läufe.** `publish_run` fragt den Schalter nicht. Ein Lauf
+  ist unveränderlich und jederzeit wieder zu holen; ihn lokal zu halten häuft
+  nur an — 141 Bronze-Läufe waren gestern der Grund, warum der Silver-Bau
+  erstickte. Auch ein global gesetztes `STORAGE_KEEP_LOCAL` kann Raw und
+  Bronze nicht lokal halten.
+* **Entfernt wird nur, was oben liegt.** `arbeitskopien_entfernen` fragt je
+  Tabelle das entfernte Manifest. Fehlt es, bleibt die Kopie — sonst
+  verschwände eine Tabelle, deren Upload scheiterte, und wäre nirgends mehr.
+  Das ist der Unterschied zwischen Aufräumen und Datenverlust; er kostet eine
+  Abfrage je Tabelle.
+
+Geräumt wird **auch nach einem gescheiterten Release**. Der lokale Stand ist
+dann kein Gewinn: Oben liegt er vollständig, und ein nächster Lauf baut ihn
+neu. Ihn liegen zu lassen hiesse, dass ein Modus namens *ohne lokalen Bestand*
+nach jedem Fehlschlag einen behält.
+
+### Ein Wächter, der sich an einer Zufallszahl verschluckte
+
+`test_keine_dokumentzahl_ist_eine_veraltete_kennzahl` beanstandete die
+**Testzahl**: 2'100 liegt drei Zeilen neben `gold/dim_date` = 2'103, und die
+Toleranz ist drei Promille. Sieben Dokumentstellen auf einmal, alle richtig.
+
+`SCHUTZ` wäre die falsche Antwort — dort stehen Zahlen, die veralten *sollen*.
+Eine Testzahl soll das nicht, und sie hat eigene Wächter. Der Wächter sammelt
+die Testzahlen jetzt selbst und zählt sie zu den gültigen. **Gegengeprüft:**
+mit einer eingeschmuggelten veralteten `fact_offense`-Zahl ist er weiter rot —
+die Freigabe gilt der Testzahl, nicht der Nachlässigkeit.
+
+### Zahlen
+
+2'091 → **2'100 Tests**, Standardlauf 1'981 → **1'990**, Referenzwächter
+unverändert **110**. Frischklon gemessen: **1'914 von 1'990**, 76
+übersprungen, grün. Sechs Mutationsproben, alle rot.
 
 ---
 

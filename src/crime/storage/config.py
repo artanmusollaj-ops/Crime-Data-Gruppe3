@@ -60,6 +60,26 @@ class Config:
     s3_use_ssl: bool = True
     hybrid_read_priority: str = "local"
     hybrid_publish_after_write: bool = True
+    #: Im Modus ``s3`` die lokale Arbeitskopie einer publizierten Tabelle
+    #: **nicht** sofort entfernen.
+    #:
+    #: **Warum es den Schalter gibt.** ``s3`` ist als *ohne lokalen Bestand*
+    #: definiert, und ``publish_table`` raeumt deshalb hinter sich auf. Ein
+    #: Release wird aber aus dem lokalen Stand gebildet
+    #: (``storage.release.sammle`` liest das Dateisystem) - und am 16.10.2026
+    #: scheiterte es auf ``srv01`` daran: Gold war oben, lokal lag nichts
+    #: mehr, und die Pflichtliste meldete sieben fehlende Tabellen bei einer
+    #: gruenen Strecke.
+    #:
+    #: Die Modus-Tabelle in ``docs/storage-architektur.md`` sagt fuer ``s3``
+    #: *"lokal gebildet, hochgebracht, lokale Kopie **danach** entfernt"* -
+    #: die Reihenfolge war also beschrieben, nur nicht umgesetzt. Mit diesem
+    #: Schalter setzt ``orchestration.run_all`` sie durch: Die Stufen behalten
+    #: ihre Kopien, und nach dem Release entfernt der Lauf sie in einem Zug.
+    #:
+    #: Kein Schalter fuer Menschen. Er wird je Lauf gesetzt, nicht in einer
+    #: ``.env``, und wer ihn dort setzt, haelt den ganzen Bestand lokal.
+    keep_local: bool = False
 
     @property
     def remote(self) -> bool:
@@ -118,6 +138,7 @@ def load(env: Mapping[str, str] | None = None, *, dotenv: bool = True) -> Config
         s3_use_ssl=wahr(env.get("S3_USE_SSL"), True),
         hybrid_read_priority=prioritaet,
         hybrid_publish_after_write=wahr(env.get("HYBRID_PUBLISH_AFTER_WRITE"), True),
+        keep_local=wahr(env.get("STORAGE_KEEP_LOCAL"), False),
     )
     if config.remote and not (config.s3_access_key and config.s3_secret_key):
         raise StorageConfigError(

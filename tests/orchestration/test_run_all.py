@@ -933,3 +933,73 @@ def test_die_historisierung_laeuft_im_gesamtlauf_und_vor_gold():
     assert gruppen[i] == "silver"
     assert i > namen.index("crime_offense"), "muss nach crime_offense laufen"
     assert i < gruppen.index("gold"), "muss vor Gold laufen"
+
+
+# --------------------------------------------------------------------------
+# Die lokale Arbeitskopie und das Release
+# --------------------------------------------------------------------------
+# Am 16.10.2026 war die Strecke auf ``srv01`` gruen und das Release
+# gescheitert: sieben Gold-Tabellen fehlten, alle lagen oben. Jede Stufe hatte
+# ihre lokale Kopie beim Publizieren entfernt, und ``storage.release.sammle``
+# liest das Dateisystem.
+
+
+def test_die_abgeleiteten_stufen_behalten_ihre_kopie_wenn_ein_release_folgt(monkeypatch):
+    """Geprueft wird die **Umgebung der Unterprozesse**, nicht eine Config.
+
+    Jede Stufe ist ein eigener Prozess. Was im Elternprozess an einer
+    ``Config`` gesetzt wuerde, saehe keine von ihnen - das ist der Grund,
+    warum der Schalter eine Umgebungsvariable ist und kein Argument.
+    """
+    gesehen = []
+
+    class Fertig:
+        returncode = 0
+
+    def falsches_run(befehl, cwd=None, env=None):
+        gesehen.append((env or {}).get("STORAGE_KEEP_LOCAL"))
+        return Fertig()
+
+    monkeypatch.setattr(ra.subprocess, "run", falsches_run)
+    stufe = ra.Stufe("gold", "gold", "gold_pipeline.build_gold")
+
+    ra.fahre([stufe], Path("."), None, behalte_lokal=True)
+    assert gesehen == ["1"], \
+        "ohne die Variable im Unterprozess entfernt die Stufe ihre Kopie"
+
+    gesehen.clear()
+    ra.fahre([stufe], Path("."), None, behalte_lokal=False)
+    assert gesehen == [None], \
+        "ohne folgendes Release darf der Schalter nicht gesetzt sein"
+
+
+def test_der_schalter_haengt_am_release_und_am_modus():
+    """Nicht geraten: Im ``local``-Modus gibt es kein Oben und nichts zu
+    behalten, und ohne Release braucht niemand die Kopie.
+
+    Gelesen wird der Quelltext, weil die Bedingung in ``lauf`` steckt und ein
+    echter Lauf hier Netz, Schluessel und Daten braeuchte. Was der Test
+    verlangt, ist, dass **beide** Teile der Bedingung dastehen - faellt einer
+    weg, haelt ein ``local``-Lauf Kopien oder ein ``s3``-Lauf verliert sie.
+    """
+    quelle = Path(ra.__file__).read_text(encoding="utf-8")
+    assert "behalte_lokal = folgt_release and ablage.backend == \"s3\"" in quelle, (
+        "die Bedingung fuer den Schalter hat sich geaendert - sie muss das "
+        "folgende Release **und** den s3-Modus verlangen")
+    nach = quelle[quelle.index("if behalte_lokal:"):]
+    assert "arbeitskopien_entfernen()" in nach, (
+        "der Schalter wird gesetzt, aber nachher nicht geraeumt - dann haelt "
+        "ein Modus, der 'ohne lokalen Bestand' heisst, nach jedem Lauf einen")
+
+
+def test_geraeumt_wird_nach_dem_release_nicht_davor():
+    """Die Reihenfolge ist die ganze Aenderung.
+
+    Stuende das Raeumen vor dem Release, waere nichts gewonnen - genau das
+    war der Zustand, der auf ``srv01`` gescheitert ist.
+    """
+    quelle = Path(ra.__file__).read_text(encoding="utf-8")
+    release = quelle.index("bilde_und_publiziere")
+    raeumen = quelle.index("arbeitskopien_entfernen()")
+    assert release < raeumen, (
+        "geraeumt wird vor dem Release - dann findet sammle() wieder nichts")

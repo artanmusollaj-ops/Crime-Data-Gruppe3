@@ -143,6 +143,7 @@ nie committet.
 | `S3_USE_SSL` | `true` | — | optional | optional |
 | `HYBRID_READ_PRIORITY` | `local` | — | optional | — |
 | `HYBRID_PUBLISH_AFTER_WRITE` | `true` | — | optional | — |
+| `STORAGE_KEEP_LOCAL` | `false` | — | — | **wird je Lauf gesetzt** |
 
 **Wer lokal arbeitet, füllt nichts davon aus.** Keine der S3-Variablen wird
 gelesen, `STORAGE_BACKEND` selbst kann fehlen — `local` ist die Vorgabe. Eine
@@ -327,6 +328,32 @@ Automatisch holt nur `hybrid`. `s3` ist als *ohne lokalen Bestand* definiert;
 ein Lauf, der ihn füllte, widerspräche der eigenen Definition — dort liest
 Silver Bronze direkt von S3. `tests/storage/test_modi.py` hält diese Matrix
 fest.
+
+### `STORAGE_KEEP_LOCAL` — warum „danach" eine Reihenfolge braucht
+
+Die Release-Zeile sagt für `s3`: *lokal gebildet, hochgebracht, lokale Kopie
+**danach** entfernt.* Bis zum 16.10.2026 stand das so im Dokument und anders
+im Code: `publish_table` entfernte die Kopie sofort, und
+`storage.release.sammle` liest das Dateisystem. Auf `srv01` scheiterte das
+Release deshalb mit *„es fehlt: gold/dataset=fact_offense, …"* — bei einer
+**grünen** Strecke. Sieben Tabellen, alle oben, keine unten.
+
+`STORAGE_KEEP_LOCAL` setzt die Reihenfolge durch.
+`orchestration.run_all` setzt die Variable für die abgeleiteten Stufen,
+**wenn ein Release folgt**, und entfernt die Kopien danach in einem Zug
+(`Storage.arbeitskopien_entfernen`). Zwei Grenzen gehören dazu:
+
+* **Nur Tabellen, nie Läufe.** `publish_run` fragt den Schalter nicht. Ein
+  Lauf ist unveränderlich und jederzeit wieder zu holen; ihn lokal zu
+  behalten häuft nur an — 141 Bronze-Läufe waren der Grund, warum der
+  Silver-Bau erstickte. Auch ein von Hand global gesetztes
+  `STORAGE_KEEP_LOCAL` kann Raw und Bronze nicht lokal halten.
+* **Entfernt wird nur, was oben liegt.** `arbeitskopien_entfernen` fragt je
+  Tabelle das entfernte Manifest. Fehlt es, bleibt die Kopie — sonst
+  verschwände eine Tabelle, deren Upload scheiterte, und wäre nirgends mehr.
+
+In die `.env` gehört die Variable nicht. Wer sie dort setzt, hält den ganzen
+abgeleiteten Bestand lokal und hat `s3` zu einem halben `hybrid` gemacht.
 
 Ein Release entsteht nur nach einem **vollständigen** grünen Lauf bis
 einschliesslich Serving — ein halber Stand bekommt keine Kennung. Scheitert

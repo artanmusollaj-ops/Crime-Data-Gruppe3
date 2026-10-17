@@ -35,6 +35,7 @@ FELDER = {
     "S3_USE_SSL": "s3_use_ssl",
     "HYBRID_READ_PRIORITY": "hybrid_read_priority",
     "HYBRID_PUBLISH_AFTER_WRITE": "hybrid_publish_after_write",
+    "STORAGE_KEEP_LOCAL": "keep_local",
 }
 
 
