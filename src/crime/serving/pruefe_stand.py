@@ -205,7 +205,22 @@ def pruefe_gold(datenwurzel: Path, verzeichnis: Path) -> Befund:
     """
     abweichend, fehlend = [], []
     for ziel in INDIZES:
-        arbeit = datenwurzel / "gold" / f"dataset={ziel.name}" / "part-0001.parquet"
+        # **Derselbe schichtrelative Pfad auf beiden Seiten.** Hier stand
+        # ``"gold" / f"dataset={ziel.name}"``, und das stimmt fuer sieben der
+        # acht Indizes. ``rate_tract`` ist keine Gold-Tabelle - die Rate je
+        # Tract ist eine Aggregation, und Gold aggregiert nicht (AGENTS.md);
+        # sie entsteht in ``serving.build_comparison`` und liegt unter
+        # ``serving/``. Die Release-Seite wusste das ueber
+        # ``Index.quelle_im_release``, die Arbeitsschicht-Seite nicht.
+        #
+        # Die Folge war ein Befund, der eine vorhandene Tabelle als fehlend
+        # meldete und zu einem Neubau riet, der nichts geaendert haette - am
+        # 17.10.2026 auf ``srv01`` gesehen, als zum ersten Mal seit Langem
+        # jemand ``pruefe_stand`` gelesen hat. **Die Testvorrichtung trug
+        # denselben Denkfehler**: Sie legte die Arbeitskopie fuer jeden Index
+        # unter ``gold/``, also auch fuer ``rate_tract`` - gegen den Code
+        # gebaut und darum blind fuer ihn.
+        arbeit = datenwurzel / ziel.quelle_im_release
         im_release = verzeichnis / ziel.quelle_im_release
         if not arbeit.is_file() or not im_release.is_file():
             fehlend.append(ziel.name)
