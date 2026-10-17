@@ -102,7 +102,6 @@ from silver_pipeline import (
     TransformError,
     connect,
     publish,
-    read_manifest,
     schema_of,
 )
 
@@ -344,6 +343,10 @@ def detroit_sources(data_root: Path) -> Source:
     ablage = for_root(data_root)
     prefix = f"{BRONZE_LAYER}/{DETROIT_BRONZE}"
     wurzel = ablage.local_path(prefix)
+    # Lokal mit Absicht, und die Bedingung sagt es: Der Griff haengt
+    # an `liest_lokal and not remote`, laeuft also nur im
+    # `local`-Modus. Dort ist ein fehlendes Verzeichnis die
+    # verstaendlichste Fehlermeldung.
     if ablage.config.liest_lokal and not ablage.config.remote and not wurzel.exists():
         raise TransformError(f"Kein Detroit-Bronze-Verzeichnis: {wurzel}")
 
@@ -368,6 +371,10 @@ def detroit_sources(data_root: Path) -> Source:
         zeilen += lauf.zeilen
 
     if not pfade:
+        # Lokal mit Absicht: Dieser Zweig verbessert nur eine
+        # Fehlermeldung - er sucht NDJSON-Reste aus der Zeit vor dem
+        # Zeitzonen-Fix, die es nur lokal je gab. Im `s3`-Modus bleibt
+        # er leer, und es gilt der allgemeine Fehler darunter.
         veraltet = sorted(wurzel.glob("*.ndjson")) if wurzel.exists() else []
         if veraltet:
             raise TransformError(
@@ -389,6 +396,12 @@ class TractQuelle(NamedTuple):
 
     pfad: str        # lokal oder s3://
     vintage: str     # etwa "vintage=2024"
+    #: Der **Ablagepfad** des Tabellenverzeichnisses, etwa
+    #: ``silver/dataset=tract/vintage=2024``. Ohne ihn liesse sich das
+    #: Manifest jener Tabelle nicht ueber die Ablage lesen - und ``pfad``
+    #: taugt dafuer nicht: Im ``s3``-Modus ist er eine Adresse, kein Pfad.
+    #: Bis zum 17.10.2026 fehlte er, und die Folge steht an ``herkunft_von``.
+    verzeichnis: str = ""
 
     def __str__(self) -> str:
         return self.pfad
@@ -405,7 +418,8 @@ def tract_source(data_root: Path) -> TractQuelle:
             "Zuerst 'python -m silver_pipeline.build_tract' laufen lassen."
         )
     rel = kandidaten[-1]
-    return TractQuelle(ablage.resolve_read_path(rel), rel.split("/")[-2])
+    return TractQuelle(ablage.resolve_read_path(rel), rel.split("/")[-2],
+                       rel.rsplit("/", 1)[0])
 
 
 # ---------------------------------------------------------------------------
@@ -1060,7 +1074,8 @@ def comparability(con: duckdb.DuckDBPyConnection, relation: str) -> list[dict[st
 
 
 def herkunft_von(
-    chicago: Source, detroit: Source, tract: TractQuelle, config_root: Path
+    chicago: Source, detroit: Source, tract: TractQuelle, config_root: Path,
+    data_root: Path | None = None,
 ) -> dict[str, Any]:
     """Woraus diese Tabelle entstanden ist - vollstaendig genug zum Nachbauen.
 
@@ -1071,16 +1086,40 @@ def herkunft_von(
     ``silver/tract`` wird als **Referenz** genannt - mit Bauzeitpunkt,
     Eingabe-Abdruck und seiner eigenen Herkunft.
     """
+    # **Zwei Fehler in zwei Zeilen, bis zum 17.10.2026.** Hier stand
+    #
+    #     tract_verzeichnis = Path(tract.pfad).parent
+    #     if (tract_verzeichnis / "manifest.json").exists():
+    #
+    # und ``tract.pfad`` ist im ``s3``-Modus ``s3://urban-crime/...``.
+    # ``Path`` macht aus dem Doppel-Slash ein einfaches, also war
+    # ``.exists()`` **immer falsch** - das Manifest blieb leer, und mit ihm
+    # fehlten Bauzeitpunkt, Eingabe-Abdruck und die eigene Herkunft von
+    # ``silver/tract``. Die Herkunftskette von ``crime_offense`` nach Bronze
+    # war auf ``srv01`` nicht nachvollziehbar, und das trifft genau die
+    # Kernthese der Arbeit: Ein Manifest, das sagt "hier kommt es her" und es
+    # nicht sagt, ist schlimmer als keines.
+    #
+    # Derselbe ``Path``-Griff verstuemmelte dazu den Pfad, der stattdessen
+    # dastand: ``s3:/urban-crime/...`` mit einem Slash. Er sieht aus wie eine
+    # Adresse und ist keine. Deshalb geht ``tract.pfad`` jetzt **als
+    # Zeichenkette** in die Referenz - eine Ablageadresse ist kein
+    # Dateisystempfad.
+    # ``data_root`` muss **durchgereicht** werden. Hier stand kurzzeitig
+    # ``for_root(None)``, und das nimmt die Standardwurzel ``data/`` statt der
+    # des Aufrufers - lokal faellt das nicht auf, weil ``data/`` existiert.
+    # Der Frischklon-Lauf ohne ``data/`` hat es gezeigt: 57 Tests rot,
+    # ``FileNotFoundError`` auf einem Pfad, den kein Test gesetzt hat.
+    ablage = for_root(data_root)
     tract_manifest = {}
-    tract_verzeichnis = Path(tract.pfad).parent
-    if (tract_verzeichnis / "manifest.json").exists():
-        tract_manifest = read_manifest(tract_verzeichnis)
+    if tract.verzeichnis and ablage.exists(tract.verzeichnis, "manifest.json"):
+        tract_manifest = ablage.tabellen_manifest(tract.verzeichnis)
     return {
         "chicago_bronze_runs": chicago.run_ids,
         "chicago_bronze_format": chicago.format,
         "detroit_bronze_runs": detroit.run_ids,
         "detroit_bronze_format": detroit.format,
-        "silver_tract": referenz(Path(tract.pfad), tract_manifest),
+        "silver_tract": referenz(tract.pfad, tract_manifest),
         "crosswalks": [
             referenzdatei(config_root / name)
             for name in (IUCR_MAPPING, MICR_MAPPING, NIBRS_CODES)
@@ -1096,8 +1135,9 @@ def build_manifest(
     tract: TractQuelle,
     config_root: Path,
     pruefung: dict[str, Any],
+    data_root: Path | None = None,
 ) -> dict[str, Any]:
-    herkunft = herkunft_von(chicago, detroit, tract, config_root)
+    herkunft = herkunft_von(chicago, detroit, tract, config_root, data_root)
     return {
         # Als einziges Manifest des Projekts fehlte hier lange der Status -
         # ausgerechnet bei der Tabelle, die den Vergleich traegt. Wer sie las,
@@ -1181,7 +1221,8 @@ def _build(datenbank: Path, data_root: Path, config_root: Path,
         con.execute(f"CREATE TABLE {TABLE} AS {schluss}")
         pruefung = reconcile(con, TABLE, chicago, detroit, config_root)
         manifest = build_manifest(
-            con, TABLE, chicago, detroit, tract, config_root, pruefung
+            con, TABLE, chicago, detroit, tract, config_root, pruefung,
+            data_root,
         )
         ziel = publish(con, TABLE, table_dir(data_root), manifest,
                        ordnung=ORDNUNG)

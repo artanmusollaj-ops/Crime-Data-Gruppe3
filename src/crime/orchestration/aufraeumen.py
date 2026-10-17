@@ -554,6 +554,10 @@ def halbe_releases(storage: Storage) -> list[HalbesRelease]:
     gefunden: dict[str, list[int]] = {}
     orte: dict[str, set[str]] = {}
 
+    # Lokal mit Absicht, und ausdruecklich geprueft: Dies ist die **lokale
+    # Haelfte** des Inventars - die ferne zaehlt darunter ueber
+    # `client.list`. Der Zweig haengt an `config.liest_lokal`, laeuft im
+    # `s3`-Modus also nicht.
     lokal = storage.local_path(release.RELEASES)
     if storage.config.liest_lokal and lokal.is_dir():
         for verzeichnis in sorted(lokal.glob("release=*")):
@@ -562,8 +566,13 @@ def halbe_releases(storage: Storage) -> list[HalbesRelease]:
             rel = verzeichnis.relative_to(lokal).as_posix()
             if paths.versteckt(rel):
                 continue
+            # Lokal mit Absicht: dieselbe lokale Haelfte.
             if (verzeichnis / release.RELEASE_MANIFEST).is_file():
                 continue
+            # Lokal mit Absicht, und ausdruecklich geprueft: Dies ist die
+            # **lokale Haelfte** des Inventars - die ferne zaehlt darunter
+            # ueber `client.list`. Der Zweig haengt an
+            # `config.liest_lokal`, laeuft im `s3`-Modus also nicht.
             dateien = [d for d in verzeichnis.rglob("*") if d.is_file()]
             kennung = release.kennung_aus(verzeichnis)
             gefunden[kennung] = [len(dateien),
@@ -623,6 +632,8 @@ def loesche_halbe(halbe: list[HalbesRelease], storage: Storage, *,
     for h in halbe:
         rel = f"{release.RELEASES}/release={h.kennung}"
         verzeichnis = storage.local_path(rel)
+        # Lokal mit Absicht: das lokale Loeschen eines Releases. Oben
+        # geschieht es getrennt und nur mit `auch_fern`.
         if verzeichnis.is_dir():
             shutil.rmtree(verzeichnis)
             LOG.info("halbes Release lokal geloescht: %s", rel)
@@ -724,6 +735,8 @@ def loesche_releases(entscheide: list[ReleaseEntscheid], storage: Storage, *,
             continue
         rel = f"{release.RELEASES}/release={e.release_.release_id}"
         verzeichnis = storage.local_path(rel)
+            # Lokal mit Absicht: dasselbe - hier wird die lokale Kopie
+            # entfernt, oben uebernimmt `entferne_oben`.
         if verzeichnis.is_dir():
             shutil.rmtree(verzeichnis)
             lokal.append(e)
@@ -791,12 +804,18 @@ def loesche(entscheide: list[Entscheid], data_root: Path, *,
         for rel in e.bestand.bronze + e.bestand.raw:
             weg = False
             verzeichnis = ablage.local_path(rel)
+            # Lokal mit Absicht: Dies *ist* das lokale Loeschen. Was oben
+            # liegt, nimmt `entferne_oben` weiter unten - und nur mit
+            # `auch_fern`.
             if verzeichnis.is_dir():
                 shutil.rmtree(verzeichnis)
                 weg = True
                 LOG.info("geloescht: %s", verzeichnis)
                 schicht = data_root / Path(rel).parts[0]
                 eltern = verzeichnis.parent
+                # Lokal mit Absicht: Leer gewordene Partitionsverzeichnisse
+                # gibt es nur unten - oben gibt es keine Verzeichnisse, nur
+                # Praefixe.
                 while (eltern != schicht and eltern.is_dir()
                        and not any(eltern.iterdir())):
                     eltern.rmdir()

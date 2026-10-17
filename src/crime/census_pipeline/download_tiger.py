@@ -272,6 +272,8 @@ def discard_stale_partials(data_root: Path, now: datetime,
     removed = []
     for layer in LAYERS:
         pattern = f"{layer}/dataset={aus.dataset}/vintage=*/state=*/.*.part"
+        # Lokal mit Absicht: dasselbe wie in `download_acs` - ein `.part`
+        # wird nie publiziert, und was geloescht wird, liegt unten.
         for path in sorted(data_root.glob(pattern)):
             if path.is_dir() and path.stat().st_mtime < cutoff:
                 shutil.rmtree(path, ignore_errors=True)

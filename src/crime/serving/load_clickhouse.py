@@ -477,10 +477,16 @@ class HttpKlient:
 def aktuelles_release(datenwurzel: Path) -> tuple[str, Path]:
     """Die Kennung, auf die der Zeiger zeigt, und das Verzeichnis dazu."""
     zeiger = datenwurzel / "releases" / "AKTUELL.json"
+    # Lokal mit Absicht: Der Zeiger liegt lokal, weil
+    # `release holen --einsetzen` ihn dorthin legt - im Datenlauf
+    # der Schritt davor.
     if not zeiger.is_file():
         raise LadeFehler(f"{zeiger} fehlt - erst 'run_all --release' laufen lassen")
     kennung = json.loads(zeiger.read_text(encoding="utf-8"))["release_id"]
     verzeichnis = datenwurzel / "releases" / f"release={kennung}"
+    # Lokal mit Absicht: Ein Release wird aus dem Dateisystem
+    # geladen, nicht von oben - und wenn es fehlt, ist der klare
+    # Fehler darunter die richtige Antwort.
     if not verzeichnis.is_dir():
         raise LadeFehler(f"Release {kennung} liegt nicht lokal: {verzeichnis}")
     return kennung, verzeichnis
@@ -488,6 +494,7 @@ def aktuelles_release(datenwurzel: Path) -> tuple[str, Path]:
 
 def quelle(verzeichnis: Path, ziel: Ziel) -> Path:
     parquet = verzeichnis / ziel.quelle_im_release
+    # Lokal mit Absicht: eine Datei im eingesetzten Release.
     if not parquet.is_file():
         raise LadeFehler(f"{parquet} fehlt im Release")
     return parquet

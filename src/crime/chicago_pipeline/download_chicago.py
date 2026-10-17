@@ -201,6 +201,8 @@ def discard_stale_partials(data_root: Path, now: datetime) -> list[Path]:
     removed = []
     for layer in LAYERS:
         pattern = f"{layer}/city={CITY}/ingest_date=*/.*.part"
+        # Lokal mit Absicht: ein `.part` wird nie publiziert, und dieser
+        # Griff loescht - beides gehoert aufs Dateisystem.
         for path in sorted(data_root.glob(pattern)):
             if path.is_dir() and path.stat().st_mtime < cutoff:
                 shutil.rmtree(path, ignore_errors=True)

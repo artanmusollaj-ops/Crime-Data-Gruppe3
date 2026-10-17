@@ -363,7 +363,7 @@ def datei_hash(pfad: Path) -> str:
     return h.hexdigest()
 
 
-def referenz(pfad: Path, manifest: dict[str, Any]) -> dict[str, Any]:
+def referenz(pfad: Path | str, manifest: dict[str, Any]) -> dict[str, Any]:
     """Wie eine abgeleitete Tabelle genannt wird, wenn eine andere auf ihr ruht.
 
     **Ein Pfad ist keine Version.** ``data/silver/dataset=crime_offense/
@@ -378,6 +378,11 @@ def referenz(pfad: Path, manifest: dict[str, Any]) -> dict[str, Any]:
     beantwortbar, aus welchen Eingaben eine Zahl entstanden ist - und das ist
     die Frage, die in einer Abgabe gestellt wird.
     """
+    # ``Path | str``, und das ist kein Bequemlichkeitszugeständnis: Eine
+    # Ablageadresse (``s3://bucket/...``) ist **kein** Dateisystempfad. Sie
+    # durch ``Path`` zu schicken macht aus dem Doppel-Slash ein einfaches und
+    # damit aus der Adresse eine Zeichenkette, die wie eine aussieht und
+    # keine ist - am 17.10.2026 im Manifest von ``crime_offense`` gefunden.
     eintrag: dict[str, Any] = {"path": str(pfad)}
     for schluessel in ("built_at_utc", "input_fingerprint"):
         if manifest.get(schluessel):
