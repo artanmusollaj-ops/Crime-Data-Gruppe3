@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'127** |
+| Tests | **2'128** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,59 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.10.2026 · `rate_tract` liegt in Serving, nicht in Gold (Branch `rate-tract-liegt-in-serving`)
+
+Christian meldete, die neuen Dashboards fehlten auf `srv01`. Sie fehlten
+nicht, sie waren nie gebaut: `serving.build_kibana`,
+`serving.load_elasticsearch` und `release holen --einsetzen` stehen im
+Datenlauf-Skript **nach** `run_all`, und alle Läufe des Tages waren
+`run_all --ohne-ingestion`. Elasticsearch trug deshalb noch die Daten vom
+4.10. (`fact_offense` 1'851'950), und Kibana vier Dashboards statt sieben —
+es fehlten genau die drei, die am 15.10. für Artans Vorlagen dazukamen.
+Nachgeholt: 8 Aliase, **7 Dashboards**, Einstiegsseite neu.
+
+### Und ein Befund, den dabei erst jemand gelesen hat
+
+`serving.pruefe_stand` meldete:
+
+    ! Gold (Arbeitsschicht)  nicht erreichbar  rate_tract fehlt
+                             -> python -m orchestration.run_all
+
+Die Tabelle war vollständig da. `pruefe_gold` baute den Pfad der
+Arbeitsschicht selbst zusammen:
+
+```python
+arbeit = datenwurzel / "gold" / f"dataset={ziel.name}" / "part-0001.parquet"
+```
+
+Das stimmt für sieben der acht Indizes. **`rate_tract` ist keine
+Gold-Tabelle** — die Rate je Tract ist eine Aggregation, und Gold aggregiert
+nicht (`AGENTS.md`); sie entsteht in `serving.build_comparison` und liegt
+unter `serving/`. Die Release-Seite wusste das über
+`Index.quelle_im_release`, die Arbeitsschicht-Seite nicht. Ein Pfad, an zwei
+Stellen gebaut, und nur eine kannte die Ausnahme.
+
+Die Folge war ein Befund, der eine vorhandene Tabelle als fehlend meldet und
+zu einem Neubau rät, der nichts ändern würde. Wie lange er das schon tat,
+weiss ich nicht — gelesen hat ihn heute zum ersten Mal jemand.
+
+### Die Testvorrichtung trug denselben Denkfehler
+
+`lege_gold_an` legte die Arbeitskopie für **jeden** Index unter `gold/`, also
+auch für `rate_tract`. Sie war gegen den Code gebaut und darum blind für ihn.
+Beide nehmen jetzt `ziel.quelle_im_release` — eine Definition, zwei Seiten.
+
+Dazu ein Test, der **von Hand** richtig legt und die Sache ausspricht:
+`rate_tract` unter `serving/`, der Rest unter `gold/`, und
+`gold/dataset=rate_tract` existiert ausdrücklich nicht. Zwei
+Mutationsproben, beide rot.
+
+**Zahlen.** 2'127 → **2'128 Tests**, Standardlauf 2'016 → **2'017**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **1'941 von
+2'017**, 76 übersprungen, grün.
 
 ---
 

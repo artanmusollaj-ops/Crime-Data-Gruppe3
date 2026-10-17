@@ -38,6 +38,10 @@ def lege_gold_an(wurzel: Path, release: str = RELEASE, *,
     seit dem 5.10.2026 alle sechs Gold-Tabellen, und eine Vorrichtung, die
     fuenf legt, liesse den Befund "dim_tract_acs fehlt" lauten statt zu
     pruefen, was sie pruefen will.
+
+    **Und zwar an den Pfad, den ``Index.quelle_im_release`` nennt** - nicht
+    an einen hier gebauten. ``rate_tract`` liegt unter ``serving/``, weil die
+    Rate je Tract eine Aggregation ist und Gold nicht aggregiert.
     """
     verzeichnis = wurzel / "releases" / f"release={release}"
     for ziel in INDIZES:
@@ -48,7 +52,11 @@ def lege_gold_an(wurzel: Path, release: str = RELEASE, *,
         im_release.parent.mkdir(parents=True, exist_ok=True)
         im_release.write_bytes(inhalt)
 
-        arbeit = wurzel / "gold" / f"dataset={ziel.name}" / "part-0001.parquet"
+        # Derselbe schichtrelative Pfad wie im Release - ``rate_tract``
+        # liegt unter ``serving/``, nicht unter ``gold/``. Hier stand
+        # ``"gold" / f"dataset={ziel.name}"`` fuer jeden Index, und damit war
+        # diese Vorrichtung gegen den Code gebaut statt gegen die Sache.
+        arbeit = wurzel / ziel.quelle_im_release
         arbeit.parent.mkdir(parents=True, exist_ok=True)
         arbeit.write_bytes(b"etwas anderes" if ziel.name in abweichend
                            else inhalt)
@@ -415,3 +423,42 @@ def test_jeder_ort_hat_einen_befund():
     assert {b.ort for b in befunde} <= namen
     # Und die Listen, gegen die geprueft wird, sind nicht leer.
     assert ZIELE and INDIZES and BRETTER
+
+
+def test_rate_tract_wird_unter_serving_gesucht_nicht_unter_gold(tmp_path):
+    """Nicht jede Tabelle hinter einem Index liegt in Gold.
+
+    Die Rate je Tract ist eine **Aggregation**, und Gold aggregiert nicht
+    (AGENTS.md). Sie entsteht in ``serving.build_comparison`` und liegt im
+    Release wie in der Arbeitsschicht unter ``serving/``.
+    ``Index.quelle_im_release`` kennt die Ausnahme; ``pruefe_gold`` baute den
+    Arbeitspfad daneben selbst zusammen und suchte sie unter ``gold/``.
+
+    **Die Folge war ein falscher Befund**, der zu einem Neubau riet, der
+    nichts geaendert haette - am 17.10.2026 auf ``srv01`` gesehen. Und die
+    Vorrichtung ``lege_gold_an`` trug denselben Denkfehler, legte also auch
+    ``rate_tract`` unter ``gold/``: gegen den Code gebaut und darum blind.
+
+    Dieser Test legt **von Hand** und ausdruecklich richtig: alles unter
+    ``gold/``, nur ``rate_tract`` unter ``serving/``. Mit dem alten Code
+    lautet der Befund "rate_tract fehlt".
+    """
+    verzeichnis = tmp_path / "releases" / f"release={RELEASE}"
+    for ziel in INDIZES:
+        inhalt = f"inhalt-{ziel.name}".encode()
+        for wo in (verzeichnis / ziel.quelle_im_release,
+                   tmp_path / ziel.quelle_im_release):
+            wo.parent.mkdir(parents=True, exist_ok=True)
+            wo.write_bytes(inhalt)
+
+    # Die Erwartung ausgesprochen, damit der Test auch die Sache festhaelt
+    # und nicht nur den Code: rate_tract unter serving, der Rest unter gold.
+    assert (tmp_path / "serving" / "dataset=rate_tract"
+            / "part-0001.parquet").is_file()
+    assert not (tmp_path / "gold" / "dataset=rate_tract").exists()
+
+    befund = ps.pruefe_gold(tmp_path, verzeichnis)
+    assert befund.urteil is ps.Urteil.GLEICH, (
+        f"{befund.satz if hasattr(befund, 'satz') else befund} - eine "
+        f"vorhandene Tabelle wurde als fehlend gemeldet, weil sie unter "
+        f"serving/ liegt und nicht unter gold/")
