@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'100** |
+| Tests | **2'103** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
@@ -100,6 +100,57 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.10.2026 · Serving wird nicht gefragt (Branch `serving-wird-nicht-gefragt`)
+
+Der erste Lauf mit dem neuen Aufräumen war grün und hat das Release gebildet —
+und am Ende fünfmal gewarnt:
+
+    WARNING Nicht oben, lokale Kopie bleibt: serving/dataset=comparison_day
+    WARNING Nicht oben, lokale Kopie bleibt: serving/dataset=comparison_month
+    … (fünf)
+
+Die Sicherung tat genau das Richtige: Sie löscht nichts, was oben nicht liegt.
+**Nur war die Frage falsch gestellt.** Keine Serving-Tabelle wird je einzeln
+publiziert — `serving.build_comparison` schreibt über
+`silver_pipeline.publish` lokal und ruft nie `publish_table`. Die Tabellen
+reisen allein im Release mit, und ihre lokale Kopie *ist* der Bestand;
+`pruefe_stand` und die Lader lesen sie dort.
+
+Fünf richtige, harmlose Warnungen bei **jedem** Lauf. Eine Warnung, die immer
+kommt, erzieht dazu, Warnungen zu überlesen — und das ist teuer, wenn einmal
+eine echte dabei ist. `Storage.PUBLIZIERTE_SCHICHTEN` nennt jetzt `silver` und
+`gold`; das Argument sticht die Vorgabe weiterhin.
+
+**Damit die Liste nicht veraltet**, hält ein Wächter dagegen, dass kein
+Serving-Modul anfängt, `publish_table` zu rufen. Täte es das, wäre die Liste
+zu kurz — und zwar lautlos: `arbeitskopien_entfernen` schaut die Schicht dann
+gar nicht an, und die Kopien blieben liegen. Der Test sagt es, statt dass das
+Volume wächst. Mutationsprobe dazu: ein `publish_table` in
+`build_comparison` eingesetzt, Test rot.
+
+**Was der Lauf sonst gezeigt hat** (`2026-10-17T07-11-51Z`, 27 Dateien,
+181.8 MB, publiziert):
+
+* `crime_offense` in **117 s**, 1'886'336 Zeilen, `memory_limit=1536MB` — die
+  Stufe, an der vier Läufe gestorben sind.
+* **`Already published, identical`.** Die Datei ist byteweise die, die oben
+  schon lag. Die Byte-Gleichheit, lokal an 1'875'378 Zeilen geprüft, hält auf
+  `srv01` an 1'886'336: Zerlegung in 18 Stufen, `ORDER BY` im `COPY` und
+  `preserve_insertion_order=false` haben am Ergebnis nichts verändert.
+* `source_change` hat 18 Paare gezogen — die erste echte Historisierung.
+* Das Volume wuchs 232 → 623 MB und fiel auf **173 MB**, also unter den
+  Anfang: `crime_offense` und `weather_day` liegen jetzt auch oben statt
+  unten. 18 Arbeitskopien entfernt.
+
+**Zahlen.** 2'100 → **2'103 Tests**, Standardlauf 1'990 → **1'993**,
+Referenzwächter unverändert **110**. Frischklon gemessen: **1'917 von 1'993**,
+76 übersprungen, grün.
+
+Die Testzahl ist damit **genau** `gold/dim_date` = 2'103. Dass das keine
+sieben Dokumentstellen rot macht, ist dem Eintrag darunter zu verdanken.
 
 ---
 
