@@ -348,9 +348,15 @@ Release deshalb mit *„es fehlt: gold/dataset=fact_offense, …"* — bei einer
   behalten häuft nur an — 141 Bronze-Läufe waren der Grund, warum der
   Silver-Bau erstickte. Auch ein von Hand global gesetztes
   `STORAGE_KEEP_LOCAL` kann Raw und Bronze nicht lokal halten.
-* **Entfernt wird nur, was oben liegt.** `arbeitskopien_entfernen` fragt je
-  Tabelle das entfernte Manifest. Fehlt es, bleibt die Kopie — sonst
-  verschwände eine Tabelle, deren Upload scheiterte, und wäre nirgends mehr.
+* **Entfernt wird nur, was oben liegt — und zwar dasselbe.**
+  `arbeitskopien_entfernen` vergleicht je Tabelle beide Manifeste. Fehlt das
+  entfernte, bleibt die Kopie: Sonst verschwände eine Tabelle, deren Upload
+  scheiterte, und wäre nirgends mehr. **Weichen sie ab, bleibt sie auch.** Die
+  erste Fassung fragte nur, *ob* oben etwas liegt, und löschte am 17.10.2026
+  eine frisch gebaute `source_change`, deren Gegenstück oben vom 3.10. war —
+  21,4 Mio. Zeilen, gebaut und verloren, weil `build_source_change` damals
+  kein `publish_table` rief. Eine Unsicherheit (unlesbares JSON, Netzfehler)
+  gilt als Abweichung und schützt die Kopie.
 * **Gefragt werden nur Silver und Gold** (`Storage.PUBLIZIERTE_SCHICHTEN`).
   Keine Serving-Tabelle wird je einzeln publiziert: `build_comparison`
   schreibt lokal und ruft nie `publish_table`. Die Tabellen reisen allein im

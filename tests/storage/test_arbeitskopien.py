@@ -201,3 +201,60 @@ def test_wer_eine_schicht_nennt_bekommt_genau_die(tmp_path):
     assert weg == ["silver/dataset=crime_offense"]
     assert not silber.exists()
     assert storage.local_path(GOLD).exists(), "gold war nicht gefragt"
+
+
+# --------------------------------------------------------------------------
+# Oben liegt nicht irgendwas, sondern dasselbe
+# --------------------------------------------------------------------------
+
+
+def test_ein_anderer_stand_oben_schuetzt_die_lokale_kopie(tmp_path, caplog):
+    """Der Fehler vom 17.10.2026, und zwar mein eigener.
+
+    Die erste Fassung fragte nur, *ob* oben etwas liegt. Damit hat sie eine
+    frisch gebaute ``source_change`` geloescht, deren Gegenstueck oben zwei
+    Wochen alt war: ``build_source_change`` rief damals kein
+    ``publish_table``, baute also unten eine neue Fassung, die nie hinaufkam.
+    21,4 Mio. Zeilen, gebaut und verloren. Dass sie falsch waren, war Glueck.
+    """
+    storage, _ = ablage(tmp_path, "s3", keep_local=True)
+    rel = "silver/dataset=source_change"
+    verzeichnis = lege_tabelle(storage, rel, zeilen=3)
+    storage.publish_table(rel)
+
+    # Ein neuer Bau unten, der nie hinaufkommt.
+    (verzeichnis / "manifest.json").write_text(
+        json.dumps({"status": "complete", "row_count": 21_384_112}),
+        encoding="utf-8")
+
+    with caplog.at_level("WARNING"):
+        weg = storage.arbeitskopien_entfernen()
+
+    assert weg == [], "ein nicht publizierter Stand darf nicht geloescht werden"
+    assert (verzeichnis / "part-0001.parquet").is_file()
+    assert any("anderer Stand" in s for s in caplog.messages), \
+        "das gehoert gemeldet, nicht verschwiegen"
+
+
+def test_derselbe_stand_oben_gibt_die_kopie_frei(tmp_path):
+    """Die Gegenprobe: Der Vergleich darf nicht alles festhalten."""
+    storage, _ = ablage(tmp_path, "s3", keep_local=True)
+    verzeichnis = lege_tabelle(storage, GOLD)
+    storage.publish_table(GOLD)
+    assert storage.arbeitskopien_entfernen() == [GOLD]
+    assert not verzeichnis.exists()
+
+
+def test_ein_unlesbares_manifest_oben_schuetzt_die_kopie(tmp_path, caplog):
+    """Eine Unsicherheit darf nicht zum Loeschen fuehren."""
+    storage, fake = ablage(tmp_path, "s3", keep_local=True)
+    verzeichnis = lege_tabelle(storage, GOLD)
+    storage.publish_table(GOLD)
+    fake.put(f"{GOLD}/manifest.json", b"{kein json")
+
+    with caplog.at_level("WARNING"):
+        weg = storage.arbeitskopien_entfernen()
+
+    assert weg == []
+    assert verzeichnis.exists()
+    assert any("nicht vergleichbar" in s for s in caplog.messages)
