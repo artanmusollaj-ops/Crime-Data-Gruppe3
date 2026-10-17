@@ -211,6 +211,71 @@ Die Grösse von `releases` (795,8 → 935,0 MB) ist **kein** Projektfakt: Sie
 bewegt sich, weil für die Messung ein lokales Release gebildet wurde und die
 Regel „gepinnt plus die letzten acht" dann ein kleineres verdrängt. `silver`
 bleibt bei 213,6 MB — `source_change` ist nach der Korrektur wieder schmal.
+## 17.10.2026 · Die Speichergrenze zurück auf die gemessene Zahl (Branch `grenze-zurueck`)
+
+Am 16.10.2026 habe ich `DUCKDB_MEMORY_LIMIT` von 896 auf 1536 MB gehoben und
+`mem_limit` von 1'280 auf 2'048 MiB, weil vier Läufe bei `silver
+crime_offense` an der Grenze starben und ich sie für die Ursache hielt. **Sie
+war es nicht.** Die Abfrage lief als *eine* Anweisung, in der jede
+Zwischenstufe gleichzeitig gepinnt ist — daher „failed to pin block", und
+daher verschob das Heben nur die Wand. Gestuft und mit der Datenbank auf einer
+Datei braucht derselbe Bau **256 MB**.
+
+Zurück auf die **gemessene** Zahl, nicht auf eine neu erfundene: 896 MB gelten
+für *jede* Stufe, auch für Gold mit 1,86 Mio. Zeilen und für `comparison` —
+und die sind bei 896 MB durchgelaufen, bevor ich etwas anfasste. Tiefer zu
+gehen hiesse, sie einzeln nachzumessen; das wäre eine eigene Messung und keine
+Nebenwirkung.
+
+Damit stimmen Compose-Datei und FR-13-Messung vom 6.10.2026 wieder überein.
+## 17.10.2026 · Serving wird nicht gefragt (Branch `serving-wird-nicht-gefragt`)
+
+Der erste Lauf mit dem neuen Aufräumen war grün und hat das Release gebildet —
+und am Ende fünfmal gewarnt:
+
+    WARNING Nicht oben, lokale Kopie bleibt: serving/dataset=comparison_day
+    WARNING Nicht oben, lokale Kopie bleibt: serving/dataset=comparison_month
+    … (fünf)
+
+Die Sicherung tat genau das Richtige: Sie löscht nichts, was oben nicht liegt.
+**Nur war die Frage falsch gestellt.** Keine Serving-Tabelle wird je einzeln
+publiziert — `serving.build_comparison` schreibt über
+`silver_pipeline.publish` lokal und ruft nie `publish_table`. Die Tabellen
+reisen allein im Release mit, und ihre lokale Kopie *ist* der Bestand;
+`pruefe_stand` und die Lader lesen sie dort.
+
+Fünf richtige, harmlose Warnungen bei **jedem** Lauf. Eine Warnung, die immer
+kommt, erzieht dazu, Warnungen zu überlesen — und das ist teuer, wenn einmal
+eine echte dabei ist. `Storage.PUBLIZIERTE_SCHICHTEN` nennt jetzt `silver` und
+`gold`; das Argument sticht die Vorgabe weiterhin.
+
+**Damit die Liste nicht veraltet**, hält ein Wächter dagegen, dass kein
+Serving-Modul anfängt, `publish_table` zu rufen. Täte es das, wäre die Liste
+zu kurz — und zwar lautlos: `arbeitskopien_entfernen` schaut die Schicht dann
+gar nicht an, und die Kopien blieben liegen. Der Test sagt es, statt dass das
+Volume wächst. Mutationsprobe dazu: ein `publish_table` in
+`build_comparison` eingesetzt, Test rot.
+
+**Was der Lauf sonst gezeigt hat** (`2026-10-17T07-11-51Z`, 27 Dateien,
+181.8 MB, publiziert):
+
+* `crime_offense` in **117 s**, 1'886'336 Zeilen, `memory_limit=1536MB` — die
+  Stufe, an der vier Läufe gestorben sind.
+* **`Already published, identical`.** Die Datei ist byteweise die, die oben
+  schon lag. Die Byte-Gleichheit, lokal an 1'875'378 Zeilen geprüft, hält auf
+  `srv01` an 1'886'336: Zerlegung in 18 Stufen, `ORDER BY` im `COPY` und
+  `preserve_insertion_order=false` haben am Ergebnis nichts verändert.
+* `source_change` hat 18 Paare gezogen — die erste echte Historisierung.
+* Das Volume wuchs 232 → 623 MB und fiel auf **173 MB**, also unter den
+  Anfang: `crime_offense` und `weather_day` liegen jetzt auch oben statt
+  unten. 18 Arbeitskopien entfernt.
+
+**Zahlen.** 2'100 → **2'103 Tests**, Standardlauf 1'990 → **1'993**,
+Referenzwächter unverändert **110**. Frischklon gemessen: **1'917 von 1'993**,
+76 übersprungen, grün.
+
+Die Testzahl ist damit **genau** `gold/dim_date` = 2'103. Dass das keine
+sieben Dokumentstellen rot macht, ist dem Eintrag darunter zu verdanken.
 
 ---
 

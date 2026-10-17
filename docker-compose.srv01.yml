@@ -349,18 +349,23 @@ services:
       # allein genuegt nicht: Es toetet den Prozess, statt ihn zu bremsen.
       # Zwei Threads von vier vCPU, weil jeder Thread eigene Puffer haelt.
       #
-      # **16.10.2026: von 896MB auf 1536MB.** Drei Laeufe starben bei
-      # ``silver crime_offense`` an genau dieser Grenze ("854.6 MiB/854.4 MiB
-      # used"), der dritte, nachdem das Aufraeumen die gelesenen Laeufe von
-      # 141 auf 52 gedrittelt hatte - die Menge war also nicht der Treiber.
-      # ``dmesg`` zeigte keinen OOM-Killer: Es war immer DuckDBs eigene
-      # Grenze, nie der Host. Von den drei Auswegen, die DuckDB vorschlaegt,
-      # ist dies der einzige, der die Parquet-Bytes **nicht** aendert;
-      # ``threads`` und ``preserve_insertion_order`` tun es, gemessen am
-      # 13.10.2026, und wuerden die Reproduzierbarkeitswaechter brechen.
-      # 1'536 MB von 2'048 MiB lassen dem Interpreter, pyarrow und pyogrio
-      # den Rest.
-      DUCKDB_MEMORY_LIMIT: 1536MB
+      # **Hier stand am 16.10.2026 fuer einen Tag 1536MB**, weil vier Laeufe
+      # bei ``silver crime_offense`` an der Grenze starben und ich sie fuer
+      # die Ursache hielt. Sie war es nicht: Die Abfrage lief als **eine**
+      # Anweisung, in der jede Zwischenstufe gleichzeitig gepinnt ist -
+      # daher "failed to pin block", und daher half auch das Heben nicht,
+      # es verschob nur die Wand. Gestuft und mit der Datenbank auf einer
+      # Datei braucht derselbe Bau **256 MB** (17.10.2026 gemessen, siehe
+      # ``silver_pipeline.build_crime_offense``).
+      #
+      # Zurueck auf die **gemessene** Zahl statt auf eine neu erfundene:
+      # 896 MB gelten fuer *jede* Stufe, auch fuer Gold mit 1,86 Mio. Zeilen
+      # und fuer ``comparison`` - und die sind bei 896 MB durchgelaufen, bevor
+      # ich etwas anfasste. Tiefer zu gehen hiesse, sie einzeln nachzumessen;
+      # 896 von 1'280 MiB lassen dem Interpreter, pyarrow und pyogrio den Rest.
+      #
+      # Zwei Threads von vier vCPU, weil jeder Thread eigene Puffer haelt.
+      DUCKDB_MEMORY_LIMIT: 896MB
       DUCKDB_THREADS: "2"
     volumes:
       # Arbeitsraum, kein Bestand: Im Modus s3 ist SeaweedFS der Bestand, und
@@ -378,16 +383,12 @@ services:
       # nginx liefert aus seiner Wurzel alles aus, was darin liegt. Nach dem
       # Lauf traegt der Datentraeger genau unsere eine Datei.
       - startseite:/app/startseite
-    # **Am 16.10.2026 von 1,25 auf 2 GiB erhoeht**, weil die innere
-    # DuckDB-Grenze darunter liegen muss und 896 MB dreimal nicht gereicht
-    # haben (Begruendung oben bei DUCKDB_MEMORY_LIMIT). Gegen das heute
-    # Verfuegbare (3'726 MiB) ist das eine Obergrenze, keine Reservierung:
-    # belegt waren im Lauf 854 MiB.
+    # **Am 16.10.2026 auf 2 GiB erhoeht, am 17.10.2026 zurueck.** Die
+    # Erhoehung folgte der falschen Ursache (oben bei DUCKDB_MEMORY_LIMIT);
+    # der Bau braucht gestuft 256 MB, nicht mehr.
     #
-    # FR-13, Budget gemessen am 6.10.2026 - Dauerbetrieb 2'848 MiB plus das
-    # groesste Zeitweilige 2'048 macht 4'896 von 5'116 MiB. Zeitweilig, nicht
-    # Dauerbetrieb.
-    mem_limit: 2048m
+    # FR-13, gemessen am 6.10.2026: 1,25 GiB. Zeitweilig, nicht Dauerbetrieb.
+    mem_limit: 1280m
     security_opt:
       - no-new-privileges:true
     logging:
