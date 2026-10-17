@@ -79,12 +79,12 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | | Anforderung | Stand | Beleg |
 | --- | --- | :-: | --- |
 | FR-15 | Wöchentlicher Anstoss auf `srv01` | ● | Crontab montags 04:30 mit `flock`, am 11.10.2026 abgelesen |
-| FR-16 | Zeitfenster kollidiert nicht | ○ | **offen** — fällt der Monatserste auf einen Montag, beginnt der Volllauf um 04:30 gegen den Vollrestore um 05:00. Zwei Messungen fehlen, die auf `srv01` jetzt zu nehmen sind |
-| FR-17 | Gescheiterter Lauf erzeugt eine Meldung | ○ | **offen**, am 17.10.2026 geprüft: `srv01-datenlauf.sh` meldet nichts, der Crontab hängt an ein Log an. Die Läufe vom 12. und 15.10. sind unbemerkt gescheitert |
+| FR-16 | Zeitfenster kollidiert nicht | ◐ | der **gemeldete** Fall ist gelöst und gewacht: `mode_for_day` fährt den Volllauf nur an den Tagen 8–14, also am **zweiten** Montag — ein Monatserster kann nie der Volllauftag sein (`tests/test_srv01_datenlauf.py`). Offen bleibt die Frage daneben: Ein **Delta**-Lauf beginnt jeden Montag 04:30 und kann über 05:00 hinauslaufen; wie lange er auf `srv01` dauert, ist nicht gemessen |
+| FR-17 | Gescheiterter Lauf erzeugt eine Meldung | ○ | **offen, und es fehlt der Kanal.** Am 17.10.2026 gemessen: Alertmanager läuft mit der **Beispielvorgabe** (`webhook_configs: http://127.0.0.1:5001/`, dort hört nichts), in Prometheus ist er nicht eingetragen, es gibt kein `MAILTO`, kein `sendmail`, keinen laufenden MTA, und der Crontab leitet alles in ein Log und unterdrückt damit die Cron-Mail. Der Pipeline-Container erreicht `alertmanager:9093` nicht (andere Netze). **Welcher Kanal es sein soll, ist eine Entscheidung über fremde Dienste** — ein Kanal lässt sich nicht erfinden. Der Zustand ist seit FR-30 maschinenlesbar; was fehlt, ist der Empfänger |
 | FR-18 | Secrets aus der ignorierten `.env` | ● | `.env` des Stapels, ungetrackt; `.dockerignore` schliesst sie aus |
 | FR-19 | — | ▣ | **existiert im PRD nicht.** Die Nummer ist übersprungen; kein Inhalt verloren, aber die Lücke gehört genannt |
 | FR-20 | Ein grüner Lauf muss rückholbar sein | ◐ | der Mechanismus steht (`release holen aktuell --einsetzen`), **als Rückholweg nie erprobt** |
-| FR-30 | Grafana zeigt den Betriebsblick | ○ | **offen**, am 17.10.2026 geprüft: Grafana und Prometheus laufen auf `srv01`, Prometheus scrapet nur sich selbst, kein Dashboard von uns |
+| FR-30 | Grafana zeigt den Betriebsblick | ◐ | `serving.betriebsstand` schreibt den Zustand im Textformat von Prometheus neben die Startseite — Status, Alter des Standes, Exitcode je Stufe, Quellenfrische, Release; ein fehlender Lauf meldet `lauf_bekannt 0` statt zu schweigen. **Was fehlt, liegt ausserhalb dieses Repositories:** Prometheus wird aus `/srv/docker/infrastructure/monitoring/` konfiguriert, scrapet nur sich selbst, und liegt im Netz `monitoring` — unser `start` in `proxy`. Eine Scrape-Zeile und eine Netzzeile, dann ist der Blick da |
 
 ## Welle 6 · Präsentation, Abgabe, Skalierbarkeit
 
@@ -135,16 +135,47 @@ stellt."*
 | Stand | Anzahl |
 | --- | ---: |
 | ● erfüllt | 35 |
-| ◐ teilweise | 14 |
-| ○ offen | 14 |
+| ◐ teilweise | 16 |
+| ○ offen | 12 |
 | ▣ zurückgestellt | 2 |
 | **zusammen** | **65** |
 
-Von den sechzehn offenen trägt **Artan** fünf (FR-48, FR-49, FR-51, FR-58 und
-anteilig FR-56), **Welle 8** vier, und **vier** sind Christians nächste
-Arbeit: FR-16, FR-17, FR-30 und FR-33.
+Wer die **zwölf** offenen trägt — jede genau einmal, und keine, die nicht
+offen ist:
 
-**FR-17 und FR-30 gehören zusammen** und sind der nächste Schritt. Heute hat
-genau das gefehlt: Der Lauf auf `srv01` ist am 12. und 15.10.2026 gescheitert,
-und gewusst hat es niemand; danach meldete `pruefe_stand` wochenlang eine
-fehlende Tabelle, und niemand hat es gelesen. Der Betrieb hat keine Stimme.
+| wem | wie viele | welche |
+| --- | ---: | --- |
+| **Artan** | 4 | FR-48, FR-49, FR-51, FR-58 |
+| **Welle 8**, die Vorführung | 4 | FR-62, FR-63, FR-64, FR-65 |
+| **Christian** | 2 | FR-17, FR-33 |
+| bewusst zurückgestellt | 1 | FR-23 |
+| noch niemandem zugeordnet | 1 | FR-43 |
+
+An FR-56 trägt Artan einen Anteil; es steht teilweise und zählt deshalb hier
+nicht mit. `tests/test_fr_stand.py` hält diese Aufteilung gegen die
+Statusspalte — die vorige Fassung nannte fünf für Artan und drei für
+Christian, zählte dabei ein teilweise erfülltes mit, führte FR-30 noch als
+Vorhaben und liess FR-23 und FR-43 ganz aus. Vier Fehler in zwei Sätzen,
+weil sie niemand nachgezählt hat.
+
+**Zwei Zeichen widersprechen der Legende**, und beide bewusst stehen
+gelassen, weil die Zuordnung eine Entscheidung ist und keine Schreibarbeit:
+FR-23 ist nach eigenem Beleg „bewusst zurückgestellt" und trägt dennoch ○,
+FR-19 trägt ▣ für etwas, das im PRD gar nicht existiert — zurückgestellt ist
+es nicht, es gibt es nicht. Wer eines davon dreht, zieht die Summentabelle
+mit.
+
+**FR-17 und FR-30 gehörten zusammen, und jetzt trennt sie eine Entscheidung.**
+Der Anlass bleibt wahr: Der Lauf auf `srv01` ist am 12. und 15.10.2026
+gescheitert, und gewusst hat es niemand; danach meldete `pruefe_stand`
+wochenlang eine fehlende Tabelle, und niemand hat es gelesen. Der Betrieb
+hatte keine Stimme.
+
+Seit dem 17.10.2026 hat er eine: `serving.betriebsstand` schreibt den Zustand
+hin, wo ein Werkzeug ihn abholen kann, und zwar **auch nach einem Abbruch**.
+Was noch fehlt, ist nicht unser Code, sondern **zwei Zeilen in fremder
+Konfiguration** (FR-30) und die Antwort darauf, **wohin** eine Meldung gehen
+soll (FR-17) — Mail, Matrix, Webhook, Telegram. Ein Kanal lässt sich nicht
+erfinden; die Infrastruktur ist Christians, also ist es seine Entscheidung.
+Solange sie offen ist, bleibt FR-17 offen, und das ist kein Versäumnis,
+sondern ein benannter Zustand — wie bei FR-23.

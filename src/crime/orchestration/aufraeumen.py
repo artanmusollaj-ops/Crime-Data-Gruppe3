@@ -289,6 +289,10 @@ def bestaende(data_root: Path) -> dict[str, list[Bestand]]:
         eintrag["abgeschlossen"] = max(eintrag["abgeschlossen"], lauf.abgeschlossen_um)
         eintrag["bronze"].append(lauf.relativ)
         roh = f"{RAW}/{innerhalb}"
+        # Erst die Ablage, dann lokal - und das zweite ist lokal mit Absicht:
+        # Ein Raw-Verzeichnis **ohne** Manifest zaehlt trotzdem, denn es
+        # belegt Platz. Oben gibt es ohne Manifest keinen Lauf; unten liegt
+        # er als Verzeichnis da.
         if ablage.exists(roh, MANIFEST) or ablage.local_path(roh).is_dir():
             eintrag["raw"].append(roh)
         eintrag["zeilen"] += lauf.zeilen

@@ -379,6 +379,40 @@ Objekten ab und liess 182,3 MB liegen, unsichtbar für jedes Werkzeug.
 nichts: Ein halbes Release ist nie gepinnt und nie der Zeiger — beides hängt
 an einer Kennung, die `release.json` trägt.
 
+### Der Betriebsblick — und die zwei Zeilen, die ausserhalb liegen
+
+`serving.betriebsstand` schreibt den Zustand des letzten Laufs im Textformat
+von Prometheus neben die Startseite (`/app/startseite/metrics`, vom Dienst
+`start` ausgeliefert): Status, Alter des Standes, Exitcode je Stufe,
+Quellenfrische, Zeilenzahlen, Release. Gemessen wird dafür **nichts Neues** —
+`pipeline_run.json` trägt das alles schon; es fehlte die Sichtbarkeit.
+
+Zwei Eigenschaften sind Absicht und von Wächtern gehalten:
+
+* **Geschrieben wird in jedem Fall**, über ein `trap … EXIT` im Datenlauf und
+  nicht als Zeile am Ende von `main` — die läuft bei einem Abbruch gerade
+  nicht. Am 12. und 15.10.2026 ist der Lauf gescheitert, und gewusst hat es
+  niemand.
+* **Ein fehlender Lauf meldet `lauf_bekannt 0`**, statt zu schweigen. Eine
+  Metrikdatei, die bei fehlendem Protokoll nichts sagt, liest sich auf der
+  anderen Seite als „keine Daten" — und das wird in jedem Dashboard als Lücke
+  gezeichnet, nicht als Alarm.
+
+**Was dieses Repository nicht leisten kann** (am 17.10.2026 auf `srv01`
+gemessen): Prometheus wird aus
+`/srv/docker/infrastructure/monitoring/prometheus/prometheus.yaml`
+konfiguriert — geteilt mit anderen Diensten — und scrapet nur sich selbst.
+Es liegt im Netz `monitoring`, der Dienst `start` in `proxy`. Damit der Blick
+entsteht, braucht es dort **zwei Zeilen**: einen Scrape auf
+`http://start/metrics` und eine Netzzuordnung, die ihn erreichbar macht.
+
+Ein **Meldekanal** fehlt ganz: Alertmanager läuft mit der Beispielvorgabe
+(`webhook_configs: http://127.0.0.1:5001/`, dort hört nichts), ist in
+Prometheus nicht eingetragen, und auf dem Host gibt es kein `MAILTO`, kein
+`sendmail` und keinen laufenden MTA. Welcher Kanal es sein soll, ist eine
+Entscheidung über fremde Dienste — deshalb bleibt FR-17 offen und nicht halb
+gebaut.
+
 Ein Release entsteht nur nach einem **vollständigen** grünen Lauf bis
 einschliesslich Serving — ein halber Stand bekommt keine Kennung. Scheitert
 das Publizieren, ist der Lauf gescheitert.

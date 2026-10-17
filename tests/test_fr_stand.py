@@ -124,3 +124,52 @@ def test_die_summen_stimmen(zeilen):
     m = re.search(r"\*\*zusammen\*\*\s*\|\s*\*\*(\d+)\*\*", text)
     assert m and int(m.group(1)) == len(zeilen), (
         f"Summe {m.group(1) if m else '?'}, Zeilen {len(zeilen)}")
+
+
+def test_die_aufteilung_der_offenen_deckt_genau_die_offenen(zeilen):
+    """Wer traegt was - jede offene genau einmal, und keine, die nicht offen ist.
+
+    **Warum das ein eigener Waechter ist.** Die Summentabelle darueber war
+    bewacht, die Aufteilung darunter nicht - und genau sie beantwortet die
+    Frage, mit der das Dokument angefangen hat. Ihre erste Fassung sagte
+    *"Artan fuenf, Welle 8 vier, drei sind Christians"*: Sie zaehlte FR-56
+    mit, das nur teilweise steht, fuehrte FR-30 noch als Vorhaben, obwohl es
+    am selben Tag gebaut wurde, und liess FR-23 und FR-43 ganz aus. Vier
+    Fehler in zwei Saetzen, und die Summe 5+4+3=12 sah dabei richtig aus -
+    das ist der Grund, warum eine Summe allein nichts beweist.
+
+    Geprueft wird deshalb die **Zerlegung**, nicht die Summe: Vereinigung
+    gleich Menge der offenen, keine doppelt, und je Zeile die genannte Anzahl
+    gleich der Anzahl der genannten Nummern.
+    """
+    text = TABELLE.read_text(encoding="utf-8")
+    abschnitt = text[text.index("Wer die"):]
+
+    aufteilung: list[tuple[str, int, list[str]]] = []
+    for zeile in abschnitt.splitlines():
+        felder = [f.strip() for f in re.split(r"(?<!\\)\|", zeile)]
+        if len(felder) < 5 or not re.fullmatch(r"\d+", felder[2]):
+            continue
+        nummern = re.findall(r"FR-\d+", felder[3])
+        if not nummern:
+            continue
+        aufteilung.append((felder[1], int(felder[2]), nummern))
+
+    assert aufteilung, "keine Aufteilung der offenen Anforderungen gefunden"
+
+    for wem, anzahl, nummern in aufteilung:
+        assert anzahl == len(nummern), (
+            f"'{wem}' nennt {anzahl}, aufgezaehlt sind {len(nummern)}: {nummern}")
+
+    genannt = [fr for _, _, nummern in aufteilung for fr in nummern]
+    doppelt = sorted({fr for fr in genannt if genannt.count(fr) > 1})
+    assert not doppelt, f"in zwei Gruppen genannt: {doppelt}"
+
+    offen = {fr for fr, (stand, _) in zeilen.items() if stand == "○"}
+
+    def nach_nummer(menge: set[str]) -> list[str]:
+        return sorted(menge, key=lambda f: int(f.split("-")[1]))
+
+    assert set(genannt) == offen, (
+        f"nicht aufgeteilt, aber offen: {nach_nummer(offen - set(genannt))}; "
+        f"aufgeteilt, aber nicht offen: {nach_nummer(set(genannt) - offen)}")

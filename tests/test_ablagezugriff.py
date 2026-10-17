@@ -64,6 +64,13 @@ MARKEN = (
     "SILVER_LAYER", "BRONZE_LAYER", "GOLD_LAYER", "RELEASES",
     "data_root", "datenwurzel", "verzeichnis", "wurzel",
     "table_dir", "tabellenverzeichnis",
+    # ``local_path`` fuehrt **immer** unter die Datenwurzel - das ist seine
+    # Aufgabe. Ein Name, der daraus entsteht, ist ein Schichtpfad, auch wenn
+    # keine Schicht im Ausdruck steht: ``ablage.local_path(PROTOKOLL)`` nennt
+    # keine. Am 17.10.2026 beim Bauen von ``serving.betriebsstand`` gesehen,
+    # und zwar daran, dass die **Begruendung** dort verwaiste - der Griff
+    # darunter wurde gar nicht gefunden.
+    "local_path",
 )
 
 #: Zwei Pakete sind ausgenommen, und zwar aus einem Grund und nicht aus
