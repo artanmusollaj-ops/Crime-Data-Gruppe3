@@ -73,7 +73,18 @@ def schreibe_chicago(
     run_id: str = "run_20260101T000000000000Z",
     ingest_date: str = "2026-01-01",
     status: str = "complete",
+    mode: str | None = None,
+    event_year: int | None = None,
+    started_at_utc: str | None = None,
 ) -> Path:
+    """``mode``, ``event_year`` und ``started_at_utc`` sind **ohne Vorgabe**.
+
+    Die echten Manifeste tragen sie; hier fehlen sie, und damit laeuft der
+    Bau durch den Rueckfallzweig von ``ab_dem_juengsten_vollabzug`` - ohne
+    Vollabzug bleiben alle Laeufe. Das ist Absicht: So bedeuten die siebzig
+    Tests, die es vor dem 17.10.2026 gab, weiterhin dasselbe. Wer die Regel
+    selbst pruefen will, setzt die drei Felder.
+    """
     ziel = data_root / "bronze" / "city=chicago" / f"ingest_date={ingest_date}" / run_id
     ziel.mkdir(parents=True, exist_ok=True)
     # ``primary_type`` seit Silver-Vertrag 3: Chicagos Beschreibung besteht
@@ -89,10 +100,17 @@ def schreibe_chicago(
         "arrest", pa.array([z.get("arrest", False) for z in zeilen], type=pa.bool_())
     )
     pq.write_table(tabelle, ziel / bc.PARQUET_FILE)
-    (ziel / "manifest.json").write_text(json.dumps({
+    manifest = {
         "status": status, "city": "chicago", "run_id": run_id,
         "row_count": len(zeilen),
-    }), encoding="utf-8")
+    }
+    if mode is not None:
+        manifest["mode"] = mode
+    if event_year is not None:
+        manifest["event_year"] = event_year
+    if started_at_utc is not None:
+        manifest["started_at_utc"] = started_at_utc
+    (ziel / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     return ziel
 
 
@@ -1649,3 +1667,238 @@ def test_die_gebaute_datei_steht_in_der_zugesagten_ordnung():
             f"publish hat nicht sortiert")
     finally:
         con.close()
+
+
+# --------------------------------------------------------------------------
+# Zurueckgezogene Zeilen verschwinden
+# --------------------------------------------------------------------------
+# Am 17.10.2026 gemessen: 89 Chicago-Zeilen hatten ihren Jahrgang verlassen,
+# und alle 89 standen weiter in ``crime_offense`` - 2026 allein 80. Die
+# Entdoppelung nimmt je ``id`` die Fassung mit dem juengsten ``updated_on``;
+# eine zurueckgezogene Zeile hat aber nur noch eine Fassung, die alte, und die
+# gewinnt ohne Konkurrenten. Dabei schrieb ``silver/source_change`` das
+# Verschwinden laengst auf: Zwei Tabellen derselben Schicht sagten
+# Verschiedenes.
+
+
+def voll(data_root, zeilen, *, jahr, zeit, run_id):
+    return schreibe_chicago(
+        data_root, zeilen, run_id=run_id, ingest_date=zeit[:10],
+        mode="full_snapshot", event_year=jahr, started_at_utc=zeit)
+
+
+def delta(data_root, zeilen, *, jahr, zeit, run_id):
+    return schreibe_chicago(
+        data_root, zeilen, run_id=run_id, ingest_date=zeit[:10],
+        mode="delta", event_year=jahr, started_at_utc=zeit)
+
+
+def zeile(id_, *, datum="2024-05-22T08:00:00", updated="2025-05-17T15:40:52"):
+    return {"id": id_, "case_number": f"JF{id_}", "date": datum,
+            "iucr": "0110", "primary_type": "HOMICIDE",
+            "description": "FIRST DEGREE MURDER",
+            "latitude": "41.88", "longitude": "-87.63", "updated_on": updated}
+
+
+def ids_in_silver(data_root) -> set[str]:
+    con = duckdb.connect()
+    try:
+        datei = bc.table_dir(data_root) / bc.PARQUET_FILE
+        return {z[0] for z in con.execute(
+            f"SELECT offense_id FROM read_parquet('{datei}')").fetchall()}
+    finally:
+        con.close()
+
+
+def test_eine_zurueckgezogene_zeile_steht_nicht_mehr_in_silver(tmp_path):
+    """Der gemessene Fall, klein nachgebaut."""
+    voll(tmp_path, [zeile("A1"), zeile("WEG")],
+         jahr=2024, zeit="2026-09-05T17:46:33", run_id="run_alt")
+    voll(tmp_path, [zeile("A1")],
+         jahr=2024, zeit="2026-10-03T09:30:47", run_id="run_neu")
+    schreibe_detroit(tmp_path, DET[:1])
+    schreibe_tract(tmp_path)
+    bc.build(tmp_path, Path("config"))
+
+    drin = ids_in_silver(tmp_path)
+    assert "A1" in drin
+    assert "WEG" not in drin, (
+        "die Zeile fehlt im juengsten Vollabzug ihres Jahrgangs, die Quelle "
+        "hat sie also zurueckgezogen - sie darf nicht aus dem ueberholten "
+        "Schnappschuss ueberleben")
+
+
+def test_eine_umdatierte_zeile_bleibt(tmp_path):
+    """Umdatierung ist keine Loeschung - 5 der 89 gemessenen Faelle.
+
+    Korrigiert die Quelle das Datum in ein anderes Jahr, verlaesst die Zeile
+    das Fenster ihres alten Jahrgangs und erscheint im neuen. Weil die Regel
+    je Jahrgang greift, kommt sie ueber den Vollabzug ihres neuen Jahrgangs
+    herein. Genau deshalb steht in Detroits Manifest zu Recht
+    ``captures_source_deletions: False``: *ein* Jahrgang allein kann die
+    beiden Faelle nicht unterscheiden.
+    """
+    voll(tmp_path, [zeile("A1"), zeile("UM")],
+         jahr=2024, zeit="2026-09-05T17:46:33", run_id="run_2024_alt")
+    voll(tmp_path, [zeile("A1")],
+         jahr=2024, zeit="2026-10-03T09:30:47", run_id="run_2024_neu")
+    voll(tmp_path, [zeile("UM", datum="2023-08-08T00:01:00")],
+         jahr=2023, zeit="2026-10-04T16:37:02", run_id="run_2023")
+    schreibe_detroit(tmp_path, DET[:1])
+    schreibe_tract(tmp_path)
+    bc.build(tmp_path, Path("config"))
+
+    drin = ids_in_silver(tmp_path)
+    assert "UM" in drin, (
+        "die Zeile ist nur umdatiert und steht im Vollabzug ihres neuen "
+        "Jahrgangs - sie darf nicht als geloescht gelten")
+    con = duckdb.connect()
+    try:
+        datum = con.execute(
+            f"SELECT occurred_at_local FROM "
+            f"read_parquet('{bc.table_dir(tmp_path) / bc.PARQUET_FILE}') "
+            f"WHERE offense_id = 'UM'").fetchone()[0]
+    finally:
+        con.close()
+    assert str(datum).startswith("2023-08-08"), \
+        f"die alte Fassung hat gewonnen: {datum}"
+
+
+def test_ein_delta_unter_dem_vollabzug_bringt_nichts_zurueck(tmp_path):
+    """Die stille Variante desselben Fehlers.
+
+    Ein Delta von **vor** dem juengsten Vollabzug ist in ihm schon enthalten -
+    er ist ja vollstaendig. Es mitzulesen kann nur eines: eine Zeile
+    zurueckbringen, die der Vollabzug nicht mehr hat.
+    """
+    voll(tmp_path, [zeile("A1")],
+         jahr=2024, zeit="2026-09-05T17:46:33", run_id="run_voll_alt")
+    delta(tmp_path, [zeile("WEG", updated="2026-09-06T10:00:00")],
+          jahr=2024, zeit="2026-09-06T09:07:14", run_id="run_delta_alt")
+    voll(tmp_path, [zeile("A1")],
+         jahr=2024, zeit="2026-10-03T09:30:47", run_id="run_voll_neu")
+    schreibe_detroit(tmp_path, DET[:1])
+    schreibe_tract(tmp_path)
+    bc.build(tmp_path, Path("config"))
+
+    assert "WEG" not in ids_in_silver(tmp_path), (
+        "ein Delta unter dem Vollabzug hat eine zurueckgezogene Zeile "
+        "zurueckgebracht")
+
+
+def test_ein_delta_ueber_dem_vollabzug_wird_gelesen(tmp_path):
+    """Die Gegenprobe: Die Regel darf nicht einfach alles ausser dem
+    Vollabzug wegwerfen - sonst fehlt, was seit ihm dazugekommen ist."""
+    voll(tmp_path, [zeile("A1")],
+         jahr=2024, zeit="2026-10-03T09:30:47", run_id="run_voll")
+    delta(tmp_path, [zeile("NEU", updated="2026-10-04T10:00:00")],
+          jahr=2024, zeit="2026-10-04T16:38:39", run_id="run_delta_neu")
+    schreibe_detroit(tmp_path, DET[:1])
+    schreibe_tract(tmp_path)
+    bc.build(tmp_path, Path("config"))
+
+    drin = ids_in_silver(tmp_path)
+    assert {"A1", "NEU"} <= drin, f"nach dem Vollabzug fehlt etwas: {drin}"
+
+
+def test_ein_jahrgang_ohne_vollabzug_behaelt_alle_laeufe(tmp_path, caplog):
+    """Besser geht es dann nicht - aber still bleiben darf es nicht."""
+    delta(tmp_path, [zeile("D1")],
+          jahr=2025, zeit="2026-09-05T17:46:33", run_id="run_d1")
+    delta(tmp_path, [zeile("D2")],
+          jahr=2025, zeit="2026-09-06T09:07:14", run_id="run_d2")
+    schreibe_detroit(tmp_path, DET[:1])
+    schreibe_tract(tmp_path)
+    with caplog.at_level("WARNING"):
+        bc.build(tmp_path, Path("config"))
+
+    assert {"D1", "D2"} <= ids_in_silver(tmp_path)
+    assert any("kein Vollabzug" in s for s in caplog.messages), (
+        "ohne Schnappschuss sind zurueckgezogene Zeilen nicht erkennbar - "
+        "das gehoert gemeldet, nicht verschwiegen")
+
+
+def test_jeder_jahrgang_wird_fuer_sich_beschnitten(tmp_path):
+    """Ein neuer Vollabzug fuer 2024 darf 2023 nicht leeren."""
+    voll(tmp_path, [zeile("C2023", datum="2023-05-22T08:00:00")],
+         jahr=2023, zeit="2026-09-01T10:00:00", run_id="run_2023")
+    voll(tmp_path, [zeile("C2024_alt"), zeile("C2024")],
+         jahr=2024, zeit="2026-09-05T17:46:33", run_id="run_2024_alt")
+    voll(tmp_path, [zeile("C2024")],
+         jahr=2024, zeit="2026-10-03T09:30:47", run_id="run_2024_neu")
+    schreibe_detroit(tmp_path, DET[:1])
+    schreibe_tract(tmp_path)
+    bc.build(tmp_path, Path("config"))
+
+    drin = ids_in_silver(tmp_path)
+    assert "C2023" in drin, "der aeltere Jahrgang wurde mitbeschnitten"
+    assert "C2024" in drin
+    assert "C2024_alt" not in drin
+
+
+@pytest.mark.referenzstand
+def test_was_source_change_als_verschwunden_fuehrt_ist_weg_oder_umdatiert():
+    """Die beiden Tabellen derselben Schicht muessen dasselbe sagen.
+
+    Das ist die Zusage, um die es geht - nicht eine Zahl, sondern
+    Widerspruchsfreiheit. Vor dem 17.10.2026 fuehrte ``source_change`` fuenf
+    Chicago-Zeilen als ``verschwunden``, und alle fuenf standen in
+    ``crime_offense``. Eine Auswertung, die beide verbindet - *"zeige mir die
+    verschwundenen Faelle"* -, fand Zeilen, die gleichzeitig weg und da waren.
+
+    **``verschwunden`` heisst "weg aus diesem Jahrgang", nicht "weg aus der
+    Quelle".** Korrigiert die Quelle ein Datum ins Nachbarjahr, verlaesst die
+    Zeile das Fenster ihres Jahrgangs und erscheint im naechsten - genau das
+    meint Detroits ``captures_source_deletions: False``. Eine solche Zeile
+    *darf* in ``crime_offense`` stehen, aber nur mit einem **anderen** Jahr
+    als dem, aus dem sie verschwand. Von den 89 am 17.10.2026 gemessenen
+    Faellen waren 5 solche.
+
+    Geprueft wird gegen den gebauten Bestand, deshalb der Marker.
+    """
+    datenwurzel = Path("data")
+    fakt = datenwurzel / "silver" / "dataset=crime_offense" / bc.PARQUET_FILE
+    wechsel = datenwurzel / "silver" / "dataset=source_change" / bc.PARQUET_FILE
+    if not fakt.is_file() or not wechsel.is_file():
+        pytest.skip("crime_offense oder source_change nicht gebaut")
+
+    from storage import for_root
+
+    # Lauf -> Jahrgang, aus den Bronze-Manifesten. Ohne diese Zuordnung laesst
+    # sich eine Umdatierung nicht von einem Widerspruch unterscheiden.
+    ablage = for_root(datenwurzel)
+    jahr_je_lauf: dict[str, str] = {}
+    for praefix, muster in (("bronze/city=chicago", "ingest_date=*/run_*/manifest.json"),
+                            ("bronze/city=detroit", "**/run_*/manifest.json")):
+        for lauf in ablage.laeufe(praefix, muster, streng=False):
+            jahr_je_lauf[lauf.run_id] = lauf.jahrgang
+
+    con = duckdb.connect()
+    try:
+        # Nur das juengste Paar je Stadt: Eine Zeile, die zwischen zwei alten
+        # Laeufen verschwand und spaeter wieder auftauchte, ist heute da - und
+        # das ist Geschichte, kein Widerspruch.
+        weg = con.execute(f"""
+            WITH juengste AS (
+                SELECT city, max(beobachtet_am) AS stand
+                FROM read_parquet('{wechsel}') GROUP BY 1
+            )
+            SELECT w.city, w.offense_id, w.run_id,
+                   year(f.occurred_at_local) AS jahr_heute
+            FROM read_parquet('{wechsel}') w
+            JOIN juengste j ON w.city = j.city AND w.beobachtet_am = j.stand
+            JOIN read_parquet('{fakt}') f
+              ON f.city = w.city AND f.offense_id = w.offense_id
+            WHERE w.art = 'verschwunden'""").fetchall()
+    finally:
+        con.close()
+
+    widerspruch = [
+        (stadt, kennung, jahr_je_lauf.get(lauf, "?"), jahr_heute)
+        for stadt, kennung, lauf, jahr_heute in weg
+        if str(jahr_heute) == jahr_je_lauf.get(lauf, "")
+    ]
+    assert not widerspruch, (
+        f"source_change fuehrt diese Zeilen als verschwunden, und "
+        f"crime_offense hat sie mit **demselben** Jahr - also keine "
+        f"Umdatierung, sondern ein Widerspruch: {widerspruch}")

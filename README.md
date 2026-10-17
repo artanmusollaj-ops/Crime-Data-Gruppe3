@@ -38,15 +38,15 @@ vergleichbare Tabelle macht:
 | | |
 | --- | ---: |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
-| `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | 1'851'950 Zeilen (eine Tat) |
+| `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | 1'851'946 Zeilen (eine Tat) |
 
 Und die Raten, **für den Jahrgang 2024** — eine Rate braucht einen Zeitraum,
 der Bestand trägt sechs:
 
 | | |
 | --- | ---: |
-| Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
+| Chicago | 251'513 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
 | Detroit | 84'987 Delikte · 638'635 Einwohner · **133,1** je 1'000 |
 
 Wo etwas ausführlich steht:
@@ -222,7 +222,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 1'993 ausgeführte Tests, ohne Netzzugriff und ohne
+Erwartet wird **grün**: 2'003 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -232,7 +232,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 2'103
+python -m pytest -m ""               # beides zusammen, alle 2'114
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -422,7 +422,7 @@ desselben Tages — oder Information wegwerfen:
 | `tract` | ein Census Tract | 6'282 |
 | `place` | ein Ort (Stadtgrenze) | 2'206 |
 | `weather_day` | eine Stadt an einem Tag | 55'497 |
-| `crime_offense` | eine **Anklage**; je Tat zählt eine | 1'875'378 |
+| `crime_offense` | eine **Anklage**; je Tat zählt eine | 1'875'374 |
 
 `crime_offense` leistet drei Übersetzungen auf einmal, und jede ist ein eigener
 Fehlerherd:
@@ -1062,7 +1062,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**2'103 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**2'114 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -1099,12 +1099,12 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **1'917 der 1'993 Tests** des Standardlaufs, und
-sie sind grün (am 16.10.2026 in einem Baum ohne `data/` nachgemessen; die drei
+In einem frischen Klon laufen **1'927 der 2'003 Tests** des Standardlaufs, und
+sie sind grün (am 17.10.2026 in einem Baum ohne `data/` nachgemessen; die drei
 Zahlen davor — 1'868, 35 übersprungene und 108 Wächter — waren alle veraltet).
 Die übrigen 76 überspringen sich selbst, weil sie gebaute Daten brauchen und
 `data/` nicht versioniert ist — dazu seit dem 5.10.2026 die Reproduktion von
-`docs/forschungsfragen.md`, deren Quelle das ungetrackte LN1-PDF ist; die 110
+`docs/forschungsfragen.md`, deren Quelle das ungetrackte LN1-PDF ist; die 111
 Referenzstand-Wächter sind ohnehin abgewählt.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter

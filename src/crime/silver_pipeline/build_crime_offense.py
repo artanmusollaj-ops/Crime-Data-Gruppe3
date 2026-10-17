@@ -91,7 +91,8 @@ from typing import Any, NamedTuple
 
 import duckdb
 
-from manifeste import code_stand, eingabe_abdruck, referenz, referenzdatei
+from manifeste import (Lauf, code_stand, eingabe_abdruck, referenz,
+                       referenzdatei)
 from storage import StorageError, for_root
 from storage.duckdb import grenzen
 from silver_pipeline import (
@@ -224,22 +225,92 @@ def table_dir(data_root: Path) -> Path:
 # ---------------------------------------------------------------------------
 
 
-def chicago_sources(data_root: Path) -> Source:
-    """Alle vollstaendigen Chicago-Laeufe, nicht nur der juengste.
+def ab_dem_juengsten_vollabzug(laeufe: list[Lauf], stadt: str) -> list[Lauf]:
+    """Je Jahrgang: der juengste Vollabzug und was danach kam.
 
-    Chicago laedt einen Vollschnappschuss und danach Deltas. Nur den
-    juengsten Lauf zu lesen hiesse, den Grossteil des Jahrgangs zu verlieren -
-    anders als bei ``tract`` oder ``weather_day``, wo ein Lauf den ganzen
-    Bestand traegt.
+    **Warum nicht alle Laeufe.** Bis zum 17.10.2026 las dieses Modul jeden
+    vollstaendigen Lauf und entdoppelte je ``id`` nach dem juengsten
+    ``updated_on``. Eine Zeile, die die Quelle **zurueckgezogen** hat, taucht
+    danach nicht mehr auf - sie bekommt aber auch kein neues ``updated_on``.
+    Im Topf aus allen Laeufen bleibt also genau eine Fassung von ihr, die alte
+    aus dem ueberholten Vollabzug, und die gewinnt, weil sie keinen
+    Konkurrenten hat.
+
+    Die Auskunft *"diese id war in Lauf A und ist in Lauf B nicht mehr"*
+    existiert nur **zwischen** den Laeufen. Der ``UNION`` wirft sie weg, bevor
+    irgendeine Frage gestellt wird.
+
+    **Gemessen am 17.10.2026 auf srv01:** 89 Chicago-Zeilen hatten ihren
+    Jahrgang verlassen, und **alle 89** standen weiter in ``crime_offense`` -
+    2026 allein 80. Und es konnte nur wachsen: Die Tabelle gewinnt Zeilen,
+    verliert aber nie welche. Dabei *erkannte* die Strecke das Verschwinden
+    laengst - ``silver/source_change`` schreibt es als ``art =
+    verschwunden`` auf. Zwei Tabellen derselben Schicht, aus demselben Lauf,
+    sagten Verschiedenes.
+
+    **Die Regel.** Bei einem Vollabzug sagt die Quelle: das ist der ganze
+    Jahrgang. Abwesenheit heisst dort *nicht mehr in diesem Jahrgang*. Also
+    gilt je Stadt und Jahrgang der juengste Vollabzug als Boden; was darunter
+    liegt, ist ueberholt. Die Laeufe danach - Deltas wie spaetere Vollabzuege -
+    kommen dazu, denn sie ergaenzen und aktualisieren.
+
+    **Umdatierung ist keine Loeschung, und das loest sich von selbst.** Ein
+    Datensatz, dessen Datum die Quelle in ein anderes Jahr korrigiert,
+    verlaesst das Fenster seines alten Jahrgangs und erscheint im neuen. Weil
+    die Regel *je Jahrgang* greift, kommt er ueber den Vollabzug seines neuen
+    Jahrgangs herein und bleibt erhalten. Von den 89 gemessenen Faellen waren
+    5 solche; deshalb steht in Detroits Manifest zu Recht
+    ``captures_source_deletions: False`` - *ein* Jahrgang allein kann die
+    beiden Faelle nicht unterscheiden, der Blick ueber alle Jahrgaenge kann es.
+
+    **Ein Jahrgang ohne Vollabzug behaelt alle seine Laeufe.** Besser geht es
+    dann nicht: Ohne Schnappschuss gibt es keinen Boden, und Deltas allein
+    sagen nichts ueber Abwesenheit. Gemeldet wird es, damit es nicht still
+    bleibt.
+    """
+    je_jahr: dict[str, list[Lauf]] = {}
+    for lauf in laeufe:
+        je_jahr.setdefault(lauf.jahrgang, []).append(lauf)
+
+    behalten: list[Lauf] = []
+    for jahr, gruppe in sorted(je_jahr.items()):
+        geordnet = sorted(gruppe, key=lambda lauf: lauf.begonnen_um)
+        boden = next((lauf for lauf in reversed(geordnet)
+                      if lauf.vollabzug), None)
+        if boden is None:
+            LOG.warning(
+                "%s %s: kein Vollabzug, alle %d Laeufe werden gelesen - "
+                "zurueckgezogene Zeilen sind so nicht erkennbar",
+                stadt, jahr or "ohne Jahrgang", len(geordnet))
+            behalten.extend(geordnet)
+            continue
+        ab = [lauf for lauf in geordnet
+              if lauf.begonnen_um >= boden.begonnen_um]
+        if len(ab) < len(geordnet):
+            LOG.info("%s %s: %d von %d Laeufen, ab dem Vollabzug vom %s",
+                     stadt, jahr, len(ab), len(geordnet), boden.begonnen_um[:19])
+        behalten.extend(ab)
+    return behalten
+
+
+def chicago_sources(data_root: Path) -> Source:
+    """Je Jahrgang der juengste Vollabzug und was danach kam.
+
+    Chicago laedt je Jahrgang einen Vollschnappschuss und danach Deltas. Nur
+    den juengsten Lauf zu lesen hiesse, den Grossteil des Jahrgangs zu
+    verlieren - anders als bei ``tract`` oder ``weather_day``, wo ein Lauf den
+    ganzen Bestand traegt. **Alle** zu lesen heisst dagegen,
+    zurueckgezogene Zeilen zu behalten; die Begruendung steht an
+    ``ab_dem_juengsten_vollabzug``.
     """
     ablage = for_root(data_root)
     prefix = f"{BRONZE_LAYER}/city={CHICAGO}"
     pfade: list[str] = []
     laeufe: list[str] = []
     zeilen = 0
-    for lauf in ablage.laeufe(
-        prefix, "ingest_date=*/run_*/manifest.json", fehler=TransformError
-    ):
+    gefunden = ablage.laeufe(
+        prefix, "ingest_date=*/run_*/manifest.json", fehler=TransformError)
+    for lauf in ab_dem_juengsten_vollabzug(gefunden, CHICAGO):
         if not ablage.exists(lauf.relativ, PARQUET_FILE):
             raise TransformError(f"Lauf ohne Parquet-Datei: {lauf.relativ}")
         pfade.append(ablage.resolve_read_path(lauf.relativ, PARQUET_FILE))
@@ -281,7 +352,14 @@ def detroit_sources(data_root: Path) -> Source:
     zeilen = 0
     # Versteckte .partial-Verzeichnisse und das SUCCESS-Vokabular kennt der
     # gemeinsame Leser; Detroit braucht hier keinen Sonderweg mehr.
-    for lauf in ablage.laeufe(prefix, fehler=TransformError):
+    #
+    # Dieselbe Regel wie bei Chicago, und aus demselben Grund: Detroits
+    # ``FULL`` fragt den ganzen Jahrgang neu ab (``selection_basis:
+    # INCIDENT_OCCURRENCE_TIME``), Abwesenheit heisst dort also "nicht mehr in
+    # diesem Jahrgang". Der Jahrgang steht unter ``year``, nicht unter
+    # ``event_year`` - ``Lauf.jahrgang`` kennt beide.
+    gefunden = ablage.laeufe(prefix, fehler=TransformError)
+    for lauf in ab_dem_juengsten_vollabzug(gefunden, DETROIT):
         datei = lauf.datei(PARQUET_FILE).name
         if not ablage.exists(lauf.relativ, datei):
             raise TransformError(f"Manifest ohne Parquet-Datei: {lauf.relativ}")

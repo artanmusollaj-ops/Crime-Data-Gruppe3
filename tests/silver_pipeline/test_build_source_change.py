@@ -41,7 +41,8 @@ VOKABULAR = {
 
 
 def lauf(run_id: str, *, voll: bool = True, wann: str = "",
-         relativ: str = "", stadt: str = "detroit") -> Lauf:
+         relativ: str = "", stadt: str = "detroit",
+         jahrgang: int | None = None) -> Lauf:
     """Ein Lauf als **echter** ``manifeste.Lauf``, nicht als Doppel.
 
     Vorher stand hier eine eigene Klasse mit drei Attributen. Sie kannte nur
@@ -54,6 +55,10 @@ def lauf(run_id: str, *, voll: bool = True, wann: str = "",
     manifest: dict[str, object] = {"run_id": run_id, feld: ja if voll else nein}
     if wann:
         manifest[zeitfeld] = wann
+    if jahrgang is not None:
+        # Chicago nennt ihn ``event_year``, Detroit ``year`` - ``Lauf.jahrgang``
+        # kennt beide, und dieser Helfer soll dieselbe Asymmetrie treffen.
+        manifest["event_year" if stadt == "chicago" else "year"] = jahrgang
     return Lauf(Path(f"/gibt-es-nicht/{run_id}"), manifest,
                 relativ or f"bronze/city={stadt}/run_{run_id}")
 
@@ -156,6 +161,60 @@ def test_paare_sind_aufeinanderfolgend_nicht_jedes_gegen_jedes():
 
 def test_ein_einzelner_schnappschuss_ergibt_kein_paar():
     assert bsc.paare([bsc.Schnappschuss("a", "a", "x")]) == []
+
+
+def test_zwei_jahrgaenge_werden_nicht_gegeneinander_verglichen():
+    """Der groessere der beiden Fehler vom 17.10.2026.
+
+    Bis dahin bildete ``paare`` **eine** Kette je Stadt, nach Zeit geordnet.
+    Seit beide Staedte am 4.10.2026 anfingen, je Jahrgang zu laden, sind
+    aufeinanderfolgende Abzuege verschiedene Jahrgaenge - und der Vergleich
+    meldete jede Zeile des einen als ``verschwunden`` und jede des anderen als
+    ``neu``. **1,64 Mio. erfundene "verschwunden"** standen so in der Tabelle,
+    die der Gegenstand der Arbeit ist.
+
+    Dieser Test prueft nicht, dass Paare entstehen, sondern **welche**: Ein
+    Paar ueber zwei Jahrgaenge darf nicht dabei sein.
+    """
+    alle = [
+        bsc.Schnappschuss("a24", "a24", "2026-09-05", "2024"),
+        bsc.Schnappschuss("b24", "b24", "2026-10-03", "2024"),
+        bsc.Schnappschuss("c21", "c21", "2026-10-04", "2021"),
+        bsc.Schnappschuss("d21", "d21", "2026-10-05", "2021"),
+    ]
+    gebildet = [(a.run_id, b.run_id) for a, b in bsc.paare(alle)]
+    assert gebildet == [("c21", "d21"), ("a24", "b24")], (
+        f"erwartet sind zwei Ketten, eine je Jahrgang - gebildet wurde "
+        f"{gebildet}")
+    gemischt = [(a, b) for a, b in bsc.paare(alle) if a.jahrgang != b.jahrgang]
+    assert not gemischt, (
+        f"ueber Jahrgaenge hinweg verglichen: "
+        f"{[(a.run_id, b.run_id) for a, b in gemischt]} - dann ist jede Zeile "
+        f"des einen Jahrgangs 'verschwunden' und jede des anderen 'neu'")
+
+
+def test_ein_einzelner_abzug_je_jahrgang_ergibt_kein_paar():
+    """Der Stand nach dem Mehrjahresbau vom 4.10.2026: fuenf Jahrgaenge mit je
+    einem Abzug, und nichts zu vergleichen. Vorher waren daraus funf Paare
+    geworden - alle falsch."""
+    alle = [bsc.Schnappschuss(f"r{j}", f"r{j}", f"2026-10-0{i}", str(j))
+            for i, j in enumerate((2021, 2022, 2023, 2025, 2026), start=4)]
+    assert bsc.paare(alle) == []
+
+
+def test_der_jahrgang_kommt_aus_dem_manifest():
+    """Beide Vokabulare - sonst traegt eine Stadt ihn nicht."""
+    for stadt in ("chicago", "detroit"):
+        abzug, = bsc.schnappschuesse(
+            [lauf("r1", wann="2026-10-03", stadt=stadt, jahrgang=2024)])
+        assert abzug.jahrgang == "2024", f"{stadt}: Jahrgang nicht gelesen"
+
+
+def test_jahrgangslose_abzuege_bilden_ihre_eigene_kette():
+    """Bestaende aus der Zeit vor der Jahrgangstrennung bleiben vergleichbar."""
+    alle = [bsc.Schnappschuss("a", "a", "2026-09-01"),
+            bsc.Schnappschuss("b", "b", "2026-09-02")]
+    assert [(a.run_id, b.run_id) for a, b in bsc.paare(alle)] == [("a", "b")]
 
 
 # --------------------------------------------------------------------------

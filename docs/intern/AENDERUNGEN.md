@@ -30,13 +30,13 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'103** |
+| Tests | **2'114** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
-| `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
-| Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
+| `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
+| Chicago | 251'513 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
 | Detroit | 84'987 Delikte · 638'635 Einwohner · **133,1** je 1'000 |
-| Fallebene (`counts_case`) | Chicago 251'487 · Detroit 79'587 Fälle; Detroit **124,6** je 1'000 |
+| Fallebene (`counts_case`) | Chicago 251'483 · Detroit 79'587 Fälle; Detroit **124,6** je 1'000 |
 
 > **Zwei Zeiträume in einer Tabelle, und das ist Absicht.** Die beiden
 > Zeilenzahlen sind der **Bestand** über alle sechs Jahrgänge — die Antwort auf
@@ -103,6 +103,114 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 17.10.2026 · Ein Jahrgang ist die Einheit des Vergleichs (Branch `zurueckgezogenes-verschwindet`)
+
+Christian fragte, ob man den Verdacht testen kann. Man kann, und es waren
+**zwei** Fehler mit **einem** Denkfehler: Seit beide Städte am 4.10.2026
+anfingen, **je Jahrgang** zu laden, sagt ein Vollabzug nicht mehr „das ist der
+ganze Bestand", sondern „das ist der ganze Jahrgang 2024". Zwei Module haben
+das nicht mitbekommen.
+
+### Fehler 1: zurückgezogene Zeilen überlebten (89 auf `srv01`)
+
+`build_crime_offense` las **alle** Läufe und entdoppelte je `id` nach dem
+jüngsten `updated_on`. `updated_on` ist aber eine Eigenschaft der *Zeile*,
+nicht des Laufs: Zieht die Quelle einen Datensatz zurück, bekommt er kein
+neues `updated_on` — er hört auf aufzutauchen. Im Topf aus allen Läufen bleibt
+dann genau **eine** Fassung von ihm, die alte aus dem überholten Vollabzug,
+und die gewinnt ohne Konkurrenten. Die Auskunft *„diese id war in Lauf A und
+ist in Lauf B nicht mehr"* existiert nur **zwischen** den Läufen, und der
+`UNION` wirft sie weg, bevor eine Frage gestellt wird.
+
+| Jahr | aus dem Jahrgang weg | umdatiert | wirklich weg |
+|---|---:|---:|---:|
+| 2021–2022 | 0 | 0 | 0 |
+| 2023 | 1 | 0 | 1 |
+| 2024 | 6 | 1 | 5 |
+| 2025 | 2 | 0 | 2 |
+| 2026 | **80** | 4 | **76** |
+| | **89** | **5** | **84** |
+
+**Alle 89 standen in `crime_offense`** — und über `fact_offense` in Gold, in
+Elasticsearch, in jedem Release. Dass 2026 allein 80 trägt, ist kein Zufall:
+Am laufenden Jahr korrigiert die Quelle am meisten. Und es konnte nur
+wachsen — die Tabelle gewinnt Zeilen, verliert aber nie welche.
+
+### Fehler 2: die Änderungstabelle verglich Jahrgänge gegeneinander (1,64 Mio.)
+
+Beim Nachbauen fiel der grössere auf. `paare` bildete **eine** Kette je Stadt,
+nach Zeit geordnet — und aufeinanderfolgende Abzüge sind seit dem 4.10.
+verschiedene Jahrgänge:
+
+    chicago  2024er Abzug -> 2021er Abzug   weg=259'638  neu=210'005
+
+**1'639'919 erfundene `verschwunden` und 1'527'412 erfundene `neu`** standen so
+in `silver/source_change` — in jener Tabelle, die der Gegenstand der Arbeit
+ist. Der Lauf auf `srv01` hat diese 18 Paare gezogen und publiziert. Nach der
+Korrektur: 4'718 Zeilen, 5 `verschwunden`, 372 `neu`.
+
+Dass es nicht früher auffiel, hat einen Grund: Vor dem 4.10. lud Chicago nur
+den Jahrgang 2024, und da war jede Kette automatisch eine Jahrgangskette.
+
+### Die Regel
+
+Je Stadt und Jahrgang gilt der **jüngste Vollabzug als Boden**; was darunter
+liegt, ist überholt. Die Läufe danach kommen dazu, denn sie ergänzen und
+aktualisieren. Verglichen wird nur innerhalb eines Jahrgangs.
+
+**Umdatierung ist keine Löschung, und das löst sich von selbst.** Korrigiert
+die Quelle ein Datum ins Nachbarjahr, verlässt die Zeile das Fenster ihres
+alten Jahrgangs und erscheint im neuen — und weil die Regel je Jahrgang
+greift, kommt sie über den Vollabzug ihres neuen Jahrgangs herein. Genau
+deshalb steht in Detroits Manifest zu Recht `captures_source_deletions:
+False`: *ein* Jahrgang allein kann die beiden Fälle nicht unterscheiden, der
+Blick über alle Jahrgänge kann es. Von den 89 waren 5 solche; lokal blieb
+`14286399` (Tatdatum 2023-08-08, im 2024er Abzug geladen) erhalten, die
+anderen vier gingen.
+
+`Lauf.jahrgang` liegt im **gemeinsamen** Manifestleser, nicht zweimal in zwei
+Modulen — Chicago nennt ihn `event_year`, Detroit `year`, dieselbe Asymmetrie
+wie bei `mode`/`extraction_mode`.
+
+### Die Zusage, die jetzt gehalten wird
+
+Vorher sagten zwei Tabellen derselben Schicht, aus demselben Lauf,
+Verschiedenes: `source_change` führte Zeilen als `verschwunden`,
+`crime_offense` hatte sie. Eine Auswertung, die beide verbindet — *„zeige mir
+die verschwundenen Fälle"* — fand Zeilen, die gleichzeitig weg und da waren.
+
+Der neue Referenzwächter hält genau das, und er ist **in zwei Stufen
+entstanden**: Zuerst verlangte er, dass keine als `verschwunden` geführte
+Zeile in `crime_offense` steht. Das war zu scharf — `verschwunden` heisst
+„weg aus diesem Jahrgang". Jetzt verlangt er, dass eine solche Zeile, wenn
+sie noch da ist, ein **anderes** Jahr trägt als das, aus dem sie verschwand.
+
+### Prüfung
+
+Sieben Mutationsproben, alle rot. Eine blieb zuerst grün: Kein Test fing die
+Paarbildung über Jahrgänge hinweg — der **grössere** der beiden Fehler war
+ungewacht. Jetzt prüft `test_zwei_jahrgaenge_werden_nicht_gegeneinander_verglichen`
+nicht, *dass* Paare entstehen, sondern **welche**.
+
+Die Fixture `schreibe_chicago` nimmt `mode`, `event_year` und
+`started_at_utc` jetzt an, aber **ohne Vorgabe**: So bedeuten die siebzig
+Tests, die es vorher gab, weiterhin dasselbe.
+
+### Zahlen
+
+`silver/crime_offense` 1'875'378 → **1'875'374**, `gold/fact_offense`
+1'851'950 → **1'851'946**, Chicago 2024 251'517 → **251'513** Delikte. Rate
+unverändert **94,5** je 1'000. Die Kaskade ist durchgängig −4, lokal; auf
+`srv01` sind es 84 Zeilen.
+
+2'103 → **2'114 Tests**, Standardlauf 1'993 → **2'003**, Referenzwächter
+110 → **111**. Frischklon gemessen: **1'927 von 2'003**, 76 übersprungen,
+grün.
+
+Die Grösse von `releases` (795,8 → 935,0 MB) ist **kein** Projektfakt: Sie
+bewegt sich, weil für die Messung ein lokales Release gebildet wurde und die
+Regel „gepinnt plus die letzten acht" dann ein kleineres verdrängt. `silver`
+bleibt bei 213,6 MB — `source_change` ist nach der Korrektur wieder schmal.
 ## 17.10.2026 · Die Speichergrenze zurück auf die gemessene Zahl (Branch `grenze-zurueck`)
 
 Am 16.10.2026 habe ich `DUCKDB_MEMORY_LIMIT` von 896 auf 1536 MB gehoben und

@@ -86,7 +86,7 @@ Das wird leicht verwechselt, auch von uns. **Gold aggregiert nicht.** Es hält
 das Sternschema: `fact_offense` mit einer Zeile je Tat, daneben fünf
 Dimensionen (`dim_tract`, `dim_tract_acs`, `dim_offense`, `dim_date`,
 `dim_city_day`). Notebook
-34 hat gemessen, warum — eine Vorberechnung spart bei 1'851'950 Zeilen nichts,
+34 hat gemessen, warum — eine Vorberechnung spart bei 1'851'946 Zeilen nichts,
 was ein Mensch bemerkt, kostet aber die Beweglichkeit, für die die Schicht da
 ist.
 

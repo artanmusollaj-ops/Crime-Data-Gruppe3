@@ -187,9 +187,14 @@ class Schnappschuss:
     run_id: str
     pfad: str
     beobachtet_am: str
+    #: Der Jahrgang, den dieser Abzug traegt. Leer heisst: Das Manifest nennt
+    #: keinen - dann steht der Abzug fuer sich und wird nur mit anderen
+    #: jahrgangslosen verglichen.
+    jahrgang: str = ""
 
     def __str__(self) -> str:
-        return f"{self.run_id[:8]} ({self.beobachtet_am[:19]})"
+        jahr = f" {self.jahrgang}" if self.jahrgang else ""
+        return f"{self.run_id[:8]}{jahr} ({self.beobachtet_am[:19]})"
 
 
 # --------------------------------------------------------------------------
@@ -214,19 +219,44 @@ def schnappschuesse(laeufe: list[Any]) -> list[Schnappschuss]:
             raise TransformError(
                 f"{lauf.run_id}: Manifest ohne Zeitstempel - ohne ihn laesst "
                 f"sich die Reihenfolge nicht bestimmen.")
-        gefunden.append(Schnappschuss(lauf.run_id, lauf.relativ, str(wann)))
+        gefunden.append(Schnappschuss(lauf.run_id, lauf.relativ, str(wann),
+                                      lauf.jahrgang))
     return sorted(gefunden, key=lambda s: (s.beobachtet_am, s.run_id))
 
 
 def paare(alle: list[Schnappschuss]) -> list[tuple[Schnappschuss, Schnappschuss]]:
-    """Aufeinanderfolgende Paare - nicht jedes gegen jedes.
+    """Aufeinanderfolgende Paare **je Jahrgang** - nicht jedes gegen jedes.
 
     Jedes gegen jedes waere quadratisch und saehe dieselbe Aenderung mehrfach:
     Was sich zwischen dem ersten und dem zweiten Schnappschuss bewegt hat,
     stuende auch im Vergleich des ersten mit dem dritten. Die Kette zaehlt
     jede Bewegung genau einmal.
+
+    **Je Jahrgang, und das war der Fehler.** Bis zum 17.10.2026 bildete diese
+    Funktion eine einzige Kette je Stadt, nach Zeit geordnet. Seit beide
+    Staedte am 4.10.2026 anfingen, **je Jahrgang** zu laden, sind
+    aufeinanderfolgende Abzuege aber verschiedene Jahrgaenge - und der
+    Vergleich meldete jede Zeile des einen als ``verschwunden`` und jede des
+    anderen als ``neu``:
+
+        chicago  2024er Abzug -> 2021er Abzug   weg=259'638  neu=210'005
+
+    **1,64 Mio. erfundene "verschwunden"** und 1,53 Mio. erfundene "neu"
+    standen so in der Tabelle - in jener Tabelle, die der Gegenstand der
+    Arbeit ist. Ein Vollabzug sagt nicht "das ist der ganze Bestand", sondern
+    "das ist der ganze Jahrgang 2024"; nur innerhalb eines Jahrgangs bedeutet
+    Abwesenheit etwas.
+
+    Jahrgangslose Abzuege bilden ihre eigene Kette: Bestaende aus der Zeit
+    vor der Jahrgangstrennung sollen weiter vergleichbar bleiben.
     """
-    return list(zip(alle, alle[1:]))
+    je_jahrgang: dict[str, list[Schnappschuss]] = {}
+    for abzug in alle:
+        je_jahrgang.setdefault(abzug.jahrgang, []).append(abzug)
+    gebildet: list[tuple[Schnappschuss, Schnappschuss]] = []
+    for _, kette in sorted(je_jahrgang.items()):
+        gebildet.extend(zip(kette, kette[1:]))
+    return gebildet
 
 
 def delta_laeufe(laeufe: list[Any]) -> list[Schnappschuss]:

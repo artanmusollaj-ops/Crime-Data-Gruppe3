@@ -6,7 +6,7 @@
 
 | | |
 | --- | --- |
-| Faktentabelle | 1'851'950 Zeilen (Jahrgänge 2021–2026) |
+| Faktentabelle | 1'851'946 Zeilen (Jahrgänge 2021–2026) |
 | Dimensionen | 5 · 37'794 Zeilen |
 | Verworfen | 2 Würfel |
 | Gerechnet in | [`notebooks/34_gold_sternschema.ipynb`](../notebooks/34_gold_sternschema.ipynb) |
@@ -71,13 +71,13 @@ Dimensionen die Bedeutung. Jede Kante ist ein JOIN-Schlüssel.*
 
 ### Warum die Dimensionen getrennt stehen
 
-**Die Faktentabelle bleibt schlank.** Stünde in jeder der 1'851'950 Zeilen der
+**Die Faktentabelle bleibt schlank.** Stünde in jeder der 1'851'946 Zeilen der
 Text `Larceny/Theft Offenses`, läge derselbe Satz zehntausendfach auf der
 Platte. Statt dessen steht dort `23C` — drei Zeichen — und die Bedeutung genau
 einmal in `dim_offense`.
 
 **Die Dimensionen tragen die Auswahllisten.** Eine Oberfläche, die „Delikt
-wählen" anbieten will, liest 85 Zeilen aus `dim_offense` statt 1'851'950
+wählen" anbieten will, liest 85 Zeilen aus `dim_offense` statt 1'851'946
 Faktenzeilen zu durchsuchen. Dasselbe gilt für Städte, Tage und Tracts.
 
 **`dim_date` wird erzeugt, nicht abgeleitet.** Ein Tag ohne Delikt hat keine
@@ -134,7 +134,7 @@ alle vier Achsen bleibt unter einer Zehntelsekunde.
 
 > **Der Befund**
 >
-> **Der Engpass ist nicht die Datenmenge.** Bei 1'851'950 Zeilen gewinnt eine
+> **Der Engpass ist nicht die Datenmenge.** Bei 1'851'946 Zeilen gewinnt eine
 > Vorberechnung nichts, was ein Mensch bemerken würde. Sie kostet aber genau
 > die Beweglichkeit, für die eine Auswertungsplattform da ist.
 

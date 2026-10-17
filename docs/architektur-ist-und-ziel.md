@@ -33,10 +33,10 @@ Die Strecke führt zwei unvergleichbare Quellen in eine vergleichbare Tabelle
 | --- | --- | --- | ---: |
 | **raw** | die Antwort der Quelle, Byte für Byte, mit SHA-256 | nichts deuten, nichts umformen | 358,4 MB |
 | **bronze** | Parquet mit gepinntem Schema, Originaltypen | nichts deuten; Unerwartetes nach `_extra` statt in den Papierkorb | 422,9 MB |
-| **silver** | deuten: Typen, Einheiten, Zeitzonen, NIBRS, Raum | nichts wegwerfen — Lücken werden gekennzeichnet, nicht gefiltert | 213,8 MB |
+| **silver** | deuten: Typen, Einheiten, Zeitzonen, NIBRS, Raum | nichts wegwerfen — Lücken werden gekennzeichnet, nicht gefiltert | 213,6 MB |
 | **gold** | Sternschema, eine Zeile je **Tat** | nicht aggregieren | 85,7 MB |
 | **serving** | abfragbar machen: Sichten, fünf Vergleichstabellen, Karte | nicht der Bestand sein | 1,3 MB |
-| **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 795,8 MB |
+| **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 935,0 MB |
 
 Die Grössen sind **gemessen, nicht geschätzt** — `python -m
 orchestration.platzbedarf` liest sie über `storage` aus den Schichten, und
@@ -58,9 +58,9 @@ die Rate?": Ein Zähler über sechs Jahre auf einem Nenner von einem ergibt
 | | |
 | --- | ---: |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
-| `silver/crime_offense` | 1'875'378 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | **1'851'950** Zeilen (eine Tat) |
-| Chicago | 251'517 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
+| `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
+| Chicago | 251'513 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
 | Detroit | 84'987 Delikte · 638'635 Einwohner · **133,1** je 1'000 |
 
 **Warum raw und bronze getrennt sind.** Raw ist das Beweisstück: Ein Delta-Lauf
@@ -70,7 +70,7 @@ erzeugbar. Diese Trennung kostet 358,4 MB und ist der Grund, warum sich jede Zah
 bis zur gzip-Datei zurückverfolgen lässt.
 
 **Warum Gold nicht aggregiert.** Notebook 34 hat beide Bauweisen gebaut und
-gemessen: Bei 1'851'950 Zeilen liegt jede realistische Frage direkt auf dem Stern
+gemessen: Bei 1'851'946 Zeilen liegt jede realistische Frage direkt auf dem Stern
 im einstelligen Millisekundenbereich. Ein vorberechneter Würfel spart nichts,
 was ein Mensch bemerkt, und kostet drei Fragen, die er nicht mehr beantwortet.
 Die Entscheidung ist ein **Messergebnis**, keine Stilfrage.
@@ -231,10 +231,10 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 2'103 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 1'917 davon — die übrigen 76 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 110 Referenzstand-Wächter sind abgewählt (16.10.2026 gemessen, grün) | |
+| **Pull Request** | 2'114 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 1'927 davon — die übrigen 76 brauchen gebaute Daten, laufende Dienste oder das ungetrackte LN1-PDF; 111 Referenzstand-Wächter sind abgewählt (17.10.2026 gemessen, grün) | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
-| **Referenzstand** | 110 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
+| **Referenzstand** | 111 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
 Der letzte Punkt ist die interessanteste Entscheidung: Die Quellen bewegen
 sich. Ein Test, der die dokumentierte Zahl gegen den frischen Stand hält, wäre
@@ -594,7 +594,7 @@ Die Ingestion ist der Teil, der bei mehr Städten zuerst bricht, und es ist
 
 | Achse | heute | was passiert bei zehn Städten |
 | --- | --- | --- |
-| Zeilen | 1'875'378 | rund 9,4 Mio — DuckDB rechnet das weiterhin interaktiv |
+| Zeilen | 1'875'374 | rund 9,4 Mio — DuckDB rechnet das weiterhin interaktiv |
 | Laufzeit Ingestion | Detroit 7 s im Delta, 100 s beim ersten vollen Lauf | linear, aber **seriell**: zehn Städte nacheinander |
 | Code je Quelle | zwei Pipelines mit je eigener Logik | zehn Pipelines, zehnmal derselbe Fehler |
 
@@ -649,7 +649,7 @@ abgelaufen.
 
 **Zu den Zahlen.** Teil A nennt den **Referenzstand** — den Bau vom 4.10.2026,
 16:50 UTC über die Jahrgänge 2021–2026 (Release `2026-10-04T16-50-47Z`), auf
-den sich alle Abgabedokumente beziehen und den 110 Wächter mit dem Marker
+den sich alle Abgabedokumente beziehen und den 111 Wächter mit dem Marker
 `referenzstand` gegen die Parquet-Dateien halten. Wie weit ein frischer Lauf
 davon abweicht, weist `orchestration.drift` je Grösse aus; die Zahlen der
 Abgabe werden nachgezogen, wenn die Drift eine Toleranz überschreitet, nicht
