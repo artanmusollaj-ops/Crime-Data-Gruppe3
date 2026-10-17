@@ -63,11 +63,10 @@ DOKUMENT = PROJECT_ROOT / "docs" / "storage-architektur.md"
 GRENZEN_MIB = {
     "elasticsearch": 1792,   # 1,75 GiB; Heap 768 MiB, gemessen genutzt 195
     "kibana": 1024,          # 1 GiB; gemessen belegt 771 MiB
-    # 16.10.2026: von 1'280 auf 2'048 MiB. Die innere DuckDB-Grenze muss
-    # darunter liegen, und 896 MB sind dreimal an derselben Abfrage
-    # gescheitert - zuletzt mit gedritteltem Eingabebestand, die Menge war
-    # also nicht der Treiber. Begruendung in der Compose-Datei.
-    "pipeline": 2048,        # 2 GiB; zeitweilig
+    # Am 16.10.2026 stand hier fuer einen Tag 2'048, weil ich die Grenze fuer
+    # die Ursache hielt. Der Bau braucht gestuft 256 MB; zurueck auf die
+    # Messung. Begruendung in der Compose-Datei.
+    "pipeline": 1280,        # 1,25 GiB; zeitweilig
     "jupyter": 768,          # 768 MiB; zeitweilig
     # 12.10.2026, FR-31: ein nginx, das eine statische Datei ausliefert. Die
     # 32 MiB sind nicht gemessen, sondern das obere Ende der bekannten

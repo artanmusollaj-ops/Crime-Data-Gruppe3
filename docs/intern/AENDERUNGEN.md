@@ -103,6 +103,23 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 17.10.2026 · Die Speichergrenze zurück auf die gemessene Zahl (Branch `grenze-zurueck`)
+
+Am 16.10.2026 habe ich `DUCKDB_MEMORY_LIMIT` von 896 auf 1536 MB gehoben und
+`mem_limit` von 1'280 auf 2'048 MiB, weil vier Läufe bei `silver
+crime_offense` an der Grenze starben und ich sie für die Ursache hielt. **Sie
+war es nicht.** Die Abfrage lief als *eine* Anweisung, in der jede
+Zwischenstufe gleichzeitig gepinnt ist — daher „failed to pin block", und
+daher verschob das Heben nur die Wand. Gestuft und mit der Datenbank auf einer
+Datei braucht derselbe Bau **256 MB**.
+
+Zurück auf die **gemessene** Zahl, nicht auf eine neu erfundene: 896 MB gelten
+für *jede* Stufe, auch für Gold mit 1,86 Mio. Zeilen und für `comparison` —
+und die sind bei 896 MB durchgelaufen, bevor ich etwas anfasste. Tiefer zu
+gehen hiesse, sie einzeln nachzumessen; das wäre eine eigene Messung und keine
+Nebenwirkung.
+
+Damit stimmen Compose-Datei und FR-13-Messung vom 6.10.2026 wieder überein.
 ## 17.10.2026 · Serving wird nicht gefragt (Branch `serving-wird-nicht-gefragt`)
 
 Der erste Lauf mit dem neuen Aufräumen war grün und hat das Release gebildet —
