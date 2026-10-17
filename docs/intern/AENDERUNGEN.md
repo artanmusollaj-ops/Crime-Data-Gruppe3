@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'128** |
+| Tests | **2'204** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,91 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.10.2026 · Ein Wächter über das Muster, nicht über den Fall (Branch `herkunft-auch-oben`)
+
+Neun Fälle desselben Musters an zwei Tagen — ein Modul liest eine Schicht über
+einen offenen Pfad, im `local`-Modus still korrekt, und die Suite läuft im
+`local`-Modus. Jeden einzeln behoben, und der nächste war schon da. Das ist
+der falsche Umgang damit.
+
+### Der neunte, beim Bauen des Wächters gefunden
+
+```python
+tract_verzeichnis = Path(tract.pfad).parent
+if (tract_verzeichnis / "manifest.json").exists():
+```
+
+`tract.pfad` ist im `s3`-Modus `s3://urban-crime/…`. **`Path` macht aus dem
+Doppel-Slash ein einfaches**, also war `.exists()` immer falsch: Das Manifest
+blieb leer, und mit ihm fehlten Bauzeitpunkt, Eingabe-Abdruck und die eigene
+Herkunft von `silver/tract`. Die Herkunftskette von `crime_offense` nach
+Bronze war auf `srv01` **nicht nachvollziehbar** — und das trifft genau die
+Kernthese der Arbeit.
+
+Derselbe Griff verstümmelte dazu den Pfad, der stattdessen im Manifest stand:
+`s3:/urban-crime/…` mit einem Slash. Er sieht aus wie eine Adresse und ist
+keine. Gemessen auf `srv01`: oben `{"path": "s3:/…"}` und sonst nichts, lokal
+vier Schlüssel mit vier Bronze-Läufen darin.
+
+Dass es auffiel, war Glück: Ich hatte denselben Griff am selben Morgen in
+einem Messskript, dort behoben und **nicht gefragt, ob er im Produktivcode
+auch steht.**
+
+### Der Wächter
+
+`tests/test_ablagezugriff.py`, zwei Regeln und 76 Tests:
+
+* **Kein Dateisystemgriff auf eine Schicht ohne Begründung.** Gesucht werden
+  `is_file`, `is_dir`, `exists`, `glob`, `rglob`, `iterdir` auf einem
+  Ausdruck, der nach einer Schicht aussieht.
+* **Keine Ablageadresse in `Path()`.** Das ist der neunte Fall, und die erste
+  Regel fängt ihn nicht — der Ausdruck nennt keine Schicht.
+
+**Die Begründung steht an der Stelle, nicht in einer Liste.** Wer den Griff
+braucht, schreibt „lokal mit Absicht" und den Grund darüber — dieselbe Regel,
+die `AGENTS.md` für Quellenangaben setzt. Eine zentrale Liste veraltet, sobald
+jemand Code verschiebt; ein Kommentar wandert mit. 22 Begründungen in elf
+Dateien sind dabei entstanden, jede einzeln beurteilt.
+
+Ausgenommen sind `storage` und `manifeste`, und zwar mit Grund: Das erste
+**ist** die Ablage, das zweite liest die lokale Hälfte, die `Storage.laeufe`
+ihm gibt. Die Fälle lagen nie dort, sondern bei den Aufrufern.
+
+### Drei Mal hat der Wächter beim Bauen versagt
+
+Jedes Mal fand es eine Mutationsprobe, und jedes Mal war es lehrreicher als
+der Fall selbst:
+
+1. **Gross-/Kleinschreibung.** Die Marke war klein geschrieben, die
+   Begründungen beginnen einen Satz. Sechzehn richtige Stellen blieben rot —
+   der Wächter prüfte Rechtschreibung statt Sache.
+2. **Nur der unmittelbare Ausdruck.** Fall 5 war `alt = verzeichnis / …`
+   und dann `alt.is_file()`. Der Empfänger trägt keine Schichtmarke; der
+   teuerste Fall des Tages lief durch. Jetzt wird **eine Ebene**
+   Zuweisung verfolgt.
+3. **Dann 28 Fehlalarme.** Mit der Zuweisungsverfolgung galt `ablage =
+   for_root(data_root)` als Pfad — und `ablage.exists(...)` ist genau der
+   Aufruf, den der Wächter *verlangt*. Ein Pfad erkennt man daran, dass er
+   **gebaut** wird: mit `/`, `Path(`, `local_path(` oder `.parent`.
+
+**Die Grenze ist genannt**, damit niemand den Wächter für mehr hält: Er sieht
+nicht, ob eine Zeichenkette später an DuckDB geht. Hätte bei Fall 8 nur
+`read_parquet(f"{pfad}")` gestanden, wäre er blind.
+
+### Und ein Fehler von mir, den der Frischklon fand
+
+Beim Beheben des neunten Falls habe ich `for_root(None)` geschrieben statt die
+Wurzel durchzureichen. Das nimmt die Vorgabe `data/` — lokal vorhanden, im
+Frischklon nicht. **57 Tests rot**, mit einem `FileNotFoundError` auf einem
+Pfad, den kein Test gesetzt hat. Ohne die Frischklon-Messung wäre es in den
+Pull Request gegangen.
+
+**Zahlen.** 2'128 → **2'204 Tests**, Standardlauf 2'017 → **2'093**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'017 von
+2'093**, 76 übersprungen, grün. `AGENTS.md` trägt die Regel.
 
 ---
 

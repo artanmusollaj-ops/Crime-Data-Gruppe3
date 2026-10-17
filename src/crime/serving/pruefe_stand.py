@@ -222,6 +222,11 @@ def pruefe_gold(datenwurzel: Path, verzeichnis: Path) -> Befund:
         # gebaut und darum blind fuer ihn.
         arbeit = datenwurzel / ziel.quelle_im_release
         im_release = verzeichnis / ziel.quelle_im_release
+        # Lokal mit Absicht, auf beiden Seiten: Verglichen wird die
+        # **Arbeitsschicht** gegen das **eingesetzte** Release, und
+        # beide liegen unten. Genau das ist die Frage dieser Pruefung -
+        # ob der Stand, auf dem die DuckDB-Sichten ruhen, noch der des
+        # Releases ist.
         if not arbeit.is_file() or not im_release.is_file():
             fehlend.append(ziel.name)
         elif pruefsumme(arbeit) != pruefsumme(im_release):

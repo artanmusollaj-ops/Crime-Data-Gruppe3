@@ -263,6 +263,10 @@ def als_json(alle: list[Zeile], fingerabdruck: str | None, *,
 
 def fingerabdruck_von(data_root: Path) -> str | None:
     protokoll = data_root / "pipeline_run.json"
+    # Lokal mit Absicht: `pipeline_run.json` ist das Protokoll des
+    # letzten Laufs auf *diesem* Rechner, keine Schichttabelle. Es
+    # wird nie publiziert - oben gibt es keinen Lauf, dessen
+    # Protokoll das waere.
     if not protokoll.exists():
         return None
     try:

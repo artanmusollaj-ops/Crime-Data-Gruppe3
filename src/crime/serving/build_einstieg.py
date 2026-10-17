@@ -273,6 +273,11 @@ def messe(verzeichnis: Path) -> dict[str, Any]:
     con = verbinde()
     try:
         datensaetze = []
+        # Lokal mit Absicht: Diese Seite liest ein **eingesetztes**
+        # Release - `release holen --einsetzen` hat es an die festen
+        # Pfade gelegt, bevor dieser Schritt laeuft
+        # (`docker/srv01-datenlauf.sh`). Sie liest daneben `stat()` fuer
+        # die Dateigroesse; das geht nur auf einer wirklichen Datei.
         for pfad in sorted(gold.glob("dataset=*/part-0001.parquet")):
             name = pfad.parent.name.removeprefix("dataset=")
             anzahl = con.execute(

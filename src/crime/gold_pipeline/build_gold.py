@@ -1182,6 +1182,11 @@ def herkunft_der_quelle(q: Quelle) -> dict[str, Any]:
     """
     kopf = {"layer": q.layer, "table": q.name}
     if q.layer == "config":
+        # Lokal mit Absicht: `config/` liegt im Repository und ist nie auf
+        # SeaweedFS - `Path` ist hier also richtig, und die Pruefsumme
+        # darunter braucht eine wirkliche Datei. Fuer alles andere geht
+        # `q.pfad` als **Zeichenkette** weiter (Zeile darunter): Eine
+        # Ablageadresse durch `Path` zu schicken macht aus `s3://` ein `s3:/`.
         return {**kopf, **referenzdatei(Path(q.pfad))}
     return {**kopf, **referenz(q.pfad, q.manifest or {})}
 

@@ -702,10 +702,15 @@ def pruefe_zeitgenauigkeit(parquet: Path, liste: list[Feld]) -> None:
 def aktuelles_release(datenwurzel: Path) -> tuple[str, Path]:
     """Die Kennung, auf die der Zeiger zeigt, und das Verzeichnis dazu."""
     zeiger = datenwurzel / "releases" / "AKTUELL.json"
+    # Lokal mit Absicht: Der Zeiger liegt lokal, weil
+    # `release holen --einsetzen` ihn dorthin legt.
     if not zeiger.is_file():
         raise LadeFehler(f"{zeiger} fehlt - erst 'run_all --release' laufen lassen")
     kennung = json.loads(zeiger.read_text(encoding="utf-8"))["release_id"]
     verzeichnis = datenwurzel / "releases" / f"release={kennung}"
+    # Lokal mit Absicht: wie in `load_clickhouse` - geladen wird ein
+    # eingesetztes Release, und sein Fehlen ist ein Fehler, kein
+    # Anlass, oben zu suchen.
     if not verzeichnis.is_dir():
         raise LadeFehler(f"Release {kennung} liegt nicht lokal: {verzeichnis}")
     return kennung, verzeichnis
@@ -713,6 +718,7 @@ def aktuelles_release(datenwurzel: Path) -> tuple[str, Path]:
 
 def quelle(verzeichnis: Path, index: Index) -> Path:
     parquet = verzeichnis / index.quelle_im_release
+    # Lokal mit Absicht: eine Datei im eingesetzten Release.
     if not parquet.is_file():
         raise LadeFehler(f"{parquet} fehlt im Release")
     return parquet
