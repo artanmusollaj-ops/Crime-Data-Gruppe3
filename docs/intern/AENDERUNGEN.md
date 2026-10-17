@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'114** |
+| Tests | **2'118** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,56 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.10.2026 · Was oben liegt, ist nicht irgendwas (Branch `was-oben-liegt-ist-nicht-irgendwas`)
+
+Beim Nachsehen, ob die falschen 1,64 Mio. Zeilen auf `srv01` weg sind, lag
+oben die **richtige** Tabelle — vom **3.10.2026**. Der Lauf von heute früh
+hatte 21'384'112 Zeilen gebaut und sie nie hinaufgebracht:
+
+    source_change: 21,384,112 Zeilen (34 Paare neu, 5 schon gezogen)
+    ...
+    Local working copy removed after release: silver/dataset=source_change
+
+Zwei Fehler, und der zweite ist meiner.
+
+### `build_source_change` publizierte nie
+
+Jeder andere Silver-Bau ruft `publish_table`; dieser schrieb nur lokal. Im
+`s3`-Modus erreichte die Tabelle SeaweedFS damit **nie** — oben lag der Stand
+vom 3.10., eingefroren, während jeder Lauf unten eine neue Fassung baute und
+wieder verlor. Das ist der fünfte Fall derselben Familie in drei Tagen
+(Regeln 2 und 4 von `aufraeumen`, `storage.parquet`, das Release, und jetzt
+dieser) und wieder derselbe Grund: Im `local`-Modus ist es still korrekt, und
+die Suite läuft im `local`-Modus.
+
+### Mein Aufräumen löschte, was es nicht beurteilen konnte
+
+`arbeitskopien_entfernen` fragte, *ob* oben ein Manifest liegt — nicht, ob es
+**dasselbe** ist. Also bestätigte es sich an der zwei Wochen alten Tabelle
+und löschte die frische. 21,4 Mio. Zeilen, gebaut und verloren.
+
+**Dass sie falsch waren, war Glück.** Die Sicherung, auf die ich gestern
+stolz war, war nur halb: *„entfernt wird nur, was oben wirklich liegt"* hätte
+heissen müssen *„was oben wirklich liegt und dasselbe ist"*. Richtige Zeilen
+wären genauso weg gewesen, lautlos, nach einem grünen Lauf.
+
+Verglichen werden jetzt beide Manifeste als Ganzes — nicht nur `row_count`,
+denn zwei Bauten können dieselbe Zeilenzahl und verschiedene Zahlen darin
+haben. Und eine **Unsicherheit** (unlesbares JSON, Netzfehler) gilt als
+Abweichung: Dann bleibt die Kopie. Eine Unsicherheit darf nicht zum Löschen
+führen.
+
+### Prüfung
+
+Drei Mutationsproben, alle rot — darunter die, die den Vergleich ganz
+entfernt, und die, die aus der Unsicherheit ein „ja, löschen" macht.
+
+**Zahlen.** 2'114 → **2'118 Tests**, Standardlauf 2'003 → **2'007**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **1'931 von
+2'007**, 76 übersprungen, grün.
 
 ---
 

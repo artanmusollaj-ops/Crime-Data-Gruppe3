@@ -775,8 +775,19 @@ def baue(data_root: Path, *, trocken: bool = False) -> dict[str, Any]:
         schema_neu = abgelegtes_schema(verzeichnis) != set(SPALTEN)
         if (bericht["paare"] or not alt.is_file()
                 or datierung_neu or vertrag_neu or schema_neu):
-            publish(con, TABLE, verzeichnis,
-                    manifest(con, bericht, begonnen))
+            ziel = publish(con, TABLE, verzeichnis,
+                            manifest(con, bericht, begonnen))
+            # **Und hinauf.** Bis zum 17.10.2026 fehlte diese Zeile, und damit
+            # erreichte die Tabelle SeaweedFS nie: Jeder andere Silver-Bau
+            # ruft ``publish_table``, dieser schrieb nur lokal. Im ``s3``-Modus
+            # lag oben deshalb der Stand vom 3.10.2026 - eingefroren, waehrend
+            # jeder Lauf unten eine neue Fassung baute und wieder verlor.
+            #
+            # Aufgefallen ist es erst, als das Aufraeumen nach dem Release die
+            # lokale Kopie entfernte (``Storage.arbeitskopien_entfernen``):
+            # 21,4 Mio. Zeilen gebaut, nie publiziert, dann geloescht. Falsche
+            # Zeilen, wie sich zeigte - aber richtige waeren genauso weg.
+            for_root(data_root).publish_table(ziel)
         return bericht
     finally:
         con.close()

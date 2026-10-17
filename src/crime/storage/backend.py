@@ -1218,6 +1218,22 @@ class Storage:
     #: bleiben.
     PUBLIZIERTE_SCHICHTEN: tuple[str, ...] = ("silver", "gold")
 
+    def _gleiches_manifest(self, rel: str, lokal: Path) -> bool:
+        """Steht oben derselbe Stand wie unten?
+
+        Zerbricht etwas daran - unlesbares JSON, ein Netzfehler -, lautet die
+        Antwort **nein**: Dann bleibt die Kopie liegen. Eine Unsicherheit darf
+        nicht zum Loeschen fuehren.
+        """
+        try:
+            oben = json.loads(self.read_text(rel, MANIFEST))
+            unten = json.loads(lokal.read_text(encoding="utf-8"))
+        except (StorageError, OSError, ValueError) as fehler:
+            LOG.warning("Manifeste nicht vergleichbar (%s): %s",
+                        type(fehler).__name__, rel)
+            return False
+        return oben == unten
+
     def arbeitskopien_entfernen(
         self, schichten: tuple[str, ...] | None = None
     ) -> list[str]:
@@ -1227,11 +1243,23 @@ class Storage:
         damit das Release es findet, geht hier weg - **nachdem** das Release
         gebildet ist.
 
-        **Entfernt wird nur, was oben wirklich liegt.** Je Tabelle wird das
-        entfernte Manifest gefragt; fehlt es, bleibt die Kopie. Sonst wuerde
-        eine Tabelle, deren Upload scheiterte, hier verschwinden - und waere
-        nirgends mehr. Das ist der Unterschied zwischen Aufraeumen und
-        Datenverlust, und er kostet eine Abfrage je Tabelle.
+        **Entfernt wird nur, was oben wirklich liegt - und zwar dasselbe.**
+        Je Tabelle werden beide Manifeste verglichen. Fehlt das entfernte,
+        bleibt die Kopie: Sonst wuerde eine Tabelle, deren Upload scheiterte,
+        hier verschwinden und waere nirgends mehr.
+
+        **Weichen sie ab, bleibt sie auch.** Die erste Fassung fragte nur, *ob*
+        oben etwas liegt. Am 17.10.2026 hat sie damit eine frisch gebaute
+        ``source_change`` geloescht, deren Gegenstueck oben vom 3.10. war:
+        ``build_source_change`` rief damals kein ``publish_table``, baute also
+        unten eine neue Fassung, die nie hinaufkam - und das Aufraeumen
+        bestaetigte sich an der alten. 21,4 Mio. Zeilen, gebaut und verloren.
+        Dass sie falsch waren, war Glueck; richtige waeren genauso weg
+        gewesen.
+
+        Verglichen werden die Manifeste als Ganzes und nicht nur ``row_count``:
+        Zwei Baeue koennen dieselbe Zeilenzahl haben und verschiedene Zahlen
+        darin. Das kostet einen GET je Tabelle - derselbe Preis wie vorher.
 
         Ausserhalb von ``s3`` tut die Methode nichts: In ``local`` gibt es
         kein Oben, in ``hybrid`` ist die lokale Kopie der Bestand.
@@ -1251,6 +1279,11 @@ class Storage:
                 if not self.exists(rel, MANIFEST):
                     LOG.warning(
                         "Nicht oben, lokale Kopie bleibt: %s", rel)
+                    continue
+                if not self._gleiches_manifest(rel, manifest):
+                    LOG.warning(
+                        "Oben liegt ein anderer Stand, lokale Kopie bleibt: "
+                        "%s - sie ist nie hinaufgekommen", rel)
                     continue
                 shutil.rmtree(verzeichnis, ignore_errors=True)
                 LOG.info("Local working copy removed after release: %s", rel)

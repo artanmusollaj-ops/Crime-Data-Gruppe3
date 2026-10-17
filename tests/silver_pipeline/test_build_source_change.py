@@ -609,3 +609,45 @@ def test_eine_bessere_datierung_verdraengt_eine_schlechtere(tmp_path):
     bleibt = {z["offense_id"]: z["zuerst_gesehen_in"]
               for z in nur_mit_schluessel(tmp_path)}
     assert bleibt["2"] == "d1", "das erste Delta wurde durch ein spaeteres ersetzt"
+
+
+def test_die_tabelle_wird_auch_hinaufgebracht(tmp_path, monkeypatch):
+    """Jeder andere Silver-Bau ruft ``publish_table`` - dieser tat es nicht.
+
+    Bis zum 17.10.2026 schrieb ``baue`` die Tabelle nur lokal. Im ``s3``-Modus
+    erreichte sie SeaweedFS damit nie: Oben lag der Stand vom 3.10.2026,
+    eingefroren, waehrend jeder Lauf unten eine neue Fassung baute und wieder
+    verlor. Gesehen wurde es erst, als das Aufraeumen nach dem Release die
+    lokale Kopie entfernte - 21,4 Mio. Zeilen gebaut, nie publiziert, dann
+    geloescht.
+
+    Geprueft wird, **dass** publiziert wird, nicht wohin: Ein echtes S3
+    braeuchte Netz, und der Fehler lag nicht im Hochladen, sondern im
+    fehlenden Aufruf.
+    """
+    gesehen = []
+
+    class Spion:
+        def __init__(self, echt):
+            self._echt = echt
+
+        def publish_table(self, ziel, **kw):
+            gesehen.append(str(ziel))
+            return []
+
+        def __getattr__(self, name):
+            return getattr(self._echt, name)
+
+    echt = bsc.for_root
+    monkeypatch.setattr(bsc, "for_root", lambda wurzel: Spion(echt(wurzel)))
+
+    schnappschuss(tmp_path, "a", [zeile("1")], wann="2026-09-11T12:00:00")
+    schnappschuss(tmp_path, "b", [zeile("1", offense_description="X")],
+                  wann="2026-09-12T12:00:00")
+    bsc.baue(tmp_path)
+
+    assert gesehen, (
+        "publish_table wurde nicht gerufen - im s3-Modus bleibt die Tabelle "
+        "unten und der Stand oben friert ein")
+    assert any("source_change" in z for z in gesehen), \
+        f"publiziert wurde etwas anderes: {gesehen}"
