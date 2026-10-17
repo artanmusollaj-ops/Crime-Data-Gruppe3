@@ -14,7 +14,7 @@ Basis war der angehäufte Bestand statt eines Jahrgangs. Aus dem einen Faktor si
 
 ## 1 Gemessen: die Belegung je Schicht
 
-Stand der Daten: Release `2026-10-14T16-40-30Z`. Gemessen über `storage.Storage.bytes_unter` — `.part`-Verzeichnisse zählen nicht,
+Stand der Daten: Release `2026-10-17T08-38-50Z`. Gemessen über `storage.Storage.bytes_unter` — `.part`-Verzeichnisse zählen nicht,
 und im Hybridmodus wird eine Datei, die lokal und auf SeaweedFS liegt, einmal gezählt. Dieses Dokument misst **nur lokal**.
 
 **Dieselbe Tabelle steht in `docs/architektur-ist-und-ziel.md` (A.1) und als SVG-Text in `docs/architektur-einseiter.html`.**
@@ -24,11 +24,11 @@ und im Hybridmodus wird eine Datei, die lokal und auf SeaweedFS liegt, einmal ge
 | --- | ---: | ---: |
 | **raw** | 358,4 MB | 668 |
 | **bronze** | 422,9 MB | 116 |
-| **silver** | 213,8 MB | 22 |
+| **silver** | 213,6 MB | 22 |
 | **gold** | 85,7 MB | 14 |
 | **serving** | 1,3 MB | 13 |
-| **releases** | 795,8 MB | 217 |
-| zusammen | **1'877,9 MB** | 1050 |
+| **releases** | 935,0 MB | 223 |
+| zusammen | **2'016,9 MB** | 1056 |
 
 ## 2 Gerechnet: vier Regeln für 2021–2026
 
@@ -42,11 +42,11 @@ Die Zeilen je Stadt und Jahr sind gemessene Fremddaten und stehen mit Datum und 
 
 | Regel | Wie sie rechnet | Basis je Jahrgang | 2021–2026 |
 | --- | --- | ---: | ---: |
-| **Taten** | Zeilen je Jahr × Bytes je Zeile | 227,8 MB | 506,9 MB |
+| **Taten** | Zeilen je Jahr × Bytes je Zeile | 227,7 MB | 506,7 MB |
 | **Census** | distinkte ACS-Vintages × Kosten je Vintage | 372,5 MB | 376,8 MB |
 | **konstant** | wächst nicht mit den Jahren | 25,0 MB | 25,0 MB |
 | **Releases** | Inhalt eines Standes hochgerechnet, dann × 8 Stände | 181,4 MB | 7'789,9 MB |
-| zusammen | | 806,6 MB | **8'698,5 MB** (8,70 GB) |
+| zusammen | | 806,5 MB | **8'698,3 MB** (8,70 GB) |
 
 Warum die Regeln verschieden rechnen:
 
@@ -92,7 +92,7 @@ davon.
 
 | Quelle | Läufe | Basis je Jahrgang | Regel | 2021–2026 |
 | --- | ---: | ---: | --- | ---: |
-| `dataset=crime_offense` | 1 | 79,1 MB | Taten: 1'874'417 Zeilen × 42,2 Bytes je Zeile | 79,1 MB |
+| `dataset=crime_offense` | 1 | 79,0 MB | Taten: 1'874'417 Zeilen × 42,1 Bytes je Zeile | 79,0 MB |
 | `dataset=place` | 1 | 44,9 MB | Census: 4 Vintages (2021, 2022, 2023, 2024) × 11,2 MB je Vintage | 44,9 MB |
 | `dataset=source_change` | 1 | 0,1 MB | Taten: 1'874'417 Zeilen × 0,1 Bytes je Zeile | 0,1 MB |
 | `dataset=tract` | 1 | 89,2 MB | Census: 4 Vintages (2021, 2022, 2023, 2024) × 22,3 MB je Vintage | 89,2 MB |
@@ -147,11 +147,11 @@ davon.
 
 ## 4 Was daraus folgt
 
-* **2021–2026 braucht 8'698,5 MB (8,70 GB)**. Dieselbe Rechnung für **einen** Jahrgang (2024) ergibt 1'663,8 MB — 2021–2026 ist also
+* **2021–2026 braucht 8'698,3 MB (8,70 GB)**. Dieselbe Rechnung für **einen** Jahrgang (2024) ergibt 1'663,8 MB — 2021–2026 ist also
   das **5,23-Fache eines Jahrgangs** und nicht das 5,5-Fache. Verglichen wird dabei Rechnung mit Rechnung: Das heutige
-  `data/` (1'877,9 MB) hält 14 `city=chicago`-Läufe und neun Release-Stände und ist mit keiner
+  `data/` (2'016,9 MB) hält 14 `city=chicago`-Läufe und neun Release-Stände und ist mit keiner
   der beiden Zahlen vergleichbar — genau diese Verwechslung steckte im alten Faktor.
-* **Ohne `releases/` sind es 908,6 MB** (0,91 GB), ohne `releases/` **und** `raw/` noch 639,4 MB (0,64 GB).
+* **Ohne `releases/` sind es 908,4 MB** (0,91 GB), ohne `releases/` **und** `raw/` noch 639,2 MB (0,64 GB).
   Das sind die Zahlen, die für FR-52 zählen: Eine Abgabe braucht nicht acht Stände, und sie braucht die
   Beweisstücke nicht mitzuschicken.
 * **Moodles Grenze von 1 GB**: Der ganze Bestand liegt mit 8,70 GB weit darüber. Ohne `releases/` liegt er mit 0,91 GB knapp darunter, ohne `raw/` dazu mit 0,64 GB deutlich. Reserve ist das keine: Ein Jahrgang mehr hebt ihn wieder darüber.

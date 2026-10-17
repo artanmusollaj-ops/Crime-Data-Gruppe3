@@ -96,6 +96,31 @@ class Lauf(NamedTuple):
         )
 
     @property
+    def jahrgang(self) -> str:
+        """Der Jahrgang, den der Lauf geladen hat - leer, wenn keiner dasteht.
+
+        Chicago nennt ihn ``event_year``, Detroit ``year``: dieselbe
+        Asymmetrie wie bei ``mode``/``extraction_mode`` und
+        ``started_at``/``started_at_utc``, und sie gehoert aus demselben Grund
+        hierher und nicht in jedes Modul.
+
+        **Warum er gebraucht wird.** Beide Staedte laden seit dem 4.10.2026
+        **je Jahrgang**. Ein Vollabzug sagt damit nicht "das ist der ganze
+        Bestand", sondern "das ist der ganze Jahrgang 2024" - und Abwesenheit
+        darin heisst *nicht mehr in diesem Jahrgang*. Wer zwei Vollabzuege
+        vergleicht, ohne auf den Jahrgang zu sehen, vergleicht 2024 gegen
+        2021: Am 17.10.2026 standen so **1,64 Mio. erfundene
+        "verschwunden"** und 1,53 Mio. erfundene "neu" in
+        ``silver/source_change``, und ``silver/crime_offense`` hielt 89
+        zurueckgezogene Zeilen fest. Zwei Fehler, ein Denkfehler.
+        """
+        for schluessel in ("event_year", "year"):
+            wert = self.manifest.get(schluessel)
+            if wert not in (None, ""):
+                return str(wert)
+        return ""
+
+    @property
     def vollabzug(self) -> bool:
         """Ob der Lauf ein Vollschnappschuss ist - und nicht ein Delta.
 

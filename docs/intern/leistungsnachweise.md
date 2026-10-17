@@ -27,13 +27,13 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 | **Ingestion: Quellen, Beschaffung** | ● fertig | fünf Quellen, je ein Quellnotebook |
 | **Storage: Evaluation, Wahl, Implementierung** | ● fertig | gemessen in Notebook 31 (NDJSON gegen Parquet), verschriftlicht in [`ln2_konzept.md`](../ln2_konzept.md) Kapitel 7 |
 | **Transformation 1: Analyse, Hypothesentest** | ◐ Qualität beider Städte fertig | der eigentliche Hypothesentest → Abschnitt 5 |
-| **Initiale Datenbereinigung** | ● fertig | vier Silver-Tabellen, `crime_offense` mit 1'875'378 Zeilen über 2021–2026 |
+| **Initiale Datenbereinigung** | ● fertig | vier Silver-Tabellen, `crime_offense` mit 1'875'374 Zeilen über 2021–2026 |
 | **Beantwortung der Forschungsfragen** | ○ | folgt aus allem davor |
 
 ● fertig ◐ teilweise ○ offen
 
 **Die gute Nachricht:** Ingestion und Storage — die beiden praktisch
-aufwendigsten Blöcke — stehen. 2'100 Tests, fünf Quellen in vier Pipelines,
+aufwendigsten Blöcke — stehen. 2'111 Tests, fünf Quellen in vier Pipelines,
 nachgewiesene Vollständigkeit. Und weil die Hypothesen Fragen des Data Engineering sind
 (Abschnitt 2.0), sind fünf davon durch die bisherige Arbeit **bereits
 gemessen**: Wir haben Befunde, bevor wir die Hypothesen formuliert haben — und
@@ -321,7 +321,7 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie im Manifest oder in abgelegten URLs; drei Tests prüfen das. `.env` und `data/` aus Git ausgeschlossen, `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf, Herkunftsnachweis über `derived_from` und `input_fingerprint` durchgehend bis Gold, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog aus den Manifesten erzeugt, Aufbewahrungsregel mit `orchestration.aufraeumen` | das Aufräumen ist ein Handgriff, kein Automatismus |
-| **DataOps** | 2'100 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions über zwei Betriebssysteme und zwei Python-Versionen; dazu der wöchentliche Datenlauf | keine Alarmierung ausser dem roten Lauf selbst |
+| **DataOps** | 2'111 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions über zwei Betriebssysteme und zwei Python-Versionen; dazu der wöchentliche Datenlauf | keine Alarmierung ausser dem roten Lauf selbst |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (raw) und Ableitung (bronze). Zwei Architekturbilder, aus dem Code erzeugt ([`architektur.md`](../architektur.md)) | Vintage 2024 hart verdrahtet |
 | **Orchestration** | `orchestration.run_all`: 13 Stufen in Reihenfolge, Abbruch beim ersten Fehler, Gesamtmanifest über alle Eingabe-Läufe | der geplante Lauf ist wöchentlich, die Quellen ändern sich täglich; keine Wiederaufnahme nach Abbruch, bewusst |
 | **Software Engineering** | Modulare Pakete, Typannotationen, ausführliche Docstrings, Fehlerbehandlung mit Wiederholungen | – |
@@ -590,7 +590,7 @@ Kategorie. Das ist der Grund, weshalb der Entscheid nicht warten kann.
 | 5 | Storage-Evaluation verschriftlichen | Abschnitt 4 als Präsentationsteil | | |
 | 6 | ~~Datenqualität Detroit~~ | erledigt am 12.9.2026: Notebook 13 | Christian | ✓ |
 | 7 | ~~Detroit-Bronze angleichen~~ | erledigt am 12.9.2026: Raw-Schicht und `city=`-Partition wie Chicago | Christian | ✓ |
-| 8 | ~~Silver: Dedup, Typen, räumlicher Join~~ | erledigt: `silver/crime_offense`, 1'875'378 Zeilen | Christian | ✓ |
+| 8 | ~~Silver: Dedup, Typen, räumlicher Join~~ | erledigt: `silver/crime_offense`, 1'875'374 Zeilen | Christian | ✓ |
 | 9 | ~~NIBRS-Harmonisierung über beide Städte~~ | erledigt: beide Crosswalks angewandt, H3 dabei teilweise falsifiziert | Christian | ✓ |
 | 10 | ~~Gold: Raten je Tract~~ | erledigt: Sternschema, Chicago 94,5 / Detroit 133,1 je 1'000 (Jahrgang 2024) | Christian | ✓ |
 | 11 | Hypothesentest H1–H4 | Notebook mit Ergebnissen | | |

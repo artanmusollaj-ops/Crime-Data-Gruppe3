@@ -31,12 +31,12 @@ eine geprüfte Zahl wie eine bewiesene.
 
 | | Chicago | Detroit | was eine Zeile ist |
 | --- | ---: | ---: | --- |
-| **Anklagen** — alle Silver-Zeilen | 1'383'653 | 491'725 | eine Anklage |
-| **Taten** — `counts` | 1'383'653 | 468'297 | eine Tat |
-| **Fälle** — `counts_case` | 1'383'475 | 443'443 | ein Fall, sein schwerstes Delikt |
-| **Vorfälle** — `count(DISTINCT event_id)` | 1'383'475 | 443'443 | ein Vorfall |
+| **Anklagen** — alle Silver-Zeilen | 1'383'649 | 491'725 | eine Anklage |
+| **Taten** — `counts` | 1'383'649 | 468'297 | eine Tat |
+| **Fälle** — `counts_case` | 1'383'471 | 443'443 | ein Fall, sein schwerstes Delikt |
+| **Vorfälle** — `count(DISTINCT event_id)` | 1'383'471 | 443'443 | ein Vorfall |
 
-`gold/fact_offense` ist die zweite Zeile: **1'851'950 Taten**. Gold nimmt nur,
+`gold/fact_offense` ist die zweite Zeile: **1'851'946 Taten**. Gold nimmt nur,
 was `counts` trägt.
 
 **Chicago fällt zwischen den ersten beiden Zeilen nicht auseinander**, weil die
@@ -83,7 +83,7 @@ das Ergebnis, erscheint dieser Vorfall zweimal.
 
 | | Vorfälle | davon in mehr als einer Familie | je Familie summiert |
 | --- | ---: | ---: | ---: |
-| Chicago | 1'383'475 | 0 (0,0 %) | 1'383'475 — passt |
+| Chicago | 1'383'471 | 0 (0,0 %) | 1'383'471 — passt |
 | Detroit | 443'443 | 19'950 (4,5 %) | 465'197 — **21'754 zu viel (4,9 %)** |
 
 Chicagos Null ist keine bessere Datenlage, sondern dieselbe
@@ -105,7 +105,7 @@ oder einen Neujahrstag, erscheint er auch in zwei Monaten.
 
 | | Tage summiert | Monate summiert | Bestand direkt |
 | --- | ---: | ---: | ---: |
-| Chicago | 1'383'502 | 1'383'484 | 1'383'475 |
+| Chicago | 1'383'498 | 1'383'480 | 1'383'471 |
 | Detroit | 443'456 | 443'446 | 443'443 |
 
 Für Chicago sind das **27 bei Tagen** und **9 bei Monaten**, für Detroit
@@ -189,7 +189,7 @@ Referenzstand:
 
 | | exact | ambiguous | fallback_90Z | unmapped |
 | --- | ---: | ---: | ---: | ---: |
-| Chicago | 1'316'312 | 25'994 | 41'324 | 23 |
+| Chicago | 1'316'308 | 25'994 | 41'324 | 23 |
 | Detroit | 445'310 | 6'860 | 16'127 | 0 |
 
 Ein `exact` kann eine widersprüchliche Quellbeschreibung tragen, die noch
@@ -263,8 +263,9 @@ lässt den Rest in Bronze stehen.
 Ein Widerspruch in diesen Feldern braucht deshalb den Rückgriff auf Bronze —
 und der ist umständlicher, als er klingt, denn **Silver führt keine
 Zeilen-Herkunft**. Das Manifest nennt unter `derived_from` die Läufe, aus denen
-die Tabelle entstanden ist (vierzehn für Chicago, vierzehn für Detroit — je
-Stadt einer je Jahrgang, dazu die älteren Läufe des Jahrgangs 2024), aber nicht,
+die Tabelle entstanden ist (sieben für Chicago, zehn für Detroit — je Stadt
+und Jahrgang der jüngste Vollabzug und die Läufe danach, siehe
+`build_crime_offense.ab_dem_juengsten_vollabzug`), aber nicht,
 aus welchem eine bestimmte Zeile stammt. Für Detroit half das lange gar nicht:
 Bis zum 18.9.2026 lud jeder Lauf den ganzen Jahrgang, und jeder Schnappschuss
 enthielt damit **alle 491'725 Zeilen**. Wer
