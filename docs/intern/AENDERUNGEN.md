@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'124** |
+| Tests | **2'127** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,76 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.10.2026 · Das Bestehende kommt über die Ablage dazu — und 22 Paare sind verloren (Branch `bestand-ueber-die-ablage`)
+
+Nach dem geglückten Korrekturlauf stand in `source_change` **23'078 Zeilen**,
+vorher waren es 39'650. Die Tabelle **wächst** aber nur — sie soll die
+Geschichte bewahren, damit die Läufe gehen können. Wenn Läufe löschen Zeilen
+daraus entfernt, ist die Begründung des ganzen Aufräumens falsch.
+
+### Der sechste Fall, an der empfindlichsten Stelle
+
+```python
+alt = verzeichnis / PARQUET_FILE
+bestand = (f"SELECT … FROM read_parquet('{alt}') UNION ALL "
+           if alt.is_file() else "")
+```
+
+`alt.is_file()` fragt das **Dateisystem**. Im `s3`-Modus ist die lokale
+Arbeitskopie nach dem Publizieren entfernt, die Antwort war also immer „es
+gibt nichts" — und das Bestehende kam **nicht** dazu. Jeder Lauf schrieb nur,
+was er selbst gezogen hatte, und schob alles Ältere weg.
+
+Der Kommentar direkt darüber sagt die Absicht: *„Das Bestehende kommt dazu,
+nicht weg: Sein Rohstoff ist möglicherweise schon aufgeräumt."* Die Absicht
+war richtig. `bereits_gezogen` liest seit dem 16.10. über die Ablage; diese
+Stelle liegt zwanzig Zeilen daneben und wurde übersehen.
+
+Es war nicht eine Zeile, sondern ein Block: `abgelegtes_schema`,
+`abgelegter_vertrag` und `gelesene_datierung` lasen alle lokal, und die
+letztere öffnete ihre DuckDB-Verbindung ohne S3. Alle vier gehen jetzt über
+die Ablage.
+
+### Was verloren ist, und das ist nicht wiederherstellbar
+
+| | Paare | Zeilen |
+|---|---:|---:|
+| nach dem Lauf von 09:23 | 29 | 39'650 |
+| nach dem Lauf von 09:57 | **7** | **23'078** |
+
+Dazwischen lag mein Aufräumlauf, der 24 Bronze-Läufe entfernte — nach den
+Regeln zulässig, weil Regel 4 „Unterschied gezogen" sah. Gezogen war er
+auch; nur hat der nächste Lauf ihn wieder aus der Tabelle geworfen.
+
+Die Vergleiche, deren beide Schnappschüsse noch liegen, holt der nächste Lauf
+zurück: `bereits_gezogen` liest die publizierte Tabelle, findet sie nicht mehr
+und zieht sie neu. **Endgültig weg sind die, deren Schnappschüsse ich
+gelöscht habe.** Was das genau ist, messe ich nach dem nächsten Lauf; schätzen
+hilft hier nicht.
+
+### Ein Doppel, das anders scheiterte als das Echte
+
+`FakeS3Client.get` warf bei einem fehlenden Schlüssel einen nackten
+`KeyError`, der echte Client einen `StorageError`. Wer darauf ein `except
+StorageError` schreibt, bekommt im Test einen Durchschlag und in der
+Produktion nicht — genau beim Umstellen passiert. Das Doppel scheitert jetzt
+wie das Echte, mit eigenem Wächter.
+
+### Prüfung
+
+Fünf Mutationsproben, **zwei blieben zuerst grün**. Mein erster Wächter sah
+nur zu, *ob* `Storage.exists` gerufen wird — das tut `bereits_gezogen` auch,
+also blieb die Probe grün, die das Lesen wieder lokal macht. Der Test legt die
+abgelegte Datei jetzt **woanders** hin: Wer das Dateisystem fragt, findet
+nichts; wer die Ablage fragt, findet sie. Ein echter Ferntest ginge nicht —
+DuckDB liest die Parquet-Datei selbst, und `FakeS3Client` ist ein dict.
+
+**Zahlen.** 2'124 → **2'127 Tests**, Standardlauf 2'013 → **2'016**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **1'940 von
+2'016**, 76 übersprungen, grün.
 
 ---
 

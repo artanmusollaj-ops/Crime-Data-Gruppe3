@@ -305,7 +305,17 @@ class FakeS3Client:
 
     def get(self, key: str) -> bytes:
         self.anfragen.append(f"GET {key}")
-        return self.objekte[key]
+        try:
+            return self.objekte[key]
+        except KeyError:
+            # **Scheitern wie das Echte.** Der Boto3-Client uebersetzt
+            # ``NoSuchKey`` in einen ``StorageError``; dieses Doppel warf
+            # einen nackten ``KeyError``. Wer darauf einen ``except
+            # StorageError`` schreibt, bekommt im Test einen Durchschlag und
+            # in der Produktion nicht - am 17.10.2026 genau so passiert. Ein
+            # Doppel, das anders scheitert als das Echte, prueft das Falsche.
+            raise StorageError(
+                f"FakeS3Client: kein Objekt unter {key}") from None
 
     def put(self, key: str, daten: bytes) -> None:
         self.anfragen.append(f"PUT {key}")

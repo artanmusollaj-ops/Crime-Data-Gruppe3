@@ -88,10 +88,9 @@ from silver_pipeline import (
     TransformError,
     connect,
     publish,
-    read_manifest,
     schema_of,
 )
-from storage import for_root
+from storage import StorageError, for_root
 from storage import duckdb as storage_duckdb
 from storage.duckdb import verbinde
 
@@ -523,7 +522,24 @@ def tabellenverzeichnis(data_root: Path) -> Path:
     return for_root(data_root).local_path(f"{SILVER_LAYER}/dataset={TABLE}")
 
 
-def abgelegtes_schema(verzeichnis: Path) -> set[str]:
+def abgelegtes_manifest(ablage: Any, rel: str) -> dict[str, Any]:
+    """Das Manifest der abgelegten Tabelle - leer, wenn keines da ist.
+
+    **Ueber die Ablage, nicht ueber das Dateisystem.** ``Storage`` hat dafuer
+    ``tabellen_manifest`` (seit dem 15.10.2026), und aus demselben Grund:
+    ``publish_table`` entfernt im ``s3``-Modus die lokale Arbeitskopie, der
+    lokale Pfad zeigt danach ins Leere. Las man ihn trotzdem, lautete die
+    Antwort immer "es gibt nichts".
+    """
+    if not ablage.exists(rel, "manifest.json"):
+        return {}
+    try:
+        return ablage.tabellen_manifest(rel) or {}
+    except (StorageError, TransformError, OSError, TypeError, ValueError):
+        return {}
+
+
+def abgelegtes_schema(ablage: Any, rel: str) -> set[str]:
     """Die Spalten, die das abgelegte Manifest nennt - leer, wenn keines da ist.
 
     Gebraucht, weil diese Tabelle append-only ist und ohne neues Paar sonst
@@ -531,41 +547,45 @@ def abgelegtes_schema(verzeichnis: Path) -> set[str]:
     Der Vertrag stand schon auf 2, die Datierung hatte sich nicht bewegt, und
     der Lauf meinte, es gaebe nichts zu tun.
     """
-    datei = verzeichnis / "manifest.json"
-    if not datei.is_file():
-        return set()
-    try:
-        return set(read_manifest(verzeichnis).get("schema") or {})
-    except (TransformError, OSError, TypeError, ValueError):
-        return set()
+    return set(abgelegtes_manifest(ablage, rel).get("schema") or {})
 
 
-def abgelegter_vertrag(verzeichnis: Path) -> int | None:
+def abgelegter_vertrag(ablage: Any, rel: str) -> int | None:
     """Welche Vertragsversion in der abgelegten Tabelle steht - oder ``None``."""
-    datei = verzeichnis / "manifest.json"
-    if not datei.is_file():
+    m = abgelegtes_manifest(ablage, rel)
+    if not m:
         return None
     try:
-        return int(read_manifest(verzeichnis).get("contract_version", 0))
-    except (TransformError, OSError, TypeError, ValueError):
+        return int(m.get("contract_version", 0))
+    except (TypeError, ValueError):
         return None
 
 
-def gelesene_datierung(datei: Path) -> dict[str, int] | None:
+def gelesene_datierung(ablage: Any, rel: str) -> dict[str, int] | None:
     """Die Datierungsverteilung der abgelegten Tabelle - oder ``None``.
 
-    ``None`` heisst: Die Datei kennt die Spalte noch nicht, stammt also aus
-    Vertrag 1. Dann ist jede Datierung neu, und die Tabelle wird geschrieben.
+    ``None`` heisst: Es gibt keine abgelegte Tabelle, oder sie kennt die
+    Spalte noch nicht und stammt aus Vertrag 1. Dann ist jede Datierung neu,
+    und die Tabelle wird geschrieben.
 
-    Gelesen wird ueber ``storage.parquet_spalten`` statt ueber ``DESCRIBE``:
-    Der Pfad traegt ``dataset=source_change``, und daraus leitete DuckDB eine
-    Spalte ``dataset`` ab, die in keiner Datei steht.
+    Die Spalten kommen ueber ``storage.parquet_spalten`` statt ueber
+    ``DESCRIBE``: Der Pfad traegt ``dataset=source_change``, und daraus
+    leitete DuckDB eine Spalte ``dataset`` ab, die in keiner Datei steht.
+
+    **Und die Verbindung muss S3 kennen.** Hier stand ``verbinde()`` - die
+    Verbindung *ohne* Ablage - und ein lokaler Pfad. Im ``s3``-Modus traf das
+    beides nicht zu.
     """
     from storage import parquet_spalten
+    if not ablage.exists(rel, PARQUET_FILE):
+        return None
+    datei = ablage.resolve_read_path(rel, PARQUET_FILE)
     if "datierung" not in parquet_spalten(datei):
         return None
     con = verbinde()
     try:
+        if ablage.config.remote:
+            storage_duckdb.s3_einrichten(con, ablage.config)
         return dict(con.execute(
             f"SELECT coalesce(datierung, 'ohne_schluessel'), count(*) "
             f"FROM read_parquet('{datei}') GROUP BY 1 ORDER BY 1").fetchall())
@@ -682,7 +702,10 @@ def baue(data_root: Path, *, trocken: bool = False) -> dict[str, Any]:
     begonnen = datetime.now(timezone.utc)
     ablage = for_root(data_root)
     verzeichnis = tabellenverzeichnis(data_root)
-    schon = bereits_gezogen(verzeichnis)
+    # Derselbe Ablagepfad, den ``bereits_gezogen`` ableitet - einmal bestimmt
+    # und zweimal gebraucht: fuer die gezogenen Paare und fuer das Bestehende.
+    rel_tabelle = ablage.relativ(verzeichnis) or f"{SILVER_LAYER}/dataset={TABLE}"
+    schon = bereits_gezogen(verzeichnis, data_root)
 
     con = connect()
     try:
@@ -718,10 +741,29 @@ def baue(data_root: Path, *, trocken: bool = False) -> dict[str, Any]:
 
         # Das Bestehende kommt dazu, nicht weg: Sein Rohstoff ist moeglicher-
         # weise schon aufgeraeumt.
-        alt = verzeichnis / PARQUET_FILE
+        #
+        # **Ueber die Ablage, nicht ueber das Dateisystem.** Bis zum
+        # 17.10.2026 stand hier ``alt.is_file()``. Im ``s3``-Modus ist die
+        # lokale Arbeitskopie nach dem Publizieren entfernt, die Antwort war
+        # also immer "es gibt nichts" - und damit kam das Bestehende **nicht**
+        # dazu. Jeder Lauf schrieb nur, was er selbst gezogen hatte, und schob
+        # alles Aeltere weg.
+        #
+        # Gemessen am selben Tag: 29 Paare und 39'650 Zeilen wurden zu 7
+        # Paaren und 23'078. Die Vergleiche, deren Schnappschuesse der
+        # Aufraeumlauf danach entfernte, sind damit endgueltig weg - und das
+        # trifft genau die Zusage, mit der das Aufraeumen begruendet ist:
+        # *"Was einmal herausgezogen wurde, bleibt stehen."*
+        #
+        # ``bereits_gezogen`` liest seit dem 16.10.2026 richtig; diese Stelle
+        # liegt zwanzig Zeilen daneben und wurde uebersehen. Sechster Fall
+        # derselben Familie in drei Tagen.
         roh = ", ".join(SPALTEN_ROH)
-        bestand = (f"SELECT {roh} FROM read_parquet('{alt}') UNION ALL "
-                   if alt.is_file() else "")
+        if ablage.exists(rel_tabelle, PARQUET_FILE):
+            quelle_alt = ablage.resolve_read_path(rel_tabelle, PARQUET_FILE)
+            bestand = f"SELECT {roh} FROM read_parquet('{quelle_alt}') UNION ALL "
+        else:
+            bestand = ""
         con.execute(f"CREATE TEMP TABLE roh AS {bestand} "
                     f"SELECT {roh} FROM neue_zeilen")
 
@@ -740,12 +782,13 @@ def baue(data_root: Path, *, trocken: bool = False) -> dict[str, Any]:
                 zuerst_gesehen_in VARCHAR, zuerst_gesehen_am TIMESTAMP,
                 datierung VARCHAR)
         """)
-        if alt.is_file() and SPALTEN_DATIERUNG[2] in abgelegtes_schema(verzeichnis):
+        if (ablage.exists(rel_tabelle, PARQUET_FILE)
+                and SPALTEN_DATIERUNG[2] in abgelegtes_schema(ablage, rel_tabelle)):
             con.execute(f"""
                 INSERT INTO alt_datierung
                 SELECT DISTINCT city, offense_id, vorher_run_id, run_id,
                        zuerst_gesehen_in, zuerst_gesehen_am, datierung
-                FROM read_parquet('{alt}') WHERE offense_id IS NOT NULL
+                FROM read_parquet('{quelle_alt}') WHERE offense_id IS NOT NULL
             """)
 
         con.execute(RANG_SQL)
@@ -770,10 +813,11 @@ def baue(data_root: Path, *, trocken: bool = False) -> dict[str, Any]:
         # Letzteres fehlte zuerst: Das Schema im Manifest blieb aus, weil der
         # Lauf nichts zu publizieren meinte.
         datierung_neu = bericht["datierung"] != (
-            gelesene_datierung(alt) if alt.is_file() else None)
-        vertrag_neu = abgelegter_vertrag(verzeichnis) != CONTRACT_VERSION
-        schema_neu = abgelegtes_schema(verzeichnis) != set(SPALTEN)
-        if (bericht["paare"] or not alt.is_file()
+            gelesene_datierung(ablage, rel_tabelle))
+        vertrag_neu = abgelegter_vertrag(ablage, rel_tabelle) != CONTRACT_VERSION
+        schema_neu = abgelegtes_schema(ablage, rel_tabelle) != set(SPALTEN)
+        if (bericht["paare"]
+                or not ablage.exists(rel_tabelle, PARQUET_FILE)
                 or datierung_neu or vertrag_neu or schema_neu):
             ziel = publish(con, TABLE, verzeichnis,
                             manifest(con, bericht, begonnen))
