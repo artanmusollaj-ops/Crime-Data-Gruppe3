@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'111** |
+| Tests | **2'114** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -203,8 +203,8 @@ Tests, die es vorher gab, weiterhin dasselbe.
 unverändert **94,5** je 1'000. Die Kaskade ist durchgängig −4, lokal; auf
 `srv01` sind es 84 Zeilen.
 
-2'100 → **2'111 Tests**, Standardlauf 1'990 → **2'000**, Referenzwächter
-110 → **111**. Frischklon gemessen: **1'924 von 2'000**, 76 übersprungen,
+2'103 → **2'114 Tests**, Standardlauf 1'993 → **2'003**, Referenzwächter
+110 → **111**. Frischklon gemessen: **1'927 von 2'003**, 76 übersprungen,
 grün.
 
 Die Grösse von `releases` (795,8 → 935,0 MB) ist **kein** Projektfakt: Sie
