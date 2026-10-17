@@ -63,6 +63,7 @@ Word-Dokument verweist**: auf keines davon.
 | [`projektabsprache.md`](intern/projektabsprache.md) | Absprachen und Entscheide im Team |
 | [`leistungsnachweise.md`](intern/leistungsnachweise.md) | Anforderungen, Stand, Lücken — ist *über* den LN, nicht Teil davon |
 | [`AENDERUNGEN.md`](intern/AENDERUNGEN.md) | das Projektgedächtnis: was sich wann geändert hat und warum |
+| [`intern/fr-stand.md`](intern/fr-stand.md) | der Stand je Anforderung des PRD — mit Beleg je Zeile; `tests/test_fr_stand.py` hält sie gegen das PRD |
 | [`datenhistorie.md`](intern/datenhistorie.md) | was beim Aufräumen verlorenginge — Entscheidungspapier |
 | [`platzbedarf.md`](intern/platzbedarf.md) | was die Strecke an Platz braucht, gemessen und auf 2021–2026 hochgerechnet — **erzeugt** (siehe unten) |
 | [`DETROIT_PIPELINE_ANLEITUNG.md`](intern/DETROIT_PIPELINE_ANLEITUNG.md) | Detroit-Pipeline Schritt für Schritt (Windows) |
