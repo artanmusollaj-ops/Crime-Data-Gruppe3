@@ -72,3 +72,33 @@ def test_jeder_run_block_ist_gueltige_shell(
     assert fertig.returncode == 0, (
         f"{workflow} / {name}: der Block ist keine gueltige Shell - "
         f"der Runner merkt es erst nach dem Bau.\n{fertig.stderr.strip()}")
+
+
+def test_kein_workflow_setzt_ein_zweites_q_vor_pytest():
+    """Zwei ``-q`` schweigen, und dann fehlt die Zahl, um die es geht.
+
+    ``pyproject.toml`` setzt ``-q`` in ``addopts``. Ein zweites auf der
+    Kommandozeile macht pytest **doppelt** still: Die Schlusszeile
+    *„N passed, M skipped, K deselected"* faellt weg. Genau sie fehlte am
+    18.10.2026 in jedem CI-Protokoll - waehrend vier Waechter meldeten, die
+    dokumentierte Testzahl stimme nicht mit der gesammelten ueberein. Der
+    Lauf stritt ueber eine Zahl, die er selbst nicht nannte.
+
+    Dasselbe hat mich im Arbeitsbaum eine Viertelstunde gekostet: Ein
+    ``python -m pytest -q`` lieferte keine Zusammenfassung, und ich hielt es
+    erst fuer einen kaputten Reporter.
+    """
+    treffer = [(workflow, name, zeile.strip())
+               for workflow, name, skript in schritte()
+               for zeile in skript.splitlines()
+               # ``--quiet`` und ``-qq`` mit: Die erste Fassung suchte nur
+               # ``-q`` und liess beide durch - eine Mutationsprobe hat es
+               # gezeigt. Ein in ein Buendel gefaltetes ``-qrs`` faengt sie
+               # nicht; so ruft es hier niemand, und ein Muster dafuer
+               # wuerde auch ``-rs`` melden.
+               if "pytest" in zeile
+               and re.search(r"(?<!\S)(-q+|--quiet)(?!\S)", zeile)]
+    assert not treffer, (
+        "addopts in pyproject.toml setzt bereits -q; ein zweites unterdrueckt "
+        "die Schlusszeile mit der Testzahl:\n"
+        + "\n".join(f"  {w} / {n}: {z}" for w, n, z in treffer))

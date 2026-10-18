@@ -87,7 +87,12 @@ jobs:
       - name: Tests
         # Kein Netz noetig und kein Schluessel: Die Werkzeug-Tests fallen auf
         # die versionierten Kataloge zurueck, wenn ein Portal nicht antwortet.
-        run: python -m pytest -q -rs
+        # **Kein zweites `-q`.** `pyproject.toml` setzt eines in
+        # `addopts`; zwei zusammen unterdruecken die Schlusszeile, und
+        # damit sagte der Lauf nie, wie viele Tests er fuhr. Genau diese
+        # Zahl war am 18.10.2026 der Streitpunkt: Vier Waechter melden
+        # eine Abweichung von ihr, und im Protokoll stand sie nicht.
+        run: python -m pytest -rs
 
   windows:
     # Nur auf main, nicht auf jedem Pull Request. Windows hat genau einen
@@ -125,7 +130,12 @@ jobs:
       - name: Tests
         # Die drei PDF-Reproduktionen ueberspringen sich hier mit Begruendung;
         # -rs macht das sichtbar, statt es zu verschweigen.
-        run: python -m pytest -q -rs
+        # **Kein zweites `-q`.** `pyproject.toml` setzt eines in
+        # `addopts`; zwei zusammen unterdruecken die Schlusszeile, und
+        # damit sagte der Lauf nie, wie viele Tests er fuhr. Genau diese
+        # Zahl war am 18.10.2026 der Streitpunkt: Vier Waechter melden
+        # eine Abweichung von ihr, und im Protokoll stand sie nicht.
+        run: python -m pytest -rs
 
   kanarienvogel:
     # Woechentlich, auf dem neuesten stabilen Python.
@@ -168,4 +178,9 @@ jobs:
           python -m pip install -r requirements.txt
 
       - name: Tests
-        run: python -m pytest -q -rs
+        # **Kein zweites `-q`.** `pyproject.toml` setzt eines in
+        # `addopts`; zwei zusammen unterdruecken die Schlusszeile, und
+        # damit sagte der Lauf nie, wie viele Tests er fuhr. Genau diese
+        # Zahl war am 18.10.2026 der Streitpunkt: Vier Waechter melden
+        # eine Abweichung von ihr, und im Protokoll stand sie nicht.
+        run: python -m pytest -rs

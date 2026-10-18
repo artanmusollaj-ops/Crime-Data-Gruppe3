@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'239** |
+| Tests | **2'240** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -149,9 +149,27 @@ Mutationsproben in einer Kopie, vier rot — darunter eine, die die Erkennung
 selbst stilllegt: Dann meldet die Mindestzahl, dass der Wächter nichts mehr
 prüft, statt leer grün zu werden.
 
-**Zahlen.** 2'233 → **2'239 Tests**, Standardlauf 2'122 → **2'128**,
-Referenzwächter unverändert **111**. Frischklon gemessen: **2'052 von
-2'128**, 76 übersprungen, grün. Ob Windows damit ganz grün ist, sagt der
+**Der Beweis liegt vor, und zwar vor dem Merge.** Der Windows-Job läuft
+sonst nur auf `main` — der Workflow kennt aber `workflow_dispatch`, also von
+Hand auf dem Branch angestossen: **alle drei Jobs grün**, Windows und der
+Kanarienvogel (Python 3.x) eingeschlossen. Der erste vollständig grüne Lauf
+der ganzen Matrix seit dem 29.9.2026.
+
+**Und dabei fiel auf, dass der Lauf seine eigene Zahl verschwieg.** Die
+Workflows riefen `python -m pytest -q -rs` — `addopts` in `pyproject.toml`
+setzt aber schon ein `-q`, und zwei zusammen machen pytest **doppelt** still:
+Die Schlusszeile „N passed, M skipped, K deselected" fällt weg. Drei Wochen
+lang meldeten vier Wächter eine Abweichung von der Testzahl, und im
+Protokoll stand sie nicht. Dasselbe hat mich heute im Arbeitsbaum eine
+Viertelstunde gekostet, bis ich das zweite `-q` als Ursache erkannte und
+nicht einen kaputten Reporter. Das zweite ist aus allen vier Aufrufen
+entfernt, und ein Wächter hält es: `-q`, `-qq` und `--quiet` — die zweite und
+dritte Form kamen erst durch eine Mutationsprobe dazu, die erste Fassung
+suchte nur `-q` und liess beide durch.
+
+**Zahlen.** 2'233 → **2'240 Tests**, Standardlauf 2'122 → **2'129**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'053 von
+2'129**, 76 übersprungen, grün. Ob Windows damit ganz grün ist, sagt der
 nächste `main`-Lauf — die vier Fehlschläge sind erklärt und behoben, weitere
 hat dieser Lauf nicht gezeigt.
 
