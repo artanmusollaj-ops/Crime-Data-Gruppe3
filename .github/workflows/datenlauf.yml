@@ -145,7 +145,9 @@ jobs:
         # Hier laufen die Tests, die ein Pull Request ueberspringt - bis auf
         # die Waechter des Referenzstands. Die waeren auf frischen Daten jede
         # Woche rot; ihre Abweichung weist der naechste Schritt als Zahl aus.
-        run: python -m pytest -q -rs -m "not referenzstand"
+        # Kein zweites `-q`: `addopts` setzt eines, und zwei zusammen
+        # unterdruecken die Schlusszeile mit der Testzahl.
+        run: python -m pytest -rs -m "not referenzstand"
 
       - name: Drift ausweisen
         # Auch wenn die Tests rot sind, auch wenn die Strecke abgebrochen ist -

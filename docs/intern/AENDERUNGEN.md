@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'233** |
+| Tests | **2'240** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,92 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 18.10.2026 · Windows läuft mit (Branch `windows-laeuft-mit`)
+
+Mit dem grünen CI wurden vier Fehlschläge sichtbar, die drei Wochen im
+Rauschen eines dauerhaft roten Laufs lagen. Alle vier haben **eine** Ursache,
+und es ist keine, die Linux zeigen kann: Ein Pfad, der **woanders** gilt,
+wurde wie einer von hier behandelt.
+
+`Path` ist auf Windows `WindowsPath`. Dort ist `/app/data/duckdb-tmp` ohne
+Laufwerksbuchstaben **nicht absolut**, und `/app/arbeit` hat die Eltern
+`\app`. Beide Werte sind richtig — sie gelten in einem Linux-Container, und
+beide stehen in Dateien, die wir selbst schreiben:
+`docker-compose.srv01.yml` und `Dockerfile.jupyter`.
+
+**Zwei verschiedene Korrekturen, weil es zwei verschiedene Fehler sind.**
+
+In `storage/duckdb.py` lag er im **Code**: Die Pflichtprüfung auf einen
+absoluten Pfad fragte die Konvention *dieser* Maschine. Ein Wert, der für
+einen Container bestimmt ist, wurde damit auf einem Windows-Rechner
+abgelehnt — ein falsches Nein, und es traf auch die zwei Tests, die die
+echte Compose-Datei lesen. Geprüft wird jetzt gegen **beide** Konventionen.
+Gegen den Fehler, den die Prüfung abwehren soll, schützt das gleich gut: Ein
+führender Schrägstrich hängt auf Windows am Laufwerk, nie am Verzeichnis,
+und `duckdb-tmp` ist unter beiden relativ.
+
+In `test_jupyter_abbild.py` und `test_abbild.py` lag er im **Test**: Dort
+gehört `PurePosixPath` hin, weil der Gegenstand ein Containerpfad ist. Fünf
+Stellen nachgezogen.
+
+**Der Wächter ist der eigentliche Gewinn.** Der Windows-Job läuft nur auf
+`main`, also nach dem Merge — ein Fehler dieser Art wird dort gefunden, wo
+er teuer ist. `tests/test_containerpfade.py` findet ihn jetzt auf jeder
+Plattform: Wer einen Pfad **zu** einem Dockerfile oder einer Compose-Datei
+baut, darf die Pfade **daraus** nicht in `Path()` wickeln. Dazu in
+`tests/storage/test_duckdb.py` vier Fälle, die beide Konventionen durchgehen
+— die zwei Tests davor nahmen je einen POSIX-Pfad und wären auf Linux grün
+geblieben, egal wie die Prüfung aussieht.
+
+**Die erste Fassung des Wächters meldete Richtiges**, und das ist die Sorte,
+die abgeschaltet wird: Sie nahm jede Datei, in der das Wort „Dockerfile"
+irgendwo stand, und traf damit `test_architektur_dokument.py`, wo es im
+Kommentar steht und die beiden `Path`-Griffe echte Pfade dieser Maschine
+sind. Erkannt wird jetzt am **Pfadbau**, nicht am Vorkommen. Sieben
+Mutationsproben in einer Kopie, vier rot — darunter eine, die die Erkennung
+selbst stilllegt: Dann meldet die Mindestzahl, dass der Wächter nichts mehr
+prüft, statt leer grün zu werden.
+
+**Der Beweis liegt vor, und zwar vor dem Merge.** Der Windows-Job läuft
+sonst nur auf `main` — der Workflow kennt aber `workflow_dispatch`, also von
+Hand auf dem Branch angestossen: **alle drei Jobs grün**, Windows und der
+Kanarienvogel (Python 3.x) eingeschlossen. Der erste vollständig grüne Lauf
+der ganzen Matrix seit dem 29.9.2026.
+
+**Und dabei fiel auf, dass der Lauf seine eigene Zahl verschwieg.** Die
+Workflows riefen `python -m pytest -q -rs` — `addopts` in `pyproject.toml`
+setzt aber schon ein `-q`, und zwei zusammen machen pytest **doppelt** still:
+Die Schlusszeile „N passed, M skipped, K deselected" fällt weg. Drei Wochen
+lang meldeten vier Wächter eine Abweichung von der Testzahl, und im
+Protokoll stand sie nicht. Dasselbe hat mich heute im Arbeitsbaum eine
+Viertelstunde gekostet, bis ich das zweite `-q` als Ursache erkannte und
+nicht einen kaputten Reporter. Das zweite ist aus allen vier Aufrufen
+entfernt, und ein Wächter hält es: `-q`, `-qq` und `--quiet` — die zweite und
+dritte Form kamen erst durch eine Mutationsprobe dazu, die erste Fassung
+suchte nur `-q` und liess beide durch.
+
+**Was das Protokoll jetzt hergibt, ist der Beleg für die Zusage von vorhin:**
+
+| Job | bestanden | übersprungen | abgewählt | gesammelt |
+| --- | ---: | ---: | ---: | ---: |
+| `pruefung` (Linux, 3.11) | 2'050 | 79 | 111 | **2'240** |
+| `kanarienvogel` (Linux, 3.x) | 2'050 | 79 | 111 | **2'240** |
+| `windows` (Windows, 3.13) | 2'005 | 124 | 111 | **2'240** |
+
+Dreimal dieselbe Summe. Genau das sagt
+`tests/test_sammelzeit_abhaengigkeiten.py` zu — dass die gesammelte Zahl
+nicht an der Umgebung hängt —, und bis heute war sie auf Linux 23 höher als
+in CI. Windows überspringt 45 mehr: 8 für `bash`, der Rest sind
+Reproduktionen, die gegen `poppler-utils` unter Linux definiert sind.
+
+**Zahlen.** 2'233 → **2'240 Tests**, Standardlauf 2'122 → **2'129**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'053 von
+2'129**, 76 übersprungen, grün. Ob Windows damit ganz grün ist, sagt der
+nächste `main`-Lauf — die vier Fehlschläge sind erklärt und behoben, weitere
+hat dieser Lauf nicht gezeigt.
 
 ---
 

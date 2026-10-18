@@ -18,7 +18,7 @@ Der Bau selbst steht in der Verifikation des Plans, nicht hier.
 from __future__ import annotations
 
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
@@ -243,7 +243,7 @@ def test_kein_copy_greift_ins_ausgeschlossene(dockerfile, muster):
     ausgeschlossen = {z.rstrip("/") for z in muster if not z.startswith("!")}
     for zeile in re.findall(r"^COPY\s+(.+)$", dockerfile, re.M):
         for quelle in zeile.split()[:-1]:
-            teile = Path(quelle.lstrip("./")).parts
+            teile = PurePosixPath(quelle.lstrip("./")).parts   # im Container, also POSIX
             for tiefe in range(1, len(teile) + 1):
                 stufe = "/".join(teile[:tiefe])
                 assert stufe not in ausgeschlossen, (
