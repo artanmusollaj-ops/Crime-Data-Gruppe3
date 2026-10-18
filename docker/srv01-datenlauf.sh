@@ -132,6 +132,29 @@ pipeline python -m serving.pruefe_stand
 echo "Urban Crime: ${mode} run completed for ${YEAR_RANGE}"
 }
 
+# Der Betriebsblick (FR-30). Geschrieben wird er in **jedem** Fall, und das
+# ist der ganze Punkt: Am 12. und 15.10.2026 ist der Lauf hier gescheitert,
+# und gewusst hat es niemand. Ein Zustand, der nur nach einem gruenen Lauf
+# entsteht, beschreibt genau den Fall nicht, fuer den man ihn braucht.
+#
+# `pipeline_run.json` traegt schon alles - Status, Dauer, jede Stufe mit ihrem
+# Exitcode, Quellenfrische, Zeilenzahlen, Release. `serving.betriebsstand`
+# rendert es; gemessen wird nichts Neues.
+#
+# Mit `|| true`, weil ein Fehler *hier* den Lauf nicht nachtraeglich faellen
+# darf: Der Bericht ueber einen Lauf ist nicht der Lauf.
+betriebsstand() {
+    pipeline python -m serving.betriebsstand \
+        --ziel /app/startseite/metrics || true
+}
+
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    # Auch wenn `set -e` zuschlaegt oder jemand abbricht. `trap` statt einer
+    # Zeile am Ende: Die Zeile am Ende laeuft bei einem Abbruch gerade nicht.
+    #
+    # **Innerhalb dieses Zweigs**, nicht darueber: Auf der obersten Ebene
+    # feuerte der trap auch, wenn ein Test das Skript nur einliest, um seine
+    # Funktionen zu pruefen - und starte dann einen Container.
+    trap betriebsstand EXIT
     main "$@"
 fi

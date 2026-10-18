@@ -86,6 +86,10 @@ def gold_quelle(data_root: Path, tabelle: str) -> tuple[str, dict[str, Any]]:
             "Zuerst: python -m gold_pipeline.build_gold"
         )
     lokal = ablage.local_path(rel_dir, MANIFEST)
+    # Lokal mit Absicht, und nur als Abkuerzung: Die Wahrheit steht oben
+    # (``ablage.exists`` darueber hat sie schon gefragt), und wenn das
+    # Manifest auch unten liegt, ist es dasselbe und billiger zu lesen.
+    # Fehlt es unten, geht es ueber die Ablage - nicht umgekehrt.
     manifest = (read_manifest(lokal) if lokal.exists()
                 else json.loads(ablage.read_text(rel_dir, MANIFEST)))
     return ablage.resolve_read_path(rel_dir, PARQUET_FILE), manifest

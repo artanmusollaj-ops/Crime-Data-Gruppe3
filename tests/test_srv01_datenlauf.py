@@ -35,7 +35,8 @@ CRONTAB = PROJECT_ROOT / "deploy" / "cron" / "urbancrime.crontab"
         (31, "skip"),
     ),
 )
-def test_der_zweite_montag_ist_der_einzige_volllauf(day_of_month, expected):
+def test_der_zweite_montag_ist_der_einzige_volllauf(
+        day_of_month, expected, benutzbares_bash):
     result = subprocess.run(
         [
             "bash",
@@ -203,3 +204,66 @@ def test_jede_flagge_im_skript_gibt_es_auch(skript_aufrufe):
         for flagge in sorted(flaggen - vorhanden):
             fehler.append(f"{modul} kennt {flagge} nicht")
     assert not fehler, "\n".join(fehler)
+
+
+# --------------------------------------------------------------------------
+# Der Betriebsblick wird auch bei einem Abbruch geschrieben
+# --------------------------------------------------------------------------
+
+
+def test_der_betriebsstand_haengt_an_einem_trap_und_nicht_am_erfolg():
+    """Die ganze Idee von FR-30 steht und faellt daran.
+
+    Am 12. und 15.10.2026 ist der Lauf hier gescheitert, und gewusst hat es
+    niemand. Ein Zustand, der nur nach einem gruenen Lauf entsteht,
+    beschreibt genau den Fall nicht, fuer den man ihn braucht - eine Zeile am
+    Ende von ``main`` laeuft bei einem Abbruch gerade nicht.
+
+    **Gepruefte Form statt Verhalten**, und der Grund ist genannt: Das Skript
+    ruft ``/usr/bin/docker`` mit absolutem Pfad; ein Verhaltenstest braeuchte
+    Docker und liefe damit nicht dort, wo die Suite laeuft. Drei Aussagen
+    zusammen machen die Zusage aus dem Text ablesbar.
+    """
+    text = SCRIPT.read_text(encoding="utf-8")
+
+    # 1. Der trap steht - und im ausfuehrenden Zweig, nicht darueber: Auf der
+    #    obersten Ebene feuerte er, wenn ein Test das Skript nur einliest.
+    zweig = text.index('if [[ "${BASH_SOURCE[0]}" == "$0" ]]')
+    trap = text.find("trap betriebsstand EXIT")
+    assert trap > zweig, (
+        "kein 'trap betriebsstand EXIT' im ausfuehrenden Zweig - dann "
+        "entsteht der Betriebsblick nur, wenn der Lauf durchlaeuft")
+
+    # 2. Das Modul wird genau einmal **gerufen**. Gezaehlt werden Zeilen
+    #    ohne Kommentarzeichen: Die Begruendung darueber nennt den Modulnamen
+    #    auch, und die erste Fassung dieses Tests zaehlte sie mit.
+    aufrufe = [z for z in text.splitlines()
+               if "serving.betriebsstand" in z and not z.lstrip().startswith("#")]
+    assert len(aufrufe) == 1, (
+        f"{len(aufrufe)} Aufrufe - dann ist nicht mehr zu sehen, welcher "
+        f"zaehlt: {aufrufe}")
+
+    # 3. Und nicht aus ``main`` heraus: Von dort waere er wieder an den
+    #    Erfolg gebunden, und der trap daneben wuerde ihn doppelt schreiben.
+    # Der Ausschnitt endet an der schliessenden Klammer von ``main`` und
+    # nicht am naechsten Funktionskopf: Zwischen beiden steht die
+    # Begruendung, und die nennt den Namen. Die erste Fassung las sie mit und
+    # meldete richtigen Code als Fehler.
+    anfang = text.index("main() {")
+    ende = anfang + text[anfang:].index("\n}\n")
+    assert "betriebsstand" not in text[anfang:ende], (
+        "betriebsstand wird aus main gerufen - dann haengt er wieder am "
+        "Erfolg des Laufs")
+
+
+def test_ein_fehler_im_betriebsstand_faellt_den_lauf_nicht():
+    """Der Bericht ueber einen Lauf ist nicht der Lauf.
+
+    Ohne ``|| true`` macht ein Fehler beim Schreiben der Metrikdatei aus
+    einem gruenen Lauf nachtraeglich einen roten - und das Gegenteil von
+    Betriebssicherheit.
+    """
+    text = SCRIPT.read_text(encoding="utf-8")
+    block = text[text.index("betriebsstand() {"):]
+    block = block[:block.index("\n}")]
+    assert "|| true" in block, "dem Aufruf fehlt '|| true'"

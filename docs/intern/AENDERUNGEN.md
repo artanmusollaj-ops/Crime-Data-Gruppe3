@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'208** |
+| Tests | **2'228** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,132 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 17.10.2026 · Der Betrieb meldet sich selbst (Branch `betrieb-meldet-sich`)
+
+FR-30 verlangt, dass der Zustand der Strecke von aussen ablesbar ist.
+`serving.betriebsstand` schreibt dafür `pipeline_run.json` als
+Prometheus-Text neben die Startseite; `srv01-datenlauf.sh` ruft ihn über
+`trap … EXIT`, also **auch nach einem Abbruch** — der Fall, für den die
+Zahlen gedacht sind.
+
+**Die Unterscheidung, um die es geht.** Ein fehlendes Protokoll ergibt
+`urbancrime_lauf_bekannt 0` und **keine** Zeile `lauf_erfolgreich`. Eine 0
+dort hiesse „der Lauf ist gescheitert"; es gibt aber keinen. Wer eine
+fehlende Reihe als Fehlschlag liest, alarmiert bei jeder frisch
+aufgesetzten Maschine, und wer sie als Erfolg liest, merkt nie, dass seit
+Wochen nichts läuft. Der Wächter hält beide Fälle auseinander.
+
+**FR-17 ist damit nicht erledigt, und zwar gemessen.** Die Anforderung
+verlangt eine Benachrichtigung bei Fehlschlag. Auf `srv01` existiert
+**kein** Kanal dafür — kein Alertmanager-Empfänger, kein Mailversand, kein
+Webhook. Es fehlt also nicht die Regel, sondern das, worüber sie meldete;
+diese Entscheidung gehört Christian, weil es seine Infrastruktur ist. Die
+beiden Zeilen, die es dort braucht — ein Prometheus-Ziel auf
+`http://start/metrics` und die Netzzuordnung — stehen in
+`docs/storage-architektur.md` und bewusst nicht in diesem Repository.
+
+**Der Wächter über das Muster hat sich selbst blind gemacht.** `local_path`
+stand nicht in seiner Liste der Schichtadressen, also erkannte er
+`datei = ablage.local_path(PROTOKOLL)` nicht als eine — und übersah damit
+auch meine eigene Begründung darüber, die dadurch über nichts mehr stand.
+Mit `local_path` in der Liste kamen zwei weitere Fundstellen zum Vorschein,
+`orchestration.aufraeumen` und `serving.build_comparison`. Beide sind
+**richtig**: Sie fragen zuerst die Ablage und greifen lokal nur dazu — das
+eine, weil ein Raw-Verzeichnis ohne Manifest trotzdem Platz belegt, das
+andere als Abkürzung auf ein Manifest, dessen Wahrheit oben liegt. Sie
+tragen jetzt ihre Begründung. Dass der Wächter sie erst nach einer
+Erweiterung sah, heisst: Seine Liste ist der Teil, der veraltet, nicht
+seine Regel.
+
+**Die Summe war bewacht, die Aufteilung darunter nicht.** `fr-stand.md`
+sagte *„Artan fünf, Welle 8 vier, drei sind Christians"* — und 5+4+3 ergibt
+zwölf, genau die Zahl der offenen. Richtig war der Satz trotzdem nicht: Er
+zählte FR-56 mit, das nur teilweise steht, führte FR-30 als Vorhaben, obwohl
+es am selben Tag gebaut wurde, und liess FR-23 und FR-43 ganz aus. Vier
+Fehler, die sich zu einer richtigen Summe addierten. Die Aufteilung steht
+jetzt als Tabelle und wird gegen die Statusspalte gehalten — Vereinigung,
+Dopplungen und jede Anzahl gegen die Nummern daneben; sechs Mutationsproben
+in einer Kopie, alle rot. **Eine Summe, die stimmt, beweist die Zerlegung
+nicht.**
+
+Dabei fielen zwei Zeichen auf, die ihrer eigenen Legende widersprechen:
+FR-23 heisst im Beleg „bewusst zurückgestellt" und trägt ○, FR-19 trägt ▣
+für eine Anforderung, die es im PRD nicht gibt. Beide stehen gelassen und
+benannt — welches Zeichen richtig ist, ist eine Entscheidung und keine
+Schreibarbeit, und sie zieht die Summentabelle mit.
+
+**Drei Wochen rotes CI, und der Grund war ein undeklariertes Paket.** Beim
+Mergen fiel auf, dass der Pull-Request-Lauf scheitert — und zwar nicht erst
+jetzt: **jeder** Lauf seit dem 29.9.2026, auch die auf `main`. Immer dieselbe
+Meldung, immer dieselbe Lücke von **genau 23**: „README nennt 2'204 Tests,
+gesammelt werden 2'181".
+
+`tests/test_workflow_shell.py` ruft `pytest.importorskip("yaml")` in einer
+Hilfsfunktion, und die steht in den **Argumentwerten** eines `parametrize`.
+Sie läuft damit nicht im Test, sondern beim *Sammeln* — und ein `Skipped`
+dort nimmt nicht einen Test heraus, sondern die ganze Datei: 23 Stück.
+PyYAML stand in keiner Abhängigkeitsliste; auf jedem Entwicklungsrechner war
+es über irgendetwas anderes da, in GitHub Actions nie. Jetzt steht es in
+`pyproject.toml`.
+
+**Der Schaden war nicht die rote Farbe.** Die 23 schicken jeden
+`run:`-Block der Workflows durch `bash -n`. Sie liefen überall — nur nicht
+dort, wo diese Workflows ausgeführt werden. Dazu drei Wochen, in denen ein
+rotes CI nichts mehr bedeutete: Vier Dokumentwächter meldeten eine Zahl, die
+in dieser Umgebung nie stimmen konnte, und daneben wäre ein echter Fehler
+nicht aufgefallen. `tests/test_sammelzeit_abhaengigkeiten.py` hält jetzt
+beides: dass jedes `importorskip`, das beim Sammeln greifen kann, auf eine
+**deklarierte** Abhängigkeit zeigt, und dass sie im laufenden Interpreter
+auch wirklich liegt. Ein `importorskip` im Testkörper bleibt unberührt —
+dort ist es richtig.
+
+**Und ein zweiter, den das erst sichtbar macht.** Mit deklariertem PyYAML
+laufen die 23 künftig auch auf dem Windows-Job — und wären dort rot. Auf den
+Windows-Läufern liegt ein `bash.exe` im Pfad, der Starter von WSL; ohne
+Distribution gibt er Rückgabewert 1 und seine Meldung auf **stdout** aus,
+weshalb fünf Tests am 17.10. mit einer *leeren* Fehlermeldung umfielen. Die
+Fixture `benutzbares_bash` fragt deshalb nicht, ob es bash *gibt*, sondern
+ob er **antwortet**, und überspringt sonst — mit WSL-Platzhalter
+nachgestellt: 35 übersprungen, keiner rot, und die Sammlung unverändert. Ein
+Modulskip hätte die Testzahl plattformabhängig gemacht, also genau den
+Fehler von oben wiederholt.
+
+**Zahlen.** 2'208 → **2'228 Tests**, Standardlauf 2'097 → **2'117**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'041 von
+2'117**, 76 übersprungen, grün. Im Arbeitsbaum überspringen sich 53 statt
+18 — 45 davon sind die Serving-Tests, die ein lokales Elasticsearch,
+Kibana oder ClickHouse brauchen; die frühere 18 galt mit laufendem Stapel.
+`AGENTS.md` nennt jetzt beide Stände samt Grund, damit die Zahl nicht beim
+nächsten Lauf wieder falsch aussieht.
+
+---
+
+## 17.10.2026 · Was offen ist, stand nirgends (Branch `fr-stand-gefuehrt`)
+
+Nachgetragen: Der Pull Request ist gemergt, der Eintrag fehlte.
+
+Christian wollte mit den offenen Stories weitermachen, und dafür musste
+erst feststehen, was offen ist. Das PRD sagt, **was** zu bauen ist; was
+davon steht, war über dieses Dokument und die Planungsdateien verstreut
+und für 64 Anforderungen einzeln zu rekonstruieren.
+`docs/intern/fr-stand.md` führt den Stand jetzt, und
+`tests/test_fr_stand.py` hält ihn gegen das PRD und zählt die Summen nach —
+meine erste Fassung hatte sie geraten, 29 statt 35.
+
+**Jede Zeile nennt ihren Beleg, und „nicht geprüft" ist einer.** Eine
+Statusspalte ohne Beleg ist eine Meinung. Der Unterschied kostet nichts,
+solange niemand danach handelt, und alles, sobald jemand es tut: FR-16
+hatte ich als offen geführt, weil ein Planungsprotokoll das sagte — der
+Code kann es seit Längerem (`mode_for_day` lässt Vollläufe nur am zweiten
+Montag). FR-33 umgekehrt: Die Startseite nennt die Grenzen der Aussage
+**nicht**, die Wörter „Erfassung", „Grenze" und „Anzeige" kommen in ihrem
+Text nicht vor.
+
+Stand bei Anlage: **35 erfüllt, 14 teilweise, 14 offen, 2
+zurückgestellt**.
 
 ---
 
