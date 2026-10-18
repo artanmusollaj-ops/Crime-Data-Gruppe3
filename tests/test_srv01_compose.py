@@ -591,18 +591,37 @@ def test_die_startseite_kommt_aus_einem_datentraeger(dienste, beschreibung):
     etwas veraendern koennte.
     """
     einhaenge = dienste["start"]["volumes"]
-    assert len(einhaenge) == 1, (
-        f"start haengt {einhaenge} ein - eine Seite braucht genau einen "
-        "Einhaengepunkt, und jeder weitere ist etwas, das nginx mitausliefert"
+
+    # **Gezaehlt wird, was unter der Dokumentwurzel liegt**, und nicht, wie
+    # viele Einhaengungen es gibt. Die erste Fassung zaehlte alle und war
+    # damit nicht ueber ihre eigene Begruendung hinaus richtig: Gefaehrlich
+    # ist, was nginx *ausliefert*. Am 18.10.2026 kam eine zweite Einhaengung
+    # dazu - die Auslieferungsregeln nach ``/etc/nginx/conf.d/`` -, und die
+    # liegt ausserhalb der Wurzel. Der Waechter haette eine richtige
+    # Aenderung gemeldet, und das ist die Sorte, die abgeschaltet wird.
+    WURZEL = "/usr/share/nginx/html"
+    unter_wurzel = [e for e in einhaenge
+                    if e.split(":")[1] == WURZEL
+                    or e.split(":")[1].startswith(WURZEL + "/")]
+    assert len(unter_wurzel) == 1, (
+        f"unter {WURZEL} haengt {unter_wurzel} - eine Seite braucht genau "
+        "einen Einhaengepunkt, und jeder weitere ist etwas, das nginx "
+        "mitausliefert"
     )
-    quelle, _, rest = einhaenge[0].partition(":")
+    quelle, _, rest = unter_wurzel[0].partition(":")
     assert quelle in beschreibung["volumes"], (
         f"{quelle!r} ist kein benannter Datentraeger dieses Stapels - ein "
         "Bind-Mount zeigte das Release des letzten git pull"
     )
     assert rest.endswith(":ro"), (
-        f"{einhaenge[0]} ist nicht schreibgeschuetzt"
+        f"{unter_wurzel[0]} ist nicht schreibgeschuetzt"
     )
+    # Und jede weitere Einhaengung liest ebenfalls nur.
+    for weitere in [e for e in einhaenge if e not in unter_wurzel]:
+        assert weitere.endswith(":ro"), (
+            f"{weitere} ist nicht schreibgeschuetzt - ein schreibender nginx "
+            f"waere der einzige Ort im Stapel, an dem ein Webdienst etwas "
+            f"veraendern koennte")
 
 
 def test_der_healthcheck_der_startseite_prueft_unsere_seite(dienste):
@@ -932,3 +951,48 @@ def test_das_ablagedokument_scrapet_genau_diesen_alias(dienste):
     assert any(f"targets: [{a}:" in text for a in aliasse), (
         f"das Ablagedokument scrapet keinen der Aliasse {aliasse} - "
         f"der Block dort gehoert mitgezogen")
+
+
+def test_der_betriebsstand_wird_als_prometheus_text_ausgeliefert(dienste):
+    """Prometheus 3 raet den Typ nicht mehr.
+
+    Am 18.10.2026 scrapete Prometheus den Betriebsstand erstmals und lehnte
+    ihn ab: *„received unsupported Content-Type 'application/octet-stream'"*.
+    ``serving.betriebsstand`` schreibt ``metrics``, eine Datei **ohne
+    Endung**; nginx kennt dafuer keinen Typ. Die Verdrahtung war in Ordnung,
+    der Endpunkt nicht - und das sah aus wie ein Netzproblem.
+
+    Geprueft wird deshalb die Deklaration dort, wo ausgeliefert wird, und
+    nicht eine Rueckfallregel im fremden Monitoring-Stapel: Jeder weitere
+    Verbraucher dieses Endpunkts bekaeme sonst weiter den falschen Typ.
+    """
+    conf = next((e.split(":")[0] for e in dienste["start"]["volumes"]
+                 if e.split(":")[1].startswith("/etc/nginx/")), None)
+    assert conf, (
+        f"start haengt keine nginx-Konfiguration ein: "
+        f"{dienste['start']['volumes']}")
+    pfad = (PROJECT_ROOT / conf.lstrip("./")).resolve()
+    assert pfad.is_file(), f"{pfad} fehlt im Repository"
+    text = pfad.read_text(encoding="utf-8")
+
+    assert "location = /metrics" in text, (
+        "die Konfiguration nennt /metrics nicht - dann gilt weiter der "
+        "Standardtyp application/octet-stream")
+
+    # **Die Direktive, nicht die Datei.** Die erste Fassung suchte
+    # "version=0.0.4" im ganzen Text - und fand es im Kommentarkopf, der die
+    # Fehlermeldung von Prometheus zitiert. Eine Mutationsprobe, die den Typ
+    # auf blankes "text/plain" setzte, blieb dadurch gruen. Gesucht wird
+    # jetzt die Zeile, die wirkt.
+    # Bis zum **letzten** Semikolon der Zeile, nicht zum ersten: Der Typ
+    # selbst traegt Semikolons ("text/plain; version=0.0.4; charset=utf-8"),
+    # und ein Muster mit [^;]+ erfasste nur '"text/plain'.
+    direktiven = re.findall(r"^\s*default_type\s+(.+);\s*$", text, re.M)
+    assert direktiven, f"keine default_type-Direktive in {pfad.name}"
+    assert any("text/plain" in d and "version=0.0.4" in d for d in direktiven), (
+        f"der Typ muss das Textformat von Prometheus samt Version nennen, "
+        f"deklariert ist {direktiven}")
+    # Und die Seite selbst muss weiter ausgeliefert werden.
+    assert "index.html" in text and "/usr/share/nginx/html" in text, (
+        "die Konfiguration ersetzt die Vorgabe des Abbilds - ohne Wurzel und "
+        "Indexdatei liefert nginx die Einstiegsseite nicht mehr aus")

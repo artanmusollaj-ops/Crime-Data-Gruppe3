@@ -506,6 +506,16 @@ docker exec prometheus wget -qO- http://127.0.0.1:9090/api/v1/rules | grep -c ur
 docker exec prometheus wget -qO- "http://127.0.0.1:9090/api/v1/targets?state=active" | grep urbancrime
 ```
 
+**Und der Endpunkt nennt seinen Typ.** `serving.betriebsstand` schreibt
+`metrics` — eine Datei **ohne Endung**. nginx kennt dafür keinen Typ und
+liefert `application/octet-stream`, und **Prometheus 3 lehnt das ab**
+(*„received unsupported Content-Type"*). Am 18.10.2026 sah das aus wie ein
+Netzproblem und war keins: Die Verdrahtung stand, der Endpunkt war
+unvollständig. `docker/start-nginx.conf` deklariert deshalb
+`text/plain; version=0.0.4` für `/metrics` — dort, wo ausgeliefert wird, und
+nicht als `fallback_scrape_protocol` im Scrape, denn jeder weitere
+Verbraucher dieses Endpunkts bekäme sonst weiter den falschen Typ.
+
 **Die Gegenprobe gehört dazu**, denn ein Meldeweg, den niemand ausgelöst hat,
 ist eine Vermutung. Sie schickt eine echte Telegram-Nachricht:
 

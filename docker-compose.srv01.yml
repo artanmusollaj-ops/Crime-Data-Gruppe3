@@ -249,6 +249,11 @@ services:
       # Release, und nginx liefert aus seiner Wurzel alles aus, was darin
       # liegt.
       - startseite:/usr/share/nginx/html:ro
+      # Die Auslieferungsregeln (docker/start-nginx.conf). Die eine Zeile
+      # darin deklariert den Typ des Betriebsstands; ohne sie liefert nginx
+      # die endungslose Datei `metrics` als application/octet-stream, und
+      # Prometheus 3 lehnt den Scrape ab.
+      - ./docker/start-nginx.conf:/etc/nginx/conf.d/default.conf:ro
     # FR-13: Die Messung vom 6.10.2026 sagt, wie viel Platz es gibt - 4'325
     # MiB verfuegbar, davon waren 4'096 MiB verplant, also 229 MiB frei. 32 MiB
     # ist das obere Ende dessen, was ein nginx mit einer statischen Datei
