@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'286** |
+| Tests | **2'288** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,41 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 18.10.2026 · `start` ist für Prometheus erreichbar (Branch `start-ist-fuer-prometheus-erreichbar`)
+
+Die letzte Zeile unserer Seite für FR-30. `serving.betriebsstand` schreibt den
+Zustand seit dem 17.10. neben die Startseite, und `start` liefert ihn aus —
+nur lag der Dienst in `proxy` und `urbancrime`, Prometheus in `monitoring`.
+**Die Metrikdatei war geschrieben und unerreichbar**, und genau so sieht ein
+Betriebsblick aus, der nichts meldet, ohne dass etwas kaputt ist.
+
+`start` tritt jetzt `monitoring` bei, **mit dem Netzalias
+`urbancrime-start`**. Der Alias ist kein Schmuck: Compose setzt den
+Dienstnamen als Alias, und auf `monitoring` liegen zehn fremde Stapel —
+`start` ist dort ein Name, den jeder zweite haben könnte. Nach aussen heisst
+der Dienst ohnehin so (`urbancrime-start.datenwerft.ch`).
+
+**Drei Wächter**, und der dritte ist der interessante: Er hält das
+Ablagedokument gegen die Compose-Datei. Der Scrape-Block wird im fremden
+Monitoring-Stapel eingetragen und steht zum Einsetzen in
+`docs/storage-architektur.md`; heisst der Alias hier anders als das Ziel
+dort, scrapet Prometheus einen Namen, den kein Dienst trägt — und meldet eine
+**Lücke, keinen Fehler**. Vier Mutationsproben, alle rot.
+
+**Eine Kleinigkeit, die den Wächter erst scharf gemacht hat.** Der Alias stand
+zuerst als Flussfolge (`aliases: [urbancrime-start]`). Docker liest das als
+Liste; der minimale YAML-Leser in `tests/test_srv01_compose.py` behält sie als
+Zeichenkette — und meine Zusicherung lief damit über **einzelne Zeichen**
+statt über Einträge und war grün ohne Grund. Jetzt steht dort eine
+Blockliste, die Form, die der Leser nativ trägt. Ein Doppel mit benannten
+Grenzen ist gut; es nicht zu lesen ist der Fehler.
+
+**Zahlen.** 2'286 → **2'288 Tests**, Standardlauf 2'175 → **2'177**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'101 von
+2'177**, 76 übersprungen, grün.
 
 ---
 

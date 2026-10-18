@@ -889,3 +889,46 @@ def test_das_modul_schreibt_in_dieses_volume_und_nicht_daneben(dienste):
         f"SICHERUNG_ROOT={ziel} liegt in keiner Einhaengung ({ziele})")
     assert not ziel.startswith("/app/data"), (
         "unter /app/data liegt 'arbeitsdaten', und das wird nicht gesichert")
+
+
+def test_start_liegt_im_netz_monitoring_und_zwar_mit_alias(dienste, beschreibung):
+    """Sonst schreibt der Betriebsstand ins Leere (FR-30).
+
+    Bis zum 18.10.2026 lag ``start`` nur in ``proxy`` und ``urbancrime``,
+    Prometheus in ``monitoring``. Die Metrikdatei war damit geschrieben und
+    **unerreichbar** - und genau so sieht ein Betriebsblick aus, der nichts
+    meldet, ohne dass etwas kaputt ist.
+
+    **Der Alias ist kein Schmuck.** Compose setzt den Dienstnamen als
+    Netzalias, und auf ``monitoring`` liegen zehn fremde Stapel: ``start``
+    ist dort ein Name, den jeder zweite haben koennte.
+    """
+    netze = dienste["start"]["networks"]
+    assert "monitoring" in netze, (
+        f"start liegt in {sorted(netze)} - Prometheus kommt dann nicht hin")
+    aliasse = (netze["monitoring"] or {}).get("aliases", [])
+    assert aliasse, "ohne Alias heisst es auf dem geteilten Netz nur 'start'"
+    erklaert = beschreibung["networks"].get("monitoring") or {}
+    assert erklaert.get("external") == "true", (
+        f"monitoring muss external sein, erklaert ist {erklaert} - sonst "
+        f"legt dieser Stapel ein zweites, leeres Netz dieses Namens an und "
+        f"Prometheus sieht nichts darin")
+
+
+def test_das_ablagedokument_scrapet_genau_diesen_alias(dienste):
+    """Zwei Seiten einer Zuordnung, und die eine liegt ausserhalb des Repos.
+
+    Der Scrape-Block wird im Monitoring-Stapel eingetragen; das Ablagedokument
+    nennt ihn zum Einsetzen. Heisst der Alias hier anders als das Ziel dort,
+    scrapet Prometheus einen Namen, den kein Dienst traegt - und meldet eine
+    Luecke, keinen Fehler.
+    """
+    doku = PROJECT_ROOT / "docs" / "storage-architektur.md"
+    if not doku.is_file():
+        pytest.skip("docs/storage-architektur.md fehlt")
+    netze = dienste["start"]["networks"]
+    aliasse = (netze["monitoring"] or {}).get("aliases", [])
+    text = doku.read_text(encoding="utf-8")
+    assert any(f"targets: [{a}:" in text for a in aliasse), (
+        f"das Ablagedokument scrapet keinen der Aliasse {aliasse} - "
+        f"der Block dort gehoert mitgezogen")

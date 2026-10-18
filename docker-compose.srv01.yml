@@ -215,10 +215,28 @@ services:
     image: nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94
     restart: unless-stopped
     networks:
-      # Zwei Netze wie Kibana: proxy, damit Traefik es erreicht, und
-      # urbancrime, damit es im Stapel unter seinem Namen aufloesbar ist.
-      - proxy
-      - urbancrime
+      # proxy, damit Traefik es erreicht; urbancrime, damit es im Stapel
+      # unter seinem Namen aufloesbar ist.
+      proxy:
+      urbancrime:
+      # **monitoring, damit Prometheus den Betriebsstand abholen kann**
+      # (FR-30). Bis zum 18.10.2026 lag `start` nur in den ersten beiden,
+      # Prometheus in `monitoring` - und damit war die Metrikdatei
+      # geschrieben, aber unerreichbar.
+      #
+      # **Mit Alias, nicht nur beitreten.** Compose setzt den Dienstnamen als
+      # Netzalias, und auf `monitoring` liegen zehn fremde Stapel: `start`
+      # ist dort ein Name, den jeder zweite haben koennte. Unter
+      # `urbancrime-start` kann ihn keiner verwechseln - so heisst der Dienst
+      # auch nach aussen (urbancrime-start.datenwerft.ch).
+      monitoring:
+        # Als Blockliste und nicht als Flussfolge: Der minimale YAML-Leser in
+        # tests/test_srv01_compose.py traegt Listen aus Skalaren, eine
+        # Flussfolge behaelt er als Zeichenkette. Docker liest beides gleich;
+        # der Waechter soll aber ueber Eintraege gehen und nicht ueber
+        # Zeichen.
+        aliases:
+          - urbancrime-start
     volumes:
       # Die Seite kommt aus einem benannten Datentraeger, **nicht** aus einem
       # Bind-Mount des Repositorys: Ein eingehaengtes docs/einstieg.html
@@ -521,6 +539,11 @@ networks:
   # create proxy"). external, weil es dieser Stapel nicht besitzt - er tritt
   # bei. Nur Kibana, Jupyter und start liegen darin.
   proxy:
+    external: true
+  # Das Netz des Monitoring-Stapels, von der Ingress-Beschreibung angelegt
+  # ("docker network create monitoring"). external, weil es dieser Stapel
+  # nicht besitzt - nur `start` tritt bei, damit Prometheus ihn scrapen kann.
+  monitoring:
     external: true
   # Das Netz des Stapels: Hier finden sich Elasticsearch, Kibana, Pipeline,
   # Jupyter und start unter ihren Dienstnamen. Es wird von diesem Stapel
