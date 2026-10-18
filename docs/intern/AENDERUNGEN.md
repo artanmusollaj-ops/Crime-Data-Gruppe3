@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'276** |
+| Tests | **2'286** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -103,6 +103,62 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 18.10.2026 · Eine Kennung hat vier Formen (Branch `pins-haben-vier-formen`)
+
+Der Sicherungssatz lief erstmals auf `srv01` — und meldete **zehn von 24
+Einträgen als „oben nicht da"**. Hätte er recht gehabt, wäre der eingefrorene
+LN1-Stand verloren. Er hatte unrecht, und das ist fast genauso schlimm: Die
+zehn wären **ungesichert** geblieben.
+
+**Mein Vergleich war zu starr.** Ein Verzeichnisname trägt eine Kennung in
+vier Formen, und ich kannte eine:
+
+| Form | wo | im Register steht |
+| --- | --- | --- |
+| `run_20260905T174633859259Z` | Chicago | **dasselbe** |
+| `run_1cca323d-5f8f-…` | Detroit | die **blanke UUID**, ohne `run_` |
+| `release=2026-09-21T12-55-05Z` | ein gepinntes Release | die Kennung |
+| `run=<Kennung>` | von `aufraeumen` ebenfalls verglichen | die Kennung |
+
+Die zweite Form traf alle acht Detroit-Läufe. Die dritte kam gar nicht in
+Betracht, weil `satz()` nur in Raw und Bronze suchte — **zwei gepinnte
+Releases** standen damit nicht im Satz, obwohl sie im Register stehen und
+`aufraeumen` sie korrekt behandelt (*„Eine Release-Kennung steht dort in der
+Spalte run_id"*). Dass derselbe Register-Eintrag zwei Sorten Dinge
+bezeichnet, war mir bekannt — ich habe es beim Bauen des Satzes nur nicht
+mitgedacht.
+
+**Jetzt gemessen, mit dem fertigen Modul und nichts fehlend:**
+
+| | Stück | Grösse |
+| --- | ---: | ---: |
+| gepinnte Läufe | 21 | 127,8 MiB |
+| gepinnte Releases | 2 | 80,7 MiB |
+| aktuelles Release | 1 | 173,6 MiB |
+| **zusammen** | **24** | **382,2 MiB** in 114 Objekten |
+
+**Damit ist auch meine Zahl von vorhin falsch gewesen.** Die „546 MiB" kamen
+aus einem Vergleich per Teilzeichenkette, der Release-Präfixe mitzählte — die
+Grössenordnung stimmte zufällig, das Verfahren nicht. Der Eintrag darunter
+ist richtiggestellt, und die Dokumente tragen 382,2 MiB. Die Sicherungsquelle
+fällt damit auf etwa **0,6 GB**.
+
+Vier Mutationsproben halten die neue Fassung, darunter die Gegenrichtung: Ein
+Vergleich per Teilzeichenkette (`kennung in verzeichnisname`) nimmt
+`run_abcdef` für `abc` — zu grosszügig ist hier genauso falsch wie zu starr.
+
+Nebenbei: Der Wächter über veraltete Dokumentzahlen hielt die neue
+Frischklon-Zahl **2'099** für eine überholte Fassung von `gold/dim_date` =
+2'103. Dasselbe Zusammentreffen gab es schon einmal bei 2'100. Geschützt ist
+jetzt die **Zeile** und nicht die Zahl, damit der Schutz nicht beim nächsten
+Anstieg selbst veraltet.
+
+**Zahlen.** 2'276 → **2'286 Tests**, Standardlauf 2'165 → **2'175**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'099 von
+2'175**, 76 übersprungen, grün.
+
+---
+
 ## 18.10.2026 · Gesichert wird, was sich nicht nachrechnen lässt (Branch `sicherungssatz-nur-das-unersetzliche`)
 
 Christian hebt das Backblaze-Kontingent nicht an — und nach den Messungen ist
@@ -128,6 +184,14 @@ nicht nachrechnen kann.**
 in ein eigenes Volume und **entfernt dort, was nicht dazugehört** — ohne das
 zweite wüchse die Sicherung weiter, denn jede Woche wird ein anderes Release
 aktuell. Damit fällt die Quelle von 7,3 GB auf etwa **0,75 GB**.
+
+> **Richtiggestellt am 18.10.2026.** Die 546 MiB und die 372 MiB in der
+> Tabelle darüber sind falsch: Sie stammen aus einem Vergleich per
+> Teilzeichenkette, der Release-Präfixe mitzählte. Gemessen mit dem fertigen
+> Modul sind es **382,2 MiB in 114 Objekten** — 21 gepinnte Läufe mit 127,8
+> MiB, zwei gepinnte Releases mit 80,7 MiB, das aktuelle Release mit 173,6
+> MiB. Die Quelle fällt damit auf etwa **0,6 GB**. Siehe den Eintrag zum
+> Branch `pins-haben-vier-formen`.
 
 **Zwei Dinge, die der Entwurf mir beigebracht hat.**
 

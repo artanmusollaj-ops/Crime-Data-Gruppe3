@@ -59,6 +59,14 @@ SCHUTZ = (
     "Beide Schnappschüsse enthalten", "in beiden Schnappschüssen",
     "Bronze, Abfrage über Detroits",
     "Nachgemessen am", "Nachgerechnet am",
+    # Die Zahl der Tests, die in einem frischen Klon laufen. Sie wandert mit
+    # jeder neuen Pruefung und lag am 18.10.2026 bei 2'099 - vier neben
+    # ``gold/dim_date`` = 2'103, mit dem sie nichts zu tun hat. Dasselbe
+    # Zusammentreffen gab es schon einmal, als der Standardlauf 2'100 Tests
+    # sammelte; damals hat es einen Eintrag gekostet, weil die Aehnlichkeit
+    # echt aussieht. Geschuetzt wird die **Zeile**, nicht die Zahl: Steigt die
+    # Testzahl weiter, zieht der Waechter ueber die Abgabedokumente sie nach.
+    "In einem frischen Klon laufen", "**Frischer Klon**",
     # cadvisors Speicherbelegung auf srv01 - 1'047 MiB, gemessen am Container
     # und nicht an unseren Daten. Sie sieht ``serving/rate_tract`` (1'045
     # Zeilen) nur aehnlich; die beiden haben miteinander nichts zu tun, und

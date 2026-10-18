@@ -540,15 +540,15 @@ volumes:
   jupyter-arbeit:
   # **Der Sicherungssatz - das einzige Volume dieses Stapels, das in die
   # Serversicherung gehoert.** Darin liegen die gepinnten Laeufe und das
-  # aktuelle Release: 546 MiB, das Einzige, was sich nicht nachrechnen laesst.
+  # aktuelle Release: 382 MiB, das Einzige, was sich nicht nachrechnen laesst.
   # Geschrieben von ``orchestration.sicherungssatz``, das dieses Verzeichnis
   # allein besitzt und daraus entfernt, was nicht mehr dazugehoert.
   #
   # Warum ein eigenes und nicht ``arbeitsdaten``: Das ist der Arbeitsraum der
   # Strecke, er wechselt woechentlich und laege in restic jede Woche neu.
   # Diese Trennung ist der Grund, warum die Sicherungsquelle von 7,3 GB auf
-  # 0,75 GB faellt (docs/storage-architektur.md, "Gesichert wird, was sich
-  # nicht nachrechnen laesst").
+  # etwa 0,6 GB faellt (docs/storage-architektur.md, "Gesichert wird, was
+  # sich nicht nachrechnen laesst").
   sicherung:
   # Die Einstiegsseite (FR-31): vom Stapellauf geschrieben, von start
   # ausgeliefert. Nicht sicherungswuerdig - sie entsteht in Sekunden neu aus
