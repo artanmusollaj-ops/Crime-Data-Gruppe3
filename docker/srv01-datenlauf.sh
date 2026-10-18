@@ -129,6 +129,22 @@ compose up -d --wait start
 
 pipeline python -m serving.pruefe_stand
 
+# Die Drift, nach dem Release und gegen den frisch gebauten Stand: Wie weit
+# sind die dokumentierten Zahlen weg?
+#
+# **Warum hier und nicht nur in GitHub Actions.** Dort lief sie schon, und
+# dort schreibt sie in die Zusammenfassung eines Laufs - also dorthin, wo sie
+# nach einer Woche niemand mehr ansieht. FR-30 verlangt sie im Betriebsblick,
+# und der entsteht hier.
+#
+# `--nur-melden`, damit sie den Lauf nicht faellt: Eine Drift ueber der
+# Toleranz ist eine Aufgabe fuer die Dokumente und kein Vorfall im Betrieb.
+# Die Quellen bewegen sich woechentlich; ein Lauf, der daran scheitert, waere
+# jede Woche rot - und ein Alarm, der immer klingelt, ist keiner (so steht es
+# im Docstring von orchestration.drift).
+pipeline python -m orchestration.drift --nur-melden --json /app/data/drift.json \
+    || echo "WARNUNG: Driftbericht nicht geschrieben - siehe Ausgabe oben"
+
 # Der Sicherungssatz, nach dem Release und nicht davor: Er soll das Release
 # tragen, das jetzt gilt.
 #

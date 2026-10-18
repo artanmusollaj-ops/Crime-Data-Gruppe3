@@ -316,3 +316,48 @@ def test_der_satz_wird_geholt_und_nicht_nur_gezeigt():
     zeile = next(z for z in skript.splitlines()
                  if "orchestration.sicherungssatz" in z and not z.strip().startswith("#"))
     assert "--holen" in zeile, f"ohne --holen passiert nichts: {zeile.strip()!r}"
+
+
+def test_die_drift_wird_nach_dem_release_gemessen():
+    """FR-30 nennt sie, und sie braucht den fertigen Stand.
+
+    ``orchestration.drift`` haelt die dokumentierten Zahlen gegen das
+    **Gebaute**. Vor dem Release gemessen, waere es der Stand von letzter
+    Woche - und die Zahl sagte dann etwas ueber nichts.
+    """
+    skript = SCRIPT.read_text(encoding="utf-8")
+    drift = skript.index("orchestration.drift")
+    release = skript.index("orchestration.release holen aktuell")
+    ende = skript.index("run completed for")
+    assert release < drift < ende, (
+        f"die Drift steht nicht zwischen dem Release und dem Ende "
+        f"(Release {release}, Drift {drift}, Ende {ende})")
+
+
+def test_die_drift_faellt_den_lauf_nicht():
+    """Sonst ist der Lauf jede Woche rot, und dann schaut niemand mehr hin.
+
+    Die Quellen bewegen sich woechentlich; eine Drift ueber der Toleranz ist
+    eine Aufgabe fuer die Dokumente und kein Vorfall im Betrieb. Genau das
+    sagt ``orchestration.drift`` in seinem eigenen Docstring: *ein Alarm,
+    der immer klingelt, ist keiner.*
+    """
+    skript = SCRIPT.read_text(encoding="utf-8")
+    zeile = next(z for z in skript.splitlines()
+                 if "orchestration.drift" in z and not z.strip().startswith("#"))
+    block = skript[skript.index(zeile):skript.index(zeile) + 220]
+    assert "--nur-melden" in zeile, (
+        f"ohne --nur-melden faellt der Lauf an der Drift: {zeile.strip()!r}")
+    assert "||" in block, "und der Aufruf faengt seinen Fehlschlag nicht ab"
+
+
+def test_die_drift_wird_dorthin_geschrieben_wo_der_blick_sie_liest():
+    """Zwei Module, ein Ort - und der Ort steht in beiden."""
+    from serving.betriebsstand import DRIFT
+
+    skript = SCRIPT.read_text(encoding="utf-8")
+    zeile = next(z for z in skript.splitlines()
+                 if "orchestration.drift" in z and not z.strip().startswith("#"))
+    assert f"--json /app/data/{DRIFT}" in zeile, (
+        f"der Bericht muss als {DRIFT} neben dem Laufprotokoll liegen, "
+        f"dort liest ihn serving.betriebsstand: {zeile.strip()!r}")
