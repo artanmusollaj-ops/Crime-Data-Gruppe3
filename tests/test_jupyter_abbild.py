@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shutil
 import subprocess
@@ -213,7 +213,7 @@ def test_das_lockfile_bleibt_die_eine_wahrheit(dockerfile):
         )
     quellen = [q for quellen, _ in kopien(dockerfile) for q in quellen]
     weitere = [q for q in quellen
-               if (q.endswith((".txt", ".lock")) and Path(q).name != "requirements.lock")]
+               if (q.endswith((".txt", ".lock")) and PurePosixPath(q).name != "requirements.lock")]
     assert not weitere, f"eine zweite Abhaengigkeitsliste im Abbild: {weitere}"
 
 
@@ -388,7 +388,12 @@ def test_der_arbeitsbereich_liegt_eine_ebene_unter_der_projektwurzel(dockerfile)
                        GRUNDABBILD.read_text(encoding="utf-8"), re.M)
     assert wurzel, "das Grundabbild setzt PROJECT_ROOT nicht mehr"
     bereich = arbeitsbereich(dockerfile)
-    assert str(Path(bereich).parent) == wurzel.group(1), (
+    # **PurePosixPath, nicht Path**: Das sind Pfade *im Container*, und der
+    # ist Linux. ``Path`` ist auf Windows ``WindowsPath``, dort wird aus
+    # ``/app/arbeit`` die Eltern ``\app`` - genau daran fiel dieser Test am
+    # 17.10.2026 auf dem Windows-Laeufer um, obwohl das Dockerfile richtig
+    # ist. Die Konvention des Containers gehoert nicht an die des Laeufers.
+    assert str(PurePosixPath(bereich).parent) == wurzel.group(1), (
         f"{bereich} liegt nicht unmittelbar unter {wurzel.group(1)} - die "
         "Wurzelprobe der Notebooks greift dann nicht"
     )
@@ -428,11 +433,11 @@ def test_die_gesundheitspruefung_braucht_kein_token(jupyter_dienst):
 def test_der_arbeitsbereich_liegt_nicht_im_schreibgeschuetzten_bestand(
         dockerfile, jupyter_dienst):
     """``data/`` ist ``:ro`` eingehaengt - ein Arbeitsbereich darunter waere keiner."""
-    bereich = Path(arbeitsbereich(dockerfile))
+    bereich = PurePosixPath(arbeitsbereich(dockerfile))   # im Container, also POSIX
     for einhang in jupyter_dienst["volumes"]:
         if not einhang.endswith(":ro"):
             continue
-        ziel = Path(einhang.split(":")[1])
+        ziel = PurePosixPath(einhang.split(":")[1])
         assert not (bereich == ziel or ziel in bereich.parents), (
             f"der Arbeitsbereich {bereich} liegt unter dem schreibgeschuetzten "
             f"{ziel} - dort liesse sich kein Notebook speichern"

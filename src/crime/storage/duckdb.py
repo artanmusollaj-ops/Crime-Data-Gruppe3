@@ -31,7 +31,7 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Mapping
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import duckdb
 
@@ -99,10 +99,22 @@ def grenzen(env: Mapping[str, str] | None = None) -> dict[str, str]:
     # Ein absoluter Pfad ist Pflicht: Ein relativer landete im
     # Arbeitsverzeichnis des Prozesses, und das ist je nach Aufruf ein
     # anderes.
+    #
+    # **Absolut nach einer der beiden Konventionen, nicht nach der dieser
+    # Maschine.** Der Wert kommt oft aus einer Konfiguration fuer *woanders*:
+    # ``/app/data/duckdb-tmp`` steht in ``docker-compose.srv01.yml`` und gilt
+    # in einem Linux-Container. ``Path`` ist auf Windows ``WindowsPath``, und
+    # dort ist ``/app/...`` ohne Laufwerksbuchstaben **nicht** absolut - zwei
+    # Tests ueber genau diese Compose-Datei fielen deshalb am 17.10.2026 auf
+    # dem Windows-Laeufer um, obwohl der gepruefte Wert richtig ist. Gegen den
+    # Fehler, den die Pruefung abwehren soll, schuetzt beides gleich gut: Ein
+    # fuehrender Schraegstrich haengt auf Windows am Laufwerk, nie am
+    # Verzeichnis - und ``duckdb-tmp`` ist unter beiden Konventionen relativ.
     ablage = (umgebung.get("DUCKDB_TEMP_DIRECTORY")
               or VORGABE_TEMP_DIRECTORY).strip()
     if ablage:
-        if not Path(ablage).is_absolute():
+        if not (PurePosixPath(ablage).is_absolute()
+                or PureWindowsPath(ablage).is_absolute()):
             raise DuckDBFehler(
                 f"DUCKDB_TEMP_DIRECTORY={ablage!r} ist kein absoluter Pfad - "
                 f"relativ haengt er am Arbeitsverzeichnis des Aufrufs.")

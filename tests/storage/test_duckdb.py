@@ -136,12 +136,37 @@ def test_ein_auslagerungsverzeichnis_wird_uebernommen():
     assert gesetzt == {"temp_directory": "/app/data/duckdb-tmp"}
 
 
+@pytest.mark.parametrize("pfad", [
+    "/app/data/duckdb-tmp",   # Linux-Container, so steht es in der Compose-Datei
+    "/tmp/x",
+    r"C:\Temp\duck",         # Windows, mit Laufwerksbuchstaben
+    "C:/Temp/duck",
+])
+def test_absolut_gilt_nach_beiden_konventionen_und_nicht_nach_dieser_maschine(pfad):
+    """Der Wert gilt oft fuer *woanders* - und das darf hier nicht entscheiden.
+
+    ``/app/data/duckdb-tmp`` steht in ``docker-compose.srv01.yml`` und gilt in
+    einem Linux-Container. ``Path`` ist auf Windows ``WindowsPath``, und dort
+    ist derselbe Pfad ohne Laufwerksbuchstaben **nicht** absolut: Am 17.10.2026
+    fielen auf dem Windows-Laeufer vier Tests um - zwei hier und zwei in
+    ``test_srv01_compose.py``, die die echte Compose-Datei lesen -, obwohl der
+    geprueft Wert richtig war.
+
+    **Dieser Test laeuft auf jeder Plattform und haette es dort gezeigt.** Die
+    beiden Tests davor nehmen je einen POSIX-Pfad und sind auf Linux gruen,
+    egal wie die Pruefung aussieht; dieser nimmt beide Konventionen und ist es
+    nur, wenn sie beide gelten.
+    """
+    assert sd.grenzen({"DUCKDB_TEMP_DIRECTORY": pfad}) == {"temp_directory": pfad}
+
+
 def test_ein_relatives_auslagerungsverzeichnis_wird_abgelehnt():
     """Relativ haengt es am Arbeitsverzeichnis des Aufrufs - und das ist je
     nach Stufe ein anderes. Ein Verzeichnis, das mal hier und mal dort
     entsteht, ist schlimmer als keines."""
-    with pytest.raises(sd.DuckDBFehler, match="absoluter Pfad"):
-        sd.grenzen({"DUCKDB_TEMP_DIRECTORY": "duckdb-tmp"})
+    for relativ in ("duckdb-tmp", "./tmp", "tmp/unten", "..\\tmp"):
+        with pytest.raises(sd.DuckDBFehler, match="absoluter Pfad"):
+            sd.grenzen({"DUCKDB_TEMP_DIRECTORY": relativ})
 
 
 def test_ohne_angabe_bleibt_das_auslagern_DuckDBs_entscheidung():
