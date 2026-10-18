@@ -167,6 +167,20 @@ entfernt, und ein Wächter hält es: `-q`, `-qq` und `--quiet` — die zweite un
 dritte Form kamen erst durch eine Mutationsprobe dazu, die erste Fassung
 suchte nur `-q` und liess beide durch.
 
+**Was das Protokoll jetzt hergibt, ist der Beleg für die Zusage von vorhin:**
+
+| Job | bestanden | übersprungen | abgewählt | gesammelt |
+| --- | ---: | ---: | ---: | ---: |
+| `pruefung` (Linux, 3.11) | 2'050 | 79 | 111 | **2'240** |
+| `kanarienvogel` (Linux, 3.x) | 2'050 | 79 | 111 | **2'240** |
+| `windows` (Windows, 3.13) | 2'005 | 124 | 111 | **2'240** |
+
+Dreimal dieselbe Summe. Genau das sagt
+`tests/test_sammelzeit_abhaengigkeiten.py` zu — dass die gesammelte Zahl
+nicht an der Umgebung hängt —, und bis heute war sie auf Linux 23 höher als
+in CI. Windows überspringt 45 mehr: 8 für `bash`, der Rest sind
+Reproduktionen, die gegen `poppler-utils` unter Linux definiert sind.
+
 **Zahlen.** 2'233 → **2'240 Tests**, Standardlauf 2'122 → **2'129**,
 Referenzwächter unverändert **111**. Frischklon gemessen: **2'053 von
 2'129**, 76 übersprungen, grün. Ob Windows damit ganz grün ist, sagt der
