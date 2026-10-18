@@ -80,11 +80,11 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | --- | --- | :-: | --- |
 | FR-15 | Wöchentlicher Anstoss auf `srv01` | ● | Crontab montags 04:30 mit `flock`, am 11.10.2026 abgelesen |
 | FR-16 | Zeitfenster kollidiert nicht | ◐ | der **gemeldete** Fall ist gelöst und gewacht: `mode_for_day` fährt den Volllauf nur an den Tagen 8–14, also am **zweiten** Montag — ein Monatserster kann nie der Volllauftag sein (`tests/test_srv01_datenlauf.py`). Offen bleibt die Frage daneben: Ein **Delta**-Lauf beginnt jeden Montag 04:30 und kann über 05:00 hinauslaufen; wie lange er auf `srv01` dauert, ist nicht gemessen |
-| FR-17 | Gescheiterter Lauf erzeugt eine Meldung | ◐ | **der Kanal stand schon, und zwar als Telegram** — meine Messung vom 17.10.2026 („kein Alertmanager-Empfänger") war falsch. Am 18.10. lesend nachgesehen: fertiger Empfänger mit Secrets und eigenem Ausgangsnetz, Route **ohne Matcher**, zehn Scrapes, sieben aktive Regeln. `docker/prometheus-regeln/urbancrime.yaml` trägt acht Regeln über die Messwerte von FR-30 — gescheiterter Lauf, gescheiterte Stufe, **ausgefallener** Lauf, fehlendes Protokoll, unerreichbarer Scrape, leere Metrikdatei, veraltete Quelle, halbes Release; `tests/test_alarmregeln.py` hält jeden Namen und jede Marke gegen einen echten Lauf von `serving.betriebsstand` (elf Mutationsproben, alle rot). Offen ist **dreimal eine Zeile** im Monitoring-Stapel und die Gegenprobe über `amtool`, beide in `docs/storage-architektur.md`, „Der Meldeweg" |
+| FR-17 | Gescheiterter Lauf erzeugt eine Meldung | ● | **am 18.10.2026 ausgelöst und angekommen.** Die Kette stand schon: Alertmanager mit Telegram-Empfänger, eigenes Ausgangsnetz, Route ohne Matcher — meine Messung vom 17.10. („kein Kanal") war falsch. `docker/prometheus-regeln/urbancrime.yaml` trägt neun Regeln über die Messwerte von FR-30, Prometheus lädt alle neun und wertet sie aus (alle `inactive`). Gegenprobe mit unserem Regelnamen: `amtool alert add alertname=LaufGescheitert` → Telegram, **13 Zustellungen, 0 gescheitert**. Dazu belegt durch zwei echte Alarme desselben Tages, gefeuert und aufgelöst (`BackupMissingOrStale`, `BackupLastRunFailed`) |
 | FR-18 | Secrets aus der ignorierten `.env` | ● | `.env` des Stapels, ungetrackt; `.dockerignore` schliesst sie aus |
 | FR-19 | — | ▣ | **existiert im PRD nicht.** Die Nummer ist übersprungen; kein Inhalt verloren, aber die Lücke gehört genannt |
 | FR-20 | Ein grüner Lauf muss rückholbar sein | ◐ | der Mechanismus steht (`release holen aktuell --einsetzen`), **als Rückholweg nie erprobt** |
-| FR-30 | Grafana zeigt den Betriebsblick | ◐ | `serving.betriebsstand` schreibt den Zustand im Textformat von Prometheus neben die Startseite — Status, Alter des Standes, Exitcode je Stufe, Quellenfrische, Release; ein fehlender Lauf meldet `lauf_bekannt 0` statt zu schweigen. **Was fehlt, liegt ausserhalb dieses Repositories:** Prometheus wird aus `/srv/docker/infrastructure/monitoring/` konfiguriert, scrapet nur sich selbst, und liegt im Netz `monitoring` — unser `start` in `proxy`. Eine Scrape-Zeile und eine Netzzeile, dann ist der Blick da |
+| FR-30 | Grafana zeigt den Betriebsblick | ◐ | **der Betriebsblick ist erreichbar, Grafana zeigt ihn noch nicht.** `serving.betriebsstand` schreibt zwölf Messwerte, `start` liefert sie als `text/plain; version=0.0.4` aus, Prometheus scrapet `job=urbancrime` auf `urbancrime-start:80` mit `health=up` und kennt alle zwölf (18.10.2026 gemessen). Offen bleibt, was die Anforderung wörtlich verlangt: **ein Grafana-Brett** — und `drift` fehlt in den Messwerten, obwohl FR-30 es nennt (`orchestration.drift` rechnet es, gibt es aber nicht aus). Plattenfüllung zeigt node-exporter schon |
 
 ## Welle 6 · Präsentation, Abgabe, Skalierbarkeit
 
@@ -134,8 +134,8 @@ stellt."*
 
 | Stand | Anzahl |
 | --- | ---: |
-| ● erfüllt | 36 |
-| ◐ teilweise | 17 |
+| ● erfüllt | 37 |
+| ◐ teilweise | 16 |
 | ○ offen | 10 |
 | ▣ zurückgestellt | 2 |
 | **zusammen** | **65** |
@@ -164,11 +164,10 @@ FR-19 trägt ▣ für etwas, das im PRD gar nicht existiert — zurückgestellt 
 es nicht, es gibt es nicht. Wer eines davon dreht, zieht die Summentabelle
 mit.
 
-**FR-17 und FR-30 gehörten zusammen, und jetzt trennt sie eine Entscheidung.**
+**FR-17 und FR-30 gehörten zusammen, und der Betrieb hat jetzt eine Stimme.**
 Der Anlass bleibt wahr: Der Lauf auf `srv01` ist am 12. und 15.10.2026
 gescheitert, und gewusst hat es niemand; danach meldete `pruefe_stand`
-wochenlang eine fehlende Tabelle, und niemand hat es gelesen. Der Betrieb
-hatte keine Stimme.
+wochenlang eine fehlende Tabelle, und niemand hat es gelesen.
 
 Seit dem 17.10.2026 hat er eine: `serving.betriebsstand` schreibt den Zustand
 hin, wo ein Werkzeug ihn abholen kann, und zwar **auch nach einem Abbruch**.
@@ -178,13 +177,21 @@ acht bewachte Alarmregeln liegen im Repository — und der Kanal, den ich am
 Telegram-Empfänger im Alertmanager, Route ohne Matcher. Die Entscheidung,
 die ich Christian abverlangt habe, war keine.
 
-**Von unserer Seite ist damit keine Anforderung mehr offen.** Was bei FR-17
-und FR-30 fehlt, ist dieselbe Sorte Arbeit und zusammen **dreimal eine
-Zeile**: `monitoring` zu den Netzen von `start`, ein Scrape auf `urbancrime-start:80`,
-unser Regelverzeichnis beim Dienst `prometheus`. Beschrieben in
-`docs/storage-architektur.md`, „Der Meldeweg", samt Gegenprobe über
-`amtool`. Erst wenn die einmal gelaufen ist, geht FR-17 auf ●: Ein
-Meldeweg, den niemand ausgelöst hat, ist eine Vermutung.
+**Am 18.10.2026 scharfgeschaltet und gemessen.** Die drei Zeilen im
+Monitoring-Stapel sind gesetzt, Prometheus scrapet `job=urbancrime` mit
+`health=up`, lädt alle neun Regeln und wertet sie aus. Die Gegenprobe mit
+unserem Regelnamen ging als Telegram-Nachricht hinaus — 13 Zustellungen, 0
+gescheitert. **FR-17 steht damit auf ●**, und zwar belegt und nicht
+beschrieben.
+
+Zwei Dinge hat das Scharfschalten gelehrt, und beide stehen in den
+Einträgen vom 18.10.: Der Endpunkt muss seinen **Typ** nennen (Prometheus 3
+rät nicht mehr), und die Quellen haben **zwei Takte** — eine Schwelle für
+alle sechs hätte im Normalbetrieb Alarm geschlagen.
+
+**Offen bleibt bei FR-30 das, was die Anforderung wörtlich verlangt:** ein
+Grafana-Brett. Die Messwerte liegen bereit; `drift` fehlt darunter noch,
+obwohl FR-30 es nennt.
 
 Übrig bleiben damit zehn offene — vier bei Artan, vier in Welle 8, das
 bewusst zurückgestellte FR-23 und das unverteilte FR-43.

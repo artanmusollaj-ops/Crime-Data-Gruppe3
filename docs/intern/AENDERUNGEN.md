@@ -103,6 +103,49 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 18.10.2026 · FR-17 ist belegt, nicht beschrieben (Branch `fr17-ist-belegt`)
+
+Scharfgeschaltet und gemessen, in dieser Reihenfolge:
+
+| Schritt | Ergebnis |
+| --- | --- |
+| `start` im Netz `monitoring`, Alias `urbancrime-start` | `monitoring=[… urbancrime-start]` |
+| Scrape `job=urbancrime` auf `urbancrime-start:80` | **`health=up`**, 0,002 s |
+| `/metrics` | `text/plain; version=0.0.4; charset=utf-8` |
+| Regeln geladen | **neun**, Intervall 120 s, alle **`inactive`** |
+| Messwerte in Prometheus | alle **zwölf** von `serving.betriebsstand` |
+| Gegenprobe `amtool alert add alertname=LaufGescheitert` | Telegram, **13 Zustellungen, 0 gescheitert** |
+
+**FR-17 steht damit auf ●.** Die Anforderung lautet *„Ein gescheiterter Lauf
+erzeugt eine Meldung über die vorhandene Kette"* — die Kette stand schon, die
+Regeln liegen im Repository und sind bewacht, und die Meldung ist einmal
+wirklich angekommen. Dazu zwei echte Alarme desselben Tages, die gefeuert und
+sich aufgelöst haben: `BackupMissingOrStale` und `BackupLastRunFailed`.
+
+**FR-30 bleibt auf ◐, und zwar genauer als vorher.** Die Anforderung verlangt
+wörtlich *„Grafana zeigt den Betriebsblick"*. Erreichbar ist er jetzt — die
+schwierige Hälfte —, aber ein Grafana-Brett gibt es nicht, und `drift` fehlt
+in den Messwerten, obwohl FR-30 es nennt (`orchestration.drift` rechnet es,
+gibt es aber nicht aus). Plattenfüllung zeigt node-exporter schon.
+
+**Stand der Anforderungen:** 37 erfüllt, 16 teilweise, 10 offen, 2
+zurückgestellt.
+
+**Was ausserhalb dieses Repositories gesetzt wurde** (Christians Server, von
+mir auf seine Anweisung): die Netzzeile und der Alias in unserer
+Compose-Datei (dieses Repository), dazu im Monitoring-Stapel ein Scrape-Block,
+eine zweite `rule_files`-Zeile und die Einhängung unseres Regelverzeichnisses.
+Dazu zwei Einzeiler in seiner `srv01`-CLI: `health.py` klappte die
+gruppierte restic-Ausgabe nicht auf und meldete deshalb bei **jedem** Lauf
+„No valid Restic snapshot found", und `util.py` schrieb den Fehlertext nicht
+ins Protokoll, soweit er dort vorlag. Beides nicht committet — das ist sein
+Repository.
+
+**Zahlen.** Unverändert **2'291 Tests**, Standardlauf **2'180**;
+Dokumentänderung.
+
+---
+
 ## 18.10.2026 · Die Quellen haben zwei Takte (Branch `quellen-haben-zwei-takte`)
 
 FR-30 war scharf, und die erste Messung der Wirklichkeit hat eine meiner
