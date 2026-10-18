@@ -35,7 +35,8 @@ CRONTAB = PROJECT_ROOT / "deploy" / "cron" / "urbancrime.crontab"
         (31, "skip"),
     ),
 )
-def test_der_zweite_montag_ist_der_einzige_volllauf(day_of_month, expected):
+def test_der_zweite_montag_ist_der_einzige_volllauf(
+        day_of_month, expected, benutzbares_bash):
     result = subprocess.run(
         [
             "bash",

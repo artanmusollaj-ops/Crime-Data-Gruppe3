@@ -60,6 +60,17 @@ dev = [
     # weil es niemand ausfuehrte. Das sind die Belege der Abgabe.
     "nbconvert>=7.16,<8",
     "ipykernel>=6.29,<7",
+    # Liest die GitHub-Workflows, damit `tests/test_workflow_shell.py` jeden
+    # `run:`-Block durch `bash -n` schicken kann. **Undeklariert hat es die
+    # dokumentierte Testzahl unhaltbar gemacht:** Der Aufruf steht in den
+    # Argumentwerten eines `parametrize`, also faellt er beim *Sammeln* - und
+    # ohne PyYAML sammelte CI 23 Tests weniger als jeder
+    # Entwicklungsrechner. Vier Dokumentwaechter verglichen ihre Zahl mit
+    # dieser kleineren und waren deshalb auf jedem Pull Request rot, vom
+    # 29.9. bis zum 18.10.2026. Dass genau die 23 ausfielen, die die Shell
+    # in den Workflows pruefen, war der teuerste Teil: Sie liefen nur dort,
+    # wo die Workflows gar nicht laufen.
+    "pyyaml>=6,<7",
     # Erzeugt die Code-Referenz aus den Docstrings (tools/build_referenz.py).
     # Das Projekt hat mehr Erklaerung als Code; sie lag bis dahin nur im
     # Quelltext. pdoc ist die einzige Abhaengigkeit, die nichts baut und

@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'226** |
+| Tests | **2'228** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -157,9 +157,45 @@ für eine Anforderung, die es im PRD nicht gibt. Beide stehen gelassen und
 benannt — welches Zeichen richtig ist, ist eine Entscheidung und keine
 Schreibarbeit, und sie zieht die Summentabelle mit.
 
-**Zahlen.** 2'208 → **2'226 Tests**, Standardlauf 2'097 → **2'115**,
-Referenzwächter unverändert **111**. Frischklon gemessen: **2'039 von
-2'115**, 76 übersprungen, grün. Im Arbeitsbaum überspringen sich 53 statt
+**Drei Wochen rotes CI, und der Grund war ein undeklariertes Paket.** Beim
+Mergen fiel auf, dass der Pull-Request-Lauf scheitert — und zwar nicht erst
+jetzt: **jeder** Lauf seit dem 29.9.2026, auch die auf `main`. Immer dieselbe
+Meldung, immer dieselbe Lücke von **genau 23**: „README nennt 2'204 Tests,
+gesammelt werden 2'181".
+
+`tests/test_workflow_shell.py` ruft `pytest.importorskip("yaml")` in einer
+Hilfsfunktion, und die steht in den **Argumentwerten** eines `parametrize`.
+Sie läuft damit nicht im Test, sondern beim *Sammeln* — und ein `Skipped`
+dort nimmt nicht einen Test heraus, sondern die ganze Datei: 23 Stück.
+PyYAML stand in keiner Abhängigkeitsliste; auf jedem Entwicklungsrechner war
+es über irgendetwas anderes da, in GitHub Actions nie. Jetzt steht es in
+`pyproject.toml`.
+
+**Der Schaden war nicht die rote Farbe.** Die 23 schicken jeden
+`run:`-Block der Workflows durch `bash -n`. Sie liefen überall — nur nicht
+dort, wo diese Workflows ausgeführt werden. Dazu drei Wochen, in denen ein
+rotes CI nichts mehr bedeutete: Vier Dokumentwächter meldeten eine Zahl, die
+in dieser Umgebung nie stimmen konnte, und daneben wäre ein echter Fehler
+nicht aufgefallen. `tests/test_sammelzeit_abhaengigkeiten.py` hält jetzt
+beides: dass jedes `importorskip`, das beim Sammeln greifen kann, auf eine
+**deklarierte** Abhängigkeit zeigt, und dass sie im laufenden Interpreter
+auch wirklich liegt. Ein `importorskip` im Testkörper bleibt unberührt —
+dort ist es richtig.
+
+**Und ein zweiter, den das erst sichtbar macht.** Mit deklariertem PyYAML
+laufen die 23 künftig auch auf dem Windows-Job — und wären dort rot. Auf den
+Windows-Läufern liegt ein `bash.exe` im Pfad, der Starter von WSL; ohne
+Distribution gibt er Rückgabewert 1 und seine Meldung auf **stdout** aus,
+weshalb fünf Tests am 17.10. mit einer *leeren* Fehlermeldung umfielen. Die
+Fixture `benutzbares_bash` fragt deshalb nicht, ob es bash *gibt*, sondern
+ob er **antwortet**, und überspringt sonst — mit WSL-Platzhalter
+nachgestellt: 35 übersprungen, keiner rot, und die Sammlung unverändert. Ein
+Modulskip hätte die Testzahl plattformabhängig gemacht, also genau den
+Fehler von oben wiederholt.
+
+**Zahlen.** 2'208 → **2'228 Tests**, Standardlauf 2'097 → **2'117**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'041 von
+2'117**, 76 übersprungen, grün. Im Arbeitsbaum überspringen sich 53 statt
 18 — 45 davon sind die Serving-Tests, die ein lokales Elasticsearch,
 Kibana oder ClickHouse brauchen; die frühere 18 galt mit laufendem Stapel.
 `AGENTS.md` nennt jetzt beide Stände samt Grund, damit die Zahl nicht beim

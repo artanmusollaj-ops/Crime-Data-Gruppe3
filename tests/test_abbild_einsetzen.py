@@ -49,7 +49,9 @@ def rufe(env_datei: Path, *bash: str) -> str:
 
 
 @pytest.fixture
-def env_datei(tmp_path: Path) -> Path:
+def env_datei(tmp_path: Path, benutzbares_bash: str) -> Path:
+    # Ueber die Fixture statt in jedem Test: Genau die Tests, die ``rufe``
+    # aufrufen, nehmen diese Datei - und nur sie brauchen eine Shell.
     pfad = tmp_path / ".env"
     pfad.write_text(BEISPIEL_ENV, encoding="utf-8")
     pfad.chmod(0o600)

@@ -64,7 +64,8 @@ def test_es_gibt_workflows_mit_run_bloecken():
 @pytest.mark.parametrize(
     "workflow,name,skript", schritte(),
     ids=lambda w: w if isinstance(w, str) and not w.startswith("#") else "")
-def test_jeder_run_block_ist_gueltige_shell(workflow, name, skript):
+def test_jeder_run_block_ist_gueltige_shell(
+        workflow, name, skript, benutzbares_bash):
     fertig = subprocess.run(
         ["bash", "-n"], input=AUSDRUCK.sub("PLATZHALTER", skript),
         capture_output=True, text=True)

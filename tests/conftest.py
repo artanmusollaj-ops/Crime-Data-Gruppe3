@@ -8,6 +8,7 @@ ohne Installation laufen.
 
 from __future__ import annotations
 
+import subprocess
 import sys
 
 from census_pipeline import download_acs
@@ -74,3 +75,37 @@ except ImportError:  # pragma: no cover - haengt an der Umgebung, nicht am Code
     pass
 else:
     sys.modules["download_tiger"] = download_tiger
+
+
+@pytest.fixture(scope="session")
+def benutzbares_bash() -> str:
+    """Ein wirklich benutzbares POSIX-``bash``, sonst uebersprungen.
+
+    **Warum nicht ``shutil.which("bash")``.** Auf den Windows-Laeufern von
+    GitHub Actions liegt ein ``bash.exe`` im Pfad - der Starter von WSL. Ohne
+    installierte Distribution gibt er Rueckgabewert 1 und eine
+    UTF-16-Meldung *„…<distro>' to install."* aus. Vorhanden ist er also, nur
+    kann er nichts. Am 17.10.2026 fielen deshalb fuenf Tests auf dem
+    Windows-Job um, und zwar mit einer leeren Fehlermeldung, weil der Text
+    auf stdout stand und nicht auf stderr.
+
+    Gefragt wird deshalb nicht, ob es ihn gibt, sondern ob er **antwortet**.
+
+    Uebersprungen statt rot: Die drei Dateien, die hier haengen, pruefen
+    Shell-Skripte fuer `srv01` - ein Linux-Server. Auf einer Maschine ohne
+    bash ist ihr Ergebnis keine Aussage ueber den Code. **Die Sammlung bleibt
+    unberuehrt**, die Testzahl also auf jeder Plattform dieselbe; ein
+    Modulskip beim Sammeln haette sie verschoben
+    (`tests/test_sammelzeit_abhaengigkeiten.py` sagt, was das anrichtet).
+    """
+    try:
+        fertig = subprocess.run(["bash", "-c", "printf ok"],
+                                capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError) as fehler:
+        pytest.skip(f"kein bash aufrufbar: {fehler}")
+    if fertig.returncode != 0 or fertig.stdout.strip() != "ok":
+        pytest.skip("'bash' im Pfad antwortet nicht wie ein POSIX-bash "
+                    f"(Rueckgabe {fertig.returncode}, Ausgabe "
+                    f"{fertig.stdout[:60]!r}) - auf Windows ist das der "
+                    "WSL-Starter ohne Distribution")
+    return "bash"
