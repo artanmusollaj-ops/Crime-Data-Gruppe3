@@ -850,3 +850,42 @@ def test_beide_fassungen_binden_dieselbe_elastic_version():
             f"{dort[name]!r} - ein Index, der dort anders gebaut wird als "
             "hier, belegt nichts mehr"
         )
+
+
+# --------------------------------------------------------------------------
+# Der Sicherungssatz (18.10.2026)
+# --------------------------------------------------------------------------
+
+
+def test_der_sicherungssatz_hat_ein_eigenes_volume(dienste, beschreibung):
+    """Er darf nicht in ``arbeitsdaten`` liegen, und das ist gemessen.
+
+    Am 18.10.2026 nachgesehen: ``/app/data`` im Container ist das benannte
+    Volume ``urbancrime_arbeitsdaten``, und das steht **nicht** in
+    ``backup.volumes`` der Serverpolicy. Ein Satz, der dorthin geschrieben
+    wird, ist da - und wird nie gesichert. Genau diese Verwechslung hat mich
+    beim Entwurf einmal erwischt.
+    """
+    pipeline = dienste["pipeline"]
+    einhaengungen = pipeline["volumes"]
+    assert "sicherung:/app/sicherung" in einhaengungen, (
+        f"der Sicherungssatz braucht sein eigenes Volume, eingehaengt sind "
+        f"{einhaengungen}")
+    assert "sicherung" in (beschreibung.get("volumes") or {}), \
+        "das Volume fehlt im Volumeblock - Docker legte es dann als anonymes an"
+
+
+def test_das_modul_schreibt_in_dieses_volume_und_nicht_daneben(dienste):
+    """``SICHERUNG_ROOT`` muss **innerhalb** der Einhaengung liegen.
+
+    Zeigte es daneben, schriebe der Satz in die Containerschicht: beim
+    naechsten ``run --rm`` weg, und in keiner Sicherung je gewesen.
+    """
+    pipeline = dienste["pipeline"]
+    ziel = pipeline["environment"]["SICHERUNG_ROOT"]
+    ziele = [e.split(":")[1] for e in pipeline["volumes"] if ":" in e]
+    assert any(ziel == m or ziel.startswith(m.rstrip("/") + "/")
+               for m in ziele), (
+        f"SICHERUNG_ROOT={ziel} liegt in keiner Einhaengung ({ziele})")
+    assert not ziel.startswith("/app/data"), (
+        "unter /app/data liegt 'arbeitsdaten', und das wird nicht gesichert")

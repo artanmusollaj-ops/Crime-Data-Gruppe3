@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'255** |
+| Tests | **2'276** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,70 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 18.10.2026 · Gesichert wird, was sich nicht nachrechnen lässt (Branch `sicherungssatz-nur-das-unersetzliche`)
+
+Christian hebt das Backblaze-Kontingent nicht an — und nach den Messungen ist
+das die richtige Entscheidung, denn der Deckel war nicht das Problem.
+
+**Was gemessen wurde.** Die Sicherung trug 7,3 GB je Nacht, davon 7,1 GB
+unsere. Ein aktueller Stand kostet im Repository 1,743 GiB, das Repository
+hält 9,296 GiB bei zwölf Snapshots — und die Aufbewahrungsregel (7 Tage, 4
+Wochen, 12 Monate) behält **elf von zwölf**. Ein Prune hätte fast nichts
+freigegeben. Jeder Wochenlauf schreibt neue Parquet-Dateien unter neuen
+Lauf-IDs, restic kann nichts entdoppeln. **Wir haben wöchentlich wechselnde
+Rechenergebnisse in ein Archiv gelegt, das für Dinge gedacht ist, die man
+nicht nachrechnen kann.**
+
+| | Grösse | nachrechenbar? |
+| --- | ---: | --- |
+| gepinnte Läufe | **372 MiB** | **nein** — die Portale liefern heute andere Daten als im September |
+| aktuelles Release | **174 MiB** | baubar, aber es ist der Beleg der Abgabe |
+| raw, bronze, silver, gold, ältere Releases | ~2'111 MiB | ja |
+| `urbancrime_elasticsearch-daten` | 810 MiB | ja — aus dem Release in Minuten |
+
+**546 MiB sind unersetzlich.** `orchestration.sicherungssatz` holt genau die
+in ein eigenes Volume und **entfernt dort, was nicht dazugehört** — ohne das
+zweite wüchse die Sicherung weiter, denn jede Woche wird ein anderes Release
+aktuell. Damit fällt die Quelle von 7,3 GB auf etwa **0,75 GB**.
+
+**Zwei Dinge, die der Entwurf mir beigebracht hat.**
+
+Erstens: `/app/data` im Container ist das Volume `urbancrime_arbeitsdaten`,
+und das steht **nicht** in `backup.volumes`. Meine erste Fassung schrieb den
+Satz dorthin — er wäre da gewesen und nie gesichert worden. Deshalb ein
+eigenes Volume, und ein Test hält die Verwechslung fest.
+
+Zweitens, und das hat ein Test gefunden, bevor es auf `srv01` lief: Mein
+`entferne_fremdes` behielt den Eintrag und seine Elternverzeichnisse, aber
+**nicht seinen Inhalt** — `releases/release=X/gold` wäre gelöscht worden. Das
+Release noch da, nur ausgeweidet, und `release.json` hätte weiter behauptet,
+es sei vollständig. Drei Mutationsproben halten das jetzt, darunter die
+gefährlichste: ein Griff **oberhalb** des Zielverzeichnisses.
+
+**Warum dasselbe Register wie beim Aufräumen.** `config/referenzstand.csv`
+entscheidet schon, welcher Lauf das Aufräumen überlebt. Ein zweites daneben
+wäre die Stelle, an der beide auseinanderlaufen — dann wird ein Lauf
+aufgehoben, aber nicht gesichert. Es gibt **ein** Register, und ein neu
+gepinnter Lauf fällt im Satz sofort als offen auf.
+
+Geschrieben wird der Satz im Datenlauf **nach** dem Release, damit er das
+trägt, das jetzt gilt. Ein unvollständiger Satz macht den Lauf nicht rot — er
+ist ein Problem der nächsten Sicherung, nicht des gelaufenen Baus —, meldet
+sich aber mit Exitcode 1, einer Warnung und in `sicherungssatz.json`.
+
+**Was Christian bleibt:** `urbancrime_sicherung` in `backup.volumes` eintragen,
+`seaweedfs_data` und `urbancrime_elasticsearch-daten` herausnehmen, und ein
+frisches Repository — das bestehende kann nicht schrumpfen, weil es bei
+erschöpftem Kontingent nicht einmal eine Sperrdatei schreiben darf. Das
+kostet die Historie bis zum 24.9.2026. Alles in
+`docs/storage-architektur.md`.
+
+**Zahlen.** 2'255 → **2'276 Tests**, Standardlauf 2'144 → **2'165**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'089 von
+2'165**, 76 übersprungen, grün.
 
 ---
 
