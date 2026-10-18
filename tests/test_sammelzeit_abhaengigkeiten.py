@@ -33,6 +33,8 @@ import re
 import tomllib
 from pathlib import Path
 
+import pytest
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 TESTS = PROJECT_ROOT / "tests"
@@ -125,3 +127,40 @@ def test_die_sammelzeit_pakete_sind_hier_auch_wirklich_da():
     assert not fehlen, (
         "nicht installiert, also sammelt dieser Lauf weniger Tests als "
         "dokumentiert: " + ", ".join(fehlen))
+
+
+LOCKFILE = PROJECT_ROOT / "requirements.lock"
+
+
+def _normal(name: str) -> str:
+    """Paketnamen vergleichbar machen (PEP 503)."""
+    return re.sub(r"[-_.]+", "-", name).strip().lower()
+
+
+def test_jede_deklarierte_abhaengigkeit_steht_auch_im_lockfile():
+    """Zwei Register, und eines allein nachzuziehen genuegt nicht.
+
+    ``pyproject.toml`` nennt Bereiche, ``requirements.lock`` genaue
+    Versionen - und die CI-Jobs nehmen **verschiedene** davon: der
+    Pull-Request-Lauf die Bereiche unter Python 3.11, der Windows-Lauf das
+    Lockfile unter 3.13. Wer nur das erste pflegt, repariert genau einen der
+    beiden.
+
+    Am 18.10.2026 genau so passiert: PyYAML wanderte in ``pyproject.toml``,
+    der Pull-Request-Lauf wurde gruen, und der Windows-Lauf auf ``main``
+    meldete dieselben 23 fehlenden Tests weiter - eine Stunde spaeter, auf
+    dem Branch, auf dem es wehtut. Dieser Test haette die Stunde gespart.
+    """
+    if not LOCKFILE.is_file():
+        pytest.skip("requirements.lock fehlt")
+    gelockt = {_normal(zeile.split("==")[0])
+               for zeile in LOCKFILE.read_text("utf-8").splitlines()
+               if "==" in zeile and not zeile.lstrip().startswith("#")}
+    fehlen = sorted(_normal(name) for name in _deklariert()
+                    if _normal(name) not in gelockt)
+    assert not fehlen, (
+        "deklariert, aber nicht im Lockfile: " + ", ".join(fehlen)
+        + " - der Windows-Lauf installiert aus dem Lockfile und sieht die "
+          "Aenderung in pyproject.toml nicht. Aktualisieren: frische "
+          "Umgebung, requirements.txt installieren, "
+          "'pip freeze --exclude-editable'")

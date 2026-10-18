@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'232** |
+| Tests | **2'233** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -141,9 +141,33 @@ frei.
 zurückgestellt. Von den elf trägt Artan vier, Welle 8 vier, Christian **eine**
 — FR-17, und die wartet auf die Entscheidung über den Benachrichtigungskanal.
 
-**Zahlen.** 2'228 → **2'232 Tests**, Standardlauf 2'117 → **2'121**,
-Referenzwächter unverändert **111**. Frischklon gemessen: **2'045 von
-2'121**, 76 übersprungen, grün.
+**Nachtrag am selben Tag: dieselbe Lücke, ein Register weiter.** Der
+Pull-Request-Lauf wurde mit PyYAML in `pyproject.toml` grün — und der
+Windows-Lauf auf `main` meldete eine Stunde später **dieselben 23 fehlenden
+Tests**. Grund: Die beiden CI-Jobs installieren aus **verschiedenen**
+Registern. Der Pull-Request-Lauf nimmt die Bereiche aus `pyproject.toml`
+unter Python 3.11, der Windows-Lauf das `requirements.lock` unter 3.13. Wer
+nur das erste pflegt, repariert genau einen der beiden. PyYAML steht jetzt in
+beiden, und `tests/test_sammelzeit_abhaengigkeiten.py` hält sie gegeneinander
+— drei Mutationsproben, zwei rot.
+
+Dass es überhaupt sichtbar wurde, lag an dem Wächter von eben: Er sagte auf
+dem Windows-Läufer „nicht installiert, also sammelt dieser Lauf weniger Tests
+als dokumentiert: yaml". Vorher hätte dort nur wieder die Testzahl nicht
+gestimmt — dieselbe Meldung wie drei Wochen lang, und niemand hätte den
+Unterschied gesehen.
+
+**Die `bash`-Prüfung hat sich auf dem echten Läufer bestätigt:** 8
+übersprungen, Begründung mit der UTF-16-Meldung im Klartext, keiner rot.
+Offen bleiben auf Windows **vier ältere Fehlschläge**, die nichts mit diesem
+Branch zu tun haben und je einen eigenen Befund brauchen: `storage/duckdb.py`
+in `grenzen_setzen` (viermal), `test_srv01_compose.py` an zwei Stellen und
+`test_jupyter_abbild.py`. Sie sind damit erstmals **benannt** statt im Rauschen
+eines dauerhaft roten Laufs.
+
+**Zahlen.** 2'228 → **2'233 Tests**, Standardlauf 2'117 → **2'122**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'046 von
+2'122**, 76 übersprungen, grün.
 
 ---
 
