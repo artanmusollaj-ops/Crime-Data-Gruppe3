@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'288** |
+| Tests | **2'289** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,49 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 18.10.2026 · Der Betriebsstand nennt seinen Typ (Branch `der-betriebsstand-nennt-seinen-typ`)
+
+Prometheus scrapete den Betriebsstand erstmals — und lehnte ihn ab:
+
+```
+received unsupported Content-Type "application/octet-stream" and no
+fallback_scrape_protocol specified for target
+```
+
+`serving.betriebsstand` schreibt `metrics`, eine Datei **ohne Endung**. nginx
+kennt dafür keinen Typ und nimmt `application/octet-stream`; **Prometheus 3
+rät nicht mehr**, sondern verlangt einen deklarierten Typ. Das sah aus wie ein
+Netz- oder Pfadproblem und war keins: Die Verdrahtung stand seit einer
+Viertelstunde, **der Endpunkt war unvollständig.**
+
+`docker/start-nginx.conf` deklariert jetzt `text/plain; version=0.0.4` für
+`/metrics`. **Nicht** als `fallback_scrape_protocol` im Scrape: Das wäre eine
+Zeile im fremden Stapel und würde die Ursache verdecken — jeder weitere
+Verbraucher dieses Endpunkts bekäme weiter den falschen Typ. Die Deklaration
+gehört dorthin, wo ausgeliefert wird.
+
+**Zwei Wächter, die beide erst beim zweiten Versuch gegriffen haben.**
+
+Der vorhandene Wächter über die Startseite verlangte *genau eine*
+Einhängung — und meldete damit die neue Konfigurationsdatei, obwohl sie in
+`/etc/nginx/conf.d/` liegt und gar nicht ausgeliefert wird. Seine Begründung
+war richtig („jeder weitere ist etwas, das nginx mitausliefert"), seine Regel
+zu grob. Gezählt wird jetzt, was **unter der Dokumentwurzel** liegt; dass
+jede weitere Einhängung nur liest, prüft er zusätzlich.
+
+Und mein neuer Wächter suchte `version=0.0.4` im **ganzen** Dateitext — und
+fand es im Kommentarkopf, der die Fehlermeldung von Prometheus zitiert. Eine
+Mutationsprobe, die den Typ auf blankes `text/plain` setzte, blieb dadurch
+grün. Jetzt wird die `default_type`-**Direktive** gelesen, und zwar bis zum
+letzten Semikolon der Zeile: Der Typ trägt selbst Semikolons, und ein Muster
+mit `[^;]+` erfasste nur `"text/plain`. Sechs Mutationsproben, alle rot.
+
+**Zahlen.** 2'288 → **2'289 Tests**, Standardlauf 2'177 → **2'178**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'102 von
+2'178**, 76 übersprungen, grün.
 
 ---
 
