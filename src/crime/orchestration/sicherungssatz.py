@@ -15,13 +15,19 @@ kann.
 
 **Was wirklich nicht nachrechenbar ist**, gemessen am 18.10.2026:
 
-* die **gepinnten Laeufe** - 372,3 MiB, 382 Objekte. Der eingefrorene Stand,
-  auf den die LN1-Zahlen zeigen (``config/referenzstand.csv``). Geht er
-  verloren, sind die Zahlen der Abgabe nicht mehr reproduzierbar, und *das*
-  laesst sich durch kein Neuladen heilen: Die Portale liefern heute andere
-  Daten als im September.
-* das **aktuelle Release** - 174 MiB. Baubar, aber es ist der Beleg, auf den
-  die Dokumente zeigen (``releases/AKTUELL.json``).
+* die **21 gepinnten Laeufe** - 127,8 MiB. Der eingefrorene Stand, auf den
+  die LN1-Zahlen zeigen (``config/referenzstand.csv``). Geht er verloren,
+  sind die Zahlen der Abgabe nicht mehr reproduzierbar, und *das* laesst sich
+  durch kein Neuladen heilen: Die Portale liefern heute andere Daten als im
+  September.
+* die **zwei gepinnten Releases** - 80,7 MiB. Dieselbe Spalte des Registers
+  traegt auch Release-Kennungen; sie sind keine Laeufe und waeren mir beim
+  ersten Entwurf durchgefallen.
+* das **aktuelle Release** - 173,6 MiB. Baubar, aber es ist der Beleg, auf
+  den die Dokumente zeigen (``releases/AKTUELL.json``).
+
+Zusammen **382,2 MiB in 114 Objekten**, am 18.10.2026 auf `srv01` gemessen -
+und nichts davon fehlt oben.
 
 Alles andere - raw, bronze, silver, gold, serving, aeltere Releases - ist
 Rechenergebnis. Silver und Gold entstehen in 117 Sekunden neu.
@@ -95,23 +101,46 @@ class Eintrag(NamedTuple):
     vollstaendig_lokal: bool
 
 
-def laeufe_oben(ablage: Storage,
-                schichten: tuple[str, ...] = LAUFSCHICHTEN) -> dict[str, str]:
-    """Kennung -> relatives Verzeichnis, fuer jeden Lauf auf SeaweedFS.
+def passt(kennung: str, verzeichnisname: str) -> bool:
+    """Ob ein Verzeichnis diese Kennung traegt - **vier Formen**.
 
-    Erkannt wird ein Lauf am ``manifest.json``, wie in
-    ``Storage.fehlende_laeufe`` - und die Kennung ist der **letzte**
-    Pfadabschnitt (``raw/city=chicago/ingest_date=…/run_2026…``). Ein
-    ``run=``-Praefix gibt es in diesen Schluesseln nicht.
+    Am 18.10.2026 auf `srv01` gemessen, und alle vier kommen wirklich vor:
+
+    * ``run_20260905T174633859259Z`` - Chicago: der Verzeichnisname **ist**
+      die Kennung, und so steht sie auch im Register.
+    * ``run_1cca323d-5f8f-…`` - Detroit: ``run_`` **plus** die blanke UUID,
+      und das Register fuehrt die UUID **ohne** das Praefix. Das war der
+      Fehler der ersten Fassung: Zehn gepinnte Eintraege galten als
+      verschwunden, darunter alle acht Detroit-Laeufe des LN1-Stands.
+    * ``release=2026-09-21T12-55-05Z`` - ein gepinntes **Release**. Zwei
+      stehen so im Register; die erste Fassung suchte nur in Raw und Bronze
+      und haette sie nicht gesichert.
+    * ``run=<Kennung>`` - die vierte Form, die ``aufraeumen.entscheide_releases``
+      ebenfalls vergleicht. Hier bisher nicht gesehen, aber derselbe Satz:
+      lieber eine Form zu viel erkennen als eine zu wenig.
+    """
+    return verzeichnisname in (kennung, f"run_{kennung}", f"run={kennung}",
+                               f"release={kennung}")
+
+
+def verzeichnisse_oben(ablage: Storage,
+                       schichten: tuple[str, ...] = LAUFSCHICHTEN
+                       ) -> dict[str, str]:
+    """Verzeichnisname -> relativer Pfad, fuer jeden Lauf und jedes Release.
+
+    Erkannt wird an seinem Manifest, wie in ``Storage.fehlende_laeufe``: ein
+    Lauf am ``manifest.json``, ein Release an ``release.json``.
     """
     gefunden: dict[str, str] = {}
     if not ablage.config.remote:
         return gefunden
-    for schicht in schichten:
+    fuer = [(schicht, MANIFEST) for schicht in schichten]
+    fuer.append((release.RELEASES, release.RELEASE_MANIFEST))
+    for schicht, manifest in fuer:
         for objekt in ablage.client.list(schicht + "/"):
-            if not objekt.key.endswith("/" + MANIFEST):
+            if not objekt.key.endswith("/" + manifest):
                 continue
-            rel_dir = objekt.key[: -len("/" + MANIFEST)]
+            rel_dir = objekt.key[: -len("/" + manifest)]
             if paths.versteckt(rel_dir):
                 continue
             gefunden[rel_dir.rsplit("/", 1)[-1]] = rel_dir
@@ -144,26 +173,34 @@ def satz(ablage: Storage,
     etwas, das keine Sicherung retten kann.
     """
     gepinnt = gepinnte_laeufe(config_root) if config_root else {}
-    oben = laeufe_oben(ablage)
+    oben = verzeichnisse_oben(ablage)
     eintraege: list[Eintrag] = []
     fehlend: list[str] = []
+    gesehen: set[str] = set()
 
     for kennung in sorted(gepinnt):
-        rel_dir = oben.get(kennung)
-        if rel_dir is None:
+        treffer = [rel for name, rel in oben.items() if passt(kennung, name)]
+        if not treffer:
             fehlend.append(kennung)
             continue
-        objekte, bytes_ = _groesse(ablage, rel_dir)
-        eintraege.append(Eintrag(
-            rel_dir, kennung, f"gepinnt: {gepinnt[kennung]}", objekte, bytes_,
-            _liegt_ganz_hier(ablage, rel_dir, objekte)))
+        for rel_dir in sorted(treffer):
+            if rel_dir in gesehen:
+                continue
+            gesehen.add(rel_dir)
+            objekte, bytes_ = _groesse(ablage, rel_dir)
+            eintraege.append(Eintrag(
+                rel_dir, kennung, f"gepinnt: {gepinnt[kennung]}", objekte,
+                bytes_, _liegt_ganz_hier(ablage, rel_dir, objekte)))
 
     zeiger = release.aktuell(ablage) if ablage.config.remote else None
     if zeiger:
         kennung = str(zeiger.get("release_id") or "")
         rel_dir = release.relativ(kennung)
         objekte, bytes_ = _groesse(ablage, rel_dir)
-        if objekte:
+        if rel_dir in gesehen:
+            # Das aktuelle Release ist zugleich gepinnt - einmal genuegt.
+            pass
+        elif objekte:
             eintraege.append(Eintrag(
                 rel_dir, kennung, "aktuelles Release", objekte, bytes_,
                 _liegt_ganz_hier(ablage, rel_dir, objekte)))

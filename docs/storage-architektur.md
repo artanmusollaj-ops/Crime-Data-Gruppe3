@@ -534,18 +534,30 @@ Monaten wuchert das: Von zwölf Snapshots behält die Regel elf. Wir haben
 wöchentlich wechselnde **Rechenergebnisse** in ein Archiv gelegt, das für
 Dinge gedacht ist, die man nicht nachrechnen kann.
 
-| | Grösse | nachrechenbar? |
-| --- | ---: | --- |
-| gepinnte Läufe (`config/referenzstand.csv`) | **372 MiB** | **nein** — die Portale liefern heute andere Daten als im September |
-| aktuelles Release | **174 MiB** | baubar, aber es ist der Beleg, auf den die Dokumente zeigen |
-| raw, bronze, silver, gold, ältere Releases | ~2'111 MiB | ja — Silver und Gold in 117 Sekunden |
-| `urbancrime_elasticsearch-daten` | 810 MiB | ja — aus dem Release in Minuten |
+| | Stück | Grösse | nachrechenbar? |
+| --- | ---: | ---: | --- |
+| gepinnte Läufe (`config/referenzstand.csv`) | 21 | **127,8 MiB** | **nein** — die Portale liefern heute andere Daten als im September |
+| gepinnte Releases (dieselbe Spalte des Registers) | 2 | **80,7 MiB** | **nein**, als Stand |
+| aktuelles Release | 1 | **173,6 MiB** | baubar, aber es ist der Beleg, auf den die Dokumente zeigen |
+| raw, bronze, silver, gold, übrige Releases | | ~2,2 GiB | ja — Silver und Gold in 117 Sekunden |
+| `urbancrime_elasticsearch-daten` | | 810 MiB | ja — aus dem Release in Minuten |
 
-**Unersetzlich sind 546 MiB.** `orchestration.sicherungssatz` holt genau die
-in ein eigenes Volume (`urbancrime_sicherung`, im Container
-`/app/sicherung`), und es besitzt dieses Verzeichnis allein: Was nicht
-dazugehört, entfernt es. Ohne das zweite wüchse die Sicherung wieder — jede
-Woche wird ein anderes Release aktuell, und das vorige bliebe liegen.
+**Unersetzlich sind 382,2 MiB in 114 Objekten** (18.10.2026 gemessen, und
+nichts davon fehlt oben). `orchestration.sicherungssatz` holt genau die in ein
+eigenes Volume (`urbancrime_sicherung`, im Container `/app/sicherung`), und es
+besitzt dieses Verzeichnis allein: Was nicht dazugehört, entfernt es. Ohne das
+zweite wüchse die Sicherung wieder — jede Woche wird ein anderes Release
+aktuell, und das vorige bliebe liegen.
+
+**Vier Formen tragen eine Kennung**, und die erste Fassung kannte nur eine.
+Chicago: der Verzeichnisname *ist* die Kennung (`run_20260905T…`). Detroit:
+`run_` **plus** die blanke UUID, und das Register führt die UUID ohne das
+Präfix. Dazu `release=<Kennung>` für ein gepinntes Release und `run=<Kennung>`,
+das `aufraeumen` ebenfalls vergleicht. Mit nur der ersten Form galten **zehn**
+gepinnte Einträge als verschwunden — darunter alle acht Detroit-Läufe des
+LN1-Stands und beide gepinnten Releases. Hätte der Bericht recht gehabt, wäre
+der eingefrorene Stand verloren; hatte er unrecht, wäre er ungesichert
+geblieben.
 
 **Warum nicht nach `/app/data`.** Dort liegt das Volume
 `urbancrime_arbeitsdaten`, und das steht **nicht** in `backup.volumes`. Der
@@ -566,7 +578,7 @@ Exitcode 1, einer Warnung im Protokoll und in `sicherungssatz.json`.
 **Was das für die Serverpolicy heisst** (`/srv/docker/config/srv01.yaml`):
 `urbancrime_sicherung` gehört in `backup.volumes`, `seaweedfs_data` und
 `urbancrime_elasticsearch-daten` nicht mehr hinein. Damit fällt die
-Sicherungsquelle von 7,3 GB auf etwa **0,75 GB**.
+Sicherungsquelle von 7,3 GB auf etwa **0,6 GB**.
 
 ### Der Eimer ist versioniert, und das hat 3,91 GiB gekostet
 

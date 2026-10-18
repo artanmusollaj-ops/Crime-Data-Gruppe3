@@ -2,9 +2,10 @@
 
 **Warum er existiert.** Am 18.10.2026 lief die Serversicherung nach
 Backblaze voll - 7,3 GB je Nacht, davon 7,1 GB unsere, und fast alles davon
-woechentlich wechselnde Rechenergebnisse. Unersetzlich sind 546 MiB: die
-gepinnten Laeufe (der eingefrorene Stand, auf den die LN1-Zahlen zeigen) und
-das aktuelle Release. Alles andere entsteht neu.
+woechentlich wechselnde Rechenergebnisse. Unersetzlich sind **382,2 MiB**:
+21 gepinnte Laeufe (127,8 MiB - der eingefrorene Stand, auf den die
+LN1-Zahlen zeigen), zwei gepinnte Releases (80,7 MiB) und das aktuelle
+Release (173,6 MiB). Alles andere entsteht neu.
 
 Drei Zusagen werden hier gehalten:
 
@@ -198,7 +199,7 @@ def test_ohne_s3_bricht_nichts_ab(tmp_path):
     """``STORAGE_BACKEND=local`` ist die Vorgabe - und dort gibt es kein oben."""
     lokal = Storage(Config(backend="local", local_root=tmp_path / "data"))
     set_storage(lokal)
-    assert s.laeufe_oben(lokal) == {}
+    assert s.verzeichnisse_oben(lokal) == {}
     eintraege, fehlend = s.satz(lokal, register(tmp_path, ("run_A", "LN1")))
     assert (eintraege, fehlend) == ([], ["run_A"])
 
@@ -207,7 +208,7 @@ def test_ohne_s3_bricht_nichts_ab(tmp_path):
 def test_nur_raw_und_bronze_zaehlen_als_lauf(tmp_path, schicht):
     hier, fake = ablage(tmp_path)
     lauf_oben(fake, schicht, "chicago", "run_A")
-    assert "run_A" not in s.laeufe_oben(hier), (
+    assert "run_A" not in s.verzeichnisse_oben(hier), (
         f"{schicht} ist Rechenergebnis und kein zu sichernder Lauf")
 
 
@@ -285,3 +286,76 @@ def test_entfernt_wird_nur_unterhalb_des_ziels(tmp_path):
 
     assert (nachbar / "silver" / "part.parquet").is_file(), \
         "ausserhalb des Ziels darf nichts angefasst werden"
+
+
+# --------------------------------------------------------------------------
+# Die vier Formen einer Kennung (gemessen am 18.10.2026 auf srv01)
+# --------------------------------------------------------------------------
+
+
+def test_detroits_uuid_wird_erkannt(tmp_path):
+    """Der Fehler, der zehn Eintraege verschwinden liess.
+
+    Detroits Verzeichnisse heissen ``run_<uuid>``, das Register fuehrt die
+    blanke UUID. Die erste Fassung verglich den Verzeichnisnamen stur mit der
+    Kennung - und meldete alle acht Detroit-Laeufe des LN1-Stands als *oben
+    nicht da*. Hatte der Bericht recht, waere der eingefrorene Stand
+    verloren; hatte er unrecht, waere er ungesichert geblieben. Beides
+    schlimm, und auffallen musste es auf `srv01`.
+    """
+    hier, fake = ablage(tmp_path)
+    uuid = "1cca323d-5f8f-4b5a-abe9-257253131f9f"
+    rel = f"bronze/city=detroit/full/year=2021/run_{uuid}"
+    fake.put(f"{rel}/manifest.json", b"{}")
+    fake.put(f"{rel}/part-0001.parquet", bytes(2000))
+    release_oben(fake, "2026-10-17T13-21-03Z")
+
+    eintraege, fehlend = s.satz(hier, register(tmp_path, (uuid, "LN1")))
+    assert not fehlend, f"die UUID muss gefunden werden, fehlend: {fehlend}"
+    assert [e.rel for e in eintraege if e.grund.startswith("gepinnt")] == [rel]
+
+
+def test_ein_gepinntes_release_wird_erkannt(tmp_path):
+    """Zwei Releases stehen im Register, und sie sind keine Laeufe.
+
+    ``aufraeumen`` kennt das (*"Eine Release-Kennung steht dort in der Spalte
+    run_id"*), meine erste Fassung suchte nur in Raw und Bronze - die beiden
+    waeren nie in die Sicherung gekommen.
+    """
+    hier, fake = ablage(tmp_path)
+    alt = "2026-09-21T12-55-05Z"
+    fake.put(f"releases/release={alt}/release.json", b"{}")
+    fake.put(f"releases/release={alt}/gold/part-0001.parquet", bytes(3000))
+    release_oben(fake, "2026-10-17T13-21-03Z")
+
+    eintraege, fehlend = s.satz(hier, register(tmp_path, (alt, "LN1")))
+    assert not fehlend, fehlend
+    kennungen = sorted(e.kennung for e in eintraege)
+    assert kennungen == [alt, "2026-10-17T13-21-03Z"], kennungen
+
+
+def test_das_aktuelle_release_zaehlt_nur_einmal(tmp_path):
+    """Ist es zugleich gepinnt, darf es nicht doppelt im Satz stehen."""
+    hier, fake = ablage(tmp_path)
+    kennung = "2026-10-17T13-21-03Z"
+    release_oben(fake, kennung)
+    eintraege, _ = s.satz(hier, register(tmp_path, (kennung, "LN1")))
+    assert len(eintraege) == 1, [e.kennung for e in eintraege]
+    assert eintraege[0].grund == "gepinnt: LN1", "der Pin ist der staerkere Grund"
+
+
+@pytest.mark.parametrize("name,kennung", [
+    ("run_20260905T174633859259Z", "run_20260905T174633859259Z"),   # Chicago
+    ("run_1cca323d-5f8f-4b5a-abe9-257253131f9f",
+     "1cca323d-5f8f-4b5a-abe9-257253131f9f"),                       # Detroit
+    ("release=2026-09-21T12-55-05Z", "2026-09-21T12-55-05Z"),       # Release
+    ("run=abc", "abc"),                                             # vierte Form
+])
+def test_alle_vier_formen_passen(name, kennung):
+    assert s.passt(kennung, name), f"{name} traegt {kennung} nicht"
+
+
+@pytest.mark.parametrize("name", ["run_abcdef", "release=xyz", "voelligAnders"])
+def test_fremde_namen_passen_nicht(name):
+    """Sonst nimmt der Satz Fremdes mit, und das waere das umgekehrte Problem."""
+    assert not s.passt("abc", name), f"{name} darf 'abc' nicht tragen"
