@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'289** |
+| Tests | **2'291** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,55 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 18.10.2026 · Die Quellen haben zwei Takte (Branch `quellen-haben-zwei-takte`)
+
+FR-30 war scharf, und die erste Messung der Wirklichkeit hat eine meiner
+Regeln widerlegt. `QuelleVeraltet` stand sofort auf `pending` — mit **drei**
+Alarmen:
+
+| Quelle | Alter |
+| --- | ---: |
+| `dataset=tiger_tract` | 14,0 Tage |
+| `dataset=tiger_place` | 14,0 Tage |
+| `dataset=acs5_tract` | 14,0 Tage |
+| `dataset=noaa_ghcnd` | 6,1 Tage |
+| `city=chicago`, `city=detroit` | 1,2 Tage |
+
+**Nach der Regel zu Recht, nach der Welt falsch.** Die drei sind
+Jahrgangsdaten des Zensus; sie werden nur im Volllauf geholt, und der läuft
+am zweiten Montag des Monats (`mode_for_day`, Tage 8–14). Bis zu 35 Tage
+Abstand sind dort normal. Ich hatte die Acht-Tage-Schwelle des Datenlaufs
+übernommen, ohne zu prüfen, für welche Quellen sie gilt — und dabei nicht
+einmal gemerkt, dass der Datenlauf auf `srv01`
+`--maximal-alter-tage` **gar nicht setzt**, die Schwelle dort also nie scharf
+war.
+
+Jetzt zwei Regeln: `QuelleVeraltet` für Taten und Wetter (8 Tage),
+`JahrgangsquelleVeraltet` für die drei Zensus-Jahrgänge (35 Tage). **Ein
+Alarm, der im Normalbetrieb feuert, wird abgeschaltet** — und dann schweigt
+auch der Fall, für den er da war.
+
+**Zwei Wächter dazu, und einer prüft die Richtung.** Der erste hält jede
+Quelle aus `run_all.ERWARTETE_QUELLEN` gegen **genau eine** der beiden
+Schwellen: Eine siebte Quelle fällt damit auf, bevor sie unbewacht bleibt
+oder doppelt alarmiert. Der zweite prüft, dass die wöchentliche Schwelle
+*kleiner* ist als die monatliche — zwei vertauschte Schwellen wären getrennt
+und falsch.
+
+**Und mein Namenswächter stolperte über die eigenen Markenwerte.** Er
+entfernte Markennamen und Werte einzeln aus dem Ausdruck und liess damit die
+Namen *innerhalb* eines Wertes stehen: Aus
+`{quelle=~"city=.*|dataset=noaa_ghcnd"}` wurde `noaa_ghcnd` ein angeblicher
+Metrikname, und er meldete vier Quellen als „gibt niemand aus". Ein
+Metrikname steht immer **vor** der Klammer, also geht der Block jetzt ganz
+heraus. Vier Mutationsproben, alle rot.
+
+**Zahlen.** 2'289 → **2'291 Tests**, Standardlauf 2'178 → **2'180**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'104 von
+2'180**, 76 übersprungen, grün.
 
 ---
 

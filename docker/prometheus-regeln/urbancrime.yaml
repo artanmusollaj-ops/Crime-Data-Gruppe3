@@ -152,17 +152,51 @@ groups:
       # ------------------------------------------------------------------
       # Leiser, aber nicht unwichtig
       # ------------------------------------------------------------------
+      # **Zwei Takte, zwei Regeln.** Die erste Fassung hatte eine Schwelle
+      # fuer alle sechs Quellen und stand damit beim ersten Scharfschalten
+      # am 18.10.2026 sofort auf `pending` - mit drei Alarmen, und alle drei
+      # zu Recht nach ihrer eigenen Regel und falsch nach der Welt:
+      # `tiger_tract`, `tiger_place` und `acs5_tract` waren 14 Tage alt.
+      #
+      # Das sind **Jahrgangsdaten** des Zensus. Sie werden nur im Volllauf
+      # geholt, und der laeuft am zweiten Montag des Monats
+      # (`mode_for_day`, Tage 8-14) - bis zu 31 Tage Abstand sind dort
+      # normal. Die Taten und das Wetter kommen woechentlich.
+      #
+      # Ein Alarm, der im Normalbetrieb feuert, wird abgeschaltet; dann
+      # schweigt auch der Fall, fuer den er da war.
       - alert: QuelleVeraltet
-        expr: urbancrime_quelle_alter_sekunden > 8 * 24 * 3600
+        # Woechentlich: Taten und Wetter. Acht Tage, wie der Datenlauf sie
+        # prueft - sieben sind normal, acht ist einer zu viel.
+        expr: >-
+          urbancrime_quelle_alter_sekunden{quelle=~"city=.*|dataset=noaa_ghcnd"}
+          > 8 * 24 * 3600
         for: 1h
         labels:
           severity: warning
         annotations:
           summary: "Quelle {{ $labels.quelle }} seit {{ $value | humanizeDuration }} ohne neuen Lauf"
           description: >-
-            Dieselbe Acht-Tage-Schwelle, die der Datenlauf nach der
-            Ingestion prueft. Hier faellt sie auch auf, wenn der Lauf
-            ueberhaupt nicht bis dorthin kommt.
+            Woechentliche Quelle, acht Tage ohne neuen Lauf. Dieselbe
+            Schwelle, die der Datenlauf nach der Ingestion prueft - hier
+            faellt sie auch auf, wenn der Lauf ueberhaupt nicht bis dorthin
+            kommt.
+
+      - alert: JahrgangsquelleVeraltet
+        # Monatlich: die drei Zensus-Jahrgaenge. 35 Tage, weil der Volllauf
+        # am zweiten Montag faellt und zwei davon bis zu 35 Tage
+        # auseinanderliegen koennen.
+        expr: >-
+          urbancrime_quelle_alter_sekunden{quelle=~"dataset=(tiger_tract|tiger_place|acs5_tract)"}
+          > 35 * 24 * 3600
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Jahrgangsquelle {{ $labels.quelle }} seit {{ $value | humanizeDuration }} ohne neuen Lauf"
+          description: >-
+            Zensus-Jahrgaenge kommen nur im Volllauf am zweiten Montag des
+            Monats. 35 Tage heissen deshalb: Ein Volllauf ist ausgefallen.
 
       - alert: ReleaseNichtPubliziert
         expr: urbancrime_release_publiziert == 0

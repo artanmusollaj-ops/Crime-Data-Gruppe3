@@ -138,12 +138,18 @@ def gemessen(tmp_path_factory) -> dict[str, set[str]]:
 
 
 def namen_im_ausdruck(ausdruck: str) -> set[str]:
-    """Die Metriknamen eines PromQL-Ausdrucks, ohne Funktionen und Zahlen."""
-    roh = set(re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", ausdruck))
-    # Markennamen innerhalb von {...} gehoeren nicht dazu.
-    for block in re.findall(r"\{([^}]*)\}", ausdruck):
-        roh -= set(re.findall(r"(\w+)=", block))
-        roh -= set(re.findall(r'"([^"]*)"', block))
+    """Die Metriknamen eines PromQL-Ausdrucks, ohne Funktionen und Zahlen.
+
+    **Die Klammerbloecke gehen ganz heraus**, nicht nur die Markennamen
+    darin. Die erste Fassung entfernte Marke und Wert einzeln - und liess
+    damit die Namen *innerhalb* eines Wertes stehen: Aus
+    ``{quelle=~"city=.*|dataset=noaa_ghcnd"}`` wurde ``noaa_ghcnd`` ein
+    angeblicher Metrikname, und der Waechter meldete am 18.10.2026 vier
+    Quellen als "gibt niemand aus". Ein Metrikname steht immer **vor** der
+    Klammer, also kann der Block weg.
+    """
+    ohne_marken = re.sub(r"\{[^}]*\}", " ", ausdruck)
+    roh = set(re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", ohne_marken))
     return roh - PROMQL
 
 
@@ -257,3 +263,67 @@ def test_der_jobname_der_regel_steht_so_im_ablagedokument(regeln):
     assert not fehlen, (
         f"die Regel fragt job={fehlen}, das Ablagedokument nennt keinen "
         f"solchen 'job_name:' - der Scrape-Block dort gehoert mitgezogen")
+
+
+# --------------------------------------------------------------------------
+# Die zwei Takte der Quellen (18.10.2026)
+# --------------------------------------------------------------------------
+
+
+def test_jede_erwartete_quelle_faellt_unter_genau_eine_altersregel(regeln):
+    """Sonst hat eine Quelle keine Schwelle - oder zwei.
+
+    **Der Fall.** Die erste Fassung hatte **eine** Schwelle fuer alle sechs
+    Quellen und stand beim ersten Scharfschalten sofort auf ``pending``, mit
+    drei Alarmen: ``tiger_tract``, ``tiger_place`` und ``acs5_tract`` waren
+    14 Tage alt. Nach der Regel zu Recht, nach der Welt falsch - das sind
+    Jahrgangsdaten des Zensus, die nur im Volllauf am zweiten Montag kommen.
+    Ein Alarm, der im Normalbetrieb feuert, wird abgeschaltet; dann schweigt
+    auch der Fall, fuer den er da war.
+
+    **Geprueft wird gegen das Register der Strecke**,
+    ``run_all.ERWARTETE_QUELLEN``, und nicht gegen eine Liste hier: Eine
+    siebte Quelle taucht dort auf, sobald sie eine Stufe hat - und faellt
+    dann hier auf, bevor sie unbewacht bleibt oder doppelt alarmiert.
+    """
+    import re as regex
+
+    from orchestration.run_all import ERWARTETE_QUELLEN
+
+    muster = [regex.compile(m) for r in regeln
+              for m in regex.findall(r'quelle=~"([^"]+)"', r["expr"])]
+    assert muster, "keine Regel unterscheidet die Quellen nach Namen"
+
+    fehler = []
+    for quelle in ERWARTETE_QUELLEN:
+        treffer = [m.pattern for m in muster if m.fullmatch(quelle)]
+        if len(treffer) != 1:
+            fehler.append(f"{quelle}: {len(treffer)} Regel(n) - {treffer}")
+    assert not fehler, (
+        "jede Quelle braucht genau eine Altersschwelle:\n  "
+        + "\n  ".join(fehler))
+
+
+def test_die_jahrgangsquellen_haben_die_groessere_schwelle(regeln):
+    """Die Richtung muss stimmen, nicht nur die Trennung.
+
+    Zwei Regeln mit vertauschten Schwellen waeren getrennt und falsch: Die
+    woechentlichen Quellen duerften dann einen Monat schweigen.
+    """
+    def schwelle(name: str) -> float:
+        expr = next(r["expr"] for r in regeln if r["alert"] == name)
+        treffer = re.search(r">\s*([\d.]+)\s*\*\s*24\s*\*\s*3600", expr)
+        assert treffer, f"{name}: keine Tagesschwelle in {expr!r}"
+        return float(treffer.group(1))
+
+    woechentlich = schwelle("QuelleVeraltet")
+    monatlich = schwelle("JahrgangsquelleVeraltet")
+    assert woechentlich < monatlich, (
+        f"die woechentliche Schwelle ({woechentlich} Tage) muss kleiner sein "
+        f"als die monatliche ({monatlich} Tage)")
+    assert woechentlich >= 8, (
+        f"{woechentlich} Tage sind zu knapp - sieben Tage Abstand sind der "
+        f"Normalfall")
+    assert monatlich >= 32, (
+        f"{monatlich} Tage sind zu knapp - zwei zweite Montage koennen 35 "
+        f"Tage auseinanderliegen")
