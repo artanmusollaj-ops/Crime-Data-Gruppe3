@@ -129,6 +129,22 @@ compose up -d --wait start
 
 pipeline python -m serving.pruefe_stand
 
+# Der Sicherungssatz, nach dem Release und nicht davor: Er soll das Release
+# tragen, das jetzt gilt.
+#
+# **Warum das hier steht und nicht im Backup-Skript.** Die Serversicherung
+# liest Verzeichnisse, sie weiss nichts von gepinnten Laeufen und Zeigern.
+# Welcher Lauf unersetzlich ist, weiss nur dieses Vorhaben - und es steht in
+# `config/referenzstand.csv`, demselben Register, das vor dem Aufraeumen
+# schuetzt.
+#
+# `|| true` mit Bedacht: Ein unvollstaendiger Satz ist ein Problem fuer die
+# naechste Sicherung, aber kein Grund, einen gruenen Datenlauf nachtraeglich
+# rot zu machen. Dass etwas fehlt, meldet der Satz selbst - mit Exitcode 1
+# und im Protokoll, und `sicherungssatz.json` schreibt es neben die Daten.
+pipeline python -m orchestration.sicherungssatz --holen || \
+    echo "WARNUNG: Sicherungssatz unvollstaendig - siehe Ausgabe oben"
+
 echo "Urban Crime: ${mode} run completed for ${YEAR_RANGE}"
 }
 

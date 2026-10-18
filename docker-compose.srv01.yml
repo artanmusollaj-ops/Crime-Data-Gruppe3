@@ -312,6 +312,11 @@ services:
       # Serverlauf, der versehentlich in local liefe, publizierte nichts und
       # saehe dabei gruen aus.
       STORAGE_BACKEND: s3
+      # Wohin ``orchestration.sicherungssatz`` schreibt. **Nicht nach
+      # ``/app/data``**: Das ist ``arbeitsdaten``, und das steht nicht in
+      # der Sicherungspolicy - der Satz waere dort gelandet und nie
+      # gesichert worden.
+      SICHERUNG_ROOT: /app/sicherung
       # **Auslagern statt abbrechen.** Am 16.10.2026 starb der Lauf bei
       # ``silver crime_offense``: "could not allocate block of size 256.0 KiB
       # (854.6 MiB/854.4 MiB used)". DuckDB nimmt sich einen Teil des
@@ -383,6 +388,8 @@ services:
       # nginx liefert aus seiner Wurzel alles aus, was darin liegt. Nach dem
       # Lauf traegt der Datentraeger genau unsere eine Datei.
       - startseite:/app/startseite
+      # Der Sicherungssatz, siehe unten im Volumeblock.
+      - sicherung:/app/sicherung
     # **Am 16.10.2026 auf 2 GiB erhoeht, am 17.10.2026 zurueck.** Die
     # Erhoehung folgte der falschen Ursache (oben bei DUCKDB_MEMORY_LIMIT);
     # der Bau braucht gestuft 256 MB, nicht mehr.
@@ -531,6 +538,18 @@ volumes:
   # sicherungswuerdig: Der Bestand liegt auf SeaweedFS.
   arbeitsdaten:
   jupyter-arbeit:
+  # **Der Sicherungssatz - das einzige Volume dieses Stapels, das in die
+  # Serversicherung gehoert.** Darin liegen die gepinnten Laeufe und das
+  # aktuelle Release: 546 MiB, das Einzige, was sich nicht nachrechnen laesst.
+  # Geschrieben von ``orchestration.sicherungssatz``, das dieses Verzeichnis
+  # allein besitzt und daraus entfernt, was nicht mehr dazugehoert.
+  #
+  # Warum ein eigenes und nicht ``arbeitsdaten``: Das ist der Arbeitsraum der
+  # Strecke, er wechselt woechentlich und laege in restic jede Woche neu.
+  # Diese Trennung ist der Grund, warum die Sicherungsquelle von 7,3 GB auf
+  # 0,75 GB faellt (docs/storage-architektur.md, "Gesichert wird, was sich
+  # nicht nachrechnen laesst").
+  sicherung:
   # Die Einstiegsseite (FR-31): vom Stapellauf geschrieben, von start
   # ausgeliefert. Nicht sicherungswuerdig - sie entsteht in Sekunden neu aus
   # dem Release, und ohne Release ist sie wertlos.

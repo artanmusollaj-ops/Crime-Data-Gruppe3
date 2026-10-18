@@ -519,6 +519,55 @@ Solange diese Probe nicht einmal gelaufen ist, bleibt FR-17 **teilweise**:
 Die Regeln stehen und sind bewacht, der Kanal existiert — aber dass eine
 Nachricht ankommt, hat für *unsere* Alarme niemand gesehen.
 
+### Gesichert wird, was sich nicht nachrechnen lässt
+
+**Der Anlass.** Die nächtliche Sicherung von `srv01` nach Backblaze lief voll;
+der letzte erfolgreiche Lauf war der 24.9.2026. Nachgemessen am 18.10.2026
+trug sie **7,3 GB je Nacht, davon 7,1 GB unsere** — der SeaweedFS-Datenträger
+mit 6,3 GB und ein Elasticsearch-Index mit 810 MB.
+
+**Das Missverhältnis ist nicht die Zahl, sondern die Art der Daten.** Ein
+aktueller Stand kostet im Restic-Repository 1,743 GiB, und jeder Wochenlauf
+schreibt neue Parquet-Dateien unter neuen Lauf-IDs — restic kann nichts
+entdoppeln. Bei einer Aufbewahrung von sieben Tagen, vier Wochen und zwölf
+Monaten wuchert das: Von zwölf Snapshots behält die Regel elf. Wir haben
+wöchentlich wechselnde **Rechenergebnisse** in ein Archiv gelegt, das für
+Dinge gedacht ist, die man nicht nachrechnen kann.
+
+| | Grösse | nachrechenbar? |
+| --- | ---: | --- |
+| gepinnte Läufe (`config/referenzstand.csv`) | **372 MiB** | **nein** — die Portale liefern heute andere Daten als im September |
+| aktuelles Release | **174 MiB** | baubar, aber es ist der Beleg, auf den die Dokumente zeigen |
+| raw, bronze, silver, gold, ältere Releases | ~2'111 MiB | ja — Silver und Gold in 117 Sekunden |
+| `urbancrime_elasticsearch-daten` | 810 MiB | ja — aus dem Release in Minuten |
+
+**Unersetzlich sind 546 MiB.** `orchestration.sicherungssatz` holt genau die
+in ein eigenes Volume (`urbancrime_sicherung`, im Container
+`/app/sicherung`), und es besitzt dieses Verzeichnis allein: Was nicht
+dazugehört, entfernt es. Ohne das zweite wüchse die Sicherung wieder — jede
+Woche wird ein anderes Release aktuell, und das vorige bliebe liegen.
+
+**Warum nicht nach `/app/data`.** Dort liegt das Volume
+`urbancrime_arbeitsdaten`, und das steht **nicht** in `backup.volumes`. Der
+Satz wäre dort gelandet und nie gesichert worden — ein Test hält diese
+Verwechslung fest (`tests/test_srv01_compose.py`).
+
+**Warum dasselbe Register wie beim Aufräumen.** `config/referenzstand.csv`
+entscheidet schon, welcher Lauf das Aufräumen überlebt. Ein zweites Register
+daneben wäre die Stelle, an der beide auseinanderlaufen — dann wird ein Lauf
+aufgehoben, aber nicht gesichert, oder umgekehrt.
+
+Geschrieben wird der Satz im wöchentlichen Datenlauf, **nach** dem Release
+und nicht davor, damit er das Release trägt, das jetzt gilt. Ein
+unvollständiger Satz macht den Lauf nicht rot — er ist ein Problem der
+nächsten Sicherung, nicht des gelaufenen Baus —, meldet sich aber mit
+Exitcode 1, einer Warnung im Protokoll und in `sicherungssatz.json`.
+
+**Was das für die Serverpolicy heisst** (`/srv/docker/config/srv01.yaml`):
+`urbancrime_sicherung` gehört in `backup.volumes`, `seaweedfs_data` und
+`urbancrime_elasticsearch-daten` nicht mehr hinein. Damit fällt die
+Sicherungsquelle von 7,3 GB auf etwa **0,75 GB**.
+
 ### Der Eimer ist versioniert, und das hat 3,91 GiB gekostet
 
 **Am 18.10.2026 gefunden, aus einem fremden Anlass.** Die nächtliche

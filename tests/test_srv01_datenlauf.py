@@ -267,3 +267,52 @@ def test_ein_fehler_im_betriebsstand_faellt_den_lauf_nicht():
     block = text[text.index("betriebsstand() {"):]
     block = block[:block.index("\n}")]
     assert "|| true" in block, "dem Aufruf fehlt '|| true'"
+
+
+# --------------------------------------------------------------------------
+# Der Sicherungssatz (18.10.2026)
+# --------------------------------------------------------------------------
+
+
+def test_der_sicherungssatz_wird_nach_dem_release_geholt():
+    """Reihenfolge ist hier Inhalt.
+
+    Der Satz soll das Release tragen, das **jetzt** gilt. Stuende der Aufruf
+    vor ``release holen aktuell``, sicherte er eine Woche lang das vorige -
+    und niemand saehe es, denn vorhanden waere ja etwas.
+    """
+    skript = SCRIPT.read_text(encoding="utf-8")
+    satz = skript.index("orchestration.sicherungssatz")
+    release = skript.index("orchestration.release holen aktuell")
+    ende = skript.index("run completed for")
+    assert release < satz < ende, (
+        f"der Sicherungssatz steht nicht zwischen dem Release und dem Ende "
+        f"(Release {release}, Satz {satz}, Ende {ende})")
+
+
+def test_ein_unvollstaendiger_satz_macht_den_lauf_nicht_rot():
+    """Zwei Dinge, die auseinandergehalten gehoeren.
+
+    Ein fehlender gepinnter Lauf ist ein Problem der **naechsten Sicherung**,
+    nicht des gerade gelaufenen Datenlaufs. Waere er ein Abbruch, kaeme
+    `set -Eeuo pipefail` zum Zug und ein gruener Lauf stuende am Ende rot da -
+    und beim naechsten Mal schaltet jemand den Satz ab, nicht den Fehler.
+    Gemeldet wird er trotzdem: mit Exitcode 1 aus dem Modul, einer Warnung
+    hier und in `sicherungssatz.json`.
+    """
+    skript = SCRIPT.read_text(encoding="utf-8")
+    zeile = next(z for z in skript.splitlines()
+                 if "orchestration.sicherungssatz" in z and not z.strip().startswith("#"))
+    block = skript[skript.index(zeile):skript.index(zeile) + 240]
+    assert "||" in block, (
+        f"der Aufruf faengt seinen Fehlschlag nicht ab: {block[:120]!r}")
+    assert "WARNUNG" in block or "warn" in block.lower(), \
+        "er faengt ihn ab, ohne etwas zu sagen - das ist schlimmer"
+
+
+def test_der_satz_wird_geholt_und_nicht_nur_gezeigt():
+    """Ohne ``--holen`` zeigt das Modul nur - dann liegt nichts im Volume."""
+    skript = SCRIPT.read_text(encoding="utf-8")
+    zeile = next(z for z in skript.splitlines()
+                 if "orchestration.sicherungssatz" in z and not z.strip().startswith("#"))
+    assert "--holen" in zeile, f"ohne --holen passiert nichts: {zeile.strip()!r}"

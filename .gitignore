@@ -22,6 +22,10 @@ dist/
 .DS_Store
 # Generierte Testprotokolle des Test-Runners.
 logs/
+# Der Sicherungssatz (orchestration.sicherungssatz): gepinnte Laeufe und das
+# aktuelle Release, aus SeaweedFS geholt. Auf srv01 ist das ein eigenes
+# Volume; wer das Modul lokal laufen laesst, bekommt es hier. Das sind Daten.
+sicherung/
 
 # Releases: der ganze Stand unter einer Kennung, wie serving/ abgeleitet und nicht versioniert.
 data/releases/
