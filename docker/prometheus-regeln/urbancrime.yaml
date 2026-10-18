@@ -1,0 +1,177 @@
+# Alarmregeln fuer Prometheus - der Teil von FR-17, der in dieses Repository
+# gehoert.
+#
+# **Warum die Regeln hier liegen und nicht im Monitoring-Stapel.** Sie reden
+# ueber *unsere* Messwerte, und die entstehen in `serving/betriebsstand.py`.
+# Eine Regel auf einen Namen, den wir nicht mehr ausgeben, feuert nie und
+# sieht dabei aus wie Vorsorge - das ist schlimmer als keine Regel.
+# `tests/test_alarmregeln.py` haelt jeden Namen und jede Marke hier gegen
+# das, was das Modul wirklich schreibt.
+#
+# **Warum ueber Prometheus und nicht aus der Strecke heraus.** Ein Programm,
+# das selbst meldet, kann sagen, *dass es gescheitert ist* - nicht, dass es
+# gar nicht gelaufen ist. Genau der zweite Fall war am 12. und 15.10.2026
+# der teure: Der Lauf fiel aus, und gewusst hat es niemand. Ein fehlender
+# Lauf ist hier eine Regel wie jede andere (`KeinLaufBekannt`,
+# `StandVeraltet`), weil nicht das Programm meldet, sondern etwas, das *von
+# aussen* hinsieht.
+#
+# **Der Kanal steht schon und ist Telegram.** Der Alertmanager auf `srv01`
+# hat einen fertigen Empfaenger mit Bot-Token und Chat-ID als Secrets, ein
+# eigenes Ausgangsnetz (`alerting-egress`) und `send_resolved`; die Route
+# hat keine Matcher, also geht jeder Alarm dorthin. Diese Datei braucht
+# deshalb nichts ueber Zustellung zu wissen - sie sagt, *wann* etwas nicht
+# stimmt, und der Stapel sagt, *wohin*.
+#
+# **Einhaengen** (im Monitoring-Stapel, nicht hier - der genaue Block steht
+# in docs/storage-architektur.md, "Der Meldeweg"). Prometheus laedt dort
+# schon `/etc/prometheus/rules/*.yaml`; es genuegt, dieses Verzeichnis
+# zusaetzlich dorthin zu haengen:
+#
+#   - /srv/docker/apps/urbancrime/docker/prometheus-regeln:/etc/prometheus/rules-urbancrime:ro
+#
+# **Das Verzeichnis, nicht die Datei.** Ein Datei-Bind-Mount haengt am
+# Inode, und `git pull` *ersetzt* eine Datei, statt sie zu aendern - der
+# Container sieht dann fuer immer die alte Fassung, ohne Fehlermeldung.
+#
+# **Die Endung muss `.yaml` sein**, nicht `.yml`: Der Glob, mit dem
+# Prometheus Regeln liest, zaehlt nur die eine Form.
+# `tests/test_alarmregeln.py` haelt beides.
+#
+# Der Scrape muss `job: urbancrime` heissen: `MetrikenUnerreichbar` unten
+# fragt `up{job="urbancrime"}`, und ein anderer Name macht genau die Regel
+# stumm, die das Schweigen aller anderen melden soll.
+
+groups:
+  - name: urbancrime
+    # Alle zwei Minuten statt der Vorgabe von einer: Diese Werte aendern sich
+    # wochentaktig. Haeufiger auszuwerten kostet Rechenzeit und findet nichts.
+    interval: 2m
+    rules:
+
+      # ------------------------------------------------------------------
+      # Der Lauf ist gelaufen und gescheitert
+      # ------------------------------------------------------------------
+      - alert: LaufGescheitert
+        expr: urbancrime_lauf_erfolgreich == 0
+        # Zehn Minuten, weil die Metrikdatei waehrend eines Laufs neu
+        # geschrieben wird. Prompt genug: Der naechste Lauf ist eine Woche
+        # entfernt.
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Datenlauf auf srv01 gescheitert"
+          description: >-
+            Der letzte Lauf ist nicht gruen. Welche Stufe, sagt
+            StufeGescheitert; das Protokoll liegt in data/pipeline_run.json
+            und das Log unter logs/ auf srv01.
+
+      - alert: StufeGescheitert
+        expr: urbancrime_stufe_exit > 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Stufe {{ $labels.gruppe }}/{{ $labels.name }} mit Exitcode {{ $value }}"
+          description: >-
+            Diese Regel nennt die Stufe, LaufGescheitert nur das Ergebnis.
+            Beide zusammen sind eine Mail, die man ohne Anmeldung am Server
+            lesen kann.
+
+      # ------------------------------------------------------------------
+      # Der Lauf ist gar nicht gelaufen - der Fall vom 12./15.10.2026
+      # ------------------------------------------------------------------
+      - alert: StandVeraltet
+        # Acht Tage, dieselbe Schwelle, mit der der Datenlauf die Quellen
+        # prueft (ln2_konzept.md 5). Der Anstoss ist wochentaktig, also sind
+        # sieben Tage normal und acht sind einer zu viel.
+        expr: urbancrime_lauf_alter_sekunden > 8 * 24 * 3600
+        for: 1h
+        labels:
+          severity: critical
+        annotations:
+          summary: "Seit {{ $value | humanizeDuration }} kein Datenlauf"
+          description: >-
+            Der letzte bekannte Lauf ist aelter als acht Tage. Entweder hat
+            der Crontab nicht angestossen, oder der Lauf bricht so frueh ab,
+            dass er nichts schreibt. Genau dieser Fall blieb am 12. und
+            15.10.2026 unbemerkt.
+
+      - alert: KeinLaufBekannt
+        # Es gibt kein `lauf_erfolgreich 0` dafuer: Ohne Protokoll schreibt
+        # `betriebsstand` bewusst *keine* solche Zeile, weil eine 0 dort
+        # "gescheitert" heisst und es keinen Lauf gibt. Deshalb braucht der
+        # Fall eine eigene Regel - sonst faellt er zwischen die beiden.
+        expr: urbancrime_lauf_bekannt == 0
+        # Sechs Stunden: Eine frisch aufgesetzte Maschine hat noch keinen
+        # Lauf, und das ist kein Alarm, solange jemand gerade dabei ist.
+        for: 6h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kein Laufprotokoll auf srv01"
+          description: >-
+            `betriebsstand` findet kein pipeline_run.json. Nach einem
+            Neuaufsetzen erwartbar, sonst ist der Datentraeger leer.
+
+      # ------------------------------------------------------------------
+      # Die Wache ueber der Wache
+      # ------------------------------------------------------------------
+      - alert: MetrikenUnerreichbar
+        # **Ohne diese Regel ist der ganze Satz wertlos.** Faellt der Dienst
+        # `start` aus oder stimmt die Netzzuordnung nicht, liefert keine der
+        # Regeln oben mehr Daten - und "keine Daten" feuert in Prometheus
+        # nicht. Das Schweigen sieht dann aus wie Ruhe.
+        expr: up{job="urbancrime"} == 0
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Betriebsstand von urbancrime nicht abfragbar"
+          description: >-
+            Der Scrape auf http://start/metrics antwortet nicht. Solange das
+            gilt, melden die uebrigen Regeln nichts - auch einen
+            gescheiterten Lauf nicht.
+
+      - alert: MetrikenLeer
+        # Der Dienst antwortet, die Datei sagt nichts. Kommt vor, wenn
+        # `betriebsstand` nie lief oder sein Ziel woanders liegt.
+        expr: absent(urbancrime_lauf_bekannt)
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Betriebsstand antwortet, nennt aber keinen Lauf"
+          description: >-
+            urbancrime_lauf_bekannt fehlt ganz - die Metrikdatei ist leer
+            oder wird nicht geschrieben. `betriebsstand` haengt im Datenlauf
+            an einem `trap … EXIT`; laeuft der Datenlauf gar nicht, bleibt
+            die Datei auf dem Stand von vorher.
+
+      # ------------------------------------------------------------------
+      # Leiser, aber nicht unwichtig
+      # ------------------------------------------------------------------
+      - alert: QuelleVeraltet
+        expr: urbancrime_quelle_alter_sekunden > 8 * 24 * 3600
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Quelle {{ $labels.quelle }} seit {{ $value | humanizeDuration }} ohne neuen Lauf"
+          description: >-
+            Dieselbe Acht-Tage-Schwelle, die der Datenlauf nach der
+            Ingestion prueft. Hier faellt sie auch auf, wenn der Lauf
+            ueberhaupt nicht bis dorthin kommt.
+
+      - alert: ReleaseNichtPubliziert
+        expr: urbancrime_release_publiziert == 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Letztes Release liegt nur lokal"
+          description: >-
+            Der Lauf war gruen, das Release ist aber nicht oben. Ein halbes
+            Release ist sichtbar und raeumbar
+            (`orchestration.aufraeumen --halbe`), es ist nur keiner.

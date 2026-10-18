@@ -406,12 +406,118 @@ Es liegt im Netz `monitoring`, der Dienst `start` in `proxy`. Damit der Blick
 entsteht, braucht es dort **zwei Zeilen**: einen Scrape auf
 `http://start/metrics` und eine Netzzuordnung, die ihn erreichbar macht.
 
-Ein **Meldekanal** fehlt ganz: Alertmanager läuft mit der Beispielvorgabe
+### Der Meldeweg — und eine widerrufene Messung
+
+**Was hier bis zum 18.10.2026 stand, war falsch.** Der Satz lautete: *„Ein
+Meldekanal fehlt ganz: Alertmanager läuft mit der Beispielvorgabe
 (`webhook_configs: http://127.0.0.1:5001/`, dort hört nichts), ist in
 Prometheus nicht eingetragen, und auf dem Host gibt es kein `MAILTO`, kein
-`sendmail` und keinen laufenden MTA. Welcher Kanal es sein soll, ist eine
-Entscheidung über fremde Dienste — deshalb bleibt FR-17 offen und nicht halb
-gebaut.
+`sendmail` und keinen laufenden MTA."* Richtig daran war allein der letzte
+Teil — es gibt keinen MTA, und einen braucht es auch nicht. Der Rest hat
+Christian eine Entscheidung abverlangt, die längst getroffen war: Er
+antwortete „Mail ist die einzige sinnvolle Möglichkeit", weil diese Messung
+behauptete, es gäbe nichts.
+
+**Gemessen am 18.10.2026 auf `srv01`, lesend:**
+
+| | Stand |
+| --- | --- |
+| Alertmanager (`infrastructure/monitoring/alertmanager/alertmanager.yaml`) | **Telegram-Empfänger**, `bot_token_file` und `chat_id_file` als Docker-Secrets, `send_resolved: true`, HTML-Vorlage; Route ohne Matcher, also **jeder** Alarm |
+| Ausgangsweg | eigenes Netz `alerting-egress` am Alertmanager, genau dafür angelegt |
+| in Prometheus eingetragen | ja: `alerting.alertmanagers: [alertmanager:9093]` |
+| Scrapes | **zehn**: prometheus, alertmanager, node, containers, loki, alloy, grafana, seaweedfs, n8n, traefik |
+| Regeln | `rule_files: /etc/prometheus/rules/*.yaml`, Verzeichnis eingehängt, **sieben** Regeln aktiv (Host, Monitoring, Backups) |
+
+Der Kanal ist also **Telegram**, er ist fertig, und am 18.10.2026 lagen zwei
+Alarme aktiv an (`BackupMissingOrStale`, `BackupLastRunFailed`). Für FR-17
+braucht es **kein Mailkonto und kein App-Passwort**: Die Route hat keine
+Matcher, unsere Regeln melden sich über den bestehenden Empfänger, sobald sie
+im Regelverzeichnis liegen.
+
+**Was fehlt, ist dreimal eine Zeile.** Die Regeln selbst liegen fertig und
+bewacht in diesem Repository (`docker/prometheus-regeln/urbancrime.yaml`, acht
+Regeln); `tests/test_alarmregeln.py` hält jeden Namen und jede Marke darin
+gegen einen echten Lauf von `serving.betriebsstand`.
+
+**1 · `start` muss für Prometheus erreichbar sein.** Heute liegt der Dienst in
+`proxy` und `urbancrime`, Prometheus in `monitoring`
+(`apps/urbancrime/docker-compose.srv01.yml`):
+
+```yaml
+  start:
+    networks:
+      proxy:
+      urbancrime:
+      # **Mit Alias, nicht nur beitreten.** Compose setzt den Dienstnamen als
+      # Netzalias - auf `monitoring` liegen zehn fremde Stapel, und `start`
+      # ist dort ein Name, den jeder zweite haben koennte. Unter
+      # `urbancrime-start` kann ihn keiner verwechseln.
+      monitoring:
+        aliases: [urbancrime-start]
+```
+
+```yaml
+networks:
+  monitoring:
+    external: true
+```
+
+**2 · Der Scrape** (`infrastructure/monitoring/prometheus/prometheus.yaml`,
+unter `scrape_configs`). Der Jobname ist nicht frei: Die Regel
+`MetrikenUnerreichbar` fragt `up{job="urbancrime"}`, und ein anderer Name
+macht lautlos genau die Regel stumm, die das Schweigen aller anderen melden
+soll. Ein Test hält diesen Block gegen die Regeldatei.
+
+```yaml
+  - job_name: urbancrime
+    # Wochentaktige Werte; oefter zu fragen findet nichts und kostet.
+    scrape_interval: 2m
+    static_configs:
+      - targets: [urbancrime-start:80]
+```
+
+**3 · Das Regelverzeichnis** (`infrastructure/monitoring/compose.yaml`, beim
+Dienst `prometheus`) und eine zweite Glob-Zeile in `prometheus.yaml`:
+
+```yaml
+    volumes:
+      - /srv/docker/apps/urbancrime/docker/prometheus-regeln:/etc/prometheus/rules-urbancrime:ro
+```
+
+```yaml
+rule_files:
+  - /etc/prometheus/rules/*.yaml
+  - /etc/prometheus/rules-urbancrime/*.yaml
+```
+
+**Das Verzeichnis, nicht die Datei** — und das ist kein Geschmack: Ein
+Datei-Bind-Mount hängt am Inode, und `git pull` *ersetzt* eine Datei, statt
+sie zu ändern. Der Container sähe danach für immer die alte Fassung, ohne
+Fehlermeldung. Aus demselben Grund heisst die Datei `.yaml` und nicht `.yml`:
+Der Glob zählt nur die eine Form.
+
+**Dann einsetzen und nachsehen:**
+
+```bash
+cd /srv/docker/apps/urbancrime        && docker compose -f docker-compose.srv01.yml up -d start
+cd /srv/docker/infrastructure/monitoring && docker compose up -d prometheus
+# Acht Regeln geladen? Und das Ziel oben?
+docker exec prometheus wget -qO- http://127.0.0.1:9090/api/v1/rules | grep -c urbancrime
+docker exec prometheus wget -qO- "http://127.0.0.1:9090/api/v1/targets?state=active" | grep urbancrime
+```
+
+**Die Gegenprobe gehört dazu**, denn ein Meldeweg, den niemand ausgelöst hat,
+ist eine Vermutung. Sie schickt eine echte Telegram-Nachricht:
+
+```bash
+docker exec alertmanager /bin/amtool --alertmanager.url=http://127.0.0.1:9093 \
+    alert add LaufGescheitert severity=critical \
+    --annotation=summary="Probe, bitte ignorieren"
+```
+
+Solange diese Probe nicht einmal gelaufen ist, bleibt FR-17 **teilweise**:
+Die Regeln stehen und sind bewacht, der Kanal existiert — aber dass eine
+Nachricht ankommt, hat für *unsere* Alarme niemand gesehen.
 
 Ein Release entsteht nur nach einem **vollständigen** grünen Lauf bis
 einschliesslich Serving — ein halber Stand bekommt keine Kennung. Scheitert

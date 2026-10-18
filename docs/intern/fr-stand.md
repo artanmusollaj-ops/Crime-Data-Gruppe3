@@ -80,7 +80,7 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | --- | --- | :-: | --- |
 | FR-15 | Wöchentlicher Anstoss auf `srv01` | ● | Crontab montags 04:30 mit `flock`, am 11.10.2026 abgelesen |
 | FR-16 | Zeitfenster kollidiert nicht | ◐ | der **gemeldete** Fall ist gelöst und gewacht: `mode_for_day` fährt den Volllauf nur an den Tagen 8–14, also am **zweiten** Montag — ein Monatserster kann nie der Volllauftag sein (`tests/test_srv01_datenlauf.py`). Offen bleibt die Frage daneben: Ein **Delta**-Lauf beginnt jeden Montag 04:30 und kann über 05:00 hinauslaufen; wie lange er auf `srv01` dauert, ist nicht gemessen |
-| FR-17 | Gescheiterter Lauf erzeugt eine Meldung | ○ | **offen, und es fehlt der Kanal.** Am 17.10.2026 gemessen: Alertmanager läuft mit der **Beispielvorgabe** (`webhook_configs: http://127.0.0.1:5001/`, dort hört nichts), in Prometheus ist er nicht eingetragen, es gibt kein `MAILTO`, kein `sendmail`, keinen laufenden MTA, und der Crontab leitet alles in ein Log und unterdrückt damit die Cron-Mail. Der Pipeline-Container erreicht `alertmanager:9093` nicht (andere Netze). **Welcher Kanal es sein soll, ist eine Entscheidung über fremde Dienste** — ein Kanal lässt sich nicht erfinden. Der Zustand ist seit FR-30 maschinenlesbar; was fehlt, ist der Empfänger |
+| FR-17 | Gescheiterter Lauf erzeugt eine Meldung | ◐ | **der Kanal stand schon, und zwar als Telegram** — meine Messung vom 17.10.2026 („kein Alertmanager-Empfänger") war falsch. Am 18.10. lesend nachgesehen: fertiger Empfänger mit Secrets und eigenem Ausgangsnetz, Route **ohne Matcher**, zehn Scrapes, sieben aktive Regeln. `docker/prometheus-regeln/urbancrime.yaml` trägt acht Regeln über die Messwerte von FR-30 — gescheiterter Lauf, gescheiterte Stufe, **ausgefallener** Lauf, fehlendes Protokoll, unerreichbarer Scrape, leere Metrikdatei, veraltete Quelle, halbes Release; `tests/test_alarmregeln.py` hält jeden Namen und jede Marke gegen einen echten Lauf von `serving.betriebsstand` (elf Mutationsproben, alle rot). Offen ist **dreimal eine Zeile** im Monitoring-Stapel und die Gegenprobe über `amtool`, beide in `docs/storage-architektur.md`, „Der Meldeweg" |
 | FR-18 | Secrets aus der ignorierten `.env` | ● | `.env` des Stapels, ungetrackt; `.dockerignore` schliesst sie aus |
 | FR-19 | — | ▣ | **existiert im PRD nicht.** Die Nummer ist übersprungen; kein Inhalt verloren, aber die Lücke gehört genannt |
 | FR-20 | Ein grüner Lauf muss rückholbar sein | ◐ | der Mechanismus steht (`release holen aktuell --einsetzen`), **als Rückholweg nie erprobt** |
@@ -135,19 +135,18 @@ stellt."*
 | Stand | Anzahl |
 | --- | ---: |
 | ● erfüllt | 36 |
-| ◐ teilweise | 16 |
-| ○ offen | 11 |
+| ◐ teilweise | 17 |
+| ○ offen | 10 |
 | ▣ zurückgestellt | 2 |
 | **zusammen** | **65** |
 
-Wer die **elf** offenen trägt — jede genau einmal, und keine, die nicht
+Wer die **zehn** offenen trägt — jede genau einmal, und keine, die nicht
 offen ist:
 
 | wem | wie viele | welche |
 | --- | ---: | --- |
 | **Artan** | 4 | FR-48, FR-49, FR-51, FR-58 |
 | **Welle 8**, die Vorführung | 4 | FR-62, FR-63, FR-64, FR-65 |
-| **Christian** | 1 | FR-17 |
 | bewusst zurückgestellt | 1 | FR-23 |
 | noch niemandem zugeordnet | 1 | FR-43 |
 
@@ -173,9 +172,19 @@ hatte keine Stimme.
 
 Seit dem 17.10.2026 hat er eine: `serving.betriebsstand` schreibt den Zustand
 hin, wo ein Werkzeug ihn abholen kann, und zwar **auch nach einem Abbruch**.
-Was noch fehlt, ist nicht unser Code, sondern **zwei Zeilen in fremder
-Konfiguration** (FR-30) und die Antwort darauf, **wohin** eine Meldung gehen
-soll (FR-17) — Mail, Matrix, Webhook, Telegram. Ein Kanal lässt sich nicht
-erfinden; die Infrastruktur ist Christians, also ist es seine Entscheidung.
-Solange sie offen ist, bleibt FR-17 offen, und das ist kein Versäumnis,
-sondern ein benannter Zustand — wie bei FR-23.
+Seit dem 18.10.2026 steht auch, was aus dem Zustand eine Meldung macht —
+acht bewachte Alarmregeln liegen im Repository — und der Kanal, den ich am
+17.10. als fehlend gemeldet hatte, **stand bereits**: ein fertiger
+Telegram-Empfänger im Alertmanager, Route ohne Matcher. Die Entscheidung,
+die ich Christian abverlangt habe, war keine.
+
+**Von unserer Seite ist damit keine Anforderung mehr offen.** Was bei FR-17
+und FR-30 fehlt, ist dieselbe Sorte Arbeit und zusammen **dreimal eine
+Zeile**: `monitoring` zu den Netzen von `start`, ein Scrape auf `urbancrime-start:80`,
+unser Regelverzeichnis beim Dienst `prometheus`. Beschrieben in
+`docs/storage-architektur.md`, „Der Meldeweg", samt Gegenprobe über
+`amtool`. Erst wenn die einmal gelaufen ist, geht FR-17 auf ●: Ein
+Meldeweg, den niemand ausgelöst hat, ist eine Vermutung.
+
+Übrig bleiben damit zehn offene — vier bei Artan, vier in Welle 8, das
+bewusst zurückgestellte FR-23 und das unverteilte FR-43.

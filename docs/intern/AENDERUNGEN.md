@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'240** |
+| Tests | **2'250** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,114 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 18.10.2026 · Der Fehlschlag meldet sich (Branch `der-fehlschlag-meldet-sich`)
+
+Der Kanal ist **Telegram**, und er stand schon da. Christian hatte „Mail,
+die einzige sinnvolle Möglichkeit" geantwortet — auf eine Messung von mir,
+die behauptete, es gäbe keinen Kanal. **Diese Messung war falsch** (siehe die
+Richtigstellung im Eintrag zum Branch `betrieb-meldet-sich` weiter unten).
+Nachgesehen statt vermutet: Der Alertmanager hat einen fertigen
+Telegram-Empfänger mit Bot-Token und Chat-ID als Docker-Secrets, ein eigenes
+Ausgangsnetz `alerting-egress` und `send_resolved`; die Route hat **keine
+Matcher**, also geht jeder Alarm dorthin. Prometheus scrapet zehn Ziele und
+fährt sieben Regeln. Für FR-17 braucht es damit **kein Mailkonto und kein
+App-Passwort** — unsere Regeln melden sich über den bestehenden Empfänger,
+sobald sie im Regelverzeichnis liegen.
+
+**Warum die Meldung trotzdem nicht aus der Strecke kommt.** Ein Programm, das
+selbst eine Mail schickt, kann melden, *dass es gescheitert ist* — nicht, dass
+es gar nicht gelaufen ist. Genau der zweite Fall war am 12. und 15.10.2026 der
+teure: Der Lauf fiel aus, und gewusst hat es niemand. Deshalb geht der Weg
+über Prometheus auf die Messwerte von FR-30: Ein **ausgefallener** Lauf ist
+dort eine Regel wie jede andere, weil nicht das Programm meldet, sondern etwas,
+das von aussen hinsieht.
+
+`docker/srv01-alarmregeln.yml` trägt acht Regeln:
+
+| Regel | wann | Schwere |
+| --- | --- | :-: |
+| `LaufGescheitert` | der Lauf lief und war nicht grün | kritisch |
+| `StufeGescheitert` | nennt die Stufe und ihren Exitcode | kritisch |
+| `StandVeraltet` | **der Lauf fiel aus** — Stand älter als acht Tage | kritisch |
+| `KeinLaufBekannt` | kein Protokoll, etwa nach einem Neuaufsetzen | Warnung |
+| `MetrikenUnerreichbar` | der Scrape antwortet nicht | kritisch |
+| `MetrikenLeer` | er antwortet, nennt aber keinen Lauf | kritisch |
+| `QuelleVeraltet` | eine Quelle liefert seit acht Tagen nichts | Warnung |
+| `ReleaseNichtPubliziert` | grüner Lauf, Release nur lokal | Warnung |
+
+**Die letzten vier sind der Grund, warum es acht und nicht zwei sind.** Ohne
+`MetrikenUnerreichbar` und `MetrikenLeer` ist der ganze Satz wertlos: Fällt
+der Dienst aus, der die Datei ausliefert, liefern alle anderen Regeln *keine
+Daten* — und keine Daten feuern in Prometheus nicht. Das Schweigen sähe aus
+wie Ruhe. Die Acht-Tage-Schwelle ist dieselbe, mit der der Datenlauf die
+Quellen prüft; der Anstoss ist wochentaktig, also sind sieben Tage normal und
+acht einer zu viel.
+
+**Warum die Regeln im Repository liegen.** Sie reden über *unsere* Messwerte,
+und die entstehen in `serving/betriebsstand.py`. Eine Regel auf einen Namen,
+den wir nicht mehr ausgeben, feuert nie und sieht dabei aus wie Vorsorge —
+das ist schlimmer als keine Regel, weil niemand nach einem Alarm sucht, den
+es gar nicht geben kann. `promtool` prüft die Syntax, nicht ob der Name
+existiert. `tests/test_alarmregeln.py` prüft es: Jeder Metrikname und jede
+`$labels`-Marke wird gegen einen **echten Lauf** des Moduls gehalten, nicht
+gegen eine Liste im Test. Dazu, dass jede Regel eine Schwere, einen Betreff
+und ein `for` hat, dass beide stillen Fälle abgedeckt sind, und dass der
+Jobname der `up`-Regel **so im Ablagedokument steht** — er wird im fremden
+Stapel eingetragen, und ein anderer Name dort macht lautlos genau die Regel
+stumm, die das Schweigen aller anderen melden soll. Acht Mutationsproben,
+alle acht rot.
+
+Dabei fiel auf, dass meine erste Testfassung die Protokollschlüssel **geraten**
+hatte (`finished_at` statt `finished_at_utc`, `rows` statt `output_rows`).
+Drei Messwerte fehlten dadurch, und der Wächter meldete sie als „gibt niemand
+aus" — recht hatte er, nur zeigte er auf den Test und nicht auf die Regel.
+
+**Was offen bleibt, ist dreimal eine Zeile** — und nach der Richtigstellung
+deutlich weniger als gedacht: `monitoring` zu den Netzen von `start`, ein
+Scrape-Block `job_name: urbancrime` auf `urbancrime-start:80`, und unser Regelverzeichnis
+beim Dienst `prometheus` eingehängt. Dazu die Gegenprobe über `amtool`, die
+eine echte Telegram-Nachricht schickt. Alles drei steht fertig zum Einsetzen
+in `docs/storage-architektur.md` unter „Der Meldeweg".
+
+**Das Verzeichnis, nicht die Datei** — und das ist kein Geschmack: Ein
+Datei-Bind-Mount hängt am Inode, und `git pull` *ersetzt* eine Datei, statt
+sie zu ändern; der Container sähe für immer die alte Fassung, ohne
+Fehlermeldung. Aus demselben Grund heisst die Datei `.yaml`: Der Glob, mit
+dem Prometheus auf `srv01` Regeln liest, zählt nur die eine Form. Beides
+hält ein Wächter — und er steht **vor** den anderen acht, weil sich deren
+Fixture überspringt, wenn der Pfad nicht stimmt. Beim Umzug der Datei waren
+genau so acht Prüfungen auf einmal stumm, und der Lauf sah grün aus.
+
+FR-17 steht deshalb auf **teilweise** und nicht auf erfüllt: Ein Meldeweg,
+den niemand ausgelöst hat, ist eine Vermutung.
+
+**Stand der Anforderungen:** 36 erfüllt, 17 teilweise, 10 offen, 2
+zurückgestellt. **Von unserer Seite ist keine mehr offen** — vier liegen bei
+Artan, vier in Welle 8, FR-23 ist bewusst zurückgestellt und FR-43
+unverteilt.
+
+**Was diese Richtigstellung lehrt.** Die falsche Aussage stand hier als
+*gemessen*, und sie war die Grundlage einer Frage an Christian — er hat sie
+beantwortet, so gut es mit falschen Angaben eben geht. Der Unterschied zur
+Wahrheit war ein Blick in vier Dateien, den ich zwei Tage lang nicht getan
+habe: `alertmanager/alertmanager.yaml`, `prometheus/prometheus.yaml`,
+`compose.yaml` und `ls secrets/`. Was ich stattdessen hatte, war wohl die
+Vorgabe aus dem Abbild statt der eingehängten Datei. **„Gemessen" heisst, die
+Stelle gelesen zu haben, an der es steht** — nicht, einen Befehl laufen
+gelassen zu haben, der plausibel aussieht.
+
+Nebenbefund, der Christian unabhängig von diesem Projekt angeht: Es lagen
+beim Nachsehen **zwei Alarme aktiv** an, `BackupMissingOrStale` („no
+successful backup in the last 48 hours") und `BackupLastRunFailed`, beide
+seit dem 18.10. morgens. Ob sie auf Telegram angekommen sind, weiss nur er —
+und genau das ist auch die Gegenprobe für unseren Weg.
+
+**Zahlen.** 2'240 → **2'250 Tests**, Standardlauf 2'129 → **2'139**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'063 von
+2'139**, 76 übersprungen, grün.
 
 ---
 
@@ -226,6 +334,7 @@ frei.
 **Stand der Anforderungen:** 36 erfüllt, 16 teilweise, 11 offen, 2
 zurückgestellt. Von den elf trägt Artan vier, Welle 8 vier, Christian **eine**
 — FR-17, und die wartet auf die Entscheidung über den Benachrichtigungskanal.
+(Am 18.10.2026 erledigt: Der Kanal stand schon, siehe oben.)
 
 **Nachtrag am selben Tag: dieselbe Lücke, ein Register weiter.** Der
 Pull-Request-Lauf wurde mit PyYAML in `pyproject.toml` grün — und der
@@ -280,6 +389,15 @@ diese Entscheidung gehört Christian, weil es seine Infrastruktur ist. Die
 beiden Zeilen, die es dort braucht — ein Prometheus-Ziel auf
 `http://start/metrics` und die Netzzuordnung — stehen in
 `docs/storage-architektur.md` und bewusst nicht in diesem Repository.
+
+> **Richtiggestellt am 18.10.2026.** Der Absatz darüber ist falsch, und er
+> stand hier als *gemessen*. Auf `srv01` liegt ein fertiger
+> **Telegram**-Empfänger im Alertmanager, er ist in Prometheus eingetragen,
+> und Prometheus scrapet zehn Ziele mit sieben aktiven Regeln. Richtig war
+> allein, dass es keinen MTA gibt — und einen braucht es nicht. Der Eintrag
+> bleibt stehen, weil er die Entscheidung erklärt, die auf ihm beruhte;
+> was wirklich dort liegt, steht im Eintrag vom 18.10. zum Branch
+> `der-fehlschlag-meldet-sich`.
 
 **Der Wächter über das Muster hat sich selbst blind gemacht.** `local_path`
 stand nicht in seiner Liste der Schichtadressen, also erkannte er
