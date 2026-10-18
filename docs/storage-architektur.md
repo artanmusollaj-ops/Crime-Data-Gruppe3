@@ -435,9 +435,20 @@ Matcher, unsere Regeln melden sich über den bestehenden Empfänger, sobald sie
 im Regelverzeichnis liegen.
 
 **Was fehlt, ist dreimal eine Zeile.** Die Regeln selbst liegen fertig und
-bewacht in diesem Repository (`docker/prometheus-regeln/urbancrime.yaml`, acht
+bewacht in diesem Repository (`docker/prometheus-regeln/urbancrime.yaml`, **neun**
 Regeln); `tests/test_alarmregeln.py` hält jeden Namen und jede Marke darin
 gegen einen echten Lauf von `serving.betriebsstand`.
+
+**Die Quellen haben zwei Takte, und das kostete eine neunte Regel.** Beim
+ersten Scharfschalten stand `QuelleVeraltet` sofort auf `pending`, mit drei
+Alarmen: `tiger_tract`, `tiger_place` und `acs5_tract` waren 14 Tage alt.
+Nach der Regel zu Recht, nach der Welt falsch — das sind **Jahrgangsdaten**
+des Zensus, die nur im Volllauf am zweiten Montag geholt werden. Taten und
+Wetter kommen wöchentlich (acht Tage), die drei Jahrgänge monatlich (35 Tage,
+denn zwei zweite Montage können so weit auseinanderliegen). Ein Wächter hält
+jede Quelle aus `run_all.ERWARTETE_QUELLEN` gegen **genau eine** der beiden
+Schwellen — eine siebte Quelle fällt damit auf, bevor sie unbewacht bleibt
+oder doppelt alarmiert.
 
 **1 · `start` muss für Prometheus erreichbar sein.** Heute liegt der Dienst in
 `proxy` und `urbancrime`, Prometheus in `monitoring`
