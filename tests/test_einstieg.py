@@ -486,3 +486,118 @@ def test_das_readme_nennt_so_viele_dashboards_wie_es_gibt(werkzeug):
     fehlend = [b.titel.split(" — ")[0] for b in BRETTER
                if b.titel.split(" — ")[0] not in gelistet]
     assert not fehlend, f"im README fehlen: {fehlend}"
+
+
+# --------------------------------------------------------------------------
+# Die Grenzen der Aussage (FR-33)
+# --------------------------------------------------------------------------
+
+#: Die drei Grenzen, die FR-33 verlangt, als Wortgruppen. Je Grenze muessen
+#: **alle** Marken in **einem** Abschnitt stehen. So gefasst, weil die
+#: Formulierung frei bleiben soll, der Gegenstand aber nicht: "Erfassung ist
+#: nicht Kriminalitaet, Tatort nicht Wohnort, oekologischer Fehlschluss."
+GRENZEN = {
+    "Erfassung ist nicht Kriminalitaet": ("Erfassung", "Kriminalität"),
+    "Tatort ist nicht Wohnort": ("Tatort", "Wohnort"),
+    "oekologischer Fehlschluss": ("kologisch", "Fehlschluss"),
+}
+
+
+def abschnitte(text: str) -> list[str]:
+    """Die ``<section>``-Bloecke der Seite, je einer als Zeichenkette."""
+    return re.findall(r"<section>(.*?)</section>", text, re.DOTALL)
+
+
+def test_die_seite_nennt_die_drei_grenzen_der_aussage(text):
+    """FR-33, und der Grund steht im Gegenstand der Arbeit.
+
+    Die Seite zeigt eine Rate je 1'000 Einwohner und stellt zwei Staedte
+    nebeneinander - die einladendste Zahl im ganzen Projekt, falsch gelesen
+    zu werden. Drei Grenzen gehoeren deshalb **auf die Seite** und nicht in
+    ein Dokument daneben: Erfassung ist nicht Kriminalitaet, Tatort nicht
+    Wohnort, und eine Flaechenrate sagt nichts ueber die Menschen darin.
+
+    Bis zum 18.10.2026 stand keine davon darauf. Die Zahlen waren bewacht,
+    ihre Lesart nicht - und eine bewachte Zahl, die falsch gelesen wird, ist
+    nicht besser als eine falsche.
+    """
+    fehlen = [name for name, marken in GRENZEN.items()
+              if not any(all(marke in abschnitt for marke in marken)
+                         for abschnitt in abschnitte(text))]
+    assert not fehlen, (
+        "Die Startseite nennt diese Grenzen der Aussage nicht (FR-33): "
+        + ", ".join(fehlen))
+
+
+def test_die_grenzen_stehen_zusammen_in_einem_abschnitt(text):
+    """Verstreut zaehlt nicht.
+
+    Drei Saetze in drei Abschnitten erfuellen den Buchstaben und nicht den
+    Zweck: Wer die Raten liest, soll ihre Grenzen an einer Stelle finden und
+    nicht ueber die Seite suchen muessen. Dieser Test ist der Grund, warum
+    der Waechter darueber **nicht** genuegt - er allein waere auch gruen,
+    wenn je ein Wort in einem anderen Abschnitt stuende.
+    """
+    treffer = [abschnitt for abschnitt in abschnitte(text)
+               if all(any(all(marke in abschnitt for marke in marken)
+                          for marken in [GRENZEN[name]])
+                      for name in GRENZEN)]
+    assert treffer, (
+        "kein Abschnitt nennt alle drei Grenzen - sie gehoeren zusammen, "
+        "sonst findet sie niemand, der gerade eine Rate liest")
+
+
+def test_die_grenzen_folgen_unmittelbar_auf_die_raten(text):
+    """Ort und Reihenfolge sind Teil der Aussage.
+
+    Eine Grenze hinter dem Betriebsteil liest niemand mehr. Sie gehoert in
+    den Abschnitt **direkt** nach dem, der die beiden Staedte
+    nebeneinanderstellt - dort steht die Zahl, die falsch gelesen werden
+    kann, und dort ist der Leser gerade.
+
+    Geprueft wird ueber die Reihenfolge der Abschnitte und nicht ueber eine
+    Ueberschrift: Wie der Abschnitt heisst, soll frei bleiben.
+    """
+    bloecke = abschnitte(text)
+    staedte = [i for i, a in enumerate(bloecke)
+               if "Chicago" in a and "Detroit" in a]
+    grenzen = [i for i, a in enumerate(bloecke) if "Fehlschluss" in a]
+    assert staedte and grenzen, (
+        f"Staedtevergleich in {staedte}, Grenzen in {grenzen} - "
+        "einer der beiden Abschnitte fehlt")
+    assert grenzen[0] == staedte[0] + 1, (
+        f"die Grenzen stehen als Abschnitt {grenzen[0]}, der "
+        f"Staedtevergleich als {staedte[0]} - erwartet ist unmittelbar "
+        "danach")
+
+
+def test_die_grenzen_der_seite_sind_die_des_konzepts(text):
+    """Dieselbe Aussage an zwei Stellen braucht einen Waechter ueber beide.
+
+    `ln2_konzept.md` 11 fuehrt die Grenzen der Aussage unter *Zur
+    Datengrundlage* - mit denselben drei Titeln, die jetzt auf der
+    Startseite stehen. Ohne diesen Test veraltet die unbewachte von beiden:
+    Am 11.10.2026 sind auf einmal acht Aussagen ueberholt gewesen, weil ein
+    Waechter nur ein Dokument erfasste.
+
+    Geprueft wird eine Richtung - **jeder Titel der Seite steht im
+    Konzept**. Das Konzept darf mehr nennen (es nennt fuenf), die Seite
+    nichts, was dort nicht steht. Faellt dieser Test nach einer Umformulierung
+    im Konzept, gehoert `serving/build_einstieg.py` mitgezogen und die Seite
+    neu gebaut; umgekehrt ist die Seite nicht der Ort, an dem eine neue
+    Limitation zuerst erscheint.
+    """
+    konzept = PROJEKT / "docs" / "ln2_konzept.md"
+    if not konzept.is_file():
+        pytest.skip("docs/ln2_konzept.md fehlt")
+    fett = set(re.findall(r"\*\*(.+?)\*\*", konzept.read_text(encoding="utf-8")))
+    # Nur die Grenzenliste: ``dl.fakten`` oben traegt die Kennzahlen des
+    # Releases und hat mit dem Konzept nichts zu tun.
+    liste = re.search(r'<dl class="grenzen">(.*?)</dl>', text, re.DOTALL)
+    assert liste, 'die Seite hat keine Liste <dl class="grenzen">'
+    titel = re.findall(r"<dt>(.*?)</dt>", liste.group(1), re.DOTALL)
+    assert titel, "die Seite nennt keine Grenzen als <dt>"
+    fremd = [t for t in titel if t not in fett and f"{t}." not in fett]
+    assert not fremd, (
+        "diese Titel stehen auf der Startseite, aber nicht im Konzept: "
+        f"{fremd} - eine Limitation entsteht im Konzept, nicht auf der Seite")

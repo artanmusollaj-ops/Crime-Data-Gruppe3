@@ -72,7 +72,7 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | FR-29 | Dashboards als Code | ● | `serving.build_kibana`, versioniert |
 | FR-31 | Startseite zeigt den einen Befund | ● | `docs/einstieg.html`, auf `srv01` vom Dienst `start` ausgeliefert |
 | FR-32 | Jede Zahl auf ihr Release zurückführbar | ● | die Seite nennt Release, Vertrag, Codestand und Eingabe-Fingerabdruck |
-| FR-33 | Die Seite nennt die Grenzen der Aussage | ○ | **offen**, am 17.10.2026 geprüft: „Erfassung", „Grenze" und „Anzeige" kommen im Text nicht vor |
+| FR-33 | Die Seite nennt die Grenzen der Aussage | ● | der Abschnitt „Was diese Zahlen nicht sagen" steht seit dem 18.10.2026 **unmittelbar hinter dem Städtevergleich** und nennt alle drei: Erfassung ist nicht Kriminalität, Tatort nicht Wohnort, ökologischer Fehlschluss. Vier Wächter in `tests/test_einstieg.py` — über die drei Grenzen, über ihr Beisammenstehen, über ihre Stellung und über die Gleichheit mit `ln2_konzept.md` 11 |
 
 ## Welle 5 · Anstoss, Alarm, Rückholbarkeit, Betriebsblick (Christian)
 
@@ -134,20 +134,20 @@ stellt."*
 
 | Stand | Anzahl |
 | --- | ---: |
-| ● erfüllt | 35 |
+| ● erfüllt | 36 |
 | ◐ teilweise | 16 |
-| ○ offen | 12 |
+| ○ offen | 11 |
 | ▣ zurückgestellt | 2 |
 | **zusammen** | **65** |
 
-Wer die **zwölf** offenen trägt — jede genau einmal, und keine, die nicht
+Wer die **elf** offenen trägt — jede genau einmal, und keine, die nicht
 offen ist:
 
 | wem | wie viele | welche |
 | --- | ---: | --- |
 | **Artan** | 4 | FR-48, FR-49, FR-51, FR-58 |
 | **Welle 8**, die Vorführung | 4 | FR-62, FR-63, FR-64, FR-65 |
-| **Christian** | 2 | FR-17, FR-33 |
+| **Christian** | 1 | FR-17 |
 | bewusst zurückgestellt | 1 | FR-23 |
 | noch niemandem zugeordnet | 1 | FR-43 |
 

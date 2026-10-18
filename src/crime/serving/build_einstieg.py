@@ -413,6 +413,14 @@ STIL = """
   dl.fakten dt { color:var(--muted); }
   dl.fakten dd { margin:0; font-family:var(--f-mono); }
 
+  /* Die Grenzen der Aussage (FR-33). Fliesstext, nicht Kennzahlen: Jede
+     steht in einer eigenen Zeile, damit keine im Absatz untergeht. */
+  dl.grenzen { margin:0; }
+  dl.grenzen dt { font-weight:600; margin-top:14px; }
+  dl.grenzen dt:first-child { margin-top:0; }
+  dl.grenzen dd { margin:4px 0 0; font-size:13.5px; color:var(--ink);
+                  border-left:2px solid var(--rule); padding-left:13px; }
+
   footer { border-top:1px solid var(--rule); margin-top:40px; padding-top:14px;
            color:var(--muted); font-size:12.5px; }
   @media (max-width:640px) { h1 { font-size:26px; } main { padding:22px 16px 48px; } }
@@ -588,6 +596,36 @@ def seite(kennung: str, manifest: dict, mass: dict,
   <p class="hinweis"><strong>Absolute Zahlen führen hier in die Irre.</strong>
   Chicago hat in fast jeder Kategorie mehr Fälle und ist zugleich viermal so
   gross. Erst die Rate macht die beiden vergleichbar.</p>
+</section>
+
+<section>
+  <h2>Was diese Zahlen nicht sagen</h2>
+  <p class="unter">Drei Grenzen, und keine davon ist ein Mangel der Daten —
+  sie gelten für jede Polizeistatistik und begrenzen, was aus dieser hier
+  folgt.</p>
+  <dl class="grenzen">
+    <dt>Erfassung ist nicht Kriminalität</dt>
+    <dd>Beide Quellen sind Verwaltungsdaten einer Polizeibehörde: Was
+    <em>angezeigt</em> und <em>erfasst</em> wurde. Wie viel daneben
+    unangezeigt bleibt, steht nicht darin und lässt sich daraus nicht
+    schätzen. Unterschiedliches Anzeigeverhalten, unterschiedliche
+    Polizeipräsenz und unterschiedliche Erfassungsregeln sehen in dieser
+    Tabelle genauso aus wie unterschiedliche Kriminalität — und zwei Städte
+    mit zwei Behörden und zwei Codesystemen sind genau der Fall, in dem das
+    zählt.</dd>
+    <dt>Tatort ist nicht Wohnort</dt>
+    <dd>Jedes Delikt zählt dort, wo es geschah. Der Nenner der Rate sind
+    die <em>Einwohner</em> dieses Tracts, der Zähler alle Anwesenden: Ein
+    Geschäftsviertel mit wenigen Bewohnern und vielen Besuchern bekommt
+    deshalb eine hohe Rate, ohne dass dort mehr passiert als zu erwarten
+    wäre. Weder Täter noch Betroffene müssen dort wohnen.</dd>
+    <dt>Ökologischer Fehlschluss</dt>
+    <dd>Diese Zahlen gelten für Flächen, nicht für Menschen. Aus einer hohen
+    Rate in einem Tract folgt nichts über irgendeine Person darin, und ein
+    Zusammenhang zwischen Tract-Merkmalen und der Rate ist keiner zwischen
+    Merkmalen von Menschen und ihrem Verhalten. Wer ihn so liest, zieht
+    einen Schluss, den die Aggregation nicht erlaubt.</dd>
+  </dl>
 </section>
 
 <section>

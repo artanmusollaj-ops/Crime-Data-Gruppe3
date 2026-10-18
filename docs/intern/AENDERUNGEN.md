@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'228** |
+| Tests | **2'232** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,50 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 18.10.2026 · Die Seite sagt, was ihre Zahlen nicht sagen (Branch `grenzen-auf-der-seite`)
+
+Die Startseite zeigt eine Rate je 1'000 Einwohner und stellt zwei Städte
+nebeneinander — die einladendste Zahl des Projekts, falsch gelesen zu werden.
+Was sie **nicht** hergibt, stand bis heute nirgends darauf. FR-33 verlangt
+genau das, und zwar auf der Seite und nicht in einem Dokument daneben.
+
+Der Abschnitt „Was diese Zahlen nicht sagen" steht jetzt **unmittelbar hinter
+dem Städtevergleich** und nennt drei Grenzen:
+
+- **Erfassung ist nicht Kriminalität.** Beide Quellen sind Verwaltungsdaten
+  einer Polizeibehörde. Unterschiedliches Anzeigeverhalten, unterschiedliche
+  Polizeipräsenz und unterschiedliche Erfassungsregeln sehen in derselben
+  Tabelle aus wie unterschiedliche Kriminalität — bei zwei Städten mit zwei
+  Behörden und zwei Codesystemen ist das der Normalfall, nicht die Ausnahme.
+- **Tatort ist nicht Wohnort.** Der Nenner der Rate sind Einwohner, der
+  Zähler alle Anwesenden. Ein Geschäftsviertel bekommt deshalb eine hohe
+  Rate, ohne dass dort mehr passiert als zu erwarten wäre.
+- **Ökologischer Fehlschluss.** Die Zahlen gelten für Flächen, nicht für
+  Menschen.
+
+**Die Zahlen waren bewacht, ihre Lesart nicht** — und eine bewachte Zahl,
+die falsch gelesen wird, ist nicht besser als eine falsche. Vier Wächter
+halten das jetzt: dass alle drei Grenzen dastehen, dass sie **zusammen** in
+einem Abschnitt stehen (drei Sätze an drei Stellen erfüllen den Buchstaben
+und nicht den Zweck), dass sie dem Städtevergleich *unmittelbar* folgen und
+nicht im Fuss landen, und dass ihre Titel **dieselben** sind wie in
+`ln2_konzept.md` 11. Der letzte ist der wichtigste: Dieselbe Aussage an zwei
+Stellen veraltet sonst an der unbewachten — am 11.10.2026 auf einmal
+achtfach. Geprüft wird nur eine Richtung; eine Limitation entsteht im
+Konzept, nicht auf der Seite. Fünf Mutationsproben in einer Kopie, vier rot,
+die Gegenprobe (Überschrift umbenannt) grün: Wie der Abschnitt heisst, bleibt
+frei.
+
+**Stand der Anforderungen:** 36 erfüllt, 16 teilweise, 11 offen, 2
+zurückgestellt. Von den elf trägt Artan vier, Welle 8 vier, Christian **eine**
+— FR-17, und die wartet auf die Entscheidung über den Benachrichtigungskanal.
+
+**Zahlen.** 2'228 → **2'232 Tests**, Standardlauf 2'117 → **2'121**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'045 von
+2'121**, 76 übersprungen, grün.
 
 ---
 
