@@ -1162,3 +1162,96 @@ def test_ein_vollstaendiges_release_wird_dabei_nicht_angefasst(tmp_path):
 
     assert f"{ganz}/release.json" in fake.objekte, \
         "das vollstaendige Release wurde mitgeloescht"
+
+
+# --------------------------------------------------------------------------
+# Alte Fassungen (gefunden am 18.10.2026 auf srv01)
+# --------------------------------------------------------------------------
+
+
+def test_ein_loeschen_gibt_in_einem_versionierten_eimer_keinen_platz_frei(tmp_path):
+    """Die Tatsache, auf der alles andere hier beruht.
+
+    Der Eimer ``urban-crime`` hat Versionierung eingeschaltet. ``delete``
+    setzt dort eine Markierung; die Fassung darunter bleibt und belegt
+    weiter Platz. Sichtbar war das in nichts: ``list`` nennt nur die
+    aktuelle Fassung, also meldete jedes Werkzeug von uns den Platz als
+    frei, und die naechtliche Sicherung nach Backblaze trug ihn weiter.
+    Erst 3,91 GiB und ein vollgelaufenes Backup haben es gezeigt.
+    """
+    _, fake = ablage(tmp_path / "data")
+    fake.put("silver/dataset=x/part.parquet", b"0123456789")
+    fake.delete("silver/dataset=x/part.parquet")
+
+    assert fake.list("silver/") == [], "fuer list ist es weg"
+    uebrig = fake.fassungen("")
+    assert len(uebrig) == 2, f"erwartet Fassung + Markierung, da sind {uebrig}"
+    assert sum(f.size for f in uebrig) == 10, "die Bytes liegen noch da"
+    assert [f.markierung for f in uebrig] == [False, True]
+
+
+def test_der_bericht_nennt_die_alten_fassungen_je_schicht(tmp_path):
+    hier, fake = ablage(tmp_path / "data")
+    for i in range(3):
+        fake.put("gold/dataset=fact/part.parquet", bytes(100 * (i + 1)))
+    fake.put("silver/dataset=y/part.parquet", b"x" * 50)
+    fake.delete("silver/dataset=y/part.parquet")
+
+    stand = {s.schicht: s for s in au.alte_fassungen(hier)}
+    assert set(stand) == {"gold", "silver"}
+    # gold: zwei ueberschriebene Fassungen (100 und 200 Byte), die dritte ist
+    # aktuell und zaehlt nicht.
+    assert (stand["gold"].objekte, stand["gold"].bytes) == (2, 300)
+    assert stand["gold"].markierungen == 0
+    # silver: eine Fassung unter einer Markierung.
+    assert (stand["silver"].objekte, stand["silver"].bytes) == (1, 50)
+    assert stand["silver"].markierungen == 1
+
+
+def test_der_bericht_laeuft_auch_ohne_loeschen(tmp_path, capsys):
+    """Zeigen ist der Sinn des Moduls, und genau das fehlte.
+
+    Dieses Modul **behauptet**, zu zeigen, was Platz belegt. Fuer 60 % des
+    Eimers tat es das nicht. Ein Bericht, der erst auf einen Schalter hin
+    hinsieht, haette denselben Fehler in neuer Form.
+    """
+    hier, fake = ablage(tmp_path / "data")
+    fake.put("bronze/city=chicago/a.parquet", b"y" * 2048)
+    fake.put("bronze/city=chicago/a.parquet", b"z" * 2048)
+
+    au.zeige_fassungen(au.alte_fassungen(hier))
+    ausgabe = capsys.readouterr().out
+    assert "alte Fassungen" in ausgabe
+    assert "bronze" in ausgabe
+    assert "Markierung" in ausgabe
+
+
+def test_geloescht_wird_nur_mit_auch_fern_und_nie_die_aktuelle_fassung(tmp_path):
+    """Zwei Zusagen in einem Test, weil sie zusammen die Regel sind."""
+    hier, fake = ablage(tmp_path / "data")
+    fake.put("gold/dataset=fact/part.parquet", b"alt")
+    fake.put("gold/dataset=fact/part.parquet", b"neu")
+
+    assert au.loesche_fassungen(hier, auch_fern=False) == (0, 0), \
+        "ohne --auch-fern wird oben nichts angefasst"
+    assert len(fake.fassungen("")) == 2
+
+    anzahl, frei = au.loesche_fassungen(hier, auch_fern=True)
+    assert (anzahl, frei) == (1, 3), f"erwartet eine Fassung mit 3 Byte, war {(anzahl, frei)}"
+    uebrig = fake.fassungen("")
+    assert len(uebrig) == 1 and uebrig[0].aktuell
+    assert fake.get("gold/dataset=fact/part.parquet") == b"neu", \
+        "die aktuelle Fassung muss unberuehrt bleiben"
+
+
+def test_ohne_s3_sagt_der_bericht_nichts_statt_zu_scheitern(tmp_path):
+    """``STORAGE_BACKEND=local`` ist die Vorgabe und die Lage jedes Tests.
+
+    ``storage.client`` wirft dort. Ein Bericht, der deshalb abbricht, haette
+    ``aufraeumen`` im lokalen Modus unbenutzbar gemacht - und das ist der
+    Modus, in dem es am haeufigsten laeuft.
+    """
+    lokal = Storage(Config(backend="local", local_root=tmp_path / "data"))
+    set_storage(lokal)
+    assert au.alte_fassungen(lokal) == []
+    assert au.loesche_fassungen(lokal, auch_fern=True) == (0, 0)

@@ -115,6 +115,29 @@ class Objekt(NamedTuple):
     etag: str
 
 
+class Fassung(NamedTuple):
+    """Eine Objektfassung in einem versionierten Eimer.
+
+    **Warum es das braucht.** Der Eimer ``urban-crime`` auf `srv01` hat
+    Versionierung eingeschaltet, und das aendert, was ein Loeschen bedeutet:
+    Es setzt eine Markierung, die Bytes bleiben. Am 18.10.2026 gemessen -
+    1'551 aktuelle Objekte mit 2,60 GiB, daneben **3'863 alte Fassungen mit
+    3,91 GiB** und 2'381 Loeschmarkierungen. Sechzig Prozent des Eimers waren
+    Reste, die jedes Werkzeug von uns fuer geloescht hielt, und sie gingen
+    jede Nacht in die Serversicherung.
+
+    ``markierung`` unterscheidet die beiden Sorten: eine Loeschmarkierung
+    traegt keine Bytes und ist doch der Grund, warum die Fassung darunter
+    nicht mehr auftaucht.
+    """
+
+    key: str
+    version: str
+    size: int
+    aktuell: bool
+    markierung: bool
+
+
 class S3Client(Protocol):
     """Das Wenige, das die Ablage von S3 braucht."""
 
@@ -123,6 +146,8 @@ class S3Client(Protocol):
     def put(self, key: str, daten: bytes) -> None: ...
     def list(self, prefix: str) -> list[Objekt]: ...
     def delete(self, key: str) -> None: ...
+    def fassungen(self, prefix: str) -> list[Fassung]: ...
+    def entferne_fassung(self, key: str, version: str) -> None: ...
 
 
 # Vor dem ersten Nachpublizieren antwortete SeaweedFS auf ein HEAD einmal mit
@@ -264,9 +289,43 @@ class Boto3Client:
         # mit 404 - loeschen ist damit wiederholbar. Das traegt
         # ``Storage.entferne_oben``: Ein Abbruch mitten im Praefix laesst sich
         # durch einen zweiten Lauf zu Ende bringen.
+        #
+        # **In einem versionierten Eimer ist das kein Freigeben.** Es setzt
+        # eine Loeschmarkierung; die Fassung darunter bleibt und belegt
+        # weiter Platz. Wer Platz will, braucht ``entferne_fassung``.
         self._mit_wiederholung(
             f"DELETE {key}",
             lambda: self._client.delete_object(Bucket=self.bucket, Key=key))
+
+    def fassungen(self, prefix: str) -> list[Fassung]:
+        """Jede Fassung unter ``prefix``, alte und Markierungen inbegriffen.
+
+        ``list_object_versions`` statt ``list_objects_v2``: Das zweite nennt
+        nur die jeweils aktuelle Fassung, und genau deshalb war der Rest
+        unsichtbar.
+        """
+        def alle() -> list[Fassung]:
+            gefunden: list[Fassung] = []
+            paginator = self._client.get_paginator("list_object_versions")
+            for seite in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
+                for e in seite.get("Versions", []):
+                    gefunden.append(Fassung(
+                        e["Key"], str(e.get("VersionId") or ""),
+                        int(e.get("Size") or 0), bool(e.get("IsLatest")), False))
+                for e in seite.get("DeleteMarkers", []):
+                    gefunden.append(Fassung(
+                        e["Key"], str(e.get("VersionId") or ""),
+                        0, bool(e.get("IsLatest")), True))
+            return gefunden
+
+        return self._mit_wiederholung(f"VERSIONS {prefix}", alle)
+
+    def entferne_fassung(self, key: str, version: str) -> None:
+        """Eine einzelne Fassung endgueltig - das Einzige, was Platz freigibt."""
+        self._mit_wiederholung(
+            f"DELETE {key}?{version}",
+            lambda: self._client.delete_object(
+                Bucket=self.bucket, Key=key, VersionId=version))
 
 
 class FakeS3Client:
@@ -279,11 +338,27 @@ class FakeS3Client:
     ``list`` je Praefix stellt und kein ``HEAD`` je Datei.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, versioniert: bool = True) -> None:
         self.objekte: dict[str, bytes] = {}
         self.uploads: list[str] = []
         self.geloescht: list[str] = []
         self.anfragen: list[str] = []
+        # **Versioniert wie das Echte, und zwar vorgabemaessig.** Der Eimer
+        # auf `srv01` hat Versionierung an; ein Doppel ohne sie zeigte ein
+        # Loeschen als Freigeben, und genau dieser Unterschied hat 3,91 GiB
+        # unsichtbar liegen lassen. ``versioniert=False`` gibt es fuer Tests,
+        # die den unversionierten Fall ausdruecklich meinen.
+        self.versioniert = versioniert
+        #: Je Schluessel die Geschichte, aelteste zuerst. ``None`` ist eine
+        #: Loeschmarkierung.
+        self.geschichte: dict[str, list[tuple[str, bytes | None]]] = {}
+        self._zaehler = 0
+
+    def _neue_version(self, key: str, daten: bytes | None) -> None:
+        if not self.versioniert:
+            return
+        self._zaehler += 1
+        self.geschichte.setdefault(key, []).append((f"v{self._zaehler}", daten))
 
     def _objekt(self, key: str) -> Objekt | None:
         """Die Auskunft zu einem Schluessel - dieselbe fuer ``head`` und ``list``.
@@ -321,6 +396,7 @@ class FakeS3Client:
         self.anfragen.append(f"PUT {key}")
         self.objekte[key] = bytes(daten)
         self.uploads.append(key)
+        self._neue_version(key, bytes(daten))
 
     def list(self, prefix: str) -> list[Objekt]:
         # Eine Anfrage, wie bei ``Boto3Client.list`` - kein ``HEAD`` je Eintrag.
@@ -328,10 +404,35 @@ class FakeS3Client:
         return [self._objekt(k) for k in sorted(self.objekte) if k.startswith(prefix)]  # type: ignore[misc]
 
     def delete(self, key: str) -> None:
-        # Wie S3: ein fehlender Schluessel ist kein Fehler.
+        # Wie S3: ein fehlender Schluessel ist kein Fehler. Und wie S3 mit
+        # Versionierung: Es verschwindet aus ``objekte``, die Fassung bleibt
+        # in ``geschichte`` - belegt also weiter Platz.
         self.anfragen.append(f"DELETE {key}")
-        self.objekte.pop(key, None)
+        vorher = self.objekte.pop(key, None)
         self.geloescht.append(key)
+        if vorher is not None:
+            self._neue_version(key, None)
+
+    def fassungen(self, prefix: str) -> list[Fassung]:
+        self.anfragen.append(f"VERSIONS {prefix}")
+        gefunden: list[Fassung] = []
+        for key in sorted(self.geschichte):
+            if not key.startswith(prefix):
+                continue
+            eintraege = self.geschichte[key]
+            for i, (version, daten) in enumerate(eintraege):
+                gefunden.append(Fassung(
+                    key, version, 0 if daten is None else len(daten),
+                    i == len(eintraege) - 1, daten is None))
+        return gefunden
+
+    def entferne_fassung(self, key: str, version: str) -> None:
+        self.anfragen.append(f"DELETE {key}?{version}")
+        rest = [e for e in self.geschichte.get(key, []) if e[0] != version]
+        if rest:
+            self.geschichte[key] = rest
+        else:
+            self.geschichte.pop(key, None)
 
 
 def zeitpunkt(manifest: dict[str, Any]) -> datetime | None:

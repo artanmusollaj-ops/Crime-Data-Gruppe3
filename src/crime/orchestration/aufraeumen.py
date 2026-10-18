@@ -84,6 +84,27 @@ selbst und nichts im Projekt sucht das neueste: Alles geht ueber
 
 Unveraenderlich bleiben Releases dabei: Geloescht wird ein ganzes Release oder
 keines, ein bestehendes wird nie ueberschrieben.
+
+**Alte Fassungen, seit dem 18.10.2026 - und bis dahin die groesste Luecke
+dieses Moduls.** Der Eimer ``urban-crime`` auf `srv01` hat Versionierung
+eingeschaltet. Ein ``delete`` setzt dort eine Loeschmarkierung; die Fassung
+darunter bleibt. Jedes Aufraeumen, das dieses Modul je gemacht hat, hat
+damit **keinen Platz freigegeben** - und weil ``list_objects_v2`` nur die
+aktuelle Fassung nennt, sah es niemand. Gemessen: 1'551 aktuelle Objekte mit
+2,60 GiB, daneben 3'863 alte Fassungen mit 3,91 GiB und 2'381 Markierungen.
+Sechzig Prozent, in einem Modul, dessen Aufgabe es ist, Platz zu zeigen.
+
+Gefunden wurde es von aussen und aus einem fremden Anlass: Die naechtliche
+Serversicherung nach Backblaze lief voll, und seit dem 24.9.2026 gab es kein
+erfolgreiches Backup mehr. Der Filer meldete 6,99 GB, wo S3 2,60 GiB
+zaehlte.
+
+``alte_fassungen`` zaehlt sie jetzt je Schicht, und der Bericht laeuft
+**immer** - auch ohne ``--loeschen``. Entfernt werden sie nur mit
+``--fassungen --auch-fern``: Es ist die einzige Loeschung hier, die sich aus
+keinem Lauf wiederherstellen laesst, denn eine alte Fassung liegt nirgends
+sonst. Die **aktuelle** Fassung bleibt immer - was von ihr entbehrlich ist,
+entscheiden die Regeln darueber.
 """
 
 from __future__ import annotations
@@ -651,6 +672,92 @@ def loesche_halbe(halbe: list[HalbesRelease], storage: Storage, *,
     return weg
 
 
+#: Je Schicht die alten Fassungen - was ein Loeschen in einem versionierten
+#: Eimer eben nicht freigibt.
+class Fassungsstand(NamedTuple):
+    schicht: str
+    objekte: int
+    markierungen: int
+    bytes: int
+
+
+def alte_fassungen(storage: Storage) -> list[Fassungsstand]:
+    """Was oben liegt, obwohl es als geloescht gilt - je Schicht.
+
+    **Der Befund vom 18.10.2026.** Der Eimer ``urban-crime`` auf `srv01` hat
+    Versionierung eingeschaltet. Jedes Aufraeumen, das dieses Modul je
+    gemacht hat, setzte damit nur Loeschmarkierungen: 1'551 aktuelle Objekte
+    mit 2,60 GiB, daneben **3'863 alte Fassungen mit 3,91 GiB** und 2'381
+    Markierungen. Sechzig Prozent des Eimers waren Reste - und dieses Modul,
+    das zeigen soll, was Platz belegt, sah keinen einzigen davon.
+
+    Gefunden wurde es von aussen: Der Filer meldete 6,99 GB, wo
+    ``list_objects_v2`` 2,60 GiB zaehlte. Die Serversicherung nach Backblaze
+    trug die Differenz jede Nacht mit und lief dort voll; seit dem 24.9.2026
+    gab es kein erfolgreiches Backup mehr.
+
+    Gezeigt wird **immer**, auch ohne ``--loeschen`` - der Sinn des Moduls.
+    """
+    if not storage.config.remote:
+        return []
+    je_schicht: dict[str, list[int]] = {}
+    for f in storage.client.fassungen(""):
+        if f.aktuell and not f.markierung:
+            continue
+        # Eine *aktuelle* Loeschmarkierung zaehlt mit: Sie ist der Grund,
+        # warum die Fassung darunter unsichtbar ist, und sie belegt einen
+        # Eintrag im Filer.
+        schicht = f.key.split("/", 1)[0] or "(Wurzel)"
+        eintrag = je_schicht.setdefault(schicht, [0, 0, 0])
+        if f.markierung:
+            eintrag[1] += 1
+        else:
+            eintrag[0] += 1
+            eintrag[2] += f.size
+    stand = [Fassungsstand(s, o, m, b) for s, (o, m, b) in je_schicht.items()]
+    stand.sort(key=lambda x: -x.bytes)
+    return stand
+
+
+def zeige_fassungen(stand: list[Fassungsstand]) -> None:
+    if not stand:
+        return
+    print("\nAlte Fassungen oben (versionierter Eimer)")
+    for s in stand:
+        print(f"  {s.schicht:<20} {s.objekte:>5} alte Fassungen "
+              f"{s.bytes / 1e6:>8.1f} MB  {s.markierungen:>5} Markierungen")
+    print(f"\n{sum(s.objekte for s in stand)} alte Fassungen, "
+          f"{sum(s.bytes for s in stand) / 1e6:.1f} MB, "
+          f"{sum(s.markierungen for s in stand)} Loeschmarkierungen. "
+          f"**Ein Loeschen hat sie nie freigegeben** - in einem versionierten "
+          f"Eimer setzt es eine Markierung. Sie zaehlen in jeder Sicherung "
+          f"des Datentraegers mit.")
+
+
+def loesche_fassungen(storage: Storage, *, auch_fern: bool = False) -> tuple[int, int]:
+    """Alte Fassungen und Markierungen endgueltig weg. Gibt (Objekte, Bytes).
+
+    **Nur mit ``auch_fern``**, wie bei Releases: Das ist der gemeinsame
+    Speicher, und es ist die einzige Loeschung in diesem Modul, die sich
+    nicht aus einem Lauf wiederherstellen laesst - eine alte Fassung ist
+    nirgends sonst. Was weggeht, ist dennoch definiert: **nie die aktuelle
+    Fassung**. Was aktuell ist, bleibt, auch wenn es entbehrlich waere; das
+    entscheidet die Release- und Laufregel und nicht diese Funktion.
+    """
+    if not (auch_fern and storage.config.remote):
+        return (0, 0)
+    anzahl = bytes_frei = 0
+    for f in storage.client.fassungen(""):
+        if f.aktuell and not f.markierung:
+            continue
+        storage.client.entferne_fassung(f.key, f.version)
+        anzahl += 1
+        bytes_frei += f.size
+    LOG.info("alte Fassungen entfernt: %d Objekte, %.1f MB",
+             anzahl, bytes_frei / 1e6)
+    return (anzahl, bytes_frei)
+
+
 def aktuelles_release(storage: Storage) -> str | None:
     """Die Kennung aus ``releases/AKTUELL.json``, oder None, wenn er fehlt."""
     zeiger = release.aktuell(storage)
@@ -857,6 +964,12 @@ def arguments() -> argparse.Namespace:
                         "SeaweedFS loeschen. Wirkt nur zusammen mit "
                         "--loeschen. Im s3-Modus ist das der einzige Weg: "
                         "Lokal liegt dort nichts")
+    p.add_argument("--fassungen", action="store_true",
+                   help="ausserdem die alten Fassungen und Loeschmarkierungen "
+                        "endgueltig entfernen - das Einzige, was in einem "
+                        "versionierten Eimer wirklich Platz freigibt. "
+                        "Braucht --loeschen und --auch-fern, und ist nicht "
+                        "rueckholbar: eine alte Fassung liegt nirgends sonst")
     p.add_argument("--pinnen", metavar="GRUND",
                    help="den Stand, auf dem das gebaute Gold ruht, ins Register "
                         "aufnehmen - er ueberlebt danach jedes Aufraeumen")
@@ -893,6 +1006,8 @@ def main() -> int:
     rel_entbehrlich = [e for e in rel_entscheide if not e.bleibt]
     halbe = halbe_releases(ablage)
     zeige_halbe(halbe)
+    fassungen = alte_fassungen(ablage)
+    zeige_fassungen(fassungen)
 
     if args.auch_fern and not args.loeschen:
         print("\n--auch-fern wirkt nur mit --loeschen. Trockenlauf: Auf "
@@ -902,6 +1017,10 @@ def main() -> int:
             print("\nNichts geloescht. Mit --loeschen gehen die entbehrlichen "
                   "Laeufe und Releases weg - Releases nur lokal, erst mit "
                   "--auch-fern auch auf SeaweedFS. Halbe Releases ebenso.")
+        if fassungen:
+            print("\nDie alten Fassungen gehen mit --fassungen --auch-fern "
+                  "weg, und nur damit: Sie sind die einzige Loeschung hier, "
+                  "die sich aus keinem Lauf wiederherstellen laesst.")
         return 0
     # Vor dem ersten Loeschen, nicht danach: ``storage.client`` wirft unter
     # STORAGE_BACKEND=local, und das ist die Vorgabe. Ein Abbruch mitten in
@@ -920,6 +1039,10 @@ def main() -> int:
         print(f"{len(halbe)} halbe(s) Release geraeumt, "
               f"{sum(h.bytes for h in halbe) / 1e6:.1f} MB frei "
               f"({len(weg)} Pfade/Objekte).")
+    if args.fassungen and fassungen:
+        anzahl, frei = loesche_fassungen(ablage, auch_fern=args.auch_fern)
+        print(f"{anzahl} alte Fassungen und Markierungen entfernt, "
+              f"{frei / 1e6:.1f} MB frei - und diesmal wirklich frei.")
     if rel_entbehrlich:
         geraeumt = loesche_releases(rel_entscheide, ablage, auch_fern=args.auch_fern)
         print(f"{len(geraeumt.lokal)} Release(s) lokal geloescht, "

@@ -519,6 +519,43 @@ Solange diese Probe nicht einmal gelaufen ist, bleibt FR-17 **teilweise**:
 Die Regeln stehen und sind bewacht, der Kanal existiert — aber dass eine
 Nachricht ankommt, hat für *unsere* Alarme niemand gesehen.
 
+### Der Eimer ist versioniert, und das hat 3,91 GiB gekostet
+
+**Am 18.10.2026 gefunden, aus einem fremden Anlass.** Die nächtliche
+Serversicherung von `srv01` nach Backblaze lief voll; der letzte erfolgreiche
+Lauf war der **24.9.2026**. Gesucht wurde die Ursache dort, gefunden wurde
+sie hier.
+
+Der Eimer `urban-crime` hat **Versionierung eingeschaltet**. Ein `delete`
+setzt damit eine Löschmarkierung — die Fassung darunter bleibt liegen. Jedes
+Aufräumen, das `orchestration.aufraeumen` je gemacht hat, hat deshalb
+**keinen Platz freigegeben**. Sichtbar war das in nichts: `list_objects_v2`
+nennt nur die jeweils aktuelle Fassung, also meldeten alle unsere Werkzeuge
+den Platz als frei.
+
+| im Eimer `urban-crime` | Objekte | Grösse |
+| --- | ---: | ---: |
+| aktuelle Fassungen | 1'551 | 2,60 GiB |
+| **alte Fassungen** | **3'863** | **3,91 GiB** |
+| Löschmarkierungen | 2'381 | — |
+
+Aufgefallen ist es an einer Differenz: Der SeaweedFS-Filer meldete für den
+Eimer **6,99 GB**, die S3-Auflistung **2,60 GiB**. Dazwischen lagen 41
+Release-Verzeichnisse, die als gelöscht galten und deren
+`release.json.versions` noch dalag.
+
+`orchestration.aufraeumen` zählt sie seit dem 18.10.2026 je Schicht und
+zeigt sie **immer** — auch ohne `--loeschen`, denn Zeigen ist die Aufgabe des
+Moduls. Entfernt werden sie nur mit `--fassungen --auch-fern`: Es ist die
+einzige Löschung dort, die sich aus keinem Lauf wiederherstellen lässt, weil
+eine alte Fassung nirgends sonst liegt. Die aktuelle Fassung bleibt immer.
+
+**Die Lehre ist nicht die Versionierung, sondern die Differenz.** Ein
+Werkzeug, das den belegten Platz über dieselbe Schnittstelle misst, über die
+es löscht, kann einen Rest nicht sehen, den diese Schnittstelle verbirgt.
+Gegengeprüft wurde hier über den Filer — eine zweite, unabhängige Sicht auf
+denselben Speicher.
+
 Ein Release entsteht nur nach einem **vollständigen** grünen Lauf bis
 einschliesslich Serving — ein halber Stand bekommt keine Kennung. Scheitert
 das Publizieren, ist der Lauf gescheitert.

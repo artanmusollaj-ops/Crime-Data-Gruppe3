@@ -265,10 +265,18 @@ def test_die_referenz_zeigt_keinen_fremden_quelltext(abgelegt):
     Geprueft wird der Effekt, nicht die Ursache: Steht irgendwo Quelltext, den
     wir nicht geschrieben haben, faellt der Test.
     """
-    verraeter = ("_no_init_or_replace_init", "S3Client.__init__")
+    # **Mit Wortgrenze, nicht als Teilzeichenkette.** ``FakeS3Client`` ist
+    # unser Code, und sein ``__init__`` erscheint in der Referenz als
+    # ``FakeS3Client.__init__`` - darin steckt ``S3Client.__init__``. Solange
+    # das Doppel einen parameterlosen Konstruktor hatte, zeigte pdoc ihn gar
+    # nicht und die Nadel traf zufaellig nichts; am 18.10.2026 bekam er einen
+    # Parameter, und der Waechter meldete eigenen Code als fremden. Ein
+    # Waechter, der Richtiges meldet, wird abgeschaltet.
+    verraeter = (r"_no_init_or_replace_init", r"(?<![\w.])S3Client\.__init__")
     gefunden = {
         str(pfad.relative_to(abgelegt).as_posix()): [
-            v for v in verraeter if v in pfad.read_text(encoding="utf-8")
+            v for v in verraeter
+            if re.search(v, pfad.read_text(encoding="utf-8"))
         ]
         for pfad in abgelegt.rglob("*.html")
     }
