@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'250** |
+| Tests | **2'255** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,70 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 18.10.2026 · Ein Löschen, das nie etwas freigegeben hat (Branch `alte-fassungen-sind-sichtbar`)
+
+Christian meldete: *„der speicher bei backblaze ist voll"*. Die Ursache liegt
+bei uns, und sie ist drei Wochen alt.
+
+**Der Eimer `urban-crime` hat Versionierung eingeschaltet.** Ein `delete`
+setzt dort eine Löschmarkierung — die Fassung darunter bleibt liegen. Jedes
+Aufräumen, das `orchestration.aufraeumen` je gemacht hat, hat damit **keinen
+Platz freigegeben**. Und sichtbar war das in nichts: `list_objects_v2` nennt
+nur die jeweils aktuelle Fassung, also meldeten alle unsere Werkzeuge den
+Platz als frei.
+
+| im Eimer | Objekte | Grösse |
+| --- | ---: | ---: |
+| aktuelle Fassungen | 1'551 | 2,60 GiB |
+| **alte Fassungen** | **3'863** | **3,91 GiB** |
+| Löschmarkierungen | 2'381 | — |
+
+**Sechzig Prozent, in einem Modul, dessen Aufgabe es ist, Platz zu zeigen.**
+
+**Wie es auffiel — und das ist der Teil, der sich lohnt.** Nicht durch einen
+Test und nicht durch unsere Werkzeuge, sondern durch eine **Differenz
+zwischen zwei unabhängigen Sichten**: Der SeaweedFS-Filer meldete für den
+Eimer 6,99 GB, die S3-Auflistung 2,60 GiB. Ich war auf der Spur von etwas
+anderem (ich hielt die Differenz zuerst für unkompaktierten Müll, dann für
+abgebrochene Mehrteil-Uploads — beides gemessen, beides null) und bin über
+ein `release.json.versions` gestolpert. Ein Werkzeug, das den belegten Platz
+über **dieselbe** Schnittstelle misst, über die es löscht, kann einen Rest
+nicht sehen, den diese Schnittstelle verbirgt.
+
+**Was jetzt da ist.** `storage.backend` kennt `Fassung`, `fassungen()` über
+`list_object_versions` und `entferne_fassung()` — die einzige Operation, die
+wirklich Platz freigibt. `FakeS3Client` **versioniert jetzt vorgabemäss**, wie
+das Echte: Ein Doppel, das ein Löschen als Freigeben zeigt, hat genau diesen
+Fehler drei Wochen gedeckt. `orchestration.aufraeumen` zählt die alten
+Fassungen je Schicht und zeigt sie **immer**, auch ohne `--loeschen`.
+Entfernt werden sie nur mit `--fassungen --auch-fern`: die einzige Löschung
+dort, die sich aus keinem Lauf wiederherstellen lässt. Die aktuelle Fassung
+bleibt immer — vier Mutationsproben, alle rot, darunter eine, die genau das
+bricht.
+
+Auf `srv01` gegengeprüft: Der neue Bericht nennt **3'863 alte Fassungen,
+4'198,6 MB, 2'381 Markierungen** — dieselben Zahlen wie meine unabhängige
+Messung über `boto3`.
+
+**Ein zweiter Befund als Nebenwirkung.** `FakeS3Client.__init__` bekam einen
+Parameter, pdoc zeigt es dadurch in der Referenz — und der Wächter über
+fremden Quelltext suchte die Zeichenkette `S3Client.__init__` **ohne
+Wortgrenze**. Er meldete eigenen Code als fremden. Solange das Doppel einen
+parameterlosen Konstruktor hatte, traf die Nadel zufällig nichts. Jetzt steht
+eine Wortgrenze davor, mit zwei Proben.
+
+**Was offen bleibt und nicht mir gehört:** das endgültige Entfernen der 3,91
+GiB (eine Entscheidung über fremde Daten im gemeinsamen Speicher), das
+Herausnehmen von `urbancrime_elasticsearch-daten` aus der Sicherungspolicy
+(810 MB je Nacht für einen abgeleiteten Index) und das `restic forget
+--prune` gegen Backblaze. Alle drei stehen in `docs/storage-architektur.md`.
+
+**Zahlen.** 2'250 → **2'255 Tests**, Standardlauf 2'139 → **2'144**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'068 von
+2'144**, 76 übersprungen, grün.
 
 ---
 
