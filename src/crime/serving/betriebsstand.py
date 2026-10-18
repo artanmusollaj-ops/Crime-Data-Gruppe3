@@ -59,6 +59,10 @@ from storage import for_root
 #: Das Protokoll, das ``orchestration.run_all`` am Ende schreibt.
 PROTOKOLL = "pipeline_run.json"
 
+#: Der Driftbericht, falls einer liegt. FR-30 nennt ihn ausdruecklich - *wo
+#: die Drift steht* - und ``orchestration.drift`` schreibt ihn mit ``--json``.
+DRIFT = "drift.json"
+
 #: Wohin im Abbild geschrieben wird. Derselbe Datentraeger, den der Dienst
 #: ``start`` schreibgeschuetzt ausliefert (FR-31) - der eine Ort, an dem
 #: dieses Vorhaben schon etwas veroeffentlicht.
@@ -129,8 +133,28 @@ def protokoll_lesen(ablage: Any) -> dict[str, Any] | None:
         return None
 
 
+def drift_lesen(ablage: Any) -> dict[str, Any] | None:
+    """Der Driftbericht - oder ``None``, wenn keiner liegt.
+
+    Derselbe Weg wie beim Protokoll und aus demselben Grund: Beides ist
+    rechnerlokal und wird nie publiziert. Ein fehlender Bericht ist kein
+    Fehler - bis zum 18.10.2026 lief ``orchestration.drift`` nur in GitHub
+    Actions, auf `srv01` gab es ihn nicht.
+    """
+    datei = ablage.local_path(DRIFT)
+    # Lokal mit Absicht: ``drift.json`` entsteht neben dem Laufprotokoll und
+    # gilt fuer *diese* Maschine. Oben liegt kein Lauf, dessen Drift das waere.
+    if not datei.is_file():
+        return None
+    try:
+        return json.loads(datei.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
 def metriken(protokoll: dict[str, Any] | None,
-             jetzt: float | None = None) -> str:
+             jetzt: float | None = None,
+             drift: dict[str, Any] | None = None) -> str:
     """Der Betriebsblick im Textformat von Prometheus.
 
     Die Reihenfolge ist fest und die Hilfetexte stehen dabei: Eine
@@ -238,7 +262,66 @@ def metriken(protokoll: dict[str, Any] | None,
             _zeile("release_dateien", 0),
         ]
 
+    aus += _drift_zeilen(drift)
     return "\n".join(aus) + "\n"
+
+
+def _drift_zeilen(drift: dict[str, Any] | None) -> list[str]:
+    """Wie weit die dokumentierten Zahlen vom gebauten Stand weg sind.
+
+    **Warum das hierher gehoert.** FR-30 nennt vier Dinge, die der Blick
+    zeigen soll, und eines davon ist *wo die Drift steht*. Sie wurde
+    gerechnet (``orchestration.drift``) und nur in die Zusammenfassung eines
+    GitHub-Laufs geschrieben - also dorthin, wo sie nach einer Woche niemand
+    mehr ansieht.
+
+    **Keine Alarmregel darueber.** Die Quellen bewegen sich woechentlich;
+    eine Drift ueber der Toleranz ist eine Aufgabe fuer die Dokumente und
+    kein Vorfall im Betrieb. ``orchestration.drift`` sagt es selbst: *ein
+    Alarm, der immer klingelt, ist keiner.* Gezeigt wird sie, geweckt wird
+    niemand.
+    """
+    aus = [
+        "# HELP " + VORSILBE + "_drift_bekannt Ob ein Driftbericht vorliegt.",
+        "# TYPE " + VORSILBE + "_drift_bekannt gauge",
+    ]
+    if not drift:
+        # Dieselbe Null wie bei ``lauf_bekannt``: Schweigen saehe aus, als
+        # waere die Drift null, und das ist etwas anderes als "nicht gemessen".
+        aus.append(_zeile("drift_bekannt", 0))
+        return aus
+    aus.append(_zeile("drift_bekannt", 1))
+    aus += [
+        "# HELP " + VORSILBE + "_drift_innerhalb_toleranz "
+        "1 wenn jede Groesse innerhalb der Toleranz liegt.",
+        "# TYPE " + VORSILBE + "_drift_innerhalb_toleranz gauge",
+        _zeile("drift_innerhalb_toleranz",
+               1 if drift.get("within_tolerance") else 0),
+    ]
+    masse = drift.get("measures") or {}
+    # **Eine Groesse ohne Messung kommt gar nicht vor.** ``drift`` schreibt
+    # dort ``None`` ("nicht gebaut"), und jede Zahl waere eine Auskunft, die
+    # sie nicht verdient - auch die 0 bei ``drift_ueberschritten``, denn die
+    # hiesse "reisst die Toleranz nicht". Ein Test hat genau das gefunden.
+    masse = {g: m for g, m in masse.items() if (m or {}).get("drift") is not None}
+    if not masse:
+        return aus
+    for name, hilfe in (
+        ("drift", "Abweichung der dokumentierten Zahl vom gebauten Stand."),
+        ("drift_prozent", "Dieselbe Abweichung in Prozent."),
+        ("drift_ueberschritten", "1 wenn diese Groesse die Toleranz reisst."),
+    ):
+        aus += ["# HELP " + VORSILBE + f"_{name} {hilfe}",
+                "# TYPE " + VORSILBE + f"_{name} gauge"]
+        for groesse in sorted(masse):
+            m = masse[groesse] or {}
+            wert = {"drift": m.get("drift"),
+                    "drift_prozent": m.get("drift_percent"),
+                    "drift_ueberschritten": 1 if m.get("exceeded") else 0}[name]
+            if wert is None:
+                continue
+            aus.append(_zeile(name, round(float(wert), 4), groesse=groesse))
+    return aus
 
 
 def kommandozeile() -> argparse.ArgumentParser:
@@ -256,8 +339,9 @@ def kommandozeile() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = kommandozeile().parse_args(argv)
-    protokoll = protokoll_lesen(for_root(args.data_root))
-    text = metriken(protokoll)
+    ablage = for_root(args.data_root)
+    protokoll = protokoll_lesen(ablage)
+    text = metriken(protokoll, drift=drift_lesen(ablage))
     if args.zeigen:
         print(text, end="")
         return 0

@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'291** |
+| Tests | **2'305** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,59 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 18.10.2026 · Der Blick zeigt die Drift (Branch `der-blick-zeigt-die-drift`)
+
+FR-30 nennt vier Dinge, und drei waren da. Das vierte, **die Drift**, wurde
+seit Wochen gerechnet — und nur in die Zusammenfassung eines
+GitHub-Laufs geschrieben, also dorthin, wo sie nach einer Woche niemand mehr
+ansieht. Auf `srv01` gab es sie gar nicht: `orchestration.drift` lief dort
+nie.
+
+Jetzt läuft sie im Datenlauf mit, **nach dem Release** (sie hält die
+dokumentierten Zahlen gegen das Gebaute — vorher gemessen wäre es der Stand
+von letzter Woche) und mit `--nur-melden`. Das ist kein Nachlassen: Die
+Quellen bewegen sich wöchentlich, eine Drift über der Toleranz ist eine
+Aufgabe für die Dokumente und kein Vorfall im Betrieb. `orchestration.drift`
+sagt es im eigenen Docstring — *ein Alarm, der immer klingelt, ist keiner* —
+und aus demselben Grund gibt es **keine** Alarmregel darüber. Gezeigt wird
+sie, geweckt wird niemand.
+
+`serving.betriebsstand` gibt sie als fünf Messwerte aus: `drift_bekannt`,
+`drift_innerhalb_toleranz` und je Grösse `drift`, `drift_prozent`,
+`drift_ueberschritten`. Zwei Entscheidungen darin:
+
+* **Ohne Bericht steht `drift_bekannt 0`** — dieselbe Null wie bei
+  `lauf_bekannt`. Schweigen sähe aus, als wäre die Drift null, und das ist
+  etwas anderes als *nicht gemessen*.
+* **Eine Grösse ohne Messung kommt gar nicht vor.** `drift` schreibt dort
+  `None` („nicht gebaut"), und jede Zahl wäre eine Auskunft, die sie nicht
+  verdient — auch die 0 bei `drift_ueberschritten`, denn die hiesse „reisst
+  die Toleranz nicht". Ein Test hat genau das gefunden: Mein erster Entwurf
+  liess die Null stehen.
+
+**Und das Brett.** `docker/grafana-brett/urbancrime.json`, 21 Panels, in
+diesem Repository versioniert. Ein Brett ist die unangenehmste Sorte
+Artefakt: **Ein Panel mit falschem Metriknamen zeigt eine leere Fläche, und
+die liest sich wie „null" oder „gerade nichts passiert" — nicht wie ein
+Fehler.** Grafana sagt dazu nichts. `tests/test_grafana_brett.py` hält
+deshalb jeden Ausdruck gegen einen **echten Lauf** von
+`serving.betriebsstand`, verlangt die Datenquelle ausdrücklich (auf `srv01`
+gibt es zwei) und besteht darauf, dass alle vier Dinge aus FR-30 vorkommen.
+Sechs Mutationsproben, alle rot — darunter die beste: Wenn das **Modul** die
+Drift nicht mehr ausgibt, fällt das Brett auf.
+
+**Offen bleiben zwei Zeilen im fremden Stapel:** die Einhängung des
+Brettverzeichnisses und ein zweiter Dashboard-Anbieter mit eigenem Ordner.
+Ein Anbieter und kein Eintrag im bestehenden Verzeichnis, aus demselben
+Grund wie bei den Alarmregeln: Ein Datei-Bind-Mount hinge am Inode und
+zeigte nach einem `git pull` für immer die alte Fassung.
+
+**Zahlen.** 2'291 → **2'305 Tests**, Standardlauf 2'180 → **2'194**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'118 von
+2'194**, 76 übersprungen, grün.
 
 ---
 

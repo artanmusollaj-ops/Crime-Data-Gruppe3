@@ -527,6 +527,50 @@ unvollständig. `docker/start-nginx.conf` deklariert deshalb
 nicht als `fallback_scrape_protocol` im Scrape, denn jeder weitere
 Verbraucher dieses Endpunkts bekäme sonst weiter den falschen Typ.
 
+### Das Brett in Grafana — zwei weitere Zeilen
+
+FR-30 verlangt den Blick **in Grafana**: *„ob die Strecke läuft, wie alt jede
+Quelle ist, wo die Drift steht, wie voll die Platte ist."* Das Brett liegt
+versioniert in diesem Repository (`docker/grafana-brett/urbancrime.json`, 21
+Panels), weil es über *unsere* Messwerte redet — **ein Panel mit falschem
+Namen zeigt eine leere Fläche, und die liest sich wie „null" und nicht wie
+ein Fehler.** `tests/test_grafana_brett.py` hält jeden Ausdruck gegen einen
+echten Lauf von `serving.betriebsstand` und prüft, dass alle vier Dinge aus
+FR-30 vorkommen.
+
+**1 · Das Verzeichnis einhängen** (`infrastructure/monitoring/compose.yaml`,
+beim Dienst `grafana`):
+
+```yaml
+      - /srv/docker/apps/urbancrime/docker/grafana-brett:/var/lib/grafana/dashboards-urbancrime:ro
+```
+
+**2 · Einen zweiten Anbieter** (`grafana/provisioning/dashboards/urbancrime.yaml`):
+
+```yaml
+apiVersion: 1
+
+providers:
+  - name: urbancrime
+    orgId: 1
+    folder: urbancrime
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 30
+    # Wie beim Anbieter srv01: Was jemand in der Oberflaeche aendert, ist
+    # beim naechsten Einlesen weg. Das Brett kommt aus dem Repository.
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards-urbancrime
+```
+
+Ein eigener Anbieter und kein Eintrag im bestehenden Verzeichnis: So landet
+das Brett in seinem eigenen Ordner, und `git pull` im Vorhaben zieht es mit —
+ein Datei-Bind-Mount hinge am Inode und zeigte für immer die alte Fassung.
+
+Danach `docker compose up -d grafana`; der Anbieter liest alle 30 Sekunden
+neu, ein Neustart ist nur für die Einhängung nötig.
+
 **Die Gegenprobe gehört dazu**, denn ein Meldeweg, den niemand ausgelöst hat,
 ist eine Vermutung. Sie schickt eine echte Telegram-Nachricht:
 

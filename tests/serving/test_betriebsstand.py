@@ -198,3 +198,84 @@ def test_ohne_protokoll_sagt_der_aufruf_es_auch(tmp_path, capsys):
     assert "kein Laufprotokoll" in capsys.readouterr().out, (
         "ein stiller Erfolg bei fehlendem Protokoll ist genau der Fehler, "
         "den dieses Modul behebt")
+
+
+# --------------------------------------------------------------------------
+# Die Drift (FR-30 nennt sie ausdruecklich)
+# --------------------------------------------------------------------------
+
+DRIFTBERICHT = {
+    "fingerprint": "abc123",
+    "tolerance": {"rate_abs": 0.1, "count_percent": 1.0},
+    "within_tolerance": False,
+    "measures": {
+        "gold/fact_offense": {"documented": 1851946, "measured": 1851950,
+                              "drift": 4, "drift_percent": 0.0002,
+                              "exceeded": False},
+        "chicago_rate": {"documented": 94.5, "measured": 94.9,
+                         "drift": 0.4, "drift_percent": 0.42,
+                         "exceeded": True},
+        "silver/crime_offense": {"documented": 1875374, "measured": None,
+                                 "drift": None, "drift_percent": None,
+                                 "exceeded": False},
+    },
+}
+
+
+def test_ohne_driftbericht_steht_dort_eine_null(tmp_path):
+    """Dieselbe Entscheidung wie bei ``lauf_bekannt``.
+
+    Schweigen saehe aus, als waere die Drift null - und das ist etwas
+    anderes als *nicht gemessen*. Bis zum 18.10.2026 lief
+    ``orchestration.drift`` nur in GitHub Actions; auf `srv01` gab es keinen
+    Bericht, und genau dieser Fall muss sich von "alles stimmt"
+    unterscheiden.
+    """
+    text = bs.metriken(protokoll(), jetzt=JETZT, drift=None)
+    assert f"{bs.VORSILBE}_drift_bekannt 0" in text
+    assert f"{bs.VORSILBE}_drift_innerhalb_toleranz" not in text, (
+        "ohne Bericht darf keine Aussage ueber die Toleranz dastehen")
+
+
+def test_der_driftbericht_wird_je_groesse_ausgegeben():
+    text = bs.metriken(protokoll(), jetzt=JETZT, drift=DRIFTBERICHT)
+    assert f"{bs.VORSILBE}_drift_bekannt 1" in text
+    assert f"{bs.VORSILBE}_drift_innerhalb_toleranz 0" in text
+    assert f'{bs.VORSILBE}_drift{{groesse="chicago_rate"}} 0.4' in text
+    assert f'{bs.VORSILBE}_drift_prozent{{groesse="chicago_rate"}} 0.42' in text
+    assert f'{bs.VORSILBE}_drift_ueberschritten{{groesse="chicago_rate"}} 1' in text
+    assert f'{bs.VORSILBE}_drift_ueberschritten{{groesse="gold/fact_offense"}} 0' in text
+
+
+def test_eine_nicht_gebaute_groesse_bekommt_keine_null():
+    """*Nicht gebaut* ist keine Drift von null.
+
+    ``orchestration.drift`` schreibt dort ``None``, und eine 0 waere die
+    falsche Auskunft: Sie hiesse "die dokumentierte Zahl stimmt".
+    """
+    text = bs.metriken(protokoll(), jetzt=JETZT, drift=DRIFTBERICHT)
+    assert 'groesse="silver/crime_offense"' not in text, (
+        "eine Groesse ohne Messung darf nicht als Drift 0 erscheinen")
+
+
+def test_der_bericht_wird_neben_dem_protokoll_gelesen(tmp_path):
+    import json as _json
+
+    import storage
+
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / bs.DRIFT).write_text(_json.dumps(DRIFTBERICHT),
+                                              encoding="utf-8")
+    ablage = storage.for_root(tmp_path / "data")
+    assert bs.drift_lesen(ablage) == DRIFTBERICHT
+    # Und ohne Datei: None, nicht ein leeres Mass.
+    assert bs.drift_lesen(storage.for_root(tmp_path / "leer")) is None
+
+
+def test_ein_kaputter_bericht_bricht_nichts(tmp_path):
+    """Der Betriebsblick ist das Letzte, was bei einem Abbruch noch laeuft."""
+    import storage
+
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / bs.DRIFT).write_text("{kein json", encoding="utf-8")
+    assert bs.drift_lesen(storage.for_root(tmp_path / "data")) is None
