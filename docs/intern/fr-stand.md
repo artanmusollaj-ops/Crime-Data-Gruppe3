@@ -84,7 +84,7 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | FR-18 | Secrets aus der ignorierten `.env` | ● | `.env` des Stapels, ungetrackt; `.dockerignore` schliesst sie aus |
 | FR-19 | — | ▣ | **existiert im PRD nicht.** Die Nummer ist übersprungen; kein Inhalt verloren, aber die Lücke gehört genannt |
 | FR-20 | Ein grüner Lauf muss rückholbar sein | ◐ | der Mechanismus steht (`release holen aktuell --einsetzen`), **als Rückholweg nie erprobt** |
-| FR-30 | Grafana zeigt den Betriebsblick | ◐ | **alle vier Dinge sind da, zwei Zeilen fehlen im fremden Stapel.** `serving.betriebsstand` gibt jetzt auch die **Drift** aus (FR-30 nennt sie; `orchestration.drift` läuft dazu im Datenlauf mit `--nur-melden`), `docker/grafana-brett/urbancrime.json` trägt 21 Panels — Lauf, Stufen, Quellenalter mit beiden Takten, Drift je Grösse, Plattenfüllung aus node-exporter. `tests/test_grafana_brett.py` hält jeden Ausdruck gegen einen echten Lauf des Moduls und besteht darauf, dass alle vier Dinge aus FR-30 vorkommen (sechs Mutationsproben, alle rot). Offen: die Einhängung und ein zweiter Dashboard-Anbieter in `monitoring/compose.yaml`, beschrieben in `docs/storage-architektur.md` |
+| FR-30 | Grafana zeigt den Betriebsblick | ● | **am 18.10.2026 eingespielt und mit Daten gemessen.** Brett „Urban Crime · Betriebsblick" (uid `urbancrime-betriebsblick`, Ordner `urbancrime`), 21 Panels, provisioniert aus `docker/grafana-brett/`. Alle vier Dinge der Anforderung liegen in Prometheus: Lauf (`lauf_erfolgreich`, `stufe_exit`), Quellenalter mit beiden Takten, Drift (elf Grössen, `drift_innerhalb_toleranz 0` — `detroit_rate` reisst die Toleranz), Plattenfüllung aus node-exporter. `tests/test_grafana_brett.py` hält jeden Ausdruck gegen einen echten Lauf von `serving.betriebsstand` |
 
 ## Welle 6 · Präsentation, Abgabe, Skalierbarkeit
 
@@ -134,8 +134,8 @@ stellt."*
 
 | Stand | Anzahl |
 | --- | ---: |
-| ● erfüllt | 37 |
-| ◐ teilweise | 16 |
+| ● erfüllt | 38 |
+| ◐ teilweise | 15 |
 | ○ offen | 10 |
 | ▣ zurückgestellt | 2 |
 | **zusammen** | **65** |
@@ -189,9 +189,9 @@ Einträgen vom 18.10.: Der Endpunkt muss seinen **Typ** nennen (Prometheus 3
 rät nicht mehr), und die Quellen haben **zwei Takte** — eine Schwelle für
 alle sechs hätte im Normalbetrieb Alarm geschlagen.
 
-**Offen bleibt bei FR-30 das, was die Anforderung wörtlich verlangt:** ein
-Grafana-Brett. Die Messwerte liegen bereit; `drift` fehlt darunter noch,
-obwohl FR-30 es nennt.
+**Und FR-30 steht seit demselben Abend auf ●**: Das Brett ist eingespielt,
+und alle vier Dinge der Anforderung kommen mit Daten an — auch die Drift, die
+auf `srv01` vorher nie gemessen wurde und beim ersten Mal gleich etwas fand.
 
 Übrig bleiben damit zehn offene — vier bei Artan, vier in Welle 8, das
 bewusst zurückgestellte FR-23 und das unverteilte FR-43.

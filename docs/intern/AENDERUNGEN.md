@@ -103,6 +103,49 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 18.10.2026 · FR-30 ist im Brett, und die Drift fand gleich etwas (Branch `fr30-ist-im-brett`)
+
+Eingespielt und gemessen: Das Brett **„Urban Crime · Betriebsblick"** liegt in
+Grafana im Ordner `urbancrime` (uid `urbancrime-betriebsblick`), provisioniert
+aus `docker/grafana-brett/` über einen eigenen Anbieter. Das Abbild `ee9b91e`
+ist auf `srv01` eingesetzt, Drift und Betriebsstand liefen einmal von Hand, und
+Prometheus kennt danach **91** Messwerte statt 56.
+
+**FR-30 steht damit auf ●.** Alle vier Dinge der Anforderung kommen mit Daten
+an: ob die Strecke läuft, wie alt jede Quelle ist, wo die Drift steht, wie
+voll die Platte ist.
+
+**Die Drift lief auf `srv01` zum ersten Mal — und fand gleich etwas.**
+
+| Grösse | dokumentiert | auf `srv01` | Drift | Toleranz |
+| --- | ---: | ---: | ---: | :-: |
+| `silver/crime_offense`, Zeilen | 1'875'374 | 1'887'147 | +0,63 % | ok |
+| `gold/fact_offense`, Taten | 1'851'946 | 1'864'086 | +0,66 % | ok |
+| Detroit, Delikte (2024) | 84'987 | 85'188 | +0,24 % | ok |
+| **Detroit, je 1'000 (Tatebene, 2024)** | **133,1** | **133,4** | **+0,3** | **überschritten** |
+| alle übrigen sieben | — | — | ≤ 0,01 % | ok |
+
+Detroit ändert Einträge noch Jahre nach der Tat, und 201 Delikte mehr heben die
+Rate um 0,3 — dreimal die Toleranz von 0,1, in der die Zahl auf einer Folie
+stünde. **Das ist keine Fehlfunktion, sondern genau die Auskunft, für die die
+Drift da ist**, und sie stand bisher nur in der Zusammenfassung eines
+GitHub-Laufs.
+
+**Nachgezogen habe ich nichts.** Die dokumentierten Zahlen gelten für den
+Referenzstand, gegen den die 111 Wächter lokal halten, und die Entscheidung
+vom 4.10. war, Drift festzuhalten statt nachzuziehen. Ob die 133,1 in den
+Abgabedokumenten bleibt oder auf den Serverstand geht, entscheiden Christian
+und Artan — das Brett zeigt die Abweichung jetzt jeden Tag, bis jemand
+entscheidet.
+
+**Stand der Anforderungen:** 38 erfüllt, 15 teilweise, 10 offen, 2
+zurückgestellt.
+
+**Zahlen.** Unverändert **2'305 Tests**, Standardlauf **2'194**;
+Dokumentänderung.
+
+---
+
 ## 18.10.2026 · Der Blick zeigt die Drift (Branch `der-blick-zeigt-die-drift`)
 
 FR-30 nennt vier Dinge, und drei waren da. Das vierte, **die Drift**, wurde
