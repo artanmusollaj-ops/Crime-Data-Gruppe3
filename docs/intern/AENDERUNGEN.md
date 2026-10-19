@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'305** |
+| Tests | **2'311** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,47 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 19.10.2026 · Offene Punkte an einer Stelle (Branch `offene-punkte-an-einer-stelle`)
+
+Christian fragte: *„Haben wir ein Dokument, das die offenen Punkte
+beschreibt?"* Die Antwort war **nein** — es gab drei Orte, und keiner war
+vollständig. Die Anforderungen in `fr-stand.md`; zurückgestellte Befunde in
+`_bmad-output/initiative-ln2/deferred-work.md`, **nicht im Repository**, seit
+dem 15.10. nicht mehr gepflegt und zur Hälfte erledigt; und alles
+Betriebliche verstreut in den Einträgen dieser Datei.
+
+`docs/intern/offene-punkte.md` führt jetzt, was liegen geblieben ist, in drei
+Abschnitten: **Entscheidungen** (3), **Auf dem Server** (4), **Im Code** (6).
+Die Anforderungen bleiben in `fr-stand.md` — ein zweites Register daneben wäre
+die Stelle, an der beide auseinanderlaufen.
+
+**Die 27 Einträge aus `deferred-work.md` einzeln nachgeprüft**, und nicht
+übernommen, was erledigt ist. Vier waren nur am Code zu klären: Die
+Detroit-Abdeckungsquote ist weiter gewichtet (offen, C-5); sechs
+`publish`-Aufrufe haben weiter keine `ordnung` (offen, C-2); die Dokumente
+führen weiter die Tatebene vorn, obwohl die Fallebene beschlossen ist (offen,
+E-2); und der Elasticsearch-Datenträger, der *in* die Sicherung sollte, ist
+am 18.10. bewusst *herausgenommen* worden — **verworfen**, nicht erledigt.
+Erledigtes steht unten im Dokument mit Datum und Ort, statt zu verschwinden.
+
+**Der Wächter** (`tests/test_offene_punkte.py`) hält, dass jeder offene Punkt
+eine eindeutige Kennung, einen Verantwortlichen aus *Christian, Artan, beide*,
+ein Datum und einen Beleg trägt — ein Punkt ohne Verantwortlichen ist ein
+Wunsch. Und er hält die Anforderungszahlen gegen `fr-stand.md`, denn das
+Dokument nennt sie, und abgeschrieben heisst: veraltet dort, wo niemand
+hinsieht. **Bei seinem ersten Lauf hat er genau das gefunden:** Das Dokument
+nannte schon 38 erfüllt, `fr-stand.md` auf diesem Branch noch 37, weil der
+Pull Request, der FR-30 auf erfüllt setzt, noch offen war.
+
+Dazu eine Zeile im Wegweiser und eine im Konzept 11.5; ein Wächter hält beide
+Listen der internen Dokumente gleich.
+
+**Zahlen.** 2'305 → **2'311 Tests**, Standardlauf 2'194 → **2'200**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'124 von
+2'200**, 76 übersprungen, grün.
 
 ---
 
