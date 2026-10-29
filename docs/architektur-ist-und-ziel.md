@@ -99,7 +99,12 @@ sonst kämen Fälle aus jedem Tatjahr —, ausgewählt wird darin nach
 immer mit. Seit dem 18.9.2026 lädt ein Detroit-Lauf so **3'184 statt 88'686
 Zeilen**; der erste Lauf auf einem leeren Rechner bleibt ein Vollschnappschuss.
 
-## A.2 Der Code: zehn Pakete, gerichtete Abhängigkeiten
+## A.2 Der Code: elf Pakete, gerichtete Abhängigkeiten
+
+Seit der Integration vom 26.10.2026 ergänzt `platform_admin` die vorhandenen
+Pipeline-Pakete um Konsole, Review, Jobwarteschlange und kontrollierte
+Release-Bereitstellung. Die Nutzung im Betrieb erfordert die dokumentierte
+Übernahme; die Lieferung ist kein Nachweis eines Deployments auf srv01.
 
 ```text
   Fundament   manifeste, storage          kennt keine Schicht über sich

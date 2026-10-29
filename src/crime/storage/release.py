@@ -254,7 +254,8 @@ Ergaenzung = Callable[[Path, dict[str, Any]], None]
 
 def erstelle(data_root: Path, *, ergaenze: Ergaenzung | None = None,
              pflicht: Iterable[str] = PFLICHT, jahre: Iterable[int] = (),
-             kennung_: str | None = None, jetzt: datetime | None = None) -> Path:
+             kennung_: str | None = None, jetzt: datetime | None = None,
+             activate: bool = True) -> Path:
     """Bildet ein Release lokal - vollstaendig oder gar nicht.
 
     Kopiert Gold und Serving, ruft ``ergaenze(arbeit, kern)`` - dort baut der
@@ -315,7 +316,8 @@ def erstelle(data_root: Path, *, ergaenze: Ergaenzung | None = None,
         shutil.rmtree(arbeit, ignore_errors=True)
         raise
 
-    setze_aktuell(data_root / RELEASES / AKTUELL, manifest)
+    if activate:
+        setze_aktuell(data_root / RELEASES / AKTUELL, manifest)
     LOG.info("Release %s: %d Dateien, %.1f MB -> %s",
              kennung_, len(manifest["files"]), manifest["bytes"] / 1e6, ziel)
     return ziel

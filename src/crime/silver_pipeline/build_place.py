@@ -334,6 +334,8 @@ def build(data_root: Path, vintage: int, states: list[str]) -> Path:
 
 def main() -> int:
     args = arguments()
+    from storage.managed import guard
+    guard(for_root(args.data_root).local_root, allow_worker=True)
     try:
         # Ueber die Ablage und nicht ueber den Pfad: ``publish_table``
         # entfernt im s3-Modus die lokale Arbeitskopie, und dieser

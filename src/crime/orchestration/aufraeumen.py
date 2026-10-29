@@ -979,6 +979,9 @@ def arguments() -> argparse.Namespace:
 
 def main() -> int:
     args = arguments()
+    if args.loeschen or args.pinnen:
+        from storage.managed import guard
+        guard(for_root(args.data_root).local_root)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(levelname)s %(message)s",

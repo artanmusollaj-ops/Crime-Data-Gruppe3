@@ -92,10 +92,10 @@ def test_die_stufenzahl_stimmt(teil_a):
 
 
 def test_die_pakete_stimmen(teil_a):
-    """Zehn, und jedes wird im Bild genannt."""
+    """Elf inklusive der integrierten Konsole; jedes wird genannt."""
     pakete = sorted(p.name for p in QUELLE.iterdir()
                     if p.is_dir() and (p / "__init__.py").is_file())
-    assert len(pakete) == 10 and "zehn Pakete" in teil_a
+    assert len(pakete) == 11 and "elf Pakete" in teil_a
     fehlend = [p for p in pakete if p.replace("_pipeline", "_\npipeline") not in teil_a
                and p not in teil_a]
     assert not fehlend, f"diese Pakete fehlen im Bild: {fehlend}"

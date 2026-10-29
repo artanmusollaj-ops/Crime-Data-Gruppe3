@@ -1,0 +1,11 @@
+# Add to the existing Prometheus configuration; keep its existing targets.
+# Prometheus must reach admin:8765 on the urbancrime network (or an explicit
+# internal network attachment). The token file lives in Prometheus's container.
+scrape_configs:
+  - job_name: urbancrime-console
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['admin:8765']
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/urbancrime_admin_metrics

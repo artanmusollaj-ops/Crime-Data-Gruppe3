@@ -876,6 +876,8 @@ def main(argv: list[str] | None = None) -> int:
     zerleger.add_argument("--trocken", action="store_true",
                           help="nur zeigen, welche Paare gezogen wuerden")
     args = zerleger.parse_args(argv)
+    from storage.managed import guard
+    guard(for_root(args.data_root).local_root, allow_worker=True)
 
     wurzel = for_root(args.data_root).local_root
     bericht = baue(wurzel, trocken=args.trocken)

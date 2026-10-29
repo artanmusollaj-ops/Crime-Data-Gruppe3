@@ -1988,6 +1988,9 @@ def kommandozeile() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = kommandozeile().parse_args(argv)
+    from storage import for_root
+    from storage.managed import guard
+    guard(for_root(args.data_root).local_root, allow_worker=True)
 
     from storage import for_root
 

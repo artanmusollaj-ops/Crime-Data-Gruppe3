@@ -755,6 +755,8 @@ def write_run(
 
 def main() -> int:
     args = arguments()
+    from storage.managed import guard
+    guard(for_root(args.data_root).local_root, allow_worker=True)
     started = datetime.now(timezone.utc)
     token = app_token(args.no_token)
     ablage = for_root(args.data_root)

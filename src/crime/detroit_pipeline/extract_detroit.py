@@ -768,6 +768,8 @@ def main(argv: list[str] | None = None) -> int:
     """Startet einen Full- oder Daily-Bronze-Load als CLI-Job."""
 
     args = parse_args(argv)
+    from storage.managed import guard
+    guard(for_root(args.data_root).local_root, allow_worker=True)
     logging.basicConfig(
         level=getattr(logging, args.log_level),
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",

@@ -387,6 +387,8 @@ def arguments() -> argparse.Namespace:
 
 def main() -> int:
     args = arguments()
+    from storage.managed import guard
+    guard(for_root(args.data_root).local_root, allow_worker=True)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(levelname)s %(message)s",

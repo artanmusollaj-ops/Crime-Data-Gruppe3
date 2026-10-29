@@ -628,6 +628,8 @@ def ingest_state(
 
 def main() -> int:
     args = arguments()
+    from storage.managed import guard
+    guard(for_root(args.data_root).local_root, allow_worker=True)
     started = datetime.now(timezone.utc)
     aus = AUSLIEFERUNGEN[args.auslieferung]
     ablage = for_root(args.data_root)

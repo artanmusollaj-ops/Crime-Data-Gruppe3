@@ -1,0 +1,6 @@
+# Build the integrated pipeline image first from THIS checkout.
+ARG PIPELINE_BASE=urban-crime:integrated
+FROM ${PIPELINE_BASE}
+COPY requirements-admin.lock /app/requirements-admin.lock
+RUN python -m pip install --no-cache-dir -r /app/requirements-admin.lock
+CMD ["gunicorn", "--bind", "0.0.0.0:8765", "--workers", "1", "--threads", "4", "--timeout", "120", "platform_admin.web:create_app()"]

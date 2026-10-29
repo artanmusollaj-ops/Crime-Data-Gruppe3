@@ -160,6 +160,8 @@ UNFOUNDED = "UNFOUNDED"
 # oder schrumpft die Vergleichbarkeit, ohne dass jemand hingesehen hat.
 # ``reconcile`` laesst den Bau deshalb bei einem unbekannten Wert scheitern.
 MAPPING_STATUS = {
+    # Fachlich geprueft, aber keine amtliche Quellenableitung.
+    "admin_review": "ambiguous",
     "nibrs_definition": "exact",
     "micr_manual_1110_2024": "exact",
     "micr_arrest_charge_1110_2024": "exact",
@@ -1236,6 +1238,8 @@ def _build(datenbank: Path, data_root: Path, config_root: Path,
 
 def main() -> int:
     args = arguments()
+    from storage.managed import guard
+    guard(for_root(args.data_root).local_root, allow_worker=True)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(levelname)s %(message)s",

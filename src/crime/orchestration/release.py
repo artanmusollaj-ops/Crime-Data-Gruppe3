@@ -94,6 +94,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--data-root", type=Path, default=None,
                    help="Wurzel der Schichten (Vorgabe: LOCAL_DATA_ROOT oder data)")
     args = p.parse_args(argv)
+    if args.was in {"erstellen", "holen"}:
+        from storage.managed import guard
+        guard(for_root(args.data_root).local_root)
 
     try:
         ablage = for_root(args.data_root)

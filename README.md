@@ -1,5 +1,9 @@
 # Crime-Data-Gruppe3
 
+**Engineering-Konsole, Integration 2026-10-26:** Start und Übernahme sind in
+[LIESMICH_KONSOLE.md](LIESMICH_KONSOLE.md) beschrieben. Das Zusatzpaket verbindet
+den bestehenden Betrieb mit geprüften Datenänderungen und der Analysebereitstellung.
+
 [![Tests](https://github.com/artanmusollaj-ops/Crime-Data-Gruppe3/actions/workflows/tests.yml/badge.svg)](https://github.com/artanmusollaj-ops/Crime-Data-Gruppe3/actions/workflows/tests.yml)
 
 Vergleich der Kriminalitätsdaten von **Chicago und Detroit für das Jahr 2024** —

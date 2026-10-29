@@ -449,6 +449,8 @@ def lauf(data_root: Path, projekt_root: Path, *,
     Definition - dort liest Silver Bronze direkt von S3. Von Hand geht es
     trotzdem (``python -m storage holen --wirklich``).
     """
+    from storage.managed import guard
+    guard(data_root)
     jahre = tuple(sorted(set(jahre)))
     stufen = auswahl(ohne_ingestion, bis, jahre)
     begonnen = datetime.now(timezone.utc)

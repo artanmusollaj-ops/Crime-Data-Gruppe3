@@ -45,6 +45,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+admin = ["flask>=3.1,<4", "PyJWT[crypto]>=2.10,<3", "gunicorn>=23,<27; sys_platform != 'win32'"]
 dev = [
     "pytest>=8,<10",
     # Liest die IEPD-Arbeitsmappe von Illinois - die zweite Quelle fuer die
@@ -80,6 +81,9 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src/crime"]
+
+[tool.setuptools.package-data]
+platform_admin = ["static/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

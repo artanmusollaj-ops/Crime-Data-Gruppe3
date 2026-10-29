@@ -1013,9 +1013,9 @@ def reconcile(
     # Je Tat genau eine Zeile - sonst zaehlt Detroit doppelt, und das war der
     # Grund fuer diese Schicht.
     mehrfach = con.execute(
-        "SELECT count(*) FROM (SELECT offense_group_id FROM fact_offense "
+        "SELECT count(*) FROM (SELECT reporting_city, offense_group_id FROM fact_offense "
         "WHERE offense_group_id IS NOT NULL "
-        "GROUP BY 1 HAVING count(*) > 1)"
+        "GROUP BY 1,2 HAVING count(*) > 1)"
     ).fetchone()[0]
     if mehrfach:
         raise TransformError(
@@ -1420,6 +1420,8 @@ def build(data_root: Path, config_root: Path, vintage: int,
 
 def main() -> int:
     args = arguments()
+    from storage.managed import guard
+    guard(for_root(args.data_root).local_root, allow_worker=True)
     try:
         ziele = build(for_root(args.data_root).local_root, args.config_root,
                       args.vintage, args.acs_vintages)

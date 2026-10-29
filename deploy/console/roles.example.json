@@ -1,0 +1,4 @@
+{
+  "access-subject-engineer": ["viewer", "engineer", "operator"],
+  "access-subject-reviewer": ["viewer", "reviewer", "release_manager"]
+}

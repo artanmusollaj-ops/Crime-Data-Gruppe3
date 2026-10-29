@@ -1,0 +1,63 @@
+# Merge with docker-compose.srv01.yml. Both images must contain this integration.
+services:
+  pipeline:
+    image: ${ADMIN_IMAGE:?Set ADMIN_IMAGE to the integrated image digest}
+  admin:
+    extends:
+      file: docker-compose.srv01.yml
+      service: pipeline
+    image: ${ADMIN_IMAGE:?Set ADMIN_IMAGE to the integrated image digest}
+    profiles: [console]
+    restart: unless-stopped
+    mem_limit: 256m
+    command: [gunicorn, --bind, '0.0.0.0:8765', --workers, '1', --threads, '4', --timeout, '120', 'platform_admin.web:create_app()']
+    environment:
+      ADMIN_PROJECT_ROOT: /app
+      ADMIN_DATA_ROOT: /app/data
+      ADMIN_OBJECT_STORE: s3
+      ADMIN_RELEASE_MODE: coupled
+      ADMIN_AUTH: cloudflare
+      ADMIN_DEFER_PUBLICATION: '1'
+      ADMIN_GITHUB_REPOSITORY: ${ADMIN_GITHUB_REPOSITORY:?Set owner/repository}
+      ADMIN_GITHUB_BASE: main
+      ADMIN_PUBLIC_ORIGIN: ${ADMIN_PUBLIC_ORIGIN:?Set HTTPS console origin}
+      CF_ACCESS_ISSUER: ${CF_ACCESS_ISSUER:?Set Access issuer}
+      CF_ACCESS_AUD: ${CF_ACCESS_AUD:?Set Access audience}
+      ADMIN_ROLE_BINDINGS_FILE: /run/secrets/admin_roles
+      ADMIN_METRICS_TOKEN_FILE: /run/secrets/admin_metrics
+    secrets: [admin_roles, admin_metrics]
+    networks: [urbancrime, proxy]
+    labels:
+      traefik.enable: 'true'
+      traefik.docker.network: proxy
+      traefik.http.routers.urbancrime-admin.rule: Host(`${ADMIN_HOST:?Set console hostname}`)
+      traefik.http.routers.urbancrime-admin.entrypoints: web
+      traefik.http.services.urbancrime-admin.loadbalancer.server.port: '8765'
+  worker:
+    extends:
+      file: docker-compose.srv01.yml
+      service: pipeline
+    image: ${ADMIN_IMAGE:?Set ADMIN_IMAGE to the integrated image digest}
+    profiles: [console]
+    restart: unless-stopped
+    command: [python, -m, platform_admin, worker, --project-root, /app, --data-root, /app/data, --operator, service-worker]
+    environment:
+      ADMIN_PROJECT_ROOT: /app
+      ADMIN_DATA_ROOT: /app/data
+      ADMIN_OBJECT_STORE: s3
+      ADMIN_RELEASE_MODE: coupled
+      ADMIN_SCHEDULER: 'false'
+      ADMIN_AUTO_SERVING: 'true'
+      ADMIN_START_ROOT: /app/startseite
+      ADMIN_START_ADDRESSES: server
+      ADMIN_GITHUB_REPOSITORY: ${ADMIN_GITHUB_REPOSITORY:?Set owner/repository}
+      ADMIN_GITHUB_BASE: main
+      ADMIN_GITHUB_TOKEN_FILE: /run/secrets/admin_github
+    secrets: [admin_github]
+secrets:
+  admin_roles:
+    file: ${ADMIN_ROLE_BINDINGS_PATH:?Set path to role bindings JSON}
+  admin_metrics:
+    file: ${ADMIN_METRICS_TOKEN_PATH:?Set path to metrics token}
+  admin_github:
+    file: ${ADMIN_GITHUB_TOKEN_PATH:?Set path to GitHub token}

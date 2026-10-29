@@ -203,6 +203,17 @@ class Boto3Client:
             ),
         )
 
+    def download(self, key: str, target: Path) -> None:
+        """Bounded-memory download for isolated console snapshots."""
+        from boto3.s3.transfer import TransferConfig
+
+        self._mit_wiederholung(
+            f"DOWNLOAD {key}",
+            lambda: self._client.download_file(
+                self.bucket, key, str(target),
+                Config=TransferConfig(max_concurrency=1, use_threads=False)),
+        )
+
     def _mit_wiederholung(self, was: str, aufruf):
         """Fuehrt ``aufruf()`` aus; voruebergehende Fehler werden wiederholt."""
         from botocore.exceptions import BotoCoreError, ClientError

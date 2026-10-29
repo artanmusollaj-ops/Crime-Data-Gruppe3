@@ -1,0 +1,15 @@
+{
+  "uid": "urbancrime-console",
+  "title": "Urban Crime - Engineering und Analysebereitstellung",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "templating": {"list": [{"name":"DS_PROMETHEUS","type":"datasource","query":"prometheus","label":"Prometheus"}]},
+  "panels": [
+    {"id":1,"title":"Jobs nach Zustand","type":"timeseries","gridPos":{"x":0,"y":0,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"targets":[{"refId":"A","expr":"crime_admin_jobs","legendFormat":"{{status}}"}]},
+    {"id":2,"title":"Betriebsauftraege nach Zustand","type":"timeseries","gridPos":{"x":12,"y":0,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"targets":[{"refId":"A","expr":"crime_admin_operations","legendFormat":"{{status}}"}]},
+    {"id":3,"title":"Dienst zuletzt erfolgreich (1 = ja)","type":"timeseries","gridPos":{"x":0,"y":8,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"targets":[{"refId":"A","expr":"crime_admin_service_ok","legendFormat":"{{service}}"}]},
+    {"id":4,"title":"Sekunden seit Statusnachweis","type":"timeseries","gridPos":{"x":12,"y":8,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"targets":[{"refId":"A","expr":"time() - crime_admin_service_updated_seconds","legendFormat":"{{service}}"}]}
+  ]
+}

@@ -1,5 +1,16 @@
 # Welches Dokument für wen
 
+## Engineering-Konsole - integrierter Stand vom 26. Oktober 2026
+
+- [ENGINEERING_KONSOLE.md](ENGINEERING_KONSOLE.md): Funktionen, lokaler Start, srv01-Übernahme, Review und Troubleshooting.
+- [ENGINEERING_KONSOLE.pdf](handbuch/ENGINEERING_KONSOLE.pdf): dieselbe Anleitung als PDF.
+- [INTEGRATION_2026-10-26.md](INTEGRATION_2026-10-26.md): konkrete Konflikte und Integrationsentscheidungen.
+- [TESTNACHWEIS_KONSOLE.md](TESTNACHWEIS_KONSOLE.md): ausgeführte Prüfungen und Grenzen.
+- [console-settings.example.json](console-settings.example.json): Bootstrap-Beispiel für 2021 bis 2026.
+- [LIEFERUMFANG_KONSOLE.json](LIEFERUMFANG_KONSOLE.json): Dateiunterschiede und Prüfsummen zur Infrastruktur-Basis.
+
+Die folgenden Infrastruktur-Dokumente beschreiben weiterhin die Grundlage.
+
 Dieser Ordner hat drei Leserkreise, und bis zum 18.9.2026 sah man ihnen das
 nicht an. Diese Seite ist die Einteilung — nicht als Erinnerung, sondern
 aufgeschrieben und von `tests/test_dokumentwegweiser.py` dagegengehalten: Ein

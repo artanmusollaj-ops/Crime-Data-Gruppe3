@@ -30,6 +30,7 @@ RUN mkdir -p "$HOME" && chmod 0777 "$HOME"
 # Das Lockfile vor dem Code: Diese Schicht ist die teure, und sie darf nicht
 # bei jeder Codeaenderung neu gebaut werden.
 COPY requirements.lock ./
+COPY requirements-admin.lock Dockerfile Dockerfile.admin ./
 # Aus dem Lockfile, nicht aus den Bereichen in pyproject.toml - sonst bekommt
 # das Abbild je Bautag andere Versionen, und ein Lauf von heute ist mit einem
 # von letzter Woche nicht mehr vergleichbar. Dass jede Zeile darin auf Linux

@@ -46,12 +46,12 @@ Zugang für eigene Abfragen.
 
 ![Abhängigkeiten zwischen den Paketen](bilder/architektur-pakete.svg)
 
-Zehn Pakete, 28 Kanten, **keine Zyklen** — das prüft ein Test, denn es ist
+Elf Pakete, 31 Kanten, **keine Zyklen** — das prüft ein Test, denn es ist
 eine Aussage über die Architektur und nicht über die Zeichnung.
 
-**Warum nur elf Pfeile gezeichnet sind.** Siebzehn der 28 Kanten zeigen auf
+**Warum nur dreizehn Pfeile gezeichnet sind.** Achtzehn der 31 Kanten zeigen auf
 `manifeste` und `storage`. Alle zu zeichnen ergibt ein Knäuel, in dem die
-elf übrigen untergehen — und genau die tragen die Aussage. Die beiden
+dreizehn übrigen untergehen — und genau die tragen die Aussage. Die beiden
 Fundamente stehen deshalb als Band darunter, und die Bildunterschrift sagt,
 wer sie benutzt.
 
@@ -63,7 +63,9 @@ wer sie benutzt.
 
 **Was das Bild über den Entwurf sagt.** `manifeste` hängt an nichts,
 `storage` nur an `manifeste`. Zuoberst steht `orchestration`, das Gold und
-Serving anstösst. Und zwischen den vier Ingestion-Paketen gibt es **keine
+Serving anstösst. Seit der Integration vom 26.10.2026 ergänzt `platform_admin`
+die Freigabe- und Betriebssteuerung; es nutzt die bestehende Orchestrierung.
+Und zwischen den vier Ingestion-Paketen gibt es **keine
 einzige Kante**: Chicago weiss nichts von Detroit. Sie teilen sich nur, wie ein Lauf aussieht (`manifeste`) und wo
 er liegt (`storage`).
 
