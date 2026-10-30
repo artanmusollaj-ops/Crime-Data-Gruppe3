@@ -56,4 +56,37 @@ def publish(store, rid):
     result = {"status": "SUCCEEDED", "release_id": rid, "log_path": str(folder / "run.log"),
               "clickhouse": "not_loaded_by_target_architecture"}
     record_status(store, "analysis", result)
+    follow_up(store, rid, folder)
     return result
+
+
+def follow_up(store, rid, folder):
+    """What docker/srv01-datenlauf.sh does after a published release.
+
+    Drift (are the documented numbers still near the stock?) and the backup
+    set (pinned runs plus the current release, the only things a restore
+    cannot recompute). Neither fails the publication - exactly as in the cron
+    run, where both end in "|| echo WARNUNG": a drift is work for the
+    documents, an incomplete set a problem for the next backup.
+    """
+    from .jobs import execute_commands
+    from .operations import record_status
+
+    steps = [
+        ("drift", [sys.executable, "-m", "orchestration.drift", "--data-root", str(store.data),
+                   "--nur-melden", "--json", str(store.data / "drift.json")]),
+        # Reads the store from the environment and writes to SICHERUNG_ROOT,
+        # the volume the server backup takes; it has no --data-root.
+        ("sicherungssatz", [sys.executable, "-m", "orchestration.sicherungssatz", "--holen",
+                            "--config-root", str(store.project / "config")]),
+    ]
+    with (folder / "run.log").open("a", encoding="utf-8") as log:
+        for name, command in steps:
+            try:
+                execute_commands(store, [command], log)
+            except Exception as exc:  # reported, never raised - see docstring
+                record_status(store, name, {"status": "WARNING", "release_id": rid,
+                                            "error_type": type(exc).__name__,
+                                            "log_path": str(folder / "run.log")})
+            else:
+                record_status(store, name, {"status": "SUCCEEDED", "release_id": rid})

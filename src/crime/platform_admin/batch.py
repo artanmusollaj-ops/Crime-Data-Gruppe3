@@ -1,4 +1,8 @@
-"""Cron enqueues ingestion plus an impact build; it never activates a release."""
+"""Cron enqueues ingestion plus an impact build.
+
+The build is marked as a scheduled source run; auto_approval releases it if the
+quality gate passes (decision 30.10.2026), otherwise it waits for a person.
+"""
 import argparse
 import json
 import uuid
@@ -62,9 +66,9 @@ def execute(store, row, payload):
             city_folder = folder / city
             city_folder.mkdir(exist_ok=True)
             capture(store, city, before[city], city_folder, row, payload)
-    impact = enqueue(store, "rebuild", row["actor"])
+    impact = enqueue(store, "rebuild", row["actor"], origin="batch")
     return {"impact_id": impact, "log_path": str(folder / "run.log"),
-            "note": "Quellen geladen. Kandidat eingereiht; Freigabe bleibt erforderlich."}
+            "note": "Quellen geladen. Kandidat eingereiht; freigegeben vom Qualitaetstor oder von Hand."}
 
 
 def main():

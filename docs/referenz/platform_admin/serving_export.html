@@ -33,6 +33,9 @@
             <li>
                     <a class="function" href="#publish">publish</a>
             </li>
+            <li>
+                    <a class="function" href="#follow_up">follow_up</a>
+            </li>
     </ul>
 
 
@@ -118,7 +121,40 @@ step is reported as PARTIAL; no distributed transaction is claimed.</p>
 </span><span id="L-56"><a href="#L-56"><span class="linenos">56</span></a>    <span class="n">result</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"status"</span><span class="p">:</span> <span class="s2">"SUCCEEDED"</span><span class="p">,</span> <span class="s2">"release_id"</span><span class="p">:</span> <span class="n">rid</span><span class="p">,</span> <span class="s2">"log_path"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">folder</span> <span class="o">/</span> <span class="s2">"run.log"</span><span class="p">),</span>
 </span><span id="L-57"><a href="#L-57"><span class="linenos">57</span></a>              <span class="s2">"clickhouse"</span><span class="p">:</span> <span class="s2">"not_loaded_by_target_architecture"</span><span class="p">}</span>
 </span><span id="L-58"><a href="#L-58"><span class="linenos">58</span></a>    <span class="n">record_status</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="s2">"analysis"</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
-</span><span id="L-59"><a href="#L-59"><span class="linenos">59</span></a>    <span class="k">return</span> <span class="n">result</span>
+</span><span id="L-59"><a href="#L-59"><span class="linenos">59</span></a>    <span class="n">follow_up</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">rid</span><span class="p">,</span> <span class="n">folder</span><span class="p">)</span>
+</span><span id="L-60"><a href="#L-60"><span class="linenos">60</span></a>    <span class="k">return</span> <span class="n">result</span>
+</span><span id="L-61"><a href="#L-61"><span class="linenos">61</span></a>
+</span><span id="L-62"><a href="#L-62"><span class="linenos">62</span></a>
+</span><span id="L-63"><a href="#L-63"><span class="linenos">63</span></a><span class="k">def</span><span class="w"> </span><span class="nf">follow_up</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">rid</span><span class="p">,</span> <span class="n">folder</span><span class="p">):</span>
+</span><span id="L-64"><a href="#L-64"><span class="linenos">64</span></a><span class="w">    </span><span class="sd">"""What docker/srv01-datenlauf.sh does after a published release.</span>
+</span><span id="L-65"><a href="#L-65"><span class="linenos">65</span></a>
+</span><span id="L-66"><a href="#L-66"><span class="linenos">66</span></a><span class="sd">    Drift (are the documented numbers still near the stock?) and the backup</span>
+</span><span id="L-67"><a href="#L-67"><span class="linenos">67</span></a><span class="sd">    set (pinned runs plus the current release, the only things a restore</span>
+</span><span id="L-68"><a href="#L-68"><span class="linenos">68</span></a><span class="sd">    cannot recompute). Neither fails the publication - exactly as in the cron</span>
+</span><span id="L-69"><a href="#L-69"><span class="linenos">69</span></a><span class="sd">    run, where both end in "|| echo WARNUNG": a drift is work for the</span>
+</span><span id="L-70"><a href="#L-70"><span class="linenos">70</span></a><span class="sd">    documents, an incomplete set a problem for the next backup.</span>
+</span><span id="L-71"><a href="#L-71"><span class="linenos">71</span></a><span class="sd">    """</span>
+</span><span id="L-72"><a href="#L-72"><span class="linenos">72</span></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">.jobs</span><span class="w"> </span><span class="kn">import</span> <span class="n">execute_commands</span>
+</span><span id="L-73"><a href="#L-73"><span class="linenos">73</span></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">.operations</span><span class="w"> </span><span class="kn">import</span> <span class="n">record_status</span>
+</span><span id="L-74"><a href="#L-74"><span class="linenos">74</span></a>
+</span><span id="L-75"><a href="#L-75"><span class="linenos">75</span></a>    <span class="n">steps</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="L-76"><a href="#L-76"><span class="linenos">76</span></a>        <span class="p">(</span><span class="s2">"drift"</span><span class="p">,</span> <span class="p">[</span><span class="n">sys</span><span class="o">.</span><span class="n">executable</span><span class="p">,</span> <span class="s2">"-m"</span><span class="p">,</span> <span class="s2">"orchestration.drift"</span><span class="p">,</span> <span class="s2">"--data-root"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">store</span><span class="o">.</span><span class="n">data</span><span class="p">),</span>
+</span><span id="L-77"><a href="#L-77"><span class="linenos">77</span></a>                   <span class="s2">"--nur-melden"</span><span class="p">,</span> <span class="s2">"--json"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">store</span><span class="o">.</span><span class="n">data</span> <span class="o">/</span> <span class="s2">"drift.json"</span><span class="p">)]),</span>
+</span><span id="L-78"><a href="#L-78"><span class="linenos">78</span></a>        <span class="c1"># Reads the store from the environment and writes to SICHERUNG_ROOT,</span>
+</span><span id="L-79"><a href="#L-79"><span class="linenos">79</span></a>        <span class="c1"># the volume the server backup takes; it has no --data-root.</span>
+</span><span id="L-80"><a href="#L-80"><span class="linenos">80</span></a>        <span class="p">(</span><span class="s2">"sicherungssatz"</span><span class="p">,</span> <span class="p">[</span><span class="n">sys</span><span class="o">.</span><span class="n">executable</span><span class="p">,</span> <span class="s2">"-m"</span><span class="p">,</span> <span class="s2">"orchestration.sicherungssatz"</span><span class="p">,</span> <span class="s2">"--holen"</span><span class="p">,</span>
+</span><span id="L-81"><a href="#L-81"><span class="linenos">81</span></a>                            <span class="s2">"--config-root"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">store</span><span class="o">.</span><span class="n">project</span> <span class="o">/</span> <span class="s2">"config"</span><span class="p">)]),</span>
+</span><span id="L-82"><a href="#L-82"><span class="linenos">82</span></a>    <span class="p">]</span>
+</span><span id="L-83"><a href="#L-83"><span class="linenos">83</span></a>    <span class="k">with</span> <span class="p">(</span><span class="n">folder</span> <span class="o">/</span> <span class="s2">"run.log"</span><span class="p">)</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">"a"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">log</span><span class="p">:</span>
+</span><span id="L-84"><a href="#L-84"><span class="linenos">84</span></a>        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">command</span> <span class="ow">in</span> <span class="n">steps</span><span class="p">:</span>
+</span><span id="L-85"><a href="#L-85"><span class="linenos">85</span></a>            <span class="k">try</span><span class="p">:</span>
+</span><span id="L-86"><a href="#L-86"><span class="linenos">86</span></a>                <span class="n">execute_commands</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="p">[</span><span class="n">command</span><span class="p">],</span> <span class="n">log</span><span class="p">)</span>
+</span><span id="L-87"><a href="#L-87"><span class="linenos">87</span></a>            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># reported, never raised - see docstring</span>
+</span><span id="L-88"><a href="#L-88"><span class="linenos">88</span></a>                <span class="n">record_status</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="p">{</span><span class="s2">"status"</span><span class="p">:</span> <span class="s2">"WARNING"</span><span class="p">,</span> <span class="s2">"release_id"</span><span class="p">:</span> <span class="n">rid</span><span class="p">,</span>
+</span><span id="L-89"><a href="#L-89"><span class="linenos">89</span></a>                                            <span class="s2">"error_type"</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+</span><span id="L-90"><a href="#L-90"><span class="linenos">90</span></a>                                            <span class="s2">"log_path"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">folder</span> <span class="o">/</span> <span class="s2">"run.log"</span><span class="p">)})</span>
+</span><span id="L-91"><a href="#L-91"><span class="linenos">91</span></a>            <span class="k">else</span><span class="p">:</span>
+</span><span id="L-92"><a href="#L-92"><span class="linenos">92</span></a>                <span class="n">record_status</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="p">{</span><span class="s2">"status"</span><span class="p">:</span> <span class="s2">"SUCCEEDED"</span><span class="p">,</span> <span class="s2">"release_id"</span><span class="p">:</span> <span class="n">rid</span><span class="p">})</span>
 </span></pre></div>
 
 
@@ -179,11 +215,67 @@ step is reported as PARTIAL; no distributed transaction is claimed.</p>
 </span><span id="publish-57"><a href="#publish-57"><span class="linenos">57</span></a>    <span class="n">result</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"status"</span><span class="p">:</span> <span class="s2">"SUCCEEDED"</span><span class="p">,</span> <span class="s2">"release_id"</span><span class="p">:</span> <span class="n">rid</span><span class="p">,</span> <span class="s2">"log_path"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">folder</span> <span class="o">/</span> <span class="s2">"run.log"</span><span class="p">),</span>
 </span><span id="publish-58"><a href="#publish-58"><span class="linenos">58</span></a>              <span class="s2">"clickhouse"</span><span class="p">:</span> <span class="s2">"not_loaded_by_target_architecture"</span><span class="p">}</span>
 </span><span id="publish-59"><a href="#publish-59"><span class="linenos">59</span></a>    <span class="n">record_status</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="s2">"analysis"</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
-</span><span id="publish-60"><a href="#publish-60"><span class="linenos">60</span></a>    <span class="k">return</span> <span class="n">result</span>
+</span><span id="publish-60"><a href="#publish-60"><span class="linenos">60</span></a>    <span class="n">follow_up</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">rid</span><span class="p">,</span> <span class="n">folder</span><span class="p">)</span>
+</span><span id="publish-61"><a href="#publish-61"><span class="linenos">61</span></a>    <span class="k">return</span> <span class="n">result</span>
 </span></pre></div>
 
 
     
+
+                </section>
+                <section id="follow_up">
+                            <input id="follow_up-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">follow_up</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">store</span>, </span><span class="param"><span class="n">rid</span>, </span><span class="param"><span class="n">folder</span></span><span class="return-annotation">):</span></span>
+
+                <label class="view-source-button" for="follow_up-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#follow_up"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="follow_up-64"><a href="#follow_up-64"><span class="linenos">64</span></a><span class="k">def</span><span class="w"> </span><span class="nf">follow_up</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">rid</span><span class="p">,</span> <span class="n">folder</span><span class="p">):</span>
+</span><span id="follow_up-65"><a href="#follow_up-65"><span class="linenos">65</span></a><span class="w">    </span><span class="sd">"""What docker/srv01-datenlauf.sh does after a published release.</span>
+</span><span id="follow_up-66"><a href="#follow_up-66"><span class="linenos">66</span></a>
+</span><span id="follow_up-67"><a href="#follow_up-67"><span class="linenos">67</span></a><span class="sd">    Drift (are the documented numbers still near the stock?) and the backup</span>
+</span><span id="follow_up-68"><a href="#follow_up-68"><span class="linenos">68</span></a><span class="sd">    set (pinned runs plus the current release, the only things a restore</span>
+</span><span id="follow_up-69"><a href="#follow_up-69"><span class="linenos">69</span></a><span class="sd">    cannot recompute). Neither fails the publication - exactly as in the cron</span>
+</span><span id="follow_up-70"><a href="#follow_up-70"><span class="linenos">70</span></a><span class="sd">    run, where both end in "|| echo WARNUNG": a drift is work for the</span>
+</span><span id="follow_up-71"><a href="#follow_up-71"><span class="linenos">71</span></a><span class="sd">    documents, an incomplete set a problem for the next backup.</span>
+</span><span id="follow_up-72"><a href="#follow_up-72"><span class="linenos">72</span></a><span class="sd">    """</span>
+</span><span id="follow_up-73"><a href="#follow_up-73"><span class="linenos">73</span></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">.jobs</span><span class="w"> </span><span class="kn">import</span> <span class="n">execute_commands</span>
+</span><span id="follow_up-74"><a href="#follow_up-74"><span class="linenos">74</span></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">.operations</span><span class="w"> </span><span class="kn">import</span> <span class="n">record_status</span>
+</span><span id="follow_up-75"><a href="#follow_up-75"><span class="linenos">75</span></a>
+</span><span id="follow_up-76"><a href="#follow_up-76"><span class="linenos">76</span></a>    <span class="n">steps</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="follow_up-77"><a href="#follow_up-77"><span class="linenos">77</span></a>        <span class="p">(</span><span class="s2">"drift"</span><span class="p">,</span> <span class="p">[</span><span class="n">sys</span><span class="o">.</span><span class="n">executable</span><span class="p">,</span> <span class="s2">"-m"</span><span class="p">,</span> <span class="s2">"orchestration.drift"</span><span class="p">,</span> <span class="s2">"--data-root"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">store</span><span class="o">.</span><span class="n">data</span><span class="p">),</span>
+</span><span id="follow_up-78"><a href="#follow_up-78"><span class="linenos">78</span></a>                   <span class="s2">"--nur-melden"</span><span class="p">,</span> <span class="s2">"--json"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">store</span><span class="o">.</span><span class="n">data</span> <span class="o">/</span> <span class="s2">"drift.json"</span><span class="p">)]),</span>
+</span><span id="follow_up-79"><a href="#follow_up-79"><span class="linenos">79</span></a>        <span class="c1"># Reads the store from the environment and writes to SICHERUNG_ROOT,</span>
+</span><span id="follow_up-80"><a href="#follow_up-80"><span class="linenos">80</span></a>        <span class="c1"># the volume the server backup takes; it has no --data-root.</span>
+</span><span id="follow_up-81"><a href="#follow_up-81"><span class="linenos">81</span></a>        <span class="p">(</span><span class="s2">"sicherungssatz"</span><span class="p">,</span> <span class="p">[</span><span class="n">sys</span><span class="o">.</span><span class="n">executable</span><span class="p">,</span> <span class="s2">"-m"</span><span class="p">,</span> <span class="s2">"orchestration.sicherungssatz"</span><span class="p">,</span> <span class="s2">"--holen"</span><span class="p">,</span>
+</span><span id="follow_up-82"><a href="#follow_up-82"><span class="linenos">82</span></a>                            <span class="s2">"--config-root"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">store</span><span class="o">.</span><span class="n">project</span> <span class="o">/</span> <span class="s2">"config"</span><span class="p">)]),</span>
+</span><span id="follow_up-83"><a href="#follow_up-83"><span class="linenos">83</span></a>    <span class="p">]</span>
+</span><span id="follow_up-84"><a href="#follow_up-84"><span class="linenos">84</span></a>    <span class="k">with</span> <span class="p">(</span><span class="n">folder</span> <span class="o">/</span> <span class="s2">"run.log"</span><span class="p">)</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">"a"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">log</span><span class="p">:</span>
+</span><span id="follow_up-85"><a href="#follow_up-85"><span class="linenos">85</span></a>        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">command</span> <span class="ow">in</span> <span class="n">steps</span><span class="p">:</span>
+</span><span id="follow_up-86"><a href="#follow_up-86"><span class="linenos">86</span></a>            <span class="k">try</span><span class="p">:</span>
+</span><span id="follow_up-87"><a href="#follow_up-87"><span class="linenos">87</span></a>                <span class="n">execute_commands</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="p">[</span><span class="n">command</span><span class="p">],</span> <span class="n">log</span><span class="p">)</span>
+</span><span id="follow_up-88"><a href="#follow_up-88"><span class="linenos">88</span></a>            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># reported, never raised - see docstring</span>
+</span><span id="follow_up-89"><a href="#follow_up-89"><span class="linenos">89</span></a>                <span class="n">record_status</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="p">{</span><span class="s2">"status"</span><span class="p">:</span> <span class="s2">"WARNING"</span><span class="p">,</span> <span class="s2">"release_id"</span><span class="p">:</span> <span class="n">rid</span><span class="p">,</span>
+</span><span id="follow_up-90"><a href="#follow_up-90"><span class="linenos">90</span></a>                                            <span class="s2">"error_type"</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+</span><span id="follow_up-91"><a href="#follow_up-91"><span class="linenos">91</span></a>                                            <span class="s2">"log_path"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">folder</span> <span class="o">/</span> <span class="s2">"run.log"</span><span class="p">)})</span>
+</span><span id="follow_up-92"><a href="#follow_up-92"><span class="linenos">92</span></a>            <span class="k">else</span><span class="p">:</span>
+</span><span id="follow_up-93"><a href="#follow_up-93"><span class="linenos">93</span></a>                <span class="n">record_status</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="p">{</span><span class="s2">"status"</span><span class="p">:</span> <span class="s2">"SUCCEEDED"</span><span class="p">,</span> <span class="s2">"release_id"</span><span class="p">:</span> <span class="n">rid</span><span class="p">})</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>What docker/srv01-datenlauf.sh does after a published release.</p>
+
+<p>Drift (are the documented numbers still near the stock?) and the backup
+set (pinned runs plus the current release, the only things a restore
+cannot recompute). Neither fails the publication - exactly as in the cron
+run, where both end in "|| echo WARNUNG": a drift is work for the
+documents, an incomplete set a problem for the next backup.</p>
+</div>
+
 
                 </section>
     </main>

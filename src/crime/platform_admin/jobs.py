@@ -11,6 +11,7 @@ import os
 import re
 import sqlite3
 import subprocess
+import time
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -180,8 +181,12 @@ def _log_diagnosis(log_path, module):
     return cause, dependency, remediation
 
 
-def enqueue(store, name, actor, *, slot=None, instant=None):
-    """Pin the approved configuration and source parameters in one transaction."""
+def enqueue(store, name, actor, *, slot=None, instant=None, origin=None):
+    """Pin the approved configuration and source parameters in one transaction.
+
+    ``origin="batch"`` marks a rebuild a scheduled source run queued; only those
+    qualify for approval by the quality gate (auto_approval).
+    """
     from .candidates import queue_in_transaction
     from .store import digest
 
@@ -208,6 +213,8 @@ def enqueue(store, name, actor, *, slot=None, instant=None):
                 )
             rid = uuid.uuid4().hex
             payload = {"task": spec["task"], "job_name": name}
+            if origin:
+                payload["origin"] = origin
             c.execute(
                 "INSERT INTO revision VALUES (?,?,?,?,?,?,?,?)",
                 (
@@ -366,6 +373,12 @@ def recover_import(store, jid, actor, reason):
         return result
 
 
+#: Every command a tick ran: module, arguments, exit code, seconds. The worker
+#: writes it as the run protocol after the tick (run_protocol), in the format
+#: orchestration.run_all writes for the cron run.
+TICK_STAGES = []
+
+
 def execute_commands(store, command_list, log):
     env = dict(os.environ)
     # Only isolated candidates force local storage; imports use publish_run.
@@ -386,6 +399,9 @@ def execute_commands(store, command_list, log):
         record(Path(log.name).parent, command[2], "RUNNING")
         log.write("\n" + encode(command) + "\n")
         log.flush()
+        stage = {"modul": command[2], "args": [str(a) for a in command[3:]], "exit": None}
+        TICK_STAGES.append(stage)
+        started = time.monotonic()
         try:
             finished = subprocess.run(
                 command,
@@ -397,6 +413,7 @@ def execute_commands(store, command_list, log):
                 shell=False,
             )
         except OSError as error:
+            stage.update(exit=-1, sekunden=round(time.monotonic() - started, 1))
             record(Path(log.name).parent, command[2], "FAILED", str(error))
             raise PipelineCommandError(
                 command,
@@ -409,6 +426,7 @@ def execute_commands(store, command_list, log):
                 ),
             ) from error
         log.flush()
+        stage.update(exit=finished.returncode, sekunden=round(time.monotonic() - started, 1))
         if finished.returncode:
             record(Path(log.name).parent, command[2], "FAILED")
             cause, dependency, remediation = _log_diagnosis(log.name, command[2])
