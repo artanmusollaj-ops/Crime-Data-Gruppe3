@@ -143,6 +143,14 @@ Grafana-Brett samt Prometheus-Ziel — der Webdienst liegt noch nicht im Netz
 (`ADMIN_ROLE_BINDINGS`); bisher kannte die Konsole nur eine Datei, und die
 hätte einen Einhängepunkt gebraucht, den es im Stapel sonst nicht gibt.
 
+**Und ein Test, der nur unter Windows fiel.** Der Windows-Lauf auf `main`
+war nach dem zweiten Schritt rot, mit einem einzigen Test:
+`test_current_source_and_hash` schrieb die Probedatei mit `write_text` — unter
+Windows mit CRLF — und verglich sie mit `read_text`, das CRLF wieder zu LF
+macht. Die Konsole liefert die Bytes der Datei, und das ist richtig; der Test
+vergleicht jetzt auch die Bytes. Gesehen hat das nur der Windows-Lauf, der
+erst nach dem Merge läuft.
+
 **Offen vor `enable-managed`:** Danach sperrt `storage.verwaltet` den
 Cron-Datenlauf. Der Konsolen-Worker ruft Drift, Betriebsstand und
 Sicherungssatz heute nicht auf — wer umstellt, muss das vorher klären.

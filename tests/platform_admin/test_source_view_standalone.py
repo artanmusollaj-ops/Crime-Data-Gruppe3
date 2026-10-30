@@ -20,7 +20,9 @@ class SourceViewTests(unittest.TestCase):
 
     def test_current_source_and_hash(self):
         result = source_code(self.store, 'chicago')
-        self.assertEqual(result['code'], self.code.read_text())
+        # The bytes, not read_text: on Windows write_text wrote CRLF, and
+        # read_text would turn it back into LF (failed on main, 30.10.2026).
+        self.assertEqual(result['code'], self.code.read_bytes().decode('utf-8'))
         self.assertEqual(len(result['sha256']), 64)
         self.assertFalse(result['historical_available'])
 
