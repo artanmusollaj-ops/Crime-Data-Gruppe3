@@ -190,6 +190,28 @@ def test_der_lokale_zeiger_zeigt_auf_das_neueste_release(tmp_path):
     assert zeiger["path"] == "releases/release=2026-09-18T08-00-00Z"
 
 
+def test_ein_kandidat_entsteht_ohne_den_zeiger_zu_bewegen(tmp_path):
+    """Die Engineering-Konsole baut Kandidaten, die erst nach dem Review
+    gelten. Ein Kandidat ist ein vollstaendiges Release - nur der Zeiger
+    bleibt beim bisherigen Stand, sonst lesen Analysen ungepruefte Zahlen."""
+    _, _, data_root = ablage(tmp_path, "local")
+    gebaut(data_root)
+    release.erstelle(data_root, jetzt=JETZT)
+    spaeter = datetime(2026, 9, 18, 8, 0, 0, tzinfo=timezone.utc)
+    kandidat = release.erstelle(data_root, jetzt=spaeter, aktivieren=False)
+
+    assert (kandidat / release.RELEASE_MANIFEST).is_file()
+    zeiger = json.loads((data_root / "releases" / "AKTUELL.json").read_text())
+    assert zeiger["release_id"] == KENNUNG, "der Zeiger bleibt beim bisherigen Release"
+
+
+def test_ein_erster_kandidat_legt_keinen_zeiger_an(tmp_path):
+    _, _, data_root = ablage(tmp_path, "local")
+    gebaut(data_root)
+    release.erstelle(data_root, jetzt=JETZT, aktivieren=False)
+    assert not (data_root / "releases" / "AKTUELL.json").exists()
+
+
 def test_ohne_gold_kein_release(tmp_path):
     _, _, data_root = ablage(tmp_path, "local")
     tabelle(data_root, "serving", "comparison_day", 2)

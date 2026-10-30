@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'311** |
+| Tests | **2'316** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,41 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 30.10.2026 · Ein Release kann warten (Branch `feature/konsole-1-kern`)
+
+Erster von vier Schritten, mit denen Artans Engineering-Konsole aus dem
+Branch `feature/engineering-console-import` übernommen wird — nicht als
+Ganzes, sondern zerlegt in Kern, Konsole, Betrieb und Dokumente. Dieser
+Schritt bringt nur, was die Konsole von `storage` braucht, und ändert an
+keiner Zahl und keinem Datenstand etwas.
+
+**Ein Release ohne Zeiger.** `release.erstelle(..., aktivieren=False)` baut
+ein vollständiges, unveränderliches Release, auf das `AKTUELL.json` nicht
+zeigt — einen *Kandidaten*. Die Konsole braucht das: Ihr Stand gilt erst nach
+dem Review, und bis dahin lesen Analysen den bisherigen. Vorgabe bleibt
+`True`; jeder bisherige Aufruf verhält sich wie vorher. Artans Fassung hiess
+`activate`; in `storage` sind Identifier deutsch, und die Konsole zieht im
+zweiten Schritt nach.
+
+**Ein Download, der nicht alles im Speicher hält.** `Boto3Client.download`
+schreibt ein Objekt in eine Datei, mit einem Faden und einer Verbindung —
+`get` liest den ganzen Körper, für einen Bronze-Snapshot von mehreren GiB
+neben einem Silver-Bau zu viel. Gegenüber Artans Fassung übersetzt er einen
+`ClientError` in einen `StorageError` wie `get`, statt ihn nackt
+durchzureichen. `FakeS3Client` hat das Gegenstück und scheitert wie das
+Echte, bevor eine Zieldatei entsteht.
+
+**Nicht übernommen:** Artans Änderung der Eindeutigkeitsprüfung in
+`build_gold.reconcile` auf `reporting_city` plus `offense_group_id`. Sie
+ändert nichts: Detroits Schlüssel ist `case_id|beschreibung` und kann mit
+Chicagos numerischer `id` nicht zusammenfallen. Kein Konsolentest braucht
+sie; der volle Lauf im zweiten Schritt zeigt, ob das so bleibt.
+
+**Zahlen.** 2'311 → **2'316 Tests**, Standardlauf 2'200 → **2'205**,
+Referenzwächter unverändert **111** (104 grün, 7 brauchen laufende Dienste).
 
 ---
 
