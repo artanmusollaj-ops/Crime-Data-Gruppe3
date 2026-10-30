@@ -144,6 +144,7 @@ class S3Client(Protocol):
     def head(self, key: str) -> Objekt | None: ...
     def get(self, key: str) -> bytes: ...
     def put(self, key: str, daten: bytes) -> None: ...
+    def download(self, key: str, ziel: Path) -> None: ...
     def list(self, prefix: str) -> list[Objekt]: ...
     def delete(self, key: str) -> None: ...
     def fassungen(self, prefix: str) -> list[Fassung]: ...
@@ -272,6 +273,25 @@ class Boto3Client:
             f"PUT {key}",
             lambda: self._client.put_object(Bucket=self.bucket, Key=key, Body=daten))
 
+    def download(self, key: str, ziel: Path) -> None:
+        """Schreibt ein Objekt in eine Datei, ohne es ganz im Speicher zu halten.
+
+        ``get`` liest den ganzen Koerper - fuer einen Bronze-Snapshot von
+        mehreren GiB zu viel neben einem Silver-Bau. Ein Faden und eine
+        Verbindung halten den Speicher klein; schneller muss es nicht sein.
+        """
+        from boto3.s3.transfer import TransferConfig
+        from botocore.exceptions import ClientError
+
+        transfer = TransferConfig(max_concurrency=1, use_threads=False)
+        try:
+            self._mit_wiederholung(
+                f"DOWNLOAD {key}",
+                lambda: self._client.download_file(self.bucket, key, str(ziel),
+                                                   Config=transfer))
+        except ClientError as fehler:
+            raise self._uebersetzt(fehler, f"DOWNLOAD {key}") from fehler
+
     def list(self, prefix: str) -> list[Objekt]:
         def alle() -> list[Objekt]:
             gefunden: list[Objekt] = []
@@ -397,6 +417,11 @@ class FakeS3Client:
         self.objekte[key] = bytes(daten)
         self.uploads.append(key)
         self._neue_version(key, bytes(daten))
+
+    def download(self, key: str, ziel: Path) -> None:
+        # Ueber ``get``: auf S3 ist ein Download ein GET, und so scheitert
+        # das Doppel wie das Echte, bevor eine Zieldatei entsteht.
+        ziel.write_bytes(self.get(key))
 
     def list(self, prefix: str) -> list[Objekt]:
         # Eine Anfrage, wie bei ``Boto3Client.list`` - kein ``HEAD`` je Eintrag.

@@ -355,6 +355,62 @@ def test_eine_abgelehnte_anfrage_nennt_den_code():
         client.head("silver/x")
 
 
+def test_download_schreibt_in_eine_datei_mit_begrenztem_speicher(tmp_path):
+    """Die Konsole holt Bronze-Snapshots von mehreren GiB; ``get`` haelt das
+    ganze Objekt im Speicher. ``download`` streamt - ein Faden, eine
+    Verbindung, damit der Worker neben einem Silver-Bau Platz hat."""
+    from storage.backend import Boto3Client
+
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s"))
+    aufrufe = []
+
+    class Mitschrift:
+        def download_file(self, bucket, key, ziel, Config=None):
+            aufrufe.append((bucket, key, ziel, Config))
+            Path(ziel).write_bytes(b"inhalt")
+
+    client._client = Mitschrift()
+    ziel = tmp_path / "x.parquet"
+    client.download("bronze/x.parquet", ziel)
+
+    assert ziel.read_bytes() == b"inhalt"
+    (bucket, key, pfad, transfer), = aufrufe
+    assert (bucket, key, pfad) == (client.bucket, "bronze/x.parquet", str(ziel))
+    assert transfer.max_concurrency == 1 and transfer.use_threads is False
+
+
+def test_download_eines_fehlenden_objekts_ist_ein_storage_error(tmp_path):
+    """Wie ``get``: ein ``ClientError`` kommt uebersetzt an, nicht nackt."""
+    from botocore.exceptions import ClientError
+
+    from storage import StorageError
+    from storage.backend import Boto3Client
+
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s"))
+
+    class Fehlt:
+        def download_file(self, *a, **kw):
+            raise ClientError({"Error": {"Code": "404"}}, "HeadObject")
+
+    client._client = Fehlt()
+    with pytest.raises(StorageError, match="bronze/x"):
+        client.download("bronze/x", tmp_path / "x")
+
+
+def test_das_doppel_laedt_herunter_und_scheitert_wie_das_echte(tmp_path):
+    from storage import StorageError
+
+    fake = FakeS3Client()
+    fake.put("bronze/a", b"abc")
+    fake.download("bronze/a", tmp_path / "a")
+    assert (tmp_path / "a").read_bytes() == b"abc"
+    assert fake.anfragen[-1] == "GET bronze/a", "ein Download ist auf S3 ein GET"
+
+    with pytest.raises(StorageError):
+        fake.download("bronze/fehlt", tmp_path / "fehlt")
+    assert not (tmp_path / "fehlt").exists(), "kein leeres Ziel nach einem Fehler"
+
+
 def test_publish_error_ist_ein_storage_error():
     from storage import StorageError
     assert issubclass(PublishError, StorageError)

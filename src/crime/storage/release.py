@@ -254,7 +254,8 @@ Ergaenzung = Callable[[Path, dict[str, Any]], None]
 
 def erstelle(data_root: Path, *, ergaenze: Ergaenzung | None = None,
              pflicht: Iterable[str] = PFLICHT, jahre: Iterable[int] = (),
-             kennung_: str | None = None, jetzt: datetime | None = None) -> Path:
+             kennung_: str | None = None, jetzt: datetime | None = None,
+             aktivieren: bool = True) -> Path:
     """Bildet ein Release lokal - vollstaendig oder gar nicht.
 
     Kopiert Gold und Serving, ruft ``ergaenze(arbeit, kern)`` - dort baut der
@@ -266,6 +267,11 @@ def erstelle(data_root: Path, *, ergaenze: Ergaenzung | None = None,
     ``jahre`` nennt die Jahrgaenge, die in diesem Stand stecken - der Aufrufer
     weiss sie, das Release sagt sie nicht von sich aus (``release_manifest``).
     Ohne Angabe fehlt der Schluessel; geraten wird hier nichts.
+
+    ``aktivieren=False`` baut einen **Kandidaten**: ein vollstaendiges,
+    unveraenderliches Release, auf das ``AKTUELL.json`` nicht zeigt. Die
+    Engineering-Konsole braucht das - ihr Stand gilt erst nach dem Review,
+    und bis dahin lesen Analysen den bisherigen.
 
     **Warum die Datenbank nicht hier gebaut wird.** ``storage`` ist ein
     Fundament: Es weiss, wie man Dateien ablegt und publiziert, nicht, was
@@ -315,7 +321,8 @@ def erstelle(data_root: Path, *, ergaenze: Ergaenzung | None = None,
         shutil.rmtree(arbeit, ignore_errors=True)
         raise
 
-    setze_aktuell(data_root / RELEASES / AKTUELL, manifest)
+    if aktivieren:
+        setze_aktuell(data_root / RELEASES / AKTUELL, manifest)
     LOG.info("Release %s: %d Dateien, %.1f MB -> %s",
              kennung_, len(manifest["files"]), manifest["bytes"] / 1e6, ziel)
     return ziel
