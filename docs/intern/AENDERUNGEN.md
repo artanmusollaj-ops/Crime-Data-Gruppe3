@@ -156,7 +156,8 @@ Branch kam und `main` nie erreichte. Hier übernommen; E-4 steht jetzt unter
 31 Kanten, vierzehn gezeichnete Pfeile.
 
 **Zahlen.** 2'568 → **2'589 Tests**, Standardlauf 2'457 → **2'478**,
-Referenzwächter unverändert **111**.
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'400 von
+2'478**, 78 übersprungen, grün.
 
 ---
 
