@@ -67,6 +67,7 @@ Handgriffe auf `srv01`, die ausserhalb dieses Repositories liegen.
 | C-5 | **Detroits Abdeckungsquote ist nach Ingestionshäufigkeit gewichtet.** Der Docstring ist seit dem 4.10. richtig („keine Statistik"), die Quote in `test_abdeckung_der_faelle_ist_ausgewiesen` zählt mehrfach geladene Zeilen aber weiter mehrfach. Die Chicagoer Entsprechung bekam sie deshalb nicht. | Christian | 3.10.2026 | `deferred-work.md` Nr. 1; `tests/config/test_micr_nibrs_mapping.py` |
 | C-6 | **Eine Karte je Deliktfamilie.** Möglich, kostet aber eine Dimension in `serving/rate_tract`. Kein Fehler, eine Erweiterung. | Christian | 15.10.2026 | `deferred-work.md` Nr. 27 |
 | C-7 | **Die Konsole im Betriebsblick.** `admin` liegt noch nicht im Netz `monitoring`, und Prometheus holt `/metrics` nicht ab; Artans Grafana-Brett ist nicht übernommen. Mit der Einrichtung (S-8) nachziehen, wie bei `start` mit Alias `urbancrime-admin`. | Christian | 30.10.2026 | `AENDERUNGEN.md`, „Die Konsole hat einen Platz auf srv01" |
+| C-8 | **Der Auslagerungstest wackelt auf CI.** `test_ausgelagert_laeuft_was_sonst_am_speicher_scheitert` fiel am 30.10.2026 auf dem Pull-Request-Lauf von #188 mit „failed to pin block (142,8 von 143 MiB)“ und lief beim Neustart desselben Jobs grün; lokal 15 von 15 grün. Er misst bei 150 MB knapp an der Grenze, mit zwei Threads. Robuster machen (ein Thread oder mehr Abstand), ohne die Zusage aufzugeben: mit Auslagerung läuft, was ohne sie scheitert. | Christian | 30.10.2026 | `tests/storage/test_duckdb.py`; Lauf 41130973257, erster Versuch |
 
 ---
 
