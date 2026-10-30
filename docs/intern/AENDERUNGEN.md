@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'568** |
+| Tests | **2'589** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -103,6 +103,64 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 30.10.2026 · Der Worker übernimmt den Datenlauf (Branch `feature/konsole-3b-datenlauf`)
+
+Entscheidung Christian, 30.10.: **Der Konsolen-Worker übernimmt alles**, was
+`docker/srv01-datenlauf.sh` tut (bisher E-4 in `offene-punkte.md`). Das musste
+vor `enable-managed` stehen: Danach sperrt `storage.verwaltet` den Cron-Lauf,
+und was nur dort geschah, hörte still auf.
+
+**Was fehlte, und was jetzt da ist.**
+
+- **Drift und Sicherungssatz** laufen nach jedem erfolgreichen Serving
+  (`serving_export.follow_up`). Beide fällen den Lauf nicht — im Cron stehen
+  sie hinter `|| echo WARNUNG`, hier enden sie als `WARNING` in der Übersicht.
+  Nach einem gescheiterten Serving laufen sie nicht, wie im Cron.
+- **Laufprotokoll und Betriebsstand.** `pipeline_run.json` schrieb nur
+  `run_all`, und `run_all` ist unter der Konsole gesperrt; das Brett hätte den
+  letzten Cron-Lauf für immer gezeigt, grün. Jetzt schreibt der Worker das
+  Protokoll **im selben Format** nach jedem Takt, der etwas ausgeführt hat,
+  auch nach einem Fehler, und rendert danach `serving.betriebsstand`
+  (`platform_admin.run_protocol`). Ein leerer Takt schreibt nichts — er kommt
+  alle fünf Minuten und überschriebe sonst den letzten echten Lauf.
+- **Der Montagsrhythmus.** Die Zeitpläne der Konsole kennen nur „täglich
+  HH:MM". `docker/srv01-konsole-datenlauf.sh` reiht montags einen Batch ein
+  und liest den Rhythmus aus **derselben** Funktion `mode_for_day` des
+  Datenlaufs, statt ihn abzuschreiben. Die Crontab-Zeile ist auskommentiert;
+  getauscht wird sie mit `enable-managed` (S-10).
+- **Wochenläufe ohne Person** (Entscheidung Christian, 30.10.). Der Cron-Lauf
+  veröffentlichte jede Woche ohne Review; ein Konsolen-Kandidat braucht sonst
+  eine zweite Person. Jetzt gibt `platform_admin.auto_approval` einen Kandidaten
+  frei, wenn ein geplanter Batch ihn eingereiht hat (`origin: batch`) und das
+  Qualitätstor besteht — über dasselbe `decide` wie jede Freigabe, also mit
+  allen Prüfungen dort, und unter einem eigenen Bearbeiter
+  (`quality-gate (automatic)`), nie unter einer Person. Was eine Person
+  vorschlägt oder anstösst, braucht weiter vier Augen; besteht ein Kandidat
+  das Tor nicht, wartet er auf eine.
+
+**Was der Worker nicht kann:** `compose up -d --wait elasticsearch kibana
+start` — im Container gibt es kein Docker. Die Dienste laufen
+`unless-stopped`.
+
+**Ein Wächter über die Parität.** Jedes Modul, das `srv01-datenlauf.sh`
+aufruft, muss im Worker vorkommen oder mit Grund ausgenommen sein (`run_all`
+und `release`, die die Konsole durch eigene Wege ersetzt). Drift,
+Sicherungssatz und Betriebsstand waren genau solche Schritte.
+
+**Nachgeholt:** Die offenen Punkte zur Einrichtung (E-5, S-5 bis S-9, C-7)
+standen in einem Commit, der nach dem Merge des dritten Schritts auf dessen
+Branch kam und `main` nie erreichte. Hier übernommen; E-4 steht jetzt unter
+„Erledigt", S-10 (umstellen) ist neu.
+
+`platform_admin` importiert jetzt `serving` (für den Betriebsstand): 32 statt
+31 Kanten, vierzehn gezeichnete Pfeile.
+
+**Zahlen.** 2'568 → **2'589 Tests**, Standardlauf 2'457 → **2'478**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'400 von
+2'478**, 78 übersprungen, grün.
+
+---
+
 ## 30.10.2026 · Die Konsole hat einen Platz auf srv01 (Branch `feature/konsole-3-betrieb`)
 
 Dritter von vier Schritten: wie die Engineering-Konsole auf `srv01` läuft.
@@ -154,6 +212,12 @@ erst nach dem Merge läuft.
 **Offen vor `enable-managed`:** Danach sperrt `storage.verwaltet` den
 Cron-Datenlauf. Der Konsolen-Worker ruft Drift, Betriebsstand und
 Sicherungssatz heute nicht auf — wer umstellt, muss das vorher klären.
+
+**Was offen bleibt, steht in `offene-punkte.md`:** die Entscheidungen E-4
+(was der Worker vom Datenlauf übernimmt) und E-5 (wie Notebooks im
+verwalteten Betrieb lesen), die Handgriffe S-5 bis S-9 auf `srv01`
+(Tunnel-Route, `.env`, Sicherung, Inbetriebnahme, Nachmessen) und C-7 (die
+Konsole im Betriebsblick).
 
 **Zahlen.** 2'551 → **2'568 Tests**, Standardlauf 2'440 → **2'457**,
 Referenzwächter unverändert **111**. Frischklon gemessen: **2'379 von

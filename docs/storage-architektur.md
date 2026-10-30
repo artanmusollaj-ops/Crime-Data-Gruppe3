@@ -1241,8 +1241,22 @@ Start auf `srv01`:
 Der bisherige Datenlauf bleibt, bis jemand `enable-managed` ausführt. Danach
 sperrt [`storage.verwaltet`](../src/crime/storage/verwaltet.py) `run_all` und
 `release` für alles ausser dem Worker — der Cron-Datenlauf scheitert dann.
-Bevor das geschieht, muss geklärt sein, was der Konsolen-Worker vom Datenlauf
-übernimmt: Drift, Betriebsstand und Sicherungssatz ruft er heute nicht auf.
+**Der Worker übernimmt ihn ganz** (Entscheidung vom 30.10.2026):
+
+| Datenlauf heute | Worker |
+| --- | --- |
+| montags 04:30, Delta/Voll/Delta/Delta/frei | [`docker/srv01-konsole-datenlauf.sh`](../docker/srv01-konsole-datenlauf.sh) reiht montags einen Batch ein, mit **derselben** Funktion `mode_for_day` |
+| Vorprüfung, Quellen laden | Batch (`orchestration.vorpruefung`, Ingestion-Stufen über `run_all.auswahl`) |
+| Silver, Gold, Release | Kandidat, **freigegeben vom Qualitätstor** — geplante Quellenläufe ohne Person, Mapping- und Einstellungsänderungen weiter mit vier Augen |
+| Elasticsearch, Kibana, Startseite, `pruefe_stand` | Serving nach der Freigabe |
+| Drift, Sicherungssatz | danach; beide fällen den Lauf nicht, wie im Cron (`\|\| echo WARNUNG`) |
+| `pipeline_run.json` und Betriebsstand, auch nach einem Fehler | nach jedem Takt, der etwas ausgeführt hat — im Format von `run_all` |
+| `compose up -d --wait elasticsearch kibana start` | **nicht** — im Container gibt es kein Docker; die Dienste laufen `unless-stopped` |
+
+Ein Wächter hält die Liste: Jedes Modul, das `srv01-datenlauf.sh` aufruft,
+muss im Worker vorkommen oder mit Grund ausgenommen sein. Umgestellt wird mit
+S-10 in [`intern/offene-punkte.md`](intern/offene-punkte.md): `enable-managed`
+und im selben Zug die beiden Crontab-Zeilen tauschen.
 
 `ADMIN_GIT_SCHUTZ` steht auf `entwicklung`, bis die Entwicklung abgeschlossen
 ist (Entscheidung vom 30.10.2026). Für `produktiv` braucht `main` vorher die

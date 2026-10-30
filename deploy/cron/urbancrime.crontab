@@ -9,3 +9,10 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # Takt mit "Zuerst initialisieren" ab. Dieselbe Sperre wie der Datenlauf, aber
 # --nonblock: Laeuft er, entfaellt der Takt still.
 # */5 * * * * /usr/bin/flock --nonblock --conflict-exit-code 0 /srv/docker/apps/urbancrime/logs/pipeline.lock /srv/docker/apps/urbancrime/docker/srv01-konsole-takt.sh >> /srv/docker/apps/urbancrime/logs/konsole-takt.log 2>&1
+
+# Ab "platform_admin enable-managed" ersetzt diese Zeile die Datenlauf-Zeile
+# oben (die dann an storage.verwaltet scheitert): Sie reiht den Wochenlauf in
+# die Konsole ein, und die Takte fuehren ihn aus. Derselbe Termin, dieselbe
+# Sperre, und sie wartet - ein Wochenlauf darf nicht ausfallen, nur weil
+# gerade ein Takt laeuft.
+# 30 4 * * 1 /usr/bin/flock --wait 21600 /srv/docker/apps/urbancrime/logs/pipeline.lock /srv/docker/apps/urbancrime/docker/srv01-konsole-datenlauf.sh auto >> /srv/docker/apps/urbancrime/logs/scheduled-pipeline.log 2>&1

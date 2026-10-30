@@ -59,3 +59,46 @@ def test_der_takt_ist_bis_zur_einrichtung_auskommentiert():
     """Vor ``platform_admin init`` bricht jeder Takt ab. Eingeschaltet wird
     er auf srv01 von Hand, nicht durch das naechste ``crontab``."""
     assert takt_zeile().lstrip().startswith("#")
+
+
+# --------------------------------------------------------------------------
+# Montags: der geplante Quellenlauf, ab enable-managed (Entscheidung 30.10.2026)
+# --------------------------------------------------------------------------
+
+EINREIHEN = PROJECT_ROOT / "docker" / "srv01-konsole-datenlauf.sh"
+DATENLAUF = PROJECT_ROOT / "docker" / "srv01-datenlauf.sh"
+
+
+def test_das_einreihen_ist_gueltiges_bash(benutzbares_bash):
+    subprocess.run([benutzbares_bash, "-n", str(EINREIHEN)], check=True)
+
+
+def test_der_rhythmus_kommt_aus_derselben_funktion():
+    """Erster Montag Delta, zweiter Voll, dritter und vierter Delta, fuenfter
+    frei - und der Volllauf nie am Monatsersten wegen des Restic-Restores.
+    Eine zweite Fassung dieser Regel liefe frueher oder spaeter auseinander;
+    das Skript liest die eine aus dem Datenlauf."""
+    text = EINREIHEN.read_text(encoding="utf-8")
+    assert re.search(r'^\s*source "\$\(dirname "\$\{BASH_SOURCE\[0\]\}"\)/srv01-datenlauf\.sh"',
+                     text, re.M), "liest den Rhythmus nicht aus dem Datenlauf"
+    assert re.search(r"mode_for_day \"\$\(date", text), "der Rhythmus wird nicht benutzt"
+    assert not re.search(r"^\s*(function\s+)?mode_for_day\s*\(\)", text, re.M), (
+        "eigene Fassung des Rhythmus")
+
+
+def test_eingereiht_wird_ein_batch_und_sonst_nichts():
+    text = EINREIHEN.read_text(encoding="utf-8")
+    aufrufe = re.findall(r"compose run --rm (\w+) python -m ([\w.]+)", text)
+    assert aufrufe == [("worker", "platform_admin.batch")], aufrufe
+    for flagge in ('--mode "${mode}"', "--slot", "--operator scheduler"):
+        assert flagge in text, flagge
+
+
+def test_der_montag_wartet_auf_den_takt():
+    """Anders als der Takt wartet das Einreihen: Es darf nicht ausfallen,
+    nur weil gerade ein Auftrag laeuft - sonst fehlte der Wochenlauf."""
+    zeilen = [z for z in CRONTAB.read_text(encoding="utf-8").splitlines()
+              if "srv01-konsole-datenlauf.sh" in z]
+    assert len(zeilen) == 1 and zeilen[0].lstrip().startswith("#")
+    assert "--wait" in zeilen[0] and "logs/pipeline.lock" in zeilen[0]
+    assert zeilen[0].lstrip("# ").startswith("30 4 * * 1 "), "derselbe Termin wie der Datenlauf"

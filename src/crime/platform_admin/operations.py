@@ -185,6 +185,33 @@ def recover(store, oid, actor, reason):
 
 
 def tick(store):
+    """One worker tick, followed by the run protocol if it ran anything.
+
+    An idle tick writes nothing: it comes every five minutes, and overwriting
+    the last run with "nothing" would hide the failure the protocol is for.
+    """
+    from . import run_protocol
+    from .jobs import TICK_STAGES
+
+    TICK_STAGES.clear()
+    started = datetime.now(timezone.utc)
+    try:
+        result = _tick(store)
+    except Exception as exc:
+        if TICK_STAGES:
+            run_protocol.write(store, list(TICK_STAGES), started, ok=False,
+                               error=type(exc).__name__)
+            run_protocol.render_metrics(store)
+        raise
+    if TICK_STAGES:
+        status = (result or {}).get("status", "SUCCEEDED") if isinstance(result, dict) else "SUCCEEDED"
+        ok = run_protocol.succeeded(TICK_STAGES, status)
+        run_protocol.write(store, list(TICK_STAGES), started, ok=ok)
+        run_protocol.render_metrics(store)
+    return result
+
+
+def _tick(store):
     """Container worker: publish approvals, then operations, then pipeline work."""
     from .jobs import writer_lock, schedule, run_one
     from .candidates import finish_publication
@@ -200,6 +227,9 @@ def tick(store):
             raise AdminError("Worker-Ablage weicht vom uebernommenen Datenbestand ab; "
                              "STORAGE_BACKEND und ADMIN_OBJECT_STORE pruefen.")
     reconcile_serving(store)
+    from . import auto_approval
+
+    auto_approval.run(store)
     with store.db() as c:
         pending = c.execute(
             "SELECT id FROM impact WHERE status='APPROVED_PENDING_PUBLICATION' ORDER BY created_at LIMIT 1"
