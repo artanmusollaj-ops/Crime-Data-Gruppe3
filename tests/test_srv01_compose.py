@@ -67,6 +67,14 @@ GRENZEN_MIB = {
     # die Ursache hielt. Der Bau braucht gestuft 256 MB; zurueck auf die
     # Messung. Begruendung in der Compose-Datei.
     "pipeline": 1280,        # 1,25 GiB; zeitweilig
+    # 30.10.2026: Der Konsolen-Worker fuehrt dieselben Pipelines aus wie
+    # ``pipeline`` und nie gleichzeitig mit ihr (eine Sperre) - dieselbe
+    # Messung, derselbe Platz.
+    "worker": 1280,
+    # 30.10.2026: Webdienst der Konsole, lokal gemessen 92 MiB nach 210
+    # Anfragen (gunicorn, ein Prozess, vier Threads); die Reserve deckt das
+    # Impact-Archiv, das zweimal im Speicher liegt. Auf srv01 nachzumessen.
+    "admin": 160,
     "jupyter": 768,          # 768 MiB; zeitweilig
     # 12.10.2026, FR-31: ein nginx, das eine statische Datei ausliefert. Die
     # 32 MiB sind nicht gemessen, sondern das obere Ende der bekannten
@@ -266,7 +274,9 @@ def test_jede_grenze_nennt_ihre_herkunft(text, dienste):
     """Eine Zahl ohne Herkunft ist in drei Wochen eine geratene.
 
     Verlangt wird, dass in den Zeilen vor jedem ``mem_limit`` die Messung
-    genannt ist - FR-13 und das Datum.
+    genannt ist - FR-13 und ein Datum. Seit dem 30.10.2026 nicht mehr nur der
+    6.10.: Die Konsole hat eine eigene Messung, und die Regel verlangt die
+    Herkunft, nicht ein bestimmtes Datum.
     """
     zeilen = text.splitlines()
     stellen = [i for i, z in enumerate(zeilen) if z.strip().startswith("mem_limit:")]
@@ -275,7 +285,7 @@ def test_jede_grenze_nennt_ihre_herkunft(text, dienste):
     )
     for i in stellen:
         umfeld = "\n".join(zeilen[max(0, i - 6):i])
-        assert "FR-13" in umfeld and "6.10.2026" in umfeld, (
+        assert "FR-13" in umfeld and re.search(r"\b\d{1,2}\.\d{1,2}\.2026\b", umfeld), (
             f"Zeile {i + 1} ({zeilen[i].strip()}) nennt die Herkunft ihrer Grenze "
             "nicht - erwartet sind FR-13 und das Messdatum in den Zeilen darueber"
         )
@@ -303,7 +313,7 @@ def test_die_summe_der_grenzen_passt_in_das_gemessene(dienste):
     )
 
 
-def test_der_dauerbetrieb_ist_elasticsearch_kibana_und_die_startseite(dienste):
+def test_der_dauerbetrieb_ist_entschieden(dienste):
     """Die Zusage von FR-13, als Einteilung und nicht nur als Satz.
 
     **Bis zum 12.10.2026 waren es zwei.** Dieser Test hiess
@@ -321,12 +331,20 @@ def test_der_dauerbetrieb_ist_elasticsearch_kibana_und_die_startseite(dienste):
     was wesentlich mehr braucht. Wer einen vierten dauernden Dienst dazulegt,
     faellt hier durch und soll genau das: nachrechnen, nicht ein Profil
     weglassen.
+
+    **Am 30.10.2026 der vierte: der Webdienst der Engineering-Konsole.**
+    Nachgerechnet: 2'848 + 160 = 3'008 MiB dauernd, dazu das groessere
+    Zeitweilige mit 1'280 - **4'288** von 4'325, also 37 MiB frei. Der
+    Konsolen-Worker ist **nicht** dabei: Er laeuft getaktet als Stapellauf
+    (docker/srv01-konsole-takt.sh), weil er die Pipelines ausfuehrt und deren
+    1'280 MiB dauernd belegt haette - rund 1,3 GiB ueber dem Budget.
     """
     dauernd = sorted(n for n, d in dienste.items() if not d.get("profiles"))
-    assert dauernd == ["elasticsearch", "kibana", "start"], (
+    assert dauernd == ["admin", "elasticsearch", "kibana", "start"], (
         f"Dauerbetrieb ist {dauernd}; FR-13 rechnet mit Elasticsearch und "
-        "Kibana (zusammen 2'816 MiB) und seit FR-31 mit der Einstiegsseite "
-        "(32 MiB), Pipeline und Jupyter sind zeitweilig"
+        "Kibana (zusammen 2'816 MiB), seit FR-31 mit der Einstiegsseite "
+        "(32 MiB) und seit dem 30.10.2026 mit dem Konsolen-Webdienst "
+        "(160 MiB); Pipeline, Konsolen-Worker und Jupyter sind zeitweilig"
     )
 
 
@@ -466,7 +484,7 @@ def test_kein_webdienst_veroeffentlicht_einen_port(dienste):
 
 def test_der_geroutete_port_ist_der_container_port(dienste):
     """Punkt 3 der Serververeinbarung - und ein Fehler, der still 502 ergibt."""
-    erwartet = {"kibana": "5601", "jupyter": "8888", "start": "80"}
+    erwartet = {"kibana": "5601", "jupyter": "8888", "start": "80", "admin": "8765"}
     for name, dienst in webdienste(dienste).items():
         port = dienst["labels"][
             f"traefik.http.services.urbancrime-{name}.loadbalancer.server.port"]
@@ -996,3 +1014,85 @@ def test_der_betriebsstand_wird_als_prometheus_text_ausgeliefert(dienste):
     assert "index.html" in text and "/usr/share/nginx/html" in text, (
         "die Konfiguration ersetzt die Vorgabe des Abbilds - ohne Wurzel und "
         "Indexdatei liefert nginx die Einstiegsseite nicht mehr aus")
+
+
+# --------------------------------------------------------------------------
+# Die Engineering-Konsole: Webdienst dauernd, Worker getaktet (30.10.2026)
+# --------------------------------------------------------------------------
+
+
+def test_der_konsolen_worker_ist_ein_stapellauf(dienste):
+    """Er fuehrt die Pipelines aus und braucht deren Platz - also nicht dauernd.
+
+    Ein Takt startet ihn mit ``run --rm``, er erledigt hoechstens einen
+    Auftrag und endet. ``restart`` waere hier dieselbe Dauerschleife, vor der
+    FR-9 die Pipeline schuetzt.
+    """
+    worker = dienste["worker"]
+    assert worker.get("profiles"), "ohne Profil startet er mit up -d und bleibt"
+    assert worker.get("restart") == "no"
+    assert "--once" in worker["command"], "ohne --once endet der Lauf nie"
+    assert "labels" not in worker and "ports" not in worker
+    assert "proxy" not in worker["networks"]
+
+
+def test_der_worker_traegt_was_die_pipeline_traegt(dienste):
+    """Er ruft dieselben Module auf; fehlt ihm eine Variable der Pipeline,
+    laeuft derselbe Bau unter der Konsole anders als unter dem Cron."""
+    pipeline, worker = dienste["pipeline"]["environment"], dienste["worker"]["environment"]
+    fehlend = sorted(set(pipeline) - set(worker))
+    assert not fehlend, f"dem Worker fehlt, was die Pipeline hat: {fehlend}"
+    abweichend = {k: (pipeline[k], worker[k]) for k in pipeline if pipeline[k] != worker[k]}
+    assert not abweichend, f"Worker und Pipeline setzen verschieden: {abweichend}"
+    assert set(dienste["pipeline"]["volumes"]) <= set(dienste["worker"]["volumes"])
+
+
+def test_admin_und_worker_pruefen_git_unter_demselben_schutz(dienste):
+    """Der Worker merged, der Webdienst zeigt den Modus an - zeigten sie
+    Verschiedenes, saehe der Reviewer einen Schutz, der nicht gilt."""
+    from platform_admin.gitops import PROTECTION_MODES
+
+    admin = dienste["admin"]["environment"]["ADMIN_GIT_SCHUTZ"]
+    worker = dienste["worker"]["environment"]["ADMIN_GIT_SCHUTZ"]
+    assert admin == worker, (admin, worker)
+    assert admin in PROTECTION_MODES, f"{admin!r}: die Konsole startete nicht"
+
+
+def test_der_kontrollzustand_liegt_in_einem_eigenen_datentraeger(beschreibung, dienste):
+    """Review-Entscheidungen lassen sich nicht nachrechnen.
+
+    ``arbeitsdaten`` ist Zwischenstand und wird nicht gesichert; die
+    SQLite-Datenbank der Konsole liegt deshalb in ``konsole``, das in die
+    Serversicherung gehoert wie ``sicherung``.
+    """
+    for name in ("admin", "worker"):
+        assert "konsole:/app/data/admin" in dienste[name]["volumes"], name
+    assert "konsole" in beschreibung["volumes"]
+
+
+def test_die_oeffentliche_adresse_ist_die_geroutete(dienste):
+    """Die Konsole prueft Origin und Host gegen ADMIN_PUBLIC_ORIGIN; stimmt
+    sie nicht mit der Traefik-Regel ueberein, lehnt sie jede Anfrage ab."""
+    admin = dienste["admin"]
+    regel = admin["labels"]["traefik.http.routers.urbancrime-admin.rule"]
+    host = HOSTREGEL.match(regel).group(1)
+    assert admin["environment"]["ADMIN_PUBLIC_ORIGIN"] == f"https://{host}"
+
+
+def test_die_konsole_kennt_ihre_geheimnisse_nur_aus_der_env(dienste):
+    for name, variablen in (("admin", ("CF_ACCESS_AUD", "ADMIN_METRICS_TOKEN",
+                                       "ADMIN_ROLE_BINDINGS")),
+                            ("worker", ("ADMIN_GITHUB_TOKEN",))):
+        umgebung = dienste[name]["environment"]
+        for variable in variablen:
+            assert umgebung.get(variable, None) == "", f"{name}: {variable}"
+
+
+def test_nur_der_worker_haelt_das_github_token(dienste):
+    """Der Webdienst ist von aussen erreichbar, der Worker nicht. Deshalb
+    reiht der Webdienst Veroeffentlichungen nur ein, und das Token, das
+    Branches anlegt und mergt, kommt nie in den erreichbaren Prozess."""
+    admin = dienste["admin"]["environment"]
+    assert "ADMIN_GITHUB_TOKEN" not in admin
+    assert admin["ADMIN_DEFER_PUBLICATION"] == "1"
+    assert "ADMIN_GITHUB_TOKEN" in dienste["worker"]["environment"]

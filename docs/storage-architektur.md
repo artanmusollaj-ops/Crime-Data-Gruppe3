@@ -1052,7 +1052,7 @@ die beides sein will, ist in einem der beiden Fälle falsch. Die
 Entwicklungsfassung bleibt deshalb unangetastet; ein Test hält fest, dass sie
 weiter an `127.0.0.1` bindet und kein Traefik-Label trägt.
 
-### Die fünf Dienste
+### Die sieben Dienste
 
 | Dienst | Was er ist | Wie er erreichbar ist |
 | --- | --- | --- |
@@ -1061,6 +1061,8 @@ weiter an `127.0.0.1` bindet und kein Traefik-Label trägt.
 | `start` | Dauerbetrieb, liefert die Einstiegsseite aus (seit 12.10.2026, FR-31) | `urbancrime-start.datenwerft.ch` über Traefik |
 | `pipeline` | **Stapellauf**, läuft einmal durch und endet | gar nicht — kein Port, kein Label, kein `unless-stopped` |
 | `jupyter` | zeitweilig, **lesende** Analyse | `urbancrime-jupyter.datenwerft.ch` über Traefik |
+| `admin` | Dauerbetrieb, Webdienst der Engineering-Konsole (seit 30.10.2026) | `urbancrime-admin.datenwerft.ch` über Traefik |
+| `worker` | **Stapellauf** der Konsole, ein Auftrag je Fünf-Minuten-Takt | gar nicht — kein Port, kein Label, `restart: "no"` |
 
 Dass Elasticsearch `proxy` nicht beitritt, ist keine Vorsicht, sondern die
 Vorgabe des Servers: Ein versehentliches Traefik-Label daran wäre ein offener
@@ -1085,6 +1087,8 @@ bereits belegt. Die vorher veranschlagten 5'632 MiB lagen damit **1'307 MiB
 | `start` | 32 MiB | das obere Ende der Spanne, die ein nginx mit einer statischen Datei belegt (16–32); **nicht** gemessen — gemessen ist der Platz, in den es passt |
 | `pipeline` | 1'280 MiB | 1,25 GiB, zeitweilig |
 | `jupyter` | 768 MiB | zeitweilig; passt nur, wenn cadvisor gedeckelt wird |
+| `admin` | 160 MiB | am 30.10.2026 **lokal** gemessen: 92 MiB nach 210 Anfragen; die Reserve deckt das Impact-Archiv, das ganz im Speicher gezippt wird. Auf `srv01` nachzumessen |
+| `worker` | 1'280 MiB | dieselben Bauten wie `pipeline`, zeitweilig und nie neben ihr |
 
 **Die Rechnung.** Dauerbetrieb sind Elasticsearch, Kibana und `start` mit
 zusammen 2'848 MiB. Pipeline und Jupyter sind zeitweilig und streiten um
@@ -1101,6 +1105,16 @@ die erreichbar sein soll, muss laufen, wenn jemand ihre Adresse aufruft — also
 wurden es drei. Vertretbar ist das, weil 229 der 4'325 MiB frei waren und ein
 nginx 16–32 davon braucht; entschieden ist es an der Stelle, an der der Test
 heute „Elasticsearch, Kibana und `start`" sagt und seinen Grund dazu.
+
+**Der vierte dauernde Dienst, am 30.10.2026.** Die Engineering-Konsole
+braucht einen Webdienst, der antwortet, wenn jemand die Adresse aufruft, und
+einen Worker, der die Pipelines ausführt. Dauernd laufend hätte der Worker
+deren 1'280 MiB belegt — rund 1,3 GiB über dem Budget. Er läuft deshalb wie
+die Pipeline als Stapellauf, angestossen alle fünf Minuten von
+[`docker/srv01-konsole-takt.sh`](../docker/srv01-konsole-takt.sh) über
+dieselbe Sperre wie der Datenlauf, aber ohne zu warten. Dauernd ist nur
+`admin`: 2'848 + 160 = 3'008 MiB, mit dem grösseren Zeitweiligen
+**4'288 von 4'325 MiB** — 37 MiB frei, ohne die 792 aus cadvisor.
 
 **Die eine Voraussetzung, die nicht in dieser Datei steht:** cadvisor muss auf
 **256 MiB** gedeckelt werden. Es belegt heute 1'047 MiB — 29 % des gesamten
@@ -1206,6 +1220,33 @@ Nachprüfbar ist das von aussen **nicht**: Die Pakete sind privat, und ein
 Test ohne Token käme nicht an die Registry. Die Digests stehen datiert im
 Projektgedächtnis; was auf `srv01` wirklich läuft, sagt dort
 `docker compose images` — abgelesen am 11.10.2026.
+
+### Was die Engineering-Konsole zusätzlich braucht
+
+Seit dem 30.10.2026 beschrieben, **nirgends eingerichtet**. Vor dem ersten
+Start auf `srv01`:
+
+1. **Die Tunnel-Route** für `urbancrime-admin.datenwerft.ch`, wie oben auf
+   `http://traefik:80`. Die Access-Anwendung über `urbancrime-*` deckt sie mit.
+2. **Die `.env` des Stapels** um `CF_ACCESS_ISSUER`, `CF_ACCESS_AUD` (aus der
+   Access-Anwendung), `ADMIN_ROLE_BINDINGS` (JSON: Access-Subjekt → Rollen),
+   `ADMIN_METRICS_TOKEN` und `ADMIN_GITHUB_TOKEN` (nur der Worker liest es).
+3. **Den Datenträger `urbancrime_konsole` in die Serversicherung.** Er trägt
+   die SQLite-Datenbank mit den Review-Entscheidungen; die lässt sich nicht
+   nachrechnen.
+4. **Einmal `python -m platform_admin init`** im Worker-Container, dann die
+   Takt-Zeile in [`deploy/cron/urbancrime.crontab`](../deploy/cron/urbancrime.crontab)
+   einkommentieren. Vorher bricht jeder Takt ab.
+
+Der bisherige Datenlauf bleibt, bis jemand `enable-managed` ausführt. Danach
+sperrt [`storage.verwaltet`](../src/crime/storage/verwaltet.py) `run_all` und
+`release` für alles ausser dem Worker — der Cron-Datenlauf scheitert dann.
+Bevor das geschieht, muss geklärt sein, was der Konsolen-Worker vom Datenlauf
+übernimmt: Drift, Betriebsstand und Sicherungssatz ruft er heute nicht auf.
+
+`ADMIN_GIT_SCHUTZ` steht auf `entwicklung`, bis die Entwicklung abgeschlossen
+ist (Entscheidung vom 30.10.2026). Für `produktiv` braucht `main` vorher die
+fünf GitHub-Schutzregeln — sonst lehnt die Konsole jeden Merge ab.
 
 ### Jupyter liest, und zwar aus dem Release
 

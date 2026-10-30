@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'551** |
+| Tests | **2'568** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,55 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 30.10.2026 · Die Konsole hat einen Platz auf srv01 (Branch `feature/konsole-3-betrieb`)
+
+Dritter von vier Schritten: wie die Engineering-Konsole auf `srv01` läuft.
+Beschrieben, nicht eingerichtet — was dort vor dem ersten Start zu tun ist,
+steht in `storage-architektur.md` Abschnitt 16 unter „Was die
+Engineering-Konsole zusätzlich braucht".
+
+**Webdienst dauernd, Worker getaktet** (Entscheidung Christian, 30.10.). Artans
+Entwurf liess beide dauernd laufen; der Worker erbte dabei die 1'280 MiB der
+Pipeline, weil er deren Bauten ausführt. Das lag rund **1,3 GiB über** dem
+Budget von FR-13, in dem im Dauerbetrieb 197 MiB frei waren. Jetzt ist nur
+`admin` dauernd, mit **160 MiB** — am 30.10. lokal gemessen 92 MiB nach 210
+Anfragen, plus Reserve für das Impact-Archiv, das ganz im Speicher gezippt
+wird; auf `srv01` nachzumessen. `worker` ist ein Stapellauf wie die Pipeline,
+alle fünf Minuten angestossen von `docker/srv01-konsole-takt.sh`, über
+**dieselbe Sperre** wie der Datenlauf, aber ohne zu warten. Verplant sind
+damit **4'288 von 4'325 MiB**.
+
+**Beide Dienste stehen in `docker-compose.srv01.yml`**, nicht in Artans
+eigener `docker-compose.console.yml` — dort hätten die gut dreissig Wächter
+über Grenzen, Labels, Protokollrotation und Geheimnisse sie nicht gesehen. Neu
+gewacht: Der Worker trägt jede Variable der Pipeline mit demselben Wert; nur
+er hält das GitHub-Token; Webdienst und Worker stehen unter demselben
+`ADMIN_GIT_SCHUTZ` (`entwicklung`); der Kontrollzustand liegt im eigenen
+Datenträger `konsole`, der in die Serversicherung gehört; die öffentliche
+Adresse ist die geroutete; der Healthcheck bekommt ohne Anmeldung eine Antwort.
+
+**Nicht übernommen:** `Dockerfile.admin` und `requirements-admin.lock` — seit
+dem zweiten Schritt stehen Flask, PyJWT und gunicorn in `requirements.lock`,
+das Pipeline-Abbild trägt sie schon; ein zweites Abbild wäre ein zweiter
+Digest, der hinterherhinken kann. `tools/package_console.py` (das Lieferpaket
+mit `LIEFERUMFANG_KONSOLE.json`), Artans Cron-Einstieg (ersetzt durch den
+Takt; die Zeitpläne prüft jeder Takt über die Konsole selbst) und das
+Grafana-Brett samt Prometheus-Ziel — der Webdienst liegt noch nicht im Netz
+`monitoring`, das kommt mit der Einrichtung.
+
+**Klein, aber nötig:** Die Rollenzuordnung kommt als JSON aus der `.env`
+(`ADMIN_ROLE_BINDINGS`); bisher kannte die Konsole nur eine Datei, und die
+hätte einen Einhängepunkt gebraucht, den es im Stapel sonst nicht gibt.
+
+**Offen vor `enable-managed`:** Danach sperrt `storage.verwaltet` den
+Cron-Datenlauf. Der Konsolen-Worker ruft Drift, Betriebsstand und
+Sicherungssatz heute nicht auf — wer umstellt, muss das vorher klären.
+
+**Zahlen.** 2'551 → **2'568 Tests**, Standardlauf 2'440 → **2'457**,
+Referenzwächter unverändert **111**.
 
 ---
 

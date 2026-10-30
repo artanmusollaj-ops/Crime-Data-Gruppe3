@@ -3,6 +3,7 @@
 #     docker compose -f docker-compose.srv01.yml up -d          # Dauerbetrieb
 #     docker compose -f docker-compose.srv01.yml run --rm pipeline
 #     docker compose -f docker-compose.srv01.yml --profile analyse up -d jupyter
+#     docker compose -f docker-compose.srv01.yml run --rm worker   # ein Konsolentakt
 #
 # **Warum eine eigene Datei.** docker-compose.yml ist die Entwicklungsfassung:
 # Sie bindet Ports an 127.0.0.1, kennt kein Traefik und keine Speichergrenzen,
@@ -539,10 +540,177 @@ services:
       traefik.http.middlewares.urbancrime-jupyter-proto.headers.customrequestheaders.X-Forwarded-Proto: https
       traefik.http.services.urbancrime-jupyter.loadbalancer.server.port: "8888"
 
+  # --------------------------------------------------------------------
+  # Die Engineering-Konsole - Webdienst dauernd, Worker getaktet (30.10.2026)
+  # --------------------------------------------------------------------
+  # Artans Konsole (platform_admin): Mapping- und Einstellungsvorschlaege,
+  # Vier-Augen-Review, Kandidaten-Releases. Sie ist in zwei Dienste geteilt,
+  # und nur der eine laeuft dauernd. Der Worker fuehrt die Pipelines aus und
+  # braucht deren 1'280 MiB; dauernd belegt waeren das rund 1,3 GiB ueber dem
+  # Budget von FR-13. Er laeuft deshalb wie die Pipeline als Stapellauf, alle
+  # fuenf Minuten angestossen von docker/srv01-konsole-takt.sh.
+  #
+  # Dasselbe Abbild wie die Pipeline: Flask, PyJWT und gunicorn stehen seit
+  # dem 30.10.2026 in requirements.lock. Ein zweites Abbild waere ein zweiter
+  # Digest, der hinter dem ersten herhinken kann.
+  admin:
+    image: ${PIPELINE_IMAGE:-urban-crime:latest}
+    restart: unless-stopped
+    # Ein Prozess, vier Threads: Die Konsole haelt ihren Zustand in SQLite,
+    # und mehrere Prozesse wuerden um dieselbe Datei schreiben.
+    command:
+      - gunicorn
+      - --bind
+      - 0.0.0.0:8765
+      - --workers
+      - "1"
+      - --threads
+      - "4"
+      - --timeout
+      - "120"
+      - platform_admin.web:create_app()
+    networks:
+      # proxy fuer Traefik; urbancrime fuer den Weg zu SeaweedFS.
+      proxy:
+      urbancrime:
+    environment:
+      STORAGE_BACKEND: s3
+      S3_ENDPOINT:
+      S3_BUCKET:
+      S3_ACCESS_KEY:
+      S3_SECRET_KEY:
+      ADMIN_PROJECT_ROOT: /app
+      ADMIN_DATA_ROOT: /app/data
+      ADMIN_OBJECT_STORE: s3
+      # Freigaben werden erst nach dem verifizierten Merge aktiv.
+      ADMIN_RELEASE_MODE: coupled
+      # Der Webdienst reiht Veroeffentlichungen ein, der Worker fuehrt sie
+      # aus - nur er haelt das GitHub-Token.
+      ADMIN_DEFER_PUBLICATION: "1"
+      # Entscheidung vom 30.10.2026: Bis die Entwicklung abgeschlossen ist,
+      # merged die Konsole ohne GitHub-Schutzregeln, aber nur bei gruener CI
+      # auf dem PR-Kopf. Muss mit dem Worker uebereinstimmen.
+      ADMIN_GIT_SCHUTZ: entwicklung
+      ADMIN_GITHUB_REPOSITORY: artanmusollaj-ops/Crime-Data-Gruppe3
+      ADMIN_GITHUB_BASE: main
+      # Hinter derselben Access-Anwendung wie alles unter urbancrime-*; die
+      # Konsole prueft das Access-JWT selbst und nimmt den Benutzer daraus.
+      ADMIN_AUTH: cloudflare
+      ADMIN_PUBLIC_ORIGIN: https://urbancrime-admin.datenwerft.ch
+      CF_ACCESS_ISSUER:
+      CF_ACCESS_AUD:
+      # Access-Subjekt -> Rollen, als JSON aus der .env.
+      ADMIN_ROLE_BINDINGS:
+      ADMIN_METRICS_TOKEN:
+    volumes:
+      # Kandidaten und Releases entstehen im Arbeitsraum der Strecke.
+      - arbeitsdaten:/app/data
+      # Der Kontrollzustand - SQLite mit den Review-Entscheidungen - liegt
+      # darueber in einem eigenen Datentraeger, siehe unten.
+      - konsole:/app/data/admin
+    # FR-13, gemessen am 30.10.2026 (lokal, gunicorn wie hier): 92 MiB nach
+    # 210 Anfragen. Die Reserve deckt den Download eines Impact-Archivs, das
+    # die Konsole ganz im Speicher zippt und dabei einmal kopiert. Auf srv01
+    # mit docker stats nachzumessen. Mit diesem Dienst 4'288 von 4'325 MiB.
+    mem_limit: 160m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    healthcheck:
+      # /healthz braucht keine Anmeldung. Der Host-Kopf ist noetig, weil die
+      # Konsole nur ihren oeffentlichen Namen und "admin" als Host annimmt.
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen(u.Request('http://localhost:8765/healthz', headers={'Host': 'admin'}), timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: proxy
+      traefik.http.routers.urbancrime-admin.rule: Host(`urbancrime-admin.datenwerft.ch`)
+      traefik.http.routers.urbancrime-admin.entrypoints: web
+      traefik.http.routers.urbancrime-admin.middlewares: urbancrime-admin-proto
+      traefik.http.routers.urbancrime-admin.service: urbancrime-admin
+      traefik.http.middlewares.urbancrime-admin-proto.headers.customrequestheaders.X-Forwarded-Proto: https
+      traefik.http.services.urbancrime-admin.loadbalancer.server.port: "8765"
+
+  worker:
+    image: ${PIPELINE_IMAGE:-urban-crime:latest}
+    # Ein Takt, ein Auftrag, Ende - wie die Pipeline nie unless-stopped
+    # (FR-9). Kein on-failure: Der naechste Takt in fuenf Minuten ist der
+    # Wiederholungsversuch, und die Konsole fuehrt Buch ueber den Auftrag.
+    restart: "no"
+    profiles:
+      - stapel
+    command:
+      - python
+      - -m
+      - platform_admin
+      - worker
+      - --once
+      - --project-root
+      - /app
+      - --data-root
+      - /app/data
+      - --operator
+      - service-worker
+    networks:
+      # Wie die Pipeline: Elasticsearch fuer die Lader, SeaweedFS, die Quellen.
+      - urbancrime
+    environment:
+      # Alles, was die Pipeline setzt, und mit denselben Werten - der Worker
+      # ruft dieselben Module auf (test_der_worker_traegt_was_die_pipeline_traegt).
+      STORAGE_BACKEND: s3
+      SICHERUNG_ROOT: /app/sicherung
+      DUCKDB_TEMP_DIRECTORY: /app/data/duckdb-tmp
+      S3_ENDPOINT:
+      S3_BUCKET:
+      S3_ACCESS_KEY:
+      S3_SECRET_KEY:
+      CENSUS_API_KEY:
+      SOCRATA_APP_TOKEN:
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      KIBANA_URL: http://kibana:5601
+      DUCKDB_MEMORY_LIMIT: 896MB
+      DUCKDB_THREADS: "2"
+      ADMIN_PROJECT_ROOT: /app
+      ADMIN_DATA_ROOT: /app/data
+      ADMIN_OBJECT_STORE: s3
+      ADMIN_RELEASE_MODE: coupled
+      ADMIN_GIT_SCHUTZ: entwicklung
+      ADMIN_GITHUB_REPOSITORY: artanmusollaj-ops/Crime-Data-Gruppe3
+      ADMIN_GITHUB_BASE: main
+      ADMIN_GITHUB_TOKEN:
+      # Die Zeitplaene der Konsole (in ihren Einstellungen, vorgabemaessig
+      # alle aus) prueft jeder Takt mit.
+      ADMIN_SCHEDULER: "true"
+      ADMIN_AUTO_SERVING: "true"
+      ADMIN_START_ROOT: /app/startseite
+      ADMIN_START_ADDRESSES: server
+    volumes:
+      - arbeitsdaten:/app/data
+      - konsole:/app/data/admin
+      - startseite:/app/startseite
+      - sicherung:/app/sicherung
+    # FR-13, gemessen am 6.10.2026 fuer die Pipeline: 1,25 GiB. Der Worker
+    # fuehrt dieselben Bauten aus und teilt sich ihren Platz - die Sperre in
+    # docker/srv01-konsole-takt.sh haelt beide auseinander.
+    mem_limit: 1280m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
 networks:
   # Traefiks Netz, von der Ingress-Beschreibung angelegt ("docker network
   # create proxy"). external, weil es dieser Stapel nicht besitzt - er tritt
-  # bei. Nur Kibana, Jupyter und start liegen darin.
+  # bei. Nur Kibana, Jupyter, start und der Konsolen-Webdienst liegen darin.
   proxy:
     external: true
   # Das Netz des Monitoring-Stapels, von der Ingress-Beschreibung angelegt
@@ -578,6 +746,11 @@ volumes:
   # etwa 0,6 GB faellt (docs/storage-architektur.md, "Gesichert wird, was
   # sich nicht nachrechnen laesst").
   sicherung:
+  # **Der Kontrollzustand der Engineering-Konsole** (30.10.2026): SQLite mit
+  # Revisionen, Review-Entscheidungen und Git-Nachweisen, dazu die
+  # Impact-Archive. Nichts davon laesst sich nachrechnen - es gehoert in die
+  # Serversicherung wie ``sicherung``, und deshalb nicht in ``arbeitsdaten``.
+  konsole:
   # Die Einstiegsseite (FR-31): vom Stapellauf geschrieben, von start
   # ausgeliefert. Nicht sicherungswuerdig - sie entsteht in Sekunden neu aus
   # dem Release, und ohne Release ist sie wertlos.

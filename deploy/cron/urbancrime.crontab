@@ -3,3 +3,9 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 # First Monday: delta. Second: full. Third/fourth: delta. Fifth: skip.
 30 4 * * 1 /usr/bin/flock --wait 21600 /srv/docker/apps/urbancrime/logs/pipeline.lock /srv/docker/apps/urbancrime/docker/srv01-datenlauf.sh auto >> /srv/docker/apps/urbancrime/logs/scheduled-pipeline.log 2>&1
+
+# Engineering-Konsole: ein Takt alle fuenf Minuten. Erst einkommentieren, wenn
+# auf srv01 "python -m platform_admin init" gelaufen ist - vorher bricht jeder
+# Takt mit "Zuerst initialisieren" ab. Dieselbe Sperre wie der Datenlauf, aber
+# --nonblock: Laeuft er, entfaellt der Takt still.
+# */5 * * * * /usr/bin/flock --nonblock --conflict-exit-code 0 /srv/docker/apps/urbancrime/logs/pipeline.lock /srv/docker/apps/urbancrime/docker/srv01-konsole-takt.sh >> /srv/docker/apps/urbancrime/logs/konsole-takt.log 2>&1
