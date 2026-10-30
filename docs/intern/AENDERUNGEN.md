@@ -155,6 +155,12 @@ erst nach dem Merge läuft.
 Cron-Datenlauf. Der Konsolen-Worker ruft Drift, Betriebsstand und
 Sicherungssatz heute nicht auf — wer umstellt, muss das vorher klären.
 
+**Was offen bleibt, steht in `offene-punkte.md`:** die Entscheidungen E-4
+(was der Worker vom Datenlauf übernimmt) und E-5 (wie Notebooks im
+verwalteten Betrieb lesen), die Handgriffe S-5 bis S-9 auf `srv01`
+(Tunnel-Route, `.env`, Sicherung, Inbetriebnahme, Nachmessen) und C-7 (die
+Konsole im Betriebsblick).
+
 **Zahlen.** 2'551 → **2'568 Tests**, Standardlauf 2'440 → **2'457**,
 Referenzwächter unverändert **111**. Frischklon gemessen: **2'379 von
 2'457**, 78 übersprungen, grün.
