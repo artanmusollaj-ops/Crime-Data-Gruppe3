@@ -445,6 +445,8 @@ def build(data_root: Path, stations: list[str]) -> Path:
 
 def main() -> int:
     args = arguments()
+    from storage.verwaltet import sperre
+    sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
     try:
         # Ueber die Ablage und nicht ueber den Pfad: ``publish_table``
         # entfernt im s3-Modus die lokale Arbeitskopie, und dieser

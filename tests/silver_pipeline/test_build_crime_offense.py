@@ -218,6 +218,7 @@ def schreibe_config(config_root: Path) -> None:
         # einem Personendelikt (13A) und einem Auffangcode (90Z).
         "2401,24001,MOTOR VEHICLE THEFT,A,240,Motor Vehicle Theft,7,micr_manual_1110_2024,true,\n",
         encoding="utf-8")
+    (config_root / bc.MAPPING_OVERRIDES).write_text(bc.OVERRIDE_KOPF + "\n", encoding="utf-8")
 
 
 def baue(tmp_path: Path, chicago: list[dict], detroit: list[dict]) -> Path:
@@ -627,7 +628,7 @@ def test_manifest_nennt_jeden_quelllauf(tmp_path):
     assert herkunft["chicago_bronze_runs"] == ["run_20260101T000000000000Z"]
     assert herkunft["detroit_bronze_runs"] == ["run_aaa"]
     assert "tract" in herkunft["silver_tract"]["path"]
-    assert len(herkunft["crosswalks"]) == 3
+    assert len(herkunft["crosswalks"]) == 4
     # Aus welchem Format gelesen wurde, gehoert zur Herkunft: Detroit hat das
     # Format gewechselt, und beide Bestaende koennen nebeneinander liegen.
     assert herkunft["chicago_bronze_format"] == "PARQUET"
@@ -1129,13 +1130,14 @@ def test_das_fallebene_gilt_fuer_beide_staedte_gleich(tmp_path):
 
 def test_die_crosswalks_tragen_ihre_pruefsumme(tmp_path):
     """Sie werden aus amtlichen PDFs erzeugt und koennen sich aendern, ohne
-    dass der Pfad sich aendert."""
+    dass der Pfad sich aendert. Die vierte Datei sind die Korrekturen der
+    Konsole, die neben den erzeugten Crosswalks stehen."""
     herkunft = manifest_von(baue(tmp_path, CHI, DET))["derived_from"]
-    assert len(herkunft["crosswalks"]) == 3
+    assert len(herkunft["crosswalks"]) == 4
     for eintrag in herkunft["crosswalks"]:
         assert set(eintrag) == {"path", "sha256"}
         assert len(eintrag["sha256"]) == 64, "SHA-256 in hex"
-    assert len({e["sha256"] for e in herkunft["crosswalks"]}) == 3
+    assert len({e["sha256"] for e in herkunft["crosswalks"]}) == 4
 
 
 def test_silver_tract_wird_als_stand_genannt_nicht_als_pfad(tmp_path):
@@ -1902,3 +1904,72 @@ def test_was_source_change_als_verschwunden_fuehrt_ist_weg_oder_umdatiert():
         f"source_change fuehrt diese Zeilen als verschwunden, und "
         f"crime_offense hat sie mit **demselben** Jahr - also keine "
         f"Umdatierung, sondern ein Widerspruch: {widerspruch}")
+
+
+# --------------------------------------------------------------------------
+# Korrekturen der Engineering-Konsole (config/mapping_overrides.csv)
+# --------------------------------------------------------------------------
+
+
+def mit_overrides(tmp_path: Path, zeilen: str) -> tuple[Path, Path]:
+    data_root, config_root = tmp_path / "data", tmp_path / "config"
+    schreibe_tract(data_root)
+    schreibe_chicago(data_root, CHI)
+    schreibe_detroit(data_root, DET)
+    schreibe_config(config_root)
+    (config_root / bc.MAPPING_OVERRIDES).write_text(
+        bc.OVERRIDE_KOPF + "\n" + zeilen, encoding="utf-8")
+    return data_root, config_root
+
+
+def test_ein_override_ersetzt_die_zuordnung_des_crosswalks(tmp_path):
+    """Die Crosswalks sind erzeugt und bleiben unangetastet; eine fachliche
+    Korrektur steht daneben und gewinnt. Sie ist als Entscheidung erkennbar:
+    Herkunft ``admin_review``, Einstufung ``ambiguous``."""
+    data_root, config_root = mit_overrides(
+        tmp_path, "chicago,0110,240,Fachlich geprueft\ndetroit,1301,240,Fachlich geprueft\n")
+    zeilen = {z["city"]: z for z in lies(bc.build(data_root, config_root))}
+    for stadt, code in (("chicago", "240"), ("detroit", "240")):
+        assert zeilen[stadt]["nibrs_code"] == code
+        assert zeilen[stadt]["nibrs_match"] == "admin_review"
+        assert zeilen[stadt]["mapping_status"] == "ambiguous"
+
+
+def test_ein_override_kann_einen_nicht_zugeordneten_code_zuordnen(tmp_path):
+    chi = [dict(CHI[0], id="2", case_number="JA2", iucr="1481", primary_type="NON-CRIMINAL")]
+    data_root, config_root = mit_overrides(tmp_path, "chicago,1481,90Z,Doch ein Delikt\n")
+    schreibe_chicago(data_root, chi, run_id="run_20260103T000000000000Z",
+                     ingest_date="2026-01-03")
+    zeilen = {z["offense_id"]: z for z in lies(bc.build(data_root, config_root))
+              if z["city"] == "chicago"}
+    assert zeilen["2"]["nibrs_code"] == "90Z", "1481 ist im Crosswalk nicht zugeordnet"
+    assert zeilen["1"]["nibrs_code"] == "13A", "die uebrigen Codes bleiben"
+
+
+def test_ohne_override_datei_kein_bau(tmp_path):
+    data_root, config_root = mit_overrides(tmp_path, "")
+    (config_root / bc.MAPPING_OVERRIDES).unlink()
+    with pytest.raises(bc.TransformError, match="mapping_overrides.csv"):
+        bc.build(data_root, config_root)
+
+
+@pytest.mark.parametrize("zeile, grund", [
+    ("boston,0110,240,x\n", "Stadt"),
+    ("chicago,0110,240,x\nchicago,0110,13A,y\n", "doppelt"),
+    ("chicago,0110,999,x\n", "Zielcode"),
+    ("chicago,0110,240,\n", "Begruendung"),
+], ids=["stadt", "doppelt", "zielcode", "ohne-grund"])
+def test_ein_ungueltiger_override_bricht_den_bau_ab(tmp_path, zeile, grund):
+    data_root, config_root = mit_overrides(tmp_path, zeile)
+    with pytest.raises(bc.TransformError, match=grund):
+        bc.build(data_root, config_root)
+
+
+def test_die_override_datei_gehoert_zum_fingerabdruck(tmp_path):
+    data_root, config_root = mit_overrides(tmp_path, "")
+    vorher = manifest_von(bc.build(data_root, config_root))
+    assert bc.MAPPING_OVERRIDES in json.dumps(vorher["derived_from"])
+    (config_root / bc.MAPPING_OVERRIDES).write_text(
+        bc.OVERRIDE_KOPF + "\nchicago,0110,240,x\n", encoding="utf-8")
+    nachher = manifest_von(bc.build(data_root, config_root))
+    assert nachher["input_fingerprint"] != vorher["input_fingerprint"]

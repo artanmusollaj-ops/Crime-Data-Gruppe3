@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'316** |
+| Tests | **2'551** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -74,7 +74,7 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `silver/tract` | **2** | 14.09.2026 | ein Census Tract je Zeile, TIGER und ACS über einen vollen äusseren Join. Version 2: `median_household_income_usd` und `population_below_poverty` als `INTEGER` statt `BIGINT` — die Einwohnerzahl bleibt `BIGINT`, sie ist der Nenner jeder Rate |
 | `silver/place` | 1 | 14.09.2026 | ein Ort je Zeile, Geometrie für die Stadtgrenze |
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
-| `silver/crime_offense` | **3** | 19.09.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig |
+| `silver/crime_offense` | **4** | 30.10.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig. Version 4: **Die Zuordnung ist Crosswalk plus `config/mapping_overrides.csv`** — eine Zeile dort gewinnt gegen den erzeugten Crosswalk und trägt die Herkunft `admin_review` (Einstufung `ambiguous`). Die Datei fehlt nie; ohne Korrekturen hat sie nur die Kopfzeile, und dann ist das Ergebnis dasselbe wie in Version 3 |
 | `silver/source_change` | **3** | 03.10.2026 | Unterschied zwischen aufeinanderfolgenden **Vollabzügen** je Quelle, eine Zeile je geändertem Feld; `ESRI_OID` und reine Leerzeichen ausgenommen, Zeitstempel als `beruehrt` statt als Inhaltsänderung. Version 2 ergänzte die **Datierung aus den Deltas**: `zuerst_gesehen_in`, `zuerst_gesehen_am` und `datierung` mit `delta` / `kein_delta` / `nicht_datierbar`. Gefunden wird weiter nur zwischen Vollabzügen — aus einem Delta liesse sich *verschwunden* nicht von *ruhig* unterscheiden. Version 3: Die Datierung **klebt** — sie nennt den besten je bestimmten Befund, nicht den heutigen, sonst löschte das Aufräumen der Deltas sie wieder |
 | `gold/*` | **8** | 14.10.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften | Version 6: Die ACS-Masse liegen **je Vintage** in der neuen Tabelle `dim_tract_acs` (`population`, `median_household_income_usd`, `poverty_rate`); `dim_tract` behält die Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie kommt; `fact_offense` trägt `population_vintage` und sagt damit je Zeile, welcher Nenner für sie gilt. Eine Tabelle mit einer Zeile je Tract konnte nur eine Einwohnerzahl tragen — über mehrere Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021 Version 7: `dim_date` trägt `year_is_complete` — ob der Jahrgang dieses Tages ganz in den Daten liegt. Ein Teiljahr darf nicht in einen Jahresvergleich geraten: 2026 hat am 3.10. neun Monate, und neun gegen zwölf gestellt ergeben einen Rückgang, den es nicht gibt. Dazu im Manifest von `fact_offense` der Nachweis `year_coverage` je Jahrgang, mit `days_with_offenses` gegen `days_in_year` — denn eine Lücke **innerhalb** des Jahres sieht man an der Spalte nicht Version 8: Die neue Tabelle `dim_tract_geo` trägt den **Umriss** je Tract der beiden Studienstädte als WKT — 1'055 Zeilen, vereinfacht mit Douglas-Peucker 0,00002 Grad (rund zwei Meter, 0,0002 % Fläche je Tract). Sie ist die Grundlage der Choroplethenkarte in Kibana, die eine Fläche braucht und mit dem Schwerpunkt in `dim_tract` nichts anfangen kann. **Eigene Tabelle und keine Spalte an `dim_tract`:** Die Dimension deckt beide Countys ab (6'282 Zeilen) und wäre mit Umrissen 26 MB statt 194 KB; `dim_tract_geo` kostet 133 KB. Keine Kennzahl darin — wer färben will, verbindet über `geoid`
 | `serving/comparison_*` | **2** | 14.10.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` Version 2: `rate_tract` kommt dazu — eine Zeile je Tract **mit Einwohnern** im Bezugsjahr (`gold_pipeline.RATENJAHR`), mit Fällen, Taten, Einwohnerzahl und beiden Raten je 1'000. Gerechnet wird sie mit **derselben** Abfrage, die `gold_pipeline.raten_je_tract` auch dem Wächter der Kibana-Ratenkachel stellt, nicht mit einer zweiten. Sie entsteht, weil Kibanas Karte eine Fläche nach **einem** Feld einfärbt und zwischen zwei verbundenen Feldern nicht rechnen kann — und eine Karte nach Fallzahlen wäre hier irreführend: Die Einwohnerzahl je Tract reicht von 35 bis 13'521 (2024, Median 2'861). Tracts ohne Einwohner fehlen, für sie ist keine Rate definiert |
@@ -100,6 +100,74 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 30.10.2026 · Die Konsole ist im Repository (Branch `feature/konsole-2-paket`)
+
+Zweiter von vier Schritten: Artans Paket `platform_admin` mit seinen Tests,
+die Schreibsperre für verwaltete Bestände und der Schalter für die
+Git-Automatik. Container, Compose und srv01 kommen im dritten Schritt; bis
+dahin ist die Konsole nirgends ausgerollt.
+
+**Die Mapping-Korrekturen stehen neben den Crosswalks, nicht darin.** Die
+Konsole änderte Zeilen direkt in `config/iucr_nibrs_mapping.csv` und
+`micr_nibrs_mapping.csv`. Beide sind **erzeugt** und werden gegen ihre
+Werkzeuge gehalten (`test_das_werkzeug_erzeugt_genau_diese_datei`), und die
+Herkunftsprüfung kennt `admin_review` nicht — jeder Konsolen-PR wäre rot
+gewesen, gemergt hätte sich nie etwas. Jetzt schreibt die Konsole eine Zeile
+in `config/mapping_overrides.csv` (Stadt, Quellcode, Zielcode, Begründung);
+Silver wendet sie nach dem Crosswalk an. Wer den Crosswalk-Wert wieder wählt,
+entfernt die Zeile. Silver und seine Prüfung `gegen_crosswalk` lesen dieselbe
+Abfrage, `wirksame_zuordnung` — sonst prüfte die Prüfung gegen etwas anderes,
+als gebaut wurde. Die Datei fehlt nie; ohne Korrekturen hat sie nur die
+Kopfzeile. **`silver/crime_offense` Vertrag 3 → 4.** Mit leerer Datei ist das
+Ergebnis byteweise dasselbe: lokal neu gebaut, Parquet-SHA-256 `6e049c26…`
+vor und nach.
+
+**`ADMIN_GIT_SCHUTZ`.** `produktiv` (Vorgabe, auch bei fehlender Variable)
+verlangt die fünf Schutzregeln auf `main`. `entwicklung` merged ohne sie,
+prüft dann aber selbst: Jeder Check-Run auf dem exakten PR-Kopf ist
+abgeschlossen und nicht gescheitert, mindestens einer erfolgreich — sonst
+kein Merge. Der Modus steht im Nachweis unter `config/admin_reviews/`, im
+PR-Text und als Banner in der Oberfläche; ein Tippfehler im Wert verhindert
+den Start. Bis die Entwicklung abgeschlossen ist, gilt `entwicklung`, auch
+auf srv01 (Entscheidung Christian, 30.10.).
+
+**Was gegenüber Artans Fassung sonst anders ist.**
+
+- `storage/managed.py` heisst `storage/verwaltet.py` (`verwaltet`, `sperre`,
+  `worker_erlaubt`) — `storage` ist ein deutsches Paket. Die Sperre steht in
+  20 Einstiegen, nicht 15, wie im Plan geschätzt.
+- Die Gold-Prüfung „eine Zeile je Tat" gilt je `reporting_city`. Im ersten
+  Schritt weggelassen, jetzt übernommen, weil ein Konsolentest sie verlangt.
+  Sie ändert keine Zahl.
+- **`serving.release_reader` und die Umstellung der Notebooks 34 und 37 sind
+  nicht übernommen.** Sie lenkten die Notebooks auf das aktive Release — aber
+  ein Release enthält kein Silver und kein Bronze. Notebook 34 lief danach
+  durch und liess 13 von 17 Zellen **ohne Fehler leer**; Notebook 37 brach ab.
+  Offen, mit Artan zu klären.
+- Zwei Fehler behoben: die Quellansicht verglich einen aufgelösten Pfad mit
+  einem unaufgelösten (auf macOS liegt `/var` hinter `/private/var`; ein Test
+  mit verlinkter Datenwurzel hält das jetzt auf jeder Plattform), und ein
+  Einstellungstest setzte `lookback_days` für Chicago, das der eigene
+  Validator abweist.
+- Flask und PyJWT stehen auch in `[dev]` und im Lockfile — CI installiert nur
+  `[dev]`, und ohne sie fielen die Konsolentests beim Sammeln.
+
+**Ein Fehlgriff beim Prüfen.** Für den Byte-Vergleich habe ich Silver „lokal"
+neu gebaut — die `.env` steht aber auf `STORAGE_BACKEND=s3`. Der Bau hat
+deshalb eine Fassung mit Vertrag 4 vom ungemergten Branch in den Eimer
+`urban-crime` publiziert und die lokale Arbeitskopie entfernt. Inhalt
+nachweislich gleich (1'894'617 Zeilen, null Abweichungen in beide
+Richtungen), trotzdem zurückgenommen: Parquet und Manifest vom 26.10. sind
+wieder aktuell (ETags `d86131ea…`, `31531e39…`), die lokale Tabelle mit dem
+Code von `main` und `STORAGE_BACKEND=local` byteweise wiederhergestellt.
+Probebauten laufen seither in einer Scratch-Datenwurzel mit ausdrücklichem
+`STORAGE_BACKEND=local`.
+
+**Zahlen.** 2'316 → **2'551 Tests**, Standardlauf 2'205 → **2'440**,
+Referenzwächter unverändert **111** (104 grün, 7 brauchen laufende Dienste).
 
 ---
 

@@ -1988,8 +1988,9 @@ def kommandozeile() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = kommandozeile().parse_args(argv)
-
     from storage import for_root
+    from storage.verwaltet import sperre
+    sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
 
     fenster = zeitfenster(for_root(args.data_root).local_root)
     # Mit Namen und nicht nach Position: Ein Feld mehr an ``Brett`` liesse
