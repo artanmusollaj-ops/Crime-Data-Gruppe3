@@ -168,6 +168,7 @@ Probebauten laufen seither in einer Scratch-Datenwurzel mit ausdrücklichem
 
 **Zahlen.** 2'316 → **2'551 Tests**, Standardlauf 2'205 → **2'440**,
 Referenzwächter unverändert **111** (104 grün, 7 brauchen laufende Dienste).
+Frischklon gemessen: **2'362 von 2'440**, 78 übersprungen, grün.
 
 ---
 
