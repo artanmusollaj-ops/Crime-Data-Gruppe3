@@ -1099,11 +1099,12 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **2'129 der 2'205 Tests** des Standardlaufs, und
-sie sind grün (am 17.10.2026 in einem Baum ohne `data/` nachgemessen).
-Die übrigen 76 überspringen sich selbst, weil sie gebaute Daten brauchen und
+In einem frischen Klon laufen **2'127 der 2'205 Tests** des Standardlaufs, und
+sie sind grün (am 30.10.2026 in einem Baum ohne `data/` nachgemessen).
+Die übrigen 78 überspringen sich selbst, weil sie gebaute Daten brauchen und
 `data/` nicht versioniert ist — dazu seit dem 5.10.2026 die Reproduktion von
-`docs/forschungsfragen.md`, deren Quelle das ungetrackte LN1-PDF ist; die 111
+`docs/forschungsfragen.md`, deren Quelle das ungetrackte LN1-PDF ist, und
+zwei Prüfungen gegen das ebenfalls ungetrackte PRD in `_bmad-output/`; die 111
 Referenzstand-Wächter sind ohnehin abgewählt.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter

@@ -135,6 +135,11 @@ sie; der volle Lauf im zweiten Schritt zeigt, ob das so bleibt.
 
 **Zahlen.** 2'311 → **2'316 Tests**, Standardlauf 2'200 → **2'205**,
 Referenzwächter unverändert **111** (104 grün, 7 brauchen laufende Dienste).
+Frischklon gemessen: **2'127 von 2'205**, 78 übersprungen, grün. Die
+bisherige Angabe „2'124 von 2'200, 76 übersprungen" war schon auf `main`
+überholt — ein Klon von `e193d97` ergibt 2'122 und 78: Zwei Prüfungen in
+`tests/test_fr_stand.py` brauchen das PRD, das nicht im Repository liegt, und
+kamen nach der Messung vom 17.10. dazu.
 
 ---
 
