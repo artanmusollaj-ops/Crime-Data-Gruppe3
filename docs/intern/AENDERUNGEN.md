@@ -148,7 +148,8 @@ Cron-Datenlauf. Der Konsolen-Worker ruft Drift, Betriebsstand und
 Sicherungssatz heute nicht auf — wer umstellt, muss das vorher klären.
 
 **Zahlen.** 2'551 → **2'568 Tests**, Standardlauf 2'440 → **2'457**,
-Referenzwächter unverändert **111**.
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'379 von
+2'457**, 78 übersprungen, grün.
 
 ---
 
