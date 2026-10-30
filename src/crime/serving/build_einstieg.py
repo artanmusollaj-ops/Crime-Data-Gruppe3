@@ -684,6 +684,8 @@ def main(argv: list[str] | None = None) -> int:
     from serving.load_elasticsearch import aktuelles_release
 
     args = kommandozeile().parse_args(argv)
+    from storage.verwaltet import sperre
+    sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
     if args.ziel is None:
         print("Keine Projektwurzel erkannt - --ziel angeben (oder "
               "PROJECT_ROOT setzen).")

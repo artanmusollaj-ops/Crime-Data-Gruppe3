@@ -82,6 +82,7 @@ Gemessen und aufgeschrieben ist der Weg dorthin in
 from __future__ import annotations
 
 import argparse
+import csv
 import logging
 import tempfile
 from datetime import datetime, timezone
@@ -114,7 +115,7 @@ TABLE = "crime_offense"
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
-CONTRACT_VERSION = 3
+CONTRACT_VERSION = 4
 
 
 CHICAGO = "chicago"
@@ -133,6 +134,18 @@ CONFIG_DIR = "config"
 IUCR_MAPPING = "iucr_nibrs_mapping.csv"
 MICR_MAPPING = "micr_nibrs_mapping.csv"
 NIBRS_CODES = "nibrs_offense_codes_2025.csv"
+# Fachliche Korrekturen neben den Crosswalks. Die Crosswalks sind **erzeugt**
+# (``tools/build_iucr_nibrs_mapping.py``, ``tools/build_micr_nibrs_mapping.py``)
+# und werden gegen ihre Werkzeuge gehalten; eine Hand- oder Konsolenaenderung
+# darin waere beim naechsten Lauf weg und braeche den Wachter. Was davon
+# abweicht, steht deshalb hier, eine Zeile je Quellcode, und gewinnt. Die
+# Engineering-Konsole schreibt diese Datei, nach Review und ueber Git.
+MAPPING_OVERRIDES = "mapping_overrides.csv"
+OVERRIDE_SPALTEN = ("city", "source_code", "nibrs_code", "reason")
+OVERRIDE_KOPF = ",".join(OVERRIDE_SPALTEN)
+#: Herkunft einer Override-Zeile - in ``MAPPING_STATUS`` als ``ambiguous``:
+#: geprueft und entschieden, aber keine amtliche Ableitung.
+OVERRIDE_HERKUNFT = "admin_review"
 
 TRACT_TABLE = "dataset=tract"
 
@@ -160,6 +173,8 @@ UNFOUNDED = "UNFOUNDED"
 # oder schrumpft die Vergleichbarkeit, ohne dass jemand hingesehen hat.
 # ``reconcile`` laesst den Bau deshalb bei einem unbekannten Wert scheitern.
 MAPPING_STATUS = {
+    # Aus ``mapping_overrides.csv``: fachlich geprueft, keine amtliche Ableitung.
+    OVERRIDE_HERKUNFT: "ambiguous",
     "nibrs_definition": "exact",
     "micr_manual_1110_2024": "exact",
     "micr_arrest_charge_1110_2024": "exact",
@@ -445,6 +460,83 @@ def sql_list(paths: list[str]) -> str:
 ORDNUNG = "city, occurred_at_utc, offense_id"
 
 
+def pruefe_overrides(config_root: Path) -> None:
+    """Bricht ab, wenn ``mapping_overrides.csv`` fehlt oder etwas Ungueltiges sagt.
+
+    Eine fehlende Datei ist kein "keine Korrekturen": Sie heisst, dass die
+    Konfiguration unvollstaendig ist - und still ohne die Korrekturen zu
+    bauen, ergaebe ein falsches Silver, dem man es nicht ansieht.
+    """
+    pfad = config_root / MAPPING_OVERRIDES
+    if not pfad.is_file():
+        raise TransformError(
+            f"{MAPPING_OVERRIDES} fehlt in {config_root}. Ohne Korrekturen genuegt "
+            f"die Kopfzeile: {OVERRIDE_KOPF}")
+    with pfad.open(encoding="utf-8", newline="") as datei:
+        leser = csv.DictReader(datei)
+        if tuple(leser.fieldnames or ()) != OVERRIDE_SPALTEN:
+            raise TransformError(
+                f"{MAPPING_OVERRIDES}: Kopfzeile muss {OVERRIDE_KOPF} sein, "
+                f"ist {','.join(leser.fieldnames or ())}")
+        zeilen = list(leser)
+    with (config_root / NIBRS_CODES).open(encoding="utf-8", newline="") as datei:
+        codes = {z["nibrs_code"] for z in csv.DictReader(datei)}
+    gesehen: set[tuple[str, str]] = set()
+    for nummer, z in enumerate(zeilen, 2):
+        wo = f"{MAPPING_OVERRIDES} Zeile {nummer}"
+        if z["city"] not in (CHICAGO, DETROIT):
+            raise TransformError(f"{wo}: unbekannte Stadt {z['city']!r}")
+        schluessel = (z["city"], z["source_code"])
+        if not z["source_code"] or z["source_code"] != z["source_code"].strip():
+            raise TransformError(f"{wo}: Quellcode fehlt oder ist nicht normalisiert")
+        if schluessel in gesehen:
+            raise TransformError(f"{wo}: {z['city']} {z['source_code']} steht doppelt")
+        gesehen.add(schluessel)
+        if z["nibrs_code"] not in codes:
+            raise TransformError(f"{wo}: Zielcode {z['nibrs_code']!r} nicht in {NIBRS_CODES}")
+        if not (z["reason"] or "").strip():
+            raise TransformError(f"{wo}: Begruendung fehlt - eine Korrektur ohne Grund "
+                                 "ist nicht nachpruefbar")
+
+
+def wirksame_zuordnung(config_root: Path) -> str:
+    """Je Stadt und Quellcode die Zuordnung, die gilt: Override vor Crosswalk.
+
+    Spalten: ``city``, ``quellcode``, ``nibrs_code``, ``nibrs_match``,
+    ``hierarchy``. Ein Override uebernimmt Detroits Rang aus dem Crosswalk -
+    die Hierarchie haengt am Quellcode, nicht am Zielcode.
+    """
+    iucr = (config_root / IUCR_MAPPING).as_posix()
+    micr = (config_root / MICR_MAPPING).as_posix()
+    # Ausdrueckliche Spalten: Eine Datei mit nur der Kopfzeile laesst DuckDB
+    # sonst raten, und eine leere Korrekturliste ist der Normalfall.
+    spalten = ", ".join(f"'{s}': 'VARCHAR'" for s in OVERRIDE_SPALTEN)
+    korrektur = (f"read_csv('{(config_root / MAPPING_OVERRIDES).as_posix()}', "
+                 f"header = true, columns = {{{spalten}}})")
+    # Ohne WITH: Als Baustufe darf die Abfrage keine Zwischenstufen pinnen
+    # (``test_der_bau_fuehrt_die_stufen_einzeln_aus``). Die Korrekturdatei
+    # wird dafuer dreimal gelesen; sie hat eine Handvoll Zeilen.
+    return f"""
+        SELECT '{CHICAGO}' AS city, iucr AS quellcode, ibr_code AS nibrs_code,
+               match AS nibrs_match, CAST(NULL AS INTEGER) AS hierarchy
+        FROM read_csv('{iucr}', header = true, all_varchar = true)
+        WHERE mapped = 'true'
+          AND iucr NOT IN (SELECT source_code FROM {korrektur} WHERE city = '{CHICAGO}')
+        UNION ALL
+        SELECT '{DETROIT}', micr_code, nibrs_code, match,
+               TRY_CAST(hierarchy AS INTEGER)
+        FROM read_csv('{micr}', header = true, all_varchar = true)
+        WHERE mapped = 'true'
+          AND micr_code NOT IN (SELECT source_code FROM {korrektur} WHERE city = '{DETROIT}')
+        UNION ALL
+        SELECT k.city, k.source_code, k.nibrs_code, '{OVERRIDE_HERKUNFT}',
+               TRY_CAST(m.hierarchy AS INTEGER)
+        FROM {korrektur} k
+        LEFT JOIN read_csv('{micr}', header = true, all_varchar = true) m
+          ON k.city = '{DETROIT}' AND m.micr_code = k.source_code
+    """
+
+
 def build_query(
     chicago: Source,
     detroit: Source,
@@ -458,8 +550,6 @@ def build_query(
     Deutung je Stadt noetig ist - und das ist genau der Punkt, an dem beide
     Datensaetze sich unterscheiden.
     """
-    iucr = config_root / IUCR_MAPPING
-    micr = config_root / MICR_MAPPING
     codes = config_root / NIBRS_CODES
 
     # Die Einstufung kommt aus MAPPING_STATUS und nicht aus verstreuten
@@ -505,18 +595,19 @@ def build_query(
         SELECT nibrs_code, nibrs_description, nibrs_group, crime_against
         FROM read_csv('{codes}', header = true, all_varchar = true)
     """),
+        # Crosswalk und Overrides an einer Stelle - dieselbe Abfrage stellt
+        # ``gegen_crosswalk`` seiner Pruefung, sonst pruefte sie gegen etwas
+        # anderes, als gebaut wurde.
+        ('zuordnung', wirksame_zuordnung(config_root)),
         ('iucr_map',
          f"""
-        SELECT iucr, ibr_code AS nibrs_code, match AS nibrs_match
-        FROM read_csv('{iucr}', header = true, all_varchar = true)
-        WHERE mapped = 'true'
+        SELECT quellcode AS iucr, nibrs_code, nibrs_match
+        FROM zuordnung WHERE city = '{CHICAGO}'
     """),
         ('micr_map',
          f"""
-        SELECT micr_code, nibrs_code, match AS nibrs_match,
-               TRY_CAST(hierarchy AS INTEGER) AS hierarchy
-        FROM read_csv('{micr}', header = true, all_varchar = true)
-        WHERE mapped = 'true'
+        SELECT quellcode AS micr_code, nibrs_code, nibrs_match, hierarchy
+        FROM zuordnung WHERE city = '{DETROIT}'
     """),
         ('tract',
          f"""
@@ -829,19 +920,8 @@ def gegen_crosswalk(
     ``mapped = 'true'``. Ein Code ohne aktivierte Zuordnung fuehrt in Silver zu
     ``nibrs_code IS NULL``, und genau das muss dann auch dastehen.
     """
-    iucr = (config_root / IUCR_MAPPING).as_posix()
-    micr = (config_root / MICR_MAPPING).as_posix()
     abweichungen = con.execute(f"""
-        WITH referenz AS (
-            SELECT '{CHICAGO}' AS city, iucr AS quellcode,
-                   ibr_code AS nibrs_code, match AS nibrs_match
-            FROM read_csv('{iucr}', header = true, all_varchar = true)
-            WHERE mapped = 'true'
-            UNION ALL
-            SELECT '{DETROIT}', micr_code, nibrs_code, match
-            FROM read_csv('{micr}', header = true, all_varchar = true)
-            WHERE mapped = 'true'
-        )
+        WITH referenz AS ({wirksame_zuordnung(config_root)})
         SELECT s.city, count(*)
         FROM {relation} s
         LEFT JOIN referenz r
@@ -1122,7 +1202,7 @@ def herkunft_von(
         "silver_tract": referenz(tract.pfad, tract_manifest),
         "crosswalks": [
             referenzdatei(config_root / name)
-            for name in (IUCR_MAPPING, MICR_MAPPING, NIBRS_CODES)
+            for name in (IUCR_MAPPING, MICR_MAPPING, NIBRS_CODES, MAPPING_OVERRIDES)
         ],
     }
 
@@ -1215,6 +1295,7 @@ def _build(datenbank: Path, data_root: Path, config_root: Path,
         # der Einfuegeordnung.
         con.execute("SET preserve_insertion_order=false")
 
+        pruefe_overrides(config_root)
         stufen, schluss = build_query(chicago, detroit, tract, config_root)
         for name, abfrage in stufen:
             con.execute(f"CREATE TABLE {name} AS {abfrage}")
@@ -1236,6 +1317,8 @@ def _build(datenbank: Path, data_root: Path, config_root: Path,
 
 def main() -> int:
     args = arguments()
+    from storage.verwaltet import sperre
+    sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(levelname)s %(message)s",

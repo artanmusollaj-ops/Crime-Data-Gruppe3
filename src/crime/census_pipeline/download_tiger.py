@@ -628,6 +628,8 @@ def ingest_state(
 
 def main() -> int:
     args = arguments()
+    from storage.verwaltet import sperre
+    sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
     started = datetime.now(timezone.utc)
     aus = AUSLIEFERUNGEN[args.auslieferung]
     ablage = for_root(args.data_root)

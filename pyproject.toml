@@ -45,6 +45,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+admin = ["flask>=3.1,<4", "PyJWT[crypto]>=2.10,<3", "gunicorn>=23,<27; sys_platform != 'win32'"]
 dev = [
     "pytest>=8,<10",
     # Liest die IEPD-Arbeitsmappe von Illinois - die zweite Quelle fuer die
@@ -76,10 +77,18 @@ dev = [
     # Quelltext. pdoc ist die einzige Abhaengigkeit, die nichts baut und
     # nichts prueft - sie macht Vorhandenes lesbar.
     "pdoc>=15,<16",
+    # Die Engineering-Konsole (platform_admin) und ihre Tests. Doppelt mit
+    # [admin], weil CI nur [dev] installiert: Ohne Flask fielen ihre Tests
+    # beim Sammeln, und die Testzahl hinge davon ab, wer was installiert hat.
+    "flask>=3.1,<4",
+    "PyJWT[crypto]>=2.10,<3",
 ]
 
 [tool.setuptools.packages.find]
 where = ["src/crime"]
+
+[tool.setuptools.package-data]
+platform_admin = ["static/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
