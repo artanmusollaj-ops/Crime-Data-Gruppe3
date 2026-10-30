@@ -26,6 +26,11 @@ logs/
 # aktuelle Release, aus SeaweedFS geholt. Auf srv01 ist das ein eigenes
 # Volume; wer das Modul lokal laufen laesst, bekommt es hier. Das sind Daten.
 sicherung/
+# Die Engineering-Konsole: ihr Kontrollzustand (SQLite, Kandidaten,
+# Impact-Archive) unter <datenwurzel>/admin, und der eigene Datenordner, den
+# docs/ENGINEERING_KONSOLE.md fuer lokale Versuche vorschlaegt. Das sind Daten.
+data/admin/
+data-konsole/
 
 # Releases: der ganze Stand unter einer Kennung, wie serving/ abgeleitet und nicht versioniert.
 data/releases/
