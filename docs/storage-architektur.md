@@ -1087,7 +1087,7 @@ bereits belegt. Die vorher veranschlagten 5'632 MiB lagen damit **1'307 MiB
 | `start` | 32 MiB | das obere Ende der Spanne, die ein nginx mit einer statischen Datei belegt (16–32); **nicht** gemessen — gemessen ist der Platz, in den es passt |
 | `pipeline` | 1'280 MiB | 1,25 GiB, zeitweilig |
 | `jupyter` | 768 MiB | zeitweilig; passt nur, wenn cadvisor gedeckelt wird |
-| `admin` | 160 MiB | am 30.10.2026 **lokal** gemessen: 92 MiB nach 210 Anfragen; die Reserve deckt das Impact-Archiv, das ganz im Speicher gezippt wird. Auf `srv01` nachzumessen |
+| `admin` | 160 MiB | am 31.10.2026 auf `srv01` gemessen: **52 MiB** in Ruhe, Spitze **66 MiB** mit laufendem Takt. Impact-Downloads werden gestreamt, der grösste denkbare (173 MiB ZIP) blieb bei 46 MiB |
 | `worker` | 1'280 MiB | dieselben Bauten wie `pipeline`, zeitweilig und nie neben ihr |
 
 **Die Rechnung.** Dauerbetrieb sind Elasticsearch, Kibana und `start` mit

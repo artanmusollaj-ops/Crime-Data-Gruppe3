@@ -224,7 +224,7 @@ dc run --rm worker python -m platform_admin init \
 
    Danach in `deploy/cron/urbancrime.crontab` die Takt-Zeile einkommentieren und `crontab deploy/cron/urbancrime.crontab` neu laden.
 
-5. **`admin` nachmessen** (S-9): `docker stats` nach einigen Minuten Betrieb und einmal während eines Impact-Downloads. Die 160 MiB ruhen auf einer lokalen Messung.
+5. **`admin` nachmessen**: `docker stats` nach einigen Minuten Betrieb. Am 31.10.2026 gemessen (S-9): 52 MiB in Ruhe, Spitze 66 MiB. Impact-Downloads werden gestreamt und heben den Speicher nicht.
 
 ### Auf den verwalteten Betrieb umstellen
 

@@ -628,10 +628,10 @@ services:
       # Der Kontrollzustand - SQLite mit den Review-Entscheidungen - liegt
       # darueber in einem eigenen Datentraeger, siehe unten.
       - konsole:/app/data/admin
-    # FR-13, gemessen am 30.10.2026 (lokal, gunicorn wie hier): 92 MiB nach
-    # 210 Anfragen. Die Reserve deckt den Download eines Impact-Archivs, das
-    # die Konsole ganz im Speicher zippt und dabei einmal kopiert. Auf srv01
-    # mit docker stats nachzumessen. Mit diesem Dienst 4'288 von 4'325 MiB.
+    # FR-13, auf srv01 gemessen am 31.10.2026 (S-9): 52 MiB in Ruhe, Spitze
+    # 66 MiB mit laufendem Takt. Impact-Downloads werden gestreamt; der
+    # groesste denkbare (173 MiB ZIP) blieb lokal bei 46 MiB statt 223 MiB.
+    # Mit diesem Dienst 4'288 von 4'325 MiB.
     mem_limit: 160m
     security_opt:
       - no-new-privileges:true

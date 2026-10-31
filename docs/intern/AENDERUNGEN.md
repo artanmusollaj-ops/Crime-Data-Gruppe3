@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'643** |
+| Tests | **2'645** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -102,6 +102,37 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 31.10.2026 · Die Konsole streamt Impact-Downloads (Branch `s9-impact-download-streamt`)
+
+S-9, auf `srv01` nachgemessen. Im Ruhebetrieb mit laufendem Takt belegt
+`admin` **52 MiB**, die Spitze seit dem Start lag bei **66 MiB**. Die
+160 MiB reichen dafür.
+
+Den Impact-Download konnte `srv01` nicht messen, weil es noch keinen Impact
+gibt. Darum lokal nachgebaut, und zwar der ungünstigste Fall: der erste
+Lauf ohne Vergleichsstand. Darin erscheint jede der 1'875'374 Taten als
+`added` samt ihrer JSON-Zeile. `impact_records.parquet` wird so **250 MB**
+gross, das ZIP **173 MiB**. Die Konsole hielt beides ganz im Speicher:
+`zip_bytes` puffert in `BytesIO` und kopiert mit `getvalue()` noch einmal,
+`/api/impact-artifact` liest die Datei mit `read_bytes()`. Gemessen am
+echten Prozess stieg die Spitze beim Download von 46 auf **223 MiB**. Bei
+160 MiB hätte das den Webdienst beendet. Das ist der Fall, in dem man den
+Nachweis am dringendsten braucht.
+
+Eine höhere Grenze hätte das Problem nur verschoben. Stattdessen streamen
+jetzt beide Routen: Das Archiv entsteht in einer unverlinkten temporären
+Datei, das Artefakt wird direkt aus der Datei gesendet. Derselbe Download
+bleibt bei **46 MiB**. Die Grenze bleibt bei 160 MiB, die Kommentare nennen
+jetzt die Messung auf `srv01`.
+
+Neu gewacht: `test_impact_downloads_stream_instead_of_buffering` prüft, dass
+beide Routen streamen und dieselben Bytes liefern.
+`test_large_impact_archive_downloads_in_flat_memory` lädt 32 MB nicht
+komprimierbarer Daten und verlangt eine Spitze unter 8 MiB. Mit dem alten
+Code ist er rot.
+
+**Zahlen.** 2'643 → **2'645 Tests**, Standardlauf 2'532 → **2'534**.
 
 ## 31.10.2026 · Die Notebooks 34 und 37 lesen einen nachgewiesenen Bestand (Branch `feature/e5-notebook-analysesitzungen`)
 
