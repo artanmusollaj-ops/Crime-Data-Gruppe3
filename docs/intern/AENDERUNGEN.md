@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'596** |
+| Tests | **2'597** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -102,6 +102,36 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 31.10.2026 · Der Takt der Konsole läuft, und sie prüft die CI über Actions (Branch `docs/konsole-takt-an`)
+
+Nach dem Merge von #190 ein neues Abbild gebaut (`abbilder.yml` auf
+`554fd02`) und mit `docker/srv01-abbild-einsetzen.sh` eingesetzt, `admin`
+neu gestartet. Der Probetakt lief grün und schrieb die Kontrollsicherung
+`backups/control/…tar.gz` — genau die Datei, an der der erste Takt mit
+HEAD 403 gescheitert war. Danach die Takt-Zeile im `crontab` einkommentiert;
+die Datenlauf-Zeile bleibt, `enable-managed` (S-10) ist nicht gelaufen.
+
+**Die Merge-Prüfung liest jetzt Workflow-Läufe statt Check-Runs.** Im
+Entwicklungsmodus fragte `gitops.check_protection` die Check-Runs des PR-Heads
+ab. Diesen Endpunkt nimmt GitHub nur mit App-Tokens an; ein Fine-grained-Token
+bietet das Recht „Checks“ gar nicht (Artan beim Erstellen, bestätigt in der
+REST-Dokumentation). Auf dem privaten Repository hätte die Konsole damit jeden
+Merge verweigert. Sie liest jetzt `/actions/runs?head_sha=…`, das ein
+Fine-grained-Token mit **Actions Lesen** darf; die Regel bleibt: alle Läufe
+fertig, keiner gescheitert, mindestens einer erfolgreich. Ein neuer Test hält,
+dass grüne Läufe eines anderen Commits nicht zählen und kein Check-Run-Aufruf
+mehr erfolgt.
+
+Das Token kommt von Artan, weil das Repository seinem persönlichen Konto
+gehört und ein Fine-grained-Token nur an Repositories des eigenen Kontos
+reicht: Contents und Pull requests Lesen und Schreiben, Actions Lesen;
+Administration Lesen erst ab `produktiv`. S-6, §16 der Speicherarchitektur
+und das Handbuch (samt PDF) nennen das; S-8 steht unter „Erledigt“.
+
+**Zahlen.** 2'596 → **2'597 Tests**, Standardlauf 2'485 → **2'486**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'408 von
+2'486**, 78 übersprungen, grün.
 
 ## 31.10.2026 · Die Konsole fragt S3 nicht mehr mit HEAD (Branch `feature/konsole-ohne-head`)
 

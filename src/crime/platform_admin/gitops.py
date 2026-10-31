@@ -75,9 +75,13 @@ def check_protection(gh, commit_sha):
 
     entwicklung: while the project is still being built, main stays
     unprotected so its developers can push. The console then checks what
-    the protection would have enforced on its own PR: every check run on the
-    exact head commit completed without failure, and at least one passed.
-    Without that, it would merge unchecked into an unprotected main.
+    the protection would have enforced on its own PR: every GitHub Actions
+    run on the exact head commit completed without failure, and at least one
+    passed. Without that, it would merge unchecked into an unprotected main.
+    Workflow runs, not check runs: the check-runs endpoint takes only GitHub
+    App tokens, and the console holds a fine-grained personal token, which
+    reads workflow runs with "Actions: read" (GitHub REST docs, "List check
+    runs for a Git reference" and "List workflow runs for a repository").
     """
     mode = protection_mode()
     if mode == "produktiv":
@@ -96,8 +100,8 @@ def check_protection(gh, commit_sha):
                 "(oder ADMIN_GIT_SCHUTZ=entwicklung waehrend der Entwicklung)"
             )
         return mode
-    runs = gh.call("GET", "/commits/" + commit_sha + "/check-runs?per_page=100").get(
-        "check_runs") or []
+    runs = gh.call("GET", "/actions/runs?head_sha=" + commit_sha + "&per_page=100").get(
+        "workflow_runs") or []
     open_or_failed = sorted(
         r.get("name", "?") for r in runs
         if r.get("status") != "completed" or r.get("conclusion") not in PASSING

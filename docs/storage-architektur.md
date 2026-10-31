@@ -1223,18 +1223,20 @@ Projektgedächtnis; was auf `srv01` wirklich läuft, sagt dort
 
 ### Was die Engineering-Konsole zusätzlich braucht
 
-Seit dem 30.10.2026 beschrieben, **seit dem 31.10.2026 zum Teil
-eingerichtet**: Abbild mit dem Konsolen-Code, `.env` bis auf das GitHub-Token,
-`init` mit 2021–2026, `urbancrime_konsole` in der Sicherung, `admin` läuft.
-Die Tunnel-Route steht ebenfalls (31.10.2026, hinter derselben
-Access-Anwendung). Offen sind das Token und der Takt (S-6, S-8 in
-[`intern/offene-punkte.md`](intern/offene-punkte.md)). Die Schritte:
+Seit dem 30.10.2026 beschrieben, **seit dem 31.10.2026 eingerichtet bis
+auf das GitHub-Token**: Abbild mit dem Konsolen-Code (`554fd02`), `.env`,
+`init` mit 2021–2026, `urbancrime_konsole` in der Sicherung, `admin` läuft,
+die Tunnel-Route steht hinter derselben Access-Anwendung, und der Takt läuft
+alle fünf Minuten aus `crontab`. Offen ist nur das Token (S-6 in
+[`intern/offene-punkte.md`](intern/offene-punkte.md)); ohne es legt die
+Konsole keine PRs an. Die Schritte:
 
 1. **Die Tunnel-Route** für `urbancrime-admin.datenwerft.ch`, wie oben auf
    `http://traefik:80`. Die Access-Anwendung über `urbancrime-*` deckt sie mit.
 2. **Die `.env` des Stapels** um `CF_ACCESS_ISSUER`, `CF_ACCESS_AUD` (aus der
    Access-Anwendung), `ADMIN_ROLE_BINDINGS` (JSON: Access-Subjekt → Rollen),
-   `ADMIN_METRICS_TOKEN` und `ADMIN_GITHUB_TOKEN` (nur der Worker liest es).
+   `ADMIN_METRICS_TOKEN` und `ADMIN_GITHUB_TOKEN` (nur der Worker liest es;
+   Contents, Pull requests Lesen und Schreiben, Actions Lesen).
 3. **Den Datenträger `urbancrime_konsole` in die Serversicherung.** Er trägt
    die SQLite-Datenbank mit den Review-Entscheidungen; die lässt sich nicht
    nachrechnen.

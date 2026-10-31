@@ -77,7 +77,7 @@ Die Betriebsaktionen umfassen PR-Erstellung, Merge-Anforderung, Rücknahme, erne
 | Wert | Merge nur, wenn | Wann |
 | --- | --- | --- |
 | `produktiv` (Vorgabe, auch ohne Variable) | `main` die fünf GitHub-Schutzregeln trägt: strikte Statusprüfung mit mindestens einem Check, eine Freigabe, veraltete Freigaben verwerfen, Admins eingeschlossen | im produktiven Betrieb |
-| `entwicklung` | jeder Check-Run auf dem exakten PR-Kopf abgeschlossen und nicht gescheitert ist, mindestens einer erfolgreich | solange `main` ohne Schutzregeln bleibt, damit direkt gepusht werden kann |
+| `entwicklung` | jeder GitHub-Actions-Lauf auf dem exakten PR-Kopf abgeschlossen und nicht gescheitert ist, mindestens einer erfolgreich | solange `main` ohne Schutzregeln bleibt, damit direkt gepusht werden kann |
 
 Ein anderer Wert verhindert den Start. Der Modus steht im Nachweis unter `config/admin_reviews/`, im PR-Text und, wenn er `entwicklung` ist, als Banner in der Oberfläche.
 
@@ -210,7 +210,7 @@ Der Kontrollzustand — SQLite mit Revisionen, Review-Entscheidungen und Git-Nac
 Geführt in [`offene-punkte.md`](offene-punkte.md) als S-5 bis S-10, in dieser Reihenfolge:
 
 1. **Tunnel-Route** `urbancrime-admin.datenwerft.ch` auf `http://traefik:80` (S-5).
-2. **`.env` des Stapels** (S-6): `CF_ACCESS_ISSUER` und `CF_ACCESS_AUD` aus der Access-Anwendung — ohne sie startet `admin` nicht —, `ADMIN_ROLE_BINDINGS` als JSON (stabile Access-`sub`-Kennung → Rollen; mindestens zwei Personen, sonst gibt es kein Vier-Augen-Prinzip), `ADMIN_METRICS_TOKEN` und `ADMIN_GITHUB_TOKEN` (Schreibrecht auf das Repository; nur der Worker liest es).
+2. **`.env` des Stapels** (S-6): `CF_ACCESS_ISSUER` und `CF_ACCESS_AUD` aus der Access-Anwendung — ohne sie startet `admin` nicht —, `ADMIN_ROLE_BINDINGS` als JSON (stabile Access-`sub`-Kennung → Rollen; mindestens zwei Personen, sonst gibt es kein Vier-Augen-Prinzip), `ADMIN_METRICS_TOKEN` und `ADMIN_GITHUB_TOKEN` (Fine-grained, nur dieses Repository: Contents und Pull requests Lesen und Schreiben, Actions Lesen, ab `produktiv` zusätzlich Administration Lesen; nur der Worker liest es).
 3. **`urbancrime_konsole` in `backup.volumes`** (S-7).
 4. **In Betrieb nehmen** (S-8). Vorher `docs/console-settings.example.json` als `config/platform_admin_settings.json` ins Abbild bringen oder nach `init` als Einstellungsvorschlag einreichen — ohne sie setzt `init` den Zeitraum auf **2024 allein**, und jeder Gesamtimport lüde nur diesen Jahrgang.
 
