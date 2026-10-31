@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'641** |
+| Tests | **2'643** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -154,9 +154,24 @@ Ebenfalls behoben:
 Zehn neue Wächter halten das. `release liste` läuft dabei echt gegen eine
 gehaltene Sperre und scheitert ohne den Fix.
 
-**Zahlen.** 2'597 → **2'641 Tests**, Standardlauf 2'486 → **2'530**,
-Referenzwächter unverändert **111**. Frischklon gemessen: **2'452 von
-2'530**, 78 übersprungen, grün.
+Dazu zwei Entscheidungen von Christian:
+
+- **Untätige Kernel enden nach zwei Stunden** (`docker/jupyter_server_config.py`,
+  auch bei offenem Tab, rechnende Kernel nicht). Eine Analysesitzung hält die
+  exklusive Sperre bis zum Kernel-Ende, nach einem Zellfehler absichtlich.
+  Ein vergessener Tab hätte den Datenlauf am Montag sofort scheitern lassen.
+  Der Takt der Konsole wartet dagegen und meldet `BLOCKED`.
+- **`release erstellen` entwertet den Nachweis nicht mehr**, denn es schreibt
+  nur nach `releases/`. Nur noch `holen --einsetzen` entwertet ihn, weil es
+  Gold ersetzt.
+
+Nicht geändert: Nach jedem Gesamtlauf hasht `run_all` alle lokalen Bronze-,
+Silver- und Gold-Dateien. Auf `srv01` sind das 83 MB, weil im s3-Modus
+lokal fast nur Gold liegt, also wenige Sekunden.
+
+**Zahlen.** 2'597 → **2'643 Tests**, Standardlauf 2'486 → **2'532**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'454 von
+2'532**, 78 übersprungen, grün.
 
 ## 31.10.2026 · Der Takt der Konsole läuft, und sie prüft die CI über Actions (Branch `docs/konsole-takt-an`)
 

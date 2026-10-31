@@ -474,6 +474,23 @@ def test_arbeitsbereich_und_zuhause_sind_fuer_jeden_benutzer_beschreibbar(docker
     )
 
 
+def test_untaetige_kernel_geben_die_datensperre_frei(serverkonfig):
+    """Ein vergessener Notebook-Tab darf den Wochenlauf nicht blockieren.
+
+    Die Analysesitzung haelt die Datensperre bis zum Kernel-Ende; ohne
+    Abschalten untaetiger Kernel scheiterte run_all am Montag sofort.
+    """
+    def wert(name):
+        treffer = re.search(rf"^c\.MappingKernelManager\.{name}\s*=\s*(.+)$", serverkonfig, re.M)
+        assert treffer, f"MappingKernelManager.{name} fehlt"
+        return eval(treffer.group(1).split("#")[0], {})  # nur Zahlen und Wahrheitswerte
+
+    assert 0 < wert("cull_idle_timeout") <= 4 * 60 * 60
+    assert 0 < wert("cull_interval") <= wert("cull_idle_timeout")
+    assert wert("cull_connected") is True, "ein offener Tab haelt den Kernel sonst ewig"
+    assert wert("cull_busy") is False, "ein rechnender Kernel wird nicht abgeschossen"
+
+
 def test_kein_geheimnis_im_abbild(dockerfile, einstieg, serverkonfig):
     """Weder ein Schluessel noch ein Token - auch nicht als Vorgabe.
 

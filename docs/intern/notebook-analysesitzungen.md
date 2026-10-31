@@ -36,7 +36,10 @@ vorherige Konfiguration wiederhergestellt. Nur eine Sitzung je Kernel starten.
 Danach Startzellen neu ausfuehren, bevor weitere Abfragen
 gestartet werden. Bei einem Zellfehler bleibt die Sitzung absichtlich gesperrt:
 Abschlusszelle manuell ausfuehren oder Kernel herunterfahren. Ein geschlossener
-Browser-Tab beendet den Kernel nicht. Bei automatischer Notebook-Ausfuehrung
+Browser-Tab beendet den Kernel nicht; im Analyse-Abbild beendet der
+Notebook-Server untätige Kernel aber nach zwei Stunden
+(`docker/jupyter_server_config.py`), damit ein vergessener Tab den
+Datenlauf nicht blockiert. Bei automatischer Notebook-Ausfuehrung
 wird der Kernel bei Ende/Abbruch beendet; die OS-Sperre endet mit dem Prozess.
 Es gibt keinen Zeitablauf, der einem noch lesenden Notebook die Sperre entzieht.
 

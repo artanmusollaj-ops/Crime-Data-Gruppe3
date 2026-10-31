@@ -102,7 +102,11 @@ def main(argv: list[str] | None = None) -> int:
     # liste und aktuell lesen nur: keine Sperre, keine Sperrdatei - und ein
     # Konfigurationsfehler bleibt der Satz unten statt eines Tracebacks.
     schreibt = args.was in {"erstellen", "holen"}
-    with schreibzugriff(for_root(args.data_root).local_root) if schreibt else nullcontext():
+    # Nur holen --einsetzen ersetzt Gold; erstellen und holen schreiben nach
+    # releases/, das der Herkunftsnachweis nicht erfasst.
+    ersetzt_gold = args.was == "holen" and args.einsetzen
+    with (schreibzugriff(for_root(args.data_root).local_root, invalidieren=ersetzt_gold)
+          if schreibt else nullcontext()):
 
         try:
             ablage = for_root(args.data_root)

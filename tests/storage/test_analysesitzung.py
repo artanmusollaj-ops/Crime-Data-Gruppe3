@@ -230,3 +230,10 @@ def test_serving_laesst_den_herkunftsnachweis_stehen(modul):
 def test_der_trockenlauf_nimmt_keine_sperre(pfad):
     quelle = (PROJECT / "src" / "crime" / pfad).read_text(encoding="utf-8")
     assert "if not args.trocken else nullcontext()" in quelle
+
+
+def test_release_erstellen_laesst_den_nachweis_stehen():
+    # erstellen kopiert nach releases/; nur holen --einsetzen ersetzt Gold.
+    quelle = (PROJECT / "src" / "crime" / "orchestration" / "release.py").read_text(encoding="utf-8")
+    assert 'ersetzt_gold = args.was == "holen" and args.einsetzen' in quelle
+    assert "invalidieren=ersetzt_gold" in quelle
