@@ -52,8 +52,13 @@ a { color: #0b5f73; text-decoration: none; }
 
 
 def kennung(markdown: bytes) -> str:
-    """Die ersten 16 Zeichen des SHA-256 - genug, um eine Fassung zu nennen."""
-    return hashlib.sha256(markdown).hexdigest()[:16]
+    """Die ersten 16 Zeichen des SHA-256 - genug, um eine Fassung zu nennen.
+
+    Ueber LF-Zeilenenden: Ein Windows-Checkout legt das Markdown mit CRLF ab,
+    und der Waechter war dort rot, ohne dass sich ein Wort geaendert hatte
+    (main-Lauf von #192, 31.10.2026).
+    """
+    return hashlib.sha256(markdown.replace(b"\r\n", b"\n")).hexdigest()[:16]
 
 
 def html(markdown: bytes) -> str:
