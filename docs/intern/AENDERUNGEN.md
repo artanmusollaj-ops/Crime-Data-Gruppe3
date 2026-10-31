@@ -130,8 +130,8 @@ Administration Lesen erst ab `produktiv`. S-6, §16 der Speicherarchitektur
 und das Handbuch (samt PDF) nennen das; S-8 steht unter „Erledigt“.
 
 **Zahlen.** 2'596 → **2'597 Tests**, Standardlauf 2'485 → **2'486**,
-Referenzwächter unverändert **111**. Frischklon gemessen: **FRISCH von
-2'486**.
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'408 von
+2'486**, 78 übersprungen, grün.
 
 ## 31.10.2026 · Die Konsole fragt S3 nicht mehr mit HEAD (Branch `feature/konsole-ohne-head`)
 
