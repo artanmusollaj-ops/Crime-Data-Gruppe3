@@ -1,0 +1,13 @@
+{
+  "scope_start": "2021-01-01",
+  "scope_end_exclusive": "2027-01-01",
+  "maximum_unmapped_ratio": 0.05,
+  "jobs": [
+    {"name":"rebuild","task":"rebuild","enabled":false,"at_utc":"07:00"},
+    {"name":"detroit_delta","task":"delta_detroit","years":[2021,2022,2023,2024,2025,2026],"enabled":false,"at_utc":"07:00"},
+    {"name":"detroit_full","task":"full_detroit","years":[2021,2022,2023,2024,2025,2026],"enabled":false,"at_utc":"06:15"},
+    {"name":"chicago_daily","task":"daily_chicago","year":2026,"lookback_days":14,"enabled":false,"at_utc":"07:15"},
+    {"name":"chicago_full","task":"full_chicago","year":2026,"enabled":false,"at_utc":"06:00"},
+    {"name":"quality","task":"checks","enabled":false,"at_utc":"08:00"}
+  ]
+}

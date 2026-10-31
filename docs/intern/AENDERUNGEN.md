@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'589** |
+| Tests | **2'592** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,55 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 30.10.2026 · Das Handbuch der Konsole entsteht aus einer Quelle (Branch `feature/konsole-4-doku`)
+
+Vierter und letzter Schritt der Übernahme aus `feature/engineering-console-import`:
+die Dokumente. Artans Handbuch vom 26.10. beschrieb in vier Abschnitten einen
+Stand, den es nach den ersten drei Schritten nicht mehr gab — Mappings in den
+Crosswalks, ein eigenes Abbild, eine eigene Compose-Datei mit Secret-Dateien,
+Notebooks über das Release, ein Lieferpaket.
+
+**`docs/intern/ENGINEERING_KONSOLE.md`** ist auf den heutigen Stand gebracht:
+Korrekturen in `mapping_overrides.csv`, `ADMIN_GIT_SCHUTZ` mit dem Wechsel auf
+`produktiv`, Betrieb auf `srv01` (Webdienst dauernd, Worker getaktet), die
+Einrichtung als S-5 bis S-10 und die Umstellung auf den verwalteten Betrieb,
+Wochenläufe über das Qualitätstor. §1, §3 und §7 bleiben Artans Text. Es liegt
+unter `intern/`, nicht bei den Abgabedokumenten: Es ist eine Betriebsanleitung
+wie die Detroit-Anleitung.
+
+**Zwei Stellen, die Schaden angerichtet hätten.** Die lokale Anleitung führte
+`enable-managed` auf `data/` aus — danach sperrt `storage.verwaltet` dort
+`run_all` und alle Pipelines, also den gewohnten Arbeitsbestand. Sie nimmt
+jetzt einen eigenen Ordner `data-konsole`, und `.gitignore` trägt ihn und
+`data/admin/`, damit kein Konsolenzustand versehentlich committet wird. Und
+auf `srv01` setzte `init` ohne Einstellungsdatei den Zeitraum auf **2024
+allein**; S-8 verlangt jetzt `docs/console-settings.example.json` (2021–2026)
+vorher, und ein Test hält das Beispiel gültig.
+
+**Das PDF wird erzeugt** (Entscheidung Christian, 30.10.). Artans PDF kam aus
+einem ReportLab-Skript, das nie im Repository lag — neu erzeugen konnte es
+niemand. `tools/build_konsole_pdf.py` macht es jetzt aus dem Markdown, mit dem
+Markdown-Leser aus pdoc und demselben headless Chrome wie die
+Dashboardbilder. Byteweise gleich sind zwei Läufe nicht (Chrome schreibt das
+Datum hinein); deshalb trägt der Titel des PDFs die ersten 16 Zeichen des
+SHA-256 des Markdowns, und `tests/test_konsole_handbuch.py` vergleicht ihn
+mit dem heutigen. Wer das Markdown ändert und das PDF vergisst, sieht es
+dort — am Inhalt, nicht an einem Datum. Beim ersten Bau fiel dabei auf, dass
+zwei Pfade mit `<Auftrags-ID>` als HTML-Tag verschluckt wurden; sie stehen
+jetzt als Code.
+
+**Nicht übernommen:** `INTEGRATION_2026-10-26.md`, `TESTNACHWEIS_KONSOLE.md`,
+`LIEFERUMFANG_KONSOLE.json`, `testnachweise-console/` und `LIESMICH_KONSOLE.md`.
+Es sind Momentaufnahmen der Lieferung ohne Wächter, und vieles darin ist
+inzwischen anders; was übernommen wurde und warum, steht in den vier
+Einträgen vom 30.10. hier.
+
+**Zahlen.** 2'589 → **2'592 Tests**, Standardlauf 2'478 → **2'481**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'403 von
+2'481**, 78 übersprungen, grün.
 
 ---
 
