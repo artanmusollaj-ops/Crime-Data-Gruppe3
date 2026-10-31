@@ -831,8 +831,13 @@ def main(argv: list[str] | None = None) -> int:
     from storage import for_root
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
+    from contextlib import nullcontext
     from storage.analysesitzung import schreibzugriff
-    with schreibzugriff(for_root(args.data_root).local_root, invalidieren=True):
+    # Serving schreibt nicht nach bronze/silver/gold: Die Sperre haelt
+    # Analysen fern, der Herkunftsnachweis (.analyse/stand.json) bleibt gueltig.
+    # Der Trockenlauf schreibt nichts, auch keine Sperrdatei.
+    with (schreibzugriff(for_root(args.data_root).local_root, invalidieren=False)
+          if not args.trocken else nullcontext()):
 
         # Der Pfad geht durch die Ablage und nicht an ihr vorbei: Im s3-Modus gibt
         # es keinen lokalen Bestand, und nur sie weiss, wo die Wurzel liegt.

@@ -687,7 +687,9 @@ def main(argv: list[str] | None = None) -> int:
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
     from storage.analysesitzung import schreibzugriff
-    with schreibzugriff(for_root(args.data_root).local_root, invalidieren=True):
+    # Serving schreibt nicht nach bronze/silver/gold: Die Sperre haelt
+    # Analysen fern, der Herkunftsnachweis (.analyse/stand.json) bleibt gueltig.
+    with schreibzugriff(for_root(args.data_root).local_root, invalidieren=False):
         if args.ziel is None:
             print("Keine Projektwurzel erkannt - --ziel angeben (oder "
                   "PROJECT_ROOT setzen).")

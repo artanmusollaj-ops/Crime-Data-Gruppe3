@@ -197,3 +197,36 @@ def test_nur_eine_sitzung_je_kernel(bestand, tmp_path):
     with Analysesitzung(bestand, "37"):
         with pytest.raises(AnalyseFehler, match="bereits eine Analysesitzung"):
             Analysesitzung(tmp_path / "anderer-bestand", "37")
+
+
+def test_release_liste_liest_ohne_sperre(tmp_path, monkeypatch, capsys):
+    # Ein Lesebefehl darf nicht an einer offenen Analysesitzung scheitern.
+    from orchestration import release
+    from storage import Config, Storage, set_storage
+
+    monkeypatch.delenv("DATA_LOCK_ROOT", raising=False)
+    set_storage(Storage(Config(backend="local", local_root=tmp_path)))
+    with datensperre(tmp_path):
+        assert release.main(["liste", "--data-root", str(tmp_path)]) == 0
+    assert "Kein Release" in capsys.readouterr().out
+
+
+SERVING = ("build_analysis_db", "build_comparison", "build_einstieg",
+           "build_kibana", "export_geojson", "load_elasticsearch")
+
+
+@pytest.mark.parametrize("modul", SERVING)
+def test_serving_laesst_den_herkunftsnachweis_stehen(modul):
+    # Serving schreibt nicht nach bronze/silver/gold. Entwertete es
+    # stand.json, sperrte jeder Serving-Lauf die Notebooks 34 und 37 bis zum
+    # naechsten Gesamtlauf.
+    quelle = (PROJECT / "src" / "crime" / "serving" / f"{modul}.py").read_text(encoding="utf-8")
+    assert "schreibzugriff(" in quelle
+    assert "invalidieren=True" not in quelle and "invalidieren=False" in quelle
+
+
+@pytest.mark.parametrize("pfad", ["serving/build_kibana.py", "serving/load_elasticsearch.py",
+                                  "silver_pipeline/build_source_change.py"])
+def test_der_trockenlauf_nimmt_keine_sperre(pfad):
+    quelle = (PROJECT / "src" / "crime" / pfad).read_text(encoding="utf-8")
+    assert "if not args.trocken else nullcontext()" in quelle

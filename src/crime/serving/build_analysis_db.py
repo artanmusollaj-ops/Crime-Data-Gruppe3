@@ -329,7 +329,9 @@ def main() -> int:
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
     from storage.analysesitzung import schreibzugriff
-    with schreibzugriff(for_root(args.data_root).local_root, invalidieren=True):
+    # Serving schreibt nicht nach bronze/silver/gold: Die Sperre haelt
+    # Analysen fern, der Herkunftsnachweis (.analyse/stand.json) bleibt gueltig.
+    with schreibzugriff(for_root(args.data_root).local_root, invalidieren=False):
         logging.basicConfig(
             level=logging.DEBUG if args.verbose else logging.INFO,
             format="%(levelname)s %(message)s",

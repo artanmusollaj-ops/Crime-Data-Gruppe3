@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'631** |
+| Tests | **2'641** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -136,9 +136,27 @@ Behoben auf demselben Branch:
   Architekturbilder sind neu gebaut.
 - **Testzahlen** nachgezogen.
 
-**Zahlen.** 2'597 → **2'631 Tests**, Standardlauf 2'486 → **2'520**,
-Referenzwächter unverändert **111**. Frischklon gemessen: **2'442 von
-2'520**, 78 übersprungen, grün.
+Eine inhaltliche Durchsicht fand drei weitere Stellen derselben Art.
+Ebenfalls behoben:
+
+- **`release liste` und `release aktuell`** lesen nur, nahmen aber die
+  exklusive Sperre. Bei offener Analysesitzung scheiterten sie, und ein
+  Konfigurationsfehler kam als Traceback statt als Satz. Gesperrt wird jetzt
+  nur bei `erstellen` und `holen`.
+- **`--trocken`** von `build_kibana`, `load_elasticsearch` und
+  `build_source_change` nimmt keine Sperre mehr.
+- **Serving entwertete den Herkunftsnachweis.** Die sechs Serving-Einstiege
+  löschten `stand.json`, obwohl sie Bronze, Silver und Gold nicht anfassen.
+  Jeder einzelne Serving-Lauf hätte die Notebooks bis zum nächsten
+  Gesamtlauf gesperrt. Sie halten die Sperre weiter, lassen den Nachweis aber
+  stehen.
+
+Zehn neue Wächter halten das. `release liste` läuft dabei echt gegen eine
+gehaltene Sperre und scheitert ohne den Fix.
+
+**Zahlen.** 2'597 → **2'641 Tests**, Standardlauf 2'486 → **2'530**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'452 von
+2'530**, 78 übersprungen, grün.
 
 ## 31.10.2026 · Der Takt der Konsole läuft, und sie prüft die CI über Actions (Branch `docs/konsole-takt-an`)
 

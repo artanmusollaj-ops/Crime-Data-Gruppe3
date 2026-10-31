@@ -97,8 +97,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.was in {"erstellen", "holen"}:
         from storage.verwaltet import sperre
         sperre(for_root(args.data_root).local_root)
+    from contextlib import nullcontext
     from storage.analysesitzung import schreibzugriff
-    with schreibzugriff(for_root(args.data_root).local_root, invalidieren=args.was in {"erstellen", "holen"}):
+    # liste und aktuell lesen nur: keine Sperre, keine Sperrdatei - und ein
+    # Konfigurationsfehler bleibt der Satz unten statt eines Tracebacks.
+    schreibt = args.was in {"erstellen", "holen"}
+    with schreibzugriff(for_root(args.data_root).local_root) if schreibt else nullcontext():
 
         try:
             ablage = for_root(args.data_root)

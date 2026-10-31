@@ -878,8 +878,11 @@ def main(argv: list[str] | None = None) -> int:
     args = zerleger.parse_args(argv)
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
+    from contextlib import nullcontext
     from storage.analysesitzung import schreibzugriff
-    with schreibzugriff(for_root(args.data_root).local_root, invalidieren=True):
+    # Der Trockenlauf schreibt nichts, auch keine Sperrdatei.
+    with (schreibzugriff(for_root(args.data_root).local_root, invalidieren=True)
+          if not args.trocken else nullcontext()):
 
         wurzel = for_root(args.data_root).local_root
         bericht = baue(wurzel, trocken=args.trocken)
