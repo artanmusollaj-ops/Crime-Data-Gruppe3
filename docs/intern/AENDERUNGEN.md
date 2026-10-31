@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'597** |
+| Tests | **2'631** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -102,6 +102,43 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 31.10.2026 · Die Notebooks 34 und 37 lesen einen nachgewiesenen Bestand (Branch `feature/e5-notebook-analysesitzungen`)
+
+Artans Lösung für E-5. Die Notebooks 34 und 37 waren nach dem Import der
+Konsole leer geblieben, weil ein Ergebnis-Release nicht alle Dateien enthält,
+die sie brauchen. Jetzt wählen sie die Datenwurzel ausdrücklich
+(`CRIME_ANALYSIS_ROOT`, Vorgabe `data/`) und prüfen vor der ersten Abfrage
+einen Herkunftsnachweis: `.analyse/stand.json`, geschrieben von `run_all` und
+dem Kandidatenbau der Konsole. Er enthält Aufbau-ID, Code-Commit und die
+SHA-256 aller Parquet-Dateien und Manifeste aus Bronze, Silver und Gold. Jeder
+schreibende Einstieg entwertet den Nachweis, bevor er schreibt, und hält eine
+gemeinsame Ausführungssperre (`storage.analysesitzung`). So liest kein
+Notebook, während eine Pipeline schreibt. Neu sind `orchestration.analyse`
+für die Startzelle, zwei Dokumente (`notebook-analysesitzungen.md`,
+`e5-pruefnachweis.md`) und `docker/*.sh` mit `eol=lf`.
+
+Beim Eröffnen des PR war die Prüfung rot, 11 Tests aus vier Gründen.
+Behoben auf demselben Branch:
+
+- **Ein Trockenlauf von `aufraeumen` legte die Sperrdatei an.** Damit war das
+  Versprechen gebrochen, dass ein Trockenlauf nichts verändert; vier Tests
+  vergleichen den Bestand byteweise. Die Sperre nimmt jetzt nur, wer
+  tatsächlich löscht oder pinnt. Die Ablehnung von `--auch-fern` ohne S3 steht
+  vor der Sperre, damit ein abgelehnter Lauf nichts hinterlässt.
+  `test_pipelines_hybrid` lässt `.analyse` aus, denn dort schreibt die
+  Pipeline wirklich, und die Sperre gehört dazu.
+- **`.gitattributes`:** Der Kommentar „# Bewusst nur hier“ ist die Trennmarke
+  des Wächters gegen eine eol-Regel über `config/`. Er war umbenannt, und der
+  Wächter prüfte darum die ganze Datei. Der Wortlaut ist wieder da, die neue
+  Regel für `docker/*.sh` bleibt.
+- **Erzeugte Dateien:** Handbuch-PDF, Referenz (zwei neue Module) und
+  Architekturbilder sind neu gebaut.
+- **Testzahlen** nachgezogen.
+
+**Zahlen.** 2'597 → **2'631 Tests**, Standardlauf 2'486 → **2'520**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'442 von
+2'520**, 78 übersprungen, grün.
 
 ## 31.10.2026 · Der Takt der Konsole läuft, und sie prüft die CI über Actions (Branch `docs/konsole-takt-an`)
 
