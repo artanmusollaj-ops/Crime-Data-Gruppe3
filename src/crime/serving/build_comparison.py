@@ -389,17 +389,21 @@ def main() -> int:
     args = arguments()
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(levelname)s %(message)s",
-    )
-    try:
-        ziele = build(for_root(args.data_root).local_root)
-    except TransformError as fehler:
-        LOG.error("%s", fehler)
-        return 1
-    LOG.info("Serving-Vergleichstabellen gebaut: %s", ", ".join(ziele))
-    return 0
+    from storage.analysesitzung import schreibzugriff
+    # Serving schreibt nicht nach bronze/silver/gold: Die Sperre haelt
+    # Analysen fern, der Herkunftsnachweis (.analyse/stand.json) bleibt gueltig.
+    with schreibzugriff(for_root(args.data_root).local_root, invalidieren=False):
+        logging.basicConfig(
+            level=logging.DEBUG if args.verbose else logging.INFO,
+            format="%(levelname)s %(message)s",
+        )
+        try:
+            ziele = build(for_root(args.data_root).local_root)
+        except TransformError as fehler:
+            LOG.error("%s", fehler)
+            return 1
+        LOG.info("Serving-Vergleichstabellen gebaut: %s", ", ".join(ziele))
+        return 0
 
 
 if __name__ == "__main__":

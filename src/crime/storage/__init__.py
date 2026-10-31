@@ -18,6 +18,7 @@ Die kleine API fuer Notebooks und Skripte (an der Standardablage)::
 from __future__ import annotations
 
 from pathlib import Path
+from contextlib import contextmanager
 
 from storage.backend import (
     ABGELEITET,
@@ -65,6 +66,22 @@ def set_storage(storage: Storage | None) -> None:
     """Fuer Tests: eine bestimmte Ablage unterschieben, oder mit None vergessen."""
     global _standard
     _standard = storage
+
+
+@contextmanager
+def lokaler_analysebestand(root: Path):
+    """Nur lokale Dateien einer Notebook-Sitzung; kein stiller S3-Rueckfall.
+
+    Wie set_storage pro Interpreter: keine parallelen Sitzungen im selben Kernel.
+    Die vorherige Konfiguration wird ohne Laden von .env erhalten und restauriert.
+    """
+    global _standard
+    vorher = _standard
+    _standard = Storage(Config(backend="local", local_root=Path(root)))
+    try:
+        yield
+    finally:
+        _standard = vorher
 
 
 def for_root(data_root: Path | None) -> Storage:

@@ -37,7 +37,7 @@ import subprocess
 
 import pytest
 
-from tests.test_srv01_compose import lade
+from tests.test_srv01_compose import lade, mount_info
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -70,6 +70,13 @@ OHNE_SHELL = pytest.mark.skipif(
 # --------------------------------------------------------------------------
 # Die beiden Dateien lesen
 # --------------------------------------------------------------------------
+
+
+def test_der_linux_einstieg_hat_keine_windows_zeilenenden():
+    daten = EINSTIEG.read_bytes()
+    assert daten.startswith(b"#!/bin/sh\n")
+    assert b"\r" not in daten
+    assert "docker/*.sh text eol=lf" in (PROJECT_ROOT / ".gitattributes").read_text()
 
 
 @pytest.fixture(scope="module")
@@ -356,8 +363,7 @@ def test_der_verbund_haengt_den_arbeitsbereich_genau_dorthin(dockerfile, jupyter
     """
     bereich = arbeitsbereich(dockerfile)
     eingehaengt = [v for v in jupyter_dienst["volumes"]
-                   if v.rsplit(":", 1)[-1].rstrip("/") == bereich
-                   or v.endswith(f":{bereich}")]
+                   if mount_info(v)[1].rstrip("/") == bereich]
     assert eingehaengt, (
         f"kein Datentraeger auf {bereich} - der Arbeitsbereich waere nach dem "
         f"Neustart leer. Eingehaengt ist: {jupyter_dienst['volumes']}"
@@ -435,9 +441,9 @@ def test_der_arbeitsbereich_liegt_nicht_im_schreibgeschuetzten_bestand(
     """``data/`` ist ``:ro`` eingehaengt - ein Arbeitsbereich darunter waere keiner."""
     bereich = PurePosixPath(arbeitsbereich(dockerfile))   # im Container, also POSIX
     for einhang in jupyter_dienst["volumes"]:
-        if not einhang.endswith(":ro"):
+        if not mount_info(einhang)[2]:
             continue
-        ziel = PurePosixPath(einhang.split(":")[1])
+        ziel = PurePosixPath(mount_info(einhang)[1])
         assert not (bereich == ziel or ziel in bereich.parents), (
             f"der Arbeitsbereich {bereich} liegt unter dem schreibgeschuetzten "
             f"{ziel} - dort liesse sich kein Notebook speichern"
@@ -466,6 +472,23 @@ def test_arbeitsbereich_und_zuhause_sind_fuer_jeden_benutzer_beschreibbar(docker
         "das Grundabbild macht $HOME nicht mehr fuer jeden beschreibbar - "
         "JupyterLab legt dort seine Laufzeitdateien ab"
     )
+
+
+def test_untaetige_kernel_geben_die_datensperre_frei(serverkonfig):
+    """Ein vergessener Notebook-Tab darf den Wochenlauf nicht blockieren.
+
+    Die Analysesitzung haelt die Datensperre bis zum Kernel-Ende; ohne
+    Abschalten untaetiger Kernel scheiterte run_all am Montag sofort.
+    """
+    def wert(name):
+        treffer = re.search(rf"^c\.MappingKernelManager\.{name}\s*=\s*(.+)$", serverkonfig, re.M)
+        assert treffer, f"MappingKernelManager.{name} fehlt"
+        return eval(treffer.group(1).split("#")[0], {})  # nur Zahlen und Wahrheitswerte
+
+    assert 0 < wert("cull_idle_timeout") <= 4 * 60 * 60
+    assert 0 < wert("cull_interval") <= wert("cull_idle_timeout")
+    assert wert("cull_connected") is True, "ein offener Tab haelt den Kernel sonst ewig"
+    assert wert("cull_busy") is False, "ein rechnender Kernel wird nicht abgeschossen"
 
 
 def test_kein_geheimnis_im_abbild(dockerfile, einstieg, serverkonfig):

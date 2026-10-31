@@ -831,31 +831,38 @@ def main(argv: list[str] | None = None) -> int:
     from storage import for_root
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
+    from contextlib import nullcontext
+    from storage.analysesitzung import schreibzugriff
+    # Serving schreibt nicht nach bronze/silver/gold: Die Sperre haelt
+    # Analysen fern, der Herkunftsnachweis (.analyse/stand.json) bleibt gueltig.
+    # Der Trockenlauf schreibt nichts, auch keine Sperrdatei.
+    with (schreibzugriff(for_root(args.data_root).local_root, invalidieren=False)
+          if not args.trocken else nullcontext()):
 
-    # Der Pfad geht durch die Ablage und nicht an ihr vorbei: Im s3-Modus gibt
-    # es keinen lokalen Bestand, und nur sie weiss, wo die Wurzel liegt.
-    from storage import for_root
+        # Der Pfad geht durch die Ablage und nicht an ihr vorbei: Im s3-Modus gibt
+        # es keinen lokalen Bestand, und nur sie weiss, wo die Wurzel liegt.
+        from storage import for_root
 
-    kennung, verzeichnis = aktuelles_release(for_root(args.data_root).local_root)
+        kennung, verzeichnis = aktuelles_release(for_root(args.data_root).local_root)
 
-    if args.trocken:
+        if args.trocken:
+            for index in INDIZES:
+                ziel = indexname(kennung, index.name)
+                liste = felder(quelle(verzeichnis, index), index.name)
+                print(f"PUT /{ziel}")
+                print(json.dumps(mapping(liste, index), indent=2, ensure_ascii=False))
+                print()
+                print("POST /_aliases")
+                print(json.dumps(alias_umlegen(index.name, ziel, []), indent=2))
+                print("\n" + "-" * 72 + "\n")
+            return 0
+
+        klient = HttpKlient(args.url)
         for index in INDIZES:
-            ziel = indexname(kennung, index.name)
-            liste = felder(quelle(verzeichnis, index), index.name)
-            print(f"PUT /{ziel}")
-            print(json.dumps(mapping(liste, index), indent=2, ensure_ascii=False))
-            print()
-            print("POST /_aliases")
-            print(json.dumps(alias_umlegen(index.name, ziel, []), indent=2))
-            print("\n" + "-" * 72 + "\n")
+            ergebnis = lade(klient, kennung, quelle(verzeichnis, index), index=index)
+            print(f"{ergebnis['index']:<40} {ergebnis['zeilen']:>9,} Zeilen, "
+                  f"{ergebnis['felder']} Felder")
         return 0
-
-    klient = HttpKlient(args.url)
-    for index in INDIZES:
-        ergebnis = lade(klient, kennung, quelle(verzeichnis, index), index=index)
-        print(f"{ergebnis['index']:<40} {ergebnis['zeilen']:>9,} Zeilen, "
-              f"{ergebnis['felder']} Felder")
-    return 0
 
 
 if __name__ == "__main__":

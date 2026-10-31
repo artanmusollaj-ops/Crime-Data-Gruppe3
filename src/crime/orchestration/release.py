@@ -97,58 +97,68 @@ def main(argv: list[str] | None = None) -> int:
     if args.was in {"erstellen", "holen"}:
         from storage.verwaltet import sperre
         sperre(for_root(args.data_root).local_root)
+    from contextlib import nullcontext
+    from storage.analysesitzung import schreibzugriff
+    # liste und aktuell lesen nur: keine Sperre, keine Sperrdatei - und ein
+    # Konfigurationsfehler bleibt der Satz unten statt eines Tracebacks.
+    schreibt = args.was in {"erstellen", "holen"}
+    # Nur holen --einsetzen ersetzt Gold; erstellen und holen schreiben nach
+    # releases/, das der Herkunftsnachweis nicht erfasst.
+    ersetzt_gold = args.was == "holen" and args.einsetzen
+    with (schreibzugriff(for_root(args.data_root).local_root, invalidieren=ersetzt_gold)
+          if schreibt else nullcontext()):
 
-    try:
-        ablage = for_root(args.data_root)
-    except StorageConfigError as fehler:
-        print(f"Konfiguration: {fehler}")
-        return 1
-    try:
-        if args.was == "liste":
-            eintraege = release.liste(ablage)
-            if not eintraege:
-                print("Kein Release - weder lokal noch auf SeaweedFS.")
+        try:
+            ablage = for_root(args.data_root)
+        except StorageConfigError as fehler:
+            print(f"Konfiguration: {fehler}")
+            return 1
+        try:
+            if args.was == "liste":
+                eintraege = release.liste(ablage)
+                if not eintraege:
+                    print("Kein Release - weder lokal noch auf SeaweedFS.")
+                    return 0
+                zeiger = release.aktuell(ablage) or {}
+                for e in eintraege:
+                    marke = "<- AKTUELL" if e["release_id"] == zeiger.get("release_id") else ""
+                    mb = f"{(e['bytes'] or 0) / 1e6:6.1f} MB"
+                    print(f"  {e['release_id']}  {e['created_at_utc'] or '?':22} {mb}  {e['wo']:6} {marke}")
                 return 0
-            zeiger = release.aktuell(ablage) or {}
-            for e in eintraege:
-                marke = "<- AKTUELL" if e["release_id"] == zeiger.get("release_id") else ""
-                mb = f"{(e['bytes'] or 0) / 1e6:6.1f} MB"
-                print(f"  {e['release_id']}  {e['created_at_utc'] or '?':22} {mb}  {e['wo']:6} {marke}")
-            return 0
-        if args.was == "aktuell":
-            zeiger = release.aktuell(ablage)
-            if zeiger is None:
-                print("Kein Zeiger - es wurde noch kein Release gebildet.")
-                return 1
-            for k, v in zeiger.items():
-                print(f"  {k:16}: {v}")
-            return 0
-        if args.was == "holen":
-            ziel = release.hole(ablage, args.kennung, nur_datenbank=args.nur_datenbank)
-            manifest = release.lies(ziel)
-            print(f"Release {manifest['release_id']} geholt -> {ziel}")
-            if args.einsetzen:
-                if args.nur_datenbank:
-                    print("--einsetzen braucht das ganze Release, nicht nur die Datenbank.")
+            if args.was == "aktuell":
+                zeiger = release.aktuell(ablage)
+                if zeiger is None:
+                    print("Kein Zeiger - es wurde noch kein Release gebildet.")
                     return 1
-                eingesetzt = release.einsetzen(ablage.local_root, ziel)
-                print(f"Eingesetzt: {len(eingesetzt)} Ziel(e) unter {ablage.local_root}")
+                for k, v in zeiger.items():
+                    print(f"  {k:16}: {v}")
+                return 0
+            if args.was == "holen":
+                ziel = release.hole(ablage, args.kennung, nur_datenbank=args.nur_datenbank)
+                manifest = release.lies(ziel)
+                print(f"Release {manifest['release_id']} geholt -> {ziel}")
+                if args.einsetzen:
+                    if args.nur_datenbank:
+                        print("--einsetzen braucht das ganze Release, nicht nur die Datenbank.")
+                        return 1
+                    eingesetzt = release.einsetzen(ablage.local_root, ziel)
+                    print(f"Eingesetzt: {len(eingesetzt)} Ziel(e) unter {ablage.local_root}")
+                return 0
+            ziel = bilde(ablage.local_root)
+            manifest = release.lies(ziel)
+            print(f"Release {manifest['release_id']}: {len(manifest['files'])} Dateien, "
+                  f"{manifest['bytes'] / 1e6:.1f} MB -> {ziel}")
+            if args.publizieren:
+                oben = release.publiziere(ablage, ziel)
+                if oben:
+                    print(f"Publiziert: {len(oben)} Objekt(e), AKTUELL.json zeigt auf "
+                          f"{manifest['release_id']}.")
+                else:
+                    print(f"Nicht publiziert (STORAGE_BACKEND={ablage.backend}).")
             return 0
-        ziel = bilde(ablage.local_root)
-        manifest = release.lies(ziel)
-        print(f"Release {manifest['release_id']}: {len(manifest['files'])} Dateien, "
-              f"{manifest['bytes'] / 1e6:.1f} MB -> {ziel}")
-        if args.publizieren:
-            oben = release.publiziere(ablage, ziel)
-            if oben:
-                print(f"Publiziert: {len(oben)} Objekt(e), AKTUELL.json zeigt auf "
-                      f"{manifest['release_id']}.")
-            else:
-                print(f"Nicht publiziert (STORAGE_BACKEND={ablage.backend}).")
-        return 0
-    except StorageError as fehler:
-        print(f"Release: {fehler}")
-        return 1
+        except StorageError as fehler:
+            print(f"Release: {fehler}")
+            return 1
 
 
 if __name__ == "__main__":

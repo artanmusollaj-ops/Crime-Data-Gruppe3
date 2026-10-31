@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'597** |
+| Tests | **2'643** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -102,6 +102,76 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 31.10.2026 · Die Notebooks 34 und 37 lesen einen nachgewiesenen Bestand (Branch `feature/e5-notebook-analysesitzungen`)
+
+Artans Lösung für E-5. Die Notebooks 34 und 37 waren nach dem Import der
+Konsole leer geblieben, weil ein Ergebnis-Release nicht alle Dateien enthält,
+die sie brauchen. Jetzt wählen sie die Datenwurzel ausdrücklich
+(`CRIME_ANALYSIS_ROOT`, Vorgabe `data/`) und prüfen vor der ersten Abfrage
+einen Herkunftsnachweis: `.analyse/stand.json`, geschrieben von `run_all` und
+dem Kandidatenbau der Konsole. Er enthält Aufbau-ID, Code-Commit und die
+SHA-256 aller Parquet-Dateien und Manifeste aus Bronze, Silver und Gold. Jeder
+schreibende Einstieg entwertet den Nachweis, bevor er schreibt, und hält eine
+gemeinsame Ausführungssperre (`storage.analysesitzung`). So liest kein
+Notebook, während eine Pipeline schreibt. Neu sind `orchestration.analyse`
+für die Startzelle, zwei Dokumente (`notebook-analysesitzungen.md`,
+`e5-pruefnachweis.md`) und `docker/*.sh` mit `eol=lf`.
+
+Beim Eröffnen des PR war die Prüfung rot, 11 Tests aus vier Gründen.
+Behoben auf demselben Branch:
+
+- **Ein Trockenlauf von `aufraeumen` legte die Sperrdatei an.** Damit war das
+  Versprechen gebrochen, dass ein Trockenlauf nichts verändert; vier Tests
+  vergleichen den Bestand byteweise. Die Sperre nimmt jetzt nur, wer
+  tatsächlich löscht oder pinnt. Die Ablehnung von `--auch-fern` ohne S3 steht
+  vor der Sperre, damit ein abgelehnter Lauf nichts hinterlässt.
+  `test_pipelines_hybrid` lässt `.analyse` aus, denn dort schreibt die
+  Pipeline wirklich, und die Sperre gehört dazu.
+- **`.gitattributes`:** Der Kommentar „# Bewusst nur hier“ ist die Trennmarke
+  des Wächters gegen eine eol-Regel über `config/`. Er war umbenannt, und der
+  Wächter prüfte darum die ganze Datei. Der Wortlaut ist wieder da, die neue
+  Regel für `docker/*.sh` bleibt.
+- **Erzeugte Dateien:** Handbuch-PDF, Referenz (zwei neue Module) und
+  Architekturbilder sind neu gebaut.
+- **Testzahlen** nachgezogen.
+
+Eine inhaltliche Durchsicht fand drei weitere Stellen derselben Art.
+Ebenfalls behoben:
+
+- **`release liste` und `release aktuell`** lesen nur, nahmen aber die
+  exklusive Sperre. Bei offener Analysesitzung scheiterten sie, und ein
+  Konfigurationsfehler kam als Traceback statt als Satz. Gesperrt wird jetzt
+  nur bei `erstellen` und `holen`.
+- **`--trocken`** von `build_kibana`, `load_elasticsearch` und
+  `build_source_change` nimmt keine Sperre mehr.
+- **Serving entwertete den Herkunftsnachweis.** Die sechs Serving-Einstiege
+  löschten `stand.json`, obwohl sie Bronze, Silver und Gold nicht anfassen.
+  Jeder einzelne Serving-Lauf hätte die Notebooks bis zum nächsten
+  Gesamtlauf gesperrt. Sie halten die Sperre weiter, lassen den Nachweis aber
+  stehen.
+
+Zehn neue Wächter halten das. `release liste` läuft dabei echt gegen eine
+gehaltene Sperre und scheitert ohne den Fix.
+
+Dazu zwei Entscheidungen von Christian:
+
+- **Untätige Kernel enden nach zwei Stunden** (`docker/jupyter_server_config.py`,
+  auch bei offenem Tab, rechnende Kernel nicht). Eine Analysesitzung hält die
+  exklusive Sperre bis zum Kernel-Ende, nach einem Zellfehler absichtlich.
+  Ein vergessener Tab hätte den Datenlauf am Montag sofort scheitern lassen.
+  Der Takt der Konsole wartet dagegen und meldet `BLOCKED`.
+- **`release erstellen` entwertet den Nachweis nicht mehr**, denn es schreibt
+  nur nach `releases/`. Nur noch `holen --einsetzen` entwertet ihn, weil es
+  Gold ersetzt.
+
+Nicht geändert: Nach jedem Gesamtlauf hasht `run_all` alle lokalen Bronze-,
+Silver- und Gold-Dateien. Auf `srv01` sind das 83 MB, weil im s3-Modus
+lokal fast nur Gold liegt, also wenige Sekunden.
+
+**Zahlen.** 2'597 → **2'643 Tests**, Standardlauf 2'486 → **2'532**,
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'454 von
+2'532**, 78 übersprungen, grün.
 
 ## 31.10.2026 · Der Takt der Konsole läuft, und sie prüft die CI über Actions (Branch `docs/konsole-takt-an`)
 

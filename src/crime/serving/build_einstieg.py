@@ -686,30 +686,34 @@ def main(argv: list[str] | None = None) -> int:
     args = kommandozeile().parse_args(argv)
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
-    if args.ziel is None:
-        print("Keine Projektwurzel erkannt - --ziel angeben (oder "
-              "PROJECT_ROOT setzen).")
-        return 2
+    from storage.analysesitzung import schreibzugriff
+    # Serving schreibt nicht nach bronze/silver/gold: Die Sperre haelt
+    # Analysen fern, der Herkunftsnachweis (.analyse/stand.json) bleibt gueltig.
+    with schreibzugriff(for_root(args.data_root).local_root, invalidieren=False):
+        if args.ziel is None:
+            print("Keine Projektwurzel erkannt - --ziel angeben (oder "
+                  "PROJECT_ROOT setzen).")
+            return 2
 
-    kennung, verzeichnis = aktuelles_release(for_root(args.data_root).local_root)
-    manifest = json.loads(
-        (verzeichnis / "release.json").read_text(encoding="utf-8"))
+        kennung, verzeichnis = aktuelles_release(for_root(args.data_root).local_root)
+        manifest = json.loads(
+            (verzeichnis / "release.json").read_text(encoding="utf-8"))
 
-    args.ziel.parent.mkdir(parents=True, exist_ok=True)
-    args.ziel.write_text(
-        seite(kennung, manifest, messe(verzeichnis), args.adressen),
-        encoding="utf-8")
-    # Kurz, wo es geht - aber ein ``--ziel`` darf auch ausserhalb des
-    # Projekts liegen, und dann wirft ``relative_to``. Der Test baut genau
-    # dorthin.
-    wurzel = projektwurzel()
-    try:
-        name = args.ziel.relative_to(wurzel) if wurzel else args.ziel
-    except ValueError:
-        name = args.ziel
-    print(f"{name} geschrieben "
-          f"({args.ziel.stat().st_size // 1024} KB, Release {kennung})")
-    return 0
+        args.ziel.parent.mkdir(parents=True, exist_ok=True)
+        args.ziel.write_text(
+            seite(kennung, manifest, messe(verzeichnis), args.adressen),
+            encoding="utf-8")
+        # Kurz, wo es geht - aber ein ``--ziel`` darf auch ausserhalb des
+        # Projekts liegen, und dann wirft ``relative_to``. Der Test baut genau
+        # dorthin.
+        wurzel = projektwurzel()
+        try:
+            name = args.ziel.relative_to(wurzel) if wurzel else args.ziel
+        except ValueError:
+            name = args.ziel
+        print(f"{name} geschrieben "
+              f"({args.ziel.stat().st_size // 1024} KB, Release {kennung})")
+        return 0
 
 
 if __name__ == "__main__":

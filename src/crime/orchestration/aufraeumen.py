@@ -113,6 +113,7 @@ import argparse
 import csv
 import logging
 import shutil
+from contextlib import nullcontext
 from datetime import date
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -982,85 +983,92 @@ def main() -> int:
     if args.loeschen or args.pinnen:
         from storage.verwaltet import sperre
         sperre(for_root(args.data_root).local_root)
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(levelname)s %(message)s",
-    )
-    ablage = for_root(args.data_root)
-    data_root = ablage.local_root
-    if args.pinnen:
-        neu = pinne(data_root, args.config_root, args.pinnen)
-        ziel = args.config_root / REFERENZSTAND_DATEI
-        if neu:
-            print(f"{len(neu)} Lauf/Laeufe als '{args.pinnen}' festgehalten in {ziel}:")
-            for kennung in neu:
-                print(f"  {kennung}")
-            print("\nDie Datei ist versioniert - bitte mit committen.")
-        else:
-            print(f"Nichts hinzugefuegt: Der Stand steht schon in {ziel}.")
-        print()
-
-    alle = bericht(data_root, args.config_root)
-    zeige(alle)
-    entbehrlich = [e for e in alle if not e.bleibt]
-
-    rel_entscheide, zeiger = release_bericht(ablage, args.config_root)
-    zeige_releases(rel_entscheide, zeiger)
-    rel_entbehrlich = [e for e in rel_entscheide if not e.bleibt]
-    halbe = halbe_releases(ablage)
-    zeige_halbe(halbe)
-    fassungen = alte_fassungen(ablage)
-    zeige_fassungen(fassungen)
-
-    if args.auch_fern and not args.loeschen:
-        print("\n--auch-fern wirkt nur mit --loeschen. Trockenlauf: Auf "
-              "SeaweedFS wurde nichts angefasst.")
-    if not args.loeschen:
-        if entbehrlich or rel_entbehrlich or halbe:
-            print("\nNichts geloescht. Mit --loeschen gehen die entbehrlichen "
-                  "Laeufe und Releases weg - Releases nur lokal, erst mit "
-                  "--auch-fern auch auf SeaweedFS. Halbe Releases ebenso.")
-        if fassungen:
-            print("\nDie alten Fassungen gehen mit --fassungen --auch-fern "
-                  "weg, und nur damit: Sie sind die einzige Loeschung hier, "
-                  "die sich aus keinem Lauf wiederherstellen laesst.")
-        return 0
     # Vor dem ersten Loeschen, nicht danach: ``storage.client`` wirft unter
     # STORAGE_BACKEND=local, und das ist die Vorgabe. Ein Abbruch mitten in
     # loesche_releases haette das erste lokale Verzeichnis schon mitgenommen.
-    if args.auch_fern and not ablage.config.remote:
+    # Und vor der Sperre: Ein abgelehnter Lauf hinterlaesst nichts, auch
+    # keine Sperrdatei.
+    ablage = for_root(args.data_root)
+    if args.loeschen and args.auch_fern and not ablage.config.remote:
         print(f"\n--auch-fern braucht eine Ablage mit S3, STORAGE_BACKEND="
               f"{ablage.backend} kennt keine. Nichts geloescht.")
         return 2
+    from storage.analysesitzung import schreibzugriff
+    # Der Trockenlauf schreibt nichts, auch keine Sperrdatei - er verspricht
+    # einen unveraenderten Bestand, und die Tests halten das byteweise.
+    schreibt = args.loeschen or bool(args.pinnen)
+    with schreibzugriff(for_root(args.data_root).local_root) if schreibt else nullcontext():
+        logging.basicConfig(
+            level=logging.DEBUG if args.verbose else logging.INFO,
+            format="%(levelname)s %(message)s",
+        )
+        ablage = for_root(args.data_root)
+        data_root = ablage.local_root
+        if args.pinnen:
+            neu = pinne(data_root, args.config_root, args.pinnen)
+            ziel = args.config_root / REFERENZSTAND_DATEI
+            if neu:
+                print(f"{len(neu)} Lauf/Laeufe als '{args.pinnen}' festgehalten in {ziel}:")
+                for kennung in neu:
+                    print(f"  {kennung}")
+                print("\nDie Datei ist versioniert - bitte mit committen.")
+            else:
+                print(f"Nichts hinzugefuegt: Der Stand steht schon in {ziel}.")
+            print()
 
-    if entbehrlich:
-        frei = sum(e.bestand.bytes for e in entbehrlich)
-        geloescht = loesche(alle, data_root, auch_fern=args.auch_fern)
-        print(f"{len(geloescht)} Lauf-Praefixe geloescht, {frei / 1e6:.1f} MB frei.")
-    if halbe:
-        weg = loesche_halbe(halbe, ablage, auch_fern=args.auch_fern)
-        print(f"{len(halbe)} halbe(s) Release geraeumt, "
-              f"{sum(h.bytes for h in halbe) / 1e6:.1f} MB frei "
-              f"({len(weg)} Pfade/Objekte).")
-    if args.fassungen and fassungen:
-        anzahl, frei = loesche_fassungen(ablage, auch_fern=args.auch_fern)
-        print(f"{anzahl} alte Fassungen und Markierungen entfernt, "
-              f"{frei / 1e6:.1f} MB frei - und diesmal wirklich frei.")
-    if rel_entbehrlich:
-        geraeumt = loesche_releases(rel_entscheide, ablage, auch_fern=args.auch_fern)
-        print(f"{len(geraeumt.lokal)} Release(s) lokal geloescht, "
-              f"{megabyte(geraeumt.lokal):.1f} MB frei.")
-        if args.auch_fern:
-            print(f"{len(geraeumt.oben)} Release(s) auf SeaweedFS geloescht "
-                  f"({len(geraeumt.schluessel)} Objekte), "
-                  f"{megabyte(geraeumt.oben):.1f} MB frei.")
-        else:
-            uebrig = [e for e in rel_entbehrlich
-                      if e.release_.wo in ("oben", "beide")]
-            print(f"Auf SeaweedFS unveraendert: {len(uebrig)} entbehrliche "
-                  f"Release(s), {megabyte(uebrig):.1f} MB - dafuer braucht es "
-                  f"--auch-fern.")
-    return 0
+        alle = bericht(data_root, args.config_root)
+        zeige(alle)
+        entbehrlich = [e for e in alle if not e.bleibt]
+
+        rel_entscheide, zeiger = release_bericht(ablage, args.config_root)
+        zeige_releases(rel_entscheide, zeiger)
+        rel_entbehrlich = [e for e in rel_entscheide if not e.bleibt]
+        halbe = halbe_releases(ablage)
+        zeige_halbe(halbe)
+        fassungen = alte_fassungen(ablage)
+        zeige_fassungen(fassungen)
+
+        if args.auch_fern and not args.loeschen:
+            print("\n--auch-fern wirkt nur mit --loeschen. Trockenlauf: Auf "
+                  "SeaweedFS wurde nichts angefasst.")
+        if not args.loeschen:
+            if entbehrlich or rel_entbehrlich or halbe:
+                print("\nNichts geloescht. Mit --loeschen gehen die entbehrlichen "
+                      "Laeufe und Releases weg - Releases nur lokal, erst mit "
+                      "--auch-fern auch auf SeaweedFS. Halbe Releases ebenso.")
+            if fassungen:
+                print("\nDie alten Fassungen gehen mit --fassungen --auch-fern "
+                      "weg, und nur damit: Sie sind die einzige Loeschung hier, "
+                      "die sich aus keinem Lauf wiederherstellen laesst.")
+            return 0
+        if entbehrlich:
+            frei = sum(e.bestand.bytes for e in entbehrlich)
+            geloescht = loesche(alle, data_root, auch_fern=args.auch_fern)
+            print(f"{len(geloescht)} Lauf-Praefixe geloescht, {frei / 1e6:.1f} MB frei.")
+        if halbe:
+            weg = loesche_halbe(halbe, ablage, auch_fern=args.auch_fern)
+            print(f"{len(halbe)} halbe(s) Release geraeumt, "
+                  f"{sum(h.bytes for h in halbe) / 1e6:.1f} MB frei "
+                  f"({len(weg)} Pfade/Objekte).")
+        if args.fassungen and fassungen:
+            anzahl, frei = loesche_fassungen(ablage, auch_fern=args.auch_fern)
+            print(f"{anzahl} alte Fassungen und Markierungen entfernt, "
+                  f"{frei / 1e6:.1f} MB frei - und diesmal wirklich frei.")
+        if rel_entbehrlich:
+            geraeumt = loesche_releases(rel_entscheide, ablage, auch_fern=args.auch_fern)
+            print(f"{len(geraeumt.lokal)} Release(s) lokal geloescht, "
+                  f"{megabyte(geraeumt.lokal):.1f} MB frei.")
+            if args.auch_fern:
+                print(f"{len(geraeumt.oben)} Release(s) auf SeaweedFS geloescht "
+                      f"({len(geraeumt.schluessel)} Objekte), "
+                      f"{megabyte(geraeumt.oben):.1f} MB frei.")
+            else:
+                uebrig = [e for e in rel_entbehrlich
+                          if e.release_.wo in ("oben", "beide")]
+                print(f"Auf SeaweedFS unveraendert: {len(uebrig)} entbehrliche "
+                      f"Release(s), {megabyte(uebrig):.1f} MB - dafuer braucht es "
+                      f"--auch-fern.")
+        return 0
 
 
 if __name__ == "__main__":

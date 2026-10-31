@@ -99,7 +99,10 @@ COPY docker/jupyter_server_config.py /usr/local/etc/jupyter/jupyter_server_confi
 # chmod im Abbild und nicht nur in Git: Ein Klon auf Windows traegt das
 # Ausfuehrbit nicht.
 COPY docker/jupyter-einstieg.sh /usr/local/bin/jupyter-einstieg
-RUN chmod 0755 /usr/local/bin/jupyter-einstieg
+# Auch ein bereits vorhandener Windows-Arbeitsbaum kann noch CRLF tragen,
+# obwohl .gitattributes kuenftige Checkouts auf LF festlegt.
+RUN sed -i 's/\r$//' /usr/local/bin/jupyter-einstieg \
+    && chmod 0755 /usr/local/bin/jupyter-einstieg
 ENTRYPOINT ["jupyter-einstieg"]
 
 # Kein Token hier, keine Schluessel hier: Das Token kommt als JUPYTER_TOKEN

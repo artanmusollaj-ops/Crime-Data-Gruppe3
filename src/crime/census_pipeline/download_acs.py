@@ -515,46 +515,48 @@ def main() -> int:
     args = arguments()
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
-    started = datetime.now(timezone.utc)
+    from storage.analysesitzung import schreibzugriff
+    with schreibzugriff(for_root(args.data_root).local_root, invalidieren=True):
+        started = datetime.now(timezone.utc)
 
-    ablage = for_root(args.data_root)
-    data_root = ablage.local_root
+        ablage = for_root(args.data_root)
+        data_root = ablage.local_root
 
-    try:
-        key = census_key()
-        discard_stale_partials(data_root, started)
-        geschrieben = 0
-        with build_session() as session:
-            for state in args.state:
-                log.info(
-                    "Starting ACS5 %s for %s (%s)",
-                    args.vintage,
-                    STATES.get(state, state),
-                    state,
-                )
-                run = ingest_state(
-                    session,
-                    data_root,
-                    started,
-                    args.vintage,
-                    state,
-                    key,
-                    args.force,
-                )
-                if run is not None:
-                    geschrieben += 1
-                    log.info("Immutable run completed: %s", run.raw)
-                    log.info("                        %s", run.bronze)
-                    ablage.publish_run(run.raw)
-                    ablage.publish_run(run.bronze)
-        log.info("Fertig: %s Lauf/Laeufe geschrieben", geschrieben)
-        return 0
-    except (IngestionError, OSError, ValueError, PublishError) as error:
-        log.error("Ingestion failed: %s", error)
-        return 1
-    except KeyboardInterrupt:
-        log.error("Ingestion cancelled; no completed run was published")
-        return 130
+        try:
+            key = census_key()
+            discard_stale_partials(data_root, started)
+            geschrieben = 0
+            with build_session() as session:
+                for state in args.state:
+                    log.info(
+                        "Starting ACS5 %s for %s (%s)",
+                        args.vintage,
+                        STATES.get(state, state),
+                        state,
+                    )
+                    run = ingest_state(
+                        session,
+                        data_root,
+                        started,
+                        args.vintage,
+                        state,
+                        key,
+                        args.force,
+                    )
+                    if run is not None:
+                        geschrieben += 1
+                        log.info("Immutable run completed: %s", run.raw)
+                        log.info("                        %s", run.bronze)
+                        ablage.publish_run(run.raw)
+                        ablage.publish_run(run.bronze)
+            log.info("Fertig: %s Lauf/Laeufe geschrieben", geschrieben)
+            return 0
+        except (IngestionError, OSError, ValueError, PublishError) as error:
+            log.error("Ingestion failed: %s", error)
+            return 1
+        except KeyboardInterrupt:
+            log.error("Ingestion cancelled; no completed run was published")
+            return 130
 
 
 if __name__ == "__main__":

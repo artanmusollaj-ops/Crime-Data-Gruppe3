@@ -28,3 +28,14 @@ c.ServerApp.root_dir = "/app/arbeit"
 # eingehaengt, und der Container hat keine Schluessel. Ohne diese Zeile
 # startete der Dienst ueberhaupt nicht, und zwar erst auf dem Server.
 c.ServerApp.allow_root = True
+
+# Untaetige Kernel nach zwei Stunden beenden, auch bei offenem Tab. Eine
+# Analysesitzung der Notebooks 34/37 haelt die exklusive Datensperre bis
+# analyse.beenden() oder Kernel-Ende (storage.analysesitzung) - nach einem
+# Zellfehler absichtlich. Ein vergessener Tab liesse sonst den Datenlauf am
+# Montag um 04:30 sofort scheitern. Ein rechnender Kernel gilt nicht als
+# untaetig und bleibt. Traitlets: jupyter_server MappingKernelManager.
+c.MappingKernelManager.cull_idle_timeout = 2 * 60 * 60
+c.MappingKernelManager.cull_interval = 5 * 60
+c.MappingKernelManager.cull_connected = True
+c.MappingKernelManager.cull_busy = False

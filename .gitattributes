@@ -5,7 +5,10 @@
 # sich eine Zeile Docstring geaendert haette.
 docs/referenz/** text eol=lf
 
-# Bewusst nur hier. Die Crosswalks unter config/ sind mit CRLF abgelegt, so wie
-# die Werkzeuge sie aus den amtlichen PDFs schreiben; drei Tests vergleichen
-# diese Bytes. Eine eol-Regel darueber wuerde sie beim naechsten Checkout
-# umschreiben und die Reproduktion brechen.
+# Linux-Einstiege muessen auch nach einem Windows-Checkout ausfuehrbar sein.
+docker/*.sh text eol=lf
+
+# Bewusst nur hier und fuer docker/*.sh. Die Crosswalks unter config/ sind
+# mit CRLF abgelegt, so wie die Werkzeuge sie aus den amtlichen PDFs
+# schreiben; drei Tests vergleichen diese Bytes. Eine eol-Regel darueber
+# wuerde sie beim naechsten Checkout umschreiben und die Reproduktion brechen.

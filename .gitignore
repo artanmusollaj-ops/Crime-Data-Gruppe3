@@ -15,6 +15,7 @@ data/serving/
 # run_ids, die es nur hier gibt. Wird von 'python -m orchestration.run_all'
 # neu geschrieben.
 data/pipeline_run.json
+data/.analyse/
 # Artefakte der editierbaren Installation und von pip wheel / python -m build
 *.egg-info/
 build/

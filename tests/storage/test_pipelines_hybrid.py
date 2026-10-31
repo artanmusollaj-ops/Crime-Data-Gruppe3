@@ -181,7 +181,8 @@ def test_local_modus_ist_unveraendert(tmp_path, monkeypatch):
     """Ohne STORAGE_BACKEND passiert genau das, was vorher passierte."""
     data_root = tmp_path / "data"
     assert chicago_main(monkeypatch, data_root) == 0
-    assert sorted(p.name for p in data_root.glob("*")) == ["bronze", "raw"]
+    # .analyse traegt die Ausfuehrungssperre (storage.analysesitzung), keine Daten.
+    assert sorted(p.name for p in data_root.glob("*") if p.name != ".analyse") == ["bronze", "raw"]
 
 
 # --------------------------------------------------------------------------

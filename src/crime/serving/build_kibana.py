@@ -1991,28 +1991,35 @@ def main(argv: list[str] | None = None) -> int:
     from storage import for_root
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
+    from contextlib import nullcontext
+    from storage.analysesitzung import schreibzugriff
+    # Serving schreibt nicht nach bronze/silver/gold: Die Sperre haelt
+    # Analysen fern, der Herkunftsnachweis (.analyse/stand.json) bleibt gueltig.
+    # Der Trockenlauf schreibt nichts, auch keine Sperrdatei.
+    with (schreibzugriff(for_root(args.data_root).local_root, invalidieren=False)
+          if not args.trocken else nullcontext()):
 
-    fenster = zeitfenster(for_root(args.data_root).local_root)
-    # Mit Namen und nicht nach Position: Ein Feld mehr an ``Brett`` liesse
-    # das Zeitfenster sonst still in der falschen Spalte landen - und ein
-    # Brett ohne Zeitfenster faellt erst beim Oeffnen auf.
-    bretter = tuple(replace(b, zeitraum=fenster) for b in BRETTER)
-    alle = objekte(bretter)
+        fenster = zeitfenster(for_root(args.data_root).local_root)
+        # Mit Namen und nicht nach Position: Ein Feld mehr an ``Brett`` liesse
+        # das Zeitfenster sonst still in der falschen Spalte landen - und ein
+        # Brett ohne Zeitfenster faellt erst beim Oeffnen auf.
+        bretter = tuple(replace(b, zeitraum=fenster) for b in BRETTER)
+        alle = objekte(bretter)
 
-    if args.trocken:
-        for objekt in alle:
-            print(f"{objekt['type']:<14} {objekt['id']}")
-        print(f"\nZeitfenster: {fenster[0]} bis {fenster[1]}")
+        if args.trocken:
+            for objekt in alle:
+                print(f"{objekt['type']:<14} {objekt['id']}")
+            print(f"\nZeitfenster: {fenster[0]} bis {fenster[1]}")
+            return 0
+
+        ergebnis = lege_an(HttpKlient(args.url), alle)
+        for brett in bretter:
+            print(f"{brett.titel}\n  {len(brett.tafeln)} Tafeln  ·  "
+                  f"{args.url}/app/dashboards#/view/{brett.kennung}")
+        print(f"\n{ergebnis['angelegt']} Objekte, "
+              f"{ergebnis['dashboards']} Dashboards, Zeitfenster {fenster[0][:10]} "
+              f"bis {fenster[1][:10]}")
         return 0
-
-    ergebnis = lege_an(HttpKlient(args.url), alle)
-    for brett in bretter:
-        print(f"{brett.titel}\n  {len(brett.tafeln)} Tafeln  ·  "
-              f"{args.url}/app/dashboards#/view/{brett.kennung}")
-    print(f"\n{ergebnis['angelegt']} Objekte, "
-          f"{ergebnis['dashboards']} Dashboards, Zeitfenster {fenster[0][:10]} "
-          f"bis {fenster[1][:10]}")
-    return 0
 
 
 if __name__ == "__main__":

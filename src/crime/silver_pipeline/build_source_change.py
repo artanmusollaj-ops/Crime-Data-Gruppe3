@@ -878,35 +878,40 @@ def main(argv: list[str] | None = None) -> int:
     args = zerleger.parse_args(argv)
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
+    from contextlib import nullcontext
+    from storage.analysesitzung import schreibzugriff
+    # Der Trockenlauf schreibt nichts, auch keine Sperrdatei.
+    with (schreibzugriff(for_root(args.data_root).local_root, invalidieren=True)
+          if not args.trocken else nullcontext()):
 
-    wurzel = for_root(args.data_root).local_root
-    bericht = baue(wurzel, trocken=args.trocken)
+        wurzel = for_root(args.data_root).local_root
+        bericht = baue(wurzel, trocken=args.trocken)
 
-    for q in bericht["quellen"]:
-        log.info("%s: %s Schnappschuesse, %s Paare (%s neu)",
-                 q["stadt"], q["schnappschuesse"], q["paare_gesamt"],
-                 q["paare_neu"])
-        if q["schnappschuesse"] < 2:
-            log.warning(
-                "  %s hat weniger als zwei Vollschnappschuesse - ohne einen "
-                "zweiten laesst sich nichts vergleichen.", q["stadt"])
+        for q in bericht["quellen"]:
+            log.info("%s: %s Schnappschuesse, %s Paare (%s neu)",
+                     q["stadt"], q["schnappschuesse"], q["paare_gesamt"],
+                     q["paare_neu"])
+            if q["schnappschuesse"] < 2:
+                log.warning(
+                    "  %s hat weniger als zwei Vollschnappschuesse - ohne einen "
+                    "zweiten laesst sich nichts vergleichen.", q["stadt"])
 
-    if args.trocken:
-        log.info("Trockenlauf: %s Paare waeren zu ziehen.", bericht["paare"])
+        if args.trocken:
+            log.info("Trockenlauf: %s Paare waeren zu ziehen.", bericht["paare"])
+            return 0
+
+        log.info("%s: %s Zeilen (%s Paare neu, %s schon gezogen)",
+                 TABLE, f"{bericht['row_count']:,}", bericht["paare"],
+                 bericht["uebersprungen"])
+        if bericht["paare"]:
+            # Ueber die Ablage und nicht ueber den Pfad - dasselbe wie in den
+            # uebrigen Stufenmodulen: Im s3-Modus ist die lokale Arbeitskopie
+            # nach dem Publizieren weg. Siehe ``Storage.tabellen_manifest``.
+            gelesen = for_root(args.data_root).tabellen_manifest(
+                tabellenverzeichnis(wurzel))
+            for art, n in sorted(gelesen.get("arten", {}).items()):
+                log.info("  %-14s %s", art, f"{n:,}")
         return 0
-
-    log.info("%s: %s Zeilen (%s Paare neu, %s schon gezogen)",
-             TABLE, f"{bericht['row_count']:,}", bericht["paare"],
-             bericht["uebersprungen"])
-    if bericht["paare"]:
-        # Ueber die Ablage und nicht ueber den Pfad - dasselbe wie in den
-        # uebrigen Stufenmodulen: Im s3-Modus ist die lokale Arbeitskopie
-        # nach dem Publizieren weg. Siehe ``Storage.tabellen_manifest``.
-        gelesen = for_root(args.data_root).tabellen_manifest(
-            tabellenverzeichnis(wurzel))
-        for art, n in sorted(gelesen.get("arten", {}).items()):
-            log.info("  %-14s %s", art, f"{n:,}")
-    return 0
 
 
 if __name__ == "__main__":

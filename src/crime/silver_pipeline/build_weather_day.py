@@ -447,37 +447,39 @@ def main() -> int:
     args = arguments()
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
-    try:
-        # Ueber die Ablage und nicht ueber den Pfad: ``publish_table``
-        # entfernt im s3-Modus die lokale Arbeitskopie, und dieser
-        # Schlussbericht las sie trotzdem - jeder Lauf endete dort mit
-        # "Invalid manifest" und Exitcode 1, obwohl die Tabelle sauber
-        # publiziert war. Siehe ``Storage.tabellen_manifest``.
-        ablage = for_root(args.data_root)
-        ziel = build(ablage.local_root, args.station)
-        manifest = ablage.tabellen_manifest(ziel)
-        log.info("Silver-Tabelle geschrieben: %s", ziel)
-        log.info("  Zeilen: %s", f"{manifest['row_count']:,}")
-        for abdeckung in manifest["coverage"]:
-            log.info(
-                "  %s (%s): %s bis %s, %s Zeilen, %s fehlende Tage, "
-                "%s Tage mit Spurenmenge, %s beanstandet",
-                abdeckung["city"],
-                abdeckung["station_id"],
-                abdeckung["first_date"],
-                abdeckung["last_date"],
-                f"{abdeckung['row_count']:,}",
-                abdeckung["missing_days"],
-                f"{abdeckung['trace_precipitation_days']:,}",
-                abdeckung["suspect_rows"],
-            )
-        return 0
-    except (TransformError, StorageError, OSError, duckdb.Error) as error:
-        log.error("Silver-Aufbau fehlgeschlagen: %s", error)
-        return 1
-    except KeyboardInterrupt:
-        log.error("Abgebrochen; es wurde keine Tabelle veroeffentlicht")
-        return 130
+    from storage.analysesitzung import schreibzugriff
+    with schreibzugriff(for_root(args.data_root).local_root, invalidieren=True):
+        try:
+            # Ueber die Ablage und nicht ueber den Pfad: ``publish_table``
+            # entfernt im s3-Modus die lokale Arbeitskopie, und dieser
+            # Schlussbericht las sie trotzdem - jeder Lauf endete dort mit
+            # "Invalid manifest" und Exitcode 1, obwohl die Tabelle sauber
+            # publiziert war. Siehe ``Storage.tabellen_manifest``.
+            ablage = for_root(args.data_root)
+            ziel = build(ablage.local_root, args.station)
+            manifest = ablage.tabellen_manifest(ziel)
+            log.info("Silver-Tabelle geschrieben: %s", ziel)
+            log.info("  Zeilen: %s", f"{manifest['row_count']:,}")
+            for abdeckung in manifest["coverage"]:
+                log.info(
+                    "  %s (%s): %s bis %s, %s Zeilen, %s fehlende Tage, "
+                    "%s Tage mit Spurenmenge, %s beanstandet",
+                    abdeckung["city"],
+                    abdeckung["station_id"],
+                    abdeckung["first_date"],
+                    abdeckung["last_date"],
+                    f"{abdeckung['row_count']:,}",
+                    abdeckung["missing_days"],
+                    f"{abdeckung['trace_precipitation_days']:,}",
+                    abdeckung["suspect_rows"],
+                )
+            return 0
+        except (TransformError, StorageError, OSError, duckdb.Error) as error:
+            log.error("Silver-Aufbau fehlgeschlagen: %s", error)
+            return 1
+        except KeyboardInterrupt:
+            log.error("Abgebrochen; es wurde keine Tabelle veroeffentlicht")
+            return 130
 
 
 if __name__ == "__main__":

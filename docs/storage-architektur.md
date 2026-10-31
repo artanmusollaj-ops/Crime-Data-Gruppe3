@@ -1397,8 +1397,10 @@ rechnete mit anderen Paketen als die Strecke, deren Zahlen es zeigt.
 
 **Mit kommen die drei lesenden Notebooks** — `34_gold_sternschema`,
 `35_kontrollen` und `37_quellbewegung`. `35` läuft ohne alles, `34` und `37`
-brauchen gebaute Daten unter `data/`; Netz braucht keines, und keines
-schreibt in den Bestand. **Nicht mit kommt `36_hypothesen`**: Es misst
+brauchen einen vollständig aufgebauten, ausdrücklich gewählten Bestand aus
+Bronze/Silver beziehungsweise Silver/Gold. Eine Ergebnis-Release-Datenbank
+allein genügt für ihre Pipeline-Gegenproben nicht. Netz braucht keines, und
+keines schreibt in den Bestand. **Nicht mit kommt `36_hypothesen`**: Es misst
 Hardware und startet Silber-, Gold- und Serving-Neubauten als Unterprozesse,
 und 768 MiB sprengt es dabei (E9). Die `.dockerignore` stellt die drei
 einzeln frei und nicht den Ordner — damit liegt `36_hypothesen` nicht einmal
@@ -1431,12 +1433,42 @@ das an den Notebooks nach, statt es zu behaupten.
 **Kein Geheimnis im Abbild.** Kein Token, keine S3-Schlüssel, kein
 `CENSUS_API_KEY`: Das Token kommt als `JUPYTER_TOKEN` aus der `.env` des
 Stapels, und ein lesender Analysedienst braucht den Bucket nicht — er liest
-die selbständige Datenbank aus dem Release. Der Container läuft als root,
+für Ergebnisabfragen die selbständige Datenbank aus dem Release und für die
+belegenden Notebooks den vollständigen lokalen Job-Datenbestand. Der Container läuft als root,
 weil der Verbund keinen Benutzer setzt, und die Konfiguration erlaubt das
 ausdrücklich; ohne diese Zusage verweigert `jupyter-server` den Start. Setzt
 der Verbund doch einen Benutzer, bleiben Arbeitsbereich und `$HOME`
 beschreibbar — beide stehen auf `0777`, weil ein Abbild, das nur für eine uid
 funktioniert, genau dann klemmt.
+
+**E-5: vollständige Job-Daten nur lesend, Sperren gemeinsam.** Die Konsole baut
+isoliert unter `/app/data/admin/jobs/<Job-ID>/data`. Ein erfolgreicher Aufbau
+schreibt `.analyse/stand.json` mit Job-/Run-ID, Code-Stand, Schichten, Prüfsummen
+und Release-Zuordnung. Jupyter wählt den Bestand mit `CRIME_ANALYSIS_ROOT`.
+Die Kandidatenkennung belegt keine Review-Freigabe; diese muss anhand der
+Konsolenentscheidung zugeordnet werden. Fehlende oder veränderte Dateien
+werden vor der ersten Notebook-Abfrage abgewiesen.
+
+Die Compose-Datei teilt das beschreibbare Volume `datensperren` unter
+`/app/datensperren` zwischen Pipeline, Worker und Jupyter. `DATA_LOCK_ROOT`
+zeigt in allen drei Diensten dorthin. Die Betriebssystem-Sperre gilt pro
+absoluter Datenwurzel und für die ganze Analysesitzung; das Daten-Volume selbst
+bleibt in Jupyter nur lesend. Von `konsole` erhält Jupyter ausschliesslich
+den nur lesenden Subpath `jobs` unter `/app/data/admin/jobs`, nicht die
+Kontrolldatenbank oder Worker-Tokens im Elternordner.
+
+Vor dem ersten Jupyter-Start müssen zwei Verzeichnisse existieren: `jobs/`
+im konsole-Volume nach einem erfolgreichen Aufbau und der leere Mountpunkt
+`admin/jobs` im arbeitsdaten-Volume. Ohne letzteren kann Docker den Unter-Mount
+unter dem nur lesenden `/app/data` nicht anlegen. Der einmalige Befehl und der
+Sitzungsablauf stehen in [der Betriebsanleitung](intern/notebook-analysesitzungen.md).
+Ein Abbildwechsel aktualisiert bestehende Notebook-Arbeitskopien nicht;
+für die Abnahme die neuen Vorlagen in einen eigenen Arbeitsordner kopieren.
+
+Die [lokale Docker-Prüfung vom 31.10.2026](intern/e5-pruefnachweis.md) bestätigt
+vollständige Notebook-Ausführung, gegenseitige Sperre, Freigabe und Schreibschutz
+mit einer geprüften Kopie des lokalen Aufbaus. Der echte Konsolenablauf auf srv01
+ist damit noch nicht abgenommen.
 
 ### Die Einstiegsseite wird ausgeliefert, nicht eingehängt
 
