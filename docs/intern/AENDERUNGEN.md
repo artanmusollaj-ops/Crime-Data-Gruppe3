@@ -138,7 +138,8 @@ GitHub-Token (S-6), Takt nach diesem Fix (S-8). Der Cron-Datenlauf bleibt
 zuständig; umgestellt wird später (S-10).
 
 **Zahlen.** 2'592 → **2'596 Tests**, Standardlauf 2'481 → **2'485**,
-Referenzwächter unverändert **111**.
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'407 von
+2'485**, 78 übersprungen, grün.
 
 ---
 
