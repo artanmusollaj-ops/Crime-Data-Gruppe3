@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'592** |
+| Tests | **2'596** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -100,6 +100,45 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 31.10.2026 · Die Konsole fragt S3 nicht mehr mit HEAD (Branch `feature/konsole-ohne-head`)
+
+Beim Einrichten auf `srv01` scheiterte der erste Probetakt des Workers an der
+täglichen Sicherung des Kontrollzustands: `HeadObject` mit **403 Forbidden**.
+Kein Rechteproblem und keine Drosselung — gemessen:
+
+| Anfrage, signiert | `x.json` | `x.tar.gz` |
+| --- | --- | --- |
+| `HEAD` | 404 | **403** |
+| `GET` mit `Range: bytes=0-0` | 206 / 404 | **SignatureDoesNotMatch** |
+| `GET` | `NoSuchKey` | `NoSuchKey` |
+
+Unabhängig vom Präfix, mit und ohne Pausen. `s3.datenwerft.ch` liegt hinter
+Cloudflare, und Endungen, die Cloudflare für statische Dateien hält (`.gz`,
+`.tar`, `.zip`, `.csv`, `.pdf` …), laufen dort einen anderen Weg
+(`cf-cache-status: BYPASS` statt `DYNAMIC`), auf dem `HEAD` und `Range` die
+Signatur nicht überleben. Die Strecke selbst merkte es nie: `publish_files`
+prüft über `list`, und ihre Endungen (`.parquet`, `.json`, `.duckdb`,
+`.geojson`) gehören nicht dazu. Artans `object_store` fragte vor jedem
+Hochladen mit `HEAD`, und die Kontrollsicherung ist eine `.tar.gz`.
+
+`Objects.metadata` liest Existenz und Metadaten jetzt mit einem schlichten
+`GET`, dessen Inhalt ungelesen geschlossen wird. Auf `srv01` nachgeprüft:
+Hochladen und schlichtes `GET` einer `.tar.gz` funktionieren (Probeobjekt
+danach samt Fassungen entfernt). Das Testdoppel verhält sich wie der Weg
+durch Cloudflare.
+
+**Eingerichtet auf `srv01` am 31.10.:** Abbild mit dem Konsolen-Code
+(`c313578`), Checkout auf `main`, `.env` mit Access-Werten, Metrik-Token und
+Rollen für Christian und Artan, `init` mit 2021–2026, `urbancrime_konsole` in
+`backup.volumes`, `admin` gesund (55 MiB von 160). Offen: Tunnel-Route (S-5),
+GitHub-Token (S-6), Takt nach diesem Fix (S-8). Der Cron-Datenlauf bleibt
+zuständig; umgestellt wird später (S-10).
+
+**Zahlen.** 2'592 → **2'596 Tests**, Standardlauf 2'481 → **2'485**,
+Referenzwächter unverändert **111**.
 
 ---
 

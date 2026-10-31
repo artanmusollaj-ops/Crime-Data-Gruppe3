@@ -1223,8 +1223,11 @@ Projektgedächtnis; was auf `srv01` wirklich läuft, sagt dort
 
 ### Was die Engineering-Konsole zusätzlich braucht
 
-Seit dem 30.10.2026 beschrieben, **nirgends eingerichtet**. Vor dem ersten
-Start auf `srv01`:
+Seit dem 30.10.2026 beschrieben, **seit dem 31.10.2026 zum Teil
+eingerichtet**: Abbild mit dem Konsolen-Code, `.env` bis auf das GitHub-Token,
+`init` mit 2021–2026, `urbancrime_konsole` in der Sicherung, `admin` läuft.
+Offen sind die Tunnel-Route, das Token und der Takt (S-5, S-6, S-8 in
+[`intern/offene-punkte.md`](intern/offene-punkte.md)). Die Schritte:
 
 1. **Die Tunnel-Route** für `urbancrime-admin.datenwerft.ch`, wie oben auf
    `http://traefik:80`. Die Access-Anwendung über `urbancrime-*` deckt sie mit.

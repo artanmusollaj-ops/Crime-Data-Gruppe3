@@ -54,19 +54,35 @@ class Objects:
                 return None, None
             raise
 
-    def immutable(self, path, key):
+    def metadata(self, key):
+        """User metadata of an object, or None if it does not exist.
+
+        A plain GET whose body is closed unread - not HEAD, and not a ranged
+        GET. s3.datenwerft.ch sits behind Cloudflare, and for suffixes
+        Cloudflare treats as static files (.gz, .tar, .zip, .csv, .pdf, ...)
+        a signed HEAD came back 403 and a signed ranged GET
+        SignatureDoesNotMatch, while a plain signed GET answered correctly
+        (measured on srv01, 31.10.2026). The control backup is a .tar.gz, and
+        every worker tick failed on it.
+        """
         from botocore.exceptions import ClientError
+
+        try:
+            response = self.client.get_object(Bucket=self.bucket, Key=key)
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] in {"NoSuchKey", "404", "NotFound"}:
+                return None
+            raise
+        response["Body"].close()
+        return response.get("Metadata", {})
+
+    def immutable(self, path, key):
         from .candidates import file_hash
 
         expected = file_hash(path)
-        try:
-            old = self.client.head_object(Bucket=self.bucket, Key=key)
-        except ClientError as exc:
-            if exc.response["Error"]["Code"] not in {"NoSuchKey", "404", "NotFound"}:
-                raise
-            old = None
-        if old:
-            if old.get("Metadata", {}).get("sha256") != expected:
+        old = self.metadata(key)
+        if old is not None:
+            if old.get("sha256") != expected:
                 raise AdminError("Objektkonflikt: " + key)
         else:
             # Multipart transfer supports releases larger than a single S3 PUT.
