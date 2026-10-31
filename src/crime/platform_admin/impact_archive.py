@@ -147,9 +147,14 @@ def retry(store, iid):
     return result
 
 
-def zip_bytes(store, iid):
+def write_zip(store, iid, stream):
+    """Zip the archive into ``stream``.
+
+    The web service passes a temporary file, not memory: a first run without a
+    baseline lists every offense with its JSON row, 250 MB on 31.10.2026 -
+    more than the whole 160 MiB container limit (S-9).
+    """
     record, manifest = checked(store, iid)
-    stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w", zipfile.ZIP_DEFLATED) as z:
         for name in sorted(manifest["files"]) + ["archive_manifest.json"]:
             z.write(Path(record["path"]) / name, name)
@@ -161,6 +166,11 @@ def zip_bytes(store, iid):
                 )
             ]
         z.writestr(zipfile.ZipInfo("lifecycle_at_download.json"), encode(events))
+
+
+def zip_bytes(store, iid):
+    stream = io.BytesIO()
+    write_zip(store, iid, stream)
     return stream.getvalue()
 
 

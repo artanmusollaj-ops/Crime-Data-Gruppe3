@@ -2,9 +2,10 @@
 
 import difflib
 import json
+import tempfile
 from pathlib import Path
 
-from flask import Flask, Response, g, request
+from flask import Flask, Response, g, request, send_file
 from werkzeug.exceptions import HTTPException
 
 from .jobs import enqueue
@@ -97,16 +98,23 @@ def create_app(store=None, *, operator=None, token=None, config=None):
                 },
             )
         elif request.path == "/api/impact-archive":
-            from .impact_archive import zip_bytes
+            from .impact_archive import write_zip
 
             iid = request.args.get("id", "")
-            data = zip_bytes(store, iid)
-            response = send(200, data, "application/zip")
+            # Zipped to an unlinked temporary file and streamed from there, so
+            # memory stays flat however large the archive is (S-9).
+            stream = tempfile.TemporaryFile()
+            try:
+                write_zip(store, iid, stream)
+            except BaseException:
+                stream.close()
+                raise
+            stream.seek(0)
             # IDs originate in the checked database record, not a filesystem path.
-            response.headers["Content-Disposition"] = (
-                'attachment; filename="impact-' + iid + '.zip"'
+            return send_file(
+                stream, mimetype="application/zip", as_attachment=True,
+                download_name="impact-" + iid + ".zip",
             )
-            return response
         elif request.path == "/api/operations":
             from .operations import overview
 
@@ -195,12 +203,14 @@ def create_app(store=None, *, operator=None, token=None, config=None):
                         "impact_quality_month.parquet",
                     }:
                         raise AdminError("Unbekanntes Impact-Artefakt")
-                    return send(
-                        200,
-                        (artifact_root / name).read_bytes(),
-                        "application/json"
+                    # Streamed, not read: impact_records.parquet reaches 250 MB (S-9).
+                    return send_file(
+                        artifact_root / name,
+                        mimetype="application/json"
                         if name.endswith(".json")
                         else "application/octet-stream",
+                        conditional=False,
+                        etag=False,
                     )
         elif request.path == "/api/job-log":
             jid = request.args.to_dict(flat=False).get("id", [""])[0]

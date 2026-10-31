@@ -6,6 +6,7 @@ import io
 import json
 import shutil
 import zipfile
+from pathlib import Path
 
 import pytest
 
@@ -438,6 +439,58 @@ def test_archive_survives_job_directory_removal_and_downloads(setup):
         == row["report_hash"]
     )
     assert archive["revision_id"] == rid
+
+
+def test_impact_downloads_stream_instead_of_buffering(setup):
+    """S-9: Both download routes hand a file to the WSGI server, same bytes."""
+    store, _gh = setup
+    _rid, row = built(store)
+    app = create_app(store, operator="viewer", token="secret", config={"ADMIN_AUTH": "local"})
+    client = app.test_client()
+    headers = {"Authorization": "Bearer secret"}
+    archive = client.get("/api/impact-archive?id=" + row["id"], headers=headers, buffered=False)
+    assert archive.is_streamed
+    assert archive.headers["Content-Disposition"] == (
+        "attachment; filename=impact-" + row["id"] + ".zip")
+    assert b"".join(archive.response) == impact_archive.zip_bytes(store, row["id"])
+    archive.close()
+    record, _manifest = impact_archive.checked(store, row["id"])
+    name = "impact_by_partition.parquet"
+    artifact = client.get(
+        f"/api/impact-artifact?id={row['id']}&name={name}", headers=headers, buffered=False)
+    assert artifact.is_streamed
+    assert artifact.mimetype == "application/octet-stream"
+    assert b"".join(artifact.response) == (Path(record["path"]) / name).read_bytes()
+    artifact.close()
+
+
+def test_large_impact_archive_downloads_in_flat_memory(setup, monkeypatch, tmp_path):
+    """S-9: A 250 MB first-run archive must not land in the 160 MiB service.
+
+    Measured with 32 MB of incompressible bytes; buffering would allocate at
+    least that much once, the old code twice.
+    """
+    import os
+    import tracemalloc
+
+    store, _gh = setup
+    (tmp_path / "impact_records.parquet").write_bytes(os.urandom(32 << 20))
+    (tmp_path / "archive_manifest.json").write_text("{}")
+    monkeypatch.setattr(impact_archive, "checked", lambda *_a, **_k: (
+        {"path": str(tmp_path)}, {"files": {"impact_records.parquet": "-"}}))
+    app = create_app(store, operator="viewer", token="secret", config={"ADMIN_AUTH": "local"})
+    client = app.test_client()
+    tracemalloc.start()
+    try:
+        response = client.get("/api/impact-archive?id=gross",
+                              headers={"Authorization": "Bearer secret"}, buffered=False)
+        size = sum(len(chunk) for chunk in response.response)
+        response.close()
+        _current, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert size > 32 << 20
+    assert peak < 8 << 20, f"Spitze {peak / 2**20:.1f} MiB beim Download"
 
 
 def test_retry_creates_distinct_archives(setup):
