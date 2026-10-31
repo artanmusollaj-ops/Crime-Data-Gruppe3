@@ -103,6 +103,22 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 31.10.2026 · Der Takt der Konsole läuft auf srv01 (Branch `docs/konsole-takt-an`)
+
+Nach dem Merge von #190 ein neues Abbild gebaut (`abbilder.yml` auf
+`554fd02`) und mit `docker/srv01-abbild-einsetzen.sh` eingesetzt, `admin`
+neu gestartet. Der Probetakt lief grün und schrieb die Kontrollsicherung
+`backups/control/…tar.gz` — genau die Datei, an der der erste Takt mit
+HEAD 403 gescheitert war. Danach die Takt-Zeile im `crontab` einkommentiert;
+die Datenlauf-Zeile bleibt, `enable-managed` (S-10) ist nicht gelaufen.
+
+Dabei fiel auf, dass S-6 die Rechte des GitHub-Tokens falsch nannte: Der
+Entwicklungsmodus liest die Check-Runs des PR-Heads und braucht **Checks
+Lesen**; Administration Lesen braucht erst `produktiv`. Und weil das
+Repository einem persönlichen Konto gehört, kann nur dessen Inhaber ein
+Fine-grained-Token darauf ausstellen. S-6 und `storage-architektur.md` §16
+nennen das jetzt; S-8 steht unter „Erledigt“.
+
 ## 31.10.2026 · Die Konsole fragt S3 nicht mehr mit HEAD (Branch `feature/konsole-ohne-head`)
 
 Beim Einrichten auf `srv01` scheiterte der erste Probetakt des Workers an der
