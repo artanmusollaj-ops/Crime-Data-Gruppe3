@@ -78,8 +78,9 @@ def main() -> int:
         seite.write_text(html(markdown), encoding="utf-8")
         subprocess.run(
             [browser(), "--headless=new", "--disable-gpu", "--no-sandbox",
+             f"--user-data-dir={Path(arbeit) / 'browser'}",
              "--no-pdf-header-footer", f"--print-to-pdf={ZIEL}", seite.as_uri()],
-            check=True, capture_output=True)
+            check=True, capture_output=True, timeout=120)
     print(f"{ZIEL.relative_to(PROJEKT)}: {ZIEL.stat().st_size:,} Bytes, "
           f"Quelle {kennung(markdown)}")
     return 0

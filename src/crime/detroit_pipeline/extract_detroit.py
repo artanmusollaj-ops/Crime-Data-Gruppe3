@@ -770,78 +770,80 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
-    logging.basicConfig(
-        level=getattr(logging, args.log_level),
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
+    from storage.analysesitzung import schreibzugriff
+    with schreibzugriff(for_root(args.data_root).local_root, invalidieren=True):
+        logging.basicConfig(
+            level=getattr(logging, args.log_level),
+            format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        )
 
-    if args.mode == "delta":
-        for year in args.years:
-            wurzel = for_root(args.data_root).local_root
-            watermark = previous_watermark(wurzel, year)
-            logging.info(
-                "Starte Detroit %s fuer %s%s",
-                "Full Load" if watermark is None else "Delta",
-                year,
-                "" if watermark is None else f" (Wasserzeichen {watermark})",
-            )
-            raw_dir = None if args.no_raw else args.raw_dir / "full" / f"year={year}"
-            bronze_path, manifest_path = extract_delta(
-                year=year,
-                output_dir=args.output_dir / "full" / f"year={year}",
-                data_root=wurzel,
-                raw_dir=raw_dir,
-                batch_size=args.batch_size,
-                pause_seconds=args.pause_seconds,
-                watermark=watermark,
-            )
-            print_extraction_result(bronze_path, manifest_path)
-            publiziere(bronze_path.parent, raw_dir)
+        if args.mode == "delta":
+            for year in args.years:
+                wurzel = for_root(args.data_root).local_root
+                watermark = previous_watermark(wurzel, year)
+                logging.info(
+                    "Starte Detroit %s fuer %s%s",
+                    "Full Load" if watermark is None else "Delta",
+                    year,
+                    "" if watermark is None else f" (Wasserzeichen {watermark})",
+                )
+                raw_dir = None if args.no_raw else args.raw_dir / "full" / f"year={year}"
+                bronze_path, manifest_path = extract_delta(
+                    year=year,
+                    output_dir=args.output_dir / "full" / f"year={year}",
+                    data_root=wurzel,
+                    raw_dir=raw_dir,
+                    batch_size=args.batch_size,
+                    pause_seconds=args.pause_seconds,
+                    watermark=watermark,
+                )
+                print_extraction_result(bronze_path, manifest_path)
+                publiziere(bronze_path.parent, raw_dir)
+            return 0
+
+        if args.mode == "full":
+            for year in args.years:
+                logging.info("Starte Detroit Full Load fuer %s", year)
+                raw_dir = None if args.no_raw else args.raw_dir / "full" / f"year={year}"
+                bronze_path, manifest_path = extract_year(
+                    year=year,
+                    output_dir=args.output_dir / "full" / f"year={year}",
+                    raw_dir=raw_dir,
+                    batch_size=args.batch_size,
+                    pause_seconds=args.pause_seconds,
+                )
+                print_extraction_result(bronze_path, manifest_path)
+                publiziere(bronze_path.parent, raw_dir)
+            return 0
+
+        daily_window = resolve_daily_window(
+            reference_date=args.reference_date,
+            lookback_days=args.lookback_days,
+        )
+        window_start = daily_window.start_local.date()
+        window_end_exclusive = daily_window.end_local.date()
+        run_date = window_end_exclusive - timedelta(days=1)
+
+        logging.info(
+            "Starte Detroit Daily Load: %s bis %s (exklusiv)",
+            window_start,
+            window_end_exclusive,
+        )
+        raw_dir = (None if args.no_raw else
+                   args.raw_dir / "incremental" / f"run_date={run_date.isoformat()}")
+        bronze_path, manifest_path = extract_updated_window(
+            start_date=window_start,
+            end_date_exclusive=window_end_exclusive,
+            output_dir=(
+                args.output_dir / "incremental" / f"run_date={run_date.isoformat()}"
+            ),
+            raw_dir=raw_dir,
+            batch_size=args.batch_size,
+            pause_seconds=args.pause_seconds,
+        )
+        print_extraction_result(bronze_path, manifest_path)
+        publiziere(bronze_path.parent, raw_dir)
         return 0
-
-    if args.mode == "full":
-        for year in args.years:
-            logging.info("Starte Detroit Full Load fuer %s", year)
-            raw_dir = None if args.no_raw else args.raw_dir / "full" / f"year={year}"
-            bronze_path, manifest_path = extract_year(
-                year=year,
-                output_dir=args.output_dir / "full" / f"year={year}",
-                raw_dir=raw_dir,
-                batch_size=args.batch_size,
-                pause_seconds=args.pause_seconds,
-            )
-            print_extraction_result(bronze_path, manifest_path)
-            publiziere(bronze_path.parent, raw_dir)
-        return 0
-
-    daily_window = resolve_daily_window(
-        reference_date=args.reference_date,
-        lookback_days=args.lookback_days,
-    )
-    window_start = daily_window.start_local.date()
-    window_end_exclusive = daily_window.end_local.date()
-    run_date = window_end_exclusive - timedelta(days=1)
-
-    logging.info(
-        "Starte Detroit Daily Load: %s bis %s (exklusiv)",
-        window_start,
-        window_end_exclusive,
-    )
-    raw_dir = (None if args.no_raw else
-               args.raw_dir / "incremental" / f"run_date={run_date.isoformat()}")
-    bronze_path, manifest_path = extract_updated_window(
-        start_date=window_start,
-        end_date_exclusive=window_end_exclusive,
-        output_dir=(
-            args.output_dir / "incremental" / f"run_date={run_date.isoformat()}"
-        ),
-        raw_dir=raw_dir,
-        batch_size=args.batch_size,
-        pause_seconds=args.pause_seconds,
-    )
-    print_extraction_result(bronze_path, manifest_path)
-    publiziere(bronze_path.parent, raw_dir)
-    return 0
 
 
 def publiziere(bronze_final: Path, raw_dir: Path | None) -> None:

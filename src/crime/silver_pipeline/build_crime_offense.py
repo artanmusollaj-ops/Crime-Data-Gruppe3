@@ -1319,16 +1319,18 @@ def main() -> int:
     args = arguments()
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(levelname)s %(message)s",
-    )
-    try:
-        build(for_root(args.data_root).local_root, args.config_root)
-    except (TransformError, StorageError) as error:
-        LOG.error("%s", error)
-        return 1
-    return 0
+    from storage.analysesitzung import schreibzugriff
+    with schreibzugriff(for_root(args.data_root).local_root, invalidieren=True):
+        logging.basicConfig(
+            level=logging.DEBUG if args.verbose else logging.INFO,
+            format="%(levelname)s %(message)s",
+        )
+        try:
+            build(for_root(args.data_root).local_root, args.config_root)
+        except (TransformError, StorageError) as error:
+            LOG.error("%s", error)
+            return 1
+        return 0
 
 
 if __name__ == "__main__":

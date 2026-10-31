@@ -1,6 +1,6 @@
 # Engineering-Konsole: Betrieb, Freigabe und Analyse
 
-Stand 30. Oktober 2026 · ursprünglich von Artan (26.10.2026), seither nachgeführt
+Stand 31. Oktober 2026 · ursprünglich von Artan (26.10.2026), seither nachgeführt
 
 Diese Anleitung beschreibt die Engineering-Konsole (`src/crime/platform_admin`), so wie sie im Repository liegt. Die Infrastruktur bleibt Grundlage: SeaweedFS/S3, die bestehenden Pipelines, Elasticsearch, Kibana, Jupyter und das vorhandene Monitoring. Was sich gegenüber Artans Lieferung geändert hat und warum, steht in [`AENDERUNGEN.md`](AENDERUNGEN.md) unter den Einträgen vom 30.10.2026.
 
@@ -247,7 +247,32 @@ Am ersten Montag nach der Umstellung im Betriebsblick prüfen, dass Protokoll, D
 
 Die bestehenden Elasticsearch-Sterntabellen, Geo-Indizes, Raten und Kibana-Dashboards werden durch die vorhandenen Lader erstellt. Die alte vereinfachte Konsolen-Indexstruktur wird nicht mehr verwendet. ClickHouse ist in diesem Zielstand keine Pflicht und wird von diesem Adapter nicht geladen.
 
-**Notebooks lesen weiter den Arbeitsbestand**, nicht das aktive Release. Artans Fassung lenkte Notebook 34 und 37 auf das Release; das enthält aber kein Silver und kein Bronze, und Notebook 34 liess danach 13 von 17 Zellen ohne Fehler leer. Wie Notebooks im verwalteten Betrieb lesen sollen, ist offen (E-5 in [`offene-punkte.md`](offene-punkte.md)).
+### Notebooks 34 und 37: Datenstand und Analysesitzung (E-5)
+
+**Die Notebooks lesen einen ausdrücklich gewählten, vollständig aufgebauten Pipeline-Bestand.** Ein Ergebnis-Release enthält nicht alle dafür benötigten Bronze- und Silver-Daten. Notebook 34 vergleicht zusammengehöriges Silver und Gold; Notebook 37 untersucht `silver/source_change` und Bronze-Manifeste. Sie werden deshalb nicht pauschal auf das aktive Release umgeleitet.
+
+Nach einem erfolgreichen lokalen Gesamtlauf liegt der Herkunftsnachweis unter `<Datenwurzel>/.analyse/stand.json`. Im verwalteten Betrieb entsteht er nach technisch erfolgreichem Kandidatenbau unter `data/admin/jobs/<Job-ID>/data/`. Er benennt Aufbaulauf beziehungsweise Job-ID, Code-Stand, gebaute Schichten, Datei-Prüfsummen und gegebenenfalls die zugehörige Release-ID. Die Kandidatenkennung ist **keine Review-Freigabe**; der Betreiber wählt einen freigegebenen Job anhand der Konsolenentscheidung. Das jeweils letzte `pipeline_run.json` ersetzt diesen Nachweis nicht.
+
+Die Startzelle prüft die benötigten Dateien samt Prüfsummen und zeigt ihre Herkunft. Fehlende, veränderte oder unvollständig aufgebaute Daten führen zum Abbruch. Eine leere, erfolgreich gebaute `source_change`-Tabelle ist zulässig, belegt aber keine tatsächlichen Quelländerungen.
+
+Die Analysesitzung hält eine exklusive Datensperre bis zur Abschlusszelle `analyse.beenden()` oder zum Ende des Kernels. Der Worker und die vorgesehenen schreibenden Einstiege nutzen dieselbe Sperre je Datenwurzel. Bei belegtem Bestand bleibt Worker-Arbeit eingereiht. Nach einem Zellfehler die Abschlusszelle manuell ausführen oder den Kernel herunterfahren; ein geschlossener Browser-Tab allein beendet den Kernel nicht. Nach Sitzungsende vor weiteren Abfragen die Startzellen erneut ausführen.
+
+**Vorbereitung auf srv01:**
+
+1. Neue Pipeline- und Jupyter-Images übernehmen. Die Compose-Datei bindet `datensperren` für beide Dienste und die Pipeline unter `/app/datensperren` ein und setzt `DATA_LOCK_ROOT` darauf. Gleiche Datenwurzeln müssen in den Containern denselben absoluten Pfad tragen.
+2. Einen erfolgreichen Konsolen-Aufbau mit vollständigen Job-Daten bereitstellen. `jobs/` muss im `konsole`-Volume existieren. Jupyter erhält ausschliesslich diesen Unterordner als nur lesenden Subpath; die Kontrolldatenbank und Worker-Tokens im Elternordner bleiben ausserhalb dieses Mounts.
+3. Den leeren Mountpunkt `admin/jobs` einmalig im `arbeitsdaten`-Volume vorbereiten, bevor Jupyter das Volume nur lesend einhängt:
+
+```bash
+dc run --rm --no-deps --entrypoint python pipeline -c "from pathlib import Path; Path('/app/data/admin/jobs').mkdir(parents=True, exist_ok=True)"
+```
+
+4. In der `.env` `CRIME_ANALYSIS_ROOT=/app/data/admin/jobs/<Job-ID>/data` auf den ausgewählten Aufbau setzen und Jupyter neu erstellen. Ohne Angabe gilt `/app/data`; auch dort wird ein passender Herkunftsnachweis verlangt. Es werden weder automatisch Daten von S3 geholt noch andere Datenstände als Ersatz verwendet.
+5. Für die Abnahme ausdrücklich die neuen Vorlagen unter `/vorlagen` in einen separaten Arbeitsordner unter `/app/arbeit` kopieren. Ein Image-Wechsel überschreibt bestehende Notebook-Arbeitskopien nicht.
+
+Ein lokaler Aufbau bleibt mit `STORAGE_BACKEND=local` möglich. Für dessen Notebooks kann `CRIME_ANALYSIS_ROOT` vor dem Kernelstart auf einen anderen vollständigen lokalen Bestand zeigen. Details und Befehle stehen in [`notebook-analysesitzungen.md`](notebook-analysesitzungen.md).
+
+**Nachweisstand am 31.10.2026:** Beide Notebooks liefen lokal unter Windows und anschliessend unter Linux/Docker vollständig durch. Gegenseitige Leser-/Worker-Sperren, Freigabe und Volume-Schreibschutz wurden mit isolierten Test-Volumes bestätigt. Der [dauerhafte Prüfnachweis](e5-pruefnachweis.md) nennt Datenstand, Images und Grenzen. Die Abnahme auf srv01 mit einem echten Konsolen-Job und die Auswertung tatsächlicher Quelländerungen bleiben offen; E-5 ist deshalb noch nicht als auf srv01 abgenommen markiert.
 
 **Der Betriebsblick bleibt derselbe.** Der Worker schreibt nach jedem Takt mit Arbeit `pipeline_run.json` im Format, das `orchestration.run_all` für den Cron-Lauf schreibt, und rendert daraus `serving.betriebsstand` — dieselbe Metrikdatei, dasselbe Brett in Grafana. Ein leerer Takt überschreibt nichts. Die Konsole hat zusätzlich einen eigenen Endpunkt `/metrics` (Bearer `ADMIN_METRICS_TOKEN`); dass Prometheus ihn abholt, ist noch nicht eingerichtet (C-7).
 

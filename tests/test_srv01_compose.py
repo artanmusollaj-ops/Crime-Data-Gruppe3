@@ -23,13 +23,10 @@ Geprueft wird **jede Zeile der Matrix** aus dem Plan:
 * die Hostnamen folgen ``urbancrime-<dienst>.datenwerft.ch`` (FR-22);
 * keine Zeile traegt ein Geheimnis (FR-18).
 
-**Ohne pyyaml.** Das Projekt hat die Abhaengigkeit nicht, und sie fuer eine
-Datei aufzunehmen hiesse, sie in jedes Abbild und jeden CI-Lauf zu tragen.
-``lade`` unten liest die Teilmenge von YAML, die diese Datei benutzt -
-verschachtelte Abbildungen, einfache Listen, Flussfolgen als Rohtext - und
-``test_der_leser_liest_was_er_lesen_soll`` haelt den Leser selbst fest. Dieselbe
-Entscheidung wie in ``tests/test_datenlauf_workflow.py``: geprueft wird der
-Text.
+PyYAML ist inzwischen in den Entwicklungsabhaengigkeiten deklariert. Der
+BaseLoader laesst Skalare wie bisher als Zeichenketten stehen und liest auch
+die fuer E-5 benoetigte lange Volume-Syntax. Flussfolgen fuer Befehle bleiben
+als Rohtext erhalten, damit die bestehenden Befehlspruefungen gleich arbeiten.
 
 Dass der Leser nicht etwas anderes sieht als Docker, ist am 6.10.2026
 nachgemessen worden: ``docker compose config --format json`` ueber alle
@@ -102,70 +99,26 @@ GEHEIM = re.compile(r"(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL)")
 # --------------------------------------------------------------------------
 
 
-def _wert(rohe: str) -> str:
-    """Ein Skalar ohne Anfuehrungszeichen und ohne angehaengten Kommentar.
-
-    Flussfolgen und -abbildungen (``["CMD", ...]``, ``{a: 1}``) bleiben
-    Rohtext: Gebraucht werden sie hier nur als Ganzes.
-    """
-    text = rohe.strip()
-    if text[:1] in {'"', "'"}:
-        ende = text.find(text[0], 1)
-        return text[1:ende] if ende > 0 else text[1:]
-    if text[:1] in {"[", "{"}:
-        return text
-    return text.split(" #")[0].strip()
-
-
 def lade(text: str) -> dict:
-    """Die Teilmenge von YAML, die ``docker-compose.srv01.yml`` benutzt.
+    """YAML mit String-Skalaren und unveraenderten Inline-Befehlsfolgen."""
+    import yaml
 
-    Getragen werden verschachtelte Abbildungen, Listen aus Skalaren und ein
-    Schluessel ohne Wert (in Compose heisst das *den Wert aus der Umgebung
-    holen*; hier wird er zur leeren Zeichenkette). Anker, Mehrzeiler und
-    Listen aus Abbildungen kommen in der Datei nicht vor und werden deshalb
-    auch nicht gelesen - ein Leser, der mehr vortaeuscht, als er kann, waere
-    schlimmer als einer mit benannten Grenzen.
-    """
-    wurzel: dict = {}
-    stapel: list[tuple[int, object]] = [(-1, wurzel)]
-    offen: tuple[int, dict, str] | None = None
+    class Leser(yaml.BaseLoader):
+        def construct_sequence(self, node, deep=False):
+            if node.flow_style:
+                return text[node.start_mark.index:node.end_mark.index]
+            return super().construct_sequence(node, deep=deep)
 
-    for rohe in text.splitlines():
-        if not rohe.strip() or rohe.lstrip().startswith("#"):
-            continue
-        einzug = len(rohe) - len(rohe.lstrip())
-        zeile = rohe.strip()
+    return yaml.load(text, Loader=Leser)
 
-        if offen is not None:
-            schluessel_einzug, eltern, name = offen
-            if einzug > schluessel_einzug:
-                neu: object = [] if zeile.startswith("- ") else {}
-                eltern[name] = neu
-                stapel.append((einzug, neu))
-            else:
-                eltern[name] = ""
-            offen = None
 
-        while einzug < stapel[-1][0]:
-            stapel.pop()
-        behaelter = stapel[-1][1]
-
-        if zeile.startswith("- "):
-            assert isinstance(behaelter, list), f"Listeneintrag ohne Liste: {zeile!r}"
-            behaelter.append(_wert(zeile[2:]))
-            continue
-
-        assert isinstance(behaelter, dict), f"Schluessel in einer Liste: {zeile!r}"
-        if zeile.endswith(":"):
-            offen = (einzug, behaelter, zeile[:-1].strip())
-            continue
-        name, _, rest = zeile.partition(":")
-        behaelter[name.strip()] = _wert(rest)
-
-    if offen is not None:
-        offen[1][offen[2]] = ""
-    return wurzel
+def mount_info(eintrag):
+    """Kurze und lange Compose-Volume-Syntax fuer die bestehenden Waechter."""
+    if isinstance(eintrag, dict):
+        return (eintrag["source"], eintrag["target"],
+                str(eintrag.get("read_only", "false")).lower() == "true")
+    teile = eintrag.split(":")
+    return teile[0], teile[1], "ro" in teile[2:]
 
 
 BEISPIEL = """
@@ -557,7 +510,7 @@ def test_jupyter_haengt_data_schreibgeschuetzt_ein(dienste):
 def test_jupyter_hat_einen_beschreibbaren_arbeitsbereich(dienste):
     """Lesend heisst nicht unbenutzbar: Ein Notebook muss sich speichern lassen."""
     beschreibbar = [v for v in dienste["jupyter"]["volumes"]
-                    if not v.endswith(":ro") and ":/app/data" not in v]
+                    if not mount_info(v)[2] and not mount_info(v)[1].startswith("/app/data")]
     assert beschreibbar, (
         "Jupyter hat nur schreibgeschuetzte Einhaengepunkte - dann laesst sich "
         "kein Notebook speichern"
@@ -587,7 +540,7 @@ def test_kein_dienst_haengt_die_entwicklungsdatenbank_ein(beschreibung, dienste)
     verirrt = []
     for name, dienst in dienste.items():
         for einhang in dienst.get("volumes") or []:
-            if "serving/analyse.duckdb" in einhang.split(":")[0]:
+            if "serving/analyse.duckdb" in mount_info(einhang)[0]:
                 verirrt.append(f"{name}: {einhang}")
     assert not verirrt, f"data/serving/analyse.duckdb eingehaengt: {verirrt}"
     assert "arbeitsdaten" in beschreibung["volumes"]
@@ -1096,3 +1049,50 @@ def test_nur_der_worker_haelt_das_github_token(dienste):
     assert "ADMIN_GITHUB_TOKEN" not in admin
     assert admin["ADMIN_DEFER_PUBLICATION"] == "1"
     assert "ADMIN_GITHUB_TOKEN" in dienste["worker"]["environment"]
+
+
+def test_e5_teilt_den_sperrdatentraeger_zwischen_leser_und_schreibern(beschreibung, dienste):
+    assert "datensperren" in beschreibung["volumes"]
+    for name in ("pipeline", "worker", "jupyter"):
+        service = dienste[name]
+        assert service["environment"]["DATA_LOCK_ROOT"] == "/app/datensperren"
+        mounts = [mount_info(v) for v in service["volumes"]]
+        assert ("datensperren", "/app/datensperren", False) in mounts
+
+
+def test_e5_jupyter_sieht_nur_den_job_unterordner_der_konsole(text):
+    import yaml
+
+    service = yaml.safe_load(text)["services"]["jupyter"]
+    console_mounts = [v for v in service["volumes"] if mount_info(v)[0] == "konsole"]
+    assert len(console_mounts) == 1
+    jobs = console_mounts[0]
+    assert jobs["type"] == "volume"
+    assert jobs["target"] == "/app/data/admin/jobs"
+    assert jobs["read_only"] is True
+    assert jobs["volume"] == {"subpath": "jobs", "nocopy": True}
+    # Die Daten bleiben ebenfalls nur lesbar, der Notebook-Arbeitsraum getrennt.
+    assert "arbeitsdaten:/app/data:ro" in service["volumes"]
+    assert "jupyter-arbeit:/app/arbeit" in service["volumes"]
+
+
+def test_e5_die_jobwurzel_ist_ausdruecklich_waehlbar(dienste):
+    assert dienste["jupyter"]["environment"]["CRIME_ANALYSIS_ROOT"] == \
+        "${CRIME_ANALYSIS_ROOT:-/app/data}"
+
+
+def test_der_leser_traegt_auch_die_lange_volume_syntax():
+    gelesen = lade("""services:
+  jupyter:
+    volumes:
+      - type: volume
+        source: konsole
+        target: /app/data/admin/jobs
+        read_only: true
+        volume:
+          subpath: jobs
+          nocopy: true
+""")
+    mount = gelesen["services"]["jupyter"]["volumes"][0]
+    assert mount_info(mount) == ("konsole", "/app/data/admin/jobs", True)
+    assert mount["volume"] == {"subpath": "jobs", "nocopy": "true"}

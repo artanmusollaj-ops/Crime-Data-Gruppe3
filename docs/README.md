@@ -69,6 +69,8 @@ Word-Dokument verweist**: auf keines davon.
 | [`platzbedarf.md`](intern/platzbedarf.md) | was die Strecke an Platz braucht, gemessen und auf 2021–2026 hochgerechnet — **erzeugt** (siehe unten) |
 | [`DETROIT_PIPELINE_ANLEITUNG.md`](intern/DETROIT_PIPELINE_ANLEITUNG.md) | Detroit-Pipeline Schritt für Schritt (Windows) |
 | [`ENGINEERING_KONSOLE.md`](intern/ENGINEERING_KONSOLE.md) | die Engineering-Konsole: Funktionen, Impact-Bericht, lokale Einrichtung, Betrieb auf `srv01`, Umstellung auf den verwalteten Betrieb, Fehlerdiagnose — als PDF unter [`intern/handbuch/`](intern/handbuch/ENGINEERING_KONSOLE.pdf) (erzeugt, siehe unten) |
+| [`notebook-analysesitzungen.md`](intern/notebook-analysesitzungen.md) | E-5: Datenherkunft, Voraussetzungen, Analysesitzung und gemeinsame Sperre; Job-Volumes und Vorbereitung für den Roll-out |
+| [`e5-pruefnachweis.md`](intern/e5-pruefnachweis.md) | dauerhafte Zusammenfassung der lokalen Windows-/Docker-Abnahme am 31.10.2026 und der verbleibenden Server-Abnahme |
 | [`console-settings.example.json`](console-settings.example.json) | Einstellungen der Konsole für 2021–2026 — vor dem ersten `init` als `config/platform_admin_settings.json`; ohne sie gilt nur 2024 |
 
 ## Erzeugt — nie von Hand ändern

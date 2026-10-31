@@ -757,44 +757,46 @@ def main() -> int:
     args = arguments()
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
-    started = datetime.now(timezone.utc)
-    token = app_token(args.no_token)
-    ablage = for_root(args.data_root)
-    data_root = ablage.local_root
+    from storage.analysesitzung import schreibzugriff
+    with schreibzugriff(for_root(args.data_root).local_root, invalidieren=True):
+        started = datetime.now(timezone.utc)
+        token = app_token(args.no_token)
+        ablage = for_root(args.data_root)
+        data_root = ablage.local_root
 
-    try:
-        discard_stale_partials(data_root, started)
-        watermark = previous_watermark(data_root, args.year)
-        updated_from = delta_start(watermark) if watermark and not args.full else None
-        mode = "delta" if updated_from else "full_snapshot"
-        log.info("Starting %s for Chicago %s", mode, args.year)
+        try:
+            discard_stale_partials(data_root, started)
+            watermark = previous_watermark(data_root, args.year)
+            updated_from = delta_start(watermark) if watermark and not args.full else None
+            mode = "delta" if updated_from else "full_snapshot"
+            log.info("Starting %s for Chicago %s", mode, args.year)
 
-        result = download(args.year, updated_from, token, args.max_records)
-        run = write_run(
-            data_root,
-            started,
-            result,
-            year=args.year,
-            mode=mode,
-            old_watermark=watermark,
-            updated_from=updated_from,
-            token_used=token is not None,
-            max_records=args.max_records,
-        )
-        log.info("Immutable run completed: %s", run.raw)
-        log.info("                        %s", run.bronze)
-        # Erst jetzt, nach dem atomaren Umbenennen: Raw zuerst, Bronze danach,
-        # je Lauf das Manifest zuletzt. Ein Lauf, der es bis hierher nicht
-        # geschafft hat, erreicht den gemeinsamen Bestand nie.
-        ablage.publish_run(run.raw)
-        ablage.publish_run(run.bronze)
-        return 0
-    except (IngestionError, OSError, ValueError, PublishError) as error:
-        log.error("Ingestion failed: %s", error)
-        return 1
-    except KeyboardInterrupt:
-        log.error("Ingestion cancelled; no completed run was published")
-        return 130
+            result = download(args.year, updated_from, token, args.max_records)
+            run = write_run(
+                data_root,
+                started,
+                result,
+                year=args.year,
+                mode=mode,
+                old_watermark=watermark,
+                updated_from=updated_from,
+                token_used=token is not None,
+                max_records=args.max_records,
+            )
+            log.info("Immutable run completed: %s", run.raw)
+            log.info("                        %s", run.bronze)
+            # Erst jetzt, nach dem atomaren Umbenennen: Raw zuerst, Bronze danach,
+            # je Lauf das Manifest zuletzt. Ein Lauf, der es bis hierher nicht
+            # geschafft hat, erreicht den gemeinsamen Bestand nie.
+            ablage.publish_run(run.raw)
+            ablage.publish_run(run.bronze)
+            return 0
+        except (IngestionError, OSError, ValueError, PublishError) as error:
+            log.error("Ingestion failed: %s", error)
+            return 1
+        except KeyboardInterrupt:
+            log.error("Ingestion cancelled; no completed run was published")
+            return 130
 
 
 if __name__ == "__main__":

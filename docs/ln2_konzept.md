@@ -1559,6 +1559,8 @@ abgegeben, liegen sie zwar bei — aber niemand wird darauf verwiesen.
 | Was die Strecke an Platz braucht | [`platzbedarf.md`](intern/platzbedarf.md) — gemessen je Schicht und je Quelle auf 2021–2026 hochgerechnet, **erzeugt** |
 | Detroit-Pipeline Schritt für Schritt | [`DETROIT_PIPELINE_ANLEITUNG.md`](intern/DETROIT_PIPELINE_ANLEITUNG.md) |
 | Die Engineering-Konsole bedienen und betreiben | [`ENGINEERING_KONSOLE.md`](intern/ENGINEERING_KONSOLE.md), als PDF unter [`intern/handbuch/`](intern/handbuch/ENGINEERING_KONSOLE.pdf) |
+| Notebooks auf einem belegten Datenstand ausführen, mit gemeinsamer Sperre | [`notebook-analysesitzungen.md`](intern/notebook-analysesitzungen.md) |
+| Lokale Windows-/Docker-Abnahme für E-5 und verbleibende Serverprüfung | [`e5-pruefnachweis.md`](intern/e5-pruefnachweis.md) |
 
 Die Einteilung dieses Kapitels ist auch in [`docs/README.md`](README.md)
 festgehalten und wird dort von `tests/test_dokumentwegweiser.py` geprüft.

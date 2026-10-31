@@ -119,47 +119,54 @@ def publizieren(schichten: tuple[str, ...], wirklich: bool) -> int:
     except StorageConfigError as fehler:
         print(f"Konfiguration: {fehler}")
         return 1
-    if not ablage.config.publiziert:
-        print(f"STORAGE_BACKEND={ablage.backend}: hier wird nichts publiziert.")
-        return 1
+    from contextlib import nullcontext
+    from storage.analysesitzung import schreibzugriff
+    from storage.verwaltet import sperre
 
-    try:
-        oben = {
-            o.key.rsplit("/", 1)[0]
-            for o in ablage.client.list("")
-            if o.key.endswith("/manifest.json")
-        }
-        fehlend = []
-        for schicht in schichten:   # Raw vor Bronze, wie die Pipelines
-            for lauf in ablage.laeufe(schicht):
-                if lauf.verzeichnis.exists() and lauf.relativ not in oben:
-                    fehlend.append(lauf)
-    except StorageError as fehler:
-        print(f"Verbindung: {fehler}")
-        return 1
-
-    if not fehlend:
-        print("Nichts zu tun: jeder fertige lokale Lauf liegt schon oben.")
-        return 0
-    # ``lokal=True``: Gemeint sind die Bytes, die von hier hochgehen muessen.
-    # Im ``s3``-Modus liest die Ablage nicht lokal, und die Summe waere 0.
-    mb = sum(ablage.bytes_unter(lauf.relativ, lokal=True) for lauf in fehlend) / 1e6
-    print(f"{len(fehlend)} Lauf/Laeufe lokal, aber nicht auf SeaweedFS ({mb:.0f} MB):")
-    for lauf in fehlend:
-        print(f"  {lauf.relativ}")
-    if not wirklich:
-        print("\nNichts publiziert. Mit --wirklich gehen sie hoch, Raw vor Bronze.")
-        return 0
-
-    for i, lauf in enumerate(fehlend, 1):
-        try:
-            dateien = ablage.publish_run(lauf.relativ)
-        except StorageError as fehler:
-            print(f"\n[{i}/{len(fehlend)}] {lauf.relativ}: {fehler}")
+    if wirklich:
+        sperre(ablage.local_root)
+    with schreibzugriff(ablage.local_root) if wirklich else nullcontext():
+        if not ablage.config.publiziert:
+            print(f"STORAGE_BACKEND={ablage.backend}: hier wird nichts publiziert.")
             return 1
-        print(f"[{i}/{len(fehlend)}] {lauf.relativ}: {len(dateien)} Datei(en)")
-    print(f"\nFertig: {len(fehlend)} Laeufe publiziert.")
-    return 0
+
+        try:
+            oben = {
+                o.key.rsplit("/", 1)[0]
+                for o in ablage.client.list("")
+                if o.key.endswith("/manifest.json")
+            }
+            fehlend = []
+            for schicht in schichten:   # Raw vor Bronze, wie die Pipelines
+                for lauf in ablage.laeufe(schicht):
+                    if lauf.verzeichnis.exists() and lauf.relativ not in oben:
+                        fehlend.append(lauf)
+        except StorageError as fehler:
+            print(f"Verbindung: {fehler}")
+            return 1
+
+        if not fehlend:
+            print("Nichts zu tun: jeder fertige lokale Lauf liegt schon oben.")
+            return 0
+        # ``lokal=True``: Gemeint sind die Bytes, die von hier hochgehen muessen.
+        # Im ``s3``-Modus liest die Ablage nicht lokal, und die Summe waere 0.
+        mb = sum(ablage.bytes_unter(lauf.relativ, lokal=True) for lauf in fehlend) / 1e6
+        print(f"{len(fehlend)} Lauf/Laeufe lokal, aber nicht auf SeaweedFS ({mb:.0f} MB):")
+        for lauf in fehlend:
+            print(f"  {lauf.relativ}")
+        if not wirklich:
+            print("\nNichts publiziert. Mit --wirklich gehen sie hoch, Raw vor Bronze.")
+            return 0
+
+        for i, lauf in enumerate(fehlend, 1):
+            try:
+                dateien = ablage.publish_run(lauf.relativ)
+            except StorageError as fehler:
+                print(f"\n[{i}/{len(fehlend)}] {lauf.relativ}: {fehler}")
+                return 1
+            print(f"[{i}/{len(fehlend)}] {lauf.relativ}: {len(dateien)} Datei(en)")
+        print(f"\nFertig: {len(fehlend)} Laeufe publiziert.")
+        return 0
 
 
 def holen(schichten: tuple[str, ...], wirklich: bool) -> int:
@@ -168,32 +175,39 @@ def holen(schichten: tuple[str, ...], wirklich: bool) -> int:
     except StorageConfigError as fehler:
         print(f"Konfiguration: {fehler}")
         return 1
-    if not ablage.config.remote:
-        print(f"STORAGE_BACKEND={ablage.backend}: hier gibt es nichts zu holen.")
-        return 1
-    try:
-        fehlend = ablage.fehlende_laeufe(schichten)
-    except StorageError as fehler:
-        print(f"Verbindung: {fehler}")
-        return 1
-    if not fehlend:
-        print("Nichts zu tun: jeder Lauf auf SeaweedFS liegt schon lokal.")
-        return 0
-    print(f"{len(fehlend)} Lauf/Laeufe auf SeaweedFS, aber nicht lokal:")
-    for rel in fehlend:
-        print(f"  {rel}")
-    if not wirklich:
-        print("\nNichts geholt. Mit --wirklich kommen sie herunter, Raw vor Bronze.")
-        return 0
-    for i, rel in enumerate(fehlend, 1):
-        try:
-            dateien = ablage.hole_lauf(rel)
-        except StorageError as fehler:
-            print(f"\n[{i}/{len(fehlend)}] {rel}: {fehler}")
+    from contextlib import nullcontext
+    from storage.analysesitzung import schreibzugriff
+    from storage.verwaltet import sperre
+
+    if wirklich:
+        sperre(ablage.local_root)
+    with schreibzugriff(ablage.local_root) if wirklich else nullcontext():
+        if not ablage.config.remote:
+            print(f"STORAGE_BACKEND={ablage.backend}: hier gibt es nichts zu holen.")
             return 1
-        print(f"[{i}/{len(fehlend)}] {rel}: {len(dateien)} Datei(en)")
-    print(f"\nFertig: {len(fehlend)} Laeufe geholt.")
-    return 0
+        try:
+            fehlend = ablage.fehlende_laeufe(schichten)
+        except StorageError as fehler:
+            print(f"Verbindung: {fehler}")
+            return 1
+        if not fehlend:
+            print("Nichts zu tun: jeder Lauf auf SeaweedFS liegt schon lokal.")
+            return 0
+        print(f"{len(fehlend)} Lauf/Laeufe auf SeaweedFS, aber nicht lokal:")
+        for rel in fehlend:
+            print(f"  {rel}")
+        if not wirklich:
+            print("\nNichts geholt. Mit --wirklich kommen sie herunter, Raw vor Bronze.")
+            return 0
+        for i, rel in enumerate(fehlend, 1):
+            try:
+                dateien = ablage.hole_lauf(rel)
+            except StorageError as fehler:
+                print(f"\n[{i}/{len(fehlend)}] {rel}: {fehler}")
+                return 1
+            print(f"[{i}/{len(fehlend)}] {rel}: {len(dateien)} Datei(en)")
+        print(f"\nFertig: {len(fehlend)} Laeufe geholt.")
+        return 0
 
 
 def main(argv: list[str] | None = None) -> int:

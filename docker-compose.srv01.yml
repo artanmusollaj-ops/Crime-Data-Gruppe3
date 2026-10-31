@@ -336,6 +336,7 @@ services:
       # Serverlauf, der versehentlich in local liefe, publizierte nichts und
       # saehe dabei gruen aus.
       STORAGE_BACKEND: s3
+      DATA_LOCK_ROOT: /app/datensperren
       # Wohin ``orchestration.sicherungssatz`` schreibt. **Nicht nach
       # ``/app/data``**: Das ist ``arbeitsdaten``, und das steht nicht in
       # der Sicherungspolicy - der Satz waere dort gelandet und nie
@@ -405,6 +406,7 @@ services:
       # kann und damit er nicht in config/srv01.yaml gehoert: Was Restic
       # sichern muss, ist der Bucket, nicht dieser Zwischenstand.
       - arbeitsdaten:/app/data
+      - datensperren:/app/datensperren
       # Dorthin schreibt der Lauf die Einstiegsseite (FR-31). Er leert das
       # Verzeichnis vorher (siehe docker/srv01-datenlauf.sh): Docker befuellt
       # einen leeren benannten Datentraeger beim ersten Start aus dem Abbild,
@@ -461,6 +463,10 @@ services:
       # (FR-23). Ein Notebook-Server ist eine Shell; ein Token allein waere
       # zu wenig.
       JUPYTER_TOKEN:
+      # E-5: dieselbe Sperrdatei wie beim Worker, auch bei Daten nur lesend.
+      DATA_LOCK_ROOT: /app/datensperren
+      # Fuer 34/37 auf den vollstaendigen, erfolgreich gebauten Job zeigen.
+      CRIME_ANALYSIS_ROOT: ${CRIME_ANALYSIS_ROOT:-/app/data}
       # FR-61, wie bei der Pipeline: 512 MiB von 768 MiB. Gelesen werden
       # Tabellen aus der Release-Datenbank, nicht gebaut - der Rest ist
       # Interpreter und Darstellung. Keine S3-Schluessel: Die Datenbank aus
@@ -485,6 +491,20 @@ services:
       #   docker compose -f docker-compose.srv01.yml run --rm pipeline \
       #     python -m orchestration.release holen aktuell --nur-datenbank
       - arbeitsdaten:/app/data:ro
+      - datensperren:/app/datensperren
+      # Nur jobs/, nicht die Kontrolldatenbank, Tokens oder worker.lock.
+      # Voraussetzung: Im konsole-Volume existiert jobs/ (nach erstem Job).
+      # Auch arbeitsdaten braucht vorher den leeren Mountpunkt admin/jobs,
+      # weil Docker ihn unter dem nur lesenden /app/data nicht anlegen kann.
+      # Einmalige Vorbereitung: docs/intern/notebook-analysesitzungen.md.
+      # Gleicher absoluter Pfad wie im Worker: daraus folgt der Sperrname.
+      - type: volume
+        source: konsole
+        target: /app/data/admin/jobs
+        read_only: true
+        volume:
+          subpath: jobs
+          nocopy: true
       # Der eigene beschreibbare Arbeitsbereich - und JupyterLabs Wurzel.
       # Eigene Analysen liegen hier und ueberleben Neustart und
       # Abbildwechsel. Die drei mitgelieferten Notebooks liegen im Abbild
@@ -664,6 +684,7 @@ services:
       # Alles, was die Pipeline setzt, und mit denselben Werten - der Worker
       # ruft dieselben Module auf (test_der_worker_traegt_was_die_pipeline_traegt).
       STORAGE_BACKEND: s3
+      DATA_LOCK_ROOT: /app/datensperren
       SICHERUNG_ROOT: /app/sicherung
       DUCKDB_TEMP_DIRECTORY: /app/data/duckdb-tmp
       S3_ENDPOINT:
@@ -695,6 +716,7 @@ services:
       - konsole:/app/data/admin
       - startseite:/app/startseite
       - sicherung:/app/sicherung
+      - datensperren:/app/datensperren
     # FR-13, gemessen am 6.10.2026 fuer die Pipeline: 1,25 GiB. Der Worker
     # fuehrt dieselben Bauten aus und teilt sich ihren Platz - die Sperre in
     # docker/srv01-konsole-takt.sh haelt beide auseinander.
@@ -734,6 +756,8 @@ volumes:
   # sicherungswuerdig: Der Bestand liegt auf SeaweedFS.
   arbeitsdaten:
   jupyter-arbeit:
+  # Nur Koordination, keine Daten und keine Sicherung. Laufzeitstatus im OS.
+  datensperren:
   # **Der Sicherungssatz - das einzige Volume dieses Stapels, das in die
   # Serversicherung gehoert.** Darin liegen die gepinnten Laeufe und das
   # aktuelle Release: 382 MiB, das Einzige, was sich nicht nachrechnen laesst.

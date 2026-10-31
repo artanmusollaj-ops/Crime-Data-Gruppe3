@@ -13,6 +13,7 @@ import struct
 import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -310,6 +311,28 @@ def test_read_features_reads_straight_from_the_archive(tmp_path):
     assert str(meta["crs"]) == dt.EXPECTED_CRS
 
 
+def test_windows_reads_landed_bytes_and_can_rename_with_table_alive(tmp_path, monkeypatch):
+    work, final = tmp_path / ".raw.part", tmp_path / "published"
+    work.mkdir()
+    archive = work / dt.archive_name(VINTAGE, STATE)
+    payload = make_archive(tmp_path)
+    archive.write_bytes(payload)
+    original = dt.read_arrow
+    calls = []
+
+    def read(source, **kwargs):
+        calls.append((source, kwargs))
+        return original(source, **kwargs)
+
+    monkeypatch.setattr(dt, "sys", SimpleNamespace(platform="win32"))
+    monkeypatch.setattr(dt, "read_arrow", read)
+    table, _ = dt.read_features(archive, VINTAGE, STATE)
+    assert calls == [(payload, {"layer": "tl_2024_26_tract"})]
+    work.rename(final)
+    assert table.num_rows == 2
+    assert (final / archive.name).read_bytes() == payload
+
+
 def test_read_features_reports_an_unreadable_archive(tmp_path):
     archive = tmp_path / "tl_2024_26_tract.zip"
     archive.write_bytes(b"kein zip")
@@ -343,6 +366,23 @@ def test_write_run_bronze_is_derived_from_the_landed_archive(tmp_path):
     table = pq.ParquetFile(run.bronze / dt.PARQUET_FILE).read()
     assert table.schema == dt.SCHEMA
     assert table.column("GEOID").to_pylist() == ["26163500100", "26163500200"]
+
+
+def test_parquet_output_stream_is_explicit_and_closed_before_publication(tmp_path, monkeypatch):
+    original = dt.pq.write_table
+    streams = []
+
+    def write(table, stream, **kwargs):
+        assert not isinstance(stream, (str, Path))
+        assert not stream.closed
+        streams.append(stream)
+        return original(table, stream, **kwargs)
+
+    monkeypatch.setattr(dt.pq, "write_table", write)
+    run = write_default_run(tmp_path)
+    assert streams and all(stream.closed for stream in streams)
+    assert read_manifest(run.raw)["status"] == "complete"
+    assert read_manifest(run.bronze)["status"] == "complete"
 
 
 def test_write_run_manifest_documents_the_completeness(tmp_path):
@@ -400,6 +440,82 @@ def test_write_run_never_overwrites_an_existing_run(tmp_path):
     write_default_run(tmp_path)
     with pytest.raises(OSError):
         write_default_run(tmp_path)
+
+
+@pytest.mark.parametrize("winerror", [5, 32, 33])
+def test_publish_directory_retries_transient_windows_locks(tmp_path, monkeypatch, winerror):
+    work, final = tmp_path / ".work.part", tmp_path / "finished"
+    work.mkdir()
+    (work / "evidence").write_bytes(b"original")
+    original = Path.rename
+    attempts, waits = [], []
+
+    def rename(path, target):
+        attempts.append(path)
+        if len(attempts) < 3:
+            error = PermissionError("transient lock")
+            error.winerror = winerror
+            raise error
+        return original(path, target)
+
+    monkeypatch.setattr(dt, "sys", SimpleNamespace(platform="win32"))
+    monkeypatch.setattr(Path, "rename", rename)
+    monkeypatch.setattr(dt.time, "sleep", waits.append)
+    dt.publish_directory(work, final)
+    assert waits == [0.1, 0.2]
+    assert (final / "evidence").read_bytes() == b"original"
+    assert not work.exists()
+
+
+def test_publish_directory_stops_after_bounded_retries(tmp_path, monkeypatch):
+    work, final = tmp_path / ".work.part", tmp_path / "finished"
+    work.mkdir()
+    waits = []
+
+    def blocked(*_):
+        error = PermissionError("permanent denial")
+        error.winerror = 5
+        raise error
+
+    monkeypatch.setattr(dt, "sys", SimpleNamespace(platform="win32"))
+    monkeypatch.setattr(Path, "rename", blocked)
+    monkeypatch.setattr(dt.time, "sleep", waits.append)
+    with pytest.raises(PermissionError, match="permanent denial"):
+        dt.publish_directory(work, final)
+    assert len(waits) == 5
+    assert work.exists() and not final.exists()
+
+
+def test_publish_directory_never_replaces_existing_target(tmp_path):
+    work, final = tmp_path / ".work.part", tmp_path / "finished"
+    work.mkdir()
+    final.mkdir()
+    (final / "evidence").write_bytes(b"already published")
+    with pytest.raises(FileExistsError):
+        dt.publish_directory(work, final)
+    assert (final / "evidence").read_bytes() == b"already published"
+    assert work.exists()
+
+
+def test_write_run_survives_a_transient_raw_publication_lock(tmp_path, monkeypatch):
+    original = Path.rename
+    blocked = []
+
+    def rename(path, target):
+        if not blocked and "raw" in path.parts and path.name.endswith(".part"):
+            blocked.append(path)
+            error = PermissionError("scanner")
+            error.winerror = 5
+            raise error
+        return original(path, target)
+
+    monkeypatch.setattr(dt, "sys", SimpleNamespace(platform="win32"))
+    monkeypatch.setattr(Path, "rename", rename)
+    monkeypatch.setattr(dt.time, "sleep", lambda _: None)
+    run = write_default_run(tmp_path)
+    assert blocked
+    assert read_manifest(run.raw)["status"] == "complete"
+    assert read_manifest(run.bronze)["status"] == "complete"
 
 
 # --------------------------------------------------------------------------

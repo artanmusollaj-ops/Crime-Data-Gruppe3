@@ -26,6 +26,7 @@ etwas anzeigen, und nicht nur, dass ihr JSON angenommen wurde.
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -41,6 +42,12 @@ BROWSER = (
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Chromium.app/Contents/MacOS/Chromium",
     "google-chrome", "chromium", "chromium-browser",
+    str(Path(os.environ.get("PROGRAMFILES", "C:/Program Files"))
+        / "Google/Chrome/Application/chrome.exe"),
+    str(Path(os.environ.get("LOCALAPPDATA", "C:/Users/Default/AppData/Local"))
+        / "Google/Chrome/Application/chrome.exe"),
+    str(Path(os.environ.get("PROGRAMFILES(X86)", "C:/Program Files (x86)"))
+        / "Microsoft/Edge/Application/msedge.exe"),
 )
 
 #: Wie lange der Browser der Seite Zeit gibt, bevor er ausloest. Kibana laedt

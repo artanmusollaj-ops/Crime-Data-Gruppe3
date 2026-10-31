@@ -192,11 +192,19 @@ def tick(store):
     """
     from . import run_protocol
     from .jobs import TICK_STAGES
+    from storage.analysesitzung import AnalyseFehler, datensperre
 
     TICK_STAGES.clear()
     started = datetime.now(timezone.utc)
     try:
-        result = _tick(store)
+        with datensperre(store.data, schreiben=True):
+            result = _tick(store)
+    except AnalyseFehler:
+        # Bei belegtem Analysebestand nichts als fehlgeschlagen markieren.
+        # Der naechste Takt versucht die unveraendert eingereihten Jobs erneut.
+        if TICK_STAGES:
+            raise
+        return {"status": "BLOCKED", "reason": "Datenbestand durch Analysesitzung belegt"}
     except Exception as exc:
         if TICK_STAGES:
             run_protocol.write(store, list(TICK_STAGES), started, ok=False,

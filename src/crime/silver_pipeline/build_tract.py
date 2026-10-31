@@ -347,35 +347,37 @@ def main() -> int:
     args = arguments()
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
-    try:
-        # Ueber die Ablage und nicht ueber den Pfad: ``publish_table``
-        # entfernt im s3-Modus die lokale Arbeitskopie, und dieser
-        # Schlussbericht las sie trotzdem - jeder Lauf endete dort mit
-        # "Invalid manifest" und Exitcode 1, obwohl die Tabelle sauber
-        # publiziert war. Siehe ``Storage.tabellen_manifest``.
-        ablage = for_root(args.data_root)
-        ziel = build(ablage.local_root, args.vintage, args.state)
-        manifest = ablage.tabellen_manifest(ziel)
-        log.info("Silver-Tabelle geschrieben: %s", ziel)
-        log.info("  Zeilen: %s", f"{manifest['row_count']:,}")
-        statistik = manifest["column_statistics"]
-        log.info(
-            "  Einwohner insgesamt: %s, Tracts ohne Einwohner: %s",
-            f"{statistik['population_total']:,}",
-            statistik["zero_population_tracts"],
-        )
-        log.info(
-            "  ohne Median-Einkommen: %s (%.1f %%)",
-            manifest["row_count"] - statistik["median_income_filled"],
-            statistik["median_income_missing_share"] * 100,
-        )
-        return 0
-    except (TransformError, StorageError, OSError, duckdb.Error) as error:
-        log.error("Silver-Aufbau fehlgeschlagen: %s", error)
-        return 1
-    except KeyboardInterrupt:
-        log.error("Abgebrochen; es wurde keine Tabelle veroeffentlicht")
-        return 130
+    from storage.analysesitzung import schreibzugriff
+    with schreibzugriff(for_root(args.data_root).local_root, invalidieren=True):
+        try:
+            # Ueber die Ablage und nicht ueber den Pfad: ``publish_table``
+            # entfernt im s3-Modus die lokale Arbeitskopie, und dieser
+            # Schlussbericht las sie trotzdem - jeder Lauf endete dort mit
+            # "Invalid manifest" und Exitcode 1, obwohl die Tabelle sauber
+            # publiziert war. Siehe ``Storage.tabellen_manifest``.
+            ablage = for_root(args.data_root)
+            ziel = build(ablage.local_root, args.vintage, args.state)
+            manifest = ablage.tabellen_manifest(ziel)
+            log.info("Silver-Tabelle geschrieben: %s", ziel)
+            log.info("  Zeilen: %s", f"{manifest['row_count']:,}")
+            statistik = manifest["column_statistics"]
+            log.info(
+                "  Einwohner insgesamt: %s, Tracts ohne Einwohner: %s",
+                f"{statistik['population_total']:,}",
+                statistik["zero_population_tracts"],
+            )
+            log.info(
+                "  ohne Median-Einkommen: %s (%.1f %%)",
+                manifest["row_count"] - statistik["median_income_filled"],
+                statistik["median_income_missing_share"] * 100,
+            )
+            return 0
+        except (TransformError, StorageError, OSError, duckdb.Error) as error:
+            log.error("Silver-Aufbau fehlgeschlagen: %s", error)
+            return 1
+        except KeyboardInterrupt:
+            log.error("Abgebrochen; es wurde keine Tabelle veroeffentlicht")
+            return 130
 
 
 if __name__ == "__main__":

@@ -160,150 +160,156 @@ def build(store, job, spec, folder, runner, evaluator):
     baseline_manifest = verify_release(baseline) if baseline else None
     root = folder / "data"
     root.mkdir()
-    record(folder, "bronze_snapshot", "RUNNING", "Bronze-Eingaben kopieren und verifizieren")
-    source = sources_snapshot(store, root)
-    record(folder, "bronze_snapshot", "SUCCEEDED", "Snapshot gesichert; fachliche Eingabepruefung folgt im Build")
-    (folder / "source_snapshot.json").write_text(json.dumps(source, indent=2), encoding="utf-8")
-    candidate = SimpleNamespace(project=store.project, data=root)
-    config = store.materialize(job["mapping_revision"])
-    settings = store.get(job["settings_revision"])["payload"]
-    from .integration import scope_years, copy_history
+    from storage.analysesitzung import schreibzugriff, bestaetige
 
-    years = scope_years(settings)
-    copy_history(store, root, baseline)
-    with (folder / "run.log").open("w", encoding="utf-8") as log:
-        runner(candidate, commands(candidate, {"task": "rebuild", "years": years}, config), log)
-    if provenance:
-        from .release_flow import check_build_unchanged
+    with schreibzugriff(root):
+        record(folder, "bronze_snapshot", "RUNNING", "Bronze-Eingaben kopieren und verifizieren")
+        source = sources_snapshot(store, root)
+        record(folder, "bronze_snapshot", "SUCCEEDED", "Snapshot gesichert; fachliche Eingabepruefung folgt im Build")
+        (folder / "source_snapshot.json").write_text(json.dumps(source, indent=2), encoding="utf-8")
+        candidate = SimpleNamespace(project=store.project, data=root)
+        config = store.materialize(job["mapping_revision"])
+        settings = store.get(job["settings_revision"])["payload"]
+        from .integration import scope_years, copy_history
 
-        check_build_unchanged(store, spec, provenance)
-    record(folder, "quality", "RUNNING")
-    quality = evaluator(root, settings)
-    record(folder, "quality", "SUCCEEDED" if quality["ok"] else "BLOCKED")
-    audit = {}
-    if baseline:
-        # lokal mit Absicht: the console keeps its releases on the worker host;
-        # object_store.publish_release mirrors them to S3 and never removes the local copy.
-        audit_path = baseline / "admin" / "approval.json"
-        audit = json.loads(audit_path.read_text(encoding="utf-8")) if audit_path.exists() else {}
-        old_settings = (audit.get("settings") or {}).get("payload")
-        before_quality = (
-            evaluator(baseline, old_settings)
-            if (baseline / "silver" / "dataset=crime_offense").exists()
-            else audit.get("quality")
-        )
-    else:
-        before_quality = None
-    metadata = {
-        "git_provenance": provenance,
-        "release_policy": spec.get("release_policy", "legacy"),
-        "revision": store.get(spec["revision_id"]),
-        "mapping_before": audit.get("mapping") or store.get(spec["base_heads"]["mapping"]),
-        "mapping_after": store.get(job["mapping_revision"]),
-        "settings_before": audit.get("settings") or store.get(spec["base_heads"]["settings"]),
-        "settings_after": store.get(job["settings_revision"]),
-        "baseline_release_id": spec["baseline_release_id"],
-        "baseline_manifest_sha256": file_hash(baseline / "release.json") if baseline else None,
-        "candidate_release_id": spec["candidate_release_id"],
-        "source_snapshot_sha256": source["sha256"],
-        "created_at_utc": now(),
-        "impact_id": job["id"],
-    }
-    metadata["baseline_config_provenance"] = (
-        "release_audit"
-        if audit.get("mapping") and audit.get("settings")
-        else "control_heads_no_release_config_proof"
-        if baseline
-        else "initial_control_heads"
-    )
-    record(folder, "impact", "RUNNING")
-    report = compare(baseline, root, folder, metadata, before_quality, quality)
-    record(folder, "impact", "SUCCEEDED")
-    identical = report["summary"]["affected_records"] == 0 and not report["changed_tables"]
-    if spec["expect_identical"] and (baseline is None or not identical):
-        quality["replay_ok"] = False
-        quality["ok"] = False
-    report["quality_after"] = quality
-    report["review_ready"] = bool(quality["ok"])
-    report["replay_expected_identical"] = spec["expect_identical"]
-    # Verify the immutable baseline stayed intact during the potentially long build.
-    if baseline and (verify_release(baseline) != baseline_manifest):
-        raise AdminError("Baseline waehrend des Kandidatenaufbaus veraendert")
-    report_path = folder / "impact_report.json"
-    report_path.write_text(
-        json.dumps(report, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8"
-    )
-    report_hash = file_hash(report_path)
+        years = scope_years(settings)
+        copy_history(store, root, baseline)
+        with (folder / "run.log").open("w", encoding="utf-8") as log:
+            runner(candidate, commands(candidate, {"task": "rebuild", "years": years}, config), log)
+        if provenance:
+            from .release_flow import check_build_unchanged
 
-    def supplement(work, core):
-        shutil.copytree(
-            root / "silver" / "dataset=crime_offense", work / "silver" / "dataset=crime_offense"
+            check_build_unchanged(store, spec, provenance)
+        record(folder, "quality", "RUNNING")
+        quality = evaluator(root, settings)
+        record(folder, "quality", "SUCCEEDED" if quality["ok"] else "BLOCKED")
+        audit = {}
+        if baseline:
+            # lokal mit Absicht: the console keeps its releases on the worker host;
+            # object_store.publish_release mirrors them to S3 and never removes the local copy.
+            audit_path = baseline / "admin" / "approval.json"
+            audit = json.loads(audit_path.read_text(encoding="utf-8")) if audit_path.exists() else {}
+            old_settings = (audit.get("settings") or {}).get("payload")
+            before_quality = (
+                evaluator(baseline, old_settings)
+                if (baseline / "silver" / "dataset=crime_offense").exists()
+                else audit.get("quality")
+            )
+        else:
+            before_quality = None
+        metadata = {
+            "git_provenance": provenance,
+            "release_policy": spec.get("release_policy", "legacy"),
+            "revision": store.get(spec["revision_id"]),
+            "mapping_before": audit.get("mapping") or store.get(spec["base_heads"]["mapping"]),
+            "mapping_after": store.get(job["mapping_revision"]),
+            "settings_before": audit.get("settings") or store.get(spec["base_heads"]["settings"]),
+            "settings_after": store.get(job["settings_revision"]),
+            "baseline_release_id": spec["baseline_release_id"],
+            "baseline_manifest_sha256": file_hash(baseline / "release.json") if baseline else None,
+            "candidate_release_id": spec["candidate_release_id"],
+            "source_snapshot_sha256": source["sha256"],
+            "created_at_utc": now(),
+            "impact_id": job["id"],
+        }
+        metadata["baseline_config_provenance"] = (
+            "release_audit"
+            if audit.get("mapping") and audit.get("settings")
+            else "control_heads_no_release_config_proof"
+            if baseline
+            else "initial_control_heads"
         )
-        admin = work / "admin"
-        # lokal mit Absicht: root is the isolated candidate build directory on this host.
-        history = root / "silver" / "dataset=source_change"
-        if history.exists():
-            shutil.copytree(history, work / "silver" / "dataset=source_change")
-        datenbank(work, core)
-        admin.mkdir()
-        shutil.copytree(config, admin / "config")
-        for name in (
-            "impact_report.json",
-            "impact_by_partition.parquet",
-            "impact_records.parquet",
-            "impact_quality.parquet",
-            "impact_quality_month.parquet",
-            "source_snapshot.json",
-        ):
-            shutil.copyfile(folder / name, admin / name)
-        (admin / "approval.json").write_text(
-            json.dumps(
-                {
-                    "job": job,
-                    "quality": quality,
-                    "mapping": metadata["mapping_after"],
-                    "settings": metadata["settings_after"],
-                    "impact_report_sha256": report_hash,
-                    "state": "CANDIDATE",
-                    "decisions": [],
-                },
-                indent=2,
-                ensure_ascii=False,
-            ),
-            encoding="utf-8",
+        record(folder, "impact", "RUNNING")
+        report = compare(baseline, root, folder, metadata, before_quality, quality)
+        record(folder, "impact", "SUCCEEDED")
+        identical = report["summary"]["affected_records"] == 0 and not report["changed_tables"]
+        if spec["expect_identical"] and (baseline is None or not identical):
+            quality["replay_ok"] = False
+            quality["ok"] = False
+        report["quality_after"] = quality
+        report["review_ready"] = bool(quality["ok"])
+        report["replay_expected_identical"] = spec["expect_identical"]
+        # Verify the immutable baseline stayed intact during the potentially long build.
+        if baseline and (verify_release(baseline) != baseline_manifest):
+            raise AdminError("Baseline waehrend des Kandidatenaufbaus veraendert")
+        report_path = folder / "impact_report.json"
+        report_path.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8"
         )
+        report_hash = file_hash(report_path)
 
-    path = erstelle(
-        root, kennung_=spec["candidate_release_id"], ergaenze=supplement, aktivieren=False,
-        jahre=years
-    )
-    status = "READY" if quality["ok"] else "BLOCKED"
-    with store.db() as c:
-        c.execute(
-            """UPDATE impact SET status=?,report_hash=?,report_path=?,candidate_path=?,finished_at=?,candidate_manifest_hash=?
-                     WHERE id=?""",
-            (
-                status,
-                report_hash,
-                str(report_path),
-                str(path),
-                now(),
-                file_hash(path / "release.json"),
-                job["id"],
-            ),
+        def supplement(work, core):
+            shutil.copytree(
+                root / "silver" / "dataset=crime_offense", work / "silver" / "dataset=crime_offense"
+            )
+            admin = work / "admin"
+            # lokal mit Absicht: root is the isolated candidate build directory on this host.
+            history = root / "silver" / "dataset=source_change"
+            if history.exists():
+                shutil.copytree(history, work / "silver" / "dataset=source_change")
+            datenbank(work, core)
+            admin.mkdir()
+            shutil.copytree(config, admin / "config")
+            for name in (
+                "impact_report.json",
+                "impact_by_partition.parquet",
+                "impact_records.parquet",
+                "impact_quality.parquet",
+                "impact_quality_month.parquet",
+                "source_snapshot.json",
+            ):
+                shutil.copyfile(folder / name, admin / name)
+            (admin / "approval.json").write_text(
+                json.dumps(
+                    {
+                        "job": job,
+                        "quality": quality,
+                        "mapping": metadata["mapping_after"],
+                        "settings": metadata["settings_after"],
+                        "impact_report_sha256": report_hash,
+                        "state": "CANDIDATE",
+                        "decisions": [],
+                    },
+                    indent=2,
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+        path = erstelle(
+            root, kennung_=spec["candidate_release_id"], ergaenze=supplement, aktivieren=False,
+            jahre=years
         )
-    return {
-        "ok": quality["ok"],
-        "technical_ok": quality["technical_ok"],
-        "quality_ok": quality["quality_ok"],
-        "replay_ok": quality.get("replay_ok", True),
-        "impact_id": job["id"],
-        "impact_status": status,
-        "summary": report["summary"],
-        "report_hash": report_hash,
-        "candidate_path": str(path),
-        "note": "Kandidat bleibt inaktiv bis zur Vier-Augen-Freigabe.",
-    }
+        status = "READY" if quality["ok"] else "BLOCKED"
+        with store.db() as c:
+            c.execute(
+                """UPDATE impact SET status=?,report_hash=?,report_path=?,candidate_path=?,finished_at=?,candidate_manifest_hash=?
+                         WHERE id=?""",
+                (
+                    status,
+                    report_hash,
+                    str(report_path),
+                    str(path),
+                    now(),
+                    file_hash(path / "release.json"),
+                    job["id"],
+                ),
+            )
+        if quality["technical_ok"] and quality.get("replay_ok", True):
+            bestaetige(root, run_id=job["id"], projekt_root=store.project,
+                       release_id=spec["candidate_release_id"], status="Kandidat; keine Review-Freigabe")
+        return {
+            "ok": quality["ok"],
+            "technical_ok": quality["technical_ok"],
+            "quality_ok": quality["quality_ok"],
+            "replay_ok": quality.get("replay_ok", True),
+            "impact_id": job["id"],
+            "impact_status": status,
+            "summary": report["summary"],
+            "report_hash": report_hash,
+            "candidate_path": str(path),
+            "note": "Kandidat bleibt inaktiv bis zur Vier-Augen-Freigabe.",
+        }
 
 
 def checked_impact(store, row):

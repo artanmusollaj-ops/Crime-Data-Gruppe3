@@ -1425,41 +1425,43 @@ def main() -> int:
     args = arguments()
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
-    try:
-        ziele = build(for_root(args.data_root).local_root, args.config_root,
-                      args.vintage, args.acs_vintages)
-        # Ueber die Ablage und nicht ueber den lokalen Pfad: Im S3-Modus
-        # publiziert ``build`` und **entfernt danach die lokale
-        # Arbeitskopie** ("Local working copy removed"). ``ziele`` zeigt dann
-        # auf eine Datei, die es nicht mehr gibt, und dieser Aufruf hier liess
-        # jeden Gold-Bau im S3-Modus mit "Invalid manifest" und Exitcode 1
-        # enden - obwohl alle Tabellen sauber publiziert waren. Fuer
-        # ``orchestration.run_all`` war das ein gescheiterter Lauf, und zwar
-        # jedesmal. Gefunden am 14.10.2026 beim ersten Gold-Bau gegen
-        # SeaweedFS.
-        manifest = for_root(args.data_root).tabellen_manifest(
-            ziele["fact_offense"])
-        nachweis = manifest["reconciliation"]
-        log.info("Gold gebaut, %s Tabellen", len(ziele))
-        for stadt, werte in sorted(nachweis["city_assignment"].items()):
+    from storage.analysesitzung import schreibzugriff
+    with schreibzugriff(for_root(args.data_root).local_root, invalidieren=True):
+        try:
+            ziele = build(for_root(args.data_root).local_root, args.config_root,
+                          args.vintage, args.acs_vintages)
+            # Ueber die Ablage und nicht ueber den lokalen Pfad: Im S3-Modus
+            # publiziert ``build`` und **entfernt danach die lokale
+            # Arbeitskopie** ("Local working copy removed"). ``ziele`` zeigt dann
+            # auf eine Datei, die es nicht mehr gibt, und dieser Aufruf hier liess
+            # jeden Gold-Bau im S3-Modus mit "Invalid manifest" und Exitcode 1
+            # enden - obwohl alle Tabellen sauber publiziert waren. Fuer
+            # ``orchestration.run_all`` war das ein gescheiterter Lauf, und zwar
+            # jedesmal. Gefunden am 14.10.2026 beim ersten Gold-Bau gegen
+            # SeaweedFS.
+            manifest = for_root(args.data_root).tabellen_manifest(
+                ziele["fact_offense"])
+            nachweis = manifest["reconciliation"]
+            log.info("Gold gebaut, %s Tabellen", len(ziele))
+            for stadt, werte in sorted(nachweis["city_assignment"].items()):
+                log.info(
+                    "  %s: %s Tracts, %s Einwohner",
+                    stadt,
+                    f"{werte['tracts']:,}",
+                    f"{werte['population']:,}",
+                )
             log.info(
-                "  %s: %s Tracts, %s Einwohner",
-                stadt,
-                f"{werte['tracts']:,}",
-                f"{werte['population']:,}",
+                "  Delikte in einem Tract: %s, davon in keiner Studienstadt: %s",
+                f"{nachweis['offenses_in_a_tract']:,}",
+                f"{nachweis['offenses_whose_tract_belongs_to_no_study_city']:,}",
             )
-        log.info(
-            "  Delikte in einem Tract: %s, davon in keiner Studienstadt: %s",
-            f"{nachweis['offenses_in_a_tract']:,}",
-            f"{nachweis['offenses_whose_tract_belongs_to_no_study_city']:,}",
-        )
-        return 0
-    except (TransformError, StorageError, OSError, duckdb.Error) as error:
-        log.error("Gold-Aufbau fehlgeschlagen: %s", error)
-        return 1
-    except KeyboardInterrupt:
-        log.error("Abgebrochen; es wurde keine Tabelle veroeffentlicht")
-        return 130
+            return 0
+        except (TransformError, StorageError, OSError, duckdb.Error) as error:
+            log.error("Gold-Aufbau fehlgeschlagen: %s", error)
+            return 1
+        except KeyboardInterrupt:
+            log.error("Abgebrochen; es wurde keine Tabelle veroeffentlicht")
+            return 130
 
 
 if __name__ == "__main__":

@@ -35,6 +35,7 @@ import json
 import logging
 import shutil
 import sys
+import time
 import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -401,13 +402,18 @@ def read_features(archive_path: Path, vintage: int, state: str,
                   aus: Auslieferung = TRACT) -> tuple[pa.Table, dict]:
     """Liest das Shapefile direkt aus dem Archiv, ohne es auszupacken.
 
-    GDAL spricht ZIP-Archive ueber das Praefix ``/vsizip/`` an. Die Geometrie
-    kommt dabei schon als WKB, ganz ohne geopandas oder shapely.
+    Unter Windows kann GDAL nach dem Lesen ueber /vsizip/ das Umbenennen
+    des Raw-Ordners blockieren, auch wenn read_arrow zurueckgekehrt ist.
+    Dort wird die gespeicherte Raw-Datei mit geschlossenem Python-Handle
+    als Byte-Puffer uebergeben. Linux liest weiterhin direkt ueber /vsizip/.
+    Die Geometrie kommt als WKB, ohne geopandas oder shapely.
     """
     member = shapefile_member(vintage, state, aus)
-    source = f"/vsizip/{archive_path}/{member}"
     try:
-        meta, table = read_arrow(source)
+        if sys.platform == "win32":
+            meta, table = read_arrow(archive_path.read_bytes(), layer=Path(member).stem)
+        else:
+            meta, table = read_arrow(f"/vsizip/{archive_path}/{member}")
     except Exception as error:  # pyogrio wirft je nach Ursache Unterschiedliches
         raise IngestionError(f"Shapefile nicht lesbar: {error}") from error
 
@@ -507,8 +513,35 @@ def write_bronze(
     table, meta = read_features(archive_path, vintage, state, aus)
     path = work_dir / PARQUET_FILE
     bronze = bronze_table(table, aus)
-    pq.write_table(bronze, path, compression="snappy")
+    # Explizite Lebensdauer statt des impliziten Arrow-Dateisystems: Auf
+    # Windows blockierte dieses nach dem Schreiben sogar das Umbenennen
+    # des zugehoerigen Raw-Ordners. Der Stream ist vor Publikation geschlossen.
+    with path.open("wb") as stream:
+        pq.write_table(bronze, stream, compression="snappy")
     return bronze, meta, [file_entry(path)]
+
+
+def publish_directory(work: Path, final: Path) -> None:
+    """Atomar umbenennen; kurzzeitige Windows-Dateisperren begrenzt abwarten.
+
+    Kein Kopier-Rueckfall und kein Ueberschreiben fertiger Laeufe. Dauerhafte
+    ACL-/Dateisperrfehler bleiben Fehler und werden vom Aufrufer aufgeraeumt.
+    """
+    for attempt in range(6):
+        if final.exists():
+            raise FileExistsError(f"Lauf existiert bereits: {final}")
+        try:
+            work.rename(final)
+            return
+        except PermissionError as error:
+            if sys.platform != "win32" or getattr(error, "winerror", None) not in {5, 32, 33}:
+                raise
+            if attempt == 5:
+                raise
+            delay = 0.1 * (2 ** attempt)
+            log.warning("Windows blockiert Umbenennen von %s; erneuter Versuch in %.1f s",
+                        work, delay)
+            time.sleep(delay)
 
 
 def write_run(
@@ -592,8 +625,8 @@ def write_run(
             )
 
         # Raw ist das Beweisstueck und wird zuerst veroeffentlicht.
-        work[RAW_LAYER].rename(final[RAW_LAYER])
-        work[BRONZE_LAYER].rename(final[BRONZE_LAYER])
+        publish_directory(work[RAW_LAYER], final[RAW_LAYER])
+        publish_directory(work[BRONZE_LAYER], final[BRONZE_LAYER])
         return RunPaths(final[RAW_LAYER], final[BRONZE_LAYER])
     except BaseException:
         for path in work.values():
@@ -630,46 +663,48 @@ def main() -> int:
     args = arguments()
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
-    started = datetime.now(timezone.utc)
-    aus = AUSLIEFERUNGEN[args.auslieferung]
-    ablage = for_root(args.data_root)
-    data_root = ablage.local_root
+    from storage.analysesitzung import schreibzugriff
+    with schreibzugriff(for_root(args.data_root).local_root, invalidieren=True):
+        started = datetime.now(timezone.utc)
+        aus = AUSLIEFERUNGEN[args.auslieferung]
+        ablage = for_root(args.data_root)
+        data_root = ablage.local_root
 
-    try:
-        discard_stale_partials(data_root, started, aus)
-        geschrieben = 0
-        with build_session() as session:
-            for state in args.state:
-                log.info(
-                    "Starting TIGER %s %s for %s (%s)",
-                    args.vintage,
-                    aus.name,
-                    STATES.get(state, state),
-                    state,
-                )
-                run = ingest_state(
-                    session,
-                    data_root,
-                    started,
-                    args.vintage,
-                    state,
-                    args.force,
-                    aus,
-                )
-                if run is not None:
-                    geschrieben += 1
-                    log.info("Immutable run completed: %s", run.raw)
-                    log.info("                        %s", run.bronze)
-                    ablage.publish_run(run.raw)
-                    ablage.publish_run(run.bronze)
-        log.info("Fertig: %s Lauf/Laeufe geschrieben", geschrieben)
-        return 0
-    except (IngestionError, OSError, ValueError, PublishError) as error:
-        log.error("Ingestion failed: %s", error)
-        return 1
-    except KeyboardInterrupt:
-        log.error("Ingestion cancelled; no completed run was published")
-        return 130
+        try:
+            discard_stale_partials(data_root, started, aus)
+            geschrieben = 0
+            with build_session() as session:
+                for state in args.state:
+                    log.info(
+                        "Starting TIGER %s %s for %s (%s)",
+                        args.vintage,
+                        aus.name,
+                        STATES.get(state, state),
+                        state,
+                    )
+                    run = ingest_state(
+                        session,
+                        data_root,
+                        started,
+                        args.vintage,
+                        state,
+                        args.force,
+                        aus,
+                    )
+                    if run is not None:
+                        geschrieben += 1
+                        log.info("Immutable run completed: %s", run.raw)
+                        log.info("                        %s", run.bronze)
+                        ablage.publish_run(run.raw)
+                        ablage.publish_run(run.bronze)
+            log.info("Fertig: %s Lauf/Laeufe geschrieben", geschrieben)
+            return 0
+        except (IngestionError, OSError, ValueError, PublishError) as error:
+            log.error("Ingestion failed: %s", error)
+            return 1
+        except KeyboardInterrupt:
+            log.error("Ingestion cancelled; no completed run was published")
+            return 130
 
 
 if __name__ == "__main__":

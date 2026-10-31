@@ -451,144 +451,153 @@ def lauf(data_root: Path, projekt_root: Path, *,
     """
     from storage.verwaltet import sperre
     sperre(data_root)
-    jahre = tuple(sorted(set(jahre)))
-    stufen = auswahl(ohne_ingestion, bis, jahre)
-    begonnen = datetime.now(timezone.utc)
-    zu_alt: dict[str, float | None] = {}
+    from storage.analysesitzung import schreibzugriff
+    with schreibzugriff(data_root, invalidieren=True):
+        jahre = tuple(sorted(set(jahre)))
+        stufen = auswahl(ohne_ingestion, bis, jahre)
+        begonnen = datetime.now(timezone.utc)
+        zu_alt: dict[str, float | None] = {}
 
-    geholt: list[str] = []
-    holen_gescheitert: str | None = None
-    ablage = for_root(data_root)
-    if holen and ablage.backend == "hybrid":
-        try:
-            geholt = ablage.hole_fehlende_laeufe(("raw", "bronze"))
-        except StorageError as fehler:
-            holen_gescheitert = str(fehler)
-            LOG.error("Laeufe nicht geholt: %s. Nichts gebaut.", fehler)
+        geholt: list[str] = []
+        holen_gescheitert: str | None = None
+        ablage = for_root(data_root)
+        if holen and ablage.backend == "hybrid":
+            try:
+                geholt = ablage.hole_fehlende_laeufe(("raw", "bronze"))
+            except StorageError as fehler:
+                holen_gescheitert = str(fehler)
+                LOG.error("Laeufe nicht geholt: %s. Nichts gebaut.", fehler)
 
-    # Ohne Ingestion werden die Daten nicht frischer. Sind sie schon zu alt,
-    # lohnt sich keine Stufe - und ein Gold auf veraltetem Bronze waere genau
-    # die Zahl, die dann auf einer Folie landet.
-    if maximal_alter_tage is not None and ohne_ingestion:
-        zu_alt = veraltete_quellen(data_root, maximal_alter_tage)
-        for quelle, tage in zu_alt.items():
-            LOG.error("%s. Nichts gebaut.",
-                      alterssatz(quelle, tage, maximal_alter_tage))
-
-    # Mit Ingestion in zwei Schritten: erst laden, dann pruefen, dann ableiten.
-    #
-    # Bis zum 15.9.2026 lief die Pruefung nach **allen** dreizehn Stufen. Der
-    # Lauf endete dann zwar mit "failed", aber Gold und Serving waren gebaut -
-    # aus Daten, die der Lauf selbst als zu alt erkannt hatte. Eine externe
-    # Pruefung hat genau das vorgefuehrt. Eine Kontrolle, die erst nach der
-    # Veroeffentlichung greift, ist ein Protokoll, keine Kontrolle.
-    geladen = [s for s in stufen if s.gruppe == "ingestion"]
-    abgeleitet = [s for s in stufen if s.gruppe != "ingestion"]
-
-    # Folgt ein Release, brauchen die abgeleiteten Stufen ihre lokalen
-    # Arbeitskopien noch: ``storage.release.sammle`` liest das Dateisystem.
-    # Nur sie - die Ingestion publiziert Laeufe, und die sollen weiterhin
-    # sofort weg (``Storage._lokal_entfernen_falls_s3``).
-    folgt_release = bis is None and (
-        release is True or (release is None and ablage.config.publiziert))
-    behalte_lokal = folgt_release and ablage.backend == "s3"
-
-    protokoll: list[dict] = []
-    if not zu_alt and holen_gescheitert is None:
-        protokoll = fahre(geladen, projekt_root, data_root)
-        ingestion_ok = (all(s["exit"] == 0 for s in protokoll)
-                        and len(protokoll) == len(geladen))
-
-        if maximal_alter_tage is not None and not ohne_ingestion and ingestion_ok:
+        # Ohne Ingestion werden die Daten nicht frischer. Sind sie schon zu alt,
+        # lohnt sich keine Stufe - und ein Gold auf veraltetem Bronze waere genau
+        # die Zahl, die dann auf einer Folie landet.
+        if maximal_alter_tage is not None and ohne_ingestion:
             zu_alt = veraltete_quellen(data_root, maximal_alter_tage)
             for quelle, tage in zu_alt.items():
-                LOG.error("%s. Nichts abgeleitet.",
+                LOG.error("%s. Nichts gebaut.",
                           alterssatz(quelle, tage, maximal_alter_tage))
 
-        if ingestion_ok and not zu_alt:
-            protokoll += fahre(abgeleitet, projekt_root, data_root,
-                               behalte_lokal=behalte_lokal)
+        # Mit Ingestion in zwei Schritten: erst laden, dann pruefen, dann ableiten.
+        #
+        # Bis zum 15.9.2026 lief die Pruefung nach **allen** dreizehn Stufen. Der
+        # Lauf endete dann zwar mit "failed", aber Gold und Serving waren gebaut -
+        # aus Daten, die der Lauf selbst als zu alt erkannt hatte. Eine externe
+        # Pruefung hat genau das vorgefuehrt. Eine Kontrolle, die erst nach der
+        # Veroeffentlichung greift, ist ein Protokoll, keine Kontrolle.
+        geladen = [s for s in stufen if s.gruppe == "ingestion"]
+        abgeleitet = [s for s in stufen if s.gruppe != "ingestion"]
 
-    gelaufen = all(s["exit"] == 0 for s in protokoll) and len(protokoll) == len(stufen)
+        # Folgt ein Release, brauchen die abgeleiteten Stufen ihre lokalen
+        # Arbeitskopien noch: ``storage.release.sammle`` liest das Dateisystem.
+        # Nur sie - die Ingestion publiziert Laeufe, und die sollen weiterhin
+        # sofort weg (``Storage._lokal_entfernen_falls_s3``).
+        folgt_release = bis is None and (
+            release is True or (release is None and ablage.config.publiziert))
+        behalte_lokal = folgt_release and ablage.backend == "s3"
 
-    geschafft = gelaufen and not zu_alt and holen_gescheitert is None
+        protokoll: list[dict] = []
+        if not zu_alt and holen_gescheitert is None:
+            protokoll = fahre(geladen, projekt_root, data_root)
+            ingestion_ok = (all(s["exit"] == 0 for s in protokoll)
+                            and len(protokoll) == len(geladen))
 
-    freigabe: dict | None = None
-    if geschafft and folgt_release:
-        from orchestration import release as release_modul
+            if maximal_alter_tage is not None and not ohne_ingestion and ingestion_ok:
+                zu_alt = veraltete_quellen(data_root, maximal_alter_tage)
+                for quelle, tage in zu_alt.items():
+                    LOG.error("%s. Nichts abgeleitet.",
+                              alterssatz(quelle, tage, maximal_alter_tage))
+
+            if ingestion_ok and not zu_alt:
+                protokoll += fahre(abgeleitet, projekt_root, data_root,
+                                   behalte_lokal=behalte_lokal)
+
+        gelaufen = all(s["exit"] == 0 for s in protokoll) and len(protokoll) == len(stufen)
+
+        geschafft = gelaufen and not zu_alt and holen_gescheitert is None
+
+        freigabe: dict | None = None
+        if geschafft and folgt_release:
+            from orchestration import release as release_modul
+            try:
+                freigabe = release_modul.bilde_und_publiziere(
+                    data_root, ablage, jahre)
+                LOG.info("Release %s: %d Dateien%s", freigabe["release_id"],
+                         freigabe["files"],
+                         ", publiziert" if freigabe["published"] else ", nur lokal")
+            except StorageError as fehler:
+                LOG.error("Release gescheitert: %s", fehler)
+                freigabe = {"status": "failed", "error": str(fehler)}
+                geschafft = False
+
+        # Jetzt, und nicht in den Stufen: Was ``behalte_lokal`` aufgeschoben hat,
+        # geht hier weg - aber nur, was oben wirklich liegt **und dasselbe ist**
+        # (``Storage.arbeitskopien_entfernen`` vergleicht je Tabelle die
+        # Manifeste).
+        #
+        # **Nicht nach einem gescheiterten Release.** Hier stand das Gegenteil,
+        # mit der Begruendung "oben liegt er vollstaendig". Am 17.10.2026 hat ein
+        # ``InternalError`` von SeaweedFS den Upload beim 26. von 28 Objekten
+        # abgebrochen - und danach waren die Kopien weg, obwohl genau sie fuer den
+        # zweiten Versuch gebraucht wurden. Ein Lauf von zwoelf Minuten, nur um
+        # wiederherzustellen, was dalag. Die Begruendung stimmte nicht: Ist der
+        # Upload gescheitert, liegt oben *nicht* alles.
+        gescheitert = (freigabe or {}).get("status") == "failed"
+        if behalte_lokal and gescheitert:
+            LOG.info("Lokale Arbeitskopien bleiben: Das Release ist gescheitert, "
+                     "und ohne sie braeuchte der zweite Versuch einen neuen Bau.")
+        if behalte_lokal and not gescheitert:
+            weg = ablage.arbeitskopien_entfernen()
+            if weg:
+                LOG.info("%d lokale Arbeitskopie(n) nach dem Release entfernt",
+                         len(weg))
+
+        # Der Bestand fuer das Manifest liest im Hybridmodus auch S3. Faellt die
+        # Ablage aus, ist das kein Grund fuer einen Traceback: Der Lauf ist dann
+        # ohnehin gescheitert, und das Protokoll soll trotzdem geschrieben werden -
+        # mit dem, was lokal sichtbar ist, und mit dem Grund. Am 17.9.2026 hat
+        # genau hier ein Netzausfall sechzig Zeilen botocore-Stapel gedruckt,
+        # obwohl die Zeile darueber schon "Nichts gebaut" gemeldet hatte.
+        bestand_fehler: str | None = None
         try:
-            freigabe = release_modul.bilde_und_publiziere(
-                data_root, ablage, jahre)
-            LOG.info("Release %s: %d Dateien%s", freigabe["release_id"],
-                     freigabe["files"],
-                     ", publiziert" if freigabe["published"] else ", nur lokal")
+            laeufe = bronze_laeufe(data_root)
+            frische = aktualitaet(data_root)
         except StorageError as fehler:
-            LOG.error("Release gescheitert: %s", fehler)
-            freigabe = {"status": "failed", "error": str(fehler)}
+            bestand_fehler = str(fehler)
+            LOG.error("Bestand nicht aufnehmbar: %s", fehler)
+            laeufe, frische = {}, {}
             geschafft = False
 
-    # Jetzt, und nicht in den Stufen: Was ``behalte_lokal`` aufgeschoben hat,
-    # geht hier weg - aber nur, was oben wirklich liegt **und dasselbe ist**
-    # (``Storage.arbeitskopien_entfernen`` vergleicht je Tabelle die
-    # Manifeste).
-    #
-    # **Nicht nach einem gescheiterten Release.** Hier stand das Gegenteil,
-    # mit der Begruendung "oben liegt er vollstaendig". Am 17.10.2026 hat ein
-    # ``InternalError`` von SeaweedFS den Upload beim 26. von 28 Objekten
-    # abgebrochen - und danach waren die Kopien weg, obwohl genau sie fuer den
-    # zweiten Versuch gebraucht wurden. Ein Lauf von zwoelf Minuten, nur um
-    # wiederherzustellen, was dalag. Die Begruendung stimmte nicht: Ist der
-    # Upload gescheitert, liegt oben *nicht* alles.
-    gescheitert = (freigabe or {}).get("status") == "failed"
-    if behalte_lokal and gescheitert:
-        LOG.info("Lokale Arbeitskopien bleiben: Das Release ist gescheitert, "
-                 "und ohne sie braeuchte der zweite Versuch einen neuen Bau.")
-    if behalte_lokal and not gescheitert:
-        weg = ablage.arbeitskopien_entfernen()
-        if weg:
-            LOG.info("%d lokale Arbeitskopie(n) nach dem Release entfernt",
-                     len(weg))
-
-    # Der Bestand fuer das Manifest liest im Hybridmodus auch S3. Faellt die
-    # Ablage aus, ist das kein Grund fuer einen Traceback: Der Lauf ist dann
-    # ohnehin gescheitert, und das Protokoll soll trotzdem geschrieben werden -
-    # mit dem, was lokal sichtbar ist, und mit dem Grund. Am 17.9.2026 hat
-    # genau hier ein Netzausfall sechzig Zeilen botocore-Stapel gedruckt,
-    # obwohl die Zeile darueber schon "Nichts gebaut" gemeldet hatte.
-    bestand_fehler: str | None = None
-    try:
-        laeufe = bronze_laeufe(data_root)
-        frische = aktualitaet(data_root)
-    except StorageError as fehler:
-        bestand_fehler = str(fehler)
-        LOG.error("Bestand nicht aufnehmbar: %s", fehler)
-        laeufe, frische = {}, {}
-        geschafft = False
-
-    manifest = {
-        "status": "complete" if geschafft else "failed",
-        "years": list(jahre),
-        "vintages": list(vintages_fuer(jahre)),
-        "fetched_runs": geholt,
-        "fetch_error": holen_gescheitert,
-        "inventory_error": bestand_fehler,
-        "release": freigabe,
-        "started_at_utc": begonnen.isoformat(),
-        "finished_at_utc": datetime.now(timezone.utc).isoformat(),
-        "stages": protokoll,
-        "input_bronze_runs": laeufe,
-        "input_fingerprint": fingerabdruck(laeufe),
-        "source_freshness": frische,
-        "freshness_check": {
-            "max_age_days": maximal_alter_tage,
-            "stale": zu_alt,
-        },
-        # Liest ebenfalls die Ablage; nach einem gescheiterten Lauf wird es
-        # ohnehin uebersprungen, und wenn nicht, gilt dasselbe wie oben.
-        "output_rows": zeilenzahlen(data_root) if geschafft else {},
-    }
-    schreibe_manifest(data_root, manifest)
-    return manifest
+        manifest = {
+            "status": "complete" if geschafft else "failed",
+            "years": list(jahre),
+            "vintages": list(vintages_fuer(jahre)),
+            "fetched_runs": geholt,
+            "fetch_error": holen_gescheitert,
+            "inventory_error": bestand_fehler,
+            "release": freigabe,
+            "started_at_utc": begonnen.isoformat(),
+            "finished_at_utc": datetime.now(timezone.utc).isoformat(),
+            "stages": protokoll,
+            "input_bronze_runs": laeufe,
+            "input_fingerprint": fingerabdruck(laeufe),
+            "source_freshness": frische,
+            "freshness_check": {
+                "max_age_days": maximal_alter_tage,
+                "stale": zu_alt,
+            },
+            # Liest ebenfalls die Ablage; nach einem gescheiterten Lauf wird es
+            # ohnehin uebersprungen, und wenn nicht, gilt dasselbe wie oben.
+            "output_rows": zeilenzahlen(data_root) if geschafft else {},
+        }
+        import uuid
+        from storage.analysesitzung import bestaetige
+        manifest["run_id"] = uuid.uuid4().hex
+        schreibe_manifest(data_root, manifest)
+        if geschafft and any(s.gruppe == "silver" for s in stufen):
+            bestaetige(data_root, run_id=manifest["run_id"], projekt_root=projekt_root,
+                       release_id=(freigabe or {}).get("release_id"),
+                       bereiche=sorted({s.gruppe for s in stufen}))
+        return manifest
 
 
 def arguments() -> argparse.Namespace:

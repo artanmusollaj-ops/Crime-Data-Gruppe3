@@ -271,17 +271,20 @@ def schedule(store, *, instant=None):
 @contextmanager
 def writer_lock(store):
     """Never steal a possibly live writer lock, including after a crash."""
+    from storage.analysesitzung import datensperre
+
     path = store.root / "worker.lock"
-    try:
-        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    except FileExistsError as exc:
-        raise AdminError("Worker-Lock vorhanden; laufenden Prozess pruefen") from exc
-    try:
-        with os.fdopen(fd, "w") as f:
-            f.write(encode({"pid": os.getpid(), "started_at": now(), "token": uuid.uuid4().hex}))
-        yield
-    finally:
-        path.unlink(missing_ok=True)
+    with datensperre(store.data, schreiben=True):
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        except FileExistsError as exc:
+            raise AdminError("Worker-Lock vorhanden; laufenden Prozess pruefen") from exc
+        try:
+            with os.fdopen(fd, "w") as f:
+                f.write(encode({"pid": os.getpid(), "started_at": now(), "token": uuid.uuid4().hex}))
+            yield
+        finally:
+            path.unlink(missing_ok=True)
 
 
 def commands(store, spec, config):
