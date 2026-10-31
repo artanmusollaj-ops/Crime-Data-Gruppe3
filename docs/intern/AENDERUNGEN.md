@@ -147,7 +147,8 @@ inzwischen anders; was übernommen wurde und warum, steht in den vier
 Einträgen vom 30.10. hier.
 
 **Zahlen.** 2'589 → **2'592 Tests**, Standardlauf 2'478 → **2'481**,
-Referenzwächter unverändert **111**.
+Referenzwächter unverändert **111**. Frischklon gemessen: **2'403 von
+2'481**, 78 übersprungen, grün.
 
 ---
 
