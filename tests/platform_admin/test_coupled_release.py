@@ -47,15 +47,19 @@ class GitRemote:
         self.tree_entries = []
         self.unreachable = False
         self.protected = True
-        self.check_runs = [{"name": "tests", "status": "completed", "conclusion": "success"}]
+        self.workflow_runs = [{"name": "tests", "status": "completed", "conclusion": "success"}]
+        self.pr_head = "candidate-head"
 
     def call(self, method, path, value=None, missing=False):
         self.calls.append((method, path, value))
         if self.unreachable:
             raise OSError("network unavailable")
-        if path.startswith("/commits/") and "/check-runs" in path:
-            return {"total_count": len(self.check_runs),
-                    "check_runs": copy.deepcopy(self.check_runs)}
+        if path.startswith("/actions/runs?head_sha="):
+            # Only the runs of the exact head commit, as GitHub filters them.
+            if path.split("head_sha=")[1].split("&")[0] != self.pr_head:
+                return {"total_count": 0, "workflow_runs": []}
+            return {"total_count": len(self.workflow_runs),
+                    "workflow_runs": copy.deepcopy(self.workflow_runs)}
         if path.endswith("/protection") and not self.protected:
             # GitHub answers 404 for an unprotected branch, like GitHub.call.
             if missing:
@@ -670,7 +674,7 @@ def test_development_never_merges_without_green_ci(setup, monkeypatch, runs):
     monkeypatch.setenv("ADMIN_GIT_SCHUTZ", "entwicklung")
     store, gh = setup
     gh.protected = False
-    gh.check_runs = runs
+    gh.workflow_runs = runs
     rid, _row = open_review(store)
     with pytest.raises(AdminError, match="CI"):
         merge_review(store, rid)
@@ -681,11 +685,27 @@ def test_development_accepts_skipped_runs_beside_a_green_one(setup, monkeypatch)
     monkeypatch.setenv("ADMIN_GIT_SCHUTZ", "entwicklung")
     store, gh = setup
     gh.protected = False
-    gh.check_runs = [{"name": "tests", "status": "completed", "conclusion": "success"},
+    gh.workflow_runs = [{"name": "tests", "status": "completed", "conclusion": "success"},
                      {"name": "windows", "status": "completed", "conclusion": "skipped"}]
     rid, _row = open_review(store)
     merge_review(store, rid)
     assert gh.merges == 1
+
+
+def test_development_reads_workflow_runs_of_the_exact_head(setup, monkeypatch):
+    # Green runs on another commit say nothing about this PR head; and the
+    # console asks the Actions endpoint, the one a fine-grained token may read.
+    monkeypatch.setenv("ADMIN_GIT_SCHUTZ", "entwicklung")
+    store, gh = setup
+    gh.protected = False
+    gh.pr_head = "another-commit"
+    rid, _row = open_review(store)
+    with pytest.raises(AdminError, match="kein Lauf"):
+        merge_review(store, rid)
+    assert gh.merges == 0
+    assert not any("/check-runs" in path for _m, path, _v in gh.calls)
+    assert any(path.startswith("/actions/runs?head_sha=candidate-head")
+               for _m, path, _v in gh.calls)
 
 
 def test_an_unknown_protection_mode_is_refused(setup, monkeypatch):

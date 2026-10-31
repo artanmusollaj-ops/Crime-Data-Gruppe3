@@ -1236,7 +1236,7 @@ Konsole keine PRs an. Die Schritte:
 2. **Die `.env` des Stapels** um `CF_ACCESS_ISSUER`, `CF_ACCESS_AUD` (aus der
    Access-Anwendung), `ADMIN_ROLE_BINDINGS` (JSON: Access-Subjekt → Rollen),
    `ADMIN_METRICS_TOKEN` und `ADMIN_GITHUB_TOKEN` (nur der Worker liest es;
-   Contents, Pull requests Lesen und Schreiben, Checks Lesen).
+   Contents, Pull requests Lesen und Schreiben, Actions Lesen).
 3. **Den Datenträger `urbancrime_konsole` in die Serversicherung.** Er trägt
    die SQLite-Datenbank mit den Review-Entscheidungen; die lässt sich nicht
    nachrechnen.
