@@ -132,7 +132,7 @@ sind mit Absicht geändert. In ihrer Vorrichtung liegen Detroits Daten nur am
 Der Feldkatalog ist aus seinem Generator nachgezogen, das Register unter
 „Vertragsversionen“ ebenso.
 
-**Zahlen.** 2'726 → **2'727 Tests**, Standardlauf 2'615 → **2'616**.
+**Zahlen.** 2'726 → **2'727 Tests**, Standardlauf 2'615 → **2'616**, im frischen Klon 2'537 → **2'538**.
 
 ## 1.11.2026 · Die Einstiegsseite führt zur Admin-Konsole (Branch `fix/einstieg-konsole`)
 
