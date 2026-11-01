@@ -262,8 +262,10 @@ Laptop (macOS)                     GitHub Actions                SeaweedFS (S3)
 Das war der ehrliche Stand bis zum 8.10.2026: **eine Entwicklungsmaschine,
 ein CI-Dienst, ein Objektspeicher** — kein Server, kein Dienst, der ständig
 läuft, keine Oberfläche ausser Notebooks und der DuckDB-Konsole. Seit dem
-8.10.2026 laufen auf `srv01` drei Dienste (Elasticsearch, Kibana, Jupyter),
-und seit dem 9.10. liegt eine Anmeldung davor. Die Zahlen dieses Teils
+8.10.2026 laufen auf `srv01` Dienste (bis zum 1.11.2026 Elasticsearch,
+Kibana und Jupyter, seither das eigene Dashboard, die Engineering-Konsole,
+Jupyter und die Einstiegsseite), und seit dem 9.10. liegt eine Anmeldung
+davor. Die Zahlen dieses Teils
 stammen weiter vom Entwicklungsrechner: Der Server zeigt sie, er erzeugt sie
 nicht. Wie es dort liegt, sagt Teil B samt Datum je Baustein.
 
@@ -300,8 +302,12 @@ nginx für die Einstiegsseite; nachzulesen in `storage-architektur.md`,
 Abschnitt 16.
 
 *Die vierte, seit dem 8.10.2026:* der Stapel **läuft** auf `srv01`.
-Elasticsearch, Kibana und Jupyter stehen dort als Dienste, am 11.10.2026
-alle drei `healthy` und seit zwei bis drei Tagen oben; beide Abbilder sind
+Elasticsearch, Kibana und Jupyter standen dort als Dienste, am 11.10.2026
+alle drei `healthy` und seit zwei bis drei Tagen oben. **Seit dem 1.11.2026
+ersetzt das eigene Dashboard Elasticsearch und Kibana** (Flask und DuckDB,
+liest das aktive Release, Spitze 429 MiB statt zusammen 2'816 MiB Grenze);
+lokal bleiben beide, siehe `storage-architektur.md`, Abschnitt 16. Damals
+waren beide Abbilder sind
 per SHA-256-Digest gepinnt, und die beiden Digests in der `.env` des Stapels
 sind **zeichengleich** mit denen, die hier gebaut und gemessen wurden.
 Daneben steht ein Zeitplan: montags 04:30 über `cron`, mit `flock` gegen
@@ -516,9 +522,13 @@ Angabe, welchen Stand der Index zeigt. Dazu Speicher: Elasticsearch braucht
 für 1,85 Mio Dokumente mit Geo- und Textfeldern erfahrungsgemäss ein Mehrfaches
 der 85,7 MB Parquet.
 
-**Offen:** ob die Aggregationen für das Dashboard aus Elasticsearch kommen oder
-weiterhin aus den vorberechneten Vergleichstabellen. Beides geht; die Antwort
-entscheidet, wie viel Logik doppelt existiert.
+**Entschieden am 1.11.2026:** Die Aggregationen kommen nicht aus
+Elasticsearch. Das eigene Dashboard (`serving.dashboard`) liest das aktive
+Release mit DuckDB — `comparison_month` für die Zählungen, Gold für die
+Raten nach der Regel von `gold_pipeline.raten_je_stadt` —, und auf `srv01`
+ersetzt es Elasticsearch und Kibana. Der Anlass war der Speicher: Neben
+Kibana blieben dort 37 MiB frei. Lokal bleibt Elasticsearch für Volltext,
+Umkreissuche und Exploration.
 
 ## B.5 Oberflächen: Homepage, Admin, Grafana
 
@@ -637,8 +647,8 @@ Ergebnis.
 Teil B ist ein Plan, und Pläne altern. Zwei Dinge sind ausdrücklich noch nicht
 entschieden:
 
-1. **Ob Elasticsearch die Aggregationen übernimmt** oder nur Exploration,
-   Volltext und Karte — B.4.
+1. ~~**Ob Elasticsearch die Aggregationen übernimmt**~~ — entschieden am
+   1.11.2026: nein, das eigene Dashboard rechnet sie aus dem Release (B.4).
 2. **Wann der Referenzstand nachgezogen wird.** Seit dem 17.9.2026 steht der
    gebaute Stand vor dem dokumentierten; die Drift ist gemessen und in
    [`datenhistorie.md`](intern/datenhistorie.md) 8 festgehalten.

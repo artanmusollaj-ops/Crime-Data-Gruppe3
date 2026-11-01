@@ -60,9 +60,8 @@ DOKUMENT = PROJECT_ROOT / "docs" / "storage-architektur.md"
 # gehoert das Datum mitgeaendert - oder er raet.
 GRENZEN_MIB = {
     # 1.11.2026 (C-9): Elasticsearch (1'792) und Kibana (1'024) sind auf srv01
-    # durch das eigene Dashboard ersetzt. Lokal unter gunicorn gemessen:
-    # Spitze 476 MiB beim Verdichten, 412 mit DuckDB auf 256 MB und zwei
-    # Threads. Auf srv01 nachzumessen.
+    # durch das eigene Dashboard ersetzt. Auf srv01 gemessen: Spitze 429 MiB
+    # beim ersten Laden, danach rund 300 (lokal 476 beziehungsweise 412).
     "dashboard": 640,
     # Am 16.10.2026 stand hier fuer einen Tag 2'048, weil ich die Grenze fuer
     # die Ursache hielt. Der Bau braucht gestuft 256 MB; zurueck auf die

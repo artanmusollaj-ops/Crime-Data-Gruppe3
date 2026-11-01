@@ -354,9 +354,11 @@
   </section>
 
   <footer class="schluss">
-    <p><strong>Was offen ist.</strong> Ob Elasticsearch auch die Aggregationen übernimmt oder
-      nur Exploration, Karte und Volltext · welche Releases aufgehoben werden · wann der
+    <p><strong>Was offen ist.</strong> Welche Releases aufgehoben werden · wann der
       Referenzstand nachgezogen wird.</p>
+    <p><strong>Entschieden am 1.11.2026.</strong> Die Aggregationen kommen nicht aus
+      Elasticsearch: Auf <span class="mono">srv01</span> ersetzt das eigene Dashboard
+      (Flask, DuckDB, liest das aktive Release) Elasticsearch und Kibana; lokal bleiben beide.</p>
     <p><strong>Entschieden am 9.10.2026.</strong> Der Zugang der Prüfenden läuft über
       Cloudflare Access, eine Anwendung über <span class="mono">urbancrime-*</span>; die
       befristete Policy für sie ist zurückgestellt mit Grund — jetzt angelegt, wäre ihre

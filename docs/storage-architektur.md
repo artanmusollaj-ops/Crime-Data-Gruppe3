@@ -1029,10 +1029,15 @@ höchstens eine Minute später von selbst nach und braucht weder Lader noch Inde
 Entschieden ist **nur der Server**: Lokal bleiben Elasticsearch und Kibana in
 `docker-compose.yml`, `load_elasticsearch` und `build_kibana` bleiben
 aufrufbar. Die beiden Datenträger stehen auf `srv01` als Rückweg weiter, bis
-niemand sie mehr braucht. **Beschrieben, noch nicht eingesetzt:** Bis der
-Wechsel auf `srv01` vollzogen und dort nachgemessen ist, laufen dort beide
-weiter. Was unten über Elasticsearch und Kibana auf `srv01` steht, ist der
-Stand bis zu diesem Tag.
+niemand sie mehr braucht. **Eingesetzt am 1.11.2026 um 13:12:** Elasticsearch
+und Kibana sind gestoppt und starten nicht mehr von selbst; ihre Container
+und Datenträger stehen als Rückweg (`docker start urbancrime-elasticsearch-1
+urbancrime-kibana-1`). Das Dashboard zeigte gleich danach das Release
+2026-10-26T03-35-21Z, `pruefe_stand` fand Gold und Dashboard auf diesem
+Stand, und auf der Maschine waren 3'963 statt 2'320 MiB verfügbar. Die Route
+`urbancrime-dashboard.datenwerft.ch` antwortet mit 302 auf das Anmeldetor —
+diese Messung liegt vor dem Ursprung und sagt nicht, was dahinter antwortet. Was unten über Elasticsearch und
+Kibana auf `srv01` steht, ist der Stand bis zu diesem Tag.
 
 **Sie ist seit dem 8.10.2026 angewandt.** Auf `srv01` liefen Elasticsearch,
 Kibana und Jupyter nach dieser Beschreibung; am 11.10.2026 waren alle drei
@@ -1100,7 +1105,7 @@ bereits belegt. Die vorher veranschlagten 5'632 MiB lagen damit **1'307 MiB
 
 | Dienst | Grenze | Woher die Zahl kommt |
 | --- | ---: | --- |
-| `dashboard` | 640 MiB | am 1.11.2026 **lokal** unter gunicorn gemessen: Spitze **476 MiB** beim Verdichten der 1,85 Mio. Taten, **412 MiB** mit DuckDB auf 256 MB und zwei Threads; danach hält DuckDB 70–90 MB. Auf `srv01` nachzumessen |
+| `dashboard` | 640 MiB | am 1.11.2026 auf `srv01` gemessen: Spitze **429 MiB** beim ersten Laden aus dem Eimer (11 s, im Sekundentakt abgelesen), danach **299–319 MiB**. Lokal waren es 476 beziehungsweise 412 MiB mit den Grenzen (DuckDB auf 256 MB, zwei Threads) |
 | ~~`elasticsearch`~~ | ~~1'792 MiB~~ | bis zum 1.11.2026; der Heap nutzte gemessen **195 von 1'024 MiB** |
 | ~~`kibana`~~ | ~~1'024 MiB~~ | bis zum 1.11.2026; gemessen belegt **771 MiB** |
 | `start` | 32 MiB | das obere Ende der Spanne, die ein nginx mit einer statischen Datei belegt (16–32); **nicht** gemessen — gemessen ist der Platz, in den es passt |
@@ -1178,9 +1183,10 @@ mitgedeckt, genau wie FR-22 es verspricht. Erreichbar heisst das trotzdem
 nicht, dass dort etwas antwortet — was gemessen wurde, liegt vollständig
 **vor** dem Ursprung.
 
-**Seit dem 1.11.2026 fällig: die Route für `urbancrime-dashboard`**, auf
-dieselbe Weise und unter dieselbe Access-Anwendung. Die Route für
-`urbancrime-kibana` kann danach entfallen; hinter ihr antwortet nichts mehr.
+**Seit dem 1.11.2026 angelegt: die Route für `urbancrime-dashboard`**, auf
+dieselbe Weise und unter derselben Access-Anwendung — von aussen gemessen
+mit 302 auf das Anmeldetor. Die Route für `urbancrime-kibana` kann entfallen;
+hinter ihr antwortet nichts mehr.
 
 **Die Tunnel-Route je Hostname** — angelegt am 9.10.2026, je Hostname eine
 veröffentlichte Anwendung auf dem bestehenden Tunnel, und zwar so:

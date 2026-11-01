@@ -103,6 +103,27 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 1.11.2026 · Das Dashboard läuft auf srv01 (Branch `docs/dashboard-eingesetzt`)
+
+Eingesetzt um 13:12. Elasticsearch und Kibana sind gestoppt und starten
+nicht mehr von selbst. Container und Datenträger stehen als Rückweg.
+
+- **Gemessen auf `srv01`:** Das erste Laden aus dem Eimer dauerte 11 s, alle
+  fünf Bretter antworten. Die Spitze lag bei **429 MiB** von 640 (im
+  Sekundentakt abgelesen), danach 299–319 MiB. Verfügbar auf der Maschine
+  sind 3'963 statt 2'320 MiB.
+- **`pruefe_stand`** findet Gold und Dashboard auf dem Release
+  2026-10-26T03-35-21Z.
+- **Die Einstiegsseite** ist mit den Serveradressen neu gebaut: Dashboard,
+  DuckDB, Jupyter, Admin-Konsole.
+- **Die Route** `urbancrime-dashboard.datenwerft.ch` antwortet mit 302 auf
+  das Anmeldetor. Gemessen ist das vor dem Ursprung; was dahinter antwortet,
+  zeigt es nicht.
+- **Dokumente:** `storage-architektur.md` §16 und das README sagen jetzt
+  „eingesetzt“, mit der Messung vom Server. In `architektur-ist-und-ziel.md`
+  und im Einseiter ist eine offene Frage entschieden: Die Aggregationen
+  kommen nicht aus Elasticsearch (B.4).
+
 ## 1.11.2026 · Auf srv01 ersetzt das Dashboard Elasticsearch und Kibana (Branch `feature/dashboard-auf-srv01`)
 
 Beschrieben, **noch nicht eingesetzt** (C-9). Kibana war für fünf Bretter zu
