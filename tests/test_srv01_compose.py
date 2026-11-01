@@ -3,7 +3,7 @@
 Die Beschreibung des Serverbetriebs ist die eine Datei, deren Fehler man erst
 im Betrieb sieht: Ein fehlendes Speicherlimit faellt auf, wenn eine Maschine
 mit fuenfzehn fremden Diensten anfaengt auszulagern; ein versehentliches
-Traefik-Label an Elasticsearch, wenn jemand den Datenspeicher findet. Beides
+Traefik-Label an einem Datenspeicher, wenn ihn jemand findet. Beides
 sind keine Abstuerze, sondern Zustaende - und genau deshalb stehen sie hier
 als Tests.
 
@@ -15,7 +15,8 @@ Geprueft wird **jede Zeile der Matrix** aus dem Plan:
   Zeitweilige;
 * der Pipeline-Dienst traegt weder ``ports:`` noch ein Traefik-Label noch
   ``unless-stopped`` (FR-9);
-* Elasticsearch ist nicht im Netz ``proxy`` und traegt kein Label (FR-11);
+* das Dashboard ersetzt seit dem 1.11.2026 Elasticsearch und Kibana, liest
+  den Eimer und haengt keinen Datentraeger ein (C-9);
 * jeder Webdienst traegt die vollstaendigen Labels samt der
   ``X-Forwarded-Proto``-Middleware (FR-10);
 * Jupyter haengt ``data/`` als ``:ro`` ein und liest die DuckDB aus dem
@@ -58,8 +59,11 @@ DOKUMENT = PROJECT_ROOT / "docs" / "storage-architektur.md"
 # nicht aus dem Code folgen. Wer sie aendert, hat entweder neu gemessen - dann
 # gehoert das Datum mitgeaendert - oder er raet.
 GRENZEN_MIB = {
-    "elasticsearch": 1792,   # 1,75 GiB; Heap 768 MiB, gemessen genutzt 195
-    "kibana": 1024,          # 1 GiB; gemessen belegt 771 MiB
+    # 1.11.2026 (C-9): Elasticsearch (1'792) und Kibana (1'024) sind auf srv01
+    # durch das eigene Dashboard ersetzt. Lokal unter gunicorn gemessen:
+    # Spitze 476 MiB beim Verdichten, 412 mit DuckDB auf 256 MB und zwei
+    # Threads. Auf srv01 nachzumessen.
+    "dashboard": 640,
     # Am 16.10.2026 stand hier fuer einen Tag 2'048, weil ich die Grenze fuer
     # die Ursache hielt. Der Bau braucht gestuft 256 MB; zurueck auf die
     # Messung. Begruendung in der Compose-Datei.
@@ -291,13 +295,19 @@ def test_der_dauerbetrieb_ist_entschieden(dienste):
     Konsolen-Worker ist **nicht** dabei: Er laeuft getaktet als Stapellauf
     (docker/srv01-konsole-takt.sh), weil er die Pipelines ausfuehrt und deren
     1'280 MiB dauernd belegt haette - rund 1,3 GiB ueber dem Budget.
+
+    **Am 1.11.2026 fallen zwei und kommt einer (C-9).** Elasticsearch und
+    Kibana weichen dem eigenen Dashboard: 640 + 160 + 32 = 832 MiB dauernd,
+    mit dem Zeitweiligen **2'112** von 4'325 - rund 2,2 GiB frei statt 37.
+    Entschieden ist nur der Server; lokal bleiben beide in
+    docker-compose.yml (``test_die_entwicklungsfassung_bleibt_lauffaehig``).
     """
     dauernd = sorted(n for n, d in dienste.items() if not d.get("profiles"))
-    assert dauernd == ["admin", "elasticsearch", "kibana", "start"], (
-        f"Dauerbetrieb ist {dauernd}; FR-13 rechnet mit Elasticsearch und "
-        "Kibana (zusammen 2'816 MiB), seit FR-31 mit der Einstiegsseite "
-        "(32 MiB) und seit dem 30.10.2026 mit dem Konsolen-Webdienst "
-        "(160 MiB); Pipeline, Konsolen-Worker und Jupyter sind zeitweilig"
+    assert dauernd == ["admin", "dashboard", "start"], (
+        f"Dauerbetrieb ist {dauernd}; FR-13 rechnet seit dem 1.11.2026 mit "
+        "dem Dashboard (640 MiB), der Einstiegsseite (32 MiB) und dem "
+        "Konsolen-Webdienst (160 MiB); Pipeline, Konsolen-Worker und Jupyter "
+        "sind zeitweilig"
     )
 
 
@@ -337,28 +347,59 @@ def test_die_pipeline_ist_nicht_im_netz_proxy(dienste):
 
 
 # --------------------------------------------------------------------------
-# Elasticsearch: kein Webdienst (FR-11)
+# Das Dashboard statt Elasticsearch und Kibana (1.11.2026, C-9)
 # --------------------------------------------------------------------------
 
 
-def test_elasticsearch_traegt_kein_traefik_label(dienste):
-    """*Ein versehentliches Traefik-Label an Elasticsearch waere ein offener
-    Datenspeicher.*"""
-    labels = dienste["elasticsearch"].get("labels") or {}
-    traefik = sorted(k for k in labels if k.startswith("traefik"))
-    assert not traefik, f"Elasticsearch traegt Traefik-Labels: {traefik}"
+def test_srv01_traegt_weder_elasticsearch_noch_kibana(beschreibung):
+    """Entschieden ist der Server, nicht das Projekt.
+
+    Bis zum 1.11.2026 hielt ``test_beide_fassungen_binden_dieselbe_elastic_version``
+    die beiden Fassungen auf derselben Elastic-Version. Mit den Diensten auf
+    srv01 entfiel der Gegenstand; geblieben ist die Gegenrichtung: Kommt einer
+    der beiden zurueck, ohne dass FR-13 neu gerechnet ist, faellt es hier auf
+    und nicht erst an ``docker stats``.
+    """
+    zurueck = sorted({"elasticsearch", "kibana"} & set(beschreibung["services"]))
+    assert not zurueck, f"wieder in der Serverfassung: {zurueck}"
+    alte = sorted({"elasticsearch-daten", "kibana-daten"}
+                  & set(beschreibung.get("volumes") or {}))
+    assert not alte, f"Datentraeger ohne Dienst: {alte}"
 
 
-def test_elasticsearch_ist_nicht_im_netz_proxy(dienste):
-    netze = dienste["elasticsearch"]["networks"]
-    assert "proxy" not in netze, (
-        f"Elasticsearch ist im Netz proxy ({netze}) - geroutet ist nur Kibana"
-    )
+def test_das_dashboard_liest_den_eimer_und_haengt_nichts_ein(dienste):
+    """Es schreibt nichts, also braucht es keinen Datentraeger.
+
+    ``arbeitsdaten`` traegt waehrend eines Laufs einen halben Zwischenstand
+    und danach nur, was ``holen --einsetzen`` hinlegt. Der Eimer ist der
+    Bestand; von dort liest das Dashboard Gold und ``comparison_month``.
+    """
+    dashboard = dienste["dashboard"]
+    assert "volumes" not in dashboard, dashboard.get("volumes")
+    umgebung = dashboard["environment"]
+    assert umgebung["STORAGE_BACKEND"] == "s3"
+    for variable in ("S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY", "S3_SECRET_KEY"):
+        assert variable in umgebung, f"{variable} erreicht das Dashboard nicht"
 
 
-def test_elasticsearch_hat_keinen_port_am_host(dienste):
-    """Die Entwicklungsfassung bindet 19200 an 127.0.0.1; hier gibt es nichts."""
-    assert "ports" not in dienste["elasticsearch"]
+def test_das_dashboard_laeuft_in_einem_prozess(dienste):
+    """Mehrere Prozesse hielten den Bestand je einmal und luden ihn je
+    einmal - die Ladespitze ist das Teure, und die Grenze rechnet mit einer."""
+    befehl = dienste["dashboard"]["command"]
+    assert befehl[befehl.index("--workers") + 1] == "1", befehl
+    assert befehl[-1] == "serving.dashboard.app:create_app()", befehl
+
+
+def test_der_stapellauf_findet_das_dashboard(dienste):
+    """``pruefe_stand --betrieb server`` fragt das Dashboard nach seinem
+    Stand; Pipeline und Worker muessen es im Stapelnetz erreichen."""
+    for name in ("pipeline", "worker"):
+        umgebung = dienste[name]["environment"]
+        assert umgebung.get("SERVING_BETRIEB") == "server", name
+        assert umgebung.get("DASHBOARD_URL") == "http://dashboard:8050", name
+        assert "ELASTICSEARCH_URL" not in umgebung and "KIBANA_URL" not in umgebung, (
+            f"{name}: zeigt noch auf einen Dienst, den es hier nicht gibt")
+        assert set(dienste[name]["networks"]) & set(dienste["dashboard"]["networks"])
 
 
 # --------------------------------------------------------------------------
@@ -373,9 +414,9 @@ def webdienste(dienste: dict) -> dict:
 
 def test_es_gibt_mindestens_einen_webdienst(dienste):
     """Sonst prueft die Reihe darunter nichts, ohne rot zu werden."""
-    assert "kibana" in webdienste(dienste), (
-        "Kibana ist nicht als Webdienst beschriftet - es erbringt den "
-        "Nachweis von Option A und muss erreichbar sein"
+    assert "dashboard" in webdienste(dienste), (
+        "das Dashboard ist nicht als Webdienst beschriftet - es zeigt die "
+        "Daten und muss erreichbar sein"
     )
 
 
@@ -399,7 +440,7 @@ def test_jeder_webdienst_traegt_die_vollstaendigen_labels(dienste):
 
 
 def test_jeder_webdienst_traegt_die_x_forwarded_proto_middleware(dienste):
-    """*Ohne sie baut Kibana http://-Weiterleitungen hinter dem Edge-TLS.*
+    """*Ohne sie baut ein Dienst http://-Weiterleitungen hinter dem Edge-TLS.*
 
     Geprueft wird beides: dass die Middleware definiert ist **und** dass der
     Router sie benutzt. Eine definierte, aber nicht verwendete Middleware ist
@@ -437,7 +478,7 @@ def test_kein_webdienst_veroeffentlicht_einen_port(dienste):
 
 def test_der_geroutete_port_ist_der_container_port(dienste):
     """Punkt 3 der Serververeinbarung - und ein Fehler, der still 502 ergibt."""
-    erwartet = {"kibana": "5601", "jupyter": "8888", "start": "80", "admin": "8765"}
+    erwartet = {"dashboard": "8050", "jupyter": "8888", "start": "80", "admin": "8765"}
     for name, dienst in webdienste(dienste).items():
         port = dienst["labels"][
             f"traefik.http.services.urbancrime-{name}.loadbalancer.server.port"]
@@ -676,7 +717,7 @@ def test_duckdb_wird_von_innen_begrenzt_und_zwar_unterhalb_des_containers(dienst
     """
     from storage.duckdb import grenzen
 
-    for name in ("pipeline", "jupyter"):
+    for name in ("pipeline", "jupyter", "dashboard"):
         umgebung = dienste[name]["environment"]
         gesetzt = grenzen(umgebung)
         assert "memory_limit" in gesetzt, (
@@ -703,6 +744,11 @@ def test_duckdb_wird_von_innen_begrenzt_und_zwar_unterhalb_des_containers(dienst
         # *kann*; dieser Plan hat offenbar einen Operator, der es nicht kann.
         # Verlangt bleibt das Verzeichnis trotzdem: Ohne ist die Grenze
         # sicher eine Wand, mit ist sie es manchmal.
+        # Das Dashboard verdichtet einmal je Release und darf scheitern
+        # statt auszulagern: Es hat keinen Datentraeger, und eine Spitze
+        # ueber 256 MB ist dort ein Befund, kein Lauf, der verloren geht.
+        if name == "dashboard":
+            continue
         assert "temp_directory" in gesetzt, (
             f"{name}: DUCKDB_TEMP_DIRECTORY fehlt - die Speichergrenze ist "
             f"dann eine Wand statt einer Bremse")
@@ -801,45 +847,6 @@ def test_die_entwicklungsfassung_bleibt_lauffaehig():
         "die Entwicklungsfassung traegt andere Dienste als die drei "
         "Analysedienste - dann stimmt die Arbeitsteilung der beiden Dateien nicht"
     )
-
-
-def test_beide_fassungen_binden_dieselbe_elastic_version():
-    """Elasticsearch und Kibana muessen in beiden Fassungen gleich sein.
-
-    Die Zusage steht als Kommentar in ``docker-compose.srv01.yml``: *"Dieselbe
-    Fassung wie in der Entwicklungsfassung. Ein Index, der hier anders gebaut
-    wird als dort, waere kein Beleg mehr fuer das, was auf dem
-    Entwicklungsrechner geprueft wurde."* Gehalten hat sie niemand - #137 hob
-    am 7.10.2026 die Entwicklungsfassung auf 8.19.22 und liess die
-    Serverfassung auf 8.15.0 stehen. Aufgefallen ist es am 11.10.2026 an
-    ``docker compose ps`` auf srv01, nicht hier.
-
-    Das ist nicht nur Kosmetik: ``LOOKUP JOIN`` ist erst ab 8.19 allgemein
-    verfuegbar. Auf 8.15 braucht jede Verbundauswertung eine vorverbundene
-    Tabelle in ``serving/`` - der Unterschied entscheidet also, wie Welle 4
-    ueberhaupt gebaut werden kann.
-    """
-    def fassungen(text: str) -> dict[str, str]:
-        gelesen = lade(text)
-        return {
-            name: gelesen["services"][name]["image"]
-            for name in ("elasticsearch", "kibana")
-            if name in gelesen["services"]
-        }
-
-    hier = fassungen(SRV01.read_text(encoding="utf-8"))
-    dort = fassungen(ENTWICKLUNG.read_text(encoding="utf-8"))
-    gemeinsam = set(hier) & set(dort)
-    assert gemeinsam == {"elasticsearch", "kibana"}, (
-        f"nur {sorted(gemeinsam)} in beiden Fassungen - dann greift dieser "
-        "Test nicht mehr, was er greifen soll"
-    )
-    for name in sorted(gemeinsam):
-        assert hier[name] == dort[name], (
-            f"{name}: srv01 bindet {hier[name]!r}, die Entwicklungsfassung "
-            f"{dort[name]!r} - ein Index, der dort anders gebaut wird als "
-            "hier, belegt nichts mehr"
-        )
 
 
 # --------------------------------------------------------------------------

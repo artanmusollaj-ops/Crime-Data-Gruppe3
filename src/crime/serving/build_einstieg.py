@@ -122,7 +122,13 @@ def dienste(fassung: str = "lokal") -> tuple[tuple, ...]:
     vier fuehrte, und ``tests/test_einstieg.py`` hielt die Seite nur gegen
     ihren Generator - beide sagten dasselbe Falsche.
 
-    Fuenf Eintraege, und der letzte ist **keiner**: Die Admin-Konsole gibt es
+    **Seit dem 1.11.2026 nennen die beiden Fassungen verschiedene Dienste
+    (C-9).** Auf srv01 ersetzt das eigene Dashboard Elasticsearch und Kibana;
+    die Serverfassung fuehrt die beiden nicht mehr, weil ein Knopf auf einen
+    Dienst, den es dort nicht gibt, schlimmer ist als keiner. Lokal stehen
+    sie neben dem Dashboard.
+
+    Der letzte Eintrag ist **keiner**: Die Admin-Konsole gibt es
     nicht. Sie steht hier als benannter Platzhalter mit Ziel und ohne Verweis,
     weil ein Knopf auf einen Hostnamen ohne Route schlimmer ist als keiner -
     er sieht aus wie eine Auskunft. Vier Zugaenge gibt es also, und einen
@@ -141,18 +147,12 @@ def dienste(fassung: str = "lokal") -> tuple[tuple, ...]:
     server = fassung == "server"
     bretter = ZAHLWORT[len(BRETTER)].capitalize()
 
-    # Elasticsearch ist auf srv01 **nicht geroutet** (FR-11: kein Port, kein
-    # Traefik-Label, nicht im Netz proxy) - ein versehentliches Label daran
-    # waere ein offener Datenspeicher. Auf dem Server traegt die Karte deshalb
-    # keinen Knopf, sondern die stapelinterne Adresse: Ein Verweis auf
-    # localhost:19200 fuehrte dort in den Rechner des Lesenden.
-    es_adresse = (None if server
-                  else "http://localhost:19200/fact_offense/_search?pretty")
-    es_vermerk = (("nur im Stapelnetz", "http://elasticsearch:9200")
-                  if server else None)
-    es_weg = (" Von aussen führt der Weg über Kibanas Dev Tools "
-              "(<code>/app/dev_tools#/console</code>) — der Dienst selbst ist "
-              "nicht geroutet." if server else "")
+    # Elasticsearch gibt es nur noch lokal. Bis zum 1.11.2026 trug die
+    # Serverfassung hier statt eines Knopfes die stapelinterne Adresse
+    # (FR-11: dort nicht geroutet); seit C-9 laeuft es auf srv01 nicht mehr.
+    es_adresse = "http://localhost:19200/fact_offense/_search?pretty"
+    es_vermerk = None
+    es_weg = ""
 
     # Jupyter laeuft in **keiner** der beiden Fassungen von selbst: Die
     # Entwicklungsfassung kennt den Dienst gar nicht (docker-compose.yml
@@ -178,7 +178,20 @@ def dienste(fassung: str = "lokal") -> tuple[tuple, ...]:
         return (f"https://urbancrime-{dienst}.datenwerft.ch{pfad}" if server
                 else f"http://localhost:{port}{pfad}")
 
-    return (
+    dashboard_weg = (
+        " Auf diesem Server ersetzt es seit dem 1.11.2026 Elasticsearch und "
+        "Kibana." if server else
+        " <strong>Von Hand zu starten:</strong> <code>python -m "
+        "serving.dashboard</code> — es liest dieselbe Ablage wie die Strecke.")
+    dashboard = (
+        "Dashboard", web("dashboard", "/", 8050), "Die Bretter, ohne Kibana",
+        "Überblick, Zeitverlauf, Geografie, Deliktstruktur und Datenqualität "
+        "nach Artans Entwürfen — Raten je 1'000 Einwohner nach derselben "
+        "Regel wie Gold, Fälle vorn. Es liest das aktive Release und lädt ein "
+        "neues von selbst nach." + dashboard_weg,
+        None, None)
+
+    elastic = () if server else (
     ("Elasticsearch", es_adresse,
      "Das Sternschema, sechs Indizes",
      "Volltext über die Beschreibung, Umkreissuche über den Ort — und seit "
@@ -197,11 +210,16 @@ def dienste(fassung: str = "lokal") -> tuple[tuple, ...]:
      "je 1'000 Einwohner in der Kachel. Die "
      "Suchleiste oben durchsucht die Beschreibung der Quelle.",
      None, None),
+    )
+
+    return elastic + (dashboard,) + (
     ("DuckDB", "https://duckdb.org/docs/stable/clients/cli/overview",
      "SQL über den Stern, mit Joins",
-     "Für alles, was nicht auf einem Brett steht. Tat und Nenner verbindet "
-     "seit 8.19 auch Elasticsearch (ES|QL <code>LOOKUP JOIN</code>) — hier "
-     "liegt dafür der ganze Stern als SQL. Die Sichten liegen in "
+     "Für alles, was nicht auf einem Brett steht."
+     + ("" if server else
+        " Tat und Nenner verbindet seit 8.19 auch Elasticsearch (ES|QL "
+        "<code>LOOKUP JOIN</code>) — hier liegt dafür der ganze Stern als SQL.")
+     + " Die Sichten liegen in "
      "<code>data/serving/analyse.duckdb</code> und zeigen auf die "
      "Parquet-Dateien — keine Kopie, kein Dienst.",
      "SELECT reporting_city,\n       nibrs_family,\n       count(*) AS n\n"
@@ -521,13 +539,14 @@ def seite(kennung: str, manifest: dict, mass: dict,
     # mehr entsprach, und kein Waechter sah es.
     jetzt = [d for d in zugaenge if not ist_kuenftig(d)]
     lokale = sum(1 for d in zugaenge if d[1] and "localhost" in d[1])
+    geroutet = sum(1 for d in zugaenge if d[1] and "urbancrime-" in d[1])
     nachsatz = (
         f" Die {ZAHLWORT[lokale]} Verweise auf <code>localhost</code> tragen "
         "nur, solange das Gemeinte auf diesem Rechner läuft — je Karte steht "
         "dabei, was dafür zu starten ist." if lokale else
-        " Die beiden Verweise auf <code>urbancrime-*</code> liegen hinter "
-        "der Access-Anwendung; Elasticsearch ist bewusst nicht geroutet, und "
-        "DuckDB zeigt auf seine Dokumentation im Netz.")
+        f" Die {ZAHLWORT[geroutet]} Verweise auf <code>urbancrime-*</code> "
+        "liegen hinter der Access-Anwendung, und DuckDB zeigt auf seine "
+        "Dokumentation im Netz.")
     vorbehalt = ("".join(
         f" Die <strong>{html.escape(d[0])}</strong> gibt es noch nicht — ihr "
         f"Eintrag nennt den vorgesehenen Namen und verweist auf nichts."
@@ -547,7 +566,8 @@ def seite(kennung: str, manifest: dict, mass: dict,
     if fassung == "lokal":
         aufbauen = ("docker compose up -d\n"
                     "python -m serving.load_elasticsearch\n"
-                    "python -m serving.build_kibana")
+                    "python -m serving.build_kibana\n"
+                    "python -m serving.dashboard")
         pruefen = "python -m serving.pruefe_stand"
     else:
         aufbauen = ("docker compose -f docker-compose.srv01.yml up -d\n"

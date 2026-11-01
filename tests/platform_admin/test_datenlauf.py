@@ -66,6 +66,31 @@ def test_no_follow_up_after_a_failed_serving_step(store, monkeypatch):  # noqa: 
     assert "orchestration.sicherungssatz" not in modules(calls)
 
 
+def test_on_the_server_nothing_is_loaded_into_elastic(store, monkeypatch):  # noqa: F811
+    """srv01 has no Elasticsearch and no Kibana since 1.11.2026 (C-9).
+
+    The dashboard reads the store itself; the worker puts the release in
+    place, rebuilds the landing page and lets pruefe_stand ask the dashboard -
+    the same steps docker/srv01-datenlauf.sh takes, in the same order.
+    """
+    monkeypatch.setenv("SERVING_BETRIEB", "server")
+    active, calls = run(store, monkeypatch)
+    serving_export.publish(store, active)
+    order = modules(calls)
+    assert "serving.load_elasticsearch" not in order
+    assert "serving.build_kibana" not in order
+    assert order.index("serving.build_einstieg") < order.index("serving.pruefe_stand")
+    services = operations.overview(store)["services"]
+    assert services["analysis"]["status"] == "SUCCEEDED"
+    assert "elasticsearch" not in services and "kibana" not in services
+
+
+def test_locally_both_loaders_stay(store, monkeypatch):  # noqa: F811
+    active, calls = run(store, monkeypatch)
+    serving_export.publish(store, active)
+    assert modules(calls)[:2] == ["serving.load_elasticsearch", "serving.build_kibana"]
+
+
 # --------------------------------------------------------------------------
 # The run protocol and the metrics file - written after every tick that did
 # work, also when it failed (the cron run does it from a trap).

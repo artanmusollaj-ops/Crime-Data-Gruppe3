@@ -13,6 +13,7 @@ import csv
 import json
 import math
 import re
+import shutil
 from datetime import date, datetime, time
 from pathlib import Path
 
@@ -27,6 +28,7 @@ from serving.dashboard import KATEGORIE_DE, UEBRIGE, Bestand, EingabeFehler
 from serving.dashboard.app import _STATISCH, create_app
 
 PROJEKT = Path(__file__).resolve().parents[2]
+RELEASE = "2026-10-31T10-00-00Z"
 TRACT_C, TRACT_D, TRACT_AUSSEN = "17031010100", "26163500100", "17031999900"
 
 
@@ -99,7 +101,24 @@ def stern(root: Path, taten: list[tuple], *, kleine: bool = False) -> Path:
         "boundary_wkt": [quadrat(g[2], g[3]) for g in geo],
     })
     bc.build(root)
+    freigeben(root, RELEASE)
     return root
+
+
+def freigeben(root: Path, kennung: str) -> Path:
+    """Die Arbeitsschicht als Release ablegen und aktiv setzen.
+
+    Das Dashboard liest seit dem 1.11.2026 das aktive Release, nicht die
+    Arbeitsschicht; die Erwartungen der Tests rechnen weiter aus ``gold/``,
+    und weil das Release eine Kopie ist, sagen beide dasselbe.
+    """
+    ziel = root / "releases" / f"release={kennung}"
+    shutil.copytree(root / "gold", ziel / "gold", dirs_exist_ok=True)
+    shutil.copytree(root / "serving" / "dataset=comparison_month",
+                    ziel / "serving" / "dataset=comparison_month", dirs_exist_ok=True)
+    (root / "releases" / "AKTUELL.json").write_text(
+        json.dumps({"release_id": kennung}), encoding="utf-8")
+    return ziel
 
 
 def jahr(stadt: str, j: int, code: str, tract: str, monate=range(1, 13), je=1) -> list:
@@ -220,15 +239,32 @@ def test_jede_nibrs_kategorie_hat_einen_deutschen_namen():
     assert kategorien - set(KATEGORIE_DE) == set()
 
 
-def test_ein_neuer_stand_wird_nachgeladen(bestand, monkeypatch):
+def test_ein_neues_release_wird_nachgeladen(bestand, monkeypatch):
     import serving.dashboard as d
     monkeypatch.setattr(d, "PRUEFABSTAND_S", 0.0)
+    assert bestand.stand["release"] == RELEASE
     ziel = bestand.data_root / "serving" / "dataset=comparison_month" / "manifest.json"
     m = json.loads(ziel.read_text(encoding="utf-8"))
     m["built_at_utc"] = "2026-11-01T00:00:00+00:00"
     ziel.write_text(json.dumps(m), encoding="utf-8")
+    freigeben(bestand.data_root, "2026-11-01T06-00-00Z")
     bestand.aktuell()
-    assert bestand.stand["gebaut"] == "2026-11-01T00:00:00+00:00"
+    assert bestand.stand == {"gebaut": "2026-11-01T00:00:00+00:00",
+                             "release": "2026-11-01T06-00-00Z"}
+
+
+def test_gelesen_wird_das_release_nicht_die_arbeitsschicht(bestand, monkeypatch):
+    """Auf srv01 liegt ``serving/`` nicht im Eimer, und waehrend eines Laufs
+    traegt die Arbeitsschicht einen halben Stand. Eine geleerte Arbeitsschicht
+    aendert am Dashboard nichts; ein fehlender Zeiger ist ein klarer Fehler."""
+    shutil.rmtree(bestand.data_root / "gold")
+    shutil.rmtree(bestand.data_root / "serving")
+    neu = Bestand(bestand.data_root)
+    assert neu.ueberblick(neu.auswahl({"jahr": "2024", "stadt": "detroit"}))[
+        "kennzahlen"]["delikte"] == 24
+    (bestand.data_root / "releases" / "AKTUELL.json").unlink()
+    with pytest.raises(FileNotFoundError, match="AKTUELL.json"):
+        Bestand(bestand.data_root)
 
 
 # --------------------------------------------------------------------------
@@ -250,7 +286,7 @@ def test_ohne_daten_meldet_die_api_503_und_healthz_bleibt_gruen(tmp_path):
     client = create_app(tmp_path).test_client()
     assert client.get("/healthz").status_code == 200
     antwort = client.get("/api/optionen")
-    assert antwort.status_code == 503 and "nicht gebaut" in antwort.json["fehler"]
+    assert antwort.status_code == 503 and "AKTUELL.json" in antwort.json["fehler"]
 
 
 @pytest.mark.parametrize("pfad", ["/", "/zeitverlauf", "/geografie", "/deliktstruktur",
@@ -630,7 +666,8 @@ def test_die_schwellen_sind_die_des_gates(qualitaet, monkeypatch):
 def test_doppelte_delikt_ids_fallen_auf(qualitaet):
     a = qualitaet.auswahl({"jahr": "2025", "bis": "3"})
     assert qualitaet.datenqualitaet(a)["kennzahlen"]["doppelte_ids"] == 0
-    ziel = qualitaet.data_root / "gold" / "dataset=fact_offense" / "part-0001.parquet"
+    ziel = (qualitaet.data_root / "releases" / f"release={RELEASE}" / "gold"
+            / "dataset=fact_offense" / "part-0001.parquet")
     tabelle = pq.read_table(ziel)
     pq.write_table(pa.concat_tables([tabelle, tabelle.slice(0, 3)]), ziel)
     neu = Bestand(qualitaet.data_root)
@@ -650,7 +687,7 @@ def test_spaetere_monate_sind_nicht_erschienen_luecken_fehlen(qualitaet):
 def test_die_referenzdaten_nennen_vintage_und_umrisse(qualitaet):
     r = qualitaet.datenqualitaet(qualitaet.auswahl({"jahr": "2025", "bis": "3"}))["referenz"]
     assert r["acs_vintage"] == 2024 and r["tracts"] == {"chicago": 1, "detroit": 1}
-    assert r["release"] is None
+    assert r["release"] == RELEASE
 
 
 @pytest.mark.parametrize("brett", ["ueberblick", "zeitverlauf", "geografie", "deliktstruktur",

@@ -176,15 +176,15 @@
 
 <section>
   <h2>Wo man fragt</h2>
-  <p class="unter">Vier Zugänge, je nach
-  Frage. Die drei Verweise auf <code>localhost</code> tragen nur, solange das Gemeinte auf diesem Rechner läuft — je Karte steht dabei, was dafür zu starten ist. Die <strong>Admin-Konsole</strong> gibt es noch nicht — ihr Eintrag nennt den vorgesehenen Namen und verweist auf nichts.</p>
+  <p class="unter">Fünf Zugänge, je nach
+  Frage. Die vier Verweise auf <code>localhost</code> tragen nur, solange das Gemeinte auf diesem Rechner läuft — je Karte steht dabei, was dafür zu starten ist. Die <strong>Admin-Konsole</strong> gibt es noch nicht — ihr Eintrag nennt den vorgesehenen Namen und verweist auf nichts.</p>
   <div class="karten"><article class="karte"><p class="rolle">Das Sternschema, sechs Indizes</p><h3>Elasticsearch</h3><p>Volltext über die Beschreibung, Umkreissuche über den Ort — und seit dem 5.10.2026 auch Kalender, Wetter und die Einwohnerzahlen je Tract und Vintage. Ein Alias je Gold-Tabelle, jeder mit der Release-Kennung dahinter.</p><pre>GET /fact_offense/_search
 {&quot;query&quot;: {
   &quot;geo_distance&quot;: {
     &quot;distance&quot;: &quot;500m&quot;,
     &quot;standort&quot;: {
       &quot;lat&quot;: 41.8827,
-      &quot;lon&quot;: -87.6233}}}}</pre><a class="knopf" href="http://localhost:19200/fact_offense/_search?pretty">Elasticsearch öffnen</a></article><article class="karte"><p class="rolle">Die Dashboards</p><h3>Kibana</h3><p>Sieben Bretter, als Code gebaut — eines davon rechnet die Rate je 1'000 Einwohner in der Kachel. Die Suchleiste oben durchsucht die Beschreibung der Quelle.</p><a class="knopf" href="http://localhost:15601/app/dashboards">Kibana öffnen</a></article><article class="karte"><p class="rolle">SQL über den Stern, mit Joins</p><h3>DuckDB</h3><p>Für alles, was nicht auf einem Brett steht. Tat und Nenner verbindet seit 8.19 auch Elasticsearch (ES|QL <code>LOOKUP JOIN</code>) — hier liegt dafür der ganze Stern als SQL. Die Sichten liegen in <code>data/serving/analyse.duckdb</code> und zeigen auf die Parquet-Dateien — keine Kopie, kein Dienst.</p><pre>SELECT reporting_city,
+      &quot;lon&quot;: -87.6233}}}}</pre><a class="knopf" href="http://localhost:19200/fact_offense/_search?pretty">Elasticsearch öffnen</a></article><article class="karte"><p class="rolle">Die Dashboards</p><h3>Kibana</h3><p>Sieben Bretter, als Code gebaut — eines davon rechnet die Rate je 1'000 Einwohner in der Kachel. Die Suchleiste oben durchsucht die Beschreibung der Quelle.</p><a class="knopf" href="http://localhost:15601/app/dashboards">Kibana öffnen</a></article><article class="karte"><p class="rolle">Die Bretter, ohne Kibana</p><h3>Dashboard</h3><p>Überblick, Zeitverlauf, Geografie, Deliktstruktur und Datenqualität nach Artans Entwürfen — Raten je 1'000 Einwohner nach derselben Regel wie Gold, Fälle vorn. Es liest das aktive Release und lädt ein neues von selbst nach. <strong>Von Hand zu starten:</strong> <code>python -m serving.dashboard</code> — es liest dieselbe Ablage wie die Strecke.</p><a class="knopf" href="http://localhost:8050/">Dashboard öffnen</a></article><article class="karte"><p class="rolle">SQL über den Stern, mit Joins</p><h3>DuckDB</h3><p>Für alles, was nicht auf einem Brett steht. Tat und Nenner verbindet seit 8.19 auch Elasticsearch (ES|QL <code>LOOKUP JOIN</code>) — hier liegt dafür der ganze Stern als SQL. Die Sichten liegen in <code>data/serving/analyse.duckdb</code> und zeigen auf die Parquet-Dateien — keine Kopie, kein Dienst.</p><pre>SELECT reporting_city,
        nibrs_family,
        count(*) AS n
 FROM fact_offense
@@ -199,7 +199,8 @@ LIMIT 10</pre><a class="knopf" href="https://duckdb.org/docs/stable/clients/cli/
   Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.</p>
   <pre>docker compose up -d
 python -m serving.load_elasticsearch
-python -m serving.build_kibana</pre>
+python -m serving.build_kibana
+python -m serving.dashboard</pre>
   <p class="unter">Ob danach alle geladenen Orte denselben Stand zeigen, beantwortet
   ein Befehl. Diese Seite beantwortet es <em>nicht</em>: Sie ist eine Datei und
   weiss nichts davon, was gerade läuft — ein festgehaltenes „alles in Ordnung"

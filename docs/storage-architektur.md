@@ -1018,7 +1018,23 @@ entfernt. Daraus folgt beides — es braucht **kein dauerhaftes
 `data/`-Volume**, nur einen Arbeitsraum, und `httpfs` wird kritisch statt
 nützlich, weil Silver Bronze direkt von S3 liest.
 
-**Sie ist seit dem 8.10.2026 angewandt.** Auf `srv01` laufen Elasticsearch,
+**Seit dem 1.11.2026 ohne Elasticsearch und Kibana (C-9).** Kibana war für
+fünf Bretter zu schwer: Zusammen mit Elasticsearch belegte es 2'816 MiB im
+Dauerbetrieb, und daneben blieben von 4'325 MiB noch 37 frei. An ihre Stelle
+tritt das eigene Dashboard ([`serving.dashboard`](../src/crime/serving/dashboard/__init__.py),
+Flask und DuckDB) nach Artans Entwürfen. Es liest das **aktive Release**
+direkt aus dem Eimer — Gold und `comparison_month`, nicht die Arbeitsschicht,
+denn `serving/` liegt im Eimer nur im Release —, lädt ein neues Release
+höchstens eine Minute später von selbst nach und braucht weder Lader noch Index noch gespeicherte Objekte.
+Entschieden ist **nur der Server**: Lokal bleiben Elasticsearch und Kibana in
+`docker-compose.yml`, `load_elasticsearch` und `build_kibana` bleiben
+aufrufbar. Die beiden Datenträger stehen auf `srv01` als Rückweg weiter, bis
+niemand sie mehr braucht. **Beschrieben, noch nicht eingesetzt:** Bis der
+Wechsel auf `srv01` vollzogen und dort nachgemessen ist, laufen dort beide
+weiter. Was unten über Elasticsearch und Kibana auf `srv01` steht, ist der
+Stand bis zu diesem Tag.
+
+**Sie ist seit dem 8.10.2026 angewandt.** Auf `srv01` liefen Elasticsearch,
 Kibana und Jupyter nach dieser Beschreibung; am 11.10.2026 waren alle drei
 `healthy`, beide Abbilder per Digest gepinnt, und die Digests in der `.env`
 des Stapels sind zeichengleich mit den hier gebauten. Drei der vier Posten
@@ -1052,26 +1068,28 @@ die beides sein will, ist in einem der beiden Fälle falsch. Die
 Entwicklungsfassung bleibt deshalb unangetastet; ein Test hält fest, dass sie
 weiter an `127.0.0.1` bindet und kein Traefik-Label trägt.
 
-### Die sieben Dienste
+### Die sechs Dienste
 
 | Dienst | Was er ist | Wie er erreichbar ist |
 | --- | --- | --- |
-| `elasticsearch` | Dauerbetrieb, **kein** Webdienst | nur im Stapelnetz — kein Port, kein Traefik-Label, nicht im Netz `proxy` |
-| `kibana` | Dauerbetrieb, gerouteter Webdienst | `urbancrime-kibana.datenwerft.ch` über Traefik |
+| `dashboard` | Dauerbetrieb, gerouteter Webdienst, liest den Eimer (seit 1.11.2026, statt `elasticsearch` und `kibana`) | `urbancrime-dashboard.datenwerft.ch` über Traefik |
 | `start` | Dauerbetrieb, liefert die Einstiegsseite aus (seit 12.10.2026, FR-31) | `urbancrime-start.datenwerft.ch` über Traefik |
 | `pipeline` | **Stapellauf**, läuft einmal durch und endet | gar nicht — kein Port, kein Label, kein `unless-stopped` |
 | `jupyter` | zeitweilig, **lesende** Analyse | `urbancrime-jupyter.datenwerft.ch` über Traefik |
 | `admin` | Dauerbetrieb, Webdienst der Engineering-Konsole (seit 30.10.2026) | `urbancrime-admin.datenwerft.ch` über Traefik |
 | `worker` | **Stapellauf** der Konsole, ein Auftrag je Fünf-Minuten-Takt | gar nicht — kein Port, kein Label, `restart: "no"` |
 
-Dass Elasticsearch `proxy` nicht beitritt, ist keine Vorsicht, sondern die
-Vorgabe des Servers: Ein versehentliches Traefik-Label daran wäre ein offener
-Datenspeicher. Geroutet sind Kibana, Jupyter und die Einstiegsseite — nicht
-der Datenspeicher darunter.
+Bis zum 1.11.2026 stand Elasticsearch in dieser Tabelle, und dass es `proxy`
+nicht beitrat, war keine Vorsicht, sondern die Vorgabe des Servers: Ein
+versehentliches Traefik-Label daran wäre ein offener Datenspeicher. Das
+Dashboard hat keinen Datenspeicher, den man finden könnte — es liest den
+Eimer mit denselben Schlüsseln wie die Konsole und schreibt nichts, hängt
+also auch keinen Datenträger ein.
 
-Pipeline und Jupyter tragen ein Compose-**Profil** und starten deshalb nicht
-mit `up -d`. Das ist nicht Kosmetik: Die Rechnung unten geht nur auf, solange
-der Dauerbetrieb aus Elasticsearch, Kibana und dem kleinen `start` besteht.
+Pipeline, Worker und Jupyter tragen ein Compose-**Profil** und starten deshalb
+nicht mit `up -d`. Das ist nicht Kosmetik: Die Rechnung unten geht nur auf,
+solange der Dauerbetrieb aus Dashboard, Konsole und dem kleinen `start`
+besteht.
 
 ### Die Speichergrenzen — gemessen, nicht geschätzt
 
@@ -1082,8 +1100,9 @@ bereits belegt. Die vorher veranschlagten 5'632 MiB lagen damit **1'307 MiB
 
 | Dienst | Grenze | Woher die Zahl kommt |
 | --- | ---: | --- |
-| `elasticsearch` | 1'792 MiB | 1,75 GiB; der Heap nutzte gemessen **195 von 1'024 MiB** und steht deshalb auf 768 MiB |
-| `kibana` | 1'024 MiB | gemessen belegt **771 MiB**, plus Luft |
+| `dashboard` | 640 MiB | am 1.11.2026 **lokal** unter gunicorn gemessen: Spitze **476 MiB** beim Verdichten der 1,85 Mio. Taten, **412 MiB** mit DuckDB auf 256 MB und zwei Threads; danach hält DuckDB 70–90 MB. Auf `srv01` nachzumessen |
+| ~~`elasticsearch`~~ | ~~1'792 MiB~~ | bis zum 1.11.2026; der Heap nutzte gemessen **195 von 1'024 MiB** |
+| ~~`kibana`~~ | ~~1'024 MiB~~ | bis zum 1.11.2026; gemessen belegt **771 MiB** |
 | `start` | 32 MiB | das obere Ende der Spanne, die ein nginx mit einer statischen Datei belegt (16–32); **nicht** gemessen — gemessen ist der Platz, in den es passt |
 | `pipeline` | 1'280 MiB | 1,25 GiB, zeitweilig |
 | `jupyter` | 768 MiB | zeitweilig; passt nur, wenn cadvisor gedeckelt wird |
@@ -1116,6 +1135,12 @@ dieselbe Sperre wie der Datenlauf, aber ohne zu warten. Dauernd ist nur
 `admin`: 2'848 + 160 = 3'008 MiB, mit dem grösseren Zeitweiligen
 **4'288 von 4'325 MiB** — 37 MiB frei, ohne die 792 aus cadvisor.
 
+**Am 1.11.2026 fallen zwei und kommt einer.** Elasticsearch und Kibana
+weichen dem Dashboard: 640 + 160 + 32 = **832 MiB** dauernd, mit dem
+grösseren Zeitweiligen **2'112 von 4'325 MiB** — rund 2,2 GiB frei statt 37.
+Der Test heisst weiter `test_der_dauerbetrieb_ist_entschieden` und nennt
+jetzt `admin`, `dashboard` und `start`.
+
 **Die eine Voraussetzung, die nicht in dieser Datei steht:** cadvisor muss auf
 **256 MiB** gedeckelt werden. Es belegt heute 1'047 MiB — 29 % des gesamten
 Containerspeichers und mehr als jeder andere Dienst. Ohne diese Deckelung
@@ -1129,12 +1154,13 @@ Arbeitsspeichers der **Maschine**, nicht des Containers; das wären hier
 setzen `memory_limit` und `threads` deshalb über die Umgebung — dieselben zwei
 Variablen, die `src/crime/storage/duckdb.py` auf **jeder** Verbindung setzt und
 die `.env.example` erklärt: 896 MB bei 1'280 MiB Container, 512 MB bei
-768 MiB, zwei Threads von vier vCPU. Ein Test hält fest, dass die innere
+768 MiB, 256 MB beim Dashboard mit 640 MiB, zwei Threads von vier vCPU. Ein Test hält fest, dass die innere
 Grenze unter der äusseren liegt.
 
-Nur Elasticsearch verbietet sich das Auslagern (`memswap_limit` gleich der
-Grenze): Ein Heap auf der Platte erzeugt Cluster-Zeitüberschreitungen statt
-Langsamkeit. Pipeline und Jupyter bekommen die Zeile bewusst nicht — dort ist
+Bis zum 1.11.2026 verbot sich nur Elasticsearch das Auslagern
+(`memswap_limit` gleich der Grenze): Ein Heap auf der Platte erzeugt
+Cluster-Zeitüberschreitungen statt Langsamkeit. Pipeline und Jupyter bekommen
+die Zeile bewusst nicht — dort ist
 Swap der Rettungsanker eines einmaligen Laufs, und ein langsamer Wochenlauf
 ist besser als ein getöteter.
 
@@ -1151,6 +1177,10 @@ der Access-Anwendung etwas zu ändern war. Das Muster `urbancrime-*` hat sie
 mitgedeckt, genau wie FR-22 es verspricht. Erreichbar heisst das trotzdem
 nicht, dass dort etwas antwortet — was gemessen wurde, liegt vollständig
 **vor** dem Ursprung.
+
+**Seit dem 1.11.2026 fällig: die Route für `urbancrime-dashboard`**, auf
+dieselbe Weise und unter dieselbe Access-Anwendung. Die Route für
+`urbancrime-kibana` kann danach entfallen; hinter ihr antwortet nichts mehr.
 
 **Die Tunnel-Route je Hostname** — angelegt am 9.10.2026, je Hostname eine
 veröffentlichte Anwendung auf dem bestehenden Tunnel, und zwar so:
@@ -1194,11 +1224,13 @@ durchliesse. Was die Messung **nicht** belegt, steht in
 vor dem Ursprung, also sagt eine 302 nichts darüber, ob Traefik, Kibana oder
 Jupyter antworten.
 
-**Einzurichten bleibt der Elasticsearch-Datenträger in `config/srv01.yaml`**,
-damit Restic ihn sichert — dasselbe für Kibanas. Ein neu gebauter Index ist in
-Minuten wiederhergestellt; Kibanas gespeicherte Objekte sind es nur, solange der
-Verschlüsselungsschlüssel derselbe bleibt. Der Arbeitsraum der Strecke gehört
-ausdrücklich **nicht** dazu: Was Restic sichern muss, ist der Bucket.
+**Der Elasticsearch-Datenträger in `config/srv01.yaml` ist entfallen.** Er
+stand hier als offen, bis der Abschnitt „Gesichert wird, was sich nicht
+nachrechnen lässt" ihn am 18.10.2026 aus der Sicherung nahm; seit dem
+1.11.2026 gibt es auf `srv01` auch den Dienst nicht mehr. Das Dashboard hat
+nichts zu sichern: Es hält keinen Zustand, nur eine Verdichtung des Eimers.
+Der Arbeitsraum der Strecke gehört ausdrücklich **nicht** dazu: Was Restic
+sichern muss, ist der Bucket.
 
 **Die Abbilder in einer Registry.** `srv01` verbietet den Bau auf dem Host —
 *„large frontend builds have previously exhausted RAM"* —, und das
@@ -1254,10 +1286,10 @@ sperrt [`storage.verwaltet`](../src/crime/storage/verwaltet.py) `run_all` und
 | montags 04:30, Delta/Voll/Delta/Delta/frei | [`docker/srv01-konsole-datenlauf.sh`](../docker/srv01-konsole-datenlauf.sh) reiht montags einen Batch ein, mit **derselben** Funktion `mode_for_day` |
 | Vorprüfung, Quellen laden | Batch (`orchestration.vorpruefung`, Ingestion-Stufen über `run_all.auswahl`) |
 | Silver, Gold, Release | Kandidat, **freigegeben vom Qualitätstor** — geplante Quellenläufe ohne Person, Mapping- und Einstellungsänderungen weiter mit vier Augen |
-| Elasticsearch, Kibana, Startseite, `pruefe_stand` | Serving nach der Freigabe |
+| Startseite, `pruefe_stand` (seit 1.11.2026 ohne Elasticsearch und Kibana) | Serving nach der Freigabe; `SERVING_BETRIEB=server` lässt die beiden Lader aus |
 | Drift, Sicherungssatz | danach; beide fällen den Lauf nicht, wie im Cron (`\|\| echo WARNUNG`) |
 | `pipeline_run.json` und Betriebsstand, auch nach einem Fehler | nach jedem Takt, der etwas ausgeführt hat — im Format von `run_all` |
-| `compose up -d --wait elasticsearch kibana start` | **nicht** — im Container gibt es kein Docker; die Dienste laufen `unless-stopped` |
+| `compose up -d --wait dashboard` und `start` | **nicht** — im Container gibt es kein Docker; die Dienste laufen `unless-stopped` |
 
 Ein Wächter hält die Liste: Jedes Modul, das `srv01-datenlauf.sh` aufruft,
 muss im Worker vorkommen oder mit Grund ausgenommen sein. Umgestellt wird mit
@@ -1501,8 +1533,10 @@ python -m serving.build_einstieg --adressen server \
 der ausgelieferten Seite Verweise auf `localhost:15601` — richtig auf dem
 Entwicklungsrechner und auf dem Server ein Knopf, der im Rechner des Lesenden
 landet. Mit ihr stehen dort `urbancrime-<dienst>.datenwerft.ch`, und zwar nur
-für das, was wirklich geroutet ist: **Elasticsearch bekommt keinen Knopf**,
-weil es nach FR-11 nicht geroutet ist. Der Erzeuger liegt deshalb seit
+für das, was wirklich geroutet ist. Elasticsearch bekam dort nie einen Knopf,
+weil es nach FR-11 nicht geroutet war; seit dem 1.11.2026 fehlen
+Elasticsearch und Kibana auf der Serverseite ganz, und das Dashboard steht an
+ihrer Stelle. Der Erzeuger liegt deshalb seit
 demselben Tag unter `src/crime/serving/build_einstieg.py` und nicht mehr unter
 `tools/`: `.dockerignore` hält `tools/` aus dem Baukontext, im Abbild gab es
 ihn also nicht.

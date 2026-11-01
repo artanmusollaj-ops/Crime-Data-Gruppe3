@@ -74,17 +74,23 @@ def test_das_skript_prueft_den_veroeffentlichten_stand_am_ende():
     irgendwo: Die Seite wird aus dem **eingesetzten** Release gebaut, also
     nach ``holen``, und vor ``pruefe_stand``, damit ein rotes Ergebnis den
     Lauf abbricht, nachdem alles Erzeugte da ist (FR-31).
+
+    Seit dem 1.11.2026 (C-9) ohne ``load_elasticsearch`` und
+    ``build_kibana``: Auf srv01 steht das Dashboard an ihrer Stelle, und das
+    liest den Eimer selbst. Es muss laufen, bevor ``pruefe_stand`` es fragt.
     """
     text = SCRIPT.read_text(encoding="utf-8")
     schritte = (
+        "compose up -d --wait dashboard",
         "orchestration.release holen aktuell --einsetzen",
-        "serving.load_elasticsearch",
-        "serving.build_kibana",
         "serving.build_einstieg",
         "serving.pruefe_stand",
     )
     positionen = [text.index(schritt) for schritt in schritte]
     assert positionen == sorted(positionen)
+    for weg in ("serving.load_elasticsearch", "serving.build_kibana",
+                "elasticsearch kibana"):
+        assert weg not in text, f"der Serverlauf ruft noch {weg!r}"
 
 
 def test_die_startseite_wird_mit_den_serveradressen_gebaut():
@@ -125,8 +131,8 @@ def test_der_datentraeger_wird_vor_dem_schreiben_geleert():
 
 
 # --------------------------------------------------------------------------
-# Das Skript ruft elf Module auf, sieben davon mit Flaggen - beide muessen
-# es geben
+# Das Skript ruft Module auf, die meisten mit Flaggen - beide muessen es
+# geben
 # --------------------------------------------------------------------------
 
 #: Jeder ``python -m <modul> ... --flagge``-Aufruf im Skript, aus dem Text
@@ -177,9 +183,11 @@ def test_jedes_aufgerufene_modul_gibt_es(skript_aufrufe):
 
     Das ist dieselbe Falle, die ``AGENTS.md`` fuer die Notebooks nennt: Was
     nur woechentlich und unbeaufsichtigt laeuft, faellt erst auf, wenn es
-    schon nicht mehr geht. Elf Modulpfade stehen in diesem Skript - seit dem
-    12.10.2026 einer mehr, ``serving.build_einstieg`` -, und ohne diesen Test
-    haelt sie nichts.
+    schon nicht mehr geht. Die Modulpfade stehen nur in diesem Skript - seit
+    dem 12.10.2026 mit ``serving.build_einstieg``, seit dem 1.11.2026 ohne
+    die beiden Elastic-Schritte -, und ohne diesen Test haelt sie nichts.
+    Gezaehlt wird hier bewusst nicht: Hier stand "elf", als es fuenfzehn
+    waren.
     """
     for modul in sorted(skript_aufrufe):
         hilfe(modul)

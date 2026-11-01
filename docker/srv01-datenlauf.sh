@@ -103,16 +103,19 @@ case "${mode}" in
 esac
 
 # Serving is part of a successful publication. Ensure the long-running
-# services exist and are healthy even after a host reboot or manual stop.
+# service exists and is healthy even after a host reboot or manual stop.
 # The landing page service (start) is deliberately not in this list: its
 # health check fetches the page itself, and the page is written further down.
-compose up -d --wait elasticsearch kibana
+#
+# Since 1.11.2026 (C-9) this is the dashboard and no longer Elasticsearch and
+# Kibana. It reads the store itself and reloads within a minute of a new
+# release; there is nothing to load into it. pruefe_stand below asks it
+# which release it shows.
+compose up -d --wait dashboard
 
 # In s3 mode SeaweedFS is authoritative. Restore and verify the just-published
-# release before switching the serving layers to it.
+# release: the landing page and the Gold check below read it locally.
 pipeline python -m orchestration.release holen aktuell --einsetzen
-pipeline python -m serving.load_elasticsearch
-pipeline python -m serving.build_kibana
 
 # FR-31: the landing page is generated from the release that was just put in
 # place, not from the checkout, and with the server addresses

@@ -462,3 +462,78 @@ def test_rate_tract_wird_unter_serving_gesucht_nicht_unter_gold(tmp_path):
         f"{befund.satz if hasattr(befund, 'satz') else befund} - eine "
         f"vorhandene Tabelle wurde als fehlend gemeldet, weil sie unter "
         f"serving/ liegt und nicht unter gold/")
+
+
+# --------------------------------------------------------------------------
+# Der Serverbetrieb: Gold und das Dashboard (1.11.2026, C-9)
+# --------------------------------------------------------------------------
+
+
+class FalschesDashboard:
+    """Zeigt nacheinander die mitgegebenen Releases, das letzte bleibt."""
+
+    def __init__(self, *releases: str | None, kaputt: bool = False):
+        self.releases = list(releases) or [RELEASE]
+        self.kaputt = kaputt
+        self.fragen = 0
+
+    def stand(self) -> dict:
+        self.fragen += 1
+        if self.kaputt:
+            raise OSError("Verbindung abgelehnt")
+        return {"release": self.releases[min(self.fragen, len(self.releases)) - 1]}
+
+
+def test_ein_dashboard_auf_dem_stand_ist_gruen():
+    befund = ps.pruefe_dashboard(FalschesDashboard(), RELEASE, warte=lambda _s: None)
+    assert befund.gut and befund.ort == "Dashboard"
+
+
+def test_ein_dashboard_das_noch_nachlaedt_ist_kein_befund():
+    """Direkt nach dem Publizieren zeigt es eine Weile das alte Release."""
+    gewartet = []
+    dashboard = FalschesDashboard("2026-01-01T00-00-00Z", "2026-01-01T00-00-00Z", RELEASE)
+    befund = ps.pruefe_dashboard(dashboard, RELEASE, warte=gewartet.append)
+    assert befund.gut and dashboard.fragen == 3 and len(gewartet) == 2
+
+
+def test_ein_dashboard_das_beim_alten_bleibt_faellt_auf():
+    gewartet = []
+    befund = ps.pruefe_dashboard(FalschesDashboard("2026-01-01T00-00-00Z"), RELEASE,
+                                 versuche=3, warte=gewartet.append)
+    assert befund.urteil == ps.Urteil.ANDERS and "2026-01-01" in befund.stand
+    assert "restart dashboard" in befund.abhilfe
+    assert len(gewartet) == 2, "nach dem letzten Versuch wird nicht mehr gewartet"
+
+
+def test_ein_dashboard_ohne_antwort_ist_nicht_gut():
+    befund = ps.pruefe_dashboard(FalschesDashboard(kaputt=True), RELEASE,
+                                 warte=lambda _s: None)
+    assert befund.urteil == ps.Urteil.FEHLT and "up -d dashboard" in befund.abhilfe
+
+
+def test_auf_dem_server_gibt_es_nur_gold_und_das_dashboard(tmp_path):
+    """Kein Befund ueber Elasticsearch, Kibana oder ClickHouse: Auf srv01
+    gibt es sie nicht, und eine Auskunft ueber sie ginge ins Leere. Auch
+    ``datenbereich`` wird nicht gelesen - er dient nur Kibana."""
+    wurzel, _ = lege_gold_an(tmp_path)
+    zeiger = wurzel / "releases" / "AKTUELL.json"
+    zeiger.write_text(f'{{"release_id": "{RELEASE}"}}', encoding="utf-8")
+    kennung, befunde = ps.pruefe_alles(wurzel, betrieb="server",
+                                       dashboard_klient=FalschesDashboard())
+    assert kennung == RELEASE
+    assert [b.ort for b in befunde] == ["Gold (Arbeitsschicht)", "Dashboard"]
+    assert all(b.gut for b in befunde)
+
+
+def test_der_betrieb_kommt_aus_der_umgebung_und_wird_nicht_geraten(monkeypatch):
+    assert ps.kommandozeile().parse_args([]).betrieb == "lokal"
+    monkeypatch.setenv("SERVING_BETRIEB", "server")
+    monkeypatch.setenv("DASHBOARD_URL", "http://dashboard:8050")
+    args = ps.kommandozeile().parse_args([])
+    assert (args.betrieb, args.dashboard) == ("server", "http://dashboard:8050")
+    monkeypatch.setenv("SERVING_BETRIEB", "srv01")
+    with pytest.raises(ValueError):
+        ps.kommandozeile()
+    with pytest.raises(ValueError):
+        ps.pruefe_alles(Path("."), betrieb="srv01")

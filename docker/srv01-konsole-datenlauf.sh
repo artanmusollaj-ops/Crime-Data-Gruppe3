@@ -6,8 +6,8 @@
 # und release fuer alles ausser dem Konsolen-Worker, und der alte Lauf
 # scheiterte. Dieses Skript laedt und baut nichts selbst. Es reiht einen
 # Batch ein; die Takte des Workers laden die Quellen, bauen den Kandidaten,
-# lassen ihn vom Qualitaetstor freigeben, laden Elasticsearch und Kibana,
-# messen die Drift, holen den Sicherungssatz und schreiben den Betriebsstand.
+# lassen ihn vom Qualitaetstor freigeben, setzen ihn ein, fragen das
+# Dashboard nach seinem Stand, messen die Drift, holen den Sicherungssatz und schreiben den Betriebsstand.
 #
 # **Der Rhythmus ist derselbe, aus derselben Funktion.** Erster Montag
 # Delta, zweiter Voll, dritter und vierter Delta, fuenfter frei - der

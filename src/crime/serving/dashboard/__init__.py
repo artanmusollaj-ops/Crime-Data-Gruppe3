@@ -30,6 +30,14 @@ Jahresgrenzen gaebe es zwei - siehe ``gold_pipeline.RATENJAHR``.
 1,85 Mio. Zeilen; das Dashboard verdichtet sie beim Start auf Stadt x Monat x
 Kategorie (rund 3'500 Zeilen) und beantwortet jede Anfrage daraus. Aendert
 sich der Datenstand, laedt es nach (``Bestand.aktuell``).
+
+**Gelesen wird das aktive Release, nicht die Arbeitsschicht** (seit dem
+1.11.2026). ``releases/AKTUELL.json`` sagt, was gilt - derselbe Massstab wie
+bei ``load_elasticsearch`` und ``pruefe_stand``. Der Anlass war ``srv01``: Im
+Modus ``s3`` liegt ``serving/`` gar nicht im Eimer, nur im Release, und die
+Arbeitsschicht traegt waehrend eines Laufs ohnehin einen halben Stand. Ein
+Release ist unveraenderlich; nachgeladen wird also genau dann, wenn
+``AKTUELL.json`` auf ein anderes zeigt.
 """
 
 from __future__ import annotations
@@ -154,21 +162,26 @@ class Auswahl:
         return self
 
 
-def _quelle(ablage, schicht: str, tabelle: str) -> tuple[str, str]:
-    """Lesepfad und Manifesttext einer Tabelle - lokal oder S3."""
-    rel = f"{schicht}/dataset={tabelle}"
+def _quelle(ablage, release: str, schicht: str, tabelle: str) -> tuple[str, str]:
+    """Lesepfad und Manifesttext einer Tabelle im Release - lokal oder S3."""
+    rel = f"{release}/{schicht}/dataset={tabelle}"
     if not ablage.exists(rel, "manifest.json"):
-        raise FileNotFoundError(
-            f"{schicht}/{tabelle} ist nicht gebaut - zuerst "
-            + ("python -m serving.build_comparison" if schicht == "serving"
-               else "python -m gold_pipeline.build_gold"))
+        raise FileNotFoundError(f"{rel} fehlt - das Release ist unvollstaendig")
     return ablage.resolve_read_path(rel, PARQUET_FILE), ablage.read_text(rel, "manifest.json")
 
 
-def _release(ablage) -> str | None:
+def _aktuell_text(ablage) -> str:
+    """``releases/AKTUELL.json`` als Text, leer ohne Release."""
     try:
-        return json.loads(ablage.read_text("releases", "AKTUELL.json")).get("release_id")
+        return ablage.read_text("releases", "AKTUELL.json")
     except (OSError, ValueError, FileNotFoundError):
+        return ""
+
+
+def _release(text: str) -> str | None:
+    try:
+        return json.loads(text).get("release_id")
+    except ValueError:
         return None
 
 
@@ -186,17 +199,23 @@ class Bestand:
     # -- Laden -------------------------------------------------------------
 
     def _abdruck(self) -> str:
-        ablage = for_root(self.data_root)
-        return "|".join(_quelle(ablage, s, t)[1] for s, t in
-                        (("serving", "comparison_month"), ("gold", "fact_offense")))
+        # Ein Release aendert sich nicht; ein neuer Stand ist ein neuer Zeiger.
+        return _aktuell_text(for_root(self.data_root))
 
     def _lade(self) -> None:
         ablage = for_root(self.data_root)
-        monat, monat_manifest = _quelle(ablage, "serving", "comparison_month")
-        fakten, fakten_manifest = _quelle(ablage, "gold", "fact_offense")
-        delikte, _ = _quelle(ablage, "gold", "dim_offense")
-        tracts, _ = _quelle(ablage, "gold", "dim_tract")
-        acs, _ = _quelle(ablage, "gold", "dim_tract_acs")
+        aktuell = _aktuell_text(ablage)
+        kennung = _release(aktuell)
+        if not kennung:
+            raise FileNotFoundError(
+                "Kein aktives Release (releases/AKTUELL.json) - zuerst "
+                "python -m orchestration.release")
+        release = f"releases/release={kennung}"
+        monat, monat_manifest = _quelle(ablage, release, "serving", "comparison_month")
+        fakten, _ = _quelle(ablage, release, "gold", "fact_offense")
+        delikte, _ = _quelle(ablage, release, "gold", "dim_offense")
+        tracts, _ = _quelle(ablage, release, "gold", "dim_tract")
+        acs, _ = _quelle(ablage, release, "gold", "dim_tract_acs")
         con = storage_duckdb.connect(ablage.config)
         # Spalten ausgeschrieben: Ein SELECT * nimmt die Hive-Spalte aus dem
         # Pfad mit (AGENTS.md, »Known pitfalls«).
@@ -255,7 +274,7 @@ class Bestand:
         # Fuer »Geografie«: Faelle je Tract und Monat nach der Regel von
         # gold_pipeline.raten_je_tract, dazu Einwohner und Umrisse der Tracts
         # und je Stadt, wie viele Faelle keinen Ort in der Stadt haben.
-        geo, _ = _quelle(ablage, "gold", "dim_tract_geo")
+        geo, _ = _quelle(ablage, release, "gold", "dim_tract_geo")
         con.execute(f"""
             CREATE TABLE tract_monat AS
             SELECT f.reporting_city AS stadt, f.tract_geoid AS geoid,
@@ -330,10 +349,10 @@ class Bestand:
         with self._sperre:
             alt = getattr(self, "_con", None)
             self._con = con
-            self._abdruck_jetzt = monat_manifest + "|" + fakten_manifest
+            self._abdruck_jetzt = aktuell
             self.stand = {
                 "gebaut": stand.get("built_at_utc"),
-                "release": _release(ablage),
+                "release": kennung,
             }
             self.karten = karten
             self.beispiele = beispiele

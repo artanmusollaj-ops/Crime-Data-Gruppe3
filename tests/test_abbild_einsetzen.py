@@ -126,3 +126,24 @@ def test_es_startet_die_pipeline_nicht_neu():
     text = SKRIPT.read_text(encoding="utf-8")
     anfang = text.index("NEUSTART_DIENSTE=")
     assert "pipeline" not in text[anfang:text.index("\n", anfang)]
+
+
+def test_jeder_dauerdienst_auf_dem_strecken_abbild_startet_neu():
+    """Sonst laeuft er nach dem Einsetzen auf dem alten Abbild weiter.
+
+    Bis zum 1.11.2026 stand hier nur ``jupyter``; die Konsole (``admin``)
+    blieb auf dem alten Abbild, bis jemand ``up -d admin`` tippte. Gelesen
+    wird aus der Compose-Datei: jeder Dienst ohne Profil, dessen Abbild
+    ``PIPELINE_IMAGE`` ist.
+    """
+    import yaml
+
+    beschreibung = yaml.safe_load(
+        (SKRIPT.parents[1] / "docker-compose.srv01.yml").read_text(encoding="utf-8"))
+    dauernd = {name for name, d in beschreibung["services"].items()
+               if "PIPELINE_IMAGE" in d.get("image", "") and not d.get("profiles")}
+    text = SKRIPT.read_text(encoding="utf-8")
+    anfang = text.index("NEUSTART_DIENSTE=")
+    zeile = text[anfang:text.index("\n", anfang)]
+    fehlend = sorted(n for n in dauernd if f'"{n}"' not in zeile)
+    assert dauernd and not fehlend, f"startet nach dem Einsetzen nicht neu: {fehlend}"
