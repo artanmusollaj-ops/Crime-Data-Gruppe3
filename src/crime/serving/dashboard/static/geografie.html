@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Geografie · Urban Crime · Analytics</title>
+<link rel="icon" href="/static/favicon.svg">
+<link rel="stylesheet" href="/static/dashboard.css">
+<script type="module" src="/static/geografie.js"></script>
+</head>
+<body>
+<header class="kopf">
+  <div class="marke">
+    <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="10" width="4" height="11" rx="1"/><rect x="10" y="4" width="4" height="17" rx="1"/><rect x="17" y="13" width="4" height="8" rx="1"/></svg>
+    <span class="produkt">Urban Crime</span><span class="punkt">·</span><span class="bereich">Analytics</span>
+  </div>
+  <div class="stand" id="stand">Stand wird geladen …</div>
+</header>
+
+<nav class="reiter" aria-label="Bretter">
+  <a href="/">Überblick</a>
+  <a href="/zeitverlauf">Zeitverlauf</a>
+  <a class="aktiv" href="/geografie" aria-current="page">Geografie</a>
+  <span class="folgt" title="folgt">Deliktstruktur</span>
+  <span class="folgt" title="folgt">Datenqualität</span>
+</nav>
+
+<form class="leiste" id="leiste">
+  <label>Stadt <select name="stadt" id="stadt"></select></label>
+  <label>Zeitraum
+    <select name="von" id="von" aria-label="von Monat"></select>
+    <span class="bis">–</span>
+    <select name="bis" id="bis" aria-label="bis Monat"></select>
+    <select name="jahr" id="jahr" aria-label="Jahr"></select>
+  </label>
+  <label>Kategorie <select name="kategorie" id="kategorie"></select></label>
+</form>
+
+<main class="brett">
+  <div class="brettkopf">
+    <div>
+      <h1>Räumliche Verteilung</h1>
+      <p class="einleitung" id="u-geografie">Fälle je 1'000 Einwohner je Census Tract</p>
+    </div>
+  </div>
+  <p class="fehler" id="fehler" hidden></p>
+
+  <section class="raster" id="karten"></section>
+
+  <section class="tafel kartenlegende">
+    <b id="t-legende">Fälle je 1'000 Einwohner</b>
+    <div id="d-legende" class="klassen"></div>
+    <span class="schraffur-legende"><svg viewBox="0 0 34 22" aria-hidden="true"><defs><pattern id="legende-schraffur" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#f1f3f6"/><line x1="0" y1="0" x2="0" y2="6" stroke="#aab3bf" stroke-width="2"/></pattern></defs><rect width="34" height="22" fill="url(#legende-schraffur)"/></svg>
+      <span id="t-geringe">Geringe Basis</span></span>
+  </section>
+
+  <section class="raster drei">
+    <article class="tafel" id="rang-chicago"></article>
+    <article class="tafel" id="rang-detroit"></article>
+    <article class="tafel">
+      <h2 class="mit-symbol"><span class="i">i</span>Hinweise zur Interpretation</h2>
+      <ul class="hinweise" id="d-hinweise"></ul>
+    </article>
+  </section>
+</main>
+
+<footer class="fuss">
+  <span>Umrisse: TIGER/Line über gold/dim_tract_geo · Einwohner: ACS 5-Year · <span id="fuss-stand"></span></span>
+  <span>Quelle: gold/fact_offense · Regel: gold_pipeline.raten_je_tract</span>
+</footer>
+</body>
+</html>

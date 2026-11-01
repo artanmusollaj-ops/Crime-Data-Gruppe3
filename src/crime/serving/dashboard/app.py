@@ -64,6 +64,10 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     def seite_zeitverlauf():
         return send_from_directory(_STATISCH, "zeitverlauf.html")
 
+    @app.get("/geografie")
+    def seite_geografie():
+        return send_from_directory(_STATISCH, "geografie.html")
+
     @app.get("/static/<path:name>")
     def statisch(name):
         return send_from_directory(_STATISCH, name)
@@ -81,5 +85,16 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     def zeitverlauf():
         bestand = daten()
         return jsonify(bestand.zeitverlauf(bestand.auswahl(request.args.to_dict())))
+
+    @app.get("/api/karten")
+    def karten():
+        # Die Umrisse aendern sich nur mit dem Bestand; der Browser holt sie
+        # einmal je Seite, die Raten bei jeder Auswahl.
+        return jsonify(daten().karten)
+
+    @app.get("/api/geografie")
+    def geografie():
+        bestand = daten()
+        return jsonify(bestand.geografie(bestand.auswahl(request.args.to_dict())))
 
     return app
