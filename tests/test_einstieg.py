@@ -301,25 +301,25 @@ def blatt(werkzeug, fassung: str) -> str:
 def test_die_seite_nennt_ihre_zugaenge(werkzeug, text):
     """FR-31 verlangt die Zugaenge auf der Seite - gezaehlt, nicht geglaubt.
 
-    Lokal sind es fuenf: Elasticsearch, Kibana, seit dem 1.11.2026 das
-    eigene Dashboard, DuckDB und seit dem 12.10.2026 Jupyter. Auf srv01 drei
-    - dort ersetzt das Dashboard Elasticsearch und Kibana (C-9). Die
-    Admin-Konsole ist ein weiterer Eintrag und **kein** Zugang; sie zaehlt
-    hier bewusst nicht mit, und der Waechter darunter haelt fest, dass die
-    Seite das auch sagt.
+    Lokal sind es sechs: Elasticsearch, Kibana, seit dem 1.11.2026 das
+    eigene Dashboard, DuckDB, seit dem 12.10.2026 Jupyter und seit dem
+    1.11.2026 die Admin-Konsole, die bis dahin als *künftig* nicht mitzaehlte.
+    Auf srv01 vier - dort ersetzt das Dashboard Elasticsearch und Kibana
+    (C-9).
 
     Geprueft wird beides: die Liste im Erzeuger und die abgelegte Seite. Nur
     das Erste waere ein Test des Generators gegen sich selbst - genau der
     Fehler, der "Drei Bretter" vier Tage ueberlebt hat.
     """
     server = [d[0] for d in werkzeug.dienste("server") if not werkzeug.ist_kuenftig(d)]
-    assert server == ["Dashboard", "DuckDB", "Jupyter"], server
+    assert server == ["Dashboard", "DuckDB", "Jupyter", "Admin-Konsole"], server
     wort = werkzeug.ZAHLWORT[len(server)].capitalize()
     assert f"{wort} Zugänge" in blatt(werkzeug, "server")
 
     zugaenge = [d for d in werkzeug.dienste() if not werkzeug.ist_kuenftig(d)]
     namen = [d[0] for d in zugaenge]
-    assert namen == ["Elasticsearch", "Kibana", "Dashboard", "DuckDB", "Jupyter"], namen
+    assert namen == ["Elasticsearch", "Kibana", "Dashboard", "DuckDB", "Jupyter",
+                     "Admin-Konsole"], namen
     wort = werkzeug.ZAHLWORT[len(namen)].capitalize()
     assert f"{wort} Zugänge" in text, (
         f"die Seite nennt nicht {wort.lower()} Zugänge. "
@@ -328,29 +328,22 @@ def test_die_seite_nennt_ihre_zugaenge(werkzeug, text):
     assert not fehlend, f"keine Karte fuer: {fehlend}"
 
 
-def test_die_admin_konsole_ist_als_kuenftig_gekennzeichnet(werkzeug, text):
-    """Ein Knopf auf einen Hostnamen ohne Route sieht aus wie eine Auskunft.
+def test_die_admin_konsole_ist_ein_zugang(werkzeug, text):
+    """Bis zum 1.11.2026 stand sie als *künftig* da - einen Tag, nachdem sie
+    auf srv01 lief. Ein Platzhalter, der stehen bleibt, ist dieselbe falsche
+    Auskunft wie ein Knopf ins Leere, nur in die andere Richtung.
 
-    Die Admin-Konsole ist ein benannter Platzhalter: Sie nennt den Namen, der
-    ins Muster ``urbancrime-*`` fällt - und damit unter die eine
-    Access-Anwendung -, aber sie verweist auf nichts. Solange es den Dienst
-    nicht gibt, ist das die einzige ehrliche Form.
+    Auf dem Server verlinkt sie ihre geroutete Adresse; lokal nennt sie den
+    Befehl, denn die lokale Konsole gibt ihre Adresse erst beim Start samt
+    Einmal-Token aus, und ein Knopf ohne Token fuehrte auf eine Absage.
     """
-    eintrag = next(d for d in werkzeug.dienste() if d[0] == "Admin-Konsole")
-    assert werkzeug.ist_kuenftig(eintrag), (
-        "die Admin-Konsole ist nicht als kuenftig gekennzeichnet")
-    assert eintrag[1] is None, (
-        f"sie traegt eine Adresse ({eintrag[1]}) - den Dienst gibt es nicht")
-    host = eintrag[5][1]
-    assert host == "urbancrime-admin.datenwerft.ch", host
-
-    for fassung in werkzeug.FASSUNGEN:
-        seite = blatt(werkzeug, fassung)
-        assert f'<code>{host}</code>' in seite, (
-            f"{fassung}: der vorgesehene Name steht nicht auf der Seite")
-        assert f'href="https://{host}' not in seite, (
-            f"{fassung}: die Seite verlinkt {host} - die Route gibt es nicht")
-    assert "künftig" in text and host in text, (
+    server = next(d for d in werkzeug.dienste("server") if d[0] == "Admin-Konsole")
+    lokal = next(d for d in werkzeug.dienste("lokal") if d[0] == "Admin-Konsole")
+    assert not werkzeug.ist_kuenftig(server) and not werkzeug.ist_kuenftig(lokal)
+    assert server[1] == "https://urbancrime-admin.datenwerft.ch/", server[1]
+    assert lokal[1] is None and lokal[5] == ("lokal", "python -m platform_admin serve")
+    assert "künftig" not in blatt(werkzeug, "server")
+    assert "künftig" not in text and "python -m platform_admin serve" in text, (
         "docs/einstieg.html ist aelter als der Generator. "
         "python -m serving.build_einstieg")
 
