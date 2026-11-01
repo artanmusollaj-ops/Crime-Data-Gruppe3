@@ -54,9 +54,9 @@ services:
   # 2'816 MiB im Dauerbetrieb, und neben ihnen waren von 4'325 MiB noch 37
   # frei - Kibana war fuer fuenf Bretter zu schwer. Das eigene Dashboard
   # (``serving.dashboard``, Flask und DuckDB) zeigt dieselben Fragen nach
-  # Artans Entwuerfen und liest Gold und ``comparison_month`` direkt aus dem
-  # Eimer; es braucht keinen Index, keinen Lader und keine gespeicherten
-  # Objekte. Entschieden ist **nur srv01**: Lokal bleiben Elasticsearch und
+  # Artans Entwuerfen und liest das aktive Release direkt aus dem Eimer
+  # (Gold und ``comparison_month``); es braucht keinen Index, keinen Lader
+  # und keine gespeicherten Objekte. Entschieden ist **nur srv01**: Lokal bleiben Elasticsearch und
   # Kibana in docker-compose.yml, ``load_elasticsearch`` und ``build_kibana``
   # bleiben aufrufbar. Ihre Datentraeger ``urbancrime_elasticsearch-daten``
   # und ``urbancrime_kibana-daten`` stehen auf srv01 weiter als Rueckweg;
@@ -88,9 +88,11 @@ services:
       proxy:
       urbancrime:
     environment:
-      # Gelesen wird direkt aus dem Eimer, nicht aus ``arbeitsdaten``: Dort
-      # liegt nach dem Publizieren nur, was ``holen --einsetzen`` hingelegt
-      # hat, und waehrend eines Laufs ein halber Zwischenstand.
+      # Gelesen wird das aktive Release direkt aus dem Eimer, nicht
+      # ``arbeitsdaten``: Dort liegt waehrend eines Laufs ein halber
+      # Zwischenstand, und ``serving/`` liegt im Eimer nur im Release. Am
+      # 1.11.2026 lesend gegen den Eimer geprueft: geladen in 14 Sekunden,
+      # alle fuenf Bretter antworten, Release 2026-10-26T03-35-21Z.
       STORAGE_BACKEND: s3
       S3_ENDPOINT:
       S3_BUCKET:

@@ -991,8 +991,8 @@ Suchindex und ohne Diagrammbibliothek. Das erste Brett ist »Kriminalität im
 **Auf `srv01` ersetzt es Elasticsearch und Kibana** — in
 `docker-compose.srv01.yml` beschrieben, eingesetzt wird es nach dem Merge
 (C-9). Dort heisst es `urbancrime-dashboard.datenwerft.ch`, liegt hinter
-derselben Access-Anwendung wie alles unter `urbancrime-*` und liest Gold und
-`comparison_month` direkt aus dem Eimer; ein neues Release lädt es höchstens
+derselben Access-Anwendung wie alles unter `urbancrime-*` und liest das
+aktive Release direkt aus dem Eimer; ein neues Release lädt es höchstens
 eine Minute später von selbst nach. Die Grenze von 640 MiB ist lokal
 gemessen (Spitze 476 MiB beim Verdichten), im Dauerbetrieb stehen damit 832
 statt 3'008 MiB. Lokal bleiben Elasticsearch, Kibana und ihre Lader.

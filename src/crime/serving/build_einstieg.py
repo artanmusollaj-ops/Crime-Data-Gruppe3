@@ -187,9 +187,8 @@ def dienste(fassung: str = "lokal") -> tuple[tuple, ...]:
         "Dashboard", web("dashboard", "/", 8050), "Die Bretter, ohne Kibana",
         "Überblick, Zeitverlauf, Geografie, Deliktstruktur und Datenqualität "
         "nach Artans Entwürfen — Raten je 1'000 Einwohner nach derselben "
-        "Regel wie Gold, Fälle vorn. Es liest Gold und "
-        "<code>comparison_month</code> selbst und lädt ein neues Release von "
-        "selbst nach." + dashboard_weg,
+        "Regel wie Gold, Fälle vorn. Es liest das aktive Release und lädt ein "
+        "neues von selbst nach." + dashboard_weg,
         None, None)
 
     elastic = () if server else (

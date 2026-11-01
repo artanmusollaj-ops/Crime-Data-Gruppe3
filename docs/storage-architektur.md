@@ -1022,9 +1022,10 @@ nützlich, weil Silver Bronze direkt von S3 liest.
 fünf Bretter zu schwer: Zusammen mit Elasticsearch belegte es 2'816 MiB im
 Dauerbetrieb, und daneben blieben von 4'325 MiB noch 37 frei. An ihre Stelle
 tritt das eigene Dashboard ([`serving.dashboard`](../src/crime/serving/dashboard/__init__.py),
-Flask und DuckDB) nach Artans Entwürfen. Es liest Gold und `comparison_month`
-direkt aus dem Eimer, lädt ein neues Release höchstens eine Minute später von
-selbst nach und braucht weder Lader noch Index noch gespeicherte Objekte.
+Flask und DuckDB) nach Artans Entwürfen. Es liest das **aktive Release**
+direkt aus dem Eimer — Gold und `comparison_month`, nicht die Arbeitsschicht,
+denn `serving/` liegt im Eimer nur im Release —, lädt ein neues Release
+höchstens eine Minute später von selbst nach und braucht weder Lader noch Index noch gespeicherte Objekte.
 Entschieden ist **nur der Server**: Lokal bleiben Elasticsearch und Kibana in
 `docker-compose.yml`, `load_elasticsearch` und `build_kibana` bleiben
 aufrufbar. Die beiden Datenträger stehen auf `srv01` als Rückweg weiter, bis

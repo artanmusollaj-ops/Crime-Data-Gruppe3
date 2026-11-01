@@ -128,10 +128,15 @@ Server**. Lokal bleiben `docker-compose.yml`, `load_elasticsearch` und
   eine Minute nach dem Publizieren nach. Die Prüfung fragt deshalb bis zu
   sechsmal im Abstand von 20 Sekunden, bevor sie eine Abweichung meldet.
   Lokal bleibt der Bericht, wie er war.
-- **Das Dashboard lädt auch nach, wenn nur `AKTUELL.json` wechselt.** Bisher
-  hing der Abdruck nur an den Manifesten. Ein neues Release über denselben
-  Daten hätte das Dashboard weiter das alte nennen lassen, und
-  `pruefe_stand` hätte eine Abweichung gemeldet, die keine ist.
+- **Das Dashboard liest das aktive Release, nicht die Arbeitsschicht.**
+  Aufgefallen beim Probelauf gegen den Eimer: Im Modus `s3` liegt
+  `serving/comparison_month` dort nur im Release, und das Dashboard antwortete
+  503. Jetzt sagt `releases/AKTUELL.json`, was gilt. Das ist derselbe
+  Massstab wie bei `load_elasticsearch` und `pruefe_stand`. Nachgeladen wird,
+  sobald der Zeiger auf ein anderes Release zeigt. Lesend gegen den Eimer
+  geprüft: in 14 Sekunden geladen, alle fünf Bretter antworten mit 200, der
+  Prozess hält danach 294 MiB, und `pruefe_dashboard` erkennt das richtige
+  und ein falsches Release.
 - **Die Einstiegsseite** hat lokal fünf Zugänge, das Dashboard ist neu
   dabei. Auf dem Server sind es drei (Dashboard, DuckDB, Jupyter), ohne
   Karte und ohne Satz zu Elasticsearch.
