@@ -48,6 +48,8 @@ def test_die_kennung_haengt_am_inhalt():
     assert kennung(b"a") != kennung(b"b")
     assert kennung(b"a") == kennung(b"a")
     assert kennung(b"a") == hashlib.sha256(b"a").hexdigest()[:16]
+    # Ein Windows-Checkout aendert die Zeilenenden, nicht die Fassung.
+    assert kennung(b"a\r\nb\r\n") == kennung(b"a\nb\n")
 
 
 def test_das_beispiel_fuer_die_einstellungen_ist_gueltig():

@@ -103,6 +103,20 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 31.10.2026 · Die Handbuch-Kennung ist auf Windows dieselbe (Branch `fix/handbuch-kennung-crlf`)
+
+Der `main`-Lauf von #192 war auf Windows rot, bei #193 genauso, und
+niemand hat es bemerkt. Der Windows-Job läuft nur auf `main`, nicht im
+Pull Request. `test_das_pdf_ist_aus_dem_heutigen_markdown_erzeugt` meldete
+dort „das PDF ist aelter als das Markdown“. Ursache: Ein Windows-Checkout
+legt `ENGINEERING_KONSOLE.md` mit CRLF ab, und die Kennung hashte die rohen
+Bytes. `kennung` rechnet jetzt über LF-Zeilenenden, wie
+`tests/test_referenz.py` es für die Code-Referenz schon tat. Auf macOS und
+Linux bleibt die Kennung gleich, das PDF muss nicht neu gebaut werden.
+`test_die_kennung_haengt_am_inhalt` hält den CRLF-Fall fest.
+
+Keine Zahl geändert.
+
 ## 31.10.2026 · Die Konsole streamt Impact-Downloads (Branch `s9-impact-download-streamt`)
 
 S-9, auf `srv01` nachgemessen. Im Ruhebetrieb mit laufendem Takt belegt
