@@ -1,0 +1,100 @@
+/* Nach Artans Entwurf docs/bilder/dashboard_kriminalität_im_überblick.png. */
+:root {
+  --navy: #1f2a3a;
+  --grund: #f3f5f8;
+  --karte: #ffffff;
+  --linie: #e3e7ee;
+  --text: #1b2430;
+  --leise: #5b6676;
+  --blau: #2f7de1;
+  --chicago: #17a38b;
+  --detroit: #2f7de1;
+  --gut: #1f9d55;
+  --schlecht: #d64545;
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--grund); color: var(--text); font-size: 14px; }
+
+.kopf { display: flex; justify-content: space-between; align-items: center;
+  background: var(--navy); color: #fff; padding: 12px 24px; }
+.marke { display: flex; align-items: center; gap: 8px; font-size: 20px; }
+.logo { width: 26px; height: 26px; fill: #4c9bff; }
+.produkt { font-weight: 700; }
+.punkt, .bereich { color: #c9d3e0; }
+.stand { background: #2c3a4f; border-radius: 6px; padding: 6px 12px; font-size: 13px; color: #dfe7f2; }
+.stand b { color: #fff; }
+
+.reiter { display: flex; gap: 36px; background: #fff; padding: 0 24px; border-bottom: 1px solid var(--linie); }
+.reiter a, .reiter span { padding: 14px 4px; color: var(--leise); text-decoration: none; font-size: 15px; }
+.reiter .aktiv { color: var(--blau); font-weight: 600; border-bottom: 3px solid var(--blau); }
+.reiter .folgt { color: #a5aebb; cursor: not-allowed; }
+
+.leiste { display: flex; flex-wrap: wrap; gap: 28px; padding: 16px 24px; align-items: center; }
+.leiste label { display: flex; align-items: center; gap: 10px; color: var(--leise); }
+.leiste select { font: inherit; color: var(--text); padding: 8px 12px; border: 1px solid #cfd6e0;
+  border-radius: 6px; background: #fff; min-width: 90px; }
+#stadt, #kategorie { min-width: 200px; }
+
+.brett { margin: 0 16px 16px; background: #fff; border-radius: 10px; padding: 16px; border: 1px solid var(--linie); }
+.brettkopf { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+h1 { margin: 0; font-size: 30px; }
+.umschalter { display: flex; border: 1px solid #cfd6e0; border-radius: 6px; overflow: hidden; }
+.umschalter button { font: inherit; border: 0; background: #f7f9fc; padding: 8px 22px; cursor: pointer;
+  color: var(--text); border-left: 1px solid #cfd6e0; }
+.umschalter button:first-child { border-left: 0; }
+.umschalter .an { background: var(--blau); color: #fff; }
+.fehler { background: #fdecec; color: #8a1f1f; padding: 10px 14px; border-radius: 6px; }
+
+.kennzahlen { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
+.kachel { display: flex; gap: 18px; align-items: center; border: 1px solid var(--linie);
+  border-radius: 8px; padding: 14px 18px; }
+.kachel .etikett { display: block; font-size: 15px; margin-bottom: 4px; }
+.kachel b { font-size: 30px; }
+.kachel small { display: block; color: var(--leise); font-size: 12px; }
+.kachel b.runter { color: var(--gut); }
+.kachel b.rauf { color: var(--schlecht); }
+.symbol { width: 56px; height: 56px; border-radius: 50%; background: #e8f1fd; display: grid; place-items: center; flex: none; }
+.symbol svg { width: 28px; height: 28px; fill: none; stroke: var(--blau); stroke-width: 1.8; }
+
+.raster { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.tafel { border: 1px solid var(--linie); border-radius: 8px; padding: 14px 14px 10px; min-width: 0; }
+h2 { margin: 0 0 4px; font-size: 17px; }
+.unterzeile { margin: 0; color: var(--leise); font-size: 13px; }
+.diagramm { width: 100%; min-height: 240px; }
+.diagramm svg { display: block; width: 100%; height: auto; font-size: 12px; }
+.diagramm text { fill: #44505f; }
+.diagramm .achse { stroke: #e6e9ef; }
+.diagramm .wert { fill: #1b2430; font-size: 11px; }
+.diagramm .leer { fill: var(--leise); font-size: 14px; }
+.legende { display: flex; justify-content: center; gap: 24px; color: #44505f; margin-top: 4px; }
+.legende span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+  margin-right: 6px; vertical-align: -1px; background: var(--farbe); }
+.legende .chicago { --farbe: var(--chicago); }
+.legende .detroit { --farbe: var(--detroit); }
+
+.abdeckung { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+.stadtkarte { border: 1px solid var(--linie); border-radius: 6px; overflow: hidden; }
+.stadtkarte h3 { margin: 0; padding: 10px 12px; font-size: 18px; background: #f2f6fb; }
+.stadtkarte.chicago h3 { color: var(--chicago); }
+.stadtkarte.detroit h3 { color: var(--detroit); }
+.stadtkarte table { width: 100%; border-collapse: collapse; }
+.stadtkarte td { padding: 8px 12px; border-top: 1px solid var(--linie); }
+.stadtkarte td:first-child { width: 48%; border-right: 1px solid var(--linie); }
+.ok::before, .teil::before { display: inline-grid; place-items: center; width: 18px; height: 18px;
+  border-radius: 50%; color: #fff; font-size: 11px; margin: 0 6px 0 8px; }
+.ok::before { content: "✓"; background: var(--gut); }
+.teil::before { content: "!"; background: #e0a100; }
+.ok { color: var(--gut); }
+.teil { color: #a66f00; }
+.hinweis { display: flex; gap: 10px; align-items: flex-start; background: #eef4fd; border-radius: 6px;
+  padding: 10px 12px; margin: 12px 0 0; font-size: 13px; }
+.hinweis .i { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--blau);
+  color: var(--blau); display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+
+.fuss { display: flex; justify-content: space-between; padding: 6px 24px 18px; color: var(--leise); font-size: 12px; }
+
+@media (max-width: 1000px) {
+  .kennzahlen { grid-template-columns: 1fr 1fr; }
+  .raster, .abdeckung { grid-template-columns: 1fr; }
+}

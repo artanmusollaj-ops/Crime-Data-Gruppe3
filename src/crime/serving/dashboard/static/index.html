@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Urban Crime · Analytics</title>
+<link rel="stylesheet" href="/static/dashboard.css">
+<script src="/static/dashboard.js" defer></script>
+</head>
+<body>
+<header class="kopf">
+  <div class="marke">
+    <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="10" width="4" height="11" rx="1"/><rect x="10" y="4" width="4" height="17" rx="1"/><rect x="17" y="13" width="4" height="8" rx="1"/></svg>
+    <span class="produkt">Urban Crime</span><span class="punkt">·</span><span class="bereich">Analytics</span>
+  </div>
+  <div class="stand" id="stand">Stand wird geladen …</div>
+</header>
+
+<nav class="reiter" aria-label="Bretter">
+  <a class="aktiv" href="/" aria-current="page">Überblick</a>
+  <span class="folgt" title="folgt">Zeitverlauf</span>
+  <span class="folgt" title="folgt">Geografie</span>
+  <span class="folgt" title="folgt">Deliktstruktur</span>
+  <span class="folgt" title="folgt">Datenqualität</span>
+</nav>
+
+<form class="leiste" id="leiste">
+  <label>Stadt <select name="stadt" id="stadt"></select></label>
+  <label>Zeitraum
+    <select name="von" id="von" aria-label="von Monat"></select>
+    <span class="bis">–</span>
+    <select name="bis" id="bis" aria-label="bis Monat"></select>
+    <select name="jahr" id="jahr" aria-label="Jahr"></select>
+  </label>
+  <label>Kategorie <select name="kategorie" id="kategorie"></select></label>
+</form>
+
+<main class="brett">
+  <div class="brettkopf">
+    <h1>Kriminalität im Überblick</h1>
+    <div class="umschalter" role="group" aria-label="Mass der Kategorien">
+      <button type="button" data-mass="anzahl" class="an">Anzahl</button>
+      <button type="button" data-mass="anteil">Anteil</button>
+      <button type="button" data-mass="rate">Rate</button>
+    </div>
+  </div>
+  <p class="fehler" id="fehler" hidden></p>
+
+  <section class="kennzahlen">
+    <div class="kachel"><span class="symbol" data-symbol="dokument"></span>
+      <div><span class="etikett">Registrierte Delikte</span><b id="k-delikte">–</b></div></div>
+    <div class="kachel"><span class="symbol" data-symbol="ordner"></span>
+      <div><span class="etikett">Gezählte Fälle</span><b id="k-faelle">–</b></div></div>
+    <div class="kachel"><span class="symbol" data-symbol="balken"></span>
+      <div><span class="etikett">Zum Vorjahr</span><b id="k-vorjahr">–</b><small id="k-vorjahr-basis"></small></div></div>
+    <div class="kachel"><span class="symbol" data-symbol="kalender"></span>
+      <div><span class="etikett">Vollständige Monate</span><b id="k-monate">–</b></div></div>
+  </section>
+
+  <section class="raster">
+    <article class="tafel">
+      <h2>Monatliche Entwicklung registrierter Delikte</h2>
+      <div class="diagramm" id="d-verlauf"></div>
+      <div class="legende"></div>
+    </article>
+    <article class="tafel">
+      <h2 id="t-raten">Delikte je 1'000 Einwohner</h2>
+      <p class="unterzeile" id="u-raten">Bevölkerungsbasis: ACS-Vintage des Jahres</p>
+      <div class="diagramm" id="d-raten"></div>
+      <div class="legende"></div>
+    </article>
+    <article class="tafel">
+      <h2 id="t-kategorien">Registrierte Delikte nach Kategorie</h2>
+      <div class="diagramm" id="d-kategorien"></div>
+      <div class="legende"></div>
+    </article>
+    <article class="tafel">
+      <h2>Datenabdeckung und Zeitraum</h2>
+      <div class="abdeckung" id="d-abdeckung"></div>
+      <p class="hinweis"><span class="i">i</span>Delikte und Fälle werden getrennt gezählt, nach meldender Stadt.
+        Raten zählen nur Taten in Tracts der Stadt und beziehen sich auf den gewählten Zeitraum.</p>
+    </article>
+  </section>
+</main>
+
+<footer class="fuss">
+  <span id="fuss-stand"></span>
+  <span>Quelle: serving/comparison_month und gold/fact_offense · Zähllogik: docs/zaehlperspektiven.md</span>
+</footer>
+</body>
+</html>
