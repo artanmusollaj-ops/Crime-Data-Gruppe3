@@ -152,7 +152,7 @@ gibt es auf `srv01` nicht mehr. `test_beide_fassungen_binden_dieselbe_elastic_ve
 hat seinen Gegenstand verloren. An seine Stelle tritt
 `test_srv01_traegt_weder_elasticsearch_noch_kibana`.
 
-**Zahlen.** 2'717 → **2'726 Tests**, Standardlauf 2'606 → **2'615**.
+**Zahlen.** 2'717 → **2'726 Tests**, Standardlauf 2'606 → **2'615**, im frischen Klon 2'528 → **2'537**.
 
 ## 1.11.2026 · Das Dashboard bekommt »Datenqualität«, damit stehen alle fünf Bretter (Branch `feature/dashboard-datenqualitaet`)
 
