@@ -128,11 +128,14 @@ def dienste(fassung: str = "lokal") -> tuple[tuple, ...]:
     Dienst, den es dort nicht gibt, schlimmer ist als keiner. Lokal stehen
     sie neben dem Dashboard.
 
-    Der letzte Eintrag ist **keiner**: Die Admin-Konsole gibt es
-    nicht. Sie steht hier als benannter Platzhalter mit Ziel und ohne Verweis,
-    weil ein Knopf auf einen Hostnamen ohne Route schlimmer ist als keiner -
-    er sieht aus wie eine Auskunft. Vier Zugaenge gibt es also, und einen
-    Eintrag, der sagt, dass er noch keiner ist.
+    **Die Admin-Konsole ist seit dem 1.11.2026 ein Zugang.** Bis dahin stand
+    sie hier als benannter Platzhalter mit der Marke *künftig* und ohne
+    Verweis - richtig, solange es den Dienst nicht gab, und seit dem
+    31.10.2026 falsch: Seither laeuft sie auf srv01. Auf dem Server traegt
+    sie jetzt einen Knopf; lokal nennt sie den Befehl, weil die lokale
+    Konsole ihre Adresse erst beim Start samt Einmal-Token ausgibt. Die
+    Marke *künftig* und ``ist_kuenftig`` bleiben fuer den naechsten Dienst,
+    der zuerst nur einen Namen hat.
 
     Der letzte Wert je Eintrag ist entweder ``None`` - dann traegt die Karte
     einen Knopf auf ihre Adresse - oder ein Paar ``(Marke, Adresse)``, das
@@ -233,15 +236,18 @@ def dienste(fassung: str = "lokal") -> tuple[tuple, ...]:
      "Arbeitsbereich daneben ist beschreibbar, die mitgelieferten Notebooks "
      "sind Vorlagen. " + jupyter_start,
      None, None),
-    ("Admin-Konsole", None, "Betrieb und Kontrolle — künftig",
-     "Vorgesehen für das, wofür es heute nur die Befehlszeile gibt: einen "
-     "Lauf anstossen, die Releases sehen, prüfen, ob alle geladenen Orte "
-     "denselben Stand zeigen. <strong>Den Dienst gibt es noch nicht</strong> "
-     "— der Name steht hier, damit er ins Muster fällt, unter dem die eine "
-     "Access-Anwendung schützt. Bis dahin tun es "
-     "<code>python -m orchestration.release liste</code> und "
-     "<code>python -m serving.pruefe_stand</code>.",
-     None, ("künftig", "urbancrime-admin.datenwerft.ch")),
+    ("Admin-Konsole",
+     "https://urbancrime-admin.datenwerft.ch/" if server else None,
+     "Betrieb und Kontrolle",
+     "Die Engineering-Konsole: Mapping- und Einstellungsvorschläge mit "
+     "Vier-Augen-Review, Kandidaten-Releases und ihre Freigabe, die Läufe "
+     "und der Stand der Dienste. Änderungen gehen als Pull Request ins "
+     "Repository, nicht direkt in die Daten."
+     + (" Auf diesem Server läuft sie seit dem 31.10.2026 hinter derselben "
+        "Access-Anwendung." if server else
+        " <strong>Von Hand zu starten:</strong> Der Befehl gibt die Adresse "
+        "samt Einmal-Token aus."),
+     None, None if server else ("lokal", "python -m platform_admin serve")),
     )
 
 def ist_kuenftig(eintrag: tuple) -> bool:

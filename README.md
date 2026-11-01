@@ -902,20 +902,18 @@ Dashboard, DuckDB und Jupyter; die Serverfassung nennt seit dem 1.11.2026 nur
 Dashboard, DuckDB und Jupyter. **Jede Zahl wird beim Erzeugen gemessen**,
 keine ist abgeschrieben.
 
-> **Für `srv01` ist ein Dienst beschrieben, der sie ausliefert** (seit dem
-> 12.10.2026, FR-31) — beschrieben, **nicht in Betrieb**: Der Stapel dort
-> kennt den Dienst noch nicht. Die Tunnel-Route für
-> `urbancrime-start.datenwerft.ch` steht dagegen seit dem 14.10.2026 und ist
-> von aussen geprüft (Abschnitt 16). Gedacht ist er hinter derselben
-> Access-Anwendung wie Kibana und Jupyter; nichts daran soll öffentlich sein.
-> Zwei Seiten wären zwei Wahrheiten über dieselben Zahlen; es ist deshalb
-> dieselbe, nur mit `--adressen server` gebaut: Verweise auf
-> `urbancrime-<dienst>.datenwerft.ch` statt auf `localhost`, und für
-> Elasticsearch **kein** Verweis, weil es dort bewusst nicht geroutet ist. Der
-> Erzeuger liegt seit demselben Tag in `serving` und nicht mehr unter `tools/`
-> — `tools/` gehört nicht ins Abbild, und im Container muss die Seite
-> entstehen können. Eine fünfte Karte nennt die **künftige** Admin-Konsole:
-> benannter Platzhalter, kein Verweis.
+> **Auf `srv01` liefert sie der Dienst `start` aus** (FR-31, seit dem
+> 12.10.2026), unter `urbancrime-start.datenwerft.ch` hinter derselben
+> Access-Anwendung wie das Dashboard, Jupyter und die Konsole; nichts daran
+> soll öffentlich sein. Zwei Seiten wären zwei Wahrheiten über dieselben
+> Zahlen; es ist deshalb dieselbe, nur mit `--adressen server` gebaut:
+> Verweise auf `urbancrime-<dienst>.datenwerft.ch` statt auf `localhost`, und
+> seit dem 1.11.2026 ohne Elasticsearch und Kibana, die dort nicht mehr
+> laufen. Der Erzeuger liegt in `serving` und nicht unter `tools/` — `tools/`
+> gehört nicht ins Abbild, und im Container muss die Seite entstehen können.
+> Die Admin-Konsole stand bis zum 1.11.2026 als **künftiger** Platzhalter
+> darauf, obwohl sie seit dem 31.10. lief; seither ist sie ein Zugang, auf
+> dem Server mit Knopf, lokal mit dem Startbefehl.
 
 > **Kein Zeitstempel, kein eingefrorener Dienstzustand.** Beides machte die
 > Seite unreproduzierbar, und ein festgehaltenes „alles in Ordnung" wäre eine

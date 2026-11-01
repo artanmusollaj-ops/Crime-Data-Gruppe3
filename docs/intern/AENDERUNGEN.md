@@ -103,6 +103,21 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 1.11.2026 · Die Einstiegsseite führt zur Admin-Konsole (Branch `fix/einstieg-konsole`)
+
+Die Seite nannte die Admin-Konsole „künftig“ und schrieb „Den Dienst gibt es
+noch nicht“, obwohl die Konsole seit dem 31.10.2026 auf `srv01` läuft. Jetzt
+ist sie ein Zugang. Auf dem Server führt ein Knopf zu
+`urbancrime-admin.datenwerft.ch`. Lokal nennt die Karte
+`python -m platform_admin serve`, weil die lokale Konsole ihre Adresse erst
+beim Start samt Einmal-Token ausgibt.
+
+Damit hat die Seite lokal sechs Zugänge, auf dem Server vier. Der Wächter
+`test_die_admin_konsole_ist_ein_zugang` ersetzt den alten, der „künftig“
+verlangte. Er prüft auch die abgelegte `docs/einstieg.html`. Die README-Stelle
+dazu ist nachgezogen; sie sagte ausserdem noch, `start` sei „nicht in
+Betrieb“. Die Testzahl bleibt.
+
 ## 1.11.2026 · Das Dashboard läuft auf srv01 (Branch `docs/dashboard-eingesetzt`)
 
 Eingesetzt um 13:12. Elasticsearch und Kibana sind gestoppt und starten

@@ -176,8 +176,8 @@
 
 <section>
   <h2>Wo man fragt</h2>
-  <p class="unter">Fünf Zugänge, je nach
-  Frage. Die vier Verweise auf <code>localhost</code> tragen nur, solange das Gemeinte auf diesem Rechner läuft — je Karte steht dabei, was dafür zu starten ist. Die <strong>Admin-Konsole</strong> gibt es noch nicht — ihr Eintrag nennt den vorgesehenen Namen und verweist auf nichts.</p>
+  <p class="unter">Sechs Zugänge, je nach
+  Frage. Die vier Verweise auf <code>localhost</code> tragen nur, solange das Gemeinte auf diesem Rechner läuft — je Karte steht dabei, was dafür zu starten ist.</p>
   <div class="karten"><article class="karte"><p class="rolle">Das Sternschema, sechs Indizes</p><h3>Elasticsearch</h3><p>Volltext über die Beschreibung, Umkreissuche über den Ort — und seit dem 5.10.2026 auch Kalender, Wetter und die Einwohnerzahlen je Tract und Vintage. Ein Alias je Gold-Tabelle, jeder mit der Release-Kennung dahinter.</p><pre>GET /fact_offense/_search
 {&quot;query&quot;: {
   &quot;geo_distance&quot;: {
@@ -190,7 +190,7 @@
 FROM fact_offense
 GROUP BY 1, 2
 ORDER BY n DESC
-LIMIT 10</pre><a class="knopf" href="https://duckdb.org/docs/stable/clients/cli/overview">DuckDB öffnen</a></article><article class="karte"><p class="rolle">Notebooks, lesend</p><h3>Jupyter</h3><p>Die drei belegenden Notebooks auf dem Release: Sternschema, Kontrollen, Quellbewegung. <code>data/</code> hängt schreibgeschützt, gelesen wird die selbständige <code>analyse.duckdb</code> aus dem Release — nicht die mit den Sichten, die zeigen auf Pfade dieses Rechners. Der Arbeitsbereich daneben ist beschreibbar, die mitgelieferten Notebooks sind Vorlagen. <strong>Von Hand zu starten:</strong> Der Entwicklungsverbund kennt keinen Notebook-Server; der Verweis trägt, sobald in diesem Verzeichnis <code>jupyter lab</code> läuft.</p><a class="knopf" href="http://localhost:8888/lab">Jupyter öffnen</a></article><article class="karte"><p class="rolle">Betrieb und Kontrolle — künftig</p><h3>Admin-Konsole</h3><p>Vorgesehen für das, wofür es heute nur die Befehlszeile gibt: einen Lauf anstossen, die Releases sehen, prüfen, ob alle geladenen Orte denselben Stand zeigen. <strong>Den Dienst gibt es noch nicht</strong> — der Name steht hier, damit er ins Muster fällt, unter dem die eine Access-Anwendung schützt. Bis dahin tun es <code>python -m orchestration.release liste</code> und <code>python -m serving.pruefe_stand</code>.</p><p class="vermerk"><span class="marke kuenftig">künftig</span> <code>urbancrime-admin.datenwerft.ch</code></p></article></div>
+LIMIT 10</pre><a class="knopf" href="https://duckdb.org/docs/stable/clients/cli/overview">DuckDB öffnen</a></article><article class="karte"><p class="rolle">Notebooks, lesend</p><h3>Jupyter</h3><p>Die drei belegenden Notebooks auf dem Release: Sternschema, Kontrollen, Quellbewegung. <code>data/</code> hängt schreibgeschützt, gelesen wird die selbständige <code>analyse.duckdb</code> aus dem Release — nicht die mit den Sichten, die zeigen auf Pfade dieses Rechners. Der Arbeitsbereich daneben ist beschreibbar, die mitgelieferten Notebooks sind Vorlagen. <strong>Von Hand zu starten:</strong> Der Entwicklungsverbund kennt keinen Notebook-Server; der Verweis trägt, sobald in diesem Verzeichnis <code>jupyter lab</code> läuft.</p><a class="knopf" href="http://localhost:8888/lab">Jupyter öffnen</a></article><article class="karte"><p class="rolle">Betrieb und Kontrolle</p><h3>Admin-Konsole</h3><p>Die Engineering-Konsole: Mapping- und Einstellungsvorschläge mit Vier-Augen-Review, Kandidaten-Releases und ihre Freigabe, die Läufe und der Stand der Dienste. Änderungen gehen als Pull Request ins Repository, nicht direkt in die Daten. <strong>Von Hand zu starten:</strong> Der Befehl gibt die Adresse samt Einmal-Token aus.</p><p class="vermerk"><span class="marke intern">lokal</span> <code>python -m platform_admin serve</code></p></article></div>
 </section>
 
 <section>
