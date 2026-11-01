@@ -139,8 +139,11 @@ def test_die_teilwoche_am_jahresende_ist_ausgewiesen(tmp_path):
     assert letzte, "die Woche ab 30.12. fehlt"
     assert letzte[0]["days_in_period"] == 7
     assert letzte[0]["days_in_window"] == 2, "30.12. bis 31.12. sind zwei Tage im Fenster"
-    erste = [z for z in wochen if z["week_start"] == MO]
-    assert all(z["days_in_window"] == 7 for z in erste)
+    erste = {z["reporting_city"]: z for z in wochen if z["week_start"] == MO}
+    assert erste["chicago"]["days_in_window"] == 7
+    # Seit Vertrag 3 je Stadt: Detroits Daten liegen hier nur am 1.1., also
+    # ist seine erste Woche eine Teilwoche mit einem Tag (C-10).
+    assert erste["detroit"]["days_in_window"] == 1
 
 
 def test_der_monat_kennt_seine_laenge(tmp_path):
@@ -155,13 +158,39 @@ def test_der_monat_kennt_seine_laenge(tmp_path):
     )
 
 
+def test_das_fenster_gilt_je_stadt(tmp_path):
+    """C-10: Endet eine Stadt frueher, ist ihr letzter Monat eine Teilperiode.
+
+    Bis Vertrag 2 rechnete ``days_in_window`` am gemeinsamen Fenster beider
+    Staedte. Chicagos Daten endeten am 26.9.2026, Detroits am 4.10. - und
+    Chicagos September hiess vollstaendig, obwohl vier Tage fehlten.
+    """
+    data_root = tmp_path / "data"
+    gold(data_root, [
+        ("chicago", date(2026, 8, 1), "13A", True),
+        ("chicago", date(2026, 9, 26), "13A", True),
+        ("detroit", date(2026, 8, 1), "13A", True),
+        ("detroit", date(2026, 10, 4), "13A", True),
+    ])
+    bc.build(data_root)
+    monate = {(z["reporting_city"], z["month"]): z
+              for z in lies(data_root / "serving", "comparison_month")}
+    assert monate[("chicago", date(2026, 9, 1))]["days_in_window"] == 26
+    assert monate[("chicago", date(2026, 9, 1))]["days_in_period"] == 30
+    assert monate[("detroit", date(2026, 10, 1))]["days_in_window"] == 4
+    assert monate[("chicago", date(2026, 8, 1))]["days_in_window"] == 31
+
+
 def test_das_manifest_zaehlt_die_teilperioden(tmp_path):
     data_root = tmp_path / "data"
     gold(data_root, TATEN)
     ziele = bc.build(data_root)
     manifest = json.loads((ziele["comparison_week"] / "manifest.json").read_text())
-    assert manifest["checks"]["partial_periods"] == {"comparison_week": 1,
-                                                     "comparison_month": 0}
+    # Chicagos Woche ab 30.12. und - seit Vertrag 3, je Stadt - Detroits
+    # erste Woche und sein Januar: Detroits Daten liegen nur am 1.1. Mit dem
+    # gemeinsamen Fenster bis Vertrag 2 waren es eine Woche und kein Monat.
+    assert manifest["checks"]["partial_periods"] == {"comparison_week": 2,
+                                                     "comparison_month": 1}
 
 
 # --------------------------------------------------------------------------
