@@ -107,10 +107,10 @@ services:
       DUCKDB_MEMORY_LIMIT: 256MB
       DUCKDB_THREADS: "2"
     # Kein Datentraeger: Das Dashboard liest den Eimer und schreibt nichts.
-    # FR-13, lokal gemessen am 1.11.2026 unter gunicorn: Spitze 476 MiB RSS
-    # beim Verdichten der 1,85 Mio. Taten, 412 MiB mit den Grenzen oben;
-    # danach haelt DuckDB 70-90 MB. 640 MiB sind die Spitze plus Luft. Mit
-    # diesem Dienst sind 832 MiB dauernd verplant statt 3'008.
+    # FR-13, auf srv01 gemessen am 1.11.2026: Spitze 429 MiB beim ersten
+    # Laden aus dem Eimer (11 s, im Sekundentakt abgelesen), danach 299-319
+    # MiB. Lokal waren es 476 MiB ohne und 412 mit den Grenzen oben. 640 MiB
+    # sind die Spitze plus Luft. Dauernd verplant: 832 MiB statt 3'008.
     mem_limit: 640m
     security_opt:
       - no-new-privileges:true

@@ -967,7 +967,7 @@ Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.
 > Speichergrenzen, die Strecke als Stapellauf, ein lesendes Jupyter, seit
 > dem 12.10.2026 ein nginx für die Einstiegsseite, seit dem 30.10.2026 die
 > Engineering-Konsole und seit dem 1.11.2026 das eigene Dashboard statt
-> Elasticsearch und Kibana — beschrieben, auf `srv01` noch nicht eingesetzt.
+> Elasticsearch und Kibana, dort eingesetzt am 1.11.2026.
 > **Seit dem 8.10.2026 läuft sie dort.** Elasticsearch, Kibana und Jupyter
 > stehen auf `srv01`, beide Abbilder per Digest gepinnt; die Tunnel-Routen für
 > Kibana und Jupyter und die Access-Anwendung sind seit dem 9.10.2026
@@ -988,14 +988,14 @@ Suchindex und ohne Diagrammbibliothek. Das erste Brett ist »Kriminalität im
 Überblick«, seit demselben Tag stehen alle fünf Bretter: »Zeitverlauf«,
 »Geografie«, »Deliktstruktur« und »Datenqualität« daneben.
 
-**Auf `srv01` ersetzt es Elasticsearch und Kibana** — in
-`docker-compose.srv01.yml` beschrieben, eingesetzt wird es nach dem Merge
-(C-9). Dort heisst es `urbancrime-dashboard.datenwerft.ch`, liegt hinter
+**Auf `srv01` ersetzt es Elasticsearch und Kibana**, seit dem 1.11.2026
+eingesetzt (C-9); die beiden sind dort gestoppt, ihre Datenträger stehen als
+Rückweg. Dort heisst es `urbancrime-dashboard.datenwerft.ch`, liegt hinter
 derselben Access-Anwendung wie alles unter `urbancrime-*` und liest das
 aktive Release direkt aus dem Eimer; ein neues Release lädt es höchstens
-eine Minute später von selbst nach. Die Grenze von 640 MiB ist lokal
-gemessen (Spitze 476 MiB beim Verdichten), im Dauerbetrieb stehen damit 832
-statt 3'008 MiB. Lokal bleiben Elasticsearch, Kibana und ihre Lader.
+eine Minute später von selbst nach. Auf `srv01` gemessen: Spitze 429 MiB
+beim ersten Laden, danach rund 300 MiB, gegen eine Grenze von 640 MiB; im
+Dauerbetrieb stehen damit 832 statt 3'008 MiB. Lokal bleiben Elasticsearch, Kibana und ihre Lader.
 
 ```bash
 python -m serving.dashboard --data-root data    # http://127.0.0.1:8050
