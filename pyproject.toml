@@ -89,6 +89,7 @@ where = ["src/crime"]
 
 [tool.setuptools.package-data]
 platform_admin = ["static/*.html"]
+"serving.dashboard" = ["static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

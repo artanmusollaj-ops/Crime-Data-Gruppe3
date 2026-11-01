@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'645** |
+| Tests | **2'672** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -102,6 +102,55 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 1.11.2026 · Ein eigenes Dashboard, das erste Brett ist »Überblick« (Branch `feature/eigenes-dashboard-ueberblick`)
+
+Kibana erweist sich als zu schwer. Zusammen mit Elasticsearch belegt es auf
+`srv01` 2,75 GiB, und das Speicherbudget ist bis auf 37 MiB ausgeschöpft.
+Dabei liegen die Antworten auf die Fragen dieses Projekts längst
+vorberechnet in `serving/comparison_month`. Neu ist `serving.dashboard`:
+Flask, DuckDB und eigene SVG-Diagramme. Es braucht keinen Suchindex, keine
+Diagrammbibliothek und kein CDN, und die Content-Security-Policy bleibt bei
+`'self'`. Das erste Brett folgt Artans Entwurf »Kriminalität im Überblick«.
+
+Was das Brett zusagt, und warum:
+
+- **Gezählt wird nach meldender Stadt**, aus `comparison_month`. Das ist
+  dieselbe Zahl wie in Kibana.
+- **Die Rate je 1'000 folgt `gold_pipeline.raten_je_stadt`**: nur Taten in
+  Tracts der Stadt, der Nenner aus dem Vintage des Jahres. 2024 ergibt das
+  94,5 und 133,1, wie in den Dokumenten. Der Entwurf rechnet je 100'000;
+  übernommen hätte das eine zweite Einheit neben Dokumenten, Kibana und
+  Hypothesen bedeutet.
+- **Ein Zeitraum liegt in einem Jahr.** Über die Jahresgrenze gäbe es zwei
+  Nenner.
+- **Ein Monat ohne Daten ist eine Lücke, keine Null.** Ein Teilmonat
+  erscheint als hohler Punkt. Im ersten Bild fiel 2026 am rechten Rand auf
+  null, also genau der Einbruch, vor dem `build_kibana._TEILJAHR` warnt.
+- **„Zum Vorjahr“ vergleicht nur Monate, die in beiden Jahren vollständig
+  vorliegen.** Zuerst stand dort −26,4 % für Jan–Dez 2026: neun Monate gegen
+  zwölf. Jetzt sind es −19,5 % über neun vergleichbare Monate, und die
+  Kachel nennt die Zahl der Monate.
+- **Die Restgruppe heisst „Übrige Kategorien“**, nicht „Übrige Straftaten“,
+  denn so hiesse auf Deutsch auch NIBRS 90Z. Alle 43 NIBRS-Kategorien haben
+  einen deutschen Namen.
+
+Beim Start verdichtet das Dashboard 1,85 Mio. Taten auf rund 3'500 Zeilen
+(lokal 0,6 s). Danach braucht eine Anfrage 3 ms. Einen neuen Stand lädt es
+selbst nach, höchstens einmal je Minute geprüft.
+
+Auf `srv01` läuft es noch nicht: neben Kibana ist kein Platz. Das ist C-9 in
+`offene-punkte.md`, zusammen mit den übrigen vier Brettern.
+
+Neu gewacht: `tests/serving/test_dashboard.py` mit 21 Tests auf einem
+kleinen Stern, aus dem `build_comparison` die Vergleichstabelle baut. Die
+Mutationsprobe lief im kopierten Baum. Drei Fehler fallen auf: Null statt
+Lücke, das ganze Vorjahr statt der vergleichbaren Monate, und die meldende
+Stadt statt der Tract-Stadt in der Rate.
+
+**Zahlen.** 2'645 → **2'672 Tests**, Standardlauf 2'534 → **2'561**. Davon
+21 in der neuen Datei. Die übrigen sechs kommen aus
+`tests/test_ablagezugriff.py`, das je Quelldatei sammelt.
 
 ## 31.10.2026 · Die Handbuch-Kennung ist auf Windows dieselbe (Branch `fix/handbuch-kennung-crlf`)
 
