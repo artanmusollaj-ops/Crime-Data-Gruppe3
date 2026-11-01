@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Datenqualität · Urban Crime · Analytics</title>
+<link rel="icon" href="/static/favicon.svg">
+<link rel="stylesheet" href="/static/dashboard.css">
+<script type="module" src="/static/datenqualitaet.js"></script>
+</head>
+<body>
+<header class="kopf">
+  <div class="marke">
+    <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="10" width="4" height="11" rx="1"/><rect x="10" y="4" width="4" height="17" rx="1"/><rect x="17" y="13" width="4" height="8" rx="1"/></svg>
+    <span class="produkt">Urban Crime</span><span class="punkt">·</span><span class="bereich">Analytics</span>
+  </div>
+  <div class="stand" id="stand">Stand wird geladen …</div>
+</header>
+
+<nav class="reiter" aria-label="Bretter">
+  <a href="/">Überblick</a>
+  <a href="/zeitverlauf">Zeitverlauf</a>
+  <a href="/geografie">Geografie</a>
+  <a href="/deliktstruktur">Deliktstruktur</a>
+  <a class="aktiv" href="/datenqualitaet" aria-current="page">Datenqualität</a>
+</nav>
+
+<form class="leiste" id="leiste">
+  <label>Stadt <select name="stadt" id="stadt"></select></label>
+  <label>Zeitraum
+    <select name="von" id="von" aria-label="von Monat"></select>
+    <span class="bis">–</span>
+    <select name="bis" id="bis" aria-label="bis Monat"></select>
+    <select name="jahr" id="jahr" aria-label="Jahr"></select>
+  </label>
+  <label>Kategorie <select name="kategorie" id="kategorie"></select></label>
+</form>
+
+<main class="brett">
+  <div class="brettkopf">
+    <div>
+      <h1>Sind die Daten analysebereit?</h1>
+      <p class="einleitung">Prüfung der fachlichen Datenqualität für den gewählten Zeitraum und die
+        ausgewählten Städte – gegen dieselben Schwellen wie das Publish-Gate.</p>
+    </div>
+  </div>
+  <p class="fehler" id="fehler" hidden></p>
+
+  <section class="kennzahlen">
+    <div class="kachel"><span class="symbol" data-symbol="kalender"></span>
+      <div><span class="etikett">Vollständige Monate</span><b id="k-monate">–</b>
+        <small>für alle gewählten Städte</small></div></div>
+    <div class="kachel"><span class="symbol" data-symbol="datenbank"></span>
+      <div><span class="etikett">Ohne NIBRS-Zuordnung</span><b id="k-unmapped">–</b>
+        <small id="k-unmapped-text"></small></div></div>
+    <div class="kachel"><span class="symbol" data-symbol="ort"></span>
+      <div><span class="etikett">Ohne Koordinate</span><b id="k-koordinate">–</b>
+        <small>Taten ohne verwertbare Geokoordinate</small></div></div>
+    <div class="kachel"><span class="symbol" data-symbol="haken"></span>
+      <div><span class="etikett">Eindeutige Delikt-ID</span><b id="k-doppelt">–</b>
+        <small id="k-doppelt-text"></small></div></div>
+  </section>
+
+  <section class="raster">
+    <article class="tafel">
+      <h2>Monatsabdeckung nach Stadt</h2>
+      <div class="abdeckungsraster" id="d-monate"></div>
+      <div class="legende statuslegende">
+        <span class="s-voll">Vollständig</span><span class="s-teil">Teilweise vorhanden</span>
+        <span class="s-fehlt">Fehlend</span><span class="s-spaeter">Noch nicht erschienen</span>
+      </div>
+    </article>
+    <article class="tafel">
+      <h2>NIBRS-Zuordnung je Stadt</h2>
+      <p class="unterzeile">Anteil der Taten je Zuordnungsstatus aus gold/fact_offense</p>
+      <div class="diagramm" id="d-zuordnung"></div>
+      <div class="legende" id="l-zuordnung"></div>
+    </article>
+  </section>
+
+  <section class="tafel detail">
+    <h2>Prüfungen und Abhängigkeiten</h2>
+    <table class="tabelle" id="d-pruefungen"></table>
+  </section>
+
+  <p class="hinweis abschluss"><span class="i">i</span><span>Fachliche Datenqualität. Technische
+    Systemmetriken – Laufzeiten, Speicher, Fehler der Strecke – stehen im Betriebsmonitoring.</span>
+    <a id="konsole" class="knopf" hidden>Nachweise in der Engineering-Konsole öffnen</a></p>
+</main>
+
+<footer class="fuss">
+  <span id="fuss-stand"></span>
+  <span>Quelle: gold/fact_offense · Schwellen: gold_pipeline.GATE_MINDESTENS und GATE_HOECHSTENS</span>
+</footer>
+</body>
+</html>

@@ -178,6 +178,8 @@ class Bestand:
     def __init__(self, data_root: Path | str):
         self.data_root = Path(data_root)
         self._sperre = threading.Lock()
+        # Nur ein Thread prueft und laedt nach; die anderen warten darauf.
+        self._pruefsperre = threading.Lock()
         self._geprueft = 0.0
         self._lade()
 
@@ -284,6 +286,24 @@ class Bestand:
             SELECT geoid, vintage, population
             FROM read_parquet('{acs}', hive_partitioning=false)
             WHERE geoid IN (SELECT geoid FROM tract_geo)""")
+        # Fuer »Datenqualität«: Taten je Zuordnung, Verortung und Ortszeit,
+        # und je Stadt und Monat, wie viele Delikt-IDs mehrfach vorkommen.
+        con.execute(f"""
+            CREATE TABLE qualitaet AS
+            SELECT f.reporting_city AS stadt, date_trunc('month', f.date)::DATE AS monat,
+                   CASE WHEN f.nibrs_code IS NULL THEN 'unmapped'
+                        ELSE d.nibrs_category END AS kategorie,
+                   f.mapping_status, f.geo_status,
+                   coalesce(f.local_time_ambiguous, false) AS ortszeit_mehrdeutig,
+                   count(*) AS delikte
+            FROM read_parquet('{fakten}', hive_partitioning=false) f
+            LEFT JOIN read_parquet('{delikte}', hive_partitioning=false) d USING (nibrs_code)
+            GROUP BY ALL""")
+        con.execute(f"""
+            CREATE TABLE doppelte AS
+            SELECT reporting_city AS stadt, date_trunc('month', date)::DATE AS monat,
+                   count(*) - count(DISTINCT offense_id) AS doppelt
+            FROM read_parquet('{fakten}', hive_partitioning=false) GROUP BY ALL""")
         # Fuer »Deliktstruktur«: je Kategorie die drei haeufigsten NIBRS-Delikte
         # ueber den ganzen Bestand - Beispiele, keine Auswahl.
         beispiele: dict[str, list[str]] = {}
@@ -326,12 +346,13 @@ class Bestand:
 
     def aktuell(self) -> None:
         """Laedt nach, wenn sich der Stand geaendert hat - hoechstens einmal je Minute."""
-        jetzt = time.monotonic()
-        if jetzt - self._geprueft < PRUEFABSTAND_S:
-            return
-        self._geprueft = jetzt
-        if self._abdruck() != self._abdruck_jetzt:
-            self._lade()
+        with self._pruefsperre:
+            jetzt = time.monotonic()
+            if jetzt - self._geprueft < PRUEFABSTAND_S:
+                return
+            self._geprueft = jetzt
+            if self._abdruck() != self._abdruck_jetzt:
+                self._lade()
 
     def _cursor(self):
         with self._sperre:
@@ -371,6 +392,27 @@ class Bestand:
         except ValueError as fehler:
             raise EingabeFehler("Jahr und Monate muessen Zahlen sein") from fehler
         return a.pruefe(self.jahre, self.kategorien)
+
+    # -- Das Brett »Datenqualität« -------------------------------------------
+
+    def datenqualitaet(self, a: Auswahl) -> dict[str, Any]:
+        from serving.dashboard.datenqualitaet import datenqualitaet
+        return datenqualitaet(self, a)
+
+    def referenz(self, jahr: int) -> dict[str, Any]:
+        """Was eine Auswertung des Jahres an Referenzdaten braucht - und ob es da ist."""
+        cur = self._cursor()
+        vintages = [r[0] for r in cur.execute(
+            "SELECT DISTINCT vintage FROM raten WHERE year(monat) = $j AND vintage IS NOT NULL",
+            {"j": jahr}).fetchall()]
+        tracts = dict(cur.execute("SELECT city, count(*) FROM tract_geo GROUP BY 1").fetchall())
+        return {
+            "acs_vintage": vintages[0] if len(vintages) == 1 else None,
+            "acs_vintages": sorted(vintages),
+            "kategorien": len([k for k in self.kategorien if k != "unmapped"]),
+            "tracts": {s: int(tracts.get(s, 0)) for s in STAEDTE},
+            "release": self.stand.get("release"),
+        }
 
     # -- Das Brett »Deliktstruktur« ------------------------------------------
 

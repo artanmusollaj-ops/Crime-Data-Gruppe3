@@ -9,6 +9,7 @@ Anwendung nicht schon schuetzt.
 from __future__ import annotations
 
 import os
+import threading
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
@@ -23,14 +24,18 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     app = Flask(__name__, static_folder=None)
     wurzel = for_root(data_root or os.getenv("DASHBOARD_DATA_ROOT")).local_root
     zustand = {"bestand": bestand}
+    sperre = threading.Lock()
 
     def daten() -> Bestand:
         # Erst bei der ersten Anfrage geladen: gunicorn startet schneller, und
-        # /healthz antwortet, auch wenn der Bestand noch fehlt.
-        if zustand["bestand"] is None:
-            zustand["bestand"] = Bestand(wurzel)
-        else:
-            zustand["bestand"].aktuell()
+        # /healthz antwortet, auch wenn der Bestand noch fehlt. Unter der
+        # Sperre, weil gunicorn mit vier Threads laeuft: Ohne sie luden die
+        # ersten gleichzeitigen Anfragen den Bestand mehrfach nebeneinander.
+        with sperre:
+            if zustand["bestand"] is None:
+                zustand["bestand"] = Bestand(wurzel)
+                return zustand["bestand"]
+        zustand["bestand"].aktuell()
         return zustand["bestand"]
 
     @app.after_request
@@ -72,6 +77,10 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     def seite_deliktstruktur():
         return send_from_directory(_STATISCH, "deliktstruktur.html")
 
+    @app.get("/datenqualitaet")
+    def seite_datenqualitaet():
+        return send_from_directory(_STATISCH, "datenqualitaet.html")
+
     @app.get("/static/<path:name>")
     def statisch(name):
         return send_from_directory(_STATISCH, name)
@@ -105,5 +114,13 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     def deliktstruktur():
         bestand = daten()
         return jsonify(bestand.deliktstruktur(bestand.auswahl(request.args.to_dict())))
+
+    @app.get("/api/datenqualitaet")
+    def datenqualitaet():
+        bestand = daten()
+        antwort = bestand.datenqualitaet(bestand.auswahl(request.args.to_dict()))
+        # Der Weg zu den Nachweisen, wenn die Konsole erreichbar ist.
+        antwort["konsole"] = os.getenv("DASHBOARD_KONSOLE_URL") or None
+        return jsonify(antwort)
 
     return app

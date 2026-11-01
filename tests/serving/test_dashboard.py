@@ -50,7 +50,7 @@ def quadrat(x: float, y: float) -> str:
 
 
 def stern(root: Path, taten: list[tuple], *, kleine: bool = False) -> Path:
-    """(meldende Stadt, Datum, NIBRS-Code, Tract[, Uhrzeit[, Fall]]) je Tat."""
+    """(meldende Stadt, Datum, NIBRS-Code, Tract[, Uhrzeit[, Fall[, Zuordnung]]]) je Tat."""
     schreibe(root, "fact_offense", {
         "offense_id": [f"o{i}" for i in range(len(taten))],
         "reporting_city": [t[0] for t in taten],
@@ -59,7 +59,8 @@ def stern(root: Path, taten: list[tuple], *, kleine: bool = False) -> Path:
         "nibrs_family": [t[2][:2] for t in taten],
         # Das sechste Feld: False fuer eine weitere Anklage im selben Fall.
         "counts_case": [t[5] if len(t) > 5 else True for t in taten],
-        "mapping_status": ["exact"] * len(taten),
+        # Das siebte Feld: der Zuordnungsstatus, sonst exact.
+        "mapping_status": [t[6] if len(t) > 6 else "exact" for t in taten],
         # Wie in Gold: inside_city nur, wenn der Tract zur meldenden Stadt gehoert.
         "geo_status": ["inside_city" if TRACT_STADT.get(t[3]) == t[0] else "outside_city"
                        for t in taten],
@@ -252,7 +253,8 @@ def test_ohne_daten_meldet_die_api_503_und_healthz_bleibt_gruen(tmp_path):
     assert antwort.status_code == 503 and "nicht gebaut" in antwort.json["fehler"]
 
 
-@pytest.mark.parametrize("pfad", ["/", "/zeitverlauf", "/geografie", "/deliktstruktur"])
+@pytest.mark.parametrize("pfad", ["/", "/zeitverlauf", "/geografie", "/deliktstruktur",
+                                  "/datenqualitaet"])
 def test_die_seite_kommt_ohne_inline_code_aus(bestand, pfad):
     """Die CSP erlaubt nur 'self'; ein Inline-Skript oder -Stil liefe nicht."""
     client = create_app(bestand=bestand).test_client()
@@ -281,7 +283,7 @@ def test_alle_seiten_tragen_dieselben_reiter(bestand):
         return re.findall(r">([^<>]+)</(?:a|span)>", leiste)
 
     assert reiter("/") == reiter("/zeitverlauf") == reiter("/geografie") == reiter(
-        "/deliktstruktur") == [
+        "/deliktstruktur") == reiter("/datenqualitaet") == [
         "Überblick", "Zeitverlauf", "Geografie", "Deliktstruktur", "Datenqualität"]
 
 
@@ -576,3 +578,126 @@ def test_eine_unbekannte_ebene_ist_ein_eingabefehler(struktur):
     assert client.get("/api/deliktstruktur?ebene=taten").status_code == 400
     ok = client.get("/api/deliktstruktur?jahr=2025&bis=3&ebene=delikte")
     assert ok.status_code == 200 and ok.json["ebene"] == "delikte"
+
+
+# --------------------------------------------------------------------------
+# Das Brett »Datenqualität«
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def qualitaet(tmp_path) -> Bestand:
+    um_18 = time(18, 5)
+    taten = (
+        jahr("chicago", 2025, "13A", TRACT_C, monate=range(1, 4), je=30)
+        + [("chicago", date(2025, 1, 5), "13A", TRACT_C, um_18, True, "fallback_90Z")] * 6
+        + [("chicago", date(2025, 1, 5), "13A", TRACT_C, um_18, True, "unmapped")] * 2
+        # Zweite Anklagen zaehlen mit: Das Gate misst Taten, nicht Faelle.
+        + [("chicago", date(2025, 2, 5), "13A", TRACT_C, um_18, False, "ambiguous")] * 2
+        + [("chicago", date(2025, 3, 31), "13A", TRACT_AUSSEN)] * 4
+        + jahr("detroit", 2025, "13A", TRACT_D, monate=range(1, 5), je=10)
+        + [("detroit", date(2025, 4, 30), "13A", TRACT_D)]
+    )
+    return Bestand(stern(tmp_path, taten))
+
+
+def test_die_anteile_messen_taten_wie_das_gate(qualitaet):
+    q = qualitaet.datenqualitaet(qualitaet.auswahl({"jahr": "2025", "stadt": "chicago", "bis": "3"}))
+    chicago = q["staedte"][0]
+    alle = 90 + 6 + 2 + 2 + 4
+    assert chicago["delikte"] == alle
+    assert chicago["zuordnung"] == {
+        "exact": round(94 * 100 / alle, 2), "fallback_90Z": round(6 * 100 / alle, 2),
+        "ambiguous": round(2 * 100 / alle, 2), "unmapped": round(2 * 100 / alle, 2)}
+    assert chicago["verortung"]["outside_city"] == round(4 * 100 / alle, 2)
+    assert q["kennzahlen"]["ohne_zuordnung"] == round(2 * 100 / alle, 2)
+
+
+def test_die_schwellen_sind_die_des_gates(qualitaet, monkeypatch):
+    import serving.dashboard.datenqualitaet as dq
+    a = qualitaet.auswahl({"jahr": "2025", "stadt": "chicago", "bis": "3"})
+    status = {p["aspekt"]: p["status"] for p in qualitaet.datenqualitaet(a)["pruefungen"]}
+    # 1,92 % ohne Zuordnung reisst die 1 % des Gates.
+    assert status["Ohne NIBRS-Zuordnung"] == "warnung"
+    assert status["NIBRS-Zuordnung exakt"] == status["Verortung im Stadtgebiet"] == "ok"
+    monkeypatch.setitem(dq.GATE_HOECHSTENS, "unmapped", 5.0)
+    monkeypatch.setitem(dq.GATE_MINDESTENS, "inside_city", 99.0)
+    status = {p["aspekt"]: (p["status"], p["schwelle"]) for p in qualitaet.datenqualitaet(a)["pruefungen"]}
+    assert status["Ohne NIBRS-Zuordnung"] == ("ok", "höchstens 5 %")
+    assert status["Verortung im Stadtgebiet"] == ("warnung", "mindestens 99 %")
+
+
+def test_doppelte_delikt_ids_fallen_auf(qualitaet):
+    a = qualitaet.auswahl({"jahr": "2025", "bis": "3"})
+    assert qualitaet.datenqualitaet(a)["kennzahlen"]["doppelte_ids"] == 0
+    ziel = qualitaet.data_root / "gold" / "dataset=fact_offense" / "part-0001.parquet"
+    tabelle = pq.read_table(ziel)
+    pq.write_table(pa.concat_tables([tabelle, tabelle.slice(0, 3)]), ziel)
+    neu = Bestand(qualitaet.data_root)
+    q = neu.datenqualitaet(a)
+    assert q["kennzahlen"]["doppelte_ids"] == 3
+    assert {p["aspekt"]: p["status"] for p in q["pruefungen"]}["Eindeutige Delikt-ID"] == "warnung"
+
+
+def test_spaetere_monate_sind_nicht_erschienen_luecken_fehlen(qualitaet):
+    """Chicago endet am 31.3., Detroit am 30.4.: Chicagos April fehlt, der Mai ist spaeter."""
+    q = qualitaet.datenqualitaet(qualitaet.auswahl({"jahr": "2025", "bis": "6"}))
+    monate = {s["stadt"]: s["monate"] for s in q["staedte"]}
+    assert monate["chicago"] == ["voll", "voll", "voll", "fehlt", "spaeter", "spaeter"]
+    assert monate["detroit"] == ["voll", "voll", "voll", "voll", "spaeter", "spaeter"]
+
+
+def test_die_referenzdaten_nennen_vintage_und_umrisse(qualitaet):
+    r = qualitaet.datenqualitaet(qualitaet.auswahl({"jahr": "2025", "bis": "3"}))["referenz"]
+    assert r["acs_vintage"] == 2024 and r["tracts"] == {"chicago": 1, "detroit": 1}
+    assert r["release"] is None
+
+
+@pytest.mark.parametrize("brett", ["ueberblick", "zeitverlauf", "geografie", "deliktstruktur",
+                                   "datenqualitaet"])
+def test_jedes_brett_nimmt_jede_kategorie(qualitaet, brett):
+    """Ein Parameter, den eine Abfrage nicht kennt, ist in DuckDB ein Fehler.
+
+    Unter Last fiel er auf: Die Abfrage nach doppelten IDs bekam die Kategorie
+    mit, filtert aber nicht nach ihr - 500 bei jeder Auswahl ausser »Alle«.
+    """
+    client = create_app(bestand=qualitaet).test_client()
+    for werte in ("kategorie=Assault%20Offenses", "kategorie=Assault%20Offenses&stadt=detroit"):
+        antwort = client.get(f"/api/{brett}?jahr=2025&bis=3&{werte}")
+        assert antwort.status_code == 200, antwort.get_data(as_text=True)[:200]
+
+
+def test_der_weg_zur_konsole_kommt_aus_der_umgebung(qualitaet, monkeypatch):
+    client = create_app(bestand=qualitaet).test_client()
+    assert client.get("/api/datenqualitaet?jahr=2025&bis=3").json["konsole"] is None
+    monkeypatch.setenv("DASHBOARD_KONSOLE_URL", "https://konsole.example")
+    assert client.get("/api/datenqualitaet?jahr=2025&bis=3").json["konsole"] == "https://konsole.example"
+
+
+def test_gleichzeitige_erste_anfragen_laden_den_bestand_einmal(tmp_path, monkeypatch):
+    """gunicorn laeuft mit vier Threads; die ersten Anfragen kommen zusammen."""
+    import threading as th
+    import time as zeit
+
+    import serving.dashboard.app as app_modul
+
+    stern(tmp_path, jahr("chicago", 2024, "13A", TRACT_C) + jahr("detroit", 2024, "13A", TRACT_D))
+    geladen = []
+    echt = app_modul.Bestand
+
+    def langsam(wurzel):
+        geladen.append(wurzel)
+        zeit.sleep(0.2)
+        return echt(wurzel)
+
+    monkeypatch.setattr(app_modul, "Bestand", langsam)
+    client = create_app(tmp_path).test_client()
+    antworten = []
+    faeden = [th.Thread(target=lambda: antworten.append(client.get("/api/optionen").status_code))
+              for _ in range(4)]
+    for f in faeden:
+        f.start()
+    for f in faeden:
+        f.join()
+    assert antworten == [200] * 4
+    assert len(geladen) == 1
