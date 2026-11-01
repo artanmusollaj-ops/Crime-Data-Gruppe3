@@ -401,9 +401,10 @@ JE_TABELLE: dict[tuple[str, str], str] = {
     },
     **{
         (tabelle, "days_in_window"):
-            "Davon im Zeitfenster der Daten (`min(date)` bis `max(date)` der "
-            "Faktentabelle). Kleiner als `days_in_period` heisst **Teilperiode** - "
-            "die Woche ab 30.12. hat zwei Tage, nicht sieben."
+            "Davon im Zeitfenster der Daten **dieser Stadt** (`min(date)` bis "
+            "`max(date)` der Faktentabelle je `reporting_city`, seit Vertrag 3). "
+            "Kleiner als `days_in_period` heisst **Teilperiode** - die Woche ab "
+            "30.12. hat zwei Tage, nicht sieben."
         for tabelle in ("comparison_week", "comparison_month")
     },
     ("comparison_day", "date"): "Tatdatum in Ortszeit.",

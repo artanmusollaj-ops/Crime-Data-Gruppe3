@@ -32,8 +32,8 @@ nicht, ist die Tabelle falsch gebaut, und der Bau bricht ab.
 **Teilperioden sind ausgewiesen.** Die letzte Woche des Jahrgangs hat zwei
 Tage; wer sie neben eine volle stellt, sieht einen Einbruch, der keiner ist.
 ``days_in_window`` sagt je Woche und Monat, wie viele Kalendertage im
-Zeitfenster der Daten liegen; ``days_in_period`` sagt, wie viele die Periode
-hat.
+Zeitfenster der Daten **dieser Stadt** liegen; ``days_in_period`` sagt, wie
+viele die Periode hat.
 """
 
 from __future__ import annotations
@@ -56,7 +56,12 @@ LOG = logging.getLogger("build_comparison")
 
 # Der Deutungsvertrag dieser Tabellen. Steigt die Zahl, sind aeltere Staende
 # anders zu lesen; jede Erhoehung gehoert in AENDERUNGEN.md.
-CONTRACT_VERSION = 2
+#
+# Version 3 (1.11.2026, C-10): ``days_in_window`` misst am Fenster **je
+# Stadt**. Bis dahin galt ein gemeinsames Fenster beider Staedte - Chicagos
+# Daten enden am 26.9.2026, Detroits am 4.10., und so hiess Chicagos September
+# vollstaendig, obwohl vier Tage fehlten.
+CONTRACT_VERSION = 3
 
 GOLD_LAYER = "gold"
 TABELLEN = ("comparison_day", "comparison_week", "comparison_month",
@@ -137,9 +142,11 @@ def zeitraum_query(periode: str) -> str:
 def mit_fenster(relation: str, periodenende: str) -> str:
     """Ergaenzt Periodenlaenge und die Tage, die im Datenfenster liegen.
 
-    Das Datenfenster ist ``min(date)`` bis ``max(date)`` der Faktentabelle.
-    Eine Woche, die am 30. Dezember beginnt, hat sieben Tage, aber nur zwei im
-    Fenster - und genau das steht dann daneben. ``periodenende`` ist ein
+    Das Datenfenster ist ``min(date)`` bis ``max(date)`` der Faktentabelle
+    **je meldender Stadt** (seit Vertrag 3). Eine Woche, die am 30. Dezember
+    beginnt, hat sieben Tage, aber nur zwei im Fenster - und genau das steht
+    dann daneben. Ein gemeinsames Fenster beider Staedte hiesse eine Periode
+    vollstaendig, sobald *eine* Stadt sie ganz hat. ``periodenende`` ist ein
     Ausdruck ueber ``period_start`` fuer den letzten Tag der Periode.
     """
     return f"""
@@ -151,8 +158,9 @@ def mit_fenster(relation: str, periodenende: str) -> str:
                date_diff('day', greatest(r.period_start, fenster.von),
                                 least(({periodenende})::DATE, fenster.bis)) + 1
                                                                        AS days_in_window
-        FROM {relation} r,
-             (SELECT min(date) AS von, max(date) AS bis FROM basis) fenster
+        FROM {relation} r
+        JOIN (SELECT reporting_city, min(date) AS von, max(date) AS bis
+              FROM basis GROUP BY 1) fenster USING (reporting_city)
         ORDER BY 1, 2, 4, 5
     """
 

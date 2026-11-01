@@ -240,10 +240,12 @@ class Bestand:
             LEFT JOIN read_parquet('{delikte}', hive_partitioning=false) d USING (nibrs_code)
             WHERE t.city IS NOT NULL
             GROUP BY ALL""")
-        # Das Fenster je Stadt. comparison_month rechnet days_in_window ueber
-        # ein gemeinsames Fenster beider Staedte; Chicagos Daten enden am
-        # 26.9.2026, Detroits am 4.10. - dort hiesse Chicagos September
-        # vollstaendig, obwohl vier Tage fehlen (offene-punkte.md, C-10).
+        # Das Fenster je Stadt, selbst gerechnet. comparison_month tut es seit
+        # Vertrag 3 auch (C-10, 1.11.2026), aber das Dashboard liest das
+        # aktive Release - und ein Release mit Vertrag 2 rechnet noch am
+        # gemeinsamen Fenster beider Staedte: Chicagos Daten enden am
+        # 26.9.2026, Detroits am 4.10., also hiesse dort Chicagos September
+        # vollstaendig, obwohl vier Tage fehlen.
         con.execute(f"""
             CREATE TABLE fenster AS
             SELECT reporting_city AS stadt, min(date) AS von, max(date) AS bis

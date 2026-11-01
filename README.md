@@ -222,7 +222,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 2'615 ausgeführte Tests, ohne Netzzugriff und ohne
+Erwartet wird **grün**: 2'616 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -232,7 +232,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 2'726
+python -m pytest -m ""               # beides zusammen, alle 2'727
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -471,7 +471,9 @@ Stadt und NIBRS-Kategorie, `partition_quality` je Stadt und Monat und
 liegen in `data/serving/`, nicht in Gold: Gold bleibt der Stern, die Tabellen
 sind jederzeit daraus neu erzeugbar und summieren sich nachweislich auf die
 Faktentabelle. Teilperioden am Rand des Jahrgangs sind je Zeile ausgewiesen
-(`days_in_window`).
+(`days_in_window`), seit dem 1.11.2026 am Fenster **je Stadt**: Endet eine
+Stadt früher, ist ihr letzter Monat eine Teilperiode, auch wenn die andere
+ihn ganz hat.
 
 `build_analysis_db` erzeugt `data/serving/analyse.duckdb` — eine DuckDB-Datei
 mit **Sichten** über die Parquet-Schichten, keine Kopie. Ein Silver- oder
@@ -1104,7 +1106,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**2'726 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**2'727 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -1141,7 +1143,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **2'537 der 2'615 Tests** des Standardlaufs, und
+In einem frischen Klon laufen **2'537 der 2'616 Tests** des Standardlaufs, und
 sie sind grün (am 30.10.2026 in einem Baum ohne `data/` nachgemessen).
 Die übrigen 78 überspringen sich selbst, weil sie gebaute Daten brauchen und
 `data/` nicht versioniert ist — dazu seit dem 5.10.2026 die Reproduktion von

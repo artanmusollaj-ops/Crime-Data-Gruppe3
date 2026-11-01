@@ -290,7 +290,7 @@ Eine Zeile ist: **eine Stadt, ein Monat, eine NIBRS-Kategorie**. 3'564 Zeilen.
 | `offenses` | `BIGINT` | **Taten.** Summiert sich je Stadt auf `fact_offense` - jede Tat trägt genau eine Kategorie. |
 | `cases` | `BIGINT` | **Fälle.** Summe von `counts_case`; genau eine Zeile je Fall, deshalb ebenfalls additiv über Kategorien. |
 | `days_in_period` | `BIGINT` | Kalendertage der Periode: 7 je Woche, 28 bis 31 je Monat. |
-| `days_in_window` | `BIGINT` | Davon im Zeitfenster der Daten (`min(date)` bis `max(date)` der Faktentabelle). Kleiner als `days_in_period` heisst **Teilperiode** - die Woche ab 30.12. hat zwei Tage, nicht sieben. |
+| `days_in_window` | `BIGINT` | Davon im Zeitfenster der Daten **dieser Stadt** (`min(date)` bis `max(date)` der Faktentabelle je `reporting_city`, seit Vertrag 3). Kleiner als `days_in_period` heisst **Teilperiode** - die Woche ab 30.12. hat zwei Tage, nicht sieben. |
 
 ### `comparison_week`
 
@@ -306,7 +306,7 @@ Eine Zeile ist: **eine Stadt, eine Woche ab Montag, eine NIBRS-Kategorie**. 14'0
 | `offenses` | `BIGINT` | **Taten.** Summiert sich je Stadt auf `fact_offense` - jede Tat trägt genau eine Kategorie. |
 | `cases` | `BIGINT` | **Fälle.** Summe von `counts_case`; genau eine Zeile je Fall, deshalb ebenfalls additiv über Kategorien. |
 | `days_in_period` | `BIGINT` | Kalendertage der Periode: 7 je Woche, 28 bis 31 je Monat. |
-| `days_in_window` | `BIGINT` | Davon im Zeitfenster der Daten (`min(date)` bis `max(date)` der Faktentabelle). Kleiner als `days_in_period` heisst **Teilperiode** - die Woche ab 30.12. hat zwei Tage, nicht sieben. |
+| `days_in_window` | `BIGINT` | Davon im Zeitfenster der Daten **dieser Stadt** (`min(date)` bis `max(date)` der Faktentabelle je `reporting_city`, seit Vertrag 3). Kleiner als `days_in_period` heisst **Teilperiode** - die Woche ab 30.12. hat zwei Tage, nicht sieben. |
 
 ### `partition_quality`
 

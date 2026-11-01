@@ -329,10 +329,13 @@ def test_alle_seiten_tragen_dieselben_reiter(bestand):
 
 
 def test_das_fenster_gilt_je_stadt(tmp_path):
-    """comparison_month misst am gemeinsamen Fenster; das Dashboard je Stadt.
+    """Chicago endet am 20.3., Detroit am 2.4.: Chicagos Maerz ist ein Teilmonat.
 
-    Chicago endet am 20.3., Detroit am 2.4. Gemeinsam reicht das Fenster in
-    den April, und comparison_month nennt Chicagos Maerz vollstaendig.
+    Bis zum 1.11.2026 hielt dieser Test fest, dass ``comparison_month`` am
+    gemeinsamen Fenster misst und Chicagos Maerz vollstaendig nennt - der
+    Grund, warum das Dashboard sein Fenster selbst rechnet. Seit Vertrag 3
+    (C-10) misst die Tabelle ebenfalls je Stadt, und beide sagen dasselbe.
+    Das eigene Fenster bleibt fuer Releases mit Vertrag 2.
     """
     b = Bestand(stern(tmp_path, [
         ("chicago", date(2025, 1, 1), "13A", TRACT_C),
@@ -343,7 +346,7 @@ def test_das_fenster_gilt_je_stadt(tmp_path):
     tage, im_fenster = b._cursor().execute(
         "SELECT max(tage), max(tage_im_fenster) FROM monate "
         "WHERE stadt = 'chicago' AND monat = DATE '2025-03-01'").fetchone()
-    assert tage == im_fenster == 31
+    assert (tage, im_fenster) == (31, 20)
     abdeckung = {a["stadt"]: a for a in b.ueberblick(b.auswahl(
         {"jahr": "2025", "bis": "4"}))["abdeckung"]}
     # Der Februar liegt im Fenster: ein voller Monat ohne Tat, keine Luecke.
