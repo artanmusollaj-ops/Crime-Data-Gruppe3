@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'717** |
+| Tests | **2'726** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -102,6 +102,57 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 1.11.2026 · Auf srv01 ersetzt das Dashboard Elasticsearch und Kibana (Branch `feature/dashboard-auf-srv01`)
+
+Beschrieben, **noch nicht eingesetzt** (C-9). Kibana war für fünf Bretter zu
+schwer: Elasticsearch und Kibana belegten zusammen 2'816 MiB Dauerbetrieb,
+und daneben blieben vom Budget 37 MiB frei. Entschieden ist **nur der
+Server**. Lokal bleiben `docker-compose.yml`, `load_elasticsearch` und
+`build_kibana`, wie sie sind.
+
+- **`docker-compose.srv01.yml`:** Neu ist der Dienst `dashboard` auf dem
+  Strecken-Abbild: gunicorn mit einem Prozess und vier Threads, Traefik auf
+  `urbancrime-dashboard.datenwerft.ch`, `mem_limit: 640m`, DuckDB auf 256 MB
+  und zwei Threads. Er liest den Eimer und hängt keinen Datenträger ein.
+  `elasticsearch` und `kibana` sind entfernt. Ihre Datenträger bleiben auf
+  `srv01` als Rückweg, denn Compose löscht sie nicht. Im Dauerbetrieb sind
+  jetzt **832 statt 3'008 MiB** verplant, mit dem grössten zeitweiligen
+  Dienst 2'112 von 4'325 MiB.
+- **Datenlauf und Konsolen-Worker** laden nichts mehr in Elasticsearch und
+  bauen kein Kibana mehr. Der Datenlauf startet `dashboard` statt der beiden.
+  Der Worker liest dafür `SERVING_BETRIEB=server`, dieselbe Variable wie
+  `pruefe_stand`.
+- **`pruefe_stand --betrieb server`** prüft Gold und das Dashboard: Es hält
+  das geladene Release gegen `AKTUELL.json`. Das Dashboard lädt höchstens
+  eine Minute nach dem Publizieren nach. Die Prüfung fragt deshalb bis zu
+  sechsmal im Abstand von 20 Sekunden, bevor sie eine Abweichung meldet.
+  Lokal bleibt der Bericht, wie er war.
+- **Das Dashboard lädt auch nach, wenn nur `AKTUELL.json` wechselt.** Bisher
+  hing der Abdruck nur an den Manifesten. Ein neues Release über denselben
+  Daten hätte das Dashboard weiter das alte nennen lassen, und
+  `pruefe_stand` hätte eine Abweichung gemeldet, die keine ist.
+- **Die Einstiegsseite** hat lokal fünf Zugänge, das Dashboard ist neu
+  dabei. Auf dem Server sind es drei (Dashboard, DuckDB, Jupyter), ohne
+  Karte und ohne Satz zu Elasticsearch.
+- **`srv01-abbild-einsetzen.sh` startet jetzt `admin` und `dashboard` neu.**
+  Bisher lief die Konsole nach einem Einsetzen auf dem alten Abbild weiter,
+  bis jemand `up -d admin` tippte. Ein Test liest die Dauerdienste auf dem
+  Strecken-Abbild aus der Compose-Datei.
+- **Dokumente:** `storage-architektur.md` §16, README 2.6 samt Abschnitt zum
+  Dashboard, `fr-stand.md` (FR-11, FR-14) und der Cron-Text.
+  `architektur-ist-und-ziel.md` und der Einseiter folgen nach dem Einsetzen,
+  weil sie den Ist-Stand beschreiben.
+
+**Ein Wächter weniger, mit Grund.** `test_betriebsstand.py` verlangte den
+Satz „Einzurichten bleibt“ für den Elasticsearch-Datenträger in der
+Serversicherung. Der Posten ist nicht eingerichtet worden, er ist
+**entfallen**: Die Sicherung nahm ihn am 18.10.2026 heraus, und den Dienst
+gibt es auf `srv01` nicht mehr. `test_beide_fassungen_binden_dieselbe_elastic_version`
+hat seinen Gegenstand verloren. An seine Stelle tritt
+`test_srv01_traegt_weder_elasticsearch_noch_kibana`.
+
+**Zahlen.** 2'717 → **2'726 Tests**, Standardlauf 2'606 → **2'615**.
 
 ## 1.11.2026 · Das Dashboard bekommt »Datenqualität«, damit stehen alle fünf Bretter (Branch `feature/dashboard-datenqualitaet`)
 
@@ -6090,7 +6141,7 @@ Diese kann etwas anderes, und das ist gemessen und nicht behauptet:
   Beschreibungen. Wer „explosive" sucht, findet in Elasticsearch **12** Fälle
   über **drei** Beschreibungen hinweg, ohne eine davon zu kennen. In ClickHouse
   wäre das `LIKE '%EXPLOSIVE%'` über 345'073 Zeilen.
-- **Umkreis.** **342'727** der 345'073 Zeilen tragen Koordinaten. *Alle Delikte
+- **Umkreis.** **342'726** der 345'073 Zeilen tragen Koordinaten. *Alle Delikte
   im Umkreis von 500 m* ist eine `geo_distance`-Zeile — im Chicagoer Loop sind
   das **3'394**. Genau diese Frageform braucht eine Wirkungsanalyse zu einer
   ortsgebundenen Massnahme.

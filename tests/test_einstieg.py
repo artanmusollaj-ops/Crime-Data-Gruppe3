@@ -276,7 +276,7 @@ def test_die_seite_nennt_so_viele_bretter_wie_es_gibt(werkzeug, text):
 
 
 # --------------------------------------------------------------------------
-# Die Zugaenge (FR-31): vier, und einer, der noch keiner ist
+# Die Zugaenge (FR-31): je Fassung gezaehlt, und einer, der noch keiner ist
 # --------------------------------------------------------------------------
 
 
@@ -298,21 +298,28 @@ def blatt(werkzeug, fassung: str) -> str:
     return werkzeug.seite("2026-01-01T00-00-00Z", {}, mass, fassung)
 
 
-def test_die_seite_nennt_vier_zugaenge(werkzeug, text):
+def test_die_seite_nennt_ihre_zugaenge(werkzeug, text):
     """FR-31 verlangt die Zugaenge auf der Seite - gezaehlt, nicht geglaubt.
 
-    Vier gibt es: Elasticsearch, Kibana, DuckDB und seit dem 12.10.2026
-    Jupyter. Die Admin-Konsole ist ein fuenfter Eintrag und **kein** Zugang;
-    sie zaehlt hier bewusst nicht mit, und der Waechter darunter haelt fest,
-    dass die Seite das auch sagt.
+    Lokal sind es fuenf: Elasticsearch, Kibana, seit dem 1.11.2026 das
+    eigene Dashboard, DuckDB und seit dem 12.10.2026 Jupyter. Auf srv01 drei
+    - dort ersetzt das Dashboard Elasticsearch und Kibana (C-9). Die
+    Admin-Konsole ist ein weiterer Eintrag und **kein** Zugang; sie zaehlt
+    hier bewusst nicht mit, und der Waechter darunter haelt fest, dass die
+    Seite das auch sagt.
 
     Geprueft wird beides: die Liste im Erzeuger und die abgelegte Seite. Nur
     das Erste waere ein Test des Generators gegen sich selbst - genau der
     Fehler, der "Drei Bretter" vier Tage ueberlebt hat.
     """
+    server = [d[0] for d in werkzeug.dienste("server") if not werkzeug.ist_kuenftig(d)]
+    assert server == ["Dashboard", "DuckDB", "Jupyter"], server
+    wort = werkzeug.ZAHLWORT[len(server)].capitalize()
+    assert f"{wort} Zugänge" in blatt(werkzeug, "server")
+
     zugaenge = [d for d in werkzeug.dienste() if not werkzeug.ist_kuenftig(d)]
     namen = [d[0] for d in zugaenge]
-    assert namen == ["Elasticsearch", "Kibana", "DuckDB", "Jupyter"], namen
+    assert namen == ["Elasticsearch", "Kibana", "Dashboard", "DuckDB", "Jupyter"], namen
     wort = werkzeug.ZAHLWORT[len(namen)].capitalize()
     assert f"{wort} Zugänge" in text, (
         f"die Seite nennt nicht {wort.lower()} Zugänge. "
@@ -393,23 +400,29 @@ def test_die_adressen_sind_umschaltbar_und_folgen_dem_muster(werkzeug):
     """
     lokal = {d[0]: d[1] for d in werkzeug.dienste("lokal")}
     server = {d[0]: d[1] for d in werkzeug.dienste("server")}
-    assert set(lokal) == set(server), "die Fassungen nennen andere Dienste"
+    # Seit dem 1.11.2026 (C-9) mit Absicht verschieden: Auf srv01 gibt es
+    # Elasticsearch und Kibana nicht mehr, und genau die beiden fehlen dort.
+    assert set(lokal) - set(server) == {"Elasticsearch", "Kibana"}, (
+        "die Fassungen unterscheiden sich in anderem als Elasticsearch und Kibana")
+    assert set(server) <= set(lokal)
 
     assert lokal["Kibana"].startswith("http://localhost:15601")
     assert lokal["Elasticsearch"].startswith("http://localhost:19200")
+    assert lokal["Dashboard"] == "http://localhost:8050/", lokal["Dashboard"]
     # Die Portzahl, nicht nur das Praefix: 8888 ist die Vorgabe von
     # ``jupyter lab`` und steht in keiner Compose-Datei - ein verschobener
     # Port faellt sonst nirgends auf.
     assert lokal["Jupyter"] == "http://localhost:8888/lab", lokal["Jupyter"]
-    for name in ("Kibana", "Jupyter"):
+    for name in ("Dashboard", "Jupyter"):
         assert server[name].startswith(
             f"https://urbancrime-{name.lower()}.datenwerft.ch"), server[name]
-    # Elasticsearch ist auf srv01 nicht geroutet (FR-11). Ein Knopf dafuer
-    # waere entweder ein toter Link oder - schlimmer - ein offener
-    # Datenspeicher, wenn jemand die Route nachtraeglich anlegt.
-    assert server["Elasticsearch"] is None, (
-        "die Serverfassung verlinkt Elasticsearch - es ist dort bewusst "
-        "nicht geroutet")
+    # Keine Karte und keine Adresse fuer Elasticsearch auf der Serverseite:
+    # Bis zum 1.11.2026 stand dort die stapelinterne Adresse, und ein Satz
+    # ueber den Weg dorthin waere jetzt so falsch wie ein Knopf darauf.
+    seite = blatt(werkzeug, "server")
+    for rest in ("<h3>Elasticsearch</h3>", "<h3>Kibana</h3>", "elasticsearch:9200",
+                 "LOOKUP JOIN"):
+        assert rest not in seite, f"die Serverfassung nennt noch {rest!r}"
     assert not any(h for h in server.values()
                    if h and h.startswith("https://urbancrime.datenwerft.ch")), (
         "die Seite besetzt urbancrime.datenwerft.ch - der eine Hostname, den "

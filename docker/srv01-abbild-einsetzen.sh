@@ -45,11 +45,15 @@ ABBILDER=(
     "JUPYTER_IMAGE ghcr.io/datenwerft/urban-crime-jupyter"
 )
 
-# Dienste, die nach einem Abbildwechsel neu starten muessen. `pipeline` steht
-# **nicht** dabei: Er laeuft als `run --rm` und nimmt das neue Abbild beim
-# naechsten Lauf von selbst. `elasticsearch`, `kibana` und `start` haben
-# eigene, fremde Abbilder und sind unberuehrt.
-NEUSTART_DIENSTE=("jupyter")
+# Dienste, die nach einem Abbildwechsel neu starten muessen. `pipeline` und
+# `worker` stehen **nicht** dabei: Sie laufen als `run --rm` und nehmen das
+# neue Abbild beim naechsten Lauf von selbst. `start` hat ein eigenes,
+# fremdes Abbild und ist unberuehrt.
+#
+# `admin` und `dashboard` laufen dauernd auf dem Strecken-Abbild. Bis zum
+# 1.11.2026 fehlte `admin` hier, und die Konsole lief nach einem Einsetzen
+# auf dem alten Abbild weiter, bis jemand `up -d admin` tippte.
+NEUSTART_DIENSTE=("jupyter" "admin" "dashboard")
 NEUSTART_PROFIL="analyse"
 
 compose() {

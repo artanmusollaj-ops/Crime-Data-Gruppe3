@@ -52,10 +52,10 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | FR-8 | Gleicher Eingabe-Fingerabdruck im Container | ◐ | **nicht geprüft** — ein Containerlauf gegen einen Hostlauf auf denselben Eingaben fehlt |
 | FR-9 | Stapellauf, kein Webdienst | ● | `profiles: [stapel]`, `restart: on-failure:2`, kein `ports:` |
 | FR-10 | Webdienste hinter dem Tunnel | ● | Traefik-Label je Webdienst |
-| FR-11 | Elasticsearch nicht im `proxy`-Netz | ● | nur das Stapelnetz, `tests/test_srv01_compose.py` |
+| FR-11 | Elasticsearch nicht im `proxy`-Netz | ● | nur das Stapelnetz, `tests/test_srv01_compose.py`; seit dem 1.11.2026 steht es in der Serverfassung gar nicht mehr (C-9, `test_srv01_traegt_weder_elasticsearch_noch_kibana`) |
 | FR-12 | Tunnel-Route je Hostname | ● | am 11.10.2026 auf `srv01` abgelesen |
 | FR-13 | Speicherlimit je Dienst | ● | `mem_limit` je Dienst, Wächter hält sie gegen die Messung vom 6.10.2026 |
-| FR-14 | Dienst-URLs über Umgebungsvariablen | ● | `ELASTICSEARCH_URL`, `KIBANA_URL` |
+| FR-14 | Dienst-URLs über Umgebungsvariablen | ● | `ELASTICSEARCH_URL`, `KIBANA_URL`, seit dem 1.11.2026 `DASHBOARD_URL` |
 | FR-21 | Startseite unter dem Muster | ● | `urbancrime-start.datenwerft.ch`, E11 |
 | FR-22 | Hostnamen folgen einem Muster | ● | `urbancrime-<dienst>`, Wächter in `tests/test_srv01_compose.py` |
 | FR-23 | Eigene Access-Policy für die Prüfenden | ○ | **offen**, bewusst zurückgestellt — die Policy entsteht erst zur Abgabe |

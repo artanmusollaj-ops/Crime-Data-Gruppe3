@@ -14,8 +14,9 @@ is a Monday, the monthly Restic test restore starts at 05:00 and may otherwise
 overlap the heaviest pipeline run, including its six-hour `flock` wait window.
 
 Every data run publishes a release, restores and verifies that release,
-refreshes Elasticsearch and Kibana, and finishes with
-`serving.pruefe_stand`. The lock prevents scheduled runs from overlapping.
+makes sure the dashboard is running (since 1.11.2026 it replaces
+Elasticsearch and Kibana on srv01 and reads the store itself), and finishes
+with `serving.pruefe_stand`. The lock prevents scheduled runs from overlapping.
 
 Install or refresh the user crontab:
 

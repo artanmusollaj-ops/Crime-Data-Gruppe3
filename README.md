@@ -222,7 +222,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 2'606 ausgeführte Tests, ohne Netzzugriff und ohne
+Erwartet wird **grün**: 2'615 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -232,7 +232,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 2'717
+python -m pytest -m ""               # beides zusammen, alle 2'726
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -772,7 +772,9 @@ Kein Sync: Was auf SeaweedFS liegt und lokal nicht, bleibt unberührt.
 ### 2.6 Die Analyseplattform — Elasticsearch und Kibana
 
 Bis hierher sind die Daten aufbereitet. Wer sie *befragen* will, ohne DuckDB zu
-starten, bekommt zwei Dienste:
+starten, bekommt lokal zwei Dienste. Auf `srv01` ersetzt sie seit dem
+1.11.2026 das eigene Dashboard (unten, „Das eigene Dashboard"); lokal bleiben
+beide als Option:
 
 ```bash
 docker compose up -d                    # Elasticsearch, Kibana
@@ -895,8 +897,10 @@ Eine Datei — [`docs/einstieg.html`](docs/einstieg.html) öffnet man mit einem
 Doppelklick. Darauf steht, was im aktuellen Release liegt
 (Zeilen, Spalten, Zeitraum, Vertragsversion, Code-Verweis), die Kennzahlen
 beider Städte samt Rate je 1'000, die Güteziffern gegen die Schwellen des
-Publish-Gates, und die vier Zugänge — Elasticsearch, Kibana, DuckDB und
-Jupyter. **Jede Zahl wird beim Erzeugen gemessen**, keine ist abgeschrieben.
+Publish-Gates, und die fünf Zugänge — Elasticsearch, Kibana, das eigene
+Dashboard, DuckDB und Jupyter; die Serverfassung nennt seit dem 1.11.2026 nur
+Dashboard, DuckDB und Jupyter. **Jede Zahl wird beim Erzeugen gemessen**,
+keine ist abgeschrieben.
 
 > **Für `srv01` ist ein Dienst beschrieben, der sie ausliefert** (seit dem
 > 12.10.2026, FR-31) — beschrieben, **nicht in Betrieb**: Der Stapel dort
@@ -942,6 +946,11 @@ sich stimmig sind. Jede Stelle ist konsistent, das Ganze ist falsch.
 | Elasticsearch | der Index hinter jedem der sechs Aliase trägt die Release-Kennung |
 | Kibana | das eingebackene Zeitfenster deckt den Datenbereich ab |
 | ClickHouse | nichts — der Bericht nennt den Dienst als *nicht geladen* und wird davon nicht rot |
+| Dashboard (nur `--betrieb server`) | das Release, das es geladen hat, gegen `AKTUELL.json` — mit Geduld, weil es erst bis zu einer Minute nach dem Publizieren nachlädt |
+
+> **Auf `srv01` sind es zwei Orte** (seit dem 1.11.2026): Gold und das
+> Dashboard. `SERVING_BETRIEB=server` aus der Compose-Datei schaltet um; ein
+> Befund über Dienste, die es dort nicht gibt, wäre eine Auskunft ins Leere.
 
 > **Nicht im wöchentlichen Datenlauf.** Nach einer frischen Ingestion weicht
 > Gold vom Release ab — richtigerweise, denn es ist neuer. Der Lauf wäre jede
@@ -954,9 +963,11 @@ Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.
 > **Das hier ist die Entwicklungsfassung.** `docker-compose.yml` bindet die
 > Ports an `127.0.0.1`, kennt kein Traefik und setzt keine Speichergrenzen —
 > auf diesem Rechner richtig. Für den Betrieb auf einem geteilten Server liegt
-> daneben `docker-compose.srv01.yml`: fünf Dienste, gemessene
-> Speichergrenzen, die Strecke als Stapellauf, ein lesendes Jupyter und seit
-> dem 12.10.2026 ein nginx für die Einstiegsseite.
+> daneben `docker-compose.srv01.yml`: sechs Dienste, gemessene
+> Speichergrenzen, die Strecke als Stapellauf, ein lesendes Jupyter, seit
+> dem 12.10.2026 ein nginx für die Einstiegsseite, seit dem 30.10.2026 die
+> Engineering-Konsole und seit dem 1.11.2026 das eigene Dashboard statt
+> Elasticsearch und Kibana — beschrieben, auf `srv01` noch nicht eingesetzt.
 > **Seit dem 8.10.2026 läuft sie dort.** Elasticsearch, Kibana und Jupyter
 > stehen auf `srv01`, beide Abbilder per Digest gepinnt; die Tunnel-Routen für
 > Kibana und Jupyter und die Access-Anwendung sind seit dem 9.10.2026
@@ -975,8 +986,16 @@ dem 1.11.2026 entsteht deshalb ein eigenes Dashboard nach Artans Entwürfen
 (`docs/bilder/dashboard_*.png`): Flask, DuckDB und eigenes SVG, ohne
 Suchindex und ohne Diagrammbibliothek. Das erste Brett ist »Kriminalität im
 Überblick«, seit demselben Tag stehen alle fünf Bretter: »Zeitverlauf«,
-»Geografie«, »Deliktstruktur« und »Datenqualität« daneben. Auf `srv01`
-läuft noch Kibana; der Wechsel folgt in einem Zug.
+»Geografie«, »Deliktstruktur« und »Datenqualität« daneben.
+
+**Auf `srv01` ersetzt es Elasticsearch und Kibana** — in
+`docker-compose.srv01.yml` beschrieben, eingesetzt wird es nach dem Merge
+(C-9). Dort heisst es `urbancrime-dashboard.datenwerft.ch`, liegt hinter
+derselben Access-Anwendung wie alles unter `urbancrime-*` und liest Gold und
+`comparison_month` direkt aus dem Eimer; ein neues Release lädt es höchstens
+eine Minute später von selbst nach. Die Grenze von 640 MiB ist lokal
+gemessen (Spitze 476 MiB beim Verdichten), im Dauerbetrieb stehen damit 832
+statt 3'008 MiB. Lokal bleiben Elasticsearch, Kibana und ihre Lader.
 
 ```bash
 python -m serving.dashboard --data-root data    # http://127.0.0.1:8050
@@ -1087,7 +1106,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**2'717 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**2'726 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen

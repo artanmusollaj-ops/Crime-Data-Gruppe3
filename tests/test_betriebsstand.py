@@ -104,10 +104,12 @@ NOCH_WAHR = {
     "docs/architektur-ist-und-ziel.md": "Einrichtung, kein Nachweis",
     "README.md": "Einrichtung, kein Nachweis",
     "docs/ln2_konzept.md": "Einrichtung, kein Nachweis",
-    # Der vierte Posten unter "Was daneben einzurichten ist": der
-    # Elasticsearch-Datentraeger fuer Restic. Am 11.10.2026 nicht geprueft -
-    # die Datei liegt in der srv01-Infrastruktur, nicht in diesem Repository.
-    "docs/storage-architektur.md": "Einzurichten bleibt",
+    # Hier stand bis zum 1.11.2026 der vierte Posten unter "Was daneben
+    # einzurichten ist": der Elasticsearch-Datentraeger fuer Restic, am
+    # 11.10.2026 nicht geprueft. Er ist nicht eingerichtet, sondern
+    # **entfallen** - der Sicherungsabschnitt nahm ihn am 18.10.2026 aus der
+    # Policy, und seit C-9 gibt es den Dienst auf srv01 nicht mehr. Gedreht
+    # ist die Aussage also nicht ohne Beleg, sondern mit ihrem Gegenstand.
 }
 
 #: Woran ein Absatz zu erkennen ist, der die Messung **vorzeigt**. Bewusst das

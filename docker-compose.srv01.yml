@@ -34,9 +34,10 @@
 # werden muss, steht in docs/storage-architektur.md, Abschnitt 16: die
 # Tunnel-Route je Hostname auf http://traefik:80 (FR-12), die eine
 # Access-Anwendung ueber urbancrime-* (FR-22), die Deckelung von cadvisor auf
-# 256 MiB (Voraussetzung von FR-13) und der Eintrag des
-# Elasticsearch-Datentraegers in config/srv01.yaml, damit Restic ihn sichert
-# (FR-11).
+# 256 MiB (Voraussetzung von FR-13) und, seit dem 1.11.2026, die Route fuer
+# urbancrime-dashboard. Der Elasticsearch-Datentraeger in config/srv01.yaml
+# (FR-11) ist mit dem Dienst entfallen; der Eintrag dort darf bleiben, bis
+# der Datentraeger als Rueckweg nicht mehr gebraucht wird.
 
 # Ein eigener Projektname, nicht der Verzeichnisname. Traefik fasst die Labels
 # **aller** Compose-Projekte zu einer Konfiguration zusammen; Router- und
@@ -47,111 +48,68 @@ name: urbancrime
 services:
 
   # --------------------------------------------------------------------
-  # Elasticsearch - Dauerbetrieb, aber kein Webdienst
+  # Das Dashboard - Dauerbetrieb und geroutet (1.11.2026, C-9)
   # --------------------------------------------------------------------
-  elasticsearch:
-    # Dieselbe Fassung wie in der Entwicklungsfassung. Ein Index, der hier
-    # anders gebaut wird als dort, waere kein Beleg mehr fuer das, was auf dem
-    # Entwicklungsrechner geprueft wurde.
-    #
-    # Genau das war vom 7. bis zum 11.10.2026 der Fall: #137 hob die
-    # Entwicklungsfassung auf 8.19.22 und liess diese Datei auf 8.15.0 stehen.
-    # Aufgefallen ist es nicht hier, sondern an ``docker compose ps`` auf
-    # srv01. Die Zusage stand also drei Tage als Kommentar da, ohne dass ein
-    # Test sie hielt - jetzt tut es
-    # ``test_beide_fassungen_binden_dieselbe_elastic_version``.
-    #
-    # Die Fassung selbst (8.19.22, 23.9.2026) ist in der Entwicklungsfassung
-    # begruendet; der Grund, warum sie hier ankommen muss, ist ``LOOKUP JOIN``:
-    # Es ist erst ab 8.19 allgemein verfuegbar, und ohne es braucht jede
-    # Verbundauswertung eine vorverbundene Tabelle in ``serving/``. Der Sprung
-    # innerhalb der Hauptversion 8 verlangt keine Neuindizierung; im Zweifel
-    # laedt ``python -m serving.load_elasticsearch`` jeden Index aus dem
-    # Release neu.
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.22
+  # **Bis zum 1.11.2026 standen hier Elasticsearch und Kibana.** Zusammen
+  # 2'816 MiB im Dauerbetrieb, und neben ihnen waren von 4'325 MiB noch 37
+  # frei - Kibana war fuer fuenf Bretter zu schwer. Das eigene Dashboard
+  # (``serving.dashboard``, Flask und DuckDB) zeigt dieselben Fragen nach
+  # Artans Entwuerfen und liest Gold und ``comparison_month`` direkt aus dem
+  # Eimer; es braucht keinen Index, keinen Lader und keine gespeicherten
+  # Objekte. Entschieden ist **nur srv01**: Lokal bleiben Elasticsearch und
+  # Kibana in docker-compose.yml, ``load_elasticsearch`` und ``build_kibana``
+  # bleiben aufrufbar. Ihre Datentraeger ``urbancrime_elasticsearch-daten``
+  # und ``urbancrime_kibana-daten`` stehen auf srv01 weiter als Rueckweg;
+  # Compose loescht sie nicht, nur weil sie hier nicht mehr stehen.
+  dashboard:
+    # Dasselbe Abbild wie Pipeline und Konsole: Flask, gunicorn und DuckDB
+    # liegen darin, die statischen Dateien als Paketdaten von serving.
+    image: ${PIPELINE_IMAGE:-urban-crime:latest}
     restart: unless-stopped
-    environment:
-      discovery.type: single-node
-      # Ohne diese Zeile verlangt Elasticsearch 8 Zertifikate und Passwoerter.
-      # Geschuetzt wird hier nicht durch den Dienst, sondern dadurch, dass er
-      # ausserhalb des Netzes urbancrime nicht erreichbar ist - kein ports:,
-      # kein Traefik-Label, nicht im Netz proxy.
-      xpack.security.enabled: "false"
-      # 768 MiB Heap statt 1 GiB: Am 6.10.2026 gemessen nutzte der Heap
-      # **195 von 1'024 MiB**. Die Haelfte des Container-Limits ist die
-      # Elastic-Empfehlung, und 768 MiB lassen dem Lucene-Dateicache den Rest.
-      ES_JAVA_OPTS: "-Xms768m -Xmx768m"
-    # FR-11: **kein** Traefik-Label und **nicht** im Netz proxy. Ein
-    # versehentliches Label an dieser Stelle waere ein offener Datenspeicher -
-    # geroutet sind Kibana, Jupyter und die Einstiegsseite, nicht der
-    # Datenspeicher darunter.
+    # Ein Prozess, vier Threads: Der verdichtete Bestand liegt einmal im
+    # Speicher. Mehrere Prozesse hielten ihn je einmal und luden ihn je
+    # einmal - die Ladespitze ist das Teure, nicht die Anfragen.
+    command:
+      - gunicorn
+      - --bind
+      - 0.0.0.0:8050
+      - --workers
+      - "1"
+      - --threads
+      - "4"
+      # Die erste Anfrage nach einem Start oder einem neuen Release laedt
+      # den Bestand aus dem Eimer; lokal 15 bis 25 Sekunden.
+      - --timeout
+      - "120"
+      - serving.dashboard.app:create_app()
     networks:
-      - urbancrime
-    volumes:
-      - elasticsearch-daten:/usr/share/elasticsearch/data
-    # FR-13, gemessen am 6.10.2026: 1,75 GiB. Heap 768 MiB plus Lucene-Cache,
-    # Threadstacks und JVM-Metaspace.
-    mem_limit: 1792m
-    # Nur hier, und nur fuer diesen Dienst: Ein Heap, der auf die Platte
-    # ausgelagert wird, erzeugt Cluster-Zeitueberschreitungen statt
-    # Langsamkeit. Auf srv01 sind 2'418 von 4'095 MB Swap schon belegt, das
-    # Risiko ist also real. Pipeline und Jupyter bekommen die Zeile bewusst
-    # **nicht**: Dort ist Swap der Rettungsanker eines einmaligen Laufs, und
-    # ein langsamer Wochenlauf ist besser als ein getoeteter.
-    memswap_limit: 1792m
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      # FR-9 verlangt Logrotation fuer den Stapellauf; sie gilt hier fuer jeden
-      # Dienst. Ohne Grenze waechst json-file unbegrenzt, und die Platte ist
-      # mit 251 GB geteilt. Loki holt die Zeilen ohnehin ab (FR-24).
-      driver: json-file
-      options:
-        max-size: 10m
-        max-file: "3"
-    healthcheck:
-      # Gelb genuegt: Ein einzelner Knoten bekommt seine Repliken nie
-      # zugewiesen. Unsere Indizes fordern keine, Kibanas eigene tun es.
-      test: ["CMD-SHELL", "curl -fs 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s'"]
-      interval: 30s
-      timeout: 10s
-      retries: 20
-
-  # --------------------------------------------------------------------
-  # Kibana - Dauerbetrieb und geroutet
-  # --------------------------------------------------------------------
-  kibana:
-    # Dieselbe Fassung wie Elasticsearch und wie die Entwicklungsfassung -
-    # ``build_kibana`` spricht die Saved-Objects-API an, und die ist zwischen
-    # den Nebenversionen das Empfindlichste am Stapel.
-    image: docker.elastic.co/kibana/kibana:8.19.22
-    restart: unless-stopped
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
+      # proxy fuer Traefik; urbancrime fuer den Weg zu SeaweedFS und damit
+      # pruefe_stand es unter seinem Dienstnamen erreicht.
+      proxy:
+      urbancrime:
     environment:
-      # Der Dienstname aus dieser Datei, im gemeinsamen Netz aufloesbar.
-      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
-      # Hinter dem Edge-TLS muss Kibana wissen, unter welcher Adresse es
-      # oeffentlich steht; sonst baut es seine Links auf den Containernamen.
-      SERVER_PUBLICBASEURL: https://urbancrime-kibana.datenwerft.ch
-      SERVER_HOST: "0.0.0.0"
-      # Ohne Wert - er kommt aus der .env des Stapels. In der
-      # Entwicklungsfassung steht ein Platzhalter im Klartext; dort ist der
-      # Dienst an 127.0.0.1 gebunden. Hier entscheidet der Schluessel, ob ein
-      # neu aufgesetztes Kibana dieselben gespeicherten Objekte wiederfindet,
-      # und gehoert deshalb nicht in eine Datei, die im Repository liegt.
-      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY:
-    networks:
-      # Zwei Netze: proxy, damit Traefik es erreicht, und urbancrime, damit es
-      # Elasticsearch erreicht. Elasticsearch liegt nur im zweiten.
-      - proxy
-      - urbancrime
-    volumes:
-      - kibana-daten:/usr/share/kibana/data
-    # FR-13, gemessen am 6.10.2026: Kibana belegte **771 MiB**. 1 GiB ist das
-    # Gemessene plus Luft, nicht die Voreinstellung.
-    mem_limit: 1024m
+      # Gelesen wird direkt aus dem Eimer, nicht aus ``arbeitsdaten``: Dort
+      # liegt nach dem Publizieren nur, was ``holen --einsetzen`` hingelegt
+      # hat, und waehrend eines Laufs ein halber Zwischenstand.
+      STORAGE_BACKEND: s3
+      S3_ENDPOINT:
+      S3_BUCKET:
+      S3_ACCESS_KEY:
+      S3_SECRET_KEY:
+      DASHBOARD_DATA_ROOT: /app/data
+      # Der Verweis von »Datenqualität« auf die Nachweise der Konsole.
+      DASHBOARD_KONSOLE_URL: https://urbancrime-admin.datenwerft.ch
+      # FR-61: DuckDB von innen begrenzen, unterhalb des Container-Limits.
+      # Am 1.11.2026 gemessen: mit 256 MB und zwei Threads Spitze 412 MiB
+      # RSS, mit 128 MB bricht das Verdichten ab (Out of Memory).
+      DUCKDB_MEMORY_LIMIT: 256MB
+      DUCKDB_THREADS: "2"
+    # Kein Datentraeger: Das Dashboard liest den Eimer und schreibt nichts.
+    # FR-13, lokal gemessen am 1.11.2026 unter gunicorn: Spitze 476 MiB RSS
+    # beim Verdichten der 1,85 Mio. Taten, 412 MiB mit den Grenzen oben;
+    # danach haelt DuckDB 70-90 MB. 640 MiB sind die Spitze plus Luft. Mit
+    # diesem Dienst sind 832 MiB dauernd verplant statt 3'008.
+    mem_limit: 640m
     security_opt:
       - no-new-privileges:true
     logging:
@@ -160,34 +118,28 @@ services:
         max-size: 10m
         max-file: "3"
     healthcheck:
-      test: ["CMD-SHELL", "curl -fs http://localhost:5601/api/status | grep -q '\"level\":\"available\"'"]
+      # /healthz laedt den Bestand nicht - der Dienst ist gesund, sobald er
+      # antwortet, auch wenn noch niemand ein Brett geoeffnet hat. Ob er den
+      # Stand des Releases zeigt, fragt pruefe_stand (``--betrieb server``).
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8050/healthz', timeout=5)"]
       interval: 30s
       timeout: 10s
-      retries: 30
+      retries: 5
     labels:
-      # FR-10, vollstaendig: enable, docker.network, Entrypoint, Host-Regel,
-      # die X-Forwarded-Proto-Middleware und der Container-Port. Traefik laeuft
-      # mit exposedByDefault=false - ohne traefik.enable ist der Container
-      # privat, und mit einem halben Satz Labels ist er es auch, nur unbemerkt.
+      # FR-10, vollstaendig, wie bei jedem Webdienst hier: enable,
+      # docker.network, Entrypoint, Host-Regel, die X-Forwarded-Proto-
+      # Middleware und der Container-Port.
       traefik.enable: "true"
       traefik.docker.network: proxy
-      # FR-22: urbancrime-<dienst>.datenwerft.ch. Die eine Access-Anwendung
-      # ueber urbancrime-* deckt damit jeden kuenftigen Dienst mit; eine
-      # vergessene Regel ist ein offener Dienst, ein Muster laesst sich nicht
-      # vergessen. infra-* ist der Infrastruktur vorbehalten (FR-21).
-      traefik.http.routers.urbancrime-kibana.rule: Host(`urbancrime-kibana.datenwerft.ch`)
-      # TLS endet an der Cloudflare-Kante; von cloudflared zu Traefik ist es
-      # HTTP im privaten Docker-Netz. Deshalb der Entrypoint web.
-      traefik.http.routers.urbancrime-kibana.entrypoints: web
-      traefik.http.routers.urbancrime-kibana.middlewares: urbancrime-kibana-proto
-      traefik.http.routers.urbancrime-kibana.service: urbancrime-kibana
-      # Die Middleware, ohne die es bricht: Kibana sieht sonst http:// und
-      # baut Weiterleitungen dorthin - der Browser kommt von https:// und
-      # laeuft in eine Schleife. Router- und Middlewarename tragen das Projekt
-      # im Namen, weil Traefik alle Compose-Projekte zusammenfasst.
-      traefik.http.middlewares.urbancrime-kibana-proto.headers.customrequestheaders.X-Forwarded-Proto: https
-      # Der **Container**-Port, nicht ein Host-Port. Es gibt hier keinen.
-      traefik.http.services.urbancrime-kibana.loadbalancer.server.port: "5601"
+      # FR-22: urbancrime-<dienst>.datenwerft.ch, damit die eine
+      # Access-Anwendung ueber urbancrime-* den Dienst mitdeckt. Das
+      # Dashboard hat keine eigene Anmeldung - Access ist sie.
+      traefik.http.routers.urbancrime-dashboard.rule: Host(`urbancrime-dashboard.datenwerft.ch`)
+      traefik.http.routers.urbancrime-dashboard.entrypoints: web
+      traefik.http.routers.urbancrime-dashboard.middlewares: urbancrime-dashboard-proto
+      traefik.http.routers.urbancrime-dashboard.service: urbancrime-dashboard
+      traefik.http.middlewares.urbancrime-dashboard-proto.headers.customrequestheaders.X-Forwarded-Proto: https
+      traefik.http.services.urbancrime-dashboard.loadbalancer.server.port: "8050"
 
   # --------------------------------------------------------------------
   # Die Einstiegsseite - der dritte geroutete Webdienst (FR-31)
@@ -325,9 +277,9 @@ services:
     # FR-9: **kein** ports: und **kein** Traefik-Label. Ein Stapellauf ist
     # nichts, was von aussen erreichbar sein muesste.
     networks:
-      # Nur das Stapelnetz: Es braucht Elasticsearch (fuer die Lader) und den
-      # Weg nach draussen zu den Quellen und zu SeaweedFS. Nicht proxy - dort
-      # hat ein Stapellauf nichts zu suchen.
+      # Nur das Stapelnetz: Es braucht das Dashboard (fuer pruefe_stand) und
+      # den Weg nach draussen zu den Quellen und zu SeaweedFS. Nicht proxy -
+      # dort hat ein Stapellauf nichts zu suchen.
       - urbancrime
     environment:
       # Entschieden: SeaweedFS ist der Bestand, lokal nur Arbeitsraum, die
@@ -367,11 +319,13 @@ services:
       S3_SECRET_KEY:
       CENSUS_API_KEY:
       SOCRATA_APP_TOKEN:
-      # FR-14: Die Lader nehmen die Dienstadresse aus der Umgebung; ein
-      # getipptes --url sticht sie weiterhin. Im Verbund heisst der Dienst
-      # nach seinem Namen im Netz, und ein Container tippt kein --url.
-      ELASTICSEARCH_URL: http://elasticsearch:9200
-      KIBANA_URL: http://kibana:5601
+      # Was ``serving.pruefe_stand`` auf diesem Server prueft: Gold und das
+      # Dashboard, nicht Elasticsearch und Kibana (1.11.2026, C-9). Dieselbe
+      # Variable entscheidet im Worker, ob ``serving_export`` die beiden
+      # noch beschickt. Die Dashboard-Adresse ist der Dienstname im Netz;
+      # ein Container tippt kein --dashboard (FR-14).
+      SERVING_BETRIEB: server
+      DASHBOARD_URL: http://dashboard:8050
       # FR-61: DuckDB von innen begrenzen, unterhalb des Container-Limits.
       # Ohne Angabe nimmt DuckDB rund 80 % des Arbeitsspeichers der
       # **Maschine** - nicht des Containers -, und das waeren hier 6,3 GiB auf
@@ -447,7 +401,7 @@ services:
     image: ${JUPYTER_IMAGE:-urban-crime-jupyter:latest}
     restart: unless-stopped
     # Zeitweilig, wie die Pipeline: Das Profil haelt ihn aus "up -d" heraus,
-    # damit der Dauerbetrieb aus Elasticsearch, Kibana und der kleinen
+    # damit der Dauerbetrieb aus Dashboard, Konsole und der kleinen
     # Einstiegsseite besteht und die Summe der Grenzen aufgeht (FR-13).
     # Gestartet wird er von Hand:
     #   docker compose -f docker-compose.srv01.yml --profile analyse up -d jupyter
@@ -678,7 +632,7 @@ services:
       - --operator
       - service-worker
     networks:
-      # Wie die Pipeline: Elasticsearch fuer die Lader, SeaweedFS, die Quellen.
+      # Wie die Pipeline: das Dashboard fuer pruefe_stand, SeaweedFS, die Quellen.
       - urbancrime
     environment:
       # Alles, was die Pipeline setzt, und mit denselben Werten - der Worker
@@ -693,8 +647,8 @@ services:
       S3_SECRET_KEY:
       CENSUS_API_KEY:
       SOCRATA_APP_TOKEN:
-      ELASTICSEARCH_URL: http://elasticsearch:9200
-      KIBANA_URL: http://kibana:5601
+      SERVING_BETRIEB: server
+      DASHBOARD_URL: http://dashboard:8050
       DUCKDB_MEMORY_LIMIT: 896MB
       DUCKDB_THREADS: "2"
       ADMIN_PROJECT_ROOT: /app
@@ -732,7 +686,7 @@ services:
 networks:
   # Traefiks Netz, von der Ingress-Beschreibung angelegt ("docker network
   # create proxy"). external, weil es dieser Stapel nicht besitzt - er tritt
-  # bei. Nur Kibana, Jupyter, start und der Konsolen-Webdienst liegen darin.
+  # bei. Nur Dashboard, Jupyter, start und der Konsolen-Webdienst liegen darin.
   proxy:
     external: true
   # Das Netz des Monitoring-Stapels, von der Ingress-Beschreibung angelegt
@@ -740,18 +694,17 @@ networks:
   # nicht besitzt - nur `start` tritt bei, damit Prometheus ihn scrapen kann.
   monitoring:
     external: true
-  # Das Netz des Stapels: Hier finden sich Elasticsearch, Kibana, Pipeline,
-  # Jupyter und start unter ihren Dienstnamen. Es wird von diesem Stapel
+  # Das Netz des Stapels: Hier finden sich Dashboard, Konsole, Pipeline,
+  # Worker, Jupyter und start unter ihren Dienstnamen. Es wird von diesem Stapel
   # angelegt und endet mit ihm.
   urbancrime:
     driver: bridge
 
 volumes:
-  # Die beiden, die in config/srv01.yaml gehoeren (FR-11): Ein neu gebauter
-  # Index ist in Minuten wiederherstellbar, Kibanas gespeicherte Objekte sind
-  # es nur, solange der Verschluesselungsschluessel derselbe bleibt.
-  elasticsearch-daten:
-  kibana-daten:
+  # elasticsearch-daten und kibana-daten stehen seit dem 1.11.2026 nicht
+  # mehr hier (C-9). Auf srv01 bestehen sie als urbancrime_* weiter, bis der
+  # Rueckweg nicht mehr gebraucht wird; entfernt werden sie von Hand mit
+  # "docker volume rm", nicht von Compose.
   # Arbeitsraum der Strecke, lesend von Jupyter mitbenutzt. Nicht
   # sicherungswuerdig: Der Bestand liegt auf SeaweedFS.
   arbeitsdaten:

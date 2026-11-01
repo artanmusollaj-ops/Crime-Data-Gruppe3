@@ -231,6 +231,18 @@ def test_ein_neuer_stand_wird_nachgeladen(bestand, monkeypatch):
     assert bestand.stand["gebaut"] == "2026-11-01T00:00:00+00:00"
 
 
+def test_ein_neues_release_ueber_denselben_daten_wird_auch_nachgeladen(bestand, monkeypatch):
+    """Kein Manifest aendert sich, nur ``AKTUELL.json`` - und das Dashboard
+    nennte sonst weiter das alte Release, gegen das ``pruefe_stand`` prueft."""
+    import serving.dashboard as d
+    monkeypatch.setattr(d, "PRUEFABSTAND_S", 0.0)
+    zeiger = bestand.data_root / "releases" / "AKTUELL.json"
+    zeiger.parent.mkdir(parents=True, exist_ok=True)
+    zeiger.write_text(json.dumps({"release_id": "2026-11-01T06-00-00Z"}), encoding="utf-8")
+    bestand.aktuell()
+    assert bestand.stand["release"] == "2026-11-01T06-00-00Z"
+
+
 # --------------------------------------------------------------------------
 # Der Webteil
 # --------------------------------------------------------------------------

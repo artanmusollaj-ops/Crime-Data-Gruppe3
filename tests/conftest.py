@@ -55,7 +55,8 @@ def _frische_ablage(monkeypatch):
     for name in ("STORAGE_BACKEND", "LOCAL_DATA_ROOT", "S3_ENDPOINT", "S3_ACCESS_KEY",
                  "S3_SECRET_KEY", "S3_BUCKET", "S3_USE_SSL", "HYBRID_READ_PRIORITY",
                  "HYBRID_PUBLISH_AFTER_WRITE", "PROJECT_ROOT", "GIT_COMMIT",
-                 "ELASTICSEARCH_URL", "CLICKHOUSE_URL", "KIBANA_URL"):
+                 "ELASTICSEARCH_URL", "CLICKHOUSE_URL", "KIBANA_URL",
+                 "DASHBOARD_URL", "SERVING_BETRIEB"):
         monkeypatch.delenv(name, raising=False)
     storage.set_storage(storage.Storage(storage.Config()))
     yield

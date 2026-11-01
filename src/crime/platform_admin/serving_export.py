@@ -2,6 +2,12 @@
 
 Elasticsearch switches each table alias independently. A failed subsequent
 step is reported as PARTIAL; no distributed transaction is claimed.
+
+On srv01 (``SERVING_BETRIEB=server``, since 1.11.2026) there is no
+Elasticsearch and no Kibana: the dashboard reads the store itself and
+reloads within a minute, so there is nothing to load. The release is still
+put in place, the landing page rebuilt and ``serving.pruefe_stand`` asks the
+dashboard which release it shows. Locally both loaders stay.
 """
 import json
 import os
@@ -9,6 +15,12 @@ import sys
 from pathlib import Path
 
 from .store import AdminError
+
+
+def server_mode():
+    """The same switch ``serving.pruefe_stand`` reads - one fact, one variable."""
+    from serving.pruefe_stand import betrieb_vorgabe
+    return betrieb_vorgabe() == "server"
 
 
 def publish(store, rid):
@@ -27,9 +39,11 @@ def publish(store, rid):
                          "Alt-Baseline hat keine nachtraegliche Freigabe.")
     folder = store.root / "serving" / rid
     folder.mkdir(parents=True, exist_ok=True)
-    steps = [
+    steps = [] if server_mode() else [
         ("elasticsearch", "serving.load_elasticsearch", []),
         ("kibana", "serving.build_kibana", []),
+    ]
+    steps += [
         ("startseite", "serving.build_einstieg", ["--ziel", str(Path(os.getenv("ADMIN_START_ROOT", str(store.data / "startseite"))) / "index.html"),
                                                 "--adressen", os.getenv("ADMIN_START_ADDRESSES", "lokal")]),
         ("analysis_check", "serving.pruefe_stand", ["--json"]),

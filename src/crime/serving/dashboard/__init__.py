@@ -165,10 +165,18 @@ def _quelle(ablage, schicht: str, tabelle: str) -> tuple[str, str]:
     return ablage.resolve_read_path(rel, PARQUET_FILE), ablage.read_text(rel, "manifest.json")
 
 
-def _release(ablage) -> str | None:
+def _aktuell_text(ablage) -> str:
+    """``releases/AKTUELL.json`` als Text, leer ohne Release."""
     try:
-        return json.loads(ablage.read_text("releases", "AKTUELL.json")).get("release_id")
+        return ablage.read_text("releases", "AKTUELL.json")
     except (OSError, ValueError, FileNotFoundError):
+        return ""
+
+
+def _release(text: str) -> str | None:
+    try:
+        return json.loads(text).get("release_id")
+    except ValueError:
         return None
 
 
@@ -186,9 +194,13 @@ class Bestand:
     # -- Laden -------------------------------------------------------------
 
     def _abdruck(self) -> str:
+        # Mit AKTUELL.json: Ein neues Release ueber unveraenderten Daten
+        # aendert keinen Manifest, und das Dashboard nennte weiter das alte -
+        # serving.pruefe_stand haelt genau diese Angabe gegen das Release.
         ablage = for_root(self.data_root)
-        return "|".join(_quelle(ablage, s, t)[1] for s, t in
-                        (("serving", "comparison_month"), ("gold", "fact_offense")))
+        return "|".join([*(_quelle(ablage, s, t)[1] for s, t in
+                           (("serving", "comparison_month"), ("gold", "fact_offense"))),
+                         _aktuell_text(ablage)])
 
     def _lade(self) -> None:
         ablage = for_root(self.data_root)
@@ -327,13 +339,14 @@ class Bestand:
                                              f"read_parquet('{acs}', hive_partitioning=false)",
                                              str(int(v))) + ")")
         stand = json.loads(monat_manifest)
+        aktuell = _aktuell_text(ablage)
         with self._sperre:
             alt = getattr(self, "_con", None)
             self._con = con
-            self._abdruck_jetzt = monat_manifest + "|" + fakten_manifest
+            self._abdruck_jetzt = "|".join([monat_manifest, fakten_manifest, aktuell])
             self.stand = {
                 "gebaut": stand.get("built_at_utc"),
-                "release": _release(ablage),
+                "release": _release(aktuell),
             }
             self.karten = karten
             self.beispiele = beispiele

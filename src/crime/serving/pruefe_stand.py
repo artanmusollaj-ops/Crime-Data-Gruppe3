@@ -2,6 +2,7 @@
 
     python -m serving.pruefe_stand           # Bericht, Rueckgabewert 0 oder 1
     python -m serving.pruefe_stand --knapp   # nur die Abweichungen
+    python -m serving.pruefe_stand --betrieb server   # wie auf srv01
 
 **Warum es diesen Schritt gibt.** Es gibt Orte, die behaupten, die Daten zu
 zeigen: die Arbeits-Gold-Schicht (auf der die DuckDB-Sichten liegen),
@@ -44,6 +45,18 @@ Dashboards bekommen ihr Zeitfenster beim Anlegen eingebacken (siehe
 sie weiter den alten Ausschnitt - auf aktuellen Daten, und damit womoeglich
 auf einem leeren Diagramm.
 
+**Auf srv01 sind es zwei Orte (seit dem 1.11.2026, C-9).** Dort ersetzt
+das eigene Dashboard Elasticsearch und Kibana; es liest den Eimer selbst und
+laedt hoechstens eine Minute nach einem neuen Release nach. ``--betrieb
+server`` (oder ``SERVING_BETRIEB=server`` aus der Compose-Datei) prueft
+deshalb Gold und das Dashboard, und nichts sonst - ein Befund ueber einen
+Dienst, den es dort nicht gibt, waere eine Auskunft ins Leere. Lokal bleibt
+der Bericht, wie er war.
+
+===================  ===============================================
+Dashboard            Release, das es geladen hat, gegen AKTUELL.json
+===================  ===============================================
+
 **Was dieses Modul nicht tut.** Es repariert nichts. Es sagt, was
 auseinanderlaeuft, und welcher Befehl es zusammenbraechte. Ein Werkzeug, das
 ungefragt nachlaedt, ist eins, das man nicht mehr fragen mag.
@@ -54,7 +67,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
+import time
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -81,6 +97,39 @@ from serving.build_kibana import BRETTER
 from serving.build_kibana import STANDARD_URL as KIBANA_URL
 from serving.build_kibana import HttpKlient as KibanaKlient
 from serving.build_kibana import vorgabe_url as kibana_vorgabe
+
+#: Wo das Dashboard lokal laeuft (``python -m serving.dashboard``). Auf srv01
+#: setzt die Compose-Datei ``DASHBOARD_URL`` auf den Dienstnamen.
+DASHBOARD_URL = "http://localhost:8050"
+
+#: Die beiden Betriebsarten: welche Orte es gibt, die einen Stand zeigen.
+BETRIEBE = ("lokal", "server")
+
+#: Wie lange auf das Dashboard gewartet wird, bis es ein neues Release zeigt:
+#: Es prueft hoechstens einmal je Minute (``PRUEFABSTAND_S``) und laedt dann
+#: 15-25 Sekunden. Sechs Versuche im Abstand von 20 Sekunden decken beides.
+DASHBOARD_VERSUCHE = 6
+DASHBOARD_ABSTAND_S = 20.0
+
+
+def dashboard_vorgabe() -> str:
+    """Die Adresse aus der Umgebung, sonst die lokale - beim Aufruf gelesen."""
+    return os.getenv("DASHBOARD_URL") or DASHBOARD_URL
+
+
+def betrieb_vorgabe() -> str:
+    """``SERVING_BETRIEB`` aus der Umgebung, sonst ``lokal``.
+
+    Eine Umgebungsvariable und keine Flagge allein, weil der Konsolen-Worker
+    dieses Modul aus ``platform_admin.serving_export`` ruft und dort dieselbe
+    Variable entscheidet, ob Elasticsearch und Kibana beschickt werden. Zwei
+    Angaben fuer eine Tatsache koennten auseinanderlaufen.
+    """
+    betrieb = os.getenv("SERVING_BETRIEB") or "lokal"
+    if betrieb not in BETRIEBE:
+        raise ValueError(f"SERVING_BETRIEB kennt nur {BETRIEBE}, nicht {betrieb!r}")
+    return betrieb
+
 
 #: Wieviel auf einmal gelesen wird, wenn eine Datei gehasht wird. 42 MB am
 #: Stueck in den Speicher zu holen waere unnoetig.
@@ -354,6 +403,47 @@ def pruefe_kibana(klient: Klient, daten_von: str, daten_bis: str) -> Befund:
     return Befund("Kibana", Urteil.GLEICH, f"{len(BRETTER)} Dashboards")
 
 
+class DashboardKlient:
+    """Fragt das Dashboard, welchen Stand es zeigt."""
+
+    def __init__(self, url: str):
+        self.url = url.rstrip("/")
+
+    def stand(self) -> dict:
+        # /api/optionen und nicht /healthz: Nur eine Anfrage an den Bestand
+        # laesst das Dashboard nachsehen, ob es nachladen muss. Die erste
+        # nach einem Start laedt; daher die lange Wartezeit.
+        with urllib.request.urlopen(f"{self.url}/api/optionen", timeout=120) as antwort:
+            return json.load(antwort)["stand"]
+
+
+def pruefe_dashboard(klient: Any, release_id: str, *,
+                     versuche: int = DASHBOARD_VERSUCHE,
+                     abstand: float = DASHBOARD_ABSTAND_S,
+                     warte=time.sleep) -> Befund:
+    """Zeigt das Dashboard das aktuelle Release?
+
+    Es laedt selbst nach, aber nicht sofort: hoechstens einmal je Minute
+    sieht es nach, ob sich Gold, ``comparison_month`` oder ``AKTUELL.json``
+    geaendert haben. Direkt nach dem Publizieren zeigt es deshalb noch eine
+    Weile das alte Release - das ist kein Befund. Erst wenn es nach den
+    Versuchen noch dabei bleibt, weicht es ab.
+    """
+    abhilfe_start = "docker compose -f docker-compose.srv01.yml up -d dashboard"
+    gezeigt = None
+    for versuch in range(versuche):
+        try:
+            gezeigt = klient.stand().get("release")
+        except Exception as fehler:
+            return Befund("Dashboard", Urteil.FEHLT, str(fehler)[:90], abhilfe_start)
+        if gezeigt == release_id:
+            return Befund("Dashboard", Urteil.GLEICH, f"Release {release_id}")
+        if versuch < versuche - 1:
+            warte(abstand)
+    return Befund("Dashboard", Urteil.ANDERS, f"zeigt Release {gezeigt or 'keines'}",
+                  "docker compose -f docker-compose.srv01.yml restart dashboard")
+
+
 # --------------------------------------------------------------------------
 # Der Ablauf
 # --------------------------------------------------------------------------
@@ -377,15 +467,24 @@ def datenbereich(verzeichnis: Path) -> tuple[str, str]:
 
 def pruefe_alles(datenwurzel: Path, *, clickhouse: str = CLICKHOUSE_URL,
                  elasticsearch: str = ELASTICSEARCH_URL,
-                 kibana: str = KIBANA_URL) -> tuple[str, list[Befund]]:
-    """Drei Pruefungen und eine Auskunft, in der Reihenfolge des Berichts.
+                 kibana: str = KIBANA_URL, dashboard: str = DASHBOARD_URL,
+                 betrieb: str = "lokal",
+                 dashboard_klient: Any = None) -> tuple[str, list[Befund]]:
+    """Lokal drei Pruefungen und eine Auskunft, auf dem Server zwei Pruefungen.
 
     ``clickhouse`` wird nicht mehr gefragt und bleibt als Angabe stehen: Der
     Schalter ``--clickhouse`` ist dokumentiert, und ein Aufruf, der ihn
     mitgibt, soll nicht mit einem Typfehler abbrechen, sondern dieselbe
     Auskunft bekommen wie jeder andere.
     """
+    if betrieb not in BETRIEBE:
+        raise ValueError(f"--betrieb kennt nur {BETRIEBE}, nicht {betrieb!r}")
     kennung, verzeichnis = aktuelles_release(datenwurzel)
+    if betrieb == "server":
+        return kennung, [
+            pruefe_gold(datenwurzel, verzeichnis),
+            pruefe_dashboard(dashboard_klient or DashboardKlient(dashboard), kennung),
+        ]
     von, bis = datenbereich(verzeichnis)
     return kennung, [
         pruefe_gold(datenwurzel, verzeichnis),
@@ -431,6 +530,10 @@ def kommandozeile() -> argparse.ArgumentParser:
     zerleger.add_argument("--clickhouse", default=clickhouse_vorgabe())
     zerleger.add_argument("--elasticsearch", default=elasticsearch_vorgabe())
     zerleger.add_argument("--kibana", default=kibana_vorgabe())
+    zerleger.add_argument("--dashboard", default=dashboard_vorgabe())
+    zerleger.add_argument("--betrieb", choices=BETRIEBE, default=betrieb_vorgabe(),
+                          help="lokal: Gold, Elasticsearch, Kibana; "
+                               "server: Gold und das Dashboard")
     zerleger.add_argument("--knapp", action="store_true",
                           help="nur zeigen, was abweicht")
     zerleger.add_argument("--json", action="store_true")
@@ -444,7 +547,8 @@ def main(argv: list[str] | None = None) -> int:
 
     kennung, befunde = pruefe_alles(
         for_root(args.data_root).local_root, clickhouse=args.clickhouse,
-        elasticsearch=args.elasticsearch, kibana=args.kibana)
+        elasticsearch=args.elasticsearch, kibana=args.kibana,
+        dashboard=args.dashboard, betrieb=args.betrieb)
 
     if args.json:
         print(json.dumps(
