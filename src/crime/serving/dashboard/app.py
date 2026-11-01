@@ -72,6 +72,10 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     def seite_deliktstruktur():
         return send_from_directory(_STATISCH, "deliktstruktur.html")
 
+    @app.get("/datenqualitaet")
+    def seite_datenqualitaet():
+        return send_from_directory(_STATISCH, "datenqualitaet.html")
+
     @app.get("/static/<path:name>")
     def statisch(name):
         return send_from_directory(_STATISCH, name)
@@ -105,5 +109,13 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     def deliktstruktur():
         bestand = daten()
         return jsonify(bestand.deliktstruktur(bestand.auswahl(request.args.to_dict())))
+
+    @app.get("/api/datenqualitaet")
+    def datenqualitaet():
+        bestand = daten()
+        antwort = bestand.datenqualitaet(bestand.auswahl(request.args.to_dict()))
+        # Der Weg zu den Nachweisen, wenn die Konsole erreichbar ist.
+        antwort["konsole"] = os.getenv("DASHBOARD_KONSOLE_URL") or None
+        return jsonify(antwort)
 
     return app

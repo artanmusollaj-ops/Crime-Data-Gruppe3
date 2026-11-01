@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'702** |
+| Tests | **2'711** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -102,6 +102,44 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 1.11.2026 · Das Dashboard bekommt »Datenqualität«, damit stehen alle fünf Bretter (Branch `feature/dashboard-datenqualitaet`)
+
+Das letzte Brett nach Artans Entwurf `dashboard_sind_die_daten_bereit.png`:
+vier Kennzahlen, die Monatsabdeckung je Stadt, die NIBRS-Zuordnung je Stadt
+und eine Tabelle mit Prüfungen und Abhängigkeiten.
+
+- **Dieselben Schwellen wie das Publish-Gate.** Sie kommen aus
+  `gold_pipeline.GATE_MINDESTENS` und `GATE_HOECHSTENS`: mindestens 85 %
+  exakt, mindestens 90 % im Stadtgebiet, höchstens 1 % ohne Zuordnung.
+  Das Gate misst global, das Brett misst die Auswahl und hält dieselben
+  Schwellen daneben. Gezählt werden Taten, wie im Gate. Für 2024 stimmt
+  „im Stadtgebiet“ mit dem am Gate gemessenen Wert überein, 97,45 %.
+- **Die vier Zuordnungen, die Gold kennt:** `exact`, `fallback_90Z`,
+  `ambiguous`, `unmapped`. Der Entwurf zeigt „Admin Review“. Das ist hier
+  eine Herkunft (`mapping_overrides.csv`), kein Status. Eine korrigierte
+  Zuordnung ist danach `exact`. Kommt in Gold ein Status dazu, bricht das
+  Modul beim Import ab, statt ihn im Balken still wegzulassen.
+- **Doppelte Delikt-IDs werden gezählt**, nicht angenommen.
+- **„Noch nicht erschienen“ statt „fehlt“** für Monate nach der jüngsten
+  Tat im ganzen Bestand. Fehlt ein Monat nur einer Stadt, während die
+  andere ihn hat, bleibt er eine Lücke: Chicagos Oktober 2026 ist rot,
+  November und Dezember sind grau.
+- **Referenzdaten und Release:** das ACS-Vintage des Jahres, die
+  Kategorien, die Umrisse je Stadt und das Release aus `AKTUELL.json`.
+- **Der Knopf zur Engineering-Konsole** erscheint nur, wenn
+  `DASHBOARD_KONSOLE_URL` gesetzt ist.
+
+Damit stehen alle fünf Bretter. Kibana auf `srv01` abzulösen ist der
+nächste Schritt (C-9).
+
+Neu gewacht: sieben Tests mehr in `tests/serving/test_dashboard.py`. Sie
+prüfen die Anteile über Taten, die Schwellen aus dem Gate, doppelte IDs,
+späte Monate gegen Lücken, die Referenzdaten und den Weg zur Konsole. Die
+Mutationsprobe lief im kopierten Baum, alle Mutanten fallen auf.
+
+**Zahlen.** 2'702 → **2'711 Tests**, Standardlauf 2'591 → **2'600**. Zwei
+davon zählt `tests/test_ablagezugriff.py` für die neue Quelldatei.
 
 ## 1.11.2026 · Das Dashboard bekommt »Deliktstruktur« (Branch `feature/dashboard-deliktstruktur`)
 

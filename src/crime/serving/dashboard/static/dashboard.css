@@ -173,3 +173,31 @@ h2 { margin: 0 0 4px; font-size: 17px; }
 .tabelle .rauf { color: var(--schlecht); }
 .tabelle .runter { color: var(--gut); }
 .leise { color: var(--leise); }
+
+/* Brett »Datenqualität« */
+.kachel b.gut { color: var(--gut); }
+.raster-tabelle { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+.raster-tabelle th { background: #f2f6fb; padding: 8px 6px; font-weight: 600; text-align: center; }
+.raster-tabelle th:first-child { text-align: left; }
+.raster-tabelle td { padding: 12px 6px; border-top: 1px solid var(--linie); text-align: center; }
+.raster-tabelle td.stadtname { text-align: left; font-weight: 600; border-radius: 4px; }
+.stadtname.chicago { background: #d6f1eb; color: #0c6b5a; }
+.stadtname.detroit { background: #d9e8fb; color: #1d5bb0; }
+.raster-tabelle i, .statuslegende span::before { display: inline-block; width: 18px; height: 18px; border-radius: 3px; }
+.s-voll { background: #2fae5b; }
+.s-teil { background: #f2b134; }
+.s-fehlt { background: #d64545; }
+.s-spaeter { background: #d5dae1; }
+.statuslegende { justify-content: flex-start; margin-top: 12px; }
+.statuslegende span::before { content: ""; margin-right: 6px; vertical-align: -3px; }
+.statuslegende span.s-voll, .statuslegende span.s-teil, .statuslegende span.s-fehlt,
+.statuslegende span.s-spaeter { background: none; }
+.statuslegende .s-voll::before { background: #2fae5b; }
+.statuslegende .s-teil::before { background: #f2b134; }
+.statuslegende .s-fehlt::before { background: #d64545; }
+.statuslegende .s-spaeter::before { background: #d5dae1; }
+.diagramm .stark { font-weight: 700; font-size: 15px; fill: #1b2430; }
+.hinweis.abschluss { align-items: center; margin-top: 16px; }
+.hinweis.abschluss .knopf { margin-left: auto; background: var(--blau); color: #fff; padding: 8px 14px;
+  border-radius: 6px; text-decoration: none; white-space: nowrap; }
+.legende .rang::before { background: var(--farbe); }
