@@ -72,8 +72,10 @@ def stern(root: Path, taten: list[tuple], *, kleine: bool = False) -> Path:
         "population_vintage": [2024 if t[1].year >= 2024 else 2023 for t in taten],
     })
     schreibe(root, "dim_offense", {
-        "nibrs_code": ["13A", "23C", "120"],
-        "nibrs_category": ["Assault Offenses", "Larceny/Theft Offenses", "Robbery"],
+        "nibrs_code": ["13A", "13B", "23C", "120"],
+        "nibrs_description": ["Aggravated Assault", "Simple Assault", "Shoplifting", "Robbery"],
+        "nibrs_category": ["Assault Offenses", "Assault Offenses", "Larceny/Theft Offenses",
+                           "Robbery"],
     })
     klein = [TRACT_KLEIN, TRACT_LEER] if kleine else []
     schreibe(root, "dim_tract", {
@@ -250,7 +252,7 @@ def test_ohne_daten_meldet_die_api_503_und_healthz_bleibt_gruen(tmp_path):
     assert antwort.status_code == 503 and "nicht gebaut" in antwort.json["fehler"]
 
 
-@pytest.mark.parametrize("pfad", ["/", "/zeitverlauf", "/geografie"])
+@pytest.mark.parametrize("pfad", ["/", "/zeitverlauf", "/geografie", "/deliktstruktur"])
 def test_die_seite_kommt_ohne_inline_code_aus(bestand, pfad):
     """Die CSP erlaubt nur 'self'; ein Inline-Skript oder -Stil liefe nicht."""
     client = create_app(bestand=bestand).test_client()
@@ -278,7 +280,8 @@ def test_alle_seiten_tragen_dieselben_reiter(bestand):
         leiste = re.search(r'<nav class="reiter".*?</nav>', html, re.S).group(0)
         return re.findall(r">([^<>]+)</(?:a|span)>", leiste)
 
-    assert reiter("/") == reiter("/zeitverlauf") == reiter("/geografie") == [
+    assert reiter("/") == reiter("/zeitverlauf") == reiter("/geografie") == reiter(
+        "/deliktstruktur") == [
         "Überblick", "Zeitverlauf", "Geografie", "Deliktstruktur", "Datenqualität"]
 
 
@@ -484,3 +487,92 @@ def test_die_api_liefert_karten_und_raten(karte):
     assert set(client.get("/api/karten").json) == {"chicago", "detroit"}
     g = client.get("/api/geografie?jahr=2024&stadt=detroit")
     assert g.status_code == 200 and g.json["staedte"][0]["tracts"][0]["rate"] == 24.0
+
+
+# --------------------------------------------------------------------------
+# Das Brett »Deliktstruktur«
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def struktur(tmp_path) -> Bestand:
+    zweite = ("chicago", date(2025, 2, 1), "13A", TRACT_C, time(18, 5), False)
+    taten = (
+        # Simple Assault (13B) ist haeufiger, aber alphabetisch nach Aggravated.
+        jahr("chicago", 2024, "13B", TRACT_C, je=30)
+        + jahr("chicago", 2024, "23C", TRACT_C, je=10)
+        + jahr("chicago", 2025, "13B", TRACT_C, monate=range(1, 4), je=33)
+        + jahr("chicago", 2025, "23C", TRACT_C, monate=range(1, 4), je=5)
+        + jahr("chicago", 2025, "13A", TRACT_C, monate=range(1, 4), je=2)
+        + [zweite] * 4
+        + [("chicago", date(2025, 3, 31), "120", TRACT_C)]
+        + jahr("detroit", 2024, "13A", TRACT_D, je=1)
+        + jahr("detroit", 2025, "13A", TRACT_D, monate=range(1, 4), je=2)
+        + [("detroit", date(2025, 3, 31), "13A", TRACT_D)]
+    )
+    return Bestand(stern(tmp_path, taten))
+
+
+def test_die_struktur_zaehlt_vorgabemaessig_faelle(struktur):
+    a = struktur.auswahl({"jahr": "2025", "bis": "3"})
+    assert a.ebene == "faelle"
+    faelle = struktur.deliktstruktur(a)
+    delikte = struktur.deliktstruktur(struktur.auswahl({"jahr": "2025", "bis": "3", "ebene": "delikte"}))
+
+    def koerper(d):
+        return next(z for z in d["tabelle"] if z["kategorie"] == "Assault Offenses")["werte"]["chicago"]
+
+    # Vier zweite Anklagen: Delikte, aber keine Faelle.
+    assert koerper(delikte) - koerper(faelle) == 4
+    assert faelle["ebene"] == "faelle" and delikte["ebene"] == "delikte"
+
+
+def test_die_anteile_summieren_sich_auf_hundert(struktur, monkeypatch):
+    import serving.dashboard.deliktstruktur as d
+    monkeypatch.setattr(d, "IM_DIAGRAMM", 1)
+    r = struktur.deliktstruktur(struktur.auswahl({"jahr": "2025", "bis": "3"}))
+    chicago = next(x for x in r["anteile"] if x["stadt"] == "chicago")
+    assert [t["name"] for t in chicago["teile"]] == ["Körperverletzung", UEBRIGE]
+    assert sum(t["anteil"] for t in chicago["teile"]) == pytest.approx(100, abs=0.1)
+
+
+def test_zum_vorjahr_je_stadt_und_erst_ab_der_mindestzahl(struktur):
+    r = struktur.deliktstruktur(struktur.auswahl({"jahr": "2025", "bis": "3"}))
+    zeilen = {z["kategorie"]: z for z in r["tabelle"]}
+    # Chicago, Jan-Maerz vergleichbar (die Daten reichen bis zum 31.3.):
+    # Koerperverletzung 2025 je Monat 33 + 2 (13A), 2024 je Monat 30.
+    assert zeilen["Assault Offenses"]["vorjahr"]["chicago"] == round((35 - 30) * 100 / 30, 1)
+    # Diebstahl 2024: 10 je Monat, drei Monate = 30 >= 20; 2025: 5 je Monat.
+    assert zeilen["Larceny/Theft Offenses"]["vorjahr"]["chicago"] == -50.0
+    # Detroit hatte 2024 nur 3 Faelle in diesen Monaten: kein Befund.
+    assert zeilen["Assault Offenses"]["vorjahr"]["detroit"] is None
+    # Raub hat kein Vorjahr.
+    assert zeilen["Robbery"]["vorjahr"]["chicago"] is None
+
+
+def test_zum_vorjahr_nur_ueber_vergleichbare_monate_der_stadt(tmp_path):
+    """Detroit endet am 10.3.: Fuer Detroit zaehlen nur Jan und Feb."""
+    b = Bestand(stern(tmp_path, (
+        jahr("chicago", 2024, "13A", TRACT_C, je=25)
+        + jahr("chicago", 2025, "13A", TRACT_C, monate=range(1, 4), je=25)
+        + [("chicago", date(2025, 3, 31), "13A", TRACT_C)]
+        + jahr("detroit", 2024, "13A", TRACT_D, je=20)
+        + jahr("detroit", 2025, "13A", TRACT_D, monate=range(1, 3), je=20)
+        + [("detroit", date(2025, 3, 10), "13A", TRACT_D)] * 2
+    )))
+    r = b.deliktstruktur(b.auswahl({"jahr": "2025", "bis": "3"}))
+    assert {s["stadt"]: s["vergleichbare_monate"] for s in r["staedte"]} == {"chicago": 3, "detroit": 2}
+    koerper = r["tabelle"][0]["vorjahr"]
+    # Chicago: 75 + 1 gegen 75; Detroit ohne den angebrochenen Maerz: 40 gegen 40.
+    assert koerper == {"chicago": round(1 * 100 / 75, 1), "detroit": 0.0}
+
+
+def test_die_beispiele_sind_die_haeufigsten_delikte(struktur):
+    assert struktur.beispiele["Assault Offenses"] == ["Simple Assault", "Aggravated Assault"]
+
+
+def test_eine_unbekannte_ebene_ist_ein_eingabefehler(struktur):
+    client = create_app(bestand=struktur).test_client()
+    assert client.get("/api/deliktstruktur?ebene=taten").status_code == 400
+    ok = client.get("/api/deliktstruktur?jahr=2025&bis=3&ebene=delikte")
+    assert ok.status_code == 200 and ok.json["ebene"] == "delikte"

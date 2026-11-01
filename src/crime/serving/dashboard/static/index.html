@@ -21,7 +21,7 @@
   <a class="aktiv" href="/" aria-current="page">Überblick</a>
   <a href="/zeitverlauf">Zeitverlauf</a>
   <a href="/geografie">Geografie</a>
-  <span class="folgt" title="folgt">Deliktstruktur</span>
+  <a href="/deliktstruktur">Deliktstruktur</a>
   <span class="folgt" title="folgt">Datenqualität</span>
 </nav>
 
@@ -39,10 +39,10 @@
 <main class="brett">
   <div class="brettkopf">
     <h1>Kriminalität im Überblick</h1>
-    <div class="umschalter" role="group" aria-label="Mass der Kategorien">
-      <button type="button" data-mass="anzahl" class="an">Anzahl</button>
-      <button type="button" data-mass="anteil">Anteil</button>
-      <button type="button" data-mass="rate">Rate</button>
+    <div class="umschalter" data-param="mass" role="group" aria-label="Mass der Kategorien">
+      <button type="button" data-wert="anzahl" class="an">Anzahl</button>
+      <button type="button" data-wert="anteil">Anteil</button>
+      <button type="button" data-wert="rate">Rate</button>
     </div>
   </div>
   <p class="fehler" id="fehler" hidden></p>

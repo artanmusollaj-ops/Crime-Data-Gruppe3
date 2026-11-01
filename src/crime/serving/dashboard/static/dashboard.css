@@ -14,6 +14,8 @@
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 * { box-sizing: border-box; }
+/* Sonst schlaegt ein display der Klasse das Attribut hidden. */
+[hidden] { display: none !important; }
 body { margin: 0; background: var(--grund); color: var(--text); font-size: 14px; }
 
 .kopf { display: flex; justify-content: space-between; align-items: center;
@@ -67,7 +69,8 @@ h2 { margin: 0 0 4px; font-size: 17px; }
 .diagramm .achse { stroke: #e6e9ef; }
 .diagramm .wert { fill: #1b2430; font-size: 11px; }
 .diagramm .leer { fill: var(--leise); font-size: 14px; }
-.legende { display: flex; justify-content: center; gap: 24px; color: #44505f; margin-top: 4px; }
+.legende { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 24px; color: #44505f; margin-top: 4px; }
+.legende span { white-space: nowrap; }
 .legende span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 50%;
   margin-right: 6px; vertical-align: -1px; background: var(--farbe); }
 .legende .chicago { --farbe: var(--chicago); }
@@ -155,3 +158,18 @@ h2 { margin: 0 0 4px; font-size: 17px; }
 .hinweise li { margin-bottom: 6px; }
 
 @media (max-width: 1200px) { .raster.drei { grid-template-columns: 1fr; } }
+
+/* Brett »Deliktstruktur« */
+#h-ebene { margin: 0 0 16px; }
+.diagramm .im-balken { fill: #fff; font-size: 13px; font-weight: 600; }
+.diagramm .im-balken.dunkel { fill: #1b2430; }
+.tafel.detail { margin-top: 16px; }
+.tabelle { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+.tabelle th { text-align: left; background: #f2f6fb; padding: 10px 12px; font-weight: 600; vertical-align: bottom; }
+.tabelle th small { display: block; font-weight: 400; color: var(--leise); }
+.tabelle td { padding: 8px 12px; border-top: 1px solid var(--linie); }
+.tabelle td.zahl { font-variant-numeric: tabular-nums; }
+.tabelle td:nth-child(2) { color: var(--leise); }
+.tabelle .rauf { color: var(--schlecht); }
+.tabelle .runter { color: var(--gut); }
+.leise { color: var(--leise); }
