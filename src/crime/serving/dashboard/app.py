@@ -60,6 +60,10 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     def seite():
         return send_from_directory(_STATISCH, "index.html")
 
+    @app.get("/zeitverlauf")
+    def seite_zeitverlauf():
+        return send_from_directory(_STATISCH, "zeitverlauf.html")
+
     @app.get("/static/<path:name>")
     def statisch(name):
         return send_from_directory(_STATISCH, name)
@@ -72,5 +76,10 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     def ueberblick():
         bestand = daten()
         return jsonify(bestand.ueberblick(bestand.auswahl(request.args.to_dict())))
+
+    @app.get("/api/zeitverlauf")
+    def zeitverlauf():
+        bestand = daten()
+        return jsonify(bestand.zeitverlauf(bestand.auswahl(request.args.to_dict())))
 
     return app

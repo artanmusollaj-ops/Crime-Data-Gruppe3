@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'672** |
+| Tests | **2'682** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -103,6 +103,55 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 1.11.2026 · Das Dashboard bekommt »Zeitverlauf« (Branch `feature/dashboard-zeitverlauf`)
+
+Das zweite Brett nach Artans Entwurf `dashboard_zeitliche_muster_erkenn.png`
+hat drei Teile:
+
+- **Je Stadt die monatlichen Fälle**, gegen dieselben Monate des Vorjahrs
+  punktiert. Hier zählen Fälle (`counts_case`), nicht Taten, wie es der
+  Entwurf will und die Dokumente vorn zeigen.
+- **Wochentag × lokale Uhrzeit**: durchschnittliche Fälle je Stunde, geteilt
+  durch die Zahl dieser Wochentage im Bestand.
+- **Ein Index**, bei dem der erste vollständige Monat 100 ist. Der Entwurf
+  setzt „Januar = 100“; ein angebrochener Januar als Basis machte jeden
+  Folgemonat zum Anstieg.
+
+**Genau 00:00 und 12:00 fehlen in der Heatmap.** Dort häufen sich
+Platzhalter für eine unbekannte Tatzeit. In Chicago sind es 2024 9'445
+Fälle um 00:00 gegen 1'967 um 00:01. Kibana zeichnet sie mit und vermerkt
+es; der Entwurf verlangt, fehlende Tatzeiten getrennt auszuweisen. Das Brett
+nimmt sie heraus und nennt ihre Zahl, für Jan–Sep 2025 Chicago 11'078
+(6,1 %) und Detroit 2'907 (5,0 %). Echte Taten um genau 00:00 fehlen dann
+mit; die Zahl daneben macht das sichtbar.
+
+**Ein Fehler, der auch »Überblick« betraf.** `comparison_month` misst Teilmonate
+am gemeinsamen Fenster beider Städte. Chicagos Daten enden am 26.9.2026,
+Detroits am 4.10., also galt Chicagos September als vollständig. Das
+Dashboard rechnet das Fenster jetzt je Stadt aus Gold. Für Jan–Dez 2026,
+alle Kategorien, zeigt »Überblick« deshalb 8 statt 9 vollständige Monate und
+„Zum Vorjahr“ −1,5 % über 8 Monate. Die Tabelle selbst bleibt vorerst, wie
+sie ist (C-10 in `offene-punkte.md`): Sie zu korrigieren hebt ihre
+Vertragsversion an.
+
+Korrigiert im Eintrag darunter: Die dort genannten −19,5 % galten für den
+Filter „Raub“, nicht für alle Kategorien.
+
+Umgebaut: Das JavaScript ist jetzt geteilt, in `gemeinsam.js` für Leiste,
+Zahlformat, Linien und Balken und in ein Modul je Brett. Die Reiter nehmen
+die Auswahl mit auf das nächste Brett. Ein neuer Test hält die Reiterleiste
+auf allen Seiten gleich.
+
+Neu gewacht: acht Tests mehr in `tests/serving/test_dashboard.py`. Sie
+prüfen das Fenster je Stadt, den Nenner der Heatmap, die Platzhalter, die
+Kategorie, Fälle statt Taten und die Indexbasis. Die Mutationsprobe lief im
+kopierten Baum, und alle sechs Mutanten fallen auf. Einer überlebte zuerst
+(Taten statt Fälle); erst eine zweite Anklage im Test-Stern machte den
+Unterschied sichtbar.
+
+**Zahlen.** 2'672 → **2'682 Tests**, Standardlauf 2'561 → **2'571**. Zwei
+davon zählt `tests/test_ablagezugriff.py` für die neue Quelldatei.
+
 ## 1.11.2026 · Ein eigenes Dashboard, das erste Brett ist »Überblick« (Branch `feature/eigenes-dashboard-ueberblick`)
 
 Kibana erweist sich als zu schwer. Zusammen mit Elasticsearch belegt es auf
@@ -129,8 +178,10 @@ Was das Brett zusagt, und warum:
   null, also genau der Einbruch, vor dem `build_kibana._TEILJAHR` warnt.
 - **„Zum Vorjahr“ vergleicht nur Monate, die in beiden Jahren vollständig
   vorliegen.** Zuerst stand dort −26,4 % für Jan–Dez 2026: neun Monate gegen
-  zwölf. Jetzt sind es −19,5 % über neun vergleichbare Monate, und die
-  Kachel nennt die Zahl der Monate.
+  zwölf. Jetzt nennt die Kachel die Zahl der vergleichbaren Monate.
+  *Korrigiert am 1.11.2026:* Hier standen „−19,5 % über neun Monate“. Diese
+  Zahl galt für den Filter „Raub“, nicht für alle Kategorien. Den Stand für
+  alle nennt der Eintrag zu »Zeitverlauf«.
 - **Die Restgruppe heisst „Übrige Kategorien“**, nicht „Übrige Straftaten“,
   denn so hiesse auf Deutsch auch NIBRS 90Z. Alle 43 NIBRS-Kategorien haben
   einen deutschen Namen.

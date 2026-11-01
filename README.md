@@ -222,7 +222,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 2'561 ausgeführte Tests, ohne Netzzugriff und ohne
+Erwartet wird **grün**: 2'571 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -232,7 +232,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 2'672
+python -m pytest -m ""               # beides zusammen, alle 2'682
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -974,7 +974,8 @@ deren Antworten schon vorberechnet in `serving/comparison_month` liegen. Seit
 dem 1.11.2026 entsteht deshalb ein eigenes Dashboard nach Artans Entwürfen
 (`docs/bilder/dashboard_*.png`): Flask, DuckDB und eigenes SVG, ohne
 Suchindex und ohne Diagrammbibliothek. Das erste Brett ist »Kriminalität im
-Überblick«; die übrigen vier folgen, bis dahin bleibt Kibana.
+Überblick«, seit demselben Tag steht »Zeitverlauf« daneben; die übrigen drei
+folgen, bis dahin bleibt Kibana.
 
 ```bash
 python -m serving.dashboard --data-root data    # http://127.0.0.1:8050
@@ -1085,7 +1086,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**2'672 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**2'682 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -1122,7 +1123,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **2'483 der 2'561 Tests** des Standardlaufs, und
+In einem frischen Klon laufen **2'493 der 2'571 Tests** des Standardlaufs, und
 sie sind grün (am 30.10.2026 in einem Baum ohne `data/` nachgemessen).
 Die übrigen 78 überspringen sich selbst, weil sie gebaute Daten brauchen und
 `data/` nicht versioniert ist — dazu seit dem 5.10.2026 die Reproduktion von
