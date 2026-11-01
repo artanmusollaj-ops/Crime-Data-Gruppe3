@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'682** |
+| Tests | **2'693** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -102,6 +102,44 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 1.11.2026 · Das Dashboard bekommt »Geografie« (Branch `feature/dashboard-geografie`)
+
+Das dritte Brett nach Artans Entwurf `dashboard_räumliche_verteilung.png`.
+Es zeigt je Stadt eine Karte mit jedem Tract nach seiner Rate eingefärbt,
+dazu die fünf Tracts mit den höchsten Raten und die Hinweise zur Deutung.
+
+- **Fälle je 1'000 Einwohner nach `gold_pipeline.raten_je_tract`.** Für 2024
+  stimmen alle 1'045 Tract-Raten auf die Nachkommastelle mit Gold überein.
+  Der Entwurf rechnet Delikte je 100'000. Wir bleiben bei der Fallebene und
+  der Einheit von Kibana und den Dokumenten.
+- **Unter 500 Einwohnern ist die Basis gering.** Diese Tracts sind
+  schraffiert und fehlen in der Rangliste; 2024 sind es 14 von 1'055.
+  Tracts ohne Einwohner bekommen keine Rate, auch keine Null.
+- **Die Klassen sind Quantile über beide Städte**, gerundet auf zwei
+  gültige Stellen. Feste Grenzen wie im Entwurf passten zu einem Zeitraum
+  und nicht zum nächsten. Je Stadt eigene Klassen hätten dieselbe Farbe in
+  Chicago und Detroit zu zwei verschiedenen Zahlen gemacht.
+- **Was keinen Ort in der Stadt hat, wird gezählt statt verschwiegen.**
+  Chicago hat 2024 8'133 solche Fälle (3,1 %), davon 2'122 ohne Koordinate
+  und 6'011 ausserhalb. Detroit hat 645 (0,8 %).
+- **Kein Kartenhintergrund.** Die Umrisse kommen aus `gold/dim_tract_geo`
+  (TIGER) und werden beim Laden zu SVG-Pfaden, 228 KB für beide Städte.
+  Strassen und Wasser kämen von einem Kachelserver, und die CSP erlaubt nur
+  `'self'`.
+
+Die Auswahl „Gebietsebene“ aus dem Entwurf fehlt, weil es nur Tracts gibt.
+Ein Feld, das nichts bewirkt, würde eine Auswahl vortäuschen.
+
+Neu gewacht: neun Tests mehr in `tests/serving/test_dashboard.py`. Sie
+prüfen die Rate gegen Gold, die geringe Basis, die Null für einen Tract
+ohne Fall, die Kategorie, die Klassen und die Umrisse. Der Test-Stern setzt
+`geo_status` jetzt wie Gold, nur bei passender Stadt `inside_city`. Vorher
+überlebte der Mutant ohne den Filter `inside_city`, weil keine Tat in einem
+Tract der anderen Stadt lag. Alle sieben Mutanten fallen jetzt auf.
+
+**Zahlen.** 2'682 → **2'693 Tests**, Standardlauf 2'571 → **2'582**. Zwei
+davon zählt `tests/test_ablagezugriff.py` für die neue Quelldatei.
 
 ## 1.11.2026 · Das Dashboard bekommt »Zeitverlauf« (Branch `feature/dashboard-zeitverlauf`)
 

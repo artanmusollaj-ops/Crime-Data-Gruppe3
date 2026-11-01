@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import re
 from datetime import date, datetime, time
 from pathlib import Path
@@ -38,7 +39,17 @@ def schreibe(root: Path, tabelle: str, spalten: dict[str, list]) -> None:
         "input_fingerprint": f"fp-{tabelle}", "derived_from": {}}), encoding="utf-8")
 
 
-def stern(root: Path, taten: list[tuple]) -> Path:
+#: Zwei kleine Chicagoer Tracts, nur wo ein Test sie verlangt: 100 und 0 Einwohner.
+TRACT_KLEIN, TRACT_LEER = "17031020100", "17031020200"
+TRACT_STADT = {TRACT_C: "chicago", TRACT_D: "detroit",
+               TRACT_KLEIN: "chicago", TRACT_LEER: "chicago"}
+
+
+def quadrat(x: float, y: float) -> str:
+    return f"POLYGON (({x} {y}, {x + 0.01} {y}, {x + 0.01} {y + 0.01}, {x} {y + 0.01}, {x} {y}))"
+
+
+def stern(root: Path, taten: list[tuple], *, kleine: bool = False) -> Path:
     """(meldende Stadt, Datum, NIBRS-Code, Tract[, Uhrzeit[, Fall]]) je Tat."""
     schreibe(root, "fact_offense", {
         "offense_id": [f"o{i}" for i in range(len(taten))],
@@ -49,7 +60,9 @@ def stern(root: Path, taten: list[tuple]) -> Path:
         # Das sechste Feld: False fuer eine weitere Anklage im selben Fall.
         "counts_case": [t[5] if len(t) > 5 else True for t in taten],
         "mapping_status": ["exact"] * len(taten),
-        "geo_status": ["outside_city" if t[3] == TRACT_AUSSEN else "inside_city" for t in taten],
+        # Wie in Gold: inside_city nur, wenn der Tract zur meldenden Stadt gehoert.
+        "geo_status": ["inside_city" if TRACT_STADT.get(t[3]) == t[0] else "outside_city"
+                       for t in taten],
         "local_time_ambiguous": [False] * len(taten),
         "tract_geoid": [t[3] for t in taten],
         # Die Uhrzeit ist das fuenfte Feld, wenn es eines gibt; sonst 18:05.
@@ -62,15 +75,25 @@ def stern(root: Path, taten: list[tuple]) -> Path:
         "nibrs_code": ["13A", "23C", "120"],
         "nibrs_category": ["Assault Offenses", "Larceny/Theft Offenses", "Robbery"],
     })
+    klein = [TRACT_KLEIN, TRACT_LEER] if kleine else []
     schreibe(root, "dim_tract", {
-        "geoid": [TRACT_C, TRACT_D, TRACT_AUSSEN],
-        "city": ["chicago", "detroit", None],
-        "reference_vintage": [2024, 2024, 2024],
+        "geoid": [TRACT_C, TRACT_D, TRACT_AUSSEN, *klein],
+        "city": ["chicago", "detroit", None, *["chicago"] * len(klein)],
+        "reference_vintage": [2024] * (3 + len(klein)),
     })
     schreibe(root, "dim_tract_acs", {
-        "geoid": [TRACT_C, TRACT_D, TRACT_AUSSEN] * 2,
-        "vintage": [2023] * 3 + [2024] * 3,
-        "population": [1900, 900, 50, 2000, 1000, 50],
+        "geoid": [TRACT_C, TRACT_D, TRACT_AUSSEN, *klein] * 2,
+        "vintage": [2023] * (3 + len(klein)) + [2024] * (3 + len(klein)),
+        "population": [1900, 900, 50, *[100, 0][:len(klein)],
+                       2000, 1000, 50, *[100, 0][:len(klein)]],
+    })
+    # Die Umrisse fuehren nur Tracts mit Stadt, wie in Gold.
+    geo = [(TRACT_C, "chicago", -87.7, 41.8), (TRACT_D, "detroit", -83.1, 42.3)] + [
+        (g, "chicago", -87.68 + i * 0.02, 41.8) for i, g in enumerate(klein)]
+    schreibe(root, "dim_tract_geo", {
+        "geoid": [g[0] for g in geo], "city": [g[1] for g in geo],
+        "tract_name": [f"Census Tract {g[0][-6:-2].lstrip('0')}" for g in geo],
+        "boundary_wkt": [quadrat(g[2], g[3]) for g in geo],
     })
     bc.build(root)
     return root
@@ -227,7 +250,7 @@ def test_ohne_daten_meldet_die_api_503_und_healthz_bleibt_gruen(tmp_path):
     assert antwort.status_code == 503 and "nicht gebaut" in antwort.json["fehler"]
 
 
-@pytest.mark.parametrize("pfad", ["/", "/zeitverlauf"])
+@pytest.mark.parametrize("pfad", ["/", "/zeitverlauf", "/geografie"])
 def test_die_seite_kommt_ohne_inline_code_aus(bestand, pfad):
     """Die CSP erlaubt nur 'self'; ein Inline-Skript oder -Stil liefe nicht."""
     client = create_app(bestand=bestand).test_client()
@@ -255,7 +278,7 @@ def test_alle_seiten_tragen_dieselben_reiter(bestand):
         leiste = re.search(r'<nav class="reiter".*?</nav>', html, re.S).group(0)
         return re.findall(r">([^<>]+)</(?:a|span)>", leiste)
 
-    assert reiter("/") == reiter("/zeitverlauf") == [
+    assert reiter("/") == reiter("/zeitverlauf") == reiter("/geografie") == [
         "Überblick", "Zeitverlauf", "Geografie", "Deliktstruktur", "Datenqualität"]
 
 
@@ -366,3 +389,98 @@ def test_die_api_liefert_den_zeitverlauf(stunden):
     assert antwort.status_code == 200
     assert [s["zeitzone"] for s in antwort.json["staedte"]] == ["America/Chicago", "America/Detroit"]
     assert client.get("/api/zeitverlauf?jahr=1999").status_code == 400
+
+
+# --------------------------------------------------------------------------
+# Das Brett »Geografie«
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def karte(tmp_path) -> Bestand:
+    taten = (
+        jahr("chicago", 2024, "13A", TRACT_C, je=3)
+        + jahr("chicago", 2024, "23C", TRACT_C)
+        # Eine zweite Anklage: zaehlt als Tat, nicht als Fall.
+        + [("chicago", date(2024, 2, 1), "13A", TRACT_C, time(18, 5), False)]
+        + jahr("chicago", 2024, "13A", TRACT_KLEIN, monate=[3])
+        # Ausserhalb der Stadt: gemeldet, aber nicht auf der Karte.
+        + jahr("chicago", 2024, "120", TRACT_AUSSEN, monate=[5, 6])
+        + jahr("detroit", 2024, "13A", TRACT_D, je=2)
+        # Von Detroit gemeldet, aber in einem Chicagoer Tract: auf keiner Karte.
+        + [("detroit", date(2024, 7, 1), "13A", TRACT_C)]
+    )
+    return Bestand(stern(tmp_path, taten, kleine=True))
+
+
+def test_die_tract_rate_ist_die_von_gold(karte):
+    """Dieselbe Zahl wie gold_pipeline.raten_je_tract - Fallebene, inside_city."""
+    from gold_pipeline import raten_je_tract
+    gold = karte.data_root / "gold"
+
+    def rel(t):
+        return f"read_parquet('{gold}/dataset={t}/part-0001.parquet')"
+
+    erwartet = {(s, g): r for s, g, _, r, *_ in duckdb.connect().execute(
+        raten_je_tract(rel("fact_offense"), rel("dim_tract_acs"), 2024)).fetchall()}
+    g = karte.geografie(karte.auswahl({"jahr": "2024"}))
+    gezeigt = {(s["stadt"], t["geoid"]): t["rate"] for s in g["staedte"] for t in s["tracts"]
+               if t["faelle"]}
+    assert gezeigt == erwartet
+    assert erwartet[("chicago", TRACT_C)] == 24.0     # 48 Faelle, nicht 49 Taten
+
+
+def test_kleine_basis_ist_markiert_und_nicht_in_der_rangliste(karte):
+    chicago = karte.geografie(karte.auswahl({"jahr": "2024", "stadt": "chicago"}))["staedte"][0]
+    nach = {t["geoid"]: t for t in chicago["tracts"]}
+    assert nach[TRACT_KLEIN]["geringe_basis"] and nach[TRACT_KLEIN]["rate"] == 10.0
+    # Ohne Einwohner keine Rate - auch keine Null.
+    assert nach[TRACT_LEER]["rate"] is None and nach[TRACT_LEER]["faelle"] == 0
+    assert [t["geoid"] for t in chicago["hoechste"]] == [TRACT_C]
+    assert chicago["geringe"] == 2
+
+
+def test_ein_tract_ohne_fall_ist_eine_null(karte):
+    g = karte.geografie(karte.auswahl({"jahr": "2024", "stadt": "chicago", "bis": "1"}))
+    klein = next(t for t in g["staedte"][0]["tracts"] if t["geoid"] == TRACT_KLEIN)
+    assert klein["faelle"] == 0 and klein["rate"] == 0.0
+
+
+def test_was_keinen_ort_hat_wird_gezaehlt(karte):
+    g = karte.geografie(karte.auswahl({"jahr": "2024"}))["staedte"]
+    assert g[0]["verortung"]["outside_city"] == 2
+    assert g[0]["verortung"]["inside_city"] == 12 * 4 + 1
+    assert g[1]["verortung"]["outside_city"] == 1
+
+
+def test_die_kategorie_filtert_die_karte(karte):
+    g = karte.geografie(karte.auswahl(
+        {"jahr": "2024", "stadt": "chicago", "kategorie": "Larceny/Theft Offenses"}))
+    c = next(t for t in g["staedte"][0]["tracts"] if t["geoid"] == TRACT_C)
+    assert c["faelle"] == 12 and c["rate"] == 6.0
+
+
+def test_die_klassen_sind_gerundete_quantile_ohne_doppel():
+    from serving.dashboard.geografie import klassengrenzen
+    assert klassengrenzen([]) == []
+    assert klassengrenzen([float(v) for v in range(1, 101)]) == [21.0, 41.0, 61.0, 81.0]
+    # Viele gleiche Werte ergeben weniger Klassen, keine leeren.
+    assert klassengrenzen([5.0] * 9 + [80.0]) == [5.0]
+    assert klassengrenzen([0.123, 0.347, 1.26, 13.47, 13.47]) == [0.35, 1.3, 13.0]
+
+
+def test_die_umrisse_werden_zu_pfaden(karte):
+    k = karte.karten
+    assert set(k) == {"chicago", "detroit"}
+    assert len(k["chicago"]["tracts"]) == 3
+    d = k["detroit"]["tracts"][0]["d"]
+    assert d.startswith("M0.0 ") and d.endswith("Z") and d.count("L") == 4
+    # Ein Quadrat in Grad ist in der Projektion hoeher als breit: cos(42,3 Grad).
+    assert k["detroit"]["hoehe"] == pytest.approx(600 / math.cos(math.radians(42.305)), rel=1e-3)
+
+
+def test_die_api_liefert_karten_und_raten(karte):
+    client = create_app(bestand=karte).test_client()
+    assert set(client.get("/api/karten").json) == {"chicago", "detroit"}
+    g = client.get("/api/geografie?jahr=2024&stadt=detroit")
+    assert g.status_code == 200 and g.json["staedte"][0]["tracts"][0]["rate"] == 24.0

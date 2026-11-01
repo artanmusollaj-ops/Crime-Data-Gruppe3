@@ -245,6 +245,44 @@ class Bestand:
             SELECT reporting_city AS stadt, date_trunc('month', date)::DATE AS monat,
                    isodow(date) AS wochentag, count(DISTINCT date) AS n
             FROM read_parquet('{fakten}', hive_partitioning=false) GROUP BY ALL""")
+        # Fuer »Geografie«: Faelle je Tract und Monat nach der Regel von
+        # gold_pipeline.raten_je_tract, dazu Einwohner und Umrisse der Tracts
+        # und je Stadt, wie viele Faelle keinen Ort in der Stadt haben.
+        geo, _ = _quelle(ablage, "gold", "dim_tract_geo")
+        con.execute(f"""
+            CREATE TABLE tract_monat AS
+            SELECT f.reporting_city AS stadt, f.tract_geoid AS geoid,
+                   date_trunc('month', f.date)::DATE AS monat,
+                   CASE WHEN f.nibrs_code IS NULL THEN 'unmapped'
+                        ELSE d.nibrs_category END AS kategorie,
+                   f.population_vintage AS vintage,
+                   count(*) FILTER (f.counts_case) AS faelle, count(*) AS delikte
+            FROM read_parquet('{fakten}', hive_partitioning=false) f
+            LEFT JOIN read_parquet('{delikte}', hive_partitioning=false) d USING (nibrs_code)
+            WHERE f.geo_status = 'inside_city'
+            GROUP BY ALL""")
+        con.execute(f"""
+            CREATE TABLE verortung AS
+            SELECT f.reporting_city AS stadt, date_trunc('month', f.date)::DATE AS monat,
+                   CASE WHEN f.nibrs_code IS NULL THEN 'unmapped'
+                        ELSE d.nibrs_category END AS kategorie,
+                   f.geo_status, count(*) FILTER (f.counts_case) AS faelle
+            FROM read_parquet('{fakten}', hive_partitioning=false) f
+            LEFT JOIN read_parquet('{delikte}', hive_partitioning=false) d USING (nibrs_code)
+            GROUP BY ALL""")
+        con.execute(f"""
+            CREATE TABLE tract_geo AS
+            SELECT geoid, city, tract_name
+            FROM read_parquet('{geo}', hive_partitioning=false)""")
+        con.execute(f"""
+            CREATE TABLE tract_einwohner AS
+            SELECT geoid, vintage, population
+            FROM read_parquet('{acs}', hive_partitioning=false)
+            WHERE geoid IN (SELECT geoid FROM tract_geo)""")
+        from serving.dashboard.geografie import pfade
+        karten = pfade(con.execute(f"""
+            SELECT geoid, city, tract_name, boundary_wkt
+            FROM read_parquet('{geo}', hive_partitioning=false) ORDER BY geoid""").fetchall())
         vintages = [r[0] for r in con.execute(
             "SELECT DISTINCT vintage FROM raten WHERE vintage IS NOT NULL").fetchall()]
         con.execute("CREATE TABLE einwohner (stadt VARCHAR, vintage INTEGER, n BIGINT)")
@@ -262,6 +300,7 @@ class Bestand:
                 "gebaut": stand.get("built_at_utc"),
                 "release": _release(ablage),
             }
+            self.karten = karten
             self.jahre = [r[0] for r in con.execute(
                 "SELECT DISTINCT year(monat) FROM monate ORDER BY 1").fetchall()]
             self.kategorien = [r[0] for r in con.execute(
@@ -315,6 +354,12 @@ class Bestand:
         except ValueError as fehler:
             raise EingabeFehler("Jahr und Monate muessen Zahlen sein") from fehler
         return a.pruefe(self.jahre, self.kategorien)
+
+    # -- Das Brett »Geografie« -----------------------------------------------
+
+    def geografie(self, a: Auswahl) -> dict[str, Any]:
+        from serving.dashboard.geografie import geografie
+        return geografie(self, a)
 
     # -- Das Brett »Zeitverlauf« ---------------------------------------------
 
