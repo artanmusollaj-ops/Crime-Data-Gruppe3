@@ -12,7 +12,7 @@ from __future__ import annotations
 import csv
 import json
 import re
-from datetime import date
+from datetime import date, datetime, time
 from pathlib import Path
 
 import duckdb
@@ -38,19 +38,24 @@ def schreibe(root: Path, tabelle: str, spalten: dict[str, list]) -> None:
         "input_fingerprint": f"fp-{tabelle}", "derived_from": {}}), encoding="utf-8")
 
 
-def stern(root: Path, taten: list[tuple[str, date, str, str]]) -> Path:
-    """(meldende Stadt, Datum, NIBRS-Code, Tract) je Tat; jede Tat ein Fall."""
+def stern(root: Path, taten: list[tuple]) -> Path:
+    """(meldende Stadt, Datum, NIBRS-Code, Tract[, Uhrzeit[, Fall]]) je Tat."""
     schreibe(root, "fact_offense", {
         "offense_id": [f"o{i}" for i in range(len(taten))],
         "reporting_city": [t[0] for t in taten],
         "date": [t[1] for t in taten],
         "nibrs_code": [t[2] for t in taten],
         "nibrs_family": [t[2][:2] for t in taten],
-        "counts_case": [True] * len(taten),
+        # Das sechste Feld: False fuer eine weitere Anklage im selben Fall.
+        "counts_case": [t[5] if len(t) > 5 else True for t in taten],
         "mapping_status": ["exact"] * len(taten),
         "geo_status": ["outside_city" if t[3] == TRACT_AUSSEN else "inside_city" for t in taten],
         "local_time_ambiguous": [False] * len(taten),
         "tract_geoid": [t[3] for t in taten],
+        # Die Uhrzeit ist das fuenfte Feld, wenn es eines gibt; sonst 18:05.
+        "hour_of_day": [(t[4] if len(t) > 4 else time(18, 5)).hour for t in taten],
+        "occurred_at_local": [datetime.combine(t[1], t[4] if len(t) > 4 else time(18, 5))
+                              for t in taten],
         "population_vintage": [2024 if t[1].year >= 2024 else 2023 for t in taten],
     })
     schreibe(root, "dim_offense", {
@@ -222,10 +227,12 @@ def test_ohne_daten_meldet_die_api_503_und_healthz_bleibt_gruen(tmp_path):
     assert antwort.status_code == 503 and "nicht gebaut" in antwort.json["fehler"]
 
 
-def test_die_seite_kommt_ohne_inline_code_aus(bestand):
+@pytest.mark.parametrize("pfad", ["/", "/zeitverlauf"])
+def test_die_seite_kommt_ohne_inline_code_aus(bestand, pfad):
     """Die CSP erlaubt nur 'self'; ein Inline-Skript oder -Stil liefe nicht."""
     client = create_app(bestand=bestand).test_client()
-    seite = client.get("/")
+    seite = client.get(pfad)
+    assert seite.status_code == 200
     assert "default-src 'self'" in seite.headers["Content-Security-Policy"]
     html = seite.get_data(as_text=True)
     assert not re.search(r"<script(?![^>]*\bsrc=)", html)
@@ -233,3 +240,129 @@ def test_die_seite_kommt_ohne_inline_code_aus(bestand):
     for datei in re.findall(r'(?:src|href)="/static/([^"]+)"', html):
         assert (_STATISCH / datei).is_file()
         assert client.get("/static/" + datei).status_code == 200
+    # Ein Modul laedt seine Nachbarn selbst; auch die muessen da sein.
+    for skript in re.findall(r'src="/static/([^"]+\.js)"', html):
+        for nachbar in re.findall(r'from "\./([^"]+)"', (_STATISCH / skript).read_text(encoding="utf-8")):
+            assert (_STATISCH / nachbar).is_file(), nachbar
+
+
+def test_alle_seiten_tragen_dieselben_reiter(bestand):
+    """Die Leiste steht in jeder Seite einmal; sie darf nicht auseinanderlaufen."""
+    client = create_app(bestand=bestand).test_client()
+
+    def reiter(pfad):
+        html = client.get(pfad).get_data(as_text=True)
+        leiste = re.search(r'<nav class="reiter".*?</nav>', html, re.S).group(0)
+        return re.findall(r">([^<>]+)</(?:a|span)>", leiste)
+
+    assert reiter("/") == reiter("/zeitverlauf") == [
+        "Überblick", "Zeitverlauf", "Geografie", "Deliktstruktur", "Datenqualität"]
+
+
+# --------------------------------------------------------------------------
+# Das Fenster je Stadt
+# --------------------------------------------------------------------------
+
+
+def test_das_fenster_gilt_je_stadt(tmp_path):
+    """comparison_month misst am gemeinsamen Fenster; das Dashboard je Stadt.
+
+    Chicago endet am 20.3., Detroit am 2.4. Gemeinsam reicht das Fenster in
+    den April, und comparison_month nennt Chicagos Maerz vollstaendig.
+    """
+    b = Bestand(stern(tmp_path, [
+        ("chicago", date(2025, 1, 1), "13A", TRACT_C),
+        ("chicago", date(2025, 3, 20), "13A", TRACT_C),
+        ("detroit", date(2025, 1, 1), "13A", TRACT_D),
+        ("detroit", date(2025, 4, 2), "13A", TRACT_D),
+    ]))
+    tage, im_fenster = b._cursor().execute(
+        "SELECT max(tage), max(tage_im_fenster) FROM monate "
+        "WHERE stadt = 'chicago' AND monat = DATE '2025-03-01'").fetchone()
+    assert tage == im_fenster == 31
+    abdeckung = {a["stadt"]: a for a in b.ueberblick(b.auswahl(
+        {"jahr": "2025", "bis": "4"}))["abdeckung"]}
+    # Der Februar liegt im Fenster: ein voller Monat ohne Tat, keine Luecke.
+    assert abdeckung["chicago"]["monate"] == ["voll", "voll", "teil", "fehlt"]
+    assert abdeckung["chicago"]["letzter_tag"] == "2025-03-20"
+    assert abdeckung["detroit"]["monate"] == ["voll", "voll", "voll", "teil"]
+
+
+# --------------------------------------------------------------------------
+# Das Brett »Zeitverlauf«
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def stunden(tmp_path) -> Bestand:
+    """Chicago 2024 und 2025; Mittwoch, 1.1.2025, und Mittwoch, 8.1.2025."""
+    taten = (
+        jahr("chicago", 2024, "13A", TRACT_C, je=2)
+        + [("chicago", date(2025, 1, 1), "13A", TRACT_C, time(18, 5)),
+           ("chicago", date(2025, 1, 1), "13A", TRACT_C, time(18, 40)),
+           ("chicago", date(2025, 1, 8), "13A", TRACT_C, time(18, 30)),
+           # Platzhalter: genau Mitternacht und genau Mittag.
+           ("chicago", date(2025, 1, 8), "23C", TRACT_C, time(0, 0)),
+           ("chicago", date(2025, 1, 8), "23C", TRACT_C, time(12, 0)),
+           # Eine Minute daneben ist keiner.
+           ("chicago", date(2025, 1, 8), "23C", TRACT_C, time(0, 1)),
+           # Eine zweite Anklage: eine Tat mehr, kein Fall mehr.
+           ("chicago", date(2025, 1, 8), "13A", TRACT_C, time(18, 30), False)]
+        + jahr("chicago", 2025, "13A", TRACT_C, monate=range(2, 4), je=4)
+        + [("chicago", date(2025, 3, 31), "13A", TRACT_C)]
+        + jahr("detroit", 2025, "13A", TRACT_D, monate=range(1, 4))
+        + [("detroit", date(2025, 3, 31), "13A", TRACT_D)]
+    )
+    return Bestand(stern(tmp_path, taten))
+
+
+def test_die_heatmap_teilt_durch_die_tage_und_laesst_platzhalter_weg(stunden):
+    z = stunden.zeitverlauf(stunden.auswahl({"stadt": "chicago", "jahr": "2025", "bis": "1"}))
+    h = z["staedte"][0]["heatmap"]
+    mittwoch = h["werte"][2]
+    # Zwei Mittwoche mit Daten: (2 + 1) Faelle um 18 Uhr / 2 Tage.
+    assert mittwoch[18] == 1.5
+    assert mittwoch[0] == 0.5          # 00:01 zaehlt
+    assert mittwoch[12] == 0.0         # 12:00 nicht
+    assert h["platzhalter"] == 2
+    assert h["platzhalter_anteil"] == round(2 * 100 / 6, 1)
+    assert sum(map(sum, h["werte"][:2] + h["werte"][3:])) == 0
+
+
+def test_die_heatmap_folgt_der_kategorie(stunden):
+    z = stunden.zeitverlauf(stunden.auswahl(
+        {"stadt": "chicago", "jahr": "2025", "bis": "1", "kategorie": "Larceny/Theft Offenses"}))
+    h = z["staedte"][0]["heatmap"]
+    assert h["werte"][2][18] == 0.0 and h["werte"][2][0] == 0.5 and h["platzhalter"] == 2
+
+
+def test_der_verlauf_zeigt_faelle_gegen_das_vorjahr(stunden):
+    s = stunden.zeitverlauf(stunden.auswahl({"stadt": "chicago", "jahr": "2025", "bis": "3"}))
+    chicago = s["staedte"][0]
+    # Faelle, nicht Taten: Die zweite Anklage am 8.1. zaehlt nicht mit.
+    assert chicago["jetzt"] == [6, 4, 5]
+    assert chicago["vorjahr"] == [2, 2, 2]
+    assert s["vergleich"] == {"jahr": 2025, "vorjahr": 2024, "vorjahr_vorhanden": True}
+
+
+def test_der_index_beginnt_beim_ersten_vollen_monat(tmp_path):
+    """Ein angebrochener Januar als 100 machte jeden Folgemonat zum Anstieg."""
+    b = Bestand(stern(tmp_path, [
+        ("chicago", date(2025, 1, 20), "13A", TRACT_C),
+        *[("chicago", date(2025, m, d), "13A", TRACT_C)
+          for m in (2, 3) for d in (1, 28)],
+        ("chicago", date(2025, 3, 31), "13A", TRACT_C),
+        ("detroit", date(2025, 1, 20), "13A", TRACT_D),
+    ]))
+    chicago = b.zeitverlauf(b.auswahl({"stadt": "chicago", "jahr": "2025", "bis": "3"}))["staedte"][0]
+    assert chicago["status"] == ["teil", "voll", "voll"]
+    assert chicago["index"]["basis"] == "2025-02-01"
+    assert chicago["index"]["werte"] == [50.0, 100.0, 150.0]
+
+
+def test_die_api_liefert_den_zeitverlauf(stunden):
+    client = create_app(bestand=stunden).test_client()
+    antwort = client.get("/api/zeitverlauf?jahr=2025&stadt=beide&bis=3")
+    assert antwort.status_code == 200
+    assert [s["zeitzone"] for s in antwort.json["staedte"]] == ["America/Chicago", "America/Detroit"]
+    assert client.get("/api/zeitverlauf?jahr=1999").status_code == 400

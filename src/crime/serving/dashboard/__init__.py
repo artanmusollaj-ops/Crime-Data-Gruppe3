@@ -38,7 +38,7 @@ import json
 import threading
 import time
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -214,6 +214,37 @@ class Bestand:
             LEFT JOIN read_parquet('{delikte}', hive_partitioning=false) d USING (nibrs_code)
             WHERE t.city IS NOT NULL
             GROUP BY ALL""")
+        # Das Fenster je Stadt. comparison_month rechnet days_in_window ueber
+        # ein gemeinsames Fenster beider Staedte; Chicagos Daten enden am
+        # 26.9.2026, Detroits am 4.10. - dort hiesse Chicagos September
+        # vollstaendig, obwohl vier Tage fehlen (offene-punkte.md, C-10).
+        con.execute(f"""
+            CREATE TABLE fenster AS
+            SELECT reporting_city AS stadt, min(date) AS von, max(date) AS bis
+            FROM read_parquet('{fakten}', hive_partitioning=false) GROUP BY 1""")
+        # Fuer »Zeitverlauf«: Faelle je Wochentag und lokaler Stunde.
+        # Genau 00:00 und 12:00 sind ueberbesetzt - Platzhalter fuer eine
+        # unbekannte Tatzeit (build_kibana._PLATZHALTERSTUNDEN); sie werden
+        # mitgezaehlt, aber markiert, damit die Heatmap sie ausweisen kann.
+        con.execute(f"""
+            CREATE TABLE stunden AS
+            SELECT f.reporting_city AS stadt, date_trunc('month', f.date)::DATE AS monat,
+                   isodow(f.date) AS wochentag, f.hour_of_day AS stunde,
+                   CASE WHEN f.nibrs_code IS NULL THEN 'unmapped'
+                        ELSE d.nibrs_category END AS kategorie,
+                   (f.hour_of_day IN (0, 12) AND minute(f.occurred_at_local) = 0
+                    AND second(f.occurred_at_local) = 0) AS platzhalter,
+                   count(*) FILTER (f.counts_case) AS faelle
+            FROM read_parquet('{fakten}', hive_partitioning=false) f
+            LEFT JOIN read_parquet('{delikte}', hive_partitioning=false) d USING (nibrs_code)
+            GROUP BY ALL""")
+        # Der Nenner der Heatmap: wie viele Montage, Dienstage ... ein Monat je
+        # Stadt mit Daten hat.
+        con.execute(f"""
+            CREATE TABLE tage AS
+            SELECT reporting_city AS stadt, date_trunc('month', date)::DATE AS monat,
+                   isodow(date) AS wochentag, count(DISTINCT date) AS n
+            FROM read_parquet('{fakten}', hive_partitioning=false) GROUP BY ALL""")
         vintages = [r[0] for r in con.execute(
             "SELECT DISTINCT vintage FROM raten WHERE vintage IS NOT NULL").fetchall()]
         con.execute("CREATE TABLE einwohner (stadt VARCHAR, vintage INTEGER, n BIGINT)")
@@ -284,6 +315,12 @@ class Bestand:
         except ValueError as fehler:
             raise EingabeFehler("Jahr und Monate muessen Zahlen sein") from fehler
         return a.pruefe(self.jahre, self.kategorien)
+
+    # -- Das Brett »Zeitverlauf« ---------------------------------------------
+
+    def zeitverlauf(self, a: Auswahl) -> dict[str, Any]:
+        from serving.dashboard.zeitverlauf import zeitverlauf
+        return zeitverlauf(self, a)
 
     # -- Das Brett »Überblick« -----------------------------------------------
 
@@ -431,26 +468,34 @@ class Bestand:
 
     @staticmethod
     def _abdeckung(cur, staedte, monate: list[date]) -> dict[str, dict[str, Any]]:
-        """Je Stadt und Monat: voll, teilweise oder fehlend - und der letzte Monat."""
-        stand = {(s, m): (t, f) for s, m, t, f in cur.execute(
-            "SELECT stadt, monat, max(tage), max(tage_im_fenster) FROM monate "
-            "WHERE stadt IN $staedte GROUP BY 1, 2", {"staedte": staedte}).fetchall()}
-        letzter = dict(cur.execute(
-            "SELECT stadt, max(monat) FROM monate WHERE stadt IN $staedte GROUP BY 1",
-            {"staedte": staedte}).fetchall())
+        """Je Stadt und Monat: voll, teilweise oder fehlend - und der letzte Monat.
+
+        Gemessen am Fenster **dieser** Stadt (Tabelle ``fenster``), nicht am
+        gemeinsamen von ``comparison_month``.
+        """
+        fenster = {s: (v, b) for s, v, b in cur.execute(
+            "SELECT stadt, von, bis FROM fenster WHERE stadt IN $staedte",
+            {"staedte": staedte}).fetchall()}
         ergebnis = {}
         for s in staedte:
             je_monat = []
             for m in monate:
-                t = stand.get((s, m))
-                je_monat.append("fehlt" if t is None else ("voll" if t[1] >= t[0] else "teil"))
+                ende = date(m.year + m.month // 12, m.month % 12 + 1, 1) - timedelta(days=1)
+                v, b = fenster.get(s, (None, None))
+                if v is None or b < m or v > ende:
+                    je_monat.append("fehlt")
+                else:
+                    je_monat.append("voll" if v <= m and b >= ende else "teil")
+            letzter = (date(fenster[s][1].year, fenster[s][1].month, 1)
+                       if s in fenster else None)
             mit_daten = [m for m, z in zip(monate, je_monat) if z != "fehlt"]
             ergebnis[s] = {
                 "monate": je_monat,
                 "vollstaendig": je_monat.count("voll"),
                 "von": mit_daten[0].isoformat() if mit_daten else None,
                 "bis": mit_daten[-1].isoformat() if mit_daten else None,
-                "letzter_monat": letzter[s].isoformat() if s in letzter else None,
+                "letzter_monat": letzter.isoformat() if letzter else None,
+                "letzter_tag": fenster[s][1].isoformat() if s in fenster else None,
                 "status": ("vollstaendig" if je_monat and all(z == "voll" for z in je_monat)
                            else "keine_daten" if not mit_daten else "unvollstaendig"),
             }

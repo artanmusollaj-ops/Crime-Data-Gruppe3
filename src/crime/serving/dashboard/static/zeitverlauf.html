@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zeitverlauf · Urban Crime · Analytics</title>
+<link rel="icon" href="/static/favicon.svg">
+<link rel="stylesheet" href="/static/dashboard.css">
+<script type="module" src="/static/zeitverlauf.js"></script>
+</head>
+<body>
+<header class="kopf">
+  <div class="marke">
+    <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="10" width="4" height="11" rx="1"/><rect x="10" y="4" width="4" height="17" rx="1"/><rect x="17" y="13" width="4" height="8" rx="1"/></svg>
+    <span class="produkt">Urban Crime</span><span class="punkt">·</span><span class="bereich">Analytics</span>
+  </div>
+  <div class="stand" id="stand">Stand wird geladen …</div>
+</header>
+
+<nav class="reiter" aria-label="Bretter">
+  <a href="/">Überblick</a>
+  <a class="aktiv" href="/zeitverlauf" aria-current="page">Zeitverlauf</a>
+  <span class="folgt" title="folgt">Geografie</span>
+  <span class="folgt" title="folgt">Deliktstruktur</span>
+  <span class="folgt" title="folgt">Datenqualität</span>
+</nav>
+
+<form class="leiste" id="leiste">
+  <label>Stadt <select name="stadt" id="stadt"></select></label>
+  <label>Zeitraum
+    <select name="von" id="von" aria-label="von Monat"></select>
+    <span class="bis">–</span>
+    <select name="bis" id="bis" aria-label="bis Monat"></select>
+    <select name="jahr" id="jahr" aria-label="Jahr"></select>
+  </label>
+  <label>Kategorie <select name="kategorie" id="kategorie"></select></label>
+</form>
+
+<main class="brett">
+  <div class="brettkopf">
+    <div>
+      <h1>Zeitliche Muster erkennen</h1>
+      <p class="einleitung">Wie entwickeln sich die Fallzahlen im Zeitverlauf? Der Vergleich zeigt
+        saisonale Muster und kurzfristige Veränderungen in Chicago und Detroit.</p>
+    </div>
+    <div class="merkmale">
+      <div class="merkmal"><span class="symbol klein" data-symbol="balken"></span>
+        <div><b>Vergleich: gleiche Monate</b><span id="m-vergleich"></span></div></div>
+      <div class="merkmal"><span class="symbol klein" data-symbol="uhr"></span>
+        <div><b>Zeitbasis: lokale Tatzeit</b><span>Ortszeit der jeweiligen Stadt</span></div></div>
+      <div class="merkmal"><span class="symbol klein" data-symbol="teilmonat"></span>
+        <div><b>Teilmonate hohl</b><span>Ein unvollständiger Monat ist markiert, kein Einbruch</span></div></div>
+    </div>
+  </div>
+  <p class="fehler" id="fehler" hidden></p>
+
+  <section class="raster" id="verlaeufe"></section>
+
+  <section class="raster breit-links">
+    <article class="tafel">
+      <h2>Wochentag × lokale Uhrzeit</h2>
+      <p class="unterzeile" id="u-heatmap"></p>
+      <div class="heatmaps" id="d-heatmaps"></div>
+      <p class="hinweis" id="h-platzhalter"><span class="i">i</span><span id="t-platzhalter"></span></p>
+    </article>
+    <article class="tafel">
+      <h2 id="t-index">Entwicklung im Vergleich</h2>
+      <p class="unterzeile" id="u-index"></p>
+      <div class="diagramm" id="d-index"></div>
+      <div class="legende" id="l-index"></div>
+    </article>
+  </section>
+</main>
+
+<footer class="fuss">
+  <span>Chicago: America/Chicago · Detroit: America/Detroit · <span id="fuss-stand"></span></span>
+  <span>Quelle: serving/comparison_month und gold/fact_offense · Zähllogik: docs/zaehlperspektiven.md</span>
+</footer>
+</body>
+</html>
