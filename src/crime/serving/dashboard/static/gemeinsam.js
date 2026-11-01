@@ -165,9 +165,12 @@ function fehler(text) {
 }
 
 // Startet ein Brett: fuellt Leiste, Kopf und Fuss, laedt bei jeder Aenderung
-// von api neu und ruft zeichne(daten). Mit umschalter gibt es Anzahl/Anteil/Rate.
+// von api neu und ruft zeichne(daten). Ein .umschalter setzt seinen Parameter.
 export async function starteBrett({ api, zeichne }) {
-  const zustand = { mass: "anzahl", daten: null };
+  // Der Umschalter setzt den Parameter aus data-param (Vorgabe: mass).
+  const schalter = document.querySelector(".umschalter");
+  const param = schalter ? schalter.dataset.param || "mass" : null;
+  const zustand = { wert: null, daten: null };
   for (const s of document.querySelectorAll("[data-symbol]")) {
     const svg = el("svg", { viewBox: "0 0 24 24", "aria-hidden": "true" });
     svg.append(el("path", { d: SYMBOLE[s.dataset.symbol] }));
@@ -180,7 +183,7 @@ export async function starteBrett({ api, zeichne }) {
   }
   const url = new URLSearchParams(location.search);
   const wahl = (k) => url.get(k) ?? o.vorgabe[k];
-  zustand.mass = wahl("mass");
+  if (param) zustand.wert = wahl(param);
   optionen(document.getElementById("stadt"), o.staedte.map((s) => [s.wert, s.name]), wahl("stadt"));
   optionen(document.getElementById("jahr"), o.jahre.map((j) => [j, String(j)]), wahl("jahr"));
   const monate = MONATE.map((m, i) => [i + 1, m]);
@@ -188,7 +191,7 @@ export async function starteBrett({ api, zeichne }) {
   optionen(document.getElementById("bis"), monate, wahl("bis"));
   optionen(document.getElementById("kategorie"), o.kategorien.map((k) => [k.wert, k.name]), wahl("kategorie"));
   const knoepfe = document.querySelectorAll(".umschalter button");
-  knoepfe.forEach((b) => b.classList.toggle("an", b.dataset.mass === zustand.mass));
+  knoepfe.forEach((b) => b.classList.toggle("an", b.dataset.wert === zustand.wert));
 
   const st = o.stand;
   const gebaut = st.gebaut ? new Date(st.gebaut).toLocaleString("de-CH") : "unbekannt";
@@ -199,7 +202,7 @@ export async function starteBrett({ api, zeichne }) {
 
   async function lade() {
     const form = new FormData(document.getElementById("leiste"));
-    form.set("mass", zustand.mass);
+    if (param) form.set(param, zustand.wert);
     const suche = "?" + new URLSearchParams(form);
     const antwort = await fetch(api + suche);
     // Ein 500 kommt als HTML; dann bleibt die Meldung allgemein, aber sichtbar.
@@ -225,7 +228,7 @@ export async function starteBrett({ api, zeichne }) {
     lade();
   });
   knoepfe.forEach((b) => b.addEventListener("click", () => {
-    zustand.mass = b.dataset.mass;
+    zustand.wert = b.dataset.wert;
     knoepfe.forEach((x) => x.classList.toggle("an", x === b));
     lade();
   }));

@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'693** |
+| Tests | **2'702** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -102,6 +102,43 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 1.11.2026 · Das Dashboard bekommt »Deliktstruktur« (Branch `feature/dashboard-deliktstruktur`)
+
+Das vierte Brett nach Artans Entwurf `dashboard_welche_delikte_ändern_sich.png`.
+Es zeigt die fünf grössten Kategorien je Stadt und ihren Anteil an 100 %,
+dazu eine Tabelle der zehn grössten Kategorien. Die Tabelle nennt je
+Kategorie die häufigsten NIBRS-Delikte und die Veränderung zum Vorjahr je
+Stadt.
+
+- **Fälle vorn, Delikte auf Wunsch** (Entscheid E5). Der Entwurf beginnt mit
+  Delikten. Chicago erfasst je Fall aber nur das schwerste Delikt, Detroit
+  jedes. Ein Strukturvergleich auf Tatebene misst also den
+  Erfassungsunterschied mit. Wer auf Delikte umschaltet, sieht genau das als
+  Hinweis über dem Brett.
+- **Zum Vorjahr je Stadt** über die Monate, die in beiden Jahren für *diese*
+  Stadt vollständig vorliegen. Unter 20 Fällen im Vorjahr bleibt die Zelle
+  leer: Aus 3 gegen 6 würden +100 %, und das sagt nichts.
+- **Die NIBRS-Beispiele sind die drei häufigsten Delikte der Kategorie** im
+  ganzen Bestand, keine Auswahl von Hand.
+
+Der Umschalter Chicago/Detroit/Beide aus dem Entwurf fehlt, weil die Leiste
+die Stadt schon wählt. Der Umschalter in `gemeinsam.js` ist jetzt
+allgemein: `data-param` sagt, welchen Parameter er setzt.
+
+Behoben: Ein Hinweis mit der Klasse `.hinweis` blieb trotz `hidden`
+sichtbar, weil `display: flex` das Attribut schlug. `[hidden]` gilt jetzt
+vorrangig.
+
+Neu gewacht: sieben Tests mehr in `tests/serving/test_dashboard.py`. Bei
+der Mutationsprobe waren zwei Mutanten zuerst gleichwertig. Der Vorgabewert
+der Dataclass wird nie benutzt, weil `auswahl()` einen eigenen setzt. Und im
+Test-Stern war das häufigste Delikt zufällig auch alphabetisch das erste.
+Die Probe greift jetzt an `auswahl()` an, und der Stern dreht die
+Häufigkeit um. Alle fünf Mutanten fallen auf.
+
+**Zahlen.** 2'693 → **2'702 Tests**, Standardlauf 2'582 → **2'591**. Zwei
+davon zählt `tests/test_ablagezugriff.py` für die neue Quelldatei.
 
 ## 1.11.2026 · Das Dashboard bekommt »Geografie« (Branch `feature/dashboard-geografie`)
 

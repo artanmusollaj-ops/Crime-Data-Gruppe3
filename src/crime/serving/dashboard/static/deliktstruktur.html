@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deliktstruktur · Urban Crime · Analytics</title>
+<link rel="icon" href="/static/favicon.svg">
+<link rel="stylesheet" href="/static/dashboard.css">
+<script type="module" src="/static/deliktstruktur.js"></script>
+</head>
+<body>
+<header class="kopf">
+  <div class="marke">
+    <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="10" width="4" height="11" rx="1"/><rect x="10" y="4" width="4" height="17" rx="1"/><rect x="17" y="13" width="4" height="8" rx="1"/></svg>
+    <span class="produkt">Urban Crime</span><span class="punkt">·</span><span class="bereich">Analytics</span>
+  </div>
+  <div class="stand" id="stand">Stand wird geladen …</div>
+</header>
+
+<nav class="reiter" aria-label="Bretter">
+  <a href="/">Überblick</a>
+  <a href="/zeitverlauf">Zeitverlauf</a>
+  <a href="/geografie">Geografie</a>
+  <a class="aktiv" href="/deliktstruktur" aria-current="page">Deliktstruktur</a>
+  <span class="folgt" title="folgt">Datenqualität</span>
+</nav>
+
+<form class="leiste" id="leiste">
+  <label>Stadt <select name="stadt" id="stadt"></select></label>
+  <label>Zeitraum
+    <select name="von" id="von" aria-label="von Monat"></select>
+    <span class="bis">–</span>
+    <select name="bis" id="bis" aria-label="bis Monat"></select>
+    <select name="jahr" id="jahr" aria-label="Jahr"></select>
+  </label>
+  <label>Kategorie <select name="kategorie" id="kategorie"></select></label>
+</form>
+
+<main class="brett">
+  <div class="brettkopf">
+    <div>
+      <h1>Welche Delikte verändern sich?</h1>
+      <p class="einleitung">Vergleich der Deliktstruktur zwischen Chicago und Detroit im ausgewählten Zeitraum.</p>
+    </div>
+    <div class="umschalter" data-param="ebene" role="group" aria-label="Zählebene">
+      <button type="button" data-wert="faelle" class="an">Fälle</button>
+      <button type="button" data-wert="delikte">Delikte</button>
+    </div>
+  </div>
+  <p class="fehler" id="fehler" hidden></p>
+  <p class="hinweis" id="h-ebene" hidden><span class="i">i</span><span>Auf der Ebene der Delikte zählt
+    Detroit jede Anklage, Chicago je Fall nur das schwerste Delikt. Ein Vergleich der Struktur misst hier
+    den Erfassungsunterschied mit – darum stehen die Fälle vorn (Entscheid E5).</span></p>
+
+  <section class="raster">
+    <article class="tafel">
+      <h2>Deliktkategorien nach Stadt</h2>
+      <p class="unterzeile" id="u-balken"></p>
+      <div class="diagramm" id="d-balken"></div>
+      <div class="legende" id="l-balken"></div>
+    </article>
+    <article class="tafel">
+      <h2>Anteil je Stadt · 100 %</h2>
+      <p class="unterzeile" id="u-anteile"></p>
+      <div class="diagramm" id="d-anteile"></div>
+      <div class="legende" id="l-anteile"></div>
+    </article>
+  </section>
+
+  <section class="tafel detail">
+    <h2>Kategorien im Detail</h2>
+    <table class="tabelle" id="d-tabelle"></table>
+    <p class="unterzeile" id="u-tabelle"></p>
+  </section>
+</main>
+
+<footer class="fuss">
+  <span id="fuss-stand"></span>
+  <span>Quelle: serving/comparison_month · Kategorien: NIBRS User Manual 2025.0 über gold/dim_offense</span>
+</footer>
+</body>
+</html>

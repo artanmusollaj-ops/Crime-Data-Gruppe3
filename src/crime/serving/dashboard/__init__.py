@@ -50,6 +50,8 @@ PARQUET_FILE = "part-0001.parquet"
 STAEDTE = ("chicago", "detroit")
 STADTNAMEN = {"chicago": "Chicago", "detroit": "Detroit"}
 MASSE = ("anzahl", "anteil", "rate")
+#: Zaehlebene der »Deliktstruktur«: Faelle vorn (Entscheid E5), Delikte auf Wunsch.
+EBENEN = ("faelle", "delikte")
 
 #: Wie viele Kategorien die Balken einzeln zeigen; der Rest steht unter UEBRIGE.
 KATEGORIEN_IM_BALKEN = 6
@@ -130,6 +132,7 @@ class Auswahl:
     bis: int = 12
     kategorie: str = "alle"
     mass: str = "anzahl"
+    ebene: str = "faelle"
 
     @property
     def staedte(self) -> tuple[str, ...]:
@@ -146,6 +149,8 @@ class Auswahl:
             raise EingabeFehler(f"Unbekannte Kategorie: {self.kategorie}")
         if self.mass not in MASSE:
             raise EingabeFehler(f"Unbekanntes Mass: {self.mass}")
+        if self.ebene not in EBENEN:
+            raise EingabeFehler(f"Unbekannte Ebene: {self.ebene}")
         return self
 
 
@@ -279,6 +284,16 @@ class Bestand:
             SELECT geoid, vintage, population
             FROM read_parquet('{acs}', hive_partitioning=false)
             WHERE geoid IN (SELECT geoid FROM tract_geo)""")
+        # Fuer »Deliktstruktur«: je Kategorie die drei haeufigsten NIBRS-Delikte
+        # ueber den ganzen Bestand - Beispiele, keine Auswahl.
+        beispiele: dict[str, list[str]] = {}
+        for k, name in con.execute(f"""
+                SELECT d.nibrs_category, d.nibrs_description
+                FROM read_parquet('{fakten}', hive_partitioning=false) f
+                JOIN read_parquet('{delikte}', hive_partitioning=false) d USING (nibrs_code)
+                GROUP BY ALL ORDER BY 1, count(*) DESC, 2""").fetchall():
+            if len(beispiele.setdefault(k, [])) < 3:
+                beispiele[k].append(name)
         from serving.dashboard.geografie import pfade
         karten = pfade(con.execute(f"""
             SELECT geoid, city, tract_name, boundary_wkt
@@ -301,6 +316,7 @@ class Bestand:
                 "release": _release(ablage),
             }
             self.karten = karten
+            self.beispiele = beispiele
             self.jahre = [r[0] for r in con.execute(
                 "SELECT DISTINCT year(monat) FROM monate ORDER BY 1").fetchall()]
             self.kategorien = [r[0] for r in con.execute(
@@ -336,7 +352,7 @@ class Bestand:
                      key=lambda k: k["name"]),
             "vorgabe": {"stadt": "beide", "jahr": RATENJAHR if RATENJAHR in self.jahre
                         else self.jahre[-1], "von": 1, "bis": 12,
-                        "kategorie": "alle", "mass": "anzahl"},
+                        "kategorie": "alle", "mass": "anzahl", "ebene": "faelle"},
             "letzter_monat": letzter,
             "stand": self.stand,
         }
@@ -350,10 +366,17 @@ class Bestand:
                 bis=int(werte.get("bis", 12)),
                 kategorie=werte.get("kategorie", "alle"),
                 mass=werte.get("mass", "anzahl"),
+                ebene=werte.get("ebene", "faelle"),
             )
         except ValueError as fehler:
             raise EingabeFehler("Jahr und Monate muessen Zahlen sein") from fehler
         return a.pruefe(self.jahre, self.kategorien)
+
+    # -- Das Brett »Deliktstruktur« ------------------------------------------
+
+    def deliktstruktur(self, a: Auswahl) -> dict[str, Any]:
+        from serving.dashboard.deliktstruktur import deliktstruktur
+        return deliktstruktur(self, a)
 
     # -- Das Brett »Geografie« -----------------------------------------------
 

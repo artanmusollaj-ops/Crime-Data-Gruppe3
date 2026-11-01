@@ -68,6 +68,10 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     def seite_geografie():
         return send_from_directory(_STATISCH, "geografie.html")
 
+    @app.get("/deliktstruktur")
+    def seite_deliktstruktur():
+        return send_from_directory(_STATISCH, "deliktstruktur.html")
+
     @app.get("/static/<path:name>")
     def statisch(name):
         return send_from_directory(_STATISCH, name)
@@ -96,5 +100,10 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     def geografie():
         bestand = daten()
         return jsonify(bestand.geografie(bestand.auswahl(request.args.to_dict())))
+
+    @app.get("/api/deliktstruktur")
+    def deliktstruktur():
+        bestand = daten()
+        return jsonify(bestand.deliktstruktur(bestand.auswahl(request.args.to_dict())))
 
     return app
