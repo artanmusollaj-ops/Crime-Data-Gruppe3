@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'711** |
+| Tests | **2'717** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -138,7 +138,24 @@ prüfen die Anteile über Taten, die Schwellen aus dem Gate, doppelte IDs,
 späte Monate gegen Lücken, die Referenzdaten und den Weg zur Konsole. Die
 Mutationsprobe lief im kopierten Baum, alle Mutanten fallen auf.
 
-**Zahlen.** 2'702 → **2'711 Tests**, Standardlauf 2'591 → **2'600**. Zwei
+**Nachgemessen unter Last** (gunicorn wie auf `srv01`, 270 Anfragen über
+alle Bretter). Dabei fielen zwei Fehler auf, die kein Einzeltest sah:
+
+- **Die ersten Anfragen luden den Bestand viermal nebeneinander.** Bei
+  vier Threads kommen die ersten Anfragen zusammen, und `daten()` lud ohne
+  Sperre. Jetzt liegt eine Sperre darüber, und `aktuell()` prüft nur in
+  einem Thread. `test_gleichzeitige_erste_anfragen_laden_den_bestand_einmal`
+  ist ohne die Sperre rot: viermal geladen statt einmal.
+- **»Datenqualität« antwortete 500 bei jeder Kategorie ausser »Alle«.** Die
+  Abfrage nach doppelten IDs bekam den Kategorie-Parameter mit, filtert aber
+  nicht nach ihm, und DuckDB lehnt überzählige Parameter ab.
+  `test_jedes_brett_nimmt_jede_kategorie` fragt jetzt jedes Brett mit einer
+  Kategorie ab.
+
+Die Spitze liegt bei 476 MiB, und sie entsteht beim Verdichten der 1,85 Mio.
+Taten. Danach hält DuckDB 71 bis 87 MB. Die Grenze auf `srv01` setzt C-9.
+
+**Zahlen.** 2'702 → **2'717 Tests**, Standardlauf 2'591 → **2'606**. Zwei
 davon zählt `tests/test_ablagezugriff.py` für die neue Quelldatei.
 
 ## 1.11.2026 · Das Dashboard bekommt »Deliktstruktur« (Branch `feature/dashboard-deliktstruktur`)

@@ -653,8 +653,51 @@ def test_die_referenzdaten_nennen_vintage_und_umrisse(qualitaet):
     assert r["release"] is None
 
 
+@pytest.mark.parametrize("brett", ["ueberblick", "zeitverlauf", "geografie", "deliktstruktur",
+                                   "datenqualitaet"])
+def test_jedes_brett_nimmt_jede_kategorie(qualitaet, brett):
+    """Ein Parameter, den eine Abfrage nicht kennt, ist in DuckDB ein Fehler.
+
+    Unter Last fiel er auf: Die Abfrage nach doppelten IDs bekam die Kategorie
+    mit, filtert aber nicht nach ihr - 500 bei jeder Auswahl ausser »Alle«.
+    """
+    client = create_app(bestand=qualitaet).test_client()
+    for werte in ("kategorie=Assault%20Offenses", "kategorie=Assault%20Offenses&stadt=detroit"):
+        antwort = client.get(f"/api/{brett}?jahr=2025&bis=3&{werte}")
+        assert antwort.status_code == 200, antwort.get_data(as_text=True)[:200]
+
+
 def test_der_weg_zur_konsole_kommt_aus_der_umgebung(qualitaet, monkeypatch):
     client = create_app(bestand=qualitaet).test_client()
     assert client.get("/api/datenqualitaet?jahr=2025&bis=3").json["konsole"] is None
     monkeypatch.setenv("DASHBOARD_KONSOLE_URL", "https://konsole.example")
     assert client.get("/api/datenqualitaet?jahr=2025&bis=3").json["konsole"] == "https://konsole.example"
+
+
+def test_gleichzeitige_erste_anfragen_laden_den_bestand_einmal(tmp_path, monkeypatch):
+    """gunicorn laeuft mit vier Threads; die ersten Anfragen kommen zusammen."""
+    import threading as th
+    import time as zeit
+
+    import serving.dashboard.app as app_modul
+
+    stern(tmp_path, jahr("chicago", 2024, "13A", TRACT_C) + jahr("detroit", 2024, "13A", TRACT_D))
+    geladen = []
+    echt = app_modul.Bestand
+
+    def langsam(wurzel):
+        geladen.append(wurzel)
+        zeit.sleep(0.2)
+        return echt(wurzel)
+
+    monkeypatch.setattr(app_modul, "Bestand", langsam)
+    client = create_app(tmp_path).test_client()
+    antworten = []
+    faeden = [th.Thread(target=lambda: antworten.append(client.get("/api/optionen").status_code))
+              for _ in range(4)]
+    for f in faeden:
+        f.start()
+    for f in faeden:
+        f.join()
+    assert antworten == [200] * 4
+    assert len(geladen) == 1

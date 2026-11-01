@@ -178,6 +178,8 @@ class Bestand:
     def __init__(self, data_root: Path | str):
         self.data_root = Path(data_root)
         self._sperre = threading.Lock()
+        # Nur ein Thread prueft und laedt nach; die anderen warten darauf.
+        self._pruefsperre = threading.Lock()
         self._geprueft = 0.0
         self._lade()
 
@@ -344,12 +346,13 @@ class Bestand:
 
     def aktuell(self) -> None:
         """Laedt nach, wenn sich der Stand geaendert hat - hoechstens einmal je Minute."""
-        jetzt = time.monotonic()
-        if jetzt - self._geprueft < PRUEFABSTAND_S:
-            return
-        self._geprueft = jetzt
-        if self._abdruck() != self._abdruck_jetzt:
-            self._lade()
+        with self._pruefsperre:
+            jetzt = time.monotonic()
+            if jetzt - self._geprueft < PRUEFABSTAND_S:
+                return
+            self._geprueft = jetzt
+            if self._abdruck() != self._abdruck_jetzt:
+                self._lade()
 
     def _cursor(self):
         with self._sperre:

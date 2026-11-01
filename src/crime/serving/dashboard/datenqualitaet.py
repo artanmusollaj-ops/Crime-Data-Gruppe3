@@ -60,7 +60,7 @@ def datenqualitaet(bestand, a) -> dict[str, Any]:
         "ortszeit_mehrdeutig")
     doppelt = dict(cur.execute(
         "SELECT stadt, coalesce(sum(doppelt), 0) FROM doppelte WHERE stadt IN $staedte "
-        "AND monat IN $monate GROUP BY 1", p).fetchall())
+        "AND monat IN $monate GROUP BY 1", {"staedte": staedte, "monate": monate}).fetchall())
     abd = bestand._abdeckung(cur, staedte, monate)
     # Ein Monat nach der juengsten Tat des ganzen Bestands kann noch nicht
     # vorliegen: »noch nicht erschienen«, nicht »fehlt«. Fehlt er nur einer
