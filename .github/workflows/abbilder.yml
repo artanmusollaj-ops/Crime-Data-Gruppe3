@@ -190,6 +190,18 @@ jobs:
             exit 1
           fi
 
+      - name: Die Konsole kann das Abbild attestieren
+        # Ein Impact-Job vergleicht vor dem Bau jede Datei im Abbild, die zum
+        # Build zaehlt, mit dem Git-Baum von main (release_flow.capture). Am
+        # 3.11.2026 scheiterte der erste auf srv01, weil requirements.txt
+        # fehlte - sichtbar erst, als jemand einen Impact anstiess. Hier
+        # faellt dasselbe beim Bau auf.
+        run: |
+          set -euo pipefail
+          git ls-tree -r "${{ github.sha }}" | docker run --rm -i \
+            "${BASIS_NAME}@${{ steps.basis.outputs.digest }}" \
+            python -m platform_admin.release_flow /app
+
       - name: Die zwei Zeilen fuer die .env
         # Der eine Handgriff, der bleibt. Fertig zum Kopieren, damit beim
         # Uebertragen kein Zeichen verloren geht - am 11.10.2026 war die

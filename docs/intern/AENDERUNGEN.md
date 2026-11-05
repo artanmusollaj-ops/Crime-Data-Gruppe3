@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'727** |
+| Tests | **2'736** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -102,6 +102,39 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 5.11.2026 · Das Abbild trägt, was die Konsole attestiert (Branch `fix/impact-abbild-attestierbar`)
+
+Der erste Impact-Job auf `srv01` (3.11.2026) scheiterte sofort mit
+`Builddatei fehlt: requirements.txt`. Bevor ein Impact baut, prüft die
+Konsole, dass der Worker genau den Stand von `main` trägt
+(`release_flow.capture`). Dazu vergleicht sie jede Datei aus `src/crime/`
+und `config/` sowie die Baudateien mit dem Git-Baum. Das Strecken-Abbild hat
+`requirements.txt`, `requirements.lock` und `Dockerfile` aber nie nach
+`/app` kopiert. Lokal fiel das nicht auf, weil dort die Projektwurzel das
+Repository selbst ist.
+
+Auf `srv01` am Abbild von `60f29f2` nachgemessen: Ausser diesen drei Dateien
+stimmte jede Datei mit Git überein. Im Abbild lag zusätzlich nur das
+`egg-info`, das `pip install -e` anlegt. Die Attestierung hätte also auch
+nach der ersten Fehlermeldung nicht bestanden.
+
+- `Dockerfile` kopiert die drei Baudateien nach `/app`.
+- `release_flow.in_scope` lässt `*.egg-info` aus.
+- `release_flow.source_inventory` und `tree_mismatch` trennen die Bestandsaufnahme
+  von der Konsolendatenbank. `python -m platform_admin.release_flow /app`
+  liest `git ls-tree -r` von stdin und nennt jede Abweichung.
+- `abbilder.yml` führt genau das am frisch gebauten Abbild aus. Ein Abbild,
+  das die Konsole nicht attestieren kann, fällt damit beim Bau auf und nicht
+  erst, wenn jemand einen Impact anstösst.
+
+Neu gewacht: `tests/platform_admin/test_image_attestation.py` (7 Tests) und
+`test_das_abbild_wird_gegen_den_git_baum_gehalten`.
+
+**Wann es greift:** mit dem nächsten Abbild-Bau und dem Einsetzen auf `srv01`.
+Danach den Impact erneut anstossen.
+
+**Zahlen.** 2'727 → **2'736 Tests**, Standardlauf 2'616 → **2'625**, im frischen Klon 2'538 → **2'547**.
 
 ## 1.11.2026 · Teilmonate gelten je Stadt (Branch `fix/c10-fenster-je-stadt`)
 

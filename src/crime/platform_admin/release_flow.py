@@ -50,6 +50,8 @@ def in_scope(path):
         (
             path.startswith("src/crime/")
             and not any(x in {"__pycache__", ".pytest_cache"} for x in p.parts)
+            # pip install -e legt es im Abbild an; in Git steht es nie.
+            and not any(x.endswith(".egg-info") for x in p.parts)
             and p.suffix not in {".pyc", ".pyo"}
         )
         or (
@@ -62,24 +64,49 @@ def in_scope(path):
     )
 
 
-def inventory(store, spec):
+def source_inventory(project):
+    """Blob hashes of every in-scope file below ``project``, as Git names them."""
+    project = Path(project)
     result = {}
     for folder in ("src/crime", "config"):
-        for p in sorted((store.project / folder).rglob("*")):
-            rel = p.relative_to(store.project).as_posix()
+        for p in sorted((project / folder).rglob("*")):
+            rel = p.relative_to(project).as_posix()
             if p.is_file() and in_scope(rel):
                 if p.is_symlink():
                     raise AdminError("Symlink im Build-Quellstand")
                 result[rel] = blob_hash(p.read_bytes())
     for name in ("pyproject.toml", "requirements.txt"):
-        p = store.project / name
+        p = project / name
         if not p.is_file():
             raise AdminError("Builddatei fehlt: " + name)
         result[name] = blob_hash(p.read_bytes())
     for name in ("requirements.lock", "requirements-admin.lock", "Dockerfile", "Dockerfile.admin"):
-        p = store.project / name
+        p = project / name
         if p.is_file():
             result[name] = blob_hash(p.read_bytes())
+    return result
+
+
+def tree_mismatch(project, ls_tree):
+    """Paths where ``project`` and ``git ls-tree -r`` output disagree.
+
+    The image check in ``.github/workflows/abbilder.yml`` runs this inside the
+    freshly built image: an impact job attests the worker against main with
+    the same comparison, and on 3.11.2026 the first one on srv01 failed
+    because the image never carried requirements.txt.
+    """
+    tree = {}
+    for line in ls_tree.splitlines():
+        meta, _, path = line.partition("\t")
+        kind, sha = meta.split()[1:3]
+        if kind == "blob" and in_scope(path):
+            tree[path] = sha
+    actual = source_inventory(project)
+    return sorted(p for p in actual.keys() | tree.keys() if actual.get(p) != tree.get(p))
+
+
+def inventory(store, spec):
+    result = source_inventory(store.project)
     for name, text in store.get(spec["base_heads"]["mapping"])["payload"].items():
         result["config/" + name] = blob_hash(text.encode())
     return result
@@ -164,3 +191,13 @@ def verify_waiting(store, row, *, publication=False):
         if file_hash(baseline / "release.json") != report["metadata"]["baseline_manifest_sha256"]:
             raise AdminError("Baseline-Nachweis veraendert")
     return report, archived
+
+
+if __name__ == "__main__":
+    import sys
+
+    # git ls-tree -r HEAD | python -m platform_admin.release_flow /app
+    mismatched = tree_mismatch(sys.argv[1] if len(sys.argv) > 1 else ".", sys.stdin.read())
+    for path in mismatched:
+        print(path)
+    sys.exit(1 if mismatched else 0)
