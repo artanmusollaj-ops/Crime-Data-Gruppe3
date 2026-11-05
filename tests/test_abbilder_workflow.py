@@ -146,6 +146,18 @@ def test_die_herkunft_im_abbild_wird_gegen_den_gebauten_commit_gehalten():
     assert "github.sha" in t[herkunft:], "und danach dagegen gehalten werden"
 
 
+def test_das_abbild_wird_gegen_den_git_baum_gehalten():
+    """Derselbe Abgleich, den ein Impact-Job vor dem Bau macht.
+
+    Am 3.11.2026 scheiterte der erste Impact auf srv01 mit "Builddatei
+    fehlt: requirements.txt" - das Abbild trug die Datei nie, und kein Bau
+    hatte es bemerkt.
+    """
+    workflow = text()
+    assert 'git ls-tree -r "${{ github.sha }}"' in workflow
+    assert "python -m platform_admin.release_flow /app" in workflow
+
+
 def test_die_zusammenfassung_nennt_genau_die_variablen_der_env():
     """Beide Variablen aus ``.env.example``, keine erfundene dazu."""
     t = text()

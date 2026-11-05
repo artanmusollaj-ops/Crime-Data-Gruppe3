@@ -68,6 +68,14 @@ RUN python -m pip install --no-cache-dir -e . --no-deps
 COPY config ./config
 COPY docs/intern/AENDERUNGEN.md ./docs/intern/AENDERUNGEN.md
 
+# Die Baudateien, obwohl kein Lauf sie liest. Ein Impact-Job der Konsole
+# attestiert vor dem Bau, dass der Worker genau den Stand von main traegt
+# (platform_admin.release_flow.capture), und vergleicht dabei auch diese drei
+# Dateien mit Git. Ohne sie scheiterte der erste Impact auf srv01 am 3.11.2026
+# mit "Builddatei fehlt: requirements.txt". abbilder.yml prueft den Abgleich
+# am gebauten Abbild.
+COPY requirements.txt requirements.lock Dockerfile ./
+
 # Der Rest von docs/, die Notebooks und tests/ bleiben draussen. Die Suite
 # liest den ganzen docs-Baum und die Notebooks - sie hier mitzuschleppen
 # machte das Abbild um ein Vielfaches groesser, und gelaufen wird sie in CI.
