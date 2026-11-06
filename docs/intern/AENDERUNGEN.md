@@ -123,11 +123,11 @@ gesund. Compose meldet beim Takt keine Waisen-Container mehr.
 Nachgezogen sind die Kommentare in `docker-compose.srv01.yml`, die README,
 `storage-architektur.md` Abschnitt 16 und C-9 in `offene-punkte.md`.
 
-**Noch offen:** In `/srv/docker/config/srv01.yaml` (ausserhalb des
-Repositorys) steht `urbancrime_kibana-daten` weiter als Pflicht-Datenträger
-der Sicherung, die beiden Container stehen weiter in der Liste der erwarteten.
-Beides muss heraus, sonst meldet die Prüfung der Serversicherung einen
-fehlenden Datenträger. Ausserdem die Route `urbancrime-kibana` (Christian).
+**Auch erledigt (6.11.2026):** Christian hat in `/srv/docker/config/srv01.yaml`
+(ausserhalb des Repositorys) den Pflicht-Datenträger `urbancrime_kibana-daten`
+und die beiden erwarteten Container herausgenommen. `srv01 doctor` meldet
+danach nichts mehr zu Urban Crime. Offen bleibt nur die Route
+`urbancrime-kibana` (Christian).
 
 Keine Zahl geändert.
 
