@@ -989,8 +989,8 @@ Suchindex und ohne Diagrammbibliothek. Das erste Brett ist »Kriminalität im
 »Geografie«, »Deliktstruktur« und »Datenqualität« daneben.
 
 **Auf `srv01` ersetzt es Elasticsearch und Kibana**, seit dem 1.11.2026
-eingesetzt (C-9); die beiden sind dort gestoppt, ihre Datenträger stehen als
-Rückweg. Dort heisst es `urbancrime-dashboard.datenwerft.ch`, liegt hinter
+eingesetzt (C-9); seit dem 6.11.2026 sind dort ihre Container, Datenträger und
+Abbilder gelöscht. Dort heisst es `urbancrime-dashboard.datenwerft.ch`, liegt hinter
 derselben Access-Anwendung wie alles unter `urbancrime-*` und liest das
 aktive Release direkt aus dem Eimer; ein neues Release lädt es höchstens
 eine Minute später von selbst nach. Auf `srv01` gemessen: Spitze 429 MiB
