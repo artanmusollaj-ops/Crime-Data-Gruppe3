@@ -103,6 +103,34 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 6.11.2026 · Elasticsearch und Kibana sind auf srv01 gelöscht (Branch `docs/es-kibana-geloescht`)
+
+C-9, letzter Handgriff auf dem Server. Seit dem 1.11.2026 standen beide
+gestoppt als Rückweg. Der erste Datenlauf ohne sie (2.11.2026) war grün,
+und das Dashboard hat sein Release von selbst nachgeladen. Darum sind am
+6.11.2026 auf Christians Ja gelöscht worden:
+
+| Was | Grösse |
+| --- | ---: |
+| Container `urbancrime-elasticsearch-1`, `urbancrime-kibana-1` | — |
+| Datenträger `urbancrime_elasticsearch-daten` | 1,69 GB |
+| Datenträger `urbancrime_kibana-daten` | 36 B |
+| Abbilder Elasticsearch und Kibana 8.19.22 und 8.15.0 | 9,06 GB |
+
+Die Platte ging von 134 auf 124 GB belegt. Die vier Dauerdienste blieben
+gesund. Compose meldet beim Takt keine Waisen-Container mehr.
+
+Nachgezogen sind die Kommentare in `docker-compose.srv01.yml`, die README,
+`storage-architektur.md` Abschnitt 16 und C-9 in `offene-punkte.md`.
+
+**Noch offen:** In `/srv/docker/config/srv01.yaml` (ausserhalb des
+Repositorys) steht `urbancrime_kibana-daten` weiter als Pflicht-Datenträger
+der Sicherung, die beiden Container stehen weiter in der Liste der erwarteten.
+Beides muss heraus, sonst meldet die Prüfung der Serversicherung einen
+fehlenden Datenträger. Ausserdem die Route `urbancrime-kibana` (Christian).
+
+Keine Zahl geändert.
+
 ## 5.11.2026 · Das Abbild trägt, was die Konsole attestiert (Branch `fix/impact-abbild-attestierbar`)
 
 Der erste Impact-Job auf `srv01` (3.11.2026) scheiterte sofort mit

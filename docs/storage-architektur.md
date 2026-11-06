@@ -1037,7 +1037,12 @@ urbancrime-kibana-1`). Das Dashboard zeigte gleich danach das Release
 Stand, und auf der Maschine waren 3'963 statt 2'320 MiB verfügbar. Die Route
 `urbancrime-dashboard.datenwerft.ch` antwortet mit 302 auf das Anmeldetor —
 diese Messung liegt vor dem Ursprung und sagt nicht, was dahinter antwortet. Was unten über Elasticsearch und
-Kibana auf `srv01` steht, ist der Stand bis zu diesem Tag.
+Kibana auf `srv01` steht, ist der Stand bis zu diesem Tag. **Gelöscht am
+6.11.2026**, nach dem ersten grünen Datenlauf ohne die beiden (2.11.): die
+Container, die Datenträger `urbancrime_elasticsearch-daten` (1,69 GB) und
+`urbancrime_kibana-daten` sowie die Abbilder in 8.19.22 und 8.15.0. Auf der
+Platte wurden 10 GB frei. Der Rückweg oben gilt seither nicht mehr. Zurück
+ginge es nur über die lokale `docker-compose.yml` und einen neuen Ladelauf.
 
 **Sie ist seit dem 8.10.2026 angewandt.** Auf `srv01` liefen Elasticsearch,
 Kibana und Jupyter nach dieser Beschreibung; am 11.10.2026 waren alle drei

@@ -36,8 +36,8 @@
 # Access-Anwendung ueber urbancrime-* (FR-22), die Deckelung von cadvisor auf
 # 256 MiB (Voraussetzung von FR-13) und, seit dem 1.11.2026, die Route fuer
 # urbancrime-dashboard. Der Elasticsearch-Datentraeger in config/srv01.yaml
-# (FR-11) ist mit dem Dienst entfallen; der Eintrag dort darf bleiben, bis
-# der Datentraeger als Rueckweg nicht mehr gebraucht wird.
+# (FR-11) ist mit dem Dienst entfallen; Container, Datentraeger und Abbilder
+# sind seit dem 6.11.2026 auf srv01 geloescht.
 
 # Ein eigener Projektname, nicht der Verzeichnisname. Traefik fasst die Labels
 # **aller** Compose-Projekte zu einer Konfiguration zusammen; Router- und
@@ -58,9 +58,10 @@ services:
   # (Gold und ``comparison_month``); es braucht keinen Index, keinen Lader
   # und keine gespeicherten Objekte. Entschieden ist **nur srv01**: Lokal bleiben Elasticsearch und
   # Kibana in docker-compose.yml, ``load_elasticsearch`` und ``build_kibana``
-  # bleiben aufrufbar. Ihre Datentraeger ``urbancrime_elasticsearch-daten``
-  # und ``urbancrime_kibana-daten`` stehen auf srv01 weiter als Rueckweg;
-  # Compose loescht sie nicht, nur weil sie hier nicht mehr stehen.
+  # bleiben aufrufbar. Auf srv01 sind ihre Container, die Datentraeger
+  # ``urbancrime_elasticsearch-daten`` und ``urbancrime_kibana-daten`` und
+  # die Abbilder am 6.11.2026 von Hand geloescht; Compose haette sie stehen
+  # lassen, nur weil sie hier nicht mehr stehen.
   dashboard:
     # Dasselbe Abbild wie Pipeline und Konsole: Flask, gunicorn und DuckDB
     # liegen darin, die statischen Dateien als Paketdaten von serving.
@@ -704,9 +705,8 @@ networks:
 
 volumes:
   # elasticsearch-daten und kibana-daten stehen seit dem 1.11.2026 nicht
-  # mehr hier (C-9). Auf srv01 bestehen sie als urbancrime_* weiter, bis der
-  # Rueckweg nicht mehr gebraucht wird; entfernt werden sie von Hand mit
-  # "docker volume rm", nicht von Compose.
+  # mehr hier (C-9). Auf srv01 sind die urbancrime_*-Datentraeger am
+  # 6.11.2026 mit "docker volume rm" entfernt; Compose tut das nicht.
   # Arbeitsraum der Strecke, lesend von Jupyter mitbenutzt. Nicht
   # sicherungswuerdig: Der Bestand liegt auf SeaweedFS.
   arbeitsdaten:
