@@ -116,9 +116,12 @@ def kopiere_projekt(kopie: Path) -> None:
         raise SystemExit("Abgebrochen: data/silver fehlt - zuerst python -m orchestration.run_all")
     if sys.platform == "darwin":
         # clonefile: Kopie beim Schreiben, die 1,9 GB belegen nichts.
-        subprocess.run(["cp", "-cR", str(PROJEKT / "data"), str(kopie / "data")], check=True)
+        # "data/." statt "data": git archive bringt die wenigen versionierten
+        # Pfade unter data/ schon mit, und cp legte sonst data/data an.
+        (kopie / "data").mkdir(exist_ok=True)
+        subprocess.run(["cp", "-cR", f"{PROJEKT / 'data'}/.", str(kopie / "data")], check=True)
     else:
-        shutil.copytree(PROJEKT / "data", kopie / "data", symlinks=True)
+        shutil.copytree(PROJEKT / "data", kopie / "data", symlinks=True, dirs_exist_ok=True)
 
 
 def lenke_in_die_kopie(kopie: Path, commit: str) -> None:
