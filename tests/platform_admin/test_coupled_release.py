@@ -206,6 +206,46 @@ def test_coupled_is_default(monkeypatch):
     assert release_flow.mode() == "coupled"
 
 
+@pytest.mark.parametrize("difference", [None, "basis", "image"])
+def test_capture_checks_crlf_git_bytes_and_existing_lf_database_separately(
+    tmp_path, difference,
+):
+    project = tmp_path / "image"
+    shutil.copytree(PROJECT / "config", project / "config")
+    (project / "src" / "crime").mkdir(parents=True)
+    (project / "pyproject.toml").write_bytes(b"[project]\n")
+    (project / "requirements.txt").write_bytes(b"duckdb\n")
+    path = project / "config" / "micr_nibrs_mapping.csv"
+    text = path.read_text(encoding="utf-8-sig")
+    path.write_bytes(text.replace("\n", "\r\n").encode("utf-8"))
+
+    store = Store(project, tmp_path / "data")
+    store.initialize("bootstrap")
+    # Die Git-Baum-Hashes aus den Originalbytes bilden, unabhängig von inventory().
+    gh = GitRemote(store)
+    gh.sources = release_flow.source_inventory(project)
+    heads = {name: store.current(name)["id"] for name in ("mapping", "settings")}
+    assert "\r" not in store.get(heads["mapping"])["payload"][path.name]
+
+    if difference == "basis":
+        heads["mapping"] = store.propose_mapping(
+            "detroit", "3072", "26A", heads["mapping"], "engineer", "Abweichende Basis",
+        )
+        with pytest.raises(AdminError, match=r"config/mapping_overrides\.csv"):
+            release_flow.capture(store, {"base_heads": heads}, client=gh)
+    elif difference == "image":
+        # Zeilenenden dürfen Abweichungen der Image-Bytes vom Git-Baum nicht verdecken.
+        path.write_bytes(text.encode("utf-8"))
+        with pytest.raises(AdminError, match=r"Worker/aktive Konfiguration.*micr_nibrs"):
+            release_flow.capture(store, {"base_heads": heads}, client=gh)
+    else:
+        provenance = release_flow.capture(store, {"base_heads": heads}, client=gh)
+        assert provenance["source_blobs"]["config/" + path.name] == (
+            release_flow.blob_hash(path.read_bytes())
+        )
+        release_flow.check_build_unchanged(store, {"base_heads": heads}, provenance)
+
+
 def test_full_coupled_flow_preserves_heads_until_publication(setup):
     store, gh = setup
     old = store.current("settings")["id"]

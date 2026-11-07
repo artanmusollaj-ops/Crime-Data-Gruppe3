@@ -10,10 +10,13 @@ showed until the server ran it.
 import re
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from platform_admin.release_flow import blob_hash, source_inventory, tree_mismatch
+from platform_admin.release_flow import (
+    blob_hash, check_build_unchanged, inventory, source_inventory, tree_mismatch,
+)
 from platform_admin.store import AdminError
 
 
@@ -92,3 +95,62 @@ def test_the_image_copies_every_tracked_build_file_into_app():
     tracked = [name for name in BUILD_FILES if (ROOT / name).is_file()]
     missing = [name for name in tracked if name not in copied]
     assert not missing, f"Not copied into /app: {missing}"
+
+
+def mapping_store(root, text):
+    store = SimpleNamespace(
+        project=root,
+        get=lambda _revision: {"payload": {"c.csv": text}},
+    )
+    return store, {"base_heads": {"mapping": "mapping-base"}}
+
+
+@pytest.mark.parametrize("prefix", [b"", b"\xef\xbb\xbf"])
+def test_lf_database_basis_preserves_original_image_hash(tmp_path, prefix):
+    root = project(tmp_path)
+    raw = prefix + b"code,target\r\n3072,23C\r\n"
+    (root / "config" / "c.csv").write_bytes(raw)
+    store, spec = mapping_store(root, "code,target\n3072,23C\n")
+
+    assert inventory(store, spec)["config/c.csv"] == blob_hash(raw)
+
+
+@pytest.mark.parametrize("stored", [
+    "code,target\n3072,26A\n",
+    "code,target\n3072,23C \n",
+    "code,target\n3072,23C",  # Auch der abschließende Zeilenumbruch bleibt relevant.
+])
+def test_real_mapping_basis_changes_remain_blocked(tmp_path, stored):
+    root = project(tmp_path)
+    (root / "config" / "c.csv").write_bytes(b"code,target\r\n3072,23C\r\n")
+    store, spec = mapping_store(root, stored)
+
+    with pytest.raises(AdminError, match=r"config/c\.csv"):
+        inventory(store, spec)
+
+
+@pytest.mark.parametrize("missing_from", ["image", "database"])
+def test_missing_mapping_file_on_either_side_remains_blocked(tmp_path, missing_from):
+    root = project(tmp_path)
+    store, spec = mapping_store(root, "a,b\n")
+    if missing_from == "image":
+        (root / "config" / "c.csv").unlink()
+    else:
+        store.get = lambda _revision: {"payload": {}}
+
+    with pytest.raises(AdminError, match=r"config/c\.csv"):
+        inventory(store, spec)
+
+
+def test_changed_image_bytes_during_build_remain_blocked(tmp_path):
+    root = project(tmp_path)
+    path = root / "config" / "c.csv"
+    path.write_bytes(b"code,target\r\n3072,23C\r\n")
+    store, spec = mapping_store(root, "code,target\n3072,23C\n")
+    provenance = {"source_blobs": inventory(store, spec)}
+
+    # Inhaltlich gleich, aber die attestierten Image-Bytes wurden im Lauf verändert.
+    path.write_bytes(b"code,target\n3072,23C\n")
+
+    with pytest.raises(AdminError, match="Build-Quellen"):
+        check_build_unchanged(store, spec, provenance)
