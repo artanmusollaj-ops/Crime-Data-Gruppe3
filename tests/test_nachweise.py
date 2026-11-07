@@ -62,6 +62,12 @@ def test_das_html_ist_das_im_nachweis_genannte(name):
     assert hashlib.sha256(html).hexdigest() == nachweis["notebooks"][name]["html_sha256"]
 
 
+def test_die_nachweise_werden_mit_lf_ausgecheckt():
+    """Sonst stimmt auf Windows kein HTML-Hash (Lauf 42364142333)."""
+    regeln = (PROJEKT / ".gitattributes").read_text(encoding="utf-8")
+    assert "docs/nachweise/** text eol=lf" in regeln
+
+
 def test_kein_nachweis_traegt_einen_rechnerpfad():
     """Ein Nachweis geht an Dritte: kein Heimverzeichnis, kein Temp-Pfad."""
     muster = re.compile(r"/Users/|/home/[a-z]|/var/folders/|/private/tmp/|[A-Z]:\\\\Users")

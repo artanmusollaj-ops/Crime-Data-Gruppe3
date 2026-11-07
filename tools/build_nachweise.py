@@ -293,7 +293,7 @@ def verzeichnis(ziel: Path = ZIEL) -> str:
 
 
 def schreibe_verzeichnis() -> None:
-    (ZIEL / "README.md").write_text(verzeichnis(), encoding="utf-8")
+    (ZIEL / "README.md").write_text(verzeichnis(), encoding="utf-8", newline="\n")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -334,7 +334,9 @@ def main(argv: list[str] | None = None) -> int:
         eintraege = {}
         for name, (notebook, dauer) in ergebnisse.items():
             html = als_html(notebook)
-            (ordner / f"{name}.html").write_text(html, encoding="utf-8")
+            # newline="\n": Auf Windows schriebe write_text sonst CRLF, und der
+            # Hash unten passte nicht zu den Bytes der Datei.
+            (ordner / f"{name}.html").write_text(html, encoding="utf-8", newline="\n")
             quelle = json.loads((PROJEKT / "notebooks" / f"{name}.ipynb").read_text(encoding="utf-8"))
             eintraege[name] = {
                 "code_sha256": code_abdruck(quelle),
@@ -357,7 +359,7 @@ def main(argv: list[str] | None = None) -> int:
                    "Kein Erzeugnis: Laufzeiten wiederholen sich nicht byteweise.",
     }
     (ordner / "nachweis.json").write_text(
-        json.dumps(nachweis, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        json.dumps(nachweis, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
     if args.ziel.resolve() == ZIEL.resolve():
         schreibe_verzeichnis()
     print(f"\nNachweis: {ordner.relative_to(PROJEKT) if ordner.is_relative_to(PROJEKT) else ordner}")
