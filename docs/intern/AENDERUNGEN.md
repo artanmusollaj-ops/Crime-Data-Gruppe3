@@ -158,7 +158,7 @@ prüft ausserdem die HTML-Hashes, die Abwesenheit von Rechnerpfaden und
 `docs/nachweise/README.md` als Erzeugnis. Nachgezogen: Wegweiser,
 Konzept 11.3, README und die Architekturbilder (12 Generatoren).
 
-**Zahlen.** 2'736 → **2'752 Tests**, Standardlauf 2'625 → **2'641**, im frischen Klon 2'547 → **2'563**.
+**Zahlen.** 2'736 → **2'763 Tests**, Standardlauf 2'625 → **2'652**, im frischen Klon 2'547 → **2'574**. Davon 16 aus diesem Eintrag und 11 aus dem darunter (#208), der die Zahlen nicht nachgezogen hatte.
 
 ## 7.11.2026 · Mapping-Basis und Image werden getrennt attestiert (lokale Korrektur)
 
