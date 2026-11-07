@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'736** |
+| Tests | **2'763** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -102,6 +102,63 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 7.11.2026 · Die Notebooks liegen ausgeführt bei (Branch `feature/notebook-nachweise`)
+
+Die Beurteilung von LN1 (3.11.2026) sagt dreimal dasselbe: Der Replay in
+Notebook 36 und die Benchmarks in 31 und 33 seien als Code vorhanden, *„seine
+wiederholte Ausführung aber nicht durch gespeicherte Notebook-Ausgaben
+belegt“*. Die Notebooks bleiben trotzdem ohne Ausgaben
+(`tests/test_notebooks.py`). Neu liegen sie **daneben ausgeführt**:
+`docs/nachweise/<datum>_<commit>/` enthält je Notebook eine HTML-Datei mit
+allen Ausgaben, lesbar ohne Python und ohne Daten. Dazu kommt
+`nachweis.json` mit Commit, Umgebung, Laufzeit und Datenstand.
+
+**`tools/build_nachweise.py`** führt die Notebooks 31 und 33–37 aus:
+- **in einer Kopie des Projekts:** Code aus `git archive` des Commits,
+  `data/` per `cp -c` geklont, `STORAGE_BACKEND=local`, keine `.env`.
+  `PYTHONPATH` und `PROJECT_ROOT` zeigen auf die Kopie, sonst fände
+  `import orchestration` über `pip install -e` das echte Repository. Das
+  prüft das Werkzeug vor dem ersten Schritt.
+- **nach einem Neubau:** In der Kopie läuft zuerst `run_all --ohne-ingestion`
+  mit den Jahrgängen des vorhandenen Baus. Die Notebooks 34, 35 und 37 lesen
+  nur einen bestätigten Bestand (E-5), und so belegt der Nachweis zugleich,
+  dass der Commit aus den vorhandenen Bronze-Läufen durchbaut. Der Neubau
+  ergab dieselben Zahlen wie die Dokumente: 1'875'374 Zeilen Silver,
+  1'851'946 Gold.
+- **nur von einem sauberen Stand:** `notebooks/`, `src/`, `config/` und
+  `tools/` müssen dem Commit entsprechen. Ein Ordner wird nie überschrieben.
+- **ohne Rechnerpfade:** Kopie, Repository, Temp-Verzeichnis und
+  Heimverzeichnis werden in den Ausgaben ersetzt.
+
+**Erster Nachweis** `2026-11-07_cbf3a95`, 2,3 MB:
+- Notebook 36: alle drei Neubauten mit `Inhalt identisch: True` und
+  gleichem Eingabeabdruck, Median 22,9 s, Spannweite 22,7 bis 23,4 s.
+- Notebook 33: vier Abfragen auf beiden Wegen identisch.
+
+Das lokale Release `2026-10-17T08-38-50Z` trägt einen anderen
+Eingabe-Fingerabdruck als der Arbeitsstand. Der Nachweis sagt das
+ausdrücklich („Release passt: nein“) und behauptet keine Bindung, die nicht
+besteht. Vor der LN2-Abgabe deshalb das Abgabe-Release bilden und den
+Nachweis erneuern.
+
+**Nebenbei gefunden, in Notebook 36:** Der Replay rief `run_all
+--ohne-ingestion` ohne `--jahre` auf, baute also nur 2024 und schrieb ins
+echte `data/`. Lokal hätte das den Stand 2021–2026 ersetzt und den Vergleich
+scheitern lassen. Jetzt nimmt es die Jahrgänge aus `pipeline_run.json`.
+
+**Weiter offen:** Der wöchentliche GitHub-Datenlauf (`datenlauf.yml`) ist seit
+dem 21.9.2026 rot. Notebook 36 liest in Zelle 5 einen gepinnten
+Chicago-Lauf, den die CI nicht hat.
+
+Neu gewacht: `tests/test_nachweise.py` (16 Tests). Er hält den Abdruck der
+**Codezellen** je Notebook gegen den jüngsten Nachweis. Ändert sich Code,
+ist der Nachweis veraltet und der Test rot; Markdown darf sich ändern. Er
+prüft ausserdem die HTML-Hashes, die Abwesenheit von Rechnerpfaden und
+`docs/nachweise/README.md` als Erzeugnis. Nachgezogen: Wegweiser,
+Konzept 11.3, README und die Architekturbilder (12 Generatoren).
+
+**Zahlen.** 2'736 → **2'763 Tests**, Standardlauf 2'625 → **2'652**, im frischen Klon 2'547 → **2'574**. Davon 16 aus diesem Eintrag und 11 aus dem darunter (#208), der die Zahlen nicht nachgezogen hatte.
 
 ## 7.11.2026 · Mapping-Basis und Image werden getrennt attestiert (lokale Korrektur)
 
