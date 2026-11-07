@@ -121,6 +121,51 @@ def kopiere_projekt(kopie: Path) -> None:
         shutil.copytree(PROJEKT / "data", kopie / "data", symlinks=True)
 
 
+def lenke_in_die_kopie(kopie: Path, commit: str) -> None:
+    """Jeder Prozess ab hier - Kernel, run_all, dessen Stufen - nimmt die Kopie.
+
+    Ohne das faende ``import orchestration`` ueber ``pip install -e`` den Code
+    des echten Repositorys, und ``manifeste.projektwurzel`` naehme dessen
+    Wurzel. ``PYTHONPATH`` geht vor den ``.pth``-Eintrag, ``PROJECT_ROOT``
+    gilt vor der Paketlage. ``GIT_COMMIT`` traegt die Herkunft, weil die
+    Kopie kein ``.git`` hat.
+    """
+    os.environ["PYTHONPATH"] = str(kopie / "src" / "crime")
+    os.environ["PROJECT_ROOT"] = str(kopie)
+    os.environ["GIT_COMMIT"] = commit
+    sicht = subprocess.run(
+        [sys.executable, "-c", "import orchestration, manifeste; "
+         "print(orchestration.__file__); print(manifeste.projektwurzel())"],
+        cwd=kopie, check=True, capture_output=True, text=True).stdout.split()
+    if not all(Path(z).resolve().is_relative_to(kopie.resolve()) for z in sicht):
+        raise SystemExit(f"Abgebrochen: Die Kopie sieht nicht sich selbst: {sicht}")
+
+
+def baue_neu(kopie: Path) -> dict:
+    """Silver, Gold und Serving in der Kopie neu, mit den Jahrgaengen des Baus.
+
+    Die Notebooks 34, 35 und 37 lesen nur einen Bestand, den ``run_all``
+    nach gruenem Lauf bestaetigt hat (``storage.analysesitzung``). So belegt
+    der Nachweis ausserdem: Der Commit baut aus den vorhandenen Bronze-Laeufen
+    durch.
+    """
+    # lokal mit Absicht: pipeline_run.json der Kopie nennt die Jahrgaenge.
+    lauf = json.loads((kopie / "data" / "pipeline_run.json").read_text(encoding="utf-8"))
+    jahre = ",".join(str(j) for j in lauf["years"])
+    print(f"== Neubau in der Kopie, Jahrgaenge {jahre}", flush=True)
+    start = time.perf_counter()
+    fertig = subprocess.run(
+        [sys.executable, "-m", "orchestration.run_all", "--ohne-ingestion", "--jahre", jahre],
+        cwd=kopie, capture_output=True, text=True)
+    dauer = time.perf_counter() - start
+    if fertig.returncode != 0:
+        raise SystemExit(f"Abgebrochen: Der Neubau ist gescheitert.\n{fertig.stdout[-2000:]}"
+                         f"\n{fertig.stderr[-2000:]}")
+    print(f"   {dauer:6.1f} s", flush=True)
+    return {"befehl": f"python -m orchestration.run_all --ohne-ingestion --jahre {jahre}",
+            "laufzeit_s": round(dauer, 1), "exit": fertig.returncode}
+
+
 def datenstand(daten: Path) -> dict:
     """Woran der Lauf gebunden ist: Silver, Gold und das letzte Release."""
     def lies(*teile: str) -> dict:
@@ -257,7 +302,9 @@ def main(argv: list[str] | None = None) -> int:
     with tempfile.TemporaryDirectory(prefix="nachweis-") as tmp:
         kopie = Path(tmp) / "projekt"
         kopiere_projekt(kopie)
-        stand = datenstand(kopie / "data")
+        lenke_in_die_kopie(kopie, commit)
+        aufbau = baue_neu(kopie)
+        stand = {**datenstand(kopie / "data"), "aufbau": aufbau}
         ergebnisse = {}
         for name in args.nur or NOTEBOOKS:
             print(f"== {name}", flush=True)
