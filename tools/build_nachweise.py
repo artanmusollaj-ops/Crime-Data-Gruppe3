@@ -262,6 +262,17 @@ def als_html(notebook) -> str:
     return html
 
 
+def nach_erstellung(ziel: Path = ZIEL, *, neueste_zuerst: bool = False) -> list[Path]:
+    """Alle ``nachweis.json``, nach ``erstellt_utc`` - nicht nach Ordnername.
+
+    Zwei Nachweise vom selben Tag ordnete der Name nach dem Commit-Hash:
+    ``2026-11-07_6a36360`` stand vor ``2026-11-07_7dd8f89``, obwohl er der
+    spaetere war, und der Waechter hielt den aelteren fuer den juengsten.
+    """
+    return sorted(ziel.glob("*/nachweis.json"), reverse=neueste_zuerst,
+                  key=lambda d: json.loads(d.read_text(encoding="utf-8"))["erstellt_utc"])
+
+
 def verzeichnis(ziel: Path = ZIEL) -> str:
     """Der Text von ``docs/nachweise/README.md``, aus allen ``nachweis.json``.
 
@@ -288,7 +299,7 @@ def verzeichnis(ziel: Path = ZIEL) -> str:
         "| Lauf | Commit | Datenstand (Silver) | Release passt | Notebooks |",
         "| --- | --- | --- | --- | --- |",
     ]
-    for datei in sorted(ziel.glob("*/nachweis.json"), reverse=True):
+    for datei in nach_erstellung(ziel, neueste_zuerst=True):
         n = json.loads(datei.read_text(encoding="utf-8"))
         d = n["datenstand"]
         fp = (d["silver_crime_offense"]["input_fingerprint"] or "")[:12]

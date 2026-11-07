@@ -34,9 +34,18 @@ def werkzeug():
 
 
 def juengster() -> Path:
-    ordner = sorted(p.parent for p in NACHWEISE.glob("*/nachweis.json"))
-    assert ordner, "Kein Nachweis abgelegt - python tools/build_nachweise.py"
-    return ordner[-1]
+    """Nach erstellt_utc, nicht nach Name - am selben Tag entschied sonst der Hash."""
+    dateien = werkzeug().nach_erstellung(NACHWEISE)
+    assert dateien, "Kein Nachweis abgelegt - python tools/build_nachweise.py"
+    return dateien[-1].parent
+
+
+def test_der_juengste_nachweis_ist_an_sein_release_gebunden():
+    """Seit dem 7.11.2026: Silvers Fingerabdruck steht im derived_from des Releases."""
+    stand = json.loads((juengster() / "nachweis.json").read_text(encoding="utf-8"))["datenstand"]
+    assert stand["release_passt_zum_arbeitsstand"], (
+        f"{juengster().name} ist an kein Release gebunden (letztes: {stand['release_aktuell']}). "
+        "Erst ein Release bilden (run_all --release), dann den Nachweis erneuern.")
 
 
 def test_der_juengste_nachweis_umfasst_genau_die_belegenden_notebooks():

@@ -1,6 +1,6 @@
 {
-  "erstellt_utc": "2026-11-07T11:39:25+00:00",
-  "commit": "7dd8f89b81d4d3f0578777fce18f351e1d68fd56",
+  "erstellt_utc": "2026-11-07T13:26:30+00:00",
+  "commit": "6a36360b290c7d28851020ebecce2eebc684b298",
   "umgebung": {
     "python": "3.13.0",
     "system": "Darwin 25.6.0 arm64",
@@ -24,57 +24,58 @@
     ],
     "silver_crime_offense": {
       "zeilen": 1875374,
-      "gebaut_utc": "2026-11-07T11:39:46.219114+00:00",
+      "gebaut_utc": "2026-11-07T13:26:50.917972+00:00",
       "input_fingerprint": "cac64863d0b96f440d27c7501ac63d97cc216bf57b3c543fe7469f84d56d62b1"
     },
     "gold_fact_offense": {
       "zeilen": 1851946,
-      "gebaut_utc": "2026-11-07T11:39:48.017452Z"
+      "gebaut_utc": "2026-11-07T13:26:51.954680Z"
     },
-    "release_aktuell": "2026-10-17T08-38-50Z",
-    "release_input_fingerprint": "a917c949959055fc1fd749c7d9bbe0420d3c730061cf878d88908dc2b0d53af6",
-    "release_passt_zum_arbeitsstand": false,
+    "release_aktuell": "2026-11-07T13-12-32Z",
+    "release_input_fingerprint": "db586e5de790fc2f94dea537dba538ae20972f1468a4570daed232e3c39681c0",
+    "release_silver_input_fingerprint": "cac64863d0b96f440d27c7501ac63d97cc216bf57b3c543fe7469f84d56d62b1",
+    "release_passt_zum_arbeitsstand": true,
     "aufbau": {
       "befehl": "python -m orchestration.run_all --ohne-ingestion --jahre 2021,2022,2023,2024,2025,2026",
-      "laufzeit_s": 23.6,
+      "laufzeit_s": 23.0,
       "exit": 0
     }
   },
   "notebooks": {
     "31_storage_evaluation": {
       "code_sha256": "1f76f21cf682f1a49e3b273530a029dc9850daed5fc205557ba9062110a15bcf",
-      "html_sha256": "880b48eb41f04ebcabcb4b536198be7077d3b10df62635a0bfd32c70fdad8576",
-      "laufzeit_s": 10.8,
+      "html_sha256": "009cf364f032eb0a0c9ef9a10879ea3b3c82746a9dd02856d7f2ff69e9ebf604",
+      "laufzeit_s": 10.6,
       "codezellen": 9
     },
     "33_serving_evaluation": {
       "code_sha256": "fe3dc0f0f76b30c74aeab2db1304af8109b66e5ebf64bc145e1094ca9d3696c9",
-      "html_sha256": "6987b357a17a75e82b7e8feec0bb18af3b00aafce4bcf3dcbeaf26bb613956b1",
+      "html_sha256": "42994e12e971830b14a2d66baeb22d598cb1a66c740db6d8d7972cbbb0f36e69",
       "laufzeit_s": 1.6,
       "codezellen": 7
     },
     "34_gold_sternschema": {
       "code_sha256": "1f86ff3b3d6233e29e9292b2910d61bf884916091ab7dbdd80fa277d20118cbe",
-      "html_sha256": "5a85d836f82f4c150873c87e2122f9adb53ce81a9169424108f0bb6cacca166b",
-      "laufzeit_s": 17.8,
+      "html_sha256": "8de6eab19f1ce1f07ba57780e5ca25dc2de1f4bd5138f18468f036f1901d686f",
+      "laufzeit_s": 17.6,
       "codezellen": 19
     },
     "35_kontrollen": {
       "code_sha256": "76dbad4cfa3c079949be50009c5b833ab44bba63eef25e14000ab7e549d06bf6",
-      "html_sha256": "49e9026d8f88bd5f34d93ede2f9f53ef4d2c8971bdabba089b44af91a676b993",
+      "html_sha256": "9df647be0ad4a17fc09825fc92ccc0433c687cd55c09977b072d3a7a9a1086f6",
       "laufzeit_s": 1.4,
       "codezellen": 40
     },
     "36_hypothesen": {
       "code_sha256": "7387221da053a4e9b6da0dd80fdc02405e7e4b9113c6f7a699c249647200d85b",
-      "html_sha256": "ef5b7794c6f0b81cae6cd9635ae434f8a59e352e2f1ad82706a06a835fbe129f",
-      "laufzeit_s": 112.1,
+      "html_sha256": "0f3f46fd9fbe64d060a1f94eb909f1ac1835c1f21a91d8dc5d5d85c7e464126b",
+      "laufzeit_s": 110.9,
       "codezellen": 16
     },
     "37_quellbewegung": {
       "code_sha256": "4db1ea448ac887858af47fbd91479a755fd35bd59d8d09de78eb221b9b207eaa",
-      "html_sha256": "0ac043ab11de3e9e62e979846d50f2477ed28bc1265adcf3899d9a5a9ec4d7cf",
-      "laufzeit_s": 1.1,
+      "html_sha256": "91e499972e84829d439001203503c2daf006350eaf7c71c6d694dc5c9f6ace11",
+      "laufzeit_s": 1.0,
       "codezellen": 15
     }
   },
