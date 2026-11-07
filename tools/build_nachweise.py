@@ -201,8 +201,14 @@ def bereinige(notebook: dict, kopie: Path) -> None:
     Ein Nachweis geht an Dritte; Heimverzeichnis und Temp-Pfad gehoeren
     nicht hinein und sagen ueber das Ergebnis nichts.
     """
-    ersetzungen = [(str(kopie), "<projekt>"), (str(kopie.resolve()), "<projekt>"),
-                   (str(PROJEKT), "<projekt>"), (str(Path.home()), "~")]
+    # Laengste zuerst: Die Kopie liegt im Temp-Verzeichnis, und die
+    # Notebooks 31, 33 und 35 legen dort eigene Arbeitsordner an. macOS
+    # nennt dasselbe Verzeichnis als /var/folders/... und /private/var/....
+    temp = tempfile.gettempdir()
+    ersetzungen = [(str(kopie.resolve()), "<projekt>"), (str(kopie), "<projekt>"),
+                   (str(PROJEKT), "<projekt>"),
+                   (str(Path(temp).resolve()), "<tmp>"), (temp, "<tmp>"),
+                   (str(Path.home()), "~")]
 
     def ersetze(text: str) -> str:
         for alt, neu in ersetzungen:
