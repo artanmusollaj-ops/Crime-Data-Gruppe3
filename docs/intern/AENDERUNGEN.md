@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'763** |
+| Tests | **2'767** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -103,6 +103,32 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 7.11.2026 · Die Konsolentests starten von der Vorgabe (Branch `docs/nachweis-auf-main`)
+
+Seit #209 liegt `config/platform_admin_settings.json` in Git, mit sechs Jobs
+und 2021–2026. Das ist richtig, denn die Konsole hält vor einem Impact die
+aktiven Einstellungen gegen `main`. Die Konsolentests legen ihren Store aber
+aus dem echten Projektordner an und sind um `DEFAULT_SETTINGS` gebaut: um
+die Positionen der Jobs, den Zeitraum 2024 und dessen neun Baubefehle. Mit
+der echten Datei scheiterten **87 von 224**. Auf `main` war die PR-Prüfung
+damit rot, und jeder Pull Request erbte das, weil GitHub gegen den
+zusammengeführten Stand prüft.
+
+- `store.repository_settings(project)` liest die Datei, sonst gilt die
+  Vorgabe. Bisher stand das inline in `Store.initialize`; das Verhalten ist
+  unverändert.
+- `tests/platform_admin/conftest.py` setzt dafür in jedem Konsolentest die
+  Vorgabe ein.
+- `tests/test_konsole_einstellungen.py` (3 Tests) steht ausserhalb davon und
+  prüft die echte Datei: Sie ist gültig, der Store übernimmt sie als Basis,
+  und ihr Zeitraum ist 2021–2026.
+
+**Für `srv01`:** Die Änderung liegt in `src/`. Das eingesetzte Abbild
+(`7927864`) entspricht danach nicht mehr `main`, und ein Impact scheitert an
+der Attestierung, bis das neue Abbild eingesetzt ist.
+
+**Zahlen.** 2'764 → **2'767 Tests**, Standardlauf 2'653 → **2'656**, im frischen Klon 2'575 → **2'578**.
+
 ## 7.11.2026 · Die Notebooks liegen ausgeführt bei (Branch `feature/notebook-nachweise`)
 
 Die Beurteilung von LN1 (3.11.2026) sagt dreimal dasselbe: Der Replay in
@@ -131,7 +157,7 @@ allen Ausgaben, lesbar ohne Python und ohne Daten. Dazu kommt
 - **ohne Rechnerpfade:** Kopie, Repository, Temp-Verzeichnis und
   Heimverzeichnis werden in den Ausgaben ersetzt.
 
-**Erster Nachweis** `2026-11-07_cbf3a95`, 2,3 MB:
+**Erster Nachweis** `2026-11-07_7dd8f89`, 2,3 MB, erzeugt vom `main`-Commit des Merges. Der zuerst abgelegte Nachweis nannte den Branch-Commit `cbf3a95`, den es nach dem Squash auf `main` nicht gibt; ersetzt. Beide Läufe ergaben denselben Datenstand (`cac64863…`):
 - Notebook 36: alle drei Neubauten mit `Inhalt identisch: True` und
   gleichem Eingabeabdruck, Median 22,9 s, Spannweite 22,7 bis 23,4 s.
 - Notebook 33: vier Abfragen auf beiden Wegen identisch.
@@ -158,7 +184,13 @@ prüft ausserdem die HTML-Hashes, die Abwesenheit von Rechnerpfaden und
 `docs/nachweise/README.md` als Erzeugnis. Nachgezogen: Wegweiser,
 Konzept 11.3, README und die Architekturbilder (12 Generatoren).
 
-**Zahlen.** 2'736 → **2'763 Tests**, Standardlauf 2'625 → **2'652**, im frischen Klon 2'547 → **2'574**. Davon 16 aus diesem Eintrag und 11 aus dem darunter (#208), der die Zahlen nicht nachgezogen hatte.
+**Auf Windows** checkte Git die HTML-Dateien zuerst mit CRLF aus, und alle sechs
+Hashes waren dort falsch (Lauf 42364142333). #207 war schon gemergt, bevor
+die Korrektur kam; sie folgt im Branch `docs/nachweis-auf-main`. `.gitattributes` legt
+`docs/nachweise/**` jetzt mit LF fest, das Werkzeug schreibt mit
+`newline="\n"`, und ein Test hält die Regel.
+
+**Zahlen.** 2'736 → **2'764 Tests**, Standardlauf 2'625 → **2'653**, im frischen Klon 2'547 → **2'575**. Davon 17 aus diesem Eintrag und 11 aus dem darunter (#208), der die Zahlen nicht nachgezogen hatte.
 
 ## 7.11.2026 · Mapping-Basis und Image werden getrennt attestiert (lokale Korrektur)
 

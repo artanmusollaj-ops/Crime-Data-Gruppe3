@@ -188,6 +188,17 @@ def write_rows(name, fields, records):
     return out.getvalue()
 
 
+def repository_settings(project):
+    """Settings baseline from ``config/platform_admin_settings.json``, else the defaults.
+
+    Its own function so the console tests can start from DEFAULT_SETTINGS no
+    matter what the repository carries: since 7.11.2026 the file is in Git,
+    and 87 tests built around the defaults read it and failed.
+    """
+    path = Path(project) / "config" / "platform_admin_settings.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else DEFAULT_SETTINGS
+
+
 class Store:
     def __init__(self, project: Path, data: Path):
         self.project, self.data = Path(project).resolve(), Path(data).resolve()
@@ -270,8 +281,7 @@ class Store:
             if required not in files:
                 raise AdminError(f"Konfiguration fehlt: {required}")
         self.validate_mappings(files)
-        settings_path = self.project / "config" / "platform_admin_settings.json"
-        settings = json.loads(settings_path.read_text(encoding="utf-8")) if settings_path.exists() else DEFAULT_SETTINGS
+        settings = repository_settings(self.project)
         validate_settings(settings)
         with self.db() as c:
             c.execute("BEGIN IMMEDIATE")

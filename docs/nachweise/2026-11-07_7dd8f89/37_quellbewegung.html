@@ -7796,56 +7796,43 @@ a.anchor-link {
 <!-- End of mermaid configuration --></head>
 <body class="jp-Notebook" data-jp-theme-light="true" data-jp-theme-name="JupyterLab Light">
 <main>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=01c0131d">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=zelle-01">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h1 id="Serving:-Sichten-oder-Kopie?">Serving: Sichten oder Kopie?<a class="anchor-link" href="#Serving:-Sichten-oder-Kopie?">¶</a></h1><p>Die Auswertungsumgebung soll <strong>eigene Abfragen</strong> erlauben — jemand sitzt davor,
-tippt SQL und wartet auf die Antwort. Dafür gibt es zwei Wege:</p>
-<table>
-<thead>
-<tr>
-<th></th>
-<th></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Sichten</strong></td>
-<td>Eine DuckDB-Datei mit <code>CREATE VIEW … SELECT * FROM read_parquet(…)</code>. Sie hält keine Daten, nur Namen.</td>
-</tr>
-<tr>
-<td><strong>Kopie</strong></td>
-<td>Dieselben Daten noch einmal als echte Tabellen in der DuckDB-Datei.</td>
-</tr>
-</tbody>
-</table>
-<p>Die Frage ist keine Geschmacksfrage, sondern messbar — genau wie beim
-Speicherformat in <a href="31_storage_evaluation.ipynb">Notebook 31</a>.</p>
-<p><strong>Warum sie überhaupt gestellt wurde.</strong> Der Detroit-Branch brachte
-<code>load_duckdb.py</code> mit, das Bronze in eine DuckDB-Datei importiert. Absprache 7.1
-hält aber fest: dateibasierte Schichten als Speicher, <strong>DuckDB als
-Abfrageschicht darüber</strong>. Bevor man eine Absprache ändert, misst man besser
-nach, was sie kostet.</p>
+<h1 id="Wie-sich-die-Quellen-bewegen">Wie sich die Quellen bewegen<a class="anchor-link" href="#Wie-sich-die-Quellen-bewegen">¶</a></h1><p><strong>Zweck.</strong> Für die Auswertung zählt der aktuelle Stand. Aber beide Quellen
+ändern ihre Vergangenheit: Detroit korrigiert Einträge noch Jahre nach der Tat,
+Chicago liefert Deltas und klassiert um. Diese Bewegung ist selbst ein
+Gegenstand — <em>was ändert sich, wie oft, welcher Art, und was verschwindet.</em></p>
+<p><code>silver/source_change</code> zieht sie aus aufeinanderfolgenden Vollschnappschüssen
+heraus, bevor die Rohläufe entbehrlich werden. Dieses Notebook führt vor, was
+dabei herauskommt, wie die Tabelle gebaut ist — und wo ihre Grenzen liegen.</p>
+<p><strong>Was dieses Notebook nicht behauptet.</strong> Es beschreibt zwei Vergleichsfenster:
+Detroit vom 11. bis 18.9.2026 (vier Paare in sieben Tagen) und Chicago vom
+5.9. bis 3.10.2026 (ein Paar über 28 Tage). Das ist zu wenig für eine Aussage
+über Quellbewegung <em>im Allgemeinen</em>. Jede Zahl hier gilt für ihr Fenster, und
+alle Zahlen sind unten aus der Tabelle gelesen, nicht abgeschrieben.</p>
 </div>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=6ab0efbe">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=analyse-voraussetzungen">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="1.-Aufbau">1. Aufbau<a class="anchor-link" href="#1.-Aufbau">¶</a></h2><p>Verglichen werden <strong>dieselben Daten</strong> in beiden Formen: die vier
-Silver-Tabellen, gut 412'000 Zeilen zusammen. Beide Varianten entstehen zur
-Laufzeit in einem temporären Verzeichnis.</p>
+<h2 id="Analysebestand-und-Sperre">Analysebestand und Sperre<a class="anchor-link" href="#Analysebestand-und-Sperre">¶</a></h2><p>Vor dem Start muss ein erfolgreicher Aufbau mit Herkunftsnachweis vorliegen.
+Standard ist <code>data/</code>; <code>CRIME_ANALYSIS_ROOT</code> waehlt einen vollstaendigen Job-Datenordner.
+Siehe <code>docs/intern/notebook-analysesitzungen.md</code>. Releases enthalten nicht alle benoetigten Daten.
+Die Startzelle sperrt den Bestand bis zur Abschlusszelle. Bei einem Fehler die Abschlusszelle
+manuell ausfuehren oder den Kernel beenden. Nach Sitzungsende vor weiteren Abfragen neu starten.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=7ddd42cd">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=zelle-02">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7853,42 +7840,47 @@ Laufzeit in einem temporären Verzeichnis.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In [1]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">glob</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">statistics</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="n">PROJECT_ROOT</span> <span class="o">=</span> <span class="n">Path</span><span class="o">.</span><span class="n">cwd</span><span class="p">()</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">PROJECT_ROOT</span> <span class="o">/</span> <span class="s2">"config"</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+    <span class="n">PROJECT_ROOT</span> <span class="o">=</span> <span class="n">PROJECT_ROOT</span><span class="o">.</span><span class="n">parent</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">PROJECT_ROOT</span> <span class="o">/</span> <span class="s2">"config"</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Projektwurzel nicht gefunden"</span><span class="p">)</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">PROJECT_ROOT</span> <span class="o">/</span> <span class="s2">"src"</span> <span class="o">/</span> <span class="s2">"crime"</span><span class="p">))</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">duckdb</span>
 
-<span class="n">PROJECT_ROOT</span> <span class="o">=</span> <span class="n">Path</span><span class="o">.</span><span class="n">cwd</span><span class="p">()</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
-<span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">PROJECT_ROOT</span> <span class="o">/</span> <span class="s1">'data'</span> <span class="o">/</span> <span class="s1">'silver'</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-    <span class="n">PROJECT_ROOT</span> <span class="o">=</span> <span class="n">PROJECT_ROOT</span><span class="o">.</span><span class="n">parent</span>
-<span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">PROJECT_ROOT</span> <span class="o">/</span> <span class="s1">'data'</span> <span class="o">/</span> <span class="s1">'silver'</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">storage</span><span class="w"> </span><span class="kn">import</span> <span class="n">parquet_spalten</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">orchestration.analyse</span><span class="w"> </span><span class="kn">import</span> <span class="n">Analysesitzung</span>
+
+<span class="c1"># Lokal data/, im verwalteten Betrieb den vollstaendigen Job-Datenordner waehlen.</span>
+<span class="n">DATA_ROOT</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'CRIME_ANALYSIS_ROOT'</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">PROJECT_ROOT</span> <span class="o">/</span> <span class="s1">'data'</span><span class="p">)))</span>
+<span class="k">if</span> <span class="s1">'analyse'</span> <span class="ow">in</span> <span class="nb">globals</span><span class="p">():</span>
+    <span class="n">analyse</span><span class="o">.</span><span class="n">beenden</span><span class="p">()</span>
+<span class="n">analyse</span> <span class="o">=</span> <span class="n">Analysesitzung</span><span class="p">(</span><span class="n">DATA_ROOT</span><span class="p">,</span> <span class="n">notebook</span><span class="o">=</span><span class="s1">'37'</span><span class="p">)</span>
+<span class="n">analyse</span><span class="o">.</span><span class="n">anzeigen</span><span class="p">()</span>
+
+<span class="n">TABELLE</span> <span class="o">=</span> <span class="n">DATA_ROOT</span> <span class="o">/</span> <span class="s2">"silver"</span> <span class="o">/</span> <span class="s2">"dataset=source_change"</span> <span class="o">/</span> <span class="s2">"part-0001.parquet"</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="n">TABELLE</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
     <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-        <span class="s1">'data/silver nicht gefunden. Zuerst die Silver-Schicht bauen, etwa '</span>
-        <span class="s1">'python -m silver_pipeline.build_crime_offense'</span>
-    <span class="p">)</span>
+        <span class="s2">"silver/source_change ist nicht gebaut. "</span>
+        <span class="s2">"Zuerst: python -m silver_pipeline.build_source_change"</span><span class="p">)</span>
 
-<span class="n">QUELLEN</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">'dataset='</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">'/'</span><span class="p">)[</span><span class="mi">0</span><span class="p">]:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">PROJECT_ROOT</span> <span class="o">/</span> <span class="s1">'data'</span> <span class="o">/</span> <span class="s1">'silver'</span> <span class="o">/</span> <span class="s1">'**'</span> <span class="o">/</span> <span class="s1">'*.parquet'</span><span class="p">),</span>
-                       <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="p">}</span>
-<span class="n">ARBEIT</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s1">'serving-eval-'</span><span class="p">))</span>
+<span class="n">con</span> <span class="o">=</span> <span class="n">analyse</span><span class="o">.</span><span class="n">verbinde</span><span class="p">()</span>
+<span class="n">QUELLE</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"read_parquet('</span><span class="si">{</span><span class="n">TABELLE</span><span class="si">}</span><span class="s2">')"</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="s2">"Tabelle"</span><span class="si">:</span><span class="s1">&lt;18</span><span class="si">}{</span><span class="s2">"Zeilen"</span><span class="si">:</span><span class="s1">&gt;10</span><span class="si">}{</span><span class="s2">"Parquet"</span><span class="si">:</span><span class="s1">&gt;12</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-<span class="n">gesamt_zeilen</span> <span class="o">=</span> <span class="n">gesamt_bytes</span> <span class="o">=</span> <span class="mi">0</span>
-<span class="n">con</span> <span class="o">=</span> <span class="n">duckdb</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
-<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">pfad</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">QUELLEN</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
-    <span class="n">n</span> <span class="o">=</span> <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"SELECT count(*) FROM read_parquet('</span><span class="si">{</span><span class="n">pfad</span><span class="si">}</span><span class="s2">')"</span><span class="p">)</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="n">b</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">getsize</span><span class="p">(</span><span class="n">pfad</span><span class="p">)</span>
-    <span class="n">gesamt_zeilen</span> <span class="o">+=</span> <span class="n">n</span><span class="p">;</span> <span class="n">gesamt_bytes</span> <span class="o">+=</span> <span class="n">b</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s1">&lt;18</span><span class="si">}{</span><span class="n">n</span><span class="si">:</span><span class="s1">&gt;10,</span><span class="si">}{</span><span class="n">b</span><span class="o">/</span><span class="mf">1e6</span><span class="si">:</span><span class="s1">&gt;10.1f</span><span class="si">}</span><span class="s1"> MB'</span><span class="p">)</span>
-<span class="n">con</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="s2">"zusammen"</span><span class="si">:</span><span class="s1">&lt;18</span><span class="si">}{</span><span class="n">gesamt_zeilen</span><span class="si">:</span><span class="s1">&gt;10,</span><span class="si">}{</span><span class="n">gesamt_bytes</span><span class="o">/</span><span class="mf">1e6</span><span class="si">:</span><span class="s1">&gt;10.1f</span><span class="si">}</span><span class="s1"> MB'</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">frage</span><span class="p">(</span><span class="n">sql</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Eine Abfrage auf die Tabelle, als Liste von Zeilen."""</span>
+    <span class="k">return</span> <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"DuckDB </span><span class="si">{</span><span class="n">duckdb</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Tabelle: </span><span class="si">{</span><span class="n">TABELLE</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">1024</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> KB"</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -7901,30 +7893,37 @@ Laufzeit in einem temporären Verzeichnis.</p>
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Tabelle               Zeilen     Parquet
-crime_offense      1,875,374      79.0 MB
-place                  2,211      11.1 MB
-source_change          4,718       0.1 MB
-tract                  6,282      22.2 MB
-weather_day           55,497       0.4 MB
-zusammen           1,944,082     112.8 MB
+<pre>Analysebestand: &lt;projekt&gt;/data
+run_id: dd732bf3d5554793bc8e76b21cbad721
+finished_at_utc: 2026-11-07T11:42:02.654260+00:00
+code_commit: 7dd8f89b81d4d3f0578777fce18f351e1d68fd56
+release_id: Zuordnung nicht nachgewiesen
+status: Arbeitsbestand
+Lokale Codeaenderungen waren beim Aufbau nicht pruefbar.
+Datenzugriff gesperrt bis analyse.beenden() oder Kernel-Ende.
+DuckDB 1.5.5
+Tabelle: 93 KB
 </pre>
 </div>
 </div>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=efce4f2e">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=zelle-03">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="2.-Beide-Varianten-bauen">2. Beide Varianten bauen<a class="anchor-link" href="#2.-Beide-Varianten-bauen">¶</a></h2>
+<h2 id="Die-Spalten-%E2%80%94-und-warum-sie-ausgeschrieben-werden">Die Spalten — und warum sie ausgeschrieben werden<a class="anchor-link" href="#Die-Spalten-%E2%80%94-und-warum-sie-ausgeschrieben-werden">¶</a></h2><p>Eine Zeile je <strong>geändertem Feld</strong>, nicht je geänderter Zeile. Ein Delikt, an
+dem sich drei Felder bewegt haben, steht dreimal darin.</p>
+<p>Gelesen werden die Spalten über <code>storage.parquet_spalten</code> und nicht über
+<code>DESCRIBE</code>: Der Pfad trägt <code>dataset=source_change</code>, und DuckDB leitete daraus
+eine Spalte <code>dataset</code> ab, die in keiner Datei steht.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=5574e15e">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=zelle-04">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7932,29 +7931,8 @@ zusammen           1,944,082     112.8 MB
 <div class="jp-InputPrompt jp-InputArea-prompt">In [2]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">sichten_db</span> <span class="o">=</span> <span class="n">ARBEIT</span> <span class="o">/</span> <span class="s1">'sichten.duckdb'</span>
-<span class="n">kopie_db</span> <span class="o">=</span> <span class="n">ARBEIT</span> <span class="o">/</span> <span class="s1">'kopie.duckdb'</span>
-
-<span class="n">con</span> <span class="o">=</span> <span class="n">duckdb</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">sichten_db</span><span class="p">))</span>
-<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">pfad</span> <span class="ow">in</span> <span class="n">QUELLEN</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CREATE VIEW </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> AS SELECT * FROM read_parquet('</span><span class="si">{</span><span class="n">pfad</span><span class="si">}</span><span class="s2">')"</span><span class="p">)</span>
-<span class="n">con</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-
-<span class="n">con</span> <span class="o">=</span> <span class="n">duckdb</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">kopie_db</span><span class="p">))</span>
-<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">pfad</span> <span class="ow">in</span> <span class="n">QUELLEN</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CREATE TABLE </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> AS SELECT * FROM read_parquet('</span><span class="si">{</span><span class="n">pfad</span><span class="si">}</span><span class="s2">')"</span><span class="p">)</span>
-<span class="n">con</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="s2">"Variante"</span><span class="si">:</span><span class="s1">&lt;22</span><span class="si">}{</span><span class="s2">"Groesse"</span><span class="si">:</span><span class="s1">&gt;12</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">pfad</span> <span class="ow">in</span> <span class="p">((</span><span class="s1">'Sichten'</span><span class="p">,</span> <span class="n">sichten_db</span><span class="p">),</span> <span class="p">(</span><span class="s1">'Kopie'</span><span class="p">,</span> <span class="n">kopie_db</span><span class="p">)):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s1">&lt;22</span><span class="si">}{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">getsize</span><span class="p">(</span><span class="n">pfad</span><span class="p">)</span><span class="o">/</span><span class="mf">1e6</span><span class="si">:</span><span class="s1">&gt;10.1f</span><span class="si">}</span><span class="s1"> MB'</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="s2">"Parquet (Quelle)"</span><span class="si">:</span><span class="s1">&lt;22</span><span class="si">}{</span><span class="n">gesamt_bytes</span><span class="o">/</span><span class="mf">1e6</span><span class="si">:</span><span class="s1">&gt;10.1f</span><span class="si">}</span><span class="s1"> MB'</span><span class="p">)</span>
-
-<span class="c1"># Der Faktor wird hier gerechnet und nicht in die Prosa geschrieben - er</span>
-<span class="c1"># haengt an der Datenmenge und veraltet sonst bei jedem Silver-Neubau.</span>
-<span class="n">FAKTOR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">getsize</span><span class="p">(</span><span class="n">kopie_db</span><span class="p">)</span> <span class="o">/</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">getsize</span><span class="p">(</span><span class="n">sichten_db</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">()</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Die Kopie belegt das </span><span class="si">{</span><span class="n">FAKTOR</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1">-fache der Sichten-Datei.'</span><span class="p">)</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">parquet_spalten</span><span class="p">(</span><span class="n">TABELLE</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">" "</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -7967,44 +7945,130 @@ zusammen           1,944,082     112.8 MB
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Variante                   Groesse
-Sichten                      0.3 MB
-Kopie                      127.9 MB
-Parquet (Quelle)           112.8 MB
-
-Die Kopie belegt das 466-fache der Sichten-Datei.
+<pre>  city
+  offense_id
+  vorher_run_id
+  run_id
+  vorher_am
+  beobachtet_am
+  art
+  feld
+  wert_alt
+  wert_neu
+  zuerst_gesehen_in
+  zuerst_gesehen_am
+  datierung
 </pre>
 </div>
 </div>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=e03dba6d">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=zelle-05">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p><strong>Die Sichten-Datei ist winzig</strong>, weil sie nur Namen hält. Die Kopie ist
-sogar grösser als die Parquet-Dateien, auf die sie zeigt — die Tract-Geometrie
-komprimiert in DuckDBs Format schlechter als in Parquet.</p>
+<h2 id="Wie-die-Tabelle-gebaut-ist">Wie die Tabelle gebaut ist<a class="anchor-link" href="#Wie-die-Tabelle-gebaut-ist">¶</a></h2><p>Verglichen werden <strong>aufeinanderfolgende Paare von Vollschnappschüssen</strong> — nicht
+jedes gegen jedes. Die Kette zählt jede Bewegung genau einmal.</p>
+<p>Nur Vollabzüge: Ein Delta enthält bloss die bewegten Zeilen, und <em>was fehlt</em>
+liesse sich darin nicht von <em>was sich nicht geändert hat</em> unterscheiden —
+jede Zeile ausserhalb des Deltas sähe verschwunden aus.</p>
+<p>Fünf Arten von Beobachtung:</p>
+<table>
+<thead>
+<tr>
+<th><code>art</code></th>
+<th>Bedeutung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>geaendert</code></td>
+<td>etwas ausserhalb von Rauschen und Zeitstempeln hat sich bewegt</td>
+</tr>
+<tr>
+<td><code>beruehrt</code></td>
+<td><strong>nur</strong> Zeitstempel haben sich bewegt — die Quelle hat die Zeile angefasst, ohne dass sich fachlich etwas änderte</td>
+</tr>
+<tr>
+<td><code>neu</code></td>
+<td>der Schlüssel steht im zweiten Schnappschuss und nicht im ersten</td>
+</tr>
+<tr>
+<td><code>verschwunden</code></td>
+<td>umgekehrt</td>
+</tr>
+<tr>
+<td><code>unveraendert</code></td>
+<td>eine Markierungszeile für ein Paar, in dem sich nichts bewegt hat</td>
+</tr>
+</tbody>
+</table>
+<p>Die letzte ist die unauffälligste und die wichtigste: Ohne sie wäre <em>nichts
+gefunden</em> nicht von <em>noch nicht verglichen</em> zu unterscheiden, und das Paar
+bliebe für immer als unerledigt gesperrt.</p>
+<p><strong>Die Deltas datieren, was die Vollabzüge finden.</strong> Ein Monatsabstand sagt
+nur <em>irgendwann in diesen dreissig Tagen</em>. Jedes Delta, das zwischen den zwei
+Vollabzügen lief, trägt die Schlüssel der Zeilen, die die Quelle damals als
+bewegt gemeldet hat — das erste, das einen Schlüssel enthält, grenzt die
+Änderung auf wenige Tage ein. Gefunden wird sie weiter nur aus den
+Vollabzügen; die Deltas erzeugen keine Zeile, sie füllen drei Spalten:</p>
+<table>
+<thead>
+<tr>
+<th><code>datierung</code></th>
+<th>heisst</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>delta</code></td>
+<td>ein Delta im Fenster trug den Schlüssel; <code>zuerst_gesehen_in</code> nennt das <strong>erste</strong></td>
+</tr>
+<tr>
+<td><code>kein_delta</code></td>
+<td>Deltas lagen vor, aber keines trug den Schlüssel</td>
+</tr>
+<tr>
+<td><code>nicht_datierbar</code></td>
+<td>kein lesbares Delta liegt im Fenster</td>
+</tr>
+</tbody>
+</table>
+<p><code>kein_delta</code> hat <strong>drei</strong> Ursachen, die von hier aus nicht zu trennen sind:
+Die Quelle hat die Änderung nicht angemeldet; oder sie geschah nach dem
+letzten Delta; oder die Zeile war schon nicht mehr da. Deshalb heisst der
+Zustand <code>kein_delta</code> und nicht <em>„nicht angemeldet"</em>.</p>
+<p>Die Datierung <strong>klebt</strong>: Sie nennt den besten Befund, der je bestimmt wurde,
+nicht den heutigen. Sie wird nachgerechnet, solange sie besser werden kann —
+ein Delta kommt dazu, und ein vorher undatiertes Paar ist datiert — aber nie
+schlechter. Das ist nötig, weil <strong>Aufräumen ein Ziel ist</strong>: Der erste Entwurf
+rechnete frisch, und das Löschen der Deltas machte aus <code>delta</code> wieder
+<code>nicht_datierbar</code>. Die Änderungszeile blieb, ihre Datierung war weg — genau
+das, wogegen diese Tabelle gebaut ist.</p>
+<p><strong>Zwei Entscheidungen, die die Tabelle erst brauchbar machen.</strong> Detroits
+<code>ESRI_OID</code> wird nie aufgezeichnet — es ist die Zeilennummer der ArcGIS-Antwort
+und bewegte sich bei 88'677 von 88'685 Zeilen, ein Faktor 870 Rauschen. Und
+jedes Feld wird vor dem Vergleich getrimmt: Von 160 Änderungen an
+<code>offense_description</code> waren 150 reine Leerzeichen, weil die Quelle inzwischen
+auf feste Breite auffüllt.</p>
 </div>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=298b17a3">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=zelle-06">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="3.-Die-Abfragen">3. Die Abfragen<a class="anchor-link" href="#3.-Die-Abfragen">¶</a></h2><p>Fünf Muster, wie sie bei einer eigenen Auswertung tatsächlich vorkommen: ein
-Filter, zwei Zwei-Wege-Joins, ein Drei-Wege-Join und ein breiter Scan. Gemessen
-wird der <strong>erste</strong> Lauf (kalt) und der Median von fünf weiteren.</p>
+<h2 id="Was-drin-ist">Was drin ist<a class="anchor-link" href="#Was-drin-ist">¶</a></h2>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=d4404239">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=zelle-07">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8012,49 +8076,20 @@ wird der <strong>erste</strong> Lauf (kalt) und der Median von fünf weiteren.</
 <div class="jp-InputPrompt jp-InputArea-prompt">In [3]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">ABFRAGEN</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s1">'Filter + Gruppierung'</span><span class="p">:</span> <span class="s1">'''</span>
-<span class="s1">        SELECT nibrs_code, count(*) FROM crime_offense</span>
-<span class="s1">        WHERE city = 'chicago' AND nibrs_group = 'A'</span>
-<span class="s1">        GROUP BY 1 ORDER BY 2 DESC LIMIT 10'''</span><span class="p">,</span>
-    <span class="s1">'Join Delikt x Tract (Rate)'</span><span class="p">:</span> <span class="s1">'''</span>
-<span class="s1">        SELECT c.tract_geoid, count(*) f, any_value(t.population) ew,</span>
-<span class="s1">               count(*) * 100000.0 / nullif(any_value(t.population), 0) rate</span>
-<span class="s1">        FROM crime_offense c JOIN tract t ON c.tract_geoid = t.geoid</span>
-<span class="s1">        WHERE c.located GROUP BY 1 HAVING any_value(t.population) &gt; 500</span>
-<span class="s1">        ORDER BY rate DESC LIMIT 20'''</span><span class="p">,</span>
-    <span class="s1">'Join Delikt x Wetter'</span><span class="p">:</span> <span class="s1">'''</span>
-<span class="s1">        SELECT w.city, count(*) FROM crime_offense c</span>
-<span class="s1">        JOIN weather_day w ON c.city = w.city AND c.occurred_date_local = w.date</span>
-<span class="s1">        WHERE w.temp_max_c &gt; 30 GROUP BY 1'''</span><span class="p">,</span>
-    <span class="s1">'Drei-Wege-Join'</span><span class="p">:</span> <span class="s1">'''</span>
-<span class="s1">        SELECT t.geoid, w.city, count(*) FROM crime_offense c</span>
-<span class="s1">        JOIN tract t ON c.tract_geoid = t.geoid</span>
-<span class="s1">        JOIN weather_day w ON c.city = w.city AND c.occurred_date_local = w.date</span>
-<span class="s1">        WHERE w.temp_max_c &gt; 25 GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 20'''</span><span class="p">,</span>
-    <span class="s1">'Breiter Scan'</span><span class="p">:</span> <span class="s1">'''</span>
-<span class="s1">        SELECT city, nibrs_description, source_offense_description, tract_geoid,</span>
-<span class="s1">               occurred_at_utc FROM crime_offense WHERE arrest</span>
-<span class="s1">        ORDER BY occurred_at_utc LIMIT 500'''</span><span class="p">,</span>
-<span class="p">}</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">zahl</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Schweizer Tausendertrenner - nur auf der Zahl, nicht dem Satz."""</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">n</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2">"</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">","</span><span class="p">,</span> <span class="s2">"'"</span><span class="p">)</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">messen</span><span class="p">(</span><span class="n">datenbank</span><span class="p">,</span> <span class="n">sql</span><span class="p">,</span> <span class="n">laeufe</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
-    <span class="n">con</span> <span class="o">=</span> <span class="n">duckdb</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">datenbank</span><span class="p">),</span> <span class="n">read_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">t</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">();</span> <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span><span class="o">.</span><span class="n">fetchall</span><span class="p">();</span> <span class="n">kalt</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">t</span>
-    <span class="n">zeiten</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">laeufe</span><span class="p">):</span>
-        <span class="n">t</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">();</span> <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
-        <span class="n">zeiten</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span>
-    <span class="n">con</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-    <span class="k">return</span> <span class="n">kalt</span><span class="p">,</span> <span class="n">statistics</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">zeiten</span><span class="p">)</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="s2">"Abfrage"</span><span class="si">:</span><span class="s1">&lt;30</span><span class="si">}{</span><span class="s2">"Sichten"</span><span class="si">:</span><span class="s1">&gt;20</span><span class="si">}{</span><span class="s2">"Kopie"</span><span class="si">:</span><span class="s1">&gt;20</span><span class="si">}{</span><span class="s2">"Faktor"</span><span class="si">:</span><span class="s1">&gt;9</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="s2">""</span><span class="si">:</span><span class="s1">&lt;30</span><span class="si">}{</span><span class="s2">"kalt / warm"</span><span class="si">:</span><span class="s1">&gt;20</span><span class="si">}{</span><span class="s2">"kalt / warm"</span><span class="si">:</span><span class="s1">&gt;20</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
-<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">sql</span> <span class="ow">in</span> <span class="n">ABFRAGEN</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-    <span class="n">s_kalt</span><span class="p">,</span> <span class="n">s_warm</span> <span class="o">=</span> <span class="n">messen</span><span class="p">(</span><span class="n">sichten_db</span><span class="p">,</span> <span class="n">sql</span><span class="p">)</span>
-    <span class="n">k_kalt</span><span class="p">,</span> <span class="n">k_warm</span> <span class="o">=</span> <span class="n">messen</span><span class="p">(</span><span class="n">kopie_db</span><span class="p">,</span> <span class="n">sql</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s1">&lt;30</span><span class="si">}{</span><span class="n">s_kalt</span><span class="o">*</span><span class="mi">1000</span><span class="si">:</span><span class="s1">&gt;9.0f</span><span class="si">}</span><span class="s1"> /</span><span class="si">{</span><span class="n">s_warm</span><span class="o">*</span><span class="mi">1000</span><span class="si">:</span><span class="s1">&gt;7.1f</span><span class="si">}</span><span class="s1">ms'</span>
-          <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">k_kalt</span><span class="o">*</span><span class="mi">1000</span><span class="si">:</span><span class="s1">&gt;9.0f</span><span class="si">}</span><span class="s1"> /</span><span class="si">{</span><span class="n">k_warm</span><span class="o">*</span><span class="mi">1000</span><span class="si">:</span><span class="s1">&gt;7.1f</span><span class="si">}</span><span class="s1">ms</span><span class="si">{</span><span class="n">s_warm</span><span class="o">/</span><span class="n">k_warm</span><span class="si">:</span><span class="s1">&gt;8.1f</span><span class="si">}</span><span class="s1">x'</span><span class="p">)</span>
+<span class="n">zeilen</span> <span class="o">=</span> <span class="n">frage</span><span class="p">(</span><span class="sa">f</span><span class="s2">"SELECT count(*) FROM </span><span class="si">{</span><span class="n">QUELLE</span><span class="si">}</span><span class="s2">"</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">delikte</span> <span class="o">=</span> <span class="n">frage</span><span class="p">(</span><span class="sa">f</span><span class="s2">"SELECT count(DISTINCT offense_id) FROM </span><span class="si">{</span><span class="n">QUELLE</span><span class="si">}</span><span class="s2"> "</span>
+                <span class="s2">"WHERE offense_id IS NOT NULL"</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">zahl</span><span class="p">(</span><span class="n">zeilen</span><span class="p">)</span><span class="si">}</span><span class="s2"> Zeilen, </span><span class="si">{</span><span class="n">zahl</span><span class="p">(</span><span class="n">delikte</span><span class="p">)</span><span class="si">}</span><span class="s2"> betroffene Delikte"</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">je Stadt und Art:"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">stadt</span><span class="p">,</span> <span class="n">art</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">frage</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"SELECT city, art, count(*) FROM </span><span class="si">{</span><span class="n">QUELLE</span><span class="si">}</span><span class="s2"> GROUP BY 1, 2 ORDER BY 1, 3 DESC"</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">stadt</span><span class="si">:</span><span class="s2">9</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">art</span><span class="si">:</span><span class="s2">14</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">zahl</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="si">:</span><span class="s2">&gt;6</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -8067,55 +8102,23 @@ wird der <strong>erste</strong> Lauf (kalt) und der Median von fünf weiteren.</
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Abfrage                                    Sichten               Kopie   Faktor
-                                       kalt / warm         kalt / warm
-Filter + Gruppierung                  4 /    3.4ms        3 /    3.1ms     1.1x
-Join Delikt x Tract (Rate)            6 /    5.5ms        7 /    6.7ms     0.8x
-Join Delikt x Wetter                  3 /    3.0ms        3 /    2.8ms     1.1x
+<pre>4'718 Zeilen, 2'154 betroffene Delikte
+
+je Stadt und Art:
+  chicago   neu               371
+  chicago   geaendert          49
+  chicago   verschwunden        5
+  chicago   beruehrt            1
+  detroit   geaendert       3'083
+  detroit   beruehrt        1'207
+  detroit   neu                 1
+  detroit   unveraendert        1
 </pre>
 </div>
 </div>
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Drei-Wege-Join                        7 /    6.3ms        7 /    6.3ms     1.0x
-Breiter Scan                          4 /    3.5ms        5 /    4.0ms     0.9x
-</pre>
 </div>
 </div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=2ade826b">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p><strong>Die Sichten sind nicht langsamer — teils schneller.</strong> Alle Abfragen
-liegen im niedrigen Millisekundenbereich, auch kalt. DuckDB liest Parquet
-nativ mit Projektions- und Prädikat-Pushdown; bei rund 49 MB über vier
-Tabellen gibt es keinen Dekodier-Aufwand, der sich gegen den Vorteil der Kopie
-durchsetzen würde.</p>
-<p>Der grösste Unterschied in der Tabelle liegt bei knapp einer Millisekunde. Den
-nimmt niemand wahr, der davor sitzt und tippt. Die Entscheidung fällt also
-<strong>nicht</strong> über Geschwindigkeit.</p>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=0ddbf44b">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="4.-Liefern-beide-dasselbe?">4. Liefern beide dasselbe?<a class="anchor-link" href="#4.-Liefern-beide-dasselbe?">¶</a></h2><p>Ohne diese Prüfung wäre die Messung wertlos — eine schnelle Variante, die etwas
-anderes ausrechnet, ist keine Alternative.</p>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=aa76effc">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=zelle-08">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8123,22 +8126,17 @@ anderes ausrechnet, ist keine Alternative.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In [4]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">PRUEFUNGEN</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s1">'Zeilen crime_offense'</span><span class="p">:</span> <span class="s1">'SELECT count(*) FROM crime_offense'</span><span class="p">,</span>
-    <span class="s1">'Join x Tract'</span><span class="p">:</span> <span class="s1">'''SELECT count(*), sum(f) FROM (</span>
-<span class="s1">        SELECT c.tract_geoid, count(*) f FROM crime_offense c</span>
-<span class="s1">        JOIN tract t ON c.tract_geoid = t.geoid GROUP BY 1)'''</span><span class="p">,</span>
-    <span class="s1">'Join x Wetter'</span><span class="p">:</span> <span class="s1">'''SELECT count(*) FROM crime_offense c</span>
-<span class="s1">        JOIN weather_day w ON c.city = w.city AND c.occurred_date_local = w.date</span>
-<span class="s1">        WHERE w.temp_max_c &gt; 30'''</span><span class="p">,</span>
-    <span class="s1">'Verteilung je NIBRS-Code'</span><span class="p">:</span> <span class="s1">'''SELECT nibrs_code, count(*)</span>
-<span class="s1">        FROM crime_offense GROUP BY 1 ORDER BY 1'''</span><span class="p">,</span>
-<span class="p">}</span>
-
-<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">sql</span> <span class="ow">in</span> <span class="n">PRUEFUNGEN</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-    <span class="n">a</span> <span class="o">=</span> <span class="n">duckdb</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">sichten_db</span><span class="p">),</span> <span class="n">read_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
-    <span class="n">b</span> <span class="o">=</span> <span class="n">duckdb</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">kopie_db</span><span class="p">),</span> <span class="n">read_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'  </span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s1">&lt;26</span><span class="si">}{</span><span class="s2">"identisch"</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s2">"ABWEICHUNG"</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s2">"Vergleichspaare, älteste zuerst:"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">stadt</span><span class="p">,</span> <span class="n">von</span><span class="p">,</span> <span class="n">bis</span><span class="p">,</span> <span class="n">tage</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">frage</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+<span class="s2">        SELECT city,</span>
+<span class="s2">               min(vorher_am)::DATE, max(beobachtet_am)::DATE,</span>
+<span class="s2">               datediff('day', min(vorher_am), max(beobachtet_am)),</span>
+<span class="s2">               count(*)</span>
+<span class="s2">        FROM </span><span class="si">{</span><span class="n">QUELLE</span><span class="si">}</span>
+<span class="s2">        GROUP BY city, vorher_run_id, run_id</span>
+<span class="s2">        ORDER BY 2"""</span><span class="p">):</span>
+    <span class="n">wort</span> <span class="o">=</span> <span class="s2">"Tag "</span> <span class="k">if</span> <span class="n">tage</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="s2">"Tage"</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">stadt</span><span class="si">:</span><span class="s2">9</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">von</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">bis</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">tage</span><span class="si">:</span><span class="s2">&gt;3</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">wort</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">zahl</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="si">:</span><span class="s2">&gt;6</span><span class="si">}</span><span class="s2"> Zeilen"</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -8151,31 +8149,32 @@ anderes ausrechnet, ist keine Alternative.</p>
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>  Zeilen crime_offense      identisch
-  Join x Tract              identisch
-  Join x Wetter             identisch
-  Verteilung je NIBRS-Code  identisch
+<pre>Vergleichspaare, älteste zuerst:
+  chicago   2026-09-05 -&gt; 2026-10-03   28 Tage     426 Zeilen
+  detroit   2026-09-11 -&gt; 2026-09-12    1 Tag      573 Zeilen
+  detroit   2026-09-12 -&gt; 2026-09-17    5 Tage   2'976 Zeilen
+  detroit   2026-09-17 -&gt; 2026-09-18    1 Tag      742 Zeilen
+  detroit   2026-09-18 -&gt; 2026-09-18    0 Tage       1 Zeilen
 </pre>
 </div>
 </div>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=b42ead6c">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=zelle-09">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="5.-Was-den-Ausschlag-gibt">5. Was den Ausschlag gibt<a class="anchor-link" href="#5.-Was-den-Ausschlag-gibt">¶</a></h2><p>Nicht die Geschwindigkeit, sondern drei Eigenschaften, die sich nicht messen
-lassen, sondern aus der Sache folgen:</p>
-<p><strong>Eine Kopie kann veralten.</strong> Nach einem Silver-Neubau sind Sichten sofort
-aktuell. Eine kopierte Tabelle zeigt den alten Stand, bis jemand neu importiert
-— und man sieht ihr nicht an, dass sie es tut. Die nächste Zelle zeigt das.</p>
+<h2 id="Die-Gegenprobe,-die-das-Z%C3%A4hlwerk-pr%C3%BCft">Die Gegenprobe, die das Zählwerk prüft<a class="anchor-link" href="#Die-Gegenprobe,-die-das-Z%C3%A4hlwerk-pr%C3%BCft">¶</a></h2><p>Chicagos Paar lässt sich gegen eine Zahl halten, die <strong>nicht</strong> aus dieser
+Tabelle kommt: die Zeilenzahl der beiden Bronze-Manifeste. Wenn <code>neu</code> minus
+<code>verschwunden</code> genau der Differenz entspricht, hat der Vergleich keine Zeile
+verloren und keine erfunden.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=41c51ca2">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=zelle-10">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8183,29 +8182,28 @@ aktuell. Eine kopierte Tabelle zeigt den alten Stand, bis jemand neu importiert
 <div class="jp-InputPrompt jp-InputArea-prompt">In [5]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">probe</span> <span class="o">=</span> <span class="n">ARBEIT</span> <span class="o">/</span> <span class="s1">'probe'</span>
-<span class="n">probe</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="n">quelle</span> <span class="o">=</span> <span class="n">probe</span> <span class="o">/</span> <span class="s1">'daten.parquet'</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">json</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_json</span>
 
-<span class="n">con</span> <span class="o">=</span> <span class="n">duckdb</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
-<span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"COPY (SELECT 1 AS wert) TO '</span><span class="si">{</span><span class="n">quelle</span><span class="si">}</span><span class="s2">' (FORMAT PARQUET)"</span><span class="p">)</span>
-<span class="n">con</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<span class="n">laeufe</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+    <span class="p">(</span><span class="n">DATA_ROOT</span> <span class="o">/</span> <span class="s2">"bronze"</span> <span class="o">/</span> <span class="s2">"city=chicago"</span><span class="p">)</span><span class="o">.</span><span class="n">rglob</span><span class="p">(</span><span class="s2">"manifest.json"</span><span class="p">))</span>
+<span class="n">voll</span> <span class="o">=</span> <span class="p">[</span><span class="n">_json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">laeufe</span><span class="p">]</span>
+<span class="n">voll</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">((</span><span class="n">m</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">voll</span> <span class="k">if</span> <span class="n">m</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"mode"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"full_snapshot"</span><span class="p">),</span>
+              <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">m</span><span class="p">:</span> <span class="n">m</span><span class="p">[</span><span class="s2">"started_at_utc"</span><span class="p">])</span>
 
-<span class="n">con</span> <span class="o">=</span> <span class="n">duckdb</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">probe</span> <span class="o">/</span> <span class="s1">'beide.duckdb'</span><span class="p">))</span>
-<span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CREATE VIEW als_sicht AS SELECT * FROM read_parquet('</span><span class="si">{</span><span class="n">quelle</span><span class="si">}</span><span class="s2">')"</span><span class="p">)</span>
-<span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CREATE TABLE als_kopie AS SELECT * FROM read_parquet('</span><span class="si">{</span><span class="n">quelle</span><span class="si">}</span><span class="s2">')"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s1">'vorher   Sicht:'</span><span class="p">,</span> <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">'SELECT count(*) FROM als_sicht'</span><span class="p">)</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span>
-      <span class="s1">' Kopie:'</span><span class="p">,</span> <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">'SELECT count(*) FROM als_kopie'</span><span class="p">)</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
-
-<span class="c1"># Die Quelle wird neu gebaut - so wie Silver nach einem neuen Lauf</span>
-<span class="n">con2</span> <span class="o">=</span> <span class="n">duckdb</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
-<span class="n">con2</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"COPY (SELECT * FROM range(1, 101) t(wert)) TO '</span><span class="si">{</span><span class="n">quelle</span><span class="si">}</span><span class="s2">' (FORMAT PARQUET)"</span><span class="p">)</span>
-<span class="n">con2</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="s1">'nachher  Sicht:'</span><span class="p">,</span> <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">'SELECT count(*) FROM als_sicht'</span><span class="p">)</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span>
-      <span class="s1">' Kopie:'</span><span class="p">,</span> <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">'SELECT count(*) FROM als_kopie'</span><span class="p">)</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span>
-      <span class="s1">'  &lt;- die Kopie zeigt weiter den alten Stand'</span><span class="p">)</span>
-<span class="n">con</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">voll</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"weniger als zwei Chicago-Vollabzüge - keine Gegenprobe möglich"</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">erst</span><span class="p">,</span> <span class="n">letzt</span> <span class="o">=</span> <span class="n">voll</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">voll</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">differenz</span> <span class="o">=</span> <span class="n">letzt</span><span class="p">[</span><span class="s2">"row_count"</span><span class="p">]</span> <span class="o">-</span> <span class="n">erst</span><span class="p">[</span><span class="s2">"row_count"</span><span class="p">]</span>
+    <span class="n">neu</span><span class="p">,</span> <span class="n">weg</span> <span class="o">=</span> <span class="n">frage</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+<span class="s2">        SELECT count(*) FILTER (WHERE art = 'neu'),</span>
+<span class="s2">               count(*) FILTER (WHERE art = 'verschwunden')</span>
+<span class="s2">        FROM </span><span class="si">{</span><span class="n">QUELLE</span><span class="si">}</span><span class="s2"> WHERE city = 'chicago'"""</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Schnappschuss </span><span class="si">{</span><span class="n">erst</span><span class="p">[</span><span class="s1">'started_at_utc'</span><span class="p">][:</span><span class="mi">10</span><span class="p">]</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">zahl</span><span class="p">(</span><span class="n">erst</span><span class="p">[</span><span class="s1">'row_count'</span><span class="p">])</span><span class="si">}</span><span class="s2"> Zeilen"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Schnappschuss </span><span class="si">{</span><span class="n">letzt</span><span class="p">[</span><span class="s1">'started_at_utc'</span><span class="p">][:</span><span class="mi">10</span><span class="p">]</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">zahl</span><span class="p">(</span><span class="n">letzt</span><span class="p">[</span><span class="s1">'row_count'</span><span class="p">])</span><span class="si">}</span><span class="s2"> Zeilen"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Differenz der Manifeste          : </span><span class="si">{</span><span class="n">differenz</span><span class="si">:</span><span class="s2">+d</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"neu (</span><span class="si">{</span><span class="n">neu</span><span class="si">}</span><span class="s2">) minus verschwunden (</span><span class="si">{</span><span class="n">weg</span><span class="si">}</span><span class="s2">) : </span><span class="si">{</span><span class="n">neu</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">weg</span><span class="si">:</span><span class="s2">+d</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"stimmt"</span> <span class="k">if</span> <span class="n">neu</span> <span class="o">-</span> <span class="n">weg</span> <span class="o">==</span> <span class="n">differenz</span> <span class="k">else</span> <span class="s2">"WEICHT AB"</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -8218,51 +8216,30 @@ aktuell. Eine kopierte Tabelle zeigt den alten Stand, bis jemand neu importiert
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>vorher   Sicht: 1  Kopie: 1
-nachher  Sicht: 100  Kopie: 1   &lt;- die Kopie zeigt weiter den alten Stand
+<pre>Schnappschuss 2026-09-05: 259'272 Zeilen
+Schnappschuss 2026-10-04: 171'543 Zeilen
+Differenz der Manifeste          : -87729
+neu (371) minus verschwunden (5) : +366
+WEICHT AB
 </pre>
 </div>
 </div>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=43534694">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=zelle-11">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p><strong>Eine Kopie ist eine zweite Wahrheit.</strong> Absprache 7.1 hält die
-dateibasierten Schichten als Speicher fest, DuckDB als Abfrageschicht darüber.
-Eine Kopie von Bronze oder Silver in einer veränderbaren Datei bricht das:
-Dann gibt es zwei Orte, an denen dieselbe Zahl steht, und keine Regel, welcher
-gilt.</p>
-<p><strong>Eine Kopie kostet Platz ohne Gegenwert</strong> — hier gut das 200-fache (0,3 gegen
-rund 62 MB), bei gleicher Geschwindigkeit. Den genauen Faktor rechnet die Zelle
-in Abschnitt 2 aus, statt ihn hier festzuschreiben: Er wächst mit jeder
-Silver-Tabelle, die dazukommt, und schwankt um ein paar Prozent, weil DuckDB
-seine Datei nicht byteweise gleich gross baut.</p>
+<h2 id="Der-Befund:-die-beiden-St%C3%A4dte-bewegen-sich-unterschiedlich">Der Befund: die beiden Städte bewegen sich unterschiedlich<a class="anchor-link" href="#Der-Befund:-die-beiden-St%C3%A4dte-bewegen-sich-unterschiedlich">¶</a></h2><p>Das ist die Aussage dieses Notebooks. Beide Quellen ändern ihre Vergangenheit,
+aber sie ändern <strong>verschiedene Dinge</strong> — und das ist für die Vergleichbarkeit
+beider Städte eine Eigenschaft der Quellen, nicht ein Messfehler.</p>
 </div>
 </div>
 </div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=2998acec">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="6.-Und-die-Bequemlichkeit?">6. Und die Bequemlichkeit?<a class="anchor-link" href="#6.-Und-die-Bequemlichkeit?">¶</a></h2><p>Das eigentliche Problem bei eigenen Abfragen ist nicht Tempo, sondern dass
-niemand das hier tippen will:</p>
-<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">read_parquet</span><span class="p">(</span><span class="s1">'data/silver/dataset=crime_offense/part-0001.parquet'</span><span class="p">)</span>
-</pre></div>
-<p>Genau das lösen die Sichten. Sie geben den Tabellen Namen, ohne die Daten zu
-kopieren — und <strong>eigene Tabellen gehen trotzdem</strong>, weil die Datei eine echte
-Datenbank ist.</p>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=a1dcfc97">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=zelle-12">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8270,18 +8247,26 @@ Datenbank ist.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In [6]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">con</span> <span class="o">=</span> <span class="n">duckdb</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">sichten_db</span><span class="p">))</span>
-<span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">'''CREATE OR REPLACE TABLE meine_auswertung AS</span>
-<span class="s1">    SELECT city, nibrs_description, count(*) AS faelle</span>
-<span class="s1">    FROM crime_offense WHERE nibrs_group = 'A'</span>
-<span class="s1">    GROUP BY 1, 2 ORDER BY 3 DESC'''</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s1">'eigene Tabelle:'</span><span class="p">,</span>
-      <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">'SELECT count(*) FROM meine_auswertung'</span><span class="p">)</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">'Zeilen'</span><span class="p">)</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">STEMPEL</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"detroit"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"updated_at"</span><span class="p">,</span> <span class="s2">"updated_in_ibr_at"</span><span class="p">,</span> <span class="s2">"case_status_updated_at"</span><span class="p">),</span>
+           <span class="s2">"chicago"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"updated_on"</span><span class="p">,)}</span>
 
-<span class="n">arten</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">'''SELECT table_type, count(*) FROM information_schema.tables</span>
-<span class="s1">    WHERE table_schema = 'main' GROUP BY 1'''</span><span class="p">)</span><span class="o">.</span><span class="n">fetchall</span><span class="p">())</span>
-<span class="nb">print</span><span class="p">(</span><span class="s1">'Inhalt der Datei:'</span><span class="p">,</span> <span class="n">arten</span><span class="p">,</span> <span class="s1">' &lt;- Sichten und die eigene Tabelle nebeneinander'</span><span class="p">)</span>
-<span class="n">con</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">stadt</span><span class="p">,</span> <span class="n">felder</span> <span class="ow">in</span> <span class="n">STEMPEL</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="n">liste</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="n">f</span><span class="si">}</span><span class="s2">'"</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">felder</span><span class="p">)</span>
+    <span class="n">gesamt</span><span class="p">,</span> <span class="n">stempel</span> <span class="o">=</span> <span class="n">frage</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+<span class="s2">        SELECT count(*), count(*) FILTER (WHERE feld IN (</span><span class="si">{</span><span class="n">liste</span><span class="si">}</span><span class="s2">))</span>
+<span class="s2">        FROM </span><span class="si">{</span><span class="n">QUELLE</span><span class="si">}</span><span class="s2"> WHERE city = '</span><span class="si">{</span><span class="n">stadt</span><span class="si">}</span><span class="s2">' AND feld IS NOT NULL"""</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">gesamt</span><span class="p">:</span>
+        <span class="k">continue</span>
+    <span class="n">fachlich</span> <span class="o">=</span> <span class="n">gesamt</span> <span class="o">-</span> <span class="n">stempel</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stadt</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">gesamt</span><span class="si">}</span><span class="s2"> Feldbewegungen - "</span>
+          <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stempel</span><span class="si">}</span><span class="s2"> Zeitstempel (</span><span class="si">{</span><span class="n">stempel</span><span class="o">/</span><span class="n">gesamt</span><span class="si">:</span><span class="s2">.0%</span><span class="si">}</span><span class="s2">), "</span>
+          <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">fachlich</span><span class="si">}</span><span class="s2"> fachlich (</span><span class="si">{</span><span class="n">fachlich</span><span class="o">/</span><span class="n">gesamt</span><span class="si">:</span><span class="s2">.0%</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">feld</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">frage</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+<span class="s2">            SELECT feld, count(*) FROM </span><span class="si">{</span><span class="n">QUELLE</span><span class="si">}</span>
+<span class="s2">            WHERE city = '</span><span class="si">{</span><span class="n">stadt</span><span class="si">}</span><span class="s2">' AND feld IS NOT NULL AND feld NOT IN (</span><span class="si">{</span><span class="n">liste</span><span class="si">}</span><span class="s2">)</span>
+<span class="s2">            GROUP BY 1 ORDER BY 2 DESC LIMIT 6"""</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    </span><span class="si">{</span><span class="n">feld</span><span class="si">:</span><span class="s2">26</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">n</span><span class="si">:</span><span class="s2">&gt;5</span><span class="si">}</span><span class="s2">  (</span><span class="si">{</span><span class="n">n</span><span class="o">/</span><span class="n">fachlich</span><span class="si">:</span><span class="s2">.0%</span><span class="si">}</span><span class="s2"> der fachlichen)"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -8294,39 +8279,43 @@ Datenbank ist.</p>
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>eigene Tabelle: 93 Zeilen
-Inhalt der Datei: {'VIEW': 5, 'BASE TABLE': 1}  &lt;- Sichten und die eigene Tabelle nebeneinander
+<pre>detroit: 4290 Feldbewegungen - 3353 Zeitstempel (78%), 937 fachlich (22%)
+    case_status                  653  (70% der fachlichen)
+    state_offense_code           146  (16% der fachlichen)
+    offense_description          113  (12% der fachlichen)
+    nearest_intersection           9  (1% der fachlichen)
+    offense_category               8  (1% der fachlichen)
+    council_district               1  (0% der fachlichen)
+
+chicago: 50 Feldbewegungen - 19 Zeitstempel (38%), 31 fachlich (62%)
+    arrest                        15  (48% der fachlichen)
+    fbi_code                       4  (13% der fachlichen)
+    description                    4  (13% der fachlichen)
+    iucr                           4  (13% der fachlichen)
+    primary_type                   3  (10% der fachlichen)
+    date                           1  (3% der fachlichen)
+
 </pre>
 </div>
 </div>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=f5cb070c">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=zelle-13">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="7.-Ergebnis">7. Ergebnis<a class="anchor-link" href="#7.-Ergebnis">¶</a></h2><p><strong>Entschieden: Sichten.</strong> Nicht weil sie schneller sind — das sind sie nur
-knapp —, sondern weil die Kopie auf jeder anderen Achse verliert: Sie kann
-veralten, sie ist eine zweite Wahrheit neben den Schichten, und sie kostet das
-150-fache an Platz.</p>
-<p>Gebaut wird die Datei von
-<a href="../src/crime/serving/build_analysis_db.py"><code>src/crime/serving/build_analysis_db.py</code></a>:</p>
-<div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>serving.build_analysis_db
-duckdb<span class="w"> </span>data/serving/analyse.duckdb
-</pre></div>
-<p>Sie ist abgeleitet und nicht versioniert — wie Silver selbst.</p>
-<p><strong>Grenzen dieser Messung.</strong> 412'264 Zeilen, 49 MB, warmer Betriebssystem-Cache,
-ein Rechner, ein Leser. Bei hundertfacher Datenmenge könnte die Antwort kippen;
-für dieses Projekt nicht. Und DuckDB kennt nur einen Schreiber: Legen zwei
-Personen gleichzeitig eigene Tabellen in derselben Datei an, kollidiert das —
-dann besser je eine eigene Datei mit <code>ATTACH</code>.</p>
+<h3 id="Detroit-f%C3%BChrt-den-Verfahrensstand-nach">Detroit führt den Verfahrensstand nach<a class="anchor-link" href="#Detroit-f%C3%BChrt-den-Verfahrensstand-nach">¶</a></h3><p>Die fachliche Bewegung ist fast vollständig <code>case_status</code>. Das passt zur
+Quelle: Ein Fall wird erfasst, und was sich später ändert, ist sein Stand im
+Verfahren — nicht die Tat.</p>
+<h3 id="Chicago-klassiert-um-und-tr%C3%A4gt-Verhaftungen-nach">Chicago klassiert um und trägt Verhaftungen nach<a class="anchor-link" href="#Chicago-klassiert-um-und-tr%C3%A4gt-Verhaftungen-nach">¶</a></h3><p>Hier bewegen sich die Deliktcodes selbst. Ein paar Beispiele, wörtlich aus der
+Tabelle:</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=0e465a36">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=zelle-14">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8334,8 +8323,12 @@ dann besser je eine eigene Datei mit <code>ATTACH</code>.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In [7]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">ARBEIT</span><span class="p">,</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s1">'Arbeitsverzeichnis entfernt:'</span><span class="p">,</span> <span class="n">ARBEIT</span><span class="p">)</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">for</span> <span class="n">feld</span><span class="p">,</span> <span class="n">alt</span><span class="p">,</span> <span class="n">neu</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">frage</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+<span class="s2">        SELECT feld, wert_alt, wert_neu, count(*) FROM </span><span class="si">{</span><span class="n">QUELLE</span><span class="si">}</span>
+<span class="s2">        WHERE city = 'chicago' AND feld IS NOT NULL</span>
+<span class="s2">        GROUP BY 1, 2, 3 ORDER BY 4 DESC, 1 LIMIT 12"""</span><span class="p">):</span>
+    <span class="n">mal</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"  (</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">x)"</span> <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="s2">""</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">feld</span><span class="si">:</span><span class="s2">20</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">alt</span><span class="p">)[:</span><span class="mi">30</span><span class="p">]</span><span class="si">!r:</span><span class="s2">34</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">neu</span><span class="p">)[:</span><span class="mi">30</span><span class="p">]</span><span class="si">!r}{</span><span class="n">mal</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -8348,8 +8341,642 @@ dann besser je eine eigene Datei mit <code>ATTACH</code>.</p>
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Arbeitsverzeichnis entfernt: &lt;tmp&gt;/serving-eval-z1eoho3m
+<pre>  arrest               'false'                            -&gt; 'true'  (13x)
+  arrest               'true'                             -&gt; 'false'  (2x)
+  fbi_code             '17'                               -&gt; '02'  (2x)
+  updated_on           '2025-05-17T15:40:52.000'          -&gt; '2026-09-11T15:43:20.000'  (2x)
+  date                 '2024-05-12T12:00:00.000'          -&gt; '2024-01-04T00:00:00.000'
+  description          'AGGRAVATED CRIMINAL SEXUAL ABU'   -&gt; 'NON-AGGRAVATED'
+  description          'AGGRAVATED SEXUAL ASSAULT OF C'   -&gt; 'AGGRAVATED OF A CHILD'
+  description          'AGGRAVATED CRIMINAL SEXUAL ABU'   -&gt; 'SEXUAL ASSAULT OF CHILD BY FAM'
+  description          'ATTEMPT AGGRAVATED - HANDGUN'     -&gt; 'AGGRAVATED - HANDGUN'
+  fbi_code             '02'                               -&gt; '04A'
+  fbi_code             '02'                               -&gt; '04B'
+  iucr                 '1752'                             -&gt; '1753'
 </pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=zelle-15">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<p><code>arrest</code> von <code>false</code> auf <code>true</code> heisst: Die Verhaftung kam nach der Erfassung.
+Sie geht aber auch in die andere Richtung — ein Haftvermerk wird
+zurückgenommen. Beide Richtungen getrennt gezählt, und danach die Frage, ob
+sich die drei Deliktcodes <strong>gemeinsam</strong> bewegen oder einzeln. Einzeln wäre ein
+Widerspruch in der Quelle: <code>primary_type</code>, <code>iucr</code> und <code>fbi_code</code> codieren
+dieselbe Tat auf drei Weisen.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=zelle-16">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [8]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">hin</span><span class="p">,</span> <span class="n">zurueck</span> <span class="o">=</span> <span class="n">frage</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+<span class="s2">    SELECT count(*) FILTER (WHERE wert_alt = 'false' AND wert_neu = 'true'),</span>
+<span class="s2">           count(*) FILTER (WHERE wert_alt = 'true' AND wert_neu = 'false')</span>
+<span class="s2">    FROM </span><span class="si">{</span><span class="n">QUELLE</span><span class="si">}</span><span class="s2"> WHERE feld = 'arrest'"""</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"arrest: </span><span class="si">{</span><span class="n">hin</span><span class="si">}</span><span class="s2">x false -&gt; true (Verhaftung nachgetragen), "</span>
+      <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">zurueck</span><span class="si">}</span><span class="s2">x true -&gt; false (zurueckgenommen)"</span><span class="p">)</span>
+
+<span class="n">CODES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"primary_type"</span><span class="p">,</span> <span class="s2">"iucr"</span><span class="p">,</span> <span class="s2">"fbi_code"</span><span class="p">,</span> <span class="s2">"description"</span><span class="p">)</span>
+<span class="n">liste</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="n">f</span><span class="si">}</span><span class="s2">'"</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">CODES</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Chicago-Delikte nach Zahl gleichzeitig bewegter Deliktcodes:"</span><span class="p">)</span>
+<span class="n">verteilung</span> <span class="o">=</span> <span class="n">frage</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+<span class="s2">    SELECT anzahl, count(*) FROM (</span>
+<span class="s2">        SELECT offense_id, count(DISTINCT feld) AS anzahl FROM </span><span class="si">{</span><span class="n">QUELLE</span><span class="si">}</span>
+<span class="s2">        WHERE city = 'chicago' AND feld IN (</span><span class="si">{</span><span class="n">liste</span><span class="si">}</span><span class="s2">) GROUP BY 1)</span>
+<span class="s2">    GROUP BY 1 ORDER BY 1"""</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">wieviele</span><span class="p">,</span> <span class="n">delikte</span> <span class="ow">in</span> <span class="n">verteilung</span><span class="p">:</span>
+    <span class="n">wort</span> <span class="o">=</span> <span class="s2">"Delikt"</span> <span class="k">if</span> <span class="n">delikte</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="s2">"Delikte"</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">wieviele</span><span class="si">}</span><span class="s2"> von </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">CODES</span><span class="p">)</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">delikte</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">wort</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">verteilung</span><span class="p">:</span>
+    <span class="n">einzeln</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">n</span> <span class="k">for</span> <span class="n">w</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">verteilung</span> <span class="k">if</span> <span class="n">w</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">gruppe</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">n</span> <span class="k">for</span> <span class="n">w</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">verteilung</span> <span class="k">if</span> <span class="n">w</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">  </span><span class="si">{</span><span class="n">gruppe</span><span class="si">}</span><span class="s2"> Delikte bewegten mehrere Codes gemeinsam, "</span>
+          <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">einzeln</span><span class="si">}</span><span class="s2"> nur einen einzelnen."</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"  -&gt; die Codes beschreiben dieselbe Umklassierung"</span> <span class="k">if</span> <span class="n">gruppe</span> <span class="o">&gt;</span> <span class="n">einzeln</span>
+          <span class="k">else</span> <span class="s2">"  -&gt; die Codes bewegen sich unabhaengig - das waere ein Widerspruch"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>arrest: 13x false -&gt; true (Verhaftung nachgetragen), 2x true -&gt; false (zurueckgenommen)
+
+Chicago-Delikte nach Zahl gleichzeitig bewegter Deliktcodes:
+  3 von 4: 1 Delikt
+  4 von 4: 3 Delikte
+
+  4 Delikte bewegten mehrere Codes gemeinsam, 0 nur einen einzelnen.
+  -&gt; die Codes beschreiben dieselbe Umklassierung
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=zelle-17">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<p><strong>Eine Bewegung verdient besondere Aufmerksamkeit:</strong> Wenn sich <code>date</code> selbst
+ändert, verschiebt sich die Tat in der Zeit. Jede Zeitreihe, jede Monatszelle
+in Gold und jede Rate je 1'000 Einwohner für diesen Monat ist davon betroffen.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=zelle-18">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [9]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">treffer</span> <span class="o">=</span> <span class="n">frage</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+<span class="s2">    SELECT city, offense_id, wert_alt, wert_neu FROM </span><span class="si">{</span><span class="n">QUELLE</span><span class="si">}</span>
+<span class="s2">    WHERE feld IN ('date', 'incident_occurred_at')"""</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">treffer</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">stadt</span><span class="p">,</span> <span class="n">delikt</span><span class="p">,</span> <span class="n">alt</span><span class="p">,</span> <span class="n">neu</span> <span class="ow">in</span> <span class="n">treffer</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">stadt</span><span class="si">:</span><span class="s2">9</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">delikt</span><span class="si">:</span><span class="s2">16</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">alt</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">neu</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"keine Verschiebung des Tatzeitpunkts in den verglichenen Paaren"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  chicago   14175688         2024-05-12T12:00:00.000 -&gt; 2024-01-04T00:00:00.000
+  detroit   1162633-2201     1722568440000 -&gt; 1721963640000
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=zelle-19">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="Wann-die-%C3%84nderungen-sichtbar-wurden">Wann die Änderungen sichtbar wurden<a class="anchor-link" href="#Wann-die-%C3%84nderungen-sichtbar-wurden">¶</a></h2><p>Das ist der Teil, den die Vollabzüge allein nicht hergeben.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=zelle-20">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [10]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s2">"Datierung je Stadt:"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">stadt</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">frage</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+<span class="s2">        SELECT city, coalesce(datierung, 'ohne Schluessel'), count(*)</span>
+<span class="s2">        FROM </span><span class="si">{</span><span class="n">QUELLE</span><span class="si">}</span><span class="s2"> GROUP BY 1, 2 ORDER BY 1, 3 DESC"""</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">stadt</span><span class="si">:</span><span class="s2">9</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">d</span><span class="si">:</span><span class="s2">18</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">zahl</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="si">:</span><span class="s2">&gt;6</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Auf welches Delta datiert, und wie weit vor dem Vollabzug:"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">lauf</span><span class="p">,</span> <span class="n">am</span><span class="p">,</span> <span class="n">bis</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">frage</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+<span class="s2">        SELECT zuerst_gesehen_in, min(zuerst_gesehen_am)::DATE,</span>
+<span class="s2">               max(beobachtet_am)::DATE, count(*)</span>
+<span class="s2">        FROM </span><span class="si">{</span><span class="n">QUELLE</span><span class="si">}</span><span class="s2"> WHERE datierung = 'delta'</span>
+<span class="s2">        GROUP BY 1 ORDER BY 2"""</span><span class="p">):</span>
+    <span class="n">tage</span> <span class="o">=</span> <span class="p">(</span><span class="n">bis</span> <span class="o">-</span> <span class="n">am</span><span class="p">)</span><span class="o">.</span><span class="n">days</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">lauf</span><span class="p">[:</span><span class="mi">26</span><span class="p">]</span><span class="si">:</span><span class="s2">28</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">am</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">tage</span><span class="si">:</span><span class="s2">&gt;3</span><span class="si">}</span><span class="s2"> Tage vor dem Vollabzug  "</span>
+          <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">zahl</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="si">:</span><span class="s2">&gt;5</span><span class="si">}</span><span class="s2"> Zeilen"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>Datierung je Stadt:
+  chicago   delta                 377
+  chicago   kein_delta             49
+  detroit   nicht_datierbar     4'291
+  detroit   ohne Schluessel         1
+
+Auf welches Delta datiert, und wie weit vor dem Vollabzug:
+  run_20260905T175700006411Z   2026-09-05   28 Tage vor dem Vollabzug      2 Zeilen
+  run_20260917T192742350084Z   2026-09-17   16 Tage vor dem Vollabzug    369 Zeilen
+  run_20260918T115754604486Z   2026-09-18   15 Tage vor dem Vollabzug      6 Zeilen
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=zelle-21">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h3 id="Warum-Detroit-nichts-datiert">Warum Detroit nichts datiert<a class="anchor-link" href="#Warum-Detroit-nichts-datiert">¶</a></h3><p>Nicht weil die Datierung versagt, sondern weil Detroits Deltas im falschen
+Moment liefen: Sein letztes Vergleichsfenster endet am 18.9. um 11:02, und das
+früheste der drei Deltas kam um 11:08 — sechs Minuten zu spät, und die beiden
+anderen noch später. Kein Delta liegt in einem Fenster, also ist nichts
+datierbar. Mit dem Monatstakt löst sich das von selbst.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=zelle-22">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [11]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">fenster</span> <span class="o">=</span> <span class="n">frage</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+<span class="s2">    SELECT DISTINCT city, vorher_am, beobachtet_am FROM </span><span class="si">{</span><span class="n">QUELLE</span><span class="si">}</span>
+<span class="s2">    ORDER BY 1, 2"""</span><span class="p">)</span>
+<span class="n">treffer</span> <span class="o">=</span> <span class="n">frage</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+<span class="s2">    SELECT DISTINCT city, zuerst_gesehen_am FROM </span><span class="si">{</span><span class="n">QUELLE</span><span class="si">}</span>
+<span class="s2">    WHERE zuerst_gesehen_am IS NOT NULL ORDER BY 1, 2"""</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Fenster:"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">stadt</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">fenster</span><span class="p">:</span>
+    <span class="n">drin</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">am</span> <span class="ow">in</span> <span class="n">treffer</span> <span class="k">if</span> <span class="n">s</span> <span class="o">==</span> <span class="n">stadt</span> <span class="ow">and</span> <span class="n">a</span> <span class="o">&lt;</span> <span class="n">am</span> <span class="o">&lt;=</span> <span class="n">b</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">stadt</span><span class="si">:</span><span class="s2">9</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">a</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">   getroffene Deltas: </span><span class="si">{</span><span class="n">drin</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>Fenster:
+  chicago   2026-09-05 17:46:33 -&gt; 2026-10-03 09:30:47   getroffene Deltas: 3
+  detroit   2026-09-11 12:48:52 -&gt; 2026-09-12 09:33:12   getroffene Deltas: 0
+  detroit   2026-09-12 09:33:12 -&gt; 2026-09-17 19:27:46   getroffene Deltas: 0
+  detroit   2026-09-17 19:27:46 -&gt; 2026-09-18 07:51:28   getroffene Deltas: 0
+  detroit   2026-09-18 07:51:28 -&gt; 2026-09-18 11:02:03   getroffene Deltas: 0
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=zelle-23">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="Was-verschwindet">Was verschwindet<a class="anchor-link" href="#Was-verschwindet">¶</a></h2><p><code>verschwunden</code> heisst: Der Schlüssel stand im älteren Vollschnappschuss und
+steht im neueren nicht mehr. Für eine Abgabe ist das die unangenehmste Art von
+Bewegung — eine Zahl, die einmal berichtet wurde, lässt sich nicht mehr
+reproduzieren, wenn die Quelle den Fall zurückgezogen hat.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=zelle-24">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [12]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">weg</span> <span class="o">=</span> <span class="n">frage</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+<span class="s2">    SELECT city, offense_id, vorher_am::DATE, beobachtet_am::DATE</span>
+<span class="s2">    FROM </span><span class="si">{</span><span class="n">QUELLE</span><span class="si">}</span><span class="s2"> WHERE art = 'verschwunden' ORDER BY 1, 2"""</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">weg</span><span class="p">)</span><span class="si">}</span><span class="s2"> verschwundene Delikte"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">stadt</span><span class="p">,</span> <span class="n">delikt</span><span class="p">,</span> <span class="n">von</span><span class="p">,</span> <span class="n">bis</span> <span class="ow">in</span> <span class="n">weg</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">stadt</span><span class="si">:</span><span class="s2">9</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">delikt</span><span class="si">:</span><span class="s2">16</span><span class="si">}</span><span class="s2"> zwischen </span><span class="si">{</span><span class="n">von</span><span class="si">}</span><span class="s2"> und </span><span class="si">{</span><span class="n">bis</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>5 verschwundene Delikte
+  chicago   13470459         zwischen 2026-09-05 und 2026-10-03
+  chicago   13502026         zwischen 2026-09-05 und 2026-10-03
+  chicago   13595441         zwischen 2026-09-05 und 2026-10-03
+  chicago   13714905         zwischen 2026-09-05 und 2026-10-03
+  chicago   14286399         zwischen 2026-09-05 und 2026-10-03
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=zelle-25">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="Was-die-Tabelle-kostet-%E2%80%94-und-was-sie-ersetzt">Was die Tabelle kostet — und was sie ersetzt<a class="anchor-link" href="#Was-die-Tabelle-kostet-%E2%80%94-und-was-sie-ersetzt">¶</a></h2><p>Das ist das Argument, aus dem sie entstanden ist. <code>docs/intern/datenhistorie.md</code>
+hat vorgerechnet, was beim Aufräumen verlorengeht: <strong>31,9 MB Schnappschüsse für
+102 geänderte Zeilen.</strong> Die Tabelle zieht den Unterschied heraus, bevor die
+Läufe entbehrlich werden.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=zelle-26">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [13]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">bronze</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span>
+             <span class="k">for</span> <span class="n">stadt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"chicago"</span><span class="p">,</span> <span class="s2">"detroit"</span><span class="p">)</span>
+             <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="p">(</span><span class="n">DATA_ROOT</span> <span class="o">/</span> <span class="s2">"bronze"</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"city=</span><span class="si">{</span><span class="n">stadt</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span><span class="o">.</span><span class="n">rglob</span><span class="p">(</span><span class="s2">"*.parquet"</span><span class="p">))</span>
+<span class="n">tabelle</span> <span class="o">=</span> <span class="n">TABELLE</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Bronze-Läufe beider Städte: </span><span class="si">{</span><span class="n">bronze</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">1_048_576</span><span class="si">:</span><span class="s2">&gt;8.1f</span><span class="si">}</span><span class="s2"> MB"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"silver/source_change      : </span><span class="si">{</span><span class="n">tabelle</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">1_048_576</span><span class="si">:</span><span class="s2">&gt;8.1f</span><span class="si">}</span><span class="s2"> MB"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Verhältnis                : </span><span class="si">{</span><span class="n">bronze</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">tabelle</span><span class="si">:</span><span class="s2">&gt;8.0f</span><span class="si">}</span><span class="s2"> : 1"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>Bronze-Läufe beider Städte:    256.1 MB
+silver/source_change      :      0.1 MB
+Verhältnis                :     2831 : 1
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=zelle-27">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="Was-beim-Aufr%C3%A4umen-%C3%BCberlebt-%E2%80%94-und-wodurch">Was beim Aufräumen überlebt — und wodurch<a class="anchor-link" href="#Was-beim-Aufr%C3%A4umen-%C3%BCberlebt-%E2%80%94-und-wodurch">¶</a></h2><p>Bis hierher ging es darum, <strong>wie</strong> Änderungen gefunden werden. Dieser
+Abschnitt beantwortet die andere Frage, und sie ist die, die aus einem
+Differenzbericht eine Historisierung macht: <em>Bleibt das erhalten, wenn die
+Raw- und Bronze-Läufe gelöscht werden?</em></p>
+<p>Denn das ist das Ziel. Aufräumen ist eine Phase des Lebenszyklus, kein Unfall.
+<code>docs/intern/datenhistorie.md</code> hat vorgerechnet, was auf dem Spiel steht:
+<strong>31,9 MB Schnappschüsse für 102 geänderte Zeilen.</strong> Diese Tabelle zieht den
+Unterschied heraus, <em>bevor</em> die Läufe entbehrlich werden.</p>
+<p><strong>Die Tabelle ist append-only.</strong> Was einmal herausgezogen ist, bleibt stehen,
+auch wenn der Rohstoff weg ist. Ein Test hält das fest: bauen, den Lauf
+löschen, neu bauen — die Zeilenzahl muss gleich bleiben. Und
+<code>orchestration.aufraeumen</code> fasst ausschliesslich Raw und Bronze an; Silber
+räumt es nie auf.</p>
+<p><strong>Die Datierung klebt.</strong> Sie nennt den besten Befund, der je bestimmt wurde,
+nicht den heutigen. Ein aufgeräumtes Delta löscht sie nicht mehr. Ohne diese
+Eigenschaft hätte das Aufräumen die Datierung mitgenommen — die Änderungszeile
+wäre geblieben, ihr Zeitpunkt weg.</p>
+<p><strong>Wo sie liegt:</strong> <code>data/silver/dataset=source_change/</code>, dazu im hybrid-Modus
+auf SeaweedFS. Nicht in Git — <code>data/</code> ist aus der Versionierung ausgeschlossen.</p>
+<h3 id="Die-Regeln,-die-halten">Die Regeln, die halten<a class="anchor-link" href="#Die-Regeln,-die-halten">¶</a></h3><p>Zwei davon betreffen diese Tabelle unmittelbar:</p>
+<p><strong>Regel 4 — dessen Unterschied noch nicht gezogen ist, bleibt.</strong> Ein
+Vollschnappschuss trägt mehr als seinen Inhalt: Gegen seinen Vorgänger
+gehalten sagt er, <em>was die Quelle geändert hat</em>. Bis das herausgezogen ist,
+ist er unersetzlich. <code>aufraeumen</code> fragt dafür <code>build_source_change</code> direkt —
+und fällt die Auskunft aus, gibt es <strong>keine</strong> Freigabe, sondern eine leere
+Menge. Die Regel darf nur zusätzlich halten, nie zusätzlich löschen.</p>
+<p><strong>Regel 0 — gepinnt bleibt.</strong> Ein Lauf, auf den sich eine veröffentlichte Zahl
+bezieht, steht in <code>config/referenzstand.csv</code> und wird nie aufgeräumt. Das ist
+der Grund, warum eine Zahl in einer Abgabe reproduzierbar bleibt, auch wenn
+die Strecke längst weitergelaufen ist. Bereits gepinnte Läufe behalten dabei
+ihren <strong>ersten</strong> Grund — ein neuer Pin überschreibt den alten nicht.</p>
+<p>Unten steht, was die Regeln heute je Lauf entscheiden. Gelöscht wird dabei
+nichts; der Bericht zeigt nur.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=zelle-28">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [14]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">orchestration.aufraeumen</span><span class="w"> </span><span class="kn">import</span> <span class="n">bericht</span>
+
+<span class="c1"># Zweimal: einmal wie es gilt, einmal ohne die Pins. Sonst steht ueberall</span>
+<span class="c1"># "Referenzstand" und man sieht nicht, welche Regel sonst greifen wuerde -</span>
+<span class="c1"># eine Vorfuehrung, in der nur ein Grund vorkommt, fuehrt nichts vor.</span>
+<span class="n">mit</span> <span class="o">=</span> <span class="n">bericht</span><span class="p">(</span><span class="n">DATA_ROOT</span><span class="p">,</span> <span class="n">PROJECT_ROOT</span> <span class="o">/</span> <span class="s2">"config"</span><span class="p">)</span>
+<span class="n">ohne</span> <span class="o">=</span> <span class="p">{</span><span class="n">e</span><span class="o">.</span><span class="n">bestand</span><span class="o">.</span><span class="n">run_id</span><span class="p">:</span> <span class="n">e</span><span class="o">.</span><span class="n">grund</span>
+        <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">bericht</span><span class="p">(</span><span class="n">DATA_ROOT</span><span class="p">,</span> <span class="kc">None</span><span class="p">)}</span>
+
+<span class="n">nach_quelle</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">mit</span><span class="p">:</span>
+    <span class="n">nach_quelle</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">bestand</span><span class="o">.</span><span class="n">quelle</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="s1">'Lauf'</span><span class="si">:</span><span class="s2">28</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">'gilt'</span><span class="si">:</span><span class="s2">16</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">'ohne die Pins'</span><span class="si">:</span><span class="s2">28</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">quelle</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">nach_quelle</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="si">{</span><span class="n">quelle</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">nach_quelle</span><span class="p">[</span><span class="n">quelle</span><span class="p">]:</span>
+        <span class="n">gilt</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">grund</span> <span class="ow">or</span> <span class="s2">"ENTBEHRLICH"</span>
+        <span class="n">sonst</span> <span class="o">=</span> <span class="n">ohne</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">bestand</span><span class="o">.</span><span class="n">run_id</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">"ENTBEHRLICH"</span>
+        <span class="n">zeiger</span> <span class="o">=</span> <span class="s2">"  &lt;-- nur der Pin haelt ihn"</span> <span class="k">if</span> <span class="p">(</span>
+            <span class="n">e</span><span class="o">.</span><span class="n">bleibt</span> <span class="ow">and</span> <span class="n">sonst</span> <span class="o">==</span> <span class="s2">"ENTBEHRLICH"</span><span class="p">)</span> <span class="k">else</span> <span class="s2">""</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">bestand</span><span class="o">.</span><span class="n">run_id</span><span class="p">[:</span><span class="mi">24</span><span class="p">]</span><span class="si">:</span><span class="s2">26</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">gilt</span><span class="si">:</span><span class="s2">16</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">sonst</span><span class="si">:</span><span class="s2">28</span><span class="si">}{</span><span class="n">zeiger</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="n">bleibt</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">mit</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">bleibt</span><span class="p">)</span>
+<span class="n">frei_ohne</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">ohne</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">if</span> <span class="n">g</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">mit</span><span class="p">)</span><span class="si">}</span><span class="s2"> Laeufe: </span><span class="si">{</span><span class="n">bleibt</span><span class="si">}</span><span class="s2"> gehalten, </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">mit</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">bleibt</span><span class="si">}</span><span class="s2"> entbehrlich."</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Ohne die Pins waeren </span><span class="si">{</span><span class="n">frei_ohne</span><span class="si">}</span><span class="s2"> entbehrlich - der Unterschied ist das,"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"was der Referenzstand traegt."</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>Lauf                         gilt             ohne die Pins               
+
+city=chicago
+   run_20261004T16405216397   juengster Lauf   juengster Lauf              
+   run_20261004T16384191642   vorheriger Schnappschuss vorheriger Schnappschuss    
+   run_20261004T16383941762   von Silver genannt von Silver genannt          
+   run_20261004T16370291202   von Silver genannt von Silver genannt          
+   run_20261004T16353231337   von Silver genannt von Silver genannt          
+   run_20261004T16341668914   von Silver genannt von Silver genannt          
+   run_20261003T09304759419   Referenzstand    von Silver genannt          
+   run_20260918T14330025301   Referenzstand    ENTBEHRLICH                   &lt;-- nur der Pin haelt ihn
+   run_20260918T11575460448   Referenzstand    ENTBEHRLICH                   &lt;-- nur der Pin haelt ihn
+   run_20260918T07512461941   Referenzstand    ENTBEHRLICH                   &lt;-- nur der Pin haelt ihn
+   run_20260917T19274235008   Referenzstand    ENTBEHRLICH                   &lt;-- nur der Pin haelt ihn
+   run_20260906T09071443958   Referenzstand    ENTBEHRLICH                   &lt;-- nur der Pin haelt ihn
+   run_20260905T17570000641   Referenzstand    ENTBEHRLICH                   &lt;-- nur der Pin haelt ihn
+   run_20260905T17463385925   Referenzstand    ENTBEHRLICH                   &lt;-- nur der Pin haelt ihn
+
+city=detroit
+   1bb719a8-3362-4099-bf47-   juengster Lauf   juengster Lauf              
+   8f8264d7-dccf-4e3d-b197-   vorheriger Schnappschuss vorheriger Schnappschuss    
+   7c206084-5d45-4c23-91b0-   von Silver genannt von Silver genannt          
+   2c609be9-7c3a-44c0-be5d-   von Silver genannt von Silver genannt          
+   e3b71d4a-b6bc-4681-b9c9-   von Silver genannt von Silver genannt          
+   72aa3aa5-45b8-47c8-9cd2-   von Silver genannt von Silver genannt          
+   3336f2f8-5065-407d-aa57-   Referenzstand    von Silver genannt          
+   26b4c584-928c-4e7e-9251-   Referenzstand    von Silver genannt          
+   95b3eb71-032d-4e78-9e14-   Referenzstand    von Silver genannt          
+   dd30275a-e870-4b3d-af0e-   Referenzstand    von Silver genannt          
+   b0f035bb-cfab-4839-bd6f-   Referenzstand    ENTBEHRLICH                   &lt;-- nur der Pin haelt ihn
+   8031e9c2-a79c-4950-aac6-   Referenzstand    ENTBEHRLICH                   &lt;-- nur der Pin haelt ihn
+   1d879a0e-2398-4dcb-b59f-   Referenzstand    ENTBEHRLICH                   &lt;-- nur der Pin haelt ihn
+   1cca323d-5f8f-4b5a-abe9-   Referenzstand    ENTBEHRLICH                   &lt;-- nur der Pin haelt ihn
+
+dataset=acs5_tract
+   run_20261004T16503069618   juengster Lauf   juengster Lauf              
+   run_20261004T16502699504   vorheriger Schnappschuss vorheriger Schnappschuss    
+   run_20261004T16502218096   von Silver genannt von Silver genannt          
+   run_20260906T12150739285   Referenzstand    von Silver genannt          
+
+dataset=noaa_ghcnd
+   run_20261004T16503453429   juengster Lauf   juengster Lauf              
+   run_20260917T19303678382   Referenzstand    vorheriger Schnappschuss    
+   run_20260908T20121778438   Referenzstand    ENTBEHRLICH                   &lt;-- nur der Pin haelt ihn
+
+dataset=tiger_place
+   run_20261004T16502005303   juengster Lauf   juengster Lauf              
+   run_20261004T16501787526   vorheriger Schnappschuss vorheriger Schnappschuss    
+   run_20261004T16501558060   von Silver genannt von Silver genannt          
+   run_20260912T05155739532   Referenzstand    von Silver genannt          
+
+dataset=tiger_tract
+   run_20261004T16501217143   juengster Lauf   juengster Lauf              
+   run_20261004T16500837206   vorheriger Schnappschuss vorheriger Schnappschuss    
+   run_20261004T16500573191   von Silver genannt von Silver genannt          
+   run_20260906T12150481496   Referenzstand    von Silver genannt          
+
+43 Laeufe: 43 gehalten, 0 entbehrlich.
+Ohne die Pins waeren 12 entbehrlich - der Unterschied ist das,
+was der Referenzstand traegt.
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=zelle-29">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h3 id="Was-die-Tabelle-oben-verr%C3%A4t-%E2%80%94-und-was-dagegen-spricht,-sie-zu-glauben">Was die Tabelle oben verrät — und was dagegen spricht, sie zu glauben<a class="anchor-link" href="#Was-die-Tabelle-oben-verr%C3%A4t-%E2%80%94-und-was-dagegen-spricht,-sie-zu-glauben">¶</a></h3><p>Zwei Dinge fallen auf, und beide sind unbequem.</p>
+<p><strong>Regel 4 kommt nicht vor.</strong> Kein Lauf wird gehalten, weil sein Unterschied
+noch nicht gezogen wäre — er ist überall gezogen. Die Regel, die diese Tabelle
+schützt, ist also momentan wirkungslos; sie wird erst sichtbar, wenn ein neuer
+Vollabzug lädt und <code>build_source_change</code> noch nicht gelaufen ist.</p>
+<p><strong>Die Pins halten heute nichts, was nicht ohnehin gehalten würde.</strong> Ohne sie
+wäre genau derselbe eine Lauf entbehrlich. Der Grund steht in der rechten
+Spalte: Fast alles trägt <em>„von Silver genannt"</em>. Silber entdoppelt über
+<strong>alle</strong> Läufe und nennt sie deshalb alle in seinem <code>derived_from</code> — und Regel
+2 hält, was Silber nennt.</p>
+<p>Daraus folgt etwas, das dieses Notebook nicht auflösen kann: <strong>Für die beiden
+Kriminalitätsquellen lässt sich derzeit praktisch nichts aufräumen.</strong> Von 22
+Läufen ist einer entbehrlich, 24,5 MB, und der gehört NOAA. Die Rechnung
+<em>„31,9 MB Schnappschüsse für 102 geänderte Zeilen"</em> beschreibt, was man
+<em>gewinnen könnte</em> — eingelöst ist sie nicht.</p>
+<p>Wer das ändern will, muss an Regel 2 oder an Silber: Solange Silber jeden Lauf
+liest, hält Regel 2 jeden Lauf. Ein Silber, das vom letzten Vollabzug plus den
+Deltas danach baut, bräuchte die älteren nicht mehr — und erst dann trägt der
+Referenzstand wirklich etwas, nämlich die Läufe hinter einer abgegebenen Zahl.</p>
+<p>Bis dahin ist die Lage: Die Änderungsgeschichte <strong>ist</strong> gesichert und würde ein
+Aufräumen überleben. Nur findet das Aufräumen noch nicht statt.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=zelle-30">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h3 id="Was-nicht-%C3%BCberlebt">Was nicht überlebt<a class="anchor-link" href="#Was-nicht-%C3%BCberlebt">¶</a></h3><p>Drei Dinge, ausdrücklich:</p>
+<ol>
+<li><strong>Ein Unterschied, der nie gezogen wurde.</strong> Löscht man einen
+Vollschnappschuss, bevor <code>build_source_change</code> gelaufen ist, ist er weg —
+deshalb gibt es Regel 4. Sie ist die einzige Regel, die von allein vergeht:
+Ein Lauf, den sie hält, wird durch einen Befehl frei.</li>
+<li><strong>Die Möglichkeit, den Vergleich nachzurechnen.</strong> Die Tabelle sagt, <em>was</em>
+sich geändert hat. Sie erlaubt nicht, den Schnappschuss zu rekonstruieren,
+aus dem sie entstand. Wer eine Zahl auf den Rohbestand zurückführen will,
+braucht den Lauf — und dafür ist der Referenzstand da.</li>
+<li><strong>Nichts von den Zeilen selbst.</strong> Ein Delikt, das die Quelle
+zurückgezogen hat, bleibt in Silber stehen: Es entdoppelt, es löscht nicht.
+Gold zählt es mit. Dass die Quelle es zurückzog, steht nur hier in
+<code>source_change</code> — die fünf Chicago-Fälle oben sind genau dieser Fall.</li>
+</ol>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=zelle-31">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="Die-Grenzen,-ausdr%C3%BCcklich">Die Grenzen, ausdrücklich<a class="anchor-link" href="#Die-Grenzen,-ausdr%C3%BCcklich">¶</a></h2><ol>
+<li><strong>Gefunden wird nur zwischen Vollabzügen.</strong> Aus einem Delta liesse sich
+<em>verschwunden</em> nicht von <em>ruhig</em> unterscheiden: Eine Zeile, die nicht darin
+steht, ist entweder unverändert oder gelöscht. Seit dem 3.10.2026 gilt
+deshalb ein Vollschnappschuss je Stadt und Monat. Die Deltas <strong>datieren</strong>
+das Gefundene, sie finden nichts.</li>
+<li><strong>Ein Delta sieht nur, was die Quelle gemeldet hat.</strong> Seine Auswahl läuft
+über das Stempelfeld. Gemessen an den Vollabzügen, die beides sehen, hätte
+ein Delta 99 % von Detroits und 100 % von Chicagos Inhaltsänderungen
+gefunden — die acht Ausnahmen sind alle <code>nearest_intersection</code>, dieselbe
+Korrektur bei mehreren Delikten, ohne dass ein Stempel sich bewegte. Das
+sieht nach einer Neuberechnung auf Quellseite aus. Deshalb datieren die
+Deltas nur und entscheiden nichts.</li>
+<li><strong>Nur was zwischen zwei Aufnahmen sichtbar ist.</strong> Zwei Änderungen im
+Intervall fallen auf eine zusammen, und eine Änderung samt ihrer Rücknahme
+ist unsichtbar. Das liegt in der Natur des Schnappschussvergleichs. Die
+Datierung mildert es: Sie nennt die <strong>erste</strong> Sichtung, nicht die letzte.</li>
+<li><strong>Die Fenster sind kurz und ungleich</strong> — Detroit sieben Tage, Chicago 28.
+Eine Rate „Änderungen je Monat" liesse sich daraus rechnen und wäre
+irreführend, weil Detroits Fenster vier Mal kürzer ist.</li>
+<li><strong>Was nicht aufgezeichnet wird, fehlt hier auch</strong>: Detroits <code>ESRI_OID</code> als
+Rauschen, und reine Leerzeichenänderungen durch das Trimmen. Beides mit
+Begründung — siehe den Modulkopf von <code>build_source_change</code>.</li>
+<li><strong>Chicagos <code>rauschen</code> ist leer, und das ist gemessen</strong>: <code>location</code>,
+<code>latitude</code>, <code>longitude</code> und <code>_extra</code> bewegten sich im Paar 5.9./3.10. nicht,
+obwohl <code>location</code> die Koordinaten doppelt führt.</li>
+</ol>
+<p>Mit jedem Monat kommt je Stadt ein Paar hinzu, und mit den Deltas dazwischen
+wird jede gefundene Änderung auf Tage statt auf Wochen datiert. Die Fragen,
+die dieses Notebook heute nicht beantworten kann — wie schnell sich ein
+Jahrgang stabilisiert, ob Umklassierungen eine Richtung haben, ob Löschungen
+ein Muster zeigen — werden damit beantwortbar, nicht mit einer besseren
+Abfrage.</p>
+<p>Die Datierung rechnet sich bei jedem Bau neu. Was heute <code>nicht_datierbar</code>
+heisst, wird es nicht bleiben: Sobald ein Delta zwischen zwei Vollabzügen
+liegt, sind die betroffenen Zeilen nachträglich datiert, ohne dass eine
+Tatsachenspalte sich bewegt.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=analyse-abschluss-hinweis">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="Analyse-beenden">Analyse beenden<a class="anchor-link" href="#Analyse-beenden">¶</a></h2><p>Gibt die Sperre frei und schliesst die Analyseverbindung.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=analyse-abschluss">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [15]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">analyse</span><span class="o">.</span><span class="n">beenden</span><span class="p">()</span>
+</pre></div>
 </div>
 </div>
 </div>

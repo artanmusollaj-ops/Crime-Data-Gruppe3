@@ -5,6 +5,12 @@
 # sich eine Zeile Docstring geaendert haette.
 docs/referenz/** text eol=lf
 
+# Dasselbe fuer die ausgefuehrten Notebooks: nachweis.json nennt den SHA-256
+# jeder HTML-Datei, und tests/test_nachweise.py haelt ihn gegen die Bytes.
+# Ohne die Regel checkte der Windows-Lauf sie mit CRLF aus, und alle sechs
+# Hashes waren dort falsch (Lauf 42364142333, 7.11.2026).
+docs/nachweise/** text eol=lf
+
 # Linux-Einstiege muessen auch nach einem Windows-Checkout ausfuehrbar sein.
 docker/*.sh text eol=lf
 
