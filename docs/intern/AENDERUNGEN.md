@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'764** |
+| Tests | **2'767** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -102,6 +102,32 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 7.11.2026 · Die Konsolentests starten von der Vorgabe (Branch `docs/nachweis-auf-main`)
+
+Seit #209 liegt `config/platform_admin_settings.json` in Git, mit sechs Jobs
+und 2021–2026. Das ist richtig, denn die Konsole hält vor einem Impact die
+aktiven Einstellungen gegen `main`. Die Konsolentests legen ihren Store aber
+aus dem echten Projektordner an und sind um `DEFAULT_SETTINGS` gebaut: um
+die Positionen der Jobs, den Zeitraum 2024 und dessen neun Baubefehle. Mit
+der echten Datei scheiterten **87 von 224**. Auf `main` war die PR-Prüfung
+damit rot, und jeder Pull Request erbte das, weil GitHub gegen den
+zusammengeführten Stand prüft.
+
+- `store.repository_settings(project)` liest die Datei, sonst gilt die
+  Vorgabe. Bisher stand das inline in `Store.initialize`; das Verhalten ist
+  unverändert.
+- `tests/platform_admin/conftest.py` setzt dafür in jedem Konsolentest die
+  Vorgabe ein.
+- `tests/test_konsole_einstellungen.py` (3 Tests) steht ausserhalb davon und
+  prüft die echte Datei: Sie ist gültig, der Store übernimmt sie als Basis,
+  und ihr Zeitraum ist 2021–2026.
+
+**Für `srv01`:** Die Änderung liegt in `src/`. Das eingesetzte Abbild
+(`7927864`) entspricht danach nicht mehr `main`, und ein Impact scheitert an
+der Attestierung, bis das neue Abbild eingesetzt ist.
+
+**Zahlen.** 2'764 → **2'767 Tests**, Standardlauf 2'653 → **2'656**, im frischen Klon 2'575 → **2'578**.
 
 ## 7.11.2026 · Die Notebooks liegen ausgeführt bei (Branch `feature/notebook-nachweise`)
 
