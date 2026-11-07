@@ -15,4 +15,4 @@ ist und dies ausgegeben hat.
 
 | Lauf | Commit | Datenstand (Silver) | Release passt | Notebooks |
 | --- | --- | --- | --- | --- |
-| 2026-11-07_7dd8f89 | `7dd8f89` | `cac64863d0b9` | nein (letztes: `2026-10-17T08-38-50Z`) | [31](2026-11-07_7dd8f89/31_storage_evaluation.html), [33](2026-11-07_7dd8f89/33_serving_evaluation.html), [34](2026-11-07_7dd8f89/34_gold_sternschema.html), [35](2026-11-07_7dd8f89/35_kontrollen.html), [36](2026-11-07_7dd8f89/36_hypothesen.html), [37](2026-11-07_7dd8f89/37_quellbewegung.html) |
+| 2026-11-07_6a36360 | `6a36360` | `cac64863d0b9` | ja, `2026-11-07T13-12-32Z` | [31](2026-11-07_6a36360/31_storage_evaluation.html), [33](2026-11-07_6a36360/33_serving_evaluation.html), [34](2026-11-07_6a36360/34_gold_sternschema.html), [35](2026-11-07_6a36360/35_kontrollen.html), [36](2026-11-07_6a36360/36_hypothesen.html), [37](2026-11-07_6a36360/37_quellbewegung.html) |

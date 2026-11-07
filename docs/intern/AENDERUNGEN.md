@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'769** |
+| Tests | **2'770** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -102,6 +102,29 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 7.11.2026 · Der Nachweis ist an sein Release gebunden (Branch `docs/nachweis-mit-release`)
+
+`docs/nachweise/2026-11-07_6a36360/` ist vom `main`-Commit des Merges von
+#211 erzeugt und auf dem lokalen Release `2026-11-07T13-12-32Z` gebaut. Er
+meldet **„Release passt: ja“**: Silvers Fingerabdruck `cac64863…` steht im
+`derived_from` dieses Releases. Wer die Hashes des Releases nachrechnet,
+kann damit auch die Ausgaben der Notebooks einordnen.
+
+Der vorige Nachweis (`…_7dd8f89`) ist entfernt. Er war mit dem falschen
+Vergleich entstanden („nein“) und ist überholt; der Ordner bleibt in der
+Geschichte von #210.
+
+**Nebenbei gefunden:** Zwei Nachweise vom selben Tag ordnete der
+Ordnername nach dem Commit-Hash, und `6a36360` stand vor `7dd8f89`. Der
+Wächter hätte also den älteren für den jüngsten gehalten. Werkzeug und
+Wächter sortieren jetzt nach `erstellt_utc`
+(`build_nachweise.nach_erstellung`).
+
+Neu gewacht: `test_der_juengste_nachweis_ist_an_sein_release_gebunden`. Ohne
+Release-Bindung ist der jüngste Nachweis rot.
+
+**Zahlen.** 2'769 → **2'770 Tests**, Standardlauf 2'658 → **2'659**, im frischen Klon 2'580 → **2'581**.
 
 ## 7.11.2026 · Der Datenlauf baut alle Jahrgänge, der Nachweis erkennt sein Release (Branch `fix/datenlauf-und-release`)
 
