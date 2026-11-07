@@ -36,7 +36,7 @@ Die Strecke führt zwei unvergleichbare Quellen in eine vergleichbare Tabelle
 | **silver** | deuten: Typen, Einheiten, Zeitzonen, NIBRS, Raum | nichts wegwerfen — Lücken werden gekennzeichnet, nicht gefiltert | 213,6 MB |
 | **gold** | Sternschema, eine Zeile je **Tat** | nicht aggregieren | 85,7 MB |
 | **serving** | abfragbar machen: Sichten, fünf Vergleichstabellen, Karte | nicht der Bestand sein | 1,3 MB |
-| **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 935,0 MB |
+| **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 1'116,3 MB |
 
 Die Grössen sind **gemessen, nicht geschätzt** — `python -m
 orchestration.platzbedarf` liest sie über `storage` aus den Schichten, und
@@ -237,8 +237,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 2'767 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 2'578 davon — die übrigen 78 brauchen gebaute Daten, laufende Dienste, das ungetrackte LN1-PDF oder das ungetrackte PRD; 111 Referenzstand-Wächter sind abgewählt (5.11.2026 gemessen, grün) | |
+| **Pull Request** | 2'769 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 2'580 davon — die übrigen 78 brauchen gebaute Daten, laufende Dienste, das ungetrackte LN1-PDF oder das ungetrackte PRD; 111 Referenzstand-Wächter sind abgewählt (5.11.2026 gemessen, grün) | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 111 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 

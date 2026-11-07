@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'767** |
+| Tests | **2'769** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -102,6 +102,42 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 7.11.2026 · Der Datenlauf baut alle Jahrgänge, der Nachweis erkennt sein Release (Branch `fix/datenlauf-und-release`)
+
+**Der GitHub-Datenlauf war seit dem 21.9.2026 rot**, sieben Läufe in Folge.
+Es gab zwei Ursachen und einen echten Befund:
+- **Die Strecke baute nur 2024.** Ohne `--jahre` gilt `VORGABE_JAHRE`. Die
+  Drift-Prüfung hielt 348'378 Zeilen gegen die dokumentierten 1'875'374 und
+  meldete −81 %. Jetzt baut der Lauf `--jahre 2021-<heute>`, wie
+  `docker/srv01-datenlauf.sh`. Die Zeitgrenze steigt von 60 auf 180 Minuten;
+  2024 allein brauchte knapp sieben.
+- **Notebook 36 las einen gepinnten LN1-Lauf**, den ein frischer Lauf nicht
+  hat. Es läuft dort nicht mehr. Belegt wird es über `docs/nachweise/`, und
+  `tests/test_datenlauf_workflow.py` hält beides: nicht im Datenlauf, aber
+  im Nachweiswerkzeug.
+- **Detroits Rate driftet tatsächlich:** frisch 133,8 je 1'000 gegen
+  dokumentierte 133,1, über der Toleranz von 0,1. Das ist E-1 und bleibt
+  rot, bis E-1 entschieden ist. Die Drift-Prüfung ist dafür da.
+
+Damit ist der Datenlauf ausserdem ein vollständiger Neuaufbau aus den
+Quellen in einer zweiten Umgebung (Linux-Runner statt macOS), wie ihn
+LN1-Punkt 2 vermisste.
+
+**Der Nachweis verglich die falschen Fingerabdrücke.** `release_passt_zum_arbeitsstand`
+hielt Silvers `input_fingerprint` gegen den des ganzen Releases, der über
+alle Eingaben geht. Er hätte also nie „ja“ gesagt. Richtig ist der Eintrag
+`derived_from` → `silver/crime_offense` im `release.json`. Für den
+nächsten Nachweis ist das korrigiert.
+
+**Lokales Release `2026-11-07T13-12-32Z`:** mit dem Code von `74a1a3f` aus
+den vorhandenen Bronze-Läufen gebaut (`run_all --ohne-ingestion --jahre
+2021-2026 --release`, `STORAGE_BACKEND=local`), mit denselben Zahlen.
+Nachgezogen sind die Einstiegsseite, `platzbedarf.md` und die
+Releases-Grösse in beiden Architekturdokumenten (935,0 → 1'116,3 MB, ein
+Release mehr). Der Nachweis darauf folgt vom `main`-Commit dieses Merges.
+
+**Zahlen.** 2'767 → **2'769 Tests**, Standardlauf 2'656 → **2'658**, im frischen Klon 2'578 → **2'580**.
 
 ## 7.11.2026 · Die Konsolentests starten von der Vorgabe (Branch `docs/nachweis-auf-main`)
 

@@ -14,7 +14,7 @@ Basis war der angehäufte Bestand statt eines Jahrgangs. Aus dem einen Faktor si
 
 ## 1 Gemessen: die Belegung je Schicht
 
-Stand der Daten: Release `2026-10-17T08-38-50Z`. Gemessen über `storage.Storage.bytes_unter` — `.part`-Verzeichnisse zählen nicht,
+Stand der Daten: Release `2026-11-07T13-12-32Z`. Gemessen über `storage.Storage.bytes_unter` — `.part`-Verzeichnisse zählen nicht,
 und im Hybridmodus wird eine Datei, die lokal und auf SeaweedFS liegt, einmal gezählt. Dieses Dokument misst **nur lokal**.
 
 **Dieselbe Tabelle steht in `docs/architektur-ist-und-ziel.md` (A.1) und als SVG-Text in `docs/architektur-einseiter.html`.**
@@ -27,8 +27,8 @@ und im Hybridmodus wird eine Datei, die lokal und auf SeaweedFS liegt, einmal ge
 | **silver** | 213,6 MB | 22 |
 | **gold** | 85,7 MB | 14 |
 | **serving** | 1,3 MB | 13 |
-| **releases** | 935,0 MB | 223 |
-| zusammen | **2'016,9 MB** | 1056 |
+| **releases** | 1'116,3 MB | 251 |
+| zusammen | **2'198,3 MB** | 1084 |
 
 ## 2 Gerechnet: vier Regeln für 2021–2026
 
@@ -58,7 +58,7 @@ Warum die Regeln verschieden rechnen:
   einzelner Jahrgang. Dasselbe gilt für Marken und Zeiger.
 * **Releases** — `aufraeumen.RELEASES_N` = 8 Stände bleiben liegen. Ein Release ist dabei kein Fass mit einer Grösse, sondern eine
   eingefrorene Kopie von Gold und Serving; sein **Inhalt** wird zuerst hochgerechnet und erst dann mit der Zahl der Stände genommen.
-  Gemessen ist der **grösste** der neun liegenden Stände, 181,4 MB — die Stände unterscheiden sich
+  Gemessen ist der **grösste** der zehn liegenden Stände, 181,4 MB — die Stände unterscheiden sich
   untereinander um Zehntel-MB, und die grössere Zahl ist hier die ehrlichere.
 
 ## 3 Je Quelle: Basis, Regel, Ergebnis
@@ -127,29 +127,29 @@ davon.
 
 | Quelle | Läufe | Basis je Jahrgang | Regel | 2021–2026 |
 | --- | ---: | ---: | --- | ---: |
-| `gold/dataset=dim_city_day` | 9 | 0,0 MB | konstant: wächst nicht mit den Jahren, dann × 8 Stände | 0,3 MB |
-| `gold/dataset=dim_date` | 9 | 0,0 MB | Taten: 1'874'417 Zeilen × 0,1 Bytes je Zeile, dann × 8 Stände | 0,9 MB |
-| `gold/dataset=dim_offense` | 9 | 0,0 MB | Taten: 1'874'417 Zeilen × 0,0 Bytes je Zeile, dann × 8 Stände | 0,4 MB |
-| `gold/dataset=dim_tract` | 9 | 0,2 MB | Census: 4 Vintages (2021, 2022, 2023, 2024) × 0,2 MB je Vintage, dann × 8 Stände | 6,5 MB |
-| `gold/dataset=dim_tract_acs` | 9 | 0,5 MB | Census: 4 Vintages (2021, 2022, 2023, 2024) × 0,5 MB je Vintage, dann × 8 Stände | 16,2 MB |
-| `gold/dataset=dim_tract_geo` | 9 | 0,1 MB | Census: 4 Vintages (2021, 2022, 2023, 2024) × 0,1 MB je Vintage, dann × 8 Stände | 4,4 MB |
-| `gold/dataset=fact_offense` | 9 | 84,8 MB | Taten: 1'874'417 Zeilen × 243,5 Bytes je Zeile, dann × 8 Stände | 3'651,1 MB |
-| `release.json` | 9 | 0,0 MB | konstant: wächst nicht mit den Jahren, dann × 8 Stände | 0,1 MB |
-| `serving/analyse.duckdb` | 9 | 94,6 MB | Taten: 1'874'417 Zeilen × 271,7 Bytes je Zeile, dann × 8 Stände | 4'074,3 MB |
-| `serving/dataset=comparison_day` | 9 | 0,3 MB | Taten: 1'874'417 Zeilen × 0,7 Bytes je Zeile, dann × 8 Stände | 11,1 MB |
-| `serving/dataset=comparison_month` | 9 | 0,0 MB | Taten: 1'874'417 Zeilen × 0,1 Bytes je Zeile, dann × 8 Stände | 1,6 MB |
-| `serving/dataset=comparison_week` | 9 | 0,1 MB | Taten: 1'874'417 Zeilen × 0,2 Bytes je Zeile, dann × 8 Stände | 3,4 MB |
-| `serving/dataset=partition_quality` | 9 | 0,0 MB | Taten: 1'874'417 Zeilen × 0,1 Bytes je Zeile, dann × 8 Stände | 0,8 MB |
-| `serving/dataset=rate_tract` | 9 | 0,0 MB | Census: 4 Vintages (2021, 2022, 2023, 2024) × 0,0 MB je Vintage, dann × 8 Stände | 1,2 MB |
-| `serving/tracts.geojson` | 9 | 0,5 MB | Census: 4 Vintages (2021, 2022, 2023, 2024) × 0,5 MB je Vintage, dann × 8 Stände | 17,5 MB |
-| `serving/tracts.manifest.json` | 9 | 0,0 MB | konstant: wächst nicht mit den Jahren, dann × 8 Stände | 0,0 MB |
+| `gold/dataset=dim_city_day` | 10 | 0,0 MB | konstant: wächst nicht mit den Jahren, dann × 8 Stände | 0,3 MB |
+| `gold/dataset=dim_date` | 10 | 0,0 MB | Taten: 1'874'417 Zeilen × 0,1 Bytes je Zeile, dann × 8 Stände | 0,9 MB |
+| `gold/dataset=dim_offense` | 10 | 0,0 MB | Taten: 1'874'417 Zeilen × 0,0 Bytes je Zeile, dann × 8 Stände | 0,4 MB |
+| `gold/dataset=dim_tract` | 10 | 0,2 MB | Census: 4 Vintages (2021, 2022, 2023, 2024) × 0,2 MB je Vintage, dann × 8 Stände | 6,5 MB |
+| `gold/dataset=dim_tract_acs` | 10 | 0,5 MB | Census: 4 Vintages (2021, 2022, 2023, 2024) × 0,5 MB je Vintage, dann × 8 Stände | 16,2 MB |
+| `gold/dataset=dim_tract_geo` | 10 | 0,1 MB | Census: 4 Vintages (2021, 2022, 2023, 2024) × 0,1 MB je Vintage, dann × 8 Stände | 4,4 MB |
+| `gold/dataset=fact_offense` | 10 | 84,8 MB | Taten: 1'874'417 Zeilen × 243,5 Bytes je Zeile, dann × 8 Stände | 3'651,1 MB |
+| `release.json` | 10 | 0,0 MB | konstant: wächst nicht mit den Jahren, dann × 8 Stände | 0,1 MB |
+| `serving/analyse.duckdb` | 10 | 94,6 MB | Taten: 1'874'417 Zeilen × 271,7 Bytes je Zeile, dann × 8 Stände | 4'074,3 MB |
+| `serving/dataset=comparison_day` | 10 | 0,3 MB | Taten: 1'874'417 Zeilen × 0,7 Bytes je Zeile, dann × 8 Stände | 11,1 MB |
+| `serving/dataset=comparison_month` | 10 | 0,0 MB | Taten: 1'874'417 Zeilen × 0,1 Bytes je Zeile, dann × 8 Stände | 1,6 MB |
+| `serving/dataset=comparison_week` | 10 | 0,1 MB | Taten: 1'874'417 Zeilen × 0,2 Bytes je Zeile, dann × 8 Stände | 3,4 MB |
+| `serving/dataset=partition_quality` | 10 | 0,0 MB | Taten: 1'874'417 Zeilen × 0,1 Bytes je Zeile, dann × 8 Stände | 0,8 MB |
+| `serving/dataset=rate_tract` | 10 | 0,0 MB | Census: 4 Vintages (2021, 2022, 2023, 2024) × 0,0 MB je Vintage, dann × 8 Stände | 1,2 MB |
+| `serving/tracts.geojson` | 10 | 0,5 MB | Census: 4 Vintages (2021, 2022, 2023, 2024) × 0,5 MB je Vintage, dann × 8 Stände | 17,5 MB |
+| `serving/tracts.manifest.json` | 10 | 0,0 MB | konstant: wächst nicht mit den Jahren, dann × 8 Stände | 0,0 MB |
 | `AKTUELL.json` | 1 | 0,0 MB | konstant: wächst nicht mit den Jahren | 0,0 MB |
 
 ## 4 Was daraus folgt
 
 * **2021–2026 braucht 8'698,3 MB (8,70 GB)**. Dieselbe Rechnung für **einen** Jahrgang (2024) ergibt 1'663,8 MB — 2021–2026 ist also
   das **5,23-Fache eines Jahrgangs** und nicht das 5,5-Fache. Verglichen wird dabei Rechnung mit Rechnung: Das heutige
-  `data/` (2'016,9 MB) hält 14 `city=chicago`-Läufe und neun Release-Stände und ist mit keiner
+  `data/` (2'198,3 MB) hält 14 `city=chicago`-Läufe und zehn Release-Stände und ist mit keiner
   der beiden Zahlen vergleichbar — genau diese Verwechslung steckte im alten Faktor.
 * **Ohne `releases/` sind es 908,4 MB** (0,91 GB), ohne `releases/` **und** `raw/` noch 639,2 MB (0,64 GB).
   Das sind die Zahlen, die für FR-52 zählen: Eine Abgabe braucht nicht acht Stände, und sie braucht die
