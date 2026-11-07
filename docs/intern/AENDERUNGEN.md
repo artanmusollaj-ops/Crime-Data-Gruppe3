@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'752** |
+| Tests | **2'763** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -159,6 +159,31 @@ prüft ausserdem die HTML-Hashes, die Abwesenheit von Rechnerpfaden und
 Konzept 11.3, README und die Architekturbilder (12 Generatoren).
 
 **Zahlen.** 2'736 → **2'752 Tests**, Standardlauf 2'625 → **2'641**, im frischen Klon 2'547 → **2'563**.
+
+## 7.11.2026 · Mapping-Basis und Image werden getrennt attestiert (lokale Korrektur)
+
+Der erneute Impact-Lauf auf `srv01` meldete vier Mapping-Dateien als von Main
+abweichend. Die erzeugten CSV-Dateien enthalten CRLF; der Import in die
+Konsolen-Datenbank liest sie als Text mit LF. Die bisherige Attestierung
+ersetzte die Image-Hashes durch Hashes dieses Datenbanktexts und verglich
+dadurch unterschiedliche Bytes trotz gleichem Mapping-Inhalt.
+
+Die Prüfung behält nun die Originalbytes des Images für den Abgleich mit
+Git-Main. Zusätzlich muss die gespeicherte Mapping-Basis zu den CSV-Dateien
+des Images passen; nur ein führender UTF-8-BOM und Zeilenenden werden für
+diesen Textvergleich vereinheitlicht. Andere Inhalte sowie zusätzliche oder
+fehlende Dateien bleiben gesperrt. Während des Builds werden beide Prüfungen
+erneut ausgeführt. Bestehende Datenbankrevisionen und erzeugte CSV-Dateien
+werden nicht umgeschrieben; eine Datenbankmigration ist nicht erforderlich.
+
+Nach einer veröffentlichten Mapping-Änderung muss für den nächsten
+Kandidatenlauf das Image den entsprechenden Mapping-Stand tragen. Die
+Korrektur benötigt ein neues Worker-Image und dessen Deployment; sie ist
+hier zunächst nur lokal integriert. Regressionstests prüfen CRLF/LF,
+BOM, echte Inhaltsabweichungen, fehlende Dateien und Änderungen während
+des Builds sowie den vollständigen `capture`-Pfad mit SQLite-Revisionen.
+
+---
 
 ## 6.11.2026 · Elasticsearch und Kibana sind auf srv01 gelöscht (Branch `docs/es-kibana-geloescht`)
 

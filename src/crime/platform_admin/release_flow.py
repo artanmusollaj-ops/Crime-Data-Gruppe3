@@ -105,10 +105,44 @@ def tree_mismatch(project, ls_tree):
     return sorted(p for p in actual.keys() | tree.keys() if actual.get(p) != tree.get(p))
 
 
+def canonical_mapping_text(text):
+    """Vereinheitlicht nur einen führenden BOM und Zeilenenden im Mapping-Text."""
+    return text.removeprefix("\ufeff").replace("\r\n", "\n").replace("\r", "\n")
+
+
+def check_mapping_basis(store, spec):
+    """Vergleicht die gespeicherte Basis mit den CSV-Dateien des Images.
+
+    initialize() liest Text mit vereinheitlichten Zeilenenden. Bestehende
+    Datenbankrevisionen enthalten deshalb LF, auch bei CRLF-Dateien in Git.
+    Dieser Textvergleich ergänzt die bytegenaue Prüfung des Images.
+    Bestehende Revisionen werden dabei nicht umgeschrieben.
+    """
+    payload = store.get(spec["base_heads"]["mapping"])["payload"]
+    files = {
+        p.name: p
+        for p in (store.project / "config").glob("*.csv")
+        if p.is_file()
+    }
+    mismatch = []
+    for name in sorted(set(files) | set(payload)):
+        if name not in files or name not in payload:
+            mismatch.append("config/" + name)
+            continue
+        image_text = files[name].read_bytes().decode("utf-8-sig")
+        if canonical_mapping_text(image_text) != canonical_mapping_text(payload[name]):
+            mismatch.append("config/" + name)
+    if mismatch:
+        raise AdminError(
+            "Aktive Mapping-Basis entspricht nicht den Image-Dateien: "
+            + ", ".join(mismatch[:8])
+            + ". Konfigurationsstand pruefen; keine automatische Uebernahme."
+        )
+
+
 def inventory(store, spec):
     result = source_inventory(store.project)
-    for name, text in store.get(spec["base_heads"]["mapping"])["payload"].items():
-        result["config/" + name] = blob_hash(text.encode())
+    check_mapping_basis(store, spec)
     return result
 
 
