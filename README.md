@@ -64,6 +64,7 @@ Wo etwas ausführlich steht:
 | Welche Kontrolle wo greift, vorgeführt | [`notebooks/35`](notebooks/35_kontrollen.ipynb) |
 | Die Hypothesen H1 bis H6, nachgewiesen | [`notebooks/36`](notebooks/36_hypothesen.ipynb) |
 | Wie sich die Quellen bewegen — was sie nachträglich ändern | [`notebooks/37`](notebooks/37_quellbewegung.ipynb) |
+| Dieselben Notebooks **ausgeführt**, mit allen Ausgaben — ohne Python und ohne Daten lesbar | [`docs/nachweise/`](docs/nachweise/README.md) |
 | Jedes Modul, jede Funktion | [`docs/referenz/`](docs/referenz/index.html) |
 | Was jede Spalte bedeutet | [`docs/feldkatalog.md`](docs/feldkatalog.md) |
 | Was sich wann geändert hat und warum | [`docs/intern/AENDERUNGEN.md`](docs/intern/AENDERUNGEN.md) |

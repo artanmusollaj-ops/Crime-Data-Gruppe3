@@ -43,6 +43,7 @@ Was sich nicht ohne uns lesen lässt, lässt sich auch nicht übertragen.
 | [`storage-architektur.md`](storage-architektur.md) | die Ablage im Aufbau: Modi, Zusagen, API, Fehlerbilder — LN1 verlangt die Storage-Evaluation ausdrücklich; Abschnitt 16 beschreibt, wie die Strecke auf `srv01` liegt, mit den gemessenen Speichergrenzen und den sieben Diensten |
 | [`feldkatalog.md`](feldkatalog.md) | was jede Spalte bedeutet, 192 Spalten in 15 Tabellen — und **erzeugt** (siehe unten) |
 | [`ausblick.md`](ausblick.md) | was nach LN1 käme, mit Messwerten und Reihenfolge |
+| [`nachweise/`](nachweise/README.md) | die Notebooks 31, 33–37 **ausgeführt**, als HTML mit allen Ausgaben, je Lauf mit Commit, Umgebung und Datenstand — der Beleg, den die Beurteilung von LN1 vermisste (siehe unten) |
 
 ## Intern — was wir beim Arbeiten brauchen
 
@@ -87,6 +88,7 @@ Eine Handänderung hier ist beim nächsten Lauf weg. Wer den Inhalt ändern will
 | [`einstieg.html`](einstieg.html) | `python -m serving.build_einstieg`, aus dem aktuellen Release — **wo ein Analyst anfängt**. Dieselbe Seite liefert auf `srv01` der Dienst `urbancrime-start` aus, mit Serveradressen statt `localhost` (`--adressen server`); sie liegt dort in einem Datenträger und nicht in diesem Ordner |
 | `bilder/architektur-pakete.svg`, `bilder/architektur-datenfluss.svg`, `bilder/architektur-kontext.svg` | `tools/build_architekturbilder.py`, aus dem Importgraphen |
 | `bilder/dashboard-*.png` | `tools/build_dashboardbilder.py`, fotografiert die laufenden Kibana-Dashboards |
+| [`nachweise/README.md`](nachweise/README.md) | `tools/build_nachweise.py`, aus den abgelegten `nachweis.json`. Die Nachweise selbst erzeugt dasselbe Werkzeug, sie sind aber **kein Erzeugnis**: Laufzeiten wiederholen sich nicht byteweise, also kein Reproduktionswächter. Stattdessen hält `tests/test_nachweise.py` den Code-Abdruck je Notebook gegen das Notebook — ändert sich der Code, ist der Nachweis veraltet und der Test rot |
 | [`intern/handbuch/ENGINEERING_KONSOLE.pdf`](intern/handbuch/ENGINEERING_KONSOLE.pdf) | `tools/build_konsole_pdf.py`, aus `intern/ENGINEERING_KONSOLE.md`; der Titel trägt den Hash des Markdowns, und `tests/test_konsole_handbuch.py` vergleicht ihn |
 
 Die übrigen Dateien in [`bilder/`](bilder/) sind von Hand gezeichnet

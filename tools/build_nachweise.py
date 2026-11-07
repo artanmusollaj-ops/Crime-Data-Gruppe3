@@ -248,8 +248,13 @@ def als_html(notebook) -> str:
     return html
 
 
-def schreibe_verzeichnis() -> None:
-    """``docs/nachweise/README.md`` aus allen ``nachweis.json``."""
+def verzeichnis(ziel: Path = ZIEL) -> str:
+    """Der Text von ``docs/nachweise/README.md``, aus allen ``nachweis.json``.
+
+    Anders als die Nachweise selbst ist das Verzeichnis ein Erzeugnis: Es
+    folgt byteweise aus den abgelegten Dateien, ``tests/test_nachweise.py``
+    vergleicht.
+    """
     zeilen = [
         "# Nachweise — ausgeführte Notebooks",
         "",
@@ -269,7 +274,7 @@ def schreibe_verzeichnis() -> None:
         "| Lauf | Commit | Datenstand (Silver) | Release passt | Notebooks |",
         "| --- | --- | --- | --- | --- |",
     ]
-    for datei in sorted(ZIEL.glob("*/nachweis.json"), reverse=True):
+    for datei in sorted(ziel.glob("*/nachweis.json"), reverse=True):
         n = json.loads(datei.read_text(encoding="utf-8"))
         d = n["datenstand"]
         fp = (d["silver_crime_offense"]["input_fingerprint"] or "")[:12]
@@ -278,7 +283,11 @@ def schreibe_verzeichnis() -> None:
         links = ", ".join(f"[{name[:2]}]({datei.parent.name}/{name}.html)"
                           for name in n["notebooks"])
         zeilen.append(f"| {datei.parent.name} | `{n['commit'][:7]}` | `{fp}` | {passt} | {links} |")
-    (ZIEL / "README.md").write_text("\n".join(zeilen) + "\n", encoding="utf-8")
+    return "\n".join(zeilen) + "\n"
+
+
+def schreibe_verzeichnis() -> None:
+    (ZIEL / "README.md").write_text(verzeichnis(), encoding="utf-8")
 
 
 def main(argv: list[str] | None = None) -> int:
