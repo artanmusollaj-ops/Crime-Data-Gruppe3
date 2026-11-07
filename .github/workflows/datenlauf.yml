@@ -57,7 +57,9 @@ concurrency:
 jobs:
   datenlauf:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # 180 statt 60: Seit dem 7.11.2026 laedt der Lauf sechs Jahrgaenge statt
+    # einem. Gemessen fuer 2024 allein: knapp sieben Minuten Strecke.
+    timeout-minutes: 180
 
     steps:
       - name: Secret vorhanden?
@@ -101,10 +103,16 @@ jobs:
           # Acht Tage: Wochentakt plus Reserve, NOAAs vier Tage Nachlauf
           # eingeschlossen. Liefert eine Quelle nichts Neues, faellt der
           # Lauf - das ist die Freshness-Kontrolle, die es bisher nicht gab.
+          #
+          # Die Jahrgaenge wie auf srv01 (docker/srv01-datenlauf.sh): 2021 bis
+          # heute. Ohne --jahre baute run_all nur 2024, und die Drift-Pruefung
+          # unten verglich 348'378 Zeilen mit den dokumentierten 1'875'374 -
+          # sieben Wochen lang rot mit -81 % (bis 7.11.2026).
+          jahre="2021-$(date +%Y)"
           if [ "${{ inputs.ohne_ingestion }}" = "true" ]; then
-            python -m orchestration.run_all --ohne-ingestion --maximal-alter-tage 8
+            python -m orchestration.run_all --ohne-ingestion --jahre "$jahre" --maximal-alter-tage 8
           else
-            python -m orchestration.run_all --maximal-alter-tage 8
+            python -m orchestration.run_all --jahre "$jahre" --maximal-alter-tage 8
           fi
 
       - name: Die Notebooks, die Zahlen belegen
@@ -118,12 +126,19 @@ jobs:
         # Einen Tag lang hat es niemand gemerkt, weil es niemand ausfuehrte.
         # Diese Notebooks sind die Belege der Abgabe; ein Beleg, der nicht
         # mehr laeuft, ist keiner.
+        #
+        # Notebook 36 laeuft hier nicht. Es liest die gepinnten LN1-Laeufe
+        # (config/referenzstand.csv), und die hat ein frischer Lauf nicht -
+        # daran scheiterte dieser Schritt vom 21.9. bis zum 7.11.2026 jede
+        # Woche. Ausgefuehrt wird es von tools/build_nachweise.py auf dem
+        # gepinnten Bestand; der Beleg liegt in docs/nachweise/, und
+        # tests/test_nachweise.py haelt ihn gegen den Code.
         run: |
           set -euo pipefail
           for nb in 03_chicago_data_quality 13_detroit_data_quality \
                     31_storage_evaluation 32_nibrs_source \
                     33_serving_evaluation 34_gold_sternschema \
-                    35_kontrollen 36_hypothesen 37_quellbewegung; do
+                    35_kontrollen 37_quellbewegung; do
             echo "== $nb"
             python -m jupyter nbconvert --to notebook --execute \
               --ExecutePreprocessor.timeout=1200 \

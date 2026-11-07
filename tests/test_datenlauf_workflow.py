@@ -9,6 +9,7 @@ Waechter liefen.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 
@@ -64,7 +65,10 @@ def test_er_committet_keine_daten():
 BELEGEN = ("03_chicago_data_quality", "13_detroit_data_quality",
            "31_storage_evaluation", "32_nibrs_source",
            "33_serving_evaluation", "34_gold_sternschema",
-           "35_kontrollen", "36_hypothesen", "37_quellbewegung")
+           "35_kontrollen", "37_quellbewegung")
+#: Liest die gepinnten LN1-Laeufe, die ein frischer Lauf nicht hat. Belegt
+#: wird es ueber docs/nachweise/ (tools/build_nachweise.py).
+GEPINNT = ("36_hypothesen",)
 LADEN = ("01_chicago_source", "02_chicago_bronze_ingestion",
          "11_detroit_source", "12_detroit_bronze_ingestion",
          "21_census_source", "22_weather_source")
@@ -80,6 +84,34 @@ def test_die_belegenden_notebooks_laufen_nach_dem_bau():
         assert nb in t, f"{nb} fehlt im Datenlauf"
 
 
+def notebookliste() -> list[str]:
+    """Die Namen in der Schleife des Notebook-Schritts, nicht im Kommentar."""
+    t = text()
+    schleife = t[t.index("for nb in "):]
+    return re.findall(r"\b(\d{2}_[a-z_]+)\b", schleife[:schleife.index("; do")])
+
+
+def test_die_gepinnten_notebooks_laufen_hier_nicht_aber_im_nachweis():
+    """36 scheiterte sieben Wochen lang am fehlenden LN1-Lauf (bis 7.11.2026)."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "build_nachweise", PROJECT_ROOT / "tools" / "build_nachweise.py")
+    werkzeug = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(werkzeug)
+    for nb in GEPINNT:
+        assert nb not in notebookliste(), f"{nb} braucht die gepinnten Laeufe"
+        assert nb in werkzeug.NOTEBOOKS, f"{nb} muss dann im Nachweis stehen"
+
+
+def test_die_strecke_baut_alle_jahrgaenge():
+    """Wie srv01, sonst misst die Drift-Pruefung einen Jahrgang gegen sechs."""
+    t = text()
+    assert 'jahre="2021-$(date +%Y)"' in t
+    aufrufe = re.findall(r"python -m orchestration\.run_all[^\n]*", t)
+    assert aufrufe and all('--jahre "$jahre"' in a for a in aufrufe), aufrufe
+
+
 def test_die_ladenden_notebooks_laufen_nicht():
     """Sie wuerden im Lauf zusaetzliche Bronze-Laeufe erzeugen."""
     t = text()
@@ -90,7 +122,7 @@ def test_die_ladenden_notebooks_laufen_nicht():
 def test_jedes_notebook_im_repository_ist_eingeordnet():
     """Ein neues Notebook muss entweder laufen oder ausdruecklich nicht."""
     vorhanden = {p.stem for p in (PROJECT_ROOT / "notebooks").glob("*.ipynb")}
-    eingeordnet = set(BELEGEN) | set(LADEN)
+    eingeordnet = set(BELEGEN) | set(LADEN) | set(GEPINNT)
     assert vorhanden == eingeordnet, (
         f"nicht eingeordnet: {sorted(vorhanden - eingeordnet)}, "
         f"nicht mehr da: {sorted(eingeordnet - vorhanden)}"

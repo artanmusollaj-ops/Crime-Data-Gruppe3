@@ -182,6 +182,13 @@ def datenstand(daten: Path) -> dict:
     aktuell = lies("releases", "AKTUELL.json")
     release = lies(*aktuell["path"].split("/"), "release.json") if aktuell.get("path") else {}
     fp = silver.get("input_fingerprint")
+    # Das Release haelt in derived_from fest, aus welchem Silver es gebaut
+    # wurde. Dessen Fingerabdruck ist der vergleichbare - nicht der des
+    # ganzen Releases, der ueber alle Eingaben geht (am 7.11.2026 verglich
+    # dieses Werkzeug die beiden und meldete "passt nicht" fuer ein Release
+    # aus genau diesem Stand).
+    quelle = next((e for e in release.get("derived_from", [])
+                   if e.get("layer") == "silver" and e.get("table") == "crime_offense"), {})
     return {
         "jahrgaenge": lauf.get("years"),
         "silver_crime_offense": {"zeilen": silver.get("row_count"),
@@ -191,7 +198,8 @@ def datenstand(daten: Path) -> dict:
                               "gebaut_utc": gold.get("built_at_utc")},
         "release_aktuell": aktuell.get("release_id"),
         "release_input_fingerprint": release.get("input_fingerprint"),
-        "release_passt_zum_arbeitsstand": bool(fp) and fp == release.get("input_fingerprint"),
+        "release_silver_input_fingerprint": quelle.get("input_fingerprint"),
+        "release_passt_zum_arbeitsstand": bool(fp) and fp == quelle.get("input_fingerprint"),
     }
 
 
