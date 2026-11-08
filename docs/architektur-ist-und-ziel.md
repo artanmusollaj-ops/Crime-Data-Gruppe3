@@ -137,16 +137,16 @@ Die beiden Architekturbilder in [`architektur.md`](architektur.md) werden
 **aus dem Code erzeugt**, nicht gezeichnet. Ein Paket, das dazukommt, erscheint
 von selbst; eine Zahl im Bild, die nicht mehr stimmt, lässt einen Test fallen.
 
-## A.3 Orchestrierung: fünfzehn Stufen, Abbruch beim ersten Fehler
+## A.3 Orchestrierung: sechzehn Stufen, Abbruch beim ersten Fehler
 
-`orchestration.run_all` fährt die Strecke in fünfzehn Stufen:
+`orchestration.run_all` fährt die Strecke in sechzehn Stufen:
 
 | Gruppe | Stufen | |
 | --- | ---: | --- |
 | ingestion | 6 | chicago, detroit, tiger_tract, tiger_place, acs, noaa |
 | silver | 5 | tract, place, weather_day, crime_offense, source_change |
 | gold | 1 | die sieben Sterntabellen in einem Zug |
-| serving | 3 | comparison, analyse_db, tracts_geojson |
+| serving | 4 | comparison, source_movement, analyse_db, tracts_geojson |
 
 Die Reihenfolge ist keine Kosmetik: `silver/tract` braucht beide
 Census-Quellen, `crime_offense` zusätzlich `tract`, und ohne `tiger_place`
@@ -237,8 +237,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 2'770 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 2'581 davon — die übrigen 78 brauchen gebaute Daten, laufende Dienste, das ungetrackte LN1-PDF oder das ungetrackte PRD; 111 Referenzstand-Wächter sind abgewählt (5.11.2026 gemessen, grün) | |
+| **Pull Request** | 2'808 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 2'619 davon — die übrigen 78 brauchen gebaute Daten, laufende Dienste, das ungetrackte LN1-PDF oder das ungetrackte PRD; 111 Referenzstand-Wächter sind abgewählt (5.11.2026 gemessen, grün) | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 111 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 

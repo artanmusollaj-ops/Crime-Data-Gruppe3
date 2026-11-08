@@ -7,7 +7,7 @@ gebauten Tabellen, die Bedeutung aus [`tools/build_feldkatalog.py`](../tools/bui
 python tools/build_feldkatalog.py
 ```
 
-**203 Spalten in 17 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
+**223 Spalten in 18 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
 soll einen Satz darüber schreiben müssen. `tests/test_feldkatalog.py` prüft, dass der Katalog vollständig und reproduzierbar ist.
 
 Die Rohschichten stehen hier nicht: **Bronze deutet nicht**, seine Spalten sind die der Quelle. Was sie bedeuten, sagen die
@@ -90,6 +90,10 @@ Eine Zeile ist: **ein geaendertes Feld einer Zeile zwischen zwei Schnappschuesse
 | `zuerst_gesehen_in` | `VARCHAR` | Das **erste** Delta zwischen den beiden Vollabzuegen, das diesen Schluessel trug. Es grenzt die Aenderung ein: Bei Monatsabstand wird aus *irgendwann in dreissig Tagen* ein Tag. Leer, wenn `datierung` nicht `delta` ist. |
 | `zuerst_gesehen_am` | `TIMESTAMP` | Wann dieses Delta lief - die **obere Schranke** fuer den Zeitpunkt der Aenderung, nicht der Zeitpunkt selbst. |
 | `datierung` | `VARCHAR` | Wie verlaesslich die Datierung ist, in drei Zustaenden. `delta`: Ein Delta im Fenster trug den Schluessel. `kein_delta`: Deltas lagen vor, keines trug ihn - das kann heissen, dass die Quelle die Aenderung nicht angemeldet hat, dass sie nach dem letzten Delta geschah, oder dass die Zeile schon weg war; die drei sind von hier aus nicht zu trennen. `nicht_datierbar`: kein lesbares Delta liegt im Fenster. Leer bei der Markierungszeile - ohne Schluessel gibt es nichts zu datieren. **Diese Spalte klebt**: Sie nennt den besten Befund, der je bestimmt wurde, nicht den heutigen. Nachgerechnet wird, was besser wird - `delta` schlaegt `kein_delta` schlaegt `nicht_datierbar` -, und nie abwaerts. Sonst haette das Aufraeumen der Deltas eine einmal bestimmte Datierung wieder geloescht. |
+| `quellcode` | `VARCHAR` | Der Deliktcode der Zeile, wie die Quelle ihn fuehrt: Chicagos `iucr`, Detroits `state_offense_code`. Aus dem **aelteren** Schnappschuss - dem Stand, der sich geaendert hat oder verschwunden ist -, bei `neu` aus dem juengeren. Ohne ihn liesse sich nie mehr sagen, *was* verschwunden ist: Der Inhalt einer geloeschten Zeile steht in keinem spaeteren Stand. Leer, wenn der Schnappschuss schon aufgeraeumt war, als die Spalte dazukam. |
+| `quellkategorie` | `VARCHAR` | Die lesbare Deliktart der Quelle: Chicagos `primary_type`, Detroits `offense_category`. Gleiche Herkunft wie `quellcode`. |
+| `bestand_vorher` | `BIGINT` | Wie viele Schluessel der aeltere Schnappschuss traegt - der Nenner jeder Rate. Steht in jeder Zeile des Paares, auch in der Markierungszeile. |
+| `bestand_nachher` | `BIGINT` | Wie viele Schluessel der neuere Schnappschuss traegt. |
 
 ### `tract`
 
@@ -340,3 +344,26 @@ Eine Zeile ist: **ein Census Tract mit Einwohnern im Bezugsjahr 2024 (gold_pipel
 | `taten` | `BIGINT` | Taten im Bezugsjahr - jede Zeile von `fact_offense`, ohne den Fallfilter. |
 | `rate_tatebene` | `DOUBLE` | Taten je 1'000 Einwohner im Bezugsjahr. Daneben zu lesen, nicht statt der Fallebene: Der Unterschied zwischen beiden ist der Erfassungsunterschied der zwei Staedte, nicht ein Unterschied der Kriminalitaet. |
 | `einwohner` | `BIGINT` | Der Nenner: `dim_tract_acs.population` im Vintage, auf den die Tat zeigt (`population_vintage`). **Tracts ohne Einwohner fehlen in dieser Tabelle** - fuer sie ist keine Rate definiert, und eine gezeigte Null liesse sich als Sicherheit lesen, wo in Wirklichkeit niemand wohnt: Flughaefen, Parks, Gewerbegebiete. |
+
+### `source_movement`
+
+Eine Zeile ist: **ein bewegtes Feld einer Zeile zwischen zwei Vollabzuegen; je neuer und je verschwundener Zeile eine Zeile ohne Feld; je ruhigem Paar eine Markierungszeile ohne offense_id**. 4'718 Zeilen.
+
+| Spalte | Typ | Bedeutung |
+| --- | --- | --- |
+| `city` | `VARCHAR` | Stadt, kleingeschrieben: `chicago` oder `detroit`. |
+| `offense_id` | `VARCHAR` | Schlüssel der Zeile. Chicagos `id`, Detroits `incident_entry_id`. |
+| `previous_run_id` | `VARCHAR` | Der aeltere Vollabzug des Paares (`silver/source_change.vorher_run_id`). |
+| `run_id` | `VARCHAR` | Der neuere Vollabzug des Paares. |
+| `previous_snapshot_at` | `TIMESTAMP` | Wann der aeltere Vollabzug begann - die untere Grenze des Fensters. |
+| `snapshot_at` | `TIMESTAMP` | Wann der neuere Vollabzug begann - die obere Grenze. Eine Bewegung geschah irgendwann dazwischen. |
+| `change_type` | `VARCHAR` | `changed` (Inhalt bewegt), `touched` (nur Zeitstempel bewegt), `added` (neu im juengeren Abzug), `removed` (fehlt im juengeren Abzug), `unchanged` (Markierungszeile eines ruhigen Paares). Die Arten aus Silver, uebersetzt; eine unbekannte bricht den Bau ab. |
+| `field` | `VARCHAR` | Das bewegte Quellfeld in den Begriffen der Quelle. Leer bei `added`, `removed` und `unchanged`. |
+| `is_stamp` | `BOOLEAN` | Ob `field` ein Zeitstempel der Quelle ist (Detroit `updated_at`, `updated_in_ibr_at`, `case_status_updated_at`; Chicago `updated_on`). Ein bewegter Stempel ist keine Inhaltsaenderung. Leer, wo kein Feld steht. |
+| `value_old` | `VARCHAR` | Der Wert im aelteren Abzug, getrimmt und als Text. |
+| `value_new` | `VARCHAR` | Der Wert im neueren Abzug, gleich behandelt. |
+| `source_offense_code` | `VARCHAR` | Der Deliktcode, wie die Quelle ihn führt: Chicagos `iucr`, Detroits `state_offense_code` (MICR). |
+| `source_offense_category` | `VARCHAR` | Die lesbare Deliktart der Quelle (Chicagos `primary_type`, Detroits `offense_category`) - fuer eine verschwundene Zeile die einzige Auskunft darueber, was sie war. |
+| `nibrs_code` | `VARCHAR` | Die Deliktart auf dem gemeinsamen Vokabular: `source_offense_code` ueber den heute gueltigen Crosswalk samt Overrides, derselbe wie fuer `fact_offense`. Erst damit lassen sich die Loeschungen beider Staedte nach Delikt vergleichen. |
+| `previous_rows` | `BIGINT` | Schluessel im aelteren Abzug - der Nenner einer Loesch- oder Aenderungsrate. Je Paar einmal zaehlen, nicht je Zeile. |
+| `snapshot_rows` | `BIGINT` | Schluessel im neueren Abzug. |

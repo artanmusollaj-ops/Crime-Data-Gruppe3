@@ -38,6 +38,7 @@ STAGE_NAMES = {
     "serving.pruefe_stand": "Analyse · Release-Abgleich",
     "gold_pipeline.build_gold": "Gold · Sternschema",
     "serving.build_comparison": "Serving · Vergleichstabellen",
+    "serving.build_source_movement": "Serving · Quellbewegung",
     "serving.build_analysis_db": "Serving · Analysedatenbank",
     "serving.export_geojson": "Serving · GeoJSON",
 }
@@ -349,7 +350,10 @@ def commands(store, spec, config):
     if spec["task"] in {"rebuild", "replay"}:
         for stage in auswahl(True, None, spec.get("years", (2024,))):
             command = stage.befehl(store.data)
-            if stage.modul in {"silver_pipeline.build_crime_offense", "gold_pipeline.build_gold"}:
+            # Wer den Crosswalk liest, bekommt den der Konsole: auch die
+            # Quellbewegung, die ihre Deliktsarten darueber auf NIBRS bringt.
+            if stage.modul in {"silver_pipeline.build_crime_offense", "gold_pipeline.build_gold",
+                               "serving.build_source_movement"}:
                 command += ["--config-root", str(config)]
             result.append(command)
     return result

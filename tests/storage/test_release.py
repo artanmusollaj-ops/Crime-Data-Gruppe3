@@ -28,9 +28,14 @@ import pytest
 
 from orchestration.release import bilde
 from gold_pipeline import TABELLEN as GOLD_TABELLEN
-from serving.build_comparison import TABELLEN as SERVING_TABELLEN
+from serving.build_comparison import TABELLEN as VERGLEICHSTABELLEN
+from serving.build_source_movement import TABELLEN as QUELLBEWEGUNG
+
 from storage import Config, FakeS3Client, PublishError, Storage, release
 
+
+#: Alle Serving-Tabellen eines Release: die Vergleichstabellen und die Quellbewegung.
+SERVING_TABELLEN = VERGLEICHSTABELLEN + QUELLBEWEGUNG
 
 JETZT = datetime(2026, 9, 17, 15, 4, 5, tzinfo=timezone.utc)
 KENNUNG = "2026-09-17T15-04-05Z"
@@ -64,7 +69,8 @@ def gebaut(data_root: Path) -> None:
     Fall, den ``test_ohne_serving_entsteht_kein_release`` prueft.
     """
     from gold_pipeline import TABELLEN as GOLD
-    from serving.build_comparison import TABELLEN as SERVING
+
+    SERVING = SERVING_TABELLEN
 
     tabelle(data_root, "gold", "fact_offense", 5, contract_version=4,
             derived_from={"silver_crime_offense": {"path": "x"}},
@@ -489,7 +495,7 @@ def test_die_pflichtliste_kommt_aus_den_schichten_selbst():
     """Kommt eine Tabelle dazu, steht sie von allein darin - nicht abgeschrieben."""
     from gold_pipeline import TABELLEN as gold
     from orchestration.release import VOLLSTAENDIG
-    from serving.build_comparison import TABELLEN as serving
+    serving = SERVING_TABELLEN
 
     for name in gold:
         assert f"gold/dataset={name}" in VOLLSTAENDIG

@@ -158,6 +158,9 @@ REGEL_JE_QUELLE: dict[str, str] = {
     # (gold_pipeline.RATENJAHR). Ein Jahrgang mehr in den Falldaten
     # aendert die Zeilenzahl nicht - sie haengt an den Tracts.
     "dataset=rate_tract": CENSUS,
+    # Waechst mit den Bewegungen der Quelle, und die mit dem Bestand: Ein
+    # Jahrgang mehr ist ein Vollabzug mehr, der sich bewegen kann.
+    "dataset=source_movement": TATEN,
     # Im Release materialisiert, unter data/serving nur Sichten - dort um
     # zwei Groessenordnungen kleiner. Beide Male haengt die Groesse an den
     # Fakten, und deshalb gilt beide Male dieselbe Regel.

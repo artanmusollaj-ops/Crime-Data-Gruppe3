@@ -93,7 +93,7 @@ def bronze(root):
 
 def synthetic_runner(changes=None):
     def run(work, commands, log):
-        assert len(commands) == 9
+        assert len(commands) == 10
         assert any(c[2] == 'silver_pipeline.build_source_change' for c in commands)
         assert all(str(work.data) in c for c in commands)
         datasets(work.data, changes)

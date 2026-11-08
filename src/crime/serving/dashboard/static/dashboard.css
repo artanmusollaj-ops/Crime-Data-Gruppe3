@@ -201,3 +201,18 @@ h2 { margin: 0 0 4px; font-size: 17px; }
 .hinweis.abschluss .knopf { margin-left: auto; background: var(--blau); color: #fff; padding: 8px 14px;
   border-radius: 6px; text-decoration: none; white-space: nowrap; }
 .legende .rang::before { background: var(--farbe); }
+
+/* Brett »Quellbewegung« */
+#inhalt .raster { margin-top: 16px; }
+.tafelkopf { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.tafelkopf .umschalter button { padding: 6px 14px; font-size: 13px; }
+.feldblock h3 { margin: 10px 0 2px; font-size: 15px; }
+.feldblock.chicago h3 { color: var(--chicago); }
+.feldblock.detroit h3 { color: var(--detroit); }
+.diagramm.klein { min-height: 0; }
+.diagramm .leise-text { fill: #8a94a3; }
+h2.abstand { margin-top: 16px; }
+.tabelle td.stadtname { font-weight: 600; }
+.tabelle td.ok::before, .tabelle td.teil::before { margin-left: 0; }
+#d-vergleich td:nth-child(2), #d-kategorien td:nth-child(2), #d-paare td:nth-child(2),
+#d-liste td:nth-child(2), #d-uebergaenge td:nth-child(2) { color: var(--text); }

@@ -76,7 +76,7 @@ def schnappschuss(wurzel: Path, run_id: str, zeilen: list[dict], *,
     verzeichnis.mkdir(parents=True, exist_ok=True)
 
     felder = ["incident_entry_id", "offense_description", "state_offense_code",
-              "case_status", "updated_at", "ESRI_OID"]
+              "offense_category", "case_status", "updated_at", "ESRI_OID"]
     werte = [
         "SELECT {"
         + ", ".join(f"{f!r}: {str(z.get(f, ''))!r}" for f in felder)
@@ -96,7 +96,8 @@ def schnappschuss(wurzel: Path, run_id: str, zeilen: list[dict], *,
 
 def zeile(ident: str, **rest) -> dict:
     grund = {"incident_entry_id": ident, "offense_description": "ASSAULT",
-             "state_offense_code": "1300", "case_status": "OPEN",
+             "state_offense_code": "1300", "offense_category": "ASSAULT",
+             "case_status": "OPEN",
              "updated_at": "1000", "ESRI_OID": "1"}
     return {**grund, **rest}
 
@@ -357,6 +358,123 @@ def test_der_bestand_bleibt_auch_wenn_die_laeufe_weg_sind(tmp_path):
     shutil.rmtree(tmp_path / "bronze" / "city=detroit" / "run_a")
     zweit = baue_in(tmp_path)
     assert zweit["row_count"] == erst["row_count"], "der Bestand ging verloren"
+
+
+# --------------------------------------------------------------------------
+# Der Zusammenhang: Deliktsart und Bestand (Vertrag 4)
+# --------------------------------------------------------------------------
+
+
+def test_eine_verschwundene_zeile_nennt_ihre_deliktsart(tmp_path):
+    """Sonst traegt sie nur ihren Schluessel - und ihr Inhalt steht in keinem
+    spaeteren Stand mehr. *Was* verschwindet, liesse sich nie mehr sagen."""
+    schnappschuss(tmp_path, "a", [zeile("1"), zeile("2", state_offense_code="2900",
+                                                     offense_category="ARSON")],
+                  wann="2026-09-11T12:00:00")
+    schnappschuss(tmp_path, "b", [zeile("1")], wann="2026-09-12T12:00:00")
+    baue_in(tmp_path)
+    [weg] = [z for z in gelesen(tmp_path) if z["art"] == "verschwunden"]
+    assert (weg["quellcode"], weg["quellkategorie"]) == ("2900", "ARSON")
+
+
+def test_eine_neue_zeile_nennt_die_deliktsart_aus_dem_juengeren_stand(tmp_path):
+    schnappschuss(tmp_path, "a", [zeile("1")], wann="2026-09-11T12:00:00")
+    schnappschuss(tmp_path, "b", [zeile("1"), zeile("2", state_offense_code="2400",
+                                                     offense_category="STOLEN VEHICLE")],
+                  wann="2026-09-12T12:00:00")
+    baue_in(tmp_path)
+    [neu] = [z for z in gelesen(tmp_path) if z["art"] == "neu"]
+    assert (neu["quellcode"], neu["quellkategorie"]) == ("2400", "STOLEN VEHICLE")
+
+
+def test_eine_geaenderte_zeile_nennt_die_deliktsart_von_vorher(tmp_path):
+    """Aendert sich die Deliktsart selbst, gilt der Stand, der sich geaendert hat."""
+    schnappschuss(tmp_path, "a", [zeile("1")], wann="2026-09-11T12:00:00")
+    schnappschuss(tmp_path, "b", [zeile("1", state_offense_code="1200",
+                                         offense_category="ROBBERY")],
+                  wann="2026-09-12T12:00:00")
+    baue_in(tmp_path)
+    zeilen = [z for z in gelesen(tmp_path) if z["art"] == "geaendert"]
+    assert {(z["quellcode"], z["quellkategorie"]) for z in zeilen} == {("1300", "ASSAULT")}
+
+
+def test_jede_zeile_des_paares_nennt_den_bestand(tmp_path):
+    """Der Nenner jeder Rate - auch in der Markierungszeile eines ruhigen Paares."""
+    schnappschuss(tmp_path, "a", [zeile("1"), zeile("2"), zeile("3")],
+                  wann="2026-09-11T12:00:00")
+    schnappschuss(tmp_path, "b", [zeile("1"), zeile("2")], wann="2026-09-12T12:00:00")
+    schnappschuss(tmp_path, "c", [zeile("1"), zeile("2")], wann="2026-09-13T12:00:00")
+    baue_in(tmp_path)
+    je_paar = {(z["vorher_run_id"], z["run_id"], z["bestand_vorher"], z["bestand_nachher"])
+               for z in gelesen(tmp_path)}
+    assert je_paar == {("a", "b", 3, 2), ("b", "c", 2, 2)}
+
+
+def test_der_zusammenhang_klebt_wenn_die_laeufe_weg_sind(tmp_path):
+    """Wie die Datierung: einmal bestimmt, bleibt er stehen."""
+    import shutil
+
+    schnappschuss(tmp_path, "a", [zeile("1"), zeile("2", offense_category="ARSON")],
+                  wann="2026-09-11T12:00:00")
+    schnappschuss(tmp_path, "b", [zeile("1")], wann="2026-09-12T12:00:00")
+    baue_in(tmp_path)
+    shutil.rmtree(tmp_path / "bronze" / "city=detroit" / "run_a")
+    schnappschuss(tmp_path, "c", [zeile("1", case_status="CLOSED")],
+                  wann="2026-09-13T12:00:00")
+    baue_in(tmp_path)
+    zeilen = gelesen(tmp_path)
+    [weg] = [z for z in zeilen if z["art"] == "verschwunden"]
+    assert weg["quellkategorie"] == "ARSON"
+    assert {(z["vorher_run_id"], z["bestand_vorher"]) for z in zeilen} == {("a", 2), ("b", 1)}
+
+
+def test_ein_bestand_aus_vertrag_3_bekommt_den_zusammenhang_nachgetragen(tmp_path):
+    """Die Paare, die vor dem 8.11.2026 gezogen wurden, haben ihn nicht.
+
+    Solange ihre Schnappschuesse da sind, wird er nachgetragen; das Paar
+    selbst wird dabei nicht neu gezogen.
+    """
+    import duckdb
+
+    schnappschuss(tmp_path, "a", [zeile("1"), zeile("2", offense_category="ARSON")],
+                  wann="2026-09-11T12:00:00")
+    schnappschuss(tmp_path, "b", [zeile("1")], wann="2026-09-12T12:00:00")
+    baue_in(tmp_path)
+    # Die Datei so ablegen, wie Vertrag 3 sie schrieb: ohne die vier Spalten.
+    datei = bsc.tabellenverzeichnis(tmp_path) / PARQUET_FILE
+    con = duckdb.connect()
+    spalten = ", ".join(bsc.SPALTEN_ROH + bsc.SPALTEN_DATIERUNG)
+    con.execute(f"COPY (SELECT {spalten} FROM read_parquet('{datei}')) "
+                f"TO '{datei}.alt' (FORMAT PARQUET)")
+    con.close()
+    Path(f"{datei}.alt").replace(datei)
+    manifest = bsc.tabellenverzeichnis(tmp_path) / "manifest.json"
+    m = json.loads(manifest.read_text(encoding="utf-8"))
+    m["contract_version"] = 3
+    m["schema"] = {k: v for k, v in m["schema"].items() if k not in bsc.SPALTEN_KONTEXT}
+    manifest.write_text(json.dumps(m), encoding="utf-8")
+
+    bericht = baue_in(tmp_path)
+    assert bericht["paare"] == 0, "das Paar wurde neu gezogen statt ergaenzt"
+    assert bericht["kontext"] == {"paare": 1, "zeilen": 1, "nicht_bestimmbar": 0}
+    [weg] = [z for z in gelesen(tmp_path) if z["art"] == "verschwunden"]
+    assert (weg["quellkategorie"], weg["bestand_vorher"]) == ("ARSON", 2)
+
+
+def test_ohne_schnappschuss_bleibt_der_zusammenhang_leer(tmp_path):
+    """Nicht bestimmbar heisst leer - nicht geraten und kein Abbruch."""
+    con = bsc.connect()
+    con.execute("CREATE TABLE roh AS SELECT 'detroit' AS city, '1' AS offense_id, "
+                "'x' AS vorher_run_id, 'y' AS run_id, 'verschwunden' AS art")
+    con.execute("CREATE TABLE zeilen_kontext (city VARCHAR, offense_id VARCHAR, "
+                "vorher_run_id VARCHAR, run_id VARCHAR, quellcode VARCHAR, "
+                "quellkategorie VARCHAR)")
+    con.execute("CREATE TABLE paar_kontext (city VARCHAR, vorher_run_id VARCHAR, "
+                "run_id VARCHAR, bestand_vorher BIGINT, bestand_nachher BIGINT)")
+    from storage import for_root
+    bericht = bsc.ergaenze_kontext(con, for_root(tmp_path), {})
+    assert bericht == {"paare": 0, "zeilen": 0, "nicht_bestimmbar": 1}
+    assert con.execute("SELECT count(*) FROM zeilen_kontext").fetchone()[0] == 0
 
 
 # --------------------------------------------------------------------------

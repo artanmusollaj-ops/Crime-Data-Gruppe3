@@ -24,11 +24,11 @@ und im Hybridmodus wird eine Datei, die lokal und auf SeaweedFS liegt, einmal ge
 | --- | ---: | ---: |
 | **raw** | 358,4 MB | 668 |
 | **bronze** | 422,9 MB | 116 |
-| **silver** | 213,6 MB | 22 |
+| **silver** | 213,7 MB | 22 |
 | **gold** | 85,7 MB | 14 |
-| **serving** | 1,3 MB | 13 |
+| **serving** | 1,3 MB | 15 |
 | **releases** | 1'116,3 MB | 251 |
-| zusammen | **2'198,3 MB** | 1084 |
+| zusammen | **2'198,4 MB** | 1086 |
 
 ## 2 Gerechnet: vier Regeln für 2021–2026
 
@@ -42,11 +42,11 @@ Die Zeilen je Stadt und Jahr sind gemessene Fremddaten und stehen mit Datum und 
 
 | Regel | Wie sie rechnet | Basis je Jahrgang | 2021–2026 |
 | --- | --- | ---: | ---: |
-| **Taten** | Zeilen je Jahr × Bytes je Zeile | 227,7 MB | 506,7 MB |
+| **Taten** | Zeilen je Jahr × Bytes je Zeile | 227,8 MB | 506,8 MB |
 | **Census** | distinkte ACS-Vintages × Kosten je Vintage | 372,5 MB | 376,8 MB |
 | **konstant** | wächst nicht mit den Jahren | 25,0 MB | 25,0 MB |
 | **Releases** | Inhalt eines Standes hochgerechnet, dann × 8 Stände | 181,4 MB | 7'789,9 MB |
-| zusammen | | 806,5 MB | **8'698,3 MB** (8,70 GB) |
+| zusammen | | 806,6 MB | **8'698,4 MB** (8,70 GB) |
 
 Warum die Regeln verschieden rechnen:
 
@@ -120,6 +120,7 @@ davon.
 | `dataset=comparison_week` | 1 | 0,1 MB | Taten: 1'874'417 Zeilen × 0,0 Bytes je Zeile | 0,1 MB |
 | `dataset=partition_quality` | 1 | 0,0 MB | Taten: 1'874'417 Zeilen × 0,0 Bytes je Zeile | 0,0 MB |
 | `dataset=rate_tract` | 1 | 0,0 MB | Census: 4 Vintages (2021, 2022, 2023, 2024) × 0,0 MB je Vintage | 0,1 MB |
+| `dataset=source_movement` | 1 | 0,1 MB | Taten: 1'874'417 Zeilen × 0,1 Bytes je Zeile | 0,1 MB |
 | `tracts.geojson` | 1 | 0,5 MB | Census: 4 Vintages (2021, 2022, 2023, 2024) × 0,5 MB je Vintage | 2,2 MB |
 | `tracts.manifest.json` | 1 | 0,0 MB | konstant: wächst nicht mit den Jahren | 0,0 MB |
 
@@ -147,11 +148,11 @@ davon.
 
 ## 4 Was daraus folgt
 
-* **2021–2026 braucht 8'698,3 MB (8,70 GB)**. Dieselbe Rechnung für **einen** Jahrgang (2024) ergibt 1'663,8 MB — 2021–2026 ist also
+* **2021–2026 braucht 8'698,4 MB (8,70 GB)**. Dieselbe Rechnung für **einen** Jahrgang (2024) ergibt 1'663,8 MB — 2021–2026 ist also
   das **5,23-Fache eines Jahrgangs** und nicht das 5,5-Fache. Verglichen wird dabei Rechnung mit Rechnung: Das heutige
-  `data/` (2'198,3 MB) hält 14 `city=chicago`-Läufe und zehn Release-Stände und ist mit keiner
+  `data/` (2'198,4 MB) hält 14 `city=chicago`-Läufe und zehn Release-Stände und ist mit keiner
   der beiden Zahlen vergleichbar — genau diese Verwechslung steckte im alten Faktor.
-* **Ohne `releases/` sind es 908,4 MB** (0,91 GB), ohne `releases/` **und** `raw/` noch 639,2 MB (0,64 GB).
+* **Ohne `releases/` sind es 908,5 MB** (0,91 GB), ohne `releases/` **und** `raw/` noch 639,3 MB (0,64 GB).
   Das sind die Zahlen, die für FR-52 zählen: Eine Abgabe braucht nicht acht Stände, und sie braucht die
   Beweisstücke nicht mitzuschicken.
 * **Moodles Grenze von 1 GB**: Der ganze Bestand liegt mit 8,70 GB weit darüber. Ohne `releases/` liegt er mit 0,91 GB knapp darunter, ohne `raw/` dazu mit 0,64 GB deutlich. Reserve ist das keine: Ein Jahrgang mehr hebt ihn wieder darüber.

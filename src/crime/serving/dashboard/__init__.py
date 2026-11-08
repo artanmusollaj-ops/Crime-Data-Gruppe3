@@ -347,6 +347,12 @@ class Bestand:
                         + einwohner_je_stadt(f"read_parquet('{tracts}', hive_partitioning=false)",
                                              f"read_parquet('{acs}', hive_partitioning=false)",
                                              str(int(v))) + ")")
+        # Fuer »Quellbewegung«: die Bewegung der Quellen, mit der NIBRS-Kategorie
+        # ueber dieselbe Dimension wie die Taten. Ein aelteres Release fuehrt
+        # die Tabelle nicht - dann bleibt das Brett leer und sagt warum, statt
+        # dass das ganze Dashboard nicht laedt.
+        from serving.dashboard.quellbewegung import lade_bewegung
+        bewegung = lade_bewegung(con, ablage, release, delikte)
         stand = json.loads(monat_manifest)
         with self._sperre:
             alt = getattr(self, "_con", None)
@@ -358,6 +364,7 @@ class Bestand:
             }
             self.karten = karten
             self.beispiele = beispiele
+            self.bewegung = bewegung
             self.jahre = [r[0] for r in con.execute(
                 "SELECT DISTINCT year(monat) FROM monate ORDER BY 1").fetchall()]
             self.kategorien = [r[0] for r in con.execute(
@@ -394,7 +401,9 @@ class Bestand:
                      key=lambda k: k["name"]),
             "vorgabe": {"stadt": "beide", "jahr": RATENJAHR if RATENJAHR in self.jahre
                         else self.jahre[-1], "von": 1, "bis": 12,
-                        "kategorie": "alle", "mass": "anzahl", "ebene": "faelle"},
+                        "kategorie": "alle", "mass": "anzahl", "ebene": "faelle",
+                        # »Quellbewegung«: Zeitstempel vorgabemaessig ausgeblendet.
+                        "felder": "inhalt"},
             "letzter_monat": letzter,
             "stand": self.stand,
         }
@@ -434,6 +443,12 @@ class Bestand:
             "tracts": {s: int(tracts.get(s, 0)) for s in STAEDTE},
             "release": self.stand.get("release"),
         }
+
+    # -- Das Brett »Quellbewegung« ------------------------------------------
+
+    def quellbewegung(self, werte: dict[str, str]) -> dict[str, Any]:
+        from serving.dashboard.quellbewegung import quellbewegung
+        return quellbewegung(self, werte)
 
     # -- Das Brett »Deliktstruktur« ------------------------------------------
 

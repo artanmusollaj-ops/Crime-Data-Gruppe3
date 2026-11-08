@@ -103,7 +103,14 @@ TABLE = "source_change"
 #: Befund, sondern den besten, der je bestimmt wurde - sonst haette das
 #: Aufraeumen der Deltas sie wieder gelöscht. Die Spalten sind dieselben, ihre
 #: Bedeutung ist es nicht, und deshalb steigt die Zahl.
-CONTRACT_VERSION = 3
+#: 4 am 8.11.2026: Jede Zeile nennt ihre Deliktsart (``quellcode``,
+#: ``quellkategorie``), jedes Paar seinen Bestand (``bestand_vorher``,
+#: ``bestand_nachher``). Ohne die Deliktsart war nicht zu sagen, *was*
+#: verschwindet - eine verschwundene Zeile traegt sonst nur ihren Schluessel,
+#: und ihr Inhalt steht in keinem spaeteren Stand mehr. Ohne den Bestand war
+#: nicht zu sagen, ob eine Stadt *viel* loescht: Dreizehn Loeschungen sind
+#: viel oder wenig, je nachdem, aus wie vielen Zeilen sie kommen.
+CONTRACT_VERSION = 4
 
 #: Die Spalten, in dieser Reihenfolge. Ausgeschrieben und nicht ``SELECT *``:
 #: DuckDB leitet aus dem Pfad ``dataset=source_change`` eine Hive-Spalte
@@ -122,7 +129,24 @@ SPALTEN_ROH = ("city", "offense_id", "vorher_run_id", "run_id",
 #: Begruendung in ``datiere``.
 SPALTEN_DATIERUNG = ("zuerst_gesehen_in", "zuerst_gesehen_am", "datierung")
 
-SPALTEN = SPALTEN_ROH + SPALTEN_DATIERUNG
+#: Und der Zusammenhang - wie die Datierung eine Annotation, die **klebt**:
+#: einmal bestimmt, bleibt sie stehen, auch wenn der Schnappschuss, aus dem
+#: sie stammt, aufgeraeumt ist. Bestimmt wird sie, solange er lesbar ist.
+#:
+#: ``quellcode`` und ``quellkategorie`` stammen aus dem **aelteren**
+#: Schnappschuss des Paares - dem Stand, der sich geaendert hat oder
+#: verschwunden ist -, bei ``neu`` aus dem juengeren, denn im aelteren steht
+#: die Zeile nicht. Es sind die Werte der Quelle, ungedeutet; die NIBRS-
+#: Zuordnung setzt Gold mit dem Crosswalk, der dann gilt.
+#:
+#: ``bestand_vorher`` und ``bestand_nachher`` zaehlen die Schluessel in den
+#: beiden Schnappschuessen - der Nenner jeder Rate, die aus dieser Tabelle
+#: gerechnet wird. Sie stehen in jeder Zeile des Paares, auch in der
+#: Markierungszeile: Ein Paar ohne Aenderung ist ein Paar mit Bestand.
+SPALTEN_KONTEXT = ("quellcode", "quellkategorie", "bestand_vorher",
+                   "bestand_nachher")
+
+SPALTEN = SPALTEN_ROH + SPALTEN_DATIERUNG + SPALTEN_KONTEXT
 
 
 
@@ -144,6 +168,11 @@ class Quelle:
     #: Felder, deren Bewegung keine Inhaltsaenderung ist - aber eine
     #: Beobachtung.
     stempel: frozenset[str] = frozenset()
+    #: Woraus die Deliktsart einer Zeile kommt: der Code, den der Crosswalk
+    #: kennt (wie ``source_offense_code`` in ``build_crime_offense``), und
+    #: der lesbare Name der Quelle.
+    codefeld: str = ""
+    kategoriefeld: str = ""
 
 
 QUELLEN: tuple[Quelle, ...] = (
@@ -157,6 +186,8 @@ QUELLEN: tuple[Quelle, ...] = (
         rauschen=frozenset({"ESRI_OID"}),
         stempel=frozenset({"updated_at", "updated_in_ibr_at",
                            "case_status_updated_at"}),
+        codefeld="state_offense_code",
+        kategoriefeld="offense_category",
     ),
     Quelle(
         stadt="chicago",
@@ -177,6 +208,8 @@ QUELLEN: tuple[Quelle, ...] = (
         rauschen=frozenset(),
         # Das Feld, an dem auch die Delta-Ingestion ihr Wasserzeichen fuehrt.
         stempel=frozenset({"updated_on"}),
+        codefeld="iucr",
+        kategoriefeld="primary_type",
     ),
 )
 
@@ -411,6 +444,131 @@ DATIERUNG_SQL = """
            CASE WHEN rang(a_datierung) > rang(f_datierung)
                 THEN a_datierung ELSE f_datierung END AS datierung
     FROM frisch
+"""
+
+
+def lesbar(ablage: Any, abzug: Schnappschuss | None) -> str | None:
+    """Der Lesepfad eines Schnappschusses - oder ``None``, wenn er fehlt.
+
+    Fuer den Zusammenhang, nicht fuer den Vergleich: Ein Paar wird nur
+    gezogen, solange beide Schnappschuesse da sind. Der Zusammenhang wird
+    dagegen auch fuer Paare nachgetragen, die laengst in der Tabelle stehen,
+    und deren Rohstoff kann aufgeraeumt sein. Dann bleibt er leer.
+    """
+    if abzug is None:
+        return None
+    try:
+        return ablage.resolve_read_path(abzug.pfad, PARQUET_FILE)
+    except Exception:          # noqa: BLE001 - Ablage, nicht Logik
+        return None
+
+
+def ergaenze_kontext(con: duckdb.DuckDBPyConnection, ablage: Any,
+                     abzuege: dict[str, tuple[Quelle, Schnappschuss]]) -> dict[str, int]:
+    """Traegt Deliktsart und Bestand nach, wo sie fehlen und bestimmbar sind.
+
+    Schreibt in ``zeilen_kontext`` und ``paar_kontext``, die der Aufrufer
+    anlegt und mit dem schon Bestimmten fuellt. Gelesen wird nur, was fehlt:
+    Ein Paar, dessen Zusammenhang schon steht, kostet keinen Zugriff.
+
+    Gibt zurueck, wie viele Paare und Zeilen neu bestimmt wurden und wie viele
+    Paare nicht mehr bestimmbar waren, weil ein Schnappschuss fehlt.
+    """
+    bericht = {"paare": 0, "zeilen": 0, "nicht_bestimmbar": 0}
+    zaehlung: dict[str, int | None] = {}
+
+    def bestand(run_id: str) -> int | None:
+        if run_id not in zaehlung:
+            quelle, abzug = abzuege.get(run_id, (None, None))
+            pfad = lesbar(ablage, abzug)
+            if pfad is None or quelle is None:
+                zaehlung[run_id] = None
+            else:
+                try:
+                    zaehlung[run_id] = con.execute(
+                        f"SELECT count(DISTINCT {vergleichbar(quelle.schluessel, quelle)}) "
+                        f"FROM read_parquet('{pfad}')").fetchone()[0]
+                except duckdb.Error as fehler:
+                    log.warning("  %s nicht lesbar (%s) - Bestand bleibt leer",
+                                run_id, fehler)
+                    zaehlung[run_id] = None
+        return zaehlung[run_id]
+
+    offen_paare = con.execute("""
+        SELECT DISTINCT r.city, r.vorher_run_id, r.run_id FROM roh r
+        ANTI JOIN paar_kontext k USING (city, vorher_run_id, run_id)
+        ORDER BY 1, 2, 3
+    """).fetchall()
+    for stadt, vorher, nachher in offen_paare:
+        a, b = bestand(vorher), bestand(nachher)
+        if a is None or b is None:
+            bericht["nicht_bestimmbar"] += 1
+            continue
+        con.execute("INSERT INTO paar_kontext VALUES (?, ?, ?, ?, ?)",
+                    [stadt, vorher, nachher, a, b])
+        bericht["paare"] += 1
+
+    # Je Paar und Seite die Schluessel, deren Deliktsart fehlt. Die Seite ist
+    # der Schnappschuss, in dem die Zeile steht: bei ``neu`` der juengere.
+    offen_zeilen = con.execute("""
+        SELECT DISTINCT r.city, r.vorher_run_id, r.run_id,
+               CASE WHEN r.art = 'neu' THEN r.run_id ELSE r.vorher_run_id END
+        FROM roh r
+        ANTI JOIN zeilen_kontext k USING (city, offense_id, vorher_run_id, run_id)
+        WHERE r.offense_id IS NOT NULL
+        ORDER BY 1, 2, 3, 4
+    """).fetchall()
+    for stadt, vorher, nachher, seite in offen_zeilen:
+        quelle, abzug = abzuege.get(seite, (None, None))
+        pfad = lesbar(ablage, abzug)
+        if pfad is None or quelle is None:
+            continue
+        try:
+            namen = set(felder(con, pfad, quelle))
+        except (duckdb.Error, TransformError):
+            continue
+
+        def feld(name: str) -> str:
+            # Ein Feld, das die Quelle (noch) nicht fuehrt, ist leer - kein Fehler.
+            return (f"min({vergleichbar(name, quelle)})" if name and name in namen
+                    else "CAST(NULL AS VARCHAR)")
+
+        schluessel = vergleichbar(quelle.schluessel, quelle)
+        vorher_zahl = con.execute("SELECT count(*) FROM zeilen_kontext").fetchone()[0]
+        con.execute(f"""
+            INSERT INTO zeilen_kontext
+            SELECT $stadt, s._id, $vorher, $nachher, s.code, s.kategorie
+            FROM (
+                SELECT {schluessel} AS _id, {feld(quelle.codefeld)} AS code,
+                       {feld(quelle.kategoriefeld)} AS kategorie
+                FROM read_parquet('{pfad}')
+                WHERE {schluessel} IN (
+                    SELECT r.offense_id FROM roh r
+                    WHERE r.city = $stadt AND r.vorher_run_id = $vorher
+                      AND r.run_id = $nachher AND r.offense_id IS NOT NULL
+                      AND (CASE WHEN r.art = 'neu' THEN r.run_id
+                                ELSE r.vorher_run_id END) = $seite)
+                GROUP BY 1
+            ) s
+            ANTI JOIN zeilen_kontext k
+              ON k.city = $stadt AND k.offense_id = s._id
+             AND k.vorher_run_id = $vorher AND k.run_id = $nachher
+        """, {"stadt": stadt, "vorher": vorher, "nachher": nachher, "seite": seite})
+        bericht["zeilen"] += con.execute(
+            "SELECT count(*) FROM zeilen_kontext").fetchone()[0] - vorher_zahl
+    return bericht
+
+
+#: Die fertige Tabelle: die datierten Zeilen und ihr Zusammenhang.
+KONTEXT_SQL = """
+    SELECT d.city, d.offense_id, d.vorher_run_id, d.run_id,
+           d.vorher_am, d.beobachtet_am, d.art, d.feld, d.wert_alt, d.wert_neu,
+           d.zuerst_gesehen_in, d.zuerst_gesehen_am, d.datierung,
+           z.quellcode, z.quellkategorie,
+           p.bestand_vorher, p.bestand_nachher
+    FROM datiert d
+    LEFT JOIN zeilen_kontext z USING (city, offense_id, vorher_run_id, run_id)
+    LEFT JOIN paar_kontext p USING (city, vorher_run_id, run_id)
 """
 
 
@@ -718,11 +876,13 @@ def baue(data_root: Path, *, trocken: bool = False) -> dict[str, Any]:
         """)
         bericht: dict[str, Any] = {"quellen": [], "paare": 0, "uebersprungen": 0}
         vorrat: list[tuple[Quelle, list[Schnappschuss]]] = []
+        abzuege: dict[str, tuple[Quelle, Schnappschuss]] = {}
         for quelle in QUELLEN:
             laeufe = ablage.laeufe(quelle.praefix, fehler=TransformError)
             alle = schnappschuesse(laeufe)
             deltas = delta_laeufe(laeufe)
             vorrat.append((quelle, deltas))
+            abzuege.update({a.run_id: (quelle, a) for a in alle})
             offen = [(a, b) for a, b in paare(alle)
                      if (a.run_id, b.run_id) not in schon]
             bericht["quellen"].append({
@@ -800,7 +960,41 @@ def baue(data_root: Path, *, trocken: bool = False) -> dict[str, Any]:
         for quelle, deltas in vorrat:
             gelesen += datiere(con, quelle, ablage, deltas)
         bericht["deltas_gelesen"] = gelesen
-        con.execute(f"CREATE TABLE {TABLE} AS {DATIERUNG_SQL}")
+        con.execute(f"CREATE TEMP TABLE datiert AS {DATIERUNG_SQL}")
+
+        # Der Zusammenhang klebt wie die Datierung: Was schon bestimmt war,
+        # kommt aus der abgelegten Fassung mit. Steht die Spalte dort noch
+        # nicht, stammt die Datei aus Vertrag 3 oder frueher.
+        con.execute("""
+            CREATE TEMP TABLE zeilen_kontext (
+                city VARCHAR, offense_id VARCHAR,
+                vorher_run_id VARCHAR, run_id VARCHAR,
+                quellcode VARCHAR, quellkategorie VARCHAR)
+        """)
+        con.execute("""
+            CREATE TEMP TABLE paar_kontext (
+                city VARCHAR, vorher_run_id VARCHAR, run_id VARCHAR,
+                bestand_vorher BIGINT, bestand_nachher BIGINT)
+        """)
+        if (ablage.exists(rel_tabelle, PARQUET_FILE)
+                and SPALTEN_KONTEXT[2] in abgelegtes_schema(ablage, rel_tabelle)):
+            con.execute(f"""
+                INSERT INTO zeilen_kontext
+                SELECT DISTINCT city, offense_id, vorher_run_id, run_id,
+                       quellcode, quellkategorie
+                FROM read_parquet('{quelle_alt}')
+                WHERE offense_id IS NOT NULL
+                  AND (quellcode IS NOT NULL OR quellkategorie IS NOT NULL)
+            """)
+            con.execute(f"""
+                INSERT INTO paar_kontext
+                SELECT DISTINCT city, vorher_run_id, run_id,
+                       bestand_vorher, bestand_nachher
+                FROM read_parquet('{quelle_alt}')
+                WHERE bestand_vorher IS NOT NULL AND bestand_nachher IS NOT NULL
+            """)
+        bericht["kontext"] = ergaenze_kontext(con, ablage, abzuege)
+        con.execute(f"CREATE TABLE {TABLE} AS {KONTEXT_SQL}")
 
         bericht["row_count"] = con.execute(
             f"SELECT count(*) FROM {TABLE}").fetchone()[0]
@@ -816,9 +1010,10 @@ def baue(data_root: Path, *, trocken: bool = False) -> dict[str, Any]:
             gelesene_datierung(ablage, rel_tabelle))
         vertrag_neu = abgelegter_vertrag(ablage, rel_tabelle) != CONTRACT_VERSION
         schema_neu = abgelegtes_schema(ablage, rel_tabelle) != set(SPALTEN)
+        kontext_neu = bool(bericht["kontext"]["paare"] or bericht["kontext"]["zeilen"])
         if (bericht["paare"]
                 or not ablage.exists(rel_tabelle, PARQUET_FILE)
-                or datierung_neu or vertrag_neu or schema_neu):
+                or datierung_neu or vertrag_neu or schema_neu or kontext_neu):
             ziel = publish(con, TABLE, verzeichnis,
                             manifest(con, bericht, begonnen))
             # **Und hinauf.** Bis zum 17.10.2026 fehlte diese Zeile, und damit

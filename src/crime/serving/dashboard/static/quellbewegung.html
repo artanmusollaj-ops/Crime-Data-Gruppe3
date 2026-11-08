@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quellbewegung · Urban Crime · Analytics</title>
+<link rel="icon" href="/static/favicon.svg">
+<link rel="stylesheet" href="/static/dashboard.css">
+<script type="module" src="/static/quellbewegung.js"></script>
+</head>
+<body>
+<header class="kopf">
+  <div class="marke">
+    <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="10" width="4" height="11" rx="1"/><rect x="10" y="4" width="4" height="17" rx="1"/><rect x="17" y="13" width="4" height="8" rx="1"/></svg>
+    <span class="produkt">Urban Crime</span><span class="punkt">·</span><span class="bereich">Analytics</span>
+  </div>
+  <div class="stand" id="stand">Stand wird geladen …</div>
+</header>
+
+<nav class="reiter" aria-label="Bretter">
+  <a href="/">Überblick</a>
+  <a href="/zeitverlauf">Zeitverlauf</a>
+  <a href="/geografie">Geografie</a>
+  <a href="/deliktstruktur">Deliktstruktur</a>
+  <a href="/datenqualitaet">Datenqualität</a>
+  <a class="aktiv" href="/quellbewegung" aria-current="page">Quellbewegung</a>
+</nav>
+
+<form class="leiste" id="leiste">
+  <label>Stadt <select name="stadt" id="stadt"></select></label>
+</form>
+
+<main class="brett">
+  <div class="brettkopf">
+    <div>
+      <h1>Was ändern und löschen die Quellen?</h1>
+      <p class="einleitung">Beide Quellen bewegen sich nach der Veröffentlichung. Verglichen werden
+        aufeinanderfolgende Vollabzüge desselben Jahrgangs: Welche Felder ändern sich, wie oft,
+        welche Einträge verschwinden – und löscht eine Stadt auffallend mehr als die andere?</p>
+    </div>
+  </div>
+  <p class="fehler" id="fehler" hidden></p>
+  <p class="hinweis" id="ohne-tabelle" hidden><span class="i">i</span><span>Das aktive Release führt
+    die Quellbewegung noch nicht (<code>serving/source_movement</code>). Sie erscheint mit dem
+    nächsten Release.</span></p>
+
+  <div id="inhalt" hidden>
+  <section class="kennzahlen">
+    <div class="kachel"><span class="symbol" data-symbol="kalender"></span>
+      <div><span class="etikett">Vergleichspaare</span><b id="k-paare">–</b>
+        <small id="k-paare-text"></small></div></div>
+    <div class="kachel"><span class="symbol" data-symbol="dokument"></span>
+      <div><span class="etikett">Geänderte Einträge</span><b id="k-geaendert">–</b>
+        <small id="k-geaendert-text"></small></div></div>
+    <div class="kachel"><span class="symbol" data-symbol="datenbank"></span>
+      <div><span class="etikett">Entfernte Einträge</span><b id="k-entfernt">–</b>
+        <small id="k-entfernt-text"></small></div></div>
+    <div class="kachel"><span class="symbol" data-symbol="balken"></span>
+      <div><span class="etikett">Neue Einträge</span><b id="k-neu">–</b>
+        <small id="k-neu-text"></small></div></div>
+  </section>
+
+  <section class="tafel detail" id="t-vergleich">
+    <h2>Löscht oder ändert eine Stadt auffallend mehr?</h2>
+    <p class="unterzeile">Je 10'000 Einträge und Monat – die Paare liegen zwischen wenigen Stunden und
+      einem Monat auseinander. Exakter Test auf gleiche Raten, auffällig ab p &lt; 0,05.</p>
+    <table class="tabelle" id="d-vergleich"></table>
+  </section>
+
+  <section class="raster">
+    <article class="tafel">
+      <div class="tafelkopf">
+        <h2>Welche Felder ändern sich?</h2>
+        <div class="umschalter" data-param="felder" role="group" aria-label="Felder">
+          <button type="button" data-wert="inhalt">Ohne Zeitstempel</button>
+          <button type="button" data-wert="alle">Alle Felder</button>
+        </div>
+      </div>
+      <p class="unterzeile">Anteil der geänderten Einträge, an denen sich das Feld bewegt hat</p>
+      <div id="d-felder"></div>
+    </article>
+    <article class="tafel">
+      <h2>Wie oft wird derselbe Eintrag geändert?</h2>
+      <p class="unterzeile">Einträge nach der Zahl der Vergleichspaare, in denen sie sich inhaltlich änderten</p>
+      <div class="diagramm" id="d-haeufigkeit"></div>
+      <div class="legende" id="l-haeufigkeit"></div>
+      <h2 class="abstand">Häufigste Wertwechsel</h2>
+      <table class="tabelle" id="d-uebergaenge"></table>
+    </article>
+  </section>
+
+  <section class="raster">
+    <article class="tafel">
+      <h2>Welche Deliktsarten verschwinden?</h2>
+      <p class="unterzeile" id="u-entfernt">Entfernte Einträge nach NIBRS-Kategorie, daneben ihr Anteil an allen Taten</p>
+      <table class="tabelle" id="d-kategorien"></table>
+      <p class="hinweis" id="h-konzentration" hidden></p>
+    </article>
+    <article class="tafel">
+      <h2>Die Vergleichspaare</h2>
+      <p class="unterzeile">Je Paar zweier Vollabzüge: Abstand, Bestand und Bewegung</p>
+      <table class="tabelle" id="d-paare"></table>
+    </article>
+  </section>
+
+  <section class="tafel detail">
+    <h2>Entfernte Einträge</h2>
+    <p class="unterzeile">Die Deliktsart stammt aus dem letzten Abzug, in dem der Eintrag noch stand</p>
+    <table class="tabelle" id="d-liste"></table>
+  </section>
+  </div>
+
+  <p class="hinweis abschluss"><span class="i">i</span><span>Verglichen werden nur Vollabzüge – aus
+    einem Delta liesse sich <i>verschwunden</i> nicht von <i>unverändert</i> unterscheiden. Eine Bewegung
+    geschah irgendwann zwischen den beiden Abzügen eines Paares.</span></p>
+</main>
+
+<footer class="fuss">
+  <span id="fuss-stand"></span>
+  <span>Quelle: serving/source_movement (aus silver/source_change) · Kategorien: gold/dim_offense</span>
+</footer>
+</body>
+</html>
