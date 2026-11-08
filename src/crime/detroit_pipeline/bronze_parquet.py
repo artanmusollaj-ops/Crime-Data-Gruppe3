@@ -9,8 +9,9 @@ import math
 from hashlib import sha256
 import pyarrow as pa
 
+from . import detroit_arcgis
+
 CONTRACT_VERSION = 2
-SOURCE_SYSTEM = 'detroit_rms_crime'
 TYPES = {
     'esriFieldTypeOID': pa.int64(), 'esriFieldTypeInteger': pa.int64(),
     'esriFieldTypeSmallInteger': pa.int64(), 'esriFieldTypeBigInteger': pa.int64(),
@@ -60,6 +61,7 @@ def to_row(feature, schema, run_id, started):
         'attributes': projected,
         '_feature_json': json.dumps(feature, ensure_ascii=False, allow_nan=False),
         '_extra': json.dumps(extra, ensure_ascii=False, allow_nan=False) if extra else None,
-        'source_system': SOURCE_SYSTEM, 'pipeline_run_id': run_id,
+        # Zur Laufzeit gelesen: ``use_source`` kann die Quelle gewechselt haben.
+        'source_system': detroit_arcgis.SOURCE_SYSTEM, 'pipeline_run_id': run_id,
         'ingested_at_utc': started,
     }

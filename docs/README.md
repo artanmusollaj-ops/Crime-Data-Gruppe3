@@ -67,6 +67,7 @@ Word-Dokument verweist**: auf keines davon.
 | [`intern/fr-stand.md`](intern/fr-stand.md) | der Stand je Anforderung des PRD — mit Beleg je Zeile; `tests/test_fr_stand.py` hält sie gegen das PRD |
 | [`intern/offene-punkte.md`](intern/offene-punkte.md) | was liegen geblieben ist, an einer Stelle — Entscheidungen, Handgriffe auf dem Server, Code; je Punkt ein Verantwortlicher und ein Beleg. Die Anforderungen stehen in `fr-stand.md` |
 | [`datenhistorie.md`](intern/datenhistorie.md) | was beim Aufräumen verlorenginge — Entscheidungspapier |
+| [`dritte-stadt.md`](intern/dritte-stadt.md) | was eine dritte Stadt bräuchte: welche der zehn grössten US-Städte in Frage kommen, was an der Ingestion vorbereitet ist (`config/quellen.toml`) und was Schicht für Schicht noch fehlt — keine Stadt geplant |
 | [`platzbedarf.md`](intern/platzbedarf.md) | was die Strecke an Platz braucht, gemessen und auf 2021–2026 hochgerechnet — **erzeugt** (siehe unten) |
 | [`DETROIT_PIPELINE_ANLEITUNG.md`](intern/DETROIT_PIPELINE_ANLEITUNG.md) | Detroit-Pipeline Schritt für Schritt (Windows) |
 | [`ENGINEERING_KONSOLE.md`](intern/ENGINEERING_KONSOLE.md) | die Engineering-Konsole: Funktionen, Impact-Bericht, lokale Einrichtung, Betrieb auf `srv01`, Umstellung auf den verwalteten Betrieb, Fehlerdiagnose — als PDF unter [`intern/handbuch/`](intern/handbuch/ENGINEERING_KONSOLE.pdf) (erzeugt, siehe unten) |

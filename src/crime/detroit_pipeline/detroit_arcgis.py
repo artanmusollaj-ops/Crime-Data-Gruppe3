@@ -9,6 +9,13 @@ Was die Zeilen *bedeuten*, steht bewusst nicht hier. Die fachliche
 Transformation beider Staedte liegt in ``silver_pipeline.build_crime_offense``
 - eine Stelle, eine Granularität, ein Crosswalk. Dieses Modul laedt, es deutet nicht.
 
+Das Modul ist der ArcGIS-Adapter. Was an Detroit haengt - Layer, Zeitzone,
+Tatzeit- und Aenderungsfeld, das erste Jahr - steht in ``config/quellen.toml``
+und kommt ueber ``storage.quellen.lade``; ``extract_detroit --source`` waehlt
+einen anderen ArcGIS-Eintrag. Ein Prozess laedt eine Quelle: ``use_source``
+setzt ``QUELLE`` und die drei alten Namen, alle Funktionen lesen sie zur
+Laufzeit.
+
 Der Download verwendet nur die Standardbibliothek. Dadurch laeuft die
 Bronze-Extraktion auch in einer sehr schlanken Laufzeitumgebung; ``pyarrow``
 braucht erst das Schreiben der Parquet-Datei in ``extract_detroit.py``.
@@ -29,13 +36,29 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
+from storage.quellen import ArcGISQuelle, QuellenFehler, lade
 
-DETROIT_LAYER_URL = (
-    "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/"
-    "RMS_Crime_Incidents/FeatureServer/0"
-)
-SOURCE_SYSTEM = "detroit_rms_crime"
-SOURCE_TIMEZONE = ZoneInfo("America/Detroit")
+#: Die Quelle, die ohne ``--source`` geladen wird.
+DEFAULT_SOURCE = "detroit"
+
+
+def use_source(quelle: ArcGISQuelle) -> None:
+    """Setzt ``QUELLE`` und die Namen, unter denen die Werte im Code standen.
+
+    ``DETROIT_LAYER_URL``, ``SOURCE_SYSTEM`` und ``SOURCE_TIMEZONE`` bleiben,
+    weil Notebooks und Manifeste sie so kennen; sie tragen jetzt die Werte der
+    gewaehlten Quelle.
+    """
+    if quelle.plattform != "arcgis":
+        raise QuellenFehler(f"{quelle.name} liegt nicht auf ArcGIS")
+    global QUELLE, DETROIT_LAYER_URL, SOURCE_SYSTEM, SOURCE_TIMEZONE
+    QUELLE = quelle
+    DETROIT_LAYER_URL = quelle.layer_url
+    SOURCE_SYSTEM = quelle.quellsystem
+    SOURCE_TIMEZONE = ZoneInfo(quelle.zeitzone)
+
+
+use_source(lade(DEFAULT_SOURCE))
 
 RETRYABLE_HTTP_CODES = {429, 500, 502, 503, 504}
 
@@ -104,7 +127,7 @@ class DetroitDateWindow:
 
     def where(self, field_name: str) -> str:
         """Formatiert UTC-Literale fuer den UTC-deklarierten ArcGIS-Layer."""
-        if field_name not in {"incident_occurred_at", "updated_at"}:
+        if field_name not in {QUELLE.tatzeit_feld, QUELLE.aenderungs_feld}:
             raise ValueError(f"Nicht erlaubtes Datumsfeld: {field_name}")
         start = self.start_utc.strftime("%Y-%m-%d %H:%M:%S")
         end = self.end_utc.strftime("%Y-%m-%d %H:%M:%S")
@@ -173,7 +196,7 @@ def build_field_date_where(
 def build_date_where(start_date: date, end_date: date) -> str:
     """Erzeugt einen Tatzeitfilter fuer Full Loads und historische Analysen."""
 
-    return build_field_date_where("incident_occurred_at", start_date, end_date)
+    return build_field_date_where(QUELLE.tatzeit_feld, start_date, end_date)
 
 
 def build_updated_where(start_date: date, end_date: date) -> str:
@@ -184,7 +207,7 @@ def build_updated_where(start_date: date, end_date: date) -> str:
     stabilen ``offense_key`` aufgeloest.
     """
 
-    return build_field_date_where("updated_at", start_date, end_date)
+    return build_field_date_where(QUELLE.aenderungs_feld, start_date, end_date)
 
 
 def build_delta_where(year: int, updated_from: datetime | None) -> str:
@@ -229,14 +252,16 @@ def delta_bedingung(updated_from: datetime) -> str:
     if updated_from.tzinfo is None or updated_from.utcoffset() is None:
         raise ValueError("updated_from muss eine Zeitzone tragen")
     stempel = updated_from.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    return f"(updated_at >= TIMESTAMP '{stempel}' OR updated_at IS NULL)"
+    feld = QUELLE.aenderungs_feld
+    return f"({feld} >= TIMESTAMP '{stempel}' OR {feld} IS NULL)"
 
 
 def build_year_where(year: int) -> str:
     """Komfortfunktion fuer einen vollstaendigen Kalenderjahresfilter."""
 
-    if not 2016 <= year <= 2100:
-        raise ValueError("Detroit RMS ist erst ab Dezember 2016 verfuegbar")
+    if not QUELLE.erstes_jahr <= year <= 2100:
+        raise ValueError(
+            f"{QUELLE.datensatz} ist erst ab {QUELLE.erstes_jahr} verfuegbar")
     return build_date_where(date(year, 1, 1), date(year + 1, 1, 1))
 
 
@@ -251,14 +276,14 @@ class ArcGISClient:
 
     def __init__(
         self,
-        layer_url: str = DETROIT_LAYER_URL,
+        layer_url: str | None = None,
         *,
         timeout_seconds: int = 60,
         max_retries: int = 5,
         user_agent: str = "CrimeDataEngineeringStudentProject/1.0",
         aufzeichner: Callable[[str, bytes], None] | None = None,
     ) -> None:
-        self.layer_url = layer_url.rstrip("/")
+        self.layer_url = (layer_url or QUELLE.layer_url).rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.max_retries = max_retries
         self.user_agent = user_agent

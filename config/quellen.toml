@@ -1,0 +1,46 @@
+# Die Kriminalitätsquellen, je Stadt ein Eintrag.
+#
+# Ein Eintrag sagt, WO und WIE die Ingestion lädt: Plattform, Adresse,
+# Schlüssel- und Zeitfelder, das gepinnte Bronze-Schema. Was die Zeilen
+# BEDEUTEN – Deliktcode, Zeitzone der Tatzeit, Tract – steht nicht hier,
+# sondern in Silver (silver_pipeline.STUDIENSTAEDTE, die Crosswalks).
+#
+# Gelesen von storage.quellen.lade(); unbekannte und fehlende Schlüssel brechen ab.
+# Ein geänderter Wert ändert Raw und Bronze aller folgenden Läufe – dann
+# gehört der Ladevertrag (CONTRACT_VERSION des Adapters) erhöht.
+#
+# Eine weitere Stadt anbinden: docs/intern/dritte-stadt.md.
+
+[chicago]
+plattform = "socrata"
+stadt = "chicago"                  # Verzeichnisname: raw/city=chicago/...
+anzeigename = "Chicago"
+domain = "data.cityofchicago.org"
+datensatz = "ijzp-q8t2"            # Crimes – 2001 to Present
+id_feld = "id"                     # ganzzahlig; Keyset-Pagination und Snapshot
+tatzeit_feld = "date"              # schneidet den Jahrgang
+aenderungs_feld = "updated_on"     # Wasserzeichen für den Delta-Lauf
+# Das gepinnte Bronze-Schema, in dieser Reihenfolge. Alles andere landet in
+# _extra; Socratas eigene ":"-Spalten werden verworfen.
+felder = [
+    "id", "case_number", "date", "block", "iucr", "primary_type",
+    "description", "location_description", "arrest", "domestic", "beat",
+    "district", "ward", "community_area", "fbi_code", "x_coordinate",
+    "y_coordinate", "year", "updated_on", "latitude", "longitude", "location",
+]
+boolesche_felder = ["arrest", "domestic"]
+ortsfeld = "location"              # Socrata-Punkt als Struct
+ortsunterfelder = ["latitude", "longitude", "human_address"]
+
+[detroit]
+plattform = "arcgis"
+stadt = "detroit"                  # Verzeichnisname: raw/city=detroit/...
+anzeigename = "Detroit"
+layer_url = "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/RMS_Crime_Incidents/FeatureServer/0"
+datensatz = "RMS_Crime_Incidents"
+quellsystem = "detroit_rms_crime"  # steht in jeder Bronze-Zeile und im Manifest
+zeitzone = "America/Detroit"       # Jahrgang und Tagesfenster in Ortszeit
+tatzeit_feld = "incident_occurred_at"
+aenderungs_feld = "updated_at"     # Wasserzeichen; Zeilen ohne Wert kommen immer mit
+kategorie_feld = "offense_category"  # nur gezählt, als Prüfsumme im Manifest
+erstes_jahr = 2016                 # RMS reicht bis Dezember 2016 zurück
