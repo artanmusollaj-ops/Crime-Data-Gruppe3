@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Soziales Umfeld · Urban Crime · Analytics</title>
+<link rel="icon" href="/static/favicon.svg">
+<link rel="stylesheet" href="/static/dashboard.css">
+<script type="module" src="/static/sozial.js"></script>
+</head>
+<body>
+<header class="kopf">
+  <div class="marke">
+    <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="10" width="4" height="11" rx="1"/><rect x="10" y="4" width="4" height="17" rx="1"/><rect x="17" y="13" width="4" height="8" rx="1"/></svg>
+    <span class="produkt">Urban Crime</span><span class="punkt">·</span><span class="bereich">Analytics</span>
+  </div>
+  <div class="stand" id="stand">Stand wird geladen …</div>
+</header>
+
+<nav class="reiter" aria-label="Bretter">
+  <a href="/">Überblick</a>
+  <a href="/zeitverlauf">Zeitverlauf</a>
+  <a href="/geografie">Geografie</a>
+  <a class="aktiv" href="/sozial" aria-current="page">Soziales Umfeld</a>
+  <a href="/deliktstruktur">Deliktstruktur</a>
+  <a href="/wetter">Wetter</a>
+  <a href="/datenqualitaet">Datenqualität</a>
+  <a href="/quellbewegung">Quellbewegung</a>
+</nav>
+
+<form class="leiste" id="leiste">
+  <label>Stadt <select name="stadt" id="stadt"></select></label>
+  <label>Zeitraum
+    <select name="von" id="von" aria-label="von Monat"></select>
+    <span class="bis">–</span>
+    <select name="bis" id="bis" aria-label="bis Monat"></select>
+    <select name="jahr" id="jahr" aria-label="Jahr"></select>
+  </label>
+  <label>Kategorie <select name="kategorie" id="kategorie"></select></label>
+</form>
+
+<main class="brett">
+  <div class="brettkopf">
+    <div>
+      <h1>Fallrate und Armut</h1>
+      <p class="einleitung" id="u-sozial">Fälle je 1'000 Einwohner und Armutsquote je Census Tract</p>
+    </div>
+    <div class="umschalter" data-param="karte" role="group" aria-label="Kartenart">
+      <button type="button" data-wert="nebeneinander">Nebeneinander</button>
+      <button type="button" data-wert="bivariat">Übereinander</button>
+    </div>
+  </div>
+  <p class="fehler" id="fehler" hidden></p>
+  <p class="hinweis" id="ohne-vintage" hidden><span class="i">i</span><span>Für diesen Zeitraum gibt es
+    kein einheitliches ACS-Vintage – ohne Einwohnerzahl keine Rate und ohne Vintage keine Armutsquote.</span></p>
+
+  <section class="kennzahlen zwei" id="k-staedte"></section>
+
+  <section id="karten"></section>
+
+  <section class="tafel kartenlegende" id="legende-nebeneinander">
+    <div><b>Fälle je 1'000 Einwohner</b><div id="d-legende-rate" class="klassen"></div></div>
+    <div><b>Armutsquote</b><div id="d-legende-armut" class="klassen"></div></div>
+    <span class="schraffur-legende"><svg viewBox="0 0 34 22" aria-hidden="true"><defs><pattern id="legende-schraffur" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#f1f3f6"/><line x1="0" y1="0" x2="0" y2="6" stroke="#aab3bf" stroke-width="2"/></pattern></defs><rect width="34" height="22" fill="url(#legende-schraffur)"/></svg>
+      <span id="t-geringe">Geringe Basis oder kein Wert</span></span>
+  </section>
+  <section class="tafel kartenlegende" id="legende-bivariat" hidden>
+    <div class="bivariat-legende" id="d-bivariat"></div>
+    <p class="unterzeile" id="u-bivariat"></p>
+  </section>
+
+  <section class="raster">
+    <article class="tafel">
+      <h2>Fälle je 1'000 Einwohner nach Armutsquote</h2>
+      <p class="unterzeile">Gemeinsame Bänder für beide Städte; ein Band mit weniger als fünf Tracts ist blass</p>
+      <div class="diagramm" id="d-baender"></div>
+      <div class="legende" id="l-baender"></div>
+    </article>
+    <article class="tafel">
+      <h2>Jeder Tract ein Punkt</h2>
+      <p class="unterzeile">Armutsquote gegen Fälle je 1'000 Einwohner (logarithmisch), ohne geringe Basis</p>
+      <div class="diagramm" id="d-streuung"></div>
+      <div class="legende" id="l-streuung"></div>
+    </article>
+  </section>
+
+  <section class="tafel detail">
+    <h2 class="mit-symbol"><span class="i">i</span>Wie das zu lesen ist</h2>
+    <ul class="hinweise" id="d-hinweise"></ul>
+  </section>
+</main>
+
+<footer class="fuss">
+  <span>Umrisse: TIGER/Line über gold/dim_tract_geo · Einwohner, Armut, Einkommen: ACS 5-Year · <span id="fuss-stand"></span></span>
+  <span>Quelle: gold/fact_offense und gold/dim_tract_acs · Rate wie »Geografie«</span>
+</footer>
+</body>
+</html>

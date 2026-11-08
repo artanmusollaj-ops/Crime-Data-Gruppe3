@@ -225,3 +225,13 @@ h2.abstand { margin-top: 16px; }
 .stadtkachel small + small { margin-top: 4px; }
 /* Ein Filter ohne Auswahl ist gesperrt und sieht so aus (»Quellbewegung« ohne Paare). */
 .leiste select:disabled { background: #eef1f5; color: #8a94a3; border-color: #dde2e9; cursor: not-allowed; }
+
+/* Brett »Soziales Umfeld« */
+.kennzahlen.zwei { grid-template-columns: 1fr 1fr; }
+#karten > .raster { margin-bottom: 16px; align-items: start; }
+#karten > .raster.einzeln { grid-template-columns: minmax(0, 760px); justify-content: center; }
+.kartenlegende > div > b { display: block; margin-bottom: 8px; }
+.bivariat-legende svg { width: 260px; height: auto; font-size: 12px; }
+.bivariat-legende text { fill: #44505f; }
+#legende-bivariat { align-items: center; }
+#legende-bivariat .unterzeile { max-width: 640px; }

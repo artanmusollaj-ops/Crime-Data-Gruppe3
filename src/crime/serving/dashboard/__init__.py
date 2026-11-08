@@ -307,6 +307,9 @@ class Bestand:
             SELECT geoid, vintage, population
             FROM read_parquet('{acs}', hive_partitioning=false)
             WHERE geoid IN (SELECT geoid FROM tract_geo)""")
+        # Fuer »Soziales Umfeld«: Armutsquote und Einkommen je Tract und Vintage.
+        from serving.dashboard.sozial import lade_sozial
+        lade_sozial(con, acs)
         # Fuer »Datenqualität«: Taten je Zuordnung, Verortung und Ortszeit,
         # und je Stadt und Monat, wie viele Delikt-IDs mehrfach vorkommen.
         con.execute(f"""
@@ -407,7 +410,9 @@ class Bestand:
                         else self.jahre[-1], "von": 1, "bis": 12,
                         "kategorie": "alle", "mass": "anzahl", "ebene": "faelle",
                         # »Quellbewegung«: Zeitstempel vorgabemaessig ausgeblendet.
-                        "felder": "inhalt"},
+                        "felder": "inhalt",
+                        # »Soziales Umfeld«: die beiden Karten nebeneinander.
+                        "karte": "nebeneinander"},
             "letzter_monat": letzter,
             "stand": self.stand,
         }
@@ -447,6 +452,12 @@ class Bestand:
             "tracts": {s: int(tracts.get(s, 0)) for s in STAEDTE},
             "release": self.stand.get("release"),
         }
+
+    # -- Das Brett »Soziales Umfeld« -------------------------------------------
+
+    def sozialbrett(self, werte: dict[str, str]) -> dict[str, Any]:
+        from serving.dashboard.sozial import sozial
+        return sozial(self, self.auswahl(werte), werte.get("karte") or "nebeneinander")
 
     # -- Das Brett »Wetter« ---------------------------------------------------
 
