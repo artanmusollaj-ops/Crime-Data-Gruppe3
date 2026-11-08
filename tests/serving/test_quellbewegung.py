@@ -332,3 +332,13 @@ def test_ein_release_ohne_jahrgang_bietet_keinen_an(tmp_path):
     (ziel / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     d = Bestand(root).quellbewegung({})
     assert d["optionen"]["jahrgaenge"] == [] and len(d["paare"]) == 3
+
+
+def test_ohne_paare_sind_die_filter_gesperrt_statt_leer():
+    """Auf srv01 am 8.11.2026: Das aktive Release fuehrte die Tabelle noch nicht,
+    und Jahrgang und Zeitraum standen leer und unbedienbar da."""
+    js = (PROJEKT / "src/crime/serving/dashboard/static/quellbewegung.js").read_text(encoding="utf-8")
+    css = (PROJEKT / "src/crime/serving/dashboard/static/dashboard.css").read_text(encoding="utf-8")
+    assert "select.disabled = gesperrt" in js and '"keine Daten"' in js
+    assert "  filter(d);" in js, "die Filter werden auch ohne Tabelle gesetzt"
+    assert ".leiste select:disabled" in css

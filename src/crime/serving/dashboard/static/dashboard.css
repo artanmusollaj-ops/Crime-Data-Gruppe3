@@ -217,11 +217,17 @@ h2.abstand { margin-top: 16px; }
 #d-vergleich td:nth-child(2), #d-kategorien td:nth-child(2), #d-paare td:nth-child(2),
 #d-liste td:nth-child(2), #d-uebergaenge td:nth-child(2) { color: var(--text); }
 
+/* Brett »Wetter« */
+#k-staedte { grid-template-columns: 1fr 1fr; }
+.stadtkachel { border-left-width: 4px; }
+.stadtkachel.chicago { border-left-color: var(--chicago); }
+.stadtkachel.detroit { border-left-color: var(--detroit); }
+.stadtkachel small + small { margin-top: 4px; }
+/* Ein Filter ohne Auswahl ist gesperrt und sieht so aus (»Quellbewegung« ohne Paare). */
+.leiste select:disabled { background: #eef1f5; color: #8a94a3; border-color: #dde2e9; cursor: not-allowed; }
+
 /* Brett »Soziales Umfeld« */
 .kennzahlen.zwei { grid-template-columns: 1fr 1fr; }
-.kachel.stadtkachel { border-left-width: 4px; }
-.kachel.stadtkachel.chicago { border-left-color: var(--chicago); }
-.kachel.stadtkachel.detroit { border-left-color: var(--detroit); }
 #karten > .raster { margin-bottom: 16px; align-items: start; }
 #karten > .raster.einzeln { grid-template-columns: minmax(0, 760px); justify-content: center; }
 .kartenlegende > div > b { display: block; margin-bottom: 8px; }

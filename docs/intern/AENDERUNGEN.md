@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'832** |
+| Tests | **2'846** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -141,7 +141,59 @@ Armut.
 Neu gewacht: `tests/serving/test_sozial.py` (9 Tests), dazu `/sozial` in den
 Seiten- und Reitertests.
 
-**Zahlen.** 2'820 → **2'832 Tests**, Standardlauf 2'709 → **2'721**, im frischen Klon 2'631 → **2'643**.
+**Zahlen.** 2'834 → **2'846 Tests**, Standardlauf 2'723 → **2'735**, im frischen Klon 2'645 → **2'657**.
+
+## 8.11.2026 · Das Dashboard zeigt das Wetter (Branch `feature/brett-wetter`)
+
+Das Konzept führt das Wetter als „dritte Zeitachse“ (`gold/dim_city_day`).
+Bisher zeigte es kein Brett. Das neue Brett heisst **»Wetter«** (`/wetter`)
+und hat dieselbe Leiste wie »Zeitverlauf«: Stadt, Zeitraum, Kategorie.
+Gezählt werden Fälle (`counts_case`).
+
+**Die Jahreszeit ist die Falle.** Im Sommer ist es warm, und im Sommer
+geschieht mehr. Über alle Tage 2021–2025 hängen Höchsttemperatur und Fälle je
+Tag mit r = 0,56 (Chicago) und 0,59 (Detroit) zusammen. Misst man jeden Tag
+am Mittel seines Monats, bleibt r = 0,39 und 0,33. Das Brett zeigt deshalb
+beides:
+
+- **Kennzahl je Stadt:** wie viel Prozent mehr Fälle ein Tag je Grad über
+  seinem Monatsmittel hat, mit 95-%-Intervall. Das Intervall ist eher zu
+  schmal, weil aufeinanderfolgende Tage sich ähneln. 2024: Chicago
+  +0,64 %, Detroit +0,60 %.
+- **Die Jahreszeit:** Temperatur und Fälle je Tag nach Monat.
+- **Roh:** Fälle je Tag nach Temperaturband. Hier steckt die Jahreszeit mit
+  drin.
+- **Bereinigt:** Abweichung vom Monatsmittel nach Temperaturabweichung, und
+  für trocken, leicht, nass (ab 5 mm) und Schnee. 2024: Schneetage liegen in
+  Chicago 3,5 %, in Detroit 5,6 % unter dem Monatsmittel.
+
+**Zwei Regeln für die Tage:**
+- Ein Tag nach dem Datenende einer Stadt zählt nicht als Tag ohne Fall.
+- Ein Tag ohne Fall innerhalb des Fensters zählt als Null.
+
+Ein Release ohne `dim_city_day` lädt weiter. Die Zahlen hier sind lokal
+gemessen und nicht bewacht. Sie stehen im Code, nicht in den
+Abgabedokumenten.
+
+Neu gewacht: `tests/serving/test_wetter.py` (10 Tests), dazu `/wetter` in den
+Seiten- und Reitertests.
+
+**Zahlen.** 2'821 → **2'834 Tests**, Standardlauf 2'710 → **2'723**, im frischen Klon 2'632 → **2'645**.
+
+## 8.11.2026 · Die Filter der Quellbewegung sind ohne Daten gesperrt (Branch `fix/quellbewegung-filter-ausgrauen`)
+
+Auf `srv01` standen Jahrgang und Beobachtungszeitraum nach dem Einsetzen von
+#213 leer und liessen sich nicht bedienen. Der Grund: Das aktive Release vom
+7.11. führt `source_movement` noch nicht, das Brett hat also keine Paare, aus
+denen es die Auswahl füllen könnte.
+
+Jetzt sind die Felder in diesem Fall gesperrt, grau und zeigen „keine
+Daten“. Ein Hinweis beim Darüberfahren nennt den Grund. Ein gesperrtes Feld
+schickt das Formular nicht mit; die Anfrage nimmt dann die Vorgabe.
+
+Neu gewacht: `test_ohne_paare_sind_die_filter_gesperrt_statt_leer`.
+
+**Zahlen.** 2'820 → **2'821 Tests**, Standardlauf 2'709 → **2'710**, im frischen Klon 2'631 → **2'632**.
 
 ## 8.11.2026 · Das Dashboard zeigt die Quellbewegung (Branch `feature/brett-quellbewegung`)
 

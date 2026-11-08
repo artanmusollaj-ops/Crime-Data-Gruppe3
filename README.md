@@ -223,7 +223,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 2'721 ausgeführte Tests, ohne Netzzugriff und ohne
+Erwartet wird **grün**: 2'735 ausgeführte Tests, ohne Netzzugriff und ohne
 Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -233,7 +233,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 2'832
+python -m pytest -m ""               # beides zusammen, alle 2'846
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -993,6 +993,10 @@ Quellen nachträglich ändern, welche Einträge verschwinden und welcher
 Deliktsart sie waren, und ob eine Stadt auffallend mehr löscht oder ändert
 (`serving/source_movement`, exakter Test auf gleiche Raten je 10'000 Einträge
 und Monat).
+Ebenfalls am 8.11.2026 kam »Wetter« dazu: Fälle je Tag neben Temperatur und
+Niederschlag an der Station jeder Stadt, roh und am Mittel des Monats
+gemessen, damit das Wetter übrig bleibt und nicht die Jahreszeit.
+
 Ebenfalls am 8.11.2026 kam »Soziales Umfeld« dazu: die Fallrate je Tract
 neben der Armutsquote, als zwei Karten nebeneinander oder als eine bivariate
 Karte übereinander, dazu die Rate nach gemeinsamen Armutsbändern beider Städte.
@@ -1115,7 +1119,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**2'832 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**2'846 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -1152,7 +1156,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **2'643 der 2'721 Tests** des Standardlaufs, und
+In einem frischen Klon laufen **2'657 der 2'735 Tests** des Standardlaufs, und
 sie sind grün (am 30.10.2026 in einem Baum ohne `data/` nachgemessen).
 Die übrigen 78 überspringen sich selbst, weil sie gebaute Daten brauchen und
 `data/` nicht versioniert ist — dazu seit dem 5.10.2026 die Reproduktion von

@@ -85,6 +85,10 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     def seite_sozial():
         return send_from_directory(_STATISCH, "sozial.html")
 
+    @app.get("/wetter")
+    def seite_wetter():
+        return send_from_directory(_STATISCH, "wetter.html")
+
     @app.get("/quellbewegung")
     def seite_quellbewegung():
         return send_from_directory(_STATISCH, "quellbewegung.html")
@@ -134,6 +138,11 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     @app.get("/api/sozial")
     def sozialdaten():
         return jsonify(daten().sozialbrett(request.args.to_dict()))
+
+    @app.get("/api/wetter")
+    def wetterdaten():
+        bestand = daten()
+        return jsonify(bestand.wetterbrett(bestand.auswahl(request.args.to_dict())))
 
     @app.get("/api/quellbewegung")
     def quellbewegung():

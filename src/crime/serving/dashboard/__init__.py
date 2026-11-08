@@ -356,6 +356,9 @@ class Bestand:
         # dass das ganze Dashboard nicht laedt.
         from serving.dashboard.quellbewegung import lade_bewegung
         bewegung = lade_bewegung(con, ablage, release, delikte)
+        # Fuer »Wetter«: das Wetter je Stadt und Tag neben den Faellen je Tag.
+        from serving.dashboard.wetter import lade_wetter
+        mit_wetter = lade_wetter(con, ablage, release, fakten, delikte)
         stand = json.loads(monat_manifest)
         with self._sperre:
             alt = getattr(self, "_con", None)
@@ -368,6 +371,7 @@ class Bestand:
             self.karten = karten
             self.beispiele = beispiele
             self.bewegung = bewegung
+            self.wetter = mit_wetter
             self.jahre = [r[0] for r in con.execute(
                 "SELECT DISTINCT year(monat) FROM monate ORDER BY 1").fetchall()]
             self.kategorien = [r[0] for r in con.execute(
@@ -454,6 +458,12 @@ class Bestand:
     def sozialbrett(self, werte: dict[str, str]) -> dict[str, Any]:
         from serving.dashboard.sozial import sozial
         return sozial(self, self.auswahl(werte), werte.get("karte") or "nebeneinander")
+
+    # -- Das Brett »Wetter« ---------------------------------------------------
+
+    def wetterbrett(self, a: Auswahl) -> dict[str, Any]:
+        from serving.dashboard.wetter import wetter
+        return wetter(self, a)
 
     # -- Das Brett »Quellbewegung« ------------------------------------------
 

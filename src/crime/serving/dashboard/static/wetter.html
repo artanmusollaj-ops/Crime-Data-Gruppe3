@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wetter · Urban Crime · Analytics</title>
+<link rel="icon" href="/static/favicon.svg">
+<link rel="stylesheet" href="/static/dashboard.css">
+<script type="module" src="/static/wetter.js"></script>
+</head>
+<body>
+<header class="kopf">
+  <div class="marke">
+    <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="10" width="4" height="11" rx="1"/><rect x="10" y="4" width="4" height="17" rx="1"/><rect x="17" y="13" width="4" height="8" rx="1"/></svg>
+    <span class="produkt">Urban Crime</span><span class="punkt">·</span><span class="bereich">Analytics</span>
+  </div>
+  <div class="stand" id="stand">Stand wird geladen …</div>
+</header>
+
+<nav class="reiter" aria-label="Bretter">
+  <a href="/">Überblick</a>
+  <a href="/zeitverlauf">Zeitverlauf</a>
+  <a href="/geografie">Geografie</a>
+  <a href="/sozial">Soziales Umfeld</a>
+  <a href="/deliktstruktur">Deliktstruktur</a>
+  <a class="aktiv" href="/wetter" aria-current="page">Wetter</a>
+  <a href="/datenqualitaet">Datenqualität</a>
+  <a href="/quellbewegung">Quellbewegung</a>
+</nav>
+
+<form class="leiste" id="leiste">
+  <label>Stadt <select name="stadt" id="stadt"></select></label>
+  <label>Zeitraum
+    <select name="von" id="von" aria-label="von Monat"></select>
+    <span class="bis">–</span>
+    <select name="bis" id="bis" aria-label="bis Monat"></select>
+    <select name="jahr" id="jahr" aria-label="Jahr"></select>
+  </label>
+  <label>Kategorie <select name="kategorie" id="kategorie"></select></label>
+</form>
+
+<main class="brett">
+  <div class="brettkopf">
+    <div>
+      <h1>Hängen die Fallzahlen am Wetter?</h1>
+      <p class="einleitung">Fälle je Tag neben Temperatur und Niederschlag an der Wetterstation jeder
+        Stadt. Weil es im Sommer warm ist <i>und</i> mehr geschieht, misst das Brett jeden Tag
+        zusätzlich am Mittel seines Monats – so bleibt das Wetter übrig, nicht die Jahreszeit.</p>
+    </div>
+  </div>
+  <p class="fehler" id="fehler" hidden></p>
+  <p class="hinweis" id="ohne-wetter" hidden><span class="i">i</span><span>Das aktive Release führt
+    keine Wetterdaten (<code>gold/dim_city_day</code>).</span></p>
+
+  <div id="inhalt" hidden>
+  <section class="kennzahlen" id="k-staedte"></section>
+
+  <section class="raster">
+    <article class="tafel">
+      <h2>Die Jahreszeit: Temperatur und Fälle je Monat</h2>
+      <p class="unterzeile">Mittlere Tageshöchsttemperatur (°C)</p>
+      <div class="diagramm" id="d-temperatur"></div>
+      <p class="unterzeile">Fälle je Tag</p>
+      <div class="diagramm" id="d-faelle"></div>
+      <div class="legende" id="l-monate"></div>
+    </article>
+    <article class="tafel">
+      <h2>Roh: Fälle je Tag nach Temperatur</h2>
+      <p class="unterzeile">Tageshöchsttemperatur an der Station – hier steckt die Jahreszeit mit drin</p>
+      <div class="diagramm" id="d-roh"></div>
+      <div class="legende" id="l-roh"></div>
+    </article>
+  </section>
+
+  <section class="raster">
+    <article class="tafel">
+      <h2>Bereinigt: wärmer oder kälter als der Monat</h2>
+      <p class="unterzeile">Abweichung der Fälle vom Mittel des Monats, nach Abweichung der Temperatur</p>
+      <div class="diagramm" id="d-abweichung"></div>
+      <div class="legende" id="l-abweichung"></div>
+    </article>
+    <article class="tafel">
+      <h2>Bereinigt: Regen und Schnee</h2>
+      <p class="unterzeile" id="u-niederschlag"></p>
+      <div class="diagramm" id="d-niederschlag"></div>
+      <div class="legende" id="l-niederschlag"></div>
+    </article>
+  </section>
+
+  <section class="tafel detail">
+    <h2 class="mit-symbol"><span class="i">i</span>Wie das zu lesen ist</h2>
+    <ul class="hinweise">
+      <li><b>Zusammenhang, keine Ursache.</b> An warmen Tagen sind mehr Menschen draussen – das ist eine
+        Erklärung, keine Messung.</li>
+      <li><b>Eine Station ist kein Stadtmittel.</b> Gemessen wird am Flughafen (<span id="t-stationen"></span>),
+        nicht im Quartier.</li>
+      <li><b>Das Intervall ist eher zu schmal.</b> Es nimmt die Tage als unabhängig; aufeinanderfolgende
+        Tage ähneln sich aber (Wetterlagen). Wochentag und Feiertage sind nicht herausgerechnet.</li>
+      <li><b>Bänder mit weniger als <span id="t-mindest"></span> Tagen</b> sind blass – ihr Mittel trägt wenig.</li>
+      <li><b>Gezählt werden Fälle</b> (eine Zeile je Fall, <code>counts_case</code>), wie auf den übrigen Brettern.</li>
+    </ul>
+  </section>
+  </div>
+</main>
+
+<footer class="fuss">
+  <span id="fuss-stand"></span>
+  <span>Quelle: gold/dim_city_day (NOAA GHCN-Daily) und gold/fact_offense</span>
+</footer>
+</body>
+</html>

@@ -290,7 +290,8 @@ def test_ohne_daten_meldet_die_api_503_und_healthz_bleibt_gruen(tmp_path):
 
 
 @pytest.mark.parametrize("pfad", ["/", "/zeitverlauf", "/geografie", "/deliktstruktur",
-                                  "/datenqualitaet", "/quellbewegung", "/sozial"])
+                                  "/datenqualitaet", "/quellbewegung", "/sozial",
+                                  "/wetter"])
 def test_die_seite_kommt_ohne_inline_code_aus(bestand, pfad):
     """Die CSP erlaubt nur 'self'; ein Inline-Skript oder -Stil liefe nicht."""
     client = create_app(bestand=bestand).test_client()
@@ -320,9 +321,9 @@ def test_alle_seiten_tragen_dieselben_reiter(bestand):
 
     assert reiter("/") == reiter("/zeitverlauf") == reiter("/geografie") == reiter(
         "/deliktstruktur") == reiter("/datenqualitaet") == reiter("/quellbewegung") == reiter(
-        "/sozial") == [
+        "/sozial") == reiter("/wetter") == [
         "Überblick", "Zeitverlauf", "Geografie", "Soziales Umfeld", "Deliktstruktur",
-        "Datenqualität", "Quellbewegung"]
+        "Wetter", "Datenqualität", "Quellbewegung"]
 
 
 # --------------------------------------------------------------------------
