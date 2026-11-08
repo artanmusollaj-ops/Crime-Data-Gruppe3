@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'820** |
+| Tests | **2'821** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -103,6 +103,21 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 8.11.2026 · Die Filter der Quellbewegung sind ohne Daten gesperrt (Branch `fix/quellbewegung-filter-ausgrauen`)
+
+Auf `srv01` standen Jahrgang und Beobachtungszeitraum nach dem Einsetzen von
+#213 leer und liessen sich nicht bedienen. Der Grund: Das aktive Release vom
+7.11. führt `source_movement` noch nicht, das Brett hat also keine Paare, aus
+denen es die Auswahl füllen könnte.
+
+Jetzt sind die Felder in diesem Fall gesperrt, grau und zeigen „keine
+Daten“. Ein Hinweis beim Darüberfahren nennt den Grund. Ein gesperrtes Feld
+schickt das Formular nicht mit; die Anfrage nimmt dann die Vorgabe.
+
+Neu gewacht: `test_ohne_paare_sind_die_filter_gesperrt_statt_leer`.
+
+**Zahlen.** 2'820 → **2'821 Tests**, Standardlauf 2'709 → **2'710**, im frischen Klon 2'631 → **2'632**.
 
 ## 8.11.2026 · Das Dashboard zeigt die Quellbewegung (Branch `feature/brett-quellbewegung`)
 

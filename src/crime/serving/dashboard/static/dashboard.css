@@ -216,3 +216,5 @@ h2.abstand { margin-top: 16px; }
 .tabelle td.ok::before, .tabelle td.teil::before { margin-left: 0; }
 #d-vergleich td:nth-child(2), #d-kategorien td:nth-child(2), #d-paare td:nth-child(2),
 #d-liste td:nth-child(2), #d-uebergaenge td:nth-child(2) { color: var(--text); }
+/* Ein Filter ohne Auswahl ist gesperrt und sieht so aus (»Quellbewegung« ohne Paare). */
+.leiste select:disabled { background: #eef1f5; color: #8a94a3; border-color: #dde2e9; cursor: not-allowed; }

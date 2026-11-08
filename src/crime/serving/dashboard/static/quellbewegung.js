@@ -195,11 +195,31 @@ function fuelle(id, eintraege, wert) {
   select.replaceChildren(...eintraege.map(([w, name]) => new Option(name, w, false, String(w) === String(wert))));
 }
 
+// Ohne Paare - das Release fuehrt die Tabelle nicht, oder es gibt noch kein
+// Paar - gibt es nichts zu waehlen. Die Felder sind dann ausgegraut und sagen
+// es, statt leer und scheinbar kaputt dazustehen. Ein gesperrtes Feld schickt
+// das Formular nicht mit; die Anfrage nimmt dann die Vorgabe.
+function sperre(id, gesperrt, grund) {
+  const select = document.getElementById(id);
+  select.disabled = gesperrt;
+  select.title = gesperrt ? grund : "";
+  if (gesperrt) select.replaceChildren(new Option("keine Daten", "", true, true));
+}
+
 function filter(d) {
-  const o = d.optionen, a = d.auswahl;
-  fuelle("q-jahrgang", [["alle", "Alle"], ...o.jahrgaenge.map((j) => [j, String(j)])], a.jahrgang);
-  fuelle("q-von", o.monate.map((m) => [m, monat(m)]), a.beob_von);
-  fuelle("q-bis", o.monate.map((m) => [m, monat(m)]), a.beob_bis);
+  const o = d.optionen || { jahrgaenge: [], monate: [] }, a = d.auswahl;
+  const grund = d.vorhanden ? "Für diese Auswahl gibt es kein Vergleichspaar."
+    : "Das aktive Release führt die Quellbewegung noch nicht.";
+  if (o.jahrgaenge.length) {
+    sperre("q-jahrgang", false);
+    fuelle("q-jahrgang", [["alle", "Alle"], ...o.jahrgaenge.map((j) => [j, String(j)])], a.jahrgang);
+  } else sperre("q-jahrgang", true, grund);
+  for (const [id, wert] of [["q-von", a.beob_von], ["q-bis", a.beob_bis]]) {
+    if (o.monate.length) {
+      sperre(id, false);
+      fuelle(id, o.monate.map((m) => [m, monat(m)]), wert);
+    } else sperre(id, true, grund);
+  }
 }
 
 // Vor dem ersten Laden: was die Adresse sagt, als einzige Option - sonst
@@ -217,7 +237,7 @@ document.getElementById("leiste").addEventListener("change", (ev) => {
 }, true);
 
 function zeichne(d) {
-  if (d.optionen) filter(d);
+  filter(d);
   document.getElementById("ohne-tabelle").hidden = d.vorhanden;
   document.getElementById("inhalt").hidden = !d.vorhanden;
   if (!d.vorhanden) return;
