@@ -75,7 +75,8 @@ def silver(root: Path, zeilen: list[dict]) -> None:
     grund = {s: None for s in bsc.SPALTEN}
     tabelle = pa.Table.from_pylist([grund | z for z in zeilen], schema=pa.schema(
         [(s, pa.timestamp("us") if s in ("vorher_am", "beobachtet_am", "zuerst_gesehen_am")
-          else pa.int64() if s.startswith("bestand") else pa.string()) for s in bsc.SPALTEN]))
+          else pa.int64() if s.startswith("bestand")
+          else pa.int32() if s == "jahrgang" else pa.string()) for s in bsc.SPALTEN]))
     pq.write_table(tabelle, ziel / "part-0001.parquet")
     (ziel / "manifest.json").write_text(json.dumps({
         "status": "complete", "row_count": len(zeilen), "built_at_utc": "2026-11-08T08:00:00Z",
@@ -84,10 +85,10 @@ def silver(root: Path, zeilen: list[dict]) -> None:
 
 PAAR_C = {"city": "chicago", "vorher_run_id": "c1", "run_id": "c2",
           "vorher_am": datetime(2026, 9, 5), "beobachtet_am": datetime(2026, 10, 5),
-          "bestand_vorher": 3000, "bestand_nachher": 2999}
+          "bestand_vorher": 3000, "bestand_nachher": 2999, "jahrgang": 2024}
 PAAR_D = {"city": "detroit", "vorher_run_id": "d1", "run_id": "d2",
           "vorher_am": datetime(2026, 9, 11), "beobachtet_am": datetime(2026, 9, 14),
-          "bestand_vorher": 1000, "bestand_nachher": 1000}
+          "bestand_vorher": 1000, "bestand_nachher": 1000, "jahrgang": 2023}
 
 
 def bewegung() -> list[dict]:
@@ -267,3 +268,67 @@ def test_die_seite_braucht_keine_jahreswahl():
     """Die Leiste kennt nur die Stadt; starteBrett darf an fehlenden Feldern nicht scheitern."""
     js = (PROJEKT / "src/crime/serving/dashboard/static/gemeinsam.js").read_text(encoding="utf-8")
     assert "if (!select) return;" in js
+
+
+# --------------------------------------------------------------------------
+# Die Filter: Jahrgang und Beobachtungszeitraum
+# --------------------------------------------------------------------------
+
+
+def test_die_filter_bieten_an_was_da_ist(brett):
+    d = brett.quellbewegung({})
+    assert d["optionen"] == {"jahrgaenge": [2023, 2024], "monate": ["2026-09", "2026-10"]}
+    assert d["auswahl"] == {"stadt": "beide", "felder": "inhalt", "jahrgang": "alle",
+                                 "beob_von": "2026-09", "beob_bis": "2026-10"}
+
+
+def test_der_jahrgang_waehlt_die_paare_seines_tatjahrs(brett):
+    d = brett.quellbewegung({"jahrgang": "2024"})
+    assert [x["stadt"] for x in d["paare"]] == ["chicago"]
+    detroit = next(s for s in d["staedte"] if s["stadt"] == "detroit")
+    assert (detroit["paare"], detroit["eintragsmonate"]) == (0, 0)
+    assert d["vergleich"] == [], "ohne Paare in beiden Staedten kein Test"
+
+
+def test_mit_jahrgang_misst_der_taten_anteil_dieses_jahr(brett):
+    """Der Vergleichsmassstab folgt dem Filter: Taten des gewaehlten Jahrgangs."""
+    [k] = brett.quellbewegung({"jahrgang": "2024"})["entfernt"]["kategorien"]
+    assert k["anteil_taten"]["chicago"] == pytest.approx(75.0)
+
+
+def test_der_beobachtungszeitraum_waehlt_paare_nach_dem_juengeren_abzug(brett):
+    """Das Chicagoer Paar reicht vom 5.9. bis 5.10. - es zaehlt zum Oktober."""
+    nur_september = brett.quellbewegung({"beob_von": "2026-09", "beob_bis": "2026-09"})
+    assert {x["stadt"] for x in nur_september["paare"]} == {"detroit"}
+    assert nur_september["entfernt"]["liste"] == []
+    nur_oktober = brett.quellbewegung({"beob_von": "2026-10"})
+    assert {x["stadt"] for x in nur_oktober["paare"]} == {"chicago"}
+
+
+@pytest.mark.parametrize("werte", [
+    {"jahrgang": "1999"}, {"jahrgang": "zwei"}, {"beob_von": "2025-01"},
+    {"beob_von": "2026-10", "beob_bis": "2026-09"}])
+def test_ein_unbekannter_filter_ist_ein_eingabefehler(brett, werte):
+    client = create_app(bestand=brett).test_client()
+    assert client.get("/api/quellbewegung", query_string=werte).status_code == 400
+
+
+def test_leere_filter_heissen_vorgabe(brett):
+    """Die erste Anfrage der Seite schickt leere Felder - das ist keine Fehleingabe."""
+    d = brett.quellbewegung({"jahrgang": "", "beob_von": "", "beob_bis": ""})
+    assert len(d["paare"]) == 3
+
+
+def test_ein_release_ohne_jahrgang_bietet_keinen_an(tmp_path):
+    """source_movement aus der Zeit vor event_year: das Brett laedt, der Filter bleibt leer."""
+    root = tmp_path
+    stern(root, jahr("chicago", 2024, "13A", TRACT_C))
+    silver(root, bewegung())
+    bsm.build(root, PROJEKT / "config")
+    ziel = root / "releases" / f"release={RELEASE}" / "serving" / "dataset=source_movement"
+    shutil.copytree(bsm.table_dir(root), ziel)
+    manifest = json.loads((ziel / "manifest.json").read_text(encoding="utf-8"))
+    manifest["schema"].pop("event_year")
+    (ziel / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    d = Bestand(root).quellbewegung({})
+    assert d["optionen"]["jahrgaenge"] == [] and len(d["paare"]) == 3

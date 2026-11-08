@@ -109,7 +109,8 @@ TABLE = "source_change"
 #: verschwindet - eine verschwundene Zeile traegt sonst nur ihren Schluessel,
 #: und ihr Inhalt steht in keinem spaeteren Stand mehr. Ohne den Bestand war
 #: nicht zu sagen, ob eine Stadt *viel* loescht: Dreizehn Loeschungen sind
-#: viel oder wenig, je nachdem, aus wie vielen Zeilen sie kommen.
+#: viel oder wenig, je nachdem, aus wie vielen Zeilen sie kommen. Dazu der
+#: ``jahrgang`` des Paares, damit sich die Bewegung je Tatjahr lesen laesst.
 CONTRACT_VERSION = 4
 
 #: Die Spalten, in dieser Reihenfolge. Ausgeschrieben und nicht ``SELECT *``:
@@ -143,8 +144,13 @@ SPALTEN_DATIERUNG = ("zuerst_gesehen_in", "zuerst_gesehen_am", "datierung")
 #: beiden Schnappschuessen - der Nenner jeder Rate, die aus dieser Tabelle
 #: gerechnet wird. Sie stehen in jeder Zeile des Paares, auch in der
 #: Markierungszeile: Ein Paar ohne Aenderung ist ein Paar mit Bestand.
+#:
+#: ``jahrgang`` ist der Tatjahrgang, den beide Abzuege des Paares tragen -
+#: verglichen wird nur innerhalb eines Jahrgangs (``paare``). Er kommt aus dem
+#: Manifest des Laufs, nicht aus der Datei. Leer bei Abzuegen aus der Zeit vor
+#: der Jahrgangstrennung (``Lauf.jahrgang`` leer).
 SPALTEN_KONTEXT = ("quellcode", "quellkategorie", "bestand_vorher",
-                   "bestand_nachher")
+                   "bestand_nachher", "jahrgang")
 
 SPALTEN = SPALTEN_ROH + SPALTEN_DATIERUNG + SPALTEN_KONTEXT
 
@@ -463,6 +469,13 @@ def lesbar(ablage: Any, abzug: Schnappschuss | None) -> str | None:
         return None
 
 
+def _jahrgang(abzuege: dict[str, tuple[Quelle, Schnappschuss]], run_id: str) -> int | None:
+    """Der Jahrgang eines Laufs aus seinem Manifest - ``None``, wenn er keinen nennt."""
+    _, abzug = abzuege.get(run_id, (None, None))
+    wert = str(abzug.jahrgang) if abzug is not None else ""
+    return int(wert) if wert.isdigit() else None
+
+
 def ergaenze_kontext(con: duckdb.DuckDBPyConnection, ablage: Any,
                      abzuege: dict[str, tuple[Quelle, Schnappschuss]]) -> dict[str, int]:
     """Traegt Deliktsart und Bestand nach, wo sie fehlen und bestimmbar sind.
@@ -494,6 +507,17 @@ def ergaenze_kontext(con: duckdb.DuckDBPyConnection, ablage: Any,
                     zaehlung[run_id] = None
         return zaehlung[run_id]
 
+    # Der Jahrgang steht im Manifest, nicht in der Datei: nachtragen, wo er
+    # fehlt und der Lauf noch bekannt ist.
+    for stadt, vorher, nachher in con.execute(
+            "SELECT city, vorher_run_id, run_id FROM paar_kontext "
+            "WHERE jahrgang IS NULL").fetchall():
+        jahrgang = _jahrgang(abzuege, vorher)
+        if jahrgang is not None:
+            con.execute("UPDATE paar_kontext SET jahrgang = ? WHERE city = ? "
+                        "AND vorher_run_id = ? AND run_id = ?",
+                        [jahrgang, stadt, vorher, nachher])
+
     offen_paare = con.execute("""
         SELECT DISTINCT r.city, r.vorher_run_id, r.run_id FROM roh r
         ANTI JOIN paar_kontext k USING (city, vorher_run_id, run_id)
@@ -504,8 +528,9 @@ def ergaenze_kontext(con: duckdb.DuckDBPyConnection, ablage: Any,
         if a is None or b is None:
             bericht["nicht_bestimmbar"] += 1
             continue
-        con.execute("INSERT INTO paar_kontext VALUES (?, ?, ?, ?, ?)",
-                    [stadt, vorher, nachher, a, b])
+        jahrgang = _jahrgang(abzuege, vorher)
+        con.execute("INSERT INTO paar_kontext VALUES (?, ?, ?, ?, ?, ?)",
+                    [stadt, vorher, nachher, a, b, jahrgang])
         bericht["paare"] += 1
 
     # Je Paar und Seite die Schluessel, deren Deliktsart fehlt. Die Seite ist
@@ -565,7 +590,7 @@ KONTEXT_SQL = """
            d.vorher_am, d.beobachtet_am, d.art, d.feld, d.wert_alt, d.wert_neu,
            d.zuerst_gesehen_in, d.zuerst_gesehen_am, d.datierung,
            z.quellcode, z.quellkategorie,
-           p.bestand_vorher, p.bestand_nachher
+           p.bestand_vorher, p.bestand_nachher, p.jahrgang
     FROM datiert d
     LEFT JOIN zeilen_kontext z USING (city, offense_id, vorher_run_id, run_id)
     LEFT JOIN paar_kontext p USING (city, vorher_run_id, run_id)
@@ -974,10 +999,11 @@ def baue(data_root: Path, *, trocken: bool = False) -> dict[str, Any]:
         con.execute("""
             CREATE TEMP TABLE paar_kontext (
                 city VARCHAR, vorher_run_id VARCHAR, run_id VARCHAR,
-                bestand_vorher BIGINT, bestand_nachher BIGINT)
+                bestand_vorher BIGINT, bestand_nachher BIGINT, jahrgang INTEGER)
         """)
-        if (ablage.exists(rel_tabelle, PARQUET_FILE)
-                and SPALTEN_KONTEXT[2] in abgelegtes_schema(ablage, rel_tabelle)):
+        abgelegt = (abgelegtes_schema(ablage, rel_tabelle)
+                    if ablage.exists(rel_tabelle, PARQUET_FILE) else set())
+        if SPALTEN_KONTEXT[2] in abgelegt:
             con.execute(f"""
                 INSERT INTO zeilen_kontext
                 SELECT DISTINCT city, offense_id, vorher_run_id, run_id,
@@ -986,10 +1012,15 @@ def baue(data_root: Path, *, trocken: bool = False) -> dict[str, Any]:
                 WHERE offense_id IS NOT NULL
                   AND (quellcode IS NOT NULL OR quellkategorie IS NOT NULL)
             """)
+        # Fehlt der Jahrgang in der abgelegten Fassung, kommt der Bestand
+        # trotzdem mit - er klebt -, und ``ergaenze_kontext`` traegt den
+        # Jahrgang aus den Manifesten nach.
+        if SPALTEN_KONTEXT[2] in abgelegt:
+            jahrgang = "jahrgang" if SPALTEN_KONTEXT[4] in abgelegt else "NULL"
             con.execute(f"""
                 INSERT INTO paar_kontext
                 SELECT DISTINCT city, vorher_run_id, run_id,
-                       bestand_vorher, bestand_nachher
+                       bestand_vorher, bestand_nachher, {jahrgang}
                 FROM read_parquet('{quelle_alt}')
                 WHERE bestand_vorher IS NOT NULL AND bestand_nachher IS NOT NULL
             """)

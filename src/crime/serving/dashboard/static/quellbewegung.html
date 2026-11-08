@@ -28,6 +28,12 @@
 
 <form class="leiste" id="leiste">
   <label>Stadt <select name="stadt" id="stadt"></select></label>
+  <label>Jahrgang <select name="jahrgang" id="q-jahrgang"></select></label>
+  <label>Beobachtet
+    <select name="beob_von" id="q-von" aria-label="beobachtet von Monat"></select>
+    <span class="bis">–</span>
+    <select name="beob_bis" id="q-bis" aria-label="beobachtet bis Monat"></select>
+  </label>
 </form>
 
 <main class="brett">
@@ -36,7 +42,9 @@
       <h1>Was ändern und löschen die Quellen?</h1>
       <p class="einleitung">Beide Quellen bewegen sich nach der Veröffentlichung. Verglichen werden
         aufeinanderfolgende Vollabzüge desselben Jahrgangs: Welche Felder ändern sich, wie oft,
-        welche Einträge verschwinden – und löscht eine Stadt auffallend mehr als die andere?</p>
+        welche Einträge verschwinden – und löscht eine Stadt auffallend mehr als die andere?
+        Der Jahrgang ist das Tatjahr; der Beobachtungszeitraum wählt die Vergleichspaare nach
+        dem Monat ihres jüngeren Abzugs.</p>
     </div>
   </div>
   <p class="fehler" id="fehler" hidden></p>

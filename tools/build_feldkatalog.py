@@ -228,6 +228,11 @@ JE_TABELLE: dict[tuple[str, str], str] = {
         "Markierungszeile.",
     ("source_change", "bestand_nachher"):
         "Wie viele Schluessel der neuere Schnappschuss traegt.",
+    ("source_change", "jahrgang"):
+        "Der Tatjahrgang, den beide Abzuege des Paares tragen - verglichen "
+        "wird nur innerhalb eines Jahrgangs. Aus dem Manifest des Laufs, nicht "
+        "aus der Datei. Leer bei Abzuegen aus der Zeit vor der "
+        "Jahrgangstrennung.",
 
     # --- source_movement: die Quellbewegung im Release ----------------------
     ("source_movement", "previous_run_id"):
@@ -270,6 +275,9 @@ JE_TABELLE: dict[tuple[str, str], str] = {
         "Aenderungsrate. Je Paar einmal zaehlen, nicht je Zeile.",
     ("source_movement", "snapshot_rows"):
         "Schluessel im neueren Abzug.",
+    ("source_movement", "event_year"):
+        "Der Tatjahrgang des Paares (`silver/source_change.jahrgang`). Das "
+        "Brett filtert danach.",
     ("crime_offense", "nibrs_match"):
         "Woher die Zuordnung stammt, etwa `nibrs_definition` oder "
         "`micr_manual_1110_2024`. `mapping_status` fasst das zusammen.",

@@ -93,6 +93,7 @@ SPALTEN = (
     "previous_snapshot_at", "snapshot_at", "change_type", "field",
     "is_stamp", "value_old", "value_new", "source_offense_code",
     "source_offense_category", "nibrs_code", "previous_rows", "snapshot_rows",
+    "event_year",
 )
 
 GRANULARITAET = (
@@ -105,6 +106,9 @@ NOTIZEN = {
         "Eintraege zaehlt man ueber DISTINCT (city, previous_run_id, run_id, "
         "offense_id), nicht ueber Zeilen: Eine geaenderte Zeile steht hier "
         "so oft, wie sich Felder bewegt haben"),
+    "jahrgang": (
+        "event_year ist der Tatjahrgang des Paares; beide Abzuege tragen "
+        "denselben. Leer bei Abzuegen ohne Jahrgang im Manifest"),
     "rate": (
         "previous_rows ist der Nenner: die Schluessel im aelteren Abzug. Je "
         "Paar einmal zaehlen, nicht je Zeile"),
@@ -158,7 +162,8 @@ def abfrage(silver: str, config_root: Path) -> str:
                s.quellcode AS source_offense_code,
                s.quellkategorie AS source_offense_category,
                z.nibrs_code,
-               s.bestand_vorher AS previous_rows, s.bestand_nachher AS snapshot_rows
+               s.bestand_vorher AS previous_rows, s.bestand_nachher AS snapshot_rows,
+               s.jahrgang AS event_year
         FROM read_parquet('{silver}', hive_partitioning = false) s
         LEFT JOIN ({stempel_sql()}) st ON st.city = s.city AND st.field = s.feld
         LEFT JOIN ({wirksame_zuordnung(config_root)}) z
@@ -169,7 +174,8 @@ def abfrage(silver: str, config_root: Path) -> str:
 def leer_sql() -> str:
     """Dieselben Spalten, keine Zeile."""
     typen = {"previous_snapshot_at": "TIMESTAMP", "snapshot_at": "TIMESTAMP",
-             "is_stamp": "BOOLEAN", "previous_rows": "BIGINT", "snapshot_rows": "BIGINT"}
+             "is_stamp": "BOOLEAN", "previous_rows": "BIGINT", "snapshot_rows": "BIGINT",
+             "event_year": "INTEGER"}
     return "SELECT " + ", ".join(
         f"CAST(NULL AS {typen.get(s, 'VARCHAR')}) AS {s}" for s in SPALTEN) + " WHERE false"
 

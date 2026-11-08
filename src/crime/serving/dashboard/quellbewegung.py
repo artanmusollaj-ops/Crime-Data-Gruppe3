@@ -64,6 +64,10 @@ def lade_bewegung(con, ablage, release: str, delikte: str) -> dict[str, Any] | N
         return None
     pfad = ablage.resolve_read_path(rel, "part-0001.parquet")
     manifest = json.loads(ablage.read_text(rel, "manifest.json"))
+    # Ein Release von vor dem 8.11.2026 abends kennt den Jahrgang nicht; dann
+    # bleibt er leer, und der Filter bietet keinen an.
+    jahrgang = ("b.event_year" if "event_year" in (manifest.get("schema") or {})
+                else "CAST(NULL AS INTEGER)")
     # Spalten ausgeschrieben, kein SELECT * (AGENTS.md, »Known pitfalls«).
     con.execute(f"""
         CREATE TABLE bewegung AS
@@ -77,7 +81,8 @@ def lade_bewegung(con, ablage, release: str, delikte: str) -> dict[str, Any] | N
                     WHEN b.source_offense_code IS NULL THEN '{NICHT_BESTIMMBAR}'
                     WHEN d.nibrs_category IS NULL THEN 'unmapped'
                     ELSE d.nibrs_category END AS kategorie,
-               b.previous_rows AS bestand
+               b.previous_rows AS bestand,
+               {jahrgang} AS jahrgang
         FROM read_parquet('{pfad}', hive_partitioning = false) b
         LEFT JOIN read_parquet('{delikte}', hive_partitioning = false) d USING (nibrs_code)""")
     return {"gebaut": manifest.get("built_at_utc"), "zeilen": manifest.get("row_count")}
@@ -135,7 +140,36 @@ def quellbewegung(bestand, werte: dict[str, str]) -> dict[str, Any]:
     if bestand.bewegung is None:
         return antwort | {"vorhanden": False}
     cur = bestand._cursor()
-    p = {"staedte": staedte}
+
+    # -- Die beiden Filter: Jahrgang und Beobachtungszeitraum -----------------
+    # Der Zeitraum waehlt **Paare**, nach dem Monat des juengeren Abzugs: Eine
+    # Bewegung geschah irgendwann zwischen den beiden Abzuegen und laesst sich
+    # keinem Tag zuordnen, nur ihrem Paar.
+    jahrgaenge = [r[0] for r in cur.execute(
+        "SELECT DISTINCT jahrgang FROM bewegung WHERE jahrgang IS NOT NULL ORDER BY 1").fetchall()]
+    monate = [r[0] for r in cur.execute(
+        "SELECT DISTINCT strftime(bis, '%Y-%m') FROM bewegung ORDER BY 1").fetchall()]
+    jahrgang = werte.get("jahrgang") or "alle"
+    if jahrgang != "alle":
+        try:
+            jahrgang = int(jahrgang)
+        except ValueError:
+            raise EingabeFehler(f"Unbekannter Jahrgang: {jahrgang}") from None
+        if jahrgang not in jahrgaenge:
+            raise EingabeFehler(f"Kein Paar im Jahrgang {jahrgang}")
+    von = werte.get("beob_von") or (monate[0] if monate else "")
+    bis = werte.get("beob_bis") or (monate[-1] if monate else "")
+    if monate and (von not in monate or bis not in monate):
+        raise EingabeFehler(f"Kein beobachteter Monat: {von if von not in monate else bis}")
+    if von > bis:
+        raise EingabeFehler("Der Beobachtungszeitraum braucht von <= bis")
+    antwort["auswahl"] |= {"jahrgang": jahrgang, "beob_von": von, "beob_bis": bis}
+    antwort["optionen"] = {"jahrgaenge": jahrgaenge, "monate": monate}
+    p: dict[str, Any] = {"staedte": staedte, "von": von, "bis": bis}
+    wo = "stadt IN $staedte AND strftime(bis, '%Y-%m') BETWEEN $von AND $bis"
+    if jahrgang != "alle":
+        wo += " AND jahrgang = $jahrgang"
+        p["jahrgang"] = jahrgang
 
     # -- Die Paare: Zeitraum, Bestand und was sich darin bewegt hat -----------
     paare = []
@@ -143,7 +177,7 @@ def quellbewegung(bestand, werte: dict[str, str]) -> dict[str, Any]:
             SELECT stadt, previous_run_id, run_id, min(von), min(bis), max(bestand),
                    {', '.join(f"count(DISTINCT offense_id) FILTER (art = '{a}')"
                               for a in ARTEN)}
-            FROM bewegung WHERE stadt IN $staedte
+            FROM bewegung WHERE {wo}
             GROUP BY 1, 2, 3 ORDER BY 1, 4, 5, 2""", p).fetchall():
         tage = (bis - von).total_seconds() / 86_400
         paare.append({
@@ -193,12 +227,12 @@ def quellbewegung(bestand, werte: dict[str, str]) -> dict[str, Any]:
     arten = "('changed')" if felderwahl == "inhalt" else "('changed', 'touched')"
     geaenderte = dict(cur.execute(
         "SELECT stadt, count(DISTINCT (previous_run_id, run_id, offense_id)) FROM bewegung "
-        f"WHERE art IN {arten} AND stadt IN $staedte GROUP BY 1", p).fetchall())
+        f"WHERE art IN {arten} AND {wo} GROUP BY 1", p).fetchall())
     felder: dict[str, list[dict[str, Any]]] = {s: [] for s in staedte}
     for s, feld, stempel, aenderungen, eintraege in cur.execute(f"""
             SELECT stadt, feld, bool_or(stempel), count(*),
                    count(DISTINCT (previous_run_id, run_id, offense_id))
-            FROM bewegung WHERE feld IS NOT NULL AND stadt IN $staedte {nur_inhalt}
+            FROM bewegung WHERE feld IS NOT NULL AND {wo} {nur_inhalt}
             GROUP BY 1, 2 ORDER BY 1, 4 DESC, 2""", p).fetchall():
         felder[s].append({"feld": feld, "stempel": bool(stempel), "aenderungen": int(aenderungen),
                           "anteil": (round(eintraege * 100.0 / geaenderte[s], 1)
@@ -206,10 +240,10 @@ def quellbewegung(bestand, werte: dict[str, str]) -> dict[str, Any]:
     felder = {s: z[:FELDER_IM_BALKEN] for s, z in felder.items()}
 
     haeufigkeit = {s: {"1": 0, "2": 0, "3+": 0} for s in staedte}
-    for s, mal, n in cur.execute("""
+    for s, mal, n in cur.execute(f"""
             SELECT stadt, least(mal, 3), count(*) FROM (
                 SELECT stadt, offense_id, count(DISTINCT (previous_run_id, run_id)) AS mal
-                FROM bewegung WHERE art = 'changed' AND stadt IN $staedte GROUP BY 1, 2)
+                FROM bewegung WHERE art = 'changed' AND {wo} GROUP BY 1, 2)
             GROUP BY 1, 2""", p).fetchall():
         haeufigkeit[s]["3+" if mal >= 3 else str(mal)] = int(n)
 
@@ -220,15 +254,15 @@ def quellbewegung(bestand, werte: dict[str, str]) -> dict[str, Any]:
                 SELECT stadt, feld, alt, neu, count(*) AS n,
                        row_number() OVER (PARTITION BY stadt
                                           ORDER BY count(*) DESC, feld, alt, neu) AS rang
-                FROM bewegung WHERE art = 'changed' AND NOT stempel AND stadt IN $staedte
+                FROM bewegung WHERE art = 'changed' AND NOT stempel AND {wo}
                 GROUP BY 1, 2, 3, 4)
             WHERE rang <= {UEBERGAENGE} ORDER BY stadt, rang""", p).fetchall()]
 
     # -- Was verschwindet -----------------------------------------------------
     weg: dict[str, dict[str, int]] = {}
-    for s, k, n in cur.execute("""
+    for s, k, n in cur.execute(f"""
             SELECT stadt, kategorie, count(DISTINCT (previous_run_id, run_id, offense_id))
-            FROM bewegung WHERE art = 'removed' AND stadt IN $staedte GROUP BY 1, 2""",
+            FROM bewegung WHERE art = 'removed' AND {wo} GROUP BY 1, 2""",
                                p).fetchall():
         weg.setdefault(k, {})[s] = int(n)
     # Der Vergleichsmassstab: der Anteil der Kategorie an den Taten der Stadt
@@ -236,9 +270,13 @@ def quellbewegung(bestand, werte: dict[str, str]) -> dict[str, Any]:
     # Massstab - eine Kategorie, die ein Prozent der Taten stellt und die
     # Haelfte der Loeschungen, faellt auf.
     taten: dict[str, dict[str, int]] = {}
+    # Mit Jahrgang: der Anteil an den Taten **dieses** Jahrgangs.
+    nur_jahr = "" if jahrgang == "alle" else "AND year(monat) = $jahrgang"
     for s, k, n in cur.execute(
-            "SELECT stadt, kategorie, sum(delikte) FROM monate WHERE stadt IN $staedte "
-            "GROUP BY 1, 2", p).fetchall():
+            f"SELECT stadt, kategorie, sum(delikte) FROM monate WHERE stadt IN $staedte "
+            f"{nur_jahr} GROUP BY 1, 2",
+            {"staedte": staedte} | ({} if jahrgang == "alle" else {"jahrgang": jahrgang})
+    ).fetchall():
         taten.setdefault(s, {})[k] = int(n)
     summe_weg = {s: sum(z.get(s, 0) for z in weg.values()) for s in staedte}
     summe_taten = {s: sum(taten.get(s, {}).values()) for s in staedte}
@@ -268,7 +306,7 @@ def quellbewegung(bestand, werte: dict[str, str]) -> dict[str, Any]:
          "von": v.isoformat(), "bis": b.isoformat()}
         for s, o, c, q, k, v, b in cur.execute(f"""
             SELECT stadt, offense_id, code, quellkategorie, kategorie, von, bis
-            FROM bewegung WHERE art = 'removed' AND stadt IN $staedte
+            FROM bewegung WHERE art = 'removed' AND {wo}
             ORDER BY bis DESC, stadt, offense_id LIMIT {LISTE}""", p).fetchall()]
 
     return antwort | {

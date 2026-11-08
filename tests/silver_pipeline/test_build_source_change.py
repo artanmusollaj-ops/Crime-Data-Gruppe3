@@ -64,7 +64,7 @@ def lauf(run_id: str, *, voll: bool = True, wann: str = "",
 
 
 def schnappschuss(wurzel: Path, run_id: str, zeilen: list[dict], *,
-                  wann: str, modus: str = "FULL") -> None:
+                  wann: str, modus: str = "FULL", jahrgang: int | None = None) -> None:
     """Ein Bronze-Lauf, wie ihn die Detroit-Ingestion ablegt.
 
     ``attributes`` ist ein Struct - genau wie in der echten Datei, denn an
@@ -91,6 +91,7 @@ def schnappschuss(wurzel: Path, run_id: str, zeilen: list[dict], *,
     (verzeichnis / "manifest.json").write_text(json.dumps({
         "status": "SUCCESS", "extraction_mode": modus, "started_at": wann,
         "row_count": len(zeilen), "pipeline_run_id": run_id,
+        **({"year": jahrgang} if jahrgang is not None else {}),
     }), encoding="utf-8")
 
 
@@ -410,6 +411,45 @@ def test_jede_zeile_des_paares_nennt_den_bestand(tmp_path):
     assert je_paar == {("a", "b", 3, 2), ("b", "c", 2, 2)}
 
 
+def test_jedes_paar_nennt_seinen_jahrgang(tmp_path):
+    """Aus dem Manifest des Laufs - damit sich die Bewegung je Tatjahr filtern laesst."""
+    schnappschuss(tmp_path, "a", [zeile("1"), zeile("2")], wann="2026-09-11T12:00:00",
+                  jahrgang=2023)
+    schnappschuss(tmp_path, "b", [zeile("1")], wann="2026-09-12T12:00:00", jahrgang=2023)
+    schnappschuss(tmp_path, "c", [zeile("1")], wann="2026-09-13T12:00:00")
+    schnappschuss(tmp_path, "d", [zeile("1", case_status="X")], wann="2026-09-14T12:00:00")
+    baue_in(tmp_path)
+    assert {(z["vorher_run_id"], z["jahrgang"]) for z in gelesen(tmp_path)} == {
+        ("a", 2023), ("c", None)}
+
+
+def test_ein_fehlender_jahrgang_wird_nachgetragen_ohne_den_bestand_zu_verlieren(tmp_path):
+    """Eine Fassung ohne die Spalte: Der Bestand klebt, der Jahrgang kommt aus dem Manifest."""
+    import duckdb
+
+    schnappschuss(tmp_path, "a", [zeile("1"), zeile("2")], wann="2026-09-11T12:00:00",
+                  jahrgang=2022)
+    schnappschuss(tmp_path, "b", [zeile("1")], wann="2026-09-12T12:00:00", jahrgang=2022)
+    baue_in(tmp_path)
+    datei = bsc.tabellenverzeichnis(tmp_path) / PARQUET_FILE
+    con = duckdb.connect()
+    spalten = ", ".join(s for s in bsc.SPALTEN if s != "jahrgang")
+    con.execute(f"COPY (SELECT {spalten} FROM read_parquet('{datei}')) "
+                f"TO '{datei}.alt' (FORMAT PARQUET)")
+    con.close()
+    Path(f"{datei}.alt").replace(datei)
+    manifest = bsc.tabellenverzeichnis(tmp_path) / "manifest.json"
+    m = json.loads(manifest.read_text(encoding="utf-8"))
+    m["schema"].pop("jahrgang")
+    manifest.write_text(json.dumps(m), encoding="utf-8")
+    # Die Daten des aelteren Schnappschusses sind weg, sein Manifest nicht:
+    # Der Bestand liesse sich nicht neu zaehlen, der Jahrgang schon lesen.
+    (tmp_path / "bronze" / "city=detroit" / "run_a" / PARQUET_FILE).unlink()
+    baue_in(tmp_path)
+    paar = {(z["vorher_run_id"], z["bestand_vorher"], z["jahrgang"]) for z in gelesen(tmp_path)}
+    assert paar == {("a", 2, 2022)}
+
+
 def test_der_zusammenhang_klebt_wenn_die_laeufe_weg_sind(tmp_path):
     """Wie die Datierung: einmal bestimmt, bleibt er stehen."""
     import shutil
@@ -470,7 +510,8 @@ def test_ohne_schnappschuss_bleibt_der_zusammenhang_leer(tmp_path):
                 "vorher_run_id VARCHAR, run_id VARCHAR, quellcode VARCHAR, "
                 "quellkategorie VARCHAR)")
     con.execute("CREATE TABLE paar_kontext (city VARCHAR, vorher_run_id VARCHAR, "
-                "run_id VARCHAR, bestand_vorher BIGINT, bestand_nachher BIGINT)")
+                "run_id VARCHAR, bestand_vorher BIGINT, bestand_nachher BIGINT, "
+                "jahrgang INTEGER)")
     from storage import for_root
     bericht = bsc.ergaenze_kontext(con, for_root(tmp_path), {})
     assert bericht == {"paare": 0, "zeilen": 0, "nicht_bestimmbar": 1}

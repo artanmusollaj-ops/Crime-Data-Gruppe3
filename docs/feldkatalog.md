@@ -7,7 +7,7 @@ gebauten Tabellen, die Bedeutung aus [`tools/build_feldkatalog.py`](../tools/bui
 python tools/build_feldkatalog.py
 ```
 
-**223 Spalten in 18 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
+**225 Spalten in 18 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
 soll einen Satz darüber schreiben müssen. `tests/test_feldkatalog.py` prüft, dass der Katalog vollständig und reproduzierbar ist.
 
 Die Rohschichten stehen hier nicht: **Bronze deutet nicht**, seine Spalten sind die der Quelle. Was sie bedeuten, sagen die
@@ -94,6 +94,7 @@ Eine Zeile ist: **ein geaendertes Feld einer Zeile zwischen zwei Schnappschuesse
 | `quellkategorie` | `VARCHAR` | Die lesbare Deliktart der Quelle: Chicagos `primary_type`, Detroits `offense_category`. Gleiche Herkunft wie `quellcode`. |
 | `bestand_vorher` | `BIGINT` | Wie viele Schluessel der aeltere Schnappschuss traegt - der Nenner jeder Rate. Steht in jeder Zeile des Paares, auch in der Markierungszeile. |
 | `bestand_nachher` | `BIGINT` | Wie viele Schluessel der neuere Schnappschuss traegt. |
+| `jahrgang` | `INTEGER` | Der Tatjahrgang, den beide Abzuege des Paares tragen - verglichen wird nur innerhalb eines Jahrgangs. Aus dem Manifest des Laufs, nicht aus der Datei. Leer bei Abzuegen aus der Zeit vor der Jahrgangstrennung. |
 
 ### `tract`
 
@@ -367,3 +368,4 @@ Eine Zeile ist: **ein bewegtes Feld einer Zeile zwischen zwei Vollabzuegen; je n
 | `nibrs_code` | `VARCHAR` | Die Deliktart auf dem gemeinsamen Vokabular: `source_offense_code` ueber den heute gueltigen Crosswalk samt Overrides, derselbe wie fuer `fact_offense`. Erst damit lassen sich die Loeschungen beider Staedte nach Delikt vergleichen. |
 | `previous_rows` | `BIGINT` | Schluessel im aelteren Abzug - der Nenner einer Loesch- oder Aenderungsrate. Je Paar einmal zaehlen, nicht je Zeile. |
 | `snapshot_rows` | `BIGINT` | Schluessel im neueren Abzug. |
+| `event_year` | `INTEGER` | Der Tatjahrgang des Paares (`silver/source_change.jahrgang`). Das Brett filtert danach. |

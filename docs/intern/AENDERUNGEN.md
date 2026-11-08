@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'808** |
+| Tests | **2'820** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -75,10 +75,10 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `silver/place` | 1 | 14.09.2026 | ein Ort je Zeile, Geometrie für die Stadtgrenze |
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
 | `silver/crime_offense` | **4** | 30.10.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig. Version 4: **Die Zuordnung ist Crosswalk plus `config/mapping_overrides.csv`** — eine Zeile dort gewinnt gegen den erzeugten Crosswalk und trägt die Herkunft `admin_review` (Einstufung `ambiguous`). Die Datei fehlt nie; ohne Korrekturen hat sie nur die Kopfzeile, und dann ist das Ergebnis dasselbe wie in Version 3 |
-| `silver/source_change` | **4** | 08.11.2026 | Unterschied zwischen aufeinanderfolgenden **Vollabzügen** je Quelle, eine Zeile je geändertem Feld; `ESRI_OID` und reine Leerzeichen ausgenommen, Zeitstempel als `beruehrt` statt als Inhaltsänderung. Version 2 ergänzte die **Datierung aus den Deltas**: `zuerst_gesehen_in`, `zuerst_gesehen_am` und `datierung` mit `delta` / `kein_delta` / `nicht_datierbar`. Gefunden wird weiter nur zwischen Vollabzügen — aus einem Delta liesse sich *verschwunden* nicht von *ruhig* unterscheiden. Version 3: Die Datierung **klebt** — sie nennt den besten je bestimmten Befund, nicht den heutigen, sonst löschte das Aufräumen der Deltas sie wieder. Version 4: Jede Zeile nennt ihre **Deliktsart** (`quellcode`, `quellkategorie` — aus dem älteren Abzug, bei `neu` aus dem jüngeren), jedes Paar seinen **Bestand** (`bestand_vorher`, `bestand_nachher`). Ohne Deliktsart war nicht zu sagen, *was* verschwindet; ohne Bestand nicht, ob eine Stadt *viel* löscht. Beides klebt wie die Datierung und wird für ältere Paare nachgetragen, solange ihre Schnappschüsse lesbar sind |
+| `silver/source_change` | **4** | 08.11.2026 | Unterschied zwischen aufeinanderfolgenden **Vollabzügen** je Quelle, eine Zeile je geändertem Feld; `ESRI_OID` und reine Leerzeichen ausgenommen, Zeitstempel als `beruehrt` statt als Inhaltsänderung. Version 2 ergänzte die **Datierung aus den Deltas**: `zuerst_gesehen_in`, `zuerst_gesehen_am` und `datierung` mit `delta` / `kein_delta` / `nicht_datierbar`. Gefunden wird weiter nur zwischen Vollabzügen — aus einem Delta liesse sich *verschwunden* nicht von *ruhig* unterscheiden. Version 3: Die Datierung **klebt** — sie nennt den besten je bestimmten Befund, nicht den heutigen, sonst löschte das Aufräumen der Deltas sie wieder. Version 4: Jede Zeile nennt ihre **Deliktsart** (`quellcode`, `quellkategorie` — aus dem älteren Abzug, bei `neu` aus dem jüngeren), jedes Paar seinen **Bestand** (`bestand_vorher`, `bestand_nachher`) und seinen **Jahrgang** (`jahrgang`, aus dem Manifest des Laufs). Ohne Deliktsart war nicht zu sagen, *was* verschwindet; ohne Bestand nicht, ob eine Stadt *viel* löscht. Beides klebt wie die Datierung und wird für ältere Paare nachgetragen, solange ihre Schnappschüsse lesbar sind |
 | `gold/*` | **8** | 14.10.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften | Version 6: Die ACS-Masse liegen **je Vintage** in der neuen Tabelle `dim_tract_acs` (`population`, `median_household_income_usd`, `poverty_rate`); `dim_tract` behält die Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie kommt; `fact_offense` trägt `population_vintage` und sagt damit je Zeile, welcher Nenner für sie gilt. Eine Tabelle mit einer Zeile je Tract konnte nur eine Einwohnerzahl tragen — über mehrere Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021 Version 7: `dim_date` trägt `year_is_complete` — ob der Jahrgang dieses Tages ganz in den Daten liegt. Ein Teiljahr darf nicht in einen Jahresvergleich geraten: 2026 hat am 3.10. neun Monate, und neun gegen zwölf gestellt ergeben einen Rückgang, den es nicht gibt. Dazu im Manifest von `fact_offense` der Nachweis `year_coverage` je Jahrgang, mit `days_with_offenses` gegen `days_in_year` — denn eine Lücke **innerhalb** des Jahres sieht man an der Spalte nicht Version 8: Die neue Tabelle `dim_tract_geo` trägt den **Umriss** je Tract der beiden Studienstädte als WKT — 1'055 Zeilen, vereinfacht mit Douglas-Peucker 0,00002 Grad (rund zwei Meter, 0,0002 % Fläche je Tract). Sie ist die Grundlage der Choroplethenkarte in Kibana, die eine Fläche braucht und mit dem Schwerpunkt in `dim_tract` nichts anfangen kann. **Eigene Tabelle und keine Spalte an `dim_tract`:** Die Dimension deckt beide Countys ab (6'282 Zeilen) und wäre mit Umrissen 26 MB statt 194 KB; `dim_tract_geo` kostet 133 KB. Keine Kennzahl darin — wer färben will, verbindet über `geoid`
 | `serving/comparison_*` | **3** | 01.11.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` Version 2: `rate_tract` kommt dazu — eine Zeile je Tract **mit Einwohnern** im Bezugsjahr (`gold_pipeline.RATENJAHR`), mit Fällen, Taten, Einwohnerzahl und beiden Raten je 1'000. Gerechnet wird sie mit **derselben** Abfrage, die `gold_pipeline.raten_je_tract` auch dem Wächter der Kibana-Ratenkachel stellt, nicht mit einer zweiten. Sie entsteht, weil Kibanas Karte eine Fläche nach **einem** Feld einfärbt und zwischen zwei verbundenen Feldern nicht rechnen kann — und eine Karte nach Fallzahlen wäre hier irreführend: Die Einwohnerzahl je Tract reicht von 35 bis 13'521 (2024, Median 2'861). Tracts ohne Einwohner fehlen, für sie ist keine Rate definiert. Version 3: **`days_in_window` misst am Fenster je meldender Stadt**, nicht mehr am gemeinsamen beider. Chicagos Daten enden am 26.9.2026, Detroits am 4.10.; mit dem gemeinsamen Fenster hiess Chicagos September vollständig, obwohl vier Tage fehlten (C-10) |
-| `serving/source_movement` | 1 | 08.11.2026 | die Quellbewegung im Release, eine Zeile je bewegtem Feld, je neuer und je verschwundener Zeile und je ruhigem Paar wie in `silver/source_change`; Arten übersetzt (`changed`, `touched`, `added`, `removed`, `unchanged`), Zeitstempel als `is_stamp` markiert, Deliktsart über den heute gültigen Crosswalk samt Overrides auf `nibrs_code` gebracht. Liest als einzige Serving-Tabelle aus Silver: Sie beschreibt die Quelle, nicht die Taten, und steht deshalb nicht im Stern. Ohne `silver/source_change` leer, mit Vermerk |
+| `serving/source_movement` | 1 | 08.11.2026 | die Quellbewegung im Release, eine Zeile je bewegtem Feld, je neuer und je verschwundener Zeile und je ruhigem Paar wie in `silver/source_change`; Arten übersetzt (`changed`, `touched`, `added`, `removed`, `unchanged`), Zeitstempel als `is_stamp` markiert, Deliktsart über den heute gültigen Crosswalk samt Overrides auf `nibrs_code` gebracht. `event_year` nennt den Tatjahrgang des Paares. Liest als einzige Serving-Tabelle aus Silver: Sie beschreibt die Quelle, nicht die Taten, und steht deshalb nicht im Stern. Ohne `silver/source_change` leer, mit Vermerk |
 
 > **Der Feldkatalog wird erzeugt, nicht gepflegt.** Am 14.9. wurde
 > `docs/feldkatalog.md` von Hand bearbeitet (`f1c9b42`): Spaltentypen von
@@ -131,13 +131,16 @@ Dafür war dreierlei nötig:
      steht in keinem späteren Stand mehr; was gelöscht wurde, war damit nicht
      mehr zu sagen.
    - Beides klebt wie die Datierung.
+   - Dazu der `jahrgang` des Paares. Er stammt aus dem Manifest des Laufs,
+     nicht aus der Datei, und wird nachgetragen, ohne einen schon gezählten
+     Bestand zu verlieren.
    - Für die 17 Paare im Eimer wird es beim nächsten Lauf nachgetragen. Die
      Vorgänger-Schnappschüsse aller 13 Löschungen liegen noch dort (geprüft am
      8.11.2026 auf `srv01`).
 2. **`serving/source_movement`** (neu, `serving.build_source_movement`, Vertrag
    1). Die Tabelle bringt die Bewegung ins Release, übersetzt die Arten,
    markiert Zeitstempel und setzt `nibrs_code` über den heute gültigen
-   Crosswalk.
+   Crosswalk. `event_year` trägt den Jahrgang.
    - Serving statt Gold: Die Tabelle beschreibt die Quelle, nicht die Taten.
      Im Stern hinge sie an keinem Tag und keinem Tract, und eine achte
      Sterntabelle hätte einen ES-Index und viele Dokumentstellen verlangt.
@@ -149,6 +152,16 @@ Dafür war dreierlei nötig:
    - Ein älteres Release ohne die Tabelle lädt weiter; das Brett sagt dann,
      dass sie fehlt.
    - `starteBrett` kommt jetzt ohne Jahr- und Kategoriewahl aus.
+   - **Zwei Filter**, auf Christians Wunsch am selben Tag:
+     - **Jahrgang** (Tatjahr): Mit ihm misst der Anteil an den Taten nur
+       diesen Jahrgang.
+     - **Beobachtungszeitraum** von–bis Monat: Er wählt die Paare nach dem
+       Monat ihres jüngeren Abzugs. Eine Bewegung geschah irgendwann zwischen
+       den beiden Abzügen, sie lässt sich nur ihrem Paar zuordnen, keinem Tag.
+   - Ein Release ohne `event_year` lädt weiter; der Jahrgangsfilter bleibt dann
+     leer.
+   - Die Jahrgangs-Spalten gehören noch zu Vertrag 4 und Vertrag 1. Beide
+     waren nur auf diesem Branch und sind nie ausgeliefert worden.
 
 **Erster Befund, lokal** (ein Chicago-Paar, vier Detroit-Paare): Chicago hat
 5 Einträge entfernt, drei davon Sexualdelikte (NIBRS 11D, 36A), dazu
@@ -158,11 +171,11 @@ Chicago zu erwarten (p = 1,0), weil Chicago elfmal mehr Eintragsmonate hat.
 Auffällig ist dagegen Detroits Änderungsrate. Meist ist es `case_status`
 (`ACTIVE → INACTIVE` 495-mal); Chicago ändert vor allem `arrest`.
 
-Neu gewacht: 7 Tests in `test_build_source_change.py` (Deliktsart je Art,
-Bestand, Kleben, Nachtrag aus Vertrag 3) und `tests/serving/test_quellbewegung.py`
-(23 Tests: Test auf gleiche Raten, Bau, Brett, API); die übrigen kommen aus Parametern, die aus den Registern abgeleitet sind (Seiten, Vertragsversionen, Stufen).
+Neu gewacht: 9 Tests in `test_build_source_change.py` (Deliktsart je Art,
+Bestand, Jahrgang, Kleben, Nachtrag aus Vertrag 3) und `tests/serving/test_quellbewegung.py`
+(33 Tests: Test auf gleiche Raten, Filter, Bau, Brett, API); die übrigen kommen aus Parametern, die aus den Registern abgeleitet sind (Seiten, Vertragsversionen, Stufen).
 
-**Zahlen.** 2'770 → **2'808 Tests**, Standardlauf 2'659 → **2'697**, im frischen Klon 2'581 → **2'619**.
+**Zahlen.** 2'770 → **2'820 Tests**, Standardlauf 2'659 → **2'709**, im frischen Klon 2'581 → **2'631**.
 
 ## 7.11.2026 · Der Nachweis ist an sein Release gebunden (Branch `docs/nachweis-mit-release`)
 

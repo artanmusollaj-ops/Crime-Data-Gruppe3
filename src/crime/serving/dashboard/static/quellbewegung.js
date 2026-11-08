@@ -1,5 +1,5 @@
 // Das Brett »Quellbewegung«.
-import { FARBE, balken, el, komma, leer, legende, runde, starteBrett, zahl } from "./gemeinsam.js";
+import { FARBE, MONATE, balken, el, komma, leer, legende, runde, starteBrett, zahl } from "./gemeinsam.js";
 
 const ARTNAME = { entfernt: "Entfernt", geaendert: "Geändert", neu: "Neu" };
 const tag = (iso) => new Date(iso).toLocaleDateString("de-CH");
@@ -187,7 +187,37 @@ function liste(d) {
   if (!d.entfernt.liste.length) zelle(rumpf.insertRow(), "Kein Eintrag entfernt").colSpan = 6;
 }
 
+// Die Filter kennt erst die Antwort des Bretts: welche Jahrgaenge und Monate es gibt.
+const monat = (m) => `${MONATE[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
+
+function fuelle(id, eintraege, wert) {
+  const select = document.getElementById(id);
+  select.replaceChildren(...eintraege.map(([w, name]) => new Option(name, w, false, String(w) === String(wert))));
+}
+
+function filter(d) {
+  const o = d.optionen, a = d.auswahl;
+  fuelle("q-jahrgang", [["alle", "Alle"], ...o.jahrgaenge.map((j) => [j, String(j)])], a.jahrgang);
+  fuelle("q-von", o.monate.map((m) => [m, monat(m)]), a.beob_von);
+  fuelle("q-bis", o.monate.map((m) => [m, monat(m)]), a.beob_bis);
+}
+
+// Vor dem ersten Laden: was die Adresse sagt, als einzige Option - sonst
+// faende die erste Anfrage leere Felder und vergaesse die Auswahl.
+const adresse = new URLSearchParams(location.search);
+for (const [id, name] of [["q-jahrgang", "jahrgang"], ["q-von", "beob_von"], ["q-bis", "beob_bis"]]) {
+  if (adresse.get(name)) fuelle(id, [[adresse.get(name), adresse.get(name)]], adresse.get(name));
+}
+document.getElementById("leiste").addEventListener("change", (ev) => {
+  // Von nach Bis gezogen: Bis rueckt nach, und umgekehrt.
+  const von = document.getElementById("q-von"), bis = document.getElementById("q-bis");
+  if (von.value > bis.value) {
+    if (ev.target === von) bis.value = von.value; else von.value = bis.value;
+  }
+}, true);
+
 function zeichne(d) {
+  if (d.optionen) filter(d);
   document.getElementById("ohne-tabelle").hidden = d.vorhanden;
   document.getElementById("inhalt").hidden = !d.vorhanden;
   if (!d.vorhanden) return;
