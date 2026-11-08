@@ -81,6 +81,10 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     def seite_datenqualitaet():
         return send_from_directory(_STATISCH, "datenqualitaet.html")
 
+    @app.get("/wetter")
+    def seite_wetter():
+        return send_from_directory(_STATISCH, "wetter.html")
+
     @app.get("/quellbewegung")
     def seite_quellbewegung():
         return send_from_directory(_STATISCH, "quellbewegung.html")
@@ -126,6 +130,11 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
         # Der Weg zu den Nachweisen, wenn die Konsole erreichbar ist.
         antwort["konsole"] = os.getenv("DASHBOARD_KONSOLE_URL") or None
         return jsonify(antwort)
+
+    @app.get("/api/wetter")
+    def wetterdaten():
+        bestand = daten()
+        return jsonify(bestand.wetterbrett(bestand.auswahl(request.args.to_dict())))
 
     @app.get("/api/quellbewegung")
     def quellbewegung():
