@@ -216,3 +216,16 @@ h2.abstand { margin-top: 16px; }
 .tabelle td.ok::before, .tabelle td.teil::before { margin-left: 0; }
 #d-vergleich td:nth-child(2), #d-kategorien td:nth-child(2), #d-paare td:nth-child(2),
 #d-liste td:nth-child(2), #d-uebergaenge td:nth-child(2) { color: var(--text); }
+
+/* Brett »Soziales Umfeld« */
+.kennzahlen.zwei { grid-template-columns: 1fr 1fr; }
+.kachel.stadtkachel { border-left-width: 4px; }
+.kachel.stadtkachel.chicago { border-left-color: var(--chicago); }
+.kachel.stadtkachel.detroit { border-left-color: var(--detroit); }
+#karten > .raster { margin-bottom: 16px; align-items: start; }
+#karten > .raster.einzeln { grid-template-columns: minmax(0, 760px); justify-content: center; }
+.kartenlegende > div > b { display: block; margin-bottom: 8px; }
+.bivariat-legende svg { width: 260px; height: auto; font-size: 12px; }
+.bivariat-legende text { fill: #44505f; }
+#legende-bivariat { align-items: center; }
+#legende-bivariat .unterzeile { max-width: 640px; }

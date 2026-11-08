@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'820** |
+| Tests | **2'832** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -103,6 +103,45 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 8.11.2026 · Das Dashboard zeigt Fallrate und Armut (Branch `feature/brett-sozial`)
+
+Die ACS-Werte zu Armut und Einkommen liegen seit Gold-Vertrag 6 je Tract und
+Vintage in `dim_tract_acs`, aber kein Brett zeigte sie. Das neue Brett heisst
+**»Soziales Umfeld«** (`/sozial`) und steht nach »Geografie«. Es hat dieselbe
+Leiste wie die »Geografie« und zählt Fälle.
+
+- **Karten** in zwei Arten, umschaltbar:
+  - **Nebeneinander:** je Stadt die Fallrate (blau, dieselben Klassen wie auf
+    der »Geografie«) und die Armutsquote (orange).
+  - **Übereinander:** eine **bivariate** Karte mit 3×3 Farben. Die Stufen sind
+    Terzile über beide Städte zusammen, Palette nach Joshua Stevens.
+- **Rate nach Armutsband**, mit gemeinsamen Bändern (unter 10 %, 10–20,
+  20–30, 30–40, ab 40 %). Fünftel je Stadt hätten Ungleiches verglichen:
+  Detroits ärmstes Fünftel beginnt bei 45 %, Chicagos bei 29 %.
+- **Streudiagramm** der Tracts, Armutsquote gegen Rate (logarithmisch).
+- **Je Stadt:** der Faktor zwischen dem ärmsten und dem reichsten Band,
+  Spearmans Rangkorrelation mit Armut und Einkommen, und wie viele Tracts
+  kein Einkommen haben.
+
+Die Rate je Tract kommt aus derselben Funktion wie auf der »Geografie«
+(`geografie.geografie`). Ein Wächter hält beide gleich.
+
+**Erster Befund** (lokal, 2024, Fälle je 1'000):
+- **Chicago** steigt von 72,6 (unter 10 % Armut) auf 160,1 (30–40 %); die
+  Rangkorrelation beträgt 0,52.
+- **Detroit** bleibt fast flach (112–147), liegt aber schon bei geringer
+  Armut höher als Chicago; die Rangkorrelation beträgt 0,22.
+
+Die Zahlen sind nicht bewacht und stehen in keinem Abgabedokument.
+
+Ein Release ohne Armutsspalten lädt weiter, das Brett zeigt dann keine
+Armut.
+
+Neu gewacht: `tests/serving/test_sozial.py` (9 Tests), dazu `/sozial` in den
+Seiten- und Reitertests.
+
+**Zahlen.** 2'820 → **2'832 Tests**, Standardlauf 2'709 → **2'721**, im frischen Klon 2'631 → **2'643**.
 
 ## 8.11.2026 · Das Dashboard zeigt die Quellbewegung (Branch `feature/brett-quellbewegung`)
 
