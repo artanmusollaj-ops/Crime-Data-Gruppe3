@@ -223,3 +223,5 @@ h2.abstand { margin-top: 16px; }
 .stadtkachel.chicago { border-left-color: var(--chicago); }
 .stadtkachel.detroit { border-left-color: var(--detroit); }
 .stadtkachel small + small { margin-top: 4px; }
+/* Ein Filter ohne Auswahl ist gesperrt und sieht so aus (»Quellbewegung« ohne Paare). */
+.leiste select:disabled { background: #eef1f5; color: #8a94a3; border-color: #dde2e9; cursor: not-allowed; }
