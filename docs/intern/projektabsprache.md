@@ -740,6 +740,7 @@ vollständig: jede Stufe des Run-Controllers muss hier stehen.
 | `tract`, `place`, `weather_day`, `crime_offense`, `source_change` | `silver/` | `silver_pipeline.*` | Christian | Konzept 8, Feldkatalog, `intern/datenhistorie.md` |
 | `gold` | `gold/` (fünf Tabellen) | `gold_pipeline.build_gold` | Christian | Notebook 34, Konzept 5.2 |
 | `comparison` | `serving/` (fünf Vergleichstabellen aus Gold) | `serving.build_comparison` | Christian | Feldkatalog, `zaehlperspektiven.md` |
+| `source_movement` | `serving/` (Quellbewegung aus `silver/source_change`, seit 8.11.2026) | `serving.build_source_movement` | Christian | Feldkatalog, Dashboard-Brett „Quellbewegung“ |
 | `analyse_db`, `tracts_geojson` | `serving/` | `serving.*` | Christian | Notebook 33 |
 | — | Hypothesen (Kapitel 3, Notebook) | — | Artan | Konzept 3 |
 | — | Konzept, Absprache, Leistungsnachweise, Präsentation | — | Artan | `docs/` |

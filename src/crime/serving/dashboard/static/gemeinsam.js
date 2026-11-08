@@ -158,6 +158,8 @@ export function balken(ziel, zeilen, staedte, format, achse = format) {
 }
 
 function optionen(select, eintraege, wert) {
+  // Ein Brett ohne diese Wahl (»Quellbewegung« kennt weder Jahr noch Kategorie).
+  if (!select) return;
   select.replaceChildren(...eintraege.map(([w, name]) => new Option(name, w, false, String(w) === String(wert))));
 }
 
@@ -225,7 +227,7 @@ export async function starteBrett({ api, zeichne }) {
 
   document.getElementById("leiste").addEventListener("change", (ev) => {
     const von = document.getElementById("von"), bis = document.getElementById("bis");
-    if (Number(von.value) > Number(bis.value)) {
+    if (von && bis && Number(von.value) > Number(bis.value)) {
       if (ev.target === von) bis.value = von.value; else von.value = bis.value;
     }
     lade();

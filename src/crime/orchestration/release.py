@@ -27,6 +27,7 @@ from typing import Any
 from gold_pipeline import TABELLEN as GOLD_TABELLEN
 from serving.build_analysis_db import build_selbststaendig
 from serving.build_comparison import TABELLEN as SERVING_TABELLEN
+from serving.build_source_movement import TABELLEN as QUELLBEWEGUNG
 from serving.export_geojson import GEOJSON_NAME
 from storage import StorageError, for_root, release
 from storage.config import StorageConfigError
@@ -44,6 +45,9 @@ from storage.config import StorageConfigError
 VOLLSTAENDIG: tuple[str, ...] = (
     tuple(f"gold/dataset={t}" for t in GOLD_TABELLEN)
     + tuple(f"serving/dataset={t}" for t in SERVING_TABELLEN)
+    # Die Quellbewegung liegt neben den Vergleichstabellen, ist aber keine:
+    # Sie beschreibt die Quelle, nicht die Taten (serving.build_source_movement).
+    + tuple(f"serving/dataset={t}" for t in QUELLBEWEGUNG)
     + (f"serving/{GEOJSON_NAME}",)
 )
 

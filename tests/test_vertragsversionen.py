@@ -39,6 +39,7 @@ MODULE = {
     "silver/source_change": "silver_pipeline.build_source_change",
     "gold/*": "gold_pipeline.build_gold",
     "serving/comparison_*": "serving.build_comparison",
+    "serving/source_movement": "serving.build_source_movement",
 }
 
 

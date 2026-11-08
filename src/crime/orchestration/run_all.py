@@ -145,6 +145,9 @@ STUFEN: tuple[Stufe, ...] = (
 
     # Die Vergleichstabellen vor der Datenbank, damit sie Sichten bekommen.
     Stufe("serving", "comparison", "serving.build_comparison"),
+    # Die Quellbewegung fuer das Brett gleichen Namens - aus silver/
+    # source_change, das deshalb vorher in Silver gelaufen sein muss.
+    Stufe("serving", "source_movement", "serving.build_source_movement"),
     Stufe("serving", "analyse_db", "serving.build_analysis_db"),
     Stufe("serving", "tracts_geojson", "serving.export_geojson"),
 )

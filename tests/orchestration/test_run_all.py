@@ -813,7 +813,7 @@ def test_mehrere_vintages_laufen_jetzt_durch(tmp_path, monkeypatch):
     monkeypatch.setattr(ra.subprocess, "run",
                         lambda cmd, cwd=None, **_: (befehle.append(cmd), Fertig())[1])
     manifest = ra.lauf(tmp_path / "data", tmp_path, jahre=range(2021, 2027))
-    assert len(befehle) == 40
+    assert len(befehle) == 41
     assert manifest["years"] == list(range(2021, 2027))
     assert manifest["vintages"] == [2021, 2022, 2023, 2024]
 

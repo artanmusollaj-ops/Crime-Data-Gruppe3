@@ -209,6 +209,75 @@ JE_TABELLE: dict[tuple[str, str], str] = {
         "wird, was besser wird - `delta` schlaegt `kein_delta` schlaegt "
         "`nicht_datierbar` -, und nie abwaerts. Sonst haette das Aufraeumen "
         "der Deltas eine einmal bestimmte Datierung wieder geloescht.",
+    # Seit Vertrag 4 (8.11.2026): der Zusammenhang. Er klebt wie die
+    # Datierung - einmal bestimmt, bleibt er, auch ohne den Schnappschuss.
+    ("source_change", "quellcode"):
+        "Der Deliktcode der Zeile, wie die Quelle ihn fuehrt: Chicagos `iucr`, "
+        "Detroits `state_offense_code`. Aus dem **aelteren** Schnappschuss - "
+        "dem Stand, der sich geaendert hat oder verschwunden ist -, bei `neu` "
+        "aus dem juengeren. Ohne ihn liesse sich nie mehr sagen, *was* "
+        "verschwunden ist: Der Inhalt einer geloeschten Zeile steht in keinem "
+        "spaeteren Stand. Leer, wenn der Schnappschuss schon aufgeraeumt war, "
+        "als die Spalte dazukam.",
+    ("source_change", "quellkategorie"):
+        "Die lesbare Deliktart der Quelle: Chicagos `primary_type`, Detroits "
+        "`offense_category`. Gleiche Herkunft wie `quellcode`.",
+    ("source_change", "bestand_vorher"):
+        "Wie viele Schluessel der aeltere Schnappschuss traegt - der Nenner "
+        "jeder Rate. Steht in jeder Zeile des Paares, auch in der "
+        "Markierungszeile.",
+    ("source_change", "bestand_nachher"):
+        "Wie viele Schluessel der neuere Schnappschuss traegt.",
+    ("source_change", "jahrgang"):
+        "Der Tatjahrgang, den beide Abzuege des Paares tragen - verglichen "
+        "wird nur innerhalb eines Jahrgangs. Aus dem Manifest des Laufs, nicht "
+        "aus der Datei. Leer bei Abzuegen aus der Zeit vor der "
+        "Jahrgangstrennung.",
+
+    # --- source_movement: die Quellbewegung im Release ----------------------
+    ("source_movement", "previous_run_id"):
+        "Der aeltere Vollabzug des Paares (`silver/source_change.vorher_run_id`).",
+    ("source_movement", "run_id"):
+        "Der neuere Vollabzug des Paares.",
+    ("source_movement", "previous_snapshot_at"):
+        "Wann der aeltere Vollabzug begann - die untere Grenze des Fensters.",
+    ("source_movement", "snapshot_at"):
+        "Wann der neuere Vollabzug begann - die obere Grenze. Eine Bewegung "
+        "geschah irgendwann dazwischen.",
+    ("source_movement", "change_type"):
+        "`changed` (Inhalt bewegt), `touched` (nur Zeitstempel bewegt), "
+        "`added` (neu im juengeren Abzug), `removed` (fehlt im juengeren "
+        "Abzug), `unchanged` (Markierungszeile eines ruhigen Paares). Die "
+        "Arten aus Silver, uebersetzt; eine unbekannte bricht den Bau ab.",
+    ("source_movement", "field"):
+        "Das bewegte Quellfeld in den Begriffen der Quelle. Leer bei "
+        "`added`, `removed` und `unchanged`.",
+    ("source_movement", "is_stamp"):
+        "Ob `field` ein Zeitstempel der Quelle ist (Detroit `updated_at`, "
+        "`updated_in_ibr_at`, `case_status_updated_at`; Chicago "
+        "`updated_on`). Ein bewegter Stempel ist keine Inhaltsaenderung. "
+        "Leer, wo kein Feld steht.",
+    ("source_movement", "value_old"):
+        "Der Wert im aelteren Abzug, getrimmt und als Text.",
+    ("source_movement", "value_new"):
+        "Der Wert im neueren Abzug, gleich behandelt.",
+    ("source_movement", "source_offense_category"):
+        "Die lesbare Deliktart der Quelle (Chicagos `primary_type`, Detroits "
+        "`offense_category`) - fuer eine verschwundene Zeile die einzige "
+        "Auskunft darueber, was sie war.",
+    ("source_movement", "nibrs_code"):
+        "Die Deliktart auf dem gemeinsamen Vokabular: `source_offense_code` "
+        "ueber den heute gueltigen Crosswalk samt Overrides, derselbe wie "
+        "fuer `fact_offense`. Erst damit lassen sich die Loeschungen beider "
+        "Staedte nach Delikt vergleichen.",
+    ("source_movement", "previous_rows"):
+        "Schluessel im aelteren Abzug - der Nenner einer Loesch- oder "
+        "Aenderungsrate. Je Paar einmal zaehlen, nicht je Zeile.",
+    ("source_movement", "snapshot_rows"):
+        "Schluessel im neueren Abzug.",
+    ("source_movement", "event_year"):
+        "Der Tatjahrgang des Paares (`silver/source_change.jahrgang`). Das "
+        "Brett filtert danach.",
     ("crime_offense", "nibrs_match"):
         "Woher die Zuordnung stammt, etwa `nibrs_definition` oder "
         "`micr_manual_1110_2024`. `mapping_status` fasst das zusammen.",
