@@ -1,6 +1,7 @@
 """Admission gate shared by the parser and DuckDB import."""
 import json
 from pathlib import Path
+from . import detroit_arcgis
 from .detroit_arcgis import DataQualityError
 from .extract_detroit import file_sha256
 from .bronze_parquet import schema_hash
@@ -14,9 +15,10 @@ def validate_manifest(manifest_path):
     m = json.loads(path.read_text(encoding='utf-8'))
     if (m.get('status') != 'SUCCESS' or m.get('bronze_contract_version') != 2
             or m.get('storage_format') != 'PARQUET'
-            or m.get('source_system') != 'detroit_rms_crime'
+            or m.get('source_system') != detroit_arcgis.SOURCE_SYSTEM
             or not m.get('snapshot_membership_verified')):
-        raise DataQualityError('Kein vollstaendiger Detroit-Parquet-Lauf Version 2')
+        raise DataQualityError(
+            f'Kein vollstaendiger {detroit_arcgis.QUELLE.anzeigename}-Parquet-Lauf Version 2')
     if m.get('bronze_file') != 'part-0001.parquet':
         raise DataQualityError('Unerwarteter Artefaktpfad')
     file = path.parent / m['bronze_file']

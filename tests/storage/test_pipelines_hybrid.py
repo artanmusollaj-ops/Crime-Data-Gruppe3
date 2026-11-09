@@ -118,7 +118,7 @@ def test_sichten_zeigen_auf_s3_wo_lokal_nichts_liegt(hybrid):
 
 def chicago_main(monkeypatch, data_root: Path) -> int:
     monkeypatch.setattr(dc, "arguments", lambda: dc.argparse.Namespace(
-        year=2024, data_root=data_root, max_records=None, full=False, no_token=True))
+        source=dc.DEFAULT_SOURCE, year=2024, data_root=data_root, max_records=None, full=False, no_token=True))
     monkeypatch.setattr(dc, "app_token", lambda disabled: None)
     monkeypatch.setattr(dc, "download", lambda *a: make_download())
     return dc.main()

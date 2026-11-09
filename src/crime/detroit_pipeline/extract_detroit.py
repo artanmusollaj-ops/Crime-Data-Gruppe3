@@ -30,8 +30,10 @@ import pyarrow.parquet as pq
 
 from manifeste import code_stand
 from storage import for_root, get_storage
+from storage.quellen import QuellenFehler, lade
 from .bronze_parquet import schema_for, schema_hash, to_row
 
+from . import detroit_arcgis
 from .detroit_arcgis import (
     ArcGISClient,
     DataQualityError,
@@ -165,20 +167,22 @@ def _extract_where(
     # Invarianten verhindern, dass ein spaeterer Umbau einen Jahresbestand
     # versehentlich nach Update-Zeit oder einen Daily Load nach Tatzeit
     # selektiert.
+    quelle = detroit_arcgis.QUELLE
+    tat, aenderung = quelle.tatzeit_feld, quelle.aenderungs_feld
     extraction_contracts = {
         "FULL": {
-            "date_field": "incident_occurred_at",
-            "window_field": "incident_occurred_at",
+            "date_field": tat,
+            "window_field": tat,
             "selection_basis": "INCIDENT_OCCURRENCE_TIME",
         },
         "DELTA": {
-            "date_field": "updated_at",
-            "window_field": "incident_occurred_at",
+            "date_field": aenderung,
+            "window_field": tat,
             "selection_basis": "SOURCE_LAST_UPDATED_TIME_WITHIN_INCIDENT_YEAR",
         },
         "INCREMENTAL": {
-            "date_field": "updated_at",
-            "window_field": "updated_at",
+            "date_field": aenderung,
+            "window_field": aenderung,
             "selection_basis": "SOURCE_LAST_UPDATED_TIME",
         },
     }
@@ -202,7 +206,8 @@ def _extract_where(
     if delta_ab is not None:
         erwartet = f"{erwartet} AND {delta_bedingung(delta_ab)}"
     if where != erwartet:
-        raise DataQualityError("WHERE-Klausel passt nicht zum Detroit-Zeitfenster")
+        raise DataQualityError(
+            f"WHERE-Klausel passt nicht zum {quelle.anzeigename}-Zeitfenster")
 
     # SCHRITT 1: Metadaten liefern Object-ID-Feld, Seitengroesse und Schema-Hash.
     layer_info = client.get_layer_info()
@@ -288,14 +293,14 @@ def _extract_where(
                     rows.clear()
                 downloaded_count += 1
                 raw_category = (feature.get("attributes") or {}).get(
-                    "offense_category"
+                    quelle.kategorie_feld
                 )
                 category = str(raw_category).strip() if raw_category is not None else ""
                 category = category or "__MISSING__"
                 offense_category_counts[category] = (
                     offense_category_counts.get(category, 0) + 1
                 )
-                stempel = (feature.get("attributes") or {}).get("updated_at")
+                stempel = (feature.get("attributes") or {}).get(aenderung)
                 if type(stempel) is int and (max_updated_at is None
                                              or stempel > max_updated_at):
                     max_updated_at = stempel
@@ -363,8 +368,8 @@ def _extract_where(
         ),
         "pipeline_run_id": run_id,
         "status": "SUCCESS",
-        "source_system": "detroit_rms_crime",
-        "dataset_id": "RMS_Crime_Incidents",
+        "source_system": quelle.quellsystem,
+        "dataset_id": quelle.datensatz,
         "layer_url": client.layer_url,
         "extraction_mode": extraction_mode,
         "date_field": date_field,
@@ -395,7 +400,7 @@ def _extract_where(
         # vorherige daneben. Es rueckt nie zurueck - ein Lauf, der nichts
         # Neueres sieht, laesst es stehen.
         "watermark": {
-            "field": "updated_at",
+            "field": aenderung,
             "maximum_seen": max(
                 [w for w in (watermark_vorher, _iso_utc(max_updated_at)) if w],
                 default=None,
@@ -465,7 +470,7 @@ def previous_watermark(data_root: Path, year: int) -> str | None:
     """
     werte: list[str] = []
     laeufe = for_root(data_root).laeufe(
-        "bronze/city=detroit", "**/run_*/manifest.json",
+        f"bronze/city={detroit_arcgis.QUELLE.stadt}", "**/run_*/manifest.json",
         streng=False, fehler=DataQualityError,
     )
     for lauf in laeufe:
@@ -519,6 +524,7 @@ def extract_delta(
     sich der Stempel 499-mal ohne inhaltliche Aenderung - das kostet nur
     doppelt geladene Zeilen, die Silver ohnehin dedupliziert.
     """
+    quelle = detroit_arcgis.QUELLE
     if watermark is None and data_root is not None:
         watermark = previous_watermark(data_root, year)
     ab = delta_start(watermark)
@@ -526,10 +532,10 @@ def extract_delta(
         build_delta_where(year, ab),
         output_dir,
         raw_dir=raw_dir,
-        file_stem=(f"detroit_rms_crime_{year}" if ab is None
-                   else f"detroit_rms_crime_delta_{year}_{ab.date().isoformat()}"),
+        file_stem=(f"{quelle.quellsystem}_{year}" if ab is None
+                   else f"{quelle.quellsystem}_delta_{year}_{ab.date().isoformat()}"),
         extraction_mode="FULL" if ab is None else "DELTA",
-        date_field="incident_occurred_at" if ab is None else "updated_at",
+        date_field=quelle.tatzeit_feld if ab is None else quelle.aenderungs_feld,
         window_start=date(year, 1, 1),
         window_end_exclusive=date(year + 1, 1, 1),
         year=year,
@@ -552,15 +558,16 @@ def extract_year(
 ) -> tuple[Path, Path]:
     """Laedt einen vollstaendigen Kalenderjahresbestand nach Tatzeitpunkt."""
 
+    quelle = detroit_arcgis.QUELLE
     window_start = date(year, 1, 1)
     window_end_exclusive = date(year + 1, 1, 1)
     return _extract_where(
         build_year_where(year),
         output_dir,
         raw_dir=raw_dir,
-        file_stem=f"detroit_rms_crime_{year}",
+        file_stem=f"{quelle.quellsystem}_{year}",
         extraction_mode="FULL",
-        date_field="incident_occurred_at",
+        date_field=quelle.tatzeit_feld,
         window_start=window_start,
         window_end_exclusive=window_end_exclusive,
         year=year,
@@ -593,11 +600,11 @@ def extract_updated_window(
         output_dir,
         raw_dir=raw_dir,
         file_stem=(
-            "detroit_rms_crime_incremental_"
+            f"{detroit_arcgis.QUELLE.quellsystem}_incremental_"
             f"{start_date.isoformat()}_{end_date_exclusive.isoformat()}"
         ),
         extraction_mode="INCREMENTAL",
-        date_field="updated_at",
+        date_field=detroit_arcgis.QUELLE.aenderungs_feld,
         window_start=start_date,
         window_end_exclusive=end_date_exclusive,
         batch_size=batch_size,
@@ -647,6 +654,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """
 
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--source",
+        default=detroit_arcgis.DEFAULT_SOURCE,
+        help="ArcGIS-Eintrag in config/quellen.toml (Vorgabe: detroit)",
+    )
     parser.add_argument(
         "--mode",
         required=True,
@@ -723,14 +735,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="INFO",
     )
     args = parser.parse_args(argv)
+    try:
+        quelle = lade(args.source)
+        if quelle.plattform != "arcgis":
+            raise QuellenFehler(f"{args.source} liegt nicht auf ArcGIS")
+    except QuellenFehler as fehler:
+        parser.error(str(fehler))
     # Dieselbe Option wie bei den uebrigen elf Stufen. Sie fehlte hier, und
     # damit lief Detroit auch dann im Standardverzeichnis, wenn der
     # Gesamtlauf mit --data-root auf ein anderes gerichtet war.
     wurzel = for_root(args.data_root).local_root
     if args.output_dir is None:
-        args.output_dir = wurzel / "bronze" / "city=detroit"
+        args.output_dir = wurzel / "bronze" / f"city={quelle.stadt}"
     if args.raw_dir is None:
-        args.raw_dir = wurzel / "raw" / "city=detroit"
+        args.raw_dir = wurzel / "raw" / f"city={quelle.stadt}"
 
     if args.mode in ("full", "delta"):
         if not args.years:
@@ -768,6 +786,9 @@ def main(argv: list[str] | None = None) -> int:
     """Startet einen Full- oder Daily-Bronze-Load als CLI-Job."""
 
     args = parse_args(argv)
+    if args.source != detroit_arcgis.QUELLE.name:
+        detroit_arcgis.use_source(lade(args.source))
+    name = detroit_arcgis.QUELLE.anzeigename
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
     from storage.analysesitzung import schreibzugriff
@@ -782,7 +803,8 @@ def main(argv: list[str] | None = None) -> int:
                 wurzel = for_root(args.data_root).local_root
                 watermark = previous_watermark(wurzel, year)
                 logging.info(
-                    "Starte Detroit %s fuer %s%s",
+                    "Starte %s %s fuer %s%s",
+                    name,
                     "Full Load" if watermark is None else "Delta",
                     year,
                     "" if watermark is None else f" (Wasserzeichen {watermark})",
@@ -803,7 +825,7 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.mode == "full":
             for year in args.years:
-                logging.info("Starte Detroit Full Load fuer %s", year)
+                logging.info("Starte %s Full Load fuer %s", name, year)
                 raw_dir = None if args.no_raw else args.raw_dir / "full" / f"year={year}"
                 bronze_path, manifest_path = extract_year(
                     year=year,
@@ -825,7 +847,8 @@ def main(argv: list[str] | None = None) -> int:
         run_date = window_end_exclusive - timedelta(days=1)
 
         logging.info(
-            "Starte Detroit Daily Load: %s bis %s (exklusiv)",
+            "Starte %s Daily Load: %s bis %s (exklusiv)",
+            name,
             window_start,
             window_end_exclusive,
         )

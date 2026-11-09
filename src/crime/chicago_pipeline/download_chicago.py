@@ -15,6 +15,12 @@ Vollstaendigkeit wird nicht behauptet, sondern nachgewiesen: Vor dem Download
 wird die Menge der ids festgeschrieben, geladen wird per Keyset-Pagination, und
 danach muss die Menge der geladenen ids exakt der festgeschriebenen entsprechen.
 Ein Fingerabdruck ueber die Feldtypen der Quelle macht Schema-Drift sichtbar.
+
+Das Modul ist der Socrata-Adapter. Was an Chicago haengt - Portal, Datensatz,
+Schluessel- und Zeitfelder, das gepinnte Schema - steht in
+``config/quellen.toml`` und kommt ueber ``storage.quellen.lade``; ``--source`` waehlt
+einen anderen Socrata-Eintrag. Ein Prozess laedt eine Quelle:
+``use_source`` setzt die Modulwerte, die alle Funktionen lesen.
 """
 
 from __future__ import annotations
@@ -37,15 +43,14 @@ import requests
 from dotenv import find_dotenv, load_dotenv
 
 from manifeste import code_stand
+from storage.quellen import QuellenFehler, SocrataQuelle, lade
 from storage import PublishError, for_root
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 
-API_URL = "https://data.cityofchicago.org/resource/ijzp-q8t2.json"
-METADATA_URL = "https://data.cityofchicago.org/api/views/ijzp-q8t2.json"
-DATASET_ID = "ijzp-q8t2"
-CITY = "chicago"
+#: Die Quelle, die ohne ``--source`` geladen wird.
+DEFAULT_SOURCE = "chicago"
 # Zwei Schichten je Lauf. Raw ist das Beweisstueck: die API-Antworten Byte fuer
 # Byte. Bronze ist daraus abgeleitet und jederzeit neu erzeugbar.
 RAW_LAYER = "raw"
@@ -63,10 +68,9 @@ CONTRACT_VERSION = 1
 
 DEFAULT_YEAR = 2024
 PAGE_SIZE = 10_000
-# Die Mitgliedschaft des Snapshots wird ueber id festgeschrieben. Socrata
+# Die Mitgliedschaft des Snapshots wird ueber die id festgeschrieben. Socrata
 # liefert reine id-Abfragen in sehr grossen Seiten, ein ganzer Jahrgang kostet
 # damit nur wenige zusaetzliche Anfragen.
-ID_FIELD = "id"
 ID_PAGE_SIZE = 50_000
 LOOKBACK_DAYS = 14
 TIMEOUT_SECONDS = 60
@@ -77,41 +81,12 @@ STALE_PARTIAL_HOURS = 24
 COUNT_ALIAS = "row_count"
 PARQUET_FILE = "part-0001.parquet"
 
-# The pinned column set. The API is queried without $select, so whole records
-# arrive and a new field lands in EXTRA_COLUMN rather than being lost.
-FIELDS = (
-    "id",
-    "case_number",
-    "date",
-    "block",
-    "iucr",
-    "primary_type",
-    "description",
-    "location_description",
-    "arrest",
-    "domestic",
-    "beat",
-    "district",
-    "ward",
-    "community_area",
-    "fbi_code",
-    "x_coordinate",
-    "y_coordinate",
-    "year",
-    "updated_on",
-    "latitude",
-    "longitude",
-    "location",
-)
 # Socrata bookkeeping columns all live in the ":" namespace: the spatial joins
 # :@computed_region_* plus :id, :created_at, :updated_at, :version. They are
 # platform artefacts, not city data, so they are dropped rather than kept in
 # EXTRA_COLUMN. Today the API already omits them whenever $where or $order is
 # used, which our query always does, but that behaviour is undocumented.
 SYSTEM_PREFIX = ":"
-BOOLEAN_FIELDS = ("arrest", "domestic")
-LOCATION_FIELD = "location"
-LOCATION_SUBFIELDS = ("latitude", "longitude", "human_address")
 EXTRA_COLUMN = "_extra"
 
 log = logging.getLogger("chicago_ingestion")
@@ -135,8 +110,36 @@ def build_schema() -> pa.Schema:
     )
 
 
-SCHEMA = build_schema()
-COLUMNS = tuple(SCHEMA.names)
+def use_source(source: SocrataQuelle) -> None:
+    """Setzt die Modulwerte auf ``source``; alle Funktionen lesen sie.
+
+    Die Namen sind dieselben wie zur Zeit, als sie fest im Code standen
+    (``API_URL``, ``FIELDS``, ...): Tests, Notebooks und das Manifest lesen sie
+    so weiter. ``FIELDS`` ist das gepinnte Schema - die API wird ohne
+    ``$select`` gefragt, ein neues Feld landet in ``EXTRA_COLUMN``.
+    """
+    if source.plattform != "socrata":
+        raise QuellenFehler(f"{source.name} liegt nicht auf Socrata")
+    global SOURCE, API_URL, METADATA_URL, DATASET_ID, CITY, ID_FIELD
+    global EVENT_FIELD, WATERMARK_FIELD, FIELDS, BOOLEAN_FIELDS
+    global LOCATION_FIELD, LOCATION_SUBFIELDS, SCHEMA, COLUMNS
+    SOURCE = source
+    API_URL = source.api_url
+    METADATA_URL = source.metadaten_url
+    DATASET_ID = source.datensatz
+    CITY = source.stadt
+    ID_FIELD = source.id_feld
+    EVENT_FIELD = source.tatzeit_feld
+    WATERMARK_FIELD = source.aenderungs_feld
+    FIELDS = source.felder
+    BOOLEAN_FIELDS = source.boolesche_felder
+    LOCATION_FIELD = source.ortsfeld
+    LOCATION_SUBFIELDS = source.ortsunterfelder
+    SCHEMA = build_schema()
+    COLUMNS = tuple(SCHEMA.names)
+
+
+use_source(lade(DEFAULT_SOURCE))
 
 
 class IngestionError(RuntimeError):
@@ -164,6 +167,8 @@ class Download(NamedTuple):
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", default=DEFAULT_SOURCE,
+                        help="Socrata-Eintrag in config/quellen.toml (Vorgabe: chicago)")
     parser.add_argument("--year", type=int, default=DEFAULT_YEAR)
     parser.add_argument("--data-root", type=Path, default=None,
                         help="Wurzel der Schichten (Vorgabe: LOCAL_DATA_ROOT oder data)")
@@ -254,11 +259,11 @@ def delta_start(watermark: str | None) -> str | None:
 
 def where_clause(year: int, updated_from: str | None) -> str:
     where = [
-        f"date >= '{year}-01-01T00:00:00'",
-        f"date < '{year + 1}-01-01T00:00:00'",
+        f"{EVENT_FIELD} >= '{year}-01-01T00:00:00'",
+        f"{EVENT_FIELD} < '{year + 1}-01-01T00:00:00'",
     ]
     if updated_from:
-        where.append(f"updated_on >= '{updated_from}'")
+        where.append(f"{WATERMARK_FIELD} >= '{updated_from}'")
     return " AND ".join(where)
 
 
@@ -673,7 +678,7 @@ def write_run(
 
         watermarks = [old_watermark] if old_watermark else []
         watermarks.extend(
-            row["updated_on"] for row in result.records if row.get("updated_on")
+            row[WATERMARK_FIELD] for row in result.records if row.get(WATERMARK_FIELD)
         )
         # Text comparison; see the note in previous_watermark.
         maximum_seen = max(watermarks, default=None)
@@ -714,7 +719,7 @@ def write_run(
                 "fields": result.schema_fields or {},
             },
             "watermark": {
-                "field": "updated_on",
+                "field": WATERMARK_FIELD,
                 "previous_maximum": old_watermark,
                 "lookback_days": LOOKBACK_DAYS if updated_from else 0,
                 "query_from": updated_from,
@@ -755,6 +760,8 @@ def write_run(
 
 def main() -> int:
     args = arguments()
+    if args.source != SOURCE.name:
+        use_source(lade(args.source))
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
     from storage.analysesitzung import schreibzugriff
@@ -769,7 +776,7 @@ def main() -> int:
             watermark = previous_watermark(data_root, args.year)
             updated_from = delta_start(watermark) if watermark and not args.full else None
             mode = "delta" if updated_from else "full_snapshot"
-            log.info("Starting %s for Chicago %s", mode, args.year)
+            log.info("Starting %s for %s %s", mode, SOURCE.anzeigename, args.year)
 
             result = download(args.year, updated_from, token, args.max_records)
             run = write_run(

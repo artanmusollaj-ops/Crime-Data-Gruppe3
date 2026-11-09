@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'846** |
+| Tests | **2'879** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -103,6 +103,56 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 8.11.2026 · Die Ingestion liest ihre Quellen aus einer Datei (Branch `feature/ingestion-konfigurierbar`)
+
+Bisher waren beide Ingester fest auf ihre Stadt geschrieben: Adresse,
+Datensatz, Feldnamen, Zeitzone und das gepinnte Schema standen als Konstanten
+im Code. Jetzt stehen sie je Stadt in **`config/quellen.toml`**. Gelesen wird
+die Datei von **`storage.quellen`**, und zwar streng: Ein unbekannter,
+fehlender oder falsch getippter Schlüssel bricht ab.
+
+**Die Adapter:**
+- **Socrata:** `chicago_pipeline.download_chicago`. Mit `--source <name>`
+  lädt er einen anderen Socrata-Eintrag.
+- **ArcGIS:** `detroit_pipeline.detroit_arcgis` mit `extract_detroit`, mit
+  derselben Option `--source <name>`.
+
+Die Modulnamen und die bisherigen Konstanten (`API_URL`, `FIELDS`,
+`DETROIT_LAYER_URL`, `SOURCE_TIMEZONE`, …) bleiben. `use_source` setzt sie auf
+die gewählte Quelle, und alle Funktionen lesen sie zur Laufzeit. Ein Prozess
+lädt eine Quelle.
+
+**Warum `storage.quellen` und kein eigenes Paket:** Ein zwölftes Paket hätte
+das Architekturbild und die Paketzahl in den Abgabedokumenten geändert, nur
+wegen eines Lesers von gut hundert Zeilen. `storage` liest schon die
+Ablage-Konfiguration, und alle Ingester benutzen es.
+
+**Nachweis, dass sich nichts ändert:** Dieselben Läufe wurden aus festen
+Eingaben einmal mit dem Code von `main` und einmal mit diesem Branch gebaut,
+jeweils in einem eigenen Prozess:
+- **Chicago:** Raw-Seiten, Bronze-Parquet und beide Manifeste (ohne
+  Zeitstempel) waren byteweise gleich, für Voll- und Delta-Lauf.
+- **Detroit:** Manifest, Zeilen, Raw-Antworten, Schema, Zeitfenster und
+  `where`-Ausdrücke waren gleich, für alle vier Laufarten.
+
+Kein Ladevertrag steigt deshalb, und kein gepinnter Lauf wird berührt.
+
+**Keine dritte Stadt.** Was eine bräuchte, steht neu in
+`docs/intern/dritte-stadt.md`: welche der zehn grössten US-Städte in Frage
+kommen, mit Plattform, Deliktcode und Änderungsstempel, am 8.11. direkt an
+den APIs erhoben. Dazu, was Schicht für Schicht noch fehlt. Eingetragen im
+Wegweiser und in Konzept 11.5.
+
+Neu gewacht:
+- `tests/storage/test_quellen.py` (22 Tests): die abgelegten Werte beider
+  Städte, die strenge Prüfung und dass beide Studienstädte beschrieben sind.
+- 5 Tests in `tests/chicago_pipeline/test_download_chicago.py`.
+- `tests/detroit_pipeline/test_quelle_detroit.py` (6 Tests): Eine andere
+  Quelle ändert jeden stadtgebundenen Wert, und eine unbrauchbare bricht
+  beim Aufruf ab.
+
+**Zahlen.** 2'846 → **2'879 Tests**, Standardlauf 2'735 → **2'768**, im frischen Klon 2'657 → **2'690**.
 
 ## 8.11.2026 · Das Dashboard zeigt Fallrate und Armut (Branch `feature/brett-sozial`)
 

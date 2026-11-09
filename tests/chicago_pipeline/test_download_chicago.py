@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 import os
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -17,6 +18,7 @@ import pytest
 import requests
 
 import download_chicago as dc
+from storage.quellen import QuellenFehler, SocrataQuelle, lade
 
 
 STARTED = datetime(2026, 9, 4, 4, 0, 0, tzinfo=timezone.utc)
@@ -1464,6 +1466,7 @@ def run_main(monkeypatch, tmp_path, caplog):
 
     def run(*, records=RECORDS, verified=True, token=None, download=None, **cli):
         options = {
+            "source": dc.DEFAULT_SOURCE,
             "year": 2024,
             "data_root": tmp_path,
             "max_records": None,
@@ -1605,3 +1608,94 @@ def test_main_handles_a_cancelled_run(run_main, tmp_path, caplog):
     assert code == 130
     assert published_runs(tmp_path) == []
     assert "cancelled" in caplog.text
+
+
+# --------------------------------------------------------------------------
+# The source descriptor (config/quellen.toml)
+# --------------------------------------------------------------------------
+
+OTHER_SOURCE = SocrataQuelle(
+    name="dallas", stadt="dallas", anzeigename="Dallas",
+    domain="www.dallasopendata.com", datensatz="qv6i-rri7",
+    id_feld="servnumid", tatzeit_feld="date1", aenderungs_feld="upzdate",
+    felder=("servnumid", "date1", "upzdate", "nibrs_code", "family"),
+    boolesche_felder=("family",),
+)
+
+
+@pytest.fixture
+def other_source():
+    """Switch the module to another Socrata source and back afterwards."""
+    dc.use_source(OTHER_SOURCE)
+    try:
+        yield OTHER_SOURCE
+    finally:
+        dc.use_source(lade(dc.DEFAULT_SOURCE))
+
+
+def test_the_default_source_is_chicago_as_the_code_used_to_pin_it():
+    """The literals that were constants here until 8.11.2026.
+
+    The bronze bytes of a run were compared before and after the move into
+    config/quellen.toml: identical. This test keeps the inputs that decided it.
+    """
+    assert dc.SOURCE.name == "chicago" and dc.CITY == "chicago"
+    assert dc.API_URL == "https://data.cityofchicago.org/resource/ijzp-q8t2.json"
+    assert dc.DATASET_ID == "ijzp-q8t2" and dc.ID_FIELD == "id"
+    assert (dc.EVENT_FIELD, dc.WATERMARK_FIELD) == ("date", "updated_on")
+    assert str(dc.SCHEMA.field("location").type) == (
+        "struct<latitude: string, longitude: string, human_address: string>")
+    assert [f.name for f in dc.SCHEMA if str(f.type) == "bool"] == ["arrest", "domestic"]
+
+
+def test_another_source_changes_every_city_specific_value(other_source, tmp_path):
+    assert dc.API_URL == "https://www.dallasopendata.com/resource/qv6i-rri7.json"
+    assert dc.METADATA_URL == "https://www.dallasopendata.com/api/views/qv6i-rri7.json"
+    assert dc.run_parent(tmp_path, dc.RAW_LAYER, "2026-11-08") == (
+        tmp_path / "raw" / "city=dallas" / "ingest_date=2026-11-08")
+    params = dc.query(2024, "2024-05-01T00:00:00.000", 10, 7)
+    assert params["$where"] == (
+        "date1 >= '2024-01-01T00:00:00' AND date1 < '2025-01-01T00:00:00' "
+        "AND upzdate >= '2024-05-01T00:00:00.000' AND servnumid > 7")
+    assert params["$order"] == "servnumid"
+    assert dc.COLUMNS == other_source.felder + (dc.EXTRA_COLUMN,)
+    assert dc.LOCATION_FIELD is None
+
+
+def test_another_source_writes_its_own_rows_and_watermark(other_source, tmp_path):
+    records = [
+        {"servnumid": "1", "date1": "2024-01-01T00:00:00.000",
+         "upzdate": "2024-02-01T00:00:00.000", "family": True, "zone": "N"},
+        {"servnumid": "2", "date1": "2024-01-02T00:00:00.000",
+         "upzdate": "2024-03-01T00:00:00.000", "family": "yes"},
+    ]
+    run = dc.write_run(
+        tmp_path, datetime(2026, 11, 8, tzinfo=timezone.utc),
+        dc.Download(records, [b"[]"]), year=2024, mode="full_snapshot",
+        old_watermark=None, updated_from=None, token_used=False, max_records=None,
+    )
+    manifest = json.loads((run.bronze / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["city"] == "dallas" and manifest["dataset_id"] == "qv6i-rri7"
+    assert manifest["watermark"]["field"] == "upzdate"
+    assert manifest["watermark"]["maximum_seen"] == "2024-03-01T00:00:00.000"
+    rows = pq.read_table(run.bronze / dc.PARQUET_FILE).to_pylist()
+    assert [row["family"] for row in rows] == [True, None]
+    assert json.loads(rows[0][dc.EXTRA_COLUMN]) == {"zone": "N"}
+    assert json.loads(rows[1][dc.EXTRA_COLUMN]) == {"family": "yes"}
+
+
+def test_the_source_option_picks_a_socrata_entry(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["download_chicago", "--source", "dallas"])
+    assert dc.arguments().source == "dallas"
+    monkeypatch.setattr(sys, "argv", ["download_chicago"])
+    assert dc.arguments().source == "chicago"
+
+
+def test_an_unknown_source_fails_before_anything_is_written(monkeypatch, tmp_path):
+    monkeypatch.setattr(sys, "argv", ["download_chicago", "--source", "atlantis",
+                                      "--data-root", str(tmp_path)])
+    with pytest.raises(QuellenFehler, match="Keine Quelle 'atlantis'"):
+        dc.main()
+    assert dc.SOURCE.name == "chicago"
+    # Lokal mit Absicht: geprueft wird, dass kein Verzeichnis entstanden ist.
+    assert not any(tmp_path.iterdir())
