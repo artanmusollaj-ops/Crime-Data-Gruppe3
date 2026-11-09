@@ -546,9 +546,24 @@ def test_build_session_retries_throttling_and_server_errors():
         retries = session.get_adapter(dc.API_URL).max_retries
     assert retries.total == dc.RETRY_TOTAL
     assert retries.backoff_factor == dc.RETRY_BACKOFF
+    assert retries.backoff_max == dc.RETRY_BACKOFF_MAX
     assert set(dc.RETRY_STATUS) <= set(retries.status_forcelist)
     assert "GET" in retries.allowed_methods
     assert retries.respect_retry_after_header is True
+
+
+def test_retries_bridge_minutes_of_socrata_overload():
+    """Der 9.11.2026: fuenf Versuche mit 31 s Pause reichten nicht."""
+    pausen = sum(
+        min(dc.RETRY_BACKOFF * 2 ** (versuch - 1), dc.RETRY_BACKOFF_MAX)
+        for versuch in range(2, dc.RETRY_TOTAL + 1)
+    )
+    assert pausen >= 5 * 60
+
+
+def test_timeout_separates_connect_and_read():
+    verbinden, lesen = dc.TIMEOUT_SECONDS
+    assert verbinden < 60 < lesen
 
 
 def test_build_session_sends_the_token_as_a_header():

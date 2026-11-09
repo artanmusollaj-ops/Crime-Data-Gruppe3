@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'879** |
+| Tests | **2'881** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -103,6 +103,36 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 9.11.2026 · Der Chicago-Abruf hält eine Überlast von Socrata aus (Branch `feature/chicago-abruf-robust`)
+
+Der Montagslauf auf srv01 brach am 9.11. um 04:48 ab, ein Nachholversuch um
+11:34 ebenso. Beide Male lieferte data.cityofchicago.org minutenlang
+Timeouts und 503. Der Abruf gab nach fünf Versuchen auf, mit 60 s Lesefrist
+und zusammen 31 s Pause. Danach liefen Detroit, Census, Wetter, Silver, Gold
+und das Release wegen `set -e` nicht mehr. Derselbe Timeout steht auch im
+roten GitHub-Datenlauf vom 2.11.
+
+`chicago_pipeline.download_chicago` wartet jetzt länger:
+- **Getrennte Fristen:** 15 s für den Verbindungsaufbau, 180 s für das
+  Lesen. Ein toter Host fällt weiter schnell auf, eine langsame Seite darf
+  drei Minuten dauern.
+- **Acht statt fünf Versuche:** Die Pause verdoppelt sich (Faktor 2,
+  gedeckelt bei 120 s), zusammen gut sechs Minuten statt 31 s.
+- Das gilt für 429/5xx ebenso wie für Timeouts.
+
+Die Seitengrösse bleibt bei 10'000. Kleinere Seiten hätten die Raw-Schicht
+anders geschnitten, eine Datei je API-Antwort. Was geladen wird, bleibt
+gleich, deshalb steigt kein Ladevertrag.
+
+Neu gewacht: 2 Tests in `tests/chicago_pipeline/test_download_chicago.py`.
+Die Pausen überbrücken mindestens fünf Minuten, und Verbinden und Lesen
+haben getrennte Fristen.
+
+Nicht in diesem PR: Ein Ausfall von Chicago reisst weiterhin den ganzen
+Datenlauf mit.
+
+**Zahlen.** 2'879 → **2'881 Tests**, Standardlauf 2'768 → **2'770**, im frischen Klon 2'690 → **2'692**.
 
 ## 8.11.2026 · Die Ingestion liest ihre Quellen aus einer Datei (Branch `feature/ingestion-konfigurierbar`)
 

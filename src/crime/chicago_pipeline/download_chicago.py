@@ -73,9 +73,20 @@ PAGE_SIZE = 10_000
 # damit nur wenige zusaetzliche Anfragen.
 ID_PAGE_SIZE = 50_000
 LOOKBACK_DAYS = 14
-TIMEOUT_SECONDS = 60
-RETRY_TOTAL = 5
-RETRY_BACKOFF = 1.0
+# Socrata braucht fuer eine Seite von 10'000 Taten unter Last deutlich mehr als
+# eine Minute. Am 9.11.2026 brachen zwei Laeufe ab, weil fuenf Versuche zu je
+# 60 s in einer halben Stunde Ueberlast verbraucht waren. Verbindungsaufbau und
+# Lesen bekommen deshalb getrennte Fristen: Ein toter Host faellt nach 15 s
+# auf, eine langsame Antwort darf drei Minuten dauern.
+CONNECT_TIMEOUT_SECONDS = 15
+READ_TIMEOUT_SECONDS = 180
+TIMEOUT_SECONDS = (CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS)
+# Acht Versuche mit wachsender Pause (0, 4, 8, 16 ... s, gedeckelt bei 120 s)
+# ueberbruecken rund sechs Minuten reiner Pause, dazu die Lesefristen - statt
+# 31 s Pause wie bisher. Gilt fuer 429/5xx ebenso wie fuer Timeouts.
+RETRY_TOTAL = 8
+RETRY_BACKOFF = 2.0
+RETRY_BACKOFF_MAX = 120
 RETRY_STATUS = (429, 500, 502, 503, 504)
 STALE_PARTIAL_HOURS = 24
 COUNT_ALIAS = "row_count"
@@ -307,6 +318,7 @@ def build_session(token: str | None) -> requests.Session:
     retry = Retry(
         total=RETRY_TOTAL,
         backoff_factor=RETRY_BACKOFF,
+        backoff_max=RETRY_BACKOFF_MAX,
         status_forcelist=RETRY_STATUS,
         allowed_methods=("GET",),
         respect_retry_after_header=True,
