@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'889** |
+| Tests | **2'900** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -103,6 +103,37 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 10.11.2026 · Die Konsolensicherung packt keine Releases mehr ein, die der Eimer schon hält (Branch `feature/konsolensicherung-schlank`)
+
+**Was geschah.** Am 10.11. war der Eimer `urban-crime` über seinem
+Kontingent und schreibgeschützt; der Volllauf des Tages scheiterte daran, und
+die Konsole versuchte ihre Sicherung seit Mitternacht alle fünf Minuten
+vergeblich. Unter `backups/control/` lagen **11,2 GB** — zwölf tägliche
+Sicherungen seit dem 31.10., jede inzwischen **1,74 GB** gross, weil
+`object_store.backup` alle lokalen Releases in den Tarball packte. Dieselben
+Releases liegen ohnehin unter `releases/` im Eimer. Gelöscht wurde keine
+Sicherung, und `aufraeumen` kennt das Präfix nicht.
+
+**Was sich ändert.**
+- Ein lokales Release kommt nur noch ins Archiv, wenn der Eimer es nicht
+  schon hält: `releases/<Kennung>/release.json` mit denselben Bytes.
+  `release.json` geht immer zuletzt hoch, das Release ist dann vollständig
+  dort. `backup.json` nennt `releases_in_bucket` und `releases_archived`;
+  beim Wiederherstellen holt `python -m orchestration.release holen` die
+  ersten. Im lokalen Modus kommt weiterhin jedes Release mit.
+- Nach jeder geprüften Sicherung bleiben die neuesten **`ADMIN_BACKUP_KEEP`
+  (Vorgabe 7)**; ältere werden samt allen Fassungen endgültig gelöscht, die
+  gerade geschriebene nie, fremde Schlüssel unter dem Präfix nie.
+
+**Folge beim Einsetzen.** Die erste Sicherung nach dem Einsetzen behält
+sich selbst und die sechs neuesten alten und löscht den Rest endgültig — auf
+srv01 die sechs vom 31.10. bis 5.11., zusammen 3,4 GB (je 0,50 bzw. 0,63 GB,
+am 10.11. gemessen). Die übrigen sechs alten mit 7,8 GB fallen in den sechs
+Tagen danach nacheinander weg; dann liegt unter `backups/control/` nur noch
+eine Woche schlanker Sicherungen.
+
+**Zahlen.** 2'889 → **2'900 Tests**, Standardlauf 2'778 → **2'789**, im frischen Klon 2'700 → **2'711**.
 
 ## 9.11.2026 · Der Chicago-Abruf hält eine Überlast von Socrata aus (Branch `feature/chicago-abruf-robust`)
 

@@ -105,6 +105,78 @@ class Objects:
             Bucket=self.bucket, Key=key, Body=body, ContentType="application/json", **condition
         )
 
+    def holds(self, key, body):
+        """True if ``key`` exists in the bucket with exactly these bytes."""
+        current, _ = self.read(key)
+        return current == body
+
+    def keys(self, prefix):
+        """Every key under ``prefix`` that has any version, delete markers included."""
+        found = set()
+        for page in self.client.get_paginator("list_object_versions").paginate(
+            Bucket=self.bucket, Prefix=prefix
+        ):
+            for entry in page.get("Versions", []) + page.get("DeleteMarkers", []):
+                found.add(entry["Key"])
+        return sorted(found)
+
+    def remove(self, key):
+        """Delete every version of ``key`` for good.
+
+        The bucket on srv01 is versioned: a plain delete only sets a marker and
+        the bytes stay. Only deleting each version frees space (see
+        storage.backend.Fassung).
+        """
+        versions = []
+        for page in self.client.get_paginator("list_object_versions").paginate(
+            Bucket=self.bucket, Prefix=key
+        ):
+            for entry in page.get("Versions", []) + page.get("DeleteMarkers", []):
+                if entry["Key"] == key:
+                    versions.append(entry.get("VersionId"))
+        for version in versions:
+            if version and version != "null":
+                self.client.delete_object(Bucket=self.bucket, Key=key, VersionId=version)
+            else:
+                self.client.delete_object(Bucket=self.bucket, Key=key)
+
+
+BACKUP_PREFIX = "backups/control/"
+# Each worker tick backs up once a day. Seven keeps a week of control states;
+# older ones are removed with all their versions after a new one is verified.
+BACKUP_KEEP = 7
+
+
+def backup_keep():
+    value = int(os.getenv("ADMIN_BACKUP_KEEP", str(BACKUP_KEEP)))
+    if value < 1:
+        raise AdminError("ADMIN_BACKUP_KEEP muss mindestens 1 sein")
+    return value
+
+
+def prune_backups(objects, keep, current):
+    """Remove all but the ``keep`` newest backups; never the one just written.
+
+    A backup is the pair ``<stamp>.tar.gz`` and ``<stamp>.json``. The stamp
+    starts with an ISO time in UTC, so its sort order is its age. Keys under
+    the prefix that do not look like such a pair are left alone.
+    """
+    stamps = {}
+    for key in objects.keys(BACKUP_PREFIX):
+        name = key[len(BACKUP_PREFIX):]
+        for suffix in (".tar.gz", ".json"):
+            if name.endswith(suffix) and "/" not in name:
+                stamps.setdefault(name[: -len(suffix)], []).append(key)
+    ordered = sorted(stamps)
+    removed = []
+    for stamp in ordered[: max(len(ordered) - keep, 0)]:
+        if stamp == current:
+            continue
+        for key in sorted(stamps[stamp]):
+            objects.remove(key)
+            removed.append(key)
+    return removed
+
 
 def publish_release(store, target, baseline, objects=None):
     from .candidates import verify_release
@@ -152,12 +224,20 @@ def backup(store, objects=None):
 
     Caller holds writer_lock. Web submissions may continue: SQLite's snapshot
     defines the cut. Extra files are harmless; no mutable pipeline writes run.
+
+    A local release goes into the archive only if the object store does not
+    already hold it. Until 10.11.2026 every release went in: each daily archive
+    had grown to 1.74 GB, twelve of them filled 11.2 GB of the bucket, the
+    bucket went over its quota and turned read-only, and the full data run of
+    that day failed on it. The releases were already in the bucket under
+    releases/ - release.json goes up last, so a stored release.json with the
+    same bytes means the whole release is there. After the new backup is
+    verified, only the newest ADMIN_BACKUP_KEEP backups are kept.
     """
     from .operations import record_status
     from .candidates import file_hash
 
     if objects is None and os.getenv("ADMIN_OBJECT_STORE", "local") == "local":
-        from .candidates import file_hash
         import shutil
 
         class LocalBackup:
@@ -167,6 +247,20 @@ def backup(store, objects=None):
                 if target.exists() and file_hash(target) != file_hash(source):
                     raise AdminError("Lokaler Backupkonflikt")
                 shutil.copyfile(source, target)
+
+            def holds(self, key, body):
+                # Locally there is no second copy of a release: always archive it.
+                return False
+
+            def keys(self, prefix):
+                # ADMIN_OBJECT_STORE=local keeps its backups as files under the data root.
+                folder = store.data / prefix
+                if not folder.is_dir():
+                    return []
+                return sorted(prefix + p.name for p in folder.iterdir() if p.is_file())
+
+            def remove(self, key):
+                (store.data / key).unlink(missing_ok=True)
 
         objects = LocalBackup()
     objects = objects or Objects()
@@ -192,20 +286,35 @@ def backup(store, objects=None):
             # lokal mit Absicht: the console keeps its releases on the worker host;
             # object_store.publish_release mirrors them to S3 and never removes the local copy.
             releases = store.data / "releases"
-            if releases.exists():
-                archive.add(releases, arcname="releases")
-        key = "backups/control/" + stamp + ".tar.gz"
+            archived, in_bucket = [], []
+            if releases.is_dir():
+                for entry in sorted(releases.iterdir()):
+                    manifest = entry / "release.json"
+                    if entry.is_dir() and manifest.is_file() and objects.holds(
+                        "releases/" + entry.name + "/release.json", manifest.read_bytes()
+                    ):
+                        in_bucket.append(entry.name)
+                        continue
+                    archive.add(entry, arcname="releases/" + entry.name)
+                    if entry.is_dir():
+                        archived.append(entry.name)
+        key = BACKUP_PREFIX + stamp + ".tar.gz"
         objects.immutable(path, key)
         info = {
             "key": key,
             "created_at": now(),
             "data_root": str(store.data),
             "sha256": file_hash(path),
+            "bytes": path.stat().st_size,
             "weekly": datetime.now(timezone.utc).weekday() == 6,
+            # Restore fetches these from releases/ in the bucket (storage.release).
+            "releases_in_bucket": in_bucket,
+            "releases_archived": archived,
         }
         metadata = tmp / "backup.json"
         metadata.write_text(encode(info))
-        objects.immutable(metadata, "backups/control/" + stamp + ".json")
+        objects.immutable(metadata, BACKUP_PREFIX + stamp + ".json")
+    info["removed"] = prune_backups(objects, backup_keep(), stamp)
     record_status(store, "backup", info)
     return info
 
