@@ -1,6 +1,6 @@
 # Engineering-Konsole: Betrieb, Freigabe und Analyse
 
-Stand 31. Oktober 2026 · ursprünglich von Artan (26.10.2026), seither nachgeführt
+Stand 10. November 2026 · ursprünglich von Artan (26.10.2026), seither nachgeführt
 
 Diese Anleitung beschreibt die Engineering-Konsole (`src/crime/platform_admin`), so wie sie im Repository liegt. Die Infrastruktur bleibt Grundlage: SeaweedFS/S3, die bestehenden Pipelines, Elasticsearch, Kibana, Jupyter und das vorhandene Monitoring. Was sich gegenüber Artans Lieferung geändert hat und warum, steht in [`AENDERUNGEN.md`](AENDERUNGEN.md) unter den Einträgen vom 30.10.2026.
 
@@ -67,6 +67,25 @@ Geplante Gesamtimporte erscheinen unter Betriebsaufträge als batch. Ihr Log lie
 **Ein geplanter Rebuild wird vom Qualitätstor freigegeben, nicht von einer Person** (Entscheidung vom 30.10.2026). Der Cron-Datenlauf veröffentlichte jede Woche ohne Review; die Konsole behält das bei, mit dem Qualitätstor davor. Die Freigabe läuft über dieselben Prüfungen wie jede andere und steht unter dem Bearbeiter `quality-gate (automatic)`. Besteht der Kandidat das Tor nicht, wartet er auf eine Person. Alles, was eine Person vorschlägt oder anstösst, braucht weiter vier Augen.
 
 ### Git und Betrieb
+
+Git-Aktionen stehen direkt im geöffneten Antrag unter **Veröffentlichung**.
+Die Ansicht bündelt Git-Ampel, Branch-/Commit-Nachweise, die zum Zustand passende
+Aktion und das antragsbezogene Git-Protokoll. Eine zusätzliche zentrale
+Revisionsauswahl entfällt. **Commit / Branch / PR erstellen** verlangt die
+Engineer-Rolle, **Geprüften PR mergen** einen Release-Manager als zweite Person.
+Die serverseitigen Freigabe- und CI-Prüfungen bleiben unverändert.
+
+Unter **Betrieb** trennen die Ansichten **Aufträge**, **Analyse-Bereitstellung**
+und **Sicherung** Verarbeitung, Bereitstellung und Wartung. **Aktiven Release
+erneut bereitstellen** liegt im zugeklappten Wartungsbereich und verwendet nur
+den aktiven, freigegebenen Release; es wird kein neuer Kandidat berechnet.
+Grün wird die Bereitschaft nur bei erfolgreicher Bereitstellung genau dieses
+Releases angezeigt. Unter **Sicherung** stehen der letzte Erfolgsnachweis,
+Speicherart und Archivschlüssel. **Konsolenzustand sichern** ist eine manuelle
+Operator-Aktion mit Begründung. Diese Sicherung ersetzt weder eine vollständige
+Quelldatensicherung noch ein Serverbackup; die Wiederherstellung bleibt ein
+kontrollierter Offline-Vorgang. Bedienung und Prüfgrenzen stehen ausführlich in
+[`konsole-vorschlagseditor.md`](konsole-vorschlagseditor.md).
 
 Im gekoppelten Modus gilt: Impact archivieren, fachlich freigeben, PR/CI prüfen, exakten Merge nachweisen, Datenrelease aktivieren. Mapping- und Konfigurationsänderungen benötigen diesen Git-Schritt. Reine neue Quelldaten benötigen unter unveränderten Regeln keinen zusätzlichen PR, aber weiterhin einen geprüften Datenkandidaten. Auch dessen Build-Code wird im gekoppelten Betrieb gegen Main geprüft.
 
@@ -190,7 +209,7 @@ Der Batch verwendet die genehmigte Konfiguration. Ein erneuter Aufruf mit demsel
 
 Die zweite URL öffnen, Antrag und Impact prüfen und freigeben. Der lokale Operatorname ist eine Testidentität, kein authentifizierter Benutzer. Im Serverbetrieb ersetzt Cloudflare Access diese Namensangabe.
 
-Für Tests ohne Elasticsearch/Kibana bleibt ADMIN_AUTO_SERVING ungesetzt. Der freigegebene Release ist dann verfügbar; ein erfolgreicher extern bereitgestellter Analysebestand wird nicht behauptet. Sind die Analysedienste gestartet, ihre regulären ELASTICSEARCH_URL und KIBANA_URL setzen und die Aktion „Such- und Analysebestand aufbauen“ einreihen.
+Für lokale Tests ohne Elasticsearch/Kibana bleibt ADMIN_AUTO_SERVING ungesetzt. Der freigegebene Release ist dann verfügbar; ein erfolgreicher extern bereitgestellter Analysebestand wird nicht behauptet. Sind die lokalen Analysedienste gestartet, ihre regulären ELASTICSEARCH_URL und KIBANA_URL setzen und unter Betrieb → Analyse-Bereitstellung → Wartung die Aktion „Aktiven Release erneut bereitstellen“ einreihen. Bei SERVING_BETRIEB=server verwendet die bestehende Zielarchitektur die Bereitstellung ohne Elasticsearch-/Kibana-Ladeschritte.
 
 ## 5. Betrieb auf srv01
 

@@ -1,0 +1,41 @@
+/** Zustandsgrenzen der bestehenden Betriebsaktionen im Frontend. */
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+const html=readFileSync(new URL('../../src/crime/platform_admin/static/index.html',import.meta.url),'utf8');
+new vm.Script(html.match(/<script>([\s\S]*?)<\/script>/)[1]);
+const source=html.slice(html.indexOf('function operationPayload('),html.indexOf('function operationFacts('));
+const context=vm.createContext({});vm.runInContext(source,context);
+const revision={resource:'settings',decision:'approve',actor:'Artan'},impact={status:'AWAITING_GIT'};
+const action=(r=revision,i=impact,g=null,j=null,e=true,roles=['engineer','release_manager'],actor='Christian')=>context.publicationAction(r,i,g,j,e,roles,actor);
+let passed=0;function check(name,fn){fn();passed++}
+check('Syntax des gesamten ausgelieferten Scripts',()=>assert.ok(source));
+check('Freigegebenen Antrag als PR anlegen',()=>assert.equal(action(),'git-open'));
+check('Offenen PR durch zweite Person mergen',()=>assert.equal(action(revision,impact,{state:'PR_OPEN'}),'git-merge'));
+check('Selbstmerge bleibt gesperrt',()=>assert.equal(action(revision,impact,{state:'PR_OPEN'},null,true,['release_manager'],' artan '),null));
+check('Ohne Git keine Aktion',()=>assert.equal(action(revision,impact,null,null,false),null));
+check('Ohne Rolle keine Aktion',()=>assert.equal(action(revision,impact,null,null,true,[]),null));
+check('Ohne Freigabe keine Aktion',()=>assert.equal(action({...revision,decision:null}),null));
+check('Fehlgeschlagener Impact erlaubt keinen PR',()=>assert.equal(action(revision,{status:'FAILED'}),null));
+for(const status of ['QUEUED','RUNNING'])check(status+' sperrt erneute Einreichung',()=>assert.equal(action(revision,impact,null,{status}),null));
+check('Bestätigter Merge wird nicht wiederholt',()=>assert.equal(action(revision,impact,{state:'MERGED'}),null));
+check('Unbestätigten Merge erneut prüfen',()=>assert.equal(action(revision,impact,{state:'MERGED_UNVERIFIED'}),'git-merge'));
+check('Bereitstellung nur für denselben aktiven Release grün',()=>assert.equal(context.analysisReadiness('r1',{status:'SUCCEEDED',release_id:'r1'}),true));
+for(const a of [{},{status:'RUNNING',release_id:'r1'},{status:'PARTIAL',release_id:'r1'},{status:'SUCCEEDED',release_id:'r0'}])check('Unvollständiger oder veralteter Nachweis nicht grün',()=>assert.equal(context.analysisReadiness('r1',a),false));
+check('Ohne aktiven Release kein Bereitschaftsnachweis',()=>assert.equal(context.analysisReadiness(null,{status:'SUCCEEDED'}),false));
+check('Ungültiges Protokollpayload bricht Anzeige nicht ab',()=>assert.equal(Object.keys(context.operationPayload({payload:'{'})).length,0));
+check('Protokoll gehört zum konkreten Antrag',()=>assert.equal(context.operationPayload({payload:'{"id":"revision-2"}'}).id,'revision-2'));
+// Ausgehende Verträge ohne Worker, GitHub oder Dateischreibzugriff prüfen.
+const queueSource=html.slice(html.indexOf('async function queueOperation('),html.indexOf('function renderOperationViews('));
+const calls=[];
+Object.assign(context,{tr:x=>x,confirm:()=>true,api:async(kind,payload)=>calls.push({kind,payload}),normalizeProposalReason:x=>x.trim().replace(/\s+/g,' '),message:()=>{},refreshOperations:async()=>{},renderInbox:()=>{},state:{revisions:[]},selectedRevision:null});
+vm.runInContext(queueSource,context);
+await assert.rejects(context.queueOperation('git-open','r2','  ','PR'),/Begründung/);passed++;
+await context.queueOperation('git-open','r2','Begründung\nmit Referenz','PR');
+check('PR-Aktion verwendet exakt den geöffneten Antrag',()=>assert.equal(calls[0].payload.id,'r2'));
+check('Mehrzeilige Begründung bleibt API-kompatibel',()=>assert.equal(calls[0].payload.reason,'Begründung mit Referenz'));
+await context.queueOperation('serving',null,'Wiederholung','Serving');
+check('Bereitstellung überlässt die Releaseauswahl dem Server',()=>assert.equal(calls[1].payload.id,null));
+context.confirm=()=>false;await context.queueOperation('backup',null,'Test','Backup');
+check('Abbruch sendet keinen Auftrag',()=>assert.equal(calls.length,2));
+console.log(`${passed} Betriebsansicht-Prüfungen bestanden`);

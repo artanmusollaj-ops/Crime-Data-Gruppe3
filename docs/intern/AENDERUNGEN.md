@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'887** |
+| Tests | **2'889** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -145,7 +145,7 @@ Neu gewacht: 8 Tests in `tests/chicago_pipeline/test_download_chicago.py`.
 Nicht in diesem PR: Ein Ausfall von Chicago reisst weiterhin den ganzen
 Datenlauf mit.
 
-**Zahlen.** 2'879 → **2'887 Tests**, Standardlauf 2'768 → **2'776**, im frischen Klon 2'690 → **2'698**.
+**Zahlen.** 2'881 → **2'889 Tests**, Standardlauf 2'770 → **2'778**, im frischen Klon 2'690 → **2'700** (am 10.11. gemessen; #219 hatte diese Zahl nicht nachgeführt).
 
 ## 8.11.2026 · Die Ingestion liest ihre Quellen aus einer Datei (Branch `feature/ingestion-konfigurierbar`)
 
