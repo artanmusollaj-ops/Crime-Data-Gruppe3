@@ -33,6 +33,7 @@ import logging
 import os
 import shutil
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -73,10 +74,36 @@ PAGE_SIZE = 10_000
 # damit nur wenige zusaetzliche Anfragen.
 ID_PAGE_SIZE = 50_000
 LOOKBACK_DAYS = 14
-TIMEOUT_SECONDS = 60
-RETRY_TOTAL = 5
-RETRY_BACKOFF = 1.0
+# Socrata braucht fuer eine Seite von 10'000 Taten unter Last deutlich mehr als
+# eine Minute. Am 9.11.2026 brachen zwei Laeufe ab, weil fuenf Versuche zu je
+# 60 s in einer halben Stunde Ueberlast verbraucht waren. Verbindungsaufbau und
+# Lesen bekommen deshalb getrennte Fristen: Ein toter Host faellt nach 15 s
+# auf, eine langsame Antwort darf drei Minuten dauern.
+CONNECT_TIMEOUT_SECONDS = 15
+READ_TIMEOUT_SECONDS = 180
+TIMEOUT_SECONDS = (CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS)
+# Acht Versuche mit wachsender Pause (0, 4, 8, 16 ... s, gedeckelt bei 120 s)
+# ueberbruecken rund sechs Minuten reiner Pause, dazu die Lesefristen - statt
+# 31 s Pause wie bisher. Gilt fuer 429/5xx ebenso wie fuer Timeouts.
+RETRY_TOTAL = 8
+RETRY_BACKOFF = 2.0
+RETRY_BACKOFF_MAX = 120
 RETRY_STATUS = (429, 500, 502, 503, 504)
+# urllib3 wiederholt nur, bis die Kopfzeilen da sind. Reisst die Verbindung
+# beim Lesen des Koerpers ab ("Connection reset by peer", 9.11.2026 22:08,
+# Chicago 2023), kommt der Fehler erst in requests an und bricht ohne zweiten
+# Versuch ab. Dafuer fragt fetch_raw die ganze Seite neu an, nach wachsender
+# Pause. Auch ein Verbindungsfehler nach aufgebrauchten urllib3-Versuchen
+# zaehlt dazu; HTTP-Fehler und kaputtes JSON nicht.
+SEITEN_VERSUCHE = 3
+SEITEN_PAUSE_SECONDS = 60
+SEITEN_FEHLER = (
+    requests.ConnectionError,
+    requests.exceptions.ChunkedEncodingError,
+    requests.Timeout,
+)
+# Die Pause zwischen zwei Seitenversuchen; Tests setzen sie ausser Kraft.
+_schlafen = time.sleep
 STALE_PARTIAL_HOURS = 24
 COUNT_ALIAS = "row_count"
 PARQUET_FILE = "part-0001.parquet"
@@ -307,6 +334,7 @@ def build_session(token: str | None) -> requests.Session:
     retry = Retry(
         total=RETRY_TOTAL,
         backoff_factor=RETRY_BACKOFF,
+        backoff_max=RETRY_BACKOFF_MAX,
         status_forcelist=RETRY_STATUS,
         allowed_methods=("GET",),
         respect_retry_after_header=True,
@@ -321,15 +349,33 @@ def build_session(token: str | None) -> requests.Session:
 def fetch_raw(
     session: requests.Session, params: dict[str, Any], url: str = API_URL
 ) -> tuple[Any, bytes]:
-    """Liefert die geparste Antwort und ihren unveraenderten Koerper."""
-    try:
-        response = session.get(url, params=params, timeout=TIMEOUT_SECONDS)
-        response.raise_for_status()
-        return response.json(), response.content
-    except requests.JSONDecodeError as error:
-        raise IngestionError("API returned invalid JSON") from error
-    except requests.RequestException as error:
-        raise IngestionError(f"API request failed: {error}") from error
+    """Liefert die geparste Antwort und ihren unveraenderten Koerper.
+
+    Bricht die Verbindung ab, wird die Seite bis zu SEITEN_VERSUCHE Mal neu
+    angefragt; die Pause verdoppelt sich ab SEITEN_PAUSE_SECONDS.
+    """
+    for versuch in range(1, SEITEN_VERSUCHE + 1):
+        try:
+            response = session.get(url, params=params, timeout=TIMEOUT_SECONDS)
+            response.raise_for_status()
+            return response.json(), response.content
+        except requests.JSONDecodeError as error:
+            raise IngestionError("API returned invalid JSON") from error
+        except SEITEN_FEHLER as error:
+            if versuch == SEITEN_VERSUCHE:
+                raise IngestionError(f"API request failed: {error}") from error
+            pause = SEITEN_PAUSE_SECONDS * 2 ** (versuch - 1)
+            log.warning(
+                "Verbindung abgebrochen (Versuch %s von %s), neue Anfrage in %s s: %s",
+                versuch,
+                SEITEN_VERSUCHE,
+                pause,
+                error,
+            )
+            _schlafen(pause)
+        except requests.RequestException as error:
+            raise IngestionError(f"API request failed: {error}") from error
+    raise AssertionError("unerreichbar")  # pragma: no cover
 
 
 def fetch_json(

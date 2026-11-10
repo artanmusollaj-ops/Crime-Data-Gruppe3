@@ -68,6 +68,12 @@ def make_partial(
     return path
 
 
+@pytest.fixture(autouse=True)
+def ohne_pause(monkeypatch):
+    """Ein Verbindungsfehler im Test wartet nicht 60 s auf den neuen Versuch."""
+    monkeypatch.setattr(dc, "_schlafen", lambda _sekunden: None)
+
+
 class FakeResponse:
     """Minimal stand-in for requests.Response."""
 
@@ -546,9 +552,24 @@ def test_build_session_retries_throttling_and_server_errors():
         retries = session.get_adapter(dc.API_URL).max_retries
     assert retries.total == dc.RETRY_TOTAL
     assert retries.backoff_factor == dc.RETRY_BACKOFF
+    assert retries.backoff_max == dc.RETRY_BACKOFF_MAX
     assert set(dc.RETRY_STATUS) <= set(retries.status_forcelist)
     assert "GET" in retries.allowed_methods
     assert retries.respect_retry_after_header is True
+
+
+def test_retries_bridge_minutes_of_socrata_overload():
+    """Der 9.11.2026: fuenf Versuche mit 31 s Pause reichten nicht."""
+    pausen = sum(
+        min(dc.RETRY_BACKOFF * 2 ** (versuch - 1), dc.RETRY_BACKOFF_MAX)
+        for versuch in range(2, dc.RETRY_TOTAL + 1)
+    )
+    assert pausen >= 5 * 60
+
+
+def test_timeout_separates_connect_and_read():
+    verbinden, lesen = dc.TIMEOUT_SECONDS
+    assert verbinden < 60 < lesen
 
 
 def test_build_session_sends_the_token_as_a_header():
@@ -578,10 +599,65 @@ def test_fetch_json_returns_the_payload():
     ],
     ids=["http", "connection", "timeout", "retries_exhausted"],
 )
-def test_fetch_json_wraps_request_failures(error):
-    session = FakeSession([FakeResponse(None, raise_error=error)])
+def test_fetch_json_wraps_request_failures(error, monkeypatch):
+    monkeypatch.setattr(dc, "_schlafen", lambda _s: None)
+    session = FakeSession(
+        [FakeResponse(None, raise_error=error) for _ in range(dc.SEITEN_VERSUCHE)]
+    )
     with pytest.raises(dc.IngestionError, match="API request failed"):
         dc.fetch_json(session, {})
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        requests.exceptions.ChunkedEncodingError("Connection reset by peer"),
+        requests.ConnectionError("Max retries exceeded"),
+        requests.Timeout(),
+    ],
+    ids=["koerper_abgebrochen", "verbindung", "timeout"],
+)
+def test_fetch_raw_asks_again_after_a_broken_connection(error, monkeypatch):
+    """Der 9.11.2026 22:08: Chicago 2023 brach beim Lesen der Antwort ab."""
+    pausen = []
+    monkeypatch.setattr(dc, "_schlafen", pausen.append)
+    session = FakeSession(
+        [FakeResponse(None, raise_error=error), FakeResponse([{"id": "1"}])]
+    )
+    payload, body = dc.fetch_raw(session, {"$limit": 1})
+    assert payload == [{"id": "1"}]
+    assert body == b'[{"id": "1"}]'
+    assert len(session.calls) == 2
+    assert pausen == [dc.SEITEN_PAUSE_SECONDS]
+
+
+def test_fetch_raw_doubles_the_pause_and_gives_up(monkeypatch):
+    pausen = []
+    monkeypatch.setattr(dc, "_schlafen", pausen.append)
+    fehler = requests.exceptions.ChunkedEncodingError("reset")
+    session = FakeSession(
+        [FakeResponse(None, raise_error=fehler) for _ in range(dc.SEITEN_VERSUCHE)]
+    )
+    with pytest.raises(dc.IngestionError, match="API request failed"):
+        dc.fetch_raw(session, {})
+    assert len(session.calls) == dc.SEITEN_VERSUCHE
+    assert pausen == [
+        dc.SEITEN_PAUSE_SECONDS * 2**i for i in range(dc.SEITEN_VERSUCHE - 1)
+    ]
+
+
+@pytest.mark.parametrize(
+    "error",
+    [requests.HTTPError("403"), requests.exceptions.RetryError("too many 503")],
+    ids=["http", "urllib3_erschoepft"],
+)
+def test_fetch_raw_does_not_ask_again_after_an_answer(error, monkeypatch):
+    """Ein HTTP-Fehler ist eine Antwort; erschoepfte 5xx-Versuche auch."""
+    monkeypatch.setattr(dc, "_schlafen", lambda _s: pytest.fail("keine Pause"))
+    session = FakeSession([FakeResponse(None, raise_error=error)])
+    with pytest.raises(dc.IngestionError, match="API request failed"):
+        dc.fetch_raw(session, {})
+    assert len(session.calls) == 1
 
 
 def test_fetch_json_wraps_invalid_json():
