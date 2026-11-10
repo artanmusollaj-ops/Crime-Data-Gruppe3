@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'881** |
+| Tests | **2'887** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -120,19 +120,32 @@ roten GitHub-Datenlauf vom 2.11.
 - **Acht statt fünf Versuche:** Die Pause verdoppelt sich (Faktor 2,
   gedeckelt bei 120 s), zusammen gut sechs Minuten statt 31 s.
 - Das gilt für 429/5xx ebenso wie für Timeouts.
+- **Die Seite wird neu angefragt:** Bricht die Verbindung erst beim Lesen
+  der Antwort ab, wiederholt urllib3 nicht mehr, weil die Kopfzeilen schon
+  da sind. So scheiterte der zweite Nachholversuch am 9.11. um 22:08 bei
+  Chicago 2023 mit „Connection reset by peer", nachdem 2021 und 2022 schon
+  durch waren. `fetch_raw` fragt dann die ganze Seite neu an, bis zu
+  dreimal, nach 60 s und 120 s Pause. Ebenso nach einem Verbindungsfehler,
+  wenn die urllib3-Versuche aufgebraucht sind. Ein HTTP-Fehler und kaputtes
+  JSON lösen keinen neuen Versuch aus.
 
 Die Seitengrösse bleibt bei 10'000. Kleinere Seiten hätten die Raw-Schicht
 anders geschnitten, eine Datei je API-Antwort. Was geladen wird, bleibt
 gleich, deshalb steigt kein Ladevertrag.
 
-Neu gewacht: 2 Tests in `tests/chicago_pipeline/test_download_chicago.py`.
-Die Pausen überbrücken mindestens fünf Minuten, und Verbinden und Lesen
-haben getrennte Fristen.
+Neu gewacht: 8 Tests in `tests/chicago_pipeline/test_download_chicago.py`.
+- Die Pausen überbrücken mindestens fünf Minuten.
+- Verbinden und Lesen haben getrennte Fristen.
+- Nach einem abgerissenen Körper, einem Verbindungsfehler oder einem Timeout
+  wird die Seite neu angefragt, die Pause verdoppelt sich, und nach dem
+  letzten Versuch bricht der Abruf ab.
+- Nach einem HTTP-Fehler oder erschöpften 5xx-Versuchen wird die Seite
+  nicht neu angefragt.
 
 Nicht in diesem PR: Ein Ausfall von Chicago reisst weiterhin den ganzen
 Datenlauf mit.
 
-**Zahlen.** 2'879 → **2'881 Tests**, Standardlauf 2'768 → **2'770**, im frischen Klon 2'690 → **2'692**.
+**Zahlen.** 2'879 → **2'887 Tests**, Standardlauf 2'768 → **2'776**, im frischen Klon 2'690 → **2'698**.
 
 ## 8.11.2026 · Die Ingestion liest ihre Quellen aus einer Datei (Branch `feature/ingestion-konfigurierbar`)
 
