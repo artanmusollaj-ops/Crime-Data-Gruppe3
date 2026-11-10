@@ -138,6 +138,23 @@ def test_recovery_only_closes_abandoned_nonimpact_job(store):
         jobs.recover_import(store, jid, "operator", "Duplicate recovery")
 
 
+def test_local_backup_keeps_releases_and_only_the_newest_archives(store, tmp_path, monkeypatch):
+    # Locally there is no second copy of a release; the archive must carry it.
+    from platform_admin.object_store import backup
+    monkeypatch.setenv("ADMIN_BACKUP_KEEP", "1")
+    release = store.data / "releases/release=2026-11-10T13-47-23Z"
+    release.mkdir(parents=True)
+    (release / "release.json").write_text("{}")
+    with jobs.writer_lock(store):
+        first = backup(store)
+        second = backup(store)
+    assert second["releases_archived"] == ["release=2026-11-10T13-47-23Z"]
+    folder = store.data / "backups/control"
+    assert sorted(p.name for p in folder.iterdir()) == sorted(
+        [Path(second["key"]).name, Path(second["key"]).name.replace(".tar.gz", ".json")])
+    assert first["key"] in second["removed"]
+
+
 def test_local_backup_includes_management_and_serving_evidence(store, tmp_path):
     from platform_admin.object_store import backup, restore_archive
     integration.enable(store, "operator")
