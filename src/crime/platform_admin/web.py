@@ -258,7 +258,8 @@ def create_app(store=None, *, operator=None, token=None, config=None):
                         tofile="nachher",
                     )
                 )
-            return send(200, {"diff": "\n".join(changes)})
+            return send(200, {"diff": "\n".join(changes), "resource": rev["resource"],
+                              "before": parent, "after": rev["payload"]})
         else:
             return send(404, {"error": "Unbekannter Pfad"})
 
