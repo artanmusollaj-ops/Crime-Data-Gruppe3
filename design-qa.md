@@ -6,16 +6,16 @@ Die lokale Flask-Anwendung wurde mit einem getrennten SQLite-Testbestand und Tes
 
 | Zustand | Vorlage | Umsetzung | Vergleich | Viewport |
 | --- | --- | --- | --- | --- |
-| Aufgabenboard, laufender Antrag | [Bild 1](C:/Users/artan/AppData/Local/Temp/codex-clipboard-2f111349-98c8-44da-9fc4-a3f0f73a6dea.png) | [Browseraufnahme 1](C:/Users/artan/.codex/visualizations/2026/10/30/01a18d17-fb27-74d2-ac90-26c8606e54e1/engineering-konsole-demo/varianten/qa/konsole-ansicht-1.png) | [Vollansicht 1](C:/Users/artan/.codex/visualizations/2026/10/30/01a18d17-fb27-74d2-ac90-26c8606e54e1/engineering-konsole-demo/varianten/qa/konsole-vergleich-1.png) | 2601 × 1212 |
-| Qualitätsprüfung gesperrt, Messdialog offen | [Bild 2](C:/Users/artan/AppData/Local/Temp/codex-clipboard-492de2ec-d124-4f0b-a20b-31831f6aa912.png) | [Browseraufnahme 2](C:/Users/artan/.codex/visualizations/2026/10/30/01a18d17-fb27-74d2-ac90-26c8606e54e1/engineering-konsole-demo/varianten/qa/konsole-ansicht-2.png) | [Vollansicht 2](C:/Users/artan/.codex/visualizations/2026/10/30/01a18d17-fb27-74d2-ac90-26c8606e54e1/engineering-konsole-demo/varianten/qa/konsole-vergleich-2.png) | 2306 × 1227 |
-| Betrieb, Gate gesperrt | [Bild 3](C:/Users/artan/AppData/Local/Temp/codex-clipboard-69d5d2c2-f4d7-4ada-a745-2225fa9a2272.png) | [Browseraufnahme 3](C:/Users/artan/.codex/visualizations/2026/10/30/01a18d17-fb27-74d2-ac90-26c8606e54e1/engineering-konsole-demo/varianten/qa/konsole-ansicht-3.png) | [Vollansicht 3](C:/Users/artan/.codex/visualizations/2026/10/30/01a18d17-fb27-74d2-ac90-26c8606e54e1/engineering-konsole-demo/varianten/qa/konsole-vergleich-3.png) | 2336 × 1209 |
-| Betrieb, Serving bei 33 % | [Bild 4](C:/Users/artan/AppData/Local/Temp/codex-clipboard-666ef2e7-d15b-45bb-91dc-ebfc0e0988cb.png) | [Browseraufnahme 4](C:/Users/artan/.codex/visualizations/2026/10/30/01a18d17-fb27-74d2-ac90-26c8606e54e1/engineering-konsole-demo/varianten/qa/konsole-ansicht-4.png) | [Vollansicht 4](C:/Users/artan/.codex/visualizations/2026/10/30/01a18d17-fb27-74d2-ac90-26c8606e54e1/engineering-konsole-demo/varianten/qa/konsole-vergleich-4.png) | 2581 × 1247 |
+| Aufgabenboard, laufender Antrag | Bild 1 | Browseraufnahme 1 | Vollansicht 1 | 2601 × 1212 |
+| Qualitätsprüfung gesperrt, Messdialog offen | Bild 2 | Browseraufnahme 2 | Vollansicht 2 | 2306 × 1227 |
+| Betrieb, Gate gesperrt | Bild 3 | Browseraufnahme 3 | Vollansicht 3 | 2336 × 1209 |
+| Betrieb, Serving bei 33 % | Bild 4 | Browseraufnahme 4 | Vollansicht 4 | 2581 × 1247 |
 
 Die Vorlagen messen 2601 × 1212, 2306 × 1227, 2336 × 1209 und 2581 × 1247 Pixel. Die Aufnahmen des Browserinhalts messen 2586 × 1205, 2291 × 1219, 2321 × 1201 und 2566 × 1240 Pixel. Die Browser-Viewport-Einstellungen entsprechen der letzten Spalte. Für die Vergleiche wurden Vorlage und Umsetzung jeweils proportional auf 900 Pixel Breite skaliert.
 
-- [Ausschnitt Qualitätsdialog](C:/Users/artan/.codex/visualizations/2026/10/30/01a18d17-fb27-74d2-ac90-26c8606e54e1/engineering-konsole-demo/varianten/qa/konsole-vergleich-dialog.png)
-- [Ausschnitt Pipeline](C:/Users/artan/.codex/visualizations/2026/10/30/01a18d17-fb27-74d2-ac90-26c8606e54e1/engineering-konsole-demo/varianten/qa/konsole-vergleich-pipeline.png)
-- [Mobile Ansicht](C:/Users/artan/.codex/visualizations/2026/10/30/01a18d17-fb27-74d2-ac90-26c8606e54e1/engineering-konsole-demo/varianten/qa/konsole-mobil.png)
+- Ausschnitt Qualitätsdialog
+- Ausschnitt Pipeline
+- Mobile Ansicht
 
 Im ersten Vergleich rückten lange Spalten den Antragsbereich aus dem sichtbaren Ausschnitt. Die überarbeitete Ansicht begrenzt die Karten je Seite und hält die Spalten scrollbar. Beim Öffnen richtet sie den Fokus auf den Antrag und scrollt nur, wenn dessen Überschrift ausserhalb des sichtbaren Bereichs liegt. Die erneute Desktop-Aufnahme zeigt Board, Details und Zeitverlauf gemeinsam. Die Betriebsauswahl liegt nun platzsparend in der Kartenüberschrift. Der Qualitätsdialog wurde über dem Arbeitsbereich ausgerichtet. Das Board, die horizontale Navigation auf schmalen Bildschirmen und der Detaildialog wurden im Browser überprüft.
 
@@ -79,13 +79,13 @@ ausgewählter Job und separate Änderungskarte aus Variante 2, Sprachwahl DE | E
   Formularaktionen wurden ausgeführt.
 
 Referenzen:
-[Jobliste](C:/Users/artan/AppData/Local/Temp/codex-clipboard-bb950f9a-3f61-4bbd-bb61-69ffde1aca60.png),
-[Detail und Änderungskarte](C:/Users/artan/AppData/Local/Temp/codex-clipboard-23a998be-1478-4b4c-8bb3-13e20fcbcd02.png).
+Jobliste,
+Detail und Änderungskarte.
 
 Browseraufnahmen der Detailansicht:
-[Deutsch](C:/Users/artan/.codex/visualizations/2026/10/30/01a18d17-fb27-74d2-ac90-26c8606e54e1/engineering-konsole-demo/varianten/qa/import-detail-final-de.png),
-[Englisch](C:/Users/artan/.codex/visualizations/2026/10/30/01a18d17-fb27-74d2-ac90-26c8606e54e1/engineering-konsole-demo/varianten/qa/import-detail-final-en.png),
-[mobil, vor Tooltip-Korrektur](C:/Users/artan/.codex/visualizations/2026/10/30/01a18d17-fb27-74d2-ac90-26c8606e54e1/engineering-konsole-demo/varianten/qa/import-detail-final-mobile.png).
+Deutsch,
+Englisch,
+mobil, vor Tooltip-Korrektur.
 
 ### Funktionsprüfung
 
@@ -163,7 +163,7 @@ mit einem temporären Verzeichnis innerhalb des Projekts; der erste Lauf mit
 Windows-Sandbox-Temp scheiterte an Ordnerrechten.
 
 Screenshot:
-[Lesbarer Änderungsvergleich](C:/Users/artan/.codex/visualizations/2026/10/30/01a18d17-fb27-74d2-ac90-26c8606e54e1/engineering-konsole-demo/varianten/qa/antrag-lesbares-diff.png).
+Lesbarer Änderungsvergleich.
 # Abnahme: Veröffentlichung und Betrieb – 10.11.2026
 
 - Git-Aktionen wurden an den geöffneten Antrag gebunden; kein zentraler
