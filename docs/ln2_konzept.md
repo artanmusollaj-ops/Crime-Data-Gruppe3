@@ -1561,6 +1561,7 @@ abgegeben, liegen sie zwar bei — aber niemand wird darauf verwiesen.
 | Detroit-Pipeline Schritt für Schritt | [`DETROIT_PIPELINE_ANLEITUNG.md`](intern/DETROIT_PIPELINE_ANLEITUNG.md) |
 | Was eine dritte Stadt bräuchte — keine ist geplant | [`dritte-stadt.md`](intern/dritte-stadt.md) |
 | Die Engineering-Konsole bedienen und betreiben | [`ENGINEERING_KONSOLE.md`](intern/ENGINEERING_KONSOLE.md), als PDF unter [`intern/handbuch/`](intern/handbuch/ENGINEERING_KONSOLE.pdf) |
+| Änderungsvorschläge zweisprachig erfassen und Importjobs auswählen | [`konsole-vorschlagseditor.md`](intern/konsole-vorschlagseditor.md) |
 | Notebooks auf einem belegten Datenstand ausführen, mit gemeinsamer Sperre | [`notebook-analysesitzungen.md`](intern/notebook-analysesitzungen.md) |
 | Lokale Windows-/Docker-Abnahme für E-5 und verbleibende Serverprüfung | [`e5-pruefnachweis.md`](intern/e5-pruefnachweis.md) |
 
