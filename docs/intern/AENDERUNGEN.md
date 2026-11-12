@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'900** |
+| Tests | **2'912** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -103,6 +103,34 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 12.11.2026 · Eine gescheiterte Quelle wird nachgefasst, statt den Lauf zu fällen (Branch `feature/ingestion-nachfassen`)
+
+**Was geschah.** Am Montag, 9.11.2026, antwortete Socrata vormittags nicht.
+Chicago 2021 stand als erste Stufe vorn, der Lauf brach ab, und Detroit,
+Census und Wetter luden gar nicht erst — auf `srv01` wie im GitHub-Datenlauf.
+Das Wochenrelease fehlte. Am Nachmittag lief derselbe Abruf glatt durch. #218
+macht den einzelnen Abruf zäher; fällt er trotzdem, fiel bisher alles.
+
+**Was sich ändert.**
+- Die Ingestion fährt jede Quelle, auch nach einem Fehler — die Quellen
+  hängen nicht voneinander ab. Was scheitert, kommt nach **30** und nach
+  weiteren **60 Minuten** noch einmal dran (`run_all --nachfassen`, Vorgabe
+  `30 60`; ohne Wert kein zweiter Versuch). Das Protokoll in
+  `pipeline_run.json` nennt je Stufe `versuche`.
+- **Abgeleitet wird weiterhin nur, wenn am Ende jede Quelle da ist.** Bleibt
+  eine rot, entsteht kein Silver, kein Gold und kein Release — die Zusage
+  „kein halber Stand" gilt unverändert. Innerhalb der Ableitung bricht die
+  erste gescheiterte Stufe ab wie bisher.
+- Der Volllauf auf `srv01` (`docker/srv01-datenlauf.sh full`) ruft die
+  Quellen nicht mehr einzeln mit `set -e`, sondern über `laden` mit denselben
+  Pausen; ein Test hält beide Pausenlisten gleich.
+
+**Was das kostet.** Ein roter Lauf dauert bis zu anderthalb Stunden länger.
+Der GitHub-Datenlauf brauchte am 11.11. 36 Minuten, mit dem Nachfassen
+höchstens gut zwei Stunden — unter seiner Grenze von 180.
+
+**Zahlen.** 2'900 → **2'912 Tests**, Standardlauf 2'789 → **2'801**, im frischen Klon 2'711 → **2'723**.
 
 ## 10.11.2026 · Die Konsolensicherung packt keine Releases mehr ein, die der Eimer schon hält (Branch `feature/konsolensicherung-schlank`)
 

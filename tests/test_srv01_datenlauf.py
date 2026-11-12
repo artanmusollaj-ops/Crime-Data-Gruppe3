@@ -369,3 +369,82 @@ def test_die_drift_wird_dorthin_geschrieben_wo_der_blick_sie_liest():
     assert f"--json /app/data/{DRIFT}" in zeile, (
         f"der Bericht muss als {DRIFT} neben dem Laufprotokoll liegen, "
         f"dort liest ihn serving.betriebsstand: {zeile.strip()!r}")
+
+
+# --------------------------------------------------------------------------
+# Eine gescheiterte Quelle wird nachgefasst (12.11.2026)
+# --------------------------------------------------------------------------
+
+
+def laden_mit(tmp_path: Path, fehlversuche: dict[str, int], *schritte: str):
+    """``laden`` mit falschem ``pipeline`` und ``sleep``; Spur und Exitcode zurueck.
+
+    Jeder Schritt scheitert so oft, wie ``fehlversuche`` fuer sein Modul sagt.
+    """
+    spur = tmp_path / "spur.txt"
+    pausen = tmp_path / "pausen.txt"
+    zaehler = tmp_path / "zaehler"
+    zaehler.mkdir()
+    # Kein ``declare -A``: Das bash 3.2 auf macOS kennt es nicht.
+    grenzen = " ".join(f"{m}) echo {n};;" for m, n in fehlversuche.items())
+    programm = f"""
+        source "$1"
+        grenze() {{ case "$1" in {grenzen} *) echo 0;; esac; }}
+        pipeline() {{
+            local modul="$3" n=0
+            [[ -f "{zaehler.as_posix()}/$modul" ]] && n=$(cat "{zaehler.as_posix()}/$modul")
+            n=$((n + 1)); echo "$n" > "{zaehler.as_posix()}/$modul"
+            echo "$*" >> "{spur.as_posix()}"
+            (( n > $(grenze "$modul") ))
+        }}
+        sleep() {{ echo "$1" >> "{pausen.as_posix()}"; }}
+        laden "${{@:2}}"
+    """
+    lauf = subprocess.run(["bash", "-c", programm, "--", SCRIPT.as_posix(), *schritte],
+                          capture_output=True, text=True)
+    lesen = lambda p: p.read_text().split("\n")[:-1] if p.exists() else []  # noqa: E731
+    return lauf, lesen(spur), lesen(pausen)
+
+
+def test_eine_gescheiterte_quelle_haelt_die_anderen_nicht_auf(tmp_path, benutzbares_bash):
+    lauf, spur, pausen = laden_mit(
+        tmp_path, {"chicago": 1},
+        "python -m chicago --year 2021 --full", "python -m detroit --mode full")
+    assert lauf.returncode == 0, lauf.stderr
+    assert spur == ["python -m chicago --year 2021 --full", "python -m detroit --mode full",
+                    "python -m chicago --year 2021 --full"]
+    assert pausen == ["1800"]
+
+
+def test_nach_dem_letzten_versuch_endet_laden_mit_eins(tmp_path, benutzbares_bash):
+    lauf, spur, pausen = laden_mit(
+        tmp_path, {"chicago": 9}, "python -m chicago --year 2021", "python -m detroit")
+    assert lauf.returncode == 1
+    assert spur.count("python -m chicago --year 2021") == 3
+    assert spur.count("python -m detroit") == 1
+    assert pausen == ["1800", "3600"]
+    assert "python -m chicago --year 2021" in lauf.stderr
+
+
+def test_ohne_fehler_wird_nicht_gewartet(tmp_path, benutzbares_bash):
+    lauf, spur, pausen = laden_mit(tmp_path, {}, "python -m detroit")
+    assert lauf.returncode == 0 and spur == ["python -m detroit"] and pausen == []
+
+
+def test_der_volllauf_laedt_ueber_laden_und_leitet_danach_ab():
+    """Kein Quellaufruf mehr ausserhalb von ``laden`` - sonst bricht er wieder alles ab."""
+    text = SCRIPT.read_text(encoding="utf-8")
+    voll = text[text.index("    full)"):text.index("    delta)")]
+    assert not re.search(r"^\s*pipeline python -m \w+_pipeline", voll, re.M)
+    assert voll.index('laden "${schritte[@]}"') < voll.index("orchestration.run_all")
+    for modul in ("chicago_pipeline.download_chicago", "detroit_pipeline.extract_detroit",
+                  "census_pipeline.download_tiger", "census_pipeline.download_acs",
+                  "weather_pipeline.download_noaa"):
+        assert f'schritte+=("python -m {modul}' in voll, modul
+
+
+def test_skript_und_controller_fassen_gleich_nach():
+    import run_all as ra
+    text = SCRIPT.read_text(encoding="utf-8")
+    sekunden = re.search(r"^NACHFASSEN_SEKUNDEN=\(([\d ]+)\)", text, re.M).group(1).split()
+    assert [int(s) for s in sekunden] == [int(m * 60) for m in ra.NACHFASSEN_MINUTEN]
