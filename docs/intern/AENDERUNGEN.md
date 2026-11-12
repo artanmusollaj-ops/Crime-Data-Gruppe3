@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'900** |
+| Tests | **2'913** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -162,6 +162,53 @@ Historie in dieser Datei. Zwei Zahlen, die `serving/source_movement` nur
   3,78 % gegen 0,19 %, „Faktor 20"); das Notebook rechnet seit dem 4.10. über
   sechs Jahrgänge und gibt heute 7,5×, 6,90 % gegen 0,10 % aus. Älter als
   dieser Stand, und eine Aussage zu H1 — nicht hier angefasst.
+
+---
+
+## 12.11.2026 · `aufraeumen` entfernt die alten Fassungen zuletzt (Branch `fix/aufraeumen-reihenfolge`)
+
+**Was geschah.** Beim Aufräumen auf `srv01` am 10.11.2026
+(`--loeschen --fassungen --auch-fern`) entfernte das Werkzeug zuerst die
+alten Fassungen und löschte danach sechs Releases. In einem versionierten
+Eimer setzt dieses Löschen nur Markierungen: Die 530 MB der Releases blieben
+als 140 alte Fassungen liegen, und erst ein zweiter Durchgang gab sie frei.
+
+**Was sich ändert.** Die Fassungen gehen jetzt als letzter Schritt weg, nach
+Läufen, halben Releases und Releases — und unabhängig davon, ob der Bericht
+vor dem Löschen welche gefunden hatte, denn das Löschen erzeugt sie erst. Ein
+Durchgang lässt oben keine Reste mehr.
+
+**Zahlen.** 2'912 → **2'913 Tests**, Standardlauf 2'801 → **2'802**, im frischen Klon 2'723 → **2'724**.
+
+---
+
+## 12.11.2026 · Eine gescheiterte Quelle wird nachgefasst, statt den Lauf zu fällen (Branch `feature/ingestion-nachfassen`)
+
+**Was geschah.** Am Montag, 9.11.2026, antwortete Socrata vormittags nicht.
+Chicago 2021 stand als erste Stufe vorn, der Lauf brach ab, und Detroit,
+Census und Wetter luden gar nicht erst — auf `srv01` wie im GitHub-Datenlauf.
+Das Wochenrelease fehlte. Am Nachmittag lief derselbe Abruf glatt durch. #218
+macht den einzelnen Abruf zäher; fällt er trotzdem, fiel bisher alles.
+
+**Was sich ändert.**
+- Die Ingestion fährt jede Quelle, auch nach einem Fehler — die Quellen
+  hängen nicht voneinander ab. Was scheitert, kommt nach **30** und nach
+  weiteren **60 Minuten** noch einmal dran (`run_all --nachfassen`, Vorgabe
+  `30 60`; ohne Wert kein zweiter Versuch). Das Protokoll in
+  `pipeline_run.json` nennt je Stufe `versuche`.
+- **Abgeleitet wird weiterhin nur, wenn am Ende jede Quelle da ist.** Bleibt
+  eine rot, entsteht kein Silver, kein Gold und kein Release — die Zusage
+  „kein halber Stand" gilt unverändert. Innerhalb der Ableitung bricht die
+  erste gescheiterte Stufe ab wie bisher.
+- Der Volllauf auf `srv01` (`docker/srv01-datenlauf.sh full`) ruft die
+  Quellen nicht mehr einzeln mit `set -e`, sondern über `laden` mit denselben
+  Pausen; ein Test hält beide Pausenlisten gleich.
+
+**Was das kostet.** Ein roter Lauf dauert bis zu anderthalb Stunden länger.
+Der GitHub-Datenlauf brauchte am 11.11. 36 Minuten, mit dem Nachfassen
+höchstens gut zwei Stunden — unter seiner Grenze von 180.
+
+**Zahlen.** 2'900 → **2'912 Tests**, Standardlauf 2'789 → **2'801**, im frischen Klon 2'711 → **2'723**.
 
 ## 10.11.2026 · Die Konsolensicherung packt keine Releases mehr ein, die der Eimer schon hält (Branch `feature/konsolensicherung-schlank`)
 

@@ -417,6 +417,54 @@ def fahre(stufen: list[Stufe], projekt_root: Path,
     return protokoll
 
 
+#: Pausen vor dem zweiten und dritten Versuch einer gescheiterten Quelle, in
+#: Minuten. Am 9.11.2026 antwortete Socrata vormittags nicht und fiel den
+#: Montagslauf - Detroit, Census und Wetter waren gar nicht erst geladen, und
+#: das Wochenrelease fehlte. Am Nachmittag lief derselbe Abruf glatt durch.
+#: Eine Stunde und eine halbe ueberbrueckt so einen Aussetzer; ein laengerer
+#: Ausfall bleibt ein roter Lauf.
+NACHFASSEN_MINUTEN: tuple[float, ...] = (30, 60)
+
+_schlafen = time.sleep
+
+
+def lade(stufen: list[Stufe], projekt_root: Path,
+         data_root: Path | None = None, *,
+         nachfassen: Iterable[float] = NACHFASSEN_MINUTEN) -> list[dict]:
+    """Die Ingestion: jede Quelle, und die gescheiterten noch einmal.
+
+    Anders als ``fahre`` geht es nach einem Fehler weiter, denn die Quellen
+    haengen nicht voneinander ab - ein Chicago-Aussetzer ist kein Grund,
+    Detroit nicht zu laden. Was scheitert, wird nach jeder Pause in
+    ``nachfassen`` (Minuten) erneut versucht. **Abgeleitet wird trotzdem nur,
+    wenn am Ende jede Quelle da ist** - das entscheidet ``lauf``, und daran
+    aendert sich nichts: Kein Silver auf einem halben Stand.
+
+    Das Protokoll hat einen Eintrag je Stufe, in ihrer Reihenfolge: den
+    letzten Versuch, mit ``versuche``.
+    """
+    ergebnis: dict[int, dict] = {}
+    offen = list(range(len(stufen)))
+    for runde, pause in enumerate((0, *nachfassen), 1):
+        if not offen:
+            break
+        if pause:
+            LOG.warning(
+                "Gescheitert: %s. Naechster Versuch in %g Minuten.",
+                ", ".join(stufen[i].name for i in offen), pause)
+            _schlafen(pause * 60)
+        for i in offen:
+            eintrag = fahre([stufen[i]], projekt_root, data_root)[0]
+            eintrag["versuche"] = runde
+            ergebnis[i] = eintrag
+        offen = [i for i in offen if ergebnis[i]["exit"] != 0]
+    if offen:
+        LOG.error("Auch nach %d Versuchen gescheitert: %s. Nichts abgeleitet.",
+                  len(tuple(nachfassen)) + 1,
+                  ", ".join(stufen[i].name for i in offen))
+    return [ergebnis[i] for i in range(len(stufen))]
+
+
 def schreibe_manifest(data_root: Path, manifest: dict) -> Path:
     ziel = data_root / LAUF_MANIFEST
     ziel.parent.mkdir(parents=True, exist_ok=True)
@@ -432,7 +480,8 @@ def lauf(data_root: Path, projekt_root: Path, *,
          ohne_ingestion: bool = False, bis: str | None = None,
          maximal_alter_tage: float | None = None,
          release: bool | None = None, holen: bool = True,
-         jahre: Iterable[int] = VORGABE_JAHRE) -> dict:
+         jahre: Iterable[int] = VORGABE_JAHRE,
+         nachfassen: Iterable[float] = NACHFASSEN_MINUTEN) -> dict:
     """Die ganze Strecke - und am Ende, wenn alles gruen ist, ein Release.
 
     ``release``: ``None`` heisst *wenn die Ablage publiziert* (hybrid, s3),
@@ -500,7 +549,8 @@ def lauf(data_root: Path, projekt_root: Path, *,
 
         protokoll: list[dict] = []
         if not zu_alt and holen_gescheitert is None:
-            protokoll = fahre(geladen, projekt_root, data_root)
+            protokoll = lade(geladen, projekt_root, data_root,
+                             nachfassen=tuple(nachfassen))
             ingestion_ok = (all(s["exit"] == 0 for s in protokoll)
                             and len(protokoll) == len(geladen))
 
@@ -632,6 +682,11 @@ def arguments() -> argparse.Namespace:
     p.add_argument("--maximal-alter-tage", type=float, default=None, metavar="TAGE",
                    help="scheitern, wenn der juengste Lauf einer Quelle aelter ist "
                         "(ohne Angabe wird die Aktualitaet nur aufgezeichnet)")
+    p.add_argument("--nachfassen", type=float, nargs="*", default=list(NACHFASSEN_MINUTEN),
+                   metavar="MINUTEN",
+                   help="Pausen, nach denen eine gescheiterte Quelle erneut geladen wird "
+                        f"(Vorgabe {' '.join(f'{m:g}' for m in NACHFASSEN_MINUTEN)}; "
+                        "ohne Wert kein zweiter Versuch)")
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args()
 
@@ -674,7 +729,7 @@ def main() -> int:
                         ohne_ingestion=args.ohne_ingestion, bis=args.bis,
                         maximal_alter_tage=args.maximal_alter_tage,
                         release=args.release, holen=args.holen,
-                        jahre=args.jahre)
+                        jahre=args.jahre, nachfassen=tuple(args.nachfassen))
     except StorageError as fehler:
         # Der Schlussfang. Was die Ablage angeht, ist innen schon abgefangen;
         # hier steht er, damit kein Weg uebrigbleibt, der einen botocore-Stapel

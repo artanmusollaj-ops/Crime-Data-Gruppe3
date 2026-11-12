@@ -137,7 +137,7 @@ Die beiden Architekturbilder in [`architektur.md`](architektur.md) werden
 **aus dem Code erzeugt**, nicht gezeichnet. Ein Paket, das dazukommt, erscheint
 von selbst; eine Zahl im Bild, die nicht mehr stimmt, lässt einen Test fallen.
 
-## A.3 Orchestrierung: sechzehn Stufen, Abbruch beim ersten Fehler
+## A.3 Orchestrierung: sechzehn Stufen, Abbruch vor dem halben Stand
 
 `orchestration.run_all` fährt die Strecke in sechzehn Stufen:
 
@@ -151,8 +151,13 @@ von selbst; eine Zahl im Bild, die nicht mehr stimmt, lässt einen Test fallen.
 Die Reihenfolge ist keine Kosmetik: `silver/tract` braucht beide
 Census-Quellen, `crime_offense` zusätzlich `tract`, und ohne `tiger_place`
 bekäme `dim_tract` keine Stadtzuordnung — was nicht scheitern würde, sondern
-eine Rate ohne Nenner lieferte. **Die erste gescheiterte Stufe bricht die Kette
-ab**, denn jede weitere baute sonst auf einem halben Stand.
+eine Rate ohne Nenner lieferte. **Abgeleitet wird nur, wenn jede Quelle da
+ist, und die erste gescheiterte Ableitungsstufe bricht die Kette ab**, denn
+jede weitere baute sonst auf einem halben Stand. Die Quellen selbst hängen
+nicht voneinander ab: Scheitert eine, laden die anderen fertig, und die
+gescheiterte wird nach 30 und nach weiteren 60 Minuten noch einmal versucht
+(`--nachfassen`, im Volllauf auf `srv01` ebenso). Seit dem 12.11.2026 — am
+9.11. hatte ein Socrata-Aussetzer das Wochenrelease gekostet.
 
 Der Lauf schreibt `data/pipeline_run.json`: welche Stufen liefen, auf welchen
 Bronze-Läufen das Ergebnis ruht, wie alt jede Quelle ist, was von SeaweedFS
@@ -237,8 +242,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 2'900 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 2'711 davon — die übrigen 78 brauchen gebaute Daten, laufende Dienste, das ungetrackte LN1-PDF oder das ungetrackte PRD; 111 Referenzstand-Wächter sind abgewählt (10.11.2026 gemessen, grün) | |
+| **Pull Request** | 2'913 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 2'724 davon — die übrigen 78 brauchen gebaute Daten, laufende Dienste, das ungetrackte LN1-PDF oder das ungetrackte PRD; 111 Referenzstand-Wächter sind abgewählt (12.11.2026 gemessen, grün) | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 111 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 

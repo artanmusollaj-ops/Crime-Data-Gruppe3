@@ -6,7 +6,9 @@ oder eine Spur hinterlassen.
 
 Zwei Zusagen sind wichtiger als alle anderen und stehen deshalb als eigene
 Tests da. **Beim ersten Fehler ist Schluss** - weiterzulaufen hiesse, auf einem
-halben Stand aufzubauen und Erfolg zu melden. Und **das Gesamtmanifest nennt
+halben Stand aufzubauen und Erfolg zu melden. Fuer die Ingestion heisst das seit
+dem 12.11.2026: Die Quellen laden alle und werden nachgefasst, abgeleitet wird
+aber erst, wenn jede da ist. Und **das Gesamtmanifest nennt
 jeden Eingabelauf** - bei Quellen, die sich staendig aendern, ist das die
 Frage, die zaehlt.
 """
@@ -19,6 +21,14 @@ from pathlib import Path
 import pytest
 
 import run_all as ra
+
+
+@pytest.fixture(autouse=True)
+def ohne_pause(monkeypatch):
+    """Das Nachfassen wartet sonst eine halbe und eine ganze Stunde."""
+    pausen: list[float] = []
+    monkeypatch.setattr(ra, "_schlafen", pausen.append)
+    return pausen
 
 
 def manifest_schreiben(pfad: Path, **felder) -> None:
@@ -108,6 +118,99 @@ def test_beim_ersten_fehler_ist_schluss(tmp_path, monkeypatch):
     assert protokoll[-1]["exit"] == 3
     gelaufen = spur.read_text(encoding="utf-8").split()
     assert "drei" not in gelaufen
+
+
+def wackelnde_stufe(tmp_path: Path, name: str, fehlversuche: int, spur: Path):
+    """Eine Ingestion-Stufe, die die ersten ``fehlversuche`` Male scheitert."""
+    zaehler = tmp_path / f"{name}.zaehler"
+    skript = tmp_path / f"{name}.py"
+    skript.write_text("\n".join([
+        "import sys, pathlib",
+        f"z = pathlib.Path({str(zaehler)!r})",
+        "n = int(z.read_text()) + 1 if z.exists() else 1",
+        "z.write_text(str(n))",
+        f"open({str(spur)!r}, 'a').write({name!r} + '\\n')",
+        f"sys.exit(1 if n <= {fehlversuche} else 0)",
+    ]), encoding="utf-8")
+    return ra.Stufe("ingestion", name, name)
+
+
+def test_ein_aussetzer_einer_quelle_haelt_die_anderen_nicht_auf(
+        tmp_path, monkeypatch, ohne_pause):
+    """9.11.2026: Socrata schwieg, und Detroit, Census und Wetter luden gar nicht erst."""
+    spur = tmp_path / "spur.txt"
+    stufen = [wackelnde_stufe(tmp_path, "chicago", 1, spur),
+              wackelnde_stufe(tmp_path, "detroit", 0, spur),
+              wackelnde_stufe(tmp_path, "noaa", 0, spur)]
+    monkeypatch.syspath_prepend(str(tmp_path))
+    protokoll = ra.lade(stufen, tmp_path)
+
+    assert spur.read_text().split() == ["chicago", "detroit", "noaa", "chicago"]
+    assert [(p["name"], p["exit"], p["versuche"]) for p in protokoll] == [
+        ("chicago", 0, 2), ("detroit", 0, 1), ("noaa", 0, 1)]
+    assert ohne_pause == [30 * 60]
+
+
+def test_nach_dem_letzten_versuch_bleibt_die_quelle_rot(tmp_path, monkeypatch, ohne_pause):
+    spur = tmp_path / "spur.txt"
+    stufen = [wackelnde_stufe(tmp_path, "chicago", 9, spur),
+              wackelnde_stufe(tmp_path, "detroit", 0, spur)]
+    monkeypatch.syspath_prepend(str(tmp_path))
+    protokoll = ra.lade(stufen, tmp_path)
+
+    assert spur.read_text().split().count("chicago") == 3
+    assert spur.read_text().split().count("detroit") == 1
+    assert [(p["exit"], p["versuche"]) for p in protokoll] == [(1, 3), (0, 1)]
+    assert ohne_pause == [30 * 60, 60 * 60], "die Pause waechst"
+
+
+def test_ohne_pausen_gibt_es_keinen_zweiten_versuch(tmp_path, monkeypatch, ohne_pause):
+    spur = tmp_path / "spur.txt"
+    stufen = [wackelnde_stufe(tmp_path, "chicago", 1, spur)]
+    monkeypatch.syspath_prepend(str(tmp_path))
+    protokoll = ra.lade(stufen, tmp_path, nachfassen=())
+    assert protokoll[0]["exit"] == 1 and protokoll[0]["versuche"] == 1
+    assert ohne_pause == []
+
+
+def test_ohne_fehler_wird_nicht_gewartet(tmp_path, monkeypatch, ohne_pause):
+    spur = tmp_path / "spur.txt"
+    monkeypatch.syspath_prepend(str(tmp_path))
+    ra.lade([wackelnde_stufe(tmp_path, "detroit", 0, spur)], tmp_path)
+    assert ohne_pause == []
+
+
+def test_abgeleitet_wird_erst_wenn_jede_quelle_da_ist(tmp_path, monkeypatch):
+    """Das Nachfassen aendert nichts an der Zusage: kein Silver auf einem halben Stand."""
+    spur = tmp_path / "spur.txt"
+    stufen = [wackelnde_stufe(tmp_path, "chicago", 9, spur),
+              wackelnde_stufe(tmp_path, "detroit", 0, spur),
+              falsche_stufe(tmp_path, "silver", 0, spur)]
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(ra, "auswahl", lambda *_a, **_k: stufen)
+    manifest = ra.lauf(tmp_path / "data", tmp_path)
+
+    assert manifest["status"] == "failed"
+    assert "silver" not in spur.read_text().split()
+    assert [s["name"] for s in manifest["stages"]] == ["chicago", "detroit"]
+
+
+def test_nach_gelungenem_nachfassen_wird_abgeleitet(tmp_path, monkeypatch):
+    spur = tmp_path / "spur.txt"
+    bronze(tmp_path / "data", "city=chicago", "run_A")
+    stufen = [wackelnde_stufe(tmp_path, "chicago", 2, spur),
+              falsche_stufe(tmp_path, "silver", 0, spur)]
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(ra, "auswahl", lambda *_a, **_k: stufen)
+    manifest = ra.lauf(tmp_path / "data", tmp_path, release=False)
+
+    assert manifest["status"] == "complete"
+    assert spur.read_text().split() == ["chicago"] * 3 + ["silver"]
+    assert manifest["stages"][0]["versuche"] == 3
+
+
+def test_die_vorgabe_ueberbrueckt_anderthalb_stunden():
+    assert ra.NACHFASSEN_MINUTEN == (30, 60)
 
 
 def test_ein_ganzer_lauf_schreibt_sein_manifest(tmp_path, monkeypatch):
