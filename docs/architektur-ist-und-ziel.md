@@ -31,12 +31,12 @@ Die Strecke führt zwei unvergleichbare Quellen in eine vergleichbare Tabelle
 
 | Schicht | Aufgabe | Was sie ausdrücklich **nicht** tut | Grösse |
 | --- | --- | --- | ---: |
-| **raw** | die Antwort der Quelle, Byte für Byte, mit SHA-256 | nichts deuten, nichts umformen | 358,4 MB |
-| **bronze** | Parquet mit gepinntem Schema, Originaltypen | nichts deuten; Unerwartetes nach `_extra` statt in den Papierkorb | 422,9 MB |
-| **silver** | deuten: Typen, Einheiten, Zeitzonen, NIBRS, Raum | nichts wegwerfen — Lücken werden gekennzeichnet, nicht gefiltert | 213,6 MB |
-| **gold** | Sternschema, eine Zeile je **Tat** | nicht aggregieren | 85,7 MB |
-| **serving** | abfragbar machen: Sichten, fünf Vergleichstabellen, Karte | nicht der Bestand sein | 1,3 MB |
-| **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 1'116,3 MB |
+| **raw** | die Antwort der Quelle, Byte für Byte, mit SHA-256 | nichts deuten, nichts umformen | 554,7 MB |
+| **bronze** | Parquet mit gepinntem Schema, Originaltypen | nichts deuten; Unerwartetes nach `_extra` statt in den Papierkorb | 614,8 MB |
+| **silver** | deuten: Typen, Einheiten, Zeitzonen, NIBRS, Raum | nichts wegwerfen — Lücken werden gekennzeichnet, nicht gefiltert | 216,0 MB |
+| **gold** | Sternschema, eine Zeile je **Tat** | nicht aggregieren | 87,3 MB |
+| **serving** | abfragbar machen: Sichten, fünf Vergleichstabellen, Karte | nicht der Bestand sein | 2,7 MB |
+| **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 1'303,9 MB |
 
 Die Grössen sind **gemessen, nicht geschätzt** — `python -m
 orchestration.platzbedarf` liest sie über `storage` aus den Schichten, und
@@ -53,24 +53,24 @@ Die beiden Zeilenzahlen sind der **Bestand** über alle sechs Jahrgänge, die
 beiden Raten darunter gelten für den **Jahrgang 2024**. Das ist kein
 Versehen, sondern der Unterschied zwischen „was liegt hier?" und „wie hoch ist
 die Rate?": Ein Zähler über sechs Jahre auf einem Nenner von einem ergibt
-500,7 je 1'000 — eine Zahl, die aussieht wie eine Zahl.
+509,7 je 1'000 — eine Zahl, die aussieht wie eine Zahl.
 
 | | |
 | --- | ---: |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
-| `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
-| Chicago | 251'513 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 84'987 Delikte · 638'635 Einwohner · **133,1** je 1'000 |
+| `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
+| Chicago | 251'512 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
+| Detroit | 85'557 Delikte · 638'635 Einwohner · **134,0** je 1'000 |
 
 **Warum raw und bronze getrennt sind.** Raw ist das Beweisstück: Ein Delta-Lauf
 hält Datensätze so fest, wie sie in diesem Moment waren, und das lässt sich
 später nicht rekonstruieren. Bronze ist daraus abgeleitet und jederzeit neu
-erzeugbar. Diese Trennung kostet 358,4 MB und ist der Grund, warum sich jede Zahl
+erzeugbar. Diese Trennung kostet 554,7 MB und ist der Grund, warum sich jede Zahl
 bis zur gzip-Datei zurückverfolgen lässt.
 
 **Warum Gold nicht aggregiert.** Notebook 34 hat beide Bauweisen gebaut und
-gemessen: Bei 1'851'946 Zeilen liegt jede realistische Frage direkt auf dem Stern
+gemessen: Bei 1'887'009 Zeilen liegt jede realistische Frage direkt auf dem Stern
 im einstelligen Millisekundenbereich. Ein vorberechneter Würfel spart nichts,
 was ein Mensch bemerkt, und kostet drei Fragen, die er nicht mehr beantwortet.
 Die Entscheidung ist ein **Messergebnis**, keine Stilfrage.
@@ -520,7 +520,7 @@ DuckDB-Sichten.
 Release entsteht — es braucht also einen Neuaufbau je Release und eine sichtbare
 Angabe, welchen Stand der Index zeigt. Dazu Speicher: Elasticsearch braucht
 für 1,85 Mio Dokumente mit Geo- und Textfeldern erfahrungsgemäss ein Mehrfaches
-der 85,7 MB Parquet.
+der 87,3 MB Parquet.
 
 **Entschieden am 1.11.2026:** Die Aggregationen kommen nicht aus
 Elasticsearch. Das eigene Dashboard (`serving.dashboard`) liest das aktive
@@ -610,7 +610,7 @@ Die Ingestion ist der Teil, der bei mehr Städten zuerst bricht, und es ist
 
 | Achse | heute | was passiert bei zehn Städten |
 | --- | --- | --- |
-| Zeilen | 1'875'374 | rund 9,4 Mio — DuckDB rechnet das weiterhin interaktiv |
+| Zeilen | 1'909'461 | rund 9,4 Mio — DuckDB rechnet das weiterhin interaktiv |
 | Laufzeit Ingestion | Detroit 7 s im Delta, 100 s beim ersten vollen Lauf | linear, aber **seriell**: zehn Städte nacheinander |
 | Code je Quelle | zwei Pipelines mit je eigener Logik | zehn Pipelines, zehnmal derselbe Fehler |
 
@@ -649,8 +649,9 @@ entschieden:
 
 1. ~~**Ob Elasticsearch die Aggregationen übernimmt**~~ — entschieden am
    1.11.2026: nein, das eigene Dashboard rechnet sie aus dem Release (B.4).
-2. **Wann der Referenzstand nachgezogen wird.** Seit dem 17.9.2026 steht der
-   gebaute Stand vor dem dokumentierten; die Drift ist gemessen und in
+2. ~~**Wann der Referenzstand nachgezogen wird.**~~ — entschieden am
+   12.11.2026: nachgezogen, sobald die Drift die Toleranz überschreitet (E-1).
+   Der Stand vom 10.11.2026 ist es; die Drift davor ist in
    [`datenhistorie.md`](intern/datenhistorie.md) 8 festgehalten.
 
 Ein dritter Punkt stand bis zum 9.10.2026 hier: **wie die Prüfenden Zugang
@@ -663,8 +664,8 @@ abgelaufen.
 
 ---
 
-**Zu den Zahlen.** Teil A nennt den **Referenzstand** — den Bau vom 4.10.2026,
-16:50 UTC über die Jahrgänge 2021–2026 (Release `2026-10-04T16-50-47Z`), auf
+**Zu den Zahlen.** Teil A nennt den **Referenzstand** — den Volllauf vom
+10.11.2026 über die Jahrgänge 2021–2026 (Release `2026-11-10T13-47-23Z`), auf
 den sich alle Abgabedokumente beziehen und den 111 Wächter mit dem Marker
 `referenzstand` gegen die Parquet-Dateien halten. Wie weit ein frischer Lauf
 davon abweicht, weist `orchestration.drift` je Grösse aus; die Zahlen der

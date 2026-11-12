@@ -154,14 +154,17 @@ Welche Felder sich geändert haben:
 Durchweg vom spezifischen zum allgemeinen Code. Das ist keine Korrektur
 einzelner Tippfehler, das sieht nach einer Regel aus.
 
-`3072` ist dabei kein beliebiger Code. Er trägt **7'076 Anklagen** in
-`silver/crime_offense` und davon **6'860 zählende Taten** in
+`3072` ist dabei kein beliebiger Code. Er trägt **6'730 Anklagen** in
+`silver/crime_offense` und davon **6'526 zählende Taten** in
 `gold/fact_offense` — alle mit `mapping_status = ambiguous`. Eine Umcodierung
 dort verschiebt die NIBRS-Zuordnung und damit die Vergleichszahl.
 
 > **Diese zwei Zahlen messen den heutigen Bestand**, nicht die beiden
 > Schnappschüsse oben. Sie standen bis zum 4.10.2026 bei 1'404 und 1'365 und
-> sind mit dem Mehrjahresbau (2021–2026) mitgewachsen; die Messung in
+> sind mit dem Mehrjahresbau (2021–2026) mitgewachsen, auf 7'076 und 6'860.
+> Am Referenzstand vom 10.11.2026 sind es **weniger** — Detroit hat seither
+> weitere `3072`-Einträge umcodiert, genau die Bewegung, von der dieser
+> Abschnitt handelt. Die Messung in
 > Abschnitt 1 und 2 bleibt dagegen die des Paars vom 11./12.9.2026 und soll es
 > bleiben — sie ist der Vergleichspunkt, um den es in diesem Papier geht.
 

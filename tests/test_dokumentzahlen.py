@@ -94,6 +94,11 @@ SCHUTZ = (
     # laufende Jahrgang waechst taeglich - Detroit 2026 um 240 Zeilen. Waeren
     # sie gleich, waere eine der beiden abgeschrieben.
     "Zeilen × ",
+    # Zwei Zahlen, die serving/source_movement (79'801 am 10.11.2026) nur
+    # aehnlich sehen: Detroits Fallzahl 2024 im Kopf von AENDERUNGEN.md
+    # (79'614, 0,23 % daneben) und das LN1-Zitat zur Nachrechnung der
+    # Raumzuordnung (79'874 vergleichbare Zeilen), das woertlich bleiben muss.
+    "Fallebene (`counts_case`)", "vergleichbare Zeilen",
 )
 
 # datenhistorie.md *ist* der Verlauf; archiv/ haelt Ueberholtes absichtlich.

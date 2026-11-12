@@ -7,7 +7,7 @@ Weg kommt **jede wesentliche Entscheidung dieses Projekts genau einmal vor**.
 Die Zahl ist die Rate **für den Jahrgang 2024**, und das ist keine Fussnote:
 Seit dem 4.10.2026 liegen sechs Jahrgänge (2021–2026) in derselben
 Faktentabelle. Wer sie alle zählt und durch die Einwohner eines Jahres teilt,
-erhält 500,7 — eine Zahl, die nicht zu hoch ist, sondern nichts bedeutet.
+erhält 509,7 — eine Zahl, die nicht zu hoch ist, sondern nichts bedeutet.
 Jede Zahl auf den Stufen 0 bis 4 ist deshalb auf 2024 eingegrenzt; die Stufen
 5 bis 7 verfolgen die Herkunft der ganzen Tabelle.
 
@@ -22,7 +22,7 @@ wisst ihr das?*
 
 ## Stufe 0 · Die Zahl
 
-> **Jahrgang 2024 — Chicago: 94,5 Delikte je 1'000 Einwohner. Detroit: 133,1.**
+> **Jahrgang 2024 — Chicago: 94,5 Delikte je 1'000 Einwohner. Detroit: 134,0.**
 
 Das ist der Satz, der auf eine Folie kommt. Absolute Zahlen legen das
 Gegenteil nahe — Chicago meldet dreimal so viele Delikte wie Detroit. Erst der
@@ -31,7 +31,7 @@ Nenner dreht das Bild.
 ## Stufe 1 · Die Rechnung
 
 ```text
-251'513 Delikte  /  2'661'953 Einwohner  ×  1000  =  94,48
+251'512 Delikte  /  2'661'953 Einwohner  ×  1000  =  94,48
 ```
 
 Zwei Fragen stecken darin, und beide sind Entscheidungen: **Welche Einwohner?**
@@ -64,16 +64,16 @@ nennt. Für 2021 wären es 2'693'319, und mit ihnen eine andere Rate.
 
 ## Stufe 3 · Der Zähler — welche Delikte zählen mit?
 
-Chicago meldet **259'646** Delikte im Jahrgang 2024. In die Rate gehen
-**251'513**. Der Unterschied ist vollständig erklärt:
+Chicago meldet **259'686** Delikte im Jahrgang 2024. In die Rate gehen
+**251'512**. Der Unterschied ist vollständig erklärt:
 
 | `geo_status` | Delikte | was es bedeutet |
 | --- | ---: | --- |
-| `inside_city` | 251'513 | zählt |
+| `inside_city` | 251'512 | zählt |
 | `outside_city` | 6'010 | liegt in einem Tract, der nicht zu Chicago gehört |
-| `missing_coordinate` | 2'122 | die Stadt hat keine Koordinate geliefert |
+| `missing_coordinate` | 2'163 | die Stadt hat keine Koordinate geliefert |
 | `no_tract` | 1 | Koordinate in keinem Tract |
-| **Summe** | **259'646** | |
+| **Summe** | **259'686** | |
 
 Die Summe geht **exakt** auf. Das ist der Zweck der Spalte: Was fehlt, wird
 gezählt und benannt, nicht stillschweigend weggelassen.
@@ -84,24 +84,24 @@ steht je Zeile:
 
 | `mapping_status` | Zeilen | |
 | --- | ---: | --- |
-| `exact` | 248'206 | ein amtliches Dokument belegt die Zuordnung |
-| `fallback_90Z` | 7'718 | Auffangcode, weil keine Kategorie passt |
-| `ambiguous` | 3'719 | mehrere wären vertretbar, wir haben entschieden |
+| `exact` | 248'243 | ein amtliches Dokument belegt die Zuordnung |
+| `fallback_90Z` | 7'719 | Auffangcode, weil keine Kategorie passt |
+| `ambiguous` | 3'721 | mehrere wären vertretbar, wir haben entschieden |
 | `unmapped` | 3 | |
 
 ## Stufe 4 · Gold ← Silver: welche Zeile zählt?
 
 `gold/fact_offense` nimmt aus `silver/crime_offense` nur die Zeilen mit
-`counts`. Für Chicago sind das im Jahrgang 2024 alle **259'646** — eine
-Chicagoer Zeile ist bereits ein Delikt. Für Detroit sind es 85'674 von 88'688
+`counts`. Für Chicago sind das im Jahrgang 2024 alle **259'686** — eine
+Chicagoer Zeile ist bereits ein Delikt. Für Detroit sind es 86'236 von 88'704
 Zeilen: Detroit führt je Delikt einer Anzeige eine Zeile, und Nebendelikte
 zählen nach der Hierarchieregel nicht mit.
 
-Auf **Fallebene** bleiben in Chicago 259'616 Zeilen, also 30 weniger. Die
+Auf **Fallebene** bleiben in Chicago 259'656 Zeilen, also 30 weniger. Die
 Differenz sind Mordfälle: Chicago führt je **Opfer** einen Datensatz. **25
 Chicagoer Fälle** haben mehr als eine Zeile, und es sind ausnahmslos diese.
 
-In Detroit ist der Abstand grösser: 85'674 Delikte gehören zu 80'232 Fällen.
+In Detroit ist der Abstand grösser: 86'236 Delikte gehören zu 80'248 Fällen.
 Dieselbe Regel, zwei verschiedene Erfassungspraxen — genau deshalb steht sie
 für beide Städte im Code und nicht als Chicago-Sonderfall.
 
@@ -110,31 +110,35 @@ Welche Granularität man wählt, verschiebt beide Städte — und Detroit stärk
 | | Tatebene | Fallebene |
 | --- | ---: | ---: |
 | Chicago | **94,5** | 94,5 |
-| Detroit | **133,1** | 124,6 |
+| Detroit | **134,0** | 124,7 |
 
 ## Stufe 5 · Silver ← Bronze: die Herkunftskette
 
 Das Gold-Manifest sagt nicht nur *woher*, sondern *welcher Stand*:
 
 ```text
-gold/fact_offense          Vertrag 7, gebaut 2026-10-04T16:50:45
-└── silver/crime_offense    Eingabeabdruck b1de2046e67ba45b…
-    ├── Chicago Bronze     run_20260905T174633859259Z   Vollschnappschuss
-    │                      run_20260905T175700006411Z   Delta
-    │                      run_20260906T090714439584Z   Delta
-    │                      … 11 weitere Läufe, bis 2026-10-04
-    ├── Detroit Bronze     1cca323d-…  1d879a0e-…  … 12 weitere
+gold/fact_offense          Vertrag 8, Eingabeabdruck 9fd415fc26d14f70…
+└── silver/crime_offense    Eingabeabdruck b90a1fe43e3706df…
+    ├── Chicago Bronze     run_20261110T125951603079Z   Vollschnappschuss 2021
+    │                      run_20261110T130257815163Z   Vollschnappschuss 2022
+    │                      run_20261110T130535147853Z   Vollschnappschuss 2023
+    │                      run_20261110T131057453169Z   Vollschnappschuss 2024
+    │                      … 2 weitere, 2025 und 2026
+    ├── Detroit Bronze     bca68e85-…  73a0467b-…  … 4 weitere
     ├── silver/tract       Eingabeabdruck 215d02b2753944d9…
     │   ├── TIGER          run_20260906T121504814962Z   (FIPS 17 und 26)
     │   └── ACS 5-Jahre    run_20260906T121507392858Z   (FIPS 17 und 26)
     └── Crosswalks         iucr_nibrs_mapping.csv       sha256 ed361200…
                            micr_nibrs_mapping.csv       sha256 35b292ac…
                            nibrs_offense_codes_2025.csv sha256 6f650716…
+                           mapping_overrides.csv        sha256 f64d574c…
 ```
 
-Die Läufe je Stadt sind **14**, seit der Mehrjahresbau für jeden Jahrgang
-einen eigenen zieht; das Diagramm nennt die ersten und zählt die übrigen.
-Oben stehen die, die im Referenzstand gepinnt sind.
+Die Läufe je Stadt sind **6**: je Jahrgang der Vollschnappschuss vom
+10.11.2026, und danach noch kein Delta. Das Diagramm nennt die ersten und
+zählt die übrigen. Derselbe Silver-Abdruck steht im Release
+`2026-11-10T13-47-23Z` auf `srv01` — lokal und auf dem Server ist es
+derselbe Stand.
 
 Ein Pfad wäre hier zu wenig: Er zeigt auf das, was gerade dort liegt. Der
 Abdruck sagt, **auf welchen Eingaben** der Stand ruht. Und die Kette hängt
@@ -142,30 +146,35 @@ nicht nur am Zähler — der Nenner hat seine eigene, und die Crosswalks hängen
 mit ihrer Prüfsumme daran, weil eine geänderte Zuordnungstabelle die Zahlen
 genauso verschiebt wie neue Daten.
 
-Alle im Diagramm **genannten** Läufe sind in `config/referenzstand.csv`
-gepinnt und überleben jedes Aufräumen. Die ungenannten der Mehrjahresläufe
-sind es nicht: Sie sind reproduzierbar, weil `silver/crime_offense` seinen
-Eingabeabdruck trägt, und ein Pin ist eine Zusage, die man nur geben soll,
-wenn man sie halten will.
+Alle zwölf Kriminalitätsläufe dieses Stands sind in
+`config/referenzstand.csv` als `LN2` gepinnt und überleben jedes Aufräumen,
+ebenso die Census- und Wetterläufe dahinter — 19 Läufe zusammen. Die Läufe des LN1-Stands bleiben daneben
+gepinnt: Ein Pin ist eine Zusage, die man nur geben soll, wenn man sie halten
+will — und die abgegebene LN1-Fassung beruft sich auf sie.
 
 ## Stufe 6 · Bronze ← die Quelle
 
-Der Vollschnappschuss vom 5. September, 17:46 bis 17:48 Uhr:
+Der Vollschnappschuss des Jahrgangs 2024 vom 10. November, 13:10 bis
+13:13 Uhr UTC:
 
 ```text
-run_20260905T174633859259Z    mode = full_snapshot    259'272 Zeilen
+run_20261110T131057453169Z    mode = full_snapshot    259'686 Zeilen
 
 Vollständigkeit   verified = true
-                  Zählung vorher    259'272
-                  Zählung nachher   259'272
-                  geladen           259'272
+                  Zählung vorher    259'686
+                  Zählung nachher   259'686
+                  geladen           259'686
                   Quelle hat sich während des Laufs nicht geändert
-                  sha256 über die id-Menge   fe784284…
+                  sha256 über die id-Menge   8daf7587…
 
 Quellschema       22 Felder, Abdruck a79ce54c…
 Abfrage           …/resource/ijzp-q8t2.json?$where=date >= '2024-01-01…'
-Wasserzeichen     updated_on, höchster gesehener Wert 2026-09-04T15:42:19
+Wasserzeichen     updated_on, höchster gesehener Wert 2026-11-09T15:54:27
 ```
+
+Der Schemaabdruck ist derselbe wie beim LN1-Stand vom 5.9.2026: Die Stadt hat
+in zwei Monaten kein Feld geändert. Gewachsen ist der Jahrgang trotzdem, von
+259'272 auf 259'686 Zeilen — Meldungen zu 2024, die erst 2026 kamen.
 
 **Vollständigkeit wird nicht behauptet, sondern nachgewiesen.** Vor dem
 Download wird die Menge der `id` festgeschrieben und gehasht, geladen wird per
@@ -176,12 +185,12 @@ Der Schemaabdruck macht sichtbar, wenn die Stadt ein Feld ändert.
 
 ## Stufe 7 · Raw — das Beweisstück
 
-**26 Antworten, zusammen rund 17 MB**, Byte für Byte wie geliefert,
+**26 Antworten, zusammen rund 17,6 MB**, Byte für Byte wie geliefert,
 gzip-komprimiert:
 
 ```text
-data/raw/city=chicago/ingest_date=2026-09-05/run_20260905T174633859259Z/
-├── page-0001.json.gz        674'419 Bytes   sha256 da5accf2…
+data/raw/city=chicago/ingest_date=2026-11-10/run_20261110T131057453169Z/
+├── page-0001.json.gz        674'542 Bytes   sha256 2120afae…
 ├── …
 ├── page-0026.json.gz
 └── manifest.json

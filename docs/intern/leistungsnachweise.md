@@ -27,7 +27,7 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 | **Ingestion: Quellen, Beschaffung** | ● fertig | fünf Quellen, je ein Quellnotebook |
 | **Storage: Evaluation, Wahl, Implementierung** | ● fertig | gemessen in Notebook 31 (NDJSON gegen Parquet), verschriftlicht in [`ln2_konzept.md`](../ln2_konzept.md) Kapitel 7 |
 | **Transformation 1: Analyse, Hypothesentest** | ◐ Qualität beider Städte fertig | der eigentliche Hypothesentest → Abschnitt 5 |
-| **Initiale Datenbereinigung** | ● fertig | vier Silver-Tabellen, `crime_offense` mit 1'875'374 Zeilen über 2021–2026 |
+| **Initiale Datenbereinigung** | ● fertig | vier Silver-Tabellen, `crime_offense` mit 1'909'461 Zeilen über 2021–2026 |
 | **Beantwortung der Forschungsfragen** | ○ | folgt aus allem davor |
 
 ● fertig ◐ teilweise ○ offen
@@ -590,9 +590,9 @@ Kategorie. Das ist der Grund, weshalb der Entscheid nicht warten kann.
 | 5 | Storage-Evaluation verschriftlichen | Abschnitt 4 als Präsentationsteil | | |
 | 6 | ~~Datenqualität Detroit~~ | erledigt am 12.9.2026: Notebook 13 | Christian | ✓ |
 | 7 | ~~Detroit-Bronze angleichen~~ | erledigt am 12.9.2026: Raw-Schicht und `city=`-Partition wie Chicago | Christian | ✓ |
-| 8 | ~~Silver: Dedup, Typen, räumlicher Join~~ | erledigt: `silver/crime_offense`, 1'875'374 Zeilen | Christian | ✓ |
+| 8 | ~~Silver: Dedup, Typen, räumlicher Join~~ | erledigt: `silver/crime_offense`, 1'909'461 Zeilen | Christian | ✓ |
 | 9 | ~~NIBRS-Harmonisierung über beide Städte~~ | erledigt: beide Crosswalks angewandt, H3 dabei teilweise falsifiziert | Christian | ✓ |
-| 10 | ~~Gold: Raten je Tract~~ | erledigt: Sternschema, Chicago 94,5 / Detroit 133,1 je 1'000 (Jahrgang 2024) | Christian | ✓ |
+| 10 | ~~Gold: Raten je Tract~~ | erledigt: Sternschema, Chicago 94,5 / Detroit 134,0 je 1'000 (Jahrgang 2024) | Christian | ✓ |
 | 11 | Hypothesentest H1–H4 | Notebook mit Ergebnissen | | |
 | 12 | Präsentation | Abgabe | beide | |
 

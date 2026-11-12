@@ -47,9 +47,12 @@ FAKTEN = (f"(SELECT * FROM read_parquet('{GOLD}') "
 #: Dasselbe fuer Silver - dort heisst die Ortszeitachse ``occurred_date_local``.
 SILBER = (f"(SELECT * FROM read_parquet('{SILVER}') "
           f"WHERE year(occurred_date_local) = {RATENJAHR})")
-LAUF = "run_20260905T174633859259Z"
-BRONZE = DATA / "bronze" / "city=chicago" / "ingest_date=2026-09-05" / LAUF
-RAW = DATA / "raw" / "city=chicago" / "ingest_date=2026-09-05" / LAUF
+# Der Chicagoer Vollschnappschuss des Jahrgangs 2024 im Referenzstand. Bis zum
+# 12.11.2026 war es der LN1-Lauf vom 5.9.2026 (run_20260905T174633859259Z);
+# beide sind in config/referenzstand.csv gepinnt.
+LAUF = "run_20261110T131057453169Z"
+BRONZE = DATA / "bronze" / "city=chicago" / "ingest_date=2026-11-10" / LAUF
+RAW = DATA / "raw" / "city=chicago" / "ingest_date=2026-11-10" / LAUF
 
 pytestmark = pytest.mark.referenzstand
 

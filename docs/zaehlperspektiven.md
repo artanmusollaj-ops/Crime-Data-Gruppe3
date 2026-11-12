@@ -10,7 +10,7 @@ die Prüfungen der Strecke *nicht* beweisen; das gehört dazu, sonst liest sich
 eine geprüfte Zahl wie eine bewiesene.
 
 > **Zeitraum.** Alle Zahlen hier gelten für den gebauten Bestand: die
-> **sechs Jahrgänge 2021 bis 2026**, Stand 4.10.2026. 2026 ist ein Teiljahr.
+> **sechs Jahrgänge 2021 bis 2026**, Stand 10.11.2026. 2026 ist ein Teiljahr.
 > Das ist für dieses Dokument unschädlich — es vergleicht vier Zählweisen auf
 > demselben Bestand, nicht Jahre miteinander. Wo eine Zahl pro Zeitraum
 > gelesen werden muss, etwa eine Rate je 1'000 Einwohner, nennt das Dokument
@@ -31,18 +31,18 @@ eine geprüfte Zahl wie eine bewiesene.
 
 | | Chicago | Detroit | was eine Zeile ist |
 | --- | ---: | ---: | --- |
-| **Anklagen** — alle Silver-Zeilen | 1'383'649 | 491'725 | eine Anklage |
-| **Taten** — `counts` | 1'383'649 | 468'297 | eine Tat |
-| **Fälle** — `counts_case` | 1'383'471 | 443'443 | ein Fall, sein schwerstes Delikt |
-| **Vorfälle** — `count(DISTINCT event_id)` | 1'383'471 | 443'443 | ein Vorfall |
+| **Anklagen** — alle Silver-Zeilen | 1'408'315 | 501'146 | eine Anklage |
+| **Taten** — `counts` | 1'408'315 | 478'694 | eine Tat |
+| **Fälle** — `counts_case` | 1'408'135 | 451'790 | ein Fall, sein schwerstes Delikt |
+| **Vorfälle** — `count(DISTINCT event_id)` | 1'408'135 | 451'790 | ein Vorfall |
 
-`gold/fact_offense` ist die zweite Zeile: **1'851'946 Taten**. Gold nimmt nur,
+`gold/fact_offense` ist die zweite Zeile: **1'887'009 Taten**. Gold nimmt nur,
 was `counts` trägt.
 
 **Chicago fällt zwischen den ersten beiden Zeilen nicht auseinander**, weil die
 Quelle bereits eine Zeile je Delikt liefert. Detroit liefert Anklagen: ein
 Vorfall mit einer Tat kann drei Anklagen tragen. Ohne die Auswahl über `counts`
-zählte Detroit **5,0 % zu hoch** — und zwar nicht gleichmässig über die
+zählte Detroit **4,7 % zu hoch** — und zwar nicht gleichmässig über die
 Kategorien, sondern dort am stärksten, wo die Staatsanwaltschaft breit anklagt.
 
 Der Unterschied zwischen Taten und Fällen ist ein anderer: Er ist keine
@@ -56,8 +56,8 @@ statt dass eine gewinnt.
 Chicago erfasst je Fall nur das **schwerste** Delikt, Detroit **jedes** —
 `counts_reason` sagt es je Zeile (`eine_zeile_ist_ein_delikt` gegen
 `schwerste_anklage` und `weitere_anklage_zur_selben_tat`). Das sieht man daran,
-was die Hierarchieregel übrig lässt: Sie verwirft in Chicago **178** Taten
-(0,013 %), in Detroit **24'854** (5,3 %) — Faktor 400. Chicagos Tatzahl *ist*
+was die Hierarchieregel übrig lässt: Sie verwirft in Chicago **180** Taten
+(0,013 %), in Detroit **26'904** (5,6 %) — Faktor 440. Chicagos Tatzahl *ist*
 also schon fast seine Fallzahl, Detroits nicht.
 
 Wer die beiden Städte auf der Tatebene vergleicht, stellt damit Detroits
@@ -83,8 +83,8 @@ das Ergebnis, erscheint dieser Vorfall zweimal.
 
 | | Vorfälle | davon in mehr als einer Familie | je Familie summiert |
 | --- | ---: | ---: | ---: |
-| Chicago | 1'383'471 | 0 (0,0 %) | 1'383'471 — passt |
-| Detroit | 443'443 | 19'950 (4,5 %) | 465'197 — **21'754 zu viel (4,9 %)** |
+| Chicago | 1'408'135 | 0 (0,0 %) | 1'408'135 — passt |
+| Detroit | 451'790 | 21'617 (4,8 %) | 475'366 — **23'576 zu viel (5,2 %)** |
 
 Chicagos Null ist keine bessere Datenlage, sondern dieselbe
 Granularitäts-Eigenheit wie oben: Ein Chicagoer „Vorfall" ist fast immer ein
@@ -105,10 +105,10 @@ oder einen Neujahrstag, erscheint er auch in zwei Monaten.
 
 | | Tage summiert | Monate summiert | Bestand direkt |
 | --- | ---: | ---: | ---: |
-| Chicago | 1'383'498 | 1'383'480 | 1'383'471 |
-| Detroit | 443'456 | 443'446 | 443'443 |
+| Chicago | 1'408'164 | 1'408'145 | 1'408'135 |
+| Detroit | 451'803 | 451'793 | 451'790 |
 
-Für Chicago sind das **27 bei Tagen** und **9 bei Monaten**, für Detroit
+Für Chicago sind das **29 bei Tagen** und **10 bei Monaten**, für Detroit
 **13 bei Tagen** und **3 bei Monaten**. Gröber gruppieren macht den Fehler
 kleiner, aber nicht null — und das ist der Punkt: Er fällt bei keiner
 Plausibilitätsprüfung auf und verschwindet auch nicht, wenn man ihn ignoriert.
@@ -142,15 +142,18 @@ nicht, dass sie null sein muss.
 Wochen beginnen am Montag, das Fenster beginnt am 1. Januar 2021 und endet am
 Tag des Ladens. Keines von beidem passt zusammen, und die Ränder fallen
 deshalb ein — aus **zwei verschiedenen Gründen**.
-Eine mittlere Woche trägt 6'248 Taten (Median der Wochen dazwischen).
+Eine mittlere Woche trägt 6'246 Taten (Median der Wochen dazwischen).
 
 * Die **erste Woche** (ab Montag, 28.12.2020) enthält nur **3 Tage** aus den
-  Daten, denn der 1.1.2021 ist ein Freitag: 2'460 Taten. Hier fehlen Tage.
-* Die **letzte Woche** (ab Montag, 28.9.2026) hat alle sieben Kalendertage und
-  trägt doch nur: 1'148 Taten — gut ein Sechstel. Hier fehlen keine Tage, sondern
-  **Meldungen**: Der Ladetag war der 4.10.2026, und eine Tat erscheint in
-  beiden Quellen erst Tage nach dem Ereignis. Am 4.10. stehen fünf Taten, am
-  3.10. hundertvierundfünfzig, am 25.9. achthundertneunundachtzig.
+  Daten, denn der 1.1.2021 ist ein Freitag: 2'468 Taten. Hier fehlen Tage.
+* Die **letzte Woche** (ab Montag, 9.11.2026) endet am Ladetag, Dienstag,
+  10.11.2026, und hat damit nur **2 Tage**: 151 Taten. Auch hier fehlen Tage —
+  aber nicht nur.
+* Die **letzte volle Woche** (ab Montag, 2.11.2026) hat alle sieben
+  Kalendertage und trägt doch nur: 1'417 Taten — kaum ein Viertel. Hier fehlen
+  keine Tage, sondern **Meldungen**: Eine Tat erscheint in beiden Quellen erst
+  Tage nach dem Ereignis. Am 10.11. stehen vier Taten, am 9.11.
+  hundertsiebenundvierzig, am 1.11. neunhundertachtundfünfzig.
 
 Wer die Wochenreihe ohne Hinweis zeichnet, sieht an beiden Enden einen
 Einbruch, der keiner ist — und die beiden sind nicht dasselbe: Der erste
@@ -189,8 +192,8 @@ Referenzstand:
 
 | | exact | ambiguous | fallback_90Z | unmapped |
 | --- | ---: | ---: | ---: | ---: |
-| Chicago | 1'316'308 | 25'994 | 41'324 | 23 |
-| Detroit | 445'310 | 6'860 | 16'127 | 0 |
+| Chicago | 1'339'051 | 27'045 | 42'201 | 18 |
+| Detroit | 455'508 | 6'526 | 16'660 | 0 |
 
 Ein `exact` kann eine widersprüchliche Quellbeschreibung tragen, die noch
 niemand gesehen hat; ein `fallback_90Z` kann für eine Auswertung völlig in
@@ -203,7 +206,7 @@ Prüfung `gegen_crosswalk` stellt sicher, dass Silver das trägt, was der
 Crosswalk *heute* sagt. Ob der Crosswalk recht hat, steht darin nicht. Dafür
 gibt es nur die amtlichen Handbücher und die Zuordnungen, die als
 `ambiguous` markiert sind, weil wir sie entschieden haben: **20 in den
-Crosswalks, davon 17 mit Zeilen in den Daten** (33'070 Zeilen). Die übrigen
+Crosswalks, davon 17 mit Zeilen in den Daten** (33'775 Zeilen). Die übrigen
 drei sind Entscheidungen zu Codes, die in keinem der sechs Jahrgänge
 vorkommen — getroffen, aber nicht belegt.
 
@@ -219,9 +222,9 @@ vorkommen — getroffen, aber nicht belegt.
 > Beschreibungen ist damit **null**.
 
 Für Detroit bleibt der Befund bestehen, und er hat eine andere Ursache: Dort
-sind es 68
+sind es 65
 Beschreibungen; `ASSAULT AND BATTERY/SIMPLE ASSAULT` deckt **31 verschiedene
-NIBRS-Codes** über 93'480 Zeilen ab, weil die MICR-Beschreibung auf der Ebene
+NIBRS-Codes** über 94'877 Zeilen ab, weil die MICR-Beschreibung auf der Ebene
 der Deliktklasse steht und der Code eine Ebene darunter.
 
 Umgekehrt gilt dasselbe: **40 der 53** Chicagoer und **45 der 52** Detroiter
@@ -245,11 +248,11 @@ gemeldet wurde, sagt nichts darüber, ob alles gemeldet wurde.
 UTC-Zeitpunkt in die Ortszeit zurück und vergleicht. Beim Zurückstellen der Uhr
 hat Detroit schon EST, während Chicago noch CDT hat — für genau eine Stunde im
 Jahr fallen beide Zonen zusammen. Über sechs Jahrgänge sind das sechs solche
-Stunden: 118 der 491'725 Detroiter Zeilen liegen darin.
-Ein vertauschter Zonenname fiele trotzdem 491'607-fach auf.
+Stunden: 157 der 501'146 Detroiter Zeilen liegen darin.
+Ein vertauschter Zonenname fiele trotzdem 500'989-fach auf.
 
 **Eine mehrdeutige Ortszeit bleibt mehrdeutig.** Chicago liefert Wanduhrzeit
-ohne Zone. Die 245 Zeilen in der doppelten Stunde tragen seit dem 16.9. ein
+ohne Zone. Die 318 Zeilen in der doppelten Stunde tragen seit dem 16.9. ein
 Kennzeichen — auflösen lässt sich die Mehrdeutigkeit nachträglich nicht.
 
 **Was nur in Bronze steht, kann Silver nicht prüfen.** Silver führt 28
@@ -263,12 +266,12 @@ lässt den Rest in Bronze stehen.
 Ein Widerspruch in diesen Feldern braucht deshalb den Rückgriff auf Bronze —
 und der ist umständlicher, als er klingt, denn **Silver führt keine
 Zeilen-Herkunft**. Das Manifest nennt unter `derived_from` die Läufe, aus denen
-die Tabelle entstanden ist (sieben für Chicago, zehn für Detroit — je Stadt
+die Tabelle entstanden ist (sechs für Chicago, sechs für Detroit — je Stadt
 und Jahrgang der jüngste Vollabzug und die Läufe danach, siehe
 `build_crime_offense.ab_dem_juengsten_vollabzug`), aber nicht,
 aus welchem eine bestimmte Zeile stammt. Für Detroit half das lange gar nicht:
 Bis zum 18.9.2026 lud jeder Lauf den ganzen Jahrgang, und jeder Schnappschuss
-enthielt damit **alle 491'725 Zeilen**. Wer
+enthielt damit **alle 501'146 Zeilen**. Wer
 zurückverfolgen will, sucht den Schlüssel in den genannten Läufen — die
 Zeilen-Lineage selbst liegt in den Bronze-Manifesten, nicht in Silver.
 
@@ -294,7 +297,7 @@ Zeilen-Lineage selbst liegt in den Bronze-Manifesten, nicht in Silver.
 
 ---
 
-Gemessen am Referenzstand, 17. September 2026. Jede Zahl in diesem Dokument
+Gemessen am Referenzstand, 10. November 2026. Jede Zahl in diesem Dokument
 wird von `tests/test_zaehlperspektiven.py` gegen die gebauten Schichten
 geprüft — die Tests tragen `referenzstand` und laufen deshalb nicht im
 wöchentlichen Datenlauf.

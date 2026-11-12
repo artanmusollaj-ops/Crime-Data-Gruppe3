@@ -38,16 +38,16 @@ vergleichbare Tabelle macht:
 | | |
 | --- | ---: |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
-| `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | 1'851'946 Zeilen (eine Tat) |
+| `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | 1'887'009 Zeilen (eine Tat) |
 
 Und die Raten, **für den Jahrgang 2024** — eine Rate braucht einen Zeitraum,
 der Bestand trägt sechs:
 
 | | |
 | --- | ---: |
-| Chicago | 251'513 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 84'987 Delikte · 638'635 Einwohner · **133,1** je 1'000 |
+| Chicago | 251'512 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
+| Detroit | 85'557 Delikte · 638'635 Einwohner · **134,0** je 1'000 |
 
 Wo etwas ausführlich steht:
 
@@ -422,8 +422,8 @@ desselben Tages — oder Information wegwerfen:
 | --- | --- | ---: |
 | `tract` | ein Census Tract | 6'282 |
 | `place` | ein Ort (Stadtgrenze) | 2'206 |
-| `weather_day` | eine Stadt an einem Tag | 55'497 |
-| `crime_offense` | eine **Anklage**; je Tat zählt eine | 1'875'374 |
+| `weather_day` | eine Stadt an einem Tag | 55'573 |
+| `crime_offense` | eine **Anklage**; je Tat zählt eine | 1'909'461 |
 
 `crime_offense` leistet drei Übersetzungen auf einmal, und jede ist ein eigener
 Fehlerherd:
@@ -1016,7 +1016,7 @@ python -m serving.dashboard --data-root data    # http://127.0.0.1:8050
 
 Gezählt wird nach meldender Stadt, wie in Kibana und `comparison_month`.
 Die Rate je 1'000 rechnet nach der Regel von `gold_pipeline.raten_je_stadt`:
-2024 ergibt sie dieselben 94,5 und 133,1 wie die Dokumente. Ein Monat ohne
+2024 ergibt sie dieselben 94,5 und 134,0 wie die Dokumente. Ein Monat ohne
 Daten ist eine Lücke, keine Null, und „Zum Vorjahr“ vergleicht nur Monate,
 die in beiden Jahren vollständig vorliegen.
 
