@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'900** |
+| Tests | **2'901** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
@@ -103,6 +103,21 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 12.11.2026 · `aufraeumen` entfernt die alten Fassungen zuletzt (Branch `fix/aufraeumen-reihenfolge`)
+
+**Was geschah.** Beim Aufräumen auf `srv01` am 10.11.2026
+(`--loeschen --fassungen --auch-fern`) entfernte das Werkzeug zuerst die
+alten Fassungen und löschte danach sechs Releases. In einem versionierten
+Eimer setzt dieses Löschen nur Markierungen: Die 530 MB der Releases blieben
+als 140 alte Fassungen liegen, und erst ein zweiter Durchgang gab sie frei.
+
+**Was sich ändert.** Die Fassungen gehen jetzt als letzter Schritt weg, nach
+Läufen, halben Releases und Releases — und unabhängig davon, ob der Bericht
+vor dem Löschen welche gefunden hatte, denn das Löschen erzeugt sie erst. Ein
+Durchgang lässt oben keine Reste mehr.
+
+**Zahlen.** 2'900 → **2'901 Tests**, Standardlauf 2'789 → **2'790**, im frischen Klon 2'711 → **2'712**.
 
 ## 10.11.2026 · Die Konsolensicherung packt keine Releases mehr ein, die der Eimer schon hält (Branch `feature/konsolensicherung-schlank`)
 

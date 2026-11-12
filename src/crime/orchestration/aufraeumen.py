@@ -1050,10 +1050,6 @@ def main() -> int:
             print(f"{len(halbe)} halbe(s) Release geraeumt, "
                   f"{sum(h.bytes for h in halbe) / 1e6:.1f} MB frei "
                   f"({len(weg)} Pfade/Objekte).")
-        if args.fassungen and fassungen:
-            anzahl, frei = loesche_fassungen(ablage, auch_fern=args.auch_fern)
-            print(f"{anzahl} alte Fassungen und Markierungen entfernt, "
-                  f"{frei / 1e6:.1f} MB frei - und diesmal wirklich frei.")
         if rel_entbehrlich:
             geraeumt = loesche_releases(rel_entscheide, ablage, auch_fern=args.auch_fern)
             print(f"{len(geraeumt.lokal)} Release(s) lokal geloescht, "
@@ -1068,6 +1064,15 @@ def main() -> int:
                 print(f"Auf SeaweedFS unveraendert: {len(uebrig)} entbehrliche "
                       f"Release(s), {megabyte(uebrig):.1f} MB - dafuer braucht es "
                       f"--auch-fern.")
+        # **Zuletzt**, nach Laeufen, halben Releases und Releases: Jedes
+        # Loeschen oben macht aus der aktuellen Fassung eine alte. Am 10.11.2026
+        # stand dieser Schritt vor den Releases, und deren 530 MB blieben als
+        # 140 alte Fassungen liegen - ein zweiter Durchgang hat sie geholt.
+        # Deshalb auch ohne Blick auf ``fassungen``: Die Liste ist von vorher.
+        if args.fassungen:
+            anzahl, frei = loesche_fassungen(ablage, auch_fern=args.auch_fern)
+            print(f"{anzahl} alte Fassungen und Markierungen entfernt, "
+                  f"{frei / 1e6:.1f} MB frei - und diesmal wirklich frei.")
         return 0
 
 
