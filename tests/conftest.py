@@ -9,6 +9,8 @@ ohne Installation laufen.
 from __future__ import annotations
 
 import subprocess
+from contextlib import contextmanager
+from pathlib import Path
 import sys
 
 from census_pipeline import download_acs
@@ -61,6 +63,41 @@ def _frische_ablage(monkeypatch):
     storage.set_storage(storage.Storage(storage.Config()))
     yield
     storage.set_storage(None)
+
+
+#: Das ``data/`` des Arbeitsbaums - der Bestand, den die Notebooks lesen.
+ECHTE_DATEN = (Path(__file__).resolve().parents[1] / "data").resolve()
+
+
+@pytest.fixture(autouse=True)
+def _echte_daten_unberuehrt(monkeypatch):
+    """Kein Test schreibt unter das echte ``data/`` - auch nicht aus Versehen.
+
+    Jede Stufe nimmt fuer ihren ganzen Lauf ``schreibzugriff`` und entwertet
+    dabei ``data/.analyse/stand.json``, den Nachweis, ohne den Notebook 34 und
+    37 nicht starten. Ruft ein Test ``main()`` ohne ``--data-root`` auf, ist das
+    Ziel ``data`` relativ zum Arbeitsverzeichnis, also der echte Bestand. Am
+    12.11.2026 taten das fuenf Tests; jeder Lauf der Suite liess die Notebooks
+    danach mit "Kein bestaetigter Aufbau" stehen, und ein Test, der waehrend
+    einer Analysesitzung lief, haette an deren Sperre gescheitert.
+
+    Statt jeden Aufruf einzeln zu suchen, faellt hier jeder Schreibzugriff auf
+    den echten Bestand mit einem Fehler durch, der den Test nennt.
+    """
+    from storage import analysesitzung
+
+    original = analysesitzung.schreibzugriff
+
+    @contextmanager
+    def bewacht(data_root, **kwargs):
+        if Path(data_root).resolve() == ECHTE_DATEN:
+            raise AssertionError(
+                f"Schreibzugriff auf das echte {ECHTE_DATEN} - dem Aufruf "
+                "--data-root mitgeben oder in ein tmp-Verzeichnis wechseln")
+        with original(data_root, **kwargs) as root:
+            yield root
+
+    monkeypatch.setattr(analysesitzung, "schreibzugriff", bewacht)
 sys.modules["build_place"] = build_place
 sys.modules["build_tract"] = build_tract
 sys.modules["build_weather_day"] = build_weather_day

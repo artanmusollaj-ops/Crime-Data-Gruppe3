@@ -1,7 +1,9 @@
 """Offline-Tests fuer die cron-faehige Detroit-Kommandozeilenschnittstelle."""
 
 from datetime import date
+import os
 from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import call, patch
 
@@ -10,6 +12,17 @@ from detroit_pipeline.extract_detroit import main, parse_args
 
 class DetroitCliTests(unittest.TestCase):
     """Prueft Parametervertraege und die Auswahl des richtigen Extractors."""
+
+    def setUp(self):
+        # Die Aufrufe von main() nennen kein --data-root; die Ablage nimmt dann
+        # "data" relativ zum Arbeitsverzeichnis. Ohne den Wechsel war das der
+        # echte Bestand, und jeder Lauf entwertete dessen Analysenachweis
+        # (tests/conftest.py, _echte_daten_unberuehrt).
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        vorher = os.getcwd()
+        os.chdir(tmp.name)
+        self.addCleanup(os.chdir, vorher)
 
     def test_delta_accepts_years(self):
         args = parse_args(["--mode", "delta", "--years", "2024"])

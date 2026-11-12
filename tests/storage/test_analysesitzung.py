@@ -237,3 +237,25 @@ def test_release_erstellen_laesst_den_nachweis_stehen():
     quelle = (PROJECT / "src" / "crime" / "orchestration" / "release.py").read_text(encoding="utf-8")
     assert 'ersetzt_gold = args.was == "holen" and args.einsetzen' in quelle
     assert "invalidieren=ersetzt_gold" in quelle
+
+
+def test_kein_test_entwertet_den_echten_nachweis(tmp_path):
+    """Der Waechter aus conftest greift: das echte data/ bleibt unberuehrt.
+
+    Am 12.11.2026 entwerteten fuenf Tests bei jedem Lauf der Suite
+    ``data/.analyse/stand.json``, weil sie ``main()`` ohne ``--data-root``
+    aufriefen. Danach startete Notebook 34 nicht mehr.
+    """
+    from storage import analysesitzung
+
+    ECHTE_DATEN = Path(__file__).resolve().parents[2] / "data"
+
+    with pytest.raises(AssertionError, match="echte"):
+        with analysesitzung.schreibzugriff(ECHTE_DATEN):
+            pass
+    with pytest.raises(AssertionError, match="echte"):
+        with analysesitzung.schreibzugriff("data"):
+            pass
+    # Ein anderes Ziel geht durch.
+    with analysesitzung.schreibzugriff(tmp_path) as root:
+        assert root == tmp_path.resolve()
