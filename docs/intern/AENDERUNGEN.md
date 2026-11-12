@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'913** |
+| Tests | **2'914** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -139,6 +139,28 @@ Zwei Stellen waren davon betroffen:
 **Nicht angefasst.** Die Notebooks 03, 11 und 13 nennen 0,81 % und 0,29 %.
 Das ist dort richtig: Sie beschreiben die Quelle eines geladenen Jahrgangs,
 nicht den Bestand.
+
+---
+
+## 12.11.2026 · Kein Test entwertet mehr den echten Analysenachweis (Branch `fix/tests-ohne-echtes-data`)
+
+**Was geschah.** Nach jedem Lauf der Suite fehlte `data/.analyse/stand.json`,
+und Notebook 34 brach mit „Kein bestaetigter Aufbau" ab. Gesucht mit einem
+Plugin, das nach jedem Test nachsieht: Vier Tests der Detroit-CLI und
+`test_nachpublizieren_im_local_modus_sagt_nein` riefen `main()` ohne
+`--data-root` auf. Die Ablage nimmt dann `data` relativ zum
+Arbeitsverzeichnis, also den echten Bestand, und jede Stufe entwertet mit
+`schreibzugriff` dessen Nachweis. Dieselben Aufrufe nahmen auch die echte
+Datensperre: Während einer Analysesitzung wären sie gescheitert.
+
+**Was sich ändert.**
+- `tests/conftest.py` lässt jeden Schreibzugriff auf das echte `data/` mit
+  einem Fehler durchfallen, der den Test nennt (`_echte_daten_unberuehrt`).
+  Gesucht wird also nicht mehr jeder Aufruf einzeln.
+- Die fünf Tests laufen in einem tmp-Verzeichnis.
+- Ein neuer Test prüft, dass der Wächter greift.
+
+**Zahlen.** 2'913 → **2'914 Tests**, Standardlauf 2'802 → **2'803**, im frischen Klon 2'724 → **2'725**.
 
 ---
 
