@@ -46,8 +46,12 @@ der Bestand trägt sechs:
 
 | | |
 | --- | ---: |
-| Chicago | 251'512 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 85'557 Delikte · 638'635 Einwohner · **134,0** je 1'000 |
+| Chicago | 251'482 Fälle · 2'661'953 Einwohner · **94,5** je 1'000 |
+| Detroit | 79'614 Fälle · 638'635 Einwohner · **124,7** je 1'000 |
+| Tatebene (`fact_offense`) | Chicago 251'512 · Detroit 85'557 Taten; je 1'000: Chicago **94,5** · Detroit **134,0** |
+
+Vorn steht die **Fallebene**: je Vorfall das schwerste Delikt, nach derselben
+Regel für beide Städte (`counts_case`). Die Tatebene zählt jedes Delikt.
 
 Wo etwas ausführlich steht:
 
@@ -1015,8 +1019,10 @@ python -m serving.dashboard --data-root data    # http://127.0.0.1:8050
 ```
 
 Gezählt wird nach meldender Stadt, wie in Kibana und `comparison_month`.
-Die Rate je 1'000 rechnet nach der Regel von `gold_pipeline.raten_je_stadt`:
-2024 ergibt sie dieselben 94,5 und 134,0 wie die Dokumente. Ein Monat ohne
+Die Rate je 1'000 rechnet nach der Regel von `gold_pipeline.raten_je_stadt`,
+auf der Tatebene: 2024 ergibt sie dieselben 94,5 und 134,0 wie die Zeile
+„Tatebene" der Dokumente. Vorn nennen die Dokumente seit E-2 die Fallebene
+(Detroit 124,7); das Brett darauf umzustellen, ist offen (C-11). Ein Monat ohne
 Daten ist eine Lücke, keine Null, und „Zum Vorjahr“ vergleicht nur Monate,
 die in beiden Jahren vollständig vorliegen.
 

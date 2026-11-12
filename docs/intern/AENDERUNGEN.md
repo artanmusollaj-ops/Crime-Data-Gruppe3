@@ -34,9 +34,9 @@ Eintrag hier sagt, was das war.
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
-| Chicago | 251'512 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 85'557 Delikte · 638'635 Einwohner · **134,0** je 1'000 |
-| Fallebene (`counts_case`) | Chicago 251'482 · Detroit 79'614 Fälle; Detroit **124,7** je 1'000 |
+| Chicago | 251'482 Fälle · 2'661'953 Einwohner · **94,5** je 1'000 |
+| Detroit | 79'614 Fälle · 638'635 Einwohner · **124,7** je 1'000 |
+| Tatebene (`fact_offense`) | Chicago 251'512 · Detroit 85'557 Taten; je 1'000: Chicago **94,5** · Detroit **134,0** |
 
 > **Zwei Zeiträume in einer Tabelle, und das ist Absicht.** Die beiden
 > Zeilenzahlen sind der **Bestand** über alle sechs Jahrgänge — die Antwort auf
@@ -44,6 +44,12 @@ Eintrag hier sagt, was das war.
 > den jüngsten vollständigen (`gold_pipeline.RATENJAHR`): Eine Rate braucht
 > einen Zeitraum, und sechs Jahre Zähler auf einem Jahr Nenner ergäben 509,7
 > je 1'000 für Chicago. Das wäre keine zu hohe Rate, sondern keine.
+>
+> **Die Fallebene steht vorn** (E-2, seit dem 12.11.2026): Ein Fall ist ein
+> Vorfall mit seinem schwersten Delikt (`counts_case`, die Hierarchieregel des
+> UCR Handbook, für beide Städte dieselbe). Sie bringt beide Städte auf einen
+> amtlichen Massstab. Die Tatebene steht in der Zeile darunter, weil Anteile je
+> Deliktart nur dort addieren.
 >
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind — die Fallzahlen seit dem 4.10.2026 ebenso, damit Zahl und Rate in einer
@@ -101,6 +107,44 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 12.11.2026 · Die Fallebene steht vorn (Branch `docs/e2-fallebene-vorn`)
+
+**Entschieden (E-2).** Beschlossen war es seit dem 5.10.2026 (E5 im PRD), die
+Dokumente führten trotzdem die Tatebene vorn. Jetzt nennen sie zuerst den
+**Fall** — je Vorfall das schwerste Delikt nach der Hierarchieregel des UCR
+Handbook, für beide Städte dieselbe (`counts_case`) — und die Tatebene daneben.
+
+| Jahrgang 2024, je 1'000 | Chicago | Detroit |
+| --- | ---: | ---: |
+| **Fallebene** (vorn) | **94,5** | **124,7** |
+| Tatebene | 94,5 | 134,0 |
+
+**Was sich ändert.**
+- Die Kopftabellen hier, im README und in `architektur-ist-und-ziel.md`:
+  Die Stadtzeilen nennen Fälle und Fallrate, eine Zeile „Tatebene" darunter
+  Taten und Tatrate beider Städte (vorher stand dort nur die Detroiter
+  Fallrate).
+- `orchestration.drift` liest dieselben Zeilen mit neuen Mustern und misst
+  jetzt auch Chicagos Fallrate; die Schlüssel bleiben, was sie messen.
+- Konzept 5.2 nennt den Entscheid mit seinen zwei Auflagen: Die Regel wirkt
+  ungleich (Detroit 5,6 % der Taten verworfen, Chicago 0,013 %), und Anteile
+  je Deliktart rechnen auf der Tatebene. Die Ratentabelle in 5.4 zählt Fälle,
+  Kapitel 9 sagt nicht mehr „zu entscheiden".
+- **Eine falsche Prämisse ist gestrichen.** In 5.2 stand „Chicagos Zählweise
+  ist das Fallebene". Nativ ist die Fallebene für keine der beiden Quellen;
+  in Chicago fallen beide Masse nur fast zusammen, weil die Quelle je Vorfall
+  in aller Regel eine Zeile führt.
+- `eine-zahl.md` rechnet in Stufe 1 mit den Fällen (251'482 / 2'661'953 ×
+  1000 = 94,47), der Titel bleibt 94,5. Einseiter, Ausblick,
+  `leistungsnachweise.md` und die Einstiegsseite (`serving.build_einstieg`,
+  neu erzeugt) ziehen mit.
+
+**Offen (C-11).** Das Dashboard rechnet seine Rate weiter auf der Tatebene
+und zeigt für Detroit 134,0. Das README sagt das jetzt; umgestellt ist es noch
+nicht.
 
 ---
 

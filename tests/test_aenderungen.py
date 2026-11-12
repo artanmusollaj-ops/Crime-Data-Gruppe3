@@ -143,16 +143,25 @@ def test_der_kopf_nennt_die_raten(stand):
         f"der Kopfabschnitt nennt den Jahrgang {RATENJAHR} nicht - die Raten "
         "darin gelten fuer ein Jahr, nicht fuer den ganzen Bestand"
     )
+    # Seit dem 12.11.2026 (E-2) traegt die Stadtzeile die Fallrate; die
+    # Tatrate steht in der Zeile "Tatebene" darunter.
     for stadt in ("Chicago", "Detroit"):
         treffer = re.search(
             rf"\| {stadt} \|.*?\*\*([0-9]+,[0-9])\*\* je 1'000", stand
         )
         assert treffer, f"Rate fuer {stadt} nicht im Kopfabschnitt gefunden"
         genannt = float(treffer.group(1).replace(",", "."))
-        rate = echt[stadt.lower()][3]
+        rate = echt[stadt.lower()][4]
         assert genannt == pytest.approx(rate, abs=0.05), (
-            f"{stadt}: genannt {genannt}, tatsaechlich {rate}"
+            f"{stadt}: genannt {genannt}, tatsaechlich {rate} (Fallebene)"
         )
+        tat = re.search(
+            rf"\| Tatebene.*?je 1'000:.*?{stadt} \*\*([0-9]+,[0-9])\*\*", stand
+        )
+        assert tat, f"Tatrate fuer {stadt} nicht im Kopfabschnitt gefunden"
+        assert float(tat.group(1).replace(",", ".")) == pytest.approx(
+            echt[stadt.lower()][3], abs=0.05), f"{stadt}: Tatrate"
+
 
 
 #: Die Herkunft einer Eintragsueberschrift in Klammern. Seit dem 11.10.2026
@@ -247,17 +256,19 @@ def test_die_eintraege_und_die_ausgelassenen_ueberschneiden_sich_nicht(text):
 
 
 @pytest.mark.referenzstand
-def test_der_kopf_nennt_das_fallebene(stand):
-    """Die zweite Zaehlweise, seit #66 - je Fall eine Zeile, beide Staedte gleich.
+def test_der_kopf_nennt_faelle_und_taten(stand):
+    """Beide Zaehlweisen, seit #66 - vorn die Faelle, seit E-2 (12.11.2026).
 
-    Dieselbe Zeile wie die Raten, also derselbe Jahrgang: Die Fallzahl steht
-    neben der Fallrate, und zwei verschiedene Zeitraeume in einer Zeile waeren
-    das Schlimmste von beidem.
+    Die Stadtzeile nennt die Faelle neben der Fallrate, die Zeile "Tatebene"
+    die Taten neben der Tatrate - je Zeile ein Zeitraum und eine Grundmenge.
     """
     echt = gemessene_raten()
     for stadt in ("Chicago", "Detroit"):
-        genannt = zahl(stand, rf"\| Fallebene.*?{stadt} ([0-9']+)")
-        faelle = echt[stadt.lower()][1]
-        assert genannt == faelle, (
-            f"Fallebene {stadt}: genannt {genannt:,}, tatsaechlich {faelle:,}"
+        faelle = zahl(stand, rf"\| {stadt} \| ([0-9']+) Fälle")
+        assert faelle == echt[stadt.lower()][1], (
+            f"Faelle {stadt}: genannt {faelle:,}, tatsaechlich {echt[stadt.lower()][1]:,}"
+        )
+        taten = zahl(stand, rf"\| Tatebene.*?{stadt} ([0-9']+)")
+        assert taten == echt[stadt.lower()][0], (
+            f"Taten {stadt}: genannt {taten:,}, tatsaechlich {echt[stadt.lower()][0]:,}"
         )

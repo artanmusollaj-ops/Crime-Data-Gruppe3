@@ -22,20 +22,24 @@ wisst ihr das?*
 
 ## Stufe 0 · Die Zahl
 
-> **Jahrgang 2024 — Chicago: 94,5 Delikte je 1'000 Einwohner. Detroit: 134,0.**
+> **Jahrgang 2024 — Chicago: 94,5 Fälle je 1'000 Einwohner. Detroit: 124,7.**
 
 Das ist der Satz, der auf eine Folie kommt. Absolute Zahlen legen das
 Gegenteil nahe — Chicago meldet dreimal so viele Delikte wie Detroit. Erst der
 Nenner dreht das Bild.
 
+Gezählt wird ein **Fall**: ein Vorfall mit seinem schwersten Delikt, nach
+derselben Regel für beide Städte (Stufe 4). Auf der Tatebene, die jedes Delikt
+eines Vorfalls zählt, stehen dieselben Städte bei 94,5 und 134,0.
+
 ## Stufe 1 · Die Rechnung
 
 ```text
-251'512 Delikte  /  2'661'953 Einwohner  ×  1000  =  94,48
+251'482 Fälle  /  2'661'953 Einwohner  ×  1000  =  94,47
 ```
 
 Zwei Fragen stecken darin, und beide sind Entscheidungen: **Welche Einwohner?**
-und **welche Delikte?**
+und **welche Fälle?**
 
 ## Stufe 2 · Der Nenner — welche Tracts sind Chicago?
 
@@ -109,8 +113,12 @@ Welche Granularität man wählt, verschiebt beide Städte — und Detroit stärk
 
 | | Tatebene | Fallebene |
 | --- | ---: | ---: |
-| Chicago | **94,5** | 94,5 |
-| Detroit | **134,0** | 124,7 |
+| Chicago | 94,5 | **94,5** |
+| Detroit | 134,0 | **124,7** |
+
+Vorn steht die Fallebene (E-2): Sie bringt beide Städte auf einen Massstab.
+Anteile je Deliktart rechnen dagegen auf der Tatebene, denn nur dort
+addieren sich die Kategorien.
 
 ## Stufe 5 · Silver ← Bronze: die Herkunftskette
 

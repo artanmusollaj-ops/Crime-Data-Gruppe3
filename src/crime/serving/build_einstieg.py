@@ -320,8 +320,11 @@ def messe(verzeichnis: Path) -> dict[str, Any]:
         # keine Definition; seit Vertrag 6 waeren es neun gewesen. Der
         # Jahresfilter steckt mit darin, seit ein Release sechs Jahrgaenge
         # traegt.
+        # Seit dem 12.11.2026 (E-2) vorn die Fallebene: Faelle und ihre Rate,
+        # die Tatebene als zweite Rate daneben. Die Reihenfolge der Spalten
+        # aus raten_je_stadt: Stadt, Taten, Faelle, Einwohner, Rate, Fallrate.
         staedte = [
-            (z[0], z[1], z[3], z[4]) for z in con.execute(raten_je_stadt(
+            (z[0], z[2], z[3], z[5], z[4]) for z in con.execute(raten_je_stadt(
                 f"read_parquet('{fakt}')", f"read_parquet('{tract}')",
                 f"read_parquet('{acs}')")).fetchall()
         ]
@@ -515,11 +518,11 @@ def seite(kennung: str, manifest: dict, mass: dict,
         rechts={1, 2, 3})
 
     staedte = tabelle(
-        ["Stadt", "Delikte", "Einwohner", "je 1'000"],
-        [[f"<strong>{html.escape(s.capitalize())}</strong>", zahl(d), zahl(e),
-          f"<strong>{komma(r)}</strong>"]
-         for s, d, e, r in mass["staedte"]],
-        rechts={1, 2, 3})
+        ["Stadt", "Fälle", "Einwohner", "je 1'000", "Tatebene je 1'000"],
+        [[f"<strong>{html.escape(s.capitalize())}</strong>", zahl(f), zahl(e),
+          f"<strong>{komma(r)}</strong>", komma(rt)]
+         for s, f, e, r, rt in mass["staedte"]],
+        rechts={1, 2, 3, 4})
 
     zugaenge = dienste(fassung)
     karten = []
@@ -614,8 +617,9 @@ def seite(kennung: str, manifest: dict, mass: dict,
 
 <section>
   <h2>Die beiden Städte im Jahrgang {mass["ratenjahr"]}</h2>
-  <p class="unter">Gezählt werden nur Delikte in Tracts, die einer der beiden
-  Städte zugeordnet sind — sonst verglichen man Stadtgebiete verschiedenen
+  <p class="unter">Gezählt werden Fälle — je Vorfall das schwerste Delikt, nach
+  derselben Regel für beide Städte; die Tatebene zählt jedes Delikt. Und nur
+  Fälle in Tracts, die einer der beiden Städte zugeordnet sind — sonst verglichen man Stadtgebiete verschiedenen
   Zuschnitts. Und nur die des Jahrgangs {mass["ratenjahr"]}: Eine Rate braucht
   einen Zeitraum, das Release trägt sechs.</p>
   {staedte}

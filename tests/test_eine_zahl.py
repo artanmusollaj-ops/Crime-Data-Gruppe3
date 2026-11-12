@@ -103,7 +103,7 @@ def test_die_ueberschrift_nennt_die_zahl(text, con):
         FROM {FAKTEN} f
         JOIN read_parquet('{TRACT}') t ON t.geoid = f.tract_geoid
         JOIN e ON e.city = t.city
-        WHERE t.city = 'chicago'
+        WHERE t.city = 'chicago' AND f.counts_case
     """).fetchone()[0]
     assert echt == pytest.approx(94.5, abs=0.05), (
         f"Chicago liegt jetzt bei {echt} - Titel und Stufe 0 mitziehen"
@@ -111,16 +111,20 @@ def test_die_ueberschrift_nennt_die_zahl(text, con):
 
 
 def test_die_rechnung_geht_auf(text, con):
-    """Zaehler, Nenner und Ergebnis der Stufe 1 - alle drei gemessen."""
+    """Zaehler, Nenner und Ergebnis der Stufe 1 - alle drei gemessen.
+
+    Seit dem 12.11.2026 (E-2) auf der Fallebene: Der Zaehler sind die Faelle
+    (``counts_case``), nicht alle Taten.
+    """
     zaehler, nenner = con.execute(f"""
         SELECT count(*), any_value(e.n)
         FROM {FAKTEN} f
         JOIN read_parquet('{TRACT}') t ON t.geoid = f.tract_geoid
         JOIN ({NENNER}) e ON e.city = t.city
-        WHERE t.city = 'chicago'
+        WHERE t.city = 'chicago' AND f.counts_case
     """).fetchone()
     formel = re.search(
-        r"([\d']+) Delikte\s+/\s+([\d']+) Einwohner\s+×\s+1000\s+=\s+([\d,]+)",
+        r"([\d']+) Fälle\s+/\s+([\d']+) Einwohner\s+×\s+1000\s+=\s+([\d,]+)",
         text,
     )
     assert formel, "die Formelzeile in Stufe 1 ist nicht mehr lesbar"
