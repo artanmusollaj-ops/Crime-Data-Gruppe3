@@ -133,7 +133,9 @@ def test_nachpublizieren_zeigt_erst_und_laedt_dann_raw_vor_bronze(tmp_path, caps
     assert "Nichts zu tun" in capsys.readouterr().out
 
 
-def test_nachpublizieren_im_local_modus_sagt_nein(capsys):
+def test_nachpublizieren_im_local_modus_sagt_nein(capsys, tmp_path, monkeypatch):
+    # Ohne den Wechsel schriebe der Aufruf unter das echte data/ (conftest).
+    monkeypatch.chdir(tmp_path)
     from storage import __main__ as befehl
     assert befehl.main(["publizieren", "--wirklich"]) == 1
     assert "nichts publiziert" in capsys.readouterr().out
