@@ -244,8 +244,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 2'913 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
-| **Frischer Klon** | 2'724 davon — die übrigen 78 brauchen gebaute Daten, laufende Dienste, das ungetrackte LN1-PDF oder das ungetrackte PRD; 111 Referenzstand-Wächter sind abgewählt (12.11.2026 gemessen, grün) | |
+| **Pull Request** | 2'914 Tests ohne Netz und Schlüssel, Linux und Windows, Python 3.11 und 3.13, `ruff` davor | bei jedem Push |
+| **Frischer Klon** | 2'725 davon — die übrigen 78 brauchen gebaute Daten, laufende Dienste, das ungetrackte LN1-PDF oder das ungetrackte PRD; 111 Referenzstand-Wächter sind abgewählt (12.11.2026 gemessen, grün) | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 111 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
