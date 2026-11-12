@@ -21,6 +21,41 @@ pipeline() {
     compose run --rm pipeline "$@"
 }
 
+# Pausen vor dem zweiten und dritten Versuch einer gescheiterten Quelle, in
+# Sekunden - dieselben wie NACHFASSEN_MINUTEN im Run-Controller, die den
+# Delta-Lauf nachfassen laesst. Am 9.11.2026 fiel der Montagslauf an einem
+# Socrata-Aussetzer, und am Nachmittag lief derselbe Abruf glatt durch.
+NACHFASSEN_SEKUNDEN=(1800 3600)
+
+# Laedt jede Quelle; was scheitert, kommt nach jeder Pause noch einmal dran.
+# Ein Schritt ist ein ganzer Modulaufruf samt Flaggen, ohne Leerzeichen
+# in den Werten. Scheitert eine Quelle auch beim letzten Versuch, endet die
+# Funktion mit 1 - vor dem Ableiten, denn ein halber Stand bekommt kein Gold.
+laden() {
+    local -a offen=("$@")
+    local -a weiter
+    local schritt pause
+    for pause in 0 "${NACHFASSEN_SEKUNDEN[@]}"; do
+        (( ${#offen[@]} )) || return 0
+        if (( pause )); then
+            echo "Urban Crime: ${#offen[@]} source step(s) failed, next attempt in $((pause / 60)) min:"
+            printf '  %s\n' "${offen[@]}"
+            sleep "${pause}"
+        fi
+        weiter=()
+        for schritt in "${offen[@]}"; do
+            # Wortweise mit Absicht: Der Schritt ist Modul samt Flaggen.
+            # shellcheck disable=SC2086
+            pipeline ${schritt} || weiter+=("${schritt}")
+        done
+        offen=(${weiter[@]+"${weiter[@]}"})
+    done
+    (( ${#offen[@]} )) || return 0
+    echo "Urban Crime: still failing after the last attempt, nothing derived:" >&2
+    printf '  %s\n' "${offen[@]}" >&2
+    return 1
+}
+
 mode_for_day() {
     local day_of_month
     day_of_month=$((10#$1))
@@ -63,28 +98,27 @@ case "${mode}" in
     full)
         echo "Urban Crime: full monthly ingestion for ${YEAR_RANGE}"
 
+        # Jede Quelle ein Schritt; `laden` faehrt sie alle und fasst nach.
+        # Bis zum 12.11.2026 brach der erste Fehler hier alles ab: Am 9.11.
+        # stand Chicago 2021 vorn, und Detroit, Census und Wetter luden nicht.
+        local -a schritte=()
         for year in $(seq "${START_YEAR}" "${END_YEAR}"); do
-            pipeline python -m chicago_pipeline.download_chicago \
-                --year "${year}" --full
+            schritte+=("python -m chicago_pipeline.download_chicago --year ${year} --full")
         done
 
-        mapfile -t years < <(seq "${START_YEAR}" "${END_YEAR}")
-        pipeline python -m detroit_pipeline.extract_detroit \
-            --mode full --years "${years[@]}"
+        schritte+=("python -m detroit_pipeline.extract_detroit --mode full --years $(seq -s ' ' "${START_YEAR}" "${END_YEAR}")")
 
         census_end="${END_YEAR}"
         if (( census_end > LAST_CENSUS_VINTAGE )); then
             census_end="${LAST_CENSUS_VINTAGE}"
         fi
         for vintage in $(seq "${START_YEAR}" "${census_end}"); do
-            pipeline python -m census_pipeline.download_tiger \
-                --auslieferung tract --vintage "${vintage}"
-            pipeline python -m census_pipeline.download_tiger \
-                --auslieferung place --vintage "${vintage}"
-            pipeline python -m census_pipeline.download_acs \
-                --vintage "${vintage}"
+            schritte+=("python -m census_pipeline.download_tiger --auslieferung tract --vintage ${vintage}")
+            schritte+=("python -m census_pipeline.download_tiger --auslieferung place --vintage ${vintage}")
+            schritte+=("python -m census_pipeline.download_acs --vintage ${vintage}")
         done
-        pipeline python -m weather_pipeline.download_noaa
+        schritte+=("python -m weather_pipeline.download_noaa")
+        laden "${schritte[@]}"
 
         # All sources were refreshed explicitly; derive every downstream
         # layer without creating a redundant city delta immediately after
