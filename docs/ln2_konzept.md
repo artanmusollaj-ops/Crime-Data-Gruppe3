@@ -563,7 +563,7 @@ einer ACS-Schätzung und einer Zählung, nicht ein Fehler der Regel.
 `dim_tract.city_area_share` hält den Anteil in jeder Zeile fest, damit sich
 beides nachrechnen lässt.
 
-**Der Preis ist gemessen:** 2,9 % der Delikte liegen in Tracts, die keiner der
+**Der Preis ist gemessen:** 1,8 % der Delikte liegen in Tracts, die keiner der
 beiden Städte zugeordnet sind — Fälle knapp jenseits der Stadtgrenze. Zähler
 und Nenner folgen derselben Grenze, der Rand verzerrt also beide Seiten
 gleichsinnig.
