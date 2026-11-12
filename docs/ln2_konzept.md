@@ -601,8 +601,8 @@ aus einer belegten Zahl eine irreführende:
 - **Raten ohne Nenner.** 109 Tracts haben null Einwohner — Wasserflächen,
   Flughäfen, Industrie. Dort ist die Rate `NULL` und nicht null; die absolute
   Zahl bleibt sichtbar.
-- **Nicht verortete Fälle** fehlen in jeder Tract-Zelle: 0,70 % in Chicago,
-  0,29 % in Detroit. Deshalb steht die Abdeckungsquote **neben jeder Rate** und
+- **Nicht verortete Fälle** fehlen in jeder Tract-Zelle: im Ratenjahrgang
+  2024 0,83 % in Chicago, 0,28 % in Detroit. Deshalb steht die Abdeckungsquote **neben jeder Rate** und
   nicht in einer Fussnote.
 - **Die Lücken sind ungleich zwischen den Städten** — beim Einkommen 9,6 % der
   Tracts in Wayne County gegen 1,7 % in Cook County. Ein Vergleich ohne
@@ -1313,13 +1313,17 @@ steht sie sonst in deren eigenen Kategorien, Chicago kennt „Delikte an
 Kindern", Detroit „Family Offense".
 
 Verglichen wird nicht der Prozentsatz, sondern das **Vielfache des
-Stadtschnitts** — Chicago verliert insgesamt 0,81 % der Fälle, Detroit 0,29 %.
+Stadtschnitts** — über alle sechs Jahrgänge verliert Chicago 1,47 % der Fälle,
+Detroit 0,14 %. Gezählt wird der ganze Bestand, nicht ein Jahrgang: Ein Anteil
+braucht keinen Einwohner-Nenner, und mehr Jahre machen die kleinen Detroiter
+Zellen belastbarer.
 
 | | Chicago | Detroit |
 | --- | ---: | ---: |
-| Sexualdelikte, Vielfaches des Stadtschnitts | **12,0×** | **5,2×** |
-| Betrug, Anteil ohne Koordinate | **3,78 %** | 0,19 % |
+| Sexualdelikte, Vielfaches des Stadtschnitts | **7,5×** | **3,7×** |
+| Betrug, Anteil ohne Koordinate | **6,90 %** | 0,10 % |
 | Betrug, Vielfaches des Stadtschnitts | 4,7× | 0,7× |
+| Drogendelikte, Vielfaches des Stadtschnitts | 4,6× | 1,5× |
 
 **Eine Kategorie trägt in beiden Städten**, und es ist dieselbe: Sexualdelikte.
 Die Ursache liegt nahe und ist in beiden Systemen dieselbe — bei diesen
@@ -1327,15 +1331,20 @@ Delikten wird die Adresse zurückgehalten. Weil die Richtung übereinstimmt,
 verzerrt dieser Teil der Lücke den Städtevergleich **nicht** systematisch.
 
 **Eine zweite Kategorie trägt nur in Chicago**, und das ist der eigentliche
-Befund: Betrug, mit einem Faktor 20 zwischen den Städten. Plausibel ist, dass
-Chicago Betrug ohne Tatort mitführt, den es telefonisch oder online gab;
-Detroits Erfassung über den Vorfallsbericht verlangt eine Adresse. Das ist
-eine Vermutung und keine Messung.
+Befund: Betrug, mit einem Faktor von fast 70 zwischen den Städten. In Detroit
+sind das 28 von 27'787 Fällen — wenige, aber eindeutig unter dem eigenen
+Schnitt. Plausibel ist, dass Chicago Betrug ohne Tatort mitführt, den es
+telefonisch oder online gab; Detroits Erfassung über den Vorfallsbericht
+verlangt eine Adresse. Das ist eine Vermutung und keine Messung.
 
-**Was daraus folgt.** Ein Vergleich der *Gesamtraten* trägt: 0,81 % gegen
-0,29 % Ausfall verschieben keine Rangfolge. Ein Vergleich **je Delikttyp**
+**Drogendelikte liegen dazwischen:** in beiden Städten über dem Schnitt, in
+Chicago aber dreimal so stark (4,6× gegen 1,5×). Die Richtung stimmt, die
+Stärke nicht.
+
+**Was daraus folgt.** Ein Vergleich der *Gesamtraten* trägt: 1,47 % gegen
+0,14 % Ausfall verschieben keine Rangfolge. Ein Vergleich **je Delikttyp**
 trägt für Sexualdelikte, weil die Verzerrung gleichgerichtet ist — aber
-**nicht für Betrug**. Daraus folgt auch die Entscheidung, fehlende Koordinaten
+**nicht für Betrug**, und für Drogendelikte nur mit der Abdeckung daneben. Daraus folgt auch die Entscheidung, fehlende Koordinaten
 zu **markieren statt zu löschen**: Ein nicht zufälliger Ausfall lässt sich
 nicht wegwerfen, ohne die Auswertung zu verzerren. `geo_status` zeigt deshalb
 je Zeile, was fehlt, statt die Zeile wegzulassen.
@@ -1355,7 +1364,8 @@ je Zeile, was fehlt, statt die Zeile wegzulassen.
   Aussage über einzelne Personen.
 - **Die Datenlücken sind nicht symmetrisch.** In Wayne County fehlt bei 9,6 %
   der Tracts der Einkommenswert, in Cook County bei 1,7 %. Auch die Geo-Lücke
-  unterscheidet sich: 1,48 % in Chicago gegen 0,15 % in Detroit. Eine Verzerrung
+  unterscheidet sich: 1,47 % in Chicago gegen 0,14 % in Detroit, über alle
+  sechs Jahrgänge. Eine Verzerrung
   wirkt damit ungleich auf die beiden Städte.
 - **Die Städte zählen verschieden.** Chicago führt je Vorfall ein Delikt
   (Mordopfer ausgenommen: ein Datensatz je Opfer), Detroit jedes Delikt eines
