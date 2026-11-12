@@ -33,7 +33,7 @@ import re
 from pathlib import Path
 
 import pytest
-from gold_pipeline import einwohner_je_stadt
+from gold_pipeline import RATENJAHR, einwohner_je_stadt, raten_je_stadt
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -94,11 +94,12 @@ SCHUTZ = (
     # laufende Jahrgang waechst taeglich - Detroit 2026 um 240 Zeilen. Waeren
     # sie gleich, waere eine der beiden abgeschrieben.
     "Zeilen × ",
-    # Zwei Zahlen, die serving/source_movement (79'801 am 10.11.2026) nur
-    # aehnlich sehen: Detroits Fallzahl 2024 im Kopf von AENDERUNGEN.md
-    # (79'614, 0,23 % daneben) und das LN1-Zitat zur Nachrechnung der
-    # Raumzuordnung (79'874 vergleichbare Zeilen), das woertlich bleiben muss.
-    "Fallebene (`counts_case`)", "vergleichbare Zeilen",
+    # Eine Zahl, die serving/source_movement (79'801 am 10.11.2026) nur
+    # aehnlich sieht: das LN1-Zitat zur Nachrechnung der Raumzuordnung
+    # (79'874 vergleichbare Zeilen), das woertlich bleiben muss. Detroits
+    # Fallzahl 2024 (79'614) stand hier auch; sie ist seit dem 12.11.2026
+    # gemessen (``faelle_2024``) und braucht keinen Schutz mehr.
+    "vergleichbare Zeilen",
 )
 
 # datenhistorie.md *ist* der Verlauf; archiv/ haelt Ueberholtes absichtlich.
@@ -156,6 +157,17 @@ def kennzahlen() -> dict[str, int]:
     for stadt, ew in con.execute(einwohner_je_stadt(
             f"read_parquet('{tracts}')", f"read_parquet('{acs}')")).fetchall():
         zahlen[f"{stadt}/einwohner"] = int(ew)
+
+    # Taten und Faelle in der Stadt im Ratenjahrgang - die Zahlen der
+    # Kopftabellen. Seit dort die Fallebene vorn steht (E-2, 12.11.2026), nennen
+    # vier Dokumente Detroits 79'614 Faelle, und ungemessen hielt dieser
+    # Waechter sie fuer eine veraltete Fassung von source_movement (79'801).
+    fakt = DATEN / "gold" / "dataset=fact_offense" / "part-0001.parquet"
+    for stadt, taten, faelle, *_ in con.execute(raten_je_stadt(
+            f"read_parquet('{fakt}')", f"read_parquet('{tracts}')",
+            f"read_parquet('{acs}')")).fetchall():
+        zahlen[f"{stadt}/taten_{RATENJAHR}"] = taten
+        zahlen[f"{stadt}/faelle_{RATENJAHR}"] = faelle
 
     for name, muster in (("silver/tract", "dataset=tract/**/*.parquet"),
                          ("silver/place", "dataset=place/**/*.parquet"),

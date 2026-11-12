@@ -245,7 +245,8 @@ def test_die_granularitaet_stimmt(text, con):
             f"read_parquet('{ACS}')")).fetchall()
     }
     for stadt, (tat, fall) in raten.items():
-        zeile = re.search(rf"\| {stadt.capitalize()} \| \*\*([\d,]+)\*\* \| ([\d,]+) \|", text)
+        # Seit E-2 (12.11.2026) ist die Fallebene hervorgehoben, nicht die Tatebene.
+        zeile = re.search(rf"\| {stadt.capitalize()} \| ([\d,]+) \| \*\*([\d,]+)\*\* \|", text)
         assert zeile, f"Ratenzeile fuer {stadt} fehlt in Stufe 4"
         assert float(zeile.group(1).replace(",", ".")) == pytest.approx(tat, abs=0.05)
         assert float(zeile.group(2).replace(",", ".")) == pytest.approx(fall, abs=0.05)
