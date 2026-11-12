@@ -32,17 +32,17 @@ Eintrag hier sagt, was das war.
 | --- | ---: |
 | Tests | **2'913** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
-| `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
-| Chicago | 251'513 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 84'987 Delikte · 638'635 Einwohner · **133,1** je 1'000 |
-| Fallebene (`counts_case`) | Chicago 251'483 · Detroit 79'587 Fälle; Detroit **124,6** je 1'000 |
+| `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
+| Chicago | 251'512 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
+| Detroit | 85'557 Delikte · 638'635 Einwohner · **134,0** je 1'000 |
+| Fallebene (`counts_case`) | Chicago 251'482 · Detroit 79'614 Fälle; Detroit **124,7** je 1'000 |
 
 > **Zwei Zeiträume in einer Tabelle, und das ist Absicht.** Die beiden
 > Zeilenzahlen sind der **Bestand** über alle sechs Jahrgänge — die Antwort auf
 > „was liegt hier?". Die drei Zeilen darunter gelten für den **Jahrgang 2024**,
 > den jüngsten vollständigen (`gold_pipeline.RATENJAHR`): Eine Rate braucht
-> einen Zeitraum, und sechs Jahre Zähler auf einem Jahr Nenner ergäben 500,7
+> einen Zeitraum, und sechs Jahre Zähler auf einem Jahr Nenner ergäben 509,7
 > je 1'000 für Chicago. Das wäre keine zu hohe Rate, sondern keine.
 >
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
@@ -101,6 +101,67 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 12.11.2026 · Die Dokumente stehen auf dem Stand vom 10.11.2026 (Branch `docs/referenzstand-nachziehen`)
+
+**Warum.** Der GitHub-Datenlauf vom 11.11. war bis auf einen Schritt grün:
+die Drift. Detroits Rate lag bei 134,0 statt der dokumentierten 133,1 je
+1'000, die Zeilenzahlen 1,9 % über dem Kopf dieser Datei. Entschieden (E-1):
+Die Dokumente gehen auf den Serverstand.
+
+**Welcher Stand.** Der Volllauf auf `srv01` vom 10.11.2026, Release
+`2026-11-10T13-47-23Z`: je Stadt und Jahrgang ein Vollschnappschuss, noch
+kein Delta danach. Lokal aus genau diesen Läufen nachgebaut (`storage holen`,
+dann `run_all --ohne-ingestion`); `silver/crime_offense` trägt denselben
+Eingabeabdruck `b90a1fe4…` wie auf dem Server, und jede Gold-Tabelle dieselbe
+Zeilenzahl wie das Release.
+
+| | vorher | jetzt |
+| --- | ---: | ---: |
+| `silver/crime_offense` | 1'875'374 | **1'909'461** |
+| `gold/fact_offense` | 1'851'946 | **1'887'009** |
+| Chicago 2024, Delikte · Rate | 251'513 · 94,5 | 251'512 · **94,5** |
+| Detroit 2024, Delikte · Rate | 84'987 · 133,1 | 85'557 · **134,0** |
+| Detroit 2024, Fälle · Rate | 79'587 · 124,6 | 79'614 · **124,7** |
+| `silver/weather_day` | 55'497 | 55'573 |
+
+**Was mitging.**
+- Jede Zahl, die ein Wächter mit `referenzstand` hält (104 grün), dazu
+  die ungeprüften Folgezahlen, die ein Vergleich gegen das alte Release
+  `2026-11-07T13-12-32Z` fand: die sechs häufigsten NIBRS-Codes und der
+  Auffang in `ln2_konzept.md`, Taten je Fall (1,060), die 509,7 für sechs
+  Jahre auf einem Jahr Nenner, 33'654 Fälle ausserhalb in `ausblick.md`.
+- `eine-zahl.md` verfolgt die Zahl jetzt über den Vollschnappschuss 2024 vom
+  10.11. (`run_20261110T131057453169Z`, 259'686 Zeilen) statt über den
+  LN1-Lauf vom 5.9.; `tests/test_eine_zahl.py` zeigt mit `LAUF` dorthin.
+- `zaehlperspektiven.md`: Der Ladetag war ein Dienstag, die letzte Woche hat
+  also **zwei** Tage. Der Meldeverzug steht deshalb an der letzten vollen
+  Woche (1'417 Taten gegen 6'246 im Median); der Wächter prüft beides.
+- `datenhistorie.md`: `3072` trägt jetzt **weniger** Zeilen (6'730 statt
+  7'076) — Detroit hat weiter umcodiert.
+- Feldkatalog, Platzbedarf und Einstiegsseite neu erzeugt; die
+  Grössentabelle in Architekturtext und Einseiter übernommen.
+- 19 Läufe und das Release als `LN2` in `config/referenzstand.csv` gepinnt.
+  Die LN1-Pins bleiben.
+
+**Was nicht mitging, mit Absicht.** Datierte Messungen („Nachgemessen am …",
+der Schnappschussvergleich vom 11./12.9., die 55,9 % vom 18.9.) und die
+Historie in dieser Datei. Zwei Zahlen, die `serving/source_movement` nur
+ähnlich sehen, stehen jetzt in `SCHUTZ` von `test_dokumentzahlen.py`.
+
+**Was offen bleibt.**
+- `silver/source_change` hängt an der Lauf-Historie: lokal 95'484 Zeilen, auf
+  `srv01` am 10.11. 79'801 (`serving/source_movement` im Release). Das
+  Aufräumen vom 10.11. hat die Läufe gelöscht, aus denen der Serverwert
+  entstand; nachbauen lässt er sich nicht mehr. Der Feldkatalog beschreibt
+  die lokalen Manifeste, die Einstiegsseite das Release.
+- Abschnitt 8.7 des Konzepts und Notebook 34, Abschnitt 5.2, nennen für die
+  Geo-Lücke noch die Werte des Einjahresbaus (Sexualdelikte 12,0×, Betrug
+  3,78 % gegen 0,19 %, „Faktor 20"); das Notebook rechnet seit dem 4.10. über
+  sechs Jahrgänge und gibt heute 7,5×, 6,90 % gegen 0,10 % aus. Älter als
+  dieser Stand, und eine Aussage zu H1 — nicht hier angefasst.
 
 ---
 

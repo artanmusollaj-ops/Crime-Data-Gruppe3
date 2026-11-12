@@ -17,7 +17,7 @@ Quellnotebooks 01, 11, 21 und 22.
 
 ### `crime_offense`
 
-Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert, je Fall eine mit counts_case**. 1'875'374 Zeilen.
+Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert, je Fall eine mit counts_case**. 1'909'461 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -73,7 +73,7 @@ Eine Zeile ist: **ein Ort (Census Place)**. 8'833 Zeilen über 4 Vintages.
 
 ### `source_change`
 
-Eine Zeile ist: **ein geaendertes Feld einer Zeile zwischen zwei Schnappschuessen**. 4'718 Zeilen.
+Eine Zeile ist: **ein geaendertes Feld einer Zeile zwischen zwei Schnappschuessen**. 95'484 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -121,7 +121,7 @@ Eine Zeile ist: **ein Census Tract**. 25'128 Zeilen über 4 Vintages.
 
 ### `weather_day`
 
-Eine Zeile ist: **eine Stadt an einem Tag**. 55'497 Zeilen.
+Eine Zeile ist: **eine Stadt an einem Tag**. 55'573 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -141,7 +141,7 @@ Eine Zeile ist: **eine Stadt an einem Tag**. 55'497 Zeilen.
 
 ### `dim_city_day`
 
-Eine Zeile ist: **eine Stadt an einem Tag**. 4'196 Zeilen.
+Eine Zeile ist: **eine Stadt an einem Tag**. 4'272 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -159,7 +159,7 @@ Eine Zeile ist: **eine Stadt an einem Tag**. 4'196 Zeilen.
 
 ### `dim_date`
 
-Eine Zeile ist: **ein Kalendertag**. 2'103 Zeilen.
+Eine Zeile ist: **ein Kalendertag**. 2'140 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -238,7 +238,7 @@ Eine Zeile ist: **der Umriss eines Census Tract**. 1'055 Zeilen.
 
 ### `fact_offense`
 
-Eine Zeile ist: **eine Tat**. 1'851'946 Zeilen.
+Eine Zeile ist: **eine Tat**. 1'887'009 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -270,7 +270,7 @@ Eine Zeile ist: **eine Tat**. 1'851'946 Zeilen.
 
 ### `comparison_day`
 
-Eine Zeile ist: **eine Stadt, ein Tag, eine NIBRS-Kategorie**. 75'117 Zeilen.
+Eine Zeile ist: **eine Stadt, ein Tag, eine NIBRS-Kategorie**. 76'429 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -283,7 +283,7 @@ Eine Zeile ist: **eine Stadt, ein Tag, eine NIBRS-Kategorie**. 75'117 Zeilen.
 
 ### `comparison_month`
 
-Eine Zeile ist: **eine Stadt, ein Monat, eine NIBRS-Kategorie**. 3'564 Zeilen.
+Eine Zeile ist: **eine Stadt, ein Monat, eine NIBRS-Kategorie**. 3'633 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -299,7 +299,7 @@ Eine Zeile ist: **eine Stadt, ein Monat, eine NIBRS-Kategorie**. 3'564 Zeilen.
 
 ### `comparison_week`
 
-Eine Zeile ist: **eine Stadt, eine Woche ab Montag, eine NIBRS-Kategorie**. 14'030 Zeilen.
+Eine Zeile ist: **eine Stadt, eine Woche ab Montag, eine NIBRS-Kategorie**. 14'275 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -315,7 +315,7 @@ Eine Zeile ist: **eine Stadt, eine Woche ab Montag, eine NIBRS-Kategorie**. 14'0
 
 ### `partition_quality`
 
-Eine Zeile ist: **eine Stadt, ein Monat**. 139 Zeilen.
+Eine Zeile ist: **eine Stadt, ein Monat**. 142 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -348,7 +348,7 @@ Eine Zeile ist: **ein Census Tract mit Einwohnern im Bezugsjahr 2024 (gold_pipel
 
 ### `source_movement`
 
-Eine Zeile ist: **ein bewegtes Feld einer Zeile zwischen zwei Vollabzuegen; je neuer und je verschwundener Zeile eine Zeile ohne Feld; je ruhigem Paar eine Markierungszeile ohne offense_id**. 4'718 Zeilen.
+Eine Zeile ist: **ein bewegtes Feld einer Zeile zwischen zwei Vollabzuegen; je neuer und je verschwundener Zeile eine Zeile ohne Feld; je ruhigem Paar eine Markierungszeile ohne offense_id**. 95'484 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |

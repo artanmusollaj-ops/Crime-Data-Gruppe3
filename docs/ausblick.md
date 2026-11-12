@@ -440,7 +440,7 @@ den das Projekt schon einmal verworfen hat. Die Messung gibt ihm recht:
 
 | | Zeilen |
 | --- | ---: |
-| Granularität `fact_offense` | 1'851'946 |
+| Granularität `fact_offense` | 1'887'009 |
 | Aggregat Tract × Tag × Familie | 1'603'973 — **87 %** davon |
 
 **13 % weniger Zeilen ist keine Aggregation.** Die scheinbare Ersparnis
@@ -487,10 +487,10 @@ Sie ist die **Bedeutung**. Jede angezeigte Zahl trägt eine Entscheidung, die
 dieses Projekt bewusst sichtbar gemacht hat:
 
 - **Welche Granularität?** Detroit steht im Jahrgang 2024 auf Tatebene bei
-  133,1 je 1'000, auf Fallebene bei 124,6. Beide richtig, verschiedene
+  134,0 je 1'000, auf Fallebene bei 124,7. Beide richtig, verschiedene
   Aussagen — und beide nur mit ihrem Jahr.
 - **Was zählt mit?** `geo_status` sagt, warum eine Zeile in einer
-  Tract-Auswertung fehlt — 33'112 Fälle liegen ausserhalb, 1,14 % haben
+  Tract-Auswertung fehlt — 33'654 Fälle liegen ausserhalb, 1,14 % haben
   keine Koordinate.
 - **Wie sicher ist die Zuordnung?** `mapping_status`: `exact`, `ambiguous`,
   `fallback_90Z`.
@@ -506,7 +506,7 @@ Grundsätze:
 1. **Die Granularität ist ein Schalter, keine Annahme.** Tat- oder Fallebene
    gehört sichtbar in die Kopfzeile, nicht in eine Fussnote.
 2. **Jede Kennzahl nennt ihren Nenner und ihre Ausschlüsse.** *„94,5 je
-   1'000 — von 251'513 Delikten in Tracts der Stadt; 1'753 ohne Koordinate
+   1'000 — von 251'512 Delikten in Tracts der Stadt; 1'753 ohne Koordinate
    nicht enthalten."*
 3. **Was fehlt, wird gezeigt, nicht weggelassen.** Ein Tract ohne Einwohner
    bekommt keine Rate, sondern eine eigene Farbe. Sonst liest jemand die
@@ -629,7 +629,7 @@ Ein externer Rat vom 17.9.2026 hat diesen Bau bestätigt und einen
 Verzeichnisbaum vorgeschlagen, der neben den fünf Gold-Tabellen auch
 `comparison_day`, `comparison_week`, `comparison_month` und
 `partition_quality` vorsieht. Der erste Reflex war, sie abzulehnen: Es sind
-vorberechnete Aggregate, und Notebook 34 hat gemessen, dass sie bei 1'851'946
+vorberechnete Aggregate, und Notebook 34 hat gemessen, dass sie bei 1'887'009
 Zeilen nichts sparen, was ein Mensch bemerkt.
 
 **Christian hat anders entschieden, und der Grund trägt.** Die Ablehnung

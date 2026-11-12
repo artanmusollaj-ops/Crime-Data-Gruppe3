@@ -230,7 +230,7 @@ def test_die_raender_des_zeitfensters_stimmen(text, con):
     # ``[\s\S]{0,400}?`` und nicht ``[^.]*?``: Zwischen "erste Woche" und der
     # Zahl stehen ein Datum und eine Tageszahl, also Punkte und Umbrueche.
     assert zahl(text, r"erste Woche[\s\S]{0,400}?: ([\d']+) Taten") == erste
-    assert zahl(text, r"letzte Woche[\s\S]{0,400}?: ([\d']+) Taten") == letzte
+    assert zahl(text, r"letzte Woche\*\*[\s\S]{0,400}?: ([\d']+) Taten") == letzte
     assert zahl(text, r"mittlere Woche trägt ([\d']+) Taten") == mittel
     assert f"nur **{erste_tage} Tage**" in text, (
         f"die erste Woche hat {erste_tage} Tage in den Daten"
@@ -239,10 +239,26 @@ def test_die_raender_des_zeitfensters_stimmen(text, con):
         f"die Raender sind nicht mehr kleiner als die Mitte: {erste}, "
         f"{letzte}, Mitte {mittel} - dann ist der Abschnitt gegenstandslos"
     )
-    assert letzte_tage == 7, (
-        f"die letzte Woche hat {letzte_tage} Kalendertage - das Dokument "
-        "begruendet ihren Einbruch mit dem Meldeverzug, nicht mit fehlenden Tagen"
-    )
+    # Seit dem Referenzstand vom 10.11.2026 (Ladetag ein Dienstag) hat die
+    # letzte Woche nur zwei Tage. Der Meldeverzug, das zweite Argument des
+    # Abschnitts, steht deshalb an der letzten **vollen** Woche: alle sieben
+    # Tage da, und doch weit unter der Mitte.
+    if letzte_tage < 7:
+        assert f"nur **{letzte_tage} Tage**: {letzte:,} Taten".replace(",", "'") in text, (
+            f"die letzte Woche hat {letzte_tage} Tage - das Dokument muss sie nennen"
+        )
+        volle, volle_tage = con.execute("""
+            WITH w AS (SELECT date_trunc('week', date) AS woche, count(*) AS n,
+                              count(DISTINCT date) AS tage FROM f GROUP BY 1)
+            SELECT n, tage FROM w ORDER BY woche DESC LIMIT 1 OFFSET 1
+        """).fetchone()
+        assert volle_tage == 7 and volle < mittel
+        assert zahl(text, r"letzte volle Woche[\s\S]{0,400}?: ([\d']+) Taten") == volle
+    else:
+        assert "letzte volle Woche" not in text, (
+            "die letzte Woche ist wieder voll - der Absatz zur letzten vollen "
+            "Woche gehoert dann zurueck in den zur letzten Woche"
+        )
 
 
 # --------------------------------------------------------------------------
