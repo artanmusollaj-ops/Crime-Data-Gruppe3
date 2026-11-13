@@ -36,6 +36,7 @@ FELDER = {
     "HYBRID_READ_PRIORITY": "hybrid_read_priority",
     "HYBRID_PUBLISH_AFTER_WRITE": "hybrid_publish_after_write",
     "STORAGE_KEEP_LOCAL": "keep_local",
+    "STORAGE_ANALYSEBESTAND_LOKAL": "analysebestand_lokal",
 }
 
 

@@ -139,3 +139,11 @@ def test_nachpublizieren_im_local_modus_sagt_nein(capsys, tmp_path, monkeypatch)
     from storage import __main__ as befehl
     assert befehl.main(["publizieren", "--wirklich"]) == 1
     assert "nichts publiziert" in capsys.readouterr().out
+
+
+def test_der_analysebestand_bleibt_nur_auf_wunsch_lokal():
+    # Vorgabe: s3 heisst ohne lokalen Bestand. Gesetzt wird der Schalter nur
+    # auf srv01, und auch dann liest der Modus weiter aus dem Eimer.
+    assert not cfg.load(S3, dotenv=False).analysebestand_lokal
+    c = cfg.load({**S3, "STORAGE_ANALYSEBESTAND_LOKAL": "true"}, dotenv=False)
+    assert c.analysebestand_lokal and not c.liest_lokal

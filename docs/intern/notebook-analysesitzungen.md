@@ -22,6 +22,10 @@ publizierte Release einsetzt. Bei abweichender Release-ID, abweichenden
 Pruefsummen, einem Nachweis ohne Release-ID oder einem Fehler bleibt der Bestand
 gesperrt.
 
+Auf `srv01` (Modus `s3`) braucht es dazu `STORAGE_ANALYSEBESTAND_LOKAL=true` in
+den Diensten `pipeline` und `worker`. Sonst entfernt `run_all` Silver und Gold
+nach dem Release, und der Nachweis erfasst nur Bronze.
+
 Die Startzelle liest standardmaessig `data/`. Eine andere Wurzel wird vor dem
 Start des Kernels gewaehlt, zum Beispiel in PowerShell:
 

@@ -80,6 +80,17 @@ class Config:
     #: Kein Schalter fuer Menschen. Er wird je Lauf gesetzt, nicht in einer
     #: ``.env``, und wer ihn dort setzt, haelt den ganzen Bestand lokal.
     keep_local: bool = False
+    #: Im Modus ``s3`` die lokalen Arbeitskopien von Silver und Gold auch
+    #: **nach** dem Release behalten.
+    #:
+    #: Die Notebooks 34 und 37 lesen Silver und Gold unter der Datenwurzel und
+    #: verlangen dafuer den Herkunftsnachweis ``.analyse/stand.json``. Raeumt
+    #: ``run_all`` die Kopien nach dem Release weg, erfasst der Nachweis nur
+    #: noch Bronze, und die Notebooks starten nie. Auf ``srv01`` war das seit
+    #: dem Wechsel auf ``s3`` so und fiel am 13.11.2026 auf. Gesetzt wird der
+    #: Schalter dort im Compose-Dienst ``pipeline``, nicht in einer ``.env``.
+    #: Gelesen wird weiter aus dem Eimer; die Kopien sind nur der Analysebestand.
+    analysebestand_lokal: bool = False
 
     @property
     def remote(self) -> bool:
@@ -139,6 +150,7 @@ def load(env: Mapping[str, str] | None = None, *, dotenv: bool = True) -> Config
         hybrid_read_priority=prioritaet,
         hybrid_publish_after_write=wahr(env.get("HYBRID_PUBLISH_AFTER_WRITE"), True),
         keep_local=wahr(env.get("STORAGE_KEEP_LOCAL"), False),
+        analysebestand_lokal=wahr(env.get("STORAGE_ANALYSEBESTAND_LOKAL"), False),
     )
     if config.remote and not (config.s3_access_key and config.s3_secret_key):
         raise StorageConfigError(

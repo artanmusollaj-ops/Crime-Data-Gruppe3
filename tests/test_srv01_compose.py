@@ -1102,3 +1102,12 @@ def test_der_leser_traegt_auch_die_lange_volume_syntax():
     mount = gelesen["services"]["jupyter"]["volumes"][0]
     assert mount_info(mount) == ("konsole", "/app/data/admin/jobs", True)
     assert mount["volume"] == {"subpath": "jobs", "nocopy": "true"}
+
+
+def test_die_pipeline_haelt_den_analysebestand_fuer_jupyter(dienste):
+    # Ohne den Schalter raeumt s3 Silver und Gold nach dem Release weg, und
+    # die Notebooks 34 und 37 in ``jupyter`` starten auf srv01 nie.
+    umgebung = dienste["pipeline"]["environment"]
+    assert umgebung["STORAGE_BACKEND"] == "s3"
+    assert str(umgebung["STORAGE_ANALYSEBESTAND_LOKAL"]).lower() == "true"
+    assert dienste["jupyter"]["environment"]["CRIME_ANALYSIS_ROOT"].endswith("/app/data}")
