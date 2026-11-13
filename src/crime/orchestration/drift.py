@@ -67,24 +67,31 @@ GROESSEN: tuple[tuple[str, str, str, int], ...] = (
      r"`silver/crime_offense` \| ([0-9']+) Zeilen", 0),
     ("gold_rows", "`gold/fact_offense`, Taten",
      r"`gold/fact_offense` \| \*\*([0-9']+)\*\* Zeilen", 0),
-    ("chicago_delikte", f"Chicago, Delikte in der Stadt ({RATENJAHR})",
-     r"\| Chicago \| ([0-9']+) Delikte", 0),
-    ("chicago_einwohner", "Chicago, Einwohner",
-     r"\| Chicago \| [0-9']+ Delikte · ([0-9']+) Einwohner", 0),
-    ("chicago_rate", f"Chicago, je 1'000 (Tatebene, {RATENJAHR})",
-     r"\| Chicago \|.*?\*\*([0-9]+,[0-9])\*\* je 1'000", 1),
-    ("detroit_delikte", f"Detroit, Delikte in der Stadt ({RATENJAHR})",
-     r"\| Detroit \| ([0-9']+) Delikte", 0),
-    ("detroit_einwohner", "Detroit, Einwohner",
-     r"\| Detroit \| [0-9']+ Delikte · ([0-9']+) Einwohner", 0),
-    ("detroit_rate", f"Detroit, je 1'000 (Tatebene, {RATENJAHR})",
-     r"\| Detroit \|.*?\*\*([0-9]+,[0-9])\*\* je 1'000", 1),
+    # Seit dem 12.11.2026 (E-2) steht die **Fallebene vorn**: Die Stadtzeilen
+    # nennen Faelle und die Fallrate, die Tatebene folgt in einer eigenen
+    # Zeile. Die Schluessel bleiben, was sie messen - ``*_delikte`` und
+    # ``*_rate`` die Tatebene, ``*_faelle`` und ``*_rate_fallebene`` die
+    # Fallebene -, geaendert haben sich nur die Muster.
     ("chicago_faelle", f"Chicago, Fälle (Fallebene, {RATENJAHR})",
-     r"\| Fallebene.*?Chicago ([0-9']+)", 0),
+     r"\| Chicago \| ([0-9']+) Fälle", 0),
+    ("chicago_einwohner", "Chicago, Einwohner",
+     r"\| Chicago \| [0-9']+ Fälle · ([0-9']+) Einwohner", 0),
+    ("chicago_rate_fallebene", f"Chicago, je 1'000 (Fallebene, {RATENJAHR})",
+     r"\| Chicago \|.*?\*\*([0-9]+,[0-9])\*\* je 1'000", 1),
     ("detroit_faelle", f"Detroit, Fälle (Fallebene, {RATENJAHR})",
-     r"\| Fallebene.*?Detroit ([0-9']+)", 0),
+     r"\| Detroit \| ([0-9']+) Fälle", 0),
+    ("detroit_einwohner", "Detroit, Einwohner",
+     r"\| Detroit \| [0-9']+ Fälle · ([0-9']+) Einwohner", 0),
     ("detroit_rate_fallebene", f"Detroit, je 1'000 (Fallebene, {RATENJAHR})",
-     r"\| Fallebene.*?Detroit \*\*([0-9]+,[0-9])\*\* je 1'000", 1),
+     r"\| Detroit \|.*?\*\*([0-9]+,[0-9])\*\* je 1'000", 1),
+    ("chicago_delikte", f"Chicago, Taten (Tatebene, {RATENJAHR})",
+     r"\| Tatebene.*?Chicago ([0-9']+)", 0),
+    ("detroit_delikte", f"Detroit, Taten (Tatebene, {RATENJAHR})",
+     r"\| Tatebene.*?Detroit ([0-9']+)", 0),
+    ("chicago_rate", f"Chicago, je 1'000 (Tatebene, {RATENJAHR})",
+     r"\| Tatebene.*?je 1'000: Chicago \*\*([0-9]+,[0-9])\*\*", 1),
+    ("detroit_rate", f"Detroit, je 1'000 (Tatebene, {RATENJAHR})",
+     r"\| Tatebene.*?je 1'000: .*?Detroit \*\*([0-9]+,[0-9])\*\*", 1),
 )
 
 
@@ -179,8 +186,7 @@ def gemessen(data_root: Path) -> dict[str, float]:
                 werte[f"{stadt}_faelle"] = faelle
                 werte[f"{stadt}_einwohner"] = einwohner
                 werte[f"{stadt}_rate"] = rate
-                if stadt == "detroit":
-                    werte["detroit_rate_fallebene"] = rate_fall
+                werte[f"{stadt}_rate_fallebene"] = rate_fall
     finally:
         con.close()
     return werte

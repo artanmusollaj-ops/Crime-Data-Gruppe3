@@ -50,7 +50,8 @@ allein nachzuziehen genügt nicht.
 Abgabedokumente beziehen:
 
 Die beiden Zeilenzahlen sind der **Bestand** über alle sechs Jahrgänge, die
-beiden Raten darunter gelten für den **Jahrgang 2024**. Das ist kein
+Raten darunter gelten für den **Jahrgang 2024**, vorn auf der Fallebene (je
+Vorfall das schwerste Delikt), darunter auf der Tatebene. Das ist kein
 Versehen, sondern der Unterschied zwischen „was liegt hier?" und „wie hoch ist
 die Rate?": Ein Zähler über sechs Jahre auf einem Nenner von einem ergibt
 509,7 je 1'000 — eine Zahl, die aussieht wie eine Zahl.
@@ -60,8 +61,9 @@ die Rate?": Ein Zähler über sechs Jahre auf einem Nenner von einem ergibt
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
-| Chicago | 251'512 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 85'557 Delikte · 638'635 Einwohner · **134,0** je 1'000 |
+| Chicago | 251'482 Fälle · 2'661'953 Einwohner · **94,5** je 1'000 |
+| Detroit | 79'614 Fälle · 638'635 Einwohner · **124,7** je 1'000 |
+| Tatebene (`fact_offense`) | Chicago 251'512 · Detroit 85'557 Taten; je 1'000: Chicago **94,5** · Detroit **134,0** |
 
 **Warum raw und bronze getrennt sind.** Raw ist das Beweisstück: Ein Delta-Lauf
 hält Datensätze so fest, wie sie in diesem Moment waren, und das lässt sich

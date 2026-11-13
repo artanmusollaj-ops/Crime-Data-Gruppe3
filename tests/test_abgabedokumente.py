@@ -203,11 +203,12 @@ def test_rate_je_einwohner(con, konzept, stadt):
         rf"\| {stadt} \| ([0-9']+) \| ([0-9']+) \| \*\*([0-9]+,[0-9])\*\* \|", konzept
     )
     assert treffer, f"Ratenzeile fuer {stadt} nicht gefunden"
-    delikte = int(treffer.group(1).replace("'", ""))
+    faelle = int(treffer.group(1).replace("'", ""))
     einwohner = int(treffer.group(2).replace("'", ""))
     rate = float(treffer.group(3).replace(",", "."))
-    delikte_echt, _, einwohner_echt, rate_echt, _ = echt[stadt.lower()]
-    assert (delikte, einwohner) == (delikte_echt, einwohner_echt)
+    # Seit E-2 (12.11.2026) die Fallebene: Faelle und Fallrate.
+    _, faelle_echt, einwohner_echt, _, rate_echt = echt[stadt.lower()]
+    assert (faelle, einwohner) == (faelle_echt, einwohner_echt)
     assert rate == pytest.approx(rate_echt, abs=0.05)
     # Die 500 Zeichen vor der Zeile, nicht "der Absatz davor": Eine
     # Tabellenzeile hat als Absatz die Kopfzeile der Tabelle, und darin steht
@@ -277,15 +278,16 @@ def test_readme_nennt_die_zeilenzahlen(con, readme, dataset, schicht, muster):
 def test_readme_nennt_die_raten(con, readme, stadt):
     """Dieselbe Rate auf der ersten Seite, die jemand liest - mit ihrem Jahr."""
     echt = gemessene_raten(con)
+    # Vorn die Fallebene (E-2, 12.11.2026): Faelle und Fallrate.
     treffer = re.search(
-        rf"\| {stadt} \| ([0-9']+) Delikte .*?\*\*([0-9]+,[0-9])\*\* je 1'000",
+        rf"\| {stadt} \| ([0-9']+) Fälle .*?\*\*([0-9]+,[0-9])\*\* je 1'000",
         readme,
     )
     assert treffer, f"Ratenzeile fuer {stadt} nicht im README"
-    delikte = int(treffer.group(1).replace("'", ""))
+    faelle = int(treffer.group(1).replace("'", ""))
     rate = float(treffer.group(2).replace(",", "."))
-    assert delikte == echt[stadt.lower()][0]
-    assert rate == pytest.approx(echt[stadt.lower()][3], abs=0.05)
+    assert faelle == echt[stadt.lower()][1]
+    assert rate == pytest.approx(echt[stadt.lower()][4], abs=0.05)
     kopf = readme[max(0, treffer.start() - 500):treffer.start()]
     assert str(RATENJAHR) in kopf, (
         f"die Ratenzeilen im README nennen den Jahrgang {RATENJAHR} nicht"

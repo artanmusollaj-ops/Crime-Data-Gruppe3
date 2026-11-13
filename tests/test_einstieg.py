@@ -194,10 +194,15 @@ def test_jede_zahl_der_seite_steht_so_im_release(text):
         f"die Seite nennt den Jahrgang {RATENJAHR} nicht, fuer den ihre Raten "
         "gelten - ein Release traegt sechs")
     for zeile in raten:
-        stadt, rate = zeile[0], zeile[4]
-        gesucht = f"{rate:.1f}".replace(".", ",")
+        # Vorn die Fallrate (E-2), fett; die Tatrate daneben.
+        stadt, faelle, rate, rate_fall = zeile[0], zeile[2], zeile[4], zeile[5]
+        gesucht = f"{rate_fall:.1f}".replace(".", ",")
         assert f"<strong>{gesucht}</strong>" in text, (
-            f"{stadt}: Rate {gesucht} steht nicht auf der Seite")
+            f"{stadt}: Fallrate {gesucht} steht nicht auf der Seite")
+        assert f"{rate:.1f}".replace(".", ",") in text, (
+            f"{stadt}: Tatrate {rate:.1f} steht nicht auf der Seite")
+        assert f"{faelle:,}".replace(",", "'") in text, (
+            f"{stadt}: {faelle:,} Faelle stehen nicht auf der Seite")
 
 
 @pytest.mark.referenzstand
@@ -290,7 +295,7 @@ def blatt(werkzeug, fassung: str) -> str:
     """
     mass = {
         "datensaetze": [("fact_offense", 1, 2, 3)],
-        "staedte": [("chicago", 1, 2, 3.0)],
+        "staedte": [("chicago", 1, 2, 3.0, 3.1)],
         "guete": [("chicago", 99.0, 99.0, 0.0)],
         "zeitraum": ("2021-01-01", "2026-06-30"),
         "ratenjahr": 2024,

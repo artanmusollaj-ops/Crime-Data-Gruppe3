@@ -184,8 +184,10 @@ def test_die_referenzzahlen_stimmen_mit_den_uebrigen_dokumenten(teil_a):
         (r"Bei ([\d']+) Zeilen liegt jede realistische", r"`gold/fact_offense` \| \*\*([\d']+)\*\*"),
         (r"`silver/crime_offense` \| ([\d']+) Zeilen", r"`silver/crime_offense` \| ([\d']+) Zeilen"),
         (r"`gold/fact_offense` \| \*\*([\d']+)\*\*", r"`gold/fact_offense` \| \*\*([\d']+)\*\*"),
-        (r"Chicago \| ([\d']+) Delikte", r"Chicago \| ([\d']+) Delikte"),
-        (r"Detroit \| ([\d']+) Delikte", r"Detroit \| ([\d']+) Delikte"),
+        (r"Chicago \| ([\d']+) Fälle", r"Chicago \| ([\d']+) Fälle"),
+        (r"Detroit \| ([\d']+) Fälle", r"Detroit \| ([\d']+) Fälle"),
+        (r"Tatebene.*?Chicago ([\d']+)", r"Tatebene.*?Chicago ([\d']+)"),
+        (r"Tatebene.*?Detroit ([\d']+)", r"Tatebene.*?Detroit ([\d']+)"),
     ):
         assert zahl(teil_a, muster_hier) == zahl(aenderungen, muster_dort)
 
@@ -347,7 +349,7 @@ def test_der_einseiter_traegt_dieselben_zahlen(blatt, text):
     # Diese Liste ist von Hand gefuehrt und muss nach einem Neubau mitgezogen
     # werden - sie sagt, **welche** Zahlen an beiden Stellen stehen muessen,
     # und das laesst sich aus den Daten nicht ableiten.
-    for wert in ("1'909'461", "1'887'009", "94,5", "134,0", "42 Kontrollen",
+    for wert in ("1'909'461", "1'887'009", "94,5", "124,7", "42 Kontrollen",
                  "1'055", "23,3 %", "55,9 %"):
         assert wert in blatt, f"{wert} fehlt im Einseiter"
         assert wert in text or wert.replace("'", "") in text, (

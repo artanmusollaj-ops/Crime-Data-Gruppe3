@@ -519,11 +519,28 @@ auf NIBRS übersetzt), bei gleichem Delikt die früheste Zeile.
 | Taten (`counts`), 2021–2026 | 1'408'315 | 478'694 |
 | Fälle (`counts_case`), 2021–2026 | 1'408'135 | 451'790 |
 | Taten je Fall | 1,000 | **1,060** |
-| Rate je 1'000, Tatebene, **2024** | 94,5 | 134,0 |
-| Rate je 1'000, Fallebene, **2024** | 94,5 | **124,7** |
+| Rate je 1'000, **Fallebene**, **2024** | **94,5** | **124,7** |
+| Rate je 1'000, Tatebene, 2024 | 94,5 | 134,0 |
 
-Beide Masse liegen in Gold; die Tatzahlen ändern sich nicht. Welche Zählweise
-die Aussage trägt, ist ein Entscheid — Chicagos Zählweise ist das Fallebene.
+Beide Masse liegen in Gold; die Tatzahlen ändern sich nicht. **Die Aussage
+trägt die Fallebene** (E-2, beschlossen am 5.10.2026, in den Dokumenten seit
+dem 12.11.2026): Die Hierarchieregel des UCR Handbook bringt beide Städte auf
+einen amtlichen Massstab — dieselbe Logik wie die drei Übersetzungen des
+Projekts, Delikte auf NIBRS, Koordinaten auf Tracts, Fallzahlen auf Raten.
+
+Nativ ist die Fallebene für **keine** der beiden Quellen; sie entsteht erst
+durch `counts_case`. In Chicago fallen beide Masse fast zusammen, weil die
+Quelle je Vorfall in aller Regel eine Zeile führt (Mordopfer ausgenommen), in
+Detroit nicht, weil sie jedes Delikt führt. Zwei Auflagen gehören zum
+Entscheid:
+
+- **Die Regel wirkt ungleich.** Sie verwirft in Detroit 5,6 % der Taten, in
+  Chicago 0,013 %, über alle sechs Jahrgänge (`zaehlperspektiven.md`). Das ist
+  eine Grenze des Vergleichs (Kapitel 9).
+- **Anteile je Deliktart rechnen auf der Tatebene.** Nur dort addieren sich
+  die Kategorien: Auf Fallebene fiele das Nebendelikt eines Vorfalls weg, und
+  wer nach Familien summiert, erhielte eine andere Verteilung als die
+  erfasste.
 
 **Gefunden hat das Artan**, an einer Zeile mit `offense_category` LARCENY und
 `offense_description` *CSC 3rd Degree*. Sie gehört zu einem Vorfall mit zwei
@@ -572,12 +589,14 @@ Damit ist die Frage beantwortet, die das Projekt von Anfang an stellen wollte �
 **für den Jahrgang 2024**, mit der ACS-Schätzung desselben Jahrgangs als
 Nenner:
 
-| | Delikte | Einwohner | je 1'000 |
+| | Fälle | Einwohner | je 1'000 |
 | --- | ---: | ---: | ---: |
-| Chicago | 251'512 | 2'661'953 | **94,5** |
-| Detroit | 85'557 | 638'635 | **134,0** |
+| Chicago | 251'482 | 2'661'953 | **94,5** |
+| Detroit | 79'614 | 638'635 | **124,7** |
 
-Absolute Fallzahlen hätten das Gegenteil nahegelegt.
+Auf der Tatebene, die jedes Delikt eines Vorfalls zählt, stehen dieselben
+Städte bei 94,5 und 134,0. Absolute Fallzahlen hätten das Gegenteil
+nahegelegt.
 
 **Ein Ort heisst nicht eindeutig.** Illinois führt neben *Chicago city* auch ein
 *Detroit village* von 0,65 Quadratkilometern. Die Auswahl der beiden Städte
@@ -1370,10 +1389,11 @@ je Zeile, was fehlt, statt die Zeile wegzulassen.
 - **Die Städte zählen verschieden.** Chicago führt je Vorfall ein Delikt
   (Mordopfer ausgenommen: ein Datensatz je Opfer), Detroit jedes Delikt eines
   Vorfalls — 5,6 % mehr Taten als Fälle. Im Jahrgang 2024 liegt Detroit auf
-  Tatebene bei 134,0 je 1'000, auf Fallebene (`counts_case`, beide Städte
-  dieselbe Regel) bei 124,7; Chicago in beiden bei 94,5. Die Reihenfolge
-  bleibt, der Abstand schrumpft. Beide Masse sind in Gold; welches die Aussage trägt, ist zu
-  entscheiden (5.2).
+  Fallebene (`counts_case`, beide Städte dieselbe Regel) bei 124,7 je 1'000,
+  auf Tatebene bei 134,0; Chicago in beiden bei 94,5. Die Reihenfolge
+  bleibt, der Abstand schrumpft. Die Aussage trägt die Fallebene (5.2); die
+  Regel dahinter verwirft aber in Detroit 5,6 % der Taten, in Chicago
+  0,013 % — sie gleicht an, und sie wirkt dabei ungleich.
 
 **Zu den Quellen**
 

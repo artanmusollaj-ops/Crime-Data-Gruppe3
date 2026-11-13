@@ -486,9 +486,9 @@ Speicher."* Dieselbe Messung hatte schon `fact_tract_month` (95'219) und
 Sie ist die **Bedeutung**. Jede angezeigte Zahl trägt eine Entscheidung, die
 dieses Projekt bewusst sichtbar gemacht hat:
 
-- **Welche Granularität?** Detroit steht im Jahrgang 2024 auf Tatebene bei
-  134,0 je 1'000, auf Fallebene bei 124,7. Beide richtig, verschiedene
-  Aussagen — und beide nur mit ihrem Jahr.
+- **Welche Granularität?** Detroit steht im Jahrgang 2024 auf Fallebene bei
+  124,7 je 1'000, auf Tatebene bei 134,0. Beide richtig, verschiedene
+  Aussagen — vorn steht die Fallebene, und beide nur mit ihrem Jahr.
 - **Was zählt mit?** `geo_status` sagt, warum eine Zeile in einer
   Tract-Auswertung fehlt — 33'654 Fälle liegen ausserhalb, 1,14 % haben
   keine Koordinate.
