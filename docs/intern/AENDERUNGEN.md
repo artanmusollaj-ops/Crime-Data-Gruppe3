@@ -148,6 +148,26 @@ nicht.
 
 ---
 
+## 12.11.2026 · Die Versionierung des Eimers ist ausgesetzt (Branch `docs/e3-versionierung-ausgesetzt`)
+
+**Entschieden (E-3).** Der Eimer `urban-crime` auf `srv01` versioniert nicht
+mehr: `s3.bucket.versioning -name urban-crime -suspend`, danach meldet
+`weed shell` „Versioning: Suspended". Keine Objektsperre, kein Alarm auf der
+Metrik `srv01_seaweedfs_bucket_versioning_status` (sie meldet jetzt 1 statt 2).
+
+**Warum.** Läufe und Releases überschreiben nichts. Überschrieben werden nur
+Silver und Gold, bei jedem Neubau, und genau dort legte die Versionierung jedes
+Mal eine alte Fassung ab: 3,91 GiB bis zum 18.10.2026, und nach dem Aufräumen
+vom 10.11. wären sie wieder nachgewachsen.
+
+**Was bleibt.** Ganz abschalten kennt S3 nicht, nur aussetzen. Fassungen von
+davor liegen weiter, bis `aufraeumen --fassungen --auch-fern` sie entfernt.
+Das Modul zeigt sie deshalb weiter, und `FakeS3Client` versioniert vorgabemässig
+weiter mit. Geändert sind nur Docstrings in `storage.backend` und
+`orchestration.aufraeumen`, `storage-architektur.md` und `offene-punkte.md`.
+
+---
+
 ## 12.11.2026 · Kein Test entwertet mehr den echten Analysenachweis (Branch `fix/tests-ohne-echtes-data`)
 
 **Was geschah.** Nach jedem Lauf der Suite fehlte `data/.analyse/stand.json`,

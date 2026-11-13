@@ -34,7 +34,11 @@ Punkte, an denen nichts zu bauen ist, bevor jemand entschieden hat.
 
 | Nr | Punkt | Wer | seit | wo belegt |
 | --- | --- | --- | --- | --- |
+<<<<<<< HEAD
 | E-3 | **Versionierung des Eimers `urban-crime` abschalten?** Sie kostete 3,91 GiB, die jedes Aufräumen für frei hielt. Unser Entwurf braucht sie nicht — nichts überschreibt, `publish_files` lehnt stilles Überschreiben ab. Bleibt sie an, sammeln sich die alten Fassungen wieder an. | Christian | 18.10.2026 | `storage-architektur.md`, „Der Eimer ist versioniert" |
+=======
+| E-2 | **Tatebene oder Fallebene vorn.** E5 hat am 5.10.2026 die Fallebene vorn beschlossen; die Dokumente und der Kopf von `AENDERUNGEN.md` führen weiter die Tatebene (94,5 / 133,1) und die Fallebene in einer dritten Zeile. | Artan | 5.10.2026 | `deferred-work.md` Nr. 19; Kopfabschnitt „Der Stand in Zahlen" |
+>>>>>>> origin/main
 | E-5 | **Wie lesen Notebooks im verwalteten Betrieb?** Artans `serving.release_reader` lenkte sie auf das aktive Release, das aber kein Silver und kein Bronze enthält: Notebook 34 liess 13 von 17 Zellen still leer, 37 brach ab. Nicht übernommen. Lokal unter Windows und Linux/Docker geprüft: [Analysesitzungen mit Sperre und Herkunftsnachweis](notebook-analysesitzungen.md), [Prüfnachweis](e5-pruefnachweis.md). Offen bleiben Roll-out und Abnahme auf srv01 mit echtem Konsolen-Job sowie Quelländerungen für Notebook 37. | Artan | 30.10.2026 | `AENDERUNGEN.md`, „Die Konsole ist im Repository" |
 
 ## Auf dem Server
@@ -87,7 +91,11 @@ Reihenfolge der Einträge dort.
 | Nr. 22, 23, 25 | Tunnel-Route, S3-Schlüssel, Karte | dort schon vermerkt | |
 | Nr. 24 | Lauf vom 12.10. nach 26 von 39 Stufen abgebrochen | 17.10.2026 | überholt durch den grünen Lauf |
 | E-1 | ob die Dokumentzahlen auf den Serverstand gehen | **ja** — entschieden am 12.11.2026, nachgezogen auf den Volllauf vom 10.11.2026 (Release `2026-11-10T13-47-23Z`) | Detroit 134,0 je 1'000 (Tatebene, 2024), Fallebene 124,7; die zwölf Läufe als `LN2` gepinnt. `AENDERUNGEN.md`, „Die Dokumente stehen auf dem Stand vom 10.11.2026“ |
+<<<<<<< HEAD
 | E-2 | ob die Fall- oder die Tatebene vorn steht | **Fallebene** — beschlossen am 5.10.2026 (E5 im PRD), in den Dokumenten seit dem 12.11.2026: Kopftabellen, Konzept 5.2/5.4/9, `eine-zahl.md`, Einseiter, Einstiegsseite, Driftbericht | `AENDERUNGEN.md`, „Die Fallebene steht vorn" |
+=======
+| E-3 | ob die Versionierung des Eimers `urban-crime` abgeschaltet wird | **ja** — am 12.11.2026 auf `srv01` ausgesetzt (`s3.bucket.versioning -suspend`; ganz abschalten kennt S3 nicht) | `storage-architektur.md`, „Der Eimer war versioniert" |
+>>>>>>> origin/main
 | E-4 | was der Konsolen-Worker vom Datenlauf übernimmt | **alles** — entschieden und umgesetzt am 30.10.2026 | Drift und Sicherungssatz nach dem Serving, Laufprotokoll und Betriebsstand nach jedem Takt, Montagsrhythmus über `srv01-konsole-datenlauf.sh`, Wochenläufe vom Qualitätstor freigegeben; Paritätswächter `test_the_worker_covers_every_step_of_the_cron_run`. `AENDERUNGEN.md`, „Der Worker übernimmt den Datenlauf“ |
 | S-7 | `urbancrime_konsole` in `backup.volumes` | 31.10.2026 | `/srv/docker/config/srv01.yaml`, `required: true`, neben `urbancrime_sicherung`; die alte Fassung liegt daneben als `srv01.yaml.vor-konsole-*` |
 | S-5 | Tunnel-Route `urbancrime-admin.datenwerft.ch` | 31.10.2026 | von aussen gemessen: 302 auf dieselbe Access-Anwendung wie Kibana (`kid=7b915eae…`), ein zufälliger Name hat kein DNS; von innen über Traefik `/healthz` 200, `/api/state` ohne Anmeldung 401 |

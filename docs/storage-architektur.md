@@ -645,14 +645,14 @@ Exitcode 1, einer Warnung im Protokoll und in `sicherungssatz.json`.
 `urbancrime_elasticsearch-daten` nicht mehr hinein. Damit fällt die
 Sicherungsquelle von 7,3 GB auf etwa **0,6 GB**.
 
-### Der Eimer ist versioniert, und das hat 3,91 GiB gekostet
+### Der Eimer war versioniert, und das hat 3,91 GiB gekostet
 
 **Am 18.10.2026 gefunden, aus einem fremden Anlass.** Die nächtliche
 Serversicherung von `srv01` nach Backblaze lief voll; der letzte erfolgreiche
 Lauf war der **24.9.2026**. Gesucht wurde die Ursache dort, gefunden wurde
 sie hier.
 
-Der Eimer `urban-crime` hat **Versionierung eingeschaltet**. Ein `delete`
+Der Eimer `urban-crime` hatte **Versionierung eingeschaltet**. Ein `delete`
 setzt damit eine Löschmarkierung — die Fassung darunter bleibt liegen. Jedes
 Aufräumen, das `orchestration.aufraeumen` je gemacht hat, hat deshalb
 **keinen Platz freigegeben**. Sichtbar war das in nichts: `list_objects_v2`
@@ -681,6 +681,27 @@ Werkzeug, das den belegten Platz über dieselbe Schnittstelle misst, über die
 es löscht, kann einen Rest nicht sehen, den diese Schnittstelle verbirgt.
 Gegengeprüft wurde hier über den Filer — eine zweite, unabhängige Sicht auf
 denselben Speicher.
+
+**Seit dem 12.11.2026 ausgesetzt** (Entscheid E-3). Unser Entwurf braucht
+die Versionierung nicht: Läufe und Releases werden nie überschrieben
+(`publish_files` lehnt stilles Überschreiben ab), und was überschrieben wird —
+Silver und Gold —, ist aus den Läufen nachrechenbar. Mit Versionierung legte
+aber genau dieses Überschreiben bei jedem Neubau eine alte Fassung ab.
+
+```text
+weed shell> s3.bucket.versioning -name urban-crime -suspend
+Bucket urban-crime versioning set to Suspended
+```
+
+„Ausgesetzt" ist der Zustand, den S3 kennt; ganz abschalten lässt sich eine
+einmal eingeschaltete Versionierung nicht. Ein Überschreiben oder Löschen
+ersetzt jetzt die eine `null`-Fassung, statt eine weitere anzulegen. Was
+vorher entstand, liegt weiter als alte Fassung da, bis
+`aufraeumen --fassungen --auch-fern` es entfernt. Deshalb zeigt das Modul die
+Fassungen weiter, und `FakeS3Client` versioniert vorgabemässig weiter mit.
+Wieder einschalten: `s3.bucket.versioning -name urban-crime -enable`. Die
+Metrik `srv01_seaweedfs_bucket_versioning_status` meldet 1 (ausgesetzt)
+statt 2.
 
 Ein Release entsteht nur nach einem **vollständigen** grünen Lauf bis
 einschliesslich Serving — ein halber Stand bekommt keine Kennung. Scheitert
