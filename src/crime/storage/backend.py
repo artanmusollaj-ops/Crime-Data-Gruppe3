@@ -118,8 +118,9 @@ class Objekt(NamedTuple):
 class Fassung(NamedTuple):
     """Eine Objektfassung in einem versionierten Eimer.
 
-    **Warum es das braucht.** Der Eimer ``urban-crime`` auf `srv01` hat
-    Versionierung eingeschaltet, und das aendert, was ein Loeschen bedeutet:
+    **Warum es das braucht.** Der Eimer ``urban-crime`` auf `srv01` hatte
+    bis zum 12.11.2026 Versionierung eingeschaltet (seither ausgesetzt, die
+    alten Fassungen von davor bleiben), und das aendert, was ein Loeschen bedeutet:
     Es setzt eine Markierung, die Bytes bleiben. Am 18.10.2026 gemessen -
     1'551 aktuelle Objekte mit 2,60 GiB, daneben **3'863 alte Fassungen mit
     3,91 GiB** und 2'381 Loeschmarkierungen. Sechzig Prozent des Eimers waren
@@ -364,7 +365,8 @@ class FakeS3Client:
         self.geloescht: list[str] = []
         self.anfragen: list[str] = []
         # **Versioniert wie das Echte, und zwar vorgabemaessig.** Der Eimer
-        # auf `srv01` hat Versionierung an; ein Doppel ohne sie zeigte ein
+        # auf `srv01` hatte Versionierung an (seit 12.11.2026 ausgesetzt; was
+        # davor entstand, liegt noch als Fassung da); ein Doppel ohne sie zeigte ein
         # Loeschen als Freigeben, und genau dieser Unterschied hat 3,91 GiB
         # unsichtbar liegen lassen. ``versioniert=False`` gibt es fuer Tests,
         # die den unversionierten Fall ausdruecklich meinen.
