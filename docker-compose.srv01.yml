@@ -291,6 +291,11 @@ services:
       # Serverlauf, der versehentlich in local liefe, publizierte nichts und
       # saehe dabei gruen aus.
       STORAGE_BACKEND: s3
+      # Silver und Gold bleiben nach dem Release lokal liegen: Die Notebooks
+      # 34 und 37 in ``jupyter`` lesen sie unter /app/data und verlangen den
+      # Herkunftsnachweis ueber genau diese Dateien. Ohne den Schalter erfasste
+      # er nur Bronze, und beide starteten nie (13.11.2026).
+      STORAGE_ANALYSEBESTAND_LOKAL: "true"
       DATA_LOCK_ROOT: /app/datensperren
       # Wohin ``orchestration.sicherungssatz`` schreibt. **Nicht nach
       # ``/app/data``**: Das ist ``arbeitsdaten``, und das steht nicht in
@@ -641,6 +646,8 @@ services:
       # Alles, was die Pipeline setzt, und mit denselben Werten - der Worker
       # ruft dieselben Module auf (test_der_worker_traegt_was_die_pipeline_traegt).
       STORAGE_BACKEND: s3
+      # Wie die Pipeline: Silver und Gold bleiben fuer die Notebooks liegen.
+      STORAGE_ANALYSEBESTAND_LOKAL: "true"
       DATA_LOCK_ROOT: /app/datensperren
       SICHERUNG_ROOT: /app/sicherung
       DUCKDB_TEMP_DIRECTORY: /app/data/duckdb-tmp

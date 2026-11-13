@@ -1130,3 +1130,19 @@ def test_nach_einem_gescheiterten_release_bleiben_die_kopien():
     raeumen = quelle.index("if behalte_lokal and not gescheitert:")
     bleiben = quelle.index("if behalte_lokal and gescheitert:")
     assert bleiben < raeumen, "der Fall 'gescheitert' gehoert zuerst gelesen"
+
+
+def test_der_analysebestand_haelt_silver_und_gold_nach_dem_release():
+    """Der 13.11.2026: Auf srv01 erfasste der Herkunftsnachweis nur Bronze.
+
+    ``run_all`` raeumte Silver und Gold nach dem Release weg und bestaetigte
+    danach, was noch lag. Die Notebooks 34 und 37 starteten dort deshalb nie.
+    Mit ``STORAGE_ANALYSEBESTAND_LOKAL`` bleiben die Kopien liegen - aber nur
+    im Zweig, in dem sonst geraeumt wuerde, und vor dem Bestaetigen.
+    """
+    quelle = Path(ra.__file__).read_text(encoding="utf-8")
+    zweig = quelle.index("if behalte_lokal and not gescheitert:")
+    schalter = quelle.index("if ablage.config.analysebestand_lokal:")
+    raeumen = quelle.index("arbeitskopien_entfernen()")
+    bestaetigen = quelle.index("bestaetige(data_root")
+    assert zweig < schalter < raeumen < bestaetigen

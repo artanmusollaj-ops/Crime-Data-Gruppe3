@@ -599,10 +599,17 @@ def lauf(data_root: Path, projekt_root: Path, *,
             LOG.info("Lokale Arbeitskopien bleiben: Das Release ist gescheitert, "
                      "und ohne sie braeuchte der zweite Versuch einen neuen Bau.")
         if behalte_lokal and not gescheitert:
-            weg = ablage.arbeitskopien_entfernen()
-            if weg:
-                LOG.info("%d lokale Arbeitskopie(n) nach dem Release entfernt",
-                         len(weg))
+            # Auf srv01 bleiben sie als Analysebestand fuer die Notebooks 34
+            # und 37: Ohne Silver und Gold erfasst der Nachweis unten nur
+            # Bronze (``Config.analysebestand_lokal``).
+            if ablage.config.analysebestand_lokal:
+                LOG.info("Lokale Arbeitskopien bleiben als Analysebestand "
+                         "(STORAGE_ANALYSEBESTAND_LOKAL).")
+            else:
+                weg = ablage.arbeitskopien_entfernen()
+                if weg:
+                    LOG.info("%d lokale Arbeitskopie(n) nach dem Release entfernt",
+                             len(weg))
 
         # Der Bestand fuer das Manifest liest im Hybridmodus auch S3. Faellt die
         # Ablage aus, ist das kein Grund fuer einen Traceback: Der Lauf ist dann

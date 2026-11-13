@@ -144,6 +144,7 @@ nie committet.
 | `HYBRID_READ_PRIORITY` | `local` | — | optional | — |
 | `HYBRID_PUBLISH_AFTER_WRITE` | `true` | — | optional | — |
 | `STORAGE_KEEP_LOCAL` | `false` | — | — | **wird je Lauf gesetzt** |
+| `STORAGE_ANALYSEBESTAND_LOKAL` | `false` | — | — | optional, auf `srv01` gesetzt |
 
 **Wer lokal arbeitet, füllt nichts davon aus.** Keine der S3-Variablen wird
 gelesen, `STORAGE_BACKEND` selbst kann fehlen — `local` ist die Vorgabe. Eine
@@ -328,6 +329,19 @@ Automatisch holt nur `hybrid`. `s3` ist als *ohne lokalen Bestand* definiert;
 ein Lauf, der ihn füllte, widerspräche der eigenen Definition — dort liest
 Silver Bronze direkt von S3. `tests/storage/test_modi.py` hält diese Matrix
 fest.
+
+### `STORAGE_ANALYSEBESTAND_LOKAL` — Silver und Gold bleiben für die Notebooks
+
+Im Modus `s3` entfernt `run_all` die Arbeitskopien nach dem Release (unten).
+Die Notebooks 34 und 37 lesen aber Silver und Gold unter der Datenwurzel und
+starten nur mit einem Herkunftsnachweis über genau diese Dateien. Auf `srv01`
+erfasste der Nachweis deshalb nur Bronze, und beide Notebooks starteten dort
+nie; aufgefallen am 13.11.2026. Mit `STORAGE_ANALYSEBESTAND_LOKAL=true` bleiben
+die Kopien liegen. Gelesen wird weiter aus dem Eimer, die Kopien sind nur der
+Analysebestand. Gesetzt ist der Schalter im Compose-Dienst `pipeline` von
+`docker-compose.srv01.yml`. Das danach eingesetzte Release bringt dieselben
+Bytes, und `release holen --einsetzen` lässt den Nachweis stehen
+(`bewahre_nachweis`).
 
 ### `STORAGE_KEEP_LOCAL` — warum „danach" eine Reihenfolge braucht
 

@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'919** |
+| Tests | **2'922** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -107,6 +107,37 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 13.11.2026 · srv01 behält Silver und Gold als Analysebestand (Branch `fix/analysebestand-auf-srv01`)
+
+**Was geschah.** Nach #228 lief auf `srv01` ein Delta-Lauf. `stand.json`
+fehlte danach immer noch, und das Einsetzen meldete „Herkunftsnachweis
+entwertet". Der Grund: Im Modus `s3` entfernt `run_all` nach dem Release die
+18 lokalen Kopien von Silver und Gold und bestätigt erst danach. Der Nachweis
+erfasste also nur Bronze. Das Einsetzen legte Gold wieder hin, und die
+Prüfsummen stimmten nicht mehr. `/app/data/silver` war leer, und die Notebooks
+34 und 37 konnten dort seit dem Wechsel auf `s3` nie starten.
+
+**Was sich ändert.**
+- Neuer Schalter `STORAGE_ANALYSEBESTAND_LOKAL` (`Config.analysebestand_lokal`,
+  Vorgabe `false`). Ist er gesetzt, lässt `run_all` die Arbeitskopien nach dem
+  Release liegen. Gelesen wird weiter aus dem Eimer.
+- `docker-compose.srv01.yml` setzt ihn in `pipeline` und `worker`.
+- `docs/storage-architektur.md` beschreibt ihn in der Variablentabelle und in
+  einem eigenen Abschnitt. `notebook-analysesitzungen.md` nennt ihn für
+  `srv01`.
+- Drei Tests:
+  - Die Vorgabe ist aus, und der Modus liest auch mit gesetztem Schalter
+    nicht lokal.
+  - Der Schalter steht im Räumzweig von `run_all`, vor dem Bestätigen.
+  - Die Pipeline auf `srv01` setzt ihn.
+
+**Platz.** Silver und Gold belegen auf `srv01` ein paar hundert MB im Volume
+`arbeitsdaten`; frei sind 104 GB.
+
+**Zahlen.** 2'919 → **2'922 Tests**, Standardlauf 2'808 → **2'811**, im frischen Klon 2'730 → **2'733**.
 
 ---
 
