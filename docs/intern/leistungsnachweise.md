@@ -524,18 +524,27 @@ beiden Städten nicht zufällig, aber er ist **nicht durchweg derselbe**. Auf
 gemeinsamer NIBRS-Achse gemessen (Notebook 34, Abschnitt 5.2):
 
 * **Sexualdelikte** fehlen in beiden Städten deutlich überproportional —
-  Chicago beim 12,0-Fachen des Stadtschnitts, Detroit beim 5,2-Fachen. Gleiche
+  Chicago beim 7,5-Fachen des Stadtschnitts, Detroit beim 3,7-Fachen. Gleiche
   Richtung, vermutlich gleiche Ursache: die zurückgehaltene Adresse. Dieser
   Teil der Lücke verzerrt den Vergleich **nicht**, er trifft beide Seiten.
-* **Betrug** fehlt dagegen nur in Chicago: 3,78 % gegen 0,19 % — Faktor 20
-  zwischen den Städten. Hier ist Chicagos Zahl die untererfasste.
+* **Betrug** fehlt dagegen nur in Chicago: 6,90 % gegen 0,10 % — ein Faktor
+  von fast 70 zwischen den Städten. Hier ist Chicagos Zahl die untererfasste.
+* **Drogendelikte** liegen dazwischen: in beiden Städten über dem Schnitt, in
+  Chicago aber beim 4,6-Fachen, in Detroit beim 1,5-Fachen.
 
 > **Nachgemessen am 20.09.2026 (Christian).** Die Faktoren sind auf den
 > aktuellen Stand gehoben (zuvor 6,5 / 5,1 / 3,5 % / Faktor 18). Die Richtung
 > und damit die Argumentation ändern sich nicht — Chicagos Sexualdelikte
 > fallen sogar deutlicher aus als bisher notiert.
+>
+> **Nachgemessen am 12.11.2026, auf sechs Jahrgängen.** Notebook 34 rechnet
+> seit dem 4.10.2026 über den ganzen Bestand; die Werte oben stammten noch
+> aus dem Einjahresbau (12,0× / 5,2×, 3,78 % gegen 0,19 %, Faktor 20,
+> Stadtschnitt 0,81 % / 0,29 %). Mit mehr Jahren sinken die Faktoren bei
+> Sexualdelikten, der Abstand bei Betrug wächst, und Drogendelikte kommen als
+> dritte auffällige Kategorie dazu. Die Argumentation bleibt.
 
-Für den Vergleich der Gesamtraten trägt das (0,81 % gegen 0,29 % Ausfall
+Für den Vergleich der Gesamtraten trägt das (1,47 % gegen 0,14 % Ausfall
 verschieben keine Rangfolge); für einen Vergleich **je Delikttyp** muss bei
 Betrug die Abdeckung danebenstehen.
 
