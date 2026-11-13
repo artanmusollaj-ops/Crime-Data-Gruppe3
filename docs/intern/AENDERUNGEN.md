@@ -104,6 +104,44 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 12.11.2026 · Die Geo-Lücke und die Gegenprobe stehen auf dem Sechs-Jahres-Stand (Branch `docs/h1-sechs-jahrgaenge`)
+
+**Was nicht stimmte.** Notebook 34 rechnet seit dem Mehrjahresbau vom
+4.10.2026 über den ganzen Bestand, sein Text sprach weiter vom Einjahresbau.
+Zwei Stellen waren davon betroffen:
+
+- **§5.2, die Geo-Lücke** (Befund zu H1, Konzept 8.7): Der Text nannte
+  Sexualdelikte beim 12,0- und 5,2-Fachen des Stadtschnitts und Betrug mit
+  3,78 % gegen 0,19 %, „Faktor 20". Die Zelle darunter gab 7,5×, 3,7× und
+  6,90 % gegen 0,10 % aus.
+- **§3.2, die Gegenprobe der Stadtzuordnung**: Hier war die Rechnung falsch,
+  nicht der Text. Die Zelle teilte sechs Jahre Taten durch die Einwohner eines
+  Jahres und gab 509,7 je 1'000 aus, wo der Text 94,5 sagte.
+
+**Was sich ändert.**
+- §3.2 zählt jetzt den Ratenjahrgang (`year(f.date) = RATENJAHR`) und gibt
+  wieder 5'249 Fälle, 94,5 gegen 95,6 und 12 Detroiter Fälle aus. Text und
+  Ausgabe stimmen überein; nachgezogen sind 134,0 statt 132,7 (42 % statt
+  40 % Abstand) und 251'512 statt 251'516.
+- §5.2 bleibt beim ganzen Bestand, weil ein Anteil keinen Einwohner-Nenner
+  braucht, und sagt das jetzt. Neu ist ein Befund: **Drogendelikte** fehlen in
+  Chicago beim 4,6-Fachen, in Detroit beim 1,5-Fachen. Betrug liegt jetzt bei
+  einem Faktor von fast 70 statt 20, auf 28 Detroiter Fällen.
+- Konzept 8.7, Kapitel 9 und 5.x und `leistungsnachweise.md` stehen auf
+  denselben Werten: Stadtschnitt 1,47 % gegen 0,14 % (vorher 0,81/0,29 und
+  1,48/0,15), nicht verortet 2024 0,83 % gegen 0,28 % (vorher 0,70/0,29),
+  ausserhalb der Städte 1,8 % (vorher 2,9 %). `leistungsnachweise.md` hält
+  den alten Stand als Nachmessung fest.
+- **Neuer Nachweis** `docs/nachweise/2026-11-12_6eae64d/`: alle sechs
+  belegenden Notebooks auf dem Release `2026-11-10T13-47-23Z`, ohne
+  Fehlerausgabe. Der vom 7.11. bleibt liegen.
+
+**Nicht angefasst.** Die Notebooks 03, 11 und 13 nennen 0,81 % und 0,29 %.
+Das ist dort richtig: Sie beschreiben die Quelle eines geladenen Jahrgangs,
+nicht den Bestand.
+
+---
+
 ## 12.11.2026 · Die Versionierung des Eimers ist ausgesetzt (Branch `docs/e3-versionierung-ausgesetzt`)
 
 **Entschieden (E-3).** Der Eimer `urban-crime` auf `srv01` versioniert nicht
