@@ -524,3 +524,87 @@ def test_der_boden_in_storage_bleibt_minimal(tmp_path):
     gebaut(data_root)
     assert release.erstelle(data_root, jetzt=JETZT).is_dir()
     assert release.PFLICHT == ("gold/dataset=fact_offense",)
+
+
+# --------------------------------------------------------------------------
+# Herkunftsnachweis nach dem Einsetzen (E-5)
+# --------------------------------------------------------------------------
+# Auf srv01 laeuft nach run_all ``release holen aktuell --einsetzen``. Bis zum
+# 13.11.2026 entwertete das den Nachweis, den run_all eben geschrieben hatte -
+# obwohl es dasselbe Release mit denselben Bytes einsetzte. Seit dem Volllauf
+# vom 10.11. starteten die Notebooks 34 und 37 dort nicht mehr.
+
+
+def bestaetigt_und_publiziert(tmp_path, monkeypatch, *, release_id=KENNUNG):
+    """Wie auf srv01: gebaut, publiziert und bestaetigt - in derselben Wurzel."""
+    from orchestration import release as release_cli
+    from storage.analysesitzung import bestaetige, schreibzugriff
+
+    storage, _, data_root = ablage(tmp_path, "hybrid")
+    gebaut(data_root)
+    release.publiziere(storage, bilde(data_root, jetzt=JETZT))
+    with schreibzugriff(data_root):
+        bestaetige(data_root, run_id="build-a", projekt_root=tmp_path, release_id=release_id)
+    monkeypatch.delenv("DATA_LOCK_ROOT", raising=False)
+    monkeypatch.setattr(release_cli, "for_root", lambda _root: storage)
+    return release_cli, data_root
+
+
+def einsetzen(release_cli, data_root):
+    return release_cli.main(["holen", "aktuell", "--einsetzen", "--data-root", str(data_root)])
+
+
+def stand(data_root):
+    pfad = data_root / ".analyse" / "stand.json"
+    return json.loads(pfad.read_text(encoding="utf-8")) if pfad.is_file() else None
+
+
+def test_dasselbe_release_auf_dieselben_bytes_behaelt_den_nachweis(tmp_path, monkeypatch, capsys):
+    release_cli, data_root = bestaetigt_und_publiziert(tmp_path, monkeypatch)
+    vorher = stand(data_root)
+    assert einsetzen(release_cli, data_root) == 0
+    assert stand(data_root) == vorher, "derselbe Nachweis, nicht ein neu geschriebener"
+    assert "Herkunftsnachweis bleibt" in capsys.readouterr().out
+    assert not (data_root / ".analyse" / "stand.vorher.json").exists()
+
+
+def test_eine_andere_release_kennung_entwertet_den_nachweis(tmp_path, monkeypatch, capsys):
+    release_cli, data_root = bestaetigt_und_publiziert(tmp_path, monkeypatch,
+                                                       release_id="2026-09-16T00-00-00Z")
+    assert einsetzen(release_cli, data_root) == 0
+    assert stand(data_root) is None
+    assert "Herkunftsnachweis entwertet" in capsys.readouterr().out
+    assert not (data_root / ".analyse" / "stand.vorher.json").exists()
+
+
+def test_ein_nachweis_ohne_release_wird_nicht_zurueckgesetzt(tmp_path, monkeypatch):
+    # run_all ohne Release schreibt release_id=None; das ist kein Beleg fuer
+    # irgendein eingesetztes Release.
+    release_cli, data_root = bestaetigt_und_publiziert(tmp_path, monkeypatch, release_id=None)
+    assert einsetzen(release_cli, data_root) == 0
+    assert stand(data_root) is None
+
+
+def test_abweichende_pruefsummen_entwerten_den_nachweis(tmp_path, monkeypatch, capsys):
+    # Lokal weitergebaut nach dem Bestaetigen: das Release setzt andere Bytes
+    # ein, als der Nachweis nennt.
+    release_cli, data_root = bestaetigt_und_publiziert(tmp_path, monkeypatch)
+    tabelle(data_root, "gold", "fact_offense", 99)
+    from storage.analysesitzung import bestaetige, schreibzugriff
+    with schreibzugriff(data_root):
+        bestaetige(data_root, run_id="build-b", projekt_root=tmp_path, release_id=KENNUNG)
+    assert einsetzen(release_cli, data_root) == 0
+    assert stand(data_root) is None
+    assert "Herkunftsnachweis entwertet" in capsys.readouterr().out
+
+
+def test_ein_gescheitertes_einsetzen_laesst_den_nachweis_entwertet(tmp_path, monkeypatch):
+    release_cli, data_root = bestaetigt_und_publiziert(tmp_path, monkeypatch)
+
+    def bricht(*_args, **_kwargs):
+        raise release.ReleaseFehler("halb eingesetzt")
+
+    monkeypatch.setattr(release, "einsetzen", bricht)
+    assert einsetzen(release_cli, data_root) == 1
+    assert stand(data_root) is None
+    assert not (data_root / ".analyse" / "stand.vorher.json").exists()

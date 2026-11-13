@@ -115,11 +115,50 @@ def datensperre(data_root, *, schreiben=False):
 
 @contextmanager
 def schreibzugriff(data_root, *, invalidieren=True):
-    """Umschliesst den ganzen Schreibvorgang, auch Fehler und Kindprozesse."""
+    """Umschliesst den ganzen Schreibvorgang, auch Fehler und Kindprozesse.
+
+    Wer entwertet, legt den alten Nachweis bis zum Ende der Sitzung beiseite:
+    ``bewahre_nachweis`` setzt ihn zurueck, wenn der Bestand danach byteweise
+    derselbe ist. Sonst - und nach jedem Fehler - verfaellt er mit der Sitzung.
+    """
     with datensperre(data_root, schreiben=True) as root:
+        stand = root / ".analyse" / "stand.json"
+        vorher = stand.with_name("stand.vorher.json")
         if invalidieren:
-            (root / ".analyse" / "stand.json").unlink(missing_ok=True)
-        yield root
+            vorher.unlink(missing_ok=True)
+            try:
+                stand.replace(vorher)
+            except FileNotFoundError:
+                pass
+        try:
+            yield root
+        finally:
+            if invalidieren:
+                vorher.unlink(missing_ok=True)
+
+
+def bewahre_nachweis(data_root, *, release_id):
+    """Den beiseitegelegten Nachweis zuruecksetzen, wenn sich nichts geaendert hat.
+
+    Nur unter der Schreibsperre aufrufen, die ihn beiseitegelegt hat. Zurueck
+    kommt er nur, wenn er dasselbe Release nennt und jede erfasste Datei noch
+    dieselbe Pruefsumme hat - sonst bleibt der Bestand fuer Analysen gesperrt.
+    Bis zum 13.11.2026 entwertete ``release holen aktuell --einsetzen`` auf
+    srv01 nach jedem Datenlauf den Nachweis, den ``run_all`` eben geschrieben
+    hatte, obwohl es dieselben Bytes einsetzte; die Notebooks 34 und 37
+    starteten dort seit dem 10.11. nicht mehr.
+    """
+    root = Path(data_root).resolve()
+    try:
+        alt = json.loads((root / ".analyse" / "stand.vorher.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    if release_id is None or alt.get("release_id") != release_id:
+        return False
+    if alt.get("files") != _inventory(root):
+        return False
+    _json(root / ".analyse" / "stand.json", alt)
+    return True
 
 
 def _inventory(root):
