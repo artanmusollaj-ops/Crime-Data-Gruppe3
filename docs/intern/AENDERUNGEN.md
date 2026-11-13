@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'914** |
+| Tests | **2'919** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -107,6 +107,37 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 13.11.2026 · Das Einsetzen des eigenen Release entwertet den Analysenachweis nicht mehr (Branch `fix/nachweis-nach-einsetzen`)
+
+**Was geschah.** Auf `srv01` fehlte `data/.analyse/stand.json` seit dem
+Volllauf vom 10.11.2026, und die Notebooks 34 und 37 brachen dort mit „Kein
+bestaetigter Aufbau" ab. `docker/srv01-datenlauf.sh` ruft nach `run_all`
+noch `release holen aktuell --einsetzen` auf. Weil das Einsetzen Gold
+ersetzen kann, löschte es unter der Schreibsperre den Nachweis, den `run_all`
+eben geschrieben hatte. Dabei setzte es dasselbe Release mit denselben
+Bytes ein. Danach schrieb niemand einen neuen Nachweis. Gefunden beim Prüfen
+von E-5 mit Artan.
+
+**Was sich ändert.**
+- `storage.analysesitzung.schreibzugriff` löscht den alten Nachweis nicht
+  mehr sofort, sondern legt ihn bis zum Ende der Sitzung als
+  `stand.vorher.json` beiseite. Danach verfällt er, auch nach einem Fehler.
+- Das neue `bewahre_nachweis(root, release_id=…)` setzt ihn unter derselben
+  Sperre zurück, aber nur, wenn er dasselbe Release nennt und jede erfasste
+  Datei dieselbe Prüfsumme hat. `release holen --einsetzen` ruft es nach dem
+  Einsetzen auf und sagt, ob der Nachweis bleibt.
+- Fünf Tests in `tests/storage/test_release.py` decken beide Fälle ab:
+  - Dasselbe Release behält den Nachweis.
+  - In vier Fällen bleibt der Bestand gesperrt: eine andere Release-ID, ein
+    Nachweis ohne Release-ID, abweichende Prüfsummen und ein gescheitertes
+    Einsetzen.
+- Nicht enthalten: der Zeiger vom aktiven Release auf seinen Job und die
+  Löschregel für Job-Ordner. Beides nimmt Artan für S-10 auf.
+
+**Zahlen.** 2'914 → **2'919 Tests**, Standardlauf 2'803 → **2'808**, im frischen Klon 2'725 → **2'730**.
 
 ---
 

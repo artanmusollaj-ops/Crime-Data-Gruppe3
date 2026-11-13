@@ -14,6 +14,13 @@ Schichten, gegebenenfalls Release-ID und SHA-256 der lokalen Parquet-Dateien
 und Manifeste aus Bronze, Silver und Gold. Ein Lauf nur bis Silver bestaetigt
 kein eventuell noch vorhandenes Gold. Ein direkter Neubau oder eine Aenderung
 entwertet den alten Nachweis vor dem Schreiben, auch wenn der Vorgang scheitert.
+Eine Ausnahme gibt es: `release holen --einsetzen` legt den alten Nachweis nur
+beiseite und setzt ihn zurueck, wenn er dasselbe Release nennt und jede erfasste
+Datei danach noch dieselbe Pruefsumme hat (`bewahre_nachweis`). So bleibt auf
+`srv01` der Nachweis von `run_all` stehen, wenn der Datenlauf das eben
+publizierte Release einsetzt. Bei abweichender Release-ID, abweichenden
+Pruefsummen, einem Nachweis ohne Release-ID oder einem Fehler bleibt der Bestand
+gesperrt.
 
 Die Startzelle liest standardmaessig `data/`. Eine andere Wurzel wird vor dem
 Start des Kernels gewaehlt, zum Beispiel in PowerShell:

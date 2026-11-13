@@ -147,6 +147,14 @@ def main(argv: list[str] | None = None) -> int:
                         return 1
                     eingesetzt = release.einsetzen(ablage.local_root, ziel)
                     print(f"Eingesetzt: {len(eingesetzt)} Ziel(e) unter {ablage.local_root}")
+                    # Dasselbe Release auf dieselben Bytes: der Nachweis von
+                    # run_all bleibt; sonst bleiben die Notebooks gesperrt.
+                    from storage.analysesitzung import bewahre_nachweis
+                    if bewahre_nachweis(ablage.local_root, release_id=manifest["release_id"]):
+                        print("Herkunftsnachweis bleibt: derselbe Stand wie bestaetigt.")
+                    else:
+                        print("Herkunftsnachweis entwertet: der eingesetzte Stand ist "
+                              "nicht der bestaetigte - Analysen erst nach einem neuen Aufbau.")
                 return 0
             ziel = bilde(ablage.local_root)
             manifest = release.lies(ziel)
