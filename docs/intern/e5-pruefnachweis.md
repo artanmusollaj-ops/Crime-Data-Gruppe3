@@ -94,9 +94,9 @@ Die Arbeitskopien unter `/app/arbeit` blieben unverändert.
 | 37 | 2 s | 15 | 0 | 113'745 Zeilen zu 47'681 Delikten aus echten Vergleichspaaren; für Chicago weniger als zwei Vollabzüge, also keine Gegenprobe |
 
 Ohne Ausgabe blieb in beiden nur `analyse.beenden()`. Danach war die Sperre frei,
-und `stand.json` stand unverändert. Detroit zählt 2024 auf srv01 85'594 statt
-85'557 Taten: srv01 ist mehrere Delta-Läufe weiter als der Referenzstand vom
-10.11.2026, an dem die Dokumente hängen. Die Rate bleibt 134,0.
+und `stand.json` stand unverändert. Detroit zählt 2024 auf srv01 37 Taten mehr als
+der Referenzstand vom 10.11.2026, an dem die Dokumente hängen: srv01 ist mehrere
+Delta-Läufe weiter, und Detroit meldet nach. Die Rate bleibt 134,0.
 
 Damit sind die Punkte 1, 2, 4 und 5 der folgenden Liste erledigt, Punkt 4 für den
 Cron-Datenlauf. Punkt 3 bleibt offen und gehört zu S-10.
