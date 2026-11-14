@@ -49,13 +49,28 @@ function zeichne(d) {
   const zr = zeitraumtext(d.auswahl);
   linie(document.getElementById("d-verlauf"), d.verlauf.monate,
     d.verlauf.reihen.map((r) => ({ ...r, farbe: FARBE[r.stadt] })));
-  document.getElementById("t-raten").textContent = `Delikte je 1'000 Einwohner · ${zr}`;
+  document.getElementById("t-raten").textContent = `Fälle je 1'000 Einwohner · ${zr}`;
   const e = d.raten.einwohner;
   document.getElementById("u-raten").textContent = "Bevölkerungsbasis: " + (Object.keys(e).length
     ? staedte.map((s) => `${s.name} ${zahl.format(e[s.stadt])}`).join(", ") + " (ACS)"
     : "keine einheitliche – Rate nicht definiert");
-  balken(document.getElementById("d-raten"), d.raten.zeilen, staedte, (v) => komma.format(v),
-    achsenzahl);
+  // Fallebene vorn, Tatebene daneben (Entscheid E5): Chicago erfasst je Fall
+  // nur das schwerste Delikt, Detroit jedes. Die Tatebene steht als zweite,
+  // blasse Zeile im selben Massstab.
+  const fall = d.raten.zeilen[0];
+  balken(document.getElementById("d-raten"),
+    [fall, { kategorie: "tatebene", name: "Delikte (Tatebene)", werte: d.raten.tatebene,
+      blass: true }],
+    staedte, (v) => komma.format(v), achsenzahl, { balkenhoehe: 26, abstand: 30 });
+  const tatebene = document.getElementById("h-tatebene");
+  const symbol = document.createElement("span");
+  symbol.className = "i";
+  symbol.textContent = "i";
+  const text = document.createElement("span");
+  text.textContent = "Vorn steht der Fall, blass daneben die Tatebene: Detroit erfasst jedes "
+    + "Delikt eines Falls, Chicago nur das schwerste. Auf der Tatebene misst ein Vergleich "
+    + "diesen Unterschied mit.";
+  tatebene.replaceChildren(symbol, text);
   const titel = { anzahl: "Registrierte Delikte", anteil: "Anteil an allen Delikten",
     rate: "Delikte je 1'000 Einwohner" }[d.kategorien.mass];
   document.getElementById("t-kategorien").textContent = `${titel} nach Kategorie · ${zr}`;

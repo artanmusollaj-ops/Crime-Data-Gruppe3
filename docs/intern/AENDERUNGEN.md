@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'942** |
+| Tests | **2'943** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -109,6 +109,38 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 14.11.2026 · Das Dashboard nennt die Fallebene vorn (Branch `c-11-dashboard-fallebene`)
+
+Seit E-2 (12.11.2026) führen die Dokumente die **Fallebene** vorn, die Tafel
+»Delikte je 1'000 Einwohner« im Überblick rechnete aber weiter auf der
+Tatebene: Detroit 2024 stand dort mit 134,0, in den Dokumenten mit 124,7
+(C-11). Jetzt heisst sie **»Fälle je 1'000 Einwohner«** und zählt Fälle
+(`count(*) FILTER (counts_case)`), wie `raten_je_stadt.rate_fallebene`. Die
+**Tatebene steht daneben**, als zweite, blasse Balkenzeile »Delikte
+(Tatebene)« im selben Massstab, und ein Hinweis nennt den Grund aus E5:
+Detroit erfasst jedes Delikt eines Falls, Chicago nur das schwerste.
+
+| 2024, Release vom 10.11.2026 | Chicago | Detroit |
+| --- | ---: | ---: |
+| Balken (Fallebene) | 94,5 | **124,7** (vorher 134,0) |
+| blasse Zeile (Tatebene) | 94,5 | 134,0 |
+
+**Keine Zeilen je Kategorie mehr in dieser Tafel.** Bisher standen unter
+»Alle« die vier häufigsten Kategorien; auf der Fallebene zählte ein Fall dort
+nur in der Kategorie seines schwersten Delikts. Nach E5 rechnen Kategorien
+aber auf der Tatebene, weil sie sich nur dort addieren — die Rate je
+Kategorie steht deshalb nur noch in »Registrierte Delikte nach Kategorie«
+(Schalter »Rate«), auf der Tatebene und mit „Delikte" im Titel. Ist oben eine
+Kategorie gewählt, zeigt die Tafel die Fallrate dieser Kategorie und die
+blasse Zeile deren Tatebene. Entschieden von Christian am 14.11.2026.
+
+Neu bewacht: `test_die_balken_stehen_auf_der_fallebene_die_tatebene_daneben`
+— eine Folgeanklage zählt nur in der Tatebene, beide Werte stehen gegen
+`raten_je_stadt` (`rate_fallebene` und `rate`), und die Kategorieansicht
+»Rate« bleibt auf der Tatebene.
+
+**Zahlen.** 2'942 → **2'943 Tests**, Standardlauf 2'831 → **2'832**, im frischen Klon 2'753 → **2'754**.
 
 ## 14.11.2026 · Rate und Armut zoomen gemeinsam (Branch `karten-gekoppelt`)
 

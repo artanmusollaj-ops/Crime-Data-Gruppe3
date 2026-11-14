@@ -126,11 +126,14 @@ export function linie(ziel, monate, reihen, { basis = null, format = zahl.format
   ziel.replaceChildren(svg);
 }
 
-export function balken(ziel, zeilen, staedte, format, achse = format) {
+// ``balkenhoehe`` und ``abstand`` (zwischen den Gruppen) nur, wo wenige Zeilen
+// eine Tafel fuellen sollen, die so hoch ist wie ihre Nachbarin.
+export function balken(ziel, zeilen, staedte, format, achse = format,
+  { balkenhoehe = 14, abstand = 14 } = {}) {
   const werte = zeilen.flatMap((z) => staedte.map((s) => z.werte[s.stadt] ?? 0));
   if (!zeilen.length) return leer(ziel, "Keine Delikte in dieser Auswahl");
   const b = Math.max(ziel.clientWidth, 320), l = 170, r = 64, o = 6, u = 26;
-  const balkenhoehe = 14, luecke = 3, gruppe = staedte.length * (balkenhoehe + luecke) + 14;
+  const luecke = 3, gruppe = staedte.length * (balkenhoehe + luecke) + abstand;
   const h = o + zeilen.length * gruppe + u;
   const max = runde(Math.max(1, ...werte));
   const x = (v) => l + ((b - l - r) * v) / max;
@@ -147,11 +150,12 @@ export function balken(ziel, zeilen, staedte, format, achse = format) {
     staedte.forEach((s, j) => {
       const v = z.werte[s.stadt];
       const y = y0 + j * (balkenhoehe + luecke);
+      // ``blass``: eine Zeile, die daneben steht und nicht vorn - etwa die Tatebene.
       const rect = el("rect", { x: l, y, width: Math.max(0, x(v ?? 0) - l), height: balkenhoehe,
-        rx: 2, fill: FARBE[s.stadt] });
+        rx: 2, fill: FARBE[s.stadt], "fill-opacity": z.blass ? 0.4 : 1 });
       rect.append(el("title", {}, `${s.name}, ${z.name}: ${v === null ? "keine Rate" : format(v)}`));
       svg.append(rect);
-      svg.append(el("text", { x: x(v ?? 0) + 6, y: y + balkenhoehe - 3, class: "wert" },
+      svg.append(el("text", { x: x(v ?? 0) + 6, y: y + balkenhoehe / 2 + 4, class: "wert" },
         v === null ? "–" : format(v)));
     });
   });
