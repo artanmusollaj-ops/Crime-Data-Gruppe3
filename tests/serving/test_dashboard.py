@@ -522,8 +522,44 @@ def test_die_umrisse_werden_zu_pfaden(karte):
     assert len(k["chicago"]["tracts"]) == 3
     d = k["detroit"]["tracts"][0]["d"]
     assert d.startswith("M0.0 ") and d.endswith("Z") and d.count("L") == 4
-    # Ein Quadrat in Grad ist in der Projektion hoeher als breit: cos(42,3 Grad).
+    # Ein Quadrat in Grad ist in Mercator hoeher als breit: 1/cos(42,3 Grad).
     assert k["detroit"]["hoehe"] == pytest.approx(600 / math.cos(math.radians(42.305)), rel=1e-3)
+
+
+def test_die_pfade_liegen_auf_den_kacheln():
+    """Aus x0, y0 und massstab rechnet karte.js die Kacheln; ein Eckpunkt muss
+    dorthin zurueckfuehren, wo Web-Mercator ihn hinlegt."""
+    from serving.dashboard.geografie import _welt
+    assert _welt(0.0, 0.0) == pytest.approx((0.5, 0.5))
+    assert _welt(180.0, 85.0511287798)[0] == pytest.approx(1.0)
+    assert _welt(0.0, 85.0511287798)[1] == pytest.approx(0.0, abs=1e-9)
+    from serving.dashboard.geografie import pfade
+    wkt = "POLYGON ((-83.1 42.3, -83.0 42.3, -83.0 42.4, -83.1 42.4, -83.1 42.3))"
+    k = pfade([("g", "detroit", "T", wkt)])["detroit"]
+    # Die Pfade sind auf 0,1 Einheiten gerundet.
+    for punkt, (lon, lat) in zip(k["tracts"][0]["d"][1:-1].split("L"),
+                                 [(-83.1, 42.3), (-83.0, 42.3), (-83.0, 42.4)]):
+        x, y = map(float, punkt.split())
+        wx, wy = _welt(lon, lat)
+        assert k["x0"] + x / k["massstab"] == pytest.approx(wx, abs=0.05 / k["massstab"])
+        assert k["y0"] + y / k["massstab"] == pytest.approx(wy, abs=0.05 / k["massstab"])
+    # Die Massstabsleiste: 0,1 Grad Laenge sind bei 42,35 Grad rund 8,2 km.
+    assert 600 / k["km"] == pytest.approx(8.22, rel=1e-2)
+
+
+def test_die_kacheln_kommen_von_dem_host_den_die_csp_erlaubt(bestand):
+    """Kachel-URL und CSP stehen an zwei Orten; laufen sie auseinander, bleibt
+    der Hintergrund still leer."""
+    from serving.dashboard.app import KACHELHOST
+    js = (Path(__file__).parents[2] / "src/crime/serving/dashboard/static/karte.js").read_text()
+    url = re.search(r'const KACHEL = "([^"]+)"', js).group(1)
+    assert url.startswith(KACHELHOST.replace("*", "{s}"))
+    csp = create_app(bestand=bestand).test_client().get("/geografie").headers["Content-Security-Policy"]
+    regeln = dict(r.strip().split(" ", 1) for r in csp.split(";"))
+    assert regeln["img-src"] == f"'self' {KACHELHOST}"
+    # Nur Bilder: Skripte, Stile und Abrufe bleiben bei 'self'.
+    assert regeln["default-src"] == "'self'"
+    assert not {"script-src", "style-src", "connect-src"} & set(regeln)
 
 
 def test_die_api_liefert_karten_und_raten(karte):

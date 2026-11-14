@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'940** |
+| Tests | **2'942** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -109,6 +109,44 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 14.11.2026 · Die Tract-Karten liegen auf einer Stadtkarte und lassen sich zoomen (Branch `karte-hintergrund-und-zoom`)
+
+Die Karten auf »Geografie« und »Soziales Umfeld« zeigten die Tracts als
+Flächen ohne Hintergrund; wo ein Tract liegt, liess sich nur an der Form
+der Stadt erraten. Jetzt liegen sie halb durchsichtig auf den
+**Standardkacheln von OpenStreetMap** (entfärbt, damit nur die Tracts Farbe
+tragen), und jede Karte lässt sich **zoomen und verschieben**: Mausrad,
+Doppelklick (mit Umschalt heraus), Ziehen sowie die Knöpfe +, − und »Ganze
+Stadt«. Massstabsleiste und Nordpfeil stehen fest und rechnen mit; die
+Leiste wählt eine runde Strecke von 100 m bis 20 km.
+
+- **Projektion:** `geografie.pfade` rechnet jetzt in **Web-Mercator** statt
+  Länge × cos(Mittelbreite), sonst lägen die Tracts neben den Kacheln. Für
+  eine Stadt ändert das die Form kaum; die Karten liefern zusätzlich
+  `x0`, `y0` und `massstab`, aus denen der Browser die Kacheln rechnet.
+- **Content-Security-Policy:** Sie erlaubt jetzt **Bilder** von
+  `https://tile.openstreetmap.org` — und nur Bilder. Skripte, Stile und
+  Abrufe bleiben bei `'self'`. Die Aussage vom 1.11. („die
+  Content-Security-Policy bleibt bei `'self'`") gilt damit nur noch für
+  diese drei.
+- **Referrer-Policy:** `no-referrer` → `strict-origin`. Die Kachelserver von
+  OpenStreetMap verlangen einen Referer; gesendet wird nur der Ursprung, nie
+  Pfad oder Filterauswahl.
+- **Was der Kachelanbieter sieht:** welche Ausschnitte von Chicago und
+  Detroit jemand ansieht, und von welchem Ursprung. Keine Falldaten — die
+  Tracts und Raten kommen weiter nur vom eigenen Server.
+- **CARTO verworfen:** Der erste Versuch nahm CARTOs helle Kacheln; sie
+  liefern seit 2025 ohne API-Schlüssel nur noch ein Bild „API KEY
+  REQUIRED".
+
+Neu bewacht: `test_die_pfade_liegen_auf_den_kacheln` (ein Eckpunkt führt über
+`x0`, `y0` und `massstab` dorthin zurück, wo Web-Mercator ihn hinlegt) und
+`test_die_kacheln_kommen_von_dem_host_den_die_csp_erlaubt` (Kachel-URL in
+`karte.js` und CSP in `app.py` stehen an zwei Orten; laufen sie auseinander,
+bliebe der Hintergrund still leer).
+
+**Zahlen.** 2'940 → **2'942 Tests**, Standardlauf 2'829 → **2'831**, im frischen Klon 2'751 → **2'753**.
 
 ## 14.11.2026 · Die Notebooks finden den Job des aktiven Release, und alte Job-Daten gehen (Branch `feature/job-zeiger-und-loeschregel`)
 

@@ -18,6 +18,8 @@ from serving.dashboard import Bestand, EingabeFehler
 from storage import for_root
 
 _STATISCH = Path(__file__).parent / "static"
+#: Woher die Hintergrundkacheln kommen; ``static/karte.js`` laedt von dort.
+KACHELHOST = "https://tile.openstreetmap.org"
 
 
 def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None = None) -> Flask:
@@ -42,8 +44,13 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     def kopfzeilen(antwort):
         antwort.headers.update({
             "X-Content-Type-Options": "nosniff",
-            "Content-Security-Policy": "default-src 'self'; frame-ancestors 'none'",
-            "Referrer-Policy": "no-referrer",
+            # Bilder auch von OpenStreetMap: die Hintergrundkacheln der Karten
+            # (static/karte.js). Skripte, Stile und Abrufe bleiben bei 'self'.
+            "Content-Security-Policy": ("default-src 'self'; "
+                                        f"img-src 'self' {KACHELHOST}; frame-ancestors 'none'"),
+            # Nur der Ursprung, nie Pfad oder Auswahl: Die Kachelserver von
+            # OpenStreetMap verlangen einen Referer (static/karte.js).
+            "Referrer-Policy": "strict-origin",
         })
         if request.path.startswith("/api/"):
             antwort.headers["Cache-Control"] = "no-store"

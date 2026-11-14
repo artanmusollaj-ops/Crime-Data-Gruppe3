@@ -1,5 +1,6 @@
 // Das Brett »Geografie«.
 import { FARBE, achsenzahl, el, komma, leer, runde, starteBrett, zahl, zeitraumtext } from "./gemeinsam.js";
+import { kartenflaeche, schraffur } from "./karte.js";
 
 // Eine Farbreihe fuer beide Staedte: Dieselbe Farbe ist dieselbe Rate.
 const STUFEN = ["#dcebfa", "#a9cdf2", "#6aa6e4", "#2f7de1", "#0b3f8a"];
@@ -22,15 +23,7 @@ function karte(stadt, d) {
   tafel.className = `tafel karte ${stadt.stadt}`;
   const h2 = document.createElement("h2");
   h2.textContent = stadt.name;
-  const svg = el("svg", { viewBox: `-10 -10 ${k.breite + 20} ${k.hoehe + 40}`, role: "img",
-    "aria-label": `${stadt.name}: Fälle je 1'000 Einwohner je Tract` });
-  const defs = el("defs");
-  const muster = el("pattern", { id: `schraffur-${stadt.stadt}`, width: 6, height: 6,
-    patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" });
-  muster.append(el("rect", { width: 6, height: 6, fill: "#f1f3f6" }),
-    el("line", { x1: 0, y1: 0, x2: 0, y2: 6, stroke: "#aab3bf", "stroke-width": 2 }));
-  defs.append(muster);
-  svg.append(defs);
+  const inhalt = el("g");
   const nach = Object.fromEntries(stadt.tracts.map((t) => [t.geoid, t]));
   for (const f of k.tracts) {
     const t = nach[f.geoid];
@@ -44,23 +37,10 @@ function karte(stadt, d) {
       if (t.geringe_basis && t.einwohner) zeilen.push(`geringe Basis (unter ${zahl.format(d.geringe_basis)})`);
     }
     pfad.append(el("title", {}, zeilen.join("\n")));
-    svg.append(pfad);
+    inhalt.append(pfad);
   }
-  // Massstab: 5 und 10 km; Nordpfeil oben rechts.
-  const y = k.hoehe + 18, km = k.km;
-  svg.append(el("line", { x1: 0, x2: 10 * km, y1: y, y2: y, class: "massstab" }));
-  for (const [v, x] of [[0, 0], [5, 5 * km], [10, 10 * km]]) {
-    svg.append(el("line", { x1: x, x2: x, y1: y - 4, y2: y + 4, class: "massstab" }));
-    svg.append(el("text", { x, y: y - 7, "text-anchor": "middle", class: "kartenschrift" },
-      v === 10 ? "10 km" : String(v)));
-  }
-  const nord = el("g", { transform: `translate(${k.breite - 14}, 6)` });
-  nord.append(el("path", { d: "M0 0 L8 22 L0 16 L-8 22 Z", class: "nord" }),
-    el("text", { x: 0, y: -4, "text-anchor": "middle", class: "kartenschrift" }, "N"));
-  svg.append(nord);
-  const ziel = document.createElement("div");
-  ziel.className = "kartenflaeche";
-  ziel.append(svg);
+  const ziel = kartenflaeche(k, { titel: `${stadt.name}: Fälle je 1'000 Einwohner je Tract`,
+    inhalt, defs: schraffur(`schraffur-${stadt.stadt}`) });
   const fuss = document.createElement("p");
   fuss.className = "unterzeile";
   fuss.textContent = `${stadt.tracts.length} Tracts · ${stadt.geringe} mit geringer Basis schraffiert`;

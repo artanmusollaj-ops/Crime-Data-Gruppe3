@@ -137,10 +137,25 @@ h2 { margin: 0 0 4px; font-size: 17px; }
 #karten { margin-bottom: 16px; align-items: start; }
 #karten.einzeln { grid-template-columns: minmax(0, 760px); justify-content: center; }
 .tafel.karte h2 { font-size: 22px; margin-bottom: 8px; }
-.kartenflaeche { background: #f7f9fb; border-radius: 6px; padding: 8px; }
-.kartenflaeche svg { display: block; width: 100%; height: auto; max-height: 640px; }
-.tract { stroke: #ffffff; stroke-width: 0.6; }
-.tract:hover { stroke: #1b2430; stroke-width: 1.5; }
+.kartenflaeche { position: relative; background: #f7f9fb; border-radius: 6px; padding: 8px; }
+.kartenflaeche svg { display: block; width: 100%; height: auto; max-height: 640px; cursor: grab;
+  background: #fafaf8; border-radius: 4px; user-select: none; }
+.kartenflaeche svg.zieht { cursor: grabbing; }
+/* Halb durchsichtig, damit Strassen und Wasser durchscheinen; die Linie bleibt beim Zoomen gleich dick. */
+.tract { stroke: #ffffff; stroke-width: 0.6; fill-opacity: 0.68; vector-effect: non-scaling-stroke; }
+.tract:hover { stroke: #1b2430; stroke-width: 1.5; fill-opacity: 0.85; }
+/* Entfaerbt: Farbe tragen nur die Tracts. */
+.kacheln { pointer-events: none; filter: grayscale(1) contrast(0.85) brightness(1.08); }
+.zoomknoepfe { position: absolute; top: 18px; left: 18px; display: flex; flex-direction: column;
+  border: 1px solid var(--linie); border-radius: 4px; overflow: hidden; background: #ffffff; }
+.zoomknoepfe button { width: 30px; height: 30px; border: 0; border-top: 1px solid var(--linie);
+  background: #ffffff; color: #1b2430; font-size: 18px; line-height: 1; cursor: pointer; }
+.zoomknoepfe button:first-child { border-top: 0; }
+.zoomknoepfe button:hover { background: #f2f6fb; }
+.kartennennung { position: absolute; right: 10px; bottom: 10px; padding: 1px 6px; font-size: 11px;
+  color: #4a5563; background: rgba(255, 255, 255, 0.8); border-radius: 3px; }
+.kartennennung a { color: inherit; }
+.massstabsgrund { fill: #ffffff; fill-opacity: 0.8; }
 .massstab { stroke: #1b2430; stroke-width: 2; }
 .nord { fill: #1b2430; }
 .kartenschrift { fill: #1b2430; font-size: 12px; }
