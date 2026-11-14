@@ -83,7 +83,7 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | FR-17 | Gescheiterter Lauf erzeugt eine Meldung | ● | **am 18.10.2026 ausgelöst und angekommen.** Die Kette stand schon: Alertmanager mit Telegram-Empfänger, eigenes Ausgangsnetz, Route ohne Matcher — meine Messung vom 17.10. („kein Kanal") war falsch. `docker/prometheus-regeln/urbancrime.yaml` trägt neun Regeln über die Messwerte von FR-30, Prometheus lädt alle neun und wertet sie aus (alle `inactive`). Gegenprobe mit unserem Regelnamen: `amtool alert add alertname=LaufGescheitert` → Telegram, **13 Zustellungen, 0 gescheitert**. Dazu belegt durch zwei echte Alarme desselben Tages, gefeuert und aufgelöst (`BackupMissingOrStale`, `BackupLastRunFailed`) |
 | FR-18 | Secrets aus der ignorierten `.env` | ● | `.env` des Stapels, ungetrackt; `.dockerignore` schliesst sie aus |
 | FR-19 | — | ▣ | **existiert im PRD nicht.** Die Nummer ist übersprungen; kein Inhalt verloren, aber die Lücke gehört genannt |
-| FR-20 | Ein grüner Lauf muss rückholbar sein | ◐ | **seit dem 14.11.2026 gebaut:** `python -m orchestration.release zuruecknehmen <kennung> --grund "…"` legt `releases/AKTUELL.json` oben (und lokal, wo vorhanden) auf ein früheres, vollständig liegendes Release und vermerkt `zurueckgenommen: {von, grund, am_utc}`; nichts wird gelöscht. `tests/storage/test_release.py` (`test_zuruecknehmen_*`, eine Zeile der I/O-Matrix je Test). Wer, woran, was danach: `docs/storage-architektur.md` 6a „Ein falsches Release zurücknehmen". Bis 14.11.2026 legte `release holen aktuell --einsetzen` nur den lokalen Zeiger um. **Probe auf srv01 steht aus** (zurück und wieder vor, freigegeben) |
+| FR-20 | Ein grüner Lauf muss rückholbar sein | ● | **seit dem 14.11.2026 gebaut:** `python -m orchestration.release zuruecknehmen <kennung> --grund "…"` legt `releases/AKTUELL.json` oben (und lokal, wo vorhanden) auf ein früheres, vollständig liegendes Release und vermerkt `zurueckgenommen: {von, grund, am_utc}`; nichts wird gelöscht. `tests/storage/test_release.py` (`test_zuruecknehmen_*`, eine Zeile der I/O-Matrix je Test). Wer, woran, was danach: `docs/storage-architektur.md` 6a „Ein falsches Release zurücknehmen". Bis 14.11.2026 legte `release holen aktuell --einsetzen` nur den lokalen Zeiger um. **Auf srv01 erprobt am 14.11.2026:** zurück um 15:11:44 UTC, das Dashboard folgte nach 18 s; wieder vor um 15:12:12 UTC, das Dashboard folgte nach 59 s; der Analysenachweis blieb (`AENDERUNGEN.md`, Eintrag vom 14.11.2026) |
 | FR-30 | Grafana zeigt den Betriebsblick | ● | **am 18.10.2026 eingespielt und mit Daten gemessen.** Brett „Urban Crime · Betriebsblick" (uid `urbancrime-betriebsblick`, Ordner `urbancrime`), 21 Panels, provisioniert aus `docker/grafana-brett/`. Alle vier Dinge der Anforderung liegen in Prometheus: Lauf (`lauf_erfolgreich`, `stufe_exit`), Quellenalter mit beiden Takten, Drift (elf Grössen, `drift_innerhalb_toleranz 0` — `detroit_rate` reisst die Toleranz), Plattenfüllung aus node-exporter. `tests/test_grafana_brett.py` hält jeden Ausdruck gegen einen echten Lauf von `serving.betriebsstand` |
 
 ## Welle 6 · Präsentation, Abgabe, Skalierbarkeit
@@ -134,8 +134,8 @@ stellt."*
 
 | Stand | Anzahl |
 | --- | ---: |
-| ● erfüllt | 38 |
-| ◐ teilweise | 15 |
+| ● erfüllt | 39 |
+| ◐ teilweise | 14 |
 | ○ offen | 10 |
 | ▣ zurückgestellt | 2 |
 | **zusammen** | **65** |

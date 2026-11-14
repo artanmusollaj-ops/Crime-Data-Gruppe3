@@ -143,11 +143,26 @@ entwertet den Analysenachweis bis zum nächsten Lauf, ist also nur bewusst zu
 wählen; der nächste Montagslauf publiziert wieder — Ursache beheben oder den
 Takt bewusst aussetzen).
 
-**Die Probe auf `srv01` steht aus** und wird hier nachgetragen: zurück auf
-das Release vor dem aktuellen, das Dashboard nennt den alten Stand, wieder
-vor — beide Schritte mit Uhrzeit. Bis dahin bleibt FR-20 in `fr-stand.md`
-◐. Dort ist auch FR-58 berichtigt: Die LN1-Rückmeldung kam am 3.11.2026
-(Note 5.75), eingearbeitet ist sie noch nicht (bleibt ○).
+**Auf `srv01` erprobt, 14.11.2026** (Abbild `14a6ade`, Modus `s3`), mit
+`docker compose -f docker-compose.srv01.yml run --rm --no-deps pipeline
+python -m orchestration.release …`. Zeiten in UTC:
+
+| Zeit | Schritt | Zeiger | Dashboard (`stand.release`) |
+| --- | --- | --- | --- |
+| 15:11:17 | Ausgangsstand | `2026-11-14T09-09-47Z` | `2026-11-14T09-09-47Z` |
+| 15:11:44 | `zuruecknehmen 2026-11-14T08-06-10Z --grund "FR-20 Probe"` | `2026-11-14T08-06-10Z`, Vermerk `von 2026-11-14T09-09-47Z` | — |
+| 15:12:02 | erste Abfrage danach | — | `2026-11-14T08-06-10Z` |
+| 15:12:12 | `zuruecknehmen 2026-11-14T09-09-47Z --grund "FR-20 Probe zurück"` | `2026-11-14T09-09-47Z`, Vermerk `von 2026-11-14T08-06-10Z` | — |
+| 15:13:11 | vierte Abfrage danach | — | `2026-11-14T09-09-47Z` |
+
+Beide Male Exit 0, und `release aktuell` nannte Kennung, Herkunft und Grund.
+Das Dashboard folgte nach 18 und 59 Sekunden, also innerhalb seines
+Nachlade-Intervalls von einer Minute. Der Analysenachweis
+(`/app/data/.analyse/stand.json`) blieb unberührt, weil kein `holen
+--einsetzen` lief. Der Vermerk der Probe steht bis zum nächsten Montagslauf im
+Zeiger; der publiziert neu und schreibt ihn ohne Vermerk. FR-20 steht damit
+in `fr-stand.md` auf ●. Dort ist auch FR-58 berichtigt: Die LN1-Rückmeldung
+kam am 3.11.2026 (Note 5.75), eingearbeitet ist sie noch nicht (bleibt ○).
 
 Neu bewacht: zehn Tests `test_zuruecknehmen_*` in
 `tests/storage/test_release.py`, je einer für eine Zeile der I/O-Matrix (s3,
