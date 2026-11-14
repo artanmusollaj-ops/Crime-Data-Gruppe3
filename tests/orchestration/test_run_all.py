@@ -1143,6 +1143,8 @@ def test_der_analysebestand_haelt_silver_und_gold_nach_dem_release():
     quelle = Path(ra.__file__).read_text(encoding="utf-8")
     zweig = quelle.index("if behalte_lokal and not gescheitert:")
     schalter = quelle.index("if ablage.config.analysebestand_lokal:")
+    holen = quelle.index("hole_fehlende_analysetabellen(ablage)")
     raeumen = quelle.index("arbeitskopien_entfernen()")
     bestaetigen = quelle.index("bestaetige(data_root")
-    assert zweig < schalter < raeumen < bestaetigen
+    assert zweig < schalter < holen < raeumen < bestaetigen, (
+        "fehlende Analysetabellen werden im Schalterzweig geholt, vor dem Bestaetigen")

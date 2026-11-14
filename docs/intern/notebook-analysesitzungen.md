@@ -24,7 +24,9 @@ gesperrt.
 
 Auf `srv01` (Modus `s3`) braucht es dazu `STORAGE_ANALYSEBESTAND_LOKAL=true` in
 den Diensten `pipeline` und `worker`. Sonst entfernt `run_all` Silver und Gold
-nach dem Release, und der Nachweis erfasst nur Bronze.
+nach dem Release, und der Nachweis erfasst nur Bronze. Fehlt eine Tabelle der
+Notebooks lokal, weil ihre Stufe nichts neu gebaut hat, holt `run_all` sie vor
+dem Bestätigen aus dem Eimer.
 
 Die Startzelle liest standardmaessig `data/`. Eine andere Wurzel wird vor dem
 Start des Kernels gewaehlt, zum Beispiel in PowerShell:

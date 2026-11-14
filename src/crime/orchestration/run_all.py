@@ -605,6 +605,11 @@ def lauf(data_root: Path, projekt_root: Path, *,
             if ablage.config.analysebestand_lokal:
                 LOG.info("Lokale Arbeitskopien bleiben als Analysebestand "
                          "(STORAGE_ANALYSEBESTAND_LOKAL).")
+                # Was eine uebersprungene Stufe nicht lokal hingelegt hat,
+                # kommt aus dem Eimer - sonst fehlt es dem Nachweis unten.
+                from orchestration.analyse import hole_fehlende_analysetabellen
+                for verzeichnis in hole_fehlende_analysetabellen(ablage):
+                    LOG.info("Fuer die Analyse aus dem Eimer geholt: %s", verzeichnis)
             else:
                 weg = ablage.arbeitskopien_entfernen()
                 if weg:
