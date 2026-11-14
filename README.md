@@ -1162,7 +1162,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **2'735 der 2'829 Tests** des Standardlaufs, und
+In einem frischen Klon laufen **2'751 der 2'829 Tests** des Standardlaufs, und
 sie sind grün (am 30.10.2026 in einem Baum ohne `data/` nachgemessen).
 Die übrigen 78 überspringen sich selbst, weil sie gebaute Daten brauchen und
 `data/` nicht versioniert ist — dazu seit dem 5.10.2026 die Reproduktion von

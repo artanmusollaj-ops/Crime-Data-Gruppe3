@@ -152,7 +152,7 @@ vom 13.11.2026).
 - Handbuch (`ENGINEERING_KONSOLE.md`, „Notebooks 34 und 37“ und „Aufräumen und
   Backup“) samt PDF und `notebook-analysesitzungen.md` sind nachgezogen.
 
-**Zahlen.** 2'924 → **2'940 Tests**, Standardlauf 2'813 → **2'829**.
+**Zahlen.** 2'924 → **2'940 Tests**, Standardlauf 2'813 → **2'829**, im frischen Klon 2'735 → **2'751**.
 
 ---
 
