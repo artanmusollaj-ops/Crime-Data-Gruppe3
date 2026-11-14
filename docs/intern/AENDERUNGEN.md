@@ -110,6 +110,26 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 14.11.2026 · Die Referenz entsteht aus frischem Bytecode (Branch `fix-referenz-hashseed`)
+
+Der erste CI-Lauf, der den Referenz-Wächter wirklich ausführte (Job
+`referenz`, #241), war rot. Vier Seiten wichen ab: `platform_admin/auth.html`,
+`platform_admin/gitops.html`, `serving/load_clickhouse.html` und `search.js`,
+jeweils nur in der Reihenfolge einer Menge — abgelegt `{'reviewer',
+'operator', …}`, frisch `{'operator', 'reviewer', …}`.
+
+`tools/build_referenz.py` startete schon mit `PYTHONHASHSEED=0` neu. Das
+reichte nicht: Ein Mengen-Literal aus Konstanten wird beim Kompilieren als
+`frozenset` in die `.pyc` geschrieben, in der Reihenfolge des Seeds, der beim
+**Kompilieren** galt. Lokal lag im `__pycache__` eine `.pyc` aus einem Prozess
+mit Zufalls-Seed, die CI kompiliert frisch. Unter Seed 0 ergeben Linux
+(srv01, Python 3.13.18) und macOS (3.13.0) dieselbe Reihenfolge, nachgemessen.
+
+Jetzt kompiliert der Neustart in ein eigenes, leeres Verzeichnis
+(`PYTHONPYCACHEPREFIX`). Die vier Seiten sind damit neu abgelegt, zwei Läufe
+hintereinander sind byte-gleich. Der Wächter hat damit beim ersten Lauf eine
+Nichtbestimmtheit gefunden, die lokal nie sichtbar war — genau dafür ist er da.
+
 ## 14.11.2026 · Der Referenz-Wächter läuft auf jedem Pull Request (Branch `ci-referenz-waechter`)
 
 `tests/test_referenz.py::test_ein_zweiter_lauf_liefert_dieselben_dateien`
