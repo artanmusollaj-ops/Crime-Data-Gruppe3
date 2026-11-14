@@ -597,6 +597,11 @@ def finish_publication(store, impact_id):
 
             publish_release(store, target, row["baseline_release_id"])
         setze_aktuell(store.data / "releases" / "AKTUELL.json", manifest)
+        # Der Job-Zeiger: Die Notebooks finden die Daten dieses Release in
+        # seinem Job-Ordner, auch nach einem Zurueckschalten (job_data).
+        from .job_data import set_pointer
+
+        set_pointer(store, row)
         if coupled:
             c.execute(
                 "UPDATE head SET revision=? WHERE resource=?",

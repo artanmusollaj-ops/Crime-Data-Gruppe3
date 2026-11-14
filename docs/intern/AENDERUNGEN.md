@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'924** |
+| Tests | **2'940** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -107,6 +107,52 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 14.11.2026 · Die Notebooks finden den Job des aktiven Release, und alte Job-Daten gehen (Branch `feature/job-zeiger-und-loeschregel`)
+
+**Was fehlte.** Im verwalteten Betrieb liegen die Daten eines Release im Ordner
+seines Kandidaten-Jobs (`admin/jobs/<Job-ID>/data/`). Welcher Job zum aktiven
+Release gehört, musste der Betreiber bisher selbst heraussuchen und in
+`CRIME_ANALYSIS_ROOT` eintragen. Gelöscht wurde ein Job-Ordner nie: Jeder trug
+eine vollständige Kopie seiner Eingaben, und alle gingen jeden Tag mit in die
+Kontrollsicherung. Beides war als Teil von S-10 offen (E-5, Rückmeldung Artan
+vom 13.11.2026).
+
+**Was sich ändert.**
+- **Job-Zeiger.** `finish_publication` trägt beim Aktivieren eines Release
+  dessen Job in `admin/jobs/ANALYSE.json` ein
+  (`platform_admin.job_data.set_pointer`). Die Datei liegt in `jobs/`, weil
+  Jupyter nur diesen Teil des Konsolen-Volumes sieht.
+- **Auflösung in der Startzelle.** `orchestration.analyse.waehle_analysebestand`
+  liest das Release aus `releases/AKTUELL.json` und schlägt es im Zeiger nach.
+  Nach einem Zurückschalten sind es also die Daten des älteren Release.
+  - Ein Konsolen-Release (`approved-…`) ohne Eintrag oder ohne Ordner ist ein
+    Fehler, kein Rückfall auf einen anderen Stand.
+  - Jedes andere Release liest weiter die Datenwurzel.
+  - Die Sitzung prüft, dass der Nachweis im Job-Ordner den Kandidaten des
+    aktiven Release nennt.
+  - Die Notebooks 34 und 37 lesen danach `analyse.root`.
+- **Löschregel.** Der Worker entfernt in jedem Takt vor der Sicherung
+  `jobs/<Job-ID>/data/` aller Jobs, die niemand mehr braucht
+  (`job_data.prune`). Die Nachweise daneben bleiben. Geschützt sind:
+  - eingereihte und laufende Jobs, laufende Freigaben und Publikationen;
+  - Kandidaten im Review, solange ihre Basis das aktive Release ist;
+  - das aktive und das zuletzt aktivierte Release davor
+    (`ADMIN_JOB_DATA_KEEP`, Vorgabe 2).
+
+  Einen Ordner, den eine Analysesitzung liest, lässt der Takt bis zum nächsten
+  stehen. Der Job des aktiven Release bleibt auch ohne Zeiger-Eintrag.
+- `python -m platform_admin prune-job-data --dry-run` zeigt, was ginge, mit
+  Grund und Grösse.
+- Neue Tests in `tests/platform_admin/test_job_data.py`: Zeiger, Zurückschalten,
+  Fehlerfälle, jede Schutzregel, die Sperre und die Reihenfolge im Takt.
+- Die Nachweise der Notebooks sind neu gebaut, weil sich ihr Code geändert hat.
+- Handbuch (`ENGINEERING_KONSOLE.md`, „Notebooks 34 und 37“ und „Aufräumen und
+  Backup“) samt PDF und `notebook-analysesitzungen.md` sind nachgezogen.
+
+**Zahlen.** 2'924 → **2'940 Tests**, Standardlauf 2'813 → **2'829**, im frischen Klon 2'735 → **2'751**.
 
 ---
 

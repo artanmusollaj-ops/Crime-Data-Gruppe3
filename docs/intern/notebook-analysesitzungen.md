@@ -61,9 +61,14 @@ Es gibt keinen Zeitablauf, der einem noch lesenden Notebook die Sperre entzieht.
 Die Konsole baut isoliert unter `data/admin/jobs/<Job-ID>/data/`. Genau dort
 wird nach technisch erfolgreichem Kandidatenbau der Nachweis geschrieben;
 `run_id` ist die Job-ID, die Release-ID benennt den Kandidaten. Das ist **keine
-Review-Freigabe** und wird entsprechend angezeigt. Eine spaetere Freigabe wird
-nicht aus dem gerade aktiven Release geraten. Fuer einen freigegebenen Stand
-muss der Betreiber den zugehoerigen Job anhand der Konsolenentscheidung waehlen.
+Review-Freigabe** und wird entsprechend angezeigt. Welcher Job zum aktiven
+Release gehoert, haelt der Job-Zeiger `admin/jobs/ANALYSE.json` fest; ihn setzt
+`finish_publication` beim Aktivieren. Die Startzelle schlaegt das Release aus
+`releases/AKTUELL.json` darin nach und liest danach `analyse.root`, den
+Job-Ordner. Nach einem Zurueckschalten auf ein aelteres Release sind es dessen
+Daten. Fehlt fuer ein Konsolen-Release (`approved-...`) der Eintrag oder sein
+Ordner, bricht sie ab. Wann ein Job-Ordner geloescht wird, steht im
+Konsolenhandbuch unter „Aufräumen und Backup“.
 Der ueberschriebene letzte Worker-Takt in `pipeline_run.json` ist kein Ersatz
 fuer den Aufbau-Nachweis. Die Bronze-Laufkennungen sind in den mitgeprueften
 Manifesten enthalten, nicht eine erfundene gemeinsame Ingestionskennung.
