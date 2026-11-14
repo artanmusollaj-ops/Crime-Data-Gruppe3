@@ -49,13 +49,28 @@ function zeichne(d) {
   const zr = zeitraumtext(d.auswahl);
   linie(document.getElementById("d-verlauf"), d.verlauf.monate,
     d.verlauf.reihen.map((r) => ({ ...r, farbe: FARBE[r.stadt] })));
-  document.getElementById("t-raten").textContent = `Delikte je 1'000 Einwohner · ${zr}`;
+  document.getElementById("t-raten").textContent = `Fälle je 1'000 Einwohner · ${zr}`;
   const e = d.raten.einwohner;
   document.getElementById("u-raten").textContent = "Bevölkerungsbasis: " + (Object.keys(e).length
     ? staedte.map((s) => `${s.name} ${zahl.format(e[s.stadt])}`).join(", ") + " (ACS)"
     : "keine einheitliche – Rate nicht definiert");
   balken(document.getElementById("d-raten"), d.raten.zeilen, staedte, (v) => komma.format(v),
     achsenzahl);
+  // Fallebene vorn, Tatebene daneben (Entscheid E5): Chicago erfasst je Fall
+  // nur das schwerste Delikt, Detroit jedes.
+  const tat = d.raten.tatebene;
+  const tatebene = document.getElementById("h-tatebene");
+  tatebene.hidden = !staedte.some((s) => tat[s.stadt] !== null);
+  const symbol = document.createElement("span");
+  symbol.className = "i";
+  symbol.textContent = "i";
+  const text = document.createElement("span");
+  tatebene.replaceChildren(symbol, text);
+  text.textContent = "Tatebene, alle Delikte je 1'000: "
+    + staedte.map((s) => `${s.name} ${tat[s.stadt] === null ? "–" : komma.format(tat[s.stadt])}`)
+      .join(" · ")
+    + ". Detroit erfasst jedes Delikt eines Falls, Chicago nur das schwerste – "
+    + "vorn steht deshalb der Fall.";
   const titel = { anzahl: "Registrierte Delikte", anteil: "Anteil an allen Delikten",
     rate: "Delikte je 1'000 Einwohner" }[d.kategorien.mass];
   document.getElementById("t-kategorien").textContent = `${titel} nach Kategorie · ${zr}`;

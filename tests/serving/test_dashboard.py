@@ -143,19 +143,48 @@ def bestand(tmp_path) -> Bestand:
     return Bestand(stern(tmp_path, taten))
 
 
-def test_die_rate_ist_die_der_dokumente(bestand):
-    """Dieselbe Zahl wie gold_pipeline.raten_je_stadt - Nenner, Tract-Regel, Jahr."""
-    rate = bestand.ueberblick(bestand.auswahl({"jahr": "2024"}))["raten"]["zeilen"][0]
-    gold = bestand.data_root / "gold"
+def _raten_aus_gold(root: Path, jahr: int) -> dict[str, tuple[float, float]]:
+    """(Fallebene, Tatebene) je Stadt aus gold_pipeline.raten_je_stadt."""
+    gold = root / "gold"
 
     def rel(t):
         return f"read_parquet('{gold}/dataset={t}/part-0001.parquet')"
 
-    erwartet = {s: r for s, r in duckdb.connect().execute(
-        "SELECT city, rate FROM (" + raten_je_stadt(rel("fact_offense"), rel("dim_tract"),
-                                                   rel("dim_tract_acs"), 2024) + ")").fetchall()}
-    assert rate["kategorie"] == "alle"
-    assert rate["werte"] == erwartet == {"chicago": 24.0, "detroit": 24.0}
+    return {s: (fall, tat) for s, fall, tat in duckdb.connect().execute(
+        "SELECT city, rate_fallebene, rate FROM (" + raten_je_stadt(
+            rel("fact_offense"), rel("dim_tract"), rel("dim_tract_acs"), jahr) + ")").fetchall()}
+
+
+def test_die_rate_ist_die_der_dokumente(bestand):
+    """Dieselbe Zahl wie gold_pipeline.raten_je_stadt - Nenner, Tract-Regel, Jahr."""
+    rate = bestand.ueberblick(bestand.auswahl({"jahr": "2024"}))["raten"]
+    gold = _raten_aus_gold(bestand.data_root, 2024)
+    assert rate["zeilen"][0]["kategorie"] == "alle"
+    assert rate["zeilen"][0]["werte"] == {s: g[0] for s, g in gold.items()}
+    assert rate["tatebene"] == {s: g[1] for s, g in gold.items()}
+
+
+def test_die_balken_stehen_auf_der_fallebene_die_tatebene_daneben(tmp_path):
+    """E5: Fallebene vorn. Eine weitere Anklage im selben Fall zaehlt nur in
+    der Tatebene - wie Detroit, das jedes Delikt eines Falls erfasst."""
+    taten = (jahr("chicago", 2024, "13A", TRACT_C)
+             + jahr("detroit", 2024, "13A", TRACT_D)
+             + [("detroit", date(2024, m, 1), "13B", TRACT_D, time(18, 5), False)
+                for m in range(1, 13)])
+    b = Bestand(stern(tmp_path, taten))
+    rate = b.ueberblick(b.auswahl({"jahr": "2024"}))["raten"]
+    assert rate["zeilen"][0]["werte"] == {"chicago": 6.0, "detroit": 12.0}
+    assert rate["tatebene"] == {"chicago": 6.0, "detroit": 24.0}
+    # Eine Zeile, keine je Kategorie: Kategorien rechnen auf der Tatebene (E5).
+    assert len(rate["zeilen"]) == 1
+    # Beide Ebenen gegen raten_je_stadt, dort wo sie auseinandergehen.
+    gold = _raten_aus_gold(tmp_path, 2024)
+    assert rate["zeilen"][0]["werte"] == {s: g[0] for s, g in gold.items()}
+    assert rate["tatebene"] == {s: g[1] for s, g in gold.items()}
+    # Die Kategorieansicht »Rate« bleibt auf der Tatebene: Nur dort addieren
+    # sich Kategorien (E5).
+    kategorien = b.ueberblick(b.auswahl({"jahr": "2024", "mass": "rate"}))["kategorien"]
+    assert kategorien["zeilen"][0]["werte"]["detroit"] == 24.0
 
 
 def test_gezaehlt_wird_nach_meldender_stadt(bestand):
@@ -212,7 +241,9 @@ def test_die_kategorie_filtert_alles(bestand):
     assert r["kennzahlen"]["delikte"] == 1
     assert [z["name"] for z in r["kategorien"]["zeilen"]] == ["Raub"]
     # Der Raub lag ausserhalb jedes Stadt-Tracts: gezaehlt, aber ohne Rate.
-    assert r["raten"]["zeilen"][1]["werte"] == {"chicago": 0.0, "detroit": 0.0}
+    assert [z["name"] for z in r["raten"]["zeilen"]] == ["Raub"]
+    assert r["raten"]["zeilen"][0]["werte"] == {"chicago": 0.0, "detroit": 0.0}
+    assert r["raten"]["tatebene"] == {"chicago": 0.0, "detroit": 0.0}
 
 
 def test_der_rest_heisst_nicht_wie_nibrs_90z(monkeypatch, bestand):

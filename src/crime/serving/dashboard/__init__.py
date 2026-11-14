@@ -65,8 +65,6 @@ EBENEN = ("faelle", "delikte")
 KATEGORIEN_IM_BALKEN = 6
 #: Nicht »Übrige Straftaten«: So hiesse auf Deutsch auch NIBRS 90Z.
 UEBRIGE = "Übrige Kategorien"
-#: Wie viele Kategorien neben »Alle Delikte« eine eigene Rate bekommen.
-KATEGORIEN_IN_DER_RATE = 4
 #: Wie oft hoechstens nachgesehen wird, ob ein neuer Stand vorliegt.
 PRUEFABSTAND_S = 60.0
 
@@ -227,13 +225,16 @@ class Bestand:
             FROM read_parquet('{monat}', hive_partitioning=false)""")
         # Die Regel von gold_pipeline.raten_je_stadt: nur Taten in einem Tract
         # mit Stadtzuordnung, Kategorie ueber dim_offense wie in
-        # build_comparison, das Vintage je Tat.
+        # build_comparison, das Vintage je Tat. Beide Ebenen: Faelle fuer die
+        # Rate vorn (E5), Delikte fuer die Tatebene daneben und fuer die
+        # Kategorien, die sich nur dort addieren.
         con.execute(f"""
             CREATE TABLE raten AS
             SELECT t.city AS stadt, date_trunc('month', f.date)::DATE AS monat,
                    CASE WHEN f.nibrs_code IS NULL THEN 'unmapped'
                         ELSE d.nibrs_category END AS kategorie,
                    f.population_vintage AS vintage,
+                   count(*) FILTER (f.counts_case) AS faelle,
                    count(*) AS delikte
             FROM read_parquet('{fakten}', hive_partitioning=false) f
             JOIN read_parquet('{tracts}', hive_partitioning=false) t ON t.geoid = f.tract_geoid
@@ -605,33 +606,32 @@ class Bestand:
                     for k, v in werte[s].items()} for s in staedte}
 
     def _raten(self, cur, a: Auswahl, staedte, von, bis) -> dict[str, Any]:
-        """Delikte je 1'000 Einwohner: alle Delikte und die haeufigsten Kategorien."""
-        nenner = self._nenner(cur, a, staedte)
-        p = {"staedte": staedte, "von": von, "bis": bis}
-        je = cur.execute(
-            "SELECT stadt, kategorie, sum(delikte) FROM raten WHERE stadt IN $staedte "
-            "AND monat BETWEEN $von AND $bis GROUP BY 1, 2", p).fetchall()
-        gesamt: dict[str, int] = {}
-        for _, k, n in je:
-            gesamt[k] = gesamt.get(k, 0) + int(n)
-        if a.kategorie != "alle":
-            auswahl = [a.kategorie]
-        else:
-            auswahl = [k for k, _ in sorted(gesamt.items(), key=lambda kv: (-kv[1], kv[0]))
-                       ][:KATEGORIEN_IN_DER_RATE]
+        """Faelle je 1'000 Einwohner, fuer alle Faelle oder die gewaehlte Kategorie.
 
-        def rate(s: str, n: int) -> float | None:
+        **Fallebene vorn, Tatebene daneben** (E5), wie ``raten_je_stadt``
+        mit ``rate_fallebene`` und ``rate``: Chicago erfasst je Fall nur das
+        schwerste Delikt, Detroit jedes - auf der Tatebene misst ein Vergleich
+        den Erfassungsunterschied mit. **Keine Zeile je Kategorie:** Nach E5
+        rechnen Kategorien auf der Tatebene, weil sie sich nur dort addieren;
+        die Rate je Kategorie zeigt die Tafel »nach Kategorie« (``_raten_je``).
+        """
+        nenner = self._nenner(cur, a, staedte)
+        kat = "" if a.kategorie == "alle" else "AND kategorie = $kat"
+        p = {"staedte": staedte, "von": von, "bis": bis,
+             **({"kat": a.kategorie} if kat else {})}
+        summen = {s: (int(f), int(d)) for s, f, d in cur.execute(
+            "SELECT stadt, sum(faelle), sum(delikte) FROM raten WHERE stadt IN $staedte "
+            f"AND monat BETWEEN $von AND $bis {kat} GROUP BY 1", p).fetchall()}
+
+        def rate(s: str, i: int) -> float | None:
+            n = summen.get(s, (0, 0))[i]
             return round(n * 1000.0 / nenner[s], 1) if s in nenner else None
 
-        zeilen = [{"kategorie": "alle", "name": "Alle Delikte",
-                   "werte": {s: rate(s, sum(int(n) for st, _, n in je if st == s))
-                             for s in staedte}}]
-        for k in auswahl:
-            zeilen.append({"kategorie": k, "name": kategorie_de(k),
-                           "werte": {s: rate(s, sum(int(n) for st, kk, n in je
-                                                   if st == s and kk == k))
-                                     for s in staedte}})
-        return {"einwohner": nenner, "zeilen": zeilen}
+        name = "Alle Fälle" if a.kategorie == "alle" else kategorie_de(a.kategorie)
+        return {"einwohner": nenner,
+                "zeilen": [{"kategorie": a.kategorie, "name": name,
+                            "werte": {s: rate(s, 0) for s in staedte}}],
+                "tatebene": {s: rate(s, 1) for s in staedte}}
 
     @staticmethod
     def _abdeckung(cur, staedte, monate: list[date]) -> dict[str, dict[str, Any]]:
