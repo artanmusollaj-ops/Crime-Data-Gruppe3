@@ -227,7 +227,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Der Standardlauf wählt 2'848 Tests aus. Erwartet wird **grün** ohne
+Der Standardlauf wählt 2'865 Tests aus. Erwartet wird **grün** ohne
 Netzzugriff und ohne Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -237,7 +237,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 2'959
+python -m pytest -m ""               # beides zusammen, alle 2'976
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -1127,7 +1127,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**2'959 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**2'976 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -1164,7 +1164,7 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-Im protokollierten Linux-CI-Lauf wurden **2'769 der 2'848 Tests** des
+Im protokollierten Linux-CI-Lauf wurden **2'786 der 2'865 Tests** des
 Standardlaufs ausgeführt. Die übrigen 79 wurden übersprungen. Die Zahl hängt
 von der Umgebung ab. Einige Prüfungen brauchen gebaute Daten, die in
 `data/` liegen und nicht versioniert sind — dazu seit dem 5.10.2026 die Reproduktion von

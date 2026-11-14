@@ -365,10 +365,10 @@ def bild_kontext() -> str:
     teile.append(beschriftung(
         RAND + 14, band_y + 21,
         f"Python · DuckDB {duckdb_version} mit spatial · pytest · ruff · "
-        f"{notebooks} Notebooks · {len(werkzeuge)} Generatoren unter tools/"))
+        f"{notebooks} Notebooks · {len(werkzeuge)} Werkzeuge unter tools/"))
     teile.append(beschriftung(
         RAND + 14, band_y + 38,
-        "erzeugt mit: " + ", ".join(werkzeuge[:3]) + " …"))
+        "darunter: " + ", ".join(werkzeuge[:3]) + " …"))
 
     # --- 2 Systemkontext: die Quellen --------------------------------------
     beschriftung_y = quell_y - 6

@@ -49,7 +49,7 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | FR-5 | `config/` im Abbild | ● | `Dockerfile` |
 | FR-6 | `spatial`, `icu`, `httpfs` zur Bauzeit | ● | `Dockerfile`, Erweiterungen unter `$HOME/.duckdb` |
 | FR-7 | Beschreibbares `$HOME` | ● | `ENV HOME=/home/pipeline`, `chmod 0777` |
-| FR-8 | Gleicher Eingabe-Fingerabdruck im Container | ◐ | **nicht geprüft** — ein Containerlauf gegen einen Hostlauf auf denselben Eingaben fehlt |
+| FR-8 | Gleicher Eingabe-Fingerabdruck im Container | ● | am 14.11.2026 gelaufen: `tools/abdruck_host_container.py 2026-11-14T09-09-47Z` baute Gold auf dem Host aus dem Silver des auf `srv01` im Container gebauten Release neu — **7 von 7** Gold-Tabellen mit gleichem `input_fingerprint`, Ausgabe in `AENDERUNGEN.md`. Wächter: `test_ein_zweiter_lauf_liefert_dieselben_bytes` (Abdruck je Tabelle aus zwei Wurzeln, `referenzstand`) und `test_derselbe_stand_traegt_an_jedem_ort_denselben_abdruck` (Standardlauf). Nicht Gegenstand von FR-8 und offen: Die Parquet-**Bytes** sind zwischen Container und Host nicht gleich, der Inhalt ist es bis auf die letzte Gleitkommastelle von `dim_tract.city_area_share` — von Hand geprüft, Eintrag in `AENDERUNGEN.md` |
 | FR-9 | Stapellauf, kein Webdienst | ● | `profiles: [stapel]`, `restart: on-failure:2`, kein `ports:` |
 | FR-10 | Webdienste hinter dem Tunnel | ● | Traefik-Label je Webdienst |
 | FR-11 | Elasticsearch nicht im `proxy`-Netz | ● | nur das Stapelnetz, `tests/test_srv01_compose.py`; seit dem 1.11.2026 steht es in der Serverfassung gar nicht mehr (C-9, `test_srv01_traegt_weder_elasticsearch_noch_kibana`) |
@@ -134,8 +134,8 @@ stellt."*
 
 | Stand | Anzahl |
 | --- | ---: |
-| ● erfüllt | 39 |
-| ◐ teilweise | 14 |
+| ● erfüllt | 40 |
+| ◐ teilweise | 13 |
 | ○ offen | 10 |
 | ▣ zurückgestellt | 2 |
 | **zusammen** | **65** |

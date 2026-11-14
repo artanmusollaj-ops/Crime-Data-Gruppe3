@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'959** |
+| Tests | **2'976** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -110,6 +110,105 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 14.11.2026 · Host und Container ergeben denselben Eingabe-Abdruck (Branch `fr-8-abdruck-host-container`)
+
+FR-8 verlangt, dass ein Lauf im Container denselben Eingabe-Fingerabdruck
+erzeugt wie einer auf dem Host. `fr-stand.md` führte das als ◐ „nicht
+geprüft": Es gab keinen Vergleich, nur die Regel in `manifeste.kennzeichen`,
+nach der Pfad und Bauzeit aus dem Abdruck fallen.
+
+Jetzt gibt es den Vergleich: `python tools/abdruck_host_container.py
+<release-id>` liest aus dem Eimer die Gold-Manifeste eines Release, das auf
+`srv01` im Container gebaut wurde, prüft, dass das Silver oben noch **dasselbe**
+ist (`input_fingerprint` je Silver-Stand gleich dem im Release, sonst Abbruch:
+„Silver ist seit dem Release weitergezogen"), holt es in eine eigene Wurzel
+ausserhalb des Repositorys und baut dort Gold als Unterprozess mit
+`STORAGE_BACKEND=local`. Dann stehen die Abdrücke je Gold-Tabelle
+nebeneinander, bei einer Abweichung mit dem ersten abweichenden
+Herkunftsschlüssel. Vorher sagt das Werkzeug, ob sich `config/` zwischen dem
+Commit des Release und dem Host unterscheidet. Der Eimer wird nur gelesen,
+`AKTUELL.json` bleibt unberührt, unter `data/` wird nichts gebaut, und der
+Container wird nicht gestartet.
+
+**Probe am 14.11.2026** auf dem Entwicklungsrechner gegen das Release, auf
+das `AKTUELL.json` zeigt. Belegt sind für den Container nur der Ort (srv01,
+Modus `s3`), der Commit aus `release.json` (`abda4e0`) und die DuckDB-Version
+aus dem Feld `tool` der Gold-Manifeste; für die Architektur gilt die
+Serverbeschreibung im PRD (§5: srv01 ist x86-64). Host: `63cd20c` mit den noch
+nicht eingecheckten Änderungen dieses Branches — sie betreffen `tools/`,
+`tests/` und `docs/`, `src/` und `config/` sind gegenüber `63cd20c`
+unverändert. Exit 0:
+
+```
+Release      2026-11-14T09-09-47Z
+Release-Code abda4e00561a1f15a8b104bdd082050ad19a3858
+Release-Bau  duckdb 1.5.5 mit spatial (laut Gold-Manifest)
+Host-Code    63cd20c457717dffeb482930a866752ba87d7505 (mit Aenderungen)
+Host-Bau     arm64, duckdb 1.5.5
+config/      gleich zwischen Release und Host
+Silver       7 Staende, 14 Objekte -> …/abdruck-host-container-a06og76o/silver
+Host-Lauf    build_gold --vintage 2024 --acs-vintages 2021,2022,2023,2024 (STORAGE_BACKEND=local)
+
+Tabelle        Container                                                         Host                                                              Ergebnis
+dim_city_day   4c9aeda74a652b4d0bc799af7fae592303e1d2514f6d5b53776d64eed6fb6a16  4c9aeda74a652b4d0bc799af7fae592303e1d2514f6d5b53776d64eed6fb6a16  gleich
+dim_date       000a882486c09750c0fa2fa13f58b66f0b40f34d66055b5687d43b938a17e525  000a882486c09750c0fa2fa13f58b66f0b40f34d66055b5687d43b938a17e525  gleich
+dim_offense    9d895f59d73102c92f5763d013a4dde2e387805bbc4fdc3519e76a03708ce0e0  9d895f59d73102c92f5763d013a4dde2e387805bbc4fdc3519e76a03708ce0e0  gleich
+dim_tract      87e4e152376449b637090f6e85b3fa8e082577f3d03737064f2e7b0ada086c60  87e4e152376449b637090f6e85b3fa8e082577f3d03737064f2e7b0ada086c60  gleich
+dim_tract_acs  3d12639561c480c17c75affa1bfcb285a159f93cef24e6e28f22f772b5310ac4  3d12639561c480c17c75affa1bfcb285a159f93cef24e6e28f22f772b5310ac4  gleich
+dim_tract_geo  12a37ab6b79f16c70df4e9553cd6750cd7ff06430148aa80f855302159d0e75c  12a37ab6b79f16c70df4e9553cd6750cd7ff06430148aa80f855302159d0e75c  gleich
+fact_offense   000a882486c09750c0fa2fa13f58b66f0b40f34d66055b5687d43b938a17e525  000a882486c09750c0fa2fa13f58b66f0b40f34d66055b5687d43b938a17e525  gleich
+
+7 von 7 Gold-Tabellen gleich.
+```
+
+Die Herkunft im Container nennt das Silver als `s3://urban-crime/silver/…`,
+die auf dem Host als Pfad unter dem temporären Verzeichnis, und die Bauzeiten
+liegen Stunden auseinander — der Abdruck ist trotzdem derselbe. Damit steht
+FR-8 in `fr-stand.md` auf ●.
+
+**Was dabei auffiel und nicht FR-8 ist: Die Bytes sind nicht gleich.** Eine
+**einmalige Handmessung vom 14.11.2026**, nicht bewacht und nicht
+nachgezogen: Alle sieben Parquet-Dateien des Host-Baus hatten eine andere
+SHA-256 als die in `release.json`, bei gleichen Zeilenzahlen. Je Tabelle lief
+in DuckDB, in beide Richtungen,
+
+```sql
+SELECT count(*) FROM (
+  SELECT * FROM read_parquet('<release>.parquet', hive_partitioning=false)
+  EXCEPT ALL
+  SELECT * FROM read_parquet('<host>.parquet', hive_partitioning=false))
+```
+
+Leer war das für sechs Tabellen; in `dim_tract` blieben 488 von 6'282 Zeilen,
+und zwar allein in `city_area_share` (je Spalte `IS DISTINCT FROM` über
+`geoid` verbunden), mit `max(abs(x - y))` = 7,8·10⁻¹⁶ — die letzte Stelle
+einer Gleitkommazahl aus `ST_Area(ST_Intersection(…))`, vermutlich x86-64
+gegen arm64. NFR-1 („zweiter Lauf, gleiche Prüfsummen") meint den zweiten
+Lauf am selben Ort und bleibt davon unberührt; über Architekturen hinweg gilt
+die Byte-Gleichheit nicht, und das steht hier, damit es niemand behauptet.
+
+Neu bewacht:
+
+- `test_ein_zweiter_lauf_liefert_dieselben_bytes` (`referenzstand`) vergleicht
+  zusätzlich den `input_fingerprint` je Tabelle aus zwei Wurzeln mit
+  verschiedenen absoluten Pfaden — der Abdruck hängt nicht am Ort.
+- `test_derselbe_stand_traegt_an_jedem_ort_denselben_abdruck` in
+  `tests/manifeste/test_manifeste.py`, im Standardlauf: dieselbe Herkunft mit
+  POSIX-, Windows- und `s3://`-Pfaden und verschiedenen Bauzeiten ergibt
+  denselben Abdruck, eine andere Prüfsumme einer `config/`-Datei einen anderen.
+- sechzehn Tests in `tests/test_abdruck_host_container.py` mit `FakeS3Client`
+  und einem Mini-Stern: die Fälle der Matrix (gleich, Silver weitergezogen,
+  Abweichung mit erstem Unterschied, Release unbekannt, ohne Eimer), dazu
+  Silver ohne Manifest, nicht fertig oder ohne Abdruck im Release, ein Release
+  aus geändertem Baum, die Arbeitswurzel (Repository, Datenwurzel, Datei), der
+  Unterprozess und der `config/`-Vergleich gegen `HEAD`.
+
+Eine Mutationsprobe (in einer Kopie mit eigenem `pyproject.toml`, `path` aus
+`manifeste.FLUECHTIG` genommen) liess vier dieser Tests fallen.
+
+Mit dem Werkzeug liegen zwölf Dateien unter `tools/`; `architektur-kontext.svg` ist neu gebaut (seine Beschriftung heisst jetzt „12 Werkzeuge unter tools/“ und „darunter: …“ statt „Generatoren“ und „erzeugt mit:“, weil nicht jedes davon etwas erzeugt — dieses vergleicht nur).
+
+**Zahlen.** 2'959 → **2'976 Tests**, Standardlauf 2'848 → **2'865**, im protokollierten Linux-CI-Lauf 2'769 → **2'786** ausgeführt (die siebzehn neuen Tests brauchen keine Daten). `fr-stand.md`: 39 → **40** erfüllt, 14 → **13** teilweise.
 
 ## 14.11.2026 · Die Löschregel für Job-Daten läuft auch unter Windows (Branch `fix-job-daten-windows`)
 
