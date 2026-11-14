@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'988** |
+| Tests | **3'012** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -109,6 +109,58 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 14.11.2026 · Nichts im Abbild setzt srv01 voraus (Branch `fr-46-abbild-ohne-srv01`)
+
+FR-46 stand auf ◐ „nicht geprüft". Die Prüfung fand vier Annahmen im Code,
+der ins Abbild geht, und keine davon fiel auf `srv01` auf, weil sie dort
+stimmen:
+
+1. `storage.config` hatte die Vorgabe `S3_ENDPOINT=s3.datenwerft.ch`. Ein
+   Lauf in `s3` oder `hybrid` ohne Endpunkt griff still auf den Eimer von
+   `srv01` zu. **Jetzt gibt es keine Vorgabe mehr**: `s3` und `hybrid`
+   ohne `S3_ENDPOINT` ergeben `StorageConfigError` mit dem Namen der
+   Variable, `local` braucht ihn nicht.
+2. Die Fassung `server` der Startseite (`serving.build_einstieg`) hatte
+   die Hostnamen `urbancrime-<dienst>.datenwerft.ch` und die Befehle mit
+   `docker-compose.srv01.yml` und `docker/srv01-datenlauf.sh` fest im Code.
+   Jetzt kommen sie aus `EINSTIEG_ADRESSMUSTER`, `STAPEL_COMPOSE` und
+   `STAPEL_DATENLAUF`. `docker-compose.srv01.yml` setzt die drei Werte
+   den Diensten `pipeline` und `worker`. Fehlt einer, bricht der Bau mit
+   Exit 1 ab und nennt ihn. Mit den Werten aus der Beschreibung ist die
+   Serverseite **byte-gleich** zur vorigen (lokal verglichen an einem
+   erfundenen Release). Die Fassung `lokal` liest keinen der drei Werte,
+   `docs/einstieg.html` bleibt unverändert.
+3. Die Abhilfetexte von `serving.pruefe_stand` zum Dashboard nannten
+   `docker-compose.srv01.yml`.
+4. Die Meldung der Vorprüfung nannte `srv01`. Beide nennen jetzt
+   `STAPEL_COMPOSE`, wenn es gesetzt ist, und sonst nur `docker compose`.
+
+Kommentare und Docstrings, die `srv01` als Beispiel oder Geschichte nennen,
+bleiben stehen. Sie setzen nichts voraus.
+
+**Vor dem Einsetzen auf `srv01` zu prüfen:** `docker-compose.srv01.yml`
+reicht `S3_ENDPOINT` ohne Wert aus der `.env` des Stapels durch. Steht er
+dort nicht, lief `srv01` bisher über die Vorgabe und bricht mit diesem
+Stand ab, mit einer Meldung, die `S3_ENDPOINT` nennt. Nach dem Einsetzen
+die ausgelieferte Startseite mit der vorigen vergleichen (`diff`).
+
+Neu bewacht: `tests/test_abbild_ohne_srv01.py` durchsucht die Zeichenketten
+in `src/crime/**/*.py` und `docker/jupyter_server_config.py` (ohne Docstrings
+und Kommentare) und die Anweisungen beider Dockerfiles nach `srv01`,
+`datenwerft`, `/srv/` und `urbancrime-`. Zwei Selbsttests prüfen, dass er
+ein Literal mit Zeile findet und Docstrings und Kommentare übergeht. Dazu
+kommen die Matrix in `tests/storage/test_config.py` (s3/hybrid ohne
+Endpunkt, local ohne) und in `tests/test_einstieg.py`: Fehlt einer der drei
+Werte, endet der Aufruf mit Exit 1, ohne zu schreiben. Ein Muster ohne
+`{dienst}` gilt als Fehler. Eine fremde Umgebung ergibt eine Seite ohne
+`srv01`. Die Tests der Serverfassung lesen ihre Werte aus
+`docker-compose.srv01.yml` selbst. Die Abhilfetexte prüfen
+`test_die_abhilfe_nennt_den_stapel_aus_der_umgebung` und
+`test_die_meldung_nennt_den_stapel_aus_der_umgebung`. FR-46 steht in
+`fr-stand.md` auf ● (42 erfüllt, 11 teilweise).
+
+**Zahlen.** 2'988 → **3'012 Tests**, Standardlauf 2'877 → **2'901**, im protokollierten Linux-CI-Lauf 2'798 → **2'822**.
 
 ## 14.11.2026 · Die Dauer der Montagsläufe ist gemessen (Branch `fr-16-laufdauer`)
 

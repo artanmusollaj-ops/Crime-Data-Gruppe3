@@ -18,7 +18,7 @@ def test_local_ist_eine_gewoehnliche_verbindung():
 
 def test_das_secret_ist_temporaer_pfadstil_und_maskiert_nichts_im_sql():
     config = Config(backend="s3", s3_access_key="AKIA'x", s3_secret_key="geheim",
-                    s3_endpoint="s3.datenwerft.ch", s3_use_ssl=False)
+                    s3_endpoint="s3.beispiel.invalid", s3_use_ssl=False)
     sql = sd.secret_sql(config)
     assert sql.startswith("CREATE OR REPLACE SECRET seaweedfs (TYPE S3")
     assert "PERSISTENT" not in sql

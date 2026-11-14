@@ -48,6 +48,8 @@ sys.modules["drift"] = drift
 # Herkunftsangabe, die Adresse eines Laders. Ein Lauf der Suite in einer
 # Umgebung, die sie gesetzt hat, pruefte andere Zusagen als einer auf dem
 # Entwicklungsrechner. Wer sie braucht, setzt sie im Test selbst.
+# Seit dem 14.11.2026 (FR-46) auch die drei Serverwerte der Startseite und
+# der Abhilfetexte: Der Stapel setzt sie, ein Testlauf nicht.
 import pytest  # noqa: E402
 import storage  # noqa: E402
 
@@ -58,7 +60,8 @@ def _frische_ablage(monkeypatch):
                  "S3_SECRET_KEY", "S3_BUCKET", "S3_USE_SSL", "HYBRID_READ_PRIORITY",
                  "HYBRID_PUBLISH_AFTER_WRITE", "PROJECT_ROOT", "GIT_COMMIT",
                  "ELASTICSEARCH_URL", "CLICKHOUSE_URL", "KIBANA_URL",
-                 "DASHBOARD_URL", "SERVING_BETRIEB"):
+                 "DASHBOARD_URL", "SERVING_BETRIEB", "EINSTIEG_ADRESSMUSTER",
+                 "STAPEL_COMPOSE", "STAPEL_DATENLAUF"):
         monkeypatch.delenv(name, raising=False)
     storage.set_storage(storage.Storage(storage.Config()))
     yield

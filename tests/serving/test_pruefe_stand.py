@@ -512,6 +512,26 @@ def test_ein_dashboard_ohne_antwort_ist_nicht_gut():
     assert befund.urteil == ps.Urteil.FEHLT and "up -d dashboard" in befund.abhilfe
 
 
+@pytest.mark.parametrize("stapel, erwartet", [
+    ("compose.cloud.yml", "docker compose -f compose.cloud.yml restart dashboard"),
+    (None, "docker compose restart dashboard"),
+])
+def test_die_abhilfe_nennt_den_stapel_aus_der_umgebung(monkeypatch, stapel, erwartet):
+    """FR-46: Bis zum 14.11.2026 stand ``docker-compose.srv01.yml`` fest in
+    der Abhilfe. Jetzt nennt sie ``STAPEL_COMPOSE``, und ohne Angabe keine
+    Datei."""
+    if stapel is None:
+        monkeypatch.delenv("STAPEL_COMPOSE", raising=False)
+    else:
+        monkeypatch.setenv("STAPEL_COMPOSE", stapel)
+    befund = ps.pruefe_dashboard(FalschesDashboard("2026-01-01T00-00-00Z"), RELEASE,
+                                 versuche=1, warte=lambda _s: None)
+    assert befund.abhilfe == erwartet
+    kaputt = ps.pruefe_dashboard(FalschesDashboard(kaputt=True), RELEASE,
+                                 warte=lambda _s: None)
+    assert kaputt.abhilfe == erwartet.replace("restart", "up -d")
+
+
 def test_auf_dem_server_gibt_es_nur_gold_und_das_dashboard(tmp_path):
     """Kein Befund ueber Elasticsearch, Kibana oder ClickHouse: Auf srv01
     gibt es sie nicht, und eine Auskunft ueber sie ginge ins Leere. Auch

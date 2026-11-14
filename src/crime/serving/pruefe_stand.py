@@ -417,6 +417,18 @@ class DashboardKlient:
             return json.load(antwort)["stand"]
 
 
+def stapelaufruf() -> str:
+    """``docker compose`` mit der Beschreibung des Stapels, wenn sie bekannt ist.
+
+    FR-46: Bis zum 14.11.2026 stand hier ``docker-compose.srv01.yml`` fest -
+    eine Abhilfe, die in jeder anderen Umgebung auf eine Datei zeigte, die es
+    dort nicht gibt. Der Stapel setzt ``STAPEL_COMPOSE`` selbst; ohne Angabe
+    bleibt der Befehl ohne ``-f``, und Compose nimmt seine Vorgabedatei.
+    """
+    datei = (os.environ.get("STAPEL_COMPOSE") or "").strip()
+    return f"docker compose -f {datei}" if datei else "docker compose"
+
+
 def pruefe_dashboard(klient: Any, release_id: str, *,
                      versuche: int = DASHBOARD_VERSUCHE,
                      abstand: float = DASHBOARD_ABSTAND_S,
@@ -429,7 +441,7 @@ def pruefe_dashboard(klient: Any, release_id: str, *,
     Weile das alte Release - das ist kein Befund. Erst wenn es nach den
     Versuchen noch dabei bleibt, weicht es ab.
     """
-    abhilfe_start = "docker compose -f docker-compose.srv01.yml up -d dashboard"
+    abhilfe_start = f"{stapelaufruf()} up -d dashboard"
     gezeigt = None
     for versuch in range(versuche):
         try:
@@ -441,7 +453,7 @@ def pruefe_dashboard(klient: Any, release_id: str, *,
         if versuch < versuche - 1:
             warte(abstand)
     return Befund("Dashboard", Urteil.ANDERS, f"zeigt Release {gezeigt or 'keines'}",
-                  "docker compose -f docker-compose.srv01.yml restart dashboard")
+                  f"{stapelaufruf()} restart dashboard")
 
 
 # --------------------------------------------------------------------------

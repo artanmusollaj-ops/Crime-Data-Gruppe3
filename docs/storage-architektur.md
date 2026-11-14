@@ -136,7 +136,7 @@ nie committet.
 | --- | --- | :---: | :---: | :---: |
 | `STORAGE_BACKEND` | `local` | — | **nötig** | **nötig** |
 | `LOCAL_DATA_ROOT` | `data` | optional | optional | optional |
-| `S3_ENDPOINT` | `s3.datenwerft.ch` | — | optional | optional |
+| `S3_ENDPOINT` | — | — | **nötig** | **nötig** |
 | `S3_ACCESS_KEY` | — | — | **nötig** | **nötig** |
 | `S3_SECRET_KEY` | — | — | **nötig** | **nötig** |
 | `S3_BUCKET` | `urban-crime` | — | optional | optional |
@@ -161,8 +161,11 @@ Zwei Einstellungen sind absichtlich eng gehalten:
   nichts. Nützlich, wenn jemand einen Zwischenstand bauen will, ohne ihn für
   alle zu setzen.
 
-Fehlt ein Schlüssel im Modus `hybrid` oder `s3`, sagt das die Konfiguration
-sofort und nennt die Variable — nicht erst die fünfte Pipeline-Stufe.
+Fehlt ein Schlüssel oder `S3_ENDPOINT` im Modus `hybrid` oder `s3`, sagt das
+die Konfiguration sofort und nennt die Variable — nicht erst die fünfte
+Pipeline-Stufe. Der Endpunkt hat seit dem 14.11.2026 keine Vorgabe mehr
+(FR-46): Bis dahin griff eine Ablage ohne `S3_ENDPOINT` still auf den Eimer
+von `srv01` zu, in jeder anderen Umgebung also auf den falschen.
 
 ---
 
@@ -1666,6 +1669,40 @@ ihrer Stelle. Der Erzeuger liegt deshalb seit
 demselben Tag unter `src/crime/serving/build_einstieg.py` und nicht mehr unter
 `tools/`: `.dockerignore` hält `tools/` aus dem Baukontext, im Abbild gab es
 ihn also nicht.
+
+**Die Serverwerte stehen nicht im Code, sondern in der Beschreibung (FR-46,
+seit 14.11.2026).** Die Flagge wählt nur die Fassung; was die Fassung
+`server` einsetzt, kommt aus drei Umgebungsvariablen, die
+`docker-compose.srv01.yml` den Diensten `pipeline` und `worker` setzt:
+
+* `EINSTIEG_ADRESSMUSTER` — die Adresse jeder Karte, `{dienst}` ist
+  Pflicht; auf `srv01` `https://urbancrime-{dienst}.datenwerft.ch`, dasselbe
+  Muster wie in den Traefik-Regeln.
+* `STAPEL_COMPOSE` — die Compose-Datei in den Befehlen unter „Starten“ und auf
+  der Jupyter-Karte; auf `srv01` `docker-compose.srv01.yml`.
+* `STAPEL_DATENLAUF` — das Skript, das den Datenlauf anstösst; auf `srv01`
+  `docker/srv01-datenlauf.sh`.
+
+(Eine Liste und keine Tabelle: Die Variablentabelle in Abschnitt 4 hält
+`tests/storage/test_dokumentation.py` gegen `storage.config`, und diese drei
+liest die Ablage nicht.)
+
+Fehlt eine davon, bricht `build_einstieg --adressen server` mit Exit 1 ab
+und nennt sie — es nimmt nie still die Werte von `srv01`. Die Fassung
+`lokal` liest keine der drei, `docs/einstieg.html` bleibt byte-gleich.
+`STAPEL_COMPOSE` nennen auch die Abhilfetexte von `pruefe_stand` und der
+Vorprüfung, wenn es gesetzt ist; sonst steht dort nur `docker compose`.
+`tests/test_abbild_ohne_srv01.py` sucht nach `srv01`, `datenwerft`,
+`/srv/`, `urbancrime-` und `urbancrime_`. Durchsucht wird alles, was die
+`COPY`-Anweisungen beider Dockerfiles kopieren, gelesen aus den Anweisungen
+selbst. In Python-Dateien prüft er nur die Zeichenketten, in Notebooks nur
+die Code-Zellen. Shell-Skripte und die Dockerfiles liest er ohne
+Kommentarzeilen, alles Übrige (`config/`, Lock-Dateien, statische Dateien)
+ganz. Ausgenommen sind Kommentare und Docstrings, weil sie `srv01` als
+Beispiel oder Geschichte nennen. Ausgenommen ist auch
+`docs/intern/AENDERUNGEN.md`: Das Abbild trägt es nur als Herkunftsangabe,
+und als Projektgedächtnis muss es `srv01` nennen. Zusammengesetzte Namen,
+deren Teile einzeln unverdächtig sind, sieht er nicht.
 
 **Der Healthcheck greift nach unserer Seite, nicht nach HTTP 200.** Der Grund
 ist am 12.10.2026 am laufenden Docker nachgestellt worden: Docker befüllt

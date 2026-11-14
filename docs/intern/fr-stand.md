@@ -127,15 +127,15 @@ stellt."*
 | --- | --- | :-: | --- |
 | FR-44 | Umgebungswechsel ist Konfiguration | ◐ | `STORAGE_BACKEND` und die S3-Variablen sind Konfiguration; ein Wechsel ist nie probiert |
 | FR-45 | S3-Client nimmt Endpunkt, Region, Stil aus der Konfiguration | ● | `storage.config.Config`, `storage.duckdb.secret_sql`, `storage.parquet._ablage` |
-| FR-46 | Nichts im Abbild setzt `srv01` voraus | ◐ | nicht geprüft |
+| FR-46 | Nichts im Abbild setzt `srv01` voraus | ● | `tests/test_abbild_ohne_srv01.py` durchsucht die Zeichenketten in `src/crime` und `docker/jupyter_server_config.py` und die Anweisungen beider Dockerfiles nach `srv01`, `datenwerft`, `/srv/` und `urbancrime-`; `S3_ENDPOINT` ohne Vorgabe, die Serverwerte der Startseite aus `EINSTIEG_ADRESSMUSTER`, `STAPEL_COMPOSE`, `STAPEL_DATENLAUF` (14.11.2026) |
 | FR-47 | Portierung einmal trocken belegt | ▣ | zurückgestellt mit der Welle |
 
 ## Was die Zahlen sagen
 
 | Stand | Anzahl |
 | --- | ---: |
-| ● erfüllt | 41 |
-| ◐ teilweise | 12 |
+| ● erfüllt | 42 |
+| ◐ teilweise | 11 |
 | ○ offen | 10 |
 | ▣ zurückgestellt | 2 |
 | **zusammen** | **65** |

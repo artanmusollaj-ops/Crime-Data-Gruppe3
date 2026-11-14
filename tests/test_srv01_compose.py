@@ -499,6 +499,15 @@ def test_die_hostnamen_folgen_dem_muster(dienste):
     ``infra-*`` ist der Infrastruktur vorbehalten, und die dortige
     Wildcard-Policy greift fuer dieses Projekt nicht (FR-21).
     """
+    # FR-46: Das Muster steht als EINSTIEG_ADRESSMUSTER bei Pipeline und
+    # Worker - dieselbe Angabe, aus der die Startseite ihre Verweise baut.
+    # Gelesen wird es dort, damit Startseite und Traefik nicht auseinanderlaufen.
+    muster = {dienste[n]["environment"].get("EINSTIEG_ADRESSMUSTER")
+              for n in ("pipeline", "worker")}
+    assert len(muster) == 1 and None not in muster, (
+        f"pipeline und worker setzen EINSTIEG_ADRESSMUSTER verschieden oder nicht: {muster}")
+    muster = muster.pop()
+    assert muster == "https://urbancrime-{dienst}.datenwerft.ch", muster
     gefunden = []
     for name, dienst in webdienste(dienste).items():
         regel = dienst["labels"][f"traefik.http.routers.urbancrime-{name}.rule"]
@@ -506,8 +515,9 @@ def test_die_hostnamen_folgen_dem_muster(dienste):
         assert treffer, f"{name}: keine einfache Host-Regel: {regel!r}"
         host = treffer.group(1)
         gefunden.append(host)
-        assert host == f"urbancrime-{name}.datenwerft.ch", (
-            f"{name}: Hostname {host!r} folgt nicht urbancrime-<dienst>.datenwerft.ch"
+        erwartet = muster.format(dienst=name).split("//", 1)[1]
+        assert host == erwartet, (
+            f"{name}: Hostname {host!r} folgt nicht EINSTIEG_ADRESSMUSTER ({erwartet!r})"
         )
     assert not [h for h in gefunden if h.startswith("infra-")], (
         f"infra-* ist der Infrastruktur vorbehalten: {gefunden}"

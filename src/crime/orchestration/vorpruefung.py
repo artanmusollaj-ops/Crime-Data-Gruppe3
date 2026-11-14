@@ -107,12 +107,16 @@ def main(argv: list[str] | None = None) -> int:
 
     offen = fehlende()
     if offen:
+        # FR-46: Die Compose-Datei nennt der Stapel selbst (STAPEL_COMPOSE);
+        # bis zum 14.11.2026 stand hier srv01 fest.
+        stapel = (os.environ.get("STAPEL_COMPOSE") or "").strip()
+        beschreibung = stapel or "die Compose-Beschreibung"
         print(
             "Vorpruefung: " + ", ".join(offen) + " fehlt in der Umgebung.\n"
             "Der Lauf braeuchte den Schluessel erst in der Mitte - er wuerde "
             "Chicago und Detroit laden und publizieren und dann abbrechen.\n"
-            "Auf srv01 gehoert er in die .env des Stapels; "
-            "docker-compose.srv01.yml nennt nur den Namen.",
+            "Im Container gehoert er in die .env des Stapels "
+            f"(docker compose); {beschreibung} nennt nur den Namen.",
             file=sys.stderr)
         return 1
 
