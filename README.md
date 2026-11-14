@@ -1164,9 +1164,10 @@ Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request un
 auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
 Windows, weil Artan darauf entwickelt.
 
-Im protokollierten Linux-CI-Lauf des Standardlaufs wurden **79 von 2'837 Tests**
-übersprungen. Die Zahl hängt von der Umgebung ab. Einige Prüfungen brauchen gebaute Daten und
-`data/` nicht versioniert ist — dazu seit dem 5.10.2026 die Reproduktion von
+Im protokollierten Linux-CI-Lauf wurden **2'758 der 2'837 Tests** des
+Standardlaufs ausgeführt. Die übrigen 79 wurden übersprungen. Die Zahl hängt
+von der Umgebung ab. Einige Prüfungen brauchen gebaute Daten, die in
+`data/` liegen und nicht versioniert sind — dazu seit dem 5.10.2026 die Reproduktion von
 `docs/forschungsfragen.md`, deren Quelle das ungetrackte LN1-PDF ist, und
 zwei Prüfungen gegen das ebenfalls ungetrackte PRD in `_bmad-output/`; die 111
 Referenzstand-Wächter sind ohnehin abgewählt.
