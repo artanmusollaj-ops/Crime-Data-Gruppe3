@@ -50,7 +50,13 @@ Detroit Full lädt die angegebenen Jahre vollständig. Detroit Delta arbeitet je
 
 Die Stadtbuttons öffnen die lesende Codeansicht. Full und Delta markieren relevante unterschiedliche Codebereiche. Gemeinsame Funktionen werden weiterhin vollständig angezeigt. Suche und Dateiauswahl ändern keinen Code. Die Vorschau zeigt den Code des Webserver-Abbilds. Historischer Worker-Code wird ohne Nachweis nicht behauptet.
 
-Quelllauf-Nachweise enthalten Manifest, Run-ID, Parameter und Zeitstempel, soweit sie im tatsächlichen Manifest stehen. Job- und Impact-Verknüpfungen beruhen auf archivierten Manifest-Hashes. Ein fehlender Verweis bedeutet fehlenden Nachweis. Auch remote gespeicherte Bronze-Manifeste werden in der Konsole gelesen.
+Unter **Quellläufe** zeigt die Importhistorie je Stadt Run-ID, Ladeart,
+Abschlusszeit und Status. **Aktuelle Ladelogik** öffnet die Codevorschau.
+Im **Laufnachweis** stehen Start, Ende und belegte Verknüpfungen zu Auftrag,
+Impact und Release. Manifest, Prüfsumme, Jobparameter und Laufprotokoll
+lassen sich bei Bedarf öffnen. Verknüpfungen zu Einzel- und Gesamtimporten
+beruhen auf gespeicherten Manifest-Hashes. Auch remote gespeicherte
+Bronze-Manifeste werden gelesen.
 
 ### Review, Anträge und Konflikte
 
@@ -71,9 +77,17 @@ Geplante Gesamtimporte erscheinen unter Betriebsaufträge als batch. Ihr Log lie
 Git-Aktionen stehen direkt im geöffneten Antrag unter **Veröffentlichung**.
 Die Ansicht bündelt Git-Ampel, Branch-/Commit-Nachweise, die zum Zustand passende
 Aktion und das antragsbezogene Git-Protokoll. Eine zusätzliche zentrale
-Revisionsauswahl entfällt. **Commit / Branch / PR erstellen** verlangt die
+Revisionsauswahl entfällt. **Pull Request anfordern** verlangt die
 Engineer-Rolle, **Geprüften PR mergen** einen Release-Manager als zweite Person.
 Die serverseitigen Freigabe- und CI-Prüfungen bleiben unverändert.
+
+Unter **Betrieb → Aufträge** steht die ETL-Übersicht oberhalb der Filter.
+Sie zeigt laufende Aufträge oder den zuletzt beendeten Lauf. Die Ampel
+zeigt den Laufstatus. Wenn die laufende Stufe einen Modulzähler hat, zeigt
+der segmentierte Balken die abgeschlossenen Module und ihren Anteil.
+**Auftragsdetails öffnen** führt zu Start, Ende, Prüfbasis, Kandidat und
+veröffentlichtem Release, soweit diese Angaben vorliegen. Die einzelnen
+**ETL-Stufen** lassen sich dort aufklappen.
 
 Unter **Betrieb** trennen die Ansichten **Aufträge**, **Analyse-Bereitstellung**
 und **Sicherung** Verarbeitung, Bereitstellung und Wartung. **Aktiven Release

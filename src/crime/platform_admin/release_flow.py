@@ -197,19 +197,23 @@ def check_build_unchanged(store, spec, provenance):
         raise AdminError("Build-Quellen waehrend Simulation veraendert; erneut simulieren")
 
 
+def baseline_changed(store, row, heads, *, publication=False):
+    from .candidates import active_id
+
+    releases = {row["baseline_release_id"]}
+    if publication:
+        releases.add(row["published_release_id"])
+    return heads != json.loads(row["spec"])["base_heads"] or active_id(store) not in releases
+
+
 def verify_waiting(store, row, *, publication=False):
     """No local activation/config mutation since the reviewed simulation."""
-    from .candidates import active_id, checked_impact, file_hash, release_path, verify_release
+    from .candidates import checked_impact, file_hash, release_path, verify_release
     from .impact_archive import checked
 
-    spec = json.loads(row["spec"])
     with store.db() as c:
         heads = dict(c.execute("SELECT resource,revision FROM head").fetchall())
-    if heads != spec["base_heads"] or active_id(store) not in (
-        {row["baseline_release_id"], row["published_release_id"]}
-        if publication
-        else {row["baseline_release_id"]}
-    ):
+    if baseline_changed(store, row, heads, publication=publication):
         raise AdminError("Baseline seit Review veraendert; neuer Impact erforderlich")
     report = checked_impact(store, row)
     if not report.get("review_ready"):
