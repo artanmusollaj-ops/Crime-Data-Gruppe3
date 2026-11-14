@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'976** |
+| Tests | **2'979** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -109,6 +109,44 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 14.11.2026 · Der Referenz-Wächter läuft auf jedem Pull Request (Branch `ci-referenz-waechter`)
+
+`tests/test_referenz.py::test_ein_zweiter_lauf_liefert_dieselben_dateien`
+vergleicht `docs/referenz/` mit einem frischen pdoc-Bau. Er tut das nur unter
+der Python-Version, pdoc-Version und Plattform, mit denen die Seiten abgelegt
+sind (`docs/referenz/erzeugt-mit.json`: 3.13, 15.0.4, posix), denn pdocs
+Ausgabe unterscheidet sich zwischen Versionen. In der CI passte kein Job
+dazu: `pruefung` läuft mit 3.11, `windows` unter `nt`. Der Wächter übersprang
+sich überall, und #236 und #239 kamen mit veralteten Referenzseiten auf
+`main`; aufgefallen ist es erst lokal. Sein Docstring behauptete einen
+3.13-Job unter Ubuntu „auf jedem Push“, den es seit dem Zuschnitt vom
+3.10.2026 nicht mehr gab.
+
+Die übrigen Überspringer der CI brauchen Daten, Dienste oder ungetrackte
+Dateien. Das ist gewollt. An der Plattform hängen sonst nur die drei
+PDF-Reproduktionen und die `bash`-Tests: Unter Windows überspringen sie sich,
+im Linux-Job `pruefung` laufen sie aber. Gemessen am `main`-Lauf 43617586946.
+Der Referenz-Wächter war der einzige, der in **keinem** Job lief.
+
+Jetzt gibt es den Job **`referenz`** in `.github/workflows/tests.yml`, auf
+Pull Requests und `main`: Ubuntu, Python 3.13, Lockfile aus dem pip-Cache,
+nur diese eine Testdatei. Mit `REFERENZ_PFLICHT=1` ist ein Überspringen dort
+ein Fehler. Neu bewacht: `tests/test_workflow_referenz.py` hält Job-Python,
+`pdoc` im Lockfile und die Marke zusammen. Wird die Referenz mit einer neuen
+Version abgelegt, ist er rot, bis der Job mitzieht. Dazu prüft `test_workflow_shell`
+die beiden neuen `run`-Blöcke wie jeden anderen. `REFERENZ_PFLICHT=1` greift bei jedem
+Grund, nicht zu vergleichen: andere Version, fehlendes pdoc, fehlende
+abgelegte Referenz.
+
+**Nebenbei berichtigt:** README, `architektur-ist-und-ziel.md`,
+`ln2_konzept.md` und `leistungsnachweise.md` sagten, die Suite laufe auf
+jedem Pull Request unter Linux **und Windows** mit 3.11 **und** 3.13. Seit
+dem 3.10.2026 läuft Windows nur auf `main`. Jetzt steht dort: auf Pull
+Requests Linux mit 3.11 plus der Referenz-Wächter unter 3.13, auf `main`
+zusätzlich Windows mit 3.13.
+
+**Zahlen.** 2'976 → **2'979 Tests**, Standardlauf 2'865 → **2'868**, im protokollierten Linux-CI-Lauf 2'786 → **2'789**.
 
 ## 14.11.2026 · Host und Container ergeben denselben Eingabe-Abdruck (Branch `fr-8-abdruck-host-container`)
 

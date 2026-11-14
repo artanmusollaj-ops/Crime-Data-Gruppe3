@@ -213,11 +213,19 @@ def test_die_startseite_ist_wohlgeformt():
 # --------------------------------------------------- Die abgelegte Referenz
 
 
+def _ausfallen(grund: str) -> None:
+    """Ueberspringen - ausser im CI-Job ``referenz`` (``REFERENZ_PFLICHT=1``):
+    Dort ist jeder Grund, nicht zu vergleichen, ein Fehler."""
+    if os.getenv("REFERENZ_PFLICHT") == "1":
+        pytest.fail(f"REFERENZ_PFLICHT=1, aber der Vergleich faellt aus: {grund}")
+    pytest.skip(grund)
+
+
 @pytest.fixture(scope="module")
 def abgelegt() -> Path:
     """Das versionierte ``docs/referenz/``."""
     if not (REFERENZ / "index.html").is_file():
-        pytest.skip(f"{REFERENZ} ist nicht gebaut - python tools/build_referenz.py")
+        _ausfallen(f"{REFERENZ} ist nicht gebaut - python tools/build_referenz.py")
     return REFERENZ
 
 
@@ -342,18 +350,29 @@ def test_ein_zweiter_lauf_liefert_dieselben_dateien(tmp_path, abgelegt):
     druckt den Klassennamen mit. Beides laesst sich nicht wegkonfigurieren.
 
     Der Vergleich laeuft deshalb auf Linux und macOS mit der Python-Version
-    aus der Marke - in CI also im 3.13-Job unter Ubuntu, auf jedem Push. Ein
-    Test, der auch unter Windows Bytes vergliche, waere dort dauerhaft rot,
-    ohne dass etwas kaputt waere. Dieselbe Ueberlegung wie bei den drei
-    PDF-Reproduktionen, die nur unter Linux laufen.
+    aus der Marke. Ein Test, der auch unter Windows Bytes vergliche, waere
+    dort dauerhaft rot, ohne dass etwas kaputt waere. Dieselbe Ueberlegung wie
+    bei den drei PDF-Reproduktionen, die nur unter Linux laufen.
+
+    **In CI im Job ``referenz``**, auf jedem Pull Request. Bis zum 14.11.2026
+    stand hier "im 3.13-Job unter Ubuntu, auf jedem Push" - den gab es seit
+    dem Zuschnitt vom 3.10.2026 nicht mehr, der Waechter uebersprang sich in
+    jedem Job, und #236 und #239 kamen mit veralteten Seiten auf ``main``.
+    Der Job setzt ``REFERENZ_PFLICHT=1``: Dort ist ein Ueberspringen ein
+    Fehler, sonst faellt der Waechter beim naechsten Versionswechsel wieder
+    still aus. ``tests/test_workflow_referenz.py`` haelt Job und Marke
+    zusammen.
     """
-    pdoc = pytest.importorskip("pdoc")
+    try:
+        import pdoc
+    except ImportError:
+        _ausfallen("pdoc ist nicht installiert")
     marke = json.loads((abgelegt / br.MARKE).read_text(encoding="utf-8"))
     jetzt = f"{sys.version_info.major}.{sys.version_info.minor}"
     if (jetzt, pdoc.__version__, os.name) != (
         marke["python"], marke["pdoc"], marke["plattform"]
     ):
-        pytest.skip(
+        _ausfallen(
             f"abgelegt mit Python {marke['python']}, pdoc {marke['pdoc']}, "
             f"{marke['plattform']}; hier laeuft Python {jetzt}, pdoc "
             f"{pdoc.__version__}, {os.name} - Bytes sind zwischen Versionen "
