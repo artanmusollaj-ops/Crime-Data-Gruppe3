@@ -338,7 +338,10 @@ starten nur mit einem Herkunftsnachweis über genau diese Dateien. Auf `srv01`
 erfasste der Nachweis deshalb nur Bronze, und beide Notebooks starteten dort
 nie; aufgefallen am 13.11.2026. Mit `STORAGE_ANALYSEBESTAND_LOKAL=true` bleiben
 die Kopien liegen. Gelesen wird weiter aus dem Eimer, die Kopien sind nur der
-Analysebestand. Gesetzt ist der Schalter im Compose-Dienst `pipeline` von
+Analysebestand. Überspringt eine Stufe ihren Bau, weil nichts neu ist, entsteht
+keine Kopie; `run_all` holt deshalb jede Tabelle der beiden Notebooks, die
+lokal fehlt, vor dem Bestätigen aus dem Eimer
+(`orchestration.analyse.hole_fehlende_analysetabellen`). Gesetzt ist der Schalter im Compose-Dienst `pipeline` von
 `docker-compose.srv01.yml`. Das danach eingesetzte Release bringt dieselben
 Bytes, und `release holen --einsetzen` lässt den Nachweis stehen
 (`bewahre_nachweis`).

@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'922** |
+| Tests | **2'924** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -107,6 +107,31 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 14.11.2026 · Fehlende Analysetabellen kommen vor dem Bestätigen aus dem Eimer (Branch `fix/analysetabellen-aus-dem-eimer`)
+
+**Was geschah.** Nach #229 lief auf `srv01` ein Delta-Lauf. Der Nachweis blieb
+nach dem Einsetzen stehen, und Notebook 34 startete. Notebook 37 meldete:
+„Benoetigte Daten fehlen im Nachweis:
+`silver/dataset=source_change/part-0001.parquet`“. Die Stufe hatte „0 Paare
+neu“ gefunden und nichts gebaut, also entstand keine lokale Kopie. Die alte
+Kopie hatte der Lauf vom 13.11. noch weggeräumt, damals ohne Schalter.
+
+**Was sich ändert.**
+- `orchestration.analyse.benoetigte_dateien(notebook)` führt die Liste der
+  Pflichtdateien, die die Sitzung bisher inline prüfte.
+- `hole_fehlende_analysetabellen(ablage)` holt jeden Tabellenordner aus dieser
+  Liste, der lokal fehlt, aus dem Eimer. Erst kommt er in einen `.part`-Ordner,
+  dann in einem Zug an den festen Pfad. Was lokal liegt, bleibt unberührt.
+- `run_all` ruft es mit `STORAGE_ANALYSEBESTAND_LOKAL` vor dem Bestätigen auf
+  und protokolliert jede geholte Tabelle.
+- Zwei Tests: Eine fehlende Tabelle kommt samt Manifest, und Notebook 37 startet
+  danach. Eine lokale Tabelle wird nicht überschrieben. Der Reihenfolgetest in
+  `test_run_all` verlangt das Holen vor dem Bestätigen.
+
+**Zahlen.** 2'922 → **2'924 Tests**, Standardlauf 2'811 → **2'813**, im frischen Klon 2'733 → **2'735**.
 
 ---
 
