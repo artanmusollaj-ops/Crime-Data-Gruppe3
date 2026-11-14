@@ -125,8 +125,10 @@ Jetzt löscht `prune` unter der Sperre alles ausser der Sperrdatei, gibt die
 Sperre frei und entfernt dann den leeren Rest. Neu bewacht:
 `test_die_loeschregel_loescht_keine_gehaltene_sperrdatei` bildet das
 Windows-Verhalten auf jedem Betriebssystem nach — eine gehaltene Sperrdatei
-lässt sich nicht löschen — und war vor dem Fix rot. Der Windows-Lauf lief
-vor dem Merge per `workflow_dispatch` auf dem Branch.
+lässt sich nicht löschen — und war vor dem Fix rot. Er prüft auch, dass beim
+Freigeben nur noch die Sperrdatei lag, die Daten also unter der Sperre gingen.
+Der Windows-Lauf lief vor dem Merge per `workflow_dispatch` auf dem Branch und
+war grün (Lauf 43613103771: 2'718 bestanden, 130 übersprungen).
 
 **Zahlen.** 2'958 → **2'959 Tests**, Standardlauf 2'847 → **2'848**, im protokollierten Linux-CI-Lauf 2'768 → **2'769**.
 
