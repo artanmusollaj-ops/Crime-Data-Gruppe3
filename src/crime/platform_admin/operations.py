@@ -251,6 +251,15 @@ def _tick(store):
             if os.getenv("ADMIN_SCHEDULER", "true").lower() == "true":
                 schedule(store)
             result = run_one(store)
+    # Vor der Sicherung: Job-Daten, die niemand mehr braucht, gingen sonst
+    # jeden Tag mit ins Archiv (job_data).
+    from .job_data import prune
+    from .jobs import writer_lock as _writer_lock
+
+    with _writer_lock(store):
+        removed = prune(store)
+    if removed:
+        record_status(store, "job_data", {"removed": removed})
     if os.getenv("ADMIN_OBJECT_STORE", "local") == "s3":
         from .object_store import archive_inputs, backup
         from .jobs import writer_lock

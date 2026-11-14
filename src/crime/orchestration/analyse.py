@@ -6,6 +6,45 @@ from pathlib import Path
 
 from storage.analysesitzung import AnalyseFehler, datensperre, _inventory
 
+#: Der Job-Zeiger der Konsole: je aktiviertem Release der Job mit seinen Daten.
+#: Er liegt in ``admin/jobs/``, weil Jupyter nur diesen Teil des
+#: Konsolen-Volumes sieht (nur lesend). Geschrieben von
+#: ``platform_admin.job_data.set_pointer``.
+ZEIGER = "ANALYSE.json"
+
+
+def waehle_analysebestand(data_root):
+    """Der Datenordner fuer die Notebooks: der Job des aktiven Release, wenn es einen hat.
+
+    Nur ein Release der Konsole (``approved-...``) hat einen Job. Fuer jedes
+    andere aktive Release - das des Cron-Datenlaufs, ein geholtes - bleibt es
+    die Datenwurzel selbst. Gelesen wird das Release, das ``AKTUELL.json``
+    nennt, nicht der juengste Eintrag: Schaltet jemand auf ein aelteres
+    Release zurueck, kommen auch dessen Daten. Fehlt der Eintrag oder sein
+    Ordner, ist das ein Fehler und kein stiller Rueckfall auf einen anderen
+    Stand.
+    """
+    root = Path(data_root).resolve()
+    aktuell = root / "releases" / "AKTUELL.json"
+    # lokal mit Absicht: die Notebooks lesen die lokale Datenwurzel (E-5).
+    if not aktuell.is_file():
+        return root, None
+    aktiv = json.loads(aktuell.read_text(encoding="utf-8"))["release_id"]
+    if not str(aktiv).startswith("approved-"):
+        return root, None
+    jobs = root / "admin" / "jobs"
+    pfad = jobs / ZEIGER
+    eintrag = (json.loads(pfad.read_text(encoding="utf-8"))["releases"].get(aktiv)
+               if pfad.is_file() else None)
+    if eintrag is None:
+        raise AnalyseFehler(f"Aktives Release {aktiv} hat keinen Job-Zeiger "
+                            f"in admin/jobs/{ZEIGER}")
+    daten = (jobs / eintrag["data"]).resolve()
+    if not daten.is_relative_to(jobs.resolve()) or not daten.is_dir():
+        raise AnalyseFehler(f"Datenordner des Jobs {eintrag['impact_id']} fuer Release "
+                            f"{aktiv} fehlt - aufgeraeumt oder nie gebaut")
+    return daten, eintrag
+
 
 def benoetigte_dateien(notebook):
     """Die Parquet-Dateien, ohne die das Notebook nicht startet."""
@@ -96,7 +135,9 @@ class Analysesitzung:
     def __init__(self, data_root, notebook):
         if Analysesitzung._laufend is not None:
             raise AnalyseFehler("Im Kernel ist bereits eine Analysesitzung aktiv; zuerst beenden()")
-        self.root = Path(data_root).resolve()
+        # Im verwalteten Betrieb der Job des aktiven Release; die Notebooks
+        # lesen danach ``analyse.root``, nicht mehr ihr DATA_ROOT.
+        self.root, self.job = waehle_analysebestand(data_root)
         self._gate = datensperre(self.root)
         self._connections = []
         self._gate.__enter__()
@@ -104,6 +145,9 @@ class Analysesitzung:
         self._storage_context = None
         try:
             self.herkunft = _pruefe(self.root, notebook)
+            if self.job and self.herkunft.get("release_id") != self.job["candidate_release_id"]:
+                raise AnalyseFehler("Der Nachweis im Job-Ordner nennt nicht den Kandidaten "
+                                    "des aktiven Release")
             from storage import lokaler_analysebestand
 
             self._storage_context = lokaler_analysebestand(self.root)
@@ -124,6 +168,9 @@ class Analysesitzung:
 
     def anzeigen(self):
         print(f"Analysebestand: {self.root}")
+        if self.job:
+            print(f"Job des aktiven Release: {self.job['impact_id']} "
+                  f"(Kandidat {self.job['candidate_release_id']})")
         for name in ("run_id", "finished_at_utc", "code_commit", "release_id", "status"):
             print(f"{name}: {self.herkunft.get(name) or 'Zuordnung nicht nachgewiesen'}")
         if self.herkunft.get("code_dirty"):

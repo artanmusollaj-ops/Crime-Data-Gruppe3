@@ -270,7 +270,7 @@ Die bestehenden Elasticsearch-Sterntabellen, Geo-Indizes, Raten und Kibana-Dashb
 
 **Die Notebooks lesen einen ausdrücklich gewählten, vollständig aufgebauten Pipeline-Bestand.** Ein Ergebnis-Release enthält nicht alle dafür benötigten Bronze- und Silver-Daten. Notebook 34 vergleicht zusammengehöriges Silver und Gold; Notebook 37 untersucht `silver/source_change` und Bronze-Manifeste. Sie werden deshalb nicht pauschal auf das aktive Release umgeleitet.
 
-Nach einem erfolgreichen lokalen Gesamtlauf liegt der Herkunftsnachweis unter `<Datenwurzel>/.analyse/stand.json`. Im verwalteten Betrieb entsteht er nach technisch erfolgreichem Kandidatenbau unter `data/admin/jobs/<Job-ID>/data/`. Er benennt Aufbaulauf beziehungsweise Job-ID, Code-Stand, gebaute Schichten, Datei-Prüfsummen und gegebenenfalls die zugehörige Release-ID. Die Kandidatenkennung ist **keine Review-Freigabe**; der Betreiber wählt einen freigegebenen Job anhand der Konsolenentscheidung. Das jeweils letzte `pipeline_run.json` ersetzt diesen Nachweis nicht.
+Nach einem erfolgreichen lokalen Gesamtlauf liegt der Herkunftsnachweis unter `<Datenwurzel>/.analyse/stand.json`. Im verwalteten Betrieb entsteht er nach technisch erfolgreichem Kandidatenbau unter `data/admin/jobs/<Job-ID>/data/`. Er benennt Aufbaulauf beziehungsweise Job-ID, Code-Stand, gebaute Schichten, Datei-Prüfsummen und gegebenenfalls die zugehörige Release-ID. Die Kandidatenkennung ist **keine Review-Freigabe**. Welcher Job zum aktiven Release gehört, hält der **Job-Zeiger** `jobs/ANALYSE.json` fest: Beim Aktivieren eines Release trägt `finish_publication` dessen Job ein. Die Startzelle liest das Release aus `releases/AKTUELL.json` und schlägt es im Zeiger nach, nicht den jüngsten Eintrag. Schaltet jemand auf ein älteres Release zurück, liest sie dessen Daten. Fehlt für ein Konsolen-Release (`approved-…`) der Eintrag oder sein Ordner, bricht sie ab, statt auf einen anderen Stand auszuweichen. Für jedes andere aktive Release, etwa das des Cron-Datenlaufs, bleibt die Datenwurzel selbst. Das jeweils letzte `pipeline_run.json` ersetzt diesen Nachweis nicht.
 
 Die Startzelle prüft die benötigten Dateien samt Prüfsummen und zeigt ihre Herkunft. Fehlende, veränderte oder unvollständig aufgebaute Daten führen zum Abbruch. Eine leere, erfolgreich gebaute `source_change`-Tabelle ist zulässig, belegt aber keine tatsächlichen Quelländerungen.
 
@@ -286,7 +286,7 @@ Die Analysesitzung hält eine exklusive Datensperre bis zur Abschlusszelle `anal
 dc run --rm --no-deps --entrypoint python pipeline -c "from pathlib import Path; Path('/app/data/admin/jobs').mkdir(parents=True, exist_ok=True)"
 ```
 
-4. In der `.env` `CRIME_ANALYSIS_ROOT=/app/data/admin/jobs/<Job-ID>/data` auf den ausgewählten Aufbau setzen und Jupyter neu erstellen. Ohne Angabe gilt `/app/data`; auch dort wird ein passender Herkunftsnachweis verlangt. Es werden weder automatisch Daten von S3 geholt noch andere Datenstände als Ersatz verwendet.
+4. `CRIME_ANALYSIS_ROOT` auf `/app/data` lassen: Die Startzelle findet den Job des aktiven Release über den Job-Zeiger. Ein fester Job-Ordner in der `.env` geht weiter, umgeht dann aber den Zeiger. In jedem Fall wird ein passender Herkunftsnachweis verlangt. Es werden weder automatisch Daten von S3 geholt noch andere Datenstände als Ersatz verwendet.
 5. Für die Abnahme ausdrücklich die neuen Vorlagen unter `/vorlagen` in einen separaten Arbeitsordner unter `/app/arbeit` kopieren. Ein Image-Wechsel überschreibt bestehende Notebook-Arbeitskopien nicht.
 
 Ein lokaler Aufbau bleibt mit `STORAGE_BACKEND=local` möglich. Für dessen Notebooks kann `CRIME_ANALYSIS_ROOT` vor dem Kernelstart auf einen anderen vollständigen lokalen Bestand zeigen. Details und Befehle stehen in [`notebook-analysesitzungen.md`](notebook-analysesitzungen.md).
@@ -338,6 +338,15 @@ Weitere Fälle: fehlende DuckDB-Spatial-/ICU-Erweiterungen, API 401/403, Rate Li
 ARCHIVE_PENDING: S3-Zugang und Platz prüfen, danach Archivierung wiederholen. AWAITING_GIT: PR, CI, Branch-Schutz und Merge-Nachweis prüfen; nicht den Freigabemodus umschalten, um den konkreten Auftrag freizubekommen. PARTIAL: Bereitstellungslog unter `data/admin/serving/<Release-ID>/run.log` prüfen, Analysedienste reparieren und Bereitstellung des aktiven Releases erneut einreihen. Der Datenrelease bleibt dabei unverändert.
 
 ### Aufräumen und Backup
+
+**Job-Daten.** Jeder Kandidat liegt mit einer vollständigen Kopie seiner Eingaben unter `jobs/<Job-ID>/data/`, je einige hundert MB, und ging bisher jeden Tag mit in die Kontrollsicherung. Der Worker entfernt diesen Ordner in jedem Takt vor der Sicherung, sobald ihn niemand mehr braucht (`platform_admin.job_data.prune`). Die Nachweise daneben (`run.log`, Auswirkungsbericht, `result.json`) bleiben immer. Geschützt sind:
+
+- eingereihte und laufende Jobs sowie Kandidaten, deren Freigabe oder Publikation noch läuft (`AWAITING_GIT`, `APPROVED_PENDING_PUBLICATION`, `ARCHIVE_PENDING`);
+- Kandidaten im Review (`READY`, `BLOCKED`), solange ihre Basis das aktive Release ist; danach sind sie nicht mehr freigabefähig;
+- der Job des aktiven Release und die zuletzt aktivierten davor, zusammen `ADMIN_JOB_DATA_KEEP` (Vorgabe 2), damit ein Zurückschalten seine Daten findet.
+
+Liest gerade eine Analysesitzung einen Ordner, bleibt er bis zum nächsten Takt stehen. Entfernte Jobs verschwinden auch aus dem Job-Zeiger.
+
 
 Im verwalteten Modus bleibt der Aufräum-Trockenlauf lesend verfügbar. Destruktives Aufräumen ist zunächst gesperrt, weil die bisherigen Retentionsregeln offene Kandidaten und Prüfarchive nicht vollständig modellieren. Das ist eine bewusst verbleibende Betriebseinschränkung, keine Behauptung einer fertig integrierten Löschautomatik. Ein Full Load hebt andere Pin-/Referenz-/Historisierungsregeln nicht automatisch auf.
 
