@@ -109,6 +109,10 @@ def protected(store):
                 reasons[iid] = "impact " + status
             elif status in IN_REVIEW and baseline == active:
                 reasons[iid] = "review " + status
+        # Auch ohne Zeiger-Eintrag: ein Release, das vor dem Job-Zeiger
+        # aktiviert wurde, kennt seinen Job nur aus der Kontrolldatenbank.
+        for (iid,) in c.execute("SELECT id FROM impact WHERE published_release_id=?", (active,)):
+            reasons[iid] = "active release " + str(active)
     releases = read_pointer(store)["releases"]
     recent = sorted(releases.items(), key=lambda kv: kv[1]["activated_at"], reverse=True)
     if active in releases:
@@ -118,25 +122,39 @@ def protected(store):
     return reasons
 
 
-def prune(store):
-    """Remove ``jobs/<id>/data`` of every job that is not protected.
-
-    Caller holds writer_lock. Returns the removed job ids. Only impact jobs
-    have a data folder; imports and batches write into the data root itself.
-    """
-    from storage.analysesitzung import AnalyseFehler, datensperre
-
+def plan(store):
+    """What ``prune`` would remove: ``[(job id, bytes)]``, nothing touched."""
     jobs = (store.root / "jobs").resolve()
     if not jobs.is_dir():
         return []
     keep_ids = protected(store)
     with store.db() as c:
         impacts = {r[0] for r in c.execute("SELECT id FROM impact")}
-    removed = []
+    found = []
     for jid in sorted(impacts - set(keep_ids)):
         data = jobs / jid / "data"
         if not data.is_dir() or not data.resolve().is_relative_to(jobs):
             continue
+        size = sum(f.stat().st_size for f in data.rglob("*") if f.is_file())
+        found.append((jid, size))
+    return found
+
+
+def prune(store, dry_run=False):
+    """Remove ``jobs/<id>/data`` of every job that is not protected.
+
+    Caller holds writer_lock. Returns the removed job ids - with ``dry_run``
+    those that would go, nothing removed. Only impact jobs have a data folder;
+    imports and batches write into the data root itself.
+    """
+    from storage.analysesitzung import AnalyseFehler, datensperre
+
+    candidates = [jid for jid, _ in plan(store)]
+    if dry_run:
+        return candidates
+    removed = []
+    for jid in candidates:
+        data = store.root / "jobs" / jid / "data"
         try:
             with datensperre(data, schreiben=True):
                 shutil.rmtree(data)
@@ -150,4 +168,3 @@ def prune(store):
                              if e["impact_id"] not in gone}
         _write_pointer(store, value)
     return removed
-

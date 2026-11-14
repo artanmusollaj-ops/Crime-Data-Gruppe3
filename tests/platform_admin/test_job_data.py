@@ -177,3 +177,21 @@ def test_die_notebooks_lesen_die_aufgeloeste_wurzel():
         nb = json.loads((PROJECT / "notebooks" / f"{name}.ipynb").read_text(encoding="utf-8"))
         start = "".join(nb["cells"][2]["source"])
         assert start.index("Analysesitzung(DATA_ROOT") < start.index("DATA_ROOT = analyse.root"), name
+
+
+def test_der_trockenlauf_nennt_was_ginge_und_laesst_es_stehen(store):
+    erstes = freigegeben(store, "2403")
+    freigegeben(store, "0901")
+    freigegeben(store, "0902")
+    assert [jid for jid, _ in job_data.plan(store)] == [erstes["id"]]
+    assert job_data.prune(store, dry_run=True) == [erstes["id"]]
+    assert daten(store, erstes["id"]).is_dir()
+
+
+def test_das_aktive_release_bleibt_auch_ohne_zeiger_eintrag(store, monkeypatch):
+    # Vor dem Job-Zeiger aktiviert: nur die Kontrolldatenbank kennt den Job.
+    monkeypatch.setenv("ADMIN_JOB_DATA_KEEP", "1")
+    row = freigegeben(store, "2403")
+    (store.root / "jobs" / ZEIGER).unlink()
+    assert job_data.prune(store) == []
+    assert daten(store, row["id"]).is_dir()

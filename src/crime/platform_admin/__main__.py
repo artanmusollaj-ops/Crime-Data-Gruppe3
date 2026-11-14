@@ -30,6 +30,7 @@ def main():
             "recover-operation",
             "recover-job",
             "restore-backup",
+            "prune-job-data",
         ],
     )
     p.add_argument("--project-root", type=Path, default=Path.cwd())
@@ -47,6 +48,8 @@ def main():
     p.add_argument("--report-hash", help="SHA-256 des angezeigten Auswirkungsberichts")
     p.add_argument("--choice", choices=["approve", "reject"])
     p.add_argument("--reason", help="Entscheidungsbegruendung")
+    p.add_argument("--dry-run", action="store_true",
+                   help="prune-job-data: nur zeigen, welche Job-Daten gingen")
     args = p.parse_args()
     if not args.operator.strip():
         p.error("--operator darf nicht leer sein")
@@ -128,6 +131,17 @@ def main():
 
             with writer_lock(store):
                 print(finish_publication(store, args.impact_id))
+        elif args.action == "prune-job-data":
+            from .job_data import plan, protected, prune
+            from .jobs import writer_lock
+
+            with writer_lock(store):
+                for jid, reason in sorted(protected(store).items()):
+                    print(f"bleibt  {jid}  {reason}")
+                for jid, size in plan(store):
+                    print(f"{'ginge' if args.dry_run else 'geht'}   {jid}  {size / 1e6:.1f} MB")
+                if not args.dry_run:
+                    print(f"entfernt: {len(prune(store))}")
         elif args.action == "enqueue":
             print(enqueue(store, args.name, args.operator))
         elif args.action == "status":

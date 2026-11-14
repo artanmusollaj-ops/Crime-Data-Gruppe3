@@ -345,7 +345,13 @@ ARCHIVE_PENDING: S3-Zugang und Platz prüfen, danach Archivierung wiederholen. A
 - Kandidaten im Review (`READY`, `BLOCKED`), solange ihre Basis das aktive Release ist; danach sind sie nicht mehr freigabefähig;
 - der Job des aktiven Release und die zuletzt aktivierten davor, zusammen `ADMIN_JOB_DATA_KEEP` (Vorgabe 2), damit ein Zurückschalten seine Daten findet.
 
-Liest gerade eine Analysesitzung einen Ordner, bleibt er bis zum nächsten Takt stehen. Entfernte Jobs verschwinden auch aus dem Job-Zeiger.
+Liest gerade eine Analysesitzung einen Ordner, bleibt er bis zum nächsten Takt stehen. Entfernte Jobs verschwinden auch aus dem Job-Zeiger. Der Job des aktiven Release bleibt auch ohne Zeiger-Eintrag, etwa wenn er vor dem Job-Zeiger aktiviert wurde.
+
+Was die Regel entfernen würde, zeigt ein Trockenlauf mit Grund und Grösse je Job; ohne `--dry-run` räumt derselbe Befehl sofort:
+
+```bash
+dc run --rm worker python -m platform_admin prune-job-data --dry-run --project-root /app --data-root /app/data
+```
 
 
 Im verwalteten Modus bleibt der Aufräum-Trockenlauf lesend verfügbar. Destruktives Aufräumen ist zunächst gesperrt, weil die bisherigen Retentionsregeln offene Kandidaten und Prüfarchive nicht vollständig modellieren. Das ist eine bewusst verbleibende Betriebseinschränkung, keine Behauptung einer fertig integrierten Löschautomatik. Ein Full Load hebt andere Pin-/Referenz-/Historisierungsregeln nicht automatisch auf.

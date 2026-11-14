@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'938** |
+| Tests | **2'940** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -143,14 +143,16 @@ vom 13.11.2026).
     (`ADMIN_JOB_DATA_KEEP`, Vorgabe 2).
 
   Einen Ordner, den eine Analysesitzung liest, lässt der Takt bis zum nächsten
-  stehen.
+  stehen. Der Job des aktiven Release bleibt auch ohne Zeiger-Eintrag.
+- `python -m platform_admin prune-job-data --dry-run` zeigt, was ginge, mit
+  Grund und Grösse.
 - Neue Tests in `tests/platform_admin/test_job_data.py`: Zeiger, Zurückschalten,
   Fehlerfälle, jede Schutzregel, die Sperre und die Reihenfolge im Takt.
 - Die Nachweise der Notebooks sind neu gebaut, weil sich ihr Code geändert hat.
 - Handbuch (`ENGINEERING_KONSOLE.md`, „Notebooks 34 und 37“ und „Aufräumen und
   Backup“) samt PDF und `notebook-analysesitzungen.md` sind nachgezogen.
 
-**Zahlen.** 2'924 → **2'938 Tests**, Standardlauf 2'813 → **2'827**.
+**Zahlen.** 2'924 → **2'940 Tests**, Standardlauf 2'813 → **2'829**.
 
 ---
 
