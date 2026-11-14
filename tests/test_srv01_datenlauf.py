@@ -448,3 +448,66 @@ def test_skript_und_controller_fassen_gleich_nach():
     text = SCRIPT.read_text(encoding="utf-8")
     sekunden = re.search(r"^NACHFASSEN_SEKUNDEN=\(([\d ]+)\)", text, re.M).group(1).split()
     assert [int(s) for s in sekunden] == [int(m * 60) for m in ra.NACHFASSEN_MINUTEN]
+
+
+def test_beginn_und_ende_tragen_einen_zeitstempel():
+    """FR-16: Wie lange ein Montagslauf dauert, sagt das Protokoll selbst.
+
+    Bis zum 14.11.2026 trugen die Markerzeilen keine Zeit, und die letzten
+    Schritte (Drift, Sicherungssatz) auch nicht - die Dauer liess sich nur
+    bis zur letzten Python-Logzeile messen. Gemessen wurde damals 4,7 bis
+    5,1 Minuten je Delta-Lauf; das wahre Ende lag etwas spaeter.
+    """
+    text = SCRIPT.read_text(encoding="utf-8")
+    zeit = '$(date +%Y-%m-%dT%H:%M:%S%z)'
+    assert f'echo "Urban Crime: ${{mode}} run started at {zeit}"' in text
+    assert f'echo "Urban Crime: ${{mode}} run completed for ${{YEAR_RANGE}} at {zeit}"' in text
+    # Der Beginn steht vor der Vorpruefung: Auch ein Lauf, der dort scheitert,
+    # hat dann eine Startzeit.
+    assert text.index("run started at") < text.index("orchestration.vorpruefung")
+    # Und das Ende auch bei einem Abbruch: im EXIT-trap, mit Exitcode.
+    trap = text[text.index("betriebsstand() {"):text.index("betriebsstand() {") + 400]
+    assert f'run ended with exit ${{rc}} at {zeit}' in trap
+
+
+@pytest.mark.parametrize(("tag", "erwartet"), [
+    ("01", "--nachfassen"), ("1", "--nachfassen"), ("02", ""), ("08", ""), ("15", ""), ("31", ""),
+])
+def test_am_monatsersten_wird_nicht_nachgefasst(tag, erwartet, benutzbares_bash):
+    """FR-16: Am Ersten beginnt um 05:00 der Restore-Test. Ein Delta-Lauf, der
+    eine Quelle nach 30 und 60 Minuten nachfasst, liefe bis nach 06:00.
+    ``--nachfassen`` ohne Werte schaltet das Nachfassen in run_all ab."""
+    result = subprocess.run(
+        ["bash", "-c", 'source "$1"; delta_nachfassen "$2"', "--", str(SCRIPT), tag],
+        check=True, capture_output=True, text=True,
+    )
+    assert result.stdout.strip() == erwartet
+    text = SCRIPT.read_text(encoding="utf-8")
+    delta = text[text.index("    delta)"):text.index("    *)")]
+    assert '$(delta_nachfassen "$(date +%d)")' in delta
+
+
+def test_ohne_werte_schaltet_nachfassen_ab(monkeypatch):
+    """Die Zusage, auf der der Monatserste ruht: Der echte Parser von
+    ``run_all`` liest ``--nachfassen`` ohne Werte als leere Liste - und
+    ``main`` reicht sie als ``nachfassen=tuple(...)`` an ``lauf`` durch, dessen
+    Schleife ``(0, *nachfassen)`` dann genau eine Runde faehrt."""
+    from orchestration import run_all as ra
+    monkeypatch.setattr(sys, "argv", ["run_all", "--jahre", "2024", "--nachfassen"])
+    assert ra.arguments().nachfassen == []
+    monkeypatch.setattr(sys, "argv", ["run_all", "--jahre", "2024"])
+    assert tuple(ra.arguments().nachfassen) == ra.NACHFASSEN_MINUTEN
+
+
+def test_der_naechste_montag_am_ersten_steht_richtig_in_den_dokumenten():
+    """Dieselbe Aussage steht in drei Dokumenten (AGENTS.md: der Waechter
+    muss alle erfassen). Gerechnet ab dem Tag der Messung, 14.11.2026."""
+    from datetime import date, timedelta
+    tag = date(2026, 11, 15)
+    while not (tag.day == 1 and tag.weekday() == 0):
+        tag += timedelta(days=1)
+    text = f"{tag.day}.{tag.month}.{tag.year}"
+    assert text == "1.2.2027"
+    for doc in ("docs/intern/fr-stand.md", "docs/intern/AENDERUNGEN.md",
+                "docs/storage-architektur.md"):
+        assert text in (PROJECT_ROOT / doc).read_text(encoding="utf-8"), doc

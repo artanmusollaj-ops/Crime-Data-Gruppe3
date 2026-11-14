@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'979** |
+| Tests | **2'988** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -109,6 +109,68 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 14.11.2026 · Die Dauer der Montagsläufe ist gemessen (Branch `fr-16-laufdauer`)
+
+FR-16 verlangt, dass der Datenlauf nicht mit der Wartung auf `srv01`
+zusammentrifft. Gelöst und bewacht war der gemeldete Fall: Der Volllauf
+liegt auf dem zweiten Montag, nie auf einem Monatsersten. Offen war, ob ein
+**Delta**-Lauf, der montags um 04:30 beginnt, über den Restore-Test am
+Monatsersten (05:00) hinausläuft.
+
+**Gemessen am 14.11.2026** aus `logs/scheduled-pipeline.log` auf `srv01`.
+Die Python-Logzeilen stehen in UTC und sind hier in Ortszeit
+(Europe/Zurich) umgerechnet:
+
+| Lauf | Art | Beginn → letzte Logzeile | Dauer |
+| --- | --- | --- | ---: |
+| Mo 19.10. | Delta | 04:30 → 04:34 | 4,7 min |
+| Mo 26.10. | Delta | 04:30 → 04:35 | 5,1 min |
+| Mo 2.11. | Delta | 04:30 → 04:34 | 4,7 min |
+| Mo 12.10. | Voll (2. Montag) | 04:30 → 05:01 | 31,1 min, gescheitert |
+| Mo 9.11. | Voll (2. Montag) | 04:30 → 04:48 | 18,7 min, gescheitert |
+| Di 10.11. | Voll, von Hand | 13:59 → 14:47 | 47,2 min |
+
+Die Wartung kommt aus systemd-Timern (`systemctl cat`): `srv01-backup`
+täglich 02:30 mit `RandomizedDelaySec=30m`, `srv01-repository-check`
+sonntags 04:00 mit 1 h, `srv01-restore-test` am Monatsersten 05:00 mit 1 h;
+zuletzt lief er am 1.11. um 05:39. Die letzte Logzeile eines Delta-Laufs
+liegt also um 04:35, 25 Minuten vor dem frühesten Restore-Test; das wahre
+Ende etwas später (unten).
+
+**Der Fall, den die Messung nicht zeigt** (gefunden in der Review): Fällt
+eine Quelle aus, fasst `run_all` nach 30 und 60 Minuten nach, und der Lauf
+endet nach 06:00 — an einem Ersten mitten im Restore-Test. Am 9.11. fiel
+Socrata so aus. Entschieden (Christian): **Am Monatsersten fasst der
+Delta-Lauf nicht nach.** `delta_nachfassen` in `srv01-datenlauf.sh` hängt
+dort `--nachfassen` ohne Werte an. Eine gescheiterte Quelle macht den Lauf
+sofort rot (`LaufGescheitert`), und der nächste Montag holt nach.
+Der nächste Montag, der auf einen Ersten fällt, ist der **1.2.2027**. Der
+Volllauf (bis 47 Minuten) liegt nie auf einem Ersten und nie auf einem
+Sonntag.
+
+**Was die Messung nicht sieht:** Drift und Sicherungssatz am Ende des Laufs
+schreiben keinen Zeitstempel, das wahre Ende liegt also etwas nach der
+letzten Logzeile. Mit dieser Änderung schreibt `srv01-datenlauf.sh` Beginn
+und Ende selbst mit Zeit (`Urban Crime: delta run started at …`,
+`… completed … at …`, bei einem Abbruch `run ended with exit … at …` aus dem
+`EXIT`-Trap). Wirksam wird das, sobald diese Fassung auf `srv01` liegt
+(`git pull`; das Skript läuft aus dem Repository, nicht aus dem Abbild).
+Danach misst jeder Montagslauf seine ganze Dauer.
+
+Das gilt für den Weg über `cron`. Nach der Umstellung auf den verwalteten
+Betrieb (S-10) reiht `srv01-konsole-datenlauf.sh` den Montag als Batch ein,
+und der Konsolen-Worker fährt ihn; dort sind Dauer und Nachfassen neu zu
+prüfen.
+
+Neu bewacht: `test_beginn_und_ende_tragen_einen_zeitstempel`,
+`test_am_monatsersten_wird_nicht_nachgefasst` (sechs Tage),
+`test_ohne_werte_schaltet_nachfassen_ab` am echten Parser von `run_all` und
+`test_der_naechste_montag_am_ersten_steht_richtig_in_den_dokumenten`, der das
+Datum 1.2.2027 nachrechnet und in allen drei Dokumenten verlangt. FR-16
+steht in `fr-stand.md` auf ● (41 erfüllt, 12 teilweise).
+
+**Zahlen.** 2'979 → **2'988 Tests**, Standardlauf 2'868 → **2'877**, im protokollierten Linux-CI-Lauf 2'789 → **2'798**.
 
 ## 14.11.2026 · Die Referenz entsteht aus frischem Bytecode (Branch `fix-referenz-hashseed`)
 

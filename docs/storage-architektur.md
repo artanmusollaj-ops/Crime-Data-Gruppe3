@@ -1156,6 +1156,20 @@ dem 9.10.2026, von aussen gemessen. Ein Zeitplan steht ebenfalls: montags
 Delta, der zweite den Volllauf, der dritte und vierte wieder Delta; ein fünfter
 Montag bleibt frei. Der Volllauf liegt bewusst auf dem zweiten Montag, damit
 er nie mit dem Restic-Vollrestore am Monatsersten um 05:00 zusammentrifft.
+Ein Delta-Lauf könnte es: Der nächste Montag, der auf einen Ersten fällt,
+ist der 1.2.2027. Gemessen am 14.11.2026 dauerten die drei Delta-Läufe 4,7
+bis 5,1 Minuten bis zur letzten Python-Logzeile, um 04:34/04:35; Drift und
+Sicherungssatz danach schreiben keinen Zeitstempel. Der Restore-Test
+(`srv01-restore-test.timer`) beginnt frühestens um 05:00,
+`RandomizedDelaySec=1h`; am 1.11.2026 lief er um 05:39. Fällt eine Quelle
+aus, fasst `run_all` aber nach 30 und 60 Minuten nach, und der Lauf endet
+nach 06:00. **Am Monatsersten fasst der Delta-Lauf deshalb nicht nach**
+(`delta_nachfassen` in `srv01-datenlauf.sh`): Eine gescheiterte Quelle macht
+ihn sofort rot, der nächste Montag holt nach. Ab dem Einsetzen dieser
+Fassung auf `srv01` schreibt das Skript Beginn und Ende mit Zeitstempel,
+auch bei einem Abbruch. Das gilt für den Weg über `cron`; nach der
+Umstellung auf den verwalteten Betrieb (S-10) fährt der Konsolen-Worker den
+Montag, und die Frage stellt sich dort neu.
 
 **Was sie weiter nicht ist: ein Nachweis.** Der Zeitplan hat am 11.10.2026
 noch nie gefeuert — `logs/scheduled-pipeline.log` gibt es nicht, und der
