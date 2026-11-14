@@ -1021,7 +1021,7 @@ python -m serving.dashboard --data-root data    # http://127.0.0.1:8050
 Gezählt wird nach meldender Stadt, wie in Kibana und `comparison_month`.
 Die Rate je 1'000 rechnet nach der Regel von `gold_pipeline.raten_je_stadt`,
 **Fallebene vorn, Tatebene daneben** (E5), wie die Dokumente seit E-2: Die
-Tafel zählt Fälle, ein Hinweis darunter nennt die Rate aller Delikte. Ein
+Tafel zählt Fälle, eine blasse zweite Zeile zeigt die Rate aller Delikte. Ein
 Wächter hält beide gegen `rate_fallebene` und `rate` derselben Abfrage. Raten
 je Kategorie stehen nur in der Kategorieansicht »Rate«, auf der Tatebene,
 weil sich Kategorien nur dort addieren. Ein Monat ohne

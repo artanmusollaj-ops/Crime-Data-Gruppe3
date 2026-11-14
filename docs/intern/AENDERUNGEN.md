@@ -117,13 +117,14 @@ Seit E-2 (12.11.2026) führen die Dokumente die **Fallebene** vorn, die Tafel
 Tatebene: Detroit 2024 stand dort mit 134,0, in den Dokumenten mit 124,7
 (C-11). Jetzt heisst sie **»Fälle je 1'000 Einwohner«** und zählt Fälle
 (`count(*) FILTER (counts_case)`), wie `raten_je_stadt.rate_fallebene`. Die
-**Tatebene steht daneben**, als Hinweis unter dem Diagramm, mit dem Grund
-aus E5: Detroit erfasst jedes Delikt eines Falls, Chicago nur das schwerste.
+**Tatebene steht daneben**, als zweite, blasse Balkenzeile »Delikte
+(Tatebene)« im selben Massstab, und ein Hinweis nennt den Grund aus E5:
+Detroit erfasst jedes Delikt eines Falls, Chicago nur das schwerste.
 
 | 2024, Release vom 10.11.2026 | Chicago | Detroit |
 | --- | ---: | ---: |
 | Balken (Fallebene) | 94,5 | **124,7** (vorher 134,0) |
-| Hinweis (Tatebene) | 94,5 | 134,0 |
+| blasse Zeile (Tatebene) | 94,5 | 134,0 |
 
 **Keine Zeilen je Kategorie mehr in dieser Tafel.** Bisher standen unter
 »Alle« die vier häufigsten Kategorien; auf der Fallebene zählte ein Fall dort
@@ -131,8 +132,8 @@ nur in der Kategorie seines schwersten Delikts. Nach E5 rechnen Kategorien
 aber auf der Tatebene, weil sie sich nur dort addieren — die Rate je
 Kategorie steht deshalb nur noch in »Registrierte Delikte nach Kategorie«
 (Schalter »Rate«), auf der Tatebene und mit „Delikte" im Titel. Ist oben eine
-Kategorie gewählt, zeigt die Tafel die Fallrate dieser Kategorie und der
-Hinweis deren Tatebene. Entschieden von Christian am 14.11.2026.
+Kategorie gewählt, zeigt die Tafel die Fallrate dieser Kategorie und die
+blasse Zeile deren Tatebene. Entschieden von Christian am 14.11.2026.
 
 Neu bewacht: `test_die_balken_stehen_auf_der_fallebene_die_tatebene_daneben`
 — eine Folgeanklage zählt nur in der Tatebene, beide Werte stehen gegen
