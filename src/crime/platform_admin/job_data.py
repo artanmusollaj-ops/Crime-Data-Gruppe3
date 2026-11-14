@@ -178,7 +178,12 @@ def prune(store, dry_run=False):
         except AnalyseFehler:
             continue
         # Freigegeben: Jetzt geht auch der leere Rest mit der Sperrdatei.
-        shutil.rmtree(data, ignore_errors=True)
+        # Scheitert das, gilt der Job als nicht entfernt; der naechste Takt
+        # findet den Rest und versucht es wieder.
+        try:
+            shutil.rmtree(data)
+        except OSError:
+            continue
         removed.append(jid)
     if removed:
         value = read_pointer(store)

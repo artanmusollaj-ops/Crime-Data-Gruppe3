@@ -199,10 +199,10 @@ def test_das_aktive_release_bleibt_auch_ohne_zeiger_eintrag(store, monkeypatch):
 
 def test_die_loeschregel_loescht_keine_gehaltene_sperrdatei(store, monkeypatch):
     """Windows verweigert das Loeschen einer offenen Datei (WinError 32): Die
-    Sperrdatei im Job-Ordner darf erst nach dem Freigeben weg. Bis #232 lief
-    rmtree unter der Sperre, und der Windows-Lauf war auf main rot."""
+    Sperrdatei im Job-Ordner darf erst nach dem Freigeben weg - die Daten aber
+    schon vorher, unter der Sperre. Seit #232 lief rmtree unter der Sperre,
+    und der Windows-Lauf war auf main rot."""
     import os
-    import shutil
 
     from storage import analysesitzung
 
@@ -213,8 +213,15 @@ def test_die_loeschregel_loescht_keine_gehaltene_sperrdatei(store, monkeypatch):
         acquire(stream)
         gehalten.add(Path(stream.name).name)
 
+    beim_freigeben = []
+
     def gib(stream):
-        gehalten.discard(Path(stream.name).name)
+        sperre = Path(stream.name)
+        if sperre.name == "zugriff.lock":
+            daten_ = sperre.parent.parent
+            beim_freigeben.append(sorted(str(f.relative_to(daten_))
+                                         for f in daten_.rglob("*") if f.is_file()))
+        gehalten.discard(sperre.name)
         release(stream)
 
     echtes_unlink = os.unlink
@@ -227,9 +234,10 @@ def test_die_loeschregel_loescht_keine_gehaltene_sperrdatei(store, monkeypatch):
     monkeypatch.setattr(analysesitzung, "_acquire", nimm)
     monkeypatch.setattr(analysesitzung, "_release", gib)
     monkeypatch.setattr(os, "unlink", wie_windows)
-    monkeypatch.setattr(shutil.os, "unlink", wie_windows)
     freigegeben(store, "2403")
     review = kandidat(store, "0901")
     status(store, review["id"], "REJECTED")
     assert job_data.prune(store) == [review["id"]]
     assert not daten(store, review["id"]).exists()
+    # Beim Freigeben lag nur noch die Sperre da: Die Daten gingen unter ihr.
+    assert beim_freigeben[-1] == [".analyse/zugriff.lock"]
