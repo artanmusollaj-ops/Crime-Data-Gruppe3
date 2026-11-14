@@ -79,7 +79,7 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | | Anforderung | Stand | Beleg |
 | --- | --- | :-: | --- |
 | FR-15 | Wöchentlicher Anstoss auf `srv01` | ● | Crontab montags 04:30 mit `flock`, am 11.10.2026 abgelesen |
-| FR-16 | Zeitfenster kollidiert nicht | ◐ | der **gemeldete** Fall ist gelöst und gewacht: `mode_for_day` fährt den Volllauf nur an den Tagen 8–14, also am **zweiten** Montag — ein Monatserster kann nie der Volllauftag sein (`tests/test_srv01_datenlauf.py`). Offen bleibt die Frage daneben: Ein **Delta**-Lauf beginnt jeden Montag 04:30 und kann über 05:00 hinauslaufen; wie lange er auf `srv01` dauert, ist nicht gemessen |
+| FR-16 | Zeitfenster kollidiert nicht | ● | der **gemeldete** Fall ist gelöst und gewacht: `mode_for_day` fährt den Volllauf nur an den Tagen 8–14, also am **zweiten** Montag — ein Monatserster kann nie der Volllauftag sein (`tests/test_srv01_datenlauf.py`). Die Frage daneben ist **am 14.11.2026 gemessen und entschieden**: Die drei Delta-Läufe auf `srv01` (19.10., 26.10., 2.11.) dauerten 4,7 bis 5,1 Minuten bis zur letzten Python-Logzeile (04:34/04:35). Der Restore-Test am Monatsersten beginnt frühestens 05:00 (`RandomizedDelaySec=1h`, zuletzt 05:39). Das Nachfassen bei einer gescheiterten Quelle (30 und 60 min) liefe darüber hinaus. Deshalb fasst der Delta-Lauf am Monatsersten **nicht** nach (`test_am_monatsersten_wird_nicht_nachgefasst`). Das Skript schreibt Beginn und Ende mit Zeitstempel, auch bei Abbruch. Der erste betroffene Montag ist der 1.2.2027. Gilt für den `cron`-Weg; mit S-10 fährt der Konsolen-Worker den Montag (`AENDERUNGEN.md`, Eintrag vom 14.11.2026) |
 | FR-17 | Gescheiterter Lauf erzeugt eine Meldung | ● | **am 18.10.2026 ausgelöst und angekommen.** Die Kette stand schon: Alertmanager mit Telegram-Empfänger, eigenes Ausgangsnetz, Route ohne Matcher — meine Messung vom 17.10. („kein Kanal") war falsch. `docker/prometheus-regeln/urbancrime.yaml` trägt neun Regeln über die Messwerte von FR-30, Prometheus lädt alle neun und wertet sie aus (alle `inactive`). Gegenprobe mit unserem Regelnamen: `amtool alert add alertname=LaufGescheitert` → Telegram, **13 Zustellungen, 0 gescheitert**. Dazu belegt durch zwei echte Alarme desselben Tages, gefeuert und aufgelöst (`BackupMissingOrStale`, `BackupLastRunFailed`) |
 | FR-18 | Secrets aus der ignorierten `.env` | ● | `.env` des Stapels, ungetrackt; `.dockerignore` schliesst sie aus |
 | FR-19 | — | ▣ | **existiert im PRD nicht.** Die Nummer ist übersprungen; kein Inhalt verloren, aber die Lücke gehört genannt |
@@ -134,8 +134,8 @@ stellt."*
 
 | Stand | Anzahl |
 | --- | ---: |
-| ● erfüllt | 40 |
-| ◐ teilweise | 13 |
+| ● erfüllt | 41 |
+| ◐ teilweise | 12 |
 | ○ offen | 10 |
 | ▣ zurückgestellt | 2 |
 | **zusammen** | **65** |

@@ -74,6 +74,18 @@ mode_for_day() {
     fi
 }
 
+# Am Monatsersten wird nicht nachgefasst (FR-16). Der Restore-Test auf
+# srv01 beginnt dort um 05:00, mit bis zu einer Stunde Zufallsverzoegerung.
+# Ein Delta-Lauf ist nach rund fuenf Minuten fertig; faellt aber eine Quelle
+# aus, fasst run_all nach 30 und 60 Minuten nach und laeuft bis nach 06:00.
+# An einem Ersten lieber sofort rot - der naechste Montag holt nach.
+# `--nachfassen` ohne Werte heisst in run_all: kein zweiter Versuch.
+delta_nachfassen() {
+    if (( 10#$1 == 1 )); then
+        echo "--nachfassen"
+    fi
+}
+
 main() {
     local mode="${1:-}"
 
@@ -84,6 +96,11 @@ main() {
             return 0
         fi
     fi
+
+    # Beginn und Ende mit Zeit (FR-16): Bis zum 14.11.2026 liess sich die
+    # Dauer eines Laufs nur bis zur letzten Python-Logzeile messen - Drift
+    # und Sicherungssatz am Schluss schreiben keinen Zeitstempel.
+    echo "Urban Crime: ${mode} run started at $(date +%Y-%m-%dT%H:%M:%S%z)"
 
     # Erst fragen, ob der Lauf durchlaufen kann, dann laden. Am 12.10.2026
     # feuerte der Anstoss zum ersten Mal und brach nach einer halben Stunde
@@ -128,7 +145,9 @@ case "${mode}" in
         ;;
     delta)
         echo "Urban Crime: weekly delta ingestion for ${YEAR_RANGE}"
-        pipeline python -m orchestration.run_all --jahre "${YEAR_RANGE}"
+        # shellcheck disable=SC2046 - genau ein Wort oder keines.
+        pipeline python -m orchestration.run_all --jahre "${YEAR_RANGE}" \
+            $(delta_nachfassen "$(date +%d)")
         ;;
     *)
         echo "Usage: $0 {auto|full|delta}" >&2
@@ -198,7 +217,7 @@ pipeline python -m orchestration.drift --nur-melden --json /app/data/drift.json 
 pipeline python -m orchestration.sicherungssatz --holen || \
     echo "WARNUNG: Sicherungssatz unvollstaendig - siehe Ausgabe oben"
 
-echo "Urban Crime: ${mode} run completed for ${YEAR_RANGE}"
+echo "Urban Crime: ${mode} run completed for ${YEAR_RANGE} at $(date +%Y-%m-%dT%H:%M:%S%z)"
 }
 
 # Der Betriebsblick (FR-30). Geschrieben wird er in **jedem** Fall, und das
@@ -213,6 +232,10 @@ echo "Urban Crime: ${mode} run completed for ${YEAR_RANGE}"
 # Mit `|| true`, weil ein Fehler *hier* den Lauf nicht nachtraeglich faellen
 # darf: Der Bericht ueber einen Lauf ist nicht der Lauf.
 betriebsstand() {
+    local rc=$?
+    # Das Ende mit Zeit auch bei einem Abbruch (FR-16): Die Zeile am Ende von
+    # `main` laeuft nur, wenn alles gruen war.
+    echo "Urban Crime: run ended with exit ${rc} at $(date +%Y-%m-%dT%H:%M:%S%z)"
     pipeline python -m serving.betriebsstand \
         --ziel /app/startseite/metrics || true
 }
