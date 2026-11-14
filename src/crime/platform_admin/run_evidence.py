@@ -51,14 +51,21 @@ def evidence(store, city, run_path):
     sha = hashlib.sha256(raw).hexdigest()
     relative = path.relative_to(store.data).as_posix()
     linked_jobs, impacts = [], []
+    from .operations import schema
+
+    schema(store)
     with store.db() as c:
         jobs = [dict(j) for j in c.execute("SELECT id,name,status,started_at,finished_at FROM job")]
+        batches = [dict(j) for j in c.execute(
+            "SELECT id,kind AS name,status,started_at,finished_at FROM operation WHERE kind='batch'"
+        )]
         attempts = [dict(i) for i in c.execute("SELECT id,status,published_release_id,candidate_release_id FROM impact")]
-    for job in jobs:
-        folder = store.root / "jobs" / job["id"]
-        proof = safe_json(folder / "source_runs.json")
-        if any(x.get("manifest_path") == relative and x.get("sha256") == sha for x in proof.get("runs", [])):
-            linked_jobs.append({**job, "parameters": proof.get("parameters"), "log_available": (folder / "run.log").is_file()})
+    for entries, proof_path in ((jobs, "source_runs.json"), (batches, f"{city}/source_runs.json")):
+        for job in entries:
+            folder = store.root / "jobs" / job["id"]
+            proof = safe_json(folder / proof_path)
+            if any(x.get("manifest_path") == relative and x.get("sha256") == sha for x in proof.get("runs", [])):
+                linked_jobs.append({**job, "parameters": proof.get("parameters"), "log_available": (folder / "run.log").is_file()})
     snapshot_key = relative.removeprefix("bronze/")
     for attempt in attempts:
         snapshot = safe_json(store.root / "jobs" / attempt["id"] / "source_snapshot.json")

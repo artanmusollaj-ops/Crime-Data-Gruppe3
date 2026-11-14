@@ -39,7 +39,7 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
   box-shadow: 0 0 0 1000px #fff inset;
 }
 
-#source-code-lines li.full-highlight{background:#d7eafb;border-left:4px solid #1873b5}#source-code-lines li.daily-highlight{background:#ffead0;border-left:4px solid #be6300}.tabs{display:flex;gap:8px;flex-wrap:wrap}.tabs button[aria-pressed="true"]{background:#12364b;outline:3px solid #a8d6e5}.edit-card{border:1px solid #d3e1e8;padding:18px;border-radius:8px;margin:12px 0;background:#f8fbfc}.draft-meta{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.review-box{border:2px solid #08768a;padding:20px;margin-top:18px}#evidence-drawer,#request-drawer{position:fixed;inset:0 auto 0 0;width:min(880px,96vw);z-index:12;background:white;padding:24px;overflow:auto;box-shadow:8px 0 30px #12364b55}#request-drawer{inset:0 0 0 auto}#draft-error{color:#a02525}details summary{cursor:pointer}#code-content[hidden]{display:none}#source-code-lines li.match{box-shadow:inset 0 0 0 2px #c78b00;background:#fff0a8}
+#source-code-lines li.full-highlight{background:#d7eafb;border-left:4px solid #1873b5}#source-code-lines li.daily-highlight{background:#ffead0;border-left:4px solid #be6300}.tabs{display:flex;gap:8px;flex-wrap:wrap}.tabs button[aria-pressed="true"]{background:#12364b;outline:3px solid #a8d6e5}.edit-card{border:1px solid #d3e1e8;padding:18px;border-radius:8px;margin:12px 0;background:#f8fbfc}.draft-meta{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.review-box{border:2px solid #08768a;padding:20px;margin-top:18px}#request-drawer{position:fixed;inset:0 auto 0 0;width:min(880px,96vw);z-index:12;background:white;padding:24px;overflow:auto;box-shadow:8px 0 30px #12364b55}#request-drawer{inset:0 0 0 auto}#draft-error{color:#a02525}details summary{cursor:pointer}#code-content[hidden]{display:none}#source-code-lines li.match{box-shadow:inset 0 0 0 2px #c78b00;background:#fff0a8}
 .request-board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:18px}
 .request-lane{background:#edf3f6;border:1px solid #d3e1e8;border-radius:8px;padding:14px;min-height:135px}
 .request-lane h3{display:flex;justify-content:space-between;gap:8px;margin:0 0 12px;font-size:14px}
@@ -327,8 +327,52 @@ dialog::backdrop{background:#14263880}
 .backup-scope{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding-left:24px}
 .publication-flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;list-style:none;padding:0;margin:28px 0}
 .publication-flow li{border-bottom:3px solid #cbdce5;padding:12px 4px;font-weight:700}.publication-flow li[data-done="true"]{border-color:#087b65;color:#087b65}.publication-flow small{display:block;font-weight:400;margin-top:6px}
+#request-git-feedback{margin:14px 0;border-color:#b94343;background:#fff2f1}
+#request-git-feedback[data-state="returned"]{border-color:#337b92;background:#edf5f8}
+#request-git-feedback p:last-child{margin-bottom:0}
+.transfer-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;margin-top:10px}
+.transfer-actions button{margin:0;max-width:100%}
+.action-hint{display:inline-flex;align-items:baseline;gap:8px;max-width:100%;padding:7px 11px;border:1px solid #bfd5df;border-radius:12px;background:#eff6fa;color:#284c60;font-size:14px;line-height:1.4}
+.action-hint-icon{flex:none;font-size:16px}
 @media(max-width:650px){.publication-flow{grid-template-columns:1fr 1fr}}
 @media(max-width:650px){.operation-facts{grid-template-columns:1fr;gap:6px}.operation-facts dd{margin-bottom:14px}.backup-scope{grid-template-columns:1fr}.operation-tabs button{flex:1}}
+
+.operations-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:16px;align-items:start}
+.operation-filters,.operations-running,.operation-detail-actions{display:flex;gap:12px;flex-wrap:wrap}
+.operation-filters label{flex:1;min-width:135px}
+.operations-layout tr[aria-current="true"]{background:#e7f0f7}
+.operations-layout .job-link{background:transparent;color:#086775;border:0;text-align:left;padding:6px 0;text-decoration:underline}
+.operations-layout .pipeline-steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+.operations-layout .operation-facts{overflow-wrap:anywhere}
+.operation-services{margin-block:14px}
+.operations-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,245px),1fr));gap:12px;margin-block:14px}
+.operations-summary>div,.operations-running>div{border:1px solid #d6e2ea;border-radius:8px;padding:12px;overflow-wrap:anywhere}
+.operations-running>div{flex:1 1 100%}
+.etl-summary-header{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px}
+.etl-summary-header button{margin-inline-start:auto}
+.etl-module-progress{display:grid;gap:4px;min-width:min(100%,160px)}
+.etl-module-segments{display:flex;gap:4px}
+.etl-module-segments span{flex:1;height:6px;border-radius:4px;background:#d7e0e8}
+.etl-module-segments [data-done]{background:#126575}
+.etl-summary .operation-facts.etl-summary-facts{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin:10px 0 0;padding-top:10px;border-top:1px solid #d6e2ea}
+.etl-summary-facts dd{margin:0 12px 0 0}
+#operation-detail>details{margin-block:12px}
+#operation-detail pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto}
+#job-start-fields label{display:block}
+#job-start-error{color:#a62d32}
+@media(max-width:1040px){.operations-layout{grid-template-columns:1fr}}
+@media(max-width:480px){.operations-layout .pipeline-steps{grid-template-columns:1fr}}
+
+[data-tone="info"]{background:#dcecff;color:#124e82}
+#source-inspection{padding:0;background:transparent;border:0;box-shadow:none}
+#source-inspection .source-history{margin-top:16px}
+.source-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.source-disclosure{border-top:1px solid #d6e2ea;padding:14px 0;margin-top:12px}
+.source-disclosure summary{font-weight:700;margin-bottom:8px}
+#source-current-logic{background:white;border:1px solid #d6e2ea;border-radius:8px;padding:14px 18px}
+#source-current-logic:not([open]) summary{margin-bottom:0}
+.source-evidence-links{padding-left:22px}
+#evidence-body pre{max-height:320px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
 </style></head><body>
 <header class="console-header">
  <a class="console-brand" href="#changes">Engineering-Konsole</a>
@@ -374,7 +418,8 @@ dialog::backdrop{background:#14263880}
   <h2>Veröffentlichung</h2><p id="request-release-status"></p><ol id="publication-flow" class="publication-flow"></ol><h3>Git &amp; CI</h3>
   <p id="release-mode" class="muted"></p><p id="git-protection" class="notice" hidden></p>
   <div id="request-git-status" class="git-summary"></div><dl id="request-git-facts" class="operation-facts"></dl>
-  <label for="request-git-reason">Begründung</label><input id="request-git-reason" maxlength="2000">
+  <div id="request-git-feedback" class="notice" role="status" hidden></div>
+  <label for="request-git-reason">Begründung</label><input id="request-git-reason" maxlength="2000" aria-describedby="request-git-feedback">
   <div id="request-git-actions"></div><h3>Git-Protokoll</h3><div id="request-git-log"></div><div id="request-publish-action"></div>
  </section>
  <details id="request-timeline" class="timeline"><summary>ETL und Zeitverlauf</summary><div id="request-times"></div><ol id="request-pipeline" class="pipeline-steps"></ol></details>
@@ -405,36 +450,44 @@ dialog::backdrop{background:#14263880}
 </div></details>
 </div>
 <div id="page-sources" class="workspace" hidden>
- <div class="workspace-heading"><small>Datenherkunft & Aktualität</small><h1>Quellenstände und Quellläufe</h1><p>Gespeicherte Eingaben, Laufnachweise und Ladelogik.</p></div>
+ <div class="workspace-heading"><small>Datenherkunft & Aktualität</small><h1>Quellläufe</h1></div>
  <div id="source-page-slot"></div>
+ <section id="evidence-drawer" hidden aria-labelledby="source-evidence-title"><div class="section-heading"><h2 id="source-evidence-title" tabindex="-1">Laufnachweis</h2><button type="button" class="secondary" id="source-evidence-close">Schliessen</button></div><div id="evidence-body"></div></section>
 </div>
 <div id="page-operations" class="workspace" hidden>
- <div class="workspace-heading"><small>Verarbeitung & Überwachung</small><h1>Betrieb</h1><p>Pipeline-Fortschritt, Aufträge und Veröffentlichung.</p></div>
+ <div class="section-heading"><div class="workspace-heading"><h1>Betrieb</h1></div><button type="button" id="job-start" disabled>Auftrag starten</button></div>
  <nav class="operation-tabs" aria-label="Betriebsansichten">
   <button type="button" data-operation-tab="jobs" aria-pressed="true">Aufträge</button>
   <button type="button" data-operation-tab="analysis" aria-pressed="false">Analyse-Bereitstellung</button>
   <button type="button" data-operation-tab="backup" aria-pressed="false">Sicherung</button>
  </nav><div data-operation-panel="jobs">
- <section id="pipeline-panel">
-  <div class="section-heading">
-   <h2 id="pipeline-title">ETL-Pipeline</h2>
-   <div class="pipeline-controls">
-    <div class="pipeline-picker"><label for="pipeline-job">Auftrag</label><select id="pipeline-job"></select></div>
-    <span id="pipeline-badge" class="pill" hidden></span>
-   </div>
-  </div>
-  <ol id="pipeline-steps" class="pipeline-steps"></ol>
-  <p id="pipeline-note" class="muted"></p><p id="pipeline-summary" class="muted" aria-live="polite"></p>
+ <section id="running-etl" hidden aria-labelledby="running-etl-title">
+  <h2 id="running-etl-title">Laufende ETL-Aufträge</h2>
+  <div id="running-etl-jobs" class="operations-running"></div>
  </section>
- <section><h2>Auftrag starten</h2><div id="job-buttons"></div><p class="muted">Importe laden Quellen. Ein Rebuild erstellt einen Kandidaten zur Prüfung.</p></section>
-<section><h2>Aufträge</h2>
-<div class="scroll"><table><thead><tr><th>Auftrag</th><th>Start</th><th>Ende</th><th>Status</th><th>Aktionen</th></tr></thead><tbody id="jobs"></tbody></table></div></section>
-<section><h2>Betriebsaufträge</h2><div id="operations"></div><details><summary>Dienstestatus</summary><pre id="services"></pre></details></section>
-</div>
+ <div class="operations-layout">
+  <section><h2>Aufträge</h2>
+   <div class="operation-filters">
+    <label for="operation-status-filter">Status<select id="operation-status-filter"></select></label>
+    <label for="operation-type-filter">Auftragstyp<select id="operation-type-filter"></select></label>
+   </div>
+   <div class="scroll"><table><thead><tr><th>Auftrag</th><th>Status</th><th>Start</th><th>Ende</th></tr></thead><tbody id="jobs"></tbody></table></div>
+   <p id="operations-empty" hidden>Keine Aufträge für diese Filter.</p>
+   <div class="section-heading" id="operation-pages" hidden>
+    <button type="button" class="secondary" id="operation-prev">Vorherige Seite</button>
+    <span id="operation-page"></span>
+    <button type="button" class="secondary" id="operation-next">Nächste Seite</button>
+   </div>
+  </section>
+  <section id="operation-detail" aria-label="Auftragsdetails"><p>Wähle einen Auftrag aus.</p></section>
+ </div>
+ <details class="operation-services"><summary>Dienstestatus</summary><pre id="services"></pre></details>
+ </div>
 <section data-operation-panel="analysis" hidden>
  <h2>Analyse-Bereitstellung</h2><p>Aktiven Release für Dashboard und Analysen bereitstellen.</p>
+ <div class="operations-summary" id="analysis-summary"></div>
  <p id="analysis-health" class="operation-health" aria-live="polite"></p><p id="active-release" hidden></p><p id="analysis-release" hidden></p>
- <dl id="analysis-facts" class="operation-facts"></dl>
+ <details><summary>Technische Details</summary><dl id="analysis-facts" class="operation-facts"></dl></details>
  <details class="operation-maintenance"><summary>Wartung · Erneut bereitstellen</summary>
   <p>Verwendet den aktiven, freigegebenen Release. Es entsteht kein neuer Kandidat.</p>
   <label for="serving-reason">Begründung</label><input id="serving-reason" maxlength="2000">
@@ -444,7 +497,8 @@ dialog::backdrop{background:#14263880}
 </section>
 <section data-operation-panel="backup" hidden>
  <h2>Sicherung &amp; Wiederherstellung</h2><p>Konsolenzustand und Release-Nachweise absichern.</p>
- <p id="backup-health" class="operation-health" aria-live="polite"></p><dl id="backup-facts" class="operation-facts"></dl>
+ <div class="operations-summary" id="backup-summary"></div>
+ <details><summary>Archivdetails</summary><dl id="backup-facts" class="operation-facts"></dl></details>
  <h3>Was wird gesichert?</h3><ul class="backup-scope"><li>Kontrolldatenbank und Freigaben</li><li>Konfigurationsrevisionen</li><li>Aufträge und Impact-Nachweise</li><li>Lokale Release-Verzeichnisse</li></ul>
  <p class="muted">Der vollständige Quelldatenbestand und der Server sind in dieser Sicherung nicht enthalten.</p>
  <details class="operation-maintenance"><summary>Manuelle Sicherung</summary><p>Zusätzliche Sicherung vor Wartungsarbeiten.</p>
@@ -456,6 +510,15 @@ dialog::backdrop{background:#14263880}
 <button class="secondary" id="refresh">Status aktualisieren</button>
 </div>
 </main>
+<dialog id="job-start-dialog" aria-labelledby="job-start-title">
+ <div class="section-heading"><h2 id="job-start-title">Auftrag starten</h2>
+  <form method="dialog"><button class="secondary">Schliessen</button></form>
+ </div>
+ <form id="job-submit">
+  <div id="job-start-fields"></div><p id="job-start-error" role="alert" hidden></p>
+  <button type="submit" id="job-enqueue">Auftrag einreihen</button>
+ </form>
+</dialog>
 <dialog id="job-dialog" aria-labelledby="job-dialog-title"><div class="section-heading"><h2 id="job-dialog-title">Auftragsnachweis</h2><form method="dialog"><button class="secondary">Schliessen</button></form></div><pre id="job-dialog-content"></pre></dialog>
 <dialog id="quality-dialog" aria-labelledby="quality-dialog-title"><div class="section-heading"><h2 id="quality-dialog-title">Qualitätsmessung im Detail</h2><form method="dialog"><button class="secondary">Schliessen</button></form></div><div id="quality-dialog-content"></div></dialog><script>
 const $=id=>document.getElementById(id);let state, catalog=[];const viewed=new Map();
@@ -761,41 +824,10 @@ function pipelineStages(container,job,impact){
   container.append(item);
  }
 }
-function renderPipeline(){
- const a=state?.analysis_status||{};
- $('analysis-release').textContent='Analyse-Bereitstellung: '+(a.status||'noch kein Nachweis')+' · Zuletzt vollständig geprüft: '+(a.status==='SUCCEEDED'?a.release_id:(a.last_successful_release_id||'noch keiner'));
- const select=$('pipeline-job');
- const jobs=state.jobs.map(job=>[job.id,job.name,job.status]);
- const signature=JSON.stringify(jobs);
- if(select.dataset.signature!==signature){
-  const old=select.value;
-  select.dataset.signature=signature;
-  select.replaceChildren();
-  for(const [id,name,status] of jobs){
-   const option=element('option',name+' · '+id.slice(0,8)+' · '+(impactLabels[status]||status));
-   option.value=id;
-   select.append(option);
-  }
-  if(state.jobs.some(job=>job.id===old))select.value=old;
-  else if(state.jobs.some(job=>job.status==='RUNNING'))select.value=state.jobs.find(job=>job.status==='RUNNING').id;
- }
- const job=state.jobs.find(job=>job.id===select.value);
- const impact=impactsById.get(job?.id);
- select.disabled=!job;
- $('pipeline-title').textContent='ETL-Pipeline'+(job?' · '+job.name:'');
- $('pipeline-badge').hidden=!job;
- $('pipeline-steps').replaceChildren();
- $('pipeline-note').textContent='';
- if(!job){$('pipeline-summary').textContent='Noch kein Auftrag vorhanden.';return}
- showPill($('pipeline-badge'),impact?.status||job.status);
- pipelineStages($('pipeline-steps'),job,impact);
- $('pipeline-summary').textContent='Letzter Schrittnachweis: '+dateTime(job.progress?.updated_at)+' · Zürich';
- $('pipeline-note').textContent='100 % = Verarbeitung der Stufe beendet. Der Status zeigt das Ergebnis. Silver und Serving zählen bestätigte Module. Laufzeiten stammen aus den vorhandenen Zeitmarken.';
-}
-$('pipeline-job').onchange=renderPipeline;
+
 let sourceContext={},sourceRequest=0,sourceReturnFocus;
 async function openSourceCode(city,run,module){
- $("evidence-drawer").hidden=true;
+ closeEvidence(false);
  const request=++sourceRequest;sourceContext={city,run};
  if($('code-drawer').hidden)sourceReturnFocus=document.activeElement;
  $('code-drawer').hidden=false;$('code-title').textContent=city+' · Ladelogik';$('code-version').textContent='Lade Quelltext …';$('source-code-lines').replaceChildren();$('code-meta').textContent='';$('code-module').disabled=true;$('code-close').focus();
@@ -821,18 +853,8 @@ async function refresh(){
  const [fresh,sources]=await Promise.all([api('state'),api('sources')]);
  if(version!==refreshVersion)return;
  setState(fresh);
- renderAccount();$('active-release').textContent='Aktiver Release: '+(state.active_release_id||'Noch keiner');$('settings').value=JSON.stringify(state.settings.payload,null,2);renderPipeline();loadChicagoForm();loadDetroitForm();$('mapping-version').textContent='Aktive Mappingrevision: '+state.mapping.id;renderDecision();renderConflicts();
- const jobButtons=$('job-buttons');
- const jobNames={rebuild:'Rebuild starten',delta_detroit:'Detroit-Delta laden',full_detroit:'Detroit komplett laden',daily_detroit:'Detroit-Tagesimport',daily_chicago:'Chicago-Tagesimport',full_chicago:'Chicago komplett laden',checks:'Qualität prüfen'};
- jobButtons.replaceChildren();
- for(const job of state.settings.payload.jobs){
-  const action=button(jobButtons,jobNames[job.task]||job.name+' starten',async()=>{
-   const r=await api('job',{name:job.name});
-   message('Auftrag eingereiht: '+r.result);
-   await refresh();
-  },!(state.roles||[]).includes('operator'));
-  if(job.task!=='rebuild')action.className='secondary';
- }
+ renderAccount();$('active-release').textContent='Aktiver Release: '+(state.active_release_id||'Noch keiner');$('settings').value=JSON.stringify(state.settings.payload,null,2);loadChicagoForm();loadDetroitForm();$('mapping-version').textContent='Aktive Mappingrevision: '+state.mapping.id;renderDecision();renderConflicts();
+ $('job-start').disabled=!(state.roles||[]).includes('operator')||!state.settings.payload.jobs.length;
  renderJobs();
  renderSourceInventory(sources);
  const [, , inbox]=await Promise.all([loadCodes(),refreshOperations(),api('inbox')]);
@@ -882,7 +904,6 @@ async function pollStatus(){
   proposalEditor?.checkBasis();
   renderDecision();
   $('active-release').textContent='Aktiver Release: '+(state.active_release_id||'Noch keiner');
-  renderPipeline();
   renderJobs();
   if(full){
    renderConflicts();
@@ -895,7 +916,7 @@ async function pollStatus(){
   renderInbox();
   await syncRequest();
  }catch(error){
-  $('pipeline-summary').textContent='Statusaktualisierung fehlgeschlagen: '+error.message;
+  message('Statusaktualisierung fehlgeschlagen: '+error.message);
  }finally{
   setTimeout(pollStatus,5000);
  }
@@ -903,6 +924,17 @@ async function pollStatus(){
 setTimeout(pollStatus,5000);
 let operationsData=null;
 function operationPayload(op){try{return typeof op.payload==='string'?JSON.parse(op.payload):(op.payload||{})}catch{return {}}}
+function staleReview(impact,current){
+ const heads=operationPayload({payload:impact?.spec})?.base_heads;
+ return impact?.status==='AWAITING_GIT'&&!!heads&&(
+  impact.baseline_release_id!==current.active_release_id||
+  heads.mapping!==current.mapping?.id||heads.settings!==current.settings?.id
+ );
+}
+function canRetryImpact(revision,impact,impacts,roles){
+ return !revision.decision&&roles.includes('engineer')&&impact?.status==='FAILED'&&
+  !impacts.some(i=>i.revision_id===revision.id&&['QUEUED','RUNNING'].includes(i.status));
+}
 // Nur belegte Zustände freischalten; die API prüft Rollen, Freigabe und CI erneut.
 function publicationAction(revision,impact,change,job,enabled,roles,operator){
  if(!enabled||revision.decision!=='approve'||!['mapping','settings'].includes(revision.resource)||!['AWAITING_GIT','APPROVED_PENDING_PUBLICATION','PUBLISHED'].includes(impact?.status)||['QUEUED','RUNNING'].includes(job?.status)||change?.state==='MERGED')return null;
@@ -927,15 +959,30 @@ async function queueOperation(kind,id,reason,label){
  message('Betriebsauftrag eingereiht');await refreshOperations();renderInbox();
  const revision=state.revisions.find(r=>r.id===selectedRevision);if(revision)renderRequestPublication(revision);
 }
+function operationSummary(title,value){
+ const box=element('div');
+ box.append(element('h3',title),element('p',value||'—'));
+ return box;
+}
 function renderOperationViews(data){
  const a=data.services.analysis||state.analysis_status||{},active=state.active_release_id;
  const ready=analysisReadiness(active,a);
- const health=$('analysis-health');health.textContent=ready?'Analysebestand bereit':a.status==='RUNNING'?'Bereitstellung läuft':a.status==='PARTIAL'?'Bereitstellung unvollständig':a.status==='SUCCEEDED'?'Bereitgestellter Release weicht ab':'Noch kein Nachweis';health.dataset.ready=String(ready);
- operationFacts($('analysis-facts'),[['Aktiver Release',active],['Zuletzt erfolgreich bereitgestellt',a.status==='SUCCEEDED'?a.release_id:a.last_successful_release_id],['Letzte Statusmeldung (UTC)',a.updated_at],['Status',a.status]]);
+ const health=$('analysis-health');health.textContent=ready?'Analysebestand bereit':a.status==='RUNNING'?'Bereitstellung läuft':a.status==='PARTIAL'?'Bereitstellung unvollständig':a.status==='FAILED'?'Bereitstellung fehlgeschlagen':a.status==='SUCCEEDED'?'Bereitgestellter Release weicht ab':'Noch kein Nachweis';health.dataset.ready=String(ready);
+ $('analysis-summary').replaceChildren(operationSummary('Aktiver Release',active),
+  operationSummary('Zuletzt erfolgreich bereitgestellt',a.status==='SUCCEEDED'?a.release_id:a.last_successful_release_id));
+ operationFacts($('analysis-facts'),[['Letzte Statusmeldung (UTC)',a.updated_at],['Status',a.status]]);
  const backup=data.services.backup||{},backupJobs=data.operations.filter(op=>op.kind==='backup');
  const last=backupJobs[0];
- $('backup-health').textContent=['QUEUED','RUNNING'].includes(last?.status)?'Sicherung läuft':last?.status==='FAILED'&&(!backup.created_at||last.created_at>=backup.created_at)?'Letzter Sicherungsauftrag fehlgeschlagen':backup.key?'Letzte Sicherung erfolgreich':'Noch kein Nachweis';
- $('backup-health').dataset.ready=String(!!backup.key&&!['FAILED','QUEUED','RUNNING'].includes(last?.status));
+ const success=operationSummary('Letzte erfolgreiche Sicherung',backup.created_at);
+ const attempt=operationSummary('Letzter Sicherungsauftrag',last?dateTime(last.finished_at||last.created_at):null);
+ if(last){
+  attempt.append(operationStatus(last.status));
+  if(last.status==='FAILED')button(attempt,'Fehlerdetails öffnen',()=>{
+   document.querySelector('[data-operation-tab="jobs"]').click();
+   openOperation(last.id,true);
+  }).className='secondary';
+ }
+ $('backup-summary').replaceChildren(success,attempt);
  operationFacts($('backup-facts'),[['Letzte erfolgreiche Sicherung (UTC)',backup.created_at],['Speicherart',data.storage==='s3'?'S3':'Lokal'],['Archiv',backup.key],['SHA-256',backup.sha256]]);
  for(const [kind,label] of [['serving','Aktiven Release erneut bereitstellen'],['backup','Konsolenzustand sichern']]){
   const box=$(kind+'-actions');box.replaceChildren();
@@ -954,18 +1001,33 @@ async function refreshOperations(){
  $('release-mode').textContent='Freigabemodus: '+data.release_mode+(data.release_mode==='coupled'?' · Aktivierung erst nach verifiziertem Merge':' · Getrennter Entwicklungsmodus');
  $('git-protection').hidden=data.git_protection!=='entwicklung';$('git-protection').textContent='Git-Schutz: Entwicklung · Merge nur nach erfolgreicher CI-Prüfung.';
  renderGitOperations(data);renderOperationViews(data);
- const rows=data.operations.filter(op=>!op.kind.startsWith('git-')),logSignature=JSON.stringify(rows);
- if($('operations').dataset.signature!==logSignature){$('operations').dataset.signature=logSignature;operationLog($('operations'),rows)}
+ renderJobs();
  $('services').textContent=JSON.stringify(data.services,null,2);
  for(const id of ['propose','save-settings','chicago-config','detroit-config'])$(id).disabled=!(state.roles||[]).includes('engineer');
 }
 document.querySelectorAll('[data-operation-tab]').forEach(tab=>tab.onclick=()=>{
  document.querySelectorAll('[data-operation-tab]').forEach(item=>item.setAttribute('aria-pressed',String(item===tab)));
  document.querySelectorAll('[data-operation-panel]').forEach(panel=>panel.hidden=panel.dataset.operationPanel!==tab.dataset.operationTab);
+ $('job-start').hidden=tab.dataset.operationTab!=='jobs';
 });
 async function downloadArchive(iid){const response=await fetch('/api/impact-archive?id='+encodeURIComponent(iid),{headers:headers()});if(!response.ok){const e=await response.json();throw Error(e.error)}const url=URL.createObjectURL(await response.blob()),a=document.createElement('a');a.href=url;a.download='impact-'+iid+'.zip';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 // Nur Oberflächentexte übersetzen. JSON, Code, Protokolle und Nutzereingaben bleiben unverändert.
 const consoleTranslations={
+ 'Importhistorie':'Import history','Ladeart':'Load mode','Abschluss (Zürich)':'Completed (Zurich)',
+ 'Laufnachweis öffnen':'Open run evidence','Aktuelle Ladelogik':'Current ingestion logic',
+ 'Verknüpfte Nachweise':'Linked evidence','Manifest und Prüfsumme':'Manifest and checksum',
+ 'Tatsächliche Jobparameter':'Actual job parameters','Laufprotokoll':'Run log',
+ 'Kein Laufprotokoll verfügbar.':'No run log available.','Manifest nicht lesbar':'Manifest unreadable',
+ 'Keine verknüpften Nachweise dokumentiert.':'No linked evidence documented.',
+ 'Laufender ETL-Auftrag':'Running ETL job','ETL-Aufträge eingereiht':'Queued ETL jobs',
+ 'ETL läuft':'ETL running','ETL eingereiht':'ETL queued','ETL abgeschlossen':'ETL completed',
+ 'ETL fehlgeschlagen':'ETL failed','ETL-Status unbekannt':'ETL status unknown','ETL-Stufen':'ETL stages',
+ 'Auftragsdetails öffnen':'Open job details','Prüfbasis':'Baseline','Laufzeit':'Elapsed',
+ 'Letzter beendeter ETL-Auftrag':'Last finished ETL job','Kein ETL-Auftrag vorhanden.':'No ETL job found.',
+ 'Letzter Sicherungsauftrag':'Latest backup job','Letzte erfolgreiche Sicherung':'Last successful backup',
+ 'Archivdetails':'Archive details','Bereitstellung fehlgeschlagen':'Provisioning failed','Keine Angaben zum Auslöser':'Trigger unavailable',
+ 'Konfigurierte Jahre':'Configured years',
+ ...{"Laufende ETL-Aufträge":"Running ETL jobs","Auftragstyp":"Job type","Keine Aufträge für diese Filter.":"No jobs match these filters.","Wähle einen Auftrag aus.":"Select a job.","Auftrag einreihen":"Queue job","Datenkandidat bauen":"Build data candidate","Reproduzierbarkeit prüfen":"Check reproducibility","Quellimport":"Source import","Gesamtimport":"Full source batch","Tagesimport (Legacy)":"Daily import (legacy)","Auftrags-ID":"Job ID","Auslöser":"Trigger","Manuell gestartet":"Started manually","Nach erfolgreichem Gesamtimport":"After successful source batch","Durch Zeitplan":"Scheduled","Durch Änderungsvorschlag":"Triggered by change proposal","Eingereiht (Zürich)":"Queued (Zurich)","Start (Zürich)":"Start (Zurich)","Ende (Zürich)":"End (Zurich)","Prüfbasis des Laufs":"Run baseline","Release aus diesem Lauf":"Release from this run","Noch nicht veröffentlicht":"Not yet published","Verarbeitungsfortschritt":"Processing progress","Antrag öffnen":"Open proposal","Gesamtimport öffnen":"Open source batch","Nachfolgenden Datenkandidaten öffnen":"Open resulting data candidate","Laufprotokoll öffnen":"Open run log","Release-Nachweis":"Release evidence","Veröffentlichter Release":"Published release","Baut aus den geladenen Bronze-Daten einen Kandidaten zur fachlichen Prüfung.":"Builds a candidate for review from the loaded Bronze data.","Lädt Quelldaten nach Raw/Bronze. Ein Datenkandidat kann danach separat gebaut werden.":"Loads source data into Raw/Bronze. A data candidate can be built separately afterwards.","Prüft, ob der aktive Release reproduzierbar ist.":"Checks whether the active release is reproducible.","Prüft den verfügbaren Datenstand.":"Checks the available data."},
  'Engineering-Konsole':'Engineering console','Hauptnavigation':'Main navigation','Sprache':'Language','Abmelden':'Sign out','Änderungen':'Changes','Quellläufe':'Source runs','Betrieb':'Operations',
  'Änderungsanträge & Review':'Change proposals & review','Aufgaben nach Arbeitsstand':'Tasks by status','Mapping, Konfiguration und Kandidaten im Überblick.':'Mapping, configuration and candidates at a glance.',
  'Review-Inbox':'Review inbox','Antrag prüfen':'Review proposal','Details schliessen':'Close details','Antragsdetails':'Proposal details','Änderung':'Change','Impact prüfen':'Review impact','Entscheidung':'Decision','Veröffentlichung':'Publication','Kandidat · Prüfung':'Candidate · Review','Impact-Bericht':'Impact report','Überblick':'Overview','Goldzahlen':'Gold counts','Quellenstände':'Source versions','Qualität':'Quality','Nachweise':'Evidence','Vollständiger JSON-Nachweis':'Full JSON evidence','Weitere Aktionen':'More actions','ETL und Zeitverlauf':'ETL and timeline','Neuen Änderungsvorschlag erfassen':'Create a change proposal',
@@ -985,6 +1047,19 @@ const consoleTranslations={
 // Bestehende Ansichtstexte werden an Ort und Stelle lokalisiert: kein Neuaufbau,
 // kein Fokusverlust und keine Änderung von Eingabewerten oder gespeicherten Daten.
 Object.assign(consoleTranslations,{
+ "Pull Request anfordern": "Request pull request",
+ "Noch kein Pull Request": "No pull request yet",
+ "Workflow an Antragsteller retournieren": "Return workflow to proposer",
+ "Prüfbasis hat sich geändert": "Review baseline changed",
+ "Der aktive Datenstand oder die Konfiguration weicht vom geprüften Stand ab.": "The active data release or configuration differs from the reviewed baseline.",
+ "Die fachliche Freigabe wurde zurückgezogen.": "The approval was withdrawn.",
+ "Der Impact wird automatisch neu berechnet.": "The impact is recalculated automatically.",
+ "Der Antragsteller hat die Neuberechnung des Impacts auf aktueller Prüfbasis bereits ausgelöst.": "The proposer has already requested a new impact calculation against the current baseline.",
+ "Neuen Vorschlag öffnen": "Open new proposal",
+ "Ein Reviewer muss den bestehenden Git-Vorgang zuerst zurückziehen.": "A reviewer must first withdraw the existing Git operation.",
+ "An Antragsteller retourniert": "Returned to proposer",
+ "Begründung erforderlich": "Reason required",
+ "Bitte gib eine Begründung ein.": "Enter a reason.",
  "Fachliche Freigabe": "Subject-matter approval",
  "Datenrelease": "Data release",
  'Eingereiht':'Queued','Nicht zugewiesen':'Unassigned','Zurückgezogen':'Withdrawn','Archivierung ausstehend':'Archive pending','Archiv anlegen':'Create archive','Archivauftrag eingereiht':'Archive job queued','Antrag abgelehnt':'Proposal rejected','Berechnung fehlgeschlagen':'Calculation failed','Betriebsauftrag eingereiht':'Operational job queued','Betroffene Datensätze':'Affected records','Betroffene Datensätze · Vorschau':'Affected records · Preview','Betroffene Städte und Tatzeiträume':'Affected cities and offense periods','Betroffene gezählte Taten':'Affected counted offenses','Bisher gesperrt':'Previously blocked','Code Kandidat':'Candidate code','Code vorher':'Previous code','Datensätze ausserhalb des Zeitfensters':'Records outside the time window','Datum Kandidat':'Candidate date','Datum bisher':'Previous date','Doppelte oder ungültige Gold-Schlüssel':'Duplicate or invalid Gold keys','Erster Stand':'Initial version','Erstellt (Zürich)':'Created (Zurich)','Freigabe zurückziehen':'Withdraw approval','Genehmigte Publikation fortsetzen':'Resume approved publication','Gezählte Fälle':'Counted cases','Gezählte Taten':'Counted offenses','Geänderte Felder':'Changed fields','Git nicht konfiguriert':'Git not configured','Git-Auftrag eingereiht':'Git job queued','Git-Auftrag fehlgeschlagen':'Git job failed','Git-Auftrag läuft':'Git job running','Git-Aufträge öffnen':'Open Git jobs','Git-Freigabe zurückgezogen':'Git approval withdrawn','Goldzahlen im Vergleich':'Gold counts compared','Impact-Bericht ausstehend.':'Impact report pending.','Impact-Bericht wird geladen …':'Loading impact report …','Impact-Lauf nicht gefunden':'Impact run not found','Impact-Nachweis archivieren / nachliefern':'Archive / supply impact evidence','Kandidat gesperrt':'Candidate blocked','Kategorie Kandidat':'Candidate category','Kategorie vorher':'Previous category','Kategorie- und Codewechsel':'Category and code changes','Kein Schrittnachweis':'No stage evidence','Keine inhaltliche Änderung':'No content change','Konfigurationsvorschlag und Impact-Lauf gespeichert':'Configuration proposal and impact run saved','Mappingqualität':'Mapping quality','Mappingvorschlag gespeichert; Impact-Lauf wartet auf Worker':'Mapping proposal saved; impact run waiting for worker','Merge ausstehend':'Merge pending','Merge-Prüfung ausstehend':'Merge verification pending','Merge-Prüfung fehlgeschlagen':'Merge verification failed','Messgrösse':'Measure','Monatliche Serving-Qualität · Vorschau':'Monthly Serving quality · Preview','Nachgewiesene Tabellenstände':'Evidenced table versions','Neuer Impact-Lauf eingereiht':'New impact run queued','Neuer Vorschlag auf aktueller Basis gespeichert':'New proposal on current baseline saved','Noch kein Auftrag vorhanden.':'No jobs yet.','Noch kein Ergebnis':'No result yet','Publikation angefordert':'Publication requested','Publikation ausstehend':'Publication pending','Pull Request geschlossen':'Pull request closed','Pull Request offen':'Pull request open','Pull Request öffnen':'Open pull request','Qualität: Gate-Ergebnisse im Vergleich':'Quality: gate results compared','Qualitätsprüfung':'Quality checks','Quellherkunft nach Gold-Tabelle':'Source provenance by Gold table','Review öffnen':'Open review','Rücknahme zur Prüfung eingereiht':'Withdrawal queued for verification','Stadt-Tage über der Ungemappt-Grenze':'City-days exceeding the unmapped limit','Tages-, Wochen- und Monatsdeltas · Vorschau':'Daily, weekly and monthly deltas · Preview','Taten Kandidat':'Candidate offenses','Taten bisher':'Previous offenses','Ungemappt % Kandidat':'Candidate unmapped %','Ungemappt % bisher':'Previous unmapped %','Ungemappte Quote je Stadt / Tag':'Unmapped ratio per city / day','Verglichene Datensätze':'Compared records','Entscheidung protokolliert':'Decision recorded','noch kein Nachweis':'no evidence yet','noch keiner':'none yet',
@@ -1174,7 +1249,7 @@ let proposalEditor;
 function initUnifiedConfig(){
  if(proposalEditor){proposalEditor.checkBasis();return}
  $('proposal-forms').hidden=true;
- const sourcesSection=element('section');sourcesSection.id='source-inspection';sourcesSection.append(element('h2','Quellläufe & Ladelogik'),element('p','Historie und lesende Codeansicht. Importparameter und Zeitpläne gehören zum Änderungsvorschlag.'),$('sources'));$('source-page-slot').append(sourcesSection);
+ const sourcesSection=element('section');sourcesSection.id='source-inspection';sourcesSection.append($('sources'));$('source-page-slot').append(sourcesSection);
  const host=element('div');host.id='proposal-editor';host.setAttribute('translate','no');$('proposal-tools').append(host);
  let importCity='',importKind='',importJobName='';
  let mode='choose',tab='scope',review=false,busy=false,sent=false,jsonInvalid=false,jsonText='',configReason='',mapping={city:'detroit',code:'',target:'',reason:'',source:''},rows=[],loading=false,loadError='',request=0;
@@ -1422,51 +1497,165 @@ function applySourceHighlights(){
 }
 function nextSourceHighlight(){if(!highlightTargets.length)return;highlightIndex=(highlightIndex+1)%highlightTargets.length;const li=highlightTargets[highlightIndex];$('source-code-lines').scrollTop=li.offsetTop-$('source-code-lines').offsetTop-30;$('highlight-count').textContent='Abschnitt '+(highlightIndex+1)+' von '+highlightTargets.length}
 $('source-full').onclick=()=>{sourceMode='full';applySourceHighlights()};$('source-daily').onclick=()=>{sourceMode='daily';applySourceHighlights()};$('next-highlight').onclick=nextSourceHighlight;
+function sourceRunStatus(status){
+ const key=String(status||'').toUpperCase();
+ const supported={COMPLETE:'SUCCEEDED',COMPLETED:'SUCCEEDED',SUCCESS:'SUCCEEDED',INVALID_MANIFEST:'FAILED'};
+ const badge=operationStatus(supported[key]||key);
+ if(key==='INVALID_MANIFEST')badge.textContent='Manifest nicht lesbar';
+ if(!key)badge.textContent='Nicht dokumentiert';
+ return badge;
+}
 function renderSourceInventory(sources){
- sourceInventory=sources;const box=$('sources');box.replaceChildren();
- for(const city of ['chicago','detroit']){const b=button(box,city==='chicago'?'Chicago':'Detroit',()=>{sourceCity=city;sourcePage=0;renderSourceInventory(sourceInventory)});b.className=city===sourceCity?'':'secondary';b.setAttribute('aria-pressed',String(city===sourceCity))}
- const h=document.createElement('h3');h.textContent='Code Preview · aktuelle Ladelogik';box.append(h);
- for(const [mode,title] of [['full','Full Load · Code Preview'],['daily','Delta · Code Preview']])button(box,title,()=>{sourceMode=mode;return openSourceCode(sourceCity)});
- const table=document.createElement('table'),head=table.createTHead().insertRow();for(const t of ['Run-ID','Modus','Zeitpunkt','Status','Nachweis']){const th=document.createElement('th');th.textContent=t;head.append(th)}
- const item=sources.find(s=>s.city===sourceCity),runs=item?.runs||[],pageSize=5;
+ sourceInventory=sources;
+ const box=$('sources');
+ const logicOpen=box.querySelector('#source-current-logic')?.open;
+ const focused=document.activeElement?.dataset.sourceControl;
+ box.replaceChildren();
+ const cities=element('div',null,'source-controls');
+ for(const city of ['chicago','detroit']){
+  const control=button(cities,city==='chicago'?'Chicago':'Detroit',()=>{
+   sourceCity=city;sourcePage=0;renderSourceInventory(sourceInventory);
+  });
+  control.className=city===sourceCity?'':'secondary';
+  control.setAttribute('aria-pressed',String(city===sourceCity));
+  control.dataset.sourceControl=city;
+ }
+ box.append(cities);
+ const history=element('section',null,'source-history');
+ history.append(element('h2','Importhistorie'));
+ const item=sources.find(source=>source.city===sourceCity);
+ const runs=item?.runs||[],pageSize=5;
  const lastPage=Math.max(0,Math.ceil(runs.length/pageSize)-1);
  sourcePage=Math.min(sourcePage,lastPage);
  const start=sourcePage*pageSize;
+ const table=element('table'),head=table.createTHead().insertRow();
+ for(const label of ['Run-ID','Ladeart','Abschluss (Zürich)','Status','Nachweis'])head.append(element('th',label));
  for(const run of runs.slice(start,start+pageSize)){
-  const tr=table.insertRow();
-  cell(tr,run.run_id);
-  cell(tr,run.mode||'Nicht dokumentiert');
-  cell(tr,dateTime(run.completed_at_utc));
-  cell(tr,run.status);
-  button(cell(tr,''),'Laufnachweis',()=>showEvidence(sourceCity,run.relative_path),!run.relative_path).className='secondary';
+  const row=table.insertRow();
+  cell(row,run.run_id);
+  cell(row,run.mode||'Nicht dokumentiert');
+  cell(row,dateTime(run.completed_at_utc));
+  cell(row,'').append(sourceRunStatus(run.status));
+  const control=button(cell(row,''),'Laufnachweis öffnen',()=>showEvidence(sourceCity,run.relative_path),!run.relative_path);
+  control.className='secondary';
+  control.dataset.sourceControl=run.relative_path||'';
  }
  const wrap=element('div',null,'scroll');
  wrap.append(table);
- box.append(wrap);
+ if(runs.length)history.append(wrap);
  const pager=element('div',null,'source-pagination');
  const count=runs.length?(start+1)+'–'+Math.min(start+pageSize,runs.length)+' von '+runs.length+' geladenen Läufen':'Keine Quellläufe vorhanden';
  pager.append(element('small',count));
  if(lastPage){
   const actions=element('div');
-  button(actions,'Zurück',()=>{sourcePage--;renderSourceInventory(sourceInventory)},sourcePage===0).className='secondary';
-  button(actions,'Weiter',()=>{sourcePage++;renderSourceInventory(sourceInventory)},sourcePage===lastPage).className='secondary';
+  for(const [label,offset,disabled] of [['Zurück',-1,sourcePage===0],['Weiter',1,sourcePage===lastPage]]){
+   const control=button(actions,label,()=>{sourcePage+=offset;renderSourceInventory(sourceInventory)},disabled);
+   control.className='secondary';
+   control.dataset.sourceControl=label;
+  }
   pager.append(actions);
  }
- box.append(pager);
- if((item?.run_count||0)>runs.length)box.append(element('p',item.run_count+' Läufe vorhanden. Die API liefert die jüngsten '+runs.length+'.','muted'));
+ history.append(pager);
+ if((item?.run_count||0)>runs.length)history.append(element('p',item.run_count+' Läufe vorhanden. Die API liefert die jüngsten '+runs.length+'.','muted'));
+ box.append(history);
+ const logic=element('details',null,'source-disclosure');
+ logic.id='source-current-logic';logic.open=!!logicOpen;
+ logic.append(element('summary','Aktuelle Ladelogik'));
+ const modes=element('div',null,'source-controls');
+ for(const [mode,title] of [['full','Full Load · Code Preview'],['daily','Delta · Code Preview']]){
+  button(modes,title,()=>{sourceMode=mode;return openSourceCode(sourceCity)}).className='secondary';
+ }
+ logic.append(modes);box.append(logic);
+ if(focused){
+  const controls=[...box.querySelectorAll('[data-source-control]')];
+  (controls.find(control=>control.dataset.sourceControl===focused&&!control.disabled)||
+   controls.find(control=>control.getAttribute('aria-pressed')==='true'))?.focus({preventScroll:true});
+ }
+}
+
+let evidenceRequest=0,evidenceFocus=null;
+function closeEvidence(restore=true){
+ evidenceRequest++;
+ if($('evidence-drawer').hidden)return;
+ $('evidence-drawer').hidden=true;
+ $('source-page-slot').hidden=false;
+ if(restore&&evidenceFocus){
+  const control=[...$('sources').querySelectorAll('[data-source-control]')].find(item=>item.dataset.sourceControl===evidenceFocus);
+  (control||$('sources').querySelector('button[aria-pressed="true"]'))?.focus({preventScroll:true});
+ }
+}
+$('source-evidence-close').onclick=()=>closeEvidence();
+function sourceDisclosure(parent,title){
+ const detail=element('details',null,'source-disclosure');
+ detail.append(element('summary',title));
+ parent.append(detail);
+ return detail;
 }
 async function showEvidence(city,run){
- const data=await api('source-evidence?city='+encodeURIComponent(city)+'&run='+encodeURIComponent(run));$('code-drawer').hidden=true;sourceRequest++;$('evidence-drawer').hidden=false;const box=$('evidence-body');box.replaceChildren();const m=data.manifest;
- const table=document.createElement('table');for(const [label,value] of [['Stadt',city],['Run-ID',m.run_id||'Nicht dokumentiert'],['Modus',m.mode||m.extraction_mode||'Nicht dokumentiert'],['Status',m.status],['Beginn',m.started_at_utc||m.started_at],['Ende',m.completed_at_utc||m.completed_at],['Manifest-SHA-256',data.manifest_sha256],['Historischer Code','Nicht verfügbar']]){const tr=table.insertRow();cell(tr,label);cell(tr,value)}box.append(table);
- const note=document.createElement('p');note.className='notice';note.textContent=data.note;box.append(note);
- function detail(title,value){const d=document.createElement('details'),summary=document.createElement('summary'),pre=document.createElement('pre');summary.textContent=title;pre.textContent=JSON.stringify(value,null,2);d.append(summary,pre);box.append(d)}
- detail('JSON · Manifest und Nachweiskette',data);
- const jobs=document.createElement('h3');jobs.textContent='Verknüpfte Jobs und Laufprotokolle';box.append(jobs);
- if(!data.jobs.length){const p=document.createElement('p');p.textContent='Job-/Logverknüpfung nicht dokumentiert. Für neue Konsolenimporte wird sie gespeichert.';box.append(p)}
- for(const j of data.jobs){const p=document.createElement('p');p.textContent=j.id+' · '+j.status;box.append(p);detail('Tatsächliche Jobparameter · '+j.id,j.parameters);button(box,'Log öffnen · '+j.id.slice(0,8),async()=>{const response=await api('job-log?id='+encodeURIComponent(j.id));const pre=document.createElement('pre');pre.textContent=response.log;box.append(pre)},!j.log_available)}
- const h=document.createElement('h3');h.textContent='Impact / Release';box.append(h);
- if(!data.impacts.length){const p=document.createElement('p');p.textContent='Keine Weiterverarbeitung über Manifest-Hash nachgewiesen.';box.append(p)}
- for(const i of data.impacts){const p=document.createElement('p');p.textContent='Impact '+i.id+' · '+i.status+' · Release: '+(i.published_release_id||'nicht veröffentlicht');box.append(p);button(box,'Impact öffnen',async()=>{$('evidence-drawer').hidden=true;await showImpact(i)})}
+ const request=++evidenceRequest;
+ const focus=document.activeElement?.dataset.sourceControl;
+ const data=await api('source-evidence?city='+encodeURIComponent(city)+'&run='+encodeURIComponent(run));
+ if(request!==evidenceRequest||$('page-sources').hidden)return;
+ $('code-drawer').hidden=true;sourceRequest++;
+ evidenceFocus=focus;
+ $('source-page-slot').hidden=true;
+ $('evidence-drawer').hidden=false;
+ const box=$('evidence-body'),manifest=data.manifest;
+ box.replaceChildren();
+ const title=$('source-evidence-title');
+ title.textContent='Laufnachweis · '+(manifest.run_id||run.split('/').at(-2));
+ title.focus();
+ const context=element('div',null,'source-controls');
+ context.append(element('strong',(city==='chicago'?'Chicago':'Detroit')+' · '+(manifest.mode||manifest.extraction_mode||'Nicht dokumentiert')),sourceRunStatus(manifest.status));
+ const facts=element('dl',null,'operation-facts');
+ operationFacts(facts,[['Start (Zürich)',dateTime(manifest.started_at_utc||manifest.started_at)],
+  ['Ende (Zürich)',dateTime(manifest.completed_at_utc||manifest.completed_at)]]);
+ box.append(context,facts,element('h3','Verknüpfte Nachweise'));
+ const links=element('ul',null,'source-evidence-links');
+ function addLink(label,action){
+  const item=element('li');
+  if(action)button(item,label,action).className='secondary job-link';
+  else item.append(element('span',label));
+  links.append(item);
+ }
+ for(const job of data.jobs){
+  const visible=operationRows().some(row=>row.id===job.id);
+  addLink('Auftrag · '+job.id+(job.status?' · '+(impactLabels[job.status]||job.status):''),visible?()=>{
+   showPage('operations');
+   document.querySelector('[data-operation-tab="jobs"]').click();
+   openOperation(job.id,true);
+  }:null);
+ }
+ for(const proof of data.impacts){
+  const impact=impactsById.get(proof.id);
+  const canOpen=impact&&revisionsById.has(impact.revision_id);
+  addLink('Impact · '+proof.id,canOpen?()=>showImpact(impact):null);
+  if(proof.published_release_id)addLink('Release · '+proof.published_release_id,canOpen?
+   ()=>openRequest(revisionsById.get(impact.revision_id),impact,'publication'):null);
+ }
+ if(links.childElementCount)box.append(links);
+ else box.append(element('p','Keine verknüpften Nachweise dokumentiert.','muted'));
+ const technical=sourceDisclosure(box,'Manifest und Prüfsumme');
+ technical.append(element('p','Manifest-SHA-256 · '+data.manifest_sha256),element('p',data.note,'muted'),
+  element('pre',JSON.stringify(manifest,null,2)));
+ if(data.jobs.some(job=>job.parameters)){
+  const parameters=sourceDisclosure(box,'Tatsächliche Jobparameter');
+  for(const job of data.jobs.filter(job=>job.parameters))parameters.append(element('h4',job.id),element('pre',JSON.stringify(job.parameters,null,2)));
+ }
+ const logs=sourceDisclosure(box,'Laufprotokoll');
+ if(!data.jobs.some(job=>job.log_available))logs.append(element('p','Kein Laufprotokoll verfügbar.','muted'));
+ for(const job of data.jobs.filter(job=>job.log_available)){
+  const output=element('pre');output.hidden=true;
+  const control=button(logs,'Protokoll laden · '+job.id.slice(0,8),async()=>{
+   control.disabled=true;
+   try{
+    const response=await api('job-log?id='+encodeURIComponent(job.id));
+    output.textContent=response.log;output.hidden=false;control.hidden=true;
+   }catch(error){output.textContent=error.message;output.hidden=false;control.disabled=false}
+  });
+  control.className='secondary';
+  logs.append(output);
+ }
 }
 let gitEnabled=null;
 const gitChanges=new Map(), gitJobs=new Map();
@@ -1505,6 +1694,8 @@ function gitDisplay(revision,impact){
  const matchesImpact=!impact||!change?.impact_id||change.impact_id===impact.id;
  const git=matchesImpact?change:null;
  const job=gitJobs.get(revision.id);
+ if(impact?.status==='WITHDRAWN')return {level:'pending',text:'An Antragsteller retourniert'};
+ if(staleReview(impact,state))return {level:'failed',text:'Prüfbasis hat sich geändert'};
  if(git?.state==='MERGED'&&git.merge_sha){
   return {level:'passed',text:'Merge bestätigt',target:git.evidence?.base_branch||git.base_branch};
  }
@@ -1522,7 +1713,7 @@ function gitDisplay(revision,impact){
  if(gitEnabled===false&&!git)return {level:'pending',text:'Git nicht konfiguriert'};
  if(revision.decision==='reject')return {level:'failed',text:'Antrag abgelehnt'};
  if(revision.decision!=='approve')return {level:'pending',text:'Fachliche Freigabe ausstehend'};
- return {level:'pending',text:'Merge ausstehend'};
+ return {level:'pending',text:'Noch kein Pull Request'};
 }
 
 function renderGitOperations(data){
@@ -1549,7 +1740,7 @@ function requestImpact(r){return impactsById.get(r.impact_id)||latest(r)}
 function requestLane(r,impact){
  if(impact?.status==='PUBLISHED')return 'published';
  const needsWork=['FAILED','BLOCKED','ARCHIVE_PENDING','REJECTED','SUPERSEDED','WITHDRAWN','CANCELLED'];
- if(r.decision==='reject'||state.conflicts?.[r.id]?.blocked||needsWork.includes(impact?.status))return 'rework';
+ if(r.decision==='reject'||staleReview(impact,state)||state.conflicts?.[r.id]?.blocked||needsWork.includes(impact?.status))return 'rework';
  if(!impact||['QUEUED','RUNNING'].includes(impact.status))return 'running';
  return 'review';
 }
@@ -1685,6 +1876,7 @@ $('logout').onclick=()=>{
  }
 };
 function showPage(page,updateHash=true){
+ if(page!=='sources')closeEvidence(false);
  for(const name of ['changes','sources','operations'])$('page-'+name).hidden=page!==name;
  for(const item of document.querySelectorAll('.console-nav [data-page]')){
   if(item.dataset.page===page)item.setAttribute('aria-current','page');
@@ -1750,7 +1942,7 @@ function closeRequest(){
 $('close-request').onclick=closeRequest;
 document.addEventListener('keydown',event=>{
  if(event.key!=='Escape'||$('quality-dialog').open)return;
- if(!$('evidence-drawer').hidden)$('evidence-drawer').hidden=true;
+ if(!$('evidence-drawer').hidden)closeEvidence();
 });
 
 function requestName(revision){
@@ -1786,7 +1978,7 @@ function renderDecision(){
  const blocked=!!state.conflicts?.[r.id]?.blocked;
  const historical=!!selectedImpactId&&selectedImpactId!==impact?.id;
  const canApprove=canReview&&!blocked&&!historical&&impact?.status==='READY'&&hasReport;
- const canRetry=roles.includes('engineer')&&!state.impacts.some(i=>i.revision_id===r.id&&['QUEUED','RUNNING'].includes(i.status));
+ const canRetry=canRetryImpact(r,impact,state.impacts,roles);
  const signature=JSON.stringify([r.id,r.decision,r.reviewer,r.decided_at,impact?.id,impact?.status,canReview,canApprove,canRetry,blocked,historical,own(r)]);
  if(actions.dataset.signature===signature)return;
  actions.dataset.signature=signature;
@@ -1794,7 +1986,8 @@ function renderDecision(){
  maintenance.replaceChildren();
  const status=$('decision-status');
  if(r.decision){
-  status.textContent=(r.decision==='approve'?'Fachlich freigegeben':'Abgelehnt')+' · '+r.reviewer+' · '+dateTime(r.decided_at);
+  const label=impact?.status==='WITHDRAWN'?'An Antragsteller retourniert':r.decision==='superseded'?'Ersetzt':r.decision==='approve'?'Fachlich freigegeben':'Abgelehnt';
+  status.textContent=impact?.status==='WITHDRAWN'?label:label+' · '+r.reviewer+' · '+dateTime(r.decided_at);
  }else{
   status.textContent=blocked?'Konflikt mit einer anderen Änderung. Vor der Freigabe klären.':
    historical?'Dieser Impact-Lauf ist historisch. Für eine Freigabe den aktuellen Lauf prüfen.':
@@ -1812,12 +2005,12 @@ function renderDecision(){
     if(choice==='reject')action.className='secondary';
    }
   }
-  if(roles.includes('engineer')){
+  if(canRetry){
    button(maintenance,'Impact erneut berechnen',async()=>{
     await api('impact-retry',{id:r.id});
     message('Neuer Impact-Lauf eingereiht');
     await refresh();
-   },!canRetry).className='secondary';
+   }).className='secondary';
   }
   if(own(r)){
    button(maintenance,'Auf aktuelle Basis übertragen',async()=>{
@@ -1849,38 +2042,95 @@ function renderArchiveActions(impact){
 }
 function renderRequestPublication(revision){
  const impact=requestImpact(revision);
- const signature=JSON.stringify([revision,impact?.status,impact?.published_release_id,operationsData,state.roles,state.operator]);
+ const stale=staleReview(impact,state);
+ const replacement=(state.release_events||[]).find(e=>e.revision_id===revision.id&&e.action==='PROPOSAL_REBASED');
+ const signature=JSON.stringify([revision,impact?.status,impact?.published_release_id,stale,replacement,operationsData,state.roles,state.operator]);
  if($('request-git-actions').dataset.signature===signature)return;
  $('request-git-actions').dataset.signature=signature;
  renderRequestGit(revision);
  const flow=$('publication-flow');flow.replaceChildren();
  const changeState=gitChanges.get(revision.id)?.state;
- for(const [label,done] of [['Fachliche Freigabe',revision.decision==='approve'],['Pull Request',!!gitChanges.get(revision.id)?.url],['Git-Merge',changeState==='MERGED'],['Datenrelease',impact?.status==='PUBLISHED']]){const item=element('li',tr(label));item.dataset.done=String(done);item.append(element('small',tr(done?'Abgeschlossen':'Ausstehend')));flow.append(item)}
+ for(const [label,done] of [['Fachliche Freigabe',revision.decision==='approve'&&impact?.status!=='WITHDRAWN'],['Pull Request',!!gitChanges.get(revision.id)?.url],['Git-Merge',changeState==='MERGED'],['Datenrelease',impact?.status==='PUBLISHED']]){const item=element('li',tr(label));item.dataset.done=String(done);item.append(element('small',tr(done?'Abgeschlossen':'Ausstehend')));flow.append(item)}
  const status=$('request-release-status');
  if(impact?.status==='PUBLISHED')status.textContent='Veröffentlicht'+(impact.published_release_id?' · '+impact.published_release_id:'');
  else status.textContent=impactLabels[impact?.status]||'Publikation ausstehend';
  const git=$('request-git-actions');
  git.replaceChildren();
+ const feedback=$('request-git-feedback');
+ const showFeedback=(title,detail,returned=false)=>{
+  feedback.replaceChildren(element('strong',title),element('p',detail));
+  feedback.dataset.state=returned?'returned':'error';
+  feedback.hidden=false;
+ };
+ feedback.replaceChildren();
+ feedback.hidden=true;
  if(['mapping','settings'].includes(revision.resource)){
   const change=gitChanges.get(revision.id),job=gitJobs.get(revision.id);
   const action=publicationAction(revision,impact,change,job,gitEnabled,state.roles||[],state.operator);
-  $('request-git-reason').disabled=!action;
-  $('request-git-reason').hidden=!action;document.querySelector('label[for="request-git-reason"]').hidden=!action;
+  const blocked=stale||impact?.status==='WITHDRAWN'||!!replacement;
+  $('request-git-reason').disabled=!action||blocked;
+  $('request-git-reason').hidden=!action&&!blocked;document.querySelector('label[for="request-git-reason"]').hidden=$('request-git-reason').hidden;
   if($('request-git-reason').dataset.revision!==revision.id){$('request-git-reason').value='';$('request-git-reason').dataset.revision=revision.id}
-  if(action){const label=action==='git-open'?'Commit / Branch / PR erstellen':change?.state==='MERGED_UNVERIFIED'?'Merge erneut prüfen':'Geprüften PR mergen';button(git,label,()=>queueOperation(action,revision.id,$('request-git-reason').value,label))}
+  if(action||blocked){
+   const label=action==='git-merge'?(change?.state==='MERGED_UNVERIFIED'?'Merge erneut prüfen':'Geprüften PR mergen'):'Pull Request anfordern';
+   button(git,label,async()=>{
+    const field=$('request-git-reason');
+    if(!field.value.trim()){
+     showFeedback('Begründung erforderlich','Bitte gib eine Begründung ein.');
+     field.focus();
+     return;
+    }
+    try{await queueOperation(action,revision.id,field.value,label)}
+    catch(error){if(selectedRevision===revision.id)showFeedback('Git-Auftrag fehlgeschlagen',error.message)}
+   },!action||blocked);
+  }
+  if(replacement){
+   showFeedback('An Antragsteller retourniert','Der Antragsteller hat die Neuberechnung des Impacts auf aktueller Prüfbasis bereits ausgelöst.',true);
+   const newId=operationPayload({payload:replacement.evidence})?.new_revision_id;
+   if(revisionsById.has(newId))button(feedback,'Neuen Vorschlag öffnen',()=>openRequest(revisionsById.get(newId)));
+  }else if(stale||impact?.status==='WITHDRAWN'){
+   showFeedback(stale?'Prüfbasis hat sich geändert':'An Antragsteller retourniert',
+    stale?'Der aktive Datenstand oder die Konfiguration weicht vom geprüften Stand ab.':'Die fachliche Freigabe wurde zurückgezogen.',!stale);
+   if(own(revision)&&state.roles.includes('engineer')){
+    if(stale&&change)feedback.append(element('p','Ein Reviewer muss den bestehenden Git-Vorgang zuerst zurückziehen.'));
+    else{
+     const transferActions=element('div',null,'transfer-actions');
+     const transfer=button(transferActions,'Vorschlag auf aktuelle Basis übertragen',async()=>{
+      const reason=prompt(tr('Begründung für den Vorschlag auf aktueller Basis'));
+      if(!reason)return;
+      try{
+       const response=await api('rebase',{id:revision.id,reason});
+       await refresh();
+       const next=revisionsById.get(response.result);
+       if(selectedRevision===revision.id&&next)await openRequest(next);
+      }catch(error){message(error.message)}
+     },['QUEUED','RUNNING'].includes(job?.status));
+     const hint=element('small',null,'action-hint');
+     hint.id='transfer-impact-hint';
+     const icon=element('span','ⓘ','action-hint-icon');
+     icon.setAttribute('aria-hidden','true');
+     hint.append(icon,element('span','Der Impact wird automatisch neu berechnet.'));
+     transfer.setAttribute('aria-describedby',hint.id);
+     transferActions.append(hint);
+     feedback.append(transferActions);
+    }
+   }
+  }else if(job?.status==='FAILED'){
+   showFeedback('Git-Auftrag fehlgeschlagen',operationPayload({payload:job.result})?.error||'Git-Protokoll');
+  }
   const facts=$('request-git-facts');operationFacts(facts,[['Quellbranch',change?.branch],['Zielbranch',change?.evidence?.base_branch||change?.base_branch],['PR-Commit',change?.commit_sha],['Merge-Commit',change?.merge_sha]]);
   if(change?.url?.startsWith('https://github.com/')){const link=element('a',change.number?'Pull Request #'+change.number:'Pull Request öffnen');link.href=change.url;link.target='_blank';link.rel='noopener noreferrer';facts.append(link)}
   const log=$('request-git-log'),rows=(operationsData?.operations||[]).filter(op=>op.kind.startsWith('git-')&&operationPayload(op).id===revision.id),signature=JSON.stringify(rows);
   if(log.dataset.signature!==signature){log.dataset.signature=signature;operationLog(log,rows)}
  }
  if(impact?.status==='AWAITING_GIT'&&(state.roles||[]).includes('reviewer')&&!own(revision)){
-  button(git,'Freigabe zurückziehen',async()=>{
+  button(stale?feedback:git,stale?'Workflow an Antragsteller retournieren':'Freigabe zurückziehen',async()=>{
    const reason=prompt(tr('Begründung für die Rücknahme der Freigabe'));
    if(!reason)return;
    await api('git-withdraw',{id:revision.id,reason});
    message('Rücknahme zur Prüfung eingereiht');
    await refresh();
-  }).className='secondary';
+  },['QUEUED','RUNNING'].includes(gitJobs.get(revision.id)?.status)).className='secondary';
  }
  const publish=$('request-publish-action');
  publish.replaceChildren();
@@ -2007,39 +2257,361 @@ async function openRequest(revision,impact=requestImpact(revision),tab='impact')
  await api('review-read',{id:revision.id});
  if(version===requestVersion)await refreshInbox();
 }
-function renderJobs(){
- const jobs=$('jobs');
- const signature=JSON.stringify(state.jobs.map(job=>[job.id,job.status,job.started_at,job.finished_at,job.log_path,impactsById.get(job.id)?.status]));
- if(jobs.dataset.signature===signature&&jobs.rows.length===state.jobs.length)return;
- jobs.dataset.signature=signature;
- jobs.replaceChildren();
- for(const job of state.jobs){
-  const row=jobs.insertRow();
+const operationTypes={
+ rebuild:'Datenkandidat bauen',replay:'Reproduzierbarkeit prüfen',impact:'Impact-Analyse',
+ source:'Quellimport',checks:'Qualitätsprüfung',batch:'Gesamtimport',
+ serving:'Analyse-Bereitstellung',backup:'Sicherung','archive-retry':'Impact archivieren'
+};
+const sourceJobs={
+ daily_chicago:['Chicago','Delta-Load'],full_chicago:['Chicago','Full-Load'],
+ delta_detroit:['Detroit','Delta-Load'],full_detroit:['Detroit','Full-Load'],
+ daily_detroit:['Detroit','Tagesimport (Legacy)']
+};
+let selectedJob=null, operationPage=0;
+const operationPageSize=12;
+const openOperationStages=new Set();
+function operationRows(){
+ const operations=(operationsData?.operations||[]).filter(op=>!op.kind.startsWith('git-'));
+ const batchByChild=new Map(operations.filter(op=>op.kind==='batch').map(op=>[
+  operationPayload({payload:op.result}).impact_id,op
+ ]));
+ const jobs=state.jobs.map(job=>{
   const impact=impactsById.get(job.id);
-  const label=cell(row,'');
-  label.append(element('strong',(impact?'ETL-Pipeline · ':'')+job.name));
-  label.append(element('br'),element('small',job.id));
-  cell(row,dateTime(job.started_at));
-  cell(row,dateTime(job.finished_at));
-  const status=element('span',null,'pill');
-  showPill(status,impact?.status||job.status);
-  cell(row,'').append(status);
-  const actions=cell(row,'');
   const revision=revisionsById.get(impact?.revision_id);
-  if(revision)button(actions,'Review öffnen',async()=>{
-   await openRequest(revision,impact);
-   $('request-drawer').scrollIntoView({block:'start'});
-  }).className='secondary';
-  button(actions,'Details',()=>{
-   const result=job.result?JSON.parse(job.result):{note:'Noch kein Ergebnis'};
-   showJobEvidence('Auftragsdetails · '+job.name,JSON.stringify(result,null,2));
-  }).className='secondary';
-  button(actions,'Log',async()=>{
-   const response=await api('job-log?id='+encodeURIComponent(job.id));
-   showJobEvidence('Laufprotokoll · '+job.name,response.log);
-  },!job.log_path).className='secondary';
+  const spec=operationPayload({payload:job.spec});
+  const payload=operationPayload({payload:revision?.payload});
+  const kind=sourceJobs[spec.task]?'source':revision?.resource==='data'?
+   (spec.expect_identical?'replay':'rebuild'):impact?'impact':spec.task||'other';
+  const parent=batchByChild.get(job.id);
+  const origin=parent||payload.origin==='batch'?'Nach erfolgreichem Gesamtimport':
+   job.slot?'Durch Zeitplan':revision&&revision.resource!=='data'?'Durch Änderungsvorschlag':impact&&!revision?'Keine Angaben zum Auslöser':'Manuell gestartet';
+  const title=sourceJobs[spec.task]?.join(' · ')||operationTypes[kind]||job.name;
+  return {...job,kind,title,origin,parent:parent?.id,impact,revision,
+   state:impact?.status||job.status,queued:job.queued_at};
+ });
+ return [...jobs,...operations.map(op=>{
+  const payload=operationPayload(op);
+  return {...op,title:operationTypes[op.kind]||op.kind,state:op.status,queued:op.created_at,
+   origin:op.kind==='batch'&&payload.slot?'Durch Zeitplan':'Manuell gestartet',
+   child:op.kind==='batch'?operationPayload({payload:op.result}).impact_id:null};
+ })].sort((a,b)=>String(b.queued||'').localeCompare(String(a.queued||'')));
+}
+function updateOperationOptions(select,options){
+ const signature=JSON.stringify(options);
+ if(select.dataset.signature===signature)return;
+ const previous=select.value;
+ select.dataset.signature=signature;
+ select.replaceChildren();
+ for(const [value,label] of options){
+  const option=element('option',label);
+  option.value=value;
+  select.append(option);
+ }
+ if(options.some(([value])=>value===previous))select.value=previous;
+}
+function openOperation(id,clearFilters=false){
+ selectedJob=id;
+ if(clearFilters){
+  $('operation-status-filter').value='';
+  $('operation-type-filter').value='';
+  operationPage=0;
+ }
+ renderJobs(true,true);
+}
+function operationStatus(status){
+ const badge=element('span',null,'pill');
+ showPill(badge,status);
+ if(['QUEUED','RUNNING'].includes(status))badge.dataset.tone='info';
+ if(status==='RUNNING')badge.textContent='Läuft';
+ if(status==='FAILED')badge.textContent='Fehlgeschlagen';
+ return badge;
+}
+function featuredEtlJobs(rows){
+ const etl=rows.filter(job=>job.impact);
+ const running=etl.filter(job=>job.status==='RUNNING');
+ if(running.length)return running;
+ const last=etl.filter(job=>job.finished_at).reduce((latest,job)=>
+  !latest||Date.parse(job.finished_at)>Date.parse(latest.finished_at)?job:latest,null);
+ return last?[last]:[];
+}
+function etlOverview(job){
+ const stages=impactPhases.map(([name,keys])=>({name,values:keys.map(key=>job.progress?.steps?.[key]?.status)}));
+ const error=stages.find(stage=>stage.values.some(status=>['FAILED','BLOCKED'].includes(status)));
+ const running=stages.find(stage=>stage.values.includes('RUNNING'));
+ const complete=stages.filter(stage=>stage.values.length&&stage.values.every(status=>status==='SUCCEEDED')).at(-1);
+ if(error||['FAILED','BLOCKED','CANCELLED'].includes(job.status)||['FAILED','BLOCKED','CANCELLED'].includes(job.state))
+  return {level:'failed',label:'ETL fehlgeschlagen',step:error?.name||running?.name||complete?.name};
+ if(job.status==='RUNNING'){
+  const done=running?.values.filter(status=>status==='SUCCEEDED').length;
+  const total=running?.values.length;
+  return {level:'pending',label:'ETL läuft',step:running?.name,done,total};
+ }
+ if(job.status==='QUEUED')return {level:'pending',label:'ETL eingereiht'};
+ if(['SUCCEEDED','AWAITING_REVIEW','PUBLISHED'].includes(job.status)||complete?.name==='Impact')
+  return {level:'passed',label:'ETL abgeschlossen',step:complete?.name};
+ return {level:'',label:job.state==='ARCHIVE_PENDING'?'Archivierung ausstehend':'ETL-Status unbekannt',step:complete?.name};
+}
+function renderRunningJobs(rows){
+ const featured=featuredEtlJobs(rows);
+ const queued=rows.filter(job=>job.impact&&job.status==='QUEUED');
+ const displayed=featured.length?[...featured,...queued]:queued;
+ const host=$('running-etl-jobs');
+ const running=displayed.filter(job=>job.status==='RUNNING');
+ const first=featured[0];
+ $('running-etl').hidden=false;
+ const title=running.length===1?'Laufender ETL-Auftrag':running.length?'Laufende ETL-Aufträge':
+  first?'Letzter beendeter ETL-Auftrag':queued.length?'ETL-Aufträge eingereiht':'ETL-Pipeline';
+ const heading=$('running-etl-title');
+ if(heading.textContent!==tr(title))heading.textContent=title;
+ const signature=JSON.stringify([state.active_release_id,displayed.map(job=>[job.id,job.title,job.status,job.state,
+  job.started_at,job.finished_at,job.impact.baseline_release_id,job.impact.candidate_release_id,job.impact.published_release_id,job.progress])]);
+ if(host.dataset.signature!==signature){
+  host.dataset.signature=signature;
+  host.replaceChildren();
+  if(!displayed.length)host.append(element('p','Kein ETL-Auftrag vorhanden.'));
+  for(const job of displayed){
+   const overview=etlOverview(job);
+   const item=element('div',null,'etl-summary');
+   const header=element('div',null,'etl-summary-header');
+   header.append(gitIndicator({level:overview.level,text:overview.label}));
+   if(overview.step)header.append(element('strong',overview.step));
+   if(overview.total>1){
+    const progress=element('span',null,'etl-module-progress');
+    const caption=element('span');
+    caption.append(String(overview.done),' ',element('span','von'),' ',String(overview.total),' ',
+     element('span','Modulen'),' · '+Math.round(100*overview.done/overview.total)+' %');
+    const segments=element('span',null,'etl-module-segments');
+    segments.setAttribute('aria-hidden','true');
+    for(let index=0;index<overview.total;index++){
+     const segment=element('span');
+     if(index<overview.done)segment.dataset.done='';
+     segments.append(segment);
+    }
+    progress.append(caption,segments);
+    header.append(progress);
+   }
+   const clock=element('span');
+   clock.dataset.etlDuration=job.id;
+   header.append(clock);
+   if(job.state!==job.status||job.status==='AWAITING_REVIEW')header.append(operationStatus(job.state));
+   button(header,'Auftragsdetails öffnen',()=>openOperation(job.id,true)).className='secondary';
+   const facts=element('dl',null,'operation-facts etl-summary-facts');
+   operationFacts(facts,[['Auftrag',job.title+' · '+job.id.slice(0,8)],['Start (Zürich)',dateTime(job.started_at)],
+    ['Ende (Zürich)',dateTime(job.finished_at)],['Prüfbasis',job.impact.baseline_release_id],['Kandidat',job.impact.candidate_release_id],
+    ['Aktiver Release',state.active_release_id],['Release aus diesem Lauf',job.state==='PUBLISHED'?job.impact.published_release_id:'Noch nicht veröffentlicht']]);
+   item.append(header,facts);
+   host.append(item);
+  }
+ }
+ const byId=new Map(displayed.map(job=>[job.id,job]));
+ for(const clock of host.querySelectorAll('[data-etl-duration]')){
+  const job=byId.get(clock.dataset.etlDuration);
+  const elapsed=duration(job.started_at,job.status==='RUNNING'?new Date().toISOString():job.finished_at);
+  const caption=tr('Laufzeit')+' '+elapsed;
+  if(clock.textContent!==caption)clock.textContent=caption;
  }
 }
+function renderOperationDetail(job,rows,focus){
+ const host=$('operation-detail');
+ const signature=JSON.stringify([job,state.active_release_id,rows.some(row=>row.id===job?.parent),rows.some(row=>row.id===job?.child)]);
+ if(host.dataset.signature===signature&&!focus){
+  if(job?.status==='RUNNING'){
+   const elapsed=$('operation-duration');
+   if(elapsed)elapsed.textContent=duration(job.started_at,new Date().toISOString());
+   const steps=$('operation-pipeline');
+   if(steps)pipelineStages(steps,job,job.impact);
+  }
+  return;
+ }
+ host.dataset.signature=signature;
+ host.replaceChildren();
+ if(!job){host.append(element('p','Wähle einen Auftrag aus.'));return}
+ const heading=element('h2',job.title);
+ heading.tabIndex=-1;
+ host.append(heading,operationStatus(job.state));
+ const facts=element('dl',null,'operation-facts');
+ const factsRows=[['Auftrags-ID',job.id],['Auslöser',job.origin],['Eingereiht (Zürich)',dateTime(job.queued)],
+  ['Start (Zürich)',dateTime(job.started_at)],['Ende (Zürich)',dateTime(job.finished_at)],
+  ['Laufzeit',duration(job.started_at,job.status==='RUNNING'?new Date().toISOString():job.finished_at)]];
+ if(job.impact)factsRows.push(['Prüfbasis des Laufs',job.impact.baseline_release_id],
+  ['Aktiver Release',state.active_release_id],['Kandidat',job.impact.candidate_release_id],
+  ['Release aus diesem Lauf',job.impact.status==='PUBLISHED'?job.impact.published_release_id:'Noch nicht veröffentlicht']);
+ operationFacts(facts,factsRows);
+ facts.children[2*factsRows.findIndex(([label])=>label==='Laufzeit')+1].id='operation-duration';
+ host.append(facts);
+ if(job.impact||job.progress){
+  const stages=element('details');
+  stages.open=openOperationStages.has(job.id);
+  stages.ontoggle=()=>{
+   if(!stages.isConnected)return;
+   if(stages.open)openOperationStages.add(job.id);
+   else openOperationStages.delete(job.id);
+  };
+  stages.append(element('summary',job.impact?'ETL-Stufen':'Verarbeitungsfortschritt'));
+  const steps=element('ol',null,'pipeline-steps');
+  steps.id='operation-pipeline';
+  stages.append(steps,element('p','Letzter Schrittnachweis: '+dateTime(job.progress?.updated_at)+' · Zürich','muted'));
+  host.append(stages);
+  pipelineStages(steps,job,job.impact);
+ }
+ const result=operationPayload({payload:job.result});
+ const failure=operationPayload({payload:job.impact?.error});
+ const reason=result.error||failure.error;
+ if(reason){
+  const warning=element('p',String(reason),'notice');
+  warning.setAttribute('translate','no');
+  host.append(warning);
+ }
+ const actions=element('div',null,'operation-detail-actions');
+ if(job.revision)button(actions,'Antrag öffnen',()=>openRequest(job.revision,job.impact)).className='secondary';
+ for(const [id,label] of [[job.parent,'Gesamtimport öffnen'],[job.child,'Nachfolgenden Datenkandidaten öffnen']]){
+  if(id&&rows.some(row=>row.id===id))button(actions,label,()=>openOperation(id,true)).className='secondary';
+ }
+ if(job.log_path||(job.kind==='batch'&&result.log_path))button(actions,'Laufprotokoll öffnen',async()=>{
+  const response=await api('job-log?id='+encodeURIComponent(job.id));
+  showJobEvidence('Laufprotokoll · '+job.title,response.log);
+ }).className='secondary';
+ if(actions.childElementCount)host.append(actions);
+ if(job.result||job.impact?.status==='PUBLISHED'){
+  const evidence=element('details');
+  evidence.open=host.dataset.openEvidence===job.id;
+  evidence.ontoggle=()=>{if(evidence.isConnected)host.dataset.openEvidence=evidence.open?job.id:''};
+  evidence.append(element('summary',job.impact?.status==='PUBLISHED'?'Release-Nachweis':'Technische Details'));
+  if(job.impact?.status==='PUBLISHED'){
+   const proof=element('dl',null,'operation-facts');
+   operationFacts(proof,[['Veröffentlichter Release',job.impact.published_release_id],['Impact-Lauf',job.impact.id],['Bericht SHA-256',job.impact.report_hash]]);
+   evidence.append(proof);
+  }
+  if(job.result)evidence.append(element('pre',JSON.stringify(result,null,2)));
+  host.append(evidence);
+ }
+ if(focus)heading.focus();
+}
+function renderJobs(force=false,focus=false){
+ if(!state)return;
+ const rows=operationRows();
+ renderRunningJobs(rows);
+ const status=$('operation-status-filter'),type=$('operation-type-filter');
+ updateOperationOptions(status,[['','Alle'],...new Set(rows.map(row=>row.state))].map(item=>
+  Array.isArray(item)?item:[item,item==='RUNNING'?'Läuft':item==='FAILED'?'Fehlgeschlagen':impactLabels[item]||item]));
+ updateOperationOptions(type,[['','Alle'],...new Set(rows.map(row=>row.kind))].map(item=>
+  Array.isArray(item)?item:[item,operationTypes[item]||item]));
+ const visible=rows.filter(row=>(!status.value||status.value===row.state)&&(!type.value||type.value===row.kind));
+ const selected=visible.find(row=>row.id===selectedJob);
+ const preferred=featuredEtlJobs(visible)[0];
+ const total=Math.ceil(visible.length/operationPageSize);
+ operationPage=Math.max(0,Math.min(total-1,operationPage));
+ if(focus&&selected)operationPage=Math.floor(visible.indexOf(selected)/operationPageSize);
+ const items=visible.slice(operationPage*operationPageSize,(operationPage+1)*operationPageSize);
+ const current=selected||(!operationPage&&preferred)||items[0];
+ const list=$('jobs');
+ const signature=JSON.stringify([current?.id,items.map(row=>[row.id,row.state,row.started_at,row.finished_at,row.title])]);
+ if(force||list.dataset.signature!==signature){
+  list.dataset.signature=signature;
+  list.replaceChildren();
+  for(const job of items){
+   const row=list.insertRow();
+   if(job.id===current?.id)row.setAttribute('aria-current','true');
+   const label=cell(row,'');
+   button(label,job.title,()=>openOperation(job.id)).className='job-link';
+   label.append(element('br'),element('small',job.id.slice(0,12),'muted'));
+   cell(row,'').append(operationStatus(job.state));
+   cell(row,dateTime(job.started_at));
+   cell(row,dateTime(job.finished_at));
+  }
+ }
+ $('operations-empty').hidden=visible.length>0;
+ $('operation-pages').hidden=total<=1;
+ $('operation-prev').disabled=operationPage===0;
+ $('operation-next').disabled=operationPage>=total-1;
+ $('operation-page').textContent=tr('Seite','Page')+' '+(operationPage+1)+' / '+total;
+ renderOperationDetail(current,rows,focus);
+}
+for(const id of ['operation-status-filter','operation-type-filter']){
+ $(id).onchange=()=>{operationPage=0;renderJobs(true)};
+}
+$('operation-prev').onclick=()=>{operationPage--;renderJobs(true)};
+$('operation-next').onclick=()=>{operationPage++;renderJobs(true)};
+
+function jobStartGroups(){
+ const groups=new Map();
+ for(const job of state.settings.payload.jobs){
+  const kind=sourceJobs[job.task]?'source':job.task;
+  if(!groups.has(kind))groups.set(kind,[]);
+  groups.get(kind).push(job);
+ }
+ return groups;
+}
+function jobStartSelect(label,values,change){
+ const field=element('label',label);
+ const select=element('select');
+ updateOperationOptions(select,values);
+ select.onchange=change;
+ field.append(select);
+ $('job-start-fields').append(field);
+ return select;
+}
+let startJobName=null, submittingJob=false;
+function renderJobStart(kind,city){
+ const groups=jobStartGroups();
+ kind=groups.has(kind)?kind:groups.keys().next().value;
+ const fields=$('job-start-fields');
+ fields.replaceChildren();
+ const kindSelect=jobStartSelect('Auftragstyp',[...groups.keys()].map(key=>[key,operationTypes[key]||key]),
+  event=>{renderJobStart(event.target.value);$('job-start-fields').querySelector('select')?.focus()});
+ if(kind)kindSelect.value=kind;
+ let candidates=groups.get(kind)||[];
+ if(kind==='source'){
+  const cities=[...new Set(candidates.map(job=>sourceJobs[job.task][0]))];
+  city=cities.includes(city)?city:cities[0];
+  const citySelect=jobStartSelect('Stadt',cities.map(value=>[value,value]),event=>{renderJobStart(kind,event.target.value);$('job-start-fields').querySelectorAll('select')[1]?.focus()});
+  citySelect.value=city;
+  candidates=candidates.filter(job=>sourceJobs[job.task][0]===city);
+ }
+ const description=element('p',null,'muted');
+ function display(job){
+  startJobName=job?.name;
+  $('job-enqueue').disabled=!job||submittingJob;
+  const text=kind==='source'?'Lädt Quelldaten nach Raw/Bronze. Ein Datenkandidat kann danach separat gebaut werden.':
+   kind==='rebuild'?'Baut aus den geladenen Bronze-Daten einen Kandidaten zur fachlichen Prüfung.':
+   kind==='replay'?'Prüft, ob der aktive Release reproduzierbar ist.':'Prüft den verfügbaren Datenstand.';
+  const parameters=job?.years?.join(', ')||job?.year;
+  description.replaceChildren(element('span',text));
+  if(kind==='source'&&parameters)description.append(element('br'),element('span',tr('Konfigurierte Jahre')+' · '+parameters));
+ }
+ if(kind==='source'||candidates.length>1){
+  const values=candidates.map(job=>[job.name,kind==='source'?sourceJobs[job.task][1]+' · '+job.name:job.name]);
+  const selector=jobStartSelect(kind==='source'?'Ladeart':'Auftrag',values,event=>display(candidates.find(job=>job.name===event.target.value)));
+  display(candidates.find(job=>job.name===selector.value));
+ }else display(candidates[0]);
+ fields.append(description);
+}
+$('job-start').onclick=()=>{
+ $('job-start-error').hidden=true;
+ renderJobStart('rebuild');
+ $('job-start-dialog').showModal();
+};
+$('job-submit').onsubmit=async event=>{
+ event.preventDefault();
+ if(submittingJob||!startJobName)return;
+ submittingJob=true;
+ $('job-enqueue').disabled=true;
+ const error=$('job-start-error');
+ error.hidden=true;
+ try{
+  const response=await api('job',{name:startJobName});
+  $('job-start-dialog').close();
+  message('Auftrag eingereiht: '+response.result);
+  await refresh();
+  openOperation(response.result,true);
+ }catch(failure){
+  if($('job-start-dialog').open){error.textContent=failure.message;error.hidden=false}
+  else message(failure.message);
+ }finally{
+  submittingJob=false;
+  $('job-enqueue').disabled=!startJobName;
+ }
+};
 function showJobEvidence(title,content){
  $('job-dialog-title').textContent=title;
  $('job-dialog-content').textContent=content;
@@ -2048,7 +2620,7 @@ function showJobEvidence(title,content){
 
 startConsoleLanguages();
 $('city').onchange=()=>safe(loadCodes);$('code').oninput=codeInfo;$('refresh').onclick=()=>safe(async()=>{$('jobs').replaceChildren();await refresh()});safe(async()=>{await refresh();const iid=new URLSearchParams(location.search).get('impact');if(iid){const row=state.impacts.find(i=>i.id===iid);if(row)await showImpact(row);else message('Impact-Lauf nicht gefunden')}});
-</script><aside id="evidence-drawer" role="dialog" aria-label="Laufnachweis" hidden><button onclick="this.parentElement.hidden=true">Schliessen</button><h2>Laufnachweis</h2><div id="evidence-body"></div></aside></body></html>
+</script></body></html>
 <!-- Feather Icons license:
 The MIT License (MIT)
 

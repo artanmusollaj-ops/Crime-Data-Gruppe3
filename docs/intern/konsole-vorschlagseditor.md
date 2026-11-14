@@ -131,7 +131,7 @@ Das **Git-Protokoll** enthält nur Betriebsaufträge dieses Antrags; Ergebnisse
 lassen sich einzeln aufklappen. Es zeigt den vorhandenen Auftragsnachweis, kein
 vollständiges GitHub-Ereignisprotokoll und keine zusätzlich abgefragte CI-Zusage.
 
-- Nach fachlicher Freigabe kann ein Engineer **Commit / Branch / PR erstellen**.
+- Nach fachlicher Freigabe kann ein Engineer **Pull Request anfordern**.
 - Bei offenem PR kann ein Release-Manager als zweite Person **Geprüften PR
   mergen**. Die bestehende serverseitige Prüfung von CI, Basis und Commit bleibt
   massgebend; ein offener PR allein bedeutet nicht, dass CI erfolgreich ist.
@@ -141,10 +141,31 @@ vollständiges GitHub-Ereignisprotokoll und keine zusätzlich abgefragte CI-Zusa
 - Eine Begründung und die Bestätigung des protokollierten Auftrags sind nötig.
   Freigabe zurückziehen und genehmigte Publikation fortsetzen bleiben erhalten.
 
+Wenn sich der aktive Release oder die Konfigurationsbasis nach dem Review
+ändert, erklärt **Veröffentlichung** die Sperre direkt bei den Git-Aktionen.
+Ein Reviewer kann den **Workflow an Antragsteller retournieren**. Der Worker
+zieht die Freigabe zurück und schliesst gegebenenfalls den bestehenden PR.
+Der Antragsteller kann den **Vorschlag auf aktuelle Basis übertragen**. Für die
+neue Revision wird automatisch ein Impact eingereiht. Ohne bestehenden
+Git-Vorgang hebt die Übertragung die veraltete Freigabe im selben
+Datenbankschritt auf. Mit einem bestehenden Git-Vorgang muss zuerst der Reviewer
+retournieren. Die frühere Entscheidung bleibt im Nachweis, und der neue Antrag
+braucht eine eigene fachliche Freigabe. **Impact erneut berechnen** erscheint
+bei einer fehlgeschlagenen Impact-Berechnung eines noch offenen Antrags.
+
 **Betrieb** enthält drei Ansichten, die ohne Seitenwechsel umschalten:
 
-1. **Aufträge:** bestehende ETL-Pipeline, Quellimporte und Rebuilds sowie
-   Betriebsaufträge und aufklappbarer technischer Dienstestatus.
+1. **Aufträge:** Oberhalb der Filter stehen laufende ETL-Aufträge oder der
+   zuletzt beendete ETL-Auftrag. Die Ampel zeigt den Laufstatus. Der segmentierte
+   Balken zeigt den Fortschritt der aktuellen Stufe, wenn ein Modulzähler
+   vorliegt. **ETL-Stufen** öffnet die vollständige Stufenansicht. Die
+   gemeinsame Liste lässt sich nach Status und
+   Typ filtern und seitenweise durchsuchen. Die Auftragsdetails zeigen Auslöser,
+   Start und Ende sowie bei Kandidaten die Prüfbasis, den aktiven Release und
+   den veröffentlichten Release dieses Laufs. Bei älteren Betriebsaufträgen ohne
+   erfasste Startzeit steht **—**. **Auftrag starten** führt zur
+   Auftragsauswahl. Beim Quellimport folgen Stadt und Ladeart. **Datenkandidat
+   bauen** verwendet die bereits geladenen Bronze-Daten.
 2. **Analyse-Bereitstellung:** aktiver Release, zuletzt erfolgreich bereitgestellter
    Release und letzte Statusmeldung. Nur `SUCCEEDED` für genau den aktiven Release
    wird als bereit dargestellt. Ein alter erfolgreicher Stand, `PARTIAL`, `RUNNING`
@@ -157,8 +178,8 @@ vollständiges GitHub-Ereignisprotokoll und keine zusätzlich abgefragte CI-Zusa
    Archivschlüssel und SHA-256 aus dem vorhandenen Nachweis. Die UI behauptet
    keinen automatischen Auslöser, da dieser im Sicherungsnachweis nicht steht.
    Unter **Manuelle Sicherung** kann ein Operator den Konsolenzustand sichern.
-   Laufende oder fehlgeschlagene Sicherungsaufträge bleiben neben dem früheren
-   Erfolgsnachweis erkennbar. Die Wiederherstellung bleibt das bestehende
+   Der letzte Sicherungsauftrag steht separat neben dem früheren
+   Erfolgsnachweis. Die Wiederherstellung bleibt das bestehende
    kontrollierte Offline-Verfahren; es gibt keinen neuen Restore-Endpunkt.
 
 Die Sicherung umfasst die Kontrolldatenbank, Konfigurationsrevisionen,
@@ -167,12 +188,19 @@ Verwaltungsmarker und lokale Release-Verzeichnisse. Auftragsverzeichnisse könne
 Kandidateneingaben enthalten. Sie ist **keine vollständige Sicherung aller
 Quelldaten oder des Servers**.
 
+Unter **Quellläufe** lässt sich die Importhistorie von Chicago und Detroit
+seitenweise öffnen. Der **Laufnachweis** zeigt Status, Start, Ende und belegte
+Verknüpfungen. **Aktuelle Ladelogik**, **Manifest und Prüfsumme**,
+**Tatsächliche Jobparameter** und **Laufprotokoll** lassen sich bei Bedarf
+aufklappen.
+
 Alle Ansichten unterstützen DE/EN. Begründungen bleiben bei Tabwechsel,
 Sprachwechsel und Statusaktualisierung erhalten, aber nicht nach einem kompletten
 Neuladen. Beim Wechsel des Antrags wird dessen Git-Begründungsfeld geleert.
 Unveränderte Betriebsdaten werden beim Polling nicht neu aufgebaut; geöffnete
 Protokolle bleiben bei unverändertem Inhalt offen. Die vorhandene API liefert
-höchstens die letzten 100 Betriebsaufträge; die UI ist kein Langzeitarchiv.
+höchstens je 100 ETL- beziehungsweise Betriebsaufträge. Die Seitennavigation
+arbeitet innerhalb dieser geladenen Einträge.
 
 ### Technische Abgrenzung und Prüfung
 

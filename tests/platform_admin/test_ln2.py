@@ -222,7 +222,10 @@ def test_operations_deduplicate_and_preserve_failure(store, monkeypatch):
     )
     result = operations.run_operation(store)
     assert result["id"] == oid and result["status"] == "FAILED"
-    assert "secret-value" not in json.dumps(operations.overview(store))
+    overview = operations.overview(store)
+    row = overview["operations"][0]
+    assert row["created_at"] <= row["started_at"] <= row["finished_at"]
+    assert "secret-value" not in json.dumps(overview)
 
 
 def test_running_operation_needs_explicit_recovery(store):
@@ -233,6 +236,24 @@ def test_running_operation_needs_explicit_recovery(store):
         operations.run_operation(store)
     operations.recover(store, oid, "operator", "Process confirmed stopped")
     assert operations.overview(store)["operations"][0]["status"] == "FAILED"
+
+
+def test_operation_start_time_migration_preserves_older_jobs(store):
+    with store.db() as c:
+        c.execute(
+            """CREATE TABLE operation(
+                id TEXT PRIMARY KEY, kind TEXT, payload TEXT, actor TEXT, reason TEXT,
+                status TEXT, created_at TEXT, finished_at TEXT, result TEXT
+            )"""
+        )
+        c.execute(
+            "INSERT INTO operation(id,kind,status,finished_at) VALUES (?,?,?,?)",
+            ("old", "batch", "SUCCEEDED", "2026-11-14T09:29:00Z"),
+        )
+    row = operations.overview(store)["operations"][0]
+    assert row["id"] == "old"
+    assert row["started_at"] is None
+    assert row["finished_at"] == "2026-11-14T09:29:00Z"
 
 
 class FakeObjects:

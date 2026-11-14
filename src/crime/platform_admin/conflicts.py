@@ -201,8 +201,10 @@ def merge_payload(resource, base, proposed, current):
 
 def rebase(store, rid, actor, reason):
     from .jobs import writer_lock
+    from .operations import schema
 
     with writer_lock(store):
+        schema(store)
         old = store.get(rid)
         if old["actor"].strip().casefold() != actor.strip().casefold():
             raise AdminError("Nur der Autor kann seinen Vorschlag ersetzen")

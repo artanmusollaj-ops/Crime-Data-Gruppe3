@@ -403,6 +403,66 @@ def test_cannot_withdraw_after_merge(setup):
         coupled_git.withdraw(store, rid, "reviewer", "undo")
 
 
+def test_author_replaces_stale_approval_and_queues_new_review(setup):
+    from platform_admin.conflicts import rebase
+    from platform_admin.operations import submit
+
+    store, _gh = setup
+    rid, row = reviewed(store)
+    submit(store, "git-open", {"id": rid, "reason": "PR"}, "engineer")
+    with pytest.raises(AdminError, match="bereits entschieden"):
+        rebase(store, rid, "engineer", "Zu frueh")
+    set_active_for_rebase(store)
+    with pytest.raises(AdminError, match="Nur der Autor"):
+        rebase(store, rid, "reviewer", "Nicht mein Vorschlag")
+    new = rebase(store, rid, "engineer", "Neuer Datenstand")
+    history = store.history()
+    by_revision = {i["revision_id"]: i for i in history["impacts"]}
+    assert by_revision[rid]["status"] == "WITHDRAWN"
+    assert by_revision[new]["status"] == "QUEUED"
+    assert by_revision[new]["baseline_release_id"] == "new-baseline"
+    assert store.get(rid)["id"] == rid
+    assert next(r for r in history["revisions"] if r["id"] == rid)["decision"] == "approve"
+    assert next(r for r in history["revisions"] if r["id"] == new)["decision"] is None
+    assert candidates.active_id(store) == "new-baseline"
+    impact_archive.checked(store, row["id"])
+    with store.db() as c:
+        assert c.execute("SELECT status FROM operation WHERE kind='git-open'").fetchone()[0] == "CANCELLED"
+    with pytest.raises(AdminError, match="bereits auf aktuelle Basis"):
+        rebase(store, rid, "engineer", "Doppelter Klick")
+    with pytest.raises(AdminError, match="Nur Freigaben"):
+        coupled_git.withdraw(store, rid, "reviewer", "Verspaetete Rueckgabe")
+    with pytest.raises(AdminError, match="Nur Freigaben"):
+        submit(store, "git-withdraw", {"id": rid, "reason": "Verspaetete Rueckgabe"}, "reviewer")
+    with pytest.raises(AdminError):
+        gitops.approved(store, new)
+
+
+def set_active_for_rebase(store):
+    pointer = store.data / "releases" / "AKTUELL.json"
+    pointer.parent.mkdir(exist_ok=True)
+    pointer.write_text(json.dumps({"release_id": "new-baseline", "path": "releases/release=new-baseline"}))
+
+
+def test_reviewer_returns_stale_proposal_with_existing_pr(setup):
+    from platform_admin.conflicts import rebase
+
+    store, gh = setup
+    rid, _row = open_review(store)
+    set_active_for_rebase(store)
+    with pytest.raises(AdminError, match="bestehendem Git-Vorgang"):
+        rebase(store, rid, "engineer", "Neue Basis")
+    assert gh.pr["state"] == "open"
+    with writer_lock(store):
+        assert coupled_git.withdraw(store, rid, "reviewer", "Neue Basis")["status"] == "WITHDRAWN"
+    assert gh.pr["state"] == "closed"
+    new = rebase(store, rid, "engineer", "Neue Basis")
+    history = store.history()
+    assert next(i for i in history["impacts"] if i["revision_id"] == new)["status"] == "QUEUED"
+    link = next(e for e in history["release_events"] if e["action"] == "PROPOSAL_REBASED")
+    assert link["revision_id"] == rid and json.loads(link["evidence"])["new_revision_id"] == new
+
+
 def test_publication_failure_keeps_old_heads_and_retries(setup, monkeypatch):
     from platform_admin import object_store
 

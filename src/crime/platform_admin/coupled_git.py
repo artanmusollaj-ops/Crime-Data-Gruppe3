@@ -199,8 +199,6 @@ def publication_evidence(store, row, client=None):
 
 def withdraw(store, rid, actor, reason, client=None):
     """Withdraw before publication, requiring a corrective baseline after a merge."""
-    from .candidates import active_id
-
     revision = store.get(rid)
     if actor.strip().casefold() == revision["actor"].strip().casefold():
         raise AdminError("Ruecknahme verlangt zweite Person")
@@ -250,8 +248,6 @@ def withdraw(store, rid, actor, reason, client=None):
                 raise AdminError("PR nicht sicher geschlossen")
         d["state"] = "WITHDRAWN"
         gitops.save(store, d)
-    if active_id(store) != row["baseline_release_id"]:
-        raise AdminError("Aktiver Release unerwartet veraendert")
     with store.db() as c:
         c.execute("BEGIN IMMEDIATE")
         c.execute(

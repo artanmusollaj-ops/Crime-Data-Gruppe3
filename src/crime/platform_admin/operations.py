@@ -16,12 +16,16 @@ def schema(store):
         CREATE TABLE IF NOT EXISTS operation(
             id TEXT PRIMARY KEY, kind TEXT NOT NULL, payload TEXT NOT NULL,
             actor TEXT NOT NULL, reason TEXT NOT NULL, status TEXT NOT NULL,
-            created_at TEXT NOT NULL, finished_at TEXT, result TEXT);
+            created_at TEXT NOT NULL, finished_at TEXT, result TEXT, started_at TEXT);
         CREATE TABLE IF NOT EXISTS git_change(
             revision TEXT PRIMARY KEY, state TEXT NOT NULL, document TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS service_status(
             name TEXT PRIMARY KEY, updated_at TEXT NOT NULL, document TEXT NOT NULL);
         """)
+        if not any(row[1] == "started_at" for row in c.execute("PRAGMA table_info(operation)")):
+            c.execute("BEGIN IMMEDIATE")
+            if not any(row[1] == "started_at" for row in c.execute("PRAGMA table_info(operation)")):
+                c.execute("ALTER TABLE operation ADD COLUMN started_at TEXT")
 
 
 def submit(store, kind, value, actor):
@@ -50,13 +54,20 @@ def submit(store, kind, value, actor):
     oid = uuid.uuid4().hex
     with store.db() as c:
         c.execute("BEGIN IMMEDIATE")
+        if kind == "git-withdraw" and not c.execute(
+            "SELECT 1 FROM decision d JOIN impact i ON i.id=d.impact_id "
+            "WHERE d.revision=? AND d.decision='approve' AND i.status='AWAITING_GIT'",
+            (payload["id"],),
+        ).fetchone():
+            raise AdminError("Nur Freigaben im Status AWAITING_GIT zurueckziehen")
         if c.execute(
             "SELECT 1 FROM operation WHERE kind=? AND payload=? AND status IN ('QUEUED','RUNNING')",
             (kind, encode(payload)),
         ).fetchone():
             raise AdminError("Gleiche Betriebsaktion bereits eingereiht")
         c.execute(
-            "INSERT INTO operation VALUES (?,?,?,?,?,'QUEUED',?,NULL,NULL)",
+            "INSERT INTO operation(id,kind,payload,actor,reason,status,created_at) "
+            "VALUES (?,?,?,?,?,'QUEUED',?)",
             (oid, kind, encode(payload), actor, reason, now()),
         )
     return oid
@@ -125,7 +136,10 @@ def run_operation(store):
             if not row:
                 return None
             row = dict(row)
-            c.execute("UPDATE operation SET status='RUNNING' WHERE id=?", (row["id"],))
+            c.execute(
+                "UPDATE operation SET status='RUNNING',started_at=? WHERE id=?",
+                (now(), row["id"]),
+            )
         payload = json.loads(row["payload"])
         try:
             if row["kind"] == "batch":

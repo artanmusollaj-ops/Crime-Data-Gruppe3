@@ -73,6 +73,22 @@ def test_batch_deduplication_pins_approved_configuration(store):
     assert candidates.active_id(store) is None
 
 
+def test_batch_log_can_be_opened_by_its_operation_id(store):
+    from platform_admin.web import create_app
+
+    job_id = enqueue_batch(store, "full", "scheduler")
+    client = create_app(
+        store, operator="viewer", token="local-test", config={"ADMIN_AUTH": "local"}
+    ).test_client()
+    headers = {"Authorization": "Bearer local-test"}
+    url = f"/api/job-log?id={job_id}"
+    assert client.get(url, headers=headers).status_code == 400
+    folder = store.root / "jobs" / job_id
+    folder.mkdir(parents=True)
+    (folder / "run.log").write_text("Gesamtimport gestartet", encoding="utf-8")
+    assert client.get(url, headers=headers).json["log"] == "Gesamtimport gestartet"
+
+
 def test_remote_snapshot_and_ui_use_s3_not_local_stale_cache(store):
     fake = storage.FakeS3Client()
     backend = storage.Storage(storage.Config(backend="s3", local_root=store.data), client=fake)

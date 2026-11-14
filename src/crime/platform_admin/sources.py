@@ -31,7 +31,7 @@ def source_status(store):
                         ),
                         "watermark": value.get("watermark"),
                         "completed_at_utc": value.get(
-                            "completed_at_utc", value.get("completed_at", value.get("started_at"))
+                            "completed_at_utc", value.get("completed_at")
                         ),
                         "relative_path": path.relative_to(store.data).as_posix(),
                     }

@@ -25,6 +25,17 @@ for(const a of [{},{status:'RUNNING',release_id:'r1'},{status:'PARTIAL',release_
 check('Ohne aktiven Release kein Bereitschaftsnachweis',()=>assert.equal(context.analysisReadiness(null,{status:'SUCCEEDED'}),false));
 check('Ungültiges Protokollpayload bricht Anzeige nicht ab',()=>assert.equal(Object.keys(context.operationPayload({payload:'{'})).length,0));
 check('Protokoll gehört zum konkreten Antrag',()=>assert.equal(context.operationPayload({payload:'{"id":"revision-2"}'}).id,'revision-2'));
+const current={active_release_id:'release-2',mapping:{id:'m'},settings:{id:'s'}};
+const reviewed={status:'AWAITING_GIT',baseline_release_id:'release-1',spec:'{"base_heads":{"mapping":"m","settings":"s"}}'};
+check('Gewechseltes Release blockiert den geprüften Git-Ablauf',()=>assert.ok(context.staleReview(reviewed,current)));
+check('Unveränderte Prüfbasis lässt den Git-Ablauf zu',()=>assert.equal(context.staleReview({...reviewed,baseline_release_id:'release-2'},current),false));
+check('Impact nur bei gescheiterter Berechnung erneut anbieten',()=>{
+ const open={id:'r'};
+ assert.ok(context.canRetryImpact(open,{status:'FAILED'},[],['engineer']));
+ assert.equal(context.canRetryImpact(open,{status:'READY'},[],['engineer']),false);
+ assert.equal(context.canRetryImpact(open,{status:'FAILED'},[{revision_id:'r',status:'QUEUED'}],['engineer']),false);
+ assert.equal(context.canRetryImpact(revision,{status:'FAILED'},[],['engineer']),false);
+});
 // Ausgehende Verträge ohne Worker, GitHub oder Dateischreibzugriff prüfen.
 const queueSource=html.slice(html.indexOf('async function queueOperation('),html.indexOf('function renderOperationViews('));
 const calls=[];
@@ -38,4 +49,61 @@ await context.queueOperation('serving',null,'Wiederholung','Serving');
 check('Bereitstellung überlässt die Releaseauswahl dem Server',()=>assert.equal(calls[1].payload.id,null));
 context.confirm=()=>false;await context.queueOperation('backup',null,'Test','Backup');
 check('Abbruch sendet keinen Auftrag',()=>assert.equal(calls.length,2));
+
+function node(textContent=''){
+ return {textContent,children:[],dataset:{},attributes:{},append(...children){this.children.push(...children)},
+  setAttribute(name,value){this.attributes[name]=value},
+  replaceChildren(...children){this.children=children}};
+}
+const nodes=new Map();
+const getNode=id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id)};
+const labels=box=>box.children.flatMap(child=>[child.textContent,...labels(child)]);
+const r={...revision,id:'r'};
+let shownImpact=reviewed;
+Object.assign(context,{
+ $:getNode,document:{querySelector:()=>node()},element:(_tag,label)=>node(label),
+ button:(box,label,onclick,disabled=false)=>{const b=node(label);Object.assign(b,{onclick,disabled});box.append(b);return b},
+ requestImpact:()=>shownImpact,renderRequestGit:()=>{},gitChanges:new Map(),gitJobs:new Map(),
+ operationsData:{operations:[]},revisionsById:new Map(),gitEnabled:true,impactLabels:{},
+ operationFacts:()=>{},operationLog:()=>{},own:()=>context.state.operator===r.actor
+});
+context.state={...current,roles:['reviewer','engineer'],operator:'Christian',release_events:[]};
+vm.runInContext(html.slice(html.indexOf('function renderRequestPublication('),html.indexOf('function renderImpactAttempts(')),context);
+const feedback=getNode('request-git-feedback'),git=getNode('request-git-actions');
+context.renderRequestPublication(r);
+check('Reviewer kann den veralteten Workflow retournieren',()=>{
+ assert.ok(labels(feedback).includes('Workflow an Antragsteller retournieren'));
+ assert.ok(!labels(feedback).includes('Vorschlag auf aktuelle Basis übertragen'));
+ assert.equal(git.children[0].disabled,true);
+});
+context.state.operator='Artan';
+context.renderRequestPublication(r);
+check('Antragsteller sieht Übertragung mit Hinweis zur automatischen Berechnung',()=>{
+ assert.ok(labels(feedback).includes('Vorschlag auf aktuelle Basis übertragen'));
+ assert.ok(labels(feedback).includes('Der Impact wird automatisch neu berechnet.'));
+ assert.ok(!labels(feedback).includes('Workflow an Antragsteller retournieren'));
+ const [transfer,hint]=feedback.children.at(-1).children;
+ assert.equal(transfer.attributes['aria-describedby'],hint.id);
+ assert.equal(hint.children[0].attributes['aria-hidden'],'true');
+});
+shownImpact={...reviewed,status:'WITHDRAWN'};
+context.state.operator='Christian';
+context.state.release_events=[{revision_id:'r',action:'PROPOSAL_REBASED',evidence:'{"new_revision_id":"r2"}'}];
+context.revisionsById.set('r2',{id:'r2'});
+context.renderRequestPublication(r);
+check('Reviewer sieht den neuen Vorschlag ohne doppelte Rückgabe',()=>{
+ assert.match(labels(feedback).join(' '),/Neuberechnung des Impacts.*bereits ausgelöst/);
+ assert.ok(labels(feedback).includes('Neuen Vorschlag öffnen'));
+ assert.ok(!labels(feedback).includes('Workflow an Antragsteller retournieren'));
+});
+const featuredSource=html.slice(html.indexOf('function featuredEtlJobs('),html.indexOf('function renderRunningJobs('));
+vm.runInContext(featuredSource,context);
+check('ETL-Übersicht zeigt laufende Jobs und danach den letzten beendeten Lauf',()=>{
+ const older={id:'older',impact:{},status:'SUCCEEDED',finished_at:'2026-11-14T08:00:00Z'};
+ const failed={id:'failed',impact:{},status:'FAILED',finished_at:'2026-11-14T09:00:00Z'};
+ const running={id:'active',impact:{},status:'RUNNING'};
+ const importJob={id:'import',status:'SUCCEEDED',finished_at:'2026-11-14T10:00:00Z'};
+ assert.equal(context.featuredEtlJobs([older,importJob,running,failed])[0],running);
+ assert.equal(context.featuredEtlJobs([older,importJob,failed])[0],failed);
+});
 console.log(`${passed} Betriebsansicht-Prüfungen bestanden`);

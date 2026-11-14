@@ -31,7 +31,8 @@ def enqueue_batch(store, mode, actor, slot=None):
         if con.execute("SELECT 1 FROM operation WHERE kind='batch' AND status IN ('QUEUED','RUNNING')").fetchone():
             raise AdminError("Ein Betriebsimport ist bereits eingereiht oder laeuft")
         oid = uuid.uuid4().hex
-        con.execute("INSERT INTO operation VALUES (?,?,?,?,?,'QUEUED',?,NULL,NULL)",
+        con.execute("INSERT INTO operation(id,kind,payload,actor,reason,status,created_at) "
+                    "VALUES (?,?,?,?,?,'QUEUED',?)",
                     (oid, "batch", encode(payload), actor, "Geplanter Quellenlauf mit Impact-Review", now()))
         return oid
 
