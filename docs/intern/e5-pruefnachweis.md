@@ -7,7 +7,8 @@ vollständig ausgeführt. Gegenseitige Leser-/Worker-Sperren, Freigabe nach
 Prozessende und nur lesender Zugriff auf Job-Daten wurden mit getrennten
 Testcontainern und Test-Volumes bestätigt. Der Test verwendete eine geprüfte
 Kopie des lokalen Pipeline-Aufbaus, keinen echten Konsolen-Job auf srv01.
-E-5 bleibt bis zu dieser Server-Abnahme offen.
+Am 14.11.2026 folgte die Abnahme auf srv01 für den Cron-Datenlauf (unten,
+„Abnahme auf srv01“). Offen bleibt nur der echte Konsolen-Job; er kommt mit S-10.
 
 | Prüfung | Durchführung und Ergebnis |
 | --- | --- |
@@ -71,7 +72,36 @@ Die reproduzierbaren Betriebsschritte stehen in
 [`notebook-analysesitzungen.md`](notebook-analysesitzungen.md), die Einordnung in
 [`ENGINEERING_KONSOLE.md`](ENGINEERING_KONSOLE.md), Abschnitt 6.
 
-## Noch offen für die Abnahme auf srv01
+## Abnahme auf srv01 am 14.11.2026
+
+Geprüft wurde der Cron-Datenlauf (`docker/srv01-datenlauf.sh delta`), noch kein
+Konsolen-Job. Vorher waren drei Fehler zu beheben, je mit eigenem PR:
+
+| PR | Fehler | Behebung |
+| --- | --- | --- |
+| #228 | `release holen aktuell --einsetzen` löschte nach `run_all` den eben geschriebenen Nachweis | Der Nachweis bleibt bei gleicher Release-ID und gleichen Prüfsummen (`bewahre_nachweis`) |
+| #229 | Im Modus `s3` räumte `run_all` Silver und Gold nach dem Release weg; der Nachweis erfasste nur Bronze | `STORAGE_ANALYSEBESTAND_LOKAL=true` in `pipeline` und `worker` |
+| #230 | Eine Stufe ohne Neues („0 Paare neu“) legte keine lokale Kopie hin; `source_change` fehlte | `run_all` holt fehlende Analysetabellen vor dem Bestätigen aus dem Eimer |
+
+Danach lief der Delta-Lauf vom 14.11.2026 mit Release `2026-11-14T09-09-47Z` und
+Commit `abda4e0`. Ausgeführt wurden die Vorlagen aus `/vorlagen` im Container
+`jupyter`, mit Arbeitsverzeichnis `/app/arbeit` und Ausgabe nach `/tmp/abnahme`.
+Die Arbeitskopien unter `/app/arbeit` blieben unverändert.
+
+| Notebook | Dauer | Codezellen | mit Fehler | Ergebnis |
+| --- | ---: | ---: | ---: | --- |
+| 34 | 65 s | 19 | 0 | Grenzfälle 5'249; Chicago 94,5 (mit Grenzfällen 95,6), Detroit 134,0 je 1'000 – wie in den Dokumenten |
+| 37 | 2 s | 15 | 0 | 113'745 Zeilen zu 47'681 Delikten aus echten Vergleichspaaren; für Chicago weniger als zwei Vollabzüge, also keine Gegenprobe |
+
+Ohne Ausgabe blieb in beiden nur `analyse.beenden()`. Danach war die Sperre frei,
+und `stand.json` stand unverändert. Detroit zählt 2024 auf srv01 85'594 statt
+85'557 Taten: srv01 ist mehrere Delta-Läufe weiter als der Referenzstand vom
+10.11.2026, an dem die Dokumente hängen. Die Rate bleibt 134,0.
+
+Damit sind die Punkte 1, 2, 4 und 5 der folgenden Liste erledigt, Punkt 4 für den
+Cron-Datenlauf. Punkt 3 bleibt offen und gehört zu S-10.
+
+## Ursprünglich offen für die Abnahme auf srv01
 
 1. Änderungen über CI übernehmen und Pipeline-/Jupyter-Images veröffentlichen.
 2. Neue Images und Compose-Konfiguration einschliesslich Sperr-Volume und
