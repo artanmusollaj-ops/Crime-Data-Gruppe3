@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'948** |
+| Tests | **2'958** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -109,6 +109,52 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 14.11.2026 · Ein publiziertes Release lässt sich zurücknehmen (Branch `fr-20-release-zuruecknehmen`)
+
+FR-20 verlangt, dass ein grüner Lauf, der einen falschen Stand publiziert,
+rückholbar ist: welcher Befehl, wer löst aus, woran merkt man es.
+`fr-stand.md` nannte den Mechanismus „steht", gemeint war
+`release holen <kennung> --einsetzen` — und der legt nur den **lokalen**
+Zeiger um. `releases/AKTUELL.json` im Eimer, nach dem sich Dashboard,
+Notebooks und Analysten richten, setzte kein Befehl auf ein früheres Release
+zurück.
+
+Jetzt: `python -m orchestration.release zuruecknehmen <kennung> --grund "…"`
+(`storage.release.zuruecknehmen`). Der Befehl prüft, dass `release.json` des
+Ziels und **jede** darin genannte Datei in der genannten Grösse oben liegen
+(im Modus `local`: lokal), und bricht sonst ab, bevor der Zeiger sich bewegt.
+Dann ersetzt er den Zeiger als ein Objekt, in `hybrid` dazu einen
+vorhandenen lokalen; `hybrid` ohne Publizieren bewegt wie `local` nur den
+lokalen. Der Zeiger trägt wie bisher `release_id`,
+`created_at_utc`, `path`, `bytes` und neu `zurueckgenommen: {von, grund,
+am_utc}`; wer nur `release_id` liest, merkt keinen Unterschied. Gelöscht oder
+umgeschrieben wird nichts, `--grund` ist Pflicht, und dieselbe Sperre wie bei
+`erstellen` und `holen` gilt. Wieder vor geht es mit demselben Befehl.
+
+**Bewusst kein Alarm auf Drift** (Christian, 14.11.2026): Der Ablauf in
+`docs/storage-architektur.md` 6a („Ein falsches Release zurücknehmen") nennt
+wer (Christian, auf `srv01`), woran (Ampel
+`urbancrime_drift_innerhalb_toleranz` und Drift-Panel in Grafana, der Stand
+im Dashboard, ein Hinweis von Artan) und was danach (auf `srv01` genügt der
+Zeiger oben für das Dashboard; Einstiegsseite, Notebooks und ClickHouse-Lader
+hängen am lokalen Zeiger und zeigen den alten Stand, und `holen --einsetzen`
+entwertet den Analysenachweis bis zum nächsten Lauf, ist also nur bewusst zu
+wählen; der nächste Montagslauf publiziert wieder — Ursache beheben oder den
+Takt bewusst aussetzen).
+
+**Die Probe auf `srv01` steht aus** und wird hier nachgetragen: zurück auf
+das Release vor dem aktuellen, das Dashboard nennt den alten Stand, wieder
+vor — beide Schritte mit Uhrzeit. Bis dahin bleibt FR-20 in `fr-stand.md`
+◐. Dort ist auch FR-58 berichtigt: Die LN1-Rückmeldung kam am 3.11.2026
+(Note 5.75), eingearbeitet ist sie noch nicht (bleibt ○).
+
+Neu bewacht: zehn Tests `test_zuruecknehmen_*` in
+`tests/storage/test_release.py`, je einer für eine Zeile der I/O-Matrix (s3,
+hybrid, hybrid ohne Publizieren, local, unbekannt, unvollständig, schon aktuell, wieder vor, ohne
+Grund) und einer für die Kommandozeile.
+
+**Zahlen.** 2'948 → **2'958 Tests**, Standardlauf 2'837 → **2'847**, im protokollierten Linux-CI-Lauf 2'758 → **2'768** ausgeführt (die zehn neuen Tests brauchen keine Daten).
 
 ## 14.11.2026 · Das Dashboard nennt die Fallebene vorn (Branch `c-11-dashboard-fallebene`)
 

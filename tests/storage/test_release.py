@@ -608,3 +608,169 @@ def test_ein_gescheitertes_einsetzen_laesst_den_nachweis_entwertet(tmp_path, mon
     assert einsetzen(release_cli, data_root) == 1
     assert stand(data_root) is None
     assert not (data_root / ".analyse" / "stand.vorher.json").exists()
+
+
+# --------------------------------------------------------------------------
+# Zuruecknehmen (FR-20)
+# --------------------------------------------------------------------------
+# Ein gruener Lauf, der Falsches publiziert, muss rueckholbar sein. Bis zum
+# 14.11.2026 legte ``holen --einsetzen`` nur den lokalen Zeiger um; den Zeiger
+# oben, nach dem sich Dashboard und Notebooks richten, setzte kein Befehl
+# zurueck. Je Zeile der I/O-Matrix aus dem Plan ein Test.
+
+FRUEHER = "2026-09-17T15-04-05Z"
+SPAETER = "2026-09-24T15-04-05Z"
+RUECK = datetime(2026, 11, 14, 10, 0, 0, tzinfo=timezone.utc)
+
+
+def zwei_publiziert(tmp_path: Path) -> tuple[FakeS3Client, Path]:
+    """A (frueher) und B (spaeter) oben, AKTUELL = B - lokal wie oben."""
+    storage, fake, data_root = ablage(tmp_path, "hybrid")
+    gebaut(data_root)
+    for kennung_ in (FRUEHER, SPAETER):
+        release.publiziere(storage, release.erstelle(data_root, kennung_=kennung_))
+    return fake, data_root
+
+
+def oben_zeiger(fake: FakeS3Client) -> dict:
+    return json.loads(fake.get("releases/AKTUELL.json").decode("utf-8"))
+
+
+def test_zuruecknehmen_s3_legt_den_zeiger_oben_auf_das_fruehere_release(tmp_path):
+    fake, _ = zwei_publiziert(tmp_path)
+    storage = Storage(Config(backend="s3", local_root=tmp_path / "leer",
+                             s3_access_key="k", s3_secret_key="s"), fake)
+    vorher = dict(fake.objekte)
+    neu = release.zuruecknehmen(storage, FRUEHER, "falscher Stand", jetzt=RUECK)
+    zeiger = oben_zeiger(fake)
+    assert zeiger == neu
+    assert zeiger["release_id"] == FRUEHER
+    assert zeiger["path"] == f"releases/release={FRUEHER}"
+    assert {"created_at_utc", "bytes"} <= set(zeiger)
+    assert zeiger["zurueckgenommen"] == {
+        "von": SPAETER, "grund": "falscher Stand", "am_utc": "2026-11-14T10:00:00Z"}
+    geaendert = {k for k in fake.objekte if fake.objekte[k] != vorher.get(k)}
+    assert geaendert == {"releases/AKTUELL.json"}, "kein Release angefasst"
+    assert set(vorher) <= set(fake.objekte), "nichts geloescht"
+    assert release.aktuell(storage)["release_id"] == FRUEHER
+
+
+def test_zuruecknehmen_hybrid_zieht_den_lokalen_zeiger_mit(tmp_path):
+    fake, data_root = zwei_publiziert(tmp_path)
+    storage = Storage(Config(backend="hybrid", local_root=data_root,
+                             s3_access_key="k", s3_secret_key="s"), fake)
+    release.zuruecknehmen(storage, FRUEHER, "falscher Stand", jetzt=RUECK)
+    lokal = json.loads((data_root / "releases" / "AKTUELL.json").read_text(encoding="utf-8"))
+    assert lokal == oben_zeiger(fake)
+    assert lokal["release_id"] == FRUEHER
+    assert release.aktuell(storage)["zurueckgenommen"]["von"] == SPAETER
+
+
+def test_zuruecknehmen_hybrid_ohne_publizieren_bewegt_nur_den_lokalen_zeiger(tmp_path):
+    fake, data_root = zwei_publiziert(tmp_path)
+    storage = Storage(Config(backend="hybrid", local_root=data_root,
+                             hybrid_publish_after_write=False,
+                             s3_access_key="k", s3_secret_key="s"), fake)
+    vorher = dict(fake.objekte)
+    fake.anfragen.clear()
+    release.zuruecknehmen(storage, FRUEHER, "nur hier")
+    lokal = json.loads((data_root / "releases" / "AKTUELL.json").read_text(encoding="utf-8"))
+    assert lokal["release_id"] == FRUEHER
+    assert lokal["zurueckgenommen"]["von"] == SPAETER
+    assert fake.objekte == vorher, "der gemeinsame Eimer bleibt unveraendert"
+    assert fake.anfragen == [], "wer nicht publiziert, fragt den Eimer nicht"
+
+
+def test_zuruecknehmen_auf_ein_unbekanntes_release_bewegt_nichts(tmp_path):
+    fake, data_root = zwei_publiziert(tmp_path)
+    storage = Storage(Config(backend="hybrid", local_root=data_root,
+                             s3_access_key="k", s3_secret_key="s"), fake)
+    with pytest.raises(release.ReleaseFehler, match="2020-01-01T00-00-00Z"):
+        release.zuruecknehmen(storage, "2020-01-01T00-00-00Z", "x")
+    assert oben_zeiger(fake)["release_id"] == SPAETER
+    assert "zurueckgenommen" not in oben_zeiger(fake)
+
+
+def test_zuruecknehmen_auf_ein_unvollstaendiges_release_nennt_die_fehlende_datei(tmp_path):
+    fake, data_root = zwei_publiziert(tmp_path)
+    storage = Storage(Config(backend="s3", local_root=tmp_path / "leer",
+                             s3_access_key="k", s3_secret_key="s"), fake)
+    fehlt = f"releases/release={FRUEHER}/gold/dataset=dim_date/part-0001.parquet"
+    del fake.objekte[fehlt]
+    with pytest.raises(release.ReleaseFehler,
+                       match="unvollstaendig: gold/dataset=dim_date/part-0001.parquet fehlt"):
+        release.zuruecknehmen(storage, FRUEHER, "x")
+    assert oben_zeiger(fake)["release_id"] == SPAETER
+    assert json.loads((data_root / "releases" / "AKTUELL.json").read_text())["release_id"] == SPAETER
+
+
+def test_zuruecknehmen_auf_das_aktuelle_schreibt_nichts(tmp_path):
+    fake, data_root = zwei_publiziert(tmp_path)
+    storage = Storage(Config(backend="hybrid", local_root=data_root,
+                             s3_access_key="k", s3_secret_key="s"), fake)
+    fake.uploads.clear()
+    with pytest.raises(release.ReleaseFehler, match="zeigt schon darauf"):
+        release.zuruecknehmen(storage, SPAETER, "x")
+    assert fake.uploads == []
+
+
+def test_zuruecknehmen_local_prueft_und_schreibt_nur_lokal(tmp_path):
+    storage, fake, data_root = ablage(tmp_path, "local")
+    gebaut(data_root)
+    for kennung_ in (FRUEHER, SPAETER):
+        release.erstelle(data_root, kennung_=kennung_)
+    release.zuruecknehmen(storage, FRUEHER, "falscher Stand")
+    zeiger = json.loads((data_root / "releases" / "AKTUELL.json").read_text(encoding="utf-8"))
+    assert zeiger["release_id"] == FRUEHER
+    assert zeiger["zurueckgenommen"]["von"] == SPAETER
+    assert fake.objekte == {} and fake.anfragen == [], "local fragt SeaweedFS nie"
+    # Lokal unvollstaendig: abgebrochen, bevor der Zeiger sich bewegt.
+    (release.verzeichnis(data_root, SPAETER) / "serving" / "tracts.geojson").unlink()
+    with pytest.raises(release.ReleaseFehler, match="serving/tracts.geojson fehlt"):
+        release.zuruecknehmen(storage, SPAETER, "x")
+    assert json.loads((data_root / "releases" / "AKTUELL.json").read_text())["release_id"] == FRUEHER
+
+
+def test_zuruecknehmen_bringt_den_zeiger_auch_wieder_vor(tmp_path):
+    fake, data_root = zwei_publiziert(tmp_path)
+    storage = Storage(Config(backend="hybrid", local_root=data_root,
+                             s3_access_key="k", s3_secret_key="s"), fake)
+    release.zuruecknehmen(storage, FRUEHER, "Probe")
+    release.zuruecknehmen(storage, SPAETER, "Probe zurueck")
+    zeiger = oben_zeiger(fake)
+    assert zeiger["release_id"] == SPAETER
+    assert zeiger["zurueckgenommen"]["von"] == FRUEHER
+    assert zeiger["zurueckgenommen"]["grund"] == "Probe zurueck"
+
+
+def test_zuruecknehmen_ohne_grund_ist_ein_argparse_fehler(tmp_path, monkeypatch, capsys):
+    from orchestration import release as release_cli
+    with pytest.raises(SystemExit) as abbruch:
+        release_cli.main(["zuruecknehmen", FRUEHER, "--data-root", str(tmp_path)])
+    assert abbruch.value.code == 2
+    assert "--grund" in capsys.readouterr().err
+    with pytest.raises(release.ReleaseFehler, match="Grund"):
+        release.zuruecknehmen(ablage(tmp_path, "local")[0], FRUEHER, "  ")
+
+
+def test_zuruecknehmen_ueber_die_kommandozeile(tmp_path, monkeypatch, capsys):
+    from orchestration import release as release_cli
+    fake, data_root = zwei_publiziert(tmp_path)
+    storage = Storage(Config(backend="hybrid", local_root=data_root,
+                             s3_access_key="k", s3_secret_key="s"), fake)
+    monkeypatch.delenv("DATA_LOCK_ROOT", raising=False)
+    monkeypatch.setattr(release_cli, "for_root", lambda _root: storage)
+    argv = ["zuruecknehmen", FRUEHER, "--grund", "falscher Stand", "--data-root", str(data_root)]
+    assert release_cli.main(argv) == 0
+    assert capsys.readouterr().out.strip() == (
+        f"AKTUELL: {SPAETER} -> {FRUEHER} (falscher Stand)")
+    assert release_cli.main(argv) == 1, "zeigt schon darauf: Exit 1"
+    assert "zeigt schon darauf" in capsys.readouterr().out
+    assert release_cli.main(["zuruecknehmen", "2020-01-01T00-00-00Z", "--grund", "x",
+                             "--data-root", str(data_root)]) == 1
+    assert "2020-01-01T00-00-00Z" in capsys.readouterr().out
+    assert oben_zeiger(fake)["release_id"] == FRUEHER
+    # Akzeptanzkriterium 1: ``release aktuell`` zeigt, von wo und warum.
+    assert release_cli.main(["aktuell", "--data-root", str(data_root)]) == 0
+    aktuell = capsys.readouterr().out
+    assert FRUEHER in aktuell and SPAETER in aktuell and "falscher Stand" in aktuell

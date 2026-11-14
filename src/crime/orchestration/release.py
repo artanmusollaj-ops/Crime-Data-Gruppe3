@@ -7,6 +7,13 @@
     python -m orchestration.release holen                    # das aktuelle Release herunterladen
     python -m orchestration.release holen 2026-09-17T16-31-45Z --nur-datenbank
     python -m orchestration.release holen --einsetzen        # ... und an die festen Pfade setzen
+    python -m orchestration.release zuruecknehmen 2026-11-14T08-06-10Z --grund "..."
+
+``zuruecknehmen`` (FR-20) legt ``AKTUELL.json`` auf ein frueheres Release,
+das oben (im ``local``-Modus: lokal) vollstaendig liegt, und vermerkt im
+Zeiger, von welchem Release, wann und warum. Nichts wird geloescht; derselbe
+Befehl mit der alten Kennung bringt den Zeiger wieder vor. Der Ablauf - wer,
+woran man es merkt, was danach - steht in ``docs/storage-architektur.md``.
 
 Die Ablage (``storage.release``) weiss, wie ein Release liegt und publiziert
 wird. Was **hinein** gehoert, ausser Kopien, weiss sie nicht - das ist die
@@ -86,28 +93,37 @@ def bilde_und_publiziere(data_root: Path, storage,
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="python -m orchestration.release", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("was", choices=("erstellen", "liste", "aktuell", "holen"))
+    p.add_argument("was", choices=("erstellen", "liste", "aktuell", "holen",
+                                     "zuruecknehmen"))
     p.add_argument("kennung", nargs="?", default="aktuell",
-                   help="holen: eine Release-Kennung oder 'aktuell' (Vorgabe)")
+                   help="holen: eine Release-Kennung oder 'aktuell' (Vorgabe); "
+                        "zuruecknehmen: die Kennung, auf die der Zeiger soll")
     p.add_argument("--publizieren", action="store_true",
                    help="erstellen: nach dem Bilden hochbringen und AKTUELL.json umlegen")
     p.add_argument("--nur-datenbank", action="store_true",
                    help="holen: nur serving/analyse.duckdb")
     p.add_argument("--einsetzen", action="store_true",
                    help="holen: die Tabellen danach an die festen Pfade setzen")
+    p.add_argument("--grund", default=None,
+                   help="zuruecknehmen: warum - steht danach im Zeiger (Pflicht)")
     p.add_argument("--data-root", type=Path, default=None,
                    help="Wurzel der Schichten (Vorgabe: LOCAL_DATA_ROOT oder data)")
     args = p.parse_args(argv)
-    if args.was in {"erstellen", "holen"}:
+    if args.was == "zuruecknehmen":
+        if args.kennung == "aktuell":
+            p.error("zuruecknehmen braucht eine Release-Kennung")
+        if not (args.grund or "").strip():
+            p.error("zuruecknehmen braucht --grund")
+    if args.was in {"erstellen", "holen", "zuruecknehmen"}:
         from storage.verwaltet import sperre
         sperre(for_root(args.data_root).local_root)
     from contextlib import nullcontext
     from storage.analysesitzung import schreibzugriff
     # liste und aktuell lesen nur: keine Sperre, keine Sperrdatei - und ein
     # Konfigurationsfehler bleibt der Satz unten statt eines Tracebacks.
-    schreibt = args.was in {"erstellen", "holen"}
-    # Nur holen --einsetzen ersetzt Gold; erstellen und holen schreiben nach
-    # releases/, das der Herkunftsnachweis nicht erfasst.
+    schreibt = args.was in {"erstellen", "holen", "zuruecknehmen"}
+    # Nur holen --einsetzen ersetzt Gold; erstellen, holen und zuruecknehmen
+    # schreiben nach releases/, das der Herkunftsnachweis nicht erfasst.
     ersetzt_gold = args.was == "holen" and args.einsetzen
     with (schreibzugriff(for_root(args.data_root).local_root, invalidieren=ersetzt_gold)
           if schreibt else nullcontext()):
@@ -136,6 +152,11 @@ def main(argv: list[str] | None = None) -> int:
                     return 1
                 for k, v in zeiger.items():
                     print(f"  {k:16}: {v}")
+                return 0
+            if args.was == "zuruecknehmen":
+                neu = release.zuruecknehmen(ablage, args.kennung, args.grund)
+                print(f"AKTUELL: {neu['zurueckgenommen']['von']} -> {neu['release_id']} "
+                      f"({neu['zurueckgenommen']['grund']})")
                 return 0
             if args.was == "holen":
                 ziel = release.hole(ablage, args.kennung, nur_datenbank=args.nur_datenbank)

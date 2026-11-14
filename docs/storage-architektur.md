@@ -330,6 +330,69 @@ ein Lauf, der ihn füllte, widerspräche der eigenen Definition — dort liest
 Silver Bronze direkt von S3. `tests/storage/test_modi.py` hält diese Matrix
 fest.
 
+### Ein falsches Release zurücknehmen
+
+Seit dem 14.11.2026 (FR-20). Das Publish-Gate aus Gold hält einen Stand auf,
+der die Abdeckung verfehlt — nicht einen, der die Prüfungen besteht und
+trotzdem falsch ist. Läuft so ein Stand unbeaufsichtigt durch, liegt er
+unveränderlich oben, und `AKTUELL.json` zeigt darauf. Zurückgenommen wird
+der **Zeiger**, nicht das Release:
+
+```bash
+cd /srv/docker/apps/urbancrime
+docker compose -f docker-compose.srv01.yml run --rm --no-deps pipeline \
+    python -m orchestration.release liste            # welches Release davor lag
+docker compose -f docker-compose.srv01.yml run --rm --no-deps pipeline \
+    python -m orchestration.release zuruecknehmen 2026-11-14T08-06-10Z \
+    --grund "detroit_rate um Faktor 10 daneben, Artan 14.11."
+# AKTUELL: 2026-11-14T09-09-47Z -> 2026-11-14T08-06-10Z (detroit_rate ...)
+```
+
+**Was der Befehl tut.** Er prüft zuerst, dass `release.json` des Ziels und
+**jede** darin genannte Datei in der genannten Grösse oben liegen (im Modus
+`local` und in `hybrid` ohne Publizieren: lokal), und bricht sonst ab, bevor der Zeiger sich bewegt — mit der
+ersten fehlenden Datei in der Meldung. Ein Ziel, auf das der Zeiger schon
+zeigt, ist ebenfalls ein Abbruch. Dann ersetzt er `AKTUELL.json` als **ein**
+Objekt (oben per PUT, lokal über `.part` und `rename`), in `hybrid` oben und
+einen vorhandenen lokalen Zeiger dazu; wer nicht publiziert
+(`HYBRID_PUBLISH_AFTER_WRITE=false`), bewegt nur den lokalen. Der Zeiger trägt danach wie bisher
+`release_id`, `created_at_utc`, `path` und `bytes`, dazu
+`zurueckgenommen: {von, grund, am_utc}`; `release aktuell` zeigt es an.
+Gelöscht oder umgeschrieben wird nichts — weder das zurückgenommene Release
+noch ein Lauf —, und dieselbe Sperre wie bei `erstellen` und `holen` hält
+einen gleichzeitigen Datenlauf fern. `--grund` ist Pflicht. Wieder vor geht
+es mit demselben Befehl und der späteren Kennung.
+
+**Wer.** Christian, auf `srv01`. Den Befehl kann jeder mit Zugang zum
+Stapel ausführen; die Entscheidung, einen Stand zurückzunehmen, trifft, wer
+für Silver und Gold zuständig ist.
+
+**Woran man es merkt.** Es gibt bewusst **keinen** Alarm darauf: Die Quellen
+bewegen sich wöchentlich, und eine Drift über der Toleranz ist eine Aufgabe
+für die Dokumente, kein Vorfall (`orchestration.drift`,
+`serving/betriebsstand.py`). Bemerkt wird ein falscher Stand an drei Stellen:
+an der Ampel `urbancrime_drift_innerhalb_toleranz` und dem Drift-Panel im
+Grafana-Brett (unten), am Stand, den das Dashboard nennt, und an einem
+Hinweis von Artan, der mit den Zahlen der Abgabedokumente arbeitet.
+
+**Was danach.** Auf `srv01` (Modus `s3`) genügt der Zeiger im Eimer für das
+Dashboard: Es liest ihn oben und lädt innerhalb einer Minute nach
+(`serving.dashboard.PRUEFABSTAND_S`). Was am **lokalen** Zeiger und an Gold
+unter den festen Pfaden hängt, zieht der Befehl nicht mit und zeigt weiter
+den alten Stand: die Einstiegsseite, die Notebooks
+(`orchestration.analyse`) und der ClickHouse-Lader. `release holen aktuell
+--einsetzen` brächte sie nach, **entwertet aber den Herkunftsnachweis**
+(`.analyse/stand.json`): Er bleibt nur, wenn dasselbe Release eingesetzt
+wird, das `run_all` bestätigt hat, und das ist nach einem Zurücknehmen nie
+der Fall — auch nach dem Wiedervor-Schritt nicht. Die Notebooks 34 und 37
+bleiben dann bis zum nächsten vollen Lauf gesperrt. Deshalb ist das kein
+fester Folgeschritt, sondern nur bewusst zu wählen.
+
+Der nächste Montagslauf publiziert wieder neu und legt den Zeiger um. Bis
+dahin ist die Ursache zu beheben — oder der Takt bewusst auszusetzen, wenn
+sie es nicht ist. Das zurückgenommene Release bleibt oben liegen, bis die
+Aufbewahrungsregel (*gepinnt plus die letzten acht*) es erreicht.
+
 ### `STORAGE_ANALYSEBESTAND_LOKAL` — Silver und Gold bleiben für die Notebooks
 
 Im Modus `s3` entfernt `run_all` die Arbeitskopien nach dem Release (unten).
@@ -1624,8 +1687,9 @@ Angestossen wird er von Hand oder vom Zeitplan:
 docker compose -f docker-compose.srv01.yml run --rm pipeline
 ```
 
-Der Zeitplan selbst, die Meldung bei Rot und die Rücknahme eines falsch
-publizierten Standes sind nicht Teil dieser Beschreibung.
+Der Zeitplan selbst und die Meldung bei Rot sind nicht Teil dieser
+Beschreibung; die Rücknahme eines falsch publizierten Standes steht in
+Abschnitt 6a („Ein falsches Release zurücknehmen").
 
 ### Die Geheimnisse
 
