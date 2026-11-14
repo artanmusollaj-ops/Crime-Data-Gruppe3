@@ -219,7 +219,7 @@ def test_die_loeschregel_loescht_keine_gehaltene_sperrdatei(store, monkeypatch):
         sperre = Path(stream.name)
         if sperre.name == "zugriff.lock":
             daten_ = sperre.parent.parent
-            beim_freigeben.append(sorted(str(f.relative_to(daten_))
+            beim_freigeben.append(sorted(f.relative_to(daten_).as_posix()
                                          for f in daten_.rglob("*") if f.is_file()))
         gehalten.discard(sperre.name)
         release(stream)
