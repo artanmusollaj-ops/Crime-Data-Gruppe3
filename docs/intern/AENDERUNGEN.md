@@ -156,6 +156,20 @@ vom 13.11.2026).
 
 ---
 
+## 14.11.2026 · E-5 ist auf srv01 für den Cron-Datenlauf abgenommen (Branch `docs/e5-abgenommen`)
+
+**Was geschah.** Nach #228–#230 liefen auf `srv01` die Notebooks 34 und 37
+vollständig und fehlerfrei, auf Release `2026-11-14T09-09-47Z` (Commit
+`abda4e0`). Notebook 37 wertete dabei echte Quelländerungen aus (113'745 Zeilen,
+47'681 Delikte).
+
+**Was sich ändert.** `e5-pruefnachweis.md` hält die Abnahme fest: die drei
+Fehler, den Lauf und die Kernzahlen. In `offene-punkte.md` bleibt von E-5 nur
+die Abnahme mit einem echten Konsolen-Job; sie ist als letzter Schritt bei S-10
+vermerkt. Nur Dokumente, keine Testzahl ändert sich.
+
+---
+
 ## 14.11.2026 · Fehlende Analysetabellen kommen vor dem Bestätigen aus dem Eimer (Branch `fix/analysetabellen-aus-dem-eimer`)
 
 **Was geschah.** Nach #229 lief auf `srv01` ein Delta-Lauf. Der Nachweis blieb
