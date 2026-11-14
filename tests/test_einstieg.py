@@ -253,8 +253,8 @@ def test_die_generatorenzahl_im_bild_zaehlt_tools():
     # ``build_`` heisst - ``extend_micr_arrest_charges`` gehoert dazu.
     anzahl = len(list((PROJEKT / "tools").glob("*.py")))
     text = bild.read_text(encoding="utf-8")
-    assert f"{anzahl} Generatoren" in text, (
-        f"das Bild nennt nicht {anzahl} Generatoren. "
+    assert f"{anzahl} Werkzeuge" in text, (
+        f"das Bild nennt nicht {anzahl} Werkzeuge. "
         f"python tools/build_architekturbilder.py")
     assert not (PROJEKT / "tools" / "build_einstieg.py").exists(), (
         "build_einstieg liegt wieder unter tools/ - dort ist es nicht im "

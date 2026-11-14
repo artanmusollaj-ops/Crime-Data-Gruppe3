@@ -31,7 +31,7 @@ from gold_pipeline import (
 )
 # Statt einer vierten Fassung: manifeste, serving.pruefe_stand und
 # storage.release rechnen dasselbe SHA-256 schon.
-from manifeste import datei_hash
+from manifeste import datei_hash, read_manifest
 from silver_pipeline import TransformError, connect
 
 
@@ -1844,6 +1844,15 @@ def test_ein_zweiter_lauf_liefert_dieselben_bytes(tmp_path):
     ``vintage=2024`` hat. Die Mehr-Vintage-Gestalt ist ein ``UNION ALL`` mit
     eigenem ``ORDER BY`` und hier nicht abgedeckt.
 
+    **Derselbe Abdruck an zwei Orten (FR-8).** Die beiden Wurzeln haben
+    verschiedene absolute Pfade, und jede Gold-Tabelle nennt ihr Silber mit
+    dem Pfad, unter dem sie es las. Der ``input_fingerprint`` darf daran nicht
+    haengen - sonst truegen Host und Container (``/app/data`` gegen
+    ``/Users/...`` oder ``s3://``) denselben Stand mit zwei Abdruecken.
+    Deshalb vergleicht dieser Waechter zusaetzlich den Abdruck je Tabelle.
+    Den Vergleich gegen einen echten Containerlauf fuehrt
+    ``tools/abdruck_host_container.py``.
+
     Gelesen wird das echte Silber ueber einen Symlink, geschrieben in zwei
     eigene Wurzeln unter ``tmp_path``: Ein Test darf messen, nie den
     Arbeitsbaum veraendern. Unter Windows braucht ein Symlink Sonderrechte,
@@ -1858,6 +1867,7 @@ def test_ein_zweiter_lauf_liefert_dieselben_bytes(tmp_path):
         pytest.skip(f"Silber unvollstaendig, es fehlt: {fehlend}")
 
     staende = []
+    abdruecke = []
     for lauf in ("eins", "zwei"):
         wurzel = tmp_path / lauf / "data"
         wurzel.mkdir(parents=True)
@@ -1873,6 +1883,19 @@ def test_ein_zweiter_lauf_liefert_dieselben_bytes(tmp_path):
             name: datei_hash(wurzel / "gold" / f"dataset={name}" / "part-0001.parquet")
             for name in TABELLEN
         })
+        abdruecke.append({
+            name: read_manifest(wurzel / "gold" / f"dataset={name}"
+                                / "manifest.json")["input_fingerprint"]
+            for name in TABELLEN
+        })
+
+    ort_eins, ort_zwei = abdruecke
+    am_ort = sorted(name for name in TABELLEN if ort_eins[name] != ort_zwei[name])
+    assert not am_ort, (
+        f"diese Gold-Tabellen tragen in zwei Wurzeln verschiedene "
+        f"input_fingerprint: {am_ort}. Der Abdruck haengt am Ort - steht ein "
+        f"Pfad darin, der nicht in manifeste.FLUECHTIG faellt? Siehe FR-8."
+    )
 
     eins, zwei = staende
     anders = sorted(name for name in TABELLEN if eins[name] != zwei[name])
