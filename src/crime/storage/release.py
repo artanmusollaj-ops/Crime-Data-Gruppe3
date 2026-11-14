@@ -339,9 +339,13 @@ def zeiger(manifest: dict[str, Any]) -> dict[str, Any]:
 
 def setze_aktuell(pfad: Path, manifest: dict[str, Any]) -> None:
     """Der lokale Zeiger - ueber ``.part`` und ``rename``, also unteilbar."""
+    _schreibe_zeiger(pfad, zeiger(manifest))
+
+
+def _schreibe_zeiger(pfad: Path, inhalt: dict[str, Any]) -> None:
     pfad.parent.mkdir(parents=True, exist_ok=True)
     arbeit = pfad.with_name(f".{pfad.name}.part")
-    arbeit.write_text(json.dumps(zeiger(manifest), indent=2) + "\n", encoding="utf-8")
+    arbeit.write_text(json.dumps(inhalt, indent=2) + "\n", encoding="utf-8")
     arbeit.replace(pfad)
 
 
@@ -499,6 +503,99 @@ def einsetzen(data_root: Path, verzeichnis_: Path) -> list[Path]:
             eingesetzt.append(ziel)
     LOG.info("Release %s eingesetzt: %d Tabellen", manifest["release_id"], len(tabellen))
     return eingesetzt
+
+
+# ---------------------------------------------------------------------------
+# Zuruecknehmen (FR-20)
+# ---------------------------------------------------------------------------
+
+
+def _ziel_manifest(storage: Storage, kennung_: str, *, oben: bool) -> dict[str, Any]:
+    """``release.json`` des Ziels - oben oder lokal; ein Fehler, wenn es fehlt.
+
+    Danach muss **jede** darin genannte Datei am selben Ort liegen, und zwar
+    in der genannten Groesse. Die Pruefsummen gegen die Bytes haelt ``hole``;
+    hier geht es darum, dass der Zeiger nicht auf ein halb geleertes Release
+    zeigt (``aufraeumen`` entfernt ``release.json`` zuletzt).
+    """
+    rel = relativ(kennung_)
+    schluessel = paths.relativ(rel, RELEASE_MANIFEST)
+    if oben:
+        if storage.client.head(schluessel) is None:
+            raise ReleaseFehler(f"Release {kennung_} unbekannt: kein {storage.s3_path(schluessel)}")
+        manifest = json.loads(storage.client.get(schluessel).decode("utf-8"))
+    else:
+        pfad = storage.local_path(schluessel)
+        if not pfad.is_file():
+            raise ReleaseFehler(f"Release {kennung_} unbekannt: kein {pfad}")
+        manifest = read_manifest(pfad, fehler=ReleaseFehler)
+    if manifest.get("release_id") != kennung_:
+        raise ReleaseFehler(
+            f"{schluessel} nennt {manifest.get('release_id')!r}, nicht {kennung_}")
+    for r, angabe in sorted(manifest.get("files", {}).items()):
+        if oben:
+            objekt = storage.client.head(paths.relativ(rel, r))
+            groesse = None if objekt is None else objekt.size
+        else:
+            pfad = storage.local_path(rel, r)
+            groesse = pfad.stat().st_size if pfad.is_file() else None
+        if groesse is None:
+            raise ReleaseFehler(f"Release {kennung_} unvollstaendig: {r} fehlt")
+        if groesse != angabe.get("bytes", groesse):
+            raise ReleaseFehler(
+                f"Release {kennung_} unvollstaendig: {r} hat {groesse} statt "
+                f"{angabe['bytes']} Bytes")
+    return manifest
+
+
+def zuruecknehmen(storage: Storage, kennung_: str, grund: str, *,
+                  jetzt: datetime | None = None) -> dict[str, Any]:
+    """Legt ``AKTUELL.json`` auf ein frueheres, vollstaendiges Release zurueck.
+
+    FR-20: Ein gruener Lauf, der Falsches publiziert, muss rueckholbar sein.
+    Kein Release wird geloescht oder umgeschrieben - nur der Zeiger bewegt
+    sich, und er traegt danach, von welchem Release, wann und warum
+    (``zurueckgenommen``). Derselbe Befehl bringt ihn wieder vor.
+
+    Wo: in einem publizierenden Modus (``s3``, ``hybrid`` mit Publizieren)
+    zaehlt der Zeiger oben, und das Ziel wird oben geprueft; ``hybrid`` zieht
+    einen vorhandenen lokalen Zeiger mit. ``local`` und ``hybrid`` ohne
+    Publizieren pruefen und schreiben nur lokal - wer nicht publiziert, legt
+    auch den gemeinsamen Zeiger nicht um. Jede Pruefung geschieht,
+    bevor ein Byte geschrieben wird.
+    """
+    if not grund or not grund.strip():
+        raise ReleaseFehler("Ohne Grund wird nichts zurueckgenommen (--grund).")
+    oben = storage.config.publiziert
+    schluessel = paths.relativ(RELEASES, AKTUELL)
+    lokal = storage.local_path(RELEASES, AKTUELL)
+
+    if oben:
+        if storage.client.head(schluessel) is None:
+            raise ReleaseFehler(f"Kein Zeiger oben ({storage.s3_path(schluessel)}) - nichts zurueckzunehmen.")
+        bisher = json.loads(storage.client.get(schluessel).decode("utf-8"))
+    else:
+        if not lokal.is_file():
+            raise ReleaseFehler(f"Kein Zeiger ({lokal}) - nichts zurueckzunehmen.")
+        bisher = json.loads(lokal.read_text(encoding="utf-8"))
+    von = bisher.get("release_id")
+    if von == kennung_:
+        raise ReleaseFehler(f"AKTUELL.json zeigt schon darauf: {kennung_}")
+
+    manifest = _ziel_manifest(storage, kennung_, oben=oben)
+    am = (jetzt or datetime.now(timezone.utc)).isoformat(timespec="seconds").replace("+00:00", "Z")
+    neu = zeiger(manifest) | {"zurueckgenommen": {"von": von, "grund": grund.strip(), "am_utc": am}}
+    text = json.dumps(neu, indent=2) + "\n"
+
+    if oben:
+        try:
+            storage.client.put(schluessel, text.encode("utf-8"))
+        except Exception as fehler:  # noqa: BLE001 - jede Transportstoerung ist hier gleich
+            raise PublishError(f"Zeiger nicht umgelegt: {storage.s3_path(schluessel)}: {fehler}") from fehler
+    if not oben or (storage.backend == "hybrid" and lokal.is_file()):
+        _schreibe_zeiger(lokal, neu)
+    LOG.info("AKTUELL.json: %s -> %s (%s)", von, kennung_, grund.strip())
+    return neu
 
 
 # ---------------------------------------------------------------------------
