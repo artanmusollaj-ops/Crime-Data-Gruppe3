@@ -140,6 +140,13 @@ def plan(store):
     return found
 
 
+def _entferne(pfad):
+    if pfad.is_dir() and not pfad.is_symlink():
+        shutil.rmtree(pfad)
+    else:
+        pfad.unlink()
+
+
 def prune(store, dry_run=False):
     """Remove ``jobs/<id>/data`` of every job that is not protected.
 
@@ -147,7 +154,7 @@ def prune(store, dry_run=False):
     those that would go, nothing removed. Only impact jobs have a data folder;
     imports and batches write into the data root itself.
     """
-    from storage.analysesitzung import AnalyseFehler, datensperre
+    from storage.analysesitzung import AnalyseFehler, _lock_path, datensperre
 
     candidates = [jid for jid, _ in plan(store)]
     if dry_run:
@@ -156,10 +163,22 @@ def prune(store, dry_run=False):
     for jid in candidates:
         data = store.root / "jobs" / jid / "data"
         try:
-            with datensperre(data, schreiben=True):
-                shutil.rmtree(data)
+            with datensperre(data, schreiben=True) as root:
+                # Unter der Sperre alles ausser ihr selbst: Windows verweigert
+                # das Loeschen einer offenen Datei (WinError 32), und die
+                # Sperrdatei liegt im Ordner, den sie schuetzt.
+                sperrdatei = _lock_path(root)
+                for eintrag in root.iterdir():
+                    if eintrag == sperrdatei.parent:
+                        for rest in eintrag.iterdir():
+                            if rest != sperrdatei:
+                                _entferne(rest)
+                    else:
+                        _entferne(eintrag)
         except AnalyseFehler:
             continue
+        # Freigegeben: Jetzt geht auch der leere Rest mit der Sperrdatei.
+        shutil.rmtree(data, ignore_errors=True)
         removed.append(jid)
     if removed:
         value = read_pointer(store)

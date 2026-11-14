@@ -195,3 +195,41 @@ def test_das_aktive_release_bleibt_auch_ohne_zeiger_eintrag(store, monkeypatch):
     (store.root / "jobs" / ZEIGER).unlink()
     assert job_data.prune(store) == []
     assert daten(store, row["id"]).is_dir()
+
+
+def test_die_loeschregel_loescht_keine_gehaltene_sperrdatei(store, monkeypatch):
+    """Windows verweigert das Loeschen einer offenen Datei (WinError 32): Die
+    Sperrdatei im Job-Ordner darf erst nach dem Freigeben weg. Bis #232 lief
+    rmtree unter der Sperre, und der Windows-Lauf war auf main rot."""
+    import os
+    import shutil
+
+    from storage import analysesitzung
+
+    gehalten = set()
+    acquire, release = analysesitzung._acquire, analysesitzung._release
+
+    def nimm(stream):
+        acquire(stream)
+        gehalten.add(Path(stream.name).name)
+
+    def gib(stream):
+        gehalten.discard(Path(stream.name).name)
+        release(stream)
+
+    echtes_unlink = os.unlink
+
+    def wie_windows(pfad, *args, **kwargs):
+        if Path(os.fsdecode(pfad)).name in gehalten:
+            raise PermissionError(32, "The process cannot access the file", os.fsdecode(pfad))
+        return echtes_unlink(pfad, *args, **kwargs)
+
+    monkeypatch.setattr(analysesitzung, "_acquire", nimm)
+    monkeypatch.setattr(analysesitzung, "_release", gib)
+    monkeypatch.setattr(os, "unlink", wie_windows)
+    monkeypatch.setattr(shutil.os, "unlink", wie_windows)
+    freigegeben(store, "2403")
+    review = kandidat(store, "0901")
+    status(store, review["id"], "REJECTED")
+    assert job_data.prune(store) == [review["id"]]
+    assert not daten(store, review["id"]).exists()

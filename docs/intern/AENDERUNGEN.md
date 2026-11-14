@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'958** |
+| Tests | **2'959** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -109,6 +109,26 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+
+## 14.11.2026 · Die Löschregel für Job-Daten läuft auch unter Windows (Branch `fix-job-daten-windows`)
+
+Seit #232 war der Windows-Lauf auf `main` rot, und niemand sah es, weil er
+auf Pull Requests nicht läuft. `platform_admin.job_data.prune()` löschte
+`jobs/<id>/data` mit `rmtree`, während es die Sperre dieses Ordners hielt —
+und die Sperrdatei `.analyse/zugriff.lock` liegt in genau diesem Ordner.
+Linux löscht eine offene Datei, Windows nicht (`WinError 32`). Fünf Tests in
+`tests/platform_admin/test_job_data.py` scheiterten, und auf einem
+Windows-Rechner wäre jeder Takt der Konsole beim Aufräumen gescheitert.
+
+Jetzt löscht `prune` unter der Sperre alles ausser der Sperrdatei, gibt die
+Sperre frei und entfernt dann den leeren Rest. Neu bewacht:
+`test_die_loeschregel_loescht_keine_gehaltene_sperrdatei` bildet das
+Windows-Verhalten auf jedem Betriebssystem nach — eine gehaltene Sperrdatei
+lässt sich nicht löschen — und war vor dem Fix rot. Der Windows-Lauf lief
+vor dem Merge per `workflow_dispatch` auf dem Branch.
+
+**Zahlen.** 2'958 → **2'959 Tests**, Standardlauf 2'847 → **2'848**, im protokollierten Linux-CI-Lauf 2'768 → **2'769**.
 
 ## 14.11.2026 · Ein publiziertes Release lässt sich zurücknehmen (Branch `fr-20-release-zuruecknehmen`)
 
