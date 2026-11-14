@@ -61,9 +61,22 @@ function kachelebene(k, klasse) {
   };
 }
 
+// Koppelt Karten derselben Stadt: Wer zoomt oder verschiebt, nimmt die
+// anderen mit. Alle Mitglieder teilen ``k`` und damit dieselben Einheiten.
+export function kopplung() {
+  const mitglieder = new Set();
+  return {
+    melde(von, ansicht) {
+      for (const m of mitglieder) if (m !== von) m(ansicht);
+    },
+    nimm(m) { mitglieder.add(m); },
+  };
+}
+
 // Die Kartenflaeche: ``inhalt`` ist eine <g> mit den Tracts, ``defs`` die
-// Muster dazu. Gibt das <div class="kartenflaeche"> zurueck.
-export function kartenflaeche(k, { titel, inhalt, defs }) {
+// Muster dazu, ``gekoppelt`` optional eine ``kopplung()``. Gibt das
+// <div class="kartenflaeche"> zurueck.
+export function kartenflaeche(k, { titel, inhalt, defs, gekoppelt = null }) {
   const B = k.breite, H = k.hoehe;
   const svg = el("svg", { viewBox: `0 0 ${B} ${H}`, role: "img", "aria-label": titel });
   const ansicht = el("g", { class: "ansicht" });
@@ -119,6 +132,17 @@ export function kartenflaeche(k, { titel, inhalt, defs }) {
     if (!geplant) { geplant = true; requestAnimationFrame(zeichne); }
   }
 
+  // Eine Aenderung durch die Hand: selbst zeichnen und die Gekoppelten mitnehmen.
+  function geaendert() {
+    plane();
+    gekoppelt?.melde(uebernimm, { s, tx, ty });
+  }
+  function uebernimm(ansicht) {
+    ({ s, tx, ty } = ansicht);
+    plane();
+  }
+  gekoppelt?.nimm(uebernimm);
+
   // Die Karte deckt die Flaeche immer ganz; weiter hinaus als die Stadt geht es nicht.
   function begrenze() {
     s = Math.min(MAX_ZOOM, Math.max(1, s));
@@ -139,7 +163,7 @@ export function kartenflaeche(k, { titel, inhalt, defs }) {
     ty = p.y - ((p.y - ty) * neu) / s;
     s = neu;
     begrenze();
-    plane();
+    geaendert();
   }
 
   svg.addEventListener("wheel", (e) => {
@@ -164,7 +188,7 @@ export function kartenflaeche(k, { titel, inhalt, defs }) {
     tx = zug.tx + p.x - zug.p.x;
     ty = zug.ty + p.y - zug.p.y;
     begrenze();
-    plane();
+    geaendert();
   });
   const los = () => { zug = null; svg.classList.remove("zieht"); };
   svg.addEventListener("pointerup", los);
@@ -183,7 +207,7 @@ export function kartenflaeche(k, { titel, inhalt, defs }) {
   knoepfe.className = "zoomknoepfe";
   knoepfe.append(knopf("+", "Hineinzoomen", () => zoome(2)),
     knopf("−", "Herauszoomen", () => zoome(0.5)),
-    knopf("⤢", "Ganze Stadt", () => { s = 1; tx = 0; ty = 0; plane(); }));
+    knopf("⤢", "Ganze Stadt", () => { s = 1; tx = 0; ty = 0; geaendert(); }));
 
   const nennung = document.createElement("div");
   nennung.className = "kartennennung";

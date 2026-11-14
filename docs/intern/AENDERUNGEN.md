@@ -110,6 +110,22 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 14.11.2026 · Rate und Armut zoomen gemeinsam (Branch `karten-gekoppelt`)
+
+Auf »Soziales Umfeld« stehen je Stadt die Fallrate und die Armutsquote
+nebeneinander — der Sinn des Paars ist, denselben Ausschnitt zu vergleichen.
+Seit dem Zoom (Eintrag darunter) liessen sich die beiden Karten aber getrennt
+bewegen. Jetzt sind sie **gekoppelt**: Wer eine zoomt, verschiebt oder auf
+»Ganze Stadt« setzt, nimmt die andere mit. Chicago und Detroit bleiben
+voneinander unabhängig; die bivariate Ansicht hat je Stadt nur eine Karte.
+
+Umgesetzt als `kopplung()` in `static/karte.js`; beide Karten eines Paars
+teilen dieselben Karteneinheiten, der Zustand (Massstab, Versatz) geht
+unverändert hinüber.
+
+Keine Zahl und kein Test ändert sich — das Verhalten ist im Browser geprüft,
+nicht bewacht.
+
 ## 14.11.2026 · Die Tract-Karten liegen auf einer Stadtkarte und lassen sich zoomen (Branch `karte-hintergrund-und-zoom`)
 
 Die Karten auf »Geografie« und »Soziales Umfeld« zeigten die Tracts als

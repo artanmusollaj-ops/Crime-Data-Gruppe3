@@ -1,7 +1,7 @@
 // Das Brett »Soziales Umfeld«.
 import { FARBE, achsenzahl, balken, el, komma, leer, legende, starteBrett, zahl, zeitraumtext }
   from "./gemeinsam.js";
-import { kartenflaeche, schraffur } from "./karte.js";
+import { kartenflaeche, kopplung, schraffur } from "./karte.js";
 
 // Dieselben Stufen wie auf der »Geografie«: dieselbe Farbe ist dieselbe Rate.
 const RATE = ["#dcebfa", "#a9cdf2", "#6aa6e4", "#2f7de1", "#0b3f8a"];
@@ -32,7 +32,7 @@ function armutsstufe(t, baender) {
 }
 
 // Eine Karte: je Tract die Farbe, die ``farbe(t)`` sagt; ``null`` heisst schraffiert.
-function karte(stadt, titel, farbe, d) {
+function karte(stadt, titel, farbe, d, gekoppelt = null) {
   const k = karten[stadt.stadt];
   const tafel = document.createElement("article");
   tafel.className = `tafel karte ${stadt.stadt}`;
@@ -55,7 +55,7 @@ function karte(stadt, titel, farbe, d) {
     pfad.append(el("title", {}, zeilen.join("\n")));
     inhalt.append(pfad);
   }
-  const flaeche = kartenflaeche(k, { titel, inhalt, defs: schraffur(id) });
+  const flaeche = kartenflaeche(k, { titel, inhalt, defs: schraffur(id), gekoppelt });
   tafel.append(h2, flaeche);
   return tafel;
 }
@@ -79,8 +79,11 @@ function kartenbereich(d) {
     for (const s of d.staedte) {
       const paar = document.createElement("div");
       paar.className = "raster kartenpaar";
-      paar.append(karte(s, `${s.name}: Fälle je 1'000 Einwohner`, rateFarbe, d),
-        karte(s, `${s.name}: Armutsquote`, armutFarbe, d));
+      // Rate und Armut derselben Stadt zoomen gemeinsam: Derselbe Ausschnitt
+      // nebeneinander ist der Sinn des Paars.
+      const gemeinsam = kopplung();
+      paar.append(karte(s, `${s.name}: Fälle je 1'000 Einwohner`, rateFarbe, d, gemeinsam),
+        karte(s, `${s.name}: Armutsquote`, armutFarbe, d, gemeinsam));
       ziel.append(paar);
     }
   }
