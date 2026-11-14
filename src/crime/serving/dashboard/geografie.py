@@ -18,9 +18,12 @@ ohne Einwohner gibt es keine Rate.
 wie im Entwurf passten zu einem Zeitraum und nicht zum naechsten; je Stadt
 eigene Klassen machten dieselbe Farbe in Chicago und Detroit zu zwei Zahlen.
 
-**Eine Karte ohne Hintergrund.** Strassen und Wasser kaemen von einem
-Kachelserver; die Content-Security-Policy erlaubt nur ``'self'``, und die
-Umrisse stammen aus Gold (``dim_tract_geo``, TIGER).
+**Die Umrisse aus Gold, der Hintergrund von OpenStreetMap.** Die Tracts
+kommen aus ``dim_tract_geo`` (TIGER); Strassen, Wasser und Ortsnamen sind die
+Rasterkacheln von OpenStreetMap, im Browser geladen (``static/karte.js``).
+Die Content-Security-Policy erlaubt dafuer nur diesen einen Host, und nur
+fuer Bilder. Damit die Tracts auf den Kacheln liegen, projiziert ``pfade``
+wie die Kacheln nach Web-Mercator.
 
 **Nicht verortet** sind Taten ohne Koordinate, ohne Tract oder ausserhalb
 der Stadtgrenze. Sie fehlen auf der Karte und werden je Stadt gezaehlt.
@@ -38,40 +41,55 @@ KLASSEN = 5
 RANGLISTE = 5
 #: Breite der Karte im SVG-Koordinatensystem; die Hoehe folgt der Stadt.
 KARTENBREITE = 600.0
+#: Aequatorumfang (WGS 84) in Kilometern.
+_ERDUMFANG_KM = 40075.016686
 
 _RING = re.compile(r"\(\(([^()]*)\)\)")
 
 
-def pfade(zeilen) -> dict[str, dict[str, Any]]:
-    """WKT-Polygone je Stadt als SVG-Pfade.
+def _welt(laenge: float, breite: float) -> tuple[float, float]:
+    """Web-Mercator in Weltkoordinaten 0..1, Ursprung oben links.
 
-    Projektion: Laenge mal cos(Mittelbreite), Breite gespiegelt - abstandstreu
-    genug fuer eine Stadt, und ohne Bibliothek. ``zeilen``: (geoid, city,
-    tract_name, boundary_wkt).
+    Dieselbe Rechnung wie die Kachelnummern der Kachelserver, nach
+    OpenStreetMap Wiki, »Slippy map tilenames«
+    (https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames).
+    """
+    phi = math.radians(breite)
+    return ((laenge + 180.0) / 360.0,
+            (1.0 - math.log(math.tan(phi) + 1.0 / math.cos(phi)) / math.pi) / 2.0)
+
+
+def pfade(zeilen) -> dict[str, dict[str, Any]]:
+    """WKT-Polygone je Stadt als SVG-Pfade, in Web-Mercator.
+
+    Eine SVG-Einheit ist ``1 / massstab`` Weltbreiten; mit ``x0`` und ``y0``
+    rechnet der Browser daraus die Kacheln unter der Karte. ``zeilen``:
+    (geoid, city, tract_name, boundary_wkt).
     """
     je_stadt: dict[str, list] = {}
     for geoid, stadt, name, wkt in zeilen:
         treffer = _RING.search(wkt or "")
         if not treffer or not stadt:
             continue
-        punkte = [tuple(map(float, p.split())) for p in treffer.group(1).split(",")]
+        punkte = [_welt(*map(float, p.split()[:2])) for p in treffer.group(1).split(",")]
         je_stadt.setdefault(stadt, []).append((geoid, name, punkte))
     karten = {}
     for stadt, tracts in je_stadt.items():
         alle = [p for _, _, ps in tracts for p in ps]
         x0, x1 = min(p[0] for p in alle), max(p[0] for p in alle)
         y0, y1 = min(p[1] for p in alle), max(p[1] for p in alle)
-        k = math.cos(math.radians((y0 + y1) / 2))
-        massstab = KARTENBREITE / ((x1 - x0) * k)
-        hoehe = (y1 - y0) * massstab
-        # Ein Kilometer in Karteneinheiten, fuer die Massstabsleiste.
-        km = massstab / 111.32
+        massstab = KARTENBREITE / (x1 - x0)
+        # Ein Kilometer in Karteneinheiten, fuer die Massstabsleiste: Mercator
+        # dehnt um 1/cos(Breite), gemessen in der Mitte der Stadt.
+        mitte = math.degrees(math.atan(math.sinh(math.pi * (1 - (y0 + y1)))))
+        km = massstab / (_ERDUMFANG_KM * math.cos(math.radians(mitte)))
 
         def xy(p):
-            return f"{(p[0] - x0) * k * massstab:.1f} {(y1 - p[1]) * massstab:.1f}"
+            return f"{(p[0] - x0) * massstab:.1f} {(p[1] - y0) * massstab:.1f}"
 
         karten[stadt] = {
-            "breite": KARTENBREITE, "hoehe": round(hoehe, 1), "km": round(km, 2),
+            "breite": KARTENBREITE, "hoehe": round((y1 - y0) * massstab, 1),
+            "km": round(km, 2), "x0": x0, "y0": y0, "massstab": massstab,
             "tracts": [{"geoid": g, "name": n,
                         "d": "M" + "L".join(xy(p) for p in ps) + "Z"} for g, n, ps in tracts],
         }

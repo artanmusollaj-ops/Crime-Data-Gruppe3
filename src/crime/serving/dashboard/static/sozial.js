@@ -1,6 +1,7 @@
 // Das Brett »Soziales Umfeld«.
 import { FARBE, achsenzahl, balken, el, komma, leer, legende, starteBrett, zahl, zeitraumtext }
   from "./gemeinsam.js";
+import { kartenflaeche, schraffur } from "./karte.js";
 
 // Dieselben Stufen wie auf der »Geografie«: dieselbe Farbe ist dieselbe Rate.
 const RATE = ["#dcebfa", "#a9cdf2", "#6aa6e4", "#2f7de1", "#0b3f8a"];
@@ -38,15 +39,7 @@ function karte(stadt, titel, farbe, d) {
   const h2 = document.createElement("h2");
   h2.textContent = titel;
   const id = `schraffur-${stadt.stadt}-${titel.length}`;
-  const svg = el("svg", { viewBox: `-10 -10 ${k.breite + 20} ${k.hoehe + 20}`, role: "img",
-    "aria-label": titel });
-  const defs = el("defs");
-  const muster = el("pattern", { id, width: 6, height: 6, patternUnits: "userSpaceOnUse",
-    patternTransform: "rotate(45)" });
-  muster.append(el("rect", { width: 6, height: 6, fill: "#f1f3f6" }),
-    el("line", { x1: 0, y1: 0, x2: 0, y2: 6, stroke: "#aab3bf", "stroke-width": 2 }));
-  defs.append(muster);
-  svg.append(defs);
+  const inhalt = el("g");
   const nach = Object.fromEntries(stadt.tracts.map((t) => [t.geoid, t]));
   for (const f of k.tracts) {
     const t = nach[f.geoid];
@@ -60,11 +53,9 @@ function karte(stadt, titel, farbe, d) {
       if (t.geringe_basis && t.einwohner) zeilen.push(`geringe Basis (unter ${zahl.format(d.geringe_basis)})`);
     }
     pfad.append(el("title", {}, zeilen.join("\n")));
-    svg.append(pfad);
+    inhalt.append(pfad);
   }
-  const flaeche = document.createElement("div");
-  flaeche.className = "kartenflaeche";
-  flaeche.append(svg);
+  const flaeche = kartenflaeche(k, { titel, inhalt, defs: schraffur(id) });
   tafel.append(h2, flaeche);
   return tafel;
 }

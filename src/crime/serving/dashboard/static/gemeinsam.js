@@ -1,6 +1,7 @@
 // Was alle Bretter teilen: Zahlformat, Leiste, Linien und Balken.
 // Die Diagramme sind eigenes SVG statt einer Bibliothek - kein CDN, und die
-// Content-Security-Policy bleibt bei 'self'.
+// Content-Security-Policy bleibt bei 'self'. Einzige Ausnahme: Bilder von
+// OpenStreetMap, die Hintergrundkacheln der Karten (karte.js).
 
 const SVGNS = "http://www.w3.org/2000/svg";
 export const FARBE = { chicago: "#17a38b", detroit: "#2f7de1" };
