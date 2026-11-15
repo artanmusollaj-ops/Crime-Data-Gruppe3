@@ -1,0 +1,246 @@
+# Die Strecke in Google Cloud - die Probe fuer FR-44 und FR-47, kein Betrieb.
+#
+#     cd /opt/urbancrime                                # auf der Probe-VM
+#     sudo docker compose -f docker-compose.gcp.yml up -d --wait
+#     sudo docker compose -f docker-compose.gcp.yml run --rm pipeline python -m orchestration.vorpruefung
+#     sudo docker compose -f docker-compose.gcp.yml run --rm pipeline \
+#         python -m orchestration.run_all --ohne-ingestion --jahre 2021-2026
+#     sudo docker compose -f docker-compose.gcp.yml run --rm pipeline \
+#         python -m orchestration.release holen aktuell --einsetzen
+#     sudo docker compose -f docker-compose.gcp.yml run --rm pipeline python -m serving.load_elasticsearch
+#     sudo docker compose -f docker-compose.gcp.yml run --rm pipeline python -m serving.build_kibana
+#     sudo docker compose -f docker-compose.gcp.yml run --rm pipeline python -m serving.pruefe_stand
+#
+# Angelegt, gestartet und gestoppt wird die VM mit docker/gcp-*.sh; die
+# Befehle oben nennt docker/gcp-starten.sh nach jedem Start.
+#
+# **Was FR-44 hier belegen soll.** Der Wechsel der Zielumgebung ist
+# Konfiguration, kein Code. Gegenueber docker-compose.srv01.yml unterscheidet
+# sich deshalb nur, was eine Umgebung ausmacht - und jede dieser Zeilen ist
+# als Unterschied markiert ("anders als srv01"):
+#
+#   * der Objektspeicher: Cloud Storage ueber die S3-Schnittstelle statt
+#     SeaweedFS (S3_ENDPOINT=storage.googleapis.com und HMAC in der .env);
+#   * der Zugang: Ports an 127.0.0.1 der VM, erreicht ueber
+#     "gcloud compute ssh --tunnel-through-iap -L"; kein Traefik, kein
+#     Cloudflare-Tunnel, keine externen Netze;
+#   * Elasticsearch und Kibana laufen mit (Christian, 15.11.2026), auf srv01
+#     seit dem 1.11.2026 nicht mehr (C-9);
+#   * keine Konsole, kein Worker, kein Jupyter, keine Startseite - die Probe
+#     braucht Pipeline, Dashboard, Elasticsearch und Kibana, sonst nichts.
+#
+# **Was gleich bleibt, und warum es gleich bleiben muss.** Das Abbild (per
+# Digest, derselbe wie auf srv01), die DuckDB-Grenzen und die Arbeitswege
+# der Pipeline. Der Beleg fuer FR-47 vergleicht das hier gebaute Release
+# Tabelle fuer Tabelle mit dem von srv01 (tools/vergleiche_releases.py);
+# jeder Unterschied in der Umgebung, der nicht sein muss, waere eine
+# Erklaerung mehr fuer eine abweichende Pruefsumme.
+#
+# **Die Grenzen.** 8 GB hat die VM (e2-standard-2); die Summe der Grenzen
+# unten ist 4'736 MiB und laesst dem System, Docker und dem Seitencache den
+# Rest. Die Zahlen sind die auf srv01 gemessenen (FR-13); je Dienst steht
+# die Herkunft an seinem mem_limit. Gemessen wird hier nichts Neues - die
+# Probe soll laufen, nicht knapp sein.
+#
+# **Die Geheimnisse stehen nicht hier**, wie in docker-compose.srv01.yml
+# (FR-18): Jede Variable ohne Wert kommt aus /opt/urbancrime/.env, angelegt
+# aus .env.gcp.example von docker/gcp-starten.sh --env.
+
+# Ein eigener Projektname: Datentraeger und Netz heissen damit probe-gcp_*,
+# nie wie die auf srv01.
+name: probe-gcp
+
+services:
+
+  # --------------------------------------------------------------------
+  # Das Dashboard - Dauerbetrieb, wie auf srv01
+  # --------------------------------------------------------------------
+  dashboard:
+    image: ${PIPELINE_IMAGE:?PIPELINE_IMAGE fehlt - der Digest des Strecken-Abbilds, siehe .env.gcp.example}
+    restart: unless-stopped
+    command:
+      - gunicorn
+      - --bind
+      - 0.0.0.0:8050
+      - --workers
+      - "1"
+      - --threads
+      - "4"
+      - --timeout
+      - "120"
+      - serving.dashboard.app:create_app()
+    # Anders als srv01: kein Traefik. Nur an 127.0.0.1 der VM; von aussen
+    # erreichbar ist es allein ueber die SSH-Weiterleitung durch IAP.
+    ports:
+      - "127.0.0.1:8050:8050"
+    networks:
+      - probe
+    environment:
+      STORAGE_BACKEND: s3
+      S3_ENDPOINT:
+      S3_BUCKET:
+      S3_ACCESS_KEY:
+      S3_SECRET_KEY:
+      # Anders als srv01, und nur fuer Cloud Storage: siehe .env.gcp.example.
+      AWS_REQUEST_CHECKSUM_CALCULATION:
+      AWS_RESPONSE_CHECKSUM_VALIDATION:
+      DASHBOARD_DATA_ROOT: /app/data
+      DUCKDB_MEMORY_LIMIT: 256MB
+      DUCKDB_THREADS: "2"
+    # FR-13, auf srv01 gemessen am 1.11.2026: Spitze 429 MiB beim ersten
+    # Laden aus dem Eimer; 640 MiB sind die Spitze plus Luft.
+    mem_limit: 640m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8050/healthz', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # --------------------------------------------------------------------
+  # Elasticsearch und Kibana - anders als srv01 (dort seit 1.11.2026 weg)
+  # --------------------------------------------------------------------
+  elasticsearch:
+    # Dieselbe Fassung wie docker-compose.yml, per Digest gepinnt wie alles
+    # Fremde in docker-compose.srv01.yml. Der Digest ist der des
+    # Multi-Arch-Index von 8.19.22, am 15.11.2026 mit
+    # "docker buildx imagetools inspect" abgelesen; die VM ist x86-64 und
+    # bekommt daraus das amd64-Abbild.
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.22@sha256:e98f9c3b09beb2fbb9eaf667d602df3f0e00bd3644138b8458dc17ba1a675595
+    restart: unless-stopped
+    networks:
+      - probe
+    environment:
+      discovery.type: single-node
+      # Ohne Anmeldung, wie in docker-compose.yml: Der Dienst hat keinen
+      # Port nach aussen, nicht einmal an 127.0.0.1 der VM. Erreichbar ist er
+      # nur im Netz probe, fuer die Lader und fuer Kibana.
+      xpack.security.enabled: "false"
+      # 1 GiB Heap wie lokal; Elasticsearch legt dazu noch einmal so viel
+      # ausserhalb des Heaps an.
+      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+    volumes:
+      - elasticsearch-daten:/usr/share/elasticsearch/data
+    # FR-13, gemessen auf srv01 bis zum 1.11.2026 (C-9): 1'792 MiB. Der
+    # Host braucht vm.max_map_count=262144; das setzt docker/gcp-startup.sh.
+    mem_limit: 1792m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s'"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+  kibana:
+    # Wie oben: 8.19.22, Digest des Multi-Arch-Index, 15.11.2026.
+    image: docker.elastic.co/kibana/kibana:8.19.22@sha256:fb480ca9e34feb91738348ead6be37400c1017592bee7e7a5119a5fcd3d5fc69
+    restart: unless-stopped
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - probe
+    ports:
+      - "127.0.0.1:5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      # Ohne Wert: Der Schluessel steht in der .env (mindestens 32 Zeichen),
+      # nicht wie in docker-compose.yml als Literal - diese Datei liegt auf
+      # einer Maschine im Netz und nicht auf einem Entwicklungsrechner.
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY:
+      XPACK_SECURITY_SHOWINSECURECLUSTERWARNING: "false"
+    volumes:
+      - kibana-daten:/usr/share/kibana/data
+    # FR-13, gemessen auf srv01 bis zum 1.11.2026 (C-9): 1'024 MiB.
+    mem_limit: 1024m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:5601/api/status | grep -q '\"level\":\"available\"'"]
+      interval: 10s
+      timeout: 10s
+      retries: 40
+
+  # --------------------------------------------------------------------
+  # Die Strecke - ein Stapellauf, kein Dienst (wie auf srv01, FR-9)
+  # --------------------------------------------------------------------
+  pipeline:
+    # Kein build: - das Abbild ist dasselbe wie auf srv01, aus der Registry
+    # und per Digest gepinnt (FR-3/E7). Nur so ist ein Vergleich der beiden
+    # Releases einer der Umgebung und nicht einer zweier Bauten.
+    image: ${PIPELINE_IMAGE:?PIPELINE_IMAGE fehlt - der Digest des Strecken-Abbilds, siehe .env.gcp.example}
+    restart: on-failure:2
+    profiles:
+      - stapel
+    networks:
+      - probe
+    environment:
+      STORAGE_BACKEND: s3
+      DATA_LOCK_ROOT: /app/datensperren
+      DUCKDB_TEMP_DIRECTORY: /app/data/duckdb-tmp
+      S3_ENDPOINT:
+      S3_BUCKET:
+      S3_ACCESS_KEY:
+      S3_SECRET_KEY:
+      # Anders als srv01, und nur fuer Cloud Storage: siehe .env.gcp.example.
+      AWS_REQUEST_CHECKSUM_CALCULATION:
+      AWS_RESPONSE_CHECKSUM_VALIDATION:
+      CENSUS_API_KEY:
+      SOCRATA_APP_TOKEN:
+      # Anders als srv01: Hier gibt es Elasticsearch und Kibana, also prueft
+      # pruefe_stand Gold, Elasticsearch und Kibana (Betrieb "lokal") und
+      # nicht das Dashboard (Betrieb "server").
+      SERVING_BETRIEB: lokal
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      KIBANA_URL: http://kibana:5601
+      DASHBOARD_URL: http://dashboard:8050
+      # FR-46: die Abhilfetexte von pruefe_stand und der Vorpruefung nennen
+      # diese Datei. Die Startseite baut die Probe nicht, deshalb kein
+      # EINSTIEG_ADRESSMUSTER und kein STAPEL_DATENLAUF.
+      STAPEL_COMPOSE: docker-compose.gcp.yml
+      # Gleich wie srv01, mit Absicht (siehe oben): 896 MB fuer jede Stufe,
+      # dort gemessen; zwei Threads.
+      DUCKDB_MEMORY_LIMIT: 896MB
+      DUCKDB_THREADS: "2"
+    volumes:
+      # Arbeitsraum, kein Bestand: Der Bestand ist der Eimer, wie auf srv01.
+      - arbeitsdaten:/app/data
+      - datensperren:/app/datensperren
+    # FR-13, gemessen am 6.10.2026 auf srv01: 1,25 GiB.
+    mem_limit: 1280m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  # Anders als srv01: kein externes Netz (proxy, monitoring) - die Probe
+  # tritt nirgends bei. Ein Netz, von diesem Stapel angelegt.
+  probe:
+    driver: bridge
+
+volumes:
+  arbeitsdaten:
+  datensperren:
+  elasticsearch-daten:
+  kibana-daten:
