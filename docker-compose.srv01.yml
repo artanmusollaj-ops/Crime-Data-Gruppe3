@@ -334,6 +334,15 @@ services:
       # ein Container tippt kein --dashboard (FR-14).
       SERVING_BETRIEB: server
       DASHBOARD_URL: http://dashboard:8050
+      # FR-46: Was nur auf diesem Server stimmt, steht hier und nicht im
+      # Abbild. ``serving.build_einstieg --adressen server`` setzt damit die
+      # Adressen und Befehle der ausgelieferten Startseite ein und bricht ab,
+      # wenn eine fehlt; ``pruefe_stand`` und die Vorpruefung nennen
+      # STAPEL_COMPOSE in ihren Abhilfetexten. Das Muster ist dasselbe wie in
+      # den Traefik-Regeln unten (test_die_hostnamen_folgen_dem_muster).
+      EINSTIEG_ADRESSMUSTER: https://urbancrime-{dienst}.datenwerft.ch
+      STAPEL_COMPOSE: docker-compose.srv01.yml
+      STAPEL_DATENLAUF: docker/srv01-datenlauf.sh
       # FR-61: DuckDB von innen begrenzen, unterhalb des Container-Limits.
       # Ohne Angabe nimmt DuckDB rund 80 % des Arbeitsspeichers der
       # **Maschine** - nicht des Containers -, und das waeren hier 6,3 GiB auf
@@ -659,6 +668,10 @@ services:
       SOCRATA_APP_TOKEN:
       SERVING_BETRIEB: server
       DASHBOARD_URL: http://dashboard:8050
+      # FR-46, wie in der Pipeline: Der Worker baut die Startseite ebenfalls.
+      EINSTIEG_ADRESSMUSTER: https://urbancrime-{dienst}.datenwerft.ch
+      STAPEL_COMPOSE: docker-compose.srv01.yml
+      STAPEL_DATENLAUF: docker/srv01-datenlauf.sh
       DUCKDB_MEMORY_LIMIT: 896MB
       DUCKDB_THREADS: "2"
       ADMIN_PROJECT_ROOT: /app

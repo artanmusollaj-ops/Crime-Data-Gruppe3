@@ -39,6 +39,26 @@ def werkzeug():
     return build_einstieg
 
 
+def serverumgebung() -> dict[str, str]:
+    """Die Werte der Serverfassung, wie ``docker-compose.srv01.yml`` sie der
+    Pipeline setzt (FR-46) - gelesen, nicht abgeschrieben. So prueft jeder
+    Test der Serverfassung zugleich, dass die Beschreibung die Seite traegt,
+    die srv01 bis zum 14.11.2026 aus festen Werten baute."""
+    import yaml
+
+    from serving.build_einstieg import SERVERWERTE
+
+    umgebung = yaml.safe_load(SRV01.read_text(encoding="utf-8"))[
+        "services"]["pipeline"]["environment"]
+    return {name: umgebung[name] for name in SERVERWERTE}
+
+
+@pytest.fixture(autouse=True)
+def _serverwerte_aus_der_beschreibung(monkeypatch):
+    for name, wert in serverumgebung().items():
+        monkeypatch.setenv(name, wert)
+
+
 @pytest.fixture(scope="module")
 def text() -> str:
     if not SEITE.is_file():
@@ -435,6 +455,80 @@ def test_die_fassung_wird_benannt_und_nicht_geraten(werkzeug):
     assert zerleger.parse_args([]).adressen == "lokal", (
         "die Vorgabe ist nicht lokal - dann stuenden in der abgelegten Seite "
         "Serveradressen")
+
+
+# --------------------------------------------------------------------------
+# FR-46: Die Serverwerte kommen aus der Umgebung, nicht aus dem Code
+# --------------------------------------------------------------------------
+
+
+def test_die_serverwerte_stehen_fuer_pipeline_und_worker_in_der_beschreibung(werkzeug):
+    """Beide bauen die Startseite: die Pipeline im Datenlauf, der Worker nach
+    einer Freigabe in der Konsole (``platform_admin.serving_export``)."""
+    import yaml
+
+    dienste = yaml.safe_load(SRV01.read_text(encoding="utf-8"))["services"]
+    for name in ("pipeline", "worker"):
+        umgebung = dienste[name]["environment"]
+        fehlend = [v for v in werkzeug.SERVERWERTE if not umgebung.get(v)]
+        assert not fehlend, f"{name}: {fehlend} fehlt in docker-compose.srv01.yml"
+
+
+@pytest.mark.parametrize("name", ["EINSTIEG_ADRESSMUSTER", "STAPEL_COMPOSE",
+                                  "STAPEL_DATENLAUF"])
+def test_ohne_serverwert_bricht_die_serverfassung_mit_dem_namen_ab(werkzeug, monkeypatch, name):
+    """Kein stiller Rueckfall auf die Werte von srv01 - genau den nahm FR-46
+    aus dem Abbild."""
+    monkeypatch.delenv(name)
+    with pytest.raises(werkzeug.FehlendeServerangabe, match=name):
+        blatt(werkzeug, "server")
+    # Die Fassung lokal liest keinen der drei Werte.
+    assert "localhost" in blatt(werkzeug, "lokal")
+
+
+def test_der_aufruf_ohne_serverwert_endet_mit_exit_1(werkzeug, monkeypatch, tmp_path, capsys):
+    monkeypatch.delenv("STAPEL_COMPOSE")
+    ziel = tmp_path / "index.html"
+    assert werkzeug.main(["--adressen", "server", "--ziel", str(ziel),
+                          "--data-root", str(tmp_path / "data")]) == 1
+    assert "STAPEL_COMPOSE" in capsys.readouterr().err
+    assert not ziel.exists(), "abgebrochen, aber trotzdem geschrieben"
+
+
+@pytest.mark.parametrize("muster", [
+    "https://start.example.org",
+    "https://{dienst}.example.org/{dienst}",
+])
+def test_das_muster_braucht_genau_einen_platzhalter(werkzeug, monkeypatch, muster):
+    """Ohne Platzhalter trüge jede Karte dieselbe Adresse; mit zweien schrieb
+    die Seite "Die kein Verweise", weil das Zählmuster nur am ersten teilte."""
+    monkeypatch.setenv("EINSTIEG_ADRESSMUSTER", muster)
+    with pytest.raises(werkzeug.FehlendeServerangabe, match="EINSTIEG_ADRESSMUSTER"):
+        werkzeug.dienste("server")
+
+
+def test_ein_muster_mit_zwei_platzhaltern_endet_mit_exit_1(werkzeug, monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("EINSTIEG_ADRESSMUSTER", "https://{dienst}.example.org/{dienst}")
+    ziel = tmp_path / "index.html"
+    assert werkzeug.main(["--adressen", "server", "--ziel", str(ziel),
+                          "--data-root", str(tmp_path / "data")]) == 1
+    assert "EINSTIEG_ADRESSMUSTER" in capsys.readouterr().err
+    assert not ziel.exists()
+
+
+def test_die_serverfassung_setzt_die_werte_der_umgebung_ein(werkzeug, monkeypatch):
+    """Eine andere Umgebung, eine andere Seite - und kein Rest von srv01."""
+    monkeypatch.setenv("EINSTIEG_ADRESSMUSTER", "https://crime-{dienst}.example.org")
+    monkeypatch.setenv("STAPEL_COMPOSE", "compose.cloud.yml")
+    monkeypatch.setenv("STAPEL_DATENLAUF", "betrieb/datenlauf.sh")
+    seite = blatt(werkzeug, "server")
+    assert 'href="https://crime-dashboard.example.org/"' in seite
+    assert 'href="https://crime-admin.example.org/"' in seite
+    assert "docker compose -f compose.cloud.yml up -d\nbetrieb/datenlauf.sh delta" in seite
+    assert "docker compose -f compose.cloud.yml --profile analyse up -d jupyter" in seite
+    assert "<code>crime-*</code>" in seite
+    for rest in ("srv01", "datenwerft", "urbancrime"):
+        assert rest not in seite, f"die Serverfassung nennt noch {rest!r}"
 
 
 def test_die_jupyter_karte_sagt_dass_er_erst_zu_starten_ist(werkzeug):

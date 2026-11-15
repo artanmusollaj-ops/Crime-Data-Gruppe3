@@ -35,7 +35,10 @@ from dotenv import find_dotenv, load_dotenv
 
 
 BACKENDS = ("local", "s3", "hybrid")
-VORGABE_ENDPOINT = "s3.datenwerft.ch"
+# Kein VORGABE_ENDPOINT mehr (FR-46, 14.11.2026). Bis dahin stand hier der
+# Eimer von srv01, und ``s3`` oder ``hybrid`` ohne ``S3_ENDPOINT`` griff still
+# dorthin zu - in jeder anderen Umgebung ein Zugriff auf den falschen Eimer
+# statt eines Fehlers. Der Endpunkt ist jetzt Pflicht, wo er gebraucht wird.
 VORGABE_BUCKET = "urban-crime"
 
 
@@ -53,7 +56,7 @@ def wahr(text: str | None, vorgabe: bool) -> bool:
 class Config:
     backend: str = "local"
     local_root: Path = Path("data")
-    s3_endpoint: str = VORGABE_ENDPOINT
+    s3_endpoint: str = ""
     s3_access_key: str = ""
     s3_secret_key: str = ""
     s3_bucket: str = VORGABE_BUCKET
@@ -142,7 +145,7 @@ def load(env: Mapping[str, str] | None = None, *, dotenv: bool = True) -> Config
     config = Config(
         backend=backend,
         local_root=Path((env.get("LOCAL_DATA_ROOT") or "data").strip()),
-        s3_endpoint=(env.get("S3_ENDPOINT") or VORGABE_ENDPOINT).strip(),
+        s3_endpoint=(env.get("S3_ENDPOINT") or "").strip(),
         s3_access_key=(env.get("S3_ACCESS_KEY") or "").strip(),
         s3_secret_key=(env.get("S3_SECRET_KEY") or "").strip(),
         s3_bucket=(env.get("S3_BUCKET") or VORGABE_BUCKET).strip(),
@@ -156,6 +159,11 @@ def load(env: Mapping[str, str] | None = None, *, dotenv: bool = True) -> Config
         raise StorageConfigError(
             f"STORAGE_BACKEND={backend} braucht S3_ACCESS_KEY und S3_SECRET_KEY "
             "(in der Umgebung oder in .env; .env wird nicht versioniert)"
+        )
+    if config.remote and not config.s3_endpoint:
+        raise StorageConfigError(
+            f"STORAGE_BACKEND={backend} braucht S3_ENDPOINT (Hostname des "
+            "Objektspeichers, ohne Schema; in der Umgebung oder in .env)"
         )
     if config.remote and not config.s3_bucket:
         raise StorageConfigError("S3_BUCKET darf nicht leer sein")

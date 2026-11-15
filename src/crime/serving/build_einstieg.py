@@ -56,6 +56,10 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import os
+import re
+import sys
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -112,8 +116,77 @@ ZAHLWORT = ("kein", "ein", "zwei", "drei", "vier", "fünf", "sechs", "sieben",
 #: Unterschied, dessen Ursache nicht im Aufruf steht.
 FASSUNGEN = ("lokal", "server")
 
+#: Was die Fassung ``server`` einsetzt, und woher (FR-46, seit 14.11.2026).
+#:
+#: Bis dahin standen die Hostnamen ``urbancrime-<dienst>.datenwerft.ch`` und
+#: die Befehle mit ``docker-compose.srv01.yml`` und ``docker/srv01-datenlauf.sh``
+#: hier im Code - im Abbild also eine Annahme, dass es auf srv01 laeuft.
+#: Jetzt setzt sie ``docker-compose.srv01.yml`` den Diensten ``pipeline`` und
+#: ``worker``. Die **Flagge** waehlt weiter die Fassung (siehe oben); die
+#: Umgebung liefert nur die Werte, und nur fuer ``server``. Die Fassung
+#: ``lokal`` liest keine davon, eine liegen gebliebene ``.env`` aendert die
+#: abgelegte Seite also nicht.
+#:
+#: ``EINSTIEG_ADRESSMUSTER`` traegt ``{dienst}`` an der Stelle des
+#: Dienstnamens, ``STAPEL_COMPOSE`` die Compose-Datei, ``STAPEL_DATENLAUF``
+#: das Skript, das den Datenlauf anstoesst.
+SERVERWERTE = ("EINSTIEG_ADRESSMUSTER", "STAPEL_COMPOSE", "STAPEL_DATENLAUF")
 
-def dienste(fassung: str = "lokal") -> tuple[tuple, ...]:
+
+class FehlendeServerangabe(ValueError):
+    """Die Fassung ``server`` braucht einen Wert, den die Umgebung nicht hat."""
+
+
+def serverwerte(umgebung: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Die drei Werte der Serverfassung - oder ein Abbruch mit dem Namen.
+
+    Kein Rueckfall auf die Werte von srv01: Genau der war die Annahme, die
+    FR-46 aus dem Abbild nimmt. Eine Seite mit fremden Hostnamen saehe in
+    jeder anderen Umgebung richtig aus und fuehrte ins Leere.
+    """
+    umgebung = os.environ if umgebung is None else umgebung
+    werte = {name: (umgebung.get(name) or "").strip() for name in SERVERWERTE}
+    fehlend = [name for name, wert in werte.items() if not wert]
+    if fehlend:
+        raise FehlendeServerangabe(
+            f"--adressen server braucht {', '.join(fehlend)} in der Umgebung "
+            "(gesetzt in der Compose-Beschreibung des Stapels)")
+    # Genau einmal: Ohne Platzhalter truegen alle Karten dieselbe Adresse,
+    # mit zweien zerlegten geroutet_muster und kurzname am ersten, und die
+    # Seite zaehlte "kein Verweise".
+    if werte["EINSTIEG_ADRESSMUSTER"].count("{dienst}") != 1:
+        raise FehlendeServerangabe(
+            "EINSTIEG_ADRESSMUSTER muss {dienst} genau einmal enthalten, etwa "
+            "https://{dienst}.example.org")
+    return werte
+
+
+def adresse(muster: str, dienst: str) -> str:
+    """``{dienst}`` im Muster ersetzt - ohne ``str.format``, das an jeder
+    anderen geschweiften Klammer im Muster scheiterte."""
+    return muster.replace("{dienst}", dienst)
+
+
+def geroutet_muster(muster: str) -> re.Pattern[str]:
+    """Woran eine Adresse nach dem Muster zu erkennen ist."""
+    vorn, _, hinten = muster.partition("{dienst}")
+    return re.compile(re.escape(vorn) + r"[\w-]+" + re.escape(hinten))
+
+
+def kurzname(muster: str) -> str:
+    """Der Name, unter dem die Seite die gerouteten Adressen zusammenfasst.
+
+    Der Teil des Hostnamens, der ``{dienst}`` traegt, mit ``*`` an dessen
+    Stelle - aus ``https://urbancrime-{dienst}.example.org`` wird
+    ``urbancrime-*``, das Muster, an dem eine Access-Anwendung haengt.
+    """
+    rest = muster.split("//", 1)[-1].split("/", 1)[0]
+    teil = next((t for t in rest.split(".") if "{dienst}" in t), rest)
+    return teil.replace("{dienst}", "*")
+
+
+def dienste(fassung: str = "lokal",
+            umgebung: Mapping[str, str] | None = None) -> tuple[tuple, ...]:
     """Die Zugaenge - je Eintrag Name, Adresse, Rolle, Text, Beispiel, Vermerk.
 
     Eine Funktion und keine Konstante, weil **zwei** Angaben darin gemessen
@@ -142,12 +215,17 @@ def dienste(fassung: str = "lokal") -> tuple[tuple, ...]:
     anstelle des Knopfes steht. Genau eines von beiden ist gesetzt; so kann
     keine Karte auf etwas verweisen, das in dieser Fassung nicht erreichbar
     ist.
+
+    Die Fassung ``server`` liest ihre Werte aus ``umgebung`` (ohne Angabe
+    ``os.environ``, siehe ``SERVERWERTE``) und wirft
+    ``FehlendeServerangabe``, wenn einer fehlt.
     """
     from serving.build_kibana import BRETTER
 
     if fassung not in FASSUNGEN:
         raise ValueError(f"--adressen kennt nur {FASSUNGEN}, nicht {fassung!r}")
     server = fassung == "server"
+    werte = serverwerte(umgebung) if server else {}
     bretter = ZAHLWORT[len(BRETTER)].capitalize()
 
     # Elasticsearch gibt es nur noch lokal. Bis zum 1.11.2026 trug die
@@ -165,7 +243,8 @@ def dienste(fassung: str = "lokal") -> tuple[tuple, ...]:
     jupyter_start = (
         "<strong>Zeitweilig:</strong> Der Dienst trägt ein Compose-Profil und "
         "läuft erst, wenn ihn jemand startet — <code>docker compose -f "
-        "docker-compose.srv01.yml --profile analyse up -d jupyter</code>."
+        + html.escape(werte.get("STAPEL_COMPOSE", ""))
+        + " --profile analyse up -d jupyter</code>."
         if server else
         "<strong>Von Hand zu starten:</strong> Der Entwicklungsverbund kennt "
         "keinen Notebook-Server; der Verweis trägt, sobald in diesem "
@@ -175,10 +254,12 @@ def dienste(fassung: str = "lokal") -> tuple[tuple, ...]:
         """Dieselbe Adresse in beiden Fassungen - aus einem Muster, nicht getippt.
 
         Das Muster auf dem Server ist das, an dem die **eine**
-        Access-Anwendung haengt (FR-22): ``urbancrime-<dienst>.datenwerft.ch``.
-        Ein Hostname, der daneben entsteht, waere ein ungeschuetzter Dienst.
+        Access-Anwendung haengt (FR-22) - auf srv01
+        ``urbancrime-<dienst>.datenwerft.ch``, gesetzt als
+        ``EINSTIEG_ADRESSMUSTER``. Ein Hostname, der daneben entsteht, waere
+        ein ungeschuetzter Dienst.
         """
-        return (f"https://urbancrime-{dienst}.datenwerft.ch{pfad}" if server
+        return (adresse(werte["EINSTIEG_ADRESSMUSTER"], dienst) + pfad if server
                 else f"http://localhost:{port}{pfad}")
 
     dashboard_weg = (
@@ -237,7 +318,7 @@ def dienste(fassung: str = "lokal") -> tuple[tuple, ...]:
      "sind Vorlagen. " + jupyter_start,
      None, None),
     ("Admin-Konsole",
-     "https://urbancrime-admin.datenwerft.ch/" if server else None,
+     web("admin", "/", 0) if server else None,
      "Betrieb und Kontrolle",
      "Die Engineering-Konsole: Mapping- und Einstellungsvorschläge mit "
      "Vier-Augen-Review, Kandidaten-Releases und ihre Freigabe, die Läufe "
@@ -492,7 +573,8 @@ def abschnitt_guete(guete: list[tuple]) -> str:
 
 
 def seite(kennung: str, manifest: dict, mass: dict,
-          fassung: str = "lokal") -> str:
+          fassung: str = "lokal",
+          umgebung: Mapping[str, str] | None = None) -> str:
     code = manifest.get("code_version", {})
     vertraege = manifest.get("contract_versions", {})
     von, bis = mass["zeitraum"]
@@ -524,7 +606,8 @@ def seite(kennung: str, manifest: dict, mass: dict,
          for s, f, e, r, rt in mass["staedte"]],
         rechts={1, 2, 3, 4})
 
-    zugaenge = dienste(fassung)
+    zugaenge = dienste(fassung, umgebung)
+    werte = serverwerte(umgebung) if fassung == "server" else {}
     karten = []
     for eintrag in zugaenge:
         name, url, rolle, text, beispiel, vermerk = eintrag
@@ -548,12 +631,15 @@ def seite(kennung: str, manifest: dict, mass: dict,
     # mehr entsprach, und kein Waechter sah es.
     jetzt = [d for d in zugaenge if not ist_kuenftig(d)]
     lokale = sum(1 for d in zugaenge if d[1] and "localhost" in d[1])
-    geroutet = sum(1 for d in zugaenge if d[1] and "urbancrime-" in d[1])
+    muster = werte.get("EINSTIEG_ADRESSMUSTER", "")
+    treffer = geroutet_muster(muster) if muster else None
+    geroutet = sum(1 for d in zugaenge if d[1] and treffer and treffer.match(d[1]))
     nachsatz = (
         f" Die {ZAHLWORT[lokale]} Verweise auf <code>localhost</code> tragen "
         "nur, solange das Gemeinte auf diesem Rechner läuft — je Karte steht "
         "dabei, was dafür zu starten ist." if lokale else
-        f" Die {ZAHLWORT[geroutet]} Verweise auf <code>urbancrime-*</code> "
+        f" Die {ZAHLWORT[geroutet]} Verweise auf "
+        f"<code>{html.escape(kurzname(muster))}</code> "
         "liegen hinter der Access-Anwendung, und DuckDB zeigt auf seine "
         "Dokumentation im Netz.")
     vorbehalt = ("".join(
@@ -579,9 +665,10 @@ def seite(kennung: str, manifest: dict, mass: dict,
                     "python -m serving.dashboard")
         pruefen = "python -m serving.pruefe_stand"
     else:
-        aufbauen = ("docker compose -f docker-compose.srv01.yml up -d\n"
-                    "docker/srv01-datenlauf.sh delta")
-        pruefen = ("docker compose -f docker-compose.srv01.yml run --rm "
+        compose = werte["STAPEL_COMPOSE"]
+        aufbauen = (f"docker compose -f {compose} up -d\n"
+                    f"{werte['STAPEL_DATENLAUF']} delta")
+        pruefen = (f"docker compose -f {compose} run --rm "
                    "pipeline \\\n    python -m serving.pruefe_stand")
 
     return f"""<!DOCTYPE html>
@@ -714,6 +801,14 @@ def main(argv: list[str] | None = None) -> int:
     from serving.load_elasticsearch import aktuelles_release
 
     args = kommandozeile().parse_args(argv)
+    # Vor der Sperre und vor jedem Lesen: Fehlt ein Serverwert, soll der Lauf
+    # nichts angefasst haben, wenn er abbricht.
+    if args.adressen == "server":
+        try:
+            serverwerte()
+        except FehlendeServerangabe as fehler:
+            print(f"build_einstieg: {fehler}", file=sys.stderr)
+            return 1
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
     from storage.analysesitzung import schreibzugriff

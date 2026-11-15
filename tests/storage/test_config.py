@@ -9,7 +9,8 @@ import pytest
 from storage import config as cfg
 
 
-S3 = {"STORAGE_BACKEND": "s3", "S3_ACCESS_KEY": "k", "S3_SECRET_KEY": "s"}
+S3 = {"STORAGE_BACKEND": "s3", "S3_ENDPOINT": "s3.beispiel.invalid",
+      "S3_ACCESS_KEY": "k", "S3_SECRET_KEY": "s"}
 
 
 def test_die_vorgabe_ist_local_und_data():
@@ -22,6 +23,20 @@ def test_die_vorgabe_ist_local_und_data():
 def test_s3_und_hybrid_brauchen_schluessel(backend):
     with pytest.raises(cfg.StorageConfigError, match="S3_ACCESS_KEY"):
         cfg.load({"STORAGE_BACKEND": backend}, dotenv=False)
+
+
+@pytest.mark.parametrize("backend", ["s3", "hybrid"])
+def test_s3_und_hybrid_brauchen_einen_endpunkt(backend):
+    """FR-46: Ohne ``S3_ENDPOINT`` griff die Ablage bis zum 14.11.2026 still
+    auf den Eimer von srv01 zu. Jetzt bricht sie ab und nennt die Variable."""
+    ohne = {k: v for k, v in S3.items() if k != "S3_ENDPOINT"}
+    with pytest.raises(cfg.StorageConfigError, match="S3_ENDPOINT"):
+        cfg.load({**ohne, "STORAGE_BACKEND": backend}, dotenv=False)
+
+
+def test_local_braucht_keinen_endpunkt():
+    c = cfg.load({"STORAGE_BACKEND": "local"}, dotenv=False)
+    assert c.s3_endpoint == "" and not c.remote
 
 
 def test_ein_unbekanntes_backend_ist_ein_fehler():
@@ -54,7 +69,7 @@ def test_nur_local_als_leseprioritaet():
 def test_endpoint_und_ssl():
     c = cfg.load({**S3, "S3_ENDPOINT": "s3.example.org", "S3_USE_SSL": "false"}, dotenv=False)
     assert c.endpoint_url == "http://s3.example.org"
-    assert cfg.load(S3, dotenv=False).endpoint_url == "https://s3.datenwerft.ch"
+    assert cfg.load(S3, dotenv=False).endpoint_url == "https://s3.beispiel.invalid"
 
 
 def test_die_umgebung_schlaegt_die_env_datei(tmp_path, monkeypatch):

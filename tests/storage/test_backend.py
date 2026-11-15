@@ -344,7 +344,8 @@ def test_eine_abgelehnte_anfrage_nennt_den_code():
     from storage import StorageError
     from storage.backend import Boto3Client
 
-    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s"))
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s",
+                                s3_endpoint="s3.beispiel.invalid"))
 
     class Abgelehnt:
         def head_object(self, **kw):
@@ -361,7 +362,8 @@ def test_download_schreibt_in_eine_datei_mit_begrenztem_speicher(tmp_path):
     Verbindung, damit der Worker neben einem Silver-Bau Platz hat."""
     from storage.backend import Boto3Client
 
-    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s"))
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s",
+                                s3_endpoint="s3.beispiel.invalid"))
     aufrufe = []
 
     class Mitschrift:
@@ -386,7 +388,8 @@ def test_download_eines_fehlenden_objekts_ist_ein_storage_error(tmp_path):
     from storage import StorageError
     from storage.backend import Boto3Client
 
-    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s"))
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s",
+                                s3_endpoint="s3.beispiel.invalid"))
 
     class Fehlt:
         def download_file(self, *a, **kw):
@@ -426,7 +429,8 @@ def test_ein_voruebergehender_403_wird_wiederholt(monkeypatch):
     from storage.backend import Boto3Client
 
     monkeypatch.setattr(backend.time, "sleep", lambda s: None)
-    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s"))
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s",
+                                s3_endpoint="s3.beispiel.invalid"))
     antworten = [ClientError({"Error": {"Code": "403"}}, "HeadObject"),
                  ClientError({"Error": {"Code": "404"}}, "HeadObject")]
 
@@ -447,7 +451,8 @@ def test_ein_dauerhafter_fehler_wird_nach_den_versuchen_zum_satz(monkeypatch):
 
     pausen = []
     monkeypatch.setattr(backend.time, "sleep", pausen.append)
-    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s"))
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s",
+                                s3_endpoint="s3.beispiel.invalid"))
 
     class Stur:
         def put_object(self, **kw):
@@ -467,7 +472,8 @@ def test_ein_endgueltiger_fehler_wird_nicht_wiederholt(monkeypatch):
 
     pausen = []
     monkeypatch.setattr(backend.time, "sleep", pausen.append)
-    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s"))
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s",
+                                s3_endpoint="s3.beispiel.invalid"))
 
     class Falsch:
         def put_object(self, **kw):
@@ -814,7 +820,8 @@ def test_die_wiederholungswarnung_nennt_den_fehlercode(monkeypatch, caplog):
     from storage.backend import Boto3Client
 
     monkeypatch.setattr(backend.time, "sleep", lambda s: None)
-    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s"))
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s",
+                                s3_endpoint="s3.beispiel.invalid"))
     antworten = [ClientError({"Error": {"Code": "403"},
                               "ResponseMetadata": {"HTTPStatusCode": 403}}, "ListObjectsV2")]
 
@@ -888,7 +895,8 @@ def test_der_fake_nimmt_einen_fehlenden_schluessel_hin(tmp_path):
 def test_boto3_delete_ruft_delete_object():
     from storage.backend import Boto3Client
 
-    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s"))
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s",
+                                s3_endpoint="s3.beispiel.invalid"))
     gesehen = []
 
     class Mitschrift:
@@ -909,7 +917,8 @@ def test_boto3_delete_wird_bei_einem_aussetzer_wiederholt(monkeypatch):
 
     pausen = []
     monkeypatch.setattr(backend.time, "sleep", pausen.append)
-    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s"))
+    client = Boto3Client(Config(backend="s3", s3_access_key="k", s3_secret_key="s",
+                                s3_endpoint="s3.beispiel.invalid"))
 
     class Stur:
         def delete_object(self, **kw):

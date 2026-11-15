@@ -201,11 +201,12 @@ Zugriff auf Chicago ebenfalls, wird aber stärker gedrosselt.
 **Den gemeinsamen Speicher braucht es nur, wenn du ihn willst.** `data/` ist
 die Vorgabe; solange `STORAGE_BACKEND` fehlt oder auf `local` steht, wird
 keine einzige `S3_`-Variable gelesen und `boto3` nie importiert. Wer den
-Bestand mit dem Team teilen will, ergänzt drei Zeilen (mehr zu den Modi
+Bestand mit dem Team teilen will, ergänzt vier Zeilen (mehr zu den Modi
 in 2.5):
 
 ```text
 STORAGE_BACKEND=hybrid             # lokal zuerst, SeaweedFS als Rückfall
+S3_ENDPOINT=s3.datenwerft.ch      # der gemeinsame Eimer; seit FR-46 ohne Vorgabe
 S3_ACCESS_KEY=dein_schluessel
 S3_SECRET_KEY=dein_geheimnis
 ```
@@ -214,7 +215,7 @@ S3_SECRET_KEY=dein_geheimnis
 | --- | --- | --- |
 | `STORAGE_BACKEND` | `local` | für `hybrid` und `s3` |
 | `S3_ACCESS_KEY`, `S3_SECRET_KEY` | — | für `hybrid` und `s3`, sonst nie |
-| `S3_ENDPOINT` | `s3.datenwerft.ch` | nur bei abweichendem Server |
+| `S3_ENDPOINT` | — | für `hybrid` und `s3`, sonst nie |
 | `S3_BUCKET` | `urban-crime` | nur bei abweichendem Bucket |
 | `LOCAL_DATA_ROOT` | `data` | nur bei abweichendem Verzeichnis |
 
@@ -227,7 +228,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Der Standardlauf wählt 2'877 Tests aus. Erwartet wird **grün** ohne
+Der Standardlauf wählt 2'901 Tests aus. Erwartet wird **grün** ohne
 Netzzugriff und ohne Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -237,7 +238,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 2'988
+python -m pytest -m ""               # beides zusammen, alle 3'012
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -1127,7 +1128,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**2'988 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**3'012 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -1165,7 +1166,7 @@ auf `main` aus: auf jedem Pull Request unter **Linux** mit Python **3.11**, dazu
 Referenz-Wächter unter **3.13**; auf `main` zusätzlich unter **Windows** mit **3.13**.
 Windows, weil Artan darauf entwickelt.
 
-Im protokollierten Linux-CI-Lauf wurden **2'798 der 2'877 Tests** des
+Im protokollierten Linux-CI-Lauf wurden **2'822 der 2'901 Tests** des
 Standardlaufs ausgeführt. Die übrigen 79 wurden übersprungen. Die Zahl hängt
 von der Umgebung ab. Einige Prüfungen brauchen gebaute Daten, die in
 `data/` liegen und nicht versioniert sind — dazu seit dem 5.10.2026 die Reproduktion von
