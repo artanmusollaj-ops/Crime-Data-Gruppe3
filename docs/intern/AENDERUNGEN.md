@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'153** |
+| Tests | **3'156** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -109,6 +109,29 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 15.11.2026 · Kibana über srv01 ist im Browser belegt, die Handgriffe stehen in einer Datei (Branch `vorfuehrung-kibana`)
+
+Zweite Probe am Abend des 15.11.2026, mit der Grenze von 256 MiB:
+`docker/gcp-starten.sh --nur-kibana` war nach **2 min 44 s** fertig. Das
+Release lag schon in Cloud Storage, `pruefe_stand` meldete „stimmt“, und das
+Laden wurde übersprungen. Christian hat Kibana über
+`https://urbancrime-kibana.datenwerft.ch` geöffnet und die Dashboards
+angesehen. Solange die VM lief, antwortete Traefik 390-mal mit 200 und nie
+mit 502. Der Tunnel lag in der Spitze bei 77,8 von 256 MiB, ohne Neustart.
+Die drei 403 im Log sind Kibanas interne Abfragen für Produkthinweise
+(`intercepts`); die Dashboards betreffen sie nicht.
+
+- **`docs/intern/vorfuehrung.md`** (neu): Kibana starten, prüfen und stoppen,
+  der Rückfallweg ohne `srv01` (`ssh -L 5601`), Dauer und Kosten. Den Ablauf
+  der Vorführung selbst (FR-62 bis FR-65) gibt es noch nicht; er gehört
+  dorthin. Verwiesen aus `docs/README.md` und `storage-architektur.md`
+  Abschnitt 17.
+- **`gcp-starten.sh` nennt den nächsten Abendstopp.** Bisher stand fest „stoppt
+  um 20:00“, auch nach dem Start um 20:49, der bis zum nächsten Abend lief.
+  Jetzt „heute“ oder „erst morgen“, gelesen aus `GCP_ABENDSTOPP`.
+
+**Zahlen.** 3'153 → **3'156 Tests**, Standardlauf 3'042 → **3'045**, im protokollierten Linux-CI-Lauf 2'963 → **2'966**.
 
 ## 15.11.2026 · Der Kibana-Tunnel hat eine gemessene Grenze (Branch `kibana-tunnel-grenze`)
 

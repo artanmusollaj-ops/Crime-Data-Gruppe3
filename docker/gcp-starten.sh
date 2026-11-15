@@ -147,6 +147,23 @@ kibana_zugang() {
     melde "  Kibana: http://localhost:${GCP_KIBANA_PORT}"
 }
 
+# Wann der Zeitplan die VM als Naechstes stoppt. Bis zum 15.11.2026 stand hier
+# fest "um 20:00" - auch nach einem Start um 20:49, der bis zum naechsten Abend
+# lief. Gelesen werden Minute und Stunde aus GCP_ABENDSTOPP (Cron, taeglich);
+# GCP_JETZT_HHMM ersetzt die Uhr, fuer die Tests.
+abendstopp_hinweis() {
+    local minute stunde jetzt stopp tag
+    read -r minute stunde _ <<< "${GCP_ABENDSTOPP}"
+    stopp=$(( 10#${stunde} * 100 + 10#${minute} ))
+    jetzt="${GCP_JETZT_HHMM:-$(TZ="${GCP_ZEITZONE}" date +%H%M)}"
+    tag="heute"
+    if (( 10#${jetzt} >= stopp )); then
+        tag="erst morgen"
+    fi
+    melde "$(printf 'Die VM stoppt %s um %02d:%02d (%s) - frueher: docker/gcp-stoppen.sh' \
+        "${tag}" "$(( 10#${stunde} ))" "$(( 10#${minute} ))" "${GCP_ZEITZONE}")"
+}
+
 nur_kibana() {
     release_kopieren
     warte_auf_ssh
@@ -160,7 +177,7 @@ nur_kibana() {
     melde "Kibana laeuft auf ${GCP_VM}:${GCP_KIBANA_PORT}, erreichbar unter:"
     kibana_zugang
     melde ""
-    melde "Die VM stoppt um 20:00 (${GCP_ZEITZONE}); frueher: docker/gcp-stoppen.sh"
+    abendstopp_hinweis
 }
 
 main() {
@@ -227,7 +244,7 @@ main() {
     melde "  sudo docker compose -f docker-compose.gcp.yml run --rm pipeline python -m serving.build_kibana"
     melde "  sudo docker compose -f docker-compose.gcp.yml run --rm pipeline python -m serving.pruefe_stand"
     melde ""
-    melde "Die VM stoppt um 20:00 (${GCP_ZEITZONE}); frueher: docker/gcp-stoppen.sh"
+    abendstopp_hinweis
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
