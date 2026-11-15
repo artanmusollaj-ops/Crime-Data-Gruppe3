@@ -64,9 +64,10 @@ GRENZEN_MIB = {
     # beim ersten Laden, danach rund 300 (lokal 476 beziehungsweise 412).
     "dashboard": 640,
     # 15.11.2026: ``kibana`` ist kein Kibana, sondern der IAP-Tunnel in die
-    # Google-Cloud-Probe (gcloud im eigenen Abbild). Lokal gemessen: Spitze
-    # 59 MiB je gcloud-Aufruf; der laufende Tunnel ist auf srv01 nachzumessen.
-    "kibana": 128,
+    # Google-Cloud-Probe (gcloud im eigenen Abbild). Auf srv01 gemessen am
+    # 15.11.2026: Spitze 139,7 MiB beim ersten Laden von Kibana (rund 80
+    # Dateien zugleich); 128 MiB rissen dort.
+    "kibana": 256,
     # Am 16.10.2026 stand hier fuer einen Tag 2'048, weil ich die Grenze fuer
     # die Ursache hielt. Der Bau braucht gestuft 256 MB; zurueck auf die
     # Messung. Begruendung in der Compose-Datei.
@@ -307,19 +308,20 @@ def test_der_dauerbetrieb_ist_entschieden(dienste):
 
     **Am 15.11.2026 der Tunnel zu Kibana in Google Cloud** (Entscheid
     Christian: laeuft dauernd). Kein Kibana, nur gcloud mit einem IAP-Tunnel:
-    640 + 160 + 32 + 128 = **960 MiB** dauernd, mit dem Zeitweiligen
-    **2'240** von 4'325.
+    640 + 160 + 32 + 256 = **1'088 MiB** dauernd, mit dem Zeitweiligen
+    **2'368** von 4'325 (die Grenze des Tunnels ist auf srv01 gemessen,
+    die erste Schaetzung von 128 MiB riss beim ersten Laden).
     """
     dauernd = sorted(n for n, d in dienste.items() if not d.get("profiles"))
     assert dauernd == ["admin", "dashboard", "kibana", "start"], (
         f"Dauerbetrieb ist {dauernd}; FR-13 rechnet seit dem 15.11.2026 mit "
         "dem Dashboard (640 MiB), der Einstiegsseite (32 MiB), dem "
-        "Konsolen-Webdienst (160 MiB) und dem Kibana-Tunnel (128 MiB); "
+        "Konsolen-Webdienst (160 MiB) und dem Kibana-Tunnel (256 MiB); "
         "Pipeline, Konsolen-Worker und Jupyter sind zeitweilig"
     )
     summe = sum(mib(dienste[n]["mem_limit"]) for n in dauernd)
     zeitweilig = max(mib(d["mem_limit"]) for d in dienste.values() if d.get("profiles"))
-    assert (summe, summe + zeitweilig) == (960, 2240), (summe, zeitweilig)
+    assert (summe, summe + zeitweilig) == (1088, 2368), (summe, zeitweilig)
 
 
 # --------------------------------------------------------------------------

@@ -110,6 +110,34 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 15.11.2026 · Der Kibana-Tunnel hat eine gemessene Grenze (Branch `kibana-tunnel-grenze`)
+
+Die erste Probe von `urbancrime-kibana.datenwerft.ch` am Abend des 15.11.2026
+zeigte im Browser „Elastic did not load properly“. Traefik meldete für einen
+Teil der Dateien des ersten Ladens 502 nach rund 7 s, und der Tunneldienst
+startete einmal neu (`RestartCount 1`). Die Ursache war die Grenze: Die
+128 MiB waren lokal geschätzt, an einem einzelnen gcloud-Aufruf. Auf `srv01`
+gemessen braucht der Tunnel im Leerlauf 57–59 MiB, und wenn Kibana beim
+ersten Laden rund 80 Dateien gleichzeitig holt, in der Spitze **139,7 MiB**.
+Um 19:43:45 stand er bei 127,8 MiB, genau in der Sekunde mit den 502.
+
+Mit vorübergehend 512 MiB (`docker update`) kam derselbe Seitenaufruf dreimal
+vollständig durch, ohne Neustart. Die Grenze steht jetzt auf **256 MiB**, die
+Spitze mal 1,8. Direkt am Tunnel, ohne Traefik, kamen 96 gleichzeitige kleine
+Anfragen alle durch. Was die Spitze treibt, sind die grossen Bündel.
+
+Bestätigt hat die Probe ausserdem:
+- `--nur-kibana` hat das neuere srv01-Release `2026-11-14T09-09-47Z` erkannt,
+  kopiert, eingesetzt und geladen (vorher stand der Probenstand vom Mittag
+  da). `pruefe_stand` danach: Gold, Elasticsearch, Kibana „stimmt“.
+- Kibana über den Tunnel aus dem Netz `proxy`: `/api/status` 200 in 0,2 s.
+- Das Tunnelkonto auf Port 22: IAP antwortet `4033: 'not authorized'`.
+
+**FR-13 nachgerechnet:** 640 + 160 + 32 + 256 = **1'088 MiB** dauernd, mit
+dem grösseren Zeitweiligen **2'368 von 4'325 MiB**.
+
+**Zahlen.** Tests unverändert (3'153).
+
 ## 15.11.2026 · Kibana aus Google Cloud ist über srv01 beschrieben (Branch `gcp-kibana-ueber-srv01`)
 
 Kibana und Elasticsearch passen seit dem 1.11.2026 nicht mehr ins
