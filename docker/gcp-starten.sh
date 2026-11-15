@@ -133,7 +133,7 @@ main() {
     melde "Auf der VM (cd ${GCP_STAPEL_DIR}):"
     melde "  read -rs GHCR_TOKEN && printf '%s' \"\$GHCR_TOKEN\" | sudo docker login ghcr.io -u <konto> --password-stdin && unset GHCR_TOKEN   # einmal je VM"
     melde "  sudo docker compose -f docker-compose.gcp.yml up -d --wait"
-    melde "  sudo docker compose -f docker-compose.gcp.yml run --rm pipeline python -m orchestration.vorpruefung"
+    melde "  # vorpruefung nur vor einem Lauf mit Ingestion - sie verlangt CENSUS_API_KEY, den --ohne-ingestion nicht braucht"
     melde "  # --jahre wie im Release, gegen das verglichen wird (release.json, years)"
     melde "  sudo docker compose -f docker-compose.gcp.yml run --rm pipeline python -m orchestration.run_all --ohne-ingestion --jahre 2021-2026"
     melde "  sudo docker compose -f docker-compose.gcp.yml run --rm pipeline python -m orchestration.release holen aktuell --einsetzen"

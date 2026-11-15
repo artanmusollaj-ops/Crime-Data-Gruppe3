@@ -1636,6 +1636,20 @@ def test_die_datenbankdatei_bleibt_nicht_liegen(monkeypatch, tmp_path):
     assert not uebrig, f"im Auslagerungsverzeichnis liegengeblieben: {uebrig}"
 
 
+def test_ein_fehlendes_auslagerungsverzeichnis_wird_angelegt(monkeypatch, tmp_path):
+    """Google-Cloud-Probe, 15.11.2026: Auf einem frischen Datentraeger gab es
+    ``/app/data/duckdb-tmp`` noch nicht, und der Bau brach mit
+    ``FileNotFoundError`` ab - ``TemporaryDirectory`` legt das
+    Elternverzeichnis nicht an. Auf ``srv01`` lag es aus frueheren Laeufen."""
+    ablage = tmp_path / "frisch" / "duckdb-tmp"
+    monkeypatch.setenv("DUCKDB_TEMP_DIRECTORY", str(ablage))
+    schreibe_chicago(tmp_path, CHI[:1])
+    schreibe_detroit(tmp_path, DET[:1])
+    schreibe_tract(tmp_path)
+    bc.build(tmp_path, Path("config"))
+    assert ablage.is_dir() and not list(ablage.iterdir())
+
+
 @pytest.mark.referenzstand
 def test_die_gebaute_datei_steht_in_der_zugesagten_ordnung():
     """``ORDNUNG`` ist nur dann eine Zusage, wenn sie eindeutig ist.

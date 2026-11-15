@@ -115,7 +115,40 @@ def test_genau_die_genannten_laeufe_kommen_hinueber(capsys):
     erwartet = {f"{v}/{d}" for v in (CHICAGO, DETROIT, TRACT, WETTER)
                 for d in ("part-0001.parquet", "manifest.json")}
     assert oben(nach) == erwartet
-    assert "4 Laeufe genannt, 4 Laufverzeichnisse gefunden" in aus
+    assert "4 Laeufe genannt, 4 Laufverzeichnisse gefunden, 0 ergaenzt" in aus
+
+
+ORT_ALT = "bronze/dataset=tiger_place/vintage=2021/state=17/run_20261004T165012171437Z"
+ORT_NEU = "bronze/dataset=tiger_place/vintage=2021/state=17/run_20261005T000000000000Z"
+ORT_HALB = "bronze/dataset=tiger_place/vintage=2021/state=17/run_20261006T000000000000Z"
+TRACT_ALT = "bronze/dataset=tiger_tract/vintage=2024/state=17/run_20260801T000000000000Z"
+
+
+def test_eine_referenzpartition_ohne_genannten_lauf_bekommt_den_juengsten(capsys):
+    """Probe vom 15.11.2026: ``silver · place_2021`` brach ab, weil das Release
+    ``tiger_place`` nur fuer 2024 nennt. Kommen muss genau der juengste
+    fertige Lauf - nicht der halbe, nicht der aeltere."""
+    von, nach = quelle(), ziel()
+    for verzeichnis in (ORT_ALT, ORT_NEU):
+        von.client.put(f"{verzeichnis}/part-0001.parquet", b"d")
+        von.client.put(f"{verzeichnis}/manifest.json", b"m")
+    von.client.put(f"{ORT_HALB}/part-0001.parquet", b"d")
+    code, aus, _ = lauf(capsys, von, nach)
+    assert code == 0, aus
+    assert f"{ORT_NEU}/manifest.json" in oben(nach)
+    assert not any(k.startswith((ORT_ALT, ORT_HALB)) for k in oben(nach))
+    assert "1 ergaenzt" in aus and "(ergaenzt, im Release nicht genannt)" in aus
+
+
+def test_eine_genannte_partition_wird_nicht_ergaenzt(capsys):
+    """Nennt das Release einen Lauf der Partition, kommt nur er - auch wenn
+    daneben ein anderer liegt."""
+    von, nach = quelle(), ziel()
+    von.client.put(f"{TRACT_ALT}/manifest.json", b"m")
+    code, aus, _ = lauf(capsys, von, nach)
+    assert code == 0, aus
+    assert not any(k.startswith(TRACT_ALT) for k in oben(nach))
+    assert "0 ergaenzt" in aus
 
 
 def test_das_manifest_kommt_je_lauf_zuletzt(capsys):

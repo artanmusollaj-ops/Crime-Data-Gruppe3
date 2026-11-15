@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'122** |
+| Tests | **3'125** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -110,15 +110,14 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
-## 15.11.2026 · Der Stapel für Google Cloud steht als Code, der Beleg steht noch aus (Branch `fr-44-47-google-cloud`)
+## 15.11.2026 · In Google Cloud ergibt dasselbe Bronze dieselben Tabellen (Branch `fr-44-47-google-cloud`)
 
 FR-44 („der Wechsel der Zielumgebung ist Konfiguration, kein Code") steht auf
 ◐, FR-47 („die Portierung wird einmal trocken belegt") ist zurückgestellt.
 Christian will beide belegt, mit einem ganzen Stapel samt Elasticsearch und
 Kibana in Google Cloud, Projekt `urbancrime`, Region `europe-west6` (Zürich).
-Dieser Eintrag beschreibt **nur den Code**. Kein Dienst ist aktiviert, keine
-Ressource angelegt, kein Lauf gegen Cloud Storage gemacht. Deshalb bleiben
-FR-44 und FR-47 in `fr-stand.md` unverändert, bis der Beleg gelaufen ist.
+Der Stapel ist am 15.11.2026 einmal gelaufen; der Beleg steht am Ende des
+Eintrags. FR-44 und FR-47 stehen damit auf ●.
 
 - **`docker-compose.gcp.yml`**: Pipeline (Stapellauf), Dashboard,
   Elasticsearch 8.19.22 und Kibana 8.19.22. Die beiden fremden Abbilder sind
@@ -133,9 +132,11 @@ FR-44 und FR-47 in `fr-stand.md` unverändert, bis der Beleg gelaufen ist.
   `S3_ENDPOINT=storage.googleapis.com`, HMAC-Schlüssel, Eimer, und
   `AWS_REQUEST_CHECKSUM_CALCULATION=when_required` samt
   `AWS_RESPONSE_CHECKSUM_VALIDATION`. botocore setzt seit 1.36 nachgestellte
-  CRC32-Prüfsummen, die die XML-Schnittstelle von Cloud Storage nach unserem
-  Kenntnisstand nicht annimmt. Das ist **vermutet, nicht gemessen**; die
-  Probe bestätigt es oder streicht die beiden Zeilen.
+  CRC32-Prüfsummen, die die XML-Schnittstelle von Cloud Storage nicht
+  annimmt. **Gemessen am 15.11.2026** mit botocore 1.43.93: Mit der Vorgabe
+  `when_supported` lehnt Cloud Storage ein `PutObject` mit
+  `SignatureDoesNotMatch` ab, mit `when_required` geht es durch. Die beiden
+  Zeilen bleiben.
 - **`docker/gcp-aufbauen.sh`**, `gcp-starten.sh`, `gcp-stoppen.sh`,
   `gcp-abbauen.sh`, dazu `gcp-gemeinsam.sh` (Namen, Vorgaben, Trockenmodus)
   und `gcp-startup.sh` (Startskript der VM: `vm.max_map_count`, Docker aus
@@ -181,10 +182,9 @@ FR-44 und FR-47 in `fr-stand.md` unverändert, bis der Beleg gelaufen ist.
   `run_<id>` unter `bronze/` und kopiert je Lauf alle Objekte, Manifest
   zuletzt. Gleiche Objekte im Ziel überspringt er, abweichende lässt er
   liegen und bricht ab; gelöscht wird nie, derselbe Eimer wird abgelehnt,
-  `--trocken` zeigt nur. Offen ist, ob die Herkunft **jeden** Lauf nennt,
-  den Silver liest: `source_movement` vergleicht Läufe untereinander, und
-  ein dort gelesener Vorgängerlauf stünde nicht in der Liste. Der Vergleich
-  zeigt es dann als abweichenden Abdruck.
+  `--trocken` zeigt nur. Die Herkunft nennt **nicht** jeden Lauf, den der
+  Lauf liest (siehe Befund 1 unten); für Referenzquellen ergänzt das
+  Werkzeug deshalb je Partition ohne genannten Lauf den jüngsten fertigen.
 - `.gitignore` hält jetzt auch `.env.*` heraus, ausser den beiden Vorlagen,
   falls doch eine im Repository-Verzeichnis landet.
 - `docs/bilder/architektur-kontext.svg` neu gebaut: 14 statt 12 Werkzeuge unter `tools/`.
@@ -199,13 +199,62 @@ die Compose-Variablen in beiden Richtungen, sodass `S3_USE_SSL`, das keinen
 Container erreichte, herausgefallen ist), `tests/test_vergleiche_releases.py`
 und `tests/test_kopiere_laeufe.py`.
 
-**Offen, und erst mit Christians Zustimmung je Schritt, der kostet:** Dienste
-aktivieren, `gcp-aufbauen.sh`, die Bronze-Läufe des srv01-Release nach Cloud
-Storage kopieren (`tools/kopiere_laeufe.py`), `run_all --ohne-ingestion` auf der VM, die Lader für
-Elasticsearch und Kibana, der Vergleich, Befunde der Schnittstelle generisch
-lösen, Stoppen, dann `fr-stand.md` und `storage-architektur.md`.
+**Der Beleg (15.11.2026).** Bronze aus dem srv01-Release
+`2026-11-14T09-09-47Z`, 74 Läufe, 148 Objekte, nach Cloud Storage kopiert;
+auf der VM dasselbe Pipeline-Abbild wie auf `srv01`
+(`sha256:254762531db3…`), dann `run_all --ohne-ingestion --jahre 2021-2026`,
+`release holen aktuell --einsetzen`, die beiden Lader und `pruefe_stand`.
 
-**Zahlen.** 3'012 → **3'122 Tests**, Standardlauf 2'901 → **3'011**, im protokollierten Linux-CI-Lauf 2'822 → **2'932**.
+| Schritt | Dauer | Ergebnis |
+| --- | ---: | --- |
+| Stapel hochfahren (Abbilder ziehen, alle drei Dienste gesund) | 3 min 48 s | Dashboard, Elasticsearch, Kibana |
+| `run_all --ohne-ingestion` | 3 min 22 s | 16 Stufen, Release `2026-11-15T13-22-32Z`, 29 Dateien, 184,6 MB |
+| `load_elasticsearch` | 4 min 26 s | 8 Aliase, `fact_offense` 1'889'775 Zeilen |
+| `build_kibana` | 2 s | 36 Objekte, 7 Dashboards |
+| `pruefe_stand` | 3 s | Gold, Elasticsearch, Kibana: „stimmt" |
+
+`tools/vergleiche_releases.py` gegen das srv01-Release: **13 von 13
+Tabellen mit gleichem Eingabe-Abdruck, 12 davon byteweise gleich**, dieselbe
+Abdeckung. Die eine ist `serving/source_movement`: 113'745 Zeilen auf
+`srv01`, 0 in Cloud Storage. Sie vergleicht aufeinanderfolgende
+Bronze-Schnappschüsse derselben Quelle, und kopiert war je Partition nur der
+Lauf des Release – kein Paar, keine Bewegung. Das liegt an der Teilkopie,
+nicht an der Umgebung. Dashboard und Kibana über `ssh -L` von Christian
+angesehen.
+
+Was sich gegenüber `srv01` in der `.env` unterscheidet, und nur das:
+`S3_ENDPOINT=storage.googleapis.com`, `S3_BUCKET`, die HMAC-Schlüssel,
+`AWS_REQUEST_CHECKSUM_CALCULATION` und `AWS_RESPONSE_CHECKSUM_VALIDATION`
+(beide `when_required`), ein eigener `XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY`.
+**Am Code unter `src/` brauchte Cloud Storage nichts** (FR-44).
+
+Zwei Befunde, beide generisch gelöst und je mit Test:
+
+1. **Das Release nennt nicht jeden Lauf, den `run_all` liest.** Gold nennt
+   `tiger_place` nur für Vintage 2024 (`RATENJAHR`), Silver baut aber jeden
+   Vintage; der erste Lauf brach bei `silver · place_2021` ab.
+   `kopiere_laeufe` ergänzt jetzt je Partition einer Referenzquelle
+   (`bronze/dataset=…`) ohne genannten Lauf den jüngsten fertigen – sechs
+   Läufe. Die Stadtdaten bleiben aussen vor: Dort ist jede Partition ein
+   eigener Lauf, und die Regel holte alte Läufe, die Silver nie liest.
+2. **Auf einem frischen Datenträger fehlte `duckdb-tmp`.**
+   `silver · crime_offense` legt seine Baudatenbank mit
+   `TemporaryDirectory(dir=…)` im Auslagerungsverzeichnis an, und das legt
+   das Elternverzeichnis nicht an. Auf `srv01` lag es aus früheren Läufen.
+   Der Bau legt es jetzt selbst an. Für die Probe selbst wurde es auf der VM
+   von Hand angelegt, weil dort das gepinnte srv01-Abbild lief; der Fix
+   kommt mit dem nächsten Abbild. Ein Neuaufbau von `srv01` wäre am selben
+   Punkt gescheitert.
+
+Dazu ein Hinweis in `gcp-starten.sh`: `orchestration.vorpruefung` verlangt
+`CENSUS_API_KEY`, den ein Lauf ohne Ingestion nicht braucht; sie steht dort
+nicht mehr als Schritt.
+
+**Kosten.** Die VM lief 43 Minuten (13:03–13:46 UTC, e2-standard-2, etwa
+0,07 $), dazu eine Minute beim Aufbau; Disk (30 GB) und Eimer (793 MiB)
+liegen weiter, zusammen unter 2 $ im Monat. Gestoppt mit `gcp-stoppen.sh`.
+
+**Zahlen.** 3'012 → **3'125 Tests**, Standardlauf 2'901 → **3'014**, im protokollierten Linux-CI-Lauf 2'822 → **2'935**.
 
 ## 14.11.2026 · Nichts im Abbild setzt srv01 voraus (Branch `fr-46-abbild-ohne-srv01`)
 

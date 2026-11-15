@@ -21,6 +21,17 @@ Listen unter ``<stadt>_bronze_runs`` (oder ``_raw_runs``) und Eintraege mit
 ``run_id`` und ``layer``. Ein Lauf ohne ``layer`` gilt als Bronze. Raw wird
 nur kopiert, wenn die Herkunft es nennt.
 
+**Was das Release nicht nennt, der Lauf aber braucht.** Gold nennt nur die
+Bronze-Laeufe, auf denen es ruht - ``tiger_place`` etwa nur Vintage 2024
+(``RATENJAHR``). ``run_all --ohne-ingestion`` baut Silver aber fuer jeden
+Vintage und brach in der ersten Probe (15.11.2026) bei ``silver · place_2021``
+ab, weil die Laeufe fuer 2021-2023 fehlten. Deshalb kommt fuer jede Partition
+einer Referenzquelle (``bronze/dataset=.../<partition>/run_<id>``), zu der das
+Release **keinen** Lauf nennt, der juengste fertige Lauf mit - genau einer.
+Die Stadtdaten (``bronze/city=...``) sind nach Ladedatum oder Jahr
+partitioniert und jede Partition ist ein eigener Lauf; dort ergaenzte die
+Regel alte Laeufe, die Silver nie liest, und gilt deshalb nicht.
+
 **Wo sie liegen.** Die Ablage hat je Quelle ein anderes Muster
 (``bronze/city=chicago/ingest_date=.../run_<id>/``,
 ``bronze/city=detroit/full/year=.../run_<id>/``,
@@ -133,6 +144,37 @@ def verzeichnisse(storage: Storage, laeufe: set[tuple[str, str]]) -> dict[str, l
     return gefunden
 
 
+#: Die Schichtpraefixe, deren Partitionen ergaenzt werden (Docstring oben).
+REFERENZQUELLEN = "bronze/dataset="
+
+
+def ergaenzungen(storage: Storage, gefunden: dict[str, list[str]]) -> dict[str, list[str]]:
+    """Je Referenz-Partition ohne genannten Lauf der juengste fertige Lauf.
+
+    Die Laufkennungen beginnen mit dem UTC-Zeitstempel
+    (``run_20261004T165012171437Z``); der groesste Name ist der juengste.
+    """
+    gedeckt = {v.rsplit("/", 1)[0] for v in gefunden}
+    je_partition: dict[str, dict[str, list[str]]] = {}
+    for objekt in storage.client.list(REFERENZQUELLEN):
+        teile = objekt.key.split("/")
+        for i, teil in enumerate(teile[:-1]):
+            if teil.startswith("run_"):
+                partition = "/".join(teile[:i])
+                if partition not in gedeckt:
+                    (je_partition.setdefault(partition, {})
+                     .setdefault("/".join(teile[:i + 1]), []).append(objekt.key))
+                break
+    ergaenzt: dict[str, list[str]] = {}
+    for laeufe in je_partition.values():
+        fertig = [v for v, schluessel in laeufe.items()
+                  if any(k.rsplit("/", 1)[-1] == MANIFEST for k in schluessel)]
+        if fertig:
+            juengster = max(fertig)
+            ergaenzt[juengster] = laeufe[juengster]
+    return ergaenzt
+
+
 def reihenfolge(schluessel: list[str]) -> list[str]:
     """Alles vor ``manifest.json`` - ein Manifest oben heisst: Lauf vollstaendig."""
     return sorted(schluessel, key=lambda k: (k.rsplit("/", 1)[-1] == MANIFEST, k))
@@ -168,11 +210,13 @@ def ausfuehren(von: Storage, nach: Storage, *, release: str = "aktuell",
     manifest = lies_release(von, release)
     laeufe = laeufe_des_release(von, manifest)
     gefunden = verzeichnisse(von, laeufe)
+    ergaenzt = ergaenzungen(von, gefunden)
     aus(f"Release {manifest['release_id']} aus {ort(von)}: {len(laeufe)} Laeufe genannt, "
-        f"{len(gefunden)} Laufverzeichnisse gefunden -> {ort(nach)}"
-        + ("  [trocken]" if trocken else ""))
+        f"{len(gefunden)} Laufverzeichnisse gefunden, {len(ergaenzt)} ergaenzt "
+        f"-> {ort(nach)}" + ("  [trocken]" if trocken else ""))
 
     namen_gefunden = {v.rsplit("/", 1)[-1] for v in gefunden}
+    gefunden = {**gefunden, **ergaenzt}
     fehlend = sorted(f"{s}/{n}" for s, n in laeufe if n not in namen_gefunden)
     summe_kopiert = summe_gleich = 0
     for verzeichnis, schluessel in sorted(gefunden.items()):
@@ -182,7 +226,8 @@ def ausfuehren(von: Storage, nach: Storage, *, release: str = "aktuell",
         kopiert, gleich = kopiere_lauf(von, nach, schluessel, trocken=trocken)
         summe_kopiert += kopiert
         summe_gleich += gleich
-        aus(f"  {verzeichnis}: {kopiert} kopiert, {gleich} schon gleich")
+        aus(f"  {verzeichnis}: {kopiert} kopiert, {gleich} schon gleich"
+            + ("  (ergaenzt, im Release nicht genannt)" if verzeichnis in ergaenzt else ""))
     aus(f"{summe_kopiert} Objekte {'zu kopieren' if trocken else 'kopiert'}, "
         f"{summe_gleich} schon gleich.")
     if fehlend:
