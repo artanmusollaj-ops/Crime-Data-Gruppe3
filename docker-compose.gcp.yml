@@ -12,7 +12,8 @@
 #     sudo docker compose -f docker-compose.gcp.yml run --rm pipeline python -m serving.pruefe_stand
 #
 # Angelegt, gestartet und gestoppt wird die VM mit docker/gcp-*.sh; die
-# Befehle oben nennt docker/gcp-starten.sh nach jedem Start.
+# Befehle oben nennt docker/gcp-starten.sh nach jedem Start. Nur Kibana, mit
+# dem aktuellen Release und ohne Bau: docker/gcp-starten.sh --nur-kibana.
 #
 # **Was FR-44 hier belegen soll.** Der Wechsel der Zielumgebung ist
 # Konfiguration, kein Code. Gegenueber docker-compose.srv01.yml unterscheidet
@@ -21,9 +22,11 @@
 #
 #   * der Objektspeicher: Cloud Storage ueber die S3-Schnittstelle statt
 #     SeaweedFS (S3_ENDPOINT=storage.googleapis.com und HMAC in der .env);
-#   * der Zugang: Ports an 127.0.0.1 der VM, erreicht ueber
-#     "gcloud compute ssh --tunnel-through-iap -L"; kein Traefik, kein
-#     Cloudflare-Tunnel, keine externen Netze;
+#   * der Zugang: das Dashboard an 127.0.0.1 der VM, erreicht ueber
+#     "gcloud compute ssh --tunnel-through-iap -L"; Kibana auf Port 5601
+#     hinter einer Firewall-Regel nur fuer den IAP-Bereich, erreicht ueber
+#     einen IAP-Tunnel (docker/gcp-starten.sh --nur-kibana); kein Traefik,
+#     kein Cloudflare-Tunnel, keine externen Netze;
 #   * Elasticsearch und Kibana laufen mit (Christian, 15.11.2026), auf srv01
 #     seit dem 1.11.2026 nicht mehr (C-9);
 #   * keine Konsole, kein Worker, kein Jupyter, keine Startseite - die Probe
@@ -152,8 +155,15 @@ services:
         condition: service_healthy
     networks:
       - probe
+    # Anders als das Dashboard: auf allen Adressen der VM, nicht nur an
+    # 127.0.0.1 - sonst erreicht der IAP-Tunnel des Tunneldienstes Kibana
+    # nicht (gcloud compute start-iap-tunnel, Entscheid vom 15.11.2026).
+    # Offen ist der Port trotzdem nicht: Die VPC-Firewall laesst tcp:5601
+    # nur aus dem IAP-Bereich 35.235.240.0/20 herein (docker/gcp-aufbauen.sh,
+    # Regel urbancrime-probe-kibana-iap), und IAP laesst nur das Tunnelkonto
+    # und die Projektbesitzer durch.
     ports:
-      - "127.0.0.1:5601:5601"
+      - "5601:5601"
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
       # Ohne Wert: Der Schluessel steht in der .env (mindestens 32 Zeichen),

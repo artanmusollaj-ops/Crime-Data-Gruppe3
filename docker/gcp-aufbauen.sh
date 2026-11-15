@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
 # Baut die Google-Cloud-Probe auf (FR-44, FR-47): Eimer, HMAC-Schluessel,
-# Netz mit SSH nur ueber IAP, VM (danach gestoppt), Abendstopp und
-# Budget-Alarme. Jeder Schritt fragt zuerst, ob es das schon gibt - ein
+# Netz mit SSH und Kibana nur ueber IAP, VM (danach gestoppt), das
+# Tunnelkonto fuer Kibana, Abendstopp und Budget-Alarme. Jeder Schritt fragt zuerst, ob es das schon gibt - ein
 # zweiter Aufruf legt nichts doppelt an.
 #
 #   docker/gcp-aufbauen.sh --trocken   # nur zeigen, was geschaehe
@@ -15,7 +15,8 @@
 # um 20:00 Zuericher Zeit.
 #
 # **Was es nicht tut:** keine statische IP, kein Load Balancer, kein NAT,
-# keine offene Firewall-Regel ausser SSH aus dem IAP-Bereich. Die VM hat
+# keine offene Firewall-Regel ausser SSH und Kibana (tcp:5601) aus dem
+# IAP-Bereich. Die VM hat
 # kein Dienstkonto: Sie braucht keine Google-API, nur den Eimer, und den
 # erreicht sie ueber die S3-Schnittstelle mit dem HMAC-Schluessel aus ihrer
 # .env.
@@ -108,6 +109,17 @@ netz_anlegen() {
         fuehre "${GCLOUD}" compute firewall-rules create "${GCP_FIREWALL}" \
             --project "${GCP_PROJEKT}" --network "${GCP_NETZ}" \
             --direction=INGRESS --action=allow --rules=tcp:22 \
+            --source-ranges="${GCP_IAP_BEREICH}"
+    fi
+    # Kibana, ebenfalls nur aus dem IAP-Bereich: Durch diese Regel kommt der
+    # Tunnel des Tunnelkontos (tunnel_anlegen). Das Dashboard (8050) bleibt
+    # an 127.0.0.1 der VM und bekommt keine Regel.
+    if frage "${GCLOUD}" compute firewall-rules describe "${GCP_FIREWALL_KIBANA}" --project "${GCP_PROJEKT}" >/dev/null; then
+        melde "Firewall ${GCP_FIREWALL_KIBANA}: besteht"
+    else
+        fuehre "${GCLOUD}" compute firewall-rules create "${GCP_FIREWALL_KIBANA}" \
+            --project "${GCP_PROJEKT}" --network "${GCP_NETZ}" \
+            --direction=INGRESS --action=allow --rules="tcp:${GCP_KIBANA_PORT}" \
             --source-ranges="${GCP_IAP_BEREICH}"
     fi
 }
@@ -285,6 +297,57 @@ vm_anlegen() {
         --project "${GCP_PROJEKT}" --zone "${GCP_ZONE}"
 }
 
+# Das Konto des Tunneldienstes, der Kibana nach aussen bringt (Entscheid vom
+# 15.11.2026: IAP-Tunnel, nicht SSH mit fester IP). Zwei Rollen, sonst nichts:
+#
+#   * roles/iap.tunnelResourceAccessor mit der Bedingung
+#     destination.port == 5601 - ein Tunnel auf Port 22 (SSH) wird von IAP
+#     abgelehnt. Im Projekt gebunden, weil gcloud die Rolle nicht auf einer
+#     einzelnen Tunnel-Instanz setzen kann; die Probe hat genau eine VM.
+#     Die Bedingungsattribute destination.ip und destination.port nennt die
+#     Google-Dokumentation "Using IAP for TCP forwarding", Abschnitt
+#     "Grant the permissions to use IAP TCP forwarding".
+#   * roles/compute.viewer auf der einen Instanz: start-iap-tunnel liest die
+#     VM (compute.instances.get), um die Verbindung aufzubauen.
+#
+# Kein Eimer, kein SSH, keine Rolle zum Starten oder Stoppen. Der Schluessel
+# geht in eine Datei mit Modus 600 und nie auf den Bildschirm; gcloud nennt
+# beim Anlegen nur die Schluesselkennung.
+tunnel_anlegen() {
+    local email ziel
+    email="$(tunnel_email)"
+    ziel="$(tunnel_schluessel)"
+    if frage "${GCLOUD}" iam service-accounts describe "${email}" --project "${GCP_PROJEKT}" >/dev/null; then
+        melde "Tunnelkonto ${email}: besteht"
+    else
+        fuehre "${GCLOUD}" iam service-accounts create "${GCP_TUNNEL_NAME}" \
+            --project "${GCP_PROJEKT}" \
+            --display-name="Urban Crime Probe - IAP-Tunnel auf Kibana (Port ${GCP_KIBANA_PORT})"
+    fi
+    wiederhole fuehre "${GCLOUD}" projects add-iam-policy-binding "${GCP_PROJEKT}" \
+        --member="serviceAccount:${email}" --role=roles/iap.tunnelResourceAccessor \
+        --condition="expression=destination.port == ${GCP_KIBANA_PORT},title=nur-kibana-${GCP_KIBANA_PORT}" \
+        --quiet
+    wiederhole fuehre "${GCLOUD}" compute instances add-iam-policy-binding "${GCP_VM}" \
+        --project "${GCP_PROJEKT}" --zone "${GCP_ZONE}" \
+        --member="serviceAccount:${email}" --role=roles/compute.viewer
+    if [[ -f "${ziel}" ]]; then
+        melde "Tunnelschluessel: ${ziel} liegt"
+        return 0
+    fi
+    if (( TROCKEN )); then
+        melde "[trocken] ${GCLOUD} iam service-accounts keys create ${ziel} --iam-account ${email} (Modus 600, Schluessel nie auf dem Bildschirm)"
+        return 0
+    fi
+    mkdir -p "${GCP_ZUSTAND}"
+    chmod 700 "${GCP_ZUSTAND}"
+    ( umask 077
+      wiederhole fuehre "${GCLOUD}" iam service-accounts keys create "${ziel}" \
+          --iam-account "${email}" --project "${GCP_PROJEKT}" >/dev/null )
+    chmod 600 "${ziel}"
+    melde "Tunnelschluessel in ${ziel} (600)"
+}
+
 budget_anlegen() {
     local konto vorhanden schwelle
     konto="$(rechnungskonto)"
@@ -332,13 +395,16 @@ main() {
     hmac_anlegen "${name}"
     zeitplan_anlegen
     vm_anlegen
+    tunnel_anlegen
     budget_anlegen
 
     melde ""
     melde "Probe in ${GCP_PROJEKT} (${GCP_REGION}), Label ${GCP_LABELS}:"
     melde "  Netz       ${GCP_NETZ} / ${GCP_SUBNETZ}, Firewall ${GCP_FIREWALL} (tcp:22 aus ${GCP_IAP_BEREICH})"
+    melde "             und ${GCP_FIREWALL_KIBANA} (tcp:${GCP_KIBANA_PORT} aus ${GCP_IAP_BEREICH})"
     melde "  Eimer      gs://${name} (ohne Versionierung, ohne weiches Loeschen)"
     melde "  Konto      $(konto_email), HMAC in ${GCP_ZUSTAND}/hmac.env"
+    melde "  Tunnel     $(tunnel_email): IAP nur Port ${GCP_KIBANA_PORT}, Schluessel in $(tunnel_schluessel)"
     melde "  VM         ${GCP_VM} (${GCP_MASCHINE}, ${GCP_DISK_GB} GB ${GCP_DISK_TYP}, ${GCP_ZONE}), gestoppt"
     melde "  Zeitplan   ${GCP_ZEITPLAN}: Stopp '${GCP_ABENDSTOPP}' ${GCP_ZEITZONE}"
     melde "  Budget     ${GCP_BUDGET_NAME}: ${GCP_BUDGET_BETRAG} ${GCP_BUDGET_WAEHRUNG}, Schwellen ${GCP_BUDGET_SCHWELLEN}"
@@ -347,6 +413,8 @@ main() {
     melde "  quelle.env die S3-Angaben des Eimers, gegen den verglichen wird (nur gelesen) - von Hand"
     melde "  python tools/kopiere_laeufe.py --release <id> --von ${GCP_ZUSTAND}/quelle.env --nach ${GCP_ZUSTAND}/hmac.env"
     melde "  vm.env     aus .env.gcp.example und hmac.env, dann docker/gcp-starten.sh --env ${GCP_ZUSTAND}/vm.env"
+    melde "  Tunneldienst: base64 des Tunnelschluessels als GCP_TUNNEL_SCHLUESSEL in dessen .env"
+    melde "             (Wert nie anzeigen: base64 < $(tunnel_schluessel) | tr -d '\\n' > Datei, dann einsetzen)"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

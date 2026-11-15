@@ -168,12 +168,20 @@ def test_kein_dienst_wird_hier_gebaut(dienste):
     assert not [n for n, d in dienste.items() if "build" in d]
 
 
-def test_ports_nur_an_localhost_und_nur_dashboard_und_kibana(dienste):
-    """Plan, Always: Zugang nur ueber ``gcloud compute ssh`` mit Weiterleitung."""
+def test_ports_nur_dashboard_an_localhost_und_kibana_hinter_der_firewall(dienste, text):
+    """Plan, Always: Das Dashboard bleibt an 127.0.0.1 der VM. Kibana bindet
+    5601 auf allen Adressen, damit der IAP-Tunnel es erreicht; die
+    VPC-Firewall laesst 5601 nur aus dem IAP-Bereich herein
+    (``test_nur_ssh_und_kibana_ueber_iap_und_keine_statische_adresse``)."""
     offen = {name: d.get("ports") for name, d in dienste.items() if d.get("ports")}
     assert set(offen) == {"dashboard", "kibana"}, offen
-    falsch = [p for ports in offen.values() for p in ports if not p.startswith("127.0.0.1:")]
-    assert not falsch, f"nicht an 127.0.0.1 gebunden: {falsch}"
+    assert offen["dashboard"] == ["127.0.0.1:8050:8050"], offen["dashboard"]
+    assert offen["kibana"] == ["5601:5601"], offen["kibana"]
+    zeilen = text.splitlines()
+    port = next(i for i, z in enumerate(zeilen) if z.strip() == '- "5601:5601"')
+    davor = "\n".join(zeilen[max(0, port - 8):port])
+    assert "Firewall" in davor and "IAP" in davor, (
+        "der offene Kibana-Port nennt nicht, wer ihn zuhaelt")
 
 
 def test_die_weiterleitung_trifft_die_ports_der_compose(dienste):
@@ -303,10 +311,14 @@ def ohne_kommentare(pfad: Path) -> list[tuple[int, str]]:
             if z.strip() and not z.strip().startswith("#")]
 
 
+#: Die eine Zeile, die den Server nennen darf: die Adresse des Tunneldienstes
+#: als Hinweis in der Ausgabe von ``--nur-kibana`` - ueberschreibbar, keine
+#: Annahme. Eine Ausnahme je Zeile, damit eine neue nicht mitrutscht.
 @pytest.mark.parametrize("pfad", [GCP, VORLAGE, *ALLE_SKRIPTE], ids=lambda p: p.name)
 def test_keine_srv01_namen(pfad):
     befunde = [f"{pfad.name}:{n}: {z.strip()[:80]}"
-               for n, z in ohne_kommentare(pfad) if SRV01_MUSTER.search(z)]
+               for n, z in ohne_kommentare(pfad)
+               if SRV01_MUSTER.search(z)]
     assert not befunde, "srv01 in der Probe:\n" + "\n".join(befunde)
 
 
@@ -459,10 +471,15 @@ def test_jede_ressource_mit_label_traegt_es(aufbau):
         assert gefunden and all(f"--labels={LABEL}" in z for z in gefunden), (befehl, gefunden)
 
 
-def test_nur_ssh_ueber_iap_und_keine_statische_adresse(aufbau):
+def test_nur_ssh_und_kibana_ueber_iap_und_keine_statische_adresse(aufbau):
     regeln = zeilen(aufbau, "firewall-rules create")
-    assert len(regeln) == 1
-    assert "--rules=tcp:22" in regeln[0] and f"--source-ranges={IAP}" in regeln[0]
+    assert len(regeln) == 2, regeln
+    ports = sorted(re.search(r"--rules=(\S+)", r).group(1) for r in regeln)
+    assert ports == ["tcp:22", "tcp:5601"], ports
+    assert all(f"--source-ranges={IAP}" in r and r.count("--source-ranges") == 1
+               for r in regeln), regeln
+    assert "urbancrime-probe-kibana-iap" in " ".join(regeln)
+    assert "8050" not in " ".join(regeln), "das Dashboard bekommt keine Regel"
     assert not zeilen(aufbau, "addresses create"), "statische Adresse angelegt"
     vm = zeilen(aufbau, "compute instances create")[0]
     assert "--address" not in vm and "--network urbancrime-probe-netz" in vm
@@ -485,8 +502,11 @@ def test_die_vm_ist_die_entschiedene(aufbau):
 
 
 def test_der_aufbau_endet_mit_gestoppter_vm(aufbau):
+    # Die Rolle des Tunnelkontos auf der VM kommt danach; sie aendert den
+    # Zustand der VM nicht und zaehlt deshalb nicht.
     befehle = [z for z in aufbau.splitlines()
-               if z.startswith("[trocken]") and " compute instances " in z]
+               if z.startswith("[trocken]") and " compute instances " in z
+               and "add-iam-policy-binding" not in z]
     assert befehle and " compute instances stop urbancrime-probe " in befehle[-1], befehle
 
 
@@ -529,6 +549,60 @@ def test_der_hmac_schluessel_wird_nur_auf_den_eimer_berechtigt(aufbau):
         "das Eimerkonto bekommt eine Rolle im ganzen Projekt")
 
 
+TUNNEL = "urbancrime-probe-tunnel@urbancrime.iam.gserviceaccount.com"
+
+
+def test_das_tunnelkonto_bekommt_genau_zwei_rollen(aufbau):
+    """Plan, Always: ``roles/iap.tunnelResourceAccessor`` nur fuer Port 5601
+    und ``roles/compute.viewer`` auf der einen Instanz - kein SSH, kein Eimer."""
+    bindungen = [z for z in zeilen(aufbau, "add-iam-policy-binding") if TUNNEL in z]
+    assert len(bindungen) == 2, bindungen
+    iap = next(z for z in bindungen if "projects add-iam-policy-binding" in z)
+    assert "--role=roles/iap.tunnelResourceAccessor" in iap
+    assert r"destination.port\ ==\ 5601" in iap, iap
+    instanz = next(z for z in bindungen if "compute instances add-iam-policy-binding" in z)
+    assert " urbancrime-probe " in instanz and "--role=roles/compute.viewer" in instanz
+    assert not [z for z in bindungen if "storage" in z]
+
+
+def test_das_tunnelkonto_kommt_nicht_auf_port_22(tmp_path, gcloud):
+    """Abnahme: Eine SSH-Verbindung des Tunnelkontos ueber IAP wird abgelehnt.
+
+    Ablehnen tut sie IAP, nicht dieses Skript. Pruefbar ist hier, dass jede
+    IAP-Bindung des Kontos die Bedingung auf Port 5601 traegt und dass es
+    keine Rolle bekommt, mit der es SSH oeffnen koennte."""
+    fertig, aufrufe = echt("aufbauen", tmp_path=tmp_path, gcloud=gcloud,
+                           FAKE_HMAC_LISTE="GOOGKENNUNG\\tACTIVE")
+    assert fertig.returncode == 0, fertig.stderr
+    eigene = [a for a in aufrufe if "add-iam-policy-binding" in a and TUNNEL in a]
+    assert eigene, aufrufe
+    for aufruf in eigene:
+        rolle = re.search(r"--role=(\S+)", aufruf).group(1)
+        assert rolle in {"roles/iap.tunnelResourceAccessor", "roles/compute.viewer"}, aufruf
+        if rolle == "roles/iap.tunnelResourceAccessor":
+            assert "--condition=expression=destination.port == 5601," in aufruf, aufruf
+    for verboten in ("osLogin", "instanceAdmin", "serviceAccountUser", "storage."):
+        assert not [a for a in eigene if verboten in a], verboten
+
+
+def test_der_tunnelschluessel_liegt_mit_modus_600_und_erscheint_nie(tmp_path, gcloud):
+    fertig, aufrufe = echt("aufbauen", tmp_path=tmp_path, gcloud=gcloud,
+                           FAKE_HMAC_LISTE="GOOGKENNUNG\\tACTIVE", FAKE_NICHTS_DA="1",
+                           FAKE_OHNE_VM="1")
+    assert fertig.returncode == 0, fertig.stderr
+    assert any(a.startswith("iam service-accounts create urbancrime-probe-tunnel") for a in aufrufe)
+    datei = tmp_path / "zustand" / "tunnel-schluessel.json"
+    assert "TUNNEL-GEHEIM" in datei.read_text(encoding="utf-8")
+    assert "TUNNEL-GEHEIM" not in fertig.stdout + fertig.stderr
+    if os.name == "posix":
+        assert datei.stat().st_mode & 0o777 == 0o600
+    # Die Instanzbindung braucht die VM - sie kommt nach dem Anlegen.
+    vm = next(i for i, a in enumerate(aufrufe) if a.startswith("compute instances create"))
+    bindung = next(i for i, a in enumerate(aufrufe)
+                   if a.startswith("compute instances add-iam-policy-binding"))
+    assert vm < bindung
+
+
 @pytest.mark.parametrize("skript", ["starten", "stoppen", "abbauen"])
 def test_jedes_skript_hat_einen_trockenmodus(skript, tmp_path, benutzbares_bash):
     fertig = rufe(skript, "--trocken", tmp_path=tmp_path)
@@ -559,6 +633,8 @@ case "$*" in
     "billing projects describe"*) echo "billingAccounts/000000-000000-000000" ;;
     "storage hmac list"*) [[ -n "${FAKE_HMAC_LISTE:-}" ]] && printf '%b\n' "${FAKE_HMAC_LISTE}" ;;
     "storage hmac create"*) printf 'GOOGKENNUNG\tGEHEIMNIS-DARF-NIE-ERSCHEINEN\n' ;;
+    "projects get-iam-policy"*) [[ -n "${FAKE_POLICY_MITGLIEDER:-}" ]] && printf '%b\n' "${FAKE_POLICY_MITGLIEDER}" ;;
+    "iam service-accounts keys create"*) printf '{"private_key": "TUNNEL-GEHEIM"}\n' > "$5" ;;
     *add-iam-policy-binding*)
         # Die ersten FAKE_BINDUNG_SCHEITERT Bindungen scheitern: Das neue
         # Dienstkonto ist noch nicht sichtbar.
@@ -616,6 +692,7 @@ def test_ein_zweiter_aufbau_legt_nichts_doppelt_an(tmp_path, gcloud):
     """Alles besteht schon - dann darf kein ``create`` kommen."""
     (tmp_path / "zustand").mkdir()
     (tmp_path / "zustand" / "hmac.env").write_text("S3_ACCESS_KEY=x\n", encoding="utf-8")
+    (tmp_path / "zustand" / "tunnel-schluessel.json").write_text("{}\n", encoding="utf-8")
     fertig, aufrufe = echt("aufbauen", tmp_path=tmp_path, gcloud=gcloud,
                            FAKE_HMAC_LISTE="GOOGKENNUNG\\tACTIVE")
     assert fertig.returncode == 0, fertig.stderr
@@ -718,6 +795,150 @@ def test_starten_setzt_den_zweig_vor_dem_start(tmp_path, gcloud):
     assert "--metadata=repo-zweig=fr-44-47-google-cloud" in aufrufe[metadaten[0]]
 
 
+# --------------------------------------------------------------------------
+# --nur-kibana: nur Elasticsearch und Kibana, das Release von dort
+# --------------------------------------------------------------------------
+
+
+#: Steht fuer den Python-Aufruf von tools/kopiere_release.py: protokolliert
+#: wie das falsche gcloud und endet mit FAKE_KOPIE_EXIT.
+FALSCHES_PYTHON = r"""#!/usr/bin/env bash
+printf 'python %s\n' "$*" >> "${GCLOUD_PROTOKOLL}"
+exit "${FAKE_KOPIE_EXIT:-0}"
+"""
+
+
+@pytest.fixture
+def python(tmp_path, benutzbares_bash) -> Path:
+    pfad = tmp_path / "python"
+    pfad.write_text(FALSCHES_PYTHON, encoding="utf-8")
+    pfad.chmod(0o755)
+    return pfad
+
+
+def test_nur_kibana_im_trockenmodus(tmp_path, benutzbares_bash):
+    fertig = rufe("starten", "--nur-kibana", "--trocken", tmp_path=tmp_path,
+                  GCP_KIBANA_ADRESSE="https://kibana.example.org")
+    assert fertig.returncode == 0, fertig.stderr
+    trocken = [z for z in fertig.stdout.splitlines() if z.startswith("[trocken]")]
+    kopie = [i for i, z in enumerate(trocken) if "tools/kopiere_release.py" in z]
+    ssh = [i for i, z in enumerate(trocken) if " compute ssh " in z and "--command" in z]
+    assert kopie and ssh and kopie[0] < ssh[0], trocken
+    zustand = str(tmp_path / "zustand")
+    assert f"--release aktuell --von {zustand}/quelle.env --nach {zustand}/hmac.env" in trocken[kopie[0]]
+    befehl = trocken[ssh[0]].replace("\\", "")
+    assert "up -d --wait elasticsearch kibana" in befehl, befehl
+    vm = befehl.split("--command", 1)[1]
+    assert vm.index("stop dashboard") < vm.index("up -d"), (
+        "das Dashboard kommt nach einem vollen Start bei jedem Boot wieder")
+    assert "vorpruefung" not in fertig.stdout and "run_all" not in fertig.stdout
+    # Die Schlussausgabe nennt nur Kibana: -L 5601 und die Adresse des Tunnels.
+    schluss = fertig.stdout.split("erreichbar unter:", 1)[1]
+    assert "8050" not in schluss and "Dashboard" not in schluss, schluss
+    assert "-L 5601:localhost:5601" in schluss
+    assert "https://kibana.example.org" in schluss
+    # Ohne GCP_KIBANA_ADRESSE nennt die Probe keinen Server.
+    ohne = rufe("starten", "--nur-kibana", "--trocken", tmp_path=tmp_path)
+    assert "Tunneldienst" not in ohne.stdout.split("erreichbar unter:", 1)[1]
+
+
+def test_nur_kibana_kopiert_nach_dem_start_und_spielt_dann_ein(tmp_path, gcloud, python):
+    fertig, aufrufe = echt("starten", "--nur-kibana", tmp_path=tmp_path, gcloud=gcloud,
+                           GCP_PYTHON=str(python), FAKE_VM_STATUS="TERMINATED")
+    assert fertig.returncode == 0, fertig.stderr
+    start = next(i for i, a in enumerate(aufrufe) if a.startswith("compute instances start"))
+    kopie = next(i for i, a in enumerate(aufrufe) if a.startswith("python "))
+    ssh = [i for i, a in enumerate(aufrufe) if a.startswith("compute ssh") and "pruefe_stand" in a]
+    assert start < kopie < ssh[0], aufrufe
+    assert "tools/kopiere_release.py --release aktuell" in aufrufe[kopie]
+
+
+def test_nur_kibana_ohne_release_bricht_ab_und_die_vm_laeuft_weiter(tmp_path, gcloud, python):
+    """I/O-Matrix "Release fehlt": Abbruch mit Hinweis, VM laeuft weiter."""
+    fertig, aufrufe = echt("starten", "--nur-kibana", tmp_path=tmp_path, gcloud=gcloud,
+                           GCP_PYTHON=str(python), FAKE_VM_STATUS="RUNNING",
+                           FAKE_KOPIE_EXIT="1")
+    assert fertig.returncode == 1
+    assert "kopiere_release ist gescheitert" in fertig.stderr and "laeuft weiter" in fertig.stderr
+    assert not [a for a in aufrufe if "instances stop" in a]
+    assert not [a for a in aufrufe if a.startswith("compute ssh") and "pruefe_stand" in a]
+
+
+FALSCHES_SUDO = r"""#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${SUDO_PROTOKOLL}"
+case "$*" in
+    *serving.pruefe_stand\ --knapp*)
+        # FAKE_NEU: Der Eimer traegt ein neueres Release als arbeitsdaten.
+        # Vor dem Holen sieht pruefe_stand dann noch den alten, stimmigen
+        # Stand; erst nach dem Holen ist es rot.
+        if [[ -n "${FAKE_NEU:-}" ]]; then
+            [[ -f "${SUDO_PROTOKOLL}.geholt" ]] && exit 1
+            exit 0
+        fi
+        exit "${FAKE_STAND:-0}" ;;
+    *orchestration.release\ holen*)
+        [[ "${FAKE_HOLEN:-0}" == 0 ]] && touch "${SUDO_PROTOKOLL}.geholt"
+        exit "${FAKE_HOLEN:-0}" ;;
+esac
+exit 0
+"""
+
+
+def auf_der_vm(tmp_path: Path, **umgebung: str) -> tuple[subprocess.CompletedProcess, list[str]]:
+    """Fuehrt den Befehl fuer die VM aus - mit einem falschen sudo davor."""
+    werkzeuge = tmp_path / "bin"
+    werkzeuge.mkdir(exist_ok=True)
+    sudo = werkzeuge / "sudo"
+    sudo.write_text(FALSCHES_SUDO, encoding="utf-8")
+    sudo.chmod(0o755)
+    protokoll = tmp_path / "sudo.txt"
+    protokoll.write_text("", encoding="utf-8")
+    befehl = subprocess.run(
+        ["bash", "-c", f'source "{SKRIPTE["starten"]}"; kibana_auf_vm_befehl "{tmp_path}"'],
+        capture_output=True, text=True, check=True).stdout
+    env = {**os.environ, "PATH": f"{werkzeuge}{os.pathsep}{os.environ['PATH']}",
+           "SUDO_PROTOKOLL": str(protokoll), **umgebung}
+    fertig = subprocess.run(["bash", "-c", befehl], capture_output=True, text=True, env=env)
+    return fertig, protokoll.read_text(encoding="utf-8").splitlines()
+
+
+def test_auf_der_vm_wird_beim_ersten_start_eingespielt(tmp_path, benutzbares_bash):
+    """I/O-Matrix "Erster Kibana-Start": ES leer, pruefe_stand rot."""
+    fertig, aufrufe = auf_der_vm(tmp_path, FAKE_STAND="1")
+    assert fertig.returncode == 0, fertig.stderr
+    module = [a.split(" -m ", 1)[1] for a in aufrufe if " -m " in a]
+    assert module == ["orchestration.release holen aktuell --einsetzen", "serving.pruefe_stand --knapp",
+                      "serving.load_elasticsearch", "serving.build_kibana", "serving.pruefe_stand"], aufrufe
+    assert aufrufe[0].endswith("stop dashboard")
+    assert aufrufe[1].endswith("up -d --wait elasticsearch kibana")
+
+
+def test_auf_der_vm_wird_ein_neueres_release_im_eimer_eingespielt(tmp_path, benutzbares_bash):
+    """Der Eimer ist neuer als arbeitsdaten: Vor dem Holen saehe pruefe_stand
+    "stimmt" - deshalb wird immer zuerst geholt, und erst dann gefragt."""
+    fertig, aufrufe = auf_der_vm(tmp_path, FAKE_NEU="1")
+    assert fertig.returncode == 0, fertig.stderr
+    module = [a.split(" -m ", 1)[1] for a in aufrufe if " -m " in a]
+    assert module.index("orchestration.release holen aktuell --einsetzen") < module.index(
+        "serving.pruefe_stand --knapp"), module
+    assert "serving.load_elasticsearch" in module and "serving.build_kibana" in module
+
+
+def test_auf_der_vm_wird_ein_geladener_stand_nicht_neu_eingespielt(tmp_path, benutzbares_bash):
+    """I/O-Matrix "Zweiter Start": dasselbe Release geladen."""
+    fertig, aufrufe = auf_der_vm(tmp_path, FAKE_STAND="0")
+    assert fertig.returncode == 0, fertig.stderr
+    assert "Laden uebersprungen" in fertig.stdout
+    assert not [a for a in aufrufe if "load_elasticsearch" in a or "build_kibana" in a], aufrufe
+    assert [a for a in aufrufe if "holen aktuell --einsetzen" in a], "Holen faellt nie weg"
+
+
+def test_auf_der_vm_bricht_ein_fehlendes_release_ab(tmp_path, benutzbares_bash):
+    fertig, aufrufe = auf_der_vm(tmp_path, FAKE_STAND="1", FAKE_HOLEN="1")
+    assert fertig.returncode != 0
+    assert not [a for a in aufrufe if "load_elasticsearch" in a or "pruefe_stand" in a], aufrufe
+
+
 def test_das_startskript_holt_den_zweig_bei_jedem_start():
     """Nicht nur beim ersten: Ein Holen im Block ``if [[ ! -d .git ]]``
     liesse die VM auf dem Stand ihres ersten Starts."""
@@ -775,13 +996,39 @@ def test_abbau_mit_bestaetigung_nimmt_alles_mit(tmp_path, gcloud):
                    "compute firewall-rules delete", "compute networks delete",
                    "billing budgets delete", "projects remove-iam-policy-binding urbancrime"):
         assert any(a.startswith(befehl) for a in aufrufe), befehl
+    # Abnahme: weder Tunnelkonto noch Kibana-Regel bleiben.
+    for befehl in (f"iam service-accounts delete {TUNNEL}",
+                   "compute firewall-rules delete urbancrime-probe-kibana-iap",
+                   "compute firewall-rules delete urbancrime-probe-ssh-iap"):
+        assert any(a.startswith(befehl) for a in aufrufe), befehl
+    rolle = next(a for a in aufrufe if a.startswith("projects remove-iam-policy-binding")
+                 and TUNNEL in a)
+    assert "--role=roles/iap.tunnelResourceAccessor" in rolle and "--all" in rolle
+    konto = next(i for i, a in enumerate(aufrufe) if a.startswith(f"iam service-accounts delete {TUNNEL}"))
+    assert aufrufe.index(rolle) < konto, "erst die Rolle, dann das Konto"
     vm = next(a for a in aufrufe if a.startswith("compute instances delete"))
     assert "--delete-disks=all" in vm
-    rolle = next(a for a in aufrufe if a.startswith("projects remove-iam-policy-binding"))
+    rolle = next(a for a in aufrufe if a.startswith("projects remove-iam-policy-binding")
+                 and "compute-system" in a)
     assert "compute-system.iam.gserviceaccount.com" in rolle
     assert "--role=roles/compute.instanceAdmin.v1" in rolle
     # Das ganze Schluesselverzeichnis, nicht nur die eine Datei.
     assert not hmac.exists() and not (tmp_path / "zustand").exists()
+
+
+def test_abbau_entfernt_die_tunnelrolle_auch_ohne_konto(tmp_path, gcloud):
+    """Ist das Tunnelkonto schon weg, steht seine Bindung als
+    ``deleted:serviceAccount:...`` in der Richtlinie - auch die geht."""
+    geloescht = f"deleted:serviceAccount:{TUNNEL}?uid=123456789"
+    fertig, aufrufe = echt("abbauen", "--bestaetige", "urbancrime", tmp_path=tmp_path,
+                           gcloud=gcloud, FAKE_NICHTS_DA="1", FAKE_OHNE_VM="1",
+                           FAKE_POLICY_MITGLIEDER=f"user:x@example.org\\n{geloescht}")
+    assert fertig.returncode == 0, fertig.stderr
+    entfernt = [a for a in aufrufe if a.startswith("projects remove-iam-policy-binding")
+                and "iap.tunnelResourceAccessor" in a]
+    mitglieder = sorted(re.search(r"--member=(\S+)", a).group(1) for a in entfernt)
+    assert mitglieder == sorted([geloescht, f"serviceAccount:{TUNNEL}"]), entfernt
+    assert not [a for a in aufrufe if a.startswith(f"iam service-accounts delete {TUNNEL}")]
 
 
 def test_abbau_ohne_bestaetigung_laesst_die_schluessel_liegen(tmp_path, gcloud):

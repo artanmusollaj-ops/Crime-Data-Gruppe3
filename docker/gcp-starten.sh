@@ -6,7 +6,19 @@
 #   docker/gcp-starten.sh                    # starten
 #   docker/gcp-starten.sh --env .env.gcp     # starten und die .env der VM setzen
 #   docker/gcp-starten.sh --zweig <zweig>    # vorher den Zweig der VM setzen
+#   docker/gcp-starten.sh --nur-kibana       # starten, nur Elasticsearch und Kibana
 #   docker/gcp-starten.sh --trocken          # nur zeigen, was geschaehe
+#
+# **--nur-kibana** (Entscheid vom 15.11.2026): Kibana fuer den Tunneldienst,
+# der es nach aussen bringt, ohne Dashboard und ohne Bau. Nach dem Start der
+# VM kopiert tools/kopiere_release.py das aktuelle Release des Quelleimers in
+# den Eimer der Probe (--von ${GCP_ZUSTAND}/quelle.env, --nach .../hmac.env;
+# Python aus GCP_PYTHON, Vorgabe python). Dann stoppt es auf der VM das
+# Dashboard, startet nur elasticsearch und kibana, setzt mit holen aktuell
+# --einsetzen das Release ein und fragt serving.pruefe_stand: Stimmt der
+# Stand, wird nichts geladen; sonst load_elasticsearch, build_kibana und noch
+# einmal pruefe_stand. Fehlt das Release, bricht es mit Hinweis ab - die VM
+# laeuft dann weiter.
 #
 # **--zweig ZWEIG** setzt das Metadatum repo-zweig. Das Startskript holt
 # und spult diesen Zweig bei jedem Start vor; laeuft die VM schon, gilt er
@@ -25,6 +37,12 @@ set -Eeuo pipefail
 SKRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=docker/gcp-gemeinsam.sh
 source "${SKRIPT_DIR}/gcp-gemeinsam.sh"
+
+# Die Adresse, unter der ein Tunneldienst Kibana zeigt (auf srv01: Dienst
+# kibana in docker-compose.srv01.yml). Ohne Vorgabe - die Probe nennt keinen
+# Server (tests/test_gcp_stapel.py, test_keine_srv01_namen); gesetzt, etwa in
+# der Shell, steht sie in der Ausgabe.
+: "${GCP_KIBANA_ADRESSE:=}"
 
 hilfe() {
     # Der Kopf bis vor "set -Eeuo pipefail", ohne Rautenzeichen.
@@ -83,11 +101,74 @@ env_setzen() {
         "sudo install -D -m 600 -o root -g root /tmp/urbancrime.env ${GCP_STAPEL_DIR}/.env && rm -f /tmp/urbancrime.env"
 }
 
+# Die Befehle fuer --nur-kibana auf der VM, als eine Zeile fuer
+# "gcloud compute ssh --command". Zuerst immer "holen aktuell --einsetzen":
+# pruefe_stand misst gegen das lokal eingesetzte Release in arbeitsdaten, und
+# nach einem neuen Release im Eimer saehe es sonst weiter "stimmt". Holen
+# ueberspringt, was schon gleich da ist. Erst danach ist pruefe_stand der
+# Schalter - nur fuer load_elasticsearch (baut jedes Mal neu, Alias umlegen,
+# rund 4,5 Minuten) und build_kibana. Das Dashboard (restart: unless-stopped)
+# kaeme nach einem vollen Start bei jedem Boot wieder; hier wird es gestoppt.
+kibana_auf_vm_befehl() {
+    local verzeichnis="$1" c
+    c="sudo docker compose -f docker-compose.gcp.yml"
+    printf '%s' "set -e; cd ${verzeichnis}; C=\"${c}\"; \$C stop dashboard; "
+    printf '%s' "\$C up -d --wait elasticsearch kibana; "
+    printf '%s' "\$C run --rm pipeline python -m orchestration.release holen aktuell --einsetzen; "
+    printf '%s' "if \$C run --rm pipeline python -m serving.pruefe_stand --knapp; then "
+    printf '%s' "echo 'pruefe_stand: Stand stimmt - Laden uebersprungen'; "
+    printf '%s' "else \$C run --rm pipeline python -m serving.load_elasticsearch; "
+    printf '%s' "\$C run --rm pipeline python -m serving.build_kibana; "
+    printf '%s' "\$C run --rm pipeline python -m serving.pruefe_stand; fi"
+    printf '\n'
+}
+
+# Das Release des Quelleimers in den Eimer der Probe (tools/kopiere_release.py).
+# Vorgabe "python": das Python der aktiven Umgebung, das dotenv und storage
+# kennt; ein System-python3 hat beides meist nicht.
+release_kopieren() {
+    local werkzeug
+    werkzeug="$(cd "${SKRIPT_DIR}/.." && pwd)/tools/kopiere_release.py"
+    if ! fuehre "${GCP_PYTHON:-python}" "${werkzeug}" --release aktuell \
+            --von "${GCP_ZUSTAND}/quelle.env" --nach "${GCP_ZUSTAND}/hmac.env"; then
+        warne "kopiere_release ist gescheitert, der Grund steht darueber."
+        warne "  Quelle: ${GCP_ZUSTAND}/quelle.env, Ziel: ${GCP_ZUSTAND}/hmac.env"
+        warne "  Die VM ${GCP_VM} laeuft weiter; stoppen mit docker/gcp-stoppen.sh."
+        return 1
+    fi
+}
+
+# Wo Kibana ankommt: ueber den Tunneldienst, oder hier mit -L 5601.
+kibana_zugang() {
+    if [[ -n "${GCP_KIBANA_ADRESSE}" ]]; then
+        melde "  ${GCP_KIBANA_ADRESSE}   (Tunneldienst, Konto $(tunnel_email))"
+    fi
+    melde "  ${GCLOUD} compute ssh ${GCP_VM} --project ${GCP_PROJEKT} --zone ${GCP_ZONE} --tunnel-through-iap -- -L ${GCP_KIBANA_PORT}:localhost:${GCP_KIBANA_PORT} -N"
+    melde "  Kibana: http://localhost:${GCP_KIBANA_PORT}"
+}
+
+nur_kibana() {
+    release_kopieren
+    warte_auf_ssh
+    if ! fuehre "${GCLOUD}" compute ssh "${GCP_VM}" --project "${GCP_PROJEKT}" \
+            --zone "${GCP_ZONE}" --tunnel-through-iap --command \
+            "$(kibana_auf_vm_befehl "${GCP_STAPEL_DIR}")"; then
+        warne "Einspielen auf der VM gescheitert, der Grund steht darueber - die VM ${GCP_VM} laeuft weiter."
+        return 1
+    fi
+    melde ""
+    melde "Kibana laeuft auf ${GCP_VM}:${GCP_KIBANA_PORT}, erreichbar unter:"
+    kibana_zugang
+    melde ""
+    melde "Die VM stoppt um 20:00 (${GCP_ZEITZONE}); frueher: docker/gcp-stoppen.sh"
+}
+
 main() {
-    local env_datei="" zweig=""
+    local env_datei="" zweig="" kibana=0
     while (( $# )); do
         case "$1" in
             --trocken) TROCKEN=1 ;;
+            --nur-kibana) kibana=1 ;;
             --env) shift; env_datei="${1:-}"
                    [[ -n "${env_datei}" ]] || { warne "--env braucht eine Datei"; return 64; } ;;
             --zweig) shift; zweig="${1:-}"
@@ -124,6 +205,11 @@ main() {
 
     if [[ -n "${env_datei}" ]]; then
         env_setzen "${env_datei}"
+    fi
+
+    if (( kibana )); then
+        nur_kibana
+        return
     fi
 
     melde ""

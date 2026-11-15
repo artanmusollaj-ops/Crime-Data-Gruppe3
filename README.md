@@ -228,7 +228,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Der Standardlauf wählt 3'014 Tests aus. Erwartet wird **grün** ohne
+Der Standardlauf wählt 3'042 Tests aus. Erwartet wird **grün** ohne
 Netzzugriff und ohne Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -238,7 +238,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 3'125
+python -m pytest -m ""               # beides zusammen, alle 3'153
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -969,11 +969,13 @@ Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.
 > **Das hier ist die Entwicklungsfassung.** `docker-compose.yml` bindet die
 > Ports an `127.0.0.1`, kennt kein Traefik und setzt keine Speichergrenzen —
 > auf diesem Rechner richtig. Für den Betrieb auf einem geteilten Server liegt
-> daneben `docker-compose.srv01.yml`: sechs Dienste, gemessene
+> daneben `docker-compose.srv01.yml`: sieben Dienste, gemessene
 > Speichergrenzen, die Strecke als Stapellauf, ein lesendes Jupyter, seit
 > dem 12.10.2026 ein nginx für die Einstiegsseite, seit dem 30.10.2026 die
 > Engineering-Konsole und seit dem 1.11.2026 das eigene Dashboard statt
-> Elasticsearch und Kibana, dort eingesetzt am 1.11.2026.
+> Elasticsearch und Kibana, dort eingesetzt am 1.11.2026. Seit dem
+> 15.11.2026 beschrieben: ein Dienst `kibana`, der nur einen IAP-Tunnel zu
+> Kibana in der Google-Cloud-Probe öffnet.
 > **Seit dem 8.10.2026 läuft sie dort.** Elasticsearch, Kibana und Jupyter
 > stehen auf `srv01`, beide Abbilder per Digest gepinnt; die Tunnel-Routen für
 > Kibana und Jupyter und die Access-Anwendung sind seit dem 9.10.2026
@@ -1128,7 +1130,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**3'125 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**3'153 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -1166,7 +1168,7 @@ auf `main` aus: auf jedem Pull Request unter **Linux** mit Python **3.11**, dazu
 Referenz-Wächter unter **3.13**; auf `main` zusätzlich unter **Windows** mit **3.13**.
 Windows, weil Artan darauf entwickelt.
 
-Im protokollierten Linux-CI-Lauf wurden **2'935 der 3'014 Tests** des
+Im protokollierten Linux-CI-Lauf wurden **2'963 der 3'042 Tests** des
 Standardlaufs ausgeführt. Die übrigen 79 wurden übersprungen. Die Zahl hängt
 von der Umgebung ab. Einige Prüfungen brauchen gebaute Daten, die in
 `data/` liegen und nicht versioniert sind — dazu seit dem 5.10.2026 die Reproduktion von

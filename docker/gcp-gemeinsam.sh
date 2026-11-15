@@ -66,16 +66,27 @@ readonly GCP_LABELS="zweck=urbancrime-probe"
 GCP_NETZ="${GCP_VM}-netz"
 GCP_SUBNETZ="${GCP_VM}-netz-${GCP_REGION}"
 GCP_FIREWALL="${GCP_VM}-ssh-iap"
+# Die zweite Regel: Kibana (tcp:5601), ebenfalls nur aus dem IAP-Bereich.
+# Durch sie kommt der Tunneldienst, der Kibana nach aussen bringt
+# (gcloud compute start-iap-tunnel, Entscheid vom 15.11.2026).
+GCP_FIREWALL_KIBANA="${GCP_VM}-kibana-iap"
 GCP_ZEITPLAN="${GCP_VM}-abendstopp"
 GCP_KONTO_NAME="${GCP_VM}-speicher"
+# Das Konto des Tunneldienstes: darf einen IAP-Tunnel auf Port 5601 oeffnen
+# und die eine VM sehen, sonst nichts - kein SSH, kein Eimer.
+GCP_TUNNEL_NAME="${GCP_VM}-tunnel"
 GCP_BUDGET_NAME="${GCP_VM}-budget"
 # Der einzige Weg herein: SSH ueber Identity-Aware Proxy. Das ist der
 # Adressbereich, aus dem IAP die Verbindungen aufbaut (Google-Dokumentation
 # "Using IAP for TCP forwarding", Abschnitt "Create a firewall rule").
 readonly GCP_IAP_BEREICH="35.235.240.0/20"
 # Die Ports, die ``gcp-starten.sh`` weiterleitet: Dashboard und Kibana. Die
-# Compose-Datei bindet beide an 127.0.0.1 der VM; von aussen sind sie zu.
+# Compose-Datei bindet das Dashboard an 127.0.0.1 der VM, Kibana an alle
+# Adressen; von aussen ist trotzdem nur 5601 offen, und nur fuer den
+# IAP-Bereich (GCP_FIREWALL_KIBANA).
 readonly GCP_PORTS="8050 5601"
+# Der eine Port, den das Tunnelkonto erreichen darf.
+readonly GCP_KIBANA_PORT="5601"
 # Wo der Stapel auf der VM liegt (gcp-startup.sh legt ihn dorthin).
 readonly GCP_STAPEL_DIR="/opt/urbancrime"
 
@@ -146,6 +157,15 @@ eimer() {
 
 konto_email() {
     printf '%s@%s.iam.gserviceaccount.com\n' "${GCP_KONTO_NAME}" "${GCP_PROJEKT}"
+}
+
+tunnel_email() {
+    printf '%s@%s.iam.gserviceaccount.com\n' "${GCP_TUNNEL_NAME}" "${GCP_PROJEKT}"
+}
+
+# Wohin der Schluessel des Tunnelkontos kommt (Modus 600).
+tunnel_schluessel() {
+    printf '%s/tunnel-schluessel.json\n' "${GCP_ZUSTAND}"
 }
 
 # Der Zustand der VM: RUNNING, TERMINATED, ... oder leer, wenn es sie nicht

@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'125** |
+| Tests | **3'153** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -109,6 +109,90 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 15.11.2026 · Kibana aus Google Cloud ist über srv01 beschrieben (Branch `gcp-kibana-ueber-srv01`)
+
+Kibana und Elasticsearch passen seit dem 1.11.2026 nicht mehr ins
+Speicherbudget von `srv01` (C-9). In der Probe-VM laufen sie, waren dort aber
+nur über `ssh -L` erreichbar, und der Start fuhr den ganzen Stapel samt
+Dashboard hoch. Entscheid Christian vom 15.11.2026: ein IAP-Tunnel von
+`srv01` auf Port 5601 der VM, nicht SSH mit fester IP und nicht ein
+Rücktunnel; der Tunneldienst läuft dauernd, und gezeigt wird das aktuelle
+Release von `srv01`. **Beschrieben und getestet, noch nicht ausgeführt** —
+kein Aufruf gegen Google Cloud, `srv01` oder GHCR in dieser Arbeit.
+
+- **`docker/gcp-starten.sh --nur-kibana`**: startet die VM, kopiert das
+  aktuelle Release mit `tools/kopiere_release.py` (`quelle.env` →
+  `hmac.env`), stoppt auf der VM das Dashboard (es käme nach einem vollen
+  Start mit `unless-stopped` bei jedem Boot wieder), startet nur
+  `elasticsearch` und `kibana` und setzt **immer zuerst** mit `holen aktuell
+  --einsetzen` das Release ein — `pruefe_stand` misst gegen das lokal
+  eingesetzte Release in `arbeitsdaten` und sähe ein neueres im Eimer sonst
+  nicht. Erst danach entscheidet `pruefe_stand`: Stimmt der Stand, entfallen
+  `load_elasticsearch` (4,5 Minuten) und `build_kibana`. Fehlt das Release,
+  bricht es mit Hinweis ab, und die VM läuft weiter. Die Schlussausgabe nennt
+  nur Kibana (`-L 5601` und `https://urbancrime-kibana.datenwerft.ch`).
+- **`tools/kopiere_release.py --release aktuell`**: prüft vor jedem Holen,
+  dass keine Datei des Release im Ziel anders liegt (sonst Abbruch, nichts
+  geschrieben). Liegt `release.json` dort byteweise gleich, genügt die Grösse
+  je Datei — ein zweiter Aufruf lädt nur zwei JSON-Dateien; sonst wird jede
+  Datei gleicher Grösse gehasht. Dann holt es mit `storage.release.hole` gegen `release.json`
+  geprüft in ein Temporärverzeichnis, publiziert es mit
+  `storage.release.publiziere` und legt im Ziel `AKTUELL.json` um.
+  Identische Dateien überspringt es, derselbe Eimer wird abgelehnt,
+  `--trocken` prüft nur.
+- **`docker/gcp-aufbauen.sh`**: eine zweite Firewall-Regel
+  `urbancrime-probe-kibana-iap` (`tcp:5601` nur aus `35.235.240.0/20`) und
+  das Tunnelkonto `urbancrime-probe-tunnel` mit genau zwei Rollen:
+  `roles/iap.tunnelResourceAccessor` mit der Bedingung
+  `destination.port == 5601` (im Projekt, weil `gcloud` die Rolle nicht auf
+  einer einzelnen Tunnel-Instanz setzt) und `roles/compute.viewer` auf der
+  VM. Sein Schlüssel geht nach
+  `~/.config/urbancrime-probe/tunnel-schluessel.json` (600), nie auf den
+  Bildschirm. `gcp-abbauen.sh` nimmt Regel, Rolle und Konto mit; die Rolle
+  auch dann, wenn das Konto schon fehlt, und ebenso eine Bindung
+  `deleted:serviceAccount:…?uid=…`.
+- **`docker-compose.gcp.yml`**: Kibana bindet `5601:5601` statt
+  `127.0.0.1:5601`, damit der Tunnel es erreicht; das Dashboard bleibt an
+  `127.0.0.1`.
+- **`docker-compose.srv01.yml`**: ein Dienst `kibana`, der **kein** Kibana
+  ist. Er läuft im gcloud-Abbild `google-cloud-cli:592.0.0-alpine`, per
+  Digest des Multi-Arch-Index gepinnt (am 15.11.2026 abgelesen), und startet
+  [`docker/srv01-kibana-tunnel.sh`](../../docker/srv01-kibana-tunnel.sh):
+  Schlüssel aus `GCP_TUNNEL_SCHLUESSEL` (base64, `.env`) ins tmpfs, dorthin
+  auch die gcloud-Konfiguration, dann `exec gcloud compute start-iap-tunnel
+  … --local-host-port=0.0.0.0:5601 --iap-tunnel-disable-connection-check`.
+  Fehlt der Schlüssel, endet der Container mit dem Namen der Variable.
+  `CLOUDSDK_CORE_DISABLE_FILE_LOGGING=true`: keine Protokolldateien im
+  kleinen tmpfs.
+  `read_only`, `cap_drop: ALL`, `no-new-privileges`, rotierende Protokolle,
+  Labels nach dem Muster des Dashboards. Die Route `urbancrime-kibana` wird
+  damit wiederverwendet statt entfernt (C-9).
+- **Die Grenze: 128 MiB**, lokal gemessen am 15.11.2026: Spitze 59 MiB je
+  gcloud-Aufruf im selben Abbild, ohne Anmeldung. Der laufende Tunnel ist auf
+  `srv01` nachzumessen. Im selben Abbild lokal nachgestellt: `read_only`,
+  tmpfs und `cap_drop: ALL` tragen das Skript bis zur Anmeldung bei Google.
+- **FR-13 nachgerechnet:** 640 + 160 + 32 + 128 = **960 MiB** dauernd, mit
+  dem grösseren Zeitweiligen **2'240 von 4'325 MiB**.
+- `.env.example` nennt `GCP_TUNNEL_SCHLUESSEL`.
+- `docs/bilder/architektur-kontext.svg` neu gebaut: 15 statt 14 Werkzeuge unter `tools/`.
+
+Neu bewacht: in `tests/test_gcp_stapel.py` die zweite Regel, die beiden Rollen
+des Tunnelkontos samt Bedingung (keine Rolle, mit der es SSH öffnen könnte),
+der Schlüssel mit Modus 600 und nie in der Ausgabe, `--nur-kibana` im
+Trockenmodus und gegen das falsche `gcloud` (kopiert nach dem Start, ohne
+Release Abbruch ohne Stopp), der Befehl auf der VM gegen ein falsches `sudo`
+(erster Start spielt ein, zweiter nicht) und der Abbau. In
+`tests/test_srv01_compose.py` der Tunneldienst: kein Elastic-Abbild, Digest,
+tmpfs, nur `proxy`, das Skript gegen ein falsches `gcloud`; der Test
+„Elasticsearch und Kibana nie auf srv01" heisst jetzt „Elasticsearch nie,
+Kibana nur als Tunnel". Dazu `tests/test_kopiere_release.py`.
+
+**Offen, in dieser Reihenfolge, jeder Schritt nach Freigabe:**
+`gcp-aufbauen.sh` (legt Regel und Konto an), Schlüssel nach `srv01`,
+Einsetzen, `--nur-kibana`, Aufruf über die URL, Speicher des Tunnels messen.
+
+**Zahlen.** 3'125 → **3'153 Tests**, Standardlauf 3'014 → **3'042**, im protokollierten Linux-CI-Lauf 2'935 → **2'963**.
 
 ## 15.11.2026 · In Google Cloud ergibt dasselbe Bronze dieselben Tabellen (Branch `fr-44-47-google-cloud`)
 

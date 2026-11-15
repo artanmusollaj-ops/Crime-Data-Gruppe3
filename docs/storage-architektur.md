@@ -1148,6 +1148,22 @@ Container, die Datenträger `urbancrime_elasticsearch-daten` (1,69 GB) und
 Platte wurden 10 GB frei. Der Rückweg oben gilt seither nicht mehr. Zurück
 ginge es nur über die lokale `docker-compose.yml` und einen neuen Ladelauf.
 
+**Seit dem 15.11.2026 heisst wieder ein Dienst `kibana` — als Tunnel, nicht
+als Kibana.** Elasticsearch und Kibana laufen in der Probe-VM in Google Cloud
+(Abschnitt 17), gestartet mit `docker/gcp-starten.sh --nur-kibana`. Auf
+`srv01` öffnet der Dienst `kibana` nur einen IAP-Tunnel auf Port 5601 der VM
+(`gcloud compute start-iap-tunnel` im gcloud-Abbild, per Digest gepinnt), und
+Traefik routet `urbancrime-kibana.datenwerft.ch` darauf; Cloudflare Access
+steht davor wie vor jedem Dienst hier. Entschieden hat Christian am
+15.11.2026: IAP-Tunnel, nicht SSH mit fester IP und nicht ein Rücktunnel, und
+der Dienst läuft dauernd. Ist die VM gestoppt, antwortet Traefik mit 502, der
+Tunnel läuft weiter. Der Schlüssel des Tunnelkontos steht base64-kodiert als
+`GCP_TUNNEL_SCHLUESSEL` in der `.env` des Stapels und wird im Container nur
+in ein tmpfs geschrieben. **Beschrieben, noch nicht eingesetzt:** Bis der
+Dienst auf `srv01` läuft und die Route von aussen gemessen ist, ist das eine
+Beschreibung — und auch dann liegt eine 302 auf das Anmeldetor vor dem
+Ursprung und sagt nicht, ob Kibana dahinter antwortet.
+
 **Sie ist seit dem 8.10.2026 angewandt.** Auf `srv01` liefen Elasticsearch,
 Kibana und Jupyter nach dieser Beschreibung; am 11.10.2026 waren alle drei
 `healthy`, beide Abbilder per Digest gepinnt, und die Digests in der `.env`
@@ -1196,11 +1212,12 @@ die beides sein will, ist in einem der beiden Fälle falsch. Die
 Entwicklungsfassung bleibt deshalb unangetastet; ein Test hält fest, dass sie
 weiter an `127.0.0.1` bindet und kein Traefik-Label trägt.
 
-### Die sechs Dienste
+### Die sieben Dienste
 
 | Dienst | Was er ist | Wie er erreichbar ist |
 | --- | --- | --- |
 | `dashboard` | Dauerbetrieb, gerouteter Webdienst, liest den Eimer (seit 1.11.2026, statt `elasticsearch` und `kibana`) | `urbancrime-dashboard.datenwerft.ch` über Traefik |
+| `kibana` | Dauerbetrieb, **nur ein IAP-Tunnel** auf Kibana in der Google-Cloud-Probe (seit 15.11.2026); kein Kibana, kein Elasticsearch | `urbancrime-kibana.datenwerft.ch` über Traefik |
 | `start` | Dauerbetrieb, liefert die Einstiegsseite aus (seit 12.10.2026, FR-31) | `urbancrime-start.datenwerft.ch` über Traefik |
 | `pipeline` | **Stapellauf**, läuft einmal durch und endet | gar nicht — kein Port, kein Label, kein `unless-stopped` |
 | `jupyter` | zeitweilig, **lesende** Analyse | `urbancrime-jupyter.datenwerft.ch` über Traefik |
@@ -1216,8 +1233,8 @@ also auch keinen Datenträger ein.
 
 Pipeline, Worker und Jupyter tragen ein Compose-**Profil** und starten deshalb
 nicht mit `up -d`. Das ist nicht Kosmetik: Die Rechnung unten geht nur auf,
-solange der Dauerbetrieb aus Dashboard, Konsole und dem kleinen `start`
-besteht.
+solange der Dauerbetrieb aus Dashboard, Konsole, dem Kibana-Tunnel und dem
+kleinen `start` besteht.
 
 ### Die Speichergrenzen — gemessen, nicht geschätzt
 
@@ -1231,6 +1248,7 @@ bereits belegt. Die vorher veranschlagten 5'632 MiB lagen damit **1'307 MiB
 | `dashboard` | 640 MiB | am 1.11.2026 auf `srv01` gemessen: Spitze **429 MiB** beim ersten Laden aus dem Eimer (11 s, im Sekundentakt abgelesen), danach **299–319 MiB**. Lokal waren es 476 beziehungsweise 412 MiB mit den Grenzen (DuckDB auf 256 MB, zwei Threads) |
 | ~~`elasticsearch`~~ | ~~1'792 MiB~~ | bis zum 1.11.2026; der Heap nutzte gemessen **195 von 1'024 MiB** |
 | ~~`kibana`~~ | ~~1'024 MiB~~ | bis zum 1.11.2026; gemessen belegt **771 MiB** |
+| `kibana` (Tunnel) | 128 MiB | seit 15.11.2026 nur `gcloud compute start-iap-tunnel`. Lokal gemessen am 15.11.2026: Spitze **59 MiB** je gcloud-Aufruf im selben Abbild; der laufende Tunnel ist auf `srv01` nachzumessen. 128 MiB sind die Spitze mal zwei |
 | `start` | 32 MiB | das obere Ende der Spanne, die ein nginx mit einer statischen Datei belegt (16–32); **nicht** gemessen — gemessen ist der Platz, in den es passt |
 | `pipeline` | 1'280 MiB | 1,25 GiB, zeitweilig |
 | `jupyter` | 768 MiB | zeitweilig; passt nur, wenn cadvisor gedeckelt wird |
@@ -1268,6 +1286,11 @@ weichen dem Dashboard: 640 + 160 + 32 = **832 MiB** dauernd, mit dem
 grösseren Zeitweiligen **2'112 von 4'325 MiB** — rund 2,2 GiB frei statt 37.
 Der Test heisst weiter `test_der_dauerbetrieb_ist_entschieden` und nennt
 jetzt `admin`, `dashboard` und `start`.
+
+**Am 15.11.2026 kommt der Kibana-Tunnel dazu** (Entscheid: läuft dauernd):
+640 + 160 + 32 + 128 = **960 MiB** dauernd, mit dem grösseren Zeitweiligen
+**2'240 von 4'325 MiB**. Der Test nennt jetzt `admin`, `dashboard`, `kibana`
+und `start` und rechnet beide Summen nach.
 
 **Die eine Voraussetzung, die nicht in dieser Datei steht:** cadvisor muss auf
 **256 MiB** gedeckelt werden. Es belegt heute 1'047 MiB — 29 % des gesamten
@@ -1308,8 +1331,10 @@ nicht, dass dort etwas antwortet — was gemessen wurde, liegt vollständig
 
 **Seit dem 1.11.2026 angelegt: die Route für `urbancrime-dashboard`**, auf
 dieselbe Weise und unter derselben Access-Anwendung — von aussen gemessen
-mit 302 auf das Anmeldetor. Die Route für `urbancrime-kibana` kann entfallen;
-hinter ihr antwortet nichts mehr.
+mit 302 auf das Anmeldetor. Die Route für `urbancrime-kibana` bleibt
+(15.11.2026): Statt sie zu entfernen, zeigt Traefik sie auf den Tunneldienst
+`kibana` zu Kibana in Google Cloud. An Route und Access-Anwendung ändert sich
+nichts.
 
 **Die Tunnel-Route je Hostname** — angelegt am 9.10.2026, je Hostname eine
 veröffentlichte Anwendung auf dem bestehenden Tunnel, und zwar so:
@@ -1776,8 +1801,9 @@ Was in der `.env` anders ist als auf `srv01`:
 
 Aufbau, Start, Stopp und Abbau liegen in `docker/gcp-*.sh`, der Stapel in
 `docker-compose.gcp.yml` (Pipeline als Stapellauf, Dashboard,
-Elasticsearch, Kibana; Ports nur an `127.0.0.1` der VM, erreichbar über
-`gcloud compute ssh … --tunnel-through-iap -- -L`). Die VM stoppt jeden
+Elasticsearch, Kibana; das Dashboard nur an `127.0.0.1` der VM, erreichbar
+über `gcloud compute ssh … --tunnel-through-iap -- -L`; Kibana dazu über
+einen IAP-Tunnel, siehe unten). Die VM stoppt jeden
 Abend um 20:00 Europe/Zurich von selbst; ein Budget meldet bei 15, 30 und
 45 $.
 
@@ -1795,3 +1821,21 @@ Ausserdem nennt ein Release nur die Läufe, auf denen Gold ruht, nicht jeden,
 den `run_all` liest. Der Kopierschritt ergänzt deshalb je Partition einer
 Referenzquelle den jüngsten fertigen Lauf. Zahlen, Zeiten und Kosten stehen
 in `docs/intern/AENDERUNGEN.md` unter dem 15.11.2026.
+
+**Kibana über `srv01`** (seit dem 15.11.2026 beschrieben). Kibana und
+Elasticsearch passen nicht ins Speicherbudget von `srv01` (C-9) und laufen
+deshalb nur hier. Erreichbar sind sie über `urbancrime-kibana.datenwerft.ch`:
+
+| Teil | Wo | Was er tut |
+| --- | --- | --- |
+| `docker/gcp-starten.sh --nur-kibana` | eigener Rechner | startet die VM, kopiert das aktuelle Release von `srv01` mit `tools/kopiere_release.py` (`quelle.env` → `hmac.env`; geprüft gegen `release.json`, publiziert mit `storage.release.publiziere`, `AKTUELL.json` umgelegt), stoppt auf der VM das Dashboard, startet nur `elasticsearch` und `kibana`, setzt mit `holen aktuell --einsetzen` immer zuerst das Release ein und lädt Elasticsearch und Kibana nur, **wenn** `serving.pruefe_stand` den Stand danach nicht als geladen meldet |
+| Firewall `urbancrime-probe-kibana-iap` | VPC der Probe | lässt `tcp:5601` nur aus dem IAP-Bereich `35.235.240.0/20` herein; Kibana bindet dafür `5601:5601`, das Dashboard bleibt an `127.0.0.1` |
+| Tunnelkonto `urbancrime-probe-tunnel` | Projekt `urbancrime` | `roles/iap.tunnelResourceAccessor` mit der Bedingung `destination.port == 5601` und `roles/compute.viewer` auf der einen VM — kein SSH, kein Eimer. Der Schlüssel liegt unter `~/.config/urbancrime-probe/tunnel-schluessel.json` (600) |
+| Dienst `kibana` | `srv01` | `gcloud compute start-iap-tunnel urbancrime-probe 5601 --local-host-port=0.0.0.0:5601`; Traefik routet darauf, Access steht davor |
+
+Die IAP-Rolle ist im Projekt gebunden, nicht auf der VM: `gcloud` setzt sie
+nicht auf einer einzelnen Tunnel-Instanz, und die Probe hat genau eine. Der
+Abbau nimmt Tunnelkonto, seine Rolle (auch die eines schon gelöschten Kontos)
+und die Kibana-Regel mit. **Noch nicht
+ausgeführt:** Aufbau, Schlüssel nach `srv01`, Einsetzen und der Aufruf über
+die URL stehen aus; ebenso die Messung des laufenden Tunnels auf `srv01`.
