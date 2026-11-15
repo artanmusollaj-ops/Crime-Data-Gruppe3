@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
 # Baut die Google-Cloud-Probe ab: VM samt Disk, Eimer samt Inhalt,
-# HMAC-Schluessel, Dienstkonto, Zeitplan, Firewall, Netz und Budget - alles,
-# was gcp-aufbauen.sh anlegt. **Nicht umkehrbar**: Was im Eimer liegt, ist
+# HMAC-Schluessel, Dienstkonto, Tunnelkonto, Zeitplan, beide Firewall-Regeln,
+# Netz und Budget - alles, was gcp-aufbauen.sh anlegt. **Nicht umkehrbar**: Was im Eimer liegt, ist
 # danach weg. Deshalb nur nach ausdruecklicher Bestaetigung (Plan, Always).
 #
 #   docker/gcp-abbauen.sh                         # fragt nach der Projekt-ID
@@ -73,7 +73,7 @@ main() {
 
     bestaetigt "${genannt}" || return 1
 
-    local name email kennung konto budget
+    local name email tunnel kennung konto budget
     name="$(eimer)"
     email="$(konto_email)"
 
@@ -114,11 +114,41 @@ main() {
         fuehre "${GCLOUD}" iam service-accounts delete "${email}" --project "${GCP_PROJEKT}" --quiet
     fi
 
+    # Das Tunnelkonto fuer Kibana: zuerst seine Rolle im Projekt, dann das
+    # Konto samt seinen Schluesseln. Die Rolle **unabhaengig davon, ob es das
+    # Konto noch gibt**: Ist es schon weg, steht die Bindung als
+    # "deleted:serviceAccount:<email>?uid=<n>" in der Richtlinie, und auch
+    # die gehoert entfernt. Fehlt eine Bindung, ist das kein Fehler. Die
+    # Bindung auf der VM ist mit der VM weg.
+    tunnel="$(tunnel_email)"
+    fuehre "${GCLOUD}" projects remove-iam-policy-binding "${GCP_PROJEKT}" \
+        --member="serviceAccount:${tunnel}" --role=roles/iap.tunnelResourceAccessor \
+        --all --quiet \
+        || warne "Rolle des Tunnelkontos: nicht entfernt (vielleicht schon weg)"
+    for mitglied in $(frage "${GCLOUD}" projects get-iam-policy "${GCP_PROJEKT}" \
+            --flatten='bindings[].members' \
+            --filter='bindings.role=roles/iap.tunnelResourceAccessor' \
+            --format='value(bindings.members)' \
+            | grep -F "deleted:serviceAccount:${tunnel}?uid=" || true); do
+        fuehre "${GCLOUD}" projects remove-iam-policy-binding "${GCP_PROJEKT}" \
+            --member="${mitglied}" --role=roles/iap.tunnelResourceAccessor \
+            --all --quiet \
+            || warne "Rolle von ${mitglied}: nicht entfernt"
+    done
+    if gibt_es "${GCLOUD}" iam service-accounts describe "${tunnel}" --project "${GCP_PROJEKT}" \
+            || (( TROCKEN )); then
+        fuehre "${GCLOUD}" iam service-accounts delete "${tunnel}" --project "${GCP_PROJEKT}" --quiet
+    fi
+
     # Netz zuletzt: Es laesst sich erst loeschen, wenn keine VM und keine
     # Regel mehr darin haengt.
     if gibt_es "${GCLOUD}" compute firewall-rules describe "${GCP_FIREWALL}" --project "${GCP_PROJEKT}" \
             || (( TROCKEN )); then
         fuehre "${GCLOUD}" compute firewall-rules delete "${GCP_FIREWALL}" --project "${GCP_PROJEKT}" --quiet
+    fi
+    if gibt_es "${GCLOUD}" compute firewall-rules describe "${GCP_FIREWALL_KIBANA}" --project "${GCP_PROJEKT}" \
+            || (( TROCKEN )); then
+        fuehre "${GCLOUD}" compute firewall-rules delete "${GCP_FIREWALL_KIBANA}" --project "${GCP_PROJEKT}" --quiet
     fi
     if gibt_es "${GCLOUD}" compute networks subnets describe "${GCP_SUBNETZ}" \
             --project "${GCP_PROJEKT}" --region "${GCP_REGION}" || (( TROCKEN )); then
@@ -159,7 +189,7 @@ main() {
         fuehre rm -rf "${GCP_ZUSTAND}"
     fi
     (( TROCKEN )) && melde "[trocken] nichts abgebaut." && return 0
-    melde "Abgebaut: ${GCP_VM}, gs://${name}, ${email}, ${GCP_ZEITPLAN}, ${GCP_NETZ}, ${GCP_BUDGET_NAME}."
+    melde "Abgebaut: ${GCP_VM}, gs://${name}, ${email}, ${tunnel}, ${GCP_ZEITPLAN}, ${GCP_FIREWALL_KIBANA}, ${GCP_NETZ}, ${GCP_BUDGET_NAME}."
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

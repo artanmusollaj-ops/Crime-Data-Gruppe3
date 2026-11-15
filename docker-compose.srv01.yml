@@ -145,6 +145,84 @@ services:
       traefik.http.services.urbancrime-dashboard.loadbalancer.server.port: "8050"
 
   # --------------------------------------------------------------------
+  # Kibana - nur ein Tunnel in die Google-Cloud-Probe (15.11.2026)
+  # --------------------------------------------------------------------
+  # **Kein Kibana und kein Elasticsearch auf srv01** (C-9, seit dem
+  # 1.11.2026). Beide laufen in der Probe-VM in Google Cloud
+  # (docker-compose.gcp.yml, gestartet mit "docker/gcp-starten.sh
+  # --nur-kibana"). Dieser Dienst oeffnet nur einen IAP-Tunnel auf Port 5601
+  # der VM (gcloud compute start-iap-tunnel) und gibt ihn an Traefik weiter;
+  # die Route urbancrime-kibana.datenwerft.ch und die Access-Anwendung ueber
+  # urbancrime-* bestehen schon. Entscheid Christian vom 15.11.2026:
+  # IAP-Tunnel, nicht SSH mit fester IP und nicht ein Ruecktunnel. Der Dienst
+  # laeuft dauernd; ist die VM gestoppt, antwortet Traefik mit 502.
+  kibana:
+    # Das amtliche gcloud-Abbild, per SHA-256-Digest gepinnt wie alles Fremde
+    # hier. Der Digest ist der des Multi-Arch-Index von
+    # google-cloud-cli:592.0.0-alpine, am 15.11.2026 mit
+    # "docker buildx imagetools inspect" abgelesen; srv01 bekommt daraus das
+    # amd64-Abbild. Alpine, weil der Dienst nur gcloud braucht.
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:592.0.0-alpine@sha256:9040d28a6512f32c495322a3af6ea000f803a0ae001cec055937154efe5a2230
+    restart: unless-stopped
+    # Das Skript kommt aus dem Repository wie docker/start-nginx.conf bei
+    # `start`; es entschluesselt den Schluessel ins tmpfs und startet den
+    # Tunnel (Begruendung je Zeile dort).
+    entrypoint: ["bash", "/usr/local/bin/kibana-tunnel.sh"]
+    networks:
+      # Nur proxy: Traefik muss ihn erreichen, sonst niemand im Stapel.
+      proxy:
+    environment:
+      # Ohne Wert: der JSON-Schluessel des Tunnelkontos
+      # urbancrime-probe-tunnel, base64-kodiert, aus der .env des Stapels.
+      # Das Konto darf nur einen IAP-Tunnel auf Port 5601 der einen VM.
+      GCP_TUNNEL_SCHLUESSEL:
+      # Wohin der Tunnel geht - die Vorgaben von docker/gcp-gemeinsam.sh.
+      GCP_PROJEKT: urbancrime
+      GCP_ZONE: europe-west6-a
+      GCP_VM: urbancrime-probe
+    volumes:
+      - ./docker/srv01-kibana-tunnel.sh:/usr/local/bin/kibana-tunnel.sh:ro
+    # Der Schluessel liegt nur im Arbeitsspeicher: /run/geheim ist ein tmpfs,
+    # und die Schreibschicht des Containers ist zu (read_only).
+    read_only: true
+    tmpfs:
+      - /run/geheim:mode=700,size=4m
+      - /tmp:size=16m
+    cap_drop:
+      - ALL
+    # FR-13, lokal gemessen am 15.11.2026: Spitze 59 MiB je gcloud-Aufruf im
+    # selben Abbild (ohne Anmeldung, im Halbsekundentakt abgelesen). Der
+    # laufende Tunnel ist auf srv01 nachzumessen; 128 MiB sind die Spitze mal
+    # zwei. Dauernd verplant: 960 MiB statt 832.
+    mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    healthcheck:
+      # Gesund heisst: der Tunnel nimmt auf 5601 an. Ob dahinter Kibana
+      # antwortet, sagt er nicht - die VM laeuft nur, wenn jemand sie startet.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5601"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    labels:
+      # FR-10, vollstaendig wie beim Dashboard.
+      traefik.enable: "true"
+      traefik.docker.network: proxy
+      # FR-22: dieselbe Route wie bis zum 1.11.2026, jetzt auf den Tunnel.
+      # Kibana hat keine eigene Anmeldung - Access ist sie.
+      traefik.http.routers.urbancrime-kibana.rule: Host(`urbancrime-kibana.datenwerft.ch`)
+      traefik.http.routers.urbancrime-kibana.entrypoints: web
+      traefik.http.routers.urbancrime-kibana.middlewares: urbancrime-kibana-proto
+      traefik.http.routers.urbancrime-kibana.service: urbancrime-kibana
+      traefik.http.middlewares.urbancrime-kibana-proto.headers.customrequestheaders.X-Forwarded-Proto: https
+      traefik.http.services.urbancrime-kibana.loadbalancer.server.port: "5601"
+
+  # --------------------------------------------------------------------
   # Die Einstiegsseite - der dritte geroutete Webdienst (FR-31)
   # --------------------------------------------------------------------
   start:
