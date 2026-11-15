@@ -190,11 +190,12 @@ services:
       - /tmp:size=16m
     cap_drop:
       - ALL
-    # FR-13, lokal gemessen am 15.11.2026: Spitze 59 MiB je gcloud-Aufruf im
-    # selben Abbild (ohne Anmeldung, im Halbsekundentakt abgelesen). Der
-    # laufende Tunnel ist auf srv01 nachzumessen; 128 MiB sind die Spitze mal
-    # zwei. Dauernd verplant: 960 MiB statt 832.
-    mem_limit: 128m
+    # FR-13, auf srv01 gemessen am 15.11.2026: Leerlauf 57-59 MiB, Spitze
+    # 139,7 MiB, wenn Kibana beim ersten Laden rund 80 Dateien gleichzeitig
+    # holt. Die erste Grenze, 128 MiB (lokal geschaetzt), riss genau dort: der
+    # Tunnel startete neu, der Browser zeigte "Elastic did not load properly".
+    # 256 MiB sind die Spitze mal 1,8. Dauernd verplant: 1'088 MiB statt 832.
+    mem_limit: 256m
     security_opt:
       - no-new-privileges:true
     logging:

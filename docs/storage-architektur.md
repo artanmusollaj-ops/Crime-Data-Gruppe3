@@ -1248,7 +1248,7 @@ bereits belegt. Die vorher veranschlagten 5'632 MiB lagen damit **1'307 MiB
 | `dashboard` | 640 MiB | am 1.11.2026 auf `srv01` gemessen: Spitze **429 MiB** beim ersten Laden aus dem Eimer (11 s, im Sekundentakt abgelesen), danach **299–319 MiB**. Lokal waren es 476 beziehungsweise 412 MiB mit den Grenzen (DuckDB auf 256 MB, zwei Threads) |
 | ~~`elasticsearch`~~ | ~~1'792 MiB~~ | bis zum 1.11.2026; der Heap nutzte gemessen **195 von 1'024 MiB** |
 | ~~`kibana`~~ | ~~1'024 MiB~~ | bis zum 1.11.2026; gemessen belegt **771 MiB** |
-| `kibana` (Tunnel) | 128 MiB | seit 15.11.2026 nur `gcloud compute start-iap-tunnel`. Lokal gemessen am 15.11.2026: Spitze **59 MiB** je gcloud-Aufruf im selben Abbild; der laufende Tunnel ist auf `srv01` nachzumessen. 128 MiB sind die Spitze mal zwei |
+| `kibana` (Tunnel) | 256 MiB | seit 15.11.2026 nur `gcloud compute start-iap-tunnel`. Auf `srv01` gemessen am 15.11.2026: Leerlauf 57–59 MiB, Spitze **139,7 MiB**, wenn Kibana beim ersten Laden rund 80 Dateien gleichzeitig holt. Die erste, lokal geschätzte Grenze von 128 MiB riss genau dort. 256 MiB sind die Spitze mal 1,8 |
 | `start` | 32 MiB | das obere Ende der Spanne, die ein nginx mit einer statischen Datei belegt (16–32); **nicht** gemessen — gemessen ist der Platz, in den es passt |
 | `pipeline` | 1'280 MiB | 1,25 GiB, zeitweilig |
 | `jupyter` | 768 MiB | zeitweilig; passt nur, wenn cadvisor gedeckelt wird |
@@ -1288,8 +1288,8 @@ Der Test heisst weiter `test_der_dauerbetrieb_ist_entschieden` und nennt
 jetzt `admin`, `dashboard` und `start`.
 
 **Am 15.11.2026 kommt der Kibana-Tunnel dazu** (Entscheid: läuft dauernd):
-640 + 160 + 32 + 128 = **960 MiB** dauernd, mit dem grösseren Zeitweiligen
-**2'240 von 4'325 MiB**. Der Test nennt jetzt `admin`, `dashboard`, `kibana`
+640 + 160 + 32 + 256 = **1'088 MiB** dauernd, mit dem grösseren Zeitweiligen
+**2'368 von 4'325 MiB**. Der Test nennt jetzt `admin`, `dashboard`, `kibana`
 und `start` und rechnet beide Summen nach.
 
 **Die eine Voraussetzung, die nicht in dieser Datei steht:** cadvisor muss auf
