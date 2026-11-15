@@ -84,6 +84,7 @@ from __future__ import annotations
 import argparse
 import csv
 import logging
+import os
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1264,9 +1265,18 @@ def build(data_root: Path, config_root: Path) -> Path:
     # Die Datei liegt im Auslagerungsverzeichnis, wenn eines gesetzt ist: Auf
     # ``srv01`` ist das der Datentraeger, der dafuer Platz hat. Sie geht am
     # Ende mit; sie traegt nichts, was das Manifest nicht beschreibt.
+    #
+    # **Das Verzeichnis wird angelegt, wenn es fehlt.** ``TemporaryDirectory``
+    # legt nur sein eigenes an, nicht das Elternverzeichnis. Auf ``srv01`` lag
+    # ``duckdb-tmp`` aus frueheren Laeufen schon im Datentraeger; auf einem
+    # frischen (Google-Cloud-Probe, 15.11.2026) brach der Bau mit
+    # ``FileNotFoundError`` ab. Das Auslagerungsverzeichnis ist keine Schicht,
+    # sondern Arbeitsplatz dieses Prozesses - ``storage`` ist hier nicht zustaendig.
+    auslagerung = grenzen().get("temp_directory") or None
+    if auslagerung:
+        os.makedirs(auslagerung, exist_ok=True)
     with tempfile.TemporaryDirectory(
-            dir=grenzen().get("temp_directory") or None,
-            prefix=".bau-crime_offense-") as bau:
+            dir=auslagerung, prefix=".bau-crime_offense-") as bau:
         return _build(Path(bau) / "bau.duckdb", data_root, config_root,
                       chicago, detroit, tract)
 

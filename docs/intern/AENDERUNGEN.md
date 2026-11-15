@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'012** |
+| Tests | **3'125** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -109,6 +109,152 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 15.11.2026 · In Google Cloud ergibt dasselbe Bronze dieselben Tabellen (Branch `fr-44-47-google-cloud`)
+
+FR-44 („der Wechsel der Zielumgebung ist Konfiguration, kein Code") steht auf
+◐, FR-47 („die Portierung wird einmal trocken belegt") ist zurückgestellt.
+Christian will beide belegt, mit einem ganzen Stapel samt Elasticsearch und
+Kibana in Google Cloud, Projekt `urbancrime`, Region `europe-west6` (Zürich).
+Der Stapel ist am 15.11.2026 einmal gelaufen; der Beleg steht am Ende des
+Eintrags. FR-44 und FR-47 stehen damit auf ●.
+
+- **`docker-compose.gcp.yml`**: Pipeline (Stapellauf), Dashboard,
+  Elasticsearch 8.19.22 und Kibana 8.19.22. Die beiden fremden Abbilder sind
+  per Digest des Multi-Arch-Index gepinnt (am 15.11.2026 abgelesen), das
+  eigene kommt ohne Vorgabe aus `PIPELINE_IMAGE`: derselbe Digest wie auf
+  `srv01`, damit der Vergleich einer der Umgebung ist und nicht einer zweier
+  Bauten. Die Grenzen sind die auf `srv01` gemessenen, zusammen 4'736 MiB auf
+  8 GB. Ports nur an `127.0.0.1` der VM, Dashboard und Kibana; kein Traefik,
+  kein externes Netz. Die Pipeline trägt dieselben DuckDB-Grenzen wie auf
+  `srv01`.
+- **`.env.gcp.example`**: was gegenüber `srv01` anders ist, ohne Werte.
+  `S3_ENDPOINT=storage.googleapis.com`, HMAC-Schlüssel, Eimer, und
+  `AWS_REQUEST_CHECKSUM_CALCULATION=when_required` samt
+  `AWS_RESPONSE_CHECKSUM_VALIDATION`. botocore setzt seit 1.36 nachgestellte
+  CRC32-Prüfsummen, die die XML-Schnittstelle von Cloud Storage nicht
+  annimmt. **Gemessen am 15.11.2026** mit botocore 1.43.93: Mit der Vorgabe
+  `when_supported` lehnt Cloud Storage ein `PutObject` mit
+  `SignatureDoesNotMatch` ab, mit `when_required` geht es durch. Die beiden
+  Zeilen bleiben.
+- **`docker/gcp-aufbauen.sh`**, `gcp-starten.sh`, `gcp-stoppen.sh`,
+  `gcp-abbauen.sh`, dazu `gcp-gemeinsam.sh` (Namen, Vorgaben, Trockenmodus)
+  und `gcp-startup.sh` (Startskript der VM: `vm.max_map_count`, Docker aus
+  den Ubuntu-Paketen, das Repository nach `/opt/urbancrime`, bei **jedem**
+  Start geholt und vorgespult). Den Zweig setzt `gcp-starten.sh --zweig` als
+  Metadatum der VM; bis `docker-compose.gcp.yml` auf `main` liegt, ist das
+  `fr-44-47-google-cloud`. Der Aufbau legt
+  an: ein eigenes Netz mit einer einzigen Regel (SSH aus dem IAP-Bereich),
+  den Eimer ohne Versionierung und mit `--soft-delete-duration=0`, ein
+  Dienstkonto mit Rechten nur auf dem Eimer (Bindung und Schlüssel mit
+  Wiederholung, weil IAM ein neues Konto erst nach Sekunden zeigt), dessen
+  HMAC-Schlüssel nach `~/.config/urbancrime-probe/hmac.env` (600, nie auf
+  dem Bildschirm; ein neuer, wenn keiner `ACTIVE` ist oder die Datei fehlt), den
+  Abendstopp um 20:00 Europe/Zurich samt der Rolle, ohne die ein Zeitplan
+  nichts stoppt, die VM (`e2-standard-2`, 30 GB, ohne Dienstkonto, am Ende
+  gestoppt) und ein Budget über 60 $ mit Schwellen bei 15, 30 und 45 $.
+  Das Budget zählt **ohne** Gutschriften, sonst stünde der Verbrauch mit dem
+  Studienguthaben bis zum letzten Dollar auf null. Jeder Schritt fragt zuerst,
+  ob es die Ressource schon gibt; `--trocken` zeigt nur, was geschähe. Der
+  Abbau löscht nur, wenn die Projekt-ID eingetippt oder mit `--bestaetige`
+  genannt wird, und nimmt dann auch die Rolle des Compute-Dienstagenten und
+  `~/.config/urbancrime-probe/` mit. `gcp-starten.sh --env` verlangt für
+  `PIPELINE_IMAGE` einen `@sha256:`-Digest; `gcp-stoppen.sh` hält nur
+  `TERMINATED` für gestoppt (eine `SUSPENDED`-VM zahlt weiter).
+- **Wo die Schlüssel liegen** (Entscheid vom 15.11.2026, nach der Review):
+  unter `~/.config/urbancrime-probe/`, Modus 600, nie im
+  Repository-Verzeichnis. `hmac.env` (vom Aufbau) beschreibt den Eimer in
+  Cloud Storage, `quelle.env` (von Hand, nur lesend) den Eimer, gegen den
+  verglichen wird, `vm.env` (aus `.env.gcp.example`) geht mit
+  `gcp-starten.sh --env` auf die VM. Die beiden Werkzeuge nehmen
+  `quelle.env` und `hmac.env` als Vorgabe.
+- **`tools/vergleiche_releases.py`**: der Vergleich für FR-47. Er liest je
+  Seite nur `release.json` aus dem Eimer, den eine eigene `.env`-Datei
+  beschreibt, und stellt je Gold- und Serving-Tabelle Abdruck und SHA-256
+  nebeneinander. Ein abweichender Abdruck oder eine fehlende Tabelle ergibt
+  Exit 1. Abweichende Bytes bei gleichem Abdruck sind ein Befund mit dem
+  Grund, der sich aus den Manifesten ablesen lässt, sonst „nicht erklärt".
+  Ein Eimer gegen sich selbst wird abgelehnt.
+- **`tools/kopiere_laeufe.py --release <id>`**: der Kopierschritt davor. Er
+  liest `release.json` und jedes Manifest im Release aus dem Quelleimer,
+  sammelt die Läufe aus ihrer Herkunft (`*_bronze_runs`, Einträge mit
+  `run_id`; Raw nur, wenn die Herkunft es nennt), sucht ihre Verzeichnisse
+  `run_<id>` unter `bronze/` und kopiert je Lauf alle Objekte, Manifest
+  zuletzt. Gleiche Objekte im Ziel überspringt er, abweichende lässt er
+  liegen und bricht ab; gelöscht wird nie, derselbe Eimer wird abgelehnt,
+  `--trocken` zeigt nur. Die Herkunft nennt **nicht** jeden Lauf, den der
+  Lauf liest (siehe Befund 1 unten); für Referenzquellen ergänzt das
+  Werkzeug deshalb je Partition ohne genannten Lauf den jüngsten fertigen.
+- `.gitignore` hält jetzt auch `.env.*` heraus, ausser den beiden Vorlagen,
+  falls doch eine im Repository-Verzeichnis landet.
+- `docs/bilder/architektur-kontext.svg` neu gebaut: 14 statt 12 Werkzeuge unter `tools/`.
+
+Neu bewacht: `tests/test_gcp_stapel.py` (Compose, Skripte im Trockenmodus und
+gegen ein falsches `gcloud`, das jeden Aufruf protokolliert: ohne Projekt
+oder Abrechnung kein `create`, ein zweiter Aufbau legt nichts doppelt an,
+Abbau ohne Bestätigung ohne einen Löschbefehl; dazu der FR-44-Wächter, der
+unter `src/` nach `gcp`, `gcs` und `google` in Zeichenketten und Bezeichnern
+sucht, mit einer Ausnahme für die Webschriften der Startseite; die Vorlage und
+die Compose-Variablen in beiden Richtungen, sodass `S3_USE_SSL`, das keinen
+Container erreichte, herausgefallen ist), `tests/test_vergleiche_releases.py`
+und `tests/test_kopiere_laeufe.py`.
+
+**Der Beleg (15.11.2026).** Bronze aus dem srv01-Release
+`2026-11-14T09-09-47Z`, 74 Läufe, 148 Objekte, nach Cloud Storage kopiert;
+auf der VM dasselbe Pipeline-Abbild wie auf `srv01`
+(`sha256:254762531db3…`), dann `run_all --ohne-ingestion --jahre 2021-2026`,
+`release holen aktuell --einsetzen`, die beiden Lader und `pruefe_stand`.
+
+| Schritt | Dauer | Ergebnis |
+| --- | ---: | --- |
+| Stapel hochfahren (Abbilder ziehen, alle drei Dienste gesund) | 3 min 48 s | Dashboard, Elasticsearch, Kibana |
+| `run_all --ohne-ingestion` | 3 min 22 s | 16 Stufen, Release `2026-11-15T13-22-32Z`, 29 Dateien, 184,6 MB |
+| `load_elasticsearch` | 4 min 26 s | 8 Aliase, `fact_offense` 1'889'775 Zeilen |
+| `build_kibana` | 2 s | 36 Objekte, 7 Dashboards |
+| `pruefe_stand` | 3 s | Gold, Elasticsearch, Kibana: „stimmt" |
+
+`tools/vergleiche_releases.py` gegen das srv01-Release: **13 von 13
+Tabellen mit gleichem Eingabe-Abdruck, 12 davon byteweise gleich**, dieselbe
+Abdeckung. Die eine ist `serving/source_movement`: 113'745 Zeilen auf
+`srv01`, 0 in Cloud Storage. Sie vergleicht aufeinanderfolgende
+Bronze-Schnappschüsse derselben Quelle, und kopiert war je Partition nur der
+Lauf des Release – kein Paar, keine Bewegung. Das liegt an der Teilkopie,
+nicht an der Umgebung. Dashboard und Kibana über `ssh -L` von Christian
+angesehen.
+
+Was sich gegenüber `srv01` in der `.env` unterscheidet, und nur das:
+`S3_ENDPOINT=storage.googleapis.com`, `S3_BUCKET`, die HMAC-Schlüssel,
+`AWS_REQUEST_CHECKSUM_CALCULATION` und `AWS_RESPONSE_CHECKSUM_VALIDATION`
+(beide `when_required`), ein eigener `XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY`.
+**Am Code unter `src/` brauchte Cloud Storage nichts** (FR-44).
+
+Zwei Befunde, beide generisch gelöst und je mit Test:
+
+1. **Das Release nennt nicht jeden Lauf, den `run_all` liest.** Gold nennt
+   `tiger_place` nur für Vintage 2024 (`RATENJAHR`), Silver baut aber jeden
+   Vintage; der erste Lauf brach bei `silver · place_2021` ab.
+   `kopiere_laeufe` ergänzt jetzt je Partition einer Referenzquelle
+   (`bronze/dataset=…`) ohne genannten Lauf den jüngsten fertigen – sechs
+   Läufe. Die Stadtdaten bleiben aussen vor: Dort ist jede Partition ein
+   eigener Lauf, und die Regel holte alte Läufe, die Silver nie liest.
+2. **Auf einem frischen Datenträger fehlte `duckdb-tmp`.**
+   `silver · crime_offense` legt seine Baudatenbank mit
+   `TemporaryDirectory(dir=…)` im Auslagerungsverzeichnis an, und das legt
+   das Elternverzeichnis nicht an. Auf `srv01` lag es aus früheren Läufen.
+   Der Bau legt es jetzt selbst an. Für die Probe selbst wurde es auf der VM
+   von Hand angelegt, weil dort das gepinnte srv01-Abbild lief; der Fix
+   kommt mit dem nächsten Abbild. Ein Neuaufbau von `srv01` wäre am selben
+   Punkt gescheitert.
+
+Dazu ein Hinweis in `gcp-starten.sh`: `orchestration.vorpruefung` verlangt
+`CENSUS_API_KEY`, den ein Lauf ohne Ingestion nicht braucht; sie steht dort
+nicht mehr als Schritt.
+
+**Kosten.** Die VM lief 43 Minuten (13:03–13:46 UTC, e2-standard-2, etwa
+0,07 $), dazu eine Minute beim Aufbau; Disk (30 GB) und Eimer (793 MiB)
+liegen weiter, zusammen unter 2 $ im Monat. Gestoppt mit `gcp-stoppen.sh`.
+
+**Zahlen.** 3'012 → **3'125 Tests**, Standardlauf 2'901 → **3'014**, im protokollierten Linux-CI-Lauf 2'822 → **2'935**.
 
 ## 14.11.2026 · Nichts im Abbild setzt srv01 voraus (Branch `fr-46-abbild-ohne-srv01`)
 
@@ -1715,7 +1861,7 @@ Platzhalter für eine unbekannte Tatzeit. In Chicago sind es 2024 9'445
 Fälle um 00:00 gegen 1'967 um 00:01. Kibana zeichnet sie mit und vermerkt
 es; der Entwurf verlangt, fehlende Tatzeiten getrennt auszuweisen. Das Brett
 nimmt sie heraus und nennt ihre Zahl, für Jan–Sep 2025 Chicago 11'078
-(6,1 %) und Detroit 2'907 (5,0 %). Echte Taten um genau 00:00 fehlen dann
+(6,1 %) und Detroit 2'932 (5,0 %). Echte Taten um genau 00:00 fehlen dann
 mit; die Zahl daneben macht das sichtbar.
 
 **Ein Fehler, der auch »Überblick« betraf.** `comparison_month` misst Teilmonate

@@ -125,19 +125,19 @@ stellt."*
 
 | | Anforderung | Stand | Beleg |
 | --- | --- | :-: | --- |
-| FR-44 | Umgebungswechsel ist Konfiguration | ◐ | `STORAGE_BACKEND` und die S3-Variablen sind Konfiguration; ein Wechsel ist nie probiert |
+| FR-44 | Umgebungswechsel ist Konfiguration | ● | Google-Cloud-Probe am 15.11.2026: dasselbe Abbild wie auf `srv01`, nur die `.env` anders (`S3_ENDPOINT`, Eimer, HMAC-Schlüssel, zwei `AWS_*_CHECKSUM`-Zeilen); unter `src/` nichts für Cloud Storage. `tests/test_gcp_stapel.py` hält `src/` frei von `gcp`, `gcs`, `google` |
 | FR-45 | S3-Client nimmt Endpunkt, Region, Stil aus der Konfiguration | ● | `storage.config.Config`, `storage.duckdb.secret_sql`, `storage.parquet._ablage` |
 | FR-46 | Nichts im Abbild setzt `srv01` voraus | ● | `tests/test_abbild_ohne_srv01.py` durchsucht die Zeichenketten in `src/crime` und `docker/jupyter_server_config.py` und die Anweisungen beider Dockerfiles nach `srv01`, `datenwerft`, `/srv/` und `urbancrime-`; `S3_ENDPOINT` ohne Vorgabe, die Serverwerte der Startseite aus `EINSTIEG_ADRESSMUSTER`, `STAPEL_COMPOSE`, `STAPEL_DATENLAUF` (14.11.2026) |
-| FR-47 | Portierung einmal trocken belegt | ▣ | zurückgestellt mit der Welle |
+| FR-47 | Portierung einmal trocken belegt | ● | `docker-compose.gcp.yml`, `docker/gcp-*.sh`; `tools/vergleiche_releases.py` am 15.11.2026: 13 von 13 Tabellen mit gleichem Abdruck wie das srv01-Release `2026-11-14T09-09-47Z`, 12 byteweise gleich (`source_movement` braucht mehrere Läufe je Quelle, kopiert war einer). Elasticsearch, Kibana und `pruefe_stand` grün; zwei Befunde mit Test gelöst (`AENDERUNGEN.md`, 15.11.2026) |
 
 ## Was die Zahlen sagen
 
 | Stand | Anzahl |
 | --- | ---: |
-| ● erfüllt | 42 |
-| ◐ teilweise | 11 |
+| ● erfüllt | 44 |
+| ◐ teilweise | 10 |
 | ○ offen | 10 |
-| ▣ zurückgestellt | 2 |
+| ▣ zurückgestellt | 1 |
 | **zusammen** | **65** |
 
 Wer die **zehn** offenen trägt — jede genau einmal, und keine, die nicht

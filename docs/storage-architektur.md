@@ -1755,3 +1755,43 @@ dass die drei, die der Lauf braucht, überhaupt genannt sind.
 Eine Ausnahme von „ohne Wert": Der Ablagemodus steht fest im Text, als `s3`.
 Er ist kein Geheimnis, und ein Serverlauf, der versehentlich in `local` liefe,
 publizierte nichts und sähe dabei grün aus.
+
+---
+
+## 17 · Dieselbe Strecke in Google Cloud
+
+Am 15.11.2026 einmal belegt (FR-44, FR-47): **dasselbe Abbild wie auf
+`srv01`, eine andere `.env`, sonst nichts.** Cloud Storage spricht über seine
+XML-Schnittstelle S3; `storage` merkt davon nichts. Unter `src/` steht kein
+Wort für Google, und `tests/test_gcp_stapel.py` hält das.
+
+Was in der `.env` anders ist als auf `srv01`:
+
+| Was | Wert in Google Cloud | Warum |
+| --- | --- | --- |
+| Endpunkt, `S3_ENDPOINT` | `storage.googleapis.com` | die S3-Schnittstelle von Cloud Storage |
+| Eimer, `S3_BUCKET` | `urbancrime-probe-<projektnummer>` | Eimernamen sind weltweit eindeutig |
+| Schlüssel, `S3_ACCESS_KEY` und `S3_SECRET_KEY` | HMAC-Schlüssel eines Dienstkontos, das nur den Eimer sieht | Cloud Storage kennt für S3 nur HMAC |
+| Prüfsummen, `AWS_REQUEST_CHECKSUM_CALCULATION` und `AWS_RESPONSE_CHECKSUM_VALIDATION` | `when_required` | **gemessen:** Mit der Vorgabe von botocore (seit 1.36 `when_supported`) lehnt Cloud Storage jedes `PutObject` mit `SignatureDoesNotMatch` ab. botocore liest beide selbst aus der Umgebung; SeaweedFS stören sie nicht |
+
+Aufbau, Start, Stopp und Abbau liegen in `docker/gcp-*.sh`, der Stapel in
+`docker-compose.gcp.yml` (Pipeline als Stapellauf, Dashboard,
+Elasticsearch, Kibana; Ports nur an `127.0.0.1` der VM, erreichbar über
+`gcloud compute ssh … --tunnel-through-iap -- -L`). Die VM stoppt jeden
+Abend um 20:00 Europe/Zurich von selbst; ein Budget meldet bei 15, 30 und
+45 $.
+
+**Der Vergleich.** `tools/kopiere_laeufe.py` kopiert die Bronze-Läufe eines
+Release in den zweiten Eimer, `tools/vergleiche_releases.py` stellt danach
+je Tabelle Eingabe-Abdruck und SHA-256 beider Releases nebeneinander. Am
+15.11.2026: 13 von 13 Tabellen mit gleichem Abdruck, 12 byteweise gleich.
+Die dreizehnte, `serving/source_movement`, vergleicht Bronze-Läufe
+untereinander und bleibt leer, solange je Quelle nur ein Lauf kopiert ist.
+
+**Was der Neuaufbau gelehrt hat.** Ein frischer Datenträger hatte kein
+`duckdb-tmp`, und `silver · crime_offense` brach daran ab; auf `srv01` lag
+das Verzeichnis aus früheren Läufen. Der Bau legt es jetzt selbst an.
+Ausserdem nennt ein Release nur die Läufe, auf denen Gold ruht, nicht jeden,
+den `run_all` liest. Der Kopierschritt ergänzt deshalb je Partition einer
+Referenzquelle den jüngsten fertigen Lauf. Zahlen, Zeiten und Kosten stehen
+in `docs/intern/AENDERUNGEN.md` unter dem 15.11.2026.
