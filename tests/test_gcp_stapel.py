@@ -816,6 +816,20 @@ def python(tmp_path, benutzbares_bash) -> Path:
     return pfad
 
 
+@pytest.mark.parametrize("jetzt, erwartet", [
+    ("1930", "Die VM stoppt heute um 20:00"),
+    ("2049", "Die VM stoppt erst morgen um 20:00"),
+    ("0005", "Die VM stoppt heute um 20:00"),
+])
+def test_der_hinweis_nennt_den_naechsten_abendstopp(tmp_path, benutzbares_bash, jetzt, erwartet):
+    """15.11.2026: nach einem Start um 20:49 hiess es weiter "stoppt um 20:00" -
+    gestoppt haette der Zeitplan erst am naechsten Abend."""
+    fertig = rufe("starten", "--nur-kibana", "--trocken", tmp_path=tmp_path,
+                  GCP_JETZT_HHMM=jetzt)
+    assert fertig.returncode == 0, fertig.stderr
+    assert erwartet in fertig.stdout, fertig.stdout[-400:]
+
+
 def test_nur_kibana_im_trockenmodus(tmp_path, benutzbares_bash):
     fertig = rufe("starten", "--nur-kibana", "--trocken", tmp_path=tmp_path,
                   GCP_KIBANA_ADRESSE="https://kibana.example.org")

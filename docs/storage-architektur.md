@@ -1785,6 +1785,9 @@ publizierte nichts und sähe dabei grün aus.
 
 ## 17 · Dieselbe Strecke in Google Cloud
 
+Die Handgriffe für die Vorführung (starten, prüfen, stoppen, Rückfallweg)
+stehen in [`intern/vorfuehrung.md`](intern/vorfuehrung.md).
+
 Am 15.11.2026 einmal belegt (FR-44, FR-47): **dasselbe Abbild wie auf
 `srv01`, eine andere `.env`, sonst nichts.** Cloud Storage spricht über seine
 XML-Schnittstelle S3; `storage` merkt davon nichts. Unter `src/` steht kein
