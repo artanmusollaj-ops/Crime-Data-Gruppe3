@@ -325,16 +325,13 @@ def test_keine_srv01_namen(pfad):
 #: Woran ein GCP-Sonderweg im Code zu erkennen waere: ``gcp``, ``gcs`` oder
 #: ``google`` irgendwo in einem Bezeichner oder einer Zeichenkette - auch
 #: ``gcp_modus``, ``ist_gcs`` oder ``== "google"``.
+#: Ausnahmen gibt es keine mehr. Die eine, die es gab, waren die Webschriften
+#: der Startseite (``fonts.googleapis.com``); seit dem 16.11.2026 traegt sie
+#: die Systemschrift des Dashboards und laedt nichts von aussen.
 SONDERWEG = re.compile(r"gcp|gcs|google", re.IGNORECASE)
-#: Was "google" enthaelt und kein Speicherweg ist: die Webschriften der
-#: Startseite (``serving.build_einstieg``). Eine Ausnahme je Fundstelle,
-#: damit eine neue nicht mitrutscht.
-KEIN_SONDERWEG = ("fonts.googleapis.com",)
 
 
 def sonderweg(wert: str) -> bool:
-    for ausnahme in KEIN_SONDERWEG:
-        wert = wert.replace(ausnahme, "")
     return bool(SONDERWEG.search(wert))
 
 
@@ -376,16 +373,15 @@ def test_der_sonderwegwaechter_findet_was_er_finden_soll():
     quelltext = ('"""Laeuft auch gegen Cloud Storage (GCS)."""\n'
                  'def lade(gcp_modus):\n'
                  '    if gcp_modus:\n'
-                 '        return "https://storage.googleapis.com"\n'
-                 'X = "https://fonts.googleapis.com"\n')
+                 '        return "https://storage.googleapis.com"\n')
     quelltext += ('ist_gcs = 1\n'
                   'if ziel == "google":\n'
                   '    pass\n')
     treffer = sorted({z for z, w in [*zeichenketten(quelltext), *bezeichner(quelltext)]
                       if sonderweg(w)})
-    # 2/3: gcp_modus, 4: die Adresse, 6: ist_gcs, 7: "google". Nicht 1 (der
-    # Docstring) und nicht 5 (die Webschriften).
-    assert treffer == [2, 3, 4, 6, 7], treffer
+    # 2/3: gcp_modus, 4: die Adresse, 5: ist_gcs, 6: "google". Nicht 1 (der
+    # Docstring).
+    assert treffer == [2, 3, 4, 5, 6], treffer
 
 
 # --------------------------------------------------------------------------

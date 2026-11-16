@@ -244,8 +244,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 3'156 Tests ohne Netz und Schlüssel, Linux mit Python 3.11, `ruff` davor; der Referenz-Wächter unter 3.13; auf `main` zusätzlich Windows mit 3.13 | bei jedem Push |
-| **Frischer Klon** | Im protokollierten Linux-CI-Lauf liefen 2'966 davon — die übrigen 79 wurden übersprungen, unter anderem wegen fehlender Daten, Dienste oder ungetrackter Dokumente. Die 111 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 3'161 Tests ohne Netz und Schlüssel, Linux mit Python 3.11, `ruff` davor; der Referenz-Wächter unter 3.13; auf `main` zusätzlich Windows mit 3.13 | bei jedem Push |
+| **Frischer Klon** | Im protokollierten Linux-CI-Lauf liefen 2'971 davon — die übrigen 79 wurden übersprungen, unter anderem wegen fehlender Daten, Dienste oder ungetrackter Dokumente. Die 111 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 111 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 

@@ -162,8 +162,13 @@ def test_die_seite_verspricht_keinen_dienstzustand(text):
         # verboten eine Zustandsaussage. Geprueft wird das Einfache: keine
         # gruene Marke neben einem Dienstnamen.
         pass
-    assert "marke gut" not in text.split("Wo man fragt")[-1], (
-        "die Seite zeigt eine Zustandsmarke bei den Diensten")
+    # Die Plaketten heissen seit dem 16.11.2026 ``plakette`` - ``marke`` ist
+    # im Kopf des Dashboards Logo und Name. Beide Namen geprueft, damit der
+    # Waechter nicht mit der Umbenennung leer laeuft.
+    dienste = text.split("Wo man fragt")[-1]
+    for klasse in ("plakette gut", "marke gut"):
+        assert klasse not in dienste, (
+            "die Seite zeigt eine Zustandsmarke bei den Diensten")
 
 
 # --------------------------------------------------------------------------
@@ -706,3 +711,94 @@ def test_die_grenzen_der_seite_sind_die_des_konzepts(text):
     assert not fremd, (
         "diese Titel stehen auf der Startseite, aber nicht im Konzept: "
         f"{fremd} - eine Limitation entsteht im Konzept, nicht auf der Seite")
+
+
+# --------------------------------------------------------------------------
+# Die Gestaltung ist die des Dashboards (16.11.2026)
+# --------------------------------------------------------------------------
+
+DASHBOARD = PROJEKT / "src" / "crime" / "serving" / "dashboard" / "static"
+
+
+def farbvariablen(css: str) -> dict[str, str]:
+    """Die Variablen und die Schrift im ersten ``:root``-Block, Name auf Wert.
+
+    ``font-family`` gehoert dazu: "dieselbe Schrift" ist Teil der Zusage.
+    """
+    block = re.search(r":root\s*\{(.*?)\}", css, re.DOTALL)
+    assert block, "kein :root-Block"
+    return dict(re.findall(r"(--[\w-]+|font-family)\s*:\s*([^;]+?)\s*;",
+                           block.group(1)))
+
+
+def test_jede_farbe_des_dashboards_steht_so_auf_der_startseite(werkzeug, text):
+    """Eine Quelle fuer die Farben: ``dashboard.css``.
+
+    Geprueft an beiden Fassungen aus dem erfundenen Release und an der
+    abgelegten Seite - die abgelegte veraltet sonst unbemerkt, wenn eine
+    Farbe im Dashboard wechselt.
+    """
+    soll = farbvariablen((DASHBOARD / "dashboard.css").read_text(encoding="utf-8"))
+    assert {"--navy", "--grund", "--karte", "--blau", "font-family"} <= set(soll), soll
+    for name, seite in [*((f, blatt(werkzeug, f)) for f in werkzeug.FASSUNGEN),
+                        ("docs/einstieg.html", text)]:
+        ist = farbvariablen(seite)
+        abweichend = {k: (v, ist.get(k)) for k, v in soll.items() if ist.get(k) != v}
+        assert not abweichend, f"{name}: Farben weichen vom Dashboard ab: {abweichend}"
+
+
+def test_eine_geaenderte_farbe_kommt_ohne_eingriff_im_generator_an(werkzeug, monkeypatch):
+    """Gelesen, nicht abgeschrieben: Wechselt das Dashboard sein Blau, traegt
+    die neu gebaute Startseite es mit, und ``build_einstieg.py`` bleibt, wie
+    es ist."""
+    lesen = werkzeug.dashboard_datei
+    echt = lesen("dashboard.css")
+    geaendert = echt.replace("--blau: #2f7de1;", "--blau: #123456;")
+    assert geaendert != echt, "die Probe trifft die Blauzeile nicht mehr"
+    monkeypatch.setattr(werkzeug, "dashboard_datei",
+                        lambda name: geaendert if name == "dashboard.css" else lesen(name))
+    seite = blatt(werkzeug, "lokal")
+    assert farbvariablen(seite)["--blau"] == "#123456"
+
+
+def test_der_kopf_ist_der_des_dashboards(werkzeug, text):
+    """Dunkelblauer Kopf, dasselbe Logo, ``Urban Crime · Start`` und rechts
+    die Plakette mit der Release-Kennung."""
+    logo = re.search(r'<svg class="logo".*?</svg>',
+                     (DASHBOARD / "index.html").read_text(encoding="utf-8"), re.DOTALL)
+    assert logo, "das Dashboard hat kein Logo mehr"
+    for name, seite, kennung in [
+            *((f, blatt(werkzeug, f), "2026-01-01T00-00-00Z") for f in werkzeug.FASSUNGEN),
+            ("docs/einstieg.html", text, None)]:
+        kopf = re.search(r'<header class="kopf">(.*?)</header>', seite, re.DOTALL)
+        assert kopf, f"{name}: kein Kopf wie im Dashboard"
+        kopf = kopf.group(1)
+        assert logo.group(0) in kopf, f"{name}: das Logo ist nicht das des Dashboards"
+        assert re.search(r'<span class="produkt">Urban Crime</span>'
+                         r'<span class="punkt">·</span>'
+                         r'<span class="bereich">Start</span>', kopf), name
+        stand = re.search(r'<div class="stand">Release <b>([^<]+)</b></div>', kopf)
+        assert stand, f"{name}: keine Stand-Plakette mit dem Release"
+        if kennung:
+            assert stand.group(1) == kennung, name
+
+
+def test_die_startseite_bleibt_eine_eigenstaendige_datei(werkzeug, text):
+    """nginx liefert sie aus einem anderen Host aus als das Dashboard: ein
+    Verweis auf ``/static/`` traefe dort nichts. Und Webschriften kommen nicht
+    mehr von Google - das Dashboard nimmt die Systemschrift, die Startseite
+    auch."""
+    for name, seite in [*((f, blatt(werkzeug, f)) for f in werkzeug.FASSUNGEN),
+                        ("docs/einstieg.html", text)]:
+        for verboten in ("fonts.googleapis", "fonts.gstatic", "/static/",
+                         '<link rel="stylesheet"', "<script"):
+            assert verboten not in seite, f"{name}: {verboten!r} auf der Seite"
+
+
+def test_die_plaketten_heissen_nicht_wie_die_marke_im_kopf(werkzeug):
+    """``.marke`` ist im Dashboard Logo und Name. Hiesse eine Plakette auch
+    so, erbte sie Flex, Abstand und 20 px Schrift des Kopfes."""
+    seite = blatt(werkzeug, "lokal")
+    assert seite.count('class="marke"') == 1, "marke steht nicht genau einmal (im Kopf)"
+    assert not re.search(r'class="marke ', seite), "eine Plakette heisst noch marke"
+    assert 'class="plakette ' in seite
