@@ -110,6 +110,28 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 16.11.2026 · Die ganze Dauer des Montagslaufs ist gemessen (Branch `fr-16-ganze-dauer`)
+
+Am 14.11.2026 liess sich die Dauer eines Delta-Laufs nur bis zur letzten
+Python-Logzeile ablesen (4,7 bis 5,1 min); Drift und Sicherungssatz danach
+trugen keinen Zeitstempel. Seitdem stempelt `srv01-datenlauf.sh` Beginn und
+Ende. Der erste so gestempelte Lauf, Montag 16.11.2026:
+
+| Abschnitt | Zeit | Dauer |
+| --- | --- | ---: |
+| Beginn (`delta run started`) | 04:30:01 | |
+| `run_all`, 41 Stufen, Release `2026-11-16T03-35-10Z` | | 306 s |
+| Drift und Sicherungssatz (189,1 MB geholt, das vorige Release entfernt) | | rund 1 min |
+| Ende (`run ended with exit 0`) | 04:36:12 | **6 min 11 s** |
+
+Nachgefasst wurde nicht; jede Quelle kam beim ersten Versuch. Bis zum
+frühesten Restore-Test am Monatsersten (05:00) bleiben knapp 24 Minuten.
+Die Entscheidung vom 14.11. (am Ersten nicht nachfassen) bleibt die Grenze
+für den Fall mit einer ausgefallenen Quelle. Nachgetragen in `fr-stand.md`
+(FR-16) und `storage-architektur.md` Abschnitt 16.
+
+**Zahlen.** Tests unverändert (3'156).
+
 ## 15.11.2026 · Kibana über srv01 ist im Browser belegt, die Handgriffe stehen in einer Datei (Branch `vorfuehrung-kibana`)
 
 Zweite Probe am Abend des 15.11.2026, mit der Grenze von 256 MiB:

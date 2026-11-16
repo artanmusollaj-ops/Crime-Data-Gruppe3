@@ -1184,9 +1184,12 @@ Sicherungssatz danach schreiben keinen Zeitstempel. Der Restore-Test
 aus, fasst `run_all` aber nach 30 und 60 Minuten nach, und der Lauf endet
 nach 06:00. **Am Monatsersten fasst der Delta-Lauf deshalb nicht nach**
 (`delta_nachfassen` in `srv01-datenlauf.sh`): Eine gescheiterte Quelle macht
-ihn sofort rot, der nächste Montag holt nach. Ab dem Einsetzen dieser
-Fassung auf `srv01` schreibt das Skript Beginn und Ende mit Zeitstempel,
-auch bei einem Abbruch. Das gilt für den Weg über `cron`; nach der
+ihn sofort rot, der nächste Montag holt nach. Seit dem 14.11.2026 schreibt
+das Skript Beginn und Ende mit Zeitstempel, auch bei einem Abbruch. Der
+erste so gestempelte Lauf, am 16.11.2026, dauerte **ganz 6 min 11 s**
+(04:30:01 → 04:36:12, Exit 0): 41 Stufen in 306 s, danach Drift und
+Sicherungssatz in rund einer Minute. Bis zum frühesten Restore-Test bleiben
+knapp 24 Minuten. Das gilt für den Weg über `cron`; nach der
 Umstellung auf den verwalteten Betrieb (S-10) fährt der Konsolen-Worker den
 Montag, und die Frage stellt sich dort neu.
 
