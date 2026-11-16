@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'156** |
+| Tests | **3'161** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -109,6 +109,36 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 16.11.2026 · Die Startseite sieht aus wie das Dashboard (Branch `startseite-wie-dashboard`)
+
+Die Startseite (`docs/einstieg.html`, auf srv01 `urbancrime-start`) hatte eine
+eigene Gestaltung: Serifen-Überschriften in IBM Plex von Google Fonts,
+Petrol-Akzent, eckige Kästen. Jetzt trägt sie die des Dashboards: denselben
+dunkelblauen Kopf mit Logo, „Urban Crime · Start“ und rechts eine Plakette
+mit der Release-Kennung, die Systemschrift, den grauen Grund, weisse,
+abgerundete Karten, blaue Knöpfe. Inhalt, Zahlen, Abschnitte und Verweise
+beider Fassungen (`lokal`/`server`) sind unverändert.
+
+- **Eine Quelle für die Farben.** `serving.build_einstieg` liest den
+  `:root`-Block aus `serving/dashboard/static/dashboard.css` und das Logo aus
+  `index.html` (über `importlib.resources`) und setzt beide ein. Ändert das
+  Dashboard eine Farbe, trägt die nächste Startseite sie mit; ein Wächter hält
+  jede Farbvariable gegen die Seite.
+- **Keine Webschriften mehr.** Die Seite lädt nichts von aussen und verweist
+  nicht auf `/static/` (nginx liefert sie aus einem anderen Host aus). Damit
+  fällt die einzige Ausnahme im FR-44-Wächter (`fonts.googleapis.com`) weg.
+- Die Plaketten heissen `plakette` statt `marke` — `marke` ist im Kopf des
+  Dashboards Logo und Name. Der Wächter „keine Zustandsmarke bei den Diensten“
+  prüft beide Namen.
+- Auf 360 px gibt es keinen waagrechten Bildlauf; die Tabellen scrollen in
+  ihrem Rahmen.
+
+Sichtprobe nebeneinander am 16.11.2026 bei 1280 und 360 px (die Startseite
+lokal als Datei, das Dashboard gegen die lokalen Daten): Kopf, Farben und
+Karten stimmen überein.
+
+**Zahlen.** 3'156 → **3'161 Tests**, Standardlauf 3'045 → **3'050**, im protokollierten Linux-CI-Lauf 2'966 → **2'971**.
 
 ## 16.11.2026 · Die ganze Dauer des Montagslaufs ist gemessen (Branch `fr-16-ganze-dauer`)
 

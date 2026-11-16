@@ -435,103 +435,157 @@ def messe(verzeichnis: Path) -> dict[str, Any]:
 # --------------------------------------------------------------------------
 
 
+#: Woher Farben, Schrift und Logo kommen: aus dem Dashboard, als Paketdatei.
+#: Seit dem 16.11.2026 sieht die Startseite aus wie das Dashboard, und die
+#: Werte stehen nur dort. ``pyproject.toml`` liefert ``serving.dashboard``
+#: mit ``static/*`` aus - die Dateien liegen also auch im Abbild.
+DASHBOARD_STATISCH = ("dashboard", "static")
+
+
+def dashboard_datei(name: str) -> str:
+    """Eine Datei aus ``serving/dashboard/static`` als Text.
+
+    Ueber ``importlib.resources`` und nicht ueber einen Pfad neben diesem
+    Modul: So findet es die Datei auch in einem installierten Paket. Gelesen
+    wird ueber ``serving`` und nicht ueber ``serving.dashboard`` - das
+    Unterpaket zu importieren hiesse, die ganze Dashboard-Abfrage zu laden,
+    um eine Stildatei zu lesen.
+    """
+    from importlib.resources import files
+
+    return files("serving").joinpath(*DASHBOARD_STATISCH, name).read_text(
+        encoding="utf-8")
+
+
+def dashboard_wurzel() -> str:
+    """Der ``:root``-Block aus ``dashboard.css``, wie er dort steht.
+
+    Er traegt alle Farbvariablen und die Schrift. Eingesetzt und nicht
+    abgeschrieben: Wechselt das Dashboard eine Farbe, traegt die naechste
+    Startseite sie mit, ohne dass hier jemand etwas anfasst.
+    """
+    treffer = re.search(r":root\s*\{.*?\}", dashboard_datei("dashboard.css"),
+                        re.DOTALL)
+    if treffer is None:
+        raise ValueError("dashboard.css hat keinen :root-Block - woher "
+                         "nimmt die Startseite ihre Farben?")
+    return treffer.group(0)
+
+
+def dashboard_logo() -> str:
+    """Das Logo aus dem Kopf des Dashboards (``index.html``), woertlich."""
+    treffer = re.search(r'<svg class="logo".*?</svg>',
+                        dashboard_datei("index.html"), re.DOTALL)
+    if treffer is None:
+        raise ValueError("index.html des Dashboards hat kein Logo mehr")
+    return treffer.group(0)
+
+
+#: Alles ausser Farben und Schrift - die kommen aus dem ``:root`` von
+#: ``dashboard.css`` (``dashboard_wurzel``). Der Kopf uebernimmt die Regeln
+#: von ``.kopf``, ``.marke``, ``.logo`` und ``.stand``. Die Karten (Abschnitte
+#: und Zugaenge) folgen dem Vorbild von ``.brett`` und ``.tafel``: weiss,
+#: abgerundet, Rand in ``--linie``. Der Knopf folgt ``.umschalter .an``
+#: (``--blau``, weisse Schrift), der Hinweis dem Grund von ``.hinweis``, aber
+#: ohne dessen Symbol. Uebernommen werden Regeln, nicht die Datei: Die
+#: Startseite ist eine einzige Datei, die nginx aus einem anderen Host
+#: ausliefert - ein Verweis auf ``/static/`` traefe dort nichts. Grautoene,
+#: die das Dashboard als Zahl schreibt und nicht als Variable, stehen hier
+#: ebenso als Zahl.
 STIL = """
-  :root {
-    --paper:#f6f8fa; --surface:#ffffff; --sunk:#eef1f5; --ink:#141b25;
-    --muted:#5b6a7d; --rule:#d7dee7; --rule-2:#bfc9d6;
-    --accent:#17627f; --accent-soft:#dcecf3;
-    --signal:#9c5010; --signal-soft:#f6e7d6;
-    --gut:#1d6b4f; --gut-soft:#dcefe6;
-    --f-head:"IBM Plex Serif",Georgia,"Times New Roman",serif;
-    --f-body:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-    color-scheme: light;
-  }
   * { box-sizing:border-box; }
-  body {
-    margin:0; background:var(--sunk); color:var(--ink);
-    font-family:var(--f-body); -webkit-font-smoothing:antialiased;
-    line-height:1.5;
-  }
-  main { max-width:1040px; margin:0 auto; padding:32px 16px 72px; }
+  body { margin:0; background:var(--grund); color:var(--text); font-size:14px;
+         line-height:1.5; }
+  code, pre, td.n, td.name, dl.fakten dd {
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
 
-  header.kopf { border-bottom:2px solid var(--ink); padding-bottom:18px; margin-bottom:28px; }
-  .eyebrow {
-    font-family:var(--f-mono); font-size:11px; letter-spacing:.12em;
-    text-transform:uppercase; color:var(--muted); margin:0 0 8px;
-  }
-  h1 { font-family:var(--f-head); font-weight:600; font-size:34px; margin:0 0 10px;
-       letter-spacing:-.015em; line-height:1.1; }
-  .lead { color:var(--muted); margin:0; max-width:68ch; }
-  .lead strong { color:var(--ink); font-weight:600; }
+  .kopf { display:flex; justify-content:space-between; align-items:center;
+          flex-wrap:wrap; gap:8px 16px;
+          background:var(--navy); color:#fff; padding:12px 24px; }
+  .marke { display:flex; align-items:center; gap:8px; font-size:20px; }
+  .logo { width:26px; height:26px; fill:#4c9bff; }
+  .produkt { font-weight:700; }
+  .punkt, .bereich { color:#c9d3e0; }
+  .stand { background:#2c3a4f; border-radius:6px; padding:6px 12px;
+           font-size:13px; color:#dfe7f2; overflow-wrap:anywhere; }
+  .stand b { color:#fff; }
 
-  section { margin:0 0 34px; }
-  h2 { font-family:var(--f-head); font-weight:600; font-size:20px; margin:0 0 4px; }
-  .unter { color:var(--muted); font-size:14px; margin:0 0 14px; max-width:68ch; }
+  main { max-width:1080px; margin:0 auto; padding:16px 16px 8px; }
+  .einleitung, section { background:var(--karte); border:1px solid var(--linie);
+                         border-radius:10px; padding:16px 18px; margin:0 0 16px;
+                         min-width:0; }
+  .eyebrow { font-size:13px; color:var(--leise); margin:0 0 4px; }
+  h1 { margin:0 0 8px; font-size:30px; }
+  .lead { color:var(--leise); margin:0; max-width:76ch; }
+  .lead strong { color:var(--text); }
+  h2 { margin:0 0 4px; font-size:17px; }
+  .unter { color:var(--leise); font-size:13px; margin:0 0 12px; max-width:76ch; }
 
-  table { border-collapse:collapse; width:100%; background:var(--surface);
-          border:1px solid var(--rule); font-size:14px; }
-  caption { text-align:left; color:var(--muted); font-size:13px; padding:0 0 6px; }
-  th, td { padding:7px 12px; text-align:left; border-bottom:1px solid var(--rule); }
-  thead th { background:var(--paper); font-weight:600; font-size:12.5px;
-             letter-spacing:.02em; color:var(--muted); }
-  tbody tr:last-child td { border-bottom:0; }
-  td.n, th.n { text-align:right; font-family:var(--f-mono);
-               font-variant-numeric:tabular-nums; }
-  td.name { font-family:var(--f-mono); }
+  .rahmen { overflow-x:auto; border:1px solid var(--linie); border-radius:8px; }
+  table { border-collapse:collapse; width:100%; font-size:14px; }
+  caption { text-align:left; color:var(--leise); font-size:13px;
+            padding:10px 12px 8px; }
+  th, td { padding:8px 12px; text-align:left; border-top:1px solid var(--linie); }
+  thead th { background:#f2f6fb; font-weight:600; vertical-align:bottom;
+             border-top:0; }
+  caption + thead th { border-top:1px solid var(--linie); }
+  td.n, th.n { text-align:right; font-variant-numeric:tabular-nums;
+               white-space:nowrap; }
 
-  .karten { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); }
-  .karte { background:var(--surface); border:1px solid var(--rule);
-           border-top:3px solid var(--accent); padding:16px 18px 18px; }
-  .karte h3 { font-family:var(--f-head); font-size:17px; margin:0 0 2px; }
-  .karte .rolle { font-family:var(--f-mono); font-size:11px; letter-spacing:.08em;
-                  text-transform:uppercase; color:var(--accent); margin:0 0 10px; }
-  .karte p { font-size:13.5px; color:var(--muted); margin:0 0 12px; }
-  .karte a.knopf {
-    display:inline-block; font-family:var(--f-mono); font-size:12.5px;
-    color:var(--accent); text-decoration:none; border:1px solid var(--rule-2);
-    padding:5px 11px; background:var(--paper);
-  }
-  .karte a.knopf:hover { background:var(--accent-soft); border-color:var(--accent); }
+  .karten { display:grid; gap:16px;
+            grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr)); }
+  .karte { border:1px solid var(--linie); border-left:4px solid var(--blau);
+           border-radius:8px; padding:14px 14px 16px; min-width:0; }
+  .karte h3 { font-size:17px; margin:0 0 4px; }
+  .karte .rolle { font-size:12px; font-weight:600; color:var(--blau); margin:0 0 6px; }
+  .karte p { font-size:13px; color:var(--leise); margin:0 0 12px; }
+  .karte a.knopf { display:inline-block; background:var(--blau); color:#fff;
+                   padding:8px 14px; border-radius:6px; text-decoration:none; }
+  .karte a.knopf:hover { filter:brightness(0.92); }
   /* Steht anstelle des Knopfes, wenn es in dieser Fassung keine Adresse gibt,
      die der Browser des Lesenden erreicht: ein Dienst nur im Stapelnetz, ein
      Dienst, den es noch nicht gibt. Ein Knopf waere dort ein toter Link. */
-  .karte p.vermerk { font-family:var(--f-mono); font-size:12px; margin:0;
-                     color:var(--muted); }
-  .karte p.vermerk code { font-size:12px; }
+  .karte p.vermerk { font-size:12px; margin:0; color:var(--leise);
+                     overflow-wrap:anywhere; }
 
-  pre { font-family:var(--f-mono); font-size:12.5px; line-height:1.55;
-        background:var(--paper); border:1px solid var(--rule);
-        padding:11px 13px; overflow-x:auto; margin:0 0 12px; }
-  code { font-family:var(--f-mono); font-size:.93em; }
+  pre { font-size:12.5px; line-height:1.55; background:#f7f9fc;
+        border:1px solid var(--linie); border-radius:6px;
+        padding:10px 12px; overflow-x:auto; margin:0 0 12px; }
+  code { font-size:.93em; }
 
-  .marke { font-family:var(--f-mono); font-size:11px; padding:2px 7px;
-           border-radius:3px; font-weight:500; white-space:nowrap; }
-  .marke.gut { background:var(--gut-soft); color:var(--gut); }
-  .marke.warn { background:var(--signal-soft); color:var(--signal); }
-  .marke.kuenftig { background:var(--signal-soft); color:var(--signal); }
-  .marke.intern { background:var(--sunk); color:var(--muted); }
+  /* Plaketten. Nicht ``marke``: Das ist im Kopf Logo und Name. */
+  .plakette { font-size:12px; padding:2px 8px; border-radius:10px;
+              font-weight:600; white-space:nowrap; }
+  .plakette.gut { background:#e3f4ea; color:var(--gut); }
+  .plakette.warn, .plakette.kuenftig { background:#fdf3dc; color:#a66f00; }
+  .plakette.intern { background:#eef1f5; color:var(--leise); }
 
-  .hinweis { border-left:3px solid var(--signal); background:var(--signal-soft);
-             padding:11px 15px; font-size:13.5px; margin:14px 0 0; }
-  .hinweis strong { font-weight:600; }
+  .hinweis { background:#eef4fd; border-radius:6px; padding:10px 12px;
+             font-size:13px; margin:12px 0 0; }
 
-  dl.fakten { display:grid; grid-template-columns:auto 1fr; gap:5px 18px;
-              margin:0; font-size:14px; }
-  dl.fakten dt { color:var(--muted); }
-  dl.fakten dd { margin:0; font-family:var(--f-mono); }
+  dl.fakten { display:grid; grid-template-columns:auto 1fr; gap:6px 18px;
+              margin:0; }
+  dl.fakten dt { color:var(--leise); }
+  dl.fakten dd { margin:0; overflow-wrap:anywhere; min-width:0; }
 
   /* Die Grenzen der Aussage (FR-33). Fliesstext, nicht Kennzahlen: Jede
      steht in einer eigenen Zeile, damit keine im Absatz untergeht. */
   dl.grenzen { margin:0; }
   dl.grenzen dt { font-weight:600; margin-top:14px; }
   dl.grenzen dt:first-child { margin-top:0; }
-  dl.grenzen dd { margin:4px 0 0; font-size:13.5px; color:var(--ink);
-                  border-left:2px solid var(--rule); padding-left:13px; }
+  dl.grenzen dd { margin:4px 0 0; font-size:13px; color:var(--text);
+                  border-left:3px solid var(--blau); padding-left:12px; }
 
-  footer { border-top:1px solid var(--rule); margin-top:40px; padding-top:14px;
-           color:var(--muted); font-size:12.5px; }
-  @media (max-width:640px) { h1 { font-size:26px; } main { padding:22px 16px 48px; } }
+  footer { max-width:1080px; margin:0 auto; padding:6px 16px 18px;
+           color:var(--leise); font-size:12px; }
+  footer a { color:var(--blau); }
+  @media (max-width:640px) {
+    .kopf { padding:12px 16px; }
+    h1 { font-size:24px; }
+    main { padding:12px 12px 4px; }
+    .einleitung, section { padding:14px; }
+    footer { padding:6px 12px 18px; }
+  }
 """
 
 
@@ -547,8 +601,10 @@ def tabelle(kopf: list[str], zeilen: list[list[str]],
             for i, z in enumerate(zeile))
         koerper.append(f"<tr>{zellen}</tr>")
     bes = f"<caption>{html.escape(beschriftung)}</caption>" if beschriftung else ""
-    return (f"<table>{bes}<thead><tr>{kopfzeile}</tr></thead>"
-            f"<tbody>{''.join(koerper)}</tbody></table>")
+    # Der Rahmen scrollt, nicht die Seite: Auf 360 px ist die Guetetabelle
+    # breiter als der Bildschirm.
+    return (f'<div class="rahmen"><table>{bes}<thead><tr>{kopfzeile}</tr></thead>'
+            f"<tbody>{''.join(koerper)}</tbody></table></div>")
 
 
 def abschnitt_guete(guete: list[tuple]) -> str:
@@ -562,7 +618,7 @@ def abschnitt_guete(guete: list[tuple]) -> str:
                      else wert <= schwelle)
             marke = "gut" if haelt else "warn"
             zellen.append(f'{komma(wert, 2)} %&nbsp;'
-                          f'<span class="marke {marke}">'
+                          f'<span class="plakette {marke}">'
                           f'{richtung} {komma(schwelle, 0)}</span>')
         zeilen.append(zellen)
     return tabelle(
@@ -619,7 +675,7 @@ def seite(kennung: str, manifest: dict, mass: dict,
             marke, adresse = vermerk
             klasse = "kuenftig" if ist_kuenftig(eintrag) else "intern"
             fuss = (f'<p class="vermerk">'
-                    f'<span class="marke {klasse}">{html.escape(marke)}</span> '
+                    f'<span class="plakette {klasse}">{html.escape(marke)}</span> '
                     f"<code>{html.escape(adresse)}</code></p>")
         karten.append(
             f'<article class="karte"><p class="rolle">{html.escape(rolle)}</p>'
@@ -676,18 +732,24 @@ def seite(kennung: str, manifest: dict, mass: dict,
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Einstieg · Release {html.escape(kennung)}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap">
-<style>{STIL}</style>
-<main>
+<style>
+{dashboard_wurzel()}
+{STIL}</style>
 <header class="kopf">
+  <div class="marke">
+    {dashboard_logo()}
+    <span class="produkt">Urban Crime</span><span class="punkt">·</span><span class="bereich">Start</span>
+  </div>
+  <div class="stand">Release <b>{html.escape(kennung)}</b></div>
+</header>
+<main>
+<div class="einleitung">
   <p class="eyebrow">Chicago · Detroit · Vergleich der Kriminalitätslage</p>
   <h1>Einstieg</h1>
   <p class="lead">Was hier liegt, und wo man es fragt. Alles auf dieser Seite
   ist aus dem Release <strong>{html.escape(kennung)}</strong> gemessen — keine
   Zahl ist abgeschrieben. Die Seite wird erzeugt, nicht gepflegt.</p>
-</header>
+</div>
 
 <section>
   <h2>Der Stand</h2>
@@ -770,12 +832,12 @@ def seite(kennung: str, manifest: dict, mass: dict,
   <pre>{html.escape(pruefen)}</pre>
 </section>
 
+</main>
 <footer>
   Erzeugt von <code>python -m serving.build_einstieg</code> aus Release
   {html.escape(kennung)}. Nicht von Hand ändern — der nächste Lauf
   überschreibt es. Weiter: {fuss_weiter}
 </footer>
-</main>
 </html>
 """
 
