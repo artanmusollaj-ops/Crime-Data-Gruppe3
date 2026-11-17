@@ -112,7 +112,19 @@ def test_lf_database_basis_preserves_original_image_hash(tmp_path, prefix):
     (root / "config" / "c.csv").write_bytes(raw)
     store, spec = mapping_store(root, "code,target\n3072,23C\n")
 
-    assert inventory(store, spec)["config/c.csv"] == blob_hash(raw)
+    # Eine alte Mapping-Revision enthält noch das Register vor dem neuen Pin.
+    payload = store.get("mapping-base")["payload"]
+    payload["referenzstand.csv"] = "run_id,quelle,grund,seit\n"
+    store.get = lambda _revision: {"payload": payload}
+    register = root / "config" / "referenzstand.csv"
+    register.write_bytes(b"run_id,quelle,grund,seit\nrun_new,releases,LN2,2026-11-12\n")
+
+    hashes = inventory(store, spec)
+    assert hashes["config/c.csv"] == blob_hash(raw)
+    assert hashes["config/referenzstand.csv"] == blob_hash(register.read_bytes())
+    tree = ls_tree(root)
+    register.write_bytes(b"run_id,quelle,grund,seit\n")
+    assert tree_mismatch(root, tree) == ["config/referenzstand.csv"]
 
 
 @pytest.mark.parametrize("stored", [
