@@ -25,9 +25,20 @@ Das Skript:
 1. startet die VM `urbancrime-probe`;
 2. kopiert das aktuelle `srv01`-Release nach Cloud Storage, wenn es dort noch
    fehlt (`tools/kopiere_release.py`);
-3. startet auf der VM nur Elasticsearch und Kibana und setzt das Release ein;
-4. lädt Elasticsearch und Kibana nur, wenn `pruefe_stand` nicht „stimmt“
-   meldet.
+3. startet auf der VM nur Elasticsearch und Kibana;
+4. holt das aktuelle Abbild der Strecke (Marke `:aktuell`). Liegt es unter
+   einem anderen Digest als `PIPELINE_IMAGE` in der `.env` der VM, sichert
+   das Skript die `.env` als `.env.vor-abbild-<UTC-Zeit>` und schreibt den
+   neuen Digest hinein. Die Ausgabe nennt alt, neu und den Commit im Abbild,
+   sonst „unveraendert“. Scheitert das Ziehen, fehlt auf der VM meist das
+   einmalige `docker login ghcr.io`; die `.env` bleibt dann unberührt;
+5. setzt das Release ein;
+6. lädt Elasticsearch und Kibana nur, wenn das Abbild neu ist oder
+   `pruefe_stand` nicht „stimmt“ meldet.
+
+Bis zum 17.11.2026 fehlte Schritt 4: Kibana baute mit dem Abbild, das die
+`.env` der VM nannte, und `pruefe_stand` vergleicht nur das Release. So
+zeigte Kibana nach FR-27 noch den alten Code und meldete trotzdem „stimmt“.
 
 Gemessen am 15.11.2026:
 
@@ -50,6 +61,37 @@ Fertig ist es, wenn am Ende `pruefe_stand` für Gold, Elasticsearch und Kibana
   Cloudflare Access. Lädt Kibana beim ersten Aufruf nicht ganz („Elastic did
   not load properly“), einmal neu laden (Cmd+Shift+R).
 - **Dashboard, Startseite, JupyterLab:** wie immer auf `srv01`.
+- **„Definition of plugin … not found“** (etwa `urlForwarding`), auch im
+  privaten Fenster: Cloudflare liefert eine kaputte Fassung eines
+  Kibana-Bundles aus seinem Cache. Abhilfe: im Cloudflare-Dashboard unter
+  Caching → Configuration → Purge Cache → Custom Purge den Hostnamen
+  `urbancrime-kibana.datenwerft.ch` leeren, dann neu laden. Mit der Regel im
+  nächsten Abschnitt sollte das nicht mehr vorkommen.
+
+## Cloudflare-Cache: einmal einrichten
+
+Kibana schickt seine Bundles mit
+`cache-control: public, max-age=31536000, immutable`. Cloudflare darf sie
+damit ein Jahr lang am Edge halten, auch eine Fassung, deren Abruf
+abgebrochen ist. Am 17.11.2026 war das so, vermutlich seit dem
+Tunnelabbruch vom 15.11.: Kibana brach mit „Definition of plugin
+urlForwarding not found“ ab, bis der Cache geleert war. Kibana und Traefik
+bleiben, wie sie sind. Den Cache für den Kibana-Host schaltet eine Regel ab,
+die Christian im Cloudflare-Dashboard selbst einrichtet; das Repository
+greift nicht in Cloudflare ein.
+
+1. Cloudflare-Dashboard, Zone `datenwerft.ch` → **Caching → Cache Rules →
+   Create rule**.
+2. Name: `Kibana ohne Cache`.
+3. Bedingung: **Hostname** *equals* `urbancrime-kibana.datenwerft.ch`.
+4. Aktion: **Cache eligibility → Bypass cache**. Speichern und
+   einschalten.
+5. Einmal den Hostnamen leeren (Purge, wie oben), damit nichts Altes liegen
+   bleibt.
+
+Prüfen, nach der Anmeldung über Access, in den Entwicklerwerkzeugen des
+Browsers (Netzwerk) an einer Datei unter `/…/bundles/`: Der Antwortkopf
+`cf-cache-status` zeigt `BYPASS` oder `DYNAMIC`, nicht `HIT`.
 
 ## Rückfallweg, wenn `srv01` oder Cloudflare nicht erreichbar ist
 

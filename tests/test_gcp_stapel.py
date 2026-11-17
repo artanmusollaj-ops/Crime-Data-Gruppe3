@@ -889,9 +889,27 @@ case "$*" in
     *orchestration.release\ holen*)
         [[ "${FAKE_HOLEN:-0}" == 0 ]] && touch "${SUDO_PROTOKOLL}.geholt"
         exit "${FAKE_HOLEN:-0}" ;;
+    # Das Abbild der Marke: FAKE_PULL scheitert das Ziehen, FAKE_DIGEST ist
+    # der Digest, unter dem die Marke liegt, FAKE_COMMIT sein GIT_COMMIT.
+    docker\ pull\ *) exit "${FAKE_PULL:-0}" ;;
+    docker\ image\ inspect\ *)
+        printf '%s\n' "${FAKE_REPO}@${FAKE_DIGEST}" ;;
+    docker\ run\ *) printf '%s' "${FAKE_COMMIT:-}"; exit "${FAKE_RUN_EXIT:-0}" ;;
+    docker\ *) ;;
+    # Kein root im Test; alles andere (sed, cp, mktemp, awk, mv ...) laeuft echt.
+    chown\ *) ;;
+    *) exec "$@" ;;
 esac
 exit 0
 """
+
+#: Das Abbild der Probe-VM im Test - kein echter Name (test_keine_srv01_namen
+#: gilt nur fuer die Skripte, aber der Test braucht keinen).
+FAKE_REPO = "ghcr.io/beispiel/strecke"
+DIGEST_ALT = "sha256:" + "a" * 64
+DIGEST_NEU = "sha256:" + "b" * 64
+#: Ein Geheimnis in der .env der VM: Es darf nie in der Ausgabe stehen.
+GEHEIMNIS = "S3_SECRET_KEY=geheim-1234=="
 
 
 def auf_der_vm(tmp_path: Path, **umgebung: str) -> tuple[subprocess.CompletedProcess, list[str]]:
@@ -903,6 +921,12 @@ def auf_der_vm(tmp_path: Path, **umgebung: str) -> tuple[subprocess.CompletedPro
     sudo.chmod(0o755)
     protokoll = tmp_path / "sudo.txt"
     protokoll.write_text("", encoding="utf-8")
+    env_datei = tmp_path / ".env"
+    if not env_datei.exists():
+        env_datei.write_text(f"{GEHEIMNIS}\nPIPELINE_IMAGE={FAKE_REPO}@{DIGEST_ALT}\nX=1\n",
+                             encoding="utf-8")
+        env_datei.chmod(0o600)
+    umgebung = {"FAKE_REPO": FAKE_REPO, "FAKE_DIGEST": DIGEST_ALT, **umgebung}
     befehl = subprocess.run(
         ["bash", "-c", f'source "{SKRIPTE["starten"]}"; kibana_auf_vm_befehl "{tmp_path}"'],
         capture_output=True, text=True, check=True).stdout
@@ -941,6 +965,113 @@ def test_auf_der_vm_wird_ein_geladener_stand_nicht_neu_eingespielt(tmp_path, ben
     assert "Laden uebersprungen" in fertig.stdout
     assert not [a for a in aufrufe if "load_elasticsearch" in a or "build_kibana" in a], aufrufe
     assert [a for a in aufrufe if "holen aktuell --einsetzen" in a], "Holen faellt nie weg"
+
+
+def sicherungen(tmp_path: Path) -> list[Path]:
+    return sorted(tmp_path.glob(".env.vor-abbild-*"))
+
+
+def test_auf_der_vm_wird_ein_neues_abbild_eingesetzt_und_geladen(tmp_path, benutzbares_bash):
+    """I/O-Matrix "Neues Abbild": 17.11.2026 baute Kibana mit dem Abbild von
+    vor FR-27, weil pruefe_stand nur das Release vergleicht und "stimmt" sah."""
+    vorher = (tmp_path / ".env")
+    fertig, aufrufe = auf_der_vm(tmp_path, FAKE_DIGEST=DIGEST_NEU, FAKE_COMMIT="695fc2c",
+                                 FAKE_STAND="0")
+    assert fertig.returncode == 0, fertig.stderr
+    neu = f"{FAKE_REPO}@{DIGEST_NEU}"
+    assert f"alt: {FAKE_REPO}@{DIGEST_ALT}" in fertig.stdout, fertig.stdout
+    assert f"neu: {neu}" in fertig.stdout
+    assert "Commit im neuen Abbild: 695fc2c" in fertig.stdout
+    assert GEHEIMNIS.split("=", 1)[1] not in fertig.stdout + fertig.stderr
+    env = vorher.read_text(encoding="utf-8").splitlines()
+    assert env == [GEHEIMNIS, f"PIPELINE_IMAGE={neu}", "X=1"], env
+    assert oct(vorher.stat().st_mode & 0o777) == "0o600"
+    gesichert = sicherungen(tmp_path)
+    assert len(gesichert) == 1 and re.fullmatch(r"\.env\.vor-abbild-\d{8}T\d{6}Z", gesichert[0].name)
+    assert f"PIPELINE_IMAGE={FAKE_REPO}@{DIGEST_ALT}" in gesichert[0].read_text(encoding="utf-8")
+    assert not list(tmp_path.glob(".env.??????")), "die temporaere Datei bleibt liegen"
+    # Neu geladen, obwohl pruefe_stand "stimmt" saehe.
+    module = [a.split(" -m ", 1)[1] for a in aufrufe if " -m " in a]
+    assert module == ["orchestration.release holen aktuell --einsetzen",
+                      "serving.load_elasticsearch", "serving.build_kibana",
+                      "serving.pruefe_stand"], aufrufe
+    # Gepinnt ist der Digest, die Marke dient nur dem Nachschlagen.
+    zieh = [a for a in aufrufe if a.startswith("docker pull")]
+    assert zieh == [f"docker pull --quiet {FAKE_REPO}:aktuell"], aufrufe
+    assert [a for a in aufrufe if a.startswith("docker run") and neu in a], aufrufe
+
+
+def test_auf_der_vm_wird_ein_gleiches_abbild_nicht_angefasst(tmp_path, benutzbares_bash):
+    """I/O-Matrix "Abbild gleich, Stand stimmt": nichts geaendert, nichts geladen."""
+    fertig, aufrufe = auf_der_vm(tmp_path, FAKE_STAND="0")
+    vorher = f"{GEHEIMNIS}\nPIPELINE_IMAGE={FAKE_REPO}@{DIGEST_ALT}\nX=1\n"
+    assert fertig.returncode == 0, fertig.stderr
+    assert "unveraendert" in fertig.stdout and "Laden uebersprungen" in fertig.stdout
+    assert (tmp_path / ".env").read_text(encoding="utf-8") == vorher
+    assert not sicherungen(tmp_path)
+    assert not [a for a in aufrufe if a.startswith(("docker run", "mv ", "cp "))], aufrufe
+    assert not [a for a in aufrufe if "load_elasticsearch" in a or "build_kibana" in a], aufrufe
+
+
+def test_auf_der_vm_wird_bei_gleichem_abbild_ein_neues_release_geladen(tmp_path, benutzbares_bash):
+    """I/O-Matrix "Abbild gleich, neues Release": Laden wie bisher."""
+    fertig, aufrufe = auf_der_vm(tmp_path, FAKE_STAND="1")
+    assert fertig.returncode == 0, fertig.stderr
+    assert not sicherungen(tmp_path)
+    module = [a.split(" -m ", 1)[1] for a in aufrufe if " -m " in a]
+    assert "serving.pruefe_stand --knapp" in module and "serving.build_kibana" in module
+
+
+def test_auf_der_vm_bricht_ein_gescheitertes_ziehen_vor_der_env_ab(tmp_path, benutzbares_bash):
+    """I/O-Matrix "Pull scheitert", etwa ohne docker login: Abbruch vor jeder
+    Aenderung der .env, mit Hinweis."""
+    fertig, aufrufe = auf_der_vm(tmp_path, FAKE_PULL="1", FAKE_DIGEST=DIGEST_NEU)
+    vorher = f"{GEHEIMNIS}\nPIPELINE_IMAGE={FAKE_REPO}@{DIGEST_ALT}\nX=1\n"
+    assert fertig.returncode == 1, fertig.stdout
+    assert "docker login" in fertig.stderr, fertig.stderr
+    assert (tmp_path / ".env").read_text(encoding="utf-8") == vorher
+    assert not sicherungen(tmp_path)
+    assert not [a for a in aufrufe if " -m " in a], aufrufe
+
+
+def test_auf_der_vm_zaehlt_nur_der_digest(tmp_path, benutzbares_bash):
+    """Eine .env mit Marke und Digest (repo:tag@sha256:X) ist bei gleichem
+    Digest unveraendert, nicht neu."""
+    env = tmp_path / ".env"
+    env.write_text(f"PIPELINE_IMAGE={FAKE_REPO}:alt@{DIGEST_ALT}\n", encoding="utf-8")
+    fertig, aufrufe = auf_der_vm(tmp_path, FAKE_STAND="0")
+    assert fertig.returncode == 0, fertig.stderr
+    assert "unveraendert" in fertig.stdout and not sicherungen(tmp_path)
+    assert [a for a in aufrufe if a == f"docker pull --quiet {FAKE_REPO}:aktuell"], aufrufe
+
+
+def test_ein_scheiterndes_docker_run_laesst_den_commit_leer(tmp_path, benutzbares_bash):
+    """Ein Fehler beim Lesen von GIT_COMMIT bricht nichts ab."""
+    fertig, _ = auf_der_vm(tmp_path, FAKE_DIGEST=DIGEST_NEU, FAKE_RUN_EXIT="1")
+    assert fertig.returncode == 0, fertig.stderr
+    assert "Commit im neuen Abbild: (kein GIT_COMMIT im Abbild)" in fertig.stdout
+    assert f"PIPELINE_IMAGE={FAKE_REPO}@{DIGEST_NEU}" in (tmp_path / ".env").read_text(encoding="utf-8")
+
+
+def test_env_und_nur_kibana_schliessen_sich_aus(tmp_path, benutzbares_bash):
+    """--env setzt den Digest von srv01 fuer FR-47; --nur-kibana ueberschriebe
+    ihn sofort mit dem von :aktuell."""
+    datei = tmp_path / "vm.env"
+    datei.write_text(f"PIPELINE_IMAGE={FAKE_REPO}@{DIGEST_ALT}\n", encoding="utf-8")
+    fertig = rufe("starten", "--env", str(datei), "--nur-kibana", "--trocken", tmp_path=tmp_path)
+    assert fertig.returncode == 64, fertig.stdout
+    assert "schliessen sich aus" in fertig.stderr
+    assert not [z for z in fertig.stdout.splitlines() if z.startswith("[trocken]")]
+
+
+def test_der_abbildschritt_steht_vor_dem_holen(tmp_path, benutzbares_bash):
+    fertig = rufe("starten", "--nur-kibana", "--trocken", tmp_path=tmp_path)
+    assert fertig.returncode == 0, fertig.stderr
+    ssh = next(z for z in fertig.stdout.splitlines()
+               if z.startswith("[trocken]") and " compute ssh " in z and "--command" in z)
+    vm = ssh.replace("\\", "").split("--command", 1)[1]
+    assert vm.index("up -d --wait") < vm.index("docker pull") < vm.index("holen aktuell"), vm
+    assert "PIPELINE_IMAGE" in vm and ".env.vor-abbild-" in vm
 
 
 def test_auf_der_vm_bricht_ein_fehlendes_release_ab(tmp_path, benutzbares_bash):
