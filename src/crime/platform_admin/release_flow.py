@@ -117,6 +117,7 @@ def check_mapping_basis(store, spec):
     Datenbankrevisionen enthalten deshalb LF, auch bei CRLF-Dateien in Git.
     Dieser Textvergleich ergänzt die bytegenaue Prüfung des Images.
     Bestehende Revisionen werden dabei nicht umgeschrieben.
+    Das Register der gepinnten Läufe und Releases wird nur im Image attestiert.
     """
     payload = store.get(spec["base_heads"]["mapping"])["payload"]
     files = {
@@ -125,7 +126,8 @@ def check_mapping_basis(store, spec):
         if p.is_file()
     }
     mismatch = []
-    for name in sorted(set(files) | set(payload)):
+    # Alte Revisionen enthalten auch das Register für Aufbewahrung und Sicherung.
+    for name in sorted((files.keys() | payload.keys()) - {"referenzstand.csv"}):
         if name not in files or name not in payload:
             mismatch.append("config/" + name)
             continue
