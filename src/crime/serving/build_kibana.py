@@ -212,6 +212,16 @@ class Kennzahl:
                                     "precision_threshold": GENAUIGKEIT}}
         return {self.operation.replace("average", "avg"): {"field": self.feld}}
 
+    @property
+    def beleg(self) -> str | None:
+        """Wo eine Lens-Kachel Zeilen ohne das gezaehlte Feld weglaesst.
+
+        ``unique_count(tract_geoid)`` zaehlt keine Zeile ohne Tract - das
+        ist ein Ausschluss, und dies ist seine Stelle (FR-27). ``count``
+        zaehlt jede Zeile und laesst nichts weg.
+        """
+        return f"{self.operation}({self.feld})" if self.feld else None
+
 
 @dataclass(frozen=True)
 class Eimer:
@@ -236,6 +246,20 @@ class Eimer:
     @property
     def feldname(self) -> str:
         return f"{self.feld}.keyword" if self.unterfeld_keyword else self.feld
+
+    @property
+    def beleg(self) -> str:
+        """Die Stelle, an der dieser Eimer Zeilen weglaesst (FR-27).
+
+        Jeder Eimer laesst die Zeilen ohne seinen Wert weg; ``terms``
+        zusaetzlich alles jenseits der obersten ``groesse`` Werte. Die
+        Groesse steht deshalb im Beleg, und ``Tafel`` verlangt sie auch im
+        Text des Ausschlusses: *„die 15 haeufigsten"* ist eine andere
+        Kachel als *„alle"*.
+        """
+        if self.operation == "date_histogram":
+            return f"date_histogram({self.feldname})"
+        return f"terms({self.feldname}, {self.groesse})"
 
     def lens_spalte(self, nach: str) -> dict[str, Any]:
         """``nach`` ist die Kennzahl, nach der ``terms`` sortiert."""
@@ -362,15 +386,94 @@ class Ausschluss:
     1'447 Chicagoer und 361 Detroiter Taten. Die Zahl war richtig, der Text
     war falsch, und niemand haette es gemerkt.
 
-    ``beleg`` ist die Stelle in der Abfrage, die den Ausschluss ausfuehrt.
-    ``Tafel.__post_init__`` sucht sie dort und laesst die Kachel sonst nicht
-    entstehen. Ein **Vorbehalt** - etwas, das man beim Lesen wissen muss,
-    ohne dass die Abfrage es wegfiltert - gehoert deshalb nicht hierher,
+    ``beleg`` ist die Stelle in der Kachel, die den Ausschluss ausfuehrt,
+    und ``Tafel._pruefe_fr27`` laesst die Kachel ohne sie nicht entstehen:
+
+    - **ES|QL:** ein Stueck der Abfrage, etwa ``population > 0`` - gesucht
+      als Teilzeichenkette in ``abfrage.esql``.
+    - **Lens:** genau eine Stelle aus ``Tafel.belegstellen``, und zwar
+      **gleich**, nicht enthalten: ein Teil des KQL-Filters
+      (``counts_case: true``), der Beleg eines Eimers (``Eimer.beleg``, am
+      einfachsten ueber ``ohne_wert``), der Beleg der Kennzahl
+      (``unique_count(tract_geoid)``) oder ``ZEITFENSTER_BELEG``. Eine
+      Teilzeichenkette wie ``counts`` genuegt dort nicht - sie stuende in
+      jedem Filter, der irgendein Feld mit diesem Wortteil nennt.
+    - **Karte:** keine Pruefung; sie hat keine Abfrage, siehe
+      ``Tafel._pruefe_karte``.
+
+    Ein leerer Beleg wird abgelehnt: ``"" in text`` ist immer wahr, und
+    der Ausschluss gaelte damit als vollzogen, ohne dass irgendetwas ihn
+    vollzieht. Ein **Vorbehalt** - etwas, das man beim Lesen wissen muss,
+    ohne dass die Kachel es wegfiltert - gehoert deshalb nicht hierher,
     sondern nach ``Tafel.vorbehalte``.
     """
 
     text: str
     beleg: str
+
+    def __post_init__(self) -> None:
+        if not self.beleg.strip():
+            raise LadeFehler(
+                f"Ausschluss '{self.text[:60]}…' ohne Beleg - ein leerer "
+                f"Beleg stuende in jeder Abfrage und belegte nichts.")
+
+
+#: Der Beleg, den **jede** Lens-Kachel traegt: das Zeitfenster oben in der
+#: Leiste, angewandt auf das Zeitfeld der Datenansicht. Kein Eimer und kein
+#: Filter, aber eine Stelle, an der Zeilen wegfallen - wer den Zeitraum
+#: verengt, sieht weniger. Bei einer Zahl ohne Gruppierung ist es der
+#: einzige Ausschluss, den es gibt.
+ZEITFENSTER_BELEG = f"zeitfenster({ZEITFELD})"
+
+
+def ohne_wert(eimer: Eimer, was: str = "Delikte") -> Ausschluss:
+    """Was ein Eimer weglaesst - mit seinem Beleg und seiner Groesse.
+
+    Einmal formuliert statt achtzehnmal getippt: Der Text nennt das Feld
+    und bei ``terms`` die Groesse, der Beleg ist ``Eimer.beleg``. So kann
+    ein Text nicht "die 15 haeufigsten" sagen, waehrend der Eimer 20 zeigt.
+    """
+    text = f"{was} ohne `{eimer.feld}`"
+    if eimer.operation == "terms":
+        welche = (f"ersten {eimer.groesse}" if eimer.ordnung == "schluessel"
+                  else f"{eimer.groesse} häufigsten")
+        text += f"; gezeigt werden nur die {welche} Werte"
+    return Ausschluss(text, eimer.beleg)
+
+
+def im_zeitfenster(was: str = "Delikte") -> Ausschluss:
+    """Der Ausschluss, den das Zeitfenster des Bretts vollzieht."""
+    return Ausschluss(
+        f"{was} ausserhalb des Zeitraums oben in der Leiste "
+        f"(`{ZEITFELD}`) — voreingestellt ist der ganze Release, dann fällt "
+        f"hier nichts weg", ZEITFENSTER_BELEG)
+
+
+#: Ein KQL-Filter einer Lens-Kachel - nur in **dieser** Form.
+#:
+#: ``feld: true``, ``feld: false`` oder ``feld: "wert"``, mehrere mit
+#: `` and `` verbunden. Enger als KQL, und das ist der Zweck: In dieser Form
+#: laesst sich der Filter exakt in eine Elasticsearch-Abfrage uebersetzen
+#: (``Tafel.filter_abfrage``), und die Pruefung gegen ein echtes
+#: Elasticsearch stellt dieselbe Frage wie die Kachel. Ein freieres KQL
+#: braeuchte Kibanas eigenen Uebersetzer, und den gibt es hier nicht.
+_FILTERTEIL = re.compile(r'^([A-Za-z_][\w.]*): (true|false|"[^"\\]*")$')
+
+
+def filterbedingungen(kql: str) -> tuple[tuple[str, Any], ...]:
+    """``'counts_case: true'`` -> ``(("counts_case", True),)``."""
+    teile = []
+    for teil in kql.split(" and "):
+        treffer = _FILTERTEIL.match(teil.strip())
+        if treffer is None:
+            raise LadeFehler(
+                f"Filter '{kql}': '{teil}' hat nicht die Form feld: true, "
+                f"feld: false oder feld: \"wert\" - nur diese Form laesst "
+                f"sich gegen Elasticsearch nachpruefen.")
+        feld, wert = treffer.groups()
+        teile.append((feld, {"true": True, "false": False}.get(
+            wert, wert.strip('"'))))
+    return tuple(teile)
 
 
 @dataclass(frozen=True)
@@ -446,9 +549,11 @@ class Tafel:
     #: dieser Entscheidungen still trifft und eine Zahl hinstellt, macht die
     #: Arbeit dieses Projekts zunichte."*
     #:
-    #: Fuer die vierzehn vorhandenen Kacheln der drei alten Bretter sind sie
-    #: zurueckgestellt (reine Zaehlungen und Anteile); Pflicht sind sie fuer
-    #: jede ES|QL-Tafel. FR-27 ist damit halb erfuellt und nicht ganz.
+    #: **Pflicht fuer jede Art** - Lens, ES|QL und Karte (``_pruefe_fr27``).
+    #: Bis zum 17.11.2026 galt das nur fuer ES|QL und Karte; dabei fiel auf,
+    #: dass drei Lens-Kacheln "Faelle" hiessen und Taten zaehlten. Eine
+    #: reine Zaehlung nennt als Nenner ``_ZAEHLUNG`` ("keiner"), ein Anteil
+    #: das Ganze, auf das er sich bezieht.
     frage: str = ""
     nenner: str = ""
     #: Was die Abfrage wegfiltert, je Kachel einzeln - nie ein geteiltes
@@ -468,12 +573,25 @@ class Tafel:
     #: Sechs Jahrgaenge auf einen Jahresnenner ergeben 500,7 je 1'000 - keine
     #: zu hohe Rate, sondern keine.
     jahr: int | None = None
+    #: Der KQL-Filter einer Lens-Kachel - die Stelle, an der ihr Ausschluss
+    #: vollzogen wird, so wie bei ES|QL das ``WHERE`` in der Abfrage. Er
+    #: steht im Lens-Zustand (``state.query``) und nicht als Panel-Filter
+    #: am Brett, der beim Umschalten der Kachel verloren ginge. Nur in der
+    #: Form, die ``filterbedingungen`` kennt.
+    filter: str = ""
 
     def __post_init__(self) -> None:
         if self.art not in ARTEN:
             raise LadeFehler(
                 f"{self.kennung}: Art '{self.art}' ist nicht entschieden. "
                 f"Bekannt sind {', '.join(sorted(ARTEN))}.")
+        if self.filter and (self.ist_karte or self.ist_esql):
+            raise LadeFehler(
+                f"{self.kennung}: ein KQL-Filter gilt nur fuer Lens-Kacheln. "
+                f"Eine ES|QL-Tafel filtert in ihrer Abfrage, eine Karte in "
+                f"ihrer Schicht.")
+        if self.filter:
+            filterbedingungen(self.filter)
         if self.ist_karte:
             self._pruefe_karte()
         elif self.ist_esql:
@@ -501,6 +619,108 @@ class Tafel:
             raise LadeFehler(
                 f"{self.kennung}: {self.breite} Spalten passen nicht in ein "
                 f"Raster von {RASTER}.")
+        self._pruefe_fr27()
+
+    def _pruefe_fr27(self) -> None:
+        """Frage, Nenner und Ausschluesse - fuer jede Art dieselbe Pflicht.
+
+        Eine Zahl ohne Nenner und ohne Ausschluesse ist genau der Fall, den
+        ``ausblick.md`` als "die Arbeit dieses Projekts zunichte machen"
+        beschreibt - und sie faellt niemandem auf, denn sie sieht aus wie
+        eine Zahl. Am 17.11.2026 hiessen drei Lens-Kacheln "Faelle" und
+        zaehlten jede Zeile von ``fact_offense``, also Taten; keine Pruefung
+        sah hin, weil Lens von FR-27 ausgenommen war.
+        """
+        if not self.frage:
+            raise LadeFehler(
+                f"{self.kennung}: ohne 'frage' sagt die Kachel nicht, was "
+                f"sie beantwortet.")
+        if not self.nenner:
+            raise LadeFehler(
+                f"{self.kennung}: ohne 'nenner' sagt die Kachel nicht, "
+                f"wovon ihre Zahl ein Teil ist - bei einer reinen Zaehlung "
+                f"heisst er ausdruecklich '{_ZAEHLUNG}'.")
+        if not self.ausschluesse:
+            raise LadeFehler(
+                f"{self.kennung}: ohne 'ausschluesse' liest jemand die Zahl "
+                f"als vollstaendig.")
+        if self.ist_karte:
+            # Eine Karte hat keine Abfrage, in der ein Beleg stehen koennte:
+            # Sie faerbt nach ``rate_tract``, das ``build_comparison``
+            # vorrechnet. Ihre Pflicht ist dafuer strenger - Nenner und
+            # Jahr, siehe ``_pruefe_karte``.
+            return
+        stellen = self.belegstellen
+        for a in self.ausschluesse:
+            # Der Ausschluss muss in **dieser** Kachel vollzogen werden,
+            # nicht in irgendeiner. Genau das fehlte, als drei Kacheln sich
+            # ein Tupel teilten (siehe ``Ausschluss``).
+            if self.ist_esql:
+                vollzogen = any(a.beleg in s for s in stellen)
+            else:
+                # Gleich, nicht enthalten: siehe ``Ausschluss``.
+                vollzogen = a.beleg in stellen
+            if not vollzogen:
+                wo = ("ihre Abfrage" if self.ist_esql
+                      else "weder ihr Filter noch ein Eimer noch das "
+                           "Zeitfenster")
+                raise LadeFehler(
+                    f"{self.kennung}: die Kachel nennt den Ausschluss "
+                    f"'{a.text[:60]}…', {wo} vollzieht ihn aber nicht - "
+                    f"'{a.beleg}' steht nicht darin.")
+        if self.ist_esql:
+            return
+        # Ein Eimer laesst Zeilen ohne seinen Wert weg, ``terms`` dazu alles
+        # jenseits der obersten N. Beides gehoert an die Kachel, und die
+        # Groesse in den Text - sonst liest jemand "die haeufigsten
+        # NIBRS-Codes" als alle.
+        for e in self.eimer:
+            belegt = [a for a in self.ausschluesse if a.beleg == e.beleg]
+            if not belegt:
+                raise LadeFehler(
+                    f"{self.kennung}: der Eimer '{e.kennung}' laesst Zeilen "
+                    f"ohne `{e.feld}` weg, kein Ausschluss nennt es - "
+                    f"ohne_wert() benutzen.")
+            if (e.operation == "terms"
+                    and not any(str(e.groesse) in a.text for a in belegt)):
+                raise LadeFehler(
+                    f"{self.kennung}: der Eimer '{e.kennung}' zeigt nur die "
+                    f"obersten {e.groesse} Werte, sein Ausschluss nennt die "
+                    f"Zahl nicht.")
+
+    @property
+    def belegstellen(self) -> tuple[str, ...]:
+        """Wo ein Ausschluss dieser Kachel vollzogen werden kann.
+
+        ES|QL: die Abfrage. Lens: jeder Teil des KQL-Filters einzeln
+        (``counts_case: true``), jeder Eimer (``Eimer.beleg``), das
+        gezaehlte Feld (``Kennzahl.beleg``) und das Zeitfenster des Bretts.
+        Eine Karte hat keine solche Stelle.
+        """
+        if self.ist_karte:
+            return ()
+        if self.ist_esql:
+            assert self.abfrage is not None
+            return (self.abfrage.esql,)
+        stellen = ([t.strip() for t in self.filter.split(" and ")]
+                   if self.filter else [])
+        stellen += [e.beleg for e in self.eimer]
+        if self.kennzahl is not None and self.kennzahl.beleg:
+            stellen.append(self.kennzahl.beleg)
+        stellen.append(ZEITFENSTER_BELEG)
+        return tuple(stellen)
+
+    @property
+    def filter_abfrage(self) -> dict[str, Any] | None:
+        """Der KQL-Filter als Elasticsearch-Abfrage - exakt, nicht ungefaehr.
+
+        Moeglich, weil ``filterbedingungen`` nur ``feld: wert`` zulaesst;
+        das ist in KQL und als ``term`` dasselbe.
+        """
+        if not self.filter:
+            return None
+        return {"bool": {"filter": [{"term": {feld: wert}} for feld, wert
+                                    in filterbedingungen(self.filter)]}}
 
     def _pruefe_esql(self) -> None:
         """Was eine ES|QL-Tafel mitbringen muss, bevor sie entsteht."""
@@ -513,27 +733,9 @@ class Tafel:
                 f"{self.kennung}: Eine ES|QL-Tafel gruppiert und zaehlt in "
                 f"der Abfrage. Kennzahl oder Eimer daneben waeren eine "
                 f"zweite Beschreibung, die nichts bewirkt.")
-        # FR-27. Eine Zahl ohne Nenner und ohne Ausschluesse ist genau der
-        # Fall, den ``ausblick.md`` als "die Arbeit dieses Projekts zunichte
-        # machen" beschreibt - und sie faellt niemandem auf, denn sie sieht
-        # aus wie eine Zahl.
-        if not self.frage:
-            raise LadeFehler(
-                f"{self.kennung}: ohne 'frage' sagt die Kachel nicht, was "
-                f"sie beantwortet.")
-        if not self.ausschluesse:
-            raise LadeFehler(
-                f"{self.kennung}: ohne 'ausschluesse' liest jemand die Zahl "
-                f"als vollstaendig.")
-        for a in self.ausschluesse:
-            # Der Ausschluss muss in **dieser** Abfrage stehen, nicht in
-            # irgendeiner. Genau das fehlte, als drei Kacheln sich ein
-            # Tupel teilten (siehe ``Ausschluss``).
-            if a.beleg not in self.abfrage.esql:
-                raise LadeFehler(
-                    f"{self.kennung}: die Kachel nennt den Ausschluss "
-                    f"'{a.text[:60]}…', ihre Abfrage vollzieht ihn aber "
-                    f"nicht - '{a.beleg}' steht nicht darin.")
+        # Frage, Nenner und Ausschluesse prueft ``_pruefe_fr27`` fuer alle
+        # Arten gemeinsam. Hier steht nur, was ES|QL eigen ist.
+        #
         # Eine Heatmap ohne zweite Achse waere eine eingefaerbte Zeile, eine
         # mit vier Spalten liesse eine davon unsichtbar. Kibana importiert
         # beides klaglos; der Fehler faellt erst beim Oeffnen auf,
@@ -566,14 +768,6 @@ class Tafel:
                 f"Verbund zweier Indizes. Kennzahl, Eimer oder Abfrage "
                 f"daneben waeren eine zweite Beschreibung, die nichts "
                 f"bewirkt.")
-        if not self.frage:
-            raise LadeFehler(
-                f"{self.kennung}: ohne 'frage' sagt die Karte nicht, was sie "
-                f"beantwortet.")
-        if not self.ausschluesse:
-            raise LadeFehler(
-                f"{self.kennung}: ohne 'ausschluesse' liest jemand die "
-                f"eingefaerbte Flaeche als vollstaendig.")
         if not (self.nenner and self.jahr):
             raise LadeFehler(
                 f"{self.kennung}: die Karte faerbt nach einer Rate und "
@@ -745,7 +939,15 @@ class Tafel:
         for eimer in reversed(self.eimer):
             innen = {eimer.kennung: {**eimer.aggregation,
                                      **({"aggs": innen} if innen else {})}}
-        return {"size": 0, "aggs": innen} if innen else {"size": 0}
+        frage: dict[str, Any] = {"size": 0}
+        # Der Filter der Kachel gehoert in dieselbe Frage - sonst prueft
+        # ``test_jede_tafel_bekommt_auch_wirklich_daten`` eine andere Zahl
+        # als die, die Kibana zeigt.
+        if (gefiltert := self.filter_abfrage) is not None:
+            frage["query"] = gefiltert
+        if innen:
+            frage["aggs"] = innen
+        return frage
 
 
 @dataclass(frozen=True)
@@ -823,6 +1025,46 @@ class Brett:
 # --------------------------------------------------------------------------
 
 _GESAMT = Kennzahl("anzahl", "Delikte", "count")
+#: Dieselbe Zaehlung, unter ``counts_case: true`` gestellt - die Beschriftung
+#: sagt es, damit die Achse nicht "Delikte" heisst, wo Faelle stehen.
+_FAELLE = Kennzahl("anzahl", "Fälle", "count")
+
+#: Der Nenner einer reinen Zaehlung - ausdruecklich keiner (FR-27). Daneben
+#: steht immer ``_ERST_DIE_RATE``; ``test_build_kibana`` haelt beides
+#: zusammen.
+_ZAEHLUNG = "keiner, eine absolute Zahl"
+
+#: Der Vorbehalt jeder reinen Zaehlung: Sie vergleicht die Staedte nicht.
+_ERST_DIE_RATE = (
+    "Erst die Rate je 1'000 Einwohner macht die Städte vergleichbar — "
+    "Chicago ist die grössere Stadt und liegt absolut fast überall vorn. "
+    "Die Rate steht im Brett »Raten je 1'000«"
+)
+
+#: Der Vorbehalt der Kacheln, die bewusst auf der Tatebene bleiben
+#: (Entscheid vom 17.11.2026): Datensaetze und Datenqualitaet zaehlt man je
+#: Zeile, einen Vergleich der Staedte nicht.
+_TATEBENE = (
+    "Gezählt werden Delikte (Tatebene), nicht Fälle: Chicago erfasst je Fall "
+    "nur das schwerste Delikt, Detroit jedes. Für Datensätze und "
+    "Datenqualität ist das die richtige Ebene; im Vergleich der Städte fällt "
+    "Detroits Zahl dadurch höher aus — Fälle zählen die Bretter "
+    "»Zeitverlauf« und »Deliktstruktur«"
+)
+
+#: Der Filter der Kacheln, die Faelle zaehlen, und sein Ausschluss.
+#:
+#: ``counts_case`` ist je Vorfall genau einmal gesetzt, an seinem
+#: schwersten Delikt (die Hierarchieregel; ``reconcile`` bricht ab, wenn es
+#: nicht so ist). Gemessen am 17.11.2026 an gold/fact_offense, 2021-2026:
+#: 180 Chicagoer und 26'904 Detroiter Zeilen zaehlen nicht als eigener
+#: Fall - daher "fast nur Detroit" und nicht "nur Detroit".
+_NUR_FAELLE_FILTER = "counts_case: true"
+_WEITERE_DELIKTE_DES_FALLS = Ausschluss(
+    "die weiteren Delikte desselben Falls — ein Fall zählt einmal, mit "
+    "seinem schwersten Delikt (`counts_case`). Das betrifft fast nur "
+    "Detroit: Chicago erfasst je Fall ohnehin nur das schwerste Delikt",
+    _NUR_FAELLE_FILTER)
 
 #: Zaehler und Nenner, beide aus ``load_elasticsearch.INDIZES`` gelesen statt
 #: getippt. Steht hier ein Name von Hand, laeuft die Abfrage ins Leere, sobald
@@ -1117,6 +1359,82 @@ _TEILJAHR = (
     "sagt je Tag, ob sein Jahrgang ganz vorliegt."
 )
 
+#: Die Eimer der Lens-Kacheln, einmal benannt. Ihr Ausschluss entsteht aus
+#: ihnen (``ohne_wert``), damit Text und Groesse nicht auseinanderlaufen.
+_E_STADT = Eimer("stadt", "Stadt", "terms", "reporting_city", 5)
+_E_MONAT = Eimer("monat", "Monat", "date_histogram", "occurred_at_utc",
+                 intervall="1M")
+#: Der Jahrgang ist das **lokale Tatdatum** (``date``), wie in ``dim_date``
+#: und auf der Startseite - nicht das UTC-Jahr von ``occurred_at_utc``. Am
+#: 17.11.2026 gemessen: Nach dem UTC-Jahr fielen 179 Chicagoer Faelle von
+#: 2024 ins Jahr 2025 (die Silvesterabende nach 18 Uhr Ortszeit), und die
+#: Kachel stimmte mit keiner Jahrgangszahl des Projekts ueberein.
+_E_JAHR = Eimer("jahr", "Jahrgang", "date_histogram", "date", intervall="1y")
+_E_FAMILIE_8 = Eimer("familie", "NIBRS-Familie", "terms", "nibrs_family", 8)
+_E_FAMILIE_10 = Eimer("familie", "NIBRS-Familie", "terms", "nibrs_family", 10)
+_E_CODE_15 = Eimer("art", "Delikt", "terms", "nibrs_code", 15)
+_E_CODE_20 = Eimer("code", "NIBRS-Code", "terms", "nibrs_code", 20)
+_E_ZUORDNUNG = Eimer("status", "Status", "terms", "mapping_status", 6)
+_E_VERORTUNG = Eimer("status", "Status", "terms", "geo_status", 6)
+#: Nach der Stunde sortiert, nicht nach der Haeufigkeit - sonst steht da eine
+#: Rangliste statt eines Tagesverlaufs.
+_E_STUNDE = Eimer("stunde", "Stunde", "terms", "hour_of_day", 24,
+                  ordnung="schluessel")
+#: Das Unterfeld ist Pflicht: Auf ``text`` laesst sich nicht gruppieren, und
+#: die Tafel bliebe still leer.
+_E_TEXT = Eimer("text", "Beschreibung", "terms", "source_offense_description",
+                20, unterfeld_keyword=True)
+
+#: Warum "Faelle je Jahrgang" nicht die Zahl der Startseite ist.
+_NACH_MELDESTADT = (
+    "Gezählt wird nach `reporting_city`, also auch Fälle ausserhalb der "
+    "Stadtgrenze und ohne Koordinate. Die Startseite zählt nur Fälle in "
+    "Tracts der Stadt und nennt deshalb für dasselbe Jahr weniger"
+)
+
+#: Kibana teilt Jahre in der Zeitzone des Browsers. ``date`` liegt als
+#: Mitternacht UTC im Index; oestlich von UTC (Zuerich) faellt jeder Tag in
+#: sein Jahr, westlich davon (Chicago) rutschte der 1. Januar ins Vorjahr.
+_JAHRGANG_LOKAL = (
+    "Der Jahrgang ist das lokale Tatdatum (`date`, wie in `dim_date`), nicht "
+    "das UTC-Jahr. Kibana teilt die Jahre in der Zeitzone des Browsers — "
+    "in Mitteleuropa stimmt das, westlich von UTC fiele der 1. Januar ins "
+    "Vorjahr"
+)
+
+#: Der Vorbehalt fuer Faelle je Deliktfamilie. ``counts_case`` ordnet jeden
+#: Fall genau einer Familie zu - der seines schwersten Delikts. Die Kachel
+#: sagt damit, welche Familie Faelle anfuehrt, nicht wie oft sie vorkommt.
+_FAMILIE_DES_SCHWERSTEN = (
+    "Ein Fall zählt in der Familie seines schwersten Delikts. Die Kachel "
+    "sagt deshalb, welche Familie Fälle anführt, nicht wie oft sie "
+    "vorkommt — das zeigt der Anteilsbalken daneben, auf der Tatebene"
+)
+
+#: Der Vorbehalt fuer Anteile je Deliktart. E5 verlangt sie auf der
+#: Tatebene, weil sich nur dort Kategorien addieren (``zaehlperspektiven.md``,
+#: Abschnitt 2); der Plan hat das am 17.11.2026 so nachverhandelt.
+_ANTEIL_TATEBENE = (
+    "Anteile je Deliktart rechnen auf der Tatebene (Entscheid E5): Nur dort "
+    "addieren sich Kategorien. Chicago erfasst je Fall nur das schwerste "
+    "Delikt, Detroit jedes — Detroits Säule enthält deshalb auch die "
+    "weiteren Delikte eines Falls"
+)
+
+#: Wie ``_NACH_MELDESTADT``, fuer eine Kachel auf der Tatebene.
+_NACH_MELDESTADT_TATEN = (
+    "Gezählt wird nach `reporting_city`, also auch Delikte ausserhalb der "
+    "Stadtgrenze und ohne Koordinate"
+)
+
+#: Aus ``docs/zaehlperspektiven.md``, Abschnitt "Die Beschreibung ist nicht
+#: das Delikt".
+_BESCHREIBUNG_NICHT_DELIKT = (
+    "Die Beschreibung ist nicht das Delikt: Der Text in "
+    "`source_offense_description` identifiziert die Tat nicht, das tut der "
+    "Code"
+)
+
 BRETTER: tuple[Brett, ...] = (
     Brett(
         kennung="crime-ueberblick",
@@ -1126,25 +1444,50 @@ BRETTER: tuple[Brett, ...] = (
             "verschieden gross sind — die Rate je 1'000 Einwohner steht im "
             "Brett »Raten je 1'000«, für den Jahrgang "
             f"{RATENJAHR}."),
+        # Die Kacheln dieses Bretts zeigen den Datenbestand und bleiben
+        # deshalb auf der Tatebene (Entscheid vom 17.11.2026) - sie heissen
+        # "Delikte" und sagen es im Vorbehalt.
         tafeln=(
             Tafel("gesamt", "Delikte insgesamt", "zahl", _GESAMT,
+                  frage="Wie viele Delikte liegen im gewählten Zeitraum vor?",
+                  nenner=_ZAEHLUNG,
+                  ausschluesse=(im_zeitfenster(),),
+                  vorbehalte=(_TATEBENE, _ERST_DIE_RATE),
                   breite=12, hoehe=8),
             Tafel("je_stadt", "Delikte je Stadt", "balken", _GESAMT,
-                  eimer=(Eimer("stadt", "Stadt", "terms", "reporting_city", 5),),
+                  eimer=(_E_STADT,),
+                  frage="Wie viele Delikte trägt jede Stadt bei?",
+                  nenner=_ZAEHLUNG,
+                  ausschluesse=(ohne_wert(_E_STADT), im_zeitfenster()),
+                  vorbehalte=(_TATEBENE, _ERST_DIE_RATE),
                   breite=36, hoehe=8),
             Tafel("verlauf", "Verlauf je Monat, getrennt nach Stadt", "balken",
                   _GESAMT,
-                  eimer=(Eimer("monat", "Monat", "date_histogram",
-                               "occurred_at_utc", intervall="1M"),
-                         Eimer("stadt", "Stadt", "terms", "reporting_city", 5)),
+                  eimer=(_E_MONAT, _E_STADT),
+                  frage="Wie verteilen sich die Delikte über die Monate?",
+                  nenner=_ZAEHLUNG,
+                  ausschluesse=(ohne_wert(_E_MONAT), ohne_wert(_E_STADT),
+                                im_zeitfenster()),
+                  vorbehalte=(_TATEBENE, _ERST_DIE_RATE, _TEILJAHR),
                   breite=48, hoehe=15),
             Tafel("familien", "Anteil nach Deliktfamilie", "ring", _GESAMT,
-                  eimer=(Eimer("familie", "NIBRS-Familie", "terms",
-                               "nibrs_family", 8),),
+                  eimer=(_E_FAMILIE_8,),
+                  frage="Wie teilen sich die Delikte auf die NIBRS-Familien "
+                        "auf?",
+                  nenner=(f"die Delikte der {_E_FAMILIE_8.groesse} "
+                          f"häufigsten NIBRS-Familien — der Ring rechnet "
+                          f"seine Anteile über das, was er zeigt, nicht über "
+                          f"alle Delikte"),
+                  ausschluesse=(ohne_wert(_E_FAMILIE_8), im_zeitfenster()),
+                  vorbehalte=(_TATEBENE,),
                   breite=24, hoehe=15),
             Tafel("delikte", "Häufigste Delikte", "tabelle", _GESAMT,
-                  eimer=(Eimer("art", "Delikt", "terms", "nibrs_code", 15),
-                         Eimer("stadt", "Stadt", "terms", "reporting_city", 5)),
+                  eimer=(_E_CODE_15, _E_STADT),
+                  frage="Welche NIBRS-Codes kommen am häufigsten vor?",
+                  nenner=_ZAEHLUNG,
+                  ausschluesse=(ohne_wert(_E_CODE_15), ohne_wert(_E_STADT),
+                                im_zeitfenster()),
+                  vorbehalte=(_TATEBENE, _ERST_DIE_RATE),
                   breite=24, hoehe=15),
         ),
         navigation=True,
@@ -1158,22 +1501,58 @@ BRETTER: tuple[Brett, ...] = (
             "im Stadtgebiet."),
         tafeln=(
             Tafel("gesamt", "Delikte insgesamt", "zahl", _GESAMT,
+                  frage="Wie viele Delikte liegen im gewählten Zeitraum vor?",
+                  nenner=_ZAEHLUNG,
+                  ausschluesse=(im_zeitfenster(),),
+                  vorbehalte=(_TATEBENE, _ERST_DIE_RATE),
                   breite=16, hoehe=8),
             Tafel("verortet", "Verschiedene Tracts", "zahl",
                   Kennzahl("tracts", "Tracts", "unique_count", "tract_geoid"),
+                  frage="In wie vielen verschiedenen Census Tracts liegen "
+                        "Delikte?",
+                  nenner=_ZAEHLUNG,
+                  ausschluesse=(
+                      Ausschluss("Delikte ohne Tract (`tract_geoid` leer) — "
+                                 "ohne Koordinate oder ausserhalb jedes "
+                                 "Tracts; sie haben keinen, den man zählen "
+                                 "könnte",
+                                 "unique_count(tract_geoid)"),
+                      im_zeitfenster()),
+                  vorbehalte=(_ERST_DIE_RATE,),
                   breite=16, hoehe=8),
             Tafel("codes", "Verschiedene Quellcodes", "zahl",
                   Kennzahl("codes", "Codes", "unique_count",
                            "source_offense_code"),
+                  frage="Wie viele verschiedene Deliktcodes der Quellen "
+                        "kommen vor?",
+                  nenner=_ZAEHLUNG,
+                  ausschluesse=(
+                      Ausschluss("Delikte ohne Quellcode "
+                                 "(`source_offense_code` leer)",
+                                 "unique_count(source_offense_code)"),
+                      im_zeitfenster()),
+                  vorbehalte=(_ERST_DIE_RATE,),
                   breite=16, hoehe=8),
             Tafel("zuordnung", "Zuordnung auf NIBRS, je Stadt", "balken",
                   _GESAMT,
-                  eimer=(Eimer("status", "Status", "terms", "mapping_status", 6),
-                         Eimer("stadt", "Stadt", "terms", "reporting_city", 5)),
+                  eimer=(_E_ZUORDNUNG, _E_STADT),
+                  frage="Wie viele Delikte sind wie sicher auf NIBRS "
+                        "zugeordnet?",
+                  nenner=_ZAEHLUNG,
+                  ausschluesse=(
+                      ohne_wert(_E_ZUORDNUNG),
+                      ohne_wert(_E_STADT), im_zeitfenster()),
+                  vorbehalte=(_TATEBENE, _ERST_DIE_RATE),
                   breite=24, hoehe=15),
             Tafel("verortung", "Verortung, je Stadt", "balken", _GESAMT,
-                  eimer=(Eimer("status", "Status", "terms", "geo_status", 6),
-                         Eimer("stadt", "Stadt", "terms", "reporting_city", 5)),
+                  eimer=(_E_VERORTUNG, _E_STADT),
+                  frage="Wie viele Delikte liegen in einem Tract der Stadt, "
+                        "und wie viele nicht?",
+                  nenner=_ZAEHLUNG,
+                  ausschluesse=(
+                      ohne_wert(_E_VERORTUNG),
+                      ohne_wert(_E_STADT), im_zeitfenster()),
+                  vorbehalte=(_TATEBENE, _ERST_DIE_RATE),
                   breite=24, hoehe=15),
         ),
         navigation=True,
@@ -1187,21 +1566,34 @@ BRETTER: tuple[Brett, ...] = (
             "dass man den Code kennt. Die Tafeln zeigen, was die Suche "
             "gerade übrig lässt."),
         tafeln=(
-            Tafel("gesamt", "Treffer", "zahl", _GESAMT, breite=12, hoehe=8),
+            Tafel("gesamt", "Treffer", "zahl", _GESAMT,
+                  frage="Wie viele Delikte lässt die Suche oben übrig?",
+                  nenner=_ZAEHLUNG,
+                  ausschluesse=(im_zeitfenster(),),
+                  # Kein Ausschluss, sondern der Zweck des Bretts: Die
+                  # Suchleiste steht am Brett, nicht in der Kachel, und hat
+                  # deshalb hier keinen Beleg.
+                  vorbehalte=("Die Zahl folgt der Suchleiste oben — ohne "
+                              "Suche ist es jedes Delikt im Zeitraum",
+                              _TATEBENE, _ERST_DIE_RATE),
+                  breite=12, hoehe=8),
             Tafel("stunde", "Nach Tagesstunde", "balken", _GESAMT,
-                  # Nach der Stunde sortiert, nicht nach der Haeufigkeit -
-                  # sonst steht da eine Rangliste statt eines Tagesverlaufs.
-                  eimer=(Eimer("stunde", "Stunde", "terms", "hour_of_day", 24,
-                               ordnung="schluessel"),),
+                  eimer=(_E_STUNDE,),
+                  frage="Zu welcher lokalen Tagesstunde liegen die Treffer?",
+                  nenner=_ZAEHLUNG,
+                  ausschluesse=(ohne_wert(_E_STUNDE), im_zeitfenster()),
+                  vorbehalte=(_ORTSZEIT, _TATEBENE, _ERST_DIE_RATE),
                   breite=36, hoehe=8),
             Tafel("beschreibungen", "Beschreibungen der Quelle", "tabelle",
                   _GESAMT,
-                  # Das Unterfeld ist Pflicht: Auf ``text`` laesst sich nicht
-                  # gruppieren, und die Tafel bliebe still leer.
-                  eimer=(Eimer("text", "Beschreibung", "terms",
-                               "source_offense_description", 20,
-                               unterfeld_keyword=True),
-                         Eimer("stadt", "Stadt", "terms", "reporting_city", 5)),
+                  eimer=(_E_TEXT, _E_STADT),
+                  frage="Welche Beschreibungen der Quellen treffen am "
+                        "häufigsten?",
+                  nenner=_ZAEHLUNG,
+                  ausschluesse=(ohne_wert(_E_TEXT), ohne_wert(_E_STADT),
+                                im_zeitfenster()),
+                  vorbehalte=(_BESCHREIBUNG_NICHT_DELIKT, _TATEBENE,
+                              _ERST_DIE_RATE),
                   breite=48, hoehe=20),
         ),
         navigation=True,
@@ -1251,8 +1643,11 @@ BRETTER: tuple[Brett, ...] = (
                   "esql_tabelle", abfrage=TRACTS_OHNE_EINWOHNER,
                   frage=("Wie viele Taten liegen in Tracts, für die keine "
                          "Rate definiert ist?"),
+                  nenner=(f"{_ZAEHLUNG} — ein Nenner wäre hier null, und "
+                          f"genau deshalb fehlt diesen Tracts die Rate"),
                   ausschluesse=(_AUSSERHALB, _ANDERE_JAHRGAENGE,
                                 _MIT_EINWOHNERN),
+                  vorbehalte=(_ERST_DIE_RATE,),
                   jahr=RATENJAHR, breite=48, hoehe=8),
         ),
         navigation=True,
@@ -1271,23 +1666,42 @@ BRETTER: tuple[Brett, ...] = (
             "Detroit jedes — ein Vergleich auf Tatebene misst diesen "
             "Unterschied mit."),
         tafeln=(
+            # Bis zum 17.11.2026 zaehlte diese Kachel trotz ihres Titels jede
+            # Zeile von ``fact_offense``, also Taten; der Lens-Zustand trug
+            # ``"query": ""``. Seither filtert sie ``counts_case``.
             Tafel("verlauf", "Fälle je Monat, getrennt nach Stadt", "linie",
-                  _GESAMT,
-                  eimer=(Eimer("monat", "Monat", "date_histogram",
-                               "occurred_at_utc", intervall="1M"),
-                         Eimer("stadt", "Stadt", "terms", "reporting_city", 5)),
+                  _FAELLE,
+                  eimer=(_E_MONAT, _E_STADT),
+                  frage="Wie verteilen sich die Fälle über die Monate?",
+                  nenner=_ZAEHLUNG,
+                  filter=_NUR_FAELLE_FILTER,
+                  ausschluesse=(_WEITERE_DELIKTE_DES_FALLS,
+                                ohne_wert(_E_MONAT, "Fälle"),
+                                ohne_wert(_E_STADT, "Fälle"),
+                                im_zeitfenster("Fälle")),
+                  vorbehalte=(_TEILJAHR, _NACH_MELDESTADT, _ERST_DIE_RATE),
                   breite=48, hoehe=15),
             Tafel("woche_stunde", "Wochentag × lokale Tagesstunde",
                   "esql_heatmap", abfrage=HEATMAP_WOCHE_STUNDE,
                   frage=("Zu welcher Stunde welchen Wochentags passieren "
                          "Fälle?"),
+                  nenner=(f"{_ZAEHLUNG}, über beide Städte zusammen — die "
+                          f"Heatmap vergleicht Stunden, nicht Städte"),
                   ausschluesse=(_NUR_FAELLE,),
-                  vorbehalte=(_ORTSZEIT, _PLATZHALTERSTUNDEN, _TEILJAHR),
+                  vorbehalte=(_ORTSZEIT, _PLATZHALTERSTUNDEN, _TEILJAHR,
+                              _ERST_DIE_RATE),
                   breite=48, hoehe=20),
-            Tafel("je_jahr", "Fälle je Jahrgang und Stadt", "balken", _GESAMT,
-                  eimer=(Eimer("jahr", "Jahr", "date_histogram",
-                               "occurred_at_utc", intervall="1y"),
-                         Eimer("stadt", "Stadt", "terms", "reporting_city", 5)),
+            Tafel("je_jahr", "Fälle je Jahrgang und Stadt", "balken", _FAELLE,
+                  eimer=(_E_JAHR, _E_STADT),
+                  frage="Wie viele Fälle trägt jeder Jahrgang je Stadt?",
+                  nenner=_ZAEHLUNG,
+                  filter=_NUR_FAELLE_FILTER,
+                  ausschluesse=(_WEITERE_DELIKTE_DES_FALLS,
+                                ohne_wert(_E_JAHR, "Fälle"),
+                                ohne_wert(_E_STADT, "Fälle"),
+                                im_zeitfenster("Fälle")),
+                  vorbehalte=(_NACH_MELDESTADT, _JAHRGANG_LOKAL, _TEILJAHR,
+                              _ERST_DIE_RATE),
                   breite=48, hoehe=15),
         ),
         steuerungen=_STEUERUNG,
@@ -1349,22 +1763,48 @@ BRETTER: tuple[Brett, ...] = (
             "aufteilt** (Anteile). Detroit hat weniger Delikte und eine "
             "andere Mischung."),
         tafeln=(
+            # Die Faelle-Kachel filtert ``counts_case`` (Entscheid vom
+            # 17.11.2026); bis dahin zaehlte sie Taten.
             Tafel("je_familie", "Fälle je Deliktfamilie und Stadt", "balken",
-                  _GESAMT,
-                  eimer=(Eimer("familie", "NIBRS-Familie", "terms",
-                               "nibrs_family", 10),
-                         Eimer("stadt", "Stadt", "terms", "reporting_city", 5)),
+                  _FAELLE,
+                  eimer=(_E_FAMILIE_10, _E_STADT),
+                  frage="Wie viele Fälle trägt jede NIBRS-Familie je Stadt?",
+                  nenner=_ZAEHLUNG,
+                  filter=_NUR_FAELLE_FILTER,
+                  ausschluesse=(_WEITERE_DELIKTE_DES_FALLS,
+                                ohne_wert(_E_FAMILIE_10, "Fälle"),
+                                ohne_wert(_E_STADT, "Fälle"),
+                                im_zeitfenster("Fälle")),
+                  vorbehalte=(_FAMILIE_DES_SCHWERSTEN, _NACH_MELDESTADT,
+                              _ERST_DIE_RATE),
                   breite=24, hoehe=20),
+            # Auf der Tatebene, wie E5 es fuer Anteile je Deliktart verlangt:
+            # Nur dort addieren sich Kategorien (Entscheid Christian,
+            # 17.11.2026, im Plan nachverhandelt).
             Tafel("anteil", "Anteil je Stadt — auf 100 % gestapelt",
                   "anteilsbalken", _GESAMT,
-                  eimer=(Eimer("stadt", "Stadt", "terms", "reporting_city", 5),
-                         Eimer("familie", "NIBRS-Familie", "terms",
-                               "nibrs_family", 10)),
+                  eimer=(_E_STADT, _E_FAMILIE_10),
+                  frage="Wie teilen sich die Delikte einer Stadt auf die "
+                        "NIBRS-Familien auf?",
+                  nenner=(f"die Delikte einer Stadt in ihren "
+                          f"{_E_FAMILIE_10.groesse} häufigsten NIBRS-Familien "
+                          f"— jede Säule ist 100 % ihrer Stadt"),
+                  ausschluesse=(ohne_wert(_E_STADT),
+                                ohne_wert(_E_FAMILIE_10),
+                                im_zeitfenster()),
+                  vorbehalte=(_ANTEIL_TATEBENE, _NACH_MELDESTADT_TATEN),
                   breite=24, hoehe=20),
-            Tafel("codes", "Die häufigsten NIBRS-Codes je Stadt", "tabelle",
-                  _GESAMT,
-                  eimer=(Eimer("code", "NIBRS-Code", "terms", "nibrs_code", 20),
-                         Eimer("stadt", "Stadt", "terms", "reporting_city", 5)),
+            # Bleibt auf der Tatebene: Ein Code ist ein Delikt, und "welche
+            # Delikte kommen vor" zaehlt jedes.
+            Tafel("codes", "Die häufigsten NIBRS-Codes je Stadt (alle Delikte)",
+                  "tabelle", _GESAMT,
+                  eimer=(_E_CODE_20, _E_STADT),
+                  frage="Welche NIBRS-Codes kommen in jeder Stadt am "
+                        "häufigsten vor?",
+                  nenner=_ZAEHLUNG,
+                  ausschluesse=(ohne_wert(_E_CODE_20), ohne_wert(_E_STADT),
+                                im_zeitfenster()),
+                  vorbehalte=(_TATEBENE, _ERST_DIE_RATE),
                   breite=48, hoehe=20),
         ),
         steuerungen=_STEUERUNG,
@@ -1472,7 +1912,11 @@ def lens_objekt(tafel: Tafel, brett: str) -> dict[str, Any]:
                 "columnOrder": tafel.reihenfolge,
                 "incompleteColumns": {}}}}},
             "filters": [],
-            "query": {"language": "kuery", "query": ""},
+            # Der Filter der Kachel, im Lens-Zustand und nicht als
+            # Panel-Filter am Brett: Dort ginge er verloren, sobald jemand
+            # die Kachel im Editor oeffnet oder ihre Art umschaltet - und die
+            # Kachel "Faelle" zaehlte wieder Taten.
+            "query": {"language": "kuery", "query": tafel.filter},
             "visualization": tafel.darstellung,
         }
         verweisname = f"indexpattern-datasource-layer-{tafel.schicht}"
@@ -1483,10 +1927,9 @@ def lens_objekt(tafel: Tafel, brett: str) -> dict[str, Any]:
         "state": zustand,
     }
     # Frage, Nenner, Jahr und Ausschluesse - dort, wo Kibana sie neben der
-    # Zahl zeigt. Leer bleibt das Feld nur bei den vierzehn alten Kacheln,
-    # deren FR-27-Angaben zurueckgestellt sind.
-    if tafel.erlaeuterung:
-        merkmale["description"] = tafel.erlaeuterung
+    # Zahl zeigt. Seit dem 17.11.2026 traegt jede Kachel sie
+    # (``Tafel._pruefe_fr27``); das Feld ist also nie leer.
+    merkmale["description"] = tafel.erlaeuterung
 
     return {
         "type": "lens", "id": f"lens-{brett}-{tafel.kennung}",
