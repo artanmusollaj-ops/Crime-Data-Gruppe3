@@ -67,7 +67,7 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | | Anforderung | Stand | Beleg |
 | --- | --- | :-: | --- |
 | FR-26 | Mindestens drei Analyseszenarien | ● | am 17.10.2026 auf `srv01` gezählt: **sieben** Dashboards |
-| FR-27 | Jedes Szenario nennt Frage, Nenner, Grenze | ◐ | die ES\|QL- und Kartenkacheln tragen sie und ein Wächter verlangt es; die **vierzehn Kacheln der drei älteren Bretter** nicht — ausdrücklich zurückgestellt (`test_build_kibana.py:307`) |
+| FR-27 | Jedes Szenario nennt Frage, Nenner, Grenze | ● | seit dem 17.11.2026 **jede** Kachel, Lens, ES\|QL und Karte: `Tafel._pruefe_fr27` lässt keine ohne Frage, Nenner und Ausschluss entstehen, und jeder Ausschluss braucht seinen Beleg (Abfrage, KQL-Filter, Eimer oder Zeitfenster). Wächter `test_jede_kachel_nennt_frage_nenner_und_ausschluesse` und `test_jede_kachel_die_faelle_nennt_zaehlt_faelle`; die drei Fälle-Kacheln filtern `counts_case`, „Anteil je Stadt“ bleibt nach E5 auf der Tatebene, und alle vier werden gegen eine ES\|QL-Gegenrechnung gehalten. Den Vintage-Hinweis für 2025 und 2026 tragen die Ratenkacheln; Lens zeigt keine Rate (`test_eine_lens_kachel_zaehlt_keine_rate`) |
 | FR-28 | Index trägt die Release-Kennung | ● | am 17.10.2026 gemessen: acht Aliase auf `…-20261017t…` |
 | FR-29 | Dashboards als Code | ● | `serving.build_kibana`, versioniert |
 | FR-31 | Startseite zeigt den einen Befund | ● | `docs/einstieg.html`, auf `srv01` vom Dienst `start` ausgeliefert |
@@ -134,8 +134,8 @@ stellt."*
 
 | Stand | Anzahl |
 | --- | ---: |
-| ● erfüllt | 44 |
-| ◐ teilweise | 10 |
+| ● erfüllt | 45 |
+| ◐ teilweise | 9 |
 | ○ offen | 10 |
 | ▣ zurückgestellt | 1 |
 | **zusammen** | **65** |

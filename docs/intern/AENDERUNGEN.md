@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'161** |
+| Tests | **3'286** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -109,6 +109,88 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 17.11.2026 · Jede Kibana-Kachel nennt Frage, Nenner und Ausschlüsse (Branch `fr-27-alle-kacheln`)
+
+FR-27 verlangt, dass jedes Szenario auf dem Dashboard seine Frage, seinen
+Nenner und seine Ausschlüsse nennt. Die ES|QL- und Kartenkacheln taten das
+seit dem 11.10.2026; für die **18 Lens-Kacheln** in Überblick,
+Datenqualität, Volltext, Zeitverlauf und Deliktstruktur war es
+zurückgestellt. Jetzt gilt es für alle 25 Kacheln, und FR-27 steht in
+`fr-stand.md` auf ●.
+
+**Was dabei auffiel: Drei Kacheln hiessen „Fälle" und zählten Taten.**
+„Fälle je Monat", „Fälle je Jahrgang und Stadt" und „Fälle je Deliktfamilie
+und Stadt" zählten jede Zeile von `fact_offense`; der Lens-Zustand trug
+`"query": ""`. Sie filtern jetzt `counts_case: true` (Entscheid Christian,
+17.11.2026). Gemessen am lokalen
+Elasticsearch (Release `2026-11-10T13-47-23Z`), Jahrgang 2024 nach `reporting_city`:
+Detroit **80'248 Fälle** statt 86'236 Taten, Chicago 259'656 statt 259'686.
+
+- **Die Prüfung ist eine für alle Arten.** `Tafel._pruefe_fr27` lässt keine
+  Kachel ohne Frage, Nenner und Ausschluss entstehen. Eine reine Zählung
+  nennt als Nenner „keiner, eine absolute Zahl" und daneben den Vorbehalt,
+  dass erst die Rate die Städte vergleichbar macht. Ein Anteil nennt das
+  Ganze, auf das er sich bezieht. Der Ring zeigt zum Beispiel die Delikte
+  der 8 häufigsten Familien.
+- **Jeder Lens-Ausschluss hat einen Beleg**, wie bei ES|QL in der Abfrage.
+  Neu ist dafür ein KQL-Filter je Kachel (`Tafel.filter`), der im Lens-Zustand
+  steht und nicht als Panel-Filter. Erlaubt ist nur die Form `feld: wert`,
+  weil sie sich exakt als Elasticsearch-Abfrage nachrechnen lässt. Hat eine
+  Kachel keinen Filter, nennt sie, was ihre Eimer weglassen: Zeilen ohne den
+  gruppierten Wert und bei `terms` alles jenseits der obersten N. Die Zahl N
+  steht im Text.
+- **Delikte bleiben Delikte.** Überblick, Datenqualität und Volltext zeigen
+  den Datenbestand und bleiben auf der Tatebene. Dasselbe gilt für die
+  NIBRS-Codes in der Deliktstruktur. Diese Kachel heisst jetzt „… (alle
+  Delikte)", und alle diese Kacheln sagen es im Vorbehalt.
+- **Der Jahrgang ist das lokale Tatdatum.** „Fälle je Jahrgang" teilte bisher
+  nach dem UTC-Jahr von `occurred_at_utc`. Für 2024 landeten dabei 179
+  Chicagoer Fälle von Silvesterabenden in 2025. Die Kachel gruppiert jetzt
+  nach `date`, wie `dim_date`. Ein Vorbehalt nennt die Grenze: Kibana teilt
+  in der Zeitzone des Browsers, und westlich von UTC fiele der 1. Januar ins
+  Vorjahr.
+- **Warum die Kachel nicht die Zahl der Startseite zeigt.** Die Startseite
+  nennt 251'482 und 79'614. Sie zählt nur Fälle in Tracts der Stadt, die
+  Kachel zählt nach `reporting_city`. Das steht als Vorbehalt an der Kachel.
+- **Anteile je Deliktart bleiben auf der Tatebene.** „Anteil je Stadt" in der
+  Deliktstruktur filtert nicht nach Fällen, wie E5 es für Anteile je
+  Deliktart verlangt: Nur auf der Tatebene addieren sich Kategorien. Der
+  Plan sah zuerst die Fallebene vor; Christian hat das am 17.11.2026
+  zurückgenommen. Die Kachel sagt im Vorbehalt, dass Detroits Säule auch die
+  weiteren Delikte eines Falls enthält.
+- **Absolute Zahlen sagen es, bei jeder Art.** Auch die beiden
+  ES|QL-Zählungen („Tracts ohne Einwohner", die Heatmap) tragen jetzt den
+  Vorbehalt, dass erst die Rate die Städte vergleichbar macht.
+- **Ein Beleg ist nie leer, und bei Lens ist er gleich, nicht enthalten.**
+  Ein leerer Beleg galt vorher als vollzogen, weil `"" in text` immer wahr
+  ist; `Ausschluss` lehnt ihn jetzt ab. Bei Lens muss der Beleg genau ein
+  Filterteil, ein Eimerbeleg, die gezählte Spalte oder das Zeitfenster sein.
+  Eine Teilzeichenkette wie `counts` genügt nicht mehr.
+
+**Wächter.** `test_jede_kachel_nennt_frage_nenner_und_ausschluesse` gilt
+jetzt für alle Kacheln; bisher hielt er für Lens die Rückstellung fest. Neu
+sind: Bautests für Lens ohne Frage, Nenner oder Ausschluss, für einen
+Ausschluss ohne Beleg, für einen leeren Beleg, für einen Lens-Beleg, der nur
+als Teilzeichenkette passt, und für einen Eimer ohne Grösse im Text;
+`test_jede_kachel_die_faelle_nennt_zaehlt_faelle`;
+`test_jede_absolute_zahl_sagt_dass_erst_die_rate_vergleicht` über alle Arten.
+Der Lens-Zweig des FR-27-Wächters leitet die erwarteten Belege selbst aus
+Filter und Eimern her und nicht aus dem geprüften Code;
+`test_eine_lens_kachel_zaehlt_keine_rate`, weil der Vintage-Hinweis für 2025
+und 2026 nur an Raten hängt. Gegen ein lokales Elasticsearch laufen
+`test_jede_gefilterte_kachel_zaehlt_wie_ihre_gegenrechnung` (die drei
+Fälle-Kacheln und „Anteil je Stadt" gegen von Hand geschriebenes ES|QL) und
+`test_faelle_je_jahrgang_2024_entspricht_der_esql_rechnung`. Ohne
+Elasticsearch überspringen sie sich selbst.
+
+Noch offen ist die Sichtprobe in Kibana: `docker/gcp-starten.sh --nur-kibana`
+starten und „Fälle je Jahrgang" für 2024 gegen die ES|QL-Rechnung ablesen.
+
+**Zahlen.** 3'161 → **3'286 Tests**, Standardlauf 3'050 → **3'175**. Im
+Linux-CI-Lauf ohne Elasticsearch **hochgerechnet** 2'971 → 3'091, weil fünf
+der 125 neuen Tests Elasticsearch brauchen; gemessen ist das nicht, es ist am
+PR-Lauf zu bestätigen.
 
 ## 16.11.2026 · Die Startseite sieht aus wie das Dashboard (Branch `startseite-wie-dashboard`)
 

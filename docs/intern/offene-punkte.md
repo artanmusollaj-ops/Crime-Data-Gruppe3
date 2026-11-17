@@ -14,7 +14,7 @@ offen?" gab es keine Antwort ohne Suche.
 **Was hier nicht steht:** die Anforderungen des PRD. Die führt
 [`fr-stand.md`](fr-stand.md), mit Beleg je Zeile und einem Wächter, der sie
 gegen das PRD hält — ein zweites Register daneben wäre die Stelle, an der
-beide auseinanderlaufen. Stand am 15.11.2026: 44 erfüllt, 10 teilweise,
+beide auseinanderlaufen. Stand am 17.11.2026: 45 erfüllt, 9 teilweise,
 **10 offen**, 1 zurückgestellt.
 
 **Die Regel.** Jeder offene Punkt hat **eine Kennung, einen Verantwortlichen
@@ -81,7 +81,7 @@ Reihenfolge der Einträge dort.
 | Nr. 14 | ob die Strecke auf `srv01` je durchlief | 17.10.2026 | grüner Lauf, Release `2026-10-17T13-21-03Z` |
 | Nr. 15, 21 | FR-16, Zeitfenster | 11.10.2026 | dort schon vermerkt |
 | Nr. 17 | die öffentliche Seite (FR-31 bis FR-33) | 18.10.2026 | FR-33 zuletzt, `fr-stand.md` |
-| Nr. 18 | FR-27-Angaben für die vierzehn älteren Kacheln | **in `fr-stand.md`** | ist eine Anforderung (FR-27, teilweise) und wird dort geführt, nicht hier |
+| Nr. 18 | FR-27-Angaben für die älteren Kacheln | 17.11.2026 | alle 18 Lens-Kacheln tragen sie, FR-27 steht in `fr-stand.md` auf ● |
 | Nr. 22, 23, 25 | Tunnel-Route, S3-Schlüssel, Karte | dort schon vermerkt | |
 | Nr. 24 | Lauf vom 12.10. nach 26 von 39 Stufen abgebrochen | 17.10.2026 | überholt durch den grünen Lauf |
 | E-1 | ob die Dokumentzahlen auf den Serverstand gehen | **ja** — entschieden am 12.11.2026, nachgezogen auf den Volllauf vom 10.11.2026 (Release `2026-11-10T13-47-23Z`) | Detroit 134,0 je 1'000 (Tatebene, 2024), Fallebene 124,7; die zwölf Läufe als `LN2` gepinnt. `AENDERUNGEN.md`, „Die Dokumente stehen auf dem Stand vom 10.11.2026“ |
