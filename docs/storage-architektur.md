@@ -1278,7 +1278,7 @@ heute „Elasticsearch, Kibana und `start`" sagt und seinen Grund dazu.
 braucht einen Webdienst, der antwortet, wenn jemand die Adresse aufruft, und
 einen Worker, der die Pipelines ausführt. Dauernd laufend hätte der Worker
 deren 1'280 MiB belegt — rund 1,3 GiB über dem Budget. Er läuft deshalb wie
-die Pipeline als Stapellauf, angestossen alle fünf Minuten von
+die Pipeline als Stapellauf, angestossen jede Minute von
 [`docker/srv01-konsole-takt.sh`](../docker/srv01-konsole-takt.sh) über
 dieselbe Sperre wie der Datenlauf, aber ohne zu warten. Dauernd ist nur
 `admin`: 2'848 + 160 = 3'008 MiB, mit dem grösseren Zeitweiligen

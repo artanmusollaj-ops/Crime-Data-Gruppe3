@@ -148,7 +148,7 @@ def test_a_failed_tick_is_reported_too(store, monkeypatch, tmp_path):  # noqa: F
 
 
 def test_an_idle_tick_keeps_the_last_protocol(store, monkeypatch, tmp_path):  # noqa: F811
-    """Every five minutes a tick finds nothing to do. Overwriting the last
+    """Every minute a tick finds nothing to do. Overwriting the last
     run with "nothing" would hide exactly the failure the protocol is for."""
     monkeypatch.setenv("ADMIN_START_ROOT", str(tmp_path / "startseite"))
     monkeypatch.setattr(operations, "_tick", lambda _store: None)

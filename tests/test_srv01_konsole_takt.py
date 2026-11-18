@@ -1,8 +1,8 @@
 """Der Takt der Engineering-Konsole auf srv01.
 
 Der Worker der Konsole fuehrt die Pipelines aus und braucht deren 1'280 MiB.
-Er laeuft deshalb nicht dauernd, sondern als Stapellauf im Fuenf-Minuten-Takt
-(Entscheidung vom 30.10.2026). Was das traegt, ist eine Sperre: Takt und
+Er laeuft deshalb nicht dauernd, sondern als Stapellauf im Minutentakt
+(Entscheidung vom 30.10.2026, bis 18.11.2026 im Fuenf-Minuten-Takt). Was das traegt, ist eine Sperre: Takt und
 Datenlauf duerfen nie gleichzeitig laufen, sonst stehen zwei 1'280-MiB-
 Container nebeneinander, und das Budget von FR-13 reicht dafuer nicht.
 """
@@ -50,9 +50,22 @@ def test_takt_und_datenlauf_teilen_eine_sperre():
 def test_der_takt_wartet_nicht():
     """Ein wartender Takt staute sich hinter einem stundenlangen Datenlauf zu
     einer Reihe, die danach nacheinander abliefe. Belegt heisst: ausfallen,
-    und das ohne Fehlercode - sonst meldete cron alle fuenf Minuten einen."""
+    und das ohne Fehlercode - sonst meldete cron jede Minute einen."""
     zeile = takt_zeile()
     assert "--nonblock" in zeile and "--conflict-exit-code 0" in zeile
+
+
+def test_der_takt_kommt_jede_minute():
+    """Ein Klick in der Oberflaeche, etwa "an Antragsteller retournieren",
+    wird erst im naechsten Takt ausgefuehrt. Im Fuenf-Minuten-Takt wartete
+    er bis zu fuenf Minuten (18.11.2026). Ein leerer Takt dauert auf srv01
+    rund 3 s; die Sperre ist damit kaum belegt. ENGINEERING_KONSOLE.md und
+    storage-architektur.md nennen denselben Takt."""
+    felder = takt_zeile().lstrip("# ").split()[:5]
+    assert felder == ["*"] * 5, felder
+    for dokument in ("docs/intern/ENGINEERING_KONSOLE.md", "docs/storage-architektur.md"):
+        text = (PROJECT_ROOT / dokument).read_text(encoding="utf-8")
+        assert "angestossen jede Minute" in text or "startet ihn jede Minute" in text, dokument
 
 
 def test_der_takt_ist_bis_zur_einrichtung_auskommentiert():

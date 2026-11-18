@@ -617,8 +617,8 @@ services:
   # Vier-Augen-Review, Kandidaten-Releases. Sie ist in zwei Dienste geteilt,
   # und nur der eine laeuft dauernd. Der Worker fuehrt die Pipelines aus und
   # braucht deren 1'280 MiB; dauernd belegt waeren das rund 1,3 GiB ueber dem
-  # Budget von FR-13. Er laeuft deshalb wie die Pipeline als Stapellauf, alle
-  # fuenf Minuten angestossen von docker/srv01-konsole-takt.sh.
+  # Budget von FR-13. Er laeuft deshalb wie die Pipeline als Stapellauf, jede
+  # Minute angestossen von docker/srv01-konsole-takt.sh.
   #
   # Dasselbe Abbild wie die Pipeline: Flask, PyJWT und gunicorn stehen seit
   # dem 30.10.2026 in requirements.lock. Ein zweites Abbild waere ein zweiter
@@ -710,7 +710,7 @@ services:
   worker:
     image: ${PIPELINE_IMAGE:-urban-crime:latest}
     # Ein Takt, ein Auftrag, Ende - wie die Pipeline nie unless-stopped
-    # (FR-9). Kein on-failure: Der naechste Takt in fuenf Minuten ist der
+    # (FR-9). Kein on-failure: Der naechste Takt in einer Minute ist der
     # Wiederholungsversuch, und die Konsole fuehrt Buch ueber den Auftrag.
     restart: "no"
     profiles:

@@ -201,7 +201,7 @@ def recover(store, oid, actor, reason):
 def tick(store):
     """One worker tick, followed by the run protocol if it ran anything.
 
-    An idle tick writes nothing: it comes every five minutes, and overwriting
+    An idle tick writes nothing: it comes every minute, and overwriting
     the last run with "nothing" would hide the failure the protocol is for.
     """
     from . import run_protocol
