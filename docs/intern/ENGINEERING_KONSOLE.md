@@ -234,7 +234,7 @@ Die Konsole läuft auf srv01 als zwei Dienste aus `docker-compose.srv01.yml`, be
 | `admin` | Webdienst, dauernd | 160 MiB | `urbancrime-admin.datenwerft.ch` über Traefik, hinter derselben Access-Anwendung wie alles unter `urbancrime-*` |
 | `worker` | Stapellauf: ein Takt, höchstens ein Auftrag, dann Ende | 1'280 MiB | gar nicht |
 
-Der Worker läuft **nicht dauernd**: Er führt die Pipelines aus und bräuchte dauernd deren 1'280 MiB, rund 1,3 GiB mehr als srv01 im Dauerbetrieb frei hat (FR-13). `docker/srv01-konsole-takt.sh` startet ihn alle fünf Minuten über dieselbe Sperre wie der Datenlauf, aber ohne zu warten — läuft gerade etwas, entfällt der Takt. Aufträge aus der Oberfläche beginnen deshalb mit bis zu fünf Minuten Verzug.
+Der Worker läuft **nicht dauernd**: Er führt die Pipelines aus und bräuchte dauernd deren 1'280 MiB, rund 1,3 GiB mehr als srv01 im Dauerbetrieb frei hat (FR-13). `docker/srv01-konsole-takt.sh` startet ihn jede Minute über dieselbe Sperre wie der Datenlauf, aber ohne zu warten — läuft gerade etwas, entfällt der Takt. Aufträge aus der Oberfläche beginnen deshalb mit bis zu einer Minute Verzug; ein leerer Takt belegt die Sperre rund 3 Sekunden.
 
 Der Kontrollzustand — SQLite mit Revisionen, Review-Entscheidungen und Git-Nachweisen — liegt im eigenen Datenträger `urbancrime_konsole`. Er lässt sich nicht nachrechnen und gehört in die Serversicherung.
 
@@ -322,7 +322,7 @@ Get-NetTCPConnection -LocalPort 8765 -State Listen |
   Select-Object LocalAddress, LocalPort, OwningProcess
 ```
 
-Lokal muss mindestens ein Worker laufen; auf srv01 kommt alle fünf Minuten ein Takt — ein Auftrag, der länger als fünf Minuten in QUEUED steht, heisst dort, dass die Takt-Zeile im Crontab fehlt oder die Sperre belegt ist (`logs/konsole-takt.log`). Webserver und Worker müssen denselben absoluten project-root und data-root nutzen. Zwei Python-Zeilen können unter Windows ein venv-Launcher und dessen Kindprozess sein; sie beweisen nicht automatisch zwei unabhängige Server. ParentProcessId und Portbesitzer prüfen. Nur die identifizierte überzählige Sitzung beenden, vorzugsweise mit Ctrl+C in ihrem Terminal.
+Lokal muss mindestens ein Worker laufen; auf srv01 kommt jede Minute ein Takt — ein Auftrag, der länger als ein paar Minuten in QUEUED steht, heisst dort, dass die Takt-Zeile im Crontab fehlt oder die Sperre belegt ist (`logs/konsole-takt.log`). Webserver und Worker müssen denselben absoluten project-root und data-root nutzen. Zwei Python-Zeilen können unter Windows ein venv-Launcher und dessen Kindprozess sein; sie beweisen nicht automatisch zwei unabhängige Server. ParentProcessId und Portbesitzer prüfen. Nur die identifizierte überzählige Sitzung beenden, vorzugsweise mit Ctrl+C in ihrem Terminal.
 
 ### RUNNING bleibt nach einem Abbruch stehen
 

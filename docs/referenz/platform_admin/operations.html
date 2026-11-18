@@ -281,7 +281,7 @@
 </span><span id="L-201"><a href="#L-201"><span class="linenos">201</span></a><span class="k">def</span><span class="w"> </span><span class="nf">tick</span><span class="p">(</span><span class="n">store</span><span class="p">):</span>
 </span><span id="L-202"><a href="#L-202"><span class="linenos">202</span></a><span class="w">    </span><span class="sd">"""One worker tick, followed by the run protocol if it ran anything.</span>
 </span><span id="L-203"><a href="#L-203"><span class="linenos">203</span></a>
-</span><span id="L-204"><a href="#L-204"><span class="linenos">204</span></a><span class="sd">    An idle tick writes nothing: it comes every five minutes, and overwriting</span>
+</span><span id="L-204"><a href="#L-204"><span class="linenos">204</span></a><span class="sd">    An idle tick writes nothing: it comes every minute, and overwriting</span>
 </span><span id="L-205"><a href="#L-205"><span class="linenos">205</span></a><span class="sd">    the last run with "nothing" would hide the failure the protocol is for.</span>
 </span><span id="L-206"><a href="#L-206"><span class="linenos">206</span></a><span class="sd">    """</span>
 </span><span id="L-207"><a href="#L-207"><span class="linenos">207</span></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_protocol</span>
@@ -687,7 +687,7 @@
             <div class="pdoc-code codehilite"><pre><span></span><span id="tick-202"><a href="#tick-202"><span class="linenos">202</span></a><span class="k">def</span><span class="w"> </span><span class="nf">tick</span><span class="p">(</span><span class="n">store</span><span class="p">):</span>
 </span><span id="tick-203"><a href="#tick-203"><span class="linenos">203</span></a><span class="w">    </span><span class="sd">"""One worker tick, followed by the run protocol if it ran anything.</span>
 </span><span id="tick-204"><a href="#tick-204"><span class="linenos">204</span></a>
-</span><span id="tick-205"><a href="#tick-205"><span class="linenos">205</span></a><span class="sd">    An idle tick writes nothing: it comes every five minutes, and overwriting</span>
+</span><span id="tick-205"><a href="#tick-205"><span class="linenos">205</span></a><span class="sd">    An idle tick writes nothing: it comes every minute, and overwriting</span>
 </span><span id="tick-206"><a href="#tick-206"><span class="linenos">206</span></a><span class="sd">    the last run with "nothing" would hide the failure the protocol is for.</span>
 </span><span id="tick-207"><a href="#tick-207"><span class="linenos">207</span></a><span class="sd">    """</span>
 </span><span id="tick-208"><a href="#tick-208"><span class="linenos">208</span></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_protocol</span>
@@ -722,7 +722,7 @@
 
             <div class="docstring"><p>One worker tick, followed by the run protocol if it ran anything.</p>
 
-<p>An idle tick writes nothing: it comes every five minutes, and overwriting
+<p>An idle tick writes nothing: it comes every minute, and overwriting
 the last run with "nothing" would hide the failure the protocol is for.</p>
 </div>
 

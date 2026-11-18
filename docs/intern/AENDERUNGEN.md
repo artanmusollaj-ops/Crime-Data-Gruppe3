@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'294** |
+| Tests | **3'295** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -109,6 +109,37 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 18.11.2026 · Die Konsole führt Aufträge nach höchstens einer Minute aus (Branch `konsole-takt-jede-minute`)
+
+„An Antragsteller retournieren“ wirkte erst nach rund drei Minuten. Die
+Schaltfläche reiht nur einen Auftrag `git-withdraw` ein; ausgeführt wird er
+vom Worker, und den startete cron auf `srv01` alle fünf Minuten. Jeder Klick,
+der einen Auftrag einreiht (Pull Request anfordern, mergen, zurückziehen),
+wartete deshalb bis zu fünf Minuten.
+
+Jetzt kommt der Takt jede Minute (`deploy/cron/urbancrime.crontab`). Ein
+leerer Takt dauerte am 18.11. auf `srv01` rund 3 Sekunden (Start bis Ende des
+Containers); die gemeinsame Sperre mit dem Datenlauf ist damit etwa 5 % der
+Zeit belegt. Der Montagslauf wartet bis zu sechs Stunden auf sie, ein Lauf von
+Hand mit `flock --wait 60` ebenfalls lange genug. Ein leerer Takt schreibt
+weiterhin kein Laufprotokoll. Der Worker bleibt ein Stapellauf, sein Speicher
+ist nur während eines Takts belegt (FR-13). Gleich bleibt auch: ein Auftrag je
+Takt, und eine belegte Sperre lässt den Takt ausfallen.
+
+Eine fehlgeschlagene Tagessicherung versucht der Worker in jedem Takt neu,
+jetzt also bis zu jede Minute statt alle fünf.
+
+Auf `srv01` steht der Crontab nicht unter Git; die Takt-Zeile dort wird von
+Hand angepasst.
+
+**Wächter.** `test_der_takt_kommt_jede_minute` hält die fünf Zeitfelder der
+Takt-Zeile und die Aussage in `ENGINEERING_KONSOLE.md` und
+`storage-architektur.md`.
+
+**Zahlen.** 3'294 → **3'295 Tests**, Standardlauf 3'183 → **3'184**. Im
+Linux-CI-Lauf hochgerechnet 3'099 → 3'100; der neue Test liest nur Dateien
+aus dem Repository.
 
 ## 17.11.2026 · Kibana aus der Probe zeigt den aktuellen Code (Branch `nur-kibana-aktueller-stand`)
 
