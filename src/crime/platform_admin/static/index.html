@@ -311,6 +311,15 @@ dialog::backdrop{background:#14263880}
 .readable-change small{display:block;font-size:13px;font-weight:600;color:inherit;margin-bottom:8px}.change-value{font-size:20px;font-weight:600;white-space:pre-wrap;overflow-wrap:anywhere;max-height:250px;overflow:auto}
 .edit-card button.request-card-title{display:block;background:none;color:inherit;border:0;padding:0;margin:0;text-align:left;font:inherit;font-weight:700;width:100%;overflow-wrap:anywhere}
 .edit-card button.request-card-title:hover{text-decoration:underline;color:var(--teal)}.edit-card button.request-card-title:focus-visible{outline:2px solid var(--teal);outline-offset:4px}
+.request-card-title,.request-history summary{text-decoration:underline;text-underline-offset:3px}
+.request-change-preview{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:8px 0;font-size:13px}
+.request-change-preview span{overflow-wrap:anywhere}.request-value{padding:3px 7px;border-radius:5px;font-weight:600}
+.request-value.before,.request-replaced{background:#edf1f5;color:#405365}.request-value.after{background:#e7f3f1;color:#175c50}
+.request-history{border-top:1px solid var(--line);margin-top:10px;padding:8px 0}.request-history summary{cursor:pointer;color:var(--teal);font-weight:600}
+.request-history .card-open{display:block;margin:8px 0}.request-history p{margin:4px 0 0}
+.request-replaced{display:inline-block;border-radius:5px;padding:3px 7px;font-size:12px;font-weight:600}
+#request-revision-info .card-open{background:transparent;color:var(--teal);text-decoration:underline}
+.request-card-reason{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 @media(max-width:600px){.readable-change-pair{grid-template-columns:1fr}}
 
 /* Antragsbezogene Veröffentlichung und getrennte Betriebsansichten. */
@@ -392,6 +401,7 @@ dialog::backdrop{background:#14263880}
 <section id="review-inbox" aria-label="Review-Inbox"><div id="inbox-tabs" class="tabs"></div><div id="inbox-cards" class="request-board"></div></section>
 <section id="request-drawer" class="request-details" aria-labelledby="request-title" hidden>
  <div class="section-heading"><h2 id="request-title" tabindex="-1">Antrag prüfen</h2><button id="close-request" class="secondary">Details schliessen</button></div>
+ <div id="request-revision-info"></div>
  <nav id="request-tabs" class="step-tabs" aria-label="Antragsdetails">
   <button data-request-tab="change">Änderung</button><button data-request-tab="impact">Impact prüfen</button>
   <button data-request-tab="decision">Entscheidung</button><button data-request-tab="publication">Veröffentlichung</button>
@@ -422,7 +432,7 @@ dialog::backdrop{background:#14263880}
   <label for="request-git-reason">Begründung</label><input id="request-git-reason" maxlength="2000" aria-describedby="request-git-feedback">
   <div id="request-git-actions"></div><h3>Git-Protokoll</h3><div id="request-git-log"></div><div id="request-publish-action"></div>
  </section>
- <details id="request-timeline" class="timeline"><summary>ETL und Zeitverlauf</summary><div id="request-times"></div><ol id="request-pipeline" class="pipeline-steps"></ol></details>
+ <details id="request-timeline" class="timeline" open><summary>ETL und Zeitverlauf</summary><div id="request-times"></div><ol id="request-pipeline" class="pipeline-steps"></ol></details>
 </section>
 <details id="proposal-tools" class="workspace-tools"><summary>Neuen Änderungsvorschlag erfassen</summary><div id="proposal-forms" hidden>
 <p class="notice">Lokale Operatornamen sind keine zentral verifizierten Konten. Der bisherige Release bleibt aktiv, bis eine zweite Person den geprüften Kandidaten freigibt. Der separat gestartete Worker berechnet Kandidaten und führt Quellimporte aus.</p>
@@ -523,6 +533,7 @@ dialog::backdrop{background:#14263880}
 <dialog id="quality-dialog" aria-labelledby="quality-dialog-title"><div class="section-heading"><h2 id="quality-dialog-title">Qualitätsmessung im Detail</h2><form method="dialog"><button class="secondary">Schliessen</button></form></div><div id="quality-dialog-content"></div></dialog><script>
 const $=id=>document.getElementById(id);let state, catalog=[];const viewed=new Map();
 let impactsById=new Map(),latestImpacts=new Map(),revisionsById=new Map();
+let requestPredecessors=new Map(),requestSuccessors=new Map();
 function setState(fresh){
  state=fresh;
  impactsById=new Map(fresh.impacts.map(impact=>[impact.id,impact]));
@@ -531,6 +542,7 @@ function setState(fresh){
   if(!latestImpacts.has(impact.revision_id))latestImpacts.set(impact.revision_id,impact);
  }
  revisionsById=new Map(fresh.revisions.map(revision=>[revision.id,revision]));
+ [requestPredecessors,requestSuccessors]=requestRelations(fresh.revisions,fresh.release_events);
 }
 const fragment=new URLSearchParams(location.hash.slice(1));if(fragment.has('token')){sessionStorage.setItem('admin-token',fragment.get('token'));history.replaceState(null,'',location.pathname)}
 function message(text){$('message').textContent=text;$('message').style.display='block'}
@@ -1161,7 +1173,7 @@ function startConsoleLanguages(){
  const observe=()=>languageObserver.observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['aria-label','title','placeholder']});
  languageObserver=new MutationObserver(records=>{languageObserver.disconnect();const roots=new Set();for(const r of records){if(r.type==='childList')r.addedNodes.forEach(n=>roots.add(n));else roots.add(r.target)}for(const root of roots)if(root.isConnected)localizeConsole(root);observe()});
  localizeConsole();observe();
- picker.querySelectorAll('button').forEach(button=>button.onclick=()=>{consoleLanguage=button.dataset.language==='en'?'en':'de';sync();try{localStorage.setItem('crime-console-language',consoleLanguage)}catch{}document.documentElement.lang=consoleLanguage;languageObserver.disconnect();proposalEditor?.languageChanged();if(requestDiffData&&$('request-readable-diff'))renderReadableDiff($('request-readable-diff'),requestDiffData);localizeConsole();observe()});
+ picker.querySelectorAll('button').forEach(button=>button.onclick=()=>{consoleLanguage=button.dataset.language==='en'?'en':'de';sync();try{localStorage.setItem('crime-console-language',consoleLanguage)}catch{}document.documentElement.lang=consoleLanguage;languageObserver.disconnect();proposalEditor?.languageChanged();if(state){renderInbox();if(revisionsById.has(selectedRevision))renderRequestHeading(revisionsById.get(selectedRevision))}if(requestDiffData&&$('request-readable-diff'))renderReadableDiff($('request-readable-diff'),requestDiffData);localizeConsole();observe()});
 }
 
 // Vorschlagseditor: Darstellung und Eingaben; Freigaben bleiben Serveraufgabe.
@@ -1733,6 +1745,7 @@ function renderGitOperations(data){
 }
 
 let inboxFilter='all',inboxState={assignments:[],read:[]},selectedRevision=null;
+let requestReturnRevision=null;
 function own(r){return r.actor.trim().toLowerCase()===state.operator.trim().toLowerCase()}
 function assigned(r){return inboxState.assignments.find(a=>a.revision_id===r.id)}
 function latest(r){return latestImpacts.get(r.id)}
@@ -1749,13 +1762,46 @@ function renderRequestGit(r){
  box.replaceChildren();
  if(['mapping','settings'].includes(r.resource))box.append(gitIndicator(gitDisplay(r,requestImpact(r))));
 }
-function matchesInbox(r,filter){if(!r.parent)return false;const a=assigned(r);if(filter==='mine')return own(r);if(filter==='assigned')return !r.decision&&a?.actor===state.operator;if(filter==='open')return !r.decision&&!own(r)&&!a&&latest(r)?.status==='READY';return true}
+function requestRelations(revisions,events=[]){
+ const byId=new Map(revisions.map(revision=>[revision.id,revision]));
+ const predecessors=new Map(),successors=new Map();
+ function link(oldId,newId){
+  const old=byId.get(oldId),next=byId.get(newId);
+  if(!old||!next||oldId===newId||old.resource!==next.resource||successors.has(oldId)||predecessors.has(newId))return;
+  successors.set(oldId,newId);
+  predecessors.set(newId,oldId);
+ }
+ for(const event of events){
+  if(event.action==='PROPOSAL_REBASED')link(event.revision_id,operationPayload({payload:event.evidence}).new_revision_id);
+ }
+ // Ältere Übertragungen ohne Freigabe sind in der Entscheidung belegt.
+ for(const revision of revisions){
+  if(revision.decision!=='superseded')continue;
+  const next=revision.decision_reason?.match(/^Ersetzt durch ([a-f0-9]{32}): /)?.[1];
+  if(next)link(revision.id,next);
+ }
+ return [predecessors,successors];
+}
+function matchesInbox(r,filter){if(!r.parent||requestSuccessors.has(r.id))return false;const a=assigned(r);if(filter==='mine')return own(r);if(filter==='assigned')return !r.decision&&a?.actor===state.operator;if(filter==='open')return !r.decision&&!own(r)&&!a&&latest(r)?.status==='READY';return true}
 async function refreshInbox(){if(!state)return;inboxState=await api('inbox');renderInbox()}
+function requestRevisionLinks(container,revision){
+ for(const [id,label] of [
+  [requestPredecessors.get(revision.id),tr('Vorgänger','Previous proposal')],
+  [requestSuccessors.get(revision.id),tr('Aktueller Antrag','Replacement proposal')]
+ ]){
+  if(!id)continue;
+  const link=button(container,label+' · '+id.slice(0,12),()=>openRequest(revisionsById.get(id)));
+  link.className='card-open';
+  link.setAttribute('translate','no');
+ }
+}
 function requestCard(r,impact){
  const card=element('article',null,'edit-card');
  card.dataset.revision=r.id;
- card.append(element('small',r.resource.toUpperCase()));
- const title=element('button',requestName(r),'request-card-title');title.type='button';title.onclick=()=>openRequest(r);
+ const category=element('small',requestCategory(r));category.setAttribute('translate','no');
+ card.append(category);
+ const title=element('button',requestName(r),'request-card-title');title.type='button';title.onclick=()=>safe(()=>openRequest(r));
+ title.setAttribute('translate','no');
  card.setAttribute('aria-label',title.textContent);
  const meta=document.createElement('p');
  meta.className='request-card-meta';
@@ -1765,11 +1811,30 @@ function requestCard(r,impact){
  status.className='request-card-meta status';
  status.className='request-card-status';
  showPill(status,r.decision==='reject'?'REJECTED':impact?.status);
+ if(r.resource!=='data'&&['QUEUED','RUNNING'].includes(impact?.status)){
+  status.textContent=impact.status==='QUEUED'?tr('Impact eingereiht','Impact queued'):tr('Impact läuft','Impact running');
+  status.setAttribute('translate','no');
+  status.dataset.tone='info';
+ }
  const reason=document.createElement('p');
- reason.className='request-card-meta';
+ reason.className='request-card-meta request-card-reason';
  reason.textContent=r.reason;reason.setAttribute("translate","no");
- card.append(title,status,meta,reason);
+ card.append(title);
+ const preview=requestPreview(r);
+ if(preview)card.append(preview);
+ card.append(status,meta,reason);
  button(card,'Details öffnen',()=>openRequest(r)).className='card-open';
+ if(requestPredecessors.has(r.id)){
+  const history=element('details',null,'request-history');
+  const label=element('summary',tr('Antragsverlauf','Proposal history'));label.setAttribute('translate','no');
+  history.append(label);
+  requestRevisionLinks(history,r);
+  const replaced=element('span',tr('Ersetzt','Replaced'),'request-replaced');replaced.setAttribute('translate','no');
+  const explanation=element('p',tr('Auf aktuelle Prüfbasis übertragen.','Transferred to the current review baseline.'),'muted');
+  explanation.setAttribute('translate','no');
+  history.append(replaced,explanation);
+  card.append(history);
+ }
  if(['mapping','settings'].includes(r.resource)){
   const git=document.createElement('div');
   git.className='git-summary';
@@ -1822,8 +1887,8 @@ function renderInbox(){
   const page=Math.min(lanePages.get(key)||0,Math.max(0,pageCount-1));
   const start=page*cardsPerLanePage, rows=items.slice(start,start+cardsPerLanePage);
   const previous=board.children[index];
-  const signature=JSON.stringify([inboxFilter,page,items.length,state.roles,rows.map(([r,i])=>[
-   r.id,requestName(r),i?.id,i?.status,r.decision,assigned(r)?.actor,
+  const signature=JSON.stringify([inboxFilter,page,items.length,state.roles,consoleLanguage,rows.map(([r,i])=>[
+   r.id,state.proposal_summaries?.[r.id],requestPredecessors.get(r.id),i?.id,i?.status,r.decision,assigned(r)?.actor,
    inboxState.read.some(entry=>entry.revision_id===r.id),gitDisplay(r,i)
   ])]);
   if(previous?.dataset.signature===signature)continue;
@@ -1835,6 +1900,11 @@ function renderInbox(){
   const list=element('div',null,'request-lane-list');
   if(rows.length){
    list.append(...rows.map(([r,i])=>requestCard(r,i)));
+   const expanded=new Set([...(previous?.querySelectorAll('.request-history[open]')||[])].map(detail=>detail.closest('article').dataset.revision));
+   for(const card of list.children){
+    const detail=card.querySelector('.request-history');
+    if(detail&&expanded.has(card.dataset.revision))detail.open=true;
+   }
    lane.append(list);
   }else lane.append(element('small','Keine Anträge'));
   if(pageCount>1){
@@ -1928,16 +1998,19 @@ for(const button of $('impact-tabs').querySelectorAll('button')){
 }
 function closeRequest(){
  const previous=selectedRevision;
+ const origin=requestReturnRevision;
  requestVersion++;
  impactVersion++;
  selectedRevision=null;
+ requestReturnRevision=null;
  selectedImpactId=null;
  pinnedImpactId=null;
  loadedImpact=null;
  impactLoading=null;
  $('request-drawer').hidden=true;
- const card=[...document.querySelectorAll('#inbox-cards article')].find(item=>item.dataset.revision===previous);
- card?.querySelector('.card-open')?.focus({preventScroll:true});
+ const cards=[...document.querySelectorAll('#inbox-cards article')];
+ const card=cards.find(item=>item.dataset.revision===previous)||cards.find(item=>item.dataset.revision===origin);
+ (card?.querySelector('.card-open')||$('inbox-tabs').querySelector('[aria-pressed="true"]'))?.focus({preventScroll:true});
 }
 $('close-request').onclick=closeRequest;
 document.addEventListener('keydown',event=>{
@@ -1945,12 +2018,83 @@ document.addEventListener('keydown',event=>{
  if(!$('evidence-drawer').hidden)closeEvidence();
 });
 
+function requestCategory(revision){
+ const categories={mapping:['Mapping','Mapping'],settings:['Konfiguration','Configuration'],data:['Datenstand','Data snapshot']};
+ return tr(...(categories[revision.resource]||[revision.resource]));
+}
 function requestName(revision){
- const changes=state.conflicts?.[revision.id]?.changes||[];
- const match=changes.map(change=>change.location.match(/(micr_code|iucr)=([^\]]+)/)).find(Boolean);
- if(match)return (match[1]==='micr_code'?'MICR ':'IUCR ')+match[2];
- const names={mapping:'Mapping',settings:'Konfiguration',data:'Datenstand'};
- return (names[revision.resource]||revision.resource)+' · '+revision.id.slice(0,12);
+ const summary=state.proposal_summaries?.[revision.id];
+ if(revision.resource==='mapping'){
+  if(summary?.source_code){
+   const source=(summary.city==='detroit'?'Detroit · MICR ':'Chicago · IUCR ')+summary.source_code;
+   if(summary.before===summary.after)return tr('Begründung für '+source+' ändern','Change reason for '+source);
+   return tr(source+' neu zuordnen','Remap '+source);
+  }
+  if(summary?.count>1)return tr(summary.count+' Zuordnungen ändern','Change '+summary.count+' mappings');
+  return tr('Mapping ändern','Change mapping');
+ }
+ if(revision.resource==='settings'){
+  if(summary?.field==='at_utc'&&summary.task){
+   const job=proposalJob(summary.task);
+   return tr(job+' · Startzeit ändern',job+' · Change start time');
+  }
+  if(summary?.field==='maximum_unmapped_ratio'){
+   if(typeof summary.before==='number'&&typeof summary.after==='number'){
+    return summary.after<summary.before
+     ?tr('Grenze für ungemappte Quote senken','Lower unmapped ratio limit')
+     :tr('Grenze für ungemappte Quote erhöhen','Raise unmapped ratio limit');
+   }
+   return tr('Grenze für ungemappte Quote ändern','Change unmapped ratio limit');
+  }
+  if(summary?.field){
+   const label=proposalLabel(summary.field);
+   return summary.task?proposalJob(summary.task)+' · '+label:label;
+  }
+  if(summary?.count>1)return tr(summary.count+' Einstellungen ändern','Change '+summary.count+' settings');
+  return tr('Konfiguration ändern','Change configuration');
+ }
+ if(revision.resource==='data'){
+  if(summary?.task==='rebuild')return tr('Datenkandidat bauen','Build data candidate');
+  if(summary?.task==='replay')return tr('Reproduzierbarkeit prüfen','Check reproducibility');
+ }
+ return requestCategory(revision)+' · '+revision.id.slice(0,12);
+}
+function requestPreview(revision){
+ const summary=state.proposal_summaries?.[revision.id];
+ if(!summary?.source_code&&!summary?.field)return null;
+ const {before,after,field,source_code:source}=summary;
+ if(before===after)return null;
+ const show=value=>source?(value||tr('Nicht zugeordnet','Unmapped')):proposalValue(field,value??undefined);
+ const unit=field==='at_utc'?' UTC':'';
+ const row=element('div',null,'request-change-preview');
+ row.setAttribute('translate','no');
+ const arrow=element('span','→');arrow.setAttribute('aria-hidden','true');
+ row.setAttribute('role','group');
+ row.setAttribute('aria-label',tr('Bisher','Before')+' '+show(before)+unit+', '+tr('Vorschlag','Proposed')+' '+show(after)+unit);
+ row.append(element('span',show(before),'request-value before'),arrow,element('span',show(after),'request-value after'));
+ if(unit)row.append(element('span',unit.trim()));
+ return row;
+}
+function renderRequestHeading(revision){
+ const info=$('request-revision-info');
+ const signature=JSON.stringify([revision.id,state.proposal_summaries?.[revision.id],requestPredecessors.get(revision.id),requestSuccessors.get(revision.id),consoleLanguage]);
+ if(info.dataset.signature===signature)return;
+ info.dataset.signature=signature;
+ const name=requestName(revision);
+ const title=$('request-title');
+ title.setAttribute('translate','no');
+ title.textContent=tr('Antragsdetails','Proposal details')+' · '+name;
+ const impactTitle=$('impact-title');
+ impactTitle.setAttribute('translate','no');
+ impactTitle.textContent=name+' · '+tr('Prüfung','Review');
+ const id=element('p',tr('Revision','Revision')+' '+revision.id.slice(0,12),'muted');
+ info.setAttribute('translate','no');
+ id.title=revision.id;
+ info.replaceChildren(id);
+ const preview=requestPreview(revision);
+ if(preview)info.append(preview);
+ if(requestSuccessors.has(revision.id))info.append(element('span',tr('Ersetzt','Replaced'),'request-replaced'));
+ requestRevisionLinks(info,revision);
 }
 function renderRequestTimeline(){
  if(!selectedRevision)return;
@@ -2197,6 +2341,7 @@ async function syncRequest(){
  if(!selectedRevision)return;
  const revision=revisionsById.get(selectedRevision);
  if(!revision){closeRequest();return}
+ renderRequestHeading(revision);
  renderRequestTimeline();
  renderRequestPublication(revision);
  const impact=impactsById.get(pinnedImpactId)||requestImpact(revision);
@@ -2216,8 +2361,15 @@ function renderReadableDiff(container,response){
  }else if(response.resource==='mapping'){
   const overrides=p=>new Map(parseConsoleCSV(p['mapping_overrides.csv']||'').map(r=>[r.city+'/'+r.source_code,r]));
   const a=overrides(before),b=overrides(after);
-  const effective=(p,row)=>{const custom=overrides(p).get(row.city+'/'+row.source_code);if(custom)return custom.nibrs_code;const field=row.city==='detroit'?'micr_code':'iucr_code',file=row.city==='detroit'?'micr_nibrs_mapping.csv':'iucr_nibrs_mapping.csv';return parseConsoleCSV(p[file]||'').find(r=>r[field]===row.source_code)?.nibrs_code||tr('Nicht zugeordnet','Unmapped')};
-  for(const key of new Set([...a.keys(),...b.keys()])){const old=a.get(key),next=b.get(key);if(JSON.stringify(old)===JSON.stringify(next))continue;const row=next||old,label=(row.city==='detroit'?'Detroit · MICR ':'Chicago · IUCR ')+row.source_code;rows.push({label:label+' · NIBRS',before:effective(before,row),after:effective(after,row)});if(old?.reason!==next?.reason)rows.push({label:label+' · '+tr('Begründung','Reason'),before:old?.reason||'—',after:next?.reason||'—'})}
+  const effective=(p,custom,row)=>{
+   const override=custom.get(row.city+'/'+row.source_code);
+   if(override)return override.nibrs_code;
+   const [file,source,target]=row.city==='detroit'
+    ?['micr_nibrs_mapping.csv','micr_code','nibrs_code']
+    :['iucr_nibrs_mapping.csv','iucr','ibr_code'];
+   return parseConsoleCSV(p[file]||'').find(r=>r[source]===row.source_code)?.[target]||tr('Nicht zugeordnet','Unmapped');
+  };
+  for(const key of new Set([...a.keys(),...b.keys()])){const old=a.get(key),next=b.get(key);if(JSON.stringify(old)===JSON.stringify(next))continue;const row=next||old,label=(row.city==='detroit'?'Detroit · MICR ':'Chicago · IUCR ')+row.source_code;rows.push({label:label+' · NIBRS',before:effective(before,a,row),after:effective(after,b,row)});if(old?.reason!==next?.reason)rows.push({label:label+' · '+tr('Begründung','Reason'),before:old?.reason||'—',after:next?.reason||'—'})}
   for(const file of new Set([...Object.keys(before),...Object.keys(after)]))if(file!=='mapping_overrides.csv'&&before[file]!==after[file])rows.push({label:file,before:before[file]||'—',after:after[file]||'—'});
  }else{
   for(const key of new Set([...Object.keys(before),...Object.keys(after)]))if(JSON.stringify(before[key])!==JSON.stringify(after[key]))rows.push({label:key,before:JSON.stringify(before[key])??'—',after:JSON.stringify(after[key])??'—'});
@@ -2230,13 +2382,13 @@ async function openRequest(revision,impact=requestImpact(revision),tab='impact')
  const version=++requestVersion;
  impactVersion++;
  impactLoading=null;
+ if(!selectedRevision)requestReturnRevision=revision.id;
  selectedRevision=revision.id;
  pinnedImpactId=impact?.id===requestImpact(revision)?.id?null:impact?.id;
  loadedImpact=null;
  showPage('changes');
  const title=$('request-title');
- title.textContent='Antragsdetails · '+requestName(revision);
- $('impact-title').textContent=requestName(revision)+' · Prüfung';
+ renderRequestHeading(revision);
  const change=$('request-change');
  const reasonText=element('p',revision.reason);reasonText.setAttribute('translate','no');change.replaceChildren(element('h2','Änderung'),element('p','Autor: '+revision.actor),reasonText);
  const visual=element('div');visual.id='request-readable-diff';visual.setAttribute('translate','no');visual.setAttribute('aria-live','polite');visual.textContent=tr('Änderungen werden geladen …','Loading changes …');change.append(visual);

@@ -80,7 +80,7 @@ def create_app(store=None, *, operator=None, token=None, config=None):
             )
         elif request.path == "/api/state":
             from .candidates import active_id
-            from .conflicts import all_pending
+            from .conflicts import all_pending, proposal_summaries
             from .operations import overview
 
             return send(
@@ -91,6 +91,7 @@ def create_app(store=None, *, operator=None, token=None, config=None):
                     "identity": g.identity,
                     "roles": sorted(g.roles),
                     "conflicts": all_pending(store),
+                    "proposal_summaries": proposal_summaries(store),
                     "active_release_id": active_id(store),
                     "analysis_status": overview(store)["services"].get("analysis", {}),
                     "mapping": store.current("mapping"),

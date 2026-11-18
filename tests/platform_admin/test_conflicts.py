@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from platform_admin.conflicts import all_pending, changes
+from platform_admin.conflicts import all_pending, changes, proposal_summaries
 from platform_admin.store import AdminError, Store
 
 
@@ -12,6 +12,10 @@ def store(tmp_path):
     result = Store(Path(__file__).resolve().parents[2], tmp_path / "data")
     result.initialize("bootstrap")
     return result
+
+
+def chicago_daily(payload):
+    return next(job for job in payload["jobs"] if job["name"] == "chicago_daily")
 
 
 def test_overlapping_mapping_shows_author_line_and_blocks_approval(store):
@@ -32,6 +36,9 @@ def test_overlapping_mapping_shows_author_line_and_blocks_approval(store):
     store.decide(b, "reject", "Reviewer", "Konkurrierende Variante verworfen")
     assert not all_pending(store)[a]["blocked"]
     assert b not in all_pending(store)
+    assert proposal_summaries(store)[b] == {
+        "city": "chicago", "source_code": "0110", "before": "09A", "after": "26A",
+    }
 
 
 def test_settings_jobs_matched_by_name_not_position(store):
@@ -40,7 +47,7 @@ def test_settings_jobs_matched_by_name_not_position(store):
     # Ein Feld, das der Validator fuer chicago_daily zulaesst: lookback_days
     # ist fuer Chicago fest 14, weil download_chicago kein --lookback-days
     # mehr kennt.
-    a["jobs"][2]["year"] = 2025
+    chicago_daily(a)["year"] = 2025
     b = copy.deepcopy(base["payload"])
     b["jobs"].reverse()
     b["jobs"][0]["at_utc"] = "09:00"
@@ -48,7 +55,14 @@ def test_settings_jobs_matched_by_name_not_position(store):
     rb = store.propose("settings", b, base["id"], "Bob", "Zeitplan")
     assert not all_pending(store)[ra]["blocked"]
     assert not all_pending(store)[rb]["blocked"]
-    next(job for job in b["jobs"] if job["name"] == "chicago_daily")["year"] = 2023
+    summary = proposal_summaries(store)[rb]
+    job = b["jobs"][0]
+    original = next(item for item in base["payload"]["jobs"] if item["name"] == job["name"])
+    assert summary == {
+        "count": 1, "field": "at_utc", "task": job["task"],
+        "before": original["at_utc"], "after": "09:00",
+    }
+    chicago_daily(b)["year"] = 2023
     rc = store.propose("settings", b, base["id"], "Carol", "Jahrgang")
     check = all_pending(store)[ra]
     assert check["overlaps"][0]["revision_id"] == rc
@@ -67,7 +81,7 @@ def test_deleted_job_conflicts_with_field_change(store):
     a = copy.deepcopy(base["payload"])
     a["jobs"] = [j for j in a["jobs"] if j["name"] != "chicago_daily"]
     b = copy.deepcopy(base["payload"])
-    b["jobs"][2]["enabled"] = True
+    chicago_daily(b)["enabled"] = True
     ra = store.propose("settings", a, base["id"], "Alice", "Entfernen")
     store.propose("settings", b, base["id"], "Bob", "Aktivieren")
     assert all_pending(store)[ra]["blocked"]
@@ -89,12 +103,12 @@ def test_three_way_settings_merge_preserves_other_changes(store):
 
     base = store.current("settings")["payload"]
     mine, other = copy.deepcopy(base), copy.deepcopy(base)
-    mine["jobs"][2]["lookback_days"] = 30
-    other["jobs"][2]["enabled"] = True
+    chicago_daily(mine)["lookback_days"] = 30
+    chicago_daily(other)["enabled"] = True
     merged = merge_payload("settings", base, mine, other)
-    job = next(j for j in merged["jobs"] if j["name"] == "chicago_daily")
+    job = chicago_daily(merged)
     assert job["enabled"] and job["lookback_days"] == 30
-    other["jobs"][2]["lookback_days"] = 90
+    chicago_daily(other)["lookback_days"] = 90
     with pytest.raises(AdminError, match="Merge-Konflikt.*lookback_days"):
         merge_payload("settings", base, mine, other)
 
@@ -113,6 +127,11 @@ def test_rebase_replaces_own_revision_and_queues_new_impact_atomically(store):
     assert next(r for r in history["revisions"] if r["id"] == old)["decision"] == "superseded"
     assert next(i for i in history["impacts"] if i["revision_id"] == old)["status"] == "SUPERSEDED"
     assert next(i for i in history["impacts"] if i["revision_id"] == new)["status"] == "QUEUED"
+    summaries = proposal_summaries(store)
+    assert summaries[old] == summaries[new] == {
+        "count": 1, "field": "maximum_unmapped_ratio", "task": None,
+        "before": base["payload"]["maximum_unmapped_ratio"], "after": 0.02,
+    }
     assert not all_pending(store)[new]["blocked"]
     with pytest.raises(AdminError, match="bereits entschieden"):
         rebase(store, old, "Alice", "Noch einmal")
