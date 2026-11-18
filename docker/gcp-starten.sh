@@ -14,11 +14,16 @@
 # VM kopiert tools/kopiere_release.py das aktuelle Release des Quelleimers in
 # den Eimer der Probe (--von ${GCP_ZUSTAND}/quelle.env, --nach .../hmac.env;
 # Python aus GCP_PYTHON, Vorgabe python). Dann stoppt es auf der VM das
-# Dashboard, startet nur elasticsearch und kibana, setzt mit holen aktuell
-# --einsetzen das Release ein und fragt serving.pruefe_stand: Stimmt der
-# Stand, wird nichts geladen; sonst load_elasticsearch, build_kibana und noch
-# einmal pruefe_stand. Fehlt das Release, bricht es mit Hinweis ab - die VM
-# laeuft dann weiter.
+# Dashboard, startet nur elasticsearch und kibana und holt das Strecken-
+# Abbild der Marke :aktuell: Liegt sie unter einem anderen Digest als
+# PIPELINE_IMAGE in der .env der VM, sichert es die .env als
+# .env.vor-abbild-<UTC-Zeit>, schreibt den neuen Digest hinein und nennt alt,
+# neu und den Commit im Abbild (GIT_COMMIT). Danach setzt es mit holen
+# aktuell --einsetzen das Release ein und fragt serving.pruefe_stand: Stimmt
+# der Stand und ist das Abbild unveraendert, wird nichts geladen; sonst
+# load_elasticsearch, build_kibana und noch einmal pruefe_stand. Fehlt das
+# Release oder scheitert das Ziehen (ohne docker login), bricht es mit
+# Hinweis ab - die VM laeuft dann weiter.
 #
 # **--zweig ZWEIG** setzt das Metadatum repo-zweig. Das Startskript holt
 # und spult diesen Zweig bei jedem Start vor; laeuft die VM schon, gilt er
@@ -101,6 +106,53 @@ env_setzen() {
         "sudo install -D -m 600 -o root -g root /tmp/urbancrime.env ${GCP_STAPEL_DIR}/.env && rm -f /tmp/urbancrime.env"
 }
 
+# Der Abbildschritt von --nur-kibana auf der VM (17.11.2026): Kibana baute
+# mit dem Abbild, das die .env der VM pinnte - einem von vor FR-27 -, und
+# pruefe_stand meldete "stimmt", weil es nur das Release vergleicht. Jetzt
+# wird die Marke :aktuell nachgeschlagen, wie in docker/srv01-abbild-
+# einsetzen.sh (digest_der_marke, setze_in_env, commit_im_abbild): ziehen,
+# Digest aus RepoDigests, und gepinnt wird der Digest, nicht die Marke.
+#
+# Das Abbild selbst steht nicht hier, sondern kommt aus PIPELINE_IMAGE der
+# .env (ohne @sha256:... und ohne Marke) - die Probe nennt keinen Server
+# (test_keine_srv01_namen). Gebaut wird nichts, und die VM braucht nur das
+# Lese-Login fuer die Registry, kein GitHub-Token.
+#
+# Die .env geht nie durch die Ausgabe: gelesen wird nur die eine Zeile, die
+# neue Fassung entsteht in einer temporaeren Datei (600, root) und ersetzt
+# die alte per mv, erst wenn die neue Zeile darin steht. Vorher eine Kopie
+# als .env.vor-abbild-<UTC-Zeit> (cp -p: Modus und Besitzer bleiben).
+# Scheitert das Ziehen, bricht es vor jeder Aenderung ab. NEUES_ABBILD=1
+# schaltet in kibana_auf_vm_befehl das Laden ein, auch wenn pruefe_stand
+# "stimmt" saehe.
+#
+# Als Text mit einem Befehl je Zeile; tr macht daraus die eine Zeile fuer
+# --command.
+abbild_auf_vm_befehl() {
+    tr '\n' ' ' <<'VM'
+NEUES_ABBILD=0;
+ALT="$(sudo sed -n 's/^PIPELINE_IMAGE=//p' .env | tail -n 1)";
+A="${ALT%%@*}";
+case "${A##*/}" in *:*) A="${A%:*}" ;; esac;
+if [ -z "$A" ]; then echo "PIPELINE_IMAGE fehlt in der .env der VM - zuerst docker/gcp-starten.sh --env DATEI" >&2; exit 1; fi;
+echo "Abbild: $A:aktuell nachschlagen";
+if ! sudo docker pull --quiet "$A:aktuell" >/dev/null; then echo "docker pull $A:aktuell gescheitert - .env unveraendert. Auf der VM einmal docker login ghcr.io, Befehl in .env.gcp.example (Abschnitt Abbild)." >&2; exit 1; fi;
+NEU="$A$(sudo docker image inspect --format '{{index .RepoDigests 0}}' "$A:aktuell" | sed 's/^.*@/@/')";
+case "$NEU" in *@sha256:*) ;; *) echo "Kein Digest fuer $A:aktuell - .env unveraendert." >&2; exit 1 ;; esac;
+if [ "${NEU##*@}" = "${ALT##*@}" ]; then echo "  unveraendert: $NEU";
+else echo "  alt: ${ALT:-(nicht gesetzt)}"; echo "  neu: $NEU";
+K="$(sudo docker run --rm --entrypoint sh "$NEU" -c 'printf %s "$GIT_COMMIT"')" || K="";
+echo "  Commit im neuen Abbild: ${K:-(kein GIT_COMMIT im Abbild)}";
+S=".env.vor-abbild-$(date -u +%Y%m%dT%H%M%SZ)";
+sudo cp -p .env "$S"; echo "  gesichert: $S";
+T="$(sudo mktemp .env.XXXXXX)"; sudo chmod 600 "$T"; sudo chown root:root "$T";
+sudo awk -v w="$NEU" 'BEGIN { FS = "=" } $1 == "PIPELINE_IMAGE" { print "PIPELINE_IMAGE=" w; g = 1; next } { print } END { if (!g) print "PIPELINE_IMAGE=" w }' .env | sudo tee "$T" >/dev/null;
+sudo grep -qxF "PIPELINE_IMAGE=$NEU" "$T";
+sudo mv "$T" .env; NEUES_ABBILD=1;
+fi;
+VM
+}
+
 # Die Befehle fuer --nur-kibana auf der VM, als eine Zeile fuer
 # "gcloud compute ssh --command". Zuerst immer "holen aktuell --einsetzen":
 # pruefe_stand misst gegen das lokal eingesetzte Release in arbeitsdaten, und
@@ -114,8 +166,9 @@ kibana_auf_vm_befehl() {
     c="sudo docker compose -f docker-compose.gcp.yml"
     printf '%s' "set -e; cd ${verzeichnis}; C=\"${c}\"; \$C stop dashboard; "
     printf '%s' "\$C up -d --wait elasticsearch kibana; "
+    abbild_auf_vm_befehl
     printf '%s' "\$C run --rm pipeline python -m orchestration.release holen aktuell --einsetzen; "
-    printf '%s' "if \$C run --rm pipeline python -m serving.pruefe_stand --knapp; then "
+    printf '%s' "if [ \"\$NEUES_ABBILD\" = 0 ] && \$C run --rm pipeline python -m serving.pruefe_stand --knapp; then "
     printf '%s' "echo 'pruefe_stand: Stand stimmt - Laden uebersprungen'; "
     printf '%s' "else \$C run --rm pipeline python -m serving.load_elasticsearch; "
     printf '%s' "\$C run --rm pipeline python -m serving.build_kibana; "
@@ -196,6 +249,13 @@ main() {
         shift
     done
 
+    # --env setzt den Digest von srv01 fuer den Vergleich (FR-47),
+    # --nur-kibana ueberschriebe ihn gleich danach mit dem von :aktuell.
+    if [[ -n "${env_datei}" ]] && (( kibana )); then
+        warne "--env und --nur-kibana schliessen sich aus: --nur-kibana setzt PIPELINE_IMAGE auf :aktuell."
+        warne "  Erst --env fuer den Vergleich, oder --nur-kibana allein fuer die Vorfuehrung."
+        return 64
+    fi
     if [[ -n "${env_datei}" ]]; then
         pruefe_abbild "${env_datei}"
     fi

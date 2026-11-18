@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'286** |
+| Tests | **3'294** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -109,6 +109,60 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 17.11.2026 · Kibana aus der Probe zeigt den aktuellen Code (Branch `nur-kibana-aktueller-stand`)
+
+Die Sichtprobe von FR-27 zeigte zwei Lücken, beide nicht im Code der
+Strecke, sondern im Weg zu Kibana.
+
+- **Kibana zeigte den Code von vor FR-27 und meldete „stimmt“.**
+  `docker/gcp-starten.sh --nur-kibana` baute Kibana mit dem Abbild, das die
+  `.env` der VM per Digest pinnte, und `serving.pruefe_stand` vergleicht nur
+  das Release. Jetzt schlägt das Skript auf der VM die Marke `:aktuell` des
+  Abbilds aus `PIPELINE_IMAGE` nach, wie `docker/srv01-abbild-einsetzen.sh`.
+  Ist der Digest neu, sichert es die `.env` als `.env.vor-abbild-<UTC-Zeit>`,
+  schreibt den Digest über eine temporäre Datei und `mv` hinein (600, root)
+  und nennt alt, neu und `GIT_COMMIT` des Abbilds. Danach lädt es
+  Elasticsearch und Kibana neu, auch wenn `pruefe_stand` „stimmt“ meldet.
+  Gepinnt bleibt der Digest, die Marke dient nur dem Nachschlagen. Gleicher
+  Digest und stimmiger Stand laden wie bisher nichts. Scheitert das Ziehen,
+  etwa ohne `docker login`, bricht es vor jeder Änderung der `.env` ab. Der
+  Weg mit `--env` für den Vergleich (FR-47) bleibt, wie er war.
+- **Cloudflare hielt eine kaputte Fassung eines Kibana-Bundles.** Kibana
+  brach über `urbancrime-kibana.datenwerft.ch` mit „Definition of plugin
+  urlForwarding not found“ ab, auch im privaten Fenster, bis der Cache
+  geleert war. Kibana schickt seine Bundles mit `immutable` für ein Jahr.
+  `docs/intern/vorfuehrung.md` beschreibt jetzt eine Cache-Regel, die den
+  Kibana-Host am Edge-Cache vorbeiführt, und das Leeren als Abhilfe. Die
+  Regel richtet Christian selbst ein; aus dem Repository wird Cloudflare
+  nicht verändert, und Kibana und Traefik bleiben unverändert.
+
+**Abweichung vom Plan.** Der Plan nennt das Abbild beim Namen. Das Skript
+liest es stattdessen aus `PIPELINE_IMAGE` der `.env` der VM (ohne Digest und
+Marke): Der Name der Registry-Organisation steht auf der Liste von
+`test_keine_srv01_namen`, und die Probe nennt keinen Server.
+
+**Wächter.** In `tests/test_gcp_stapel.py` die vier Zeilen der I/O-Matrix
+über den VM-Befehl mit falschem `sudo` (`FAKE_DIGEST`, `FAKE_PULL`,
+`FAKE_COMMIT`): neues Abbild (`.env` gesetzt, gesichert, Modus 600, kein
+Geheimnis in der Ausgabe, neu geladen trotz „stimmt“), gleiches Abbild und
+stimmiger Stand (nichts angefasst), gleiches Abbild und neues Release
+(geladen), gescheitertes Ziehen (Abbruch mit Hinweis auf `docker login`,
+`.env` unverändert). Dazu im Trockenmodus: Der Abbildschritt steht nach dem
+Start von Kibana und vor dem Holen des Release. Verglichen wird nur der
+Digest, nicht `repo:marke@digest` als Ganzes; ein scheiterndes Lesen von
+`GIT_COMMIT` bricht nichts ab. `--env` und `--nur-kibana` zusammen lehnt
+das Skript ab (Exit 64): `--nur-kibana` stellte die `.env` sofort wieder
+auf `:aktuell`. Vor einem Vergleich (FR-47) setzt deshalb erst wieder
+`--env` den Digest von `srv01` (so auch in `.env.gcp.example`).
+
+Noch offen: die Cloudflare-Regel einrichten und am Antwortkopf
+`cf-cache-status: BYPASS` oder `DYNAMIC` prüfen; beim nächsten Start auf der
+VM „unveraendert“ ablesen.
+
+**Zahlen.** 3'286 → **3'294 Tests**, Standardlauf 3'175 → **3'183**. Im
+Linux-CI-Lauf hochgerechnet 3'091 → 3'099; die acht neuen Tests brauchen
+nur `bash`.
 
 ## 17.11.2026 · Jede Kibana-Kachel nennt Frage, Nenner und Ausschlüsse (Branch `fr-27-alle-kacheln`)
 
