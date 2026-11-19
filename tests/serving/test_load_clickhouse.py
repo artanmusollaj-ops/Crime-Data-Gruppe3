@@ -403,6 +403,53 @@ def test_ein_array_ohne_null_geht_durch():
                      "dim_city_day").clickhouse == "Array(String)"
 
 
+def test_dim_city_day_mit_einem_tag_ohne_wetter_laesst_sich_laden(tmp_path):
+    """Gold-Vertrag 9: Ein Tag ohne NOAA-Lieferung traegt ``no_weather``.
+
+    Stuende dort NULL, waere ``quality_flags`` nullbar, und ClickHouse
+    nimmt ``Nullable(Array(String))`` nicht an - das ganze Release liesse
+    sich nicht laden. Gebaut wird mit der echten Gold-Abfrage.
+    """
+    from datetime import date
+
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    import build_gold as bg
+    from silver_pipeline import connect
+
+    def quelle(name, tabelle):
+        pq.write_table(tabelle, tmp_path / f"{name}.parquet")
+        return bg.Quelle(name, tmp_path / f"{name}.parquet")
+
+    offense = quelle("crime_offense", pa.table(
+        {"occurred_date_local": [date(2024, 1, 1), date(2024, 1, 2)]}))
+    weather = quelle("weather_day", pa.table({
+        "city": ["chicago", "detroit"], "date": [date(2024, 1, 1)] * 2,
+        "station_id": ["S1", "S2"], "station_name": ["OHARE", "METRO"],
+        "temp_max_c": [1.0, 2.0], "temp_min_c": [-1.0, 0.0],
+        "precipitation_mm": [0.0, 0.0], "snowfall_mm": [0.0, 0.0],
+        "precipitation_trace": [False, False], "snowfall_trace": [False, False],
+        "quality_flags": pa.array([[], []], pa.list_(pa.string())),
+    }))
+    place = quelle("place", pa.table({
+        "geoid": ["1714000", "2622000"],
+        "centroid_lat": [41.837, 42.383], "centroid_lon": [-87.685, -83.102],
+    }))
+    ziel = tmp_path / "dim_city_day.parquet"
+    con = connect()
+    try:
+        con.execute(f"COPY ({bg.dim_city_day_query(weather, offense, place)}) "
+                    f"TO '{ziel}' (FORMAT parquet)")
+        assert con.execute(f"SELECT count(*) FROM read_parquet('{ziel}') "
+                           "WHERE temp_max_c IS NULL").fetchone()[0] == 2
+    finally:
+        con.close()
+    typen = {sp.name: sp.clickhouse for sp in lc.spalten(ziel, "dim_city_day")}
+    assert typen["quality_flags"] == "Array(String)"
+    assert typen["sunrise_utc"].startswith("DateTime64")
+
+
 @pytest.mark.referenzstand
 def test_fuer_jede_spalte_jedes_ziels_ist_ein_typ_entschieden():
     """Nicht nur fuer die Fakten - auch die vier Dimensionen."""

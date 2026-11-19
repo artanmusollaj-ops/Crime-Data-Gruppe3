@@ -21,7 +21,9 @@ schmal - aufeinanderfolgende Tage aehneln sich (Wetterlagen, Wochentag).
 **Faelle, nicht Taten** (Entscheid E5), wie auf den uebrigen Brettern.
 
 **Was es nicht kann.** Gemessen wird am Flughafen (O'Hare, Detroit Metro),
-nicht im Quartier. NOAA veroeffentlicht mit rund vier Tagen Nachlauf. Wochentag
+nicht im Quartier. NOAA veroeffentlicht mit rund vier Tagen Nachlauf;
+``dim_city_day`` fuehrt seit Gold-Vertrag 9 auch diese Tage, mit leeren
+Wetterspalten, und das Brett laesst sie aus (``tmax IS NULL``). Wochentag
 und Feiertage sind nicht herausgerechnet. Und ein Zusammenhang ist keine
 Ursache: An heissen Tagen sind mehr Menschen draussen - das ist eine
 Erklaerung, keine Messung.

@@ -7,7 +7,7 @@ gebauten Tabellen, die Bedeutung aus [`tools/build_feldkatalog.py`](../tools/bui
 python tools/build_feldkatalog.py
 ```
 
-**225 Spalten in 18 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
+**228 Spalten in 18 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
 soll einen Satz darüber schreiben müssen. `tests/test_feldkatalog.py` prüft, dass der Katalog vollständig und reproduzierbar ist.
 
 Die Rohschichten stehen hier nicht: **Bronze deutet nicht**, seine Spalten sind die der Quelle. Was sie bedeuten, sagen die
@@ -17,7 +17,7 @@ Quellnotebooks 01, 11, 21 und 22.
 
 ### `crime_offense`
 
-Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert, je Fall eine mit counts_case**. 1'909'461 Zeilen.
+Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert, je Fall eine mit counts_case**. 1'913'895 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -73,7 +73,7 @@ Eine Zeile ist: **ein Ort (Census Place)**. 8'833 Zeilen über 4 Vintages.
 
 ### `source_change`
 
-Eine Zeile ist: **ein geaendertes Feld einer Zeile zwischen zwei Schnappschuessen**. 95'484 Zeilen.
+Eine Zeile ist: **ein geaendertes Feld einer Zeile zwischen zwei Schnappschuessen**. 113'745 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -141,7 +141,7 @@ Eine Zeile ist: **eine Stadt an einem Tag**. 55'573 Zeilen.
 
 ### `dim_city_day`
 
-Eine Zeile ist: **eine Stadt an einem Tag**. 4'272 Zeilen.
+Eine Zeile ist: **eine Stadt an einem Tag**. 4'290 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -155,11 +155,14 @@ Eine Zeile ist: **eine Stadt an einem Tag**. 4'272 Zeilen.
 | `snowfall_mm` | `DOUBLE` | Schneefall in Millimetern. GHCN führt ihn bereits in Millimetern, anders als Temperatur und Niederschlag. |
 | `precipitation_trace` | `BOOLEAN` | Spurenmenge Niederschlag - messbar, aber unter der Auflösung. `precipitation_mm = 0` mit diesem Flag heisst **nicht** trocken. |
 | `snowfall_trace` | `BOOLEAN` | Spurenmenge Schnee, analog. |
-| `quality_flags` | `VARCHAR[]` | Auffälligkeiten, die **benannt und nicht entfernt** werden - etwa `MISSING_MEDIAN_INCOME` oder `SUSPECT_SNOWFALL`. Leer, wenn nichts auffiel. |
+| `quality_flags` | `VARCHAR[]` | Auffälligkeiten aus `silver/weather_day`, **benannt und nicht entfernt** - etwa `SUSPECT_SNOWFALL`; leer, wenn nichts auffiel. Seit Gold-Vertrag 9 steht `no_weather` an Tagen der Fallspanne, für die NOAA noch nicht geliefert hat: Dort sind `station_id`, `station_name` und alle Wetterspalten `NULL`, der Sonnenstand ist gefüllt. Nie `NULL` - ClickHouse lässt eine Liste nicht leer stehen. |
+| `sunrise_utc` | `TIMESTAMP` | Sonnenaufgang in UTC an diesem Ortstag, nach NOAA (Zenit 90,833°) am Schwerpunkt der Ortsgrenze aus `silver/place`. Auf die Sekunde gerundet; gegen den NOAA-Rechner höchstens zwei Minuten daneben. |
+| `sunset_utc` | `TIMESTAMP` | Sonnenuntergang in UTC, wie `sunrise_utc`. Im Sommer liegt er am **UTC-Folgetag** - gewollt, der Ortstag bleibt der Schlüssel. Hell ist eine Tat, wenn `sunrise_utc <= occurred_at_utc < sunset_utc` für dieselbe Stadt und dasselbe `date` gilt; eine Dämmerungsklasse gibt es nicht. |
+| `daylight_hours` | `DOUBLE` | Tageslänge in Stunden: `sunset_utc - sunrise_utc`. Nie `NULL`, auch an Tagen, für die NOAA noch kein Wetter geliefert hat. |
 
 ### `dim_date`
 
-Eine Zeile ist: **ein Kalendertag**. 2'140 Zeilen.
+Eine Zeile ist: **ein Kalendertag**. 2'145 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -238,7 +241,7 @@ Eine Zeile ist: **der Umriss eines Census Tract**. 1'055 Zeilen.
 
 ### `fact_offense`
 
-Eine Zeile ist: **eine Tat**. 1'887'009 Zeilen.
+Eine Zeile ist: **eine Tat**. 1'891'555 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -270,7 +273,7 @@ Eine Zeile ist: **eine Tat**. 1'887'009 Zeilen.
 
 ### `comparison_day`
 
-Eine Zeile ist: **eine Stadt, ein Tag, eine NIBRS-Kategorie**. 76'429 Zeilen.
+Eine Zeile ist: **eine Stadt, ein Tag, eine NIBRS-Kategorie**. 76'615 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -283,7 +286,7 @@ Eine Zeile ist: **eine Stadt, ein Tag, eine NIBRS-Kategorie**. 76'429 Zeilen.
 
 ### `comparison_month`
 
-Eine Zeile ist: **eine Stadt, ein Monat, eine NIBRS-Kategorie**. 3'633 Zeilen.
+Eine Zeile ist: **eine Stadt, ein Monat, eine NIBRS-Kategorie**. 3'637 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -299,7 +302,7 @@ Eine Zeile ist: **eine Stadt, ein Monat, eine NIBRS-Kategorie**. 3'633 Zeilen.
 
 ### `comparison_week`
 
-Eine Zeile ist: **eine Stadt, eine Woche ab Montag, eine NIBRS-Kategorie**. 14'275 Zeilen.
+Eine Zeile ist: **eine Stadt, eine Woche ab Montag, eine NIBRS-Kategorie**. 14'294 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -348,7 +351,7 @@ Eine Zeile ist: **ein Census Tract mit Einwohnern im Bezugsjahr 2024 (gold_pipel
 
 ### `source_movement`
 
-Eine Zeile ist: **ein bewegtes Feld einer Zeile zwischen zwei Vollabzuegen; je neuer und je verschwundener Zeile eine Zeile ohne Feld; je ruhigem Paar eine Markierungszeile ohne offense_id**. 95'484 Zeilen.
+Eine Zeile ist: **ein bewegtes Feld einer Zeile zwischen zwei Vollabzuegen; je neuer und je verschwundener Zeile eine Zeile ohne Feld; je ruhigem Paar eine Markierungszeile ohne offense_id**. 113'745 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |

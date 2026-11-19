@@ -117,13 +117,32 @@ def test_silber_tabelle_in_82(con, konzept, dataset, muster):
         ("dim_tract", r"\| `dim_tract` \|[^|]*\| ([0-9']+) \|"),
         ("dim_offense", r"\| `dim_offense` \| ein NIBRS-Delikt \| ([0-9']+) \|"),
         ("dim_date", r"\| `dim_date` \| ein Kalendertag \| ([0-9']+) \|"),
-        ("dim_city_day", r"\| `dim_city_day` \|[^|]*\| ([0-9']+) \|"),
     ],
 )
 @pytest.mark.referenzstand
 def test_gold_tabelle_in_52(con, konzept, dataset, muster):
     """Kapitel 5.2 nennt je Gold-Tabelle ihre Zeilenzahl."""
     assert genannt(konzept, muster) == zeilen(con, parquet(GOLD, dataset)), dataset
+
+
+@pytest.mark.referenzstand
+def test_dim_city_day_in_52_zaehlt_die_tage_mit_wetter(con, konzept):
+    """Kapitel 5.2 nennt ``dim_city_day`` als "Stadt und Tag, mit dem Wetter".
+
+    Seit Gold-Vertrag 9 (19.11.2026) ist die Tabelle ein Geruest aus der
+    Fallspanne und den Studienstaedten; das Wetter kommt per LEFT JOIN, und
+    an den Tagen, fuer die NOAA noch nicht geliefert hat, sind die
+    Wetterspalten NULL. Die genannte Zahl zaehlt deshalb die Zeilen **mit**
+    Wetter - bis Vertrag 8 war das dasselbe wie alle Zeilen. Ein Gold mit
+    Vertrag 8 haelt den Waechter deshalb genauso.
+    """
+    pfad = parquet(GOLD, "dim_city_day")
+    if pfad is None or not pfad.exists():
+        pytest.skip(f"nicht gebaut: {pfad}")
+    mit_wetter = con.execute(
+        f"SELECT count(*) FROM read_parquet('{pfad}') WHERE temp_max_c IS NOT NULL"
+    ).fetchone()[0]
+    assert genannt(konzept, r"\| `dim_city_day` \|[^|]*\| ([0-9']+) \|") == mit_wetter
 
 
 # --------------------------------------------------------------------------

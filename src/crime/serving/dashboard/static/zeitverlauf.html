@@ -73,11 +73,37 @@
       <div class="legende" id="l-index"></div>
     </article>
   </section>
+
+  <section class="tafel detail" id="tag-nacht">
+    <h2>Tag und Nacht</h2>
+    <p class="unterzeile" id="u-licht"></p>
+    <p class="hinweis" id="ohne-licht" hidden><span class="i">i</span><span id="t-ohne-licht"></span></p>
+    <div id="licht-inhalt">
+      <div class="raster drei">
+        <div>
+          <h3>Verteilung der Fälle</h3>
+          <div class="diagramm" id="d-licht-anteile"></div>
+          <div class="legende" id="l-licht-anteile"></div>
+        </div>
+        <div>
+          <h3>Fälle je Stunde mit und ohne Tageslicht</h3>
+          <div class="diagramm" id="d-licht-stunde"></div>
+          <div class="legende" id="l-licht-stunde"></div>
+        </div>
+        <div>
+          <h3>Anteil im Dunkeln je Kategorie</h3>
+          <div class="diagramm" id="d-licht-kategorien"></div>
+          <div class="legende" id="l-licht-kategorien"></div>
+        </div>
+      </div>
+      <p class="hinweis"><span class="i">i</span><span id="t-licht"></span></p>
+    </div>
+  </section>
 </main>
 
 <footer class="fuss">
   <span>Chicago: America/Chicago · Detroit: America/Detroit · <span id="fuss-stand"></span></span>
-  <span>Quelle: serving/comparison_month und gold/fact_offense · Zähllogik: docs/zaehlperspektiven.md</span>
+  <span>Quelle: serving/comparison_month, gold/fact_offense und gold/dim_city_day · Zähllogik: docs/zaehlperspektiven.md</span>
 </footer>
 </body>
 </html>
