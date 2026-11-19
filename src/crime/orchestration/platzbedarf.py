@@ -166,6 +166,22 @@ REGEL_JE_QUELLE: dict[str, str] = {
     # Fakten, und deshalb gilt beide Male dieselbe Regel.
     "analyse.duckdb": TATEN,
     "tracts.geojson": CENSUS,
+    # Ein Release aus der Engineering-Konsole traegt zusaetzlich admin/
+    # (platform_admin.candidates.RELEASE_ADMIN_FILES). Der Impact-Bericht
+    # hat eine Zeile je geaenderter Tat, je Tag oder Monat und je Partition;
+    # mehr als der Bestand wird es nie, und mit ihm waechst es. Die Freigabe
+    # traegt die Qualitaet je Tag mit. Beim ersten Release der Konsole
+    # (18.11.2026) waren es zusammen rund 2,7 MB.
+    "impact_report.json": TATEN,
+    "impact_by_partition.parquet": TATEN,
+    "impact_records.parquet": TATEN,
+    "impact_quality.parquet": TATEN,
+    "impact_quality_month.parquet": TATEN,
+    "source_snapshot.json": TATEN,
+    "approval.json": TATEN,
+    # admin/config: die Crosswalks und Overrides, mit denen gebaut wurde -
+    # rund 100 KB, die mit keinem Jahrgang mehr werden.
+    "config": KONSTANT,
     # Marken und Zeiger: ein paar Hundert Bytes, und sie bleiben es.
     "tracts.manifest.json": KONSTANT,
     "manifest.json": KONSTANT,

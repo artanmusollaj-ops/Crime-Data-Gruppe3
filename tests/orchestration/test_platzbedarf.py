@@ -259,6 +259,37 @@ def test_ein_release_wird_nach_seinem_inhalt_aufgeschluesselt(tmp_path):
     assert quellen["release.json"].regel == pb.KONSTANT
 
 
+def test_ein_release_der_konsole_wird_mitgemessen(tmp_path):
+    """Ein Release, das die Engineering-Konsole freigibt, traegt ``admin/``
+    mit Freigabe, Konfiguration und Impact-Bericht. Das erste davon
+    (18.11.2026) liess die Messung mit "Keine Regel fuer 'approval.json'"
+    abbrechen; ``tools/build_platzbedarf.py`` lief danach gar nicht mehr."""
+    from platform_admin.candidates import RELEASE_ADMIN_FILES
+
+    storage, _ = ablage(tmp_path)
+    kennung = "approved-0123abcd-00000000"
+    release_(storage, kennung, bytes_=300)
+    for name in RELEASE_ADMIN_FILES:
+        schreibe(storage, f"releases/release={kennung}/admin/{name}", 7)
+    schreibe(storage, f"releases/release={kennung}/admin/config/mapping_overrides.csv", 5)
+    releases = {b.quelle: b for b in pb.basis_je_jahrgang(storage)
+                if b.schicht == "releases"}
+    assert releases["admin/config"].regel == pb.KONSTANT
+    assert releases["admin/config"].bytes == 5
+    assert releases["admin/impact_records.parquet"].regel == pb.TATEN
+    assert releases["admin/approval.json"].regel == pb.TATEN
+
+
+def test_jede_datei_der_konsole_im_release_hat_eine_regel():
+    """Legt die Konsole eine weitere Datei ins Release, bricht die Messung
+    sonst erst auf ``srv01`` ab, beim ersten freigegebenen Antrag."""
+    from platform_admin.candidates import RELEASE_ADMIN_FILES
+
+    for name in (*RELEASE_ADMIN_FILES, "config"):
+        assert name in pb.REGEL_JE_QUELLE, (
+            f"admin/{name} steht im Release der Konsole, aber nicht in REGEL_JE_QUELLE")
+
+
 def test_eine_unbekannte_tabelle_bricht_ab_und_wird_genannt(tmp_path):
     """Derselbe Umweg wie beim Feldkatalog: geraten wird nichts.
 
