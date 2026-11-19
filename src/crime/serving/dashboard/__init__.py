@@ -67,6 +67,12 @@ KATEGORIEN_IM_BALKEN = 6
 UEBRIGE = "Übrige Kategorien"
 #: Wie oft hoechstens nachgesehen wird, ob ein neuer Stand vorliegt.
 PRUEFABSTAND_S = 60.0
+#: Die Regel fuer eine Platzhalter-Tatzeit: Ortszeit genau 00:00:00 oder
+#: 12:00:00 (build_kibana._PLATZHALTERSTUNDEN). Sie gilt fuer die Heatmap und
+#: fuer die Tafel »Tag und Nacht« - einmal hier, damit beide dieselben Faelle
+#: als unsicher fuehren. Erwartet ``fact_offense`` unter dem Alias ``f``.
+PLATZHALTER_SQL = ("(f.hour_of_day IN (0, 12) AND minute(f.occurred_at_local) = 0 "
+                   "AND second(f.occurred_at_local) = 0)")
 
 #: Deutsche Namen der NIBRS-Kategorien. Die Kategorien selbst stammen aus dem
 #: FBI NIBRS User Manual 2025.0 (``config/nibrs_offense_categories_2025.csv``,
@@ -261,8 +267,7 @@ class Bestand:
                    isodow(f.date) AS wochentag, f.hour_of_day AS stunde,
                    CASE WHEN f.nibrs_code IS NULL THEN 'unmapped'
                         ELSE d.nibrs_category END AS kategorie,
-                   (f.hour_of_day IN (0, 12) AND minute(f.occurred_at_local) = 0
-                    AND second(f.occurred_at_local) = 0) AS platzhalter,
+                   {PLATZHALTER_SQL} AS platzhalter,
                    count(*) FILTER (f.counts_case) AS faelle
             FROM read_parquet('{fakten}', hive_partitioning=false) f
             LEFT JOIN read_parquet('{delikte}', hive_partitioning=false) d USING (nibrs_code)
@@ -360,6 +365,11 @@ class Bestand:
         # Fuer »Wetter«: das Wetter je Stadt und Tag neben den Faellen je Tag.
         from serving.dashboard.wetter import lade_wetter
         mit_wetter = lade_wetter(con, ablage, release, fakten, delikte)
+        # Fuer »Zeitverlauf«, Tafel »Tag und Nacht«: Faelle nach Sonnenstand.
+        # Ein Release mit Vertrag <= 8 fuehrt keinen - dann nennt die Tafel
+        # den Grund, und das Dashboard laedt trotzdem.
+        from serving.dashboard.zeitverlauf import lade_licht
+        ohne_licht = lade_licht(con, ablage, release, fakten, delikte)
         stand = json.loads(monat_manifest)
         with self._sperre:
             alt = getattr(self, "_con", None)
@@ -373,6 +383,7 @@ class Bestand:
             self.beispiele = beispiele
             self.bewegung = bewegung
             self.wetter = mit_wetter
+            self.ohne_licht = ohne_licht
             self.jahre = [r[0] for r in con.execute(
                 "SELECT DISTINCT year(monat) FROM monate ORDER BY 1").fetchall()]
             self.kategorien = [r[0] for r in con.execute(

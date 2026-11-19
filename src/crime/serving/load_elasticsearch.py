@@ -319,9 +319,11 @@ INDIZES: tuple[Index, ...] = (
     ),
     Index(
         name="dim_city_day",
-        # Eine Stadt hat je Tag eine Wetterzeile; erst das Paar ist
-        # eindeutig. Gemessen: 4'196 Zeilen, ebenso viele verschiedene
-        # (city, date).
+        # Eine Stadt hat je Tag eine Zeile; erst das Paar ist eindeutig.
+        # Gemessen: 4'196 Zeilen, ebenso viele verschiedene (city, date).
+        # Seit Gold-Vertrag 9 ist die Tabelle ein Geruest aus Fallspanne und
+        # Studienstaedten - an Tagen ohne NOAA-Lieferung sind die
+        # Wetterspalten leer, ``station_id`` eingeschlossen.
         schluessel=("city", "date"),
         verteilung=("city", "station_id"),
         # ``station_name`` traegt zwei Werte ("DETROIT METRO AIRPORT, MI US"

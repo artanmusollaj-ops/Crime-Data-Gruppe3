@@ -26,7 +26,7 @@ Jede Frage wird damit ein Filter und ein ``GROUP BY`` auf einer Tabelle.
 | ``dim_tract_acs`` | ein Census Tract in einem ACS-Vintage, mit der Einwohnerzahl |
 | ``dim_offense`` | ein NIBRS-Delikt |
 | ``dim_date`` | ein Kalendertag |
-| ``dim_city_day`` | Stadt und Tag, mit dem Wetter |
+| ``dim_city_day`` | Stadt und Tag, mit Wetter und Sonnenstand |
 
 **Warum die Einwohnerzahl eine eigene Tabelle hat.** Bis zum 3.10.2026 stand
 sie in ``dim_tract``, und das ging, solange es einen einzigen Jahrgang gab:

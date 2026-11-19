@@ -14,8 +14,9 @@ import json
 import math
 import re
 import shutil
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import duckdb
 import pyarrow as pa
@@ -47,6 +48,14 @@ TRACT_STADT = {TRACT_C: "chicago", TRACT_D: "detroit",
                TRACT_KLEIN: "chicago", TRACT_LEER: "chicago"}
 
 
+ZONEN = {"chicago": ZoneInfo("America/Chicago"), "detroit": ZoneInfo("America/Detroit")}
+
+
+def utc(stadt: str, ortszeit: datetime) -> datetime:
+    """Ortszeit der Stadt als naiver UTC-Zeitpunkt, wie ``fact_offense.occurred_at_utc``."""
+    return ortszeit.replace(tzinfo=ZONEN[stadt]).astimezone(timezone.utc).replace(tzinfo=None)
+
+
 def quadrat(x: float, y: float) -> str:
     return f"POLYGON (({x} {y}, {x + 0.01} {y}, {x + 0.01} {y + 0.01}, {x} {y + 0.01}, {x} {y}))"
 
@@ -72,6 +81,9 @@ def stern(root: Path, taten: list[tuple], *, kleine: bool = False) -> Path:
         "hour_of_day": [(t[4] if len(t) > 4 else time(18, 5)).hour for t in taten],
         "occurred_at_local": [datetime.combine(t[1], t[4] if len(t) > 4 else time(18, 5))
                               for t in taten],
+        # Wie in Silver: der Zeitpunkt in UTC, aus der Ortszeit der meldenden Stadt.
+        "occurred_at_utc": [utc(t[0], datetime.combine(t[1], t[4] if len(t) > 4 else time(18, 5)))
+                            for t in taten],
         "population_vintage": [2024 if t[1].year >= 2024 else 2023 for t in taten],
     })
     schreibe(root, "dim_offense", {

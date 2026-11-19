@@ -321,6 +321,28 @@ JE_TABELLE: dict[tuple[str, str], str] = {
     ("dim_date", "date"): "Der Kalendertag. **Jeder Tag steht hier**, auch einer "
                           "ohne Delikt - sonst zeigte eine Zeitreihe eine Lücke "
                           "als Nicht-Ereignis.",
+    # Seit Gold-Vertrag 9 (19.11.2026). Gerechnet nach NOAA "General Solar
+    # Position Calculations" in gold_pipeline.build_gold.sonnenstand_sql.
+    ("dim_city_day", "sunrise_utc"):
+        "Sonnenaufgang in UTC an diesem Ortstag, nach NOAA (Zenit 90,833°) am "
+        "Schwerpunkt der Ortsgrenze aus `silver/place`. Auf die Sekunde "
+        "gerundet; gegen den NOAA-Rechner höchstens zwei Minuten daneben.",
+    ("dim_city_day", "sunset_utc"):
+        "Sonnenuntergang in UTC, wie `sunrise_utc`. Im Sommer liegt er am "
+        "**UTC-Folgetag** - gewollt, der Ortstag bleibt der Schlüssel. Hell "
+        "ist eine Tat, wenn `sunrise_utc <= occurred_at_utc < sunset_utc` für "
+        "dieselbe Stadt und dasselbe `date` gilt; eine Dämmerungsklasse gibt "
+        "es nicht.",
+    ("dim_city_day", "quality_flags"):
+        "Auffälligkeiten aus `silver/weather_day`, **benannt und nicht "
+        "entfernt** - etwa `SUSPECT_SNOWFALL`; leer, wenn nichts auffiel. "
+        "Seit Gold-Vertrag 9 steht `no_weather` an Tagen der Fallspanne, für "
+        "die NOAA noch nicht geliefert hat: Dort sind `station_id`, "
+        "`station_name` und alle Wetterspalten `NULL`, der Sonnenstand ist "
+        "gefüllt. Nie `NULL` - ClickHouse lässt eine Liste nicht leer stehen.",
+    ("dim_city_day", "daylight_hours"):
+        "Tageslänge in Stunden: `sunset_utc - sunrise_utc`. Nie `NULL`, auch "
+        "an Tagen, für die NOAA noch kein Wetter geliefert hat.",
     ("dim_offense", "nibrs_category"):
         "Die **amtliche** Deliktgliederung aus dem NIBRS User Manual 2025.0: "
         "28 Group-A- und 10 Group-B-Kategorien. Danach wird gruppiert, nicht "

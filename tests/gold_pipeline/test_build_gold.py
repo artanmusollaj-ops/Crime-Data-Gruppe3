@@ -501,10 +501,150 @@ def test_dim_city_day_wird_auf_die_spanne_beschnitten(con, tmp_path):
         date(1980, 5, 1), date(2024, 1, 1), date(2024, 1, 3), date(2024, 1, 9),
     ])
     con.execute(
-        f"CREATE OR REPLACE TEMP VIEW d AS {bg.dim_city_day_query(weather, offense)}"
+        "CREATE OR REPLACE TEMP VIEW d AS "
+        + bg.dim_city_day_query(weather, offense, place_quelle(tmp_path))
     )
-    tage = [z[0] for z in con.execute("SELECT date FROM d ORDER BY date").fetchall()]
-    assert tage == [date(2024, 1, 3)]
+    mit_wetter = [z[0] for z in con.execute(
+        "SELECT date FROM d WHERE temp_max_c IS NOT NULL ORDER BY date").fetchall()]
+    assert mit_wetter == [date(2024, 1, 3)]
+
+
+def test_dim_city_day_ist_ein_geruest_aus_fallspanne_und_staedten(con, tmp_path):
+    """Jeder Tag der Fallspanne je Stadt, auch ohne Wetter (Vertrag 9).
+
+    NOAA liefert mit Nachlauf; am 19.11.2026 reichten die Falldaten bis zum
+    15.11., das Wetter bis zum 6.11. Bis Vertrag 8 fehlten diese Tage, und
+    eine Tat dort fand keinen Sonnenstand.
+    """
+    offense = offense_quelle(tmp_path, [
+        ("a", "chicago", date(2024, 1, 2), "13A", "17031010100"),
+        ("b", "detroit", date(2024, 1, 4), "13A", "26163500100"),
+    ])
+    weather = weather_quelle(tmp_path, [date(2024, 1, 2), date(2024, 1, 3)])
+    con.execute(
+        "CREATE OR REPLACE TEMP VIEW d AS "
+        + bg.dim_city_day_query(weather, offense, place_quelle(tmp_path))
+    )
+    zeilen = con.execute(
+        "SELECT city, date, temp_max_c IS NOT NULL, sunrise_utc IS NOT NULL "
+        "FROM d ORDER BY city, date").fetchall()
+    assert [(z[0], z[1]) for z in zeilen] == [
+        (stadt, date(2024, 1, t)) for stadt in ("chicago", "detroit")
+        for t in (2, 3, 4)
+    ]
+    assert [z[2] for z in zeilen] == [True, True, False, False, False, False], (
+        "Wetter nur, wo NOAA geliefert hat - hier Chicago am 2. und 3.1."
+    )
+    assert all(z[3] for z in zeilen), "der Sonnenstand ist immer gefuellt"
+
+
+def test_ein_tag_ohne_wetter_traegt_das_flag_no_weather(con, tmp_path):
+    """Nicht NULL: ClickHouse laesst Array(String) nicht in Nullable stehen."""
+    offense = offense_quelle(tmp_path, [
+        ("a", "chicago", date(2024, 1, 2), "13A", "17031010100"),
+        ("b", "chicago", date(2024, 1, 3), "13A", "17031010100"),
+    ])
+    weather = weather_quelle(tmp_path, [date(2024, 1, 2)])
+    con.execute(
+        "CREATE OR REPLACE TEMP VIEW d AS "
+        + bg.dim_city_day_query(weather, offense, place_quelle(tmp_path))
+    )
+    flags = dict(((s, t), f) for s, t, f in con.execute(
+        "SELECT city, date, quality_flags FROM d").fetchall())
+    assert flags[("chicago", date(2024, 1, 2))] == []
+    assert flags[("chicago", date(2024, 1, 3))] == [bg.OHNE_WETTER] == ["no_weather"]
+    assert flags[("detroit", date(2024, 1, 2))] == ["no_weather"]
+
+
+def sonne_quellen(tmp_path, tage):
+    """Ein Bestand ueber ``tage`` mit den echten Schwerpunkten beider Staedte.
+
+    Die Koordinaten sind die von ``silver/place`` (Vintage 2024): Chicago
+    41,8370 / -87,6849, Detroit 42,3830 / -83,1022.
+    """
+    offense = offense_quelle(tmp_path, [
+        (f"t{i}", "chicago", tag, "13A", "17031010100") for i, tag in enumerate(tage)
+    ])
+    place = schreibe(tmp_path, "place_echt", pa.table({
+        "geoid": pa.array([CHICAGO, DETROIT]),
+        "centroid_lat": pa.array([41.8370453, 42.3830375], type=pa.float64()),
+        "centroid_lon": pa.array([-87.6849386, -83.1022365], type=pa.float64()),
+    }))
+    return weather_quelle(tmp_path, []), offense, place
+
+
+# Bezugswerte: NOAA Solar Calculator, Tabelle fuer 2024
+# (https://gml.noaa.gov/grad/solcalc/table.php, abgerufen am 19.11.2026), an
+# den Schwerpunkten aus silver/place - Chicago 41.83705 / -87.68494, Detroit
+# 42.38304 / -83.10224 -, von CDT/CST bzw. EDT/EST in UTC umgerechnet. Die
+# Tabelle nennt ganze Minuten; Gold liegt gemessen hoechstens 56 Sekunden
+# daneben (Detroit, Aufgang 21.12.). Die Toleranz ist zwei Minuten.
+SONNE_BEZUG = [
+    ("chicago", date(2024, 6, 21), datetime(2024, 6, 21, 10, 16), datetime(2024, 6, 22, 1, 29)),
+    ("chicago", date(2024, 12, 21), datetime(2024, 12, 21, 13, 15), datetime(2024, 12, 21, 22, 23)),
+    ("detroit", date(2024, 6, 21), datetime(2024, 6, 21, 9, 56), datetime(2024, 6, 22, 1, 13)),
+    ("detroit", date(2024, 12, 21), datetime(2024, 12, 21, 12, 59), datetime(2024, 12, 21, 22, 3)),
+]
+
+
+@pytest.mark.parametrize("stadt,tag,aufgang,untergang", SONNE_BEZUG)
+def test_der_sonnenstand_trifft_den_bezugswert(con, tmp_path, stadt, tag, aufgang, untergang):
+    """NOAA General Solar Position Calculations, hoechstens zwei Minuten daneben."""
+    weather, offense, place = sonne_quellen(tmp_path, [tag])
+    con.execute(f"CREATE TABLE d AS {bg.dim_city_day_query(weather, offense, place)}")
+    auf, unter, stunden = con.execute(
+        "SELECT sunrise_utc, sunset_utc, daylight_hours FROM d "
+        "WHERE city = $s AND date = $t", {"s": stadt, "t": tag}).fetchone()
+    assert abs((auf - aufgang).total_seconds()) <= 120, (stadt, tag, auf)
+    assert abs((unter - untergang).total_seconds()) <= 120, (stadt, tag, unter)
+    assert stunden == pytest.approx((unter - auf).total_seconds() / 3600)
+
+
+def test_der_sommerliche_untergang_liegt_am_utc_folgetag(con, tmp_path):
+    """Verglichen wird mit occurred_at_utc; der Ortstag bleibt der Schluessel.
+
+    Eine Tat um 20:30 CDT am 1.7. ist 01:30 UTC am 2.7. - und noch hell.
+    """
+    weather, offense, place = sonne_quellen(tmp_path, [date(2024, 7, 1)])
+    con.execute(f"CREATE TABLE d AS {bg.dim_city_day_query(weather, offense, place)}")
+    unter = con.execute("SELECT sunset_utc FROM d WHERE city = 'chicago'").fetchone()[0]
+    assert unter.date() == date(2024, 7, 2)
+    assert datetime(2024, 7, 2, 1, 25) <= unter <= datetime(2024, 7, 2, 1, 35)
+
+
+def test_die_tageslaenge_folgt_der_jahreszeit(con, tmp_path):
+    """Um die 15 Stunden im Juni, um die 9 im Dezember - und nie NULL."""
+    weather, offense, place = sonne_quellen(
+        tmp_path, [date(2024, 1, 1), date(2024, 12, 31)])
+    con.execute(f"CREATE TABLE d AS {bg.dim_city_day_query(weather, offense, place)}")
+    n, leer, kuerzest, laengst = con.execute(
+        "SELECT count(*), count(*) FILTER (daylight_hours IS NULL), "
+        "min(daylight_hours), max(daylight_hours) FROM d").fetchone()
+    assert n == 2 * 366 and leer == 0
+    assert 9.0 <= kuerzest <= 9.2 and 15.2 <= laengst <= 15.35
+    con.execute("CREATE TABLE dim_city_day AS SELECT * FROM d")
+    bg.pruefe_sonnenstand(con)
+
+
+def test_ohne_ort_in_silver_place_bricht_der_bau_ab(con, tmp_path):
+    """Sonst ginge Detroit ohne Sonnenstand ins Release."""
+    weather, offense, _ = sonne_quellen(tmp_path, [date(2024, 1, 1)])
+    nur_chicago = schreibe(tmp_path, "place_halb", pa.table({
+        "geoid": pa.array([CHICAGO]),
+        "centroid_lat": pa.array([41.8], type=pa.float64()),
+        "centroid_lon": pa.array([-87.6], type=pa.float64()),
+    }))
+    con.execute("CREATE TABLE dim_city_day AS "
+                + bg.dim_city_day_query(weather, offense, nur_chicago))
+    with pytest.raises(TransformError, match="detroit"):
+        bg.pruefe_sonnenstand(con)
+
+
+def test_die_koordinaten_kommen_aus_silver_place():
+    """Eine dritte Stadt bringt ihren Ort mit ihrer Grenze mit, nicht mit Code."""
+    quelltext = Path(bg.__file__).read_text(encoding="utf-8")
+    for koordinate in ("41.83", "-87.68", "42.38", "-83.10"):
+        assert koordinate not in quelltext, koordinate
 
 
 # --------------------------------------------------------------------------
@@ -547,7 +687,8 @@ def baue(con, tmp_path, zeilen, tracts=None):
     )
     con.execute(f"CREATE OR REPLACE TABLE dim_date AS {bg.dim_date_query(offense)}")
     con.execute(
-        f"CREATE OR REPLACE TABLE dim_city_day AS {bg.dim_city_day_query(weather, offense)}"
+        "CREATE OR REPLACE TABLE dim_city_day AS "
+        + bg.dim_city_day_query(weather, offense, place)
     )
     con.execute(f"CREATE OR REPLACE TABLE fact_offense AS {bg.fact_offense_query(offense)}")
     return offense
@@ -1152,7 +1293,8 @@ def test_dim_city_day_fuehrt_die_spurenspalten(con, tmp_path):
         "occurred_date_local": [date(2024, 1, 1), date(2024, 1, 2)],
     }))
     con.execute(
-        f"CREATE TABLE dim_city_day AS {bg.dim_city_day_query(wetter, delikte)}"
+        "CREATE TABLE dim_city_day AS "
+        + bg.dim_city_day_query(wetter, delikte, place_quelle(tmp_path))
     )
 
     spalten = [r[0] for r in con.execute("DESCRIBE dim_city_day").fetchall()]

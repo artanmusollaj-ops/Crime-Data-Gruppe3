@@ -250,3 +250,9 @@ h2.abstand { margin-top: 16px; }
 .bivariat-legende text { fill: #44505f; }
 #legende-bivariat { align-items: center; }
 #legende-bivariat .unterzeile { max-width: 640px; }
+
+/* »Zeitverlauf«, Tafel »Tag und Nacht«: drei Gruppen, drei feste Farben. */
+#tag-nacht h3 { margin: 12px 0 4px; font-size: 15px; }
+.legende .hell { --farbe: #f2b134; }
+.legende .dunkel { --farbe: #173f7a; }
+.legende .unsicher { --farbe: #c9ced6; }

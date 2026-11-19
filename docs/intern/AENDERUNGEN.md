@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'297** |
+| Tests | **3'322** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -82,7 +82,7 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
 | `silver/crime_offense` | **4** | 30.10.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig. Version 4: **Die Zuordnung ist Crosswalk plus `config/mapping_overrides.csv`** — eine Zeile dort gewinnt gegen den erzeugten Crosswalk und trägt die Herkunft `admin_review` (Einstufung `ambiguous`). Die Datei fehlt nie; ohne Korrekturen hat sie nur die Kopfzeile, und dann ist das Ergebnis dasselbe wie in Version 3 |
 | `silver/source_change` | **4** | 08.11.2026 | Unterschied zwischen aufeinanderfolgenden **Vollabzügen** je Quelle, eine Zeile je geändertem Feld; `ESRI_OID` und reine Leerzeichen ausgenommen, Zeitstempel als `beruehrt` statt als Inhaltsänderung. Version 2 ergänzte die **Datierung aus den Deltas**: `zuerst_gesehen_in`, `zuerst_gesehen_am` und `datierung` mit `delta` / `kein_delta` / `nicht_datierbar`. Gefunden wird weiter nur zwischen Vollabzügen — aus einem Delta liesse sich *verschwunden* nicht von *ruhig* unterscheiden. Version 3: Die Datierung **klebt** — sie nennt den besten je bestimmten Befund, nicht den heutigen, sonst löschte das Aufräumen der Deltas sie wieder. Version 4: Jede Zeile nennt ihre **Deliktsart** (`quellcode`, `quellkategorie` — aus dem älteren Abzug, bei `neu` aus dem jüngeren), jedes Paar seinen **Bestand** (`bestand_vorher`, `bestand_nachher`) und seinen **Jahrgang** (`jahrgang`, aus dem Manifest des Laufs). Ohne Deliktsart war nicht zu sagen, *was* verschwindet; ohne Bestand nicht, ob eine Stadt *viel* löscht. Beides klebt wie die Datierung und wird für ältere Paare nachgetragen, solange ihre Schnappschüsse lesbar sind |
-| `gold/*` | **8** | 14.10.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften | Version 6: Die ACS-Masse liegen **je Vintage** in der neuen Tabelle `dim_tract_acs` (`population`, `median_household_income_usd`, `poverty_rate`); `dim_tract` behält die Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie kommt; `fact_offense` trägt `population_vintage` und sagt damit je Zeile, welcher Nenner für sie gilt. Eine Tabelle mit einer Zeile je Tract konnte nur eine Einwohnerzahl tragen — über mehrere Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021 Version 7: `dim_date` trägt `year_is_complete` — ob der Jahrgang dieses Tages ganz in den Daten liegt. Ein Teiljahr darf nicht in einen Jahresvergleich geraten: 2026 hat am 3.10. neun Monate, und neun gegen zwölf gestellt ergeben einen Rückgang, den es nicht gibt. Dazu im Manifest von `fact_offense` der Nachweis `year_coverage` je Jahrgang, mit `days_with_offenses` gegen `days_in_year` — denn eine Lücke **innerhalb** des Jahres sieht man an der Spalte nicht Version 8: Die neue Tabelle `dim_tract_geo` trägt den **Umriss** je Tract der beiden Studienstädte als WKT — 1'055 Zeilen, vereinfacht mit Douglas-Peucker 0,00002 Grad (rund zwei Meter, 0,0002 % Fläche je Tract). Sie ist die Grundlage der Choroplethenkarte in Kibana, die eine Fläche braucht und mit dem Schwerpunkt in `dim_tract` nichts anfangen kann. **Eigene Tabelle und keine Spalte an `dim_tract`:** Die Dimension deckt beide Countys ab (6'282 Zeilen) und wäre mit Umrissen 26 MB statt 194 KB; `dim_tract_geo` kostet 133 KB. Keine Kennzahl darin — wer färben will, verbindet über `geoid`
+| `gold/*` | **9** | 19.11.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften | Version 6: Die ACS-Masse liegen **je Vintage** in der neuen Tabelle `dim_tract_acs` (`population`, `median_household_income_usd`, `poverty_rate`); `dim_tract` behält die Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie kommt; `fact_offense` trägt `population_vintage` und sagt damit je Zeile, welcher Nenner für sie gilt. Eine Tabelle mit einer Zeile je Tract konnte nur eine Einwohnerzahl tragen — über mehrere Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021 Version 7: `dim_date` trägt `year_is_complete` — ob der Jahrgang dieses Tages ganz in den Daten liegt. Ein Teiljahr darf nicht in einen Jahresvergleich geraten: 2026 hat am 3.10. neun Monate, und neun gegen zwölf gestellt ergeben einen Rückgang, den es nicht gibt. Dazu im Manifest von `fact_offense` der Nachweis `year_coverage` je Jahrgang, mit `days_with_offenses` gegen `days_in_year` — denn eine Lücke **innerhalb** des Jahres sieht man an der Spalte nicht Version 8: Die neue Tabelle `dim_tract_geo` trägt den **Umriss** je Tract der beiden Studienstädte als WKT — 1'055 Zeilen, vereinfacht mit Douglas-Peucker 0,00002 Grad (rund zwei Meter, 0,0002 % Fläche je Tract). Sie ist die Grundlage der Choroplethenkarte in Kibana, die eine Fläche braucht und mit dem Schwerpunkt in `dim_tract` nichts anfangen kann. **Eigene Tabelle und keine Spalte an `dim_tract`:** Die Dimension deckt beide Countys ab (6'282 Zeilen) und wäre mit Umrissen 26 MB statt 194 KB; `dim_tract_geo` kostet 133 KB. Keine Kennzahl darin — wer färben will, verbindet über `geoid` Version 9: `dim_city_day` ist ein **Gerüst** aus der Spanne der Falldaten und jeder Studienstadt; das Wetter kommt per LEFT JOIN, und an Tagen, für die NOAA noch nicht geliefert hat, sind die Wetterspalten `NULL`. Dazu je Stadt und Tag `sunrise_utc`, `sunset_utc` und `daylight_hours` nach NOAA „General Solar Position Calculations“ (Zenit 90,833°) am Schwerpunkt der Ortsgrenze aus `silver/place`, immer gefüllt. Der Untergang liegt im Sommer am UTC-Folgetag; hell heisst `sunrise_utc <= occurred_at_utc < sunset_utc` für dieselbe Stadt und dasselbe `date`. Tage ohne Wetter tragen in `quality_flags` das Flag `no_weather`
 | `serving/comparison_*` | **3** | 01.11.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` Version 2: `rate_tract` kommt dazu — eine Zeile je Tract **mit Einwohnern** im Bezugsjahr (`gold_pipeline.RATENJAHR`), mit Fällen, Taten, Einwohnerzahl und beiden Raten je 1'000. Gerechnet wird sie mit **derselben** Abfrage, die `gold_pipeline.raten_je_tract` auch dem Wächter der Kibana-Ratenkachel stellt, nicht mit einer zweiten. Sie entsteht, weil Kibanas Karte eine Fläche nach **einem** Feld einfärbt und zwischen zwei verbundenen Feldern nicht rechnen kann — und eine Karte nach Fallzahlen wäre hier irreführend: Die Einwohnerzahl je Tract reicht von 35 bis 13'521 (2024, Median 2'861). Tracts ohne Einwohner fehlen, für sie ist keine Rate definiert. Version 3: **`days_in_window` misst am Fenster je meldender Stadt**, nicht mehr am gemeinsamen beider. Chicagos Daten enden am 26.9.2026, Detroits am 4.10.; mit dem gemeinsamen Fenster hiess Chicagos September vollständig, obwohl vier Tage fehlten (C-10) |
 | `serving/source_movement` | 1 | 08.11.2026 | die Quellbewegung im Release, eine Zeile je bewegtem Feld, je neuer und je verschwundener Zeile und je ruhigem Paar wie in `silver/source_change`; Arten übersetzt (`changed`, `touched`, `added`, `removed`, `unchanged`), Zeitstempel als `is_stamp` markiert, Deliktsart über den heute gültigen Crosswalk samt Overrides auf `nibrs_code` gebracht. `event_year` nennt den Tatjahrgang des Paares. Liest als einzige Serving-Tabelle aus Silver: Sie beschreibt die Quelle, nicht die Taten, und steht deshalb nicht im Stern. Ohne `silver/source_change` leer, mit Vermerk |
 
@@ -109,6 +109,68 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 19.11.2026 · Tag und Nacht: Sonnenstand in Gold, Aufteilung der Fälle im Dashboard (Branch `tag-nacht-aufteilung`)
+
+Die LN1-Rückmeldung nannte „Licht- und Tageslängendaten nicht nachgewiesen“.
+Die Stundenheatmap zeigt Uhrzeiten, aber keine Uhrzeit sagt, ob es hell war —
+das hängt an Jahreszeit und Ort.
+
+**Gold, Vertrag 9.** `dim_city_day` trägt je Stadt und Tag `sunrise_utc`,
+`sunset_utc` und `daylight_hours`. Gerechnet wird in SQL nach NOAA „General
+Solar Position Calculations“ (Zenit 90,833°), am Schwerpunkt der Ortsgrenze
+aus `silver/place` — keine Koordinate im Code, eine dritte Stadt bringt ihren
+Ort mit. Gegen die Tabelle des NOAA Solar Calculator (gml.noaa.gov, 2024, an
+denselben Schwerpunkten) liegen Auf- und Untergang am 21.6. und 21.12.2024
+für beide Städte höchstens 56 Sekunden daneben (Detroit, Aufgang 21.12.).
+An Tagen ohne NOAA-Wetter trägt `quality_flags` das Flag `no_weather` statt
+`NULL` — ClickHouse lässt `Array(String)` nicht in `Nullable` stehen. Dafür ist die Tabelle jetzt ein
+**Gerüst** aus der Spanne der Falldaten × jeder Studienstadt, das Wetter
+kommt per LEFT JOIN (Entscheid 19.11., Christian). Lokal heisst das 4'290
+statt 4'272 Zeilen: Die Falldaten reichen bis zum 15.11., das Wetter bis zum
+6.11.; an diesen neun Tagen je Stadt sind die Wetterspalten `NULL`, der
+Sonnenstand ist gefüllt. Ein Tag ohne Sonnenstand bricht den Bau ab
+(`pruefe_sonnenstand`). Das Brett »Wetter« liess Tage mit `tmax IS NULL`
+schon vorher aus.
+
+**Dashboard.** »Zeitverlauf« hat unter der Heatmap die Tafel „Tag und Nacht“:
+je Stadt die Fälle (`counts_case`) in Tageslicht, Dunkelheit und „Uhrzeit
+unsicher“ — dieselben Platzhalter wie in der Heatmap, Ortszeit genau 00:00:00
+oder 12:00:00. Die Regel steht jetzt einmal als
+`serving.dashboard.PLATZHALTER_SQL`. Dazu die Fälle je heller und je dunkler
+Stunde, geteilt durch die Stunden mit und ohne Licht im Datenfenster der
+Stadt (Dunkelstunden = 24 − `daylight_hours`, die Tage der Zeitumstellung
+vernachlässigt), und der Dunkel-Anteil je Kategorie für die acht häufigsten.
+Eine Dämmerungsklasse gibt es nicht. Ein Release mit Vertrag 8 oder älter
+lädt weiter; die Tafel nennt dann den Grund.
+
+Gemessen am lokalen Gold, Jahrgang 2024: Chicago 52,6 % hell, 41,4 % dunkel,
+6,0 % unsicher, 30,6 gegen 24,9 Fälle je Stunde; Detroit 51,5 / 43,0 / 5,5 %,
+9,3 gegen 8,0. Über alle Jahrgänge ist Detroits Fahrzeugdiebstahl zu 62,5 %
+dunkel. Keine dieser Zahlen steht in einem Abgabedokument.
+
+**Was nicht angefasst ist.** Die Zahl 4'272 in `ln2_konzept.md` 5.2 bleibt.
+Ihr Wächter `test_dim_city_day_in_52_zaehlt_die_tage_mit_wetter` zählt jetzt
+die Zeilen **mit** Wetter — bis Vertrag 8 war das dasselbe wie alle Zeilen.
+`docs/platzbedarf.md` und `einstieg.html` hängen an der Entscheidung zum
+Datenstand und bleiben ebenfalls. `docs/feldkatalog.md` ist neu erzeugt und
+nennt damit die Zeilenzahlen des lokalen Stands vom 18.11. Notebook 34
+bleibt unverändert, obwohl seine Abfrage „warme gegen kalte Tage“ jetzt eine
+Gruppe `NULL` für die Tage ohne Wetter zeigt: Der Nachweis
+`2026-11-14_1a77e8b` hält den Code des Notebooks per Hash fest, und die
+Korrektur gehört zur nächsten Erneuerung der Nachweise (`deferred-work.md`).
+
+**Wächter.** In `tests/gold_pipeline/test_build_gold.py`: vier Bezugswerte
+(beide Städte, Sommer und Winter), der Untergang am UTC-Folgetag, die
+Tageslänge, das Gerüst ohne Wetter, der Abbruch ohne Ort in `silver/place`
+und keine Koordinate im Quelltext. Neu `tests/serving/test_tag_nacht.py`
+(UTC-Tageswechsel, Platzhalter, 12:00:30, Summe gleich den Fällen des Bretts,
+Normierung je Stunde, Kategorien, altes Release, API) und in
+`tests/serving/test_wetter.py` ein Tag ohne Wetter.
+
+**Zahlen.** 3'297 → **3'322 Tests**, Standardlauf 3'186 → **3'211**. Im
+Linux-CI-Lauf hochgerechnet 3'102 → 3'127; die neuen Tests brauchen weder
+Daten noch Dienste.
 
 ## 19.11.2026 · Der Platzbedarf misst auch ein Release der Konsole (Branch `platzbedarf-konsolen-release`)
 

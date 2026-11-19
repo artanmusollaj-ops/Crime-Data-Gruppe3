@@ -80,7 +80,7 @@ from silver_pipeline import (
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
-CONTRACT_VERSION = 8
+CONTRACT_VERSION = 9
 
 DEFAULT_VINTAGE = 2024
 NIBRS_CODES = "nibrs_offense_codes_2025.csv"
@@ -552,12 +552,82 @@ def dim_date_query(offense: Quelle) -> str:
     """
 
 
-def dim_city_day_query(weather: Quelle, offense: Quelle) -> str:
-    """Stadt und Tag mit dem Wetter, auf die Spanne der Falldaten beschnitten.
+#: Der Zenit, bei dem die Sonne auf- oder untergeht: 90 Grad plus 0,833 fuer
+#: die Brechung in der Atmosphaere und den Sonnenradius - der Wert, den NOAA
+#: fuer Auf- und Untergang nennt (Quelle siehe ``sonnenstand_sql``).
+SONNENZENIT_GRAD = 90.833
+
+#: Das Flag in ``dim_city_day.quality_flags`` fuer einen Tag des Geruests, fuer
+#: den NOAA noch kein Wetter geliefert hat.
+OHNE_WETTER = "no_weather"
+
+
+def sonnenstand_sql(tag: str, lat: str, lon: str) -> dict[str, str]:
+    """Sonnenauf- und -untergang in UTC fuer einen Ortstag, als SQL-Ausdruecke.
+
+    Quelle der Formeln: NOAA Global Monitoring Division, "General Solar
+    Position Calculations",
+    https://gml.noaa.gov/grad/solcalc/solareqns.PDF - Bruchteil des Jahres,
+    Zeitgleichung, Deklination, Stundenwinkel bei 90,833 Grad Zenit und daraus
+    Auf- und Untergang in Minuten nach Mitternacht UTC.
+
+    Der Bruchteil des Jahres wird zur Mittagsstunde des Tages genommen
+    (``dayofyear - 1``); NOAA rechnet ihn auf die Stunde genau. Der Fehler
+    bleibt unter zwei Minuten gegen den NOAA-Rechner, und eine Tat wird auf
+    die Sekunde eingeordnet, nicht auf die Minute - wer am Rand liegt, liegt
+    in der Daemmerung, die das Brett ohnehin nicht trennt.
+
+    Die Minuten zaehlen ab Mitternacht UTC **des Ortstags**. In Chicago und
+    Detroit liegt der Untergang deshalb im Sommer nach 24:00 UTC, also am
+    UTC-Folgetag - gewollt: Verglichen wird mit ``occurred_at_utc``, und der
+    Ortstag bleibt der Schluessel.
+    """
+    g = (f"(2 * pi() / dayofyear(make_date(year({tag}), 12, 31)) "
+         f"* (dayofyear({tag}) - 1))")
+    eq = (f"(229.18 * (0.000075 + 0.001868 * cos({g}) - 0.032077 * sin({g}) "
+          f"- 0.014615 * cos(2 * {g}) - 0.040849 * sin(2 * {g})))")
+    dec = (f"(0.006918 - 0.399912 * cos({g}) + 0.070257 * sin({g}) "
+           f"- 0.006758 * cos(2 * {g}) + 0.000907 * sin(2 * {g}) "
+           f"- 0.002697 * cos(3 * {g}) + 0.00148 * sin(3 * {g}))")
+    ha = (f"degrees(acos(cos(radians({SONNENZENIT_GRAD})) "
+          f"/ (cos(radians({lat})) * cos({dec})) "
+          f"- tan(radians({lat})) * tan({dec})))")
+
+    def zeitpunkt(vorzeichen: str) -> str:
+        minuten = f"(720 - 4 * ({lon} {vorzeichen} {ha}) - {eq})"
+        # Auf die Sekunde gerundet: Mehr Genauigkeit gibt die Formel nicht her,
+        # und eine ganze Sekunde laesst sich in jedem Lader darstellen.
+        return (f"(CAST({tag} AS TIMESTAMP) + to_microseconds("
+                f"CAST(round({minuten} * 60) AS BIGINT) * 1000000))")
+
+    return {"sunrise_utc": zeitpunkt("+"), "sunset_utc": zeitpunkt("-")}
+
+
+def dim_city_day_query(weather: Quelle, offense: Quelle, place: Quelle) -> str:
+    """Stadt und Tag ueber die Spanne der Falldaten, mit Wetter und Sonnenstand.
+
+    **Das Geruest sind die Falldaten, nicht das Wetter** (Vertrag 9). Jeder
+    Tag der Fallspanne steht je Studienstadt (``STADT_SCHLUESSEL``) einmal da;
+    das Wetter kommt per LEFT JOIN dazu. NOAA veroeffentlicht mit rund vier
+    Tagen Nachlauf - am 19.11.2026 reichten die Falldaten bis zum 15.11., das
+    Wetter bis zum 6.11. An diesen Tagen sind die Wetterspalten NULL, der
+    Sonnenstand ist immer gefuellt, und ``quality_flags`` traegt
+    ``no_weather``. Bis Vertrag 8 fehlten diese Tage ganz,
+    und eine Tat dort fand keinen Sonnenstand.
 
     Die Wetterquelle reicht bis 1942 zurueck. Fuer Gold zaehlt der Jahrgang,
     den die Falldaten abdecken; alles andere blaeht die Dimension auf, ohne
     eine Frage zu beantworten.
+
+    **Sonnenstand.** ``sunrise_utc`` und ``sunset_utc`` nach NOAA
+    (``sonnenstand_sql``), am Schwerpunkt der Ortsgrenze aus ``silver/place``
+    (``centroid_lat``, ``centroid_lon``). Keine Koordinate im Code - eine
+    dritte Stadt bringt ihren Ort mit ihrer Grenze mit. Ueber die Breite
+    einer Stadt verschiebt sich der Aufgang um wenige Minuten; das ist der
+    Preis eines Punktes je Stadt. ``daylight_hours`` ist Untergang minus
+    Aufgang in Stunden. Hell ist eine Tat, wenn ``sunrise_utc <=
+    occurred_at_utc < sunset_utc`` fuer dieselbe Stadt und denselben Ortstag
+    (``fact_offense.date``) gilt.
 
     **Warum die beiden Spurenspalten mitkommen.** NOAA kennt ein Messflag
     ``T``: gefallen, aber unter der Aufloesung des Geraets. Der Messwert ist
@@ -571,14 +641,41 @@ def dim_city_day_query(weather: Quelle, offense: Quelle) -> str:
     Tabelle ansehen. Konzept 9.3 verlangt ausdruecklich, dass die
     Spurenmengen in Gold erhalten bleiben.
     """
+    staedte = ", ".join(
+        f"('{geoid}', '{schluessel}')"
+        for geoid, schluessel in sorted(STADT_SCHLUESSEL.items())
+    )
+    sonne = sonnenstand_sql("g.date", "g.lat", "g.lon")
     return f"""
     WITH spanne AS (
         SELECT min(occurred_date_local) AS von, max(occurred_date_local) AS bis
         FROM {offense.relation}
+    ),
+    studienstadt(city_geoid, city) AS (VALUES {staedte}),
+    -- Je geoid eine Zeile: silver/place fuehrt eine je Vintage, gelesen wird
+    -- schon das Referenz-Vintage. any_value nur, damit eine doppelte Zeile
+    -- keine Tage verdoppelt.
+    ort AS (
+        SELECT s.city, any_value(p.centroid_lat) AS lat,
+               any_value(p.centroid_lon) AS lon
+        FROM studienstadt s
+        LEFT JOIN {place.relation} p ON p.geoid = s.city_geoid
+        GROUP BY s.city
+    ),
+    geruest AS (
+        SELECT o.city, CAST(t.tag AS DATE) AS date, o.lat, o.lon
+        FROM spanne, ort o,
+             unnest(generate_series(spanne.von, spanne.bis, INTERVAL 1 DAY)) AS t(tag)
+    ),
+    sonne AS (
+        SELECT g.city, g.date,
+               {sonne["sunrise_utc"]} AS sunrise_utc,
+               {sonne["sunset_utc"]} AS sunset_utc
+        FROM geruest g
     )
     SELECT
-        w.city                                          AS city,
-        w.date                                          AS date,
+        s.city                                          AS city,
+        s.date                                          AS date,
         w.station_id                                    AS station_id,
         w.station_name                                  AS station_name,
         w.temp_max_c                                    AS temp_max_c,
@@ -587,9 +684,17 @@ def dim_city_day_query(weather: Quelle, offense: Quelle) -> str:
         w.snowfall_mm                                   AS snowfall_mm,
         w.precipitation_trace                           AS precipitation_trace,
         w.snowfall_trace                                AS snowfall_trace,
-        w.quality_flags                                 AS quality_flags
-    FROM {weather.relation} w, spanne
-    WHERE w.date BETWEEN spanne.von AND spanne.bis
+        -- Ein Tag ohne NOAA-Lieferung traegt das Flag no_weather statt NULL:
+        -- ClickHouse laesst Array(String) nicht in Nullable stehen
+        -- (load_clickhouse.NICHT_NULLBAR), und benannt ist besser als leer.
+        coalesce(w.quality_flags, ['{OHNE_WETTER}'])    AS quality_flags,
+        s.sunrise_utc                                   AS sunrise_utc,
+        s.sunset_utc                                    AS sunset_utc,
+        -- Aus den gerundeten Zeitpunkten, damit Untergang - Aufgang genau
+        -- die Tageslaenge ist und keine zweite, ungerundete Rechnung.
+        (epoch(s.sunset_utc) - epoch(s.sunrise_utc)) / 3600.0 AS daylight_hours
+    FROM sonne s
+    LEFT JOIN {weather.relation} w ON w.city = s.city AND w.date = s.date
     ORDER BY city, date
     """
 
@@ -955,6 +1060,28 @@ def zuordnung_je_jahrgang(
     return ergebnis
 
 
+def pruefe_sonnenstand(con) -> None:
+    """Bricht ab, wenn ``dim_city_day`` einen Tag ohne Sonnenstand fuehrt.
+
+    Das geschieht, wenn eine Studienstadt keine Zeile in ``silver/place`` hat:
+    Das Geruest stellt ihre Tage trotzdem auf, und ohne Ort bleibt der
+    Sonnenstand NULL. Eine Auswertung nach Tag und Nacht zaehlte ihre Taten
+    dann stillschweigend als "unbekannt" - das soll nicht veroeffentlicht
+    werden.
+    """
+    fehlend = con.execute("""
+        SELECT city, count(*) FROM dim_city_day
+        WHERE sunrise_utc IS NULL OR sunset_utc IS NULL OR daylight_hours IS NULL
+        GROUP BY 1 ORDER BY 1
+    """).fetchall()
+    if fehlend:
+        raise TransformError(
+            "dim_city_day ohne Sonnenstand: "
+            + ", ".join(f"{stadt} ({n} Tage)" for stadt, n in fehlend)
+            + ". Fehlt die Stadt in silver/place (centroid_lat, centroid_lon)?"
+        )
+
+
 def pruefe_gate(anteile: dict[str, float],
                 je_stadt: dict[str, dict[str, float]] | None = None) -> None:
     """Das Publish-Gate: Gold wird nur veroeffentlicht, wenn die Abdeckung traegt.
@@ -1282,8 +1409,10 @@ def build(data_root: Path, config_root: Path, vintage: int,
         )
         con.execute(f"CREATE TABLE dim_date AS {dim_date_query(offense)}")
         con.execute(
-            f"CREATE TABLE dim_city_day AS {dim_city_day_query(weather, offense)}"
+            f"CREATE TABLE dim_city_day AS "
+            f"{dim_city_day_query(weather, offense, place)}"
         )
+        pruefe_sonnenstand(con)
         con.execute("CREATE TABLE fact_offense AS "
                     + fact_offense_query(offense, vintages=vintages))
 
@@ -1381,8 +1510,20 @@ def build(data_root: Path, config_root: Path, vintage: int,
             ("dim_date", "ein Kalendertag", [offense],
              {"vollstaendig": "auch Tage ohne Delikt, sonst zeigt eine "
                               "Zeitreihe eine Luecke als Nicht-Ereignis"}),
-            ("dim_city_day", "eine Stadt an einem Tag", [weather, offense],
-             {"spanne": "auf die Spanne der Falldaten beschnitten",
+            ("dim_city_day", "eine Stadt an einem Tag", [weather, offense, place],
+             {"spanne": (
+                 "jeder Tag der Fallspanne je Studienstadt; das Wetter per "
+                 "LEFT JOIN. Tage, fuer die NOAA noch nicht geliefert hat, "
+                 "fuehren NULL in den Wetterspalten und station_id/"
+                 f"station_name; quality_flags traegt dann {OHNE_WETTER}"),
+              "sonnenstand": (
+                  "sunrise_utc und sunset_utc nach NOAA General Solar "
+                  f"Position Calculations, Zenit {SONNENZENIT_GRAD} Grad, am "
+                  "Schwerpunkt der Ortsgrenze aus silver/place. Der "
+                  "Untergang liegt im Sommer am UTC-Folgetag. Hell heisst "
+                  "sunrise_utc <= occurred_at_utc < sunset_utc fuer dieselbe "
+                  "Stadt und denselben Ortstag. daylight_hours ist Untergang "
+                  "minus Aufgang. Keine Daemmerungsklasse"),
               "spurenmengen": (
                   "precipitation_trace und snowfall_trace tragen NOAAs Flag "
                   "T: gefallen, aber unter der Aufloesung. Der Messwert ist "
