@@ -15,6 +15,19 @@ from types import SimpleNamespace
 
 from .store import AdminError, encode, now
 
+# What a reviewed candidate carries under admin/ besides config/: the impact
+# report it was reviewed with, and the approval record. Space planning
+# (orchestration.platzbedarf.REGEL_JE_QUELLE) needs a rule for each of them.
+RELEASE_ADMIN_REPORT = (
+    "impact_report.json",
+    "impact_by_partition.parquet",
+    "impact_records.parquet",
+    "impact_quality.parquet",
+    "impact_quality_month.parquet",
+    "source_snapshot.json",
+)
+RELEASE_ADMIN_FILES = (*RELEASE_ADMIN_REPORT, "approval.json")
+
 
 def file_hash(path):
     h = hashlib.sha256()
@@ -250,14 +263,7 @@ def build(store, job, spec, folder, runner, evaluator):
             datenbank(work, core)
             admin.mkdir()
             shutil.copytree(config, admin / "config")
-            for name in (
-                "impact_report.json",
-                "impact_by_partition.parquet",
-                "impact_records.parquet",
-                "impact_quality.parquet",
-                "impact_quality_month.parquet",
-                "source_snapshot.json",
-            ):
+            for name in RELEASE_ADMIN_REPORT:
                 shutil.copyfile(folder / name, admin / name)
             (admin / "approval.json").write_text(
                 json.dumps(

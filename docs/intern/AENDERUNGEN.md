@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'295** |
+| Tests | **3'297** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
@@ -109,6 +109,40 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 19.11.2026 · Der Platzbedarf misst auch ein Release der Konsole (Branch `platzbedarf-konsolen-release`)
+
+Das erste Release, das die Engineering-Konsole freigab
+(`approved-9d265b70…-435090e1`, 18.11.2026), liess die Hochrechnung des
+Platzbedarfs abbrechen: „Keine Regel fuer 'approval.json'". Ein solches
+Release trägt neben Gold, Serving und `silver/crime_offense` einen Ordner
+`admin/` mit der Freigabe, der Konfiguration, mit der gebaut wurde, und dem
+Impact-Bericht. Für keinen dieser Einträge stand eine Regel in
+`orchestration.platzbedarf.REGEL_JE_QUELLE`, und `tools/build_platzbedarf.py`
+lief auf diesem Stand gar nicht mehr. Aufgefallen ist es beim
+Referenzstand-Lauf gegen das neue Release.
+
+Jetzt hat jeder Eintrag eine Regel. Die sechs Dateien des Impact-Berichts und
+`approval.json` wachsen mit den Taten: eine Zeile je geänderter Tat, je Tag
+oder Monat und je Partition, nie mehr als der Bestand. `admin/config` ist
+konstant. Zusammen waren es im ersten Release rund 2,7 MB von 359 MB. Die
+Liste dieser Dateien stand bisher nur in der Schleife, die sie kopiert. Jetzt
+ist sie eine Konstante (`platform_admin.candidates.RELEASE_ADMIN_FILES`),
+und ein Test hält sie gegen die Regeln.
+
+Die Zahlen in `docs/platzbedarf.md` ändern sich mit diesem Eintrag nicht. Das
+Dokument wird aus `data/` erzeugt und steht auf dem Stand vom 12.11.; es
+nachzuziehen gehört zur Entscheidung, auf welchem Datenstand die Abgabe
+zählt.
+
+**Wächter.** In `tests/orchestration/test_platzbedarf.py`:
+`test_ein_release_der_konsole_wird_mitgemessen` (ein Release mit `admin/`
+wird gemessen, mit den Regeln Taten und konstant) und
+`test_jede_datei_der_konsole_im_release_hat_eine_regel`.
+
+**Zahlen.** 3'295 → **3'297 Tests**, Standardlauf 3'184 → **3'186**. Im
+Linux-CI-Lauf hochgerechnet 3'100 → 3'102; beide Tests brauchen weder Daten
+noch Dienste.
 
 ## 18.11.2026 · Die Konsole führt Aufträge nach höchstens einer Minute aus (Branch `konsole-takt-jede-minute`)
 
