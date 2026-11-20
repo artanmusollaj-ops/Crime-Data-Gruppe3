@@ -487,10 +487,10 @@ Sie ist die **Bedeutung**. Jede angezeigte Zahl trägt eine Entscheidung, die
 dieses Projekt bewusst sichtbar gemacht hat:
 
 - **Welche Granularität?** Detroit steht im Jahrgang 2024 auf Fallebene bei
-  124,7 je 1'000, auf Tatebene bei 134,0. Beide richtig, verschiedene
+  124,7 je 1'000, auf Tatebene bei 134,1. Beide richtig, verschiedene
   Aussagen — vorn steht die Fallebene, und beide nur mit ihrem Jahr.
 - **Was zählt mit?** `geo_status` sagt, warum eine Zeile in einer
-  Tract-Auswertung fehlt — 33'654 Fälle liegen ausserhalb, 1,14 % haben
+  Tract-Auswertung fehlt — 33'665 Fälle liegen ausserhalb, 1,15 % haben
   keine Koordinate.
 - **Wie sicher ist die Zuordnung?** `mapping_status`: `exact`, `ambiguous`,
   `fallback_90Z`.
@@ -506,7 +506,7 @@ Grundsätze:
 1. **Die Granularität ist ein Schalter, keine Annahme.** Tat- oder Fallebene
    gehört sichtbar in die Kopfzeile, nicht in eine Fussnote.
 2. **Jede Kennzahl nennt ihren Nenner und ihre Ausschlüsse.** *„94,5 je
-   1'000 — von 251'512 Delikten in Tracts der Stadt; 1'753 ohne Koordinate
+   1'000 — von 251'513 Delikten in Tracts der Stadt; 2'172 ohne Koordinate
    nicht enthalten."*
 3. **Was fehlt, wird gezeigt, nicht weggelassen.** Ein Tract ohne Einwohner
    bekommt keine Rate, sondern eine eigene Farbe. Sonst liest jemand die

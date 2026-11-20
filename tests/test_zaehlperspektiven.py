@@ -470,7 +470,10 @@ def test_der_manifesteintrag_nennt_die_zahl_der_laeufe(text):
         "das Dokument nennt die Zahl der Bronze-Laeufe je Stadt nicht mehr in "
         "der Form '(N für Chicago, M für Detroit)'"
     )
-    genannt = tuple(WORTZAHL.get(w.lower()) for w in treffer.groups())
+    # Seit den Detroiter Deltas waechst die Zahl mit jedem Lauf (36 am
+    # 20.11.2026); das Dokument nennt sie dann als Ziffer statt als Wort.
+    genannt = tuple(int(w) if w.isdigit() else WORTZAHL.get(w.lower())
+                    for w in treffer.groups())
     assert None not in genannt, (
         f"unbekanntes Zahlwort in {treffer.groups()} - dann in WORTZAHL ergaenzen"
     )

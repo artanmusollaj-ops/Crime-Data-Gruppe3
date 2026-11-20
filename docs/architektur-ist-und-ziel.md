@@ -33,10 +33,10 @@ Die Strecke führt zwei unvergleichbare Quellen in eine vergleichbare Tabelle
 | --- | --- | --- | ---: |
 | **raw** | die Antwort der Quelle, Byte für Byte, mit SHA-256 | nichts deuten, nichts umformen | 554,7 MB |
 | **bronze** | Parquet mit gepinntem Schema, Originaltypen | nichts deuten; Unerwartetes nach `_extra` statt in den Papierkorb | 614,8 MB |
-| **silver** | deuten: Typen, Einheiten, Zeitzonen, NIBRS, Raum | nichts wegwerfen — Lücken werden gekennzeichnet, nicht gefiltert | 216,0 MB |
-| **gold** | Sternschema, eine Zeile je **Tat** | nicht aggregieren | 87,3 MB |
-| **serving** | abfragbar machen: Sichten, fünf Vergleichstabellen, Karte | nicht der Bestand sein | 2,7 MB |
-| **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 1'303,9 MB |
+| **silver** | deuten: Typen, Einheiten, Zeitzonen, NIBRS, Raum | nichts wegwerfen — Lücken werden gekennzeichnet, nicht gefiltert | 218,4 MB |
+| **gold** | Sternschema, eine Zeile je **Tat** | nicht aggregieren | 88,0 MB |
+| **serving** | abfragbar machen: Sichten, fünf Vergleichstabellen, Karte | nicht der Bestand sein | 3,1 MB |
+| **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 1'852,8 MB |
 
 Die Grössen sind **gemessen, nicht geschätzt** — `python -m
 orchestration.platzbedarf` liest sie über `storage` aus den Schichten, und
@@ -47,23 +47,24 @@ Tabelle und dieselbe Tabelle im
 allein nachzuziehen genügt nicht.
 
 **Der Stand in Zahlen** — der Referenzstand, auf den sich alle
-Abgabedokumente beziehen:
+Abgabedokumente beziehen — derzeit ein
+Zwischenstand vom 20.11.2026 (Release `2026-11-20T10-08-03Z`), nicht der Abgabestand:
 
 Die beiden Zeilenzahlen sind der **Bestand** über alle sechs Jahrgänge, die
 Raten darunter gelten für den **Jahrgang 2024**, vorn auf der Fallebene (je
 Vorfall das schwerste Delikt), darunter auf der Tatebene. Das ist kein
 Versehen, sondern der Unterschied zwischen „was liegt hier?" und „wie hoch ist
 die Rate?": Ein Zähler über sechs Jahre auf einem Nenner von einem ergibt
-509,7 je 1'000 — eine Zahl, die aussieht wie eine Zahl.
+511,7 je 1'000 — eine Zahl, die aussieht wie eine Zahl.
 
 | | |
 | --- | ---: |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
-| `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
-| Chicago | 251'482 Fälle · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 79'614 Fälle · 638'635 Einwohner · **124,7** je 1'000 |
-| Tatebene (`fact_offense`) | Chicago 251'512 · Detroit 85'557 Taten; je 1'000: Chicago **94,5** · Detroit **134,0** |
+| `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
+| Chicago | 251'483 Fälle · 2'661'953 Einwohner · **94,5** je 1'000 |
+| Detroit | 79'615 Fälle · 638'635 Einwohner · **124,7** je 1'000 |
+| Tatebene (`fact_offense`) | Chicago 251'513 · Detroit 85'660 Taten; je 1'000: Chicago **94,5** · Detroit **134,1** |
 
 **Warum raw und bronze getrennt sind.** Raw ist das Beweisstück: Ein Delta-Lauf
 hält Datensätze so fest, wie sie in diesem Moment waren, und das lässt sich
@@ -72,7 +73,7 @@ erzeugbar. Diese Trennung kostet 554,7 MB und ist der Grund, warum sich jede Zah
 bis zur gzip-Datei zurückverfolgen lässt.
 
 **Warum Gold nicht aggregiert.** Notebook 34 hat beide Bauweisen gebaut und
-gemessen: Bei 1'887'009 Zeilen liegt jede realistische Frage direkt auf dem Stern
+gemessen: Bei 1'895'123 Zeilen liegt jede realistische Frage direkt auf dem Stern
 im einstelligen Millisekundenbereich. Ein vorberechneter Würfel spart nichts,
 was ein Mensch bemerkt, und kostet drei Fragen, die er nicht mehr beantwortet.
 Die Entscheidung ist ein **Messergebnis**, keine Stilfrage.
@@ -585,7 +586,8 @@ Konzept.
 trägt SHA-256 je Datei. Eine Rückspielung ist damit nachprüfbar und nicht nur
 hoffentlich vollständig.
 
-**Was es kostet.** Platz und eine Regel. Ein Release sind rund 180 MB; ohne
+**Was es kostet.** Platz und eine Regel. Ein Release sind rund 190 MB, eines der Konsole
+mit Silver rund 360 MB; ohne
 Aufräumregel wächst das linear, und genau diese Regel ist noch nicht
 entschieden ([`datenhistorie.md`](intern/datenhistorie.md) 5.5). Eine Sicherung ohne
 Löschregel ist nur ein Aufschub.
@@ -617,7 +619,7 @@ Die Ingestion ist der Teil, der bei mehr Städten zuerst bricht, und es ist
 
 | Achse | heute | was passiert bei zehn Städten |
 | --- | --- | --- |
-| Zeilen | 1'909'461 | rund 9,4 Mio — DuckDB rechnet das weiterhin interaktiv |
+| Zeilen | 1'917'351 | rund 9,4 Mio — DuckDB rechnet das weiterhin interaktiv |
 | Laufzeit Ingestion | Detroit 7 s im Delta, 100 s beim ersten vollen Lauf | linear, aber **seriell**: zehn Städte nacheinander |
 | Code je Quelle | zwei Pipelines mit je eigener Logik | zehn Pipelines, zehnmal derselbe Fehler |
 
