@@ -38,17 +38,17 @@ vergleichbare Tabelle macht:
 | | |
 | --- | ---: |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
-| `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | 1'887'009 Zeilen (eine Tat) |
+| `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | 1'895'123 Zeilen (eine Tat) |
 
 Und die Raten, **für den Jahrgang 2024** — eine Rate braucht einen Zeitraum,
 der Bestand trägt sechs:
 
 | | |
 | --- | ---: |
-| Chicago | 251'482 Fälle · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 79'614 Fälle · 638'635 Einwohner · **124,7** je 1'000 |
-| Tatebene (`fact_offense`) | Chicago 251'512 · Detroit 85'557 Taten; je 1'000: Chicago **94,5** · Detroit **134,0** |
+| Chicago | 251'483 Fälle · 2'661'953 Einwohner · **94,5** je 1'000 |
+| Detroit | 79'615 Fälle · 638'635 Einwohner · **124,7** je 1'000 |
+| Tatebene (`fact_offense`) | Chicago 251'513 · Detroit 85'660 Taten; je 1'000: Chicago **94,5** · Detroit **134,1** |
 
 Vorn steht die **Fallebene**: je Vorfall das schwerste Delikt, nach derselben
 Regel für beide Städte (`counts_case`). Die Tatebene zählt jedes Delikt.
@@ -427,8 +427,8 @@ desselben Tages — oder Information wegwerfen:
 | --- | --- | ---: |
 | `tract` | ein Census Tract | 6'282 |
 | `place` | ein Ort (Stadtgrenze) | 2'206 |
-| `weather_day` | eine Stadt an einem Tag | 55'573 |
-| `crime_offense` | eine **Anklage**; je Tat zählt eine | 1'909'461 |
+| `weather_day` | eine Stadt an einem Tag | 55'587 |
+| `crime_offense` | eine **Anklage**; je Tat zählt eine | 1'917'351 |
 
 `crime_offense` leistet drei Übersetzungen auf einmal, und jede ist ein eigener
 Fehlerherd:

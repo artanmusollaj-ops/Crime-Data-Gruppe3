@@ -100,6 +100,18 @@ SCHUTZ = (
     # Fallzahl 2024 (79'614) stand hier auch; sie ist seit dem 12.11.2026
     # gemessen (``faelle_2024``) und braucht keinen Schutz mehr.
     "vergleichbare Zeilen",
+    # Speicher in MiB, nicht Zeilen: die Grenze des Dashboard-Containers mit
+    # Elasticsearch (2'816 MiB) und die Belegung von srv01 (4'288 von 4'325
+    # MiB). Beide sehen Detroits ``outside_city`` und ``gold/dim_city_day``
+    # nur aehnlich; am 20.11.2026 lagen sie zwei bzw. zehn daneben.
+    "MiB Grenze", "belegte es 2'816 MiB", "von 4'325 MiB",
+    # Die Tage *mit Wetter* in dim_city_day (test_abgabedokumente haelt sie);
+    # die Kennzahl ``gold/dim_city_day`` zaehlt alle Tage des Geruests.
+    "| `dim_city_day` | Stadt und Tag, mit dem Wetter |",
+    # Detroits von der Hierarchieregel verworfene Taten (27'343 am 20.11.),
+    # nicht Chicagos ``ambiguous`` (27'348) - zwei Zahlen, die sich zufaellig
+    # um fuenf unterscheiden.
+    "— Faktor",
 )
 
 # datenhistorie.md *ist* der Verlauf; archiv/ haelt Ueberholtes absichtlich.

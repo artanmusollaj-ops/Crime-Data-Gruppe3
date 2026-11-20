@@ -32,17 +32,17 @@ Eintrag hier sagt, was das war.
 | --- | ---: |
 | Tests | **3'322** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
-| `silver/crime_offense` | 1'909'461 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | **1'887'009** Zeilen (eine Tat) |
-| Chicago | 251'482 Fälle · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 79'614 Fälle · 638'635 Einwohner · **124,7** je 1'000 |
-| Tatebene (`fact_offense`) | Chicago 251'512 · Detroit 85'557 Taten; je 1'000: Chicago **94,5** · Detroit **134,0** |
+| `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
+| Chicago | 251'483 Fälle · 2'661'953 Einwohner · **94,5** je 1'000 |
+| Detroit | 79'615 Fälle · 638'635 Einwohner · **124,7** je 1'000 |
+| Tatebene (`fact_offense`) | Chicago 251'513 · Detroit 85'660 Taten; je 1'000: Chicago **94,5** · Detroit **134,1** |
 
 > **Zwei Zeiträume in einer Tabelle, und das ist Absicht.** Die beiden
 > Zeilenzahlen sind der **Bestand** über alle sechs Jahrgänge — die Antwort auf
 > „was liegt hier?". Die drei Zeilen darunter gelten für den **Jahrgang 2024**,
 > den jüngsten vollständigen (`gold_pipeline.RATENJAHR`): Eine Rate braucht
-> einen Zeitraum, und sechs Jahre Zähler auf einem Jahr Nenner ergäben 509,7
+> einen Zeitraum, und sechs Jahre Zähler auf einem Jahr Nenner ergäben 511,7
 > je 1'000 für Chicago. Das wäre keine zu hohe Rate, sondern keine.
 >
 > **Die Fallebene steht vorn** (E-2, seit dem 12.11.2026): Ein Fall ist ein
@@ -109,6 +109,73 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 20.11.2026 · Die Dokumente nennen den Zwischenstand vom 20.11. (Branch `daten/zwischenstand-2026-11-20`)
+
+**Ein Zwischenstand, nicht der Abgabestand.** Der Delta-Lauf auf srv01 vom
+20.11. hat das Release `2026-11-20T10-08-03Z` gebaut, das erste mit Gold-Vertrag 9.
+Gepinnt ist nichts, `config/referenzstand.csv` bleibt unverändert, und vor der
+Abgabe wird noch einmal nachgezogen. Silver und Gold kommen lokal aus dem
+Arbeitsvolume von srv01, also genau die Bytes, aus denen das Release entstand.
+Danach `release holen --einsetzen`.
+
+**Was sich bewegt hat, gegen den Stand vom 10.11.:**
+
+| | vorher | jetzt |
+| --- | ---: | ---: |
+| `silver/crime_offense` | 1'909'461 | **1'917'351** |
+| `gold/fact_offense` | 1'887'009 | **1'895'123** |
+| Chicago Fälle 2024 | 251'482 | **251'483** (Rate bleibt 94,5) |
+| Detroit Fälle 2024 | 79'614 | **79'615** (Rate bleibt 124,7) |
+| Detroit Taten 2024 | 85'557 | **85'660** (Tatrate 134,0 → **134,1**) |
+
+Woher die 103 zusätzlichen Detroiter Taten von 2024 kommen, ist nicht
+belegt. Die Prüfsumme von `config/mapping_overrides.csv` hat sich mit der
+Korrektur aus der Konsole vom 18.11. geändert, das ist die naheliegende
+Ursache. Die übrigen Zuwächse sind die Deltas seit dem 10.11. (fünf je
+Jahrgang und Stadt). Die Läufe hinter Silver sind deshalb jetzt 36 je Stadt
+statt sechs.
+
+**Nachgezogen** sind README, `ln2_konzept.md`, `zaehlperspektiven.md`,
+`eine-zahl.md`, `architektur-ist-und-ziel.md`, Einseiter, `ausblick.md`,
+`sternschema-und-wuerfel.md`, `projektabsprache.md`, `leistungsnachweise.md`,
+`datenhistorie.md` und der Kopf dieser Datei. Nachgezogen wurden auch
+abgeleitete Prosazahlen ohne Wächter. Zwei waren schon vorher falsch:
+
+- In `ln2_konzept.md` hiess es „Anklagen gegen Taten −4,8 %“, richtig waren
+  −4,5 %.
+- „mehr Taten als Fälle“ stand mit 5,6 %, richtig waren damals 6,0 %.
+
+Neu erzeugt sind `feldkatalog.md`, `einstieg.html` und `platzbedarf.md`. Die
+Nachweise der Notebooks **nicht**: Sie gehören zum Abgabestand, und die
+Korrektur an Notebook 34 wartet weiter (`deferred-work.md`). Die Zahlen, die
+die Messung von Notebook 34 zitieren, bleiben deshalb ebenfalls stehen.
+
+**Wächter.**
+
+- `test_dokumentzahlen.SCHUTZ` nimmt fünf Fehlalarme auf, jeden mit Grund:
+  - zwei Speicherangaben in MiB,
+  - die Tage *mit* Wetter,
+  - Detroits verworfene Taten, die Chicagos `ambiguous` um fünf verfehlen.
+- `test_der_manifesteintrag_nennt_die_zahl_der_laeufe` liest die Zahl auch als
+  Ziffer. Sie wächst jetzt mit jedem Delta, und ein Zahlwort veraltete jede
+  Woche.
+
+**Zwei Wächter bleiben rot**, beide unter `-m referenzstand`. Keiner davon meldet
+eine falsche Zahl:
+
+- `test_alle_detroit_zeilen_stehen_in_beiden_schnappschuessen` hält die
+  historische Aussage „bis zum 18.9. enthielt jeder Schnappschuss alle
+  501'146 Zeilen“ gegen den heutigen Detroiter Bestand (503'235). Der Satz
+  stimmt für den Referenzstand und wäre mit der neuen Zahl falsch.
+- `test_was_source_change_als_verschwunden_fuehrt_ist_weg_oder_umdatiert`
+  meldet Chicago-Fall 14289652:
+  - Er fehlte im Vollabzug vom 10.11.
+  - Das Delta `run_20261120T100145932674Z` hat ihn wieder geliefert.
+  - Silver hat also recht. Der Wächter vergleicht nur das jüngste Paar von
+    Vollabzügen und sieht die Rückkehr über ein Delta nicht.
+
+Beide stehen in `deferred-work.md`.
 
 ## 19.11.2026 · Tag und Nacht: Sonnenstand in Gold, Aufteilung der Fälle im Dashboard (Branch `tag-nacht-aufteilung`)
 

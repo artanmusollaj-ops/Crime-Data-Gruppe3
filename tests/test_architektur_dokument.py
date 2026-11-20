@@ -349,7 +349,7 @@ def test_der_einseiter_traegt_dieselben_zahlen(blatt, text):
     # Diese Liste ist von Hand gefuehrt und muss nach einem Neubau mitgezogen
     # werden - sie sagt, **welche** Zahlen an beiden Stellen stehen muessen,
     # und das laesst sich aus den Daten nicht ableiten.
-    for wert in ("1'909'461", "1'887'009", "94,5", "124,7", "42 Kontrollen",
+    for wert in ("1'917'351", "1'895'123", "94,5", "124,7", "42 Kontrollen",
                  "1'055", "23,3 %", "55,9 %"):
         assert wert in blatt, f"{wert} fehlt im Einseiter"
         assert wert in text or wert.replace("'", "") in text, (
