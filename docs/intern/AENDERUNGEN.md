@@ -125,6 +125,29 @@ Zwei Sachkorrekturen in `ln2_konzept.md`. Aufbau und Ton bleiben.
   aus LN1 offen war“ und führt beide Punkte als erledigt, mit dem Verweis auf
   die Nachweise.
 
+## 20.11.2026 · Der Ablauf für den Abgabestand steht fest (Branch `docs/abgabestand-ablauf`)
+
+**Warum.** Der Stand vom 20.11. ist ausdrücklich ein Zwischenstand. Der
+Abgabestand kommt später und wird gepinnt, und ein Pin lässt sich nicht
+zurücknehmen. Damit am Tag selbst nichts improvisiert wird, steht der Ablauf
+jetzt in [`abgabestand.md`](abgabestand.md). Die Befehle sind dieselben wie
+beim Zwischenstand vom 20.11. und beim Pin `LN2` vom 12.11.
+
+**Was darin festgehalten ist, das vorher nirgends stand:**
+
+- Vor der Abgabe gibt es keinen Volllauf mehr. Der Verteiler in
+  `docker/srv01-datenlauf.sh` fährt den Volllauf am Montag zwischen dem
+  8. und 14. Am 30.11. läuft nichts, am 7.12. ein Delta. Der Vorschlag ist der
+  Montagslauf vom 7.12., entscheiden wird Christian.
+- `aufraeumen --pinnen` pinnt nur Läufe. Die Zeile für das Release kommt von
+  Hand dazu.
+- Auf `srv01` gilt der Pin erst mit einem Abbild, das das neue Register
+  trägt, denn `/app/config` kommt aus dem Abbild.
+- Die Korrektur an Notebook 34 und der neue Nachweis gehen in denselben
+  Pull Request (`deferred-work.md`, 19.11.).
+
+Am Code und an den Zahlen ändert sich nichts.
+
 ## 20.11.2026 · Zwei Wächter prüfen, was ihr Satz meint (Branch `waechter-delta-rueckkehr`)
 
 Am Zwischenstand vom selben Tag blieben zwei Referenzstand-Wächter rot. Keiner

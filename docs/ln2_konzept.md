@@ -1591,6 +1591,7 @@ abgegeben, liegen sie zwar bei — aber niemand wird darauf verwiesen.
 | Was liegen geblieben ist | [`offene-punkte.md`](intern/offene-punkte.md) — Entscheidungen, Handgriffe auf dem Server und Code, **je Punkt ein Verantwortlicher und ein Beleg** |
 | Was beim Aufräumen verlorenginge | [`datenhistorie.md`](intern/datenhistorie.md) — Entscheidungspapier zur Aufbewahrung |
 | Was die Strecke an Platz braucht | [`platzbedarf.md`](intern/platzbedarf.md) — gemessen je Schicht und je Quelle auf 2021–2026 hochgerechnet, **erzeugt** |
+| Der Ablauf am Tag, an dem der Abgabestand gepinnt wird | [`abgabestand.md`](intern/abgabestand.md) |
 | Vorführung: Kibana aus Google Cloud starten und stoppen | [`vorfuehrung.md`](intern/vorfuehrung.md) |
 | Detroit-Pipeline Schritt für Schritt | [`DETROIT_PIPELINE_ANLEITUNG.md`](intern/DETROIT_PIPELINE_ANLEITUNG.md) |
 | Was eine dritte Stadt bräuchte — keine ist geplant | [`dritte-stadt.md`](intern/dritte-stadt.md) |
