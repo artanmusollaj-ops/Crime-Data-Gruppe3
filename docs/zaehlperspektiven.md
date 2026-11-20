@@ -271,7 +271,7 @@ und Jahrgang der jüngste Vollabzug und die Läufe danach, siehe
 `build_crime_offense.ab_dem_juengsten_vollabzug`), aber nicht,
 aus welchem eine bestimmte Zeile stammt. Für Detroit half das lange gar nicht:
 Bis zum 18.9.2026 lud jeder Lauf den ganzen Jahrgang, und jeder Schnappschuss
-enthielt damit **alle 501'146 Zeilen**. Wer
+enthielt damit **alle Zeilen des Jahrgangs 2024** (88'685 und 88'686). Wer
 zurückverfolgen will, sucht den Schlüssel in den genannten Läufen — die
 Zeilen-Lineage selbst liegt in den Bronze-Manifesten, nicht in Silver.
 

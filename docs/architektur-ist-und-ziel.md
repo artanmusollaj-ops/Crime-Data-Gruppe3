@@ -32,7 +32,7 @@ Die Strecke führt zwei unvergleichbare Quellen in eine vergleichbare Tabelle
 | Schicht | Aufgabe | Was sie ausdrücklich **nicht** tut | Grösse |
 | --- | --- | --- | ---: |
 | **raw** | die Antwort der Quelle, Byte für Byte, mit SHA-256 | nichts deuten, nichts umformen | 554,7 MB |
-| **bronze** | Parquet mit gepinntem Schema, Originaltypen | nichts deuten; Unerwartetes nach `_extra` statt in den Papierkorb | 614,8 MB |
+| **bronze** | Parquet mit gepinntem Schema, Originaltypen | nichts deuten; Unerwartetes nach `_extra` statt in den Papierkorb | 633,0 MB |
 | **silver** | deuten: Typen, Einheiten, Zeitzonen, NIBRS, Raum | nichts wegwerfen — Lücken werden gekennzeichnet, nicht gefiltert | 218,4 MB |
 | **gold** | Sternschema, eine Zeile je **Tat** | nicht aggregieren | 88,0 MB |
 | **serving** | abfragbar machen: Sichten, fünf Vergleichstabellen, Karte | nicht der Bestand sein | 3,1 MB |

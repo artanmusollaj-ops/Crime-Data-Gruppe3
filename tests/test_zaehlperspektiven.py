@@ -484,9 +484,42 @@ def test_der_manifesteintrag_nennt_die_zahl_der_laeufe(text):
 
 
 def test_alle_detroit_zeilen_stehen_in_beiden_schnappschuessen(text, con):
-    """Die Zahl, die den Rueckgriff auf einen einzelnen Lauf unmoeglich macht."""
-    zeilen = con.execute("SELECT count(*) FROM s WHERE city = 'detroit'").fetchone()[0]
-    assert zahl(text, r"\*\*alle ([\d']+) Zeilen\*\*") == zeilen
+    """Die Zahl, die den Rueckgriff auf einen einzelnen Lauf unmoeglich macht.
+
+    Der Satz ist **historisch**: Bis zum 18.9.2026 lud Detroit je Lauf den
+    ganzen Jahrgang 2024, und jeder dieser fuenf vollen Laeufe enthielt alle
+    Zeilen. Gemessen wird deshalb an diesen Laeufen, nicht am heutigen
+    Bestand. Bis zum 20.11.2026 hielt der Waechter die Zahl gegen alle
+    Detroiter Zeilen in Silver und zog sie damit ab dem 4.10. auf sechs
+    Jahrgaenge (491'725, dann 501'146) - eine Zahl, die kein Schnappschuss
+    vor dem 18.9. je enthielt. Die Laeufe sind gepinnt
+    (``config/referenzstand.csv``, LN1 und ``stand-2026-10-03``).
+    """
+    from storage import for_root
+
+    ablage = for_root(PROJECT_ROOT / "data")
+    voll = [lauf for lauf in ablage.laeufe("bronze/city=detroit", streng=False)
+            if str(lauf.manifest.get("extraction_mode", "")).upper() == "FULL"
+            and lauf.begonnen_um < "2026-09-19"]
+    if not voll:
+        pytest.skip("Detroits volle Laeufe bis zum 18.9.2026 liegen nicht lokal")
+    zeilen = sorted(
+        con.execute(f"SELECT count(*) FROM read_parquet("
+                    f"'{ablage.resolve_read_path(lauf.relativ, '*.parquet')}',"
+                    f" hive_partitioning=false)").fetchone()[0]
+        for lauf in voll)
+
+    # Der Kasten darunter ist ein Zitatblock; ohne die ``>`` liest er sich
+    # wie Fliesstext.
+    ohne_umbrueche = " ".join(re.sub(r"(?m)^>\s?", "", text).split())
+    assert "fünf vollen Läufe vom 11. bis 18.9." in ohne_umbrueche
+    assert len(voll) == 5, f"{len(voll)} volle Laeufe bis zum 18.9., das Dokument sagt fuenf"
+    treffer = re.search(r"\*\*alle Zeilen des Jahrgangs 2024\*\* \(([\d']+) und ([\d']+)\)",
+                        ohne_umbrueche)
+    assert treffer, "das Dokument nennt die Zeilen der vollen Laeufe nicht mehr"
+    genannt = [int(w.replace("'", "")) for w in treffer.groups()]
+    assert genannt == [zeilen[0], zeilen[-1]], (
+        f"genannt {genannt}, die fuenf Laeufe haben {zeilen}")
 
 
 def test_die_angekuendigten_sieben_punkte_sind_sieben(text):

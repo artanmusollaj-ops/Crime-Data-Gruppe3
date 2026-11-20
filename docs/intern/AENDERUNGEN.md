@@ -110,6 +110,38 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 20.11.2026 · Zwei Wächter prüfen, was ihr Satz meint (Branch `waechter-delta-rueckkehr`)
+
+Am Zwischenstand vom selben Tag blieben zwei Referenzstand-Wächter rot. Keiner
+meldete eine falsche Zahl. Beide prüften eine Aussage an etwas anderem als dem,
+was die Aussage meint.
+
+**Rückkehr über ein Delta.** Der Wächter
+`test_was_source_change_als_verschwunden_fuehrt_ist_weg_oder_umdatiert` fand
+Chicago-Fall 14289652 gleichzeitig »verschwunden« und in `crime_offense`. Der
+Fall fehlte im Vollabzug vom 10.11. und kam mit dem Delta vom 20.11. zurück.
+Silver liest den jüngsten Vollabzug und die Deltas danach, `source_change`
+vergleicht aber nur Vollabzüge. Der Wächter lässt eine solche Zeile jetzt durch,
+allerdings nur, wenn sie **nachweislich** in einem Delta desselben Jahrgangs
+steht, das nach dem Paar begann und aus dem Silver gelesen hat. Fehlt ein
+solcher Lauf lokal, bleibt der Wächter rot und nennt den Lauf. Dass er das tut,
+ist geprüft: Mit dem Delta vom 20.11. beiseitegelegt wurde er rot und nannte
+genau diesen Lauf. Die 60 Deltas, auf denen Silver ruht, liegen dafür jetzt
+auch lokal. Deshalb steigt Bronze in `platzbedarf.md` und in der Grössentabelle
+von 614,8 auf 633,0 MB.
+
+**Ein historischer Satz an heutigen Daten.** In `zaehlperspektiven.md` stand
+»bis zum 18.9.2026 … enthielt jeder Schnappschuss alle 501'146 Zeilen«. Bis zum
+18.9. hatte Detroit aber nur den Jahrgang 2024. Die Zahl hiess anfangs richtig
+88'686. Dann zog der Wächter sie gegen alle Detroiter Zeilen in Silver und
+damit ab dem 4.10. auf sechs Jahrgänge (491'725, dann 501'146), die kein
+Schnappschuss je enthielt. Der Satz nennt jetzt »alle Zeilen des Jahrgangs 2024
+(88'685 und 88'686)«. Der Wächter misst sie an den fünf vollen Läufen vom 11.
+bis 18.9., die gepinnt sind (LN1 und `stand-2026-10-03`).
+
+Beide Wächter bleiben unter `referenzstand`. Am Standardlauf ändert sich
+nichts.
+
 ## 20.11.2026 · Die Dokumente nennen den Zwischenstand vom 20.11. (Branch `daten/zwischenstand-2026-11-20`)
 
 **Ein Zwischenstand, nicht der Abgabestand.** Der Delta-Lauf auf srv01 vom
