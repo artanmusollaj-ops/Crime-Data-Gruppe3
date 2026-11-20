@@ -1883,11 +1883,15 @@ def test_was_source_change_als_verschwunden_fuehrt_ist_weg_oder_umdatiert():
     # Lauf -> Jahrgang, aus den Bronze-Manifesten. Ohne diese Zuordnung laesst
     # sich eine Umdatierung nicht von einem Widerspruch unterscheiden.
     ablage = for_root(datenwurzel)
-    jahr_je_lauf: dict[str, str] = {}
+    laeufe: dict[str, object] = {}
     for praefix, muster in (("bronze/city=chicago", "ingest_date=*/run_*/manifest.json"),
                             ("bronze/city=detroit", "**/run_*/manifest.json")):
         for lauf in ablage.laeufe(praefix, muster, streng=False):
-            jahr_je_lauf[lauf.run_id] = lauf.jahrgang
+            laeufe[lauf.run_id] = lauf
+    jahr_je_lauf = {kennung: lauf.jahrgang for kennung, lauf in laeufe.items()}
+    herkunft = json.loads((fakt.parent / "manifest.json").read_text(encoding="utf-8"))
+    gelesen = {stadt: herkunft["derived_from"][f"{stadt}_bronze_runs"]
+               for stadt in ("chicago", "detroit")}
 
     con = duckdb.connect()
     try:
@@ -1899,25 +1903,64 @@ def test_was_source_change_als_verschwunden_fuehrt_ist_weg_oder_umdatiert():
                 SELECT city, max(beobachtet_am) AS stand
                 FROM read_parquet('{wechsel}') GROUP BY 1
             )
-            SELECT w.city, w.offense_id, w.run_id,
+            SELECT w.city, w.offense_id, w.run_id, w.beobachtet_am,
                    year(f.occurred_at_local) AS jahr_heute
             FROM read_parquet('{wechsel}') w
             JOIN juengste j ON w.city = j.city AND w.beobachtet_am = j.stand
             JOIN read_parquet('{fakt}') f
               ON f.city = w.city AND f.offense_id = w.offense_id
             WHERE w.art = 'verschwunden'""").fetchall()
+
+        # **Zurueck ueber ein Delta.** ``source_change`` vergleicht nur
+        # Vollabzuege - aus einem Delta liesse sich *verschwunden* nicht von
+        # *ruhig* unterscheiden. Silver liest aber den juengsten Vollabzug
+        # **und die Deltas danach**. Liefert eines davon die Zeile wieder, steht
+        # sie zu Recht in crime_offense, obwohl das juengste Paar sie als weg
+        # fuehrt: Chicago-Fall 14289652 fehlte im Vollabzug vom 10.11.2026 und
+        # kam mit dem Delta vom 20.11. zurueck. Das gilt nur, wenn die Zeile
+        # in einem solchen Delta **nachweislich** steht; geraten wird nicht.
+        def zurueck_ueber_delta(stadt, kennung, jahrgang, seit):
+            spalte = "id" if stadt == "chicago" else "attributes.incident_entry_id"
+            fehlend = []
+            for lauf_id in gelesen[stadt]:
+                lauf = laeufe.get(lauf_id)
+                if lauf is None:
+                    fehlend.append(lauf_id)
+                    continue
+                beginn = datetime.fromisoformat(
+                    lauf.begonnen_um.replace("Z", "+00:00")).replace(tzinfo=None)
+                if lauf.jahrgang != jahrgang or beginn <= seit:
+                    continue
+                pfad = ablage.resolve_read_path(lauf.relativ, "*.parquet")
+                treffer = con.execute(
+                    f"SELECT count(*) FROM read_parquet('{pfad}', hive_partitioning=false,"
+                    f" union_by_name=true) WHERE CAST({spalte} AS VARCHAR) = ?",
+                    [kennung]).fetchone()[0]
+                if treffer:
+                    return True, []
+            return False, fehlend
+
+        widerspruch, nicht_pruefbar = [], set()
+        for stadt, kennung, lauf, seit, jahr_heute in weg:
+            jahrgang = jahr_je_lauf.get(lauf, "")
+            if str(jahr_heute) != jahrgang:
+                continue
+            zurueck, fehlend = zurueck_ueber_delta(stadt, kennung, jahrgang, seit)
+            if zurueck:
+                continue
+            widerspruch.append((stadt, kennung, jahrgang, jahr_heute))
+            nicht_pruefbar.update(fehlend)
     finally:
         con.close()
 
-    widerspruch = [
-        (stadt, kennung, jahr_je_lauf.get(lauf, "?"), jahr_heute)
-        for stadt, kennung, lauf, jahr_heute in weg
-        if str(jahr_heute) == jahr_je_lauf.get(lauf, "")
-    ]
     assert not widerspruch, (
         f"source_change fuehrt diese Zeilen als verschwunden, und "
-        f"crime_offense hat sie mit **demselben** Jahr - also keine "
-        f"Umdatierung, sondern ein Widerspruch: {widerspruch}")
+        f"crime_offense hat sie mit **demselben** Jahr, ohne dass ein Delta "
+        f"danach sie wieder geliefert haette - also keine Umdatierung, sondern "
+        f"ein Widerspruch: {widerspruch}"
+        + (f". Lokal fehlen {len(nicht_pruefbar)} Laeufe, aus denen Silver "
+           f"gelesen hat - ohne sie ist eine Rueckkehr nicht pruefbar: "
+           f"{sorted(nicht_pruefbar)[:5]}" if nicht_pruefbar else ""))
 
 
 # --------------------------------------------------------------------------

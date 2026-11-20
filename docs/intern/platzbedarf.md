@@ -23,18 +23,18 @@ und im Hybridmodus wird eine Datei, die lokal und auf SeaweedFS liegt, einmal ge
 | Schicht | Grösse | Dateien |
 | --- | ---: | ---: |
 | **raw** | 554,7 MB | 1091 |
-| **bronze** | 614,8 MB | 148 |
+| **bronze** | 633,0 MB | 268 |
 | **silver** | 218,4 MB | 22 |
 | **gold** | 88,0 MB | 14 |
 | **serving** | 3,1 MB | 15 |
 | **releases** | 1'852,8 MB | 359 |
-| zusammen | **3'331,7 MB** | 1649 |
+| zusammen | **3'349,9 MB** | 1769 |
 
 ## 2 Gerechnet: vier Regeln für 2021–2026
 
 Basis ist **ein** Jahrgang je Quelle. In `bronze` und `raw` liegt je Jahr ein eigener Lauf, ein Lauf ist also schon eine Basis. In `gold`, `releases`, `serving` und `silver` stehen dagegen alle Jahrgänge in denselben Dateien — 2021–2026 in einem Stand —, und dort teilt die Rechnung die sechs Jahrgänge wieder heraus.
 Basis **je Quelle und Vintage** ist dabei der *grösste* Lauf,
-nicht die Summe ihrer Läufe: `raw/city=chicago` trägt heute 20 Läufe. Sie zu addieren
+nicht die Summe ihrer Läufe: `bronze/city=chicago` trägt heute 50 Läufe. Sie zu addieren
 hiesse, das Anhäufen mitzurechnen — dieselbe Falle wie „den Bestand aus Bronze lesen“, diesmal in der Basis.
 
 Die Zeilen je Stadt und Jahr sind gemessene Fremddaten und stehen mit Datum und Adresse in `config/zeilen_je_jahrgang.csv`
@@ -81,8 +81,8 @@ davon.
 
 | Quelle | Läufe | Basis je Jahrgang | Regel | 2021–2026 |
 | --- | ---: | ---: | --- | ---: |
-| `city=chicago` | 20 | 17,2 MB | Taten: 1'382'937 Zeilen × 66,3 Bytes je Zeile | 91,6 MB |
-| `city=detroit` | 20 | 17,2 MB | Taten: 491'480 Zeilen × 194,2 Bytes je Zeile | 95,5 MB |
+| `city=chicago` | 50 | 17,2 MB | Taten: 1'382'937 Zeilen × 66,3 Bytes je Zeile | 91,6 MB |
+| `city=detroit` | 50 | 17,2 MB | Taten: 491'480 Zeilen × 194,2 Bytes je Zeile | 95,5 MB |
 | `dataset=acs5_tract` | 4 | 0,9 MB | Census: 4 Vintages (2021, 2022, 2023, 2024) × 0,2 MB je Vintage | 0,9 MB |
 | `dataset=noaa_ghcnd` | 5 | 3,4 MB | konstant: wächst nicht mit den Jahren | 3,4 MB |
 | `dataset=tiger_place` | 4 | 44,8 MB | Census: 4 Vintages (2021, 2022, 2023, 2024) × 11,2 MB je Vintage | 44,8 MB |
@@ -161,7 +161,7 @@ davon.
 
 * **2021–2026 braucht 3'825,7 MB (3,83 GB)**. Dieselbe Rechnung für **einen** Jahrgang (2024) ergibt 759,0 MB — 2021–2026 ist also
   das **5,04-Fache eines Jahrgangs** und nicht das 5,5-Fache. Verglichen wird dabei Rechnung mit Rechnung: Das heutige
-  `data/` (3'331,7 MB) hält 20 `city=chicago`-Läufe und 13 Release-Stände und ist mit keiner
+  `data/` (3'349,9 MB) hält 50 `city=chicago`-Läufe und 13 Release-Stände und ist mit keiner
   der beiden Zahlen vergleichbar — genau diese Verwechslung steckte im alten Faktor.
 * **Ohne `releases/` sind es 917,3 MB** (0,92 GB), ohne `releases/` **und** `raw/` noch 648,1 MB (0,65 GB).
   Das sind die Zahlen, die für FR-52 zählen: Eine Abgabe braucht nicht acht Stände, und sie braucht die
