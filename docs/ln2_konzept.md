@@ -179,6 +179,15 @@ dieser Tabelle: Der Vollständigkeitsnachweis aus H1 betrifft die
 Attributzustand der externen Quelle. Ein Datensatz kann sich während des
 Downloads ändern.
 
+**Seit der Abgabe belegt: H5 in einer zweiten Umgebung.** Die Tabelle zitiert
+LN1 und sagt deshalb „zweite Umgebung offen". Am 15.11.2026 lief die Strecke
+in Google Cloud: Sie hatte dasselbe Abbild und dasselbe Bronze wie `srv01`,
+nur eine andere `.env`. 12 von 13 Gold- und Serving-Tabellen waren byteweise
+gleich. Die dreizehnte, `source_movement`, blieb leer, weil je Quelle nur ein
+Lauf kopiert war und sie zwei braucht. Das ist ein Neuaufbau aus Bronze, nicht
+aus den Quellen
+([`storage-architektur.md`, Abschnitt 17](storage-architektur.md#17--dieselbe-strecke-in-google-cloud)).
+
 **H2 und H4 sprechen die Begriffe des Moduls präzise an.** Ein *Duplikat* ist in
 jedem Attribut identisch, eine *Dublette* meint dieselbe Sache mit abweichenden
 Werten; H2 zeigt an Chicagos absichtlich überlappenden Delta-Läufen, dass der

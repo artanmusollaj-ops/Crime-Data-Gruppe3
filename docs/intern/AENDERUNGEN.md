@@ -110,6 +110,23 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 21.11.2026 · Das Konzept nennt den Neuaufbau in einer zweiten Umgebung (Branch `docs/h5-zweite-umgebung`)
+
+Die Hypothesentabelle in `ln2_konzept.md` 3.3 zitiert Kapitel 11 von LN1 und
+sagt bei H5 deshalb „zweite Umgebung offen". Das war zur Abgabe richtig. Seit
+dem Neuaufbau in Google Cloud vom 15.11.2026 ist es überholt, und gesagt hatte
+das bisher nur `storage-architektur.md` Abschnitt 17. Die LN1-Rückmeldung hatte
+genau diesen Neuaufbau vermisst.
+
+- Die Tabelle bleibt wörtlich, weil sie die Abgabe zitiert. Darunter steht neu
+  ein Absatz mit dem Befund: dasselbe Abbild und dasselbe Bronze, 12 von 13
+  Tabellen byteweise gleich, `source_movement` leer wegen der Teilkopie. Dazu
+  die Grenze: Es war ein Neuaufbau aus Bronze, nicht aus den Quellen.
+- `forschungsfragen.md` bleibt unverändert. Der Generator zieht den Wortlaut
+  aus dem abgegebenen PDF, und der Wächter hält ihn.
+
+Am Code und an den Zahlen ändert sich nichts.
+
 ## 20.11.2026 · Das Konzept sagt nicht mehr, Kapitel 3 sei Entwurf (Branch `docs/konzept-entwurf-und-offen`)
 
 Zwei Sachkorrekturen in `ln2_konzept.md`. Aufbau und Ton bleiben.
