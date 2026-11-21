@@ -269,6 +269,13 @@ Ausgangswert, gemessen am 13.9.2026: **Silver, Gold und Serving zusammen
 23,1 Sekunden** für 347'957 Zeilen. Raw 89 MB, Bronze 89 MB, Silver 47 MB,
 Gold 14 MB.
 
+Mit sechs Jahrgängen statt einem, gemessen am 14.11.2026 im Nachweis zu
+Notebook 36 (H6): **Median 24,2 Sekunden** aus drei Neubauten, Spannweite
+24,0 bis 24,9, für 1'909'461 Silver-Zeilen. Silver und Gold zusammen 289,2 MB,
+auf einem Apple-Rechner mit arm64 und DuckDB 1.5.5. Rund fünfeinhalbmal so
+viele Zeilen kosten also kaum mehr Zeit
+([`nachweise/2026-11-14_1a77e8b`](nachweise/2026-11-14_1a77e8b/36_hypothesen.html)).
+
 ### Drei Achsen, ungleich schwer
 
 | Achse | Schwierigkeit | Warum |
@@ -285,14 +292,24 @@ Gold 14 MB.
    der erste echte Schmerz, und er kommt lange vor jeder Speichergrenze.
 2. **Der räumliche Join.** Schon heute die empfindlichste Stelle; im Code
    steht, dass ein `LEFT JOIN` DuckDB in eine verschachtelte Schleife zwingt
-   und der Lauf dann nicht mehr endet. Heute 348'000 Punkte gegen 6'282
-   Polygone. Bei 50 Städten: Millionen gegen Zehntausende (die USA haben rund
+   und der Lauf dann nicht mehr endet. Gemessen wurde das mit einem Jahrgang,
+   348'000 Punkten gegen 6'282 Polygone. Heute sind es mit sechs Jahrgängen
+   rund 1,9 Mio. Punkte gegen dieselben 6'282 Polygone je Vintage, und als
+   `INNER JOIN` bleibt es bei Sekunden. Bei 50 Städten: Millionen gegen Zehntausende (die USA haben rund
    85'000 Tracts). Muss nach Bundesstaat partitioniert werden — ein Punkt in
    Illinois kann nie in einem Michigan-Tract liegen, aber der Join weiss das
    nicht.
-3. **Der Speicher.** Kein `memory_limit`, keine `threads`-Einstellung. Auf
-   einem eigenen Rechner gut, auf einem CI-Runner mit 7 GB ab einigen
-   Millionen Zeilen Glückssache.
+3. **Der Speicher.** Bis zum 3.10.2026 setzte die Strecke weder
+   `memory_limit` noch `threads`. DuckDB nimmt sich dann rund 80 % des
+   Arbeitsspeichers, und das ist auf einem eigenen Rechner gut, auf einer
+   geteilten Maschine aber nicht. Seither kommen beide aus der Umgebung
+   (`DUCKDB_MEMORY_LIMIT`, `DUCKDB_THREADS`) und gelten auf jeder Verbindung,
+   die `storage.duckdb` herstellt. Ohne Angabe bleibt DuckDBs Vorgabe; auf
+   `srv01` und in Google Cloud sind es für die Strecke 896 MB und zwei
+   Threads. Die Bremse war echt: Am 16.10.2026 brach `silver crime_offense`
+   auf `srv01` an 854 MiB ab, weil DuckDB kein Auslagerungsverzeichnis hatte.
+   Seither lagert es auf Platte aus, statt abzubrechen. Das ändert die Dauer,
+   nicht das Ergebnis.
 4. **Erst danach die Datenmenge selbst** — ~135 Byte je Silver-Zeile, also
    ~2,7 GB bei 20 Millionen. Für S3 nichts.
 
@@ -359,8 +376,9 @@ Reihenfolge. Die Abhängigkeiten sind schon explizit.
 **Stufe 3 ist die teure.** Hier zahlt sich die Formatwahl aus: Parquet mit
 Hive-Partitionen ist genau das, was Athena, BigQuery und Spark erwarten — die
 **Dateien** müssten nicht angefasst werden. Was nicht mitkommt, ist das SQL:
-fünfmal `ST_GeomFromWKB`, dazu `ST_Within`, `ST_Point` aus der
-`spatial`-Extension und `epoch_ms`/`timezone()` aus `icu`. Jede Zielplattform
+die Geometriefunktionen der `spatial`-Extension (`ST_GeomFromWKB`,
+`ST_Within`, `ST_Point`, `ST_Intersection`, `ST_Area`, `ST_Simplify`,
+`ST_IsValid`) und `epoch_ms`/`timezone()` aus `icu`. Jede Zielplattform
 hat Entsprechungen, keine hat dieselben Namen.
 
 ### Was konkret nötig wäre

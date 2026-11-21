@@ -56,6 +56,9 @@ SCHUTZ = (
     "Detroits Bronze-Lauf", "gelesen über DuckDB",
     "Zusammen 259'356 Zeilen", "zuvor standen hier",
     "Gemessen am 13.9.2026", "Gemessen am 14.9.2026", "gemessen am 13.9.2026",
+    # Der Nachweis vom 14.11.2026 zu H6 (ausblick.md, Abschnitt 3): eine Messung
+    # an einem bestimmten Silver-Stand, die veralten darf.
+    "Notebook 36 (H6)", "24,0 bis 24,9, für",
     "Beide Schnappschüsse enthalten", "in beiden Schnappschüssen",
     "Bronze, Abfrage über Detroits",
     "Nachgemessen am", "Nachgerechnet am",
