@@ -80,7 +80,7 @@ from silver_pipeline import (
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
-CONTRACT_VERSION = 9
+CONTRACT_VERSION = 10
 
 DEFAULT_VINTAGE = 2024
 NIBRS_CODES = "nibrs_offense_codes_2025.csv"
@@ -266,7 +266,20 @@ def silver_quelle(data_root: Path, name: str, vintage: int | None = None) -> Que
 
 
 def dim_tract_query(tract: Quelle, place: Quelle, vintage: int) -> str:
-    """Ordnet jeden Tract der Stadt zu, die mehr als seine halbe Flaeche deckt.
+    """Ordnet jeden Tract der Stadt zu, die mehr als seine halbe Landflaeche deckt.
+
+    **Landflaeche, nicht Gesamtflaeche** (Vertrag 10, 21.11.2026). Ein
+    TIGER-Tract am Seeufer reicht in den Michigansee, die TIGER-Grenze von
+    Chicago endet am Ufer. Ueber die ganze Tractflaeche gerechnet kam ein
+    solcher Tract nie ueber die Haelfte, auch wenn sein ganzes Land in der
+    Stadt lag. So fehlten zwoelf bewohnte Tracts am Ufer mit 51'847
+    Einwohnern, darunter Streeterville mit 22 % "Anteil", und mit ihnen 2024
+    rund 4'800 Faelle, die als ``outside_city`` zaehlten. Der Anteil wird
+    deshalb auf die Landflaeche umgerechnet: Anteil der Gesamtflaeche mal
+    (Land + Wasser) / Land, hoechstens 1. Das unterstellt, dass das Wasser
+    eines Tracts ausserhalb der Stadt liegt. Fuer Wasser innerhalb der Stadt
+    ueberschaetzt die Rechnung den Anteil, aber solche Tracts liegen ohnehin
+    weit ueber der Schwelle. Ein Tract ohne Land gehoert zu keiner Stadt.
 
     Der Join ist ein innerer auf ``ST_Intersects`` und danach eine Fensterfunktion:
     Ein Tract kann an beide Staedte grenzen - Chicago und Detroit liegen zwar
@@ -289,15 +302,18 @@ def dim_tract_query(tract: Quelle, place: Quelle, vintage: int) -> str:
             t.geoid,
             g.city_geoid,
             g.city,
-            ST_Area(ST_Intersection(ST_GeomFromWKB(t.geometry), g.geom))
-                / nullif(ST_Area(ST_GeomFromWKB(t.geometry)), 0) AS flaechenanteil
+            CASE WHEN t.land_area_m2 > 0 THEN least(1.0,
+                ST_Area(ST_Intersection(ST_GeomFromWKB(t.geometry), g.geom))
+                    / nullif(ST_Area(ST_GeomFromWKB(t.geometry)), 0)
+                    * (t.land_area_m2 + coalesce(t.water_area_m2, 0))
+                    / t.land_area_m2) END                    AS flaechenanteil
         FROM {tract.relation} t
         JOIN grenze g ON ST_Intersects(ST_GeomFromWKB(t.geometry), g.geom)
     ),
     beste AS (
         SELECT * FROM (
             SELECT *, row_number() OVER (
-                PARTITION BY geoid ORDER BY flaechenanteil DESC
+                PARTITION BY geoid ORDER BY flaechenanteil DESC NULLS LAST
             ) AS rang
             FROM anteil
         ) WHERE rang = 1
@@ -1440,7 +1456,7 @@ def build(data_root: Path, config_root: Path, vintage: int,
                   "auswertet, sollte die Spalte kennen")}),
             ("dim_tract", "ein Census Tract", [tract, place],
              {"stadtzuordnung": (
-                 f"Mehrheitsregel: Flaechenanteil ueber {STADT_SCHWELLE}. "
+                 f"Mehrheitsregel: Landanteil ueber {STADT_SCHWELLE}. "
                  "city_area_share bleibt erhalten, wer flaechengewichtet "
                  "rechnen will"),
               "city_ist_null": (
