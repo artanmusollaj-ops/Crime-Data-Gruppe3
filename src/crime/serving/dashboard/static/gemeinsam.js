@@ -4,6 +4,8 @@
 // OpenStreetMap, die Hintergrundkacheln der Karten (karte.js).
 
 const SVGNS = "http://www.w3.org/2000/svg";
+// Zwei Staedte (FR-43): Eine dritte Stadt ohne Eintrag bekaeme keine Farbe,
+// und SVG fuellt sie dann schwarz.
 export const FARBE = { chicago: "#17a38b", detroit: "#2f7de1" };
 export const MONATE = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
 // Wie in den Dokumenten: 2'661'953 und 94,5 - Hochkomma fuer Tausender,

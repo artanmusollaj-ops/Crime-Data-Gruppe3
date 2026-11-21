@@ -167,14 +167,56 @@ Die Reihenfolge ist die der Strecke. Jeder Punkt nennt die Stelle im Code.
     Detroit jedes. Eine neue Stadt muss sagen, welche Granularität sie liefert.
 12. **Das Dashboard:** `STAEDTE` und `STADTNAMEN` in
     [`serving/dashboard/__init__.py`](../../src/crime/serving/dashboard/__init__.py),
-    dazu die Farben in `static/dashboard.css` (`--chicago`, `--detroit`).
+    dazu die Farben in `static/dashboard.css` (`--chicago`, `--detroit`) und
+    in `static/gemeinsam.js` (`FARBE`). Fehlt die Stadt in `STAEDTE`, gibt es
+    keinen Fehler: Sie fällt auf allen Brettern still heraus.
 13. **Kibana:** der Kartenausschnitt je Stadt (`KARTE_JE_STADT`) in
-    [`serving/build_kibana.py`](../../src/crime/serving/build_kibana.py)
-    (`karte_objekt` bricht ab, wenn eine Stadt fehlt).
+    [`serving/build_kibana.py`](../../src/crime/serving/build_kibana.py).
+    Fehlt er, bricht der Bau der Kartentafel ab und nennt die Stadt. Das gilt
+    erst seit dem 21.11.2026: Davor kamen die Karten aus `KARTE_JE_STADT`
+    selbst, und eine Stadt ohne Eintrag bekam still keine Karte.
 14. **Die Register:** Fünf Register müssen mitgeführt werden, sonst bricht ein
     Test (siehe `AGENTS.md`). Dazu kommen ein Eintrag in den
     Vertragsversionen von `docs/intern/AENDERUNGEN.md`, die Notebooks und die
     Zahlen der Abgabedokumente samt ihren Referenzstand-Wächtern.
+
+### 3a. Stellen, die genau zwei Städte voraussetzen (FR-43)
+
+Abschnitt 3 nennt, wo eine dritte Stadt einen Eintrag braucht. Die meisten
+dieser Stellen brechen ab, wenn er fehlt. Die folgenden tun das nicht: Mit
+einer dritten Stadt liefern sie still ein falsches oder unvollständiges
+Ergebnis. Durchgesehen wurde am 21.11.2026 der Code unter `src/crime/`. Jede
+Stelle trägt dort einen Kommentar mit „FR-43", und `grep -rn FR-43 src/`
+findet sie alle.
+
+| Stelle | Was mit einer dritten Stadt geschähe |
+| --- | --- |
+| `silver_pipeline/build_crime_offense.py`, Crosswalk-Abfrage | genau die IUCR- und die MICR-Datei. Ihre Codes blieben ohne Fehler `unmapped` |
+| ebenda, Zonenprüfung im Abgleich | das `ELSE` meint Detroit. In einer anderen Zone ein falscher Zonenbefund, in derselben Zone keiner |
+| ebenda, Prüfung „nicht mehr Ergebnis als Quelle" | je Stadt einzeln. Die dritte bliebe ungeprüft |
+| ebenda, `comparability` | nur die Spalten `chicago` und `detroit`. Die dritte fehlt in diesem Teil des Manifests |
+| `platform_admin/batch.py` | Ein Volllauf aus der Konsole liefe für sie als Delta, und ihre Läufe würden nicht als Beleg erfasst |
+| `platform_admin/jobs.py` | Die Stadt wird aus dem Aufgabennamen gelesen, mit „Chicago" als Rückfall. Heute lehnt die Konsole unbekannte Aufgaben ab |
+| `serving/dashboard/__init__.py`, `STAEDTE` | fest eingetragen. Fehlt sie dort, fällt sie auf allen Brettern heraus |
+| `serving/dashboard/quellbewegung.py` | Der Test vergleicht genau ein Paar. Bei drei Städten fallen Vergleich und Faktor weg |
+| `serving/dashboard/static/quellbewegung.js` | dieselbe Tafel, mit zwei Spalten |
+| `serving/dashboard/static/gemeinsam.js`, `FARBE` | ohne Eintrag keine Farbe, und SVG zeichnet die Stadt schwarz |
+| `serving/dashboard/static/geografie.js` | Die Rangliste der Tracts gibt es nur für Chicago und Detroit, ebenso die Behälter in `geografie.html` |
+
+Nur in Texten, ohne Folgen für eine Zahl: die Zeile „Chicago · Detroit" und
+„Die beiden Städte" in `serving/build_einstieg.py` sowie die Tract-Zahlen in
+`static/datenqualitaet.js`.
+
+Laut sind dagegen, und deshalb nicht in der Tabelle: `CROSSWALKS` in
+`gold_pipeline/build_gold.py` (die Prüfung auf verwaiste Codes bricht ab),
+die Qualitätsprüfung in `platform_admin/checks.py`,
+`platform_admin/run_evidence.py` („Unbekannte Stadt") und die Zeitzonen in
+`serving/dashboard/zeitverlauf.py`.
+
+Behoben statt kommentiert ist eine Stelle, nämlich die Kibana-Karten (Punkt
+13). Kommentar und Anleitung versprachen dort einen Abbruch, den der Code
+nicht auslösen konnte. Das halten `test_die_karten_kommen_aus_den_studienstaedten`
+und `test_eine_stadt_ohne_ausschnitt_bricht_ab_und_wird_genannt`.
 
 ## 4. Was bewusst nicht vorbereitet ist
 

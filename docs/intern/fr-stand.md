@@ -107,7 +107,7 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | --- | --- | :-: | --- |
 | FR-41 | Nähte benannt und dokumentiert | ◐ | `silver_pipeline.STUDIENSTAEDTE` ist der eine Ort; `architektur-ist-und-ziel.md:607` nennt die Blocker. Kein eigener Abschnitt |
 | FR-42 | Die vier Asymmetrien als Muster beschrieben | ◐ | im Code an den Stellen begründet (`mode`/`extraction_mode`, `started_at`, `event_year`/`year`, Tat/Anklage); nicht als Muster zusammengeschrieben |
-| FR-43 | Jede „genau zwei Städte"-Stelle benannt | ○ | nicht geprüft |
+| FR-43 | Jede „genau zwei Städte"-Stelle benannt | ● | am 21.11.2026 durchgesehen. Elf Stellen behandeln eine dritte Stadt still falsch; sie sind im Code mit „FR-43" kommentiert und in `dritte-stadt.md` Abschnitt 3a aufgelistet. Eine zwölfte, die Kibana-Karten, war ein Fehler und ist behoben: Kommentar und Anleitung versprachen dort einen Abbruch, der nie anschlagen konnte (`tests/serving/test_build_kibana.py`) |
 
 ## Welle 8 · Die Vorführung am 12.12.2026 (beide)
 
@@ -134,13 +134,13 @@ stellt."*
 
 | Stand | Anzahl |
 | --- | ---: |
-| ● erfüllt | 45 |
+| ● erfüllt | 46 |
 | ◐ teilweise | 9 |
-| ○ offen | 10 |
+| ○ offen | 9 |
 | ▣ zurückgestellt | 1 |
 | **zusammen** | **65** |
 
-Wer die **zehn** offenen trägt — jede genau einmal, und keine, die nicht
+Wer die **neun** offenen trägt — jede genau einmal, und keine, die nicht
 offen ist:
 
 | wem | wie viele | welche |
@@ -148,7 +148,6 @@ offen ist:
 | **Artan** | 4 | FR-48, FR-49, FR-51, FR-58 |
 | **Welle 8**, die Vorführung | 4 | FR-62, FR-63, FR-64, FR-65 |
 | bewusst zurückgestellt | 1 | FR-23 |
-| noch niemandem zugeordnet | 1 | FR-43 |
 
 An FR-56 trägt Artan einen Anteil; es steht teilweise und zählt deshalb hier
 nicht mit. `tests/test_fr_stand.py` hält diese Aufteilung gegen die

@@ -55,6 +55,9 @@ from storage import for_root
 from storage import duckdb as storage_duckdb
 
 PARQUET_FILE = "part-0001.parquet"
+#: Zwei Staedte (FR-43): fest eingetragen, nicht aus ``STUDIENSTAEDTE``
+#: abgeleitet. Jedes Brett filtert mit ``stadt IN $staedte``. Eine dritte Stadt,
+#: die hier fehlt, faellt deshalb auf allen Brettern still heraus.
 STAEDTE = ("chicago", "detroit")
 STADTNAMEN = {"chicago": "Chicago", "detroit": "Detroit"}
 MASSE = ("anzahl", "anteil", "rate")

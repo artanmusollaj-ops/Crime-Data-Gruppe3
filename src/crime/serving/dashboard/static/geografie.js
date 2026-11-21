@@ -98,6 +98,9 @@ function zeichne(d) {
   document.getElementById("t-geringe").textContent =
     `Geringe Basis (unter ${zahl.format(d.geringe_basis)} Einwohner)`;
 
+  // Zwei Staedte (FR-43): fest, wie die Behaelter rang-chicago und
+  // rang-detroit in geografie.html. Fuer eine dritte Stadt erschiene keine
+  // Rangliste.
   for (const s of ["chicago", "detroit"]) {
     const ziel = document.getElementById(`rang-${s}`);
     const stadt = d.staedte.find((x) => x.stadt === s);

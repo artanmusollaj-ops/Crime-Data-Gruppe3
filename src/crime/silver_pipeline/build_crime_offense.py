@@ -517,6 +517,11 @@ def wirksame_zuordnung(config_root: Path) -> str:
     # Ohne WITH: Als Baustufe darf die Abfrage keine Zwischenstufen pinnen
     # (``test_der_bau_fuehrt_die_stufen_einzeln_aus``). Die Korrekturdatei
     # wird dafuer dreimal gelesen; sie hat eine Handvoll Zeilen.
+    #
+    # Zwei Staedte (FR-43): Der Crosswalk besteht aus genau diesen zwei
+    # Dateien. Die Codes einer dritten Stadt bleiben ohne eigenen Zweig still
+    # 'unmapped', es gibt keinen Fehler. Die Hierarchie einer Korrektur kennt
+    # nur Detroit (MICR).
     return f"""
         SELECT '{CHICAGO}' AS city, iucr AS quellcode, ibr_code AS nibrs_code,
                match AS nibrs_match, CAST(NULL AS INTEGER) AS hierarchy
@@ -1019,6 +1024,10 @@ def reconcile(
                    -- 17.9.2026 waren das 30 der 88'685 Detroit-Zeilen; ein
                    -- systematischer Zonenfehler faellt trotzdem 88'655-fach
                    -- auf.
+                   -- Zwei Staedte (FR-43): Das ELSE meint Detroit. Eine
+                   -- dritte Stadt wuerde gegen Detroits Zone geprueft. In
+                   -- einer anderen Zone bricht sie mit einem falschen
+                   -- Zonenbefund ab, in derselben Zone faellt nichts auf.
                    count(*) FILTER (
                        NOT local_time_nonexistent
                        AND occurred_at_utc IS NOT NULL
@@ -1087,6 +1096,10 @@ def reconcile(
             "Zuordnung belegt (exact) oder eine Entscheidung (ambiguous) ist."
         )
 
+    # Zwei Staedte (FR-43): Die Pruefung "nicht mehr Ergebnis als Quelle"
+    # steht je Stadt einzeln da. Eine dritte Stadt bliebe ungeprueft, ohne
+    # dass es auffaellt.
+    #
     # Chicagos Deltas ueberlappen; die Rohsumme ist deshalb groesser als die
     # Zeilenzahl. Kleiner darf sie nie sein - dann waere etwas verlorengegangen.
     if je_stadt.get(CHICAGO, {}).get("rows", 0) > chicago.row_count:
@@ -1126,6 +1139,10 @@ def comparability(con: duckdb.DuckDBPyConnection, relation: str) -> list[dict[st
 
     Fuer jeden NIBRS-Code, der in beiden Staedten vorkommt, die Fallzahlen -
     das erste Mal, dass beide Datensaetze dieselbe Sprache sprechen.
+
+    Zwei Staedte (FR-43): Spalten und ``HAVING`` nennen genau Chicago und
+    Detroit. Eine dritte Stadt fehlt in diesem Teil des Manifests, ohne
+    Fehlermeldung.
     """
     return [
         {

@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'322** |
+| Tests | **3'324** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -109,6 +109,34 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 21.11.2026 · Die Stellen, die genau zwei Städte voraussetzen, sind benannt (Branch `fr-43-zwei-staedte`)
+
+FR-43 verlangte, jede Stelle zu benennen und im Code zu kommentieren, die
+„genau zwei Städte" voraussetzt. Ob es solche Stellen gibt, war ausdrücklich
+nicht geprüft. Gesucht wurde nach Stellen, die mit einer dritten Stadt still
+ein falsches Ergebnis liefern. Stellen, die abbrechen und die Stadt nennen,
+zählen nicht dazu; sie stehen schon in `dritte-stadt.md` Abschnitt 3.
+
+- **Elf Stellen**, jede mit einem Kommentar „FR-43" im Code und einer Zeile
+  in der neuen Tabelle in `dritte-stadt.md` Abschnitt 3a. Vier davon liegen
+  in Silver (`build_crime_offense.py`): die Crosswalk-Abfrage, die
+  Zonenprüfung, deren `ELSE` Detroit meint, die Prüfung „nicht mehr Ergebnis
+  als Quelle" und `comparability`. Zwei liegen in der Konsole, fünf im
+  Dashboard. Am Verhalten ändert sich an diesen Stellen nichts.
+- **Eine Stelle war ein Fehler und ist behoben.** Kibana baute seine Karten
+  aus `KARTE_JE_STADT` selbst. Eine Stadt ohne Ausschnitt bekam deshalb still
+  keine Karte. Der Kommentar an `KARTE_JE_STADT` und Punkt 13 der Anleitung
+  versprachen einen Abbruch, der so nie anschlagen konnte. Jetzt kommen die
+  Karten aus `STADT_SCHLUESSEL`. Für Chicago und Detroit sind die
+  Kibana-Objekte dieselben. Neu bewacht in `tests/serving/test_build_kibana.py`.
+- `fr-stand.md`: FR-43 steht auf ●, offen sind neun statt zehn.
+
+**Zahlen.** 3'322 → **3'324 Tests**, Standardlauf 3'211 → **3'213**. Im
+Linux-CI-Lauf hochgerechnet 3'127 → 3'129; die beiden neuen Tests brauchen
+weder Daten noch Netz.
+
+Am Silver-Ergebnis ändern Kommentare nichts, und an den Zahlen auch nichts.
 
 ## 21.11.2026 · Das Konzept nennt den Neuaufbau in einer zweiten Umgebung (Branch `docs/h5-zweite-umgebung`)
 
