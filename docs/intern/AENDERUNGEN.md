@@ -134,6 +134,10 @@ Wächter darüber blieb trotzdem grün: Er suchte im Code nach
 - **FR-59:** „fünfmal `ST_GeomFromWKB`" stimmte nicht mehr, im Code sind es
   elf Zeilen. Genannt sind jetzt die Funktionen, ohne Zählung.
 - `fr-stand.md`: FR-59 und FR-60 auf ●, 50 erfüllt und 5 teilweise.
+- `abgabestand.md` Schritt 4: Im Text zu H6 in Notebook 36 stehen noch die
+  Werte mit einem Jahrgang (27 s, Faktor 22). Die Ausgabe im Nachweis zeigt
+  24,2 s. Korrigiert wird das mit dem Fix an Notebook 34, vor dem neuen
+  Nachweis.
 
 Am Code und an den Zahlen der Strecke ändert sich nichts.
 
