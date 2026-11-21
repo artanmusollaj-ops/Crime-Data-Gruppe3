@@ -110,6 +110,27 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 21.11.2026 · Die Nähte und die Asymmetrien für eine dritte Stadt stehen an einem Ort (Branch `fr-41-42-naehte`)
+
+Welle 7 ist damit abgeschlossen. Beides stand bisher verstreut im Code, und
+`fr-stand.md` verwies für FR-41 auf eine Zeile in
+`architektur-ist-und-ziel.md`.
+
+- **FR-41, die vier Nähte:** `dritte-stadt.md` Abschnitt 3 beginnt jetzt mit
+  einer Tabelle. Sie nennt `STUDIENSTAEDTE`, den Eintrag in
+  `config/quellen.toml`, den Crosswalk nach NIBRS und
+  `build_source_change.QUELLEN`, und zu jeder Naht, was die Stadt dort
+  einträgt. Die Abfrage je Stadt in Silver gehört nicht dazu. Sie ist Code
+  und steht als Code da.
+- **FR-42, die vier Asymmetrien:** Abschnitt 3b, eine Tabelle mit
+  Lademodus, Zeitschlüssel, Bronze-Form und Identitätsschlüssel samt
+  Granularität. Je Zeile stehen der Wert in Chicago und in Detroit, die eine
+  Stelle, an der der Unterschied aufgefangen wird (meist `manifeste.Lauf`),
+  und die Frage, die eine dritte Stadt beantworten muss.
+- `fr-stand.md`: FR-41 und FR-42 stehen auf ●, 48 erfüllt und 7 teilweise.
+
+Am Code und an den Zahlen ändert sich nichts.
+
 ## 21.11.2026 · Die Stellen, die genau zwei Städte voraussetzen, sind benannt (Branch `fr-43-zwei-staedte`)
 
 FR-43 verlangte, jede Stelle zu benennen und im Code zu kommentieren, die

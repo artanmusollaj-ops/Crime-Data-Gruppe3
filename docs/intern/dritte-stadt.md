@@ -105,7 +105,25 @@ Die Eingaben, die das entschieden haben, halten
 
 ## 3. Was noch fehlt, Schicht für Schicht
 
-Die Reihenfolge ist die der Strecke. Jeder Punkt nennt die Stelle im Code.
+### Die vier Nähte (FR-41)
+
+Vier Stellen nimmt eine dritte Stadt in jedem Fall in Anspruch. An jeder
+dockt sie an, ohne dass sich an Chicago oder Detroit etwas ändert. Die
+übrigen Punkte unten hängen an diesen vier oder kommen aus ihnen.
+
+| Naht | Wo | Was die Stadt dort einträgt |
+| --- | --- | --- |
+| **Die Studienstadt** | [`silver_pipeline.STUDIENSTAEDTE`](../../src/crime/silver_pipeline/__init__.py) | ihre Place-GEOID und den amtlichen Namen. Gold leitet daraus `STADT_SCHLUESSEL` ab und Kibana seine Karten. Es gibt keine zweite Liste, die gepflegt werden müsste |
+| **Die eigene Ingestion** | ein Eintrag in [`config/quellen.toml`](../../config/quellen.toml), gelesen von [`storage.quellen`](../../src/crime/storage/quellen.py) | Plattform, Adresse, Schlüssel- und Zeitfelder, das gepinnte Schema. Auf Socrata oder ArcGIS reicht das, für jede andere Plattform braucht sie einen Adapter (Abschnitt 2) |
+| **Der eigene Crosswalk nach NIBRS** | `config/<code>_nibrs_mapping.csv`, erzeugt aus amtlichen Quellen wie `tools/build_iucr_nibrs_mapping.py`, und einzelne Korrekturen in `config/mapping_overrides.csv` | wie ihre Deliktcodes auf NIBRS fallen. Liefert sie NIBRS direkt, entfällt der Crosswalk (Punkt 9) |
+| **Die Quellbewegung** | ein Eintrag in [`build_source_change.QUELLEN`](../../src/crime/silver_pipeline/build_source_change.py) | das Feld mit der fachlichen Identität, die Bronze-Form, die Felder, die nur Rauschen sind, und die Stempel, deren Bewegung keine Inhaltsänderung ist |
+
+Was diese vier Nähte nicht abdecken, ist Code: die Abfrage je Stadt in
+`build_crime_offense.build_query()` (Punkt 8) und die Stellen aus Abschnitt
+3a. Eine Naht im eigentlichen Sinn ist das nicht.
+
+Die Punkte unten folgen der Reihenfolge der Strecke, und jeder nennt die
+Stelle im Code.
 
 ### Ingestion
 
@@ -217,6 +235,26 @@ Behoben statt kommentiert ist eine Stelle, nämlich die Kibana-Karten (Punkt
 13). Kommentar und Anleitung versprachen dort einen Abbruch, den der Code
 nicht auslösen konnte. Das halten `test_die_karten_kommen_aus_den_studienstaedten`
 und `test_eine_stadt_ohne_ausschnitt_bricht_ab_und_wird_genannt`.
+
+### 3b. Die vier Asymmetrien als Muster (FR-42)
+
+Chicago und Detroit beschreiben dieselben Dinge mit verschiedenen Schlüsseln
+und Formen. Jede der vier Asymmetrien wird an **einer** Stelle aufgefangen,
+nicht in jedem Modul neu. Eine dritte Stadt füllt die Zeile aus, indem sie
+die Frage in der vierten Spalte beantwortet.
+
+| Asymmetrie | Chicago | Detroit | Wo aufgefangen | Die Frage an eine dritte Stadt |
+| --- | --- | --- | --- | --- |
+| **Lademodus** | Manifest `mode`, Werte `full_snapshot` oder `delta`. Ein Delta blickt 14 Tage hinter das Wasserzeichen `updated_on` zurück, die Deltas überlappen sich also | Manifest `extraction_mode`, Werte `FULL`, `DELTA` oder `INCREMENTAL`. Zeilen ohne `updated_at` kommen in jedem Delta mit | [`manifeste.Lauf.vollabzug`](../../src/crime/manifeste/__init__.py) und `VOLLABZUG`. Census, TIGER und NOAA nennen keinen Modus und gelten deshalb **nicht** als Vollabzug | Hat sie einen Änderungsstempel? Ohne ihn ist jeder Lauf ein Vollabzug (Abschnitt 1) |
+| **Zeitschlüssel** | Tatzeit `date` als Ortszeit ohne Zone. Laufbeginn `started_at_utc`, Jahrgang `event_year` | Tatzeit `incident_occurred_at` in Epoch-Millisekunden UTC. Laufbeginn `started_at`, Jahrgang `year` | Die Tatzeit setzt Silver je Stadt in `build_query()`, mit `TIMEZONES`, in beide Richtungen: Chicago von Ortszeit nach UTC, Detroit von UTC nach Ortszeit. Laufbeginn und Jahrgang liest `manifeste.Lauf.begonnen_um` und `.jahrgang` | In welcher Zone liegt ihre Tatzeit, und gibt es Ortszeiten, die es nie gab oder die zweimal vorkommen? |
+| **Bronze-Form** | flache Spalten, so wie Socrata sie liefert | ArcGIS-Features mit den Feldern in einem Struct `attributes`, zusätzlich jedes Feature verlustfrei als JSON | `build_source_change.Quelle.struct` (`None` heisst flach). In Silver liest der Zweig je Stadt die Felder an ihrem Ort | Flach oder verschachtelt? Das entscheidet die Plattform, nicht die Stadt |
+| **Identitätsschlüssel und Granularität** | Zeile ist ein Vorfall: `id` ist der Tatschlüssel, `case_number` der Fall. Je Fall steht nur das schwerste Delikt da | Zeile ist ein Delikt: `incident_entry_id` ist der Tatschlüssel, `report_number` der Fall. Je Fall steht jedes Delikt da | Silver setzt `offense_id` und `event_id` je Stadt. `FALLKORN_RANG` wählt die Fallebene für beide gleich, und Gold beschreibt die Fallregel je Stadt (Punkt 11). Die Quellbewegung nimmt `Quelle.schluessel` | Welches Feld trägt die fachliche Identität, nicht die Zeilennummer der Antwort? Und ist eine Zeile ein Vorfall oder ein Delikt? |
+
+Daneben gibt es zwei kleinere Unterschiede ohne fachliche Folge. Die Läufe
+heissen `run_id` bei Chicago und `pipeline_run_id` bei Detroit, der Abschluss
+`completed_at_utc` und `finished_at`. Der Status lautet `complete` und
+`SUCCESS`. Auch diese Unterschiede fängt `manifeste` auf (`FERTIG`,
+`Lauf.run_id`, `Lauf.abgeschlossen_um`).
 
 ## 4. Was bewusst nicht vorbereitet ist
 
