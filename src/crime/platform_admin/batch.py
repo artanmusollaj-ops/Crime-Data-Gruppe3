@@ -50,6 +50,9 @@ def execute(store, row, payload):
     folder.mkdir(exist_ok=True, parents=True)
     import sys
     commands = [[sys.executable, "-m", "orchestration.vorpruefung"]]
+    # Two cities (FR-43): the full-mode switch and the run inventory name
+    # Chicago and Detroit. A third city's stage would silently run in its
+    # default (delta) mode, and its runs would not be captured as evidence.
     for stage in auswahl(False, "ingestion", payload["years"]):
         command = stage.befehl(store.data)
         if payload["mode"] == "full":

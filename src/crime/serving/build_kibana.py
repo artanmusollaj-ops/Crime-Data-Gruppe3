@@ -66,7 +66,7 @@ from typing import Any, Protocol
 # Das Bezugsjahr der Raten kommt aus derselben Quelle wie das der
 # Abgabedokumente. Eine zweite 2024 hier waere die Stelle, an der Dashboard und
 # Dokument auseinanderlaufen, ohne dass jemand es merkt.
-from gold_pipeline import RATENJAHR
+from gold_pipeline import RATENJAHR, STADT_SCHLUESSEL
 from serving.load_clickhouse import LadeFehler
 from serving.load_elasticsearch import NACH_NAME, aktuelles_release
 
@@ -143,8 +143,8 @@ ANSICHT_FLAECHEN = "crime-dim-tract-geo"
 #: Chicago -87,96…-87,52 / 41,64…42,02, Detroit -83,29…-82,91 / 42,26…42,45.
 #:
 #: **Kein Eintrag, kein Bau.** Kommt eine dritte Stadt nach
-#: ``silver_pipeline.STUDIENSTAEDTE``, bricht ``karte_objekt`` ab und nennt
-#: sie - geraten wird hier nichts, und eine Karte mit falschem Ausschnitt
+#: ``silver_pipeline.STUDIENSTAEDTE``, bricht schon der Bau ihrer Tafel ab und
+#: nennt sie - geraten wird hier nichts, und eine Karte mit falschem Ausschnitt
 #: zeigt leere Flaechen statt einer Fehlermeldung.
 KARTE_JE_STADT: dict[str, dict[str, float]] = {
     "chicago": {"lat": 41.83, "lon": -87.74, "zoom": 8},
@@ -1721,6 +1721,10 @@ BRETTER: tuple[Brett, ...] = (
             # Je Stadt eine Karte, nebeneinander - wie im Entwurf. Eine
             # gemeinsame zeigte zwei Flecken von je 50 Pixeln; die
             # Begruendung samt Messung steht an ``KARTE_JE_STADT``.
+            # Die Staedte kommen aus ``STADT_SCHLUESSEL``, nicht aus
+            # ``KARTE_JE_STADT``: sonst bekaeme eine dritte Stadt ohne
+            # Ausschnitt still keine Karte, statt dass ihre Tafel abbricht
+            # und sie nennt (FR-43).
             *(Tafel(f"karte_{stadt}",
                     f"{stadt.capitalize()} — Fälle je 1'000 Einwohner "
                     f"je Tract, {RATENJAHR}",
@@ -1733,7 +1737,7 @@ BRETTER: tuple[Brett, ...] = (
                     vorbehalte=(_TATORT_NICHT_WOHNORT, _FALLEBENE_VORN,
                                 _KLEINE_NENNER, _RATE_UEBER_ALLE_DELIKTE),
                     jahr=RATENJAHR, breite=24, hoehe=24)
-              for stadt in sorted(KARTE_JE_STADT)),
+              for stadt in sorted(STADT_SCHLUESSEL.values())),
             Tafel("hoechste", f"Die zwanzig höchsten Raten, {RATENJAHR}",
                   "esql_tabelle", abfrage=RATE_JE_TRACT,
                   frage=("Welche Tracts tragen die höchsten Raten — und mit "
@@ -2108,11 +2112,8 @@ def karte_objekt(tafel: Tafel, brett: str) -> dict[str, Any]:
     }
 
     zustand = {
-        # Der Ausschnitt deckt beide Staedte, gerechnet aus den gemessenen
-        # Grenzen der Umrisse: Chicago -87,96…-87,52 / 41,64…42,02, Detroit
-        # -83,29…-82,91 / 42,26…42,45. Mitte also -85,44 / 42,05, und Zoom 7
-        # zeigt rund acht Laengengrade - die 5,05 Grad zwischen den Staedten
-        # passen mit Rand hinein.
+        # Der Ausschnitt ist der der einen Stadt dieser Karte
+        # (``KARTE_JE_STADT``, dort die gemessenen Grenzen der Umrisse).
         #
         # **``autoFitToDataBounds`` waere das Naheliegende und ist falsch.**
         # Am 14.10.2026 im Browser gemessen: Damit zoomt Kibana so weit

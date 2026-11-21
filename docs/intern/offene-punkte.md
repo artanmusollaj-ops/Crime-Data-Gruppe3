@@ -14,8 +14,8 @@ offen?" gab es keine Antwort ohne Suche.
 **Was hier nicht steht:** die Anforderungen des PRD. Die führt
 [`fr-stand.md`](fr-stand.md), mit Beleg je Zeile und einem Wächter, der sie
 gegen das PRD hält — ein zweites Register daneben wäre die Stelle, an der
-beide auseinanderlaufen. Stand am 17.11.2026: 45 erfüllt, 9 teilweise,
-**10 offen**, 1 zurückgestellt.
+beide auseinanderlaufen. Stand am 21.11.2026: 46 erfüllt, 9 teilweise,
+**9 offen**, 1 zurückgestellt.
 
 **Die Regel.** Jeder offene Punkt hat **eine Kennung, einen Verantwortlichen
 und einen Beleg.** Ein Punkt ohne Verantwortlichen ist keiner, sondern ein

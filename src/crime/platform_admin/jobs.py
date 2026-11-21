@@ -551,6 +551,10 @@ def run_standard(store, job, spec, folder, log_path, runner, evaluator):
     config = store.materialize(job["mapping_revision"])
     from .run_evidence import capture, inventory
 
+    # Two cities (FR-43): the city is read from the task name, here and in the
+    # note below, which falls back to "Chicago". Unknown tasks are rejected
+    # above today. Once a third city's task is added there, its runs would go
+    # uncaptured and the note would name the wrong city.
     city_key = "detroit" if "detroit" in spec["task"] else "chicago" if "chicago" in spec["task"] else None
     before = inventory(store, city_key) if city_key else {}
     try:

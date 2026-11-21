@@ -1244,3 +1244,25 @@ def test_ein_auswahlfeld_steht_nur_dort_wo_es_wirkt(brett, elastic):
             f"{brett.kennung}: das Auswahlfeld {fehlend} gibt es in "
             f"'{index}' nicht - auf den Karten dieses Bretts bewirkt es "
             f"nichts, und wer es benutzt, liest eine Auswahl hinein")
+
+
+def test_die_karten_kommen_aus_den_studienstaedten():
+    """Je Studienstadt eine Karte, und keine Stadt faellt still heraus (FR-43).
+
+    Bis zum 21.11.2026 baute das Brett seine Karten aus ``KARTE_JE_STADT``
+    selbst. Eine dritte Stadt in ``STUDIENSTAEDTE`` ohne Ausschnitt bekam dann
+    einfach keine Karte, und die Pruefung in ``karte_objekt``, die sie nennen
+    sollte, konnte nie anschlagen - der Kommentar daneben versprach es
+    trotzdem.
+    """
+    from gold_pipeline import STADT_SCHLUESSEL
+
+    karten = {t.stadt for b in bk.BRETTER for t in b.tafeln if t.ist_karte}
+    assert karten == set(STADT_SCHLUESSEL.values())
+
+
+def test_eine_stadt_ohne_ausschnitt_bricht_ab_und_wird_genannt():
+    """Die andere Haelfte: Fehlt der Ausschnitt, bricht der Bau ab."""
+    karte = next(t for b in bk.BRETTER for t in b.tafeln if t.ist_karte)
+    with pytest.raises(LadeFehler, match="dallas"):
+        bk.replace(karte, stadt="dallas")

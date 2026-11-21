@@ -204,6 +204,9 @@ def quellbewegung(bestand, werte: dict[str, str]) -> dict[str, Any]:
         })
 
     # -- Der Staedtevergleich -------------------------------------------------
+    # Zwei Staedte (FR-43): Der Test vergleicht genau ein Paar, und dazu passt
+    # die Tafel in ``static/quellbewegung.js``. Bei drei Staedten fallen
+    # Vergleich und Faktor still weg.
     vergleich = []
     if len(staedte) == 2 and all(k["eintragsmonate"] > 0 for k in kennzahlen):
         a, b = kennzahlen
