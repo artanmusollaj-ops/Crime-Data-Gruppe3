@@ -110,6 +110,21 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 20.11.2026 · Das Konzept sagt nicht mehr, Kapitel 3 sei Entwurf (Branch `docs/konzept-entwurf-und-offen`)
+
+Zwei Sachkorrekturen in `ln2_konzept.md`. Aufbau und Ton bleiben.
+
+- **Kopf, „Was Entwurf ist und was gebaut“.** Dort stand, Kapitel 3 sei
+  Entwurf, „weil der Entscheid offen ist“, und die Gold-Tabellen seien nur
+  entworfen. Beides ist seit LN1 überholt. Kapitel 3 ist der abgegebene
+  Wortlaut (F1 bis F6, H1 bis H6), gemessen in Notebook 36. Gold ist gebaut.
+  Kapitel 5.2 nennt den Entwurf weiter, weil LN1 ihn verlangt, und daneben
+  das Gebaute.
+- **Schluss, „Offen für LN1“.** Die Liste nannte das Hypothesen-Notebook als
+  fehlend und gleich darunter als erledigt. Der Abschnitt heisst jetzt „Was
+  aus LN1 offen war“ und führt beide Punkte als erledigt, mit dem Verweis auf
+  die Nachweise.
+
 ## 20.11.2026 · Der Ablauf für den Abgabestand steht fest (Branch `docs/abgabestand-ablauf`)
 
 **Warum.** Der Stand vom 20.11. ist ausdrücklich ein Zwischenstand. Der

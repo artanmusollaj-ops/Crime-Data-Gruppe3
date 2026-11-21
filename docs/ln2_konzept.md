@@ -24,11 +24,12 @@ beruht, steht der Verweis auf das Notebook, das sie erzeugt — die Zahlen sind
 nachrechenbar, nicht abgeschrieben.
 
 > **Was Entwurf ist und was gebaut.** Kapitel 3 (Forschungsfragen und
-> Hypothesen) ist Entwurf, weil der Entscheid offen ist. Kapitel 5.2 (Serving)
-> ist zur Hälfte gebaut: Die Auswertungsumgebung steht, die Gold-Tabellen
-> darunter sind entworfen — LN1 verlangt für den Lebenszyklus ausdrücklich den
-> Entwurf. Alle übrigen Kapitel beschreiben Umgesetztes, und wo etwas fehlt,
-> steht es dort.
+> Hypothesen) ist der mit LN1 abgegebene Wortlaut, F1 bis F6 und H1 bis H6, und
+> alle sechs Hypothesen sind in Notebook 36 gemessen. Kapitel 5.2 (Serving)
+> nennt den Entwurf, weil LN1 ihn für den Lebenszyklus ausdrücklich verlangt,
+> und daneben, was davon gebaut ist: Gold als Sternschema, die
+> Auswertungsdatenbank und das Dashboard. Alle Kapitel beschreiben
+> Umgesetztes, und wo etwas fehlt, steht es dort.
 
 ---
 
@@ -1617,18 +1618,15 @@ zwanzig Sekunden gekostet und an einer Netzverbindung gehangen.
 
 ---
 
-## Offen für LN1
+## Was aus LN1 offen war
 
-Damit dieses Dokument vollständig ist, fehlen:
+Bei der Abgabe von LN1 fehlten zwei Dinge, beide sind inzwischen erledigt:
 
-- **Ein Notebook, das den Vergleich über alle Hypothesen rechnet.** Die Rate je
-  Einwohner steht seit Gold zur Verfügung (5.2) und ist in Notebook 34
-  gerechnet; ein Notebook, das den ganzen Vergleich daraus aufbaut, fehlt noch
-
-**Erledigt seit der Abgabe.** Der *Entscheid über Forschungsfragen und
-Hypothesen* steht: F1 bis F6 mit H1 bis H6, Wortlaut in
-[`forschungsfragen.md`](forschungsfragen.md). Gold war bewusst so gebaut, dass
-er nichts daran ändert — die Granularität bleibt, und jede Frage ist ein Filter
-darauf (5.2). Und das *Notebook, das die Hypothesen rechnet*, ist
-[`../notebooks/36_hypothesen.ipynb`](../notebooks/36_hypothesen.ipynb); es misst
-alle sechs und zitiert sie wörtlich.
+- **Der Entscheid über Forschungsfragen und Hypothesen.** Er steht: F1 bis F6
+  mit H1 bis H6, Wortlaut in [`forschungsfragen.md`](forschungsfragen.md).
+  Gold war bewusst so gebaut, dass er nichts daran ändert. Die Granularität
+  bleibt, und jede Frage ist ein Filter darauf (5.2).
+- **Ein Notebook, das die Hypothesen rechnet.** Das ist
+  [`../notebooks/36_hypothesen.ipynb`](../notebooks/36_hypothesen.ipynb). Es
+  misst alle sechs und zitiert sie wörtlich. Seine Ausgaben liegen als
+  Nachweis unter [`nachweise/`](nachweise/README.md).
