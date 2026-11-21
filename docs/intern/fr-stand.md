@@ -98,8 +98,8 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | FR-56 | Fundstelle je Pflichtbestandteil P1–P6 | ◐ | **nicht geprüft** — kein Wächter gefunden, der die sechs Fundstellen hält | Artan |
 | FR-57 | Finaler Lebenszyklus, sechs Phasen | ◐ | `ln2_konzept.md` Kapitel 5 ordnet sie zu; „final" ist er nicht | Artan |
 | FR-58 | LN1-Feedback eingearbeitet | ○ | die Rückmeldung kam am 3.11.2026 (Note 5.75); eingearbeitet ist sie noch nicht | Artan |
-| FR-59 | Skalierbarkeit argumentiert | ◐ | `docs/ausblick.md` Abschnitt 3 „Skalieren" | Christian |
-| FR-60 | Die drei gemessenen Bremsen benannt | ◐ | in `ausblick.md` enthalten; nicht als eigener, belegter Abschnitt geprüft | Christian |
+| FR-59 | Skalierbarkeit argumentiert | ● | `docs/ausblick.md` Abschnitt 3, Stufe 3: Die Parquet-Dateien mit Hive-Partitionen kämen mit, das SQL aus `spatial` und `icu` nicht. Die Funktionen sind seit dem 21.11.2026 einzeln genannt statt mit einer veralteten Zählung | Christian |
+| FR-60 | Die drei gemessenen Bremsen benannt | ● | `ausblick.md` Abschnitt 3, je mit Beleg (21.11.2026): Vollneubau mit dem Nachweis zu Notebook 36 vom 14.11.2026, räumlicher Join mit dem Kommentar in `build_crime_offense.py`, Speicher mit dem Abbruch auf `srv01` vom 16.10.2026 und den Grenzen seit dem 3.10.2026. `tests/test_ausblick.py` hält die Grenzen | Christian |
 
 ## Welle 7 · Die Nähte für eine dritte Stadt (Christian)
 
@@ -134,8 +134,8 @@ stellt."*
 
 | Stand | Anzahl |
 | --- | ---: |
-| ● erfüllt | 48 |
-| ◐ teilweise | 7 |
+| ● erfüllt | 50 |
+| ◐ teilweise | 5 |
 | ○ offen | 9 |
 | ▣ zurückgestellt | 1 |
 | **zusammen** | **65** |

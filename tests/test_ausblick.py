@@ -76,18 +76,27 @@ def test_der_s3_client_ist_wirklich_fest_verdrahtet(text):
     )
 
 
-def test_duckdb_hat_wirklich_keine_grenzen(text):
-    """Behauptet in Abschnitt 3: kein memory_limit, keine threads-Einstellung."""
-    if "memory_limit" not in text:
+def test_duckdb_grenzen_kommen_aus_der_umgebung(text):
+    """Behauptet in Abschnitt 3, Bremse 3: Die Grenzen kommen aus der Umgebung.
+
+    Bis zum 21.11.2026 stand hier der umgekehrte Waechter: "kein
+    memory_limit, keine threads-Einstellung". Er suchte ``SET memory_limit``
+    im Code, ``storage.duckdb`` setzt die Grenzen aber als ``SET {name}=?``.
+    So blieb er sieben Wochen gruen, obwohl die Behauptung seit dem 3.10.2026
+    falsch war. Geprueft wird jetzt das Verhalten statt einer Schreibweise.
+    """
+    if "DUCKDB_MEMORY_LIMIT" not in text:
         pytest.skip("Das Dokument behauptet es nicht mehr")
-    gesetzt = [
-        str(p.relative_to(QUELLE))
-        for p in QUELLE.rglob("*.py")
-        if re.search(r"SET\s+(memory_limit|threads)", p.read_text(encoding="utf-8"))
-    ]
-    assert not gesetzt, (
-        f"Es gibt jetzt Grenzen in {gesetzt} - Abschnitt 3 anpassen"
-    )
+    from storage.duckdb import grenzen
+
+    assert grenzen({}) == {}, "ohne Angabe soll DuckDBs Vorgabe bleiben"
+    assert grenzen({"DUCKDB_MEMORY_LIMIT": "896MB", "DUCKDB_THREADS": "2"}) == {
+        "memory_limit": "896MB", "threads": "2"}
+    for datei in ("docker-compose.srv01.yml", "docker-compose.gcp.yml"):
+        compose = (PROJECT_ROOT / datei).read_text(encoding="utf-8")
+        assert "DUCKDB_MEMORY_LIMIT: 896MB" in compose, (
+            f"{datei} setzt die Grenze der Strecke nicht mehr auf 896 MB - "
+            "Abschnitt 3 anpassen")
 
 
 def test_alle_quellen_haben_vertragsversionen(text):

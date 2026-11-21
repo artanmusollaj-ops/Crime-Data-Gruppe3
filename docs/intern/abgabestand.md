@@ -112,13 +112,26 @@ Seit Gold-Vertrag 9 führt `dim_city_day` auch Tage ohne Wetter. Die Abfrage
 WHERE f.reporting_city = 'chicago' AND w.temp_max_c IS NOT NULL GROUP BY 1
 ```
 
-Sie geht **mit** dem neuen Nachweis in denselben Pull Request.
+**Im selben Commit: der Text zu H6 in Notebook 36.** Die Markdown-Zellen 30
+und 31 nennen fest „27 Sekunden“, „Faktor 22“ und „Median 27 s, Spannweite
+27 bis 31 s“. Diese Werte stammen aus der Zeit mit einem Jahrgang. Die
+Ausgabe darüber misst im Nachweis vom 14.11.2026 schon 24,2 s und Faktor 25
+(gefunden am 21.11.2026). Den Text so fassen, dass er keine Zahl wiederholt,
+die erst die Messung liefert, zum Beispiel „Der Median liegt rund eine
+Grössenordnung unter dem Budget (Messung oben)“. Steht eine feste Zahl darin,
+zeigt die HTML-Datei des neuen Nachweises sie neben einer Ausgabe, die anders
+lautet. Der Code-Abdruck in `tests/test_nachweise.py` umfasst nur die
+Codezellen, eine Änderung am Markdown macht den Nachweis also nicht rot. Der
+Text muss aber **vor** `build_nachweise` stimmen, weil das HTML ihn so
+festhält, wie er beim Bau dastand.
+
+Beides geht **mit** dem neuen Nachweis in denselben Pull Request.
 `tests/test_nachweise.py` hält den Code-Abdruck jedes Notebooks gegen seinen
 Nachweis und ist dazwischen rot. `tools/build_nachweise.py` läuft nur von
 einem sauberen Commit:
 
 ```bash
-git commit -am "Notebook 34 zählt nur Tage mit Wetter"
+git commit -am "Notebook 34 zählt nur Tage mit Wetter, Notebook 36 nennt H6 ohne feste Zahl"
 python tools/build_nachweise.py
 ```
 

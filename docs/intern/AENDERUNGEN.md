@@ -110,6 +110,37 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 21.11.2026 · Der Ausblick nennt die drei Bremsen mit Beleg und die Grenzen von DuckDB richtig (Branch `fr-59-60-bremsen`)
+
+`ausblick.md` Abschnitt 3 behauptete, die Strecke setze in DuckDB weder
+`memory_limit` noch `threads`. Das war seit dem 3.10.2026 falsch. Der
+Wächter darüber blieb trotzdem grün: Er suchte im Code nach
+`SET memory_limit`, `storage.duckdb` setzt die Grenzen aber als
+`SET {name}=?`.
+
+- **Bremse 3, der Speicher:** Der Abschnitt sagt jetzt, dass beide Grenzen
+  seit dem 3.10.2026 aus der Umgebung kommen, auf `srv01` und in Google
+  Cloud 896 MB und zwei Threads. Dazu kommt die Messung, die die Bremse
+  belegt: der Abbruch von `silver crime_offense` am 16.10.2026 an 854 MiB.
+  Der neue Wächter `test_duckdb_grenzen_kommen_aus_der_umgebung` prüft das
+  Verhalten von `storage.duckdb.grenzen` und die beiden Compose-Dateien statt
+  einer Schreibweise.
+- **Bremse 1, der Vollneubau:** Neben dem Ausgangswert vom 13.9. (ein
+  Jahrgang) steht jetzt die Messung mit sechs Jahrgängen aus dem Nachweis
+  vom 14.11.2026: Median 24,2 s für 1'909'461 Silver-Zeilen. Die Zeile ist
+  in `test_dokumentzahlen.py` als datierte Messung geschützt.
+- **Bremse 2, der räumliche Join:** Die 348'000 Punkte sind als Messung mit
+  einem Jahrgang gekennzeichnet; heute sind es rund 1,9 Mio.
+- **FR-59:** „fünfmal `ST_GeomFromWKB`" stimmte nicht mehr, im Code sind es
+  elf Zeilen. Genannt sind jetzt die Funktionen, ohne Zählung.
+- `fr-stand.md`: FR-59 und FR-60 auf ●, 50 erfüllt und 5 teilweise.
+- `abgabestand.md` Schritt 4: Im Text zu H6 in Notebook 36 stehen noch die
+  Werte mit einem Jahrgang (27 s, Faktor 22). Die Ausgabe im Nachweis zeigt
+  24,2 s. Korrigiert wird das mit dem Fix an Notebook 34, vor dem neuen
+  Nachweis.
+
+Am Code und an den Zahlen der Strecke ändert sich nichts.
+
 ## 21.11.2026 · Die Nähte und die Asymmetrien für eine dritte Stadt stehen an einem Ort (Branch `fr-41-42-naehte`)
 
 Welle 7 ist damit abgeschlossen. Beides stand bisher verstreut im Code, und
