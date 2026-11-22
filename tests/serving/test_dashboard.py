@@ -878,3 +878,17 @@ def test_jede_seite_hat_die_checkboxen_und_kein_auswahlfeld():
         assert 'id="staedte"' in html, seite.name
         assert '<input type="hidden" name="stadt" id="stadt">' in html, seite.name
         assert '<select name="stadt"' not in html, seite.name
+
+
+
+def test_die_staedte_stehen_in_einer_aufklappliste():
+    """Die Häkchen liegen in einer Liste, die aufklappt wie ein Auswahlfeld.
+
+    Erst standen sie offen in der Leiste. Christian wollte sie am 22.11.2026
+    in einer Aufklappliste: zu sehen ist die Zusammenfassung, ein Klick
+    oeffnet die Häkchen. ``<details>``, damit Tastatur und Vorleser es kennen.
+    """
+    js = (PROJEKT / "src/crime/serving/dashboard/static/gemeinsam.js").read_text(encoding="utf-8")
+    assert 'document.createElement("details")' in js
+    assert 'klappe.className = "staedte-klappe"' in js
+    assert 'kopf.textContent = alle.checked ? "Alle"' in js

@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'349** |
+| Tests | **3'350** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -109,6 +109,25 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 22.11.2026 · Die Städte stehen in einer Aufklappliste (Branch `dashboard-staedte-dropdown`)
+
+Nachtrag zu #278 auf Christians Wunsch. Die Checkboxen standen offen in der
+Leiste. Jetzt liegen sie in einer Liste, die aussieht wie die Auswahlfelder
+daneben.
+
+- Zu sehen ist die Zusammenfassung: „Alle“, „Chicago“ oder „Chicago,
+  Detroit“. Ein Klick öffnet die Liste mit „Alle“ oben und darunter je Stadt
+  ein Häkchen.
+- Die Liste bleibt beim Wählen offen, damit sich mehrere Städte nacheinander
+  setzen lassen. Ein Klick daneben oder die Escape-Taste schliesst sie.
+- Gebaut mit `<details>`, damit Tastatur und Vorleser es kennen. Das Verhalten
+  aus #278 bleibt: `stadt=alle` oder eine Liste in der Adresse, und die
+  letzte Stadt lässt sich nicht abwählen.
+- Im Browser geprüft, lokal mit `STORAGE_BACKEND=local`.
+
+**Zahlen.** 3'349 → **3'350 Tests**, Standardlauf 3'238 → **3'239**. Im
+Linux-CI-Lauf hochgerechnet 3'154 → 3'155.
 
 ## 22.11.2026 · Das Dashboard wählt Städte mit Checkboxen, und »Alle« ersetzt »Beide« (Branch `dashboard-staedte-auswahl`)
 
