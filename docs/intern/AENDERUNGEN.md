@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'324** |
+| Tests | **3'326** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -82,7 +82,7 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
 | `silver/crime_offense` | **4** | 30.10.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig. Version 4: **Die Zuordnung ist Crosswalk plus `config/mapping_overrides.csv`** — eine Zeile dort gewinnt gegen den erzeugten Crosswalk und trägt die Herkunft `admin_review` (Einstufung `ambiguous`). Die Datei fehlt nie; ohne Korrekturen hat sie nur die Kopfzeile, und dann ist das Ergebnis dasselbe wie in Version 3 |
 | `silver/source_change` | **4** | 08.11.2026 | Unterschied zwischen aufeinanderfolgenden **Vollabzügen** je Quelle, eine Zeile je geändertem Feld; `ESRI_OID` und reine Leerzeichen ausgenommen, Zeitstempel als `beruehrt` statt als Inhaltsänderung. Version 2 ergänzte die **Datierung aus den Deltas**: `zuerst_gesehen_in`, `zuerst_gesehen_am` und `datierung` mit `delta` / `kein_delta` / `nicht_datierbar`. Gefunden wird weiter nur zwischen Vollabzügen — aus einem Delta liesse sich *verschwunden* nicht von *ruhig* unterscheiden. Version 3: Die Datierung **klebt** — sie nennt den besten je bestimmten Befund, nicht den heutigen, sonst löschte das Aufräumen der Deltas sie wieder. Version 4: Jede Zeile nennt ihre **Deliktsart** (`quellcode`, `quellkategorie` — aus dem älteren Abzug, bei `neu` aus dem jüngeren), jedes Paar seinen **Bestand** (`bestand_vorher`, `bestand_nachher`) und seinen **Jahrgang** (`jahrgang`, aus dem Manifest des Laufs). Ohne Deliktsart war nicht zu sagen, *was* verschwindet; ohne Bestand nicht, ob eine Stadt *viel* löscht. Beides klebt wie die Datierung und wird für ältere Paare nachgetragen, solange ihre Schnappschüsse lesbar sind |
-| `gold/*` | **9** | 19.11.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften | Version 6: Die ACS-Masse liegen **je Vintage** in der neuen Tabelle `dim_tract_acs` (`population`, `median_household_income_usd`, `poverty_rate`); `dim_tract` behält die Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie kommt; `fact_offense` trägt `population_vintage` und sagt damit je Zeile, welcher Nenner für sie gilt. Eine Tabelle mit einer Zeile je Tract konnte nur eine Einwohnerzahl tragen — über mehrere Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021 Version 7: `dim_date` trägt `year_is_complete` — ob der Jahrgang dieses Tages ganz in den Daten liegt. Ein Teiljahr darf nicht in einen Jahresvergleich geraten: 2026 hat am 3.10. neun Monate, und neun gegen zwölf gestellt ergeben einen Rückgang, den es nicht gibt. Dazu im Manifest von `fact_offense` der Nachweis `year_coverage` je Jahrgang, mit `days_with_offenses` gegen `days_in_year` — denn eine Lücke **innerhalb** des Jahres sieht man an der Spalte nicht Version 8: Die neue Tabelle `dim_tract_geo` trägt den **Umriss** je Tract der beiden Studienstädte als WKT — 1'055 Zeilen, vereinfacht mit Douglas-Peucker 0,00002 Grad (rund zwei Meter, 0,0002 % Fläche je Tract). Sie ist die Grundlage der Choroplethenkarte in Kibana, die eine Fläche braucht und mit dem Schwerpunkt in `dim_tract` nichts anfangen kann. **Eigene Tabelle und keine Spalte an `dim_tract`:** Die Dimension deckt beide Countys ab (6'282 Zeilen) und wäre mit Umrissen 26 MB statt 194 KB; `dim_tract_geo` kostet 133 KB. Keine Kennzahl darin — wer färben will, verbindet über `geoid` Version 9: `dim_city_day` ist ein **Gerüst** aus der Spanne der Falldaten und jeder Studienstadt; das Wetter kommt per LEFT JOIN, und an Tagen, für die NOAA noch nicht geliefert hat, sind die Wetterspalten `NULL`. Dazu je Stadt und Tag `sunrise_utc`, `sunset_utc` und `daylight_hours` nach NOAA „General Solar Position Calculations“ (Zenit 90,833°) am Schwerpunkt der Ortsgrenze aus `silver/place`, immer gefüllt. Der Untergang liegt im Sommer am UTC-Folgetag; hell heisst `sunrise_utc <= occurred_at_utc < sunset_utc` für dieselbe Stadt und dasselbe `date`. Tage ohne Wetter tragen in `quality_flags` das Flag `no_weather`
+| `gold/*` | **10** | 21.11.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften | Version 6: Die ACS-Masse liegen **je Vintage** in der neuen Tabelle `dim_tract_acs` (`population`, `median_household_income_usd`, `poverty_rate`); `dim_tract` behält die Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie kommt; `fact_offense` trägt `population_vintage` und sagt damit je Zeile, welcher Nenner für sie gilt. Eine Tabelle mit einer Zeile je Tract konnte nur eine Einwohnerzahl tragen — über mehrere Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021 Version 7: `dim_date` trägt `year_is_complete` — ob der Jahrgang dieses Tages ganz in den Daten liegt. Ein Teiljahr darf nicht in einen Jahresvergleich geraten: 2026 hat am 3.10. neun Monate, und neun gegen zwölf gestellt ergeben einen Rückgang, den es nicht gibt. Dazu im Manifest von `fact_offense` der Nachweis `year_coverage` je Jahrgang, mit `days_with_offenses` gegen `days_in_year` — denn eine Lücke **innerhalb** des Jahres sieht man an der Spalte nicht Version 8: Die neue Tabelle `dim_tract_geo` trägt den **Umriss** je Tract der beiden Studienstädte als WKT — 1'055 Zeilen, vereinfacht mit Douglas-Peucker 0,00002 Grad (rund zwei Meter, 0,0002 % Fläche je Tract). Sie ist die Grundlage der Choroplethenkarte in Kibana, die eine Fläche braucht und mit dem Schwerpunkt in `dim_tract` nichts anfangen kann. **Eigene Tabelle und keine Spalte an `dim_tract`:** Die Dimension deckt beide Countys ab (6'282 Zeilen) und wäre mit Umrissen 26 MB statt 194 KB; `dim_tract_geo` kostet 133 KB. Keine Kennzahl darin — wer färben will, verbindet über `geoid` Version 9: `dim_city_day` ist ein **Gerüst** aus der Spanne der Falldaten und jeder Studienstadt; das Wetter kommt per LEFT JOIN, und an Tagen, für die NOAA noch nicht geliefert hat, sind die Wetterspalten `NULL`. Dazu je Stadt und Tag `sunrise_utc`, `sunset_utc` und `daylight_hours` nach NOAA „General Solar Position Calculations“ (Zenit 90,833°) am Schwerpunkt der Ortsgrenze aus `silver/place`, immer gefüllt. Der Untergang liegt im Sommer am UTC-Folgetag; hell heisst `sunrise_utc <= occurred_at_utc < sunset_utc` für dieselbe Stadt und dasselbe `date`. Tage ohne Wetter tragen in `quality_flags` das Flag `no_weather`. Version 10: Die Mehrheitsregel rechnet den Anteil auf die **Landfläche** des Tracts (Anteil der Gesamtfläche × (Land + Wasser) / Land, höchstens 1; ohne Land keine Stadt). Über die Gesamtfläche scheiterten bewohnte Tracts am Seeufer am Wasser, weil die TIGER-Grenze von Chicago am Ufer endet. `city_area_share` trägt seither den Landanteil
 | `serving/comparison_*` | **3** | 01.11.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` Version 2: `rate_tract` kommt dazu — eine Zeile je Tract **mit Einwohnern** im Bezugsjahr (`gold_pipeline.RATENJAHR`), mit Fällen, Taten, Einwohnerzahl und beiden Raten je 1'000. Gerechnet wird sie mit **derselben** Abfrage, die `gold_pipeline.raten_je_tract` auch dem Wächter der Kibana-Ratenkachel stellt, nicht mit einer zweiten. Sie entsteht, weil Kibanas Karte eine Fläche nach **einem** Feld einfärbt und zwischen zwei verbundenen Feldern nicht rechnen kann — und eine Karte nach Fallzahlen wäre hier irreführend: Die Einwohnerzahl je Tract reicht von 35 bis 13'521 (2024, Median 2'861). Tracts ohne Einwohner fehlen, für sie ist keine Rate definiert. Version 3: **`days_in_window` misst am Fenster je meldender Stadt**, nicht mehr am gemeinsamen beider. Chicagos Daten enden am 26.9.2026, Detroits am 4.10.; mit dem gemeinsamen Fenster hiess Chicagos September vollständig, obwohl vier Tage fehlten (C-10) |
 | `serving/source_movement` | 1 | 08.11.2026 | die Quellbewegung im Release, eine Zeile je bewegtem Feld, je neuer und je verschwundener Zeile und je ruhigem Paar wie in `silver/source_change`; Arten übersetzt (`changed`, `touched`, `added`, `removed`, `unchanged`), Zeitstempel als `is_stamp` markiert, Deliktsart über den heute gültigen Crosswalk samt Overrides auf `nibrs_code` gebracht. `event_year` nennt den Tatjahrgang des Paares. Liest als einzige Serving-Tabelle aus Silver: Sie beschreibt die Quelle, nicht die Taten, und steht deshalb nicht im Stern. Ohne `silver/source_change` leer, mit Vermerk |
 
@@ -109,6 +109,52 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 21.11.2026 · Tracts am Chicagoer Seeufer gehören zur Stadt, Gold-Vertrag 10 (Branch `fix-tract-landanteil`)
+
+**Der Befund.** Auf dem Brett »Geografie« schienen in Chicago Tracts zu
+fehlen. Gezeichnet wurde jeder zugeordnete Tract. Es fehlte die Zuordnung
+selbst: Die Mehrheitsregel rechnete den Anteil auf die **ganze**
+Tractfläche. Ein TIGER-Tract am Seeufer reicht aber in den Michigansee, und
+die TIGER-Grenze von Chicago endet am Ufer. Ein solcher Tract kam nie über
+50 %, auch wenn sein ganzes Land in der Stadt lag. Streeterville
+(Tract 814.03, 10'291 Einwohner) stand bei 22 %.
+
+**Detroit geprüft, in Ordnung.** Die leeren Flächen mitten in Detroit sind
+Highland Park und Hamtramck. Beide sind eigene Städte und von Detroit
+umschlossen. Die TIGER-Grenze hat dort ihr einziges Loch, und die beiden
+füllen es ganz aus (59 und 41 %). 2024 liegen 11 Detroiter Fälle darin.
+
+**Der Fix.** Der Anteil wird auf die Landfläche umgerechnet: Anteil der
+Gesamtfläche × (Land + Wasser) / Land, höchstens 1. Ein Tract ohne Land
+gehört zu keiner Stadt. Kein bisher zugeordneter Tract verliert seine Stadt.
+`city_area_share` trägt seither den Landanteil. Gold-Vertrag 10, neu bewacht
+von `test_ein_tract_am_seeufer_gehoert_zur_stadt` und
+`test_ein_tract_ohne_land_gehoert_zu_keiner_stadt`.
+
+**Was sich verschiebt.** Lokal neu gebaut am 21.11.2026 mit
+`STORAGE_BACKEND=local`, Jahrgang 2024:
+
+| | Vertrag 9 | Vertrag 10 |
+| --- | ---: | ---: |
+| Chicago, Tracts | 782 | 793 |
+| Chicago, Einwohner | 2'661'953 | 2'713'800 |
+| Chicago, Fälle innerhalb der Stadt | 251'483 | 256'317 |
+| Chicago, Fälle ausserhalb der Stadt | 6'010 | 1'176 |
+| Chicago, Fälle je 1'000 | 94,5 | 94,4 |
+| Detroit | unverändert | unverändert |
+
+**Die Dokumente bleiben vorerst beim Zwischenstand.** Ihre Zahlen beschreiben
+das Release vom 20.11.2026, und das ist mit Vertrag 9 gebaut. Für dieses
+Release stimmen sie weiter. Sie ziehen mit dem nächsten Stand nach, der mit
+Vertrag 10 entsteht. `abgabestand.md` nennt dafür jetzt zwei Dinge. Erstens
+die Voraussetzung, dass das Abbild mit Vertrag 10 vor dem 7.12. auf `srv01`
+läuft. Zweitens zwei Stellen in `ln2_konzept.md`, die der Befund überholt und
+die kein Wächter sieht: die Erklärung des Abstands zum Zensus und die
+Limitation in Kapitel 9 mit den 5'249 Delikten.
+
+**Zahlen.** 3'324 → **3'326 Tests**, Standardlauf 3'213 → **3'215**. Im
+Linux-CI-Lauf hochgerechnet 3'129 → 3'131.
 
 ## 21.11.2026 · Der Ausblick nennt die drei Bremsen mit Beleg und die Grenzen von DuckDB richtig (Branch `fr-59-60-bremsen`)
 

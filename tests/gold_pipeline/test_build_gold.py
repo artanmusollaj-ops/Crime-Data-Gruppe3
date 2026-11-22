@@ -251,6 +251,49 @@ def test_der_flaechenanteil_bleibt_auch_unterhalb_der_schwelle(con, tmp_path):
     assert anteil == pytest.approx(0.3)
 
 
+def _mit_wasser(tract: bg.Quelle, land: int, wasser: int) -> bg.Quelle:
+    tabelle = pq.read_table(tract.pfad)
+    n = tabelle.num_rows
+    tabelle = tabelle.set_column(
+        tabelle.schema.get_field_index("land_area_m2"), "land_area_m2",
+        pa.array([land] * n, type=pa.int64()))
+    tabelle = tabelle.set_column(
+        tabelle.schema.get_field_index("water_area_m2"), "water_area_m2",
+        pa.array([wasser] * n, type=pa.int64()))
+    pq.write_table(tabelle, tract.pfad)
+    return tract
+
+
+def test_ein_tract_am_seeufer_gehoert_zur_stadt(con, tmp_path):
+    """Vertrag 10: Der Anteil zaehlt auf der Landflaeche, nicht auf dem Wasser.
+
+    Der Tract liegt zu 30 % in Chicago, und der Rest ist See: Land und Wasser
+    stehen 3 zu 7. Sein ganzes Land liegt also in der Stadt. Bis Vertrag 9
+    blieb er bei 0,3 haengen - so fehlten am 21.11.2026 zwoelf bewohnte
+    Tracts am Chicagoer Ufer, Streeterville darunter.
+    """
+    tract = _mit_wasser(tract_quelle(tmp_path, [
+        ("17031081403", 10291, wkb_rechteck(9.7, 1, 1.0, 1.0)),
+    ]), land=30_000, wasser=70_000)
+    con.execute(
+        f"CREATE OR REPLACE TEMP VIEW d AS {bg.dim_tract_query(tract, place_quelle(tmp_path), VINTAGE)}"
+    )
+    stadt, anteil = con.execute("SELECT city, city_area_share FROM d").fetchone()
+    assert stadt == "chicago"
+    assert anteil == pytest.approx(1.0)
+
+
+def test_ein_tract_ohne_land_gehoert_zu_keiner_stadt(con, tmp_path):
+    """Ganz Wasser: kein Anteil, den man auf Land umrechnen koennte."""
+    tract = _mit_wasser(tract_quelle(tmp_path, [
+        ("17031990000", 0, wkb_rechteck(1, 1, 2, 2)),
+    ]), land=0, wasser=100_000)
+    con.execute(
+        f"CREATE OR REPLACE TEMP VIEW d AS {bg.dim_tract_query(tract, place_quelle(tmp_path), VINTAGE)}"
+    )
+    assert con.execute("SELECT city, city_area_share FROM d").fetchone() == (None, 0.0)
+
+
 def test_jeder_tract_steht_genau_einmal(con, tmp_path):
     """Auch wenn er zwei Stadtgrenzen beruehrt, darf er sich nicht verdoppeln."""
     tract = tract_quelle(tmp_path, [

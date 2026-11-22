@@ -374,9 +374,11 @@ JE_TABELLE: dict[tuple[str, str], str] = {
         "liegen dagegen je Vintage in `dim_tract_acs` - verbunden wird über "
         "`geoid` **und** `vintage`.",
     ("dim_tract", "city_area_share"):
-        "Welcher Anteil der Tractfläche in der Stadt liegt, 0 bis 1. Ueber 0,5 "
-        "gehört der Tract zur Stadt (Mehrheitsregel). Der Wert bleibt "
-        "erhalten, damit sich auch flächengewichtet rechnen lässt.",
+        "Welcher Anteil der Landfläche des Tracts in der Stadt liegt, 0 bis 1. "
+        "Über 0,5 gehört der Tract zur Stadt (Mehrheitsregel). Seit Vertrag 10 "
+        "auf die Landfläche gerechnet, damit Tracts am Seeufer nicht am Wasser "
+        "scheitern. Der Wert bleibt erhalten, damit sich auch flächengewichtet "
+        "rechnen lässt.",
     ("dim_tract", "tract_name"): "Bezeichnung des Tracts.",
 
     # --- dim_tract_geo: der Umriss, fuer die Karte ------------------------

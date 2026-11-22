@@ -28,6 +28,15 @@ abgeleitet wird am 8.12. Der Lauf kommt ohne Handgriff, und es bleiben zwei
 Tage Reserve. Läuft er rot, ist der Rückweg ein Delta-Lauf von Hand am selben
 Tag (Schritt 1). Die Entscheidung trifft Christian.
 
+**Voraussetzung: Gold-Vertrag 10 läuft auf `srv01`.** Seit dem 21.11.2026
+rechnet die Stadtzuordnung auf die Landfläche (Branch
+`fix-tract-landanteil`). Das Release vom 20.11. ist noch mit Vertrag 9
+gebaut. Der Lauf, der zum Abgabestand wird, muss mit einem Abbild laufen, das
+Vertrag 10 trägt. Sonst fehlen am Chicagoer Seeufer weiter elf Tracts. Das
+Abbild vor dem 7.12. einsetzen (`docker/srv01-abbild-einsetzen.sh`, nur auf
+Christians Anweisung). Danach prüfen, dass `gold/dim_tract` im Release
+`contract_version` 10 nennt.
+
 ## Die Schritte
 
 ### 1. Den Lauf auf `srv01` prüfen, oder einen anstossen
@@ -171,6 +180,27 @@ Stellen im Wortlaut:
 - In `eine-zahl.md` fällt „Gepinnt ist dieser Zwischenstand **nicht**“ weg.
 - Der Kopf von `AENDERUNGEN.md` („Der Stand in Zahlen“) bekommt den neuen
   Stand. Der Eintrag dazu nennt das Release, die Pins und die Nachweise.
+- **Was Vertrag 10 verschiebt** (lokal gemessen am 21.11.2026, Jahrgang
+  2024). Chicago hat 793 statt 782 Tracts und 2'713'800 statt 2'661'953
+  Einwohner. Die Fälle innerhalb der Stadt steigen von 251'483 auf 256'317,
+  ausserhalb der Stadt sinken sie von 6'010 auf 1'176. Die Rate bleibt bei
+  rund 94,4 je 1'000, weil Zähler und Nenner zusammen wachsen. Detroit ändert
+  sich nicht. Die Wächter melden jede Stelle.
+- **Zwei Stellen, die kein Wächter sieht.** Erstens: `ln2_konzept.md`,
+  Absatz „Die Stadtgrenze: der Nenner, den es vorher nicht gab“, erklärt den
+  Abstand zwischen Chicagos Mehrheitsregel und dem Zensus 2020 als
+  „Unterschied zwischen einer ACS-Schätzung und einer Zählung, nicht ein
+  Fehler der Regel“. Rund 52'000 der damals 84'000 Einwohner Abstand waren
+  aber die Seeufer-Tracts. Den Satz mit den neuen Zahlen neu fassen, und
+  dabei die Aussage von Notebook 34 zur Mehrheitsregel prüfen. Das ist
+  Artans Dokument: ein Textvorschlag an ihn. Zweitens: Kapitel 9 („Grenzen“)
+  führt 5'249 Chicagoer Delikte in Tracts, die „mehrheitlich zur
+  Nachbargemeinde“ gehören, und eine um gut einen Punkt untertriebene Rate.
+  Der grösste Teil davon lag in den Seeufer-Tracts, die nicht zu einer
+  Nachbargemeinde gehören, sondern am Wasser scheiterten. Diese Limitation
+  mit Notebook 34, Abschnitt 3.2, neu messen und neu fassen.
+- `feldkatalog.md` neu erzeugen (Schritt 5). Die Beschreibung von
+  `city_area_share` hat sich mit Vertrag 10 geändert.
 
 Zum Schluss die volle Suite, einmal `python -m pytest` und einmal
 `python -m pytest -m referenzstand`. Beide müssen grün sein.
