@@ -21,7 +21,7 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 | Anforderung | Stand | Was fehlt |
 | --- | --- | --- |
 | **Problemstellung, Ausgangslage** | ● geschrieben | [`ln2_konzept.md`](../ln2_konzept.md) Kapitel 2 |
-| **Forschungsfragen, Hypothesen** | ◐ Vorschlag steht, vier bereits vorgeprüft | Auswahl und Formulierung entscheiden → Abschnitt 2.2 / 2.3 |
+| **Forschungsfragen, Hypothesen** | ● abgegeben | F1 bis F6 und H1 bis H6 in [`forschungsfragen.md`](../forschungsfragen.md), gemessen in Notebook 36. Die Nummern in 2.2 bis 2.5 sind die des Vorschlags davor |
 | **Vorgehen und Methoden** | ◐ implizit im Code | Methodenteil ausformulieren → Abschnitt 2.4 |
 | **Entwurf DE-Lebenszyklus** | ● benannt | Abschnitt 3; ausführlich in [`ln2_konzept.md`](../ln2_konzept.md) Kapitel 5 |
 | **Ingestion: Quellen, Beschaffung** | ● fertig | fünf Quellen, je ein Quellnotebook |
@@ -33,16 +33,19 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 ● fertig ◐ teilweise ○ offen
 
 **Die gute Nachricht:** Ingestion und Storage — die beiden praktisch
-aufwendigsten Blöcke — stehen. 3'330 Tests, fünf Quellen in vier Pipelines,
-nachgewiesene Vollständigkeit. Und weil die Hypothesen Fragen des Data Engineering sind
-(Abschnitt 2.0), sind fünf davon durch die bisherige Arbeit **bereits
-gemessen**: Wir haben Befunde, bevor wir die Hypothesen formuliert haben — und
-mit H7 auch eine falsifizierte.
+aufwendigsten Blöcke — stehen. 3'332 Tests, fünf Quellen in vier Pipelines,
+nachgewiesene Vollständigkeit. Die Hypothesen sind mit LN1 abgegeben: F1 bis F6 und
+H1 bis H6 in [`forschungsfragen.md`](../forschungsfragen.md), alle sechs in
+Notebook 36 gemessen.
 
-**Die Baustelle:** Der konzeptionelle Teil steht inzwischen in
-[`ln2_konzept.md`](../ln2_konzept.md), Silver und Gold sind gebaut. Offen ist die
-Auswahl und Formulierung der Hypothesen. Ohne formulierte Hypothesen gibt es
-keinen ausweisbaren Hypothesentest, auch wenn die Messungen längst vorliegen.
+> **Nicht die abgegebene Hypothesenmenge.** Abschnitt 2 hält den Vorschlag
+> fest, der in der Sitzung vom 8.9.2026 auf dem Tisch lag, vor der
+> LN1-Abgabe: FF1 bis FF3 und
+> H1 bis H8. Gleiche Nummern meinen dort etwas anderes als in der Abgabe, H2
+> zum Beispiel die Duplikate im Überlapp der Delta-Läufe und nicht die
+> Idempotenz. Wer eine Hypothese zitiert, zitiert
+> [`forschungsfragen.md`](../forschungsfragen.md). Die Befunde aus dem
+> Vorschlag stehen im Konzept als Befunde (3.5, 8.3 bis 8.5, 8.7).
 
 ---
 
@@ -117,6 +120,9 @@ Bereinigung zu messen statt sie nur durchzuführen — etwa den Unterschied
 zwischen „Fälle ohne Koordinaten löschen" und „markieren".
 
 ### 2.3 Hypothesen (Vorschlag)
+
+> **Nicht die abgegebene Hypothesenmenge** (siehe Abschnitt 1 und den Hinweis
+> in 2.2). H1 bis H8 hier sind die Nummern des Vorschlags.
 
 Alle falsifizierbar, alle mit einem Verfahren aus dem Modul prüfbar, alle mit
 unseren Daten tatsächlich durchführbar. **Fünf sind bereits gemessen** — vier
@@ -262,6 +268,9 @@ Vorschlag für die Gliederung:
 
 ### 2.5 Was die Entscheide vom 8.9.2026 für Fragen und Hypothesen bedeuten
 
+> **Nicht die abgegebene Hypothesenmenge.** FF1 bis FF3 und H1 bis H8 sind die
+> Nummern des Vorschlags aus 2.2 und 2.3.
+
 Der Scope-Entscheid ist **Variante D** ([Absprache 2.1](projektabsprache.md)):
 deskriptiver Vergleich *plus* sozioökonomischer Zusammenhang *plus*
 Wettereinfluss. Das ist die umfangreichste der vier Varianten. Die Begründung im
@@ -321,7 +330,7 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie im Manifest oder in abgelegten URLs; drei Tests prüfen das. `.env` und `data/` aus Git ausgeschlossen, `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf, Herkunftsnachweis über `derived_from` und `input_fingerprint` durchgehend bis Gold, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog aus den Manifesten erzeugt, Aufbewahrungsregel mit `orchestration.aufraeumen` | das Aufräumen ist ein Handgriff, kein Automatismus |
-| **DataOps** | 3'330 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions unter Linux, auf `main` zusätzlich unter Windows, mit zwei Python-Versionen; dazu der wöchentliche Datenlauf | keine Alarmierung ausser dem roten Lauf selbst |
+| **DataOps** | 3'332 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions unter Linux, auf `main` zusätzlich unter Windows, mit zwei Python-Versionen; dazu der wöchentliche Datenlauf | keine Alarmierung ausser dem roten Lauf selbst |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (raw) und Ableitung (bronze). Zwei Architekturbilder, aus dem Code erzeugt ([`architektur.md`](../architektur.md)) | Vintage 2024 hart verdrahtet |
 | **Orchestration** | `orchestration.run_all`: 13 Stufen in Reihenfolge, eine gescheiterte Quelle zweimal nachgefasst, sonst Abbruch vor dem Ableiten, Gesamtmanifest über alle Eingabe-Läufe | der geplante Lauf ist wöchentlich, die Quellen ändern sich täglich; keine Wiederaufnahme nach Abbruch, bewusst |
 | **Software Engineering** | Modulare Pakete, Typannotationen, ausführliche Docstrings, Fehlerbehandlung mit Wiederholungen | – |

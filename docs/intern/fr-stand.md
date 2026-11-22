@@ -35,7 +35,7 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | | Anforderung | Stand | Beleg |
 | --- | --- | :-: | --- |
 | FR-53 | Artans Fassung im Repository | ● | `docs/forschungsfragen.md`, erzeugt aus dem abgegebenen LN1-PDF |
-| FR-54 | Kein Dokument mit zwei Hypothesenmengen | ◐ | nicht geprüft — E1 ist entschieden, die Durchsicht aller Dokumente fehlt |
+| FR-54 | Kein Dokument mit zwei Hypothesenmengen | ● | am 22.11.2026 durchgesehen: Ein Satz im Konzept ordnete H2 die Bedeutung des Vorschlags zu und ist korrigiert. `leistungsnachweise.md` kennzeichnet seinen Vorschlag vom 8.9.2026 jetzt an allen drei Stellen. `tests/test_eine_hypothesenmenge.py` |
 | FR-55 | Forschungsfragen im PRD-Sinn definiert | ● | sechs Teilfragen F1–F6, Wortlaut in `docs/forschungsfragen.md` |
 
 ## Welle 3 · Abbild, Einbau, Zugang (Christian)
@@ -134,8 +134,8 @@ stellt."*
 
 | Stand | Anzahl |
 | --- | ---: |
-| ● erfüllt | 50 |
-| ◐ teilweise | 5 |
+| ● erfüllt | 51 |
+| ◐ teilweise | 4 |
 | ○ offen | 9 |
 | ▣ zurückgestellt | 1 |
 | **zusammen** | **65** |
