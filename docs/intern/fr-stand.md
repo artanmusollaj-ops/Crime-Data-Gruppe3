@@ -107,7 +107,7 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | --- | --- | :-: | --- |
 | FR-41 | Nähte benannt und dokumentiert | ● | `dritte-stadt.md` Abschnitt 3, „Die vier Nähte": `STUDIENSTAEDTE`, der Eintrag in `config/quellen.toml`, der Crosswalk nach NIBRS, `build_source_change.QUELLEN`, je mit der Stelle im Code (21.11.2026) |
 | FR-42 | Die vier Asymmetrien als Muster beschrieben | ● | `dritte-stadt.md` Abschnitt 3b: Lademodus, Zeitschlüssel, Bronze-Form, Identitätsschlüssel. Je Zeile Chicago, Detroit, die eine Stelle, an der der Unterschied aufgefangen wird, und die Frage an eine dritte Stadt (21.11.2026) |
-| FR-43 | Jede „genau zwei Städte"-Stelle benannt | ● | am 21.11.2026 durchgesehen. Elf Stellen behandeln eine dritte Stadt still falsch; sie sind im Code mit „FR-43" kommentiert und in `dritte-stadt.md` Abschnitt 3a aufgelistet. Eine zwölfte, die Kibana-Karten, war ein Fehler und ist behoben: Kommentar und Anleitung versprachen dort einen Abbruch, der nie anschlagen konnte (`tests/serving/test_build_kibana.py`) |
+| FR-43 | Jede „genau zwei Städte"-Stelle benannt | ● | am 21.11.2026 durchgesehen. Zehn Stellen behandeln eine dritte Stadt still falsch; sie sind im Code mit „FR-43" kommentiert und in `dritte-stadt.md` Abschnitt 3a aufgelistet. Zwei sind behoben: `STAEDTE` im Dashboard leitet sich seit dem 22.11.2026 aus `STUDIENSTAEDTE` ab, und bei den Kibana-Karten versprachen Kommentar und Anleitung einen Abbruch, der nie anschlagen konnte (`tests/serving/test_build_kibana.py`) |
 
 ## Welle 8 · Die Vorführung am 12.12.2026 (beide)
 

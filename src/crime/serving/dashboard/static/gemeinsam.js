@@ -170,6 +170,48 @@ function optionen(select, eintraege, wert) {
   select.replaceChildren(...eintraege.map(([w, name]) => new Option(name, w, false, String(w) === String(wert))));
 }
 
+// Die Staedte als Checkboxen, dazu »Alle«. Die Wahl landet im versteckten
+// Feld »stadt«: »alle« oder die Liste mit Komma, etwa »chicago,detroit«.
+// Damit bleiben Formular, Adresse und Reiter wie bei einer einzelnen Wahl.
+// Die Liste kommt aus /api/optionen, eine weitere Stadt erscheint von selbst.
+// Leer ist keine Auswahl: Wer die letzte abwaehlt, behaelt sie.
+function staedtewahl(gruppe, feld, staedte, wert) {
+  if (!gruppe || !feld) return;
+  const roh = String(wert || "alle").toLowerCase();
+  const alleGewaehlt = roh === "alle" || roh === "beide";
+  const gewaehlt = new Set(alleGewaehlt ? staedte.map((s) => s.wert) : roh.split(","));
+  const box = (wertname, name, an) => {
+    const l = document.createElement("label");
+    l.className = "staedte-wahl";
+    const c = Object.assign(document.createElement("input"), { type: "checkbox", checked: an });
+    c.dataset.stadt = wertname;
+    l.append(c, name);
+    return [l, c];
+  };
+  const [alleLabel, alle] = box("alle", "Alle", false);
+  const einzeln = staedte.map((s) => box(s.wert, s.name, gewaehlt.has(s.wert)));
+  gruppe.replaceChildren(gruppe.firstElementChild, alleLabel, ...einzeln.map(([l]) => l));
+  const boxen = einzeln.map(([, c]) => c);
+  const setze = () => {
+    const an = boxen.filter((c) => c.checked).map((c) => c.dataset.stadt);
+    alle.checked = an.length === boxen.length;
+    feld.value = alle.checked ? "alle" : an.join(",");
+  };
+  // Vor dem change der Leiste, die danach neu laedt: Das Ereignis steigt von
+  // der Gruppe zum Formular auf, also ist das Feld dann schon gesetzt.
+  gruppe.addEventListener("change", (ev) => {
+    const c = ev.target;
+    if (c === alle) {
+      // »Alle« abwaehlen hiesse »keine« - das gibt es nicht.
+      boxen.forEach((b) => { b.checked = true; });
+    } else if (!boxen.some((b) => b.checked)) {
+      c.checked = true;
+    }
+    setze();
+  });
+  setze();
+}
+
 function fehler(text) {
   const f = document.getElementById("fehler");
   f.textContent = text;
@@ -196,7 +238,7 @@ export async function starteBrett({ api, zeichne }) {
   const url = new URLSearchParams(location.search);
   const wahl = (k) => url.get(k) ?? o.vorgabe[k];
   if (param) zustand.wert = wahl(param);
-  optionen(document.getElementById("stadt"), o.staedte.map((s) => [s.wert, s.name]), wahl("stadt"));
+  staedtewahl(document.getElementById("staedte"), document.getElementById("stadt"), o.staedte, wahl("stadt"));
   optionen(document.getElementById("jahr"), o.jahre.map((j) => [j, String(j)]), wahl("jahr"));
   const monate = MONATE.map((m, i) => [i + 1, m]);
   optionen(document.getElementById("von"), monate, wahl("von"));

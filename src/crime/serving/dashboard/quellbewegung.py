@@ -126,15 +126,14 @@ def _rate(n: int, exposition: float) -> float | None:
 
 
 def quellbewegung(bestand, werte: dict[str, str]) -> dict[str, Any]:
-    from serving.dashboard import STAEDTE, STADTNAMEN, EingabeFehler, kategorie_de
+    from serving.dashboard import (
+        ALLE, STADTNAMEN, EingabeFehler, kategorie_de, stadtwert, staedte_aus)
 
-    stadt = werte.get("stadt", "beide")
-    if stadt not in ("beide", *STAEDTE):
-        raise EingabeFehler(f"Unbekannte Stadt: {stadt}")
+    staedte = list(staedte_aus(werte.get("stadt", ALLE)))
+    stadt = stadtwert(tuple(staedte))
     felderwahl = werte.get("felder", "inhalt")
     if felderwahl not in FELDAUSWAHL:
         raise EingabeFehler(f"Unbekannte Feldauswahl: {felderwahl}")
-    staedte = list(STAEDTE) if stadt == "beide" else [stadt]
     antwort: dict[str, Any] = {"auswahl": {"stadt": stadt, "felder": felderwahl},
                                "stand": bestand.stand, "quelle": bestand.bewegung}
     if bestand.bewegung is None:

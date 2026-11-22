@@ -29,7 +29,8 @@
 </nav>
 
 <form class="leiste" id="leiste">
-  <label>Stadt <select name="stadt" id="stadt"></select></label>
+  <div class="staedte" id="staedte" role="group" aria-label="Stadt"><span>Stadt</span></div>
+  <input type="hidden" name="stadt" id="stadt">
   <label>Zeitraum
     <select name="von" id="von" aria-label="von Monat"></select>
     <span class="bis">–</span>

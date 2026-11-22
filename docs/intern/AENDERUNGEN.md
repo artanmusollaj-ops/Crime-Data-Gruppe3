@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'337** |
+| Tests | **3'349** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -109,6 +109,36 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 22.11.2026 · Das Dashboard wählt Städte mit Checkboxen, und »Alle« ersetzt »Beide« (Branch `dashboard-staedte-auswahl`)
+
+Die Leiste bot bisher ein Auswahlfeld mit „Beide“, „Chicago“ und „Detroit“.
+Bei einer dritten Stadt passt „Beide“ nicht mehr, und Städte lassen sich
+nicht frei kombinieren.
+
+- **Je Stadt eine Checkbox, dazu „Alle“.** Die Wahl steht in der Adresse als
+  `stadt=alle` oder als Liste, etwa `stadt=chicago,detroit`. „Alle“ setzt
+  jedes Häkchen. Die letzte Stadt lässt sich nicht abwählen, weil eine leere
+  Auswahl kein Brett hat. Die Checkboxen entstehen aus `/api/optionen`, eine
+  neue Stadt erscheint also von selbst. Das gilt auf allen acht Brettern,
+  auch auf „Quellbewegung“, das einen eigenen Filter hatte.
+- **Alte Links bleiben gültig.** `stadt=beide` und die vollständige Liste
+  heissen jetzt `alle`, eine einzelne Stadt bleibt sie. Eine unbekannte Stadt
+  ist wie bisher ein Fehler 400.
+- **`STAEDTE` leitet sich aus `STUDIENSTAEDTE` ab** (FR-43). Bis heute stand
+  es fest im Dashboard, und eine dritte Stadt, die dort fehlte, wäre auf
+  allen Brettern still herausgefallen. `dritte-stadt.md` 3a führt damit zehn
+  statt elf Stellen, die eine dritte Stadt still falsch behandeln.
+- Im Browser geprüft, lokal mit `STORAGE_BACKEND=local`: Detroit abwählen
+  zeigt nur Chicago, die letzte Stadt bleibt gewählt, und „Alle“ wählt beide
+  wieder. Quellbewegung und Geografie mit `stadt=detroit` zeigen nur Detroit.
+  Bei zwei Städten bleibt das Verhalten der Bretter gleich.
+
+Teil 2 kommt erst mit einer dritten Stadt: Farben, die Ranglistenbehälter
+in Geografie und der Paartest der Quellbewegung (`dritte-stadt.md` 3a).
+
+**Zahlen.** 3'337 → **3'349 Tests**, Standardlauf 3'226 → **3'238**. Im
+Linux-CI-Lauf hochgerechnet 3'142 → 3'154.
 
 ## 22.11.2026 · Die Drift-Tabelle legt ihre drei Abfragen wirklich zusammen (Branch `c-1-drift-zusammenfuehren`)
 
