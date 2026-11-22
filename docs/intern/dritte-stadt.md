@@ -183,11 +183,13 @@ Stelle im Code.
     leitet die Städte aus `STUDIENSTAEDTE` ab. Die Fallregel ist aber je Stadt
     beschrieben, weil Chicago nur das schwerste Delikt eines Falls führt und
     Detroit jedes. Eine neue Stadt muss sagen, welche Granularität sie liefert.
-12. **Das Dashboard:** `STAEDTE` und `STADTNAMEN` in
-    [`serving/dashboard/__init__.py`](../../src/crime/serving/dashboard/__init__.py),
-    dazu die Farben in `static/dashboard.css` (`--chicago`, `--detroit`) und
-    in `static/gemeinsam.js` (`FARBE`). Fehlt die Stadt in `STAEDTE`, gibt es
-    keinen Fehler: Sie fällt auf allen Brettern still heraus.
+12. **Das Dashboard:** die Farben in `static/dashboard.css` (`--chicago`,
+    `--detroit`) und in `static/gemeinsam.js` (`FARBE`). `STAEDTE` und
+    `STADTNAMEN` in
+    [`serving/dashboard/__init__.py`](../../src/crime/serving/dashboard/__init__.py)
+    leiten sich seit dem 22.11.2026 aus `STUDIENSTAEDTE` ab, und die Leiste
+    baut je Stadt eine Checkbox. Eine neue Stadt erscheint dort also von
+    selbst.
 13. **Kibana:** der Kartenausschnitt je Stadt (`KARTE_JE_STADT`) in
     [`serving/build_kibana.py`](../../src/crime/serving/build_kibana.py).
     Fehlt er, bricht der Bau der Kartentafel ab und nennt die Stadt. Das gilt
@@ -215,7 +217,6 @@ findet sie alle.
 | ebenda, `comparability` | nur die Spalten `chicago` und `detroit`. Die dritte fehlt in diesem Teil des Manifests |
 | `platform_admin/batch.py` | Ein Volllauf aus der Konsole liefe für sie als Delta, und ihre Läufe würden nicht als Beleg erfasst |
 | `platform_admin/jobs.py` | Die Stadt wird aus dem Aufgabennamen gelesen, mit „Chicago" als Rückfall. Heute lehnt die Konsole unbekannte Aufgaben ab |
-| `serving/dashboard/__init__.py`, `STAEDTE` | fest eingetragen. Fehlt sie dort, fällt sie auf allen Brettern heraus |
 | `serving/dashboard/quellbewegung.py` | Der Test vergleicht genau ein Paar. Bei drei Städten fallen Vergleich und Faktor weg |
 | `serving/dashboard/static/quellbewegung.js` | dieselbe Tafel, mit zwei Spalten |
 | `serving/dashboard/static/gemeinsam.js`, `FARBE` | ohne Eintrag keine Farbe, und SVG zeichnet die Stadt schwarz |
@@ -235,6 +236,11 @@ Behoben statt kommentiert ist eine Stelle, nämlich die Kibana-Karten (Punkt
 13). Kommentar und Anleitung versprachen dort einen Abbruch, den der Code
 nicht auslösen konnte. Das halten `test_die_karten_kommen_aus_den_studienstaedten`
 und `test_eine_stadt_ohne_ausschnitt_bricht_ab_und_wird_genannt`.
+
+Seit dem 22.11.2026 ist auch `STAEDTE` im Dashboard behoben: Es leitet sich
+aus `STUDIENSTAEDTE` ab, statt fest eingetragen zu sein
+(`test_die_staedte_kommen_aus_den_studienstaedten`). Damit stehen noch zehn
+Stellen in der Tabelle.
 
 ### 3b. Die vier Asymmetrien als Muster (FR-42)
 

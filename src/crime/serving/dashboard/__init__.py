@@ -45,21 +45,25 @@ from __future__ import annotations
 import json
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
-from gold_pipeline import RATENJAHR, einwohner_je_stadt
+from gold_pipeline import RATENJAHR, STADT_SCHLUESSEL, einwohner_je_stadt
+from silver_pipeline import STUDIENSTAEDTE
 from storage import for_root
 from storage import duckdb as storage_duckdb
 
 PARQUET_FILE = "part-0001.parquet"
-#: Zwei Staedte (FR-43): fest eingetragen, nicht aus ``STUDIENSTAEDTE``
-#: abgeleitet. Jedes Brett filtert mit ``stadt IN $staedte``. Eine dritte Stadt,
-#: die hier fehlt, faellt deshalb auf allen Brettern still heraus.
-STAEDTE = ("chicago", "detroit")
-STADTNAMEN = {"chicago": "Chicago", "detroit": "Detroit"}
+#: Die Studienstaedte, abgeleitet aus ``silver_pipeline.STUDIENSTAEDTE`` wie
+#: Gold und Kibana. Bis zum 22.11.2026 standen sie hier fest (FR-43): Jedes
+#: Brett filtert mit ``stadt IN $staedte``, und eine dritte Stadt, die hier
+#: fehlte, waere auf allen Brettern still herausgefallen.
+STAEDTE: tuple[str, ...] = tuple(STADT_SCHLUESSEL[g] for g in STUDIENSTAEDTE)
+STADTNAMEN: dict[str, str] = {STADT_SCHLUESSEL[g]: n for g, n in STUDIENSTAEDTE.items()}
+#: Die Auswahl aller Staedte. ``beide`` steht in alten Links und gilt als ``alle``.
+ALLE = "alle"
 MASSE = ("anzahl", "anteil", "rate")
 #: Zaehlebene der »Deliktstruktur«: Faelle vorn (Entscheid E5), Delikte auf Wunsch.
 EBENEN = ("faelle", "delikte")
@@ -137,11 +141,35 @@ def kategorie_de(name: str) -> str:
     return KATEGORIE_DE.get(name, name)
 
 
+def staedte_aus(wert: str | None) -> tuple[str, ...]:
+    """Welche Staedte eine Auswahl meint, in der Reihenfolge von ``STAEDTE``.
+
+    ``alle``, das alte ``beide`` und ein leerer Wert meinen alle Staedte.
+    Sonst eine Liste mit Komma, etwa ``chicago,detroit``. Eine unbekannte
+    Stadt ist ein Eingabefehler, kein stilles Weglassen.
+    """
+    wert = (wert or ALLE).strip().lower()
+    if wert in (ALLE, "beide"):
+        return STAEDTE
+    gewaehlt = {s.strip() for s in wert.split(",") if s.strip()}
+    unbekannt = sorted(gewaehlt - set(STAEDTE))
+    if unbekannt:
+        raise EingabeFehler(f"Unbekannte Stadt: {', '.join(unbekannt)}")
+    if not gewaehlt:
+        raise EingabeFehler("Keine Stadt gewaehlt")
+    return tuple(s for s in STAEDTE if s in gewaehlt)
+
+
+def stadtwert(staedte: tuple[str, ...]) -> str:
+    """Die kanonische Schreibweise: ``alle`` oder die Liste in fester Folge."""
+    return ALLE if set(staedte) == set(STAEDTE) else ",".join(staedte)
+
+
 @dataclass(frozen=True)
 class Auswahl:
     """Was oben in der Leiste steht."""
 
-    stadt: str = "beide"
+    stadt: str = ALLE
     jahr: int = RATENJAHR
     von: int = 1
     bis: int = 12
@@ -151,11 +179,10 @@ class Auswahl:
 
     @property
     def staedte(self) -> tuple[str, ...]:
-        return STAEDTE if self.stadt == "beide" else (self.stadt,)
+        return staedte_aus(self.stadt)
 
     def pruefe(self, jahre: list[int], kategorien: list[str]) -> Auswahl:
-        if self.stadt not in ("beide", *STAEDTE):
-            raise EingabeFehler(f"Unbekannte Stadt: {self.stadt}")
+        staedte = staedte_aus(self.stadt)
         if self.jahr not in jahre:
             raise EingabeFehler(f"Kein Jahrgang {self.jahr}")
         if not 1 <= self.von <= self.bis <= 12:
@@ -166,7 +193,9 @@ class Auswahl:
             raise EingabeFehler(f"Unbekanntes Mass: {self.mass}")
         if self.ebene not in EBENEN:
             raise EingabeFehler(f"Unbekannte Ebene: {self.ebene}")
-        return self
+        # Kanonisch: Alte Links mit ``beide`` und eine vollstaendige Liste
+        # heissen ``alle``, damit dieselbe Auswahl gleich heisst.
+        return replace(self, stadt=stadtwert(staedte))
 
 
 def _quelle(ablage, release: str, schicht: str, tabelle: str) -> tuple[str, str]:
@@ -415,13 +444,13 @@ class Bestand:
         letzter = {s: m.isoformat() for s, m in cur.execute(
             "SELECT stadt, max(monat) FROM monate GROUP BY 1").fetchall()}
         return {
-            "staedte": [{"wert": "beide", "name": "Beide"}]
-            + [{"wert": s, "name": STADTNAMEN[s]} for s in STAEDTE],
+            # Je Stadt eine Checkbox; »Alle« baut die Oberflaeche selbst.
+            "staedte": [{"wert": s, "name": STADTNAMEN[s]} for s in STAEDTE],
             "jahre": self.jahre,
             "kategorien": [{"wert": "alle", "name": "Alle"}]
             + sorted(({"wert": k, "name": kategorie_de(k)} for k in self.kategorien),
                      key=lambda k: k["name"]),
-            "vorgabe": {"stadt": "beide", "jahr": RATENJAHR if RATENJAHR in self.jahre
+            "vorgabe": {"stadt": ALLE, "jahr": RATENJAHR if RATENJAHR in self.jahre
                         else self.jahre[-1], "von": 1, "bis": 12,
                         "kategorie": "alle", "mass": "anzahl", "ebene": "faelle",
                         # »Quellbewegung«: Zeitstempel vorgabemaessig ausgeblendet.
@@ -435,7 +464,7 @@ class Bestand:
     def auswahl(self, werte: dict[str, str]) -> Auswahl:
         try:
             a = Auswahl(
-                stadt=werte.get("stadt", "beide"),
+                stadt=werte.get("stadt", ALLE),
                 jahr=int(werte.get("jahr", RATENJAHR)),
                 von=int(werte.get("von", 1)),
                 bis=int(werte.get("bis", 12)),

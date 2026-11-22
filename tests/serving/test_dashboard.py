@@ -823,3 +823,58 @@ def test_gleichzeitige_erste_anfragen_laden_den_bestand_einmal(tmp_path, monkeyp
         f.join()
     assert antworten == [200] * 4
     assert len(geladen) == 1
+
+
+# --------------------------------------------------------------------------
+# Die Staedtewahl: »Alle« und je Stadt eine Checkbox (22.11.2026)
+# --------------------------------------------------------------------------
+
+
+def test_die_staedte_kommen_aus_den_studienstaedten():
+    """Nicht mehr fest eingetragen (FR-43): eine dritte Stadt fiele sonst still heraus."""
+    from gold_pipeline import STADT_SCHLUESSEL
+    from serving import dashboard
+
+    assert set(dashboard.STAEDTE) == set(STADT_SCHLUESSEL.values())
+    assert set(dashboard.STADTNAMEN) == set(dashboard.STAEDTE)
+
+
+@pytest.mark.parametrize("wert,erwartet", [
+    ("alle", ("chicago", "detroit")),
+    ("beide", ("chicago", "detroit")),          # alte Links
+    ("", ("chicago", "detroit")),
+    ("detroit", ("detroit",)),
+    ("detroit,chicago", ("chicago", "detroit")),  # feste Folge
+    (" Chicago ", ("chicago",)),
+])
+def test_die_auswahl_versteht_alle_formen(wert, erwartet):
+    from serving import dashboard
+
+    assert dashboard.staedte_aus(wert) == erwartet
+
+
+@pytest.mark.parametrize("wert", ["berlin", "chicago,berlin", ","])
+def test_eine_unbekannte_oder_leere_stadt_ist_ein_fehler(wert):
+    from serving import dashboard
+
+    with pytest.raises(dashboard.EingabeFehler):
+        dashboard.staedte_aus(wert)
+
+
+def test_dieselbe_auswahl_heisst_gleich(bestand):
+    """``beide`` und die volle Liste werden zu ``alle``, eine Stadt bleibt sie."""
+    for wert in ("beide", "chicago,detroit", "alle"):
+        assert bestand.auswahl({"jahr": "2024", "stadt": wert}).stadt == "alle"
+    assert bestand.auswahl({"jahr": "2024", "stadt": "detroit,"}).stadt == "detroit"
+
+
+def test_jede_seite_hat_die_checkboxen_und_kein_auswahlfeld():
+    """Alle Bretter teilen die Leiste - keines darf beim alten Auswahlfeld bleiben."""
+    statisch = PROJEKT / "src/crime/serving/dashboard/static"
+    seiten = sorted(statisch.glob("*.html"))
+    assert len(seiten) >= 8
+    for seite in seiten:
+        html = seite.read_text(encoding="utf-8")
+        assert 'id="staedte"' in html, seite.name
+        assert '<input type="hidden" name="stadt" id="stadt">' in html, seite.name
+        assert '<select name="stadt"' not in html, seite.name
