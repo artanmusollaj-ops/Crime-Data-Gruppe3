@@ -112,6 +112,7 @@ def datenqualitaet(bestand, a) -> dict[str, Any]:
     ]
     return {
         "auswahl": a.__dict__,
+        "zuordnung_detail": _zuordnung_detail(cur, staedte, p, kat),
         "kennzahlen": {
             "vollstaendige_monate": vollstaendig, "monate": len(monate),
             "ohne_zuordnung": _anteil(ohne_zuordnung, alle),
@@ -125,3 +126,29 @@ def datenqualitaet(bestand, a) -> dict[str, Any]:
         "referenz": bestand.referenz(a.jahr),
         "stand": bestand.stand,
     }
+
+
+def _zuordnung_detail(cur, staedte: list[str], p: dict[str, Any], kat: str) -> list[dict[str, Any]]:
+    """Je Stadt und Quellcode: wohin er in NIBRS faellt, mit Status und Taten.
+
+    Fuer die Tafel »NIBRS-Zuordnung im Detail«. Filtern nach Status und Suche
+    tut die Seite selbst: Es sind wenige hundert Zeilen, und so bleibt die
+    Auswahl beim Umschalten ohne Rundweg zum Server.
+    """
+    from serving.dashboard import STADTNAMEN, kategorie_de
+
+    zeilen = cur.execute(f"""
+        SELECT stadt, quellcode, min(quelltext), nibrs_code, min(nibrs_text), kategorie,
+               status, sum(delikte)
+        FROM zuordnung WHERE stadt IN $staedte AND monat IN $monate {kat}
+        GROUP BY stadt, quellcode, nibrs_code, kategorie, status
+        ORDER BY 8 DESC, 1, 2""", p).fetchall()
+    je_stadt: dict[str, int] = {}
+    for z in zeilen:
+        je_stadt[z[0]] = je_stadt.get(z[0], 0) + int(z[7])
+    return [{
+        "stadt": s, "name": STADTNAMEN[s], "quellcode": q, "quelltext": qt,
+        "nibrs_code": n, "nibrs_text": nt,
+        "kategorie": "Ohne Zuordnung" if k == "unmapped" else kategorie_de(k),
+        "status": st, "delikte": int(m), "anteil": _anteil(int(m), je_stadt[s]),
+    } for s, q, qt, n, nt, k, st, m in zeilen]
