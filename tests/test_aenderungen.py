@@ -218,8 +218,21 @@ def test_die_eintraege_stehen_neueste_zuerst(text):
     )
 
 
+#: Bis hierher nennen die Ueberschriften die PR-Nummer. Ab #153 (Oktober 2026)
+#: nennen sie den Branch, ``(Branch `name`)``, weil der Eintrag entsteht,
+#: bevor es eine Nummer gibt. Fuer die Pull Requests danach prueft dieser
+#: Waechter deshalb nichts. Am 22.11.2026 versucht und verworfen: die Titel
+#: der Squash-Commits auf ``main`` gegen die Ueberschriften zu halten. Von
+#: 112 Pull Requests ab #153 fanden 32 keinen Eintrag mit aehnlichem Titel,
+#: auch solche, die sicher einen haben (#262, Tag und Nacht) - die Titel
+#: weichen ab. Fuer die Zeit danach gilt, was ``AGENTS.md`` sagt: Jede
+#: Aenderung bekommt einen Eintrag, und kein Test fordert ihn ein, nur seine
+#: Form.
+LETZTE_NUMMER = 152
+
+
 def test_keine_pull_request_nummer_faellt_durch(text):
-    """Jede Nummer ab #24 ist entweder ein Eintrag oder bewusst ausgelassen.
+    """Jede Nummer von #24 bis #152 ist ein Eintrag oder bewusst ausgelassen.
 
     Das ist die Pruefung, die vier Monate zu spaet kam: #25, #28, #31 und #37
     waren gemergt und hatten keinen Eintrag. Aufgefallen ist es nur, weil
@@ -238,7 +251,13 @@ def test_keine_pull_request_nummer_faellt_durch(text):
     assert ausgelassen, "der Abschnitt 'Bewusst ohne Eintrag' ist leer"
 
     bekannt = eintraege | ausgelassen
-    fehlend = sorted(set(range(min(bekannt), max(bekannt) + 1)) - bekannt)
+    # C-4: Die Obergrenze steht fest. Mit ``max(bekannt)`` fiel genau die
+    # hoechste Nummer nie auf - fehlte ihr Eintrag, lag sie ausserhalb.
+    assert max(bekannt) == LETZTE_NUMMER, (
+        f"die hoechste Nummer ist {max(bekannt)}, erwartet {LETZTE_NUMMER}: "
+        f"entweder fehlt der Eintrag zu #{LETZTE_NUMMER}, oder eine Ueberschrift "
+        "nennt wieder eine Nummer - dann LETZTE_NUMMER bewusst nachziehen")
+    fehlend = sorted(set(range(min(bekannt), LETZTE_NUMMER + 1)) - bekannt)
     assert not fehlend, (
         f"Diese Pull Requests sind weder Eintrag noch ausgelassen: {fehlend}. "
         "Entweder einen Eintrag schreiben oder unter 'Bewusst ohne Eintrag' "

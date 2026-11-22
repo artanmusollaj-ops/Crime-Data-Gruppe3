@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'332** |
+| Tests | **3'335** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -109,6 +109,37 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 22.11.2026 · Kibana räumt verwaiste Kacheln auf, der PR-Wächter nennt seine Grenze (Branch `c-3-c-4`)
+
+**C-3: `build_kibana` löschte nie.** `overwrite` ersetzt nur Objekte, die
+denselben Namen behalten. Eine umbenannte Kachel blieb deshalb als verwaistes
+Objekt in Kibanas Liste. In der Vorführung wäre das die Kachel, nach der
+niemand fragen soll.
+
+- `raeume_auf` löscht nach dem Anlegen alle eigenen Objekte, die im neuen
+  Stand nicht mehr vorkommen. Eigene erkennt es an der Kennung `crime-`,
+  `lens-crime-` oder `karte-crime-`. Was von Hand angelegt ist, bleibt stehen.
+- Es läuft nur aus `main` und erst, wenn das Anlegen und die Verweise
+  geklappt haben. In `lege_an` steckt es bewusst nicht: Die Live-Tests legen
+  dort ein Probebrett an, und ein Aufräumen darin löschte jedes echte Brett.
+- Drei neue Tests, gegen ein nachgebildetes Kibana. An einem laufenden
+  Kibana ist es noch nicht erprobt; der nächste Start der Probe in Google
+  Cloud zeigt es.
+
+**C-4: Der Wächter über PR-Nummern sah die höchste nicht.** Die Obergrenze
+steht jetzt fest auf #152 und wird selbst geprüft. Eine Probe am Text, mit
+dem Eintrag zu #152 auf #151 gesetzt, macht den Test rot. Dabei fiel etwas
+Grösseres auf: Ab #153 nennen die Überschriften den Branch statt der Nummer,
+und für diese Pull Requests prüft der Wächter nichts. Den Abgleich über die
+Titel der Squash-Commits auf `main` habe ich versucht und verworfen. Von 112
+Pull Requests ab #153 fanden 32 keinen Eintrag mit ähnlichem Titel, auch
+solche, die sicher einen haben. Der Docstring sagt das jetzt. Für die Zeit
+danach gilt die Regel aus `AGENTS.md`: Jede Änderung bekommt einen Eintrag,
+und kein Test fordert ihn ein, nur seine Form.
+
+**Zahlen.** 3'332 → **3'335 Tests**, Standardlauf 3'221 → **3'224**. Im
+Linux-CI-Lauf hochgerechnet 3'137 → 3'140.
 
 ## 22.11.2026 · Kein Dokument führt eine zweite Hypothesenmenge, ohne es zu sagen (Branch `fr-54-hypothesen-durchsicht`)
 

@@ -1266,3 +1266,45 @@ def test_eine_stadt_ohne_ausschnitt_bricht_ab_und_wird_genannt():
     karte = next(t for b in bk.BRETTER for t in b.tafeln if t.ist_karte)
     with pytest.raises(LadeFehler, match="dallas"):
         bk.replace(karte, stadt="dallas")
+
+
+class _AufraeumKibana:
+    """Ein Kibana, das sich merkt, was gefunden und was geloescht wurde."""
+
+    def __init__(self, vorhanden):
+        self.vorhanden = list(vorhanden)
+        self.geloescht: list[str] = []
+
+    def anfrage(self, methode, pfad, koerper=None):
+        if methode == "GET" and pfad.startswith("/api/saved_objects/_find"):
+            return {"saved_objects": [{"type": t, "id": i} for t, i in self.vorhanden]}
+        if methode == "DELETE":
+            self.geloescht.append(pfad.removeprefix("/api/saved_objects/"))
+            return {}
+        raise AssertionError(f"unerwartet: {methode} {pfad}")
+
+
+def test_eine_umbenannte_kachel_wird_aufgeraeumt():
+    """C-3: Was im neuen Stand fehlt und uns gehoert, verschwindet."""
+    alle = bk.objekte(_mit_fenster())
+    kibana = _AufraeumKibana([(o["type"], o["id"]) for o in alle]
+                             + [("lens", "lens-crime-ueberblick-alter-name")])
+    assert bk.raeume_auf(kibana, alle) == ["lens/lens-crime-ueberblick-alter-name"]
+    assert kibana.geloescht == ["lens/lens-crime-ueberblick-alter-name"]
+
+
+def test_fremde_objekte_bleiben_stehen():
+    """Was nicht unser Praefix traegt, hat jemand von Hand angelegt."""
+    alle = bk.objekte(_mit_fenster())
+    kibana = _AufraeumKibana([(o["type"], o["id"]) for o in alle]
+                             + [("dashboard", "mein-eigenes-brett"),
+                                ("index-pattern", "logs-*")])
+    assert bk.raeume_auf(kibana, alle) == []
+    assert kibana.geloescht == []
+
+
+def test_lege_an_raeumt_nicht_selbst_auf():
+    """Sonst loeschte ein Live-Test mit einem Probebrett jedes echte Brett."""
+    import inspect
+
+    assert "raeume_auf" not in inspect.getsource(bk.lege_an)
