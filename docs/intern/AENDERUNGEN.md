@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'356** |
+| Tests | **3'359** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -109,6 +109,40 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 22.11.2026 · Das Brett »Datenqualität« zeigt die NIBRS-Zuordnung je Quellcode (Branch `dashboard-zuordnung-detail`)
+
+Das Dashboard zeigte die Zuordnung nur verdichtet, als Anteile je Stadt.
+Welcher Quellcode wohin fällt, war nirgends zu sehen. Über alle Jahrgänge
+sind es rund 470 Kombinationen aus Stadt, Quellcode und NIBRS-Code. Das ist
+eine handliche Tabelle.
+
+- **Neue Tafel „NIBRS-Zuordnung im Detail“** unter der Grafik „NIBRS-Zuordnung
+  je Stadt“. Spalten: Stadt, Quellcode (IUCR oder MICR), Quellbezeichnung,
+  NIBRS-Code und -Bezeichnung, Kategorie, Zuordnung als farbige Marke,
+  Taten und Anteil an der Stadt. Sortiert nach Taten. Die ersten 50 Zeilen
+  stehen sofort da, darunter „alle zeigen“.
+- **Filter:** Knöpfe Alle, Exakt, Auffang 90Z, Mehrdeutig und Ohne Zuordnung,
+  je mit der Zahl der Quellcodes. Dazu ein Suchfeld über Code, Bezeichnung
+  und Kategorie. Stadt, Zeitraum und Kategorie der Leiste gelten mit.
+- **Ein Klick auf einen Abschnitt der Grafik** setzt Status und Stadt der
+  Tafel und springt dorthin. „nur Detroit ✕“ hebt die Stadt wieder auf.
+- **Daten:** eine Verdichtung `zuordnung` beim Laden, je Stadt, Monat,
+  Kategorie, Quellcode, NIBRS-Code und Status. Gezählt werden Taten wie in
+  der Grafik darüber. Die Zeilen der Tafel ergeben zusammen genau die Taten
+  der Auswahl, und das prüft ein Test.
+- **Im Browser geprüft**, lokal mit `STORAGE_BACKEND=local`, Jahrgang 2024.
+  Ein Klick auf „Mehrdeutig“ bei Detroit ergibt einen Quellcode, MICR 3072
+  „Embezzlement“ zu NIBRS 26A mit 998 Taten. „Auffang 90Z“ ergibt 71
+  Quellcodes, die Suche „gun“ drei Chicagoer Codes zu „Gun Offender“.
+
+Nicht dabei sind die Begründung einer mehrdeutigen Zuordnung (`match` und
+`note` im Crosswalk) und die Herkunft „Crosswalk oder Korrektur“. Beides
+steht nicht in Gold und bräuchte eine Vertragsänderung. Das ist eine eigene
+Entscheidung, nach dem Abgabestand.
+
+**Zahlen.** 3'356 → **3'359 Tests**, Standardlauf 3'245 → **3'248**. Im
+Linux-CI-Lauf hochgerechnet 3'161 → 3'164.
 
 ## 22.11.2026 · Das Dashboard filtert nach mehreren Kategorien, und ein gesetzter Filter ist zu sehen (Branch `dashboard-kategorien-auswahl`)
 

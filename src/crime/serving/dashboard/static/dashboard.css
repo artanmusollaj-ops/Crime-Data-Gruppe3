@@ -278,3 +278,26 @@ h2.abstand { margin-top: 16px; }
 .legende .hell { --farbe: #f2b134; }
 .legende .dunkel { --farbe: #173f7a; }
 .legende .unsicher { --farbe: #c9ced6; }
+
+/* »Datenqualität«: NIBRS-Zuordnung im Detail. Eigene Knoepfe statt
+   .umschalter - starteBrett nimmt den ersten .umschalter als Parameter. */
+.filterknoepfe { display: flex; border: 1px solid #cfd6e0; border-radius: 6px; overflow: hidden; flex-wrap: wrap; }
+.filterknoepfe button { font: inherit; font-size: 13px; border: 0; border-left: 1px solid #cfd6e0;
+  background: #f7f9fc; padding: 6px 12px; cursor: pointer; color: var(--text); }
+.filterknoepfe button:first-child { border-left: 0; }
+.filterknoepfe button small { color: var(--leise); }
+.filterknoepfe .an { background: var(--blau); color: #fff; }
+.filterknoepfe .an small { color: #dbe8fb; }
+.detailfilter { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+.detailfilter input[type="search"] { font: inherit; padding: 7px 12px; border: 1px solid #cfd6e0;
+  border-radius: 6px; min-width: 280px; }
+.detailfilter .leise { color: var(--leise); font-size: 13px; }
+.filterchip { font: inherit; font-size: 13px; border: 1px solid var(--blau); background: #eaf2fd;
+  color: #1b4f9c; border-radius: 999px; padding: 4px 12px; cursor: pointer; font-weight: 600; }
+.zuordnungsmarke { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px;
+  font-weight: 600; white-space: nowrap; background: color-mix(in srgb, var(--farbe) 22%, #fff);
+  border: 1px solid var(--farbe); color: #1b2430; }
+.zuordnungstabelle td:nth-child(2), .zuordnungstabelle td:nth-child(4) { font-variant-numeric: tabular-nums; color: var(--text); }
+#d-zuordnung rect.klickbar { cursor: pointer; }
+#d-zuordnung rect.klickbar:hover { opacity: 0.8; }
+#f-mehr { margin-top: 12px; }

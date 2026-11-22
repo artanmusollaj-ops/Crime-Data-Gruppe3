@@ -406,6 +406,23 @@ class Bestand:
             FROM read_parquet('{fakten}', hive_partitioning=false) f
             LEFT JOIN read_parquet('{delikte}', hive_partitioning=false) d USING (nibrs_code)
             GROUP BY ALL""")
+        # Fuer »Datenqualität«, Tafel »NIBRS-Zuordnung im Detail«: je
+        # Quellcode, wohin er in NIBRS faellt. Ueber alle Jahrgaenge sind das
+        # rund 470 Kombinationen aus Stadt, Quellcode und NIBRS-Code; je Monat
+        # verdichtet, damit Zeitraum und Kategorie der Leiste greifen.
+        # Gezaehlt werden Taten wie in ``qualitaet``.
+        con.execute(f"""
+            CREATE TABLE zuordnung AS
+            SELECT f.reporting_city AS stadt, date_trunc('month', f.date)::DATE AS monat,
+                   CASE WHEN f.nibrs_code IS NULL THEN 'unmapped'
+                        ELSE d.nibrs_category END AS kategorie,
+                   f.source_offense_code AS quellcode,
+                   min(f.source_offense_description) AS quelltext,
+                   f.nibrs_code, min(d.nibrs_description) AS nibrs_text,
+                   f.mapping_status AS status, count(*) AS delikte
+            FROM read_parquet('{fakten}', hive_partitioning=false) f
+            LEFT JOIN read_parquet('{delikte}', hive_partitioning=false) d USING (nibrs_code)
+            GROUP BY 1, 2, 3, 4, 6, 8""")
         con.execute(f"""
             CREATE TABLE doppelte AS
             SELECT reporting_city AS stadt, date_trunc('month', date)::DATE AS monat,

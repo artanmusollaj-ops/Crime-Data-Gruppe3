@@ -72,6 +72,10 @@ def stern(root: Path, taten: list[tuple], *, kleine: bool = False) -> Path:
         "counts_case": [t[5] if len(t) > 5 else True for t in taten],
         # Das siebte Feld: der Zuordnungsstatus, sonst exact.
         "mapping_status": [t[6] if len(t) > 6 else "exact" for t in taten],
+        # Der Quellcode, wie ihn die Stadt vergibt - hier aus dem NIBRS-Code
+        # abgeleitet, damit jeder NIBRS-Code genau einen Quellcode hat.
+        "source_offense_code": [f"Q{t[2]}" for t in taten],
+        "source_offense_description": [f"Quelle {t[2]}" for t in taten],
         # Wie in Gold: inside_city nur, wenn der Tract zur meldenden Stadt gehoert.
         "geo_status": ["inside_city" if TRACT_STADT.get(t[3]) == t[0] else "outside_city"
                        for t in taten],
@@ -958,3 +962,41 @@ def test_ein_gesetzter_filter_ist_markiert():
     css = (statisch / "dashboard.css").read_text(encoding="utf-8")
     assert 'klappe.classList.toggle("aktiv", !alle.checked)' in js
     assert ".mehrfach-klappe.aktiv summary" in css
+
+
+# --------------------------------------------------------------------------
+# NIBRS-Zuordnung im Detail (22.11.2026)
+# --------------------------------------------------------------------------
+
+
+def test_die_detailzeilen_summieren_sich_zu_den_taten(bestand):
+    """Jede Tat steht in genau einer Zeile: Quellcode, NIBRS-Code, Status."""
+    d = bestand.datenqualitaet(bestand.auswahl({"jahr": "2024"}))
+    zeilen = d["zuordnung_detail"]
+    assert zeilen
+    assert sum(z["delikte"] for z in zeilen) == d["kennzahlen"]["delikte"]
+    for s in ("chicago", "detroit"):
+        assert sum(z["anteil"] for z in zeilen if z["stadt"] == s) == pytest.approx(100, abs=0.1)
+    assert {z["status"] for z in zeilen} <= {"exact", "fallback_90Z", "ambiguous", "unmapped"}
+
+
+def test_die_detailzeilen_folgen_der_leiste(bestand):
+    """Stadt und Kategorie der Leiste gelten auch fuer die Detailtafel."""
+    d = bestand.datenqualitaet(bestand.auswahl(
+        {"jahr": "2024", "stadt": "detroit", "kategorie": "Assault Offenses"}))
+    zeilen = d["zuordnung_detail"]
+    assert zeilen and {z["stadt"] for z in zeilen} == {"detroit"}
+    assert {z["kategorie"] for z in zeilen} == {"Körperverletzung"}
+
+
+def test_die_detailtafel_ist_da_und_die_grafik_fuehrt_hin():
+    """Ein Klick auf einen Abschnitt der Grafik setzt Stadt und Status der Tafel."""
+    statisch = PROJEKT / "src/crime/serving/dashboard/static"
+    html = (statisch / "datenqualitaet.html").read_text(encoding="utf-8")
+    js = (statisch / "datenqualitaet.js").read_text(encoding="utf-8")
+    assert 'id="zuordnung-detail"' in html and 'id="f-status"' in html
+    # Kein .umschalter: starteBrett naehme ihn als Parameter der Leiste.
+    assert 'class="umschalter' not in html
+    assert 'Object.assign(detailwahl, { status: z, stadt: s.stadt' in js
+    for status in ("exact", "fallback_90Z", "ambiguous", "unmapped"):
+        assert f'["{status}",' in js
