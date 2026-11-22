@@ -110,6 +110,29 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 22.11.2026 · Der Auslagerungstest hat Abstand zur Grenze (Branch `c-8-c-5`)
+
+C-8 aus `offene-punkte.md`. `test_ausgelagert_laeuft_was_sonst_am_speicher_scheitert`
+fiel am 30.10.2026 einmal auf CI mit „failed to pin block (142,8 von
+143 MiB)“, obwohl er ausgelagert hatte. Beim Neustart lief er grün, und
+lokal war er immer grün.
+
+- **Gemessen, je drei Versuche mit Auslagerung:** Mit zwei Threads scheitert
+  die Abfrage bis 130 MB immer, bei 140 MB zweimal von drei und ab 150 MB
+  nie. Die alte Grenze von 150 MB lag also genau auf der Kante. Jeder Thread
+  hält eigene Puffer, die sich nicht auslagern lassen. Mit einem Thread kommt
+  die Abfrage ab 90 MB durch.
+- **Jetzt ein Thread und 250 MB.** Das ist fast das Dreifache dessen, was
+  die Abfrage mit Auslagerung braucht. Ohne Auslagerung scheitert sie dort
+  weiter sicher, weil sie rund 1 GB sortiert. Die Zusage bleibt dieselbe:
+  Mit Auslagerung läuft, was ohne sie scheitert.
+
+C-5 ist im Register abgehakt. Der gewichtete Anteil war schon am 4.10.2026
+aus dem Test entfallen. Entdoppelt steht die Abdeckung im Manifest von
+`gold/fact_offense`.
+
+Am Code der Strecke und an den Zahlen ändert sich nichts.
+
 ## 22.11.2026 · Kein Dokument führt eine zweite Hypothesenmenge, ohne es zu sagen (Branch `fr-54-hypothesen-durchsicht`)
 
 FR-54 stand auf ◐, weil die Durchsicht aller Dokumente fehlte. Sie ist am
