@@ -90,6 +90,8 @@ def ausgegeben(tmp_path_factory) -> set[str]:
 def namen(expr: str) -> set[str]:
     """Die Metriknamen eines Ausdrucks - Klammerbloecke ganz heraus."""
     ohne_marken = re.sub(r"\{[^}]*\}", " ", expr)
+    # ``by (groesse)`` nennt Labels, keine Messwerte.
+    ohne_marken = re.sub(r"\b(by|without)\s*\([^)]*\)", " ", ohne_marken)
     roh = set(re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", ohne_marken))
     return roh - PROMQL
 
@@ -191,8 +193,12 @@ def test_die_drift_tabelle_sagt_welche_groesse_reisst(panels):
     """
     tafel = next(p for p in panels if p.get("title") == "Abweichung je Groesse")
     gezeigt = {z["expr"] for z in tafel["targets"]}
-    assert {"urbancrime_drift_ueberschritten", "urbancrime_drift",
-            "urbancrime_drift_prozent"} <= gezeigt
+    # ``max by (groesse)``: Sonst traegt jede Abfrage ihr eigenes ``__name__``,
+    # und ``merge`` verbindet keine Zeile - am 22.11.2026 im Brett gesehen,
+    # die Spalte "Abweichung" blieb leer und jede Groesse stand dreimal da.
+    assert {f"max by (groesse) ({m})" for m in (
+        "urbancrime_drift_ueberschritten", "urbancrime_drift",
+        "urbancrime_drift_prozent")} <= gezeigt
     werte = [m for o in tafel["fieldConfig"]["overrides"]
              for e in o["properties"] if e["id"] == "mappings" for m in e["value"]]
     assert any(m["options"].get("1", {}).get("text") == "reisst" for m in werte)

@@ -907,7 +907,7 @@
       ],
       "targets": [
         {
-          "expr": "urbancrime_drift_ueberschritten",
+          "expr": "max by (groesse) (urbancrime_drift_ueberschritten)",
           "refId": "A",
           "instant": true,
           "format": "table",
@@ -917,7 +917,7 @@
           }
         },
         {
-          "expr": "urbancrime_drift",
+          "expr": "max by (groesse) (urbancrime_drift)",
           "refId": "B",
           "instant": true,
           "format": "table",
@@ -927,7 +927,7 @@
           }
         },
         {
-          "expr": "urbancrime_drift_prozent",
+          "expr": "max by (groesse) (urbancrime_drift_prozent)",
           "refId": "C",
           "instant": true,
           "format": "table",

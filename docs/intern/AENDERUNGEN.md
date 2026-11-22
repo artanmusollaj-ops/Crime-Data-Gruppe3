@@ -110,6 +110,26 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 22.11.2026 · Die Drift-Tabelle legt ihre drei Abfragen wirklich zusammen (Branch `c-1-drift-zusammenfuehren`)
+
+Nachtrag zu C-1, gefunden am selben Tag im Brett auf `srv01`. Die Spalte
+„Toleranz“ stimmte: `detroit_rate` stand oben in Rot. Die Spalten
+„Abweichung“ und „Abweichung (%)“ blieben aber leer, und jede Grösse stand
+weiter unten noch einmal ohne Wert. Der Inspektor des Panels zeigte den
+Grund: Jede Abfrage liefert ihr eigenes `__name__`. `merge` verbindet nur
+Zeilen, in denen alle gemeinsamen Felder gleich sind, und `__name__` ist es
+nie.
+
+- Die drei Abfragen lauten jetzt `max by (groesse) (…)`. Damit bleibt nur
+  das Label `groesse`, und je Grösse entsteht eine Zeile. `max` verändert
+  keinen Wert, weil es je Grösse genau eine Reihe gibt.
+- `test_die_drift_tabelle_sagt_welche_groesse_reisst` verlangt die
+  aggregierte Form. Der Namenssammler in `tests/test_grafana_brett.py` liest
+  `by (…)` als Labels, nicht als Messwerte.
+
+Gelernt: Die Tests prüfen Namen und Form des Bretts, nicht wie Grafana die
+Rahmen zusammenlegt. Erst der Blick ins Brett hat das gezeigt.
+
 ## 22.11.2026 · Der Betriebsblick zeigt, welche Grösse die Toleranz reisst (Branch `c-1-drift-groesse`)
 
 C-1 aus `offene-punkte.md`. Das Panel „Abweichung je Groesse“ im
