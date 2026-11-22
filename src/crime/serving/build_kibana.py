@@ -2397,6 +2397,41 @@ def lege_an(klient: Klient, alle: list[dict[str, Any]]) -> dict[str, Any]:
             "dashboards": sum(1 for o in alle if o["type"] == "dashboard")}
 
 
+#: Woran ein Objekt als eines dieses Moduls zu erkennen ist. Datenansichten
+#: und Bretter heissen ``crime-...``, Tafeln ``lens-crime-...``, Karten
+#: ``karte-crime-...``. Was anders heisst, hat jemand von Hand angelegt, und
+#: das fasst ``raeume_auf`` nicht an.
+EIGENE_KENNUNG = re.compile(r"^(crime-|lens-crime-|karte-crime-)")
+EIGENE_TYPEN = ("index-pattern", "lens", "map", "dashboard", "links")
+
+
+def raeume_auf(klient: Klient, alle: list[dict[str, Any]]) -> list[str]:
+    """Loescht eigene Objekte, die im neuen Stand nicht mehr vorkommen (C-3).
+
+    ``overwrite`` ersetzt nur, was denselben Namen behaelt. Eine umbenannte
+    Kachel blieb bis zum 22.11.2026 als verwaistes Objekt liegen: in Kibanas
+    Liste sichtbar, von keinem Brett mehr gezeigt, und in einer Vorfuehrung
+    die Kachel, nach der niemand fragen soll.
+
+    **Nur nach ``lege_an`` und nur aus ``main``.** Erst wenn der neue Stand
+    vollstaendig angelegt ist und seine Verweise tragen, wird geloescht. Ein
+    Lauf, der vorher scheitert, laesst den alten Stand also ganz. Und
+    ``lege_an`` raeumt bewusst nicht selbst auf: Die Live-Tests legen dort ein
+    Probebrett an, und ein Aufraeumen darin loeschte jedes echte Brett.
+    Geloescht wird nur, was ``EIGENE_KENNUNG`` traegt.
+    """
+    behalten = {(o["type"], o["id"]) for o in alle}
+    typen = "&".join(f"type={t}" for t in EIGENE_TYPEN)
+    gefunden = klient.anfrage(
+        "GET", f"/api/saved_objects/_find?{typen}&per_page=10000&fields=title")
+    verwaist = sorted(
+        (o["type"], o["id"]) for o in gefunden.get("saved_objects", [])
+        if EIGENE_KENNUNG.match(o["id"]) and (o["type"], o["id"]) not in behalten)
+    for typ, kennung in verwaist:
+        klient.anfrage("DELETE", f"/api/saved_objects/{typ}/{kennung}")
+    return [f"{typ}/{kennung}" for typ, kennung in verwaist]
+
+
 def pruefe_verweise(klient: Klient,
                     alle: list[dict[str, Any]]) -> list[str]:
     """Jeder Verweis muss auf ein Objekt zeigen, das wirklich da ist.
@@ -2456,13 +2491,18 @@ def main(argv: list[str] | None = None) -> int:
             print(f"\nZeitfenster: {fenster[0]} bis {fenster[1]}")
             return 0
 
-        ergebnis = lege_an(HttpKlient(args.url), alle)
+        klient = HttpKlient(args.url)
+        ergebnis = lege_an(klient, alle)
+        verwaist = raeume_auf(klient, alle)
         for brett in bretter:
             print(f"{brett.titel}\n  {len(brett.tafeln)} Tafeln  ·  "
                   f"{args.url}/app/dashboards#/view/{brett.kennung}")
         print(f"\n{ergebnis['angelegt']} Objekte, "
               f"{ergebnis['dashboards']} Dashboards, Zeitfenster {fenster[0][:10]} "
               f"bis {fenster[1][:10]}")
+        if verwaist:
+            print(f"{len(verwaist)} verwaiste Objekte entfernt: "
+                  + ", ".join(verwaist))
         return 0
 
 
