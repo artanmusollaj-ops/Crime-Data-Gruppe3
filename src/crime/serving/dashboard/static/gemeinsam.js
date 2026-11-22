@@ -170,35 +170,39 @@ function optionen(select, eintraege, wert) {
   select.replaceChildren(...eintraege.map(([w, name]) => new Option(name, w, false, String(w) === String(wert))));
 }
 
-// Die Staedte als Checkboxen in einer Aufklappliste, dazu »Alle«. Zu sehen
-// ist die Zusammenfassung (»Alle«, »Chicago« oder »Chicago, Detroit«), ein
-// Klick oeffnet die Liste. Die Wahl landet im versteckten Feld »stadt«:
-// »alle« oder die Liste mit Komma, etwa »chicago,detroit«. Damit bleiben
-// Formular, Adresse und Reiter wie bei einer einzelnen Wahl. Die Liste kommt
-// aus /api/optionen, eine weitere Stadt erscheint von selbst. Leer ist keine
-// Auswahl: Wer die letzte abwaehlt, behaelt sie.
-function staedtewahl(gruppe, feld, staedte, wert) {
+// Eine Mehrfachwahl in einer Aufklappliste: oben »Alle«, darunter je Eintrag
+// ein Häkchen. Zu sehen ist die Zusammenfassung (»Alle«, »Chicago« oder
+// »Raub, Diebstahl +2«); der volle Text steht im Tooltip. Ist nicht »Alle«
+// gewaehlt, ist das Feld als aktiver Filter markiert. Die Wahl landet im
+// versteckten Feld: »alle« oder die Liste mit dem Trenner, etwa
+// »chicago,detroit« oder »Robbery|Arson«. Damit bleiben Formular, Adresse und
+// Reiter wie bei einer einzelnen Wahl. Die Eintraege kommen aus
+// /api/optionen. Ein Klick auf »Alle« setzt alle Häkchen oder nimmt alle weg -
+// sonst muesste man fuer eine von vierzig Kategorien 39 einzeln entfernen.
+// Leer ist aber keine Auswahl: Solange nichts gewaehlt ist, steht »Bitte
+// waehlen« im Feld, und das Brett laedt nicht neu.
+// Gebaut mit <details>, damit Tastatur und Vorleser es kennen.
+function mehrfachwahl(gruppe, feld, eintraege, wert, trenner) {
   if (!gruppe || !feld) return;
-  const roh = String(wert || "alle").toLowerCase();
-  const alleGewaehlt = roh === "alle" || roh === "beide";
-  const gewaehlt = new Set(alleGewaehlt ? staedte.map((s) => s.wert) : roh.split(","));
+  const roh = String(wert || "alle");
+  const alleGewaehlt = ["alle", "beide"].includes(roh.toLowerCase());
+  const gewaehlt = new Set(alleGewaehlt ? eintraege.map((e) => e.wert)
+    : roh.split(trenner).map((w) => (trenner === "," ? w.toLowerCase() : w)));
   const box = (wertname, name, an) => {
     const l = document.createElement("label");
-    l.className = "staedte-wahl";
+    l.className = "mehrfach-wahl";
     const c = Object.assign(document.createElement("input"), { type: "checkbox", checked: an });
-    c.dataset.stadt = wertname;
+    c.dataset.wert = wertname;
     l.append(c, name);
     return [l, c];
   };
   const [alleLabel, alle] = box("alle", "Alle", false);
-  const einzeln = staedte.map((s) => box(s.wert, s.name, gewaehlt.has(s.wert)));
-  // <details> statt eines eigenen Klappmechanismus: Tastatur und Vorleser
-  // kennen es, und offen/zu braucht kein Skript.
+  const einzeln = eintraege.map((e) => box(e.wert, e.name, gewaehlt.has(e.wert)));
   const klappe = document.createElement("details");
-  klappe.className = "staedte-klappe";
+  klappe.className = "mehrfach-klappe";
   const kopf = document.createElement("summary");
   const liste = document.createElement("div");
-  liste.className = "staedte-liste";
+  liste.className = "mehrfach-liste";
   liste.append(alleLabel, ...einzeln.map(([l]) => l));
   klappe.append(kopf, liste);
   gruppe.replaceChildren(gruppe.firstElementChild, klappe);
@@ -210,22 +214,37 @@ function staedtewahl(gruppe, feld, staedte, wert) {
     if (ev.key === "Escape") { klappe.open = false; kopf.focus(); }
   });
   const boxen = einzeln.map(([, c]) => c);
-  const namen = Object.fromEntries(staedte.map((s) => [s.wert, s.name]));
+  const namen = Object.fromEntries(eintraege.map((e) => [e.wert, e.name]));
   const setze = () => {
-    const an = boxen.filter((c) => c.checked).map((c) => c.dataset.stadt);
+    const an = boxen.filter((c) => c.checked).map((c) => c.dataset.wert);
     alle.checked = an.length === boxen.length;
-    feld.value = alle.checked ? "alle" : an.join(",");
-    kopf.textContent = alle.checked ? "Alle" : an.map((s) => namen[s]).join(", ");
+    feld.value = alle.checked ? "alle" : an.join(trenner);
+    const liste = an.map((w) => namen[w]);
+    kopf.textContent = alle.checked ? "Alle"
+      : liste.length <= 2 ? liste.join(", ") : `${liste.slice(0, 2).join(", ")} +${liste.length - 2}`;
+    kopf.title = alle.checked ? "Kein Filter" : liste.join("\n");
+    klappe.classList.toggle("aktiv", !alle.checked);
   };
+  // Zugeklappt ohne Häkchen: zurueck zur letzten gueltigen Wahl im Feld.
+  klappe.addEventListener("toggle", () => {
+    if (klappe.open || boxen.some((b) => b.checked)) return;
+    const zuletzt = feld.value === "alle" ? null : new Set(feld.value.split(trenner));
+    boxen.forEach((b) => { b.checked = !zuletzt || zuletzt.has(b.dataset.wert); });
+    setze();
+  });
   // Vor dem change der Leiste, die danach neu laedt: Das Ereignis steigt von
   // der Gruppe zum Formular auf, also ist das Feld dann schon gesetzt.
   gruppe.addEventListener("change", (ev) => {
-    const c = ev.target;
-    if (c === alle) {
-      // »Alle« abwaehlen hiesse »keine« - das gibt es nicht.
-      boxen.forEach((b) => { b.checked = true; });
-    } else if (!boxen.some((b) => b.checked)) {
-      c.checked = true;
+    if (ev.target === alle) boxen.forEach((b) => { b.checked = alle.checked; });
+    if (!boxen.some((b) => b.checked)) {
+      // Noch nichts gewaehlt: Das Feld behaelt die letzte gueltige Wahl, und
+      // die Leiste erfaehrt nichts davon - kein Neuladen mit leerer Auswahl.
+      ev.stopPropagation();
+      alle.checked = false;
+      kopf.textContent = "Bitte wählen";
+      kopf.title = "Mindestens ein Häkchen setzen";
+      klappe.classList.add("aktiv");
+      return;
     }
     setze();
   });
@@ -258,12 +277,12 @@ export async function starteBrett({ api, zeichne }) {
   const url = new URLSearchParams(location.search);
   const wahl = (k) => url.get(k) ?? o.vorgabe[k];
   if (param) zustand.wert = wahl(param);
-  staedtewahl(document.getElementById("staedte"), document.getElementById("stadt"), o.staedte, wahl("stadt"));
+  mehrfachwahl(document.getElementById("staedte"), document.getElementById("stadt"), o.staedte, wahl("stadt"), ",");
   optionen(document.getElementById("jahr"), o.jahre.map((j) => [j, String(j)]), wahl("jahr"));
   const monate = MONATE.map((m, i) => [i + 1, m]);
   optionen(document.getElementById("von"), monate, wahl("von"));
   optionen(document.getElementById("bis"), monate, wahl("bis"));
-  optionen(document.getElementById("kategorie"), o.kategorien.map((k) => [k.wert, k.name]), wahl("kategorie"));
+  mehrfachwahl(document.getElementById("kategorien"), document.getElementById("kategorie"), o.kategorien, wahl("kategorie"), "|");
   const knoepfe = document.querySelectorAll(".umschalter button");
   knoepfe.forEach((b) => b.classList.toggle("an", b.dataset.wert === zustand.wert));
 

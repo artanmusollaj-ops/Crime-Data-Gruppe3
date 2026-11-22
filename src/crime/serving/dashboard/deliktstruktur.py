@@ -37,8 +37,8 @@ def deliktstruktur(bestand, a) -> dict[str, Any]:
     spalte = a.ebene
     monate = [date(a.jahr, m, 1) for m in range(a.von, a.bis + 1)]
     vormonate = [date(a.jahr - 1, m, 1) for m in range(a.von, a.bis + 1)]
-    kat = "" if a.kategorie == "alle" else "AND kategorie = $kat"
-    extra = {"kat": a.kategorie} if kat else {}
+    kat = a.kat_sql
+    extra = a.kat_param
 
     def je(ms_je_stadt: dict[str, list[date]]) -> dict[tuple[str, str], int]:
         werte: dict[tuple[str, str], int] = {}

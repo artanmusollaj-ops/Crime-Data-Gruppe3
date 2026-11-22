@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'350** |
+| Tests | **3'356** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -109,6 +109,40 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 22.11.2026 · Das Dashboard filtert nach mehreren Kategorien, und ein gesetzter Filter ist zu sehen (Branch `dashboard-kategorien-auswahl`)
+
+Die Leiste bot bei „Kategorie“ nur „Alle“ oder eine einzige Deliktkategorie.
+Jetzt funktioniert das Feld wie die Städte: eine Aufklappliste mit „Alle“ und
+je Kategorie einem Häkchen.
+
+- **Mehrere Kategorien.** In der Adresse steht `kategorie=alle` oder eine
+  Liste mit `|`, etwa `Robbery|Arson`. Ein Komma taugt nicht als Trenner,
+  weil NIBRS „Family Offenses, Nonviolent“ kennt. Alle Bretter filtern über
+  einen gemeinsamen Ausdruck `kategorie IN $kat` (`Auswahl.kat_sql`,
+  `kat_param`) statt acht einzelner `kategorie = $kat`. Die Auswahl heisst
+  kanonisch: Die Folge richtet sich nach der Häufigkeit, und sind alle
+  gewählt, heisst das `alle`. Alte Links mit einer einzelnen Kategorie
+  bleiben gültig.
+- **Ein gesetzter Filter ist zu sehen.** Ist nicht „Alle“ gewählt, erscheint
+  das Feld blau. Es zeigt bis zu zwei Namen und dann „+N“, etwa
+  „Diebstahl, Körperverletzung +1“. Der volle Text steht im Tooltip. Das gilt
+  ebenso für die Städte.
+- **„Alle“ setzt oder entfernt jedes Häkchen.** Sonst müsste man für eine
+  von rund vierzig Kategorien 39 Häkchen einzeln entfernen. Solange nichts
+  gewählt ist, steht „Bitte wählen“ im Feld, und das Brett lädt nicht neu.
+  Wer die Liste so schliesst, bekommt die letzte gültige Wahl zurück.
+- Die Ratentafel im Überblick zeigt bei mehreren Kategorien „N Kategorien“
+  statt einer Liste von Namen, die nicht auf den Balken passt.
+- **Gemeinsamer Baustein.** `mehrfachwahl` in `gemeinsam.js` ersetzt
+  `staedtewahl` und dient beiden Feldern.
+- **Im Browser geprüft**, lokal mit `STORAGE_BACKEND=local`. Diebstahl,
+  Körperverletzung und Raub gewählt: Das Feld zeigt den aktiven Filter, die
+  Zahlen folgen der Auswahl, und „Deliktstruktur“ vergleicht genau diese
+  drei. Alle sechs Bretter mit Kategorie antworten mit der Liste korrekt.
+
+**Zahlen.** 3'350 → **3'356 Tests**, Standardlauf 3'239 → **3'245**. Im
+Linux-CI-Lauf hochgerechnet 3'155 → 3'161.
 
 ## 22.11.2026 · Die Städte stehen in einer Aufklappliste (Branch `dashboard-staedte-dropdown`)
 

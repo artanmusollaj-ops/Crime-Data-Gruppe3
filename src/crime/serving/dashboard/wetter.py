@@ -113,9 +113,8 @@ def wetter(bestand, a) -> dict[str, Any]:
     staedte = list(a.staedte)
     von = date(a.jahr, a.von, 1)
     bis = date(a.jahr + (a.bis == 12), a.bis % 12 + 1, 1)
-    kat = "" if a.kategorie == "alle" else "AND kategorie = $kat"
-    p = {"staedte": staedte, "von": von, "bis": bis} | (
-        {"kat": a.kategorie} if kat else {})
+    kat = a.kat_sql
+    p = {"staedte": staedte, "von": von, "bis": bis} | a.kat_param
 
     # Ein Tag je Stadt mit Wetter, im Fenster der Falldaten dieser Stadt: Ein
     # Tag nach dem Datenende ist kein Tag ohne Faelle. Ohne Fall im Fenster

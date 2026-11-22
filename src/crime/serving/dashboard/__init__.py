@@ -160,6 +160,33 @@ def staedte_aus(wert: str | None) -> tuple[str, ...]:
     return tuple(s for s in STAEDTE if s in gewaehlt)
 
 
+#: Trenner zwischen Kategorien in ``kategorie=``. Kein Komma: NIBRS kennt
+#: »Family Offenses, Nonviolent«.
+KATEGORIE_TRENNER = "|"
+
+
+def kategorien_aus(wert: str | None, bekannte: list[str]) -> tuple[str, ...] | None:
+    """Welche Kategorien eine Auswahl meint, oder ``None`` fuer alle.
+
+    ``alle`` und ein leerer Wert meinen alle. Sonst eine Liste mit ``|``,
+    etwa ``Robbery|Arson``. Eine unbekannte Kategorie ist ein Eingabefehler.
+    Die Folge ist die von ``bekannte`` (nach Haeufigkeit), damit dieselbe
+    Auswahl gleich heisst. Sind alle gewaehlt, heisst das ``alle``.
+    """
+    wert = (wert or ALLE).strip()
+    if wert.lower() == ALLE:
+        return None
+    gewaehlt = {k.strip() for k in wert.split(KATEGORIE_TRENNER) if k.strip()}
+    unbekannt = sorted(gewaehlt - set(bekannte))
+    if unbekannt:
+        raise EingabeFehler(f"Unbekannte Kategorie: {', '.join(unbekannt)}")
+    if not gewaehlt:
+        raise EingabeFehler("Keine Kategorie gewaehlt")
+    if gewaehlt == set(bekannte):
+        return None
+    return tuple(k for k in bekannte if k in gewaehlt)
+
+
 def stadtwert(staedte: tuple[str, ...]) -> str:
     """Die kanonische Schreibweise: ``alle`` oder die Liste in fester Folge."""
     return ALLE if set(staedte) == set(STAEDTE) else ",".join(staedte)
@@ -181,21 +208,39 @@ class Auswahl:
     def staedte(self) -> tuple[str, ...]:
         return staedte_aus(self.stadt)
 
+    @property
+    def kategorien(self) -> tuple[str, ...] | None:
+        """Die gewaehlten Kategorien, ``None`` fuer alle. Nach ``pruefe`` kanonisch."""
+        if self.kategorie == ALLE:
+            return None
+        return tuple(self.kategorie.split(KATEGORIE_TRENNER))
+
+    @property
+    def kat_sql(self) -> str:
+        """Der Filter fuer jede Abfrage mit einer Spalte ``kategorie`` - leer fuer alle."""
+        return "" if self.kategorien is None else "AND kategorie IN $kat"
+
+    @property
+    def kat_param(self) -> dict[str, list[str]]:
+        """Der Wert zu ``kat_sql``; leer, wenn kein Filter gilt."""
+        return {} if self.kategorien is None else {"kat": list(self.kategorien)}
+
     def pruefe(self, jahre: list[int], kategorien: list[str]) -> Auswahl:
         staedte = staedte_aus(self.stadt)
+        kategorien = kategorien_aus(self.kategorie, kategorien)
         if self.jahr not in jahre:
             raise EingabeFehler(f"Kein Jahrgang {self.jahr}")
         if not 1 <= self.von <= self.bis <= 12:
             raise EingabeFehler("Der Zeitraum braucht 1 <= von <= bis <= 12")
-        if self.kategorie != "alle" and self.kategorie not in kategorien:
-            raise EingabeFehler(f"Unbekannte Kategorie: {self.kategorie}")
         if self.mass not in MASSE:
             raise EingabeFehler(f"Unbekanntes Mass: {self.mass}")
         if self.ebene not in EBENEN:
             raise EingabeFehler(f"Unbekannte Ebene: {self.ebene}")
         # Kanonisch: Alte Links mit ``beide`` und eine vollstaendige Liste
         # heissen ``alle``, damit dieselbe Auswahl gleich heisst.
-        return replace(self, stadt=stadtwert(staedte))
+        return replace(self, stadt=stadtwert(staedte),
+                       kategorie=(ALLE if kategorien is None
+                                  else KATEGORIE_TRENNER.join(kategorien)))
 
 
 def _quelle(ablage, release: str, schicht: str, tabelle: str) -> tuple[str, str]:
@@ -447,9 +492,9 @@ class Bestand:
             # Je Stadt eine Checkbox; »Alle« baut die Oberflaeche selbst.
             "staedte": [{"wert": s, "name": STADTNAMEN[s]} for s in STAEDTE],
             "jahre": self.jahre,
-            "kategorien": [{"wert": "alle", "name": "Alle"}]
-            + sorted(({"wert": k, "name": kategorie_de(k)} for k in self.kategorien),
-                     key=lambda k: k["name"]),
+            # Je Kategorie eine Checkbox; »Alle« baut die Oberflaeche selbst.
+            "kategorien": sorted(({"wert": k, "name": kategorie_de(k)} for k in self.kategorien),
+                                 key=lambda k: k["name"]),
             "vorgabe": {"stadt": ALLE, "jahr": RATENJAHR if RATENJAHR in self.jahre
                         else self.jahre[-1], "von": 1, "bis": 12,
                         "kategorie": "alle", "mass": "anzahl", "ebene": "faelle",
@@ -539,10 +584,8 @@ class Bestand:
         cur = self._cursor()
         von, bis = date(a.jahr, a.von, 1), date(a.jahr, a.bis, 1)
         staedte = list(a.staedte)
-        kat = "" if a.kategorie == "alle" else "AND kategorie = $kat"
-        p = {"staedte": staedte, "von": von, "bis": bis}
-        if kat:
-            p["kat"] = a.kategorie
+        kat = a.kat_sql
+        p = {"staedte": staedte, "von": von, "bis": bis, **a.kat_param}
 
         def summe(spalte: str, monate: list[date]) -> int:
             return cur.execute(
@@ -659,9 +702,8 @@ class Bestand:
         die Rate je Kategorie zeigt die Tafel »nach Kategorie« (``_raten_je``).
         """
         nenner = self._nenner(cur, a, staedte)
-        kat = "" if a.kategorie == "alle" else "AND kategorie = $kat"
-        p = {"staedte": staedte, "von": von, "bis": bis,
-             **({"kat": a.kategorie} if kat else {})}
+        kat = a.kat_sql
+        p = {"staedte": staedte, "von": von, "bis": bis, **a.kat_param}
         summen = {s: (int(f), int(d)) for s, f, d in cur.execute(
             "SELECT stadt, sum(faelle), sum(delikte) FROM raten WHERE stadt IN $staedte "
             f"AND monat BETWEEN $von AND $bis {kat} GROUP BY 1", p).fetchall()}
@@ -670,7 +712,11 @@ class Bestand:
             n = summen.get(s, (0, 0))[i]
             return round(n * 1000.0 / nenner[s], 1) if s in nenner else None
 
-        name = "Alle Fälle" if a.kategorie == "alle" else kategorie_de(a.kategorie)
+        # Mehrere Namen passen nicht als Beschriftung eines Balkens; welche es
+        # sind, zeigt die Leiste als aktiven Filter.
+        name = ("Alle Fälle" if a.kategorien is None
+                else kategorie_de(a.kategorien[0]) if len(a.kategorien) == 1
+                else f"{len(a.kategorien)} Kategorien")
         return {"einwohner": nenner,
                 "zeilen": [{"kategorie": a.kategorie, "name": name,
                             "werte": {s: rate(s, 0) for s in staedte}}],

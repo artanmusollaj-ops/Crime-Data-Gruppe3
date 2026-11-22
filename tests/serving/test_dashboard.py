@@ -890,5 +890,71 @@ def test_die_staedte_stehen_in_einer_aufklappliste():
     """
     js = (PROJEKT / "src/crime/serving/dashboard/static/gemeinsam.js").read_text(encoding="utf-8")
     assert 'document.createElement("details")' in js
-    assert 'klappe.className = "staedte-klappe"' in js
+    assert 'klappe.className = "mehrfach-klappe"' in js
     assert 'kopf.textContent = alle.checked ? "Alle"' in js
+
+
+# --------------------------------------------------------------------------
+# Mehrere Kategorien (22.11.2026)
+# --------------------------------------------------------------------------
+
+
+def test_mehrere_kategorien_zaehlen_zusammen(bestand):
+    """Zwei Kategorien gewaehlt ergeben die Summe der beiden einzeln."""
+    def delikte(kat: str) -> int:
+        return bestand.ueberblick(bestand.auswahl(
+            {"jahr": "2024", "kategorie": kat}))["kennzahlen"]["delikte"]
+
+    einzeln = delikte("Robbery") + delikte("Assault Offenses")
+    assert einzeln > 0
+    assert delikte("Robbery|Assault Offenses") == einzeln
+
+
+def test_die_kategorienwahl_heisst_kanonisch(bestand):
+    """Folge nach Haeufigkeit, und alle gewaehlt heisst ``alle``."""
+    a = bestand.auswahl({"jahr": "2024", "kategorie": "Robbery|Assault Offenses"})
+    b = bestand.auswahl({"jahr": "2024", "kategorie": "Assault Offenses|Robbery"})
+    assert a.kategorie == b.kategorie
+    alle = "|".join(bestand.kategorien)
+    assert bestand.auswahl({"jahr": "2024", "kategorie": alle}).kategorie == "alle"
+
+
+def test_eine_kategorie_mit_komma_bleibt_ganz():
+    """Darum ``|`` statt Komma: NIBRS kennt »Family Offenses, Nonviolent«."""
+    from serving import dashboard
+
+    bekannte = ["Family Offenses, Nonviolent", "Robbery", "Arson"]
+    assert dashboard.kategorien_aus("Family Offenses, Nonviolent|Robbery", bekannte) == (
+        "Family Offenses, Nonviolent", "Robbery")
+    with pytest.raises(dashboard.EingabeFehler):
+        dashboard.kategorien_aus("Robbery|Erfunden", bekannte)
+    with pytest.raises(dashboard.EingabeFehler):
+        dashboard.kategorien_aus("|", bekannte)
+
+
+def test_die_optionen_bieten_jede_kategorie_einzeln(bestand):
+    """»Alle« baut die Oberflaeche selbst - in der Liste stuende es doppelt."""
+    werte = [k["wert"] for k in bestand.optionen()["kategorien"]]
+    assert "alle" not in werte
+    assert set(werte) == set(bestand.kategorien)
+
+
+def test_jede_seite_mit_kategorie_hat_die_mehrfachwahl():
+    """Wo eine Kategorie gewaehlt wird, dann mit Häkchen - auf jeder Seite gleich."""
+    statisch = PROJEKT / "src/crime/serving/dashboard/static"
+    mit = [s for s in sorted(statisch.glob("*.html"))
+           if 'name="kategorie"' in s.read_text(encoding="utf-8")]
+    assert len(mit) >= 7
+    for seite in mit:
+        html = seite.read_text(encoding="utf-8")
+        assert 'id="kategorien"' in html, seite.name
+        assert '<select name="kategorie"' not in html, seite.name
+
+
+def test_ein_gesetzter_filter_ist_markiert():
+    """Wichtig war: Die Auswahl ist als aktiver Filter zu sehen."""
+    statisch = PROJEKT / "src/crime/serving/dashboard/static"
+    js = (statisch / "gemeinsam.js").read_text(encoding="utf-8")
+    css = (statisch / "dashboard.css").read_text(encoding="utf-8")
+    assert 'klappe.classList.toggle("aktiv", !alle.checked)' in js
+    assert ".mehrfach-klappe.aktiv summary" in css

@@ -133,8 +133,8 @@ def zeitverlauf(bestand, a) -> dict[str, Any]:
     staedte = list(a.staedte)
     monate = [date(a.jahr, m, 1) for m in range(a.von, a.bis + 1)]
     vormonate = [date(a.jahr - 1, m, 1) for m in range(a.von, a.bis + 1)]
-    kat = "" if a.kategorie == "alle" else "AND kategorie = $kat"
-    extra = {"kat": a.kategorie} if kat else {}
+    kat = a.kat_sql
+    extra = a.kat_param
 
     def faelle(ms: list[date]) -> dict[tuple[str, date], int]:
         return {(s, m): int(n) for s, m, n in cur.execute(
