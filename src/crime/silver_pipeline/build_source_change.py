@@ -1045,8 +1045,11 @@ def baue(data_root: Path, *, trocken: bool = False) -> dict[str, Any]:
         if (bericht["paare"]
                 or not ablage.exists(rel_tabelle, PARQUET_FILE)
                 or datierung_neu or vertrag_neu or schema_neu or kontext_neu):
+            # C-2: art und feld gehoeren dazu - eine Zeile kann im selben
+            # Paar mehrere Felder aendern; feld ist bei neu/entfernt NULL.
             ziel = publish(con, TABLE, verzeichnis,
-                            manifest(con, bericht, begonnen))
+                            manifest(con, bericht, begonnen),
+                            ordnung="city, vorher_run_id, run_id, offense_id, art, feld")
             # **Und hinauf.** Bis zum 17.10.2026 fehlte diese Zeile, und damit
             # erreichte die Tabelle SeaweedFS nie: Jeder andere Silver-Bau
             # ruft ``publish_table``, dieser schrieb nur lokal. Im ``s3``-Modus

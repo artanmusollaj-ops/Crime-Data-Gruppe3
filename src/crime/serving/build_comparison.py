@@ -52,6 +52,18 @@ from silver_pipeline import PARQUET_FILE, TransformError, connect, publish, sche
 from storage import for_root
 
 
+
+#: Der eindeutige Schluessel je Tabelle, nach dem ``publish`` schreibt (C-2).
+#: Kategorie und Familie koennen ``NULL`` sein (nicht zugeordnete Codes);
+#: ``DISTINCT`` und ``ORDER BY`` behandeln das gleich.
+ORDNUNG: dict[str, str] = {
+    "comparison_day": "reporting_city, date, nibrs_category, nibrs_family",
+    "comparison_week": "reporting_city, week_start, nibrs_category, nibrs_family",
+    "comparison_month": "reporting_city, month, nibrs_category, nibrs_family",
+    "partition_quality": "reporting_city, month",
+    "rate_tract": "stadt, geoid",
+}
+
 LOG = logging.getLogger("build_comparison")
 
 # Der Deutungsvertrag dieser Tabellen. Steigt die Zahl, sind aeltere Staende
@@ -375,7 +387,8 @@ def build(data_root: Path) -> dict[str, Path]:
         con.execute("ALTER TABLE comparison_month RENAME period_end TO month_end")
         for tabelle in TABELLEN:
             manifest = build_manifest(con, tabelle, herkunft, begonnen, nachweis)
-            ziele[tabelle] = publish(con, tabelle, table_dir(data_root, tabelle), manifest)
+            ziele[tabelle] = publish(con, tabelle, table_dir(data_root, tabelle), manifest,
+                                     ordnung=ORDNUNG[tabelle])
             LOG.info("%s: %s Zeilen -> %s", tabelle,
                      f"{manifest['row_count']:,}", ziele[tabelle])
     finally:
