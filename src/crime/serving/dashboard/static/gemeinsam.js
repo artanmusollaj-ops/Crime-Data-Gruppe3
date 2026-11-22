@@ -170,11 +170,13 @@ function optionen(select, eintraege, wert) {
   select.replaceChildren(...eintraege.map(([w, name]) => new Option(name, w, false, String(w) === String(wert))));
 }
 
-// Die Staedte als Checkboxen, dazu »Alle«. Die Wahl landet im versteckten
-// Feld »stadt«: »alle« oder die Liste mit Komma, etwa »chicago,detroit«.
-// Damit bleiben Formular, Adresse und Reiter wie bei einer einzelnen Wahl.
-// Die Liste kommt aus /api/optionen, eine weitere Stadt erscheint von selbst.
-// Leer ist keine Auswahl: Wer die letzte abwaehlt, behaelt sie.
+// Die Staedte als Checkboxen in einer Aufklappliste, dazu »Alle«. Zu sehen
+// ist die Zusammenfassung (»Alle«, »Chicago« oder »Chicago, Detroit«), ein
+// Klick oeffnet die Liste. Die Wahl landet im versteckten Feld »stadt«:
+// »alle« oder die Liste mit Komma, etwa »chicago,detroit«. Damit bleiben
+// Formular, Adresse und Reiter wie bei einer einzelnen Wahl. Die Liste kommt
+// aus /api/optionen, eine weitere Stadt erscheint von selbst. Leer ist keine
+// Auswahl: Wer die letzte abwaehlt, behaelt sie.
 function staedtewahl(gruppe, feld, staedte, wert) {
   if (!gruppe || !feld) return;
   const roh = String(wert || "alle").toLowerCase();
@@ -190,12 +192,30 @@ function staedtewahl(gruppe, feld, staedte, wert) {
   };
   const [alleLabel, alle] = box("alle", "Alle", false);
   const einzeln = staedte.map((s) => box(s.wert, s.name, gewaehlt.has(s.wert)));
-  gruppe.replaceChildren(gruppe.firstElementChild, alleLabel, ...einzeln.map(([l]) => l));
+  // <details> statt eines eigenen Klappmechanismus: Tastatur und Vorleser
+  // kennen es, und offen/zu braucht kein Skript.
+  const klappe = document.createElement("details");
+  klappe.className = "staedte-klappe";
+  const kopf = document.createElement("summary");
+  const liste = document.createElement("div");
+  liste.className = "staedte-liste";
+  liste.append(alleLabel, ...einzeln.map(([l]) => l));
+  klappe.append(kopf, liste);
+  gruppe.replaceChildren(gruppe.firstElementChild, klappe);
+  // Ein Klick daneben schliesst die Liste, wie bei einem Auswahlfeld.
+  document.addEventListener("click", (ev) => {
+    if (klappe.open && !klappe.contains(ev.target)) klappe.open = false;
+  });
+  klappe.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") { klappe.open = false; kopf.focus(); }
+  });
   const boxen = einzeln.map(([, c]) => c);
+  const namen = Object.fromEntries(staedte.map((s) => [s.wert, s.name]));
   const setze = () => {
     const an = boxen.filter((c) => c.checked).map((c) => c.dataset.stadt);
     alle.checked = an.length === boxen.length;
     feld.value = alle.checked ? "alle" : an.join(",");
+    kopf.textContent = alle.checked ? "Alle" : an.map((s) => namen[s]).join(", ");
   };
   // Vor dem change der Leiste, die danach neu laedt: Das Ereignis steigt von
   // der Gruppe zum Formular auf, also ist das Feld dann schon gesetzt.

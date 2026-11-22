@@ -37,8 +37,25 @@ body { margin: 0; background: var(--grund); color: var(--text); font-size: 14px;
 .leiste select { font: inherit; color: var(--text); padding: 8px 12px; border: 1px solid #cfd6e0;
   border-radius: 6px; background: #fff; min-width: 90px; }
 #kategorie { min-width: 200px; }
-.staedte { display: flex; align-items: center; gap: 16px; color: var(--leise); }
-.leiste .staedte-wahl { display: flex; align-items: center; gap: 6px; color: var(--text); cursor: pointer; }
+.staedte { display: flex; align-items: center; gap: 10px; color: var(--leise); }
+/* Sieht aus wie die Auswahlfelder daneben, klappt aber eine Liste mit Häkchen auf. */
+.staedte-klappe { position: relative; }
+.staedte-klappe summary { list-style: none; cursor: pointer; color: var(--text); min-width: 176px;
+  padding: 8px 32px 8px 12px; border: 1px solid #cfd6e0; border-radius: 6px; background: #fff;
+  position: relative; white-space: nowrap; }
+.staedte-klappe summary::-webkit-details-marker { display: none; }
+.staedte-klappe summary::after { content: ""; position: absolute; right: 12px; top: 50%;
+  width: 7px; height: 7px; border-right: 1.5px solid var(--leise); border-bottom: 1.5px solid var(--leise);
+  transform: translateY(-70%) rotate(45deg); }
+.staedte-klappe[open] summary::after { transform: translateY(-30%) rotate(-135deg); }
+.staedte-klappe summary:focus-visible { outline: 2px solid var(--blau); outline-offset: 1px; }
+.staedte-liste { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; min-width: 100%;
+  background: #fff; border: 1px solid #cfd6e0; border-radius: 6px; padding: 6px 0;
+  box-shadow: 0 6px 18px rgba(27, 36, 48, 0.12); }
+.leiste .staedte-wahl { display: flex; align-items: center; gap: 8px; color: var(--text); cursor: pointer;
+  padding: 6px 12px; white-space: nowrap; }
+.leiste .staedte-wahl:hover { background: #f1f4f8; }
+.leiste .staedte-wahl:first-child { border-bottom: 1px solid var(--linie); margin-bottom: 4px; padding-bottom: 8px; }
 .leiste .staedte-wahl input { width: 16px; height: 16px; accent-color: var(--blau); cursor: pointer; }
 
 .brett { margin: 0 16px 16px; background: #fff; border-radius: 10px; padding: 16px; border: 1px solid var(--linie); }
