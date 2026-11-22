@@ -102,8 +102,8 @@ def geografie(bestand, a) -> dict[str, Any]:
     cur = bestand._cursor()
     staedte = list(a.staedte)
     monate = [date(a.jahr, m, 1) for m in range(a.von, a.bis + 1)]
-    kat = "" if a.kategorie == "alle" else "AND kategorie = $kat"
-    p = {"staedte": staedte, "monate": monate, **({"kat": a.kategorie} if kat else {})}
+    kat = a.kat_sql
+    p = {"staedte": staedte, "monate": monate, **a.kat_param}
     vintages = [r[0] for r in cur.execute(
         "SELECT DISTINCT vintage FROM tract_monat WHERE year(monat) = $j AND vintage IS NOT NULL",
         {"j": a.jahr}).fetchall()]
