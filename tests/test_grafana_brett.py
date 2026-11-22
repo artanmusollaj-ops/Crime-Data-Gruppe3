@@ -179,3 +179,32 @@ def test_das_ablagedokument_nennt_dieses_verzeichnis():
     relativ = BRETT.parent.relative_to(PROJECT_ROOT).as_posix()
     assert relativ in ABLAGEDOKUMENT.read_text(encoding="utf-8"), (
         f"das Ablagedokument nennt '{relativ}' nicht")
+
+
+def test_die_drift_tabelle_sagt_welche_groesse_reisst(panels):
+    """C-1: Prozent allein taeuscht, weil Raten absolut gelten.
+
+    Bis zum 22.11.2026 zeigte das Panel nur ``drift_prozent``. Detroits Rate
+    stand dort mit 0,23 % und sah harmlos aus, riss die Toleranz aber, weil
+    sie fuer Raten absolut gilt. ``drift_ueberschritten`` gab es schon, nur
+    zeigte es kein Panel.
+    """
+    tafel = next(p for p in panels if p.get("title") == "Abweichung je Groesse")
+    gezeigt = {z["expr"] for z in tafel["targets"]}
+    assert {"urbancrime_drift_ueberschritten", "urbancrime_drift",
+            "urbancrime_drift_prozent"} <= gezeigt
+    werte = [m for o in tafel["fieldConfig"]["overrides"]
+             for e in o["properties"] if e["id"] == "mappings" for m in e["value"]]
+    assert any(m["options"].get("1", {}).get("text") == "reisst" for m in werte)
+
+
+def test_die_beschreibung_nennt_die_toleranzen_des_codes(panels):
+    """Steht dieselbe Zahl an zwei Orten, haelt ein Waechter beide zusammen."""
+    from orchestration.drift import MAX_PROZENT, MAX_RATE
+
+    text = next(p for p in panels
+                if p.get("title") == "Abweichung je Groesse")["description"]
+    def komma(x: float) -> str:
+        return f"{x:g}".replace(".", ",")
+    assert f"Toleranz {komma(MAX_RATE)} je 1'000" in text, text
+    assert f"Toleranz {komma(MAX_PROZENT)} %" in text, text
