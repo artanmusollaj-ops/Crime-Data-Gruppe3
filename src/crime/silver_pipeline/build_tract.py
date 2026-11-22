@@ -334,7 +334,8 @@ def build(data_root: Path, vintage: int, states: list[str]) -> Path:
             con, "tract_silver", vintage, tiger + acs, started
         )
         ziel = publish(
-            con, "tract_silver", table_dir(data_root, vintage), manifest
+            con, "tract_silver", table_dir(data_root, vintage), manifest,
+            ordnung="geoid",
         )
     finally:
         con.close()

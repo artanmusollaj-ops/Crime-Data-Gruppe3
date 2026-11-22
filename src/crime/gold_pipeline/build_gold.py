@@ -82,6 +82,20 @@ from silver_pipeline import (
 # "Vertragsversionen"; ein Test prueft das.
 CONTRACT_VERSION = 10
 
+#: Der eindeutige Schluessel je Tabelle, nach dem ``publish`` die Zeilen
+#: schreibt (C-2). Damit haengen die Parquet-Bytes am Inhalt und nicht am
+#: Abfrageplan. ``offense_id`` allein genuegt bei ``fact_offense`` nicht
+#: sicher: Chicago und Detroit vergeben sie unabhaengig.
+ORDNUNG: dict[str, str] = {
+    "fact_offense": "reporting_city, offense_id",
+    "dim_tract": "geoid",
+    "dim_tract_geo": "geoid",
+    "dim_tract_acs": "geoid, vintage",
+    "dim_offense": "nibrs_code",
+    "dim_date": "date",
+    "dim_city_day": "city, date",
+}
+
 DEFAULT_VINTAGE = 2024
 NIBRS_CODES = "nibrs_offense_codes_2025.csv"
 NIBRS_KATEGORIEN = "nibrs_offense_categories_2025.csv"
@@ -1560,7 +1574,8 @@ def build(data_root: Path, config_root: Path, vintage: int,
                 granularitaet, notizen,
             )
             ziele[tabelle] = publish(
-                con, tabelle, table_dir(data_root, tabelle), manifest
+                con, tabelle, table_dir(data_root, tabelle), manifest,
+                ordnung=ORDNUNG[tabelle],
             )
             log.info(
                 "%s: %s Zeilen -> %s",

@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'326** |
+| Tests | **3'330** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -109,6 +109,37 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 22.11.2026 · Jede Tabelle schreibt ihre Zeilen in einer festen Ordnung (Branch `c-2-feste-ordnung`)
+
+C-2 aus `offene-punkte.md`. Sechs der acht `publish`-Aufrufe schrieben ohne
+`ordnung`: Gold, `comparison`, `place`, `tract`, `weather_day` und
+`source_change`. `COPY` schrieb damit die physische Ordnung der Tabelle, und
+die hängt am Abfrageplan, an `threads` und an `preserve_insertion_order`.
+Gemessen am 3.10.2026 an Gold: gleicher Inhalt, 14'947'218 gegen 15'001'199
+Bytes. Für H2 und H5 („byteweise gleich“) ruhte das auf einem Zufall, und der
+Abgabestand am 8.12. wird neu gebaut.
+
+- **Je Tabelle ein eindeutiger Schlüssel**, am Bestand vom 21.11.2026
+  gemessen: `gold_pipeline.build_gold.ORDNUNG` für die sieben Gold-Tabellen,
+  `serving.build_comparison.ORDNUNG` für die fünf Serving-Tabellen, `geoid`
+  für `place` und `tract`, `city, date` für `weather_day`, und für
+  `source_change` das Paar samt `offense_id`, `art` und `feld`.
+- **`publish` prüft die Eindeutigkeit selbst.** Ein Schlüssel, der zwei
+  Zeilen teilen, bricht den Bau ab, statt die Folge innerhalb der Gruppe
+  offen zu lassen. `NULL` zählt wie ein Wert.
+- **Gemessen:** zwei Neubauten in getrennten Prozessen, einmal mit
+  `DUCKDB_THREADS=1` und einmal mit 8. Alle 24 Parquet-Dateien in Silver,
+  Gold und Serving waren byteweise gleich.
+- **Neu bewacht:** `tests/test_publish_ordnung.py`. Kein Aufruf kommt ohne
+  `ordnung` dazu, ein mehrdeutiger Schlüssel bricht ab, und `NULL` im
+  Schlüssel ist ein Wert.
+
+Am Inhalt ändert sich nichts. Die Bytes der betroffenen Tabellen ändern sich
+einmal, weil die Zeilen jetzt sortiert geschrieben werden.
+
+**Zahlen.** 3'326 → **3'330 Tests**, Standardlauf 3'215 → **3'219**. Im
+Linux-CI-Lauf hochgerechnet 3'131 → 3'135.
 
 ## 21.11.2026 · Tracts am Chicagoer Seeufer gehören zur Stadt, Gold-Vertrag 10 (Branch `fix-tract-landanteil`)
 
