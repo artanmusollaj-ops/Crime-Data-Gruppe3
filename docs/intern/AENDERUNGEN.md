@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'326** |
+| Tests | **3'328** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -109,6 +109,36 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 22.11.2026 · Kein Dokument führt eine zweite Hypothesenmenge, ohne es zu sagen (Branch `fr-54-hypothesen-durchsicht`)
+
+FR-54 stand auf ◐, weil die Durchsicht aller Dokumente fehlte. Sie ist am
+22.11.2026 gemacht. Gesucht wurde in `docs/`, im README und in den Notebooks
+nach H1 bis H8 und FF1 bis FF3.
+
+- **Ein Satz im Konzept war die H2 des Vorschlags.** `ln2_konzept.md` 3.3
+  sagte: „H2 zeigt an Chicagos absichtlich überlappenden Delta-Läufen, dass
+  der Überlapp nur Duplikate erzeugt.“ So hiess H2 im Vorschlag vom 8.9.2026.
+  Die abgegebene H2 misst Idempotenz, und Notebook 36 sagt ausdrücklich, dass
+  sie die Delta-Läufe *nicht* zeigt. Der Satz trennt jetzt beides: H2 als
+  Idempotenz, die Duplikate als Befund aus 8.3.
+- **`leistungsnachweise.md` führt den Vorschlag** mit FF1 bis FF3 und H1 bis
+  H8. Abschnitt 2.2 sagte das schon. Die Kopftabelle und der Absatz darunter
+  nannten die Hypothesen aber noch offen, und 2.3 und 2.5 trugen keinen
+  Hinweis. Alle drei Stellen sagen es jetzt.
+- **Ohne Befund:** `README.md`, `ausblick.md`, `datenhistorie.md`,
+  `forschungsfragen.md` und die Notebooks 32 und 36. Notebook 32 nannte die
+  alte H3 schon als „früheren Entwurf“.
+- **Neu bewacht:** `tests/test_eine_hypothesenmenge.py`. Wer H7, H8 oder FF1
+  bis FF3 nennt, muss die Vorschlagsmenge kennzeichnen, und der Satz zu H2
+  darf nicht zurückkommen.
+- **Register:** C-9 ist abgehakt. Seine beiden letzten Reste, der
+  Kibana-Tunnel und die Konsole auf der Einstiegsseite, waren schon erledigt,
+  nur nicht vermerkt.
+- `fr-stand.md`: FR-54 auf ●, 51 erfüllt und 4 teilweise.
+
+**Zahlen.** 3'326 → **3'328 Tests**, Standardlauf 3'215 → **3'217**. Im
+Linux-CI-Lauf hochgerechnet 3'131 → 3'133.
 
 ## 21.11.2026 · Tracts am Chicagoer Seeufer gehören zur Stadt, Gold-Vertrag 10 (Branch `fix-tract-landanteil`)
 
