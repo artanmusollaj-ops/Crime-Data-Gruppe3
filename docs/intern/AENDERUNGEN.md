@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'335** |
+| Tests | **3'337** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -109,6 +109,28 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 22.11.2026 · Der Betriebsblick zeigt, welche Grösse die Toleranz reisst (Branch `c-1-drift-groesse`)
+
+C-1 aus `offene-punkte.md`. Das Panel „Abweichung je Groesse“ im
+Grafana-Brett zeigte nur `drift_prozent`. Detroits Rate stand dort am
+19.10.2026 mit 0,23 % und sah harmlos aus. Sie riss die Toleranz trotzdem,
+weil die Toleranz für Raten absolut gilt (0,1 je 1'000). `drift_ueberschritten`
+gab `serving.betriebsstand` schon aus, nur zeigte es kein Panel.
+
+- Das Panel führt jetzt drei Abfragen über die Grösse zusammen:
+  `drift_ueberschritten`, `drift` und `drift_prozent`. Die Spalte „Toleranz“
+  zeigt „haelt“ grün und „reisst“ rot, und die gerissenen Grössen stehen oben.
+- Die Beschreibung nennt beide Regeln: Raten absolut mit 0,1, Zählungen in
+  Prozent mit 1 %. `test_die_beschreibung_nennt_die_toleranzen_des_codes`
+  hält die Zahlen gegen `orchestration.drift.MAX_RATE` und `MAX_PROZENT`.
+- Die drei Metriken tragen in Prometheus auf `srv01` dieselben Labels
+  (`groesse`, `instance`, `job`), am 22.11.2026 abgefragt. Das Brett ist
+  auf `srv01` aus dem Repository eingehängt und wird nach einem `git pull`
+  dort wirksam. Wie es aussieht, ist erst danach zu sehen.
+
+**Zahlen.** 3'335 → **3'337 Tests**, Standardlauf 3'224 → **3'226**. Im
+Linux-CI-Lauf hochgerechnet 3'140 → 3'142.
 
 ## 22.11.2026 · Kibana räumt verwaiste Kacheln auf, der PR-Wächter nennt seine Grenze (Branch `c-3-c-4`)
 
