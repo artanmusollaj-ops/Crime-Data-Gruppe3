@@ -325,7 +325,8 @@ def build(data_root: Path, vintage: int, states: list[str]) -> Path:
     try:
         con.execute(f"CREATE TEMP VIEW place_silver AS {build_query(quellen)}")
         manifest = build_manifest(con, "place_silver", vintage, quellen, started)
-        ziel = publish(con, "place_silver", table_dir(data_root, vintage), manifest)
+        ziel = publish(con, "place_silver", table_dir(data_root, vintage), manifest,
+                       ordnung="geoid")
     finally:
         con.close()
     for_root(data_root).publish_table(ziel)
