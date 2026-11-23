@@ -110,6 +110,30 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 22.11.2026 · Die Änderungen auf srv01 an CLI und Betriebsblick sind committet (Branch `offene-punkte-s2-s3`)
+
+Seit dem 18.10.2026 lagen auf `srv01` zwei Änderungen ungesichert, von
+denen der Betriebsblick abhängt (S-2, S-3). Ein `git checkout` im
+Infrastruktur-Repository `/srv/docker` hätte sie still verworfen. Danach
+hätte `doctor` wieder bei jedem Lauf „No valid Restic snapshot found“
+gemeldet, und Prometheus hätte den Job `urbancrime` nicht mehr abgefragt.
+
+- **S-2, die `srv01`-CLI** (Commit `fad61f3`): `health.py` klappt die
+  gruppierte Ausgabe von `restic snapshots --group-by host,tags` auf.
+  `util.py` schreibt die Fehlermeldung eines gescheiterten Befehls ins
+  Protokoll. Neu dabei sind zwei Tests, die am alten Code scheitern.
+- **S-3, der Monitoring-Stapel** (Commit `26a855b`): der Scrape
+  `urbancrime`, die Alarmregeln und das Grafana-Brett aus diesem
+  Repository. `promtool` und `docker compose config` sind gegengeprüft.
+
+Beide Commits liegen auf dem Branch `infra/urbancrime-monitoring` von
+`datenwerft/srv01-infrastructure`, abgezweigt von dessen `main` und
+gepusht. Der laufende Stapel ist unverändert, denn die Dateien auf `srv01`
+hatten diesen Inhalt schon. Fremde Änderungen im selben Arbeitsstand sind
+nicht mitcommittet (cAdvisor, SeaweedFS, Homepage, Docmost).
+
+**Zahlen.** Keine Änderung an Tests oder Daten in diesem Repository.
+
 ## 22.11.2026 · Das Brett »Datenqualität« zeigt die NIBRS-Zuordnung je Quellcode (Branch `dashboard-zuordnung-detail`)
 
 Das Dashboard zeigte die Zuordnung nur verdichtet, als Anteile je Stadt.
