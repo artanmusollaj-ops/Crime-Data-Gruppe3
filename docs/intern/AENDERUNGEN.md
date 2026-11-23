@@ -167,8 +167,14 @@ zwei Threads), lokal über die 569 Anfragen:
   hält eigene Hashtabellen. Auf `srv01` gelten die Grenzen, siehe
   `docker-compose.srv01.yml`, FR-61.
 
-Die Spitze im Container auf `srv01` ist noch nicht gemessen; das gehört
-zum Einsetzen.
+**Auf `srv01` gemessen** (23.11.2026, Abbild aus `4230e86`): dieselbe
+Matrix über HTTP im Container, je nach frischem Start. Die Spitze der
+cgroup stieg von 421 auf 471 MiB, bei 640 MiB Grenze. Nach der Matrix
+belegte der Container 459 statt 308 MiB, davon 371 statt 289 MiB anonym:
+DuckDB behält Puffer bis zur Grenze von 256 MB. Je Anfrage im Median
+54 statt 12 ms, höchstens 243 statt 206 ms. Alle 515 verschiedenen
+Antworten auf dem Release von `srv01` sind vorher und nachher gleich
+(SHA-256).
 
 **Wächter.** `tests/serving/test_dashboard_taten.py`: Jede der acht Sichten
 ist zeilengleich mit der alten Verdichtung, die dort wörtlich steht, und hat
