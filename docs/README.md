@@ -66,6 +66,7 @@ Word-Dokument verweist**: auf keines davon.
 | [`AENDERUNGEN.md`](intern/AENDERUNGEN.md) | das Projektgedächtnis: was sich wann geändert hat und warum |
 | [`intern/fr-stand.md`](intern/fr-stand.md) | der Stand je Anforderung des PRD — mit Beleg je Zeile; `tests/test_fr_stand.py` hält sie gegen das PRD |
 | [`intern/offene-punkte.md`](intern/offene-punkte.md) | was liegen geblieben ist, an einer Stelle — Entscheidungen, Handgriffe auf dem Server, Code; je Punkt ein Verantwortlicher und ein Beleg. Die Anforderungen stehen in `fr-stand.md` |
+| [`intern/pflichtbestandteile.md`](intern/pflichtbestandteile.md) | wo die sechs Pflichtbestandteile P1–P6 von LN2 stehen, je mit Fundstelle und Stand (FR-56); `tests/test_pflichtbestandteile.py` hält Anker und Stand |
 | [`datenhistorie.md`](intern/datenhistorie.md) | was beim Aufräumen verlorenginge — Entscheidungspapier |
 | [`dritte-stadt.md`](intern/dritte-stadt.md) | was eine dritte Stadt bräuchte: welche der zehn grössten US-Städte in Frage kommen, was an der Ingestion vorbereitet ist (`config/quellen.toml`) und was Schicht für Schicht noch fehlt — keine Stadt geplant |
 | [`platzbedarf.md`](intern/platzbedarf.md) | was die Strecke an Platz braucht, gemessen und auf 2021–2026 hochgerechnet — **erzeugt** (siehe unten) |

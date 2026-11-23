@@ -95,7 +95,7 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | FR-50 | Eigenständigkeit, Quellen benannt | ◐ | die Regel gilt im Code (`AGENTS.md`); die Abgabedokumente sind nicht durchgesehen | Artan |
 | FR-51 | Abgabemechanik geregelt | ○ | E3 steht auf „vorläufig ja" (Repository bleibt geschlossen) | Artan |
 | FR-52 | Datenabgabe passt in die Grenze | ◐ | `platzbedarf.md` gibt die Zahlen; die Grenze selbst ist nicht entschieden | Artan |
-| FR-56 | Fundstelle je Pflichtbestandteil P1–P6 | ◐ | **nicht geprüft** — kein Wächter gefunden, der die sechs Fundstellen hält | Artan |
+| FR-56 | Fundstelle je Pflichtbestandteil P1–P6 | ◐ | 5 von 6 mit Fundstelle in [`pflichtbestandteile.md`](pflichtbestandteile.md) (23.11.2026), P2 davon teilweise. **P1 fehlt**, solange FR-58 offen ist. `tests/test_pflichtbestandteile.py` hält Anker, Stand und diese Zeile | Artan |
 | FR-57 | Finaler Lebenszyklus, sechs Phasen | ◐ | `ln2_konzept.md` Kapitel 5 ordnet sie zu; „final" ist er nicht | Artan |
 | FR-58 | LN1-Feedback eingearbeitet | ○ | die Rückmeldung kam am 3.11.2026 (Note 5.75); eingearbeitet ist sie noch nicht | Artan |
 | FR-59 | Skalierbarkeit argumentiert | ● | `docs/ausblick.md` Abschnitt 3, Stufe 3: Die Parquet-Dateien mit Hive-Partitionen kämen mit, das SQL aus `spatial` und `icu` nicht. Die Funktionen sind seit dem 21.11.2026 einzeln genannt statt mit einer veralteten Zählung | Christian |
