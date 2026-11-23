@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'359** |
+| Tests | **3'366** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -109,6 +109,37 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 23.11.2026 · Jeder Pflichtbestandteil hat eine Fundstelle, oder es steht, dass sie fehlt (Branch `fr-56-pflichtbestandteile`)
+
+FR-56 verlangt zu jedem der sechs Pflichtbestandteile von LN2 eine benannte
+Fundstelle. Bis hierher stand nirgends, wo sie liegen, und `fr-stand.md`
+führte FR-56 als „nicht geprüft“.
+
+- **Neues Register** [`pflichtbestandteile.md`](pflichtbestandteile.md): je
+  Bestandteil der Wortlaut der Folie, ein Stand (belegt, teilweise, fehlt),
+  die Fundstelle als Link mit Anker und ein Satz, was dort steht.
+- **Ergebnis:** Vier belegt (P3 bis P6), einer teilweise, einer fehlt.
+  - **P2 teilweise:** Die sechs Phasen stehen in `ln2_konzept.md` 5.1 und
+    5.3, aber Kapitel 5 nennt sich selbst „der Entwurf“. Das ist FR-57.
+  - **P1 fehlt:** Kein Dokument sagt, was aus der Rückmeldung zu LN1
+    wurde. Das ist FR-58, offen bei Artan.
+- **Neuer Wächter** `tests/test_pflichtbestandteile.py`. Er prüft:
+  - Alle sechs Bestandteile stehen genau einmal da.
+  - Jede Datei und jeder Anker existiert; der Anker wird so gebildet, wie
+    GitHub ihn bildet.
+  - Ein „belegt“ zeigt auf keine Überschrift mit „Entwurf“ oder „Vorschlag“.
+  - FR-56 steht in `fr-stand.md` genau dann auf erfüllt, wenn nichts mehr
+    fehlt.
+  - Der Wortlaut entspricht dem PRD; diese Prüfung entfällt ohne PRD, also
+    in CI.
+- **FR-56 bleibt ◐**, jetzt mit Beleg statt „nicht geprüft“: 5 von 6.
+- Eine Zeile im Wegweiser `docs/README.md` und eine in `ln2_konzept.md`
+  11.5, das der Wegweiser-Wächter gegen den Wegweiser hält.
+
+**Zahlen.** 3'359 → **3'366 Tests**, Standardlauf 3'248 → **3'255**. Im
+Linux-CI-Lauf hochgerechnet 3'164 → 3'170, weil die PRD-Prüfung dort
+übersprungen wird (85 statt 84 übersprungen).
 
 ## 23.11.2026 · S-1 ist geschlossen, die alten Fassungen waren schon weg (Branch `offene-punkte-s1`)
 
