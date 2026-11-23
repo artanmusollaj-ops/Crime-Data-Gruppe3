@@ -110,6 +110,23 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 23.11.2026 · Ein Textvorschlag beantwortet die LN1-Rückmeldung Punkt für Punkt (Branch `fr-58-textvorschlag`)
+
+P1 ist der einzige Pflichtbestandteil ohne Fundstelle, weil kein Dokument
+sagt, was aus der Rückmeldung zu LN1 wurde (FR-58, Artan). Neu liegt
+`docs/intern/textvorschlag-fr-58.md`: für jeden der sieben Kritikpunkte eine
+Antwort mit Beleg und Grenze, dazu ein Absatz für den Abgabetext. Fünf
+Punkte sind behoben, einer ist eine bewusste Kursänderung (Kibana), einer
+bleibt offen (Deliktschwere).
+
+- Der Vorschlag ist **keine Fundstelle**. P1 bleibt auf „fehlt“, bis die
+  Stelle im Abgabetext steht. FR-56 und FR-58 bleiben, wie sie sind.
+- Die Kritikpunkte sind sinngemäss wiedergegeben. Der Wortlaut ist vor der
+  Abgabe gegen die Rückmeldung selbst zu halten.
+- Je eine Zeile in `docs/README.md` und `ln2_konzept.md` 11.5.
+
+Am Code und an den Zahlen ändert sich nichts.
+
 ## 23.11.2026 · Jeder Pflichtbestandteil hat eine Fundstelle, oder es steht, dass sie fehlt (Branch `fr-56-pflichtbestandteile`)
 
 FR-56 verlangt zu jedem der sechs Pflichtbestandteile von LN2 eine benannte

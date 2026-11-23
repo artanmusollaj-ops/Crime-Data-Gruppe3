@@ -1602,6 +1602,7 @@ abgegeben, liegen sie zwar bei — aber niemand wird darauf verwiesen.
 | Was von den Anforderungen steht | [`fr-stand.md`](intern/fr-stand.md) — Stand je Anforderung des PRD, **mit Beleg je Zeile**; ein Wächter hält die Tabelle gegen das PRD |
 | Was liegen geblieben ist | [`offene-punkte.md`](intern/offene-punkte.md) — Entscheidungen, Handgriffe auf dem Server und Code, **je Punkt ein Verantwortlicher und ein Beleg** |
 | Wo die Pflichtbestandteile P1–P6 stehen | [`pflichtbestandteile.md`](intern/pflichtbestandteile.md) — je Bestandteil die Fundstelle und ihr Stand, **gegen die Dateien geprüft** |
+| Was aus der LN1-Rückmeldung wurde | [`textvorschlag-fr-58.md`](intern/textvorschlag-fr-58.md) — je Kritikpunkt Antwort, Beleg und Grenze, **ein Vorschlag für den Abgabetext** |
 | Was beim Aufräumen verlorenginge | [`datenhistorie.md`](intern/datenhistorie.md) — Entscheidungspapier zur Aufbewahrung |
 | Was die Strecke an Platz braucht | [`platzbedarf.md`](intern/platzbedarf.md) — gemessen je Schicht und je Quelle auf 2021–2026 hochgerechnet, **erzeugt** |
 | Der Ablauf am Tag, an dem der Abgabestand gepinnt wird | [`abgabestand.md`](intern/abgabestand.md) |
