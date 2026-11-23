@@ -110,6 +110,28 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 23.11.2026 · S-1 ist geschlossen, die alten Fassungen waren schon weg (Branch `offene-punkte-s1`)
+
+`offene-punkte.md` führte S-1 noch als offen: 3,91 GiB alte Fassungen im
+Eimer `urban-crime`. Entfernt hatte sie aber schon das Aufräumen vom
+10.11.2026. Der Trockenlauf vom 23.11.2026 auf `srv01` zeigt, was heute
+noch daliegt:
+
+| Was | Anzahl | Grösse |
+| --- | ---: | ---: |
+| alte Fassungen (gold, silver, releases) | 28 | 169,5 MB |
+| Löschmarkierungen (`backups`) | 8 | – |
+| entbehrliche Releases (17.10. bis 2.11.) | 7 | 1'278 MB |
+| entbehrlicher Lauf (NOAA vom 2.11.) | 1 | 24,6 MB |
+
+**Bewusst nicht gelöscht.** `--fassungen` geht nur zusammen mit
+`--loeschen --auch-fern`, und das nähme die sieben Releases mit. Rund 1,5 GB
+sind auf `srv01` kein Druck, und vor der Abgabe bringt das Löschen nichts,
+was gebraucht wird. Aufgeräumt wird nach der Abgabe. Die gepinnten Releases
+(LN1, LN2, Referenzstand) und die letzten acht bleiben ohnehin.
+
+**Zahlen.** Keine Änderung an Tests oder Daten.
+
 ## 22.11.2026 · Die Änderungen auf srv01 an CLI und Betriebsblick sind committet (Branch `offene-punkte-s2-s3`)
 
 Seit dem 18.10.2026 lagen auf `srv01` zwei Änderungen ungesichert, von
