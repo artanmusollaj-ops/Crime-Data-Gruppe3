@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'366** |
+| Tests | **3'386** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -109,6 +109,93 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 23.11.2026 · Das Dashboard hält die Taten im Speicher, nicht mehr nur Monatssummen (Branch `dashboard-faktentabelle`)
+
+Stufe 1 von 3 für einen freien Zeitraum im Dashboard: auf den Tag genau und
+über alle Jahre, auch ein einzelner Tag. Entschieden am 23.11.2026
+(Christian): Die Rate über einen freien Zeitraum gilt je 1'000 Einwohner und
+Jahr. Der Nenner geht je Tag mit dem Vintage dieses Tages ein, nur über Tage
+mit Daten der Stadt. Der Vergleich nimmt bis zu einem Jahr Spanne denselben
+Zeitraum ein Jahr früher, darüber fällt er weg. Die Achse zeigt bis 92 Tage
+je Tag, bis zwei Jahre je Woche, sonst je Monat. Die Stufen 2 (Auswahl und
+Oberfläche) und 3 (Bretter) kommen vor der Abgabe.
+
+**Warum nicht einfach je Tag verdichten.** Bisher legte das Dashboard beim
+Laden sieben Tabellen je Stadt und Monat an. Gemessen am lokalen Release
+`2026-11-20T10-08-03Z` (1'895'123 Taten), je Variante in einem eigenen
+Prozess:
+
+| Variante | Zeilen | DuckDB | Spitze des Prozesses |
+| --- | ---: | ---: | ---: |
+| sieben Tabellen je Monat (bisher) | 0,9 Mio. | 89 MiB | 394 MiB |
+| dieselben je Tag | 2,9 Mio. | 252 MiB | 612 MiB |
+| eine schlanke Faktentabelle | 1,9 Mio. | 97 MiB | 244 MiB |
+
+Je Tag verdichtet Tract × Tag × Kategorie kaum noch: 1,6 Mio. Zeilen aus
+1,9 Mio. Taten. Bei 640 MiB Grenze auf `srv01` trägt das nicht.
+
+**Was gebaut ist.** `serving.dashboard.taten` legt `fakt` an: je Tat Stadt,
+Tag, Monat, Tract, Kategorie, Vintage, Fall, Stunde, Platzhalter,
+Verortung, Zuordnung, Ortszeit und Quellcode, aber kein Text. Stadt,
+Kategorie, Verortung und Zuordnung sind Aufzählungstypen. Tract und
+Quellcode sind Nummern in je einem Verzeichnis (`tract_nr`, `quelle`). Die
+sieben Monatstabellen heissen weiter so, sind jetzt aber Sichten über
+`fakt`, mit denselben Spalten und Typen. Die Bretter sind unverändert.
+`monate` kommt weiter aus `serving/comparison_month`. `doppelte` bleibt eine
+Tabelle, weil `fakt` die Delikt-ID nicht führt. `fenster` ist eine Tabelle,
+weil es an keiner Auswahl hängt.
+
+**Belegt, dass sich keine Zahl ändert.** Am lokalen Release habe ich eine
+Matrix aus 569 Anfragen vorher und nachher gestellt: sechs Bretter mal drei
+Städte, neun Zeiträume und drei Kategoriefilter, dazu Mass und Ebene,
+Sozialdaten und Quellbewegung. Alle Antworten sind **zeichengleich**, keine
+Anfrage scheiterte. Die Grundlinie lief zweimal in eigenen Prozessen und war
+ebenfalls gleich.
+
+**Speicher und Zeit, mit den Grenzen von `srv01`** (`DUCKDB_MEMORY_LIMIT=256MB`,
+zwei Threads), lokal über die 569 Anfragen:
+
+- **Spitze:** 413 MiB vorher, 423 MiB nachher.
+- **Je Anfrage:** vorher rund 4 ms, nachher im Median 1 bis 63 ms je Brett,
+  höchstens 71 ms. Die Sichten verdichten bei jeder Anfrage neu.
+- **Zwei Massnahmen** haben die Zeit gedrittelt: `monat` steht als Spalte in
+  `fakt` statt als Ausdruck, und die Sichten wandeln Aufzählungstypen nicht
+  mehr in Text zurück. Nur so zieht DuckDB die Filter der Bretter vor die
+  Verdichtung.
+- **Ohne die Grenzen** (14 Threads) lag die Spitze bei 728 MiB. Jeder Thread
+  hält eigene Hashtabellen. Auf `srv01` gelten die Grenzen, siehe
+  `docker-compose.srv01.yml`, FR-61.
+
+Die Spitze im Container auf `srv01` ist noch nicht gemessen; das gehört
+zum Einsetzen.
+
+**Wächter.** `tests/serving/test_dashboard_taten.py`: Jede der acht Sichten
+ist zeilengleich mit der alten Verdichtung, die dort wörtlich steht, und hat
+deren Spalten und Typen. Der Testbestand enthält genau die Fälle, an denen
+ein Verzeichnis kippen kann:
+
+- eine Tat ohne Tract, eine mit einem Tract, den `dim_tract` nicht führt;
+- eine Tat ohne NIBRS-Code, eine mit unbekanntem Code;
+- ein Quellcode mit zwei Bezeichnungen, ein `NULL` in jedem Schlüssel;
+- die Platzhalter-Tatzeiten und 12:00:30;
+- eine mehrdeutige Ortszeit ohne Wert.
+
+Eine Mutationsprobe in einer Kopie des ganzen Repositorys hat vier Fehler
+eingebaut, und jeder wurde gefangen:
+
+- ein `=` statt `IS NOT DISTINCT FROM`;
+- ein `JOIN` statt `LEFT JOIN` auf `dim_tract`;
+- ein fehlendes `coalesce`;
+- `max` statt `min`.
+
+Ein erster Versuch mit `PYTHONPATH` auf die Kopie prüfte nichts:
+`pyproject.toml` setzt `pythonpath` und stellt damit den echten Quellcode
+nach vorn.
+
+**Zahlen.** 3'366 → **3'386 Tests**, Standardlauf 3'255 → **3'275**. Im
+Linux-CI-Lauf hochgerechnet 3'170 → 3'190; die neuen Tests brauchen weder
+Daten noch Netz. Die Code-Referenz ist neu erzeugt.
 
 ## 23.11.2026 · Ein Textvorschlag beantwortet die LN1-Rückmeldung Punkt für Punkt (Branch `fr-58-textvorschlag`)
 

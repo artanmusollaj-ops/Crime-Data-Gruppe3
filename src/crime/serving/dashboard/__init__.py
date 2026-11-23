@@ -26,10 +26,11 @@ zweite Wahrheit.
 der Nenner ist das ACS-Vintage des Jahres (``population_vintage``). Ueber
 Jahresgrenzen gaebe es zwei - siehe ``gold_pipeline.RATENJAHR``.
 
-**Beim Laden einmal gerechnet, danach im Speicher.** Die Faktentabelle hat
-1,85 Mio. Zeilen; das Dashboard verdichtet sie beim Start auf Stadt x Monat x
-Kategorie (rund 3'500 Zeilen) und beantwortet jede Anfrage daraus. Aendert
-sich der Datenstand, laedt es nach (``Bestand.aktuell``).
+**Beim Laden einmal gelesen, danach im Speicher.** Das Dashboard haelt die
+Taten selbst schlank im Speicher, rund 1,9 Mio. Zeilen ohne Text, und die
+Monatssichten der Bretter darueber (``serving.dashboard.taten``, seit dem
+23.11.2026; vorher verdichtete es beim Start auf sieben Monatstabellen).
+Aendert sich der Datenstand, laedt es nach (``Bestand.aktuell``).
 
 **Gelesen wird das aktive Release, nicht die Arbeitsschicht** (seit dem
 1.11.2026). ``releases/AKTUELL.json`` sagt, was gilt - derselbe Massstab wie
@@ -306,81 +307,11 @@ class Bestand:
                    offenses AS delikte, cases AS faelle,
                    days_in_period AS tage, days_in_window AS tage_im_fenster
             FROM read_parquet('{monat}', hive_partitioning=false)""")
-        # Die Regel von gold_pipeline.raten_je_stadt: nur Taten in einem Tract
-        # mit Stadtzuordnung, Kategorie ueber dim_offense wie in
-        # build_comparison, das Vintage je Tat. Beide Ebenen: Faelle fuer die
-        # Rate vorn (E5), Delikte fuer die Tatebene daneben und fuer die
-        # Kategorien, die sich nur dort addieren.
-        con.execute(f"""
-            CREATE TABLE raten AS
-            SELECT t.city AS stadt, date_trunc('month', f.date)::DATE AS monat,
-                   CASE WHEN f.nibrs_code IS NULL THEN 'unmapped'
-                        ELSE d.nibrs_category END AS kategorie,
-                   f.population_vintage AS vintage,
-                   count(*) FILTER (f.counts_case) AS faelle,
-                   count(*) AS delikte
-            FROM read_parquet('{fakten}', hive_partitioning=false) f
-            JOIN read_parquet('{tracts}', hive_partitioning=false) t ON t.geoid = f.tract_geoid
-            LEFT JOIN read_parquet('{delikte}', hive_partitioning=false) d USING (nibrs_code)
-            WHERE t.city IS NOT NULL
-            GROUP BY ALL""")
-        # Das Fenster je Stadt, selbst gerechnet. comparison_month tut es seit
-        # Vertrag 3 auch (C-10, 1.11.2026), aber das Dashboard liest das
-        # aktive Release - und ein Release mit Vertrag 2 rechnet noch am
-        # gemeinsamen Fenster beider Staedte: Chicagos Daten enden am
-        # 26.9.2026, Detroits am 4.10., also hiesse dort Chicagos September
-        # vollstaendig, obwohl vier Tage fehlen.
-        con.execute(f"""
-            CREATE TABLE fenster AS
-            SELECT reporting_city AS stadt, min(date) AS von, max(date) AS bis
-            FROM read_parquet('{fakten}', hive_partitioning=false) GROUP BY 1""")
-        # Fuer »Zeitverlauf«: Faelle je Wochentag und lokaler Stunde.
-        # Genau 00:00 und 12:00 sind ueberbesetzt - Platzhalter fuer eine
-        # unbekannte Tatzeit (build_kibana._PLATZHALTERSTUNDEN); sie werden
-        # mitgezaehlt, aber markiert, damit die Heatmap sie ausweisen kann.
-        con.execute(f"""
-            CREATE TABLE stunden AS
-            SELECT f.reporting_city AS stadt, date_trunc('month', f.date)::DATE AS monat,
-                   isodow(f.date) AS wochentag, f.hour_of_day AS stunde,
-                   CASE WHEN f.nibrs_code IS NULL THEN 'unmapped'
-                        ELSE d.nibrs_category END AS kategorie,
-                   {PLATZHALTER_SQL} AS platzhalter,
-                   count(*) FILTER (f.counts_case) AS faelle
-            FROM read_parquet('{fakten}', hive_partitioning=false) f
-            LEFT JOIN read_parquet('{delikte}', hive_partitioning=false) d USING (nibrs_code)
-            GROUP BY ALL""")
-        # Der Nenner der Heatmap: wie viele Montage, Dienstage ... ein Monat je
-        # Stadt mit Daten hat.
-        con.execute(f"""
-            CREATE TABLE tage AS
-            SELECT reporting_city AS stadt, date_trunc('month', date)::DATE AS monat,
-                   isodow(date) AS wochentag, count(DISTINCT date) AS n
-            FROM read_parquet('{fakten}', hive_partitioning=false) GROUP BY ALL""")
-        # Fuer »Geografie«: Faelle je Tract und Monat nach der Regel von
-        # gold_pipeline.raten_je_tract, dazu Einwohner und Umrisse der Tracts
-        # und je Stadt, wie viele Faelle keinen Ort in der Stadt haben.
         geo, _ = _quelle(ablage, release, "gold", "dim_tract_geo")
-        con.execute(f"""
-            CREATE TABLE tract_monat AS
-            SELECT f.reporting_city AS stadt, f.tract_geoid AS geoid,
-                   date_trunc('month', f.date)::DATE AS monat,
-                   CASE WHEN f.nibrs_code IS NULL THEN 'unmapped'
-                        ELSE d.nibrs_category END AS kategorie,
-                   f.population_vintage AS vintage,
-                   count(*) FILTER (f.counts_case) AS faelle, count(*) AS delikte
-            FROM read_parquet('{fakten}', hive_partitioning=false) f
-            LEFT JOIN read_parquet('{delikte}', hive_partitioning=false) d USING (nibrs_code)
-            WHERE f.geo_status = 'inside_city'
-            GROUP BY ALL""")
-        con.execute(f"""
-            CREATE TABLE verortung AS
-            SELECT f.reporting_city AS stadt, date_trunc('month', f.date)::DATE AS monat,
-                   CASE WHEN f.nibrs_code IS NULL THEN 'unmapped'
-                        ELSE d.nibrs_category END AS kategorie,
-                   f.geo_status, count(*) FILTER (f.counts_case) AS faelle
-            FROM read_parquet('{fakten}', hive_partitioning=false) f
-            LEFT JOIN read_parquet('{delikte}', hive_partitioning=false) d USING (nibrs_code)
-            GROUP BY ALL""")
+        # Die Taten selbst, schlank, und die Monatssichten darueber
+        # (serving.dashboard.taten, seit dem 23.11.2026).
+        from serving.dashboard.taten import lade_taten
+        lade_taten(con, fakten, delikte, tracts)
         con.execute(f"""
             CREATE TABLE tract_geo AS
             SELECT geoid, city, tract_name
@@ -393,36 +324,9 @@ class Bestand:
         # Fuer »Soziales Umfeld«: Armutsquote und Einkommen je Tract und Vintage.
         from serving.dashboard.sozial import lade_sozial
         lade_sozial(con, acs)
-        # Fuer »Datenqualität«: Taten je Zuordnung, Verortung und Ortszeit,
-        # und je Stadt und Monat, wie viele Delikt-IDs mehrfach vorkommen.
-        con.execute(f"""
-            CREATE TABLE qualitaet AS
-            SELECT f.reporting_city AS stadt, date_trunc('month', f.date)::DATE AS monat,
-                   CASE WHEN f.nibrs_code IS NULL THEN 'unmapped'
-                        ELSE d.nibrs_category END AS kategorie,
-                   f.mapping_status, f.geo_status,
-                   coalesce(f.local_time_ambiguous, false) AS ortszeit_mehrdeutig,
-                   count(*) AS delikte
-            FROM read_parquet('{fakten}', hive_partitioning=false) f
-            LEFT JOIN read_parquet('{delikte}', hive_partitioning=false) d USING (nibrs_code)
-            GROUP BY ALL""")
-        # Fuer »Datenqualität«, Tafel »NIBRS-Zuordnung im Detail«: je
-        # Quellcode, wohin er in NIBRS faellt. Ueber alle Jahrgaenge sind das
-        # rund 470 Kombinationen aus Stadt, Quellcode und NIBRS-Code; je Monat
-        # verdichtet, damit Zeitraum und Kategorie der Leiste greifen.
-        # Gezaehlt werden Taten wie in ``qualitaet``.
-        con.execute(f"""
-            CREATE TABLE zuordnung AS
-            SELECT f.reporting_city AS stadt, date_trunc('month', f.date)::DATE AS monat,
-                   CASE WHEN f.nibrs_code IS NULL THEN 'unmapped'
-                        ELSE d.nibrs_category END AS kategorie,
-                   f.source_offense_code AS quellcode,
-                   min(f.source_offense_description) AS quelltext,
-                   f.nibrs_code, min(d.nibrs_description) AS nibrs_text,
-                   f.mapping_status AS status, count(*) AS delikte
-            FROM read_parquet('{fakten}', hive_partitioning=false) f
-            LEFT JOIN read_parquet('{delikte}', hive_partitioning=false) d USING (nibrs_code)
-            GROUP BY 1, 2, 3, 4, 6, 8""")
+        # Fuer »Datenqualität«: je Stadt und Monat, wie viele Delikt-IDs
+        # mehrfach vorkommen. Bleibt eine Tabelle: Die Faktentabelle fuehrt
+        # die ID nicht.
         con.execute(f"""
             CREATE TABLE doppelte AS
             SELECT reporting_city AS stadt, date_trunc('month', date)::DATE AS monat,
