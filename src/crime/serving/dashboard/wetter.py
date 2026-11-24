@@ -106,7 +106,7 @@ def _effekt(zeilen: list[tuple]) -> dict[str, Any] | None:
 def wetter(bestand, a) -> dict[str, Any]:
     from serving.dashboard import STADTNAMEN
 
-    antwort: dict[str, Any] = {"auswahl": a.__dict__, "stand": bestand.stand}
+    antwort: dict[str, Any] = {"auswahl": a.json, "stand": bestand.stand}
     if not bestand.wetter:
         return antwort | {"vorhanden": False}
     cur = bestand._cursor()

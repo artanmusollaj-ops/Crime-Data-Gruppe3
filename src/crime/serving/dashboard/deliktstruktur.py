@@ -86,7 +86,7 @@ def deliktstruktur(bestand, a) -> dict[str, Any]:
         anteile.append({"stadt": s, "name": STADTNAMEN[s], "teile": teile})
 
     return {
-        "auswahl": a.__dict__,
+        "auswahl": a.json,
         "ebene": spalte,
         "balken": [{"kategorie": k, "name": kategorie_de(k),
                     "werte": {s: jetzt.get((s, k), 0) for s in staedte}} for k in einzeln],

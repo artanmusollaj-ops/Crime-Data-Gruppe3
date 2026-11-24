@@ -111,12 +111,12 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     @app.get("/api/ueberblick")
     def ueberblick():
         bestand = daten()
-        return jsonify(bestand.ueberblick(bestand.auswahl(request.args.to_dict())))
+        return jsonify(bestand.ueberblick(bestand.auswahl(request.args.to_dict(), "ueberblick")))
 
     @app.get("/api/zeitverlauf")
     def zeitverlauf():
         bestand = daten()
-        return jsonify(bestand.zeitverlauf(bestand.auswahl(request.args.to_dict())))
+        return jsonify(bestand.zeitverlauf(bestand.auswahl(request.args.to_dict(), "zeitverlauf")))
 
     @app.get("/api/karten")
     def karten():
@@ -127,17 +127,17 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     @app.get("/api/geografie")
     def geografie():
         bestand = daten()
-        return jsonify(bestand.geografie(bestand.auswahl(request.args.to_dict())))
+        return jsonify(bestand.geografie(bestand.auswahl(request.args.to_dict(), "geografie")))
 
     @app.get("/api/deliktstruktur")
     def deliktstruktur():
         bestand = daten()
-        return jsonify(bestand.deliktstruktur(bestand.auswahl(request.args.to_dict())))
+        return jsonify(bestand.deliktstruktur(bestand.auswahl(request.args.to_dict(), "deliktstruktur")))
 
     @app.get("/api/datenqualitaet")
     def datenqualitaet():
         bestand = daten()
-        antwort = bestand.datenqualitaet(bestand.auswahl(request.args.to_dict()))
+        antwort = bestand.datenqualitaet(bestand.auswahl(request.args.to_dict(), "datenqualitaet"))
         # Der Weg zu den Nachweisen, wenn die Konsole erreichbar ist.
         antwort["konsole"] = os.getenv("DASHBOARD_KONSOLE_URL") or None
         return jsonify(antwort)
@@ -149,7 +149,7 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     @app.get("/api/wetter")
     def wetterdaten():
         bestand = daten()
-        return jsonify(bestand.wetterbrett(bestand.auswahl(request.args.to_dict())))
+        return jsonify(bestand.wetterbrett(bestand.auswahl(request.args.to_dict(), "wetter")))
 
     @app.get("/api/quellbewegung")
     def quellbewegung():

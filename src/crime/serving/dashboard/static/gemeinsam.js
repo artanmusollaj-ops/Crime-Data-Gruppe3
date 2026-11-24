@@ -40,9 +40,97 @@ export function monatsname(iso) {
   return MONATE[Number(m) - 1] + " " + j;
 }
 
+// Ein Datum wie in der Schweiz: 4.7.2024.
+export function datum(iso) {
+  const [j, m, t] = iso.split("-").map(Number);
+  return `${t}.${m}.${j}`;
+}
+
+// Ganze Monate eines Jahres heissen wie bisher »Mär–Mai 2024«; ein freier
+// Zeitraum nennt seine Tage, ein einzelner Tag nur sich selbst.
 export function zeitraumtext(a, jahr = a.jahr) {
+  if (a.ganze_monate === false) {
+    return a.tag_von === a.tag_bis ? datum(a.tag_von) : `${datum(a.tag_von)}–${datum(a.tag_bis)}`;
+  }
   const von = MONATE[a.von - 1], bis = MONATE[a.bis - 1];
   return a.von === a.bis ? `${von} ${jahr}` : `${von}–${bis} ${jahr}`;
+}
+
+const ISO_TAG = /^\d{4}-\d{2}-\d{2}$/;
+const zwei = (n) => String(n).padStart(2, "0");
+const monatsende = (j, m) => `${j}-${zwei(m)}-${zwei(new Date(Date.UTC(j, m, 0)).getUTCDate())}`;
+
+// Die erweiterte Zeitwahl: zwei Tage statt Monaten eines Jahres, dazu
+// Vorgaben vom letzten Tag mit Daten aus (»Letzte 30 Tage«, »Sommer 2025«).
+// Beide Wahlen schicken ``von`` und ``bis``: als Monate mit ``jahr`` oder als
+// Daten ohne. Die jeweils andere ist gesperrt, und ein gesperrtes Feld
+// schickt ein Formular nicht mit. So bleiben alte Links gueltig.
+// Angeboten wird sie auf den Brettern, die Tage rechnen (``optionen.frei``),
+// und auf jedem Brett, dessen Adresse schon Tage traegt - dort meldet der
+// Server, was das Brett noch nicht kann, und »Monate« fuehrt zurueck.
+function zeitwahl(o, brett, url) {
+  const von = document.getElementById("von"), bis = document.getElementById("bis");
+  const jahr = document.getElementById("jahr");
+  if (!von || !bis || !jahr || !o.tage) return null;
+  const tagModus = ISO_TAG.test(url.get("von") || "");
+  if (!tagModus && !(o.frei || []).includes(brett)) return null;
+  const monatsfeld = von.closest("label");
+  const feld = (name, id, label) => {
+    const f = Object.assign(document.createElement("input"),
+      { type: "date", name, id, min: o.tage.erster, max: o.tage.letzter });
+    f.setAttribute("aria-label", label);
+    return f;
+  };
+  const tagVon = feld("von", "tag-von", "von Tag"), tagBis = feld("bis", "tag-bis", "bis Tag");
+  const vorgabe = Object.assign(document.createElement("select"), { id: "vorgabe" });
+  vorgabe.setAttribute("aria-label", "Vorgabe");
+  vorgabe.append(new Option("Vorgabe …", ""), ...o.vorgaben.map((v, i) => new Option(v.name, i)));
+  const tagfeld = document.createElement("label");
+  tagfeld.className = "tagwahl";
+  tagfeld.append("Zeitraum", tagVon, Object.assign(document.createElement("span"),
+    { className: "bis", textContent: "–" }), tagBis, vorgabe);
+  const knopf = Object.assign(document.createElement("button"),
+    { type: "button", className: "zeitmodus" });
+  monatsfeld.after(tagfeld, knopf);
+
+  const setze = (tage) => {
+    monatsfeld.hidden = tage;
+    tagfeld.hidden = !tage;
+    [von, bis, jahr].forEach((f) => { f.disabled = tage; });
+    [tagVon, tagBis].forEach((f) => { f.disabled = !tage; });
+    knopf.textContent = tage ? "Monate" : "Tage";
+    knopf.title = tage ? "Zurück zu Monaten eines Jahres" : "Einen freien Zeitraum auf den Tag genau wählen";
+  };
+  if (tagModus) {
+    tagVon.value = url.get("von");
+    tagBis.value = url.get("bis") || url.get("von");
+  }
+  setze(tagModus);
+  vorgabe.addEventListener("change", () => {
+    const v = o.vorgaben[Number(vorgabe.value)];
+    if (v) { tagVon.value = v.von; tagBis.value = v.bis; }
+    vorgabe.value = "";
+  });
+  knopf.addEventListener("click", () => {
+    if (tagfeld.hidden) {
+      // Von den Monaten zu den Tagen: derselbe Zeitraum, jetzt als Daten.
+      const j = Number(jahr.value);
+      tagVon.value = `${j}-${zwei(von.value)}-01`;
+      tagBis.value = monatsende(j, Number(bis.value));
+      setze(true);
+    } else {
+      // Zurueck: die Monate des ersten Tages, bis Jahresende, wenn der
+      // Zeitraum darueber hinausgeht.
+      const [j1, m1] = tagVon.value.split("-").map(Number);
+      const [j2, m2] = tagBis.value.split("-").map(Number);
+      jahr.value = String(j1);
+      von.value = String(m1);
+      bis.value = String(j2 === j1 ? m2 : 12);
+      setze(false);
+    }
+    document.getElementById("leiste").dispatchEvent(new Event("change"));
+  });
+  return { tagVon, tagBis };
 }
 
 // Die Achse endet bei vier glatten Schritten: 4 x 5'000, nicht 4 x 4'687,5.
@@ -283,6 +371,7 @@ export async function starteBrett({ api, zeichne }) {
   optionen(document.getElementById("von"), monate, wahl("von"));
   optionen(document.getElementById("bis"), monate, wahl("bis"));
   mehrfachwahl(document.getElementById("kategorien"), document.getElementById("kategorie"), o.kategorien, wahl("kategorie"), "|");
+  const tage = zeitwahl(o, api.split("/").pop(), url);
   const knoepfe = document.querySelectorAll(".umschalter button");
   knoepfe.forEach((b) => b.classList.toggle("an", b.dataset.wert === zustand.wert));
 
@@ -318,6 +407,13 @@ export async function starteBrett({ api, zeichne }) {
     if (von && bis && Number(von.value) > Number(bis.value)) {
       if (ev.target === von) bis.value = von.value; else von.value = bis.value;
     }
+    // Daten in ISO-Form vergleichen sich als Text richtig.
+    if (tage && tage.tagVon.value && tage.tagBis.value && tage.tagVon.value > tage.tagBis.value) {
+      if (ev.target === tage.tagVon) tage.tagBis.value = tage.tagVon.value;
+      else tage.tagVon.value = tage.tagBis.value;
+    }
+    // Ein Datumsfeld mitten in der Eingabe ist leer; dann noch nicht laden.
+    if (tage && !tage.tagVon.disabled && !(tage.tagVon.value && tage.tagBis.value)) return;
     lade();
   });
   knoepfe.forEach((b) => b.addEventListener("click", () => {
