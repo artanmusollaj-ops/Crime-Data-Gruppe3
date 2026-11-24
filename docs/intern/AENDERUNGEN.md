@@ -110,6 +110,36 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 24.11.2026 · Die Sperre des verwalteten Betriebs erreicht den Cron-Lauf nicht (Branch `s10-fragen-geklaert`)
+
+Die beiden offenen Fragen aus [`umstellung-verwaltet.md`](umstellung-verwaltet.md)
+sind beantwortet. Beim Nachsehen kamen zwei Befunde dazu, und beide brauchen
+vor S-10 einen Entscheid. Geändert ist nur das Dokument; Code und Server
+sind unverändert.
+
+- **Die Sperre greift im Dienst `pipeline` nicht.** `enable-managed`
+  schreibt `admin/managed.json` in das Volume `konsole`, und `pipeline` hängt
+  es nicht ein. Dort meldet `storage.verwaltet` „nicht verwaltet“, und
+  `srv01-datenlauf.sh` liefe nach der Umstellung weiter.
+  `ENGINEERING_KONSOLE.md` und `storage-architektur.md` sagen, er scheitere.
+  Das stimmt erst, wenn `pipeline` das Volume mitliest. Bis dahin schützt nur
+  der Tausch der Crontab-Zeilen.
+- **Die Konsolensicherung wuchs am 19.11. von 2,2 auf 830 MiB je Archiv**,
+  sieben davon liegen unter `backups/control/`, zusammen 4,98 GiB. Das
+  Archiv packt `admin/jobs/` ganz ein, mit dem Job-Ordner des ersten
+  Kandidaten vom 18.11. Mit Wochenläufen und zwei behaltenen Job-Ordnern
+  wären es rund 12 GB. Am 10.11. stand der Eimer bei 11,2 GB unter diesem
+  Präfix auf nur-lesen.
+- **Rückweg:** Ein Cron-Lauf setzt nach einem Release der Konsole sauber
+  auf. Beide legen Releases und `AKTUELL.json` gleich ab.
+- **Dauer:** Der Kandidat vom 18.11. brauchte auf `srv01` gut fünfeinhalb
+  Minuten vom Einreihen bis Gold. Ein ganzer Batch dauert etwa 15 bis 25
+  Minuten ohne Quellausfall.
+
+Keine Zahl der Abgabe ändert sich.
+
+---
+
 ## 24.11.2026 · Die Umstellung auf den verwalteten Betrieb ist vorbereitet (Branch `s10-ablauf`)
 
 Neu ist [`umstellung-verwaltet.md`](umstellung-verwaltet.md): der Ablauf für
