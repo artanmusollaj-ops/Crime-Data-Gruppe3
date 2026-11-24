@@ -23,7 +23,6 @@ stehen im Betriebsblick (Grafana); hier steht, ob die Zahlen tragen.
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Any
 
 from gold_pipeline import GATE_HOECHSTENS, GATE_MINDESTENS, MAPPING_STATUS_WERTE
@@ -44,27 +43,27 @@ def datenqualitaet(bestand, a) -> dict[str, Any]:
 
     cur = bestand._cursor()
     staedte = list(a.staedte)
-    monate = [date(a.jahr, m, 1) for m in range(a.von, a.bis + 1)]
+    z = bestand.zeitraum(cur, a, staedte)
     kat = a.kat_sql
-    p = {"staedte": staedte, "monate": monate, **a.kat_param}
+    p = {"staedte": staedte, **z.param, **a.kat_param}
 
     def zaehle(spalte: str) -> dict[str, dict[str, int]]:
         werte: dict[str, dict[str, int]] = {s: {} for s in staedte}
         for s, w, n in cur.execute(
-                f"SELECT stadt, {spalte}, sum(delikte) FROM qualitaet WHERE stadt IN $staedte "
-                f"AND monat IN $monate {kat} GROUP BY 1, 2", p).fetchall():
+                f"SELECT stadt, {spalte}, count(*) FROM fakt WHERE stadt IN $staedte "
+                f"AND tag BETWEEN $von AND $bis {kat} GROUP BY 1, 2", p).fetchall():
             werte[s][str(w)] = int(n)
         return werte
 
     zuordnung, verortung, ortszeit = zaehle("mapping_status"), zaehle("geo_status"), zaehle(
         "ortszeit_mehrdeutig")
     doppelt = dict(cur.execute(
-        "SELECT stadt, coalesce(sum(doppelt), 0) FROM doppelte WHERE stadt IN $staedte "
-        "AND monat IN $monate GROUP BY 1", {"staedte": staedte, "monate": monate}).fetchall())
-    abd = bestand._abdeckung(cur, staedte, monate)
-    # Ein Monat nach der juengsten Tat des ganzen Bestands kann noch nicht
-    # vorliegen: »noch nicht erschienen«, nicht »fehlt«. Fehlt er nur einer
-    # Stadt, waehrend die andere ihn hat, ist er eine Luecke.
+        "SELECT stadt, count(*) - count(DISTINCT id) FROM doppelte WHERE stadt IN $staedte "
+        "AND tag BETWEEN $von AND $bis GROUP BY 1", {"staedte": staedte, **z.param}).fetchall())
+    status = {s: z.status(s, rand=False) for s in staedte}
+    # Eine Periode nach der juengsten Tat des ganzen Bestands kann noch nicht
+    # vorliegen: »noch nicht erschienen«, nicht »fehlt«. Fehlt sie nur einer
+    # Stadt, waehrend die andere sie hat, ist sie eine Luecke.
     juengste = cur.execute("SELECT max(bis) FROM fenster").fetchone()[0]
 
     stadtwerte = []
@@ -72,9 +71,9 @@ def datenqualitaet(bestand, a) -> dict[str, Any]:
         alle = sum(zuordnung[s].values())
         stadtwerte.append({
             "stadt": s, "name": STADTNAMEN[s], "delikte": alle,
-            "monate": ["spaeter" if z == "fehlt" and juengste and m > juengste else z
-                       for z, m in zip(abd[s]["monate"], monate)],
-            "vollstaendig": abd[s]["vollstaendig"],
+            "monate": ["spaeter" if st == "fehlt" and juengste and m > juengste else st
+                       for st, m in zip(status[s], z.starts)],
+            "vollstaendig": status[s].count("voll"),
             "zuordnung": {z: _anteil(zuordnung[s].get(z, 0), alle) for z in ZUORDNUNGEN},
             "verortung": {g: _anteil(verortung[s].get(g, 0), alle)
                           for g in ("inside_city", "outside_city", "no_tract", "missing_coordinate")},
@@ -90,7 +89,7 @@ def datenqualitaet(bestand, a) -> dict[str, Any]:
     ohne_koordinate, _ = gesamt(verortung, "missing_coordinate")
     mehrdeutig, _ = gesamt(ortszeit, "True")
     doppelte_ids = int(sum(doppelt.get(s, 0) for s in staedte))
-    vollstaendig = sum(all(abd[s]["monate"][i] == "voll" for s in staedte) for i in range(len(monate)))
+    vollstaendig = sum(all(status[s][i] == "voll" for s in staedte) for i in range(len(z.starts)))
 
     def gate(wert: float | None, schwelle: float, mindestens: bool) -> str:
         if wert is None:
@@ -114,16 +113,17 @@ def datenqualitaet(bestand, a) -> dict[str, Any]:
         "auswahl": a.json,
         "zuordnung_detail": _zuordnung_detail(cur, staedte, p, kat),
         "kennzahlen": {
-            "vollstaendige_monate": vollstaendig, "monate": len(monate),
+            "vollstaendige_monate": vollstaendig, "monate": len(z.starts),
             "ohne_zuordnung": _anteil(ohne_zuordnung, alle),
             "ohne_koordinate": _anteil(ohne_koordinate, alle),
             "doppelte_ids": doppelte_ids, "delikte": alle,
             "ortszeit_mehrdeutig": mehrdeutig,
         },
-        "monate": [m.isoformat() for m in monate],
+        "monate": [m.isoformat() for m in z.starts],
+        "achse": z.json(),
         "staedte": stadtwerte,
         "pruefungen": pruefungen,
-        "referenz": bestand.referenz(a.jahr),
+        "referenz": bestand.referenz(a),
         "stand": bestand.stand,
     }
 
@@ -140,7 +140,11 @@ def _zuordnung_detail(cur, staedte: list[str], p: dict[str, Any], kat: str) -> l
     zeilen = cur.execute(f"""
         SELECT stadt, quellcode, min(quelltext), nibrs_code, min(nibrs_text), kategorie,
                status, sum(delikte)
-        FROM zuordnung WHERE stadt IN $staedte AND monat IN $monate {kat}
+        FROM (SELECT q.stadt, q.quellcode, q.quelltext, q.nibrs_code,
+                     d.nibrs_description AS nibrs_text, f.kategorie, q.status, 1 AS delikte
+              FROM fakt f JOIN quelle q ON q.nr = f.quelle
+              LEFT JOIN delikt d ON d.nibrs_code = q.nibrs_code
+              WHERE f.stadt IN $staedte AND f.tag BETWEEN $von AND $bis {kat})
         GROUP BY stadt, quellcode, nibrs_code, kategorie, status
         ORDER BY 8 DESC, 1, 2""", p).fetchall()
     je_stadt: dict[str, int] = {}

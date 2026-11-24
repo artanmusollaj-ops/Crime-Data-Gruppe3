@@ -10,9 +10,14 @@ es dafuer nicht. Die Vorlage sind Artans Entwuerfe unter
 ``docs/bilder/dashboard_*.png``; dieses Modul baut das erste davon,
 »Kriminalität im Überblick«.
 
-**Zwei Quellen, mit Absicht.** Gezaehlt wird aus ``comparison_month``, nach
-meldender Stadt (``reporting_city``) - dieselbe Zahl wie in Kibana und in
-der Vergleichstabelle. Die **Rate** dagegen zaehlt nur Taten in Tracts, die
+**Zwei Zaehlweisen, mit Absicht.** Gezaehlt wird nach meldender Stadt
+(``reporting_city``) - dieselbe Zahl wie in Kibana und in
+``comparison_month``. Seit Stufe 3 (24.11.2026) zaehlt das Dashboard sie
+selbst aus den Taten (``serving.dashboard.taten``), auf den Tag genau; je
+Stadt, Monat und Kategorie sind es dieselben 3'511 Zahlen wie in
+``comparison_month``, nachgezaehlt am Release vom 20.11.2026. Die Tabelle
+liefert noch Jahrgaenge und Kategorien der Leiste und den Datenstand. Die
+**Rate** dagegen zaehlt nur Taten in Tracts, die
 der Stadt zugeordnet sind, und teilt durch deren Einwohner: genau die Regel
 von ``gold_pipeline.raten_je_stadt``, aus der die Abgabedokumente ihre
 94,5 und 133,1 je 1'000 nehmen. Eine Rate ueber alle gemeldeten Taten haette
@@ -57,6 +62,7 @@ from typing import Any
 
 from gold_pipeline import RATENJAHR, STADT_SCHLUESSEL, einwohner_je_stadt
 from silver_pipeline import STUDIENSTAEDTE
+from serving.dashboard.zeitraum import vor_einem_jahr
 from storage import for_root
 from storage import duckdb as storage_duckdb
 
@@ -198,11 +204,12 @@ def stadtwert(staedte: tuple[str, ...]) -> str:
 
 
 #: Welche Bretter einen freien Zeitraum rechnen: auf den Tag genau und ueber
-#: Jahresgrenzen. Die uebrigen rechnen ganze Monate eines Jahres und lehnen
-#: alles andere ab, statt es still auf Monate zu runden. Stufe 3 traegt die
-#: Bretter einzeln ein (Entscheide vom 23.11.2026: Rate je Jahr, Vergleich
-#: bis ein Jahr Spanne, Achse nach Spanne).
-FREIE_BRETTER: frozenset[str] = frozenset()
+#: Jahresgrenzen. Ein Brett, das hier fehlt, rechnet ganze Monate eines Jahres
+#: und lehnt alles andere ab, statt es still auf Monate zu runden. Seit Stufe 3
+#: (24.11.2026) alle sieben; die Regeln stehen in ``serving.dashboard.zeitraum``.
+FREIE_BRETTER: frozenset[str] = frozenset({
+    "ueberblick", "zeitverlauf", "geografie", "sozial", "deliktstruktur",
+    "datenqualitaet", "wetter"})
 
 #: Ein Datum in der Adresse, und nur so. ``date.fromisoformat`` naehme auch
 #: ``20240101`` und ``2024-W01-1``; dieselbe Auswahl haette dann mehrere Namen.
@@ -392,14 +399,16 @@ class Bestand:
         # Fuer »Soziales Umfeld«: Armutsquote und Einkommen je Tract und Vintage.
         from serving.dashboard.sozial import lade_sozial
         lade_sozial(con, acs)
-        # Fuer »Datenqualität«: je Stadt und Monat, wie viele Delikt-IDs
-        # mehrfach vorkommen. Bleibt eine Tabelle: Die Faktentabelle fuehrt
-        # die ID nicht.
+        # Fuer »Datenqualität«: die Zeilen jeder Delikt-ID, die je Stadt mehr
+        # als einmal vorkommt. Die Faktentabelle fuehrt die ID nicht. Ueber
+        # einen Zeitraum sind es dann ``count(*) - count(DISTINCT id)`` - jede
+        # einmalige ID truege 1 - 1 bei. Bis Stufe 3 je Monat gezaehlt; eine ID
+        # in zwei Monaten fiel dort nicht auf.
         con.execute(f"""
             CREATE TABLE doppelte AS
-            SELECT reporting_city AS stadt, date_trunc('month', date)::DATE AS monat,
-                   count(*) - count(DISTINCT offense_id) AS doppelt
-            FROM read_parquet('{fakten}', hive_partitioning=false) GROUP BY ALL""")
+            SELECT reporting_city AS stadt, date AS tag, offense_id AS id
+            FROM read_parquet('{fakten}', hive_partitioning=false)
+            QUALIFY count(*) OVER (PARTITION BY reporting_city, offense_id) > 1""")
         # Fuer »Deliktstruktur«: je Kategorie die drei haeufigsten NIBRS-Delikte
         # ueber den ganzen Bestand - Beispiele, keine Auswahl.
         beispiele: dict[str, list[str]] = {}
@@ -414,14 +423,22 @@ class Bestand:
         karten = pfade(con.execute(f"""
             SELECT geoid, city, tract_name, boundary_wkt
             FROM read_parquet('{geo}', hive_partitioning=false) ORDER BY geoid""").fetchall())
-        vintages = [r[0] for r in con.execute(
-            "SELECT DISTINCT vintage FROM raten WHERE vintage IS NOT NULL").fetchall()]
+        vintages = [r[0] for r in con.execute("""
+            SELECT DISTINCT f.vintage FROM fakt f JOIN tract_nr n ON n.nr = f.tract
+            WHERE n.city IS NOT NULL AND f.vintage IS NOT NULL""").fetchall()]
         con.execute("CREATE TABLE einwohner (stadt VARCHAR, vintage INTEGER, n BIGINT)")
         for v in vintages:
             con.execute(f"INSERT INTO einwohner SELECT city, {int(v)}, n FROM ("
                         + einwohner_je_stadt(f"read_parquet('{tracts}', hive_partitioning=false)",
                                              f"read_parquet('{acs}', hive_partitioning=false)",
                                              str(int(v))) + ")")
+        # Je Kalenderjahr das Vintage der Taten nach der Regel von
+        # raten_je_stadt; ein Jahr mit zwei Vintages hat keines (None) und
+        # damit keine Rate (serving.dashboard.zeitraum).
+        vintage_je_jahr = {j: (vs[0] if len(vs) == 1 else None) for j, vs in con.execute("""
+            SELECT year(f.tag), list(DISTINCT f.vintage)
+            FROM fakt f JOIN tract_nr n ON n.nr = f.tract
+            WHERE n.city IS NOT NULL AND f.vintage IS NOT NULL GROUP BY 1""").fetchall()}
         # Fuer »Quellbewegung«: die Bewegung der Quellen, mit der NIBRS-Kategorie
         # ueber dieselbe Dimension wie die Taten. Ein aelteres Release fuehrt
         # die Tabelle nicht - dann bleibt das Brett leer und sagt warum, statt
@@ -450,6 +467,7 @@ class Bestand:
             self.bewegung = bewegung
             self.wetter = mit_wetter
             self.ohne_licht = ohne_licht
+            self.vintage_je_jahr = vintage_je_jahr
             self.jahre = [r[0] for r in con.execute(
                 "SELECT DISTINCT year(monat) FROM monate ORDER BY 1").fetchall()]
             self.kategorien = [r[0] for r in con.execute(
@@ -578,12 +596,13 @@ class Bestand:
         from serving.dashboard.datenqualitaet import datenqualitaet
         return datenqualitaet(self, a)
 
-    def referenz(self, jahr: int) -> dict[str, Any]:
-        """Was eine Auswertung des Jahres an Referenzdaten braucht - und ob es da ist."""
+    def referenz(self, a: Auswahl) -> dict[str, Any]:
+        """Was eine Auswertung des Zeitraums an Referenzdaten braucht - und ob es da ist."""
         cur = self._cursor()
-        vintages = [r[0] for r in cur.execute(
-            "SELECT DISTINCT vintage FROM raten WHERE year(monat) = $j AND vintage IS NOT NULL",
-            {"j": jahr}).fetchall()]
+        vintages = sorted(r[0] for r in cur.execute(
+            "SELECT DISTINCT f.vintage FROM fakt f JOIN tract_nr n ON n.nr = f.tract "
+            "WHERE n.city IS NOT NULL AND f.tag BETWEEN $von AND $bis AND f.vintage IS NOT NULL",
+            {"von": a.tag_von, "bis": a.tag_bis}).fetchall())
         tracts = dict(cur.execute("SELECT city, count(*) FROM tract_geo GROUP BY 1").fetchall())
         return {
             "acs_vintage": vintages[0] if len(vintages) == 1 else None,
@@ -633,117 +652,133 @@ class Bestand:
 
     def ueberblick(self, a: Auswahl) -> dict[str, Any]:
         cur = self._cursor()
-        von, bis = date(a.jahr, a.von, 1), date(a.jahr, a.bis, 1)
         staedte = list(a.staedte)
+        z = self.zeitraum(cur, a, staedte)
         kat = a.kat_sql
-        p = {"staedte": staedte, "von": von, "bis": bis, **a.kat_param}
+        p = {"staedte": staedte, **z.param, **a.kat_param}
 
-        def summe(spalte: str, monate: list[date]) -> int:
+        def summe(spalte: str, von, bis) -> int:
+            zaehler = "count(*)" if spalte == "delikte" else "count(*) FILTER (fall)"
             return cur.execute(
-                f"SELECT coalesce(sum({spalte}), 0) FROM monate WHERE stadt IN $staedte "
-                f"AND monat IN $monate {kat}",
-                {k: v for k, v in p.items() if k in ("staedte", "kat")} | {"monate": monate}
-            ).fetchone()[0]
+                f"SELECT {zaehler} FROM fakt WHERE stadt IN $staedte "
+                f"AND tag BETWEEN $a AND $b {kat}",
+                {"staedte": staedte, "a": von, "b": bis, **a.kat_param}).fetchone()[0]
 
-        monate = [date(a.jahr, m, 1) for m in range(a.von, a.bis + 1)]
-        vormonate = [date(a.jahr - 1, m, 1) for m in range(a.von, a.bis + 1)]
-        abdeckung = self._abdeckung(cur, staedte, monate)
-        voriges = self._abdeckung(cur, staedte, vormonate)
+        abdeckung = self._abdeckung(z)
+        # Zum Vorjahr nur ueber Tage, die in beiden Jahren fuer jede gewaehlte
+        # Stadt vorliegen (serving.dashboard.zeitraum): Neun Monate 2026 gegen
+        # zwoelf Monate 2025 waeren ein Rueckgang, der keiner ist.
+        vergleich = z.vergleich()
+        jetzt_v = summe("delikte", *vergleich) if vergleich else 0
+        vorher_v = (summe("delikte", vor_einem_jahr(vergleich[0]), vor_einem_jahr(vergleich[1]))
+                    if vergleich else 0)
 
-        def voll(abd, i: int) -> bool:
-            return all(abd[s]["monate"][i] == "voll" for s in staedte)
+        # Eine Periode ohne Daten ist eine Luecke (None), keine Null. Hohl
+        # zeichnet die Seite, was nur zum Teil vorliegt oder angeschnitten ist.
+        im_diagramm = {s: z.status(s) for s in staedte}
+        verlauf = {s: [None if st == "fehlt" else 0 for st in im_diagramm[s]] for s in staedte}
+        for s, start, n in cur.execute(
+                f"SELECT stadt, {z.periode_sql('tag')}, count(*) FROM fakt "
+                f"WHERE stadt IN $staedte AND tag BETWEEN $von AND $bis {kat} GROUP BY 1, 2",
+                p).fetchall():
+            verlauf[s][z.index(start)] = int(n)
 
-        vollstaendig = sum(voll(abdeckung, i) for i in range(len(monate)))
-        # Zum Vorjahr nur Monate, die in beiden Jahren ganz vorliegen: Neun
-        # Monate 2026 gegen zwoelf Monate 2025 waeren ein Rueckgang, der keiner
-        # ist (build_kibana._TEILJAHR).
-        vergleichbar = [i for i in range(len(monate)) if voll(abdeckung, i) and voll(voriges, i)]
-        jetzt_v = summe("delikte", [monate[i] for i in vergleichbar]) if vergleichbar else 0
-        vorher_v = summe("delikte", [vormonate[i] for i in vergleichbar]) if vergleichbar else 0
-
-        # Ein Monat ohne Daten ist eine Luecke (None), keine Null.
-        verlauf = {s: [None if abdeckung[s]["monate"][i] == "fehlt" else 0
-                       for i in range(len(monate))] for s in staedte}
-        for s, m, n in cur.execute(
-                f"SELECT stadt, monat, sum(delikte) FROM monate WHERE stadt IN $staedte "
-                f"AND monat BETWEEN $von AND $bis {kat} GROUP BY 1, 2", p).fetchall():
-            verlauf[s][monate.index(m)] = int(n)
-
+        perioden = len(z.perioden)
+        voll = sum(all(abdeckung[s]["monate"][i] == "voll" for s in staedte)
+                   for i in range(perioden))
         return {
             "auswahl": a.json,
+            "achse": z.json(),
             "kennzahlen": {
-                "delikte": int(summe("delikte", monate)),
-                "faelle": int(summe("faelle", monate)),
+                "delikte": int(summe("delikte", z.von, z.bis)),
+                "faelle": int(summe("faelle", z.von, z.bis)),
                 "vorjahr_prozent": (round((jetzt_v - vorher_v) * 100.0 / vorher_v, 1)
                                     if vorher_v else None),
-                "vorjahr_monate": len(vergleichbar),
-                "vollstaendige_monate": vollstaendig,
-                "monate": len(monate),
+                "vorjahr_tage": (vergleich[1] - vergleich[0]).days + 1 if vergleich else 0,
+                "vorjahr_moeglich": z.vergleich_moeglich,
+                "vollstaendige_monate": voll,
+                "monate": perioden,
+                "tage": a.tage,
             },
-            "verlauf": {"monate": [m.isoformat() for m in monate],
+            "verlauf": {"monate": [m.isoformat() for m in z.starts],
                         "reihen": [{"stadt": s, "name": STADTNAMEN[s], "werte": verlauf[s],
-                                    "status": abdeckung[s]["monate"]}
+                                    "status": im_diagramm[s]}
                                    for s in staedte]},
-            "kategorien": self._kategorien(cur, a, staedte, p, kat),
-            "raten": self._raten(cur, a, staedte, von, bis),
+            "kategorien": self._kategorien(cur, a, z),
+            "raten": self._raten(cur, a, z),
             "abdeckung": [{"stadt": s, "name": STADTNAMEN[s], **abdeckung[s]}
                           for s in staedte],
             "stand": self.stand,
         }
 
-    def _kategorien(self, cur, a: Auswahl, staedte, p, kat) -> dict[str, Any]:
+    # -- Gemeinsam fuer die Bretter ------------------------------------------
+
+    def zeitraum(self, cur, a: Auswahl, staedte: list[str]):
+        from serving.dashboard.zeitraum import Zeitraum
+        return Zeitraum(cur, a, staedte)
+
+    def _kategorien(self, cur, a: Auswahl, z) -> dict[str, Any]:
         """Delikte je Kategorie und Stadt - als Anzahl, Anteil oder Rate."""
         zeilen = cur.execute(
-            f"SELECT stadt, kategorie, sum(delikte) FROM monate WHERE stadt IN $staedte "
-            f"AND monat BETWEEN $von AND $bis {kat} GROUP BY 1, 2", p).fetchall()
+            f"SELECT stadt, kategorie, count(*) FROM fakt WHERE stadt IN $staedte "
+            f"AND tag BETWEEN $von AND $bis {a.kat_sql} GROUP BY 1, 2",
+            {"staedte": z.staedte, **z.param, **a.kat_param}).fetchall()
         gesamt: dict[str, int] = {}
         for _, k, n in zeilen:
             gesamt[k] = gesamt.get(k, 0) + int(n)
         oben = [k for k, _ in sorted(gesamt.items(), key=lambda kv: (-kv[1], kv[0]))]
         einzeln, rest = oben[:KATEGORIEN_IM_BALKEN], oben[KATEGORIEN_IM_BALKEN:]
-        werte = {s: {k: 0 for k in einzeln} for s in staedte}
+        werte = {s: {k: 0 for k in einzeln} for s in z.staedte}
         for s, k, n in zeilen:
             ziel = k if k in einzeln else UEBRIGE
             werte[s][ziel] = werte[s].get(ziel, 0) + int(n)
         namen = einzeln + ([UEBRIGE] if rest else [])
         if a.mass == "anteil":
-            for s in staedte:
+            for s in z.staedte:
                 summe = sum(werte[s].values()) or 1
                 werte[s] = {k: round(v * 100.0 / summe, 1) for k, v in werte[s].items()}
         elif a.mass == "rate":
-            werte = self._raten_je(cur, a, staedte, einzeln, rest)
+            werte = self._raten_je(cur, z, einzeln, rest)
         return {
             "mass": a.mass,
             "zeilen": [{"kategorie": k, "name": kategorie_de(k),
-                        "werte": {s: werte[s].get(k, 0) for s in staedte}} for k in namen],
+                        "werte": {s: werte[s].get(k, 0) for s in z.staedte}} for k in namen],
         }
 
-    def _nenner(self, cur, a: Auswahl, staedte) -> dict[str, int]:
-        vintages = [r[0] for r in cur.execute(
-            "SELECT DISTINCT vintage FROM raten WHERE year(monat) = $j AND vintage IS NOT NULL",
-            {"j": a.jahr}).fetchall()]
-        if len(vintages) != 1:
-            # Wie raten_je_stadt: gemischte Vintages ergeben keine Rate.
-            return {}
-        return {s: n for s, n in cur.execute(
-            "SELECT stadt, n FROM einwohner WHERE vintage = $v AND stadt IN $staedte",
-            {"v": vintages[0], "staedte": staedte}).fetchall()}
+    def _einwohner(self, cur, stadt: str) -> dict[int, int]:
+        return dict(cur.execute("SELECT vintage, n FROM einwohner WHERE stadt = $s",
+                                {"s": stadt}).fetchall())
 
-    def _raten_je(self, cur, a: Auswahl, staedte, einzeln, rest) -> dict[str, dict[str, float]]:
-        nenner = self._nenner(cur, a, staedte)
-        p = {"staedte": staedte, "von": date(a.jahr, a.von, 1), "bis": date(a.jahr, a.bis, 1)}
-        werte: dict[str, dict[str, float]] = {s: {} for s in staedte}
+    def _nenner(self, cur, z) -> dict[str, float]:
+        """Personenjahre je Stadt (``Zeitraum.personenjahre``); fehlt eine, keine Rate."""
+        nenner = {s: z.personenjahre(s, self._einwohner(cur, s), self.vintage_je_jahr)
+                  for s in z.staedte}
+        return {s: n for s, n in nenner.items() if n}
+
+    def _raten_sql(self, z, kat: str) -> str:
+        """Taten in Tracts mit Stadtzuordnung, wie ``gold_pipeline.raten_je_stadt``.
+
+        Die Stadt ist die des Tracts, nicht die meldende; und gezaehlt nur an
+        Tagen im Fenster dieser Stadt, wie der Nenner.
+        """
+        return (f"FROM fakt f JOIN tract_nr n ON n.nr = f.tract "
+                f"JOIN fenster x ON x.stadt = n.city AND f.tag BETWEEN x.von AND x.bis "
+                f"WHERE n.city IN $staedte AND f.tag BETWEEN $von AND $bis {kat}")
+
+    def _raten_je(self, cur, z, einzeln, rest) -> dict[str, dict[str, float]]:
+        nenner = self._nenner(cur, z)
+        werte: dict[str, dict[str, float]] = {s: {} for s in z.staedte}
         for s, k, n in cur.execute(
-                "SELECT stadt, kategorie, sum(delikte) FROM raten WHERE stadt IN $staedte "
-                "AND monat BETWEEN $von AND $bis GROUP BY 1, 2", p).fetchall():
+                f"SELECT n.city, f.kategorie, count(*) {self._raten_sql(z, '')} GROUP BY 1, 2",
+                {"staedte": z.staedte, **z.param}).fetchall():
             ziel = k if k in einzeln else (UEBRIGE if k in rest else None)
             if ziel is not None:
                 werte[s][ziel] = werte[s].get(ziel, 0) + int(n)
         return {s: {k: (round(v * 1000.0 / nenner[s], 1) if s in nenner else None)
-                    for k, v in werte[s].items()} for s in staedte}
+                    for k, v in werte[s].items()} for s in z.staedte}
 
-    def _raten(self, cur, a: Auswahl, staedte, von, bis) -> dict[str, Any]:
-        """Faelle je 1'000 Einwohner, fuer alle Faelle oder die gewaehlte Kategorie.
+    def _raten(self, cur, a: Auswahl, z) -> dict[str, Any]:
+        """Faelle je 1'000 Einwohner und Jahr, fuer alle Faelle oder die Kategorie.
 
         **Fallebene vorn, Tatebene daneben** (E5), wie ``raten_je_stadt``
         mit ``rate_fallebene`` und ``rate``: Chicago erfasst je Fall nur das
@@ -751,59 +786,60 @@ class Bestand:
         den Erfassungsunterschied mit. **Keine Zeile je Kategorie:** Nach E5
         rechnen Kategorien auf der Tatebene, weil sie sich nur dort addieren;
         die Rate je Kategorie zeigt die Tafel »nach Kategorie« (``_raten_je``).
+
+        **Je Jahr:** Der Nenner sind Personenjahre (``serving.dashboard.
+        zeitraum``). Ueber ein ganzes Jahr ist das die Einwohnerzahl.
         """
-        nenner = self._nenner(cur, a, staedte)
-        kat = a.kat_sql
-        p = {"staedte": staedte, "von": von, "bis": bis, **a.kat_param}
+        nenner = self._nenner(cur, z)
         summen = {s: (int(f), int(d)) for s, f, d in cur.execute(
-            "SELECT stadt, sum(faelle), sum(delikte) FROM raten WHERE stadt IN $staedte "
-            f"AND monat BETWEEN $von AND $bis {kat} GROUP BY 1", p).fetchall()}
+            f"SELECT n.city, count(*) FILTER (f.fall), count(*) "
+            f"{self._raten_sql(z, a.kat_sql.replace('kategorie', 'f.kategorie'))} GROUP BY 1",
+            {"staedte": z.staedte, **z.param, **a.kat_param}).fetchall()}
 
         def rate(s: str, i: int) -> float | None:
             n = summen.get(s, (0, 0))[i]
             return round(n * 1000.0 / nenner[s], 1) if s in nenner else None
 
+        # Die Bevoelkerung, wenn der Zeitraum ein Vintage hat; sonst steht sie
+        # je Jahr verschieden und die Seite nennt nur die Personenjahre.
+        vintages = {self.vintage_je_jahr.get(j) for j in range(z.von.year, z.bis.year + 1)}
+        einwohner = ({s: n for s, n in cur.execute(
+            "SELECT stadt, n FROM einwohner WHERE vintage = $v AND stadt IN $staedte",
+            {"v": next(iter(vintages)), "staedte": z.staedte}).fetchall() if s in nenner}
+            if len(vintages) == 1 and None not in vintages else {})
         # Mehrere Namen passen nicht als Beschriftung eines Balkens; welche es
         # sind, zeigt die Leiste als aktiven Filter.
         name = ("Alle Fälle" if a.kategorien is None
                 else kategorie_de(a.kategorien[0]) if len(a.kategorien) == 1
                 else f"{len(a.kategorien)} Kategorien")
-        return {"einwohner": nenner,
+        return {"einwohner": einwohner,
+                "personenjahre": {s: round(n) for s, n in nenner.items()},
+                "tage": {s: z.tage_mit_daten(s) for s in z.staedte},
                 "zeilen": [{"kategorie": a.kategorie, "name": name,
-                            "werte": {s: rate(s, 0) for s in staedte}}],
-                "tatebene": {s: rate(s, 1) for s in staedte}}
+                            "werte": {s: rate(s, 0) for s in z.staedte}}],
+                "tatebene": {s: rate(s, 1) for s in z.staedte}}
 
     @staticmethod
-    def _abdeckung(cur, staedte, monate: list[date]) -> dict[str, dict[str, Any]]:
-        """Je Stadt und Monat: voll, teilweise oder fehlend - und der letzte Monat.
+    def _abdeckung(z) -> dict[str, dict[str, Any]]:
+        """Je Stadt und Periode: voll, teilweise oder fehlend - und der letzte Tag.
 
         Gemessen am Fenster **dieser** Stadt (Tabelle ``fenster``), nicht am
-        gemeinsamen von ``comparison_month``.
+        gemeinsamen von ``comparison_month``. ``monate`` heisst die Liste aus
+        der Zeit vor Stufe 3; sie hat je Periode der Achse einen Eintrag.
         """
-        fenster = {s: (v, b) for s, v, b in cur.execute(
-            "SELECT stadt, von, bis FROM fenster WHERE stadt IN $staedte",
-            {"staedte": staedte}).fetchall()}
         ergebnis = {}
-        for s in staedte:
-            je_monat = []
-            for m in monate:
-                ende = date(m.year + m.month // 12, m.month % 12 + 1, 1) - timedelta(days=1)
-                v, b = fenster.get(s, (None, None))
-                if v is None or b < m or v > ende:
-                    je_monat.append("fehlt")
-                else:
-                    je_monat.append("voll" if v <= m and b >= ende else "teil")
-            letzter = (date(fenster[s][1].year, fenster[s][1].month, 1)
-                       if s in fenster else None)
-            mit_daten = [m for m, z in zip(monate, je_monat) if z != "fehlt"]
+        for s in z.staedte:
+            je_periode = z.status(s, rand=False)
+            mit_daten = [m for m, st in zip(z.starts, je_periode) if st != "fehlt"]
+            f = z.fenster.get(s)
             ergebnis[s] = {
-                "monate": je_monat,
-                "vollstaendig": je_monat.count("voll"),
+                "monate": je_periode,
+                "vollstaendig": je_periode.count("voll"),
                 "von": mit_daten[0].isoformat() if mit_daten else None,
                 "bis": mit_daten[-1].isoformat() if mit_daten else None,
-                "letzter_monat": letzter.isoformat() if letzter else None,
-                "letzter_tag": fenster[s][1].isoformat() if s in fenster else None,
-                "status": ("vollstaendig" if je_monat and all(z == "voll" for z in je_monat)
+                "letzter_monat": date(f[1].year, f[1].month, 1).isoformat() if f else None,
+                "letzter_tag": f[1].isoformat() if f else None,
+                "status": ("vollstaendig" if je_periode and all(st == "voll" for st in je_periode)
                            else "keine_daten" if not mit_daten else "unvollstaendig"),
             }
         return ergebnis

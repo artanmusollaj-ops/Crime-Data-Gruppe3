@@ -82,7 +82,7 @@ function kartenbereich(d) {
       // Rate und Armut derselben Stadt zoomen gemeinsam: Derselbe Ausschnitt
       // nebeneinander ist der Sinn des Paars.
       const gemeinsam = kopplung();
-      paar.append(karte(s, `${s.name}: Fälle je 1'000 Einwohner`, rateFarbe, d, gemeinsam),
+      paar.append(karte(s, `${s.name}: Fälle je 1'000 Einwohner und Jahr`, rateFarbe, d, gemeinsam),
         karte(s, `${s.name}: Armutsquote`, armutFarbe, d, gemeinsam));
       ziel.append(paar);
     }
@@ -182,7 +182,7 @@ function streuung(ziel, d) {
 
 function zeichne(d) {
   const zr = zeitraumtext(d.auswahl);
-  document.getElementById("u-sozial").textContent = `Fälle je 1'000 Einwohner und Armutsquote je Census `
+  document.getElementById("u-sozial").textContent = `Fälle je 1'000 Einwohner und Jahr sowie die Armutsquote je Census `
     + `Tract · ${zr}` + (d.vintage ? ` · ACS ${d.vintage}` : "");
   document.getElementById("ohne-vintage").hidden = Boolean(d.vintage);
   if (!karten) return;

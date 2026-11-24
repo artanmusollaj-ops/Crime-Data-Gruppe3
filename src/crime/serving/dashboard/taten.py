@@ -1,4 +1,4 @@
-"""Die Taten im Speicher: eine schlanke Faktentabelle, die Monatssichten darueber.
+"""Die Taten im Speicher: eine schlanke Faktentabelle mit ihren Verzeichnissen.
 
 Bis zum 23.11.2026 verdichtete das Dashboard ``gold/fact_offense`` beim Laden
 auf sieben Tabellen je Stadt und Monat. Ein Zeitraum war darum immer ein
@@ -23,14 +23,15 @@ darum keinen Text: Stadt, Kategorie, Verortung und Zuordnung sind
 Aufzaehlungstypen, Tract und Quellcode Nummern in je einem Verzeichnis. Eine
 Abfrage ueber sechs Jahre braucht darauf auf einem Kern hoechstens 17 ms.
 
-**Die Sichten heissen wie die Tabellen vorher** und liefern dieselben Spalten
-mit denselben Typen. Die Bretter merken also nichts, und
-``tests/serving/test_dashboard_taten.py`` haelt jede Sicht zeilengleich gegen
-die alte Verdichtung. Ein freier Zeitraum ist danach ein ``WHERE`` auf
-``fakt.tag``; das ist der naechste Schritt.
+**Die Bretter fragen ``fakt`` direkt ab**, seit Stufe 3 (24.11.2026) mit
+einem ``WHERE`` auf ``fakt.tag``. Bis dahin lagen ueber ``fakt`` sieben
+Monatssichten mit den Namen der alten Tabellen. Sie stehen jetzt nur noch in
+``tests/serving/test_dashboard_taten.py``: Dort halten sie zeilengleich gegen
+die alte Verdichtung fest, dass ``fakt`` alles traegt, was jene trug.
 
 Nicht hier: ``monate`` kommt aus ``serving/comparison_month``, und
 ``doppelte`` braucht die Delikt-ID, die die Faktentabelle nicht fuehrt.
+Hier steht dafuer ``fenster``, je Stadt der erste und letzte Tag mit Daten.
 """
 
 from __future__ import annotations
@@ -57,7 +58,7 @@ def _aufzaehlung(con: Any, name: str, abfrage: str) -> str:
 
 
 def lade_taten(con: Any, fakten: str, delikte: str, tracts: str) -> None:
-    """Legt ``fakt`` mit seinen Verzeichnissen an und die Monatssichten darueber."""
+    """Legt ``fakt`` mit seinen Verzeichnissen an, dazu ``fenster``."""
     from serving.dashboard import PLATZHALTER_SQL
 
     F = f"read_parquet('{fakten}', hive_partitioning=false)"
@@ -94,7 +95,6 @@ def lade_taten(con: Any, fakten: str, delikte: str, tracts: str) -> None:
         CREATE TABLE fakt AS
         SELECT f.reporting_city::{stadt} AS stadt,
                f.date AS tag,
-               date_trunc('month', f.date)::DATE AS monat,
                n.nr AS tract,
                ({KATEGORIE_SQL})::{kategorie} AS kategorie,
                f.population_vintage AS vintage,
@@ -115,85 +115,17 @@ def lade_taten(con: Any, fakten: str, delikte: str, tracts: str) -> None:
          AND q.nibrs_code IS NOT DISTINCT FROM f.nibrs_code
          AND q.status IS NOT DISTINCT FROM f.mapping_status
         ORDER BY 1, 2""")
-    _monatssichten(con)
+    _fenster(con)
 
 
-def _monatssichten(con: Any) -> None:
-    """Die sieben Verdichtungen von bis zum 23.11.2026, als Sichten auf ``fakt``."""
-    # Eine gespeicherte Spalte, kein Ausdruck: Die Bretter filtern auf
-    # ``monat``, und nur auf einer Spalte zieht DuckDB den Filter vor die
-    # Verdichtung. Mit dem Ausdruck rechnete jede Anfrage alle Jahre.
-    monat = "f.monat"
-    # Die Regel von gold_pipeline.raten_je_stadt: nur Taten in einem Tract
-    # mit Stadtzuordnung, das Vintage je Tat. Beide Ebenen: Faelle fuer die
-    # Rate vorn (E5), Delikte fuer die Tatebene daneben und fuer die
-    # Kategorien, die sich nur dort addieren.
-    con.execute(f"""
-        CREATE VIEW raten AS
-        SELECT n.city AS stadt, {monat} AS monat, f.kategorie AS kategorie,
-               f.vintage, count(*) FILTER (f.fall) AS faelle, count(*) AS delikte
-        FROM fakt f JOIN tract_nr n ON n.nr = f.tract
-        WHERE n.city IS NOT NULL
-        GROUP BY ALL""")
-    # Das Fenster je Stadt, selbst gerechnet. comparison_month tut es seit
-    # Vertrag 3 auch (C-10, 1.11.2026), aber das Dashboard liest das aktive
-    # Release - und ein Release mit Vertrag 2 rechnet noch am gemeinsamen
-    # Fenster beider Staedte. Eine Tabelle, keine Sicht: Sie haengt an keiner
-    # Auswahl, und als Sicht lief jede Anfrage einmal ueber alle Taten.
+def _fenster(con: Any) -> None:
+    """Das Fenster je Stadt: erster und letzter Tag mit einer Tat.
+
+    Selbst gerechnet: comparison_month tut es seit Vertrag 3 auch (C-10,
+    1.11.2026), aber das Dashboard liest das aktive Release - und ein Release
+    mit Vertrag 2 rechnet noch am gemeinsamen Fenster beider Staedte.
+    """
     con.execute("""
         CREATE TABLE fenster AS
         SELECT stadt AS stadt, min(tag) AS von, max(tag) AS bis
         FROM fakt GROUP BY 1""")
-    # Fuer »Zeitverlauf«: Faelle je Wochentag und lokaler Stunde. Genau 00:00
-    # und 12:00 sind Platzhalter fuer eine unbekannte Tatzeit; sie werden
-    # mitgezaehlt, aber markiert.
-    con.execute(f"""
-        CREATE VIEW stunden AS
-        SELECT f.stadt AS stadt, {monat} AS monat, isodow(f.tag) AS wochentag,
-               f.stunde, f.kategorie AS kategorie, f.platzhalter,
-               count(*) FILTER (f.fall) AS faelle
-        FROM fakt f GROUP BY ALL""")
-    # Der Nenner der Heatmap: wie viele Montage, Dienstage ... ein Monat je
-    # Stadt mit Daten hat.
-    con.execute(f"""
-        CREATE VIEW tage AS
-        SELECT f.stadt AS stadt, {monat} AS monat, isodow(f.tag) AS wochentag,
-               count(DISTINCT f.tag) AS n
-        FROM fakt f GROUP BY ALL""")
-    # Fuer »Geografie«: Faelle je Tract und Monat nach der Regel von
-    # gold_pipeline.raten_je_tract.
-    con.execute(f"""
-        CREATE VIEW tract_monat AS
-        SELECT f.stadt AS stadt, n.geoid, {monat} AS monat,
-               f.kategorie AS kategorie, f.vintage,
-               count(*) FILTER (f.fall) AS faelle, count(*) AS delikte
-        FROM fakt f LEFT JOIN tract_nr n ON n.nr = f.tract
-        WHERE f.geo_status = 'inside_city'
-        GROUP BY ALL""")
-    con.execute(f"""
-        CREATE VIEW verortung AS
-        SELECT f.stadt AS stadt, {monat} AS monat,
-               f.kategorie AS kategorie, f.geo_status AS geo_status,
-               count(*) FILTER (f.fall) AS faelle
-        FROM fakt f GROUP BY ALL""")
-    # Fuer »Datenqualität«: Taten je Zuordnung, Verortung und Ortszeit.
-    con.execute(f"""
-        CREATE VIEW qualitaet AS
-        SELECT f.stadt AS stadt, {monat} AS monat,
-               f.kategorie AS kategorie,
-               f.mapping_status AS mapping_status,
-               f.geo_status AS geo_status, f.ortszeit_mehrdeutig,
-               count(*) AS delikte
-        FROM fakt f GROUP BY ALL""")
-    # Fuer »Datenqualität«, Tafel »NIBRS-Zuordnung im Detail«: je Quellcode,
-    # wohin er in NIBRS faellt, je Monat, damit Zeitraum und Kategorie der
-    # Leiste greifen. Gezaehlt werden Taten wie in ``qualitaet``.
-    con.execute(f"""
-        CREATE VIEW zuordnung AS
-        SELECT q.stadt, {monat} AS monat, f.kategorie AS kategorie,
-               q.quellcode, min(q.quelltext) AS quelltext,
-               q.nibrs_code, min(d.nibrs_description) AS nibrs_text,
-               q.status, count(*) AS delikte
-        FROM fakt f JOIN quelle q ON q.nr = f.quelle
-        LEFT JOIN delikt d ON d.nibrs_code = q.nibrs_code
-        GROUP BY 1, 2, 3, 4, 6, 8""")

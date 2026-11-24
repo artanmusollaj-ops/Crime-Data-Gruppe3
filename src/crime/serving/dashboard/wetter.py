@@ -31,7 +31,7 @@ Erklaerung, keine Messung.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import timedelta
 from math import sqrt
 from typing import Any
 
@@ -111,8 +111,8 @@ def wetter(bestand, a) -> dict[str, Any]:
         return antwort | {"vorhanden": False}
     cur = bestand._cursor()
     staedte = list(a.staedte)
-    von = date(a.jahr, a.von, 1)
-    bis = date(a.jahr + (a.bis == 12), a.bis % 12 + 1, 1)
+    # Der Zeitraum, das Ende ausschliesslich wie in den Abfragen unten.
+    von, bis = a.tag_von, a.tag_bis + timedelta(days=1)
     kat = a.kat_sql
     p = {"staedte": staedte, "von": von, "bis": bis} | a.kat_param
 

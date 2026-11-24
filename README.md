@@ -228,7 +228,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Der Standardlauf wählt 3'312 Tests aus. Erwartet wird **grün** ohne
+Der Standardlauf wählt 3'354 Tests aus. Erwartet wird **grün** ohne
 Netzzugriff und ohne Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -238,7 +238,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 3'423
+python -m pytest -m ""               # beides zusammen, alle 3'465
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -1028,8 +1028,17 @@ Tafel zählt Fälle, eine blasse zweite Zeile zeigt die Rate aller Delikte. Ein
 Wächter hält beide gegen `rate_fallebene` und `rate` derselben Abfrage. Raten
 je Kategorie stehen nur in der Kategorieansicht »Rate«, auf der Tatebene,
 weil sich Kategorien nur dort addieren. Ein Monat ohne
-Daten ist eine Lücke, keine Null, und „Zum Vorjahr“ vergleicht nur Monate,
-die in beiden Jahren vollständig vorliegen.
+Daten ist eine Lücke, keine Null, und „Zum Vorjahr“ vergleicht nur Tage,
+die in beiden Jahren für jede gewählte Stadt vorliegen.
+
+Seit dem 24.11.2026 nimmt jedes Brett einen **freien Zeitraum**, auf den Tag
+genau und über Jahresgrenzen, auch einen einzelnen Tag. Die Rate gilt dann
+je 1'000 Einwohner **und Jahr**: Ein Tag zählt mit den Einwohnern seines
+ACS-Vintage, geteilt durch die Tage seines Jahres. Über ein ganzes Jahr ist
+das die Rate der Dokumente, über kürzere Zeiträume steht dabei, aus wie vielen
+Tagen hochgerechnet ist. Einen Vorjahresvergleich gibt es bis ein Jahr Spanne.
+Die Achse zeigt bis 92 Tage jeden Tag, bis zwei Jahre jede Woche, darüber
+Monate (`serving.dashboard.zeitraum`).
 
 ### 2.7 Die Strecke im Container
 
@@ -1130,7 +1139,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**3'423 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**3'465 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -1168,7 +1177,7 @@ auf `main` aus: auf jedem Pull Request unter **Linux** mit Python **3.11**, dazu
 Referenz-Wächter unter **3.13**; auf `main` zusätzlich unter **Windows** mit **3.13**.
 Windows, weil Artan darauf entwickelt.
 
-Im Linux-CI-Lauf werden hochgerechnet **3'227 der 3'312 Tests** des
+Im Linux-CI-Lauf werden hochgerechnet **3'269 der 3'354 Tests** des
 Standardlaufs ausgeführt (am PR-Lauf zu bestätigen, nicht gemessen). Die übrigen 85 werden übersprungen. Die Zahl hängt
 von der Umgebung ab. Einige Prüfungen brauchen gebaute Daten, die in
 `data/` liegen und nicht versioniert sind — dazu seit dem 5.10.2026 die Reproduktion von

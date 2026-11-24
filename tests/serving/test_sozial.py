@@ -112,3 +112,25 @@ def test_ein_release_ohne_armut_laedt_und_zeigt_keine(tmp_path):
     chicago = stadt(b.sozialbrett({"jahr": "2024"}), "chicago")
     assert all(t["armut"] is None for t in chicago["tracts"])
     assert sum(x["tracts"] for x in chicago["baender"]) == 0
+
+
+def test_die_baender_rechnen_je_jahr_wie_die_tracts(brett):
+    """Ueber ein halbes Jahr: Faelle durch Personenjahre, nicht durch Einwohner.
+
+    Seit Stufe 3 (24.11.2026) ist jede Rate je 1'000 Einwohner und Jahr
+    (``serving.dashboard.zeitraum``). Teilte das Band durch die Einwohner,
+    stuende es ueber ein halbes Jahr bei rund der Haelfte seiner Tracts.
+    """
+    d = brett.sozialbrett({"von": "2024-01-01", "bis": "2024-06-30"})
+    geprueft = 0
+    for s in d["staedte"]:
+        for band in s["baender"]:
+            im = [t for t in s["tracts"] if t["band"] == band["band"] and t["einwohner"]]
+            if not im:
+                continue
+            jahre = sum(t["personenjahre"] for t in im)
+            assert jahre < sum(t["einwohner"] for t in im) * 0.6
+            assert band["rate"] == round(sum(t["faelle"] for t in im) * 1000 / jahre, 1)
+            geprueft += 1
+    assert geprueft >= 2, "kein Band mit Tracts - dann prueft der Test nichts"
+

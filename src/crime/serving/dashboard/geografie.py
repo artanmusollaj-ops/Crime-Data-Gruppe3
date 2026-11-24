@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import math
 import re
-from datetime import date
 from typing import Any
 
 GERINGE_BASIS = 500
@@ -101,44 +100,55 @@ def geografie(bestand, a) -> dict[str, Any]:
 
     cur = bestand._cursor()
     staedte = list(a.staedte)
-    monate = [date(a.jahr, m, 1) for m in range(a.von, a.bis + 1)]
+    z = bestand.zeitraum(cur, a, staedte)
     kat = a.kat_sql
-    p = {"staedte": staedte, "monate": monate, **a.kat_param}
-    vintages = [r[0] for r in cur.execute(
-        "SELECT DISTINCT vintage FROM tract_monat WHERE year(monat) = $j AND vintage IS NOT NULL",
-        {"j": a.jahr}).fetchall()]
-    vintage = vintages[0] if len(vintages) == 1 else None
+    p = {"staedte": staedte, **z.param, **a.kat_param}
+    # Je Stadt die Jahre je Vintage im Zeitraum (serving.dashboard.zeitraum):
+    # Die Rate eines Tracts ist Faelle je 1'000 Einwohner und Jahr, wie die der
+    # Stadt im »Überblick«. Gezeigt werden die Einwohner des juengsten Vintage.
+    gewichte = {s: z.gewichte(s, bestand.vintage_je_jahr) for s in staedte}
+    vintages = sorted({v for g in gewichte.values() if g for v in g})
+    vintage = vintages[-1] if vintages else None
+    einwohner: dict[tuple[str, int], int] = {(g, v): n for g, v, n in cur.execute(
+        "SELECT geoid, vintage, population FROM tract_einwohner WHERE vintage IN $v",
+        {"v": vintages or [0]}).fetchall()}
     # Jeder Tract der Stadt, auch einer ohne Fall: Er ist eine Null, keine Luecke.
     zeilen = cur.execute(f"""
-        SELECT g.city, g.geoid, g.tract_name, e.population,
+        SELECT g.city, g.geoid, g.tract_name,
                coalesce(t.faelle, 0), coalesce(t.delikte, 0)
         FROM tract_geo g
-        LEFT JOIN tract_einwohner e ON e.geoid = g.geoid AND e.vintage = $vintage
-        LEFT JOIN (SELECT geoid, sum(faelle) AS faelle, sum(delikte) AS delikte
-                   FROM tract_monat WHERE stadt IN $staedte AND monat IN $monate {kat}
+        LEFT JOIN (SELECT n.geoid, count(*) FILTER (f.fall) AS faelle, count(*) AS delikte
+                   FROM fakt f JOIN tract_nr n ON n.nr = f.tract
+                   WHERE f.stadt IN $staedte AND f.geo_status = 'inside_city'
+                     AND f.tag BETWEEN $von AND $bis {kat.replace('kategorie', 'f.kategorie')}
                    GROUP BY 1) t ON t.geoid = g.geoid
-        WHERE g.city IN $staedte ORDER BY g.city, g.geoid""",
-        {**p, "vintage": vintage}).fetchall()
+        WHERE g.city IN $staedte ORDER BY g.city, g.geoid""", p).fetchall()
     tracts = {s: [] for s in staedte}
-    for stadt, geoid, name, einwohner, faelle, delikte in zeilen:
-        rate = (round(faelle * 1000.0 / einwohner, 1)
-                if einwohner else None)
+    for stadt, geoid, name, faelle, delikte in zeilen:
+        g = gewichte.get(stadt)
+        jahre = (sum(w * einwohner[(geoid, v)] for v, w in g.items())
+                 if g and all(einwohner.get((geoid, v)) for v in g) else None)
+        anzeige = einwohner.get((geoid, vintage)) if vintage else None
+        rate = round(faelle * 1000.0 / jahre, 1) if jahre else None
         tracts[stadt].append({
-            "geoid": geoid, "name": name, "einwohner": einwohner,
+            "geoid": geoid, "name": name, "einwohner": anzeige,
+            "personenjahre": round(jahre, 1) if jahre else None,
             "faelle": int(faelle), "delikte": int(delikte), "rate": rate,
-            "geringe_basis": einwohner is None or einwohner < GERINGE_BASIS,
+            "geringe_basis": anzeige is None or anzeige < GERINGE_BASIS,
         })
     tragfaehig = sorted(t["rate"] for ts in tracts.values() for t in ts
                         if not t["geringe_basis"] and t["rate"] is not None)
     verortung = {s: {"inside_city": 0, "outside_city": 0, "no_tract": 0, "missing_coordinate": 0}
                  for s in staedte}
     for s, status, n in cur.execute(
-            f"SELECT stadt, geo_status, sum(faelle) FROM verortung WHERE stadt IN $staedte "
-            f"AND monat IN $monate {kat} GROUP BY 1, 2", p).fetchall():
+            f"SELECT stadt, geo_status, count(*) FILTER (fall) FROM fakt WHERE stadt IN $staedte "
+            f"AND tag BETWEEN $von AND $bis {kat} GROUP BY 1, 2", p).fetchall():
         verortung[s][status] = int(n)
     return {
         "auswahl": a.json,
         "vintage": vintage,
+        "vintages": vintages,
+        "achse": z.json(),
         "klassen": klassengrenzen(tragfaehig),
         "geringe_basis": GERINGE_BASIS,
         "staedte": [{
