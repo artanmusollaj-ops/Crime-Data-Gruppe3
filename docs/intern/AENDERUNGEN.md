@@ -110,6 +110,32 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 24.11.2026 · Die Umstellung auf den verwalteten Betrieb ist vorbereitet (Branch `s10-ablauf`)
+
+Neu ist [`umstellung-verwaltet.md`](umstellung-verwaltet.md): der Ablauf für
+S-10 mit Vorprüfung, Umstellen, Sperrprobe, Probelauf, Abnahme und Rückweg.
+**Entschieden ist nichts.** Die Besprechung am 27.11.2026 entscheidet, ob
+`srv01` vor dem Abgabestand umgestellt wird. Auf `srv01` ist nichts geändert.
+
+**Was beim Vorbereiten auffiel.**
+
+- **Der 30.11. ist der fünfte Montag.** `mode_for_day` lässt ihn aus. Damit
+  läuft vor dem Abgabestand kein geplanter Lauf mehr, an dem sich ein
+  Konsolenlauf prüfen liesse: Der vom 7.12. ist schon der Abgabestand. Wer
+  umstellt, stösst den Probelauf am Wochenende davor von Hand an.
+- **Ein echter Konsolen-Batch lief auf `srv01` noch nie.** S-8 hatte einen
+  leeren Probetakt, E-5 nennt die Abnahme mit einem echten Job als offen.
+- **S-6 hält die Umstellung nicht auf.** Ein Wochenlauf veröffentlicht ohne
+  Git (`release_flow.requires_git` gilt nur für Mapping und Einstellungen).
+- **Zwei Stellen rufen nach der Umstellung den gesperrten Lauf auf:** der
+  Lauf von Hand in `abgabestand.md` und der Hinweis am Ende von
+  `docker/srv01-abbild-einsetzen.sh`. Sie gehören in den PR, der die
+  Crontab-Zeilen tauscht, nicht in diesen.
+
+Keine Zahl ändert sich, kein Code.
+
+---
+
 ## 24.11.2026 · Jedes Brett rechnet einen freien Zeitraum, auch einen einzelnen Tag (Branch `dashboard-freie-zeitraeume`)
 
 Stufe 3 von drei für den freien Zeitraum, nach den Entscheiden vom 23.11.2026.

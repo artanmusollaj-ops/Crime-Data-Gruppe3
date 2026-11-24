@@ -1606,6 +1606,7 @@ abgegeben, liegen sie zwar bei — aber niemand wird darauf verwiesen.
 | Was beim Aufräumen verlorenginge | [`datenhistorie.md`](intern/datenhistorie.md) — Entscheidungspapier zur Aufbewahrung |
 | Was die Strecke an Platz braucht | [`platzbedarf.md`](intern/platzbedarf.md) — gemessen je Schicht und je Quelle auf 2021–2026 hochgerechnet, **erzeugt** |
 | Der Ablauf am Tag, an dem der Abgabestand gepinnt wird | [`abgabestand.md`](intern/abgabestand.md) |
+| Umstellung von `srv01` auf den verwalteten Betrieb (S-10), mit Probelauf und Rückweg | [`umstellung-verwaltet.md`](intern/umstellung-verwaltet.md) |
 | Vorführung: Kibana aus Google Cloud starten und stoppen | [`vorfuehrung.md`](intern/vorfuehrung.md) |
 | Detroit-Pipeline Schritt für Schritt | [`DETROIT_PIPELINE_ANLEITUNG.md`](intern/DETROIT_PIPELINE_ANLEITUNG.md) |
 | Was eine dritte Stadt bräuchte — keine ist geplant | [`dritte-stadt.md`](intern/dritte-stadt.md) |
