@@ -168,6 +168,19 @@ aus wie vielen Tagen hochgerechnet ist.
 Fälle je Tag statt je Monat. Über freie Zeiträume braucht eine Anfrage im
 Median höchstens 67 ms, auch über alle sechs Jahre.
 
+**Auf `srv01` gemessen** (24.11.2026, Abbild aus `050d64a`, Release
+`2026-11-23T03-36-24Z`): je nach frischem Start dieselbe Matrix über HTTP
+im Container, dazu 56 Anfragen mit freien Zeiträumen (sieben Bretter, vier
+Zeiträume vom einzelnen Tag bis zu allen sechs Jahren, Anzahl und Rate).
+Die Spitze der cgroup stieg von 455 MiB mit Stufe 1 auf 475 MiB, bei
+640 MiB Grenze. Am 23.11. lag Stufe 1 nach einem frischen Start bei 471 MiB;
+rund 15 MiB sind also Schwankung. Danach belegte der Container 433 bis
+460 MiB. Die Matrix brauchte je Anfrage im Median 26 statt 43 ms, höchstens
+269 statt 223 ms. Die freien Zeiträume, die Stufe 1 alle ablehnte, kamen alle
+mit 200 zurück, im Median nach 29 bis 32 ms, höchstens nach 190 ms. Die
+Stichprobe 2024 ergab 94,4 und 124,7 über je 366 Tage. Die 94,4 statt 94,5
+gehören zum neueren Release dort, nicht zu dieser Änderung.
+
 **Wächter:**
 
 - `tests/serving/test_dashboard_zeitraum.py`: die Körnung an ihren Grenzen
