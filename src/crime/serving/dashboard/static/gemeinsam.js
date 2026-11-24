@@ -46,14 +46,51 @@ export function datum(iso) {
   return `${t}.${m}.${j}`;
 }
 
+const WOCHENTAG = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+// »Do 4.7.2024«: Ein einzelner Tag nennt seinen Wochentag - im Vergleich mit
+// dem Vorjahr faellt derselbe Tag auf einen anderen (Entscheid vom 23.11.2026).
+export function tagtext(iso) {
+  const [j, m, t] = iso.split("-").map(Number);
+  return `${WOCHENTAG[new Date(Date.UTC(j, m - 1, t)).getUTCDay()]} ${datum(iso)}`;
+}
+
 // Ganze Monate eines Jahres heissen wie bisher »Mär–Mai 2024«; ein freier
 // Zeitraum nennt seine Tage, ein einzelner Tag nur sich selbst.
 export function zeitraumtext(a, jahr = a.jahr) {
   if (a.ganze_monate === false) {
-    return a.tag_von === a.tag_bis ? datum(a.tag_von) : `${datum(a.tag_von)}–${datum(a.tag_bis)}`;
+    return a.tag_von === a.tag_bis ? tagtext(a.tag_von) : `${datum(a.tag_von)}–${datum(a.tag_bis)}`;
   }
   const von = MONATE[a.von - 1], bis = MONATE[a.bis - 1];
   return a.von === a.bis ? `${von} ${jahr}` : `${von}–${bis} ${jahr}`;
+}
+
+// Der Zeitraum ein Jahr frueher, fuer die Legende eines Vorjahresvergleichs:
+// bei ganzen Monaten »Mär–Mai 2023«, sonst die Tage aus der Antwort.
+export function vorjahrestext(a, vergleich) {
+  if (a.ganze_monate !== false) return zeitraumtext(a, vergleich.vorjahr);
+  return zeitraumtext({ ganze_monate: false, tag_von: vergleich.von, tag_bis: vergleich.bis });
+}
+
+// Eine Periode der Achse: ein Tag, eine Woche ab Montag oder ein Monat
+// (serving.dashboard.zeitraum). ``kurz`` fuer die Achse, sonst fuer Tooltips.
+export function periodentext(iso, koernung = "monat", kurz = false, mitJahr = true) {
+  const [j, m, t] = iso.split("-").map(Number);
+  if (koernung === "tag") return kurz ? `${t}.${m}.` : datum(iso);
+  if (koernung === "woche") return kurz ? `${t}.${m}.` : `Woche ab ${datum(iso)}`;
+  if (!kurz) return monatsname(iso);
+  return mitJahr ? `${MONATE[m - 1]} ${String(j).slice(2)}` : MONATE[m - 1];
+}
+
+// »Monatliche Fallzahlen«, »Wöchentliche …«, »Tägliche …«.
+export const JE_PERIODE = { tag: "Tägliche", woche: "Wöchentliche", monat: "Monatliche" };
+export const PERIODEN = { tag: "Tage", woche: "Wochen", monat: "Monate" };
+
+// Eine Rate je Jahr aus weniger als einem Jahr ist hochgerechnet - bei einem
+// Tag 365-fach. Die Seite sagt es dann dazu (Entscheid vom 23.11.2026).
+export function hochrechnung(tage) {
+  const wenigste = Math.min(...Object.values(tage || {}).filter((t) => t > 0));
+  if (!Number.isFinite(wenigste) || wenigste >= 365) return "";
+  return wenigste === 1 ? "über 1 Tag hochgerechnet" : `über ${zahl.format(wenigste)} Tage hochgerechnet`;
 }
 
 const ISO_TAG = /^\d{4}-\d{2}-\d{2}$/;
@@ -162,7 +199,7 @@ export function legende(ziel, eintraege) {
 // Luecke, ein Status "teil" ein hohler Punkt. Mit basis wird die Achse um den
 // Bereich der Werte gelegt statt bei null zu beginnen, und die Basis als
 // gestrichelte Linie gezogen.
-export function linie(ziel, monate, reihen, { basis = null, format = zahl.format } = {}) {
+export function linie(ziel, monate, reihen, { basis = null, format = zahl.format, koernung = "monat" } = {}) {
   const b = Math.max(ziel.clientWidth, 320), h = 260, l = 56, r = 36, o = 16, u = 32;
   const alle = reihen.flatMap((s) => s.werte.filter((v) => v !== null));
   if (!alle.length) return leer(ziel, "Keine Daten in dieser Auswahl");
@@ -182,11 +219,17 @@ export function linie(ziel, monate, reihen, { basis = null, format = zahl.format
     svg.append(el("line", { x1: l, x2: b - r, y1: y(v), y2: y(v), class: "achse" }));
     svg.append(el("text", { x: l - 8, y: y(v) + 4, "text-anchor": "end" }, achsenzahl(v)));
   }
+  // Hoechstens zwoelf Beschriftungen; bei 92 Tagen jede achte. Ueber mehrere
+  // Jahre traegt ein Monat sein Jahr, innerhalb eines Jahres ab sieben
+  // Monaten nicht - dort steht es in der Leiste.
+  const schritt = Math.ceil(n / 12);
+  const jahre = new Set(monate.map((m) => m.slice(0, 4))).size;
   monate.forEach((m, i) => {
+    if (i % schritt) return;
     svg.append(el("line", { x1: x(i), x2: x(i), y1: o, y2: h - u, class: "achse" }));
-    // Ab sieben Monaten nur der Monat; das Jahr steht in der Leiste.
-    svg.append(el("text", { x: x(i), y: h - 10, "text-anchor": "middle" },
-      n > 6 ? MONATE[Number(m.split("-")[1]) - 1] : monatsname(m)));
+    const text = koernung !== "monat" || jahre > 1 ? periodentext(m, koernung, true, jahre > 1)
+      : n > 6 ? MONATE[Number(m.split("-")[1]) - 1] : monatsname(m);
+    svg.append(el("text", { x: x(i), y: h - 10, "text-anchor": "middle" }, text));
   });
   if (basis !== null) {
     svg.append(el("line", { x1: l, x2: b - r, y1: y(basis), y2: y(basis), class: "basis" }));
@@ -206,10 +249,14 @@ export function linie(ziel, monate, reihen, { basis = null, format = zahl.format
       if (v === null) return;
       // Ein Teilmonat ist hohl: Sein Wert ist kein Monatswert.
       const teil = s.status && s.status[i] === "teil";
-      const c = el("circle", { cx: x(i), cy: y(v), r: s.gestrichelt ? 3 : 4.5,
-        fill: teil ? "#fff" : s.farbe, stroke: s.farbe, "stroke-width": 2 });
-      c.append(el("title", {}, `${s.name}, ${MONATE[Number(monate[i].split("-")[1]) - 1]}: ${format(v)}`
-        + (teil ? " (Teilmonat)" : "")));
+      // Viele Punkte werden klein, sonst verdecken sie die Linie.
+      const r = n > 40 ? 2.5 : s.gestrichelt ? 3 : 4.5;
+      const c = el("circle", { cx: x(i), cy: y(v), r,
+        fill: teil ? "#fff" : s.farbe, stroke: s.farbe, "stroke-width": n > 40 ? 1.5 : 2 });
+      const name = koernung === "monat" && jahre === 1 ? MONATE[Number(monate[i].split("-")[1]) - 1]
+        : periodentext(monate[i], koernung);
+      c.append(el("title", {}, `${s.name}, ${name}: ${format(v)}`
+        + (teil ? (koernung === "monat" ? " (Teilmonat)" : " (nur zum Teil mit Daten)") : "")));
       svg.append(c);
     });
   }

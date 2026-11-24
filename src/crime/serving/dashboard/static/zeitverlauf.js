@@ -1,6 +1,7 @@
 // Das Brett »Zeitverlauf«.
 import {
-  FARBE, MONATE, achsenzahl, balken, el, komma, legende, linie, starteBrett, zahl, zeitraumtext,
+  FARBE, JE_PERIODE, achsenzahl, balken, el, komma, legende, linie, periodentext, starteBrett, zahl,
+  vorjahrestext, zeitraumtext,
 } from "./gemeinsam.js";
 
 // Tafel »Tag und Nacht«: eine feste Farbe je Gruppe, wie in dashboard.css.
@@ -60,7 +61,9 @@ function verlaufstafel(s, d) {
   h2.textContent = s.name;
   const u = document.createElement("p");
   u.className = "unterzeile";
-  u.textContent = `Monatliche Fallzahlen (${zeitraumtext(d.auswahl, "").trim()})`;
+  const k = d.achse.koernung;
+  u.textContent = `${JE_PERIODE[k]} Fallzahlen (${d.auswahl.ganze_monate
+    ? zeitraumtext(d.auswahl, "").trim() : zeitraumtext(d.auswahl)})`;
   const ziel = document.createElement("div");
   ziel.className = "diagramm";
   const leg = document.createElement("div");
@@ -72,17 +75,17 @@ function verlaufstafel(s, d) {
   if (d.vergleich.vorjahr_vorhanden) {
     reihen.push({ name: String(d.vergleich.vorjahr), farbe: FARBE[s.stadt], werte: s.vorjahr,
       status: s.status_vorjahr, gestrichelt: true });
-    eintraege.push({ name: zeitraumtext(d.auswahl, d.vergleich.vorjahr), klasse: `${s.stadt} punktiert` });
+    eintraege.push({ name: vorjahrestext(d.auswahl, d.vergleich), klasse: `${s.stadt} punktiert` });
   }
-  linie(ziel, s.monate, reihen);
+  linie(ziel, s.monate, reihen, { koernung: k });
   legende(leg, eintraege);
 }
 
 function zeichne(d) {
   const zr = zeitraumtext(d.auswahl);
   document.getElementById("m-vergleich").textContent = d.vergleich.vorjahr_vorhanden
-    ? `${zr} im Vergleich zu ${zeitraumtext(d.auswahl, d.vergleich.vorjahr)}`
-    : `${zr}, kein Vorjahr im Bestand`;
+    ? `${zr} im Vergleich zu ${vorjahrestext(d.auswahl, d.vergleich)}`
+    : d.vergleich.grund ? `${zr}. ${d.vergleich.grund}` : `${zr}, kein Vorjahr im Bestand`;
   document.getElementById("verlaeufe").replaceChildren();
   d.staedte.forEach((s) => verlaufstafel(s, d));
 
@@ -95,13 +98,18 @@ function zeichne(d) {
       + `(${s.heatmap.platzhalter_anteil === null ? "–" : komma.format(s.heatmap.platzhalter_anteil)} %)`)
       .join(", ") + ".";
 
+  const k = d.achse.koernung;
   const basen = [...new Set(d.staedte.map((s) => s.index.basis).filter(Boolean))];
-  const basis = basen.length === 1 ? MONATE[Number(basen[0].split("-")[1]) - 1] : "erster voller Monat";
+  const einJahr = new Set(d.staedte[0].monate.map((m) => m.slice(0, 4))).size === 1;
+  const basis = basen.length !== 1 ? { tag: "erster Tag", woche: "erste volle Woche",
+    monat: "erster voller Monat" }[k]
+    : k === "monat" && einJahr ? periodentext(basen[0], k, true, false) : periodentext(basen[0], k);
   document.getElementById("t-index").textContent = `Entwicklung im Vergleich · ${basis} = 100`;
-  document.getElementById("u-index").textContent = `Index der monatlichen Fallzahlen (${zr})`;
+  document.getElementById("u-index").textContent =
+    `Index der ${JE_PERIODE[k].toLowerCase()}n Fallzahlen (${zr})`;
   linie(document.getElementById("d-index"), d.staedte[0].monate,
     d.staedte.map((s) => ({ name: s.name, farbe: FARBE[s.stadt], werte: s.index.werte, status: s.status })),
-    { basis: 100, format: (v) => komma.format(v) });
+    { basis: 100, format: (v) => komma.format(v), koernung: k });
   legende(document.getElementById("l-index"), [
     ...d.staedte.map((s) => ({ name: s.name, klasse: s.stadt })),
     { name: `Basis (${basis} = 100)`, klasse: "basislinie" },

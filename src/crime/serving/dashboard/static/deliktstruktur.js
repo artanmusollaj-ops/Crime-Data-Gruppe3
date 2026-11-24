@@ -96,11 +96,15 @@ function zeichne(d) {
   const t = document.getElementById("d-tabelle");
   t.replaceChildren();
   tabelle(t, d);
-  const vergleich = d.staedte.map((s) => `${s.name} ${s.vergleichbare_monate} von ${d.monate}`).join(", ");
+  const vergleich = d.staedte.map((s) => `${s.name} ${zahl.format(s.vergleichbare_tage)} von `
+    + `${zahl.format(d.tage)}`).join(", ");
   document.getElementById("u-tabelle").textContent =
     (d.weitere ? `${d.weitere} weitere Kategorien nicht gezeigt. ` : "")
-    + `Zum Vorjahr über die Monate, die in beiden Jahren vollständig vorliegen (${vergleich}); `
-    + `unter ${d.mindestzahl} ${ebene} im Vorjahr bleibt die Veränderung leer.`;
+    + (d.vorjahr_moeglich
+      ? `Zum Vorjahr über die Tage, die in beiden Jahren vorliegen (${vergleich}); `
+        + `unter ${d.mindestzahl} ${ebene} im Vorjahr bleibt die Veränderung leer.`
+      : "Kein Vorjahresvergleich über mehr als ein Jahr Spanne: Das Jahr davor "
+        + "überlappte den Zeitraum selbst.");
 }
 
 starteBrett({ api: "/api/deliktstruktur", zeichne });

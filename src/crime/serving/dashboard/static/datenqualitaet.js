@@ -1,5 +1,5 @@
 // Das Brett »Datenqualität«.
-import { MONATE, el, komma, legende, starteBrett, zahl } from "./gemeinsam.js";
+import { MONATE, PERIODEN, el, komma, legende, periodentext, starteBrett, zahl } from "./gemeinsam.js";
 
 const ZUORDNUNG = {
   exact: { name: "Exakt (eindeutige Zuordnung)", kurz: "Exakt", farbe: "#17a38b" },
@@ -12,16 +12,23 @@ const STATUS = { ok: ["Bestanden", "ok"], warnung: ["Unter der Schwelle", "teil"
 
 const prozent = (v) => (v === null ? "–" : `${komma.format(v)} %`);
 
+// Je Stadt und Periode ein Feld. Ueber viele Perioden - 92 Tage, 104 Wochen,
+// sechs Jahre in Monaten - werden die Felder schmal, und nur jede n-te
+// Spalte traegt eine Beschriftung.
 function monatsraster(ziel, d) {
+  const k = d.achse.koernung, n = d.monate.length, schritt = Math.ceil(n / 12);
+  const jahre = new Set(d.monate.map((m) => m.slice(0, 4))).size;
   const t = document.createElement("table");
-  t.className = "raster-tabelle";
+  t.className = n > 24 ? "raster-tabelle dicht" : "raster-tabelle";
   const kopf = t.createTHead().insertRow();
   kopf.append(Object.assign(document.createElement("th"), { textContent: "Stadt" }));
-  for (const m of d.monate) {
+  d.monate.forEach((m, i) => {
     const [j, mm] = m.split("-");
-    kopf.append(Object.assign(document.createElement("th"), {
-      textContent: d.monate.length > 9 ? MONATE[Number(mm) - 1] : `${MONATE[Number(mm) - 1]} ${j}` }));
-  }
+    const text = i % schritt ? ""
+      : k !== "monat" || jahre > 1 ? periodentext(m, k, true, jahre > 1)
+      : n > 9 ? MONATE[Number(mm) - 1] : `${MONATE[Number(mm) - 1]} ${j}`;
+    kopf.append(Object.assign(document.createElement("th"), { textContent: text }));
+  });
   const rumpf = t.createTBody();
   for (const s of d.staedte) {
     const tr = rumpf.insertRow();
@@ -32,7 +39,7 @@ function monatsraster(ziel, d) {
       const td = tr.insertCell();
       const punkt = document.createElement("i");
       punkt.className = `s-${z}`;
-      punkt.title = `${s.name}, ${d.monate[i].slice(0, 7)}: `
+      punkt.title = `${s.name}, ${k === "monat" ? d.monate[i].slice(0, 7) : periodentext(d.monate[i], k)}: `
         + { voll: "vollständig", teil: "teilweise vorhanden", fehlt: "fehlt",
           spaeter: "noch nicht erschienen" }[z];
       td.append(punkt);
@@ -217,7 +224,12 @@ function pruefungen(ziel, d) {
 
 function zeichne(d) {
   const k = d.kennzahlen;
-  document.getElementById("k-monate").textContent = `${k.vollstaendige_monate} / ${k.monate}`;
+  const kachel = document.getElementById("k-monate");
+  kachel.previousElementSibling.textContent = `Vollständige ${PERIODEN[d.achse.koernung]}`;
+  kachel.textContent = `${k.vollstaendige_monate} / ${k.monate}`;
+  const raster = document.getElementById("d-monate").previousElementSibling;
+  raster.textContent = `${{ tag: "Tages", woche: "Wochen", monat: "Monats" }[d.achse.koernung]}`
+    + "abdeckung nach Stadt";
   document.getElementById("k-unmapped").textContent = prozent(k.ohne_zuordnung);
   const unmapped = d.pruefungen.find((p) => p.aspekt === "Ohne NIBRS-Zuordnung");
   document.getElementById("k-unmapped-text").textContent = `Publish-Gate: ${unmapped.schwelle}`;

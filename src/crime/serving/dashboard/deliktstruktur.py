@@ -18,7 +18,6 @@ Veraenderung leer: Aus 3 gegen 6 wird +100 %, und das sagt nichts.
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Any
 
 #: Wie viele Kategorien die Balken und die Anteile einzeln zeigen.
@@ -32,34 +31,35 @@ MINDESTZAHL = 20
 def deliktstruktur(bestand, a) -> dict[str, Any]:
     from serving.dashboard import STADTNAMEN, UEBRIGE, kategorie_de
 
+    from serving.dashboard.zeitraum import vor_einem_jahr
+
     cur = bestand._cursor()
     staedte = list(a.staedte)
     spalte = a.ebene
-    monate = [date(a.jahr, m, 1) for m in range(a.von, a.bis + 1)]
-    vormonate = [date(a.jahr - 1, m, 1) for m in range(a.von, a.bis + 1)]
+    zaehler = "count(*) FILTER (fall)" if spalte == "faelle" else "count(*)"
+    z = bestand.zeitraum(cur, a, staedte)
     kat = a.kat_sql
     extra = a.kat_param
 
-    def je(ms_je_stadt: dict[str, list[date]]) -> dict[tuple[str, str], int]:
+    def je(bereich_je_stadt: dict[str, tuple | None]) -> dict[tuple[str, str], int]:
         werte: dict[tuple[str, str], int] = {}
-        for s, ms in ms_je_stadt.items():
-            if not ms:
+        for s, bereich in bereich_je_stadt.items():
+            if not bereich:
                 continue
             for k, n in cur.execute(
-                    f"SELECT kategorie, sum({spalte}) FROM monate WHERE stadt = $s "
-                    f"AND monat IN $monate {kat} GROUP BY 1",
-                    {"s": s, "monate": ms, **extra}).fetchall():
+                    f"SELECT kategorie, {zaehler} FROM fakt WHERE stadt = $s "
+                    f"AND tag BETWEEN $a AND $b {kat} GROUP BY 1",
+                    {"s": s, "a": bereich[0], "b": bereich[1], **extra}).fetchall():
                 werte[(s, k)] = int(n)
         return werte
 
-    jetzt = je({s: monate for s in staedte})
-    abd = bestand._abdeckung(cur, staedte, monate)
-    vorabd = bestand._abdeckung(cur, staedte, vormonate)
-    vergleichbar = {s: [i for i in range(len(monate))
-                        if abd[s]["monate"][i] == "voll" and vorabd[s]["monate"][i] == "voll"]
-                    for s in staedte}
-    jetzt_v = je({s: [monate[i] for i in vergleichbar[s]] for s in staedte})
-    vorher_v = je({s: [vormonate[i] for i in vergleichbar[s]] for s in staedte})
+    jetzt = je({s: (z.von, z.bis) for s in staedte})
+    # Zum Vorjahr je Stadt ueber die Tage, die sie in beiden Jahren hat
+    # (serving.dashboard.zeitraum) - nicht ueber die der anderen Stadt.
+    vergleich = {s: z.vergleich([s]) for s in staedte}
+    jetzt_v = je(vergleich)
+    vorher_v = je({s: (vor_einem_jahr(b[0]), vor_einem_jahr(b[1])) if b else None
+                   for s, b in vergleich.items()})
 
     gesamt: dict[str, int] = {}
     for (_, k), n in jetzt.items():
@@ -99,8 +99,11 @@ def deliktstruktur(bestand, a) -> dict[str, Any]:
         } for k in reihenfolge[:IN_DER_TABELLE]],
         "weitere": max(0, len(reihenfolge) - IN_DER_TABELLE),
         "staedte": [{"stadt": s, "name": STADTNAMEN[s], "summe": summe[s],
-                     "vergleichbare_monate": len(vergleichbar[s])} for s in staedte],
-        "monate": len(monate),
+                     "vergleichbare_tage": ((vergleich[s][1] - vergleich[s][0]).days + 1
+                                            if vergleich[s] else 0)} for s in staedte],
+        "achse": z.json(),
+        "tage": a.tage,
+        "vorjahr_moeglich": z.vergleich_moeglich,
         "mindestzahl": MINDESTZAHL,
         "stand": bestand.stand,
     }

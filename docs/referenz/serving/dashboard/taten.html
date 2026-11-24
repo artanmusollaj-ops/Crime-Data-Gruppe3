@@ -53,7 +53,7 @@
                     <h1 class="modulename">
 <a href="./../../serving.html">serving</a><wbr>.<a href="./../dashboard.html">dashboard</a><wbr>.taten    </h1>
 
-                        <div class="docstring"><p>Die Taten im Speicher: eine schlanke Faktentabelle, die Monatssichten darueber.</p>
+                        <div class="docstring"><p>Die Taten im Speicher: eine schlanke Faktentabelle mit ihren Verzeichnissen.</p>
 
 <p>Bis zum 23.11.2026 verdichtete das Dashboard <code>gold/fact_offense</code> beim Laden
 auf sieben Tabellen je Stadt und Monat. Ein Zeitraum war darum immer ein
@@ -78,21 +78,22 @@ darum keinen Text: Stadt, Kategorie, Verortung und Zuordnung sind
 Aufzaehlungstypen, Tract und Quellcode Nummern in je einem Verzeichnis. Eine
 Abfrage ueber sechs Jahre braucht darauf auf einem Kern hoechstens 17 ms.</p>
 
-<p><strong>Die Sichten heissen wie die Tabellen vorher</strong> und liefern dieselben Spalten
-mit denselben Typen. Die Bretter merken also nichts, und
-<code>tests/serving/test_dashboard_taten.py</code> haelt jede Sicht zeilengleich gegen
-die alte Verdichtung. Ein freier Zeitraum ist danach ein <code>WHERE</code> auf
-<code>fakt.tag</code>; das ist der naechste Schritt.</p>
+<p><strong>Die Bretter fragen <code>fakt</code> direkt ab</strong>, seit Stufe 3 (24.11.2026) mit
+einem <code>WHERE</code> auf <code>fakt.tag</code>. Bis dahin lagen ueber <code>fakt</code> sieben
+Monatssichten mit den Namen der alten Tabellen. Sie stehen jetzt nur noch in
+<code>tests/serving/test_dashboard_taten.py</code>: Dort halten sie zeilengleich gegen
+die alte Verdichtung fest, dass <code>fakt</code> alles traegt, was jene trug.</p>
 
 <p>Nicht hier: <code>monate</code> kommt aus <code>serving/comparison_month</code>, und
-<code>doppelte</code> braucht die Delikt-ID, die die Faktentabelle nicht fuehrt.</p>
+<code>doppelte</code> braucht die Delikt-ID, die die Faktentabelle nicht fuehrt.
+Hier steht dafuer <code>fenster</code>, je Stadt der erste und letzte Tag mit Daten.</p>
 </div>
 
                         <input id="mod-taten-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 
                         <label class="view-source-button" for="mod-taten-view-source"><span>View Source</span></label>
 
-                        <div class="pdoc-code codehilite"><pre><span></span><span id="L-1"><a href="#L-1"><span class="linenos">  1</span></a><span class="sd">"""Die Taten im Speicher: eine schlanke Faktentabelle, die Monatssichten darueber.</span>
+                        <div class="pdoc-code codehilite"><pre><span></span><span id="L-1"><a href="#L-1"><span class="linenos">  1</span></a><span class="sd">"""Die Taten im Speicher: eine schlanke Faktentabelle mit ihren Verzeichnissen.</span>
 </span><span id="L-2"><a href="#L-2"><span class="linenos">  2</span></a>
 </span><span id="L-3"><a href="#L-3"><span class="linenos">  3</span></a><span class="sd">Bis zum 23.11.2026 verdichtete das Dashboard ``gold/fact_offense`` beim Laden</span>
 </span><span id="L-4"><a href="#L-4"><span class="linenos">  4</span></a><span class="sd">auf sieben Tabellen je Stadt und Monat. Ein Zeitraum war darum immer ein</span>
@@ -117,78 +118,78 @@ die alte Verdichtung. Ein freier Zeitraum ist danach ein <code>WHERE</code> auf
 </span><span id="L-23"><a href="#L-23"><span class="linenos"> 23</span></a><span class="sd">Aufzaehlungstypen, Tract und Quellcode Nummern in je einem Verzeichnis. Eine</span>
 </span><span id="L-24"><a href="#L-24"><span class="linenos"> 24</span></a><span class="sd">Abfrage ueber sechs Jahre braucht darauf auf einem Kern hoechstens 17 ms.</span>
 </span><span id="L-25"><a href="#L-25"><span class="linenos"> 25</span></a>
-</span><span id="L-26"><a href="#L-26"><span class="linenos"> 26</span></a><span class="sd">**Die Sichten heissen wie die Tabellen vorher** und liefern dieselben Spalten</span>
-</span><span id="L-27"><a href="#L-27"><span class="linenos"> 27</span></a><span class="sd">mit denselben Typen. Die Bretter merken also nichts, und</span>
-</span><span id="L-28"><a href="#L-28"><span class="linenos"> 28</span></a><span class="sd">``tests/serving/test_dashboard_taten.py`` haelt jede Sicht zeilengleich gegen</span>
-</span><span id="L-29"><a href="#L-29"><span class="linenos"> 29</span></a><span class="sd">die alte Verdichtung. Ein freier Zeitraum ist danach ein ``WHERE`` auf</span>
-</span><span id="L-30"><a href="#L-30"><span class="linenos"> 30</span></a><span class="sd">``fakt.tag``; das ist der naechste Schritt.</span>
+</span><span id="L-26"><a href="#L-26"><span class="linenos"> 26</span></a><span class="sd">**Die Bretter fragen ``fakt`` direkt ab**, seit Stufe 3 (24.11.2026) mit</span>
+</span><span id="L-27"><a href="#L-27"><span class="linenos"> 27</span></a><span class="sd">einem ``WHERE`` auf ``fakt.tag``. Bis dahin lagen ueber ``fakt`` sieben</span>
+</span><span id="L-28"><a href="#L-28"><span class="linenos"> 28</span></a><span class="sd">Monatssichten mit den Namen der alten Tabellen. Sie stehen jetzt nur noch in</span>
+</span><span id="L-29"><a href="#L-29"><span class="linenos"> 29</span></a><span class="sd">``tests/serving/test_dashboard_taten.py``: Dort halten sie zeilengleich gegen</span>
+</span><span id="L-30"><a href="#L-30"><span class="linenos"> 30</span></a><span class="sd">die alte Verdichtung fest, dass ``fakt`` alles traegt, was jene trug.</span>
 </span><span id="L-31"><a href="#L-31"><span class="linenos"> 31</span></a>
 </span><span id="L-32"><a href="#L-32"><span class="linenos"> 32</span></a><span class="sd">Nicht hier: ``monate`` kommt aus ``serving/comparison_month``, und</span>
 </span><span id="L-33"><a href="#L-33"><span class="linenos"> 33</span></a><span class="sd">``doppelte`` braucht die Delikt-ID, die die Faktentabelle nicht fuehrt.</span>
-</span><span id="L-34"><a href="#L-34"><span class="linenos"> 34</span></a><span class="sd">"""</span>
-</span><span id="L-35"><a href="#L-35"><span class="linenos"> 35</span></a>
-</span><span id="L-36"><a href="#L-36"><span class="linenos"> 36</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
-</span><span id="L-37"><a href="#L-37"><span class="linenos"> 37</span></a>
-</span><span id="L-38"><a href="#L-38"><span class="linenos"> 38</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
-</span><span id="L-39"><a href="#L-39"><span class="linenos"> 39</span></a>
-</span><span id="L-40"><a href="#L-40"><span class="linenos"> 40</span></a><span class="c1">#: Die Kategorie einer Tat wie in ``build_comparison``: ueber ``dim_offense``,</span>
-</span><span id="L-41"><a href="#L-41"><span class="linenos"> 41</span></a><span class="c1">#: ohne NIBRS-Code ``unmapped``. Erwartet die Aliase ``f`` und ``d``.</span>
-</span><span id="L-42"><a href="#L-42"><span class="linenos"> 42</span></a><span class="n">KATEGORIE_SQL</span> <span class="o">=</span> <span class="s2">"CASE WHEN f.nibrs_code IS NULL THEN 'unmapped' ELSE d.nibrs_category END"</span>
-</span><span id="L-43"><a href="#L-43"><span class="linenos"> 43</span></a>
+</span><span id="L-34"><a href="#L-34"><span class="linenos"> 34</span></a><span class="sd">Hier steht dafuer ``fenster``, je Stadt der erste und letzte Tag mit Daten.</span>
+</span><span id="L-35"><a href="#L-35"><span class="linenos"> 35</span></a><span class="sd">"""</span>
+</span><span id="L-36"><a href="#L-36"><span class="linenos"> 36</span></a>
+</span><span id="L-37"><a href="#L-37"><span class="linenos"> 37</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span id="L-38"><a href="#L-38"><span class="linenos"> 38</span></a>
+</span><span id="L-39"><a href="#L-39"><span class="linenos"> 39</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+</span><span id="L-40"><a href="#L-40"><span class="linenos"> 40</span></a>
+</span><span id="L-41"><a href="#L-41"><span class="linenos"> 41</span></a><span class="c1">#: Die Kategorie einer Tat wie in ``build_comparison``: ueber ``dim_offense``,</span>
+</span><span id="L-42"><a href="#L-42"><span class="linenos"> 42</span></a><span class="c1">#: ohne NIBRS-Code ``unmapped``. Erwartet die Aliase ``f`` und ``d``.</span>
+</span><span id="L-43"><a href="#L-43"><span class="linenos"> 43</span></a><span class="n">KATEGORIE_SQL</span> <span class="o">=</span> <span class="s2">"CASE WHEN f.nibrs_code IS NULL THEN 'unmapped' ELSE d.nibrs_category END"</span>
 </span><span id="L-44"><a href="#L-44"><span class="linenos"> 44</span></a>
-</span><span id="L-45"><a href="#L-45"><span class="linenos"> 45</span></a><span class="k">def</span><span class="w"> </span><span class="nf">_aufzaehlung</span><span class="p">(</span><span class="n">con</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">abfrage</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="L-46"><a href="#L-46"><span class="linenos"> 46</span></a><span class="w">    </span><span class="sd">"""Legt einen ENUM-Typ aus den Werten der Abfrage an und gibt den Typnamen.</span>
-</span><span id="L-47"><a href="#L-47"><span class="linenos"> 47</span></a>
-</span><span id="L-48"><a href="#L-48"><span class="linenos"> 48</span></a><span class="sd">    Ohne Werte - ein leerer Bestand - bleibt es ``VARCHAR``: DuckDB nimmt</span>
-</span><span id="L-49"><a href="#L-49"><span class="linenos"> 49</span></a><span class="sd">    keinen ENUM ohne Wert.</span>
-</span><span id="L-50"><a href="#L-50"><span class="linenos"> 50</span></a><span class="sd">    """</span>
-</span><span id="L-51"><a href="#L-51"><span class="linenos"> 51</span></a>    <span class="n">werte</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">({</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">abfrage</span><span class="p">)</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span> <span class="k">if</span> <span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">})</span>
-</span><span id="L-52"><a href="#L-52"><span class="linenos"> 52</span></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">werte</span><span class="p">:</span>
-</span><span id="L-53"><a href="#L-53"><span class="linenos"> 53</span></a>        <span class="k">return</span> <span class="s2">"VARCHAR"</span>
-</span><span id="L-54"><a href="#L-54"><span class="linenos"> 54</span></a>    <span class="n">liste</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">"'"</span> <span class="o">+</span> <span class="n">w</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"'"</span><span class="p">,</span> <span class="s2">"''"</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"'"</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">werte</span><span class="p">)</span>
-</span><span id="L-55"><a href="#L-55"><span class="linenos"> 55</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CREATE TYPE </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> AS ENUM (</span><span class="si">{</span><span class="n">liste</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
-</span><span id="L-56"><a href="#L-56"><span class="linenos"> 56</span></a>    <span class="k">return</span> <span class="n">name</span>
-</span><span id="L-57"><a href="#L-57"><span class="linenos"> 57</span></a>
+</span><span id="L-45"><a href="#L-45"><span class="linenos"> 45</span></a>
+</span><span id="L-46"><a href="#L-46"><span class="linenos"> 46</span></a><span class="k">def</span><span class="w"> </span><span class="nf">_aufzaehlung</span><span class="p">(</span><span class="n">con</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">abfrage</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="L-47"><a href="#L-47"><span class="linenos"> 47</span></a><span class="w">    </span><span class="sd">"""Legt einen ENUM-Typ aus den Werten der Abfrage an und gibt den Typnamen.</span>
+</span><span id="L-48"><a href="#L-48"><span class="linenos"> 48</span></a>
+</span><span id="L-49"><a href="#L-49"><span class="linenos"> 49</span></a><span class="sd">    Ohne Werte - ein leerer Bestand - bleibt es ``VARCHAR``: DuckDB nimmt</span>
+</span><span id="L-50"><a href="#L-50"><span class="linenos"> 50</span></a><span class="sd">    keinen ENUM ohne Wert.</span>
+</span><span id="L-51"><a href="#L-51"><span class="linenos"> 51</span></a><span class="sd">    """</span>
+</span><span id="L-52"><a href="#L-52"><span class="linenos"> 52</span></a>    <span class="n">werte</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">({</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">abfrage</span><span class="p">)</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span> <span class="k">if</span> <span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">})</span>
+</span><span id="L-53"><a href="#L-53"><span class="linenos"> 53</span></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">werte</span><span class="p">:</span>
+</span><span id="L-54"><a href="#L-54"><span class="linenos"> 54</span></a>        <span class="k">return</span> <span class="s2">"VARCHAR"</span>
+</span><span id="L-55"><a href="#L-55"><span class="linenos"> 55</span></a>    <span class="n">liste</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">"'"</span> <span class="o">+</span> <span class="n">w</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"'"</span><span class="p">,</span> <span class="s2">"''"</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"'"</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">werte</span><span class="p">)</span>
+</span><span id="L-56"><a href="#L-56"><span class="linenos"> 56</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CREATE TYPE </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> AS ENUM (</span><span class="si">{</span><span class="n">liste</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+</span><span id="L-57"><a href="#L-57"><span class="linenos"> 57</span></a>    <span class="k">return</span> <span class="n">name</span>
 </span><span id="L-58"><a href="#L-58"><span class="linenos"> 58</span></a>
-</span><span id="L-59"><a href="#L-59"><span class="linenos"> 59</span></a><span class="k">def</span><span class="w"> </span><span class="nf">lade_taten</span><span class="p">(</span><span class="n">con</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">fakten</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">delikte</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tracts</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="L-60"><a href="#L-60"><span class="linenos"> 60</span></a><span class="w">    </span><span class="sd">"""Legt ``fakt`` mit seinen Verzeichnissen an und die Monatssichten darueber."""</span>
-</span><span id="L-61"><a href="#L-61"><span class="linenos"> 61</span></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">serving.dashboard</span><span class="w"> </span><span class="kn">import</span> <span class="n">PLATZHALTER_SQL</span>
-</span><span id="L-62"><a href="#L-62"><span class="linenos"> 62</span></a>
-</span><span id="L-63"><a href="#L-63"><span class="linenos"> 63</span></a>    <span class="n">F</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"read_parquet('</span><span class="si">{</span><span class="n">fakten</span><span class="si">}</span><span class="s2">', hive_partitioning=false)"</span>
-</span><span id="L-64"><a href="#L-64"><span class="linenos"> 64</span></a>    <span class="n">D</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"read_parquet('</span><span class="si">{</span><span class="n">delikte</span><span class="si">}</span><span class="s2">', hive_partitioning=false)"</span>
-</span><span id="L-65"><a href="#L-65"><span class="linenos"> 65</span></a>    <span class="n">T</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"read_parquet('</span><span class="si">{</span><span class="n">tracts</span><span class="si">}</span><span class="s2">', hive_partitioning=false)"</span>
-</span><span id="L-66"><a href="#L-66"><span class="linenos"> 66</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
-</span><span id="L-67"><a href="#L-67"><span class="linenos"> 67</span></a><span class="s2">        CREATE TABLE delikt AS</span>
-</span><span id="L-68"><a href="#L-68"><span class="linenos"> 68</span></a><span class="s2">        SELECT nibrs_code, nibrs_category, nibrs_description FROM </span><span class="si">{</span><span class="n">D</span><span class="si">}</span><span class="s2">"""</span><span class="p">)</span>
-</span><span id="L-69"><a href="#L-69"><span class="linenos"> 69</span></a>    <span class="n">stadt</span> <span class="o">=</span> <span class="n">_aufzaehlung</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="s2">"stadt_t"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"SELECT DISTINCT reporting_city FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="L-70"><a href="#L-70"><span class="linenos"> 70</span></a>    <span class="n">kategorie</span> <span class="o">=</span> <span class="n">_aufzaehlung</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="s2">"kategorie_t"</span><span class="p">,</span> <span class="s2">"""</span>
-</span><span id="L-71"><a href="#L-71"><span class="linenos"> 71</span></a><span class="s2">        SELECT nibrs_category FROM delikt UNION SELECT 'unmapped'"""</span><span class="p">)</span>
-</span><span id="L-72"><a href="#L-72"><span class="linenos"> 72</span></a>    <span class="n">verortung</span> <span class="o">=</span> <span class="n">_aufzaehlung</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="s2">"verortung_t"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"SELECT DISTINCT geo_status FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="L-73"><a href="#L-73"><span class="linenos"> 73</span></a>    <span class="n">zuordnung</span> <span class="o">=</span> <span class="n">_aufzaehlung</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="s2">"zuordnung_t"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"SELECT DISTINCT mapping_status FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="L-74"><a href="#L-74"><span class="linenos"> 74</span></a>    <span class="c1"># Die Stadt eines Tracts kommt aus dim_tract, wie in</span>
-</span><span id="L-75"><a href="#L-75"><span class="linenos"> 75</span></a>    <span class="c1"># gold_pipeline.raten_je_stadt; ein Tract ohne Eintrag dort hat keine.</span>
-</span><span id="L-76"><a href="#L-76"><span class="linenos"> 76</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
-</span><span id="L-77"><a href="#L-77"><span class="linenos"> 77</span></a><span class="s2">        CREATE TABLE tract_nr AS</span>
-</span><span id="L-78"><a href="#L-78"><span class="linenos"> 78</span></a><span class="s2">        SELECT row_number() OVER (ORDER BY g.geoid)::INTEGER AS nr, g.geoid, t.city</span>
-</span><span id="L-79"><a href="#L-79"><span class="linenos"> 79</span></a><span class="s2">        FROM (SELECT DISTINCT tract_geoid AS geoid FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span>
-</span><span id="L-80"><a href="#L-80"><span class="linenos"> 80</span></a><span class="s2">              WHERE tract_geoid IS NOT NULL) g</span>
-</span><span id="L-81"><a href="#L-81"><span class="linenos"> 81</span></a><span class="s2">        LEFT JOIN </span><span class="si">{</span><span class="n">T</span><span class="si">}</span><span class="s2"> t USING (geoid)"""</span><span class="p">)</span>
-</span><span id="L-82"><a href="#L-82"><span class="linenos"> 82</span></a>    <span class="c1"># Je Stadt, Quellcode, Quelltext, NIBRS-Code und Zuordnung eine Nummer:</span>
-</span><span id="L-83"><a href="#L-83"><span class="linenos"> 83</span></a>    <span class="c1"># rund 520 Eintraege fuer die Tafel »NIBRS-Zuordnung im Detail«.</span>
-</span><span id="L-84"><a href="#L-84"><span class="linenos"> 84</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
-</span><span id="L-85"><a href="#L-85"><span class="linenos"> 85</span></a><span class="s2">        CREATE TABLE quelle AS</span>
-</span><span id="L-86"><a href="#L-86"><span class="linenos"> 86</span></a><span class="s2">        SELECT row_number() OVER (ORDER BY stadt, quellcode, quelltext, nibrs_code, status)::INTEGER AS nr, *</span>
-</span><span id="L-87"><a href="#L-87"><span class="linenos"> 87</span></a><span class="s2">        FROM (SELECT DISTINCT reporting_city AS stadt,</span>
-</span><span id="L-88"><a href="#L-88"><span class="linenos"> 88</span></a><span class="s2">                     source_offense_code AS quellcode,</span>
-</span><span id="L-89"><a href="#L-89"><span class="linenos"> 89</span></a><span class="s2">                     source_offense_description AS quelltext,</span>
-</span><span id="L-90"><a href="#L-90"><span class="linenos"> 90</span></a><span class="s2">                     nibrs_code, mapping_status AS status FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span><span class="s2">)"""</span><span class="p">)</span>
-</span><span id="L-91"><a href="#L-91"><span class="linenos"> 91</span></a>    <span class="c1"># Nach Stadt und Tag sortiert: Ein Zeitraum liest dann zusammenhaengende</span>
-</span><span id="L-92"><a href="#L-92"><span class="linenos"> 92</span></a>    <span class="c1"># Bloecke.</span>
-</span><span id="L-93"><a href="#L-93"><span class="linenos"> 93</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
-</span><span id="L-94"><a href="#L-94"><span class="linenos"> 94</span></a><span class="s2">        CREATE TABLE fakt AS</span>
-</span><span id="L-95"><a href="#L-95"><span class="linenos"> 95</span></a><span class="s2">        SELECT f.reporting_city::</span><span class="si">{</span><span class="n">stadt</span><span class="si">}</span><span class="s2"> AS stadt,</span>
-</span><span id="L-96"><a href="#L-96"><span class="linenos"> 96</span></a><span class="s2">               f.date AS tag,</span>
-</span><span id="L-97"><a href="#L-97"><span class="linenos"> 97</span></a><span class="s2">               date_trunc('month', f.date)::DATE AS monat,</span>
+</span><span id="L-59"><a href="#L-59"><span class="linenos"> 59</span></a>
+</span><span id="L-60"><a href="#L-60"><span class="linenos"> 60</span></a><span class="k">def</span><span class="w"> </span><span class="nf">lade_taten</span><span class="p">(</span><span class="n">con</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">fakten</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">delikte</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tracts</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="L-61"><a href="#L-61"><span class="linenos"> 61</span></a><span class="w">    </span><span class="sd">"""Legt ``fakt`` mit seinen Verzeichnissen an, dazu ``fenster``."""</span>
+</span><span id="L-62"><a href="#L-62"><span class="linenos"> 62</span></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">serving.dashboard</span><span class="w"> </span><span class="kn">import</span> <span class="n">PLATZHALTER_SQL</span>
+</span><span id="L-63"><a href="#L-63"><span class="linenos"> 63</span></a>
+</span><span id="L-64"><a href="#L-64"><span class="linenos"> 64</span></a>    <span class="n">F</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"read_parquet('</span><span class="si">{</span><span class="n">fakten</span><span class="si">}</span><span class="s2">', hive_partitioning=false)"</span>
+</span><span id="L-65"><a href="#L-65"><span class="linenos"> 65</span></a>    <span class="n">D</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"read_parquet('</span><span class="si">{</span><span class="n">delikte</span><span class="si">}</span><span class="s2">', hive_partitioning=false)"</span>
+</span><span id="L-66"><a href="#L-66"><span class="linenos"> 66</span></a>    <span class="n">T</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"read_parquet('</span><span class="si">{</span><span class="n">tracts</span><span class="si">}</span><span class="s2">', hive_partitioning=false)"</span>
+</span><span id="L-67"><a href="#L-67"><span class="linenos"> 67</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+</span><span id="L-68"><a href="#L-68"><span class="linenos"> 68</span></a><span class="s2">        CREATE TABLE delikt AS</span>
+</span><span id="L-69"><a href="#L-69"><span class="linenos"> 69</span></a><span class="s2">        SELECT nibrs_code, nibrs_category, nibrs_description FROM </span><span class="si">{</span><span class="n">D</span><span class="si">}</span><span class="s2">"""</span><span class="p">)</span>
+</span><span id="L-70"><a href="#L-70"><span class="linenos"> 70</span></a>    <span class="n">stadt</span> <span class="o">=</span> <span class="n">_aufzaehlung</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="s2">"stadt_t"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"SELECT DISTINCT reporting_city FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="L-71"><a href="#L-71"><span class="linenos"> 71</span></a>    <span class="n">kategorie</span> <span class="o">=</span> <span class="n">_aufzaehlung</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="s2">"kategorie_t"</span><span class="p">,</span> <span class="s2">"""</span>
+</span><span id="L-72"><a href="#L-72"><span class="linenos"> 72</span></a><span class="s2">        SELECT nibrs_category FROM delikt UNION SELECT 'unmapped'"""</span><span class="p">)</span>
+</span><span id="L-73"><a href="#L-73"><span class="linenos"> 73</span></a>    <span class="n">verortung</span> <span class="o">=</span> <span class="n">_aufzaehlung</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="s2">"verortung_t"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"SELECT DISTINCT geo_status FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="L-74"><a href="#L-74"><span class="linenos"> 74</span></a>    <span class="n">zuordnung</span> <span class="o">=</span> <span class="n">_aufzaehlung</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="s2">"zuordnung_t"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"SELECT DISTINCT mapping_status FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="L-75"><a href="#L-75"><span class="linenos"> 75</span></a>    <span class="c1"># Die Stadt eines Tracts kommt aus dim_tract, wie in</span>
+</span><span id="L-76"><a href="#L-76"><span class="linenos"> 76</span></a>    <span class="c1"># gold_pipeline.raten_je_stadt; ein Tract ohne Eintrag dort hat keine.</span>
+</span><span id="L-77"><a href="#L-77"><span class="linenos"> 77</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+</span><span id="L-78"><a href="#L-78"><span class="linenos"> 78</span></a><span class="s2">        CREATE TABLE tract_nr AS</span>
+</span><span id="L-79"><a href="#L-79"><span class="linenos"> 79</span></a><span class="s2">        SELECT row_number() OVER (ORDER BY g.geoid)::INTEGER AS nr, g.geoid, t.city</span>
+</span><span id="L-80"><a href="#L-80"><span class="linenos"> 80</span></a><span class="s2">        FROM (SELECT DISTINCT tract_geoid AS geoid FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span>
+</span><span id="L-81"><a href="#L-81"><span class="linenos"> 81</span></a><span class="s2">              WHERE tract_geoid IS NOT NULL) g</span>
+</span><span id="L-82"><a href="#L-82"><span class="linenos"> 82</span></a><span class="s2">        LEFT JOIN </span><span class="si">{</span><span class="n">T</span><span class="si">}</span><span class="s2"> t USING (geoid)"""</span><span class="p">)</span>
+</span><span id="L-83"><a href="#L-83"><span class="linenos"> 83</span></a>    <span class="c1"># Je Stadt, Quellcode, Quelltext, NIBRS-Code und Zuordnung eine Nummer:</span>
+</span><span id="L-84"><a href="#L-84"><span class="linenos"> 84</span></a>    <span class="c1"># rund 520 Eintraege fuer die Tafel »NIBRS-Zuordnung im Detail«.</span>
+</span><span id="L-85"><a href="#L-85"><span class="linenos"> 85</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+</span><span id="L-86"><a href="#L-86"><span class="linenos"> 86</span></a><span class="s2">        CREATE TABLE quelle AS</span>
+</span><span id="L-87"><a href="#L-87"><span class="linenos"> 87</span></a><span class="s2">        SELECT row_number() OVER (ORDER BY stadt, quellcode, quelltext, nibrs_code, status)::INTEGER AS nr, *</span>
+</span><span id="L-88"><a href="#L-88"><span class="linenos"> 88</span></a><span class="s2">        FROM (SELECT DISTINCT reporting_city AS stadt,</span>
+</span><span id="L-89"><a href="#L-89"><span class="linenos"> 89</span></a><span class="s2">                     source_offense_code AS quellcode,</span>
+</span><span id="L-90"><a href="#L-90"><span class="linenos"> 90</span></a><span class="s2">                     source_offense_description AS quelltext,</span>
+</span><span id="L-91"><a href="#L-91"><span class="linenos"> 91</span></a><span class="s2">                     nibrs_code, mapping_status AS status FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span><span class="s2">)"""</span><span class="p">)</span>
+</span><span id="L-92"><a href="#L-92"><span class="linenos"> 92</span></a>    <span class="c1"># Nach Stadt und Tag sortiert: Ein Zeitraum liest dann zusammenhaengende</span>
+</span><span id="L-93"><a href="#L-93"><span class="linenos"> 93</span></a>    <span class="c1"># Bloecke.</span>
+</span><span id="L-94"><a href="#L-94"><span class="linenos"> 94</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+</span><span id="L-95"><a href="#L-95"><span class="linenos"> 95</span></a><span class="s2">        CREATE TABLE fakt AS</span>
+</span><span id="L-96"><a href="#L-96"><span class="linenos"> 96</span></a><span class="s2">        SELECT f.reporting_city::</span><span class="si">{</span><span class="n">stadt</span><span class="si">}</span><span class="s2"> AS stadt,</span>
+</span><span id="L-97"><a href="#L-97"><span class="linenos"> 97</span></a><span class="s2">               f.date AS tag,</span>
 </span><span id="L-98"><a href="#L-98"><span class="linenos"> 98</span></a><span class="s2">               n.nr AS tract,</span>
 </span><span id="L-99"><a href="#L-99"><span class="linenos"> 99</span></a><span class="s2">               (</span><span class="si">{</span><span class="n">KATEGORIE_SQL</span><span class="si">}</span><span class="s2">)::</span><span class="si">{</span><span class="n">kategorie</span><span class="si">}</span><span class="s2"> AS kategorie,</span>
 </span><span id="L-100"><a href="#L-100"><span class="linenos">100</span></a><span class="s2">               f.population_vintage AS vintage,</span>
@@ -209,88 +210,20 @@ die alte Verdichtung. Ein freier Zeitraum ist danach ein <code>WHERE</code> auf
 </span><span id="L-115"><a href="#L-115"><span class="linenos">115</span></a><span class="s2">         AND q.nibrs_code IS NOT DISTINCT FROM f.nibrs_code</span>
 </span><span id="L-116"><a href="#L-116"><span class="linenos">116</span></a><span class="s2">         AND q.status IS NOT DISTINCT FROM f.mapping_status</span>
 </span><span id="L-117"><a href="#L-117"><span class="linenos">117</span></a><span class="s2">        ORDER BY 1, 2"""</span><span class="p">)</span>
-</span><span id="L-118"><a href="#L-118"><span class="linenos">118</span></a>    <span class="n">_monatssichten</span><span class="p">(</span><span class="n">con</span><span class="p">)</span>
+</span><span id="L-118"><a href="#L-118"><span class="linenos">118</span></a>    <span class="n">_fenster</span><span class="p">(</span><span class="n">con</span><span class="p">)</span>
 </span><span id="L-119"><a href="#L-119"><span class="linenos">119</span></a>
 </span><span id="L-120"><a href="#L-120"><span class="linenos">120</span></a>
-</span><span id="L-121"><a href="#L-121"><span class="linenos">121</span></a><span class="k">def</span><span class="w"> </span><span class="nf">_monatssichten</span><span class="p">(</span><span class="n">con</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="L-122"><a href="#L-122"><span class="linenos">122</span></a><span class="w">    </span><span class="sd">"""Die sieben Verdichtungen von bis zum 23.11.2026, als Sichten auf ``fakt``."""</span>
-</span><span id="L-123"><a href="#L-123"><span class="linenos">123</span></a>    <span class="c1"># Eine gespeicherte Spalte, kein Ausdruck: Die Bretter filtern auf</span>
-</span><span id="L-124"><a href="#L-124"><span class="linenos">124</span></a>    <span class="c1"># ``monat``, und nur auf einer Spalte zieht DuckDB den Filter vor die</span>
-</span><span id="L-125"><a href="#L-125"><span class="linenos">125</span></a>    <span class="c1"># Verdichtung. Mit dem Ausdruck rechnete jede Anfrage alle Jahre.</span>
-</span><span id="L-126"><a href="#L-126"><span class="linenos">126</span></a>    <span class="n">monat</span> <span class="o">=</span> <span class="s2">"f.monat"</span>
-</span><span id="L-127"><a href="#L-127"><span class="linenos">127</span></a>    <span class="c1"># Die Regel von gold_pipeline.raten_je_stadt: nur Taten in einem Tract</span>
-</span><span id="L-128"><a href="#L-128"><span class="linenos">128</span></a>    <span class="c1"># mit Stadtzuordnung, das Vintage je Tat. Beide Ebenen: Faelle fuer die</span>
-</span><span id="L-129"><a href="#L-129"><span class="linenos">129</span></a>    <span class="c1"># Rate vorn (E5), Delikte fuer die Tatebene daneben und fuer die</span>
-</span><span id="L-130"><a href="#L-130"><span class="linenos">130</span></a>    <span class="c1"># Kategorien, die sich nur dort addieren.</span>
-</span><span id="L-131"><a href="#L-131"><span class="linenos">131</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
-</span><span id="L-132"><a href="#L-132"><span class="linenos">132</span></a><span class="s2">        CREATE VIEW raten AS</span>
-</span><span id="L-133"><a href="#L-133"><span class="linenos">133</span></a><span class="s2">        SELECT n.city AS stadt, </span><span class="si">{</span><span class="n">monat</span><span class="si">}</span><span class="s2"> AS monat, f.kategorie AS kategorie,</span>
-</span><span id="L-134"><a href="#L-134"><span class="linenos">134</span></a><span class="s2">               f.vintage, count(*) FILTER (f.fall) AS faelle, count(*) AS delikte</span>
-</span><span id="L-135"><a href="#L-135"><span class="linenos">135</span></a><span class="s2">        FROM fakt f JOIN tract_nr n ON n.nr = f.tract</span>
-</span><span id="L-136"><a href="#L-136"><span class="linenos">136</span></a><span class="s2">        WHERE n.city IS NOT NULL</span>
-</span><span id="L-137"><a href="#L-137"><span class="linenos">137</span></a><span class="s2">        GROUP BY ALL"""</span><span class="p">)</span>
-</span><span id="L-138"><a href="#L-138"><span class="linenos">138</span></a>    <span class="c1"># Das Fenster je Stadt, selbst gerechnet. comparison_month tut es seit</span>
-</span><span id="L-139"><a href="#L-139"><span class="linenos">139</span></a>    <span class="c1"># Vertrag 3 auch (C-10, 1.11.2026), aber das Dashboard liest das aktive</span>
-</span><span id="L-140"><a href="#L-140"><span class="linenos">140</span></a>    <span class="c1"># Release - und ein Release mit Vertrag 2 rechnet noch am gemeinsamen</span>
-</span><span id="L-141"><a href="#L-141"><span class="linenos">141</span></a>    <span class="c1"># Fenster beider Staedte. Eine Tabelle, keine Sicht: Sie haengt an keiner</span>
-</span><span id="L-142"><a href="#L-142"><span class="linenos">142</span></a>    <span class="c1"># Auswahl, und als Sicht lief jede Anfrage einmal ueber alle Taten.</span>
-</span><span id="L-143"><a href="#L-143"><span class="linenos">143</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"""</span>
-</span><span id="L-144"><a href="#L-144"><span class="linenos">144</span></a><span class="s2">        CREATE TABLE fenster AS</span>
-</span><span id="L-145"><a href="#L-145"><span class="linenos">145</span></a><span class="s2">        SELECT stadt AS stadt, min(tag) AS von, max(tag) AS bis</span>
-</span><span id="L-146"><a href="#L-146"><span class="linenos">146</span></a><span class="s2">        FROM fakt GROUP BY 1"""</span><span class="p">)</span>
-</span><span id="L-147"><a href="#L-147"><span class="linenos">147</span></a>    <span class="c1"># Fuer »Zeitverlauf«: Faelle je Wochentag und lokaler Stunde. Genau 00:00</span>
-</span><span id="L-148"><a href="#L-148"><span class="linenos">148</span></a>    <span class="c1"># und 12:00 sind Platzhalter fuer eine unbekannte Tatzeit; sie werden</span>
-</span><span id="L-149"><a href="#L-149"><span class="linenos">149</span></a>    <span class="c1"># mitgezaehlt, aber markiert.</span>
-</span><span id="L-150"><a href="#L-150"><span class="linenos">150</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
-</span><span id="L-151"><a href="#L-151"><span class="linenos">151</span></a><span class="s2">        CREATE VIEW stunden AS</span>
-</span><span id="L-152"><a href="#L-152"><span class="linenos">152</span></a><span class="s2">        SELECT f.stadt AS stadt, </span><span class="si">{</span><span class="n">monat</span><span class="si">}</span><span class="s2"> AS monat, isodow(f.tag) AS wochentag,</span>
-</span><span id="L-153"><a href="#L-153"><span class="linenos">153</span></a><span class="s2">               f.stunde, f.kategorie AS kategorie, f.platzhalter,</span>
-</span><span id="L-154"><a href="#L-154"><span class="linenos">154</span></a><span class="s2">               count(*) FILTER (f.fall) AS faelle</span>
-</span><span id="L-155"><a href="#L-155"><span class="linenos">155</span></a><span class="s2">        FROM fakt f GROUP BY ALL"""</span><span class="p">)</span>
-</span><span id="L-156"><a href="#L-156"><span class="linenos">156</span></a>    <span class="c1"># Der Nenner der Heatmap: wie viele Montage, Dienstage ... ein Monat je</span>
-</span><span id="L-157"><a href="#L-157"><span class="linenos">157</span></a>    <span class="c1"># Stadt mit Daten hat.</span>
-</span><span id="L-158"><a href="#L-158"><span class="linenos">158</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
-</span><span id="L-159"><a href="#L-159"><span class="linenos">159</span></a><span class="s2">        CREATE VIEW tage AS</span>
-</span><span id="L-160"><a href="#L-160"><span class="linenos">160</span></a><span class="s2">        SELECT f.stadt AS stadt, </span><span class="si">{</span><span class="n">monat</span><span class="si">}</span><span class="s2"> AS monat, isodow(f.tag) AS wochentag,</span>
-</span><span id="L-161"><a href="#L-161"><span class="linenos">161</span></a><span class="s2">               count(DISTINCT f.tag) AS n</span>
-</span><span id="L-162"><a href="#L-162"><span class="linenos">162</span></a><span class="s2">        FROM fakt f GROUP BY ALL"""</span><span class="p">)</span>
-</span><span id="L-163"><a href="#L-163"><span class="linenos">163</span></a>    <span class="c1"># Fuer »Geografie«: Faelle je Tract und Monat nach der Regel von</span>
-</span><span id="L-164"><a href="#L-164"><span class="linenos">164</span></a>    <span class="c1"># gold_pipeline.raten_je_tract.</span>
-</span><span id="L-165"><a href="#L-165"><span class="linenos">165</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
-</span><span id="L-166"><a href="#L-166"><span class="linenos">166</span></a><span class="s2">        CREATE VIEW tract_monat AS</span>
-</span><span id="L-167"><a href="#L-167"><span class="linenos">167</span></a><span class="s2">        SELECT f.stadt AS stadt, n.geoid, </span><span class="si">{</span><span class="n">monat</span><span class="si">}</span><span class="s2"> AS monat,</span>
-</span><span id="L-168"><a href="#L-168"><span class="linenos">168</span></a><span class="s2">               f.kategorie AS kategorie, f.vintage,</span>
-</span><span id="L-169"><a href="#L-169"><span class="linenos">169</span></a><span class="s2">               count(*) FILTER (f.fall) AS faelle, count(*) AS delikte</span>
-</span><span id="L-170"><a href="#L-170"><span class="linenos">170</span></a><span class="s2">        FROM fakt f LEFT JOIN tract_nr n ON n.nr = f.tract</span>
-</span><span id="L-171"><a href="#L-171"><span class="linenos">171</span></a><span class="s2">        WHERE f.geo_status = 'inside_city'</span>
-</span><span id="L-172"><a href="#L-172"><span class="linenos">172</span></a><span class="s2">        GROUP BY ALL"""</span><span class="p">)</span>
-</span><span id="L-173"><a href="#L-173"><span class="linenos">173</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
-</span><span id="L-174"><a href="#L-174"><span class="linenos">174</span></a><span class="s2">        CREATE VIEW verortung AS</span>
-</span><span id="L-175"><a href="#L-175"><span class="linenos">175</span></a><span class="s2">        SELECT f.stadt AS stadt, </span><span class="si">{</span><span class="n">monat</span><span class="si">}</span><span class="s2"> AS monat,</span>
-</span><span id="L-176"><a href="#L-176"><span class="linenos">176</span></a><span class="s2">               f.kategorie AS kategorie, f.geo_status AS geo_status,</span>
-</span><span id="L-177"><a href="#L-177"><span class="linenos">177</span></a><span class="s2">               count(*) FILTER (f.fall) AS faelle</span>
-</span><span id="L-178"><a href="#L-178"><span class="linenos">178</span></a><span class="s2">        FROM fakt f GROUP BY ALL"""</span><span class="p">)</span>
-</span><span id="L-179"><a href="#L-179"><span class="linenos">179</span></a>    <span class="c1"># Fuer »Datenqualität«: Taten je Zuordnung, Verortung und Ortszeit.</span>
-</span><span id="L-180"><a href="#L-180"><span class="linenos">180</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
-</span><span id="L-181"><a href="#L-181"><span class="linenos">181</span></a><span class="s2">        CREATE VIEW qualitaet AS</span>
-</span><span id="L-182"><a href="#L-182"><span class="linenos">182</span></a><span class="s2">        SELECT f.stadt AS stadt, </span><span class="si">{</span><span class="n">monat</span><span class="si">}</span><span class="s2"> AS monat,</span>
-</span><span id="L-183"><a href="#L-183"><span class="linenos">183</span></a><span class="s2">               f.kategorie AS kategorie,</span>
-</span><span id="L-184"><a href="#L-184"><span class="linenos">184</span></a><span class="s2">               f.mapping_status AS mapping_status,</span>
-</span><span id="L-185"><a href="#L-185"><span class="linenos">185</span></a><span class="s2">               f.geo_status AS geo_status, f.ortszeit_mehrdeutig,</span>
-</span><span id="L-186"><a href="#L-186"><span class="linenos">186</span></a><span class="s2">               count(*) AS delikte</span>
-</span><span id="L-187"><a href="#L-187"><span class="linenos">187</span></a><span class="s2">        FROM fakt f GROUP BY ALL"""</span><span class="p">)</span>
-</span><span id="L-188"><a href="#L-188"><span class="linenos">188</span></a>    <span class="c1"># Fuer »Datenqualität«, Tafel »NIBRS-Zuordnung im Detail«: je Quellcode,</span>
-</span><span id="L-189"><a href="#L-189"><span class="linenos">189</span></a>    <span class="c1"># wohin er in NIBRS faellt, je Monat, damit Zeitraum und Kategorie der</span>
-</span><span id="L-190"><a href="#L-190"><span class="linenos">190</span></a>    <span class="c1"># Leiste greifen. Gezaehlt werden Taten wie in ``qualitaet``.</span>
-</span><span id="L-191"><a href="#L-191"><span class="linenos">191</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
-</span><span id="L-192"><a href="#L-192"><span class="linenos">192</span></a><span class="s2">        CREATE VIEW zuordnung AS</span>
-</span><span id="L-193"><a href="#L-193"><span class="linenos">193</span></a><span class="s2">        SELECT q.stadt, </span><span class="si">{</span><span class="n">monat</span><span class="si">}</span><span class="s2"> AS monat, f.kategorie AS kategorie,</span>
-</span><span id="L-194"><a href="#L-194"><span class="linenos">194</span></a><span class="s2">               q.quellcode, min(q.quelltext) AS quelltext,</span>
-</span><span id="L-195"><a href="#L-195"><span class="linenos">195</span></a><span class="s2">               q.nibrs_code, min(d.nibrs_description) AS nibrs_text,</span>
-</span><span id="L-196"><a href="#L-196"><span class="linenos">196</span></a><span class="s2">               q.status, count(*) AS delikte</span>
-</span><span id="L-197"><a href="#L-197"><span class="linenos">197</span></a><span class="s2">        FROM fakt f JOIN quelle q ON q.nr = f.quelle</span>
-</span><span id="L-198"><a href="#L-198"><span class="linenos">198</span></a><span class="s2">        LEFT JOIN delikt d ON d.nibrs_code = q.nibrs_code</span>
-</span><span id="L-199"><a href="#L-199"><span class="linenos">199</span></a><span class="s2">        GROUP BY 1, 2, 3, 4, 6, 8"""</span><span class="p">)</span>
+</span><span id="L-121"><a href="#L-121"><span class="linenos">121</span></a><span class="k">def</span><span class="w"> </span><span class="nf">_fenster</span><span class="p">(</span><span class="n">con</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="L-122"><a href="#L-122"><span class="linenos">122</span></a><span class="w">    </span><span class="sd">"""Das Fenster je Stadt: erster und letzter Tag mit einer Tat.</span>
+</span><span id="L-123"><a href="#L-123"><span class="linenos">123</span></a>
+</span><span id="L-124"><a href="#L-124"><span class="linenos">124</span></a><span class="sd">    Selbst gerechnet: comparison_month tut es seit Vertrag 3 auch (C-10,</span>
+</span><span id="L-125"><a href="#L-125"><span class="linenos">125</span></a><span class="sd">    1.11.2026), aber das Dashboard liest das aktive Release - und ein Release</span>
+</span><span id="L-126"><a href="#L-126"><span class="linenos">126</span></a><span class="sd">    mit Vertrag 2 rechnet noch am gemeinsamen Fenster beider Staedte.</span>
+</span><span id="L-127"><a href="#L-127"><span class="linenos">127</span></a><span class="sd">    """</span>
+</span><span id="L-128"><a href="#L-128"><span class="linenos">128</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"""</span>
+</span><span id="L-129"><a href="#L-129"><span class="linenos">129</span></a><span class="s2">        CREATE TABLE fenster AS</span>
+</span><span id="L-130"><a href="#L-130"><span class="linenos">130</span></a><span class="s2">        SELECT stadt AS stadt, min(tag) AS von, max(tag) AS bis</span>
+</span><span id="L-131"><a href="#L-131"><span class="linenos">131</span></a><span class="s2">        FROM fakt GROUP BY 1"""</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -318,45 +251,44 @@ die alte Verdichtung. Ein freier Zeitraum ist danach ein <code>WHERE</code> auf
 
     </div>
     <a class="headerlink" href="#lade_taten"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="lade_taten-60"><a href="#lade_taten-60"><span class="linenos"> 60</span></a><span class="k">def</span><span class="w"> </span><span class="nf">lade_taten</span><span class="p">(</span><span class="n">con</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">fakten</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">delikte</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tracts</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="lade_taten-61"><a href="#lade_taten-61"><span class="linenos"> 61</span></a><span class="w">    </span><span class="sd">"""Legt ``fakt`` mit seinen Verzeichnissen an und die Monatssichten darueber."""</span>
-</span><span id="lade_taten-62"><a href="#lade_taten-62"><span class="linenos"> 62</span></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">serving.dashboard</span><span class="w"> </span><span class="kn">import</span> <span class="n">PLATZHALTER_SQL</span>
-</span><span id="lade_taten-63"><a href="#lade_taten-63"><span class="linenos"> 63</span></a>
-</span><span id="lade_taten-64"><a href="#lade_taten-64"><span class="linenos"> 64</span></a>    <span class="n">F</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"read_parquet('</span><span class="si">{</span><span class="n">fakten</span><span class="si">}</span><span class="s2">', hive_partitioning=false)"</span>
-</span><span id="lade_taten-65"><a href="#lade_taten-65"><span class="linenos"> 65</span></a>    <span class="n">D</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"read_parquet('</span><span class="si">{</span><span class="n">delikte</span><span class="si">}</span><span class="s2">', hive_partitioning=false)"</span>
-</span><span id="lade_taten-66"><a href="#lade_taten-66"><span class="linenos"> 66</span></a>    <span class="n">T</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"read_parquet('</span><span class="si">{</span><span class="n">tracts</span><span class="si">}</span><span class="s2">', hive_partitioning=false)"</span>
-</span><span id="lade_taten-67"><a href="#lade_taten-67"><span class="linenos"> 67</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
-</span><span id="lade_taten-68"><a href="#lade_taten-68"><span class="linenos"> 68</span></a><span class="s2">        CREATE TABLE delikt AS</span>
-</span><span id="lade_taten-69"><a href="#lade_taten-69"><span class="linenos"> 69</span></a><span class="s2">        SELECT nibrs_code, nibrs_category, nibrs_description FROM </span><span class="si">{</span><span class="n">D</span><span class="si">}</span><span class="s2">"""</span><span class="p">)</span>
-</span><span id="lade_taten-70"><a href="#lade_taten-70"><span class="linenos"> 70</span></a>    <span class="n">stadt</span> <span class="o">=</span> <span class="n">_aufzaehlung</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="s2">"stadt_t"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"SELECT DISTINCT reporting_city FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="lade_taten-71"><a href="#lade_taten-71"><span class="linenos"> 71</span></a>    <span class="n">kategorie</span> <span class="o">=</span> <span class="n">_aufzaehlung</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="s2">"kategorie_t"</span><span class="p">,</span> <span class="s2">"""</span>
-</span><span id="lade_taten-72"><a href="#lade_taten-72"><span class="linenos"> 72</span></a><span class="s2">        SELECT nibrs_category FROM delikt UNION SELECT 'unmapped'"""</span><span class="p">)</span>
-</span><span id="lade_taten-73"><a href="#lade_taten-73"><span class="linenos"> 73</span></a>    <span class="n">verortung</span> <span class="o">=</span> <span class="n">_aufzaehlung</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="s2">"verortung_t"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"SELECT DISTINCT geo_status FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="lade_taten-74"><a href="#lade_taten-74"><span class="linenos"> 74</span></a>    <span class="n">zuordnung</span> <span class="o">=</span> <span class="n">_aufzaehlung</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="s2">"zuordnung_t"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"SELECT DISTINCT mapping_status FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="lade_taten-75"><a href="#lade_taten-75"><span class="linenos"> 75</span></a>    <span class="c1"># Die Stadt eines Tracts kommt aus dim_tract, wie in</span>
-</span><span id="lade_taten-76"><a href="#lade_taten-76"><span class="linenos"> 76</span></a>    <span class="c1"># gold_pipeline.raten_je_stadt; ein Tract ohne Eintrag dort hat keine.</span>
-</span><span id="lade_taten-77"><a href="#lade_taten-77"><span class="linenos"> 77</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
-</span><span id="lade_taten-78"><a href="#lade_taten-78"><span class="linenos"> 78</span></a><span class="s2">        CREATE TABLE tract_nr AS</span>
-</span><span id="lade_taten-79"><a href="#lade_taten-79"><span class="linenos"> 79</span></a><span class="s2">        SELECT row_number() OVER (ORDER BY g.geoid)::INTEGER AS nr, g.geoid, t.city</span>
-</span><span id="lade_taten-80"><a href="#lade_taten-80"><span class="linenos"> 80</span></a><span class="s2">        FROM (SELECT DISTINCT tract_geoid AS geoid FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span>
-</span><span id="lade_taten-81"><a href="#lade_taten-81"><span class="linenos"> 81</span></a><span class="s2">              WHERE tract_geoid IS NOT NULL) g</span>
-</span><span id="lade_taten-82"><a href="#lade_taten-82"><span class="linenos"> 82</span></a><span class="s2">        LEFT JOIN </span><span class="si">{</span><span class="n">T</span><span class="si">}</span><span class="s2"> t USING (geoid)"""</span><span class="p">)</span>
-</span><span id="lade_taten-83"><a href="#lade_taten-83"><span class="linenos"> 83</span></a>    <span class="c1"># Je Stadt, Quellcode, Quelltext, NIBRS-Code und Zuordnung eine Nummer:</span>
-</span><span id="lade_taten-84"><a href="#lade_taten-84"><span class="linenos"> 84</span></a>    <span class="c1"># rund 520 Eintraege fuer die Tafel »NIBRS-Zuordnung im Detail«.</span>
-</span><span id="lade_taten-85"><a href="#lade_taten-85"><span class="linenos"> 85</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
-</span><span id="lade_taten-86"><a href="#lade_taten-86"><span class="linenos"> 86</span></a><span class="s2">        CREATE TABLE quelle AS</span>
-</span><span id="lade_taten-87"><a href="#lade_taten-87"><span class="linenos"> 87</span></a><span class="s2">        SELECT row_number() OVER (ORDER BY stadt, quellcode, quelltext, nibrs_code, status)::INTEGER AS nr, *</span>
-</span><span id="lade_taten-88"><a href="#lade_taten-88"><span class="linenos"> 88</span></a><span class="s2">        FROM (SELECT DISTINCT reporting_city AS stadt,</span>
-</span><span id="lade_taten-89"><a href="#lade_taten-89"><span class="linenos"> 89</span></a><span class="s2">                     source_offense_code AS quellcode,</span>
-</span><span id="lade_taten-90"><a href="#lade_taten-90"><span class="linenos"> 90</span></a><span class="s2">                     source_offense_description AS quelltext,</span>
-</span><span id="lade_taten-91"><a href="#lade_taten-91"><span class="linenos"> 91</span></a><span class="s2">                     nibrs_code, mapping_status AS status FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span><span class="s2">)"""</span><span class="p">)</span>
-</span><span id="lade_taten-92"><a href="#lade_taten-92"><span class="linenos"> 92</span></a>    <span class="c1"># Nach Stadt und Tag sortiert: Ein Zeitraum liest dann zusammenhaengende</span>
-</span><span id="lade_taten-93"><a href="#lade_taten-93"><span class="linenos"> 93</span></a>    <span class="c1"># Bloecke.</span>
-</span><span id="lade_taten-94"><a href="#lade_taten-94"><span class="linenos"> 94</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
-</span><span id="lade_taten-95"><a href="#lade_taten-95"><span class="linenos"> 95</span></a><span class="s2">        CREATE TABLE fakt AS</span>
-</span><span id="lade_taten-96"><a href="#lade_taten-96"><span class="linenos"> 96</span></a><span class="s2">        SELECT f.reporting_city::</span><span class="si">{</span><span class="n">stadt</span><span class="si">}</span><span class="s2"> AS stadt,</span>
-</span><span id="lade_taten-97"><a href="#lade_taten-97"><span class="linenos"> 97</span></a><span class="s2">               f.date AS tag,</span>
-</span><span id="lade_taten-98"><a href="#lade_taten-98"><span class="linenos"> 98</span></a><span class="s2">               date_trunc('month', f.date)::DATE AS monat,</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="lade_taten-61"><a href="#lade_taten-61"><span class="linenos"> 61</span></a><span class="k">def</span><span class="w"> </span><span class="nf">lade_taten</span><span class="p">(</span><span class="n">con</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">fakten</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">delikte</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tracts</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="lade_taten-62"><a href="#lade_taten-62"><span class="linenos"> 62</span></a><span class="w">    </span><span class="sd">"""Legt ``fakt`` mit seinen Verzeichnissen an, dazu ``fenster``."""</span>
+</span><span id="lade_taten-63"><a href="#lade_taten-63"><span class="linenos"> 63</span></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">serving.dashboard</span><span class="w"> </span><span class="kn">import</span> <span class="n">PLATZHALTER_SQL</span>
+</span><span id="lade_taten-64"><a href="#lade_taten-64"><span class="linenos"> 64</span></a>
+</span><span id="lade_taten-65"><a href="#lade_taten-65"><span class="linenos"> 65</span></a>    <span class="n">F</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"read_parquet('</span><span class="si">{</span><span class="n">fakten</span><span class="si">}</span><span class="s2">', hive_partitioning=false)"</span>
+</span><span id="lade_taten-66"><a href="#lade_taten-66"><span class="linenos"> 66</span></a>    <span class="n">D</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"read_parquet('</span><span class="si">{</span><span class="n">delikte</span><span class="si">}</span><span class="s2">', hive_partitioning=false)"</span>
+</span><span id="lade_taten-67"><a href="#lade_taten-67"><span class="linenos"> 67</span></a>    <span class="n">T</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"read_parquet('</span><span class="si">{</span><span class="n">tracts</span><span class="si">}</span><span class="s2">', hive_partitioning=false)"</span>
+</span><span id="lade_taten-68"><a href="#lade_taten-68"><span class="linenos"> 68</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+</span><span id="lade_taten-69"><a href="#lade_taten-69"><span class="linenos"> 69</span></a><span class="s2">        CREATE TABLE delikt AS</span>
+</span><span id="lade_taten-70"><a href="#lade_taten-70"><span class="linenos"> 70</span></a><span class="s2">        SELECT nibrs_code, nibrs_category, nibrs_description FROM </span><span class="si">{</span><span class="n">D</span><span class="si">}</span><span class="s2">"""</span><span class="p">)</span>
+</span><span id="lade_taten-71"><a href="#lade_taten-71"><span class="linenos"> 71</span></a>    <span class="n">stadt</span> <span class="o">=</span> <span class="n">_aufzaehlung</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="s2">"stadt_t"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"SELECT DISTINCT reporting_city FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="lade_taten-72"><a href="#lade_taten-72"><span class="linenos"> 72</span></a>    <span class="n">kategorie</span> <span class="o">=</span> <span class="n">_aufzaehlung</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="s2">"kategorie_t"</span><span class="p">,</span> <span class="s2">"""</span>
+</span><span id="lade_taten-73"><a href="#lade_taten-73"><span class="linenos"> 73</span></a><span class="s2">        SELECT nibrs_category FROM delikt UNION SELECT 'unmapped'"""</span><span class="p">)</span>
+</span><span id="lade_taten-74"><a href="#lade_taten-74"><span class="linenos"> 74</span></a>    <span class="n">verortung</span> <span class="o">=</span> <span class="n">_aufzaehlung</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="s2">"verortung_t"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"SELECT DISTINCT geo_status FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="lade_taten-75"><a href="#lade_taten-75"><span class="linenos"> 75</span></a>    <span class="n">zuordnung</span> <span class="o">=</span> <span class="n">_aufzaehlung</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="s2">"zuordnung_t"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"SELECT DISTINCT mapping_status FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="lade_taten-76"><a href="#lade_taten-76"><span class="linenos"> 76</span></a>    <span class="c1"># Die Stadt eines Tracts kommt aus dim_tract, wie in</span>
+</span><span id="lade_taten-77"><a href="#lade_taten-77"><span class="linenos"> 77</span></a>    <span class="c1"># gold_pipeline.raten_je_stadt; ein Tract ohne Eintrag dort hat keine.</span>
+</span><span id="lade_taten-78"><a href="#lade_taten-78"><span class="linenos"> 78</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+</span><span id="lade_taten-79"><a href="#lade_taten-79"><span class="linenos"> 79</span></a><span class="s2">        CREATE TABLE tract_nr AS</span>
+</span><span id="lade_taten-80"><a href="#lade_taten-80"><span class="linenos"> 80</span></a><span class="s2">        SELECT row_number() OVER (ORDER BY g.geoid)::INTEGER AS nr, g.geoid, t.city</span>
+</span><span id="lade_taten-81"><a href="#lade_taten-81"><span class="linenos"> 81</span></a><span class="s2">        FROM (SELECT DISTINCT tract_geoid AS geoid FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span>
+</span><span id="lade_taten-82"><a href="#lade_taten-82"><span class="linenos"> 82</span></a><span class="s2">              WHERE tract_geoid IS NOT NULL) g</span>
+</span><span id="lade_taten-83"><a href="#lade_taten-83"><span class="linenos"> 83</span></a><span class="s2">        LEFT JOIN </span><span class="si">{</span><span class="n">T</span><span class="si">}</span><span class="s2"> t USING (geoid)"""</span><span class="p">)</span>
+</span><span id="lade_taten-84"><a href="#lade_taten-84"><span class="linenos"> 84</span></a>    <span class="c1"># Je Stadt, Quellcode, Quelltext, NIBRS-Code und Zuordnung eine Nummer:</span>
+</span><span id="lade_taten-85"><a href="#lade_taten-85"><span class="linenos"> 85</span></a>    <span class="c1"># rund 520 Eintraege fuer die Tafel »NIBRS-Zuordnung im Detail«.</span>
+</span><span id="lade_taten-86"><a href="#lade_taten-86"><span class="linenos"> 86</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+</span><span id="lade_taten-87"><a href="#lade_taten-87"><span class="linenos"> 87</span></a><span class="s2">        CREATE TABLE quelle AS</span>
+</span><span id="lade_taten-88"><a href="#lade_taten-88"><span class="linenos"> 88</span></a><span class="s2">        SELECT row_number() OVER (ORDER BY stadt, quellcode, quelltext, nibrs_code, status)::INTEGER AS nr, *</span>
+</span><span id="lade_taten-89"><a href="#lade_taten-89"><span class="linenos"> 89</span></a><span class="s2">        FROM (SELECT DISTINCT reporting_city AS stadt,</span>
+</span><span id="lade_taten-90"><a href="#lade_taten-90"><span class="linenos"> 90</span></a><span class="s2">                     source_offense_code AS quellcode,</span>
+</span><span id="lade_taten-91"><a href="#lade_taten-91"><span class="linenos"> 91</span></a><span class="s2">                     source_offense_description AS quelltext,</span>
+</span><span id="lade_taten-92"><a href="#lade_taten-92"><span class="linenos"> 92</span></a><span class="s2">                     nibrs_code, mapping_status AS status FROM </span><span class="si">{</span><span class="n">F</span><span class="si">}</span><span class="s2">)"""</span><span class="p">)</span>
+</span><span id="lade_taten-93"><a href="#lade_taten-93"><span class="linenos"> 93</span></a>    <span class="c1"># Nach Stadt und Tag sortiert: Ein Zeitraum liest dann zusammenhaengende</span>
+</span><span id="lade_taten-94"><a href="#lade_taten-94"><span class="linenos"> 94</span></a>    <span class="c1"># Bloecke.</span>
+</span><span id="lade_taten-95"><a href="#lade_taten-95"><span class="linenos"> 95</span></a>    <span class="n">con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"""</span>
+</span><span id="lade_taten-96"><a href="#lade_taten-96"><span class="linenos"> 96</span></a><span class="s2">        CREATE TABLE fakt AS</span>
+</span><span id="lade_taten-97"><a href="#lade_taten-97"><span class="linenos"> 97</span></a><span class="s2">        SELECT f.reporting_city::</span><span class="si">{</span><span class="n">stadt</span><span class="si">}</span><span class="s2"> AS stadt,</span>
+</span><span id="lade_taten-98"><a href="#lade_taten-98"><span class="linenos"> 98</span></a><span class="s2">               f.date AS tag,</span>
 </span><span id="lade_taten-99"><a href="#lade_taten-99"><span class="linenos"> 99</span></a><span class="s2">               n.nr AS tract,</span>
 </span><span id="lade_taten-100"><a href="#lade_taten-100"><span class="linenos">100</span></a><span class="s2">               (</span><span class="si">{</span><span class="n">KATEGORIE_SQL</span><span class="si">}</span><span class="s2">)::</span><span class="si">{</span><span class="n">kategorie</span><span class="si">}</span><span class="s2"> AS kategorie,</span>
 </span><span id="lade_taten-101"><a href="#lade_taten-101"><span class="linenos">101</span></a><span class="s2">               f.population_vintage AS vintage,</span>
@@ -377,11 +309,11 @@ die alte Verdichtung. Ein freier Zeitraum ist danach ein <code>WHERE</code> auf
 </span><span id="lade_taten-116"><a href="#lade_taten-116"><span class="linenos">116</span></a><span class="s2">         AND q.nibrs_code IS NOT DISTINCT FROM f.nibrs_code</span>
 </span><span id="lade_taten-117"><a href="#lade_taten-117"><span class="linenos">117</span></a><span class="s2">         AND q.status IS NOT DISTINCT FROM f.mapping_status</span>
 </span><span id="lade_taten-118"><a href="#lade_taten-118"><span class="linenos">118</span></a><span class="s2">        ORDER BY 1, 2"""</span><span class="p">)</span>
-</span><span id="lade_taten-119"><a href="#lade_taten-119"><span class="linenos">119</span></a>    <span class="n">_monatssichten</span><span class="p">(</span><span class="n">con</span><span class="p">)</span>
+</span><span id="lade_taten-119"><a href="#lade_taten-119"><span class="linenos">119</span></a>    <span class="n">_fenster</span><span class="p">(</span><span class="n">con</span><span class="p">)</span>
 </span></pre></div>
 
 
-            <div class="docstring"><p>Legt <code>fakt</code> mit seinen Verzeichnissen an und die Monatssichten darueber.</p>
+            <div class="docstring"><p>Legt <code>fakt</code> mit seinen Verzeichnissen an, dazu <code>fenster</code>.</p>
 </div>
 
 

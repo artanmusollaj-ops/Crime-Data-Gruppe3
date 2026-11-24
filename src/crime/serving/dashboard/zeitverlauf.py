@@ -51,7 +51,6 @@ Ursache, und die gemeldete Tatzeit ist nicht immer die wahre.
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Any
 
 WOCHENTAGE = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
@@ -79,8 +78,8 @@ def _spalten(con, pfad: str) -> set[str]:
 def lade_licht(con, ablage, release: str, fakten: str, delikte: str) -> str | None:
     """Legt ``licht`` und ``lichtstunden`` an - oder sagt, warum es nicht geht.
 
-    ``licht``: Faelle (``counts_case``) je Stadt, Monat, Kategorie und Gruppe
-    hell, dunkel oder unsicher. ``lichtstunden``: je Stadt und Monat die
+    ``licht``: Faelle (``counts_case``) je Stadt, Tag, Kategorie und Gruppe
+    hell, dunkel oder unsicher. ``lichtstunden``: je Stadt und Tag die
     Stunden mit und ohne Tageslicht ueber die Tage im Datenfenster der Stadt
     (Tabelle ``fenster``, die vorher angelegt sein muss).
 
@@ -102,7 +101,7 @@ def lade_licht(con, ablage, release: str, fakten: str, delikte: str) -> str | No
         return "fact_offense führt in diesem Release keinen UTC-Zeitpunkt."
     con.execute(f"""
         CREATE TABLE licht AS
-        SELECT f.reporting_city AS stadt, date_trunc('month', f.date)::DATE AS monat,
+        SELECT f.reporting_city AS stadt, f.date AS tag,
                CASE WHEN f.nibrs_code IS NULL THEN 'unmapped'
                     ELSE d.nibrs_category END AS kategorie,
                CASE WHEN {PLATZHALTER_SQL} OR f.occurred_at_utc IS NULL
@@ -118,7 +117,7 @@ def lade_licht(con, ablage, release: str, fakten: str, delikte: str) -> str | No
         GROUP BY ALL""")
     con.execute(f"""
         CREATE TABLE lichtstunden AS
-        SELECT c.city AS stadt, date_trunc('month', c.date)::DATE AS monat,
+        SELECT c.city AS stadt, c.date AS tag,
                sum(c.daylight_hours) AS hell, sum(24 - c.daylight_hours) AS dunkel
         FROM read_parquet('{pfad}', hive_partitioning = false) c
         JOIN fenster x ON x.stadt = c.city AND c.date BETWEEN x.von AND x.bis
@@ -128,70 +127,84 @@ def lade_licht(con, ablage, release: str, fakten: str, delikte: str) -> str | No
 
 def zeitverlauf(bestand, a) -> dict[str, Any]:
     from serving.dashboard import STADTNAMEN
+    from serving.dashboard.zeitraum import benutzt, vor_einem_jahr
 
     cur = bestand._cursor()
     staedte = list(a.staedte)
-    monate = [date(a.jahr, m, 1) for m in range(a.von, a.bis + 1)]
-    vormonate = [date(a.jahr - 1, m, 1) for m in range(a.von, a.bis + 1)]
+    z = bestand.zeitraum(cur, a, staedte)
     kat = a.kat_sql
     extra = a.kat_param
 
-    def faelle(ms: list[date]) -> dict[tuple[str, date], int]:
-        return {(s, m): int(n) for s, m, n in cur.execute(
-            f"SELECT stadt, monat, sum(faelle) FROM monate WHERE stadt IN $staedte "
-            f"AND monat IN $monate {kat} GROUP BY 1, 2",
-            {"staedte": staedte, "monate": ms, **extra}).fetchall()}
+    def faelle(von, bis, tag: str) -> dict[tuple[str, Any], int]:
+        """Faelle je Stadt und Periode; ``tag`` legt einen Vorjahrestag auf diese Achse."""
+        sql = (f"SELECT stadt, {z.periode_sql(tag)}, count(*) FILTER (fall) FROM fakt "
+               f"WHERE stadt IN $staedte AND tag BETWEEN $a AND $b {kat} GROUP BY 1, 2")
+        return {(s, m): int(n) for s, m, n in cur.execute(sql, benutzt(
+            sql, {"staedte": staedte, "a": von, "b": bis, **z.param, **extra})).fetchall()}
 
-    jetzt, vorher = faelle(monate), faelle(vormonate)
-    abd, vorabd = bestand._abdeckung(cur, staedte, monate), bestand._abdeckung(cur, staedte, vormonate)
+    jetzt = faelle(z.von, z.bis, "tag")
+    # Das Vorjahr auf derselben Achse: jeder Tag ein Jahr spaeter gelegt. Nur
+    # bis ein Jahr Spanne (serving.dashboard.zeitraum).
+    vorjahr_vorhanden = z.vergleich_moeglich and any(
+        z.fenster.get(s) and z.mit_daten(s, vor_einem_jahr(z.von), vor_einem_jahr(z.bis))
+        for s in staedte)
+    vorher = (faelle(vor_einem_jahr(z.von), vor_einem_jahr(z.bis),
+                     "(tag + INTERVAL 1 YEAR)::DATE") if vorjahr_vorhanden else {})
 
-    def reihe(s, ms, werte, abdeckung):
-        return [None if abdeckung[s]["monate"][i] == "fehlt" else werte.get((s, m), 0)
-                for i, m in enumerate(ms)]
-
-    licht_kat = _licht_kategorien(bestand, cur, staedte, monate, kat, extra)
+    licht_kat = _licht_kategorien(bestand, cur, staedte, z, kat, extra)
     ergebnis = []
     for s in staedte:
-        werte = reihe(s, monate, jetzt, abd)
-        status = abd[s]["monate"]
-        basis = next((i for i, z in enumerate(status) if z == "voll" and werte[i]), None)
+        status = z.status(s)
+        werte = [None if st == "fehlt" else jetzt.get((s, m), 0)
+                 for st, m in zip(status, z.starts)]
+        vorstatus = z.status_vorjahr(s)
+        basis = next((i for i, st in enumerate(status) if st == "voll" and werte[i]), None)
         index = [None if basis is None or v is None else round(v * 100.0 / werte[basis], 1)
                  for v in werte]
         ergebnis.append({
             "stadt": s, "name": STADTNAMEN[s], "zeitzone": ZEITZONEN[s],
-            "monate": [m.isoformat() for m in monate],
+            "monate": [m.isoformat() for m in z.starts],
             "jetzt": werte, "status": status,
-            "vorjahr": reihe(s, vormonate, vorher, vorabd), "status_vorjahr": vorabd[s]["monate"],
-            "index": {"basis": monate[basis].isoformat() if basis is not None else None,
+            "vorjahr": ([None if st == "fehlt" else vorher.get((s, m), 0)
+                         for st, m in zip(vorstatus, z.starts)]
+                        if vorjahr_vorhanden else [None] * len(z.starts)),
+            "status_vorjahr": vorstatus,
+            "index": {"basis": z.starts[basis].isoformat() if basis is not None else None,
                       "werte": index},
-            "heatmap": _heatmap(cur, s, monate, kat, extra),
-            "licht": _licht(bestand, cur, s, monate, kat, extra, licht_kat),
+            "heatmap": _heatmap(cur, s, z, kat, extra),
+            "licht": _licht(bestand, cur, s, z, kat, extra, licht_kat),
         })
     return {
         "auswahl": a.json,
-        "vergleich": {"jahr": a.jahr, "vorjahr": a.jahr - 1,
-                      "vorjahr_vorhanden": a.jahr - 1 in bestand.jahre},
+        "achse": z.json(),
+        "vergleich": {"jahr": a.tag_von.year, "vorjahr": a.tag_von.year - 1,
+                      "vorjahr_vorhanden": vorjahr_vorhanden,
+                      "von": vor_einem_jahr(z.von).isoformat(),
+                      "bis": vor_einem_jahr(z.bis).isoformat(),
+                      "grund": (None if z.vergleich_moeglich else
+                                "Kein Vorjahresvergleich über mehr als ein Jahr: "
+                                "Das Jahr davor überlappte den Zeitraum selbst.")},
         "staedte": ergebnis,
         "wochentage": list(WOCHENTAGE),
         "stand": bestand.stand,
     }
 
 
-def _heatmap(cur, stadt: str, monate: list[date], kat: str, extra: dict) -> dict[str, Any]:
+def _heatmap(cur, stadt: str, z, kat: str, extra: dict) -> dict[str, Any]:
     """Durchschnittliche Faelle je Wochentag und Stunde, ohne Platzhalterzeiten."""
-    p = {"stadt": stadt, "monate": monate, **extra}
+    p = {"stadt": stadt, **z.param, **extra}
     tage = dict(cur.execute(
-        "SELECT wochentag, sum(n) FROM tage WHERE stadt = $stadt AND monat IN $monate "
-        "GROUP BY 1", {"stadt": stadt, "monate": monate}).fetchall())
+        "SELECT isodow(tag), count(DISTINCT tag) FROM fakt WHERE stadt = $stadt "
+        "AND tag BETWEEN $von AND $bis GROUP BY 1", {"stadt": stadt, **z.param}).fetchall())
     matrix = [[0.0] * 24 for _ in WOCHENTAGE]
     for wt, h, n in cur.execute(
-            f"SELECT wochentag, stunde, sum(faelle) FROM stunden WHERE stadt = $stadt "
-            f"AND monat IN $monate AND NOT platzhalter {kat} GROUP BY 1, 2", p).fetchall():
+            f"SELECT isodow(tag), stunde, count(*) FILTER (fall) FROM fakt WHERE stadt = $stadt "
+            f"AND tag BETWEEN $von AND $bis AND NOT platzhalter {kat} GROUP BY 1, 2", p).fetchall():
         if tage.get(wt):
             matrix[wt - 1][h] = round(n / tage[wt], 2)
     platzhalter, alle = cur.execute(
-        f"SELECT coalesce(sum(faelle) FILTER (platzhalter), 0), coalesce(sum(faelle), 0) "
-        f"FROM stunden WHERE stadt = $stadt AND monat IN $monate {kat}", p).fetchone()
+        f"SELECT count(*) FILTER (fall AND platzhalter), count(*) FILTER (fall) "
+        f"FROM fakt WHERE stadt = $stadt AND tag BETWEEN $von AND $bis {kat}", p).fetchone()
     return {
         "werte": matrix,
         "max": max(max(z) for z in matrix),
@@ -201,7 +214,7 @@ def _heatmap(cur, stadt: str, monate: list[date], kat: str, extra: dict) -> dict
     }
 
 
-def _licht_kategorien(bestand, cur, staedte: list[str], monate: list[date], kat: str,
+def _licht_kategorien(bestand, cur, staedte: list[str], z, kat: str,
                       extra: dict) -> list[str]:
     """Die haeufigsten Kategorien ueber alle gewaehlten Staedte zusammen.
 
@@ -212,13 +225,13 @@ def _licht_kategorien(bestand, cur, staedte: list[str], monate: list[date], kat:
     if getattr(bestand, "ohne_licht", "nicht geladen"):
         return []
     return [k for (k,) in cur.execute(
-        f"SELECT kategorie FROM licht WHERE stadt IN $staedte AND monat IN $monate {kat} "
-        f"AND gruppe IN ('hell', 'dunkel') GROUP BY 1 HAVING sum(faelle) > 0 "
+        f"SELECT kategorie FROM licht WHERE stadt IN $staedte AND tag BETWEEN $von AND $bis "
+        f"{kat} AND gruppe IN ('hell', 'dunkel') GROUP BY 1 HAVING sum(faelle) > 0 "
         f"ORDER BY sum(faelle) DESC, 1 LIMIT {LICHT_KATEGORIEN}",
-        {"staedte": staedte, "monate": monate, **extra}).fetchall()]
+        {"staedte": staedte, **z.param, **extra}).fetchall()]
 
 
-def _licht(bestand, cur, stadt: str, monate: list[date], kat: str, extra: dict,
+def _licht(bestand, cur, stadt: str, z, kat: str, extra: dict,
            auswahl: list[str]) -> dict[str, Any]:
     """Faelle nach Tageslicht, Dunkelheit und unsicherer Uhrzeit (siehe Moduldoku)."""
     from serving.dashboard import kategorie_de
@@ -226,15 +239,15 @@ def _licht(bestand, cur, stadt: str, monate: list[date], kat: str, extra: dict,
     grund = getattr(bestand, "ohne_licht", "Der Sonnenstand ist nicht geladen.")
     if grund:
         return {"vorhanden": False, "grund": grund}
-    p = {"stadt": stadt, "monate": monate, **extra}
+    p = {"stadt": stadt, **z.param, **extra}
     je_gruppe = dict(cur.execute(
-        f"SELECT gruppe, sum(faelle) FROM licht WHERE stadt = $stadt AND monat IN $monate "
+        f"SELECT gruppe, sum(faelle) FROM licht WHERE stadt = $stadt AND tag BETWEEN $von AND $bis "
         f"{kat} GROUP BY 1", p).fetchall())
     gruppen = {g: int(je_gruppe.get(g, 0)) for g, _ in LICHTGRUPPEN}
     alle = sum(gruppen.values())
     hell_h, dunkel_h = cur.execute(
         "SELECT coalesce(sum(hell), 0), coalesce(sum(dunkel), 0) FROM lichtstunden "
-        "WHERE stadt = $stadt AND monat IN $monate", {"stadt": stadt, "monate": monate}).fetchone()
+        "WHERE stadt = $stadt AND tag BETWEEN $von AND $bis", {"stadt": stadt, **z.param}).fetchone()
 
     def anteil(n: int, von: int) -> float | None:
         return round(n * 100.0 / von, 1) if von else None
@@ -242,7 +255,7 @@ def _licht(bestand, cur, stadt: str, monate: list[date], kat: str, extra: dict,
     je_kategorie = {k: (int(h or 0), int(d or 0)) for k, h, d in cur.execute(
         f"SELECT kategorie, sum(faelle) FILTER (gruppe = 'hell'), "
         f"sum(faelle) FILTER (gruppe = 'dunkel') FROM licht "
-        f"WHERE stadt = $stadt AND monat IN $monate AND kategorie IN $auswahl {kat} "
+        f"WHERE stadt = $stadt AND tag BETWEEN $von AND $bis AND kategorie IN $auswahl {kat} "
         f"GROUP BY 1", p | {"auswahl": auswahl or [""]}).fetchall()}
     kategorien = []
     for k in auswahl:

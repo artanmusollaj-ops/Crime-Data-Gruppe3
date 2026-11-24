@@ -138,7 +138,14 @@ def freigeben(root: Path, kennung: str) -> Path:
 
 
 def jahr(stadt: str, j: int, code: str, tract: str, monate=range(1, 13), je=1) -> list:
-    return [(stadt, date(j, m, 1), code, tract) for m in monate for _ in range(je)]
+    """Je Monat eine Tat am Ersten - im Dezember am 31.
+
+    So reicht das Fenster einer Stadt mit ganzem Jahr bis zum Jahresende, und
+    die Rate je Jahr ist die von ``raten_je_stadt`` (``serving.dashboard.
+    zeitraum``). Am 1.12. endete es elf Monate und einen Tag nach Beginn.
+    """
+    return [(stadt, date(j, m, 31 if m == 12 else 1), code, tract)
+            for m in monate for _ in range(je)]
 
 
 @pytest.fixture
@@ -185,8 +192,8 @@ def test_die_balken_stehen_auf_der_fallebene_die_tatebene_daneben(tmp_path):
     der Tatebene - wie Detroit, das jedes Delikt eines Falls erfasst."""
     taten = (jahr("chicago", 2024, "13A", TRACT_C)
              + jahr("detroit", 2024, "13A", TRACT_D)
-             + [("detroit", date(2024, m, 1), "13B", TRACT_D, time(18, 5), False)
-                for m in range(1, 13)])
+             + [("detroit", date(2024, m, 31 if m == 12 else 1), "13B", TRACT_D, time(18, 5),
+                 False) for m in range(1, 13)])
     b = Bestand(stern(tmp_path, taten))
     rate = b.ueberblick(b.auswahl({"jahr": "2024"}))["raten"]
     assert rate["zeilen"][0]["werte"] == {"chicago": 6.0, "detroit": 12.0}
@@ -232,17 +239,23 @@ def test_der_teilmonat_ist_nicht_vollstaendig(bestand):
     assert detroit["letzter_monat"] == "2025-03-01"
 
 
-def test_zum_vorjahr_nur_ueber_vergleichbare_monate(bestand):
-    """Jan-Dez 2025 hat zwei ganze Monate; nur sie stehen gegen 2024."""
+def test_zum_vorjahr_nur_ueber_vergleichbare_tage(bestand):
+    """2025 reicht bei Chicago bis zum 1.3., bei Detroit bis zum 10.3.
+
+    Verglichen wird ueber die Tage, die in beiden Jahren fuer beide Staedte
+    vorliegen: 1.1. bis 1.3., 60 Tage. Bis Stufe 3 waren es die zwei ganzen
+    Monate; der 1.3. fiel mit dem halben Maerz heraus.
+    """
     k = bestand.ueberblick(bestand.auswahl({"jahr": "2025"}))["kennzahlen"]
-    assert k["vorjahr_monate"] == 2
-    # 2025: je Monat 1 + 1; 2024: je Monat 3 + 1 + 2.
-    assert k["vorjahr_prozent"] == round((4 - 12) * 100 / 12, 1)
+    assert k["vorjahr_tage"] == 60
+    # 2025: Chicago am 1.1., 1.2., 1.3., Detroit am 1.1. und 1.2.;
+    # 2024 an denselben Tagen: Chicago je 3 + 1, Detroit je 2.
+    assert k["vorjahr_prozent"] == round((5 - 18) * 100 / 18, 1)
 
 
 def test_ohne_vorjahr_kein_vergleich(bestand):
     k = bestand.ueberblick(bestand.auswahl({"jahr": "2023"}))["kennzahlen"]
-    assert k["vorjahr_prozent"] is None and k["vorjahr_monate"] == 0
+    assert k["vorjahr_prozent"] is None and k["vorjahr_tage"] == 0
 
 
 def test_der_anteil_summiert_sich_je_stadt_auf_hundert(bestand):
@@ -459,7 +472,8 @@ def test_der_verlauf_zeigt_faelle_gegen_das_vorjahr(stunden):
     # Faelle, nicht Taten: Die zweite Anklage am 8.1. zaehlt nicht mit.
     assert chicago["jetzt"] == [6, 4, 5]
     assert chicago["vorjahr"] == [2, 2, 2]
-    assert s["vergleich"] == {"jahr": 2025, "vorjahr": 2024, "vorjahr_vorhanden": True}
+    assert s["vergleich"] == {"jahr": 2025, "vorjahr": 2024, "vorjahr_vorhanden": True,
+                              "von": "2024-01-01", "bis": "2024-03-31", "grund": None}
 
 
 def test_der_index_beginnt_beim_ersten_vollen_monat(tmp_path):
@@ -677,8 +691,8 @@ def test_zum_vorjahr_je_stadt_und_erst_ab_der_mindestzahl(struktur):
     assert zeilen["Robbery"]["vorjahr"]["chicago"] is None
 
 
-def test_zum_vorjahr_nur_ueber_vergleichbare_monate_der_stadt(tmp_path):
-    """Detroit endet am 10.3.: Fuer Detroit zaehlen nur Jan und Feb."""
+def test_zum_vorjahr_nur_ueber_vergleichbare_tage_der_stadt(tmp_path):
+    """Detroit endet am 10.3.: Fuer Detroit zaehlt der 1.1. bis 10.3., nicht Chicagos Ende."""
     b = Bestand(stern(tmp_path, (
         jahr("chicago", 2024, "13A", TRACT_C, je=25)
         + jahr("chicago", 2025, "13A", TRACT_C, monate=range(1, 4), je=25)
@@ -688,10 +702,13 @@ def test_zum_vorjahr_nur_ueber_vergleichbare_monate_der_stadt(tmp_path):
         + [("detroit", date(2025, 3, 10), "13A", TRACT_D)] * 2
     )))
     r = b.deliktstruktur(b.auswahl({"jahr": "2025", "bis": "3"}))
-    assert {s["stadt"]: s["vergleichbare_monate"] for s in r["staedte"]} == {"chicago": 3, "detroit": 2}
+    assert {s["stadt"]: s["vergleichbare_tage"] for s in r["staedte"]} == {"chicago": 90,
+                                                                          "detroit": 69}
     koerper = r["tabelle"][0]["vorjahr"]
-    # Chicago: 75 + 1 gegen 75; Detroit ohne den angebrochenen Maerz: 40 gegen 40.
-    assert koerper == {"chicago": round(1 * 100 / 75, 1), "detroit": 0.0}
+    # Chicago: 75 + 1 gegen 75. Detroit bis zum 10.3.: 40 + 2 gegen 60, denn
+    # 2024 liegen am 1.3. noch einmal 20. Bis Stufe 3 fiel der angebrochene
+    # Maerz ganz heraus, und es stand 40 gegen 40.
+    assert koerper == {"chicago": round(1 * 100 / 75, 1), "detroit": round(-18 * 100 / 60, 1)}
 
 
 def test_die_beispiele_sind_die_haeufigsten_delikte(struktur):

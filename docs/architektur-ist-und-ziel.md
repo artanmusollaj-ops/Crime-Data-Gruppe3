@@ -245,8 +245,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 3'423 Tests ohne Netz und Schlüssel, Linux mit Python 3.11, `ruff` davor; der Referenz-Wächter unter 3.13; auf `main` zusätzlich Windows mit 3.13 | bei jedem Push |
-| **Frischer Klon** | Im Linux-CI-Lauf laufen hochgerechnet (am PR-Lauf zu bestätigen, nicht gemessen) 3'227 davon — die übrigen 85 werden übersprungen, unter anderem wegen fehlender Daten, Dienste oder ungetrackter Dokumente. Die 111 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 3'465 Tests ohne Netz und Schlüssel, Linux mit Python 3.11, `ruff` davor; der Referenz-Wächter unter 3.13; auf `main` zusätzlich Windows mit 3.13 | bei jedem Push |
+| **Frischer Klon** | Im Linux-CI-Lauf laufen hochgerechnet (am PR-Lauf zu bestätigen, nicht gemessen) 3'269 davon — die übrigen 85 werden übersprungen, unter anderem wegen fehlender Daten, Dienste oder ungetrackter Dokumente. Die 111 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 111 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
@@ -532,8 +532,9 @@ der 87,3 MB Parquet.
 
 **Entschieden am 1.11.2026:** Die Aggregationen kommen nicht aus
 Elasticsearch. Das eigene Dashboard (`serving.dashboard`) liest das aktive
-Release mit DuckDB — `comparison_month` für die Zählungen, Gold für die
-Raten nach der Regel von `gold_pipeline.raten_je_stadt` —, und auf `srv01`
+Release mit DuckDB — seit dem 24.11.2026 Zählungen und Raten aus Gold,
+auf den Tag genau, die Raten nach der Regel von `gold_pipeline.raten_je_stadt`;
+bis dahin kamen die Zählungen aus `comparison_month` —, und auf `srv01`
 ersetzt es Elasticsearch und Kibana. Der Anlass war der Speicher: Neben
 Kibana blieben dort 37 MiB frei. Lokal bleibt Elasticsearch für Volltext,
 Umkreissuche und Exploration.

@@ -1,9 +1,11 @@
-"""Die Monatssichten ueber ``fakt`` sagen dasselbe wie die alte Verdichtung.
+"""``fakt`` traegt alles, was die alte Verdichtung trug.
 
 Bis zum 23.11.2026 legte das Dashboard sieben Tabellen je Stadt und Monat
 direkt aus ``gold/fact_offense`` an. Seither haelt es die Taten schlank im
-Speicher (``serving.dashboard.taten``) und bildet dieselben sieben als Sichten
-darueber. Die Bretter fragen sie unveraendert ab.
+Speicher (``serving.dashboard.taten``). In Stufe 1 bildete es dieselben sieben
+als Sichten darueber; seit Stufe 3 (24.11.2026) fragen die Bretter ``fakt``
+selbst ab, auf den Tag genau. Die Sichten stehen darum hier, als ``NEU``: Sie
+verdichten ``fakt`` so, wie es die alte Verdichtung mit der Quelle tat.
 
 Was dabei still falsch werden kann, ohne dass ein Brett wirft:
 
@@ -15,8 +17,9 @@ Was dabei still falsch werden kann, ohne dass ein Brett wirft:
 - ein Merkmal, das anders gerechnet wird - die Platzhalter-Tatzeit, eine
   mehrdeutige Ortszeit ohne Wert.
 
-Darum steht hier die alte Verdichtung woertlich, und jede Sicht muss ihr
-zeilengleich entsprechen, auf einem Bestand mit genau diesen Faellen. Am
+Darum steht hier die alte Verdichtung woertlich, und jede Verdichtung von
+``fakt`` muss ihr zeilengleich entsprechen, auf einem Bestand mit genau
+diesen Faellen. Am
 echten Release vom 20.11.2026 waren zusaetzlich alle 569 Antworten einer
 Matrix aus Brett, Stadt, Zeitraum, Kategorie, Mass und Ebene vorher und
 nachher zeichengleich (``AENDERUNGEN.md``, 23.11.2026).
@@ -110,6 +113,57 @@ ALT = {
 }
 
 
+#: Dieselben sieben, aus ``fakt`` und seinen Verzeichnissen - bis Stufe 3 die
+#: Sichten in ``serving.dashboard.taten``. ``fenster`` legt das Dashboard
+#: selbst an.
+_MONAT = "date_trunc('month', f.tag)::DATE"
+NEU = {
+    "raten": f"""
+        SELECT n.city AS stadt, {_MONAT} AS monat, f.kategorie AS kategorie,
+               f.vintage, count(*) FILTER (f.fall) AS faelle, count(*) AS delikte
+        FROM fakt f JOIN tract_nr n ON n.nr = f.tract
+        WHERE n.city IS NOT NULL
+        GROUP BY ALL""",
+    "fenster": "SELECT stadt, von, bis FROM fenster",
+    "stunden": f"""
+        SELECT f.stadt AS stadt, {_MONAT} AS monat, isodow(f.tag) AS wochentag,
+               f.stunde, f.kategorie AS kategorie, f.platzhalter,
+               count(*) FILTER (f.fall) AS faelle
+        FROM fakt f GROUP BY ALL""",
+    "tage": f"""
+        SELECT f.stadt AS stadt, {_MONAT} AS monat, isodow(f.tag) AS wochentag,
+               count(DISTINCT f.tag) AS n
+        FROM fakt f GROUP BY ALL""",
+    "tract_monat": f"""
+        SELECT f.stadt AS stadt, n.geoid, {_MONAT} AS monat,
+               f.kategorie AS kategorie, f.vintage,
+               count(*) FILTER (f.fall) AS faelle, count(*) AS delikte
+        FROM fakt f LEFT JOIN tract_nr n ON n.nr = f.tract
+        WHERE f.geo_status = 'inside_city'
+        GROUP BY ALL""",
+    "verortung": f"""
+        SELECT f.stadt AS stadt, {_MONAT} AS monat,
+               f.kategorie AS kategorie, f.geo_status AS geo_status,
+               count(*) FILTER (f.fall) AS faelle
+        FROM fakt f GROUP BY ALL""",
+    "qualitaet": f"""
+        SELECT f.stadt AS stadt, {_MONAT} AS monat,
+               f.kategorie AS kategorie,
+               f.mapping_status AS mapping_status,
+               f.geo_status AS geo_status, f.ortszeit_mehrdeutig,
+               count(*) AS delikte
+        FROM fakt f GROUP BY ALL""",
+    "zuordnung": f"""
+        SELECT q.stadt, {_MONAT} AS monat, f.kategorie AS kategorie,
+               q.quellcode, min(q.quelltext) AS quelltext,
+               q.nibrs_code, min(d.nibrs_description) AS nibrs_text,
+               q.status, count(*) AS delikte
+        FROM fakt f JOIN quelle q ON q.nr = f.quelle
+        LEFT JOIN delikt d ON d.nibrs_code = q.nibrs_code
+        GROUP BY 1, 2, 3, 4, 6, 8""",
+}
+
+
 def _mit_randfaellen(root) -> None:
     """Haengt an die Taten des Release die Faelle an, an denen ein Verzeichnis kippt."""
     pfad = (root / "releases" / f"release={RELEASE}" / "gold" / "dataset=fact_offense"
@@ -178,16 +232,17 @@ def _alt(bestand: Bestand, name: str) -> str:
 
 
 @pytest.mark.parametrize("name", sorted(ALT))
-def test_jede_sicht_ist_zeilengleich_mit_der_alten_verdichtung(bestand, name):
+def test_jede_verdichtung_ist_zeilengleich_mit_der_alten(bestand, name):
     con = bestand._con
     alt = _alt(bestand, name)
-    zuviel = con.execute(f"SELECT * FROM {name} EXCEPT ALL ({alt})").fetchall()
-    fehlt = con.execute(f"({alt}) EXCEPT ALL SELECT * FROM {name}").fetchall()
+    neu = NEU[name]
+    zuviel = con.execute(f"({neu}) EXCEPT ALL ({alt})").fetchall()
+    fehlt = con.execute(f"({alt}) EXCEPT ALL ({neu})").fetchall()
     assert not zuviel and not fehlt, f"{name}: zu viel {zuviel}, fehlt {fehlt}"
 
 
 @pytest.mark.parametrize("name", sorted(ALT))
-def test_jede_sicht_hat_die_spalten_der_alten(bestand, name):
+def test_jede_verdichtung_hat_die_spalten_der_alten(bestand, name):
     """Gleiche Namen in gleicher Folge; ein Aufzaehlungstyp gilt als Text.
 
     DuckDB gibt einen ENUM-Wert als ``str`` heraus, die Bretter sehen also
@@ -200,7 +255,7 @@ def test_jede_sicht_hat_die_spalten_der_alten(bestand, name):
         return [(r[0], "VARCHAR" if r[1].startswith("ENUM") else r[1])
                 for r in con.execute(f"DESCRIBE {sql}").fetchall()]
 
-    assert typen(f"SELECT * FROM {name}") == typen(_alt(bestand, name))
+    assert typen(NEU[name]) == typen(_alt(bestand, name))
 
 
 def test_die_randfaelle_sind_auch_angekommen(bestand):

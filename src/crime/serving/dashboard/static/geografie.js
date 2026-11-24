@@ -1,5 +1,7 @@
 // Das Brett »Geografie«.
-import { FARBE, achsenzahl, el, komma, leer, runde, starteBrett, zahl, zeitraumtext } from "./gemeinsam.js";
+import {
+  FARBE, achsenzahl, el, hochrechnung, komma, leer, runde, starteBrett, zahl, zeitraumtext,
+} from "./gemeinsam.js";
 import { kartenflaeche, schraffur } from "./karte.js";
 
 // Eine Farbreihe fuer beide Staedte: Dieselbe Farbe ist dieselbe Rate.
@@ -39,7 +41,7 @@ function karte(stadt, d) {
     pfad.append(el("title", {}, zeilen.join("\n")));
     inhalt.append(pfad);
   }
-  const ziel = kartenflaeche(k, { titel: `${stadt.name}: Fälle je 1'000 Einwohner je Tract`,
+  const ziel = kartenflaeche(k, { titel: `${stadt.name}: Fälle je 1'000 Einwohner und Jahr je Tract`,
     inhalt, defs: schraffur(`schraffur-${stadt.stadt}`) });
   const fuss = document.createElement("p");
   fuss.className = "unterzeile";
@@ -66,7 +68,7 @@ function rangliste(ziel, stadt) {
     svg.append(el("text", { x: x(v), y: h - u + 14, "text-anchor": "middle" }, achsenzahl(v)));
   }
   svg.append(el("text", { x: (l + b - r) / 2, y: h - 4, "text-anchor": "middle", class: "achsentitel" },
-    "Fälle je 1'000 Einwohner"));
+    "Fälle je 1'000 Einwohner und Jahr"));
   stadt.hoechste.forEach((t, i) => {
     const y = i * zeile + 4;
     svg.append(el("text", { x: l - 8, y: y + 12, "text-anchor": "end" }, t.name.replace("Census Tract", "Tract")));
@@ -82,11 +84,13 @@ function rangliste(ziel, stadt) {
 function zeichne(d) {
   const zr = zeitraumtext(d.auswahl);
   document.getElementById("u-geografie").textContent =
-    `Fälle je 1'000 Einwohner je Census Tract · ${zr}` + (d.vintage ? ` · Einwohner ACS ${d.vintage}` : "");
+    `Fälle je 1'000 Einwohner und Jahr je Census Tract · ${zr}`
+    + (hochrechnung({ z: d.auswahl.tage }) ? ` · ${hochrechnung({ z: d.auswahl.tage })}` : "")
+    + (d.vintage ? ` · Einwohner ACS ${d.vintages.length > 1 ? d.vintages.join("/") : d.vintage}` : "");
   document.getElementById("karten").replaceChildren(...d.staedte.map((s) => karte(s, d)));
   document.getElementById("karten").classList.toggle("einzeln", d.staedte.length === 1);
 
-  document.getElementById("t-legende").textContent = `Fälle je 1'000 Einwohner · ${zr}`;
+  document.getElementById("t-legende").textContent = `Fälle je 1'000 Einwohner und Jahr · ${zr}`;
   const klassen = [...d.klassen.map((_, i) => i), d.klassen.length];
   document.getElementById("d-legende").replaceChildren(...klassen.map((i) => {
     const k = document.createElement("span");

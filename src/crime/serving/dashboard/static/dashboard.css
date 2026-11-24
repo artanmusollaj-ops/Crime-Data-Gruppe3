@@ -225,6 +225,11 @@ h2 { margin: 0 0 4px; font-size: 17px; }
 .raster-tabelle th:first-child { text-align: left; }
 .raster-tabelle td { padding: 12px 6px; border-top: 1px solid var(--linie); text-align: center; }
 .raster-tabelle td.stadtname { text-align: left; font-weight: 600; border-radius: 4px; }
+/* Viele Perioden: schmale Felder, Beschriftung nur an jeder n-ten Spalte. */
+.raster-tabelle.dicht th, .raster-tabelle.dicht td { padding: 8px 0; white-space: nowrap; }
+.raster-tabelle.dicht th { font-weight: 500; font-size: 11px; text-align: left; overflow: visible; max-width: 0; }
+.raster-tabelle.dicht th:first-child, .raster-tabelle.dicht td.stadtname { max-width: none; padding-right: 10px; }
+.raster-tabelle.dicht i { width: 100%; min-width: 3px; height: 14px; border-radius: 1px; }
 .stadtname.chicago { background: #d6f1eb; color: #0c6b5a; }
 .stadtname.detroit { background: #d9e8fb; color: #1d5bb0; }
 .raster-tabelle i, .statuslegende span::before { display: inline-block; width: 18px; height: 18px; border-radius: 3px; }

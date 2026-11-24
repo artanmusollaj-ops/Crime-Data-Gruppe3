@@ -13,6 +13,7 @@ falsch werden kann:
 
 Darum: Ein Brett rechnet Tage erst, wenn es in ``FREIE_BRETTER`` steht, und
 lehnt bis dahin jeden anderen Zeitraum als ganze Monate eines Jahres ab.
+Seit Stufe 3 (24.11.2026) stehen dort alle sieben.
 Dass die alten Links nach dem Umbau dieselben Zahlen liefern, ist zusaetzlich
 am Release vom 20.11.2026 belegt: 515 verschiedene Antworten, gleich bis auf
 die neuen Felder der Auswahl (``AENDERUNGEN.md``, 24.11.2026).
@@ -22,12 +23,15 @@ from __future__ import annotations
 
 from datetime import date
 
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 
 import serving.dashboard as dashboard
+import serving.dashboard.zeitraum as zr
 from serving.dashboard import Auswahl, EingabeFehler, monatsende
 from serving.dashboard.app import create_app
-from test_dashboard import bestand  # noqa: F401  (Fixture)
+from test_dashboard import RELEASE, bestand  # noqa: F401  (Fixture)
 
 #: Die Bretter, die eine Auswahl aus der Leiste nehmen, mit ihrem Namen in
 #: ``FREIE_BRETTER``.
@@ -106,16 +110,36 @@ def test_ein_falsches_datum_ist_ein_eingabefehler(bestand, werte):  # noqa: F811
         bestand.auswahl(werte, "ueberblick")
 
 
+def test_alle_bretter_rechnen_tage():
+    """Stufe 3: Jedes Brett, das eine Auswahl nimmt, nimmt auch Tage."""
+    assert dashboard.FREIE_BRETTER == set(BRETTER)
+
+
 @pytest.mark.parametrize("brett", BRETTER)
-def test_ein_brett_ohne_tage_lehnt_den_freien_zeitraum_ab(bestand, brett):  # noqa: F811
-    """Abgelehnt, nicht auf Monate gerundet: sonst rechnete es still anders."""
-    assert brett not in dashboard.FREIE_BRETTER
+@pytest.mark.parametrize(("von", "bis"), [
+    ("2024-07-04", "2024-07-04"),   # ein Tag: Tagesachse
+    ("2024-06-01", "2024-08-15"),   # 76 Tage: Tagesachse
+    ("2023-12-01", "2024-03-31"),   # ueber den Jahreswechsel: Wochenachse
+    ("2023-01-01", "2025-03-10"),   # mehr als zwei Jahre: Monatsachse, kein Vorjahr
+])
+def test_jedes_brett_nimmt_einen_freien_zeitraum(bestand, brett, von, bis):  # noqa: F811
     client = create_app(bestand=bestand).test_client()
-    antwort = client.get(f"/api/{brett}?stadt=alle&von=2024-06-01&bis=2024-08-15")
+    antwort = client.get(f"/api/{brett}?stadt=alle&von={von}&bis={bis}")
+    assert antwort.status_code == 200, antwort.get_data(as_text=True)[:300]
+    a = antwort.json["auswahl"]
+    assert (a["tag_von"], a["tag_bis"], a["ganze_monate"]) == (von, bis, False)
+
+
+def test_ein_brett_ausserhalb_der_liste_lehnt_den_freien_zeitraum_ab(
+        bestand, monkeypatch):  # noqa: F811
+    """Abgelehnt, nicht auf Monate gerundet: sonst rechnete es still anders."""
+    monkeypatch.setattr(dashboard, "FREIE_BRETTER", frozenset())
+    client = create_app(bestand=bestand).test_client()
+    antwort = client.get("/api/geografie?stadt=alle&von=2024-06-01&bis=2024-08-15")
     assert antwort.status_code == 400
     assert "ganze Monate" in antwort.json["fehler"]
     # Ueber eine Jahresgrenze ebenso, auch aus ganzen Monaten.
-    ueber = client.get(f"/api/{brett}?stadt=alle&von=2023-12-01&bis=2024-01-31")
+    ueber = client.get("/api/geografie?stadt=alle&von=2023-12-01&bis=2024-01-31")
     assert ueber.status_code == 400
 
 
@@ -161,3 +185,136 @@ def test_die_zeitwahl_ist_auf_jedem_brett_mit_monaten(bestand):  # noqa: F811
         html = client.get(seite).get_data(as_text=True)
         for feld in ('id="von"', 'id="bis"', 'id="jahr"'):
             assert feld in html, (seite, feld)
+
+
+# --------------------------------------------------------------------------
+# Stufe 3: die Regeln in serving.dashboard.zeitraum
+# --------------------------------------------------------------------------
+
+
+def _a(von: str, bis: str) -> Auswahl:
+    return Auswahl(tag_von=date.fromisoformat(von), tag_bis=date.fromisoformat(bis))
+
+
+@pytest.mark.parametrize(("von", "bis", "art"), [
+    ("2024-07-04", "2024-07-04", "tag"),
+    ("2024-06-01", "2024-08-31", "monat"),   # ganze Monate bleiben Monate, auch 92 Tage
+    ("2024-06-02", "2024-08-31", "tag"),     # 91 Tage
+    ("2024-06-01", "2024-08-30", "tag"),     # 91 Tage, nicht ganz
+    ("2024-01-01", "2024-04-01", "tag"),     # 92 Tage
+    ("2024-01-01", "2024-04-02", "woche"),   # 93 Tage
+    ("2023-01-01", "2024-12-31", "woche"),   # 731 Tage, ueber zwei Jahre
+    ("2023-01-01", "2025-01-01", "monat"),   # 732 Tage
+])
+def test_die_achse_folgt_der_spanne(von, bis, art):
+    assert zr.koernung(_a(von, bis)) == art
+
+
+def test_die_perioden_sind_am_zeitraum_abgeschnitten():
+    """Der 1.10.2023 ist ein Sonntag: Die erste Woche ist einen Tag lang."""
+    assert zr.perioden(date(2023, 10, 1), date(2023, 10, 10), "woche") == [
+        (date(2023, 10, 1), date(2023, 10, 1)),
+        (date(2023, 10, 2), date(2023, 10, 8)),
+        (date(2023, 10, 9), date(2023, 10, 10))]
+    assert zr.perioden(date(2024, 1, 15), date(2024, 3, 10), "monat") == [
+        (date(2024, 1, 15), date(2024, 1, 31)),
+        (date(2024, 2, 1), date(2024, 2, 29)),
+        (date(2024, 3, 1), date(2024, 3, 10))]
+
+
+def test_ein_angeschnittener_rand_ist_hohl_aber_keine_luecke(bestand):  # noqa: F811
+    """Im Diagramm ``teil``, in der Abdeckung ``voll``: Es fehlen keine Daten."""
+    # 102 Tage, also je Woche; vom Sonntag, 1.10.2023, bis Mittwoch, 10.1.2024.
+    z = zr.Zeitraum(bestand._cursor(), _a("2023-10-01", "2024-01-10"), ["chicago"])
+    assert z.koernung == "woche"
+    status = z.status("chicago")
+    assert status[0] == status[-1] == "teil" and set(status[1:-1]) == {"voll"}
+    assert set(z.status("chicago", rand=False)) == {"voll"}
+
+
+def test_der_vergleich_nimmt_nur_tage_in_beiden_jahren(bestand):  # noqa: F811
+    """Chicago endet am 1.3.2025, Detroit am 10.3.2025 (Fixture ``bestand``)."""
+    cur = bestand._cursor()
+    z = zr.Zeitraum(cur, _a("2025-01-01", "2025-12-31"), ["chicago", "detroit"])
+    assert z.vergleich() == (date(2025, 1, 1), date(2025, 3, 1))
+    assert z.vergleich(["detroit"]) == (date(2025, 1, 1), date(2025, 3, 10))
+    # 2023 ist das erste Jahr: Ein Jahr frueher liegt nichts.
+    assert zr.Zeitraum(cur, _a("2023-03-01", "2023-05-31"), ["chicago"]).vergleich() is None
+    # Ueber ein Jahr Spanne kein Vergleich, auch wenn Daten da waeren.
+    lang = zr.Zeitraum(cur, _a("2024-01-01", "2025-01-01"), ["chicago"])
+    assert not lang.vergleich_moeglich and lang.vergleich() is None
+
+
+def test_personenjahre(bestand):  # noqa: F811
+    """Ein ganzes Jahr ist die Einwohnerzahl; ein Tag ein 366stel davon (2024)."""
+    cur = bestand._cursor()
+    e = bestand._einwohner(cur, "chicago")
+    v = bestand.vintage_je_jahr
+
+    def pj(von, bis):
+        return zr.Zeitraum(cur, _a(von, bis), ["chicago"]).personenjahre("chicago", e, v)
+
+    assert pj("2024-01-01", "2024-12-31") == pytest.approx(e[v[2024]])
+    assert pj("2024-07-04", "2024-07-04") == pytest.approx(e[v[2024]] / 366)
+    # Ueber den Jahreswechsel je Tag mit dem Vintage seines Jahres.
+    assert pj("2023-12-31", "2024-01-01") == pytest.approx(e[v[2023]] / 365 + e[v[2024]] / 366)
+    # Nach dem Fenster (Chicago endet am 1.3.2025) zaehlt kein Tag mehr.
+    assert pj("2025-01-01", "2025-12-31") == pytest.approx(e[v[2025]] * 60 / 365)
+    # Ein Jahr mit zwei Vintages hat keines, und dann gibt es keine Rate.
+    assert zr.Zeitraum(cur, _a("2024-01-01", "2024-12-31"), ["chicago"]).personenjahre(
+        "chicago", e, {**v, 2024: None}) is None
+
+
+def test_die_rate_eines_tages_ist_je_jahr(bestand):  # noqa: F811
+    """1.3.2024: Chicago vier Faelle im Tract der Stadt, Detroit zwei."""
+    r = bestand.ueberblick(bestand.auswahl({"von": "2024-03-01", "bis": "2024-03-01"},
+                                           "ueberblick"))["raten"]
+    cur = bestand._cursor()
+    v = bestand.vintage_je_jahr[2024]
+    e = {s: bestand._einwohner(cur, s)[v] for s in ("chicago", "detroit")}
+    assert r["zeilen"][0]["werte"] == {"chicago": round(4 * 1000 * 366 / e["chicago"], 1),
+                                       "detroit": round(2 * 1000 * 366 / e["detroit"], 1)}
+    assert r["tage"] == {"chicago": 1, "detroit": 1}
+
+
+def test_das_vorjahr_liegt_auf_derselben_achse(bestand):  # noqa: F811
+    """Ein Vorjahrestag wird ein Jahr spaeter gelegt - Wochen und Tage passen dann."""
+    z = bestand.zeitverlauf(bestand.auswahl({"stadt": "detroit", "von": "2024-02-25",
+                                             "bis": "2024-03-05"}, "zeitverlauf"))
+    detroit = z["staedte"][0]
+    assert z["achse"]["koernung"] == "tag"
+    tag = z["achse"]["perioden"].index("2024-03-01")
+    # 2024: zwei Taten am 1.3.; 2023: eine am 1.3. - an derselben Stelle.
+    assert detroit["jetzt"][tag] == 2 and detroit["vorjahr"][tag] == 1
+    assert sum(detroit["jetzt"]) == 2 and sum(detroit["vorjahr"]) == 1
+    assert z["vergleich"]["von"] == "2023-02-25" and z["vergleich"]["bis"] == "2023-03-05"
+
+
+def test_ueber_mehr_als_ein_jahr_kein_vorjahr_und_ein_grund(bestand):  # noqa: F811
+    z = bestand.zeitverlauf(bestand.auswahl({"von": "2023-01-01", "bis": "2025-03-10"},
+                                            "zeitverlauf"))
+    assert z["vergleich"]["vorjahr_vorhanden"] is False
+    assert "mehr als ein Jahr" in z["vergleich"]["grund"]
+    assert all(v is None for s in z["staedte"] for v in s["vorjahr"])
+    k = bestand.ueberblick(bestand.auswahl({"von": "2023-01-01", "bis": "2025-03-10"},
+                                           "ueberblick"))["kennzahlen"]
+    assert k["vorjahr_prozent"] is None and k["vorjahr_moeglich"] is False
+
+
+def test_eine_doppelte_id_ueber_zwei_monate_faellt_auf(bestand):  # noqa: F811
+    """Bis Stufe 3 je Monat gezaehlt: Eine ID im Januar und im Februar fiel nicht auf."""
+    ziel = (bestand.data_root / "releases" / f"release={RELEASE}" / "gold"
+            / "dataset=fact_offense" / "part-0001.parquet")
+    tabelle = pq.read_table(ziel)
+    zeilen = tabelle.to_pylist()
+    januar = next(z for z in zeilen if z["date"] == date(2024, 1, 1)
+                  and z["reporting_city"] == "chicago")
+    zeilen.append(januar | {"date": date(2024, 2, 1)})
+    pq.write_table(pa.Table.from_pylist(zeilen, schema=tabelle.schema), ziel)
+    neu = dashboard.Bestand(bestand.data_root)
+    jahr = neu.datenqualitaet(neu.auswahl({"jahr": "2024", "stadt": "chicago"}, "datenqualitaet"))
+    assert jahr["kennzahlen"]["doppelte_ids"] == 1
+    # Im Januar allein ist die ID nur einmal da.
+    jan = neu.datenqualitaet(neu.auswahl({"jahr": "2024", "bis": "1", "stadt": "chicago"},
+                                         "datenqualitaet"))
+    assert jan["kennzahlen"]["doppelte_ids"] == 0

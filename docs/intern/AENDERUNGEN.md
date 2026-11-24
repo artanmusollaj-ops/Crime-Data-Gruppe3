@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'423** |
+| Tests | **3'465** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -107,6 +107,88 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 24.11.2026 · Jedes Brett rechnet einen freien Zeitraum, auch einen einzelnen Tag (Branch `dashboard-freie-zeitraeume`)
+
+Stufe 3 von drei für den freien Zeitraum, nach den Entscheiden vom 23.11.2026.
+Alle sieben Bretter, die eine Auswahl nehmen, stehen jetzt in
+`FREIE_BRETTER`. Sie rechnen auf den Tag genau und über Jahresgrenzen; die
+Regeln stehen einmal in `serving.dashboard.zeitraum`.
+
+**Was sich an Zahlen ändert, und nur dort:**
+
+- **Die Rate gilt je Jahr**, also Fälle je 1'000 Einwohner und Jahr. Der
+  Nenner sind Personenjahre: Jeder Tag, für den die Stadt Daten hat, zählt
+  mit den Einwohnern seines ACS-Vintage, geteilt durch die Tage seines Jahres.
+  **Über ein ganzes Jahr ist das genau die Einwohnerzahl.** Die Raten der
+  Dokumente bleiben also gleich: 94,5 und 124,7 für 2024, auf der Tatebene
+  94,5 und 134,1. Anders sind sie über Teiljahre. März bis Mai 2024 ergab
+  bisher 23,3 und 30,3, ein Viertel der Jahresrate; jetzt sind es 92,6 und
+  120,5. Ebenso 2026 bis zum Datenende. Für die Tracts in »Geografie« und
+  die Armutsbänder in »Soziales Umfeld« gilt dieselbe Regel.
+- **Zum Vorjahr zählen Tage, nicht Monate**, und zwar die, die in beiden
+  Jahren für jede gewählte Stadt vorliegen. Bisher fiel ein angebrochener
+  Monat ganz heraus. Das ändert nur Zeiträume am Datenende, im Bestand 2026:
+  Jan bis Dez 2026 im »Überblick« −1,7 statt −1,4 %, weil der November bis
+  zum 11. jetzt mitzählt. Über mehr als ein Jahr Spanne gibt es keinen
+  Vergleich, mit Begründung auf der Seite.
+- **Doppelte Delikt-IDs** zählen über den ganzen Zeitraum, nicht je Monat.
+  Eine ID im Januar und im Februar fiel bisher nicht auf. Im Bestand gibt es
+  keine.
+
+**Belegt:** Dieselbe Matrix aus 569 Anfragen wie am 23.11.2026, gegen die
+Grundlinie von vor Stufe 1. Abweichungen gibt es genau dort, wo oben steht:
+
+- die Raten im »Überblick« und je Tract in Teiljahren, also März bis Mai
+  2024, Dezember 2025 und 2026;
+- das Vorjahr im »Überblick« und in »Deliktstruktur«, nur für 2026;
+- in »Geografie« die Klassengrenzen der Karte, die aus den Raten folgen, und
+  in vier Fällen die Rangliste, weil die Rundung Gleichstände anders legt.
+
+Jedes ganze Jahr von 2021 bis 2025 ist in allen Werten gleich, ebenso
+»Zeitverlauf«, »Datenqualität«, »Wetter« und »Soziales Umfeld« für 2024.
+Die Zählungen kommen jetzt aus den Taten statt aus `comparison_month`. Je
+Stadt, Monat und Kategorie sind es dieselben 3'511 Zahlen, nachgezählt am
+Release vom 20.11.2026.
+
+**Achse nach Spanne:** bis 92 Tage je Tag, bis zwei Jahre je Woche (ab
+Montag), sonst je Monat. Ganze Monate eines Jahres bleiben Monate, ein Link
+auf März bis Mai zeigt weiter drei Punkte. Eine vom Zeitraum angeschnittene
+Woche oder ein angeschnittener Monat ist im Diagramm hohl wie ein Teilmonat.
+In der Abdeckung zählt sie dagegen als vollständig, denn es fehlen keine
+Daten. Ein einzelner Tag nennt seinen Wochentag, im Vergleich »Do 4.7.2024
+im Vergleich zu Di 4.7.2023«. Über weniger als ein Jahr steht an der Rate,
+aus wie vielen Tagen hochgerechnet ist.
+
+**Speicher und Zeit**, lokal mit den Grenzen von `srv01`: Spitze 420 MiB
+über die Matrix (Stufe 2: 443 MiB). Die Monatssichten und die Spalte
+`monat` sind aus `fakt` entfernt; die Tafel »Tag und Nacht« hält ihre
+Fälle je Tag statt je Monat. Über freie Zeiträume braucht eine Anfrage im
+Median höchstens 67 ms, auch über alle sechs Jahre.
+
+**Wächter:**
+
+- `tests/serving/test_dashboard_zeitraum.py`: die Körnung an ihren Grenzen
+  (92/93 und 731/732 Tage); die Perioden am Rand; der hohle Rand, der keine
+  Lücke ist; der Vergleich je Stadt; die Personenjahre über ein Schaltjahr
+  und den Jahreswechsel; die Rate eines Tages; die Vorjahreslinie auf
+  derselben Achse; eine doppelte ID über zwei Monate. Dazu jedes Brett mit
+  vier freien Zeiträumen.
+- `tests/serving/test_sozial.py`: die Armutsbänder je Jahr.
+- `tests/serving/test_dashboard_taten.py` hält weiter fest, dass `fakt`
+  alles trägt, was die alte Verdichtung trug. Die Sichten stehen jetzt dort
+  statt im Dashboard.
+
+**Mutationsprobe** in einer Kopie des Repositorys: 11 von 11 Mutationen
+fielen auf. Die Armutsbänder überlebten zuerst, weil der Test im falschen
+Bestand stand: Er hatte keine Armutsquoten und prüfte kein Band. Er steht
+jetzt bei den Sozial-Tests und verlangt mindestens zwei geprüfte Bänder.
+
+**Dokumente:** `README.md` (Abschnitt „Das eigene Dashboard“) nennt den freien
+Zeitraum und den Vergleich über Tage. `architektur-ist-und-ziel.md` sagt, dass
+die Zählungen aus Gold kommen statt aus `comparison_month`.
 
 ---
 
