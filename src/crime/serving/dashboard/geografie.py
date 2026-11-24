@@ -137,7 +137,7 @@ def geografie(bestand, a) -> dict[str, Any]:
             f"AND monat IN $monate {kat} GROUP BY 1, 2", p).fetchall():
         verortung[s][status] = int(n)
     return {
-        "auswahl": a.__dict__,
+        "auswahl": a.json,
         "vintage": vintage,
         "klassen": klassengrenzen(tragfaehig),
         "geringe_basis": GERINGE_BASIS,

@@ -22,9 +22,12 @@ Taten jenseits der Stadtgrenze durch die Einwohner innerhalb geteilt.
 Kibana und die Hypothesen rechnen je 1'000. Eine zweite Einheit waere eine
 zweite Wahrheit.
 
-**Ein Zeitraum liegt in einem Jahr.** Eine Rate braucht einen Nenner, und
-der Nenner ist das ACS-Vintage des Jahres (``population_vintage``). Ueber
-Jahresgrenzen gaebe es zwei - siehe ``gold_pipeline.RATENJAHR``.
+**Ein Zeitraum ist ein Tagesbereich** (``Auswahl``), seit dem 23.11.2026.
+Die Bretter rechnen ihn erst, wenn sie in ``FREIE_BRETTER`` stehen; bis
+dahin nehmen sie nur ganze Monate eines Jahres an. Der Grund war der Nenner:
+Eine Rate teilt durch das ACS-Vintage des Jahres (``population_vintage``),
+und ueber Jahresgrenzen gibt es zwei. Ein freies Brett rechnet darum je Tag
+mit dem Vintage dieses Tages und gibt die Rate je Jahr an.
 
 **Beim Laden einmal gelesen, danach im Speicher.** Das Dashboard haelt die
 Taten selbst schlank im Speicher, rund 1,9 Mio. Zeilen ohne Text, und die
@@ -44,6 +47,7 @@ Release ist unveraenderlich; nachgeladen wird also genau dann, wenn
 from __future__ import annotations
 
 import json
+import re
 import threading
 import time
 from dataclasses import dataclass, replace
@@ -193,17 +197,80 @@ def stadtwert(staedte: tuple[str, ...]) -> str:
     return ALLE if set(staedte) == set(STAEDTE) else ",".join(staedte)
 
 
+#: Welche Bretter einen freien Zeitraum rechnen: auf den Tag genau und ueber
+#: Jahresgrenzen. Die uebrigen rechnen ganze Monate eines Jahres und lehnen
+#: alles andere ab, statt es still auf Monate zu runden. Stufe 3 traegt die
+#: Bretter einzeln ein (Entscheide vom 23.11.2026: Rate je Jahr, Vergleich
+#: bis ein Jahr Spanne, Achse nach Spanne).
+FREIE_BRETTER: frozenset[str] = frozenset()
+
+#: Ein Datum in der Adresse, und nur so. ``date.fromisoformat`` naehme auch
+#: ``20240101`` und ``2024-W01-1``; dieselbe Auswahl haette dann mehrere Namen.
+_DATUM = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def monatsende(tag: date) -> date:
+    """Der letzte Tag im Monat von ``tag``."""
+    return date(tag.year + tag.month // 12, tag.month % 12 + 1, 1) - timedelta(days=1)
+
+
 @dataclass(frozen=True)
 class Auswahl:
-    """Was oben in der Leiste steht."""
+    """Was oben in der Leiste steht.
+
+    Der Zeitraum ist ein Tagesbereich, beide Enden eingeschlossen. Jahr und
+    Monate sind daraus abgeleitet und gelten nur, solange er aus ganzen
+    Monaten eines Jahres besteht (``ganze_monate``) - so rechnen die Bretter,
+    die noch nicht in ``FREIE_BRETTER`` stehen.
+    """
 
     stadt: str = ALLE
-    jahr: int = RATENJAHR
-    von: int = 1
-    bis: int = 12
+    tag_von: date = date(RATENJAHR, 1, 1)
+    tag_bis: date = date(RATENJAHR, 12, 31)
     kategorie: str = "alle"
     mass: str = "anzahl"
     ebene: str = "faelle"
+
+    @property
+    def ganze_monate(self) -> bool:
+        """Ganze Monate eines Jahres, wie es die Leiste bis Stufe 2 nur kannte."""
+        return (self.tag_von.year == self.tag_bis.year and self.tag_von.day == 1
+                and self.tag_bis == monatsende(self.tag_bis))
+
+    @property
+    def jahr(self) -> int:
+        return self.tag_von.year
+
+    @property
+    def von(self) -> int:
+        """Der erste Monat; nur bei ``ganze_monate`` ein Zeitraum."""
+        return self.tag_von.month
+
+    @property
+    def bis(self) -> int:
+        """Der letzte Monat; nur bei ``ganze_monate`` ein Zeitraum."""
+        return self.tag_bis.month
+
+    @property
+    def tage(self) -> int:
+        return (self.tag_bis - self.tag_von).days + 1
+
+    @property
+    def json(self) -> dict[str, Any]:
+        """Die Auswahl in der Antwort: Jahr und Monate wie bisher, dazu die Tage.
+
+        Bei einem freien Zeitraum stehen Jahr und Monate auf ``None`` - ein
+        Brett, das sie dann noch liest, zeigt einen Fehler statt einer
+        falschen Beschriftung.
+        """
+        monate = self.ganze_monate
+        return {"stadt": self.stadt,
+                "jahr": self.jahr if monate else None,
+                "von": self.von if monate else None,
+                "bis": self.bis if monate else None,
+                "tag_von": self.tag_von.isoformat(), "tag_bis": self.tag_bis.isoformat(),
+                "ganze_monate": monate, "tage": self.tage,
+                "kategorie": self.kategorie, "mass": self.mass, "ebene": self.ebene}
 
     @property
     def staedte(self) -> tuple[str, ...]:
@@ -229,10 +296,11 @@ class Auswahl:
     def pruefe(self, jahre: list[int], kategorien: list[str]) -> Auswahl:
         staedte = staedte_aus(self.stadt)
         kategorien = kategorien_aus(self.kategorie, kategorien)
-        if self.jahr not in jahre:
-            raise EingabeFehler(f"Kein Jahrgang {self.jahr}")
-        if not 1 <= self.von <= self.bis <= 12:
-            raise EingabeFehler("Der Zeitraum braucht 1 <= von <= bis <= 12")
+        if self.tag_von > self.tag_bis:
+            raise EingabeFehler("Der Zeitraum braucht von <= bis")
+        for tag in (self.tag_von, self.tag_bis):
+            if tag.year not in jahre:
+                raise EingabeFehler(f"Kein Jahrgang {tag.year}")
         if self.mass not in MASSE:
             raise EingabeFehler(f"Unbekanntes Mass: {self.mass}")
         if self.ebene not in EBENEN:
@@ -424,23 +492,85 @@ class Bestand:
                         # »Soziales Umfeld«: die beiden Karten nebeneinander.
                         "karte": "nebeneinander"},
             "letzter_monat": letzter,
+            # Fuer die erweiterte Zeitwahl: welche Bretter Tage rechnen, das
+            # Fenster mit Daten und die Vorgaben dazu.
+            "frei": sorted(FREIE_BRETTER),
+            **self._tagesfenster(cur),
             "stand": self.stand,
         }
 
-    def auswahl(self, werte: dict[str, str]) -> Auswahl:
+    @staticmethod
+    def _tagesfenster(cur) -> dict[str, Any]:
+        """Erster und letzter Tag mit Daten, und die Vorgaben der Zeitwahl.
+
+        Die Vorgaben haengen am letzten Tag mit Daten irgendeiner Stadt, nicht
+        am Kalender: »Letzte 30 Tage« zeigt sonst bei einem Datenstand von
+        gestern einen halb leeren Zeitraum.
+        """
+        erster, letzter = cur.execute("SELECT min(von), max(bis) FROM fenster").fetchone()
+        if letzter is None:
+            return {"tage": None, "vorgaben": []}
+        sommer = letzter.year if letzter >= date(letzter.year, 8, 31) else letzter.year - 1
         try:
-            a = Auswahl(
-                stadt=werte.get("stadt", ALLE),
-                jahr=int(werte.get("jahr", RATENJAHR)),
-                von=int(werte.get("von", 1)),
-                bis=int(werte.get("bis", 12)),
-                kategorie=werte.get("kategorie", "alle"),
-                mass=werte.get("mass", "anzahl"),
-                ebene=werte.get("ebene", "faelle"),
-            )
-        except ValueError as fehler:
-            raise EingabeFehler("Jahr und Monate muessen Zahlen sein") from fehler
-        return a.pruefe(self.jahre, self.kategorien)
+            vor_einem_jahr = letzter.replace(year=letzter.year - 1)
+        except ValueError:  # 29. Februar
+            vor_einem_jahr = letzter.replace(year=letzter.year - 1, day=28)
+        roh = [
+            ("Letzter Tag", letzter, letzter),
+            ("Letzte 7 Tage", letzter - timedelta(days=6), letzter),
+            ("Letzte 30 Tage", letzter - timedelta(days=29), letzter),
+            ("Letzte 12 Monate", vor_einem_jahr + timedelta(days=1), letzter),
+            ("Laufendes Jahr", date(letzter.year, 1, 1), letzter),
+            (f"Sommer {sommer}", date(sommer, 6, 1), date(sommer, 8, 31)),
+            ("Ganzer Bestand", erster, letzter),
+        ]
+        return {
+            "tage": {"erster": erster.isoformat(), "letzter": letzter.isoformat()},
+            "vorgaben": [{"name": n, "von": max(v, erster).isoformat(), "bis": b.isoformat()}
+                         for n, v, b in roh if b >= erster],
+        }
+
+    def auswahl(self, werte: dict[str, str], brett: str | None = None) -> Auswahl:
+        """Die Auswahl aus der Adresse, geprueft fuer ``brett``.
+
+        Zwei Schreibweisen fuer den Zeitraum. Die alte, ``jahr=2024&von=3&bis=5``,
+        meint ganze Monate eines Jahres; jeder Link von vor Stufe 2 bleibt so
+        gueltig und liefert dieselben Zahlen. Die neue, ``von=2024-06-01&bis=
+        2024-08-31``, meint Tage; ``jahr`` gilt dann nicht. Ein Brett, das nicht
+        in ``FREIE_BRETTER`` steht, nimmt die neue nur fuer ganze Monate eines
+        Jahres an.
+        """
+        von, bis = werte.get("von", "1"), werte.get("bis", "12")
+        if "-" in von or "-" in bis:
+            if not (_DATUM.fullmatch(von) and _DATUM.fullmatch(bis)):
+                raise EingabeFehler("Ein Datum braucht die Form JJJJ-MM-TT")
+            try:
+                tag_von, tag_bis = date.fromisoformat(von), date.fromisoformat(bis)
+            except ValueError as fehler:  # etwa der 30. Februar
+                raise EingabeFehler(f"Kein Datum: {von} oder {bis}") from fehler
+        else:
+            try:
+                jahr, m_von, m_bis = int(werte.get("jahr", RATENJAHR)), int(von), int(bis)
+            except ValueError as fehler:
+                raise EingabeFehler("Jahr und Monate muessen Zahlen sein") from fehler
+            if jahr not in self.jahre:
+                raise EingabeFehler(f"Kein Jahrgang {jahr}")
+            if not 1 <= m_von <= m_bis <= 12:
+                raise EingabeFehler("Der Zeitraum braucht 1 <= von <= bis <= 12")
+            tag_von = date(jahr, m_von, 1)
+            tag_bis = monatsende(date(jahr, m_bis, 1))
+        a = Auswahl(
+            stadt=werte.get("stadt", ALLE),
+            tag_von=tag_von, tag_bis=tag_bis,
+            kategorie=werte.get("kategorie", "alle"),
+            mass=werte.get("mass", "anzahl"),
+            ebene=werte.get("ebene", "faelle"),
+        ).pruefe(self.jahre, self.kategorien)
+        if not a.ganze_monate and brett not in FREIE_BRETTER:
+            raise EingabeFehler(
+                "Dieses Brett zeigt bisher nur ganze Monate eines Jahres, "
+                f"nicht {a.tag_von:%d.%m.%Y}–{a.tag_bis:%d.%m.%Y}")
+        return a
 
     # -- Das Brett »Datenqualität« -------------------------------------------
 
@@ -467,7 +597,7 @@ class Bestand:
 
     def sozialbrett(self, werte: dict[str, str]) -> dict[str, Any]:
         from serving.dashboard.sozial import sozial
-        return sozial(self, self.auswahl(werte), werte.get("karte") or "nebeneinander")
+        return sozial(self, self.auswahl(werte, "sozial"), werte.get("karte") or "nebeneinander")
 
     # -- Das Brett »Wetter« ---------------------------------------------------
 
@@ -540,7 +670,7 @@ class Bestand:
             verlauf[s][monate.index(m)] = int(n)
 
         return {
-            "auswahl": a.__dict__,
+            "auswahl": a.json,
             "kennzahlen": {
                 "delikte": int(summe("delikte", monate)),
                 "faelle": int(summe("faelle", monate)),

@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'386** |
+| Tests | **3'423** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -107,6 +107,62 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 24.11.2026 · Die Leiste nimmt einen Zeitraum auf den Tag genau (Branch `dashboard-datumsbereich`)
+
+Stufe 2 von drei für den freien Zeitraum (Entscheide vom 23.11.2026, siehe
+den Eintrag darunter). **An den Zahlen ändert sich nichts.**
+
+**Die Auswahl ist ein Tagesbereich.** `Auswahl` trägt `tag_von` und
+`tag_bis`, beide Enden eingeschlossen. Jahr und Monate sind daraus
+abgeleitet und gelten nur, solange der Zeitraum aus ganzen Monaten eines
+Jahres besteht (`ganze_monate`). Die Adresse kennt zwei Schreibweisen für
+dieselben Parameter:
+
+- `jahr=2024&von=3&bis=5` wie bisher: ganze Monate eines Jahres. **Jeder
+  alte Link bleibt gültig.**
+- `von=2024-06-01&bis=2024-08-31`: Tage, ohne `jahr`. Nur genau in der Form
+  `JJJJ-MM-TT`, damit dieselbe Auswahl nicht mehrere Adressen hat.
+
+**Die Bretter rechnen weiter in Monaten.** Ein Brett nimmt einen freien
+Zeitraum erst an, wenn es in `serving.dashboard.FREIE_BRETTER` steht. Diese
+Liste ist leer; Stufe 3 trägt die Bretter einzeln ein. Bis dahin lehnt jedes
+Brett einen Zeitraum ab, der nicht aus ganzen Monaten eines Jahres besteht,
+mit einer sichtbaren Meldung. Auf Monate runden wäre die Alternative, und
+dann zeigte ein Brett für den 1.6. bis 15.8. still Zahlen bis zum 31.8.
+
+**In der Leiste** schaltet ein Knopf »Tage« zwischen Monaten und zwei
+Datumsfeldern um. Dazu kommen Vorgaben, gerechnet vom letzten Tag mit Daten:
+letzter Tag, letzte 7 und 30 Tage, letzte 12 Monate, laufendes Jahr, der
+letzte ganze Sommer, der ganze Bestand. Der Knopf erscheint auf Brettern
+aus `FREIE_BRETTER` und auf jedem Brett, dessen Adresse schon Tage trägt.
+Bis Stufe 3 ist er im Alltag also nicht zu sehen. `/api/optionen` liefert
+dafür `frei`, das Tagesfenster und die Vorgaben.
+
+**Belegt, dass sich keine Zahl ändert.** Dieselbe Matrix wie am 23.11.2026,
+569 Anfragen am lokalen Release, gegen die Grundlinie von vor Stufe 1. Alle
+515 verschiedenen Antworten sind gleich, bis auf die neuen Felder: in der
+Auswahl `tag_von`, `tag_bis`, `ganze_monate` und `tage`, in den Optionen
+`frei`, `tage` und `vorgaben`.
+
+**Wächter.** `tests/serving/test_dashboard_zeitraum.py`, 37 Tests:
+
+- Ein alter Link und derselbe Zeitraum als Daten liefern auf fünf Brettern
+  **byteweise dieselbe Antwort**.
+- Ungültige Daten werden abgelehnt: `20240101`, `2024-W01-1`, `2024-1-1`,
+  der 30. Februar, gemischte Schreibweisen, verkehrte Reihenfolge, ein Jahr
+  ohne Daten.
+- Jedes der sieben Bretter lehnt einen freien Zeitraum ab, solange es nicht
+  in `FREIE_BRETTER` steht.
+- Die Vorgaben werden an einem Bestand mit bekanntem Fenster nachgerechnet.
+
+**Mutationsprobe** in einer Kopie des Repositorys: 7 von 8 Mutationen
+fielen auf. Die achte prüft nur einen Strich in `von` statt in beiden
+Feldern. Sie ist gleichwertig, weil ein Datum allein in `bis` im
+Monatszweig an `int()` scheitert. Eine frühere Fassung prüfte die Form
+doppelt; das zeigte die Probe, und die Stelle ist jetzt einfacher.
 
 ---
 

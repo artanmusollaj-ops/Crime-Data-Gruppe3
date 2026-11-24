@@ -150,7 +150,7 @@ def sozial(bestand, a, karte: str = "nebeneinander") -> dict[str, Any]:
             "geringe": s["geringe"], "verortung": s["verortung"],
         })
     return {
-        "auswahl": a.__dict__ | {"karte": karte},
+        "auswahl": a.json | {"karte": karte},
         "vintage": vintage,
         "klassen": geo["klassen"],
         "armut": [{"band": n, "unten": u, "oben": o} for n, u, o in ARMUT],

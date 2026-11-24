@@ -111,7 +111,7 @@ def datenqualitaet(bestand, a) -> dict[str, Any]:
          "status": "ok" if doppelte_ids == 0 else "warnung"},
     ]
     return {
-        "auswahl": a.__dict__,
+        "auswahl": a.json,
         "zuordnung_detail": _zuordnung_detail(cur, staedte, p, kat),
         "kennzahlen": {
             "vollstaendige_monate": vollstaendig, "monate": len(monate),

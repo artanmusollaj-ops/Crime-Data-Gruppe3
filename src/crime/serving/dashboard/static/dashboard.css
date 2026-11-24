@@ -36,6 +36,13 @@ body { margin: 0; background: var(--grund); color: var(--text); font-size: 14px;
 .leiste label { display: flex; align-items: center; gap: 10px; color: var(--leise); }
 .leiste select { font: inherit; color: var(--text); padding: 8px 12px; border: 1px solid #cfd6e0;
   border-radius: 6px; background: #fff; min-width: 90px; }
+.leiste input[type="date"] { font: inherit; color: var(--text); padding: 7px 10px; border: 1px solid #cfd6e0;
+  border-radius: 6px; background: #fff; }
+.leiste label[hidden] { display: none; }
+/* Wechselt zwischen Monaten eines Jahres und einem freien Zeitraum. */
+.leiste .zeitmodus { font: inherit; font-size: 14px; color: var(--blau); background: none; cursor: pointer;
+  border: 1px solid #cfd6e0; border-radius: 6px; padding: 8px 12px; margin-left: -16px; }
+.leiste .zeitmodus:hover { background: #eaf2fd; border-color: var(--blau); }
 #kategorien .mehrfach-klappe summary { min-width: 220px; }
 .mehrfach { display: flex; align-items: center; gap: 10px; color: var(--leise); }
 /* Sieht aus wie die Auswahlfelder daneben, klappt aber eine Liste mit Häkchen auf. */

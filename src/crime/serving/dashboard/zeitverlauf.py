@@ -168,7 +168,7 @@ def zeitverlauf(bestand, a) -> dict[str, Any]:
             "licht": _licht(bestand, cur, s, monate, kat, extra, licht_kat),
         })
     return {
-        "auswahl": a.__dict__,
+        "auswahl": a.json,
         "vergleich": {"jahr": a.jahr, "vorjahr": a.jahr - 1,
                       "vorjahr_vorhanden": a.jahr - 1 in bestand.jahre},
         "staedte": ergebnis,
