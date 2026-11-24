@@ -72,6 +72,7 @@ Word-Dokument verweist**: auf keines davon.
 | [`dritte-stadt.md`](intern/dritte-stadt.md) | was eine dritte Stadt bräuchte: welche der zehn grössten US-Städte in Frage kommen, was an der Ingestion vorbereitet ist (`config/quellen.toml`) und was Schicht für Schicht noch fehlt — keine Stadt geplant |
 | [`platzbedarf.md`](intern/platzbedarf.md) | was die Strecke an Platz braucht, gemessen und auf 2021–2026 hochgerechnet — **erzeugt** (siehe unten) |
 | [`abgabestand.md`](intern/abgabestand.md) | der Ablauf am Tag, an dem der Abgabestand gepinnt wird: welcher Lauf, Stand lokal herstellen, pinnen, Notebook 34 und die Nachweise, erzeugte Dateien, Dokumente, Einsetzen |
+| [`umstellung-verwaltet.md`](intern/umstellung-verwaltet.md) | S-10: wie `srv01` vom Cron-Datenlauf auf den Konsolen-Worker umgestellt wird — Vorprüfung, Umstellen, Probelauf von Hand, Abnahme, Rückweg; vorbereitet, nicht entschieden |
 | [`vorfuehrung.md`](intern/vorfuehrung.md) | die Vorführung: Kibana aus Google Cloud über `srv01` starten, prüfen und stoppen, dazu der Rückfallweg ohne `srv01` |
 | [`DETROIT_PIPELINE_ANLEITUNG.md`](intern/DETROIT_PIPELINE_ANLEITUNG.md) | Detroit-Pipeline Schritt für Schritt (Windows) |
 | [`ENGINEERING_KONSOLE.md`](intern/ENGINEERING_KONSOLE.md) | die Engineering-Konsole: Funktionen, Impact-Bericht, lokale Einrichtung, Betrieb auf `srv01`, Umstellung auf den verwalteten Betrieb, Fehlerdiagnose — als PDF unter [`intern/handbuch/`](intern/handbuch/ENGINEERING_KONSOLE.pdf) (erzeugt, siehe unten) |
