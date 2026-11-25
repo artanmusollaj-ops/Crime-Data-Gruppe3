@@ -309,7 +309,8 @@ def _quellname(modul: str) -> str:
     """``census_pipeline.download_tiger`` -> ``TIGER``."""
     letzt = modul.rsplit(".", 1)[-1]
     roh = letzt.replace("download_", "").replace("extract_", "")
-    return {"acs": "ACS", "tiger": "TIGER", "noaa": "NOAA"}.get(roh, roh.capitalize())
+    return {"acs": "ACS", "tiger": "TIGER", "noaa": "NOAA",
+            "gebiete": "Polizeibezirke"}.get(roh, roh.capitalize())
 
 
 def _gepinnt(paket: str) -> str:

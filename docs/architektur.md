@@ -27,7 +27,7 @@ programmatisch erzeugt aus dem beschriebenen Architekturstand. DuckDB ist
 Verarbeitungsengine und SQL-Zugang; SeaweedFS ist die optionale Dateiablage.
 Nicht alle Steuerungspfeile sind eingezeichnet.*
 
-**Was daran gelesen wird und was nicht.** Die fünf Quellen kommen aus
+**Was daran gelesen wird und was nicht.** Die sechs Quellen kommen aus
 `run_all.STUFEN`, die vier Schichten aus `run_all.GRUPPEN`, die
 Steuerungsmodule aus dem Verzeichnis `orchestration/`, die Speichermodi aus
 `storage.config.BACKENDS` und die DuckDB-Version aus `requirements.lock` —
@@ -46,10 +46,10 @@ Zugang für eigene Abfragen.
 
 ![Abhängigkeiten zwischen den Paketen](bilder/architektur-pakete.svg)
 
-Elf Pakete, 32 Kanten, **keine Zyklen** — das prüft ein Test, denn es ist
+Zwölf Pakete, 34 Kanten, **keine Zyklen** — das prüft ein Test, denn es ist
 eine Aussage über die Architektur und nicht über die Zeichnung.
 
-**Warum nur vierzehn Pfeile gezeichnet sind.** Achtzehn der 32 Kanten zeigen auf
+**Warum nur vierzehn Pfeile gezeichnet sind.** Zwanzig der 34 Kanten zeigen auf
 `manifeste` und `storage`. Alle zu zeichnen ergibt ein Knäuel, in dem die
 vierzehn übrigen untergehen — und genau die tragen die Aussage. Die beiden
 Fundamente stehen deshalb als Band darunter, und die Bildunterschrift sagt,
@@ -65,7 +65,7 @@ wer sie benutzt.
 `storage` nur an `manifeste`. Zuoberst steht `orchestration`, das Gold und
 Serving anstösst. Seit dem 30.10.2026 ergänzt `platform_admin`
 die Freigabe- und Betriebssteuerung; es nutzt die bestehende Orchestrierung.
-Und zwischen den vier Ingestion-Paketen gibt es **keine
+Und zwischen den fünf Ingestion-Paketen gibt es **keine
 einzige Kante**: Chicago weiss nichts von Detroit. Sie teilen sich nur, wie ein Lauf aussieht (`manifeste`) und wo
 er liegt (`storage`).
 
@@ -78,7 +78,7 @@ er liegt (`storage`).
 
 ![Der Datenfluss in vier Gruppen](bilder/architektur-datenfluss.svg)
 
-Erzeugt aus `orchestration.run_all.STUFEN` — die sechzehn Stufen sind im Code
+Erzeugt aus `orchestration.run_all.STUFEN` — die siebzehn Stufen sind im Code
 bereits eine Datenstruktur, das Bild liest sie nur ab. Kommt eine Stufe dazu,
 steht sie hier, ohne dass jemand daran denken muss.
 
@@ -217,7 +217,7 @@ das Abgelegte gegen einen frischen Bau.
 ### Und vier Befehle, die zeigen statt behaupten
 
 ```bash
-python -m orchestration.run_all --trocken   # 16 Stufen, in Reihenfolge
+python -m orchestration.run_all --trocken   # 17 Stufen, in Reihenfolge
 python -m storage                            # wo die Daten liegen, welcher Stand
 python -m orchestration.drift                # wie weit die Zahlen vom Referenzstand weg sind
 python -m orchestration.aufraeumen           # was bleiben muss und warum

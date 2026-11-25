@@ -166,10 +166,10 @@ groups:
       # Ein Alarm, der im Normalbetrieb feuert, wird abgeschaltet; dann
       # schweigt auch der Fall, fuer den er da war.
       - alert: QuelleVeraltet
-        # Woechentlich: Taten und Wetter. Acht Tage, wie der Datenlauf sie
+        # Woechentlich: Taten, Wetter und die Polizeibezirke. Acht Tage, wie der Datenlauf sie
         # prueft - sieben sind normal, acht ist einer zu viel.
         expr: >-
-          urbancrime_quelle_alter_sekunden{quelle=~"city=.*|dataset=noaa_ghcnd"}
+          urbancrime_quelle_alter_sekunden{quelle=~"city=.*|dataset=(noaa_ghcnd|gebiete)"}
           > 8 * 24 * 3600
         for: 1h
         labels:

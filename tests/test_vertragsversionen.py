@@ -32,6 +32,7 @@ MODULE = {
     "bronze/dataset=tiger_place": "census_pipeline.download_tiger",
     "bronze/dataset=acs5_tract": "census_pipeline.download_acs",
     "bronze/dataset=noaa_ghcnd": "weather_pipeline.download_noaa",
+    "bronze/dataset=gebiete": "gebiete_pipeline.download_gebiete",
     "silver/tract": "silver_pipeline.build_tract",
     "silver/place": "silver_pipeline.build_place",
     "silver/weather_day": "silver_pipeline.build_weather_day",
