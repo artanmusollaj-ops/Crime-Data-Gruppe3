@@ -125,11 +125,6 @@ function zeichne(d) {
         + ` – ${zahl.format(v.missing_coordinate)} ohne Koordinate, `
         + `${zahl.format(v.outside_city + v.no_tract)} ausserhalb. Sie fehlen auf der Karte.`;
     }),
-    ...d.staedte.flatMap((s) => {
-      const orte = (karten?.[s.stadt]?.orte ?? []).map((o) => o.name);
-      return orte.length ? [`${s.name}: Die beschrifteten Lücken sind eigene Gemeinden, `
-        + `${orte.join(" und ")}. Die Polizei der Stadt ist dort nicht zuständig, es gibt keine Daten.`] : [];
-    }),
     "Keine Aussage über individuelles Risiko.",
   ];
   document.getElementById("d-hinweise").replaceChildren(...punkte.map((p) => {

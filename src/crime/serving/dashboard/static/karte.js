@@ -90,19 +90,10 @@ export function kartenflaeche(k, { titel, inhalt, defs, gekoppelt = null }) {
 
   // Massstab und Nordpfeil stehen fest und rechnen mit dem Zoom mit.
   const massstab = el("g", { class: "massstabsleiste" });
-  // Die eingeschlossenen Gemeinden (``geografie.ENKLAVEN``): ausserhalb der
-  // Ansicht, damit die Schrift beim Zoomen gleich gross bleibt; ``zeichne``
-  // rueckt sie mit.
-  const orte = el("g", { class: "enklaven" });
-  const namen = (k.orte ?? []).map((o) => {
-    const t = el("text", { "text-anchor": o.anker, class: "enklave" }, o.name);
-    orte.append(t);
-    return [o, t];
-  });
   const nord = el("g", { transform: `translate(${B - 16}, 14)` });
   nord.append(el("path", { d: "M0 0 L8 22 L0 16 L-8 22 Z", class: "nord" }),
     el("text", { x: 0, y: -3, "text-anchor": "middle", class: "kartenschrift" }, "N"));
-  svg.append(orte, massstab, nord);
+  svg.append(massstab, nord);
 
   let s = 1, tx = 0, ty = 0, geplant = false;
 
@@ -122,18 +113,9 @@ export function kartenflaeche(k, { titel, inhalt, defs, gekoppelt = null }) {
       el("text", { x: x + l + 6, y: y + 4, class: "kartenschrift" }, text));
   }
 
-  function setzeNamen() {
-    const abstand = { start: 4, end: -4, middle: 0 };
-    for (const [o, t] of namen) {
-      t.setAttribute("x", o.x * s + tx + abstand[o.anker]);
-      t.setAttribute("y", o.y * s + ty + 4);
-    }
-  }
-
   function zeichne() {
     geplant = false;
     ansicht.setAttribute("transform", `translate(${tx} ${ty}) scale(${s})`);
-    setzeNamen();
     leiste();
     const breite = svg.getBoundingClientRect().width || B;
     // Bildschirmpixel je Karteneinheit, und daraus die Kachelstufe, bei der
@@ -241,7 +223,6 @@ export function kartenflaeche(k, { titel, inhalt, defs, gekoppelt = null }) {
   flaeche.append(svg, knoepfe, nennung);
   // Erst im Dokument kennt die Flaeche ihre Breite; die Kachelstufe haengt daran.
   new ResizeObserver(plane).observe(svg);
-  setzeNamen();
   leiste();
   return flaeche;
 }
