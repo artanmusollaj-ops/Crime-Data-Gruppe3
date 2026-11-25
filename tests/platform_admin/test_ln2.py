@@ -402,6 +402,37 @@ def test_backup_keeps_the_pointer_file(store):
     assert "releases/AKTUELL.json" in archived_names(objects, info)
 
 
+def test_backup_leaves_out_job_data_but_keeps_the_evidence(store):
+    # 25.11.2026: the data folder of the candidate of 18.11. (1.1 GiB) made
+    # every daily archive 830 MiB. It can be rebuilt; the evidence cannot.
+    objects = FakeObjects()
+    job = store.root / "jobs" / "9d265b70"
+    (job / "data/bronze").mkdir(parents=True)
+    (job / "data/bronze/part-0.parquet").write_bytes(b"x" * 1000)
+    (job / "run.log").write_text("log")
+    (job / "result.json").write_text("{}")
+    (store.root / "jobs/ANALYSE.json").write_text("{}")
+    info = object_store.backup(store, objects)
+    names = archived_names(objects, info)
+    assert info["job_data_left_out"] == ["9d265b70"]
+    assert not any(n.startswith("admin/jobs/9d265b70/data") for n in names)
+    assert "admin/jobs/9d265b70/run.log" in names
+    assert "admin/jobs/9d265b70/result.json" in names
+    assert "admin/jobs/ANALYSE.json" in names
+
+
+def test_backup_keeps_a_data_file_that_is_not_a_job_folder(store):
+    # Only jobs/<id>/data is left out, not a file of that name elsewhere.
+    objects = FakeObjects()
+    (store.root / "jobs/abc").mkdir(parents=True)
+    (store.root / "jobs/abc/data.json").write_text("{}")
+    (store.root / "serving/data").mkdir(parents=True)
+    (store.root / "serving/data/x.json").write_text("{}")
+    names = archived_names(objects, object_store.backup(store, objects))
+    assert "admin/jobs/abc/data.json" in names
+    assert "admin/serving/data/x.json" in names
+
+
 def test_backup_keeps_only_the_newest_and_never_the_one_just_written(store, monkeypatch):
     monkeypatch.setenv("ADMIN_BACKUP_KEEP", "2")
     objects = FakeObjects()

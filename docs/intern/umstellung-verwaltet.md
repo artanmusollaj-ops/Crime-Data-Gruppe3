@@ -76,9 +76,13 @@ ist dafür nichts geprüft und nichts geändert.
    aber wenig Luft für einen zweiten Kandidaten oder einen Volllauf.
    Dasselbe Volume `konsole` geht ausserdem jede Nacht mit restic nach
    Backblaze (S-7).
-   **Vor der Umstellung zu entscheiden:** `jobs/*/data` aus dem Archiv
-   nehmen, denn alles darin lässt sich aus Bronze im Eimer nachbauen, oder
-   `ADMIN_JOB_DATA_KEEP=1` setzen.
+   **Entschieden am 25.11.2026:** `jobs/*/data` bleibt aus dem Archiv
+   (`object_store.backup`, Branch `konsolensicherung-ohne-jobdaten`), denn
+   alles darin lässt sich aus Bronze im Eimer nachbauen. Das Archiv wiegt
+   danach wieder wenige MiB, die Umstellung bringt unter `backups/control/`
+   kein Wachstum mehr. Wirksam ist das erst mit dem nächsten eingesetzten
+   Abbild; die sieben Archive mit 830 MiB fallen danach binnen einer Woche
+   von selbst weg (`ADMIN_BACKUP_KEEP`).
 6. **Drei Stellen im Repository rufen nach der Umstellung den alten Lauf
    auf.** Sie gehören in denselben PR wie der Crontab-Tausch (Schritt 0).
 
@@ -98,8 +102,9 @@ ist dafür nichts geprüft und nichts geändert.
   oder der Vorschlag hängt am Marker.
 - `docker-compose.srv01.yml`: `konsole:/app/data/admin:ro` in `pipeline`,
   dazu der Test (Punkt 4 oben).
-- Je nach Entscheid zu Punkt 5: `object_store.backup` ohne `jobs/*/data`,
-  oder `ADMIN_JOB_DATA_KEEP=1` in der Compose-Datei.
+- Punkt 5 ist schon erledigt (`object_store.backup` ohne `jobs/*/data`,
+  25.11.); vor dem Wochenende muss nur das Abbild mit dieser Änderung
+  eingesetzt sein.
 - `offene-punkte.md` S-10, `ENGINEERING_KONSOLE.md`, `AENDERUNGEN.md`
   nachführen.
 
@@ -276,12 +281,13 @@ Verschieben statt löschen, damit der Eintrag erhalten bleibt. Danach greift
 
 ## Für die Besprechung am 27.11.
 
-Zwei Befunde von oben brauchen einen Entscheid, bevor umgestellt wird:
+Von den zwei Befunden oben braucht einer noch einen Entscheid:
 
 1. **Die Sperre in `pipeline` einhängen** (Punkt 4): ja oder nein. Ohne sie
    schützt nur der Crontab-Tausch.
-2. **Die Konsolensicherung schlank halten** (Punkt 5): `jobs/*/data` aus dem
-   Archiv nehmen oder `ADMIN_JOB_DATA_KEEP=1` setzen. Am 25.11. gemessen:
+2. **Die Konsolensicherung schlank halten** (Punkt 5): erledigt am 25.11.,
+   `jobs/*/data` bleibt aus dem Archiv. Offen ist nur, ob das Abbild vor dem
+   Wochenende eingesetzt wird. Am 25.11. gemessen:
    Der Ordner `data` des Kandidaten vom 18.11. ist 1,1 GiB gross und macht
    fast das ganze Archiv aus. Das Kontingent ist 24 GiB, belegt sind 9,7 GiB.
    Mit Umstellung und ohne Entscheid wären es rund 16 GiB. Die 830 MiB je
