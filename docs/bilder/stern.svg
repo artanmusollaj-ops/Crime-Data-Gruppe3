@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 452" role="img" width="100%" height="auto"
-     aria-label="Das Sternschema: die Faktentabelle fact_offense in der Mitte, darum die vier Dimensionen dim_tract, dim_offense, dim_date und dim_city_day, je über einen Schlüssel verbunden.">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 560" role="img" width="100%" height="auto"
+     aria-label="Das Sternschema: die Faktentabelle fact_offense in der Mitte, darum 8 Dimensionen (dim_tract, dim_tract_geo, dim_tract_acs, dim_offense, dim_date, dim_city_day, dim_police_area, dim_community_area), je über einen Schlüssel verbunden; dazu 2 Brücken (bridge_tract_police_area, bridge_tract_community_area), die Tracts auf Polizeibezirke und Stadtteile verteilen.">
 <style>
   svg { color: #14304a; }
   .signal { fill: #c2410c; }
@@ -12,42 +12,91 @@
   <defs><marker id="pfeil" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
     <path d="M 0 1 L 9 5 L 0 9 z" fill="currentColor"/></marker></defs>
   <g>
-    <rect x="310" y="26" width="190" height="70" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
-    <text x="323" y="50" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">dim_date</text>
-    <text x="323" y="68" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill="currentColor" fill-opacity="0.78">366 Zeilen · ein Kalendertag</text>
-    <text x="323" y="85" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill="currentColor" fill-opacity="0.55">month · is_weekend</text>
+    <rect x="325" y="228" width="230" height="90" rx="5" class="signal" fill-opacity="0.10" stroke="currentColor" stroke-width="1.7"/>
+    <text x="338" y="254" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">fact_offense</text>
+    <text x="338" y="274" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">1'895'123 Zeilen · eine Tat</text>
+    <text x="338" y="292" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.55" fill="currentColor">Schlüssel + Messgrössen</text>
   </g>
   <g>
-    <rect x="310" y="356" width="190" height="70" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
-    <text x="323" y="380" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">dim_city_day</text>
-    <text x="323" y="398" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill="currentColor" fill-opacity="0.78">732 Zeilen · Stadt und Tag</text>
-    <text x="323" y="415" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill="currentColor" fill-opacity="0.55">temp_max_c · snowfall_mm</text>
+    <rect x="16" y="238" width="214" height="70" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+    <text x="29" y="262" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">dim_tract</text>
+    <text x="29" y="280" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">6'282 Zeilen · ein Tract</text>
+    <text x="29" y="297" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.55" fill="currentColor">city · city_area_share</text>
   </g>
   <g>
-    <rect x="14" y="191" width="190" height="70" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
-    <text x="27" y="215" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">dim_tract</text>
-    <text x="27" y="233" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill="currentColor" fill-opacity="0.78">6 282 Zeilen · ein Tract</text>
-    <text x="27" y="250" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill="currentColor" fill-opacity="0.55">city · population</text>
+    <rect x="650" y="452" width="214" height="70" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+    <text x="663" y="476" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">dim_tract_geo</text>
+    <text x="663" y="494" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">1'066 Zeilen · ein Tract der Städte</text>
+    <text x="663" y="511" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.55" fill="currentColor">boundary_wkt</text>
   </g>
   <g>
-    <rect x="596" y="191" width="190" height="70" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
-    <text x="609" y="215" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">dim_offense</text>
-    <text x="609" y="233" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill="currentColor" fill-opacity="0.78">85 Zeilen · ein NIBRS-Delikt</text>
-    <text x="609" y="250" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill="currentColor" fill-opacity="0.55">nibrs_category · group</text>
+    <rect x="650" y="24" width="214" height="70" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+    <text x="663" y="48" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">dim_tract_acs</text>
+    <text x="663" y="66" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">25'128 Zeilen · Tract und Vintage</text>
+    <text x="663" y="83" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.55" fill="currentColor">population · poverty_rate</text>
   </g>
   <g>
-    <rect x="300" y="182" width="200" height="88" rx="5" class="signal" fill-opacity="0.10" stroke="currentColor" stroke-width="1.7"/>
-    <text x="313" y="206" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">fact_offense</text>
-    <text x="313" y="224" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill="currentColor" fill-opacity="0.78">344 617 Zeilen · eine Tat</text>
-    <text x="313" y="241" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill="currentColor" fill-opacity="0.55">Schlüssel + Messgrössen</text>
+    <rect x="650" y="238" width="214" height="70" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+    <text x="663" y="262" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">dim_offense</text>
+    <text x="663" y="280" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">85 Zeilen · ein NIBRS-Delikt</text>
+    <text x="663" y="297" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.55" fill="currentColor">nibrs_category · nibrs_group</text>
   </g>
-  <line x1="400" y1="96" x2="400" y2="178" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.55" marker-end="url(#pfeil)"/>
-  <line x1="400" y1="356" x2="400" y2="274" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.55" marker-end="url(#pfeil)"/>
-  <line x1="204" y1="226" x2="296" y2="226" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.55" marker-end="url(#pfeil)"/>
-  <line x1="596" y1="226" x2="504" y2="226" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.55" marker-end="url(#pfeil)"/>
-  <text x="408" y="142" text-anchor="start" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" fill="currentColor" fill-opacity="0.75">date</text>
-  <text x="408" y="318" text-anchor="start" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" fill="currentColor" fill-opacity="0.75">(reporting_city, date)</text>
-  <text x="250" y="218" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" fill="currentColor" fill-opacity="0.75">tract_geoid</text>
-  <text x="550" y="218" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" fill="currentColor" fill-opacity="0.75">nibrs_code</text>
-  <text x="14" y="446" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12.5" fill="currentColor" fill-opacity="0.7">Jede Frage ist ein Filter, ein GROUP BY und ein JOIN — die Dimensionen tragen die Auswahllisten gleich mit.</text>
+  <g>
+    <rect x="333" y="24" width="214" height="70" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+    <text x="346" y="48" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">dim_date</text>
+    <text x="346" y="66" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">2'149 Zeilen · ein Kalendertag</text>
+    <text x="346" y="83" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.55" fill="currentColor">month · year_is_complete</text>
+  </g>
+  <g>
+    <rect x="333" y="452" width="214" height="70" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+    <text x="346" y="476" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">dim_city_day</text>
+    <text x="346" y="494" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">4'298 Zeilen · Stadt und Tag</text>
+    <text x="346" y="511" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.55" fill="currentColor">temp_max_c · sunset_utc</text>
+  </g>
+  <g>
+    <rect x="16" y="24" width="214" height="70" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+    <text x="29" y="48" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">dim_police_area</text>
+    <text x="29" y="66" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">34 Zeilen · ein Polizeibezirk</text>
+    <text x="29" y="83" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.55" fill="currentColor">area_name · within_city</text>
+  </g>
+  <g>
+    <rect x="16" y="144" width="214" height="44" rx="4" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3" stroke-opacity="0.7"/>
+    <text x="26" y="162" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" font-weight="600" fill="currentColor">bridge_tract_police_area</text>
+    <text x="26" y="178" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" fill-opacity="0.7" fill="currentColor">1'504 Zeilen · Tract × Bezirk</text>
+  </g>
+  <g>
+    <rect x="16" y="452" width="214" height="70" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
+    <text x="29" y="476" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">dim_community_area</text>
+    <text x="29" y="494" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">131 Zeilen · ein Stadtteil</text>
+    <text x="29" y="511" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.55" fill="currentColor">area_name · within_city</text>
+  </g>
+  <g>
+    <rect x="16" y="358" width="214" height="44" rx="4" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3" stroke-opacity="0.7"/>
+    <text x="26" y="376" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" font-weight="600" fill="currentColor">bridge_tract_community_area</text>
+    <text x="26" y="392" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="10.5" fill-opacity="0.7" fill="currentColor">2'310 Zeilen · Tract × Stadtteil</text>
+  </g>
+  <line x1="230" y1="273" x2="321" y2="273" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.55" marker-end="url(#pfeil)"/>
+  <text x="275.5" y="265" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.75" fill="currentColor">tract_geoid</text>
+  <line x1="650" y1="487" x2="533" y2="322" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.55" marker-end="url(#pfeil)"/>
+  <text x="597.5" y="408.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.75" fill="currentColor">tract_geoid</text>
+  <line x1="650" y1="59" x2="533" y2="224" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.55" marker-end="url(#pfeil)"/>
+  <text x="585.5" y="127.5" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.75" fill="currentColor">(tract_geoid,</text>
+  <text x="585.5" y="140.5" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.75" fill="currentColor"> population_vintage)</text>
+  <line x1="650" y1="273" x2="559" y2="273" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.55" marker-end="url(#pfeil)"/>
+  <text x="604.5" y="265" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.75" fill="currentColor">nibrs_code</text>
+  <line x1="440" y1="94" x2="440" y2="224" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.55" marker-end="url(#pfeil)"/>
+  <text x="448" y="163" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.75" fill="currentColor">date</text>
+  <line x1="440" y1="452" x2="440" y2="322" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.55" marker-end="url(#pfeil)"/>
+  <text x="448" y="391" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.75" fill="currentColor">(reporting_city, date)</text>
+  <line x1="230" y1="59" x2="347" y2="224" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.55" marker-end="url(#pfeil)"/>
+  <text x="294.5" y="127.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.75" fill="currentColor">(reporting_city,</text>
+  <text x="294.5" y="140.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.75" fill="currentColor"> police_area)</text>
+  <line x1="123" y1="94" x2="123" y2="144" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3" stroke-opacity="0.6"/>
+  <line x1="123" y1="188" x2="123" y2="238" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3" stroke-opacity="0.6"/>
+  <line x1="230" y1="487" x2="347" y2="322" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.55" marker-end="url(#pfeil)"/>
+  <text x="294.5" y="408.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.75" fill="currentColor">(reporting_city,</text>
+  <text x="294.5" y="421.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.75" fill="currentColor"> community_area)</text>
+  <line x1="123" y1="308" x2="123" y2="358" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3" stroke-opacity="0.6"/>
+  <line x1="123" y1="402" x2="123" y2="452" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3" stroke-opacity="0.6"/>
+  <text x="16" y="552" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" fill-opacity="0.7" fill="currentColor">Jede Frage ist ein Filter, ein GROUP BY und ein JOIN. Gestrichelt: Brücken, die die Einwohner der Tracts auf Bezirke und Stadtteile verteilen.</text>
 </svg>

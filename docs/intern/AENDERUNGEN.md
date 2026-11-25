@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'534** |
+| Tests | **3'540** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -112,6 +112,25 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 25.11.2026 · Das Sternbild wird erzeugt (Branch `sternbild-erzeugt`)
+
+`docs/bilder/stern.svg` war von Hand gezeichnet und zeigte **vier
+Dimensionen und 344'617 Taten**, den Stand des Jahrgangs 2024 vom September.
+Gold hat heute elf Tabellen: die Faktentabelle, acht Dimensionen und zwei
+Brücken. Die Kopie in `sternschema-und-wuerfel.html` zeigte einen dritten
+Stand (fünf Dimensionen, 1'851'950 Taten). Kein Wächter sah hin: Die Zahlen
+standen mit schmalen Leerzeichen da, und `test_dokumentzahlen.py` liest weder
+SVG noch diese Seite.
+
+Jetzt zeichnet `tools/build_sternbild.py` das Bild aus `gold_pipeline.TABELLEN`
+und den Gold-Manifesten, als Datei und in die HTML-Seite. Eine neue
+Gold-Tabelle ohne Platz im Bild bricht den Lauf ab. `tests/test_sternbild.py`
+hält jede Gold-Tabelle im Bild, beide Fassungen gleich, einen zweiten Lauf im
+eigenen Prozess byteweise gleich, und die Kopfzahlen von `.md` und `.html`
+(Faktentabelle 1'895'123, acht Dimensionen mit 39'173 Zeilen, zwei Brücken mit
+3'814) gegen die Manifeste. Die HTML-Seite nennt in Abschnitt 2 dieselben
+Zahlen wie das Markdown.
 
 ## 25.11.2026 · Die Sechsecke in »Geografie« haben eine Begründung (Branch `sechseck-begruendung`)
 

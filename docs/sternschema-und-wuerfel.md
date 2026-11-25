@@ -7,7 +7,8 @@
 | | |
 | --- | --- |
 | Faktentabelle | 1'895'123 Zeilen (Jahrgänge 2021–2026) |
-| Dimensionen | 5 · 37'942 Zeilen |
+| Dimensionen | 8 · 39'173 Zeilen |
+| Brücken | 2 · 3'814 Zeilen |
 | Verworfen | 2 Würfel |
 | Gerechnet in | [`notebooks/34_gold_sternschema.ipynb`](../notebooks/34_gold_sternschema.ipynb) |
 
@@ -62,12 +63,18 @@ Mitte steht **eine** Tabelle mit einer Zeile je Tat. Sie trägt nur
 **Schlüssel** und **Messgrössen**. Alles Beschreibende liegt aussen in
 **Dimensionstabellen** — und der Name kommt schlicht vom Bild.
 
-![Das Sternschema: die Faktentabelle fact_offense in der Mitte, darum die vier
-Dimensionen dim_tract, dim_offense, dim_date und dim_city_day, je über einen
-Schlüssel verbunden.](bilder/stern.svg)
+![Das Sternschema: die Faktentabelle fact_offense in der Mitte, darum die acht
+Dimensionen dim_date, dim_city_day, dim_tract, dim_tract_acs, dim_tract_geo,
+dim_offense, dim_police_area und dim_community_area, je über einen Schlüssel
+verbunden; dazu zwei Brücken zwischen dim_tract und den Bezirken und
+Stadtteilen.](bilder/stern.svg)
 
 *Das Sternschema. Die Faktentabelle trägt Schlüssel und Messgrössen, die
-Dimensionen die Bedeutung. Jede Kante ist ein JOIN-Schlüssel.*
+Dimensionen die Bedeutung. Jede Kante ist ein JOIN-Schlüssel. Gestrichelt die
+beiden Brücken: Sie verteilen die Einwohner jedes Tracts nach Fläche auf
+Polizeibezirke und Stadtteile, damit es dort eine Rate gibt. Das Bild ist
+erzeugt (`tools/build_sternbild.py`), aus den Gold-Tabellen und ihren
+Manifesten.*
 
 ### Warum die Dimensionen getrennt stehen
 
@@ -78,7 +85,7 @@ einmal in `dim_offense`.
 
 **Die Dimensionen tragen die Auswahllisten.** Eine Oberfläche, die „Delikt
 wählen" anbieten will, liest 85 Zeilen aus `dim_offense` statt 1'895'123
-Faktenzeilen zu durchsuchen. Dasselbe gilt für Städte, Tage und Tracts.
+Faktenzeilen zu durchsuchen. Dasselbe gilt für Städte, Tage, Tracts, Polizeibezirke und Stadtteile.
 
 **`dim_date` wird erzeugt, nicht abgeleitet.** Ein Tag ohne Delikt hat keine
 Faktenzeile. Käme die Zeitachse aus den Fakten, fehlte dieser Tag — und eine
