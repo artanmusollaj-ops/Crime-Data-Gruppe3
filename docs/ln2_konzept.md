@@ -1575,7 +1575,7 @@ kennt — was sich nicht ohne uns lesen lässt, lässt sich auch nicht übertrag
 | **Eine Zahl über sieben Schichten** | [`eine-zahl.md`](eine-zahl.md) — eine einzelne Zahl von der Quelle bis Gold zurückverfolgt |
 | **Die Datenablage im Aufbau** | [`storage-architektur.md`](storage-architektur.md) — die drei Modi, was zugesichert wird, die API und die Fehlerbilder |
 | **Würfel und Sternschema erklärt** | [`sternschema-und-wuerfel.md`](sternschema-und-wuerfel.md) — die beiden Bauweisen mit Diagrammen, als Vorlage für die Präsentation. Dieselbe Darstellung mit durchgehendem Layout: [`sternschema-und-wuerfel.html`](sternschema-und-wuerfel.html) |
-| **Feldkatalog** | [`feldkatalog.md`](feldkatalog.md) — 192 Spalten in 15 Tabellen, erzeugt von [`tools/build_feldkatalog.py`](../tools/build_feldkatalog.py) |
+| **Feldkatalog** | [`feldkatalog.md`](feldkatalog.md) — 280 Spalten in 24 Tabellen, erzeugt von [`tools/build_feldkatalog.py`](../tools/build_feldkatalog.py) |
 | **Was nach LN1 kommt** | [`ausblick.md`](ausblick.md) — Lineage und Stichtagskonsistenz, Versionierung der Ladelogik, Skalierung, Cloud; mit Messwerten und Reihenfolge |
 | **Die Notebooks ausgeführt** | [`nachweise/`](nachweise/README.md) — die Notebooks 31 und 33–37 mit allen Ausgaben, darunter der Replay über drei Neubauten und die Messreihen mit Median und Spannweite; je Lauf Commit, Umgebung und Datenstand, erzeugt von [`tools/build_nachweise.py`](../tools/build_nachweise.py) |
 

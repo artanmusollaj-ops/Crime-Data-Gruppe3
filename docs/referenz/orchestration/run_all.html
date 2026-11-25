@@ -172,8 +172,8 @@ python -m <a href="">orchestration.run_all</a> --jahre 2021-2026 --bis silver
 <ol start="2024">
 <li>Die Kriminalquellen laufen je Jahrgang, die Census-Stufen je Vintage,
 alles andere einmal. Ab 2025 bleibt es beim 2024er Vintage - ein neueres gibt
-es nicht. Mehrere Vintages <strong>und</strong> Gold im Lauf lehnt der Controller ab, weil
-<code>build_gold</code> noch ein einzelnes <code>--vintage</code> nimmt.</li>
+es nicht. Gold laeuft einmal und bekommt alle Vintages (<code>--acs-vintages</code>,
+seit dem 4.10.2026); jede Tat findet ueber <code>population_vintage</code> ihren Nenner.</li>
 </ol>
 
 <p>Am Ende steht <code>data/pipeline_run.json</code>: welche Stufen liefen, wie lange, auf
@@ -202,8 +202,8 @@ irgendwann anders funktioniert als der erste.</p>
 </span><span id="L-9"><a href="#L-9"><span class="linenos">  9</span></a><span class="sd">``--jahre`` nimmt einen Jahrgang, einen Bereich oder eine Liste; Vorgabe ist</span>
 </span><span id="L-10"><a href="#L-10"><span class="linenos"> 10</span></a><span class="sd">2024. Die Kriminalquellen laufen je Jahrgang, die Census-Stufen je Vintage,</span>
 </span><span id="L-11"><a href="#L-11"><span class="linenos"> 11</span></a><span class="sd">alles andere einmal. Ab 2025 bleibt es beim 2024er Vintage - ein neueres gibt</span>
-</span><span id="L-12"><a href="#L-12"><span class="linenos"> 12</span></a><span class="sd">es nicht. Mehrere Vintages **und** Gold im Lauf lehnt der Controller ab, weil</span>
-</span><span id="L-13"><a href="#L-13"><span class="linenos"> 13</span></a><span class="sd">``build_gold`` noch ein einzelnes ``--vintage`` nimmt.</span>
+</span><span id="L-12"><a href="#L-12"><span class="linenos"> 12</span></a><span class="sd">es nicht. Gold laeuft einmal und bekommt alle Vintages (``--acs-vintages``,</span>
+</span><span id="L-13"><a href="#L-13"><span class="linenos"> 13</span></a><span class="sd">seit dem 4.10.2026); jede Tat findet ueber ``population_vintage`` ihren Nenner.</span>
 </span><span id="L-14"><a href="#L-14"><span class="linenos"> 14</span></a>
 </span><span id="L-15"><a href="#L-15"><span class="linenos"> 15</span></a><span class="sd">Am Ende steht ``data/pipeline_run.json``: welche Stufen liefen, wie lange, auf</span>
 </span><span id="L-16"><a href="#L-16"><span class="linenos"> 16</span></a><span class="sd">**welchen Bronze-Laeufen** das Ergebnis ruht, und ein Fingerabdruck darueber.</span>
@@ -560,9 +560,9 @@ irgendwann anders funktioniert als der erste.</p>
 </span><span id="L-367"><a href="#L-367"><span class="linenos">367</span></a><span class="w">    </span><span class="sd">"""Welche Stufen laufen, in welcher Reihenfolge, fuer welche Jahrgaenge.</span>
 </span><span id="L-368"><a href="#L-368"><span class="linenos">368</span></a>
 </span><span id="L-369"><a href="#L-369"><span class="linenos">369</span></a><span class="sd">    Mit einem einzigen Jahrgang ist die Entfaltung die Identitaet: Es kommen</span>
-</span><span id="L-370"><a href="#L-370"><span class="linenos">370</span></a><span class="sd">    genau die vierzehn Stufen heraus, die ``STUFEN`` nennt. ``STUFEN``</span>
-</span><span id="L-371"><a href="#L-371"><span class="linenos">371</span></a><span class="sd">    beschreibt die **Form** der Strecke - daraus entstehen das Architekturbild</span>
-</span><span id="L-372"><a href="#L-372"><span class="linenos">372</span></a><span class="sd">    und die Referenz-Startseite, und die zaehlen vierzehn. Wie oft eine Stufe</span>
+</span><span id="L-370"><a href="#L-370"><span class="linenos">370</span></a><span class="sd">    genau die Stufen heraus, die ``STUFEN`` nennt (seit dem 25.11.2026</span>
+</span><span id="L-371"><a href="#L-371"><span class="linenos">371</span></a><span class="sd">    neunzehn). ``STUFEN`` beschreibt die **Form** der Strecke - daraus</span>
+</span><span id="L-372"><a href="#L-372"><span class="linenos">372</span></a><span class="sd">    entstehen das Architekturbild und die Referenz-Startseite. Wie oft eine Stufe</span>
 </span><span id="L-373"><a href="#L-373"><span class="linenos">373</span></a><span class="sd">    laeuft, ist dagegen eine Eigenschaft des Laufs und steht hier.</span>
 </span><span id="L-374"><a href="#L-374"><span class="linenos">374</span></a><span class="sd">    """</span>
 </span><span id="L-375"><a href="#L-375"><span class="linenos">375</span></a>    <span class="n">stufen</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">STUFEN</span>
@@ -1720,9 +1720,9 @@ selbst. Eine sechste Quelle taucht hier auf, sobald sie eine Stufe hat.</p>
 </span><span id="auswahl-368"><a href="#auswahl-368"><span class="linenos">368</span></a><span class="w">    </span><span class="sd">"""Welche Stufen laufen, in welcher Reihenfolge, fuer welche Jahrgaenge.</span>
 </span><span id="auswahl-369"><a href="#auswahl-369"><span class="linenos">369</span></a>
 </span><span id="auswahl-370"><a href="#auswahl-370"><span class="linenos">370</span></a><span class="sd">    Mit einem einzigen Jahrgang ist die Entfaltung die Identitaet: Es kommen</span>
-</span><span id="auswahl-371"><a href="#auswahl-371"><span class="linenos">371</span></a><span class="sd">    genau die vierzehn Stufen heraus, die ``STUFEN`` nennt. ``STUFEN``</span>
-</span><span id="auswahl-372"><a href="#auswahl-372"><span class="linenos">372</span></a><span class="sd">    beschreibt die **Form** der Strecke - daraus entstehen das Architekturbild</span>
-</span><span id="auswahl-373"><a href="#auswahl-373"><span class="linenos">373</span></a><span class="sd">    und die Referenz-Startseite, und die zaehlen vierzehn. Wie oft eine Stufe</span>
+</span><span id="auswahl-371"><a href="#auswahl-371"><span class="linenos">371</span></a><span class="sd">    genau die Stufen heraus, die ``STUFEN`` nennt (seit dem 25.11.2026</span>
+</span><span id="auswahl-372"><a href="#auswahl-372"><span class="linenos">372</span></a><span class="sd">    neunzehn). ``STUFEN`` beschreibt die **Form** der Strecke - daraus</span>
+</span><span id="auswahl-373"><a href="#auswahl-373"><span class="linenos">373</span></a><span class="sd">    entstehen das Architekturbild und die Referenz-Startseite. Wie oft eine Stufe</span>
 </span><span id="auswahl-374"><a href="#auswahl-374"><span class="linenos">374</span></a><span class="sd">    laeuft, ist dagegen eine Eigenschaft des Laufs und steht hier.</span>
 </span><span id="auswahl-375"><a href="#auswahl-375"><span class="linenos">375</span></a><span class="sd">    """</span>
 </span><span id="auswahl-376"><a href="#auswahl-376"><span class="linenos">376</span></a>    <span class="n">stufen</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">STUFEN</span>
@@ -1737,9 +1737,9 @@ selbst. Eine sechste Quelle taucht hier auf, sobald sie eine Stufe hat.</p>
             <div class="docstring"><p>Welche Stufen laufen, in welcher Reihenfolge, fuer welche Jahrgaenge.</p>
 
 <p>Mit einem einzigen Jahrgang ist die Entfaltung die Identitaet: Es kommen
-genau die vierzehn Stufen heraus, die <code><a href="#STUFEN">STUFEN</a></code> nennt. <code><a href="#STUFEN">STUFEN</a></code>
-beschreibt die <strong>Form</strong> der Strecke - daraus entstehen das Architekturbild
-und die Referenz-Startseite, und die zaehlen vierzehn. Wie oft eine Stufe
+genau die Stufen heraus, die <code><a href="#STUFEN">STUFEN</a></code> nennt (seit dem 25.11.2026
+neunzehn). <code><a href="#STUFEN">STUFEN</a></code> beschreibt die <strong>Form</strong> der Strecke - daraus
+entstehen das Architekturbild und die Referenz-Startseite. Wie oft eine Stufe
 laeuft, ist dagegen eine Eigenschaft des Laufs und steht hier.</p>
 </div>
 

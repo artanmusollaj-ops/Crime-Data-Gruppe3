@@ -113,6 +113,39 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 25.11.2026 · README und Wegweiser stehen auf dem heutigen Stand (Branch `dokumente-readme`)
+
+Zweiter Teil der Dokumentdurchsicht vom 25.11.2026.
+
+**README:**
+- Studienzeitraum 2021–2026 statt „das Jahr 2024".
+- Gebiete als sechste Quelle im Schichtbild und im Ingestion-Block.
+- Gold mit acht Dimensionen und zwei Brücken, Silver mit sieben Tabellen samt
+  Bau-Befehlen, Serving mit fünf Vergleichstabellen und der Quellbewegung.
+- Paketbaum mit `gebiete_pipeline` und `platform_admin`.
+- 19 Stufen, mit 2021–2026 44.
+- Die Vintage-Ablehnung gibt es seit dem 4.10. nicht mehr.
+- `mapping_overrides.csv` hat eine Zeile.
+- Detroits Überzählung über 2021–2026: 4,6 % statt 3,8 %.
+- 26 Sichten in der Analyse-Datenbank, Release-Inhalt elf Gold- und sechs
+  Serving-Tabellen, die Aufbewahrungsregel „gepinnt plus acht".
+- Zwölf Elasticsearch-Indizes.
+- `srv01` im Präsens: Elasticsearch und Kibana sind entfernt, Zeitplan und
+  Einstiegsseite laufen.
+- Notebook 37 statt 36 im Datenlauf; 111 Referenzwächter.
+
+**Wegweiser:** drei Architekturbilder; 280 Spalten in 24 Tabellen, ebenso in
+`ln2_konzept.md`. `Data_Pipeline_fuer_Folie.png` gibt es nicht. Artans
+Dashboard-Entwürfe und die beiden nicht mehr eingebundenen Architekturbilder
+vom 22.9. stehen jetzt in der Liste.
+
+**Code-Kommentare:** `run_all` (Vintages, Stufenzahl) und `build_analysis_db`
+(Sichten).
+
+**Neuer Wächter:** `test_andere_dokumente_nennen_die_zahlen_des_katalogkopfs`.
+Wer „N Spalten in M Tabellen" schreibt, muss die Zahl des Katalogkopfs nennen.
+Erzeugt war nur der Katalog, nicht seine Zitate. Die Testzahl bleibt 3'540: Für das README entfällt ein Fall in `test_betriebsstand.py`. Er verlangte dort „Einrichtung, kein Nachweis", obwohl der Zeitplan auf `srv01` seit Wochen Releases baut.
+
 ## 25.11.2026 · Die internen Dokumente stehen auf dem heutigen Stand (Branch `dokumente-intern`)
 
 Erster Teil der Dokumentdurchsicht vom 25.11.2026: vier Prüfungen gegen den
