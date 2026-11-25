@@ -7,7 +7,7 @@ gebauten Tabellen, die Bedeutung aus [`tools/build_feldkatalog.py`](../tools/bui
 python tools/build_feldkatalog.py
 ```
 
-**228 Spalten in 18 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
+**240 Spalten in 19 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
 soll einen Satz darüber schreiben müssen. `tests/test_feldkatalog.py` prüft, dass der Katalog vollständig und reproduzierbar ist.
 
 Die Rohschichten stehen hier nicht: **Bronze deutet nicht**, seine Spalten sind die der Quelle. Was sie bedeuten, sagen die
@@ -42,12 +42,15 @@ Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert, je Fa
 | `longitude` | `DOUBLE` | Längengrad des Tatorts, WGS84. |
 | `tract_geoid` | `VARCHAR` | GEOID des Census Tracts, in dem der Punkt liegt - aus dem eigenen räumlichen Join, nicht aus der Quelle. |
 | `located` | `BOOLEAN` | Ob die Zeile einem Tract zugeordnet werden konnte. **Warum nicht**, sagt `geo_status` in Gold. |
-| `arrest` | `BOOLEAN` | Ob es zu einer Festnahme kam. Nur Chicago liefert das; bei Detroit `NULL`. |
+| `arrest` | `BOOLEAN` | Ob es zu einer Festnahme kam. Chicago führt das als eigenes Feld; für Detroit seit Silver-Vertrag 5 (25.11.2026) aus dem Stand des Falls, `case_status = 'CLEARED BY ARREST'`, und `NULL` ohne Stand. Beide Quellen tragen den Stand nach: Junge Fälle sehen weniger aufgeklärt aus, als sie es am Ende sind - in Detroit stärker. |
 | `unfounded` | `BOOLEAN` | Ob der Fall als unbegründet zurückgezogen wurde. Nur Detroit führt das; die Zeilen bleiben erhalten und werden gekennzeichnet statt entfernt. |
 | `offense_group_id` | `VARCHAR` | Schlüssel der **Tat**: Vorfall plus Deliktbeschreibung. Detroits mehrere Anklagen zu einer Tat teilen ihn. |
 | `counts` | `BOOLEAN` | **Die zählende Zeile je Tat.** Detroit liefert je Vorfall mehrere Anklagen; genau eine trägt `true`. Gold nimmt nur diese - sonst zählte Detroit 3,8 % zu hoch. |
 | `counts_reason` | `VARCHAR` | Warum diese Zeile zählt oder nicht: `eine_zeile_ist_ein_delikt` (Chicago), `anklage_ist_die_tat`, `schwerste_anklage`, `weitere_anklage_zur_selben_tat`. |
 | `counts_case` | `BOOLEAN` | **Die zählende Zeile je Fall** - die mit dem schwersten Delikt (Rangfolge `FALLKORN_RANG`, für beide Städte gleich). Chicago führt je Vorfall ein Delikt, Detroit jedes; wer auf Chicagos Zählweise vergleicht, filtert hierauf. |
+| `police_area` | `VARCHAR` | Der Polizeibezirk (Chicago District, Detroit Precinct), in dem die Koordinate liegt - aus dem eigenen räumlichen Join gegen `silver/police_area`, nicht aus der Quelle. Wie `area_id` dort: die Zahl ohne führende Null. |
+| `police_area_source` | `VARCHAR` | Der Polizeibezirk, den die Quelle nennt (Chicago `district`, Detroit `police_precinct`), in derselben Form wie `police_area`. Was keine Zahl über null ist (Detroit `HP`, `0W`), bleibt `NULL`. |
+| `case_status` | `VARCHAR` | Detroits Stand des Falls, gross geschrieben, etwa `CLEARED BY ARREST`, `EXCEPTIONALLY CLEARED`, `ACTIVE`, `INACTIVE`. Chicago führt keinen; dort `NULL`. |
 
 ### `place`
 
@@ -71,9 +74,25 @@ Eine Zeile ist: **ein Ort (Census Place)**. 8'833 Zeilen über 4 Vintages.
 | `geometry` | `BLOB` | Der Umriss als WKB. Kein Browser liest das - für eine Karte schreibt `serving.export_geojson` daraus GeoJSON. |
 | `quality_flags` | `VARCHAR[]` | Auffälligkeiten, die **benannt und nicht entfernt** werden - etwa `MISSING_MEDIAN_INCOME` oder `SUSPECT_SNOWFALL`. Leer, wenn nichts auffiel. |
 
+### `police_area`
+
+Eine Zeile ist: **ein Polizeibezirk (Chicago District, Detroit Precinct)**. 34 Zeilen.
+
+| Spalte | Typ | Bedeutung |
+| --- | --- | --- |
+| `city` | `VARCHAR` | Stadt, kleingeschrieben: `chicago` oder `detroit`. |
+| `area_id` | `VARCHAR` | Nummer des Polizeibezirks ohne führende Null, als Text - Chicago `1` bis `31`, Detroit `2` bis `12`. Zusammen mit `city` der Schlüssel. |
+| `area_name` | `VARCHAR` | Lesbarer Name im Wort der Stadt: *District 1*, *Precinct 2*. |
+| `source_name` | `VARCHAR` | Die Bezeichnung, wie die Quelle sie führt (Chicago `1ST`, Detroit `02`). |
+| `source_polygons` | `INTEGER` | Aus wie vielen Polygonen der Quelle der Bezirk vereinigt wurde. Chicagos District 31 kommt aus drei, Detroits Precinct 7 aus zwei. |
+| `area_km2` | `DOUBLE` | Fläche in Quadratkilometern, auf dem Ellipsoid gerechnet. Wasser innerhalb der Grenze zählt mit. |
+| `centroid_lat` | `DOUBLE` | Breitengrad des Flächenschwerpunkts. Für eine Karte, die Punkte statt Flächen zeigt. |
+| `centroid_lon` | `DOUBLE` | Längengrad des Flächenschwerpunkts. |
+| `geometry` | `BLOB` | Der Umriss als WKB. Kein Browser liest das - für eine Karte schreibt `serving.export_geojson` daraus GeoJSON. |
+
 ### `source_change`
 
-Eine Zeile ist: **ein geaendertes Feld einer Zeile zwischen zwei Schnappschuessen**. 113'745 Zeilen.
+Eine Zeile ist: **ein geaendertes Feld einer Zeile zwischen zwei Schnappschuessen**. 170'567 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -121,7 +140,7 @@ Eine Zeile ist: **ein Census Tract**. 25'128 Zeilen über 4 Vintages.
 
 ### `weather_day`
 
-Eine Zeile ist: **eine Stadt an einem Tag**. 55'587 Zeilen.
+Eine Zeile ist: **eine Stadt an einem Tag**. 55'573 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -206,7 +225,7 @@ Eine Zeile ist: **ein Census Tract**. 6'282 Zeilen.
 | `geoid` | `VARCHAR` | Census-GEOID der Raumeinheit, die sie eindeutig macht. Der Schlüssel, über den Delikte, Einwohner und Geometrie zusammenfinden. |
 | `city` | `VARCHAR` | Stadt, der dieser Tract zugerechnet wird - oder `NULL`. **Der Filter, den jede Auswertung braucht**: `dim_tract` enthält alle Tracts beider Countys, auch die ausserhalb der Städte. |
 | `city_geoid` | `VARCHAR` | GEOID der Stadt aus `silver/place`. |
-| `city_area_share` | `DOUBLE` | Welcher Anteil der Tractfläche in der Stadt liegt, 0 bis 1. Ueber 0,5 gehört der Tract zur Stadt (Mehrheitsregel). Der Wert bleibt erhalten, damit sich auch flächengewichtet rechnen lässt. |
+| `city_area_share` | `DOUBLE` | Welcher Anteil der Landfläche des Tracts in der Stadt liegt, 0 bis 1. Über 0,5 gehört der Tract zur Stadt (Mehrheitsregel). Seit Vertrag 10 auf die Landfläche gerechnet, damit Tracts am Seeufer nicht am Wasser scheitern. Der Wert bleibt erhalten, damit sich auch flächengewichtet rechnen lässt. |
 | `state_fips` | `VARCHAR` | Zwei Ziffern des Bundesstaats: `17` Illinois, `26` Michigan. |
 | `state_name` | `VARCHAR` | Name des Bundesstaats, kleingeschrieben. |
 | `county_fips` | `VARCHAR` | Drei Ziffern des County innerhalb des Bundesstaats: `031` Cook (Chicago), `163` Wayne (Detroit). |
@@ -230,7 +249,7 @@ Eine Zeile ist: **ein Census Tract in einem ACS-Vintage**. 25'128 Zeilen.
 
 ### `dim_tract_geo`
 
-Eine Zeile ist: **der Umriss eines Census Tract**. 1'055 Zeilen.
+Eine Zeile ist: **der Umriss eines Census Tract**. 1'066 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -264,7 +283,7 @@ Eine Zeile ist: **eine Tat**. 1'895'123 Zeilen.
 | `located` | `BOOLEAN` | Ob die Zeile einem Tract zugeordnet werden konnte. **Warum nicht**, sagt `geo_status` in Gold. |
 | `mapping_status` | `VARCHAR` | Wie gut die NIBRS-Zuordnung belegt ist: `exact` (ein amtliches Dokument), `ambiguous` (wir haben entschieden), `fallback_90Z` (Auffangcode), `unmapped`. |
 | `geo_status` | `VARCHAR` | Warum eine Zeile in einer Tract-Auswertung fehlt - oder dass sie nicht fehlt: `inside_city`, `outside_city` (Tract gehört einer anderen Gemeinde), `no_tract`, `missing_coordinate`. |
-| `arrest` | `BOOLEAN` | Ob es zu einer Festnahme kam. Nur Chicago liefert das; bei Detroit `NULL`. |
+| `arrest` | `BOOLEAN` | Ob es zu einer Festnahme kam. Chicago führt das als eigenes Feld; für Detroit seit Silver-Vertrag 5 (25.11.2026) aus dem Stand des Falls, `case_status = 'CLEARED BY ARREST'`, und `NULL` ohne Stand. Beide Quellen tragen den Stand nach: Junge Fälle sehen weniger aufgeklärt aus, als sie es am Ende sind - in Detroit stärker. |
 | `unfounded` | `BOOLEAN` | Ob der Fall als unbegründet zurückgezogen wurde. Nur Detroit führt das; die Zeilen bleiben erhalten und werden gekennzeichnet statt entfernt. |
 | `offense_group_id` | `VARCHAR` | Schlüssel der **Tat**: Vorfall plus Deliktbeschreibung. Detroits mehrere Anklagen zu einer Tat teilen ihn. |
 | `counts_case` | `BOOLEAN` | **Die zählende Zeile je Fall** - die mit dem schwersten Delikt (Rangfolge `FALLKORN_RANG`, für beide Städte gleich). Chicago führt je Vorfall ein Delikt, Detroit jedes; wer auf Chicagos Zählweise vergleicht, filtert hierauf. |
@@ -337,7 +356,7 @@ Eine Zeile ist: **eine Stadt, ein Monat**. 142 Zeilen.
 
 ### `rate_tract`
 
-Eine Zeile ist: **ein Census Tract mit Einwohnern im Bezugsjahr 2024 (gold_pipeline.RATENJAHR)**. 1'045 Zeilen.
+Eine Zeile ist: **ein Census Tract mit Einwohnern im Bezugsjahr 2024 (gold_pipeline.RATENJAHR)**. 1'056 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -351,7 +370,7 @@ Eine Zeile ist: **ein Census Tract mit Einwohnern im Bezugsjahr 2024 (gold_pipel
 
 ### `source_movement`
 
-Eine Zeile ist: **ein bewegtes Feld einer Zeile zwischen zwei Vollabzuegen; je neuer und je verschwundener Zeile eine Zeile ohne Feld; je ruhigem Paar eine Markierungszeile ohne offense_id**. 113'745 Zeilen.
+Eine Zeile ist: **ein bewegtes Feld einer Zeile zwischen zwei Vollabzuegen; je neuer und je verschwundener Zeile eine Zeile ohne Feld; je ruhigem Paar eine Markierungszeile ohne offense_id**. 170'567 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
