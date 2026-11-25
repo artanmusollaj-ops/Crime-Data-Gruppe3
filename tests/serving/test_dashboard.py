@@ -14,7 +14,7 @@ import json
 import math
 import re
 import shutil
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -72,9 +72,15 @@ def stern(root: Path, taten: list[tuple], *, kleine: bool = False,
     ``festnahme(i, tat)`` gibt je Tat ``arrest``. Ohne beides sieht der Stern
     aus wie ein Release vor dem 25.11.2026.
     """
-    extra = {}
+    # Die Koordinate: der Mittelpunkt des Quadrats, das der Tract in
+    # dim_tract_geo hat; ausserhalb der Stadt ein Punkt daneben.
+    mittelpunkt = {TRACT_C: (41.805, -87.695), TRACT_D: (42.305, -83.095),
+                   TRACT_AUSSEN: (41.9, -87.9), TRACT_KLEIN: (41.805, -87.675),
+                   TRACT_LEER: (41.805, -87.655)}
+    extra = {"latitude": [mittelpunkt[t[3]][0] for t in taten],
+             "longitude": [mittelpunkt[t[3]][1] for t in taten]}
     if bezirke:
-        extra = {
+        extra |= {
             "police_area": [BEZIRK_VON.get(t[3]) for t in taten],
             "arrest": [festnahme(i, t) if festnahme else False for i, t in enumerate(taten)],
         }
@@ -1113,9 +1119,11 @@ def test_ein_junger_zeitraum_traegt_den_hinweis(bezirke):
     assert NACHFUEHRUNG_TAGE == 365
 
 
-def test_die_ansicht_steht_in_der_antwort_und_in_der_auswahl(bezirke):
+def test_die_alte_ansicht_gilt_als_raum_und_kennzahl(bezirke):
     g = bezirke.geografie(bezirke.auswahl({"jahr": "2024"}), "festnahme")
-    assert g["ansicht"] == g["auswahl"]["ansicht"] == "festnahme"
+    assert (g["raum"], g["kennzahl"]) == ("bezirk", "festnahme")
+    assert (g["auswahl"]["raum"], g["auswahl"]["kennzahl"]) == ("bezirk", "festnahme")
+    assert g["ansicht"] == "festnahme"
 
 
 def test_eine_unbekannte_ansicht_ist_ein_eingabefehler(bezirke):
@@ -1147,3 +1155,126 @@ def test_ein_multipolygon_zeichnet_jeden_teil():
            "((-83.2 42.3, -83.15 42.3, -83.15 42.35, -83.2 42.3)))")
     d = pfade([("31", "detroit", "District 31", wkt)])["detroit"]["tracts"][0]["d"]
     assert d.count("M") == 2 and d.count("Z") == 2
+
+
+
+# --------------------------------------------------------------------------
+# Raum und Kennzahl (25.11.2026): geglaettet, Vorjahr, Profil, Nacht, Sechseck
+# --------------------------------------------------------------------------
+
+
+def test_raum_und_kennzahl_werden_geprueft(karte):
+    a = karte.auswahl({"jahr": "2024"})
+    with pytest.raises(EingabeFehler, match="Raum"):
+        karte.geografie(a, raum="stadtteil")
+    with pytest.raises(EingabeFehler, match="Kennzahl"):
+        karte.geografie(a, kennzahl="wohnort")
+    with pytest.raises(EingabeFehler, match="keine Einwohner"):
+        karte.geografie(a, raum="sechseck", kennzahl="geglaettet")
+
+
+def test_die_geglaettete_rate_rueckt_kleine_tracts_zum_mittel(karte):
+    a = karte.auswahl({"jahr": "2024", "stadt": "chicago"})
+    roh = {t["geoid"]: t for t in karte.geografie(a)["staedte"][0]["tracts"]}
+    glatt = {t["geoid"]: t for t in
+             karte.geografie(a, kennzahl="geglaettet")["staedte"][0]["tracts"]}
+    klein = glatt[TRACT_KLEIN]
+    mittel = (sum(t["faelle"] for t in roh.values())
+              / sum(t["personenjahre"] for t in roh.values() if t["personenjahre"]) * 1000)
+    # Zwischen eigener Rate und Mittel der Stadt, und nicht mehr schraffiert.
+    lo, hi = sorted([roh[TRACT_KLEIN]["rate"], mittel])
+    assert lo <= klein["wert"] <= hi and not klein["geringe_basis"]
+    assert 0 <= klein["gewicht"] <= glatt[TRACT_C]["gewicht"] <= 1
+    # Ohne Einwohner auch geglaettet keine Rate.
+    assert glatt[TRACT_LEER]["wert"] is None
+
+
+def test_die_veraenderung_vergleicht_mit_denselben_tagen_ein_jahr_frueher(bestand):
+    g = bestand.geografie(bestand.auswahl({"jahr": "2024", "stadt": "chicago"}),
+                          kennzahl="veraenderung")
+    t = next(x for x in g["staedte"][0]["tracts"] if x["geoid"] == TRACT_C)
+    # 2024: 36 Faelle 13A und 12 Faelle 23C; 2023: 24 Faelle 13A.
+    assert (t["faelle"], t["faelle_vorjahr"]) == (48, 24)
+    assert t["wert"] == 100.0 and g["vergleich"] == ["2024-01-01", "2024-12-31"]
+    assert g["klassen"] == [-20.0, -5.0, 5.0, 20.0]
+
+
+def test_die_veraenderung_folgt_der_kategorie(bestand):
+    a = bestand.auswahl({"jahr": "2024", "stadt": "chicago", "kategorie": "Assault Offenses"})
+    t = next(x for x in bestand.geografie(a, kennzahl="veraenderung")["staedte"][0]["tracts"]
+             if x["geoid"] == TRACT_C)
+    assert (t["faelle"], t["faelle_vorjahr"], t["wert"]) == (36, 24, 50.0)
+
+
+def test_das_profil_teilt_den_anteil_hier_durch_den_der_stadt(karte):
+    with pytest.raises(EingabeFehler, match="Kategorien"):
+        karte.geografie(karte.auswahl({"jahr": "2024"}), kennzahl="profil")
+    a = karte.auswahl({"jahr": "2024", "stadt": "chicago",
+                       "kategorie": "Larceny/Theft Offenses"})
+    t = {x["geoid"]: x for x in karte.geografie(a, kennzahl="profil")["staedte"][0]["tracts"]}
+    # TRACT_C: 12 von 48 Faellen Diebstahl; die Stadt: 12 von 49 - fast gleich.
+    assert (t[TRACT_C]["faelle"], t[TRACT_C]["faelle_alle"]) == (12, 48)
+    assert t[TRACT_C]["wert"] == round((12 / 48) / (12 / 49), 2)
+    # TRACT_KLEIN: kein Diebstahl, Quotient 0 - aber geringe Basis.
+    assert t[TRACT_KLEIN]["wert"] == 0.0 and t[TRACT_KLEIN]["geringe_basis"]
+
+
+def test_der_nachtanteil_folgt_dem_sonnenstand(tmp_path):
+    # Hell von 13 bis 23 Uhr UTC an jedem Tag.
+    tage = [date(2024, 1, 1) + timedelta(days=i) for i in range(366)]
+    n = 2 * len(tage)
+    schreibe(tmp_path, "dim_city_day", {
+        "city": ["chicago"] * 366 + ["detroit"] * 366, "date": tage * 2,
+        "sunrise_utc": [datetime.combine(t, time(13)) for t in tage] * 2,
+        "sunset_utc": [datetime.combine(t, time(23)) for t in tage] * 2,
+        "daylight_hours": [10.0] * n,
+        # Das Wetter, das »Wetter« aus derselben Tabelle liest.
+        "temp_max_c": [1.0] * n, "temp_min_c": [-1.0] * n,
+        "precipitation_mm": [0.0] * n, "snowfall_mm": [0.0] * n,
+        "precipitation_trace": [False] * n, "station_name": ["Station"] * n,
+    })
+    # 18:05 Ortszeit in Chicago ist 00:05 UTC am Folgetag - dunkel; 10:00 ist 16:00 UTC - hell.
+    taten = ([("chicago", date(2024, 1, 15), "13A", TRACT_C, time(18, 5))] * 30
+             + [("chicago", date(2024, 1, 15), "13A", TRACT_C, time(10, 0))] * 10
+             + jahr("detroit", 2024, "13A", TRACT_D))
+    b = Bestand(stern(tmp_path, taten))
+    g = b.geografie(b.auswahl({"jahr": "2024", "stadt": "chicago"}), kennzahl="nacht")
+    t = next(x for x in g["staedte"][0]["tracts"] if x["geoid"] == TRACT_C)
+    assert (t["dunkel"], t["licht_bekannt"], t["wert"]) == (30, 40, 75.0)
+
+
+def test_ohne_sonnenstand_bleibt_der_nachtanteil_leer(karte):
+    g = karte.geografie(karte.auswahl({"jahr": "2024"}), kennzahl="nacht")
+    assert all(t["wert"] is None for s in g["staedte"] for t in s["tracts"])
+
+
+def test_sechsecke_zeigen_die_dichte_und_ihren_umriss(karte):
+    from serving.dashboard.taten import SECHSECK_M
+    g = karte.geografie(karte.auswahl({"jahr": "2024", "stadt": "chicago"}), raum="sechseck")
+    zellen = g["staedte"][0]["tracts"]
+    # Nur Zellen mit Faellen in der Stadt; jede mit einem sechseckigen Umriss.
+    assert zellen and all(z["delikte"] and z["d"].count("L") == 5 for z in zellen)
+    assert sum(z["faelle"] for z in zellen) == 49
+    km2 = 3 * math.sqrt(3) / 2 * (SECHSECK_M / 1000) ** 2
+    groesste = max(zellen, key=lambda z: z["faelle"])
+    assert groesste["wert"] == round(groesste["faelle"] / km2 / (366 / 365.25), 1)
+    assert g["staedte"][0]["tracts"][0]["einwohner"] is None
+
+
+def test_die_sechseck_zelle_ist_die_naechste_nach_red_blob_games():
+    """Ein Punkt genau in einer Zellmitte bleibt dort; einer daneben findet die Nachbarzelle."""
+    import duckdb as d
+    from serving.dashboard.taten import ERDRADIUS_M, SECHSECK_M, sechseck_sql
+    lat0, lon0 = 41.8, -87.7
+
+    def zelle(dx, dy):
+        lat = lat0 + math.degrees(dy / ERDRADIUS_M)
+        lon = lon0 + math.degrees(dx / (ERDRADIUS_M * math.cos(math.radians(lat0))))
+        q, r = sechseck_sql(str(lat), str(lon), str(lat0), str(lon0))
+        return d.connect().execute(f"SELECT {q}, {r}").fetchone()
+
+    assert zelle(0, 0) == (0, 0)
+    # Mitte der Zelle (1, 0) liegt sqrt(3) * Kante oestlich.
+    assert zelle(math.sqrt(3) * SECHSECK_M, 0) == (1, 0)
+    # Mitte von (0, 1): halbe Breite oestlich, 1,5 Kanten noerdlich.
+    assert zelle(math.sqrt(3) / 2 * SECHSECK_M, 1.5 * SECHSECK_M) == (0, 1)

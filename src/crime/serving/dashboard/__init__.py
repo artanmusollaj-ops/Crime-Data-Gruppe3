@@ -386,7 +386,17 @@ class Bestand:
         # Die Taten selbst, schlank, und die Monatssichten darueber
         # (serving.dashboard.taten, seit dem 23.11.2026).
         from serving.dashboard.taten import lade_taten
-        lade_taten(con, fakten, delikte, tracts)
+        # Der Sonnenstand fuer ``fakt.dunkel``, wenn das Release ihn fuehrt.
+        stadttage = None
+        rel = f"{release}/gold/dataset=dim_city_day"
+        if ablage.exists(rel, "manifest.json"):
+            kandidat = ablage.resolve_read_path(rel, PARQUET_FILE)
+            sonne = {r[0] for r in con.execute(
+                f"DESCRIBE SELECT * FROM read_parquet('{kandidat}', hive_partitioning=false)"
+            ).fetchall()}
+            if {"sunrise_utc", "sunset_utc"} <= sonne:
+                stadttage = kandidat
+        lade_taten(con, fakten, delikte, tracts, stadttage)
         con.execute(f"""
             CREATE TABLE tract_geo AS
             SELECT geoid, city, tract_name
@@ -515,7 +525,7 @@ class Bestand:
                         # »Soziales Umfeld«: die beiden Karten nebeneinander.
                         "karte": "nebeneinander",
                         # »Geografie«: die Rate je Tract.
-                        "ansicht": "tract"},
+                        "raum": "tract", "kennzahl": "rate"},
             "letzter_monat": letzter,
             # Fuer die erweiterte Zeitwahl: welche Bretter Tage rechnen, das
             # Fenster mit Daten und die Vorgaben dazu.
@@ -645,9 +655,10 @@ class Bestand:
 
     # -- Das Brett »Geografie« -----------------------------------------------
 
-    def geografie(self, a: Auswahl, ansicht: str = "tract") -> dict[str, Any]:
+    def geografie(self, a: Auswahl, ansicht: str | None = None, *,
+                  raum: str | None = None, kennzahl: str | None = None) -> dict[str, Any]:
         from serving.dashboard.geografie import geografie
-        return geografie(self, a, ansicht)
+        return geografie(self, a, ansicht, raum=raum, kennzahl=kennzahl)
 
     # -- Das Brett »Zeitverlauf« ---------------------------------------------
 

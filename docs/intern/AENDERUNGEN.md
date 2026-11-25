@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'512** |
+| Tests | **3'521** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -109,6 +109,41 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 25.11.2026 · »Geografie« rechnet sechs Kennzahlen auf drei Räumen (Branch `geografie-kennzahlen`)
+
+Der eine Umschalter wird zu zwei: **Raum** (`raum`: Tract, Polizeibezirk,
+Sechseck) und **Kennzahl** (`kennzahl`). Ein Link mit dem früheren `ansicht`
+gilt weiter. `starteBrett` in `gemeinsam.js` kennt dafür jetzt mehrere
+Umschalter je Seite; die übrigen Bretter haben einen und merken nichts.
+
+Neue Kennzahlen, je Tract und je Bezirk:
+
+- **Geglättet:** Empirical Bayes, global je Stadt nach Marshall (1991).
+  Kleine Tracts rücken zum Mittel der Stadt, statt schraffiert zu werden.
+- **Zum Vorjahr:** Fälle gegenüber denselben Tagen ein Jahr früher, über die
+  Tage mit Daten in beiden Jahren (`zeitraum.vergleich`), Grenzen −20, −5,
+  +5, +20 %. Ein neutrales Band von ±10 % liess 2024 jeden Bezirk grau.
+- **Deliktprofil:** Lokationsquotient der gewählten Kategorien - ihr Anteil
+  hier durch ihren Anteil in der Stadt. Ohne Einwohner gerechnet; ohne
+  gewählte Kategorie meldet das Brett, was fehlt.
+- **Nacht:** Anteil der Fälle bei Dunkelheit, nach derselben Regel wie »Tag
+  und Nacht«. Die Faktentabelle im Speicher trägt dafür `dunkel`.
+- **Festnahmen** gibt es jetzt auch je Tract.
+
+**Neuer Raum Sechseck:** ein Raster mit 500 m Kante (0,65 km² je Zelle),
+axial nach Red Blob Games, gerechnet in Metern um den Mittelpunkt der Taten
+jeder Stadt; die Faktentabelle trägt `hq` und `hr`. Ohne Einwohner ist die
+Rate dort eine Dichte, Fälle je km² und Jahr; geglättet gibt es nicht. Auf
+dem lokalen Bestand sind es 2024 rund 970 Zellen in Chicago.
+
+Lokal im Browser geprüft, jede Kombination einmal, ohne Konsolenfehler.
+Speicher auf `srv01` nicht gemessen: drei Spalten mehr im Speicher
+(`dunkel`, `hq`, `hr`, zusammen rund 5 Byte je Tat, also etwa 10 MB).
+
+Keine Zahl der Abgabe ändert sich.
 
 ---
 
