@@ -91,8 +91,8 @@ def test_jobs_pin_revisions_and_use_existing_clis(store):
     approve_settings(store, store.current("settings")["payload"])
     assert job["settings_revision"] == old != store.current("settings")["id"]
     command_list = jobs.commands(store, {"task": "rebuild"}, Path("pinned"))
-    # Seit 25.11.2026 elf: silver_pipeline.build_police_area kam dazu.
-    assert len(command_list) == 11
+    # Seit 25.11.2026 zwoelf: build_police_area und build_community_area kamen dazu.
+    assert len(command_list) == 12
     assert sum("--config-root" in c for c in command_list) == 3
     assert all("--data-root" in c for c in command_list)
     assert not any("download_" in " ".join(c) for c in command_list)

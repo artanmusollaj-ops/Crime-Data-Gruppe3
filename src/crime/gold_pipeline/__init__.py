@@ -108,6 +108,8 @@ TABELLEN: tuple[str, ...] = (
     "dim_offense", "dim_date", "dim_city_day",
     # Seit Vertrag 11 (25.11.2026).
     "dim_police_area", "bridge_tract_police_area",
+    # Seit Vertrag 12 (25.11.2026).
+    "dim_community_area", "bridge_tract_community_area",
 )
 
 

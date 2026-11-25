@@ -93,8 +93,8 @@ def bronze(root):
 
 def synthetic_runner(changes=None):
     def run(work, commands, log):
-        # Seit 25.11.2026 elf: silver_pipeline.build_police_area kam dazu.
-        assert len(commands) == 11
+        # Seit 25.11.2026 zwoelf: build_police_area und build_community_area kamen dazu.
+        assert len(commands) == 12
         assert any(c[2] == 'silver_pipeline.build_source_change' for c in commands)
         assert all(str(work.data) in c for c in commands)
         datasets(work.data, changes)

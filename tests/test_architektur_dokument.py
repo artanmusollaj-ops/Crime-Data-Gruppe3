@@ -129,7 +129,8 @@ def test_die_kontrollzahlen_stimmen_mit_der_landkarte(teil_a):
 
 
 # Nur so weit, wie ein Sternschema je kommen wird.
-ZAHLWORT = {4: "vier", 5: "fünf", 6: "sechs", 7: "sieben", 8: "acht", 9: "neun"}
+ZAHLWORT = {4: "vier", 5: "fünf", 6: "sechs", 7: "sieben", 8: "acht", 9: "neun",
+            10: "zehn", 11: "elf", 12: "zwölf"}
 
 
 def test_die_schichten_und_ihre_tabellen_stimmen(teil_a):

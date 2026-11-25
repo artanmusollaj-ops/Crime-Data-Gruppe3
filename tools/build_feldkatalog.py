@@ -148,6 +148,10 @@ GEMEINSAM: dict[str, str] = {
                           "`district`, Detroit `police_precinct`), in derselben "
                           "Form wie `police_area`. Was keine Zahl über null ist "
                           "(Detroit `HP`, `0W`), bleibt `NULL`.",
+    # Seit Silver-Vertrag 6 (25.11.2026).
+    "community_area": "Der Stadtteil (Chicago Community Area, Detroit Master "
+                      "Plan Neighborhood), in dem die Koordinate liegt - aus dem "
+                      "eigenen räumlichen Join gegen `silver/community_area`.",
     "case_status": "Detroits Stand des Falls, gross geschrieben, etwa "
                    "`CLEARED BY ARREST`, `EXCEPTIONALLY CLEARED`, `ACTIVE`, "
                    "`INACTIVE`. Chicago führt keinen; dort `NULL`.",
@@ -323,6 +327,17 @@ JE_TABELLE: dict[tuple[str, str], str] = {
         "Detroits Precinct 7 aus zwei.",
     ("police_area", "area_km2"): "Fläche in Quadratkilometern, auf dem "
         "Ellipsoid gerechnet. Wasser innerhalb der Grenze zählt mit.",
+    # silver/community_area, seit 25.11.2026 - Spalten wie police_area.
+    ("community_area", "area_id"): "Kennung des Stadtteils: in Chicago die "
+        "Nummer der Community Area (`1` bis `77`), in Detroit der Name des Master "
+        "Plan Neighborhood. Mit `city` der Schlüssel.",
+    ("community_area", "area_name"): "Name des Stadtteils, Chicagos "
+        "Grossbuchstaben in gewohnter Schreibung (*Rogers Park*).",
+    ("community_area", "source_name"): "Der Name, wie die Quelle ihn führt.",
+    ("community_area", "source_polygons"): "Aus wie vielen Polygonen der Quelle "
+        "der Stadtteil vereinigt wurde.",
+    ("community_area", "area_km2"): "Fläche in Quadratkilometern, auf dem "
+        "Ellipsoid gerechnet.",
     ("place", "place_fips"): "Fünf Ziffern des Orts innerhalb des Bundesstaats.",
     ("place", "name"): "Kurzname des Orts, etwa *Chicago*.",
     ("place", "name_long"): "Vollständiger Name mit Rechtsform, etwa *Chicago city*.",
@@ -475,6 +490,21 @@ JE_TABELLE: dict[tuple[str, str], str] = {
         "auf 1 über die Bezirke mit `within_city`; Einwohner eines Bezirks = "
         "Summe von Einwohnern mal Anteil. Flächengewichtet - die Einwohner "
         "eines Tracts gelten als gleich verteilt.",
+    ("dim_community_area", "area_id"): "Kennung des Stadtteils wie in "
+        "`silver/community_area`; in Detroit ein Name. Mit `city` der Schlüssel.",
+    ("dim_community_area", "area_name"): "*Rogers Park*, *Brightmoor*.",
+    ("dim_community_area", "area_km2"): "Fläche in Quadratkilometern.",
+    ("dim_community_area", "city_area_share"): "Anteil der Fläche in der "
+        "Grenze der Stadt.",
+    ("dim_community_area", "within_city"): "Ob der Stadtteil zur Stadt zählt, "
+        "nach der Mehrheitsregel; für alle 131 wahr.",
+    ("dim_community_area", "boundary_wkt"): "Der Umriss als WKT in EPSG:4326, "
+        "vereinfacht wie in `dim_tract_geo`.",
+    ("bridge_tract_community_area", "area_id"): "Der Stadtteil, in dem ein "
+        "Teil des Tracts liegt.",
+    ("bridge_tract_community_area", "tract_share"): "Flächenanteil des Tracts "
+        "in diesem Stadtteil, je Tract auf 1 normiert. Belle Isle (Detroit) "
+        "liegt in keinem Stadtteil und fehlt hier; sie hat keine Einwohner.",
     ("dim_tract_geo", "boundary_wkt"):
         "Der **Umriss** des Tracts als WKT in EPSG:4269, vereinfacht mit "
         "Douglas-Peucker 0,00002 Grad - rund zwei Meter, und die Flaeche je "

@@ -757,7 +757,7 @@ async function loadCodes(){catalog=await api('mapping-codes?city='+$('city').val
 function codeInfo(){const r=catalog.find(x=>x.code===$('code').value.trim());$('code-info').textContent=r?r.description+' · aktuell '+r.target+' · '+r.match:'Vorhandenen Quellcode auswählen';const key=($('city').value==='chicago'?'iucr=':'micr_code=')+$('code').value.trim()+']';const editing=state?.revisions.filter(v=>v.resource==='mapping'&&!v.decision&&(state.conflicts?.[v.id]?.changes||[]).some(c=>c.location.endsWith(key)))||[];if(editing.length){$('code-info').textContent+=' · Bereits eingereicht von: '+editing.map(v=>v.actor+' ('+v.id.slice(0,8)+')').join(', ');$('code-info').className='notice'}else $('code-info').className='muted'}
 const impactPhases=[
  ['Bronze',['bronze_snapshot']],
- ['Silver',['silver_pipeline.build_tract','silver_pipeline.build_place','silver_pipeline.build_weather_day','silver_pipeline.build_police_area','silver_pipeline.build_crime_offense','silver_pipeline.build_source_change']],
+ ['Silver',['silver_pipeline.build_tract','silver_pipeline.build_place','silver_pipeline.build_weather_day','silver_pipeline.build_police_area','silver_pipeline.build_community_area','silver_pipeline.build_crime_offense','silver_pipeline.build_source_change']],
  ['Gold',['gold_pipeline.build_gold']],
  ['Serving',['serving.build_comparison','serving.build_analysis_db','serving.export_geojson']],
  ['Quality Gates',['quality']],['Impact',['impact']],['Release',[]]

@@ -137,6 +137,7 @@ REGEL_JE_QUELLE: dict[str, str] = {
     "dataset=tract": CENSUS,
     "dataset=place": CENSUS,
     "dataset=police_area": KONSTANT,
+    "dataset=community_area": KONSTANT,
     "dataset=weather_day": KONSTANT,
     # Gold
     "dataset=fact_offense": TATEN,
@@ -155,6 +156,8 @@ REGEL_JE_QUELLE: dict[str, str] = {
     # Seit Gold-Vertrag 11: 34 Bezirke, rund 1'500 Anteile - fest wie die Grenzen.
     "dataset=dim_police_area": KONSTANT,
     "dataset=bridge_tract_police_area": KONSTANT,
+    "dataset=dim_community_area": KONSTANT,
+    "dataset=bridge_tract_community_area": KONSTANT,
     # Serving
     "dataset=comparison_day": TATEN,
     "dataset=comparison_week": TATEN,

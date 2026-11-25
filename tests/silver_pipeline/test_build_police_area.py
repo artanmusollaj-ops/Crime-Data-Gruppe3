@@ -113,3 +113,24 @@ def test_eine_kennung_ohne_zahl_wird_verworfen_und_gezaehlt(tmp_path):
     assert [z["area_id"] for z in lies(ziel) if z["city"] == "chicago"] == ["1"]
     nachweis = json.loads((ziel / "manifest.json").read_text())["reconciliation"]
     assert nachweis["source_rows_without_id_or_geometry"] == {"chicago": 1, "detroit": 0}
+
+
+def test_stadtteile_behalten_ihren_namen_als_schluessel(tmp_path):
+    from silver_pipeline import build_community_area as bca
+    data_root = tmp_path / "data"
+    for stadt, zeilen in (("chicago", [("1", "ROGERS PARK", quadrat(-87.7, 41.8))]),
+                          ("detroit", [("Brightmoor", "Brightmoor", quadrat(-83.2, 42.3))])):
+        ziel = data_root / "bronze/dataset=gebiete/ebene=stadtteil" / f"city={stadt}" / RUN
+        ziel.mkdir(parents=True)
+        pq.write_table(pa.table({
+            "gebiet_id": [z[0] for z in zeilen], "gebiet_name": [z[1] for z in zeilen],
+            "geometry": pa.array([wkb(z[2]) for z in zeilen], pa.binary()),
+            "_extra": pa.array([None] * len(zeilen), pa.string())}), ziel / "part-0001.parquet")
+        (ziel / "manifest.json").write_text(json.dumps({"status": "complete", "run_id": RUN}))
+    ziel = bca.build(data_root)
+    assert ziel.name == "dataset=community_area"
+    assert [(z["city"], z["area_id"], z["area_name"]) for z in lies(ziel)] == [
+        ("chicago", "1", "Rogers Park"), ("detroit", "Brightmoor", "Brightmoor")]
+    manifest = json.loads((ziel / "manifest.json").read_text())
+    assert manifest["table"] == "community_area" and manifest["contract_version"] == 1
+    assert {h["ebene"] for h in manifest["derived_from"]} == {"stadtteil"}

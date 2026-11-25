@@ -116,7 +116,7 @@ TABLE = "crime_offense"
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
-CONTRACT_VERSION = 5
+CONTRACT_VERSION = 6
 
 
 CHICAGO = "chicago"
@@ -152,6 +152,8 @@ TRACT_TABLE = "dataset=tract"
 # Seit Vertrag 5 (25.11.2026): die Polizeibezirke, gegen die jede Koordinate
 # gehalten wird wie gegen die Tracts.
 POLICE_AREA_TABLE = "dataset=police_area"
+# Seit Vertrag 6 (25.11.2026): die Stadtteile, auf demselben Weg.
+COMMUNITY_AREA_TABLE = "dataset=community_area"
 
 # Detroit fuehrt zurueckgezogene Faelle weiter und markiert sie im Status.
 UNFOUNDED = "UNFOUNDED"
@@ -445,7 +447,8 @@ def tract_source(data_root: Path) -> TractQuelle:
                        rel.rsplit("/", 1)[0])
 
 
-def police_area_source(data_root: Path) -> TractQuelle | None:
+def police_area_source(data_root: Path,
+                       tabelle: str = POLICE_AREA_TABLE) -> TractQuelle | None:
     """``silver/police_area``, wenn es gebaut ist.
 
     Fehlt es, bleiben ``police_area`` leer und das Manifest sagt es
@@ -454,9 +457,9 @@ def police_area_source(data_root: Path) -> TractQuelle | None:
     hier nahm aber jedem Test, der nur Tracts anlegt, die Grundlage.
     """
     ablage = for_root(data_root)
-    prefix = f"{SILVER_LAYER}/{POLICE_AREA_TABLE}"
+    prefix = f"{SILVER_LAYER}/{tabelle}"
     if not ablage.list_files(prefix, PARQUET_FILE):
-        LOG.warning("silver/police_area fehlt - police_area bleibt leer")
+        LOG.warning("silver/%s fehlt - die Spalte bleibt leer", tabelle)
         return None
     return TractQuelle(ablage.resolve_read_path(prefix, PARQUET_FILE), "", prefix)
 
@@ -572,6 +575,7 @@ def build_query(
     tract: TractQuelle,
     config_root: Path,
     polizei: TractQuelle | None = None,
+    stadtteil: TractQuelle | None = None,
 ) -> tuple[list[tuple[str, str]], str]:
     """Beide Staedte, auf NIBRS gebracht und raeumlich verortet.
 
@@ -649,6 +653,13 @@ def build_query(
         SELECT city, area_id, ST_GeomFromWKB(geometry) AS geom
         FROM read_parquet('{polizei}')
     """ if polizei is not None else """
+        SELECT NULL::VARCHAR AS city, NULL::VARCHAR AS area_id,
+               NULL::GEOMETRY AS geom WHERE false
+    """),
+        ('stadtteil', f"""
+        SELECT city, area_id, ST_GeomFromWKB(geometry) AS geom
+        FROM read_parquet('{stadtteil}')
+    """ if stadtteil is not None else """
         SELECT NULL::VARCHAR AS city, NULL::VARCHAR AS area_id,
                NULL::GEOMETRY AS geom WHERE false
     """),
@@ -899,6 +910,17 @@ def build_query(
         QUALIFY row_number() OVER (PARTITION BY b.city, b.offense_id
                                    ORDER BY TRY_CAST(p.area_id AS INTEGER)) = 1
     """),
+        ('im_stadtteil',
+         """
+        SELECT b.city, b.offense_id, p.area_id
+        FROM bereinigt b
+        JOIN stadtteil p
+          ON p.city = b.city
+         AND ST_Within(ST_Point(b.longitude, b.latitude), p.geom)
+        WHERE b.latitude IS NOT NULL AND b.longitude IS NOT NULL
+        QUALIFY row_number() OVER (PARTITION BY b.city, b.offense_id
+                                   ORDER BY p.area_id) = 1
+    """),
         # Das Fallebene: unter den zaehlenden Zeilen eines Falls die mit dem
         # schwersten Delikt; bei gleichem Delikt (mehrere Opfer) die frueheste.
         # Eine Zeile ohne Fallnummer ist ihr eigener Fall. Codes ausserhalb der
@@ -955,7 +977,8 @@ def build_query(
         coalesce(f.rang_im_fall = 1, FALSE)                AS counts_case,
         pb.area_id                                         AS police_area,
         b.police_area_source,
-        CAST(b.case_status AS VARCHAR)                     AS case_status
+        CAST(b.case_status AS VARCHAR)                     AS case_status,
+        st.area_id                                         AS community_area
     FROM bereinigt b
     LEFT JOIN nibrs n ON b.nibrs_code = n.nibrs_code
     LEFT JOIN status s ON b.nibrs_match = s.nibrs_match
@@ -965,6 +988,8 @@ def build_query(
       ON b.city = f.city AND b.offense_id = f.offense_id
     LEFT JOIN im_bezirk pb
       ON b.city = pb.city AND b.offense_id = pb.offense_id
+    LEFT JOIN im_stadtteil st
+      ON b.city = st.city AND b.offense_id = st.offense_id
     """
 
 
@@ -1259,6 +1284,7 @@ def bezirksabgleich(con: duckdb.DuckDBPyConnection, relation: str) -> dict[str, 
 def herkunft_von(
     chicago: Source, detroit: Source, tract: TractQuelle, config_root: Path,
     data_root: Path | None = None, polizei: TractQuelle | None = None,
+    stadtteil: TractQuelle | None = None,
 ) -> dict[str, Any]:
     """Woraus diese Tabelle entstanden ist - vollstaendig genug zum Nachbauen.
 
@@ -1306,6 +1332,9 @@ def herkunft_von(
         "silver_police_area": None if polizei is None else referenz(
             polizei.pfad, ablage.tabellen_manifest(polizei.verzeichnis)
             if ablage.exists(polizei.verzeichnis, "manifest.json") else {}),
+        "silver_community_area": None if stadtteil is None else referenz(
+            stadtteil.pfad, ablage.tabellen_manifest(stadtteil.verzeichnis)
+            if ablage.exists(stadtteil.verzeichnis, "manifest.json") else {}),
         "crosswalks": [
             referenzdatei(config_root / name)
             for name in (IUCR_MAPPING, MICR_MAPPING, NIBRS_CODES, MAPPING_OVERRIDES)
@@ -1323,8 +1352,10 @@ def build_manifest(
     pruefung: dict[str, Any],
     data_root: Path | None = None,
     polizei: TractQuelle | None = None,
+    stadtteil: TractQuelle | None = None,
 ) -> dict[str, Any]:
-    herkunft = herkunft_von(chicago, detroit, tract, config_root, data_root, polizei)
+    herkunft = herkunft_von(chicago, detroit, tract, config_root, data_root, polizei,
+                            stadtteil)
     return {
         # Als einziges Manifest des Projekts fehlte hier lange der Status -
         # ausgerechnet bei der Tabelle, die den Vergleich traegt. Wer sie las,
@@ -1358,6 +1389,7 @@ def build(data_root: Path, config_root: Path) -> Path:
     detroit = detroit_sources(data_root)
     tract = tract_source(data_root)
     polizei = police_area_source(data_root)
+    stadtteil = police_area_source(data_root, COMMUNITY_AREA_TABLE)
     LOG.info(
         "Quellen: Chicago %d Laeufe, Detroit %d Laeufe, tract %s",
         len(chicago.paths), len(detroit.paths), tract.vintage,
@@ -1385,12 +1417,13 @@ def build(data_root: Path, config_root: Path) -> Path:
     with tempfile.TemporaryDirectory(
             dir=auslagerung, prefix=".bau-crime_offense-") as bau:
         return _build(Path(bau) / "bau.duckdb", data_root, config_root,
-                      chicago, detroit, tract, polizei)
+                      chicago, detroit, tract, polizei, stadtteil)
 
 
 def _build(datenbank: Path, data_root: Path, config_root: Path,
            chicago: Source, detroit: Source, tract: TractQuelle,
-           polizei: TractQuelle | None = None) -> Path:
+           polizei: TractQuelle | None = None,
+           stadtteil: TractQuelle | None = None) -> Path:
     con = connect(spatial=True, datenbank=datenbank)
     try:
         # Ohne icu kennt DuckDB keine benannten Zeitzonen; ohne UTC als
@@ -1414,15 +1447,20 @@ def _build(datenbank: Path, data_root: Path, config_root: Path,
         con.execute("SET preserve_insertion_order=false")
 
         pruefe_overrides(config_root)
-        stufen, schluss = build_query(chicago, detroit, tract, config_root, polizei)
+        stufen, schluss = build_query(chicago, detroit, tract, config_root, polizei,
+                                      stadtteil)
         for name, abfrage in stufen:
             con.execute(f"CREATE TABLE {name} AS {abfrage}")
         con.execute(f"CREATE TABLE {TABLE} AS {schluss}")
         pruefung = reconcile(con, TABLE, chicago, detroit, config_root)
         pruefung["police_area"] = bezirksabgleich(con, TABLE)
+        pruefung["community_area"] = {stadt: {"offenses": n, "with_area": mit}
+                                      for stadt, n, mit in con.execute(f"""
+            SELECT city, count(*), count(community_area) FROM {TABLE}
+            WHERE counts GROUP BY 1 ORDER BY 1""").fetchall()}
         manifest = build_manifest(
             con, TABLE, chicago, detroit, tract, config_root, pruefung,
-            data_root, polizei,
+            data_root, polizei, stadtteil,
         )
         ziel = publish(con, TABLE, table_dir(data_root), manifest,
                        ordnung=ORDNUNG)

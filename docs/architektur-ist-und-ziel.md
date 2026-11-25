@@ -142,15 +142,15 @@ Die beiden Architekturbilder in [`architektur.md`](architektur.md) werden
 **aus dem Code erzeugt**, nicht gezeichnet. Ein Paket, das dazukommt, erscheint
 von selbst; eine Zahl im Bild, die nicht mehr stimmt, lässt einen Test fallen.
 
-## A.3 Orchestrierung: achtzehn Stufen, Abbruch vor dem halben Stand
+## A.3 Orchestrierung: neunzehn Stufen, Abbruch vor dem halben Stand
 
-`orchestration.run_all` fährt die Strecke in achtzehn Stufen:
+`orchestration.run_all` fährt die Strecke in neunzehn Stufen:
 
 | Gruppe | Stufen | |
 | --- | ---: | --- |
 | ingestion | 7 | chicago, detroit, tiger_tract, tiger_place, acs, noaa, gebiete |
-| silver | 6 | tract, place, weather_day, police_area, crime_offense, source_change |
-| gold | 1 | die neun Sterntabellen in einem Zug |
+| silver | 7 | tract, place, weather_day, police_area, community_area, crime_offense, source_change |
+| gold | 1 | die elf Sterntabellen in einem Zug |
 | serving | 4 | comparison, source_movement, analyse_db, tracts_geojson |
 
 Die Reihenfolge ist keine Kosmetik: `silver/tract` braucht beide
@@ -247,8 +247,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 3'512 Tests ohne Netz und Schlüssel, Linux mit Python 3.11, `ruff` davor; der Referenz-Wächter unter 3.13; auf `main` zusätzlich Windows mit 3.13 | bei jedem Push |
-| **Frischer Klon** | Im Linux-CI-Lauf laufen hochgerechnet (am PR-Lauf zu bestätigen, nicht gemessen) 3'316 davon — die übrigen 85 werden übersprungen, unter anderem wegen fehlender Daten, Dienste oder ungetrackter Dokumente. Die 111 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 3'522 Tests ohne Netz und Schlüssel, Linux mit Python 3.11, `ruff` davor; der Referenz-Wächter unter 3.13; auf `main` zusätzlich Windows mit 3.13 | bei jedem Push |
+| **Frischer Klon** | Im Linux-CI-Lauf laufen hochgerechnet (am PR-Lauf zu bestätigen, nicht gemessen) 3'326 davon — die übrigen 85 werden übersprungen, unter anderem wegen fehlender Daten, Dienste oder ungetrackter Dokumente. Die 111 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle sechs Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 111 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
