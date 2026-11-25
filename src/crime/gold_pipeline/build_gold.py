@@ -80,7 +80,7 @@ from silver_pipeline import (
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
-CONTRACT_VERSION = 10
+CONTRACT_VERSION = 11
 
 #: Der eindeutige Schluessel je Tabelle, nach dem ``publish`` die Zeilen
 #: schreibt (C-2). Damit haengen die Parquet-Bytes am Inhalt und nicht am
@@ -94,6 +94,8 @@ ORDNUNG: dict[str, str] = {
     "dim_offense": "nibrs_code",
     "dim_date": "date",
     "dim_city_day": "city, date",
+    "dim_police_area": "city, area_id",
+    "bridge_tract_police_area": "geoid, city, area_id",
 }
 
 DEFAULT_VINTAGE = 2024
@@ -407,6 +409,101 @@ def dim_tract_geo_query(tract: Quelle) -> str:
     JOIN dim_tract d ON d.geoid = t.geoid
     WHERE t.geometry IS NOT NULL AND d.city IS NOT NULL
     ORDER BY d.geoid
+    """
+
+
+# --------------------------------------------------------------------------
+# Polizeibezirke (Vertrag 11, 25.11.2026)
+# --------------------------------------------------------------------------
+
+
+def dim_police_area_query(police: Quelle, place: Quelle) -> str:
+    """Ein Polizeibezirk je Zeile, mit Umriss und der Frage, ob er zur Stadt zaehlt.
+
+    **Dieselbe Mehrheitsregel wie bei den Tracts** (``STADT_SCHWELLE``): Ein
+    Bezirk zaehlt zur Stadt, deren Polizei ihn fuehrt, wenn mehr als die
+    Haelfte seiner Flaeche in deren Grenze liegt. Das trifft genau einen:
+    Chicagos District 31, der Bezirk der umschlossenen Gemeinden Norridge
+    und Harwood Heights - 0,2 % seiner Flaeche liegen in Chicago.
+
+    **``city`` ist hier nie NULL**, anders als in ``dim_tract``: Die Nummern
+    beider Staedte ueberschneiden sich (Chicago 2, Detroit 2), der Schluessel
+    braucht die Stadt. Ob der Bezirk mitzaehlt, sagt ``within_city``.
+
+    Der Umriss steht als WKT gleich hier, vereinfacht wie in
+    ``dim_tract_geo``. Eine eigene Geometrietabelle lohnt bei 34 Zeilen nicht.
+    """
+    staedte = ", ".join(f"('{g}', '{s}')" for g, s in sorted(STADT_SCHLUESSEL.items()))
+    return f"""
+    WITH stadt(geoid, city) AS (VALUES {staedte}),
+    grenze AS (
+        SELECT s.city, ST_GeomFromWKB(p.geometry) AS geom
+        FROM {place.relation} p JOIN stadt s ON s.geoid = p.geoid
+    ),
+    bezirk AS (
+        SELECT city, area_id, area_name, area_km2, centroid_lat, centroid_lon,
+               ST_GeomFromWKB(geometry) AS geom
+        FROM {police.relation}
+    )
+    SELECT
+        b.city                                          AS city,
+        b.area_id                                       AS area_id,
+        b.area_name                                     AS area_name,
+        b.area_km2                                      AS area_km2,
+        round(coalesce(ST_Area(ST_Intersection(b.geom, g.geom))
+                       / nullif(ST_Area(b.geom), 0), 0), 6) AS city_area_share,
+        coalesce(ST_Area(ST_Intersection(b.geom, g.geom))
+                 / nullif(ST_Area(b.geom), 0), 0) > {STADT_SCHWELLE} AS within_city,
+        b.centroid_lat                                  AS centroid_lat,
+        b.centroid_lon                                  AS centroid_lon,
+        ST_AsText(ST_Simplify(b.geom, {VEREINFACHUNG_GRAD})) AS boundary_wkt
+    FROM bezirk b
+    LEFT JOIN grenze g ON g.city = b.city
+    ORDER BY b.city, TRY_CAST(b.area_id AS INTEGER)
+    """
+
+
+def bridge_tract_police_area_query(tract: Quelle, police: Quelle) -> str:
+    """Welcher Anteil eines Stadt-Tracts in welchem Polizeibezirk liegt.
+
+    **Wozu.** Einwohner gibt es nur je Tract, und Tracts liegen nicht sauber
+    in Bezirken. Die Einwohner eines Bezirks sind die Summe ueber diese
+    Tabelle: Einwohner des Tracts mal ``tract_share``. Gold rechnet die Summe
+    nicht aus - es aggregiert nicht -, ``serving`` tut es je Vintage.
+
+    **Flaechengewichtet**, also unter der Annahme, dass die Einwohner eines
+    Tracts gleich verteilt wohnen. Fuer Bezirke mit Dutzenden Tracts ist der
+    Fehler klein, fuer einzelne Randtracts nicht.
+
+    **Die Anteile eines Tracts summieren sich auf 1**, ueber die Bezirke
+    seiner Stadt, die zur Stadt zaehlen. Ein Stadt-Tract, der zu einem Teil
+    in District 31 oder ausserhalb jedes Bezirks liegt, gibt diesen Teil an
+    die uebrigen ab. So ergeben die Einwohner aller Bezirke zusammen genau
+    die der Stadt, und eine Rate je Bezirk passt zur Rate der Stadt.
+    """
+    return f"""
+    WITH t AS (
+        SELECT d.geoid, d.city, ST_GeomFromWKB(s.geometry) AS geom
+        FROM {tract.relation} s
+        JOIN dim_tract d ON d.geoid = s.geoid
+        WHERE d.city IS NOT NULL AND s.geometry IS NOT NULL
+    ),
+    b AS (
+        SELECT p.city, p.area_id, ST_GeomFromWKB(p.geometry) AS geom
+        FROM {police.relation} p
+        JOIN dim_police_area d ON d.city = p.city AND d.area_id = p.area_id
+        WHERE d.within_city
+    ),
+    schnitt AS (
+        SELECT t.geoid, t.city, b.area_id,
+               ST_Area(ST_Intersection(t.geom, b.geom)) AS flaeche
+        FROM t JOIN b ON b.city = t.city AND ST_Intersects(t.geom, b.geom)
+    )
+    SELECT geoid, city, area_id,
+           round(flaeche / sum(flaeche) OVER (PARTITION BY geoid), 6) AS tract_share
+    FROM schnitt
+    WHERE flaeche > 0
+    ORDER BY geoid, city, area_id
     """
 
 
@@ -833,7 +930,12 @@ def fact_offense_query(offense: Quelle, tracts: str = "dim_tract", *,
         o.arrest                                        AS arrest,
         o.unfounded                                     AS unfounded,
         o.offense_group_id                              AS offense_group_id,
-        o.counts_case                                   AS counts_case
+        o.counts_case                                   AS counts_case,
+        -- Seit Vertrag 11: der Polizeibezirk aus Silver, unveraendert. Ob er
+        -- zur Stadt zaehlt, sagt dim_police_area.within_city.
+        o.police_area                                   AS police_area,
+        o.police_area_source                            AS police_area_source,
+        o.case_status                                   AS case_status
     FROM {offense.relation} o
     LEFT JOIN {tracts} t ON t.geoid = o.tract_geoid
     WHERE o.counts
@@ -1110,6 +1212,48 @@ def pruefe_sonnenstand(con) -> None:
             + ", ".join(f"{stadt} ({n} Tage)" for stadt, n in fehlend)
             + ". Fehlt die Stadt in silver/place (centroid_lat, centroid_lon)?"
         )
+
+
+def pruefe_polizeibezirke(con: duckdb.DuckDBPyConnection) -> None:
+    """Jede Stadt hat Bezirke, und jeder Stadt-Tract ist ganz auf sie verteilt.
+
+    Ein Tract ohne Bezirk faellt aus jeder Rate je Bezirk heraus, ohne dass
+    eine Zahl falsch aussaehe - genau das soll den Bau anhalten.
+    """
+    ohne = con.execute("""
+        SELECT s.city FROM (SELECT DISTINCT city FROM dim_tract WHERE city IS NOT NULL) s
+        LEFT JOIN dim_police_area p ON p.city = s.city AND p.within_city
+        WHERE p.area_id IS NULL""").fetchall()
+    if ohne:
+        raise TransformError(f"keine Polizeibezirke in der Stadt: {[r[0] for r in ohne]}")
+    luecke = con.execute("""
+        SELECT count(*) FROM dim_tract d
+        LEFT JOIN (SELECT geoid, sum(tract_share) AS s FROM bridge_tract_police_area
+                   GROUP BY geoid) b USING (geoid)
+        WHERE d.city IS NOT NULL AND abs(coalesce(b.s, 0) - 1) > 0.001""").fetchone()[0]
+    if luecke:
+        raise TransformError(
+            f"{luecke} Stadt-Tracts sind nicht ganz auf Polizeibezirke verteilt")
+
+
+def bezirksabdeckung(con: duckdb.DuckDBPyConnection) -> dict[str, dict[str, Any]]:
+    """Je Stadt: wie viele Taten in der Stadt einen Bezirk haben, der mitzaehlt.
+
+    Am 25.11.2026 lokal gemessen fehlt er bei 1'794 Taten in Chicago und
+    1'639 in Detroit, rund 0,1 %: Punkte, die in einem Stadt-Tract, aber
+    zwischen oder ausserhalb der Bezirksgrenzen liegen - in Detroit ist der
+    Layer grob gezeichnet.
+    """
+    return {stadt: {"inside_city": n, "with_police_area": mit,
+                    "share": round(mit / n, 6) if n else None}
+            for stadt, n, mit in con.execute("""
+        SELECT f.reporting_city, count(*),
+               count(*) FILTER (WHERE p.within_city)
+        FROM fact_offense f
+        LEFT JOIN dim_police_area p
+          ON p.city = f.reporting_city AND p.area_id = f.police_area
+        WHERE f.geo_status = 'inside_city'
+        GROUP BY 1 ORDER BY 1""").fetchall()}
 
 
 def pruefe_gate(anteile: dict[str, float],
@@ -1403,6 +1547,7 @@ def build(data_root: Path, config_root: Path, vintage: int,
     tract = silver_quelle(data_root, "tract", vintage)
     place = silver_quelle(data_root, "place", vintage)
     weather = silver_quelle(data_root, "weather_day")
+    police = silver_quelle(data_root, "police_area")
     # Je Vintage eine eigene Quelle. Das Referenz-Vintage wird nicht zweimal
     # gelesen - ``silver_quelle`` liest das Manifest mit, und zwei Quellen auf
     # derselben Datei stuenden zweimal im Eingabe-Abdruck.
@@ -1410,7 +1555,7 @@ def build(data_root: Path, config_root: Path, vintage: int,
         v: (tract if v == vintage else silver_quelle(data_root, "tract", v))
         for v in vintages
     }
-    for q in (offense, tract, place, weather):
+    for q in (offense, tract, place, weather, police):
         log.info("Quelle: silver/%s", q.name)
     log.info("Referenz-Vintage %d; ACS-Vintages %s", vintage,
              ", ".join(str(v) for v in vintages))
@@ -1443,10 +1588,15 @@ def build(data_root: Path, config_root: Path, vintage: int,
             f"{dim_city_day_query(weather, offense, place)}"
         )
         pruefe_sonnenstand(con)
+        con.execute(f"CREATE TABLE dim_police_area AS {dim_police_area_query(police, place)}")
+        con.execute("CREATE TABLE bridge_tract_police_area AS "
+                    + bridge_tract_police_area_query(tract, police))
+        pruefe_polizeibezirke(con)
         con.execute("CREATE TABLE fact_offense AS "
                     + fact_offense_query(offense, vintages=vintages))
 
         nachweis = reconcile(con, offense, vintage)
+        nachweis["police_area"] = bezirksabdeckung(con)
         # Erst hier, nicht im Nachweis: Was gemessen wurde, steht im Manifest;
         # ob es reicht, entscheidet das Gate - und zwar bevor irgendeine
         # Tabelle veroeffentlicht wird.
@@ -1559,6 +1709,26 @@ def build(data_root: Path, config_root: Path, vintage: int,
                   "T: gefallen, aber unter der Aufloesung. Der Messwert ist "
                   "dann 0 und bedeutet nicht trocken - wer trockene Tage "
                   "zaehlt, muss die Spalte lesen")}),
+            ("dim_police_area", "ein Polizeibezirk", [police, place],
+             {"within_city": (
+                 f"Mehrheitsregel wie bei dim_tract: Flaechenanteil in der "
+                 f"Stadt ueber {STADT_SCHWELLE}. Faellt fuer Chicagos District "
+                 "31 (Norridge und Harwood Heights) weg"),
+              "schluessel": "city und area_id; die Nummern beider Staedte "
+                            "ueberschneiden sich",
+              "boundary_wkt": (
+                  f"WKT in EPSG:4326, vereinfacht mit {VEREINFACHUNG_GRAD} Grad "
+                  "wie dim_tract_geo")}),
+            ("bridge_tract_police_area",
+             "ein Stadt-Tract in einem Polizeibezirk", [tract, police],
+             {"nenner": (
+                 "Einwohner eines Bezirks = Summe ueber diese Tabelle von "
+                 "Einwohnern des Tracts (dim_tract_acs, je Vintage) mal "
+                 "tract_share. Flaechengewichtet"),
+              "summe_eins": (
+                  "die Anteile eines Tracts summieren sich auf 1 ueber die "
+                  "Bezirke seiner Stadt mit within_city; so ergeben alle "
+                  "Bezirke zusammen die Einwohner der Stadt")}),
         ]
         gebaut = tuple(z[0] for z in bauplan)
         if gebaut != TABELLEN:

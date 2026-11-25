@@ -454,6 +454,27 @@ JE_TABELLE: dict[tuple[str, str], str] = {
         "dieser Tabelle** - fuer sie ist keine Rate definiert, und eine "
         "gezeigte Null liesse sich als Sicherheit lesen, wo in Wirklichkeit "
         "niemand wohnt: Flughaefen, Parks, Gewerbegebiete.",
+    # gold/dim_police_area und gold/bridge_tract_police_area, seit Vertrag 11.
+    ("dim_police_area", "area_id"): "Nummer des Polizeibezirks ohne führende "
+        "Null, wie in `silver/police_area`. Mit `city` der Schlüssel.",
+    ("dim_police_area", "area_name"): "*District 1*, *Precinct 2*.",
+    ("dim_police_area", "area_km2"): "Fläche in Quadratkilometern, auf dem "
+        "Ellipsoid, Wasser innerhalb der Grenze eingeschlossen.",
+    ("dim_police_area", "city_area_share"): "Anteil der Fläche, der in der "
+        "Grenze der Stadt liegt, deren Polizei den Bezirk führt.",
+    ("dim_police_area", "within_city"): "Ob der Bezirk zur Stadt zählt - "
+        "dieselbe Mehrheitsregel wie bei `dim_tract` (Anteil über 0,5). Falsch "
+        "nur für Chicagos District 31, den Bezirk der umschlossenen Gemeinden "
+        "Norridge und Harwood Heights.",
+    ("dim_police_area", "boundary_wkt"): "Der Umriss als WKT in EPSG:4326, "
+        "vereinfacht wie in `dim_tract_geo`.",
+    ("bridge_tract_police_area", "area_id"): "Der Polizeibezirk, in dem ein "
+        "Teil des Tracts liegt.",
+    ("bridge_tract_police_area", "tract_share"): "Welcher Anteil der Fläche "
+        "des Tracts in diesem Bezirk liegt. Je Tract summieren sich die Anteile "
+        "auf 1 über die Bezirke mit `within_city`; Einwohner eines Bezirks = "
+        "Summe von Einwohnern mal Anteil. Flächengewichtet - die Einwohner "
+        "eines Tracts gelten als gleich verteilt.",
     ("dim_tract_geo", "boundary_wkt"):
         "Der **Umriss** des Tracts als WKT in EPSG:4269, vereinfacht mit "
         "Douglas-Peucker 0,00002 Grad - rund zwei Meter, und die Flaeche je "

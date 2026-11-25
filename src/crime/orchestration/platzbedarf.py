@@ -152,6 +152,9 @@ REGEL_JE_QUELLE: dict[str, str] = {
     "dataset=dim_tract_geo": CENSUS,
     "dataset=dim_tract_acs": CENSUS,
     "dataset=dim_city_day": KONSTANT,
+    # Seit Gold-Vertrag 11: 34 Bezirke, rund 1'500 Anteile - fest wie die Grenzen.
+    "dataset=dim_police_area": KONSTANT,
+    "dataset=bridge_tract_police_area": KONSTANT,
     # Serving
     "dataset=comparison_day": TATEN,
     "dataset=comparison_week": TATEN,
