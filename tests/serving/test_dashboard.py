@@ -60,9 +60,39 @@ def quadrat(x: float, y: float) -> str:
     return f"POLYGON (({x} {y}, {x + 0.01} {y}, {x + 0.01} {y + 0.01}, {x} {y + 0.01}, {x} {y}))"
 
 
-def stern(root: Path, taten: list[tuple], *, kleine: bool = False) -> Path:
-    """(meldende Stadt, Datum, NIBRS-Code, Tract[, Uhrzeit[, Fall[, Zuordnung]]]) je Tat."""
+#: Seit Gold-Vertrag 11: je Tract ein Polizeibezirk - Chicago 1, Detroit 2.
+BEZIRK_VON = {TRACT_C: "1", TRACT_D: "2", TRACT_KLEIN: "1", TRACT_LEER: "1"}
+
+
+def stern(root: Path, taten: list[tuple], *, kleine: bool = False,
+          bezirke: bool = False, festnahme=None) -> Path:
+    """(meldende Stadt, Datum, NIBRS-Code, Tract[, Uhrzeit[, Fall[, Zuordnung]]]) je Tat.
+
+    ``bezirke`` legt die Polizeibezirke dazu wie Gold-Vertrag 11, und
+    ``festnahme(i, tat)`` gibt je Tat ``arrest``. Ohne beides sieht der Stern
+    aus wie ein Release vor dem 25.11.2026.
+    """
+    extra = {}
+    if bezirke:
+        extra = {
+            "police_area": [BEZIRK_VON.get(t[3]) for t in taten],
+            "arrest": [festnahme(i, t) if festnahme else False for i, t in enumerate(taten)],
+        }
+        schreibe(root, "dim_police_area", {
+            "city": ["chicago", "chicago", "detroit"],
+            "area_id": ["1", "31", "2"],
+            "area_name": ["District 1", "District 31", "Precinct 2"],
+            "within_city": [True, False, True],
+            "boundary_wkt": [quadrat(-87.7, 41.8), quadrat(-87.9, 41.95), quadrat(-83.1, 42.3)],
+        })
+        bruecke = [(TRACT_C, "chicago", "1"), (TRACT_D, "detroit", "2")] + (
+            [(TRACT_KLEIN, "chicago", "1"), (TRACT_LEER, "chicago", "1")] if kleine else [])
+        schreibe(root, "bridge_tract_police_area", {
+            "geoid": [b[0] for b in bruecke], "city": [b[1] for b in bruecke],
+            "area_id": [b[2] for b in bruecke], "tract_share": [1.0] * len(bruecke),
+        })
     schreibe(root, "fact_offense", {
+        **extra,
         "offense_id": [f"o{i}" for i in range(len(taten))],
         "reporting_city": [t[0] for t in taten],
         "date": [t[1] for t in taten],
@@ -1017,3 +1047,103 @@ def test_die_detailtafel_ist_da_und_die_grafik_fuehrt_hin():
     assert 'Object.assign(detailwahl, { status: z, stadt: s.stadt' in js
     for status in ("exact", "fallback_90Z", "ambiguous", "unmapped"):
         assert f'["{status}",' in js
+
+
+
+# --------------------------------------------------------------------------
+# Polizeibezirke und Festnahmen (Gold-Vertrag 11, 25.11.2026)
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def bezirke(tmp_path) -> Bestand:
+    taten = (
+        jahr("chicago", 2024, "13A", TRACT_C, je=3)
+        + jahr("chicago", 2024, "13A", TRACT_KLEIN, monate=[3])
+        + jahr("chicago", 2024, "120", TRACT_AUSSEN, monate=[5, 6])
+        + jahr("detroit", 2024, "13A", TRACT_D, je=2)
+    )
+    # Jede vierte Tat mit Festnahme; in Detroit ist der Stand einer Tat unbekannt.
+    def festnahme(i, t):
+        if t[0] == "detroit" and i == len(taten) - 1:
+            return None
+        return i % 4 == 0
+    return Bestand(stern(tmp_path, taten, kleine=True, bezirke=True, festnahme=festnahme))
+
+
+def test_die_rate_je_bezirk_teilt_die_faelle_durch_die_einwohner_des_bezirks(bezirke):
+    g = bezirke.geografie(bezirke.auswahl({"jahr": "2024"}), "bezirk")
+    nach = {(s["stadt"], t["geoid"]): t for s in g["staedte"] for t in s["tracts"]}
+    # Chicago 1 traegt TRACT_C (2'000) und TRACT_KLEIN (100): 37 Faelle.
+    assert nach[("chicago", "1")]["einwohner"] == 2100
+    assert nach[("chicago", "1")]["faelle"] == 37
+    assert nach[("chicago", "1")]["rate"] == round(37 * 1000 / 2100, 1)
+    assert nach[("detroit", "2")]["rate"] == 24.0
+    # District 31 zaehlt nicht zur Stadt und steht nicht auf der Karte.
+    assert ("chicago", "31") not in nach
+    assert set(bezirke.karten_bezirke["chicago"]["tracts"][0]) >= {"geoid", "d"}
+    assert [t["geoid"] for t in bezirke.karten_bezirke["chicago"]["tracts"]] == ["1"]
+
+
+def test_ueber_alle_bezirke_ergibt_sich_die_rate_der_stadt(bezirke):
+    g = bezirke.geografie(bezirke.auswahl({"jahr": "2024", "stadt": "detroit"}), "bezirk")
+    t = g["staedte"][0]["tracts"]
+    assert sum(x["faelle"] for x in t) * 1000 / sum(x["einwohner"] for x in t) == 24.0
+
+
+def test_die_festnahmequote_zaehlt_nur_faelle_mit_bekanntem_stand(bezirke):
+    g = bezirke.geografie(bezirke.auswahl({"jahr": "2024"}), "festnahme")
+    detroit = next(s for s in g["staedte"] if s["stadt"] == "detroit")
+    bezirk = detroit["tracts"][0]
+    assert bezirk["faelle"] == 24 and bezirk["bekannt"] == 23
+    assert bezirk["anteil"] == round(bezirk["festnahmen"] * 100 / 23, 1)
+    assert bezirk["wert"] == bezirk["anteil"]
+    # 23 Faelle mit Stand liegen unter der Mindestzahl: geringe Basis.
+    assert bezirk["geringe_basis"] and g["mindestfaelle"] == 30
+    assert detroit["anteil"] == bezirk["anteil"]
+
+
+def test_ein_junger_zeitraum_traegt_den_hinweis(bezirke):
+    alt = bezirke.geografie(bezirke.auswahl({"von": "2024-01-01", "bis": "2024-06-30"}), "festnahme")
+    jung = bezirke.geografie(bezirke.auswahl({"von": "2024-07-01", "bis": "2024-12-31"}), "festnahme")
+    # Die Daten enden am 31.12.2024; ein Zeitraum bis dahin ist jung.
+    assert all(s["jung"] for s in jung["staedte"])
+    assert all(s["jung"] for s in alt["staedte"])
+    from serving.dashboard.geografie import NACHFUEHRUNG_TAGE
+    assert NACHFUEHRUNG_TAGE == 365
+
+
+def test_die_ansicht_steht_in_der_antwort_und_in_der_auswahl(bezirke):
+    g = bezirke.geografie(bezirke.auswahl({"jahr": "2024"}), "festnahme")
+    assert g["ansicht"] == g["auswahl"]["ansicht"] == "festnahme"
+
+
+def test_eine_unbekannte_ansicht_ist_ein_eingabefehler(bezirke):
+    with pytest.raises(EingabeFehler, match="Ansicht"):
+        bezirke.geografie(bezirke.auswahl({"jahr": "2024"}), "wohnort")
+
+
+def test_ein_release_ohne_bezirke_sagt_es_statt_zu_scheitern(karte):
+    """Ein Release vor Gold-Vertrag 11: Tracts gehen, Bezirke nicht."""
+    assert karte.karten_bezirke is None
+    assert karte.geografie(karte.auswahl({"jahr": "2024"}), "tract")["ansicht"] == "tract"
+    with pytest.raises(EingabeFehler, match="Polizeibezirke"):
+        karte.geografie(karte.auswahl({"jahr": "2024"}), "bezirk")
+    client = create_app(bestand=karte).test_client()
+    assert client.get("/api/karten?raum=bezirk").get_json() == {}
+
+
+def test_die_api_reicht_die_ansicht_durch(bezirke):
+    client = create_app(bestand=bezirke).test_client()
+    antwort = client.get("/api/geografie?jahr=2024&ansicht=bezirk").get_json()
+    assert antwort["ansicht"] == "bezirk"
+    assert set(client.get("/api/karten?raum=bezirk").get_json()) == {"chicago", "detroit"}
+
+
+def test_ein_multipolygon_zeichnet_jeden_teil():
+    """Chicagos District 31 kommt aus drei Teilen; bis 25.11. las pfade nur den ersten."""
+    from serving.dashboard.geografie import pfade
+    wkt = ("MULTIPOLYGON (((-83.1 42.3, -83.0 42.3, -83.0 42.4, -83.1 42.3)), "
+           "((-83.2 42.3, -83.15 42.3, -83.15 42.35, -83.2 42.3)))")
+    d = pfade([("31", "detroit", "District 31", wkt)])["detroit"]["tracts"][0]["d"]
+    assert d.count("M") == 2 and d.count("Z") == 2

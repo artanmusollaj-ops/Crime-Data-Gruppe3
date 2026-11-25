@@ -27,6 +27,21 @@ wie die Kacheln nach Web-Mercator.
 
 **Nicht verortet** sind Taten ohne Koordinate, ohne Tract oder ausserhalb
 der Stadtgrenze. Sie fehlen auf der Karte und werden je Stadt gezaehlt.
+
+**Drei Ansichten** (seit 25.11.2026, Gold-Vertrag 11), ``ansicht``:
+
+- ``tract``: die Rate je Census Tract, wie bisher.
+- ``bezirk``: die Rate je Polizeibezirk. Gezaehlt werden dieselben Faelle wie
+  je Tract (``inside_city``), gruppiert nach dem Bezirk ihrer Koordinate; der
+  Nenner sind die Einwohner des Bezirks aus ``serving.dashboard.bezirke``.
+  Ueber alle Bezirke einer Stadt ergibt das die Rate der Stadt.
+- ``festnahme``: der Anteil der Faelle mit Festnahme je Bezirk. Chicago fuehrt
+  ``arrest``, Detroit den Stand des Falls (``CLEARED BY ARREST``). Unter
+  ``MINDESTFAELLE`` Faellen mit bekanntem Stand gilt ein Bezirk als geringe
+  Basis. **Junge Faelle** sind noch nicht geklaert: Liegt das Ende des
+  Zeitraums weniger als ``NACHFUEHRUNG_TAGE`` vor dem letzten Tag mit Daten,
+  sagt das Brett es dazu. In Detroit fiel die Quote 2025 auf 5,7 % und 2026
+  auf 4,6 %, nach 9 bis 12 % in den Jahren davor.
 """
 
 from __future__ import annotations
@@ -36,6 +51,11 @@ import re
 from typing import Any
 
 GERINGE_BASIS = 500
+#: Unter so vielen Faellen mit bekanntem Stand ist eine Festnahmequote zu unruhig.
+MINDESTFAELLE = 30
+#: So lange nach der Tat wird der Stand eines Falls noch spuerbar nachgefuehrt.
+NACHFUEHRUNG_TAGE = 365
+ANSICHTEN = ("tract", "bezirk", "festnahme")
 KLASSEN = 5
 RANGLISTE = 5
 #: Breite der Karte im SVG-Koordinatensystem; die Hoehe folgt der Stadt.
@@ -43,7 +63,11 @@ KARTENBREITE = 600.0
 #: Aequatorumfang (WGS 84) in Kilometern.
 _ERDUMFANG_KM = 40075.016686
 
-_RING = re.compile(r"\(\(([^()]*)\)\)")
+#: Ein Ring: die innerste Klammer mit Koordinaten. So liest dieselbe Regel
+#: ein POLYGON mit Loechern und ein MULTIPOLYGON - bis zum 25.11.2026 las
+#: sie nur den ersten Ring, und Chicagos District 31 aus drei Teilen haette
+#: nur einen gezeigt.
+_RING = re.compile(r"\(([^()]*)\)")
 
 
 def _welt(laenge: float, breite: float) -> tuple[float, float]:
@@ -67,14 +91,14 @@ def pfade(zeilen) -> dict[str, dict[str, Any]]:
     """
     je_stadt: dict[str, list] = {}
     for geoid, stadt, name, wkt in zeilen:
-        treffer = _RING.search(wkt or "")
-        if not treffer or not stadt:
+        ringe = [[_welt(*map(float, p.split()[:2])) for p in ring.split(",")]
+                 for ring in _RING.findall(wkt or "")]
+        if not ringe or not stadt:
             continue
-        punkte = [_welt(*map(float, p.split()[:2])) for p in treffer.group(1).split(",")]
-        je_stadt.setdefault(stadt, []).append((geoid, name, punkte))
+        je_stadt.setdefault(stadt, []).append((geoid, name, ringe))
     karten = {}
     for stadt, tracts in je_stadt.items():
-        alle = [p for _, _, ps in tracts for p in ps]
+        alle = [p for _, _, rs in tracts for ring in rs for p in ring]
         x0, x1 = min(p[0] for p in alle), max(p[0] for p in alle)
         y0, y1 = min(p[1] for p in alle), max(p[1] for p in alle)
         massstab = KARTENBREITE / (x1 - x0)
@@ -89,15 +113,27 @@ def pfade(zeilen) -> dict[str, dict[str, Any]]:
         karten[stadt] = {
             "breite": KARTENBREITE, "hoehe": round((y1 - y0) * massstab, 1),
             "km": round(km, 2), "x0": x0, "y0": y0, "massstab": massstab,
+            # Ein Teilpfad je Ring; Loecher stanzt fill-rule evenodd aus.
             "tracts": [{"geoid": g, "name": n,
-                        "d": "M" + "L".join(xy(p) for p in ps) + "Z"} for g, n, ps in tracts],
+                        "d": "".join("M" + "L".join(xy(p) for p in ring) + "Z" for ring in rs)}
+                       for g, n, rs in tracts],
         }
     return karten
 
 
-def geografie(bestand, a) -> dict[str, Any]:
-    from serving.dashboard import STADTNAMEN
+def geografie(bestand, a, ansicht: str = "tract") -> dict[str, Any]:
+    from serving.dashboard import EingabeFehler
+    if ansicht not in ANSICHTEN:
+        raise EingabeFehler(f"Unbekannte Ansicht: {ansicht}")
+    if ansicht != "tract":
+        if not getattr(bestand, "karten_bezirke", None):
+            raise EingabeFehler("Dieses Release fuehrt keine Polizeibezirke "
+                                "(erst ab Gold-Vertrag 11)")
+        return je_bezirk(bestand, a, festnahme=ansicht == "festnahme")
+    return je_tract(bestand, a)
 
+
+def je_tract(bestand, a) -> dict[str, Any]:
     cur = bestand._cursor()
     staedte = list(a.staedte)
     z = bestand.zeitraum(cur, a, staedte)
@@ -133,11 +169,21 @@ def geografie(bestand, a) -> dict[str, Any]:
         tracts[stadt].append({
             "geoid": geoid, "name": name, "einwohner": anzeige,
             "personenjahre": round(jahre, 1) if jahre else None,
-            "faelle": int(faelle), "delikte": int(delikte), "rate": rate,
+            "faelle": int(faelle), "delikte": int(delikte), "rate": rate, "wert": rate,
             "geringe_basis": anzeige is None or anzeige < GERINGE_BASIS,
         })
-    tragfaehig = sorted(t["rate"] for ts in tracts.values() for t in ts
-                        if not t["geringe_basis"] and t["rate"] is not None)
+    return _antwort(bestand, a, cur, p, "tract", vintage, vintages, z, tracts)
+
+
+def _antwort(bestand, a, cur, p, ansicht, vintage, vintages, z, flaechen,
+             extra=None) -> dict[str, Any]:
+    """Was alle Ansichten teilen: Klassen, Rangliste, Verortung."""
+    from serving.dashboard import STADTNAMEN
+
+    staedte = list(a.staedte)
+    kat = a.kat_sql
+    tragfaehig = sorted(t["wert"] for ts in flaechen.values() for t in ts
+                        if not t["geringe_basis"] and t["wert"] is not None)
     verortung = {s: {"inside_city": 0, "outside_city": 0, "no_tract": 0, "missing_coordinate": 0}
                  for s in staedte}
     for s, status, n in cur.execute(
@@ -145,7 +191,8 @@ def geografie(bestand, a) -> dict[str, Any]:
             f"AND tag BETWEEN $von AND $bis {kat} GROUP BY 1, 2", p).fetchall():
         verortung[s][status] = int(n)
     return {
-        "auswahl": a.json,
+        "auswahl": a.json | {"ansicht": ansicht},
+        "ansicht": ansicht,
         "vintage": vintage,
         "vintages": vintages,
         "achse": z.json(),
@@ -153,14 +200,82 @@ def geografie(bestand, a) -> dict[str, Any]:
         "geringe_basis": GERINGE_BASIS,
         "staedte": [{
             "stadt": s, "name": STADTNAMEN[s],
-            "tracts": tracts[s],
-            "hoechste": sorted((t for t in tracts[s] if not t["geringe_basis"] and t["rate"]),
-                               key=lambda t: (-t["rate"], t["geoid"]))[:RANGLISTE],
-            "geringe": sum(t["geringe_basis"] for t in tracts[s]),
+            "tracts": flaechen[s],
+            "hoechste": sorted((t for t in flaechen[s] if not t["geringe_basis"] and t["wert"]),
+                               key=lambda t: (-t["wert"], t["geoid"]))[:RANGLISTE],
+            "geringe": sum(t["geringe_basis"] for t in flaechen[s]),
             "verortung": verortung[s],
+            **((extra or {}).get(s) or {}),
         } for s in staedte],
         "stand": bestand.stand,
     }
+
+
+def je_bezirk(bestand, a, *, festnahme: bool) -> dict[str, Any]:
+    """Rate oder Festnahmequote je Polizeibezirk, Faelle wie je Tract."""
+    from datetime import timedelta
+
+    cur = bestand._cursor()
+    staedte = list(a.staedte)
+    z = bestand.zeitraum(cur, a, staedte)
+    kat = a.kat_sql
+    p = {"staedte": staedte, **z.param, **a.kat_param}
+    gewichte = {s: z.gewichte(s, bestand.vintage_je_jahr) for s in staedte}
+    vintages = sorted({v for g in gewichte.values() if g for v in g})
+    vintage = vintages[-1] if vintages else None
+    einwohner = {(s, n, v): e for s, n, v, e in cur.execute(
+        "SELECT stadt, nr, vintage, population FROM bezirk_einwohner WHERE vintage IN $v",
+        {"v": vintages or [0]}).fetchall()}
+    # Jeder zaehlende Bezirk der Stadt, auch einer ohne Fall.
+    zeilen = cur.execute(f"""
+        SELECT b.stadt, b.nr, b.name,
+               coalesce(t.faelle, 0), coalesce(t.delikte, 0),
+               coalesce(t.fest, 0), coalesce(t.bekannt, 0)
+        FROM bezirk b
+        LEFT JOIN (SELECT f.stadt::VARCHAR AS stadt, f.bezirk,
+                          count(*) FILTER (f.fall) AS faelle, count(*) AS delikte,
+                          count(*) FILTER (f.fall AND f.festnahme) AS fest,
+                          count(*) FILTER (f.fall AND f.festnahme IS NOT NULL) AS bekannt
+                   FROM fakt f
+                   WHERE f.stadt IN $staedte AND f.geo_status = 'inside_city'
+                     AND f.tag BETWEEN $von AND $bis {kat.replace('kategorie', 'f.kategorie')}
+                   GROUP BY 1, 2) t ON t.stadt = b.stadt AND t.bezirk = b.nr
+        WHERE b.zaehlt AND b.stadt IN $staedte
+        ORDER BY b.stadt, b.nr""", p).fetchall()
+    flaechen: dict[str, list] = {s: [] for s in staedte}
+    for stadt, nr, name, faelle, delikte, fest, bekannt in zeilen:
+        g = gewichte.get(stadt)
+        jahre = (sum(w * einwohner[(stadt, nr, v)] for v, w in g.items())
+                 if g and all(einwohner.get((stadt, nr, v)) for v in g) else None)
+        anzeige = einwohner.get((stadt, nr, vintage)) if vintage else None
+        rate = round(faelle * 1000.0 / jahre, 1) if jahre else None
+        anteil = round(fest * 100.0 / bekannt, 1) if bekannt else None
+        flaechen[stadt].append({
+            "geoid": str(nr), "name": name,
+            "einwohner": round(anzeige) if anzeige else None,
+            "personenjahre": round(jahre, 1) if jahre else None,
+            "faelle": int(faelle), "delikte": int(delikte), "rate": rate,
+            "festnahmen": int(fest), "bekannt": int(bekannt), "anteil": anteil,
+            "wert": anteil if festnahme else rate,
+            "geringe_basis": (bekannt < MINDESTFAELLE if festnahme
+                              else anzeige is None or anzeige < GERINGE_BASIS),
+        })
+    extra = {}
+    for s in staedte:
+        fest = sum(t["festnahmen"] for t in flaechen[s])
+        bekannt = sum(t["bekannt"] for t in flaechen[s])
+        ende = z.fenster.get(s, (None, None))[1]
+        extra[s] = {
+            "festnahmen": fest, "bekannt": bekannt,
+            "anteil": round(fest * 100.0 / bekannt, 1) if bekannt else None,
+            # Ob der Zeitraum in die Zeit reicht, in der Faelle noch geklaert werden.
+            "jung": bool(ende and a.tag_bis > ende - timedelta(days=NACHFUEHRUNG_TAGE)),
+        }
+    antwort = _antwort(bestand, a, cur, p, "festnahme" if festnahme else "bezirk",
+                       vintage, vintages, z, flaechen, extra)
+    antwort["mindestfaelle"] = MINDESTFAELLE
+    antwort["nachfuehrung_tage"] = NACHFUEHRUNG_TAGE
+    return antwort
 
 
 def _rund(v: float) -> float:

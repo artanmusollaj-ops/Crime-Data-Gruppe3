@@ -423,6 +423,10 @@ class Bestand:
         karten = pfade(con.execute(f"""
             SELECT geoid, city, tract_name, boundary_wkt
             FROM read_parquet('{geo}', hive_partitioning=false) ORDER BY geoid""").fetchall())
+        # Fuer »Geografie«: die Polizeibezirke (seit Gold-Vertrag 11). Ein
+        # aelteres Release fuehrt sie nicht - dann None, und das Brett sagt es.
+        from serving.dashboard.bezirke import lade_bezirke
+        karten_bezirke = lade_bezirke(con, ablage, release, acs)
         vintages = [r[0] for r in con.execute("""
             SELECT DISTINCT f.vintage FROM fakt f JOIN tract_nr n ON n.nr = f.tract
             WHERE n.city IS NOT NULL AND f.vintage IS NOT NULL""").fetchall()]
@@ -463,6 +467,7 @@ class Bestand:
                 "release": kennung,
             }
             self.karten = karten
+            self.karten_bezirke = karten_bezirke
             self.beispiele = beispiele
             self.bewegung = bewegung
             self.wetter = mit_wetter
@@ -508,7 +513,9 @@ class Bestand:
                         # »Quellbewegung«: Zeitstempel vorgabemaessig ausgeblendet.
                         "felder": "inhalt",
                         # »Soziales Umfeld«: die beiden Karten nebeneinander.
-                        "karte": "nebeneinander"},
+                        "karte": "nebeneinander",
+                        # »Geografie«: die Rate je Tract.
+                        "ansicht": "tract"},
             "letzter_monat": letzter,
             # Fuer die erweiterte Zeitwahl: welche Bretter Tage rechnen, das
             # Fenster mit Daten und die Vorgaben dazu.
@@ -638,9 +645,9 @@ class Bestand:
 
     # -- Das Brett »Geografie« -----------------------------------------------
 
-    def geografie(self, a: Auswahl) -> dict[str, Any]:
+    def geografie(self, a: Auswahl, ansicht: str = "tract") -> dict[str, Any]:
         from serving.dashboard.geografie import geografie
-        return geografie(self, a)
+        return geografie(self, a, ansicht)
 
     # -- Das Brett »Zeitverlauf« ---------------------------------------------
 
