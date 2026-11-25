@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'465** |
+| Tests | **3'467** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -107,6 +107,31 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 25.11.2026 · Die Konsolensicherung lässt die Job-Daten aus (Branch `konsolensicherung-ohne-jobdaten`)
+
+`object_store.backup` packt `jobs/<Job-ID>/data/` nicht mehr ins tägliche
+Archiv unter `backups/control/`. Der Ordner ist die Arbeitskopie eines
+Kandidaten — Bronze-Abzug, Silver, Gold und das Kandidaten-Release, beim
+Kandidaten vom 18.11. 1,1 GiB — und machte jedes Archiv 830 MiB statt
+2,2 MiB gross. Alles darin lässt sich aus Bronze im Eimer nachbauen, und das
+Volume `konsole` geht ohnehin jede Nacht als Ganzes in die Serversicherung
+(S-7). Die Nachweise daneben (`run.log`, Auswirkungsbericht, `result.json`)
+und der Job-Zeiger bleiben im Archiv; `backup.json` nennt die ausgelassenen
+Jobs (`job_data_left_out`).
+
+Was das nach einem Restore aus dem Archiv kostet: Ein Kandidat im Review oder
+vor der Publikation wird neu eingereiht, und Notebook 34 und 37 finden die
+Daten des aktiven Release erst nach einem neuen Kandidaten.
+
+Damit fällt Befund 5 in [`umstellung-verwaltet.md`](umstellung-verwaltet.md)
+als Hindernis für S-10 weg. Wirksam wird es mit dem nächsten eingesetzten
+Abbild; die sieben schweren Archive (4,98 GiB) fallen danach binnen einer
+Woche von selbst weg.
+
+Keine Zahl der Abgabe ändert sich.
 
 ---
 

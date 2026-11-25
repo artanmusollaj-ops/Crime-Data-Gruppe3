@@ -12,8 +12,9 @@ sits in ``jobs/`` because that is the only part of the console volume Jupyter
 mounts, read-only.
 
 **Retention.** A job's ``data/`` is a full copy of the inputs, hundreds of MB
-each, and it also goes into the daily control backup. ``prune`` removes it once
-nobody can need it again. The evidence next to it (run.log, impact report,
+each. Since 25.11.2026 it stays out of the daily control backup
+(``object_store.backup``); on the worker host it still takes the space.
+``prune`` removes it once nobody can need it again. The evidence next to it (run.log, impact report,
 result.json) always stays. Protected are:
 
 * running and queued jobs, and candidates whose decision or publication is

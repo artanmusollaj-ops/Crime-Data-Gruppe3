@@ -233,6 +233,14 @@ def backup(store, objects=None):
     releases/ - release.json goes up last, so a stored release.json with the
     same bytes means the whole release is there. After the new backup is
     verified, only the newest ADMIN_BACKUP_KEEP backups are kept.
+
+    A job's ``data/`` folder stays out too (25.11.2026). It is the full working
+    copy of a candidate - Bronze snapshot, Silver, Gold and the candidate
+    release, 1.1 GiB for the candidate of 18.11.2026 - and made each daily
+    archive 830 MiB instead of 2.2 MiB. Everything in it can be rebuilt from
+    Bronze in the bucket, and the console volume goes into the nightly server
+    backup as a whole (S-7). The evidence next to it (run.log, impact report,
+    result.json) stays in the archive.
     """
     from .operations import record_status
     from .candidates import file_hash
@@ -276,11 +284,21 @@ def backup(store, objects=None):
             destination.close()
             source.close()
         path = tmp / "control.tar.gz"
+        left_out = []
+
+        def without_job_data(member):
+            parts = member.name.split("/")
+            if len(parts) == 4 and parts[:2] == ["admin", "jobs"] and parts[3] == "data":
+                left_out.append(parts[2])
+                return None
+            return member
+
         with tarfile.open(path, "w:gz") as archive:
             archive.add(dbfile, arcname="admin/control.sqlite")
             for folder in ("jobs", "config_versions", "impact_archive", "serving"):
                 if (store.root / folder).exists():
-                    archive.add(store.root / folder, arcname="admin/" + folder)
+                    archive.add(store.root / folder, arcname="admin/" + folder,
+                                filter=without_job_data if folder == "jobs" else None)
             if (store.root / "managed.json").exists():
                 archive.add(store.root / "managed.json", arcname="admin/managed.json")
             # lokal mit Absicht: the console keeps its releases on the worker host;
@@ -310,6 +328,8 @@ def backup(store, objects=None):
             # Restore fetches these from releases/ in the bucket (storage.release).
             "releases_in_bucket": in_bucket,
             "releases_archived": archived,
+            # Rebuilt after a restore by queueing the candidate again.
+            "job_data_left_out": sorted(left_out),
         }
         metadata = tmp / "backup.json"
         metadata.write_text(encode(info))
