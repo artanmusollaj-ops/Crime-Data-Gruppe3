@@ -456,7 +456,7 @@ Fehlerherd:
   Die beiden Crosswalks sind erzeugt; eine fachliche Korrektur steht daneben in
   [`config/mapping_overrides.csv`](config/mapping_overrides.csv), gewinnt gegen
   den Crosswalk und trägt die Herkunft `admin_review`. Die Engineering-Konsole
-  schreibt sie nach Review; heute enthält sie eine Zeile, Detroits MICR-Code 3072.
+  schreibt sie nach Review; heute ist sie leer bis auf die Kopfzeile.
 * **Zeit.** Chicagos `date` sieht aus wie ein Zeitstempel, ist aber Ortszeit
   ohne Zone; Detroits Feld ist bereits UTC. Wer beide gleich behandelt,
   vergleicht Städte, die je nach Jahreszeit ein bis zwei Stunden

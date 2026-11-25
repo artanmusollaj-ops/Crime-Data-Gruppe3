@@ -144,14 +144,14 @@ Fakten. Neue Argumentation geht als Textvorschlag an Artan.
   Der Datenlauf in GitHub Actions war einmal grün, am 14.9., und ist seither
   rot, seit dem 11.11. nur noch am Schritt „Drift ausweisen". Beides stand
   als „Einrichtung, kein Nachweis".
-- **Mapping-Korrekturen:** `mapping_overrides.csv` hat eine Zeile (Detroit
-  `3072`, seit #259), nicht „nur die Kopfzeile".
-
-**Nicht geändert, offen:** 8.5 sagt „`3072` bringt 1'447 Fälle nach `23C
-Shoplifting`". Seit #259 (18.11.2026, über die Konsole, Begründung „E2E
-Test, Erneute Impact Analyse") schreibt die Korrektur `3072` auf `26A`, und
-Silver trägt das. Ob die Korrektur bleibt oder zurückgenommen wird, ist ein
-Entscheid, keine Faktkorrektur.
+- **Die Korrektur für `3072` ist zurückgenommen.** Seit #259 (18.11.2026,
+  über die Konsole, Begründung „E2E Test, Erneute Impact Analyse") legte
+  `config/mapping_overrides.csv` Detroits `3072` auf `26A`, gegen 8.5 („nach
+  `23C Shoplifting`"). Es war ein Test; zurückgenommen per `git revert` wie
+  schon #257, samt `config/admin_reviews/d6e211ef….json`. Die Datei ist
+  wieder leer bis auf die Kopfzeile, 8.5 gilt unverändert. Wirksam in den
+  Daten erst mit dem nächsten Silver-Bau: Das Release vom 20.11. und die
+  lokale Silver tragen noch `26A` (6'643 Anklagen).
 
 **Textvorschlag:** `docs/intern/textvorschlag-dashboard.md`, die acht Bretter
 als Stoff für einen Abschnitt in 5.2, im Wegweiser und in 11.5.
