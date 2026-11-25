@@ -94,12 +94,13 @@ Eine Handänderung hier ist beim nächsten Lauf weg. Wer den Inhalt ändern will
 | [`referenz/`](referenz/index.html) | `tools/build_referenz.py` (pdoc), eine Seite je Modul |
 | [`einstieg.html`](einstieg.html) | `python -m serving.build_einstieg`, aus dem aktuellen Release — **wo ein Analyst anfängt**. Dieselbe Seite liefert auf `srv01` der Dienst `urbancrime-start` aus, mit Serveradressen statt `localhost` (`--adressen server`); sie liegt dort in einem Datenträger und nicht in diesem Ordner |
 | `bilder/architektur-pakete.svg`, `bilder/architektur-datenfluss.svg`, `bilder/architektur-kontext.svg` | `tools/build_architekturbilder.py`, aus dem Importgraphen |
+| `bilder/stern.svg` und das Bild im Block `<!-- stern -->` von `sternschema-und-wuerfel.html` | `tools/build_sternbild.py`, aus `gold_pipeline.TABELLEN` und den Gold-Manifesten; `tests/test_sternbild.py` hält beide Fassungen gegen einen frischen Bau |
 | `bilder/dashboard-*.png` | `tools/build_dashboardbilder.py`, fotografiert die laufenden Kibana-Dashboards |
 | [`nachweise/README.md`](nachweise/README.md) | `tools/build_nachweise.py`, aus den abgelegten `nachweis.json`. Die Nachweise selbst erzeugt dasselbe Werkzeug, sie sind aber **kein Erzeugnis**: Laufzeiten wiederholen sich nicht byteweise, also kein Reproduktionswächter. Stattdessen hält `tests/test_nachweise.py` den Code-Abdruck je Notebook gegen das Notebook — ändert sich der Code, ist der Nachweis veraltet und der Test rot |
 | [`intern/handbuch/ENGINEERING_KONSOLE.pdf`](intern/handbuch/ENGINEERING_KONSOLE.pdf) | `tools/build_konsole_pdf.py`, aus `intern/ENGINEERING_KONSOLE.md`; der Titel trägt den Hash des Markdowns, und `tests/test_konsole_handbuch.py` vergleicht ihn |
 
 Die übrigen Dateien in [`bilder/`](bilder/) sind von Hand gezeichnet
-(`granularitaet.svg`, `stern.svg`, `wuerfel.svg`) beziehungsweise für Folien
+(`granularitaet.svg`, `wuerfel.svg`) beziehungsweise für Folien
 gesetzt (`Data_Pipeline_fuer_Folie.png`, `Endarchitektur_LN2.png`).
 
 ## Quellen — die amtlichen Unterlagen

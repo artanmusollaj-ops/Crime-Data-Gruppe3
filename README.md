@@ -228,7 +228,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Der Standardlauf wählt 3'423 Tests aus. Erwartet wird **grün** ohne
+Der Standardlauf wählt 3'429 Tests aus. Erwartet wird **grün** ohne
 Netzzugriff und ohne Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -238,7 +238,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 3'534
+python -m pytest -m ""               # beides zusammen, alle 3'540
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -1158,7 +1158,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**3'534 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**3'540 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -1196,8 +1196,8 @@ auf `main` aus: auf jedem Pull Request unter **Linux** mit Python **3.11**, dazu
 Referenz-Wächter unter **3.13**; auf `main` zusätzlich unter **Windows** mit **3.13**.
 Windows, weil Artan darauf entwickelt.
 
-Im Linux-CI-Lauf werden hochgerechnet **3'338 der 3'423 Tests** des
-Standardlaufs ausgeführt (am PR-Lauf zu bestätigen, nicht gemessen). Die übrigen 85 werden übersprungen. Die Zahl hängt
+Im Linux-CI-Lauf werden hochgerechnet **3'342 der 3'429 Tests** des
+Standardlaufs ausgeführt (am PR-Lauf zu bestätigen, nicht gemessen). Die übrigen 87 werden übersprungen. Die Zahl hängt
 von der Umgebung ab. Einige Prüfungen brauchen gebaute Daten, die in
 `data/` liegen und nicht versioniert sind — dazu seit dem 5.10.2026 die Reproduktion von
 `docs/forschungsfragen.md`, deren Quelle das ungetrackte LN1-PDF ist, und
