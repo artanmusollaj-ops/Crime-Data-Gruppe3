@@ -110,6 +110,24 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 25.11.2026 · Die Konsolensicherung ist auf srv01 nachgemessen (Branch `s10-sicherung-gemessen`)
+
+Die beiden Lücken in Befund 5 von [`umstellung-verwaltet.md`](umstellung-verwaltet.md)
+sind auf `srv01` gemessen, nur lesend: `du` im Dienst `admin`, das Kontingent
+mit `s3.bucket.list` in `weed shell`. Geändert ist nur das Dokument.
+
+- **Die 830 MiB kommen aus einem Ordner.** `jobs/9d265b70…/data` im Volume
+  `konsole` belegt 1,1 GiB (Bronze 455, Releases 343, Silver 209, Gold 84 MiB).
+  Er gehört zum aktiven Release `approved-9d265b70…`. Am 24.11. war das aus
+  Code und Zeitpunkt erschlossen; jetzt ist es gemessen.
+- **Das Kontingent des Eimers ist 24 GiB**, belegt sind 9,7 GiB logisch
+  (40,4 %). Mit Umstellung und ohne Entscheid zur Sicherung wären es rund
+  16 GiB. Das läuft nicht über, lässt aber wenig Luft.
+
+Keine Zahl der Abgabe ändert sich.
+
+---
+
 ## 24.11.2026 · Die Sperre des verwalteten Betriebs erreicht den Cron-Lauf nicht (Branch `s10-fragen-geklaert`)
 
 Die beiden offenen Fragen aus [`umstellung-verwaltet.md`](umstellung-verwaltet.md)

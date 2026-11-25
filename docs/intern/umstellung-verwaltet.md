@@ -53,23 +53,32 @@ ist dafür nichts geprüft und nichts geändert.
    leer). Das Archiv packt `admin/jobs/` ganz ein. Der Sprung kam einen Tag
    nach dem ersten Kandidaten vom 18.11., und dessen Ordner `jobs/<id>/data`
    trägt einen vollen Bronze-Abzug, Silver und Gold. `job_data.prune` behält
-   ihn, weil er zum zuletzt aktivierten Konsolen-Release gehört. Erschlossen
-   ist das aus Code und Zeitpunkt, nicht nachgesehen: Schritt 1 misst die
-   Ordner.
+   ihn, weil er zum zuletzt aktivierten Konsolen-Release gehört.
+   **Nachgemessen am 25.11.2026** im Volume `konsole` auf srv01: `jobs/`
+   belegt 1,1 GiB, fast alles in einem Ordner, `jobs/9d265b70…/data`. Das ist
+   der Job hinter `approved-9d265b70c6c34683b8cf7b5ae033f8a6-435090e1`, auf den
+   `jobs/ANALYSE.json` zeigt. Darin liegen `bronze` 455 MiB, `releases`
+   343 MiB, `silver` 209 MiB, `gold` 84 MiB und `serving` 3 MiB. Die übrigen
+   acht Job-Ordner tragen kein `data` und wiegen je höchstens 2,5 MiB, der
+   Rest des Volumes zusammen 14 MiB.
    Nach der Umstellung bringt jeder Wochenlauf einen neuen Job-Ordner.
    `ADMIN_JOB_DATA_KEEP` behält zwei (Vorgabe), damit wird jedes Archiv rund
    1,7 GB gross. Gesichert wird nach jedem Takt mit Arbeit, an einem Batch-Tag
    also mehrmals, und sieben Archive bleiben. Das sind rund **12 GB unter
    `backups/control/`**. Am 10.11.2026 lagen dort 11,2 GB, und der Eimer stand
    über seinem Kontingent auf nur-lesen; der Volllauf des Tages scheiterte.
-   Wie gross das Kontingent heute ist, steht nicht im Repository. Sichtbar
-   liegen im Eimer zurzeit rund 9,1 GiB (`releases/` 2,9, `backups/` 5,0, die
-   Schichten 1,2). Dasselbe Volume `konsole` geht ausserdem jede Nacht mit
-   restic nach Backblaze (S-7).
+   **Das Kontingent ist heute 24 GiB** (`quota:25769803776`, abgelesen am
+   25.11.2026 mit `s3.bucket.list`). Belegt sind 9,7 GiB logisch, 40,4 %;
+   gegen diese Zahl rechnet SeaweedFS das Kontingent. Physisch sind es
+   11,0 GiB. Mit den rund 12 GB Sicherungen statt heute 5,0 GiB kämen etwa
+   6,6 GiB dazu, also rund 16,3 GiB oder zwei Drittel des Kontingents, dazu
+   je Wochenlauf ein Release von rund 0,3 GiB. Das läuft nicht über, lässt
+   aber wenig Luft für einen zweiten Kandidaten oder einen Volllauf.
+   Dasselbe Volume `konsole` geht ausserdem jede Nacht mit restic nach
+   Backblaze (S-7).
    **Vor der Umstellung zu entscheiden:** `jobs/*/data` aus dem Archiv
    nehmen, denn alles darin lässt sich aus Bronze im Eimer nachbauen, oder
-   `ADMIN_JOB_DATA_KEEP=1` setzen, und das Kontingent auf srv01 nachsehen
-   (Schritt 1).
+   `ADMIN_JOB_DATA_KEEP=1` setzen.
 6. **Drei Stellen im Repository rufen nach der Umstellung den alten Lauf
    auf.** Sie gehören in denselben PR wie der Crontab-Tausch (Schritt 0).
 
@@ -272,6 +281,8 @@ Zwei Befunde von oben brauchen einen Entscheid, bevor umgestellt wird:
 1. **Die Sperre in `pipeline` einhängen** (Punkt 4): ja oder nein. Ohne sie
    schützt nur der Crontab-Tausch.
 2. **Die Konsolensicherung schlank halten** (Punkt 5): `jobs/*/data` aus dem
-   Archiv nehmen oder `ADMIN_JOB_DATA_KEEP=1` setzen. Dazu das Kontingent
-   des Eimers auf srv01 ablesen. Die 830 MiB je Archiv liegen heute schon
-   dort, ohne Umstellung.
+   Archiv nehmen oder `ADMIN_JOB_DATA_KEEP=1` setzen. Am 25.11. gemessen:
+   Der Ordner `data` des Kandidaten vom 18.11. ist 1,1 GiB gross und macht
+   fast das ganze Archiv aus. Das Kontingent ist 24 GiB, belegt sind 9,7 GiB.
+   Mit Umstellung und ohne Entscheid wären es rund 16 GiB. Die 830 MiB je
+   Archiv liegen heute schon dort, ohne Umstellung.
