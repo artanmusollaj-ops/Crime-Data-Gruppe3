@@ -126,6 +126,8 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
         bestand = daten()
         if request.args.get("raum") == "bezirk":
             return jsonify(bestand.karten_bezirke or {})
+        if request.args.get("raum") == "stadtteil":
+            return jsonify(bestand.karten_stadtteile or {})
         return jsonify(bestand.karten)
 
     @app.get("/api/geografie")

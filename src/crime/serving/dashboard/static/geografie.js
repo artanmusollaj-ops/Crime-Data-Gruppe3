@@ -1,4 +1,4 @@
-// Das Brett »Geografie«: ein Raum (Tract, Polizeibezirk, Sechseck) und eine
+// Das Brett »Geografie«: ein Raum (Tract, Polizeibezirk, Stadtteil, Sechseck) und eine
 // Kennzahl (Rate, geglaettet, Veraenderung, Deliktprofil, Nacht, Festnahmen).
 import {
   FARBE, achsenzahl, el, hochrechnung, komma, leer, runde, starteBrett, zahl, zeitraumtext,
@@ -19,6 +19,7 @@ const reihe = (d) => ({ rate: REIHE.rate, geglaettet: REIHE.rate, festnahme: REI
 const RAUM = {
   tract: { flaeche: "Census Tract", mehrzahl: "Tracts" },
   bezirk: { flaeche: "Polizeibezirk", mehrzahl: "Polizeibezirke" },
+  stadtteil: { flaeche: "Stadtteil", mehrzahl: "Stadtteile" },
   sechseck: { flaeche: "Sechseck (500 m Kante)", mehrzahl: "Sechsecke" },
 };
 
@@ -44,6 +45,7 @@ function format(d, v) {
 
 let karten = null;
 let kartenBezirke = null;
+let kartenStadtteile = null;
 
 function stufe(v, grenzen, farben) {
   const i = grenzen.findIndex((g) => v <= g);
@@ -93,6 +95,7 @@ function tooltip(d, name, geoid, t) {
 
 function rahmen(d, stadt) {
   if (d.raum === "bezirk") return kartenBezirke[stadt.stadt];
+  if (d.raum === "stadtteil") return kartenStadtteile[stadt.stadt];
   const k = karten[stadt.stadt];
   if (d.raum === "tract") return k;
   // Sechsecke kommen mit der Antwort, im Rahmen der Tract-Karte.
@@ -198,6 +201,11 @@ function hinweise(d) {
     p.push("Einwohner je Polizeibezirk: die Tracts nach ihrem Flächenanteil verteilt. Chicagos District 31 "
       + "fehlt – er umfasst die Gemeinden Norridge und Harwood Heights, die nicht zu Chicago gehören.");
   }
+  if (d.raum === "stadtteil") {
+    p.push("Stadtteile: Chicagos 77 Community Areas und Detroits 54 Master Plan Neighborhoods. "
+      + "Einwohner nach Flächenanteil der Tracts verteilt. Belle Isle liegt in keinem Detroiter "
+      + "Stadtteil – dort wohnt niemand.");
+  }
   if (d.raum === "sechseck") {
     p.push("Sechsecke mit 500 m Kante (rund 0,65 km²), unabhängig von Verwaltungsgrenzen. Ohne Einwohner: "
       + "Die Rate ist hier eine Dichte, und es erscheinen nur Zellen mit Fällen.");
@@ -272,9 +280,11 @@ function alteAnsicht() {
 
 async function start() {
   alteAnsicht();
-  const [tracts, bezirke] = await Promise.all([fetch("/api/karten"), fetch("/api/karten?raum=bezirk")]);
+  const [tracts, bezirke, teile] = await Promise.all([fetch("/api/karten"),
+    fetch("/api/karten?raum=bezirk"), fetch("/api/karten?raum=stadtteil")]);
   if (tracts.ok) karten = await tracts.json();
   if (bezirke.ok) kartenBezirke = await bezirke.json();
+  if (teile.ok) kartenStadtteile = await teile.json();
   starteBrett({ api: "/api/geografie", zeichne });
 }
 

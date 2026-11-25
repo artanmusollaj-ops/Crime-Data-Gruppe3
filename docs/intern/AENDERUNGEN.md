@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'532** |
+| Tests | **3'534** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -110,6 +110,24 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 25.11.2026 · »Geografie« zeigt die Stadtteile (Branch `dashboard-stadtteile`)
+
+Der Schalter **Raum** hat eine vierte Stellung: **Stadtteil**, aus
+`dim_community_area` und `bridge_tract_community_area` (Gold-Vertrag 12).
+Alle sechs Kennzahlen gelten dort wie je Bezirk. Detroits Schlüssel ist ein
+Name; im Speicher trägt die Faktentabelle den Stadtteil als Aufzählung
+(`stadtteil`, 131 Werte, ein Byte je Tat). Ein älteres Release lädt weiter,
+der Raum meldet dann, dass es keine Stadtteile führt.
+
+Lokal auf einem Probe-Release geprüft: über alle Stadtteile 2024 Chicago
+94,3 und Detroit 124,6 Fälle je 1'000 und Jahr - die Stadtraten aus demselben
+Bestand. Höchste Rate in Chicago Fuller Park (268,6), in Detroit der Central
+Business District (434,5; Tatort ist nicht Wohnort).
+
+Keine Zahl der Abgabe ändert sich.
 
 ---
 

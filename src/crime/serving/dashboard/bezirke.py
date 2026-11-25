@@ -1,4 +1,4 @@
-"""Die Polizeibezirke im Speicher: Umrisse, Einwohner je Vintage.
+"""Polizeibezirke und Stadtteile im Speicher: Umrisse, Einwohner je Vintage.
 
 Seit dem 25.11.2026 (Gold-Vertrag 11). Das Brett »Geografie« zeigt damit
 neben der Rate je Tract die Rate und die Festnahmequote je Bezirk.
@@ -47,4 +47,39 @@ def lade_bezirke(con: Any, ablage: Any, release: str, acs: str) -> dict[str, Any
         SELECT CAST(nr AS VARCHAR), stadt, name, boundary_wkt
         FROM bezirk WHERE zaehlt ORDER BY stadt, nr""").fetchall())
     con.execute("ALTER TABLE bezirk DROP COLUMN boundary_wkt")
+    return karten
+
+
+def lade_stadtteile(con: Any, ablage: Any, release: str, acs: str) -> dict[str, Any] | None:
+    """Legt ``stadtteil`` und ``stadtteil_einwohner`` an (Gold-Vertrag 12).
+
+    Wie die Bezirke, nur mit Text als Schluessel: Detroits Stadtteile tragen
+    Namen, keine Nummern. ``None`` bei einem aelteren Release.
+    """
+    from serving.dashboard.geografie import pfade
+
+    pfade_je = {}
+    for tabelle in ("dim_community_area", "bridge_tract_community_area"):
+        rel = f"{release}/gold/dataset={tabelle}"
+        if not ablage.exists(rel, "manifest.json"):
+            return None
+        pfade_je[tabelle] = ablage.resolve_read_path(rel, "part-0001.parquet")
+    teile = f"read_parquet('{pfade_je['dim_community_area']}', hive_partitioning=false)"
+    bruecke = f"read_parquet('{pfade_je['bridge_tract_community_area']}', hive_partitioning=false)"
+    con.execute(f"""
+        CREATE TABLE stadtteil AS
+        SELECT city AS stadt, area_id AS kennung, area_name AS name,
+               within_city AS zaehlt, boundary_wkt
+        FROM {teile}""")
+    con.execute(f"""
+        CREATE TABLE stadtteil_einwohner AS
+        SELECT b.city AS stadt, b.area_id AS kennung, a.vintage,
+               sum(a.population * b.tract_share) AS population
+        FROM {bruecke} b
+        JOIN read_parquet('{acs}', hive_partitioning=false) a USING (geoid)
+        GROUP BY ALL""")
+    karten = pfade(con.execute("""
+        SELECT kennung, stadt, name, boundary_wkt
+        FROM stadtteil WHERE zaehlt ORDER BY stadt, kennung""").fetchall())
+    con.execute("ALTER TABLE stadtteil DROP COLUMN boundary_wkt")
     return karten
