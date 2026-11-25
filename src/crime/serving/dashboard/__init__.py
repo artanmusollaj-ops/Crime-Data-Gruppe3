@@ -450,8 +450,9 @@ class Bestand:
             FROM read_parquet('{geo}', hive_partitioning=false) ORDER BY geoid""").fetchall())
         # Fuer »Geografie«: die Polizeibezirke (seit Gold-Vertrag 11). Ein
         # aelteres Release fuehrt sie nicht - dann None, und das Brett sagt es.
-        from serving.dashboard.bezirke import lade_bezirke
+        from serving.dashboard.bezirke import lade_bezirke, lade_stadtteile
         karten_bezirke = lade_bezirke(con, ablage, release, acs)
+        karten_stadtteile = lade_stadtteile(con, ablage, release, acs)
         vintages = [r[0] for r in con.execute("""
             SELECT DISTINCT f.vintage FROM fakt f JOIN tract_nr n ON n.nr = f.tract
             WHERE n.city IS NOT NULL AND f.vintage IS NOT NULL""").fetchall()]
@@ -495,6 +496,7 @@ class Bestand:
             }
             self.karten = karten
             self.karten_bezirke = karten_bezirke
+            self.karten_stadtteile = karten_stadtteile
             self.beispiele = beispiele
             self.bewegung = bewegung
             self.wetter = mit_wetter

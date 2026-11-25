@@ -107,6 +107,16 @@ def lade_taten(con: Any, fakten: str, delikte: str, tracts: str,
     spalten = {r[0] for r in con.execute(f"DESCRIBE SELECT * FROM {F}").fetchall()}
     bezirk = ("TRY_CAST(f.police_area AS UTINYINT)" if "police_area" in spalten
               else "NULL::UTINYINT")
+    # Der Stadtteil als Aufzaehlung: 131 Werte, ein Byte je Tat - in Detroit
+    # ist der Schluessel ein Name, und 1,9 Mio. Namen als Text kosteten Platz.
+    # Ohne Stadtteile bleibt die Spalte leer, aber kein Text: Die Faktentabelle
+    # haelt keinen (test_dashboard_taten).
+    stadtteil = "NULL::UTINYINT"
+    if "community_area" in spalten:
+        typ = _aufzaehlung(con, "stadtteil_t",
+                           f"SELECT DISTINCT community_area FROM {F}")
+        if typ != "VARCHAR":
+            stadtteil = f"f.community_area::{typ}"
     festnahme = "f.arrest" if "arrest" in spalten else "NULL::BOOLEAN"
     # Der Mittelpunkt der Taten je Stadt: Ursprung des Sechseckrasters. Ohne
     # Koordinaten (nur in Testbestaenden) bleibt das Raster leer.
@@ -171,6 +181,7 @@ def lade_taten(con: Any, fakten: str, delikte: str, tracts: str,
                coalesce(f.local_time_ambiguous, false) AS ortszeit_mehrdeutig,
                q.nr AS quelle,
                {bezirk} AS bezirk,
+               {stadtteil} AS stadtteil,
                {festnahme} AS festnahme,
                {dunkel} AS dunkel,
                {hq} AS hq,

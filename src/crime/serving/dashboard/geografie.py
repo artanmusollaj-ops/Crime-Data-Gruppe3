@@ -17,6 +17,9 @@ mit dem frueheren ``ansicht`` gilt weiter (``ANSICHT_ALT``).
 - ``bezirk``: Polizeibezirke aus ``dim_police_area`` (Gold-Vertrag 11),
   Einwohner aus ``serving.dashboard.bezirke``. Chicagos District 31 zaehlt
   nicht, er umfasst Norridge und Harwood Heights.
+- ``stadtteil``: Chicagos Community Areas und Detroits Master Plan
+  Neighborhoods aus ``dim_community_area`` (Gold-Vertrag 12), Einwohner wie
+  bei den Bezirken. In Detroit ist der Schluessel ein Name.
 - ``sechseck``: ein Raster aus Sechsecken mit ``taten.SECHSECK_M`` Metern
   Kantenlaenge, unabhaengig davon, wie Grenzen gezogen sind. **Ohne
   Einwohner**: Die Rate ist hier die Dichte, Faelle je km² und Jahr, und
@@ -77,7 +80,7 @@ GERINGE_BASIS = 500
 MINDESTFAELLE = 30
 #: So lange nach der Tat wird der Stand eines Falls noch spuerbar nachgefuehrt.
 NACHFUEHRUNG_TAGE = 365
-RAEUME = ("tract", "bezirk", "sechseck")
+RAEUME = ("tract", "bezirk", "stadtteil", "sechseck")
 KENNZAHLEN = ("rate", "geglaettet", "veraenderung", "profil", "nacht", "festnahme")
 #: Die fruehere einzige Auswahl, fuer Links von vor dem Umbau.
 ANSICHT_ALT = {"tract": ("tract", "rate"), "bezirk": ("bezirk", "rate"),
@@ -180,6 +183,9 @@ def geografie(bestand, a, ansicht: str | None = None, *, raum: str | None = None
     if raum == "bezirk" and not getattr(bestand, "karten_bezirke", None):
         raise EingabeFehler("Dieses Release führt keine Polizeibezirke "
                             "(erst ab Gold-Vertrag 11)")
+    if raum == "stadtteil" and not getattr(bestand, "karten_stadtteile", None):
+        raise EingabeFehler("Dieses Release führt keine Stadtteile "
+                            "(erst ab Gold-Vertrag 12)")
     if kennzahl == "profil" and a.kategorien is None:
         raise EingabeFehler("Das Deliktprofil braucht eine Auswahl von Kategorien – "
                             "es vergleicht ihren Anteil je Fläche mit dem der Stadt")
@@ -277,6 +283,10 @@ def _einheiten(cur, raum: str, staedte: list[str]) -> list[tuple]:
         return [(s, str(n), name) for s, n, name in cur.execute(
             "SELECT stadt, nr, name FROM bezirk WHERE zaehlt AND stadt IN $s ORDER BY stadt, nr",
             {"s": staedte}).fetchall()]
+    if raum == "stadtteil":
+        return cur.execute(
+            "SELECT stadt, kennung, name FROM stadtteil WHERE zaehlt AND stadt IN $s "
+            "ORDER BY stadt, name", {"s": staedte}).fetchall()
     return [(s, f"{q},{r}", f"Sechseck {q},{r}") for s, q, r in cur.execute(
         "SELECT DISTINCT stadt::VARCHAR, hq, hr FROM fakt WHERE stadt IN $s "
         "AND geo_status = 'inside_city' AND hq IS NOT NULL ORDER BY 1, 2, 3",
@@ -289,6 +299,8 @@ def _schluessel_sql(raum: str) -> tuple[str, str]:
         return "n.geoid", "JOIN tract_nr n ON n.nr = f.tract"
     if raum == "bezirk":
         return "CAST(f.bezirk AS VARCHAR)", ""
+    if raum == "stadtteil":
+        return "CAST(f.stadtteil AS VARCHAR)", ""
     return "CAST(f.hq AS VARCHAR) || ',' || CAST(f.hr AS VARCHAR)", ""
 
 
@@ -342,6 +354,10 @@ def _einwohner(cur, raum: str, vintages: list[int]) -> dict[tuple, float]:
         return {(s, str(n), v): e for s, n, v, e in cur.execute(
             "SELECT stadt, nr, vintage, population FROM bezirk_einwohner WHERE vintage IN $v",
             {"v": vintages or [0]}).fetchall()}
+    if raum == "stadtteil":
+        return {(s, k, v): e for s, k, v, e in cur.execute(
+            "SELECT stadt, kennung, vintage, population FROM stadtteil_einwohner "
+            "WHERE vintage IN $v", {"v": vintages or [0]}).fetchall()}
     return {}
 
 

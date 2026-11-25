@@ -62,6 +62,8 @@ def quadrat(x: float, y: float) -> str:
 
 #: Seit Gold-Vertrag 11: je Tract ein Polizeibezirk - Chicago 1, Detroit 2.
 BEZIRK_VON = {TRACT_C: "1", TRACT_D: "2", TRACT_KLEIN: "1", TRACT_LEER: "1"}
+#: Seit Gold-Vertrag 12: je Tract ein Stadtteil; in Detroit ein Name.
+STADTTEIL_VON = {TRACT_C: "1", TRACT_D: "Brightmoor", TRACT_KLEIN: "2", TRACT_LEER: "2"}
 
 
 def stern(root: Path, taten: list[tuple], *, kleine: bool = False,
@@ -82,6 +84,7 @@ def stern(root: Path, taten: list[tuple], *, kleine: bool = False,
     if bezirke:
         extra |= {
             "police_area": [BEZIRK_VON.get(t[3]) for t in taten],
+            "community_area": [STADTTEIL_VON.get(t[3]) for t in taten],
             "arrest": [festnahme(i, t) if festnahme else False for i, t in enumerate(taten)],
         }
         schreibe(root, "dim_police_area", {
@@ -96,6 +99,20 @@ def stern(root: Path, taten: list[tuple], *, kleine: bool = False,
         schreibe(root, "bridge_tract_police_area", {
             "geoid": [b[0] for b in bruecke], "city": [b[1] for b in bruecke],
             "area_id": [b[2] for b in bruecke], "tract_share": [1.0] * len(bruecke),
+        })
+        # Seit Gold-Vertrag 12: Stadtteile. Chicagos Tracts teilen sich zwei,
+        # Detroits liegt in »Brightmoor« - ein Name als Schluessel.
+        schreibe(root, "dim_community_area", {
+            "city": ["chicago", "chicago", "detroit"],
+            "area_id": ["1", "2", "Brightmoor"],
+            "area_name": ["Rogers Park", "West Ridge", "Brightmoor"],
+            "within_city": [True, True, True],
+            "boundary_wkt": [quadrat(-87.7, 41.8), quadrat(-87.68, 41.8), quadrat(-83.1, 42.3)],
+        })
+        teile = [(g, s_, STADTTEIL_VON[g]) for g, s_, _ in bruecke]
+        schreibe(root, "bridge_tract_community_area", {
+            "geoid": [b[0] for b in teile], "city": [b[1] for b in teile],
+            "area_id": [b[2] for b in teile], "tract_share": [1.0] * len(teile),
         })
     schreibe(root, "fact_offense", {
         **extra,
@@ -1166,7 +1183,7 @@ def test_ein_multipolygon_zeichnet_jeden_teil():
 def test_raum_und_kennzahl_werden_geprueft(karte):
     a = karte.auswahl({"jahr": "2024"})
     with pytest.raises(EingabeFehler, match="Raum"):
-        karte.geografie(a, raum="stadtteil")
+        karte.geografie(a, raum="bundesstaat")
     with pytest.raises(EingabeFehler, match="Kennzahl"):
         karte.geografie(a, kennzahl="wohnort")
     with pytest.raises(EingabeFehler, match="keine Einwohner"):
@@ -1294,3 +1311,30 @@ def test_jede_ladung_lagert_in_ihr_eigenes_verzeichnis_aus(karte, tmp_path):
     assert not erstes.exists()
     # Die neue Verbindung rechnet weiter, auch nachdem die alte geschlossen ist.
     assert karte.geografie(karte.auswahl({"jahr": "2024"}))["staedte"]
+
+
+
+# --------------------------------------------------------------------------
+# Stadtteile (Gold-Vertrag 12, 25.11.2026)
+# --------------------------------------------------------------------------
+
+
+def test_die_rate_je_stadtteil_nimmt_die_einwohner_des_stadtteils(bezirke):
+    g = bezirke.geografie(bezirke.auswahl({"jahr": "2024"}), raum="stadtteil")
+    nach = {(s["stadt"], t["geoid"]): t for s in g["staedte"] for t in s["tracts"]}
+    assert nach[("chicago", "1")]["einwohner"] == 2000
+    assert nach[("chicago", "1")]["rate"] == 18.0           # 36 Faelle
+    assert nach[("chicago", "2")]["faelle"] == 1             # TRACT_KLEIN, 100 Einwohner
+    assert nach[("chicago", "2")]["geringe_basis"]
+    # Detroits Schluessel ist ein Name.
+    assert nach[("detroit", "Brightmoor")]["name"] == "Brightmoor"
+    assert nach[("detroit", "Brightmoor")]["rate"] == 24.0
+    assert set(bezirke.karten_stadtteile) == {"chicago", "detroit"}
+
+
+def test_ein_release_ohne_stadtteile_sagt_es(karte):
+    assert karte.karten_stadtteile is None
+    with pytest.raises(EingabeFehler, match="Stadtteile"):
+        karte.geografie(karte.auswahl({"jahr": "2024"}), raum="stadtteil")
+    assert create_app(bestand=karte).test_client().get(
+        "/api/karten?raum=stadtteil").get_json() == {}
