@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'467** |
+| Tests | **3'469** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -107,6 +107,23 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 25.11.2026 · Die Karten beschriften die eingeschlossenen Gemeinden (Branch `karte-enklaven`)
+
+Chicago umschliesst Norridge und Harwood Heights, Detroit Hamtramck und
+Highland Park. Ihre Tracts liegen zu 0 bis 1,3 % in der Studienstadt, haben in
+Gold keine Stadt (`STADT_SCHWELLE` 0,5) und fehlen deshalb auf den Karten des
+Dashboards. Das Loch sah aus wie fehlende Daten. Jetzt steht der Name der
+Gemeinde darin, auf »Geografie« und »Soziales Umfeld«, und die Hinweise unter
+»Geografie« sagen, dass die Polizei der Stadt dort nicht zuständig ist. Die
+Punkte sind die internen Punkte aus TIGER/Line Places 2024
+(`serving.dashboard.geografie.ENKLAVEN`).
+
+In den Tracts dieser Gemeinden führt Gold 686 Chicagoer Fälle mit
+`geo_status = outside_city`; daran ändert sich nichts. Keine Zahl der Abgabe
+ändert sich.
 
 ---
 

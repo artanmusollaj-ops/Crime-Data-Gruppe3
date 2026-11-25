@@ -608,6 +608,34 @@ def test_die_pfade_liegen_auf_den_kacheln():
     assert 600 / k["km"] == pytest.approx(8.22, rel=1e-2)
 
 
+def test_die_eingeschlossenen_gemeinden_stehen_auf_der_karte_ihrer_stadt():
+    """25.11.2026: Die Loecher bei Norridge und Hamtramck sahen aus wie
+    fehlende Daten. Jede Karte traegt ihre Gemeinden, an ihrem Punkt."""
+    from serving.dashboard.geografie import ENKLAVEN, _welt, pfade
+    wkt = {"chicago": "POLYGON ((-87.9 41.6, -87.5 41.6, -87.5 42.1, -87.9 42.1, -87.9 41.6))",
+           "detroit": "POLYGON ((-83.3 42.25, -82.9 42.25, -82.9 42.45, -83.3 42.45, -83.3 42.25))"}
+    karten = pfade([("g" + s, s, "T", w) for s, w in wkt.items()])
+    assert [o["name"] for o in karten["chicago"]["orte"]] == ["Norridge", "Harwood Heights"]
+    assert [o["name"] for o in karten["detroit"]["orte"]] == ["Hamtramck", "Highland Park"]
+    for stadt, k in karten.items():
+        for o, (_, breite, laenge, anker) in zip(k["orte"], ENKLAVEN[stadt]):
+            wx, wy = _welt(laenge, breite)
+            # Auf 0,1 Einheiten gerundet, also hoechstens 0,05 daneben.
+            assert k["x0"] + o["x"] / k["massstab"] == pytest.approx(wx, abs=0.051 / k["massstab"])
+            assert k["y0"] + o["y"] / k["massstab"] == pytest.approx(wy, abs=0.051 / k["massstab"])
+            assert 0 < o["x"] < k["breite"] and 0 < o["y"] < k["hoehe"]
+            assert o["anker"] == anker in {"start", "end", "middle"}
+    # Die beiden Chicagoer Namen stehen nach aussen, sonst decken sie sich.
+    norridge, harwood = karten["chicago"]["orte"]
+    assert norridge["x"] < harwood["x"] and (norridge["anker"], harwood["anker"]) == ("end", "start")
+
+
+def test_eine_stadt_ohne_eingeschlossene_gemeinde_hat_keine_namen():
+    from serving.dashboard.geografie import pfade
+    wkt = "POLYGON ((-1 1, 0 1, 0 2, -1 2, -1 1))"
+    assert pfade([("g", "anderswo", "T", wkt)])["anderswo"]["orte"] == []
+
+
 def test_die_kacheln_kommen_von_dem_host_den_die_csp_erlaubt(bestand):
     """Kachel-URL und CSP stehen an zwei Orten; laufen sie auseinander, bleibt
     der Hintergrund still leer."""
