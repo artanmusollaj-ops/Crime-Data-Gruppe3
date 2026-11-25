@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'521** |
+| Tests | **3'522** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -142,6 +142,26 @@ dem lokalen Bestand sind es 2024 rund 970 Zellen in Chicago.
 Lokal im Browser geprüft, jede Kombination einmal, ohne Konsolenfehler.
 Speicher auf `srv01` nicht gemessen: drei Spalten mehr im Speicher
 (`dunkel`, `hq`, `hr`, zusammen rund 5 Byte je Tat, also etwa 10 MB).
+## 25.11.2026 · Das Dashboard überlebt das Nachladen eines Release (Branch `dashboard-auslagerung-je-ladung`)
+
+**Vorfall auf `srv01`, 25.11.2026, 10:55 UTC.** Nach dem Release
+`2026-11-25T10-47-20Z` antwortete jede Anfrage an das Dashboard mit HTTP 500:
+*„Could not read enough bytes from file
+.tmp/duckdb_temp_storage_DEFAULT-0.tmp"*. Ein Neustart des Dienstes um 11:22
+UTC behob es; das Dashboard zeigte danach das neue Release.
+
+**Ursache.** Das Dashboard lädt ein neues Release in eine neue
+DuckDB-Verbindung und schliesst danach die alte. Beide lagerten ohne eigenes
+Verzeichnis nach `.tmp/` im Arbeitsverzeichnis aus, unter demselben
+Dateinamen. Das Schliessen der alten nahm der neuen ihre ausgelagerten
+Blöcke. Das Dashboard lagert bei 256 MB Grenze schon in Ruhe rund 9 MB aus;
+mit dem grösseren Stand vom 25.11. (Polizeibezirke, Festnahme) lagen beim
+Wechsel zwei Stände im Speicher.
+
+**Behoben:** Jede Ladung bekommt ein eigenes Verzeichnis
+(`DUCKDB_TEMP_DIRECTORY` oder das Temp-Verzeichnis des Systems), und das der
+alten Ladung wird nach dem Schliessen entfernt. Ein Test lädt zweimal und
+rechnet danach weiter.
 
 Keine Zahl der Abgabe ändert sich.
 

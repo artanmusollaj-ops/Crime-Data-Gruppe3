@@ -1278,3 +1278,19 @@ def test_die_sechseck_zelle_ist_die_naechste_nach_red_blob_games():
     assert zelle(math.sqrt(3) * SECHSECK_M, 0) == (1, 0)
     # Mitte von (0, 1): halbe Breite oestlich, 1,5 Kanten noerdlich.
     assert zelle(math.sqrt(3) / 2 * SECHSECK_M, 1.5 * SECHSECK_M) == (0, 1)
+def test_jede_ladung_lagert_in_ihr_eigenes_verzeichnis_aus(karte, tmp_path):
+    """25.11.2026 auf srv01: Alte und neue Verbindung teilten sich die
+    Auslagerungsdatei; das Schliessen der alten nahm der neuen ihre Daten,
+    und jede Anfrage endete mit 500."""
+    erstes = Path(karte.auslagerung)
+    assert erstes.is_dir()
+    assert karte._con.execute("SELECT current_setting('temp_directory')").fetchone()[0] == str(erstes)
+    # Ein neues Release: dieselbe Kopie unter neuer Kennung, der Zeiger zeigt dorthin.
+    freigeben(karte.data_root, "2026-11-25T10-47-20Z")
+    karte._lade()
+    zweites = Path(karte.auslagerung)
+    assert zweites != erstes and zweites.is_dir()
+    # Lokal mit Absicht: Das alte Verzeichnis ist weg, das neue bleibt.
+    assert not erstes.exists()
+    # Die neue Verbindung rechnet weiter, auch nachdem die alte geschlossen ist.
+    assert karte.geografie(karte.auswahl({"jahr": "2024"}))["staedte"]
