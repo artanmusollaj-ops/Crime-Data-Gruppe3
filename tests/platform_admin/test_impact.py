@@ -553,18 +553,19 @@ def test_all_eight_production_stage_clis_build_real_isolated_candidate(store, mo
                 state,
                 place_table([(city_id, city_name, "25", geometry)]),
             )
-            # Seit 25.11.2026: die Polizeibezirke, hier ein Bezirk je Stadt
-            # mit dem Umriss des Tracts.
-            bezirk = store.data / "bronze/dataset=gebiete/ebene=polizeibezirk" / (
-                "city=" + city_name.lower()) / "run_20261001T000000000000Z"
-            bezirk.mkdir(parents=True)
+            # Seit 25.11.2026: Polizeibezirke und Stadtteile, hier je Stadt
+            # ein Gebiet mit dem Umriss des Tracts.
             import pyarrow.parquet as pq
-            pq.write_table(pa.table({
-                "gebiet_id": ["1"], "gebiet_name": ["1ST"],
-                "geometry": pa.array([geometry], pa.binary()),
-                "_extra": pa.array([None], pa.string())}), bezirk / "part-0001.parquet")
-            (bezirk / "manifest.json").write_text(json.dumps(
-                {"status": "complete", "run_id": bezirk.name, "row_count": 1}))
+            for ebene, kennung in (("polizeibezirk", "1"), ("stadtteil", "Mitte")):
+                bezirk = store.data / f"bronze/dataset=gebiete/ebene={ebene}" / (
+                    "city=" + city_name.lower()) / "run_20261001T000000000000Z"
+                bezirk.mkdir(parents=True)
+                pq.write_table(pa.table({
+                    "gebiet_id": [kennung], "gebiet_name": [kennung],
+                    "geometry": pa.array([geometry], pa.binary()),
+                    "_extra": pa.array([None], pa.string())}), bezirk / "part-0001.parquet")
+                (bezirk / "manifest.json").write_text(json.dumps(
+                    {"status": "complete", "run_id": bezirk.name, "row_count": 1}))
     for station in (OHARE, METRO):
         weather(
             store.data,

@@ -270,6 +270,20 @@ INDIZES: tuple[Index, ...] = (
         verteilung=("city",),
     ),
     Index(
+        name="dim_community_area",
+        # Seit Gold-Vertrag 12: 131 Stadtteile; in Detroit ist der Schluessel ein Name.
+        schluessel=("city", "area_id"),
+        verteilung=("city",),
+        volltext=frozenset({"area_name"}),
+        flaeche="boundary_wkt",
+        nachschlag=True,
+    ),
+    Index(
+        name="bridge_tract_community_area",
+        schluessel=("geoid", "city", "area_id"),
+        verteilung=("city",),
+    ),
+    Index(
         name="rate_tract",
         # Keine Gold-Tabelle: Die Rate je Tract ist eine Aggregation, und
         # Gold aggregiert nicht. Sie entsteht in serving.build_comparison

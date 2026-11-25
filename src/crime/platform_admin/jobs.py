@@ -31,6 +31,7 @@ STAGE_NAMES = {
     "silver_pipeline.build_place": "Silver · Stadtgrenzen",
     "silver_pipeline.build_weather_day": "Silver · Wettertage",
     "silver_pipeline.build_police_area": "Silver · Polizeibezirke",
+    "silver_pipeline.build_community_area": "Silver · Stadtteile",
     "silver_pipeline.build_crime_offense": "Silver · harmonisierte Delikte",
     "silver_pipeline.build_source_change": "Silver · Quellhistorisierung",
     "orchestration.vorpruefung": "Vorpruefung · Quellen und Speicher",

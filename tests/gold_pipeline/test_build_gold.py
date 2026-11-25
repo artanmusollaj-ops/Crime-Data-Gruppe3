@@ -178,6 +178,8 @@ def offense_quelle(tmp_path: Path, zeilen) -> bg.Quelle:
         "police_area": pa.array(["1"] * n),
         "police_area_source": pa.array(["1"] * n),
         "case_status": pa.array([None] * n, pa.string()),
+        # Seit Silver-Vertrag 6.
+        "community_area": pa.array(["1"] * n),
     }))
 
 
@@ -2177,6 +2179,8 @@ def bezirke_bauen(con, tmp_path, tracts, bezirke):
     place = place_quelle(tmp_path)
     police = police_quelle(tmp_path, bezirke)
     con.execute(f"CREATE OR REPLACE TABLE dim_tract AS {bg.dim_tract_query(tract, place, VINTAGE)}")
+    con.execute("CREATE OR REPLACE TABLE dim_tract_acs AS "
+                + bg.dim_tract_acs_query({VINTAGE: tract}))
     con.execute(f"CREATE OR REPLACE TABLE dim_police_area AS {bg.dim_police_area_query(police, place)}")
     con.execute("CREATE OR REPLACE TABLE bridge_tract_police_area AS "
                 + bg.bridge_tract_police_area_query(tract, police))
@@ -2241,3 +2245,31 @@ def test_fact_offense_traegt_bezirk_und_stand_des_falls(con, tmp_path):
     baue(con, tmp_path, [("a", "chicago", date(2024, 3, 1), "13A", "17031010100")])
     assert con.execute("SELECT police_area, police_area_source, case_status "
                        "FROM fact_offense").fetchone() == ("1", "1", None)
+
+
+
+def test_ein_unbewohnter_tract_ohne_bezirk_haelt_den_bau_nicht_an(con, tmp_path):
+    """Belle Isle: ein Inselpark ohne Einwohner, in keinem Detroiter Stadtteil."""
+    bezirke_bauen(con, tmp_path, [("17031010100", 0, wkb_rechteck(1, 1, 2, 2)),
+                                  DETROIT_TRACT],
+                  [b for b in BEZIRKE if b[1] != "1"])
+    bg.pruefe_polizeibezirke(con)
+
+
+def test_die_stadtteile_folgen_derselben_regel(con, tmp_path):
+    tract = tract_quelle(tmp_path, [("17031010100", 1000, wkb_rechteck(4, 1, 2, 2)),
+                                    DETROIT_TRACT])
+    place = place_quelle(tmp_path)
+    teile = police_quelle(tmp_path, [("chicago", "Rogers Park", wkb_rechteck(0, 0, 5, 10)),
+                                     ("chicago", "Edgewater", wkb_rechteck(5, 0, 5, 10)),
+                                     ("detroit", "Brightmoor", wkb_rechteck(100, 100, 10, 10))])
+    con.execute(f"CREATE OR REPLACE TABLE dim_tract AS {bg.dim_tract_query(tract, place, VINTAGE)}")
+    con.execute(f"CREATE OR REPLACE TABLE dim_tract_acs AS {bg.dim_tract_acs_query({VINTAGE: tract})}")
+    con.execute(f"CREATE OR REPLACE TABLE dim_community_area AS {bg.dim_community_area_query(teile, place)}")
+    con.execute("CREATE OR REPLACE TABLE bridge_tract_community_area AS "
+                + bg.bridge_tract_community_area_query(tract, teile))
+    assert con.execute("SELECT area_id, tract_share FROM bridge_tract_community_area "
+                       "WHERE city = 'chicago' ORDER BY area_id").fetchall() == [
+        ("Edgewater", 0.5), ("Rogers Park", 0.5)]
+    bg.pruefe_polizeibezirke(con, "dim_community_area", "bridge_tract_community_area",
+                             "Stadtteile")

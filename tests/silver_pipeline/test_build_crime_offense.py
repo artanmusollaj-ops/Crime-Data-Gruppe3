@@ -2119,3 +2119,23 @@ def test_detroits_festnahme_kommt_aus_dem_stand_des_falls(tmp_path):
 def test_chicago_fuehrt_keinen_stand_des_falls(tmp_path):
     zeile = next(z for z in lies(baue(tmp_path, CHI, DET)) if z["city"] == "chicago")
     assert (zeile["arrest"], zeile["case_status"]) == (True, None)
+
+
+def test_jede_koordinate_bekommt_ihren_stadtteil(tmp_path):
+    data_root = tmp_path / "data"
+    ziel = data_root / "silver" / "dataset=community_area"
+    ziel.mkdir(parents=True)
+    con = duckdb.connect()
+    con.execute("LOAD spatial")
+    con.execute(f"""
+        COPY (SELECT * FROM (VALUES
+              ('chicago', '1', ST_AsWKB(ST_GeomFromText('{POLYGONE[TRACT_CHICAGO]}'))),
+              ('detroit', 'Brightmoor', ST_AsWKB(ST_GeomFromText('{POLYGONE[TRACT_DETROIT]}'))))
+              AS t(city, area_id, geometry))
+        TO '{ziel / bc.PARQUET_FILE}' (FORMAT PARQUET)""")
+    con.close()
+    zeilen = {z["city"]: z for z in lies(baue(tmp_path, CHI, DET))}
+    assert (zeilen["chicago"]["community_area"], zeilen["detroit"]["community_area"]) == (
+        "1", "Brightmoor")
+    abgleich = manifest_von(tmp_path / "data" / "silver" / "dataset=crime_offense")
+    assert abgleich["checks"]["community_area"]["detroit"]["with_area"] == 1

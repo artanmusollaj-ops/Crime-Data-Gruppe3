@@ -7,13 +7,29 @@ gebauten Tabellen, die Bedeutung aus [`tools/build_feldkatalog.py`](../tools/bui
 python tools/build_feldkatalog.py
 ```
 
-**256 Spalten in 21 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
+**280 Spalten in 24 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
 soll einen Satz darüber schreiben müssen. `tests/test_feldkatalog.py` prüft, dass der Katalog vollständig und reproduzierbar ist.
 
 Die Rohschichten stehen hier nicht: **Bronze deutet nicht**, seine Spalten sind die der Quelle. Was sie bedeuten, sagen die
 Quellnotebooks 01, 11, 21 und 22.
 
 ## silver
+
+### `community_area`
+
+Eine Zeile ist: **ein Stadtteil (Chicago Community Area, Detroit Master Plan Neighborhood)**. 131 Zeilen.
+
+| Spalte | Typ | Bedeutung |
+| --- | --- | --- |
+| `city` | `VARCHAR` | Stadt, kleingeschrieben: `chicago` oder `detroit`. |
+| `area_id` | `VARCHAR` | Kennung des Stadtteils: in Chicago die Nummer der Community Area (`1` bis `77`), in Detroit der Name des Master Plan Neighborhood. Mit `city` der Schlüssel. |
+| `area_name` | `VARCHAR` | Name des Stadtteils, Chicagos Grossbuchstaben in gewohnter Schreibung (*Rogers Park*). |
+| `source_name` | `VARCHAR` | Der Name, wie die Quelle ihn führt. |
+| `source_polygons` | `INTEGER` | Aus wie vielen Polygonen der Quelle der Stadtteil vereinigt wurde. |
+| `area_km2` | `DOUBLE` | Fläche in Quadratkilometern, auf dem Ellipsoid gerechnet. |
+| `centroid_lat` | `DOUBLE` | Breitengrad des Flächenschwerpunkts. Für eine Karte, die Punkte statt Flächen zeigt. |
+| `centroid_lon` | `DOUBLE` | Längengrad des Flächenschwerpunkts. |
+| `geometry` | `BLOB` | Der Umriss als WKB. Kein Browser liest das - für eine Karte schreibt `serving.export_geojson` daraus GeoJSON. |
 
 ### `crime_offense`
 
@@ -51,6 +67,7 @@ Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert, je Fa
 | `police_area` | `VARCHAR` | Der Polizeibezirk (Chicago District, Detroit Precinct), in dem die Koordinate liegt - aus dem eigenen räumlichen Join gegen `silver/police_area`, nicht aus der Quelle. Wie `area_id` dort: die Zahl ohne führende Null. |
 | `police_area_source` | `VARCHAR` | Der Polizeibezirk, den die Quelle nennt (Chicago `district`, Detroit `police_precinct`), in derselben Form wie `police_area`. Was keine Zahl über null ist (Detroit `HP`, `0W`), bleibt `NULL`. |
 | `case_status` | `VARCHAR` | Detroits Stand des Falls, gross geschrieben, etwa `CLEARED BY ARREST`, `EXCEPTIONALLY CLEARED`, `ACTIVE`, `INACTIVE`. Chicago führt keinen; dort `NULL`. |
+| `community_area` | `VARCHAR` | Der Stadtteil (Chicago Community Area, Detroit Master Plan Neighborhood), in dem die Koordinate liegt - aus dem eigenen räumlichen Join gegen `silver/community_area`. |
 
 ### `place`
 
@@ -158,6 +175,17 @@ Eine Zeile ist: **eine Stadt an einem Tag**. 55'573 Zeilen.
 
 ## gold
 
+### `bridge_tract_community_area`
+
+Eine Zeile ist: **ein Stadt-Tract in einem Stadtteil**. 2'310 Zeilen.
+
+| Spalte | Typ | Bedeutung |
+| --- | --- | --- |
+| `geoid` | `VARCHAR` | Census-GEOID der Raumeinheit, die sie eindeutig macht. Der Schlüssel, über den Delikte, Einwohner und Geometrie zusammenfinden. |
+| `city` | `VARCHAR` | Stadt, kleingeschrieben: `chicago` oder `detroit`. |
+| `area_id` | `VARCHAR` | Der Stadtteil, in dem ein Teil des Tracts liegt. |
+| `tract_share` | `DOUBLE` | Flächenanteil des Tracts in diesem Stadtteil, je Tract auf 1 normiert. Belle Isle (Detroit) liegt in keinem Stadtteil und fehlt hier; sie hat keine Einwohner. |
+
 ### `bridge_tract_police_area`
 
 Eine Zeile ist: **ein Stadt-Tract in einem Polizeibezirk**. 1'504 Zeilen.
@@ -189,6 +217,22 @@ Eine Zeile ist: **eine Stadt an einem Tag**. 4'298 Zeilen.
 | `sunrise_utc` | `TIMESTAMP` | Sonnenaufgang in UTC an diesem Ortstag, nach NOAA (Zenit 90,833°) am Schwerpunkt der Ortsgrenze aus `silver/place`. Auf die Sekunde gerundet; gegen den NOAA-Rechner höchstens zwei Minuten daneben. |
 | `sunset_utc` | `TIMESTAMP` | Sonnenuntergang in UTC, wie `sunrise_utc`. Im Sommer liegt er am **UTC-Folgetag** - gewollt, der Ortstag bleibt der Schlüssel. Hell ist eine Tat, wenn `sunrise_utc <= occurred_at_utc < sunset_utc` für dieselbe Stadt und dasselbe `date` gilt; eine Dämmerungsklasse gibt es nicht. |
 | `daylight_hours` | `DOUBLE` | Tageslänge in Stunden: `sunset_utc - sunrise_utc`. Nie `NULL`, auch an Tagen, für die NOAA noch kein Wetter geliefert hat. |
+
+### `dim_community_area`
+
+Eine Zeile ist: **ein Stadtteil**. 131 Zeilen.
+
+| Spalte | Typ | Bedeutung |
+| --- | --- | --- |
+| `city` | `VARCHAR` | Stadt, kleingeschrieben: `chicago` oder `detroit`. |
+| `area_id` | `VARCHAR` | Kennung des Stadtteils wie in `silver/community_area`; in Detroit ein Name. Mit `city` der Schlüssel. |
+| `area_name` | `VARCHAR` | *Rogers Park*, *Brightmoor*. |
+| `area_km2` | `DOUBLE` | Fläche in Quadratkilometern. |
+| `city_area_share` | `DOUBLE` | Anteil der Fläche in der Grenze der Stadt. |
+| `within_city` | `BOOLEAN` | Ob der Stadtteil zur Stadt zählt, nach der Mehrheitsregel; für alle 131 wahr. |
+| `centroid_lat` | `DOUBLE` | Breitengrad des Flächenschwerpunkts. Für eine Karte, die Punkte statt Flächen zeigt. |
+| `centroid_lon` | `DOUBLE` | Längengrad des Flächenschwerpunkts. |
+| `boundary_wkt` | `VARCHAR` | Der Umriss als WKT in EPSG:4326, vereinfacht wie in `dim_tract_geo`. |
 
 ### `dim_date`
 
@@ -317,6 +361,7 @@ Eine Zeile ist: **eine Tat**. 1'895'123 Zeilen.
 | `police_area` | `VARCHAR` | Der Polizeibezirk (Chicago District, Detroit Precinct), in dem die Koordinate liegt - aus dem eigenen räumlichen Join gegen `silver/police_area`, nicht aus der Quelle. Wie `area_id` dort: die Zahl ohne führende Null. |
 | `police_area_source` | `VARCHAR` | Der Polizeibezirk, den die Quelle nennt (Chicago `district`, Detroit `police_precinct`), in derselben Form wie `police_area`. Was keine Zahl über null ist (Detroit `HP`, `0W`), bleibt `NULL`. |
 | `case_status` | `VARCHAR` | Detroits Stand des Falls, gross geschrieben, etwa `CLEARED BY ARREST`, `EXCEPTIONALLY CLEARED`, `ACTIVE`, `INACTIVE`. Chicago führt keinen; dort `NULL`. |
+| `community_area` | `VARCHAR` | Der Stadtteil (Chicago Community Area, Detroit Master Plan Neighborhood), in dem die Koordinate liegt - aus dem eigenen räumlichen Join gegen `silver/community_area`. |
 
 ## serving
 

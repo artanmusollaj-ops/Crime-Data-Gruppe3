@@ -37,6 +37,7 @@ MODULE = {
     "silver/place": "silver_pipeline.build_place",
     "silver/weather_day": "silver_pipeline.build_weather_day",
     "silver/police_area": "silver_pipeline.build_police_area",
+    "silver/community_area": "silver_pipeline.build_community_area",
     "silver/crime_offense": "silver_pipeline.build_crime_offense",
     "silver/source_change": "silver_pipeline.build_source_change",
     "gold/*": "gold_pipeline.build_gold",

@@ -68,6 +68,29 @@ UEBERLAPPUNG_MAX = 0.005
 log = logging.getLogger("silver_police_area")
 
 
+class Ebene(NamedTuple):
+    """Eine Einteilung der Stadt in Gebiete - Polizeibezirk oder Stadtteil.
+
+    Seit dem 25.11.2026 baut dasselbe Modul beide Tabellen; die Stadtteile
+    (``build_community_area``) unterscheiden sich nur in diesen Angaben.
+    """
+
+    table: str
+    ebene: str
+    was: str
+    #: Das Wort der Stadt vor der Nummer; fehlt die Stadt hier, ist der Name
+    #: der Quelle der Name (Chicago »Rogers Park«).
+    bezeichnung: dict[str, str]
+    #: Nur Nummern als Schluessel (Polizeibezirke). Sonst gilt auch ein Name
+    #: (Detroits Stadtteile haben keine eindeutige Nummer).
+    nur_zahlen: bool
+    grain: str
+
+
+POLIZEIBEZIRK = Ebene(TABLE, EBENE, "Polizeibezirke", BEZEICHNUNG, True,
+                      "ein Polizeibezirk (Chicago District, Detroit Precinct)")
+
+
 class Source(NamedTuple):
     city: str
     run_id: str
@@ -78,33 +101,47 @@ def staedte() -> list[str]:
     return sorted(name.lower() for name in STUDIENSTAEDTE.values())
 
 
-def table_dir(data_root: Path) -> Path:
-    return data_root / SILVER_LAYER / f"dataset={TABLE}"
+def table_dir(data_root: Path, ebene: Ebene = POLIZEIBEZIRK) -> Path:
+    return data_root / SILVER_LAYER / f"dataset={ebene.table}"
 
 
-def newest_bronze_run(data_root: Path, stadt: str) -> Source:
+def newest_bronze_run(data_root: Path, stadt: str, ebene: Ebene = POLIZEIBEZIRK) -> Source:
     ablage = for_root(data_root)
-    prefix = f"{BRONZE_LAYER}/dataset={GEBIETE_DATASET}/ebene={EBENE}/city={stadt}"
-    lauf = newest_complete_run(ablage, prefix, what=f"Polizeibezirke {stadt}")
+    prefix = f"{BRONZE_LAYER}/dataset={GEBIETE_DATASET}/ebene={ebene.ebene}/city={stadt}"
+    lauf = newest_complete_run(ablage, prefix, what=f"{ebene.was} {stadt}")
     return Source(stadt, lauf.verzeichnis.name,
                   ablage.resolve_read_path(lauf.relativ, PARQUET_FILE))
 
 
-def build_query(quellen: list[Source]) -> str:
+def gueltig_sql(ebene: Ebene) -> str:
+    """Welche Kennung zaehlt: eine Zahl ueber null, oder - ohne ``nur_zahlen`` - jeder Text."""
+    if ebene.nur_zahlen:
+        return "coalesce(TRY_CAST(trim(gebiet_id) AS INTEGER) > 0, false)"
+    return "nullif(trim(gebiet_id), '') IS NOT NULL"
+
+
+def build_query(quellen: list[Source], ebene: Ebene = POLIZEIBEZIRK) -> str:
     teile = " UNION ALL ".join(
         f"SELECT '{q.city}' AS city, gebiet_id, gebiet_name, geometry "
         f"FROM read_parquet('{q.parquet}')" for q in quellen)
-    bezeichnung = ", ".join(f"('{s}', '{w}')" for s, w in sorted(BEZEICHNUNG.items()))
+    werte = sorted(ebene.bezeichnung.items()) or [("", "")]
+    bezeichnung = ", ".join(f"('{s}', '{w}')" for s, w in werte)
+    # Eine Zahl ohne fuehrende Null; ein Name bleibt, wie er ist.
+    kennung = ("coalesce(CAST(TRY_CAST(trim(gebiet_id) AS INTEGER) AS VARCHAR), "
+               "trim(gebiet_id))")
+    # Chicago schreibt Namen gross (»ROGERS PARK«); gezeigt wird »Rogers Park«.
+    titel = ("array_to_string(list_transform(string_split(lower(v.source_name), ' '), "
+             "w -> upper(left(w, 1)) || substr(w, 2)), ' ')")
     return f"""
     WITH roh AS ({teile}),
     bezeichnung(city, wort) AS (VALUES {bezeichnung}),
     norm AS (
         SELECT city,
-               CAST(TRY_CAST(trim(gebiet_id) AS INTEGER) AS VARCHAR) AS area_id,
+               {kennung} AS area_id,
                trim(gebiet_name) AS source_name,
                ST_GeomFromWKB(geometry) AS geom
         FROM roh
-        WHERE TRY_CAST(trim(gebiet_id) AS INTEGER) > 0 AND geometry IS NOT NULL
+        WHERE {gueltig_sql(ebene)} AND geometry IS NOT NULL
     ),
     vereint AS (
         SELECT city, area_id, min(source_name) AS source_name,
@@ -115,7 +152,8 @@ def build_query(quellen: list[Source]) -> str:
     SELECT
         v.city                                              AS city,
         v.area_id                                           AS area_id,
-        b.wort || ' ' || v.area_id                          AS area_name,
+        CASE WHEN b.wort IS NOT NULL THEN b.wort || ' ' || v.area_id
+             ELSE {titel} END                               AS area_name,
         v.source_name                                       AS source_name,
         CAST(v.source_polygons AS INTEGER)                  AS source_polygons,
         -- ST_Area_Spheroid erwartet Breite vor Laenge; GeoJSON fuehrt
@@ -125,19 +163,19 @@ def build_query(quellen: list[Source]) -> str:
         ST_X(ST_Centroid(v.geom))                           AS centroid_lon,
         ST_AsWKB(v.geom)                                    AS geometry
     FROM vereint v
-    JOIN bezeichnung b USING (city)
-    ORDER BY city, TRY_CAST(area_id AS INTEGER)
+    LEFT JOIN bezeichnung b USING (city)
+    ORDER BY city, TRY_CAST(area_id AS INTEGER) NULLS LAST, area_id
     """
 
 
 def reconcile(con: duckdb.DuckDBPyConnection, relation: str,
-              quellen: list[Source]) -> dict[str, Any]:
+              quellen: list[Source], ebene: Ebene = POLIZEIBEZIRK) -> dict[str, Any]:
     """Jede Stadt da, jede Geometrie gueltig, kein Bezirk doppelt, kaum Ueberlappung."""
     je_stadt = {s: n for s, n in con.execute(
         f"SELECT city, count(*) FROM {relation} GROUP BY 1").fetchall()}
     fehlend = [s for s in staedte() if not je_stadt.get(s)]
     if fehlend:
-        raise TransformError(f"keine Polizeibezirke fuer: {fehlend}")
+        raise TransformError(f"keine {ebene.was} fuer: {fehlend}")
     doppelt = con.execute(f"SELECT count(*) FROM (SELECT city, area_id FROM {relation} "
                           "GROUP BY ALL HAVING count(*) > 1)").fetchone()[0]
     if doppelt:
@@ -149,7 +187,7 @@ def reconcile(con: duckdb.DuckDBPyConnection, relation: str,
         raise TransformError(f"ungueltige Geometrie: {ungueltig}")
     verworfen = {q.city: con.execute(
         f"SELECT count(*) FROM read_parquet('{q.parquet}') "
-        "WHERE NOT coalesce(TRY_CAST(trim(gebiet_id) AS INTEGER) > 0, false) "
+        f"WHERE NOT ({gueltig_sql(ebene)}) "
         "OR geometry IS NULL").fetchone()[0] for q in quellen}
     ueberlappung = con.execute(f"""
         WITH g AS (SELECT city, area_id, ST_GeomFromWKB(geometry) AS geom FROM {relation})
@@ -174,17 +212,19 @@ def reconcile(con: duckdb.DuckDBPyConnection, relation: str,
 
 
 def build_manifest(con: duckdb.DuckDBPyConnection, relation: str,
-                   quellen: list[Source], started: datetime) -> dict[str, Any]:
-    nachweis = reconcile(con, relation, quellen)
-    herkunft = [{"layer": BRONZE_LAYER, "dataset": GEBIETE_DATASET, "ebene": EBENE,
+                   quellen: list[Source], started: datetime,
+                   ebene: Ebene = POLIZEIBEZIRK,
+                   contract_version: int = CONTRACT_VERSION) -> dict[str, Any]:
+    nachweis = reconcile(con, relation, quellen, ebene)
+    herkunft = [{"layer": BRONZE_LAYER, "dataset": GEBIETE_DATASET, "ebene": ebene.ebene,
                  "city": q.city, "run_id": q.run_id} for q in quellen]
     return {
         "status": "complete",
-        "contract_version": CONTRACT_VERSION,
+        "contract_version": contract_version,
         "code_version": code_stand(),
         "layer": SILVER_LAYER,
-        "table": TABLE,
-        "grain": "ein Polizeibezirk (Chicago District, Detroit Precinct)",
+        "table": ebene.table,
+        "grain": ebene.grain,
         "built_at_utc": started.isoformat().replace("+00:00", "Z"),
         "tool": f"duckdb {duckdb.__version__} mit spatial",
         "format": "parquet (snappy, Geometrie als WKB in EPSG:4326)",
@@ -202,16 +242,18 @@ def build_manifest(con: duckdb.DuckDBPyConnection, relation: str,
     }
 
 
-def build(data_root: Path) -> Path:
+def build(data_root: Path, ebene: Ebene = POLIZEIBEZIRK,
+          contract_version: int = CONTRACT_VERSION) -> Path:
     started = datetime.now(timezone.utc)
-    quellen = [newest_bronze_run(data_root, s) for s in staedte()]
+    quellen = [newest_bronze_run(data_root, s, ebene) for s in staedte()]
     for q in quellen:
         log.info("Quelle: %s %s", q.city, q.run_id)
     con = connect(spatial=True)
     try:
-        con.execute(f"CREATE TEMP TABLE police_area_silver AS {build_query(quellen)}")
-        manifest = build_manifest(con, "police_area_silver", quellen, started)
-        ziel = publish(con, "police_area_silver", table_dir(data_root), manifest,
+        con.execute(f"CREATE TEMP TABLE gebiet_silver AS {build_query(quellen, ebene)}")
+        manifest = build_manifest(con, "gebiet_silver", quellen, started, ebene,
+                                  contract_version)
+        ziel = publish(con, "gebiet_silver", table_dir(data_root, ebene), manifest,
                        ordnung="city, area_id")
     finally:
         con.close()
@@ -227,7 +269,7 @@ def arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> int:
+def main(ebene: Ebene = POLIZEIBEZIRK, contract_version: int = CONTRACT_VERSION) -> int:
     args = arguments()
     from storage.verwaltet import sperre
     sperre(for_root(args.data_root).local_root, worker_erlaubt=True)
@@ -235,11 +277,11 @@ def main() -> int:
     with schreibzugriff(for_root(args.data_root).local_root, invalidieren=True):
         try:
             ablage = for_root(args.data_root)
-            ziel = build(ablage.local_root)
+            ziel = build(ablage.local_root, ebene, contract_version)
             manifest = ablage.tabellen_manifest(ziel)
             log.info("Silver-Tabelle geschrieben: %s", ziel)
             for stadt, n in manifest["reconciliation"]["areas_per_city"].items():
-                log.info("  %s: %s Bezirke", stadt, n)
+                log.info("  %s: %s %s", stadt, n, ebene.was)
             return 0
         except (TransformError, StorageError, OSError, duckdb.Error) as error:
             log.error("Silver-Aufbau fehlgeschlagen: %s", error)

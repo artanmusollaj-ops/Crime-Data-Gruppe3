@@ -2,8 +2,9 @@
 
     python -m gebiete_pipeline.download_gebiete
 
-Eine Auslieferung je Stadt und Ebene, heute eine Ebene: der Polizeibezirk
-(Chicago District, Detroit Precinct). Raw haelt die GeoJSON-Datei Byte fuer
+Eine Auslieferung je Stadt und Ebene: der Polizeibezirk (Chicago District,
+Detroit Precinct) und seit dem 25.11.2026 der Stadtteil (Chicago Community
+Area, Detroit Master Plan Neighborhood). Raw haelt die GeoJSON-Datei Byte fuer
 Byte, wie das Portal sie liefert; Bronze ist daraus abgeleitetes Parquet mit
 der Geometrie als WKB, wie bei ``census_pipeline.download_tiger``.
 
@@ -160,6 +161,30 @@ AUSLIEFERUNGEN: tuple[Auslieferung, ...] = (
                    "?where=1%3D1&returnCountOnly=true&f=json"),
         id_feld="name", name_feld="name",
         quelle="City of Detroit ArcGIS, DPD_Precincts_Reid2 (2015 New Precincts Overlay)",
+    ),
+    # Die Stadtteile (25.11.2026). Chicago: »Boundaries - Community Areas«,
+    # Datensatz igwz-8jzy, 77 Flaechen, seit den 1920er Jahren stabil.
+    # Detroit: die 54 »Master Plan Neighborhoods«; die 205 »Current City of
+    # Detroit Neighborhoods« sind im Mittel kaum groesser als ein Tract und
+    # gewaennen gegen ihn nichts. Ihr Schluessel ist der Name - ``MapNo``
+    # ist eine Kartenblattnummer und kommt mehrfach vor.
+    Auslieferung(
+        stadt="chicago", ebene="stadtteil", plattform="socrata",
+        url="https://data.cityofchicago.org/resource/igwz-8jzy.geojson?$limit=1000",
+        zaehl_url="https://data.cityofchicago.org/resource/igwz-8jzy.json?$select=count(*)",
+        id_feld="area_numbe", name_feld="community",
+        quelle="Chicago Data Portal igwz-8jzy, Boundaries - Community Areas",
+    ),
+    Auslieferung(
+        stadt="detroit", ebene="stadtteil", plattform="arcgis",
+        url=("https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/"
+             "MasterPlanNeighborhood/FeatureServer/0/query"
+             "?where=1%3D1&outFields=*&outSR=4326&f=geojson"),
+        zaehl_url=("https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/"
+                   "MasterPlanNeighborhood/FeatureServer/0/query"
+                   "?where=1%3D1&returnCountOnly=true&f=json"),
+        id_feld="NHOOD", name_feld="NHOOD",
+        quelle="City of Detroit ArcGIS, MasterPlanNeighborhood (Master Plan Neighborhoods)",
     ),
 )
 

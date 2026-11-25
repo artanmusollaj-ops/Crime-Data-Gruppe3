@@ -18,7 +18,7 @@ from gebiete_pipeline import download_gebiete as dg  # noqa: E402
 
 STARTED = datetime(2026, 11, 25, 8, 0, tzinfo=timezone.utc)
 RUN_ID = "run_20261125T080000000000Z"
-CHICAGO, DETROIT = dg.AUSLIEFERUNGEN
+CHICAGO, DETROIT = (a for a in dg.AUSLIEFERUNGEN if a.ebene == "polizeibezirk")
 
 
 def quadrat(x: float, y: float) -> dict:
@@ -123,3 +123,14 @@ def test_jede_studienstadt_hat_ihre_polizeibezirke():
     from silver_pipeline import STUDIENSTAEDTE
     staedte = {name.lower() for name in STUDIENSTAEDTE.values()}
     assert {a.stadt for a in dg.AUSLIEFERUNGEN if a.ebene == "polizeibezirk"} == staedte
+
+
+def test_jede_studienstadt_hat_ihre_stadtteile():
+    from silver_pipeline import STUDIENSTAEDTE
+    staedte = {name.lower() for name in STUDIENSTAEDTE.values()}
+    assert {a.stadt for a in dg.AUSLIEFERUNGEN if a.ebene == "stadtteil"} == staedte
+
+
+def test_stadt_und_ebene_kommen_je_genau_einmal_vor():
+    paare = [(a.stadt, a.ebene) for a in dg.AUSLIEFERUNGEN]
+    assert len(paare) == len(set(paare))
