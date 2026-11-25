@@ -27,6 +27,13 @@ wie die Kacheln nach Web-Mercator.
 
 **Nicht verortet** sind Taten ohne Koordinate, ohne Tract oder ausserhalb
 der Stadtgrenze. Sie fehlen auf der Karte und werden je Stadt gezaehlt.
+
+**Zwei Loecher je Stadt sind eigene Gemeinden** (25.11.2026). Chicago
+umschliesst Norridge und Harwood Heights, Detroit Hamtramck und Highland
+Park. Ihre Tracts liegen zu 0 bis 1,3 % in der Studienstadt, haben in Gold
+keine Stadt und fehlen deshalb auf der Karte; die Polizei der Studienstadt
+ist dort nicht zustaendig. Ohne Namen sah das wie fehlende Daten aus. Die
+Karte beschriftet die Loecher darum (``ENKLAVEN``).
 """
 
 from __future__ import annotations
@@ -44,6 +51,20 @@ KARTENBREITE = 600.0
 _ERDUMFANG_KM = 40075.016686
 
 _RING = re.compile(r"\(\(([^()]*)\)\)")
+
+#: Die Gemeinden, die eine Studienstadt ganz umschliesst: Name, Breite, Laenge
+#: und auf welcher Seite des Punkts die Schrift steht. Der Punkt ist der
+#: interne Punkt der Gemeinde (INTPTLAT, INTPTLON) aus TIGER/Line Places 2024
+#: des U.S. Census Bureau, abgelesen aus ``silver/place`` (GEOID 1753377,
+#: 1733435, 2636280, 2638180); er liegt in keinem Tract der Stadt. Norridge und
+#: Harwood Heights liegen 1,4 km auseinander - ihre Namen stehen nach aussen,
+#: sonst decken sie sich.
+ENKLAVEN: dict[str, list[tuple[str, float, float, str]]] = {
+    "chicago": [("Norridge", 41.9637, -87.8232, "end"),
+                ("Harwood Heights", 41.9663, -87.8056, "start")],
+    "detroit": [("Hamtramck", 42.3954, -83.0559, "middle"),
+                ("Highland Park", 42.4052, -83.0977, "middle")],
+}
 
 
 def _welt(laenge: float, breite: float) -> tuple[float, float]:
@@ -86,11 +107,17 @@ def pfade(zeilen) -> dict[str, dict[str, Any]]:
         def xy(p):
             return f"{(p[0] - x0) * massstab:.1f} {(p[1] - y0) * massstab:.1f}"
 
+        orte = []
+        for name, breite, laenge, anker in ENKLAVEN.get(stadt, []):
+            wx, wy = _welt(laenge, breite)
+            orte.append({"name": name, "anker": anker,
+                         "x": round((wx - x0) * massstab, 1), "y": round((wy - y0) * massstab, 1)})
         karten[stadt] = {
             "breite": KARTENBREITE, "hoehe": round((y1 - y0) * massstab, 1),
             "km": round(km, 2), "x0": x0, "y0": y0, "massstab": massstab,
             "tracts": [{"geoid": g, "name": n,
                         "d": "M" + "L".join(xy(p) for p in ps) + "Z"} for g, n, ps in tracts],
+            "orte": orte,
         }
     return karten
 
