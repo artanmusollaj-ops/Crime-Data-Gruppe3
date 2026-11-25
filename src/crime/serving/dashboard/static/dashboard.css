@@ -316,3 +316,7 @@ h2.abstand { margin-top: 16px; }
 #d-zuordnung rect.klickbar { cursor: pointer; }
 #d-zuordnung rect.klickbar:hover { opacity: 0.8; }
 #f-mehr { margin-top: 12px; }
+
+/* »Geografie«: zwei Umschalter untereinander, rechtsbuendig. */
+.schalterpaar { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.umschalter button[hidden] { display: none; }

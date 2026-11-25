@@ -228,7 +228,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Der Standardlauf wählt 3'402 Tests aus. Erwartet wird **grün** ohne
+Der Standardlauf wählt 3'411 Tests aus. Erwartet wird **grün** ohne
 Netzzugriff und ohne Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -238,7 +238,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 3'513
+python -m pytest -m ""               # beides zusammen, alle 3'522
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -1008,9 +1008,13 @@ Ebenfalls am 8.11.2026 kam »Soziales Umfeld« dazu: die Fallrate je Tract
 neben der Armutsquote, als zwei Karten nebeneinander oder als eine bivariate
 Karte übereinander, dazu die Rate nach gemeinsamen Armutsbändern beider Städte.
 
-Seit dem 25.11.2026 schaltet »Geografie« zwischen drei Ansichten um: die Rate
-je Tract, die Rate je **Polizeibezirk** (Chicago District, Detroit Precinct)
-und der Anteil der Fälle mit **Festnahme** je Bezirk. Die Einwohner eines
+Seit dem 25.11.2026 hat »Geografie« zwei Schalter. **Raum:** Tract,
+**Polizeibezirk** (Chicago District, Detroit Precinct) oder ein Raster aus
+**Sechsecken** mit 500 m Kante. **Kennzahl:** die Rate, die nach Empirical
+Bayes **geglättete** Rate, die **Veränderung zum Vorjahr**, das
+**Deliktprofil** (Lokationsquotient der gewählten Kategorien), der Anteil der
+Fälle bei **Dunkelheit** und der Anteil mit **Festnahme**. Sechsecke haben
+keine Einwohner; dort ist die Rate eine Dichte je km². Die Einwohner eines
 Bezirks verteilt Gold flächengewichtet aus den Tracts
 (`bridge_tract_police_area`); Chicagos District 31 zählt nicht, er umfasst
 die Gemeinden Norridge und Harwood Heights. Reicht ein Zeitraum in das
@@ -1148,7 +1152,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**3'513 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**3'522 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -1186,7 +1190,7 @@ auf `main` aus: auf jedem Pull Request unter **Linux** mit Python **3.11**, dazu
 Referenz-Wächter unter **3.13**; auf `main` zusätzlich unter **Windows** mit **3.13**.
 Windows, weil Artan darauf entwickelt.
 
-Im Linux-CI-Lauf werden hochgerechnet **3'317 der 3'402 Tests** des
+Im Linux-CI-Lauf werden hochgerechnet **3'326 der 3'411 Tests** des
 Standardlaufs ausgeführt (am PR-Lauf zu bestätigen, nicht gemessen). Die übrigen 85 werden übersprungen. Die Zahl hängt
 von der Umgebung ab. Einige Prüfungen brauchen gebaute Daten, die in
 `data/` liegen und nicht versioniert sind — dazu seit dem 5.10.2026 die Reproduktion von

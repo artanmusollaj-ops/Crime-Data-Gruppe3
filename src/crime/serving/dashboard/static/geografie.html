@@ -47,10 +47,20 @@
       <h1>Räumliche Verteilung</h1>
       <p class="einleitung" id="u-geografie">Fälle je 1'000 Einwohner je Census Tract</p>
     </div>
-    <div class="umschalter" data-param="ansicht" role="group" aria-label="Ansicht">
-      <button type="button" data-wert="tract">Rate je Tract</button>
-      <button type="button" data-wert="bezirk">Rate je Polizeibezirk</button>
-      <button type="button" data-wert="festnahme">Festnahmen je Polizeibezirk</button>
+    <div class="schalterpaar">
+      <div class="umschalter" data-param="raum" role="group" aria-label="Raum">
+        <button type="button" data-wert="tract">Tract</button>
+        <button type="button" data-wert="bezirk">Polizeibezirk</button>
+        <button type="button" data-wert="sechseck">Sechseck</button>
+      </div>
+      <div class="umschalter" data-param="kennzahl" role="group" aria-label="Kennzahl">
+        <button type="button" data-wert="rate">Rate</button>
+        <button type="button" data-wert="geglaettet">Geglättet</button>
+        <button type="button" data-wert="veraenderung">Zum Vorjahr</button>
+        <button type="button" data-wert="profil">Deliktprofil</button>
+        <button type="button" data-wert="nacht">Nacht</button>
+        <button type="button" data-wert="festnahme">Festnahmen</button>
+      </div>
     </div>
   </div>
   <p class="fehler" id="fehler" hidden></p>
