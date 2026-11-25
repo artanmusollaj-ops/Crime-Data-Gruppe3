@@ -1,10 +1,11 @@
 # Der Aufbau, in drei Bildern und einem Lesepfad
 
-Dieses Projekt hat **mehr Erklärung als Code** — rund 12'980 Zeilen Prosa
-gegen 12'700 Zeilen Produktionscode, verteilt auf 339 Docstrings, 733
-Test-Docstrings und sechzehn Dokumente. Der Abstand ist dabei geschmolzen: Im
-Juli standen 11'600 gegen 10'569, ein Zehntel mehr Prosa; heute sind es zwei
-Prozent. Was fehlte, war ohnehin kein weiterer Text, sondern ein **Weg
+Dieses Projekt hat **mehr Erklärung als Code**. Am 20.9.2026 standen rund
+12'980 Zeilen Prosa gegen 12'700 Zeilen Produktionscode, verteilt auf 339
+Docstrings, 733 Test-Docstrings und sechzehn Dokumente. Der Abstand war dabei
+geschmolzen: Im Juli standen 11'600 gegen 10'569, ein Zehntel mehr Prosa; im
+September waren es zwei Prozent. Gewachsen ist seither beides — am 25.11.2026
+zählt `ast` 923 Docstrings im Code und 1'861 in den Tests. Was fehlte, war ohnehin kein weiterer Text, sondern ein **Weg
 hinein**. Der steht hier.
 
 Alle drei Bilder werden von
@@ -85,22 +86,29 @@ steht sie hier, ohne dass jemand daran denken muss.
 ### Gold ist der Stern — die Würfel liegen in Serving
 
 Das wird leicht verwechselt, auch von uns. **Gold aggregiert nicht.** Es hält
-das Sternschema: `fact_offense` mit einer Zeile je Tat, daneben fünf
-Dimensionen (`dim_tract`, `dim_tract_acs`, `dim_offense`, `dim_date`,
-`dim_city_day`). Notebook
-34 hat gemessen, warum — eine Vorberechnung spart bei 1'887'009 Zeilen nichts,
+das Sternschema: `fact_offense` mit einer Zeile je Tat, daneben acht
+Dimensionen (`dim_tract`, `dim_tract_geo`, `dim_tract_acs`, `dim_offense`,
+`dim_date`, `dim_city_day`, `dim_police_area`, `dim_community_area`) und zwei
+Brücken von Tract zu Bezirk und Stadtteil
+([`sternschema-und-wuerfel.md`](sternschema-und-wuerfel.md)). Notebook
+34 hat gemessen, warum — eine Vorberechnung spart bei knapp 1,9 Millionen Zeilen nichts,
 was ein Mensch bemerkt, kostet aber die Beweglichkeit, für die die Schicht da
 ist.
 
 **Drei feste Würfel gibt es trotzdem, eine Schicht weiter.**
-`serving.build_comparison` baut sie aus Gold:
+`serving.build_comparison` baut sie aus Gold, dazu zwei Tabellen daneben
+(Zeilen im Release vom 20.11.2026):
 
 | Tabelle | eine Zeile ist | Zeilen |
 | --- | --- | ---: |
-| `comparison_day` | Stadt × Tag × NIBRS-Kategorie | 13'264 |
-| `comparison_week` | Stadt × Woche × Kategorie | 2'506 |
-| `comparison_month` | Stadt × Monat × Kategorie | 620 |
-| `partition_quality` | Stadt × Monat, Güte der Zuordnungen darunter | 24 |
+| `comparison_day` | Stadt × Tag × NIBRS-Kategorie | 76'756 |
+| `comparison_week` | Stadt × Woche × Kategorie | 14'334 |
+| `comparison_month` | Stadt × Monat × Kategorie | 3'638 |
+| `partition_quality` | Stadt × Monat, Güte der Zuordnungen darunter | 142 |
+| `rate_tract` | ein Census Tract mit Einwohnern im Ratenjahrgang 2024 | 1'045 |
+
+Die sechste Serving-Tabelle, `source_movement`, kommt nicht aus Gold, sondern
+aus `silver/source_change` (`serving.build_source_movement`).
 
 Sie zählen Taten **und** Fälle, nie Vorfälle — warum, steht in
 [`zaehlperspektiven.md`](zaehlperspektiven.md). Ihre Summen gehen nachweislich
@@ -117,7 +125,7 @@ dieses Projekt sonst warnt.
 ### Die beiden Innenansichten sagen Verschiedenes — und das ist die Pointe
 
 In Bild 2 fehlt eine Kante von `silver_pipeline` zu
-`chicago_pipeline`, obwohl Silver Chicagos Daten liest. Im zweiten Bild steht
+`chicago_pipeline`, obwohl Silver Chicagos Daten liest. In Bild 3 steht
 sie. Kein Widerspruch, sondern der Entwurf:
 
 > **Die Schichten hängen an Dateien, nicht aneinander.**
@@ -183,7 +191,7 @@ Danach lohnen sich je nach Interesse:
 
 ### Die Tests sind der zweite Lesepfad
 
-512 Test-Docstrings, und sie sind keine Floskeln — sie sagen, *warum* eine
+1'861 Test-Docstrings, und sie sind keine Floskeln — sie sagen, *warum* eine
 Zusage besteht:
 
 > *„Die Drift, die dreimal passiert ist: eine Lücke, die längst geschlossen
@@ -198,7 +206,7 @@ Das ist die Liste dessen, was dieses Projekt über sich selbst prüft.
 
 ### Der dritte Lesepfad: das Nachschlagewerk
 
-Die 295 Docstrings stehen im Code — und damit an der einzigen Stelle, an der
+Die 923 Docstrings stehen im Code — und damit an der einzigen Stelle, an der
 man sie nur findet, wenn man schon weiss, wo man suchen muss. Ein Aufruf macht
 sie blätterbar:
 
@@ -207,10 +215,11 @@ python tools/build_referenz.py
 ```
 
 Das schreibt [`docs/referenz/`](referenz/index.html): eine Seite je Modul,
-durchsuchbar, mit dem Quelltext daneben. Die Startseite ordnet die zehn Pakete
-in der Reihenfolge des Gesamtlaufs — auch sie erzeugt, aus `run_all.STUFEN`.
+durchsuchbar, mit dem Quelltext daneben. Die Startseite ordnet die zwölf Pakete
+in sechs Gruppen, vom Fundament bis zur Steuerung — auch sie erzeugt, aus
+`run_all.STUFEN`.
 
-Das Verzeichnis liegt im Repository, wie die Crosswalks und die beiden Bilder
+Das Verzeichnis liegt im Repository, wie die Crosswalks und die drei Bilder
 darüber: Was sich byteweise reproduzieren lässt, gehört hinein. Ein Test hält
 das Abgelegte gegen einen frischen Bau.
 

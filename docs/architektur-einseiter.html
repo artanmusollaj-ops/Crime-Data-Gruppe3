@@ -112,7 +112,7 @@
 <div class="blatt">
 
   <header class="kopf">
-    <p class="eyebrow">Crime-Data-Gruppe3 · Chicago und Detroit 2024 · Stand 18.09.2026</p>
+    <p class="eyebrow">Crime-Data-Gruppe3 · Chicago und Detroit 2021–2026 · durchgesehen am 25.11.2026</p>
     <h1>Die Architektur auf einer Seite</h1>
     <p class="lead">Oben, was <strong>läuft</strong> — jede Zahl darin steht unter einem Test.
       Unten, was für LN2 <strong>geplant</strong> ist. Die Trennung ist die Aussage: Wer
@@ -121,7 +121,7 @@
 
   <section class="ist">
     <h2><span class="marke">Heute</span> Sechs Schichten, eine Zuständigkeit je Schicht
-      <span class="zusatz">— eine Entwicklungsmaschine, ein CI-Dienst, ein Objektspeicher</span></h2>
+      <span class="zusatz">— Laptop, CI, Objektspeicher, <span class="mono">srv01</span></span></h2>
 
     <figure>
       <svg viewBox="0 0 1000 232" role="img"
@@ -142,6 +142,7 @@
           <text x="0" y="80">Census TIGER</text>
           <text x="0" y="100">Census ACS</text>
           <text x="0" y="120">NOAA GHCN-D</text>
+          <text x="0" y="140">Gebiete · beide Portale</text>
         </g>
         <path d="M128,75 L168,75" stroke="#5b6a7d" stroke-width="1.6" marker-end="url(#pfeil)"/>
 
@@ -169,7 +170,7 @@
           <text x="324" y="66">geparst,</text><text x="324" y="80">Schema gepinnt</text>
           <text x="460" y="66">gedeutet: Zeit,</text><text x="460" y="80">NIBRS, Raum</text>
           <text x="596" y="66">Sternschema,</text><text x="596" y="80">eine Zeile je Tat</text>
-          <text x="732" y="66">Sichten + vier</text><text x="732" y="80">Vergleichstabellen</text>
+          <text x="732" y="66">Sichten + fünf</text><text x="732" y="80">Vergleichstabellen</text>
           <text x="868" y="66">ein freigegebener</text><text x="868" y="80">Stand, unveränderlich</text>
         </g>
 
@@ -217,7 +218,7 @@
       <div class="zahl"><b>1'895'123</b><span>Taten in Gold — eine Zeile je Tat</span></div>
       <div class="zahl"><b>94,5 / 124,7</b><span>Fälle je 1'000 Einwohner, 2024</span></div>
       <div class="zahl"><b>3'540</b><span>Tests, ohne Netz und Schlüssel</span></div>
-      <div class="zahl"><b>10 / 14</b><span>Pakete, zyklenfrei / Stufen</span></div>
+      <div class="zahl"><b>12 / 19</b><span>Pakete, zyklenfrei / Stufen</span></div>
     </div>
     <div class="strategien">
       <div>
@@ -245,7 +246,7 @@
 
     <figure>
       <svg viewBox="0 0 1000 236" role="img"
-           aria-label="Die Ziel-Architektur: Aus dem Internet führt der Weg über Cloudflare mit Zugangskontrolle und Web Application Firewall durch einen ausgehend aufgebauten Tunnel auf einen privaten Server. Dort laufen sieben Dienste in Docker: homepage, Admin-Oberfläche, Elasticsearch, Kibana, Grafana, die Pipeline und die Sicherung. Darunter bleibt SeaweedFS die Quelle der Wahrheit.">
+           aria-label="Die Ziel-Architektur: Aus dem Internet führt der Weg über Cloudflare mit Zugangskontrolle und Web Application Firewall durch einen ausgehend aufgebauten Tunnel auf einen privaten Server. Geplant waren sieben Dienste in Docker: homepage, Admin-Oberfläche, Elasticsearch, Kibana, Grafana, die Pipeline und die Sicherung; gebaut sind sie bis auf Elasticsearch und Kibana, an deren Stelle das eigene Dashboard steht. Darunter bleibt SeaweedFS die Quelle der Wahrheit.">
         <defs>
           <marker id="pfeil2" viewBox="0 0 10 10" refX="9" refY="5"
                   markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -299,10 +300,8 @@
           <text x="862" y="114">täglich + wöchentlich</text>
         </g>
         <text x="12" y="140" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#141b25">
-          <tspan font-weight="600">Zu bauen ist eigentlich nur</tspan>
-          <tspan fill="#5b6a7d"> </tspan>
-          <tspan font-family="IBM Plex Mono, monospace" font-size="10.5">admin-web</tspan>
-          <tspan fill="#5b6a7d"> — sie zeigt, was die Strecke ohnehin in ihre Manifeste schreibt. Die übrigen sechs sind fertige Bilder.</tspan>
+          <tspan font-weight="600">Gebaut:</tspan>
+          <tspan fill="#5b6a7d"> start, Konsole (admin-web), Grafana mit neun Alarmen, Zeitplan, Sicherung; statt elasticsearch und kibana das eigene Dashboard.</tspan>
         </text>
         <text x="12" y="158" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#5b6a7d">
           Vorbereitet für Google Cloud: ein Adressraum für alles Persistierte, kein Pfad im Code, Läufe unveränderlich — ein Backend mehr, kein Umbau.
@@ -342,7 +341,7 @@
         <td>Laufzeit Ingestion</td>
         <td>Detroit 7 s im Delta, 100 s beim ersten vollen Lauf</td>
         <td>seriell, also zehnfach</td>
-        <td>nebenläufig laden — sechs Stufen, keine hängt an der anderen</td>
+        <td>nebenläufig laden — sieben Stufen, keine hängt an der anderen</td>
       </tr>
       <tr>
         <td>Code je Quelle</td>
@@ -354,8 +353,9 @@
   </section>
 
   <footer class="schluss">
-    <p><strong>Was offen ist.</strong> Welche Releases aufgehoben werden · wann der
-      Referenzstand nachgezogen wird.</p>
+    <p><strong>Entschieden am 4.10. und 12.11.2026.</strong> Aufgehoben werden die
+      gepinnten Releases und die letzten acht; der Referenzstand wird nachgezogen,
+      sobald die Drift die Toleranz überschreitet.</p>
     <p><strong>Entschieden am 1.11.2026.</strong> Die Aggregationen kommen nicht aus
       Elasticsearch: Auf <span class="mono">srv01</span> ersetzt das eigene Dashboard
       (Flask, DuckDB, liest das aktive Release) Elasticsearch und Kibana; lokal bleiben beide.</p>

@@ -1,13 +1,13 @@
 # Architektur: was gebaut ist, und wohin es geht
 
-**Stand: 18.9.2026.** Dieser Text ist als Kapitel für den Leistungsnachweis
-gedacht. Er hat zwei Teile, und die Trennung ist die wichtigste Aussage darin:
+**Begonnen am 18.9.2026, durchgesehen am 25.11.2026.** Dieser Text ist als
+Kapitel für den Leistungsnachweis gedacht. Er hat zwei Teile, und die Trennung ist die wichtigste Aussage darin:
 
 * **Teil A — die Ist-Architektur.** Was läuft, mit Zahlen, die nachgerechnet
   werden können. Jede Angabe hier steht unter einem Test.
-* **Teil B — die Ziel-Architektur.** Was für LN2 und den Betrieb geplant ist.
-  Nichts davon ist gebaut, und der Text sagt an jeder Stelle, was es kosten
-  würde und was noch offen ist.
+* **Teil B — die Ziel-Architektur.** Was für LN2 und den Betrieb geplant war.
+  Vieles davon ist inzwischen gebaut; jeder Baustein sagt selbst, ob, seit
+  wann und mit welchem Beleg, und was noch offen ist.
 
 Wer die beiden Teile vermischt, schreibt eine Absichtserklärung und nennt sie
 Dokumentation. Deshalb stehen sie getrennt.
@@ -26,7 +26,8 @@ Die Strecke führt zwei unvergleichbare Quellen in eine vergleichbare Tabelle
         Detroit ─┤
   Census TIGER ──┼──▶  raw ─▶ bronze ─▶ silver ─▶ gold ─▶ serving ─▶ releases
     Census ACS ──┤       │       │         │        │        │           │
-     NOAA GHCN ──┘    Beweis  geparst   gedeutet  Stern   Abfragen   freigegeben
+     NOAA GHCN ──┤    Beweis  geparst   gedeutet  Stern   Abfragen   freigegeben
+       Gebiete ──┘
 ```
 
 | Schicht | Aufgabe | Was sie ausdrücklich **nicht** tut | Grösse |
@@ -89,7 +90,7 @@ Die sechs Quellen ändern sich unterschiedlich, und die Ladestrategie folgt dem
 | Detroit | **Delta** über `updated_at` im Tatjahrgang, 14 Tage Überlappung | Derselbe Weg, aber mit zwei Bedingungen: **55,9 %** des Jahrgangs 2024 wurden *mehr als ein Jahr nach der Tat* noch geändert — ein Delta nach Tatdatum verpasst genau diese Korrekturen |
 | TIGER, ACS | **eingefroren** | Eine feste Vintage; ein erneutes Laden wäre ein anderer Jahrgang, kein neuerer Stand |
 | NOAA | **Vollschnappschuss je Station** | Die Quelle liefert den ganzen Verlauf; der jüngste Lauf löst den vorigen ab |
-| Polizeibezirke | **Schnappschuss je Lauf** | Der *aktuelle* Stand zweier Portale, rund 1,1 MB; jeder Lauf schreibt ihn neu, ob sich eine Grenze bewegt hat, zeigt der Hash |
+| Polizeibezirke und Stadtteile | **Schnappschuss je Lauf** | Der *aktuelle* Stand zweier Portale, rund 1,1 MB; jeder Lauf schreibt ihn neu, ob sich eine Grenze bewegt hat, zeigt der Hash |
 
 Die letzte Zeile ist der Grund, warum die Publish-Sperre am 17.9.2026 umgebaut
 werden musste: Sie hielt einen **abgelösten** Lauf für einen **fehlenden**.
@@ -107,9 +108,8 @@ Zeilen**; der erste Lauf auf einem leeren Rechner bleibt ein Vollschnappschuss.
 
 Seit dem 30.10.2026 ergänzt `platform_admin` (Artans Engineering-Konsole) die vorhandenen
 Pipeline-Pakete um Konsole, Review, Jobwarteschlange und kontrollierte
-Release-Bereitstellung. Container und Betrieb auf srv01 folgen in einem
-eigenen Schritt; bis dahin liegt das Paket im Repository und ist nirgends
-ausgerollt.
+Release-Bereitstellung. Auf `srv01` läuft es als die Dienste `admin`
+(Konsole) und `worker` (Jobwarteschlange) aus `docker-compose.srv01.yml`.
 
 ```text
   Fundament   manifeste, storage          kennt keine Schicht über sich
@@ -125,6 +125,7 @@ ausgerollt.
   Abfragbar   serving
                      │
   Steuerung   orchestration               Reihenfolge, Aufräumen, Drift, Release
+              platform_admin              Konsole, Review, Freigabe
 ```
 
 Zwei Regeln halten das zusammen, und beide sind getestet:
@@ -138,7 +139,7 @@ Zwei Regeln halten das zusammen, und beide sind getestet:
    reicht `orchestration.release` den Haken herein, und `storage` kennt nur
    Dateien.
 
-Die beiden Architekturbilder in [`architektur.md`](architektur.md) werden
+Die drei Architekturbilder in [`architektur.md`](architektur.md) werden
 **aus dem Code erzeugt**, nicht gezeichnet. Ein Paket, das dazukommt, erscheint
 von selbst; eine Zahl im Bild, die nicht mehr stimmt, lässt einen Test fallen.
 
@@ -171,8 +172,9 @@ Eingaben. Zwei Läufe auf demselben Stand tragen denselben Abdruck.
 
 **Kein Airflow, und das ist begründet.** Bei sechs Quellen und fünf
 Batch-Pipelines wäre ein Scheduler Aufwand ohne Erkenntnisgewinn. Was fehlt,
-ist nicht die Maschinerie, sondern der Anstoss: Ausserhalb des wöchentlichen
-Datenlaufs startet nichts von selbst.
+ist nicht die Maschinerie, sondern der Anstoss: Ausserhalb der beiden
+Zeitpläne — `datenlauf.yml` in GitHub Actions und `cron` auf `srv01`, beide
+montags — startet nichts von selbst.
 
 ## A.4 Ablage: drei Betriebsarten, ein Adressraum
 
@@ -199,8 +201,9 @@ Die Zusagen dahinter, jede mit Test:
   Seit dem 17.9. zählt dabei, ob ein Bronze-Lauf **erreichbar** ist, nicht ob
   der Bau ihn benutzt hat — NOAA liefert Vollschnappschüsse, und ein
   abgelöster Lauf ist nicht verloren.
-* **Ein Release ist der ganze Stand oder keiner.** Fehlt eine der neun
-  Tabellen oder die Karte, entsteht keines.
+* **Ein Release ist der ganze Stand oder keiner.** Fehlt eine der 17
+  Tabellen (elf aus Gold, sechs aus Serving) oder die Karte, entsteht keines
+  (`orchestration.release.VOLLSTAENDIG`).
 
 ## A.5 Herkunft: jede Zahl hat einen Weg zurück
 
@@ -234,7 +237,7 @@ Entscheidung, keine Eigenschaft der Daten:
 | **weich** | schreibt das Ergebnis in eine Spalte und zählt | wenn etwas **unvollständig** ist: eine fehlende Koordinate, eine unsichere Zuordnung |
 
 Eine harte Kontrolle auf fehlende Koordinaten hiesse, dass Chicagos Jahrgang
-gar nicht erst entsteht — 2'115 Delikte tragen keine. Eine weiche macht die
+gar nicht erst entsteht — im Jahrgang 2024 tragen über 2'000 Delikte keine. Eine weiche macht die
 Lücke **abfragbar** statt unsichtbar. Hart wird es erst dort, wo die Lücke die
 Zahl unbrauchbar machte: beim **Publish-Gate** in Gold, der einzigen Kontrolle,
 die eine Veröffentlichung verhindert.
@@ -306,7 +309,7 @@ Vorlagen — die Beschreibung des Analysedienstes, nachzulesen in
 es neben dem Strecken-Abbild in `ghcr.io/datenwerft`.
 
 *Die dritte, ebenfalls seit dem 6.10.2026:* Ein `docker-compose.srv01.yml`
-**beschreibt** den Serverbetrieb — seit dem 12.10.2026 fünf Dienste, die
+**beschreibt** den Serverbetrieb — seit dem 12.10.2026 fünf Dienste, heute sieben, die
 gemessenen Speichergrenzen, die Traefik-Regeln, ein lesendes Jupyter und ein
 nginx für die Einstiegsseite; nachzulesen in `storage-architektur.md`,
 Abschnitt 16.
@@ -315,10 +318,9 @@ Abschnitt 16.
 Elasticsearch, Kibana und Jupyter standen dort als Dienste, am 11.10.2026
 alle drei `healthy` und seit zwei bis drei Tagen oben. **Seit dem 1.11.2026
 ersetzt das eigene Dashboard Elasticsearch und Kibana** (Flask und DuckDB,
-liest das aktive Release, Spitze 429 MiB statt zusammen 2'816 MiB Grenze);
-lokal bleiben beide, siehe `storage-architektur.md`, Abschnitt 16. Damals
-waren beide Abbilder sind
-per SHA-256-Digest gepinnt, und die beiden Digests in der `.env` des Stapels
+liest das aktive Release, Spitze rund 475 MiB von 640 statt zusammen
+2'816 MiB Grenze); lokal bleiben beide, siehe `storage-architektur.md`,
+Abschnitt 16. Damals waren beide Abbilder per SHA-256-Digest gepinnt, und die beiden Digests in der `.env` des Stapels
 sind **zeichengleich** mit denen, die hier gebaut und gemessen wurden.
 Daneben steht ein Zeitplan: montags 04:30 über `cron`, mit `flock` gegen
 Überlappung und einem Verteiler, der den zweiten Montag im Monat voll, den
@@ -333,24 +335,24 @@ Access-Anwendung** über `urbancrime-*`. Sie ist keine Datei im Repository,
 sondern eine Einrichtung bei Cloudflare — deshalb steht sie hier und nicht in
 einer Liste von Dateinamen, und deshalb trägt sie ihren Beleg in B.3.
 
-**Was davon noch kein Nachweis ist.** Der Zeitplan hat am 11.10.2026 **noch
-nie gefeuert** — `logs/scheduled-pipeline.log` existiert nicht, und der
-Crontab schreibt mit `>>` hinein, die Datei entstünde also beim ersten Lauf
-auch dann, wenn er scheitert. Der erste Termin ist Montag, der 12.10.2026.
-Bis zum ersten grünen Lauf ist er damit **eine Einrichtung, kein Nachweis** —
-dieselbe Elle, die 5.3 an den wöchentlichen Datenlauf in GitHub Actions legt.
-Ebenso offen: ob die Strecke selbst dort je durchgelaufen ist. Sie ist ein
-Stapellauf hinter einem `profiles:`-Schlüssel und hinterlässt als
-`--rm`-Lauf keinen Container, den `docker compose ps --all` zeigen könnte.
+**Was davon inzwischen ein Nachweis ist.** Am 11.10.2026 hatte der Zeitplan
+**noch nie gefeuert** — `logs/scheduled-pipeline.log` gab es nicht, und bis
+zum ersten grünen Lauf galt er als Einrichtung, nicht als Nachweis. Seit dem
+ersten Termin am 12.10.2026 feuert er jede Woche, und die Strecke läuft dort
+durch: Die Läufe vom 16. und 23.11.2026 endeten mit Exit 0 und publizierten
+je ein Release (`2026-11-16T03-35-10Z`, `2026-11-23T03-36-24Z`), nachgelesen
+am 25.11.2026 in `logs/scheduled-pipeline.log`. Der Stapellauf hinterlässt
+als `--rm`-Lauf weiter keinen Container; der Beleg ist das Protokoll und das
+Release, nicht `docker compose ps --all`.
 
 Das Skript, das der Zeitplan aufruft (`docker/srv01-datenlauf.sh`), ist die
 vom Server gelesene Fassung und liegt nun zusammen mit dem Crontab unter
 Versionskontrolle. Seine Verteilung auf Voll-, Delta- und ausgelassene Läufe
 hält ein eigener Wächter fest.
 
-Der Unterschied, auf den dieses Dokument baut, bleibt also bestehen — er ist
-nur verschoben: Nicht mehr „Beschreibung gegen Betrieb", sondern
-**Einrichtung gegen Nachweis.**
+Der Unterschied, auf den dieses Dokument baut, bleibt also bestehen — er
+verschob sich erst von „Beschreibung gegen Betrieb" zu **Einrichtung gegen
+Nachweis**, und für den Zeitplan ist er seit dem 12.10.2026 eingelöst.
 
 Ansonsten beschreibt dieser Teil, wie die Plattform für LN2 und einen echten
 Betrieb aussehen soll, und nennt zu jedem Baustein, was er löst und was er
@@ -382,6 +384,11 @@ kostet.
                   └─────────────────┘  bleibt die Quelle der Wahrheit
 ```
 
+*Das Bild ist der Plan vom September 2026.* Gebaut ist es mit zwei
+Abweichungen: Elasticsearch und Kibana sind auf `srv01` seit dem 6.11.2026
+durch das eigene Dashboard ersetzt (B.4), und Grafana ist kein eigener Dienst
+des Stapels, sondern Teil der Serverüberwachung (B.5).
+
 ## B.2 Betrieb: die Strecke als Container
 
 **Was.** Jede Komponente als Docker-Image, zusammengehalten von einem
@@ -412,17 +419,15 @@ geschätzt. Die vorher veranschlagten 5'632 MiB lagen 1'307 MiB über dem
 Verfügbaren; das ist der Grund, warum die Reihenfolge *erst messen, dann
 begrenzen* hier eine eigene Anforderung ist.
 
-**Was davon steht, und was noch kein Nachweis ist.** Die Beschreibung ist
-seit dem 8.10.2026 angewandt: Drei Dienste laufen auf `srv01`, beide
-Abbilder liegen per Digest gepinnt in der Registry, die Tunnel-Routen für
-Kibana und Jupyter und die Access-Anwendung sind seit dem 9.10. von aussen
-gemessen (B.3), und ein Zeitplan steht (montags 04:30, `flock`,
-Voll-/Delta-Verteiler). Offen ist der **Nachweis** — und seit dem 12.10.2026
-wieder ein Stück Einrichtung: Der Zeitplan hat noch nie gefeuert (erster
-Termin ist Montag, der 12.10.2026), ob die Strecke dort je durchgelaufen ist,
-zeigt kein Artefakt, das von hier aus lesbar wäre, und der Stapel kennt den
-Dienst `start` noch nicht. Die Tunnel-Route für `urbancrime-start` ist
-dagegen seit dem 14.10.2026 angelegt und von aussen gemessen.
+**Was davon steht.** Die Beschreibung ist seit dem 8.10.2026 angewandt,
+damals mit drei Diensten auf `srv01`; heute sind es sieben (`dashboard`,
+`start`, `jupyter`, `admin`, `worker`, der Stapellauf `pipeline` und `kibana`,
+das auf `srv01` nur noch den Tunnel zur Vorführung in Google Cloud hält).
+Die Abbilder liegen per Digest gepinnt in der Registry, die Tunnel-Routen
+und die Access-Anwendung sind seit dem 9.10. von aussen gemessen (B.3), die
+Route für `urbancrime-start` seit dem 14.10.2026. Der Zeitplan (montags
+04:30, `flock`, Voll-/Delta-Verteiler) feuert seit dem 12.10.2026 und baut
+die Releases, die das Dashboard liest (Einleitung zu Teil B).
 
 **Was es löst.** Heute läuft die Strecke auf genau einer Maschine, und ihre
 Abhängigkeiten sind ein `requirements.lock` plus die Hoffnung, dass der
@@ -435,8 +440,9 @@ Teil.
 der Umgebung, nicht aus einer eingebackenen `.env`. Das ist der Punkt, an dem
 ein Container-Aufbau am ehesten leise falsch wird.
 
-**Offen:** ob die Notebooks mit in den Verbund gehören (JupyterLab als
-Dienst) oder Entwicklungswerkzeug auf dem Laptop bleiben.
+**Entschieden:** JupyterLab gehört mit in den Verbund, als lesender Dienst
+auf `srv01` seit dem 8.10.2026 (`Dockerfile.jupyter`); die ladenden
+Notebooks bleiben Entwicklungswerkzeug.
 
 ## B.3 Zugang und Sicherheit: kein offener Port
 
@@ -457,9 +463,9 @@ und eine 302 belegt Cloudflare, DNS und die Anwendung — keinen laufenden
 Dienst. Der Wortlaut der Messung steht in
 [`intern/AENDERUNGEN.md`](intern/AENDERUNGEN.md) zum 9.10.2026.
 
-**Was es löst.** Heute gibt es nichts zu schützen, weil nichts läuft. Sobald
-Kibana, Grafana und eine Admin-Oberfläche stehen, wäre jeder offene Port eine
-Angriffsfläche — und die drei Dienste bringen je ein eigenes, schwaches
+**Was es löst.** Bis zum 8.10.2026 gab es nichts zu schützen. Seither stehen
+Dienste auf `srv01` — heute Dashboard, Konsole, Jupyter und Einstiegsseite —,
+und jeder offene Port wäre eine Angriffsfläche — und die drei Dienste bringen je ein eigenes, schwaches
 Benutzerkonzept mit. Ein Tunnel plus ein zentrales Zugangstor ersetzt drei
 halbe Lösungen durch eine ganze.
 
@@ -543,6 +549,16 @@ Umkreissuche und Exploration.
 
 ## B.5 Oberflächen: Homepage, Admin, Grafana
 
+**Gebaut, mit Datum.** Alle drei stehen, unter anderem Namen als im Plan:
+Die **Einstiegsseite** (`start`, nginx, Route seit dem 14.10.2026) ist die
+homepage. Die **Engineering-Konsole** (`platform_admin`, seit dem 30.10.2026,
+auf `srv01` als `admin` und `worker`) ist admin-web. Und **Grafana** gehört
+zur Überwachung des Servers; dort liegen seit Oktober 2026 das Brett
+`docker/grafana-brett/urbancrime.json` und neun Alarmregeln
+(`docker/prometheus-regeln/urbancrime.yaml`), die über den bestehenden
+Telegram-Empfänger melden (`storage-architektur.md`, Abschnitt 6a). Der Plan
+darunter bleibt als Begründung stehen.
+
 **homepage** — eine Startseite, die alle Dienste mit Status auflistet. Klein,
 aber sie beantwortet die Frage, die bei einem Verbund aus sechs Containern
 zuerst kommt: *Was läuft hier eigentlich, und wo?*
@@ -564,9 +580,9 @@ Grund, warum diese Oberfläche überschaubar ist: Sie zeigt, was die Strecke
 ohnehin aufschreibt.
 
 **grafana** — Betriebsüberwachung: läuft der Lauf, wie lange dauert er, wie
-alt ist die jüngste Quelle, wie viel liegt in welcher Schicht. Heute gibt es
-dafür **keine Alarmierung ausser einem roten CI-Lauf**; das ist die grösste
-offene Lücke im Betrieb.
+alt ist die jüngste Quelle, wie viel liegt in welcher Schicht. Bis Oktober
+2026 gab es dafür **keine Alarmierung ausser einem roten CI-Lauf**; das war
+die grösste offene Lücke im Betrieb, und die neun Alarmregeln schliessen sie.
 
 **Was es kostet.** Drei Oberflächen sind drei Dinge, die gepflegt werden
 wollen — und zwei davon (homepage, Grafana) zeigen nur, was ohnehin
@@ -575,6 +591,15 @@ beiden sind billig, weil sie nichts Eigenes wissen müssen. Wer hier anfängt,
 sollte mit `admin-web` anfangen.
 
 ## B.6 Sicherung: täglich und wöchentlich
+
+**Gebaut im Oktober 2026.** Gesichert wird nur, was sich nicht nachrechnen
+lässt — gepinnte Läufe, gepinnte Releases und das aktuelle Release, damals
+382 MiB in 114 Objekten. `orchestration.sicherungssatz` holt sie in das
+eigene Volume `urbancrime_sicherung`, und die nächtliche Sicherung von
+`srv01` nimmt es mit (`storage-architektur.md`, Abschnitt 6a).
+
+**Offen:** eine Rückspielung als Übung. Ohne sie ist die Sicherung eine
+Einrichtung, die noch nichts zurückgebracht hat.
 
 **Was.** Tägliche Sicherung des veränderlichen Teils (Elasticsearch-Indizes,
 Grafana- und Admin-Zustand, Konfiguration), wöchentlich ein vollständiger
@@ -591,9 +616,11 @@ hoffentlich vollständig.
 
 **Was es kostet.** Platz und eine Regel. Ein Release sind rund 190 MB, eines der Konsole
 mit Silver rund 360 MB; ohne
-Aufräumregel wächst das linear, und genau diese Regel ist noch nicht
-entschieden ([`datenhistorie.md`](intern/datenhistorie.md) 5.5). Eine Sicherung ohne
-Löschregel ist nur ein Aufschub.
+Aufräumregel wächst das linear. Die Regel ist entschieden, am 4.10.2026
+([`datenhistorie.md`](intern/datenhistorie.md) 5.5): Es bleiben die gepinnten Releases
+und die letzten acht; gelöscht wird nur auf Zuruf mit
+`orchestration.aufraeumen`. Eine Sicherung ohne Löschregel wäre nur ein
+Aufschub.
 
 ## B.7 Cloud: vorbereitet, nicht umgezogen
 
@@ -663,7 +690,8 @@ entschieden:
    1.11.2026: nein, das eigene Dashboard rechnet sie aus dem Release (B.4).
 2. ~~**Wann der Referenzstand nachgezogen wird.**~~ — entschieden am
    12.11.2026: nachgezogen, sobald die Drift die Toleranz überschreitet (E-1).
-   Der Stand vom 10.11.2026 ist es; die Drift davor ist in
+   Gepinnt ist der Stand vom 10.11.2026; die Dokumente zeigen derzeit einen
+   Zwischenstand vom 20.11.2026 (A.1); die Drift davor ist in
    [`datenhistorie.md`](intern/datenhistorie.md) 8 festgehalten.
 
 Ein dritter Punkt stand bis zum 9.10.2026 hier: **wie die Prüfenden Zugang
@@ -676,8 +704,9 @@ abgelaufen.
 
 ---
 
-**Zu den Zahlen.** Teil A nennt den **Referenzstand** — den Volllauf vom
-10.11.2026 über die Jahrgänge 2021–2026 (Release `2026-11-10T13-47-23Z`), auf
+**Zu den Zahlen.** Teil A nennt den **Referenzstand** — derzeit den
+Zwischenstand vom 20.11.2026 über die Jahrgänge 2021–2026 (Release
+`2026-11-20T10-08-03Z`; gepinnt ist der Volllauf vom 10.11.2026), auf
 den sich alle Abgabedokumente beziehen und den 111 Wächter mit dem Marker
 `referenzstand` gegen die Parquet-Dateien halten. Wie weit ein frischer Lauf
 davon abweicht, weist `orchestration.drift` je Grösse aus; die Zahlen der
