@@ -7,7 +7,7 @@ gebauten Tabellen, die Bedeutung aus [`tools/build_feldkatalog.py`](../tools/bui
 python tools/build_feldkatalog.py
 ```
 
-**240 Spalten in 19 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
+**256 Spalten in 21 Tabellen.** Kommt eine dazu, scheitert der Lauf und nennt sie: Wer eine Spalte hinzufügt,
 soll einen Satz darüber schreiben müssen. `tests/test_feldkatalog.py` prüft, dass der Katalog vollständig und reproduzierbar ist.
 
 Die Rohschichten stehen hier nicht: **Bronze deutet nicht**, seine Spalten sind die der Quelle. Was sie bedeuten, sagen die
@@ -158,6 +158,17 @@ Eine Zeile ist: **eine Stadt an einem Tag**. 55'573 Zeilen.
 
 ## gold
 
+### `bridge_tract_police_area`
+
+Eine Zeile ist: **ein Stadt-Tract in einem Polizeibezirk**. 1'504 Zeilen.
+
+| Spalte | Typ | Bedeutung |
+| --- | --- | --- |
+| `geoid` | `VARCHAR` | Census-GEOID der Raumeinheit, die sie eindeutig macht. Der Schlüssel, über den Delikte, Einwohner und Geometrie zusammenfinden. |
+| `city` | `VARCHAR` | Stadt, kleingeschrieben: `chicago` oder `detroit`. |
+| `area_id` | `VARCHAR` | Der Polizeibezirk, in dem ein Teil des Tracts liegt. |
+| `tract_share` | `DOUBLE` | Welcher Anteil der Fläche des Tracts in diesem Bezirk liegt. Je Tract summieren sich die Anteile auf 1 über die Bezirke mit `within_city`; Einwohner eines Bezirks = Summe von Einwohnern mal Anteil. Flächengewichtet - die Einwohner eines Tracts gelten als gleich verteilt. |
+
 ### `dim_city_day`
 
 Eine Zeile ist: **eine Stadt an einem Tag**. 4'298 Zeilen.
@@ -215,6 +226,22 @@ Eine Zeile ist: **ein NIBRS-Delikt**. 85 Zeilen.
 | `replaced_by` | `VARCHAR` | Der heutige Code, wenn es einen gibt - belegt über die ILCS-Tabelle der Illinois State Police. |
 | `resolution` | `VARCHAR` | Was der Code heute bedeutet: `current`, `replaced`, `not_an_offense` oder `unresolved`. Ein `unresolved`-Code in den Falldaten lässt den Gold-Bau scheitern. |
 | `retirement_note` | `VARCHAR` | Der Beleg für die Auflösung, mit Statut. |
+
+### `dim_police_area`
+
+Eine Zeile ist: **ein Polizeibezirk**. 34 Zeilen.
+
+| Spalte | Typ | Bedeutung |
+| --- | --- | --- |
+| `city` | `VARCHAR` | Stadt, kleingeschrieben: `chicago` oder `detroit`. |
+| `area_id` | `VARCHAR` | Nummer des Polizeibezirks ohne führende Null, wie in `silver/police_area`. Mit `city` der Schlüssel. |
+| `area_name` | `VARCHAR` | *District 1*, *Precinct 2*. |
+| `area_km2` | `DOUBLE` | Fläche in Quadratkilometern, auf dem Ellipsoid, Wasser innerhalb der Grenze eingeschlossen. |
+| `city_area_share` | `DOUBLE` | Anteil der Fläche, der in der Grenze der Stadt liegt, deren Polizei den Bezirk führt. |
+| `within_city` | `BOOLEAN` | Ob der Bezirk zur Stadt zählt - dieselbe Mehrheitsregel wie bei `dim_tract` (Anteil über 0,5). Falsch nur für Chicagos District 31, den Bezirk der umschlossenen Gemeinden Norridge und Harwood Heights. |
+| `centroid_lat` | `DOUBLE` | Breitengrad des Flächenschwerpunkts. Für eine Karte, die Punkte statt Flächen zeigt. |
+| `centroid_lon` | `DOUBLE` | Längengrad des Flächenschwerpunkts. |
+| `boundary_wkt` | `VARCHAR` | Der Umriss als WKT in EPSG:4326, vereinfacht wie in `dim_tract_geo`. |
 
 ### `dim_tract`
 
@@ -287,6 +314,9 @@ Eine Zeile ist: **eine Tat**. 1'895'123 Zeilen.
 | `unfounded` | `BOOLEAN` | Ob der Fall als unbegründet zurückgezogen wurde. Nur Detroit führt das; die Zeilen bleiben erhalten und werden gekennzeichnet statt entfernt. |
 | `offense_group_id` | `VARCHAR` | Schlüssel der **Tat**: Vorfall plus Deliktbeschreibung. Detroits mehrere Anklagen zu einer Tat teilen ihn. |
 | `counts_case` | `BOOLEAN` | **Die zählende Zeile je Fall** - die mit dem schwersten Delikt (Rangfolge `FALLKORN_RANG`, für beide Städte gleich). Chicago führt je Vorfall ein Delikt, Detroit jedes; wer auf Chicagos Zählweise vergleicht, filtert hierauf. |
+| `police_area` | `VARCHAR` | Der Polizeibezirk (Chicago District, Detroit Precinct), in dem die Koordinate liegt - aus dem eigenen räumlichen Join gegen `silver/police_area`, nicht aus der Quelle. Wie `area_id` dort: die Zahl ohne führende Null. |
+| `police_area_source` | `VARCHAR` | Der Polizeibezirk, den die Quelle nennt (Chicago `district`, Detroit `police_precinct`), in derselben Form wie `police_area`. Was keine Zahl über null ist (Detroit `HP`, `0W`), bleibt `NULL`. |
+| `case_status` | `VARCHAR` | Detroits Stand des Falls, gross geschrieben, etwa `CLEARED BY ARREST`, `EXCEPTIONALLY CLEARED`, `ACTIVE`, `INACTIVE`. Chicago führt keinen; dort `NULL`. |
 
 ## serving
 

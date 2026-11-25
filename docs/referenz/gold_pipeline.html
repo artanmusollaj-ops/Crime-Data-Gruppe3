@@ -278,168 +278,170 @@ aus Silver ableitbar, und die Herkunft steht im Manifest.</p>
 </span><span id="L-106"><a href="#L-106"><span class="linenos">106</span></a><span class="n">TABELLEN</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
 </span><span id="L-107"><a href="#L-107"><span class="linenos">107</span></a>    <span class="s2">"fact_offense"</span><span class="p">,</span> <span class="s2">"dim_tract"</span><span class="p">,</span> <span class="s2">"dim_tract_geo"</span><span class="p">,</span> <span class="s2">"dim_tract_acs"</span><span class="p">,</span>
 </span><span id="L-108"><a href="#L-108"><span class="linenos">108</span></a>    <span class="s2">"dim_offense"</span><span class="p">,</span> <span class="s2">"dim_date"</span><span class="p">,</span> <span class="s2">"dim_city_day"</span><span class="p">,</span>
-</span><span id="L-109"><a href="#L-109"><span class="linenos">109</span></a><span class="p">)</span>
-</span><span id="L-110"><a href="#L-110"><span class="linenos">110</span></a>
-</span><span id="L-111"><a href="#L-111"><span class="linenos">111</span></a>
-</span><span id="L-112"><a href="#L-112"><span class="linenos">112</span></a><span class="k">def</span><span class="w"> </span><span class="nf">table_dir</span><span class="p">(</span><span class="n">data_root</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-</span><span id="L-113"><a href="#L-113"><span class="linenos">113</span></a><span class="w">    </span><span class="sd">"""Wohin eine Gold-Tabelle geschrieben wird."""</span>
-</span><span id="L-114"><a href="#L-114"><span class="linenos">114</span></a>    <span class="k">return</span> <span class="n">data_root</span> <span class="o">/</span> <span class="n">GOLD_LAYER</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"dataset=</span><span class="si">{</span><span class="n">table</span><span class="si">}</span><span class="s2">"</span>
-</span><span id="L-115"><a href="#L-115"><span class="linenos">115</span></a>
-</span><span id="L-116"><a href="#L-116"><span class="linenos">116</span></a>
-</span><span id="L-117"><a href="#L-117"><span class="linenos">117</span></a><span class="c1">#: Das Jahr, fuer das die Abgabedokumente ihre Raten je 1'000 Einwohner nennen.</span>
-</span><span id="L-118"><a href="#L-118"><span class="linenos">118</span></a><span class="c1">#:</span>
-</span><span id="L-119"><a href="#L-119"><span class="linenos">119</span></a><span class="c1">#: Eine Rate braucht einen Zeitraum, sonst ist sie keine. Bis zum 4.10.2026</span>
-</span><span id="L-120"><a href="#L-120"><span class="linenos">120</span></a><span class="c1">#: stand in den Dokumenten "Chicago 94,5 je 1'000" ohne Jahr, und das ging,</span>
-</span><span id="L-121"><a href="#L-121"><span class="linenos">121</span></a><span class="c1">#: weil genau ein Jahrgang gebaut war. Seit dem Mehrjahresbau zaehlt dieselbe</span>
-</span><span id="L-122"><a href="#L-122"><span class="linenos">122</span></a><span class="c1">#: Abfrage sechs Jahrgaenge zusammen: 500,7 je 1'000 fuer Chicago - eine Zahl,</span>
-</span><span id="L-123"><a href="#L-123"><span class="linenos">123</span></a><span class="c1">#: die nicht zu hoch ist, sondern **nichts bedeutet**, weil ihr Zaehler sechs</span>
-</span><span id="L-124"><a href="#L-124"><span class="linenos">124</span></a><span class="c1">#: Jahre und ihr Nenner eines umfasst.</span>
-</span><span id="L-125"><a href="#L-125"><span class="linenos">125</span></a><span class="c1">#:</span>
-</span><span id="L-126"><a href="#L-126"><span class="linenos">126</span></a><span class="c1">#: 2024 bleibt das Bezugsjahr: Es ist der Jahrgang, auf den die Fragestellung</span>
-</span><span id="L-127"><a href="#L-127"><span class="linenos">127</span></a><span class="c1">#: und die Hypothesen gestellt sind, und der juengste, der vollstaendig</span>
-</span><span id="L-128"><a href="#L-128"><span class="linenos">128</span></a><span class="c1">#: vorliegt (2025 und 2026 sind es nicht - ``dim_date.year_is_complete``</span>
-</span><span id="L-129"><a href="#L-129"><span class="linenos">129</span></a><span class="c1">#: sagt es je Tag). Eine Tabelle mit einer Rate je Jahr waere das Bessere und</span>
-</span><span id="L-130"><a href="#L-130"><span class="linenos">130</span></a><span class="c1">#: ist nicht dasselbe; sie steht aus.</span>
-</span><span id="L-131"><a href="#L-131"><span class="linenos">131</span></a><span class="n">RATENJAHR</span> <span class="o">=</span> <span class="mi">2024</span>
-</span><span id="L-132"><a href="#L-132"><span class="linenos">132</span></a>
-</span><span id="L-133"><a href="#L-133"><span class="linenos">133</span></a>
-</span><span id="L-134"><a href="#L-134"><span class="linenos">134</span></a><span class="k">def</span><span class="w"> </span><span class="nf">raten_je_stadt</span><span class="p">(</span><span class="n">fact_offense</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dim_tract</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dim_tract_acs</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-</span><span id="L-135"><a href="#L-135"><span class="linenos">135</span></a>                   <span class="n">jahr</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">RATENJAHR</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="L-136"><a href="#L-136"><span class="linenos">136</span></a><span class="w">    </span><span class="sd">"""Delikte, Faelle, Einwohner und die beiden Raten je Stadt - fuer **ein** Jahr.</span>
-</span><span id="L-137"><a href="#L-137"><span class="linenos">137</span></a>
-</span><span id="L-138"><a href="#L-138"><span class="linenos">138</span></a><span class="sd">    Die Abfrage, die hinter jeder Ratenzeile der Abgabedokumente steht. Sie</span>
-</span><span id="L-139"><a href="#L-139"><span class="linenos">139</span></a><span class="sd">    liegt hier und nicht bei ihren Benutzern, aus demselben Grund wie</span>
-</span><span id="L-140"><a href="#L-140"><span class="linenos">140</span></a><span class="sd">    ``einwohner_je_stadt``: Gebraucht wird sie im Driftbericht, auf der</span>
-</span><span id="L-141"><a href="#L-141"><span class="linenos">141</span></a><span class="sd">    Einstiegsseite und in den Waechtern ueber ``ln2_konzept.md``, ``README.md``,</span>
-</span><span id="L-142"><a href="#L-142"><span class="linenos">142</span></a><span class="sd">    ``AENDERUNGEN.md`` und ``eine-zahl.md``. Sechs Fassungen waeren fuenf zu</span>
-</span><span id="L-143"><a href="#L-143"><span class="linenos">143</span></a><span class="sd">    viel - und waeren sie es, wuerde eine davon den Jahresfilter vergessen.</span>
-</span><span id="L-144"><a href="#L-144"><span class="linenos">144</span></a>
-</span><span id="L-145"><a href="#L-145"><span class="linenos">145</span></a><span class="sd">    **Gezaehlt wird nach Ortszeit** (``fact_offense.date``), nicht nach UTC:</span>
-</span><span id="L-146"><a href="#L-146"><span class="linenos">146</span></a><span class="sd">    Dieselbe Achse, auf der die Jahrgaenge geladen sind.</span>
-</span><span id="L-147"><a href="#L-147"><span class="linenos">147</span></a>
-</span><span id="L-148"><a href="#L-148"><span class="linenos">148</span></a><span class="sd">    **Der Nenner ist der der Zeile**, nicht der der Tabelle: ``population_vintage``</span>
-</span><span id="L-149"><a href="#L-149"><span class="linenos">149</span></a><span class="sd">    nennt je Tat, welches ACS-Vintage fuer sie gilt, und der Verbund nimmt genau</span>
-</span><span id="L-150"><a href="#L-150"><span class="linenos">150</span></a><span class="sd">    dieses. Ein Jahr, dessen Taten alle dasselbe Vintage tragen, bekommt damit</span>
-</span><span id="L-151"><a href="#L-151"><span class="linenos">151</span></a><span class="sd">    einen Nenner - haette ein Jahr gemischte Vintages, waere die Rate nicht</span>
-</span><span id="L-152"><a href="#L-152"><span class="linenos">152</span></a><span class="sd">    definiert, und die Abfrage ergaebe dann mehr als eine Zeile je Stadt, statt</span>
-</span><span id="L-153"><a href="#L-153"><span class="linenos">153</span></a><span class="sd">    stillschweigend eines davon zu nehmen.</span>
-</span><span id="L-154"><a href="#L-154"><span class="linenos">154</span></a>
-</span><span id="L-155"><a href="#L-155"><span class="linenos">155</span></a><span class="sd">    Die Spalten: ``city``, ``delikte``, ``faelle``, ``einwohner``, ``rate``,</span>
-</span><span id="L-156"><a href="#L-156"><span class="linenos">156</span></a><span class="sd">    ``rate_fallebene``. Gezaehlt werden nur Taten in einem Tract, der einer der</span>
-</span><span id="L-157"><a href="#L-157"><span class="linenos">157</span></a><span class="sd">    beiden Staedte zugeordnet ist - derselbe Ausschnitt, fuer den der Nenner</span>
-</span><span id="L-158"><a href="#L-158"><span class="linenos">158</span></a><span class="sd">    gilt.</span>
-</span><span id="L-159"><a href="#L-159"><span class="linenos">159</span></a><span class="sd">    """</span>
-</span><span id="L-160"><a href="#L-160"><span class="linenos">160</span></a>    <span class="c1"># Der Nenner kommt aus ``einwohner_je_stadt`` - mit dem Vintage, das die</span>
-</span><span id="L-161"><a href="#L-161"><span class="linenos">161</span></a>    <span class="c1"># Taten dieses Jahres selbst nennen, statt mit dem Referenz-Vintage der</span>
-</span><span id="L-162"><a href="#L-162"><span class="linenos">162</span></a>    <span class="c1"># Stadtzuordnung. Beide sind fuer 2024 dasselbe; fuer 2025 und 2026 nicht,</span>
-</span><span id="L-163"><a href="#L-163"><span class="linenos">163</span></a>    <span class="c1"># und dort ist genau das die Aussage: Eine Rate fuer 2026 ruht auf der</span>
-</span><span id="L-164"><a href="#L-164"><span class="linenos">164</span></a>    <span class="c1"># Bevoelkerung von 2024, weil es keine neuere gibt.</span>
-</span><span id="L-165"><a href="#L-165"><span class="linenos">165</span></a>    <span class="n">nenner</span> <span class="o">=</span> <span class="n">einwohner_je_stadt</span><span class="p">(</span>
-</span><span id="L-166"><a href="#L-166"><span class="linenos">166</span></a>        <span class="n">dim_tract</span><span class="p">,</span> <span class="n">dim_tract_acs</span><span class="p">,</span>
-</span><span id="L-167"><a href="#L-167"><span class="linenos">167</span></a>        <span class="s2">"(SELECT any_value(population_vintage) FROM j)"</span><span class="p">,</span>
-</span><span id="L-168"><a href="#L-168"><span class="linenos">168</span></a>    <span class="p">)</span>
-</span><span id="L-169"><a href="#L-169"><span class="linenos">169</span></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">"""</span>
-</span><span id="L-170"><a href="#L-170"><span class="linenos">170</span></a><span class="s2">        WITH j AS (</span>
-</span><span id="L-171"><a href="#L-171"><span class="linenos">171</span></a><span class="s2">            SELECT * FROM </span><span class="si">{</span><span class="n">fact_offense</span><span class="si">}</span><span class="s2"> WHERE year(date) = </span><span class="si">{</span><span class="n">jahr</span><span class="si">}</span>
-</span><span id="L-172"><a href="#L-172"><span class="linenos">172</span></a><span class="s2">        ), e AS (</span><span class="si">{</span><span class="n">nenner</span><span class="si">}</span><span class="s2">)</span>
-</span><span id="L-173"><a href="#L-173"><span class="linenos">173</span></a><span class="s2">        SELECT t.city                                            AS city,</span>
-</span><span id="L-174"><a href="#L-174"><span class="linenos">174</span></a><span class="s2">               count(*)                                          AS delikte,</span>
-</span><span id="L-175"><a href="#L-175"><span class="linenos">175</span></a><span class="s2">               count(*) FILTER (f.counts_case)                   AS faelle,</span>
-</span><span id="L-176"><a href="#L-176"><span class="linenos">176</span></a><span class="s2">               any_value(e.n)                                    AS einwohner,</span>
-</span><span id="L-177"><a href="#L-177"><span class="linenos">177</span></a><span class="s2">               round(count(*) * 1000.0 / any_value(e.n), 1)      AS rate,</span>
-</span><span id="L-178"><a href="#L-178"><span class="linenos">178</span></a><span class="s2">               round(count(*) FILTER (f.counts_case) * 1000.0</span>
-</span><span id="L-179"><a href="#L-179"><span class="linenos">179</span></a><span class="s2">                     / any_value(e.n), 1)                        AS rate_fallebene</span>
-</span><span id="L-180"><a href="#L-180"><span class="linenos">180</span></a><span class="s2">        FROM j f</span>
-</span><span id="L-181"><a href="#L-181"><span class="linenos">181</span></a><span class="s2">        JOIN </span><span class="si">{</span><span class="n">dim_tract</span><span class="si">}</span><span class="s2"> t ON t.geoid = f.tract_geoid</span>
-</span><span id="L-182"><a href="#L-182"><span class="linenos">182</span></a><span class="s2">        JOIN e ON e.city = t.city</span>
-</span><span id="L-183"><a href="#L-183"><span class="linenos">183</span></a><span class="s2">        WHERE t.city IS NOT NULL</span>
-</span><span id="L-184"><a href="#L-184"><span class="linenos">184</span></a><span class="s2">        GROUP BY t.city</span>
-</span><span id="L-185"><a href="#L-185"><span class="linenos">185</span></a><span class="s2">        ORDER BY t.city</span>
-</span><span id="L-186"><a href="#L-186"><span class="linenos">186</span></a><span class="s2">    """</span>
-</span><span id="L-187"><a href="#L-187"><span class="linenos">187</span></a>
-</span><span id="L-188"><a href="#L-188"><span class="linenos">188</span></a>
-</span><span id="L-189"><a href="#L-189"><span class="linenos">189</span></a><span class="k">def</span><span class="w"> </span><span class="nf">raten_je_tract</span><span class="p">(</span><span class="n">fact_offense</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dim_tract_acs</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-</span><span id="L-190"><a href="#L-190"><span class="linenos">190</span></a>                   <span class="n">jahr</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">RATENJAHR</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="L-191"><a href="#L-191"><span class="linenos">191</span></a><span class="w">    </span><span class="sd">"""Taten, Faelle, Einwohner und beide Raten **je Tract** - fuer ein Jahr.</span>
-</span><span id="L-192"><a href="#L-192"><span class="linenos">192</span></a>
-</span><span id="L-193"><a href="#L-193"><span class="linenos">193</span></a><span class="sd">    Das Gegenstueck zu ``raten_je_stadt`` eine Ebene tiefer, und sie liegt</span>
-</span><span id="L-194"><a href="#L-194"><span class="linenos">194</span></a><span class="sd">    hier aus demselben Grund: Seit dem 11.10.2026 zeigt eine Kibana-Kachel</span>
-</span><span id="L-195"><a href="#L-195"><span class="linenos">195</span></a><span class="sd">    die hoechsten Tract-Raten, und ein Waechter haelt sie dagegen. Stuende</span>
-</span><span id="L-196"><a href="#L-196"><span class="linenos">196</span></a><span class="sd">    die Abfrage im Waechter, waere sie eine Kopie der Kachel - und beide</span>
-</span><span id="L-197"><a href="#L-197"><span class="linenos">197</span></a><span class="sd">    koennten gemeinsam falsch sein, ohne dass etwas auffaellt.</span>
-</span><span id="L-198"><a href="#L-198"><span class="linenos">198</span></a>
-</span><span id="L-199"><a href="#L-199"><span class="linenos">199</span></a><span class="sd">    **Tracts ohne Einwohner sind nicht enthalten.** Fuer sie ist keine Rate</span>
-</span><span id="L-200"><a href="#L-200"><span class="linenos">200</span></a><span class="sd">    definiert; eine gezeigte Null laese sich als Sicherheit, wo in</span>
-</span><span id="L-201"><a href="#L-201"><span class="linenos">201</span></a><span class="sd">    Wirklichkeit niemand wohnt - Flughaefen, Parks, Gewerbegebiete. Sie</span>
-</span><span id="L-202"><a href="#L-202"><span class="linenos">202</span></a><span class="sd">    werden gezaehlt, nicht dividiert.</span>
-</span><span id="L-203"><a href="#L-203"><span class="linenos">203</span></a>
-</span><span id="L-204"><a href="#L-204"><span class="linenos">204</span></a><span class="sd">    **Gruppiert wird nach ``reporting_city``**, nicht nach der Stadtzuordnung</span>
-</span><span id="L-205"><a href="#L-205"><span class="linenos">205</span></a><span class="sd">    des Tracts wie in ``raten_je_stadt``: Auf Tract-Ebene ist die Frage</span>
-</span><span id="L-206"><a href="#L-206"><span class="linenos">206</span></a><span class="sd">    "welche Stadt hat das gemeldet", und ``geo_status = 'inside_city'``</span>
-</span><span id="L-207"><a href="#L-207"><span class="linenos">207</span></a><span class="sd">    stellt ohnehin sicher, dass der Tract im Gebiet dieser Stadt liegt.</span>
-</span><span id="L-208"><a href="#L-208"><span class="linenos">208</span></a>
-</span><span id="L-209"><a href="#L-209"><span class="linenos">209</span></a><span class="sd">    Die Spalten: ``stadt``, ``geoid``, ``faelle``, ``rate_fallebene``,</span>
-</span><span id="L-210"><a href="#L-210"><span class="linenos">210</span></a><span class="sd">    ``taten``, ``rate_tatebene``, ``einwohner`` - dieselben Namen wie in der</span>
-</span><span id="L-211"><a href="#L-211"><span class="linenos">211</span></a><span class="sd">    Kachel, damit der Vergleich keine Umbenennung braucht. Zurueck kommen</span>
-</span><span id="L-212"><a href="#L-212"><span class="linenos">212</span></a><span class="sd">    **alle** Tracts, absteigend nach der Fallebene; die Kachel schneidet</span>
-</span><span id="L-213"><a href="#L-213"><span class="linenos">213</span></a><span class="sd">    selbst ab.</span>
-</span><span id="L-214"><a href="#L-214"><span class="linenos">214</span></a><span class="sd">    """</span>
-</span><span id="L-215"><a href="#L-215"><span class="linenos">215</span></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">"""</span>
-</span><span id="L-216"><a href="#L-216"><span class="linenos">216</span></a><span class="s2">        SELECT f.reporting_city                                   AS stadt,</span>
-</span><span id="L-217"><a href="#L-217"><span class="linenos">217</span></a><span class="s2">               f.tract_geoid                                      AS geoid,</span>
-</span><span id="L-218"><a href="#L-218"><span class="linenos">218</span></a><span class="s2">               count(*) FILTER (f.counts_case)                     AS faelle,</span>
-</span><span id="L-219"><a href="#L-219"><span class="linenos">219</span></a><span class="s2">               round(count(*) FILTER (f.counts_case) * 1000.0</span>
-</span><span id="L-220"><a href="#L-220"><span class="linenos">220</span></a><span class="s2">                     / any_value(a.population), 1)                AS rate_fallebene,</span>
-</span><span id="L-221"><a href="#L-221"><span class="linenos">221</span></a><span class="s2">               count(*)                                           AS taten,</span>
-</span><span id="L-222"><a href="#L-222"><span class="linenos">222</span></a><span class="s2">               round(count(*) * 1000.0</span>
-</span><span id="L-223"><a href="#L-223"><span class="linenos">223</span></a><span class="s2">                     / any_value(a.population), 1)                AS rate_tatebene,</span>
-</span><span id="L-224"><a href="#L-224"><span class="linenos">224</span></a><span class="s2">               any_value(a.population)                            AS einwohner</span>
-</span><span id="L-225"><a href="#L-225"><span class="linenos">225</span></a><span class="s2">        FROM </span><span class="si">{</span><span class="n">fact_offense</span><span class="si">}</span><span class="s2"> f</span>
-</span><span id="L-226"><a href="#L-226"><span class="linenos">226</span></a><span class="s2">        JOIN </span><span class="si">{</span><span class="n">dim_tract_acs</span><span class="si">}</span><span class="s2"> a</span>
-</span><span id="L-227"><a href="#L-227"><span class="linenos">227</span></a><span class="s2">          ON a.geoid = f.tract_geoid AND a.vintage = f.population_vintage</span>
-</span><span id="L-228"><a href="#L-228"><span class="linenos">228</span></a><span class="s2">        WHERE year(f.date) = </span><span class="si">{</span><span class="n">jahr</span><span class="si">}</span>
-</span><span id="L-229"><a href="#L-229"><span class="linenos">229</span></a><span class="s2">          AND f.geo_status = 'inside_city'</span>
-</span><span id="L-230"><a href="#L-230"><span class="linenos">230</span></a><span class="s2">          AND a.population &gt; 0</span>
-</span><span id="L-231"><a href="#L-231"><span class="linenos">231</span></a><span class="s2">        GROUP BY f.reporting_city, f.tract_geoid</span>
-</span><span id="L-232"><a href="#L-232"><span class="linenos">232</span></a><span class="s2">        ORDER BY rate_fallebene DESC, geoid</span>
-</span><span id="L-233"><a href="#L-233"><span class="linenos">233</span></a><span class="s2">    """</span>
-</span><span id="L-234"><a href="#L-234"><span class="linenos">234</span></a>
-</span><span id="L-235"><a href="#L-235"><span class="linenos">235</span></a>
-</span><span id="L-236"><a href="#L-236"><span class="linenos">236</span></a><span class="k">def</span><span class="w"> </span><span class="nf">einwohner_je_stadt</span><span class="p">(</span><span class="n">dim_tract</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dim_tract_acs</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-</span><span id="L-237"><a href="#L-237"><span class="linenos">237</span></a>                       <span class="n">vintage</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"d.reference_vintage"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="L-238"><a href="#L-238"><span class="linenos">238</span></a><span class="w">    </span><span class="sd">"""Die Einwohnerzahl je Stadt - der Nenner jeder Rate dieses Projekts.</span>
-</span><span id="L-239"><a href="#L-239"><span class="linenos">239</span></a>
-</span><span id="L-240"><a href="#L-240"><span class="linenos">240</span></a><span class="sd">    Seit Vertrag 6 liegen die ACS-Masse je Vintage in ``dim_tract_acs``,</span>
-</span><span id="L-241"><a href="#L-241"><span class="linenos">241</span></a><span class="sd">    waehrend ``dim_tract`` die Stadtzuordnung traegt. Der Nenner entsteht</span>
-</span><span id="L-242"><a href="#L-242"><span class="linenos">242</span></a><span class="sd">    deshalb aus einem Verbund ueber **geoid und vintage**. Ohne das zweite</span>
-</span><span id="L-243"><a href="#L-243"><span class="linenos">243</span></a><span class="sd">    Praedikat summiert die Abfrage jeden Tract so oft, wie Vintages geladen</span>
-</span><span id="L-244"><a href="#L-244"><span class="linenos">244</span></a><span class="sd">    sind - und das Ergebnis sieht aus wie eine Zahl.</span>
-</span><span id="L-245"><a href="#L-245"><span class="linenos">245</span></a>
-</span><span id="L-246"><a href="#L-246"><span class="linenos">246</span></a><span class="sd">    Die Regel steht deshalb hier und nicht bei ihren Benutzern: Gebraucht wird</span>
-</span><span id="L-247"><a href="#L-247"><span class="linenos">247</span></a><span class="sd">    sie im Driftbericht, auf der Einstiegsseite und in sechs Waechtern, die die</span>
-</span><span id="L-248"><a href="#L-248"><span class="linenos">248</span></a><span class="sd">    Raten in den Abgabedokumenten halten. Neun Fassungen waeren acht zu viel.</span>
-</span><span id="L-249"><a href="#L-249"><span class="linenos">249</span></a>
-</span><span id="L-250"><a href="#L-250"><span class="linenos">250</span></a><span class="sd">    ``dim_tract`` und ``dim_tract_acs`` sind Relationsausdruecke - Tabellennamen</span>
-</span><span id="L-251"><a href="#L-251"><span class="linenos">251</span></a><span class="sd">    oder ``read_parquet('...')``. ``vintage`` waehlt den Jahrgang; die Vorgabe</span>
-</span><span id="L-252"><a href="#L-252"><span class="linenos">252</span></a><span class="sd">    nimmt das Referenz-Vintage der Stadtzuordnung, also denselben Stand, aus dem</span>
-</span><span id="L-253"><a href="#L-253"><span class="linenos">253</span></a><span class="sd">    ``city`` kommt.</span>
-</span><span id="L-254"><a href="#L-254"><span class="linenos">254</span></a>
-</span><span id="L-255"><a href="#L-255"><span class="linenos">255</span></a><span class="sd">    **Gezaehlt wird jeder Tract mit Stadtzuordnung**, auch einer ohne eine</span>
-</span><span id="L-256"><a href="#L-256"><span class="linenos">256</span></a><span class="sd">    einzige Tat. Die ES|QL-Kachel im Dashboard (``serving.build_kibana``)</span>
-</span><span id="L-257"><a href="#L-257"><span class="linenos">257</span></a><span class="sd">    kommt ueber ``LOOKUP JOIN`` von den Taten her und summiert deshalb nur</span>
-</span><span id="L-258"><a href="#L-258"><span class="linenos">258</span></a><span class="sd">    ueber Tracts, die im Jahrgang mindestens eine tragen. Am 11.10.2026 ergeben</span>
-</span><span id="L-259"><a href="#L-259"><span class="linenos">259</span></a><span class="sd">    beide Wege denselben Nenner (2'661'953 und 638'635); ein Tract-Jahr ohne</span>
-</span><span id="L-260"><a href="#L-260"><span class="linenos">260</span></a><span class="sd">    Tat liesse sie auseinanderlaufen, und dann weicht die Dashboardzahl von</span>
-</span><span id="L-261"><a href="#L-261"><span class="linenos">261</span></a><span class="sd">    der Dokumentzahl ab, ohne dass eine von beiden falsch gerechnet waere.</span>
-</span><span id="L-262"><a href="#L-262"><span class="linenos">262</span></a><span class="sd">    """</span>
-</span><span id="L-263"><a href="#L-263"><span class="linenos">263</span></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">"""</span>
-</span><span id="L-264"><a href="#L-264"><span class="linenos">264</span></a><span class="s2">        SELECT d.city AS city, sum(a.population) AS n</span>
-</span><span id="L-265"><a href="#L-265"><span class="linenos">265</span></a><span class="s2">        FROM </span><span class="si">{</span><span class="n">dim_tract</span><span class="si">}</span><span class="s2"> d</span>
-</span><span id="L-266"><a href="#L-266"><span class="linenos">266</span></a><span class="s2">        JOIN </span><span class="si">{</span><span class="n">dim_tract_acs</span><span class="si">}</span><span class="s2"> a</span>
-</span><span id="L-267"><a href="#L-267"><span class="linenos">267</span></a><span class="s2">          ON a.geoid = d.geoid AND a.vintage = </span><span class="si">{</span><span class="n">vintage</span><span class="si">}</span>
-</span><span id="L-268"><a href="#L-268"><span class="linenos">268</span></a><span class="s2">        WHERE d.city IS NOT NULL</span>
-</span><span id="L-269"><a href="#L-269"><span class="linenos">269</span></a><span class="s2">        GROUP BY d.city</span>
-</span><span id="L-270"><a href="#L-270"><span class="linenos">270</span></a><span class="s2">    """</span>
+</span><span id="L-109"><a href="#L-109"><span class="linenos">109</span></a>    <span class="c1"># Seit Vertrag 11 (25.11.2026).</span>
+</span><span id="L-110"><a href="#L-110"><span class="linenos">110</span></a>    <span class="s2">"dim_police_area"</span><span class="p">,</span> <span class="s2">"bridge_tract_police_area"</span><span class="p">,</span>
+</span><span id="L-111"><a href="#L-111"><span class="linenos">111</span></a><span class="p">)</span>
+</span><span id="L-112"><a href="#L-112"><span class="linenos">112</span></a>
+</span><span id="L-113"><a href="#L-113"><span class="linenos">113</span></a>
+</span><span id="L-114"><a href="#L-114"><span class="linenos">114</span></a><span class="k">def</span><span class="w"> </span><span class="nf">table_dir</span><span class="p">(</span><span class="n">data_root</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+</span><span id="L-115"><a href="#L-115"><span class="linenos">115</span></a><span class="w">    </span><span class="sd">"""Wohin eine Gold-Tabelle geschrieben wird."""</span>
+</span><span id="L-116"><a href="#L-116"><span class="linenos">116</span></a>    <span class="k">return</span> <span class="n">data_root</span> <span class="o">/</span> <span class="n">GOLD_LAYER</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"dataset=</span><span class="si">{</span><span class="n">table</span><span class="si">}</span><span class="s2">"</span>
+</span><span id="L-117"><a href="#L-117"><span class="linenos">117</span></a>
+</span><span id="L-118"><a href="#L-118"><span class="linenos">118</span></a>
+</span><span id="L-119"><a href="#L-119"><span class="linenos">119</span></a><span class="c1">#: Das Jahr, fuer das die Abgabedokumente ihre Raten je 1'000 Einwohner nennen.</span>
+</span><span id="L-120"><a href="#L-120"><span class="linenos">120</span></a><span class="c1">#:</span>
+</span><span id="L-121"><a href="#L-121"><span class="linenos">121</span></a><span class="c1">#: Eine Rate braucht einen Zeitraum, sonst ist sie keine. Bis zum 4.10.2026</span>
+</span><span id="L-122"><a href="#L-122"><span class="linenos">122</span></a><span class="c1">#: stand in den Dokumenten "Chicago 94,5 je 1'000" ohne Jahr, und das ging,</span>
+</span><span id="L-123"><a href="#L-123"><span class="linenos">123</span></a><span class="c1">#: weil genau ein Jahrgang gebaut war. Seit dem Mehrjahresbau zaehlt dieselbe</span>
+</span><span id="L-124"><a href="#L-124"><span class="linenos">124</span></a><span class="c1">#: Abfrage sechs Jahrgaenge zusammen: 500,7 je 1'000 fuer Chicago - eine Zahl,</span>
+</span><span id="L-125"><a href="#L-125"><span class="linenos">125</span></a><span class="c1">#: die nicht zu hoch ist, sondern **nichts bedeutet**, weil ihr Zaehler sechs</span>
+</span><span id="L-126"><a href="#L-126"><span class="linenos">126</span></a><span class="c1">#: Jahre und ihr Nenner eines umfasst.</span>
+</span><span id="L-127"><a href="#L-127"><span class="linenos">127</span></a><span class="c1">#:</span>
+</span><span id="L-128"><a href="#L-128"><span class="linenos">128</span></a><span class="c1">#: 2024 bleibt das Bezugsjahr: Es ist der Jahrgang, auf den die Fragestellung</span>
+</span><span id="L-129"><a href="#L-129"><span class="linenos">129</span></a><span class="c1">#: und die Hypothesen gestellt sind, und der juengste, der vollstaendig</span>
+</span><span id="L-130"><a href="#L-130"><span class="linenos">130</span></a><span class="c1">#: vorliegt (2025 und 2026 sind es nicht - ``dim_date.year_is_complete``</span>
+</span><span id="L-131"><a href="#L-131"><span class="linenos">131</span></a><span class="c1">#: sagt es je Tag). Eine Tabelle mit einer Rate je Jahr waere das Bessere und</span>
+</span><span id="L-132"><a href="#L-132"><span class="linenos">132</span></a><span class="c1">#: ist nicht dasselbe; sie steht aus.</span>
+</span><span id="L-133"><a href="#L-133"><span class="linenos">133</span></a><span class="n">RATENJAHR</span> <span class="o">=</span> <span class="mi">2024</span>
+</span><span id="L-134"><a href="#L-134"><span class="linenos">134</span></a>
+</span><span id="L-135"><a href="#L-135"><span class="linenos">135</span></a>
+</span><span id="L-136"><a href="#L-136"><span class="linenos">136</span></a><span class="k">def</span><span class="w"> </span><span class="nf">raten_je_stadt</span><span class="p">(</span><span class="n">fact_offense</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dim_tract</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dim_tract_acs</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span id="L-137"><a href="#L-137"><span class="linenos">137</span></a>                   <span class="n">jahr</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">RATENJAHR</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="L-138"><a href="#L-138"><span class="linenos">138</span></a><span class="w">    </span><span class="sd">"""Delikte, Faelle, Einwohner und die beiden Raten je Stadt - fuer **ein** Jahr.</span>
+</span><span id="L-139"><a href="#L-139"><span class="linenos">139</span></a>
+</span><span id="L-140"><a href="#L-140"><span class="linenos">140</span></a><span class="sd">    Die Abfrage, die hinter jeder Ratenzeile der Abgabedokumente steht. Sie</span>
+</span><span id="L-141"><a href="#L-141"><span class="linenos">141</span></a><span class="sd">    liegt hier und nicht bei ihren Benutzern, aus demselben Grund wie</span>
+</span><span id="L-142"><a href="#L-142"><span class="linenos">142</span></a><span class="sd">    ``einwohner_je_stadt``: Gebraucht wird sie im Driftbericht, auf der</span>
+</span><span id="L-143"><a href="#L-143"><span class="linenos">143</span></a><span class="sd">    Einstiegsseite und in den Waechtern ueber ``ln2_konzept.md``, ``README.md``,</span>
+</span><span id="L-144"><a href="#L-144"><span class="linenos">144</span></a><span class="sd">    ``AENDERUNGEN.md`` und ``eine-zahl.md``. Sechs Fassungen waeren fuenf zu</span>
+</span><span id="L-145"><a href="#L-145"><span class="linenos">145</span></a><span class="sd">    viel - und waeren sie es, wuerde eine davon den Jahresfilter vergessen.</span>
+</span><span id="L-146"><a href="#L-146"><span class="linenos">146</span></a>
+</span><span id="L-147"><a href="#L-147"><span class="linenos">147</span></a><span class="sd">    **Gezaehlt wird nach Ortszeit** (``fact_offense.date``), nicht nach UTC:</span>
+</span><span id="L-148"><a href="#L-148"><span class="linenos">148</span></a><span class="sd">    Dieselbe Achse, auf der die Jahrgaenge geladen sind.</span>
+</span><span id="L-149"><a href="#L-149"><span class="linenos">149</span></a>
+</span><span id="L-150"><a href="#L-150"><span class="linenos">150</span></a><span class="sd">    **Der Nenner ist der der Zeile**, nicht der der Tabelle: ``population_vintage``</span>
+</span><span id="L-151"><a href="#L-151"><span class="linenos">151</span></a><span class="sd">    nennt je Tat, welches ACS-Vintage fuer sie gilt, und der Verbund nimmt genau</span>
+</span><span id="L-152"><a href="#L-152"><span class="linenos">152</span></a><span class="sd">    dieses. Ein Jahr, dessen Taten alle dasselbe Vintage tragen, bekommt damit</span>
+</span><span id="L-153"><a href="#L-153"><span class="linenos">153</span></a><span class="sd">    einen Nenner - haette ein Jahr gemischte Vintages, waere die Rate nicht</span>
+</span><span id="L-154"><a href="#L-154"><span class="linenos">154</span></a><span class="sd">    definiert, und die Abfrage ergaebe dann mehr als eine Zeile je Stadt, statt</span>
+</span><span id="L-155"><a href="#L-155"><span class="linenos">155</span></a><span class="sd">    stillschweigend eines davon zu nehmen.</span>
+</span><span id="L-156"><a href="#L-156"><span class="linenos">156</span></a>
+</span><span id="L-157"><a href="#L-157"><span class="linenos">157</span></a><span class="sd">    Die Spalten: ``city``, ``delikte``, ``faelle``, ``einwohner``, ``rate``,</span>
+</span><span id="L-158"><a href="#L-158"><span class="linenos">158</span></a><span class="sd">    ``rate_fallebene``. Gezaehlt werden nur Taten in einem Tract, der einer der</span>
+</span><span id="L-159"><a href="#L-159"><span class="linenos">159</span></a><span class="sd">    beiden Staedte zugeordnet ist - derselbe Ausschnitt, fuer den der Nenner</span>
+</span><span id="L-160"><a href="#L-160"><span class="linenos">160</span></a><span class="sd">    gilt.</span>
+</span><span id="L-161"><a href="#L-161"><span class="linenos">161</span></a><span class="sd">    """</span>
+</span><span id="L-162"><a href="#L-162"><span class="linenos">162</span></a>    <span class="c1"># Der Nenner kommt aus ``einwohner_je_stadt`` - mit dem Vintage, das die</span>
+</span><span id="L-163"><a href="#L-163"><span class="linenos">163</span></a>    <span class="c1"># Taten dieses Jahres selbst nennen, statt mit dem Referenz-Vintage der</span>
+</span><span id="L-164"><a href="#L-164"><span class="linenos">164</span></a>    <span class="c1"># Stadtzuordnung. Beide sind fuer 2024 dasselbe; fuer 2025 und 2026 nicht,</span>
+</span><span id="L-165"><a href="#L-165"><span class="linenos">165</span></a>    <span class="c1"># und dort ist genau das die Aussage: Eine Rate fuer 2026 ruht auf der</span>
+</span><span id="L-166"><a href="#L-166"><span class="linenos">166</span></a>    <span class="c1"># Bevoelkerung von 2024, weil es keine neuere gibt.</span>
+</span><span id="L-167"><a href="#L-167"><span class="linenos">167</span></a>    <span class="n">nenner</span> <span class="o">=</span> <span class="n">einwohner_je_stadt</span><span class="p">(</span>
+</span><span id="L-168"><a href="#L-168"><span class="linenos">168</span></a>        <span class="n">dim_tract</span><span class="p">,</span> <span class="n">dim_tract_acs</span><span class="p">,</span>
+</span><span id="L-169"><a href="#L-169"><span class="linenos">169</span></a>        <span class="s2">"(SELECT any_value(population_vintage) FROM j)"</span><span class="p">,</span>
+</span><span id="L-170"><a href="#L-170"><span class="linenos">170</span></a>    <span class="p">)</span>
+</span><span id="L-171"><a href="#L-171"><span class="linenos">171</span></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">"""</span>
+</span><span id="L-172"><a href="#L-172"><span class="linenos">172</span></a><span class="s2">        WITH j AS (</span>
+</span><span id="L-173"><a href="#L-173"><span class="linenos">173</span></a><span class="s2">            SELECT * FROM </span><span class="si">{</span><span class="n">fact_offense</span><span class="si">}</span><span class="s2"> WHERE year(date) = </span><span class="si">{</span><span class="n">jahr</span><span class="si">}</span>
+</span><span id="L-174"><a href="#L-174"><span class="linenos">174</span></a><span class="s2">        ), e AS (</span><span class="si">{</span><span class="n">nenner</span><span class="si">}</span><span class="s2">)</span>
+</span><span id="L-175"><a href="#L-175"><span class="linenos">175</span></a><span class="s2">        SELECT t.city                                            AS city,</span>
+</span><span id="L-176"><a href="#L-176"><span class="linenos">176</span></a><span class="s2">               count(*)                                          AS delikte,</span>
+</span><span id="L-177"><a href="#L-177"><span class="linenos">177</span></a><span class="s2">               count(*) FILTER (f.counts_case)                   AS faelle,</span>
+</span><span id="L-178"><a href="#L-178"><span class="linenos">178</span></a><span class="s2">               any_value(e.n)                                    AS einwohner,</span>
+</span><span id="L-179"><a href="#L-179"><span class="linenos">179</span></a><span class="s2">               round(count(*) * 1000.0 / any_value(e.n), 1)      AS rate,</span>
+</span><span id="L-180"><a href="#L-180"><span class="linenos">180</span></a><span class="s2">               round(count(*) FILTER (f.counts_case) * 1000.0</span>
+</span><span id="L-181"><a href="#L-181"><span class="linenos">181</span></a><span class="s2">                     / any_value(e.n), 1)                        AS rate_fallebene</span>
+</span><span id="L-182"><a href="#L-182"><span class="linenos">182</span></a><span class="s2">        FROM j f</span>
+</span><span id="L-183"><a href="#L-183"><span class="linenos">183</span></a><span class="s2">        JOIN </span><span class="si">{</span><span class="n">dim_tract</span><span class="si">}</span><span class="s2"> t ON t.geoid = f.tract_geoid</span>
+</span><span id="L-184"><a href="#L-184"><span class="linenos">184</span></a><span class="s2">        JOIN e ON e.city = t.city</span>
+</span><span id="L-185"><a href="#L-185"><span class="linenos">185</span></a><span class="s2">        WHERE t.city IS NOT NULL</span>
+</span><span id="L-186"><a href="#L-186"><span class="linenos">186</span></a><span class="s2">        GROUP BY t.city</span>
+</span><span id="L-187"><a href="#L-187"><span class="linenos">187</span></a><span class="s2">        ORDER BY t.city</span>
+</span><span id="L-188"><a href="#L-188"><span class="linenos">188</span></a><span class="s2">    """</span>
+</span><span id="L-189"><a href="#L-189"><span class="linenos">189</span></a>
+</span><span id="L-190"><a href="#L-190"><span class="linenos">190</span></a>
+</span><span id="L-191"><a href="#L-191"><span class="linenos">191</span></a><span class="k">def</span><span class="w"> </span><span class="nf">raten_je_tract</span><span class="p">(</span><span class="n">fact_offense</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dim_tract_acs</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span id="L-192"><a href="#L-192"><span class="linenos">192</span></a>                   <span class="n">jahr</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">RATENJAHR</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="L-193"><a href="#L-193"><span class="linenos">193</span></a><span class="w">    </span><span class="sd">"""Taten, Faelle, Einwohner und beide Raten **je Tract** - fuer ein Jahr.</span>
+</span><span id="L-194"><a href="#L-194"><span class="linenos">194</span></a>
+</span><span id="L-195"><a href="#L-195"><span class="linenos">195</span></a><span class="sd">    Das Gegenstueck zu ``raten_je_stadt`` eine Ebene tiefer, und sie liegt</span>
+</span><span id="L-196"><a href="#L-196"><span class="linenos">196</span></a><span class="sd">    hier aus demselben Grund: Seit dem 11.10.2026 zeigt eine Kibana-Kachel</span>
+</span><span id="L-197"><a href="#L-197"><span class="linenos">197</span></a><span class="sd">    die hoechsten Tract-Raten, und ein Waechter haelt sie dagegen. Stuende</span>
+</span><span id="L-198"><a href="#L-198"><span class="linenos">198</span></a><span class="sd">    die Abfrage im Waechter, waere sie eine Kopie der Kachel - und beide</span>
+</span><span id="L-199"><a href="#L-199"><span class="linenos">199</span></a><span class="sd">    koennten gemeinsam falsch sein, ohne dass etwas auffaellt.</span>
+</span><span id="L-200"><a href="#L-200"><span class="linenos">200</span></a>
+</span><span id="L-201"><a href="#L-201"><span class="linenos">201</span></a><span class="sd">    **Tracts ohne Einwohner sind nicht enthalten.** Fuer sie ist keine Rate</span>
+</span><span id="L-202"><a href="#L-202"><span class="linenos">202</span></a><span class="sd">    definiert; eine gezeigte Null laese sich als Sicherheit, wo in</span>
+</span><span id="L-203"><a href="#L-203"><span class="linenos">203</span></a><span class="sd">    Wirklichkeit niemand wohnt - Flughaefen, Parks, Gewerbegebiete. Sie</span>
+</span><span id="L-204"><a href="#L-204"><span class="linenos">204</span></a><span class="sd">    werden gezaehlt, nicht dividiert.</span>
+</span><span id="L-205"><a href="#L-205"><span class="linenos">205</span></a>
+</span><span id="L-206"><a href="#L-206"><span class="linenos">206</span></a><span class="sd">    **Gruppiert wird nach ``reporting_city``**, nicht nach der Stadtzuordnung</span>
+</span><span id="L-207"><a href="#L-207"><span class="linenos">207</span></a><span class="sd">    des Tracts wie in ``raten_je_stadt``: Auf Tract-Ebene ist die Frage</span>
+</span><span id="L-208"><a href="#L-208"><span class="linenos">208</span></a><span class="sd">    "welche Stadt hat das gemeldet", und ``geo_status = 'inside_city'``</span>
+</span><span id="L-209"><a href="#L-209"><span class="linenos">209</span></a><span class="sd">    stellt ohnehin sicher, dass der Tract im Gebiet dieser Stadt liegt.</span>
+</span><span id="L-210"><a href="#L-210"><span class="linenos">210</span></a>
+</span><span id="L-211"><a href="#L-211"><span class="linenos">211</span></a><span class="sd">    Die Spalten: ``stadt``, ``geoid``, ``faelle``, ``rate_fallebene``,</span>
+</span><span id="L-212"><a href="#L-212"><span class="linenos">212</span></a><span class="sd">    ``taten``, ``rate_tatebene``, ``einwohner`` - dieselben Namen wie in der</span>
+</span><span id="L-213"><a href="#L-213"><span class="linenos">213</span></a><span class="sd">    Kachel, damit der Vergleich keine Umbenennung braucht. Zurueck kommen</span>
+</span><span id="L-214"><a href="#L-214"><span class="linenos">214</span></a><span class="sd">    **alle** Tracts, absteigend nach der Fallebene; die Kachel schneidet</span>
+</span><span id="L-215"><a href="#L-215"><span class="linenos">215</span></a><span class="sd">    selbst ab.</span>
+</span><span id="L-216"><a href="#L-216"><span class="linenos">216</span></a><span class="sd">    """</span>
+</span><span id="L-217"><a href="#L-217"><span class="linenos">217</span></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">"""</span>
+</span><span id="L-218"><a href="#L-218"><span class="linenos">218</span></a><span class="s2">        SELECT f.reporting_city                                   AS stadt,</span>
+</span><span id="L-219"><a href="#L-219"><span class="linenos">219</span></a><span class="s2">               f.tract_geoid                                      AS geoid,</span>
+</span><span id="L-220"><a href="#L-220"><span class="linenos">220</span></a><span class="s2">               count(*) FILTER (f.counts_case)                     AS faelle,</span>
+</span><span id="L-221"><a href="#L-221"><span class="linenos">221</span></a><span class="s2">               round(count(*) FILTER (f.counts_case) * 1000.0</span>
+</span><span id="L-222"><a href="#L-222"><span class="linenos">222</span></a><span class="s2">                     / any_value(a.population), 1)                AS rate_fallebene,</span>
+</span><span id="L-223"><a href="#L-223"><span class="linenos">223</span></a><span class="s2">               count(*)                                           AS taten,</span>
+</span><span id="L-224"><a href="#L-224"><span class="linenos">224</span></a><span class="s2">               round(count(*) * 1000.0</span>
+</span><span id="L-225"><a href="#L-225"><span class="linenos">225</span></a><span class="s2">                     / any_value(a.population), 1)                AS rate_tatebene,</span>
+</span><span id="L-226"><a href="#L-226"><span class="linenos">226</span></a><span class="s2">               any_value(a.population)                            AS einwohner</span>
+</span><span id="L-227"><a href="#L-227"><span class="linenos">227</span></a><span class="s2">        FROM </span><span class="si">{</span><span class="n">fact_offense</span><span class="si">}</span><span class="s2"> f</span>
+</span><span id="L-228"><a href="#L-228"><span class="linenos">228</span></a><span class="s2">        JOIN </span><span class="si">{</span><span class="n">dim_tract_acs</span><span class="si">}</span><span class="s2"> a</span>
+</span><span id="L-229"><a href="#L-229"><span class="linenos">229</span></a><span class="s2">          ON a.geoid = f.tract_geoid AND a.vintage = f.population_vintage</span>
+</span><span id="L-230"><a href="#L-230"><span class="linenos">230</span></a><span class="s2">        WHERE year(f.date) = </span><span class="si">{</span><span class="n">jahr</span><span class="si">}</span>
+</span><span id="L-231"><a href="#L-231"><span class="linenos">231</span></a><span class="s2">          AND f.geo_status = 'inside_city'</span>
+</span><span id="L-232"><a href="#L-232"><span class="linenos">232</span></a><span class="s2">          AND a.population &gt; 0</span>
+</span><span id="L-233"><a href="#L-233"><span class="linenos">233</span></a><span class="s2">        GROUP BY f.reporting_city, f.tract_geoid</span>
+</span><span id="L-234"><a href="#L-234"><span class="linenos">234</span></a><span class="s2">        ORDER BY rate_fallebene DESC, geoid</span>
+</span><span id="L-235"><a href="#L-235"><span class="linenos">235</span></a><span class="s2">    """</span>
+</span><span id="L-236"><a href="#L-236"><span class="linenos">236</span></a>
+</span><span id="L-237"><a href="#L-237"><span class="linenos">237</span></a>
+</span><span id="L-238"><a href="#L-238"><span class="linenos">238</span></a><span class="k">def</span><span class="w"> </span><span class="nf">einwohner_je_stadt</span><span class="p">(</span><span class="n">dim_tract</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dim_tract_acs</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span id="L-239"><a href="#L-239"><span class="linenos">239</span></a>                       <span class="n">vintage</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"d.reference_vintage"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="L-240"><a href="#L-240"><span class="linenos">240</span></a><span class="w">    </span><span class="sd">"""Die Einwohnerzahl je Stadt - der Nenner jeder Rate dieses Projekts.</span>
+</span><span id="L-241"><a href="#L-241"><span class="linenos">241</span></a>
+</span><span id="L-242"><a href="#L-242"><span class="linenos">242</span></a><span class="sd">    Seit Vertrag 6 liegen die ACS-Masse je Vintage in ``dim_tract_acs``,</span>
+</span><span id="L-243"><a href="#L-243"><span class="linenos">243</span></a><span class="sd">    waehrend ``dim_tract`` die Stadtzuordnung traegt. Der Nenner entsteht</span>
+</span><span id="L-244"><a href="#L-244"><span class="linenos">244</span></a><span class="sd">    deshalb aus einem Verbund ueber **geoid und vintage**. Ohne das zweite</span>
+</span><span id="L-245"><a href="#L-245"><span class="linenos">245</span></a><span class="sd">    Praedikat summiert die Abfrage jeden Tract so oft, wie Vintages geladen</span>
+</span><span id="L-246"><a href="#L-246"><span class="linenos">246</span></a><span class="sd">    sind - und das Ergebnis sieht aus wie eine Zahl.</span>
+</span><span id="L-247"><a href="#L-247"><span class="linenos">247</span></a>
+</span><span id="L-248"><a href="#L-248"><span class="linenos">248</span></a><span class="sd">    Die Regel steht deshalb hier und nicht bei ihren Benutzern: Gebraucht wird</span>
+</span><span id="L-249"><a href="#L-249"><span class="linenos">249</span></a><span class="sd">    sie im Driftbericht, auf der Einstiegsseite und in sechs Waechtern, die die</span>
+</span><span id="L-250"><a href="#L-250"><span class="linenos">250</span></a><span class="sd">    Raten in den Abgabedokumenten halten. Neun Fassungen waeren acht zu viel.</span>
+</span><span id="L-251"><a href="#L-251"><span class="linenos">251</span></a>
+</span><span id="L-252"><a href="#L-252"><span class="linenos">252</span></a><span class="sd">    ``dim_tract`` und ``dim_tract_acs`` sind Relationsausdruecke - Tabellennamen</span>
+</span><span id="L-253"><a href="#L-253"><span class="linenos">253</span></a><span class="sd">    oder ``read_parquet('...')``. ``vintage`` waehlt den Jahrgang; die Vorgabe</span>
+</span><span id="L-254"><a href="#L-254"><span class="linenos">254</span></a><span class="sd">    nimmt das Referenz-Vintage der Stadtzuordnung, also denselben Stand, aus dem</span>
+</span><span id="L-255"><a href="#L-255"><span class="linenos">255</span></a><span class="sd">    ``city`` kommt.</span>
+</span><span id="L-256"><a href="#L-256"><span class="linenos">256</span></a>
+</span><span id="L-257"><a href="#L-257"><span class="linenos">257</span></a><span class="sd">    **Gezaehlt wird jeder Tract mit Stadtzuordnung**, auch einer ohne eine</span>
+</span><span id="L-258"><a href="#L-258"><span class="linenos">258</span></a><span class="sd">    einzige Tat. Die ES|QL-Kachel im Dashboard (``serving.build_kibana``)</span>
+</span><span id="L-259"><a href="#L-259"><span class="linenos">259</span></a><span class="sd">    kommt ueber ``LOOKUP JOIN`` von den Taten her und summiert deshalb nur</span>
+</span><span id="L-260"><a href="#L-260"><span class="linenos">260</span></a><span class="sd">    ueber Tracts, die im Jahrgang mindestens eine tragen. Am 11.10.2026 ergeben</span>
+</span><span id="L-261"><a href="#L-261"><span class="linenos">261</span></a><span class="sd">    beide Wege denselben Nenner (2'661'953 und 638'635); ein Tract-Jahr ohne</span>
+</span><span id="L-262"><a href="#L-262"><span class="linenos">262</span></a><span class="sd">    Tat liesse sie auseinanderlaufen, und dann weicht die Dashboardzahl von</span>
+</span><span id="L-263"><a href="#L-263"><span class="linenos">263</span></a><span class="sd">    der Dokumentzahl ab, ohne dass eine von beiden falsch gerechnet waere.</span>
+</span><span id="L-264"><a href="#L-264"><span class="linenos">264</span></a><span class="sd">    """</span>
+</span><span id="L-265"><a href="#L-265"><span class="linenos">265</span></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">"""</span>
+</span><span id="L-266"><a href="#L-266"><span class="linenos">266</span></a><span class="s2">        SELECT d.city AS city, sum(a.population) AS n</span>
+</span><span id="L-267"><a href="#L-267"><span class="linenos">267</span></a><span class="s2">        FROM </span><span class="si">{</span><span class="n">dim_tract</span><span class="si">}</span><span class="s2"> d</span>
+</span><span id="L-268"><a href="#L-268"><span class="linenos">268</span></a><span class="s2">        JOIN </span><span class="si">{</span><span class="n">dim_tract_acs</span><span class="si">}</span><span class="s2"> a</span>
+</span><span id="L-269"><a href="#L-269"><span class="linenos">269</span></a><span class="s2">          ON a.geoid = d.geoid AND a.vintage = </span><span class="si">{</span><span class="n">vintage</span><span class="si">}</span>
+</span><span id="L-270"><a href="#L-270"><span class="linenos">270</span></a><span class="s2">        WHERE d.city IS NOT NULL</span>
+</span><span id="L-271"><a href="#L-271"><span class="linenos">271</span></a><span class="s2">        GROUP BY d.city</span>
+</span><span id="L-272"><a href="#L-272"><span class="linenos">272</span></a><span class="s2">    """</span>
 </span></pre></div>
 
 
@@ -556,7 +558,7 @@ aus Silver ableitbar, und die Herkunft steht im Manifest.</p>
                     <div class="attr variable">
             <span class="name">TABELLEN</span><span class="annotation">: tuple[str, ...]</span>        =
 <input id="TABELLEN-view-value" class="view-value-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
-            <label class="view-value-button pdoc-button" for="TABELLEN-view-value"></label><span class="default_value">(&#39;fact_offense&#39;, &#39;dim_tract&#39;, &#39;dim_tract_geo&#39;, &#39;dim_tract_acs&#39;, &#39;dim_offense&#39;, &#39;dim_date&#39;, &#39;dim_city_day&#39;)</span>
+            <label class="view-value-button pdoc-button" for="TABELLEN-view-value"></label><span class="default_value">(&#39;fact_offense&#39;, &#39;dim_tract&#39;, &#39;dim_tract_geo&#39;, &#39;dim_tract_acs&#39;, &#39;dim_offense&#39;, &#39;dim_date&#39;, &#39;dim_city_day&#39;, &#39;dim_police_area&#39;, &#39;bridge_tract_police_area&#39;)</span>
 
         
     </div>
@@ -576,9 +578,9 @@ aus Silver ableitbar, und die Herkunft steht im Manifest.</p>
 
     </div>
     <a class="headerlink" href="#table_dir"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="table_dir-113"><a href="#table_dir-113"><span class="linenos">113</span></a><span class="k">def</span><span class="w"> </span><span class="nf">table_dir</span><span class="p">(</span><span class="n">data_root</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-</span><span id="table_dir-114"><a href="#table_dir-114"><span class="linenos">114</span></a><span class="w">    </span><span class="sd">"""Wohin eine Gold-Tabelle geschrieben wird."""</span>
-</span><span id="table_dir-115"><a href="#table_dir-115"><span class="linenos">115</span></a>    <span class="k">return</span> <span class="n">data_root</span> <span class="o">/</span> <span class="n">GOLD_LAYER</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"dataset=</span><span class="si">{</span><span class="n">table</span><span class="si">}</span><span class="s2">"</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="table_dir-115"><a href="#table_dir-115"><span class="linenos">115</span></a><span class="k">def</span><span class="w"> </span><span class="nf">table_dir</span><span class="p">(</span><span class="n">data_root</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+</span><span id="table_dir-116"><a href="#table_dir-116"><span class="linenos">116</span></a><span class="w">    </span><span class="sd">"""Wohin eine Gold-Tabelle geschrieben wird."""</span>
+</span><span id="table_dir-117"><a href="#table_dir-117"><span class="linenos">117</span></a>    <span class="k">return</span> <span class="n">data_root</span> <span class="o">/</span> <span class="n">GOLD_LAYER</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"dataset=</span><span class="si">{</span><span class="n">table</span><span class="si">}</span><span class="s2">"</span>
 </span></pre></div>
 
 
@@ -610,59 +612,59 @@ aus Silver ableitbar, und die Herkunft steht im Manifest.</p>
 
     </div>
     <a class="headerlink" href="#raten_je_stadt"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="raten_je_stadt-135"><a href="#raten_je_stadt-135"><span class="linenos">135</span></a><span class="k">def</span><span class="w"> </span><span class="nf">raten_je_stadt</span><span class="p">(</span><span class="n">fact_offense</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dim_tract</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dim_tract_acs</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-</span><span id="raten_je_stadt-136"><a href="#raten_je_stadt-136"><span class="linenos">136</span></a>                   <span class="n">jahr</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">RATENJAHR</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="raten_je_stadt-137"><a href="#raten_je_stadt-137"><span class="linenos">137</span></a><span class="w">    </span><span class="sd">"""Delikte, Faelle, Einwohner und die beiden Raten je Stadt - fuer **ein** Jahr.</span>
-</span><span id="raten_je_stadt-138"><a href="#raten_je_stadt-138"><span class="linenos">138</span></a>
-</span><span id="raten_je_stadt-139"><a href="#raten_je_stadt-139"><span class="linenos">139</span></a><span class="sd">    Die Abfrage, die hinter jeder Ratenzeile der Abgabedokumente steht. Sie</span>
-</span><span id="raten_je_stadt-140"><a href="#raten_je_stadt-140"><span class="linenos">140</span></a><span class="sd">    liegt hier und nicht bei ihren Benutzern, aus demselben Grund wie</span>
-</span><span id="raten_je_stadt-141"><a href="#raten_je_stadt-141"><span class="linenos">141</span></a><span class="sd">    ``einwohner_je_stadt``: Gebraucht wird sie im Driftbericht, auf der</span>
-</span><span id="raten_je_stadt-142"><a href="#raten_je_stadt-142"><span class="linenos">142</span></a><span class="sd">    Einstiegsseite und in den Waechtern ueber ``ln2_konzept.md``, ``README.md``,</span>
-</span><span id="raten_je_stadt-143"><a href="#raten_je_stadt-143"><span class="linenos">143</span></a><span class="sd">    ``AENDERUNGEN.md`` und ``eine-zahl.md``. Sechs Fassungen waeren fuenf zu</span>
-</span><span id="raten_je_stadt-144"><a href="#raten_je_stadt-144"><span class="linenos">144</span></a><span class="sd">    viel - und waeren sie es, wuerde eine davon den Jahresfilter vergessen.</span>
-</span><span id="raten_je_stadt-145"><a href="#raten_je_stadt-145"><span class="linenos">145</span></a>
-</span><span id="raten_je_stadt-146"><a href="#raten_je_stadt-146"><span class="linenos">146</span></a><span class="sd">    **Gezaehlt wird nach Ortszeit** (``fact_offense.date``), nicht nach UTC:</span>
-</span><span id="raten_je_stadt-147"><a href="#raten_je_stadt-147"><span class="linenos">147</span></a><span class="sd">    Dieselbe Achse, auf der die Jahrgaenge geladen sind.</span>
-</span><span id="raten_je_stadt-148"><a href="#raten_je_stadt-148"><span class="linenos">148</span></a>
-</span><span id="raten_je_stadt-149"><a href="#raten_je_stadt-149"><span class="linenos">149</span></a><span class="sd">    **Der Nenner ist der der Zeile**, nicht der der Tabelle: ``population_vintage``</span>
-</span><span id="raten_je_stadt-150"><a href="#raten_je_stadt-150"><span class="linenos">150</span></a><span class="sd">    nennt je Tat, welches ACS-Vintage fuer sie gilt, und der Verbund nimmt genau</span>
-</span><span id="raten_je_stadt-151"><a href="#raten_je_stadt-151"><span class="linenos">151</span></a><span class="sd">    dieses. Ein Jahr, dessen Taten alle dasselbe Vintage tragen, bekommt damit</span>
-</span><span id="raten_je_stadt-152"><a href="#raten_je_stadt-152"><span class="linenos">152</span></a><span class="sd">    einen Nenner - haette ein Jahr gemischte Vintages, waere die Rate nicht</span>
-</span><span id="raten_je_stadt-153"><a href="#raten_je_stadt-153"><span class="linenos">153</span></a><span class="sd">    definiert, und die Abfrage ergaebe dann mehr als eine Zeile je Stadt, statt</span>
-</span><span id="raten_je_stadt-154"><a href="#raten_je_stadt-154"><span class="linenos">154</span></a><span class="sd">    stillschweigend eines davon zu nehmen.</span>
-</span><span id="raten_je_stadt-155"><a href="#raten_je_stadt-155"><span class="linenos">155</span></a>
-</span><span id="raten_je_stadt-156"><a href="#raten_je_stadt-156"><span class="linenos">156</span></a><span class="sd">    Die Spalten: ``city``, ``delikte``, ``faelle``, ``einwohner``, ``rate``,</span>
-</span><span id="raten_je_stadt-157"><a href="#raten_je_stadt-157"><span class="linenos">157</span></a><span class="sd">    ``rate_fallebene``. Gezaehlt werden nur Taten in einem Tract, der einer der</span>
-</span><span id="raten_je_stadt-158"><a href="#raten_je_stadt-158"><span class="linenos">158</span></a><span class="sd">    beiden Staedte zugeordnet ist - derselbe Ausschnitt, fuer den der Nenner</span>
-</span><span id="raten_je_stadt-159"><a href="#raten_je_stadt-159"><span class="linenos">159</span></a><span class="sd">    gilt.</span>
-</span><span id="raten_je_stadt-160"><a href="#raten_je_stadt-160"><span class="linenos">160</span></a><span class="sd">    """</span>
-</span><span id="raten_je_stadt-161"><a href="#raten_je_stadt-161"><span class="linenos">161</span></a>    <span class="c1"># Der Nenner kommt aus ``einwohner_je_stadt`` - mit dem Vintage, das die</span>
-</span><span id="raten_je_stadt-162"><a href="#raten_je_stadt-162"><span class="linenos">162</span></a>    <span class="c1"># Taten dieses Jahres selbst nennen, statt mit dem Referenz-Vintage der</span>
-</span><span id="raten_je_stadt-163"><a href="#raten_je_stadt-163"><span class="linenos">163</span></a>    <span class="c1"># Stadtzuordnung. Beide sind fuer 2024 dasselbe; fuer 2025 und 2026 nicht,</span>
-</span><span id="raten_je_stadt-164"><a href="#raten_je_stadt-164"><span class="linenos">164</span></a>    <span class="c1"># und dort ist genau das die Aussage: Eine Rate fuer 2026 ruht auf der</span>
-</span><span id="raten_je_stadt-165"><a href="#raten_je_stadt-165"><span class="linenos">165</span></a>    <span class="c1"># Bevoelkerung von 2024, weil es keine neuere gibt.</span>
-</span><span id="raten_je_stadt-166"><a href="#raten_je_stadt-166"><span class="linenos">166</span></a>    <span class="n">nenner</span> <span class="o">=</span> <span class="n">einwohner_je_stadt</span><span class="p">(</span>
-</span><span id="raten_je_stadt-167"><a href="#raten_je_stadt-167"><span class="linenos">167</span></a>        <span class="n">dim_tract</span><span class="p">,</span> <span class="n">dim_tract_acs</span><span class="p">,</span>
-</span><span id="raten_je_stadt-168"><a href="#raten_je_stadt-168"><span class="linenos">168</span></a>        <span class="s2">"(SELECT any_value(population_vintage) FROM j)"</span><span class="p">,</span>
-</span><span id="raten_je_stadt-169"><a href="#raten_je_stadt-169"><span class="linenos">169</span></a>    <span class="p">)</span>
-</span><span id="raten_je_stadt-170"><a href="#raten_je_stadt-170"><span class="linenos">170</span></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">"""</span>
-</span><span id="raten_je_stadt-171"><a href="#raten_je_stadt-171"><span class="linenos">171</span></a><span class="s2">        WITH j AS (</span>
-</span><span id="raten_je_stadt-172"><a href="#raten_je_stadt-172"><span class="linenos">172</span></a><span class="s2">            SELECT * FROM </span><span class="si">{</span><span class="n">fact_offense</span><span class="si">}</span><span class="s2"> WHERE year(date) = </span><span class="si">{</span><span class="n">jahr</span><span class="si">}</span>
-</span><span id="raten_je_stadt-173"><a href="#raten_je_stadt-173"><span class="linenos">173</span></a><span class="s2">        ), e AS (</span><span class="si">{</span><span class="n">nenner</span><span class="si">}</span><span class="s2">)</span>
-</span><span id="raten_je_stadt-174"><a href="#raten_je_stadt-174"><span class="linenos">174</span></a><span class="s2">        SELECT t.city                                            AS city,</span>
-</span><span id="raten_je_stadt-175"><a href="#raten_je_stadt-175"><span class="linenos">175</span></a><span class="s2">               count(*)                                          AS delikte,</span>
-</span><span id="raten_je_stadt-176"><a href="#raten_je_stadt-176"><span class="linenos">176</span></a><span class="s2">               count(*) FILTER (f.counts_case)                   AS faelle,</span>
-</span><span id="raten_je_stadt-177"><a href="#raten_je_stadt-177"><span class="linenos">177</span></a><span class="s2">               any_value(e.n)                                    AS einwohner,</span>
-</span><span id="raten_je_stadt-178"><a href="#raten_je_stadt-178"><span class="linenos">178</span></a><span class="s2">               round(count(*) * 1000.0 / any_value(e.n), 1)      AS rate,</span>
-</span><span id="raten_je_stadt-179"><a href="#raten_je_stadt-179"><span class="linenos">179</span></a><span class="s2">               round(count(*) FILTER (f.counts_case) * 1000.0</span>
-</span><span id="raten_je_stadt-180"><a href="#raten_je_stadt-180"><span class="linenos">180</span></a><span class="s2">                     / any_value(e.n), 1)                        AS rate_fallebene</span>
-</span><span id="raten_je_stadt-181"><a href="#raten_je_stadt-181"><span class="linenos">181</span></a><span class="s2">        FROM j f</span>
-</span><span id="raten_je_stadt-182"><a href="#raten_je_stadt-182"><span class="linenos">182</span></a><span class="s2">        JOIN </span><span class="si">{</span><span class="n">dim_tract</span><span class="si">}</span><span class="s2"> t ON t.geoid = f.tract_geoid</span>
-</span><span id="raten_je_stadt-183"><a href="#raten_je_stadt-183"><span class="linenos">183</span></a><span class="s2">        JOIN e ON e.city = t.city</span>
-</span><span id="raten_je_stadt-184"><a href="#raten_je_stadt-184"><span class="linenos">184</span></a><span class="s2">        WHERE t.city IS NOT NULL</span>
-</span><span id="raten_je_stadt-185"><a href="#raten_je_stadt-185"><span class="linenos">185</span></a><span class="s2">        GROUP BY t.city</span>
-</span><span id="raten_je_stadt-186"><a href="#raten_je_stadt-186"><span class="linenos">186</span></a><span class="s2">        ORDER BY t.city</span>
-</span><span id="raten_je_stadt-187"><a href="#raten_je_stadt-187"><span class="linenos">187</span></a><span class="s2">    """</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="raten_je_stadt-137"><a href="#raten_je_stadt-137"><span class="linenos">137</span></a><span class="k">def</span><span class="w"> </span><span class="nf">raten_je_stadt</span><span class="p">(</span><span class="n">fact_offense</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dim_tract</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dim_tract_acs</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span id="raten_je_stadt-138"><a href="#raten_je_stadt-138"><span class="linenos">138</span></a>                   <span class="n">jahr</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">RATENJAHR</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="raten_je_stadt-139"><a href="#raten_je_stadt-139"><span class="linenos">139</span></a><span class="w">    </span><span class="sd">"""Delikte, Faelle, Einwohner und die beiden Raten je Stadt - fuer **ein** Jahr.</span>
+</span><span id="raten_je_stadt-140"><a href="#raten_je_stadt-140"><span class="linenos">140</span></a>
+</span><span id="raten_je_stadt-141"><a href="#raten_je_stadt-141"><span class="linenos">141</span></a><span class="sd">    Die Abfrage, die hinter jeder Ratenzeile der Abgabedokumente steht. Sie</span>
+</span><span id="raten_je_stadt-142"><a href="#raten_je_stadt-142"><span class="linenos">142</span></a><span class="sd">    liegt hier und nicht bei ihren Benutzern, aus demselben Grund wie</span>
+</span><span id="raten_je_stadt-143"><a href="#raten_je_stadt-143"><span class="linenos">143</span></a><span class="sd">    ``einwohner_je_stadt``: Gebraucht wird sie im Driftbericht, auf der</span>
+</span><span id="raten_je_stadt-144"><a href="#raten_je_stadt-144"><span class="linenos">144</span></a><span class="sd">    Einstiegsseite und in den Waechtern ueber ``ln2_konzept.md``, ``README.md``,</span>
+</span><span id="raten_je_stadt-145"><a href="#raten_je_stadt-145"><span class="linenos">145</span></a><span class="sd">    ``AENDERUNGEN.md`` und ``eine-zahl.md``. Sechs Fassungen waeren fuenf zu</span>
+</span><span id="raten_je_stadt-146"><a href="#raten_je_stadt-146"><span class="linenos">146</span></a><span class="sd">    viel - und waeren sie es, wuerde eine davon den Jahresfilter vergessen.</span>
+</span><span id="raten_je_stadt-147"><a href="#raten_je_stadt-147"><span class="linenos">147</span></a>
+</span><span id="raten_je_stadt-148"><a href="#raten_je_stadt-148"><span class="linenos">148</span></a><span class="sd">    **Gezaehlt wird nach Ortszeit** (``fact_offense.date``), nicht nach UTC:</span>
+</span><span id="raten_je_stadt-149"><a href="#raten_je_stadt-149"><span class="linenos">149</span></a><span class="sd">    Dieselbe Achse, auf der die Jahrgaenge geladen sind.</span>
+</span><span id="raten_je_stadt-150"><a href="#raten_je_stadt-150"><span class="linenos">150</span></a>
+</span><span id="raten_je_stadt-151"><a href="#raten_je_stadt-151"><span class="linenos">151</span></a><span class="sd">    **Der Nenner ist der der Zeile**, nicht der der Tabelle: ``population_vintage``</span>
+</span><span id="raten_je_stadt-152"><a href="#raten_je_stadt-152"><span class="linenos">152</span></a><span class="sd">    nennt je Tat, welches ACS-Vintage fuer sie gilt, und der Verbund nimmt genau</span>
+</span><span id="raten_je_stadt-153"><a href="#raten_je_stadt-153"><span class="linenos">153</span></a><span class="sd">    dieses. Ein Jahr, dessen Taten alle dasselbe Vintage tragen, bekommt damit</span>
+</span><span id="raten_je_stadt-154"><a href="#raten_je_stadt-154"><span class="linenos">154</span></a><span class="sd">    einen Nenner - haette ein Jahr gemischte Vintages, waere die Rate nicht</span>
+</span><span id="raten_je_stadt-155"><a href="#raten_je_stadt-155"><span class="linenos">155</span></a><span class="sd">    definiert, und die Abfrage ergaebe dann mehr als eine Zeile je Stadt, statt</span>
+</span><span id="raten_je_stadt-156"><a href="#raten_je_stadt-156"><span class="linenos">156</span></a><span class="sd">    stillschweigend eines davon zu nehmen.</span>
+</span><span id="raten_je_stadt-157"><a href="#raten_je_stadt-157"><span class="linenos">157</span></a>
+</span><span id="raten_je_stadt-158"><a href="#raten_je_stadt-158"><span class="linenos">158</span></a><span class="sd">    Die Spalten: ``city``, ``delikte``, ``faelle``, ``einwohner``, ``rate``,</span>
+</span><span id="raten_je_stadt-159"><a href="#raten_je_stadt-159"><span class="linenos">159</span></a><span class="sd">    ``rate_fallebene``. Gezaehlt werden nur Taten in einem Tract, der einer der</span>
+</span><span id="raten_je_stadt-160"><a href="#raten_je_stadt-160"><span class="linenos">160</span></a><span class="sd">    beiden Staedte zugeordnet ist - derselbe Ausschnitt, fuer den der Nenner</span>
+</span><span id="raten_je_stadt-161"><a href="#raten_je_stadt-161"><span class="linenos">161</span></a><span class="sd">    gilt.</span>
+</span><span id="raten_je_stadt-162"><a href="#raten_je_stadt-162"><span class="linenos">162</span></a><span class="sd">    """</span>
+</span><span id="raten_je_stadt-163"><a href="#raten_je_stadt-163"><span class="linenos">163</span></a>    <span class="c1"># Der Nenner kommt aus ``einwohner_je_stadt`` - mit dem Vintage, das die</span>
+</span><span id="raten_je_stadt-164"><a href="#raten_je_stadt-164"><span class="linenos">164</span></a>    <span class="c1"># Taten dieses Jahres selbst nennen, statt mit dem Referenz-Vintage der</span>
+</span><span id="raten_je_stadt-165"><a href="#raten_je_stadt-165"><span class="linenos">165</span></a>    <span class="c1"># Stadtzuordnung. Beide sind fuer 2024 dasselbe; fuer 2025 und 2026 nicht,</span>
+</span><span id="raten_je_stadt-166"><a href="#raten_je_stadt-166"><span class="linenos">166</span></a>    <span class="c1"># und dort ist genau das die Aussage: Eine Rate fuer 2026 ruht auf der</span>
+</span><span id="raten_je_stadt-167"><a href="#raten_je_stadt-167"><span class="linenos">167</span></a>    <span class="c1"># Bevoelkerung von 2024, weil es keine neuere gibt.</span>
+</span><span id="raten_je_stadt-168"><a href="#raten_je_stadt-168"><span class="linenos">168</span></a>    <span class="n">nenner</span> <span class="o">=</span> <span class="n">einwohner_je_stadt</span><span class="p">(</span>
+</span><span id="raten_je_stadt-169"><a href="#raten_je_stadt-169"><span class="linenos">169</span></a>        <span class="n">dim_tract</span><span class="p">,</span> <span class="n">dim_tract_acs</span><span class="p">,</span>
+</span><span id="raten_je_stadt-170"><a href="#raten_je_stadt-170"><span class="linenos">170</span></a>        <span class="s2">"(SELECT any_value(population_vintage) FROM j)"</span><span class="p">,</span>
+</span><span id="raten_je_stadt-171"><a href="#raten_je_stadt-171"><span class="linenos">171</span></a>    <span class="p">)</span>
+</span><span id="raten_je_stadt-172"><a href="#raten_je_stadt-172"><span class="linenos">172</span></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">"""</span>
+</span><span id="raten_je_stadt-173"><a href="#raten_je_stadt-173"><span class="linenos">173</span></a><span class="s2">        WITH j AS (</span>
+</span><span id="raten_je_stadt-174"><a href="#raten_je_stadt-174"><span class="linenos">174</span></a><span class="s2">            SELECT * FROM </span><span class="si">{</span><span class="n">fact_offense</span><span class="si">}</span><span class="s2"> WHERE year(date) = </span><span class="si">{</span><span class="n">jahr</span><span class="si">}</span>
+</span><span id="raten_je_stadt-175"><a href="#raten_je_stadt-175"><span class="linenos">175</span></a><span class="s2">        ), e AS (</span><span class="si">{</span><span class="n">nenner</span><span class="si">}</span><span class="s2">)</span>
+</span><span id="raten_je_stadt-176"><a href="#raten_je_stadt-176"><span class="linenos">176</span></a><span class="s2">        SELECT t.city                                            AS city,</span>
+</span><span id="raten_je_stadt-177"><a href="#raten_je_stadt-177"><span class="linenos">177</span></a><span class="s2">               count(*)                                          AS delikte,</span>
+</span><span id="raten_je_stadt-178"><a href="#raten_je_stadt-178"><span class="linenos">178</span></a><span class="s2">               count(*) FILTER (f.counts_case)                   AS faelle,</span>
+</span><span id="raten_je_stadt-179"><a href="#raten_je_stadt-179"><span class="linenos">179</span></a><span class="s2">               any_value(e.n)                                    AS einwohner,</span>
+</span><span id="raten_je_stadt-180"><a href="#raten_je_stadt-180"><span class="linenos">180</span></a><span class="s2">               round(count(*) * 1000.0 / any_value(e.n), 1)      AS rate,</span>
+</span><span id="raten_je_stadt-181"><a href="#raten_je_stadt-181"><span class="linenos">181</span></a><span class="s2">               round(count(*) FILTER (f.counts_case) * 1000.0</span>
+</span><span id="raten_je_stadt-182"><a href="#raten_je_stadt-182"><span class="linenos">182</span></a><span class="s2">                     / any_value(e.n), 1)                        AS rate_fallebene</span>
+</span><span id="raten_je_stadt-183"><a href="#raten_je_stadt-183"><span class="linenos">183</span></a><span class="s2">        FROM j f</span>
+</span><span id="raten_je_stadt-184"><a href="#raten_je_stadt-184"><span class="linenos">184</span></a><span class="s2">        JOIN </span><span class="si">{</span><span class="n">dim_tract</span><span class="si">}</span><span class="s2"> t ON t.geoid = f.tract_geoid</span>
+</span><span id="raten_je_stadt-185"><a href="#raten_je_stadt-185"><span class="linenos">185</span></a><span class="s2">        JOIN e ON e.city = t.city</span>
+</span><span id="raten_je_stadt-186"><a href="#raten_je_stadt-186"><span class="linenos">186</span></a><span class="s2">        WHERE t.city IS NOT NULL</span>
+</span><span id="raten_je_stadt-187"><a href="#raten_je_stadt-187"><span class="linenos">187</span></a><span class="s2">        GROUP BY t.city</span>
+</span><span id="raten_je_stadt-188"><a href="#raten_je_stadt-188"><span class="linenos">188</span></a><span class="s2">        ORDER BY t.city</span>
+</span><span id="raten_je_stadt-189"><a href="#raten_je_stadt-189"><span class="linenos">189</span></a><span class="s2">    """</span>
 </span></pre></div>
 
 
@@ -704,51 +706,51 @@ gilt.</p>
 
     </div>
     <a class="headerlink" href="#raten_je_tract"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="raten_je_tract-190"><a href="#raten_je_tract-190"><span class="linenos">190</span></a><span class="k">def</span><span class="w"> </span><span class="nf">raten_je_tract</span><span class="p">(</span><span class="n">fact_offense</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dim_tract_acs</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-</span><span id="raten_je_tract-191"><a href="#raten_je_tract-191"><span class="linenos">191</span></a>                   <span class="n">jahr</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">RATENJAHR</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="raten_je_tract-192"><a href="#raten_je_tract-192"><span class="linenos">192</span></a><span class="w">    </span><span class="sd">"""Taten, Faelle, Einwohner und beide Raten **je Tract** - fuer ein Jahr.</span>
-</span><span id="raten_je_tract-193"><a href="#raten_je_tract-193"><span class="linenos">193</span></a>
-</span><span id="raten_je_tract-194"><a href="#raten_je_tract-194"><span class="linenos">194</span></a><span class="sd">    Das Gegenstueck zu ``raten_je_stadt`` eine Ebene tiefer, und sie liegt</span>
-</span><span id="raten_je_tract-195"><a href="#raten_je_tract-195"><span class="linenos">195</span></a><span class="sd">    hier aus demselben Grund: Seit dem 11.10.2026 zeigt eine Kibana-Kachel</span>
-</span><span id="raten_je_tract-196"><a href="#raten_je_tract-196"><span class="linenos">196</span></a><span class="sd">    die hoechsten Tract-Raten, und ein Waechter haelt sie dagegen. Stuende</span>
-</span><span id="raten_je_tract-197"><a href="#raten_je_tract-197"><span class="linenos">197</span></a><span class="sd">    die Abfrage im Waechter, waere sie eine Kopie der Kachel - und beide</span>
-</span><span id="raten_je_tract-198"><a href="#raten_je_tract-198"><span class="linenos">198</span></a><span class="sd">    koennten gemeinsam falsch sein, ohne dass etwas auffaellt.</span>
-</span><span id="raten_je_tract-199"><a href="#raten_je_tract-199"><span class="linenos">199</span></a>
-</span><span id="raten_je_tract-200"><a href="#raten_je_tract-200"><span class="linenos">200</span></a><span class="sd">    **Tracts ohne Einwohner sind nicht enthalten.** Fuer sie ist keine Rate</span>
-</span><span id="raten_je_tract-201"><a href="#raten_je_tract-201"><span class="linenos">201</span></a><span class="sd">    definiert; eine gezeigte Null laese sich als Sicherheit, wo in</span>
-</span><span id="raten_je_tract-202"><a href="#raten_je_tract-202"><span class="linenos">202</span></a><span class="sd">    Wirklichkeit niemand wohnt - Flughaefen, Parks, Gewerbegebiete. Sie</span>
-</span><span id="raten_je_tract-203"><a href="#raten_je_tract-203"><span class="linenos">203</span></a><span class="sd">    werden gezaehlt, nicht dividiert.</span>
-</span><span id="raten_je_tract-204"><a href="#raten_je_tract-204"><span class="linenos">204</span></a>
-</span><span id="raten_je_tract-205"><a href="#raten_je_tract-205"><span class="linenos">205</span></a><span class="sd">    **Gruppiert wird nach ``reporting_city``**, nicht nach der Stadtzuordnung</span>
-</span><span id="raten_je_tract-206"><a href="#raten_je_tract-206"><span class="linenos">206</span></a><span class="sd">    des Tracts wie in ``raten_je_stadt``: Auf Tract-Ebene ist die Frage</span>
-</span><span id="raten_je_tract-207"><a href="#raten_je_tract-207"><span class="linenos">207</span></a><span class="sd">    "welche Stadt hat das gemeldet", und ``geo_status = 'inside_city'``</span>
-</span><span id="raten_je_tract-208"><a href="#raten_je_tract-208"><span class="linenos">208</span></a><span class="sd">    stellt ohnehin sicher, dass der Tract im Gebiet dieser Stadt liegt.</span>
-</span><span id="raten_je_tract-209"><a href="#raten_je_tract-209"><span class="linenos">209</span></a>
-</span><span id="raten_je_tract-210"><a href="#raten_je_tract-210"><span class="linenos">210</span></a><span class="sd">    Die Spalten: ``stadt``, ``geoid``, ``faelle``, ``rate_fallebene``,</span>
-</span><span id="raten_je_tract-211"><a href="#raten_je_tract-211"><span class="linenos">211</span></a><span class="sd">    ``taten``, ``rate_tatebene``, ``einwohner`` - dieselben Namen wie in der</span>
-</span><span id="raten_je_tract-212"><a href="#raten_je_tract-212"><span class="linenos">212</span></a><span class="sd">    Kachel, damit der Vergleich keine Umbenennung braucht. Zurueck kommen</span>
-</span><span id="raten_je_tract-213"><a href="#raten_je_tract-213"><span class="linenos">213</span></a><span class="sd">    **alle** Tracts, absteigend nach der Fallebene; die Kachel schneidet</span>
-</span><span id="raten_je_tract-214"><a href="#raten_je_tract-214"><span class="linenos">214</span></a><span class="sd">    selbst ab.</span>
-</span><span id="raten_je_tract-215"><a href="#raten_je_tract-215"><span class="linenos">215</span></a><span class="sd">    """</span>
-</span><span id="raten_je_tract-216"><a href="#raten_je_tract-216"><span class="linenos">216</span></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">"""</span>
-</span><span id="raten_je_tract-217"><a href="#raten_je_tract-217"><span class="linenos">217</span></a><span class="s2">        SELECT f.reporting_city                                   AS stadt,</span>
-</span><span id="raten_je_tract-218"><a href="#raten_je_tract-218"><span class="linenos">218</span></a><span class="s2">               f.tract_geoid                                      AS geoid,</span>
-</span><span id="raten_je_tract-219"><a href="#raten_je_tract-219"><span class="linenos">219</span></a><span class="s2">               count(*) FILTER (f.counts_case)                     AS faelle,</span>
-</span><span id="raten_je_tract-220"><a href="#raten_je_tract-220"><span class="linenos">220</span></a><span class="s2">               round(count(*) FILTER (f.counts_case) * 1000.0</span>
-</span><span id="raten_je_tract-221"><a href="#raten_je_tract-221"><span class="linenos">221</span></a><span class="s2">                     / any_value(a.population), 1)                AS rate_fallebene,</span>
-</span><span id="raten_je_tract-222"><a href="#raten_je_tract-222"><span class="linenos">222</span></a><span class="s2">               count(*)                                           AS taten,</span>
-</span><span id="raten_je_tract-223"><a href="#raten_je_tract-223"><span class="linenos">223</span></a><span class="s2">               round(count(*) * 1000.0</span>
-</span><span id="raten_je_tract-224"><a href="#raten_je_tract-224"><span class="linenos">224</span></a><span class="s2">                     / any_value(a.population), 1)                AS rate_tatebene,</span>
-</span><span id="raten_je_tract-225"><a href="#raten_je_tract-225"><span class="linenos">225</span></a><span class="s2">               any_value(a.population)                            AS einwohner</span>
-</span><span id="raten_je_tract-226"><a href="#raten_je_tract-226"><span class="linenos">226</span></a><span class="s2">        FROM </span><span class="si">{</span><span class="n">fact_offense</span><span class="si">}</span><span class="s2"> f</span>
-</span><span id="raten_je_tract-227"><a href="#raten_je_tract-227"><span class="linenos">227</span></a><span class="s2">        JOIN </span><span class="si">{</span><span class="n">dim_tract_acs</span><span class="si">}</span><span class="s2"> a</span>
-</span><span id="raten_je_tract-228"><a href="#raten_je_tract-228"><span class="linenos">228</span></a><span class="s2">          ON a.geoid = f.tract_geoid AND a.vintage = f.population_vintage</span>
-</span><span id="raten_je_tract-229"><a href="#raten_je_tract-229"><span class="linenos">229</span></a><span class="s2">        WHERE year(f.date) = </span><span class="si">{</span><span class="n">jahr</span><span class="si">}</span>
-</span><span id="raten_je_tract-230"><a href="#raten_je_tract-230"><span class="linenos">230</span></a><span class="s2">          AND f.geo_status = 'inside_city'</span>
-</span><span id="raten_je_tract-231"><a href="#raten_je_tract-231"><span class="linenos">231</span></a><span class="s2">          AND a.population &gt; 0</span>
-</span><span id="raten_je_tract-232"><a href="#raten_je_tract-232"><span class="linenos">232</span></a><span class="s2">        GROUP BY f.reporting_city, f.tract_geoid</span>
-</span><span id="raten_je_tract-233"><a href="#raten_je_tract-233"><span class="linenos">233</span></a><span class="s2">        ORDER BY rate_fallebene DESC, geoid</span>
-</span><span id="raten_je_tract-234"><a href="#raten_je_tract-234"><span class="linenos">234</span></a><span class="s2">    """</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="raten_je_tract-192"><a href="#raten_je_tract-192"><span class="linenos">192</span></a><span class="k">def</span><span class="w"> </span><span class="nf">raten_je_tract</span><span class="p">(</span><span class="n">fact_offense</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dim_tract_acs</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span id="raten_je_tract-193"><a href="#raten_je_tract-193"><span class="linenos">193</span></a>                   <span class="n">jahr</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">RATENJAHR</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="raten_je_tract-194"><a href="#raten_je_tract-194"><span class="linenos">194</span></a><span class="w">    </span><span class="sd">"""Taten, Faelle, Einwohner und beide Raten **je Tract** - fuer ein Jahr.</span>
+</span><span id="raten_je_tract-195"><a href="#raten_je_tract-195"><span class="linenos">195</span></a>
+</span><span id="raten_je_tract-196"><a href="#raten_je_tract-196"><span class="linenos">196</span></a><span class="sd">    Das Gegenstueck zu ``raten_je_stadt`` eine Ebene tiefer, und sie liegt</span>
+</span><span id="raten_je_tract-197"><a href="#raten_je_tract-197"><span class="linenos">197</span></a><span class="sd">    hier aus demselben Grund: Seit dem 11.10.2026 zeigt eine Kibana-Kachel</span>
+</span><span id="raten_je_tract-198"><a href="#raten_je_tract-198"><span class="linenos">198</span></a><span class="sd">    die hoechsten Tract-Raten, und ein Waechter haelt sie dagegen. Stuende</span>
+</span><span id="raten_je_tract-199"><a href="#raten_je_tract-199"><span class="linenos">199</span></a><span class="sd">    die Abfrage im Waechter, waere sie eine Kopie der Kachel - und beide</span>
+</span><span id="raten_je_tract-200"><a href="#raten_je_tract-200"><span class="linenos">200</span></a><span class="sd">    koennten gemeinsam falsch sein, ohne dass etwas auffaellt.</span>
+</span><span id="raten_je_tract-201"><a href="#raten_je_tract-201"><span class="linenos">201</span></a>
+</span><span id="raten_je_tract-202"><a href="#raten_je_tract-202"><span class="linenos">202</span></a><span class="sd">    **Tracts ohne Einwohner sind nicht enthalten.** Fuer sie ist keine Rate</span>
+</span><span id="raten_je_tract-203"><a href="#raten_je_tract-203"><span class="linenos">203</span></a><span class="sd">    definiert; eine gezeigte Null laese sich als Sicherheit, wo in</span>
+</span><span id="raten_je_tract-204"><a href="#raten_je_tract-204"><span class="linenos">204</span></a><span class="sd">    Wirklichkeit niemand wohnt - Flughaefen, Parks, Gewerbegebiete. Sie</span>
+</span><span id="raten_je_tract-205"><a href="#raten_je_tract-205"><span class="linenos">205</span></a><span class="sd">    werden gezaehlt, nicht dividiert.</span>
+</span><span id="raten_je_tract-206"><a href="#raten_je_tract-206"><span class="linenos">206</span></a>
+</span><span id="raten_je_tract-207"><a href="#raten_je_tract-207"><span class="linenos">207</span></a><span class="sd">    **Gruppiert wird nach ``reporting_city``**, nicht nach der Stadtzuordnung</span>
+</span><span id="raten_je_tract-208"><a href="#raten_je_tract-208"><span class="linenos">208</span></a><span class="sd">    des Tracts wie in ``raten_je_stadt``: Auf Tract-Ebene ist die Frage</span>
+</span><span id="raten_je_tract-209"><a href="#raten_je_tract-209"><span class="linenos">209</span></a><span class="sd">    "welche Stadt hat das gemeldet", und ``geo_status = 'inside_city'``</span>
+</span><span id="raten_je_tract-210"><a href="#raten_je_tract-210"><span class="linenos">210</span></a><span class="sd">    stellt ohnehin sicher, dass der Tract im Gebiet dieser Stadt liegt.</span>
+</span><span id="raten_je_tract-211"><a href="#raten_je_tract-211"><span class="linenos">211</span></a>
+</span><span id="raten_je_tract-212"><a href="#raten_je_tract-212"><span class="linenos">212</span></a><span class="sd">    Die Spalten: ``stadt``, ``geoid``, ``faelle``, ``rate_fallebene``,</span>
+</span><span id="raten_je_tract-213"><a href="#raten_je_tract-213"><span class="linenos">213</span></a><span class="sd">    ``taten``, ``rate_tatebene``, ``einwohner`` - dieselben Namen wie in der</span>
+</span><span id="raten_je_tract-214"><a href="#raten_je_tract-214"><span class="linenos">214</span></a><span class="sd">    Kachel, damit der Vergleich keine Umbenennung braucht. Zurueck kommen</span>
+</span><span id="raten_je_tract-215"><a href="#raten_je_tract-215"><span class="linenos">215</span></a><span class="sd">    **alle** Tracts, absteigend nach der Fallebene; die Kachel schneidet</span>
+</span><span id="raten_je_tract-216"><a href="#raten_je_tract-216"><span class="linenos">216</span></a><span class="sd">    selbst ab.</span>
+</span><span id="raten_je_tract-217"><a href="#raten_je_tract-217"><span class="linenos">217</span></a><span class="sd">    """</span>
+</span><span id="raten_je_tract-218"><a href="#raten_je_tract-218"><span class="linenos">218</span></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">"""</span>
+</span><span id="raten_je_tract-219"><a href="#raten_je_tract-219"><span class="linenos">219</span></a><span class="s2">        SELECT f.reporting_city                                   AS stadt,</span>
+</span><span id="raten_je_tract-220"><a href="#raten_je_tract-220"><span class="linenos">220</span></a><span class="s2">               f.tract_geoid                                      AS geoid,</span>
+</span><span id="raten_je_tract-221"><a href="#raten_je_tract-221"><span class="linenos">221</span></a><span class="s2">               count(*) FILTER (f.counts_case)                     AS faelle,</span>
+</span><span id="raten_je_tract-222"><a href="#raten_je_tract-222"><span class="linenos">222</span></a><span class="s2">               round(count(*) FILTER (f.counts_case) * 1000.0</span>
+</span><span id="raten_je_tract-223"><a href="#raten_je_tract-223"><span class="linenos">223</span></a><span class="s2">                     / any_value(a.population), 1)                AS rate_fallebene,</span>
+</span><span id="raten_je_tract-224"><a href="#raten_je_tract-224"><span class="linenos">224</span></a><span class="s2">               count(*)                                           AS taten,</span>
+</span><span id="raten_je_tract-225"><a href="#raten_je_tract-225"><span class="linenos">225</span></a><span class="s2">               round(count(*) * 1000.0</span>
+</span><span id="raten_je_tract-226"><a href="#raten_je_tract-226"><span class="linenos">226</span></a><span class="s2">                     / any_value(a.population), 1)                AS rate_tatebene,</span>
+</span><span id="raten_je_tract-227"><a href="#raten_je_tract-227"><span class="linenos">227</span></a><span class="s2">               any_value(a.population)                            AS einwohner</span>
+</span><span id="raten_je_tract-228"><a href="#raten_je_tract-228"><span class="linenos">228</span></a><span class="s2">        FROM </span><span class="si">{</span><span class="n">fact_offense</span><span class="si">}</span><span class="s2"> f</span>
+</span><span id="raten_je_tract-229"><a href="#raten_je_tract-229"><span class="linenos">229</span></a><span class="s2">        JOIN </span><span class="si">{</span><span class="n">dim_tract_acs</span><span class="si">}</span><span class="s2"> a</span>
+</span><span id="raten_je_tract-230"><a href="#raten_je_tract-230"><span class="linenos">230</span></a><span class="s2">          ON a.geoid = f.tract_geoid AND a.vintage = f.population_vintage</span>
+</span><span id="raten_je_tract-231"><a href="#raten_je_tract-231"><span class="linenos">231</span></a><span class="s2">        WHERE year(f.date) = </span><span class="si">{</span><span class="n">jahr</span><span class="si">}</span>
+</span><span id="raten_je_tract-232"><a href="#raten_je_tract-232"><span class="linenos">232</span></a><span class="s2">          AND f.geo_status = 'inside_city'</span>
+</span><span id="raten_je_tract-233"><a href="#raten_je_tract-233"><span class="linenos">233</span></a><span class="s2">          AND a.population &gt; 0</span>
+</span><span id="raten_je_tract-234"><a href="#raten_je_tract-234"><span class="linenos">234</span></a><span class="s2">        GROUP BY f.reporting_city, f.tract_geoid</span>
+</span><span id="raten_je_tract-235"><a href="#raten_je_tract-235"><span class="linenos">235</span></a><span class="s2">        ORDER BY rate_fallebene DESC, geoid</span>
+</span><span id="raten_je_tract-236"><a href="#raten_je_tract-236"><span class="linenos">236</span></a><span class="s2">    """</span>
 </span></pre></div>
 
 
@@ -790,41 +792,41 @@ selbst ab.</p>
 
     </div>
     <a class="headerlink" href="#einwohner_je_stadt"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="einwohner_je_stadt-237"><a href="#einwohner_je_stadt-237"><span class="linenos">237</span></a><span class="k">def</span><span class="w"> </span><span class="nf">einwohner_je_stadt</span><span class="p">(</span><span class="n">dim_tract</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dim_tract_acs</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-</span><span id="einwohner_je_stadt-238"><a href="#einwohner_je_stadt-238"><span class="linenos">238</span></a>                       <span class="n">vintage</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"d.reference_vintage"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="einwohner_je_stadt-239"><a href="#einwohner_je_stadt-239"><span class="linenos">239</span></a><span class="w">    </span><span class="sd">"""Die Einwohnerzahl je Stadt - der Nenner jeder Rate dieses Projekts.</span>
-</span><span id="einwohner_je_stadt-240"><a href="#einwohner_je_stadt-240"><span class="linenos">240</span></a>
-</span><span id="einwohner_je_stadt-241"><a href="#einwohner_je_stadt-241"><span class="linenos">241</span></a><span class="sd">    Seit Vertrag 6 liegen die ACS-Masse je Vintage in ``dim_tract_acs``,</span>
-</span><span id="einwohner_je_stadt-242"><a href="#einwohner_je_stadt-242"><span class="linenos">242</span></a><span class="sd">    waehrend ``dim_tract`` die Stadtzuordnung traegt. Der Nenner entsteht</span>
-</span><span id="einwohner_je_stadt-243"><a href="#einwohner_je_stadt-243"><span class="linenos">243</span></a><span class="sd">    deshalb aus einem Verbund ueber **geoid und vintage**. Ohne das zweite</span>
-</span><span id="einwohner_je_stadt-244"><a href="#einwohner_je_stadt-244"><span class="linenos">244</span></a><span class="sd">    Praedikat summiert die Abfrage jeden Tract so oft, wie Vintages geladen</span>
-</span><span id="einwohner_je_stadt-245"><a href="#einwohner_je_stadt-245"><span class="linenos">245</span></a><span class="sd">    sind - und das Ergebnis sieht aus wie eine Zahl.</span>
-</span><span id="einwohner_je_stadt-246"><a href="#einwohner_je_stadt-246"><span class="linenos">246</span></a>
-</span><span id="einwohner_je_stadt-247"><a href="#einwohner_je_stadt-247"><span class="linenos">247</span></a><span class="sd">    Die Regel steht deshalb hier und nicht bei ihren Benutzern: Gebraucht wird</span>
-</span><span id="einwohner_je_stadt-248"><a href="#einwohner_je_stadt-248"><span class="linenos">248</span></a><span class="sd">    sie im Driftbericht, auf der Einstiegsseite und in sechs Waechtern, die die</span>
-</span><span id="einwohner_je_stadt-249"><a href="#einwohner_je_stadt-249"><span class="linenos">249</span></a><span class="sd">    Raten in den Abgabedokumenten halten. Neun Fassungen waeren acht zu viel.</span>
-</span><span id="einwohner_je_stadt-250"><a href="#einwohner_je_stadt-250"><span class="linenos">250</span></a>
-</span><span id="einwohner_je_stadt-251"><a href="#einwohner_je_stadt-251"><span class="linenos">251</span></a><span class="sd">    ``dim_tract`` und ``dim_tract_acs`` sind Relationsausdruecke - Tabellennamen</span>
-</span><span id="einwohner_je_stadt-252"><a href="#einwohner_je_stadt-252"><span class="linenos">252</span></a><span class="sd">    oder ``read_parquet('...')``. ``vintage`` waehlt den Jahrgang; die Vorgabe</span>
-</span><span id="einwohner_je_stadt-253"><a href="#einwohner_je_stadt-253"><span class="linenos">253</span></a><span class="sd">    nimmt das Referenz-Vintage der Stadtzuordnung, also denselben Stand, aus dem</span>
-</span><span id="einwohner_je_stadt-254"><a href="#einwohner_je_stadt-254"><span class="linenos">254</span></a><span class="sd">    ``city`` kommt.</span>
-</span><span id="einwohner_je_stadt-255"><a href="#einwohner_je_stadt-255"><span class="linenos">255</span></a>
-</span><span id="einwohner_je_stadt-256"><a href="#einwohner_je_stadt-256"><span class="linenos">256</span></a><span class="sd">    **Gezaehlt wird jeder Tract mit Stadtzuordnung**, auch einer ohne eine</span>
-</span><span id="einwohner_je_stadt-257"><a href="#einwohner_je_stadt-257"><span class="linenos">257</span></a><span class="sd">    einzige Tat. Die ES|QL-Kachel im Dashboard (``serving.build_kibana``)</span>
-</span><span id="einwohner_je_stadt-258"><a href="#einwohner_je_stadt-258"><span class="linenos">258</span></a><span class="sd">    kommt ueber ``LOOKUP JOIN`` von den Taten her und summiert deshalb nur</span>
-</span><span id="einwohner_je_stadt-259"><a href="#einwohner_je_stadt-259"><span class="linenos">259</span></a><span class="sd">    ueber Tracts, die im Jahrgang mindestens eine tragen. Am 11.10.2026 ergeben</span>
-</span><span id="einwohner_je_stadt-260"><a href="#einwohner_je_stadt-260"><span class="linenos">260</span></a><span class="sd">    beide Wege denselben Nenner (2'661'953 und 638'635); ein Tract-Jahr ohne</span>
-</span><span id="einwohner_je_stadt-261"><a href="#einwohner_je_stadt-261"><span class="linenos">261</span></a><span class="sd">    Tat liesse sie auseinanderlaufen, und dann weicht die Dashboardzahl von</span>
-</span><span id="einwohner_je_stadt-262"><a href="#einwohner_je_stadt-262"><span class="linenos">262</span></a><span class="sd">    der Dokumentzahl ab, ohne dass eine von beiden falsch gerechnet waere.</span>
-</span><span id="einwohner_je_stadt-263"><a href="#einwohner_je_stadt-263"><span class="linenos">263</span></a><span class="sd">    """</span>
-</span><span id="einwohner_je_stadt-264"><a href="#einwohner_je_stadt-264"><span class="linenos">264</span></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">"""</span>
-</span><span id="einwohner_je_stadt-265"><a href="#einwohner_je_stadt-265"><span class="linenos">265</span></a><span class="s2">        SELECT d.city AS city, sum(a.population) AS n</span>
-</span><span id="einwohner_je_stadt-266"><a href="#einwohner_je_stadt-266"><span class="linenos">266</span></a><span class="s2">        FROM </span><span class="si">{</span><span class="n">dim_tract</span><span class="si">}</span><span class="s2"> d</span>
-</span><span id="einwohner_je_stadt-267"><a href="#einwohner_je_stadt-267"><span class="linenos">267</span></a><span class="s2">        JOIN </span><span class="si">{</span><span class="n">dim_tract_acs</span><span class="si">}</span><span class="s2"> a</span>
-</span><span id="einwohner_je_stadt-268"><a href="#einwohner_je_stadt-268"><span class="linenos">268</span></a><span class="s2">          ON a.geoid = d.geoid AND a.vintage = </span><span class="si">{</span><span class="n">vintage</span><span class="si">}</span>
-</span><span id="einwohner_je_stadt-269"><a href="#einwohner_je_stadt-269"><span class="linenos">269</span></a><span class="s2">        WHERE d.city IS NOT NULL</span>
-</span><span id="einwohner_je_stadt-270"><a href="#einwohner_je_stadt-270"><span class="linenos">270</span></a><span class="s2">        GROUP BY d.city</span>
-</span><span id="einwohner_je_stadt-271"><a href="#einwohner_je_stadt-271"><span class="linenos">271</span></a><span class="s2">    """</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="einwohner_je_stadt-239"><a href="#einwohner_je_stadt-239"><span class="linenos">239</span></a><span class="k">def</span><span class="w"> </span><span class="nf">einwohner_je_stadt</span><span class="p">(</span><span class="n">dim_tract</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dim_tract_acs</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span id="einwohner_je_stadt-240"><a href="#einwohner_je_stadt-240"><span class="linenos">240</span></a>                       <span class="n">vintage</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"d.reference_vintage"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="einwohner_je_stadt-241"><a href="#einwohner_je_stadt-241"><span class="linenos">241</span></a><span class="w">    </span><span class="sd">"""Die Einwohnerzahl je Stadt - der Nenner jeder Rate dieses Projekts.</span>
+</span><span id="einwohner_je_stadt-242"><a href="#einwohner_je_stadt-242"><span class="linenos">242</span></a>
+</span><span id="einwohner_je_stadt-243"><a href="#einwohner_je_stadt-243"><span class="linenos">243</span></a><span class="sd">    Seit Vertrag 6 liegen die ACS-Masse je Vintage in ``dim_tract_acs``,</span>
+</span><span id="einwohner_je_stadt-244"><a href="#einwohner_je_stadt-244"><span class="linenos">244</span></a><span class="sd">    waehrend ``dim_tract`` die Stadtzuordnung traegt. Der Nenner entsteht</span>
+</span><span id="einwohner_je_stadt-245"><a href="#einwohner_je_stadt-245"><span class="linenos">245</span></a><span class="sd">    deshalb aus einem Verbund ueber **geoid und vintage**. Ohne das zweite</span>
+</span><span id="einwohner_je_stadt-246"><a href="#einwohner_je_stadt-246"><span class="linenos">246</span></a><span class="sd">    Praedikat summiert die Abfrage jeden Tract so oft, wie Vintages geladen</span>
+</span><span id="einwohner_je_stadt-247"><a href="#einwohner_je_stadt-247"><span class="linenos">247</span></a><span class="sd">    sind - und das Ergebnis sieht aus wie eine Zahl.</span>
+</span><span id="einwohner_je_stadt-248"><a href="#einwohner_je_stadt-248"><span class="linenos">248</span></a>
+</span><span id="einwohner_je_stadt-249"><a href="#einwohner_je_stadt-249"><span class="linenos">249</span></a><span class="sd">    Die Regel steht deshalb hier und nicht bei ihren Benutzern: Gebraucht wird</span>
+</span><span id="einwohner_je_stadt-250"><a href="#einwohner_je_stadt-250"><span class="linenos">250</span></a><span class="sd">    sie im Driftbericht, auf der Einstiegsseite und in sechs Waechtern, die die</span>
+</span><span id="einwohner_je_stadt-251"><a href="#einwohner_je_stadt-251"><span class="linenos">251</span></a><span class="sd">    Raten in den Abgabedokumenten halten. Neun Fassungen waeren acht zu viel.</span>
+</span><span id="einwohner_je_stadt-252"><a href="#einwohner_je_stadt-252"><span class="linenos">252</span></a>
+</span><span id="einwohner_je_stadt-253"><a href="#einwohner_je_stadt-253"><span class="linenos">253</span></a><span class="sd">    ``dim_tract`` und ``dim_tract_acs`` sind Relationsausdruecke - Tabellennamen</span>
+</span><span id="einwohner_je_stadt-254"><a href="#einwohner_je_stadt-254"><span class="linenos">254</span></a><span class="sd">    oder ``read_parquet('...')``. ``vintage`` waehlt den Jahrgang; die Vorgabe</span>
+</span><span id="einwohner_je_stadt-255"><a href="#einwohner_je_stadt-255"><span class="linenos">255</span></a><span class="sd">    nimmt das Referenz-Vintage der Stadtzuordnung, also denselben Stand, aus dem</span>
+</span><span id="einwohner_je_stadt-256"><a href="#einwohner_je_stadt-256"><span class="linenos">256</span></a><span class="sd">    ``city`` kommt.</span>
+</span><span id="einwohner_je_stadt-257"><a href="#einwohner_je_stadt-257"><span class="linenos">257</span></a>
+</span><span id="einwohner_je_stadt-258"><a href="#einwohner_je_stadt-258"><span class="linenos">258</span></a><span class="sd">    **Gezaehlt wird jeder Tract mit Stadtzuordnung**, auch einer ohne eine</span>
+</span><span id="einwohner_je_stadt-259"><a href="#einwohner_je_stadt-259"><span class="linenos">259</span></a><span class="sd">    einzige Tat. Die ES|QL-Kachel im Dashboard (``serving.build_kibana``)</span>
+</span><span id="einwohner_je_stadt-260"><a href="#einwohner_je_stadt-260"><span class="linenos">260</span></a><span class="sd">    kommt ueber ``LOOKUP JOIN`` von den Taten her und summiert deshalb nur</span>
+</span><span id="einwohner_je_stadt-261"><a href="#einwohner_je_stadt-261"><span class="linenos">261</span></a><span class="sd">    ueber Tracts, die im Jahrgang mindestens eine tragen. Am 11.10.2026 ergeben</span>
+</span><span id="einwohner_je_stadt-262"><a href="#einwohner_je_stadt-262"><span class="linenos">262</span></a><span class="sd">    beide Wege denselben Nenner (2'661'953 und 638'635); ein Tract-Jahr ohne</span>
+</span><span id="einwohner_je_stadt-263"><a href="#einwohner_je_stadt-263"><span class="linenos">263</span></a><span class="sd">    Tat liesse sie auseinanderlaufen, und dann weicht die Dashboardzahl von</span>
+</span><span id="einwohner_je_stadt-264"><a href="#einwohner_je_stadt-264"><span class="linenos">264</span></a><span class="sd">    der Dokumentzahl ab, ohne dass eine von beiden falsch gerechnet waere.</span>
+</span><span id="einwohner_je_stadt-265"><a href="#einwohner_je_stadt-265"><span class="linenos">265</span></a><span class="sd">    """</span>
+</span><span id="einwohner_je_stadt-266"><a href="#einwohner_je_stadt-266"><span class="linenos">266</span></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">"""</span>
+</span><span id="einwohner_je_stadt-267"><a href="#einwohner_je_stadt-267"><span class="linenos">267</span></a><span class="s2">        SELECT d.city AS city, sum(a.population) AS n</span>
+</span><span id="einwohner_je_stadt-268"><a href="#einwohner_je_stadt-268"><span class="linenos">268</span></a><span class="s2">        FROM </span><span class="si">{</span><span class="n">dim_tract</span><span class="si">}</span><span class="s2"> d</span>
+</span><span id="einwohner_je_stadt-269"><a href="#einwohner_je_stadt-269"><span class="linenos">269</span></a><span class="s2">        JOIN </span><span class="si">{</span><span class="n">dim_tract_acs</span><span class="si">}</span><span class="s2"> a</span>
+</span><span id="einwohner_je_stadt-270"><a href="#einwohner_je_stadt-270"><span class="linenos">270</span></a><span class="s2">          ON a.geoid = d.geoid AND a.vintage = </span><span class="si">{</span><span class="n">vintage</span><span class="si">}</span>
+</span><span id="einwohner_je_stadt-271"><a href="#einwohner_je_stadt-271"><span class="linenos">271</span></a><span class="s2">        WHERE d.city IS NOT NULL</span>
+</span><span id="einwohner_je_stadt-272"><a href="#einwohner_je_stadt-272"><span class="linenos">272</span></a><span class="s2">        GROUP BY d.city</span>
+</span><span id="einwohner_je_stadt-273"><a href="#einwohner_je_stadt-273"><span class="linenos">273</span></a><span class="s2">    """</span>
 </span></pre></div>
 
 

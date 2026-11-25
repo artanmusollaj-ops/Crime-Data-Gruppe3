@@ -174,6 +174,10 @@ def offense_quelle(tmp_path: Path, zeilen) -> bg.Quelle:
              else "weitere_anklage_zur_selben_tat" for z in zeilen]),
         # Jede Zeile ist hier ihr eigener Fall: Fallebene gleich Tatebene.
         "counts_case": pa.array([z[5] if len(z) > 5 else True for z in zeilen]),
+        # Seit Silver-Vertrag 5 (25.11.2026).
+        "police_area": pa.array(["1"] * n),
+        "police_area_source": pa.array(["1"] * n),
+        "case_status": pa.array([None] * n, pa.string()),
     }))
 
 
@@ -2145,3 +2149,95 @@ def test_der_schlussbericht_liest_ueber_die_ablage_nicht_ueber_den_pfad(
     assert bg.main() == 0, "der Schlussbericht hat den weggeraeumten Pfad gelesen"
     assert gefragt == [weggeraeumt], (
         "die Ablage wurde nicht nach der Tabelle gefragt: " + repr(gefragt))
+
+
+# --------------------------------------------------------------------------
+# Polizeibezirke (Vertrag 11, 25.11.2026)
+# --------------------------------------------------------------------------
+
+
+def police_quelle(tmp_path: Path, bezirke) -> bg.Quelle:
+    """bezirke: (city, area_id, geometrie) - wie silver/police_area."""
+    n = len(bezirke)
+    return schreibe(tmp_path, "police_area", pa.table({
+        "city": pa.array([b[0] for b in bezirke]),
+        "area_id": pa.array([b[1] for b in bezirke]),
+        "area_name": pa.array([f"District {b[1]}" for b in bezirke]),
+        "source_name": pa.array([b[1] for b in bezirke]),
+        "source_polygons": pa.array([1] * n, pa.int32()),
+        "area_km2": pa.array([1.0] * n),
+        "centroid_lat": pa.array([41.8] * n),
+        "centroid_lon": pa.array([-87.6] * n),
+        "geometry": pa.array([b[2] for b in bezirke], pa.binary()),
+    }))
+
+
+def bezirke_bauen(con, tmp_path, tracts, bezirke):
+    tract = tract_quelle(tmp_path, tracts)
+    place = place_quelle(tmp_path)
+    police = police_quelle(tmp_path, bezirke)
+    con.execute(f"CREATE OR REPLACE TABLE dim_tract AS {bg.dim_tract_query(tract, place, VINTAGE)}")
+    con.execute(f"CREATE OR REPLACE TABLE dim_police_area AS {bg.dim_police_area_query(police, place)}")
+    con.execute("CREATE OR REPLACE TABLE bridge_tract_police_area AS "
+                + bg.bridge_tract_police_area_query(tract, police))
+
+
+# Chicago reicht von (0,0) bis (10,10). Bezirk 1 links, Bezirk 2 rechts, und
+# Bezirk 31 fast ganz ausserhalb - wie Chicagos District der umschlossenen
+# Gemeinden. Detroit (100,100) hat einen Bezirk.
+BEZIRKE = [
+    ("chicago", "1", wkb_rechteck(0, 0, 5, 10)),
+    ("chicago", "2", wkb_rechteck(5, 0, 5, 10)),
+    ("chicago", "31", wkb_rechteck(9.9, 0, 5, 1)),
+    ("detroit", "2", wkb_rechteck(100, 100, 10, 10)),
+]
+
+
+def test_ein_bezirk_zaehlt_zur_stadt_nach_der_mehrheitsregel(con, tmp_path):
+    bezirke_bauen(con, tmp_path, [("17031010100", 1000, wkb_rechteck(1, 1, 2, 2)),
+                                  DETROIT_TRACT], BEZIRKE)
+    zeilen = {(c, a): (anteil, drin) for c, a, anteil, drin in con.execute(
+        "SELECT city, area_id, city_area_share, within_city FROM dim_police_area").fetchall()}
+    assert zeilen[("chicago", "1")] == (1.0, True)
+    assert zeilen[("chicago", "31")] == (pytest.approx(0.02), False)
+    # Die Nummer 2 gibt es in beiden Staedten; der Schluessel traegt die Stadt.
+    assert zeilen[("chicago", "2")][1] and zeilen[("detroit", "2")][1]
+
+
+def test_ein_tract_auf_der_grenze_teilt_sich_nach_flaeche(con, tmp_path):
+    bezirke_bauen(con, tmp_path, [("17031010100", 1000, wkb_rechteck(4, 1, 2, 2)),
+                                  DETROIT_TRACT], BEZIRKE)
+    assert con.execute("SELECT area_id, tract_share FROM bridge_tract_police_area "
+                       "WHERE city = 'chicago' ORDER BY area_id").fetchall() == [
+        ("1", 0.5), ("2", 0.5)]
+
+
+def test_der_anteil_ausserhalb_zaehlender_bezirke_geht_an_die_uebrigen(con, tmp_path):
+    """Ein Tract, der in District 31 hineinragt, bleibt ganz in der Stadt."""
+    bezirke_bauen(con, tmp_path, [("17031010100", 1000, wkb_rechteck(8.5, 0, 1.5, 1)),
+                                  DETROIT_TRACT], BEZIRKE)
+    assert con.execute("SELECT area_id, tract_share FROM bridge_tract_police_area "
+                       "WHERE city = 'chicago'").fetchall() == [("2", 1.0)]
+    bg.pruefe_polizeibezirke(con)
+
+
+def test_ein_stadt_tract_ohne_bezirk_haelt_den_bau_an(con, tmp_path):
+    bezirke_bauen(con, tmp_path, [("17031010100", 1000, wkb_rechteck(1, 1, 2, 2)),
+                                  DETROIT_TRACT],
+                  [b for b in BEZIRKE if b[1] != "1"])
+    with pytest.raises(bg.TransformError, match="nicht ganz auf Polizeibezirke"):
+        bg.pruefe_polizeibezirke(con)
+
+
+def test_eine_stadt_ohne_zaehlenden_bezirk_haelt_den_bau_an(con, tmp_path):
+    bezirke_bauen(con, tmp_path, [("17031010100", 1000, wkb_rechteck(1, 1, 2, 2)),
+                                  DETROIT_TRACT],
+                  [b for b in BEZIRKE if b[0] == "chicago"])
+    with pytest.raises(bg.TransformError, match="detroit"):
+        bg.pruefe_polizeibezirke(con)
+
+
+def test_fact_offense_traegt_bezirk_und_stand_des_falls(con, tmp_path):
+    baue(con, tmp_path, [("a", "chicago", date(2024, 3, 1), "13A", "17031010100")])
+    assert con.execute("SELECT police_area, police_area_source, case_status "
+                       "FROM fact_offense").fetchone() == ("1", "1", None)

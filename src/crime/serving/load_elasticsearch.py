@@ -252,6 +252,24 @@ INDIZES: tuple[Index, ...] = (
         nachschlag=True,
     ),
     Index(
+        name="dim_police_area",
+        # Seit Gold-Vertrag 11: 34 Polizeibezirke. Die Nummern beider Staedte
+        # ueberschneiden sich, der Schluessel braucht die Stadt.
+        schluessel=("city", "area_id"),
+        verteilung=("city",),
+        volltext=frozenset({"area_name"}),
+        flaeche="boundary_wkt",
+        # Wie dim_tract_geo: rechts in einem LOOKUP JOIN, fuer die Karte.
+        nachschlag=True,
+    ),
+    Index(
+        name="bridge_tract_police_area",
+        # Welcher Anteil eines Stadt-Tracts in welchem Bezirk liegt - der
+        # Weg vom Nenner je Tract zum Nenner je Bezirk.
+        schluessel=("geoid", "city", "area_id"),
+        verteilung=("city",),
+    ),
+    Index(
         name="rate_tract",
         # Keine Gold-Tabelle: Die Rate je Tract ist eine Aggregation, und
         # Gold aggregiert nicht. Sie entsteht in serving.build_comparison
