@@ -9,7 +9,7 @@ Stand: 09.09.2026. Für die Detroit-Version mit Parquet und DuckDB.
 - VS Code mit Python- und Jupyter-Erweiterung für die Notebooks.
 - Projektordner außerhalb OneDrive, zum Beispiel `C:\Projekte\detroit_pipeline`.
 
-Öffne den Projektordner in VS Code. Alle folgenden PowerShell-Befehle werden im Projekt-Root ausgeführt: Dort liegen `requirements.txt`, `detroit_pipeline/`, `notebooks/` und `tests/`.
+Öffne den Projektordner in VS Code. Alle folgenden PowerShell-Befehle werden im Projekt-Root ausgeführt: Dort liegen `requirements.txt`, `src/crime/` mit dem Paket `detroit_pipeline/`, `notebooks/` und `tests/`.
 
 ## 2. Einrichtung Schritt für Schritt
 
@@ -67,7 +67,7 @@ Der Pfad muss auf `.venv314\Scripts\python.exe` enden.
 .\.venv314\Scripts\python.exe -m tests.run_tests
 ```
 
-Erwartet: **die ganze Suite, Status SUCCESS** — derzeit 633 Tests. Der Runner
+Erwartet: **die ganze Suite, Status SUCCESS** — über dreitausend Tests (am 25.11.2026 im Standardlauf 3'429). Der Runner
 sammelt mit pytest und fuehrt damit alle Pipelines aus, nicht nur Detroit.
 Eine zweistellige Zahl waere ein Alarmzeichen, kein Erfolg.
 Text- und JSON-Protokolle entstehen unter `logs/tests/`. Einzelne `error:`-Ausgaben mit anschließendem `ok` gehören zu den Tests ungültiger Parameter. Entscheidend ist das Gesamtergebnis.
@@ -232,12 +232,14 @@ Kategoriesummen können die Zahl der Vorfälle überschreiten — bei Detroit um
 .\.venv314\Scripts\python.exe -m tests.run_tests
 ```
 
-**625 automatisierte Offline-Tests**, davon 38 fuer dieses Paket. Der
+**Automatisierte Offline-Tests**: die ganze Suite, davon 74 fuer dieses Paket (25.11.2026). Der
 Runner sammelt seit dem 11.9. mit pytest: Vorher benutzte er
 `unittest.discover`, das nur `TestCase`-Klassen erkennt, und meldete SUCCESS
 nach 39 von damals 448 Tests — ein gruener Lauf, der 91 Prozent der Suite nie
 angefasst hatte.
 tests/detroit_pipeline/test_detroit_arcgis.py: Zeitfenster-Filter und Batch-Bildung.
+tests/detroit_pipeline/test_detroit_delta.py: Delta-Ladeweg, Jahrgang nach Tatzeit, Auswahl nach Änderungszeit.
+tests/detroit_pipeline/test_quelle_detroit.py: der ArcGIS-Adapter liest Layer, Zeitzone und Feldnamen aus `config/quellen.toml`.
 tests/detroit_pipeline/test_bronze_ingestion.py: Ingestion, Count-Gates und Kategorieausgabe.
 tests/detroit_pipeline/test_detroit_timezone.py: lokale Jahres-/Tagesfenster, UTC, DST, Zürich-Ausführungszeiten.
 tests/detroit_pipeline/test_extract_detroit_cli.py: Full/Daily-CLI und Parameterfehler.

@@ -24,7 +24,7 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | FR-34 | `run_all` nimmt einen Jahresbereich | ● | `--jahre 2021-2026`, Wächter in `tests/orchestration/test_run_all.py` |
 | FR-35 | Census je Vintage | ● | `silver/tract` und `silver/place` liegen je Vintage, vier ACS-Vintages |
 | FR-36 | 2024er Nenner ab 2025 | ● | `gold_pipeline.RATENJAHR`, E12 |
-| FR-37 | Unvollständiges Jahr gekennzeichnet | ● | 2026 als Teiljahr, Datenbereich bis 2026-10-04 auf der Startseite |
+| FR-37 | Unvollständiges Jahr gekennzeichnet | ● | 2026 als Teiljahr; den Zeitraum der Daten nennt die Startseite aus dem aktiven Release (`serving.build_einstieg`) |
 | FR-38 | NIBRS über sechs Jahrgänge | ● | beide Städte 100 % zugeordnet, `tests/config/test_micr_nibrs_mapping.py` |
 | FR-39 | Abdeckung je Jahr ausgewiesen | ● | `docs/feldkatalog.md`, erzeugt |
 | FR-40 | Speicherbedarf geschätzt | ● | `docs/intern/platzbedarf.md`, erzeugt, mit Zweitlauf-Wächter |
@@ -97,7 +97,7 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | FR-52 | Datenabgabe passt in die Grenze | ◐ | `platzbedarf.md` gibt die Zahlen; die Grenze selbst ist nicht entschieden | Artan |
 | FR-56 | Fundstelle je Pflichtbestandteil P1–P6 | ◐ | 5 von 6 mit Fundstelle in [`pflichtbestandteile.md`](pflichtbestandteile.md) (23.11.2026), P2 davon teilweise. **P1 fehlt**, solange FR-58 offen ist. `tests/test_pflichtbestandteile.py` hält Anker, Stand und diese Zeile | Artan |
 | FR-57 | Finaler Lebenszyklus, sechs Phasen | ◐ | `ln2_konzept.md` Kapitel 5 ordnet sie zu; „final" ist er nicht | Artan |
-| FR-58 | LN1-Feedback eingearbeitet | ○ | die Rückmeldung kam am 3.11.2026 (Note 5.75); eingearbeitet ist sie noch nicht | Artan |
+| FR-58 | LN1-Feedback eingearbeitet | ○ | die Rückmeldung kam am 3.11.2026 (Note 5.75); eingearbeitet ist sie noch nicht; ein Vorschlag je Kritikpunkt liegt in [`textvorschlag-fr-58.md`](textvorschlag-fr-58.md) | Artan |
 | FR-59 | Skalierbarkeit argumentiert | ● | `docs/ausblick.md` Abschnitt 3, Stufe 3: Die Parquet-Dateien mit Hive-Partitionen kämen mit, das SQL aus `spatial` und `icu` nicht. Die Funktionen sind seit dem 21.11.2026 einzeln genannt statt mit einer veralteten Zählung | Christian |
 | FR-60 | Die drei gemessenen Bremsen benannt | ● | `ausblick.md` Abschnitt 3, je mit Beleg (21.11.2026): Vollneubau mit dem Nachweis zu Notebook 36 vom 14.11.2026, räumlicher Join mit dem Kommentar in `build_crime_offense.py`, Speicher mit dem Abbruch auf `srv01` vom 16.10.2026 und den Grenzen seit dem 3.10.2026. `tests/test_ausblick.py` hält die Grenzen | Christian |
 
@@ -192,5 +192,5 @@ alle sechs hätte im Normalbetrieb Alarm geschlagen.
 und alle vier Dinge der Anforderung kommen mit Daten an — auch die Drift, die
 auf `srv01` vorher nie gemessen wurde und beim ersten Mal gleich etwas fand.
 
-Übrig bleiben damit zehn offene — vier bei Artan, vier in Welle 8, das
-bewusst zurückgestellte FR-23 und das unverteilte FR-43.
+Übrig bleiben damit neun offene — vier bei Artan, vier in Welle 8 und das
+bewusst zurückgestellte FR-23. FR-43 ist seit dem 21.11.2026 erfüllt.

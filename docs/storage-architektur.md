@@ -1435,7 +1435,11 @@ Konsole keine PRs an. Die Schritte:
 
 Der bisherige Datenlauf bleibt, bis jemand `enable-managed` ausführt. Danach
 sperrt [`storage.verwaltet`](../src/crime/storage/verwaltet.py) `run_all` und
-`release` für alles ausser dem Worker — der Cron-Datenlauf scheitert dann.
+`release` in jedem Container, der den Marker sieht, also in `admin` und
+`worker`. **Den Cron-Datenlauf hält das nicht auf:** Der Dienst `pipeline`
+hängt das Volume `konsole` nicht ein und liefe weiter durch. Der Tausch der
+Crontab-Zeilen ist der einzige Schutz (`intern/umstellung-verwaltet.md`,
+Vorprüfung Punkt 4).
 **Der Worker übernimmt ihn ganz** (Entscheidung vom 30.10.2026):
 
 | Datenlauf heute | Worker |

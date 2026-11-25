@@ -184,8 +184,10 @@ bei einer fehlgeschlagenen Impact-Berechnung eines noch offenen Antrags.
 
 Die Sicherung umfasst die Kontrolldatenbank, Konfigurationsrevisionen,
 Auftragsverzeichnisse, Impact-Archive, Serving-Nachweise, vorhandene
-Verwaltungsmarker und lokale Release-Verzeichnisse. Auftragsverzeichnisse können
-Kandidateneingaben enthalten. Sie ist **keine vollständige Sicherung aller
+Verwaltungsmarker und lokale Release-Verzeichnisse. Seit dem 25.11.2026 bleiben
+die Datenordner der Aufträge (`jobs/<id>/data`) draussen: Sie sind aus Bronze
+nachrechenbar und machten die tägliche Sicherung 830 MiB gross; `backup.json`
+nennt sie unter `job_data_left_out`. Sie ist **keine vollständige Sicherung aller
 Quelldaten oder des Servers**.
 
 Unter **Quellläufe** lässt sich die Importhistorie von Chicago und Detroit

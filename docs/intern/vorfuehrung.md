@@ -1,7 +1,7 @@
 # Vorführung: Kibana aus Google Cloud
 
-Kibana und Elasticsearch laufen seit dem 1.11.2026 nicht mehr auf `srv01`
-(C-9). Für die Vorführung kommen sie aus der Google-Cloud-Probe und sind über
+Auf `srv01` ersetzt seit dem 1.11.2026 das eigene Dashboard Kibana;
+Elasticsearch und Kibana sind dort seit dem 6.11.2026 entfernt (C-9). Für die Vorführung kommen sie aus der Google-Cloud-Probe und sind über
 `srv01` unter **https://urbancrime-kibana.datenwerft.ch** erreichbar, hinter
 Cloudflare Access wie die übrigen Dienste. Das eigene Dashboard, die
 Einstiegsseite und JupyterLab laufen weiter dauernd auf `srv01` und brauchen

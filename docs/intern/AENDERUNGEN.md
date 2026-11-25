@@ -113,6 +113,45 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 25.11.2026 · Die internen Dokumente stehen auf dem heutigen Stand (Branch `dokumente-intern`)
+
+Erster Teil der Dokumentdurchsicht vom 25.11.2026: vier Prüfungen gegen den
+Code, gut 140 Befunde. Hier die internen Dokumente, zuerst die Sachfehler, die
+etwas auslösen:
+
+- **S-10 und der alte Datenlauf.** `offene-punkte.md`, `ENGINEERING_KONSOLE.md`
+  und `storage-architektur.md` sagten, nach `enable-managed` scheitere der
+  Cron-Datenlauf an `storage.verwaltet`. Das stimmt nicht: Der Dienst
+  `pipeline` hängt das Volume `konsole` nicht ein und sieht den Marker nicht
+  (`docker-compose.srv01.yml`, `umstellung-verwaltet.md` Punkt 4). Der Tausch
+  der Crontab-Zeilen ist der einzige Schutz. Wichtig für den Entscheid am
+  27.11.
+- **`abgabestand.md`** verlangte Gold-Vertrag 10. Gültig ist 12, und das Release
+  vom 25.11. auf `srv01` trägt ihn.
+- **Konsolenhandbuch:** Der Worker lädt auf `srv01` weder Elasticsearch noch
+  Kibana (`SERVING_BETRIEB=server`). Der Gesamtimport lädt auch die Gebiete. Die
+  Abnahme von E-5 für den Cron-Weg ist seit dem 14.11. erledigt.
+- **`fr-stand.md`:** neun offene, nicht zehn (FR-43 ist erfüllt). FR-37 nennt kein
+  festes Datum mehr, FR-58 verweist auf den Textvorschlag.
+  **`pflichtbestandteile.md`:** elf Gold-Tabellen statt sieben, P1 kennt den
+  Textvorschlag.
+- **`offene-punkte.md`:** C-6 (Karte je Deliktfamilie) erledigt, durch »Geografie«
+  im eigenen Dashboard.
+- **`dritte-stadt.md`:** Die Gebiete sind Code, kein Eintrag in `quellen.toml`
+  (Punkt 4a). `BEZEICHNUNG` steht bei den Stellen ohne Folgen für eine Zahl.
+  `textvorschlag-fr-58.md` sagt dasselbe und nennt die Speicherspitze des
+  Dashboards mit rund 475 MiB statt 429.
+- **`datenhistorie.md`:** Der Referenzstand ist seit dem 12.11. entschieden.
+  Der Abschnitt „offen seit 17.9." bleibt als Verlauf.
+- **Konsolensicherung** ohne `jobs/<id>/data` (`konsole-vorschlagseditor.md`).
+  **Job-Zeiger** statt fester `CRIME_ANALYSIS_ROOT` (`notebook-analysesitzungen.md`).
+- **Fakten in Artans Dokumenten**, Text unverändert:
+  - `leistungsnachweise.md`: sieben Silver-Tabellen, sechs Quellen, 19 Stufen,
+    Dashboard gebaut, Alarmregeln vorhanden, Vintage nicht mehr verdrahtet;
+  - `projektabsprache.md`: elf Gold-Tabellen.
+- **`DETROIT_PIPELINE_ANLEITUNG.md`:** Paketpfad, Testzahlen und Testliste.
+- **`vorfuehrung.md`:** Elasticsearch und Kibana wurden am 6.11. entfernt, nicht am 1.11.
+
 ## 25.11.2026 · Das Sternbild wird erzeugt (Branch `sternbild-erzeugt`)
 
 `docs/bilder/stern.svg` war von Hand gezeichnet und zeigte **vier
