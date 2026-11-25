@@ -208,7 +208,10 @@ function hinweise(d) {
   }
   if (d.raum === "sechseck") {
     p.push("Sechsecke mit 500 m Kante (rund 0,65 km²), unabhängig von Verwaltungsgrenzen. Ohne Einwohner: "
-      + "Die Rate ist hier eine Dichte, und es erscheinen nur Zellen mit Fällen.");
+      + "Die Rate ist hier eine Dichte, und es erscheinen nur Zellen mit Fällen. Gleich grosse Zellen "
+      + "zeigen, ob eine Häufung auch ohne den Zuschnitt der Tracts und Bezirke besteht. Eine dunkle "
+      + "Zelle heisst viele Fälle, nicht hohes Risiko: Wo sich viele Menschen aufhalten, etwa in der "
+      + "Innenstadt, ist die Dichte hoch.");
   }
   p.push(...d.staedte.map((s) => {
     const v = s.verortung;
