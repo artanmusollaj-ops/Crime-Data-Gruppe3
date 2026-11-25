@@ -9,8 +9,8 @@
 ``--jahre`` nimmt einen Jahrgang, einen Bereich oder eine Liste; Vorgabe ist
 2024. Die Kriminalquellen laufen je Jahrgang, die Census-Stufen je Vintage,
 alles andere einmal. Ab 2025 bleibt es beim 2024er Vintage - ein neueres gibt
-es nicht. Mehrere Vintages **und** Gold im Lauf lehnt der Controller ab, weil
-``build_gold`` noch ein einzelnes ``--vintage`` nimmt.
+es nicht. Gold laeuft einmal und bekommt alle Vintages (``--acs-vintages``,
+seit dem 4.10.2026); jede Tat findet ueber ``population_vintage`` ihren Nenner.
 
 Am Ende steht ``data/pipeline_run.json``: welche Stufen liefen, wie lange, auf
 **welchen Bronze-Laeufen** das Ergebnis ruht, und ein Fingerabdruck darueber.
@@ -367,9 +367,9 @@ def auswahl(ohne_ingestion: bool, bis: str | None,
     """Welche Stufen laufen, in welcher Reihenfolge, fuer welche Jahrgaenge.
 
     Mit einem einzigen Jahrgang ist die Entfaltung die Identitaet: Es kommen
-    genau die vierzehn Stufen heraus, die ``STUFEN`` nennt. ``STUFEN``
-    beschreibt die **Form** der Strecke - daraus entstehen das Architekturbild
-    und die Referenz-Startseite, und die zaehlen vierzehn. Wie oft eine Stufe
+    genau die Stufen heraus, die ``STUFEN`` nennt (seit dem 25.11.2026
+    neunzehn). ``STUFEN`` beschreibt die **Form** der Strecke - daraus
+    entstehen das Architekturbild und die Referenz-Startseite. Wie oft eine Stufe
     laeuft, ist dagegen eine Eigenschaft des Laufs und steht hier.
     """
     stufen = [s for s in STUFEN

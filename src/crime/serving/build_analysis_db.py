@@ -53,10 +53,10 @@ LOG = logging.getLogger("build_analysis_db")
 
 PARQUET_FILE = "part-0001.parquet"
 
-# Die Schichten, die abfragbar gemacht werden. Beide sind gebaut: vier
-# Silver-Tabellen und die fuenf des Sternschemas, zusammen neun Sichten. Als
-# Gold dazukam, war dafuer nichts zu tun - discover() nimmt auf, was da ist.
-# Seit dem 17.9.2026 auch serving: die vier Vergleichstabellen aus
+# Die Schichten, die abfragbar gemacht werden. discover() nimmt auf, was da
+# ist: Als Gold dazukam, war dafuer nichts zu tun, und ebenso nicht fuer die
+# Gebiete am 25.11.2026 - seither sind es sieben Silver-, elf Gold- und sechs
+# Serving-Tabellen. Serving seit dem 17.9.2026: Die Tabellen aus
 # build_comparison bekommen Sichten wie jede andere Tabelle. Die Datenbank
 # selbst liegt zwar auch unter serving/, aber nicht unter dataset= - der
 # Glob findet sie nicht.

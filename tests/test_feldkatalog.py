@@ -169,3 +169,26 @@ def test_ein_zweiter_lauf_liefert_dieselbe_datei(gebaut):
         "Ein zweiter Lauf liefert eine andere Datei - dann ist der Katalog "
         "nicht reproduzierbar aus den Manifesten abgeleitet"
     )
+
+
+def test_andere_dokumente_nennen_die_zahlen_des_katalogkopfs():
+    """Der Katalog zaehlt sich selbst; wer ihn zitiert, muss mitziehen.
+
+    Am 25.11.2026 nannten ``docs/README.md`` und ``ln2_konzept.md`` noch
+    "192 Spalten in 15 Tabellen", als der Kopf 280 in 24 sagte - erzeugt war
+    nur der Katalog, nicht seine Zitate. Laeuft ohne ``data/``: verglichen
+    wird Text mit Text.
+    """
+    import re
+    kopf = re.search(r"\*\*(\d+) Spalten in (\d+) Tabellen\.\*\*",
+                     KATALOG.read_text(encoding="utf-8"))
+    assert kopf, "der Katalogkopf nennt keine Zahl"
+    erwartet = f"{kopf.group(1)} Spalten in {kopf.group(2)} Tabellen"
+    falsch = []
+    for pfad in [PROJECT_ROOT / "README.md", *sorted((PROJECT_ROOT / "docs").rglob("*.md"))]:
+        if "archiv" in pfad.parts or pfad == KATALOG or pfad.name == "AENDERUNGEN.md":
+            continue
+        for treffer in re.findall(r"\d+ Spalten in \d+ Tabellen", pfad.read_text(encoding="utf-8")):
+            if treffer != erwartet:
+                falsch.append(f"{pfad.relative_to(PROJECT_ROOT)}: {treffer}")
+    assert not falsch, f"Der Katalog sagt {erwartet}:\n" + "\n".join(falsch)

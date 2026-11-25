@@ -36,12 +36,12 @@ Was sich nicht ohne uns lesen lässt, lässt sich auch nicht übertragen.
 | [`ln2_konzept.md`](ln2_konzept.md) | Konzept, Methode, Befunde — **die Hauptquelle des LN2-Word-Dokuments** |
 | [`architektur-ist-und-ziel.md`](architektur-ist-und-ziel.md) | Ist- und Ziel-Architektur, Teil A und Teil B |
 | [`architektur-einseiter.html`](architektur-einseiter.html) | dieselbe Architektur auf **einer A4-Seite**, zum Ausdrucken |
-| [`architektur.md`](architektur.md) | der Aufbau in zwei erzeugten Bildern, dazu ein Lesepfad |
+| [`architektur.md`](architektur.md) | der Aufbau in drei erzeugten Bildern, dazu ein Lesepfad |
 | [`sternschema-und-wuerfel.md`](sternschema-und-wuerfel.md) · [`.html`](sternschema-und-wuerfel.html) | warum Gold ein Stern ist und kein Würfel — die begründete Entwurfsentscheidung |
 | [`zaehlperspektiven.md`](zaehlperspektiven.md) | vier Arten zu zählen, und was sich nicht addiert |
 | [`eine-zahl.md`](eine-zahl.md) | eine Zahl über sieben Schichten zurückverfolgt |
 | [`storage-architektur.md`](storage-architektur.md) | die Ablage im Aufbau: Modi, Zusagen, API, Fehlerbilder — LN1 verlangt die Storage-Evaluation ausdrücklich; Abschnitt 16 beschreibt, wie die Strecke auf `srv01` liegt, mit den gemessenen Speichergrenzen und den sieben Diensten |
-| [`feldkatalog.md`](feldkatalog.md) | was jede Spalte bedeutet, 192 Spalten in 15 Tabellen — und **erzeugt** (siehe unten) |
+| [`feldkatalog.md`](feldkatalog.md) | was jede Spalte bedeutet, 280 Spalten in 24 Tabellen — und **erzeugt** (siehe unten) |
 | [`ausblick.md`](ausblick.md) | was nach LN1 käme, mit Messwerten und Reihenfolge |
 | [`nachweise/`](nachweise/README.md) | die Notebooks 31, 33–37 **ausgeführt**, als HTML mit allen Ausgaben, je Lauf mit Commit, Umgebung und Datenstand — der Beleg, den die Beurteilung von LN1 vermisste (siehe unten) |
 
@@ -100,8 +100,12 @@ Eine Handänderung hier ist beim nächsten Lauf weg. Wer den Inhalt ändern will
 | [`intern/handbuch/ENGINEERING_KONSOLE.pdf`](intern/handbuch/ENGINEERING_KONSOLE.pdf) | `tools/build_konsole_pdf.py`, aus `intern/ENGINEERING_KONSOLE.md`; der Titel trägt den Hash des Markdowns, und `tests/test_konsole_handbuch.py` vergleicht ihn |
 
 Die übrigen Dateien in [`bilder/`](bilder/) sind von Hand gezeichnet
-(`granularitaet.svg`, `wuerfel.svg`) beziehungsweise für Folien
-gesetzt (`Data_Pipeline_fuer_Folie.png`, `Endarchitektur_LN2.png`).
+(`granularitaet.svg`, `wuerfel.svg`), für Folien gesetzt
+(`Endarchitektur_LN2.png`) oder Artans Entwürfe für die Bretter des
+Dashboards (`dashboard_*.png` mit Unterstrich, 15.10.2026), nach denen die
+Bretter gebaut sind. `architektur-sichten.*` und `architektur-uebersicht.*`
+vom 22.9.2026 bindet kein Dokument mehr ein; sie sind Vorläufer der drei
+erzeugten Architekturbilder.
 
 ## Quellen — die amtlichen Unterlagen
 

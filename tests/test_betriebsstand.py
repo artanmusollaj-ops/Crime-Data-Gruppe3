@@ -102,7 +102,9 @@ NOCH_WAHR = {
     # mit ``>>`` hinein. Dieselbe Elle, die 5.3 an den Datenlauf in GitHub
     # Actions legt: bis zum ersten gruenen Lauf eine Einrichtung.
     "docs/architektur-ist-und-ziel.md": "Einrichtung, kein Nachweis",
-    "README.md": "Einrichtung, kein Nachweis",
+    # README.md nicht mehr seit dem 25.11.2026: Der Zeitplan hat seither jede
+    # Woche gefeuert und Releases gebaut; das README sagt
+    # es im Praesens. Die beiden anderen ziehen in ihrer eigenen Durchsicht nach.
     "docs/ln2_konzept.md": "Einrichtung, kein Nachweis",
     # Hier stand bis zum 1.11.2026 der vierte Posten unter "Was daneben
     # einzurichten ist": der Elasticsearch-Datentraeger fuer Restic, am
