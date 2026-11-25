@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'522** |
+| Tests | **3'532** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -140,6 +140,58 @@ Einwohnern - für die Polizeibezirke ändert das nichts.
 
 Das Dashboard bekommt die Stadtteile als Raum in einem eigenen Schritt, nach
 #301. Keine Zahl der Abgabe ändert sich.
+## 25.11.2026 · »Geografie« rechnet sechs Kennzahlen auf drei Räumen (Branch `geografie-kennzahlen`)
+
+Der eine Umschalter wird zu zwei: **Raum** (`raum`: Tract, Polizeibezirk,
+Sechseck) und **Kennzahl** (`kennzahl`). Ein Link mit dem früheren `ansicht`
+gilt weiter. `starteBrett` in `gemeinsam.js` kennt dafür jetzt mehrere
+Umschalter je Seite; die übrigen Bretter haben einen und merken nichts.
+
+Neue Kennzahlen, je Tract und je Bezirk:
+
+- **Geglättet:** Empirical Bayes, global je Stadt nach Marshall (1991).
+  Kleine Tracts rücken zum Mittel der Stadt, statt schraffiert zu werden.
+- **Zum Vorjahr:** Fälle gegenüber denselben Tagen ein Jahr früher, über die
+  Tage mit Daten in beiden Jahren (`zeitraum.vergleich`), Grenzen −20, −5,
+  +5, +20 %. Ein neutrales Band von ±10 % liess 2024 jeden Bezirk grau.
+- **Deliktprofil:** Lokationsquotient der gewählten Kategorien - ihr Anteil
+  hier durch ihren Anteil in der Stadt. Ohne Einwohner gerechnet; ohne
+  gewählte Kategorie meldet das Brett, was fehlt.
+- **Nacht:** Anteil der Fälle bei Dunkelheit, nach derselben Regel wie »Tag
+  und Nacht«. Die Faktentabelle im Speicher trägt dafür `dunkel`.
+- **Festnahmen** gibt es jetzt auch je Tract.
+
+**Neuer Raum Sechseck:** ein Raster mit 500 m Kante (0,65 km² je Zelle),
+axial nach Red Blob Games, gerechnet in Metern um den Mittelpunkt der Taten
+jeder Stadt; die Faktentabelle trägt `hq` und `hr`. Ohne Einwohner ist die
+Rate dort eine Dichte, Fälle je km² und Jahr; geglättet gibt es nicht. Auf
+dem lokalen Bestand sind es 2024 rund 970 Zellen in Chicago.
+
+Lokal im Browser geprüft, jede Kombination einmal, ohne Konsolenfehler.
+Speicher auf `srv01` nicht gemessen: drei Spalten mehr im Speicher
+(`dunkel`, `hq`, `hr`, zusammen rund 5 Byte je Tat, also etwa 10 MB).
+## 25.11.2026 · Das Dashboard überlebt das Nachladen eines Release (Branch `dashboard-auslagerung-je-ladung`)
+
+**Vorfall auf `srv01`, 25.11.2026, 10:55 UTC.** Nach dem Release
+`2026-11-25T10-47-20Z` antwortete jede Anfrage an das Dashboard mit HTTP 500:
+*„Could not read enough bytes from file
+.tmp/duckdb_temp_storage_DEFAULT-0.tmp"*. Ein Neustart des Dienstes um 11:22
+UTC behob es; das Dashboard zeigte danach das neue Release.
+
+**Ursache.** Das Dashboard lädt ein neues Release in eine neue
+DuckDB-Verbindung und schliesst danach die alte. Beide lagerten ohne eigenes
+Verzeichnis nach `.tmp/` im Arbeitsverzeichnis aus, unter demselben
+Dateinamen. Das Schliessen der alten nahm der neuen ihre ausgelagerten
+Blöcke. Das Dashboard lagert bei 256 MB Grenze schon in Ruhe rund 9 MB aus;
+mit dem grösseren Stand vom 25.11. (Polizeibezirke, Festnahme) lagen beim
+Wechsel zwei Stände im Speicher.
+
+**Behoben:** Jede Ladung bekommt ein eigenes Verzeichnis
+(`DUCKDB_TEMP_DIRECTORY` oder das Temp-Verzeichnis des Systems), und das der
+alten Ladung wird nach dem Schliessen entfernt. Ein Test lädt zweimal und
+rechnet danach weiter.
+
+Keine Zahl der Abgabe ändert sich.
 
 ---
 

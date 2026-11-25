@@ -34,6 +34,14 @@ der Polizeibezirk als Zahl, ``festnahme`` die Festnahme. Ein aelteres Release
 fuehrt den Bezirk nicht und ``arrest`` womoeglich auch nicht; dann bleiben
 beide ``NULL``, und das Dashboard laedt trotzdem.
 
+**Dunkelheit und Sechseck** (seit 25.11.2026): ``dunkel`` sagt, ob die Tat
+nach Sonnenuntergang und vor Sonnenaufgang lag - dieselbe Regel wie die Tafel
+»Tag und Nacht« (``zeitverlauf.lade_licht``), ``NULL`` wo das nicht sicher ist
+(Platzhalterzeit, kein Sonnenstand). ``hq`` und ``hr`` sind die Zelle eines
+Sechseckrasters mit ``SECHSECK_M`` Metern Kantenlaenge, axial nach Red Blob
+Games, »Hexagonal Grids« (https://www.redblobgames.com/grids/hexagons/),
+gerechnet in Metern um den Mittelpunkt der Taten jeder Stadt (``mitte``).
+
 Nicht hier: ``monate`` kommt aus ``serving/comparison_month``, und
 ``doppelte`` braucht die Delikt-ID, die die Faktentabelle nicht fuehrt.
 Hier steht dafuer ``fenster``, je Stadt der erste und letzte Tag mit Daten.
@@ -42,6 +50,11 @@ Hier steht dafuer ``fenster``, je Stadt der erste und letzte Tag mit Daten.
 from __future__ import annotations
 
 from typing import Any
+
+#: Kantenlaenge eines Sechsecks in Metern; eine Zelle hat rund 0,65 km².
+SECHSECK_M = 500.0
+#: Mittlerer Erdradius in Metern (IUGG), fuer die lokale Projektion.
+ERDRADIUS_M = 6371008.8
 
 #: Die Kategorie einer Tat wie in ``build_comparison``: ueber ``dim_offense``,
 #: ohne NIBRS-Code ``unmapped``. Erwartet die Aliase ``f`` und ``d``.
@@ -62,8 +75,32 @@ def _aufzaehlung(con: Any, name: str, abfrage: str) -> str:
     return name
 
 
-def lade_taten(con: Any, fakten: str, delikte: str, tracts: str) -> None:
-    """Legt ``fakt`` mit seinen Verzeichnissen an, dazu ``fenster``."""
+def sechseck_sql(lat: str, lon: str, lat0: str, lon0: str) -> tuple[str, str]:
+    """Die axiale Zelle (q, r) eines Punkts, spitze Sechsecke, als SQL.
+
+    Gleichrechteckige Projektion um (lat0, lon0) - ueber eine Stadt genau
+    genug -, dann Pixel zu Sechseck und Wuerfelrunden nach Red Blob Games.
+    """
+    x = f"(radians({lon}) - radians({lon0})) * {ERDRADIUS_M} * cos(radians({lat0}))"
+    y = f"(radians({lat}) - radians({lat0})) * {ERDRADIUS_M}"
+    q = f"((sqrt(3) / 3 * ({x}) - ({y}) / 3) / {SECHSECK_M})"
+    r = f"((2.0 / 3 * ({y})) / {SECHSECK_M})"
+    s = f"(-({q}) - ({r}))"
+    rq, rr, rs = f"round({q})", f"round({r})", f"round({s})"
+    dq, dr, ds = f"abs({rq} - {q})", f"abs({rr} - {r})", f"abs({rs} - {s})"
+    q_ende = f"CASE WHEN {dq} > {dr} AND {dq} > {ds} THEN -{rr} - {rs} ELSE {rq} END"
+    r_ende = (f"CASE WHEN {dq} > {dr} AND {dq} > {ds} THEN {rr} "
+              f"WHEN {dr} > {ds} THEN -{rq} - {rs} ELSE {rr} END")
+    return f"CAST({q_ende} AS SMALLINT)", f"CAST({r_ende} AS SMALLINT)"
+
+
+def lade_taten(con: Any, fakten: str, delikte: str, tracts: str,
+               stadttage: str | None = None) -> None:
+    """Legt ``fakt`` mit seinen Verzeichnissen an, dazu ``fenster`` und ``mitte``.
+
+    ``stadttage`` ist ``gold/dim_city_day`` mit Sonnenstand; ohne ihn bleibt
+    ``dunkel`` leer.
+    """
     from serving.dashboard import PLATZHALTER_SQL
 
     F = f"read_parquet('{fakten}', hive_partitioning=false)"
@@ -71,6 +108,25 @@ def lade_taten(con: Any, fakten: str, delikte: str, tracts: str) -> None:
     bezirk = ("TRY_CAST(f.police_area AS UTINYINT)" if "police_area" in spalten
               else "NULL::UTINYINT")
     festnahme = "f.arrest" if "arrest" in spalten else "NULL::BOOLEAN"
+    # Der Mittelpunkt der Taten je Stadt: Ursprung des Sechseckrasters. Ohne
+    # Koordinaten (nur in Testbestaenden) bleibt das Raster leer.
+    if {"latitude", "longitude"} <= spalten:
+        con.execute(f"""
+            CREATE TABLE mitte AS
+            SELECT reporting_city AS stadt, avg(latitude) AS lat, avg(longitude) AS lon
+            FROM {F} WHERE latitude IS NOT NULL GROUP BY 1""")
+        hq, hr = sechseck_sql("f.latitude", "f.longitude", "m.lat", "m.lon")
+    else:
+        con.execute("CREATE TABLE mitte (stadt VARCHAR, lat DOUBLE, lon DOUBLE)")
+        hq, hr = "NULL::SMALLINT", "NULL::SMALLINT"
+    licht_join, dunkel = "", "NULL::BOOLEAN"
+    if stadttage and "occurred_at_utc" in spalten:
+        licht_join = (f"LEFT JOIN read_parquet('{stadttage}', hive_partitioning=false) c "
+                      "ON c.city = f.reporting_city AND c.date = f.date")
+        dunkel = (f"CASE WHEN {PLATZHALTER_SQL} OR f.occurred_at_utc IS NULL "
+                  "OR c.sunrise_utc IS NULL OR c.sunset_utc IS NULL THEN NULL "
+                  "ELSE NOT (f.occurred_at_utc >= c.sunrise_utc "
+                  "AND f.occurred_at_utc < c.sunset_utc) END")
     D = f"read_parquet('{delikte}', hive_partitioning=false)"
     T = f"read_parquet('{tracts}', hive_partitioning=false)"
     con.execute(f"""
@@ -115,7 +171,10 @@ def lade_taten(con: Any, fakten: str, delikte: str, tracts: str) -> None:
                coalesce(f.local_time_ambiguous, false) AS ortszeit_mehrdeutig,
                q.nr AS quelle,
                {bezirk} AS bezirk,
-               {festnahme} AS festnahme
+               {festnahme} AS festnahme,
+               {dunkel} AS dunkel,
+               {hq} AS hq,
+               {hr} AS hr
         FROM {F} f
         LEFT JOIN delikt d USING (nibrs_code)
         LEFT JOIN tract_nr n ON n.geoid = f.tract_geoid
@@ -125,6 +184,8 @@ def lade_taten(con: Any, fakten: str, delikte: str, tracts: str) -> None:
          AND q.quelltext IS NOT DISTINCT FROM f.source_offense_description
          AND q.nibrs_code IS NOT DISTINCT FROM f.nibrs_code
          AND q.status IS NOT DISTINCT FROM f.mapping_status
+        LEFT JOIN mitte m ON m.stadt = f.reporting_city
+        {licht_join}
         ORDER BY 1, 2""")
     _fenster(con)
 

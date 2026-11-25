@@ -133,7 +133,8 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
         bestand = daten()
         werte = request.args.to_dict()
         return jsonify(bestand.geografie(bestand.auswahl(werte, "geografie"),
-                                         werte.get("ansicht") or "tract"))
+                                         werte.get("ansicht"), raum=werte.get("raum"),
+                                         kennzahl=werte.get("kennzahl")))
 
     @app.get("/api/deliktstruktur")
     def deliktstruktur():

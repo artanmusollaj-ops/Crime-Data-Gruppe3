@@ -52,7 +52,10 @@ Release ist unveraenderlich; nachgeladen wird also genau dann, wenn
 from __future__ import annotations
 
 import json
+import os
 import re
+import shutil
+import tempfile
 import threading
 import time
 from dataclasses import dataclass, replace
@@ -374,6 +377,18 @@ class Bestand:
         tracts, _ = _quelle(ablage, release, "gold", "dim_tract")
         acs, _ = _quelle(ablage, release, "gold", "dim_tract_acs")
         con = storage_duckdb.connect(ablage.config)
+        # **Je Ladung ein eigenes Auslagerungsverzeichnis.** Beim Nachladen
+        # leben alte und neue Verbindung kurz nebeneinander. Ohne eigenes
+        # Verzeichnis lagern beide nach ``.tmp/duckdb_temp_storage_DEFAULT-0.tmp``
+        # im Arbeitsverzeichnis aus; schliesst die alte, nimmt sie die Datei
+        # der neuen mit. Am 25.11.2026 auf srv01: Nach dem neuen Release
+        # antwortete jede Anfrage mit 500, *„Could not read enough bytes from
+        # file .tmp/duckdb_temp_storage_DEFAULT-0.tmp"*, bis zum Neustart.
+        # Das Dashboard lagert schon in Ruhe rund 9 MB aus (256 MB Grenze).
+        basis = os.getenv("DUCKDB_TEMP_DIRECTORY") or tempfile.gettempdir()
+        os.makedirs(basis, exist_ok=True)
+        auslagerung = tempfile.mkdtemp(prefix="dashboard-duckdb-", dir=basis)
+        con.execute("SET temp_directory = $d", {"d": auslagerung})
         # Spalten ausgeschrieben: Ein SELECT * nimmt die Hive-Spalte aus dem
         # Pfad mit (AGENTS.md, »Known pitfalls«).
         con.execute(f"""
@@ -386,7 +401,17 @@ class Bestand:
         # Die Taten selbst, schlank, und die Monatssichten darueber
         # (serving.dashboard.taten, seit dem 23.11.2026).
         from serving.dashboard.taten import lade_taten
-        lade_taten(con, fakten, delikte, tracts)
+        # Der Sonnenstand fuer ``fakt.dunkel``, wenn das Release ihn fuehrt.
+        stadttage = None
+        rel = f"{release}/gold/dataset=dim_city_day"
+        if ablage.exists(rel, "manifest.json"):
+            kandidat = ablage.resolve_read_path(rel, PARQUET_FILE)
+            sonne = {r[0] for r in con.execute(
+                f"DESCRIBE SELECT * FROM read_parquet('{kandidat}', hive_partitioning=false)"
+            ).fetchall()}
+            if {"sunrise_utc", "sunset_utc"} <= sonne:
+                stadttage = kandidat
+        lade_taten(con, fakten, delikte, tracts, stadttage)
         con.execute(f"""
             CREATE TABLE tract_geo AS
             SELECT geoid, city, tract_name
@@ -460,7 +485,9 @@ class Bestand:
         stand = json.loads(monat_manifest)
         with self._sperre:
             alt = getattr(self, "_con", None)
+            alt_auslagerung = getattr(self, "auslagerung", None)
             self._con = con
+            self.auslagerung = auslagerung
             self._abdruck_jetzt = aktuell
             self.stand = {
                 "gebaut": stand.get("built_at_utc"),
@@ -479,6 +506,8 @@ class Bestand:
                 "SELECT kategorie FROM monate GROUP BY 1 ORDER BY sum(delikte) DESC").fetchall()]
         if alt is not None:
             alt.close()
+        if alt_auslagerung:
+            shutil.rmtree(alt_auslagerung, ignore_errors=True)
 
     def aktuell(self) -> None:
         """Laedt nach, wenn sich der Stand geaendert hat - hoechstens einmal je Minute."""
@@ -515,7 +544,7 @@ class Bestand:
                         # »Soziales Umfeld«: die beiden Karten nebeneinander.
                         "karte": "nebeneinander",
                         # »Geografie«: die Rate je Tract.
-                        "ansicht": "tract"},
+                        "raum": "tract", "kennzahl": "rate"},
             "letzter_monat": letzter,
             # Fuer die erweiterte Zeitwahl: welche Bretter Tage rechnen, das
             # Fenster mit Daten und die Vorgaben dazu.
@@ -645,9 +674,10 @@ class Bestand:
 
     # -- Das Brett »Geografie« -----------------------------------------------
 
-    def geografie(self, a: Auswahl, ansicht: str = "tract") -> dict[str, Any]:
+    def geografie(self, a: Auswahl, ansicht: str | None = None, *,
+                  raum: str | None = None, kennzahl: str | None = None) -> dict[str, Any]:
         from serving.dashboard.geografie import geografie
-        return geografie(self, a, ansicht)
+        return geografie(self, a, ansicht, raum=raum, kennzahl=kennzahl)
 
     # -- Das Brett »Zeitverlauf« ---------------------------------------------
 

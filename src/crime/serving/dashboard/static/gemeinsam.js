@@ -393,12 +393,13 @@ function fehler(text) {
 }
 
 // Startet ein Brett: fuellt Leiste, Kopf und Fuss, laedt bei jeder Aenderung
-// von api neu und ruft zeichne(daten). Ein .umschalter setzt seinen Parameter.
+// von api neu und ruft zeichne(daten). Jeder .umschalter setzt seinen Parameter.
 export async function starteBrett({ api, zeichne }) {
-  // Der Umschalter setzt den Parameter aus data-param (Vorgabe: mass).
-  const schalter = document.querySelector(".umschalter");
-  const param = schalter ? schalter.dataset.param || "mass" : null;
-  const zustand = { wert: null, daten: null };
+  // Jeder Umschalter setzt den Parameter aus data-param (Vorgabe: mass). Seit
+  // dem 25.11.2026 duerfen es mehrere sein (»Geografie«: Raum und Kennzahl).
+  const schalter = [...document.querySelectorAll(".umschalter")];
+  const param = (s) => s.dataset.param || "mass";
+  const zustand = { werte: {}, daten: null };
   for (const s of document.querySelectorAll("[data-symbol]")) {
     const svg = el("svg", { viewBox: "0 0 24 24", "aria-hidden": "true" });
     svg.append(el("path", { d: SYMBOLE[s.dataset.symbol] }));
@@ -411,7 +412,10 @@ export async function starteBrett({ api, zeichne }) {
   }
   const url = new URLSearchParams(location.search);
   const wahl = (k) => url.get(k) ?? o.vorgabe[k];
-  if (param) zustand.wert = wahl(param);
+  // Ohne Vorgabe gilt der erste Knopf des Schalters.
+  for (const s of schalter) {
+    zustand.werte[param(s)] = wahl(param(s)) ?? s.querySelector("button")?.dataset.wert;
+  }
   mehrfachwahl(document.getElementById("staedte"), document.getElementById("stadt"), o.staedte, wahl("stadt"), ",");
   optionen(document.getElementById("jahr"), o.jahre.map((j) => [j, String(j)]), wahl("jahr"));
   const monate = MONATE.map((m, i) => [i + 1, m]);
@@ -419,8 +423,9 @@ export async function starteBrett({ api, zeichne }) {
   optionen(document.getElementById("bis"), monate, wahl("bis"));
   mehrfachwahl(document.getElementById("kategorien"), document.getElementById("kategorie"), o.kategorien, wahl("kategorie"), "|");
   const tage = zeitwahl(o, api.split("/").pop(), url);
-  const knoepfe = document.querySelectorAll(".umschalter button");
-  knoepfe.forEach((b) => b.classList.toggle("an", b.dataset.wert === zustand.wert));
+  const markiere = () => schalter.forEach((s) => s.querySelectorAll("button").forEach((b) =>
+    b.classList.toggle("an", b.dataset.wert === zustand.werte[param(s)])));
+  markiere();
 
   const st = o.stand;
   const gebaut = st.gebaut ? new Date(st.gebaut).toLocaleString("de-CH") : "unbekannt";
@@ -431,7 +436,7 @@ export async function starteBrett({ api, zeichne }) {
 
   async function lade() {
     const form = new FormData(document.getElementById("leiste"));
-    if (param) form.set(param, zustand.wert);
+    for (const [k, v] of Object.entries(zustand.werte)) if (v !== undefined) form.set(k, v);
     const suche = "?" + new URLSearchParams(form);
     const antwort = await fetch(api + suche);
     // Ein 500 kommt als HTML; dann bleibt die Meldung allgemein, aber sichtbar.
@@ -463,11 +468,11 @@ export async function starteBrett({ api, zeichne }) {
     if (tage && !tage.tagVon.disabled && !(tage.tagVon.value && tage.tagBis.value)) return;
     lade();
   });
-  knoepfe.forEach((b) => b.addEventListener("click", () => {
-    zustand.wert = b.dataset.wert;
-    knoepfe.forEach((x) => x.classList.toggle("an", x === b));
+  schalter.forEach((s) => s.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    zustand.werte[param(s)] = b.dataset.wert;
+    markiere();
     lade();
-  }));
+  })));
   let warte;
   window.addEventListener("resize", () => {
     clearTimeout(warte);
