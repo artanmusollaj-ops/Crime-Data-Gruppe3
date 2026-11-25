@@ -47,6 +47,11 @@
       <h1>Räumliche Verteilung</h1>
       <p class="einleitung" id="u-geografie">Fälle je 1'000 Einwohner je Census Tract</p>
     </div>
+    <div class="umschalter" data-param="ansicht" role="group" aria-label="Ansicht">
+      <button type="button" data-wert="tract">Rate je Tract</button>
+      <button type="button" data-wert="bezirk">Rate je Polizeibezirk</button>
+      <button type="button" data-wert="festnahme">Festnahmen je Polizeibezirk</button>
+    </div>
   </div>
   <p class="fehler" id="fehler" hidden></p>
 
@@ -70,7 +75,7 @@
 </main>
 
 <footer class="fuss">
-  <span>Umrisse: TIGER/Line über gold/dim_tract_geo · Hintergrund: OpenStreetMap · Einwohner: ACS 5-Year · <span id="fuss-stand"></span></span>
+  <span>Umrisse: TIGER/Line über gold/dim_tract_geo, Polizeibezirke über gold/dim_police_area · Hintergrund: OpenStreetMap · Einwohner: ACS 5-Year · <span id="fuss-stand"></span></span>
   <span>Quelle: gold/fact_offense · Regel: gold_pipeline.raten_je_tract</span>
 </footer>
 </body>

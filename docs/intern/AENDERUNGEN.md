@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'501** |
+| Tests | **3'512** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -109,6 +109,42 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 25.11.2026 · »Geografie« zeigt Polizeibezirke und Festnahmen (Branch `polizeibezirke-dashboard`)
+
+Vierter und letzter Schritt. Das Brett »Geografie« hat einen Umschalter mit
+drei Ansichten (`ansicht`, Vorgabe `tract`):
+
+- **Rate je Tract**, wie bisher.
+- **Rate je Polizeibezirk:** dieselben Fälle wie je Tract (`inside_city`,
+  Fallebene), gruppiert nach dem Bezirk ihrer Koordinate; der Nenner sind die
+  Einwohner des Bezirks aus `bridge_tract_police_area` mal `dim_tract_acs`,
+  je Vintage und mit Personenjahren wie die Tract-Rate. Über alle Bezirke
+  ergibt das die Rate der Stadt.
+- **Festnahmen je Polizeibezirk:** Anteil der Fälle mit Festnahme unter den
+  Fällen mit bekanntem Stand, eigene grüne Farbreihe. Unter 30 Fällen mit
+  bekanntem Stand schraffiert. Reicht der Zeitraum in das letzte Jahr vor dem
+  Datenende einer Stadt, nennt das Brett das je Stadt (`jung`): Der Stand
+  wird nachgetragen, in Detroit stark.
+
+Chicagos District 31 erscheint in keiner Bezirksansicht (`within_city`
+falsch). Ein Release vor Gold-Vertrag 11 lädt weiter; die Bezirksansichten
+melden dann, dass das Release keine Polizeibezirke führt.
+
+Nebenbei korrigiert: `geografie.pfade` las aus jedem Umriss nur den ersten
+Ring. Für die Tracts fiel das nicht auf, für District 31 aus drei Teilen
+hätte es zwei Drittel verschluckt. Jetzt wird jeder Ring ein Teilpfad, Löcher
+stanzt `fill-rule: evenodd` aus.
+
+Lokal im Browser geprüft, auf einem Probe-Release aus dem lokalen Gold: alle
+drei Ansichten, der Hinweis auf junge Fälle für Januar bis Juni 2026, keine
+Konsolenfehler. **Nicht gemessen** ist der Speicher auf `srv01`: Die
+Faktentabelle im Dashboard trägt zwei Spalten mehr (`bezirk` als `UTINYINT`,
+`festnahme`), geschätzt 4 MB bei 1,9 Mio. Taten.
+
+Keine Zahl der Abgabe ändert sich.
 
 ---
 

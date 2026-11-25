@@ -228,7 +228,7 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Der Standardlauf wählt 3'390 Tests aus. Erwartet wird **grün** ohne
+Der Standardlauf wählt 3'401 Tests aus. Erwartet wird **grün** ohne
 Netzzugriff und ohne Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
@@ -238,7 +238,7 @@ Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 3'501
+python -m pytest -m ""               # beides zusammen, alle 3'512
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -1008,6 +1008,15 @@ Ebenfalls am 8.11.2026 kam »Soziales Umfeld« dazu: die Fallrate je Tract
 neben der Armutsquote, als zwei Karten nebeneinander oder als eine bivariate
 Karte übereinander, dazu die Rate nach gemeinsamen Armutsbändern beider Städte.
 
+Seit dem 25.11.2026 schaltet »Geografie« zwischen drei Ansichten um: die Rate
+je Tract, die Rate je **Polizeibezirk** (Chicago District, Detroit Precinct)
+und der Anteil der Fälle mit **Festnahme** je Bezirk. Die Einwohner eines
+Bezirks verteilt Gold flächengewichtet aus den Tracts
+(`bridge_tract_police_area`); Chicagos District 31 zählt nicht, er umfasst
+die Gemeinden Norridge und Harwood Heights. Reicht ein Zeitraum in das
+letzte Jahr vor dem Datenende, sagt das Brett dazu, dass junge Fälle noch
+nicht geklärt sind.
+
 **Auf `srv01` ersetzt es Elasticsearch und Kibana**, seit dem 1.11.2026
 eingesetzt (C-9); seit dem 6.11.2026 sind dort ihre Container, Datenträger und
 Abbilder gelöscht. Dort heisst es `urbancrime-dashboard.datenwerft.ch`, liegt hinter
@@ -1139,7 +1148,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**3'501 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**3'512 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -1177,7 +1186,7 @@ auf `main` aus: auf jedem Pull Request unter **Linux** mit Python **3.11**, dazu
 Referenz-Wächter unter **3.13**; auf `main` zusätzlich unter **Windows** mit **3.13**.
 Windows, weil Artan darauf entwickelt.
 
-Im Linux-CI-Lauf werden hochgerechnet **3'305 der 3'390 Tests** des
+Im Linux-CI-Lauf werden hochgerechnet **3'316 der 3'401 Tests** des
 Standardlaufs ausgeführt (am PR-Lauf zu bestätigen, nicht gemessen). Die übrigen 85 werden übersprungen. Die Zahl hängt
 von der Umgebung ab. Einige Prüfungen brauchen gebaute Daten, die in
 `data/` liegen und nicht versioniert sind — dazu seit dem 5.10.2026 die Reproduktion von

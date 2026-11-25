@@ -29,6 +29,11 @@ Monatssichten mit den Namen der alten Tabellen. Sie stehen jetzt nur noch in
 ``tests/serving/test_dashboard_taten.py``: Dort halten sie zeilengleich gegen
 die alte Verdichtung fest, dass ``fakt`` alles traegt, was jene trug.
 
+**Bezirk und Festnahme** (seit 25.11.2026, Gold-Vertrag 11): ``bezirk`` ist
+der Polizeibezirk als Zahl, ``festnahme`` die Festnahme. Ein aelteres Release
+fuehrt den Bezirk nicht und ``arrest`` womoeglich auch nicht; dann bleiben
+beide ``NULL``, und das Dashboard laedt trotzdem.
+
 Nicht hier: ``monate`` kommt aus ``serving/comparison_month``, und
 ``doppelte`` braucht die Delikt-ID, die die Faktentabelle nicht fuehrt.
 Hier steht dafuer ``fenster``, je Stadt der erste und letzte Tag mit Daten.
@@ -62,6 +67,10 @@ def lade_taten(con: Any, fakten: str, delikte: str, tracts: str) -> None:
     from serving.dashboard import PLATZHALTER_SQL
 
     F = f"read_parquet('{fakten}', hive_partitioning=false)"
+    spalten = {r[0] for r in con.execute(f"DESCRIBE SELECT * FROM {F}").fetchall()}
+    bezirk = ("TRY_CAST(f.police_area AS UTINYINT)" if "police_area" in spalten
+              else "NULL::UTINYINT")
+    festnahme = "f.arrest" if "arrest" in spalten else "NULL::BOOLEAN"
     D = f"read_parquet('{delikte}', hive_partitioning=false)"
     T = f"read_parquet('{tracts}', hive_partitioning=false)"
     con.execute(f"""
@@ -104,7 +113,9 @@ def lade_taten(con: Any, fakten: str, delikte: str, tracts: str) -> None:
                f.geo_status::{verortung} AS geo_status,
                f.mapping_status::{zuordnung} AS mapping_status,
                coalesce(f.local_time_ambiguous, false) AS ortszeit_mehrdeutig,
-               q.nr AS quelle
+               q.nr AS quelle,
+               {bezirk} AS bezirk,
+               {festnahme} AS festnahme
         FROM {F} f
         LEFT JOIN delikt d USING (nibrs_code)
         LEFT JOIN tract_nr n ON n.geoid = f.tract_geoid

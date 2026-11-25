@@ -121,13 +121,19 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     @app.get("/api/karten")
     def karten():
         # Die Umrisse aendern sich nur mit dem Bestand; der Browser holt sie
-        # einmal je Seite, die Raten bei jeder Auswahl.
-        return jsonify(daten().karten)
+        # einmal je Seite, die Raten bei jeder Auswahl. ``raum=bezirk`` gibt
+        # die Polizeibezirke, ``{}`` bei einem Release ohne sie.
+        bestand = daten()
+        if request.args.get("raum") == "bezirk":
+            return jsonify(bestand.karten_bezirke or {})
+        return jsonify(bestand.karten)
 
     @app.get("/api/geografie")
     def geografie():
         bestand = daten()
-        return jsonify(bestand.geografie(bestand.auswahl(request.args.to_dict(), "geografie")))
+        werte = request.args.to_dict()
+        return jsonify(bestand.geografie(bestand.auswahl(werte, "geografie"),
+                                         werte.get("ansicht") or "tract"))
 
     @app.get("/api/deliktstruktur")
     def deliktstruktur():

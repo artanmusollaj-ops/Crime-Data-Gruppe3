@@ -171,7 +171,10 @@ h2 { margin: 0 0 4px; font-size: 17px; }
   background: #fafaf8; border-radius: 4px; user-select: none; }
 .kartenflaeche svg.zieht { cursor: grabbing; }
 /* Halb durchsichtig, damit Strassen und Wasser durchscheinen; die Linie bleibt beim Zoomen gleich dick. */
-.tract { stroke: #ffffff; stroke-width: 0.6; fill-opacity: 0.68; vector-effect: non-scaling-stroke; }
+.tract { stroke: #ffffff; stroke-width: 0.6; fill-opacity: 0.68; vector-effect: non-scaling-stroke;
+  fill-rule: evenodd; }
+/* Polizeibezirke: groesser, deshalb eine kraeftigere Grenze. */
+.tract.bezirk { stroke-width: 1.4; }
 .tract:hover { stroke: #1b2430; stroke-width: 1.5; fill-opacity: 0.85; }
 /* Entfaerbt: Farbe tragen nur die Tracts. */
 .kacheln { pointer-events: none; filter: grayscale(1) contrast(0.85) brightness(1.08); }
