@@ -67,7 +67,7 @@ Der Pfad muss auf `.venv314\Scripts\python.exe` enden.
 .\.venv314\Scripts\python.exe -m tests.run_tests
 ```
 
-Erwartet: **die ganze Suite, Status SUCCESS** — über dreitausend Tests (am 25.11.2026 im Standardlauf 3'430). Der Runner
+Erwartet: **die ganze Suite, Status SUCCESS** — über dreitausend Tests (am 25.11.2026 im Standardlauf 3'429). Der Runner
 sammelt mit pytest und fuehrt damit alle Pipelines aus, nicht nur Detroit.
 Eine zweistellige Zahl waere ein Alarmzeichen, kein Erfolg.
 Text- und JSON-Protokolle entstehen unter `logs/tests/`. Einzelne `error:`-Ausgaben mit anschließendem `ok` gehören zu den Tests ungültiger Parameter. Entscheidend ist das Gesamtergebnis.

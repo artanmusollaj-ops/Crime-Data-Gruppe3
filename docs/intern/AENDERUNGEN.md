@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'541** |
+| Tests | **3'540** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -144,7 +144,7 @@ vom 22.9. stehen jetzt in der Liste.
 
 **Neuer Wächter:** `test_andere_dokumente_nennen_die_zahlen_des_katalogkopfs`.
 Wer „N Spalten in M Tabellen" schreibt, muss die Zahl des Katalogkopfs nennen.
-Erzeugt war nur der Katalog, nicht seine Zitate. Tests: 3'541.
+Erzeugt war nur der Katalog, nicht seine Zitate. Die Testzahl bleibt 3'540: Für das README entfällt ein Fall in `test_betriebsstand.py`. Er verlangte dort „Einrichtung, kein Nachweis", obwohl der Zeitplan auf `srv01` seit Wochen Releases baut.
 
 ## 25.11.2026 · Die internen Dokumente stehen auf dem heutigen Stand (Branch `dokumente-intern`)
 
