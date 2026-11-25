@@ -1147,3 +1147,22 @@ def test_ein_multipolygon_zeichnet_jeden_teil():
            "((-83.2 42.3, -83.15 42.3, -83.15 42.35, -83.2 42.3)))")
     d = pfade([("31", "detroit", "District 31", wkt)])["detroit"]["tracts"][0]["d"]
     assert d.count("M") == 2 and d.count("Z") == 2
+
+
+
+def test_jede_ladung_lagert_in_ihr_eigenes_verzeichnis_aus(karte, tmp_path):
+    """25.11.2026 auf srv01: Alte und neue Verbindung teilten sich die
+    Auslagerungsdatei; das Schliessen der alten nahm der neuen ihre Daten,
+    und jede Anfrage endete mit 500."""
+    erstes = Path(karte.auslagerung)
+    assert erstes.is_dir()
+    assert karte._con.execute("SELECT current_setting('temp_directory')").fetchone()[0] == str(erstes)
+    # Ein neues Release: dieselbe Kopie unter neuer Kennung, der Zeiger zeigt dorthin.
+    freigeben(karte.data_root, "2026-11-25T10-47-20Z")
+    karte._lade()
+    zweites = Path(karte.auslagerung)
+    assert zweites != erstes and zweites.is_dir()
+    # Lokal mit Absicht: Das alte Verzeichnis ist weg, das neue bleibt.
+    assert not erstes.exists()
+    # Die neue Verbindung rechnet weiter, auch nachdem die alte geschlossen ist.
+    assert karte.geografie(karte.auswahl({"jahr": "2024"}))["staedte"]
