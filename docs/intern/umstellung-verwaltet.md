@@ -35,8 +35,8 @@ ist dafür nichts geprüft und nichts geändert.
    ein. In seinem Container ist `/app/data/admin` der Ordner aus
    `arbeitsdaten`, ohne Marker. `storage.verwaltet` meldet dort also „nicht
    verwaltet“, und `srv01-datenlauf.sh` liefe nach der Umstellung weiter
-   durch. `ENGINEERING_KONSOLE.md` und `storage-architektur.md` sagen das
-   Gegenteil: „der alte Datenlauf scheiterte ab dieser Minute“. Kein Test hält
+   durch. `ENGINEERING_KONSOLE.md` und `storage-architektur.md` sagten bis zum
+   25.11.2026 das Gegenteil: „der alte Datenlauf scheiterte ab dieser Minute“. Kein Test hält
    die Sperre über Container hinweg, `test_srv01_compose.py` prüft das Volume
    nur für `admin` und `worker`.
    Folgen: Der Tausch der Crontab-Zeilen ist der **einzige** Schutz. Bleibt

@@ -144,6 +144,16 @@ Stelle im Code.
    [`orchestration/drift.py`](../../src/crime/orchestration/drift.py) zählt die
    Kennzahlen je Stadt einzeln auf.
 
+4a. **Die Gebiete** (seit dem 25.11.2026): Polizeibezirke und Stadtteile
+   lädt [`gebiete_pipeline/download_gebiete.py`](../../src/crime/gebiete_pipeline/download_gebiete.py)
+   aus `AUSLIEFERUNGEN`, je Stadt und Ebene eine Zeile mit Adresse,
+   Zählabfrage und Schlüsselfeld. Das ist **Code, kein Eintrag in
+   `config/quellen.toml`**. Dazu in
+   [`silver_pipeline/build_police_area.py`](../../src/crime/silver_pipeline/build_police_area.py)
+   das Wort der Stadt für ihre Bezirke (`BEZEICHNUNG`, für Stadtteile die
+   Ebene in `build_community_area.py`). Fehlen die Gebiete, bricht Gold ab
+   („keine Polizeibezirke in der Stadt", `pruefe_polizeibezirke`).
+
 ### Census und Wetter
 
 5. **TIGER und ACS:** Die Bundesstaaten stehen in
@@ -223,8 +233,10 @@ findet sie alle.
 | `serving/dashboard/static/geografie.js` | Die Rangliste der Tracts gibt es nur für Chicago und Detroit, ebenso die Behälter in `geografie.html` |
 
 Nur in Texten, ohne Folgen für eine Zahl: die Zeile „Chicago · Detroit" und
-„Die beiden Städte" in `serving/build_einstieg.py` sowie die Tract-Zahlen in
-`static/datenqualitaet.js`.
+„Die beiden Städte" in `serving/build_einstieg.py`, die Tract-Zahlen in
+`static/datenqualitaet.js` und `BEZEICHNUNG` in
+`silver_pipeline/build_police_area.py` — ohne Eintrag bleibt der Name eines
+Bezirks leer, seine Nummer stimmt.
 
 Laut sind dagegen, und deshalb nicht in der Tabelle: `CROSSWALKS` in
 `gold_pipeline/build_gold.py` (die Prüfung auf verwaiste Codes bricht ab),

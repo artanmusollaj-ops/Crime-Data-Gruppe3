@@ -2,7 +2,7 @@
 
 Stand 10. November 2026 · ursprünglich von Artan (26.10.2026), seither nachgeführt
 
-Diese Anleitung beschreibt die Engineering-Konsole (`src/crime/platform_admin`), so wie sie im Repository liegt. Die Infrastruktur bleibt Grundlage: SeaweedFS/S3, die bestehenden Pipelines, Elasticsearch, Kibana, Jupyter und das vorhandene Monitoring. Was sich gegenüber Artans Lieferung geändert hat und warum, steht in [`AENDERUNGEN.md`](AENDERUNGEN.md) unter den Einträgen vom 30.10.2026.
+Diese Anleitung beschreibt die Engineering-Konsole (`src/crime/platform_admin`), so wie sie im Repository liegt. Die Infrastruktur bleibt Grundlage: SeaweedFS/S3, die bestehenden Pipelines, das Analyseangebot — auf `srv01` seit dem 1.11.2026 das eigene Dashboard, lokal und in der Vorführung Elasticsearch und Kibana —, Jupyter und das vorhandene Monitoring. Was sich gegenüber Artans Lieferung geändert hat und warum, steht in [`AENDERUNGEN.md`](AENDERUNGEN.md) unter den Einträgen vom 30.10.2026.
 
 [`handbuch/ENGINEERING_KONSOLE.pdf`](handbuch/ENGINEERING_KONSOLE.pdf) ist dieselbe Anleitung als PDF, erzeugt aus dieser Datei mit `python tools/build_konsole_pdf.py`. Von Hand geändert wird nur das Markdown.
 
@@ -15,7 +15,7 @@ Ein aktiver Datenrelease ist ein unveränderliches Verzeichnis mit Manifest und 
 Die Konsole unterscheidet jetzt ausdrücklich:
 
 - **Aktiver Release:** freigegebener Datenstand; bei der Erstübernahme gegebenenfalls dokumentierte Alt-Baseline.
-- **Analyse-Bereitstellung:** Zustand des Exports dieses Standes nach Elasticsearch/Kibana und der abschliessenden Prüfung.
+- **Analyse-Bereitstellung:** Zustand der Bereitstellung dieses Standes und der abschliessenden Prüfung — lokal der Export nach Elasticsearch/Kibana, auf `srv01` das eingesetzte Release, das das Dashboard selbst lädt.
 - **Zuletzt vollständig geprüft:** letzter Stand, dessen gesamte Analysebereitstellung erfolgreich beendet wurde.
 
 Zwischen Datenfreigabe und fertig aktualisierten Analysediensten kann Zeit liegen. Elasticsearch wechselt seine Tabellen-Aliase einzeln. Ein Abbruch kann deshalb einen Teilstand hinterlassen; PARTIAL kennzeichnet ihn. Es gibt keine verteilte Transaktion über alle Dienste.
@@ -268,9 +268,9 @@ dc run --rm worker python -m platform_admin enable-managed \
   --project-root /app --data-root /app/data --operator christian
 ```
 
-**Im selben Zug** in `deploy/cron/urbancrime.crontab` die Zeile für `srv01-datenlauf.sh` aus- und die für `srv01-konsole-datenlauf.sh` einkommentieren, dann den Crontab neu laden. Danach sperrt `storage.verwaltet` `run_all` und `release` für alles ausser dem Worker; der alte Datenlauf scheiterte ab dieser Minute. `enable-managed` holt im S3-Betrieb den aktiven Release lokal und dokumentiert ihn als Alt-Baseline, ohne ihm eine nachträgliche Freigabe zu erfinden.
+**Im selben Zug** in `deploy/cron/urbancrime.crontab` die Zeile für `srv01-datenlauf.sh` aus- und die für `srv01-konsole-datenlauf.sh` einkommentieren, dann den Crontab neu laden. Danach sperrt `storage.verwaltet` `run_all` und `release` in jedem Container, der den Marker `admin/managed.json` sieht, also in `admin` und `worker`. **Den alten Datenlauf hält das auf `srv01` nicht auf:** Der Dienst `pipeline` hängt das Volume `konsole` nicht ein, sieht den Marker nicht und liefe weiter durch. Der Tausch der Crontab-Zeilen ist deshalb der einzige Schutz (`umstellung-verwaltet.md`, Vorprüfung Punkt 4). `enable-managed` holt im S3-Betrieb den aktiven Release lokal und dokumentiert ihn als Alt-Baseline, ohne ihm eine nachträgliche Freigabe zu erfinden.
 
-Der Worker übernimmt dann alles, was der Datenlauf tat: Quellen laden, Kandidat bauen, Freigabe durch das Qualitätstor, Elasticsearch, Kibana, Startseite und `pruefe_stand`, danach Drift und Sicherungssatz, und nach jedem Takt mit Arbeit das Laufprotokoll `pipeline_run.json` und den Betriebsstand. Ein Wächter (`tests/platform_admin/test_datenlauf.py`) hält, dass jeder Schritt des Datenlaufs im Worker vorkommt. Nicht übernehmen kann er `compose up` für Elasticsearch, Kibana und `start` — im Container gibt es kein Docker; die Dienste laufen `unless-stopped`.
+Der Worker übernimmt dann alles, was der Datenlauf tat: Quellen laden, Kandidat bauen, Freigabe durch das Qualitätstor, das Release einsetzen, Startseite und `pruefe_stand`, danach Drift und Sicherungssatz, und nach jedem Takt mit Arbeit das Laufprotokoll `pipeline_run.json` und den Betriebsstand. Ein Wächter (`tests/platform_admin/test_datenlauf.py`) hält, dass jeder Schritt des Datenlaufs im Worker vorkommt. Elasticsearch und Kibana lädt er auf `srv01` nicht: Dort gilt `SERVING_BETRIEB=server`, es gibt beide seit dem 1.11.2026 nicht mehr, und das Dashboard lädt ein neues Release innerhalb einer Minute selbst (`platform_admin.serving_export`); lokal laden beide Lader weiter. Nicht übernehmen kann er `compose up` für die Dienste — im Container gibt es kein Docker; sie laufen `unless-stopped`.
 
 Am ersten Montag nach der Umstellung im Betriebsblick prüfen, dass Protokoll, Drift und Sicherungssatz angekommen sind.
 
@@ -305,7 +305,7 @@ dc run --rm --no-deps --entrypoint python pipeline -c "from pathlib import Path;
 
 Ein lokaler Aufbau bleibt mit `STORAGE_BACKEND=local` möglich. Für dessen Notebooks kann `CRIME_ANALYSIS_ROOT` vor dem Kernelstart auf einen anderen vollständigen lokalen Bestand zeigen. Details und Befehle stehen in [`notebook-analysesitzungen.md`](notebook-analysesitzungen.md).
 
-**Nachweisstand am 31.10.2026:** Beide Notebooks liefen lokal unter Windows und anschliessend unter Linux/Docker vollständig durch. Gegenseitige Leser-/Worker-Sperren, Freigabe und Volume-Schreibschutz wurden mit isolierten Test-Volumes bestätigt. Der [dauerhafte Prüfnachweis](e5-pruefnachweis.md) nennt Datenstand, Images und Grenzen. Die Abnahme auf srv01 mit einem echten Konsolen-Job und die Auswertung tatsächlicher Quelländerungen bleiben offen; E-5 ist deshalb noch nicht als auf srv01 abgenommen markiert.
+**Nachweisstand am 31.10.2026:** Beide Notebooks liefen lokal unter Windows und anschliessend unter Linux/Docker vollständig durch. Gegenseitige Leser-/Worker-Sperren, Freigabe und Volume-Schreibschutz wurden mit isolierten Test-Volumes bestätigt. Der [dauerhafte Prüfnachweis](e5-pruefnachweis.md) nennt Datenstand, Images und Grenzen. **Auf srv01 abgenommen am 14.11.2026 für den Cron-Datenlauf:** Notebook 34 und 37 liefen vollständig auf Release `2026-11-14T09-09-47Z`, 37 mit echten Quelländerungen (`offene-punkte.md`, E-5). Offen bleibt nur die Abnahme mit einem echten Konsolen-Job; sie gehört zu S-10.
 
 **Der Betriebsblick bleibt derselbe.** Der Worker schreibt nach jedem Takt mit Arbeit `pipeline_run.json` im Format, das `orchestration.run_all` für den Cron-Lauf schreibt, und rendert daraus `serving.betriebsstand` — dieselbe Metrikdatei, dasselbe Brett in Grafana. Ein leerer Takt überschreibt nichts. Die Konsole hat zusätzlich einen eigenen Endpunkt `/metrics` (Bearer `ADMIN_METRICS_TOKEN`); dass Prometheus ihn abholt, ist noch nicht eingerichtet (C-7).
 
@@ -343,7 +343,7 @@ recover-job schliesst nur RUNNING-Import-/Prüfjobs ab, keine Impacts. Für eine
 
 ### Rebuild scheitert an fehlender Abhängigkeit
 
-Beispiel: „Kein vollständiger Bronze-Lauf für tiger_tract, Vintage 2024, Staat 17“. Es fehlt eine Bronze-Quelle für Silver, nicht einfach eine bereits vorhandene Silver-/Gold-Datei. Ein Gesamtimport mit der konfigurierten Jahresspanne lädt Chicago, Detroit, TIGER Tracts, TIGER Places, ACS und Wetter. Fehlende API-Schlüssel zuerst beheben. Anschliessend neuen Rebuild ausführen. Im verwalteten Betrieb Quellen über Batch oder Konsole starten, nicht direkt am Worker vorbei.
+Beispiel: „Kein vollständiger Bronze-Lauf für tiger_tract, Vintage 2024, Staat 17“. Es fehlt eine Bronze-Quelle für Silver, nicht einfach eine bereits vorhandene Silver-/Gold-Datei. Ein Gesamtimport mit der konfigurierten Jahresspanne lädt Chicago, Detroit, TIGER Tracts, TIGER Places, ACS, Wetter und die Gebiete (Polizeibezirke und Stadtteile). Fehlende API-Schlüssel zuerst beheben. Anschliessend neuen Rebuild ausführen. Im verwalteten Betrieb Quellen über Batch oder Konsole starten, nicht direkt am Worker vorbei.
 
 Weitere Fälle: fehlende DuckDB-Spatial-/ICU-Erweiterungen, API 401/403, Rate Limit 429, Netzwerkfehler, fehlende Python-Pakete, Dateiberechtigungen und voller Datenträger. Das konkrete Job-Log enthält die erste relevante Ursache. Bei OOM DuckDB-Grenzen, freien Plattenplatz für Auslagerung und parallele Containerlast prüfen. Ein zusätzlicher Silver-Container vergrössert das verfügbare RAM nicht.
 

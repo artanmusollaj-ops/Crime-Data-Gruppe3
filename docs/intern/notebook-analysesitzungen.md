@@ -125,11 +125,13 @@ und das `konsole`-Volume nicht eingehaengt hat. Der Worker waere dafuer ungeeign
 Sein ueberlagerndes konsole-Volume wuerde die Verzeichnisse am falschen Ort anlegen.
 Es werden keine Job-Daten nach `arbeitsdaten` kopiert.
 
-In der `.env` des Stapels wird danach
-`CRIME_ANALYSIS_ROOT=/app/data/admin/jobs/<Job-ID>/data` auf genau diesen Aufbau
-gesetzt. Beim Aendern dieses Werts muss Jupyter neu erstellt werden, damit die
-Kernel die neue Umgebung erben. Leer bleibt die Vorgabe `/app/data`, die nur
-bei passendem lokalen Nachweis als Analysebestand akzeptiert wird.
+`CRIME_ANALYSIS_ROOT` bleibt in der `.env` des Stapels auf `/app/data`: Seit
+dem 14.11.2026 findet die Startzelle den Job des aktiven Release über den
+Job-Zeiger `jobs/ANALYSE.json` (`platform_admin.job_data`, #232). Ein fester
+Wert `/app/data/admin/jobs/<Job-ID>/data` geht weiter, umgeht dann aber den
+Zeiger (`ENGINEERING_KONSOLE.md`, Abschnitt Jupyter). Beim Aendern des Werts
+muss Jupyter neu erstellt werden, damit die Kernel die neue Umgebung erben.
+In jedem Fall wird ein passender Herkunftsnachweis verlangt.
 
 Die Compose-Konfiguration allein aktualisiert weder die laufenden Container
 noch die Notebook-Arbeitskopien. Unter Linux/Docker wurden am 31.10.2026

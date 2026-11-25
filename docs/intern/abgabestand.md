@@ -28,14 +28,15 @@ abgeleitet wird am 8.12. Der Lauf kommt ohne Handgriff, und es bleiben zwei
 Tage Reserve. Läuft er rot, ist der Rückweg ein Delta-Lauf von Hand am selben
 Tag (Schritt 1). Die Entscheidung trifft Christian.
 
-**Voraussetzung: Gold-Vertrag 10 läuft auf `srv01`.** Seit dem 21.11.2026
-rechnet die Stadtzuordnung auf die Landfläche (Branch
-`fix-tract-landanteil`). Das Release vom 20.11. ist noch mit Vertrag 9
-gebaut. Der Lauf, der zum Abgabestand wird, muss mit einem Abbild laufen, das
-Vertrag 10 trägt. Sonst fehlen am Chicagoer Seeufer weiter elf Tracts. Das
-Abbild vor dem 7.12. einsetzen (`docker/srv01-abbild-einsetzen.sh`, nur auf
-Christians Anweisung). Danach prüfen, dass `gold/dim_tract` im Release
-`contract_version` 10 nennt.
+**Voraussetzung: das Abbild auf `srv01` trägt den gültigen Gold-Vertrag.**
+Heute ist das Vertrag 12 (`gold_pipeline.build_gold.CONTRACT_VERSION`). Erfüllt
+seit dem 25.11.2026: Das Release `2026-11-25T12-38-05Z` ist auf `srv01` mit
+Vertrag 12 gebaut, mit Polizeibezirken und Stadtteilen. Kommt vor dem 7.12.
+noch ein Vertrag dazu, muss das Abbild vorher eingesetzt sein
+(`docker/srv01-abbild-einsetzen.sh`, nur auf Christians Anweisung). Danach
+prüfen, dass `gold/fact_offense` im Release die gültige `contract_version`
+nennt. Bis zum 25.11. stand hier Vertrag 10: Ohne ihn hätten am Chicagoer
+Seeufer elf Tracts gefehlt.
 
 ## Die Schritte
 

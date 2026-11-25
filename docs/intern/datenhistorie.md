@@ -407,13 +407,20 @@ Silver-Tabelle, die neue Vorbedingung in `aufraeumen`, Tests.
    aktuelle (5.5)?~~ — **entschieden am 4.10.2026: gepinnt + die letzten
    acht, lokal und auf SeaweedFS.** Die Regel ist gebaut; gelöscht wird
    weiterhin nur auf Zuruf, und auf SeaweedFS nur mit `--auch-fern`.
-6. **Wann ziehen wir den Referenzstand nach?** Er ist seit dem 17.9. überholt
-   — siehe unten.
+6. ~~Wann ziehen wir den Referenzstand nach?~~ — **entschieden am
+   12.11.2026: auf den Volllauf vom 10.11.2026** (Release
+   `2026-11-10T13-47-23Z`), die Läufe als `LN2` gepinnt (`offene-punkte.md`,
+   E-1). Seit dem 20.11.2026 nennen die Dokumente einen ungepinnten
+   Zwischenstand (Release `2026-11-20T10-08-03Z`); vor der Abgabe wird noch
+   einmal nachgezogen (`abgabestand.md`).
 
 Punkt 1 ist der einzige, der Zeitdruck hat. Die übrigen drei lassen sich auch
 später ändern, solange die Rohläufe noch liegen.
 
-### Offen seit dem 17.9.2026: der Referenzstand ist überholt
+### Offen vom 17.9. bis 12.11.2026: der Referenzstand ist überholt
+
+> **Entschieden am 12.11.2026**, siehe Punkt 6 oben. Der Abschnitt bleibt als
+> Verlauf stehen: So sah die Lage aus, solange nicht nachgezogen war.
 
 Am Abend des 17.9. lief die Strecke erstmals seit dem 5.–8. September wieder
 **mit Ingestion**. Die Quellen hatten sich in diesen zehn Tagen bewegt, und

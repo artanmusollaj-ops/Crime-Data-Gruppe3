@@ -27,7 +27,7 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 | **Ingestion: Quellen, Beschaffung** | ● fertig | sechs Quellen; ein Quellnotebook je Quelle bis auf die Polizeibezirke (seit 25.11.2026) |
 | **Storage: Evaluation, Wahl, Implementierung** | ● fertig | gemessen in Notebook 31 (NDJSON gegen Parquet), verschriftlicht in [`ln2_konzept.md`](../ln2_konzept.md) Kapitel 7 |
 | **Transformation 1: Analyse, Hypothesentest** | ◐ Qualität beider Städte fertig | der eigentliche Hypothesentest → Abschnitt 5 |
-| **Initiale Datenbereinigung** | ● fertig | vier Silver-Tabellen, `crime_offense` mit 1'917'351 Zeilen über 2021–2026 |
+| **Initiale Datenbereinigung** | ● fertig | sieben Silver-Tabellen, `crime_offense` mit 1'917'351 Zeilen über 2021–2026 |
 | **Beantwortung der Forschungsfragen** | ○ | folgt aus allem davor |
 
 ● fertig ◐ teilweise ○ offen
@@ -318,11 +318,11 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 
 | Phase | Was wir haben | Beleg | Lücke |
 | --- | --- | --- | --- |
-| **Generation** | Fünf Quellsysteme: Socrata (Chicago), ArcGIS REST (Detroit), HTTPS-Dateien (TIGER und NOAA), JSON-API (ACS). Je Quelle dokumentiert: Aktualisierungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 11, 21, 22, 32 | – |
+| **Generation** | Sechs Quellen auf vier Arten von Schnittstelle: Socrata (Chicago, dazu seine Polizeibezirke und Stadtteile), ArcGIS REST (Detroit, ebenso), HTTPS-Dateien (TIGER und NOAA), JSON-API (ACS). Je Quelle dokumentiert: Aktualisierungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 11, 21, 22, 32 | – |
 | **Ingestion** | Fünf Pipelines. Batch, kein Streaming. Chicago inkrementell über Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` | – |
 | **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest. Ablage wahlweise lokal, SeaweedFS über S3 oder hybrid | `data/`, Abschnitt 4, [`storage-architektur.md`](../storage-architektur.md) | – |
 | **Transformation** | Bronze bewusst ohne Transformation. Silver und Gold gebaut, Qualitätsanalyse beider Städte fertig | Notebook 03, 13, 34 | – |
-| **Serving** | Option **A · Analytik** gewählt: Auswertungsdatenbank auf der Gold-Schicht | Abschnitt 6, Notebook 33 | gebaut: dreizehn Sichten über Silver, Gold und die vier Vergleichstabellen in Serving; das Dashboard darauf fehlt |
+| **Serving** | Option **A · Analytik** gewählt: Auswertungsdatenbank auf der Gold-Schicht | Abschnitt 6, Notebook 33 | gebaut: Sichten über Silver, Gold und Serving, dazu seit dem 1.11.2026 das eigene Dashboard auf `srv01`, das das aktive Release liest |
 
 ### Unterströmungen
 
@@ -330,17 +330,17 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie im Manifest oder in abgelegten URLs; drei Tests prüfen das. `.env` und `data/` aus Git ausgeschlossen, `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf, Herkunftsnachweis über `derived_from` und `input_fingerprint` durchgehend bis Gold, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog aus den Manifesten erzeugt, Aufbewahrungsregel mit `orchestration.aufraeumen` | das Aufräumen ist ein Handgriff, kein Automatismus |
-| **DataOps** | 3'540 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions unter Linux, auf `main` zusätzlich unter Windows, mit zwei Python-Versionen; dazu der wöchentliche Datenlauf | keine Alarmierung ausser dem roten Lauf selbst |
-| **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (raw) und Ableitung (bronze). Zwei Architekturbilder, aus dem Code erzeugt ([`architektur.md`](../architektur.md)) | Vintage 2024 hart verdrahtet |
-| **Orchestration** | `orchestration.run_all`: 13 Stufen in Reihenfolge, eine gescheiterte Quelle zweimal nachgefasst, sonst Abbruch vor dem Ableiten, Gesamtmanifest über alle Eingabe-Läufe | der geplante Lauf ist wöchentlich, die Quellen ändern sich täglich; keine Wiederaufnahme nach Abbruch, bewusst |
+| **DataOps** | 3'540 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions unter Linux, auf `main` zusätzlich unter Windows, mit zwei Python-Versionen; dazu der wöchentliche Datenlauf | – (seit dem 18.10.2026 neun Alarmregeln mit Meldung über Telegram) |
+| **Data Architecture** | Schichten raw bis releases, gepinnte Schemata, Trennung von Beweis (raw) und Ableitung (bronze). Drei Architekturbilder, aus dem Code erzeugt ([`architektur.md`](../architektur.md)) | – (das Vintage 2024 war hart verdrahtet; seit dem 4.10.2026 rechnet Gold mit vier ACS-Vintages) |
+| **Orchestration** | `orchestration.run_all`: 19 Stufen in Reihenfolge, eine gescheiterte Quelle zweimal nachgefasst, sonst Abbruch vor dem Ableiten, Gesamtmanifest über alle Eingabe-Läufe | der geplante Lauf ist wöchentlich, die Quellen ändern sich täglich; keine Wiederaufnahme nach Abbruch, bewusst |
 | **Software Engineering** | Modulare Pakete, Typannotationen, ausführliche Docstrings, Fehlerbehandlung mit Wiederholungen | – |
 
 **Beide damaligen Lücken sind geschlossen.** Für die Orchestrierung war der
 bescheidene Ansatz angesetzt — ein Skript, das die Pipelines in der richtigen
 Reihenfolge aufruft und protokolliert. Genau das ist `orchestration.run_all`
 geworden. Airflow oder Prefect wären für fünf Batch-Läufe unangemessen; das
-lässt sich in der Präsentation gut begründen. Beim Serving stehen dreizehn Sichten und vier vorberechnete Vergleichstabellen;
-offen ist allein das Dashboard darauf, und das gehört bewusst in LN2.
+lässt sich in der Präsentation gut begründen. Beim Serving stehen die Sichten und die vorberechneten Vergleichstabellen,
+und seit dem 1.11.2026 auch das Dashboard darauf, das bewusst in LN2 gehörte.
 
 ---
 
@@ -521,7 +521,7 @@ Gefordert sind **Analyse der Datengrundlage**, **Hypothesentest** und
 | Silver: Dedup und Typen | ● fertig | – |
 | Silver: räumlicher Join auf Tracts | ● fertig, 99,3 % / 99,7 % verortet | – |
 | NIBRS-Harmonisierung beider Städte | ● fertig, beide Städte 100 % zugeordnet — aber H3 teilweise falsifiziert (Konzept 8.5) | – |
-| Gold: Raten je Tract | ● fertig, Sternschema mit `fact_offense` und vier Dimensionen | – |
+| Gold: Raten je Tract | ● fertig, Sternschema mit `fact_offense` und vier Dimensionen (Stand LN1; heute elf Gold-Tabellen) | – |
 | Hypothesentest H1–H4 | ○ | ~1 Tag |
 
 **Offen ist noch der Hypothesentest** — rund ein Arbeitstag. Die Wetterquelle
