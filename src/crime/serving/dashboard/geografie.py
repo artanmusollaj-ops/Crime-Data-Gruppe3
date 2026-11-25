@@ -25,6 +25,28 @@ mit dem frueheren ``ansicht`` gilt weiter (``ANSICHT_ALT``).
   Einwohner**: Die Rate ist hier die Dichte, Faelle je km² und Jahr, und
   eine geglaettete Rate gibt es nicht. Gezeigt werden Zellen mit Faellen.
 
+  *Warum ein Raster.* Tracts, Bezirke und Stadtteile sind nach Einwohnern
+  oder nach der Verwaltung geschnitten, und wie hoch eine Rate je Flaeche
+  ausfaellt, haengt auch davon ab, wo die Grenzen liegen: das »Modifiable
+  Areal Unit Problem« nach Openshaw (1984), »The Modifiable Areal Unit
+  Problem«, CATMOG 38, Geo Books, Norwich. Gleich grosse Zellen sind das
+  Gegenbild, das von keiner dieser Grenzen abhaengt - zeigt eine Haeufung
+  sich in beiden, liegt sie nicht am Zuschnitt.
+
+  *Warum Sechsecke.* Jede Zelle hat sechs Nachbarn im selben Abstand, und
+  keine Richtung ist bevorzugt; im Quadratraster liegen die Eck-Nachbarn
+  weiter weg als die Kanten-Nachbarn. Birch, Oom und Beecham (2007),
+  »Rectangular and hexagonal grids used for observation, experiment and
+  simulation in ecology«, Ecological Modelling 206(3-4), 347-359.
+
+  *Warum 500 m.* Gesetzt, nicht hergeleitet. Die Zellen sind so in Chicago
+  etwa so fein wie die Tracts (2024 968 Zellen mit Faellen, 793 Tracts), in
+  Detroit feiner (618 Zellen, 273 Tracts).
+
+  *Was die Karte nicht sagt.* Ohne Einwohner zeigt die Dichte, wo viele
+  Faelle sind, nicht, wo das Risiko hoch ist: Innenstadt und
+  Geschaeftsstrassen werden dunkel, weil sich dort viele Menschen aufhalten.
+
 ``kennzahl``:
 
 - ``rate``: Faelle je 1'000 Einwohner und Jahr (Sechseck: je km² und Jahr).

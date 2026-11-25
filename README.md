@@ -1015,7 +1015,12 @@ Seit dem 25.11.2026 hat »Geografie« zwei Schalter. **Raum:** Tract,
 Bayes **geglättete** Rate, die **Veränderung zum Vorjahr**, das
 **Deliktprofil** (Lokationsquotient der gewählten Kategorien), der Anteil der
 Fälle bei **Dunkelheit** und der Anteil mit **Festnahme**. Sechsecke haben
-keine Einwohner; dort ist die Rate eine Dichte je km². Die Einwohner eines
+keine Einwohner; dort ist die Rate eine Dichte je km². Das Raster ist das
+Gegenbild zu den Flächen: Gleich grosse Zellen hängen von keiner gezogenen
+Grenze ab, also zeigt sich dort, ob eine Häufung am Zuschnitt liegt
+(Modifiable Areal Unit Problem). Eine dunkle Zelle heisst viele Fälle, nicht
+hohes Risiko. Die Begründung samt Quellen steht in
+`serving.dashboard.geografie`. Die Einwohner eines
 Bezirks verteilt Gold flächengewichtet aus den Tracts
 (`bridge_tract_police_area`); Chicagos District 31 zählt nicht, er umfasst
 die Gemeinden Norridge und Harwood Heights. Reicht ein Zeitraum in das

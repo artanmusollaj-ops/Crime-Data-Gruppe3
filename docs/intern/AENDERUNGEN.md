@@ -113,6 +113,16 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 25.11.2026 · Die Sechsecke in »Geografie« haben eine Begründung (Branch `sechseck-begruendung`)
+
+Bisher stand nur, *wie* das Raster gebaut ist. Jetzt steht im Modulkopf von
+`serving.dashboard.geografie` auch, *warum*: Das Raster ist das Gegenbild zum
+Modifiable Areal Unit Problem (Openshaw 1984). Sechsecke statt Quadrate, weil
+jede Zelle sechs gleich weit entfernte Nachbarn hat (Birch, Oom und Beecham
+2007). 500 m ist gesetzt, nicht hergeleitet. Und die Dichte zeigt, wo viele
+Fälle sind, nicht, wo das Risiko hoch ist. Je zwei Sätze davon stehen im
+README und im Hinweis unter der Karte. Keine Zahl der Abgabe ändert sich.
+
 ## 25.11.2026 · »Geografie« zeigt die Stadtteile (Branch `dashboard-stadtteile`)
 
 Der Schalter **Raum** hat eine vierte Stellung: **Stadtteil**, aus
