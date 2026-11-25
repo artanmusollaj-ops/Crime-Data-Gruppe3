@@ -136,6 +136,7 @@ REGEL_JE_QUELLE: dict[str, str] = {
     "dataset=source_change": TATEN,
     "dataset=tract": CENSUS,
     "dataset=place": CENSUS,
+    "dataset=police_area": KONSTANT,
     "dataset=weather_day": KONSTANT,
     # Gold
     "dataset=fact_offense": TATEN,

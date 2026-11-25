@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'480** |
+| Tests | **3'495** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -81,7 +81,8 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `silver/tract` | **2** | 14.09.2026 | ein Census Tract je Zeile, TIGER und ACS über einen vollen äusseren Join. Version 2: `median_household_income_usd` und `population_below_poverty` als `INTEGER` statt `BIGINT` — die Einwohnerzahl bleibt `BIGINT`, sie ist der Nenner jeder Rate |
 | `silver/place` | 1 | 14.09.2026 | ein Ort je Zeile, Geometrie für die Stadtgrenze |
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
-| `silver/crime_offense` | **4** | 30.10.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig. Version 4: **Die Zuordnung ist Crosswalk plus `config/mapping_overrides.csv`** — eine Zeile dort gewinnt gegen den erzeugten Crosswalk und trägt die Herkunft `admin_review` (Einstufung `ambiguous`). Die Datei fehlt nie; ohne Korrekturen hat sie nur die Kopfzeile, und dann ist das Ergebnis dasselbe wie in Version 3 |
+| `silver/crime_offense` | **5** | 25.11.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig. Version 4: **Die Zuordnung ist Crosswalk plus `config/mapping_overrides.csv`** — eine Zeile dort gewinnt gegen den erzeugten Crosswalk und trägt die Herkunft `admin_review` (Einstufung `ambiguous`). Die Datei fehlt nie; ohne Korrekturen hat sie nur die Kopfzeile, und dann ist das Ergebnis dasselbe wie in Version 3. Version 5: **Polizeibezirke und Festnahme.** `police_area` aus dem räumlichen Join gegen `silver/police_area`, `police_area_source` aus der Quelle (Zahl ohne führende Null), `case_status` für Detroit; `arrest` ist für Detroit nicht mehr `NULL`, sondern `case_status = 'CLEARED BY ARREST'` |
+| `silver/police_area` | 1 | 25.11.2026 | ein Polizeibezirk je Zeile (Chicago District, Detroit Precinct), Teilpolygone vereinigt, `area_id` als Zahl ohne führende Null, Fläche auf dem Ellipsoid |
 | `silver/source_change` | **4** | 08.11.2026 | Unterschied zwischen aufeinanderfolgenden **Vollabzügen** je Quelle, eine Zeile je geändertem Feld; `ESRI_OID` und reine Leerzeichen ausgenommen, Zeitstempel als `beruehrt` statt als Inhaltsänderung. Version 2 ergänzte die **Datierung aus den Deltas**: `zuerst_gesehen_in`, `zuerst_gesehen_am` und `datierung` mit `delta` / `kein_delta` / `nicht_datierbar`. Gefunden wird weiter nur zwischen Vollabzügen — aus einem Delta liesse sich *verschwunden* nicht von *ruhig* unterscheiden. Version 3: Die Datierung **klebt** — sie nennt den besten je bestimmten Befund, nicht den heutigen, sonst löschte das Aufräumen der Deltas sie wieder. Version 4: Jede Zeile nennt ihre **Deliktsart** (`quellcode`, `quellkategorie` — aus dem älteren Abzug, bei `neu` aus dem jüngeren), jedes Paar seinen **Bestand** (`bestand_vorher`, `bestand_nachher`) und seinen **Jahrgang** (`jahrgang`, aus dem Manifest des Laufs). Ohne Deliktsart war nicht zu sagen, *was* verschwindet; ohne Bestand nicht, ob eine Stadt *viel* löscht. Beides klebt wie die Datierung und wird für ältere Paare nachgetragen, solange ihre Schnappschüsse lesbar sind |
 | `gold/*` | **10** | 21.11.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften | Version 6: Die ACS-Masse liegen **je Vintage** in der neuen Tabelle `dim_tract_acs` (`population`, `median_household_income_usd`, `poverty_rate`); `dim_tract` behält die Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie kommt; `fact_offense` trägt `population_vintage` und sagt damit je Zeile, welcher Nenner für sie gilt. Eine Tabelle mit einer Zeile je Tract konnte nur eine Einwohnerzahl tragen — über mehrere Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021 Version 7: `dim_date` trägt `year_is_complete` — ob der Jahrgang dieses Tages ganz in den Daten liegt. Ein Teiljahr darf nicht in einen Jahresvergleich geraten: 2026 hat am 3.10. neun Monate, und neun gegen zwölf gestellt ergeben einen Rückgang, den es nicht gibt. Dazu im Manifest von `fact_offense` der Nachweis `year_coverage` je Jahrgang, mit `days_with_offenses` gegen `days_in_year` — denn eine Lücke **innerhalb** des Jahres sieht man an der Spalte nicht Version 8: Die neue Tabelle `dim_tract_geo` trägt den **Umriss** je Tract der beiden Studienstädte als WKT — 1'055 Zeilen, vereinfacht mit Douglas-Peucker 0,00002 Grad (rund zwei Meter, 0,0002 % Fläche je Tract). Sie ist die Grundlage der Choroplethenkarte in Kibana, die eine Fläche braucht und mit dem Schwerpunkt in `dim_tract` nichts anfangen kann. **Eigene Tabelle und keine Spalte an `dim_tract`:** Die Dimension deckt beide Countys ab (6'282 Zeilen) und wäre mit Umrissen 26 MB statt 194 KB; `dim_tract_geo` kostet 133 KB. Keine Kennzahl darin — wer färben will, verbindet über `geoid` Version 9: `dim_city_day` ist ein **Gerüst** aus der Spanne der Falldaten und jeder Studienstadt; das Wetter kommt per LEFT JOIN, und an Tagen, für die NOAA noch nicht geliefert hat, sind die Wetterspalten `NULL`. Dazu je Stadt und Tag `sunrise_utc`, `sunset_utc` und `daylight_hours` nach NOAA „General Solar Position Calculations“ (Zenit 90,833°) am Schwerpunkt der Ortsgrenze aus `silver/place`, immer gefüllt. Der Untergang liegt im Sommer am UTC-Folgetag; hell heisst `sunrise_utc <= occurred_at_utc < sunset_utc` für dieselbe Stadt und dasselbe `date`. Tage ohne Wetter tragen in `quality_flags` das Flag `no_weather`. Version 10: Die Mehrheitsregel rechnet den Anteil auf die **Landfläche** des Tracts (Anteil der Gesamtfläche × (Land + Wasser) / Land, höchstens 1; ohne Land keine Stadt). Über die Gesamtfläche scheiterten bewohnte Tracts am Seeufer am Wasser, weil die TIGER-Grenze von Chicago am Ufer endet. `city_area_share` trägt seither den Landanteil
 | `serving/comparison_*` | **3** | 01.11.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` Version 2: `rate_tract` kommt dazu — eine Zeile je Tract **mit Einwohnern** im Bezugsjahr (`gold_pipeline.RATENJAHR`), mit Fällen, Taten, Einwohnerzahl und beiden Raten je 1'000. Gerechnet wird sie mit **derselben** Abfrage, die `gold_pipeline.raten_je_tract` auch dem Wächter der Kibana-Ratenkachel stellt, nicht mit einer zweiten. Sie entsteht, weil Kibanas Karte eine Fläche nach **einem** Feld einfärbt und zwischen zwei verbundenen Feldern nicht rechnen kann — und eine Karte nach Fallzahlen wäre hier irreführend: Die Einwohnerzahl je Tract reicht von 35 bis 13'521 (2024, Median 2'861). Tracts ohne Einwohner fehlen, für sie ist keine Rate definiert. Version 3: **`days_in_window` misst am Fenster je meldender Stadt**, nicht mehr am gemeinsamen beider. Chicagos Daten enden am 26.9.2026, Detroits am 4.10.; mit dem gemeinsamen Fenster hiess Chicagos September vollständig, obwohl vier Tage fehlten (C-10) |
@@ -108,6 +109,44 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 25.11.2026 · Jede Tat kennt ihren Polizeibezirk, und Detroit seine Festnahmen (Branch `polizeibezirke-silver`)
+
+Zweiter Schritt zur Karte je Polizeibezirk und zur Aufklärungskarte.
+
+**Neue Silver-Tabelle `police_area`** (`silver_pipeline.build_police_area`,
+Vertrag 1): ein Bezirk je Zeile, 23 Districts für Chicago und 11 Precincts für
+Detroit. Teilpolygone der Quelle sind vereinigt (Chicago 31 aus drei,
+Detroit 7 aus zwei), `area_id` ist die Zahl ohne führende Null, die Fläche
+ist auf dem Ellipsoid gerechnet: Chicago 608,9 km², Detroit 362,2 km². Die
+grösste Überlappung zweier Bezirke liegt bei 0,014 % der kleineren Fläche;
+ab 0,5 % bricht der Bau ab. Silver behält **District 31**, obwohl nur 0,2 %
+seiner Fläche in Chicago liegen: Es ist der Bezirk der umschlossenen
+Gemeinden Norridge und Harwood Heights. Dass er nicht zur Stadt zählt,
+entscheidet Gold nach derselben Mehrheitsregel wie bei den Tracts.
+
+**`crime_offense` Vertrag 5**, drei Spalten mehr, eine anders gefüllt:
+
+- `police_area`: der Bezirk, in dem die Koordinate liegt, aus dem eigenen
+  räumlichen Join wie `tract_geoid`.
+- `police_area_source`: der Bezirk, den die Polizei nennt, in derselben Form.
+- `case_status`: Detroits Stand des Falls, Chicago `NULL`.
+- `arrest` für Detroit: bisher `NULL`, jetzt `case_status = 'CLEARED BY
+  ARREST'`, und `NULL` ohne Stand.
+
+**Gemessen** am lokalen Bestand (1'917'351 Zeilen): Von den Taten mit beiden
+Angaben liegen 98,6 % (Chicago) und 97,3 % (Detroit) in dem Bezirk, den die
+Polizei nennt. Das Manifest hält den Abgleich je Stadt fest
+(`checks.police_area`). Die Festnahmequote je Fall: Chicago 12,7 % (2021)
+bis 16,1 % (2025), Detroit 12,3 % (2021) bis 9,4 % (2024), dann 5,7 % (2025)
+und 4,6 % (2026). Der Einbruch in Detroit ist zum grössten Teil keiner: Der
+Stand eines Falls wird nachgeführt, und junge Fälle sind noch nicht geklärt.
+Die Karte muss das sagen.
+
+Gold übernimmt `arrest` unverändert; für Detroit ist es dort nach dem
+nächsten Gold-Bau ebenfalls gefüllt. Keine Zahl der Abgabe ändert sich.
 
 ---
 

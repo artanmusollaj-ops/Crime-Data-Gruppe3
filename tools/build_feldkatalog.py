@@ -133,8 +133,24 @@ GEMEINSAM: dict[str, str] = {
                    "eigenen räumlichen Join, nicht aus der Quelle.",
     "located": "Ob die Zeile einem Tract zugeordnet werden konnte. **Warum "
                "nicht**, sagt `geo_status` in Gold.",
-    "arrest": "Ob es zu einer Festnahme kam. Nur Chicago liefert das; bei "
-              "Detroit `NULL`.",
+    "arrest": "Ob es zu einer Festnahme kam. Chicago führt das als eigenes "
+              "Feld; für Detroit seit Silver-Vertrag 5 (25.11.2026) aus dem "
+              "Stand des Falls, `case_status = 'CLEARED BY ARREST'`, und `NULL` "
+              "ohne Stand. Beide Quellen tragen den Stand nach: Junge Fälle "
+              "sehen weniger aufgeklärt aus, als sie es am Ende sind - in "
+              "Detroit stärker.",
+    # Seit Silver-Vertrag 5 (25.11.2026).
+    "police_area": "Der Polizeibezirk (Chicago District, Detroit Precinct), in "
+                   "dem die Koordinate liegt - aus dem eigenen räumlichen Join "
+                   "gegen `silver/police_area`, nicht aus der Quelle. Wie "
+                   "`area_id` dort: die Zahl ohne führende Null.",
+    "police_area_source": "Der Polizeibezirk, den die Quelle nennt (Chicago "
+                          "`district`, Detroit `police_precinct`), in derselben "
+                          "Form wie `police_area`. Was keine Zahl über null ist "
+                          "(Detroit `HP`, `0W`), bleibt `NULL`.",
+    "case_status": "Detroits Stand des Falls, gross geschrieben, etwa "
+                   "`CLEARED BY ARREST`, `EXCEPTIONALLY CLEARED`, `ACTIVE`, "
+                   "`INACTIVE`. Chicago führt keinen; dort `NULL`.",
     "unfounded": "Ob der Fall als unbegründet zurückgezogen wurde. Nur Detroit "
                  "führt das; die Zeilen bleiben erhalten und werden "
                  "gekennzeichnet statt entfernt.",
@@ -294,6 +310,19 @@ JE_TABELLE: dict[tuple[str, str], str] = {
         "Warum diese Zeile zählt oder nicht: `eine_zeile_ist_ein_delikt` "
         "(Chicago), `anklage_ist_die_tat`, `schwerste_anklage`, "
         "`weitere_anklage_zur_selben_tat`.",
+    # silver/police_area, seit 25.11.2026.
+    ("police_area", "area_id"): "Nummer des Polizeibezirks ohne führende Null, "
+        "als Text - Chicago `1` bis `31`, Detroit `2` bis `12`. Zusammen mit "
+        "`city` der Schlüssel.",
+    ("police_area", "area_name"): "Lesbarer Name im Wort der Stadt: "
+        "*District 1*, *Precinct 2*.",
+    ("police_area", "source_name"): "Die Bezeichnung, wie die Quelle sie führt "
+        "(Chicago `1ST`, Detroit `02`).",
+    ("police_area", "source_polygons"): "Aus wie vielen Polygonen der Quelle "
+        "der Bezirk vereinigt wurde. Chicagos District 31 kommt aus drei, "
+        "Detroits Precinct 7 aus zwei.",
+    ("police_area", "area_km2"): "Fläche in Quadratkilometern, auf dem "
+        "Ellipsoid gerechnet. Wasser innerhalb der Grenze zählt mit.",
     ("place", "place_fips"): "Fünf Ziffern des Orts innerhalb des Bundesstaats.",
     ("place", "name"): "Kurzname des Orts, etwa *Chicago*.",
     ("place", "name_long"): "Vollständiger Name mit Rechtsform, etwa *Chicago city*.",

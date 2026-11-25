@@ -127,6 +127,8 @@ STUFEN: tuple[Stufe, ...] = (
     Stufe("silver", "place", "silver_pipeline.build_place",
           je="vintage", flagge="--vintage"),
     Stufe("silver", "weather_day", "silver_pipeline.build_weather_day"),
+    # Vor crime_offense: Es haelt jede Koordinate gegen die Bezirke.
+    Stufe("silver", "police_area", "silver_pipeline.build_police_area"),
     Stufe("silver", "crime_offense", "silver_pipeline.build_crime_offense"),
     # **Die Historisierung gehoert in den Lauf, nicht in einen Merkzettel.**
     # Bis zum 16.10.2026 stand ``build_source_change`` hier nicht, und kein
