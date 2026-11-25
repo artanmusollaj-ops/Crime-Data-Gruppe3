@@ -18,15 +18,60 @@ ist dafür nichts geprüft und nichts geändert.
    liest dieselbe Regel. Der nächste geplante Lauf ist der vom **7.12.**,
    ein Delta, und das ist bereits der Lauf für den Abgabestand.
    → Der Probelauf muss **von Hand** am Wochenende laufen (Schritt 4).
-2. **Noch nie lief ein echter Konsolen-Batch auf srv01.** S-8 hatte nur einen
-   leeren Probetakt (31.10.). E-5 sagt ausdrücklich: offen ist „die Abnahme
-   mit einem echten Konsolen-Job“. Der Lauf am Wochenende ist also der erste.
+2. **Der Weg über das Qualitätstor lief auf srv01 noch nie.** Einen
+   Kandidaten gebaut und veröffentlicht hat die Konsole dort einmal: am
+   18.11.2026, Artans Mapping-Probe „Freigabe Test 03“, freigegeben von einer
+   Person (Release `approved-9d265b70…-435090e1`). Einen geplanten Batch mit
+   Ingestion und Freigabe durch das Qualitätstor gab es noch nicht. E-5 nennt
+   die Abnahme mit einem echten Job weiter als offen.
 3. **S-6 blockiert nicht.** Ein Wochenlauf veröffentlicht ohne Git
    (`release_flow.requires_git` gilt nur für Mapping und Einstellungen), und
    das Qualitätstor gibt ihn ohne zweite Person frei (`auto_approval`).
    Ohne Token legt die Konsole nur keine PRs an.
-4. **Drei Stellen im Repository rufen nach der Umstellung den gesperrten
-   Lauf auf.** Sie gehören in denselben PR wie der Crontab-Tausch (Schritt 0).
+4. **Die Sperre erreicht den Cron-Lauf nicht** (24.11.2026, aus
+   `docker-compose.srv01.yml`). `enable-managed` schreibt den Marker nach
+   `/app/data/admin/managed.json`, und dort hängt im Worker und im Dienst
+   `admin` das Volume `konsole`. Der Dienst `pipeline` hängt `konsole` nicht
+   ein. In seinem Container ist `/app/data/admin` der Ordner aus
+   `arbeitsdaten`, ohne Marker. `storage.verwaltet` meldet dort also „nicht
+   verwaltet“, und `srv01-datenlauf.sh` liefe nach der Umstellung weiter
+   durch. `ENGINEERING_KONSOLE.md` und `storage-architektur.md` sagen das
+   Gegenteil: „der alte Datenlauf scheiterte ab dieser Minute“. Kein Test hält
+   die Sperre über Container hinweg, `test_srv01_compose.py` prüft das Volume
+   nur für `admin` und `worker`.
+   Folgen: Der Tausch der Crontab-Zeilen ist der **einzige** Schutz. Bleibt
+   die alte Zeile stehen, veröffentlicht der Cron-Lauf ohne Review. Danach
+   weist die Konsole ihre nächste Veröffentlichung ab, weil der aktive Stand
+   in S3 dann weder die Alt-Baseline noch ihr eigenes Release ist („SeaweedFS-
+   Releasebasis weicht ab“).
+   **Abhilfe für Schritt 0:** `konsole:/app/data/admin:ro` auch in `pipeline`
+   einhängen, mit einem Test, der für jeden Dienst mit `arbeitsdaten` das
+   Volume `konsole` verlangt.
+5. **Die tägliche Konsolensicherung ist seit dem 19.11. 830 MiB gross**
+   (vorher 2,2 MiB). Gemessen am 24.11.2026 unter `backups/control/`: sieben
+   Archive, zusammen 4,98 GiB. Kein Release ist darin (`releases_archived`
+   leer). Das Archiv packt `admin/jobs/` ganz ein. Der Sprung kam einen Tag
+   nach dem ersten Kandidaten vom 18.11., und dessen Ordner `jobs/<id>/data`
+   trägt einen vollen Bronze-Abzug, Silver und Gold. `job_data.prune` behält
+   ihn, weil er zum zuletzt aktivierten Konsolen-Release gehört. Erschlossen
+   ist das aus Code und Zeitpunkt, nicht nachgesehen: Schritt 1 misst die
+   Ordner.
+   Nach der Umstellung bringt jeder Wochenlauf einen neuen Job-Ordner.
+   `ADMIN_JOB_DATA_KEEP` behält zwei (Vorgabe), damit wird jedes Archiv rund
+   1,7 GB gross. Gesichert wird nach jedem Takt mit Arbeit, an einem Batch-Tag
+   also mehrmals, und sieben Archive bleiben. Das sind rund **12 GB unter
+   `backups/control/`**. Am 10.11.2026 lagen dort 11,2 GB, und der Eimer stand
+   über seinem Kontingent auf nur-lesen; der Volllauf des Tages scheiterte.
+   Wie gross das Kontingent heute ist, steht nicht im Repository. Sichtbar
+   liegen im Eimer zurzeit rund 9,1 GiB (`releases/` 2,9, `backups/` 5,0, die
+   Schichten 1,2). Dasselbe Volume `konsole` geht ausserdem jede Nacht mit
+   restic nach Backblaze (S-7).
+   **Vor der Umstellung zu entscheiden:** `jobs/*/data` aus dem Archiv
+   nehmen, denn alles darin lässt sich aus Bronze im Eimer nachbauen, oder
+   `ADMIN_JOB_DATA_KEEP=1` setzen, und das Kontingent auf srv01 nachsehen
+   (Schritt 1).
+6. **Drei Stellen im Repository rufen nach der Umstellung den alten Lauf
+   auf.** Sie gehören in denselben PR wie der Crontab-Tausch (Schritt 0).
 
 ## Schritt 0 – vorher, im Repository (ein PR, vor dem Wochenende gemergt)
 
@@ -42,6 +87,10 @@ ist dafür nichts geprüft und nichts geändert.
 - `docker/srv01-abbild-einsetzen.sh:185` schlägt nach dem Einsetzen
   `srv01-datenlauf.sh delta` vor. Das wird auf das Einreihen umgestellt,
   oder der Vorschlag hängt am Marker.
+- `docker-compose.srv01.yml`: `konsole:/app/data/admin:ro` in `pipeline`,
+  dazu der Test (Punkt 4 oben).
+- Je nach Entscheid zu Punkt 5: `object_store.backup` ohne `jobs/*/data`,
+  oder `ADMIN_JOB_DATA_KEEP=1` in der Compose-Datei.
 - `offene-punkte.md` S-10, `ENGINEERING_KONSOLE.md`, `AENDERUNGEN.md`
   nachführen.
 
@@ -65,6 +114,20 @@ grep PIPELINE_IMAGE .env
 # Die aktuelle Crontab sichern
 crontab -l > logs/crontab.vor-s10-$(date -u +%Y%m%dT%H%MZ)
 ```
+
+Was im Volume `konsole` liegt, und das Kontingent des Eimers (Punkt 5):
+
+```bash
+dc run --rm --no-deps --entrypoint sh worker -c 'du -sh /app/data/admin/* /app/data/admin/jobs/*'
+```
+
+
+```text
+weed shell> s3.bucket.list
+```
+
+Die Zeile `urban-crime` nennt `size`, `quota` und `usage`. So stand die
+Meldung am 10.11.2026 im Eintrag zum vollen Eimer in `AENDERUNGEN.md`.
 
 `enable-managed` prüft selbst, bricht sonst ab und ändert dann nichts:
 
@@ -94,13 +157,19 @@ festhalten.
 ```bash
 dc run --rm pipeline python -m orchestration.release liste          # lesen geht
 dc run --rm pipeline python -m orchestration.release holen aktuell  # muss abbrechen
+dc run --rm worker   python -m orchestration.release holen aktuell  # muss abbrechen
 ```
 
-Erwartet ist der Abbruch mit „Verwalteter Datenbestand: Aktion über die
-Engineering-Konsole …“. `release.py` ruft `sperre()` vor dem ersten
-Schreiben auf. Selbst wenn der Abbruch ausbleibt, richtet die Probe keinen
-Schaden an: `holen aktuell` ist genau der Schritt, den der Cron-Lauf jede
-Woche macht. Dann stimmt aber der Marker nicht, und es geht nicht weiter.
+Erwartet ist in beiden Containern der Abbruch mit „Verwalteter
+Datenbestand: Aktion über die Engineering-Konsole …“. `release.py` ruft
+`sperre()` vor dem ersten Schreiben auf. Im Worker-Container fehlt bei
+`run --rm` mit eigenem Befehl das Token, das der Worker nur seinen
+Kindprozessen gibt. Er bricht deshalb ab wie jeder andere Schreiber.
+
+**Ohne die Abhilfe aus Punkt 4 bricht `pipeline` nicht ab.** Dann ist genau
+das der Befund, und es geht nicht weiter. Die Probe richtet auch dann keinen
+Schaden an: `holen aktuell` ist der Schritt, den der Cron-Lauf jede Woche
+macht.
 
 ## Schritt 4 – Probelauf von Hand (Samstag)
 
@@ -111,11 +180,28 @@ tail -f logs/konsole-takt.log
 ```
 
 Der Slot heisst `scheduled-<Datum>-delta`. Ein zweiter Aufruf am selben Tag
-reiht nichts Neues ein. Danach erledigen die Takte jede Minute einen Teil:
-Quellen laden, Kandidaten bauen, Qualitätstor, Freigabe, Veröffentlichung,
-Serving, Drift, Sicherungssatz, Laufprotokoll. Ein Delta dauerte im Cron
-rund fünf Minuten. Unter der Konsole wird es länger, weil jeder Takt ein
-eigener Container ist.
+reiht nichts Neues ein. Danach arbeiten die Takte, jeder in einem eigenen
+Container und mit bis zu einer Minute Abstand:
+
+1. **Der Batch** (`platform_admin.batch.execute`): Vorprüfung und die
+   Ingestion-Stufen, wie im Cron-Delta. Am Ende reiht er den Kandidaten ein.
+2. **Der Kandidat** (`candidates.build`): lädt **alles** fertige Bronze aus
+   S3 in einen eigenen Job-Ordner, am 24.11. 268 Dateien mit 465 MiB. Dann
+   baut er Silver, Gold und Serving über alle Jahre neu, prüft die Qualität,
+   erstellt den Impact-Bericht und gibt bei bestandenem Tor frei.
+3. **Die Veröffentlichung** (`finish_publication`): Release nach S3,
+   `AKTUELL.json`, Job-Zeiger, danach Serving, Drift, Sicherungssatz,
+   Laufprotokoll und Betriebsstand.
+
+**Wie lange das dauert.** Für Schritt 2 gibt es eine Messung auf srv01, den
+Kandidaten vom 18.11.2026: eingereiht 20:57:05, Gold fertig 21:02:34,
+Serving 21:02:40. Das sind **gut fünfeinhalb Minuten** samt Bronze-Abzug
+und bis zu einer Minute Warten auf den Takt. Für Schritt 1 gilt die
+Ingestion eines Cron-Deltas, ein paar Minuten (der ganze Cron-Delta mit
+Ableitung dauerte rund fünf). Schritt 3 ist ein Takt mehr. Zusammen also
+**etwa 15 bis 25 Minuten**, wenn keine Quelle ausfällt. Fällt eine aus, fasst
+die Ingestion nach 30 und 60 Minuten nach, wie im Cron. Für den Samstag mit
+Prüfen gut **eine Stunde** einplanen, mit Nachfassen bis zu zweieinhalb.
 
 **Abnahme**, alle Punkte müssen grün sein:
 
@@ -148,10 +234,26 @@ dc run --rm --no-deps --entrypoint sh worker -c \
 Verschieben statt löschen, damit der Eintrag erhalten bleibt. Danach greift
 `storage.verwaltet` nicht mehr, und der alte Datenlauf läuft wieder.
 
-**Offen:** Ein schon veröffentlichtes Release `approved-…` bleibt das aktive.
-Zurück auf das Cron-Release ginge über `orchestration.release holen
-<alt> --einsetzen`. Ob ein Cron-Lauf nach einem Konsolen-Release sauber aufsetzt, steht unten
-unter „Noch offen“.
+**Nach dem Rückweg setzt der Cron-Lauf sauber auf** (geprüft am
+24.11.2026 im Code):
+
+- Die Konsole legt ihr Release genau wie `storage.release` ab, unter
+  `releases/release=<Kennung>/` mit `release.json` zuletzt. Den Zeiger
+  `AKTUELL.json` schreibt sie mit derselben Funktion `storage.release.zeiger`.
+  `release holen aktuell --einsetzen` und das Dashboard lesen es also wie
+  jedes andere.
+- Der nächste Cron-Lauf baut sein Release aus dem eigenen Bau und legt
+  `AKTUELL.json` darauf. Auf das vorige Release baut er nicht auf, die
+  Kennung `approved-…` stört ihn nicht.
+- Bis dahin bleibt das Release `approved-…` das aktive. Das ist richtig so:
+  Es hat das Qualitätstor bestanden. Wer sofort auf den Cron-Stand zurück
+  will, nimmt `orchestration.release zuruecknehmen <alt> --grund "…"`,
+  nachdem der Marker beiseite ist. Vorher sperrt es.
+- Eine Kleinigkeit: `release liste` sortiert nach Kennung, nicht nach Zeit.
+  `approved-…` steht deshalb immer unter allen Kennungen mit Datum. Den
+  aktiven Stand zeigt die Marke `<- AKTUELL`, nicht die Position.
+- Wer später wieder umstellt, bekommt mit `enable-managed` eine neue
+  Alt-Baseline, nämlich das dann aktive Release.
 
 ## Nachgesehen
 
@@ -159,10 +261,17 @@ unter „Noch offen“.
 - **`aufraeumen`:** Weder die Crontab noch ein `docker/*.sh` ruft es
   planmässig auf. Dass es unter der Konsole gesperrt ist, stört den Betrieb
   also nicht. Von Hand aufräumen geht danach nur über die Konsole.
+- **Rückweg:** Der Cron-Lauf setzt nach einem Konsolen-Release sauber auf,
+  siehe Schritt 6.
+- **Dauer:** etwa 15 bis 25 Minuten ohne Quellausfall, siehe Schritt 4.
 
-## Noch offen, vor Freitag zu klären
+## Für die Besprechung am 27.11.
 
-- Ob ein Cron-Lauf nach einem Konsolen-Release `approved-…` sauber aufsetzt.
-  Das betrifft nur den Rückweg.
-- Wie lange ein Delta unter Takten dauert. Das bestimmt, wie viel Zeit
-  Samstag einzuplanen ist.
+Zwei Befunde von oben brauchen einen Entscheid, bevor umgestellt wird:
+
+1. **Die Sperre in `pipeline` einhängen** (Punkt 4): ja oder nein. Ohne sie
+   schützt nur der Crontab-Tausch.
+2. **Die Konsolensicherung schlank halten** (Punkt 5): `jobs/*/data` aus dem
+   Archiv nehmen oder `ADMIN_JOB_DATA_KEEP=1` setzen. Dazu das Kontingent
+   des Eimers auf srv01 ablesen. Die 830 MiB je Archiv liegen heute schon
+   dort, ohne Umstellung.
