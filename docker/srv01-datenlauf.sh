@@ -135,6 +135,7 @@ case "${mode}" in
             schritte+=("python -m census_pipeline.download_acs --vintage ${vintage}")
         done
         schritte+=("python -m weather_pipeline.download_noaa")
+        schritte+=("python -m gebiete_pipeline.download_gebiete")
         laden "${schritte[@]}"
 
         # All sources were refreshed explicitly; derive every downstream

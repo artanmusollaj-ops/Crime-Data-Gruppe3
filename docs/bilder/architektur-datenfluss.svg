@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 474" role="img" width="100%" height="auto"
-     aria-label="Der Datenfluss in vier Gruppen mit 16 Stufen: Ingestion schreibt raw und bronze, silver deutet, gold baut das Sternschema, serving stellt bereit - und ein gruener Lauf wird zum Release.">
+     aria-label="Der Datenfluss in vier Gruppen mit 17 Stufen: Ingestion schreibt raw und bronze, silver deutet, gold baut das Sternschema, serving stellt bereit - und ein gruener Lauf wird zum Release.">
 <style>
   svg { color: #14304a; }
   .signal { fill: #c2410c; }
@@ -16,7 +16,7 @@
   <g>
     <rect x="274" y="24" width="562" height="52" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
     <text x="555" y="49" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" font-weight="600" fill="currentColor">raw + bronze</text>
-    <text x="555" y="66" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.72">6 Stufen: chicago, detroit, tiger_tract, tiger_place, acs, noaa</text>
+    <text x="555" y="66" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" fill="currentColor" fill-opacity="0.72">7 Stufen: chicago, detroit, tiger_tract, tiger_place, acs, noaa, gebiete</text>
   </g>
   <text x="24" y="46" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="currentColor" fill-opacity="0.8">ingestion</text>
   <text x="24" y="64" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11" font-weight="400" fill="currentColor" fill-opacity="0.6">je Lauf ein Verzeichnis, unveränderlich</text>

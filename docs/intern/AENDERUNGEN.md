@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'467** |
+| Tests | **3'480** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
@@ -77,6 +77,7 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `bronze/dataset=tiger_tract`, `bronze/dataset=tiger_place` | 1 | 14.09.2026 | Vintage-Archiv je Bundesstaat, Geometrie als WKB in EPSG:4269, Feld-Allowlist mit `_extra` |
 | `bronze/dataset=acs5_tract` | 1 | 14.09.2026 | fünf Variablen je Tract, Fehlwert `-666666666` bleibt unverändert stehen |
 | `bronze/dataset=noaa_ghcnd` | 1 | 14.09.2026 | Vollschnappschuss je Station, bedingter Abruf über ETag, Mindestabstand sieben Tage |
+| `bronze/dataset=gebiete` | 1 | 25.11.2026 | Grenzen der Polizeibezirke je Stadt und Ebene, GeoJSON unverändert in Raw, WKB in Bronze; jeder Lauf ein neuer Stand, vollständig gegen die Zählung des Portals |
 | `silver/tract` | **2** | 14.09.2026 | ein Census Tract je Zeile, TIGER und ACS über einen vollen äusseren Join. Version 2: `median_household_income_usd` und `population_below_poverty` als `INTEGER` statt `BIGINT` — die Einwohnerzahl bleibt `BIGINT`, sie ist der Nenner jeder Rate |
 | `silver/place` | 1 | 14.09.2026 | ein Ort je Zeile, Geometrie für die Stadtgrenze |
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
@@ -107,6 +108,39 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 Einträge weiter unten; rückwirkend Nummern zu vergeben, hätte eine Ordnung
 vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
+
+---
+
+## 25.11.2026 · Die Polizeibezirke beider Städte kommen als sechste Quelle (Branch `polizeibezirke-ingestion`)
+
+Erster Schritt zu einer Karte je Polizeibezirk und einer Karte der
+Aufklärung. Die Grenzen kommen von den Portalen der Städte:
+
+- **Chicago:** »Boundaries - Police Districts (current)«, Datensatz
+  `24zt-jpfn`, 25 Polygone für 23 Districts (District 31 in drei Teilen).
+- **Detroit:** Layer `DPD_Precincts_Reid2` (»2015 New Precincts Overlay«),
+  12 Polygone für 11 Precincts (07 in zwei Teilen).
+
+Neues Paket `gebiete_pipeline` mit `download_gebiete`: Raw hält das GeoJSON
+unverändert, Bronze die Polygone als WKB mit `gebiet_id`, `gebiet_name` und
+`_extra`. Vollständig heisst: so viele Polygone, wie das Portal in einer
+zweiten Abfrage zählt. Anders als TIGER schreibt **jeder Lauf einen neuen
+Stand**, denn die Portale führen den aktuellen Stand und sagen nicht, wann er
+sich ändert; ob sich eine Grenze bewegt hat, zeigt der SHA-256 der Raw-Datei.
+Die Quelle steht in der wöchentlichen Altersregel neben Taten und Wetter.
+
+**Gemessen vor dem Bau**, an den vollen Läufen 2024: Die Koordinaten liegen
+in Chicago bei 97,4 % der Taten im Polygon des Districts, den die Polizei
+nennt (252'841 von 259'686), in Detroit bei 96,6 % (85'817 von 88'816).
+
+Mitgezogen: die Stufe in `run_all` (jetzt siebzehn), die Platzregel, die
+Alarmregel, die Vertragsversion `bronze/dataset=gebiete` 1, die Konsole, der
+Volllauf, die Verantwortung in der Absprache 7.3 und die Zählungen in den
+Dokumenten — sechs Quellen, fünf Ingestion-Pakete, zwölf Pakete, 34 Kanten.
+Die beiden Architekturbilder und die Referenz sind neu erzeugt. Silver, Gold
+und das Dashboard folgen in eigenen Schritten.
+
+Keine Zahl der Abgabe ändert sich.
 
 ---
 

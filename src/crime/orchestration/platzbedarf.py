@@ -129,6 +129,8 @@ REGEL_JE_QUELLE: dict[str, str] = {
     # GHCN-Daily liefert die ganze Reihe einer Station, egal welches Jahr
     # gefragt war. Sechs Jahrgaenge kosten dort keine Byte mehr als einer.
     "dataset=noaa_ghcnd": KONSTANT,
+    # Die Grenzen der Polizeibezirke: rund 1,1 MB je Lauf, gleich fuer jedes Jahr.
+    "dataset=gebiete": KONSTANT,
     # Silver
     "dataset=crime_offense": TATEN,
     "dataset=source_change": TATEN,

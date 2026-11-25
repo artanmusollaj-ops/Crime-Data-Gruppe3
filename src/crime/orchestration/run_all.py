@@ -117,6 +117,10 @@ STUFEN: tuple[Stufe, ...] = (
           quelle="dataset=acs5_tract", je="vintage", flagge="--vintage"),
     Stufe("ingestion", "noaa", "weather_pipeline.download_noaa",
           quelle="dataset=noaa_ghcnd"),
+    # Die Polizeibezirke beider Staedte (25.11.2026). Jeder Lauf schreibt
+    # einen neuen Stand; ob sich eine Grenze bewegt hat, zeigt der Hash.
+    Stufe("ingestion", "gebiete", "gebiete_pipeline.download_gebiete",
+          quelle="dataset=gebiete"),
 
     Stufe("silver", "tract", "silver_pipeline.build_tract",
           je="vintage", flagge="--vintage"),

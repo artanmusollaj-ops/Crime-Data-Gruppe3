@@ -78,9 +78,9 @@ im einstelligen Millisekundenbereich. Ein vorberechneter Würfel spart nichts,
 was ein Mensch bemerkt, und kostet drei Fragen, die er nicht mehr beantwortet.
 Die Entscheidung ist ein **Messergebnis**, keine Stilfrage.
 
-### Drei Ladestrategien für fünf Quellen
+### Vier Ladestrategien für sechs Quellen
 
-Die fünf Quellen ändern sich unterschiedlich, und die Ladestrategie folgt dem
+Die sechs Quellen ändern sich unterschiedlich, und die Ladestrategie folgt dem
 Änderungsverhalten — nicht der Bequemlichkeit:
 
 | Quelle | Strategie | Warum |
@@ -89,6 +89,7 @@ Die fünf Quellen ändern sich unterschiedlich, und die Ladestrategie folgt dem
 | Detroit | **Delta** über `updated_at` im Tatjahrgang, 14 Tage Überlappung | Derselbe Weg, aber mit zwei Bedingungen: **55,9 %** des Jahrgangs 2024 wurden *mehr als ein Jahr nach der Tat* noch geändert — ein Delta nach Tatdatum verpasst genau diese Korrekturen |
 | TIGER, ACS | **eingefroren** | Eine feste Vintage; ein erneutes Laden wäre ein anderer Jahrgang, kein neuerer Stand |
 | NOAA | **Vollschnappschuss je Station** | Die Quelle liefert den ganzen Verlauf; der jüngste Lauf löst den vorigen ab |
+| Polizeibezirke | **Schnappschuss je Lauf** | Der *aktuelle* Stand zweier Portale, rund 1,1 MB; jeder Lauf schreibt ihn neu, ob sich eine Grenze bewegt hat, zeigt der Hash |
 
 Die letzte Zeile ist der Grund, warum die Publish-Sperre am 17.9.2026 umgebaut
 werden musste: Sie hielt einen **abgelösten** Lauf für einen **fehlenden**.
@@ -102,7 +103,7 @@ sonst kämen Fälle aus jedem Tatjahr —, ausgewählt wird darin nach
 immer mit. Seit dem 18.9.2026 lädt ein Detroit-Lauf so **3'184 statt 88'686
 Zeilen**; der erste Lauf auf einem leeren Rechner bleibt ein Vollschnappschuss.
 
-## A.2 Der Code: elf Pakete, gerichtete Abhängigkeiten
+## A.2 Der Code: zwölf Pakete, gerichtete Abhängigkeiten
 
 Seit dem 30.10.2026 ergänzt `platform_admin` (Artans Engineering-Konsole) die vorhandenen
 Pipeline-Pakete um Konsole, Review, Jobwarteschlange und kontrollierte
@@ -114,7 +115,8 @@ ausgerollt.
   Fundament   manifeste, storage          kennt keine Schicht über sich
                      ▲
   Ingestion   chicago_pipeline, detroit_pipeline,
-              census_pipeline, weather_pipeline      je Quelle ein Paket
+              census_pipeline, weather_pipeline,
+              gebiete_pipeline                       je Quelle ein Paket
                      │
   Deuten      silver_pipeline
                      │
@@ -140,13 +142,13 @@ Die beiden Architekturbilder in [`architektur.md`](architektur.md) werden
 **aus dem Code erzeugt**, nicht gezeichnet. Ein Paket, das dazukommt, erscheint
 von selbst; eine Zahl im Bild, die nicht mehr stimmt, lässt einen Test fallen.
 
-## A.3 Orchestrierung: sechzehn Stufen, Abbruch vor dem halben Stand
+## A.3 Orchestrierung: siebzehn Stufen, Abbruch vor dem halben Stand
 
-`orchestration.run_all` fährt die Strecke in sechzehn Stufen:
+`orchestration.run_all` fährt die Strecke in siebzehn Stufen:
 
 | Gruppe | Stufen | |
 | --- | ---: | --- |
-| ingestion | 6 | chicago, detroit, tiger_tract, tiger_place, acs, noaa |
+| ingestion | 7 | chicago, detroit, tiger_tract, tiger_place, acs, noaa, gebiete |
 | silver | 5 | tract, place, weather_day, crime_offense, source_change |
 | gold | 1 | die sieben Sterntabellen in einem Zug |
 | serving | 4 | comparison, source_movement, analyse_db, tracts_geojson |
@@ -167,7 +169,7 @@ Bronze-Läufen das Ergebnis ruht, wie alt jede Quelle ist, was von SeaweedFS
 geholt wurde, ob ein Release entstand — und einen Fingerabdruck über die
 Eingaben. Zwei Läufe auf demselben Stand tragen denselben Abdruck.
 
-**Kein Airflow, und das ist begründet.** Bei fünf Quellen und vier
+**Kein Airflow, und das ist begründet.** Bei sechs Quellen und fünf
 Batch-Pipelines wäre ein Scheduler Aufwand ohne Erkenntnisgewinn. Was fehlt,
 ist nicht die Maschinerie, sondern der Anstoss: Ausserhalb des wöchentlichen
 Datenlaufs startet nichts von selbst.
@@ -245,9 +247,9 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 3'467 Tests ohne Netz und Schlüssel, Linux mit Python 3.11, `ruff` davor; der Referenz-Wächter unter 3.13; auf `main` zusätzlich Windows mit 3.13 | bei jedem Push |
-| **Frischer Klon** | Im Linux-CI-Lauf laufen hochgerechnet (am PR-Lauf zu bestätigen, nicht gemessen) 3'271 davon — die übrigen 85 werden übersprungen, unter anderem wegen fehlender Daten, Dienste oder ungetrackter Dokumente. Die 111 Referenzstand-Wächter sind abgewählt | |
-| **Datenlauf** | montags: alle fünf Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
+| **Pull Request** | 3'480 Tests ohne Netz und Schlüssel, Linux mit Python 3.11, `ruff` davor; der Referenz-Wächter unter 3.13; auf `main` zusätzlich Windows mit 3.13 | bei jedem Push |
+| **Frischer Klon** | Im Linux-CI-Lauf laufen hochgerechnet (am PR-Lauf zu bestätigen, nicht gemessen) 3'284 davon — die übrigen 85 werden übersprungen, unter anderem wegen fehlender Daten, Dienste oder ungetrackter Dokumente. Die 111 Referenzstand-Wächter sind abgewählt | |
+| **Datenlauf** | montags: alle sechs Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 111 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
 Der letzte Punkt ist die interessanteste Entscheidung: Die Quellen bewegen

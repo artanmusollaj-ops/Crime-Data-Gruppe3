@@ -24,7 +24,7 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 | **Forschungsfragen, Hypothesen** | ● abgegeben | F1 bis F6 und H1 bis H6 in [`forschungsfragen.md`](../forschungsfragen.md), gemessen in Notebook 36. Die Nummern in 2.2 bis 2.5 sind die des Vorschlags davor |
 | **Vorgehen und Methoden** | ◐ implizit im Code | Methodenteil ausformulieren → Abschnitt 2.4 |
 | **Entwurf DE-Lebenszyklus** | ● benannt | Abschnitt 3; ausführlich in [`ln2_konzept.md`](../ln2_konzept.md) Kapitel 5 |
-| **Ingestion: Quellen, Beschaffung** | ● fertig | fünf Quellen, je ein Quellnotebook |
+| **Ingestion: Quellen, Beschaffung** | ● fertig | sechs Quellen; ein Quellnotebook je Quelle bis auf die Polizeibezirke (seit 25.11.2026) |
 | **Storage: Evaluation, Wahl, Implementierung** | ● fertig | gemessen in Notebook 31 (NDJSON gegen Parquet), verschriftlicht in [`ln2_konzept.md`](../ln2_konzept.md) Kapitel 7 |
 | **Transformation 1: Analyse, Hypothesentest** | ◐ Qualität beider Städte fertig | der eigentliche Hypothesentest → Abschnitt 5 |
 | **Initiale Datenbereinigung** | ● fertig | vier Silver-Tabellen, `crime_offense` mit 1'917'351 Zeilen über 2021–2026 |
@@ -33,7 +33,7 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 ● fertig ◐ teilweise ○ offen
 
 **Die gute Nachricht:** Ingestion und Storage — die beiden praktisch
-aufwendigsten Blöcke — stehen. 3'467 Tests, fünf Quellen in vier Pipelines,
+aufwendigsten Blöcke — stehen. 3'480 Tests, sechs Quellen in fünf Pipelines,
 nachgewiesene Vollständigkeit. Die Hypothesen sind mit LN1 abgegeben: F1 bis F6 und
 H1 bis H6 in [`forschungsfragen.md`](../forschungsfragen.md), alle sechs in
 Notebook 36 gemessen.
@@ -276,7 +276,7 @@ deskriptiver Vergleich *plus* sozioökonomischer Zusammenhang *plus*
 Wettereinfluss. Das ist die umfangreichste der vier Varianten. Die Begründung im
 Entscheid ist pragmatisch — „ein Grossteil der Daten ist schon heruntergeladen,
 eine Integration sollte nicht mehr so aufwändig sein" —, und für die Ingestion
-trifft das zu: alle fünf Quellen liegen in Bronze.
+trifft das zu: alle sechs Quellen liegen in Bronze.
 
 Für Fragen und Hypothesen folgt daraus:
 
@@ -319,7 +319,7 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 | Phase | Was wir haben | Beleg | Lücke |
 | --- | --- | --- | --- |
 | **Generation** | Fünf Quellsysteme: Socrata (Chicago), ArcGIS REST (Detroit), HTTPS-Dateien (TIGER und NOAA), JSON-API (ACS). Je Quelle dokumentiert: Aktualisierungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 11, 21, 22, 32 | – |
-| **Ingestion** | Vier Pipelines. Batch, kein Streaming. Chicago inkrementell über Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` | – |
+| **Ingestion** | Fünf Pipelines. Batch, kein Streaming. Chicago inkrementell über Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` | – |
 | **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest. Ablage wahlweise lokal, SeaweedFS über S3 oder hybrid | `data/`, Abschnitt 4, [`storage-architektur.md`](../storage-architektur.md) | – |
 | **Transformation** | Bronze bewusst ohne Transformation. Silver und Gold gebaut, Qualitätsanalyse beider Städte fertig | Notebook 03, 13, 34 | – |
 | **Serving** | Option **A · Analytik** gewählt: Auswertungsdatenbank auf der Gold-Schicht | Abschnitt 6, Notebook 33 | gebaut: dreizehn Sichten über Silver, Gold und die vier Vergleichstabellen in Serving; das Dashboard darauf fehlt |
@@ -330,7 +330,7 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie im Manifest oder in abgelegten URLs; drei Tests prüfen das. `.env` und `data/` aus Git ausgeschlossen, `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf, Herkunftsnachweis über `derived_from` und `input_fingerprint` durchgehend bis Gold, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog aus den Manifesten erzeugt, Aufbewahrungsregel mit `orchestration.aufraeumen` | das Aufräumen ist ein Handgriff, kein Automatismus |
-| **DataOps** | 3'467 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions unter Linux, auf `main` zusätzlich unter Windows, mit zwei Python-Versionen; dazu der wöchentliche Datenlauf | keine Alarmierung ausser dem roten Lauf selbst |
+| **DataOps** | 3'480 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions unter Linux, auf `main` zusätzlich unter Windows, mit zwei Python-Versionen; dazu der wöchentliche Datenlauf | keine Alarmierung ausser dem roten Lauf selbst |
 | **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (raw) und Ableitung (bronze). Zwei Architekturbilder, aus dem Code erzeugt ([`architektur.md`](../architektur.md)) | Vintage 2024 hart verdrahtet |
 | **Orchestration** | `orchestration.run_all`: 13 Stufen in Reihenfolge, eine gescheiterte Quelle zweimal nachgefasst, sonst Abbruch vor dem Ableiten, Gesamtmanifest über alle Eingabe-Läufe | der geplante Lauf ist wöchentlich, die Quellen ändern sich täglich; keine Wiederaufnahme nach Abbruch, bewusst |
 | **Software Engineering** | Modulare Pakete, Typannotationen, ausführliche Docstrings, Fehlerbehandlung mit Wiederholungen | – |
@@ -338,7 +338,7 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 **Beide damaligen Lücken sind geschlossen.** Für die Orchestrierung war der
 bescheidene Ansatz angesetzt — ein Skript, das die Pipelines in der richtigen
 Reihenfolge aufruft und protokolliert. Genau das ist `orchestration.run_all`
-geworden. Airflow oder Prefect wären für vier Batch-Läufe unangemessen; das
+geworden. Airflow oder Prefect wären für fünf Batch-Läufe unangemessen; das
 lässt sich in der Präsentation gut begründen. Beim Serving stehen dreizehn Sichten und vier vorberechnete Vergleichstabellen;
 offen ist allein das Dashboard darauf, und das gehört bewusst in LN2.
 
@@ -351,7 +351,7 @@ Tabelle taugt als Gliederung für den Transformationsteil der Präsentation.
 
 | Modulinhalt | Bei uns | Stand |
 | --- | --- | --- |
-| **Kombination von Streams** | Alle fünf Quellen sind Batch. Bewusst begründen statt weglassen: Ein Tumbling-Window ist der Batch-Fall der ereignisbasierten Verarbeitung | zu formulieren |
+| **Kombination von Streams** | Alle sechs Quellen sind Batch. Bewusst begründen statt weglassen: Ein Tumbling-Window ist der Batch-Fall der ereignisbasierten Verarbeitung | zu formulieren |
 | **Watermark, verspätete Daten** | Unser 14-Tage-Lookback ist funktional die Toleranz für verspätet eintreffende Änderungen | vorhanden, zu benennen |
 | **Verteiltes Setting (MapReduce, Spark)** | Nicht verwendet. Bei rund 350'000 Zeilen und 70 MB wäre es unangemessen — „so einfach und selbstisolierend wie möglich" | Begründung schreiben |
 | **Formatbedingte Kompatibilität** | Bronze hält alles als Text; Typisierung erst in Silver. Führende Nullen in `iucr`, `beat`, `district` müssen erhalten bleiben | umgesetzt |
@@ -827,7 +827,7 @@ Dazu ein Skript mit zwei Betriebsarten:
 | Aufruf | Was passiert | Wofür |
 | --- | --- | --- |
 | `fetch_data.py --referenz` | lädt den Referenzstand aus dem Release | Zahlen der Präsentation nachvollziehen |
-| `fetch_data.py --neu-laden` | lässt alle vier Pipelines gegen die Originalquellen laufen | zeigt, dass die Ingestion funktioniert |
+| `fetch_data.py --neu-laden` | lässt alle fünf Pipelines gegen die Originalquellen laufen | zeigt, dass die Ingestion funktioniert |
 
 **Die Manifeste sind der Abgleich zwischen beiden.** Sie tragen SHA-256 je
 Datei, Zeilenzahl, Wasserzeichen und Vollständigkeitsnachweis. Das Skript kann

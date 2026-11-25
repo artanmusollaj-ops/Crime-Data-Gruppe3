@@ -26,6 +26,7 @@ STAGE_NAMES = {
     "census_pipeline.download_tiger": "Import · Census TIGER",
     "census_pipeline.download_acs": "Import · Census ACS5",
     "weather_pipeline.download_noaa": "Import · NOAA-Wetter",
+    "gebiete_pipeline.download_gebiete": "Import · Polizeibezirke",
     "silver_pipeline.build_tract": "Silver · Census-Tracts",
     "silver_pipeline.build_place": "Silver · Stadtgrenzen",
     "silver_pipeline.build_weather_day": "Silver · Wettertage",
