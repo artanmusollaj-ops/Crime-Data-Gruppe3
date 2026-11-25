@@ -384,3 +384,18 @@ def test_das_konzept_nennt_die_testzahl_ueberall_gleich(konzept):
         f"{sorted(erlaubt)} (ganz / ohne Referenzwaechter). "
         "Alle drei Stellen mitziehen: Kurzfassung, Tabelle 5.3, Kapitel 10."
     )
+
+
+def test_das_konzept_nennt_jedes_notebook_in_11_2(konzept):
+    """Kapitel 11.2 heisst "Die Notebooks: der Rechenweg" und fuehrt sie auf.
+
+    Bis zum 25.11.2026 endete die Liste bei 34. Die Notebooks 35 bis 37 gab es
+    seit Wochen, 36 rechnet die Hypothesen, und das Konzept verweist an zwei
+    anderen Stellen darauf - nur sein eigenes Verzeichnis kannte es nicht.
+    Geprueft wird gegen ``notebooks/``, nicht gegen eine Liste hier.
+    """
+    anfang = konzept.index("### 11.2")
+    abschnitt = konzept[anfang:konzept.index("### 11.3", anfang)]
+    fehlt = [nb.name for nb in sorted((PROJECT_ROOT / "notebooks").glob("*.ipynb"))
+             if f"(../notebooks/{nb.name})" not in abschnitt]
+    assert not fehlt, f"ln2_konzept.md 11.2 nennt nicht: {fehlt}"

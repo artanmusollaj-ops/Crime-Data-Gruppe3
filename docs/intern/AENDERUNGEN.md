@@ -113,6 +113,53 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 25.11.2026 · Das Konzept steht auf dem heutigen Stand (Branch `dokumente-konzept`)
+
+Dritter Teil der Dokumentdurchsicht vom 25.11.2026: `ln2_konzept.md`, nur
+Fakten. Neue Argumentation geht als Textvorschlag an Artan.
+
+- **Titel:** Leistungsnachweis 2 statt 1.
+- **Schichten:** sieben Silver-Tabellen statt vier (8.2 mit `police_area`,
+  `community_area`, `source_change`); Gold mit acht Dimensionen und zwei
+  Brücken statt vier oder fünf; 26 Sichten statt elf; fünf
+  Vergleichstabellen samt `rate_tract`, dazu `source_movement`; `releases/`
+  im Verzeichnisbaum.
+- **Gebiete:** Districts, Community Areas, Precincts und Neighborhoods in 5.1
+  und 6.1, der Ladebefehl in Kapitel 10.
+- **Dashboard:** in 5.1, in der Konsumententabelle und in 11.1. Es liest das
+  aktive Release, nicht die Sichten. Kibana läuft seit dem 6.11. nur noch in
+  der Vorführung.
+- **Nenner:** Einwohner aus `dim_tract_acs` je Vintage, nicht „über 2024
+  konstant"; die Lücke „Vintage 2024 hart verdrahtet" in 5.3 ist ersetzt
+  durch die echte: 2025 und 2026 ruhen auf 2024.
+- **Zahlen:** 5,7 % statt 5,6 % (wie in 9 und `zaehlperspektiven.md`);
+  Verortung 99,2 % im Ratenjahrgang (3.4) und 98,5 % / 99,9 % über
+  2021–2026 (8.2) statt 99,3 % / 99,7 % ohne Bezug; 42'412 Taten im Auffang
+  statt 10'476, 3,0 % statt 2,97 %; Feldkatalog 280 Spalten in 24 Tabellen.
+- **Läufe:** 8.3 nennt die drei Chicago-Läufe als Stand vom 6.9.; Kapitel 10
+  verweist für den Referenzstand auf die Wächter und `derived_from`, nicht
+  mehr auf 8.3.
+- **Notebooks:** 35 bis 37 in 11.2; acht im Datenlauf statt sechs.
+- **Betrieb:** Der Zeitplan auf `srv01` feuert seit dem 12.10. jede Woche.
+  Der Datenlauf in GitHub Actions war einmal grün, am 14.9., und ist seither
+  rot, seit dem 11.11. nur noch am Schritt „Drift ausweisen". Beides stand
+  als „Einrichtung, kein Nachweis".
+- **Mapping-Korrekturen:** `mapping_overrides.csv` hat eine Zeile (Detroit
+  `3072`, seit #259), nicht „nur die Kopfzeile".
+
+**Nicht geändert, offen:** 8.5 sagt „`3072` bringt 1'447 Fälle nach `23C
+Shoplifting`". Seit #259 (18.11.2026, über die Konsole, Begründung „E2E
+Test, Erneute Impact Analyse") schreibt die Korrektur `3072` auf `26A`, und
+Silver trägt das. Ob die Korrektur bleibt oder zurückgenommen wird, ist ein
+Entscheid, keine Faktkorrektur.
+
+**Textvorschlag:** `docs/intern/textvorschlag-dashboard.md`, die acht Bretter
+als Stoff für einen Abschnitt in 5.2, im Wegweiser und in 11.5.
+
+**Wächter:** `test_das_konzept_nennt_jedes_notebook_in_11_2` hält 11.2 gegen
+`notebooks/`. Dafür entfällt der Fall `ln2_konzept.md` in `NOCH_WAHR` von
+`test_betriebsstand.py`; die Testzahl bleibt 3'540.
+
 ## 25.11.2026 · README und Wegweiser stehen auf dem heutigen Stand (Branch `dokumente-readme`)
 
 Zweiter Teil der Dokumentdurchsicht vom 25.11.2026.

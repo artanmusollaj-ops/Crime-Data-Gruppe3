@@ -104,8 +104,10 @@ NOCH_WAHR = {
     "docs/architektur-ist-und-ziel.md": "Einrichtung, kein Nachweis",
     # README.md nicht mehr seit dem 25.11.2026: Der Zeitplan hat seither jede
     # Woche gefeuert und Releases gebaut; das README sagt
-    # es im Praesens. Die beiden anderen ziehen in ihrer eigenen Durchsicht nach.
-    "docs/ln2_konzept.md": "Einrichtung, kein Nachweis",
+    # es im Praesens. ln2_konzept.md ebenso seit dem 25.11.2026, in 5.3 samt
+    # dem Datenlauf in GitHub Actions: Der war einmal gruen (14.9.2026) und
+    # ist seither rot, das steht jetzt dort statt "bis zum ersten gruenen Lauf".
+    # architektur-ist-und-ziel.md zieht in seiner eigenen Durchsicht nach.
     # Hier stand bis zum 1.11.2026 der vierte Posten unter "Was daneben
     # einzurichten ist": der Elasticsearch-Datentraeger fuer Restic, am
     # 11.10.2026 nicht geprueft. Er ist nicht eingerichtet, sondern
