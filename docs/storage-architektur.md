@@ -530,7 +530,7 @@ des Zensus, die nur im Volllauf am zweiten Montag geholt werden. Taten und
 Wetter kommen wöchentlich (acht Tage), die drei Jahrgänge monatlich (35 Tage,
 denn zwei zweite Montage können so weit auseinanderliegen). Ein Wächter hält
 jede Quelle aus `run_all.ERWARTETE_QUELLEN` gegen **genau eine** der beiden
-Schwellen — eine siebte Quelle fällt damit auf, bevor sie unbewacht bleibt
+Schwellen — eine weitere Quelle fällt damit auf, bevor sie unbewacht bleibt
 oder doppelt alarmiert.
 
 **1 · `start` muss für Prometheus erreichbar sein.** Heute liegt der Dienst in
@@ -595,7 +595,7 @@ Der Glob zählt nur die eine Form.
 ```bash
 cd /srv/docker/apps/urbancrime        && docker compose -f docker-compose.srv01.yml up -d start
 cd /srv/docker/infrastructure/monitoring && docker compose up -d prometheus
-# Acht Regeln geladen? Und das Ziel oben?
+# Neun Regeln geladen? Und das Ziel oben?
 docker exec prometheus wget -qO- http://127.0.0.1:9090/api/v1/rules | grep -c urbancrime
 docker exec prometheus wget -qO- "http://127.0.0.1:9090/api/v1/targets?state=active" | grep urbancrime
 ```
@@ -790,7 +790,9 @@ Ein Release entsteht nur nach einem **vollständigen** grünen Lauf bis
 einschliesslich Serving — ein halber Stand bekommt keine Kennung. Scheitert
 das Publizieren, ist der Lauf gescheitert.
 
-Releases werden aufgehoben; eine Löschregel ist offen (`datenhistorie.md`).
+Aufgehoben werden die gepinnten Releases und die letzten acht, entschieden am
+4.10.2026 (`datenhistorie.md` 5.5); gelöscht wird nur auf Zuruf mit
+`orchestration.aufraeumen`.
 
 ---
 
@@ -826,7 +828,7 @@ alle.
 Deshalb vergleicht die Ablage bei abgeleiteten Tabellen beide Manifeste. Zwei
 Signale, weil eines nicht reicht:
 
-1. **`built_at_utc`** — wann gebaut wurde. Alle neun Tabellen tragen es.
+1. **`built_at_utc`** — wann gebaut wurde. Jede abgeleitete Tabelle trägt es.
 2. **Die Bronze-Läufe aus `derived_from`** — worauf der Stand ruht. Das fängt
    den Fall, den die Uhrzeit nicht fängt: *heute gebaut, aber ohne den Lauf,
    den jemand anders längst geladen hat.*
@@ -1094,7 +1096,12 @@ von sich aus nicht. Endgültige Fehler — falscher Schlüssel, fehlender Bucket
 | `src/crime/storage/backend.py` | `Storage`, `Boto3Client`, `FakeS3Client`, Publizieren, Standvergleich |
 | `src/crime/storage/duckdb.py` | Verbindung mit `httpfs` und temporärem Secret |
 | `src/crime/storage/__main__.py` | `python -m storage` und `publizieren` |
-| `tests/storage/` | 103 Tests gegen ein S3 **im Speicher** — kein Test braucht SeaweedFS |
+| `src/crime/storage/parquet.py` | was wirklich in einer Parquet-Datei steht, ohne die Hive-Spalten, die DuckDB aus dem Pfad ableitet |
+| `src/crime/storage/release.py` | ein Release bilden, prüfen, publizieren und holen |
+| `src/crime/storage/quellen.py` | `config/quellen.toml` lesen: woher je Stadt geladen wird |
+| `src/crime/storage/verwaltet.py` | der Marker des verwalteten Betriebs, der `run_all` und `release` sperrt |
+| `src/crime/storage/analysesitzung.py` | die gemeinsame Sperre für Notebook-Sitzungen auf einem belegten Stand |
+| `tests/storage/` | 317 Tests gegen ein S3 **im Speicher** — kein Test braucht SeaweedFS |
 
 Dass die Tests ohne Server laufen, ist Absicht: `FakeS3Client` ist ein dict
 mit vier Methoden. Damit lässt sich alles prüfen, worauf es ankommt — die
@@ -1159,10 +1166,12 @@ steht davor wie vor jedem Dienst hier. Entschieden hat Christian am
 der Dienst läuft dauernd. Ist die VM gestoppt, antwortet Traefik mit 502, der
 Tunnel läuft weiter. Der Schlüssel des Tunnelkontos steht base64-kodiert als
 `GCP_TUNNEL_SCHLUESSEL` in der `.env` des Stapels und wird im Container nur
-in ein tmpfs geschrieben. **Beschrieben, noch nicht eingesetzt:** Bis der
-Dienst auf `srv01` läuft und die Route von aussen gemessen ist, ist das eine
-Beschreibung — und auch dann liegt eine 302 auf das Anmeldetor vor dem
-Ursprung und sagt nicht, ob Kibana dahinter antwortet.
+in ein tmpfs geschrieben. **Eingesetzt und gemessen am 15.11.2026:** Der
+Dienst läuft auf `srv01`, Kibana antwortet über den Tunnel aus dem Netz
+`proxy` auf `/api/status` mit 200 in 0,2 s, und die Grenze ist am ersten
+Laden nachgemessen (unten, „Die Speichergrenzen"). Eine 302 auf das
+Anmeldetor von aussen liegt weiter vor dem Ursprung und sagt nicht, ob Kibana
+dahinter antwortet; das sagt erst die Messung aus dem Netz `proxy`.
 
 **Sie ist seit dem 8.10.2026 angewandt.** Auf `srv01` liefen Elasticsearch,
 Kibana und Jupyter nach dieser Beschreibung; am 11.10.2026 waren alle drei
@@ -1225,7 +1234,7 @@ weiter an `127.0.0.1` bindet und kein Traefik-Label trägt.
 | `pipeline` | **Stapellauf**, läuft einmal durch und endet | gar nicht — kein Port, kein Label, kein `unless-stopped` |
 | `jupyter` | zeitweilig, **lesende** Analyse | `urbancrime-jupyter.datenwerft.ch` über Traefik |
 | `admin` | Dauerbetrieb, Webdienst der Engineering-Konsole (seit 30.10.2026) | `urbancrime-admin.datenwerft.ch` über Traefik |
-| `worker` | **Stapellauf** der Konsole, ein Auftrag je Fünf-Minuten-Takt | gar nicht — kein Port, kein Label, `restart: "no"` |
+| `worker` | **Stapellauf** der Konsole, ein Auftrag je Minutentakt | gar nicht — kein Port, kein Label, `restart: "no"` |
 
 Bis zum 1.11.2026 stand Elasticsearch in dieser Tabelle, und dass es `proxy`
 nicht beitrat, war keine Vorsicht, sondern die Vorgabe des Servers: Ein
@@ -1248,7 +1257,7 @@ bereits belegt. Die vorher veranschlagten 5'632 MiB lagen damit **1'307 MiB
 
 | Dienst | Grenze | Woher die Zahl kommt |
 | --- | ---: | --- |
-| `dashboard` | 640 MiB | am 1.11.2026 auf `srv01` gemessen: Spitze **429 MiB** beim ersten Laden aus dem Eimer (11 s, im Sekundentakt abgelesen), danach **299–319 MiB**. Lokal waren es 476 beziehungsweise 412 MiB mit den Grenzen (DuckDB auf 256 MB, zwei Threads) |
+| `dashboard` | 640 MiB | am 1.11.2026 auf `srv01` gemessen: Spitze **429 MiB** beim ersten Laden aus dem Eimer (11 s, im Sekundentakt abgelesen), danach **299–319 MiB**. Seit es die Taten im Speicher hält (23.11.2026), liegt die Spitze bei rund **475 MiB**. Lokal waren es 476 beziehungsweise 412 MiB mit den Grenzen (DuckDB auf 256 MB, zwei Threads) |
 | ~~`elasticsearch`~~ | ~~1'792 MiB~~ | bis zum 1.11.2026; der Heap nutzte gemessen **195 von 1'024 MiB** |
 | ~~`kibana`~~ | ~~1'024 MiB~~ | bis zum 1.11.2026; gemessen belegt **771 MiB** |
 | `kibana` (Tunnel) | 256 MiB | seit 15.11.2026 nur `gcloud compute start-iap-tunnel`. Auf `srv01` gemessen am 15.11.2026: Leerlauf 57–59 MiB, Spitze **139,7 MiB**, wenn Kibana beim ersten Laden rund 80 Dateien gleichzeitig holt. Die erste, lokal geschätzte Grenze von 128 MiB riss genau dort. 256 MiB sind die Spitze mal 1,8 |
@@ -1323,8 +1332,8 @@ ist besser als ein getöteter.
 Vier Dinge kann eine Compose-Datei nicht sagen, und alle vier sind nötig,
 damit etwas erreichbar **sein kann**. Zwei davon sind eingerichtet: die
 Access-Anwendung seit dem 9.10.2026, von aussen gemessen, und die Abbilder
-seit dem 8.10.2026 in der Registry. Offen ist allein der Datenträger für Restic:
-Die dritte Tunnel-Route, die für `urbancrime-start`, ist seit dem 14.10.2026
+seit dem 8.10.2026 in der Registry. Der vierte, der Datenträger für Restic,
+ist entfallen (unten). Die dritte Tunnel-Route, die für `urbancrime-start`, ist seit dem 14.10.2026
 angelegt und von aussen gemessen — `urbancrime-start.datenwerft.ch` löst auf
 und antwortet mit **302** auf dasselbe Anmeldetor wie Kibana, ohne dass an
 der Access-Anwendung etwas zu ändern war. Das Muster `urbancrime-*` hat sie
@@ -1351,10 +1360,10 @@ Service URL:     http://traefik:80
 Der Ursprung ist **immer** `http://traefik:80` und **nie** der öffentliche
 Hostname: Zeigt die Route auf sich selbst, läuft der Verkehr zurück durch
 Cloudflare — eine Schleife oder ein HTTP 403. Traefiks `Host(...)`-Regel
-erledigt danach die Zuordnung. Angelegt sind die beiden Routen für Kibana und
-Jupyter; für `urbancrime-start.datenwerft.ch` ist sie seit dem 12.10.2026
-**fällig und noch nicht angelegt** — der Dienst steht in der Beschreibung, die
-Route ist eine Cloudflare-Einstellung und keine Compose-Zeile.
+erledigt danach die Zuordnung. Angelegt sind die Routen für Kibana und
+Jupyter (9.10.2026), `urbancrime-start` (14.10.2026), `urbancrime-admin`
+(31.10.2026) und `urbancrime-dashboard` (1.11.2026). Eine Route ist eine
+Cloudflare-Einstellung und keine Compose-Zeile.
 `urbancrime.datenwerft.ch` bleibt dagegen unbesetzt und hat bewusst kein DNS:
 Es ist der **einzige** Hostname, den das Muster `urbancrime-*` nicht deckt,
 und damit der einzige, den die eine Access-Anwendung nicht schützt. Nichts an
@@ -1416,7 +1425,7 @@ Seit dem 30.10.2026 beschrieben, **seit dem 31.10.2026 eingerichtet bis
 auf das GitHub-Token**: Abbild mit dem Konsolen-Code (`554fd02`), `.env`,
 `init` mit 2021–2026, `urbancrime_konsole` in der Sicherung, `admin` läuft,
 die Tunnel-Route steht hinter derselben Access-Anwendung, und der Takt läuft
-alle fünf Minuten aus `crontab`. Offen ist nur das Token (S-6 in
+jede Minute aus `crontab`. Offen ist nur das Token (S-6 in
 [`intern/offene-punkte.md`](intern/offene-punkte.md)); ohne es legt die
 Konsole keine PRs an. Die Schritte:
 
@@ -1428,7 +1437,12 @@ Konsole keine PRs an. Die Schritte:
    Contents, Pull requests Lesen und Schreiben, Actions Lesen).
 3. **Den Datenträger `urbancrime_konsole` in die Serversicherung.** Er trägt
    die SQLite-Datenbank mit den Review-Entscheidungen; die lässt sich nicht
-   nachrechnen.
+   nachrechnen. Daneben legt der Worker täglich ein eigenes Archiv unter
+   `backups/control/` im Eimer ab, seit dem 25.11.2026 **ohne** die Ordner
+   `jobs/<Job-ID>/data/` (`backup.json` nennt sie unter `job_data_left_out`):
+   Ein Kandidat vom 18.11.2026 trug 1,1 GiB und liess jedes Archiv von 2,2 auf
+   830 MiB wachsen. Was darin lag, lässt sich aus Bronze nachbauen
+   ([`intern/ENGINEERING_KONSOLE.md`](intern/ENGINEERING_KONSOLE.md)).
 4. **Einmal `python -m platform_admin init`** im Worker-Container, dann die
    Takt-Zeile in [`deploy/cron/urbancrime.crontab`](../deploy/cron/urbancrime.crontab)
    einkommentieren. Vorher bricht jeder Takt ab.
@@ -1473,7 +1487,7 @@ liegt ein eigener beschreibbarer Arbeitsbereich, sonst liesse sich kein
 Notebook speichern.
 
 Gelesen wird die **selbständige** `analyse.duckdb` aus einem Release (93 MB,
-Tabellen darin), nicht `data/serving/analyse.duckdb`. Die trägt 17 Sichten mit
+Tabellen darin), nicht `data/serving/analyse.duckdb`. Die trägt 26 Sichten mit
 absoluten Pfaden auf den Entwicklungsrechner und ist im Container wertlos —
 Abschnitt 9 sagt, warum das so ist und warum es so bleibt. Hereingeholt wird
 sie über den Stapellauf:
@@ -1747,11 +1761,11 @@ auslieferte. Geprüft wird deshalb ein Kennzeichen unserer Seite
 (`serving.build_einstieg` aus ihrer Fusszeile), und der Datenlauf **leert den
 Datenträger**, bevor er schreibt — sonst bliebe `50x.html` auch danach liegen.
 
-**Der Nachweis fehlt hier noch ganz.** Der Dienst steht in der Beschreibung,
-und das ist alles: Seine Tunnel-Route ist am 12.10.2026 **nicht** angelegt,
-der Stapel auf `srv01` kennt ihn noch nicht, und ohne einen Datenlauf trägt
-der Datenträger keine Seite von uns — der Dienst ist dann `unhealthy` und
-behauptet nichts. Was die Beschreibung zusichert, halten
+**Der Nachweis.** Am 12.10.2026 stand der Dienst nur in der Beschreibung.
+Seine Tunnel-Route ist seit dem 14.10.2026 angelegt, er läuft auf `srv01`
+(`healthy`, abgelesen am 25.11.2026), und jeder Datenlauf schreibt die Seite
+neu. Ohne einen Datenlauf trüge der Datenträger keine Seite von uns — der
+Dienst wäre dann `unhealthy` und behauptete nichts. Was die Beschreibung zusichert, halten
 `tests/test_srv01_compose.py` und `tests/test_srv01_datenlauf.py`; was auf
 `srv01` steht, sagt dort `docker compose ps`.
 
@@ -1780,7 +1794,7 @@ Keines steht in der Compose-Datei. Jede Variable ist dort **ohne Wert**
 aufgeführt — in Compose heisst das *hole ihn aus der Umgebung* —, und geholt
 wird er aus der ignorierten `.env` des Stapels. Fehlt eine Variable dort,
 erreicht sie den Container nicht; der Schlüssel für Census fällt dann vor dem
-Lauf auf und nicht bei Stufe 5 von 14. Ein Test prüft beide Richtungen: dass
+Lauf auf und nicht bei Stufe 5 von 19. Ein Test prüft beide Richtungen: dass
 keine Variable mit einem Namen wie `…KEY` oder `…TOKEN` einen Wert trägt, und
 dass die drei, die der Lauf braucht, überhaupt genannt sind.
 
@@ -1846,6 +1860,6 @@ deshalb nur hier. Erreichbar sind sie über `urbancrime-kibana.datenwerft.ch`:
 Die IAP-Rolle ist im Projekt gebunden, nicht auf der VM: `gcloud` setzt sie
 nicht auf einer einzelnen Tunnel-Instanz, und die Probe hat genau eine. Der
 Abbau nimmt Tunnelkonto, seine Rolle (auch die eines schon gelöschten Kontos)
-und die Kibana-Regel mit. **Noch nicht
-ausgeführt:** Aufbau, Schlüssel nach `srv01`, Einsetzen und der Aufruf über
-die URL stehen aus; ebenso die Messung des laufenden Tunnels auf `srv01`.
+und die Kibana-Regel mit. **Ausgeführt am 15.11.2026:** Aufbau, Schlüssel
+nach `srv01`, Einsetzen und der Aufruf über die URL, mit der Messung des
+laufenden Tunnels (Leerlauf 57–59 MiB, Spitze 139,7 MiB; Abschnitt 16).

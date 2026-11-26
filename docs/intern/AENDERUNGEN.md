@@ -113,6 +113,37 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 26.11.2026 · Die Speicherarchitektur steht auf dem heutigen Stand (Branch `dokumente-storage`)
+
+Fünfter Teil der Dokumentdurchsicht vom 25.11.2026: `storage-architektur.md`,
+nur Fakten.
+
+- **Takt der Konsole:** jede Minute, wie `crontab` und der Text daneben es
+  sagen, nicht fünf Minuten (Dienstetabelle und Konsolenabschnitt).
+- **Alarme:** neun Regeln im Prüfbefehl statt acht. „Eine siebte Quelle"
+  heisst „eine weitere"; die siebte, `dataset=gebiete`, ist da und bewacht.
+- **Löschregel:** entschieden am 4.10.2026 (gepinnt plus acht), nicht offen.
+- **Kibana-Tunnel:** eingesetzt und gemessen am 15.11.2026, nicht
+  „beschrieben, noch nicht eingesetzt“. Die Grenze der 302-Messung bleibt
+  benannt.
+- **Routen:** Die Route für `urbancrime-start` stand einmal als angelegt
+  (14.10.) und einmal als „fällig und noch nicht angelegt“. Jetzt steht die
+  Liste aller Routen mit Datum da. Der Satz „Offen ist allein der Datenträger
+  für Restic:“ führte ins Leere; der Datenträger ist entfallen.
+- **Einstiegsseite:** „Der Nachweis fehlt hier noch ganz“ ist ersetzt.
+  Route seit dem 14.10., Dienst `healthy` auf `srv01`.
+- **Module und Tests:** Die Modultabelle nennt alle elf Module von `storage`.
+  Neu darin: `parquet`, `release`, `quellen`, `verwaltet`, `analysesitzung`.
+  `tests/storage` sammelt 317 Tests, nicht 103.
+- **Kleinere:** Jede abgeleitete Tabelle trägt `built_at_utc` (nicht „alle
+  neun“). Die lokale `analyse.duckdb` hat 26 Sichten statt 17. Stufe 5 von 19
+  statt von 14. Die Dashboard-Spitze liegt seit dem 23.11. bei rund 475 MiB;
+  die 429 MiB vom 1.11. bleiben als Messung stehen.
+- **Konsolensicherung:** Das tägliche Archiv unter `backups/control/` lässt
+  seit dem 25.11.2026 die Job-Daten aus.
+
+Tests unverändert (3'540).
+
 ## 25.11.2026 · Die Architektur-Dokumente stehen auf dem heutigen Stand (Branch `dokumente-architektur`)
 
 Vierter Teil der Dokumentdurchsicht vom 25.11.2026: `architektur.md`,
