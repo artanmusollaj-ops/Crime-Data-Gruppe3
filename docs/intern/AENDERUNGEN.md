@@ -131,6 +131,11 @@ beide, und die Konsole kann keine Korrektur bauen. Die Reihenfolge ist deshalb:
 Dazwischen kein Datenlauf von Hand, und vor dem planmässigen am 7.12.2026
 fertig sein.
 
+**Stand am selben Tag:** Schritt 1 ist mit dem Abbild `b3fa048` erledigt.
+Schritt 2 ist mit Revision `2a09e688…` (#317) erledigt: Ihr PR entfernt die
+Zeile `3072` → `26A`, und `3072` fällt auf den Crosswalk-Wert `23C` zurück.
+Offen ist nur noch Schritt 3, das Abbild aus `main` (`cac6d48`).
+
 Tests unverändert (3'540).
 
 ## 26.11.2026 · Die Testkorrektur der Konsole steht wieder in Git (Branch `konsolenkorrektur-3072-wiederhergestellt`)
