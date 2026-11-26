@@ -113,6 +113,36 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 26.11.2026 · Die Testkorrektur der Konsole steht wieder in Git (Branch `konsolenkorrektur-3072-wiederhergestellt`)
+
+Am 25.11.2026 hatte #309 die Konsolenkorrektur aus #259 per `git revert`
+entfernt: Detroits `3072` → `26A` in `config/mapping_overrides.csv`, dazu
+`config/admin_reviews/d6e211ef41fe4dcea667194ebc124116.json`. Das war der
+falsche Weg. Die Konsole führt jede Korrektur als Revision mit Review und
+Nachweis; eine Rücknahme an ihr vorbei lässt ihren Zustand und `config/`
+auseinanderlaufen. Entscheid Christian vom 26.11.2026: Die Rücknahme geschieht
+in der Konsole.
+
+Beide Dateien sind deshalb wiederhergestellt, byteweise wie in #259
+(`mapping_overrides.csv` sha256 `c5c52e36…`). Offen als **S-11** in
+`offene-punkte.md`: In der Konsole eine neue Korrektur anlegen, die den
+Crosswalk-Wert `23C` wieder wählt. Die Betriebsaktion „Rücknahme“
+(`git-withdraw`) passt nicht: Sie gilt nur für Freigaben im Status
+`AWAITING_GIT`. Und der PR der neuen Korrektur verlangt, dass `main` die
+Zeile noch enthält (`gitops.open_pr`). Deshalb musste sie zurück nach Git.
+
+**Was das für die Daten heisst.** Der Zwischenstand vom 26.11.2026 (Release
+`2026-11-26T05-27-08Z`) und das Abbild auf `srv01` (`1e2bb8f`) sind ohne die
+Zeile gebaut, `3072` steht dort auf `23C`. Ein Abbild aus diesem Stand bekäme
+sie wieder. Vor dem nächsten Einsetzen auf `srv01` sollte S-11 erledigt sein,
+sonst baut der nächste Datenlauf `3072` wieder als `26A`.
+
+**Dokumente:** `README.md` (Mapping-Korrekturen), `ln2_konzept.md` 11.4 und
+`eine-zahl.md` Stufe 5 sagen jetzt, dass die Zeile in Git steht und in der
+Konsole zurückgenommen wird.
+
+Tests unverändert (3'540).
+
 ## 26.11.2026 · Die Mehrheitsregel ist neu gemessen (Branch `neumessung-mehrheitsregel`)
 
 Der Rest aus Schritt 6 von `abgabestand.md`: die beiden Stellen zur

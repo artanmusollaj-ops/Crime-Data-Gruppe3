@@ -159,7 +159,9 @@ Das Diagramm nennt die ersten und zählt die übrigen. Derselbe Silver-Abdruck
 steht im Release `2026-11-26T05-27-08Z` auf `srv01` — lokal und auf dem
 Server ist es derselbe Stand. Die Prüfsumme von `mapping_overrides.csv` ist
 die der Fassung ohne Korrekturzeile: Die Zeile, die die Engineering-Konsole am
-18.11.2026 als Test eingetragen hatte, ist am 25.11.2026 zurückgenommen.
+18.11.2026 als Test eingetragen hatte, war für diesen Bau entfernt. Seit dem
+26.11.2026 steht sie wieder in Git, damit die Konsole sie selbst zurücknimmt
+(S-11 in [`offene-punkte.md`](intern/offene-punkte.md)).
 
 Ein Pfad wäre hier zu wenig: Er zeigt auf das, was gerade dort liegt. Der
 Abdruck sagt, **auf welchen Eingaben** der Stand ruht. Und die Kette hängt
