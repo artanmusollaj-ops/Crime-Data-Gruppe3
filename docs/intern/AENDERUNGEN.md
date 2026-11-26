@@ -125,7 +125,11 @@ in der Konsole.
 
 Beide Dateien sind deshalb wiederhergestellt, byteweise wie in #259
 (`mapping_overrides.csv` sha256 `c5c52e36…`). Offen als **S-11** in
-`offene-punkte.md`: die Korrektur in der Konsole zurücknehmen.
+`offene-punkte.md`: In der Konsole eine neue Korrektur anlegen, die den
+Crosswalk-Wert `23C` wieder wählt. Die Betriebsaktion „Rücknahme“
+(`git-withdraw`) passt nicht: Sie gilt nur für Freigaben im Status
+`AWAITING_GIT`. Und der PR der neuen Korrektur verlangt, dass `main` die
+Zeile noch enthält (`gitops.open_pr`). Deshalb musste sie zurück nach Git.
 
 **Was das für die Daten heisst.** Der Zwischenstand vom 26.11.2026 (Release
 `2026-11-26T05-27-08Z`) und das Abbild auf `srv01` (`1e2bb8f`) sind ohne die
