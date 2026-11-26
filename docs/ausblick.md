@@ -14,7 +14,7 @@ vorn.
 | [2 · Die Ladelogik versionieren](#2--die-ladelogik-versionieren) | Artan | **erledigt am 14.9.** (#78) |
 | [3 · Skalieren](#3--skalieren) | Gedankenspiel | mittel — erst relevant ab Stadt drei |
 | [4 · In die Cloud](#4--in-die-cloud) | Gedankenspiel | niedrig — technisch fast vorbereitet, fachlich unnötig |
-| [5 · Die Analyseplattform](#5--die-analyseplattform) | Christian | **hoch** — LN2 im Dezember |
+| [5 · Die Analyseplattform](#5--die-analyseplattform) | Christian | **gebaut seit dem 1.11.2026** — das eigene Dashboard, acht Bretter |
 
 ---
 
@@ -161,14 +161,15 @@ jüngsten, also ruht keine Zahl auf ihm.
 | --- | --- | --- | --- |
 | ~~**A**~~ | ~~Gold nennt die Identität des Silver-Stands; Crosswalks mit Hash~~ — **erledigt 14.9.2026 (#77)** | klein | jede heutige Zahl vollständig **erklären** |
 | ~~**B**~~ | ~~Gepinnte Läufe, die das Aufräumen überleben~~ — **erledigt 14.9.2026 (#79)** | klein | jede gepinnte Zahl **reproduzieren** |
-| **C** | Silver und Gold versioniert ablegen (`vintage=`/`asof=`), statt zu ersetzen | mittel–gross | **mehrere** Stände nebeneinander halten und vergleichen |
+| **C** | Silver und Gold versioniert ablegen (`vintage=`/`asof=`), statt zu ersetzen — **für Gold und Serving zum Teil gebaut**: Seit dem 17.9.2026 hält jedes Release einen ganzen Stand unveränderlich unter seiner Kennung (Abschnitt 6); Silver wird weiter ersetzt | mittel–gross | **mehrere** Stände nebeneinander halten und vergleichen |
 
 **Eine fünfte Frage ist inzwischen dazugekommen und hat ein eigenes
 Dokument.** Nicht *„welchen Stand hatten die Daten"*, sondern *„was hat sich
 verändert"* — und was davon verlorengeht, sobald ein Lauf aufgeräumt wird.
 Gemessen an zwei Detroit-Schnappschüssen: 102 echte Inhaltsänderungen, davon
-14 am Deliktcode selbst. Siehe [`datenhistorie.md`](intern/datenhistorie.md), zu
-entscheiden am 18.9.2026.
+14 am Deliktcode selbst. Siehe [`datenhistorie.md`](intern/datenhistorie.md).
+Gebaut ist daraus `silver/source_change`: Es hält die Änderungen zwischen
+zwei Schnappschüssen fest und läuft seit dem 16.10.2026 im Gesamtlauf mit.
 
 Stufe A und B sind gebaut und lösen Artans Punkt. **Stufe C ist ausdrücklich
 optional** — sie ist die teure Variante und hebt die Entscheidung auf, dass
@@ -201,13 +202,14 @@ Vermerk im Lauf selbst sieht man das keinem der beiden an.
 Detroit machte bereits exakt das, was Artan vorschlägt — nur für Detroit, und
 nur für diese drei Verträge. Die Zahl sprang auf 2, als der Zeitzonen-Fix
 kam. **Das war kein Neubau, sondern ein Muster, das verallgemeinert gehörte —
-und seit dem 14.9.2026 ist es das** (#78): Alle fünf Quellen und alle neun
-abgeleiteten Tabellen tragen `contract_version`, dazu `code_version` mit
-Git-Commit und der Angabe, ob der Arbeitsbaum sauber war.
+und seit dem 14.9.2026 ist es das** (#78): Alle Quellen und alle abgeleiteten
+Tabellen (damals fünf und neun) tragen `contract_version`, dazu
+`code_version` mit Git-Commit und der Angabe, ob der Arbeitsbaum sauber war.
 
-Chicago, Census und NOAA haben nichts Vergleichbares. Und was durchgängig
-fehlt, ist der Code-Stand selbst: Die Silver-Manifeste halten `"tool": "duckdb
-1.5.5 mit spatial und icu"` fest — die **Engine**, nicht unseren Code.
+Vorher hatten Chicago, Census und NOAA nichts Vergleichbares. Und was
+durchgängig fehlte, war der Code-Stand selbst: Die Silver-Manifeste hielten
+`"tool": "duckdb 1.5.5 mit spatial und icu"` fest — die **Engine**, nicht
+unseren Code.
 
 ### Drei Fragen, die leicht verwechselt werden
 
@@ -281,7 +283,7 @@ viele Zeilen kosten also kaum mehr Zeit
 | Achse | Schwierigkeit | Warum |
 | --- | --- | --- |
 | Mehr Zeilen | leicht | DuckDB rechnet 20 Mio Zeilen auf einem Laptop |
-| Mehr Jahrgänge | mittel | `DEFAULT_VINTAGE = 2024` an fünf Stellen |
+| Mehr Jahrgänge | mittel — **erledigt am 4.10.2026** | sechs Jahrgänge 2021–2026 und vier ACS-Vintages; bis dahin `DEFAULT_VINTAGE = 2024` an fünf Stellen |
 | **Mehr Städte** | **schwer** | zwei handgeschriebene CTEs in der Silver-Abfrage |
 
 ### Was zuerst bricht — und es ist nicht die Engine
@@ -319,9 +321,9 @@ viele Zeilen kosten also kaum mehr Zeit
 | --- | --- | --- |
 | `build_crime_offense.build_query()` | zwei handgeschriebene CTEs; 30 bzw. 39 Erwähnungen der beiden Städte im Modul | **gross** |
 | ~~`STUDIENSTAEDTE`~~ | ~~**doppelt definiert**~~ — **zusammengeführt am 14.9.2026 (#82)**: Silver trägt den amtlichen Namen, Gold leitet `STADT_SCHLUESSEL` daraus ab | erledigt |
-| `DEFAULT_VINTAGE` | an fünf Stellen, plus `DEFAULT_YEAR` | mittel |
+| ~~`DEFAULT_VINTAGE`~~ | ~~an fünf Stellen, plus `DEFAULT_YEAR`~~ — **seit dem 4.10.2026** gilt je Tat das Vintage ihres Jahres (`population_vintage`) | erledigt |
 | räumlicher Join | eine Relation über alle Tracts | mittel |
-| DuckDB-Einstellungen | keine Grenzen gesetzt | klein |
+| ~~DuckDB-Einstellungen~~ | ~~keine Grenzen gesetzt~~ — **seit dem 3.10.2026** aus `DUCKDB_MEMORY_LIMIT` und `DUCKDB_THREADS` (oben, Punkt 3) | erledigt |
 
 Die zwei CTEs sind **nicht** schlecht gebaut: Chicago und Detroit
 unterscheiden sich echt — Socrata gegen ArcGIS, IUCR gegen MICR, Ortszeit
@@ -364,10 +366,15 @@ ein Abend — kein Umbau.
 
 | Stufe | Was passiert | Aufwand | Gewinn |
 | --- | --- | --- | --- |
-| **0 — heute** | Laptop + GitHub Actions wöchentlich, SeaweedFS als gemeinsamer Speicher | — | — |
+| **0 — heute** | Laptop, GitHub Actions und `srv01` wöchentlich, SeaweedFS als gemeinsamer Speicher | — | — |
 | **1 — Lift** | ein Container, `STORAGE_BACKEND=s3`, Secrets aus dem Secret Manager, Scheduler; `run_all` als **ein** Job | Dockerfile, Registry, Job, Secrets | läuft ohne eigenen Rechner |
 | **2 — Stufen trennen** | jede Stufe ein Task, Abhängigkeiten als DAG | Stufenliste exportieren statt selbst fahren | parallele Ingestion, Wiederaufnahme, Ressourcen je Stufe |
 | **3 — Engine tauschen** | DuckDB → Athena / BigQuery / Spark | gross | echte horizontale Skalierung |
+
+**Stufe 1 ist am 15.11.2026 einmal durchgespielt**, als Probe und nicht als
+Umzug: Dasselbe Abbild hat in Google Cloud aus denselben Bronze-Läufen wie
+`srv01` ein Release gebaut ([`storage-architektur.md`](storage-architektur.md),
+Abschnitt 17). Ein Scheduler und der Secret Manager waren dabei nicht im Spiel.
 
 Stufe 2 ist billiger, als sie aussieht: `run_all` hat die Stufen bereits als
 Datenstruktur (`STUFEN` mit Gruppe, Name, Modul, Argumenten) und kennt die
@@ -389,19 +396,21 @@ hat Entsprechungen, keine hat dieselben Namen.
 - Secret-Verwaltung statt `.env` (die Umgebung schlägt `.env` bereits)
 - Scheduler statt des Cron in `datenlauf.yml` — auf `srv01` ist es seit
   Anfang Oktober 2026 ebenfalls ein `cron` (montags 04:30, mit `flock`);
-  ein Scheduler mit Wiederaufnahme und Alarmierung bleibt offen
+  ein Scheduler mit Wiederaufnahme bleibt offen
 - Bucket mit Lifecycle-Regeln — `aufraeumen` räumt seit dem 4.10.2026 auch
   Releases im Bucket (`--loeschen --auch-fern`), aber weiterhin auf Zuruf; eine
   serverseitige Ablaufregel bleibt offen und müsste die gepinnten Stände kennen
 - IAM statt geteilter Schlüssel; heute darf jeder mit den Schlüsseln alles
-- **Alarmierung** — steht als Lücke in Konzept 9. Ohne jemanden, der auf
-  *Actions* schaut, ist das in der Cloud keine Lücke mehr, sondern ein Loch
+- **Alarmierung** — auf `srv01` seit Oktober 2026 gebaut: neun Regeln in
+  Prometheus, gemeldet über Telegram (`storage-architektur.md`, Abschnitt 6a).
+  In der Cloud müsste sie neu entstehen; ohne jemanden, der hinschaut, wäre
+  das dort keine Lücke mehr, sondern ein Loch
 - Kosten: bei 251 MB und einem Lauf pro Woche Rappen; Treiber wäre Compute
 
 ### Die ehrliche Einordnung
 
-Bei 350'000 Zeilen und 23 Sekunden beantwortet „Cloud" **keine Frage, die wir
-haben**. Das ist kein Argument dagegen — es ist eines dafür, den Schritt als
+Bei 350'000 Zeilen und 23 Sekunden — heute 1,9 Millionen und 24 Sekunden —
+beantwortet „Cloud" **keine Frage, die wir haben**. Das ist kein Argument dagegen — es ist eines dafür, den Schritt als
 Lernzweck zu deklarieren statt als Notwendigkeit. Eine Arbeit, die sagt *„wir
 haben gemessen, dass wir es nicht brauchen, und hier ist der Pfad, falls
 doch"*, ist stärker als ein Architekturdiagramm ohne Zahlen.
@@ -409,6 +418,12 @@ doch"*, ist stärker als ein Architekturdiagramm ohne Zahlen.
 ---
 
 ## 5 · Die Analyseplattform
+
+> **Gebaut seit dem 1.11.2026, anders als hier vorgeschlagen.** Das Dashboard
+> ist weder Streamlit noch DuckDB-WASM, sondern Flask mit DuckDB
+> (`serving.dashboard`): acht Bretter, gelesen wird das aktive Release. Die
+> Grundsätze unten gelten dort; die Fallebene steht vorn (E-2, 5.10.2026).
+> Der Abschnitt bleibt als Begründung stehen.
 
 Für den zweiten Leistungsnachweis. Die Anforderung steht seit dem 13.9.:
 Tag, Monat und Jahr wählbar, beide Städte gegeneinander **und** einzeln, das
@@ -484,20 +499,18 @@ fest. Wer danach nach `arrest`, `mapping_status`, Tageszeit oder
 schon. Die Umschaltung zwischen Tat- und Fallebene wären im Würfel zwei
 Würfel.
 
-Damit bestätigt sich, was Konzept 5.2 als Zusage führt — dort noch mit dem
-alten Wort *Granularität*, siehe die Anmerkung zur Begriffswahl unten: *„Keine
+Damit bestätigt sich, was Konzept 5.2 als Zusage führt: *„Keine
 vorberechneten Aggregate. Gold behält die Granularität — eine Zeile je Tat, mit
 Zeitpunkt und Koordinate. Aggregiert wird in der Abfrage, nicht im
 Speicher."* Dieselbe Messung hatte schon `fact_tract_month` (95'219) und
 `fact_city_day` (11'156) verworfen.
 
-> **Zur Begriffswahl.** Dieser Abschnitt sagt **Granularität**, wo das
-> übrige Projekt bislang *Granularität* sagt, und **Tat-/Fallebene** statt
-> *Tatebene/Fallebene*. „Granularität" ist der eingeführte deutsche Begriff
-> für Kimballs *grain*; „Granularität" ist eine wörtliche Übersetzung, die im
-> deutschen Data Engineering unüblich ist. Christian hat das am 14.9.
-> angemerkt. Der Begriff kommt an 128 Stellen in 27 Dateien vor — die
-> Umstellung ist ein eigener Schritt und steht in der Reihenfolge unten.
+> **Zur Begriffswahl.** Hier stand am 14.9.2026 *Korn*, wie damals im ganzen
+> Projekt. „Granularität" ist der eingeführte deutsche Begriff für Kimballs
+> *grain*; „Korn" ist eine wörtliche Übersetzung, die im deutschen Data
+> Engineering unüblich ist. Christian hat das am 14.9. angemerkt, und am
+> selben Tag wurde umgestellt, 128 Stellen in 27 Dateien (#85). Im Code
+> erinnert noch `FALLKORN_RANG` daran.
 
 ### Die eigentliche Schwierigkeit ist nicht die Menge
 
@@ -537,7 +550,7 @@ stellen gern eine Zahl ohne Fussnote hin.
 
 | | Woher gelesen wird | Bewertung |
 | --- | --- | --- |
-| **A · Streamlit** (serverseitig) | DuckDB direkt auf `fact_offense` und `dim_tract`, lokal oder `s3://` | Vorschlag für LN2: an einem Wochenende lauffähig, passt zu unseren Fähigkeiten |
+| **A · Streamlit** (serverseitig) | DuckDB direkt auf `fact_offense` und `dim_tract`, lokal oder `s3://` | war der Vorschlag für LN2; gebaut ist dieselbe Bauart mit Flask statt Streamlit |
 | **B · Statische Seite** (DuckDB-WASM) | dieselben Parquet-Dateien über HTTP-Range-Requests, nur die gebrauchten Spalten | eleganter — kein Server, erfüllt Anforderung 5 aus 7.1 wörtlich; aber neu für uns |
 
 In **beiden** Fällen: keine neue Datei, keine neue Schicht. Die
@@ -560,6 +573,7 @@ Drei Fragen für die Absprache, die den Aufbau stärker bestimmen als jedes
 Werkzeug:
 
 1. Welche Granularität ist die **Hauptaussage** — Tat oder Fall?
+   *Entschieden am 5.10.2026 (E-2): der Fall.*
 2. Absolute Zahlen oder Raten als Voreinstellung?
 3. Erzählt das Dashboard eine **Geschichte** (kuratiert) oder lässt es
    **erkunden** (Filter über alles)?
@@ -591,7 +605,8 @@ ist. Bewusst noch nicht umgestellt sind die Leser der festen Pfade —
 `storage.tabellen`, die Sichten der Arbeitsdatenbank, die Notebooks, `drift`,
 `aufraeumen`. Der feste Pfad ist die Arbeitskopie, das Release der
 freigegebene Stand; das Dashboard (LN2) liest das Release. Zwei gleichzeitige
-Gesamtläufe bleiben ein offener Punkt (Sperre, unten).
+Gesamtläufe bleiben im Code ein offener Punkt (Sperre, unten); auf `srv01`
+verhindert sie seit Oktober 2026 ein `flock` auf `logs/pipeline.lock`.
 
 ### Der Bau
 
@@ -599,12 +614,18 @@ Ein **Versionspfad plus ein Verweis**. Ein erster Entwurf versionierte jede
 Tabelle für sich; gebaut ist **ein Verzeichnis je Release**:
 
 ```text
-gold/release=2026-09-15T17-15-06/dataset=fact_offense/part-0001.parquet
-gold/release=2026-09-15T17-15-06/dataset=fact_offense/manifest.json
-gold/release=2026-09-15T17-15-06/serving/analyse.duckdb
-gold/release=2026-09-15T17-15-06/release.json
-gold/AKTUELL.json          ← nennt die freigegebene Release-Kennung
+releases/release=2026-11-20T10-08-03Z/gold/dataset=fact_offense/part-0001.parquet
+releases/release=2026-11-20T10-08-03Z/gold/dataset=fact_offense/manifest.json
+releases/release=2026-11-20T10-08-03Z/serving/dataset=comparison_day/…
+releases/release=2026-11-20T10-08-03Z/serving/analyse.duckdb
+releases/release=2026-11-20T10-08-03Z/serving/tracts.geojson
+releases/release=2026-11-20T10-08-03Z/release.json
+releases/AKTUELL.json      ← nennt die freigegebene Release-Kennung
 ```
+
+Der Entwurf vom 15.9. legte die Releases unter `gold/release=…`; gebaut ist
+ein eigener Baum `releases/` neben den Schichten, weil ein Release auch
+Serving enthält.
 
 Geschrieben wird vollständig unter einer neuen Kennung und geprüft. Erst dann
 wird `AKTUELL.json` ersetzt — ein einziges Objekt, und dessen Ersetzung ist
@@ -662,8 +683,8 @@ am Rand des Jahrgangs sind je Zeile ausgewiesen (`days_in_window`).
 Konzept 5.2 sagt es seither wörtlich: *„Keine vorberechneten Aggregate in
 Gold.“*
 
-Ein Release enthält damit: die fünf Gold-Tabellen, die vier Serving-Tabellen,
-das GeoJSON, eine **selbständige** `analyse.duckdb` mit Tabellen statt Sichten
+Ein Release enthält damit — heute, nach `orchestration.release.VOLLSTAENDIG` —
+die elf Gold-Tabellen, die sechs Serving-Tabellen, das GeoJSON, eine **selbständige** `analyse.duckdb` mit Tabellen statt Sichten
 (die Sichten der Arbeitsdatenbank tragen absolute Pfade und sind auf einem
 anderen Rechner wertlos) und `release.json` mit Prüfsummen, Vertrags- und
 Code-Versionen.
@@ -682,6 +703,11 @@ soll sich nicht ändern. Heute rettet sie nur, dass der wöchentliche Lauf sie
 jedes Mal neu lädt. Sauber wäre eine Regel je Quelle — fortlaufend gegen eine
 Frist, eingefroren gegen eine erwartete Vintage.
 
+Die Alarme auf `srv01` haben diese Regel seit Oktober 2026 zur Hälfte: acht
+Tage für Taten, Wetter und Gebiete, 35 Tage für die drei Jahrgangsquellen des
+Zensus (`storage-architektur.md`, Abschnitt 6a). Der Gesamtlauf selbst
+(`run_all --maximal-alter-tage`) misst weiter alle Quellen an einer Schwelle.
+
 ---
 
 ## 7 · Reihenfolge
@@ -697,10 +723,10 @@ Nach Nutzen je Aufwand, nicht nach Reiz:
 | **5** | Quellprofil statt zwei CTEs | der einzige echte Blocker für eine dritte Stadt |
 | **6** | Partitioniertes Silver mit Fingerabdruck je Partition | linear → konstant; unabhängig von Infrastruktur |
 | **7** | Cloud Stufe 1 | danach ein Nachmittag, kein Projekt |
-| **8** | *Granularität* → *Granularität* durchgehend (128 Stellen, 27 Dateien) | der eingeführte Begriff; betrifft auch Artans Dokumente |
-| **8** | Dashboard für LN2 (Abschnitt 5) | eigener Zeitplan — Dezember |
-| **8** | Versionspfad und Verweis für einen gemeinsamen Stand (Abschnitt 6) | gehört zum Dashboard: erst dann liest jemand, während gebaut wird |
-| **9** | Sperre über den ganzen Lauf | klein; verhindert verschränkte Gesamtläufe |
+| ~~**8**~~ | ~~*Korn* → *Granularität* durchgehend (128 Stellen, 27 Dateien)~~ — **erledigt 14.9.2026 (#85)** | der eingeführte Begriff; betrifft auch Artans Dokumente |
+| ~~**8**~~ | ~~Dashboard für LN2 (Abschnitt 5)~~ — **gebaut, seit dem 1.11.2026 auf `srv01`** | eigener Zeitplan — Dezember |
+| ~~**8**~~ | ~~Versionspfad und Verweis für einen gemeinsamen Stand (Abschnitt 6)~~ — **gebaut 17.9.2026 (#109)**, `releases/` und `AKTUELL.json` | gehört zum Dashboard: erst dann liest jemand, während gebaut wird |
+| **9** | Sperre über den ganzen Lauf — auf `srv01` per `flock` seit Oktober 2026, im Code nicht | klein; verhindert verschränkte Gesamtläufe |
 
 Die Punkte 1 bis 3 sind Artans, sie sind zusammen überschaubar, und sie
 betreffen etwas, das **heute schon** unvollständig ist — nicht erst bei

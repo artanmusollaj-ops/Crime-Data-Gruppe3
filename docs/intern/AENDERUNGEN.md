@@ -113,6 +113,49 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 26.11.2026 · Der Ausblick steht auf dem heutigen Stand, S-6 ist erledigt (Branch `dokumente-ausblick`)
+
+Sechster Teil der Dokumentdurchsicht vom 25.11.2026: `ausblick.md`, nur
+Fakten. Was dort als offen stand und gebaut oder entschieden ist, trägt
+jetzt Datum und Beleg. Der Text darüber bleibt als Begründung stehen.
+
+- **Gebaut statt offen:**
+  - das Dashboard (1.11.2026, Flask statt des vorgeschlagenen Streamlit);
+  - der Versionspfad (`releases/`, 17.9.2026, mit dem gebauten
+    Verzeichnisbild statt `gold/release=…`);
+  - sechs Jahrgänge und vier Vintages (4.10.2026);
+  - die DuckDB-Grenzen (3.10.2026);
+  - `silver/source_change` (seit 16.10.2026 im Lauf);
+  - die Alarmierung auf `srv01`.
+  
+  Die Sperre über den ganzen Lauf gibt es auf `srv01` per `flock`, im Code
+  nicht.
+- **Entschieden:** Die Fallebene ist die Hauptaussage (E-2, 5.10.2026).
+  Cloud-Stufe 1 ist einmal durchgespielt (15.11.2026).
+- **Release-Inhalt:** elf Gold- und sechs Serving-Tabellen statt fünf und
+  vier.
+- **Begriffswahl:** Die Anmerkung sagte „Granularität statt Granularität".
+  Die Ersetzung *Korn* → *Granularität* (#85) hatte sie selbst getroffen. Sie
+  ist neu geschrieben, der Punkt 8 der Reihenfolge abgehakt.
+- **Konzept, dieselbe Sorte:** „Ein zweites Granularität … Das Tatebene" in
+  5.2 ist berichtigt. „Keine Alarmierung ausser dem roten Lauf" (5.3 und 9)
+  gilt nur noch für GitHub Actions; auf `srv01` melden neun Regeln über
+  Telegram.
+
+**S-6 erledigt.** `ADMIN_GITHUB_TOKEN` steht in der `.env` auf `srv01`. Am
+26.11.2026 nachgesehen, ohne den Wert zu lesen: gesetzt, mehr als 20 Zeichen.
+`docker-compose.srv01.yml` reicht es nur an `worker` weiter. Die Konsole legt
+seit dem 18.11.2026 PRs an (#254–#259). Nachgezogen in `offene-punkte.md`
+(nach „Erledigt"), `storage-architektur.md` §16 und
+`umstellung-verwaltet.md`.
+
+**Wächter:** `test_es_gibt_offene_punkte` verlangte mindestens fünf offene
+Punkte. Nach S-6 sind es vier, und der Test fiel, obwohl nichts falsch
+gelesen war. Er prüft jetzt, was gemeint war: Jede Kennungszeile der offenen
+Abschnitte wird als Zeile mit fünf Feldern gelesen.
+
+Tests unverändert (3'540).
+
 ## 26.11.2026 · Die Speicherarchitektur steht auf dem heutigen Stand (Branch `dokumente-storage`)
 
 Fünfter Teil der Dokumentdurchsicht vom 25.11.2026: `storage-architektur.md`,
