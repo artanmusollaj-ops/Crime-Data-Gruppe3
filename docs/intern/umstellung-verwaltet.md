@@ -24,10 +24,11 @@ ist dafür nichts geprüft und nichts geändert.
    Person (Release `approved-9d265b70…-435090e1`). Einen geplanten Batch mit
    Ingestion und Freigabe durch das Qualitätstor gab es noch nicht. E-5 nennt
    die Abnahme mit einem echten Job weiter als offen.
-3. **S-6 blockiert nicht.** Ein Wochenlauf veröffentlicht ohne Git
-   (`release_flow.requires_git` gilt nur für Mapping und Einstellungen), und
-   das Qualitätstor gibt ihn ohne zweite Person frei (`auto_approval`).
-   Ohne Token legt die Konsole nur keine PRs an.
+3. **S-6 ist erledigt und hätte nicht blockiert.** Das Token steht
+   spätestens seit dem 18.11.2026 in der `.env`. Ein Wochenlauf
+   veröffentlicht ohnehin ohne Git (`release_flow.requires_git` gilt nur für
+   Mapping und Einstellungen), und das Qualitätstor gibt ihn ohne zweite
+   Person frei (`auto_approval`).
 4. **Die Sperre erreicht den Cron-Lauf nicht** (24.11.2026, aus
    `docker-compose.srv01.yml`). `enable-managed` schreibt den Marker nach
    `/app/data/admin/managed.json`, und dort hängt im Worker und im Dienst
