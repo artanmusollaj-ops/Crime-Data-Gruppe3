@@ -33,7 +33,7 @@ Eine Zeile ist: **ein Stadtteil (Chicago Community Area, Detroit Master Plan Nei
 
 ### `crime_offense`
 
-Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert, je Fall eine mit counts_case**. 1'917'351 Zeilen.
+Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert, je Fall eine mit counts_case**. 1'922'278 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -61,7 +61,7 @@ Eine Zeile ist: **eine Anklage; je Tat ist eine Zeile mit counts markiert, je Fa
 | `arrest` | `BOOLEAN` | Ob es zu einer Festnahme kam. Chicago führt das als eigenes Feld; für Detroit seit Silver-Vertrag 5 (25.11.2026) aus dem Stand des Falls, `case_status = 'CLEARED BY ARREST'`, und `NULL` ohne Stand. Beide Quellen tragen den Stand nach: Junge Fälle sehen weniger aufgeklärt aus, als sie es am Ende sind - in Detroit stärker. |
 | `unfounded` | `BOOLEAN` | Ob der Fall als unbegründet zurückgezogen wurde. Nur Detroit führt das; die Zeilen bleiben erhalten und werden gekennzeichnet statt entfernt. |
 | `offense_group_id` | `VARCHAR` | Schlüssel der **Tat**: Vorfall plus Deliktbeschreibung. Detroits mehrere Anklagen zu einer Tat teilen ihn. |
-| `counts` | `BOOLEAN` | **Die zählende Zeile je Tat.** Detroit liefert je Vorfall mehrere Anklagen; genau eine trägt `true`. Gold nimmt nur diese - sonst zählte Detroit 3,8 % zu hoch. |
+| `counts` | `BOOLEAN` | **Die zählende Zeile je Tat.** Detroit liefert je Vorfall mehrere Anklagen; genau eine trägt `true`. Gold nimmt nur diese - sonst zählte Detroit über 2021–2026 4,6 % zu hoch. |
 | `counts_reason` | `VARCHAR` | Warum diese Zeile zählt oder nicht: `eine_zeile_ist_ein_delikt` (Chicago), `anklage_ist_die_tat`, `schwerste_anklage`, `weitere_anklage_zur_selben_tat`. |
 | `counts_case` | `BOOLEAN` | **Die zählende Zeile je Fall** - die mit dem schwersten Delikt (Rangfolge `FALLKORN_RANG`, für beide Städte gleich). Chicago führt je Vorfall ein Delikt, Detroit jedes; wer auf Chicagos Zählweise vergleicht, filtert hierauf. |
 | `police_area` | `VARCHAR` | Der Polizeibezirk (Chicago District, Detroit Precinct), in dem die Koordinate liegt - aus dem eigenen räumlichen Join gegen `silver/police_area`, nicht aus der Quelle. Wie `area_id` dort: die Zahl ohne führende Null. |
@@ -109,7 +109,7 @@ Eine Zeile ist: **ein Polizeibezirk (Chicago District, Detroit Precinct)**. 34 Z
 
 ### `source_change`
 
-Eine Zeile ist: **ein geaendertes Feld einer Zeile zwischen zwei Schnappschuessen**. 170'567 Zeilen.
+Eine Zeile ist: **ein geaendertes Feld einer Zeile zwischen zwei Schnappschuessen**. 113'745 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -157,7 +157,7 @@ Eine Zeile ist: **ein Census Tract**. 25'128 Zeilen über 4 Vintages.
 
 ### `weather_day`
 
-Eine Zeile ist: **eine Stadt an einem Tag**. 55'573 Zeilen.
+Eine Zeile ist: **eine Stadt an einem Tag**. 55'587 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -199,7 +199,7 @@ Eine Zeile ist: **ein Stadt-Tract in einem Polizeibezirk**. 1'504 Zeilen.
 
 ### `dim_city_day`
 
-Eine Zeile ist: **eine Stadt an einem Tag**. 4'298 Zeilen.
+Eine Zeile ist: **eine Stadt an einem Tag**. 4'306 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -236,7 +236,7 @@ Eine Zeile ist: **ein Stadtteil**. 131 Zeilen.
 
 ### `dim_date`
 
-Eine Zeile ist: **ein Kalendertag**. 2'149 Zeilen.
+Eine Zeile ist: **ein Kalendertag**. 2'153 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -331,7 +331,7 @@ Eine Zeile ist: **der Umriss eines Census Tract**. 1'066 Zeilen.
 
 ### `fact_offense`
 
-Eine Zeile ist: **eine Tat**. 1'895'123 Zeilen.
+Eine Zeile ist: **eine Tat**. 1'900'131 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -367,7 +367,7 @@ Eine Zeile ist: **eine Tat**. 1'895'123 Zeilen.
 
 ### `comparison_day`
 
-Eine Zeile ist: **eine Stadt, ein Tag, eine NIBRS-Kategorie**. 76'756 Zeilen.
+Eine Zeile ist: **eine Stadt, ein Tag, eine NIBRS-Kategorie**. 76'946 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -380,7 +380,7 @@ Eine Zeile ist: **eine Stadt, ein Tag, eine NIBRS-Kategorie**. 76'756 Zeilen.
 
 ### `comparison_month`
 
-Eine Zeile ist: **eine Stadt, ein Monat, eine NIBRS-Kategorie**. 3'638 Zeilen.
+Eine Zeile ist: **eine Stadt, ein Monat, eine NIBRS-Kategorie**. 3'639 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -396,7 +396,7 @@ Eine Zeile ist: **eine Stadt, ein Monat, eine NIBRS-Kategorie**. 3'638 Zeilen.
 
 ### `comparison_week`
 
-Eine Zeile ist: **eine Stadt, eine Woche ab Montag, eine NIBRS-Kategorie**. 14'334 Zeilen.
+Eine Zeile ist: **eine Stadt, eine Woche ab Montag, eine NIBRS-Kategorie**. 14'371 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -445,7 +445,7 @@ Eine Zeile ist: **ein Census Tract mit Einwohnern im Bezugsjahr 2024 (gold_pipel
 
 ### `source_movement`
 
-Eine Zeile ist: **ein bewegtes Feld einer Zeile zwischen zwei Vollabzuegen; je neuer und je verschwundener Zeile eine Zeile ohne Feld; je ruhigem Paar eine Markierungszeile ohne offense_id**. 170'567 Zeilen.
+Eine Zeile ist: **ein bewegtes Feld einer Zeile zwischen zwei Vollabzuegen; je neuer und je verschwundener Zeile eine Zeile ohne Feld; je ruhigem Paar eine Markierungszeile ohne offense_id**. 113'745 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |

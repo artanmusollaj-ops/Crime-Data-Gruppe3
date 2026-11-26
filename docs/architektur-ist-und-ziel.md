@@ -32,12 +32,12 @@ Die Strecke führt zwei unvergleichbare Quellen in eine vergleichbare Tabelle
 
 | Schicht | Aufgabe | Was sie ausdrücklich **nicht** tut | Grösse |
 | --- | --- | --- | ---: |
-| **raw** | die Antwort der Quelle, Byte für Byte, mit SHA-256 | nichts deuten, nichts umformen | 554,7 MB |
-| **bronze** | Parquet mit gepinntem Schema, Originaltypen | nichts deuten; Unerwartetes nach `_extra` statt in den Papierkorb | 633,0 MB |
-| **silver** | deuten: Typen, Einheiten, Zeitzonen, NIBRS, Raum | nichts wegwerfen — Lücken werden gekennzeichnet, nicht gefiltert | 218,4 MB |
-| **gold** | Sternschema, eine Zeile je **Tat** | nicht aggregieren | 88,0 MB |
+| **raw** | die Antwort der Quelle, Byte für Byte, mit SHA-256 | nichts deuten, nichts umformen | 605,8 MB |
+| **bronze** | Parquet mit gepinntem Schema, Originaltypen | nichts deuten; Unerwartetes nach `_extra` statt in den Papierkorb | 650,3 MB |
+| **silver** | deuten: Typen, Einheiten, Zeitzonen, NIBRS, Raum | nichts wegwerfen — Lücken werden gekennzeichnet, nicht gefiltert | 224,2 MB |
+| **gold** | Sternschema, eine Zeile je **Tat** | nicht aggregieren | 91,0 MB |
 | **serving** | abfragbar machen: Sichten, fünf Vergleichstabellen, Karte | nicht der Bestand sein | 3,1 MB |
-| **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 1'852,8 MB |
+| **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 2'051,0 MB |
 
 Die Grössen sind **gemessen, nicht geschätzt** — `python -m
 orchestration.platzbedarf` liest sie über `storage` aus den Schichten, und
@@ -49,7 +49,7 @@ allein nachzuziehen genügt nicht.
 
 **Der Stand in Zahlen** — der Referenzstand, auf den sich alle
 Abgabedokumente beziehen — derzeit ein
-Zwischenstand vom 20.11.2026 (Release `2026-11-20T10-08-03Z`), nicht der Abgabestand:
+Zwischenstand vom 26.11.2026 (Release `2026-11-26T05-27-08Z`), nicht der Abgabestand:
 
 Die beiden Zeilenzahlen sind der **Bestand** über alle sechs Jahrgänge, die
 Raten darunter gelten für den **Jahrgang 2024**, vorn auf der Fallebene (je
@@ -61,20 +61,20 @@ die Rate?": Ein Zähler über sechs Jahre auf einem Nenner von einem ergibt
 | | |
 | --- | ---: |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
-| `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
-| Chicago | 251'483 Fälle · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 79'615 Fälle · 638'635 Einwohner · **124,7** je 1'000 |
-| Tatebene (`fact_offense`) | Chicago 251'513 · Detroit 85'660 Taten; je 1'000: Chicago **94,5** · Detroit **134,1** |
+| `silver/crime_offense` | 1'922'278 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | **1'900'131** Zeilen (eine Tat) |
+| Chicago | 256'317 Fälle · 2'713'800 Einwohner · **94,4** je 1'000 |
+| Detroit | 79'619 Fälle · 638'635 Einwohner · **124,7** je 1'000 |
+| Tatebene (`fact_offense`) | Chicago 256'347 · Detroit 85'701 Taten; je 1'000: Chicago **94,5** · Detroit **134,2** |
 
 **Warum raw und bronze getrennt sind.** Raw ist das Beweisstück: Ein Delta-Lauf
 hält Datensätze so fest, wie sie in diesem Moment waren, und das lässt sich
 später nicht rekonstruieren. Bronze ist daraus abgeleitet und jederzeit neu
-erzeugbar. Diese Trennung kostet 554,7 MB und ist der Grund, warum sich jede Zahl
+erzeugbar. Diese Trennung kostet 605,8 MB und ist der Grund, warum sich jede Zahl
 bis zur gzip-Datei zurückverfolgen lässt.
 
 **Warum Gold nicht aggregiert.** Notebook 34 hat beide Bauweisen gebaut und
-gemessen: Bei 1'895'123 Zeilen liegt jede realistische Frage direkt auf dem Stern
+gemessen: Bei 1'900'131 Zeilen liegt jede realistische Frage direkt auf dem Stern
 im einstelligen Millisekundenbereich. Ein vorberechneter Würfel spart nichts,
 was ein Mensch bemerkt, und kostet drei Fragen, die er nicht mehr beantwortet.
 Die Entscheidung ist ein **Messergebnis**, keine Stilfrage.
@@ -223,7 +223,7 @@ der erste Lauf mit der höheren Zahl — und kein Eintrag, den jemand pflegen
 muss. Ein Register in [`AENDERUNGEN.md`](intern/AENDERUNGEN.md) sagt, was jede Zahl
 bedeutet; ein Test hält Code und Register zusammen.
 
-[`eine-zahl.md`](eine-zahl.md) rollt eine einzelne Zahl — Chicagos 94,5 je
+[`eine-zahl.md`](eine-zahl.md) rollt eine einzelne Zahl — Chicagos 94,4 je
 1'000 — über sieben Schichten rückwärts auf, bis zur gzip-Datei.
 
 ## A.6 Qualität: 42 Kontrollen, davon 28 mit Abbruch
@@ -498,7 +498,7 @@ Dinge, die DuckDB nicht leistet:
 
 1. **Kibana ist eine fertige Oberfläche.** Zeitreihen, Karten, Facetten,
    Filter — ohne dass wir ein Dashboard bauen. Für die Tract-Umrisse
-   (`tracts.geojson`, 1'055 Flächen) und die Koordinaten je Tat ist die
+   (`tracts.geojson`, 1'066 Flächen) und die Koordinaten je Tat ist die
    Kartendarstellung sofort da.
 2. **Volltext über die Beschreibungen.** Das ist keine hypothetische
    Anforderung: Gemessen tragen **23,3 % der Chicagoer Zeilen** eine
@@ -649,7 +649,7 @@ Die Ingestion ist der Teil, der bei mehr Städten zuerst bricht, und es ist
 
 | Achse | heute | was passiert bei zehn Städten |
 | --- | --- | --- |
-| Zeilen | 1'917'351 | rund 9,4 Mio — DuckDB rechnet das weiterhin interaktiv |
+| Zeilen | 1'922'278 | rund 9,4 Mio — DuckDB rechnet das weiterhin interaktiv |
 | Laufzeit Ingestion | Detroit 7 s im Delta, 100 s beim ersten vollen Lauf | linear, aber **seriell**: zehn Städte nacheinander |
 | Code je Quelle | zwei Pipelines mit je eigener Logik | zehn Pipelines, zehnmal derselbe Fehler |
 
@@ -691,7 +691,7 @@ entschieden:
 2. ~~**Wann der Referenzstand nachgezogen wird.**~~ — entschieden am
    12.11.2026: nachgezogen, sobald die Drift die Toleranz überschreitet (E-1).
    Gepinnt ist der Stand vom 10.11.2026; die Dokumente zeigen derzeit einen
-   Zwischenstand vom 20.11.2026 (A.1); die Drift davor ist in
+   Zwischenstand vom 26.11.2026 (A.1); die Drift davor ist in
    [`datenhistorie.md`](intern/datenhistorie.md) 8 festgehalten.
 
 Ein dritter Punkt stand bis zum 9.10.2026 hier: **wie die Prüfenden Zugang
@@ -705,8 +705,8 @@ abgelaufen.
 ---
 
 **Zu den Zahlen.** Teil A nennt den **Referenzstand** — derzeit den
-Zwischenstand vom 20.11.2026 über die Jahrgänge 2021–2026 (Release
-`2026-11-20T10-08-03Z`; gepinnt ist der Volllauf vom 10.11.2026), auf
+Zwischenstand vom 26.11.2026 über die Jahrgänge 2021–2026 (Release
+`2026-11-26T05-27-08Z`; gepinnt ist der Volllauf vom 10.11.2026), auf
 den sich alle Abgabedokumente beziehen und den 111 Wächter mit dem Marker
 `referenzstand` gegen die Parquet-Dateien halten. Wie weit ein frischer Lauf
 davon abweicht, weist `orchestration.drift` je Grösse aus; die Zahlen der

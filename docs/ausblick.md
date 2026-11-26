@@ -518,7 +518,7 @@ Sie ist die **Bedeutung**. Jede angezeigte Zahl trägt eine Entscheidung, die
 dieses Projekt bewusst sichtbar gemacht hat:
 
 - **Welche Granularität?** Detroit steht im Jahrgang 2024 auf Fallebene bei
-  124,7 je 1'000, auf Tatebene bei 134,1. Beide richtig, verschiedene
+  124,7 je 1'000, auf Tatebene bei 134,2. Beide richtig, verschiedene
   Aussagen — vorn steht die Fallebene, und beide nur mit ihrem Jahr.
 - **Was zählt mit?** `geo_status` sagt, warum eine Zeile in einer
   Tract-Auswertung fehlt — 33'665 Fälle liegen ausserhalb, 1,15 % haben
@@ -537,7 +537,7 @@ Grundsätze:
 1. **Die Granularität ist ein Schalter, keine Annahme.** Tat- oder Fallebene
    gehört sichtbar in die Kopfzeile, nicht in eine Fussnote.
 2. **Jede Kennzahl nennt ihren Nenner und ihre Ausschlüsse.** *„94,5 je
-   1'000 — von 251'513 Delikten in Tracts der Stadt; 2'172 ohne Koordinate
+   1'000 — von 256'347 Delikten in Tracts der Stadt; 2'172 ohne Koordinate
    nicht enthalten."*
 3. **Was fehlt, wird gezeigt, nicht weggelassen.** Ein Tract ohne Einwohner
    bekommt keine Rate, sondern eine eigene Farbe. Sonst liest jemand die
@@ -557,7 +557,7 @@ In **beiden** Fällen: keine neue Datei, keine neue Schicht. Die
 Serving-Schicht bekommt allenfalls eine *Sicht* in `analyse.duckdb` — einen
 Namen, keine Daten.
 
-Die Karte ist gelöst: 1'055 Tract-Umrisse liegen als GeoJSON mit 0,55 MB
+Die Karte ist gelöst: 1'066 Tract-Umrisse liegen als GeoJSON mit 0,55 MB
 bereit, auf rund 2 m vereinfacht. Die Geometrie geht **einmal** an den
 Browser, bei jedem Filterwechsel nur noch ein Wert je `geoid`. Die Geometrie
 ist das Schwere — und sie ändert sich nie.

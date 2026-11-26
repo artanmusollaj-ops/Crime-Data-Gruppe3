@@ -96,7 +96,11 @@ def test_das_dokument_existiert():
 
 def test_die_ueberschrift_nennt_die_zahl(text, con):
     """94,5 steht im Titel - sie ist der Aufhaenger des ganzen Dokuments."""
-    assert text.startswith("# 94,5"), "der Titel nennt die Zahl nicht mehr"
+    # Die Zahl kommt aus dem Titel, nicht als Literal: Bis zum 26.11.2026 stand
+    # hier "# 94,5" zweimal verdrahtet, und mit Gold-Vertrag 10 wurde daraus 94,4.
+    titel = re.match(r"# (\d+,\d) —", text)
+    assert titel, "der Titel nennt die Zahl nicht mehr"
+    im_titel = float(titel.group(1).replace(",", "."))
     echt = con.execute(f"""
         WITH e AS ({NENNER})
         SELECT round(count(*) * 1000.0 / any_value(e.n), 1)
@@ -105,7 +109,7 @@ def test_die_ueberschrift_nennt_die_zahl(text, con):
         JOIN e ON e.city = t.city
         WHERE t.city = 'chicago' AND f.counts_case
     """).fetchone()[0]
-    assert echt == pytest.approx(94.5, abs=0.05), (
+    assert echt == pytest.approx(im_titel, abs=0.05), (
         f"Chicago liegt jetzt bei {echt} - Titel und Stufe 0 mitziehen"
     )
 

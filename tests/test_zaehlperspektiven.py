@@ -244,7 +244,10 @@ def test_die_raender_des_zeitfensters_stimmen(text, con):
     # Abschnitts, steht deshalb an der letzten **vollen** Woche: alle sieben
     # Tage da, und doch weit unter der Mitte.
     if letzte_tage < 7:
-        assert f"nur **{letzte_tage} Tage**: {letzte:,} Taten".replace(",", "'") in text, (
+        # "1 Tag", nicht "1 Tage": Am Stand vom 26.11.2026 endet das Fenster
+        # an einem Montag, und der Satz muss Deutsch bleiben.
+        einheit = "Tag" if letzte_tage == 1 else "Tage"
+        assert f"nur **{letzte_tage} {einheit}**: {letzte:,} Taten".replace(",", "'") in text, (
             f"die letzte Woche hat {letzte_tage} Tage - das Dokument muss sie nennen"
         )
         volle, volle_tage = con.execute("""
@@ -425,10 +428,13 @@ def test_die_bronze_only_felder_fehlen_wirklich(text, con):
     Lauf gar nicht, weil beide Schnappschuesse alle Zeilen enthalten.
     """
     vorhanden = {r[0] for r in con.execute("DESCRIBE SELECT * FROM s").fetchall()}
-    assert len(vorhanden) == 28, f"Silver hat {len(vorhanden)} Spalten, nicht 28"
-    assert re.search(r"Silver führt 28\s+Spalten", text), (
-        "die genannte Spaltenzahl stimmt nicht"
-    )
+    # Die Zahl aus dem Dokument, nicht als Literal: Bis zum 26.11.2026 stand
+    # hier 28, und die Spalten police_area, police_area_source, case_status und
+    # community_area kamen dazu, ohne dass dieser Waechter im Standardlauf fiel.
+    treffer = re.search(r"Silver führt (\d+)\s+Spalten", text)
+    assert treffer, "das Dokument nennt die Spaltenzahl nicht mehr"
+    assert len(vorhanden) == int(treffer.group(1)), (
+        f"Silver hat {len(vorhanden)} Spalten, das Dokument nennt {treffer.group(1)}")
 
     for spalte in ("charge_description", "arrest_charge", "offense_category",
                    "primary_type", "fbi_code", "updated_on", "updated_at"):

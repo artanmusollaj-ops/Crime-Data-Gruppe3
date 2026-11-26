@@ -248,7 +248,9 @@ def test_das_konzept_verspricht_weiterhin_keine_aggregate(text):
 
 def test_die_beiden_bauarten_nennen_vorhandene_artefakte(text):
     """Die Karte ist geloest - solange das GeoJSON-Werkzeug existiert."""
-    if "1'055 Tract-Umrisse" not in text:
+    # Ein Muster, keine feste Zahl: Bis zum 26.11.2026 stand hier "1'055", und
+    # als Vertrag 10 daraus 1'066 machte, uebersprang sich der Test still.
+    if not re.search(r"\d[\d']* Tract-Umrisse", text):
         pytest.skip("Das Dokument nennt sie nicht")
     assert (PROJECT_ROOT / "src" / "crime" / "serving" / "export_geojson.py").exists()
     assert (PROJECT_ROOT / "src" / "crime" / "serving" / "build_analysis_db.py").exists()

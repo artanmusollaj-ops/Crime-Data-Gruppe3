@@ -58,8 +58,8 @@ als solches gekennzeichnet (`dim_date.year_is_complete`).
 
 | | |
 | --- | --- |
-| Chicago, Jahrgänge 2021–2026 | 1'414'116 Delikte |
-| Detroit, Jahrgänge 2021–2026 | 503'235 Anklagen zu 481'007 Taten |
+| Chicago, Jahrgänge 2021–2026 | 1'417'838 Delikte |
+| Detroit, Jahrgänge 2021–2026 | 504'440 Anklagen zu 482'293 Taten |
 | Census Tracts, Illinois und Michigan | 6'282 je ACS-Vintage, vier Vintages — mit Geometrie und Sozialdaten |
 | Wetter, zwei Stationen | 55'587 Stadt-Tage, zurück bis 1942 |
 
@@ -339,7 +339,7 @@ und `herkunft` sagen, was man vor sich hat, ohne dass man das Repository
 kennen muss. Für neue Datensichten war nie etwas zu tun: `discover()` sucht in beiden Schichten und
 nimmt auf, was da ist.
 
-Daneben liegt `tracts.geojson`: die **1'055 Tract-Umrisse** der beiden Städte
+Daneben liegt `tracts.geojson`: die **1'066 Tract-Umrisse** der beiden Städte
 für eine Karte, weil `dim_tract` nur Zentroide führt und die Polygone in
 `silver/tract` als WKB liegen — ein Format, das kein Browser liest.
 
@@ -395,12 +395,12 @@ läuft es nur noch für Vorführungen in Google Cloud
 
 | Tabelle | Granularität | Zeilen |
 | --- | --- | ---: |
-| `fact_offense` | **eine Tat** | 1'895'123 |
+| `fact_offense` | **eine Tat** | 1'900'131 |
 | `dim_tract` | ein Census Tract, mit **Stadtzuordnung** | 6'282 |
-| `dim_tract_geo` | der **Umriss** eines Census Tract der beiden Studienstädte, als WKT | 1'055 |
+| `dim_tract_geo` | der **Umriss** eines Census Tract der beiden Studienstädte, als WKT | 1'066 |
 | `dim_tract_acs` | ein Census Tract in **einem ACS-Vintage**, mit Einwohnerzahl, Medianeinkommen und Armutsquote | 25'128 |
 | `dim_offense` | ein NIBRS-Delikt | 85 |
-| `dim_date` | ein Kalendertag | 2'149 |
+| `dim_date` | ein Kalendertag | 2'153 |
 | `dim_city_day` | Stadt und Tag, mit dem Wetter | 4'286 |
 | `dim_police_area` | ein **Polizeibezirk** (Chicago District, Detroit Precinct), mit Umriss und `within_city` | 34 |
 | `bridge_tract_police_area` | ein Stadt-Tract in einem Polizeibezirk, mit Flächenanteil — der Weg zum Nenner je Bezirk | 1'504 |
@@ -521,9 +521,9 @@ und 16 Sachbeschädigung: Es gilt die schwerste Anklage.
 
 | | Detroit, 2021–2026 |
 | --- | ---: |
-| Zeilen in Silver (eine Anklage) | 503'235 |
-| davon zählend (**eine Tat**) | **481'007** |
-| Unterschied | −22'228 = **−4,4 %** |
+| Zeilen in Silver (eine Anklage) | 504'440 |
+| davon zählend (**eine Tat**) | **482'293** |
+| Unterschied | −22'147 = **−4,4 %** |
 
 Gold nimmt nur die zählenden. Wer die Anklagen braucht — *„wie oft wurde
 zusätzlich Sachbeschädigung angezeigt"* — findet sie vollständig in
@@ -539,11 +539,11 @@ auf NIBRS übersetzt), bei gleichem Delikt die früheste Zeile.
 
 | | Chicago | Detroit |
 | --- | ---: | ---: |
-| Taten (`counts`), 2021–2026 | 1'414'116 | 481'007 |
-| Fälle (`counts_case`), 2021–2026 | 1'413'936 | 453'664 |
-| Taten je Fall | 1,000 | **1,060** |
-| Rate je 1'000, **Fallebene**, **2024** | **94,5** | **124,7** |
-| Rate je 1'000, Tatebene, 2024 | 94,5 | 134,1 |
+| Taten (`counts`), 2021–2026 | 1'417'838 | 482'293 |
+| Fälle (`counts_case`), 2021–2026 | 1'417'658 | 454'715 |
+| Taten je Fall | 1,000 | **1,061** |
+| Rate je 1'000, **Fallebene**, **2024** | **94,4** | **124,7** |
+| Rate je 1'000, Tatebene, 2024 | 94,5 | 134,2 |
 
 Beide Masse liegen in Gold; die Tatzahlen ändern sich nicht. **Die Aussage
 trägt die Fallebene** (E-2, beschlossen am 5.10.2026, in den Dokumenten seit
@@ -591,8 +591,15 @@ denkbar:
 | --- | ---: | ---: |
 | alle berührten Tracts | 3'080'550 | 884'691 |
 | Flächengewichtung | 2'651'921 | 638'570 |
-| **Mehrheitsregel** | **2'661'953** | **638'635** |
+| **Mehrheitsregel** | **2'713'800** | **638'635** |
 | Zensus 2020 | 2'746'388 | 639'111 |
+
+> **Stand 26.11.2026: nur die Mehrheitszeile ist neu.** Seit Gold-Vertrag 10
+> zählen elf Chicagoer Seeufer-Tracts zur Stadt, deren Fläche zum grossen Teil
+> Wasser ist; Chicago hat damit 793 statt 782 Tracts und 2'713'800 statt
+> 2'661'953 Einwohner. Die beiden Zeilen darüber und der Absatz darunter
+> stammen aus der Messung davor (Notebook 34) und werden zum Abgabestand neu
+> gemessen ([`abgabestand.md`](intern/abgabestand.md), Schritt 6).
 
 Gewählt ist die **Mehrheitsregel**: Ein Tract gehört zu der Stadt, die mehr als
 die Hälfte seiner Fläche bedeckt. Sie gibt jedem Tract genau eine Stadt — die
@@ -603,8 +610,8 @@ einer ACS-Schätzung und einer Zählung, nicht ein Fehler der Regel.
 `dim_tract.city_area_share` hält den Anteil in jeder Zeile fest, damit sich
 beides nachrechnen lässt.
 
-**Der Preis ist gemessen:** 1,8 % der Delikte liegen in Tracts, die keiner der
-beiden Städte zugeordnet sind — Fälle knapp jenseits der Stadtgrenze. Zähler
+**Der Preis ist gemessen:** 0,4 % der Delikte liegen in Tracts, die keiner der
+beiden Städte zugeordnet sind (bis zu Gold-Vertrag 10 waren es 1,8 %) — Fälle knapp jenseits der Stadtgrenze. Zähler
 und Nenner folgen derselben Grenze, der Rand verzerrt also beide Seiten
 gleichsinnig.
 
@@ -614,11 +621,11 @@ Nenner:
 
 | | Fälle | Einwohner | je 1'000 |
 | --- | ---: | ---: | ---: |
-| Chicago | 251'483 | 2'661'953 | **94,5** |
-| Detroit | 79'615 | 638'635 | **124,7** |
+| Chicago | 256'317 | 2'713'800 | **94,4** |
+| Detroit | 79'619 | 638'635 | **124,7** |
 
 Auf der Tatebene, die jedes Delikt eines Vorfalls zählt, stehen dieselben
-Städte bei 94,5 und 134,1. Absolute Fallzahlen hätten das Gegenteil
+Städte bei 94,5 und 134,2. Absolute Fallzahlen hätten das Gegenteil
 nahegelegt.
 
 **Ein Ort heisst nicht eindeutig.** Illinois führt neben *Chicago city* auch ein
@@ -1004,7 +1011,7 @@ Vintage, und gebaut sind vier (2021–2024):
 | `tract` | ein Census Tract **in einem ACS-Vintage** | **gebaut**, 6'282 Zeilen |
 | `place` | ein Ort (Stadtgrenze) **in einem TIGER-Vintage** | **gebaut**, 2'206 Zeilen |
 | `weather_day` | eine Stadt an einem Tag | **gebaut**, 55'587 Zeilen |
-| `crime_offense` | eine **Anklage**; je Tat zählt eine (`counts`), je Fall eine (`counts_case`, 5.2) | **gebaut**, 1'917'351 Zeilen |
+| `crime_offense` | eine **Anklage**; je Tat zählt eine (`counts`), je Fall eine (`counts_case`, 5.2) | **gebaut**, 1'922'278 Zeilen |
 | `police_area` | ein Polizeibezirk (Chicago District, Detroit Precinct), mit Umriss | **gebaut**, 34 Zeilen |
 | `community_area` | ein Stadtteil (Chicago Community Area, Detroit Neighborhood), mit Umriss | **gebaut**, 131 Zeilen |
 | `source_change` | eine Änderung eines Falls zwischen zwei Schnappschüssen der Quelle, angehängt statt ersetzt | **gebaut**, wächst je Paar von Läufen |
@@ -1020,8 +1027,8 @@ Rekorden plausibilisiert. Ein leeres Feld wird `NULL` und **nicht** `0` — bei
 Niederschlag der entscheidende Unterschied. Das Messflag `T` für Spurenmengen
 bekommt eine eigene Spalte, weil `0` mit `T` nicht „trocken" heisst.
 
-`crime_offense` ist die Tabelle, die den Vergleich trägt — 1'917'351 Zeilen,
-1'414'116 aus Chicago und 503'235 aus Detroit. Detroits Zeilen sind Anklagen; je
+`crime_offense` ist die Tabelle, die den Vergleich trägt — 1'922'278 Zeilen,
+1'417'838 aus Chicago und 504'440 aus Detroit. Detroits Zeilen sind Anklagen; je
 Tat ist eine als zählend markiert, und Gold nimmt nur diese (5.2). Sie leistet drei Übersetzungen auf
 einmal, und jede davon ist ein eigener Fehlerherd:
 
@@ -1068,8 +1075,8 @@ Läufe gelesen werden; sie ist eine Eigenschaft der Architektur und keine
 Ungenauigkeit. Welche Läufe den Referenzstand bilden, ist deshalb ausdrücklich
 festzulegen.
 
-Nebenbei: `case_number` ist **kein** Schlüssel. 1'414'116 Delikte verteilen sich
-auf 1'413'936 Fallnummern — ein Fall kann mehrere Straftaten umfassen. Verknüpft
+Nebenbei: `case_number` ist **kein** Schlüssel. 1'417'838 Delikte verteilen sich
+auf 1'417'658 Fallnummern — ein Fall kann mehrere Straftaten umfassen. Verknüpft
 wird über `id`.
 
 ### 8.4 Ein falsifizierter Befund: der räumliche Join
@@ -1136,25 +1143,27 @@ NIBRS abbilden. Seit `silver/crime_offense` beide Crosswalks auf die Falldaten
 anwendet, ist das gemessen — und die Antwort hängt daran, was „vollständig"
 heissen soll.
 
-Gemessen auf Tatebene über die 1'895'123 Delikte der Jahrgänge 2021–2026:
+Gemessen auf Tatebene über die 1'900'131 Delikte der Jahrgänge 2021–2026:
 
 | | Chicago | Detroit | zusammen |
 | --- | ---: | ---: | ---: |
-| Delikte (Tatebene) | 1'414'116 | 481'007 | 1'895'123 |
+| Delikte (Tatebene) | 1'417'838 | 482'293 | 1'900'131 |
 | Quellcode im Crosswalk bekannt | **100 %** | **100 %** | **100 %** |
-| davon Auffang `90Z` | 42'412 | 16'787 | 59'199 |
+| davon Auffang `90Z` | 42'550 | 16'853 | 59'403 |
 | **mit einem echten NIBRS-Delikt** | **97,0 %** | **96,5 %** | **96,9 %** |
 
 > **Nachgemessen am 20.09.2026 (Christian).** Die Zahlen sind auf den aktuellen
 > Stand gehoben; zuvor standen hier 344'617 Delikte und 10'442 im Auffang —
 > und am 12.11.2026 noch einmal, auf den Referenzstand vom 10.11.2026, am
-> 20.11.2026 auf einen Zwischenstand (Release `2026-11-20T10-08-03Z`). Der
+> 20.11.2026 auf einen Zwischenstand (Release `2026-11-20T10-08-03Z`), am
+> 26.11.2026 auf den nächsten (Release `2026-11-26T05-27-08Z`, Gold-Vertrag 12). Der
 > Zuwachs kommt aus Detroits Delta-Läufen und den nachgezogenen Chicago-Deltas,
-> nicht aus einer geänderten Zuordnung. **Die Prozentsätze und damit die
+> nicht aus einer geänderten Zuordnung; am 26.11. kamen elf Chicagoer
+> Seeufer-Tracts dazu (Gold-Vertrag 10). **Die Prozentsätze und damit die
 > Aussage sind unverändert.**
 
 **Abdeckung ja, Abbildung nein.** Kein Chicago-Code fällt stillschweigend
-heraus, das war die eigentliche Sorge. Aber 42'412 Taten tragen ein Delikt, das
+heraus, das war die eigentliche Sorge. Aber 42'550 Taten tragen ein Delikt, das
 NIBRS nicht kennt: Verstösse gegen Registrierungspflichten, Bewährungsauflagen,
 Illinois-Eigenheiten wie *Criminal Fortification*. Sie landen auf `90Z All Other
 Offenses` — ein Code, der gültig ist, für einen Deliktvergleich aber nichts
@@ -1420,9 +1429,9 @@ je Zeile, was fehlt, statt die Zeile wegzulassen.
   wirkt damit ungleich auf die beiden Städte.
 - **Die Städte zählen verschieden.** Chicago führt je Vorfall ein Delikt
   (Mordopfer ausgenommen: ein Datensatz je Opfer), Detroit jedes Delikt eines
-  Vorfalls — 6,0 % mehr Taten als Fälle. Im Jahrgang 2024 liegt Detroit auf
+  Vorfalls — 6,1 % mehr Taten als Fälle. Im Jahrgang 2024 liegt Detroit auf
   Fallebene (`counts_case`, beide Städte dieselbe Regel) bei 124,7 je 1'000,
-  auf Tatebene bei 134,1; Chicago in beiden bei 94,5. Die Reihenfolge
+  auf Tatebene bei 134,2; Chicago bei 94,4 und 94,5. Die Reihenfolge
   bleibt, der Abstand schrumpft. Die Aussage trägt die Fallebene (5.2); die
   Regel dahinter verwirft aber in Detroit 5,7 % der Taten, in Chicago
   0,013 % — sie gleicht an, und sie wirkt dabei ungleich.
@@ -1453,7 +1462,9 @@ je Zeile, was fehlt, statt die Zeile wegzulassen.
   Tract, der mehrheitlich zur Nachbargemeinde gehört. Weil diese Randtracts
   überdurchschnittlich deliktdicht sind — 227 je 1'000 gegen 94,5 im
   Stadtschnitt —, ist Chicagos Rate um gut einen Punkt untertrieben: 94,5
-  statt 95,6. Detroit ist praktisch nicht betroffen (12 Fälle). Gemessen in
+  statt 95,6. Detroit ist praktisch nicht betroffen (12 Fälle). Diese Messung
+  stammt aus der Zeit vor Gold-Vertrag 10; der grösste Teil der Grenzfälle lag
+  in den Seeufer-Tracts, die seither zur Stadt zählen. Gemessen in
   Notebook 34, Abschnitt 3.2.
 - **Die Alarmierung gilt nur für `srv01`.** Dort melden seit Oktober 2026
   neun Regeln in Prometheus über Telegram, wenn eine Quelle veraltet, ein

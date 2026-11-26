@@ -101,11 +101,11 @@ ist.
 
 | Tabelle | eine Zeile ist | Zeilen |
 | --- | --- | ---: |
-| `comparison_day` | Stadt × Tag × NIBRS-Kategorie | 76'756 |
-| `comparison_week` | Stadt × Woche × Kategorie | 14'334 |
-| `comparison_month` | Stadt × Monat × Kategorie | 3'638 |
+| `comparison_day` | Stadt × Tag × NIBRS-Kategorie | 76'946 |
+| `comparison_week` | Stadt × Woche × Kategorie | 14'371 |
+| `comparison_month` | Stadt × Monat × Kategorie | 3'639 |
 | `partition_quality` | Stadt × Monat, Güte der Zuordnungen darunter | 142 |
-| `rate_tract` | ein Census Tract mit Einwohnern im Ratenjahrgang 2024 | 1'045 |
+| `rate_tract` | ein Census Tract mit Einwohnern im Ratenjahrgang 2024 | 1'056 |
 
 Die sechste Serving-Tabelle, `source_movement`, kommt nicht aus Gold, sondern
 aus `silver/source_change` (`serving.build_source_movement`).
@@ -173,7 +173,7 @@ Das Notebook erzeugt seine Beispiele selbst und braucht keine gebauten Daten.
 ### Der Lesepfad für die Zahlen
 
 Der Pfad oben geht durch den Code. Wen stattdessen interessiert, **woher eine
-Zahl kommt**, liest [`eine-zahl.md`](eine-zahl.md): Dort wird die Rate 94,5
+Zahl kommt**, liest [`eine-zahl.md`](eine-zahl.md): Dort wird die Rate 94,4
 über sieben Stufen rückwärts aufgerollt, von der Folie bis zur gzip-Datei der
 Stadt Chicago — und dabei kommt jede wesentliche Entscheidung des Projekts
 genau einmal vor. Das ist der kürzere Weg zur Frage, die eine Abgabe verdient:
