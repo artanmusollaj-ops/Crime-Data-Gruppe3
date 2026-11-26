@@ -113,6 +113,22 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 26.11.2026 · S-11 ist erledigt (Branch `s11-erledigt`)
+
+Die Konsole hat ihre Testkorrektur `3072` → `26A` selbst zurückgenommen:
+Revision `2a09e688…`, gemergt als #317. Danach ist das Abbild `4f2959f` auf
+`srv01` eingesetzt (Strecke `sha256:2a7bb619fad6…`, Jupyter
+`sha256:dc62bc3cdefb…`). `/app/config/mapping_overrides.csv` hat dort nur die
+Kopfzeile und ist byteweise gleich `main` (sha256 `f64d574c…`). `admin`,
+`dashboard` und `jupyter` melden `healthy`. Von Hand lief kein Datenlauf; der
+planmässige am 7.12.2026 baut Detroits `3072` als `23C`.
+
+S-11 steht jetzt unter „Erledigt“ in `offene-punkte.md`. Nachgezogen sind die
+drei Stellen, die die Zeile noch als vorhanden beschrieben: `README.md`
+(Mapping), `eine-zahl.md` (Stufe 5) und `ln2_konzept.md` 11.4 (Faktenkorrektur).
+
+Tests unverändert (3'540).
+
 ## 26.11.2026 · S-11 nennt die richtige Reihenfolge (Branch `s11-reihenfolge`)
 
 #315 schrieb, S-11 sei vor dem nächsten Einsetzen eines Abbilds zu erledigen.

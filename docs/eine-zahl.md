@@ -160,8 +160,10 @@ steht im Release `2026-11-26T05-27-08Z` auf `srv01` — lokal und auf dem
 Server ist es derselbe Stand. Die Prüfsumme von `mapping_overrides.csv` ist
 die der Fassung ohne Korrekturzeile: Die Zeile, die die Engineering-Konsole am
 18.11.2026 als Test eingetragen hatte, war für diesen Bau entfernt. Seit dem
-26.11.2026 steht sie wieder in Git, damit die Konsole sie selbst zurücknimmt
-(S-11 in [`offene-punkte.md`](intern/offene-punkte.md)).
+26.11.2026 steht sie wieder in Git, und die Konsole hat sie am selben Tag
+selbst zurückgenommen (#317). Die Datei auf `main` ist seither dieselbe wie
+die dieses Baus (S-11 in [`offene-punkte.md`](intern/offene-punkte.md),
+erledigt).
 
 Ein Pfad wäre hier zu wenig: Er zeigt auf das, was gerade dort liegt. Der
 Abdruck sagt, **auf welchen Eingaben** der Stand ruht. Und die Kette hängt
