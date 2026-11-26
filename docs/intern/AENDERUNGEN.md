@@ -113,6 +113,52 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 25.11.2026 · Die Architektur-Dokumente stehen auf dem heutigen Stand (Branch `dokumente-architektur`)
+
+Vierter Teil der Dokumentdurchsicht vom 25.11.2026: `architektur.md`,
+`architektur-ist-und-ziel.md` und der Einseiter, nur Fakten.
+
+**`architektur.md`:** Gold mit acht Dimensionen und zwei Brücken statt fünf
+Dimensionen. Die Serving-Tabelle nennt die Zeilen des Release vom 20.11.2026
+(76'756 / 14'334 / 3'638 / 142) statt des Jahrgangs 2024, dazu `rate_tract`
+und `source_movement`. „Im zweiten Bild" heisst Bild 3. Zwölf Pakete in der
+Referenz statt zehn, drei Bilder statt zwei. Die Prosa-Zahlen im Kopf sind
+als Stand vom 20.9. datiert; heute zählt `ast` 923 Docstrings im Code und
+1'861 in den Tests. Vorher widersprachen sich 339 / 295 und 733 / 512 im
+selben Dokument.
+
+**`architektur-ist-und-ziel.md`, Teil A:** Gebiete im Schichtbild und in den
+Ladestrategien. `platform_admin` läuft auf `srv01` als `admin` und `worker`
+statt „nirgends ausgerollt". Ein Release braucht 17 Tabellen statt neun.
+Zwei Zeitpläne statt einem. Drei Architekturbilder.
+
+**Teil B:** Was gebaut ist, steht jetzt als gebaut, mit Datum:
+- Der Zeitplan auf `srv01` feuert seit dem 12.10.2026. Die Läufe vom 16. und
+  23.11. endeten mit Exit 0 und publizierten je ein Release. Am 25.11. in
+  `logs/scheduled-pipeline.log` nachgelesen.
+- Sieben Dienste statt drei.
+- Einstiegsseite, Konsole und Grafana mit neun Alarmregeln (B.5).
+- Die Sicherung über `orchestration.sicherungssatz` (B.6).
+- Die Aufräumregel, entschieden am 4.10.
+
+„Nichts davon ist gebaut" und „heute gibt es nichts zu schützen, weil nichts
+läuft" sind gestrichen. Das Zielbild in B.1 trägt einen Vermerk zu den zwei
+Abweichungen. Der Referenzstand am Schluss ist der Zwischenstand vom 20.11.
+wie in A.1; gepinnt bleibt der 10.11. Offen bleibt die geübte Rückspielung
+der Sicherung. Den kaputten Satz „Damals waren beide Abbilder sind" gibt es
+nicht mehr. Die Dashboard-Spitze steht auf rund 475 MiB statt 429.
+
+**Einseiter:** 2021–2026 statt 2024, Gebiete als sechste Quelle im Bild,
+fünf Vergleichstabellen, 12 / 19 statt 10 / 14. Der Baustein-Kasten nennt,
+was gebaut ist, statt „zu bauen ist eigentlich nur admin-web". „Was offen
+ist" ist entschieden.
+
+**Wächter:** `NOCH_WAHR` in `test_betriebsstand.py` ist leer; die letzte
+„Einrichtung, kein Nachweis" ist mit Beleg gedreht. Der Test prüft jetzt in
+einer Schleife statt mit `parametrize`. Sonst bliebe bei leerer Liste ein
+übersprungener Test stehen, und die Testzahl hinge davon ab, wie viel gerade
+unbelegt ist. Sie bleibt 3'540.
+
 ## 25.11.2026 · Das Konzept steht auf dem heutigen Stand (Branch `dokumente-konzept`)
 
 Dritter Teil der Dokumentdurchsicht vom 25.11.2026: `ln2_konzept.md`, nur
