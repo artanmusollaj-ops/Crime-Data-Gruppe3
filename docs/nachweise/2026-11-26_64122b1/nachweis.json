@@ -1,0 +1,83 @@
+{
+  "erstellt_utc": "2026-11-26T09:47:17+00:00",
+  "commit": "64122b1ef7396c16975758b59ed07c8d01112e33",
+  "umgebung": {
+    "python": "3.13.0",
+    "system": "Darwin 25.6.0 arm64",
+    "pakete": {
+      "duckdb": "1.5.5",
+      "pyarrow": "25.0.1",
+      "pandas": "3.0.5",
+      "nbclient": "0.11.0",
+      "nbconvert": "7.17.1",
+      "ipykernel": "6.31.0"
+    }
+  },
+  "datenstand": {
+    "jahrgaenge": [
+      2021,
+      2022,
+      2023,
+      2024,
+      2025,
+      2026
+    ],
+    "silver_crime_offense": {
+      "zeilen": 1922278,
+      "gebaut_utc": "2026-11-26T09:48:46.131916+00:00",
+      "input_fingerprint": "6c54608789ef06591aae36c4d761d3d0a7cb96c0bd034e7e4505d52b829ad265"
+    },
+    "gold_fact_offense": {
+      "zeilen": 1900131,
+      "gebaut_utc": "2026-11-26T09:49:02.165543Z"
+    },
+    "release_aktuell": "2026-11-26T05-27-08Z",
+    "release_input_fingerprint": "93735e475567dd92d9efb8d33a120e8619c5a290a0161d3c22305a5f0aa62371",
+    "release_silver_input_fingerprint": "6c54608789ef06591aae36c4d761d3d0a7cb96c0bd034e7e4505d52b829ad265",
+    "release_passt_zum_arbeitsstand": true,
+    "aufbau": {
+      "befehl": "python -m orchestration.run_all --ohne-ingestion --jahre 2021,2022,2023,2024,2025,2026",
+      "laufzeit_s": 107.9,
+      "exit": 0
+    }
+  },
+  "notebooks": {
+    "31_storage_evaluation": {
+      "code_sha256": "1f76f21cf682f1a49e3b273530a029dc9850daed5fc205557ba9062110a15bcf",
+      "html_sha256": "9c036217c9e57c2581a51fff5ff9f3de125e69d1711d44037f1ef17a87aca40d",
+      "laufzeit_s": 2.7,
+      "codezellen": 9
+    },
+    "33_serving_evaluation": {
+      "code_sha256": "fe3dc0f0f76b30c74aeab2db1304af8109b66e5ebf64bc145e1094ca9d3696c9",
+      "html_sha256": "9b6240bf6ffaff89d2ebe71fdeda3b9211d61f0ff8a59954f5aba36ebee5774a",
+      "laufzeit_s": 2.2,
+      "codezellen": 7
+    },
+    "34_gold_sternschema": {
+      "code_sha256": "f6cd02592b94bdf14bdbc42d6e7ddced1b3a6190735b4b5987187477a3ec4566",
+      "html_sha256": "e690cdb2ad54eba609b95347f350bc77daf49d02965c8076aa2c6bcce9fe1956",
+      "laufzeit_s": 10.0,
+      "codezellen": 19
+    },
+    "35_kontrollen": {
+      "code_sha256": "76dbad4cfa3c079949be50009c5b833ab44bba63eef25e14000ab7e549d06bf6",
+      "html_sha256": "1f4c1c944ab8896da5212847e771ec065f17f239d340fc2d87ec029d6a6cecb7",
+      "laufzeit_s": 1.5,
+      "codezellen": 40
+    },
+    "36_hypothesen": {
+      "code_sha256": "7387221da053a4e9b6da0dd80fdc02405e7e4b9113c6f7a699c249647200d85b",
+      "html_sha256": "772dc9aa68ffa939c79caa7e093f5578b1125c472bfff55ca539bfa1376bae4c",
+      "laufzeit_s": 373.5,
+      "codezellen": 16
+    },
+    "37_quellbewegung": {
+      "code_sha256": "d9c2145aef470ee1a42002a360f170b6d94a647e15535d880bb66741648d4557",
+      "html_sha256": "19c810b49618caf6971dcccd63a094f59772a5b6e25b474010439e679d4dd115",
+      "laufzeit_s": 1.4,
+      "codezellen": 15
+    }
+  },
+  "hinweis": "Ausgefuehrt in einer Kopie des Projekts mit STORAGE_BACKEND=local. Kein Erzeugnis: Laufzeiten wiederholen sich nicht byteweise."
+}

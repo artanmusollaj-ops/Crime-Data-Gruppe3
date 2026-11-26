@@ -278,6 +278,14 @@ auf einem Apple-Rechner mit arm64 und DuckDB 1.5.5. Rund fünfeinhalbmal so
 viele Zeilen kosten also kaum mehr Zeit
 ([`nachweise/2026-11-14_1a77e8b`](nachweise/2026-11-14_1a77e8b/36_hypothesen.html)).
 
+Am 26.11.2026, mit Gold-Vertrag 12, auf demselben Rechner: **Median 109,1
+Sekunden**, Spannweite 105,8 bis 109,4, für 1'922'278 Silver-Zeilen
+([`nachweise/2026-11-26_64122b1`](nachweise/2026-11-26_64122b1/36_hypothesen.html)).
+Die Zeilen sind kaum mehr geworden, die Strecke schon: sieben statt vier
+Silver-Tabellen, elf statt sieben Gold-Tabellen, die Quellbewegung in Serving.
+Woran die Zeit hängt, ist nicht je Stufe aufgeschlüsselt. Das Budget von zehn
+Minuten hält mit Faktor fünfeinhalb.
+
 ### Drei Achsen, ungleich schwer
 
 | Achse | Schwierigkeit | Warum |

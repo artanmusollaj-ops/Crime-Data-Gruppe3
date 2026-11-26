@@ -158,8 +158,14 @@ Bronze-Läufen. Gold trägt denselben Eingabe-Abdruck wie das Release
 (`93735e47…`). Feldkatalog, `platzbedarf.md` und die Grössenzeilen sind danach
 neu erzeugt bzw. übernommen.
 
-**Nachweis:** neu gebaut mit `tools/build_nachweise.py` von diesem Commit aus,
-im Commit danach.
+**Nachweis:** `docs/nachweise/2026-11-26_64122b1`, gebaut mit
+`tools/build_nachweise.py` vom Commit der Neumessung aus.
+`release_passt_zum_arbeitsstand` ist `true`, kein Notebook bricht ab.
+**H6 hat sich bewegt:** Median 109,1 s (105,8 bis 109,4) statt 24,2 s am
+14.11. Die Zeilen sind kaum mehr geworden, die Strecke schon (Gebiete,
+Quellbewegung, elf Gold-Tabellen). Das Budget von zehn Minuten hält weiter,
+mit Faktor fünfeinhalb statt 25. Nachgetragen in `ausblick.md` 3 und
+`textvorschlag-fr-58.md` Punkt 1.
 
 Tests unverändert (3'540).
 

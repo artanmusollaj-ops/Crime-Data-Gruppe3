@@ -122,7 +122,7 @@ Seit Gold-Vertrag 9 führt `dim_city_day` auch Tage ohne Wetter. Die Abfrage
 WHERE f.reporting_city = 'chicago' AND w.temp_max_c IS NOT NULL GROUP BY 1
 ```
 
-**Im selben Commit: der Text zu H6 in Notebook 36.** Die Markdown-Zellen 30
+**Erledigt am 26.11.2026 (Nachweis `2026-11-26_64122b1`), am Abgabetag nur den Nachweis neu bauen. Im selben Commit: der Text zu H6 in Notebook 36.** Die Markdown-Zellen 30
 und 31 nennen fest „27 Sekunden“, „Faktor 22“ und „Median 27 s, Spannweite
 27 bis 31 s“. Diese Werte stammen aus der Zeit mit einem Jahrgang. Die
 Ausgabe darüber misst im Nachweis vom 14.11.2026 schon 24,2 s und Faktor 25
