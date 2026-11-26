@@ -109,7 +109,7 @@ Eine Zeile ist: **ein Polizeibezirk (Chicago District, Detroit Precinct)**. 34 Z
 
 ### `source_change`
 
-Eine Zeile ist: **ein geaendertes Feld einer Zeile zwischen zwei Schnappschuessen**. 113'745 Zeilen.
+Eine Zeile ist: **ein geaendertes Feld einer Zeile zwischen zwei Schnappschuessen**. 170'567 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |
@@ -445,7 +445,7 @@ Eine Zeile ist: **ein Census Tract mit Einwohnern im Bezugsjahr 2024 (gold_pipel
 
 ### `source_movement`
 
-Eine Zeile ist: **ein bewegtes Feld einer Zeile zwischen zwei Vollabzuegen; je neuer und je verschwundener Zeile eine Zeile ohne Feld; je ruhigem Paar eine Markierungszeile ohne offense_id**. 113'745 Zeilen.
+Eine Zeile ist: **ein bewegtes Feld einer Zeile zwischen zwei Vollabzuegen; je neuer und je verschwundener Zeile eine Zeile ohne Feld; je ruhigem Paar eine Markierungszeile ohne offense_id**. 170'567 Zeilen.
 
 | Spalte | Typ | Bedeutung |
 | --- | --- | --- |

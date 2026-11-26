@@ -122,7 +122,7 @@ Seit Gold-Vertrag 9 führt `dim_city_day` auch Tage ohne Wetter. Die Abfrage
 WHERE f.reporting_city = 'chicago' AND w.temp_max_c IS NOT NULL GROUP BY 1
 ```
 
-**Im selben Commit: der Text zu H6 in Notebook 36.** Die Markdown-Zellen 30
+**Erledigt am 26.11.2026 (Nachweis `2026-11-26_64122b1`), am Abgabetag nur den Nachweis neu bauen. Im selben Commit: der Text zu H6 in Notebook 36.** Die Markdown-Zellen 30
 und 31 nennen fest „27 Sekunden“, „Faktor 22“ und „Median 27 s, Spannweite
 27 bis 31 s“. Diese Werte stammen aus der Zeit mit einem Jahrgang. Die
 Ausgabe darüber misst im Nachweis vom 14.11.2026 schon 24,2 s und Faktor 25
@@ -187,7 +187,9 @@ Stellen im Wortlaut:
   ausserhalb der Stadt sinken sie von 6'010 auf 1'176. Die Rate bleibt bei
   rund 94,4 je 1'000, weil Zähler und Nenner zusammen wachsen. Detroit ändert
   sich nicht. Die Wächter melden jede Stelle.
-- **Zwei Stellen, die kein Wächter sieht.** Erstens: `ln2_konzept.md`,
+- **Erledigt am 26.11.2026 als Neumessung mit Notebook 34** (Textvorschlag in
+  `textvorschlag-mehrheitsregel.md`); beim Abgabestand nur noch prüfen, ob die
+  Zahlen sich bewegt haben. **Zwei Stellen, die kein Wächter sieht.** Erstens: `ln2_konzept.md`,
   Absatz „Die Stadtgrenze: der Nenner, den es vorher nicht gab“, erklärt den
   Abstand zwischen Chicagos Mehrheitsregel und dem Zensus 2020 als
   „Unterschied zwischen einer ACS-Schätzung und einer Zählung, nicht ein

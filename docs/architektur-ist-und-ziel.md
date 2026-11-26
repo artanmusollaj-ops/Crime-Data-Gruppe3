@@ -34,9 +34,9 @@ Die Strecke führt zwei unvergleichbare Quellen in eine vergleichbare Tabelle
 | --- | --- | --- | ---: |
 | **raw** | die Antwort der Quelle, Byte für Byte, mit SHA-256 | nichts deuten, nichts umformen | 605,8 MB |
 | **bronze** | Parquet mit gepinntem Schema, Originaltypen | nichts deuten; Unerwartetes nach `_extra` statt in den Papierkorb | 650,3 MB |
-| **silver** | deuten: Typen, Einheiten, Zeitzonen, NIBRS, Raum | nichts wegwerfen — Lücken werden gekennzeichnet, nicht gefiltert | 224,2 MB |
-| **gold** | Sternschema, eine Zeile je **Tat** | nicht aggregieren | 91,0 MB |
-| **serving** | abfragbar machen: Sichten, fünf Vergleichstabellen, Karte | nicht der Bestand sein | 3,1 MB |
+| **silver** | deuten: Typen, Einheiten, Zeitzonen, NIBRS, Raum | nichts wegwerfen — Lücken werden gekennzeichnet, nicht gefiltert | 223,2 MB |
+| **gold** | Sternschema, eine Zeile je **Tat** | nicht aggregieren | 91,2 MB |
+| **serving** | abfragbar machen: Sichten, fünf Vergleichstabellen, Karte | nicht der Bestand sein | 3,9 MB |
 | **releases** | ein freigegebener Gesamtstand unter einer Kennung | sich nie ändern | 2'051,0 MB |
 
 Die Grössen sind **gemessen, nicht geschätzt** — `python -m
