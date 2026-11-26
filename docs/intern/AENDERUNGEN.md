@@ -113,6 +113,31 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 26.11.2026 · S-11 nennt die richtige Reihenfolge (Branch `s11-reihenfolge`)
+
+#315 schrieb, S-11 sei vor dem nächsten Einsetzen eines Abbilds zu erledigen.
+Das war falsch herum. Die Konsole prüft vor jedem Kandidatenlauf zweimal gegen
+das **laufende Abbild**:
+- `release_flow.check_mapping_basis`: Die aktive Mapping-Revision (#259, mit
+  der Zeile) muss zu `/app/config` im Abbild passen.
+- `release_flow.capture`: Das Abbild muss byteweise `main` entsprechen.
+
+Das Abbild `1e2bb8f` auf `srv01` ist ohne die Zeile gebaut, also scheitern
+beide, und die Konsole kann keine Korrektur bauen. Die Reihenfolge ist deshalb:
+1. Abbild aus `main` einsetzen.
+2. Die neue Korrektur auf `23C` anlegen, freigeben, mergen.
+3. Wieder ein Abbild einsetzen.
+
+Dazwischen kein Datenlauf von Hand, und vor dem planmässigen am 7.12.2026
+fertig sein.
+
+**Stand am selben Tag:** Schritt 1 ist mit dem Abbild `b3fa048` erledigt.
+Schritt 2 ist mit Revision `2a09e688…` (#317) erledigt: Ihr PR entfernt die
+Zeile `3072` → `26A`, und `3072` fällt auf den Crosswalk-Wert `23C` zurück.
+Offen ist nur noch Schritt 3, das Abbild aus `main` (`cac6d48`).
+
+Tests unverändert (3'540).
+
 ## 26.11.2026 · Die Testkorrektur der Konsole steht wieder in Git (Branch `konsolenkorrektur-3072-wiederhergestellt`)
 
 Am 25.11.2026 hatte #309 die Konsolenkorrektur aus #259 per `git revert`
@@ -134,8 +159,8 @@ Zeile noch enthält (`gitops.open_pr`). Deshalb musste sie zurück nach Git.
 **Was das für die Daten heisst.** Der Zwischenstand vom 26.11.2026 (Release
 `2026-11-26T05-27-08Z`) und das Abbild auf `srv01` (`1e2bb8f`) sind ohne die
 Zeile gebaut, `3072` steht dort auf `23C`. Ein Abbild aus diesem Stand bekäme
-sie wieder. Vor dem nächsten Einsetzen auf `srv01` sollte S-11 erledigt sein,
-sonst baut der nächste Datenlauf `3072` wieder als `26A`.
+sie wieder. (Berichtigt im Eintrag darüber: Die Reihenfolge ist umgekehrt;
+zuerst muss ein Abbild mit der Zeile eingesetzt sein.)
 
 **Dokumente:** `README.md` (Mapping-Korrekturen), `ln2_konzept.md` 11.4 und
 `eine-zahl.md` Stufe 5 sagen jetzt, dass die Zeile in Git steht und in der
