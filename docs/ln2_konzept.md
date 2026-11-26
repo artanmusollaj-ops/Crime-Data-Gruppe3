@@ -590,16 +590,16 @@ denkbar:
 | Regel | Chicago | Detroit |
 | --- | ---: | ---: |
 | alle berührten Tracts | 3'080'550 | 884'691 |
-| Flächengewichtung | 2'651'921 | 638'570 |
+| Flächengewichtung | 2'714'927 | 638'570 |
 | **Mehrheitsregel** | **2'713'800** | **638'635** |
 | Zensus 2020 | 2'746'388 | 639'111 |
 
-> **Stand 26.11.2026: nur die Mehrheitszeile ist neu.** Seit Gold-Vertrag 10
-> zählen elf Chicagoer Seeufer-Tracts zur Stadt, deren Fläche zum grossen Teil
-> Wasser ist; Chicago hat damit 793 statt 782 Tracts und 2'713'800 statt
-> 2'661'953 Einwohner. Die beiden Zeilen darüber und der Absatz darunter
-> stammen aus der Messung davor (Notebook 34) und werden zum Abgabestand neu
-> gemessen ([`abgabestand.md`](intern/abgabestand.md), Schritt 6).
+> **Neu gemessen am 26.11.2026** (Notebook 34). Seit Gold-Vertrag 10 rechnet
+> die Regel über die **Landfläche**; elf Chicagoer Seeufer-Tracts zählen damit
+> zur Stadt, und Chicago hat 793 statt 782 Tracts. Vorher standen
+> Flächengewichtung und Mehrheitsregel bei 2'651'921 und 2'661'953. Der Absatz
+> darunter ist noch der alte; eine Neufassung steht in
+> [`textvorschlag-mehrheitsregel.md`](intern/textvorschlag-mehrheitsregel.md).
 
 Gewählt ist die **Mehrheitsregel**: Ein Tract gehört zu der Stadt, die mehr als
 die Hälfte seiner Fläche bedeckt. Sie gibt jedem Tract genau eine Stadt — die
@@ -1463,9 +1463,10 @@ je Zeile, was fehlt, statt die Zeile wegzulassen.
   überdurchschnittlich deliktdicht sind — 227 je 1'000 gegen 94,5 im
   Stadtschnitt —, ist Chicagos Rate um gut einen Punkt untertrieben: 94,5
   statt 95,6. Detroit ist praktisch nicht betroffen (12 Fälle). Diese Messung
-  stammt aus der Zeit vor Gold-Vertrag 10; der grösste Teil der Grenzfälle lag
-  in den Seeufer-Tracts, die seither zur Stadt zählen. Gemessen in
-  Notebook 34, Abschnitt 3.2.
+  stammt aus der Zeit vor Gold-Vertrag 10. Neu gemessen am 26.11.2026 sind es
+  441 Chicagoer Fälle, und die Rate bleibt mit ihnen bei 94,5; eine Neufassung
+  steht in [`textvorschlag-mehrheitsregel.md`](intern/textvorschlag-mehrheitsregel.md).
+  Gemessen in Notebook 34, Abschnitt 3.2.
 - **Die Alarmierung gilt nur für `srv01`.** Dort melden seit Oktober 2026
   neun Regeln in Prometheus über Telegram, wenn eine Quelle veraltet, ein
   Lauf oder eine Stufe scheitert oder kein Release entsteht. Der wöchentliche Datenlauf in
@@ -1651,6 +1652,7 @@ abgegeben, liegen sie zwar bei — aber niemand wird darauf verwiesen.
 | Wo die Pflichtbestandteile P1–P6 stehen | [`pflichtbestandteile.md`](intern/pflichtbestandteile.md) — je Bestandteil die Fundstelle und ihr Stand, **gegen die Dateien geprüft** |
 | Was aus der LN1-Rückmeldung wurde | [`textvorschlag-fr-58.md`](intern/textvorschlag-fr-58.md) — je Kritikpunkt Antwort, Beleg und Grenze, **ein Vorschlag für den Abgabetext** |
 | Was das Dashboard zeigt | [`textvorschlag-dashboard.md`](intern/textvorschlag-dashboard.md) — die acht Bretter, **ein Vorschlag für 5.2** |
+| Was die Neumessung der Mehrheitsregel ändert | [`textvorschlag-mehrheitsregel.md`](intern/textvorschlag-mehrheitsregel.md) — zwei Absätze für 5.2 und Kapitel 9, **ein Vorschlag** |
 | Was beim Aufräumen verlorenginge | [`datenhistorie.md`](intern/datenhistorie.md) — Entscheidungspapier zur Aufbewahrung |
 | Was die Strecke an Platz braucht | [`platzbedarf.md`](intern/platzbedarf.md) — gemessen je Schicht und je Quelle auf 2021–2026 hochgerechnet, **erzeugt** |
 | Der Ablauf am Tag, an dem der Abgabestand gepinnt wird | [`abgabestand.md`](intern/abgabestand.md) |

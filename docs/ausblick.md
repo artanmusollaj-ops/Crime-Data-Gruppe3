@@ -527,8 +527,9 @@ dieses Projekt bewusst sichtbar gemacht hat:
   `fallback_90Z`.
 - **Absolut oder je Einwohner?** Absolut liegt Chicago fast überall vorn, je
   Einwohner Detroit.
-- **Die Mehrheitsregel** untertreibt Chicagos Rate um gut einen Punkt (94,5
-  statt 95,6).
+- **Die Mehrheitsregel** untertrieb Chicagos Rate um gut einen Punkt (94,5
+  statt 95,6), bis Gold-Vertrag 10 am 21.11.2026 die Landfläche zählte; seither
+  wirken die 441 Grenzfälle nicht mehr sichtbar.
 
 Ein Dashboard, das eine dieser Entscheidungen still trifft und eine Zahl
 hinstellt, macht die Arbeit dieses Projekts zunichte. Daraus folgen drei

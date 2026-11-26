@@ -187,7 +187,9 @@ Stellen im Wortlaut:
   ausserhalb der Stadt sinken sie von 6'010 auf 1'176. Die Rate bleibt bei
   rund 94,4 je 1'000, weil Zähler und Nenner zusammen wachsen. Detroit ändert
   sich nicht. Die Wächter melden jede Stelle.
-- **Zwei Stellen, die kein Wächter sieht.** Erstens: `ln2_konzept.md`,
+- **Erledigt am 26.11.2026 als Neumessung mit Notebook 34** (Textvorschlag in
+  `textvorschlag-mehrheitsregel.md`); beim Abgabestand nur noch prüfen, ob die
+  Zahlen sich bewegt haben. **Zwei Stellen, die kein Wächter sieht.** Erstens: `ln2_konzept.md`,
   Absatz „Die Stadtgrenze: der Nenner, den es vorher nicht gab“, erklärt den
   Abstand zwischen Chicagos Mehrheitsregel und dem Zensus 2020 als
   „Unterschied zwischen einer ACS-Schätzung und einer Zählung, nicht ein

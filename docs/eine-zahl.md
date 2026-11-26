@@ -55,10 +55,12 @@ Seit Gold-Vertrag 10 zählen dabei elf Seeufer-Tracts mit, deren Fläche zum
 grossen Teil Wasser ist; vorher fielen sie heraus.
 
 **11 Tracts berühren eine der beiden Städte und gehören ihr trotzdem nicht.**
-Das ist keine Feinheit: Diese Randtracts sind überdurchschnittlich
-deliktdicht, und weil sie herausfallen, ist Chicagos Rate um gut einen Punkt
-untertrieben — **94,5 statt 95,6** (Konzept 9, gemessen in Notebook 34 vor
-Gold-Vertrag 10; zum Abgabestand neu zu messen).
+Diese Randtracts sind überdurchschnittlich deliktdicht, aber klein: In Chicago
+liegen 2024 noch 441 Fälle innerhalb der Stadtgrenze und doch in einem
+fremden Tract. Mit ihnen und ihren anteiligen Einwohnern läge die Rate auf
+der Tatebene ebenfalls bei 94,5 (Notebook 34, Abschnitt 3.2, gemessen am
+26.11.2026). Vor Gold-Vertrag 10 waren es 5'249 Fälle, und die Regel
+untertrieb die Rate um gut einen Punkt, 94,5 statt 95,6.
 
 Die Einwohnerzahl selbst ist die ACS-Variable `B01003_001E`, eine
 **5-Jahres-Schätzung**, keine Zählung. **Drei** der 793 Tracts haben null
@@ -271,8 +273,9 @@ ihren Nenner nichts sagt.
   und 2026 ruhen deshalb auf der Bevölkerung von 2024, und
   `fact_offense.population_vintage` schreibt das je Zeile hin, statt es einer
   Fussnote zu überlassen.
-* **Die Mehrheitsregel ist nicht neutral.** 94,5 statt 95,6, gemessen vor
-  Gold-Vertrag 10.
+* **Die Mehrheitsregel hat einen Rand.** 441 Chicagoer Fälle liegen in der
+  Stadt und doch in einem fremden Tract; auf die Rate wirken sie seit
+  Gold-Vertrag 10 nicht mehr sichtbar (vorher 94,5 statt 95,6).
 
 ---
 

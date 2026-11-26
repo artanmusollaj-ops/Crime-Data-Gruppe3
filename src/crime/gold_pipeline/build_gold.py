@@ -1,4 +1,4 @@
-"""Baut die Gold-Schicht: eine Faktentabelle und vier Dimensionen.
+"""Baut die Gold-Schicht: eine Faktentabelle, acht Dimensionen, zwei Bruecken.
 
 Aufruf aus dem Projekt-Root:
 
@@ -17,12 +17,15 @@ Drei Regeln waeren denkbar, und sie fallen weit auseinander:
 
     Regel                     Chicago      Detroit
     alle beruehrten Tracts    3'080'550    884'691
-    Flaechengewichtung        2'651'921    638'570
-    Mehrheitsregel            2'661'953    638'635
+    Flaechengewichtung        2'714'927    638'570
+    Mehrheitsregel            2'713'800    638'635
     Zensus 2020               2'746'388    639'111
 
+(Jahrgang 2024, gemessen am 26.11.2026 in Notebook 34. Vor Gold-Vertrag 10
+standen Flaechengewichtung und Mehrheitsregel bei 2'651'921 und 2'661'953.)
+
 Gewaehlt ist die **Mehrheitsregel**: Ein Tract gehoert zu der Stadt, die mehr
-als die Haelfte seiner Flaeche bedeckt. Sie gibt jedem Tract genau eine Stadt -
+als die Haelfte seiner **Landflaeche** bedeckt (``dim_tract_query``). Sie gibt jedem Tract genau eine Stadt -
 die Voraussetzung dafuer, dass sich Faelle ohne Doppelzaehlung summieren lassen -
 und liegt praktisch gleichauf mit der Flaechengewichtung. Der verbleibende
 Abstand zum Zensus ist keine Ungenauigkeit der Regel, sondern der Unterschied

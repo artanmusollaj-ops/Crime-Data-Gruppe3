@@ -113,6 +113,56 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 26.11.2026 · Die Mehrheitsregel ist neu gemessen (Branch `neumessung-mehrheitsregel`)
+
+Der Rest aus Schritt 6 von `abgabestand.md`: die beiden Stellen zur
+Mehrheitsregel, die kein Wächter sieht, neu gemessen mit Notebook 34 am
+Zwischenstand vom 26.11.2026.
+
+**Notebook 34 mass eine andere Regel als die gebaute.** Zelle 20 bildete den
+Flächenanteil selbst und über die ganze Tractfläche. Gold rechnet seit Vertrag
+10 über die Landfläche (`build_gold.dim_tract_query`). Die Zelle rechnet jetzt
+dieselbe Formel. Die Zellen 23 bis 30 lasen schon `dim_tract` aus Gold.
+
+**Ergebnis**, Jahrgang 2024, Chicago:
+
+| | vor Vertrag 10 | jetzt |
+| --- | ---: | ---: |
+| Flächengewichtung | 2'651'921 | 2'714'927 |
+| Mehrheitsregel | 2'661'953 | 2'713'800 |
+| Abstand zum Zensus 2020 | −3,1 % | −1,2 % |
+| Fälle in der Stadt, aber in einem fremden Tract | 5'249 | 441 |
+| Rate (Tatebene) ohne und mit ihnen | 94,5 / 95,6 | 94,5 / 94,5 |
+| Regel „Chicago“, Punkt jenseits der Grenze | 1 | 27 |
+
+„Um gut einen Punkt untertrieben" gilt nicht mehr. Detroit ändert sich nicht.
+
+**Geändert:**
+- **Notebook 34:** Zelle 20 und der Text in 21, 24, 27, 29 und 31. Dazu die
+  Wetterabfrage in Zelle 36: nur Tage mit Wetter. Diese Korrektur verlangt
+  `abgabestand.md` seit Vertrag 9.
+- **Notebook 36:** Der H6-Text nennt keine feste Zahl mehr („27 Sekunden",
+  „Faktor 22"), sondern verweist auf die Messung darüber.
+- **Weitere Stellen:**
+  - Modulkopf von `build_gold`: Regeltabelle, Landfläche, und „acht
+    Dimensionen, zwei Brücken" statt „vier Dimensionen".
+  - `eine-zahl.md` (Stufe 2 und „Was die Zahl nicht sagt"), `ausblick.md`.
+- **Konzept (Artans Dokument):** Nur die Zeile zur Flächengewichtung in 5.2
+  und die beiden Vermerke sind geändert. Der Wortlaut für den Absatz in 5.2 und
+  den Punkt in Kapitel 9 steht als Vorschlag in
+  `textvorschlag-mehrheitsregel.md`.
+
+**Lokal neu aufgebaut**, weil das Notebook nur auf einem bestätigten Aufbau
+läuft. `run_all --ohne-ingestion` mit `STORAGE_BACKEND=local`, aus denselben
+Bronze-Läufen. Gold trägt denselben Eingabe-Abdruck wie das Release
+(`93735e47…`). Feldkatalog, `platzbedarf.md` und die Grössenzeilen sind danach
+neu erzeugt bzw. übernommen.
+
+**Nachweis:** neu gebaut mit `tools/build_nachweise.py` von diesem Commit aus,
+im Commit danach.
+
+Tests unverändert (3'540).
+
 ## 26.11.2026 · Die Dokumente stehen auf dem Zwischenstand vom 26.11.2026 (Branch `referenzstand-2026-11-26`)
 
 Siebter und letzter Teil der Dokumentdurchsicht: die Zahlen, die die
