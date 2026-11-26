@@ -42,17 +42,17 @@ vergleichbare Tabelle macht:
 | | |
 | --- | ---: |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
-| `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | 1'895'123 Zeilen (eine Tat) |
+| `silver/crime_offense` | 1'922'278 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | 1'900'131 Zeilen (eine Tat) |
 
 Und die Raten, **für den Jahrgang 2024** — eine Rate braucht einen Zeitraum,
 der Bestand trägt sechs:
 
 | | |
 | --- | ---: |
-| Chicago | 251'483 Fälle · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 79'615 Fälle · 638'635 Einwohner · **124,7** je 1'000 |
-| Tatebene (`fact_offense`) | Chicago 251'513 · Detroit 85'660 Taten; je 1'000: Chicago **94,5** · Detroit **134,1** |
+| Chicago | 256'317 Fälle · 2'713'800 Einwohner · **94,4** je 1'000 |
+| Detroit | 79'619 Fälle · 638'635 Einwohner · **124,7** je 1'000 |
+| Tatebene (`fact_offense`) | Chicago 256'347 · Detroit 85'701 Taten; je 1'000: Chicago **94,5** · Detroit **134,2** |
 
 Vorn steht die **Fallebene**: je Vorfall das schwerste Delikt, nach derselben
 Regel für beide Städte (`counts_case`). Die Tatebene zählt jedes Delikt.
@@ -442,7 +442,7 @@ desselben Tages — oder Information wegwerfen:
 | `weather_day` | eine Stadt an einem Tag | 55'587 |
 | `police_area` | ein Polizeibezirk (Chicago District, Detroit Precinct) | 34 |
 | `community_area` | ein Stadtteil (Chicago Community Area, Detroit Neighborhood) | 131 |
-| `crime_offense` | eine **Anklage**; je Tat zählt eine | 1'917'351 |
+| `crime_offense` | eine **Anklage**; je Tat zählt eine | 1'922'278 |
 | `source_change` | ein geändertes Feld zwischen zwei Vollabzügen einer Quelle | wächst je Paar |
 
 `crime_offense` leistet drei Übersetzungen auf einmal, und jede ist ein eigener
@@ -530,7 +530,7 @@ GROUP BY 1 ORDER BY je_1000 DESC;
 beider Countys, auch die ausserhalb der Stadtgrenzen — ohne den Filter zählen
 Vorstädte mit.
 
-`export_geojson` schreibt daneben `data/serving/tracts.geojson`: die **1'055
+`export_geojson` schreibt daneben `data/serving/tracts.geojson`: die **1'066
 Tract-Umrisse** der beiden Städte, auf rund zwei Meter vereinfacht, 0,55 MB.
 Die Datei trägt je Fläche nur `geoid`, `city` und `tract_name` — **keine
 Kennzahl**. Wer einfärben will, verbindet über `geoid` mit `dim_tract` und
@@ -751,7 +751,7 @@ python -m orchestration.release holen --einsetzen      # und an die festen Pfade
 Aufgehoben werden die gepinnten Releases und die letzten acht (entschieden am
 4.10.2026, [`docs/intern/datenhistorie.md`](docs/intern/datenhistorie.md) 5.5;
 gelöscht wird nur auf Zuruf mit `orchestration.aufraeumen`). Das Release vom
-20.11.2026 belegt 181 MB, davon 99 MB die Datenbank.
+26.11.2026 belegt 190 MB, davon 100 MB die Datenbank (MiB, wie `du -m`).
 
 **Der Ablauf, Schritt für Schritt.** Zwei Rollen, zwei Befehle.
 

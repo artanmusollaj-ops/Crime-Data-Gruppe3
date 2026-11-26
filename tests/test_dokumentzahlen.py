@@ -62,6 +62,12 @@ SCHUTZ = (
     "Beide Schnappschüsse enthalten", "in beiden Schnappschüssen",
     "Bronze, Abfrage über Detroits",
     "Nachgemessen am", "Nachgerechnet am",
+    # Detroits Anklagen minus Taten (ln2_konzept.md 5.2, Tabelle zur
+    # Granularitaet). Am Stand vom 26.11.2026 liegt die Zahl drei neben 22'144,
+    # den Vorfaellen mit mehr als einer Familie, und sah fuer den Vergleich
+    # nach deren veralteter Fassung aus. Bewacht ist sie dort, wo sie entsteht:
+    # Anklagen und Taten stehen in derselben Tabelle unter test_abgabedokumente.
+    "| Unterschied | −",
     # Die Zahl der Tests, die in einem frischen Klon laufen. Sie wandert mit
     # jeder neuen Pruefung und lag am 18.10.2026 bei 2'099 - vier neben
     # ``gold/dim_date`` = 2'103, mit dem sie nichts zu tun hat. Dasselbe

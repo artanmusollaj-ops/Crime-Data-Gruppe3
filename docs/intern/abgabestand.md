@@ -1,7 +1,7 @@
 # Abgabestand: der Ablauf am Tag, an dem gepinnt wird
 
-Der Stand vom 20.11.2026 (Release `2026-11-20T10-08-03Z`) ist ein
-**Zwischenstand**. Diese Datei hält fest, was am Tag des Abgabestands in
+Der Stand vom 26.11.2026 (Release `2026-11-26T05-27-08Z`, Gold-Vertrag 12)
+ist ein **Zwischenstand**; davor galt der vom 20.11.2026. Diese Datei hält fest, was am Tag des Abgabestands in
 welcher Reihenfolge passiert. Dann muss nichts mehr erfunden werden. Ein Pin ist
 endgültig: Was in `config/referenzstand.csv` steht, wird nie aufgeräumt. Erst
 pinnen, wenn alle Schritte davor grün sind.
@@ -181,7 +181,7 @@ Stellen im Wortlaut:
 - In `eine-zahl.md` fällt „Gepinnt ist dieser Zwischenstand **nicht**“ weg.
 - Der Kopf von `AENDERUNGEN.md` („Der Stand in Zahlen“) bekommt den neuen
   Stand. Der Eintrag dazu nennt das Release, die Pins und die Nachweise.
-- **Was Vertrag 10 verschiebt** (lokal gemessen am 21.11.2026, Jahrgang
+- **Erledigt am 26.11.2026 mit dem Zwischenstand:** Was Vertrag 10 verschiebt (lokal gemessen am 21.11.2026, Jahrgang
   2024). Chicago hat 793 statt 782 Tracts und 2'713'800 statt 2'661'953
   Einwohner. Die Fälle innerhalb der Stadt steigen von 251'483 auf 256'317,
   ausserhalb der Stadt sinken sie von 6'010 auf 1'176. Die Rate bleibt bei

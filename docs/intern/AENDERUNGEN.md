@@ -32,11 +32,11 @@ Eintrag hier sagt, was das war.
 | --- | ---: |
 | Tests | **3'540** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
-| `silver/crime_offense` | 1'917'351 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | **1'895'123** Zeilen (eine Tat) |
-| Chicago | 251'483 Fälle · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 79'615 Fälle · 638'635 Einwohner · **124,7** je 1'000 |
-| Tatebene (`fact_offense`) | Chicago 251'513 · Detroit 85'660 Taten; je 1'000: Chicago **94,5** · Detroit **134,1** |
+| `silver/crime_offense` | 1'922'278 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | **1'900'131** Zeilen (eine Tat) |
+| Chicago | 256'317 Fälle · 2'713'800 Einwohner · **94,4** je 1'000 |
+| Detroit | 79'619 Fälle · 638'635 Einwohner · **124,7** je 1'000 |
+| Tatebene (`fact_offense`) | Chicago 256'347 · Detroit 85'701 Taten; je 1'000: Chicago **94,5** · Detroit **134,2** |
 
 > **Zwei Zeiträume in einer Tabelle, und das ist Absicht.** Die beiden
 > Zeilenzahlen sind der **Bestand** über alle sechs Jahrgänge — die Antwort auf
@@ -112,6 +112,87 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 26.11.2026 · Die Dokumente stehen auf dem Zwischenstand vom 26.11.2026 (Branch `referenzstand-2026-11-26`)
+
+Siebter und letzter Teil der Dokumentdurchsicht: die Zahlen, die die
+Referenzwächter halten.
+
+**Warum nicht der Stand vom 23.11.** Das Release `2026-11-23T03-36-24Z`
+trägt Gold-Vertrag 10 und sieben Gold-Tabellen, ohne Polizeibezirke und
+Stadtteile. Auch `2026-11-25T12-38-05Z` (Vertrag 12) kam nicht in Frage:
+Beide waren mit dem Abbild gebaut, das noch die Probekorrektur `3072` → `26A`
+aus #259 trug. Auf Christians Entscheid:
+- Abbild vom `main` `0efcbac` gebaut und auf `srv01` eingesetzt.
+- Delta-Lauf von Hand unter der Sperre des Zeitplans: Exit 0, Release
+  **`2026-11-26T05-27-08Z`**, Gold-Vertrag 12.
+- `3072` steht wieder auf `23C` (6'601 Anklagen).
+
+**Lokal hergestellt** nach `abgabestand.md`, Schritt 2:
+- Silver, Gold, Serving und `pipeline_run.json` vom Arbeitsvolume auf
+  `srv01` geholt; der alte Stand liegt unter `data/_vorher-2026-11-26/`.
+- Die 180 Bronze- und Raw-Läufe, die Silver nennt, aus dem Eimer geholt.
+- Das Release eingesetzt und das lokale Elasticsearch neu geladen.
+- Gegenprobe: Silver trägt denselben Abdruck wie das Release. Nicht gepinnt;
+  das bleibt dem Abgabetag.
+
+**Was sich bewegt hat.** Das meiste ist Vertrag 10 (elf Chicagoer
+Seeufer-Tracts zählen zur Stadt), den Rest machen sechs Tage Deltas:
+
+| | vorher (20.11.) | jetzt (26.11.) |
+| --- | ---: | ---: |
+| `silver/crime_offense` | 1'917'351 | 1'922'278 |
+| `gold/fact_offense` | 1'895'123 | 1'900'131 |
+| Chicago 2024: Tracts, Einwohner | 782, 2'661'953 | 793, 2'713'800 |
+| Chicago 2024: Fälle, Rate | 251'483, 94,5 | 256'317, **94,4** |
+| Chicago 2024: Tatebene | 251'513, 94,5 | 256'347, 94,5 |
+| Detroit 2024: Fälle, Rate | 79'615, 124,7 | 79'619, 124,7 |
+| Detroit 2024: Tatebene | 85'660, 134,1 | 85'701, **134,2** |
+| ausserhalb der Stadt, 2021–2026 | 1,8 % | 0,4 % |
+
+Ersetzt wurde je Wert und je Bedeutung, nicht pauschal. Der Wächter
+`test_dokumentzahlen` ordnet nach Ähnlichkeit zu und nannte etwa 1'413'936
+(Chicagos Fälle) eine Fassung der Anklagen.
+
+**Was zum Abgabestand bleibt** (`abgabestand.md`, Schritt 6):
+- Die Mehrheitsregel-Tabelle in Konzept 5.2: Nur die Mehrheitszeile ist neu.
+  Die beiden Zeilen darüber und der Absatz darunter stammen aus Notebook 34
+  vor Vertrag 10; sie tragen jetzt einen datierten Vermerk.
+- Kapitel 9 („94,5 statt 95,6", 5'249 Grenzfälle): ebenfalls vor Vertrag 10
+  gemessen, mit Vermerk.
+- Beides ist neu zu messen und als Textvorschlag an Artan zu geben.
+
+**Berichtigt:**
+- **Abschnitt 3 im Sternschema-Dokument.** Er rechnet am Septemberstand, an
+  dem die Würfel verworfen wurden. Bild, Würfelzahlen und Differenzen gehören
+  zu 347'957 und 344'617; nur Tabelle und Alt-Text hatte die Ersetzung vom
+  4.10. auf 348'329 und 345'091 gehoben. Zurück auf den Entscheidungsstand.
+  Dazu 3,9 % statt 3,8 % (wie im Bild).
+- **Feldkatalog:** nennt 4,6 % über 2021–2026 statt 3,8 % ohne Jahr
+  (`tools/build_feldkatalog.py`).
+- **`zaehlperspektiven.md`:**
+  - 32 Silver-Spalten statt 28, 60 Bronze-Läufe je Stadt statt 36;
+  - die Ränder des Zeitfensters (letzte Woche ein Tag, letzte volle Woche ab
+    16.11.).
+- **`eine-zahl.md`:** Titel 94,4. Dazu die Herkunftskette mit Vertrag 12 und
+  den beiden Gebietstabellen.
+
+**Wächter:**
+- `test_eine_zahl` liest die Zahl aus dem Titel statt aus zwei Literalen.
+- `test_zaehlperspektiven` liest die Spaltenzahl aus dem Dokument, und
+  „1 Tag" ist erlaubt.
+- `test_ausblick` sucht die Tract-Umrisse per Muster; mit „1'066" übersprang
+  er sich still.
+- `test_der_einseiter_traegt_dieselben_zahlen` hat seine Liste nachgezogen.
+- `test_dokumentzahlen` nimmt die Unterschiedszeile in 5.2 aus.
+
+Neu erzeugt: Feldkatalog, Einstiegsseite, `platzbedarf.md`, Sternbild. Die
+Grössenzeilen in `architektur-ist-und-ziel.md` und im Einseiter sind von dort
+übernommen.
+
+Tests unverändert (3'540). Beide Läufe sind grün: Standardlauf 3'415
+bestanden, 14 übersprungen; `-m referenzstand` 110 bestanden, 1
+übersprungen.
 
 ## 26.11.2026 · Der Ausblick steht auf dem heutigen Stand, S-6 ist erledigt (Branch `dokumente-ausblick`)
 

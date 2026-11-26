@@ -6,8 +6,8 @@
 
 | | |
 | --- | --- |
-| Faktentabelle | 1'895'123 Zeilen (Jahrgänge 2021–2026) |
-| Dimensionen | 8 · 39'173 Zeilen |
+| Faktentabelle | 1'900'131 Zeilen (Jahrgänge 2021–2026) |
+| Dimensionen | 8 · 39'185 Zeilen |
 | Brücken | 2 · 3'814 Zeilen |
 | Verworfen | 2 Würfel |
 | Gerechnet in | [`notebooks/34_gold_sternschema.ipynb`](../notebooks/34_gold_sternschema.ipynb) |
@@ -78,19 +78,19 @@ Manifesten.*
 
 ### Warum die Dimensionen getrennt stehen
 
-**Die Faktentabelle bleibt schlank.** Stünde in jeder der 1'895'123 Zeilen der
+**Die Faktentabelle bleibt schlank.** Stünde in jeder der 1'900'131 Zeilen der
 Text `Larceny/Theft Offenses`, läge derselbe Satz zehntausendfach auf der
 Platte. Statt dessen steht dort `23C` — drei Zeichen — und die Bedeutung genau
 einmal in `dim_offense`.
 
 **Die Dimensionen tragen die Auswahllisten.** Eine Oberfläche, die „Delikt
-wählen" anbieten will, liest 85 Zeilen aus `dim_offense` statt 1'895'123
+wählen" anbieten will, liest 85 Zeilen aus `dim_offense` statt 1'900'131
 Faktenzeilen zu durchsuchen. Dasselbe gilt für Städte, Tage, Tracts, Polizeibezirke und Stadtteile.
 
 **`dim_date` wird erzeugt, nicht abgeleitet.** Ein Tag ohne Delikt hat keine
 Faktenzeile. Käme die Zeitachse aus den Fakten, fehlte dieser Tag — und eine
 Zeitreihe zeigte eine Lücke, wo eine Null stehen müsste. Die Dimension kennt
-alle 2'149 Tage von 2021 bis 2026, ob etwas passiert ist oder nicht — und sagt
+alle 2'153 Tage von 2021 bis 2026, ob etwas passiert ist oder nicht — und sagt
 mit `year_is_complete`, welcher Jahrgang ganz in den Daten liegt.
 
 ---
@@ -107,7 +107,7 @@ mit `year_is_complete`, welcher Jahrgang ganz in den Daten liegt.
 > der Absolutwert: Der Schritt zum Würfel kostet zwei Größenordnungen mehr als
 > der Schritt von Silver zu Gold, und daran ändert ein Jahrgang mehr nichts.
 
-![Vier Granularitäten im Vergleich: Silver hält 348'329 Anklagen, Gold 345'091 Taten,
+![Vier Granularitäten im Vergleich: Silver hält 347'957 Anklagen, Gold 344'617 Taten,
 die verworfenen Würfel nur noch 95'219 beziehungsweise 11'156 vorberechnete
 Zellen.](bilder/granularitaet.svg)
 
@@ -116,14 +116,14 @@ Schritt zum Würfel 249'398 — und mit ihnen jede feinere Frage.*
 
 | Tabelle | eine Zeile ist | Zeilen |
 | --- | --- | ---: |
-| `silver/crime_offense` | eine Anklage | 348'329 |
-| `gold/fact_offense` | eine Tat | 345'091 |
+| `silver/crime_offense` | eine Anklage | 347'957 |
+| `gold/fact_offense` | eine Tat | 344'617 |
 | ~~`fact_tract_month`~~ | Tract × Monat × Familie | 95'219 |
 | ~~`fact_city_day`~~ | Stadt × Tag × Familie | 11'156 |
 
 Silver hält jede **Anklage**, Gold jede **Tat**. Das ist ein kleiner Schritt —
 3'340 Zeilen, Detroits Mehrfachanklagen zum selben Vorfall. Er ist nötig, weil
-Detroit sonst 3,8 % zu hoch zählt.
+Detroit sonst 3,9 % zu hoch zählt (über 2021–2026 heute 4,6 %).
 
 Der Schritt zum Würfel ist ein anderes Kaliber: **249'398 Zeilen**, und mit
 ihnen jede Frage, die feiner ist als Monat und Deliktfamilie.
@@ -141,7 +141,7 @@ alle vier Achsen bleibt unter einer Zehntelsekunde.
 
 > **Der Befund**
 >
-> **Der Engpass ist nicht die Datenmenge.** Bei 1'895'123 Zeilen gewinnt eine
+> **Der Engpass ist nicht die Datenmenge.** Bei 1'900'131 Zeilen gewinnt eine
 > Vorberechnung nichts, was ein Mensch bemerken würde. Sie kostet aber genau
 > die Beweglichkeit, für die eine Auswertungsplattform da ist.
 

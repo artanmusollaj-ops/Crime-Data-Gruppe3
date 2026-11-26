@@ -14,7 +14,7 @@
   <g>
     <rect x="325" y="228" width="230" height="90" rx="5" class="signal" fill-opacity="0.10" stroke="currentColor" stroke-width="1.7"/>
     <text x="338" y="254" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">fact_offense</text>
-    <text x="338" y="274" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">1'895'123 Zeilen · eine Tat</text>
+    <text x="338" y="274" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">1'900'131 Zeilen · eine Tat</text>
     <text x="338" y="292" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.55" fill="currentColor">Schlüssel + Messgrössen</text>
   </g>
   <g>
@@ -44,13 +44,13 @@
   <g>
     <rect x="333" y="24" width="214" height="70" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
     <text x="346" y="48" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">dim_date</text>
-    <text x="346" y="66" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">2'149 Zeilen · ein Kalendertag</text>
+    <text x="346" y="66" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">2'153 Zeilen · ein Kalendertag</text>
     <text x="346" y="83" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.55" fill="currentColor">month · year_is_complete</text>
   </g>
   <g>
     <rect x="333" y="452" width="214" height="70" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
     <text x="346" y="476" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">dim_city_day</text>
-    <text x="346" y="494" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">4'298 Zeilen · Stadt und Tag</text>
+    <text x="346" y="494" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">4'306 Zeilen · Stadt und Tag</text>
     <text x="346" y="511" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.55" fill="currentColor">temp_max_c · sunset_utc</text>
   </g>
   <g>

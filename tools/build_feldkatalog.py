@@ -309,7 +309,7 @@ JE_TABELLE: dict[tuple[str, str], str] = {
     ("crime_offense", "counts"):
         "**Die zählende Zeile je Tat.** Detroit liefert je Vorfall mehrere "
         "Anklagen; genau eine trägt `true`. Gold nimmt nur diese - sonst "
-        "zählte Detroit 3,8 % zu hoch.",
+        "zählte Detroit über 2021–2026 4,6 % zu hoch.",
     ("crime_offense", "counts_reason"):
         "Warum diese Zeile zählt oder nicht: `eine_zeile_ist_ein_delikt` "
         "(Chicago), `anklage_ist_die_tat`, `schwerste_anklage`, "
@@ -429,7 +429,7 @@ JE_TABELLE: dict[tuple[str, str], str] = {
     #
     # Eigene Tabelle und keine Spalte an dim_tract: Die Dimension deckt beide
     # Countys ab (6'282 Zeilen) und waere mit Umrissen 26 MB statt 194 KB.
-    # Diese hier traegt nur die 1'055 Tracts mit Stadt.
+    # Diese hier traegt nur die 1'066 Tracts mit Stadt.
     ("dim_tract_geo", "tract_name"): "Bezeichnung des Tracts.",
 
     # --- rate_tract: die Rate je Tract, fuer die Karte --------------------

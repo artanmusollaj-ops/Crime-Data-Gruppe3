@@ -397,9 +397,9 @@ Fälle nachträglich ändert.
 
 ## 5 · Silver und Gold
 
-**Stand.** Beide Schichten sind gebaut: `silver/crime_offense` (1'917'351
+**Stand.** Beide Schichten sind gebaut: `silver/crime_offense` (1'922'278
 Zeilen über die Jahrgänge 2021–2026) und das Gold-Sternschema darauf
-(`fact_offense`, 1'895'123 Zeilen). Der
+(`fact_offense`, 1'900'131 Zeilen). Der
 früher hier genannte Detroit-eigene Normalisierer `transform_detroit.py` ist
 entfernt — er hätte eine zweite, unbelegte Kategorienzuordnung neben dem
 NIBRS-Crosswalk gehalten.
@@ -458,10 +458,10 @@ trägt.
 **Stand.** Alle vier Tabellen sind gebaut, jeweils mit Herkunftsnachweis über
 die Bronze-Läufe im Manifest: `tract` (6'282 Zeilen je Vintage, vier
 Vintages), `place` (2'206 Zeilen je Vintage, die Stadtgrenzen), `weather_day`
-(55'587 Zeilen, zwei Städte) und seit dem 10.9. `crime_offense` (1'917'351
-Zeilen über die Jahrgänge 2021–2026, 1'414'116 Chicago und 503'235 Detroit;
+(55'587 Zeilen, zwei Städte) und seit dem 10.9. `crime_offense` (1'922'278
+Zeilen über die Jahrgänge 2021–2026, 1'417'838 Chicago und 504'440 Detroit;
 Detroits Zeilen sind Anklagen, je Tat zählt eine —
-Gold kommt damit auf 1'895'123).
+Gold kommt damit auf 1'900'131).
 
 Der frühere Vorbehalt, `crime_offense` müsse auf Artans Zeitzonen-Fix warten,
 trägt nicht mehr: Sein Branch ändert das **Abfragefenster** — welche Zeilen in

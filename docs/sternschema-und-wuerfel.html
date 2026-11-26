@@ -163,8 +163,8 @@
   </header>
 
   <dl class="facts">
-    <div class="fact"><dt>Faktentabelle</dt><dd>1'895'123 Zeilen (2021–2026)</dd></div>
-    <div class="fact"><dt>Dimensionen</dt><dd>8 · 39'173 Zeilen</dd></div>
+    <div class="fact"><dt>Faktentabelle</dt><dd>1'900'131 Zeilen (2021–2026)</dd></div>
+    <div class="fact"><dt>Dimensionen</dt><dd>8 · 39'185 Zeilen</dd></div>
     <div class="fact"><dt>Brücken</dt><dd>2 · 3'814 Zeilen</dd></div>
     <div class="fact"><dt>Verworfen</dt><dd>2 Würfel</dd></div>
     <div class="fact"><dt>Gemessen</dt><dd>Notebook 34</dd></div>
@@ -285,7 +285,7 @@
   <g>
     <rect x="325" y="228" width="230" height="90" rx="5" fill="var(--signal)" fill-opacity="0.10" stroke="currentColor" stroke-width="1.7"/>
     <text x="338" y="254" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">fact_offense</text>
-    <text x="338" y="274" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">1'895'123 Zeilen · eine Tat</text>
+    <text x="338" y="274" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">1'900'131 Zeilen · eine Tat</text>
     <text x="338" y="292" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.55" fill="currentColor">Schlüssel + Messgrössen</text>
   </g>
   <g>
@@ -315,13 +315,13 @@
   <g>
     <rect x="333" y="24" width="214" height="70" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
     <text x="346" y="48" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">dim_date</text>
-    <text x="346" y="66" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">2'149 Zeilen · ein Kalendertag</text>
+    <text x="346" y="66" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">2'153 Zeilen · ein Kalendertag</text>
     <text x="346" y="83" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.55" fill="currentColor">month · year_is_complete</text>
   </g>
   <g>
     <rect x="333" y="452" width="214" height="70" rx="5" fill="currentColor" fill-opacity="0.045" stroke="currentColor" stroke-width="1.1"/>
     <text x="346" y="476" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13.5" font-weight="600" fill="currentColor">dim_city_day</text>
-    <text x="346" y="494" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">4'298 Zeilen · Stadt und Tag</text>
+    <text x="346" y="494" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="11.5" fill-opacity="0.78" fill="currentColor">4'306 Zeilen · Stadt und Tag</text>
     <text x="346" y="511" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10.5" fill-opacity="0.55" fill="currentColor">temp_max_c · sunset_utc</text>
   </g>
   <g>
@@ -378,21 +378,21 @@
     <h3>Warum die Dimensionen getrennt stehen</h3>
     <p>
       <strong>Die Faktentabelle bleibt schlank.</strong> Stünde in jeder der
-      1'895'123 Zeilen der Text <code>Larceny/Theft Offenses</code>, läge derselbe
+      1'900'131 Zeilen der Text <code>Larceny/Theft Offenses</code>, läge derselbe
       Satz zehntausendfach auf der Platte. Statt dessen steht dort <code>23C</code>
       — drei Zeichen — und die Bedeutung genau einmal in <code>dim_offense</code>.
     </p>
     <p>
       <strong>Die Dimensionen tragen die Auswahllisten.</strong> Eine Oberfläche,
       die „Delikt wählen" anbieten will, liest 85 Zeilen aus
-      <code>dim_offense</code> statt 1'895'123 Faktenzeilen zu durchsuchen. Dasselbe
+      <code>dim_offense</code> statt 1'900'131 Faktenzeilen zu durchsuchen. Dasselbe
       gilt für Städte, Tage, Tracts, Polizeibezirke und Stadtteile.
     </p>
     <p>
       <strong><code>dim_date</code> wird erzeugt, nicht abgeleitet.</strong> Ein Tag
       ohne Delikt hat keine Faktenzeile. Käme die Zeitachse aus den Fakten, fehlte
       dieser Tag — und eine Zeitreihe zeigte eine Lücke, wo eine Null stehen müsste.
-      Die Dimension kennt alle 2'149 Tage von 2021 bis 2026, ob etwas passiert ist
+      Die Dimension kennt alle 2'153 Tage von 2021 bis 2026, ob etwas passiert ist
       oder nicht — und sagt mit <code>year_is_complete</code>, welcher Jahrgang ganz
       in den Daten liegt.
     </p>
@@ -463,7 +463,7 @@
     <div class="note">
       <span class="tag">Der Befund</span>
       <p>
-        <strong>Der Engpass ist nicht die Datenmenge.</strong> Bei 1'895'123 Zeilen
+        <strong>Der Engpass ist nicht die Datenmenge.</strong> Bei 1'900'131 Zeilen
         gewinnt eine Vorberechnung nichts, was ein Mensch bemerken würde. Sie kostet
         aber genau die Beweglichkeit, für die eine Auswertungsplattform da ist.
       </p>
