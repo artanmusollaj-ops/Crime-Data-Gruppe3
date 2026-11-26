@@ -1,2 +1,1 @@
 city,source_code,nibrs_code,reason
-detroit,3072,26A,Fachlicher Prüffall: MICR 3072 bezeichnet laut Handbuch Retail Fraud Misrepresentation. Detroit liefert dagegen Retail Fraud – Theft. Alternative 26A im Kandidatenlauf untersuchen. Keine Veröffentlichung ohne fachliche Klärung.
