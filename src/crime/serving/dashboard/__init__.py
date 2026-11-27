@@ -52,6 +52,7 @@ Release ist unveraenderlich; nachgeladen wird also genau dann, wenn
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import shutil
@@ -88,6 +89,9 @@ KATEGORIEN_IM_BALKEN = 6
 UEBRIGE = "Übrige Kategorien"
 #: Wie oft hoechstens nachgesehen wird, ob ein neuer Stand vorliegt.
 PRUEFABSTAND_S = 60.0
+
+_log = logging.getLogger(__name__)
+
 #: Die Regel fuer eine Platzhalter-Tatzeit: Ortszeit genau 00:00:00 oder
 #: 12:00:00 (build_kibana._PLATZHALTERSTUNDEN). Sie gilt fuer die Heatmap und
 #: fuer die Tafel »Tag und Nacht« - einmal hier, damit beide dieselben Faelle
@@ -510,6 +514,31 @@ class Bestand:
             alt.close()
         if alt_auslagerung:
             shutil.rmtree(alt_auslagerung, ignore_errors=True)
+
+    def beobachten(self, halt: threading.Event | None = None) -> threading.Thread:
+        """Prueft im Hintergrund je Minute auf ein neues Release und laedt es.
+
+        Bis zum 27.11.2026 rief jede Anfrage ``aktuell()`` auf. Die eine, die
+        den neuen Stand bemerkte, baute ihn dann selbst auf und wartete rund
+        20 Sekunden (auf ``srv01`` gemessen). Jetzt baut dieser Faden ihn auf.
+        Bis zum Wechsel unter ``_sperre`` antworten alle Anfragen aus dem
+        alten Bestand. Ein Fehler beim Nachladen laesst den alten Stand
+        stehen, wird protokolliert und beim naechsten Durchgang wiederholt.
+        ``halt`` beendet den Faden (fuer Tests); im Betrieb laeuft er, solange
+        der Prozess laeuft.
+        """
+        halt = halt or threading.Event()
+
+        def schleife() -> None:
+            while not halt.wait(PRUEFABSTAND_S):
+                try:
+                    self.aktuell()
+                except Exception:  # der alte Bestand bleibt, der naechste Versuch kommt
+                    _log.exception("Dashboard: neues Release nicht geladen")
+
+        faden = threading.Thread(target=schleife, name="dashboard-nachladen", daemon=True)
+        faden.start()
+        return faden
 
     def aktuell(self) -> None:
         """Laedt nach, wenn sich der Stand geaendert hat - hoechstens einmal je Minute."""

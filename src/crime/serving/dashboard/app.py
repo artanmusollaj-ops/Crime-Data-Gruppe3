@@ -8,6 +8,7 @@ Anwendung nicht schon schuetzt.
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
 from pathlib import Path
@@ -21,24 +22,50 @@ _STATISCH = Path(__file__).parent / "static"
 #: Woher die Hintergrundkacheln kommen; ``static/karte.js`` laedt von dort.
 KACHELHOST = "https://tile.openstreetmap.org"
 
+_log = logging.getLogger(__name__)
 
-def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None = None) -> Flask:
+
+def vorladen_vorgabe() -> bool:
+    """``DASHBOARD_VORLADEN`` aus der Umgebung; der Verbund auf srv01 setzt es."""
+    return (os.getenv("DASHBOARD_VORLADEN") or "").strip().lower() in {"1", "true", "ja"}
+
+
+def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None = None,
+               vorladen: bool | None = None) -> Flask:
+    """Die App. Mit ``vorladen`` baut sie den Bestand gleich im Hintergrund auf.
+
+    Ohne Vorladen baute die erste Anfrage nach einem Start den Bestand und
+    wartete rund 20 Sekunden (auf ``srv01`` gemessen am 27.11.2026). Wer
+    danach kam, merkte nichts. Mit Vorladen beginnt der Aufbau beim Start.
+    Nur wer in den ersten Sekunden kommt, wartet noch, und zwar auf denselben
+    Aufbau statt auf einen eigenen. Ein eingeschobener ``bestand`` (Tests)
+    laedt nie vor und wird nicht beobachtet.
+    """
     app = Flask(__name__, static_folder=None)
     wurzel = for_root(data_root or os.getenv("DASHBOARD_DATA_ROOT")).local_root
     zustand = {"bestand": bestand}
     sperre = threading.Lock()
 
     def daten() -> Bestand:
-        # Erst bei der ersten Anfrage geladen: gunicorn startet schneller, und
-        # /healthz antwortet, auch wenn der Bestand noch fehlt. Unter der
-        # Sperre, weil gunicorn mit vier Threads laeuft: Ohne sie luden die
-        # ersten gleichzeitigen Anfragen den Bestand mehrfach nebeneinander.
+        # Unter der Sperre, weil gunicorn mit vier Threads laeuft: Ohne sie
+        # luden die ersten gleichzeitigen Anfragen den Bestand mehrfach
+        # nebeneinander. Laeuft das Vorladen noch, wartet die Anfrage hier
+        # auf dessen Ergebnis. Neue Releases laedt Bestand.beobachten im
+        # Hintergrund nach; keine Anfrage prueft mehr selbst.
         with sperre:
             if zustand["bestand"] is None:
                 zustand["bestand"] = Bestand(wurzel)
-                return zustand["bestand"]
-        zustand["bestand"].aktuell()
-        return zustand["bestand"]
+                zustand["bestand"].beobachten()
+            return zustand["bestand"]
+
+    def vorlade() -> None:
+        try:
+            daten()
+        except Exception:  # dann laedt die erste Anfrage, wie vor dem 27.11.2026
+            _log.exception("Dashboard: Vorladen gescheitert")
+
+    if bestand is None and (vorladen_vorgabe() if vorladen is None else vorladen):
+        threading.Thread(target=vorlade, name="dashboard-vorladen", daemon=True).start()
 
     @app.after_request
     def kopfzeilen(antwort):
@@ -66,7 +93,9 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
 
     @app.get("/healthz")
     def gesund():
-        return jsonify({"status": "ok"})
+        # Gesund auch waehrend des Ladens: Der Dienst steht, und eine Anfrage
+        # wartete nur. Ob der Bestand schon da ist, steht daneben.
+        return jsonify({"status": "ok", "bestand": zustand["bestand"] is not None})
 
     @app.get("/")
     def seite():
