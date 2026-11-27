@@ -86,6 +86,31 @@ check('Antragsteller sieht Übertragung mit Hinweis zur automatischen Berechnung
  assert.equal(transfer.attributes['aria-describedby'],hint.id);
  assert.equal(hint.children[0].attributes['aria-hidden'],'true');
 });
+check('Veraltete Git-Basis bleibt während und nach einer fehlgeschlagenen Rücknahme gesperrt',()=>{
+ const pr={kind:'git-open',status:'FAILED',payload:'{"id":"r"}',
+  result:'{"error":"Main/Repository seit Simulation veraendert; Review zurueckziehen und neu simulieren"}'};
+ shownImpact={...reviewed,baseline_release_id:current.active_release_id};
+ for(const [status,heading] of [['QUEUED','eingereiht'],['RUNNING','läuft'],['FAILED','fehlgeschlagen']]){
+  const withdrawal={kind:'git-withdraw',status,payload:'{"id":"r"}'};
+  context.gitJobs.set('r',withdrawal);
+  context.operationsData={operations:[withdrawal,pr]};
+  context.state.operator='Artan';
+  context.renderRequestPublication(r);
+  assert.ok(labels(feedback).includes('Rücknahme der Freigabe '+heading));
+  assert.equal(feedback.children.at(-1).children[0].disabled,true);
+  assert.equal(git.children[0].disabled,true);
+ }
+ context.state.operator='Christian';
+ context.renderRequestPublication(r);
+ assert.equal(feedback.children.find(b=>b.textContent==='Rücknahme erneut anfordern').disabled,false);
+
+ shownImpact={...shownImpact,status:'WITHDRAWN'};
+ context.state.operator='Artan';
+ context.renderRequestPublication(r);
+ assert.equal(feedback.children.at(-1).children[0].disabled,false);
+ context.gitJobs.clear();
+ context.operationsData={operations:[]};
+});
 shownImpact={...reviewed,status:'WITHDRAWN'};
 context.state.operator='Christian';
 context.state.release_events=[{revision_id:'r',action:'PROPOSAL_REBASED',evidence:'{"new_revision_id":"r2"}'}];

@@ -31,8 +31,10 @@ def _run_entry(store, relative):
             "row_count", value.get("downloaded_count", value.get("rows"))
         ),
         "watermark": value.get("watermark"),
-        "completed_at_utc": value.get(
-            "completed_at_utc", value.get("completed_at")
+        "completed_at_utc": (
+            value.get("completed_at_utc")
+            or value.get("completed_at")
+            or value.get("finished_at")
         ),
         "relative_path": rel,
     }
@@ -145,7 +147,7 @@ def source_code(store, city, module=None, run_path=None):
         # Only documented non-secret metadata, never arbitrary source URLs or credentials.
         fields = ("run_id", "status", "mode", "extraction_mode", "event_year", "year",
                   "years", "lookback_days", "reference_date", "started_at_utc",
-                  "completed_at_utc", "started_at", "completed_at", "row_count",
+                  "completed_at_utc", "started_at", "completed_at", "finished_at", "row_count",
                   "downloaded_count", "rows", "code_version")
         result["run"] = {key: value[key] for key in fields if key in value}
         result["run_path"] = run_path

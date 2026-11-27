@@ -345,6 +345,22 @@ dialog::backdrop{background:#14263880}
 .action-hint-icon{flex:none;font-size:16px}
 @media(max-width:650px){.publication-flow{grid-template-columns:1fr 1fr}}
 @media(max-width:650px){.operation-facts{grid-template-columns:1fr;gap:6px}.operation-facts dd{margin-bottom:14px}.backup-scope{grid-template-columns:1fr}.operation-tabs button{flex:1}}
+#source-code-lines li.match.current-match{box-shadow:inset 0 0 0 2px #173e54;background:#ffd873}
+#code-search-results{margin-top:12px;border:1px solid #ccdce4;border-radius:7px;overflow:hidden}
+#code-search-results summary{padding:10px 14px;background:#f1f6f8;color:#1d3041}
+#code-search-results summary .hit-toggle{float:right;margin-left:8px;color:#24576a;font-size:.875rem;font-weight:600}
+#code-search-results:not([open]) .hit-collapse,#code-search-results[open] .hit-expand{display:none}
+#code-search-position{margin-left:12px;font-size:.875rem;color:#526c7e}
+#code-search-hits{position:relative;max-height:8.5rem;overflow-y:auto;list-style:none;margin:0;padding:0}
+#code-search-hits li+li{border-top:1px solid #e3ebf0}
+#code-search-hits button{display:flex;gap:12px;align-items:baseline;width:100%;margin:0;padding:7px 12px;border:0;border-left:4px solid transparent;border-radius:0;background:#fff;color:#1d3041;text-align:left;font:inherit}
+#code-search-hits button[aria-current="location"]{background:#e5f3f5;border-left-color:#247386}
+#code-search-hits button:focus-visible,#code-search-results summary:focus-visible{outline:2px solid #247386;outline-offset:-2px}
+#code-search-hits .hit-line{flex:none;color:#456578;font-size:.875rem;font-weight:600}
+#code-search-hits code{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:pre}
+#code-search-hits mark{background:#ffe99c;color:inherit}
+#code-search-help{margin:8px 0;color:#526c7e;font-size:.875rem}
+#code-search-status.has-results{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 
 .operations-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:16px;align-items:start}
 .operation-filters,.operations-running,.operation-detail-actions{display:flex;gap:12px;flex-wrap:wrap}
@@ -394,7 +410,7 @@ dialog::backdrop{background:#14263880}
 <button type="button" data-page="operations"><svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-settings"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>Betrieb</button>
  <div class="console-nav-foot"><strong>URBAN CRIME</strong><br>Chicago & Detroit</div>
 </nav>
-<aside id="code-drawer" role="dialog" aria-label="Ladelogik ansehen" hidden><button id="code-close">Schliessen</button><h2 id="code-title">Ladelogik</h2><p id="code-version" class="notice"></p><div class="tabs"><button id="source-full">Full Load</button><button id="source-daily">Delta (Wasserzeichen)</button></div><p id="highlight-legend" class="notice"></p><button id="next-highlight">Nächste markierte Stelle</button><span id="highlight-count"></span><label for="code-module">Python-Datei</label><select id="code-module"></select><pre id="code-meta"></pre><label for="code-search">Im Code suchen</label><input id="code-search" type="search"><p id="code-search-status" aria-live="polite"></p><ol id="source-code-lines"></ol></aside>
+<aside id="code-drawer" role="dialog" aria-label="Ladelogik ansehen" hidden><button id="code-close">Schliessen</button><h2 id="code-title">Ladelogik</h2><p id="code-version" class="notice"></p><div class="tabs"><button id="source-full">Full Load</button><button id="source-daily">Delta (Wasserzeichen)</button></div><p id="highlight-legend" class="notice"></p><button id="next-highlight">Nächste markierte Stelle</button><span id="highlight-count"></span><label for="code-module">Python-Datei</label><select id="code-module"></select><pre id="code-meta"></pre><label for="code-search">Im Code suchen</label><input id="code-search" type="search"><p id="code-search-status" aria-live="polite"></p><details id="code-search-results" open hidden><summary><strong>Trefferübersicht</strong><span id="code-search-position"></span><span class="hit-toggle hit-collapse">Trefferliste einklappen</span><span class="hit-toggle hit-expand">Trefferliste ausklappen</span></summary><ol id="code-search-hits"></ol></details><p id="code-search-help" hidden>Enter im Suchfeld springt zum nächsten Treffer. Klicke auf eine Zeile, um sie im Code zu öffnen.</p><ol id="source-code-lines"></ol></aside>
 <main><div id="message" role="status" aria-live="polite"></div>
 <div id="page-changes" class="workspace">
 <div class="workspace-heading board-heading"><div><small>Änderungsanträge & Review</small><h1>Aufgaben nach Arbeitsstand</h1><p>Mapping, Konfiguration und Kandidaten im Überblick.</p></div><button type="button" id="new-proposal" aria-controls="proposal-tools" aria-expanded="false" translate="no" disabled><span class="proposal-plus" aria-hidden="true">+</span><span id="new-proposal-label">Neuer Vorschlag</span></button></div>
@@ -843,6 +859,9 @@ async function openSourceCode(city,run,module){
  const request=++sourceRequest;sourceContext={city,run};
  if($('code-drawer').hidden)sourceReturnFocus=document.activeElement;
  $('code-drawer').hidden=false;$('code-title').textContent=city+' · Ladelogik';$('code-version').textContent='Lade Quelltext …';$('source-code-lines').replaceChildren();$('code-meta').textContent='';$('code-module').disabled=true;$('code-close').focus();
+ $('code-search').value='';
+ updateCodeSearch();
+ $('code-search-results').open=true;
  try{const data=await api('source-code?city='+encodeURIComponent(city)+(run?'&run='+encodeURIComponent(run):'')+(module?'&module='+encodeURIComponent(module):''));if(request!==sourceRequest)return;
  $('code-version').textContent=data.version_note+(data.history_note?' '+data.history_note:'');$('code-module').replaceChildren();for(const name of data.modules){const o=document.createElement('option');o.value=name;o.textContent=name;$('code-module').append(o)}$('code-module').value=data.module;$('code-module').disabled=false;
  sourceHighlights=data.highlights||{};$('code-meta').textContent='Datei-SHA-256: '+data.sha256+(data.run?'\nDokumentierte Laufdaten:\n'+JSON.stringify(data.run,null,2):'');
@@ -853,7 +872,73 @@ function closeSourceCode(){sourceRequest++;$('code-drawer').hidden=true;sourceRe
 $('code-close').onclick=closeSourceCode;
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('code-drawer').hidden)closeSourceCode()});
 $('code-module').onchange=()=>openSourceCode(sourceContext.city,sourceContext.run,$('code-module').value);
-$('code-search').oninput=()=>{const q=$('code-search').value.toLocaleLowerCase();let count=0,first;for(const li of $('source-code-lines').children){const hit=!!q&&li.textContent.toLocaleLowerCase().includes(q);li.classList.toggle('match',hit);if(hit){count++;first=first||li}}$('code-search-status').textContent=q?count+' passende Zeilen':'Suche eingeben';if(first)first.scrollIntoView({block:'nearest'})};
+let codeSearchMatches=[];
+let codeSearchIndex=-1;
+function showCodeSearchMatch(index){
+ const previous=codeSearchMatches[codeSearchIndex];
+ previous?.line.classList.remove('current-match');
+ previous?.button.removeAttribute('aria-current');
+ codeSearchIndex=index;
+ const {line,button}=codeSearchMatches[index];
+ line.classList.add('current-match');
+ button.setAttribute('aria-current','location');
+ const position=tr('Treffer {current} von {total}','Match {current} of {total}')
+  .replace('{current}',index+1).replace('{total}',codeSearchMatches.length);
+ $('code-search-position').textContent=position;
+ $('code-search-status').textContent=position;
+ if($('code-search-results').open){
+  const list=$('code-search-hits');
+  const {offsetTop:top,offsetHeight:height}=button.parentElement;
+  if(top<list.scrollTop)list.scrollTop=top;
+  else if(top+height>list.scrollTop+list.clientHeight)list.scrollTop=top+height-list.clientHeight;
+ }
+ line.scrollIntoView({block:'nearest',inline:'nearest'});
+}
+function updateCodeSearch(){
+ const query=$('code-search').value;
+ const pattern=query?new RegExp(query.replace(/[.*+?^$(){}|[\]\\]/g,'\\$&'),'giu'):null;
+ const list=$('code-search-hits');
+ const entries=document.createDocumentFragment();
+ codeSearchMatches=[];
+ codeSearchIndex=-1;
+ for(const [index,line] of Array.from($('source-code-lines').children).entries()){
+  const snippet=line.textContent;
+  const hits=pattern?Array.from(snippet.matchAll(pattern)):[];
+  line.classList.toggle('match',hits.length>0);
+  line.classList.remove('current-match');
+  if(!hits.length)continue;
+  const item=element('li');
+  const matchIndex=codeSearchMatches.length;
+  const jump=button(item,'',()=>showCodeSearchMatch(matchIndex));
+  jump.type='button';
+  const preview=element('code');
+  preview.title=snippet.trimStart();
+  let offset=0;
+  for(const hit of hits){
+   const before=snippet.slice(offset,hit.index);
+   preview.append(offset===0?before.trimStart():before,element('mark',hit[0]));
+   offset=hit.index+hit[0].length;
+  }
+  preview.append(snippet.slice(offset));
+  jump.append(element('span',tr('Zeile','Line')+' '+(index+1),'hit-line'),preview);
+  entries.append(item);
+  codeSearchMatches.push({line,button:jump});
+ }
+ list.replaceChildren(entries);
+ list.scrollTop=0;
+ const hasResults=codeSearchMatches.length>0;
+ $('code-search-results').hidden=!hasResults;
+ $('code-search-help').hidden=!hasResults;
+ $('code-search-status').classList.toggle('has-results',hasResults);
+ if(hasResults)showCodeSearchMatch(0);
+ else $('code-search-status').textContent=query?tr('Keine passenden Zeilen','No matching lines'):tr('Suche eingeben');
+}
+$('code-search').oninput=updateCodeSearch;
+$('code-search').onkeydown=event=>{
+ if(event.key!=='Enter'||event.isComposing||event.shiftKey||event.ctrlKey||event.altKey||event.metaKey)return;
+ event.preventDefault();
+ if(codeSearchMatches.length)showCodeSearchMatch((codeSearchIndex+1)%codeSearchMatches.length);
+};
 function configuredJob(name){return state?.settings.payload.jobs.find(job=>job.name===name)}
 function loadChicagoForm(){const task=$('chicago-task').value,spec=configuredJob(task==='daily_chicago'?'chicago_daily':'chicago_full');if(spec){$('chicago-time').value=spec.at_utc;$('chicago-enabled').value=String(spec.enabled);$('chicago-year').value=spec.year;if(spec.lookback_days)$('chicago-lookback').value=spec.lookback_days}$('chicago-lookback').disabled=true}
 function loadDetroitForm(){const task=$('detroit-task').value,spec=configuredJob(task==='daily_detroit'?'detroit_daily':task==='delta_detroit'?'detroit_delta':'detroit_full');if(spec){$('detroit-time').value=spec.at_utc;$('detroit-enabled').value=String(spec.enabled);if(spec.lookback_days)$('detroit-lookback').value=spec.lookback_days;if(spec.years)$('detroit-years').value=spec.years.join(', ')}$('detroit-lookback').disabled=task!=='daily_detroit';$('detroit-years').disabled=task==='daily_detroit'}
@@ -1027,6 +1112,8 @@ document.querySelectorAll('[data-operation-tab]').forEach(tab=>tab.onclick=()=>{
 async function downloadArchive(iid){const response=await fetch('/api/impact-archive?id='+encodeURIComponent(iid),{headers:headers()});if(!response.ok){const e=await response.json();throw Error(e.error)}const url=URL.createObjectURL(await response.blob()),a=document.createElement('a');a.href=url;a.download='impact-'+iid+'.zip';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 // Nur Oberflächentexte übersetzen. JSON, Code, Protokolle und Nutzereingaben bleiben unverändert.
 const consoleTranslations={
+ 'Trefferübersicht':'Search results','Trefferliste einklappen':'Collapse results','Trefferliste ausklappen':'Expand results',
+ 'Enter im Suchfeld springt zum nächsten Treffer. Klicke auf eine Zeile, um sie im Code zu öffnen.':'Press Enter in the search field for the next match. Select a result to jump to its line.',
  'Importhistorie':'Import history','Ladeart':'Load mode','Abschluss (Zürich)':'Completed (Zurich)',
  'Laufnachweis öffnen':'Open run evidence','Aktuelle Ladelogik':'Current ingestion logic',
  'Verknüpfte Nachweise':'Linked evidence','Manifest und Prüfsumme':'Manifest and checksum',
@@ -1623,7 +1710,7 @@ async function showEvidence(city,run){
  context.append(element('strong',(city==='chicago'?'Chicago':'Detroit')+' · '+(manifest.mode||manifest.extraction_mode||'Nicht dokumentiert')),sourceRunStatus(manifest.status));
  const facts=element('dl',null,'operation-facts');
  operationFacts(facts,[['Start (Zürich)',dateTime(manifest.started_at_utc||manifest.started_at)],
-  ['Ende (Zürich)',dateTime(manifest.completed_at_utc||manifest.completed_at)]]);
+  ['Ende (Zürich)',dateTime(manifest.completed_at_utc||manifest.completed_at||manifest.finished_at)]]);
  box.append(context,facts,element('h3','Verknüpfte Nachweise'));
  const links=element('ul',null,'source-evidence-links');
  function addLink(label,action){
@@ -2189,8 +2276,16 @@ function renderArchiveActions(impact){
 function renderRequestPublication(revision){
  const impact=requestImpact(revision);
  const stale=staleReview(impact,state);
+ const job=gitJobs.get(revision.id);
+ const rows=(operationsData?.operations||[]).filter(op=>op.kind.startsWith('git-')&&operationPayload(op).id===revision.id);
+ const prJob=rows.find(op=>op.kind==='git-open');
+ const prError=operationPayload({payload:prJob?.result}).error;
+ const mainChanged=impact?.status==='AWAITING_GIT'&&prJob?.status==='FAILED'&&typeof prError==='string'&&
+  (prError.startsWith('Main/Repository seit Simulation veraendert;')||prError.startsWith('Main wurde veraendert; Git-Vorschlag neu abgleichen'));
+ const outdated=stale||mainChanged;
+ const busy=['QUEUED','RUNNING'].includes(job?.status);
  const replacement=(state.release_events||[]).find(e=>e.revision_id===revision.id&&e.action==='PROPOSAL_REBASED');
- const signature=JSON.stringify([revision,impact?.status,impact?.published_release_id,stale,replacement,operationsData,state.roles,state.operator]);
+ const signature=JSON.stringify([revision,impact?.status,impact?.published_release_id,stale,mainChanged,replacement,rows,state.roles,state.operator,gitChanges.get(revision.id),gitEnabled]);
  if($('request-git-actions').dataset.signature===signature)return;
  $('request-git-actions').dataset.signature=signature;
  renderRequestGit(revision);
@@ -2211,9 +2306,9 @@ function renderRequestPublication(revision){
  feedback.replaceChildren();
  feedback.hidden=true;
  if(['mapping','settings'].includes(revision.resource)){
-  const change=gitChanges.get(revision.id),job=gitJobs.get(revision.id);
+  const change=gitChanges.get(revision.id);
   const action=publicationAction(revision,impact,change,job,gitEnabled,state.roles||[],state.operator);
-  const blocked=stale||impact?.status==='WITHDRAWN'||!!replacement;
+  const blocked=outdated||impact?.status==='WITHDRAWN'||!!replacement;
   $('request-git-reason').disabled=!action||blocked;
   $('request-git-reason').hidden=!action&&!blocked;document.querySelector('label[for="request-git-reason"]').hidden=$('request-git-reason').hidden;
   if($('request-git-reason').dataset.revision!==revision.id){$('request-git-reason').value='';$('request-git-reason').dataset.revision=revision.id}
@@ -2234,11 +2329,28 @@ function renderRequestPublication(revision){
    showFeedback('An Antragsteller retourniert','Der Antragsteller hat die Neuberechnung des Impacts auf aktueller Prüfbasis bereits ausgelöst.',true);
    const newId=operationPayload({payload:replacement.evidence})?.new_revision_id;
    if(revisionsById.has(newId))button(feedback,'Neuen Vorschlag öffnen',()=>openRequest(revisionsById.get(newId)));
-  }else if(stale||impact?.status==='WITHDRAWN'){
-   showFeedback(stale?'Prüfbasis hat sich geändert':'An Antragsteller retourniert',
-    stale?'Der aktive Datenstand oder die Konfiguration weicht vom geprüften Stand ab.':'Die fachliche Freigabe wurde zurückgezogen.',!stale);
+  }else if(outdated||impact?.status==='WITHDRAWN'){
+   if(mainChanged){
+    const withdrawal=job?.kind==='git-withdraw'?job.status:null;
+    const headings={
+     QUEUED:tr('Rücknahme der Freigabe eingereiht','Approval withdrawal queued'),
+     RUNNING:tr('Rücknahme der Freigabe läuft','Withdrawing approval'),
+     FAILED:tr('Rücknahme der Freigabe fehlgeschlagen','Approval withdrawal failed'),
+    };
+    showFeedback(headings[withdrawal]||tr('Prüfbasis hat sich geändert'),
+     tr('Git-Main wurde seit der Impact-Analyse geändert. Für einen Pull Request sind eine neue Impact-Analyse und eine erneute Freigabe nötig.',
+        'Git main changed after the impact analysis. A pull request requires a new impact analysis and approval.'),
+     withdrawal==='QUEUED'||withdrawal==='RUNNING');
+    if(withdrawal==='FAILED'){
+     const error=operationPayload({payload:job.result}).error;
+     if(error)feedback.append(element('p',error));
+    }
+   }else{
+    showFeedback(stale?'Prüfbasis hat sich geändert':'An Antragsteller retourniert',
+     stale?'Der aktive Datenstand oder die Konfiguration weicht vom geprüften Stand ab.':'Die fachliche Freigabe wurde zurückgezogen.',!stale);
+   }
    if(own(revision)&&state.roles.includes('engineer')){
-    if(stale&&change)feedback.append(element('p','Ein Reviewer muss den bestehenden Git-Vorgang zuerst zurückziehen.'));
+    if(stale&&change&&!mainChanged)feedback.append(element('p','Ein Reviewer muss den bestehenden Git-Vorgang zuerst zurückziehen.'));
     else{
      const transferActions=element('div',null,'transfer-actions');
      const transfer=button(transferActions,'Vorschlag auf aktuelle Basis übertragen',async()=>{
@@ -2250,12 +2362,16 @@ function renderRequestPublication(revision){
        const next=revisionsById.get(response.result);
        if(selectedRevision===revision.id&&next)await openRequest(next);
       }catch(error){message(error.message)}
-     },['QUEUED','RUNNING'].includes(job?.status));
+     },mainChanged||busy);
      const hint=element('small',null,'action-hint');
      hint.id='transfer-impact-hint';
      const icon=element('span','ⓘ','action-hint-icon');
      icon.setAttribute('aria-hidden','true');
-     hint.append(icon,element('span','Der Impact wird automatisch neu berechnet.'));
+     const guidance=mainChanged
+      ?tr('Verfügbar nach erfolgreicher Rücknahme der Freigabe durch einen Reviewer.',
+          'Available after a reviewer successfully withdraws the approval.')
+      :'Der Impact wird automatisch neu berechnet.';
+     hint.append(icon,element('span',guidance));
      transfer.setAttribute('aria-describedby',hint.id);
      transferActions.append(hint);
      feedback.append(transferActions);
@@ -2266,17 +2382,20 @@ function renderRequestPublication(revision){
   }
   const facts=$('request-git-facts');operationFacts(facts,[['Quellbranch',change?.branch],['Zielbranch',change?.evidence?.base_branch||change?.base_branch],['PR-Commit',change?.commit_sha],['Merge-Commit',change?.merge_sha]]);
   if(change?.url?.startsWith('https://github.com/')){const link=element('a',change.number?'Pull Request #'+change.number:'Pull Request öffnen');link.href=change.url;link.target='_blank';link.rel='noopener noreferrer';facts.append(link)}
-  const log=$('request-git-log'),rows=(operationsData?.operations||[]).filter(op=>op.kind.startsWith('git-')&&operationPayload(op).id===revision.id),signature=JSON.stringify(rows);
+  const log=$('request-git-log'),signature=JSON.stringify(rows);
   if(log.dataset.signature!==signature){log.dataset.signature=signature;operationLog(log,rows)}
  }
  if(impact?.status==='AWAITING_GIT'&&(state.roles||[]).includes('reviewer')&&!own(revision)){
-  button(stale?feedback:git,stale?'Workflow an Antragsteller retournieren':'Freigabe zurückziehen',async()=>{
+  const retry=mainChanged&&job?.kind==='git-withdraw'&&job.status==='FAILED';
+  const label=retry?tr('Rücknahme erneut anfordern','Request withdrawal again')
+   :outdated?'Workflow an Antragsteller retournieren':'Freigabe zurückziehen';
+  button(outdated?feedback:git,label,async()=>{
    const reason=prompt(tr('Begründung für die Rücknahme der Freigabe'));
    if(!reason)return;
    await api('git-withdraw',{id:revision.id,reason});
    message('Rücknahme zur Prüfung eingereiht');
    await refresh();
-  },['QUEUED','RUNNING'].includes(gitJobs.get(revision.id)?.status)).className='secondary';
+  },busy).className='secondary';
  }
  const publish=$('request-publish-action');
  publish.replaceChildren();
