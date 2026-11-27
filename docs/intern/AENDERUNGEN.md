@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'540** |
+| Tests | **3'541** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'922'278 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'900'131** Zeilen (eine Tat) |
@@ -112,6 +112,35 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 27.11.2026 · Auch eine Modulfixture sieht keine `.env` (Branch `tests-ohne-env-in-modulfixtures`)
+
+Seit dem 26.11.2026 scheiterten auf Christians Rechner sechs der achtzehn
+Tests in `tests/serving/test_dashboard_taten.py`. In CI und in einem frischen
+Checkout waren sie grün. Der Unterschied war die `.env`, die auf den Eimer
+zeigt.
+
+**Ursache.** `conftest._frische_ablage` räumt Umgebung und Ablage je Test auf.
+Die Fixture `bestand` hat aber `scope="module"` und entsteht vor ihr. Am Ende
+des vorigen Tests steht die Standardablage auf `None`, also las
+`storage.get_storage()` sie neu, mit `.env`. So baute `build_comparison` aus
+`gold/` im echten Eimer, und das Dashboard las dessen aktives Release statt
+der Testdaten. Das trifft jede Fixture mit `scope="module"` oder höher, die
+eine Ablage braucht. `bestand` fiel nur als erste auf.
+
+**Korrektur.** Neu in `tests/conftest.py` ist `_keine_env_fuer_die_ablage`,
+autouse mit `scope="session"`. Sie entsteht vor jeder Modulfixture, entfernt
+dieselben Umgebungsvariablen wie `_frische_ablage` und lässt
+`storage.config.find_dotenv` nichts finden. Kein Test brauchte diese `.env`.
+Wer `load` prüft, ruft es mit `dotenv=False` auf.
+
+**Wächter.** `tests/test_keine_env_vor_dem_test.py` legt eine `.env` mit
+`STORAGE_BACKEND=s3` ins Arbeitsverzeichnis und fragt aus einer Modulfixture
+nach der Ablage. Vor der Korrektur kam `'s3'` zurück, danach `'local'`.
+
+Tests 3'541 (+1), Standardauswahl 3'430. Beide Läufe grün: Standardlauf
+3'416 bestanden, 14 übersprungen; `-m referenzstand` 110 bestanden,
+1 übersprungen. Die Testzahl ist an allen bewachten Stellen nachgezogen.
 
 ## 26.11.2026 · S-11 ist erledigt (Branch `s11-erledigt`)
 

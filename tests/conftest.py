@@ -54,14 +54,38 @@ import pytest  # noqa: E402
 import storage  # noqa: E402
 
 
+_UMGEBUNG_DES_BETRIEBS = (
+    "STORAGE_BACKEND", "LOCAL_DATA_ROOT", "S3_ENDPOINT", "S3_ACCESS_KEY",
+    "S3_SECRET_KEY", "S3_BUCKET", "S3_USE_SSL", "HYBRID_READ_PRIORITY",
+    "HYBRID_PUBLISH_AFTER_WRITE", "PROJECT_ROOT", "GIT_COMMIT",
+    "ELASTICSEARCH_URL", "CLICKHOUSE_URL", "KIBANA_URL",
+    "DASHBOARD_URL", "SERVING_BETRIEB", "EINSTIEG_ADRESSMUSTER",
+    "STAPEL_COMPOSE", "STAPEL_DATENLAUF")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _keine_env_fuer_die_ablage():
+    """Fuer die ganze Sitzung: ``storage.config.load`` findet keine ``.env``.
+
+    ``_frische_ablage`` unten gilt je Test. Eine Fixture mit ``scope="module"``
+    entsteht aber vor ihr, und nach dem vorigen Test steht die Ablage auf
+    ``None``; ``get_storage()`` las dann die ``.env`` des Entwicklers. Am
+    26.11.2026 baute ``test_dashboard_taten.bestand`` so aus dem echten Eimer
+    (``tests/test_keine_env_vor_dem_test.py``). Eine Sitzungsfixture entsteht
+    vor jeder Modulfixture. Kein Test braucht die ``.env`` der Ablage; wer
+    eine pruefen will, ruft ``load(env, dotenv=False)``.
+    """
+    from storage import config as ablage_config
+    with pytest.MonkeyPatch.context() as mp:
+        for name in _UMGEBUNG_DES_BETRIEBS:
+            mp.delenv(name, raising=False)
+        mp.setattr(ablage_config, "find_dotenv", lambda *a, **k: "")
+        yield
+
+
 @pytest.fixture(autouse=True)
 def _frische_ablage(monkeypatch):
-    for name in ("STORAGE_BACKEND", "LOCAL_DATA_ROOT", "S3_ENDPOINT", "S3_ACCESS_KEY",
-                 "S3_SECRET_KEY", "S3_BUCKET", "S3_USE_SSL", "HYBRID_READ_PRIORITY",
-                 "HYBRID_PUBLISH_AFTER_WRITE", "PROJECT_ROOT", "GIT_COMMIT",
-                 "ELASTICSEARCH_URL", "CLICKHOUSE_URL", "KIBANA_URL",
-                 "DASHBOARD_URL", "SERVING_BETRIEB", "EINSTIEG_ADRESSMUSTER",
-                 "STAPEL_COMPOSE", "STAPEL_DATENLAUF"):
+    for name in _UMGEBUNG_DES_BETRIEBS:
         monkeypatch.delenv(name, raising=False)
     storage.set_storage(storage.Storage(storage.Config()))
     yield
