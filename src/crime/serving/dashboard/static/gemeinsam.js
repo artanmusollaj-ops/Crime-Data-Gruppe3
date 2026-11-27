@@ -131,8 +131,8 @@ function zeitwahl(o, brett, url) {
   };
   const tagVon = feld("von", "tag-von", "von Tag"), tagBis = feld("bis", "tag-bis", "bis Tag");
   const vorgabe = Object.assign(document.createElement("select"), { id: "vorgabe" });
-  vorgabe.setAttribute("aria-label", "Vorgabe");
-  vorgabe.append(new Option("Vorgabe …", ""), ...o.vorgaben.map((v, i) => new Option(v.name, i)));
+  vorgabe.setAttribute("aria-label", "Schnellauswahl");
+  vorgabe.append(new Option("Schnellauswahl …", ""), ...o.vorgaben.map((v, i) => new Option(v.name, i)));
   const tagfeld = document.createElement("label");
   tagfeld.className = "tagwahl";
   tagfeld.append("Zeitraum", tagVon, Object.assign(document.createElement("span"),
@@ -154,7 +154,8 @@ function zeitwahl(o, brett, url) {
     tagBis.value = url.get("bis") || url.get("von");
   }
   // Die Liste zeigt die Vorgabe, die den Zeitraum trifft; aendert jemand
-  // ein Datum von Hand, steht sie wieder auf »Vorgabe …«.
+  // ein Datum von Hand, steht sie wieder auf »Schnellauswahl …« (bis zum
+  // 27.11.2026 hiess die Liste »Vorgabe …«).
   const zeigeVorgabe = () => {
     vorgabe.value = passendeVorgabe(o.vorgaben, tagVon.value, tagBis.value, vorgabe.value);
   };
