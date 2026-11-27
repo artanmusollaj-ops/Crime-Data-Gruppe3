@@ -15,7 +15,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=8050)
     parser.add_argument("--host", default="127.0.0.1")
     args = parser.parse_args(argv)
-    create_app(for_root(args.data_root).local_root).run(host=args.host, port=args.port)
+    create_app(for_root(args.data_root).local_root, vorladen=True).run(host=args.host, port=args.port)
     return 0
 
 

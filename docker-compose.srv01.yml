@@ -100,6 +100,9 @@ services:
       S3_ACCESS_KEY:
       S3_SECRET_KEY:
       DASHBOARD_DATA_ROOT: /app/data
+      # Den Bestand beim Start aufbauen, nicht bei der ersten Anfrage: Die
+      # wartete sonst rund 20 Sekunden (gemessen am 27.11.2026).
+      DASHBOARD_VORLADEN: "1"
       # Der Verweis von »Datenqualität« auf die Nachweise der Konsole.
       DASHBOARD_KONSOLE_URL: https://urbancrime-admin.datenwerft.ch
       # FR-61: DuckDB von innen begrenzen, unterhalb des Container-Limits.

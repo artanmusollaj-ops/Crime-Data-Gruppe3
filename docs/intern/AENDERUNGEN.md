@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'575** |
+| Tests | **3'593** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'922'278 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'900'131** Zeilen (eine Tat) |
@@ -112,6 +112,58 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 27.11.2026 · Das Dashboard lädt vor und im Hintergrund nach (Branch `dashboard-laedt-vor`)
+
+Beim ersten Öffnen des Dashboards dauerte es lange, bis Daten kamen. Die
+Verbindung zu DuckDB war nicht der Grund. Gemessen auf `srv01` in einem
+Wegwerf-Container mit Abbild, Umgebung und Speichergrenze des Dienstes:
+- Start der App 0,5 s;
+- **erster Aufruf 20,4 s**, jeder danach 0,1 s oder weniger;
+- Verbindung samt S3-Einrichtung rund 1,5 s.
+
+Der erste Aufruf baute den ganzen Bestand auf: 49 DuckDB-Abfragen, zusammen
+16,7 s. Die grössten werten je die ganze Faktentabelle aus: `fakt` 3,1 s,
+Stadtmitten 2,5 s, `licht` 2,2 s, Doppelte 1,8 s. Das Netz trägt wenig bei:
+Der erste Lesezugriff auf die Faktentabelle im Eimer kostet 2,3 s, der zweite
+0,27 s, von der Platte 0,25 s. Dieselbe Wartezeit traf nach jedem neuen
+Release die Anfrage, die es bemerkte.
+
+**1. Vorladen.** `create_app(vorladen=True)` baut den Bestand beim Start in
+einem Hintergrund-Thread auf. Eine Anfrage in den ersten Sekunden wartet auf
+genau diesen Aufbau, nicht auf einen eigenen. `docker-compose.srv01.yml` setzt
+`DASHBOARD_VORLADEN: "1"`, und `python -m serving.dashboard` lädt immer vor.
+Scheitert das Vorladen, versucht es die erste Anfrage wie bisher. `/healthz`
+meldet zusätzlich `bestand: true/false`.
+
+**2. Nachladen im Hintergrund.** `Bestand.beobachten()` prüft je Minute auf ein
+neues Release und baut es in einem eigenen Thread auf. Anfragen prüfen nicht
+mehr selbst und bekommen bis zum Wechsel den alten Bestand. Ein Fehler beim
+Nachladen lässt den alten Stand stehen und wird im nächsten Durchgang
+wiederholt.
+
+**Gemessen** unter Gunicorn im Wegwerf-Container auf `srv01`, mit dem neuen
+Code: Bestand 20,6 s nach dem Start im Hintergrund fertig, danach braucht die
+erste Anfrage `/api/optionen` 0,01 s, `/api/ueberblick` 0,07 s und
+`/api/zeitverlauf` 0,12 s.
+
+**Tests** (`tests/serving/test_dashboard_vorladen.py`, 17):
+- Vorladen mit und ohne Schalter, eine Anfrage während des Vorladens;
+- keine Anfrage prüft selbst;
+- ein eingeschobener Bestand wird weder vorgeladen noch beobachtet;
+- gescheitertes Vorladen;
+- die Umgebung, der Verbund;
+- am echten Bestand: neues Release ohne Anfrage, der alte Bestand antwortet
+  während des Nachladens, ein Fehler hält den Thread nicht an.
+
+Vier Mutationsproben in einer Kopie fallen je auf: kein Vorladen, Anfrage
+prüft selbst, Beobachter tut nichts, Fehler beendet den Thread.
+
+**Testzahl.** Nach #322 und #323 sammelte `main` 3'576 Tests, die Dokumente
+nannten 3'575. Die Summe beim Zusammenführen war um einen Test zu niedrig.
+Jetzt 3'593 (+17 hier, +1 nachgetragen), Standardauswahl 3'482.
+
+Wirksam erst mit einem neuen Abbild auf `srv01`.
 
 ## 27.11.2026 · Die Lecturer lesen, dass eine Anmeldung genügt (Branch `lecturer-zugang-jupyter`)
 

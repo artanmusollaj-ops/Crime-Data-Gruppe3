@@ -410,9 +410,10 @@ class DashboardKlient:
         self.url = url.rstrip("/")
 
     def stand(self) -> dict:
-        # /api/optionen und nicht /healthz: Nur eine Anfrage an den Bestand
-        # laesst das Dashboard nachsehen, ob es nachladen muss. Die erste
-        # nach einem Start laedt; daher die lange Wartezeit.
+        # /api/optionen und nicht /healthz: Nur der Bestand selbst nennt den
+        # Stand. Seit dem 27.11.2026 laedt das Dashboard vor und neue Releases
+        # im Hintergrund nach; eine Anfrage kurz nach einem Start wartet aber
+        # noch auf das Vorladen, daher die lange Wartezeit.
         with urllib.request.urlopen(f"{self.url}/api/optionen", timeout=120) as antwort:
             return json.load(antwort)["stand"]
 
