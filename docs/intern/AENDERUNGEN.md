@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'574** |
+| Tests | **3'575** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'922'278 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'900'131** Zeilen (eine Tat) |
@@ -112,6 +112,26 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 27.11.2026 · Die Lecturer lesen, dass eine Anmeldung genügt (Branch `lecturer-zugang-jupyter`)
+
+Seit #321 nimmt Jupyter die Anmeldung bei Access. Christian hat es im Browser
+bestätigt: Jupyter öffnet direkt, ohne Token. Wo die Lecturer nachlesen,
+stand das noch nicht.
+
+- **Einstiegsseite** (`serving.build_einstieg`): Die Jupyter-Karte der
+  Serverfassung sagt jetzt, dass die Anmeldung bei Cloudflare Access genügt
+  und das Token nur noch für den Weg ohne Access gilt. Die lokale Fassung
+  bleibt ohne den Satz, denn dort gibt `jupyter lab` sein eigenes Token aus.
+  `docs/einstieg.html` ist die lokale Fassung und deshalb byteweise
+  unverändert. Neuer Test `test_die_jupyter_karte_sagt_wie_man_sich_anmeldet`.
+- **`architektur-ist-und-ziel.md` B.3:** Ein Absatz nach dem Entscheid vom
+  9.10.2026 zum Zugang der Prüfenden: Mit der Policy bekommen sie einen Zugang
+  für alle Dienste und kein Geheimnis vom Server.
+
+Auf `urbancrime-start` erscheint der Satz erst mit einem neuen Abbild.
+
+Tests 3'575 (+1), Standardauswahl 3'464.
 
 ## 27.11.2026 · Jupyter nimmt die Anmeldung bei Access (Branch `jupyter-access-anmeldung`)
 

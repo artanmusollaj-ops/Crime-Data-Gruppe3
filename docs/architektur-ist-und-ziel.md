@@ -250,8 +250,8 @@ mit Daten, die sie fangen soll.
 
 | Wo | Was | Wann |
 | --- | --- | --- |
-| **Pull Request** | 3'574 Tests ohne Netz und Schlüssel, Linux mit Python 3.11, `ruff` davor; der Referenz-Wächter unter 3.13; auf `main` zusätzlich Windows mit 3.13 | bei jedem Push |
-| **Frischer Klon** | Im Linux-CI-Lauf laufen hochgerechnet (am PR-Lauf zu bestätigen, nicht gemessen) 3'376 davon — die übrigen 87 werden übersprungen, unter anderem wegen fehlender Daten, Dienste oder ungetrackter Dokumente. Die 111 Referenzstand-Wächter sind abgewählt | |
+| **Pull Request** | 3'575 Tests ohne Netz und Schlüssel, Linux mit Python 3.11, `ruff` davor; der Referenz-Wächter unter 3.13; auf `main` zusätzlich Windows mit 3.13 | bei jedem Push |
+| **Frischer Klon** | Im Linux-CI-Lauf laufen hochgerechnet (am PR-Lauf zu bestätigen, nicht gemessen) 3'377 davon — die übrigen 87 werden übersprungen, unter anderem wegen fehlender Daten, Dienste oder ungetrackter Dokumente. Die 111 Referenzstand-Wächter sind abgewählt | |
 | **Datenlauf** | montags: alle sechs Quellen laden, die Strecke bauen, die ganze Suite, acht Notebooks ausführen | wöchentlich |
 | **Referenzstand** | 111 Wächter halten dokumentierte Zahlen gegen Parquet | lokal, nicht im Datenlauf |
 
@@ -483,6 +483,13 @@ läuft über Cloudflare — dieselbe Anwendung über `urbancrime-*` wie für jed
 anderen Dienst, kein zweiter Weg daneben. Die eigene, zeitlich befristete
 Policy für die Prüfenden ist **zurückgestellt mit Grund**: Jetzt angelegt,
 wäre ihre Frist zum Prüfungstermin abgelaufen.
+
+**Eine Anmeldung für alle Dienste.** Seit dem 27.11.2026 nimmt auch Jupyter
+die Anmeldung bei Access und verlangt kein eigenes Token mehr
+(`serving.jupyter_zugang`). Wer bei Access angemeldet ist, öffnet Dashboard,
+Startseite und Jupyter ohne weitere Abfrage. Das Token gilt nur noch für den
+Weg ohne Access. Für die Prüfenden heisst das: Sie bekommen mit der Policy
+**einen** Zugang und kein Geheimnis vom Server.
 
 ## B.4 Auswertung: Elasticsearch — und der Widerspruch, der aufzulösen ist
 

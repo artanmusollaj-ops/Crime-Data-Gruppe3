@@ -555,6 +555,19 @@ def test_die_jupyter_karte_sagt_dass_er_erst_zu_starten_ist(werkzeug):
             f"{fassung}: sie nennt nicht, womit - erwartet {wort!r}")
 
 
+def test_die_jupyter_karte_sagt_wie_man_sich_anmeldet(werkzeug):
+    """Auf dem Server genuegt die Anmeldung bei Access, seit dem 27.11.2026.
+
+    Wer die Seite liest, sind auch die Pruefenden. Ohne den Satz suchten sie
+    nach einem Token, das nur in der ``.env`` auf dem Server steht. Lokal
+    gibt ``jupyter lab`` sein eigenes Token aus; dort gilt der Satz nicht.
+    """
+    server = next(d for d in werkzeug.dienste("server") if d[0] == "Jupyter")[3]
+    lokal = next(d for d in werkzeug.dienste("lokal") if d[0] == "Jupyter")[3]
+    assert "Cloudflare Access" in server and "ohne Token" in server
+    assert "Cloudflare Access" not in lokal
+
+
 def test_das_readme_nennt_so_viele_dashboards_wie_es_gibt(werkzeug):
     """Dieselbe Frage fuer das README - und seine Tabelle zaehlt mit.
 
