@@ -38,9 +38,12 @@ from typing import Any
 #: Baender der Tageshoechsttemperatur in Grad Celsius - (Name, unten, oben).
 TEMPERATUR = (("unter 0 °C", None, 0), ("0 bis 10 °C", 0, 10), ("10 bis 20 °C", 10, 20),
               ("20 bis 30 °C", 20, 30), ("30 °C und mehr", 30, None))
-#: Baender der Abweichung vom Monatsmittel in Kelvin.
-ABWEICHUNG = (("5 K und mehr kälter", None, -5), ("bis 5 K kälter", -5, 0),
-              ("bis 5 K wärmer", 0, 5), ("5 K und mehr wärmer", 5, None))
+#: Baender der Abweichung vom Monatsmittel in Grad Celsius. Fuer eine
+#: Differenz ist ein Grad Celsius so gross wie ein Kelvin; bis zum 27.11.2026
+#: standen die Baender in K, als einzige Angabe des Dashboards, die nicht in
+#: °C stand.
+ABWEICHUNG = (("5 °C und mehr kälter", None, -5), ("bis 5 °C kälter", -5, 0),
+              ("bis 5 °C wärmer", 0, 5), ("5 °C und mehr wärmer", 5, None))
 #: Ab wie viel Millimetern ein Tag nass heisst. Fuenf Millimeter sind ein
 #: Regentag, an dem man den Schirm braucht, nicht ein Nieseln.
 NASS_MM = 5.0
@@ -84,7 +87,7 @@ def _band(wert: float | None, baender) -> str | None:
 
 
 def _effekt(zeilen: list[tuple]) -> dict[str, Any] | None:
-    """Steigung der relativen Abweichung je Kelvin, mit 95-%-Intervall (Prozent)."""
+    """Steigung der relativen Abweichung je Grad Celsius, mit 95-%-Intervall (Prozent)."""
     punkte = [(dt, df) for dt, df in zeilen if dt is not None and df is not None]
     n = len(punkte)
     if n < MINDESTTAGE:

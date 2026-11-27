@@ -13,7 +13,7 @@ import pytest
 
 from serving.dashboard import Bestand
 from serving.dashboard.app import create_app
-from serving.dashboard.wetter import ABWEICHUNG, _band, _effekt
+from serving.dashboard.wetter import ABWEICHUNG, TEMPERATUR, _band, _effekt
 
 from test_dashboard import TRACT_C, TRACT_D, schreibe, stern
 
@@ -68,7 +68,7 @@ def test_waermere_tage_als_der_monat_haben_mehr_faelle(brett):
     chicago = stadt(auswahl(brett), "chicago")
     assert chicago["effekt"]["je_grad"] > 5
     assert chicago["effekt"]["r"] > 0.9
-    kaelter = next(z for z in chicago["abweichung"] if z["band"] == "bis 5 K kälter")
+    kaelter = next(z for z in chicago["abweichung"] if z["band"] == "bis 5 °C kälter")
     assert kaelter["prozent"] < 0
 
 
@@ -110,9 +110,11 @@ def test_ohne_wetter_im_release_laedt_das_dashboard(tmp_path):
 
 
 def test_die_baender_schliessen_unten_ein_und_oben_aus():
-    assert _band(-5.0, ABWEICHUNG) == "bis 5 K kälter"
-    assert _band(5.0, ABWEICHUNG) == "5 K und mehr wärmer"
+    assert _band(-5.0, ABWEICHUNG) == "bis 5 °C kälter"
+    assert _band(5.0, ABWEICHUNG) == "5 °C und mehr wärmer"
     assert _band(None, ABWEICHUNG) is None
+    # Das Brett zeigt Temperaturen in °C, auch die Abweichung (bis 27.11.2026 in K).
+    assert all("°C" in name and " K " not in name for name, _, _ in ABWEICHUNG + TEMPERATUR)
 
 
 def test_der_effekt_braucht_genug_tage():

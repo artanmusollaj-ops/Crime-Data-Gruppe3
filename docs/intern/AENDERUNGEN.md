@@ -113,6 +113,23 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 27.11.2026 · Das Wetterbrett misst die Abweichung in °C (Branch `wetter-grad-celsius`)
+
+Christian fiel auf: Das Diagramm „Bereinigt: wärmer oder kälter als der Monat"
+beschriftete seine Bänder in K, alles andere im Dashboard steht in °C. Falsch
+war es nicht, denn für eine Differenz ist ein Kelvin so gross wie ein Grad
+Celsius. Es war aber die einzige Angabe in Kelvin, und sie las sich wie ein
+Fehler.
+
+- **`serving.dashboard.wetter.ABWEICHUNG`:** Die Bänder heissen jetzt
+  „5 °C und mehr kälter" bis „5 °C und mehr wärmer". Die Grenzen sind
+  dieselben, die Zahlen auch.
+- **Test:** `test_die_baender_schliessen_unten_ein_und_oben_aus` prüft
+  zusätzlich, dass jedes Band beider Diagramme in °C beschriftet ist.
+  Die Testzahl bleibt.
+
+Auf `urbancrime-dashboard` erscheint die neue Beschriftung erst mit einem neuen Abbild.
+
 ## 27.11.2026 · Das Dashboard lädt vor und im Hintergrund nach (Branch `dashboard-laedt-vor`)
 
 Beim ersten Öffnen des Dashboards dauerte es lange, bis Daten kamen. Die
