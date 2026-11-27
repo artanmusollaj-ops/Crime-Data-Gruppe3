@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from platform_admin.sources import source_code
+from platform_admin.sources import source_code, source_status
 from platform_admin.store import AdminError
 
 
@@ -42,6 +42,27 @@ class SourceViewTests(unittest.TestCase):
         result = source_code(self.store, 'chicago', run_path=relative)
         self.assertEqual(result['run'], {'run_id': 'demo', 'year': 2024})
         self.assertIn('nicht verfügbar', result['history_note'])
+
+    def test_source_run_end_time_uses_the_manifest_field_for_each_city(self):
+        start = '2026-11-14T09:06:11+00:00'
+        end = '2026-11-14T09:07:12+00:00'
+        for city, end_field in (('chicago', 'completed_at_utc'), ('detroit', 'finished_at')):
+            for run_id, fields in (('complete', {end_field: end}), ('no_end', {})):
+                path = self.store.data / f'bronze/city={city}/run_{run_id}/manifest.json'
+                path.parent.mkdir(parents=True)
+                path.write_text(json.dumps({'run_id': run_id, 'started_at': start, **fields}))
+
+        for source in source_status(self.store):
+            times = {run['run_id']: run['completed_at_utc'] for run in source['runs']}
+            self.assertEqual(times, {'complete': end, 'no_end': None})
+
+        module = self.store.project / 'src/crime/detroit_pipeline/extract_detroit.py'
+        module.parent.mkdir()
+        module.write_text('print("example")\n', encoding='utf-8')
+        result = source_code(
+            self.store, 'detroit', run_path='bronze/city=detroit/run_complete/manifest.json'
+        )
+        self.assertEqual(result['run']['finished_at'], end)
 
     def test_manifest_under_a_linked_data_root(self):
         # On macOS the temporary directory itself sits behind /var ->

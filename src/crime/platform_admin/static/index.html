@@ -1710,7 +1710,7 @@ async function showEvidence(city,run){
  context.append(element('strong',(city==='chicago'?'Chicago':'Detroit')+' · '+(manifest.mode||manifest.extraction_mode||'Nicht dokumentiert')),sourceRunStatus(manifest.status));
  const facts=element('dl',null,'operation-facts');
  operationFacts(facts,[['Start (Zürich)',dateTime(manifest.started_at_utc||manifest.started_at)],
-  ['Ende (Zürich)',dateTime(manifest.completed_at_utc||manifest.completed_at)]]);
+  ['Ende (Zürich)',dateTime(manifest.completed_at_utc||manifest.completed_at||manifest.finished_at)]]);
  box.append(context,facts,element('h3','Verknüpfte Nachweise'));
  const links=element('ul',null,'source-evidence-links');
  function addLink(label,action){
