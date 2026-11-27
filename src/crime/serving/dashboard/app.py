@@ -18,6 +18,8 @@ from serving.dashboard import Bestand, EingabeFehler
 from storage import for_root
 
 _STATISCH = Path(__file__).parent / "static"
+#: Woher die Hintergrundkacheln kommen; ``static/karte.js`` laedt von dort.
+KACHELHOST = "https://tile.openstreetmap.org"
 
 
 def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None = None) -> Flask:
@@ -42,8 +44,13 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     def kopfzeilen(antwort):
         antwort.headers.update({
             "X-Content-Type-Options": "nosniff",
-            "Content-Security-Policy": "default-src 'self'; frame-ancestors 'none'",
-            "Referrer-Policy": "no-referrer",
+            # Bilder auch von OpenStreetMap: die Hintergrundkacheln der Karten
+            # (static/karte.js). Skripte, Stile und Abrufe bleiben bei 'self'.
+            "Content-Security-Policy": ("default-src 'self'; "
+                                        f"img-src 'self' {KACHELHOST}; frame-ancestors 'none'"),
+            # Nur der Ursprung, nie Pfad oder Auswahl: Die Kachelserver von
+            # OpenStreetMap verlangen einen Referer (static/karte.js).
+            "Referrer-Policy": "strict-origin",
         })
         if request.path.startswith("/api/"):
             antwort.headers["Cache-Control"] = "no-store"
@@ -104,33 +111,42 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     @app.get("/api/ueberblick")
     def ueberblick():
         bestand = daten()
-        return jsonify(bestand.ueberblick(bestand.auswahl(request.args.to_dict())))
+        return jsonify(bestand.ueberblick(bestand.auswahl(request.args.to_dict(), "ueberblick")))
 
     @app.get("/api/zeitverlauf")
     def zeitverlauf():
         bestand = daten()
-        return jsonify(bestand.zeitverlauf(bestand.auswahl(request.args.to_dict())))
+        return jsonify(bestand.zeitverlauf(bestand.auswahl(request.args.to_dict(), "zeitverlauf")))
 
     @app.get("/api/karten")
     def karten():
         # Die Umrisse aendern sich nur mit dem Bestand; der Browser holt sie
-        # einmal je Seite, die Raten bei jeder Auswahl.
-        return jsonify(daten().karten)
+        # einmal je Seite, die Raten bei jeder Auswahl. ``raum=bezirk`` gibt
+        # die Polizeibezirke, ``{}`` bei einem Release ohne sie.
+        bestand = daten()
+        if request.args.get("raum") == "bezirk":
+            return jsonify(bestand.karten_bezirke or {})
+        if request.args.get("raum") == "stadtteil":
+            return jsonify(bestand.karten_stadtteile or {})
+        return jsonify(bestand.karten)
 
     @app.get("/api/geografie")
     def geografie():
         bestand = daten()
-        return jsonify(bestand.geografie(bestand.auswahl(request.args.to_dict())))
+        werte = request.args.to_dict()
+        return jsonify(bestand.geografie(bestand.auswahl(werte, "geografie"),
+                                         werte.get("ansicht"), raum=werte.get("raum"),
+                                         kennzahl=werte.get("kennzahl")))
 
     @app.get("/api/deliktstruktur")
     def deliktstruktur():
         bestand = daten()
-        return jsonify(bestand.deliktstruktur(bestand.auswahl(request.args.to_dict())))
+        return jsonify(bestand.deliktstruktur(bestand.auswahl(request.args.to_dict(), "deliktstruktur")))
 
     @app.get("/api/datenqualitaet")
     def datenqualitaet():
         bestand = daten()
-        antwort = bestand.datenqualitaet(bestand.auswahl(request.args.to_dict()))
+        antwort = bestand.datenqualitaet(bestand.auswahl(request.args.to_dict(), "datenqualitaet"))
         # Der Weg zu den Nachweisen, wenn die Konsole erreichbar ist.
         antwort["konsole"] = os.getenv("DASHBOARD_KONSOLE_URL") or None
         return jsonify(antwort)
@@ -142,7 +158,7 @@ def create_app(data_root: Path | str | None = None, *, bestand: Bestand | None =
     @app.get("/api/wetter")
     def wetterdaten():
         bestand = daten()
-        return jsonify(bestand.wetterbrett(bestand.auswahl(request.args.to_dict())))
+        return jsonify(bestand.wetterbrett(bestand.auswahl(request.args.to_dict(), "wetter")))
 
     @app.get("/api/quellbewegung")
     def quellbewegung():

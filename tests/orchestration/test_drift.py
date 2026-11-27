@@ -26,9 +26,9 @@ KOPF = """# Titel
 | Tests | **752** |
 | `silver/crime_offense` | 347'957 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **344'617** Zeilen (eine Tat) |
-| Chicago | 251'516 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 84'658 Delikte · 638'635 Einwohner · **132,6** je 1'000 |
-| Fallebene (`counts_case`) | Chicago 259'243 · Detroit 80'229 Fälle; Detroit **124,6** je 1'000 |
+| Chicago | 259'243 Fälle · 2'661'953 Einwohner · **94,4** je 1'000 |
+| Detroit | 80'229 Fälle · 638'635 Einwohner · **124,6** je 1'000 |
+| Tatebene (`fact_offense`) | Chicago 251'516 · Detroit 84'658 Taten; je 1'000: Chicago **94,5** · Detroit **132,6** |
 
 ---
 
@@ -41,8 +41,12 @@ def test_der_kopf_wird_gelesen():
     assert dok["silver_rows"] == 347957
     assert dok["gold_rows"] == 344617
     assert dok["chicago_rate"] == 94.5
+    assert dok["chicago_rate_fallebene"] == 94.4
+    assert dok["chicago_delikte"] == 251516
     assert dok["detroit_einwohner"] == 638635
     assert dok["detroit_faelle"] == 80229
+    assert dok["detroit_delikte"] == 84658
+    assert dok["detroit_rate"] == 132.6
     assert dok["detroit_rate_fallebene"] == 124.6
 
 

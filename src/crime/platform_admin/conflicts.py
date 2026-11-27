@@ -5,8 +5,9 @@ by name. Drafts in another browser and arbitrary Git branches are not registered
 """
 
 import json
+from functools import lru_cache
 
-from .store import OVERRIDES, ROW_KEYS, AdminError, digest, row_key, rows, write_rows
+from .store import CROSSWALKS, OVERRIDES, ROW_KEYS, AdminError, digest, row_key, rows, write_rows
 
 
 def locations(resource, payload):
@@ -48,6 +49,68 @@ def changes(resource, before, after):
         if (old.get(key) or {}).get("value") != (new.get(key) or {}).get("value")
         or (key in old) != (key in new)
     }
+
+
+@lru_cache(maxsize=8)
+def _crosswalk_targets(content, source_field, target_field):
+    return {row[source_field]: row.get(target_field) for row in rows(content)[1]}
+
+
+def _mapping_summary(before, after):
+    old = {row_key(OVERRIDES, row): row for row in rows(before.get(OVERRIDES, ""))[1]}
+    new = {row_key(OVERRIDES, row): row for row in rows(after.get(OVERRIDES, ""))[1]}
+    changed = [key for key in old.keys() | new.keys() if old.get(key) != new.get(key)]
+    if any(
+        before.get(name) != after.get(name)
+        for name in before.keys() | after.keys()
+        if name != OVERRIDES
+    ):
+        return {}
+    if len(changed) != 1:
+        return {"count": len(changed)}
+
+    key = changed[0]
+    city, code = key.split("/", 1)
+    filename, source_field, target_field = CROSSWALKS[city]
+    baseline = _crosswalk_targets(before.get(filename, ""), source_field, target_field).get(code)
+    previous = old.get(key, {}).get("nibrs_code", baseline)
+    proposed = new.get(key, {}).get("nibrs_code", baseline)
+    return {"city": city, "source_code": code, "before": previous, "after": proposed}
+
+
+def proposal_summaries(store):
+    """Liefert kompakte Kartendaten relativ zur jeweiligen Ausgangsrevision."""
+    with store.db() as c:
+        revisions = c.execute(
+            """SELECT r.id,r.resource,r.payload,p.payload AS baseline
+               FROM revision r LEFT JOIN revision p ON p.id=r.parent
+               WHERE r.parent IS NOT NULL"""
+        ).fetchall()
+    summaries = {}
+    for row in revisions:
+        after = json.loads(row["payload"])
+        resource = row["resource"]
+        if resource == "data":
+            summaries[row["id"]] = {"task": after.get("task")}
+        elif row["baseline"] and resource == "mapping":
+            summaries[row["id"]] = _mapping_summary(json.loads(row["baseline"]), after)
+        elif row["baseline"] and resource == "settings":
+            before = json.loads(row["baseline"])
+            edits = list(changes(resource, before, after).values())
+            if len(edits) == 1:
+                edit = edits[0]
+                path = edit["location"].split("/")[1:]
+                jobs = {job["name"]: job["task"] for job in before.get("jobs", []) + after.get("jobs", [])}
+                summaries[row["id"]] = {
+                    "count": 1,
+                    "field": path[-1],
+                    "task": jobs.get(path[1]) if len(path) == 3 and path[0] == "jobs" else None,
+                    "before": (edit["before"] or {}).get("value"),
+                    "after": (edit["after"] or {}).get("value"),
+                }
+            else:
+                summaries[row["id"]] = {"count": len(edits)}
+    return summaries
 
 
 def revision(c, rid):
@@ -201,8 +264,10 @@ def merge_payload(resource, base, proposed, current):
 
 def rebase(store, rid, actor, reason):
     from .jobs import writer_lock
+    from .operations import schema
 
     with writer_lock(store):
+        schema(store)
         old = store.get(rid)
         if old["actor"].strip().casefold() != actor.strip().casefold():
             raise AdminError("Nur der Autor kann seinen Vorschlag ersetzen")

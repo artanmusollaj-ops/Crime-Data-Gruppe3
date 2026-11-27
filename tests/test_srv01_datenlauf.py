@@ -369,3 +369,145 @@ def test_die_drift_wird_dorthin_geschrieben_wo_der_blick_sie_liest():
     assert f"--json /app/data/{DRIFT}" in zeile, (
         f"der Bericht muss als {DRIFT} neben dem Laufprotokoll liegen, "
         f"dort liest ihn serving.betriebsstand: {zeile.strip()!r}")
+
+
+# --------------------------------------------------------------------------
+# Eine gescheiterte Quelle wird nachgefasst (12.11.2026)
+# --------------------------------------------------------------------------
+
+
+def laden_mit(tmp_path: Path, fehlversuche: dict[str, int], *schritte: str):
+    """``laden`` mit falschem ``pipeline`` und ``sleep``; Spur und Exitcode zurueck.
+
+    Jeder Schritt scheitert so oft, wie ``fehlversuche`` fuer sein Modul sagt.
+    """
+    spur = tmp_path / "spur.txt"
+    pausen = tmp_path / "pausen.txt"
+    zaehler = tmp_path / "zaehler"
+    zaehler.mkdir()
+    # Kein ``declare -A``: Das bash 3.2 auf macOS kennt es nicht.
+    grenzen = " ".join(f"{m}) echo {n};;" for m, n in fehlversuche.items())
+    programm = f"""
+        source "$1"
+        grenze() {{ case "$1" in {grenzen} *) echo 0;; esac; }}
+        pipeline() {{
+            local modul="$3" n=0
+            [[ -f "{zaehler.as_posix()}/$modul" ]] && n=$(cat "{zaehler.as_posix()}/$modul")
+            n=$((n + 1)); echo "$n" > "{zaehler.as_posix()}/$modul"
+            echo "$*" >> "{spur.as_posix()}"
+            (( n > $(grenze "$modul") ))
+        }}
+        sleep() {{ echo "$1" >> "{pausen.as_posix()}"; }}
+        laden "${{@:2}}"
+    """
+    lauf = subprocess.run(["bash", "-c", programm, "--", SCRIPT.as_posix(), *schritte],
+                          capture_output=True, text=True)
+    lesen = lambda p: p.read_text().split("\n")[:-1] if p.exists() else []  # noqa: E731
+    return lauf, lesen(spur), lesen(pausen)
+
+
+def test_eine_gescheiterte_quelle_haelt_die_anderen_nicht_auf(tmp_path, benutzbares_bash):
+    lauf, spur, pausen = laden_mit(
+        tmp_path, {"chicago": 1},
+        "python -m chicago --year 2021 --full", "python -m detroit --mode full")
+    assert lauf.returncode == 0, lauf.stderr
+    assert spur == ["python -m chicago --year 2021 --full", "python -m detroit --mode full",
+                    "python -m chicago --year 2021 --full"]
+    assert pausen == ["1800"]
+
+
+def test_nach_dem_letzten_versuch_endet_laden_mit_eins(tmp_path, benutzbares_bash):
+    lauf, spur, pausen = laden_mit(
+        tmp_path, {"chicago": 9}, "python -m chicago --year 2021", "python -m detroit")
+    assert lauf.returncode == 1
+    assert spur.count("python -m chicago --year 2021") == 3
+    assert spur.count("python -m detroit") == 1
+    assert pausen == ["1800", "3600"]
+    assert "python -m chicago --year 2021" in lauf.stderr
+
+
+def test_ohne_fehler_wird_nicht_gewartet(tmp_path, benutzbares_bash):
+    lauf, spur, pausen = laden_mit(tmp_path, {}, "python -m detroit")
+    assert lauf.returncode == 0 and spur == ["python -m detroit"] and pausen == []
+
+
+def test_der_volllauf_laedt_ueber_laden_und_leitet_danach_ab():
+    """Kein Quellaufruf mehr ausserhalb von ``laden`` - sonst bricht er wieder alles ab."""
+    text = SCRIPT.read_text(encoding="utf-8")
+    voll = text[text.index("    full)"):text.index("    delta)")]
+    assert not re.search(r"^\s*pipeline python -m \w+_pipeline", voll, re.M)
+    assert voll.index('laden "${schritte[@]}"') < voll.index("orchestration.run_all")
+    for modul in ("chicago_pipeline.download_chicago", "detroit_pipeline.extract_detroit",
+                  "census_pipeline.download_tiger", "census_pipeline.download_acs",
+                  "weather_pipeline.download_noaa"):
+        assert f'schritte+=("python -m {modul}' in voll, modul
+
+
+def test_skript_und_controller_fassen_gleich_nach():
+    import run_all as ra
+    text = SCRIPT.read_text(encoding="utf-8")
+    sekunden = re.search(r"^NACHFASSEN_SEKUNDEN=\(([\d ]+)\)", text, re.M).group(1).split()
+    assert [int(s) for s in sekunden] == [int(m * 60) for m in ra.NACHFASSEN_MINUTEN]
+
+
+def test_beginn_und_ende_tragen_einen_zeitstempel():
+    """FR-16: Wie lange ein Montagslauf dauert, sagt das Protokoll selbst.
+
+    Bis zum 14.11.2026 trugen die Markerzeilen keine Zeit, und die letzten
+    Schritte (Drift, Sicherungssatz) auch nicht - die Dauer liess sich nur
+    bis zur letzten Python-Logzeile messen. Gemessen wurde damals 4,7 bis
+    5,1 Minuten je Delta-Lauf; das wahre Ende lag etwas spaeter.
+    """
+    text = SCRIPT.read_text(encoding="utf-8")
+    zeit = '$(date +%Y-%m-%dT%H:%M:%S%z)'
+    assert f'echo "Urban Crime: ${{mode}} run started at {zeit}"' in text
+    assert f'echo "Urban Crime: ${{mode}} run completed for ${{YEAR_RANGE}} at {zeit}"' in text
+    # Der Beginn steht vor der Vorpruefung: Auch ein Lauf, der dort scheitert,
+    # hat dann eine Startzeit.
+    assert text.index("run started at") < text.index("orchestration.vorpruefung")
+    # Und das Ende auch bei einem Abbruch: im EXIT-trap, mit Exitcode.
+    trap = text[text.index("betriebsstand() {"):text.index("betriebsstand() {") + 400]
+    assert f'run ended with exit ${{rc}} at {zeit}' in trap
+
+
+@pytest.mark.parametrize(("tag", "erwartet"), [
+    ("01", "--nachfassen"), ("1", "--nachfassen"), ("02", ""), ("08", ""), ("15", ""), ("31", ""),
+])
+def test_am_monatsersten_wird_nicht_nachgefasst(tag, erwartet, benutzbares_bash):
+    """FR-16: Am Ersten beginnt um 05:00 der Restore-Test. Ein Delta-Lauf, der
+    eine Quelle nach 30 und 60 Minuten nachfasst, liefe bis nach 06:00.
+    ``--nachfassen`` ohne Werte schaltet das Nachfassen in run_all ab."""
+    result = subprocess.run(
+        ["bash", "-c", 'source "$1"; delta_nachfassen "$2"', "--", str(SCRIPT), tag],
+        check=True, capture_output=True, text=True,
+    )
+    assert result.stdout.strip() == erwartet
+    text = SCRIPT.read_text(encoding="utf-8")
+    delta = text[text.index("    delta)"):text.index("    *)")]
+    assert '$(delta_nachfassen "$(date +%d)")' in delta
+
+
+def test_ohne_werte_schaltet_nachfassen_ab(monkeypatch):
+    """Die Zusage, auf der der Monatserste ruht: Der echte Parser von
+    ``run_all`` liest ``--nachfassen`` ohne Werte als leere Liste - und
+    ``main`` reicht sie als ``nachfassen=tuple(...)`` an ``lauf`` durch, dessen
+    Schleife ``(0, *nachfassen)`` dann genau eine Runde faehrt."""
+    from orchestration import run_all as ra
+    monkeypatch.setattr(sys, "argv", ["run_all", "--jahre", "2024", "--nachfassen"])
+    assert ra.arguments().nachfassen == []
+    monkeypatch.setattr(sys, "argv", ["run_all", "--jahre", "2024"])
+    assert tuple(ra.arguments().nachfassen) == ra.NACHFASSEN_MINUTEN
+
+
+def test_der_naechste_montag_am_ersten_steht_richtig_in_den_dokumenten():
+    """Dieselbe Aussage steht in drei Dokumenten (AGENTS.md: der Waechter
+    muss alle erfassen). Gerechnet ab dem Tag der Messung, 14.11.2026."""
+    from datetime import date, timedelta
+    tag = date(2026, 11, 15)
+    while not (tag.day == 1 and tag.weekday() == 0):
+        tag += timedelta(days=1)
+    text = f"{tag.day}.{tag.month}.{tag.year}"
+    assert text == "1.2.2027"
+    for doc in ("docs/intern/fr-stand.md", "docs/intern/AENDERUNGEN.md",
+                "docs/storage-architektur.md"):
+        assert text in (PROJECT_ROOT / doc).read_text(encoding="utf-8"), doc

@@ -7,41 +7,63 @@ import json
 from .store import CROSSWALKS, OVERRIDES, AdminError, rows
 
 
+#: Runs per city the console lists; ``run_count`` still counts every run.
+SHOWN_RUNS = 20
+#: Parallel manifest reads. Each is one S3 GET of about 70 ms on srv01.
+READERS = 8
+
+
+def _run_entry(store, relative):
+    from .integration import manifest_text
+    path = store.data / relative
+    rel = path.relative_to(store.data).as_posix()
+    try:
+        value = json.loads(manifest_text(store, relative))
+    except (OSError, ValueError):
+        return {"run_id": path.parent.name, "status": "INVALID_MANIFEST", "relative_path": rel}
+    return {
+        "run_id": value.get("run_id", path.parent.name),
+        "status": value.get("status"),
+        "mode": value.get("mode", value.get("extraction_mode")),
+        "event_year": value.get("event_year", value.get("year")),
+        "years": value.get("years"),
+        "row_count": value.get(
+            "row_count", value.get("downloaded_count", value.get("rows"))
+        ),
+        "watermark": value.get("watermark"),
+        "completed_at_utc": value.get(
+            "completed_at_utc", value.get("completed_at")
+        ),
+        "relative_path": rel,
+    }
+
+
 def source_status(store):
-    from .integration import manifest_paths, manifest_text
+    """The newest runs per city, read from their manifests.
+
+    Only the runs shown are read. Until 27.11.2026 every manifest was read one
+    after another - 136 GETs, 10.5 s on srv01 - and the start page waited for
+    them although it lists 20 per city. The order needs no manifest: it is the
+    path, newest first, as before.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    from .integration import manifest_paths
     result = []
     for city in ("chicago", "detroit"):
-        runs = []
         root = store.data / "bronze" / f"city={city}"
-        for relative in manifest_paths(store, city):
-            path = store.data / relative
-            if any(part.startswith(".") for part in path.relative_to(root).parts):
-                continue
-            try:
-                value = json.loads(manifest_text(store, relative))
-                runs.append(
-                    {
-                        "run_id": value.get("run_id", path.parent.name),
-                        "status": value.get("status"),
-                        "mode": value.get("mode", value.get("extraction_mode")),
-                        "event_year": value.get("event_year", value.get("year")),
-                        "years": value.get("years"),
-                        "row_count": value.get(
-                            "row_count", value.get("downloaded_count", value.get("rows"))
-                        ),
-                        "watermark": value.get("watermark"),
-                        "completed_at_utc": value.get(
-                            "completed_at_utc", value.get("completed_at", value.get("started_at"))
-                        ),
-                        "relative_path": path.relative_to(store.data).as_posix(),
-                    }
-                )
-            except (OSError, ValueError):
-                runs.append({"run_id": path.parent.name, "status": "INVALID_MANIFEST"})
-        runs.sort(
-            key=lambda x: x["relative_path"] if "relative_path" in x else x["run_id"], reverse=True
+        relatives = [
+            relative for relative in manifest_paths(store, city)
+            if not any(part.startswith(".")
+                       for part in (store.data / relative).relative_to(root).parts)
+        ]
+        relatives.sort(
+            key=lambda r: (store.data / r).relative_to(store.data).as_posix(), reverse=True
         )
-        result.append({"city": city, "run_count": len(runs), "runs": runs[:20]})
+        shown = relatives[:SHOWN_RUNS]
+        with ThreadPoolExecutor(max_workers=READERS) as pool:
+            runs = list(pool.map(lambda r: _run_entry(store, r), shown))
+        result.append({"city": city, "run_count": len(relatives), "runs": runs})
     return result
 
 

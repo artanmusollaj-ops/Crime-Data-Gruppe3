@@ -20,7 +20,9 @@
 # Windows-Jobs waren 26 dieser 34 Minuten. Am 1. Oktober liefen acht Laeufe,
 # also etwa 270 Minuten an einem Tag, und das Budget war weg. Seither gilt der
 # Zuschnitt unten: ein Pull Request kostet rund vier Minuten, ein Push auf
-# main siebzehn.
+# main siebzehn. Seit dem 14.11.2026 kommt der schmale Job `referenz` dazu
+# (eine Testdatei, Lockfile aus dem Cache): Ohne ihn lief der Referenz-
+# Waechter in keinem Job, weil keiner die Python-Version der Ablage hatte.
 
 name: Tests
 
@@ -44,7 +46,8 @@ concurrency:
 
 jobs:
   pruefung:
-    # Der Job, der auf jedem Pull Request laeuft - und der einzige.
+    # Der Job, der auf jedem Pull Request die ganze Suite faehrt. Daneben
+    # laeuft dort nur noch der schmale Job `referenz` (unten).
     #
     # Python 3.11, installiert aus den Bereichen in pyproject.toml: Das
     # Lockfile kann es nicht, numpy 2.5 verlangt Python 3.12. Genau das ist
@@ -93,6 +96,42 @@ jobs:
         # Zahl war am 18.10.2026 der Streitpunkt: Vier Waechter melden
         # eine Abweichung von ihr, und im Protokoll stand sie nicht.
         run: python -m pytest -rs
+
+  referenz:
+    # Der Referenz-Waechter (`tests/test_referenz.py`), auf jedem Pull
+    # Request. Er vergleicht `docs/referenz/` mit einem frischen pdoc-Bau,
+    # aber nur unter der Python-Version, pdoc-Version und Plattform aus
+    # `docs/referenz/erzeugt-mit.json` - pdocs Ausgabe unterscheidet sich
+    # zwischen Versionen. `pruefung` laeuft mit 3.11, `windows` unter `nt`:
+    # Bis zum 14.11.2026 uebersprang er sich in jedem Job, und #236 und #239
+    # kamen mit veralteten Seiten auf main.
+    #
+    # Schmal gehalten wegen des Budgets oben: nur diese eine Datei, das
+    # Lockfile aus dem pip-Cache, kein poppler. `REFERENZ_PFLICHT=1` macht
+    # ein Ueberspringen hier zum Fehler. `tests/test_workflow_referenz.py`
+    # haelt Python-Version und pdoc gegen die Marke.
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    env:
+      REFERENZ_PFLICHT: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.lock
+
+      - name: Abhaengigkeiten installieren
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.lock
+          python -m pip install -e . --no-deps
+
+      - name: Referenz gegen frischen Bau
+        run: python -m pytest tests/test_referenz.py -rs
 
   windows:
     # Nur auf main, nicht auf jedem Pull Request. Windows hat genau einen

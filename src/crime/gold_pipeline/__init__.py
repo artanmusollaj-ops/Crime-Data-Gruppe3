@@ -26,7 +26,7 @@ Jede Frage wird damit ein Filter und ein ``GROUP BY`` auf einer Tabelle.
 | ``dim_tract_acs`` | ein Census Tract in einem ACS-Vintage, mit der Einwohnerzahl |
 | ``dim_offense`` | ein NIBRS-Delikt |
 | ``dim_date`` | ein Kalendertag |
-| ``dim_city_day`` | Stadt und Tag, mit dem Wetter |
+| ``dim_city_day`` | Stadt und Tag, mit Wetter und Sonnenstand |
 
 **Warum die Einwohnerzahl eine eigene Tabelle hat.** Bis zum 3.10.2026 stand
 sie in ``dim_tract``, und das ging, solange es einen einzigen Jahrgang gab:
@@ -106,6 +106,10 @@ GATE_HOECHSTENS = {
 TABELLEN: tuple[str, ...] = (
     "fact_offense", "dim_tract", "dim_tract_geo", "dim_tract_acs",
     "dim_offense", "dim_date", "dim_city_day",
+    # Seit Vertrag 11 (25.11.2026).
+    "dim_police_area", "bridge_tract_police_area",
+    # Seit Vertrag 12 (25.11.2026).
+    "dim_community_area", "bridge_tract_community_area",
 )
 
 

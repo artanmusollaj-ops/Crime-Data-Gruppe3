@@ -195,6 +195,37 @@ def test_eine_referenz_ohne_manifest_ist_nur_ein_pfad():
     assert mf.referenz(pfad, {}) == {"path": str(pfad)}
 
 
+def herkunft_an(ort: str, gebaut: str, sha: str = "c" * 64) -> list[dict]:
+    """Eine Gold-Herkunft wie ``build_gold.herkunft_der_quelle`` sie schreibt."""
+    return [
+        {"layer": "silver", "table": "crime_offense",
+         "path": f"{ort}/silver/dataset=crime_offense/part-0001.parquet",
+         "built_at_utc": gebaut, "input_fingerprint": "a" * 64,
+         "derived_from": [{"layer": "bronze", "run_id": "run_A",
+                           "path": f"{ort}/bronze/run_A", "built_at_utc": gebaut}]},
+        {"layer": "config", "table": "nibrs_codes.csv",
+         "path": f"{ort}/config/nibrs_codes.csv", "sha256": sha},
+    ]
+
+
+def test_derselbe_stand_traegt_an_jedem_ort_denselben_abdruck():
+    """FR-8 als Regel, ohne Daten: Ort und Bauzeit fallen aus dem Abdruck.
+
+    Derselbe Stand liegt im Container unter ``/app/data`` oder im Eimer, auf
+    dem Host unter ``/Users/...`` und auf einem Windows-Rechner unter
+    ``C:\\...``; gebaut wird er jedesmal zu einer anderen Uhrzeit. Der Abdruck
+    muss in allen Faellen derselbe sein - und sich aendern, sobald ein Byte
+    der Eingaben sich aendert (hier die Pruefsumme einer ``config/``-Datei).
+    """
+    container = mf.eingabe_abdruck(herkunft_an("/app/data", "2026-11-14T09:06:37Z"))
+    eimer = mf.eingabe_abdruck(herkunft_an("s3://urban-crime", "2026-11-14T09:07:00Z"))
+    host = mf.eingabe_abdruck(herkunft_an("/Users/christian/data", "2026-11-14T17:51:00Z"))
+    windows = mf.eingabe_abdruck(herkunft_an("C:\\Users\\artan\\data", "2026-11-15T08:00:00Z"))
+    assert container == eimer == host == windows
+    assert mf.eingabe_abdruck(herkunft_an("/app/data", "2026-11-14T09:06:37Z",
+                                          sha="d" * 64)) != container
+
+
 def test_referenzdatei_nennt_pfad_und_pruefsumme(tmp_path):
     datei = tmp_path / "codes.csv"
     datei.write_text("x\n", encoding="utf-8")

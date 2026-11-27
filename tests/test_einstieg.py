@@ -39,6 +39,26 @@ def werkzeug():
     return build_einstieg
 
 
+def serverumgebung() -> dict[str, str]:
+    """Die Werte der Serverfassung, wie ``docker-compose.srv01.yml`` sie der
+    Pipeline setzt (FR-46) - gelesen, nicht abgeschrieben. So prueft jeder
+    Test der Serverfassung zugleich, dass die Beschreibung die Seite traegt,
+    die srv01 bis zum 14.11.2026 aus festen Werten baute."""
+    import yaml
+
+    from serving.build_einstieg import SERVERWERTE
+
+    umgebung = yaml.safe_load(SRV01.read_text(encoding="utf-8"))[
+        "services"]["pipeline"]["environment"]
+    return {name: umgebung[name] for name in SERVERWERTE}
+
+
+@pytest.fixture(autouse=True)
+def _serverwerte_aus_der_beschreibung(monkeypatch):
+    for name, wert in serverumgebung().items():
+        monkeypatch.setenv(name, wert)
+
+
 @pytest.fixture(scope="module")
 def text() -> str:
     if not SEITE.is_file():
@@ -142,8 +162,13 @@ def test_die_seite_verspricht_keinen_dienstzustand(text):
         # verboten eine Zustandsaussage. Geprueft wird das Einfache: keine
         # gruene Marke neben einem Dienstnamen.
         pass
-    assert "marke gut" not in text.split("Wo man fragt")[-1], (
-        "die Seite zeigt eine Zustandsmarke bei den Diensten")
+    # Die Plaketten heissen seit dem 16.11.2026 ``plakette`` - ``marke`` ist
+    # im Kopf des Dashboards Logo und Name. Beide Namen geprueft, damit der
+    # Waechter nicht mit der Umbenennung leer laeuft.
+    dienste = text.split("Wo man fragt")[-1]
+    for klasse in ("plakette gut", "marke gut"):
+        assert klasse not in dienste, (
+            "die Seite zeigt eine Zustandsmarke bei den Diensten")
 
 
 # --------------------------------------------------------------------------
@@ -194,10 +219,15 @@ def test_jede_zahl_der_seite_steht_so_im_release(text):
         f"die Seite nennt den Jahrgang {RATENJAHR} nicht, fuer den ihre Raten "
         "gelten - ein Release traegt sechs")
     for zeile in raten:
-        stadt, rate = zeile[0], zeile[4]
-        gesucht = f"{rate:.1f}".replace(".", ",")
+        # Vorn die Fallrate (E-2), fett; die Tatrate daneben.
+        stadt, faelle, rate, rate_fall = zeile[0], zeile[2], zeile[4], zeile[5]
+        gesucht = f"{rate_fall:.1f}".replace(".", ",")
         assert f"<strong>{gesucht}</strong>" in text, (
-            f"{stadt}: Rate {gesucht} steht nicht auf der Seite")
+            f"{stadt}: Fallrate {gesucht} steht nicht auf der Seite")
+        assert f"{rate:.1f}".replace(".", ",") in text, (
+            f"{stadt}: Tatrate {rate:.1f} steht nicht auf der Seite")
+        assert f"{faelle:,}".replace(",", "'") in text, (
+            f"{stadt}: {faelle:,} Faelle stehen nicht auf der Seite")
 
 
 @pytest.mark.referenzstand
@@ -248,8 +278,8 @@ def test_die_generatorenzahl_im_bild_zaehlt_tools():
     # ``build_`` heisst - ``extend_micr_arrest_charges`` gehoert dazu.
     anzahl = len(list((PROJEKT / "tools").glob("*.py")))
     text = bild.read_text(encoding="utf-8")
-    assert f"{anzahl} Generatoren" in text, (
-        f"das Bild nennt nicht {anzahl} Generatoren. "
+    assert f"{anzahl} Werkzeuge" in text, (
+        f"das Bild nennt nicht {anzahl} Werkzeuge. "
         f"python tools/build_architekturbilder.py")
     assert not (PROJEKT / "tools" / "build_einstieg.py").exists(), (
         "build_einstieg liegt wieder unter tools/ - dort ist es nicht im "
@@ -290,7 +320,7 @@ def blatt(werkzeug, fassung: str) -> str:
     """
     mass = {
         "datensaetze": [("fact_offense", 1, 2, 3)],
-        "staedte": [("chicago", 1, 2, 3.0)],
+        "staedte": [("chicago", 1, 2, 3.0, 3.1)],
         "guete": [("chicago", 99.0, 99.0, 0.0)],
         "zeitraum": ("2021-01-01", "2026-06-30"),
         "ratenjahr": 2024,
@@ -430,6 +460,80 @@ def test_die_fassung_wird_benannt_und_nicht_geraten(werkzeug):
     assert zerleger.parse_args([]).adressen == "lokal", (
         "die Vorgabe ist nicht lokal - dann stuenden in der abgelegten Seite "
         "Serveradressen")
+
+
+# --------------------------------------------------------------------------
+# FR-46: Die Serverwerte kommen aus der Umgebung, nicht aus dem Code
+# --------------------------------------------------------------------------
+
+
+def test_die_serverwerte_stehen_fuer_pipeline_und_worker_in_der_beschreibung(werkzeug):
+    """Beide bauen die Startseite: die Pipeline im Datenlauf, der Worker nach
+    einer Freigabe in der Konsole (``platform_admin.serving_export``)."""
+    import yaml
+
+    dienste = yaml.safe_load(SRV01.read_text(encoding="utf-8"))["services"]
+    for name in ("pipeline", "worker"):
+        umgebung = dienste[name]["environment"]
+        fehlend = [v for v in werkzeug.SERVERWERTE if not umgebung.get(v)]
+        assert not fehlend, f"{name}: {fehlend} fehlt in docker-compose.srv01.yml"
+
+
+@pytest.mark.parametrize("name", ["EINSTIEG_ADRESSMUSTER", "STAPEL_COMPOSE",
+                                  "STAPEL_DATENLAUF"])
+def test_ohne_serverwert_bricht_die_serverfassung_mit_dem_namen_ab(werkzeug, monkeypatch, name):
+    """Kein stiller Rueckfall auf die Werte von srv01 - genau den nahm FR-46
+    aus dem Abbild."""
+    monkeypatch.delenv(name)
+    with pytest.raises(werkzeug.FehlendeServerangabe, match=name):
+        blatt(werkzeug, "server")
+    # Die Fassung lokal liest keinen der drei Werte.
+    assert "localhost" in blatt(werkzeug, "lokal")
+
+
+def test_der_aufruf_ohne_serverwert_endet_mit_exit_1(werkzeug, monkeypatch, tmp_path, capsys):
+    monkeypatch.delenv("STAPEL_COMPOSE")
+    ziel = tmp_path / "index.html"
+    assert werkzeug.main(["--adressen", "server", "--ziel", str(ziel),
+                          "--data-root", str(tmp_path / "data")]) == 1
+    assert "STAPEL_COMPOSE" in capsys.readouterr().err
+    assert not ziel.exists(), "abgebrochen, aber trotzdem geschrieben"
+
+
+@pytest.mark.parametrize("muster", [
+    "https://start.example.org",
+    "https://{dienst}.example.org/{dienst}",
+])
+def test_das_muster_braucht_genau_einen_platzhalter(werkzeug, monkeypatch, muster):
+    """Ohne Platzhalter trüge jede Karte dieselbe Adresse; mit zweien schrieb
+    die Seite "Die kein Verweise", weil das Zählmuster nur am ersten teilte."""
+    monkeypatch.setenv("EINSTIEG_ADRESSMUSTER", muster)
+    with pytest.raises(werkzeug.FehlendeServerangabe, match="EINSTIEG_ADRESSMUSTER"):
+        werkzeug.dienste("server")
+
+
+def test_ein_muster_mit_zwei_platzhaltern_endet_mit_exit_1(werkzeug, monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("EINSTIEG_ADRESSMUSTER", "https://{dienst}.example.org/{dienst}")
+    ziel = tmp_path / "index.html"
+    assert werkzeug.main(["--adressen", "server", "--ziel", str(ziel),
+                          "--data-root", str(tmp_path / "data")]) == 1
+    assert "EINSTIEG_ADRESSMUSTER" in capsys.readouterr().err
+    assert not ziel.exists()
+
+
+def test_die_serverfassung_setzt_die_werte_der_umgebung_ein(werkzeug, monkeypatch):
+    """Eine andere Umgebung, eine andere Seite - und kein Rest von srv01."""
+    monkeypatch.setenv("EINSTIEG_ADRESSMUSTER", "https://crime-{dienst}.example.org")
+    monkeypatch.setenv("STAPEL_COMPOSE", "compose.cloud.yml")
+    monkeypatch.setenv("STAPEL_DATENLAUF", "betrieb/datenlauf.sh")
+    seite = blatt(werkzeug, "server")
+    assert 'href="https://crime-dashboard.example.org/"' in seite
+    assert 'href="https://crime-admin.example.org/"' in seite
+    assert "docker compose -f compose.cloud.yml up -d\nbetrieb/datenlauf.sh delta" in seite
+    assert "docker compose -f compose.cloud.yml --profile analyse up -d jupyter" in seite
+    assert "<code>crime-*</code>" in seite
+    for rest in ("srv01", "datenwerft", "urbancrime"):
+        assert rest not in seite, f"die Serverfassung nennt noch {rest!r}"
 
 
 def test_die_jupyter_karte_sagt_dass_er_erst_zu_starten_ist(werkzeug):
@@ -607,3 +711,94 @@ def test_die_grenzen_der_seite_sind_die_des_konzepts(text):
     assert not fremd, (
         "diese Titel stehen auf der Startseite, aber nicht im Konzept: "
         f"{fremd} - eine Limitation entsteht im Konzept, nicht auf der Seite")
+
+
+# --------------------------------------------------------------------------
+# Die Gestaltung ist die des Dashboards (16.11.2026)
+# --------------------------------------------------------------------------
+
+DASHBOARD = PROJEKT / "src" / "crime" / "serving" / "dashboard" / "static"
+
+
+def farbvariablen(css: str) -> dict[str, str]:
+    """Die Variablen und die Schrift im ersten ``:root``-Block, Name auf Wert.
+
+    ``font-family`` gehoert dazu: "dieselbe Schrift" ist Teil der Zusage.
+    """
+    block = re.search(r":root\s*\{(.*?)\}", css, re.DOTALL)
+    assert block, "kein :root-Block"
+    return dict(re.findall(r"(--[\w-]+|font-family)\s*:\s*([^;]+?)\s*;",
+                           block.group(1)))
+
+
+def test_jede_farbe_des_dashboards_steht_so_auf_der_startseite(werkzeug, text):
+    """Eine Quelle fuer die Farben: ``dashboard.css``.
+
+    Geprueft an beiden Fassungen aus dem erfundenen Release und an der
+    abgelegten Seite - die abgelegte veraltet sonst unbemerkt, wenn eine
+    Farbe im Dashboard wechselt.
+    """
+    soll = farbvariablen((DASHBOARD / "dashboard.css").read_text(encoding="utf-8"))
+    assert {"--navy", "--grund", "--karte", "--blau", "font-family"} <= set(soll), soll
+    for name, seite in [*((f, blatt(werkzeug, f)) for f in werkzeug.FASSUNGEN),
+                        ("docs/einstieg.html", text)]:
+        ist = farbvariablen(seite)
+        abweichend = {k: (v, ist.get(k)) for k, v in soll.items() if ist.get(k) != v}
+        assert not abweichend, f"{name}: Farben weichen vom Dashboard ab: {abweichend}"
+
+
+def test_eine_geaenderte_farbe_kommt_ohne_eingriff_im_generator_an(werkzeug, monkeypatch):
+    """Gelesen, nicht abgeschrieben: Wechselt das Dashboard sein Blau, traegt
+    die neu gebaute Startseite es mit, und ``build_einstieg.py`` bleibt, wie
+    es ist."""
+    lesen = werkzeug.dashboard_datei
+    echt = lesen("dashboard.css")
+    geaendert = echt.replace("--blau: #2f7de1;", "--blau: #123456;")
+    assert geaendert != echt, "die Probe trifft die Blauzeile nicht mehr"
+    monkeypatch.setattr(werkzeug, "dashboard_datei",
+                        lambda name: geaendert if name == "dashboard.css" else lesen(name))
+    seite = blatt(werkzeug, "lokal")
+    assert farbvariablen(seite)["--blau"] == "#123456"
+
+
+def test_der_kopf_ist_der_des_dashboards(werkzeug, text):
+    """Dunkelblauer Kopf, dasselbe Logo, ``Urban Crime · Start`` und rechts
+    die Plakette mit der Release-Kennung."""
+    logo = re.search(r'<svg class="logo".*?</svg>',
+                     (DASHBOARD / "index.html").read_text(encoding="utf-8"), re.DOTALL)
+    assert logo, "das Dashboard hat kein Logo mehr"
+    for name, seite, kennung in [
+            *((f, blatt(werkzeug, f), "2026-01-01T00-00-00Z") for f in werkzeug.FASSUNGEN),
+            ("docs/einstieg.html", text, None)]:
+        kopf = re.search(r'<header class="kopf">(.*?)</header>', seite, re.DOTALL)
+        assert kopf, f"{name}: kein Kopf wie im Dashboard"
+        kopf = kopf.group(1)
+        assert logo.group(0) in kopf, f"{name}: das Logo ist nicht das des Dashboards"
+        assert re.search(r'<span class="produkt">Urban Crime</span>'
+                         r'<span class="punkt">·</span>'
+                         r'<span class="bereich">Start</span>', kopf), name
+        stand = re.search(r'<div class="stand">Release <b>([^<]+)</b></div>', kopf)
+        assert stand, f"{name}: keine Stand-Plakette mit dem Release"
+        if kennung:
+            assert stand.group(1) == kennung, name
+
+
+def test_die_startseite_bleibt_eine_eigenstaendige_datei(werkzeug, text):
+    """nginx liefert sie aus einem anderen Host aus als das Dashboard: ein
+    Verweis auf ``/static/`` traefe dort nichts. Und Webschriften kommen nicht
+    mehr von Google - das Dashboard nimmt die Systemschrift, die Startseite
+    auch."""
+    for name, seite in [*((f, blatt(werkzeug, f)) for f in werkzeug.FASSUNGEN),
+                        ("docs/einstieg.html", text)]:
+        for verboten in ("fonts.googleapis", "fonts.gstatic", "/static/",
+                         '<link rel="stylesheet"', "<script"):
+            assert verboten not in seite, f"{name}: {verboten!r} auf der Seite"
+
+
+def test_die_plaketten_heissen_nicht_wie_die_marke_im_kopf(werkzeug):
+    """``.marke`` ist im Dashboard Logo und Name. Hiesse eine Plakette auch
+    so, erbte sie Flex, Abstand und 20 px Schrift des Kopfes."""
+    seite = blatt(werkzeug, "lokal")
+    assert seite.count('class="marke"') == 1, "marke steht nicht genau einmal (im Kopf)"
+    assert not re.search(r'class="marke ', seite), "eine Plakette heisst noch marke"
+    assert 'class="plakette ' in seite

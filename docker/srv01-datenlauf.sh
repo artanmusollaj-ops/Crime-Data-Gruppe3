@@ -21,6 +21,41 @@ pipeline() {
     compose run --rm pipeline "$@"
 }
 
+# Pausen vor dem zweiten und dritten Versuch einer gescheiterten Quelle, in
+# Sekunden - dieselben wie NACHFASSEN_MINUTEN im Run-Controller, die den
+# Delta-Lauf nachfassen laesst. Am 9.11.2026 fiel der Montagslauf an einem
+# Socrata-Aussetzer, und am Nachmittag lief derselbe Abruf glatt durch.
+NACHFASSEN_SEKUNDEN=(1800 3600)
+
+# Laedt jede Quelle; was scheitert, kommt nach jeder Pause noch einmal dran.
+# Ein Schritt ist ein ganzer Modulaufruf samt Flaggen, ohne Leerzeichen
+# in den Werten. Scheitert eine Quelle auch beim letzten Versuch, endet die
+# Funktion mit 1 - vor dem Ableiten, denn ein halber Stand bekommt kein Gold.
+laden() {
+    local -a offen=("$@")
+    local -a weiter
+    local schritt pause
+    for pause in 0 "${NACHFASSEN_SEKUNDEN[@]}"; do
+        (( ${#offen[@]} )) || return 0
+        if (( pause )); then
+            echo "Urban Crime: ${#offen[@]} source step(s) failed, next attempt in $((pause / 60)) min:"
+            printf '  %s\n' "${offen[@]}"
+            sleep "${pause}"
+        fi
+        weiter=()
+        for schritt in "${offen[@]}"; do
+            # Wortweise mit Absicht: Der Schritt ist Modul samt Flaggen.
+            # shellcheck disable=SC2086
+            pipeline ${schritt} || weiter+=("${schritt}")
+        done
+        offen=(${weiter[@]+"${weiter[@]}"})
+    done
+    (( ${#offen[@]} )) || return 0
+    echo "Urban Crime: still failing after the last attempt, nothing derived:" >&2
+    printf '  %s\n' "${offen[@]}" >&2
+    return 1
+}
+
 mode_for_day() {
     local day_of_month
     day_of_month=$((10#$1))
@@ -39,6 +74,18 @@ mode_for_day() {
     fi
 }
 
+# Am Monatsersten wird nicht nachgefasst (FR-16). Der Restore-Test auf
+# srv01 beginnt dort um 05:00, mit bis zu einer Stunde Zufallsverzoegerung.
+# Ein Delta-Lauf ist nach rund fuenf Minuten fertig; faellt aber eine Quelle
+# aus, fasst run_all nach 30 und 60 Minuten nach und laeuft bis nach 06:00.
+# An einem Ersten lieber sofort rot - der naechste Montag holt nach.
+# `--nachfassen` ohne Werte heisst in run_all: kein zweiter Versuch.
+delta_nachfassen() {
+    if (( 10#$1 == 1 )); then
+        echo "--nachfassen"
+    fi
+}
+
 main() {
     local mode="${1:-}"
 
@@ -49,6 +96,11 @@ main() {
             return 0
         fi
     fi
+
+    # Beginn und Ende mit Zeit (FR-16): Bis zum 14.11.2026 liess sich die
+    # Dauer eines Laufs nur bis zur letzten Python-Logzeile messen - Drift
+    # und Sicherungssatz am Schluss schreiben keinen Zeitstempel.
+    echo "Urban Crime: ${mode} run started at $(date +%Y-%m-%dT%H:%M:%S%z)"
 
     # Erst fragen, ob der Lauf durchlaufen kann, dann laden. Am 12.10.2026
     # feuerte der Anstoss zum ersten Mal und brach nach einer halben Stunde
@@ -63,28 +115,28 @@ case "${mode}" in
     full)
         echo "Urban Crime: full monthly ingestion for ${YEAR_RANGE}"
 
+        # Jede Quelle ein Schritt; `laden` faehrt sie alle und fasst nach.
+        # Bis zum 12.11.2026 brach der erste Fehler hier alles ab: Am 9.11.
+        # stand Chicago 2021 vorn, und Detroit, Census und Wetter luden nicht.
+        local -a schritte=()
         for year in $(seq "${START_YEAR}" "${END_YEAR}"); do
-            pipeline python -m chicago_pipeline.download_chicago \
-                --year "${year}" --full
+            schritte+=("python -m chicago_pipeline.download_chicago --year ${year} --full")
         done
 
-        mapfile -t years < <(seq "${START_YEAR}" "${END_YEAR}")
-        pipeline python -m detroit_pipeline.extract_detroit \
-            --mode full --years "${years[@]}"
+        schritte+=("python -m detroit_pipeline.extract_detroit --mode full --years $(seq -s ' ' "${START_YEAR}" "${END_YEAR}")")
 
         census_end="${END_YEAR}"
         if (( census_end > LAST_CENSUS_VINTAGE )); then
             census_end="${LAST_CENSUS_VINTAGE}"
         fi
         for vintage in $(seq "${START_YEAR}" "${census_end}"); do
-            pipeline python -m census_pipeline.download_tiger \
-                --auslieferung tract --vintage "${vintage}"
-            pipeline python -m census_pipeline.download_tiger \
-                --auslieferung place --vintage "${vintage}"
-            pipeline python -m census_pipeline.download_acs \
-                --vintage "${vintage}"
+            schritte+=("python -m census_pipeline.download_tiger --auslieferung tract --vintage ${vintage}")
+            schritte+=("python -m census_pipeline.download_tiger --auslieferung place --vintage ${vintage}")
+            schritte+=("python -m census_pipeline.download_acs --vintage ${vintage}")
         done
-        pipeline python -m weather_pipeline.download_noaa
+        schritte+=("python -m weather_pipeline.download_noaa")
+        schritte+=("python -m gebiete_pipeline.download_gebiete")
+        laden "${schritte[@]}"
 
         # All sources were refreshed explicitly; derive every downstream
         # layer without creating a redundant city delta immediately after
@@ -94,7 +146,9 @@ case "${mode}" in
         ;;
     delta)
         echo "Urban Crime: weekly delta ingestion for ${YEAR_RANGE}"
-        pipeline python -m orchestration.run_all --jahre "${YEAR_RANGE}"
+        # shellcheck disable=SC2046 - genau ein Wort oder keines.
+        pipeline python -m orchestration.run_all --jahre "${YEAR_RANGE}" \
+            $(delta_nachfassen "$(date +%d)")
         ;;
     *)
         echo "Usage: $0 {auto|full|delta}" >&2
@@ -164,7 +218,7 @@ pipeline python -m orchestration.drift --nur-melden --json /app/data/drift.json 
 pipeline python -m orchestration.sicherungssatz --holen || \
     echo "WARNUNG: Sicherungssatz unvollstaendig - siehe Ausgabe oben"
 
-echo "Urban Crime: ${mode} run completed for ${YEAR_RANGE}"
+echo "Urban Crime: ${mode} run completed for ${YEAR_RANGE} at $(date +%Y-%m-%dT%H:%M:%S%z)"
 }
 
 # Der Betriebsblick (FR-30). Geschrieben wird er in **jedem** Fall, und das
@@ -179,6 +233,10 @@ echo "Urban Crime: ${mode} run completed for ${YEAR_RANGE}"
 # Mit `|| true`, weil ein Fehler *hier* den Lauf nicht nachtraeglich faellen
 # darf: Der Bericht ueber einen Lauf ist nicht der Lauf.
 betriebsstand() {
+    local rc=$?
+    # Das Ende mit Zeit auch bei einem Abbruch (FR-16): Die Zeile am Ende von
+    # `main` laeuft nur, wenn alles gruen war.
+    echo "Urban Crime: run ended with exit ${rc} at $(date +%Y-%m-%dT%H:%M:%S%z)"
     pipeline python -m serving.betriebsstand \
         --ziel /app/startseite/metrics || true
 }

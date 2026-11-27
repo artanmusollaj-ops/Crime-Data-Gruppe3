@@ -36,7 +36,36 @@ body { margin: 0; background: var(--grund); color: var(--text); font-size: 14px;
 .leiste label { display: flex; align-items: center; gap: 10px; color: var(--leise); }
 .leiste select { font: inherit; color: var(--text); padding: 8px 12px; border: 1px solid #cfd6e0;
   border-radius: 6px; background: #fff; min-width: 90px; }
-#stadt, #kategorie { min-width: 200px; }
+.leiste input[type="date"] { font: inherit; color: var(--text); padding: 7px 10px; border: 1px solid #cfd6e0;
+  border-radius: 6px; background: #fff; }
+.leiste label[hidden] { display: none; }
+/* Wechselt zwischen Monaten eines Jahres und einem freien Zeitraum. */
+.leiste .zeitmodus { font: inherit; font-size: 14px; color: var(--blau); background: none; cursor: pointer;
+  border: 1px solid #cfd6e0; border-radius: 6px; padding: 8px 12px; margin-left: -16px; }
+.leiste .zeitmodus:hover { background: #eaf2fd; border-color: var(--blau); }
+#kategorien .mehrfach-klappe summary { min-width: 220px; }
+.mehrfach { display: flex; align-items: center; gap: 10px; color: var(--leise); }
+/* Sieht aus wie die Auswahlfelder daneben, klappt aber eine Liste mit Häkchen auf. */
+.mehrfach-klappe { position: relative; }
+.mehrfach-klappe summary { list-style: none; cursor: pointer; color: var(--text); min-width: 176px;
+  padding: 8px 32px 8px 12px; border: 1px solid #cfd6e0; border-radius: 6px; background: #fff;
+  position: relative; white-space: nowrap; }
+.mehrfach-klappe summary::-webkit-details-marker { display: none; }
+.mehrfach-klappe summary::after { content: ""; position: absolute; right: 12px; top: 50%;
+  width: 7px; height: 7px; border-right: 1.5px solid var(--leise); border-bottom: 1.5px solid var(--leise);
+  transform: translateY(-70%) rotate(45deg); }
+.mehrfach-klappe[open] summary::after { transform: translateY(-30%) rotate(-135deg); }
+/* Ein gesetzter Filter ist zu sehen, auch bei geschlossener Liste. */
+.mehrfach-klappe.aktiv summary { border-color: var(--blau); background: #eaf2fd; color: #1b4f9c; font-weight: 600; }
+.mehrfach-klappe summary:focus-visible { outline: 2px solid var(--blau); outline-offset: 1px; }
+.mehrfach-liste { max-height: 360px; overflow-y: auto; position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; min-width: 100%;
+  background: #fff; border: 1px solid #cfd6e0; border-radius: 6px; padding: 6px 0;
+  box-shadow: 0 6px 18px rgba(27, 36, 48, 0.12); }
+.leiste .mehrfach-wahl { display: flex; align-items: center; gap: 8px; color: var(--text); cursor: pointer;
+  padding: 6px 12px; white-space: nowrap; }
+.leiste .mehrfach-wahl:hover { background: #f1f4f8; }
+.leiste .mehrfach-wahl:first-child { border-bottom: 1px solid var(--linie); margin-bottom: 4px; padding-bottom: 8px; }
+.leiste .mehrfach-wahl input { width: 16px; height: 16px; accent-color: var(--blau); cursor: pointer; }
 
 .brett { margin: 0 16px 16px; background: #fff; border-radius: 10px; padding: 16px; border: 1px solid var(--linie); }
 .brettkopf { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
@@ -137,10 +166,28 @@ h2 { margin: 0 0 4px; font-size: 17px; }
 #karten { margin-bottom: 16px; align-items: start; }
 #karten.einzeln { grid-template-columns: minmax(0, 760px); justify-content: center; }
 .tafel.karte h2 { font-size: 22px; margin-bottom: 8px; }
-.kartenflaeche { background: #f7f9fb; border-radius: 6px; padding: 8px; }
-.kartenflaeche svg { display: block; width: 100%; height: auto; max-height: 640px; }
-.tract { stroke: #ffffff; stroke-width: 0.6; }
-.tract:hover { stroke: #1b2430; stroke-width: 1.5; }
+.kartenflaeche { position: relative; background: #f7f9fb; border-radius: 6px; padding: 8px; }
+.kartenflaeche svg { display: block; width: 100%; height: auto; max-height: 640px; cursor: grab;
+  background: #fafaf8; border-radius: 4px; user-select: none; }
+.kartenflaeche svg.zieht { cursor: grabbing; }
+/* Halb durchsichtig, damit Strassen und Wasser durchscheinen; die Linie bleibt beim Zoomen gleich dick. */
+.tract { stroke: #ffffff; stroke-width: 0.6; fill-opacity: 0.68; vector-effect: non-scaling-stroke;
+  fill-rule: evenodd; }
+/* Polizeibezirke: groesser, deshalb eine kraeftigere Grenze. */
+.tract.bezirk { stroke-width: 1.4; }
+.tract:hover { stroke: #1b2430; stroke-width: 1.5; fill-opacity: 0.85; }
+/* Entfaerbt: Farbe tragen nur die Tracts. */
+.kacheln { pointer-events: none; filter: grayscale(1) contrast(0.85) brightness(1.08); }
+.zoomknoepfe { position: absolute; top: 18px; left: 18px; display: flex; flex-direction: column;
+  border: 1px solid var(--linie); border-radius: 4px; overflow: hidden; background: #ffffff; }
+.zoomknoepfe button { width: 30px; height: 30px; border: 0; border-top: 1px solid var(--linie);
+  background: #ffffff; color: #1b2430; font-size: 18px; line-height: 1; cursor: pointer; }
+.zoomknoepfe button:first-child { border-top: 0; }
+.zoomknoepfe button:hover { background: #f2f6fb; }
+.kartennennung { position: absolute; right: 10px; bottom: 10px; padding: 1px 6px; font-size: 11px;
+  color: #4a5563; background: rgba(255, 255, 255, 0.8); border-radius: 3px; }
+.kartennennung a { color: inherit; }
+.massstabsgrund { fill: #ffffff; fill-opacity: 0.8; }
 .massstab { stroke: #1b2430; stroke-width: 2; }
 .nord { fill: #1b2430; }
 .kartenschrift { fill: #1b2430; font-size: 12px; }
@@ -181,6 +228,11 @@ h2 { margin: 0 0 4px; font-size: 17px; }
 .raster-tabelle th:first-child { text-align: left; }
 .raster-tabelle td { padding: 12px 6px; border-top: 1px solid var(--linie); text-align: center; }
 .raster-tabelle td.stadtname { text-align: left; font-weight: 600; border-radius: 4px; }
+/* Viele Perioden: schmale Felder, Beschriftung nur an jeder n-ten Spalte. */
+.raster-tabelle.dicht th, .raster-tabelle.dicht td { padding: 8px 0; white-space: nowrap; }
+.raster-tabelle.dicht th { font-weight: 500; font-size: 11px; text-align: left; overflow: visible; max-width: 0; }
+.raster-tabelle.dicht th:first-child, .raster-tabelle.dicht td.stadtname { max-width: none; padding-right: 10px; }
+.raster-tabelle.dicht i { width: 100%; min-width: 3px; height: 14px; border-radius: 1px; }
 .stadtname.chicago { background: #d6f1eb; color: #0c6b5a; }
 .stadtname.detroit { background: #d9e8fb; color: #1d5bb0; }
 .raster-tabelle i, .statuslegende span::before { display: inline-block; width: 18px; height: 18px; border-radius: 3px; }
@@ -235,3 +287,36 @@ h2.abstand { margin-top: 16px; }
 .bivariat-legende text { fill: #44505f; }
 #legende-bivariat { align-items: center; }
 #legende-bivariat .unterzeile { max-width: 640px; }
+
+/* »Zeitverlauf«, Tafel »Tag und Nacht«: drei Gruppen, drei feste Farben. */
+#tag-nacht h3 { margin: 12px 0 4px; font-size: 15px; }
+.legende .hell { --farbe: #f2b134; }
+.legende .dunkel { --farbe: #173f7a; }
+.legende .unsicher { --farbe: #c9ced6; }
+
+/* »Datenqualität«: NIBRS-Zuordnung im Detail. Eigene Knoepfe statt
+   .umschalter - starteBrett nimmt den ersten .umschalter als Parameter. */
+.filterknoepfe { display: flex; border: 1px solid #cfd6e0; border-radius: 6px; overflow: hidden; flex-wrap: wrap; }
+.filterknoepfe button { font: inherit; font-size: 13px; border: 0; border-left: 1px solid #cfd6e0;
+  background: #f7f9fc; padding: 6px 12px; cursor: pointer; color: var(--text); }
+.filterknoepfe button:first-child { border-left: 0; }
+.filterknoepfe button small { color: var(--leise); }
+.filterknoepfe .an { background: var(--blau); color: #fff; }
+.filterknoepfe .an small { color: #dbe8fb; }
+.detailfilter { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+.detailfilter input[type="search"] { font: inherit; padding: 7px 12px; border: 1px solid #cfd6e0;
+  border-radius: 6px; min-width: 280px; }
+.detailfilter .leise { color: var(--leise); font-size: 13px; }
+.filterchip { font: inherit; font-size: 13px; border: 1px solid var(--blau); background: #eaf2fd;
+  color: #1b4f9c; border-radius: 999px; padding: 4px 12px; cursor: pointer; font-weight: 600; }
+.zuordnungsmarke { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px;
+  font-weight: 600; white-space: nowrap; background: color-mix(in srgb, var(--farbe) 22%, #fff);
+  border: 1px solid var(--farbe); color: #1b2430; }
+.zuordnungstabelle td:nth-child(2), .zuordnungstabelle td:nth-child(4) { font-variant-numeric: tabular-nums; color: var(--text); }
+#d-zuordnung rect.klickbar { cursor: pointer; }
+#d-zuordnung rect.klickbar:hover { opacity: 0.8; }
+#f-mehr { margin-top: 12px; }
+
+/* »Geografie«: zwei Umschalter untereinander, rechtsbuendig. */
+.schalterpaar { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.umschalter button[hidden] { display: none; }

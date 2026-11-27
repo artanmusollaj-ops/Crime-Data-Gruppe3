@@ -252,6 +252,38 @@ INDIZES: tuple[Index, ...] = (
         nachschlag=True,
     ),
     Index(
+        name="dim_police_area",
+        # Seit Gold-Vertrag 11: 34 Polizeibezirke. Die Nummern beider Staedte
+        # ueberschneiden sich, der Schluessel braucht die Stadt.
+        schluessel=("city", "area_id"),
+        verteilung=("city",),
+        volltext=frozenset({"area_name"}),
+        flaeche="boundary_wkt",
+        # Wie dim_tract_geo: rechts in einem LOOKUP JOIN, fuer die Karte.
+        nachschlag=True,
+    ),
+    Index(
+        name="bridge_tract_police_area",
+        # Welcher Anteil eines Stadt-Tracts in welchem Bezirk liegt - der
+        # Weg vom Nenner je Tract zum Nenner je Bezirk.
+        schluessel=("geoid", "city", "area_id"),
+        verteilung=("city",),
+    ),
+    Index(
+        name="dim_community_area",
+        # Seit Gold-Vertrag 12: 131 Stadtteile; in Detroit ist der Schluessel ein Name.
+        schluessel=("city", "area_id"),
+        verteilung=("city",),
+        volltext=frozenset({"area_name"}),
+        flaeche="boundary_wkt",
+        nachschlag=True,
+    ),
+    Index(
+        name="bridge_tract_community_area",
+        schluessel=("geoid", "city", "area_id"),
+        verteilung=("city",),
+    ),
+    Index(
         name="rate_tract",
         # Keine Gold-Tabelle: Die Rate je Tract ist eine Aggregation, und
         # Gold aggregiert nicht. Sie entsteht in serving.build_comparison
@@ -319,9 +351,11 @@ INDIZES: tuple[Index, ...] = (
     ),
     Index(
         name="dim_city_day",
-        # Eine Stadt hat je Tag eine Wetterzeile; erst das Paar ist
-        # eindeutig. Gemessen: 4'196 Zeilen, ebenso viele verschiedene
-        # (city, date).
+        # Eine Stadt hat je Tag eine Zeile; erst das Paar ist eindeutig.
+        # Gemessen: 4'196 Zeilen, ebenso viele verschiedene (city, date).
+        # Seit Gold-Vertrag 9 ist die Tabelle ein Geruest aus Fallspanne und
+        # Studienstaedten - an Tagen ohne NOAA-Lieferung sind die
+        # Wetterspalten leer, ``station_id`` eingeschlossen.
         schluessel=("city", "date"),
         verteilung=("city", "station_id"),
         # ``station_name`` traegt zwei Werte ("DETROIT METRO AIRPORT, MI US"

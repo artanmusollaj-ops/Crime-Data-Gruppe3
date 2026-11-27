@@ -21,15 +21,21 @@ def export(store, city, code, target):
 
 
 def test_a_mapping_change_exports_one_override_row_and_no_crosswalk(tmp_path):
-    store = Store(PROJECT, tmp_path / "data")
+    project = tmp_path / "project"
+    shutil.copytree(PROJECT / "config", project / "config")
+    existing = "detroit,3072,26A,Existing review"
+    (project / "config" / "mapping_overrides.csv").write_text(
+        f"city,source_code,nibrs_code,reason\n{existing}\n", encoding="utf-8"
+    )
+    store = Store(project, tmp_path / "data")
     store.initialize("bootstrap")
 
     (path, (before, after)), = export(store, "chicago", "0110", "09B").items()
 
     assert path == "config/mapping_overrides.csv"
-    assert before == (PROJECT / path).read_text(encoding="utf-8")
+    assert before == (project / path).read_text(encoding="utf-8")
     assert "\r" not in after, "LF like the repository copy"
-    assert after.splitlines()[1:] == ["chicago,0110,09B,Probe"]
+    assert after.splitlines()[1:] == ["chicago,0110,09B,Probe", existing]
 
 
 def test_choosing_the_crosswalk_target_again_removes_the_override(tmp_path):

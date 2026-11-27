@@ -2,7 +2,7 @@
 
 Stand 10. November 2026 · ursprünglich von Artan (26.10.2026), seither nachgeführt
 
-Diese Anleitung beschreibt die Engineering-Konsole (`src/crime/platform_admin`), so wie sie im Repository liegt. Die Infrastruktur bleibt Grundlage: SeaweedFS/S3, die bestehenden Pipelines, Elasticsearch, Kibana, Jupyter und das vorhandene Monitoring. Was sich gegenüber Artans Lieferung geändert hat und warum, steht in [`AENDERUNGEN.md`](AENDERUNGEN.md) unter den Einträgen vom 30.10.2026.
+Diese Anleitung beschreibt die Engineering-Konsole (`src/crime/platform_admin`), so wie sie im Repository liegt. Die Infrastruktur bleibt Grundlage: SeaweedFS/S3, die bestehenden Pipelines, das Analyseangebot — auf `srv01` seit dem 1.11.2026 das eigene Dashboard, lokal und in der Vorführung Elasticsearch und Kibana —, Jupyter und das vorhandene Monitoring. Was sich gegenüber Artans Lieferung geändert hat und warum, steht in [`AENDERUNGEN.md`](AENDERUNGEN.md) unter den Einträgen vom 30.10.2026.
 
 [`handbuch/ENGINEERING_KONSOLE.pdf`](handbuch/ENGINEERING_KONSOLE.pdf) ist dieselbe Anleitung als PDF, erzeugt aus dieser Datei mit `python tools/build_konsole_pdf.py`. Von Hand geändert wird nur das Markdown.
 
@@ -15,7 +15,7 @@ Ein aktiver Datenrelease ist ein unveränderliches Verzeichnis mit Manifest und 
 Die Konsole unterscheidet jetzt ausdrücklich:
 
 - **Aktiver Release:** freigegebener Datenstand; bei der Erstübernahme gegebenenfalls dokumentierte Alt-Baseline.
-- **Analyse-Bereitstellung:** Zustand des Exports dieses Standes nach Elasticsearch/Kibana und der abschliessenden Prüfung.
+- **Analyse-Bereitstellung:** Zustand der Bereitstellung dieses Standes und der abschliessenden Prüfung — lokal der Export nach Elasticsearch/Kibana, auf `srv01` das eingesetzte Release, das das Dashboard selbst lädt.
 - **Zuletzt vollständig geprüft:** letzter Stand, dessen gesamte Analysebereitstellung erfolgreich beendet wurde.
 
 Zwischen Datenfreigabe und fertig aktualisierten Analysediensten kann Zeit liegen. Elasticsearch wechselt seine Tabellen-Aliase einzeln. Ein Abbruch kann deshalb einen Teilstand hinterlassen; PARTIAL kennzeichnet ihn. Es gibt keine verteilte Transaktion über alle Dienste.
@@ -50,7 +50,13 @@ Detroit Full lädt die angegebenen Jahre vollständig. Detroit Delta arbeitet je
 
 Die Stadtbuttons öffnen die lesende Codeansicht. Full und Delta markieren relevante unterschiedliche Codebereiche. Gemeinsame Funktionen werden weiterhin vollständig angezeigt. Suche und Dateiauswahl ändern keinen Code. Die Vorschau zeigt den Code des Webserver-Abbilds. Historischer Worker-Code wird ohne Nachweis nicht behauptet.
 
-Quelllauf-Nachweise enthalten Manifest, Run-ID, Parameter und Zeitstempel, soweit sie im tatsächlichen Manifest stehen. Job- und Impact-Verknüpfungen beruhen auf archivierten Manifest-Hashes. Ein fehlender Verweis bedeutet fehlenden Nachweis. Auch remote gespeicherte Bronze-Manifeste werden in der Konsole gelesen.
+Unter **Quellläufe** zeigt die Importhistorie je Stadt Run-ID, Ladeart,
+Abschlusszeit und Status. **Aktuelle Ladelogik** öffnet die Codevorschau.
+Im **Laufnachweis** stehen Start, Ende und belegte Verknüpfungen zu Auftrag,
+Impact und Release. Manifest, Prüfsumme, Jobparameter und Laufprotokoll
+lassen sich bei Bedarf öffnen. Verknüpfungen zu Einzel- und Gesamtimporten
+beruhen auf gespeicherten Manifest-Hashes. Auch remote gespeicherte
+Bronze-Manifeste werden gelesen.
 
 ### Review, Anträge und Konflikte
 
@@ -71,9 +77,17 @@ Geplante Gesamtimporte erscheinen unter Betriebsaufträge als batch. Ihr Log lie
 Git-Aktionen stehen direkt im geöffneten Antrag unter **Veröffentlichung**.
 Die Ansicht bündelt Git-Ampel, Branch-/Commit-Nachweise, die zum Zustand passende
 Aktion und das antragsbezogene Git-Protokoll. Eine zusätzliche zentrale
-Revisionsauswahl entfällt. **Commit / Branch / PR erstellen** verlangt die
+Revisionsauswahl entfällt. **Pull Request anfordern** verlangt die
 Engineer-Rolle, **Geprüften PR mergen** einen Release-Manager als zweite Person.
 Die serverseitigen Freigabe- und CI-Prüfungen bleiben unverändert.
+
+Unter **Betrieb → Aufträge** steht die ETL-Übersicht oberhalb der Filter.
+Sie zeigt laufende Aufträge oder den zuletzt beendeten Lauf. Die Ampel
+zeigt den Laufstatus. Wenn die laufende Stufe einen Modulzähler hat, zeigt
+der segmentierte Balken die abgeschlossenen Module und ihren Anteil.
+**Auftragsdetails öffnen** führt zu Start, Ende, Prüfbasis, Kandidat und
+veröffentlichtem Release, soweit diese Angaben vorliegen. Die einzelnen
+**ETL-Stufen** lassen sich dort aufklappen.
 
 Unter **Betrieb** trennen die Ansichten **Aufträge**, **Analyse-Bereitstellung**
 und **Sicherung** Verarbeitung, Bereitstellung und Wartung. **Aktiven Release
@@ -220,7 +234,7 @@ Die Konsole läuft auf srv01 als zwei Dienste aus `docker-compose.srv01.yml`, be
 | `admin` | Webdienst, dauernd | 160 MiB | `urbancrime-admin.datenwerft.ch` über Traefik, hinter derselben Access-Anwendung wie alles unter `urbancrime-*` |
 | `worker` | Stapellauf: ein Takt, höchstens ein Auftrag, dann Ende | 1'280 MiB | gar nicht |
 
-Der Worker läuft **nicht dauernd**: Er führt die Pipelines aus und bräuchte dauernd deren 1'280 MiB, rund 1,3 GiB mehr als srv01 im Dauerbetrieb frei hat (FR-13). `docker/srv01-konsole-takt.sh` startet ihn alle fünf Minuten über dieselbe Sperre wie der Datenlauf, aber ohne zu warten — läuft gerade etwas, entfällt der Takt. Aufträge aus der Oberfläche beginnen deshalb mit bis zu fünf Minuten Verzug.
+Der Worker läuft **nicht dauernd**: Er führt die Pipelines aus und bräuchte dauernd deren 1'280 MiB, rund 1,3 GiB mehr als srv01 im Dauerbetrieb frei hat (FR-13). `docker/srv01-konsole-takt.sh` startet ihn jede Minute über dieselbe Sperre wie der Datenlauf, aber ohne zu warten — läuft gerade etwas, entfällt der Takt. Aufträge aus der Oberfläche beginnen deshalb mit bis zu einer Minute Verzug; ein leerer Takt belegt die Sperre rund 3 Sekunden.
 
 Der Kontrollzustand — SQLite mit Revisionen, Review-Entscheidungen und Git-Nachweisen — liegt im eigenen Datenträger `urbancrime_konsole`. Er lässt sich nicht nachrechnen und gehört in die Serversicherung.
 
@@ -254,9 +268,9 @@ dc run --rm worker python -m platform_admin enable-managed \
   --project-root /app --data-root /app/data --operator christian
 ```
 
-**Im selben Zug** in `deploy/cron/urbancrime.crontab` die Zeile für `srv01-datenlauf.sh` aus- und die für `srv01-konsole-datenlauf.sh` einkommentieren, dann den Crontab neu laden. Danach sperrt `storage.verwaltet` `run_all` und `release` für alles ausser dem Worker; der alte Datenlauf scheiterte ab dieser Minute. `enable-managed` holt im S3-Betrieb den aktiven Release lokal und dokumentiert ihn als Alt-Baseline, ohne ihm eine nachträgliche Freigabe zu erfinden.
+**Im selben Zug** in `deploy/cron/urbancrime.crontab` die Zeile für `srv01-datenlauf.sh` aus- und die für `srv01-konsole-datenlauf.sh` einkommentieren, dann den Crontab neu laden. Danach sperrt `storage.verwaltet` `run_all` und `release` in jedem Container, der den Marker `admin/managed.json` sieht, also in `admin` und `worker`. **Den alten Datenlauf hält das auf `srv01` nicht auf:** Der Dienst `pipeline` hängt das Volume `konsole` nicht ein, sieht den Marker nicht und liefe weiter durch. Der Tausch der Crontab-Zeilen ist deshalb der einzige Schutz (`umstellung-verwaltet.md`, Vorprüfung Punkt 4). `enable-managed` holt im S3-Betrieb den aktiven Release lokal und dokumentiert ihn als Alt-Baseline, ohne ihm eine nachträgliche Freigabe zu erfinden.
 
-Der Worker übernimmt dann alles, was der Datenlauf tat: Quellen laden, Kandidat bauen, Freigabe durch das Qualitätstor, Elasticsearch, Kibana, Startseite und `pruefe_stand`, danach Drift und Sicherungssatz, und nach jedem Takt mit Arbeit das Laufprotokoll `pipeline_run.json` und den Betriebsstand. Ein Wächter (`tests/platform_admin/test_datenlauf.py`) hält, dass jeder Schritt des Datenlaufs im Worker vorkommt. Nicht übernehmen kann er `compose up` für Elasticsearch, Kibana und `start` — im Container gibt es kein Docker; die Dienste laufen `unless-stopped`.
+Der Worker übernimmt dann alles, was der Datenlauf tat: Quellen laden, Kandidat bauen, Freigabe durch das Qualitätstor, das Release einsetzen, Startseite und `pruefe_stand`, danach Drift und Sicherungssatz, und nach jedem Takt mit Arbeit das Laufprotokoll `pipeline_run.json` und den Betriebsstand. Ein Wächter (`tests/platform_admin/test_datenlauf.py`) hält, dass jeder Schritt des Datenlaufs im Worker vorkommt. Elasticsearch und Kibana lädt er auf `srv01` nicht: Dort gilt `SERVING_BETRIEB=server`, es gibt beide seit dem 1.11.2026 nicht mehr, und das Dashboard lädt ein neues Release innerhalb einer Minute selbst (`platform_admin.serving_export`); lokal laden beide Lader weiter. Nicht übernehmen kann er `compose up` für die Dienste — im Container gibt es kein Docker; sie laufen `unless-stopped`.
 
 Am ersten Montag nach der Umstellung im Betriebsblick prüfen, dass Protokoll, Drift und Sicherungssatz angekommen sind.
 
@@ -270,7 +284,7 @@ Die bestehenden Elasticsearch-Sterntabellen, Geo-Indizes, Raten und Kibana-Dashb
 
 **Die Notebooks lesen einen ausdrücklich gewählten, vollständig aufgebauten Pipeline-Bestand.** Ein Ergebnis-Release enthält nicht alle dafür benötigten Bronze- und Silver-Daten. Notebook 34 vergleicht zusammengehöriges Silver und Gold; Notebook 37 untersucht `silver/source_change` und Bronze-Manifeste. Sie werden deshalb nicht pauschal auf das aktive Release umgeleitet.
 
-Nach einem erfolgreichen lokalen Gesamtlauf liegt der Herkunftsnachweis unter `<Datenwurzel>/.analyse/stand.json`. Im verwalteten Betrieb entsteht er nach technisch erfolgreichem Kandidatenbau unter `data/admin/jobs/<Job-ID>/data/`. Er benennt Aufbaulauf beziehungsweise Job-ID, Code-Stand, gebaute Schichten, Datei-Prüfsummen und gegebenenfalls die zugehörige Release-ID. Die Kandidatenkennung ist **keine Review-Freigabe**; der Betreiber wählt einen freigegebenen Job anhand der Konsolenentscheidung. Das jeweils letzte `pipeline_run.json` ersetzt diesen Nachweis nicht.
+Nach einem erfolgreichen lokalen Gesamtlauf liegt der Herkunftsnachweis unter `<Datenwurzel>/.analyse/stand.json`. Im verwalteten Betrieb entsteht er nach technisch erfolgreichem Kandidatenbau unter `data/admin/jobs/<Job-ID>/data/`. Er benennt Aufbaulauf beziehungsweise Job-ID, Code-Stand, gebaute Schichten, Datei-Prüfsummen und gegebenenfalls die zugehörige Release-ID. Die Kandidatenkennung ist **keine Review-Freigabe**. Welcher Job zum aktiven Release gehört, hält der **Job-Zeiger** `jobs/ANALYSE.json` fest: Beim Aktivieren eines Release trägt `finish_publication` dessen Job ein. Die Startzelle liest das Release aus `releases/AKTUELL.json` und schlägt es im Zeiger nach, nicht den jüngsten Eintrag. Schaltet jemand auf ein älteres Release zurück, liest sie dessen Daten. Fehlt für ein Konsolen-Release (`approved-…`) der Eintrag oder sein Ordner, bricht sie ab, statt auf einen anderen Stand auszuweichen. Für jedes andere aktive Release, etwa das des Cron-Datenlaufs, bleibt die Datenwurzel selbst. Das jeweils letzte `pipeline_run.json` ersetzt diesen Nachweis nicht.
 
 Die Startzelle prüft die benötigten Dateien samt Prüfsummen und zeigt ihre Herkunft. Fehlende, veränderte oder unvollständig aufgebaute Daten führen zum Abbruch. Eine leere, erfolgreich gebaute `source_change`-Tabelle ist zulässig, belegt aber keine tatsächlichen Quelländerungen.
 
@@ -286,12 +300,12 @@ Die Analysesitzung hält eine exklusive Datensperre bis zur Abschlusszelle `anal
 dc run --rm --no-deps --entrypoint python pipeline -c "from pathlib import Path; Path('/app/data/admin/jobs').mkdir(parents=True, exist_ok=True)"
 ```
 
-4. In der `.env` `CRIME_ANALYSIS_ROOT=/app/data/admin/jobs/<Job-ID>/data` auf den ausgewählten Aufbau setzen und Jupyter neu erstellen. Ohne Angabe gilt `/app/data`; auch dort wird ein passender Herkunftsnachweis verlangt. Es werden weder automatisch Daten von S3 geholt noch andere Datenstände als Ersatz verwendet.
+4. `CRIME_ANALYSIS_ROOT` auf `/app/data` lassen: Die Startzelle findet den Job des aktiven Release über den Job-Zeiger. Ein fester Job-Ordner in der `.env` geht weiter, umgeht dann aber den Zeiger. In jedem Fall wird ein passender Herkunftsnachweis verlangt. Es werden weder automatisch Daten von S3 geholt noch andere Datenstände als Ersatz verwendet.
 5. Für die Abnahme ausdrücklich die neuen Vorlagen unter `/vorlagen` in einen separaten Arbeitsordner unter `/app/arbeit` kopieren. Ein Image-Wechsel überschreibt bestehende Notebook-Arbeitskopien nicht.
 
 Ein lokaler Aufbau bleibt mit `STORAGE_BACKEND=local` möglich. Für dessen Notebooks kann `CRIME_ANALYSIS_ROOT` vor dem Kernelstart auf einen anderen vollständigen lokalen Bestand zeigen. Details und Befehle stehen in [`notebook-analysesitzungen.md`](notebook-analysesitzungen.md).
 
-**Nachweisstand am 31.10.2026:** Beide Notebooks liefen lokal unter Windows und anschliessend unter Linux/Docker vollständig durch. Gegenseitige Leser-/Worker-Sperren, Freigabe und Volume-Schreibschutz wurden mit isolierten Test-Volumes bestätigt. Der [dauerhafte Prüfnachweis](e5-pruefnachweis.md) nennt Datenstand, Images und Grenzen. Die Abnahme auf srv01 mit einem echten Konsolen-Job und die Auswertung tatsächlicher Quelländerungen bleiben offen; E-5 ist deshalb noch nicht als auf srv01 abgenommen markiert.
+**Nachweisstand am 31.10.2026:** Beide Notebooks liefen lokal unter Windows und anschliessend unter Linux/Docker vollständig durch. Gegenseitige Leser-/Worker-Sperren, Freigabe und Volume-Schreibschutz wurden mit isolierten Test-Volumes bestätigt. Der [dauerhafte Prüfnachweis](e5-pruefnachweis.md) nennt Datenstand, Images und Grenzen. **Auf srv01 abgenommen am 14.11.2026 für den Cron-Datenlauf:** Notebook 34 und 37 liefen vollständig auf Release `2026-11-14T09-09-47Z`, 37 mit echten Quelländerungen (`offene-punkte.md`, E-5). Offen bleibt nur die Abnahme mit einem echten Konsolen-Job; sie gehört zu S-10.
 
 **Der Betriebsblick bleibt derselbe.** Der Worker schreibt nach jedem Takt mit Arbeit `pipeline_run.json` im Format, das `orchestration.run_all` für den Cron-Lauf schreibt, und rendert daraus `serving.betriebsstand` — dieselbe Metrikdatei, dasselbe Brett in Grafana. Ein leerer Takt überschreibt nichts. Die Konsole hat zusätzlich einen eigenen Endpunkt `/metrics` (Bearer `ADMIN_METRICS_TOKEN`); dass Prometheus ihn abholt, ist noch nicht eingerichtet (C-7).
 
@@ -308,7 +322,7 @@ Get-NetTCPConnection -LocalPort 8765 -State Listen |
   Select-Object LocalAddress, LocalPort, OwningProcess
 ```
 
-Lokal muss mindestens ein Worker laufen; auf srv01 kommt alle fünf Minuten ein Takt — ein Auftrag, der länger als fünf Minuten in QUEUED steht, heisst dort, dass die Takt-Zeile im Crontab fehlt oder die Sperre belegt ist (`logs/konsole-takt.log`). Webserver und Worker müssen denselben absoluten project-root und data-root nutzen. Zwei Python-Zeilen können unter Windows ein venv-Launcher und dessen Kindprozess sein; sie beweisen nicht automatisch zwei unabhängige Server. ParentProcessId und Portbesitzer prüfen. Nur die identifizierte überzählige Sitzung beenden, vorzugsweise mit Ctrl+C in ihrem Terminal.
+Lokal muss mindestens ein Worker laufen; auf srv01 kommt jede Minute ein Takt — ein Auftrag, der länger als ein paar Minuten in QUEUED steht, heisst dort, dass die Takt-Zeile im Crontab fehlt oder die Sperre belegt ist (`logs/konsole-takt.log`). Webserver und Worker müssen denselben absoluten project-root und data-root nutzen. Zwei Python-Zeilen können unter Windows ein venv-Launcher und dessen Kindprozess sein; sie beweisen nicht automatisch zwei unabhängige Server. ParentProcessId und Portbesitzer prüfen. Nur die identifizierte überzählige Sitzung beenden, vorzugsweise mit Ctrl+C in ihrem Terminal.
 
 ### RUNNING bleibt nach einem Abbruch stehen
 
@@ -329,7 +343,7 @@ recover-job schliesst nur RUNNING-Import-/Prüfjobs ab, keine Impacts. Für eine
 
 ### Rebuild scheitert an fehlender Abhängigkeit
 
-Beispiel: „Kein vollständiger Bronze-Lauf für tiger_tract, Vintage 2024, Staat 17“. Es fehlt eine Bronze-Quelle für Silver, nicht einfach eine bereits vorhandene Silver-/Gold-Datei. Ein Gesamtimport mit der konfigurierten Jahresspanne lädt Chicago, Detroit, TIGER Tracts, TIGER Places, ACS und Wetter. Fehlende API-Schlüssel zuerst beheben. Anschliessend neuen Rebuild ausführen. Im verwalteten Betrieb Quellen über Batch oder Konsole starten, nicht direkt am Worker vorbei.
+Beispiel: „Kein vollständiger Bronze-Lauf für tiger_tract, Vintage 2024, Staat 17“. Es fehlt eine Bronze-Quelle für Silver, nicht einfach eine bereits vorhandene Silver-/Gold-Datei. Ein Gesamtimport mit der konfigurierten Jahresspanne lädt Chicago, Detroit, TIGER Tracts, TIGER Places, ACS, Wetter und die Gebiete (Polizeibezirke und Stadtteile). Fehlende API-Schlüssel zuerst beheben. Anschliessend neuen Rebuild ausführen. Im verwalteten Betrieb Quellen über Batch oder Konsole starten, nicht direkt am Worker vorbei.
 
 Weitere Fälle: fehlende DuckDB-Spatial-/ICU-Erweiterungen, API 401/403, Rate Limit 429, Netzwerkfehler, fehlende Python-Pakete, Dateiberechtigungen und voller Datenträger. Das konkrete Job-Log enthält die erste relevante Ursache. Bei OOM DuckDB-Grenzen, freien Plattenplatz für Auslagerung und parallele Containerlast prüfen. Ein zusätzlicher Silver-Container vergrössert das verfügbare RAM nicht.
 
@@ -339,11 +353,26 @@ ARCHIVE_PENDING: S3-Zugang und Platz prüfen, danach Archivierung wiederholen. A
 
 ### Aufräumen und Backup
 
+**Job-Daten.** Jeder Kandidat liegt mit einer vollständigen Kopie seiner Eingaben unter `jobs/<Job-ID>/data/`, je einige hundert MB bis 1,1 GiB. In die Kontrollsicherung geht er seit dem 25.11.2026 nicht mehr (siehe unten), Platz auf dem Volume belegt er weiter. Der Worker entfernt diesen Ordner in jedem Takt vor der Sicherung, sobald ihn niemand mehr braucht (`platform_admin.job_data.prune`). Die Nachweise daneben (`run.log`, Auswirkungsbericht, `result.json`) bleiben immer. Geschützt sind:
+
+- eingereihte und laufende Jobs sowie Kandidaten, deren Freigabe oder Publikation noch läuft (`AWAITING_GIT`, `APPROVED_PENDING_PUBLICATION`, `ARCHIVE_PENDING`);
+- Kandidaten im Review (`READY`, `BLOCKED`), solange ihre Basis das aktive Release ist; danach sind sie nicht mehr freigabefähig;
+- der Job des aktiven Release und die zuletzt aktivierten davor, zusammen `ADMIN_JOB_DATA_KEEP` (Vorgabe 2), damit ein Zurückschalten seine Daten findet.
+
+Liest gerade eine Analysesitzung einen Ordner, bleibt er bis zum nächsten Takt stehen. Entfernte Jobs verschwinden auch aus dem Job-Zeiger. Der Job des aktiven Release bleibt auch ohne Zeiger-Eintrag, etwa wenn er vor dem Job-Zeiger aktiviert wurde.
+
+Was die Regel entfernen würde, zeigt ein Trockenlauf mit Grund und Grösse je Job; ohne `--dry-run` räumt derselbe Befehl sofort:
+
+```bash
+dc run --rm worker python -m platform_admin prune-job-data --dry-run --project-root /app --data-root /app/data
+```
+
+
 Im verwalteten Modus bleibt der Aufräum-Trockenlauf lesend verfügbar. Destruktives Aufräumen ist zunächst gesperrt, weil die bisherigen Retentionsregeln offene Kandidaten und Prüfarchive nicht vollständig modellieren. Das ist eine bewusst verbleibende Betriebseinschränkung, keine Behauptung einer fertig integrierten Löschautomatik. Ein Full Load hebt andere Pin-/Referenz-/Historisierungsregeln nicht automatisch auf.
 
-Die Backup-Aktion sichert SQLite konsistent sowie Kandidaten, Revisionen, Impact-Archive, Bereitstellungsnachweise und lokale Releases. Im S3-Modus liegt das Archiv unter backups/control/; der Worker sichert täglich nach einem abgeschlossenen Tick. Lokal liegt es unter data/backups/control/. Das ist keine unabhängige Katastrophensicherung: Auf srv01 gehört der Datenträger `urbancrime_konsole` in die Serversicherung (S-7). Der kuratierte Sicherungssatz (`orchestration.sicherungssatz`) umfasst die Kontrolldatenbank nicht.
+Die Backup-Aktion sichert SQLite konsistent sowie Kandidaten, Revisionen, Impact-Archive, Bereitstellungsnachweise und die lokalen Releases, **die der Eimer noch nicht hält**. Ein Release, dessen `release.json` mit denselben Bytes unter `releases/` im Eimer liegt, kommt nicht ins Archiv — `release.json` geht immer zuletzt hoch, das Release ist dann vollständig dort. `backup.json` nennt beide Listen (`releases_in_bucket`, `releases_archived`). Bis zum 10.11.2026 kamen alle Releases mit: jedes tägliche Archiv war auf 1,74 GB gewachsen, zwölf davon belegten 11,2 GB, der Eimer lief über sein Kontingent, wurde schreibgeschützt, und der Volllauf des Tages scheiterte daran. Im S3-Modus liegt das Archiv unter backups/control/; der Worker sichert täglich nach einem abgeschlossenen Tick. Lokal liegt es unter data/backups/control/ und trägt dort alle Releases, weil es keine zweite Kopie gibt. Nach jeder geprüften neuen Sicherung bleiben die neuesten `ADMIN_BACKUP_KEEP` (Vorgabe 7) Sicherungen; ältere werden samt allen Fassungen endgültig gelöscht, die gerade geschriebene nie. Andere Schlüssel unter dem Präfix bleiben unberührt. **Die Ordner `jobs/<Job-ID>/data/` bleiben draussen** (seit 25.11.2026): Der Kandidat vom 18.11.2026 trug 1,1 GiB, und jedes tägliche Archiv wog danach 830 MiB statt 2,2 MiB. Alles darin lässt sich aus Bronze im Eimer nachbauen; die Nachweise daneben kommen mit. `backup.json` nennt die ausgelassenen Jobs (`job_data_left_out`). Das ist keine unabhängige Katastrophensicherung: Auf srv01 gehört der Datenträger `urbancrime_konsole` in die Serversicherung (S-7). Der kuratierte Sicherungssatz (`orchestration.sicherungssatz`) umfasst die Kontrolldatenbank nicht.
 
-restore-backup verlangt ein leeres Ziel. Nach Restore denselben absoluten Datenpfad verwenden, da die Kontrolldatenbank Pfade enthält. Zuerst Dienste stoppen, Integrität prüfen, ausstehende Operationen kontrollieren und erst dann den Worker starten. Kein automatisches Löschen alter Auditdaten ist enthalten.
+restore-backup verlangt ein leeres Ziel. Nach Restore denselben absoluten Datenpfad verwenden, da die Kontrolldatenbank Pfade enthält. Die Releases unter `releases_in_bucket` holt man danach aus dem Eimer (`python -m orchestration.release holen <Kennung> --data-root <Ziel>`). Ohne Job-Daten heisst das nach einem Restore: Ein Kandidat im Review oder vor der Publikation lässt sich nicht freigeben und wird neu eingereiht, und Notebook 34 und 37 finden die Daten des aktiven Release erst nach einem neuen Kandidaten. Den Ordner selbst hält die Serversicherung des Volumes (S-7). Zuerst Dienste stoppen, Integrität prüfen, ausstehende Operationen kontrollieren und erst dann den Worker starten. Alte Auditdaten in der Kontrolldatenbank werden nicht automatisch gelöscht; nur ältere Sicherungsarchive fallen weg.
 
 ## 8. Was geprüft ist und was nicht
 

@@ -14,7 +14,7 @@ vorn.
 | [2 · Die Ladelogik versionieren](#2--die-ladelogik-versionieren) | Artan | **erledigt am 14.9.** (#78) |
 | [3 · Skalieren](#3--skalieren) | Gedankenspiel | mittel — erst relevant ab Stadt drei |
 | [4 · In die Cloud](#4--in-die-cloud) | Gedankenspiel | niedrig — technisch fast vorbereitet, fachlich unnötig |
-| [5 · Die Analyseplattform](#5--die-analyseplattform) | Christian | **hoch** — LN2 im Dezember |
+| [5 · Die Analyseplattform](#5--die-analyseplattform) | Christian | **gebaut seit dem 1.11.2026** — das eigene Dashboard, acht Bretter |
 
 ---
 
@@ -161,14 +161,15 @@ jüngsten, also ruht keine Zahl auf ihm.
 | --- | --- | --- | --- |
 | ~~**A**~~ | ~~Gold nennt die Identität des Silver-Stands; Crosswalks mit Hash~~ — **erledigt 14.9.2026 (#77)** | klein | jede heutige Zahl vollständig **erklären** |
 | ~~**B**~~ | ~~Gepinnte Läufe, die das Aufräumen überleben~~ — **erledigt 14.9.2026 (#79)** | klein | jede gepinnte Zahl **reproduzieren** |
-| **C** | Silver und Gold versioniert ablegen (`vintage=`/`asof=`), statt zu ersetzen | mittel–gross | **mehrere** Stände nebeneinander halten und vergleichen |
+| **C** | Silver und Gold versioniert ablegen (`vintage=`/`asof=`), statt zu ersetzen — **für Gold und Serving zum Teil gebaut**: Seit dem 17.9.2026 hält jedes Release einen ganzen Stand unveränderlich unter seiner Kennung (Abschnitt 6); Silver wird weiter ersetzt | mittel–gross | **mehrere** Stände nebeneinander halten und vergleichen |
 
 **Eine fünfte Frage ist inzwischen dazugekommen und hat ein eigenes
 Dokument.** Nicht *„welchen Stand hatten die Daten"*, sondern *„was hat sich
 verändert"* — und was davon verlorengeht, sobald ein Lauf aufgeräumt wird.
 Gemessen an zwei Detroit-Schnappschüssen: 102 echte Inhaltsänderungen, davon
-14 am Deliktcode selbst. Siehe [`datenhistorie.md`](intern/datenhistorie.md), zu
-entscheiden am 18.9.2026.
+14 am Deliktcode selbst. Siehe [`datenhistorie.md`](intern/datenhistorie.md).
+Gebaut ist daraus `silver/source_change`: Es hält die Änderungen zwischen
+zwei Schnappschüssen fest und läuft seit dem 16.10.2026 im Gesamtlauf mit.
 
 Stufe A und B sind gebaut und lösen Artans Punkt. **Stufe C ist ausdrücklich
 optional** — sie ist die teure Variante und hebt die Entscheidung auf, dass
@@ -201,13 +202,14 @@ Vermerk im Lauf selbst sieht man das keinem der beiden an.
 Detroit machte bereits exakt das, was Artan vorschlägt — nur für Detroit, und
 nur für diese drei Verträge. Die Zahl sprang auf 2, als der Zeitzonen-Fix
 kam. **Das war kein Neubau, sondern ein Muster, das verallgemeinert gehörte —
-und seit dem 14.9.2026 ist es das** (#78): Alle fünf Quellen und alle neun
-abgeleiteten Tabellen tragen `contract_version`, dazu `code_version` mit
-Git-Commit und der Angabe, ob der Arbeitsbaum sauber war.
+und seit dem 14.9.2026 ist es das** (#78): Alle Quellen und alle abgeleiteten
+Tabellen (damals fünf und neun) tragen `contract_version`, dazu
+`code_version` mit Git-Commit und der Angabe, ob der Arbeitsbaum sauber war.
 
-Chicago, Census und NOAA haben nichts Vergleichbares. Und was durchgängig
-fehlt, ist der Code-Stand selbst: Die Silver-Manifeste halten `"tool": "duckdb
-1.5.5 mit spatial und icu"` fest — die **Engine**, nicht unseren Code.
+Vorher hatten Chicago, Census und NOAA nichts Vergleichbares. Und was
+durchgängig fehlte, war der Code-Stand selbst: Die Silver-Manifeste hielten
+`"tool": "duckdb 1.5.5 mit spatial und icu"` fest — die **Engine**, nicht
+unseren Code.
 
 ### Drei Fragen, die leicht verwechselt werden
 
@@ -269,12 +271,27 @@ Ausgangswert, gemessen am 13.9.2026: **Silver, Gold und Serving zusammen
 23,1 Sekunden** für 347'957 Zeilen. Raw 89 MB, Bronze 89 MB, Silver 47 MB,
 Gold 14 MB.
 
+Mit sechs Jahrgängen statt einem, gemessen am 14.11.2026 im Nachweis zu
+Notebook 36 (H6): **Median 24,2 Sekunden** aus drei Neubauten, Spannweite
+24,0 bis 24,9, für 1'909'461 Silver-Zeilen. Silver und Gold zusammen 289,2 MB,
+auf einem Apple-Rechner mit arm64 und DuckDB 1.5.5. Rund fünfeinhalbmal so
+viele Zeilen kosten also kaum mehr Zeit
+([`nachweise/2026-11-14_1a77e8b`](nachweise/2026-11-14_1a77e8b/36_hypothesen.html)).
+
+Am 26.11.2026, mit Gold-Vertrag 12, auf demselben Rechner: **Median 109,1
+Sekunden**, Spannweite 105,8 bis 109,4, für 1'922'278 Silver-Zeilen
+([`nachweise/2026-11-26_64122b1`](nachweise/2026-11-26_64122b1/36_hypothesen.html)).
+Die Zeilen sind kaum mehr geworden, die Strecke schon: sieben statt vier
+Silver-Tabellen, elf statt sieben Gold-Tabellen, die Quellbewegung in Serving.
+Woran die Zeit hängt, ist nicht je Stufe aufgeschlüsselt. Das Budget von zehn
+Minuten hält mit Faktor fünfeinhalb.
+
 ### Drei Achsen, ungleich schwer
 
 | Achse | Schwierigkeit | Warum |
 | --- | --- | --- |
 | Mehr Zeilen | leicht | DuckDB rechnet 20 Mio Zeilen auf einem Laptop |
-| Mehr Jahrgänge | mittel | `DEFAULT_VINTAGE = 2024` an fünf Stellen |
+| Mehr Jahrgänge | mittel — **erledigt am 4.10.2026** | sechs Jahrgänge 2021–2026 und vier ACS-Vintages; bis dahin `DEFAULT_VINTAGE = 2024` an fünf Stellen |
 | **Mehr Städte** | **schwer** | zwei handgeschriebene CTEs in der Silver-Abfrage |
 
 ### Was zuerst bricht — und es ist nicht die Engine
@@ -285,14 +302,24 @@ Gold 14 MB.
    der erste echte Schmerz, und er kommt lange vor jeder Speichergrenze.
 2. **Der räumliche Join.** Schon heute die empfindlichste Stelle; im Code
    steht, dass ein `LEFT JOIN` DuckDB in eine verschachtelte Schleife zwingt
-   und der Lauf dann nicht mehr endet. Heute 348'000 Punkte gegen 6'282
-   Polygone. Bei 50 Städten: Millionen gegen Zehntausende (die USA haben rund
+   und der Lauf dann nicht mehr endet. Gemessen wurde das mit einem Jahrgang,
+   348'000 Punkten gegen 6'282 Polygone. Heute sind es mit sechs Jahrgängen
+   rund 1,9 Mio. Punkte gegen dieselben 6'282 Polygone je Vintage, und als
+   `INNER JOIN` bleibt es bei Sekunden. Bei 50 Städten: Millionen gegen Zehntausende (die USA haben rund
    85'000 Tracts). Muss nach Bundesstaat partitioniert werden — ein Punkt in
    Illinois kann nie in einem Michigan-Tract liegen, aber der Join weiss das
    nicht.
-3. **Der Speicher.** Kein `memory_limit`, keine `threads`-Einstellung. Auf
-   einem eigenen Rechner gut, auf einem CI-Runner mit 7 GB ab einigen
-   Millionen Zeilen Glückssache.
+3. **Der Speicher.** Bis zum 3.10.2026 setzte die Strecke weder
+   `memory_limit` noch `threads`. DuckDB nimmt sich dann rund 80 % des
+   Arbeitsspeichers, und das ist auf einem eigenen Rechner gut, auf einer
+   geteilten Maschine aber nicht. Seither kommen beide aus der Umgebung
+   (`DUCKDB_MEMORY_LIMIT`, `DUCKDB_THREADS`) und gelten auf jeder Verbindung,
+   die `storage.duckdb` herstellt. Ohne Angabe bleibt DuckDBs Vorgabe; auf
+   `srv01` und in Google Cloud sind es für die Strecke 896 MB und zwei
+   Threads. Die Bremse war echt: Am 16.10.2026 brach `silver crime_offense`
+   auf `srv01` an 854 MiB ab, weil DuckDB kein Auslagerungsverzeichnis hatte.
+   Seither lagert es auf Platte aus, statt abzubrechen. Das ändert die Dauer,
+   nicht das Ergebnis.
 4. **Erst danach die Datenmenge selbst** — ~135 Byte je Silver-Zeile, also
    ~2,7 GB bei 20 Millionen. Für S3 nichts.
 
@@ -302,9 +329,9 @@ Gold 14 MB.
 | --- | --- | --- |
 | `build_crime_offense.build_query()` | zwei handgeschriebene CTEs; 30 bzw. 39 Erwähnungen der beiden Städte im Modul | **gross** |
 | ~~`STUDIENSTAEDTE`~~ | ~~**doppelt definiert**~~ — **zusammengeführt am 14.9.2026 (#82)**: Silver trägt den amtlichen Namen, Gold leitet `STADT_SCHLUESSEL` daraus ab | erledigt |
-| `DEFAULT_VINTAGE` | an fünf Stellen, plus `DEFAULT_YEAR` | mittel |
+| ~~`DEFAULT_VINTAGE`~~ | ~~an fünf Stellen, plus `DEFAULT_YEAR`~~ — **seit dem 4.10.2026** gilt je Tat das Vintage ihres Jahres (`population_vintage`) | erledigt |
 | räumlicher Join | eine Relation über alle Tracts | mittel |
-| DuckDB-Einstellungen | keine Grenzen gesetzt | klein |
+| ~~DuckDB-Einstellungen~~ | ~~keine Grenzen gesetzt~~ — **seit dem 3.10.2026** aus `DUCKDB_MEMORY_LIMIT` und `DUCKDB_THREADS` (oben, Punkt 3) | erledigt |
 
 Die zwei CTEs sind **nicht** schlecht gebaut: Chicago und Detroit
 unterscheiden sich echt — Socrata gegen ArcGIS, IUCR gegen MICR, Ortszeit
@@ -347,10 +374,15 @@ ein Abend — kein Umbau.
 
 | Stufe | Was passiert | Aufwand | Gewinn |
 | --- | --- | --- | --- |
-| **0 — heute** | Laptop + GitHub Actions wöchentlich, SeaweedFS als gemeinsamer Speicher | — | — |
+| **0 — heute** | Laptop, GitHub Actions und `srv01` wöchentlich, SeaweedFS als gemeinsamer Speicher | — | — |
 | **1 — Lift** | ein Container, `STORAGE_BACKEND=s3`, Secrets aus dem Secret Manager, Scheduler; `run_all` als **ein** Job | Dockerfile, Registry, Job, Secrets | läuft ohne eigenen Rechner |
 | **2 — Stufen trennen** | jede Stufe ein Task, Abhängigkeiten als DAG | Stufenliste exportieren statt selbst fahren | parallele Ingestion, Wiederaufnahme, Ressourcen je Stufe |
 | **3 — Engine tauschen** | DuckDB → Athena / BigQuery / Spark | gross | echte horizontale Skalierung |
+
+**Stufe 1 ist am 15.11.2026 einmal durchgespielt**, als Probe und nicht als
+Umzug: Dasselbe Abbild hat in Google Cloud aus denselben Bronze-Läufen wie
+`srv01` ein Release gebaut ([`storage-architektur.md`](storage-architektur.md),
+Abschnitt 17). Ein Scheduler und der Secret Manager waren dabei nicht im Spiel.
 
 Stufe 2 ist billiger, als sie aussieht: `run_all` hat die Stufen bereits als
 Datenstruktur (`STUFEN` mit Gruppe, Name, Modul, Argumenten) und kennt die
@@ -359,8 +391,9 @@ Reihenfolge. Die Abhängigkeiten sind schon explizit.
 **Stufe 3 ist die teure.** Hier zahlt sich die Formatwahl aus: Parquet mit
 Hive-Partitionen ist genau das, was Athena, BigQuery und Spark erwarten — die
 **Dateien** müssten nicht angefasst werden. Was nicht mitkommt, ist das SQL:
-fünfmal `ST_GeomFromWKB`, dazu `ST_Within`, `ST_Point` aus der
-`spatial`-Extension und `epoch_ms`/`timezone()` aus `icu`. Jede Zielplattform
+die Geometriefunktionen der `spatial`-Extension (`ST_GeomFromWKB`,
+`ST_Within`, `ST_Point`, `ST_Intersection`, `ST_Area`, `ST_Simplify`,
+`ST_IsValid`) und `epoch_ms`/`timezone()` aus `icu`. Jede Zielplattform
 hat Entsprechungen, keine hat dieselben Namen.
 
 ### Was konkret nötig wäre
@@ -371,19 +404,21 @@ hat Entsprechungen, keine hat dieselben Namen.
 - Secret-Verwaltung statt `.env` (die Umgebung schlägt `.env` bereits)
 - Scheduler statt des Cron in `datenlauf.yml` — auf `srv01` ist es seit
   Anfang Oktober 2026 ebenfalls ein `cron` (montags 04:30, mit `flock`);
-  ein Scheduler mit Wiederaufnahme und Alarmierung bleibt offen
+  ein Scheduler mit Wiederaufnahme bleibt offen
 - Bucket mit Lifecycle-Regeln — `aufraeumen` räumt seit dem 4.10.2026 auch
   Releases im Bucket (`--loeschen --auch-fern`), aber weiterhin auf Zuruf; eine
   serverseitige Ablaufregel bleibt offen und müsste die gepinnten Stände kennen
 - IAM statt geteilter Schlüssel; heute darf jeder mit den Schlüsseln alles
-- **Alarmierung** — steht als Lücke in Konzept 9. Ohne jemanden, der auf
-  *Actions* schaut, ist das in der Cloud keine Lücke mehr, sondern ein Loch
+- **Alarmierung** — auf `srv01` seit Oktober 2026 gebaut: neun Regeln in
+  Prometheus, gemeldet über Telegram (`storage-architektur.md`, Abschnitt 6a).
+  In der Cloud müsste sie neu entstehen; ohne jemanden, der hinschaut, wäre
+  das dort keine Lücke mehr, sondern ein Loch
 - Kosten: bei 251 MB und einem Lauf pro Woche Rappen; Treiber wäre Compute
 
 ### Die ehrliche Einordnung
 
-Bei 350'000 Zeilen und 23 Sekunden beantwortet „Cloud" **keine Frage, die wir
-haben**. Das ist kein Argument dagegen — es ist eines dafür, den Schritt als
+Bei 350'000 Zeilen und 23 Sekunden — heute 1,9 Millionen und 24 Sekunden —
+beantwortet „Cloud" **keine Frage, die wir haben**. Das ist kein Argument dagegen — es ist eines dafür, den Schritt als
 Lernzweck zu deklarieren statt als Notwendigkeit. Eine Arbeit, die sagt *„wir
 haben gemessen, dass wir es nicht brauchen, und hier ist der Pfad, falls
 doch"*, ist stärker als ein Architekturdiagramm ohne Zahlen.
@@ -391,6 +426,12 @@ doch"*, ist stärker als ein Architekturdiagramm ohne Zahlen.
 ---
 
 ## 5 · Die Analyseplattform
+
+> **Gebaut seit dem 1.11.2026, anders als hier vorgeschlagen.** Das Dashboard
+> ist weder Streamlit noch DuckDB-WASM, sondern Flask mit DuckDB
+> (`serving.dashboard`): acht Bretter, gelesen wird das aktive Release. Die
+> Grundsätze unten gelten dort; die Fallebene steht vorn (E-2, 5.10.2026).
+> Der Abschnitt bleibt als Begründung stehen.
 
 Für den zweiten Leistungsnachweis. Die Anforderung steht seit dem 13.9.:
 Tag, Monat und Jahr wählbar, beide Städte gegeneinander **und** einzeln, das
@@ -440,7 +481,7 @@ den das Projekt schon einmal verworfen hat. Die Messung gibt ihm recht:
 
 | | Zeilen |
 | --- | ---: |
-| Granularität `fact_offense` | 1'851'946 |
+| Granularität `fact_offense` | 1'887'009 |
 | Aggregat Tract × Tag × Familie | 1'603'973 — **87 %** davon |
 
 **13 % weniger Zeilen ist keine Aggregation.** Die scheinbare Ersparnis
@@ -466,38 +507,37 @@ fest. Wer danach nach `arrest`, `mapping_status`, Tageszeit oder
 schon. Die Umschaltung zwischen Tat- und Fallebene wären im Würfel zwei
 Würfel.
 
-Damit bestätigt sich, was Konzept 5.2 als Zusage führt — dort noch mit dem
-alten Wort *Granularität*, siehe die Anmerkung zur Begriffswahl unten: *„Keine
+Damit bestätigt sich, was Konzept 5.2 als Zusage führt: *„Keine
 vorberechneten Aggregate. Gold behält die Granularität — eine Zeile je Tat, mit
 Zeitpunkt und Koordinate. Aggregiert wird in der Abfrage, nicht im
 Speicher."* Dieselbe Messung hatte schon `fact_tract_month` (95'219) und
 `fact_city_day` (11'156) verworfen.
 
-> **Zur Begriffswahl.** Dieser Abschnitt sagt **Granularität**, wo das
-> übrige Projekt bislang *Granularität* sagt, und **Tat-/Fallebene** statt
-> *Tatebene/Fallebene*. „Granularität" ist der eingeführte deutsche Begriff
-> für Kimballs *grain*; „Granularität" ist eine wörtliche Übersetzung, die im
-> deutschen Data Engineering unüblich ist. Christian hat das am 14.9.
-> angemerkt. Der Begriff kommt an 128 Stellen in 27 Dateien vor — die
-> Umstellung ist ein eigener Schritt und steht in der Reihenfolge unten.
+> **Zur Begriffswahl.** Hier stand am 14.9.2026 *Korn*, wie damals im ganzen
+> Projekt. „Granularität" ist der eingeführte deutsche Begriff für Kimballs
+> *grain*; „Korn" ist eine wörtliche Übersetzung, die im deutschen Data
+> Engineering unüblich ist. Christian hat das am 14.9. angemerkt, und am
+> selben Tag wurde umgestellt, 128 Stellen in 27 Dateien (#85). Im Code
+> erinnert noch `FALLKORN_RANG` daran.
 
 ### Die eigentliche Schwierigkeit ist nicht die Menge
 
 Sie ist die **Bedeutung**. Jede angezeigte Zahl trägt eine Entscheidung, die
 dieses Projekt bewusst sichtbar gemacht hat:
 
-- **Welche Granularität?** Detroit steht im Jahrgang 2024 auf Tatebene bei
-  133,1 je 1'000, auf Fallebene bei 124,6. Beide richtig, verschiedene
-  Aussagen — und beide nur mit ihrem Jahr.
+- **Welche Granularität?** Detroit steht im Jahrgang 2024 auf Fallebene bei
+  124,7 je 1'000, auf Tatebene bei 134,2. Beide richtig, verschiedene
+  Aussagen — vorn steht die Fallebene, und beide nur mit ihrem Jahr.
 - **Was zählt mit?** `geo_status` sagt, warum eine Zeile in einer
-  Tract-Auswertung fehlt — 33'112 Fälle liegen ausserhalb, 1,14 % haben
+  Tract-Auswertung fehlt — 33'665 Fälle liegen ausserhalb, 1,15 % haben
   keine Koordinate.
 - **Wie sicher ist die Zuordnung?** `mapping_status`: `exact`, `ambiguous`,
   `fallback_90Z`.
 - **Absolut oder je Einwohner?** Absolut liegt Chicago fast überall vorn, je
   Einwohner Detroit.
-- **Die Mehrheitsregel** untertreibt Chicagos Rate um gut einen Punkt (94,5
-  statt 95,6).
+- **Die Mehrheitsregel** untertrieb Chicagos Rate um gut einen Punkt (94,5
+  statt 95,6), bis Gold-Vertrag 10 am 21.11.2026 die Landfläche zählte; seither
+  wirken die 441 Grenzfälle nicht mehr sichtbar.
 
 Ein Dashboard, das eine dieser Entscheidungen still trifft und eine Zahl
 hinstellt, macht die Arbeit dieses Projekts zunichte. Daraus folgen drei
@@ -506,7 +546,7 @@ Grundsätze:
 1. **Die Granularität ist ein Schalter, keine Annahme.** Tat- oder Fallebene
    gehört sichtbar in die Kopfzeile, nicht in eine Fussnote.
 2. **Jede Kennzahl nennt ihren Nenner und ihre Ausschlüsse.** *„94,5 je
-   1'000 — von 251'513 Delikten in Tracts der Stadt; 1'753 ohne Koordinate
+   1'000 — von 256'347 Delikten in Tracts der Stadt; 2'172 ohne Koordinate
    nicht enthalten."*
 3. **Was fehlt, wird gezeigt, nicht weggelassen.** Ein Tract ohne Einwohner
    bekommt keine Rate, sondern eine eigene Farbe. Sonst liest jemand die
@@ -519,14 +559,14 @@ stellen gern eine Zahl ohne Fussnote hin.
 
 | | Woher gelesen wird | Bewertung |
 | --- | --- | --- |
-| **A · Streamlit** (serverseitig) | DuckDB direkt auf `fact_offense` und `dim_tract`, lokal oder `s3://` | Vorschlag für LN2: an einem Wochenende lauffähig, passt zu unseren Fähigkeiten |
+| **A · Streamlit** (serverseitig) | DuckDB direkt auf `fact_offense` und `dim_tract`, lokal oder `s3://` | war der Vorschlag für LN2; gebaut ist dieselbe Bauart mit Flask statt Streamlit |
 | **B · Statische Seite** (DuckDB-WASM) | dieselben Parquet-Dateien über HTTP-Range-Requests, nur die gebrauchten Spalten | eleganter — kein Server, erfüllt Anforderung 5 aus 7.1 wörtlich; aber neu für uns |
 
 In **beiden** Fällen: keine neue Datei, keine neue Schicht. Die
 Serving-Schicht bekommt allenfalls eine *Sicht* in `analyse.duckdb` — einen
 Namen, keine Daten.
 
-Die Karte ist gelöst: 1'055 Tract-Umrisse liegen als GeoJSON mit 0,55 MB
+Die Karte ist gelöst: 1'066 Tract-Umrisse liegen als GeoJSON mit 0,55 MB
 bereit, auf rund 2 m vereinfacht. Die Geometrie geht **einmal** an den
 Browser, bei jedem Filterwechsel nur noch ein Wert je `geoid`. Die Geometrie
 ist das Schwere — und sie ändert sich nie.
@@ -542,6 +582,7 @@ Drei Fragen für die Absprache, die den Aufbau stärker bestimmen als jedes
 Werkzeug:
 
 1. Welche Granularität ist die **Hauptaussage** — Tat oder Fall?
+   *Entschieden am 5.10.2026 (E-2): der Fall.*
 2. Absolute Zahlen oder Raten als Voreinstellung?
 3. Erzählt das Dashboard eine **Geschichte** (kuratiert) oder lässt es
    **erkunden** (Filter über alles)?
@@ -573,7 +614,8 @@ ist. Bewusst noch nicht umgestellt sind die Leser der festen Pfade —
 `storage.tabellen`, die Sichten der Arbeitsdatenbank, die Notebooks, `drift`,
 `aufraeumen`. Der feste Pfad ist die Arbeitskopie, das Release der
 freigegebene Stand; das Dashboard (LN2) liest das Release. Zwei gleichzeitige
-Gesamtläufe bleiben ein offener Punkt (Sperre, unten).
+Gesamtläufe bleiben im Code ein offener Punkt (Sperre, unten); auf `srv01`
+verhindert sie seit Oktober 2026 ein `flock` auf `logs/pipeline.lock`.
 
 ### Der Bau
 
@@ -581,12 +623,18 @@ Ein **Versionspfad plus ein Verweis**. Ein erster Entwurf versionierte jede
 Tabelle für sich; gebaut ist **ein Verzeichnis je Release**:
 
 ```text
-gold/release=2026-09-15T17-15-06/dataset=fact_offense/part-0001.parquet
-gold/release=2026-09-15T17-15-06/dataset=fact_offense/manifest.json
-gold/release=2026-09-15T17-15-06/serving/analyse.duckdb
-gold/release=2026-09-15T17-15-06/release.json
-gold/AKTUELL.json          ← nennt die freigegebene Release-Kennung
+releases/release=2026-11-20T10-08-03Z/gold/dataset=fact_offense/part-0001.parquet
+releases/release=2026-11-20T10-08-03Z/gold/dataset=fact_offense/manifest.json
+releases/release=2026-11-20T10-08-03Z/serving/dataset=comparison_day/…
+releases/release=2026-11-20T10-08-03Z/serving/analyse.duckdb
+releases/release=2026-11-20T10-08-03Z/serving/tracts.geojson
+releases/release=2026-11-20T10-08-03Z/release.json
+releases/AKTUELL.json      ← nennt die freigegebene Release-Kennung
 ```
+
+Der Entwurf vom 15.9. legte die Releases unter `gold/release=…`; gebaut ist
+ein eigener Baum `releases/` neben den Schichten, weil ein Release auch
+Serving enthält.
 
 Geschrieben wird vollständig unter einer neuen Kennung und geprüft. Erst dann
 wird `AKTUELL.json` ersetzt — ein einziges Objekt, und dessen Ersetzung ist
@@ -629,7 +677,7 @@ Ein externer Rat vom 17.9.2026 hat diesen Bau bestätigt und einen
 Verzeichnisbaum vorgeschlagen, der neben den fünf Gold-Tabellen auch
 `comparison_day`, `comparison_week`, `comparison_month` und
 `partition_quality` vorsieht. Der erste Reflex war, sie abzulehnen: Es sind
-vorberechnete Aggregate, und Notebook 34 hat gemessen, dass sie bei 1'851'946
+vorberechnete Aggregate, und Notebook 34 hat gemessen, dass sie bei 1'887'009
 Zeilen nichts sparen, was ein Mensch bemerkt.
 
 **Christian hat anders entschieden, und der Grund trägt.** Die Ablehnung
@@ -644,8 +692,8 @@ am Rand des Jahrgangs sind je Zeile ausgewiesen (`days_in_window`).
 Konzept 5.2 sagt es seither wörtlich: *„Keine vorberechneten Aggregate in
 Gold.“*
 
-Ein Release enthält damit: die fünf Gold-Tabellen, die vier Serving-Tabellen,
-das GeoJSON, eine **selbständige** `analyse.duckdb` mit Tabellen statt Sichten
+Ein Release enthält damit — heute, nach `orchestration.release.VOLLSTAENDIG` —
+die elf Gold-Tabellen, die sechs Serving-Tabellen, das GeoJSON, eine **selbständige** `analyse.duckdb` mit Tabellen statt Sichten
 (die Sichten der Arbeitsdatenbank tragen absolute Pfade und sind auf einem
 anderen Rechner wertlos) und `release.json` mit Prüfsummen, Vertrags- und
 Code-Versionen.
@@ -664,6 +712,11 @@ soll sich nicht ändern. Heute rettet sie nur, dass der wöchentliche Lauf sie
 jedes Mal neu lädt. Sauber wäre eine Regel je Quelle — fortlaufend gegen eine
 Frist, eingefroren gegen eine erwartete Vintage.
 
+Die Alarme auf `srv01` haben diese Regel seit Oktober 2026 zur Hälfte: acht
+Tage für Taten, Wetter und Gebiete, 35 Tage für die drei Jahrgangsquellen des
+Zensus (`storage-architektur.md`, Abschnitt 6a). Der Gesamtlauf selbst
+(`run_all --maximal-alter-tage`) misst weiter alle Quellen an einer Schwelle.
+
 ---
 
 ## 7 · Reihenfolge
@@ -679,10 +732,10 @@ Nach Nutzen je Aufwand, nicht nach Reiz:
 | **5** | Quellprofil statt zwei CTEs | der einzige echte Blocker für eine dritte Stadt |
 | **6** | Partitioniertes Silver mit Fingerabdruck je Partition | linear → konstant; unabhängig von Infrastruktur |
 | **7** | Cloud Stufe 1 | danach ein Nachmittag, kein Projekt |
-| **8** | *Granularität* → *Granularität* durchgehend (128 Stellen, 27 Dateien) | der eingeführte Begriff; betrifft auch Artans Dokumente |
-| **8** | Dashboard für LN2 (Abschnitt 5) | eigener Zeitplan — Dezember |
-| **8** | Versionspfad und Verweis für einen gemeinsamen Stand (Abschnitt 6) | gehört zum Dashboard: erst dann liest jemand, während gebaut wird |
-| **9** | Sperre über den ganzen Lauf | klein; verhindert verschränkte Gesamtläufe |
+| ~~**8**~~ | ~~*Korn* → *Granularität* durchgehend (128 Stellen, 27 Dateien)~~ — **erledigt 14.9.2026 (#85)** | der eingeführte Begriff; betrifft auch Artans Dokumente |
+| ~~**8**~~ | ~~Dashboard für LN2 (Abschnitt 5)~~ — **gebaut, seit dem 1.11.2026 auf `srv01`** | eigener Zeitplan — Dezember |
+| ~~**8**~~ | ~~Versionspfad und Verweis für einen gemeinsamen Stand (Abschnitt 6)~~ — **gebaut 17.9.2026 (#109)**, `releases/` und `AKTUELL.json` | gehört zum Dashboard: erst dann liest jemand, während gebaut wird |
+| **9** | Sperre über den ganzen Lauf — auf `srv01` per `flock` seit Oktober 2026, im Code nicht | klein; verhindert verschränkte Gesamtläufe |
 
 Die Punkte 1 bis 3 sind Artans, sie sind zusammen überschaubar, und sie
 betreffen etwas, das **heute schon** unvollständig ist — nicht erst bei

@@ -143,16 +143,25 @@ def test_der_kopf_nennt_die_raten(stand):
         f"der Kopfabschnitt nennt den Jahrgang {RATENJAHR} nicht - die Raten "
         "darin gelten fuer ein Jahr, nicht fuer den ganzen Bestand"
     )
+    # Seit dem 12.11.2026 (E-2) traegt die Stadtzeile die Fallrate; die
+    # Tatrate steht in der Zeile "Tatebene" darunter.
     for stadt in ("Chicago", "Detroit"):
         treffer = re.search(
             rf"\| {stadt} \|.*?\*\*([0-9]+,[0-9])\*\* je 1'000", stand
         )
         assert treffer, f"Rate fuer {stadt} nicht im Kopfabschnitt gefunden"
         genannt = float(treffer.group(1).replace(",", "."))
-        rate = echt[stadt.lower()][3]
+        rate = echt[stadt.lower()][4]
         assert genannt == pytest.approx(rate, abs=0.05), (
-            f"{stadt}: genannt {genannt}, tatsaechlich {rate}"
+            f"{stadt}: genannt {genannt}, tatsaechlich {rate} (Fallebene)"
         )
+        tat = re.search(
+            rf"\| Tatebene.*?je 1'000:.*?{stadt} \*\*([0-9]+,[0-9])\*\*", stand
+        )
+        assert tat, f"Tatrate fuer {stadt} nicht im Kopfabschnitt gefunden"
+        assert float(tat.group(1).replace(",", ".")) == pytest.approx(
+            echt[stadt.lower()][3], abs=0.05), f"{stadt}: Tatrate"
+
 
 
 #: Die Herkunft einer Eintragsueberschrift in Klammern. Seit dem 11.10.2026
@@ -209,8 +218,21 @@ def test_die_eintraege_stehen_neueste_zuerst(text):
     )
 
 
+#: Bis hierher nennen die Ueberschriften die PR-Nummer. Ab #153 (Oktober 2026)
+#: nennen sie den Branch, ``(Branch `name`)``, weil der Eintrag entsteht,
+#: bevor es eine Nummer gibt. Fuer die Pull Requests danach prueft dieser
+#: Waechter deshalb nichts. Am 22.11.2026 versucht und verworfen: die Titel
+#: der Squash-Commits auf ``main`` gegen die Ueberschriften zu halten. Von
+#: 112 Pull Requests ab #153 fanden 32 keinen Eintrag mit aehnlichem Titel,
+#: auch solche, die sicher einen haben (#262, Tag und Nacht) - die Titel
+#: weichen ab. Fuer die Zeit danach gilt, was ``AGENTS.md`` sagt: Jede
+#: Aenderung bekommt einen Eintrag, und kein Test fordert ihn ein, nur seine
+#: Form.
+LETZTE_NUMMER = 152
+
+
 def test_keine_pull_request_nummer_faellt_durch(text):
-    """Jede Nummer ab #24 ist entweder ein Eintrag oder bewusst ausgelassen.
+    """Jede Nummer von #24 bis #152 ist ein Eintrag oder bewusst ausgelassen.
 
     Das ist die Pruefung, die vier Monate zu spaet kam: #25, #28, #31 und #37
     waren gemergt und hatten keinen Eintrag. Aufgefallen ist es nur, weil
@@ -229,7 +251,13 @@ def test_keine_pull_request_nummer_faellt_durch(text):
     assert ausgelassen, "der Abschnitt 'Bewusst ohne Eintrag' ist leer"
 
     bekannt = eintraege | ausgelassen
-    fehlend = sorted(set(range(min(bekannt), max(bekannt) + 1)) - bekannt)
+    # C-4: Die Obergrenze steht fest. Mit ``max(bekannt)`` fiel genau die
+    # hoechste Nummer nie auf - fehlte ihr Eintrag, lag sie ausserhalb.
+    assert max(bekannt) == LETZTE_NUMMER, (
+        f"die hoechste Nummer ist {max(bekannt)}, erwartet {LETZTE_NUMMER}: "
+        f"entweder fehlt der Eintrag zu #{LETZTE_NUMMER}, oder eine Ueberschrift "
+        "nennt wieder eine Nummer - dann LETZTE_NUMMER bewusst nachziehen")
+    fehlend = sorted(set(range(min(bekannt), LETZTE_NUMMER + 1)) - bekannt)
     assert not fehlend, (
         f"Diese Pull Requests sind weder Eintrag noch ausgelassen: {fehlend}. "
         "Entweder einen Eintrag schreiben oder unter 'Bewusst ohne Eintrag' "
@@ -247,17 +275,19 @@ def test_die_eintraege_und_die_ausgelassenen_ueberschneiden_sich_nicht(text):
 
 
 @pytest.mark.referenzstand
-def test_der_kopf_nennt_das_fallebene(stand):
-    """Die zweite Zaehlweise, seit #66 - je Fall eine Zeile, beide Staedte gleich.
+def test_der_kopf_nennt_faelle_und_taten(stand):
+    """Beide Zaehlweisen, seit #66 - vorn die Faelle, seit E-2 (12.11.2026).
 
-    Dieselbe Zeile wie die Raten, also derselbe Jahrgang: Die Fallzahl steht
-    neben der Fallrate, und zwei verschiedene Zeitraeume in einer Zeile waeren
-    das Schlimmste von beidem.
+    Die Stadtzeile nennt die Faelle neben der Fallrate, die Zeile "Tatebene"
+    die Taten neben der Tatrate - je Zeile ein Zeitraum und eine Grundmenge.
     """
     echt = gemessene_raten()
     for stadt in ("Chicago", "Detroit"):
-        genannt = zahl(stand, rf"\| Fallebene.*?{stadt} ([0-9']+)")
-        faelle = echt[stadt.lower()][1]
-        assert genannt == faelle, (
-            f"Fallebene {stadt}: genannt {genannt:,}, tatsaechlich {faelle:,}"
+        faelle = zahl(stand, rf"\| {stadt} \| ([0-9']+) Fälle")
+        assert faelle == echt[stadt.lower()][1], (
+            f"Faelle {stadt}: genannt {faelle:,}, tatsaechlich {echt[stadt.lower()][1]:,}"
+        )
+        taten = zahl(stand, rf"\| Tatebene.*?{stadt} ([0-9']+)")
+        assert taten == echt[stadt.lower()][0], (
+            f"Taten {stadt}: genannt {taten:,}, tatsaechlich {echt[stadt.lower()][0]:,}"
         )

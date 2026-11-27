@@ -1,27 +1,34 @@
 // Das Brett »Datenqualität«.
-import { MONATE, el, komma, legende, starteBrett, zahl } from "./gemeinsam.js";
+import { MONATE, PERIODEN, el, komma, legende, periodentext, starteBrett, zahl } from "./gemeinsam.js";
 
 const ZUORDNUNG = {
-  exact: { name: "Exakt (eindeutige Zuordnung)", farbe: "#17a38b" },
-  fallback_90Z: { name: "Auffang 90Z (Übrige Straftaten)", farbe: "#8ec5f0" },
-  ambiguous: { name: "Mehrdeutig", farbe: "#f2a33a" },
-  unmapped: { name: "Ohne Zuordnung", farbe: "#9aa3ae" },
+  exact: { name: "Exakt (eindeutige Zuordnung)", kurz: "Exakt", farbe: "#17a38b" },
+  fallback_90Z: { name: "Auffang 90Z (Übrige Straftaten)", kurz: "Auffang 90Z", farbe: "#8ec5f0" },
+  ambiguous: { name: "Mehrdeutig", kurz: "Mehrdeutig", farbe: "#f2a33a" },
+  unmapped: { name: "Ohne Zuordnung", kurz: "Ohne Zuordnung", farbe: "#9aa3ae" },
 };
 const STATUS = { ok: ["Bestanden", "ok"], warnung: ["Unter der Schwelle", "teil"],
   keine_daten: ["Keine Daten", "teil"] };
 
 const prozent = (v) => (v === null ? "–" : `${komma.format(v)} %`);
 
+// Je Stadt und Periode ein Feld. Ueber viele Perioden - 92 Tage, 104 Wochen,
+// sechs Jahre in Monaten - werden die Felder schmal, und nur jede n-te
+// Spalte traegt eine Beschriftung.
 function monatsraster(ziel, d) {
+  const k = d.achse.koernung, n = d.monate.length, schritt = Math.ceil(n / 12);
+  const jahre = new Set(d.monate.map((m) => m.slice(0, 4))).size;
   const t = document.createElement("table");
-  t.className = "raster-tabelle";
+  t.className = n > 24 ? "raster-tabelle dicht" : "raster-tabelle";
   const kopf = t.createTHead().insertRow();
   kopf.append(Object.assign(document.createElement("th"), { textContent: "Stadt" }));
-  for (const m of d.monate) {
+  d.monate.forEach((m, i) => {
     const [j, mm] = m.split("-");
-    kopf.append(Object.assign(document.createElement("th"), {
-      textContent: d.monate.length > 9 ? MONATE[Number(mm) - 1] : `${MONATE[Number(mm) - 1]} ${j}` }));
-  }
+    const text = i % schritt ? ""
+      : k !== "monat" || jahre > 1 ? periodentext(m, k, true, jahre > 1)
+      : n > 9 ? MONATE[Number(mm) - 1] : `${MONATE[Number(mm) - 1]} ${j}`;
+    kopf.append(Object.assign(document.createElement("th"), { textContent: text }));
+  });
   const rumpf = t.createTBody();
   for (const s of d.staedte) {
     const tr = rumpf.insertRow();
@@ -32,7 +39,7 @@ function monatsraster(ziel, d) {
       const td = tr.insertCell();
       const punkt = document.createElement("i");
       punkt.className = `s-${z}`;
-      punkt.title = `${s.name}, ${d.monate[i].slice(0, 7)}: `
+      punkt.title = `${s.name}, ${k === "monat" ? d.monate[i].slice(0, 7) : periodentext(d.monate[i], k)}: `
         + { voll: "vollständig", teil: "teilweise vorhanden", fehlt: "fehlt",
           spaeter: "noch nicht erschienen" }[z];
       td.append(punkt);
@@ -57,8 +64,14 @@ function zuordnung(ziel, staedte) {
     for (const [z, info] of Object.entries(ZUORDNUNG)) {
       const v = s.zuordnung[z] ?? 0;
       const rect = el("rect", { x: x(links), y, width: Math.max(0, x(links + v) - x(links)), height: hoehe,
-        fill: info.farbe });
-      rect.append(el("title", {}, `${s.name}, ${info.name}: ${prozent(s.zuordnung[z])}`));
+        fill: info.farbe, class: "klickbar" });
+      rect.append(el("title", {}, `${s.name}, ${info.name}: ${prozent(s.zuordnung[z])} · Klick zeigt die Quellcodes`));
+      // Der Klick setzt Stadt und Status der Detailtafel und springt dorthin.
+      rect.addEventListener("click", () => {
+        Object.assign(detailwahl, { status: z, stadt: s.stadt, stadtname: s.name, alle: false });
+        if (letzte) detail(letzte);
+        document.getElementById("zuordnung-detail").scrollIntoView({ behavior: "smooth", block: "start" });
+      });
       svg.append(rect);
       if (v >= 6) {
         svg.append(el("text", { x: x(links + v / 2), y: y + hoehe / 2 + 5, "text-anchor": "middle",
@@ -68,6 +81,89 @@ function zuordnung(ziel, staedte) {
     }
   });
   ziel.replaceChildren(svg);
+}
+
+// Die Detailtafel. Ihr Filter lebt hier und nicht in der Leiste: Er gilt nur
+// fuer diese Tabelle, und ein Wechsel braucht keinen Rundweg zum Server.
+const detailwahl = { status: "alle", stadt: null, stadtname: "", suche: "", alle: false };
+const ERSTE = 50;
+let letzte = null;
+
+function detail(d) {
+  letzte = d;
+  const zeilen = d.zuordnung_detail;
+  const suche = detailwahl.suche.trim().toLowerCase();
+  const passt = (z) => (!detailwahl.stadt || z.stadt === detailwahl.stadt)
+    && (!suche || [z.quellcode, z.quelltext, z.nibrs_code, z.nibrs_text, z.kategorie]
+      .some((t) => (t || "").toLowerCase().includes(suche)));
+  const vorab = zeilen.filter(passt);
+  // Die Knoepfe zaehlen Quellcodes je Status in der aktuellen Auswahl.
+  const knoepfe = document.getElementById("f-status");
+  const zaehler = { alle: vorab.length };
+  for (const z of vorab) zaehler[z.status] = (zaehler[z.status] || 0) + 1;
+  knoepfe.replaceChildren(...[["alle", "Alle"], ["exact", "Exakt"], ["fallback_90Z", "Auffang 90Z"],
+    ["ambiguous", "Mehrdeutig"], ["unmapped", "Ohne Zuordnung"]].map(([w, name]) => {
+    const b = Object.assign(document.createElement("button"), { type: "button" });
+    b.append(name, Object.assign(document.createElement("small"), { textContent: ` ${zahl.format(zaehler[w] || 0)}` }));
+    b.classList.toggle("an", detailwahl.status === w);
+    b.addEventListener("click", () => { Object.assign(detailwahl, { status: w, alle: false }); detail(d); });
+    return b;
+  }));
+  const chip = document.getElementById("f-stadt");
+  chip.hidden = !detailwahl.stadt;
+  chip.textContent = `nur ${detailwahl.stadtname} ✕`;
+  const gezeigt = vorab.filter((z) => detailwahl.status === "alle" || z.status === detailwahl.status);
+  document.getElementById("f-treffer").textContent =
+    `${zahl.format(gezeigt.length)} ${gezeigt.length === 1 ? "Quellcode" : "Quellcodes"}`;
+
+  const t = document.getElementById("d-zuordnung-detail");
+  t.replaceChildren();
+  const kopf = t.createTHead().insertRow();
+  for (const s of ["Stadt", "Quellcode", "Quellbezeichnung", "NIBRS", "NIBRS-Bezeichnung", "Kategorie",
+    "Zuordnung", "Taten", "Anteil"]) {
+    kopf.append(Object.assign(document.createElement("th"), { textContent: s }));
+  }
+  const rumpf = t.createTBody();
+  const sichtbar = detailwahl.alle ? gezeigt : gezeigt.slice(0, ERSTE);
+  for (const z of sichtbar) {
+    const tr = rumpf.insertRow();
+    const stadt = tr.insertCell();
+    stadt.textContent = z.name;
+    stadt.className = `stadtname ${z.stadt}`;
+    tr.insertCell().textContent = z.quellcode ?? "–";
+    tr.insertCell().textContent = z.quelltext ?? "–";
+    tr.insertCell().textContent = z.nibrs_code ?? "–";
+    tr.insertCell().textContent = z.nibrs_text ?? "–";
+    tr.insertCell().textContent = z.kategorie;
+    const marke = document.createElement("span");
+    marke.className = "zuordnungsmarke";
+    marke.style.setProperty("--farbe", ZUORDNUNG[z.status].farbe);
+    marke.textContent = ZUORDNUNG[z.status].kurz;
+    tr.insertCell().append(marke);
+    Object.assign(tr.insertCell(), { textContent: zahl.format(z.delikte), className: "zahl" });
+    Object.assign(tr.insertCell(), { textContent: prozent(z.anteil), className: "zahl" });
+  }
+  if (!sichtbar.length) {
+    const td = rumpf.insertRow().insertCell();
+    td.colSpan = 9;
+    td.textContent = "Kein Quellcode in dieser Auswahl";
+  }
+  const mehr = document.getElementById("f-mehr");
+  mehr.hidden = gezeigt.length <= ERSTE;
+  mehr.textContent = detailwahl.alle ? `nur die ersten ${ERSTE} zeigen` : `alle ${zahl.format(gezeigt.length)} zeigen`;
+}
+
+function detailsteuerung() {
+  const suche = document.getElementById("f-suche");
+  suche.addEventListener("input", () => { detailwahl.suche = suche.value; if (letzte) detail(letzte); });
+  document.getElementById("f-stadt").addEventListener("click", () => {
+    Object.assign(detailwahl, { stadt: null, stadtname: "" });
+    if (letzte) detail(letzte);
+  });
+  document.getElementById("f-mehr").addEventListener("click", () => {
+    detailwahl.alle = !detailwahl.alle;
+    if (letzte) detail(letzte);
+  });
 }
 
 function status(zelle, schluessel) {
@@ -128,7 +224,12 @@ function pruefungen(ziel, d) {
 
 function zeichne(d) {
   const k = d.kennzahlen;
-  document.getElementById("k-monate").textContent = `${k.vollstaendige_monate} / ${k.monate}`;
+  const kachel = document.getElementById("k-monate");
+  kachel.previousElementSibling.textContent = `Vollständige ${PERIODEN[d.achse.koernung]}`;
+  kachel.textContent = `${k.vollstaendige_monate} / ${k.monate}`;
+  const raster = document.getElementById("d-monate").previousElementSibling;
+  raster.textContent = `${{ tag: "Tages", woche: "Wochen", monat: "Monats" }[d.achse.koernung]}`
+    + "abdeckung nach Stadt";
   document.getElementById("k-unmapped").textContent = prozent(k.ohne_zuordnung);
   const unmapped = d.pruefungen.find((p) => p.aspekt === "Ohne NIBRS-Zuordnung");
   document.getElementById("k-unmapped-text").textContent = `Publish-Gate: ${unmapped.schwelle}`;
@@ -143,10 +244,12 @@ function zeichne(d) {
   const leg = document.getElementById("l-zuordnung");
   legende(leg, Object.values(ZUORDNUNG).map((z) => ({ name: z.name, klasse: "rang" })));
   [...leg.children].forEach((span, i) => span.style.setProperty("--farbe", Object.values(ZUORDNUNG)[i].farbe));
+  detail(d);
   pruefungen(document.getElementById("d-pruefungen"), d);
   const konsole = document.getElementById("konsole");
   konsole.hidden = !d.konsole;
   if (d.konsole) konsole.href = d.konsole;
 }
 
+detailsteuerung();
 starteBrett({ api: "/api/datenqualitaet", zeichne });

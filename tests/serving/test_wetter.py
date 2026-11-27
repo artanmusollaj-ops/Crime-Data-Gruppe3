@@ -124,3 +124,29 @@ def test_die_api_antwortet(brett):
     antwort = client.get("/api/wetter", query_string={"jahr": "2024", "bis": "2"})
     assert antwort.status_code == 200 and antwort.get_json()["vorhanden"] is True
     assert client.get("/wetter").status_code == 200
+
+
+def test_ein_tag_ohne_wetter_zaehlt_nicht_mit(tmp_path):
+    """Seit Gold-Vertrag 9 fuehrt dim_city_day jeden Tag der Fallspanne.
+
+    NOAA liefert mit Nachlauf; an den letzten Tagen sind die Wetterspalten
+    NULL. Ein solcher Tag ist kein Tag mit 0 °C - das Brett laesst ihn aus.
+    """
+    tage_jan = list(tage(date(2024, 1, 1), date(2024, 1, 31)))
+    zeilen = [(s, t) for s in ("chicago", "detroit") for t in tage_jan]
+    ohne = {date(2024, 1, d) for d in range(25, 32)}
+    schreibe(tmp_path, "dim_city_day", {
+        "city": [s for s, _ in zeilen], "date": [t for _, t in zeilen],
+        "temp_max_c": [None if t in ohne else 5.0 for _, t in zeilen],
+        "temp_min_c": [None if t in ohne else 0.0 for _, t in zeilen],
+        "precipitation_mm": [None if t in ohne else 0.0 for _, t in zeilen],
+        "snowfall_mm": [None if t in ohne else 0.0 for _, t in zeilen],
+        "precipitation_trace": [None if t in ohne else False for _, t in zeilen],
+        "station_name": [None if t in ohne else "STATION" for _, t in zeilen],
+    })
+    b = Bestand(stern(tmp_path, [("chicago", t, "13A", TRACT_C) for t in tage_jan]
+                      + [("detroit", t, "13A", TRACT_D) for t in tage_jan]))
+    d = b.wetterbrett(b.auswahl({"jahr": "2024", "bis": "1"}))
+    assert stadt(d, "chicago")["tage"] == 24
+    assert stadt(d, "chicago")["station"] == "STATION"
+    assert sum(z["tage"] for z in stadt(d, "chicago")["temperatur"]) == 24

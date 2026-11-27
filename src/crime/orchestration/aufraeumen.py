@@ -86,8 +86,8 @@ Unveraenderlich bleiben Releases dabei: Geloescht wird ein ganzes Release oder
 keines, ein bestehendes wird nie ueberschrieben.
 
 **Alte Fassungen, seit dem 18.10.2026 - und bis dahin die groesste Luecke
-dieses Moduls.** Der Eimer ``urban-crime`` auf `srv01` hat Versionierung
-eingeschaltet. Ein ``delete`` setzt dort eine Loeschmarkierung; die Fassung
+dieses Moduls.** Der Eimer ``urban-crime`` auf `srv01` hatte Versionierung
+eingeschaltet (seit dem 12.11.2026 ausgesetzt, siehe unten). Ein ``delete`` setzt dort eine Loeschmarkierung; die Fassung
 darunter bleibt. Jedes Aufraeumen, das dieses Modul je gemacht hat, hat
 damit **keinen Platz freigegeben** - und weil ``list_objects_v2`` nur die
 aktuelle Fassung nennt, sah es niemand. Gemessen: 1'551 aktuelle Objekte mit
@@ -98,6 +98,13 @@ Gefunden wurde es von aussen und aus einem fremden Anlass: Die naechtliche
 Serversicherung nach Backblaze lief voll, und seit dem 24.9.2026 gab es kein
 erfolgreiches Backup mehr. Der Filer meldete 6,99 GB, wo S3 2,60 GiB
 zaehlte.
+
+**Seit dem 12.11.2026 ausgesetzt** (``s3.bucket.versioning -suspend``,
+Entscheid E-3). Ganz abschalten laesst sich eine einmal eingeschaltete
+Versionierung in S3 nicht. Ausgesetzt heisst: Ein Ueberschreiben oder
+Loeschen ersetzt die eine ``null``-Fassung, statt eine weitere anzulegen.
+Was vorher entstand, bleibt als alte Fassung liegen, bis ``--fassungen``
+es entfernt - die Anzeige hier bleibt deshalb noetig.
 
 ``alte_fassungen`` zaehlt sie jetzt je Schicht, und der Bericht laeuft
 **immer** - auch ohne ``--loeschen``. Entfernt werden sie nur mit
@@ -685,8 +692,8 @@ class Fassungsstand(NamedTuple):
 def alte_fassungen(storage: Storage) -> list[Fassungsstand]:
     """Was oben liegt, obwohl es als geloescht gilt - je Schicht.
 
-    **Der Befund vom 18.10.2026.** Der Eimer ``urban-crime`` auf `srv01` hat
-    Versionierung eingeschaltet. Jedes Aufraeumen, das dieses Modul je
+    **Der Befund vom 18.10.2026.** Der Eimer ``urban-crime`` auf `srv01` hatte
+    Versionierung eingeschaltet (seit dem 12.11.2026 ausgesetzt). Jedes Aufraeumen, das dieses Modul je
     gemacht hat, setzte damit nur Loeschmarkierungen: 1'551 aktuelle Objekte
     mit 2,60 GiB, daneben **3'863 alte Fassungen mit 3,91 GiB** und 2'381
     Markierungen. Sechzig Prozent des Eimers waren Reste - und dieses Modul,
@@ -1050,10 +1057,6 @@ def main() -> int:
             print(f"{len(halbe)} halbe(s) Release geraeumt, "
                   f"{sum(h.bytes for h in halbe) / 1e6:.1f} MB frei "
                   f"({len(weg)} Pfade/Objekte).")
-        if args.fassungen and fassungen:
-            anzahl, frei = loesche_fassungen(ablage, auch_fern=args.auch_fern)
-            print(f"{anzahl} alte Fassungen und Markierungen entfernt, "
-                  f"{frei / 1e6:.1f} MB frei - und diesmal wirklich frei.")
         if rel_entbehrlich:
             geraeumt = loesche_releases(rel_entscheide, ablage, auch_fern=args.auch_fern)
             print(f"{len(geraeumt.lokal)} Release(s) lokal geloescht, "
@@ -1068,6 +1071,15 @@ def main() -> int:
                 print(f"Auf SeaweedFS unveraendert: {len(uebrig)} entbehrliche "
                       f"Release(s), {megabyte(uebrig):.1f} MB - dafuer braucht es "
                       f"--auch-fern.")
+        # **Zuletzt**, nach Laeufen, halben Releases und Releases: Jedes
+        # Loeschen oben macht aus der aktuellen Fassung eine alte. Am 10.11.2026
+        # stand dieser Schritt vor den Releases, und deren 530 MB blieben als
+        # 140 alte Fassungen liegen - ein zweiter Durchgang hat sie geholt.
+        # Deshalb auch ohne Blick auf ``fassungen``: Die Liste ist von vorher.
+        if args.fassungen:
+            anzahl, frei = loesche_fassungen(ablage, auch_fern=args.auch_fern)
+            print(f"{anzahl} alte Fassungen und Markierungen entfernt, "
+                  f"{frei / 1e6:.1f} MB frei - und diesmal wirklich frei.")
         return 0
 
 

@@ -436,7 +436,8 @@ def build(data_root: Path, stations: list[str]) -> Path:
         manifest = build_manifest(
             con, "weather_silver", sources, uebergangen, started
         )
-        ziel = publish(con, "weather_silver", table_dir(data_root), manifest)
+        ziel = publish(con, "weather_silver", table_dir(data_root), manifest,
+                       ordnung="city, date")
     finally:
         con.close()
     for_root(data_root).publish_table(ziel)

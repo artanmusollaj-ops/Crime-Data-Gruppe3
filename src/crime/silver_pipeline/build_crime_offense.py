@@ -84,6 +84,7 @@ from __future__ import annotations
 import argparse
 import csv
 import logging
+import os
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -115,7 +116,7 @@ TABLE = "crime_offense"
 # nicht, wie der Code sie baut. Steigt die Zahl, sind aeltere Staende anders
 # zu lesen. Jede Erhoehung gehoert in AENDERUNGEN.md, siehe
 # "Vertragsversionen"; ein Test prueft das.
-CONTRACT_VERSION = 4
+CONTRACT_VERSION = 6
 
 
 CHICAGO = "chicago"
@@ -148,9 +149,18 @@ OVERRIDE_KOPF = ",".join(OVERRIDE_SPALTEN)
 OVERRIDE_HERKUNFT = "admin_review"
 
 TRACT_TABLE = "dataset=tract"
+# Seit Vertrag 5 (25.11.2026): die Polizeibezirke, gegen die jede Koordinate
+# gehalten wird wie gegen die Tracts.
+POLICE_AREA_TABLE = "dataset=police_area"
+# Seit Vertrag 6 (25.11.2026): die Stadtteile, auf demselben Weg.
+COMMUNITY_AREA_TABLE = "dataset=community_area"
 
 # Detroit fuehrt zurueckgezogene Faelle weiter und markiert sie im Status.
 UNFOUNDED = "UNFOUNDED"
+# Detroits Verfahrensstand, der einer Festnahme entspricht. Chicago fuehrt
+# ``arrest`` als eigenes Feld; Detroit nur den Stand des Falls. Seit Vertrag 5
+# fuellt dieser Wert ``arrest`` auch fuer Detroit (vorher NULL).
+FESTNAHME = "CLEARED BY ARREST"
 
 # Wie gut ist eine NIBRS-Zuordnung belegt? ``nibrs_match`` sagt, *woher* sie
 # kommt; ``mapping_status`` fasst das zu der Frage zusammen, die eine
@@ -437,6 +447,23 @@ def tract_source(data_root: Path) -> TractQuelle:
                        rel.rsplit("/", 1)[0])
 
 
+def police_area_source(data_root: Path,
+                       tabelle: str = POLICE_AREA_TABLE) -> TractQuelle | None:
+    """``silver/police_area``, wenn es gebaut ist.
+
+    Fehlt es, bleiben ``police_area`` leer und das Manifest sagt es
+    (``derived_from.silver_police_area`` ist ``null``). Im Lauf kann das nicht
+    vorkommen - ``run_all`` baut die Bezirke vor dieser Tabelle; ein Abbruch
+    hier nahm aber jedem Test, der nur Tracts anlegt, die Grundlage.
+    """
+    ablage = for_root(data_root)
+    prefix = f"{SILVER_LAYER}/{tabelle}"
+    if not ablage.list_files(prefix, PARQUET_FILE):
+        LOG.warning("silver/%s fehlt - die Spalte bleibt leer", tabelle)
+        return None
+    return TractQuelle(ablage.resolve_read_path(prefix, PARQUET_FILE), "", prefix)
+
+
 # ---------------------------------------------------------------------------
 # Die Abfrage
 # ---------------------------------------------------------------------------
@@ -516,6 +543,11 @@ def wirksame_zuordnung(config_root: Path) -> str:
     # Ohne WITH: Als Baustufe darf die Abfrage keine Zwischenstufen pinnen
     # (``test_der_bau_fuehrt_die_stufen_einzeln_aus``). Die Korrekturdatei
     # wird dafuer dreimal gelesen; sie hat eine Handvoll Zeilen.
+    #
+    # Zwei Staedte (FR-43): Der Crosswalk besteht aus genau diesen zwei
+    # Dateien. Die Codes einer dritten Stadt bleiben ohne eigenen Zweig still
+    # 'unmapped', es gibt keinen Fehler. Die Hierarchie einer Korrektur kennt
+    # nur Detroit (MICR).
     return f"""
         SELECT '{CHICAGO}' AS city, iucr AS quellcode, ibr_code AS nibrs_code,
                match AS nibrs_match, CAST(NULL AS INTEGER) AS hierarchy
@@ -542,6 +574,8 @@ def build_query(
     detroit: Source,
     tract: TractQuelle,
     config_root: Path,
+    polizei: TractQuelle | None = None,
+    stadtteil: TractQuelle | None = None,
 ) -> tuple[list[tuple[str, str]], str]:
     """Beide Staedte, auf NIBRS gebracht und raeumlich verortet.
 
@@ -615,6 +649,20 @@ def build_query(
         FROM read_parquet('{tract}')
         WHERE geometry IS NOT NULL
     """),
+        ('polizeibezirk', f"""
+        SELECT city, area_id, ST_GeomFromWKB(geometry) AS geom
+        FROM read_parquet('{polizei}')
+    """ if polizei is not None else """
+        SELECT NULL::VARCHAR AS city, NULL::VARCHAR AS area_id,
+               NULL::GEOMETRY AS geom WHERE false
+    """),
+        ('stadtteil', f"""
+        SELECT city, area_id, ST_GeomFromWKB(geometry) AS geom
+        FROM read_parquet('{stadtteil}')
+    """ if stadtteil is not None else """
+        SELECT NULL::VARCHAR AS city, NULL::VARCHAR AS area_id,
+               NULL::GEOMETRY AS geom WHERE false
+    """),
         # Chicago: eine Zeile je id, die Fassung mit dem juengsten updated_on.
         ('chicago_roh',
          f"""
@@ -683,7 +731,13 @@ def build_query(
             -- und zaehlt immer.
             nullif(trim(c.id), '')                         AS offense_group_id,
             TRUE                                           AS counts,
-            'eine_zeile_ist_ein_delikt'                    AS counts_reason
+            'eine_zeile_ist_ein_delikt'                    AS counts_reason,
+            -- Der District, den die Polizei nennt, als Zahl ohne fuehrende
+            -- Null ('031' -> '31'), wie area_id in silver/police_area.
+            CASE WHEN TRY_CAST(trim(CAST(c.district AS VARCHAR)) AS INTEGER) > 0
+                 THEN CAST(TRY_CAST(trim(CAST(c.district AS VARCHAR)) AS INTEGER) AS VARCHAR) END
+                                                           AS police_area_source,
+            NULL                                           AS case_status
         FROM chicago_eindeutig c
         LEFT JOIN iucr_map m ON trim(c.iucr) = m.iucr
     """),
@@ -713,6 +767,7 @@ def build_query(
             charge_description  := CAST(attributes.charge_description AS VARCHAR),
             offense_description := CAST(attributes.offense_description AS VARCHAR),
             case_status         := CAST(attributes.case_status AS VARCHAR),
+            police_precinct     := CAST(attributes.police_precinct AS VARCHAR),
             incident_occurred_at:= attributes.incident_occurred_at,
             updated_at          := attributes.updated_at,
             latitude            := CAST(attributes.latitude AS DOUBLE),
@@ -783,7 +838,11 @@ def build_query(
             m.nibrs_match                                  AS nibrs_match,
             d.attributes.latitude                          AS latitude,
             d.attributes.longitude                         AS longitude,
-            NULL                                           AS arrest,
+            -- Seit Vertrag 5: die Festnahme aus dem Stand des Falls. Ohne
+            -- Stand bleibt sie unbekannt, nicht "nein".
+            CASE WHEN nullif(trim(d.attributes.case_status), '') IS NOT NULL
+                 THEN upper(trim(d.attributes.case_status)) = '{FESTNAHME}'
+            END                                            AS arrest,
             upper(coalesce(trim(d.attributes.case_status), '')) = '{UNFOUNDED}'
                                                            AS unfounded,
             -- Der Schluessel der Tat: Vorfall plus ihre Beschreibung.
@@ -797,7 +856,11 @@ def build_query(
                      = trim(d.attributes.offense_description)
                     THEN 'anklage_ist_die_tat'
                 ELSE 'schwerste_anklage'
-            END                                            AS counts_reason
+            END                                            AS counts_reason,
+            CASE WHEN TRY_CAST(trim(d.attributes.police_precinct) AS INTEGER) > 0
+                 THEN CAST(TRY_CAST(trim(d.attributes.police_precinct) AS INTEGER) AS VARCHAR) END
+                                                           AS police_area_source,
+            nullif(upper(trim(d.attributes.case_status)), '') AS case_status
         FROM detroit_gewaehlt d
         LEFT JOIN micr_map m ON trim(d.attributes.state_offense_code) = m.micr_code
     """),
@@ -831,6 +894,32 @@ def build_query(
         FROM bereinigt b
         JOIN tract t ON ST_Within(ST_Point(b.longitude, b.latitude), t.geom)
         WHERE b.latitude IS NOT NULL AND b.longitude IS NOT NULL
+    """),
+        # Derselbe Weg fuer die Polizeibezirke, nur innerhalb der eigenen
+        # Stadt. Zwei Bezirke derselben Stadt ueberlappen an ihren Raendern
+        # um Bruchteile eines Promilles (silver/police_area prueft das);
+        # liegt ein Punkt genau dort, gilt der kleinere Schluessel.
+        ('im_bezirk',
+         """
+        SELECT b.city, b.offense_id, p.area_id
+        FROM bereinigt b
+        JOIN polizeibezirk p
+          ON p.city = b.city
+         AND ST_Within(ST_Point(b.longitude, b.latitude), p.geom)
+        WHERE b.latitude IS NOT NULL AND b.longitude IS NOT NULL
+        QUALIFY row_number() OVER (PARTITION BY b.city, b.offense_id
+                                   ORDER BY TRY_CAST(p.area_id AS INTEGER)) = 1
+    """),
+        ('im_stadtteil',
+         """
+        SELECT b.city, b.offense_id, p.area_id
+        FROM bereinigt b
+        JOIN stadtteil p
+          ON p.city = b.city
+         AND ST_Within(ST_Point(b.longitude, b.latitude), p.geom)
+        WHERE b.latitude IS NOT NULL AND b.longitude IS NOT NULL
+        QUALIFY row_number() OVER (PARTITION BY b.city, b.offense_id
+                                   ORDER BY p.area_id) = 1
     """),
         # Das Fallebene: unter den zaehlenden Zeilen eines Falls die mit dem
         # schwersten Delikt; bei gleichem Delikt (mehrere Opfer) die frueheste.
@@ -885,7 +974,11 @@ def build_query(
         b.offense_group_id,
         CAST(b.counts AS BOOLEAN)                          AS counts,
         b.counts_reason,
-        coalesce(f.rang_im_fall = 1, FALSE)                AS counts_case
+        coalesce(f.rang_im_fall = 1, FALSE)                AS counts_case,
+        pb.area_id                                         AS police_area,
+        b.police_area_source,
+        CAST(b.case_status AS VARCHAR)                     AS case_status,
+        st.area_id                                         AS community_area
     FROM bereinigt b
     LEFT JOIN nibrs n ON b.nibrs_code = n.nibrs_code
     LEFT JOIN status s ON b.nibrs_match = s.nibrs_match
@@ -893,6 +986,10 @@ def build_query(
       ON b.city = v.city AND b.offense_id = v.offense_id
     LEFT JOIN fallebene f
       ON b.city = f.city AND b.offense_id = f.offense_id
+    LEFT JOIN im_bezirk pb
+      ON b.city = pb.city AND b.offense_id = pb.offense_id
+    LEFT JOIN im_stadtteil st
+      ON b.city = st.city AND b.offense_id = st.offense_id
     """
 
 
@@ -1018,6 +1115,10 @@ def reconcile(
                    -- 17.9.2026 waren das 30 der 88'685 Detroit-Zeilen; ein
                    -- systematischer Zonenfehler faellt trotzdem 88'655-fach
                    -- auf.
+                   -- Zwei Staedte (FR-43): Das ELSE meint Detroit. Eine
+                   -- dritte Stadt wuerde gegen Detroits Zone geprueft. In
+                   -- einer anderen Zone bricht sie mit einem falschen
+                   -- Zonenbefund ab, in derselben Zone faellt nichts auf.
                    count(*) FILTER (
                        NOT local_time_nonexistent
                        AND occurred_at_utc IS NOT NULL
@@ -1086,6 +1187,10 @@ def reconcile(
             "Zuordnung belegt (exact) oder eine Entscheidung (ambiguous) ist."
         )
 
+    # Zwei Staedte (FR-43): Die Pruefung "nicht mehr Ergebnis als Quelle"
+    # steht je Stadt einzeln da. Eine dritte Stadt bliebe ungeprueft, ohne
+    # dass es auffaellt.
+    #
     # Chicagos Deltas ueberlappen; die Rohsumme ist deshalb groesser als die
     # Zeilenzahl. Kleiner darf sie nie sein - dann waere etwas verlorengegangen.
     if je_stadt.get(CHICAGO, {}).get("rows", 0) > chicago.row_count:
@@ -1125,6 +1230,10 @@ def comparability(con: duckdb.DuckDBPyConnection, relation: str) -> list[dict[st
 
     Fuer jeden NIBRS-Code, der in beiden Staedten vorkommt, die Fallzahlen -
     das erste Mal, dass beide Datensaetze dieselbe Sprache sprechen.
+
+    Zwei Staedte (FR-43): Spalten und ``HAVING`` nennen genau Chicago und
+    Detroit. Eine dritte Stadt fehlt in diesem Teil des Manifests, ohne
+    Fehlermeldung.
     """
     return [
         {
@@ -1153,9 +1262,29 @@ def comparability(con: duckdb.DuckDBPyConnection, relation: str) -> list[dict[st
 # ---------------------------------------------------------------------------
 
 
+def bezirksabgleich(con: duckdb.DuckDBPyConnection, relation: str) -> dict[str, Any]:
+    """Je Stadt: wie viele Taten einen Bezirk haben, und wie oft er dem der Polizei gleicht.
+
+    Gezaehlt werden die Taten (``counts``). Am 25.11.2026 vor dem Bau
+    gemessen: 97,4 % in Chicago, 96,6 % in Detroit stimmten ueberein. Eine
+    Zahl weit darunter hiesse, dass Grenzen und Taten nicht zusammenpassen -
+    das soll im Manifest stehen, nicht erst auf der Karte auffallen.
+    """
+    return {stadt: {"offenses": n, "with_area": mit, "with_source_area": quelle,
+                    "agree": gleich,
+                    "agree_share": round(gleich / beide, 4) if beide else None}
+            for stadt, n, mit, quelle, beide, gleich in con.execute(f"""
+        SELECT city, count(*), count(police_area), count(police_area_source),
+               count(*) FILTER (WHERE police_area IS NOT NULL
+                                  AND police_area_source IS NOT NULL),
+               count(*) FILTER (WHERE police_area = police_area_source)
+        FROM {relation} WHERE counts GROUP BY city ORDER BY city""").fetchall()}
+
+
 def herkunft_von(
     chicago: Source, detroit: Source, tract: TractQuelle, config_root: Path,
-    data_root: Path | None = None,
+    data_root: Path | None = None, polizei: TractQuelle | None = None,
+    stadtteil: TractQuelle | None = None,
 ) -> dict[str, Any]:
     """Woraus diese Tabelle entstanden ist - vollstaendig genug zum Nachbauen.
 
@@ -1200,6 +1329,12 @@ def herkunft_von(
         "detroit_bronze_runs": detroit.run_ids,
         "detroit_bronze_format": detroit.format,
         "silver_tract": referenz(tract.pfad, tract_manifest),
+        "silver_police_area": None if polizei is None else referenz(
+            polizei.pfad, ablage.tabellen_manifest(polizei.verzeichnis)
+            if ablage.exists(polizei.verzeichnis, "manifest.json") else {}),
+        "silver_community_area": None if stadtteil is None else referenz(
+            stadtteil.pfad, ablage.tabellen_manifest(stadtteil.verzeichnis)
+            if ablage.exists(stadtteil.verzeichnis, "manifest.json") else {}),
         "crosswalks": [
             referenzdatei(config_root / name)
             for name in (IUCR_MAPPING, MICR_MAPPING, NIBRS_CODES, MAPPING_OVERRIDES)
@@ -1216,8 +1351,11 @@ def build_manifest(
     config_root: Path,
     pruefung: dict[str, Any],
     data_root: Path | None = None,
+    polizei: TractQuelle | None = None,
+    stadtteil: TractQuelle | None = None,
 ) -> dict[str, Any]:
-    herkunft = herkunft_von(chicago, detroit, tract, config_root, data_root)
+    herkunft = herkunft_von(chicago, detroit, tract, config_root, data_root, polizei,
+                            stadtteil)
     return {
         # Als einziges Manifest des Projekts fehlte hier lange der Status -
         # ausgerechnet bei der Tabelle, die den Vergleich traegt. Wer sie las,
@@ -1250,6 +1388,8 @@ def build(data_root: Path, config_root: Path) -> Path:
     chicago = chicago_sources(data_root)
     detroit = detroit_sources(data_root)
     tract = tract_source(data_root)
+    polizei = police_area_source(data_root)
+    stadtteil = police_area_source(data_root, COMMUNITY_AREA_TABLE)
     LOG.info(
         "Quellen: Chicago %d Laeufe, Detroit %d Laeufe, tract %s",
         len(chicago.paths), len(detroit.paths), tract.vintage,
@@ -1264,15 +1404,26 @@ def build(data_root: Path, config_root: Path) -> Path:
     # Die Datei liegt im Auslagerungsverzeichnis, wenn eines gesetzt ist: Auf
     # ``srv01`` ist das der Datentraeger, der dafuer Platz hat. Sie geht am
     # Ende mit; sie traegt nichts, was das Manifest nicht beschreibt.
+    #
+    # **Das Verzeichnis wird angelegt, wenn es fehlt.** ``TemporaryDirectory``
+    # legt nur sein eigenes an, nicht das Elternverzeichnis. Auf ``srv01`` lag
+    # ``duckdb-tmp`` aus frueheren Laeufen schon im Datentraeger; auf einem
+    # frischen (Google-Cloud-Probe, 15.11.2026) brach der Bau mit
+    # ``FileNotFoundError`` ab. Das Auslagerungsverzeichnis ist keine Schicht,
+    # sondern Arbeitsplatz dieses Prozesses - ``storage`` ist hier nicht zustaendig.
+    auslagerung = grenzen().get("temp_directory") or None
+    if auslagerung:
+        os.makedirs(auslagerung, exist_ok=True)
     with tempfile.TemporaryDirectory(
-            dir=grenzen().get("temp_directory") or None,
-            prefix=".bau-crime_offense-") as bau:
+            dir=auslagerung, prefix=".bau-crime_offense-") as bau:
         return _build(Path(bau) / "bau.duckdb", data_root, config_root,
-                      chicago, detroit, tract)
+                      chicago, detroit, tract, polizei, stadtteil)
 
 
 def _build(datenbank: Path, data_root: Path, config_root: Path,
-           chicago: Source, detroit: Source, tract: TractQuelle) -> Path:
+           chicago: Source, detroit: Source, tract: TractQuelle,
+           polizei: TractQuelle | None = None,
+           stadtteil: TractQuelle | None = None) -> Path:
     con = connect(spatial=True, datenbank=datenbank)
     try:
         # Ohne icu kennt DuckDB keine benannten Zeitzonen; ohne UTC als
@@ -1296,14 +1447,20 @@ def _build(datenbank: Path, data_root: Path, config_root: Path,
         con.execute("SET preserve_insertion_order=false")
 
         pruefe_overrides(config_root)
-        stufen, schluss = build_query(chicago, detroit, tract, config_root)
+        stufen, schluss = build_query(chicago, detroit, tract, config_root, polizei,
+                                      stadtteil)
         for name, abfrage in stufen:
             con.execute(f"CREATE TABLE {name} AS {abfrage}")
         con.execute(f"CREATE TABLE {TABLE} AS {schluss}")
         pruefung = reconcile(con, TABLE, chicago, detroit, config_root)
+        pruefung["police_area"] = bezirksabgleich(con, TABLE)
+        pruefung["community_area"] = {stadt: {"offenses": n, "with_area": mit}
+                                      for stadt, n, mit in con.execute(f"""
+            SELECT city, count(*), count(community_area) FROM {TABLE}
+            WHERE counts GROUP BY 1 ORDER BY 1""").fetchall()}
         manifest = build_manifest(
             con, TABLE, chicago, detroit, tract, config_root, pruefung,
-            data_root,
+            data_root, polizei, stadtteil,
         )
         ziel = publish(con, TABLE, table_dir(data_root), manifest,
                        ordnung=ORDNUNG)

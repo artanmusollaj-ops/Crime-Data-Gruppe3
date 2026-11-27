@@ -397,9 +397,9 @@ Fälle nachträglich ändert.
 
 ## 5 · Silver und Gold
 
-**Stand.** Beide Schichten sind gebaut: `silver/crime_offense` (1'875'374
+**Stand.** Beide Schichten sind gebaut: `silver/crime_offense` (1'922'278
 Zeilen über die Jahrgänge 2021–2026) und das Gold-Sternschema darauf
-(`fact_offense`, 1'851'946 Zeilen). Der
+(`fact_offense`, 1'900'131 Zeilen). Der
 früher hier genannte Detroit-eigene Normalisierer `transform_detroit.py` ist
 entfernt — er hätte eine zweite, unbelegte Kategorienzuordnung neben dem
 NIBRS-Crosswalk gehalten.
@@ -458,10 +458,10 @@ trägt.
 **Stand.** Alle vier Tabellen sind gebaut, jeweils mit Herkunftsnachweis über
 die Bronze-Läufe im Manifest: `tract` (6'282 Zeilen je Vintage, vier
 Vintages), `place` (2'206 Zeilen je Vintage, die Stadtgrenzen), `weather_day`
-(55'497 Zeilen, zwei Städte) und seit dem 10.9. `crime_offense` (1'875'374
-Zeilen über die Jahrgänge 2021–2026, 1'383'649 Chicago und 491'725 Detroit;
+(55'587 Zeilen, zwei Städte) und seit dem 10.9. `crime_offense` (1'922'278
+Zeilen über die Jahrgänge 2021–2026, 1'417'838 Chicago und 504'440 Detroit;
 Detroits Zeilen sind Anklagen, je Tat zählt eine —
-Gold kommt damit auf 1'851'946).
+Gold kommt damit auf 1'900'131).
 
 Der frühere Vorbehalt, `crime_offense` müsse auf Artans Zeitzonen-Fix warten,
 trägt nicht mehr: Sein Branch ändert das **Abfragefenster** — welche Zeilen in
@@ -737,8 +737,11 @@ vollständig: jede Stufe des Run-Controllers muss hier stehen.
 | `tiger_place` | `bronze/dataset=tiger_place` | `census_pipeline.download_tiger` | Christian | Notebook 21 |
 | `acs` | `bronze/dataset=acs5_tract` | `census_pipeline.download_acs` | Christian | Notebook 21 |
 | `noaa` | `bronze/dataset=noaa_ghcnd` | `weather_pipeline.download_noaa` | Christian | Notebook 22 |
+| `gebiete` | `bronze/dataset=gebiete` | `gebiete_pipeline.download_gebiete` | Christian | Manifest (`completeness`, Hash je Lauf) |
+| `police_area` | `silver/dataset=police_area` | `silver_pipeline.build_police_area` | Christian | Manifest (`reconciliation`: Überlappung, Gültigkeit) |
+| `community_area` | `silver/dataset=community_area` | `silver_pipeline.build_community_area` | Christian | Manifest (`reconciliation`: Überlappung, Gültigkeit) |
 | `tract`, `place`, `weather_day`, `crime_offense`, `source_change` | `silver/` | `silver_pipeline.*` | Christian | Konzept 8, Feldkatalog, `intern/datenhistorie.md` |
-| `gold` | `gold/` (fünf Tabellen) | `gold_pipeline.build_gold` | Christian | Notebook 34, Konzept 5.2 |
+| `gold` | `gold/` (elf Tabellen) | `gold_pipeline.build_gold` | Christian | Notebook 34, Konzept 5.2 |
 | `comparison` | `serving/` (fünf Vergleichstabellen aus Gold) | `serving.build_comparison` | Christian | Feldkatalog, `zaehlperspektiven.md` |
 | `source_movement` | `serving/` (Quellbewegung aus `silver/source_change`, seit 8.11.2026) | `serving.build_source_movement` | Christian | Feldkatalog, Dashboard-Brett „Quellbewegung“ |
 | `analyse_db`, `tracts_geojson` | `serving/` | `serving.*` | Christian | Notebook 33 |

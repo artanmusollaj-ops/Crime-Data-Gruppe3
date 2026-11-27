@@ -35,7 +35,10 @@ from dotenv import find_dotenv, load_dotenv
 
 
 BACKENDS = ("local", "s3", "hybrid")
-VORGABE_ENDPOINT = "s3.datenwerft.ch"
+# Kein VORGABE_ENDPOINT mehr (FR-46, 14.11.2026). Bis dahin stand hier der
+# Eimer von srv01, und ``s3`` oder ``hybrid`` ohne ``S3_ENDPOINT`` griff still
+# dorthin zu - in jeder anderen Umgebung ein Zugriff auf den falschen Eimer
+# statt eines Fehlers. Der Endpunkt ist jetzt Pflicht, wo er gebraucht wird.
 VORGABE_BUCKET = "urban-crime"
 
 
@@ -53,7 +56,7 @@ def wahr(text: str | None, vorgabe: bool) -> bool:
 class Config:
     backend: str = "local"
     local_root: Path = Path("data")
-    s3_endpoint: str = VORGABE_ENDPOINT
+    s3_endpoint: str = ""
     s3_access_key: str = ""
     s3_secret_key: str = ""
     s3_bucket: str = VORGABE_BUCKET
@@ -80,6 +83,17 @@ class Config:
     #: Kein Schalter fuer Menschen. Er wird je Lauf gesetzt, nicht in einer
     #: ``.env``, und wer ihn dort setzt, haelt den ganzen Bestand lokal.
     keep_local: bool = False
+    #: Im Modus ``s3`` die lokalen Arbeitskopien von Silver und Gold auch
+    #: **nach** dem Release behalten.
+    #:
+    #: Die Notebooks 34 und 37 lesen Silver und Gold unter der Datenwurzel und
+    #: verlangen dafuer den Herkunftsnachweis ``.analyse/stand.json``. Raeumt
+    #: ``run_all`` die Kopien nach dem Release weg, erfasst der Nachweis nur
+    #: noch Bronze, und die Notebooks starten nie. Auf ``srv01`` war das seit
+    #: dem Wechsel auf ``s3`` so und fiel am 13.11.2026 auf. Gesetzt wird der
+    #: Schalter dort im Compose-Dienst ``pipeline``, nicht in einer ``.env``.
+    #: Gelesen wird weiter aus dem Eimer; die Kopien sind nur der Analysebestand.
+    analysebestand_lokal: bool = False
 
     @property
     def remote(self) -> bool:
@@ -131,7 +145,7 @@ def load(env: Mapping[str, str] | None = None, *, dotenv: bool = True) -> Config
     config = Config(
         backend=backend,
         local_root=Path((env.get("LOCAL_DATA_ROOT") or "data").strip()),
-        s3_endpoint=(env.get("S3_ENDPOINT") or VORGABE_ENDPOINT).strip(),
+        s3_endpoint=(env.get("S3_ENDPOINT") or "").strip(),
         s3_access_key=(env.get("S3_ACCESS_KEY") or "").strip(),
         s3_secret_key=(env.get("S3_SECRET_KEY") or "").strip(),
         s3_bucket=(env.get("S3_BUCKET") or VORGABE_BUCKET).strip(),
@@ -139,11 +153,17 @@ def load(env: Mapping[str, str] | None = None, *, dotenv: bool = True) -> Config
         hybrid_read_priority=prioritaet,
         hybrid_publish_after_write=wahr(env.get("HYBRID_PUBLISH_AFTER_WRITE"), True),
         keep_local=wahr(env.get("STORAGE_KEEP_LOCAL"), False),
+        analysebestand_lokal=wahr(env.get("STORAGE_ANALYSEBESTAND_LOKAL"), False),
     )
     if config.remote and not (config.s3_access_key and config.s3_secret_key):
         raise StorageConfigError(
             f"STORAGE_BACKEND={backend} braucht S3_ACCESS_KEY und S3_SECRET_KEY "
             "(in der Umgebung oder in .env; .env wird nicht versioniert)"
+        )
+    if config.remote and not config.s3_endpoint:
+        raise StorageConfigError(
+            f"STORAGE_BACKEND={backend} braucht S3_ENDPOINT (Hostname des "
+            "Objektspeichers, ohne Schema; in der Umgebung oder in .env)"
         )
     if config.remote and not config.s3_bucket:
         raise StorageConfigError("S3_BUCKET darf nicht leer sein")

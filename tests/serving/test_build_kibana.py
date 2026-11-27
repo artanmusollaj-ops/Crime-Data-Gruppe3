@@ -43,6 +43,23 @@ ALLE_TAFELN = [(b.kennung, t) for b in bk.BRETTER for t in b.tafeln]
 TAFELNAMEN = [f"{k}-{t.kennung}" for k, t in ALLE_TAFELN]
 
 
+def lens(kennung: str, titel: str, art: str,
+         kennzahl: bk.Kennzahl | None = ZAEHLEN, **merkmale) -> bk.Tafel:
+    """Eine Lens-Tafel, die FR-27 erfuellt, ohne dass jeder Test es tippt.
+
+    Seit dem 17.11.2026 entsteht keine Kachel mehr ohne Frage, Nenner und
+    Ausschluesse - auch keine in einem Test, der nur das Raster prueft.
+    Die Angaben hier sind die kleinsten, die ``Tafel._pruefe_fr27``
+    durchlaesst: das Zeitfenster und je Eimer sein ``ohne_wert``. Was FR-27
+    selbst prueft, baut seine Tafel mit ``bk.Tafel`` von Hand.
+    """
+    merkmale.setdefault("frage", "F")
+    merkmale.setdefault("nenner", "N")
+    merkmale.setdefault("ausschluesse", (bk.im_zeitfenster(),) + tuple(
+        bk.ohne_wert(e) for e in merkmale.get("eimer", ())))
+    return bk.Tafel(kennung, titel, art, kennzahl, **merkmale)
+
+
 def brett(*tafeln: bk.Tafel) -> bk.Brett:
     return bk.Brett("probe", "Probe", "", tafeln, FENSTER)
 
@@ -75,7 +92,7 @@ def test_eine_zu_breite_tafel_bricht_ab():
 
 def test_ein_dashboard_ohne_zeitfenster_bricht_ab():
     """Der Fehler, der sich als leeres Dashboard tarnt."""
-    ohne = bk.Brett("p", "P", "", (bk.Tafel("t", "T", "zahl", ZAEHLEN),))
+    ohne = bk.Brett("p", "P", "", (lens("t", "T", "zahl", ZAEHLEN),))
     with pytest.raises(LadeFehler, match="letzten 15"):
         bk.dashboard_objekt(ohne)
 
@@ -86,7 +103,7 @@ def test_ein_dashboard_ohne_zeitfenster_bricht_ab():
 
 
 def test_gruppierungen_stehen_vor_der_kennzahl():
-    tafel = bk.Tafel("t", "T", "balken", ZAEHLEN,
+    tafel = lens("t", "T", "balken", ZAEHLEN,
                      eimer=(bk.Eimer("stadt", "Stadt", "terms",
                                      "reporting_city"),))
     # Lens erwartet die Eimer zuerst; andersherum wird aus dem Balken eine
@@ -129,11 +146,11 @@ def test_count_ist_keine_aggregation():
     # Elasticsearch liefert die Zeilenzahl als doc_count mit; eine eigene
     # Aggregation dafuer waere Unsinn.
     assert ZAEHLEN.aggregation is None
-    assert bk.Tafel("t", "T", "zahl", ZAEHLEN).aggregation == {"size": 0}
+    assert lens("t", "T", "zahl", ZAEHLEN).aggregation == {"size": 0}
 
 
 def test_die_aggregation_verschachtelt_in_der_reihenfolge_der_eimer():
-    tafel = bk.Tafel("t", "T", "balken", ZAEHLEN, eimer=(
+    tafel = lens("t", "T", "balken", ZAEHLEN, eimer=(
         bk.Eimer("monat", "Monat", "date_histogram", "occurred_at_utc"),
         bk.Eimer("stadt", "Stadt", "terms", "reporting_city")))
     aggs = tafel.aggregation["aggs"]
@@ -153,7 +170,7 @@ def test_eine_spalte_die_niemand_anzeigt_faellt_auf():
     Aufteilungsverweis. Eine dritte Gruppierung liegt dann in den Spalten,
     wird aber nirgends verwendet - die Kachel erscheint, ohne sie zu zeigen.
     """
-    tafel = bk.Tafel("t", "T", "balken", ZAEHLEN, eimer=(
+    tafel = lens("t", "T", "balken", ZAEHLEN, eimer=(
         bk.Eimer("a", "A", "terms", "reporting_city"),
         bk.Eimer("b", "B", "terms", "mapping_status"),
         bk.Eimer("c", "C", "terms", "geo_status")))
@@ -205,10 +222,104 @@ def test_eine_lens_tafel_ohne_kennzahl_bricht_ab():
 def test_eine_esql_tafel_ohne_frage_oder_ausschluesse_bricht_ab():
     """FR-27 als Bedingung des Bauens, nicht als gute Absicht."""
     with pytest.raises(LadeFehler, match="ohne 'frage'"):
-        bk.Tafel("t", "T", "esql_tabelle", abfrage=EINFACH,
+        bk.Tafel("t", "T", "esql_tabelle", abfrage=EINFACH, nenner="N",
+                 ausschluesse=(BELEGT,))
+    with pytest.raises(LadeFehler, match="ohne 'nenner'"):
+        bk.Tafel("t", "T", "esql_tabelle", abfrage=EINFACH, frage="F",
                  ausschluesse=(BELEGT,))
     with pytest.raises(LadeFehler, match="ohne 'ausschluesse'"):
-        bk.Tafel("t", "T", "esql_tabelle", abfrage=EINFACH, frage="F")
+        bk.Tafel("t", "T", "esql_tabelle", abfrage=EINFACH, frage="F",
+                 nenner="N")
+
+
+def test_eine_lens_tafel_ohne_frage_nenner_oder_ausschluss_bricht_ab():
+    """Seit dem 17.11.2026 gilt FR-27 auch fuer Lens."""
+    zeit = (bk.im_zeitfenster(),)
+    with pytest.raises(LadeFehler, match="ohne 'frage'"):
+        bk.Tafel("t", "T", "zahl", ZAEHLEN, nenner="N", ausschluesse=zeit)
+    with pytest.raises(LadeFehler, match="ohne 'nenner'"):
+        bk.Tafel("t", "T", "zahl", ZAEHLEN, frage="F", ausschluesse=zeit)
+    with pytest.raises(LadeFehler, match="ohne 'ausschluesse'"):
+        bk.Tafel("t", "T", "zahl", ZAEHLEN, frage="F", nenner="N")
+
+
+def test_ein_lens_ausschluss_ohne_beleg_im_filter_bricht_ab():
+    """Der Ausschluss "weitere Delikte desselben Falls" ohne ``counts_case``.
+
+    Genau der Fehler vom 17.11.2026, nur andersherum: Die Kachel saehe aus,
+    als zaehle sie Faelle, und zaehlte Taten.
+    """
+    with pytest.raises(LadeFehler, match="vollzieht ihn aber nicht"):
+        bk.Tafel("t", "T", "zahl", ZAEHLEN, frage="F", nenner="N",
+                 ausschluesse=(bk._WEITERE_DELIKTE_DES_FALLS,))
+    # Mit dem Filter entsteht sie.
+    bk.Tafel("t", "T", "zahl", ZAEHLEN, frage="F", nenner="N",
+             filter="counts_case: true",
+             ausschluesse=(bk._WEITERE_DELIKTE_DES_FALLS,))
+
+
+@pytest.mark.parametrize("beleg", ["", "   "])
+def test_ein_leerer_beleg_wird_abgelehnt(beleg):
+    """``"" in text`` ist immer wahr - ein leerer Beleg belegte alles."""
+    with pytest.raises(LadeFehler, match="ohne Beleg"):
+        bk.Ausschluss("Zeilen ohne irgendwas", beleg)
+
+
+def test_ein_lens_beleg_muss_gleich_sein_nicht_enthalten():
+    """``counts`` steht in ``counts_case: true``, vollzieht aber nichts."""
+    with pytest.raises(LadeFehler, match="vollzieht ihn aber nicht"):
+        bk.Tafel("t", "T", "zahl", ZAEHLEN, frage="F", nenner="N",
+                 filter="counts_case: true",
+                 ausschluesse=(bk.Ausschluss("Teilfaelle", "counts"),))
+    # Dasselbe fuer einen Eimer: "nibrs_code" steht in
+    # "terms(nibrs_code, 15)", nennt aber die Groesse nicht.
+    eimer = bk.Eimer("code", "Code", "terms", "nibrs_code", 15)
+    with pytest.raises(LadeFehler, match="vollzieht ihn aber nicht"):
+        bk.Tafel("t", "T", "balken", ZAEHLEN, eimer=(eimer,), frage="F",
+                 nenner="N", ausschluesse=(
+                     bk.ohne_wert(eimer),
+                     bk.Ausschluss("Delikte ohne Code (15)", "nibrs_code")))
+
+
+def test_jeder_eimer_nennt_was_er_weglaesst():
+    """Zeilen ohne den gruppierten Wert - und bei ``terms`` die obersten N."""
+    eimer = bk.Eimer("code", "Code", "terms", "nibrs_code", 15)
+    with pytest.raises(LadeFehler, match="kein Ausschluss nennt es"):
+        bk.Tafel("t", "T", "balken", ZAEHLEN, eimer=(eimer,), frage="F",
+                 nenner="N", ausschluesse=(bk.im_zeitfenster(),))
+    # Belegt, aber ohne die Groesse im Text: "die haeufigsten NIBRS-Codes"
+    # liest sich sonst als alle.
+    with pytest.raises(LadeFehler, match="nennt die Zahl nicht"):
+        bk.Tafel("t", "T", "balken", ZAEHLEN, eimer=(eimer,), frage="F",
+                 nenner="N", ausschluesse=(
+                     bk.Ausschluss("Delikte ohne Code", eimer.beleg),))
+    tafel = bk.Tafel("t", "T", "balken", ZAEHLEN, eimer=(eimer,), frage="F",
+                     nenner="N", ausschluesse=(bk.ohne_wert(eimer),))
+    assert "15" in tafel.erlaeuterung
+
+
+def test_ein_filter_steht_nur_an_einer_lens_tafel():
+    with pytest.raises(LadeFehler, match="nur fuer Lens"):
+        bk.Tafel("t", "T", "esql_tabelle", abfrage=EINFACH, frage="F",
+                 nenner="N", ausschluesse=(BELEGT,),
+                 filter="counts_case: true")
+
+
+@pytest.mark.parametrize("kql", [
+    "counts_case:true", "counts_case: true or arrest: true",
+    "nibrs_family: 13", "not counts_case: true", "geo_status: inside*"])
+def test_ein_filter_ausserhalb_der_nachpruefbaren_form_bricht_ab(kql):
+    """Nur ``feld: true|false|"wert"`` - das laesst sich exakt nachpruefen."""
+    with pytest.raises(LadeFehler, match="nicht die Form"):
+        lens("t", "T", "zahl", filter=kql)
+
+
+def test_ein_filter_wird_exakt_uebersetzt():
+    tafel = lens("t", "T", "zahl",
+                 filter='counts_case: true and reporting_city: "detroit"')
+    assert tafel.filter_abfrage == {"bool": {"filter": [
+        {"term": {"counts_case": True}},
+        {"term": {"reporting_city": "detroit"}}]}}
 
 
 def test_eine_rate_ohne_nenner_oder_jahr_bricht_ab():
@@ -276,7 +387,7 @@ def test_ein_ausschluss_ohne_beleg_in_der_abfrage_bricht_ab():
     """
     with pytest.raises(LadeFehler, match="vollzieht ihn aber nicht"):
         bk.Tafel("t", "T", "esql_tabelle", abfrage=EINFACH, frage="F",
-                 ausschluesse=(bk.Ausschluss("Tracts ohne Einwohner",
+                 nenner="N", ausschluesse=(bk.Ausschluss("Tracts ohne Einwohner",
                                              "population > 0"),))
 
 
@@ -303,20 +414,20 @@ def test_eine_esql_tafel_hat_keine_search_aggregation():
 
 
 @pytest.mark.parametrize("brettname,tafel", ALLE_TAFELN, ids=TAFELNAMEN)
-def test_jede_esql_tafel_nennt_frage_und_ausschluesse(brettname, tafel):
-    """FR-27 - fuer die neuen Kacheln eingeloest, fuer die alten offen.
+def test_jede_kachel_nennt_frage_nenner_und_ausschluesse(brettname, tafel):
+    """FR-27 - fuer jede Kachel, Lens, ES|QL und Karte.
 
-    Die vierzehn Kacheln der drei alten Bretter zeigen Zaehlungen und
-    Anteile; ihre Angaben sind zurueckgestellt (siehe ``deferred-work.md``).
-    Jede ES|QL-Kachel traegt sie von Anfang an, und eine mit einer Rate
-    zusaetzlich Nenner und Jahr.
+    Bis zum 17.11.2026 galt dieser Waechter nur fuer ES|QL und Karten; fuer
+    die Lens-Kacheln hielt er die Rueckstellung fest (``assert not
+    tafel.frage``). Dabei fiel auf, dass drei davon "Faelle" hiessen und
+    Taten zaehlten. Jetzt verlangt er fuer jede Kachel, was im
+    Informationsfeld stehen muss: Frage, Nenner, "Nicht enthalten: …".
     """
-    if not (tafel.ist_esql or tafel.ist_karte):
-        assert not tafel.frage, f"{brettname}: FR-27 war zurueckgestellt"
-        return
-    assert tafel.frage and tafel.ausschluesse
-    assert tafel.erlaeuterung.startswith("Frage: ")
-    assert "Nicht enthalten:" in tafel.erlaeuterung
+    woher = f"{brettname}/{tafel.kennung}"
+    assert tafel.frage and tafel.nenner and tafel.ausschluesse, woher
+    assert tafel.erlaeuterung.startswith("Frage: "), woher
+    assert "Nenner: " in tafel.erlaeuterung, woher
+    assert "Nicht enthalten:" in tafel.erlaeuterung, woher
     if tafel.ist_karte:
         # Eine Karte hat keine Abfrage, in der ein Beleg stehen koennte -
         # ihre Pflicht ist dafuer strenger: Nenner und Jahr sind nicht
@@ -324,14 +435,25 @@ def test_jede_esql_tafel_nennt_frage_und_ausschluesse(brettname, tafel):
         assert tafel.nenner and tafel.jahr, brettname
         return
     # Jede Kachel nennt **ihre eigenen** Ausschluesse: Was dasteht, muss
-    # diese Abfrage auch vollziehen. Ein geteiltes Tupel ueber drei Kacheln
-    # liess die Stadtkachel einen Ausschluss fuehren, den sie nicht macht.
+    # diese Kachel auch vollziehen - die Abfrage einer ES|QL-Tafel, der
+    # Filter, ein Eimer oder das Zeitfenster einer Lens-Tafel. Ein geteiltes
+    # Tupel ueber drei Kacheln liess die Stadtkachel einen Ausschluss
+    # fuehren, den sie nicht macht.
     for ausschluss in tafel.ausschluesse:
-        assert ausschluss.beleg in tafel.abfrage.esql, (
-            f"{brettname}/{tafel.kennung}: '{ausschluss.text[:40]}…' steht "
-            f"im Text, '{ausschluss.beleg}' aber nicht in der Abfrage")
+        if tafel.ist_esql:
+            assert ausschluss.beleg in tafel.abfrage.esql, (
+                f"{woher}: '{ausschluss.text[:40]}…' steht im Text, "
+                f"'{ausschluss.beleg}' aber nicht in der Abfrage")
+        else:
+            # Hier hergeleitet und nicht aus ``tafel.belegstellen``: Ein
+            # Waechter, der die Liste des geprueften Codes uebernimmt,
+            # wiederholt dessen Fehler.
+            assert ausschluss.beleg in _erwartete_belege(tafel), (
+                f"{woher}: '{ausschluss.text[:40]}…' steht im Text, "
+                f"'{ausschluss.beleg}' ist aber weder ein Filterteil noch "
+                f"ein Eimer noch das Zeitfenster")
     if tafel.zeigt_rate:
-        assert tafel.nenner, f"{brettname}/{tafel.kennung}: Rate ohne Nenner"
+        assert tafel.nenner, f"{woher}: Rate ohne Nenner"
         assert tafel.jahr == RATENJAHR
         # Der Hinweis, den die Rate fuer 2025 und 2026 braucht: Es gibt
         # kein neueres ACS, der Nenner bleibt der von 2024.
@@ -339,6 +461,162 @@ def test_jede_esql_tafel_nennt_frage_und_ausschluesse(brettname, tafel):
             assert str(spaeter) in tafel.nenner, (
                 f"{tafel.kennung}: der Nenner sagt nicht, was fuer "
                 f"{spaeter} gilt")
+
+
+def _erwartete_belege(tafel: bk.Tafel) -> set[str]:
+    """Wo eine Lens-Kachel etwas weglaesst - unabhaengig vom Code gerechnet.
+
+    Die Teile des KQL-Filters, je Eimer "terms(feld, N)" oder
+    "date_histogram(feld)", die gezaehlte Spalte und das Zeitfenster.
+    """
+    belege = {f"zeitfenster({bk.ZEITFELD})"}
+    if tafel.filter:
+        belege |= {t.strip() for t in tafel.filter.split(" and ")}
+    for e in tafel.eimer:
+        feld = f"{e.feld}.keyword" if e.unterfeld_keyword else e.feld
+        belege.add(f"terms({feld}, {e.groesse})" if e.operation == "terms"
+                   else f"date_histogram({feld})")
+    if tafel.kennzahl.feld:
+        belege.add(f"{tafel.kennzahl.operation}({tafel.kennzahl.feld})")
+    return belege
+
+
+LENS_TAFELN = [(k, t) for k, t in ALLE_TAFELN
+               if not (t.ist_esql or t.ist_karte)]
+LENS_NAMEN = [f"{k}-{t.kennung}" for k, t in LENS_TAFELN]
+
+
+def test_es_sind_achtzehn_lens_kacheln():
+    """Die Zahl aus dem Plan - damit keine still aus dem Waechter faellt."""
+    assert len(LENS_TAFELN) == 18
+
+
+@pytest.mark.parametrize("brettname,tafel", LENS_TAFELN, ids=LENS_NAMEN)
+def test_eine_reine_zaehlung_sagt_dass_erst_die_rate_vergleicht(brettname,
+                                                                 tafel):
+    """Der Nenner einer Zaehlung ist "keiner" - und das allein reicht nicht.
+
+    Chicago ist die groessere Stadt und liegt absolut fast ueberall vorn.
+    Wer zwei absolute Zahlen nebeneinander sieht, vergleicht sie trotzdem;
+    der Vorbehalt sagt, dass erst die Rate das darf. Ein Anteil dagegen hat
+    einen Nenner, und der muss das Ganze nennen, nicht "keiner".
+    """
+    woher = f"{brettname}/{tafel.kennung}"
+    if tafel.art in ("ring", "anteilsbalken"):
+        assert tafel.nenner != bk._ZAEHLUNG, (
+            f"{woher}: ein Anteil hat einen Nenner - das Ganze, auf das er "
+            f"sich bezieht")
+        # Ein Ring und ein gestapelter Balken rechnen ueber das, was sie
+        # zeigen - die obersten N. Das Ganze ist also "die N haeufigsten".
+        groessen = {str(e.groesse) for e in tafel.eimer
+                    if e.feld == "nibrs_family"}
+        assert any(g in tafel.nenner for g in groessen), (
+            f"{woher}: der Nenner nennt nicht, über wie viele Familien der "
+            f"Anteil rechnet")
+        return
+    assert tafel.nenner == bk._ZAEHLUNG, woher
+    assert bk._ERST_DIE_RATE in tafel.vorbehalte, (
+        f"{woher}: eine absolute Zahl ohne den Hinweis, dass erst die Rate "
+        f"die Staedte vergleichbar macht")
+
+
+@pytest.mark.parametrize("brettname,tafel", ALLE_TAFELN, ids=TAFELNAMEN)
+def test_jede_absolute_zahl_sagt_dass_erst_die_rate_vergleicht(brettname,
+                                                                tafel):
+    """Fuer jede Art, nicht nur Lens - und am Anfang des Nenners erkannt.
+
+    "Tracts ohne Einwohner" und die Heatmap sind ES|QL-Zaehlungen und
+    trugen den Vorbehalt bis zur Review vom 17.11.2026 nicht, weil der
+    Waechter nur Lens-Kacheln und nur den wortgleichen Nenner ansah.
+    """
+    if not tafel.nenner.startswith(bk._ZAEHLUNG):
+        return
+    assert bk._ERST_DIE_RATE in tafel.vorbehalte, (
+        f"{brettname}/{tafel.kennung}: eine absolute Zahl ohne den Hinweis, "
+        f"dass erst die Rate die Staedte vergleichbar macht")
+
+
+@pytest.mark.parametrize("brettname,tafel", ALLE_TAFELN, ids=TAFELNAMEN)
+def test_jede_kachel_die_faelle_nennt_zaehlt_faelle(brettname, tafel):
+    """Der Fund vom 17.11.2026: "Faelle" im Titel, Taten in der Zahl.
+
+    Drei Lens-Kacheln hiessen "Fälle …" und zaehlten jede Zeile von
+    ``fact_offense``; der Lens-Zustand trug ``"query": ""``, und das Brett
+    Zeitverlauf versprach in seiner Beschreibung ausdruecklich Faelle. Eine
+    Kachel, die "Fälle" nennt, filtert seither ``counts_case`` - im
+    KQL-Filter, in der ES|QL-Abfrage, oder (Karte) ueber die Rate der
+    Fallebene.
+    """
+    if "Fälle" not in tafel.titel:
+        return
+    woher = f"{brettname}/{tafel.kennung}"
+    if tafel.ist_karte:
+        assert "fall" in bk.KARTE_FELD, (
+            f"{woher}: die Karte nennt Fälle und faerbt nach "
+            f"'{bk.KARTE_FELD}'")
+    elif tafel.ist_esql:
+        assert "counts_case" in tafel.abfrage.esql, woher
+    else:
+        assert "counts_case: true" in tafel.filter, (
+            f"{woher}: der Titel nennt Fälle, der Filter "
+            f"'{tafel.filter}' zaehlt Taten")
+        assert tafel.kennzahl.beschriftung == "Fälle", (
+            f"{woher}: die Achse heisst "
+            f"'{tafel.kennzahl.beschriftung}', gezaehlt werden Faelle")
+        assert bk._WEITERE_DELIKTE_DES_FALLS in tafel.ausschluesse, woher
+
+
+@pytest.mark.parametrize("brettname,tafel", LENS_TAFELN, ids=LENS_NAMEN)
+def test_eine_lens_kachel_zaehlt_keine_rate(brettname, tafel):
+    """Der Vintage-Hinweis fuer 2025 und 2026 gilt fuer Raten (FR-27).
+
+    Lens-Kacheln brauchen ihn nicht, weil keine eine Rate zeigt. Das ist
+    eine Zusage, keine Beobachtung: Zaehlte eine Lens-Kachel ein Feld mit
+    ``rate``, stuende eine Rate ohne Nenner und ohne Jahr auf dem Brett -
+    ``Tafel`` prueft Nenner und Jahr nur fuer ES|QL und Karten.
+    """
+    felder = [e.feld for e in tafel.eimer]
+    if tafel.kennzahl.feld:
+        felder.append(tafel.kennzahl.feld)
+    felder += [f for f, _ in bk.filterbedingungen(tafel.filter)] \
+        if tafel.filter else []
+    assert not [f for f in felder if "rate" in f], (
+        f"{brettname}/{tafel.kennung}: {felder}")
+    assert not tafel.zeigt_rate
+
+
+@pytest.mark.parametrize("brettname,tafel", LENS_TAFELN, ids=LENS_NAMEN)
+def test_der_filter_steht_im_lens_zustand(brettname, tafel):
+    """Im Zustand der Kachel, nicht als Panel-Filter am Brett.
+
+    Ein Panel-Filter ginge verloren, sobald jemand die Kachel im Editor
+    oeffnet. Und die Abfrage, mit der die Pruefung gegen Elasticsearch die
+    Kachel stellt, traegt denselben Filter.
+    """
+    zustand = bk.lens_objekt(tafel, brettname)["attributes"]["state"]
+    assert zustand["query"] == {"language": "kuery", "query": tafel.filter}
+    assert zustand["filters"] == []
+    if tafel.filter:
+        assert tafel.aggregation["query"] == tafel.filter_abfrage
+    else:
+        assert "query" not in tafel.aggregation
+    assert bk.lens_objekt(tafel, brettname)["attributes"]["description"] \
+        == tafel.erlaeuterung
+
+
+def test_je_jahrgang_sagt_warum_es_nicht_die_startseite_ist():
+    """Die Startseite nennt 251'482 / 79'614, die Kachel mehr.
+
+    Beides stimmt: Die Startseite zaehlt nur Faelle in Tracts der Stadt,
+    die Kachel zaehlt nach ``reporting_city``. Ohne den Vorbehalt haelt
+    jemand, der beide liest, eine von beiden fuer falsch.
+    """
+    brett = next(b for b in bk.BRETTER if b.kennung == "crime-zeitverlauf")
+    tafel = next(t for t in brett.tafeln if t.kennung == "je_jahr")
+    assert bk._NACH_MELDESTADT in tafel.vorbehalte
+    assert "Startseite" in bk._NACH_MELDESTADT
+    # Der Jahrgang ist das lokale Tatdatum, wie in ``dim_date``.
+    assert tafel.eimer[0].feld == "date"
 
 
 def test_die_rate_steht_im_dashboard_und_nicht_woanders():
@@ -403,7 +681,7 @@ def test_jede_ratenkachel_nennt_die_abweichung_zu_den_dokumenten(brettname,
 
 
 def test_kachel_um_kachel_ohne_ueberlappung():
-    tafeln = tuple(bk.Tafel(f"t{i}", "T", "zahl", ZAEHLEN, breite=24, hoehe=8)
+    tafeln = tuple(lens(f"t{i}", "T", "zahl", ZAEHLEN, breite=24, hoehe=8)
                    for i in range(4))
     gitter = bk.raster(tafeln)
     assert [(g["x"], g["y"]) for g in gitter] == [
@@ -412,9 +690,9 @@ def test_kachel_um_kachel_ohne_ueberlappung():
 
 def test_die_zeilenhoehe_richtet_sich_nach_der_hoechsten_kachel():
     """Sonst schiebt Kibana ueberlappende Kacheln beim Oeffnen umeinander."""
-    tafeln = (bk.Tafel("a", "A", "zahl", ZAEHLEN, breite=24, hoehe=8),
-              bk.Tafel("b", "B", "zahl", ZAEHLEN, breite=24, hoehe=20),
-              bk.Tafel("c", "C", "zahl", ZAEHLEN, breite=24, hoehe=8))
+    tafeln = (lens("a", "A", "zahl", ZAEHLEN, breite=24, hoehe=8),
+              lens("b", "B", "zahl", ZAEHLEN, breite=24, hoehe=20),
+              lens("c", "C", "zahl", ZAEHLEN, breite=24, hoehe=8))
     assert bk.raster(tafeln)[2]["y"] == 20
 
 
@@ -469,13 +747,13 @@ def test_die_verweise_des_dashboards_zeigen_auf_vorhandene_tafeln():
 
 
 def test_das_dashboard_haelt_sein_zeitfenster_fest():
-    objekt = bk.dashboard_objekt(brett(bk.Tafel("t", "T", "zahl", ZAEHLEN)))
+    objekt = bk.dashboard_objekt(brett(lens("t", "T", "zahl", ZAEHLEN)))
     assert objekt["attributes"]["timeRestore"] is True
     assert objekt["attributes"]["timeFrom"] == FENSTER[0]
 
 
 def test_die_tafeln_stehen_als_text_im_dashboard():
-    objekt = bk.dashboard_objekt(brett(bk.Tafel("t", "Titel", "zahl", ZAEHLEN)))
+    objekt = bk.dashboard_objekt(brett(lens("t", "Titel", "zahl", ZAEHLEN)))
     tafeln = json.loads(objekt["attributes"]["panelsJSON"])
     assert tafeln[0]["panelRefName"] == "panel_p-t"
     assert objekt["references"][0]["name"] == "p-t:panel_p-t"
@@ -533,8 +811,8 @@ def elastic():
 def test_kibana_nimmt_die_erzeugten_objekte_an(kibana):
     klient, angelegt = kibana
     probe = bk.Brett("probe-brett", "Probe", "", (
-        bk.Tafel("zahl", "Delikte", "zahl", ZAEHLEN, breite=24, hoehe=8),
-        bk.Tafel("stadt", "Je Stadt", "balken", ZAEHLEN,
+        lens("zahl", "Delikte", "zahl", ZAEHLEN, breite=24, hoehe=8),
+        lens("stadt", "Je Stadt", "balken", ZAEHLEN,
                  eimer=(bk.Eimer("s", "Stadt", "terms", "reporting_city", 5),)),
     ), FENSTER)
     alle = [bk.datenansicht()] + [
@@ -557,7 +835,7 @@ def test_ein_verweis_ins_leere_wird_abgefangen(kibana):
     *Could not locate that panel*."""
     klient, angelegt = kibana
     kaputt = bk.dashboard_objekt(
-        brett(bk.Tafel("fehlt", "Fehlt", "zahl", ZAEHLEN)))
+        brett(lens("fehlt", "Fehlt", "zahl", ZAEHLEN)))
     # Gerade weil Kibana es anlegt, muss es auch wieder weg: Bis zum
     # 6.10.2026 verwarf dieser Test die Aufraeumliste (``klient, _``), und
     # das Brett "Probe" blieb im laufenden Kibana stehen - dort gefunden,
@@ -693,6 +971,107 @@ def test_jede_tafel_bekommt_auch_wirklich_daten(brettname, tafel, elastic):
     if (kz := tafel.kennzahl.aggregation) is not None and not tafel.eimer:
         wert = antwort["aggregations"][tafel.kennzahl.kennung]["value"]
         assert wert > 0, f"{tafel.kennung}: {kz} liefert nichts"
+
+
+#: Die umgestellten Kacheln, je mit einer **von Hand geschriebenen** ES|QL-
+#: Rechnung derselben Frage. Nicht aus der Tafel abgeleitet: Eine Rechnung,
+#: die aus denselben Eimern entsteht, wiederholte deren Fehler. Die Spalten
+#: heissen ``a``, ``b`` (die beiden Gruppierungen, in der Reihenfolge der
+#: Eimer) und ``n``.
+GEGENRECHNUNG = {
+    ("crime-zeitverlauf", "verlauf"): """FROM fact_offense
+| WHERE counts_case
+| EVAL a = DATE_TRUNC(1 month, occurred_at_utc)
+| STATS n = COUNT(*) BY a, b = reporting_city
+| LIMIT 10000""",
+    ("crime-zeitverlauf", "je_jahr"): """FROM fact_offense
+| WHERE counts_case
+| EVAL a = DATE_TRUNC(1 year, date)
+| STATS n = COUNT(*) BY a, b = reporting_city
+| LIMIT 10000""",
+    ("crime-deliktstruktur", "je_familie"): """FROM fact_offense
+| WHERE counts_case
+| STATS n = COUNT(*) BY a = nibrs_family, b = reporting_city
+| LIMIT 10000""",
+    # Auf der Tatebene (E5): kein counts_case.
+    ("crime-deliktstruktur", "anteil"): """FROM fact_offense
+| STATS n = COUNT(*) BY a = reporting_city, b = nibrs_family
+| LIMIT 10000""",
+}
+
+
+def test_jede_gefilterte_kachel_hat_ihre_gegenrechnung():
+    """Ohne ES lauffaehig: Eine neue gefilterte Kachel bringt ihre Rechnung mit.
+
+    Dazu die Anteilskachel der Deliktstruktur, die ungefiltert bleibt, aber
+    am 17.11.2026 zwischen Fall- und Tatebene hin und her ging.
+    """
+    gefiltert = {(k, t.kennung) for k, t in LENS_TAFELN if t.filter}
+    assert gefiltert <= set(GEGENRECHNUNG)
+    assert set(GEGENRECHNUNG) - gefiltert == {
+        ("crime-deliktstruktur", "anteil")}
+
+
+def _eimerwerte(antwort: dict, tafel: bk.Tafel) -> dict[tuple, int]:
+    """Die zwei Ebenen der Lens-Aggregation als ``{(a, b): Anzahl}``."""
+    aussen, innen = tafel.eimer
+    werte: dict[tuple, int] = {}
+    for oben in antwort["aggregations"][aussen.kennung]["buckets"]:
+        a = oben.get("key_as_string", oben["key"])
+        for unten in oben[innen.kennung]["buckets"]:
+            if unten["doc_count"]:
+                werte[(a, unten.get("key_as_string", unten["key"]))] = (
+                    unten["doc_count"])
+    return werte
+
+
+@pytest.mark.parametrize("schluessel", sorted(GEGENRECHNUNG),
+                         ids=lambda k: f"{k[0]}-{k[1]}")
+def test_jede_gefilterte_kachel_zaehlt_wie_ihre_gegenrechnung(schluessel,
+                                                               elastic):
+    """Die Zahl der Kachel gegen eine unabhaengige ES|QL-Rechnung.
+
+    Die Kachel wird so gestellt, wie Kibana sie stellt: ihre Aggregation
+    mit ihrem Filter ueber ``_search``. Jede Gruppe, die sie zeigt, muss
+    dieselbe Anzahl tragen wie in der Gegenrechnung. Faellt der Filter weg,
+    zaehlt die Kachel wieder Taten, und Detroit liegt um rund 5 % zu hoch.
+    """
+    brettname, kennung = schluessel
+    tafel = next(t for k, t in LENS_TAFELN
+                 if k == brettname and t.kennung == kennung)
+    antwort = elastic.anfrage("POST", "/fact_offense/_search",
+                              tafel.aggregation)
+    gezeigt = _eimerwerte(antwort, tafel)
+    assert gezeigt, f"{kennung}: keine Gruppen"
+
+    rechnung = elastic.anfrage("POST", "/_query",
+                               {"query": GEGENRECHNUNG[schluessel]})
+    spalten = [c["name"] for c in rechnung["columns"]]
+    gerechnet = {(z[spalten.index("a")], z[spalten.index("b")]):
+                 z[spalten.index("n")] for z in rechnung["values"]}
+    falsch = {k: (v, gerechnet.get(k)) for k, v in gezeigt.items()
+              if gerechnet.get(k) != v}
+    assert not falsch, (
+        f"{kennung}: Kachel gegen Gegenrechnung (Kachel, ES|QL): "
+        f"{dict(list(falsch.items())[:5])}")
+
+
+def test_faelle_je_jahrgang_2024_entspricht_der_esql_rechnung(elastic):
+    """Das Abnahmekriterium aus dem Plan, wortwoertlich gerechnet.
+
+    ``FROM fact_offense | WHERE counts_case AND YEAR = 2024 | STATS
+    COUNT(*) BY reporting_city`` - mit dem Jahrgang als lokalem Tatdatum.
+    """
+    brett = next(b for b in bk.BRETTER if b.kennung == "crime-zeitverlauf")
+    tafel = next(t for t in brett.tafeln if t.kennung == "je_jahr")
+    gezeigt = {b: n for (a, b), n in _eimerwerte(
+        elastic.anfrage("POST", "/fact_offense/_search", tafel.aggregation),
+        tafel).items() if str(a).startswith(f"{RATENJAHR}-")}
+    rechnung = elastic.anfrage("POST", "/_query", {"query": f"""FROM fact_offense
+| WHERE counts_case AND DATE_EXTRACT("year", date) == {RATENJAHR}
+| STATS n = COUNT(*) BY reporting_city"""})
+    gerechnet = {stadt: n for n, stadt in rechnung["values"]}
+    assert gezeigt == gerechnet
 
 
 def test_das_unterfeld_ist_noetig_und_nicht_vorsorglich(elastic):
@@ -865,3 +1244,67 @@ def test_ein_auswahlfeld_steht_nur_dort_wo_es_wirkt(brett, elastic):
             f"{brett.kennung}: das Auswahlfeld {fehlend} gibt es in "
             f"'{index}' nicht - auf den Karten dieses Bretts bewirkt es "
             f"nichts, und wer es benutzt, liest eine Auswahl hinein")
+
+
+def test_die_karten_kommen_aus_den_studienstaedten():
+    """Je Studienstadt eine Karte, und keine Stadt faellt still heraus (FR-43).
+
+    Bis zum 21.11.2026 baute das Brett seine Karten aus ``KARTE_JE_STADT``
+    selbst. Eine dritte Stadt in ``STUDIENSTAEDTE`` ohne Ausschnitt bekam dann
+    einfach keine Karte, und die Pruefung in ``karte_objekt``, die sie nennen
+    sollte, konnte nie anschlagen - der Kommentar daneben versprach es
+    trotzdem.
+    """
+    from gold_pipeline import STADT_SCHLUESSEL
+
+    karten = {t.stadt for b in bk.BRETTER for t in b.tafeln if t.ist_karte}
+    assert karten == set(STADT_SCHLUESSEL.values())
+
+
+def test_eine_stadt_ohne_ausschnitt_bricht_ab_und_wird_genannt():
+    """Die andere Haelfte: Fehlt der Ausschnitt, bricht der Bau ab."""
+    karte = next(t for b in bk.BRETTER for t in b.tafeln if t.ist_karte)
+    with pytest.raises(LadeFehler, match="dallas"):
+        bk.replace(karte, stadt="dallas")
+
+
+class _AufraeumKibana:
+    """Ein Kibana, das sich merkt, was gefunden und was geloescht wurde."""
+
+    def __init__(self, vorhanden):
+        self.vorhanden = list(vorhanden)
+        self.geloescht: list[str] = []
+
+    def anfrage(self, methode, pfad, koerper=None):
+        if methode == "GET" and pfad.startswith("/api/saved_objects/_find"):
+            return {"saved_objects": [{"type": t, "id": i} for t, i in self.vorhanden]}
+        if methode == "DELETE":
+            self.geloescht.append(pfad.removeprefix("/api/saved_objects/"))
+            return {}
+        raise AssertionError(f"unerwartet: {methode} {pfad}")
+
+
+def test_eine_umbenannte_kachel_wird_aufgeraeumt():
+    """C-3: Was im neuen Stand fehlt und uns gehoert, verschwindet."""
+    alle = bk.objekte(_mit_fenster())
+    kibana = _AufraeumKibana([(o["type"], o["id"]) for o in alle]
+                             + [("lens", "lens-crime-ueberblick-alter-name")])
+    assert bk.raeume_auf(kibana, alle) == ["lens/lens-crime-ueberblick-alter-name"]
+    assert kibana.geloescht == ["lens/lens-crime-ueberblick-alter-name"]
+
+
+def test_fremde_objekte_bleiben_stehen():
+    """Was nicht unser Praefix traegt, hat jemand von Hand angelegt."""
+    alle = bk.objekte(_mit_fenster())
+    kibana = _AufraeumKibana([(o["type"], o["id"]) for o in alle]
+                             + [("dashboard", "mein-eigenes-brett"),
+                                ("index-pattern", "logs-*")])
+    assert bk.raeume_auf(kibana, alle) == []
+    assert kibana.geloescht == []
+
+
+def test_lege_an_raeumt_nicht_selbst_auf():
+    """Sonst loeschte ein Live-Test mit einem Probebrett jedes echte Brett."""
+    import inspect
+
+    assert "raeume_auf" not in inspect.getsource(bk.lege_an)

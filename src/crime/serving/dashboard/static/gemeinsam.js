@@ -1,8 +1,11 @@
 // Was alle Bretter teilen: Zahlformat, Leiste, Linien und Balken.
 // Die Diagramme sind eigenes SVG statt einer Bibliothek - kein CDN, und die
-// Content-Security-Policy bleibt bei 'self'.
+// Content-Security-Policy bleibt bei 'self'. Einzige Ausnahme: Bilder von
+// OpenStreetMap, die Hintergrundkacheln der Karten (karte.js).
 
 const SVGNS = "http://www.w3.org/2000/svg";
+// Zwei Staedte (FR-43): Eine dritte Stadt ohne Eintrag bekaeme keine Farbe,
+// und SVG fuellt sie dann schwarz.
 export const FARBE = { chicago: "#17a38b", detroit: "#2f7de1" };
 export const MONATE = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
 // Wie in den Dokumenten: 2'661'953 und 94,5 - Hochkomma fuer Tausender,
@@ -37,9 +40,134 @@ export function monatsname(iso) {
   return MONATE[Number(m) - 1] + " " + j;
 }
 
+// Ein Datum wie in der Schweiz: 4.7.2024.
+export function datum(iso) {
+  const [j, m, t] = iso.split("-").map(Number);
+  return `${t}.${m}.${j}`;
+}
+
+const WOCHENTAG = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+// »Do 4.7.2024«: Ein einzelner Tag nennt seinen Wochentag - im Vergleich mit
+// dem Vorjahr faellt derselbe Tag auf einen anderen (Entscheid vom 23.11.2026).
+export function tagtext(iso) {
+  const [j, m, t] = iso.split("-").map(Number);
+  return `${WOCHENTAG[new Date(Date.UTC(j, m - 1, t)).getUTCDay()]} ${datum(iso)}`;
+}
+
+// Ganze Monate eines Jahres heissen wie bisher »Mär–Mai 2024«; ein freier
+// Zeitraum nennt seine Tage, ein einzelner Tag nur sich selbst.
 export function zeitraumtext(a, jahr = a.jahr) {
+  if (a.ganze_monate === false) {
+    return a.tag_von === a.tag_bis ? tagtext(a.tag_von) : `${datum(a.tag_von)}–${datum(a.tag_bis)}`;
+  }
   const von = MONATE[a.von - 1], bis = MONATE[a.bis - 1];
   return a.von === a.bis ? `${von} ${jahr}` : `${von}–${bis} ${jahr}`;
+}
+
+// Der Zeitraum ein Jahr frueher, fuer die Legende eines Vorjahresvergleichs:
+// bei ganzen Monaten »Mär–Mai 2023«, sonst die Tage aus der Antwort.
+export function vorjahrestext(a, vergleich) {
+  if (a.ganze_monate !== false) return zeitraumtext(a, vergleich.vorjahr);
+  return zeitraumtext({ ganze_monate: false, tag_von: vergleich.von, tag_bis: vergleich.bis });
+}
+
+// Eine Periode der Achse: ein Tag, eine Woche ab Montag oder ein Monat
+// (serving.dashboard.zeitraum). ``kurz`` fuer die Achse, sonst fuer Tooltips.
+export function periodentext(iso, koernung = "monat", kurz = false, mitJahr = true) {
+  const [j, m, t] = iso.split("-").map(Number);
+  if (koernung === "tag") return kurz ? `${t}.${m}.` : datum(iso);
+  if (koernung === "woche") return kurz ? `${t}.${m}.` : `Woche ab ${datum(iso)}`;
+  if (!kurz) return monatsname(iso);
+  return mitJahr ? `${MONATE[m - 1]} ${String(j).slice(2)}` : MONATE[m - 1];
+}
+
+// »Monatliche Fallzahlen«, »Wöchentliche …«, »Tägliche …«.
+export const JE_PERIODE = { tag: "Tägliche", woche: "Wöchentliche", monat: "Monatliche" };
+export const PERIODEN = { tag: "Tage", woche: "Wochen", monat: "Monate" };
+
+// Eine Rate je Jahr aus weniger als einem Jahr ist hochgerechnet - bei einem
+// Tag 365-fach. Die Seite sagt es dann dazu (Entscheid vom 23.11.2026).
+export function hochrechnung(tage) {
+  const wenigste = Math.min(...Object.values(tage || {}).filter((t) => t > 0));
+  if (!Number.isFinite(wenigste) || wenigste >= 365) return "";
+  return wenigste === 1 ? "über 1 Tag hochgerechnet" : `über ${zahl.format(wenigste)} Tage hochgerechnet`;
+}
+
+const ISO_TAG = /^\d{4}-\d{2}-\d{2}$/;
+const zwei = (n) => String(n).padStart(2, "0");
+const monatsende = (j, m) => `${j}-${zwei(m)}-${zwei(new Date(Date.UTC(j, m, 0)).getUTCDate())}`;
+
+// Die erweiterte Zeitwahl: zwei Tage statt Monaten eines Jahres, dazu
+// Vorgaben vom letzten Tag mit Daten aus (»Letzte 30 Tage«, »Sommer 2025«).
+// Beide Wahlen schicken ``von`` und ``bis``: als Monate mit ``jahr`` oder als
+// Daten ohne. Die jeweils andere ist gesperrt, und ein gesperrtes Feld
+// schickt ein Formular nicht mit. So bleiben alte Links gueltig.
+// Angeboten wird sie auf den Brettern, die Tage rechnen (``optionen.frei``),
+// und auf jedem Brett, dessen Adresse schon Tage traegt - dort meldet der
+// Server, was das Brett noch nicht kann, und »Monate« fuehrt zurueck.
+function zeitwahl(o, brett, url) {
+  const von = document.getElementById("von"), bis = document.getElementById("bis");
+  const jahr = document.getElementById("jahr");
+  if (!von || !bis || !jahr || !o.tage) return null;
+  const tagModus = ISO_TAG.test(url.get("von") || "");
+  if (!tagModus && !(o.frei || []).includes(brett)) return null;
+  const monatsfeld = von.closest("label");
+  const feld = (name, id, label) => {
+    const f = Object.assign(document.createElement("input"),
+      { type: "date", name, id, min: o.tage.erster, max: o.tage.letzter });
+    f.setAttribute("aria-label", label);
+    return f;
+  };
+  const tagVon = feld("von", "tag-von", "von Tag"), tagBis = feld("bis", "tag-bis", "bis Tag");
+  const vorgabe = Object.assign(document.createElement("select"), { id: "vorgabe" });
+  vorgabe.setAttribute("aria-label", "Vorgabe");
+  vorgabe.append(new Option("Vorgabe …", ""), ...o.vorgaben.map((v, i) => new Option(v.name, i)));
+  const tagfeld = document.createElement("label");
+  tagfeld.className = "tagwahl";
+  tagfeld.append("Zeitraum", tagVon, Object.assign(document.createElement("span"),
+    { className: "bis", textContent: "–" }), tagBis, vorgabe);
+  const knopf = Object.assign(document.createElement("button"),
+    { type: "button", className: "zeitmodus" });
+  monatsfeld.after(tagfeld, knopf);
+
+  const setze = (tage) => {
+    monatsfeld.hidden = tage;
+    tagfeld.hidden = !tage;
+    [von, bis, jahr].forEach((f) => { f.disabled = tage; });
+    [tagVon, tagBis].forEach((f) => { f.disabled = !tage; });
+    knopf.textContent = tage ? "Monate" : "Tage";
+    knopf.title = tage ? "Zurück zu Monaten eines Jahres" : "Einen freien Zeitraum auf den Tag genau wählen";
+  };
+  if (tagModus) {
+    tagVon.value = url.get("von");
+    tagBis.value = url.get("bis") || url.get("von");
+  }
+  setze(tagModus);
+  vorgabe.addEventListener("change", () => {
+    const v = o.vorgaben[Number(vorgabe.value)];
+    if (v) { tagVon.value = v.von; tagBis.value = v.bis; }
+    vorgabe.value = "";
+  });
+  knopf.addEventListener("click", () => {
+    if (tagfeld.hidden) {
+      // Von den Monaten zu den Tagen: derselbe Zeitraum, jetzt als Daten.
+      const j = Number(jahr.value);
+      tagVon.value = `${j}-${zwei(von.value)}-01`;
+      tagBis.value = monatsende(j, Number(bis.value));
+      setze(true);
+    } else {
+      // Zurueck: die Monate des ersten Tages, bis Jahresende, wenn der
+      // Zeitraum darueber hinausgeht.
+      const [j1, m1] = tagVon.value.split("-").map(Number);
+      const [j2, m2] = tagBis.value.split("-").map(Number);
+      jahr.value = String(j1);
+      von.value = String(m1);
+      bis.value = String(j2 === j1 ? m2 : 12);
+      setze(false);
+    }
+    document.getElementById("leiste").dispatchEvent(new Event("change"));
+  });
+  return { tagVon, tagBis };
 }
 
 // Die Achse endet bei vier glatten Schritten: 4 x 5'000, nicht 4 x 4'687,5.
@@ -71,7 +199,7 @@ export function legende(ziel, eintraege) {
 // Luecke, ein Status "teil" ein hohler Punkt. Mit basis wird die Achse um den
 // Bereich der Werte gelegt statt bei null zu beginnen, und die Basis als
 // gestrichelte Linie gezogen.
-export function linie(ziel, monate, reihen, { basis = null, format = zahl.format } = {}) {
+export function linie(ziel, monate, reihen, { basis = null, format = zahl.format, koernung = "monat" } = {}) {
   const b = Math.max(ziel.clientWidth, 320), h = 260, l = 56, r = 36, o = 16, u = 32;
   const alle = reihen.flatMap((s) => s.werte.filter((v) => v !== null));
   if (!alle.length) return leer(ziel, "Keine Daten in dieser Auswahl");
@@ -91,11 +219,17 @@ export function linie(ziel, monate, reihen, { basis = null, format = zahl.format
     svg.append(el("line", { x1: l, x2: b - r, y1: y(v), y2: y(v), class: "achse" }));
     svg.append(el("text", { x: l - 8, y: y(v) + 4, "text-anchor": "end" }, achsenzahl(v)));
   }
+  // Hoechstens zwoelf Beschriftungen; bei 92 Tagen jede achte. Ueber mehrere
+  // Jahre traegt ein Monat sein Jahr, innerhalb eines Jahres ab sieben
+  // Monaten nicht - dort steht es in der Leiste.
+  const schritt = Math.ceil(n / 12);
+  const jahre = new Set(monate.map((m) => m.slice(0, 4))).size;
   monate.forEach((m, i) => {
+    if (i % schritt) return;
     svg.append(el("line", { x1: x(i), x2: x(i), y1: o, y2: h - u, class: "achse" }));
-    // Ab sieben Monaten nur der Monat; das Jahr steht in der Leiste.
-    svg.append(el("text", { x: x(i), y: h - 10, "text-anchor": "middle" },
-      n > 6 ? MONATE[Number(m.split("-")[1]) - 1] : monatsname(m)));
+    const text = koernung !== "monat" || jahre > 1 ? periodentext(m, koernung, true, jahre > 1)
+      : n > 6 ? MONATE[Number(m.split("-")[1]) - 1] : monatsname(m);
+    svg.append(el("text", { x: x(i), y: h - 10, "text-anchor": "middle" }, text));
   });
   if (basis !== null) {
     svg.append(el("line", { x1: l, x2: b - r, y1: y(basis), y2: y(basis), class: "basis" }));
@@ -115,21 +249,28 @@ export function linie(ziel, monate, reihen, { basis = null, format = zahl.format
       if (v === null) return;
       // Ein Teilmonat ist hohl: Sein Wert ist kein Monatswert.
       const teil = s.status && s.status[i] === "teil";
-      const c = el("circle", { cx: x(i), cy: y(v), r: s.gestrichelt ? 3 : 4.5,
-        fill: teil ? "#fff" : s.farbe, stroke: s.farbe, "stroke-width": 2 });
-      c.append(el("title", {}, `${s.name}, ${MONATE[Number(monate[i].split("-")[1]) - 1]}: ${format(v)}`
-        + (teil ? " (Teilmonat)" : "")));
+      // Viele Punkte werden klein, sonst verdecken sie die Linie.
+      const r = n > 40 ? 2.5 : s.gestrichelt ? 3 : 4.5;
+      const c = el("circle", { cx: x(i), cy: y(v), r,
+        fill: teil ? "#fff" : s.farbe, stroke: s.farbe, "stroke-width": n > 40 ? 1.5 : 2 });
+      const name = koernung === "monat" && jahre === 1 ? MONATE[Number(monate[i].split("-")[1]) - 1]
+        : periodentext(monate[i], koernung);
+      c.append(el("title", {}, `${s.name}, ${name}: ${format(v)}`
+        + (teil ? (koernung === "monat" ? " (Teilmonat)" : " (nur zum Teil mit Daten)") : "")));
       svg.append(c);
     });
   }
   ziel.replaceChildren(svg);
 }
 
-export function balken(ziel, zeilen, staedte, format, achse = format) {
+// ``balkenhoehe`` und ``abstand`` (zwischen den Gruppen) nur, wo wenige Zeilen
+// eine Tafel fuellen sollen, die so hoch ist wie ihre Nachbarin.
+export function balken(ziel, zeilen, staedte, format, achse = format,
+  { balkenhoehe = 14, abstand = 14 } = {}) {
   const werte = zeilen.flatMap((z) => staedte.map((s) => z.werte[s.stadt] ?? 0));
   if (!zeilen.length) return leer(ziel, "Keine Delikte in dieser Auswahl");
   const b = Math.max(ziel.clientWidth, 320), l = 170, r = 64, o = 6, u = 26;
-  const balkenhoehe = 14, luecke = 3, gruppe = staedte.length * (balkenhoehe + luecke) + 14;
+  const luecke = 3, gruppe = staedte.length * (balkenhoehe + luecke) + abstand;
   const h = o + zeilen.length * gruppe + u;
   const max = runde(Math.max(1, ...werte));
   const x = (v) => l + ((b - l - r) * v) / max;
@@ -146,11 +287,12 @@ export function balken(ziel, zeilen, staedte, format, achse = format) {
     staedte.forEach((s, j) => {
       const v = z.werte[s.stadt];
       const y = y0 + j * (balkenhoehe + luecke);
+      // ``blass``: eine Zeile, die daneben steht und nicht vorn - etwa die Tatebene.
       const rect = el("rect", { x: l, y, width: Math.max(0, x(v ?? 0) - l), height: balkenhoehe,
-        rx: 2, fill: FARBE[s.stadt] });
+        rx: 2, fill: FARBE[s.stadt], "fill-opacity": z.blass ? 0.4 : 1 });
       rect.append(el("title", {}, `${s.name}, ${z.name}: ${v === null ? "keine Rate" : format(v)}`));
       svg.append(rect);
-      svg.append(el("text", { x: x(v ?? 0) + 6, y: y + balkenhoehe - 3, class: "wert" },
+      svg.append(el("text", { x: x(v ?? 0) + 6, y: y + balkenhoehe / 2 + 4, class: "wert" },
         v === null ? "–" : format(v)));
     });
   });
@@ -163,6 +305,87 @@ function optionen(select, eintraege, wert) {
   select.replaceChildren(...eintraege.map(([w, name]) => new Option(name, w, false, String(w) === String(wert))));
 }
 
+// Eine Mehrfachwahl in einer Aufklappliste: oben »Alle«, darunter je Eintrag
+// ein Häkchen. Zu sehen ist die Zusammenfassung (»Alle«, »Chicago« oder
+// »Raub, Diebstahl +2«); der volle Text steht im Tooltip. Ist nicht »Alle«
+// gewaehlt, ist das Feld als aktiver Filter markiert. Die Wahl landet im
+// versteckten Feld: »alle« oder die Liste mit dem Trenner, etwa
+// »chicago,detroit« oder »Robbery|Arson«. Damit bleiben Formular, Adresse und
+// Reiter wie bei einer einzelnen Wahl. Die Eintraege kommen aus
+// /api/optionen. Ein Klick auf »Alle« setzt alle Häkchen oder nimmt alle weg -
+// sonst muesste man fuer eine von vierzig Kategorien 39 einzeln entfernen.
+// Leer ist aber keine Auswahl: Solange nichts gewaehlt ist, steht »Bitte
+// waehlen« im Feld, und das Brett laedt nicht neu.
+// Gebaut mit <details>, damit Tastatur und Vorleser es kennen.
+function mehrfachwahl(gruppe, feld, eintraege, wert, trenner) {
+  if (!gruppe || !feld) return;
+  const roh = String(wert || "alle");
+  const alleGewaehlt = ["alle", "beide"].includes(roh.toLowerCase());
+  const gewaehlt = new Set(alleGewaehlt ? eintraege.map((e) => e.wert)
+    : roh.split(trenner).map((w) => (trenner === "," ? w.toLowerCase() : w)));
+  const box = (wertname, name, an) => {
+    const l = document.createElement("label");
+    l.className = "mehrfach-wahl";
+    const c = Object.assign(document.createElement("input"), { type: "checkbox", checked: an });
+    c.dataset.wert = wertname;
+    l.append(c, name);
+    return [l, c];
+  };
+  const [alleLabel, alle] = box("alle", "Alle", false);
+  const einzeln = eintraege.map((e) => box(e.wert, e.name, gewaehlt.has(e.wert)));
+  const klappe = document.createElement("details");
+  klappe.className = "mehrfach-klappe";
+  const kopf = document.createElement("summary");
+  const liste = document.createElement("div");
+  liste.className = "mehrfach-liste";
+  liste.append(alleLabel, ...einzeln.map(([l]) => l));
+  klappe.append(kopf, liste);
+  gruppe.replaceChildren(gruppe.firstElementChild, klappe);
+  // Ein Klick daneben schliesst die Liste, wie bei einem Auswahlfeld.
+  document.addEventListener("click", (ev) => {
+    if (klappe.open && !klappe.contains(ev.target)) klappe.open = false;
+  });
+  klappe.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") { klappe.open = false; kopf.focus(); }
+  });
+  const boxen = einzeln.map(([, c]) => c);
+  const namen = Object.fromEntries(eintraege.map((e) => [e.wert, e.name]));
+  const setze = () => {
+    const an = boxen.filter((c) => c.checked).map((c) => c.dataset.wert);
+    alle.checked = an.length === boxen.length;
+    feld.value = alle.checked ? "alle" : an.join(trenner);
+    const liste = an.map((w) => namen[w]);
+    kopf.textContent = alle.checked ? "Alle"
+      : liste.length <= 2 ? liste.join(", ") : `${liste.slice(0, 2).join(", ")} +${liste.length - 2}`;
+    kopf.title = alle.checked ? "Kein Filter" : liste.join("\n");
+    klappe.classList.toggle("aktiv", !alle.checked);
+  };
+  // Zugeklappt ohne Häkchen: zurueck zur letzten gueltigen Wahl im Feld.
+  klappe.addEventListener("toggle", () => {
+    if (klappe.open || boxen.some((b) => b.checked)) return;
+    const zuletzt = feld.value === "alle" ? null : new Set(feld.value.split(trenner));
+    boxen.forEach((b) => { b.checked = !zuletzt || zuletzt.has(b.dataset.wert); });
+    setze();
+  });
+  // Vor dem change der Leiste, die danach neu laedt: Das Ereignis steigt von
+  // der Gruppe zum Formular auf, also ist das Feld dann schon gesetzt.
+  gruppe.addEventListener("change", (ev) => {
+    if (ev.target === alle) boxen.forEach((b) => { b.checked = alle.checked; });
+    if (!boxen.some((b) => b.checked)) {
+      // Noch nichts gewaehlt: Das Feld behaelt die letzte gueltige Wahl, und
+      // die Leiste erfaehrt nichts davon - kein Neuladen mit leerer Auswahl.
+      ev.stopPropagation();
+      alle.checked = false;
+      kopf.textContent = "Bitte wählen";
+      kopf.title = "Mindestens ein Häkchen setzen";
+      klappe.classList.add("aktiv");
+      return;
+    }
+    setze();
+  });
+  setze();
+}
+
 function fehler(text) {
   const f = document.getElementById("fehler");
   f.textContent = text;
@@ -170,12 +393,13 @@ function fehler(text) {
 }
 
 // Startet ein Brett: fuellt Leiste, Kopf und Fuss, laedt bei jeder Aenderung
-// von api neu und ruft zeichne(daten). Ein .umschalter setzt seinen Parameter.
+// von api neu und ruft zeichne(daten). Jeder .umschalter setzt seinen Parameter.
 export async function starteBrett({ api, zeichne }) {
-  // Der Umschalter setzt den Parameter aus data-param (Vorgabe: mass).
-  const schalter = document.querySelector(".umschalter");
-  const param = schalter ? schalter.dataset.param || "mass" : null;
-  const zustand = { wert: null, daten: null };
+  // Jeder Umschalter setzt den Parameter aus data-param (Vorgabe: mass). Seit
+  // dem 25.11.2026 duerfen es mehrere sein (»Geografie«: Raum und Kennzahl).
+  const schalter = [...document.querySelectorAll(".umschalter")];
+  const param = (s) => s.dataset.param || "mass";
+  const zustand = { werte: {}, daten: null };
   for (const s of document.querySelectorAll("[data-symbol]")) {
     const svg = el("svg", { viewBox: "0 0 24 24", "aria-hidden": "true" });
     svg.append(el("path", { d: SYMBOLE[s.dataset.symbol] }));
@@ -188,15 +412,20 @@ export async function starteBrett({ api, zeichne }) {
   }
   const url = new URLSearchParams(location.search);
   const wahl = (k) => url.get(k) ?? o.vorgabe[k];
-  if (param) zustand.wert = wahl(param);
-  optionen(document.getElementById("stadt"), o.staedte.map((s) => [s.wert, s.name]), wahl("stadt"));
+  // Ohne Vorgabe gilt der erste Knopf des Schalters.
+  for (const s of schalter) {
+    zustand.werte[param(s)] = wahl(param(s)) ?? s.querySelector("button")?.dataset.wert;
+  }
+  mehrfachwahl(document.getElementById("staedte"), document.getElementById("stadt"), o.staedte, wahl("stadt"), ",");
   optionen(document.getElementById("jahr"), o.jahre.map((j) => [j, String(j)]), wahl("jahr"));
   const monate = MONATE.map((m, i) => [i + 1, m]);
   optionen(document.getElementById("von"), monate, wahl("von"));
   optionen(document.getElementById("bis"), monate, wahl("bis"));
-  optionen(document.getElementById("kategorie"), o.kategorien.map((k) => [k.wert, k.name]), wahl("kategorie"));
-  const knoepfe = document.querySelectorAll(".umschalter button");
-  knoepfe.forEach((b) => b.classList.toggle("an", b.dataset.wert === zustand.wert));
+  mehrfachwahl(document.getElementById("kategorien"), document.getElementById("kategorie"), o.kategorien, wahl("kategorie"), "|");
+  const tage = zeitwahl(o, api.split("/").pop(), url);
+  const markiere = () => schalter.forEach((s) => s.querySelectorAll("button").forEach((b) =>
+    b.classList.toggle("an", b.dataset.wert === zustand.werte[param(s)])));
+  markiere();
 
   const st = o.stand;
   const gebaut = st.gebaut ? new Date(st.gebaut).toLocaleString("de-CH") : "unbekannt";
@@ -207,7 +436,7 @@ export async function starteBrett({ api, zeichne }) {
 
   async function lade() {
     const form = new FormData(document.getElementById("leiste"));
-    if (param) form.set(param, zustand.wert);
+    for (const [k, v] of Object.entries(zustand.werte)) if (v !== undefined) form.set(k, v);
     const suche = "?" + new URLSearchParams(form);
     const antwort = await fetch(api + suche);
     // Ein 500 kommt als HTML; dann bleibt die Meldung allgemein, aber sichtbar.
@@ -230,13 +459,20 @@ export async function starteBrett({ api, zeichne }) {
     if (von && bis && Number(von.value) > Number(bis.value)) {
       if (ev.target === von) bis.value = von.value; else von.value = bis.value;
     }
+    // Daten in ISO-Form vergleichen sich als Text richtig.
+    if (tage && tage.tagVon.value && tage.tagBis.value && tage.tagVon.value > tage.tagBis.value) {
+      if (ev.target === tage.tagVon) tage.tagBis.value = tage.tagVon.value;
+      else tage.tagVon.value = tage.tagBis.value;
+    }
+    // Ein Datumsfeld mitten in der Eingabe ist leer; dann noch nicht laden.
+    if (tage && !tage.tagVon.disabled && !(tage.tagVon.value && tage.tagBis.value)) return;
     lade();
   });
-  knoepfe.forEach((b) => b.addEventListener("click", () => {
-    zustand.wert = b.dataset.wert;
-    knoepfe.forEach((x) => x.classList.toggle("an", x === b));
+  schalter.forEach((s) => s.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    zustand.werte[param(s)] = b.dataset.wert;
+    markiere();
     lade();
-  }));
+  })));
   let warte;
   window.addEventListener("resize", () => {
     clearTimeout(warte);

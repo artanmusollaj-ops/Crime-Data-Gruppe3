@@ -278,7 +278,7 @@ def test_die_seite_braucht_keine_jahreswahl():
 def test_die_filter_bieten_an_was_da_ist(brett):
     d = brett.quellbewegung({})
     assert d["optionen"] == {"jahrgaenge": [2023, 2024], "monate": ["2026-09", "2026-10"]}
-    assert d["auswahl"] == {"stadt": "beide", "felder": "inhalt", "jahrgang": "alle",
+    assert d["auswahl"] == {"stadt": "alle", "felder": "inhalt", "jahrgang": "alle",
                                  "beob_von": "2026-09", "beob_bis": "2026-10"}
 
 

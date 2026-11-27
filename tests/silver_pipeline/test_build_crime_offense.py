@@ -89,8 +89,9 @@ def schreibe_chicago(
     ziel.mkdir(parents=True, exist_ok=True)
     # ``primary_type`` seit Silver-Vertrag 3: Chicagos Beschreibung besteht
     # aus zwei Haelften, und die Silber-Spalte fuehrt beide.
+    # ``district`` seit Silver-Vertrag 5: der Polizeibezirk, den Chicago nennt.
     spalten = ["id", "case_number", "date", "iucr", "primary_type", "description",
-               "latitude", "longitude", "updated_on"]
+               "latitude", "longitude", "updated_on", "district"]
     tabelle = pa.table({
         s: pa.array([str(z.get(s)) if z.get(s) is not None else None for z in zeilen],
                     type=pa.string())
@@ -128,6 +129,8 @@ def detroit_saetze(zeilen: list[dict]) -> list[dict]:
         "charge_description": z.get(
             "charge_description", z.get("offense_description")),
         "offense_description": z.get("offense_description"),
+        # Seit Silver-Vertrag 5: der Precinct, den Detroit nennt.
+        "police_precinct": z.get("police_precinct"),
         "incident_occurred_at": z.get("incident_occurred_at"),
         "updated_at": z.get("updated_at", 0),
         "case_status": z.get("case_status"),
@@ -1636,6 +1639,20 @@ def test_die_datenbankdatei_bleibt_nicht_liegen(monkeypatch, tmp_path):
     assert not uebrig, f"im Auslagerungsverzeichnis liegengeblieben: {uebrig}"
 
 
+def test_ein_fehlendes_auslagerungsverzeichnis_wird_angelegt(monkeypatch, tmp_path):
+    """Google-Cloud-Probe, 15.11.2026: Auf einem frischen Datentraeger gab es
+    ``/app/data/duckdb-tmp`` noch nicht, und der Bau brach mit
+    ``FileNotFoundError`` ab - ``TemporaryDirectory`` legt das
+    Elternverzeichnis nicht an. Auf ``srv01`` lag es aus frueheren Laeufen."""
+    ablage = tmp_path / "frisch" / "duckdb-tmp"
+    monkeypatch.setenv("DUCKDB_TEMP_DIRECTORY", str(ablage))
+    schreibe_chicago(tmp_path, CHI[:1])
+    schreibe_detroit(tmp_path, DET[:1])
+    schreibe_tract(tmp_path)
+    bc.build(tmp_path, Path("config"))
+    assert ablage.is_dir() and not list(ablage.iterdir())
+
+
 @pytest.mark.referenzstand
 def test_die_gebaute_datei_steht_in_der_zugesagten_ordnung():
     """``ORDNUNG`` ist nur dann eine Zusage, wenn sie eindeutig ist.
@@ -1869,11 +1886,15 @@ def test_was_source_change_als_verschwunden_fuehrt_ist_weg_oder_umdatiert():
     # Lauf -> Jahrgang, aus den Bronze-Manifesten. Ohne diese Zuordnung laesst
     # sich eine Umdatierung nicht von einem Widerspruch unterscheiden.
     ablage = for_root(datenwurzel)
-    jahr_je_lauf: dict[str, str] = {}
+    laeufe: dict[str, object] = {}
     for praefix, muster in (("bronze/city=chicago", "ingest_date=*/run_*/manifest.json"),
                             ("bronze/city=detroit", "**/run_*/manifest.json")):
         for lauf in ablage.laeufe(praefix, muster, streng=False):
-            jahr_je_lauf[lauf.run_id] = lauf.jahrgang
+            laeufe[lauf.run_id] = lauf
+    jahr_je_lauf = {kennung: lauf.jahrgang for kennung, lauf in laeufe.items()}
+    herkunft = json.loads((fakt.parent / "manifest.json").read_text(encoding="utf-8"))
+    gelesen = {stadt: herkunft["derived_from"][f"{stadt}_bronze_runs"]
+               for stadt in ("chicago", "detroit")}
 
     con = duckdb.connect()
     try:
@@ -1885,25 +1906,64 @@ def test_was_source_change_als_verschwunden_fuehrt_ist_weg_oder_umdatiert():
                 SELECT city, max(beobachtet_am) AS stand
                 FROM read_parquet('{wechsel}') GROUP BY 1
             )
-            SELECT w.city, w.offense_id, w.run_id,
+            SELECT w.city, w.offense_id, w.run_id, w.beobachtet_am,
                    year(f.occurred_at_local) AS jahr_heute
             FROM read_parquet('{wechsel}') w
             JOIN juengste j ON w.city = j.city AND w.beobachtet_am = j.stand
             JOIN read_parquet('{fakt}') f
               ON f.city = w.city AND f.offense_id = w.offense_id
             WHERE w.art = 'verschwunden'""").fetchall()
+
+        # **Zurueck ueber ein Delta.** ``source_change`` vergleicht nur
+        # Vollabzuege - aus einem Delta liesse sich *verschwunden* nicht von
+        # *ruhig* unterscheiden. Silver liest aber den juengsten Vollabzug
+        # **und die Deltas danach**. Liefert eines davon die Zeile wieder, steht
+        # sie zu Recht in crime_offense, obwohl das juengste Paar sie als weg
+        # fuehrt: Chicago-Fall 14289652 fehlte im Vollabzug vom 10.11.2026 und
+        # kam mit dem Delta vom 20.11. zurueck. Das gilt nur, wenn die Zeile
+        # in einem solchen Delta **nachweislich** steht; geraten wird nicht.
+        def zurueck_ueber_delta(stadt, kennung, jahrgang, seit):
+            spalte = "id" if stadt == "chicago" else "attributes.incident_entry_id"
+            fehlend = []
+            for lauf_id in gelesen[stadt]:
+                lauf = laeufe.get(lauf_id)
+                if lauf is None:
+                    fehlend.append(lauf_id)
+                    continue
+                beginn = datetime.fromisoformat(
+                    lauf.begonnen_um.replace("Z", "+00:00")).replace(tzinfo=None)
+                if lauf.jahrgang != jahrgang or beginn <= seit:
+                    continue
+                pfad = ablage.resolve_read_path(lauf.relativ, "*.parquet")
+                treffer = con.execute(
+                    f"SELECT count(*) FROM read_parquet('{pfad}', hive_partitioning=false,"
+                    f" union_by_name=true) WHERE CAST({spalte} AS VARCHAR) = ?",
+                    [kennung]).fetchone()[0]
+                if treffer:
+                    return True, []
+            return False, fehlend
+
+        widerspruch, nicht_pruefbar = [], set()
+        for stadt, kennung, lauf, seit, jahr_heute in weg:
+            jahrgang = jahr_je_lauf.get(lauf, "")
+            if str(jahr_heute) != jahrgang:
+                continue
+            zurueck, fehlend = zurueck_ueber_delta(stadt, kennung, jahrgang, seit)
+            if zurueck:
+                continue
+            widerspruch.append((stadt, kennung, jahrgang, jahr_heute))
+            nicht_pruefbar.update(fehlend)
     finally:
         con.close()
 
-    widerspruch = [
-        (stadt, kennung, jahr_je_lauf.get(lauf, "?"), jahr_heute)
-        for stadt, kennung, lauf, jahr_heute in weg
-        if str(jahr_heute) == jahr_je_lauf.get(lauf, "")
-    ]
     assert not widerspruch, (
         f"source_change fuehrt diese Zeilen als verschwunden, und "
-        f"crime_offense hat sie mit **demselben** Jahr - also keine "
-        f"Umdatierung, sondern ein Widerspruch: {widerspruch}")
+        f"crime_offense hat sie mit **demselben** Jahr, ohne dass ein Delta "
+        f"danach sie wieder geliefert haette - also keine Umdatierung, sondern "
+        f"ein Widerspruch: {widerspruch}"
+        + (f". Lokal fehlen {len(nicht_pruefbar)} Laeufe, aus denen Silver "
+           f"gelesen hat - ohne sie ist eine Rueckkehr nicht pruefbar: "
+           f"{sorted(nicht_pruefbar)[:5]}" if nicht_pruefbar else ""))
 
 
 # --------------------------------------------------------------------------
@@ -1973,3 +2033,109 @@ def test_die_override_datei_gehoert_zum_fingerabdruck(tmp_path):
         bc.OVERRIDE_KOPF + "\nchicago,0110,240,x\n", encoding="utf-8")
     nachher = manifest_von(bc.build(data_root, config_root))
     assert nachher["input_fingerprint"] != vorher["input_fingerprint"]
+
+
+# --------------------------------------------------------------------------
+# Polizeibezirke und Festnahme (Vertrag 5, 25.11.2026)
+# --------------------------------------------------------------------------
+
+
+def schreibe_bezirke(data_root: Path) -> None:
+    """silver/police_area mit je einem Bezirk um die Tracts der Fixture."""
+    ziel = data_root / "silver" / "dataset=police_area"
+    ziel.mkdir(parents=True, exist_ok=True)
+    con = duckdb.connect()
+    con.execute("LOAD spatial")
+    con.execute(f"""
+        COPY (SELECT * FROM (VALUES
+              ('chicago', '31', ST_AsWKB(ST_GeomFromText('{POLYGONE[TRACT_CHICAGO]}'))),
+              ('detroit', '2',  ST_AsWKB(ST_GeomFromText('{POLYGONE[TRACT_DETROIT]}'))))
+              AS t(city, area_id, geometry))
+        TO '{ziel / bc.PARQUET_FILE}' (FORMAT PARQUET)""")
+    con.close()
+    (ziel / "manifest.json").write_text(json.dumps({
+        "status": "complete", "table": "police_area", "layer": "silver",
+        "input_fingerprint": "p" * 64}), encoding="utf-8")
+
+
+def baue_mit_bezirken(tmp_path: Path, chicago: list[dict], detroit: list[dict]) -> Path:
+    data_root = tmp_path / "data"
+    config_root = tmp_path / "config"
+    schreibe_tract(data_root)
+    schreibe_bezirke(data_root)
+    schreibe_chicago(data_root, chicago)
+    schreibe_detroit(data_root, detroit)
+    schreibe_config(config_root)
+    return bc.build(data_root, config_root)
+
+
+def test_jede_koordinate_bekommt_ihren_bezirk_und_die_angabe_der_quelle(tmp_path):
+    chi = [dict(CHI[0], district="031"),
+           dict(CHI[0], id="2", case_number="JA2", district="",
+                latitude=IM_MEER[0], longitude=IM_MEER[1])]
+    det = [dict(DET[0], police_precinct="02"),
+           dict(DET[0], incident_entry_id="D2", case_id="F2", police_precinct="HP")]
+    zeilen = {(z["city"], z["offense_id"]): z for z in lies(baue_mit_bezirken(tmp_path, chi, det))}
+    assert (zeilen[("chicago", "1")]["police_area"],
+            zeilen[("chicago", "1")]["police_area_source"]) == ("31", "31")
+    # Ohne Ort kein Bezirk; ohne Angabe keine Quelle.
+    assert (zeilen[("chicago", "2")]["police_area"],
+            zeilen[("chicago", "2")]["police_area_source"]) == (None, None)
+    assert zeilen[("detroit", "D1")]["police_area_source"] == "2"
+    # 'HP' ist keine Zahl - Highland Park - und bleibt leer.
+    assert zeilen[("detroit", "D2")]["police_area_source"] is None
+    assert zeilen[("detroit", "D2")]["police_area"] == "2"
+
+
+def test_das_manifest_haelt_den_abgleich_mit_der_polizei_fest(tmp_path):
+    chi = [dict(CHI[0], district="31")]
+    det = [dict(DET[0], police_precinct="05")]
+    manifest = manifest_von(baue_mit_bezirken(tmp_path, chi, det))
+    abgleich = manifest["checks"]["police_area"]
+    assert abgleich["chicago"]["agree_share"] == 1.0
+    assert abgleich["detroit"]["agree"] == 0 and abgleich["detroit"]["with_area"] == 1
+    assert manifest["derived_from"]["silver_police_area"] is not None
+
+
+def test_ohne_bezirkstabelle_bleibt_der_bezirk_leer_und_das_manifest_sagt_es(tmp_path):
+    zeilen = lies(baue(tmp_path, [dict(CHI[0], district="1")], DET))
+    assert all(z["police_area"] is None for z in zeilen)
+    assert zeilen[0]["police_area_source"] == "1"
+    manifest = manifest_von(tmp_path / "data" / "silver" / "dataset=crime_offense")
+    assert manifest["derived_from"]["silver_police_area"] is None
+
+
+def test_detroits_festnahme_kommt_aus_dem_stand_des_falls(tmp_path):
+    det = [dict(DET[0], case_status="CLEARED BY ARREST"),
+           dict(DET[0], incident_entry_id="D2", case_id="F2", case_status=" exceptionally cleared "),
+           dict(DET[0], incident_entry_id="D3", case_id="F3", case_status=None)]
+    zeilen = {z["offense_id"]: z for z in lies(baue(tmp_path, CHI, det)) if z["city"] == "detroit"}
+    assert (zeilen["D1"]["arrest"], zeilen["D1"]["case_status"]) == (True, "CLEARED BY ARREST")
+    assert (zeilen["D2"]["arrest"], zeilen["D2"]["case_status"]) == (False, "EXCEPTIONALLY CLEARED")
+    # Ohne Stand ist die Festnahme unbekannt, nicht "nein".
+    assert (zeilen["D3"]["arrest"], zeilen["D3"]["case_status"]) == (None, None)
+
+
+def test_chicago_fuehrt_keinen_stand_des_falls(tmp_path):
+    zeile = next(z for z in lies(baue(tmp_path, CHI, DET)) if z["city"] == "chicago")
+    assert (zeile["arrest"], zeile["case_status"]) == (True, None)
+
+
+def test_jede_koordinate_bekommt_ihren_stadtteil(tmp_path):
+    data_root = tmp_path / "data"
+    ziel = data_root / "silver" / "dataset=community_area"
+    ziel.mkdir(parents=True)
+    con = duckdb.connect()
+    con.execute("LOAD spatial")
+    con.execute(f"""
+        COPY (SELECT * FROM (VALUES
+              ('chicago', '1', ST_AsWKB(ST_GeomFromText('{POLYGONE[TRACT_CHICAGO]}'))),
+              ('detroit', 'Brightmoor', ST_AsWKB(ST_GeomFromText('{POLYGONE[TRACT_DETROIT]}'))))
+              AS t(city, area_id, geometry))
+        TO '{ziel / bc.PARQUET_FILE}' (FORMAT PARQUET)""")
+    con.close()
+    zeilen = {z["city"]: z for z in lies(baue(tmp_path, CHI, DET))}
+    assert (zeilen["chicago"]["community_area"], zeilen["detroit"]["community_area"]) == (
+        "1", "Brightmoor")
+    abgleich = manifest_von(tmp_path / "data" / "silver" / "dataset=crime_offense")
+    assert abgleich["checks"]["community_area"]["detroit"]["with_area"] == 1

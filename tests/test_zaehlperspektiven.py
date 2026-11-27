@@ -230,7 +230,7 @@ def test_die_raender_des_zeitfensters_stimmen(text, con):
     # ``[\s\S]{0,400}?`` und nicht ``[^.]*?``: Zwischen "erste Woche" und der
     # Zahl stehen ein Datum und eine Tageszahl, also Punkte und Umbrueche.
     assert zahl(text, r"erste Woche[\s\S]{0,400}?: ([\d']+) Taten") == erste
-    assert zahl(text, r"letzte Woche[\s\S]{0,400}?: ([\d']+) Taten") == letzte
+    assert zahl(text, r"letzte Woche\*\*[\s\S]{0,400}?: ([\d']+) Taten") == letzte
     assert zahl(text, r"mittlere Woche trägt ([\d']+) Taten") == mittel
     assert f"nur **{erste_tage} Tage**" in text, (
         f"die erste Woche hat {erste_tage} Tage in den Daten"
@@ -239,10 +239,29 @@ def test_die_raender_des_zeitfensters_stimmen(text, con):
         f"die Raender sind nicht mehr kleiner als die Mitte: {erste}, "
         f"{letzte}, Mitte {mittel} - dann ist der Abschnitt gegenstandslos"
     )
-    assert letzte_tage == 7, (
-        f"die letzte Woche hat {letzte_tage} Kalendertage - das Dokument "
-        "begruendet ihren Einbruch mit dem Meldeverzug, nicht mit fehlenden Tagen"
-    )
+    # Seit dem Referenzstand vom 10.11.2026 (Ladetag ein Dienstag) hat die
+    # letzte Woche nur zwei Tage. Der Meldeverzug, das zweite Argument des
+    # Abschnitts, steht deshalb an der letzten **vollen** Woche: alle sieben
+    # Tage da, und doch weit unter der Mitte.
+    if letzte_tage < 7:
+        # "1 Tag", nicht "1 Tage": Am Stand vom 26.11.2026 endet das Fenster
+        # an einem Montag, und der Satz muss Deutsch bleiben.
+        einheit = "Tag" if letzte_tage == 1 else "Tage"
+        assert f"nur **{letzte_tage} {einheit}**: {letzte:,} Taten".replace(",", "'") in text, (
+            f"die letzte Woche hat {letzte_tage} Tage - das Dokument muss sie nennen"
+        )
+        volle, volle_tage = con.execute("""
+            WITH w AS (SELECT date_trunc('week', date) AS woche, count(*) AS n,
+                              count(DISTINCT date) AS tage FROM f GROUP BY 1)
+            SELECT n, tage FROM w ORDER BY woche DESC LIMIT 1 OFFSET 1
+        """).fetchone()
+        assert volle_tage == 7 and volle < mittel
+        assert zahl(text, r"letzte volle Woche[\s\S]{0,400}?: ([\d']+) Taten") == volle
+    else:
+        assert "letzte volle Woche" not in text, (
+            "die letzte Woche ist wieder voll - der Absatz zur letzten vollen "
+            "Woche gehoert dann zurueck in den zur letzten Woche"
+        )
 
 
 # --------------------------------------------------------------------------
@@ -409,10 +428,13 @@ def test_die_bronze_only_felder_fehlen_wirklich(text, con):
     Lauf gar nicht, weil beide Schnappschuesse alle Zeilen enthalten.
     """
     vorhanden = {r[0] for r in con.execute("DESCRIBE SELECT * FROM s").fetchall()}
-    assert len(vorhanden) == 28, f"Silver hat {len(vorhanden)} Spalten, nicht 28"
-    assert re.search(r"Silver führt 28\s+Spalten", text), (
-        "die genannte Spaltenzahl stimmt nicht"
-    )
+    # Die Zahl aus dem Dokument, nicht als Literal: Bis zum 26.11.2026 stand
+    # hier 28, und die Spalten police_area, police_area_source, case_status und
+    # community_area kamen dazu, ohne dass dieser Waechter im Standardlauf fiel.
+    treffer = re.search(r"Silver führt (\d+)\s+Spalten", text)
+    assert treffer, "das Dokument nennt die Spaltenzahl nicht mehr"
+    assert len(vorhanden) == int(treffer.group(1)), (
+        f"Silver hat {len(vorhanden)} Spalten, das Dokument nennt {treffer.group(1)}")
 
     for spalte in ("charge_description", "arrest_charge", "offense_category",
                    "primary_type", "fbi_code", "updated_on", "updated_at"):
@@ -454,7 +476,10 @@ def test_der_manifesteintrag_nennt_die_zahl_der_laeufe(text):
         "das Dokument nennt die Zahl der Bronze-Laeufe je Stadt nicht mehr in "
         "der Form '(N für Chicago, M für Detroit)'"
     )
-    genannt = tuple(WORTZAHL.get(w.lower()) for w in treffer.groups())
+    # Seit den Detroiter Deltas waechst die Zahl mit jedem Lauf (36 am
+    # 20.11.2026); das Dokument nennt sie dann als Ziffer statt als Wort.
+    genannt = tuple(int(w) if w.isdigit() else WORTZAHL.get(w.lower())
+                    for w in treffer.groups())
     assert None not in genannt, (
         f"unbekanntes Zahlwort in {treffer.groups()} - dann in WORTZAHL ergaenzen"
     )
@@ -465,9 +490,42 @@ def test_der_manifesteintrag_nennt_die_zahl_der_laeufe(text):
 
 
 def test_alle_detroit_zeilen_stehen_in_beiden_schnappschuessen(text, con):
-    """Die Zahl, die den Rueckgriff auf einen einzelnen Lauf unmoeglich macht."""
-    zeilen = con.execute("SELECT count(*) FROM s WHERE city = 'detroit'").fetchone()[0]
-    assert zahl(text, r"\*\*alle ([\d']+) Zeilen\*\*") == zeilen
+    """Die Zahl, die den Rueckgriff auf einen einzelnen Lauf unmoeglich macht.
+
+    Der Satz ist **historisch**: Bis zum 18.9.2026 lud Detroit je Lauf den
+    ganzen Jahrgang 2024, und jeder dieser fuenf vollen Laeufe enthielt alle
+    Zeilen. Gemessen wird deshalb an diesen Laeufen, nicht am heutigen
+    Bestand. Bis zum 20.11.2026 hielt der Waechter die Zahl gegen alle
+    Detroiter Zeilen in Silver und zog sie damit ab dem 4.10. auf sechs
+    Jahrgaenge (491'725, dann 501'146) - eine Zahl, die kein Schnappschuss
+    vor dem 18.9. je enthielt. Die Laeufe sind gepinnt
+    (``config/referenzstand.csv``, LN1 und ``stand-2026-10-03``).
+    """
+    from storage import for_root
+
+    ablage = for_root(PROJECT_ROOT / "data")
+    voll = [lauf for lauf in ablage.laeufe("bronze/city=detroit", streng=False)
+            if str(lauf.manifest.get("extraction_mode", "")).upper() == "FULL"
+            and lauf.begonnen_um < "2026-09-19"]
+    if not voll:
+        pytest.skip("Detroits volle Laeufe bis zum 18.9.2026 liegen nicht lokal")
+    zeilen = sorted(
+        con.execute(f"SELECT count(*) FROM read_parquet("
+                    f"'{ablage.resolve_read_path(lauf.relativ, '*.parquet')}',"
+                    f" hive_partitioning=false)").fetchone()[0]
+        for lauf in voll)
+
+    # Der Kasten darunter ist ein Zitatblock; ohne die ``>`` liest er sich
+    # wie Fliesstext.
+    ohne_umbrueche = " ".join(re.sub(r"(?m)^>\s?", "", text).split())
+    assert "fünf vollen Läufe vom 11. bis 18.9." in ohne_umbrueche
+    assert len(voll) == 5, f"{len(voll)} volle Laeufe bis zum 18.9., das Dokument sagt fuenf"
+    treffer = re.search(r"\*\*alle Zeilen des Jahrgangs 2024\*\* \(([\d']+) und ([\d']+)\)",
+                        ohne_umbrueche)
+    assert treffer, "das Dokument nennt die Zeilen der vollen Laeufe nicht mehr"
+    genannt = [int(w.replace("'", "")) for w in treffer.groups()]
+    assert genannt == [zeilen[0], zeilen[-1]], (
+        f"genannt {genannt}, die fuenf Laeufe haben {zeilen}")
 
 
 def test_die_angekuendigten_sieben_punkte_sind_sieben(text):

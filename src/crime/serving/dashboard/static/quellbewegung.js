@@ -47,6 +47,7 @@ function vergleich(d) {
   const tafel = document.getElementById("t-vergleich");
   tafel.hidden = !d.vergleich.length;
   if (!d.vergleich.length) return;
+  // Zwei Staedte (FR-43): genau ein Paar, wie der Vergleich in quellbewegung.py.
   const [a, b] = d.staedte;
   const rumpf = kopf(document.getElementById("d-vergleich"),
     ["Bewegung", `${a.name} (je 10'000)`, `${b.name} (je 10'000)`, "Faktor", "Bei gleicher Rate erwartet",

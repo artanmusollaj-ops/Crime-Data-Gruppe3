@@ -68,9 +68,20 @@ def offen(text) -> list[tuple[str, list[str]]]:
     return zeilen
 
 
-def test_es_gibt_offene_punkte(offen):
-    """Sonst prueft alles darunter nichts und bleibt gruen."""
-    assert len(offen) >= 5, f"nur {len(offen)} offene Zeilen gelesen"
+def test_es_gibt_offene_punkte(text, offen):
+    """Sonst prueft alles darunter nichts und bleibt gruen.
+
+    Bis zum 26.11.2026 stand hier ``len(offen) >= 5`` - eine Zahl, die nichts
+    ueber den Leser sagte, nur ueber die Liste. Als S-6 erledigt war, blieben
+    vier Punkte, und der Test fiel, obwohl nichts falsch gelesen war. Geprueft
+    wird jetzt, was gemeint war: Jede Zeile mit einer Kennung in den offenen
+    Abschnitten wird auch als Zeile mit fuenf Feldern gelesen.
+    """
+    kennungen = [m.group(1) for titel in ABSCHNITTE
+                 for m in re.finditer(r"^\| ([A-Z]-\d+) \|", abschnitt(text, titel), re.M)]
+    assert kennungen, "keine offene Zeile gefunden - stimmen die Abschnittstitel?"
+    assert sorted(f[0] for _, f in offen) == sorted(kennungen), (
+        f"gelesen {[f[0] for _, f in offen]}, im Dokument {kennungen}")
 
 
 def test_jeder_punkt_hat_einen_verantwortlichen(offen):

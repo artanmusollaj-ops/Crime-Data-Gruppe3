@@ -47,9 +47,12 @@ FAKTEN = (f"(SELECT * FROM read_parquet('{GOLD}') "
 #: Dasselbe fuer Silver - dort heisst die Ortszeitachse ``occurred_date_local``.
 SILBER = (f"(SELECT * FROM read_parquet('{SILVER}') "
           f"WHERE year(occurred_date_local) = {RATENJAHR})")
-LAUF = "run_20260905T174633859259Z"
-BRONZE = DATA / "bronze" / "city=chicago" / "ingest_date=2026-09-05" / LAUF
-RAW = DATA / "raw" / "city=chicago" / "ingest_date=2026-09-05" / LAUF
+# Der Chicagoer Vollschnappschuss des Jahrgangs 2024 im Referenzstand. Bis zum
+# 12.11.2026 war es der LN1-Lauf vom 5.9.2026 (run_20260905T174633859259Z);
+# beide sind in config/referenzstand.csv gepinnt.
+LAUF = "run_20261110T131057453169Z"
+BRONZE = DATA / "bronze" / "city=chicago" / "ingest_date=2026-11-10" / LAUF
+RAW = DATA / "raw" / "city=chicago" / "ingest_date=2026-11-10" / LAUF
 
 pytestmark = pytest.mark.referenzstand
 
@@ -93,31 +96,39 @@ def test_das_dokument_existiert():
 
 def test_die_ueberschrift_nennt_die_zahl(text, con):
     """94,5 steht im Titel - sie ist der Aufhaenger des ganzen Dokuments."""
-    assert text.startswith("# 94,5"), "der Titel nennt die Zahl nicht mehr"
+    # Die Zahl kommt aus dem Titel, nicht als Literal: Bis zum 26.11.2026 stand
+    # hier "# 94,5" zweimal verdrahtet, und mit Gold-Vertrag 10 wurde daraus 94,4.
+    titel = re.match(r"# (\d+,\d) —", text)
+    assert titel, "der Titel nennt die Zahl nicht mehr"
+    im_titel = float(titel.group(1).replace(",", "."))
     echt = con.execute(f"""
         WITH e AS ({NENNER})
         SELECT round(count(*) * 1000.0 / any_value(e.n), 1)
         FROM {FAKTEN} f
         JOIN read_parquet('{TRACT}') t ON t.geoid = f.tract_geoid
         JOIN e ON e.city = t.city
-        WHERE t.city = 'chicago'
+        WHERE t.city = 'chicago' AND f.counts_case
     """).fetchone()[0]
-    assert echt == pytest.approx(94.5, abs=0.05), (
+    assert echt == pytest.approx(im_titel, abs=0.05), (
         f"Chicago liegt jetzt bei {echt} - Titel und Stufe 0 mitziehen"
     )
 
 
 def test_die_rechnung_geht_auf(text, con):
-    """Zaehler, Nenner und Ergebnis der Stufe 1 - alle drei gemessen."""
+    """Zaehler, Nenner und Ergebnis der Stufe 1 - alle drei gemessen.
+
+    Seit dem 12.11.2026 (E-2) auf der Fallebene: Der Zaehler sind die Faelle
+    (``counts_case``), nicht alle Taten.
+    """
     zaehler, nenner = con.execute(f"""
         SELECT count(*), any_value(e.n)
         FROM {FAKTEN} f
         JOIN read_parquet('{TRACT}') t ON t.geoid = f.tract_geoid
         JOIN ({NENNER}) e ON e.city = t.city
-        WHERE t.city = 'chicago'
+        WHERE t.city = 'chicago' AND f.counts_case
     """).fetchone()
     formel = re.search(
-        r"([\d']+) Delikte\s+/\s+([\d']+) Einwohner\s+×\s+1000\s+=\s+([\d,]+)",
+        r"([\d']+) Fälle\s+/\s+([\d']+) Einwohner\s+×\s+1000\s+=\s+([\d,]+)",
         text,
     )
     assert formel, "die Formelzeile in Stufe 1 ist nicht mehr lesbar"
@@ -238,7 +249,8 @@ def test_die_granularitaet_stimmt(text, con):
             f"read_parquet('{ACS}')")).fetchall()
     }
     for stadt, (tat, fall) in raten.items():
-        zeile = re.search(rf"\| {stadt.capitalize()} \| \*\*([\d,]+)\*\* \| ([\d,]+) \|", text)
+        # Seit E-2 (12.11.2026) ist die Fallebene hervorgehoben, nicht die Tatebene.
+        zeile = re.search(rf"\| {stadt.capitalize()} \| ([\d,]+) \| \*\*([\d,]+)\*\* \|", text)
         assert zeile, f"Ratenzeile fuer {stadt} fehlt in Stufe 4"
         assert float(zeile.group(1).replace(",", ".")) == pytest.approx(tat, abs=0.05)
         assert float(zeile.group(2).replace(",", ".")) == pytest.approx(fall, abs=0.05)

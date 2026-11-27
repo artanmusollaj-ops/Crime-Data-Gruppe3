@@ -309,7 +309,8 @@ def _quellname(modul: str) -> str:
     """``census_pipeline.download_tiger`` -> ``TIGER``."""
     letzt = modul.rsplit(".", 1)[-1]
     roh = letzt.replace("download_", "").replace("extract_", "")
-    return {"acs": "ACS", "tiger": "TIGER", "noaa": "NOAA"}.get(roh, roh.capitalize())
+    return {"acs": "ACS", "tiger": "TIGER", "noaa": "NOAA",
+            "gebiete": "Polizeibezirke"}.get(roh, roh.capitalize())
 
 
 def _gepinnt(paket: str) -> str:
@@ -365,10 +366,10 @@ def bild_kontext() -> str:
     teile.append(beschriftung(
         RAND + 14, band_y + 21,
         f"Python · DuckDB {duckdb_version} mit spatial · pytest · ruff · "
-        f"{notebooks} Notebooks · {len(werkzeuge)} Generatoren unter tools/"))
+        f"{notebooks} Notebooks · {len(werkzeuge)} Werkzeuge unter tools/"))
     teile.append(beschriftung(
         RAND + 14, band_y + 38,
-        "erzeugt mit: " + ", ".join(werkzeuge[:3]) + " …"))
+        "darunter: " + ", ".join(werkzeuge[:3]) + " …"))
 
     # --- 2 Systemkontext: die Quellen --------------------------------------
     beschriftung_y = quell_y - 6

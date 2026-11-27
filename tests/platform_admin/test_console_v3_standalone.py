@@ -70,6 +70,29 @@ class ConsoleTests(unittest.TestCase):
             with self.assertRaises(AdminError):
                 evidence(self.store,city,path)
 
+    def test_batch_source_evidence_uses_manifest_hash(self):
+        from platform_admin.operations import schema
+
+        schema(self.store)
+        with self.store.db() as connection:
+            connection.execute(
+                "INSERT INTO operation(id,kind,payload,actor,reason,status,created_at) "
+                "VALUES ('batch1','batch','{}','operator','Gesamtimport','SUCCEEDED','now')"
+            )
+        relative = 'bronze/city=detroit/run1/manifest.json'
+        manifest = self.store.data / relative
+        manifest.parent.mkdir(parents=True)
+        before = inventory(self.store, 'detroit')
+        manifest.write_text('{"run_id":"run1","status":"complete"}', encoding='utf-8')
+        folder = self.store.root / 'jobs' / 'batch1'
+        (folder / 'detroit').mkdir(parents=True)
+        (folder / 'run.log').write_text('Gesamtimport', encoding='utf-8')
+        capture(self.store, 'detroit', before, folder / 'detroit', {'id': 'batch1'}, {'mode': 'full'})
+        linked = evidence(self.store, 'detroit', relative)['jobs']
+        self.assertEqual([(job['id'], job['log_available']) for job in linked], [('batch1', True)])
+        manifest.write_text('{"run_id":"changed"}', encoding='utf-8')
+        self.assertEqual(evidence(self.store, 'detroit', relative)['jobs'], [])
+
     def test_actual_full_daily_ranges(self):
         for city in ['chicago','detroit']:
             result=source_code(self.store,city)

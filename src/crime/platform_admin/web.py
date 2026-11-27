@@ -80,7 +80,7 @@ def create_app(store=None, *, operator=None, token=None, config=None):
             )
         elif request.path == "/api/state":
             from .candidates import active_id
-            from .conflicts import all_pending
+            from .conflicts import all_pending, proposal_summaries
             from .operations import overview
 
             return send(
@@ -91,6 +91,7 @@ def create_app(store=None, *, operator=None, token=None, config=None):
                     "identity": g.identity,
                     "roles": sorted(g.roles),
                     "conflicts": all_pending(store),
+                    "proposal_summaries": proposal_summaries(store),
                     "active_release_id": active_id(store),
                     "analysis_status": overview(store)["services"].get("analysis", {}),
                     "mapping": store.current("mapping"),
@@ -216,11 +217,19 @@ def create_app(store=None, *, operator=None, token=None, config=None):
             jid = request.args.to_dict(flat=False).get("id", [""])[0]
             with store.db() as c:
                 row = c.execute("SELECT log_path FROM job WHERE id=?", (jid,)).fetchone()
-            if not row or not row["log_path"]:
+                batch = not row and c.execute(
+                    "SELECT 1 FROM operation WHERE id=? AND kind='batch'", (jid,)
+                ).fetchone()
+            if batch:
+                path = store.root / "jobs" / jid / "run.log"
+            elif row and row["log_path"]:
+                path = Path(row["log_path"])
+            else:
                 raise AdminError("Noch kein Jobprotokoll vorhanden")
-            path = Path(row["log_path"])
             if not path.resolve().is_relative_to((store.root / "jobs").resolve()):
                 raise AdminError("Ungueltiger Logpfad")
+            if not path.is_file():
+                raise AdminError("Noch kein Jobprotokoll vorhanden")
             with path.open("rb") as f:
                 f.seek(max(0, path.stat().st_size - 100000))
                 return send(

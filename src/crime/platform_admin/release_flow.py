@@ -117,6 +117,7 @@ def check_mapping_basis(store, spec):
     Datenbankrevisionen enthalten deshalb LF, auch bei CRLF-Dateien in Git.
     Dieser Textvergleich ergänzt die bytegenaue Prüfung des Images.
     Bestehende Revisionen werden dabei nicht umgeschrieben.
+    Das Register der gepinnten Läufe und Releases wird nur im Image attestiert.
     """
     payload = store.get(spec["base_heads"]["mapping"])["payload"]
     files = {
@@ -125,7 +126,8 @@ def check_mapping_basis(store, spec):
         if p.is_file()
     }
     mismatch = []
-    for name in sorted(set(files) | set(payload)):
+    # Alte Revisionen enthalten auch das Register für Aufbewahrung und Sicherung.
+    for name in sorted((files.keys() | payload.keys()) - {"referenzstand.csv"}):
         if name not in files or name not in payload:
             mismatch.append("config/" + name)
             continue
@@ -197,19 +199,23 @@ def check_build_unchanged(store, spec, provenance):
         raise AdminError("Build-Quellen waehrend Simulation veraendert; erneut simulieren")
 
 
+def baseline_changed(store, row, heads, *, publication=False):
+    from .candidates import active_id
+
+    releases = {row["baseline_release_id"]}
+    if publication:
+        releases.add(row["published_release_id"])
+    return heads != json.loads(row["spec"])["base_heads"] or active_id(store) not in releases
+
+
 def verify_waiting(store, row, *, publication=False):
     """No local activation/config mutation since the reviewed simulation."""
-    from .candidates import active_id, checked_impact, file_hash, release_path, verify_release
+    from .candidates import checked_impact, file_hash, release_path, verify_release
     from .impact_archive import checked
 
-    spec = json.loads(row["spec"])
     with store.db() as c:
         heads = dict(c.execute("SELECT resource,revision FROM head").fetchall())
-    if heads != spec["base_heads"] or active_id(store) not in (
-        {row["baseline_release_id"], row["published_release_id"]}
-        if publication
-        else {row["baseline_release_id"]}
-    ):
+    if baseline_changed(store, row, heads, publication=publication):
         raise AdminError("Baseline seit Review veraendert; neuer Impact erforderlich")
     report = checked_impact(store, row)
     if not report.get("review_ready"):

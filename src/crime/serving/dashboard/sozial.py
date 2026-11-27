@@ -132,10 +132,13 @@ def sozial(bestand, a, karte: str = "nebeneinander") -> dict[str, Any]:
         for name, *_ in ARMUT:
             im = [t for t in tracts if t["band"] == name and t["einwohner"]]
             einwohner = sum(t["einwohner"] for t in im)
-            faelle = sum(t["faelle"] for t in im)
+            faelle = sum(t["faelle"] for t in im if t["personenjahre"])
+            # Je Jahr wie die Rate je Tract (serving.dashboard.zeitraum): durch
+            # die Personenjahre, nicht durch die Einwohner.
+            jahre = sum(t["personenjahre"] for t in im if t["personenjahre"])
             baender.append({"band": name, "tracts": len(im), "einwohner": einwohner,
                             "faelle": faelle,
-                            "rate": round(faelle * 1000.0 / einwohner, 1) if einwohner else None})
+                            "rate": round(faelle * 1000.0 / jahre, 1) if jahre else None})
         mit_rate = [b for b in baender if b["rate"] is not None and b["tracts"] >= 5]
         staedte.append({
             "stadt": s["stadt"], "name": s["name"], "tracts": tracts,
@@ -150,7 +153,7 @@ def sozial(bestand, a, karte: str = "nebeneinander") -> dict[str, Any]:
             "geringe": s["geringe"], "verortung": s["verortung"],
         })
     return {
-        "auswahl": a.__dict__ | {"karte": karte},
+        "auswahl": a.json | {"karte": karte},
         "vintage": vintage,
         "klassen": geo["klassen"],
         "armut": [{"band": n, "unten": u, "oben": o} for n, u, o in ARMUT],

@@ -177,12 +177,16 @@ def publish(
     **eindeutig** sein, sonst ist die Ordnung innerhalb der Gruppen wieder
     offen und es ist nichts gewonnen.
 
-    Ohne ``ordnung`` bleibt es beim alten Verhalten. Das ist kein
-    Wohlfuehl-Vorgabewert, sondern der Stand der sechs uebrigen Aufrufer
-    (Gold, ``comparison``, ``place``, ``tract``, ``weather_day``,
-    ``source_change``): Sie brauchen je einen eigenen eindeutigen Schluessel,
-    und einen zu *raten* waere schlimmer als die heutige Lage, weil die
-    Ordnung dann stillschweigend offen bliebe. Das ist eine eigene Aenderung.
+    **Seit dem 22.11.2026 gibt jeder Aufrufer eine ``ordnung`` an** (C-2):
+    Gold, ``comparison``, ``place``, ``tract``, ``weather_day`` und
+    ``source_change`` kamen dazu, jeder mit einem Schluessel, der am Bestand
+    vom 21.11.2026 als eindeutig gemessen ist. ``publish`` prueft das bei
+    jedem Bau selbst: Ist der Schluessel nicht eindeutig, bricht es ab, statt
+    eine Ordnung zu schreiben, die innerhalb gleicher Schluessel wieder offen
+    waere. ``NULL`` zaehlt dabei wie ein Wert - ``DISTINCT`` und ``ORDER BY``
+    behandeln es gleich. ``tests/test_publish_ordnung.py`` haelt fest, dass
+    kein Aufruf ohne ``ordnung`` dazukommt. Ohne ``ordnung`` bliebe es beim
+    alten Verhalten.
 
     **Warum die Arbeitsverzeichnisse die Prozessnummer tragen.** Sie hiessen
     bis zum 15.9.2026 fest ``.<name>.part`` und ``.<name>.superseded``, und
@@ -205,6 +209,15 @@ def publish(
 
     try:
         parquet = arbeit / PARQUET_FILE
+        if ordnung:
+            doppelt = con.execute(
+                f"SELECT count(*) - count(DISTINCT ({ordnung})) FROM {relation}"
+            ).fetchone()[0]
+            if doppelt:
+                raise TransformError(
+                    f"{relation}: die Ordnung ({ordnung}) ist nicht eindeutig, "
+                    f"{doppelt} Zeilen teilen ihren Schluessel mit einer "
+                    f"anderen - die Zeilenfolge waere dort wieder offen")
         quelle = (f"(SELECT * FROM {relation} ORDER BY {ordnung})"
                   if ordnung else relation)
         con.execute(

@@ -9,6 +9,8 @@ ohne Installation laufen.
 from __future__ import annotations
 
 import subprocess
+from contextlib import contextmanager
+from pathlib import Path
 import sys
 
 from census_pipeline import download_acs
@@ -46,21 +48,83 @@ sys.modules["drift"] = drift
 # Herkunftsangabe, die Adresse eines Laders. Ein Lauf der Suite in einer
 # Umgebung, die sie gesetzt hat, pruefte andere Zusagen als einer auf dem
 # Entwicklungsrechner. Wer sie braucht, setzt sie im Test selbst.
+# Seit dem 14.11.2026 (FR-46) auch die drei Serverwerte der Startseite und
+# der Abhilfetexte: Der Stapel setzt sie, ein Testlauf nicht.
 import pytest  # noqa: E402
 import storage  # noqa: E402
 
 
+_UMGEBUNG_DES_BETRIEBS = (
+    "STORAGE_BACKEND", "LOCAL_DATA_ROOT", "S3_ENDPOINT", "S3_ACCESS_KEY",
+    "S3_SECRET_KEY", "S3_BUCKET", "S3_USE_SSL", "HYBRID_READ_PRIORITY",
+    "HYBRID_PUBLISH_AFTER_WRITE", "PROJECT_ROOT", "GIT_COMMIT",
+    "ELASTICSEARCH_URL", "CLICKHOUSE_URL", "KIBANA_URL",
+    "DASHBOARD_URL", "SERVING_BETRIEB", "EINSTIEG_ADRESSMUSTER",
+    "STAPEL_COMPOSE", "STAPEL_DATENLAUF")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _keine_env_fuer_die_ablage():
+    """Fuer die ganze Sitzung: ``storage.config.load`` findet keine ``.env``.
+
+    ``_frische_ablage`` unten gilt je Test. Eine Fixture mit ``scope="module"``
+    entsteht aber vor ihr, und nach dem vorigen Test steht die Ablage auf
+    ``None``; ``get_storage()`` las dann die ``.env`` des Entwicklers. Am
+    26.11.2026 baute ``test_dashboard_taten.bestand`` so aus dem echten Eimer
+    (``tests/test_keine_env_vor_dem_test.py``). Eine Sitzungsfixture entsteht
+    vor jeder Modulfixture. Kein Test braucht die ``.env`` der Ablage; wer
+    eine pruefen will, ruft ``load(env, dotenv=False)``.
+    """
+    from storage import config as ablage_config
+    with pytest.MonkeyPatch.context() as mp:
+        for name in _UMGEBUNG_DES_BETRIEBS:
+            mp.delenv(name, raising=False)
+        mp.setattr(ablage_config, "find_dotenv", lambda *a, **k: "")
+        yield
+
+
 @pytest.fixture(autouse=True)
 def _frische_ablage(monkeypatch):
-    for name in ("STORAGE_BACKEND", "LOCAL_DATA_ROOT", "S3_ENDPOINT", "S3_ACCESS_KEY",
-                 "S3_SECRET_KEY", "S3_BUCKET", "S3_USE_SSL", "HYBRID_READ_PRIORITY",
-                 "HYBRID_PUBLISH_AFTER_WRITE", "PROJECT_ROOT", "GIT_COMMIT",
-                 "ELASTICSEARCH_URL", "CLICKHOUSE_URL", "KIBANA_URL",
-                 "DASHBOARD_URL", "SERVING_BETRIEB"):
+    for name in _UMGEBUNG_DES_BETRIEBS:
         monkeypatch.delenv(name, raising=False)
     storage.set_storage(storage.Storage(storage.Config()))
     yield
     storage.set_storage(None)
+
+
+#: Das ``data/`` des Arbeitsbaums - der Bestand, den die Notebooks lesen.
+ECHTE_DATEN = (Path(__file__).resolve().parents[1] / "data").resolve()
+
+
+@pytest.fixture(autouse=True)
+def _echte_daten_unberuehrt(monkeypatch):
+    """Kein Test schreibt unter das echte ``data/`` - auch nicht aus Versehen.
+
+    Jede Stufe nimmt fuer ihren ganzen Lauf ``schreibzugriff`` und entwertet
+    dabei ``data/.analyse/stand.json``, den Nachweis, ohne den Notebook 34 und
+    37 nicht starten. Ruft ein Test ``main()`` ohne ``--data-root`` auf, ist das
+    Ziel ``data`` relativ zum Arbeitsverzeichnis, also der echte Bestand. Am
+    12.11.2026 taten das fuenf Tests; jeder Lauf der Suite liess die Notebooks
+    danach mit "Kein bestaetigter Aufbau" stehen, und ein Test, der waehrend
+    einer Analysesitzung lief, haette an deren Sperre gescheitert.
+
+    Statt jeden Aufruf einzeln zu suchen, faellt hier jeder Schreibzugriff auf
+    den echten Bestand mit einem Fehler durch, der den Test nennt.
+    """
+    from storage import analysesitzung
+
+    original = analysesitzung.schreibzugriff
+
+    @contextmanager
+    def bewacht(data_root, **kwargs):
+        if Path(data_root).resolve() == ECHTE_DATEN:
+            raise AssertionError(
+                f"Schreibzugriff auf das echte {ECHTE_DATEN} - dem Aufruf "
+                "--data-root mitgeben oder in ein tmp-Verzeichnis wechseln")
+        with original(data_root, **kwargs) as root:
+            yield root
+
+    monkeypatch.setattr(analysesitzung, "schreibzugriff", bewacht)
 sys.modules["build_place"] = build_place
 sys.modules["build_tract"] = build_tract
 sys.modules["build_weather_day"] = build_weather_day

@@ -1,4 +1,4 @@
-# Leistungsnachweis 1: Konzept und Umsetzung
+# Leistungsnachweis 2: Konzept und Umsetzung
 
 **Vergleichbare Kriminalitätsdaten für Chicago und Detroit**
 
@@ -6,7 +6,7 @@ CAS Data Engineering · Gruppe 3 · Christian Antonucci, Artan Musollaj
 
 ---
 
-Dieses Dokument ist die **Arbeitsfassung** zu Leistungsnachweis 1: Es beschreibt,
+Dieses Dokument ist die **Arbeitsfassung** zu Leistungsnachweis 2: Es beschreibt,
 was gebaut wurde und warum es so gebaut wurde. Die Abgabe selbst entsteht als
 eigenes Word-Dokument und wird aus diesem hier geschrieben.
 
@@ -24,11 +24,12 @@ beruht, steht der Verweis auf das Notebook, das sie erzeugt — die Zahlen sind
 nachrechenbar, nicht abgeschrieben.
 
 > **Was Entwurf ist und was gebaut.** Kapitel 3 (Forschungsfragen und
-> Hypothesen) ist Entwurf, weil der Entscheid offen ist. Kapitel 5.2 (Serving)
-> ist zur Hälfte gebaut: Die Auswertungsumgebung steht, die Gold-Tabellen
-> darunter sind entworfen — LN1 verlangt für den Lebenszyklus ausdrücklich den
-> Entwurf. Alle übrigen Kapitel beschreiben Umgesetztes, und wo etwas fehlt,
-> steht es dort.
+> Hypothesen) ist der mit LN1 abgegebene Wortlaut, F1 bis F6 und H1 bis H6, und
+> alle sechs Hypothesen sind in Notebook 36 gemessen. Kapitel 5.2 (Serving)
+> nennt den Entwurf, weil LN1 ihn für den Lebenszyklus ausdrücklich verlangt,
+> und daneben, was davon gebaut ist: Gold als Sternschema, die
+> Auswertungsdatenbank und das Dashboard. Alle Kapitel beschreiben
+> Umgesetztes, und wo etwas fehlt, steht es dort.
 
 ---
 
@@ -41,29 +42,30 @@ Datengrundlage, die einen belastbaren Vergleich zwischen Chicago und Detroit
 NIBRS-Standard, eine gemeinsame Raumeinheit über Census Tracts, Einwohnerzahlen
 als Nenner für Raten — und Wetter als dritte Zeitachse.
 
-Umgesetzt sind **fünf Quellen in vier Ingestion-Pipelines**, eine
-Speicherarchitektur aus unveränderlichen Läufen, und **alle vier
+Umgesetzt sind **sechs Quellen in fünf Ingestion-Pipelines**, eine
+Speicherarchitektur aus unveränderlichen Läufen, und **sieben
 Silver-Tabellen** — seit `crime_offense` sprechen beide Städte dieselbe
 Deliktsprache, liegen auf derselben Zeitachse und tragen dieselbe
-Raumeinheit. Darauf steht das **Gold-Sternschema** aus einer Faktentabelle
-und fünf Dimensionen (5.2), darauf die Auswertungsumgebung. Die Schichten
+Raumeinheit. Darauf steht das **Gold-Sternschema** aus einer Faktentabelle,
+acht Dimensionen und zwei Brücken (5.2), darauf die Auswertungsumgebung und
+das Dashboard. Die Schichten
 liegen wahlweise lokal oder auf einem gemeinsamen Objektspeicher (7.4).
 Jede Quelle weist ihre Vollständigkeit nach, statt sie zu behaupten.
-**2'881 automatisierte Tests** laufen ohne Netzzugriff und ohne Schlüssel.
+**3'544 automatisierte Tests** laufen ohne Netzzugriff und ohne Schlüssel.
 
 Gebaut sind die **sechs Jahrgänge 2021 bis 2026**; 2026 ist ein Teiljahr und
 als solches gekennzeichnet (`dim_date.year_is_complete`).
 
 | | |
 | --- | --- |
-| Chicago, Jahrgänge 2021–2026 | 1'383'649 Delikte |
-| Detroit, Jahrgänge 2021–2026 | 491'725 Anklagen zu 468'297 Taten |
+| Chicago, Jahrgänge 2021–2026 | 1'417'838 Delikte |
+| Detroit, Jahrgänge 2021–2026 | 504'440 Anklagen zu 482'293 Taten |
 | Census Tracts, Illinois und Michigan | 6'282 je ACS-Vintage, vier Vintages — mit Geometrie und Sozialdaten |
-| Wetter, zwei Stationen | 55'497 Stadt-Tage, zurück bis 1942 |
+| Wetter, zwei Stationen | 55'587 Stadt-Tage, zurück bis 1942 |
 
 **Raten gelten je Jahr, nicht je Bestand.** Wo unten eine Rate je 1'000
 Einwohner steht, nennt sie ihren Jahrgang — 2024, den jüngsten vollständigen.
-Sechs Jahre Zähler auf einem Jahr Nenner ergäben 500,7 für Chicago, und diese
+Sechs Jahre Zähler auf einem Jahr Nenner ergäben 511,7 für Chicago, und diese
 Zahl sieht aus wie eine Zahl.
 
 **Drei Befunde sind dabei entstanden, die keine Fehlermeldung erzeugt hätten.**
@@ -178,11 +180,23 @@ dieser Tabelle: Der Vollständigkeitsnachweis aus H1 betrifft die
 Attributzustand der externen Quelle. Ein Datensatz kann sich während des
 Downloads ändern.
 
-**H2 und H4 sprechen die Begriffe des Moduls präzise an.** Ein *Duplikat* ist in
-jedem Attribut identisch, eine *Dublette* meint dieselbe Sache mit abweichenden
-Werten; H2 zeigt an Chicagos absichtlich überlappenden Delta-Läufen, dass der
-Überlapp nur Duplikate erzeugt (8.3). H4 trennt *Code* von *Bezeichnung* — und
-zeigt, dass eine hohe Zuordnungsquote kein Beleg richtiger Zuordnung ist (8.5).
+**Seit der Abgabe belegt: H5 in einer zweiten Umgebung.** Die Tabelle zitiert
+LN1 und sagt deshalb „zweite Umgebung offen". Am 15.11.2026 lief die Strecke
+in Google Cloud: Sie hatte dasselbe Abbild und dasselbe Bronze wie `srv01`,
+nur eine andere `.env`. 12 von 13 Gold- und Serving-Tabellen waren byteweise
+gleich. Die dreizehnte, `source_movement`, blieb leer, weil je Quelle nur ein
+Lauf kopiert war und sie zwei braucht. Das ist ein Neuaufbau aus Bronze, nicht
+aus den Quellen
+([`storage-architektur.md`, Abschnitt 17](storage-architektur.md#17--dieselbe-strecke-in-google-cloud)).
+
+**H2 und H4 sprechen die Begriffe des Moduls präzise an.** H2 misst
+*Idempotenz*: Dieselben Bronze-Läufe, zweimal verarbeitet, ergeben denselben
+sortierten Inhalt. Der Unterschied zwischen *Duplikat* (in jedem Attribut
+identisch) und *Dublette* (dieselbe Sache mit abweichenden Werten) steht
+daneben als Befund: Chicagos absichtlich überlappende Delta-Läufe erzeugen nur
+Duplikate (8.3). Das ist nicht H2. So hiess H2 in einem Entwurf vor der
+Abgabe. H4 trennt *Code* von *Bezeichnung* — und zeigt, dass eine hohe
+Zuordnungsquote kein Beleg richtiger Zuordnung ist (8.5).
 Beide Unterscheidungen lassen sich an den vorliegenden Daten mit einem belegten
 Ergebnis zeigen statt mit einer Definition.
 
@@ -203,8 +217,9 @@ ISO 8000, jede Dimension mit einer Kennzahl, die sich berechnen lässt:
 
 Der Verwendungszweck legt die Schwellen fest, und genau deshalb hängen die
 beiden Ebenen aus 3.1 zusammen. Für eine Rate je Tract ist eine
-Verortungsquote von 99,3 % gut — aber nur, solange die fehlenden 0,7 % nicht
-systematisch verzerrt sind. Detroit liegt mit 99,7 % besser, doch die Quote
+Verortungsquote von 99,2 % gut — so hoch liegt Chicago im Ratenjahrgang 2024 —,
+aber nur, solange die fehlenden 0,8 % nicht systematisch verzerrt sind.
+Detroit liegt mit 99,7 % besser, doch die Quote
 allein sagt nicht, ob sie trägt: Welche Fälle fehlen, hängt am Delikttyp, und
 das ist gemessen. Der Befund steht in 8.7.
 
@@ -237,9 +252,9 @@ ist der Grund für den Wächter aus dem Kasten oben.
 **Ordnungsrahmen** ist der Data-Engineering-Lebenszyklus nach Reis und Housley,
 umgesetzt als Schichtenarchitektur `raw → bronze → silver → gold`.
 
-**Datenbeschaffung.** Fünf öffentliche Quellen, jede mit eigenem
+**Datenbeschaffung.** Sechs öffentliche Quellen, jede mit eigenem
 Vollständigkeitsnachweis statt blossem Vertrauen. Kein Scraping, keine
-Browser-Automatisierung: alle fünf sind über dokumentierte Schnittstellen
+Browser-Automatisierung: alle sechs sind über dokumentierte Schnittstellen
 erreichbar.
 
 **Harmonisierung.** NIBRS als gemeinsame Deliktsprache, Census Tract als
@@ -263,11 +278,11 @@ Entwurf und was die Messung daran geändert hat, steht in 5.2.
 
 | Phase | Umsetzung | Beleg |
 | --- | --- | --- |
-| **Generation** | Fünf Quellsysteme: Socrata-API (Chicago), ArcGIS REST (Detroit), HTTPS-Dateien (TIGER, NOAA), JSON-API (ACS). Je Quelle dokumentiert: Änderungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 21, 22 |
-| **Ingestion** | Vier Pipelines, alle Batch. Chicago inkrementell über ein Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` |
+| **Generation** | Sechs Quellen aus fünf Quellsystemen: Socrata-API (Chicago, dazu seine Districts und Community Areas), ArcGIS REST (Detroit, dazu seine Precincts und Neighborhoods), HTTPS-Dateien (TIGER, NOAA), JSON-API (ACS). Je Quelle dokumentiert: Änderungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 11, 21, 22 |
+| **Ingestion** | Fünf Pipelines, alle Batch. Chicago inkrementell über ein Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf; die Polizeibezirke und Stadtteile als Schnappschuss je Lauf | `src/crime/*_pipeline/` |
 | **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest je Schicht. Wo sie liegen — lokal, auf SeaweedFS oder beides — ist wählbar (7.4) | Kapitel 7 |
-| **Transformation** | Bronze bewusst ohne Deutung. Silver deutet: Typen, Einheiten, Fehlwerte, Schlüssel. Alle vier Tabellen gebaut. **Gold** setzt darauf auf, ist aber in 5.2 beschrieben — es entstand aus der Serving-Entscheidung | Kapitel 8, Gold in 5.2 |
-| **Serving** | Option A (Analytik) entschieden, Gold als Sternschema gebaut, Auswertungsdatenbank mit elf Sichten | 5.2 |
+| **Transformation** | Bronze bewusst ohne Deutung. Silver deutet: Typen, Einheiten, Fehlwerte, Schlüssel. Sieben Tabellen gebaut (8.2). **Gold** setzt darauf auf, ist aber in 5.2 beschrieben — es entstand aus der Serving-Entscheidung | Kapitel 8, Gold in 5.2 |
+| **Serving** | Option A (Analytik) entschieden, Gold als Sternschema gebaut, Auswertungsdatenbank mit 26 Sichten, Dashboard mit acht Brettern | 5.2 |
 
 ### 5.2 Serving: der Entwurf, und was die Messung daran geändert hat
 
@@ -293,7 +308,8 @@ beide fassen 59 Delikte zu 25 Familien zusammen. *„Nur Shoplifting am
 Auswertungsplattform da ist.
 
 **Gold behält deshalb die Granularität** und wird statt dessen abfragbar gemacht: ein
-Sternschema mit einer Faktentabelle je Delikt und vier kleinen Dimensionen.
+Sternschema mit einer Faktentabelle je Delikt und kleinen Dimensionen — heute
+acht, dazu zwei Brücken (Tabelle unten).
 Aufgesetzt wird auf `silver/crime_offense` — was dort gedeutet und
 zusammengeführt wurde, steht in [8.2](#82-was-silver-deutet); Gold ordnet es
 an, deutet aber nichts Neues.
@@ -317,13 +333,13 @@ FROM crime_offense c JOIN tract t ON c.tract_geoid = t.geoid
 GROUP BY 1 ORDER BY rate DESC;
 ```
 
-Seit Gold gebaut ist, führt sie **elf Sichten**: die vier Silver-Tabellen, die
-fünf des Sternschemas und zwei Hilfssichten — `tabellen` und `herkunft` sagen,
-was man vor sich hat, ohne dass man das Repository kennen muss. Für die neun
-Datensichten war nichts zu tun: `discover()` sucht in beiden Schichten und
+Heute führt sie **26 Sichten**: die sieben Silver-Tabellen, die elf des
+Sternschemas, die sechs Serving-Tabellen und zwei Hilfssichten — `tabellen`
+und `herkunft` sagen, was man vor sich hat, ohne dass man das Repository
+kennen muss. Für neue Datensichten war nie etwas zu tun: `discover()` sucht in beiden Schichten und
 nimmt auf, was da ist.
 
-Daneben liegt `tracts.geojson`: die **1'055 Tract-Umrisse** der beiden Städte
+Daneben liegt `tracts.geojson`: die **1'066 Tract-Umrisse** der beiden Städte
 für eine Karte, weil `dim_tract` nur Zentroide führt und die Polygone in
 `silver/tract` als WKB liegen — ein Format, das kein Browser liest.
 
@@ -366,23 +382,30 @@ Messung und Methodik: [`notebooks/33_serving_evaluation.ipynb`](../notebooks/33_
 
 | Konsument | Zugriff | Granularität |
 | --- | --- | --- |
-| Dashboard (primär) | über Sichten in einer DuckDB-Datei | aggregiert |
+| Dashboard (primär), `serving.dashboard`, seit dem 1.11.2026 | liest das aktive Release (`releases/AKTUELL.json`) direkt mit DuckDB, ohne die Sichten | aggregiert |
 | Ad-hoc-Auswertung im Team | SQL auf dieselben Sichten | aggregiert, bei Bedarf Silver |
 
-Kein externer Dienst, keine API, keine Nutzerverwaltung. Das Serving endet an
-der Auswertungsumgebung.
+Keine Nutzerverwaltung und keine Schnittstelle nach aussen ausser dem
+Dashboard; das Serving endet an Dashboard und Auswertungsumgebung. Kibana auf
+Elasticsearch war bis zum 6.11.2026 der zweite Konsument auf `srv01`; seither
+läuft es nur noch für Vorführungen in Google Cloud
+([`vorfuehrung.md`](intern/vorfuehrung.md)).
 
-#### Was geliefert wird: sieben Gold-Tabellen
+#### Was geliefert wird: elf Gold-Tabellen
 
 | Tabelle | Granularität | Zeilen |
 | --- | --- | ---: |
-| `fact_offense` | **eine Tat** | 1'851'946 |
+| `fact_offense` | **eine Tat** | 1'900'131 |
 | `dim_tract` | ein Census Tract, mit **Stadtzuordnung** | 6'282 |
-| `dim_tract_geo` | der **Umriss** eines Census Tract der beiden Studienstädte, als WKT | 1'055 |
+| `dim_tract_geo` | der **Umriss** eines Census Tract der beiden Studienstädte, als WKT | 1'066 |
 | `dim_tract_acs` | ein Census Tract in **einem ACS-Vintage**, mit Einwohnerzahl, Medianeinkommen und Armutsquote | 25'128 |
 | `dim_offense` | ein NIBRS-Delikt | 85 |
-| `dim_date` | ein Kalendertag | 2'103 |
-| `dim_city_day` | Stadt und Tag, mit dem Wetter | 4'196 |
+| `dim_date` | ein Kalendertag | 2'153 |
+| `dim_city_day` | Stadt und Tag, mit dem Wetter | 4'286 |
+| `dim_police_area` | ein **Polizeibezirk** (Chicago District, Detroit Precinct), mit Umriss und `within_city` | 34 |
+| `bridge_tract_police_area` | ein Stadt-Tract in einem Polizeibezirk, mit Flächenanteil — der Weg zum Nenner je Bezirk | 1'504 |
+| `dim_community_area` | ein **Stadtteil** (Chicago Community Area, Detroit Master Plan Neighborhood), mit Umriss | 131 |
+| `bridge_tract_community_area` | ein Stadt-Tract in einem Stadtteil, mit Flächenanteil | 2'310 |
 
 **Warum die Einwohnerzahl eine eigene Tabelle hat (Vertrag 6).** Bis zum
 3.10.2026 stand sie in `dim_tract`, und das ging, solange ein Jahrgang gebaut
@@ -466,8 +489,8 @@ jede Zeile nennt ihr Dokument.
 > `config/crime_category_mapping.csv`, die Chicagos `fbi_code` (SRS) und
 > Detroits `offense_category` auf 22 gemeinsame Kategorien abbildete. Sie ist
 > entfernt: Seit beide Städte über NIBRS laufen, wäre sie eine zweite,
-> handgepflegte Übersetzung neben der belegten — und die 20 Familien leisten
-> dasselbe, ohne gepflegt werden zu müssen.
+> handgepflegte Übersetzung neben der belegten — und die amtlichen
+> NIBRS-Kategorien leisten dasselbe, ohne gepflegt werden zu müssen.
 
 #### Die Granularität: Detroits Zeilen sind Anklagen, Chicagos sind Delikte
 
@@ -493,20 +516,20 @@ der Rest der Zeile beschreibt die einzelne Anklage.
 eine Zeile mit `counts`. Gewählt wird die Zeile, deren Anklage die Tat selbst
 ist; sie trägt damit schon den richtigen MICR-Code, und es braucht keine
 Zuordnung über Text. Das trifft auf **99,99 %** der Gruppen zu. Für die
-übrigen 55 entscheidet die **Hierarchie des MICR-Handbuchs**, in der 1 Mord ist
+übrigen 54 entscheidet die **Hierarchie des MICR-Handbuchs**, in der 1 Mord ist
 und 16 Sachbeschädigung: Es gilt die schwerste Anklage.
 
 | | Detroit, 2021–2026 |
 | --- | ---: |
-| Zeilen in Silver (eine Anklage) | 491'725 |
-| davon zählend (**eine Tat**) | **468'297** |
-| Unterschied | −23'428 = **−4,8 %** |
+| Zeilen in Silver (eine Anklage) | 504'440 |
+| davon zählend (**eine Tat**) | **482'293** |
+| Unterschied | −22'147 = **−4,4 %** |
 
 Gold nimmt nur die zählenden. Wer die Anklagen braucht — *„wie oft wurde
 zusätzlich Sachbeschädigung angezeigt"* — findet sie vollständig in
 `silver/crime_offense`, mit `counts` und `counts_reason` je Zeile.
 
-**Ein zweites Granularität seit 13.9.2026: der Fall.** Das Tatebene gleicht Detroits
+**Eine zweite Granularität seit 13.9.2026: der Fall.** Die Tatebene gleicht Detroits
 Anklagen an — aber nicht die Zählweise der beiden Städte. Chicago führt je
 Vorfall **ein** Delikt (die einzigen Mehrfachzeilen sind Mordopfer, ein
 Datensatz je Opfer), Detroit führt je Vorfall **jedes** Delikt. `counts_case`
@@ -516,14 +539,31 @@ auf NIBRS übersetzt), bei gleichem Delikt die früheste Zeile.
 
 | | Chicago | Detroit |
 | --- | ---: | ---: |
-| Taten (`counts`), 2021–2026 | 1'383'649 | 468'297 |
-| Fälle (`counts_case`), 2021–2026 | 1'383'471 | 443'443 |
-| Taten je Fall | 1,000 | **1,056** |
-| Rate je 1'000, Tatebene, **2024** | 94,5 | 133,1 |
-| Rate je 1'000, Fallebene, **2024** | 94,5 | **124,6** |
+| Taten (`counts`), 2021–2026 | 1'417'838 | 482'293 |
+| Fälle (`counts_case`), 2021–2026 | 1'417'658 | 454'715 |
+| Taten je Fall | 1,000 | **1,061** |
+| Rate je 1'000, **Fallebene**, **2024** | **94,4** | **124,7** |
+| Rate je 1'000, Tatebene, 2024 | 94,5 | 134,2 |
 
-Beide Masse liegen in Gold; die Tatzahlen ändern sich nicht. Welche Zählweise
-die Aussage trägt, ist ein Entscheid — Chicagos Zählweise ist das Fallebene.
+Beide Masse liegen in Gold; die Tatzahlen ändern sich nicht. **Die Aussage
+trägt die Fallebene** (E-2, beschlossen am 5.10.2026, in den Dokumenten seit
+dem 12.11.2026): Die Hierarchieregel des UCR Handbook bringt beide Städte auf
+einen amtlichen Massstab — dieselbe Logik wie die drei Übersetzungen des
+Projekts, Delikte auf NIBRS, Koordinaten auf Tracts, Fallzahlen auf Raten.
+
+Nativ ist die Fallebene für **keine** der beiden Quellen; sie entsteht erst
+durch `counts_case`. In Chicago fallen beide Masse fast zusammen, weil die
+Quelle je Vorfall in aller Regel eine Zeile führt (Mordopfer ausgenommen), in
+Detroit nicht, weil sie jedes Delikt führt. Zwei Auflagen gehören zum
+Entscheid:
+
+- **Die Regel wirkt ungleich.** Sie verwirft in Detroit 5,7 % der Taten, in
+  Chicago 0,013 %, über alle sechs Jahrgänge (`zaehlperspektiven.md`). Das ist
+  eine Grenze des Vergleichs (Kapitel 9).
+- **Anteile je Deliktart rechnen auf der Tatebene.** Nur dort addieren sich
+  die Kategorien: Auf Fallebene fiele das Nebendelikt eines Vorfalls weg, und
+  wer nach Familien summiert, erhielte eine andere Verteilung als die
+  erfasste.
 
 **Gefunden hat das Artan**, an einer Zeile mit `offense_category` LARCENY und
 `offense_description` *CSC 3rd Degree*. Sie gehört zu einem Vorfall mit zwei
@@ -550,9 +590,16 @@ denkbar:
 | Regel | Chicago | Detroit |
 | --- | ---: | ---: |
 | alle berührten Tracts | 3'080'550 | 884'691 |
-| Flächengewichtung | 2'651'921 | 638'570 |
-| **Mehrheitsregel** | **2'661'953** | **638'635** |
+| Flächengewichtung | 2'714'927 | 638'570 |
+| **Mehrheitsregel** | **2'713'800** | **638'635** |
 | Zensus 2020 | 2'746'388 | 639'111 |
+
+> **Neu gemessen am 26.11.2026** (Notebook 34). Seit Gold-Vertrag 10 rechnet
+> die Regel über die **Landfläche**; elf Chicagoer Seeufer-Tracts zählen damit
+> zur Stadt, und Chicago hat 793 statt 782 Tracts. Vorher standen
+> Flächengewichtung und Mehrheitsregel bei 2'651'921 und 2'661'953. Der Absatz
+> darunter ist noch der alte; eine Neufassung steht in
+> [`textvorschlag-mehrheitsregel.md`](intern/textvorschlag-mehrheitsregel.md).
 
 Gewählt ist die **Mehrheitsregel**: Ein Tract gehört zu der Stadt, die mehr als
 die Hälfte seiner Fläche bedeckt. Sie gibt jedem Tract genau eine Stadt — die
@@ -563,8 +610,8 @@ einer ACS-Schätzung und einer Zählung, nicht ein Fehler der Regel.
 `dim_tract.city_area_share` hält den Anteil in jeder Zeile fest, damit sich
 beides nachrechnen lässt.
 
-**Der Preis ist gemessen:** 2,9 % der Delikte liegen in Tracts, die keiner der
-beiden Städte zugeordnet sind — Fälle knapp jenseits der Stadtgrenze. Zähler
+**Der Preis ist gemessen:** 0,4 % der Delikte liegen in Tracts, die keiner der
+beiden Städte zugeordnet sind (bis zu Gold-Vertrag 10 waren es 1,8 %) — Fälle knapp jenseits der Stadtgrenze. Zähler
 und Nenner folgen derselben Grenze, der Rand verzerrt also beide Seiten
 gleichsinnig.
 
@@ -572,12 +619,14 @@ Damit ist die Frage beantwortet, die das Projekt von Anfang an stellen wollte �
 **für den Jahrgang 2024**, mit der ACS-Schätzung desselben Jahrgangs als
 Nenner:
 
-| | Delikte | Einwohner | je 1'000 |
+| | Fälle | Einwohner | je 1'000 |
 | --- | ---: | ---: | ---: |
-| Chicago | 251'513 | 2'661'953 | **94,5** |
-| Detroit | 84'987 | 638'635 | **133,1** |
+| Chicago | 256'317 | 2'713'800 | **94,4** |
+| Detroit | 79'619 | 638'635 | **124,7** |
 
-Absolute Fallzahlen hätten das Gegenteil nahegelegt.
+Auf der Tatebene, die jedes Delikt eines Vorfalls zählt, stehen dieselben
+Städte bei 94,5 und 134,2. Absolute Fallzahlen hätten das Gegenteil
+nahegelegt.
 
 **Ein Ort heisst nicht eindeutig.** Illinois führt neben *Chicago city* auch ein
 *Detroit village* von 0,65 Quadratkilometern. Die Auswahl der beiden Städte
@@ -589,7 +638,7 @@ fest, dass es diese Falle wirklich gibt.
 | Kennzahl | Herkunft |
 | --- | --- |
 | Fallzahl, absolut | `crime_offense` |
-| Einwohner | `tract`, ACS — über 2024 konstant |
+| Einwohner | `dim_tract_acs`, ACS — je Jahrgang das eigene Vintage, 2025 und 2026 das von 2024 (`population_vintage`) |
 | Rate je 1'000 Einwohner | abgeleitet |
 | **Abdeckungsquote je Zelle** | Anteil verorteter Fälle, aus denen die Zelle entstand |
 
@@ -601,8 +650,8 @@ aus einer belegten Zahl eine irreführende:
 - **Raten ohne Nenner.** 109 Tracts haben null Einwohner — Wasserflächen,
   Flughäfen, Industrie. Dort ist die Rate `NULL` und nicht null; die absolute
   Zahl bleibt sichtbar.
-- **Nicht verortete Fälle** fehlen in jeder Tract-Zelle: 0,70 % in Chicago,
-  0,29 % in Detroit. Deshalb steht die Abdeckungsquote **neben jeder Rate** und
+- **Nicht verortete Fälle** fehlen in jeder Tract-Zelle: im Ratenjahrgang
+  2024 0,83 % in Chicago, 0,28 % in Detroit. Deshalb steht die Abdeckungsquote **neben jeder Rate** und
   nicht in einer Fussnote.
 - **Die Lücken sind ungleich zwischen den Städten** — beim Einkommen 9,6 % der
   Tracts in Wayne County gegen 1,7 % in Cook County. Ein Vergleich ohne
@@ -622,9 +671,10 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 - **Keine vorberechneten Aggregate in Gold.** Gold behält die Granularität — eine
   Zeile je Tat, mit Zeitpunkt und Koordinate. Aggregiert wird in der Abfrage,
   nicht im Speicher; die Messung dazu steht weiter oben in diesem Kapitel.
-  Seit dem 17.9.2026 liegen in **Serving** vier aus Gold abgeleitete
-  Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`,
-  `partition_quality`) — nicht, weil sie schneller wären, sondern als Teil
+  Seit dem 17.9.2026 liegen in **Serving** aus Gold abgeleitete
+  Vergleichstabellen, heute fünf (`comparison_day`, `comparison_week`,
+  `comparison_month`, `partition_quality`, `rate_tract`), dazu
+  `source_movement` aus Silver — nicht, weil sie schneller wären, sondern als Teil
   des Veröffentlichungsstands, den ein Dashboard liest, und als gebauter
   Gegenentwurf zum Stern. Sie sind jederzeit aus Gold neu erzeugbar und
   summieren sich nachweislich auf die Faktentabelle; die Quelle der Wahrheit
@@ -648,13 +698,13 @@ Dashboard weist den Stand je Quelle aus, statt einen gemeinsamen zu behaupten.
 | Unterströmung | Umsetzung | Lücke |
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie in einem Manifest oder einer abgelegten URL; drei Tests prüfen das. `.env` und `data/` aus der Versionierung ausgeschlossen, die Historie enthält keinen committeten Schlüssel. `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
-| **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id` — durchgehend bis Gold: jede abgeleitete Tabelle trägt einen `input_fingerprint` über ihre Eingaben, nennt Vorgänger mit Bauzeitpunkt und Abdruck statt nur mit Pfad, Referenzdateien mit SHA-256. Jedes Manifest nennt ausserdem `contract_version` (was geladen oder gedeutet wird) und `code_version` (welcher Commit, und ob der Arbeitsbaum sauber war), gegen ein Register in `AENDERUNGEN.md` getestet. Unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog mit 133 Spalten, erzeugt aus den Manifesten und getestet. Gesamtmanifest je Lauf mit allen Eingabe-Läufen und Fingerabdruck. Verantwortliche je Datensatz in Absprache 7.3, gegen die Stufenliste getestet. Aufbewahrungsregel mit `orchestration.aufraeumen`: **gepinnt** bleibt (Register `config/referenzstand.csv`, versioniert), dazu der jüngste Lauf und der davor, alles von Silver Genannte und die Basis jedes Deltas; gelöscht wird nur auf Wunsch, Raw und Bronze zusammen. `--pinnen` leitet den Referenzstand aus den Gold-Manifesten ab, statt ihn tippen zu lassen. Datenablage wahlweise lokal, SeaweedFS (S3) oder hybrid (`storage`): lesen lokal zuerst, S3 als Rückfall; schreiben lokal, prüfen, gezielt publizieren, `manifest.json` zuletzt. Ein veralteter lokaler Stand einer abgeleiteten Tabelle wird beim Lesen gemeldet und beim Publizieren abgelehnt — verglichen werden `built_at_utc` und die Bronze-Läufe aus `derived_from` | das Aufräumen ist ein Handgriff, kein Automatismus; ein Stand wird gepinnt, wenn jemand daran denkt; Detroits Lauf vom 11.9. bleibt bewusst ohne Raw-Gegenstück — er ist der vorherige Schnappschuss, der die Instabilität der Quelle belegt; die Ablage lädt nichts automatisch herunter und synchronisiert nicht zurück — bewusst, Version 1 |
-| **DataOps** | 2'881 Tests ohne Netz und Schlüssel, auf jedem Pull Request in GitHub Actions — Linux und Windows, Python 3.11 und 3.13; `ruff` davor. Schreiben über `.part` und atomares Umbenennen. Publish-Gate: Gold entsteht nur, wenn die Abdeckung Schwellen hält | die 111 datengebundenen Wächter laufen auf Pull Requests nicht — dafür gibt es seit dem 13.9. den wöchentlichen Datenlauf (`datenlauf.yml`), der alle Quellen lädt, die Strecke baut und dann die ganze Suite fährt; er braucht `CENSUS_API_KEY` als Repository-Secret und ist bis zum ersten grünen Lauf eine Einrichtung, kein Nachweis. Aktualität wird im Datenlauf gegen eine Schwelle von acht Tagen geprüft, **nach der Ingestion und vor dem Ableiten** — eine Quelle, die nichts Neues liefert oder ganz fehlt, lässt ihn scheitern, bevor Gold darauf entsteht; keine Alarmierung ausser dem roten Lauf selbst |
-| **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel. `mapping_status` und `geo_status` machen die Vergleichbarkeit je Zeile abfragbar. Ein Manifest-Leser (`manifeste`) für alle Schichten statt elf. Zwei Architekturbilder, **aus dem Code erzeugt** — Abhängigkeiten und Datenfluss, mit einem Test gegen Zyklen ([`architektur.md`](architektur.md)) | Vintage 2024 hart verdrahtet — für mehrere Jahrgänge muss sie je Jahr mitlaufen |
-| **Orchestration** | `orchestration.run_all`: 16 Stufen in Reihenfolge, Abbruch beim ersten Fehler, Gesamtmanifest mit allen Bronze-Läufen und Fingerabdruck über die Eingaben | der geplante Lauf ist wöchentlich (`datenlauf.yml`, montags), die Quellen ändern sich täglich; ausserhalb davon startet er, wenn jemand daran denkt; keine Wiederaufnahme, bewusst |
-| **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen. `ruff` mit Pyflakes und `raise … from`, Lockfile, CI-Matrix über zwei Betriebssysteme | die sechs Notebooks, die Zahlen belegen, laufen seit dem 13.9. im wöchentlichen Datenlauf — nicht auf Pull Requests, weil sie `data/` brauchen. Notebook 32 war bis dahin einen Tag lang still kaputt. Die sechs ladenden Notebooks laufen bewusst nirgends automatisch |
+| **Data Management** | Manifest je Lauf und Schicht, Herkunft über `derived_from` und `run_id` — durchgehend bis Gold: jede abgeleitete Tabelle trägt einen `input_fingerprint` über ihre Eingaben, nennt Vorgänger mit Bauzeitpunkt und Abdruck statt nur mit Pfad, Referenzdateien mit SHA-256. Jedes Manifest nennt ausserdem `contract_version` (was geladen oder gedeutet wird) und `code_version` (welcher Commit, und ob der Arbeitsbaum sauber war), gegen ein Register in `AENDERUNGEN.md` getestet. Unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog mit 280 Spalten in 24 Tabellen, erzeugt aus den Manifesten und getestet. Gesamtmanifest je Lauf mit allen Eingabe-Läufen und Fingerabdruck. Verantwortliche je Datensatz in Absprache 7.3, gegen die Stufenliste getestet. Aufbewahrungsregel mit `orchestration.aufraeumen`: **gepinnt** bleibt (Register `config/referenzstand.csv`, versioniert), dazu der jüngste Lauf und der davor, alles von Silver Genannte und die Basis jedes Deltas; gelöscht wird nur auf Wunsch, Raw und Bronze zusammen. `--pinnen` leitet den Referenzstand aus den Gold-Manifesten ab, statt ihn tippen zu lassen. Datenablage wahlweise lokal, SeaweedFS (S3) oder hybrid (`storage`): lesen lokal zuerst, S3 als Rückfall; schreiben lokal, prüfen, gezielt publizieren, `manifest.json` zuletzt. Ein veralteter lokaler Stand einer abgeleiteten Tabelle wird beim Lesen gemeldet und beim Publizieren abgelehnt — verglichen werden `built_at_utc` und die Bronze-Läufe aus `derived_from` | das Aufräumen ist ein Handgriff, kein Automatismus; ein Stand wird gepinnt, wenn jemand daran denkt; Detroits Lauf vom 11.9. bleibt bewusst ohne Raw-Gegenstück — er ist der vorherige Schnappschuss, der die Instabilität der Quelle belegt; die Ablage lädt nichts automatisch herunter und synchronisiert nicht zurück — bewusst, Version 1 |
+| **DataOps** | 3'544 Tests ohne Netz und Schlüssel, auf jedem Pull Request in GitHub Actions unter Linux mit Python 3.11, `ruff` davor, der Referenz-Wächter unter 3.13; auf `main` zusätzlich Windows mit 3.13. Schreiben über `.part` und atomares Umbenennen. Publish-Gate: Gold entsteht nur, wenn die Abdeckung Schwellen hält | die 111 datengebundenen Wächter laufen auf Pull Requests nicht — dafür gibt es seit dem 13.9. den wöchentlichen Datenlauf (`datenlauf.yml`), der alle Quellen lädt, die Strecke baut und dann die ganze Suite fährt; er braucht `CENSUS_API_KEY` als Repository-Secret. Grün war er einmal, am 14.9.2026; seither ist er jede Woche rot, seit dem 11.11.2026 nur noch am Schritt „Drift ausweisen": Der frische Stand weicht über der Toleranz vom Referenzstand der Dokumente ab (Kapitel 9, letzter Punkt). Aktualität wird im Datenlauf gegen eine Schwelle von acht Tagen geprüft, **nach der Ingestion und vor dem Ableiten** — eine Quelle, die nichts Neues liefert oder ganz fehlt, lässt ihn scheitern, bevor Gold darauf entsteht; in GitHub Actions keine Alarmierung ausser dem roten Lauf selbst; auf `srv01` melden seit Oktober 2026 neun Alarmregeln über Telegram |
+| **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (`raw`) und Ableitung (`bronze`), sprechende Partitionsschlüssel. `mapping_status` und `geo_status` machen die Vergleichbarkeit je Zeile abfragbar. Ein Manifest-Leser (`manifeste`) für alle Schichten statt elf. Drei Architekturbilder, **aus dem Code erzeugt** — Kontext, Abhängigkeiten und Datenfluss, mit einem Test gegen Zyklen ([`architektur.md`](architektur.md)). Vier ACS-Vintages nebeneinander, je Tat der gültige über `population_vintage` | für 2025 und 2026 gibt es kein eigenes Vintage; ihre Raten ruhen auf 2024 (Kapitel 9) |
+| **Orchestration** | `orchestration.run_all`: 19 Stufen in Reihenfolge; eine gescheiterte Quelle wird nach 30 und 60 Minuten nachgefasst, abgeleitet wird erst, wenn alle da sind, und die erste gescheiterte Ableitungsstufe bricht ab; Gesamtmanifest mit allen Bronze-Läufen und Fingerabdruck über die Eingaben | der geplante Lauf ist wöchentlich (`datenlauf.yml`, montags), die Quellen ändern sich täglich; ausserhalb davon startet er, wenn jemand daran denkt; keine Wiederaufnahme, bewusst |
+| **Software Engineering** | Modulare Pakete je Quelle, Typannotationen, Docstrings die das Warum festhalten, Fehlerbehandlung mit Wiederholungen. `ruff` mit Pyflakes und `raise … from`, Lockfile, CI-Matrix über zwei Betriebssysteme | die acht Notebooks, die Zahlen belegen (03, 13, 31–35, 37), laufen seit dem 13.9. im wöchentlichen Datenlauf — nicht auf Pull Requests, weil sie `data/` brauchen; 36 läuft über `tools/build_nachweise.py`. Notebook 32 war bis dahin einen Tag lang still kaputt. Die sechs ladenden Notebooks laufen bewusst nirgends automatisch |
 
-**Zur Orchestrierung.** Airflow oder Prefect wären bei fünf Quellen und vier
+**Zur Orchestrierung.** Airflow oder Prefect wären bei sechs Quellen und fünf
 Batch-Pipelines Aufwand ohne Erkenntnisgewinn. Gebaut ist deshalb ein Skript,
 das die Läufe in der richtigen Reihenfolge aufruft und protokolliert — die
 Reihenfolge ist real, weil `silver/tract` beide Census-Quellen braucht und
@@ -664,9 +714,9 @@ Anfang Oktober 2026 auf `srv01` per `cron` — montags 04:30, mit `flock` gegen
 Überlappung und einem Verteiler, der den zweiten Montag im Monat voll, den
 ersten, dritten und vierten als Delta fährt und einen fünften auslässt. So
 kollidiert der schwerste Lauf nicht mit dem Restic-Vollrestore am Monatsersten
-um 05:00. Der zweite Anstoss hat am 11.10.2026 noch nie gefeuert
-(erster Termin: 12.10.) und ist damit **eine Einrichtung, kein Nachweis** —
-dieselbe Elle wie in 5.3.
+um 05:00. Am 11.10.2026 hatte der zweite Anstoss noch nie gefeuert; seit dem
+ersten Termin am 12.10. läuft er jede Woche und baut die Releases, die das
+Dashboard liest. Der erste Anstoss ist dagegen seit dem 21.9. rot (5.3).
 
 **Wozu diese Tabelle einen Wächter hat.** Sie ist dreimal veraltet, während die
 Arbeit lief, die sie beschreibt — ein Feldkatalog als Lücke, den es schon gab;
@@ -675,7 +725,7 @@ hält jede Zeile gegen das Artefakt, das sie behauptet oder vermisst.
 
 ---
 
-## 6 · Datenbeschaffung: die fünf Quellen
+## 6 · Datenbeschaffung: die sechs Quellen
 
 | Quelle | Zugriff | Änderungsverhalten | Schlüssel |
 | --- | --- | --- | --- |
@@ -684,6 +734,7 @@ hält jede Zeile gegen das Artefakt, das sie behauptet oder vermisst.
 | **Census TIGER/Line** | ZIP über HTTPS | eine Vintage pro Jahr, danach eingefroren | keiner |
 | **Census ACS 5-Jahres** | JSON-API | dito | Schlüssel nötig |
 | **NOAA GHCN-Daily** | CSV je Station über HTTPS | wächst täglich um eine Zeile | keiner |
+| **Polizeibezirke und Stadtteile** | GeoJSON über Socrata (Chicago) und ArcGIS REST (Detroit) | aktueller Stand, ändert sich selten und ohne Ankündigung | keiner |
 
 ### 6.1 Vollständigkeit wird nachgewiesen, nicht behauptet
 
@@ -697,8 +748,9 @@ ihre Quelle hergibt:
 | TIGER | CRC32 je Mitgliedsdatei des ZIP, plus die vier Pflichtdateien eines Shapefiles |
 | ACS | Antwort selbst prüfen, weil die API bei fehlendem Schlüssel mit **HTTP 200** und einer HTML-Seite antwortet |
 | NOAA | `Content-Length` gegen empfangene Bytes, CSV-Zeilen gegen Parquet-Zeilen, und die Prüfung, dass jede Zeile die angefragte Station nennt |
+| Polizeibezirke und Stadtteile | Zählung des Portals in einer zweiten Abfrage, gegen die gelesenen Polygone gehalten; eine ArcGIS-Fehlerantwort mit HTTP 200 bricht ab |
 
-Die ACS-Zeile ist die unangenehmste Eigenheit aller fünf Quellen: Code, der nur
+Die ACS-Zeile ist die unangenehmste Eigenheit aller sechs Quellen: Code, der nur
 den Statuscode prüft, hält eine Fehlerseite für einen Erfolg und schreibt einen
 leeren Lauf.
 
@@ -837,7 +889,7 @@ Parquet**, weil der Plattenzugriff wegfällt.
 **Was daraus wurde.** Detroits Ingestion schreibt seit dem 11.9. Parquet, in
 Laufverzeichnissen mit Manifest und Prüfsumme, und bringt einen eigenen
 Datenvertrag mit: eingefrorenes Schema aus den Layer-Metadaten, `_feature_json`
-als verlustfreie Nutzlast, `_extra` für Typdrift. **Alle fünf Quellen liegen
+als verlustfreie Nutzlast, `_extra` für Typdrift. **Alle Quellen liegen
 damit auf derselben Konvention**: Raw als Beweis, Bronze als Parquet, je Lauf
 ein Verzeichnis mit Manifest.
 
@@ -855,8 +907,9 @@ data/
 ├── raw/      unverändert, Byte für Byte wie ausgeliefert
 ├── bronze/   daraus abgeleitetes Parquet mit gepinntem Schema
 ├── silver/   gedeutet: Typen, Einheiten, Fehlwerte, harmonisierte Schlüssel
-├── gold/     Sternschema: fact_offense und fünf Dimensionen
-└── serving/  Auswertungsumgebung: analyse.duckdb und tracts.geojson
+├── gold/     Sternschema: fact_offense, acht Dimensionen, zwei Brücken
+├── serving/  Vergleichstabellen, analyse.duckdb und tracts.geojson
+└── releases/ freigegebene Gesamtstände, unveränderlich; AKTUELL.json zeigt den gültigen
 ```
 
 Partitioniert wird mit sprechenden Schlüsseln, deren erster die Quelle benennt:
@@ -949,7 +1002,7 @@ ableiten, ohne die API erneut zu befragen.
 
 Die Quellen haben **verschiedene Granularitäten**. Sie in eine Tabelle zu zwingen
 würde Zeilen vervielfachen — ein Wetterwert an jedem Delikt derselben Stadt und
-desselben Tages — oder Information wegwerfen. Deshalb vier Tabellen. `tract`
+desselben Tages — oder Information wegwerfen. Deshalb sieben Tabellen. `tract`
 und `place` liegen je **Vintage** einmal; die Zeilenzahl unten ist die eines
 Vintage, und gebaut sind vier (2021–2024):
 
@@ -957,8 +1010,11 @@ Vintage, und gebaut sind vier (2021–2024):
 | --- | --- | --- |
 | `tract` | ein Census Tract **in einem ACS-Vintage** | **gebaut**, 6'282 Zeilen |
 | `place` | ein Ort (Stadtgrenze) **in einem TIGER-Vintage** | **gebaut**, 2'206 Zeilen |
-| `weather_day` | eine Stadt an einem Tag | **gebaut**, 55'497 Zeilen |
-| `crime_offense` | eine **Anklage**; je Tat zählt eine (`counts`), je Fall eine (`counts_case`, 5.2) | **gebaut**, 1'875'374 Zeilen |
+| `weather_day` | eine Stadt an einem Tag | **gebaut**, 55'587 Zeilen |
+| `crime_offense` | eine **Anklage**; je Tat zählt eine (`counts`), je Fall eine (`counts_case`, 5.2) | **gebaut**, 1'922'278 Zeilen |
+| `police_area` | ein Polizeibezirk (Chicago District, Detroit Precinct), mit Umriss | **gebaut**, 34 Zeilen |
+| `community_area` | ein Stadtteil (Chicago Community Area, Detroit Neighborhood), mit Umriss | **gebaut**, 131 Zeilen |
+| `source_change` | eine Änderung eines Falls zwischen zwei Schnappschüssen der Quelle, angehängt statt ersetzt | **gebaut**, wächst je Paar von Läufen |
 
 `tract` verbindet TIGER-Geometrie mit ACS-Attributen. Gedeutet wird: Text zu
 Zahlen, `-666666666` zu `NULL`, die Armutsquote abgeleitet — und bei Tracts ohne
@@ -971,8 +1027,8 @@ Rekorden plausibilisiert. Ein leeres Feld wird `NULL` und **nicht** `0` — bei
 Niederschlag der entscheidende Unterschied. Das Messflag `T` für Spurenmengen
 bekommt eine eigene Spalte, weil `0` mit `T` nicht „trocken" heisst.
 
-`crime_offense` ist die Tabelle, die den Vergleich trägt — 1'875'374 Zeilen,
-1'383'649 aus Chicago und 491'725 aus Detroit. Detroits Zeilen sind Anklagen; je
+`crime_offense` ist die Tabelle, die den Vergleich trägt — 1'922'278 Zeilen,
+1'417'838 aus Chicago und 504'440 aus Detroit. Detroits Zeilen sind Anklagen; je
 Tat ist eine als zählend markiert, und Gold nimmt nur diese (5.2). Sie leistet drei Übersetzungen auf
 einmal, und jede davon ist ein eigener Fehlerherd:
 
@@ -980,7 +1036,7 @@ einmal, und jede davon ist ein eigener Fehlerherd:
 | --- | --- | --- |
 | Delikte | `iucr` → NIBRS, **100 %** der Fälle | `state_offense_code` → NIBRS, **100 %** |
 | Zeit | `date` ist **Ortszeit ohne Zonenangabe** | Millisekunden seit Epoch, also UTC |
-| Raum | Punkt-in-Polygon gegen `tract`, **99,3 %** verortet | dito, **99,7 %** |
+| Raum | Punkt-in-Polygon gegen `tract`, **98,5 %** verortet, 2021–2026 | dito, **99,9 %** |
 
 **Die Zeitachse ist der unauffälligste und gefährlichste Punkt.** Chicagos
 `date` sieht aus wie ein Zeitstempel, ist aber Lokalzeit ohne Zone;
@@ -1000,7 +1056,8 @@ betrifft.
 
 ### 8.3 Deduplikation: Duplikate, keine Dubletten
 
-Der heutige Chicago-Stand besteht aus drei Läufen:
+Gemessen wurde das am Chicago-Stand vom 6.9.2026, der aus drei Läufen bestand;
+heute sind es mehr, das Prinzip ist dasselbe:
 
 | Lauf | Typ | Zeilen |
 | --- | --- | --- |
@@ -1018,8 +1075,8 @@ Läufe gelesen werden; sie ist eine Eigenschaft der Architektur und keine
 Ungenauigkeit. Welche Läufe den Referenzstand bilden, ist deshalb ausdrücklich
 festzulegen.
 
-Nebenbei: `case_number` ist **kein** Schlüssel. 1'383'649 Delikte verteilen sich
-auf 1'383'471 Fallnummern — ein Fall kann mehrere Straftaten umfassen. Verknüpft
+Nebenbei: `case_number` ist **kein** Schlüssel. 1'417'838 Delikte verteilen sich
+auf 1'417'658 Fallnummern — ein Fall kann mehrere Straftaten umfassen. Verknüpft
 wird über `id`.
 
 ### 8.4 Ein falsifizierter Befund: der räumliche Join
@@ -1086,30 +1143,34 @@ NIBRS abbilden. Seit `silver/crime_offense` beide Crosswalks auf die Falldaten
 anwendet, ist das gemessen — und die Antwort hängt daran, was „vollständig"
 heissen soll.
 
-Gemessen auf Tatebene über die 1'851'946 Delikte der Jahrgänge 2021–2026:
+Gemessen auf Tatebene über die 1'900'131 Delikte der Jahrgänge 2021–2026:
 
 | | Chicago | Detroit | zusammen |
 | --- | ---: | ---: | ---: |
-| Delikte (Tatebene) | 1'383'649 | 468'297 | 1'851'946 |
+| Delikte (Tatebene) | 1'417'838 | 482'293 | 1'900'131 |
 | Quellcode im Crosswalk bekannt | **100 %** | **100 %** | **100 %** |
-| davon Auffang `90Z` | 41'324 | 16'127 | 57'451 |
-| **mit einem echten NIBRS-Delikt** | **97,0 %** | **96,6 %** | **96,9 %** |
+| davon Auffang `90Z` | 42'550 | 16'853 | 59'403 |
+| **mit einem echten NIBRS-Delikt** | **97,0 %** | **96,5 %** | **96,9 %** |
 
 > **Nachgemessen am 20.09.2026 (Christian).** Die Zahlen sind auf den aktuellen
-> Stand gehoben; zuvor standen hier 344'617 Delikte und 10'442 im Auffang. Der
+> Stand gehoben; zuvor standen hier 344'617 Delikte und 10'442 im Auffang —
+> und am 12.11.2026 noch einmal, auf den Referenzstand vom 10.11.2026, am
+> 20.11.2026 auf einen Zwischenstand (Release `2026-11-20T10-08-03Z`), am
+> 26.11.2026 auf den nächsten (Release `2026-11-26T05-27-08Z`, Gold-Vertrag 12). Der
 > Zuwachs kommt aus Detroits Delta-Läufen und den nachgezogenen Chicago-Deltas,
-> nicht aus einer geänderten Zuordnung. **Die Prozentsätze und damit die
+> nicht aus einer geänderten Zuordnung; am 26.11. kamen elf Chicagoer
+> Seeufer-Tracts dazu (Gold-Vertrag 10). **Die Prozentsätze und damit die
 > Aussage sind unverändert.**
 
 **Abdeckung ja, Abbildung nein.** Kein Chicago-Code fällt stillschweigend
-heraus, das war die eigentliche Sorge. Aber 10'476 Fälle tragen ein Delikt, das
+heraus, das war die eigentliche Sorge. Aber 42'550 Taten tragen ein Delikt, das
 NIBRS nicht kennt: Verstösse gegen Registrierungspflichten, Bewährungsauflagen,
 Illinois-Eigenheiten wie *Criminal Fortification*. Sie landen auf `90Z All Other
 Offenses` — ein Code, der gültig ist, für einen Deliktvergleich aber nichts
 aussagt.
 
 Für Chicago ist der Anteil im Katalog viel höher als in den Fällen: **69 der 434
-Katalogzeilen** sind Auffangzeilen (15,9 %), in den Falldaten nur 2,97 %. Die
+Katalogzeilen** sind Auffangzeilen (15,9 %), in den Falldaten nur 3,0 %. Die
 Delikte ohne NIBRS-Entsprechung sind also überwiegend seltene — gut für den
 Vergleich, aber gemessen und nicht angenommen.
 
@@ -1188,12 +1249,12 @@ Tatebene, ohne den Auffangcode `90Z`:
 
 | NIBRS | Delikt | Chicago | Detroit |
 | --- | --- | ---: | ---: |
-| `13B` | Simple Assault | 206'608 | 86'602 |
-| `23H` | All Other Larceny | 199'634 | 21'337 |
-| `290` | Destruction/Damage/Vandalism | 156'306 | 56'572 |
-| `240` | Motor Vehicle Theft | 115'604 | 44'485 |
-| `13C` | Intimidation | 104'180 | 7'755 |
-| `13A` | Aggravated Assault | 86'134 | 46'654 |
+| `13B` | Simple Assault | 210'552 | 88'327 |
+| `23H` | All Other Larceny | 202'536 | 21'906 |
+| `290` | Destruction/Damage/Vandalism | 159'013 | 58'170 |
+| `240` | Motor Vehicle Theft | 117'346 | 45'134 |
+| `13C` | Intimidation | 106'134 | 8'048 |
+| `13A` | Aggravated Assault | 87'592 | 47'458 |
 
 Absolut sind das keine vergleichbaren Zahlen — Chicago hat rund viermal so
 viele Einwohner. Vergleichbar werden sie erst mit dem Nenner aus `tract`, und
@@ -1312,13 +1373,17 @@ steht sie sonst in deren eigenen Kategorien, Chicago kennt „Delikte an
 Kindern", Detroit „Family Offense".
 
 Verglichen wird nicht der Prozentsatz, sondern das **Vielfache des
-Stadtschnitts** — Chicago verliert insgesamt 0,81 % der Fälle, Detroit 0,29 %.
+Stadtschnitts** — über alle sechs Jahrgänge verliert Chicago 1,47 % der Fälle,
+Detroit 0,14 %. Gezählt wird der ganze Bestand, nicht ein Jahrgang: Ein Anteil
+braucht keinen Einwohner-Nenner, und mehr Jahre machen die kleinen Detroiter
+Zellen belastbarer.
 
 | | Chicago | Detroit |
 | --- | ---: | ---: |
-| Sexualdelikte, Vielfaches des Stadtschnitts | **12,0×** | **5,2×** |
-| Betrug, Anteil ohne Koordinate | **3,78 %** | 0,19 % |
+| Sexualdelikte, Vielfaches des Stadtschnitts | **7,5×** | **3,7×** |
+| Betrug, Anteil ohne Koordinate | **6,90 %** | 0,10 % |
 | Betrug, Vielfaches des Stadtschnitts | 4,7× | 0,7× |
+| Drogendelikte, Vielfaches des Stadtschnitts | 4,6× | 1,5× |
 
 **Eine Kategorie trägt in beiden Städten**, und es ist dieselbe: Sexualdelikte.
 Die Ursache liegt nahe und ist in beiden Systemen dieselbe — bei diesen
@@ -1326,15 +1391,20 @@ Delikten wird die Adresse zurückgehalten. Weil die Richtung übereinstimmt,
 verzerrt dieser Teil der Lücke den Städtevergleich **nicht** systematisch.
 
 **Eine zweite Kategorie trägt nur in Chicago**, und das ist der eigentliche
-Befund: Betrug, mit einem Faktor 20 zwischen den Städten. Plausibel ist, dass
-Chicago Betrug ohne Tatort mitführt, den es telefonisch oder online gab;
-Detroits Erfassung über den Vorfallsbericht verlangt eine Adresse. Das ist
-eine Vermutung und keine Messung.
+Befund: Betrug, mit einem Faktor von fast 70 zwischen den Städten. In Detroit
+sind das 28 von 27'787 Fällen — wenige, aber eindeutig unter dem eigenen
+Schnitt. Plausibel ist, dass Chicago Betrug ohne Tatort mitführt, den es
+telefonisch oder online gab; Detroits Erfassung über den Vorfallsbericht
+verlangt eine Adresse. Das ist eine Vermutung und keine Messung.
 
-**Was daraus folgt.** Ein Vergleich der *Gesamtraten* trägt: 0,81 % gegen
-0,29 % Ausfall verschieben keine Rangfolge. Ein Vergleich **je Delikttyp**
+**Drogendelikte liegen dazwischen:** in beiden Städten über dem Schnitt, in
+Chicago aber dreimal so stark (4,6× gegen 1,5×). Die Richtung stimmt, die
+Stärke nicht.
+
+**Was daraus folgt.** Ein Vergleich der *Gesamtraten* trägt: 1,47 % gegen
+0,14 % Ausfall verschieben keine Rangfolge. Ein Vergleich **je Delikttyp**
 trägt für Sexualdelikte, weil die Verzerrung gleichgerichtet ist — aber
-**nicht für Betrug**. Daraus folgt auch die Entscheidung, fehlende Koordinaten
+**nicht für Betrug**, und für Drogendelikte nur mit der Abdeckung daneben. Daraus folgt auch die Entscheidung, fehlende Koordinaten
 zu **markieren statt zu löschen**: Ein nicht zufälliger Ausfall lässt sich
 nicht wegwerfen, ohne die Auswertung zu verzerren. `geo_status` zeigt deshalb
 je Zeile, was fehlt, statt die Zeile wegzulassen.
@@ -1354,15 +1424,17 @@ je Zeile, was fehlt, statt die Zeile wegzulassen.
   Aussage über einzelne Personen.
 - **Die Datenlücken sind nicht symmetrisch.** In Wayne County fehlt bei 9,6 %
   der Tracts der Einkommenswert, in Cook County bei 1,7 %. Auch die Geo-Lücke
-  unterscheidet sich: 1,48 % in Chicago gegen 0,15 % in Detroit. Eine Verzerrung
+  unterscheidet sich: 1,47 % in Chicago gegen 0,14 % in Detroit, über alle
+  sechs Jahrgänge. Eine Verzerrung
   wirkt damit ungleich auf die beiden Städte.
 - **Die Städte zählen verschieden.** Chicago führt je Vorfall ein Delikt
   (Mordopfer ausgenommen: ein Datensatz je Opfer), Detroit jedes Delikt eines
-  Vorfalls — 5,6 % mehr Taten als Fälle. Im Jahrgang 2024 liegt Detroit auf
-  Tatebene bei 133,1 je 1'000, auf Fallebene (`counts_case`, beide Städte
-  dieselbe Regel) bei 124,6; Chicago in beiden bei 94,5. Die Reihenfolge
-  bleibt, der Abstand schrumpft. Beide Masse sind in Gold; welches die Aussage trägt, ist zu
-  entscheiden (5.2).
+  Vorfalls — 6,1 % mehr Taten als Fälle. Im Jahrgang 2024 liegt Detroit auf
+  Fallebene (`counts_case`, beide Städte dieselbe Regel) bei 124,7 je 1'000,
+  auf Tatebene bei 134,2; Chicago bei 94,4 und 94,5. Die Reihenfolge
+  bleibt, der Abstand schrumpft. Die Aussage trägt die Fallebene (5.2); die
+  Regel dahinter verwirft aber in Detroit 5,7 % der Taten, in Chicago
+  0,013 % — sie gleicht an, und sie wirkt dabei ungleich.
 
 **Zu den Quellen**
 
@@ -1384,17 +1456,22 @@ je Zeile, was fehlt, statt die Zeile wegzulassen.
 
 **Zur Umsetzung**
 
-- **Keine Parallelität und keine Wiederaufnahme.** Der Controller fährt die Stufen seriell und bricht beim ersten Fehler ab; ein abgebrochener Lauf wird neu gestartet, nicht fortgesetzt. Bei Minuten Laufzeit ist das billiger als ein Zustandsautomat.
+- **Keine Parallelität und keine Wiederaufnahme.** Der Controller fährt die Stufen seriell; eine gescheiterte Quelle fasst er zweimal nach, sonst bricht er vor dem Ableiten ab. Ein abgebrochener Lauf wird neu gestartet, nicht fortgesetzt. Bei Minuten Laufzeit ist das billiger als ein Zustandsautomat.
 - **Die Mehrheitsregel schliesst Grenzfälle aus, und zwar nicht neutral.**
   5'249 Chicagoer Delikte liegen innerhalb der Stadtgrenze, aber in einem
   Tract, der mehrheitlich zur Nachbargemeinde gehört. Weil diese Randtracts
   überdurchschnittlich deliktdicht sind — 227 je 1'000 gegen 94,5 im
   Stadtschnitt —, ist Chicagos Rate um gut einen Punkt untertrieben: 94,5
-  statt 95,6. Detroit ist praktisch nicht betroffen (12 Fälle). Gemessen in
-  Notebook 34, Abschnitt 3.2.
-- **Keine Alarmierung ausser dem roten Lauf.** Der wöchentliche Datenlauf
-  scheitert, wenn eine Quelle älter als acht Tage ist oder die Strecke bricht —
-  aber niemand wird angerufen. Wer es erfahren will, muss auf *Actions* sehen.
+  statt 95,6. Detroit ist praktisch nicht betroffen (12 Fälle). Diese Messung
+  stammt aus der Zeit vor Gold-Vertrag 10. Neu gemessen am 26.11.2026 sind es
+  441 Chicagoer Fälle, und die Rate bleibt mit ihnen bei 94,5; eine Neufassung
+  steht in [`textvorschlag-mehrheitsregel.md`](intern/textvorschlag-mehrheitsregel.md).
+  Gemessen in Notebook 34, Abschnitt 3.2.
+- **Die Alarmierung gilt nur für `srv01`.** Dort melden seit Oktober 2026
+  neun Regeln in Prometheus über Telegram, wenn eine Quelle veraltet, ein
+  Lauf oder eine Stufe scheitert oder kein Release entsteht. Der wöchentliche Datenlauf in
+  GitHub Actions meldet sich dagegen nur durch seinen roten Lauf; wer es dort
+  erfahren will, muss auf *Actions* sehen.
 - **Die Dokumente beschreiben einen Referenzstand, nicht den Tag.** Ein
   frischer Lauf baut andere Zahlen — die Quellen bewegen sich wöchentlich.
   Der Datenlauf hält die dokumentierten Zahlen deshalb nicht gegen den
@@ -1411,8 +1488,8 @@ je Zeile, was fehlt, statt die Zeile wegzulassen.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pytest                       # 2'770 Tests, 53 davon übersprungen
-python -m pytest -m ""                 # mit den Referenzwächtern: 2'881
+python -m pytest                       # 3'433 Tests vor umgebungsabhängigen Skips
+python -m pytest -m ""                 # mit den Referenzwächtern: 3'544
 ```
 
 Daten laden — jede Pipeline schreibt einen neuen, unveränderlichen Lauf:
@@ -1424,7 +1501,11 @@ python -m census_pipeline.download_tiger --auslieferung tract
 python -m census_pipeline.download_tiger --auslieferung place
 python -m census_pipeline.download_acs   # braucht CENSUS_API_KEY in .env
 python -m weather_pipeline.download_noaa
+python -m gebiete_pipeline.download_gebiete
 ```
+
+Ein Aufruf lädt einen Jahrgang oder ein Vintage; alle sechs Jahrgänge und vier
+Vintages lädt `run_all --jahre 2021-2026` (44 Stufen).
 
 **Beide TIGER-Aufrufe sind nötig.** `tract` ist die Raumeinheit, `place` die
 Stadtgrenze; ohne die zweite bekommt `dim_tract` keine Stadtzuordnung, und die
@@ -1438,14 +1519,20 @@ python -m orchestration.run_all
 ```
 
 Silver, Gold und die Auswertungsumgebung einzeln ableiten — die Reihenfolge
-gilt, `build_crime_offense` braucht `tract`:
+gilt: `build_crime_offense` braucht `tract` und die beiden Gebiete,
+`build_source_movement` braucht `source_change`:
 
 ```bash
 python -m silver_pipeline.build_tract
 python -m silver_pipeline.build_place
 python -m silver_pipeline.build_weather_day
+python -m silver_pipeline.build_police_area
+python -m silver_pipeline.build_community_area
 python -m silver_pipeline.build_crime_offense
+python -m silver_pipeline.build_source_change
 python -m gold_pipeline.build_gold
+python -m serving.build_comparison
+python -m serving.build_source_movement
 python -m serving.build_analysis_db
 python -m serving.export_geojson
 ```
@@ -1454,8 +1541,9 @@ python -m serving.export_geojson
 heute liefert andere Zeilen als einer von letzter Woche. Byte-identisch
 reproduzierbar sind nur die eingefrorenen Quellen TIGER und ACS. Für einen
 gemeinsamen Auswertungsstand ist deshalb festzulegen, **welche Läufe** gelten —
-die Zahlen in diesem Dokument beziehen sich auf die in 8.3 genannten
-Chicago-Läufe und die zugehörigen Läufe der übrigen Quellen.
+die Zahlen in diesem Dokument beziehen sich auf den Stand, den die Wächter
+unter `python -m pytest -m referenzstand` halten; welche Läufe er umfasst, sagt
+das Manifest jeder Tabelle unter `derived_from`.
 
 `data/` ist vollständig aus der Versionierung ausgeschlossen.
 
@@ -1479,7 +1567,7 @@ python -m orchestration.run_all --ohne-ingestion    # Silver, Gold und Serving d
 
 | Was | Wo |
 | --- | --- |
-| Ingestion, vier Pipelines | `src/crime/{chicago,detroit,census,weather}_pipeline/` |
+| Ingestion, fünf Pipelines | `src/crime/{chicago,detroit,census,weather,gebiete}_pipeline/` |
 | **Der eine Manifest-Leser** | `src/crime/manifeste/` — findet fertige Läufe und gebaute Tabellen für Ingestion, Silver, Controller und Werkzeuge |
 | **Der ganze Lauf, in Reihenfolge** | `src/crime/orchestration/run_all.py` → `data/pipeline_run.json` |
 | **Was von Raw und Bronze bleiben muss** | `src/crime/orchestration/aufraeumen.py` — zeigt je Quelle, was bleibt und warum; löscht nur mit `--loeschen` |
@@ -1488,6 +1576,8 @@ python -m orchestration.run_all --ohne-ingestion    # Silver, Gold und Serving d
 | Gold-Aufbau | `src/crime/gold_pipeline/build_gold.py` → `data/gold/` |
 | **Auswertungsumgebung** | `src/crime/serving/build_analysis_db.py` → `data/serving/analyse.duckdb` |
 | **Tract-Umrisse für eine Karte** | `src/crime/serving/export_geojson.py` → `data/serving/tracts.geojson` |
+| **Das Dashboard**, acht Bretter | `src/crime/serving/dashboard/` — `python -m serving.dashboard`, liest das aktive Release |
+| **Der freigegebene Stand** | `src/crime/orchestration/release.py` → `data/releases/release=<Kennung>/`, `releases/AKTUELL.json` |
 | **Der Städtevergleich selbst** | `src/crime/silver_pipeline/build_crime_offense.py` → `data/silver/dataset=crime_offense/` |
 | Tests | `tests/`, nach Pipeline gegliedert |
 
@@ -1507,6 +1597,9 @@ python -m orchestration.run_all --ohne-ingestion    # Silver, Gold und Serving d
 | Serving-Messung: Sichten oder Kopie | [`notebooks/33_serving_evaluation.ipynb`](../notebooks/33_serving_evaluation.ipynb) |
 | Referenzquelle NIBRS, Mapping-Herkunft | [`notebooks/32_nibrs_source.ipynb`](../notebooks/32_nibrs_source.ipynb) |
 | Gold-Sternschema, Stadtzuordnung | [`notebooks/34_gold_sternschema.ipynb`](../notebooks/34_gold_sternschema.ipynb) |
+| Die Kontrollen der Strecke, an einem Fall durchgespielt | [`notebooks/35_kontrollen.ipynb`](../notebooks/35_kontrollen.ipynb) |
+| Die sechs Hypothesen gemessen | [`notebooks/36_hypothesen.ipynb`](../notebooks/36_hypothesen.ipynb) |
+| Wie sich die Quellen zwischen zwei Läufen bewegen | [`notebooks/37_quellbewegung.ipynb`](../notebooks/37_quellbewegung.ipynb) |
 
 ### 11.3 Vertiefungen, die in die Abgabe einfliessen
 
@@ -1519,12 +1612,12 @@ kennt — was sich nicht ohne uns lesen lässt, lässt sich auch nicht übertrag
 | --- | --- |
 | **Ist- und Ziel-Architektur** | [`architektur-ist-und-ziel.md`](architektur-ist-und-ziel.md) — Teil A, was gebaut ist; Teil B, wohin es geht (Container, Zugang, Auswertung, Sicherung, Cloud) |
 | **Dieselbe Architektur auf einer A4-Seite** | [`architektur-einseiter.html`](architektur-einseiter.html) — zum Ausdrucken, mit zwei gezeichneten Bildern |
-| **Der Aufbau in zwei Bildern** | [`architektur.md`](architektur.md) — Abhängigkeiten und Datenfluss, erzeugt von [`tools/build_architekturbilder.py`](../tools/build_architekturbilder.py), dazu ein Lesepfad |
+| **Der Aufbau in drei Bildern** | [`architektur.md`](architektur.md) — Kontext, Abhängigkeiten und Datenfluss, erzeugt von [`tools/build_architekturbilder.py`](../tools/build_architekturbilder.py), dazu ein Lesepfad |
 | **Vier Arten zu zählen** | [`zaehlperspektiven.md`](zaehlperspektiven.md) — Anklage, Tat, Fall, Vorfall; welche Zahl welche Frage beantwortet und was sich nicht addiert |
 | **Eine Zahl über sieben Schichten** | [`eine-zahl.md`](eine-zahl.md) — eine einzelne Zahl von der Quelle bis Gold zurückverfolgt |
 | **Die Datenablage im Aufbau** | [`storage-architektur.md`](storage-architektur.md) — die drei Modi, was zugesichert wird, die API und die Fehlerbilder |
 | **Würfel und Sternschema erklärt** | [`sternschema-und-wuerfel.md`](sternschema-und-wuerfel.md) — die beiden Bauweisen mit Diagrammen, als Vorlage für die Präsentation. Dieselbe Darstellung mit durchgehendem Layout: [`sternschema-und-wuerfel.html`](sternschema-und-wuerfel.html) |
-| **Feldkatalog** | [`feldkatalog.md`](feldkatalog.md) — 192 Spalten in 15 Tabellen, erzeugt von [`tools/build_feldkatalog.py`](../tools/build_feldkatalog.py) |
+| **Feldkatalog** | [`feldkatalog.md`](feldkatalog.md) — 280 Spalten in 24 Tabellen, erzeugt von [`tools/build_feldkatalog.py`](../tools/build_feldkatalog.py) |
 | **Was nach LN1 kommt** | [`ausblick.md`](ausblick.md) — Lineage und Stichtagskonsistenz, Versionierung der Ladelogik, Skalierung, Cloud; mit Messwerten und Reihenfolge |
 | **Die Notebooks ausgeführt** | [`nachweise/`](nachweise/README.md) — die Notebooks 31 und 33–37 mit allen Ausgaben, darunter der Replay über drei Neubauten und die Messreihen mit Median und Spannweite; je Lauf Commit, Umgebung und Datenstand, erzeugt von [`tools/build_nachweise.py`](../tools/build_nachweise.py) |
 
@@ -1535,7 +1628,7 @@ kennt — was sich nicht ohne uns lesen lässt, lässt sich auch nicht übertrag
 | **NIBRS-Codeliste, amtlich** | `config/nibrs_offense_codes_2025.csv` — 81 Codes aus Anhang A von [`nibrs_technical_specification_2025.pdf`](quellen/nibrs_technical_specification_2025.pdf) |
 | IUCR nach NIBRS (Chicago) | `config/iucr_nibrs_mapping.csv`, erzeugt von [`tools/build_iucr_nibrs_mapping.py`](../tools/build_iucr_nibrs_mapping.py); Katalog vom [Datenportal der Stadt](https://data.cityofchicago.org/resource/c7ck-438e.json) |
 | MICR nach NIBRS (Detroit) | `config/micr_nibrs_mapping.csv`, erweitert von [`tools/extend_micr_arrest_charges.py`](../tools/extend_micr_arrest_charges.py); Quellen [`micr_manual_1110_2024.pdf`](quellen/micr_manual_1110_2024.pdf) und [`micr_appendix_f_2009.pdf`](quellen/micr_appendix_f_2009.pdf) |
-| Fachliche Korrekturen | `config/mapping_overrides.csv` — **nicht** erzeugt: eine Zeile je Stadt und Quellcode, mit Begründung; gewinnt gegen den Crosswalk und trägt die Herkunft `admin_review`. Geschrieben von der Engineering-Konsole nach Review; heute leer bis auf die Kopfzeile |
+| Fachliche Korrekturen | `config/mapping_overrides.csv` — **nicht** erzeugt: eine Zeile je Stadt und Quellcode, mit Begründung; gewinnt gegen den Crosswalk und trägt die Herkunft `admin_review`. Geschrieben von der Engineering-Konsole nach Review; heute nur die Kopfzeile. Detroits `3072` nach `26A` (#259, 18.11.2026) war ein Test der Konsole; die Konsole hat ihn am 26.11.2026 selbst zurückgenommen (#317). Die Daten des Zwischenstands vom 26.11.2026 sind ohne die Zeile gebaut, es gilt 8.5 |
 | Codetabelle Illinois State Police | [`isp_nibrs_code_table_2026.xlsx`](quellen/isp_nibrs_code_table_2026.xlsx) — nach ILCS-Statut geschlüsselt, **nicht** als Crosswalk verwendbar, siehe 8.5 |
 | **Amtliche Deliktkategorien** | `config/nibrs_offense_categories_2025.csv`, gelesen von [`tools/build_nibrs_categories.py`](../tools/build_nibrs_categories.py) aus [`nibrs-user-manual-2025-0-062625.pdf`](quellen/nibrs-user-manual-2025-0-062625.pdf) — 28 + 10 Kategorien |
 | Die vier zurückgezogenen Codes | [`NIBRS_Offense_Codes.pdf`](quellen/NIBRS_Offense_Codes.pdf), Fassung 2011 — überholt, aber der einzige Beleg für `90A`, `90E`, `90H`, `90I` |
@@ -1556,8 +1649,15 @@ abgegeben, liegen sie zwar bei — aber niemand wird darauf verwiesen.
 | Was sich wann geändert hat | [`AENDERUNGEN.md`](intern/AENDERUNGEN.md) — ein Eintrag je Pull Request, mit den Zahlen und ihrer Begründung |
 | Was von den Anforderungen steht | [`fr-stand.md`](intern/fr-stand.md) — Stand je Anforderung des PRD, **mit Beleg je Zeile**; ein Wächter hält die Tabelle gegen das PRD |
 | Was liegen geblieben ist | [`offene-punkte.md`](intern/offene-punkte.md) — Entscheidungen, Handgriffe auf dem Server und Code, **je Punkt ein Verantwortlicher und ein Beleg** |
+| Wo die Pflichtbestandteile P1–P6 stehen | [`pflichtbestandteile.md`](intern/pflichtbestandteile.md) — je Bestandteil die Fundstelle und ihr Stand, **gegen die Dateien geprüft** |
+| Was aus der LN1-Rückmeldung wurde | [`textvorschlag-fr-58.md`](intern/textvorschlag-fr-58.md) — je Kritikpunkt Antwort, Beleg und Grenze, **ein Vorschlag für den Abgabetext** |
+| Was das Dashboard zeigt | [`textvorschlag-dashboard.md`](intern/textvorschlag-dashboard.md) — die acht Bretter, **ein Vorschlag für 5.2** |
+| Was die Neumessung der Mehrheitsregel ändert | [`textvorschlag-mehrheitsregel.md`](intern/textvorschlag-mehrheitsregel.md) — zwei Absätze für 5.2 und Kapitel 9, **ein Vorschlag** |
 | Was beim Aufräumen verlorenginge | [`datenhistorie.md`](intern/datenhistorie.md) — Entscheidungspapier zur Aufbewahrung |
 | Was die Strecke an Platz braucht | [`platzbedarf.md`](intern/platzbedarf.md) — gemessen je Schicht und je Quelle auf 2021–2026 hochgerechnet, **erzeugt** |
+| Der Ablauf am Tag, an dem der Abgabestand gepinnt wird | [`abgabestand.md`](intern/abgabestand.md) |
+| Umstellung von `srv01` auf den verwalteten Betrieb (S-10), mit Probelauf und Rückweg | [`umstellung-verwaltet.md`](intern/umstellung-verwaltet.md) |
+| Vorführung: Kibana aus Google Cloud starten und stoppen | [`vorfuehrung.md`](intern/vorfuehrung.md) |
 | Detroit-Pipeline Schritt für Schritt | [`DETROIT_PIPELINE_ANLEITUNG.md`](intern/DETROIT_PIPELINE_ANLEITUNG.md) |
 | Was eine dritte Stadt bräuchte — keine ist geplant | [`dritte-stadt.md`](intern/dritte-stadt.md) |
 | Die Engineering-Konsole bedienen und betreiben | [`ENGINEERING_KONSOLE.md`](intern/ENGINEERING_KONSOLE.md), als PDF unter [`intern/handbuch/`](intern/handbuch/ENGINEERING_KONSOLE.pdf) |
@@ -1583,18 +1683,15 @@ zwanzig Sekunden gekostet und an einer Netzverbindung gehangen.
 
 ---
 
-## Offen für LN1
+## Was aus LN1 offen war
 
-Damit dieses Dokument vollständig ist, fehlen:
+Bei der Abgabe von LN1 fehlten zwei Dinge, beide sind inzwischen erledigt:
 
-- **Ein Notebook, das den Vergleich über alle Hypothesen rechnet.** Die Rate je
-  Einwohner steht seit Gold zur Verfügung (5.2) und ist in Notebook 34
-  gerechnet; ein Notebook, das den ganzen Vergleich daraus aufbaut, fehlt noch
-
-**Erledigt seit der Abgabe.** Der *Entscheid über Forschungsfragen und
-Hypothesen* steht: F1 bis F6 mit H1 bis H6, Wortlaut in
-[`forschungsfragen.md`](forschungsfragen.md). Gold war bewusst so gebaut, dass
-er nichts daran ändert — die Granularität bleibt, und jede Frage ist ein Filter
-darauf (5.2). Und das *Notebook, das die Hypothesen rechnet*, ist
-[`../notebooks/36_hypothesen.ipynb`](../notebooks/36_hypothesen.ipynb); es misst
-alle sechs und zitiert sie wörtlich.
+- **Der Entscheid über Forschungsfragen und Hypothesen.** Er steht: F1 bis F6
+  mit H1 bis H6, Wortlaut in [`forschungsfragen.md`](forschungsfragen.md).
+  Gold war bewusst so gebaut, dass er nichts daran ändert. Die Granularität
+  bleibt, und jede Frage ist ein Filter darauf (5.2).
+- **Ein Notebook, das die Hypothesen rechnet.** Das ist
+  [`../notebooks/36_hypothesen.ipynb`](../notebooks/36_hypothesen.ipynb). Es
+  misst alle sechs und zitiert sie wörtlich. Seine Ausgaben liegen als
+  Nachweis unter [`nachweise/`](nachweise/README.md).

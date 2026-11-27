@@ -24,7 +24,7 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | FR-34 | `run_all` nimmt einen Jahresbereich | ● | `--jahre 2021-2026`, Wächter in `tests/orchestration/test_run_all.py` |
 | FR-35 | Census je Vintage | ● | `silver/tract` und `silver/place` liegen je Vintage, vier ACS-Vintages |
 | FR-36 | 2024er Nenner ab 2025 | ● | `gold_pipeline.RATENJAHR`, E12 |
-| FR-37 | Unvollständiges Jahr gekennzeichnet | ● | 2026 als Teiljahr, Datenbereich bis 2026-10-04 auf der Startseite |
+| FR-37 | Unvollständiges Jahr gekennzeichnet | ● | 2026 als Teiljahr; den Zeitraum der Daten nennt die Startseite aus dem aktiven Release (`serving.build_einstieg`) |
 | FR-38 | NIBRS über sechs Jahrgänge | ● | beide Städte 100 % zugeordnet, `tests/config/test_micr_nibrs_mapping.py` |
 | FR-39 | Abdeckung je Jahr ausgewiesen | ● | `docs/feldkatalog.md`, erzeugt |
 | FR-40 | Speicherbedarf geschätzt | ● | `docs/intern/platzbedarf.md`, erzeugt, mit Zweitlauf-Wächter |
@@ -35,7 +35,7 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | | Anforderung | Stand | Beleg |
 | --- | --- | :-: | --- |
 | FR-53 | Artans Fassung im Repository | ● | `docs/forschungsfragen.md`, erzeugt aus dem abgegebenen LN1-PDF |
-| FR-54 | Kein Dokument mit zwei Hypothesenmengen | ◐ | nicht geprüft — E1 ist entschieden, die Durchsicht aller Dokumente fehlt |
+| FR-54 | Kein Dokument mit zwei Hypothesenmengen | ● | am 22.11.2026 durchgesehen: Ein Satz im Konzept ordnete H2 die Bedeutung des Vorschlags zu und ist korrigiert. `leistungsnachweise.md` kennzeichnet seinen Vorschlag vom 8.9.2026 jetzt an allen drei Stellen. `tests/test_eine_hypothesenmenge.py` |
 | FR-55 | Forschungsfragen im PRD-Sinn definiert | ● | sechs Teilfragen F1–F6, Wortlaut in `docs/forschungsfragen.md` |
 
 ## Welle 3 · Abbild, Einbau, Zugang (Christian)
@@ -49,7 +49,7 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | FR-5 | `config/` im Abbild | ● | `Dockerfile` |
 | FR-6 | `spatial`, `icu`, `httpfs` zur Bauzeit | ● | `Dockerfile`, Erweiterungen unter `$HOME/.duckdb` |
 | FR-7 | Beschreibbares `$HOME` | ● | `ENV HOME=/home/pipeline`, `chmod 0777` |
-| FR-8 | Gleicher Eingabe-Fingerabdruck im Container | ◐ | **nicht geprüft** — ein Containerlauf gegen einen Hostlauf auf denselben Eingaben fehlt |
+| FR-8 | Gleicher Eingabe-Fingerabdruck im Container | ● | am 14.11.2026 gelaufen: `tools/abdruck_host_container.py 2026-11-14T09-09-47Z` baute Gold auf dem Host aus dem Silver des auf `srv01` im Container gebauten Release neu — **7 von 7** Gold-Tabellen mit gleichem `input_fingerprint`, Ausgabe in `AENDERUNGEN.md`. Wächter: `test_ein_zweiter_lauf_liefert_dieselben_bytes` (Abdruck je Tabelle aus zwei Wurzeln, `referenzstand`) und `test_derselbe_stand_traegt_an_jedem_ort_denselben_abdruck` (Standardlauf). Nicht Gegenstand von FR-8 und offen: Die Parquet-**Bytes** sind zwischen Container und Host nicht gleich, der Inhalt ist es bis auf die letzte Gleitkommastelle von `dim_tract.city_area_share` — von Hand geprüft, Eintrag in `AENDERUNGEN.md` |
 | FR-9 | Stapellauf, kein Webdienst | ● | `profiles: [stapel]`, `restart: on-failure:2`, kein `ports:` |
 | FR-10 | Webdienste hinter dem Tunnel | ● | Traefik-Label je Webdienst |
 | FR-11 | Elasticsearch nicht im `proxy`-Netz | ● | nur das Stapelnetz, `tests/test_srv01_compose.py`; seit dem 1.11.2026 steht es in der Serverfassung gar nicht mehr (C-9, `test_srv01_traegt_weder_elasticsearch_noch_kibana`) |
@@ -67,7 +67,7 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | | Anforderung | Stand | Beleg |
 | --- | --- | :-: | --- |
 | FR-26 | Mindestens drei Analyseszenarien | ● | am 17.10.2026 auf `srv01` gezählt: **sieben** Dashboards |
-| FR-27 | Jedes Szenario nennt Frage, Nenner, Grenze | ◐ | die ES\|QL- und Kartenkacheln tragen sie und ein Wächter verlangt es; die **vierzehn Kacheln der drei älteren Bretter** nicht — ausdrücklich zurückgestellt (`test_build_kibana.py:307`) |
+| FR-27 | Jedes Szenario nennt Frage, Nenner, Grenze | ● | seit dem 17.11.2026 **jede** Kachel, Lens, ES\|QL und Karte: `Tafel._pruefe_fr27` lässt keine ohne Frage, Nenner und Ausschluss entstehen, und jeder Ausschluss braucht seinen Beleg (Abfrage, KQL-Filter, Eimer oder Zeitfenster). Wächter `test_jede_kachel_nennt_frage_nenner_und_ausschluesse` und `test_jede_kachel_die_faelle_nennt_zaehlt_faelle`; die drei Fälle-Kacheln filtern `counts_case`, „Anteil je Stadt“ bleibt nach E5 auf der Tatebene, und alle vier werden gegen eine ES\|QL-Gegenrechnung gehalten. Den Vintage-Hinweis für 2025 und 2026 tragen die Ratenkacheln; Lens zeigt keine Rate (`test_eine_lens_kachel_zaehlt_keine_rate`) |
 | FR-28 | Index trägt die Release-Kennung | ● | am 17.10.2026 gemessen: acht Aliase auf `…-20261017t…` |
 | FR-29 | Dashboards als Code | ● | `serving.build_kibana`, versioniert |
 | FR-31 | Startseite zeigt den einen Befund | ● | `docs/einstieg.html`, auf `srv01` vom Dienst `start` ausgeliefert |
@@ -79,11 +79,11 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | | Anforderung | Stand | Beleg |
 | --- | --- | :-: | --- |
 | FR-15 | Wöchentlicher Anstoss auf `srv01` | ● | Crontab montags 04:30 mit `flock`, am 11.10.2026 abgelesen |
-| FR-16 | Zeitfenster kollidiert nicht | ◐ | der **gemeldete** Fall ist gelöst und gewacht: `mode_for_day` fährt den Volllauf nur an den Tagen 8–14, also am **zweiten** Montag — ein Monatserster kann nie der Volllauftag sein (`tests/test_srv01_datenlauf.py`). Offen bleibt die Frage daneben: Ein **Delta**-Lauf beginnt jeden Montag 04:30 und kann über 05:00 hinauslaufen; wie lange er auf `srv01` dauert, ist nicht gemessen |
+| FR-16 | Zeitfenster kollidiert nicht | ● | der **gemeldete** Fall ist gelöst und gewacht: `mode_for_day` fährt den Volllauf nur an den Tagen 8–14, also am **zweiten** Montag — ein Monatserster kann nie der Volllauftag sein (`tests/test_srv01_datenlauf.py`). Die Frage daneben ist **am 14.11.2026 gemessen und entschieden**: Die drei Delta-Läufe auf `srv01` (19.10., 26.10., 2.11.) dauerten 4,7 bis 5,1 Minuten bis zur letzten Python-Logzeile (04:34/04:35). Der Restore-Test am Monatsersten beginnt frühestens 05:00 (`RandomizedDelaySec=1h`, zuletzt 05:39). Das Nachfassen bei einer gescheiterten Quelle (30 und 60 min) liefe darüber hinaus. Deshalb fasst der Delta-Lauf am Monatsersten **nicht** nach (`test_am_monatsersten_wird_nicht_nachgefasst`). Das Skript schreibt Beginn und Ende mit Zeitstempel, auch bei Abbruch; der erste so gestempelte Lauf am 16.11.2026 dauerte **ganz 6 min 11 s** (04:30:01 → 04:36:12, Exit 0; 41 Stufen in 306 s, danach Drift und Sicherungssatz). Der erste betroffene Montag ist der 1.2.2027. Gilt für den `cron`-Weg; mit S-10 fährt der Konsolen-Worker den Montag (`AENDERUNGEN.md`, Eintrag vom 14.11.2026) |
 | FR-17 | Gescheiterter Lauf erzeugt eine Meldung | ● | **am 18.10.2026 ausgelöst und angekommen.** Die Kette stand schon: Alertmanager mit Telegram-Empfänger, eigenes Ausgangsnetz, Route ohne Matcher — meine Messung vom 17.10. („kein Kanal") war falsch. `docker/prometheus-regeln/urbancrime.yaml` trägt neun Regeln über die Messwerte von FR-30, Prometheus lädt alle neun und wertet sie aus (alle `inactive`). Gegenprobe mit unserem Regelnamen: `amtool alert add alertname=LaufGescheitert` → Telegram, **13 Zustellungen, 0 gescheitert**. Dazu belegt durch zwei echte Alarme desselben Tages, gefeuert und aufgelöst (`BackupMissingOrStale`, `BackupLastRunFailed`) |
 | FR-18 | Secrets aus der ignorierten `.env` | ● | `.env` des Stapels, ungetrackt; `.dockerignore` schliesst sie aus |
 | FR-19 | — | ▣ | **existiert im PRD nicht.** Die Nummer ist übersprungen; kein Inhalt verloren, aber die Lücke gehört genannt |
-| FR-20 | Ein grüner Lauf muss rückholbar sein | ◐ | der Mechanismus steht (`release holen aktuell --einsetzen`), **als Rückholweg nie erprobt** |
+| FR-20 | Ein grüner Lauf muss rückholbar sein | ● | **seit dem 14.11.2026 gebaut:** `python -m orchestration.release zuruecknehmen <kennung> --grund "…"` legt `releases/AKTUELL.json` oben (und lokal, wo vorhanden) auf ein früheres, vollständig liegendes Release und vermerkt `zurueckgenommen: {von, grund, am_utc}`; nichts wird gelöscht. `tests/storage/test_release.py` (`test_zuruecknehmen_*`, eine Zeile der I/O-Matrix je Test). Wer, woran, was danach: `docs/storage-architektur.md` 6a „Ein falsches Release zurücknehmen". Bis 14.11.2026 legte `release holen aktuell --einsetzen` nur den lokalen Zeiger um. **Auf srv01 erprobt am 14.11.2026:** zurück um 15:11:44 UTC, das Dashboard folgte nach 18 s; wieder vor um 15:12:12 UTC, das Dashboard folgte nach 59 s; der Analysenachweis blieb (`AENDERUNGEN.md`, Eintrag vom 14.11.2026) |
 | FR-30 | Grafana zeigt den Betriebsblick | ● | **am 18.10.2026 eingespielt und mit Daten gemessen.** Brett „Urban Crime · Betriebsblick" (uid `urbancrime-betriebsblick`, Ordner `urbancrime`), 21 Panels, provisioniert aus `docker/grafana-brett/`. Alle vier Dinge der Anforderung liegen in Prometheus: Lauf (`lauf_erfolgreich`, `stufe_exit`), Quellenalter mit beiden Takten, Drift (elf Grössen, `drift_innerhalb_toleranz 0` — `detroit_rate` reisst die Toleranz), Plattenfüllung aus node-exporter. `tests/test_grafana_brett.py` hält jeden Ausdruck gegen einen echten Lauf von `serving.betriebsstand` |
 
 ## Welle 6 · Präsentation, Abgabe, Skalierbarkeit
@@ -95,19 +95,19 @@ PRD steht hier, und hier steht keine, die es nicht gibt.
 | FR-50 | Eigenständigkeit, Quellen benannt | ◐ | die Regel gilt im Code (`AGENTS.md`); die Abgabedokumente sind nicht durchgesehen | Artan |
 | FR-51 | Abgabemechanik geregelt | ○ | E3 steht auf „vorläufig ja" (Repository bleibt geschlossen) | Artan |
 | FR-52 | Datenabgabe passt in die Grenze | ◐ | `platzbedarf.md` gibt die Zahlen; die Grenze selbst ist nicht entschieden | Artan |
-| FR-56 | Fundstelle je Pflichtbestandteil P1–P6 | ◐ | **nicht geprüft** — kein Wächter gefunden, der die sechs Fundstellen hält | Artan |
+| FR-56 | Fundstelle je Pflichtbestandteil P1–P6 | ◐ | 5 von 6 mit Fundstelle in [`pflichtbestandteile.md`](pflichtbestandteile.md) (23.11.2026), P2 davon teilweise. **P1 fehlt**, solange FR-58 offen ist. `tests/test_pflichtbestandteile.py` hält Anker, Stand und diese Zeile | Artan |
 | FR-57 | Finaler Lebenszyklus, sechs Phasen | ◐ | `ln2_konzept.md` Kapitel 5 ordnet sie zu; „final" ist er nicht | Artan |
-| FR-58 | LN1-Feedback eingearbeitet | ○ | die Rückmeldung liegt nicht vor | Artan |
-| FR-59 | Skalierbarkeit argumentiert | ◐ | `docs/ausblick.md` Abschnitt 3 „Skalieren" | Christian |
-| FR-60 | Die drei gemessenen Bremsen benannt | ◐ | in `ausblick.md` enthalten; nicht als eigener, belegter Abschnitt geprüft | Christian |
+| FR-58 | LN1-Feedback eingearbeitet | ○ | die Rückmeldung kam am 3.11.2026 (Note 5.75); eingearbeitet ist sie noch nicht; ein Vorschlag je Kritikpunkt liegt in [`textvorschlag-fr-58.md`](textvorschlag-fr-58.md) | Artan |
+| FR-59 | Skalierbarkeit argumentiert | ● | `docs/ausblick.md` Abschnitt 3, Stufe 3: Die Parquet-Dateien mit Hive-Partitionen kämen mit, das SQL aus `spatial` und `icu` nicht. Die Funktionen sind seit dem 21.11.2026 einzeln genannt statt mit einer veralteten Zählung | Christian |
+| FR-60 | Die drei gemessenen Bremsen benannt | ● | `ausblick.md` Abschnitt 3, je mit Beleg (21.11.2026): Vollneubau mit dem Nachweis zu Notebook 36 vom 14.11.2026, räumlicher Join mit dem Kommentar in `build_crime_offense.py`, Speicher mit dem Abbruch auf `srv01` vom 16.10.2026 und den Grenzen seit dem 3.10.2026. `tests/test_ausblick.py` hält die Grenzen | Christian |
 
 ## Welle 7 · Die Nähte für eine dritte Stadt (Christian)
 
 | | Anforderung | Stand | Beleg |
 | --- | --- | :-: | --- |
-| FR-41 | Nähte benannt und dokumentiert | ◐ | `silver_pipeline.STUDIENSTAEDTE` ist der eine Ort; `architektur-ist-und-ziel.md:607` nennt die Blocker. Kein eigener Abschnitt |
-| FR-42 | Die vier Asymmetrien als Muster beschrieben | ◐ | im Code an den Stellen begründet (`mode`/`extraction_mode`, `started_at`, `event_year`/`year`, Tat/Anklage); nicht als Muster zusammengeschrieben |
-| FR-43 | Jede „genau zwei Städte"-Stelle benannt | ○ | nicht geprüft |
+| FR-41 | Nähte benannt und dokumentiert | ● | `dritte-stadt.md` Abschnitt 3, „Die vier Nähte": `STUDIENSTAEDTE`, der Eintrag in `config/quellen.toml`, der Crosswalk nach NIBRS, `build_source_change.QUELLEN`, je mit der Stelle im Code (21.11.2026) |
+| FR-42 | Die vier Asymmetrien als Muster beschrieben | ● | `dritte-stadt.md` Abschnitt 3b: Lademodus, Zeitschlüssel, Bronze-Form, Identitätsschlüssel. Je Zeile Chicago, Detroit, die eine Stelle, an der der Unterschied aufgefangen wird, und die Frage an eine dritte Stadt (21.11.2026) |
+| FR-43 | Jede „genau zwei Städte"-Stelle benannt | ● | am 21.11.2026 durchgesehen. Zehn Stellen behandeln eine dritte Stadt still falsch; sie sind im Code mit „FR-43" kommentiert und in `dritte-stadt.md` Abschnitt 3a aufgelistet. Zwei sind behoben: `STAEDTE` im Dashboard leitet sich seit dem 22.11.2026 aus `STUDIENSTAEDTE` ab, und bei den Kibana-Karten versprachen Kommentar und Anleitung einen Abbruch, der nie anschlagen konnte (`tests/serving/test_build_kibana.py`) |
 
 ## Welle 8 · Die Vorführung am 12.12.2026 (beide)
 
@@ -125,22 +125,22 @@ stellt."*
 
 | | Anforderung | Stand | Beleg |
 | --- | --- | :-: | --- |
-| FR-44 | Umgebungswechsel ist Konfiguration | ◐ | `STORAGE_BACKEND` und die S3-Variablen sind Konfiguration; ein Wechsel ist nie probiert |
+| FR-44 | Umgebungswechsel ist Konfiguration | ● | Google-Cloud-Probe am 15.11.2026: dasselbe Abbild wie auf `srv01`, nur die `.env` anders (`S3_ENDPOINT`, Eimer, HMAC-Schlüssel, zwei `AWS_*_CHECKSUM`-Zeilen); unter `src/` nichts für Cloud Storage. `tests/test_gcp_stapel.py` hält `src/` frei von `gcp`, `gcs`, `google` |
 | FR-45 | S3-Client nimmt Endpunkt, Region, Stil aus der Konfiguration | ● | `storage.config.Config`, `storage.duckdb.secret_sql`, `storage.parquet._ablage` |
-| FR-46 | Nichts im Abbild setzt `srv01` voraus | ◐ | nicht geprüft |
-| FR-47 | Portierung einmal trocken belegt | ▣ | zurückgestellt mit der Welle |
+| FR-46 | Nichts im Abbild setzt `srv01` voraus | ● | `tests/test_abbild_ohne_srv01.py` durchsucht die Zeichenketten in `src/crime` und `docker/jupyter_server_config.py` und die Anweisungen beider Dockerfiles nach `srv01`, `datenwerft`, `/srv/` und `urbancrime-`; `S3_ENDPOINT` ohne Vorgabe, die Serverwerte der Startseite aus `EINSTIEG_ADRESSMUSTER`, `STAPEL_COMPOSE`, `STAPEL_DATENLAUF` (14.11.2026) |
+| FR-47 | Portierung einmal trocken belegt | ● | `docker-compose.gcp.yml`, `docker/gcp-*.sh`; `tools/vergleiche_releases.py` am 15.11.2026: 13 von 13 Tabellen mit gleichem Abdruck wie das srv01-Release `2026-11-14T09-09-47Z`, 12 byteweise gleich (`source_movement` braucht mehrere Läufe je Quelle, kopiert war einer). Elasticsearch, Kibana und `pruefe_stand` grün; zwei Befunde mit Test gelöst (`AENDERUNGEN.md`, 15.11.2026) |
 
 ## Was die Zahlen sagen
 
 | Stand | Anzahl |
 | --- | ---: |
-| ● erfüllt | 38 |
-| ◐ teilweise | 15 |
-| ○ offen | 10 |
-| ▣ zurückgestellt | 2 |
+| ● erfüllt | 51 |
+| ◐ teilweise | 4 |
+| ○ offen | 9 |
+| ▣ zurückgestellt | 1 |
 | **zusammen** | **65** |
 
-Wer die **zehn** offenen trägt — jede genau einmal, und keine, die nicht
+Wer die **neun** offenen trägt — jede genau einmal, und keine, die nicht
 offen ist:
 
 | wem | wie viele | welche |
@@ -148,7 +148,6 @@ offen ist:
 | **Artan** | 4 | FR-48, FR-49, FR-51, FR-58 |
 | **Welle 8**, die Vorführung | 4 | FR-62, FR-63, FR-64, FR-65 |
 | bewusst zurückgestellt | 1 | FR-23 |
-| noch niemandem zugeordnet | 1 | FR-43 |
 
 An FR-56 trägt Artan einen Anteil; es steht teilweise und zählt deshalb hier
 nicht mit. `tests/test_fr_stand.py` hält diese Aufteilung gegen die
@@ -193,5 +192,5 @@ alle sechs hätte im Normalbetrieb Alarm geschlagen.
 und alle vier Dinge der Anforderung kommen mit Daten an — auch die Drift, die
 auf `srv01` vorher nie gemessen wurde und beim ersten Mal gleich etwas fand.
 
-Übrig bleiben damit zehn offene — vier bei Artan, vier in Welle 8, das
-bewusst zurückgestellte FR-23 und das unverteilte FR-43.
+Übrig bleiben damit neun offene — vier bei Artan, vier in Welle 8 und das
+bewusst zurückgestellte FR-23. FR-43 ist seit dem 21.11.2026 erfüllt.

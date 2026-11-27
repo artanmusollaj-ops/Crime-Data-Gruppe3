@@ -105,7 +105,25 @@ Die Eingaben, die das entschieden haben, halten
 
 ## 3. Was noch fehlt, Schicht für Schicht
 
-Die Reihenfolge ist die der Strecke. Jeder Punkt nennt die Stelle im Code.
+### Die vier Nähte (FR-41)
+
+Vier Stellen nimmt eine dritte Stadt in jedem Fall in Anspruch. An jeder
+dockt sie an, ohne dass sich an Chicago oder Detroit etwas ändert. Die
+übrigen Punkte unten hängen an diesen vier oder kommen aus ihnen.
+
+| Naht | Wo | Was die Stadt dort einträgt |
+| --- | --- | --- |
+| **Die Studienstadt** | [`silver_pipeline.STUDIENSTAEDTE`](../../src/crime/silver_pipeline/__init__.py) | ihre Place-GEOID und den amtlichen Namen. Gold leitet daraus `STADT_SCHLUESSEL` ab und Kibana seine Karten. Es gibt keine zweite Liste, die gepflegt werden müsste |
+| **Die eigene Ingestion** | ein Eintrag in [`config/quellen.toml`](../../config/quellen.toml), gelesen von [`storage.quellen`](../../src/crime/storage/quellen.py) | Plattform, Adresse, Schlüssel- und Zeitfelder, das gepinnte Schema. Auf Socrata oder ArcGIS reicht das, für jede andere Plattform braucht sie einen Adapter (Abschnitt 2) |
+| **Der eigene Crosswalk nach NIBRS** | `config/<code>_nibrs_mapping.csv`, erzeugt aus amtlichen Quellen wie `tools/build_iucr_nibrs_mapping.py`, und einzelne Korrekturen in `config/mapping_overrides.csv` | wie ihre Deliktcodes auf NIBRS fallen. Liefert sie NIBRS direkt, entfällt der Crosswalk (Punkt 9) |
+| **Die Quellbewegung** | ein Eintrag in [`build_source_change.QUELLEN`](../../src/crime/silver_pipeline/build_source_change.py) | das Feld mit der fachlichen Identität, die Bronze-Form, die Felder, die nur Rauschen sind, und die Stempel, deren Bewegung keine Inhaltsänderung ist |
+
+Was diese vier Nähte nicht abdecken, ist Code: die Abfrage je Stadt in
+`build_crime_offense.build_query()` (Punkt 8) und die Stellen aus Abschnitt
+3a. Eine Naht im eigentlichen Sinn ist das nicht.
+
+Die Punkte unten folgen der Reihenfolge der Strecke, und jeder nennt die
+Stelle im Code.
 
 ### Ingestion
 
@@ -125,6 +143,16 @@ Die Reihenfolge ist die der Strecke. Jeder Punkt nennt die Stelle im Code.
 4. **Die Drift-Wächter ergänzen:**
    [`orchestration/drift.py`](../../src/crime/orchestration/drift.py) zählt die
    Kennzahlen je Stadt einzeln auf.
+
+4a. **Die Gebiete** (seit dem 25.11.2026): Polizeibezirke und Stadtteile
+   lädt [`gebiete_pipeline/download_gebiete.py`](../../src/crime/gebiete_pipeline/download_gebiete.py)
+   aus `AUSLIEFERUNGEN`, je Stadt und Ebene eine Zeile mit Adresse,
+   Zählabfrage und Schlüsselfeld. Das ist **Code, kein Eintrag in
+   `config/quellen.toml`**. Dazu in
+   [`silver_pipeline/build_police_area.py`](../../src/crime/silver_pipeline/build_police_area.py)
+   das Wort der Stadt für ihre Bezirke (`BEZEICHNUNG`, für Stadtteile die
+   Ebene in `build_community_area.py`). Fehlen die Gebiete, bricht Gold ab
+   („keine Polizeibezirke in der Stadt", `pruefe_polizeibezirke`).
 
 ### Census und Wetter
 
@@ -165,16 +193,86 @@ Die Reihenfolge ist die der Strecke. Jeder Punkt nennt die Stelle im Code.
     leitet die Städte aus `STUDIENSTAEDTE` ab. Die Fallregel ist aber je Stadt
     beschrieben, weil Chicago nur das schwerste Delikt eines Falls führt und
     Detroit jedes. Eine neue Stadt muss sagen, welche Granularität sie liefert.
-12. **Das Dashboard:** `STAEDTE` und `STADTNAMEN` in
-    [`serving/dashboard/__init__.py`](../../src/crime/serving/dashboard/__init__.py),
-    dazu die Farben in `static/dashboard.css` (`--chicago`, `--detroit`).
+12. **Das Dashboard:** die Farben in `static/dashboard.css` (`--chicago`,
+    `--detroit`) und in `static/gemeinsam.js` (`FARBE`). `STAEDTE` und
+    `STADTNAMEN` in
+    [`serving/dashboard/__init__.py`](../../src/crime/serving/dashboard/__init__.py)
+    leiten sich seit dem 22.11.2026 aus `STUDIENSTAEDTE` ab, und die Leiste
+    baut je Stadt eine Checkbox. Eine neue Stadt erscheint dort also von
+    selbst.
 13. **Kibana:** der Kartenausschnitt je Stadt (`KARTE_JE_STADT`) in
-    [`serving/build_kibana.py`](../../src/crime/serving/build_kibana.py)
-    (`karte_objekt` bricht ab, wenn eine Stadt fehlt).
+    [`serving/build_kibana.py`](../../src/crime/serving/build_kibana.py).
+    Fehlt er, bricht der Bau der Kartentafel ab und nennt die Stadt. Das gilt
+    erst seit dem 21.11.2026: Davor kamen die Karten aus `KARTE_JE_STADT`
+    selbst, und eine Stadt ohne Eintrag bekam still keine Karte.
 14. **Die Register:** Fünf Register müssen mitgeführt werden, sonst bricht ein
     Test (siehe `AGENTS.md`). Dazu kommen ein Eintrag in den
     Vertragsversionen von `docs/intern/AENDERUNGEN.md`, die Notebooks und die
     Zahlen der Abgabedokumente samt ihren Referenzstand-Wächtern.
+
+### 3a. Stellen, die genau zwei Städte voraussetzen (FR-43)
+
+Abschnitt 3 nennt, wo eine dritte Stadt einen Eintrag braucht. Die meisten
+dieser Stellen brechen ab, wenn er fehlt. Die folgenden tun das nicht: Mit
+einer dritten Stadt liefern sie still ein falsches oder unvollständiges
+Ergebnis. Durchgesehen wurde am 21.11.2026 der Code unter `src/crime/`. Jede
+Stelle trägt dort einen Kommentar mit „FR-43", und `grep -rn FR-43 src/`
+findet sie alle.
+
+| Stelle | Was mit einer dritten Stadt geschähe |
+| --- | --- |
+| `silver_pipeline/build_crime_offense.py`, Crosswalk-Abfrage | genau die IUCR- und die MICR-Datei. Ihre Codes blieben ohne Fehler `unmapped` |
+| ebenda, Zonenprüfung im Abgleich | das `ELSE` meint Detroit. In einer anderen Zone ein falscher Zonenbefund, in derselben Zone keiner |
+| ebenda, Prüfung „nicht mehr Ergebnis als Quelle" | je Stadt einzeln. Die dritte bliebe ungeprüft |
+| ebenda, `comparability` | nur die Spalten `chicago` und `detroit`. Die dritte fehlt in diesem Teil des Manifests |
+| `platform_admin/batch.py` | Ein Volllauf aus der Konsole liefe für sie als Delta, und ihre Läufe würden nicht als Beleg erfasst |
+| `platform_admin/jobs.py` | Die Stadt wird aus dem Aufgabennamen gelesen, mit „Chicago" als Rückfall. Heute lehnt die Konsole unbekannte Aufgaben ab |
+| `serving/dashboard/quellbewegung.py` | Der Test vergleicht genau ein Paar. Bei drei Städten fallen Vergleich und Faktor weg |
+| `serving/dashboard/static/quellbewegung.js` | dieselbe Tafel, mit zwei Spalten |
+| `serving/dashboard/static/gemeinsam.js`, `FARBE` | ohne Eintrag keine Farbe, und SVG zeichnet die Stadt schwarz |
+| `serving/dashboard/static/geografie.js` | Die Rangliste der Tracts gibt es nur für Chicago und Detroit, ebenso die Behälter in `geografie.html` |
+
+Nur in Texten, ohne Folgen für eine Zahl: die Zeile „Chicago · Detroit" und
+„Die beiden Städte" in `serving/build_einstieg.py`, die Tract-Zahlen in
+`static/datenqualitaet.js` und `BEZEICHNUNG` in
+`silver_pipeline/build_police_area.py` — ohne Eintrag bleibt der Name eines
+Bezirks leer, seine Nummer stimmt.
+
+Laut sind dagegen, und deshalb nicht in der Tabelle: `CROSSWALKS` in
+`gold_pipeline/build_gold.py` (die Prüfung auf verwaiste Codes bricht ab),
+die Qualitätsprüfung in `platform_admin/checks.py`,
+`platform_admin/run_evidence.py` („Unbekannte Stadt") und die Zeitzonen in
+`serving/dashboard/zeitverlauf.py`.
+
+Behoben statt kommentiert ist eine Stelle, nämlich die Kibana-Karten (Punkt
+13). Kommentar und Anleitung versprachen dort einen Abbruch, den der Code
+nicht auslösen konnte. Das halten `test_die_karten_kommen_aus_den_studienstaedten`
+und `test_eine_stadt_ohne_ausschnitt_bricht_ab_und_wird_genannt`.
+
+Seit dem 22.11.2026 ist auch `STAEDTE` im Dashboard behoben: Es leitet sich
+aus `STUDIENSTAEDTE` ab, statt fest eingetragen zu sein
+(`test_die_staedte_kommen_aus_den_studienstaedten`). Damit stehen noch zehn
+Stellen in der Tabelle.
+
+### 3b. Die vier Asymmetrien als Muster (FR-42)
+
+Chicago und Detroit beschreiben dieselben Dinge mit verschiedenen Schlüsseln
+und Formen. Jede der vier Asymmetrien wird an **einer** Stelle aufgefangen,
+nicht in jedem Modul neu. Eine dritte Stadt füllt die Zeile aus, indem sie
+die Frage in der vierten Spalte beantwortet.
+
+| Asymmetrie | Chicago | Detroit | Wo aufgefangen | Die Frage an eine dritte Stadt |
+| --- | --- | --- | --- | --- |
+| **Lademodus** | Manifest `mode`, Werte `full_snapshot` oder `delta`. Ein Delta blickt 14 Tage hinter das Wasserzeichen `updated_on` zurück, die Deltas überlappen sich also | Manifest `extraction_mode`, Werte `FULL`, `DELTA` oder `INCREMENTAL`. Zeilen ohne `updated_at` kommen in jedem Delta mit | [`manifeste.Lauf.vollabzug`](../../src/crime/manifeste/__init__.py) und `VOLLABZUG`. Census, TIGER und NOAA nennen keinen Modus und gelten deshalb **nicht** als Vollabzug | Hat sie einen Änderungsstempel? Ohne ihn ist jeder Lauf ein Vollabzug (Abschnitt 1) |
+| **Zeitschlüssel** | Tatzeit `date` als Ortszeit ohne Zone. Laufbeginn `started_at_utc`, Jahrgang `event_year` | Tatzeit `incident_occurred_at` in Epoch-Millisekunden UTC. Laufbeginn `started_at`, Jahrgang `year` | Die Tatzeit setzt Silver je Stadt in `build_query()`, mit `TIMEZONES`, in beide Richtungen: Chicago von Ortszeit nach UTC, Detroit von UTC nach Ortszeit. Laufbeginn und Jahrgang liest `manifeste.Lauf.begonnen_um` und `.jahrgang` | In welcher Zone liegt ihre Tatzeit, und gibt es Ortszeiten, die es nie gab oder die zweimal vorkommen? |
+| **Bronze-Form** | flache Spalten, so wie Socrata sie liefert | ArcGIS-Features mit den Feldern in einem Struct `attributes`, zusätzlich jedes Feature verlustfrei als JSON | `build_source_change.Quelle.struct` (`None` heisst flach). In Silver liest der Zweig je Stadt die Felder an ihrem Ort | Flach oder verschachtelt? Das entscheidet die Plattform, nicht die Stadt |
+| **Identitätsschlüssel und Granularität** | Zeile ist ein Vorfall: `id` ist der Tatschlüssel, `case_number` der Fall. Je Fall steht nur das schwerste Delikt da | Zeile ist ein Delikt: `incident_entry_id` ist der Tatschlüssel, `report_number` der Fall. Je Fall steht jedes Delikt da | Silver setzt `offense_id` und `event_id` je Stadt. `FALLKORN_RANG` wählt die Fallebene für beide gleich, und Gold beschreibt die Fallregel je Stadt (Punkt 11). Die Quellbewegung nimmt `Quelle.schluessel` | Welches Feld trägt die fachliche Identität, nicht die Zeilennummer der Antwort? Und ist eine Zeile ein Vorfall oder ein Delikt? |
+
+Daneben gibt es zwei kleinere Unterschiede ohne fachliche Folge. Die Läufe
+heissen `run_id` bei Chicago und `pipeline_run_id` bei Detroit, der Abschluss
+`completed_at_utc` und `finished_at`. Der Status lautet `complete` und
+`SUCCESS`. Auch diese Unterschiede fängt `manifeste` auf (`FERTIG`,
+`Lauf.run_id`, `Lauf.abgeschlossen_um`).
 
 ## 4. Was bewusst nicht vorbereitet ist
 

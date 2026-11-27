@@ -3,6 +3,12 @@
 __pycache__/
 *.py[cod]
 .env
+# Weitere Umgebungen tragen dieselben Geheimnisse und gehoeren nach
+# ~/.config/urbancrime-probe/ (.env.gcp.example); falls doch eine hier
+# landet, bleibt sie draussen. Nur die Vorlagen sind versioniert.
+.env.*
+!.env.example
+!.env.gcp.example
 .ipynb_checkpoints/
 data/*/city=*/
 # Census-Referenzgeometrien: data/<schicht>/dataset=tiger_tract/vintage=.../state=...

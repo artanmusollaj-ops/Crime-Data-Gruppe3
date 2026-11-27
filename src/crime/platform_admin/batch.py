@@ -31,7 +31,8 @@ def enqueue_batch(store, mode, actor, slot=None):
         if con.execute("SELECT 1 FROM operation WHERE kind='batch' AND status IN ('QUEUED','RUNNING')").fetchone():
             raise AdminError("Ein Betriebsimport ist bereits eingereiht oder laeuft")
         oid = uuid.uuid4().hex
-        con.execute("INSERT INTO operation VALUES (?,?,?,?,?,'QUEUED',?,NULL,NULL)",
+        con.execute("INSERT INTO operation(id,kind,payload,actor,reason,status,created_at) "
+                    "VALUES (?,?,?,?,?,'QUEUED',?)",
                     (oid, "batch", encode(payload), actor, "Geplanter Quellenlauf mit Impact-Review", now()))
         return oid
 
@@ -49,6 +50,9 @@ def execute(store, row, payload):
     folder.mkdir(exist_ok=True, parents=True)
     import sys
     commands = [[sys.executable, "-m", "orchestration.vorpruefung"]]
+    # Two cities (FR-43): the full-mode switch and the run inventory name
+    # Chicago and Detroit. A third city's stage would silently run in its
+    # default (delta) mode, and its runs would not be captured as evidence.
     for stage in auswahl(False, "ingestion", payload["years"]):
         command = stage.befehl(store.data)
         if payload["mode"] == "full":

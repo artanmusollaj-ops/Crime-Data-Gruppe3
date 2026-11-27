@@ -29,14 +29,16 @@
 </nav>
 
 <form class="leiste" id="leiste">
-  <label>Stadt <select name="stadt" id="stadt"></select></label>
+  <div class="mehrfach" id="staedte" role="group" aria-label="Stadt"><span>Stadt</span></div>
+  <input type="hidden" name="stadt" id="stadt">
   <label>Zeitraum
     <select name="von" id="von" aria-label="von Monat"></select>
     <span class="bis">–</span>
     <select name="bis" id="bis" aria-label="bis Monat"></select>
     <select name="jahr" id="jahr" aria-label="Jahr"></select>
   </label>
-  <label>Kategorie <select name="kategorie" id="kategorie"></select></label>
+  <div class="mehrfach" id="kategorien" role="group" aria-label="Kategorie"><span>Kategorie</span></div>
+  <input type="hidden" name="kategorie" id="kategorie">
 </form>
 
 <main class="brett">
@@ -44,6 +46,22 @@
     <div>
       <h1>Räumliche Verteilung</h1>
       <p class="einleitung" id="u-geografie">Fälle je 1'000 Einwohner je Census Tract</p>
+    </div>
+    <div class="schalterpaar">
+      <div class="umschalter" data-param="raum" role="group" aria-label="Raum">
+        <button type="button" data-wert="tract">Tract</button>
+        <button type="button" data-wert="bezirk">Polizeibezirk</button>
+        <button type="button" data-wert="stadtteil">Stadtteil</button>
+        <button type="button" data-wert="sechseck">Sechseck</button>
+      </div>
+      <div class="umschalter" data-param="kennzahl" role="group" aria-label="Kennzahl">
+        <button type="button" data-wert="rate">Rate</button>
+        <button type="button" data-wert="geglaettet">Geglättet</button>
+        <button type="button" data-wert="veraenderung">Zum Vorjahr</button>
+        <button type="button" data-wert="profil">Deliktprofil</button>
+        <button type="button" data-wert="nacht">Nacht</button>
+        <button type="button" data-wert="festnahme">Festnahmen</button>
+      </div>
     </div>
   </div>
   <p class="fehler" id="fehler" hidden></p>
@@ -68,7 +86,7 @@
 </main>
 
 <footer class="fuss">
-  <span>Umrisse: TIGER/Line über gold/dim_tract_geo · Einwohner: ACS 5-Year · <span id="fuss-stand"></span></span>
+  <span>Umrisse: TIGER/Line über gold/dim_tract_geo, Polizeibezirke über gold/dim_police_area, Stadtteile über gold/dim_community_area · Hintergrund: OpenStreetMap · Einwohner: ACS 5-Year · <span id="fuss-stand"></span></span>
   <span>Quelle: gold/fact_offense · Regel: gold_pipeline.raten_je_tract</span>
 </footer>
 </body>

@@ -14,6 +14,19 @@ Schichten, gegebenenfalls Release-ID und SHA-256 der lokalen Parquet-Dateien
 und Manifeste aus Bronze, Silver und Gold. Ein Lauf nur bis Silver bestaetigt
 kein eventuell noch vorhandenes Gold. Ein direkter Neubau oder eine Aenderung
 entwertet den alten Nachweis vor dem Schreiben, auch wenn der Vorgang scheitert.
+Eine Ausnahme gibt es: `release holen --einsetzen` legt den alten Nachweis nur
+beiseite und setzt ihn zurueck, wenn er dasselbe Release nennt und jede erfasste
+Datei danach noch dieselbe Pruefsumme hat (`bewahre_nachweis`). So bleibt auf
+`srv01` der Nachweis von `run_all` stehen, wenn der Datenlauf das eben
+publizierte Release einsetzt. Bei abweichender Release-ID, abweichenden
+Pruefsummen, einem Nachweis ohne Release-ID oder einem Fehler bleibt der Bestand
+gesperrt.
+
+Auf `srv01` (Modus `s3`) braucht es dazu `STORAGE_ANALYSEBESTAND_LOKAL=true` in
+den Diensten `pipeline` und `worker`. Sonst entfernt `run_all` Silver und Gold
+nach dem Release, und der Nachweis erfasst nur Bronze. Fehlt eine Tabelle der
+Notebooks lokal, weil ihre Stufe nichts neu gebaut hat, holt `run_all` sie vor
+dem Bestätigen aus dem Eimer.
 
 Die Startzelle liest standardmaessig `data/`. Eine andere Wurzel wird vor dem
 Start des Kernels gewaehlt, zum Beispiel in PowerShell:
@@ -48,9 +61,14 @@ Es gibt keinen Zeitablauf, der einem noch lesenden Notebook die Sperre entzieht.
 Die Konsole baut isoliert unter `data/admin/jobs/<Job-ID>/data/`. Genau dort
 wird nach technisch erfolgreichem Kandidatenbau der Nachweis geschrieben;
 `run_id` ist die Job-ID, die Release-ID benennt den Kandidaten. Das ist **keine
-Review-Freigabe** und wird entsprechend angezeigt. Eine spaetere Freigabe wird
-nicht aus dem gerade aktiven Release geraten. Fuer einen freigegebenen Stand
-muss der Betreiber den zugehoerigen Job anhand der Konsolenentscheidung waehlen.
+Review-Freigabe** und wird entsprechend angezeigt. Welcher Job zum aktiven
+Release gehoert, haelt der Job-Zeiger `admin/jobs/ANALYSE.json` fest; ihn setzt
+`finish_publication` beim Aktivieren. Die Startzelle schlaegt das Release aus
+`releases/AKTUELL.json` darin nach und liest danach `analyse.root`, den
+Job-Ordner. Nach einem Zurueckschalten auf ein aelteres Release sind es dessen
+Daten. Fehlt fuer ein Konsolen-Release (`approved-...`) der Eintrag oder sein
+Ordner, bricht sie ab. Wann ein Job-Ordner geloescht wird, steht im
+Konsolenhandbuch unter „Aufräumen und Backup“.
 Der ueberschriebene letzte Worker-Takt in `pipeline_run.json` ist kein Ersatz
 fuer den Aufbau-Nachweis. Die Bronze-Laufkennungen sind in den mitgeprueften
 Manifesten enthalten, nicht eine erfundene gemeinsame Ingestionskennung.
@@ -107,11 +125,13 @@ und das `konsole`-Volume nicht eingehaengt hat. Der Worker waere dafuer ungeeign
 Sein ueberlagerndes konsole-Volume wuerde die Verzeichnisse am falschen Ort anlegen.
 Es werden keine Job-Daten nach `arbeitsdaten` kopiert.
 
-In der `.env` des Stapels wird danach
-`CRIME_ANALYSIS_ROOT=/app/data/admin/jobs/<Job-ID>/data` auf genau diesen Aufbau
-gesetzt. Beim Aendern dieses Werts muss Jupyter neu erstellt werden, damit die
-Kernel die neue Umgebung erben. Leer bleibt die Vorgabe `/app/data`, die nur
-bei passendem lokalen Nachweis als Analysebestand akzeptiert wird.
+`CRIME_ANALYSIS_ROOT` bleibt in der `.env` des Stapels auf `/app/data`: Seit
+dem 14.11.2026 findet die Startzelle den Job des aktiven Release über den
+Job-Zeiger `jobs/ANALYSE.json` (`platform_admin.job_data`, #232). Ein fester
+Wert `/app/data/admin/jobs/<Job-ID>/data` geht weiter, umgeht dann aber den
+Zeiger (`ENGINEERING_KONSOLE.md`, Abschnitt Jupyter). Beim Aendern des Werts
+muss Jupyter neu erstellt werden, damit die Kernel die neue Umgebung erben.
+In jedem Fall wird ein passender Herkunftsnachweis verlangt.
 
 Die Compose-Konfiguration allein aktualisiert weder die laufenden Container
 noch die Notebook-Arbeitskopien. Unter Linux/Docker wurden am 31.10.2026

@@ -33,6 +33,16 @@ Zeichenketten haengt an deren Hashwerten, und die sind je Prozess zufaellig -
 sich bis zu vier Dateien, ohne dass sich eine Zeile Code geaendert haette.
 ``main`` startet den Prozess deshalb einmal neu, mit ``PYTHONHASHSEED=0``.
 
+**Und mit frischem Bytecode.** Der Seed allein reichte nicht, gefunden am
+14.11.2026 vom ersten CI-Lauf, der den Waechter wirklich ausfuehrte: Ein
+Mengen-Literal aus Konstanten (``{"viewer", "engineer", ...}``) wird beim
+Kompilieren als ``frozenset`` in die ``.pyc`` geschrieben - in der
+Reihenfolge des Seeds, **der beim Kompilieren galt**. Lag im ``__pycache__``
+eine ``.pyc`` aus einem Prozess mit Zufalls-Seed, druckte pdoc deren
+Reihenfolge, lokal ``{'reviewer', 'operator', ...}``, in der frisch
+kompilierenden CI ``{'operator', 'reviewer', ...}``. Der Neustart kompiliert
+deshalb in ein eigenes, leeres Verzeichnis (``PYTHONPYCACHEPREFIX``).
+
 Gefunden wurde das erst, als die Referenz ins Repository sollte. Der erste
 Waechter baute zweimal **im selben Prozess** - und derselbe Prozess hat
 denselben Seed. Er war gruen, weil er die Frage nicht gestellt hat.
@@ -76,6 +86,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import warnings
 from pathlib import Path
 from typing import NamedTuple
@@ -89,6 +100,8 @@ MARKE = "erzeugt-mit.json"
 # Irgendein fester Wert; 0 ist der uebliche. Entscheidend ist nur, dass er
 # ueber Laeufe hinweg derselbe bleibt.
 HASHSEED = "0"
+#: Gesetzt im neu gestarteten Prozess, damit er nicht noch einmal startet.
+NEUGESTARTET = "REFERENZ_NEUGESTARTET"
 
 sys.path.insert(0, str(QUELLE))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -444,14 +457,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     argumente = zerleger.parse_args(argv)
 
-    if os.environ.get("PYTHONHASHSEED") != HASHSEED:
-        # Einmal neu starten, damit die Reihenfolge von Mengen feststeht.
-        # Die Begruendung steht oben im Modul-Docstring.
-        fertig = subprocess.run(
-            [sys.executable, str(Path(__file__).resolve()),
-             *(argv if argv is not None else sys.argv[1:])],
-            env={**os.environ, "PYTHONHASHSEED": HASHSEED},
-        )
+    if os.environ.get(NEUGESTARTET) != "1":
+        # Einmal neu starten, mit festem Seed und frischem Bytecode, damit die
+        # Reihenfolge von Mengen feststeht. Begruendung oben im Modul-Docstring.
+        with tempfile.TemporaryDirectory(prefix="referenz-pyc-") as pyc:
+            fertig = subprocess.run(
+                [sys.executable, str(Path(__file__).resolve()),
+                 *(argv if argv is not None else sys.argv[1:])],
+                env={**os.environ, "PYTHONHASHSEED": HASHSEED,
+                     "PYTHONPYCACHEPREFIX": pyc, NEUGESTARTET: "1"},
+            )
         return fertig.returncode
 
     ziel = argumente.ziel

@@ -30,20 +30,26 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **2'881** |
+| Tests | **3'544** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
-| `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | **1'851'946** Zeilen (eine Tat) |
-| Chicago | 251'513 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 84'987 Delikte · 638'635 Einwohner · **133,1** je 1'000 |
-| Fallebene (`counts_case`) | Chicago 251'483 · Detroit 79'587 Fälle; Detroit **124,6** je 1'000 |
+| `silver/crime_offense` | 1'922'278 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | **1'900'131** Zeilen (eine Tat) |
+| Chicago | 256'317 Fälle · 2'713'800 Einwohner · **94,4** je 1'000 |
+| Detroit | 79'619 Fälle · 638'635 Einwohner · **124,7** je 1'000 |
+| Tatebene (`fact_offense`) | Chicago 256'347 · Detroit 85'701 Taten; je 1'000: Chicago **94,5** · Detroit **134,2** |
 
 > **Zwei Zeiträume in einer Tabelle, und das ist Absicht.** Die beiden
 > Zeilenzahlen sind der **Bestand** über alle sechs Jahrgänge — die Antwort auf
 > „was liegt hier?". Die drei Zeilen darunter gelten für den **Jahrgang 2024**,
 > den jüngsten vollständigen (`gold_pipeline.RATENJAHR`): Eine Rate braucht
-> einen Zeitraum, und sechs Jahre Zähler auf einem Jahr Nenner ergäben 500,7
+> einen Zeitraum, und sechs Jahre Zähler auf einem Jahr Nenner ergäben 511,7
 > je 1'000 für Chicago. Das wäre keine zu hohe Rate, sondern keine.
+>
+> **Die Fallebene steht vorn** (E-2, seit dem 12.11.2026): Ein Fall ist ein
+> Vorfall mit seinem schwersten Delikt (`counts_case`, die Hierarchieregel des
+> UCR Handbook, für beide Städte dieselbe). Sie bringt beide Städte auf einen
+> amtlichen Massstab. Die Tatebene steht in der Zeile darunter, weil Anteile je
+> Deliktart nur dort addieren.
 >
 > Die Rate zählt nur Delikte in Tracts, die einer der beiden Städte zugeordnet
 > sind — die Fallzahlen seit dem 4.10.2026 ebenso, damit Zahl und Rate in einer
@@ -71,12 +77,15 @@ Lauf mit der höheren Zahl. Diese Tabelle sagt, was die Zahl bedeutet.
 | `bronze/dataset=tiger_tract`, `bronze/dataset=tiger_place` | 1 | 14.09.2026 | Vintage-Archiv je Bundesstaat, Geometrie als WKB in EPSG:4269, Feld-Allowlist mit `_extra` |
 | `bronze/dataset=acs5_tract` | 1 | 14.09.2026 | fünf Variablen je Tract, Fehlwert `-666666666` bleibt unverändert stehen |
 | `bronze/dataset=noaa_ghcnd` | 1 | 14.09.2026 | Vollschnappschuss je Station, bedingter Abruf über ETag, Mindestabstand sieben Tage |
+| `bronze/dataset=gebiete` | 1 | 25.11.2026 | Grenzen der Polizeibezirke je Stadt und Ebene, GeoJSON unverändert in Raw, WKB in Bronze; jeder Lauf ein neuer Stand, vollständig gegen die Zählung des Portals |
 | `silver/tract` | **2** | 14.09.2026 | ein Census Tract je Zeile, TIGER und ACS über einen vollen äusseren Join. Version 2: `median_household_income_usd` und `population_below_poverty` als `INTEGER` statt `BIGINT` — die Einwohnerzahl bleibt `BIGINT`, sie ist der Nenner jeder Rate |
 | `silver/place` | 1 | 14.09.2026 | ein Ort je Zeile, Geometrie für die Stadtgrenze |
 | `silver/weather_day` | 1 | 14.09.2026 | eine Stadt an einem Tag, eine Station je Stadt |
-| `silver/crime_offense` | **4** | 30.10.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig. Version 4: **Die Zuordnung ist Crosswalk plus `config/mapping_overrides.csv`** — eine Zeile dort gewinnt gegen den erzeugten Crosswalk und trägt die Herkunft `admin_review` (Einstufung `ambiguous`). Die Datei fehlt nie; ohne Korrekturen hat sie nur die Kopfzeile, und dann ist das Ergebnis dasselbe wie in Version 3 |
+| `silver/crime_offense` | **6** | 25.11.2026 | eine Anklage je Zeile; `counts` markiert die Tat, `counts_case` den Fall; NIBRS als gemeinsame Achse. Version 2: `local_time_ambiguous` und `local_time_nonexistent` weisen die beiden Zeitzonen-Randfälle je Zeile aus. Version 3: **`source_offense_description` trägt für Chicago beide IUCR-Hälften** (`primary_type: description`) — die zweite allein war bei 23,7 % der Zeilen mehrdeutig. Version 4: **Die Zuordnung ist Crosswalk plus `config/mapping_overrides.csv`** — eine Zeile dort gewinnt gegen den erzeugten Crosswalk und trägt die Herkunft `admin_review` (Einstufung `ambiguous`). Die Datei fehlt nie; ohne Korrekturen hat sie nur die Kopfzeile, und dann ist das Ergebnis dasselbe wie in Version 3. Version 5: **Polizeibezirke und Festnahme.** `police_area` aus dem räumlichen Join gegen `silver/police_area`, `police_area_source` aus der Quelle (Zahl ohne führende Null), `case_status` für Detroit; `arrest` ist für Detroit nicht mehr `NULL`, sondern `case_status = 'CLEARED BY ARREST'`. Version 6: `community_area` aus dem räumlichen Join gegen `silver/community_area` |
+| `silver/police_area` | 1 | 25.11.2026 | ein Polizeibezirk je Zeile (Chicago District, Detroit Precinct), Teilpolygone vereinigt, `area_id` als Zahl ohne führende Null, Fläche auf dem Ellipsoid |
+| `silver/community_area` | 1 | 25.11.2026 | ein Stadtteil je Zeile (Chicago Community Area, Detroit Master Plan Neighborhood), gebaut wie `police_area`; `area_id` ist in Detroit der Name |
 | `silver/source_change` | **4** | 08.11.2026 | Unterschied zwischen aufeinanderfolgenden **Vollabzügen** je Quelle, eine Zeile je geändertem Feld; `ESRI_OID` und reine Leerzeichen ausgenommen, Zeitstempel als `beruehrt` statt als Inhaltsänderung. Version 2 ergänzte die **Datierung aus den Deltas**: `zuerst_gesehen_in`, `zuerst_gesehen_am` und `datierung` mit `delta` / `kein_delta` / `nicht_datierbar`. Gefunden wird weiter nur zwischen Vollabzügen — aus einem Delta liesse sich *verschwunden* nicht von *ruhig* unterscheiden. Version 3: Die Datierung **klebt** — sie nennt den besten je bestimmten Befund, nicht den heutigen, sonst löschte das Aufräumen der Deltas sie wieder. Version 4: Jede Zeile nennt ihre **Deliktsart** (`quellcode`, `quellkategorie` — aus dem älteren Abzug, bei `neu` aus dem jüngeren), jedes Paar seinen **Bestand** (`bestand_vorher`, `bestand_nachher`) und seinen **Jahrgang** (`jahrgang`, aus dem Manifest des Laufs). Ohne Deliktsart war nicht zu sagen, *was* verschwindet; ohne Bestand nicht, ob eine Stadt *viel* löscht. Beides klebt wie die Datierung und wird für ältere Paare nachgetragen, solange ihre Schnappschüsse lesbar sind |
-| `gold/*` | **8** | 14.10.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften | Version 6: Die ACS-Masse liegen **je Vintage** in der neuen Tabelle `dim_tract_acs` (`population`, `median_household_income_usd`, `poverty_rate`); `dim_tract` behält die Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie kommt; `fact_offense` trägt `population_vintage` und sagt damit je Zeile, welcher Nenner für sie gilt. Eine Tabelle mit einer Zeile je Tract konnte nur eine Einwohnerzahl tragen — über mehrere Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021 Version 7: `dim_date` trägt `year_is_complete` — ob der Jahrgang dieses Tages ganz in den Daten liegt. Ein Teiljahr darf nicht in einen Jahresvergleich geraten: 2026 hat am 3.10. neun Monate, und neun gegen zwölf gestellt ergeben einen Rückgang, den es nicht gibt. Dazu im Manifest von `fact_offense` der Nachweis `year_coverage` je Jahrgang, mit `days_with_offenses` gegen `days_in_year` — denn eine Lücke **innerhalb** des Jahres sieht man an der Spalte nicht Version 8: Die neue Tabelle `dim_tract_geo` trägt den **Umriss** je Tract der beiden Studienstädte als WKT — 1'055 Zeilen, vereinfacht mit Douglas-Peucker 0,00002 Grad (rund zwei Meter, 0,0002 % Fläche je Tract). Sie ist die Grundlage der Choroplethenkarte in Kibana, die eine Fläche braucht und mit dem Schwerpunkt in `dim_tract` nichts anfangen kann. **Eigene Tabelle und keine Spalte an `dim_tract`:** Die Dimension deckt beide Countys ab (6'282 Zeilen) und wäre mit Umrissen 26 MB statt 194 KB; `dim_tract_geo` kostet 133 KB. Keine Kennzahl darin — wer färben will, verbindet über `geoid`
+| `gold/*` | **12** | 25.11.2026 | Sternschema, eine Zeile je Tat, Mehrheitsregel für die Stadtzuordnung. Version 2: `dim_date` mit `SMALLINT`/`TINYINT` statt `BIGINT`, `fact_offense.hour_of_day` als `TINYINT`. Version 3: `dim_city_day` führt `precipitation_trace` und `snowfall_trace` mit — ein Messwert 0 mit Spurenflag ist nicht trocken. Version 4: `fact_offense` führt `local_time_ambiguous` mit, weil `hour_of_day` dort gerechnet wird. Version 5: `source_offense_description` übernimmt Silvers Vertrag 3 — für Chicago beide IUCR-Hälften | Version 6: Die ACS-Masse liegen **je Vintage** in der neuen Tabelle `dim_tract_acs` (`population`, `median_household_income_usd`, `poverty_rate`); `dim_tract` behält die Stadtzuordnung und nennt mit `reference_vintage`, aus welchem Jahrgang sie kommt; `fact_offense` trägt `population_vintage` und sagt damit je Zeile, welcher Nenner für sie gilt. Eine Tabelle mit einer Zeile je Tract konnte nur eine Einwohnerzahl tragen — über mehrere Jahrgänge hätte jede Tat denselben Nenner bekommen, auch die von 2021 Version 7: `dim_date` trägt `year_is_complete` — ob der Jahrgang dieses Tages ganz in den Daten liegt. Ein Teiljahr darf nicht in einen Jahresvergleich geraten: 2026 hat am 3.10. neun Monate, und neun gegen zwölf gestellt ergeben einen Rückgang, den es nicht gibt. Dazu im Manifest von `fact_offense` der Nachweis `year_coverage` je Jahrgang, mit `days_with_offenses` gegen `days_in_year` — denn eine Lücke **innerhalb** des Jahres sieht man an der Spalte nicht Version 8: Die neue Tabelle `dim_tract_geo` trägt den **Umriss** je Tract der beiden Studienstädte als WKT — 1'055 Zeilen, vereinfacht mit Douglas-Peucker 0,00002 Grad (rund zwei Meter, 0,0002 % Fläche je Tract). Sie ist die Grundlage der Choroplethenkarte in Kibana, die eine Fläche braucht und mit dem Schwerpunkt in `dim_tract` nichts anfangen kann. **Eigene Tabelle und keine Spalte an `dim_tract`:** Die Dimension deckt beide Countys ab (6'282 Zeilen) und wäre mit Umrissen 26 MB statt 194 KB; `dim_tract_geo` kostet 133 KB. Keine Kennzahl darin — wer färben will, verbindet über `geoid` Version 9: `dim_city_day` ist ein **Gerüst** aus der Spanne der Falldaten und jeder Studienstadt; das Wetter kommt per LEFT JOIN, und an Tagen, für die NOAA noch nicht geliefert hat, sind die Wetterspalten `NULL`. Dazu je Stadt und Tag `sunrise_utc`, `sunset_utc` und `daylight_hours` nach NOAA „General Solar Position Calculations“ (Zenit 90,833°) am Schwerpunkt der Ortsgrenze aus `silver/place`, immer gefüllt. Der Untergang liegt im Sommer am UTC-Folgetag; hell heisst `sunrise_utc <= occurred_at_utc < sunset_utc` für dieselbe Stadt und dasselbe `date`. Tage ohne Wetter tragen in `quality_flags` das Flag `no_weather`. Version 10: Die Mehrheitsregel rechnet den Anteil auf die **Landfläche** des Tracts (Anteil der Gesamtfläche × (Land + Wasser) / Land, höchstens 1; ohne Land keine Stadt). Über die Gesamtfläche scheiterten bewohnte Tracts am Seeufer am Wasser, weil die TIGER-Grenze von Chicago am Ufer endet. `city_area_share` trägt seither den Landanteil Version 11: **Polizeibezirke.** Neu `dim_police_area` (ein Bezirk je Zeile, `within_city` nach der Mehrheitsregel der Tracts, Umriss als WKT) und `bridge_tract_police_area` (Flächenanteil je Stadt-Tract und Bezirk, je Tract auf 1 normiert); `fact_offense` trägt `police_area`, `police_area_source` und `case_status`, und `arrest` ist für Detroit gefüllt (Silver-Vertrag 5) Version 12: **Stadtteile.** `dim_community_area` und `bridge_tract_community_area` wie die Bezirkstabellen, `fact_offense.community_area`; die Brücke verlangt volle Verteilung nur für bewohnte Tracts (Belle Isle liegt in keinem Detroiter Stadtteil)
 | `serving/comparison_*` | **3** | 01.11.2026 | vier aus Gold abgeleitete Vergleichstabellen (`comparison_day`, `comparison_week`, `comparison_month`, `partition_quality`): eine Stadt, eine Periode, eine NIBRS-Kategorie; Taten und Fälle summieren sich auf `fact_offense`; Teilperioden als `days_in_window` ausgewiesen; Taten ohne Code als Kategorie `unmapped` Version 2: `rate_tract` kommt dazu — eine Zeile je Tract **mit Einwohnern** im Bezugsjahr (`gold_pipeline.RATENJAHR`), mit Fällen, Taten, Einwohnerzahl und beiden Raten je 1'000. Gerechnet wird sie mit **derselben** Abfrage, die `gold_pipeline.raten_je_tract` auch dem Wächter der Kibana-Ratenkachel stellt, nicht mit einer zweiten. Sie entsteht, weil Kibanas Karte eine Fläche nach **einem** Feld einfärbt und zwischen zwei verbundenen Feldern nicht rechnen kann — und eine Karte nach Fallzahlen wäre hier irreführend: Die Einwohnerzahl je Tract reicht von 35 bis 13'521 (2024, Median 2'861). Tracts ohne Einwohner fehlen, für sie ist keine Rate definiert. Version 3: **`days_in_window` misst am Fenster je meldender Stadt**, nicht mehr am gemeinsamen beider. Chicagos Daten enden am 26.9.2026, Detroits am 4.10.; mit dem gemeinsamen Fenster hiess Chicagos September vollständig, obwohl vier Tage fehlten (C-10) |
 | `serving/source_movement` | 1 | 08.11.2026 | die Quellbewegung im Release, eine Zeile je bewegtem Feld, je neuer und je verschwundener Zeile und je ruhigem Paar wie in `silver/source_change`; Arten übersetzt (`changed`, `touched`, `added`, `removed`, `unchanged`), Zeitstempel als `is_stamp` markiert, Deliktsart über den heute gültigen Crosswalk samt Overrides auf `nibrs_code` gebracht. `event_year` nennt den Tatjahrgang des Paares. Liest als einzige Serving-Tabelle aus Silver: Sie beschreibt die Quelle, nicht die Taten, und steht deshalb nicht im Stern. Ohne `silver/source_change` leer, mit Vermerk |
 
@@ -103,6 +112,3273 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 27.11.2026 · Die Konsole zeigt sich sofort (Branch `konsole-startet-sofort`)
+
+Beim Öffnen der Engineering-Konsole dauerte es rund 10 Sekunden, bis alles
+angezeigt war. Einen Timeout gab es dabei nicht. Gemessen im `admin`-Container
+auf `srv01` brauchte jeder Baustein der Startseite unter 0,02 s, bis auf
+`sources.source_status` mit **10,5 s**. Diese Funktion las alle
+Bronze-Manifeste beider Städte, 136 Stück, eines nach dem anderen, je ein
+S3-GET von rund 70 ms. Gezeigt werden davon 20 je Stadt. `refresh()` im
+Frontend wartete mit `Promise.all` auf `state` **und** `sources`, erst dann
+zeichnete es irgendetwas. Mit jedem Delta-Lauf wäre es länger geworden.
+
+**Backend.** `source_status` sortiert die Pfade wie bisher, neueste zuerst,
+und liest nur noch die gezeigten 20 Manifeste je Stadt, parallel mit acht
+Lesern (`SHOWN_RUNS`, `READERS`). `run_count` zählt weiter alle Läufe. Auf
+`srv01` mit dem laufenden Bestand verglichen: identisches Ergebnis, 1,3 s
+statt 9,6 s. Ein unlesbares Manifest trägt jetzt auch seinen Pfad und behält
+damit seinen Platz in der Reihenfolge.
+
+**Frontend.** `refresh()` wartet nur noch auf `state`. Die Quellenliste
+wird nachgetragen, sobald sie da ist. Scheitert sie, meldet die Konsole
+„Quellenstand nicht geladen“, der Rest der Seite steht trotzdem.
+
+**Tests** (`tests/platform_admin/test_source_inventory_start.py`): nur die
+gezeigten Läufe werden gelesen, mit voller Zählung; ein kaputtes Manifest
+behält seinen Platz; `refresh()` wartet nicht auf `api('sources')`. Der
+erste und der dritte scheitern am alten Code; der zweite hält fest, was schon
+galt. Die Code-Referenz ist
+neu erzeugt (`tools/build_referenz.py`).
+
+Tests 3'544 (+3), Standardauswahl 3'433. Wirksam erst mit einem neuen Abbild
+auf `srv01`.
+
+## 27.11.2026 · Auch eine Modulfixture sieht keine `.env` (Branch `tests-ohne-env-in-modulfixtures`)
+
+Seit dem 26.11.2026 scheiterten auf Christians Rechner sechs der achtzehn
+Tests in `tests/serving/test_dashboard_taten.py`. In CI und in einem frischen
+Checkout waren sie grün. Der Unterschied war die `.env`, die auf den Eimer
+zeigt.
+
+**Ursache.** `conftest._frische_ablage` räumt Umgebung und Ablage je Test auf.
+Die Fixture `bestand` hat aber `scope="module"` und entsteht vor ihr. Am Ende
+des vorigen Tests steht die Standardablage auf `None`, also las
+`storage.get_storage()` sie neu, mit `.env`. So baute `build_comparison` aus
+`gold/` im echten Eimer, und das Dashboard las dessen aktives Release statt
+der Testdaten. Das trifft jede Fixture mit `scope="module"` oder höher, die
+eine Ablage braucht. `bestand` fiel nur als erste auf.
+
+**Korrektur.** Neu in `tests/conftest.py` ist `_keine_env_fuer_die_ablage`,
+autouse mit `scope="session"`. Sie entsteht vor jeder Modulfixture, entfernt
+dieselben Umgebungsvariablen wie `_frische_ablage` und lässt
+`storage.config.find_dotenv` nichts finden. Kein Test brauchte diese `.env`.
+Wer `load` prüft, ruft es mit `dotenv=False` auf.
+
+**Wächter.** `tests/test_keine_env_vor_dem_test.py` legt eine `.env` mit
+`STORAGE_BACKEND=s3` ins Arbeitsverzeichnis und fragt aus einer Modulfixture
+nach der Ablage. Vor der Korrektur kam `'s3'` zurück, danach `'local'`.
+
+Tests 3'541 (+1), Standardauswahl 3'430. Beide Läufe grün: Standardlauf
+3'416 bestanden, 14 übersprungen; `-m referenzstand` 110 bestanden,
+1 übersprungen. Die Testzahl ist an allen bewachten Stellen nachgezogen.
+
+## 26.11.2026 · S-11 ist erledigt (Branch `s11-erledigt`)
+
+Die Konsole hat ihre Testkorrektur `3072` → `26A` selbst zurückgenommen:
+Revision `2a09e688…`, gemergt als #317. Danach ist das Abbild `4f2959f` auf
+`srv01` eingesetzt (Strecke `sha256:2a7bb619fad6…`, Jupyter
+`sha256:dc62bc3cdefb…`). `/app/config/mapping_overrides.csv` hat dort nur die
+Kopfzeile und ist byteweise gleich `main` (sha256 `f64d574c…`). `admin`,
+`dashboard` und `jupyter` melden `healthy`. Von Hand lief kein Datenlauf; der
+planmässige am 7.12.2026 baut Detroits `3072` als `23C`.
+
+S-11 steht jetzt unter „Erledigt“ in `offene-punkte.md`. Nachgezogen sind die
+drei Stellen, die die Zeile noch als vorhanden beschrieben: `README.md`
+(Mapping), `eine-zahl.md` (Stufe 5) und `ln2_konzept.md` 11.4 (Faktenkorrektur).
+
+Tests unverändert (3'540).
+
+## 26.11.2026 · S-11 nennt die richtige Reihenfolge (Branch `s11-reihenfolge`)
+
+#315 schrieb, S-11 sei vor dem nächsten Einsetzen eines Abbilds zu erledigen.
+Das war falsch herum. Die Konsole prüft vor jedem Kandidatenlauf zweimal gegen
+das **laufende Abbild**:
+- `release_flow.check_mapping_basis`: Die aktive Mapping-Revision (#259, mit
+  der Zeile) muss zu `/app/config` im Abbild passen.
+- `release_flow.capture`: Das Abbild muss byteweise `main` entsprechen.
+
+Das Abbild `1e2bb8f` auf `srv01` ist ohne die Zeile gebaut, also scheitern
+beide, und die Konsole kann keine Korrektur bauen. Die Reihenfolge ist deshalb:
+1. Abbild aus `main` einsetzen.
+2. Die neue Korrektur auf `23C` anlegen, freigeben, mergen.
+3. Wieder ein Abbild einsetzen.
+
+Dazwischen kein Datenlauf von Hand, und vor dem planmässigen am 7.12.2026
+fertig sein.
+
+**Stand am selben Tag:** Schritt 1 ist mit dem Abbild `b3fa048` erledigt.
+Schritt 2 ist mit Revision `2a09e688…` (#317) erledigt: Ihr PR entfernt die
+Zeile `3072` → `26A`, und `3072` fällt auf den Crosswalk-Wert `23C` zurück.
+Offen ist nur noch Schritt 3, das Abbild aus `main` (`cac6d48`).
+
+Tests unverändert (3'540).
+
+## 26.11.2026 · Die Testkorrektur der Konsole steht wieder in Git (Branch `konsolenkorrektur-3072-wiederhergestellt`)
+
+Am 25.11.2026 hatte #309 die Konsolenkorrektur aus #259 per `git revert`
+entfernt: Detroits `3072` → `26A` in `config/mapping_overrides.csv`, dazu
+`config/admin_reviews/d6e211ef41fe4dcea667194ebc124116.json`. Das war der
+falsche Weg. Die Konsole führt jede Korrektur als Revision mit Review und
+Nachweis; eine Rücknahme an ihr vorbei lässt ihren Zustand und `config/`
+auseinanderlaufen. Entscheid Christian vom 26.11.2026: Die Rücknahme geschieht
+in der Konsole.
+
+Beide Dateien sind deshalb wiederhergestellt, byteweise wie in #259
+(`mapping_overrides.csv` sha256 `c5c52e36…`). Offen als **S-11** in
+`offene-punkte.md`: In der Konsole eine neue Korrektur anlegen, die den
+Crosswalk-Wert `23C` wieder wählt. Die Betriebsaktion „Rücknahme“
+(`git-withdraw`) passt nicht: Sie gilt nur für Freigaben im Status
+`AWAITING_GIT`. Und der PR der neuen Korrektur verlangt, dass `main` die
+Zeile noch enthält (`gitops.open_pr`). Deshalb musste sie zurück nach Git.
+
+**Was das für die Daten heisst.** Der Zwischenstand vom 26.11.2026 (Release
+`2026-11-26T05-27-08Z`) und das Abbild auf `srv01` (`1e2bb8f`) sind ohne die
+Zeile gebaut, `3072` steht dort auf `23C`. Ein Abbild aus diesem Stand bekäme
+sie wieder. (Berichtigt im Eintrag darüber: Die Reihenfolge ist umgekehrt;
+zuerst muss ein Abbild mit der Zeile eingesetzt sein.)
+
+**Dokumente:** `README.md` (Mapping-Korrekturen), `ln2_konzept.md` 11.4 und
+`eine-zahl.md` Stufe 5 sagen jetzt, dass die Zeile in Git steht und in der
+Konsole zurückgenommen wird.
+
+Tests unverändert (3'540).
+
+## 26.11.2026 · Die Mehrheitsregel ist neu gemessen (Branch `neumessung-mehrheitsregel`)
+
+Der Rest aus Schritt 6 von `abgabestand.md`: die beiden Stellen zur
+Mehrheitsregel, die kein Wächter sieht, neu gemessen mit Notebook 34 am
+Zwischenstand vom 26.11.2026.
+
+**Notebook 34 mass eine andere Regel als die gebaute.** Zelle 20 bildete den
+Flächenanteil selbst und über die ganze Tractfläche. Gold rechnet seit Vertrag
+10 über die Landfläche (`build_gold.dim_tract_query`). Die Zelle rechnet jetzt
+dieselbe Formel. Die Zellen 23 bis 30 lasen schon `dim_tract` aus Gold.
+
+**Ergebnis**, Jahrgang 2024, Chicago:
+
+| | vor Vertrag 10 | jetzt |
+| --- | ---: | ---: |
+| Flächengewichtung | 2'651'921 | 2'714'927 |
+| Mehrheitsregel | 2'661'953 | 2'713'800 |
+| Abstand zum Zensus 2020 | −3,1 % | −1,2 % |
+| Fälle in der Stadt, aber in einem fremden Tract | 5'249 | 441 |
+| Rate (Tatebene) ohne und mit ihnen | 94,5 / 95,6 | 94,5 / 94,5 |
+| Regel „Chicago“, Punkt jenseits der Grenze | 1 | 27 |
+
+„Um gut einen Punkt untertrieben" gilt nicht mehr. Detroit ändert sich nicht.
+
+**Geändert:**
+- **Notebook 34:** Zelle 20 und der Text in 21, 24, 27, 29 und 31. Dazu die
+  Wetterabfrage in Zelle 36: nur Tage mit Wetter. Diese Korrektur verlangt
+  `abgabestand.md` seit Vertrag 9.
+- **Notebook 36:** Der H6-Text nennt keine feste Zahl mehr („27 Sekunden",
+  „Faktor 22"), sondern verweist auf die Messung darüber.
+- **Weitere Stellen:**
+  - Modulkopf von `build_gold`: Regeltabelle, Landfläche, und „acht
+    Dimensionen, zwei Brücken" statt „vier Dimensionen".
+  - `eine-zahl.md` (Stufe 2 und „Was die Zahl nicht sagt"), `ausblick.md`.
+- **Konzept (Artans Dokument):** Nur die Zeile zur Flächengewichtung in 5.2
+  und die beiden Vermerke sind geändert. Der Wortlaut für den Absatz in 5.2 und
+  den Punkt in Kapitel 9 steht als Vorschlag in
+  `textvorschlag-mehrheitsregel.md`.
+
+**Lokal neu aufgebaut**, weil das Notebook nur auf einem bestätigten Aufbau
+läuft. `run_all --ohne-ingestion` mit `STORAGE_BACKEND=local`, aus denselben
+Bronze-Läufen. Gold trägt denselben Eingabe-Abdruck wie das Release
+(`93735e47…`). Feldkatalog, `platzbedarf.md` und die Grössenzeilen sind danach
+neu erzeugt bzw. übernommen.
+
+**Nachweis:** `docs/nachweise/2026-11-26_64122b1`, gebaut mit
+`tools/build_nachweise.py` vom Commit der Neumessung aus.
+`release_passt_zum_arbeitsstand` ist `true`, kein Notebook bricht ab.
+**H6 hat sich bewegt:** Median 109,1 s (105,8 bis 109,4) statt 24,2 s am
+14.11. Die Zeilen sind kaum mehr geworden, die Strecke schon (Gebiete,
+Quellbewegung, elf Gold-Tabellen). Das Budget von zehn Minuten hält weiter,
+mit Faktor fünfeinhalb statt 25. Nachgetragen in `ausblick.md` 3 und
+`textvorschlag-fr-58.md` Punkt 1.
+
+Tests unverändert (3'540).
+
+## 26.11.2026 · Die Dokumente stehen auf dem Zwischenstand vom 26.11.2026 (Branch `referenzstand-2026-11-26`)
+
+Siebter und letzter Teil der Dokumentdurchsicht: die Zahlen, die die
+Referenzwächter halten.
+
+**Warum nicht der Stand vom 23.11.** Das Release `2026-11-23T03-36-24Z`
+trägt Gold-Vertrag 10 und sieben Gold-Tabellen, ohne Polizeibezirke und
+Stadtteile. Auch `2026-11-25T12-38-05Z` (Vertrag 12) kam nicht in Frage:
+Beide waren mit dem Abbild gebaut, das noch die Probekorrektur `3072` → `26A`
+aus #259 trug. Auf Christians Entscheid:
+- Abbild vom `main` `0efcbac` gebaut und auf `srv01` eingesetzt.
+- Delta-Lauf von Hand unter der Sperre des Zeitplans: Exit 0, Release
+  **`2026-11-26T05-27-08Z`**, Gold-Vertrag 12.
+- `3072` steht wieder auf `23C` (6'601 Anklagen).
+
+**Lokal hergestellt** nach `abgabestand.md`, Schritt 2:
+- Silver, Gold, Serving und `pipeline_run.json` vom Arbeitsvolume auf
+  `srv01` geholt; der alte Stand liegt unter `data/_vorher-2026-11-26/`.
+- Die 180 Bronze- und Raw-Läufe, die Silver nennt, aus dem Eimer geholt.
+- Das Release eingesetzt und das lokale Elasticsearch neu geladen.
+- Gegenprobe: Silver trägt denselben Abdruck wie das Release. Nicht gepinnt;
+  das bleibt dem Abgabetag.
+
+**Was sich bewegt hat.** Das meiste ist Vertrag 10 (elf Chicagoer
+Seeufer-Tracts zählen zur Stadt), den Rest machen sechs Tage Deltas:
+
+| | vorher (20.11.) | jetzt (26.11.) |
+| --- | ---: | ---: |
+| `silver/crime_offense` | 1'917'351 | 1'922'278 |
+| `gold/fact_offense` | 1'895'123 | 1'900'131 |
+| Chicago 2024: Tracts, Einwohner | 782, 2'661'953 | 793, 2'713'800 |
+| Chicago 2024: Fälle, Rate | 251'483, 94,5 | 256'317, **94,4** |
+| Chicago 2024: Tatebene | 251'513, 94,5 | 256'347, 94,5 |
+| Detroit 2024: Fälle, Rate | 79'615, 124,7 | 79'619, 124,7 |
+| Detroit 2024: Tatebene | 85'660, 134,1 | 85'701, **134,2** |
+| ausserhalb der Stadt, 2021–2026 | 1,8 % | 0,4 % |
+
+Ersetzt wurde je Wert und je Bedeutung, nicht pauschal. Der Wächter
+`test_dokumentzahlen` ordnet nach Ähnlichkeit zu und nannte etwa 1'413'936
+(Chicagos Fälle) eine Fassung der Anklagen.
+
+**Was zum Abgabestand bleibt** (`abgabestand.md`, Schritt 6):
+- Die Mehrheitsregel-Tabelle in Konzept 5.2: Nur die Mehrheitszeile ist neu.
+  Die beiden Zeilen darüber und der Absatz darunter stammen aus Notebook 34
+  vor Vertrag 10; sie tragen jetzt einen datierten Vermerk.
+- Kapitel 9 („94,5 statt 95,6", 5'249 Grenzfälle): ebenfalls vor Vertrag 10
+  gemessen, mit Vermerk.
+- Beides ist neu zu messen und als Textvorschlag an Artan zu geben.
+
+**Berichtigt:**
+- **Abschnitt 3 im Sternschema-Dokument.** Er rechnet am Septemberstand, an
+  dem die Würfel verworfen wurden. Bild, Würfelzahlen und Differenzen gehören
+  zu 347'957 und 344'617; nur Tabelle und Alt-Text hatte die Ersetzung vom
+  4.10. auf 348'329 und 345'091 gehoben. Zurück auf den Entscheidungsstand.
+  Dazu 3,9 % statt 3,8 % (wie im Bild).
+- **Feldkatalog:** nennt 4,6 % über 2021–2026 statt 3,8 % ohne Jahr
+  (`tools/build_feldkatalog.py`).
+- **`zaehlperspektiven.md`:**
+  - 32 Silver-Spalten statt 28, 60 Bronze-Läufe je Stadt statt 36;
+  - die Ränder des Zeitfensters (letzte Woche ein Tag, letzte volle Woche ab
+    16.11.).
+- **`eine-zahl.md`:** Titel 94,4. Dazu die Herkunftskette mit Vertrag 12 und
+  den beiden Gebietstabellen.
+
+**Wächter:**
+- `test_eine_zahl` liest die Zahl aus dem Titel statt aus zwei Literalen.
+- `test_zaehlperspektiven` liest die Spaltenzahl aus dem Dokument, und
+  „1 Tag" ist erlaubt.
+- `test_ausblick` sucht die Tract-Umrisse per Muster; mit „1'066" übersprang
+  er sich still.
+- `test_der_einseiter_traegt_dieselben_zahlen` hat seine Liste nachgezogen.
+- `test_dokumentzahlen` nimmt die Unterschiedszeile in 5.2 aus.
+
+Neu erzeugt: Feldkatalog, Einstiegsseite, `platzbedarf.md`, Sternbild. Die
+Grössenzeilen in `architektur-ist-und-ziel.md` und im Einseiter sind von dort
+übernommen.
+
+Tests unverändert (3'540). Beide Läufe sind grün: Standardlauf 3'415
+bestanden, 14 übersprungen; `-m referenzstand` 110 bestanden, 1
+übersprungen.
+
+## 26.11.2026 · Der Ausblick steht auf dem heutigen Stand, S-6 ist erledigt (Branch `dokumente-ausblick`)
+
+Sechster Teil der Dokumentdurchsicht vom 25.11.2026: `ausblick.md`, nur
+Fakten. Was dort als offen stand und gebaut oder entschieden ist, trägt
+jetzt Datum und Beleg. Der Text darüber bleibt als Begründung stehen.
+
+- **Gebaut statt offen:**
+  - das Dashboard (1.11.2026, Flask statt des vorgeschlagenen Streamlit);
+  - der Versionspfad (`releases/`, 17.9.2026, mit dem gebauten
+    Verzeichnisbild statt `gold/release=…`);
+  - sechs Jahrgänge und vier Vintages (4.10.2026);
+  - die DuckDB-Grenzen (3.10.2026);
+  - `silver/source_change` (seit 16.10.2026 im Lauf);
+  - die Alarmierung auf `srv01`.
+  
+  Die Sperre über den ganzen Lauf gibt es auf `srv01` per `flock`, im Code
+  nicht.
+- **Entschieden:** Die Fallebene ist die Hauptaussage (E-2, 5.10.2026).
+  Cloud-Stufe 1 ist einmal durchgespielt (15.11.2026).
+- **Release-Inhalt:** elf Gold- und sechs Serving-Tabellen statt fünf und
+  vier.
+- **Begriffswahl:** Die Anmerkung sagte „Granularität statt Granularität".
+  Die Ersetzung *Korn* → *Granularität* (#85) hatte sie selbst getroffen. Sie
+  ist neu geschrieben, der Punkt 8 der Reihenfolge abgehakt.
+- **Konzept, dieselbe Sorte:** „Ein zweites Granularität … Das Tatebene" in
+  5.2 ist berichtigt. „Keine Alarmierung ausser dem roten Lauf" (5.3 und 9)
+  gilt nur noch für GitHub Actions; auf `srv01` melden neun Regeln über
+  Telegram.
+
+**S-6 erledigt.** `ADMIN_GITHUB_TOKEN` steht in der `.env` auf `srv01`. Am
+26.11.2026 nachgesehen, ohne den Wert zu lesen: gesetzt, mehr als 20 Zeichen.
+`docker-compose.srv01.yml` reicht es nur an `worker` weiter. Die Konsole legt
+seit dem 18.11.2026 PRs an (#254–#259). Nachgezogen in `offene-punkte.md`
+(nach „Erledigt"), `storage-architektur.md` §16 und
+`umstellung-verwaltet.md`.
+
+**Wächter:** `test_es_gibt_offene_punkte` verlangte mindestens fünf offene
+Punkte. Nach S-6 sind es vier, und der Test fiel, obwohl nichts falsch
+gelesen war. Er prüft jetzt, was gemeint war: Jede Kennungszeile der offenen
+Abschnitte wird als Zeile mit fünf Feldern gelesen.
+
+Tests unverändert (3'540).
+
+## 26.11.2026 · Die Speicherarchitektur steht auf dem heutigen Stand (Branch `dokumente-storage`)
+
+Fünfter Teil der Dokumentdurchsicht vom 25.11.2026: `storage-architektur.md`,
+nur Fakten.
+
+- **Takt der Konsole:** jede Minute, wie `crontab` und der Text daneben es
+  sagen, nicht fünf Minuten (Dienstetabelle und Konsolenabschnitt).
+- **Alarme:** neun Regeln im Prüfbefehl statt acht. „Eine siebte Quelle"
+  heisst „eine weitere"; die siebte, `dataset=gebiete`, ist da und bewacht.
+- **Löschregel:** entschieden am 4.10.2026 (gepinnt plus acht), nicht offen.
+- **Kibana-Tunnel:** eingesetzt und gemessen am 15.11.2026, nicht
+  „beschrieben, noch nicht eingesetzt“. Die Grenze der 302-Messung bleibt
+  benannt.
+- **Routen:** Die Route für `urbancrime-start` stand einmal als angelegt
+  (14.10.) und einmal als „fällig und noch nicht angelegt“. Jetzt steht die
+  Liste aller Routen mit Datum da. Der Satz „Offen ist allein der Datenträger
+  für Restic:“ führte ins Leere; der Datenträger ist entfallen.
+- **Einstiegsseite:** „Der Nachweis fehlt hier noch ganz“ ist ersetzt.
+  Route seit dem 14.10., Dienst `healthy` auf `srv01`.
+- **Module und Tests:** Die Modultabelle nennt alle elf Module von `storage`.
+  Neu darin: `parquet`, `release`, `quellen`, `verwaltet`, `analysesitzung`.
+  `tests/storage` sammelt 317 Tests, nicht 103.
+- **Kleinere:** Jede abgeleitete Tabelle trägt `built_at_utc` (nicht „alle
+  neun“). Die lokale `analyse.duckdb` hat 26 Sichten statt 17. Stufe 5 von 19
+  statt von 14. Die Dashboard-Spitze liegt seit dem 23.11. bei rund 475 MiB;
+  die 429 MiB vom 1.11. bleiben als Messung stehen.
+- **Konsolensicherung:** Das tägliche Archiv unter `backups/control/` lässt
+  seit dem 25.11.2026 die Job-Daten aus.
+
+Tests unverändert (3'540).
+
+## 25.11.2026 · Die Architektur-Dokumente stehen auf dem heutigen Stand (Branch `dokumente-architektur`)
+
+Vierter Teil der Dokumentdurchsicht vom 25.11.2026: `architektur.md`,
+`architektur-ist-und-ziel.md` und der Einseiter, nur Fakten.
+
+**`architektur.md`:** Gold mit acht Dimensionen und zwei Brücken statt fünf
+Dimensionen. Die Serving-Tabelle nennt die Zeilen des Release vom 20.11.2026
+(76'756 / 14'334 / 3'638 / 142) statt des Jahrgangs 2024, dazu `rate_tract`
+und `source_movement`. „Im zweiten Bild" heisst Bild 3. Zwölf Pakete in der
+Referenz statt zehn, drei Bilder statt zwei. Die Prosa-Zahlen im Kopf sind
+als Stand vom 20.9. datiert; heute zählt `ast` 923 Docstrings im Code und
+1'861 in den Tests. Vorher widersprachen sich 339 / 295 und 733 / 512 im
+selben Dokument.
+
+**`architektur-ist-und-ziel.md`, Teil A:** Gebiete im Schichtbild und in den
+Ladestrategien. `platform_admin` läuft auf `srv01` als `admin` und `worker`
+statt „nirgends ausgerollt". Ein Release braucht 17 Tabellen statt neun.
+Zwei Zeitpläne statt einem. Drei Architekturbilder.
+
+**Teil B:** Was gebaut ist, steht jetzt als gebaut, mit Datum:
+- Der Zeitplan auf `srv01` feuert seit dem 12.10.2026. Die Läufe vom 16. und
+  23.11. endeten mit Exit 0 und publizierten je ein Release. Am 25.11. in
+  `logs/scheduled-pipeline.log` nachgelesen.
+- Sieben Dienste statt drei.
+- Einstiegsseite, Konsole und Grafana mit neun Alarmregeln (B.5).
+- Die Sicherung über `orchestration.sicherungssatz` (B.6).
+- Die Aufräumregel, entschieden am 4.10.
+
+„Nichts davon ist gebaut" und „heute gibt es nichts zu schützen, weil nichts
+läuft" sind gestrichen. Das Zielbild in B.1 trägt einen Vermerk zu den zwei
+Abweichungen. Der Referenzstand am Schluss ist der Zwischenstand vom 20.11.
+wie in A.1; gepinnt bleibt der 10.11. Offen bleibt die geübte Rückspielung
+der Sicherung. Den kaputten Satz „Damals waren beide Abbilder sind" gibt es
+nicht mehr. Die Dashboard-Spitze steht auf rund 475 MiB statt 429.
+
+**Einseiter:** 2021–2026 statt 2024, Gebiete als sechste Quelle im Bild,
+fünf Vergleichstabellen, 12 / 19 statt 10 / 14. Der Baustein-Kasten nennt,
+was gebaut ist, statt „zu bauen ist eigentlich nur admin-web". „Was offen
+ist" ist entschieden.
+
+**Wächter:** `NOCH_WAHR` in `test_betriebsstand.py` ist leer; die letzte
+„Einrichtung, kein Nachweis" ist mit Beleg gedreht. Der Test prüft jetzt in
+einer Schleife statt mit `parametrize`. Sonst bliebe bei leerer Liste ein
+übersprungener Test stehen, und die Testzahl hinge davon ab, wie viel gerade
+unbelegt ist. Sie bleibt 3'540.
+
+## 25.11.2026 · Das Konzept steht auf dem heutigen Stand (Branch `dokumente-konzept`)
+
+Dritter Teil der Dokumentdurchsicht vom 25.11.2026: `ln2_konzept.md`, nur
+Fakten. Neue Argumentation geht als Textvorschlag an Artan.
+
+- **Titel:** Leistungsnachweis 2 statt 1.
+- **Schichten:** sieben Silver-Tabellen statt vier (8.2 mit `police_area`,
+  `community_area`, `source_change`); Gold mit acht Dimensionen und zwei
+  Brücken statt vier oder fünf; 26 Sichten statt elf; fünf
+  Vergleichstabellen samt `rate_tract`, dazu `source_movement`; `releases/`
+  im Verzeichnisbaum.
+- **Gebiete:** Districts, Community Areas, Precincts und Neighborhoods in 5.1
+  und 6.1, der Ladebefehl in Kapitel 10.
+- **Dashboard:** in 5.1, in der Konsumententabelle und in 11.1. Es liest das
+  aktive Release, nicht die Sichten. Kibana läuft seit dem 6.11. nur noch in
+  der Vorführung.
+- **Nenner:** Einwohner aus `dim_tract_acs` je Vintage, nicht „über 2024
+  konstant"; die Lücke „Vintage 2024 hart verdrahtet" in 5.3 ist ersetzt
+  durch die echte: 2025 und 2026 ruhen auf 2024.
+- **Zahlen:** 5,7 % statt 5,6 % (wie in 9 und `zaehlperspektiven.md`);
+  Verortung 99,2 % im Ratenjahrgang (3.4) und 98,5 % / 99,9 % über
+  2021–2026 (8.2) statt 99,3 % / 99,7 % ohne Bezug; 42'412 Taten im Auffang
+  statt 10'476, 3,0 % statt 2,97 %; Feldkatalog 280 Spalten in 24 Tabellen.
+- **Läufe:** 8.3 nennt die drei Chicago-Läufe als Stand vom 6.9.; Kapitel 10
+  verweist für den Referenzstand auf die Wächter und `derived_from`, nicht
+  mehr auf 8.3.
+- **Notebooks:** 35 bis 37 in 11.2; acht im Datenlauf statt sechs.
+- **Betrieb:** Der Zeitplan auf `srv01` feuert seit dem 12.10. jede Woche.
+  Der Datenlauf in GitHub Actions war einmal grün, am 14.9., und ist seither
+  rot, seit dem 11.11. nur noch am Schritt „Drift ausweisen". Beides stand
+  als „Einrichtung, kein Nachweis".
+- **Die Korrektur für `3072` ist zurückgenommen.** Seit #259 (18.11.2026,
+  über die Konsole, Begründung „E2E Test, Erneute Impact Analyse") legte
+  `config/mapping_overrides.csv` Detroits `3072` auf `26A`, gegen 8.5 („nach
+  `23C Shoplifting`"). Es war ein Test; zurückgenommen per `git revert` wie
+  schon #257, samt `config/admin_reviews/d6e211ef….json`. Die Datei ist
+  wieder leer bis auf die Kopfzeile, 8.5 gilt unverändert. Wirksam in den
+  Daten erst mit dem nächsten Silver-Bau: Das Release vom 20.11. und die
+  lokale Silver tragen noch `26A` (6'643 Anklagen).
+
+**Textvorschlag:** `docs/intern/textvorschlag-dashboard.md`, die acht Bretter
+als Stoff für einen Abschnitt in 5.2, im Wegweiser und in 11.5.
+
+**Wächter:** `test_das_konzept_nennt_jedes_notebook_in_11_2` hält 11.2 gegen
+`notebooks/`. Dafür entfällt der Fall `ln2_konzept.md` in `NOCH_WAHR` von
+`test_betriebsstand.py`; die Testzahl bleibt 3'540.
+
+## 25.11.2026 · README und Wegweiser stehen auf dem heutigen Stand (Branch `dokumente-readme`)
+
+Zweiter Teil der Dokumentdurchsicht vom 25.11.2026.
+
+**README:**
+- Studienzeitraum 2021–2026 statt „das Jahr 2024".
+- Gebiete als sechste Quelle im Schichtbild und im Ingestion-Block.
+- Gold mit acht Dimensionen und zwei Brücken, Silver mit sieben Tabellen samt
+  Bau-Befehlen, Serving mit fünf Vergleichstabellen und der Quellbewegung.
+- Paketbaum mit `gebiete_pipeline` und `platform_admin`.
+- 19 Stufen, mit 2021–2026 44.
+- Die Vintage-Ablehnung gibt es seit dem 4.10. nicht mehr.
+- `mapping_overrides.csv` hat eine Zeile.
+- Detroits Überzählung über 2021–2026: 4,6 % statt 3,8 %.
+- 26 Sichten in der Analyse-Datenbank, Release-Inhalt elf Gold- und sechs
+  Serving-Tabellen, die Aufbewahrungsregel „gepinnt plus acht".
+- Zwölf Elasticsearch-Indizes.
+- `srv01` im Präsens: Elasticsearch und Kibana sind entfernt, Zeitplan und
+  Einstiegsseite laufen.
+- Notebook 37 statt 36 im Datenlauf; 111 Referenzwächter.
+
+**Wegweiser:** drei Architekturbilder; 280 Spalten in 24 Tabellen, ebenso in
+`ln2_konzept.md`. `Data_Pipeline_fuer_Folie.png` gibt es nicht. Artans
+Dashboard-Entwürfe und die beiden nicht mehr eingebundenen Architekturbilder
+vom 22.9. stehen jetzt in der Liste.
+
+**Code-Kommentare:** `run_all` (Vintages, Stufenzahl) und `build_analysis_db`
+(Sichten).
+
+**Neuer Wächter:** `test_andere_dokumente_nennen_die_zahlen_des_katalogkopfs`.
+Wer „N Spalten in M Tabellen" schreibt, muss die Zahl des Katalogkopfs nennen.
+Erzeugt war nur der Katalog, nicht seine Zitate. Die Testzahl bleibt 3'540: Für das README entfällt ein Fall in `test_betriebsstand.py`. Er verlangte dort „Einrichtung, kein Nachweis", obwohl der Zeitplan auf `srv01` seit Wochen Releases baut.
+
+## 25.11.2026 · Die internen Dokumente stehen auf dem heutigen Stand (Branch `dokumente-intern`)
+
+Erster Teil der Dokumentdurchsicht vom 25.11.2026: vier Prüfungen gegen den
+Code, gut 140 Befunde. Hier die internen Dokumente, zuerst die Sachfehler, die
+etwas auslösen:
+
+- **S-10 und der alte Datenlauf.** `offene-punkte.md`, `ENGINEERING_KONSOLE.md`
+  und `storage-architektur.md` sagten, nach `enable-managed` scheitere der
+  Cron-Datenlauf an `storage.verwaltet`. Das stimmt nicht: Der Dienst
+  `pipeline` hängt das Volume `konsole` nicht ein und sieht den Marker nicht
+  (`docker-compose.srv01.yml`, `umstellung-verwaltet.md` Punkt 4). Der Tausch
+  der Crontab-Zeilen ist der einzige Schutz. Wichtig für den Entscheid am
+  27.11.
+- **`abgabestand.md`** verlangte Gold-Vertrag 10. Gültig ist 12, und das Release
+  vom 25.11. auf `srv01` trägt ihn.
+- **Konsolenhandbuch:** Der Worker lädt auf `srv01` weder Elasticsearch noch
+  Kibana (`SERVING_BETRIEB=server`). Der Gesamtimport lädt auch die Gebiete. Die
+  Abnahme von E-5 für den Cron-Weg ist seit dem 14.11. erledigt.
+- **`fr-stand.md`:** neun offene, nicht zehn (FR-43 ist erfüllt). FR-37 nennt kein
+  festes Datum mehr, FR-58 verweist auf den Textvorschlag.
+  **`pflichtbestandteile.md`:** elf Gold-Tabellen statt sieben, P1 kennt den
+  Textvorschlag.
+- **`offene-punkte.md`:** C-6 (Karte je Deliktfamilie) erledigt, durch »Geografie«
+  im eigenen Dashboard.
+- **`dritte-stadt.md`:** Die Gebiete sind Code, kein Eintrag in `quellen.toml`
+  (Punkt 4a). `BEZEICHNUNG` steht bei den Stellen ohne Folgen für eine Zahl.
+  `textvorschlag-fr-58.md` sagt dasselbe und nennt die Speicherspitze des
+  Dashboards mit rund 475 MiB statt 429.
+- **`datenhistorie.md`:** Der Referenzstand ist seit dem 12.11. entschieden.
+  Der Abschnitt „offen seit 17.9." bleibt als Verlauf.
+- **Konsolensicherung** ohne `jobs/<id>/data` (`konsole-vorschlagseditor.md`).
+  **Job-Zeiger** statt fester `CRIME_ANALYSIS_ROOT` (`notebook-analysesitzungen.md`).
+- **Fakten in Artans Dokumenten**, Text unverändert:
+  - `leistungsnachweise.md`: sieben Silver-Tabellen, sechs Quellen, 19 Stufen,
+    Dashboard gebaut, Alarmregeln vorhanden, Vintage nicht mehr verdrahtet;
+  - `projektabsprache.md`: elf Gold-Tabellen.
+- **`DETROIT_PIPELINE_ANLEITUNG.md`:** Paketpfad, Testzahlen und Testliste.
+- **`vorfuehrung.md`:** Elasticsearch und Kibana wurden am 6.11. entfernt, nicht am 1.11.
+
+## 25.11.2026 · Das Sternbild wird erzeugt (Branch `sternbild-erzeugt`)
+
+`docs/bilder/stern.svg` war von Hand gezeichnet und zeigte **vier
+Dimensionen und 344'617 Taten**, den Stand des Jahrgangs 2024 vom September.
+Gold hat heute elf Tabellen: die Faktentabelle, acht Dimensionen und zwei
+Brücken. Die Kopie in `sternschema-und-wuerfel.html` zeigte einen dritten
+Stand (fünf Dimensionen, 1'851'950 Taten). Kein Wächter sah hin: Die Zahlen
+standen mit schmalen Leerzeichen da, und `test_dokumentzahlen.py` liest weder
+SVG noch diese Seite.
+
+Jetzt zeichnet `tools/build_sternbild.py` das Bild aus `gold_pipeline.TABELLEN`
+und den Gold-Manifesten, als Datei und in die HTML-Seite. Eine neue
+Gold-Tabelle ohne Platz im Bild bricht den Lauf ab. `tests/test_sternbild.py`
+hält jede Gold-Tabelle im Bild, beide Fassungen gleich, einen zweiten Lauf im
+eigenen Prozess byteweise gleich, und die Kopfzahlen von `.md` und `.html`
+(Faktentabelle 1'895'123, acht Dimensionen mit 39'173 Zeilen, zwei Brücken mit
+3'814) gegen die Manifeste. Die HTML-Seite nennt in Abschnitt 2 dieselben
+Zahlen wie das Markdown.
+
+## 25.11.2026 · Die Sechsecke in »Geografie« haben eine Begründung (Branch `sechseck-begruendung`)
+
+Bisher stand nur, *wie* das Raster gebaut ist. Jetzt steht im Modulkopf von
+`serving.dashboard.geografie` auch, *warum*: Das Raster ist das Gegenbild zum
+Modifiable Areal Unit Problem (Openshaw 1984). Sechsecke statt Quadrate, weil
+jede Zelle sechs gleich weit entfernte Nachbarn hat (Birch, Oom und Beecham
+2007). 500 m ist gesetzt, nicht hergeleitet. Und die Dichte zeigt, wo viele
+Fälle sind, nicht, wo das Risiko hoch ist. Je zwei Sätze davon stehen im
+README und im Hinweis unter der Karte. Keine Zahl der Abgabe ändert sich.
+
+## 25.11.2026 · »Geografie« zeigt die Stadtteile (Branch `dashboard-stadtteile`)
+
+Der Schalter **Raum** hat eine vierte Stellung: **Stadtteil**, aus
+`dim_community_area` und `bridge_tract_community_area` (Gold-Vertrag 12).
+Alle sechs Kennzahlen gelten dort wie je Bezirk. Detroits Schlüssel ist ein
+Name; im Speicher trägt die Faktentabelle den Stadtteil als Aufzählung
+(`stadtteil`, 131 Werte, ein Byte je Tat). Ein älteres Release lädt weiter,
+der Raum meldet dann, dass es keine Stadtteile führt.
+
+Lokal auf einem Probe-Release geprüft: über alle Stadtteile 2024 Chicago
+94,3 und Detroit 124,6 Fälle je 1'000 und Jahr - die Stadtraten aus demselben
+Bestand. Höchste Rate in Chicago Fuller Park (268,6), in Detroit der Central
+Business District (434,5; Tatort ist nicht Wohnort).
+
+Keine Zahl der Abgabe ändert sich.
+
+---
+
+## 25.11.2026 · Die Stadtteile laufen durch die Strecke (Branch `stadtteile-pipeline`)
+
+Neben den Polizeibezirken kommt eine zweite Einteilung der Städte: die
+**Stadtteile**. Chicago: die 77 **Community Areas** (Data Portal
+`igwz-8jzy`). Detroit: die 54 **Master Plan Neighborhoods** - die 205
+»Current City of Detroit Neighborhoods« sind im Mittel kaum grösser als ein
+Tract und gewännen gegen ihn nichts. Detroits Schlüssel ist der Name;
+`MapNo` ist eine Kartenblattnummer und kommt mehrfach vor.
+
+- **Ingestion:** `gebiete_pipeline` lädt dieselbe Quelle mit der Ebene
+  `stadtteil` dazu; Vertrag unverändert (das Schema ist dasselbe).
+- **Silver:** `community_area` (Vertrag 1), gebaut vom selben Code wie
+  `police_area`, der jetzt eine `Ebene` kennt. Chicago 598,1 km², Detroit
+  356,7 km², keine Überlappung. `crime_offense` Vertrag 6 trägt
+  `community_area` aus dem räumlichen Join.
+- **Gold** Vertrag 12, jetzt elf Tabellen: `dim_community_area` (131 Zeilen)
+  und `bridge_tract_community_area` (2'310), `fact_offense.community_area`.
+  Die Einwohner der Stadtteile ergeben die der Stadt (2024: 2'713'800 und
+  638'635). 99,9 % der Taten in der Stadt liegen in einem Stadtteil.
+
+**Belle Isle** (Tract 26163985500, ein Inselpark ohne Einwohner) liegt in
+keinem Detroiter Stadtteil. Der Wächter, der jeden Stadt-Tract ganz auf
+Gebiete verteilt sehen will, verlangt das deshalb nur noch für Tracts mit
+Einwohnern - für die Polizeibezirke ändert das nichts.
+
+Das Dashboard bekommt die Stadtteile als Raum in einem eigenen Schritt, nach
+#301. Keine Zahl der Abgabe ändert sich.
+## 25.11.2026 · »Geografie« rechnet sechs Kennzahlen auf drei Räumen (Branch `geografie-kennzahlen`)
+
+Der eine Umschalter wird zu zwei: **Raum** (`raum`: Tract, Polizeibezirk,
+Sechseck) und **Kennzahl** (`kennzahl`). Ein Link mit dem früheren `ansicht`
+gilt weiter. `starteBrett` in `gemeinsam.js` kennt dafür jetzt mehrere
+Umschalter je Seite; die übrigen Bretter haben einen und merken nichts.
+
+Neue Kennzahlen, je Tract und je Bezirk:
+
+- **Geglättet:** Empirical Bayes, global je Stadt nach Marshall (1991).
+  Kleine Tracts rücken zum Mittel der Stadt, statt schraffiert zu werden.
+- **Zum Vorjahr:** Fälle gegenüber denselben Tagen ein Jahr früher, über die
+  Tage mit Daten in beiden Jahren (`zeitraum.vergleich`), Grenzen −20, −5,
+  +5, +20 %. Ein neutrales Band von ±10 % liess 2024 jeden Bezirk grau.
+- **Deliktprofil:** Lokationsquotient der gewählten Kategorien - ihr Anteil
+  hier durch ihren Anteil in der Stadt. Ohne Einwohner gerechnet; ohne
+  gewählte Kategorie meldet das Brett, was fehlt.
+- **Nacht:** Anteil der Fälle bei Dunkelheit, nach derselben Regel wie »Tag
+  und Nacht«. Die Faktentabelle im Speicher trägt dafür `dunkel`.
+- **Festnahmen** gibt es jetzt auch je Tract.
+
+**Neuer Raum Sechseck:** ein Raster mit 500 m Kante (0,65 km² je Zelle),
+axial nach Red Blob Games, gerechnet in Metern um den Mittelpunkt der Taten
+jeder Stadt; die Faktentabelle trägt `hq` und `hr`. Ohne Einwohner ist die
+Rate dort eine Dichte, Fälle je km² und Jahr; geglättet gibt es nicht. Auf
+dem lokalen Bestand sind es 2024 rund 970 Zellen in Chicago.
+
+Lokal im Browser geprüft, jede Kombination einmal, ohne Konsolenfehler.
+Speicher auf `srv01` nicht gemessen: drei Spalten mehr im Speicher
+(`dunkel`, `hq`, `hr`, zusammen rund 5 Byte je Tat, also etwa 10 MB).
+## 25.11.2026 · Das Dashboard überlebt das Nachladen eines Release (Branch `dashboard-auslagerung-je-ladung`)
+
+**Vorfall auf `srv01`, 25.11.2026, 10:55 UTC.** Nach dem Release
+`2026-11-25T10-47-20Z` antwortete jede Anfrage an das Dashboard mit HTTP 500:
+*„Could not read enough bytes from file
+.tmp/duckdb_temp_storage_DEFAULT-0.tmp"*. Ein Neustart des Dienstes um 11:22
+UTC behob es; das Dashboard zeigte danach das neue Release.
+
+**Ursache.** Das Dashboard lädt ein neues Release in eine neue
+DuckDB-Verbindung und schliesst danach die alte. Beide lagerten ohne eigenes
+Verzeichnis nach `.tmp/` im Arbeitsverzeichnis aus, unter demselben
+Dateinamen. Das Schliessen der alten nahm der neuen ihre ausgelagerten
+Blöcke. Das Dashboard lagert bei 256 MB Grenze schon in Ruhe rund 9 MB aus;
+mit dem grösseren Stand vom 25.11. (Polizeibezirke, Festnahme) lagen beim
+Wechsel zwei Stände im Speicher.
+
+**Behoben:** Jede Ladung bekommt ein eigenes Verzeichnis
+(`DUCKDB_TEMP_DIRECTORY` oder das Temp-Verzeichnis des Systems), und das der
+alten Ladung wird nach dem Schliessen entfernt. Ein Test lädt zweimal und
+rechnet danach weiter.
+
+Keine Zahl der Abgabe ändert sich.
+
+---
+
+## 25.11.2026 · »Geografie« zeigt Polizeibezirke und Festnahmen (Branch `polizeibezirke-dashboard`)
+
+Vierter und letzter Schritt. Das Brett »Geografie« hat einen Umschalter mit
+drei Ansichten (`ansicht`, Vorgabe `tract`):
+
+- **Rate je Tract**, wie bisher.
+- **Rate je Polizeibezirk:** dieselben Fälle wie je Tract (`inside_city`,
+  Fallebene), gruppiert nach dem Bezirk ihrer Koordinate; der Nenner sind die
+  Einwohner des Bezirks aus `bridge_tract_police_area` mal `dim_tract_acs`,
+  je Vintage und mit Personenjahren wie die Tract-Rate. Über alle Bezirke
+  ergibt das die Rate der Stadt.
+- **Festnahmen je Polizeibezirk:** Anteil der Fälle mit Festnahme unter den
+  Fällen mit bekanntem Stand, eigene grüne Farbreihe. Unter 30 Fällen mit
+  bekanntem Stand schraffiert. Reicht der Zeitraum in das letzte Jahr vor dem
+  Datenende einer Stadt, nennt das Brett das je Stadt (`jung`): Der Stand
+  wird nachgetragen, in Detroit stark.
+
+Chicagos District 31 erscheint in keiner Bezirksansicht (`within_city`
+falsch). Ein Release vor Gold-Vertrag 11 lädt weiter; die Bezirksansichten
+melden dann, dass das Release keine Polizeibezirke führt.
+
+Nebenbei korrigiert: `geografie.pfade` las aus jedem Umriss nur den ersten
+Ring. Für die Tracts fiel das nicht auf, für District 31 aus drei Teilen
+hätte es zwei Drittel verschluckt. Jetzt wird jeder Ring ein Teilpfad, Löcher
+stanzt `fill-rule: evenodd` aus.
+
+Lokal im Browser geprüft, auf einem Probe-Release aus dem lokalen Gold: alle
+drei Ansichten, der Hinweis auf junge Fälle für Januar bis Juni 2026, keine
+Konsolenfehler. **Nicht gemessen** ist der Speicher auf `srv01`: Die
+Faktentabelle im Dashboard trägt zwei Spalten mehr (`bezirk` als `UTINYINT`,
+`festnahme`), geschätzt 4 MB bei 1,9 Mio. Taten.
+
+Keine Zahl der Abgabe ändert sich.
+
+---
+
+## 25.11.2026 · Gold führt die Polizeibezirke und den Nenner je Bezirk (Branch `polizeibezirke-gold`)
+
+Dritter Schritt zur Karte je Polizeibezirk und zur Aufklärungskarte. **Gold
+Vertrag 11**, zwei Tabellen mehr (jetzt neun):
+
+- **`dim_police_area`**, ein Bezirk je Zeile mit Fläche, Umriss als WKT und
+  `within_city` nach derselben Mehrheitsregel wie `dim_tract`. Sie trifft
+  genau einen Bezirk: Chicagos **District 31** liegt zu 0,2 % in der Stadt,
+  es ist der Bezirk von Norridge und Harwood Heights. `city` ist hier nie
+  `NULL`, weil sich die Nummern beider Städte überschneiden.
+- **`bridge_tract_police_area`**, 1'504 Zeilen: welcher Flächenanteil eines
+  Stadt-Tracts in welchem Bezirk liegt, je Tract auf 1 normiert. Daraus
+  ergeben sich die Einwohner je Bezirk, und zusammen genau die der Stadt
+  (2024: Chicago 2'713'800, Detroit 638'635). Gold summiert nicht selbst; das
+  tut das Serving je Vintage. Der Bau hält an, wenn ein Stadt-Tract nicht
+  ganz verteilt ist oder eine Stadt keinen zählenden Bezirk hat.
+- **`fact_offense`** trägt `police_area`, `police_area_source` und
+  `case_status` aus Silver, und `arrest` ist für Detroit gefüllt.
+
+**Gemessen** am lokalen Bestand: 99,87 % (Chicago) und 99,66 % (Detroit) der
+Taten in der Stadt liegen in einem zählenden Bezirk; das Manifest von
+`fact_offense` hält es je Stadt fest (`reconciliation.police_area`). Die Rate
+je Bezirk 2024 reicht in Chicago von 40,9 (District 16) bis 195,3 (District
+11) Fälle je 1'000, in Detroit von 73,9 (Precinct 4) bis 206,6 (Precinct 3).
+
+Elasticsearch lädt beide Tabellen (`INDIZES`, `dim_police_area` als
+Nachschlagindex mit Fläche). `ln2_konzept.md` nennt in „Was geliefert wird“
+jetzt neun Tabellen, mit den beiden neuen Zeilen; der Anker in
+`pflichtbestandteile.md` zieht mit. Der Referenzwächter
+`test_fuer_jede_spalte_jedes_index_ist_ein_typ_entschieden` liest das
+aktuelle Release und wird erst mit dem ersten Release aus diesem Stand grün.
+
+Keine Zahl der Abgabe ändert sich.
+
+---
+
+## 25.11.2026 · Jede Tat kennt ihren Polizeibezirk, und Detroit seine Festnahmen (Branch `polizeibezirke-silver`)
+
+Zweiter Schritt zur Karte je Polizeibezirk und zur Aufklärungskarte.
+
+**Neue Silver-Tabelle `police_area`** (`silver_pipeline.build_police_area`,
+Vertrag 1): ein Bezirk je Zeile, 23 Districts für Chicago und 11 Precincts für
+Detroit. Teilpolygone der Quelle sind vereinigt (Chicago 31 aus drei,
+Detroit 7 aus zwei), `area_id` ist die Zahl ohne führende Null, die Fläche
+ist auf dem Ellipsoid gerechnet: Chicago 608,9 km², Detroit 362,2 km². Die
+grösste Überlappung zweier Bezirke liegt bei 0,014 % der kleineren Fläche;
+ab 0,5 % bricht der Bau ab. Silver behält **District 31**, obwohl nur 0,2 %
+seiner Fläche in Chicago liegen: Es ist der Bezirk der umschlossenen
+Gemeinden Norridge und Harwood Heights. Dass er nicht zur Stadt zählt,
+entscheidet Gold nach derselben Mehrheitsregel wie bei den Tracts.
+
+**`crime_offense` Vertrag 5**, drei Spalten mehr, eine anders gefüllt:
+
+- `police_area`: der Bezirk, in dem die Koordinate liegt, aus dem eigenen
+  räumlichen Join wie `tract_geoid`.
+- `police_area_source`: der Bezirk, den die Polizei nennt, in derselben Form.
+- `case_status`: Detroits Stand des Falls, Chicago `NULL`.
+- `arrest` für Detroit: bisher `NULL`, jetzt `case_status = 'CLEARED BY
+  ARREST'`, und `NULL` ohne Stand.
+
+**Gemessen** am lokalen Bestand (1'917'351 Zeilen): Von den Taten mit beiden
+Angaben liegen 98,6 % (Chicago) und 97,3 % (Detroit) in dem Bezirk, den die
+Polizei nennt. Das Manifest hält den Abgleich je Stadt fest
+(`checks.police_area`). Die Festnahmequote je Fall: Chicago 12,7 % (2021)
+bis 16,1 % (2025), Detroit 12,3 % (2021) bis 9,4 % (2024), dann 5,7 % (2025)
+und 4,6 % (2026). Der Einbruch in Detroit ist zum grössten Teil keiner: Der
+Stand eines Falls wird nachgeführt, und junge Fälle sind noch nicht geklärt.
+Die Karte muss das sagen.
+
+Gold übernimmt `arrest` unverändert; für Detroit ist es dort nach dem
+nächsten Gold-Bau ebenfalls gefüllt. Keine Zahl der Abgabe ändert sich.
+
+---
+
+## 25.11.2026 · Die Polizeibezirke beider Städte kommen als sechste Quelle (Branch `polizeibezirke-ingestion`)
+
+Erster Schritt zu einer Karte je Polizeibezirk und einer Karte der
+Aufklärung. Die Grenzen kommen von den Portalen der Städte:
+
+- **Chicago:** »Boundaries - Police Districts (current)«, Datensatz
+  `24zt-jpfn`, 25 Polygone für 23 Districts (District 31 in drei Teilen).
+- **Detroit:** Layer `DPD_Precincts_Reid2` (»2015 New Precincts Overlay«),
+  12 Polygone für 11 Precincts (07 in zwei Teilen).
+
+Neues Paket `gebiete_pipeline` mit `download_gebiete`: Raw hält das GeoJSON
+unverändert, Bronze die Polygone als WKB mit `gebiet_id`, `gebiet_name` und
+`_extra`. Vollständig heisst: so viele Polygone, wie das Portal in einer
+zweiten Abfrage zählt. Anders als TIGER schreibt **jeder Lauf einen neuen
+Stand**, denn die Portale führen den aktuellen Stand und sagen nicht, wann er
+sich ändert; ob sich eine Grenze bewegt hat, zeigt der SHA-256 der Raw-Datei.
+Die Quelle steht in der wöchentlichen Altersregel neben Taten und Wetter.
+
+**Gemessen vor dem Bau**, an den vollen Läufen 2024: Die Koordinaten liegen
+in Chicago bei 97,4 % der Taten im Polygon des Districts, den die Polizei
+nennt (252'841 von 259'686), in Detroit bei 96,6 % (85'817 von 88'816).
+
+Mitgezogen: die Stufe in `run_all` (jetzt siebzehn), die Platzregel, die
+Alarmregel, die Vertragsversion `bronze/dataset=gebiete` 1, die Konsole, der
+Volllauf, die Verantwortung in der Absprache 7.3 und die Zählungen in den
+Dokumenten — sechs Quellen, fünf Ingestion-Pakete, zwölf Pakete, 34 Kanten.
+Die beiden Architekturbilder und die Referenz sind neu erzeugt. Silver, Gold
+und das Dashboard folgen in eigenen Schritten.
+
+Keine Zahl der Abgabe ändert sich.
+
+---
+
+## 25.11.2026 · Die Karten beschriften die eingeschlossenen Gemeinden nicht mehr (Branch `karte-enklaven-zurueck`)
+
+Am selben Tag eingeführt (#295) und zurückgenommen: Die Namen von Norridge,
+Harwood Heights, Hamtramck und Highland Park standen nach dem Einsetzen auf
+`srv01` doppelt in der Karte, einmal vom Dashboard und einmal von den
+OpenStreetMap-Kacheln darunter. Die Kacheln nennen die Gemeinden schon; die
+eigene Beschriftung brachte nichts dazu. Code, Tests und Testzahl sind auf dem
+Stand vor #295. Warum die Löcher da sind, steht damit nur hier: Chicago
+umschliesst Norridge und Harwood Heights, Detroit Hamtramck und
+Highland Park; ihre Tracts liegen zu 0 bis 1,3 % in der Studienstadt.
+
+Keine Zahl der Abgabe ändert sich.
+
+---
+
+## 25.11.2026 · Die Konsolensicherung lässt die Job-Daten aus (Branch `konsolensicherung-ohne-jobdaten`)
+
+`object_store.backup` packt `jobs/<Job-ID>/data/` nicht mehr ins tägliche
+Archiv unter `backups/control/`. Der Ordner ist die Arbeitskopie eines
+Kandidaten — Bronze-Abzug, Silver, Gold und das Kandidaten-Release, beim
+Kandidaten vom 18.11. 1,1 GiB — und machte jedes Archiv 830 MiB statt
+2,2 MiB gross. Alles darin lässt sich aus Bronze im Eimer nachbauen, und das
+Volume `konsole` geht ohnehin jede Nacht als Ganzes in die Serversicherung
+(S-7). Die Nachweise daneben (`run.log`, Auswirkungsbericht, `result.json`)
+und der Job-Zeiger bleiben im Archiv; `backup.json` nennt die ausgelassenen
+Jobs (`job_data_left_out`).
+
+Was das nach einem Restore aus dem Archiv kostet: Ein Kandidat im Review oder
+vor der Publikation wird neu eingereiht, und Notebook 34 und 37 finden die
+Daten des aktiven Release erst nach einem neuen Kandidaten.
+
+Damit fällt Befund 5 in [`umstellung-verwaltet.md`](umstellung-verwaltet.md)
+als Hindernis für S-10 weg. Wirksam wird es mit dem nächsten eingesetzten
+Abbild; die sieben schweren Archive (4,98 GiB) fallen danach binnen einer
+Woche von selbst weg.
+
+Keine Zahl der Abgabe ändert sich.
+
+---
+
+## 25.11.2026 · Die Konsolensicherung ist auf srv01 nachgemessen (Branch `s10-sicherung-gemessen`)
+
+Die beiden Lücken in Befund 5 von [`umstellung-verwaltet.md`](umstellung-verwaltet.md)
+sind auf `srv01` gemessen, nur lesend: `du` im Dienst `admin`, das Kontingent
+mit `s3.bucket.list` in `weed shell`. Geändert ist nur das Dokument.
+
+- **Die 830 MiB kommen aus einem Ordner.** `jobs/9d265b70…/data` im Volume
+  `konsole` belegt 1,1 GiB (Bronze 455, Releases 343, Silver 209, Gold 84 MiB).
+  Er gehört zum aktiven Release `approved-9d265b70…`. Am 24.11. war das aus
+  Code und Zeitpunkt erschlossen; jetzt ist es gemessen.
+- **Das Kontingent des Eimers ist 24 GiB**, belegt sind 9,7 GiB logisch
+  (40,4 %). Mit Umstellung und ohne Entscheid zur Sicherung wären es rund
+  16 GiB. Das läuft nicht über, lässt aber wenig Luft.
+
+Keine Zahl der Abgabe ändert sich.
+
+---
+
+## 24.11.2026 · Die Sperre des verwalteten Betriebs erreicht den Cron-Lauf nicht (Branch `s10-fragen-geklaert`)
+
+Die beiden offenen Fragen aus [`umstellung-verwaltet.md`](umstellung-verwaltet.md)
+sind beantwortet. Beim Nachsehen kamen zwei Befunde dazu, und beide brauchen
+vor S-10 einen Entscheid. Geändert ist nur das Dokument; Code und Server
+sind unverändert.
+
+- **Die Sperre greift im Dienst `pipeline` nicht.** `enable-managed`
+  schreibt `admin/managed.json` in das Volume `konsole`, und `pipeline` hängt
+  es nicht ein. Dort meldet `storage.verwaltet` „nicht verwaltet“, und
+  `srv01-datenlauf.sh` liefe nach der Umstellung weiter.
+  `ENGINEERING_KONSOLE.md` und `storage-architektur.md` sagen, er scheitere.
+  Das stimmt erst, wenn `pipeline` das Volume mitliest. Bis dahin schützt nur
+  der Tausch der Crontab-Zeilen.
+- **Die Konsolensicherung wuchs am 19.11. von 2,2 auf 830 MiB je Archiv**,
+  sieben davon liegen unter `backups/control/`, zusammen 4,98 GiB. Das
+  Archiv packt `admin/jobs/` ganz ein, mit dem Job-Ordner des ersten
+  Kandidaten vom 18.11. Mit Wochenläufen und zwei behaltenen Job-Ordnern
+  wären es rund 12 GB. Am 10.11. stand der Eimer bei 11,2 GB unter diesem
+  Präfix auf nur-lesen.
+- **Rückweg:** Ein Cron-Lauf setzt nach einem Release der Konsole sauber
+  auf. Beide legen Releases und `AKTUELL.json` gleich ab.
+- **Dauer:** Der Kandidat vom 18.11. brauchte auf `srv01` gut fünfeinhalb
+  Minuten vom Einreihen bis Gold. Ein ganzer Batch dauert etwa 15 bis 25
+  Minuten ohne Quellausfall.
+
+Keine Zahl der Abgabe ändert sich.
+
+---
+
+## 24.11.2026 · Die Umstellung auf den verwalteten Betrieb ist vorbereitet (Branch `s10-ablauf`)
+
+Neu ist [`umstellung-verwaltet.md`](umstellung-verwaltet.md): der Ablauf für
+S-10 mit Vorprüfung, Umstellen, Sperrprobe, Probelauf, Abnahme und Rückweg.
+**Entschieden ist nichts.** Die Besprechung am 27.11.2026 entscheidet, ob
+`srv01` vor dem Abgabestand umgestellt wird. Auf `srv01` ist nichts geändert.
+
+**Was beim Vorbereiten auffiel.**
+
+- **Der 30.11. ist der fünfte Montag.** `mode_for_day` lässt ihn aus. Damit
+  läuft vor dem Abgabestand kein geplanter Lauf mehr, an dem sich ein
+  Konsolenlauf prüfen liesse: Der vom 7.12. ist schon der Abgabestand. Wer
+  umstellt, stösst den Probelauf am Wochenende davor von Hand an.
+- **Ein echter Konsolen-Batch lief auf `srv01` noch nie.** S-8 hatte einen
+  leeren Probetakt, E-5 nennt die Abnahme mit einem echten Job als offen.
+- **S-6 hält die Umstellung nicht auf.** Ein Wochenlauf veröffentlicht ohne
+  Git (`release_flow.requires_git` gilt nur für Mapping und Einstellungen).
+- **Zwei Stellen rufen nach der Umstellung den gesperrten Lauf auf:** der
+  Lauf von Hand in `abgabestand.md` und der Hinweis am Ende von
+  `docker/srv01-abbild-einsetzen.sh`. Sie gehören in den PR, der die
+  Crontab-Zeilen tauscht, nicht in diesen.
+
+Keine Zahl ändert sich, kein Code.
+
+---
+
+## 24.11.2026 · Jedes Brett rechnet einen freien Zeitraum, auch einen einzelnen Tag (Branch `dashboard-freie-zeitraeume`)
+
+Stufe 3 von drei für den freien Zeitraum, nach den Entscheiden vom 23.11.2026.
+Alle sieben Bretter, die eine Auswahl nehmen, stehen jetzt in
+`FREIE_BRETTER`. Sie rechnen auf den Tag genau und über Jahresgrenzen; die
+Regeln stehen einmal in `serving.dashboard.zeitraum`.
+
+**Was sich an Zahlen ändert, und nur dort:**
+
+- **Die Rate gilt je Jahr**, also Fälle je 1'000 Einwohner und Jahr. Der
+  Nenner sind Personenjahre: Jeder Tag, für den die Stadt Daten hat, zählt
+  mit den Einwohnern seines ACS-Vintage, geteilt durch die Tage seines Jahres.
+  **Über ein ganzes Jahr ist das genau die Einwohnerzahl.** Die Raten der
+  Dokumente bleiben also gleich: 94,5 und 124,7 für 2024, auf der Tatebene
+  94,5 und 134,1. Anders sind sie über Teiljahre. März bis Mai 2024 ergab
+  bisher 23,3 und 30,3, ein Viertel der Jahresrate; jetzt sind es 92,6 und
+  120,5. Ebenso 2026 bis zum Datenende. Für die Tracts in »Geografie« und
+  die Armutsbänder in »Soziales Umfeld« gilt dieselbe Regel.
+- **Zum Vorjahr zählen Tage, nicht Monate**, und zwar die, die in beiden
+  Jahren für jede gewählte Stadt vorliegen. Bisher fiel ein angebrochener
+  Monat ganz heraus. Das ändert nur Zeiträume am Datenende, im Bestand 2026:
+  Jan bis Dez 2026 im »Überblick« −1,7 statt −1,4 %, weil der November bis
+  zum 11. jetzt mitzählt. Über mehr als ein Jahr Spanne gibt es keinen
+  Vergleich, mit Begründung auf der Seite.
+- **Doppelte Delikt-IDs** zählen über den ganzen Zeitraum, nicht je Monat.
+  Eine ID im Januar und im Februar fiel bisher nicht auf. Im Bestand gibt es
+  keine.
+
+**Belegt:** Dieselbe Matrix aus 569 Anfragen wie am 23.11.2026, gegen die
+Grundlinie von vor Stufe 1. Abweichungen gibt es genau dort, wo oben steht:
+
+- die Raten im »Überblick« und je Tract in Teiljahren, also März bis Mai
+  2024, Dezember 2025 und 2026;
+- das Vorjahr im »Überblick« und in »Deliktstruktur«, nur für 2026;
+- in »Geografie« die Klassengrenzen der Karte, die aus den Raten folgen, und
+  in vier Fällen die Rangliste, weil die Rundung Gleichstände anders legt.
+
+Jedes ganze Jahr von 2021 bis 2025 ist in allen Werten gleich, ebenso
+»Zeitverlauf«, »Datenqualität«, »Wetter« und »Soziales Umfeld« für 2024.
+Die Zählungen kommen jetzt aus den Taten statt aus `comparison_month`. Je
+Stadt, Monat und Kategorie sind es dieselben 3'511 Zahlen, nachgezählt am
+Release vom 20.11.2026.
+
+**Achse nach Spanne:** bis 92 Tage je Tag, bis zwei Jahre je Woche (ab
+Montag), sonst je Monat. Ganze Monate eines Jahres bleiben Monate, ein Link
+auf März bis Mai zeigt weiter drei Punkte. Eine vom Zeitraum angeschnittene
+Woche oder ein angeschnittener Monat ist im Diagramm hohl wie ein Teilmonat.
+In der Abdeckung zählt sie dagegen als vollständig, denn es fehlen keine
+Daten. Ein einzelner Tag nennt seinen Wochentag, im Vergleich »Do 4.7.2024
+im Vergleich zu Di 4.7.2023«. Über weniger als ein Jahr steht an der Rate,
+aus wie vielen Tagen hochgerechnet ist.
+
+**Speicher und Zeit**, lokal mit den Grenzen von `srv01`: Spitze 420 MiB
+über die Matrix (Stufe 2: 443 MiB). Die Monatssichten und die Spalte
+`monat` sind aus `fakt` entfernt; die Tafel »Tag und Nacht« hält ihre
+Fälle je Tag statt je Monat. Über freie Zeiträume braucht eine Anfrage im
+Median höchstens 67 ms, auch über alle sechs Jahre.
+
+**Auf `srv01` gemessen** (24.11.2026, Abbild aus `050d64a`, Release
+`2026-11-23T03-36-24Z`): je nach frischem Start dieselbe Matrix über HTTP
+im Container, dazu 56 Anfragen mit freien Zeiträumen (sieben Bretter, vier
+Zeiträume vom einzelnen Tag bis zu allen sechs Jahren, Anzahl und Rate).
+Die Spitze der cgroup stieg von 455 MiB mit Stufe 1 auf 475 MiB, bei
+640 MiB Grenze. Am 23.11. lag Stufe 1 nach einem frischen Start bei 471 MiB;
+rund 15 MiB sind also Schwankung. Danach belegte der Container 433 bis
+460 MiB. Die Matrix brauchte je Anfrage im Median 26 statt 43 ms, höchstens
+269 statt 223 ms. Die freien Zeiträume, die Stufe 1 alle ablehnte, kamen alle
+mit 200 zurück, im Median nach 29 bis 32 ms, höchstens nach 190 ms. Die
+Stichprobe 2024 ergab 94,4 und 124,7 über je 366 Tage. Die 94,4 statt 94,5
+gehören zum neueren Release dort, nicht zu dieser Änderung.
+
+**Wächter:**
+
+- `tests/serving/test_dashboard_zeitraum.py`: die Körnung an ihren Grenzen
+  (92/93 und 731/732 Tage); die Perioden am Rand; der hohle Rand, der keine
+  Lücke ist; der Vergleich je Stadt; die Personenjahre über ein Schaltjahr
+  und den Jahreswechsel; die Rate eines Tages; die Vorjahreslinie auf
+  derselben Achse; eine doppelte ID über zwei Monate. Dazu jedes Brett mit
+  vier freien Zeiträumen.
+- `tests/serving/test_sozial.py`: die Armutsbänder je Jahr.
+- `tests/serving/test_dashboard_taten.py` hält weiter fest, dass `fakt`
+  alles trägt, was die alte Verdichtung trug. Die Sichten stehen jetzt dort
+  statt im Dashboard.
+
+**Mutationsprobe** in einer Kopie des Repositorys: 11 von 11 Mutationen
+fielen auf. Die Armutsbänder überlebten zuerst, weil der Test im falschen
+Bestand stand: Er hatte keine Armutsquoten und prüfte kein Band. Er steht
+jetzt bei den Sozial-Tests und verlangt mindestens zwei geprüfte Bänder.
+
+**Dokumente:** `README.md` (Abschnitt „Das eigene Dashboard“) nennt den freien
+Zeitraum und den Vergleich über Tage. `architektur-ist-und-ziel.md` sagt, dass
+die Zählungen aus Gold kommen statt aus `comparison_month`.
+
+---
+
+## 24.11.2026 · Die Leiste nimmt einen Zeitraum auf den Tag genau (Branch `dashboard-datumsbereich`)
+
+Stufe 2 von drei für den freien Zeitraum (Entscheide vom 23.11.2026, siehe
+den Eintrag darunter). **An den Zahlen ändert sich nichts.**
+
+**Die Auswahl ist ein Tagesbereich.** `Auswahl` trägt `tag_von` und
+`tag_bis`, beide Enden eingeschlossen. Jahr und Monate sind daraus
+abgeleitet und gelten nur, solange der Zeitraum aus ganzen Monaten eines
+Jahres besteht (`ganze_monate`). Die Adresse kennt zwei Schreibweisen für
+dieselben Parameter:
+
+- `jahr=2024&von=3&bis=5` wie bisher: ganze Monate eines Jahres. **Jeder
+  alte Link bleibt gültig.**
+- `von=2024-06-01&bis=2024-08-31`: Tage, ohne `jahr`. Nur genau in der Form
+  `JJJJ-MM-TT`, damit dieselbe Auswahl nicht mehrere Adressen hat.
+
+**Die Bretter rechnen weiter in Monaten.** Ein Brett nimmt einen freien
+Zeitraum erst an, wenn es in `serving.dashboard.FREIE_BRETTER` steht. Diese
+Liste ist leer; Stufe 3 trägt die Bretter einzeln ein. Bis dahin lehnt jedes
+Brett einen Zeitraum ab, der nicht aus ganzen Monaten eines Jahres besteht,
+mit einer sichtbaren Meldung. Auf Monate runden wäre die Alternative, und
+dann zeigte ein Brett für den 1.6. bis 15.8. still Zahlen bis zum 31.8.
+
+**In der Leiste** schaltet ein Knopf »Tage« zwischen Monaten und zwei
+Datumsfeldern um. Dazu kommen Vorgaben, gerechnet vom letzten Tag mit Daten:
+letzter Tag, letzte 7 und 30 Tage, letzte 12 Monate, laufendes Jahr, der
+letzte ganze Sommer, der ganze Bestand. Der Knopf erscheint auf Brettern
+aus `FREIE_BRETTER` und auf jedem Brett, dessen Adresse schon Tage trägt.
+Bis Stufe 3 ist er im Alltag also nicht zu sehen. `/api/optionen` liefert
+dafür `frei`, das Tagesfenster und die Vorgaben.
+
+**Belegt, dass sich keine Zahl ändert.** Dieselbe Matrix wie am 23.11.2026,
+569 Anfragen am lokalen Release, gegen die Grundlinie von vor Stufe 1. Alle
+515 verschiedenen Antworten sind gleich, bis auf die neuen Felder: in der
+Auswahl `tag_von`, `tag_bis`, `ganze_monate` und `tage`, in den Optionen
+`frei`, `tage` und `vorgaben`.
+
+**Wächter.** `tests/serving/test_dashboard_zeitraum.py`, 37 Tests:
+
+- Ein alter Link und derselbe Zeitraum als Daten liefern auf fünf Brettern
+  **byteweise dieselbe Antwort**.
+- Ungültige Daten werden abgelehnt: `20240101`, `2024-W01-1`, `2024-1-1`,
+  der 30. Februar, gemischte Schreibweisen, verkehrte Reihenfolge, ein Jahr
+  ohne Daten.
+- Jedes der sieben Bretter lehnt einen freien Zeitraum ab, solange es nicht
+  in `FREIE_BRETTER` steht.
+- Die Vorgaben werden an einem Bestand mit bekanntem Fenster nachgerechnet.
+
+**Mutationsprobe** in einer Kopie des Repositorys: 7 von 8 Mutationen
+fielen auf. Die achte prüft nur einen Strich in `von` statt in beiden
+Feldern. Sie ist gleichwertig, weil ein Datum allein in `bis` im
+Monatszweig an `int()` scheitert. Eine frühere Fassung prüfte die Form
+doppelt; das zeigte die Probe, und die Stelle ist jetzt einfacher.
+
+---
+
+## 23.11.2026 · Das Dashboard hält die Taten im Speicher, nicht mehr nur Monatssummen (Branch `dashboard-faktentabelle`)
+
+Stufe 1 von 3 für einen freien Zeitraum im Dashboard: auf den Tag genau und
+über alle Jahre, auch ein einzelner Tag. Entschieden am 23.11.2026
+(Christian): Die Rate über einen freien Zeitraum gilt je 1'000 Einwohner und
+Jahr. Der Nenner geht je Tag mit dem Vintage dieses Tages ein, nur über Tage
+mit Daten der Stadt. Der Vergleich nimmt bis zu einem Jahr Spanne denselben
+Zeitraum ein Jahr früher, darüber fällt er weg. Die Achse zeigt bis 92 Tage
+je Tag, bis zwei Jahre je Woche, sonst je Monat. Die Stufen 2 (Auswahl und
+Oberfläche) und 3 (Bretter) kommen vor der Abgabe.
+
+**Warum nicht einfach je Tag verdichten.** Bisher legte das Dashboard beim
+Laden sieben Tabellen je Stadt und Monat an. Gemessen am lokalen Release
+`2026-11-20T10-08-03Z` (1'895'123 Taten), je Variante in einem eigenen
+Prozess:
+
+| Variante | Zeilen | DuckDB | Spitze des Prozesses |
+| --- | ---: | ---: | ---: |
+| sieben Tabellen je Monat (bisher) | 0,9 Mio. | 89 MiB | 394 MiB |
+| dieselben je Tag | 2,9 Mio. | 252 MiB | 612 MiB |
+| eine schlanke Faktentabelle | 1,9 Mio. | 97 MiB | 244 MiB |
+
+Je Tag verdichtet Tract × Tag × Kategorie kaum noch: 1,6 Mio. Zeilen aus
+1,9 Mio. Taten. Bei 640 MiB Grenze auf `srv01` trägt das nicht.
+
+**Was gebaut ist.** `serving.dashboard.taten` legt `fakt` an: je Tat Stadt,
+Tag, Monat, Tract, Kategorie, Vintage, Fall, Stunde, Platzhalter,
+Verortung, Zuordnung, Ortszeit und Quellcode, aber kein Text. Stadt,
+Kategorie, Verortung und Zuordnung sind Aufzählungstypen. Tract und
+Quellcode sind Nummern in je einem Verzeichnis (`tract_nr`, `quelle`). Die
+sieben Monatstabellen heissen weiter so, sind jetzt aber Sichten über
+`fakt`, mit denselben Spalten und Typen. Die Bretter sind unverändert.
+`monate` kommt weiter aus `serving/comparison_month`. `doppelte` bleibt eine
+Tabelle, weil `fakt` die Delikt-ID nicht führt. `fenster` ist eine Tabelle,
+weil es an keiner Auswahl hängt.
+
+**Belegt, dass sich keine Zahl ändert.** Am lokalen Release habe ich eine
+Matrix aus 569 Anfragen vorher und nachher gestellt: sechs Bretter mal drei
+Städte, neun Zeiträume und drei Kategoriefilter, dazu Mass und Ebene,
+Sozialdaten und Quellbewegung. Alle Antworten sind **zeichengleich**, keine
+Anfrage scheiterte. Die Grundlinie lief zweimal in eigenen Prozessen und war
+ebenfalls gleich.
+
+**Speicher und Zeit, mit den Grenzen von `srv01`** (`DUCKDB_MEMORY_LIMIT=256MB`,
+zwei Threads), lokal über die 569 Anfragen:
+
+- **Spitze:** 413 MiB vorher, 423 MiB nachher.
+- **Je Anfrage:** vorher rund 4 ms, nachher im Median 1 bis 63 ms je Brett,
+  höchstens 71 ms. Die Sichten verdichten bei jeder Anfrage neu.
+- **Zwei Massnahmen** haben die Zeit gedrittelt: `monat` steht als Spalte in
+  `fakt` statt als Ausdruck, und die Sichten wandeln Aufzählungstypen nicht
+  mehr in Text zurück. Nur so zieht DuckDB die Filter der Bretter vor die
+  Verdichtung.
+- **Ohne die Grenzen** (14 Threads) lag die Spitze bei 728 MiB. Jeder Thread
+  hält eigene Hashtabellen. Auf `srv01` gelten die Grenzen, siehe
+  `docker-compose.srv01.yml`, FR-61.
+
+**Auf `srv01` gemessen** (23.11.2026, Abbild aus `4230e86`): dieselbe
+Matrix über HTTP im Container, je nach frischem Start. Die Spitze der
+cgroup stieg von 421 auf 471 MiB, bei 640 MiB Grenze. Nach der Matrix
+belegte der Container 459 statt 308 MiB, davon 371 statt 289 MiB anonym:
+DuckDB behält Puffer bis zur Grenze von 256 MB. Je Anfrage im Median
+54 statt 12 ms, höchstens 243 statt 206 ms. Alle 515 verschiedenen
+Antworten auf dem Release von `srv01` sind vorher und nachher gleich
+(SHA-256).
+
+**Wächter.** `tests/serving/test_dashboard_taten.py`: Jede der acht Sichten
+ist zeilengleich mit der alten Verdichtung, die dort wörtlich steht, und hat
+deren Spalten und Typen. Der Testbestand enthält genau die Fälle, an denen
+ein Verzeichnis kippen kann:
+
+- eine Tat ohne Tract, eine mit einem Tract, den `dim_tract` nicht führt;
+- eine Tat ohne NIBRS-Code, eine mit unbekanntem Code;
+- ein Quellcode mit zwei Bezeichnungen, ein `NULL` in jedem Schlüssel;
+- die Platzhalter-Tatzeiten und 12:00:30;
+- eine mehrdeutige Ortszeit ohne Wert.
+
+Eine Mutationsprobe in einer Kopie des ganzen Repositorys hat vier Fehler
+eingebaut, und jeder wurde gefangen:
+
+- ein `=` statt `IS NOT DISTINCT FROM`;
+- ein `JOIN` statt `LEFT JOIN` auf `dim_tract`;
+- ein fehlendes `coalesce`;
+- `max` statt `min`.
+
+Ein erster Versuch mit `PYTHONPATH` auf die Kopie prüfte nichts:
+`pyproject.toml` setzt `pythonpath` und stellt damit den echten Quellcode
+nach vorn.
+
+**Zahlen.** 3'366 → **3'386 Tests**, Standardlauf 3'255 → **3'275**. Im
+Linux-CI-Lauf hochgerechnet 3'170 → 3'190; die neuen Tests brauchen weder
+Daten noch Netz. Die Code-Referenz ist neu erzeugt.
+
+## 23.11.2026 · Ein Textvorschlag beantwortet die LN1-Rückmeldung Punkt für Punkt (Branch `fr-58-textvorschlag`)
+
+P1 ist der einzige Pflichtbestandteil ohne Fundstelle, weil kein Dokument
+sagt, was aus der Rückmeldung zu LN1 wurde (FR-58, Artan). Neu liegt
+`docs/intern/textvorschlag-fr-58.md`: für jeden der sieben Kritikpunkte eine
+Antwort mit Beleg und Grenze, dazu ein Absatz für den Abgabetext. Fünf
+Punkte sind behoben, einer ist eine bewusste Kursänderung (Kibana), einer
+bleibt offen (Deliktschwere).
+
+- Der Vorschlag ist **keine Fundstelle**. P1 bleibt auf „fehlt“, bis die
+  Stelle im Abgabetext steht. FR-56 und FR-58 bleiben, wie sie sind.
+- Die Kritikpunkte sind sinngemäss wiedergegeben. Der Wortlaut ist vor der
+  Abgabe gegen die Rückmeldung selbst zu halten.
+- Je eine Zeile in `docs/README.md` und `ln2_konzept.md` 11.5.
+
+Am Code und an den Zahlen ändert sich nichts.
+
+## 23.11.2026 · Jeder Pflichtbestandteil hat eine Fundstelle, oder es steht, dass sie fehlt (Branch `fr-56-pflichtbestandteile`)
+
+FR-56 verlangt zu jedem der sechs Pflichtbestandteile von LN2 eine benannte
+Fundstelle. Bis hierher stand nirgends, wo sie liegen, und `fr-stand.md`
+führte FR-56 als „nicht geprüft“.
+
+- **Neues Register** [`pflichtbestandteile.md`](pflichtbestandteile.md): je
+  Bestandteil der Wortlaut der Folie, ein Stand (belegt, teilweise, fehlt),
+  die Fundstelle als Link mit Anker und ein Satz, was dort steht.
+- **Ergebnis:** Vier belegt (P3 bis P6), einer teilweise, einer fehlt.
+  - **P2 teilweise:** Die sechs Phasen stehen in `ln2_konzept.md` 5.1 und
+    5.3, aber Kapitel 5 nennt sich selbst „der Entwurf“. Das ist FR-57.
+  - **P1 fehlt:** Kein Dokument sagt, was aus der Rückmeldung zu LN1
+    wurde. Das ist FR-58, offen bei Artan.
+- **Neuer Wächter** `tests/test_pflichtbestandteile.py`. Er prüft:
+  - Alle sechs Bestandteile stehen genau einmal da.
+  - Jede Datei und jeder Anker existiert; der Anker wird so gebildet, wie
+    GitHub ihn bildet.
+  - Ein „belegt“ zeigt auf keine Überschrift mit „Entwurf“ oder „Vorschlag“.
+  - FR-56 steht in `fr-stand.md` genau dann auf erfüllt, wenn nichts mehr
+    fehlt.
+  - Der Wortlaut entspricht dem PRD; diese Prüfung entfällt ohne PRD, also
+    in CI.
+- **FR-56 bleibt ◐**, jetzt mit Beleg statt „nicht geprüft“: 5 von 6.
+- Eine Zeile im Wegweiser `docs/README.md` und eine in `ln2_konzept.md`
+  11.5, das der Wegweiser-Wächter gegen den Wegweiser hält.
+
+**Zahlen.** 3'359 → **3'366 Tests**, Standardlauf 3'248 → **3'255**. Im
+Linux-CI-Lauf hochgerechnet 3'164 → 3'170, weil die PRD-Prüfung dort
+übersprungen wird (85 statt 84 übersprungen).
+
+## 23.11.2026 · S-1 ist geschlossen, die alten Fassungen waren schon weg (Branch `offene-punkte-s1`)
+
+`offene-punkte.md` führte S-1 noch als offen: 3,91 GiB alte Fassungen im
+Eimer `urban-crime`. Entfernt hatte sie aber schon das Aufräumen vom
+10.11.2026. Der Trockenlauf vom 23.11.2026 auf `srv01` zeigt, was heute
+noch daliegt:
+
+| Was | Anzahl | Grösse |
+| --- | ---: | ---: |
+| alte Fassungen (gold, silver, releases) | 28 | 169,5 MB |
+| Löschmarkierungen (`backups`) | 8 | – |
+| entbehrliche Releases (17.10. bis 2.11.) | 7 | 1'278 MB |
+| entbehrlicher Lauf (NOAA vom 2.11.) | 1 | 24,6 MB |
+
+**Bewusst nicht gelöscht.** `--fassungen` geht nur zusammen mit
+`--loeschen --auch-fern`, und das nähme die sieben Releases mit. Rund 1,5 GB
+sind auf `srv01` kein Druck, und vor der Abgabe bringt das Löschen nichts,
+was gebraucht wird. Aufgeräumt wird nach der Abgabe. Die gepinnten Releases
+(LN1, LN2, Referenzstand) und die letzten acht bleiben ohnehin.
+
+**Zahlen.** Keine Änderung an Tests oder Daten.
+
+## 22.11.2026 · Die Änderungen auf srv01 an CLI und Betriebsblick sind committet (Branch `offene-punkte-s2-s3`)
+
+Seit dem 18.10.2026 lagen auf `srv01` zwei Änderungen ungesichert, von
+denen der Betriebsblick abhängt (S-2, S-3). Ein `git checkout` im
+Infrastruktur-Repository `/srv/docker` hätte sie still verworfen. Danach
+hätte `doctor` wieder bei jedem Lauf „No valid Restic snapshot found“
+gemeldet, und Prometheus hätte den Job `urbancrime` nicht mehr abgefragt.
+
+- **S-2, die `srv01`-CLI** (Commit `fad61f3`): `health.py` klappt die
+  gruppierte Ausgabe von `restic snapshots --group-by host,tags` auf.
+  `util.py` schreibt die Fehlermeldung eines gescheiterten Befehls ins
+  Protokoll. Neu dabei sind zwei Tests, die am alten Code scheitern.
+- **S-3, der Monitoring-Stapel** (Commit `26a855b`): der Scrape
+  `urbancrime`, die Alarmregeln und das Grafana-Brett aus diesem
+  Repository. `promtool` und `docker compose config` sind gegengeprüft.
+
+Beide Commits liegen auf dem Branch `infra/urbancrime-monitoring` von
+`datenwerft/srv01-infrastructure`, abgezweigt von dessen `main` und
+gepusht. Der laufende Stapel ist unverändert, denn die Dateien auf `srv01`
+hatten diesen Inhalt schon. Fremde Änderungen im selben Arbeitsstand sind
+nicht mitcommittet (cAdvisor, SeaweedFS, Homepage, Docmost).
+
+**Zahlen.** Keine Änderung an Tests oder Daten in diesem Repository.
+
+## 22.11.2026 · Das Brett »Datenqualität« zeigt die NIBRS-Zuordnung je Quellcode (Branch `dashboard-zuordnung-detail`)
+
+Das Dashboard zeigte die Zuordnung nur verdichtet, als Anteile je Stadt.
+Welcher Quellcode wohin fällt, war nirgends zu sehen. Über alle Jahrgänge
+sind es rund 470 Kombinationen aus Stadt, Quellcode und NIBRS-Code. Das ist
+eine handliche Tabelle.
+
+- **Neue Tafel „NIBRS-Zuordnung im Detail“** unter der Grafik „NIBRS-Zuordnung
+  je Stadt“. Spalten: Stadt, Quellcode (IUCR oder MICR), Quellbezeichnung,
+  NIBRS-Code und -Bezeichnung, Kategorie, Zuordnung als farbige Marke,
+  Taten und Anteil an der Stadt. Sortiert nach Taten. Die ersten 50 Zeilen
+  stehen sofort da, darunter „alle zeigen“.
+- **Filter:** Knöpfe Alle, Exakt, Auffang 90Z, Mehrdeutig und Ohne Zuordnung,
+  je mit der Zahl der Quellcodes. Dazu ein Suchfeld über Code, Bezeichnung
+  und Kategorie. Stadt, Zeitraum und Kategorie der Leiste gelten mit.
+- **Ein Klick auf einen Abschnitt der Grafik** setzt Status und Stadt der
+  Tafel und springt dorthin. „nur Detroit ✕“ hebt die Stadt wieder auf.
+- **Daten:** eine Verdichtung `zuordnung` beim Laden, je Stadt, Monat,
+  Kategorie, Quellcode, NIBRS-Code und Status. Gezählt werden Taten wie in
+  der Grafik darüber. Die Zeilen der Tafel ergeben zusammen genau die Taten
+  der Auswahl, und das prüft ein Test.
+- **Im Browser geprüft**, lokal mit `STORAGE_BACKEND=local`, Jahrgang 2024.
+  Ein Klick auf „Mehrdeutig“ bei Detroit ergibt einen Quellcode, MICR 3072
+  „Embezzlement“ zu NIBRS 26A mit 998 Taten. „Auffang 90Z“ ergibt 71
+  Quellcodes, die Suche „gun“ drei Chicagoer Codes zu „Gun Offender“.
+
+Nicht dabei sind die Begründung einer mehrdeutigen Zuordnung (`match` und
+`note` im Crosswalk) und die Herkunft „Crosswalk oder Korrektur“. Beides
+steht nicht in Gold und bräuchte eine Vertragsänderung. Das ist eine eigene
+Entscheidung, nach dem Abgabestand.
+
+**Zahlen.** 3'356 → **3'359 Tests**, Standardlauf 3'245 → **3'248**. Im
+Linux-CI-Lauf hochgerechnet 3'161 → 3'164.
+
+## 22.11.2026 · Das Dashboard filtert nach mehreren Kategorien, und ein gesetzter Filter ist zu sehen (Branch `dashboard-kategorien-auswahl`)
+
+Die Leiste bot bei „Kategorie“ nur „Alle“ oder eine einzige Deliktkategorie.
+Jetzt funktioniert das Feld wie die Städte: eine Aufklappliste mit „Alle“ und
+je Kategorie einem Häkchen.
+
+- **Mehrere Kategorien.** In der Adresse steht `kategorie=alle` oder eine
+  Liste mit `|`, etwa `Robbery|Arson`. Ein Komma taugt nicht als Trenner,
+  weil NIBRS „Family Offenses, Nonviolent“ kennt. Alle Bretter filtern über
+  einen gemeinsamen Ausdruck `kategorie IN $kat` (`Auswahl.kat_sql`,
+  `kat_param`) statt acht einzelner `kategorie = $kat`. Die Auswahl heisst
+  kanonisch: Die Folge richtet sich nach der Häufigkeit, und sind alle
+  gewählt, heisst das `alle`. Alte Links mit einer einzelnen Kategorie
+  bleiben gültig.
+- **Ein gesetzter Filter ist zu sehen.** Ist nicht „Alle“ gewählt, erscheint
+  das Feld blau. Es zeigt bis zu zwei Namen und dann „+N“, etwa
+  „Diebstahl, Körperverletzung +1“. Der volle Text steht im Tooltip. Das gilt
+  ebenso für die Städte.
+- **„Alle“ setzt oder entfernt jedes Häkchen.** Sonst müsste man für eine
+  von rund vierzig Kategorien 39 Häkchen einzeln entfernen. Solange nichts
+  gewählt ist, steht „Bitte wählen“ im Feld, und das Brett lädt nicht neu.
+  Wer die Liste so schliesst, bekommt die letzte gültige Wahl zurück.
+- Die Ratentafel im Überblick zeigt bei mehreren Kategorien „N Kategorien“
+  statt einer Liste von Namen, die nicht auf den Balken passt.
+- **Gemeinsamer Baustein.** `mehrfachwahl` in `gemeinsam.js` ersetzt
+  `staedtewahl` und dient beiden Feldern.
+- **Im Browser geprüft**, lokal mit `STORAGE_BACKEND=local`. Diebstahl,
+  Körperverletzung und Raub gewählt: Das Feld zeigt den aktiven Filter, die
+  Zahlen folgen der Auswahl, und „Deliktstruktur“ vergleicht genau diese
+  drei. Alle sechs Bretter mit Kategorie antworten mit der Liste korrekt.
+
+**Zahlen.** 3'350 → **3'356 Tests**, Standardlauf 3'239 → **3'245**. Im
+Linux-CI-Lauf hochgerechnet 3'155 → 3'161.
+
+## 22.11.2026 · Die Städte stehen in einer Aufklappliste (Branch `dashboard-staedte-dropdown`)
+
+Nachtrag zu #278 auf Christians Wunsch. Die Checkboxen standen offen in der
+Leiste. Jetzt liegen sie in einer Liste, die aussieht wie die Auswahlfelder
+daneben.
+
+- Zu sehen ist die Zusammenfassung: „Alle“, „Chicago“ oder „Chicago,
+  Detroit“. Ein Klick öffnet die Liste mit „Alle“ oben und darunter je Stadt
+  ein Häkchen.
+- Die Liste bleibt beim Wählen offen, damit sich mehrere Städte nacheinander
+  setzen lassen. Ein Klick daneben oder die Escape-Taste schliesst sie.
+- Gebaut mit `<details>`, damit Tastatur und Vorleser es kennen. Das Verhalten
+  aus #278 bleibt: `stadt=alle` oder eine Liste in der Adresse, und die
+  letzte Stadt lässt sich nicht abwählen.
+- Im Browser geprüft, lokal mit `STORAGE_BACKEND=local`.
+
+**Zahlen.** 3'349 → **3'350 Tests**, Standardlauf 3'238 → **3'239**. Im
+Linux-CI-Lauf hochgerechnet 3'154 → 3'155.
+
+## 22.11.2026 · Das Dashboard wählt Städte mit Checkboxen, und »Alle« ersetzt »Beide« (Branch `dashboard-staedte-auswahl`)
+
+Die Leiste bot bisher ein Auswahlfeld mit „Beide“, „Chicago“ und „Detroit“.
+Bei einer dritten Stadt passt „Beide“ nicht mehr, und Städte lassen sich
+nicht frei kombinieren.
+
+- **Je Stadt eine Checkbox, dazu „Alle“.** Die Wahl steht in der Adresse als
+  `stadt=alle` oder als Liste, etwa `stadt=chicago,detroit`. „Alle“ setzt
+  jedes Häkchen. Die letzte Stadt lässt sich nicht abwählen, weil eine leere
+  Auswahl kein Brett hat. Die Checkboxen entstehen aus `/api/optionen`, eine
+  neue Stadt erscheint also von selbst. Das gilt auf allen acht Brettern,
+  auch auf „Quellbewegung“, das einen eigenen Filter hatte.
+- **Alte Links bleiben gültig.** `stadt=beide` und die vollständige Liste
+  heissen jetzt `alle`, eine einzelne Stadt bleibt sie. Eine unbekannte Stadt
+  ist wie bisher ein Fehler 400.
+- **`STAEDTE` leitet sich aus `STUDIENSTAEDTE` ab** (FR-43). Bis heute stand
+  es fest im Dashboard, und eine dritte Stadt, die dort fehlte, wäre auf
+  allen Brettern still herausgefallen. `dritte-stadt.md` 3a führt damit zehn
+  statt elf Stellen, die eine dritte Stadt still falsch behandeln.
+- Im Browser geprüft, lokal mit `STORAGE_BACKEND=local`: Detroit abwählen
+  zeigt nur Chicago, die letzte Stadt bleibt gewählt, und „Alle“ wählt beide
+  wieder. Quellbewegung und Geografie mit `stadt=detroit` zeigen nur Detroit.
+  Bei zwei Städten bleibt das Verhalten der Bretter gleich.
+
+Teil 2 kommt erst mit einer dritten Stadt: Farben, die Ranglistenbehälter
+in Geografie und der Paartest der Quellbewegung (`dritte-stadt.md` 3a).
+
+**Zahlen.** 3'337 → **3'349 Tests**, Standardlauf 3'226 → **3'238**. Im
+Linux-CI-Lauf hochgerechnet 3'142 → 3'154.
+
+## 22.11.2026 · Die Drift-Tabelle legt ihre drei Abfragen wirklich zusammen (Branch `c-1-drift-zusammenfuehren`)
+
+Nachtrag zu C-1, gefunden am selben Tag im Brett auf `srv01`. Die Spalte
+„Toleranz“ stimmte: `detroit_rate` stand oben in Rot. Die Spalten
+„Abweichung“ und „Abweichung (%)“ blieben aber leer, und jede Grösse stand
+weiter unten noch einmal ohne Wert. Der Inspektor des Panels zeigte den
+Grund: Jede Abfrage liefert ihr eigenes `__name__`. `merge` verbindet nur
+Zeilen, in denen alle gemeinsamen Felder gleich sind, und `__name__` ist es
+nie.
+
+- Die drei Abfragen lauten jetzt `max by (groesse) (…)`. Damit bleibt nur
+  das Label `groesse`, und je Grösse entsteht eine Zeile. `max` verändert
+  keinen Wert, weil es je Grösse genau eine Reihe gibt.
+- `test_die_drift_tabelle_sagt_welche_groesse_reisst` verlangt die
+  aggregierte Form. Der Namenssammler in `tests/test_grafana_brett.py` liest
+  `by (…)` als Labels, nicht als Messwerte.
+
+Gelernt: Die Tests prüfen Namen und Form des Bretts, nicht wie Grafana die
+Rahmen zusammenlegt. Erst der Blick ins Brett hat das gezeigt.
+
+## 22.11.2026 · Der Betriebsblick zeigt, welche Grösse die Toleranz reisst (Branch `c-1-drift-groesse`)
+
+C-1 aus `offene-punkte.md`. Das Panel „Abweichung je Groesse“ im
+Grafana-Brett zeigte nur `drift_prozent`. Detroits Rate stand dort am
+19.10.2026 mit 0,23 % und sah harmlos aus. Sie riss die Toleranz trotzdem,
+weil die Toleranz für Raten absolut gilt (0,1 je 1'000). `drift_ueberschritten`
+gab `serving.betriebsstand` schon aus, nur zeigte es kein Panel.
+
+- Das Panel führt jetzt drei Abfragen über die Grösse zusammen:
+  `drift_ueberschritten`, `drift` und `drift_prozent`. Die Spalte „Toleranz“
+  zeigt „haelt“ grün und „reisst“ rot, und die gerissenen Grössen stehen oben.
+- Die Beschreibung nennt beide Regeln: Raten absolut mit 0,1, Zählungen in
+  Prozent mit 1 %. `test_die_beschreibung_nennt_die_toleranzen_des_codes`
+  hält die Zahlen gegen `orchestration.drift.MAX_RATE` und `MAX_PROZENT`.
+- Die drei Metriken tragen in Prometheus auf `srv01` dieselben Labels
+  (`groesse`, `instance`, `job`), am 22.11.2026 abgefragt. Das Brett ist
+  auf `srv01` aus dem Repository eingehängt und wird nach einem `git pull`
+  dort wirksam. Wie es aussieht, ist erst danach zu sehen.
+
+**Zahlen.** 3'335 → **3'337 Tests**, Standardlauf 3'224 → **3'226**. Im
+Linux-CI-Lauf hochgerechnet 3'140 → 3'142.
+
+## 22.11.2026 · Kibana räumt verwaiste Kacheln auf, der PR-Wächter nennt seine Grenze (Branch `c-3-c-4`)
+
+**C-3: `build_kibana` löschte nie.** `overwrite` ersetzt nur Objekte, die
+denselben Namen behalten. Eine umbenannte Kachel blieb deshalb als verwaistes
+Objekt in Kibanas Liste. In der Vorführung wäre das die Kachel, nach der
+niemand fragen soll.
+
+- `raeume_auf` löscht nach dem Anlegen alle eigenen Objekte, die im neuen
+  Stand nicht mehr vorkommen. Eigene erkennt es an der Kennung `crime-`,
+  `lens-crime-` oder `karte-crime-`. Was von Hand angelegt ist, bleibt stehen.
+- Es läuft nur aus `main` und erst, wenn das Anlegen und die Verweise
+  geklappt haben. In `lege_an` steckt es bewusst nicht: Die Live-Tests legen
+  dort ein Probebrett an, und ein Aufräumen darin löschte jedes echte Brett.
+- Drei neue Tests, gegen ein nachgebildetes Kibana. An einem laufenden
+  Kibana ist es noch nicht erprobt; der nächste Start der Probe in Google
+  Cloud zeigt es.
+
+**C-4: Der Wächter über PR-Nummern sah die höchste nicht.** Die Obergrenze
+steht jetzt fest auf #152 und wird selbst geprüft. Eine Probe am Text, mit
+dem Eintrag zu #152 auf #151 gesetzt, macht den Test rot. Dabei fiel etwas
+Grösseres auf: Ab #153 nennen die Überschriften den Branch statt der Nummer,
+und für diese Pull Requests prüft der Wächter nichts. Den Abgleich über die
+Titel der Squash-Commits auf `main` habe ich versucht und verworfen. Von 112
+Pull Requests ab #153 fanden 32 keinen Eintrag mit ähnlichem Titel, auch
+solche, die sicher einen haben. Der Docstring sagt das jetzt. Für die Zeit
+danach gilt die Regel aus `AGENTS.md`: Jede Änderung bekommt einen Eintrag,
+und kein Test fordert ihn ein, nur seine Form.
+
+**Zahlen.** 3'332 → **3'335 Tests**, Standardlauf 3'221 → **3'224**. Im
+Linux-CI-Lauf hochgerechnet 3'137 → 3'140.
+
+## 22.11.2026 · Der Auslagerungstest hat Abstand zur Grenze (Branch `c-8-c-5`)
+
+C-8 aus `offene-punkte.md`. `test_ausgelagert_laeuft_was_sonst_am_speicher_scheitert`
+fiel am 30.10.2026 einmal auf CI mit „failed to pin block (142,8 von
+143 MiB)“, obwohl er ausgelagert hatte. Beim Neustart lief er grün, und
+lokal war er immer grün.
+
+- **Gemessen, je drei Versuche mit Auslagerung:** Mit zwei Threads scheitert
+  die Abfrage bis 130 MB immer, bei 140 MB zweimal von drei und ab 150 MB
+  nie. Die alte Grenze von 150 MB lag also genau auf der Kante. Jeder Thread
+  hält eigene Puffer, die sich nicht auslagern lassen. Mit einem Thread kommt
+  die Abfrage ab 90 MB durch.
+- **Jetzt ein Thread und 250 MB.** Das ist fast das Dreifache dessen, was
+  die Abfrage mit Auslagerung braucht. Ohne Auslagerung scheitert sie dort
+  weiter sicher, weil sie rund 1 GB sortiert. Die Zusage bleibt dieselbe:
+  Mit Auslagerung läuft, was ohne sie scheitert.
+
+C-5 ist im Register abgehakt. Der gewichtete Anteil war schon am 4.10.2026
+aus dem Test entfallen. Entdoppelt steht die Abdeckung im Manifest von
+`gold/fact_offense`.
+
+Am Code der Strecke und an den Zahlen ändert sich nichts.
+
+## 22.11.2026 · Kein Dokument führt eine zweite Hypothesenmenge, ohne es zu sagen (Branch `fr-54-hypothesen-durchsicht`)
+
+FR-54 stand auf ◐, weil die Durchsicht aller Dokumente fehlte. Sie ist am
+22.11.2026 gemacht. Gesucht wurde in `docs/`, im README und in den Notebooks
+nach H1 bis H8 und FF1 bis FF3.
+
+- **Ein Satz im Konzept war die H2 des Vorschlags.** `ln2_konzept.md` 3.3
+  sagte: „H2 zeigt an Chicagos absichtlich überlappenden Delta-Läufen, dass
+  der Überlapp nur Duplikate erzeugt.“ So hiess H2 im Vorschlag vom 8.9.2026.
+  Die abgegebene H2 misst Idempotenz, und Notebook 36 sagt ausdrücklich, dass
+  sie die Delta-Läufe *nicht* zeigt. Der Satz trennt jetzt beides: H2 als
+  Idempotenz, die Duplikate als Befund aus 8.3.
+- **`leistungsnachweise.md` führt den Vorschlag** mit FF1 bis FF3 und H1 bis
+  H8. Abschnitt 2.2 sagte das schon. Die Kopftabelle und der Absatz darunter
+  nannten die Hypothesen aber noch offen, und 2.3 und 2.5 trugen keinen
+  Hinweis. Alle drei Stellen sagen es jetzt.
+- **Ohne Befund:** `README.md`, `ausblick.md`, `datenhistorie.md`,
+  `forschungsfragen.md` und die Notebooks 32 und 36. Notebook 32 nannte die
+  alte H3 schon als „früheren Entwurf“.
+- **Neu bewacht:** `tests/test_eine_hypothesenmenge.py`. Wer H7, H8 oder FF1
+  bis FF3 nennt, muss die Vorschlagsmenge kennzeichnen, und der Satz zu H2
+  darf nicht zurückkommen.
+- **Register:** C-9 ist abgehakt. Seine beiden letzten Reste, der
+  Kibana-Tunnel und die Konsole auf der Einstiegsseite, waren schon erledigt,
+  nur nicht vermerkt.
+- `fr-stand.md`: FR-54 auf ●, 51 erfüllt und 4 teilweise.
+
+**Zahlen.** 3'330 → **3'332 Tests**, Standardlauf 3'219 → **3'221**. Im
+Linux-CI-Lauf hochgerechnet 3'135 → 3'137.
+
+## 22.11.2026 · Jede Tabelle schreibt ihre Zeilen in einer festen Ordnung (Branch `c-2-feste-ordnung`)
+
+C-2 aus `offene-punkte.md`. Sechs der acht `publish`-Aufrufe schrieben ohne
+`ordnung`: Gold, `comparison`, `place`, `tract`, `weather_day` und
+`source_change`. `COPY` schrieb damit die physische Ordnung der Tabelle, und
+die hängt am Abfrageplan, an `threads` und an `preserve_insertion_order`.
+Gemessen am 3.10.2026 an Gold: gleicher Inhalt, 14'947'218 gegen 15'001'199
+Bytes. Für H2 und H5 („byteweise gleich“) ruhte das auf einem Zufall, und der
+Abgabestand am 8.12. wird neu gebaut.
+
+- **Je Tabelle ein eindeutiger Schlüssel**, am Bestand vom 21.11.2026
+  gemessen: `gold_pipeline.build_gold.ORDNUNG` für die sieben Gold-Tabellen,
+  `serving.build_comparison.ORDNUNG` für die fünf Serving-Tabellen, `geoid`
+  für `place` und `tract`, `city, date` für `weather_day`, und für
+  `source_change` das Paar samt `offense_id`, `art` und `feld`.
+- **`publish` prüft die Eindeutigkeit selbst.** Ein Schlüssel, der zwei
+  Zeilen teilen, bricht den Bau ab, statt die Folge innerhalb der Gruppe
+  offen zu lassen. `NULL` zählt wie ein Wert.
+- **Gemessen:** zwei Neubauten in getrennten Prozessen, einmal mit
+  `DUCKDB_THREADS=1` und einmal mit 8. Alle 24 Parquet-Dateien in Silver,
+  Gold und Serving waren byteweise gleich.
+- **Neu bewacht:** `tests/test_publish_ordnung.py`. Kein Aufruf kommt ohne
+  `ordnung` dazu, ein mehrdeutiger Schlüssel bricht ab, und `NULL` im
+  Schlüssel ist ein Wert.
+
+Am Inhalt ändert sich nichts. Die Bytes der betroffenen Tabellen ändern sich
+einmal, weil die Zeilen jetzt sortiert geschrieben werden.
+
+**Zahlen.** 3'326 → **3'330 Tests**, Standardlauf 3'215 → **3'219**. Im
+Linux-CI-Lauf hochgerechnet 3'131 → 3'135.
+
+## 21.11.2026 · Tracts am Chicagoer Seeufer gehören zur Stadt, Gold-Vertrag 10 (Branch `fix-tract-landanteil`)
+
+**Der Befund.** Auf dem Brett »Geografie« schienen in Chicago Tracts zu
+fehlen. Gezeichnet wurde jeder zugeordnete Tract. Es fehlte die Zuordnung
+selbst: Die Mehrheitsregel rechnete den Anteil auf die **ganze**
+Tractfläche. Ein TIGER-Tract am Seeufer reicht aber in den Michigansee, und
+die TIGER-Grenze von Chicago endet am Ufer. Ein solcher Tract kam nie über
+50 %, auch wenn sein ganzes Land in der Stadt lag. Streeterville
+(Tract 814.03, 10'291 Einwohner) stand bei 22 %.
+
+**Detroit geprüft, in Ordnung.** Die leeren Flächen mitten in Detroit sind
+Highland Park und Hamtramck. Beide sind eigene Städte und von Detroit
+umschlossen. Die TIGER-Grenze hat dort ihr einziges Loch, und die beiden
+füllen es ganz aus (59 und 41 %). 2024 liegen 11 Detroiter Fälle darin.
+
+**Der Fix.** Der Anteil wird auf die Landfläche umgerechnet: Anteil der
+Gesamtfläche × (Land + Wasser) / Land, höchstens 1. Ein Tract ohne Land
+gehört zu keiner Stadt. Kein bisher zugeordneter Tract verliert seine Stadt.
+`city_area_share` trägt seither den Landanteil. Gold-Vertrag 10, neu bewacht
+von `test_ein_tract_am_seeufer_gehoert_zur_stadt` und
+`test_ein_tract_ohne_land_gehoert_zu_keiner_stadt`.
+
+**Was sich verschiebt.** Lokal neu gebaut am 21.11.2026 mit
+`STORAGE_BACKEND=local`, Jahrgang 2024:
+
+| | Vertrag 9 | Vertrag 10 |
+| --- | ---: | ---: |
+| Chicago, Tracts | 782 | 793 |
+| Chicago, Einwohner | 2'661'953 | 2'713'800 |
+| Chicago, Fälle innerhalb der Stadt | 251'483 | 256'317 |
+| Chicago, Fälle ausserhalb der Stadt | 6'010 | 1'176 |
+| Chicago, Fälle je 1'000 | 94,5 | 94,4 |
+| Detroit | unverändert | unverändert |
+
+**Die Dokumente bleiben vorerst beim Zwischenstand.** Ihre Zahlen beschreiben
+das Release vom 20.11.2026, und das ist mit Vertrag 9 gebaut. Für dieses
+Release stimmen sie weiter. Sie ziehen mit dem nächsten Stand nach, der mit
+Vertrag 10 entsteht. `abgabestand.md` nennt dafür jetzt zwei Dinge. Erstens
+die Voraussetzung, dass das Abbild mit Vertrag 10 vor dem 7.12. auf `srv01`
+läuft. Zweitens zwei Stellen in `ln2_konzept.md`, die der Befund überholt und
+die kein Wächter sieht: die Erklärung des Abstands zum Zensus und die
+Limitation in Kapitel 9 mit den 5'249 Delikten.
+
+**Zahlen.** 3'324 → **3'326 Tests**, Standardlauf 3'213 → **3'215**. Im
+Linux-CI-Lauf hochgerechnet 3'129 → 3'131.
+
+## 21.11.2026 · Der Ausblick nennt die drei Bremsen mit Beleg und die Grenzen von DuckDB richtig (Branch `fr-59-60-bremsen`)
+
+`ausblick.md` Abschnitt 3 behauptete, die Strecke setze in DuckDB weder
+`memory_limit` noch `threads`. Das war seit dem 3.10.2026 falsch. Der
+Wächter darüber blieb trotzdem grün: Er suchte im Code nach
+`SET memory_limit`, `storage.duckdb` setzt die Grenzen aber als
+`SET {name}=?`.
+
+- **Bremse 3, der Speicher:** Der Abschnitt sagt jetzt, dass beide Grenzen
+  seit dem 3.10.2026 aus der Umgebung kommen, auf `srv01` und in Google
+  Cloud 896 MB und zwei Threads. Dazu kommt die Messung, die die Bremse
+  belegt: der Abbruch von `silver crime_offense` am 16.10.2026 an 854 MiB.
+  Der neue Wächter `test_duckdb_grenzen_kommen_aus_der_umgebung` prüft das
+  Verhalten von `storage.duckdb.grenzen` und die beiden Compose-Dateien statt
+  einer Schreibweise.
+- **Bremse 1, der Vollneubau:** Neben dem Ausgangswert vom 13.9. (ein
+  Jahrgang) steht jetzt die Messung mit sechs Jahrgängen aus dem Nachweis
+  vom 14.11.2026: Median 24,2 s für 1'909'461 Silver-Zeilen. Die Zeile ist
+  in `test_dokumentzahlen.py` als datierte Messung geschützt.
+- **Bremse 2, der räumliche Join:** Die 348'000 Punkte sind als Messung mit
+  einem Jahrgang gekennzeichnet; heute sind es rund 1,9 Mio.
+- **FR-59:** „fünfmal `ST_GeomFromWKB`" stimmte nicht mehr, im Code sind es
+  elf Zeilen. Genannt sind jetzt die Funktionen, ohne Zählung.
+- `fr-stand.md`: FR-59 und FR-60 auf ●, 50 erfüllt und 5 teilweise.
+- `abgabestand.md` Schritt 4: Im Text zu H6 in Notebook 36 stehen noch die
+  Werte mit einem Jahrgang (27 s, Faktor 22). Die Ausgabe im Nachweis zeigt
+  24,2 s. Korrigiert wird das mit dem Fix an Notebook 34, vor dem neuen
+  Nachweis.
+
+Am Code und an den Zahlen der Strecke ändert sich nichts.
+
+## 21.11.2026 · Die Nähte und die Asymmetrien für eine dritte Stadt stehen an einem Ort (Branch `fr-41-42-naehte`)
+
+Welle 7 ist damit abgeschlossen. Beides stand bisher verstreut im Code, und
+`fr-stand.md` verwies für FR-41 auf eine Zeile in
+`architektur-ist-und-ziel.md`.
+
+- **FR-41, die vier Nähte:** `dritte-stadt.md` Abschnitt 3 beginnt jetzt mit
+  einer Tabelle. Sie nennt `STUDIENSTAEDTE`, den Eintrag in
+  `config/quellen.toml`, den Crosswalk nach NIBRS und
+  `build_source_change.QUELLEN`, und zu jeder Naht, was die Stadt dort
+  einträgt. Die Abfrage je Stadt in Silver gehört nicht dazu. Sie ist Code
+  und steht als Code da.
+- **FR-42, die vier Asymmetrien:** Abschnitt 3b, eine Tabelle mit
+  Lademodus, Zeitschlüssel, Bronze-Form und Identitätsschlüssel samt
+  Granularität. Je Zeile stehen der Wert in Chicago und in Detroit, die eine
+  Stelle, an der der Unterschied aufgefangen wird (meist `manifeste.Lauf`),
+  und die Frage, die eine dritte Stadt beantworten muss.
+- `fr-stand.md`: FR-41 und FR-42 stehen auf ●, 48 erfüllt und 7 teilweise.
+
+Am Code und an den Zahlen ändert sich nichts.
+
+## 21.11.2026 · Die Stellen, die genau zwei Städte voraussetzen, sind benannt (Branch `fr-43-zwei-staedte`)
+
+FR-43 verlangte, jede Stelle zu benennen und im Code zu kommentieren, die
+„genau zwei Städte" voraussetzt. Ob es solche Stellen gibt, war ausdrücklich
+nicht geprüft. Gesucht wurde nach Stellen, die mit einer dritten Stadt still
+ein falsches Ergebnis liefern. Stellen, die abbrechen und die Stadt nennen,
+zählen nicht dazu; sie stehen schon in `dritte-stadt.md` Abschnitt 3.
+
+- **Elf Stellen**, jede mit einem Kommentar „FR-43" im Code und einer Zeile
+  in der neuen Tabelle in `dritte-stadt.md` Abschnitt 3a. Vier davon liegen
+  in Silver (`build_crime_offense.py`): die Crosswalk-Abfrage, die
+  Zonenprüfung, deren `ELSE` Detroit meint, die Prüfung „nicht mehr Ergebnis
+  als Quelle" und `comparability`. Zwei liegen in der Konsole, fünf im
+  Dashboard. Am Verhalten ändert sich an diesen Stellen nichts.
+- **Eine Stelle war ein Fehler und ist behoben.** Kibana baute seine Karten
+  aus `KARTE_JE_STADT` selbst. Eine Stadt ohne Ausschnitt bekam deshalb still
+  keine Karte. Der Kommentar an `KARTE_JE_STADT` und Punkt 13 der Anleitung
+  versprachen einen Abbruch, der so nie anschlagen konnte. Jetzt kommen die
+  Karten aus `STADT_SCHLUESSEL`. Für Chicago und Detroit sind die
+  Kibana-Objekte dieselben. Neu bewacht in `tests/serving/test_build_kibana.py`.
+- `fr-stand.md`: FR-43 steht auf ●, offen sind neun statt zehn.
+
+**Zahlen.** 3'322 → **3'324 Tests**, Standardlauf 3'211 → **3'213**. Im
+Linux-CI-Lauf hochgerechnet 3'127 → 3'129; die beiden neuen Tests brauchen
+weder Daten noch Netz.
+
+Am Silver-Ergebnis ändern Kommentare nichts, und an den Zahlen auch nichts.
+
+## 21.11.2026 · Das Konzept nennt den Neuaufbau in einer zweiten Umgebung (Branch `docs/h5-zweite-umgebung`)
+
+Die Hypothesentabelle in `ln2_konzept.md` 3.3 zitiert Kapitel 11 von LN1 und
+sagt bei H5 deshalb „zweite Umgebung offen". Das war zur Abgabe richtig. Seit
+dem Neuaufbau in Google Cloud vom 15.11.2026 ist es überholt, und gesagt hatte
+das bisher nur `storage-architektur.md` Abschnitt 17. Die LN1-Rückmeldung hatte
+genau diesen Neuaufbau vermisst.
+
+- Die Tabelle bleibt wörtlich, weil sie die Abgabe zitiert. Darunter steht neu
+  ein Absatz mit dem Befund: dasselbe Abbild und dasselbe Bronze, 12 von 13
+  Tabellen byteweise gleich, `source_movement` leer wegen der Teilkopie. Dazu
+  die Grenze: Es war ein Neuaufbau aus Bronze, nicht aus den Quellen.
+- `forschungsfragen.md` bleibt unverändert. Der Generator zieht den Wortlaut
+  aus dem abgegebenen PDF, und der Wächter hält ihn.
+
+Am Code und an den Zahlen ändert sich nichts.
+
+## 20.11.2026 · Das Konzept sagt nicht mehr, Kapitel 3 sei Entwurf (Branch `docs/konzept-entwurf-und-offen`)
+
+Zwei Sachkorrekturen in `ln2_konzept.md`. Aufbau und Ton bleiben.
+
+- **Kopf, „Was Entwurf ist und was gebaut“.** Dort stand, Kapitel 3 sei
+  Entwurf, „weil der Entscheid offen ist“, und die Gold-Tabellen seien nur
+  entworfen. Beides ist seit LN1 überholt. Kapitel 3 ist der abgegebene
+  Wortlaut (F1 bis F6, H1 bis H6), gemessen in Notebook 36. Gold ist gebaut.
+  Kapitel 5.2 nennt den Entwurf weiter, weil LN1 ihn verlangt, und daneben
+  das Gebaute.
+- **Schluss, „Offen für LN1“.** Die Liste nannte das Hypothesen-Notebook als
+  fehlend und gleich darunter als erledigt. Der Abschnitt heisst jetzt „Was
+  aus LN1 offen war“ und führt beide Punkte als erledigt, mit dem Verweis auf
+  die Nachweise.
+
+## 20.11.2026 · Der Ablauf für den Abgabestand steht fest (Branch `docs/abgabestand-ablauf`)
+
+**Warum.** Der Stand vom 20.11. ist ausdrücklich ein Zwischenstand. Der
+Abgabestand kommt später und wird gepinnt, und ein Pin lässt sich nicht
+zurücknehmen. Damit am Tag selbst nichts improvisiert wird, steht der Ablauf
+jetzt in [`abgabestand.md`](abgabestand.md). Die Befehle sind dieselben wie
+beim Zwischenstand vom 20.11. und beim Pin `LN2` vom 12.11.
+
+**Was darin festgehalten ist, das vorher nirgends stand:**
+
+- Vor der Abgabe gibt es keinen Volllauf mehr. Der Verteiler in
+  `docker/srv01-datenlauf.sh` fährt den Volllauf am Montag zwischen dem
+  8. und 14. Am 30.11. läuft nichts, am 7.12. ein Delta. Der Vorschlag ist der
+  Montagslauf vom 7.12., entscheiden wird Christian.
+- `aufraeumen --pinnen` pinnt nur Läufe. Die Zeile für das Release kommt von
+  Hand dazu.
+- Auf `srv01` gilt der Pin erst mit einem Abbild, das das neue Register
+  trägt, denn `/app/config` kommt aus dem Abbild.
+- Die Korrektur an Notebook 34 und der neue Nachweis gehen in denselben
+  Pull Request (`deferred-work.md`, 19.11.).
+
+Am Code und an den Zahlen ändert sich nichts.
+
+## 20.11.2026 · Zwei Wächter prüfen, was ihr Satz meint (Branch `waechter-delta-rueckkehr`)
+
+Am Zwischenstand vom selben Tag blieben zwei Referenzstand-Wächter rot. Keiner
+meldete eine falsche Zahl. Beide prüften eine Aussage an etwas anderem als dem,
+was die Aussage meint.
+
+**Rückkehr über ein Delta.** Der Wächter
+`test_was_source_change_als_verschwunden_fuehrt_ist_weg_oder_umdatiert` fand
+Chicago-Fall 14289652 gleichzeitig »verschwunden« und in `crime_offense`. Der
+Fall fehlte im Vollabzug vom 10.11. und kam mit dem Delta vom 20.11. zurück.
+Silver liest den jüngsten Vollabzug und die Deltas danach, `source_change`
+vergleicht aber nur Vollabzüge. Der Wächter lässt eine solche Zeile jetzt durch,
+allerdings nur, wenn sie **nachweislich** in einem Delta desselben Jahrgangs
+steht, das nach dem Paar begann und aus dem Silver gelesen hat. Fehlt ein
+solcher Lauf lokal, bleibt der Wächter rot und nennt den Lauf. Dass er das tut,
+ist geprüft: Mit dem Delta vom 20.11. beiseitegelegt wurde er rot und nannte
+genau diesen Lauf. Die 60 Deltas, auf denen Silver ruht, liegen dafür jetzt
+auch lokal. Deshalb steigt Bronze in `platzbedarf.md` und in der Grössentabelle
+von 614,8 auf 633,0 MB.
+
+**Ein historischer Satz an heutigen Daten.** In `zaehlperspektiven.md` stand
+»bis zum 18.9.2026 … enthielt jeder Schnappschuss alle 501'146 Zeilen«. Bis zum
+18.9. hatte Detroit aber nur den Jahrgang 2024. Die Zahl hiess anfangs richtig
+88'686. Dann zog der Wächter sie gegen alle Detroiter Zeilen in Silver und
+damit ab dem 4.10. auf sechs Jahrgänge (491'725, dann 501'146), die kein
+Schnappschuss je enthielt. Der Satz nennt jetzt »alle Zeilen des Jahrgangs 2024
+(88'685 und 88'686)«. Der Wächter misst sie an den fünf vollen Läufen vom 11.
+bis 18.9., die gepinnt sind (LN1 und `stand-2026-10-03`).
+
+Beide Wächter bleiben unter `referenzstand`. Am Standardlauf ändert sich
+nichts.
+
+## 20.11.2026 · Die Dokumente nennen den Zwischenstand vom 20.11. (Branch `daten/zwischenstand-2026-11-20`)
+
+**Ein Zwischenstand, nicht der Abgabestand.** Der Delta-Lauf auf srv01 vom
+20.11. hat das Release `2026-11-20T10-08-03Z` gebaut, das erste mit Gold-Vertrag 9.
+Gepinnt ist nichts, `config/referenzstand.csv` bleibt unverändert, und vor der
+Abgabe wird noch einmal nachgezogen. Silver und Gold kommen lokal aus dem
+Arbeitsvolume von srv01, also genau die Bytes, aus denen das Release entstand.
+Danach `release holen --einsetzen`.
+
+**Was sich bewegt hat, gegen den Stand vom 10.11.:**
+
+| | vorher | jetzt |
+| --- | ---: | ---: |
+| `silver/crime_offense` | 1'909'461 | **1'917'351** |
+| `gold/fact_offense` | 1'887'009 | **1'895'123** |
+| Chicago Fälle 2024 | 251'482 | **251'483** (Rate bleibt 94,5) |
+| Detroit Fälle 2024 | 79'614 | **79'615** (Rate bleibt 124,7) |
+| Detroit Taten 2024 | 85'557 | **85'660** (Tatrate 134,0 → **134,1**) |
+
+Woher die 103 zusätzlichen Detroiter Taten von 2024 kommen, ist nicht
+belegt. Die Prüfsumme von `config/mapping_overrides.csv` hat sich mit der
+Korrektur aus der Konsole vom 18.11. geändert, das ist die naheliegende
+Ursache. Die übrigen Zuwächse sind die Deltas seit dem 10.11. (fünf je
+Jahrgang und Stadt). Die Läufe hinter Silver sind deshalb jetzt 36 je Stadt
+statt sechs.
+
+**Nachgezogen** sind README, `ln2_konzept.md`, `zaehlperspektiven.md`,
+`eine-zahl.md`, `architektur-ist-und-ziel.md`, Einseiter, `ausblick.md`,
+`sternschema-und-wuerfel.md`, `projektabsprache.md`, `leistungsnachweise.md`,
+`datenhistorie.md` und der Kopf dieser Datei. Nachgezogen wurden auch
+abgeleitete Prosazahlen ohne Wächter. Zwei waren schon vorher falsch:
+
+- In `ln2_konzept.md` hiess es „Anklagen gegen Taten −4,8 %“, richtig waren
+  −4,5 %.
+- „mehr Taten als Fälle“ stand mit 5,6 %, richtig waren damals 6,0 %.
+
+Neu erzeugt sind `feldkatalog.md`, `einstieg.html` und `platzbedarf.md`. Die
+Nachweise der Notebooks **nicht**: Sie gehören zum Abgabestand, und die
+Korrektur an Notebook 34 wartet weiter (`deferred-work.md`). Die Zahlen, die
+die Messung von Notebook 34 zitieren, bleiben deshalb ebenfalls stehen.
+
+**Wächter.**
+
+- `test_dokumentzahlen.SCHUTZ` nimmt fünf Fehlalarme auf, jeden mit Grund:
+  - zwei Speicherangaben in MiB,
+  - die Tage *mit* Wetter,
+  - Detroits verworfene Taten, die Chicagos `ambiguous` um fünf verfehlen.
+- `test_der_manifesteintrag_nennt_die_zahl_der_laeufe` liest die Zahl auch als
+  Ziffer. Sie wächst jetzt mit jedem Delta, und ein Zahlwort veraltete jede
+  Woche.
+
+**Zwei Wächter bleiben rot**, beide unter `-m referenzstand`. Keiner davon meldet
+eine falsche Zahl:
+
+- `test_alle_detroit_zeilen_stehen_in_beiden_schnappschuessen` hält die
+  historische Aussage „bis zum 18.9. enthielt jeder Schnappschuss alle
+  501'146 Zeilen“ gegen den heutigen Detroiter Bestand (503'235). Der Satz
+  stimmt für den Referenzstand und wäre mit der neuen Zahl falsch.
+- `test_was_source_change_als_verschwunden_fuehrt_ist_weg_oder_umdatiert`
+  meldet Chicago-Fall 14289652:
+  - Er fehlte im Vollabzug vom 10.11.
+  - Das Delta `run_20261120T100145932674Z` hat ihn wieder geliefert.
+  - Silver hat also recht. Der Wächter vergleicht nur das jüngste Paar von
+    Vollabzügen und sieht die Rückkehr über ein Delta nicht.
+
+Beide stehen in `deferred-work.md`.
+
+## 19.11.2026 · Tag und Nacht: Sonnenstand in Gold, Aufteilung der Fälle im Dashboard (Branch `tag-nacht-aufteilung`)
+
+Die LN1-Rückmeldung nannte „Licht- und Tageslängendaten nicht nachgewiesen“.
+Die Stundenheatmap zeigt Uhrzeiten, aber keine Uhrzeit sagt, ob es hell war —
+das hängt an Jahreszeit und Ort.
+
+**Gold, Vertrag 9.** `dim_city_day` trägt je Stadt und Tag `sunrise_utc`,
+`sunset_utc` und `daylight_hours`. Gerechnet wird in SQL nach NOAA „General
+Solar Position Calculations“ (Zenit 90,833°), am Schwerpunkt der Ortsgrenze
+aus `silver/place` — keine Koordinate im Code, eine dritte Stadt bringt ihren
+Ort mit. Gegen die Tabelle des NOAA Solar Calculator (gml.noaa.gov, 2024, an
+denselben Schwerpunkten) liegen Auf- und Untergang am 21.6. und 21.12.2024
+für beide Städte höchstens 56 Sekunden daneben (Detroit, Aufgang 21.12.).
+An Tagen ohne NOAA-Wetter trägt `quality_flags` das Flag `no_weather` statt
+`NULL` — ClickHouse lässt `Array(String)` nicht in `Nullable` stehen. Dafür ist die Tabelle jetzt ein
+**Gerüst** aus der Spanne der Falldaten × jeder Studienstadt, das Wetter
+kommt per LEFT JOIN (Entscheid 19.11., Christian). Lokal heisst das 4'290
+statt 4'272 Zeilen: Die Falldaten reichen bis zum 15.11., das Wetter bis zum
+6.11.; an diesen neun Tagen je Stadt sind die Wetterspalten `NULL`, der
+Sonnenstand ist gefüllt. Ein Tag ohne Sonnenstand bricht den Bau ab
+(`pruefe_sonnenstand`). Das Brett »Wetter« liess Tage mit `tmax IS NULL`
+schon vorher aus.
+
+**Dashboard.** »Zeitverlauf« hat unter der Heatmap die Tafel „Tag und Nacht“:
+je Stadt die Fälle (`counts_case`) in Tageslicht, Dunkelheit und „Uhrzeit
+unsicher“ — dieselben Platzhalter wie in der Heatmap, Ortszeit genau 00:00:00
+oder 12:00:00. Die Regel steht jetzt einmal als
+`serving.dashboard.PLATZHALTER_SQL`. Dazu die Fälle je heller und je dunkler
+Stunde, geteilt durch die Stunden mit und ohne Licht im Datenfenster der
+Stadt (Dunkelstunden = 24 − `daylight_hours`, die Tage der Zeitumstellung
+vernachlässigt), und der Dunkel-Anteil je Kategorie für die acht häufigsten.
+Eine Dämmerungsklasse gibt es nicht. Ein Release mit Vertrag 8 oder älter
+lädt weiter; die Tafel nennt dann den Grund.
+
+Gemessen am lokalen Gold, Jahrgang 2024: Chicago 52,6 % hell, 41,4 % dunkel,
+6,0 % unsicher, 30,6 gegen 24,9 Fälle je Stunde; Detroit 51,5 / 43,0 / 5,5 %,
+9,3 gegen 8,0. Über alle Jahrgänge ist Detroits Fahrzeugdiebstahl zu 62,5 %
+dunkel. Keine dieser Zahlen steht in einem Abgabedokument.
+
+**Was nicht angefasst ist.** Die Zahl 4'272 in `ln2_konzept.md` 5.2 bleibt.
+Ihr Wächter `test_dim_city_day_in_52_zaehlt_die_tage_mit_wetter` zählt jetzt
+die Zeilen **mit** Wetter — bis Vertrag 8 war das dasselbe wie alle Zeilen.
+`docs/platzbedarf.md` und `einstieg.html` hängen an der Entscheidung zum
+Datenstand und bleiben ebenfalls. `docs/feldkatalog.md` ist neu erzeugt und
+nennt damit die Zeilenzahlen des lokalen Stands vom 18.11. Notebook 34
+bleibt unverändert, obwohl seine Abfrage „warme gegen kalte Tage“ jetzt eine
+Gruppe `NULL` für die Tage ohne Wetter zeigt: Der Nachweis
+`2026-11-14_1a77e8b` hält den Code des Notebooks per Hash fest, und die
+Korrektur gehört zur nächsten Erneuerung der Nachweise (`deferred-work.md`).
+
+**Wächter.** In `tests/gold_pipeline/test_build_gold.py`: vier Bezugswerte
+(beide Städte, Sommer und Winter), der Untergang am UTC-Folgetag, die
+Tageslänge, das Gerüst ohne Wetter, der Abbruch ohne Ort in `silver/place`
+und keine Koordinate im Quelltext. Neu `tests/serving/test_tag_nacht.py`
+(UTC-Tageswechsel, Platzhalter, 12:00:30, Summe gleich den Fällen des Bretts,
+Normierung je Stunde, Kategorien, altes Release, API) und in
+`tests/serving/test_wetter.py` ein Tag ohne Wetter.
+
+**Zahlen.** 3'297 → **3'322 Tests**, Standardlauf 3'186 → **3'211**. Im
+Linux-CI-Lauf hochgerechnet 3'102 → 3'127; die neuen Tests brauchen weder
+Daten noch Dienste.
+
+## 19.11.2026 · Der Platzbedarf misst auch ein Release der Konsole (Branch `platzbedarf-konsolen-release`)
+
+Das erste Release, das die Engineering-Konsole freigab
+(`approved-9d265b70…-435090e1`, 18.11.2026), liess die Hochrechnung des
+Platzbedarfs abbrechen: „Keine Regel fuer 'approval.json'". Ein solches
+Release trägt neben Gold, Serving und `silver/crime_offense` einen Ordner
+`admin/` mit der Freigabe, der Konfiguration, mit der gebaut wurde, und dem
+Impact-Bericht. Für keinen dieser Einträge stand eine Regel in
+`orchestration.platzbedarf.REGEL_JE_QUELLE`, und `tools/build_platzbedarf.py`
+lief auf diesem Stand gar nicht mehr. Aufgefallen ist es beim
+Referenzstand-Lauf gegen das neue Release.
+
+Jetzt hat jeder Eintrag eine Regel. Die sechs Dateien des Impact-Berichts und
+`approval.json` wachsen mit den Taten: eine Zeile je geänderter Tat, je Tag
+oder Monat und je Partition, nie mehr als der Bestand. `admin/config` ist
+konstant. Zusammen waren es im ersten Release rund 2,7 MB von 359 MB. Die
+Liste dieser Dateien stand bisher nur in der Schleife, die sie kopiert. Jetzt
+ist sie eine Konstante (`platform_admin.candidates.RELEASE_ADMIN_FILES`),
+und ein Test hält sie gegen die Regeln.
+
+Die Zahlen in `docs/platzbedarf.md` ändern sich mit diesem Eintrag nicht. Das
+Dokument wird aus `data/` erzeugt und steht auf dem Stand vom 12.11.; es
+nachzuziehen gehört zur Entscheidung, auf welchem Datenstand die Abgabe
+zählt.
+
+**Wächter.** In `tests/orchestration/test_platzbedarf.py`:
+`test_ein_release_der_konsole_wird_mitgemessen` (ein Release mit `admin/`
+wird gemessen, mit den Regeln Taten und konstant) und
+`test_jede_datei_der_konsole_im_release_hat_eine_regel`.
+
+**Zahlen.** 3'295 → **3'297 Tests**, Standardlauf 3'184 → **3'186**. Im
+Linux-CI-Lauf hochgerechnet 3'100 → 3'102; beide Tests brauchen weder Daten
+noch Dienste.
+
+## 18.11.2026 · Die Konsole führt Aufträge nach höchstens einer Minute aus (Branch `konsole-takt-jede-minute`)
+
+„An Antragsteller retournieren“ wirkte erst nach rund drei Minuten. Die
+Schaltfläche reiht nur einen Auftrag `git-withdraw` ein; ausgeführt wird er
+vom Worker, und den startete cron auf `srv01` alle fünf Minuten. Jeder Klick,
+der einen Auftrag einreiht (Pull Request anfordern, mergen, zurückziehen),
+wartete deshalb bis zu fünf Minuten.
+
+Jetzt kommt der Takt jede Minute (`deploy/cron/urbancrime.crontab`). Ein
+leerer Takt dauerte am 18.11. auf `srv01` rund 3 Sekunden (Start bis Ende des
+Containers); die gemeinsame Sperre mit dem Datenlauf ist damit etwa 5 % der
+Zeit belegt. Der Montagslauf wartet bis zu sechs Stunden auf sie, ein Lauf von
+Hand mit `flock --wait 60` ebenfalls lange genug. Ein leerer Takt schreibt
+weiterhin kein Laufprotokoll. Der Worker bleibt ein Stapellauf, sein Speicher
+ist nur während eines Takts belegt (FR-13). Gleich bleibt auch: ein Auftrag je
+Takt, und eine belegte Sperre lässt den Takt ausfallen.
+
+Eine fehlgeschlagene Tagessicherung versucht der Worker in jedem Takt neu,
+jetzt also bis zu jede Minute statt alle fünf.
+
+Auf `srv01` steht der Crontab nicht unter Git; die Takt-Zeile dort wird von
+Hand angepasst.
+
+**Wächter.** `test_der_takt_kommt_jede_minute` hält die fünf Zeitfelder der
+Takt-Zeile und die Aussage in `ENGINEERING_KONSOLE.md` und
+`storage-architektur.md`.
+
+**Zahlen.** 3'294 → **3'295 Tests**, Standardlauf 3'183 → **3'184**. Im
+Linux-CI-Lauf hochgerechnet 3'099 → 3'100; der neue Test liest nur Dateien
+aus dem Repository.
+
+## 17.11.2026 · Kibana aus der Probe zeigt den aktuellen Code (Branch `nur-kibana-aktueller-stand`)
+
+Die Sichtprobe von FR-27 zeigte zwei Lücken, beide nicht im Code der
+Strecke, sondern im Weg zu Kibana.
+
+- **Kibana zeigte den Code von vor FR-27 und meldete „stimmt“.**
+  `docker/gcp-starten.sh --nur-kibana` baute Kibana mit dem Abbild, das die
+  `.env` der VM per Digest pinnte, und `serving.pruefe_stand` vergleicht nur
+  das Release. Jetzt schlägt das Skript auf der VM die Marke `:aktuell` des
+  Abbilds aus `PIPELINE_IMAGE` nach, wie `docker/srv01-abbild-einsetzen.sh`.
+  Ist der Digest neu, sichert es die `.env` als `.env.vor-abbild-<UTC-Zeit>`,
+  schreibt den Digest über eine temporäre Datei und `mv` hinein (600, root)
+  und nennt alt, neu und `GIT_COMMIT` des Abbilds. Danach lädt es
+  Elasticsearch und Kibana neu, auch wenn `pruefe_stand` „stimmt“ meldet.
+  Gepinnt bleibt der Digest, die Marke dient nur dem Nachschlagen. Gleicher
+  Digest und stimmiger Stand laden wie bisher nichts. Scheitert das Ziehen,
+  etwa ohne `docker login`, bricht es vor jeder Änderung der `.env` ab. Der
+  Weg mit `--env` für den Vergleich (FR-47) bleibt, wie er war.
+- **Cloudflare hielt eine kaputte Fassung eines Kibana-Bundles.** Kibana
+  brach über `urbancrime-kibana.datenwerft.ch` mit „Definition of plugin
+  urlForwarding not found“ ab, auch im privaten Fenster, bis der Cache
+  geleert war. Kibana schickt seine Bundles mit `immutable` für ein Jahr.
+  `docs/intern/vorfuehrung.md` beschreibt jetzt eine Cache-Regel, die den
+  Kibana-Host am Edge-Cache vorbeiführt, und das Leeren als Abhilfe. Die
+  Regel richtet Christian selbst ein; aus dem Repository wird Cloudflare
+  nicht verändert, und Kibana und Traefik bleiben unverändert.
+
+**Abweichung vom Plan.** Der Plan nennt das Abbild beim Namen. Das Skript
+liest es stattdessen aus `PIPELINE_IMAGE` der `.env` der VM (ohne Digest und
+Marke): Der Name der Registry-Organisation steht auf der Liste von
+`test_keine_srv01_namen`, und die Probe nennt keinen Server.
+
+**Wächter.** In `tests/test_gcp_stapel.py` die vier Zeilen der I/O-Matrix
+über den VM-Befehl mit falschem `sudo` (`FAKE_DIGEST`, `FAKE_PULL`,
+`FAKE_COMMIT`): neues Abbild (`.env` gesetzt, gesichert, Modus 600, kein
+Geheimnis in der Ausgabe, neu geladen trotz „stimmt“), gleiches Abbild und
+stimmiger Stand (nichts angefasst), gleiches Abbild und neues Release
+(geladen), gescheitertes Ziehen (Abbruch mit Hinweis auf `docker login`,
+`.env` unverändert). Dazu im Trockenmodus: Der Abbildschritt steht nach dem
+Start von Kibana und vor dem Holen des Release. Verglichen wird nur der
+Digest, nicht `repo:marke@digest` als Ganzes; ein scheiterndes Lesen von
+`GIT_COMMIT` bricht nichts ab. `--env` und `--nur-kibana` zusammen lehnt
+das Skript ab (Exit 64): `--nur-kibana` stellte die `.env` sofort wieder
+auf `:aktuell`. Vor einem Vergleich (FR-47) setzt deshalb erst wieder
+`--env` den Digest von `srv01` (so auch in `.env.gcp.example`).
+
+Noch offen: die Cloudflare-Regel einrichten und am Antwortkopf
+`cf-cache-status: BYPASS` oder `DYNAMIC` prüfen; beim nächsten Start auf der
+VM „unveraendert“ ablesen.
+
+**Zahlen.** 3'286 → **3'294 Tests**, Standardlauf 3'175 → **3'183**. Im
+Linux-CI-Lauf hochgerechnet 3'091 → 3'099; die acht neuen Tests brauchen
+nur `bash`.
+
+## 17.11.2026 · Jede Kibana-Kachel nennt Frage, Nenner und Ausschlüsse (Branch `fr-27-alle-kacheln`)
+
+FR-27 verlangt, dass jedes Szenario auf dem Dashboard seine Frage, seinen
+Nenner und seine Ausschlüsse nennt. Die ES|QL- und Kartenkacheln taten das
+seit dem 11.10.2026; für die **18 Lens-Kacheln** in Überblick,
+Datenqualität, Volltext, Zeitverlauf und Deliktstruktur war es
+zurückgestellt. Jetzt gilt es für alle 25 Kacheln, und FR-27 steht in
+`fr-stand.md` auf ●.
+
+**Was dabei auffiel: Drei Kacheln hiessen „Fälle" und zählten Taten.**
+„Fälle je Monat", „Fälle je Jahrgang und Stadt" und „Fälle je Deliktfamilie
+und Stadt" zählten jede Zeile von `fact_offense`; der Lens-Zustand trug
+`"query": ""`. Sie filtern jetzt `counts_case: true` (Entscheid Christian,
+17.11.2026). Gemessen am lokalen
+Elasticsearch (Release `2026-11-10T13-47-23Z`), Jahrgang 2024 nach `reporting_city`:
+Detroit **80'248 Fälle** statt 86'236 Taten, Chicago 259'656 statt 259'686.
+
+- **Die Prüfung ist eine für alle Arten.** `Tafel._pruefe_fr27` lässt keine
+  Kachel ohne Frage, Nenner und Ausschluss entstehen. Eine reine Zählung
+  nennt als Nenner „keiner, eine absolute Zahl" und daneben den Vorbehalt,
+  dass erst die Rate die Städte vergleichbar macht. Ein Anteil nennt das
+  Ganze, auf das er sich bezieht. Der Ring zeigt zum Beispiel die Delikte
+  der 8 häufigsten Familien.
+- **Jeder Lens-Ausschluss hat einen Beleg**, wie bei ES|QL in der Abfrage.
+  Neu ist dafür ein KQL-Filter je Kachel (`Tafel.filter`), der im Lens-Zustand
+  steht und nicht als Panel-Filter. Erlaubt ist nur die Form `feld: wert`,
+  weil sie sich exakt als Elasticsearch-Abfrage nachrechnen lässt. Hat eine
+  Kachel keinen Filter, nennt sie, was ihre Eimer weglassen: Zeilen ohne den
+  gruppierten Wert und bei `terms` alles jenseits der obersten N. Die Zahl N
+  steht im Text.
+- **Delikte bleiben Delikte.** Überblick, Datenqualität und Volltext zeigen
+  den Datenbestand und bleiben auf der Tatebene. Dasselbe gilt für die
+  NIBRS-Codes in der Deliktstruktur. Diese Kachel heisst jetzt „… (alle
+  Delikte)", und alle diese Kacheln sagen es im Vorbehalt.
+- **Der Jahrgang ist das lokale Tatdatum.** „Fälle je Jahrgang" teilte bisher
+  nach dem UTC-Jahr von `occurred_at_utc`. Für 2024 landeten dabei 179
+  Chicagoer Fälle von Silvesterabenden in 2025. Die Kachel gruppiert jetzt
+  nach `date`, wie `dim_date`. Ein Vorbehalt nennt die Grenze: Kibana teilt
+  in der Zeitzone des Browsers, und westlich von UTC fiele der 1. Januar ins
+  Vorjahr.
+- **Warum die Kachel nicht die Zahl der Startseite zeigt.** Die Startseite
+  nennt 251'482 und 79'614. Sie zählt nur Fälle in Tracts der Stadt, die
+  Kachel zählt nach `reporting_city`. Das steht als Vorbehalt an der Kachel.
+- **Anteile je Deliktart bleiben auf der Tatebene.** „Anteil je Stadt" in der
+  Deliktstruktur filtert nicht nach Fällen, wie E5 es für Anteile je
+  Deliktart verlangt: Nur auf der Tatebene addieren sich Kategorien. Der
+  Plan sah zuerst die Fallebene vor; Christian hat das am 17.11.2026
+  zurückgenommen. Die Kachel sagt im Vorbehalt, dass Detroits Säule auch die
+  weiteren Delikte eines Falls enthält.
+- **Absolute Zahlen sagen es, bei jeder Art.** Auch die beiden
+  ES|QL-Zählungen („Tracts ohne Einwohner", die Heatmap) tragen jetzt den
+  Vorbehalt, dass erst die Rate die Städte vergleichbar macht.
+- **Ein Beleg ist nie leer, und bei Lens ist er gleich, nicht enthalten.**
+  Ein leerer Beleg galt vorher als vollzogen, weil `"" in text` immer wahr
+  ist; `Ausschluss` lehnt ihn jetzt ab. Bei Lens muss der Beleg genau ein
+  Filterteil, ein Eimerbeleg, die gezählte Spalte oder das Zeitfenster sein.
+  Eine Teilzeichenkette wie `counts` genügt nicht mehr.
+
+**Wächter.** `test_jede_kachel_nennt_frage_nenner_und_ausschluesse` gilt
+jetzt für alle Kacheln; bisher hielt er für Lens die Rückstellung fest. Neu
+sind: Bautests für Lens ohne Frage, Nenner oder Ausschluss, für einen
+Ausschluss ohne Beleg, für einen leeren Beleg, für einen Lens-Beleg, der nur
+als Teilzeichenkette passt, und für einen Eimer ohne Grösse im Text;
+`test_jede_kachel_die_faelle_nennt_zaehlt_faelle`;
+`test_jede_absolute_zahl_sagt_dass_erst_die_rate_vergleicht` über alle Arten.
+Der Lens-Zweig des FR-27-Wächters leitet die erwarteten Belege selbst aus
+Filter und Eimern her und nicht aus dem geprüften Code;
+`test_eine_lens_kachel_zaehlt_keine_rate`, weil der Vintage-Hinweis für 2025
+und 2026 nur an Raten hängt. Gegen ein lokales Elasticsearch laufen
+`test_jede_gefilterte_kachel_zaehlt_wie_ihre_gegenrechnung` (die drei
+Fälle-Kacheln und „Anteil je Stadt" gegen von Hand geschriebenes ES|QL) und
+`test_faelle_je_jahrgang_2024_entspricht_der_esql_rechnung`. Ohne
+Elasticsearch überspringen sie sich selbst.
+
+Noch offen ist die Sichtprobe in Kibana: `docker/gcp-starten.sh --nur-kibana`
+starten und „Fälle je Jahrgang" für 2024 gegen die ES|QL-Rechnung ablesen.
+
+**Zahlen.** 3'161 → **3'286 Tests**, Standardlauf 3'050 → **3'175**. Im
+Linux-CI-Lauf ohne Elasticsearch **hochgerechnet** 2'971 → 3'091, weil fünf
+der 125 neuen Tests Elasticsearch brauchen; gemessen ist das nicht, es ist am
+PR-Lauf zu bestätigen.
+
+## 16.11.2026 · Die Startseite sieht aus wie das Dashboard (Branch `startseite-wie-dashboard`)
+
+Die Startseite (`docs/einstieg.html`, auf srv01 `urbancrime-start`) hatte eine
+eigene Gestaltung: Serifen-Überschriften in IBM Plex von Google Fonts,
+Petrol-Akzent, eckige Kästen. Jetzt trägt sie die des Dashboards: denselben
+dunkelblauen Kopf mit Logo, „Urban Crime · Start“ und rechts eine Plakette
+mit der Release-Kennung, die Systemschrift, den grauen Grund, weisse,
+abgerundete Karten, blaue Knöpfe. Inhalt, Zahlen, Abschnitte und Verweise
+beider Fassungen (`lokal`/`server`) sind unverändert.
+
+- **Eine Quelle für die Farben.** `serving.build_einstieg` liest den
+  `:root`-Block aus `serving/dashboard/static/dashboard.css` und das Logo aus
+  `index.html` (über `importlib.resources`) und setzt beide ein. Ändert das
+  Dashboard eine Farbe, trägt die nächste Startseite sie mit; ein Wächter hält
+  jede Farbvariable gegen die Seite.
+- **Keine Webschriften mehr.** Die Seite lädt nichts von aussen und verweist
+  nicht auf `/static/` (nginx liefert sie aus einem anderen Host aus). Damit
+  fällt die einzige Ausnahme im FR-44-Wächter (`fonts.googleapis.com`) weg.
+- Die Plaketten heissen `plakette` statt `marke` — `marke` ist im Kopf des
+  Dashboards Logo und Name. Der Wächter „keine Zustandsmarke bei den Diensten“
+  prüft beide Namen.
+- Auf 360 px gibt es keinen waagrechten Bildlauf; die Tabellen scrollen in
+  ihrem Rahmen.
+
+Sichtprobe nebeneinander am 16.11.2026 bei 1280 und 360 px (die Startseite
+lokal als Datei, das Dashboard gegen die lokalen Daten): Kopf, Farben und
+Karten stimmen überein.
+
+**Zahlen.** 3'156 → **3'161 Tests**, Standardlauf 3'045 → **3'050**, im protokollierten Linux-CI-Lauf 2'966 → **2'971**.
+
+## 16.11.2026 · Die ganze Dauer des Montagslaufs ist gemessen (Branch `fr-16-ganze-dauer`)
+
+Am 14.11.2026 liess sich die Dauer eines Delta-Laufs nur bis zur letzten
+Python-Logzeile ablesen (4,7 bis 5,1 min); Drift und Sicherungssatz danach
+trugen keinen Zeitstempel. Seitdem stempelt `srv01-datenlauf.sh` Beginn und
+Ende. Der erste so gestempelte Lauf, Montag 16.11.2026:
+
+| Abschnitt | Zeit | Dauer |
+| --- | --- | ---: |
+| Beginn (`delta run started`) | 04:30:01 | |
+| `run_all`, 41 Stufen, Release `2026-11-16T03-35-10Z` | | 306 s |
+| Drift und Sicherungssatz (189,1 MB geholt, das vorige Release entfernt) | | rund 1 min |
+| Ende (`run ended with exit 0`) | 04:36:12 | **6 min 11 s** |
+
+Nachgefasst wurde nicht; jede Quelle kam beim ersten Versuch. Bis zum
+frühesten Restore-Test am Monatsersten (05:00) bleiben knapp 24 Minuten.
+Die Entscheidung vom 14.11. (am Ersten nicht nachfassen) bleibt die Grenze
+für den Fall mit einer ausgefallenen Quelle. Nachgetragen in `fr-stand.md`
+(FR-16) und `storage-architektur.md` Abschnitt 16.
+
+**Zahlen.** Tests unverändert (3'156).
+
+## 15.11.2026 · Kibana über srv01 ist im Browser belegt, die Handgriffe stehen in einer Datei (Branch `vorfuehrung-kibana`)
+
+Zweite Probe am Abend des 15.11.2026, mit der Grenze von 256 MiB:
+`docker/gcp-starten.sh --nur-kibana` war nach **2 min 44 s** fertig. Das
+Release lag schon in Cloud Storage, `pruefe_stand` meldete „stimmt“, und das
+Laden wurde übersprungen. Christian hat Kibana über
+`https://urbancrime-kibana.datenwerft.ch` geöffnet und die Dashboards
+angesehen. Solange die VM lief, antwortete Traefik 390-mal mit 200 und nie
+mit 502. Der Tunnel lag in der Spitze bei 77,8 von 256 MiB, ohne Neustart.
+Die drei 403 im Log sind Kibanas interne Abfragen für Produkthinweise
+(`intercepts`); die Dashboards betreffen sie nicht.
+
+- **`docs/intern/vorfuehrung.md`** (neu): Kibana starten, prüfen und stoppen,
+  der Rückfallweg ohne `srv01` (`ssh -L 5601`), Dauer und Kosten. Den Ablauf
+  der Vorführung selbst (FR-62 bis FR-65) gibt es noch nicht; er gehört
+  dorthin. Verwiesen aus `docs/README.md` und `storage-architektur.md`
+  Abschnitt 17.
+- **`gcp-starten.sh` nennt den nächsten Abendstopp.** Bisher stand fest „stoppt
+  um 20:00“, auch nach dem Start um 20:49, der bis zum nächsten Abend lief.
+  Jetzt „heute“ oder „erst morgen“, gelesen aus `GCP_ABENDSTOPP`.
+
+**Zahlen.** 3'153 → **3'156 Tests**, Standardlauf 3'042 → **3'045**, im protokollierten Linux-CI-Lauf 2'963 → **2'966**.
+
+## 15.11.2026 · Der Kibana-Tunnel hat eine gemessene Grenze (Branch `kibana-tunnel-grenze`)
+
+Die erste Probe von `urbancrime-kibana.datenwerft.ch` am Abend des 15.11.2026
+zeigte im Browser „Elastic did not load properly“. Traefik meldete für einen
+Teil der Dateien des ersten Ladens 502 nach rund 7 s, und der Tunneldienst
+startete einmal neu (`RestartCount 1`). Die Ursache war die Grenze: Die
+128 MiB waren lokal geschätzt, an einem einzelnen gcloud-Aufruf. Auf `srv01`
+gemessen braucht der Tunnel im Leerlauf 57–59 MiB, und wenn Kibana beim
+ersten Laden rund 80 Dateien gleichzeitig holt, in der Spitze **139,7 MiB**.
+Um 19:43:45 stand er bei 127,8 MiB, genau in der Sekunde mit den 502.
+
+Mit vorübergehend 512 MiB (`docker update`) kam derselbe Seitenaufruf dreimal
+vollständig durch, ohne Neustart. Die Grenze steht jetzt auf **256 MiB**, die
+Spitze mal 1,8. Direkt am Tunnel, ohne Traefik, kamen 96 gleichzeitige kleine
+Anfragen alle durch. Was die Spitze treibt, sind die grossen Bündel.
+
+Bestätigt hat die Probe ausserdem:
+- `--nur-kibana` hat das neuere srv01-Release `2026-11-14T09-09-47Z` erkannt,
+  kopiert, eingesetzt und geladen (vorher stand der Probenstand vom Mittag
+  da). `pruefe_stand` danach: Gold, Elasticsearch, Kibana „stimmt“.
+- Kibana über den Tunnel aus dem Netz `proxy`: `/api/status` 200 in 0,2 s.
+- Das Tunnelkonto auf Port 22: IAP antwortet `4033: 'not authorized'`.
+
+**FR-13 nachgerechnet:** 640 + 160 + 32 + 256 = **1'088 MiB** dauernd, mit
+dem grösseren Zeitweiligen **2'368 von 4'325 MiB**.
+
+**Zahlen.** Tests unverändert (3'153).
+
+## 15.11.2026 · Kibana aus Google Cloud ist über srv01 beschrieben (Branch `gcp-kibana-ueber-srv01`)
+
+Kibana und Elasticsearch passen seit dem 1.11.2026 nicht mehr ins
+Speicherbudget von `srv01` (C-9). In der Probe-VM laufen sie, waren dort aber
+nur über `ssh -L` erreichbar, und der Start fuhr den ganzen Stapel samt
+Dashboard hoch. Entscheid Christian vom 15.11.2026: ein IAP-Tunnel von
+`srv01` auf Port 5601 der VM, nicht SSH mit fester IP und nicht ein
+Rücktunnel; der Tunneldienst läuft dauernd, und gezeigt wird das aktuelle
+Release von `srv01`. **Beschrieben und getestet, noch nicht ausgeführt** —
+kein Aufruf gegen Google Cloud, `srv01` oder GHCR in dieser Arbeit.
+
+- **`docker/gcp-starten.sh --nur-kibana`**: startet die VM, kopiert das
+  aktuelle Release mit `tools/kopiere_release.py` (`quelle.env` →
+  `hmac.env`), stoppt auf der VM das Dashboard (es käme nach einem vollen
+  Start mit `unless-stopped` bei jedem Boot wieder), startet nur
+  `elasticsearch` und `kibana` und setzt **immer zuerst** mit `holen aktuell
+  --einsetzen` das Release ein — `pruefe_stand` misst gegen das lokal
+  eingesetzte Release in `arbeitsdaten` und sähe ein neueres im Eimer sonst
+  nicht. Erst danach entscheidet `pruefe_stand`: Stimmt der Stand, entfallen
+  `load_elasticsearch` (4,5 Minuten) und `build_kibana`. Fehlt das Release,
+  bricht es mit Hinweis ab, und die VM läuft weiter. Die Schlussausgabe nennt
+  nur Kibana (`-L 5601` und `https://urbancrime-kibana.datenwerft.ch`).
+- **`tools/kopiere_release.py --release aktuell`**: prüft vor jedem Holen,
+  dass keine Datei des Release im Ziel anders liegt (sonst Abbruch, nichts
+  geschrieben). Liegt `release.json` dort byteweise gleich, genügt die Grösse
+  je Datei — ein zweiter Aufruf lädt nur zwei JSON-Dateien; sonst wird jede
+  Datei gleicher Grösse gehasht. Dann holt es mit `storage.release.hole` gegen `release.json`
+  geprüft in ein Temporärverzeichnis, publiziert es mit
+  `storage.release.publiziere` und legt im Ziel `AKTUELL.json` um.
+  Identische Dateien überspringt es, derselbe Eimer wird abgelehnt,
+  `--trocken` prüft nur.
+- **`docker/gcp-aufbauen.sh`**: eine zweite Firewall-Regel
+  `urbancrime-probe-kibana-iap` (`tcp:5601` nur aus `35.235.240.0/20`) und
+  das Tunnelkonto `urbancrime-probe-tunnel` mit genau zwei Rollen:
+  `roles/iap.tunnelResourceAccessor` mit der Bedingung
+  `destination.port == 5601` (im Projekt, weil `gcloud` die Rolle nicht auf
+  einer einzelnen Tunnel-Instanz setzt) und `roles/compute.viewer` auf der
+  VM. Sein Schlüssel geht nach
+  `~/.config/urbancrime-probe/tunnel-schluessel.json` (600), nie auf den
+  Bildschirm. `gcp-abbauen.sh` nimmt Regel, Rolle und Konto mit; die Rolle
+  auch dann, wenn das Konto schon fehlt, und ebenso eine Bindung
+  `deleted:serviceAccount:…?uid=…`.
+- **`docker-compose.gcp.yml`**: Kibana bindet `5601:5601` statt
+  `127.0.0.1:5601`, damit der Tunnel es erreicht; das Dashboard bleibt an
+  `127.0.0.1`.
+- **`docker-compose.srv01.yml`**: ein Dienst `kibana`, der **kein** Kibana
+  ist. Er läuft im gcloud-Abbild `google-cloud-cli:592.0.0-alpine`, per
+  Digest des Multi-Arch-Index gepinnt (am 15.11.2026 abgelesen), und startet
+  [`docker/srv01-kibana-tunnel.sh`](../../docker/srv01-kibana-tunnel.sh):
+  Schlüssel aus `GCP_TUNNEL_SCHLUESSEL` (base64, `.env`) ins tmpfs, dorthin
+  auch die gcloud-Konfiguration, dann `exec gcloud compute start-iap-tunnel
+  … --local-host-port=0.0.0.0:5601 --iap-tunnel-disable-connection-check`.
+  Fehlt der Schlüssel, endet der Container mit dem Namen der Variable.
+  `CLOUDSDK_CORE_DISABLE_FILE_LOGGING=true`: keine Protokolldateien im
+  kleinen tmpfs.
+  `read_only`, `cap_drop: ALL`, `no-new-privileges`, rotierende Protokolle,
+  Labels nach dem Muster des Dashboards. Die Route `urbancrime-kibana` wird
+  damit wiederverwendet statt entfernt (C-9).
+- **Die Grenze: 128 MiB**, lokal gemessen am 15.11.2026: Spitze 59 MiB je
+  gcloud-Aufruf im selben Abbild, ohne Anmeldung. Der laufende Tunnel ist auf
+  `srv01` nachzumessen. Im selben Abbild lokal nachgestellt: `read_only`,
+  tmpfs und `cap_drop: ALL` tragen das Skript bis zur Anmeldung bei Google.
+- **FR-13 nachgerechnet:** 640 + 160 + 32 + 128 = **960 MiB** dauernd, mit
+  dem grösseren Zeitweiligen **2'240 von 4'325 MiB**.
+- `.env.example` nennt `GCP_TUNNEL_SCHLUESSEL`.
+- `docs/bilder/architektur-kontext.svg` neu gebaut: 15 statt 14 Werkzeuge unter `tools/`.
+
+Neu bewacht: in `tests/test_gcp_stapel.py` die zweite Regel, die beiden Rollen
+des Tunnelkontos samt Bedingung (keine Rolle, mit der es SSH öffnen könnte),
+der Schlüssel mit Modus 600 und nie in der Ausgabe, `--nur-kibana` im
+Trockenmodus und gegen das falsche `gcloud` (kopiert nach dem Start, ohne
+Release Abbruch ohne Stopp), der Befehl auf der VM gegen ein falsches `sudo`
+(erster Start spielt ein, zweiter nicht) und der Abbau. In
+`tests/test_srv01_compose.py` der Tunneldienst: kein Elastic-Abbild, Digest,
+tmpfs, nur `proxy`, das Skript gegen ein falsches `gcloud`; der Test
+„Elasticsearch und Kibana nie auf srv01" heisst jetzt „Elasticsearch nie,
+Kibana nur als Tunnel". Dazu `tests/test_kopiere_release.py`.
+
+**Offen, in dieser Reihenfolge, jeder Schritt nach Freigabe:**
+`gcp-aufbauen.sh` (legt Regel und Konto an), Schlüssel nach `srv01`,
+Einsetzen, `--nur-kibana`, Aufruf über die URL, Speicher des Tunnels messen.
+
+**Zahlen.** 3'125 → **3'153 Tests**, Standardlauf 3'014 → **3'042**, im protokollierten Linux-CI-Lauf 2'935 → **2'963**.
+
+## 15.11.2026 · In Google Cloud ergibt dasselbe Bronze dieselben Tabellen (Branch `fr-44-47-google-cloud`)
+
+FR-44 („der Wechsel der Zielumgebung ist Konfiguration, kein Code") steht auf
+◐, FR-47 („die Portierung wird einmal trocken belegt") ist zurückgestellt.
+Christian will beide belegt, mit einem ganzen Stapel samt Elasticsearch und
+Kibana in Google Cloud, Projekt `urbancrime`, Region `europe-west6` (Zürich).
+Der Stapel ist am 15.11.2026 einmal gelaufen; der Beleg steht am Ende des
+Eintrags. FR-44 und FR-47 stehen damit auf ●.
+
+- **`docker-compose.gcp.yml`**: Pipeline (Stapellauf), Dashboard,
+  Elasticsearch 8.19.22 und Kibana 8.19.22. Die beiden fremden Abbilder sind
+  per Digest des Multi-Arch-Index gepinnt (am 15.11.2026 abgelesen), das
+  eigene kommt ohne Vorgabe aus `PIPELINE_IMAGE`: derselbe Digest wie auf
+  `srv01`, damit der Vergleich einer der Umgebung ist und nicht einer zweier
+  Bauten. Die Grenzen sind die auf `srv01` gemessenen, zusammen 4'736 MiB auf
+  8 GB. Ports nur an `127.0.0.1` der VM, Dashboard und Kibana; kein Traefik,
+  kein externes Netz. Die Pipeline trägt dieselben DuckDB-Grenzen wie auf
+  `srv01`.
+- **`.env.gcp.example`**: was gegenüber `srv01` anders ist, ohne Werte.
+  `S3_ENDPOINT=storage.googleapis.com`, HMAC-Schlüssel, Eimer, und
+  `AWS_REQUEST_CHECKSUM_CALCULATION=when_required` samt
+  `AWS_RESPONSE_CHECKSUM_VALIDATION`. botocore setzt seit 1.36 nachgestellte
+  CRC32-Prüfsummen, die die XML-Schnittstelle von Cloud Storage nicht
+  annimmt. **Gemessen am 15.11.2026** mit botocore 1.43.93: Mit der Vorgabe
+  `when_supported` lehnt Cloud Storage ein `PutObject` mit
+  `SignatureDoesNotMatch` ab, mit `when_required` geht es durch. Die beiden
+  Zeilen bleiben.
+- **`docker/gcp-aufbauen.sh`**, `gcp-starten.sh`, `gcp-stoppen.sh`,
+  `gcp-abbauen.sh`, dazu `gcp-gemeinsam.sh` (Namen, Vorgaben, Trockenmodus)
+  und `gcp-startup.sh` (Startskript der VM: `vm.max_map_count`, Docker aus
+  den Ubuntu-Paketen, das Repository nach `/opt/urbancrime`, bei **jedem**
+  Start geholt und vorgespult). Den Zweig setzt `gcp-starten.sh --zweig` als
+  Metadatum der VM; bis `docker-compose.gcp.yml` auf `main` liegt, ist das
+  `fr-44-47-google-cloud`. Der Aufbau legt
+  an: ein eigenes Netz mit einer einzigen Regel (SSH aus dem IAP-Bereich),
+  den Eimer ohne Versionierung und mit `--soft-delete-duration=0`, ein
+  Dienstkonto mit Rechten nur auf dem Eimer (Bindung und Schlüssel mit
+  Wiederholung, weil IAM ein neues Konto erst nach Sekunden zeigt), dessen
+  HMAC-Schlüssel nach `~/.config/urbancrime-probe/hmac.env` (600, nie auf
+  dem Bildschirm; ein neuer, wenn keiner `ACTIVE` ist oder die Datei fehlt), den
+  Abendstopp um 20:00 Europe/Zurich samt der Rolle, ohne die ein Zeitplan
+  nichts stoppt, die VM (`e2-standard-2`, 30 GB, ohne Dienstkonto, am Ende
+  gestoppt) und ein Budget über 60 $ mit Schwellen bei 15, 30 und 45 $.
+  Das Budget zählt **ohne** Gutschriften, sonst stünde der Verbrauch mit dem
+  Studienguthaben bis zum letzten Dollar auf null. Jeder Schritt fragt zuerst,
+  ob es die Ressource schon gibt; `--trocken` zeigt nur, was geschähe. Der
+  Abbau löscht nur, wenn die Projekt-ID eingetippt oder mit `--bestaetige`
+  genannt wird, und nimmt dann auch die Rolle des Compute-Dienstagenten und
+  `~/.config/urbancrime-probe/` mit. `gcp-starten.sh --env` verlangt für
+  `PIPELINE_IMAGE` einen `@sha256:`-Digest; `gcp-stoppen.sh` hält nur
+  `TERMINATED` für gestoppt (eine `SUSPENDED`-VM zahlt weiter).
+- **Wo die Schlüssel liegen** (Entscheid vom 15.11.2026, nach der Review):
+  unter `~/.config/urbancrime-probe/`, Modus 600, nie im
+  Repository-Verzeichnis. `hmac.env` (vom Aufbau) beschreibt den Eimer in
+  Cloud Storage, `quelle.env` (von Hand, nur lesend) den Eimer, gegen den
+  verglichen wird, `vm.env` (aus `.env.gcp.example`) geht mit
+  `gcp-starten.sh --env` auf die VM. Die beiden Werkzeuge nehmen
+  `quelle.env` und `hmac.env` als Vorgabe.
+- **`tools/vergleiche_releases.py`**: der Vergleich für FR-47. Er liest je
+  Seite nur `release.json` aus dem Eimer, den eine eigene `.env`-Datei
+  beschreibt, und stellt je Gold- und Serving-Tabelle Abdruck und SHA-256
+  nebeneinander. Ein abweichender Abdruck oder eine fehlende Tabelle ergibt
+  Exit 1. Abweichende Bytes bei gleichem Abdruck sind ein Befund mit dem
+  Grund, der sich aus den Manifesten ablesen lässt, sonst „nicht erklärt".
+  Ein Eimer gegen sich selbst wird abgelehnt.
+- **`tools/kopiere_laeufe.py --release <id>`**: der Kopierschritt davor. Er
+  liest `release.json` und jedes Manifest im Release aus dem Quelleimer,
+  sammelt die Läufe aus ihrer Herkunft (`*_bronze_runs`, Einträge mit
+  `run_id`; Raw nur, wenn die Herkunft es nennt), sucht ihre Verzeichnisse
+  `run_<id>` unter `bronze/` und kopiert je Lauf alle Objekte, Manifest
+  zuletzt. Gleiche Objekte im Ziel überspringt er, abweichende lässt er
+  liegen und bricht ab; gelöscht wird nie, derselbe Eimer wird abgelehnt,
+  `--trocken` zeigt nur. Die Herkunft nennt **nicht** jeden Lauf, den der
+  Lauf liest (siehe Befund 1 unten); für Referenzquellen ergänzt das
+  Werkzeug deshalb je Partition ohne genannten Lauf den jüngsten fertigen.
+- `.gitignore` hält jetzt auch `.env.*` heraus, ausser den beiden Vorlagen,
+  falls doch eine im Repository-Verzeichnis landet.
+- `docs/bilder/architektur-kontext.svg` neu gebaut: 14 statt 12 Werkzeuge unter `tools/`.
+
+Neu bewacht: `tests/test_gcp_stapel.py` (Compose, Skripte im Trockenmodus und
+gegen ein falsches `gcloud`, das jeden Aufruf protokolliert: ohne Projekt
+oder Abrechnung kein `create`, ein zweiter Aufbau legt nichts doppelt an,
+Abbau ohne Bestätigung ohne einen Löschbefehl; dazu der FR-44-Wächter, der
+unter `src/` nach `gcp`, `gcs` und `google` in Zeichenketten und Bezeichnern
+sucht, mit einer Ausnahme für die Webschriften der Startseite; die Vorlage und
+die Compose-Variablen in beiden Richtungen, sodass `S3_USE_SSL`, das keinen
+Container erreichte, herausgefallen ist), `tests/test_vergleiche_releases.py`
+und `tests/test_kopiere_laeufe.py`.
+
+**Der Beleg (15.11.2026).** Bronze aus dem srv01-Release
+`2026-11-14T09-09-47Z`, 74 Läufe, 148 Objekte, nach Cloud Storage kopiert;
+auf der VM dasselbe Pipeline-Abbild wie auf `srv01`
+(`sha256:254762531db3…`), dann `run_all --ohne-ingestion --jahre 2021-2026`,
+`release holen aktuell --einsetzen`, die beiden Lader und `pruefe_stand`.
+
+| Schritt | Dauer | Ergebnis |
+| --- | ---: | --- |
+| Stapel hochfahren (Abbilder ziehen, alle drei Dienste gesund) | 3 min 48 s | Dashboard, Elasticsearch, Kibana |
+| `run_all --ohne-ingestion` | 3 min 22 s | 16 Stufen, Release `2026-11-15T13-22-32Z`, 29 Dateien, 184,6 MB |
+| `load_elasticsearch` | 4 min 26 s | 8 Aliase, `fact_offense` 1'889'775 Zeilen |
+| `build_kibana` | 2 s | 36 Objekte, 7 Dashboards |
+| `pruefe_stand` | 3 s | Gold, Elasticsearch, Kibana: „stimmt" |
+
+`tools/vergleiche_releases.py` gegen das srv01-Release: **13 von 13
+Tabellen mit gleichem Eingabe-Abdruck, 12 davon byteweise gleich**, dieselbe
+Abdeckung. Die eine ist `serving/source_movement`: 113'745 Zeilen auf
+`srv01`, 0 in Cloud Storage. Sie vergleicht aufeinanderfolgende
+Bronze-Schnappschüsse derselben Quelle, und kopiert war je Partition nur der
+Lauf des Release – kein Paar, keine Bewegung. Das liegt an der Teilkopie,
+nicht an der Umgebung. Dashboard und Kibana über `ssh -L` von Christian
+angesehen.
+
+Was sich gegenüber `srv01` in der `.env` unterscheidet, und nur das:
+`S3_ENDPOINT=storage.googleapis.com`, `S3_BUCKET`, die HMAC-Schlüssel,
+`AWS_REQUEST_CHECKSUM_CALCULATION` und `AWS_RESPONSE_CHECKSUM_VALIDATION`
+(beide `when_required`), ein eigener `XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY`.
+**Am Code unter `src/` brauchte Cloud Storage nichts** (FR-44).
+
+Zwei Befunde, beide generisch gelöst und je mit Test:
+
+1. **Das Release nennt nicht jeden Lauf, den `run_all` liest.** Gold nennt
+   `tiger_place` nur für Vintage 2024 (`RATENJAHR`), Silver baut aber jeden
+   Vintage; der erste Lauf brach bei `silver · place_2021` ab.
+   `kopiere_laeufe` ergänzt jetzt je Partition einer Referenzquelle
+   (`bronze/dataset=…`) ohne genannten Lauf den jüngsten fertigen – sechs
+   Läufe. Die Stadtdaten bleiben aussen vor: Dort ist jede Partition ein
+   eigener Lauf, und die Regel holte alte Läufe, die Silver nie liest.
+2. **Auf einem frischen Datenträger fehlte `duckdb-tmp`.**
+   `silver · crime_offense` legt seine Baudatenbank mit
+   `TemporaryDirectory(dir=…)` im Auslagerungsverzeichnis an, und das legt
+   das Elternverzeichnis nicht an. Auf `srv01` lag es aus früheren Läufen.
+   Der Bau legt es jetzt selbst an. Für die Probe selbst wurde es auf der VM
+   von Hand angelegt, weil dort das gepinnte srv01-Abbild lief; der Fix
+   kommt mit dem nächsten Abbild. Ein Neuaufbau von `srv01` wäre am selben
+   Punkt gescheitert.
+
+Dazu ein Hinweis in `gcp-starten.sh`: `orchestration.vorpruefung` verlangt
+`CENSUS_API_KEY`, den ein Lauf ohne Ingestion nicht braucht; sie steht dort
+nicht mehr als Schritt.
+
+**Kosten.** Die VM lief 43 Minuten (13:03–13:46 UTC, e2-standard-2, etwa
+0,07 $), dazu eine Minute beim Aufbau; Disk (30 GB) und Eimer (793 MiB)
+liegen weiter, zusammen unter 2 $ im Monat. Gestoppt mit `gcp-stoppen.sh`.
+
+**Zahlen.** 3'012 → **3'125 Tests**, Standardlauf 2'901 → **3'014**, im protokollierten Linux-CI-Lauf 2'822 → **2'935**.
+
+## 14.11.2026 · Nichts im Abbild setzt srv01 voraus (Branch `fr-46-abbild-ohne-srv01`)
+
+FR-46 stand auf ◐ „nicht geprüft". Die Prüfung fand vier Annahmen im Code,
+der ins Abbild geht, und keine davon fiel auf `srv01` auf, weil sie dort
+stimmen:
+
+1. `storage.config` hatte die Vorgabe `S3_ENDPOINT=s3.datenwerft.ch`. Ein
+   Lauf in `s3` oder `hybrid` ohne Endpunkt griff still auf den Eimer von
+   `srv01` zu. **Jetzt gibt es keine Vorgabe mehr**: `s3` und `hybrid`
+   ohne `S3_ENDPOINT` ergeben `StorageConfigError` mit dem Namen der
+   Variable, `local` braucht ihn nicht.
+2. Die Fassung `server` der Startseite (`serving.build_einstieg`) hatte
+   die Hostnamen `urbancrime-<dienst>.datenwerft.ch` und die Befehle mit
+   `docker-compose.srv01.yml` und `docker/srv01-datenlauf.sh` fest im Code.
+   Jetzt kommen sie aus `EINSTIEG_ADRESSMUSTER`, `STAPEL_COMPOSE` und
+   `STAPEL_DATENLAUF`. `docker-compose.srv01.yml` setzt die drei Werte
+   den Diensten `pipeline` und `worker`. Fehlt einer, bricht der Bau mit
+   Exit 1 ab und nennt ihn. Mit den Werten aus der Beschreibung ist die
+   Serverseite **byte-gleich** zur vorigen (lokal verglichen an einem
+   erfundenen Release). Die Fassung `lokal` liest keinen der drei Werte,
+   `docs/einstieg.html` bleibt unverändert.
+3. Die Abhilfetexte von `serving.pruefe_stand` zum Dashboard nannten
+   `docker-compose.srv01.yml`.
+4. Die Meldung der Vorprüfung nannte `srv01`. Beide nennen jetzt
+   `STAPEL_COMPOSE`, wenn es gesetzt ist, und sonst nur `docker compose`.
+
+Kommentare und Docstrings, die `srv01` als Beispiel oder Geschichte nennen,
+bleiben stehen. Sie setzen nichts voraus.
+
+**Vor dem Einsetzen auf `srv01` zu prüfen:** `docker-compose.srv01.yml`
+reicht `S3_ENDPOINT` ohne Wert aus der `.env` des Stapels durch. Steht er
+dort nicht, lief `srv01` bisher über die Vorgabe und bricht mit diesem
+Stand ab, mit einer Meldung, die `S3_ENDPOINT` nennt. Nach dem Einsetzen
+die ausgelieferte Startseite mit der vorigen vergleichen (`diff`).
+
+Neu bewacht: `tests/test_abbild_ohne_srv01.py` durchsucht die Zeichenketten
+in `src/crime/**/*.py` und `docker/jupyter_server_config.py` (ohne Docstrings
+und Kommentare) und die Anweisungen beider Dockerfiles nach `srv01`,
+`datenwerft`, `/srv/` und `urbancrime-`. Zwei Selbsttests prüfen, dass er
+ein Literal mit Zeile findet und Docstrings und Kommentare übergeht. Dazu
+kommen die Matrix in `tests/storage/test_config.py` (s3/hybrid ohne
+Endpunkt, local ohne) und in `tests/test_einstieg.py`: Fehlt einer der drei
+Werte, endet der Aufruf mit Exit 1, ohne zu schreiben. Ein Muster ohne
+`{dienst}` gilt als Fehler. Eine fremde Umgebung ergibt eine Seite ohne
+`srv01`. Die Tests der Serverfassung lesen ihre Werte aus
+`docker-compose.srv01.yml` selbst. Die Abhilfetexte prüfen
+`test_die_abhilfe_nennt_den_stapel_aus_der_umgebung` und
+`test_die_meldung_nennt_den_stapel_aus_der_umgebung`. FR-46 steht in
+`fr-stand.md` auf ● (42 erfüllt, 11 teilweise).
+
+**Zahlen.** 2'988 → **3'012 Tests**, Standardlauf 2'877 → **2'901**, im protokollierten Linux-CI-Lauf 2'798 → **2'822**.
+
+## 14.11.2026 · Die Dauer der Montagsläufe ist gemessen (Branch `fr-16-laufdauer`)
+
+FR-16 verlangt, dass der Datenlauf nicht mit der Wartung auf `srv01`
+zusammentrifft. Gelöst und bewacht war der gemeldete Fall: Der Volllauf
+liegt auf dem zweiten Montag, nie auf einem Monatsersten. Offen war, ob ein
+**Delta**-Lauf, der montags um 04:30 beginnt, über den Restore-Test am
+Monatsersten (05:00) hinausläuft.
+
+**Gemessen am 14.11.2026** aus `logs/scheduled-pipeline.log` auf `srv01`.
+Die Python-Logzeilen stehen in UTC und sind hier in Ortszeit
+(Europe/Zurich) umgerechnet:
+
+| Lauf | Art | Beginn → letzte Logzeile | Dauer |
+| --- | --- | --- | ---: |
+| Mo 19.10. | Delta | 04:30 → 04:34 | 4,7 min |
+| Mo 26.10. | Delta | 04:30 → 04:35 | 5,1 min |
+| Mo 2.11. | Delta | 04:30 → 04:34 | 4,7 min |
+| Mo 12.10. | Voll (2. Montag) | 04:30 → 05:01 | 31,1 min, gescheitert |
+| Mo 9.11. | Voll (2. Montag) | 04:30 → 04:48 | 18,7 min, gescheitert |
+| Di 10.11. | Voll, von Hand | 13:59 → 14:47 | 47,2 min |
+
+Die Wartung kommt aus systemd-Timern (`systemctl cat`): `srv01-backup`
+täglich 02:30 mit `RandomizedDelaySec=30m`, `srv01-repository-check`
+sonntags 04:00 mit 1 h, `srv01-restore-test` am Monatsersten 05:00 mit 1 h;
+zuletzt lief er am 1.11. um 05:39. Die letzte Logzeile eines Delta-Laufs
+liegt also um 04:35, 25 Minuten vor dem frühesten Restore-Test; das wahre
+Ende etwas später (unten).
+
+**Der Fall, den die Messung nicht zeigt** (gefunden in der Review): Fällt
+eine Quelle aus, fasst `run_all` nach 30 und 60 Minuten nach, und der Lauf
+endet nach 06:00 — an einem Ersten mitten im Restore-Test. Am 9.11. fiel
+Socrata so aus. Entschieden (Christian): **Am Monatsersten fasst der
+Delta-Lauf nicht nach.** `delta_nachfassen` in `srv01-datenlauf.sh` hängt
+dort `--nachfassen` ohne Werte an. Eine gescheiterte Quelle macht den Lauf
+sofort rot (`LaufGescheitert`), und der nächste Montag holt nach.
+Der nächste Montag, der auf einen Ersten fällt, ist der **1.2.2027**. Der
+Volllauf (bis 47 Minuten) liegt nie auf einem Ersten und nie auf einem
+Sonntag.
+
+**Was die Messung nicht sieht:** Drift und Sicherungssatz am Ende des Laufs
+schreiben keinen Zeitstempel, das wahre Ende liegt also etwas nach der
+letzten Logzeile. Mit dieser Änderung schreibt `srv01-datenlauf.sh` Beginn
+und Ende selbst mit Zeit (`Urban Crime: delta run started at …`,
+`… completed … at …`, bei einem Abbruch `run ended with exit … at …` aus dem
+`EXIT`-Trap). Wirksam wird das, sobald diese Fassung auf `srv01` liegt
+(`git pull`; das Skript läuft aus dem Repository, nicht aus dem Abbild).
+Danach misst jeder Montagslauf seine ganze Dauer.
+
+Das gilt für den Weg über `cron`. Nach der Umstellung auf den verwalteten
+Betrieb (S-10) reiht `srv01-konsole-datenlauf.sh` den Montag als Batch ein,
+und der Konsolen-Worker fährt ihn; dort sind Dauer und Nachfassen neu zu
+prüfen.
+
+Neu bewacht: `test_beginn_und_ende_tragen_einen_zeitstempel`,
+`test_am_monatsersten_wird_nicht_nachgefasst` (sechs Tage),
+`test_ohne_werte_schaltet_nachfassen_ab` am echten Parser von `run_all` und
+`test_der_naechste_montag_am_ersten_steht_richtig_in_den_dokumenten`, der das
+Datum 1.2.2027 nachrechnet und in allen drei Dokumenten verlangt. FR-16
+steht in `fr-stand.md` auf ● (41 erfüllt, 12 teilweise).
+
+**Zahlen.** 2'979 → **2'988 Tests**, Standardlauf 2'868 → **2'877**, im protokollierten Linux-CI-Lauf 2'789 → **2'798**.
+
+## 14.11.2026 · Die Referenz entsteht aus frischem Bytecode (Branch `fix-referenz-hashseed`)
+
+Der erste CI-Lauf, der den Referenz-Wächter wirklich ausführte (Job
+`referenz`, #241), war rot. Vier Seiten wichen ab: `platform_admin/auth.html`,
+`platform_admin/gitops.html`, `serving/load_clickhouse.html` und `search.js`,
+jeweils nur in der Reihenfolge einer Menge — abgelegt `{'reviewer',
+'operator', …}`, frisch `{'operator', 'reviewer', …}`.
+
+`tools/build_referenz.py` startete schon mit `PYTHONHASHSEED=0` neu. Das
+reichte nicht: Ein Mengen-Literal aus Konstanten wird beim Kompilieren als
+`frozenset` in die `.pyc` geschrieben, in der Reihenfolge des Seeds, der beim
+**Kompilieren** galt. Lokal lag im `__pycache__` eine `.pyc` aus einem Prozess
+mit Zufalls-Seed, die CI kompiliert frisch. Unter Seed 0 ergeben Linux
+(srv01, Python 3.13.18) und macOS (3.13.0) dieselbe Reihenfolge, nachgemessen.
+
+Jetzt kompiliert der Neustart in ein eigenes, leeres Verzeichnis
+(`PYTHONPYCACHEPREFIX`). Die vier Seiten sind damit neu abgelegt, zwei Läufe
+hintereinander sind byte-gleich. Der Wächter hat damit beim ersten Lauf eine
+Nichtbestimmtheit gefunden, die lokal nie sichtbar war — genau dafür ist er da.
+
+## 14.11.2026 · Der Referenz-Wächter läuft auf jedem Pull Request (Branch `ci-referenz-waechter`)
+
+`tests/test_referenz.py::test_ein_zweiter_lauf_liefert_dieselben_dateien`
+vergleicht `docs/referenz/` mit einem frischen pdoc-Bau. Er tut das nur unter
+der Python-Version, pdoc-Version und Plattform, mit denen die Seiten abgelegt
+sind (`docs/referenz/erzeugt-mit.json`: 3.13, 15.0.4, posix), denn pdocs
+Ausgabe unterscheidet sich zwischen Versionen. In der CI passte kein Job
+dazu: `pruefung` läuft mit 3.11, `windows` unter `nt`. Der Wächter übersprang
+sich überall, und #236 und #239 kamen mit veralteten Referenzseiten auf
+`main`; aufgefallen ist es erst lokal. Sein Docstring behauptete einen
+3.13-Job unter Ubuntu „auf jedem Push“, den es seit dem Zuschnitt vom
+3.10.2026 nicht mehr gab.
+
+Die übrigen Überspringer der CI brauchen Daten, Dienste oder ungetrackte
+Dateien. Das ist gewollt. An der Plattform hängen sonst nur die drei
+PDF-Reproduktionen und die `bash`-Tests: Unter Windows überspringen sie sich,
+im Linux-Job `pruefung` laufen sie aber. Gemessen am `main`-Lauf 43617586946.
+Der Referenz-Wächter war der einzige, der in **keinem** Job lief.
+
+Jetzt gibt es den Job **`referenz`** in `.github/workflows/tests.yml`, auf
+Pull Requests und `main`: Ubuntu, Python 3.13, Lockfile aus dem pip-Cache,
+nur diese eine Testdatei. Mit `REFERENZ_PFLICHT=1` ist ein Überspringen dort
+ein Fehler. Neu bewacht: `tests/test_workflow_referenz.py` hält Job-Python,
+`pdoc` im Lockfile und die Marke zusammen. Wird die Referenz mit einer neuen
+Version abgelegt, ist er rot, bis der Job mitzieht. Dazu prüft `test_workflow_shell`
+die beiden neuen `run`-Blöcke wie jeden anderen. `REFERENZ_PFLICHT=1` greift bei jedem
+Grund, nicht zu vergleichen: andere Version, fehlendes pdoc, fehlende
+abgelegte Referenz.
+
+**Nebenbei berichtigt:** README, `architektur-ist-und-ziel.md`,
+`ln2_konzept.md` und `leistungsnachweise.md` sagten, die Suite laufe auf
+jedem Pull Request unter Linux **und Windows** mit 3.11 **und** 3.13. Seit
+dem 3.10.2026 läuft Windows nur auf `main`. Jetzt steht dort: auf Pull
+Requests Linux mit 3.11 plus der Referenz-Wächter unter 3.13, auf `main`
+zusätzlich Windows mit 3.13.
+
+**Zahlen.** 2'976 → **2'979 Tests**, Standardlauf 2'865 → **2'868**, im protokollierten Linux-CI-Lauf 2'786 → **2'789**.
+
+## 14.11.2026 · Host und Container ergeben denselben Eingabe-Abdruck (Branch `fr-8-abdruck-host-container`)
+
+FR-8 verlangt, dass ein Lauf im Container denselben Eingabe-Fingerabdruck
+erzeugt wie einer auf dem Host. `fr-stand.md` führte das als ◐ „nicht
+geprüft": Es gab keinen Vergleich, nur die Regel in `manifeste.kennzeichen`,
+nach der Pfad und Bauzeit aus dem Abdruck fallen.
+
+Jetzt gibt es den Vergleich: `python tools/abdruck_host_container.py
+<release-id>` liest aus dem Eimer die Gold-Manifeste eines Release, das auf
+`srv01` im Container gebaut wurde, prüft, dass das Silver oben noch **dasselbe**
+ist (`input_fingerprint` je Silver-Stand gleich dem im Release, sonst Abbruch:
+„Silver ist seit dem Release weitergezogen"), holt es in eine eigene Wurzel
+ausserhalb des Repositorys und baut dort Gold als Unterprozess mit
+`STORAGE_BACKEND=local`. Dann stehen die Abdrücke je Gold-Tabelle
+nebeneinander, bei einer Abweichung mit dem ersten abweichenden
+Herkunftsschlüssel. Vorher sagt das Werkzeug, ob sich `config/` zwischen dem
+Commit des Release und dem Host unterscheidet. Der Eimer wird nur gelesen,
+`AKTUELL.json` bleibt unberührt, unter `data/` wird nichts gebaut, und der
+Container wird nicht gestartet.
+
+**Probe am 14.11.2026** auf dem Entwicklungsrechner gegen das Release, auf
+das `AKTUELL.json` zeigt. Belegt sind für den Container nur der Ort (srv01,
+Modus `s3`), der Commit aus `release.json` (`abda4e0`) und die DuckDB-Version
+aus dem Feld `tool` der Gold-Manifeste; für die Architektur gilt die
+Serverbeschreibung im PRD (§5: srv01 ist x86-64). Host: `63cd20c` mit den noch
+nicht eingecheckten Änderungen dieses Branches — sie betreffen `tools/`,
+`tests/` und `docs/`, `src/` und `config/` sind gegenüber `63cd20c`
+unverändert. Exit 0:
+
+```
+Release      2026-11-14T09-09-47Z
+Release-Code abda4e00561a1f15a8b104bdd082050ad19a3858
+Release-Bau  duckdb 1.5.5 mit spatial (laut Gold-Manifest)
+Host-Code    63cd20c457717dffeb482930a866752ba87d7505 (mit Aenderungen)
+Host-Bau     arm64, duckdb 1.5.5
+config/      gleich zwischen Release und Host
+Silver       7 Staende, 14 Objekte -> …/abdruck-host-container-a06og76o/silver
+Host-Lauf    build_gold --vintage 2024 --acs-vintages 2021,2022,2023,2024 (STORAGE_BACKEND=local)
+
+Tabelle        Container                                                         Host                                                              Ergebnis
+dim_city_day   4c9aeda74a652b4d0bc799af7fae592303e1d2514f6d5b53776d64eed6fb6a16  4c9aeda74a652b4d0bc799af7fae592303e1d2514f6d5b53776d64eed6fb6a16  gleich
+dim_date       000a882486c09750c0fa2fa13f58b66f0b40f34d66055b5687d43b938a17e525  000a882486c09750c0fa2fa13f58b66f0b40f34d66055b5687d43b938a17e525  gleich
+dim_offense    9d895f59d73102c92f5763d013a4dde2e387805bbc4fdc3519e76a03708ce0e0  9d895f59d73102c92f5763d013a4dde2e387805bbc4fdc3519e76a03708ce0e0  gleich
+dim_tract      87e4e152376449b637090f6e85b3fa8e082577f3d03737064f2e7b0ada086c60  87e4e152376449b637090f6e85b3fa8e082577f3d03737064f2e7b0ada086c60  gleich
+dim_tract_acs  3d12639561c480c17c75affa1bfcb285a159f93cef24e6e28f22f772b5310ac4  3d12639561c480c17c75affa1bfcb285a159f93cef24e6e28f22f772b5310ac4  gleich
+dim_tract_geo  12a37ab6b79f16c70df4e9553cd6750cd7ff06430148aa80f855302159d0e75c  12a37ab6b79f16c70df4e9553cd6750cd7ff06430148aa80f855302159d0e75c  gleich
+fact_offense   000a882486c09750c0fa2fa13f58b66f0b40f34d66055b5687d43b938a17e525  000a882486c09750c0fa2fa13f58b66f0b40f34d66055b5687d43b938a17e525  gleich
+
+7 von 7 Gold-Tabellen gleich.
+```
+
+Die Herkunft im Container nennt das Silver als `s3://urban-crime/silver/…`,
+die auf dem Host als Pfad unter dem temporären Verzeichnis, und die Bauzeiten
+liegen Stunden auseinander — der Abdruck ist trotzdem derselbe. Damit steht
+FR-8 in `fr-stand.md` auf ●.
+
+**Was dabei auffiel und nicht FR-8 ist: Die Bytes sind nicht gleich.** Eine
+**einmalige Handmessung vom 14.11.2026**, nicht bewacht und nicht
+nachgezogen: Alle sieben Parquet-Dateien des Host-Baus hatten eine andere
+SHA-256 als die in `release.json`, bei gleichen Zeilenzahlen. Je Tabelle lief
+in DuckDB, in beide Richtungen,
+
+```sql
+SELECT count(*) FROM (
+  SELECT * FROM read_parquet('<release>.parquet', hive_partitioning=false)
+  EXCEPT ALL
+  SELECT * FROM read_parquet('<host>.parquet', hive_partitioning=false))
+```
+
+Leer war das für sechs Tabellen; in `dim_tract` blieben 488 von 6'282 Zeilen,
+und zwar allein in `city_area_share` (je Spalte `IS DISTINCT FROM` über
+`geoid` verbunden), mit `max(abs(x - y))` = 7,8·10⁻¹⁶ — die letzte Stelle
+einer Gleitkommazahl aus `ST_Area(ST_Intersection(…))`, vermutlich x86-64
+gegen arm64. NFR-1 („zweiter Lauf, gleiche Prüfsummen") meint den zweiten
+Lauf am selben Ort und bleibt davon unberührt; über Architekturen hinweg gilt
+die Byte-Gleichheit nicht, und das steht hier, damit es niemand behauptet.
+
+Neu bewacht:
+
+- `test_ein_zweiter_lauf_liefert_dieselben_bytes` (`referenzstand`) vergleicht
+  zusätzlich den `input_fingerprint` je Tabelle aus zwei Wurzeln mit
+  verschiedenen absoluten Pfaden — der Abdruck hängt nicht am Ort.
+- `test_derselbe_stand_traegt_an_jedem_ort_denselben_abdruck` in
+  `tests/manifeste/test_manifeste.py`, im Standardlauf: dieselbe Herkunft mit
+  POSIX-, Windows- und `s3://`-Pfaden und verschiedenen Bauzeiten ergibt
+  denselben Abdruck, eine andere Prüfsumme einer `config/`-Datei einen anderen.
+- sechzehn Tests in `tests/test_abdruck_host_container.py` mit `FakeS3Client`
+  und einem Mini-Stern: die Fälle der Matrix (gleich, Silver weitergezogen,
+  Abweichung mit erstem Unterschied, Release unbekannt, ohne Eimer), dazu
+  Silver ohne Manifest, nicht fertig oder ohne Abdruck im Release, ein Release
+  aus geändertem Baum, die Arbeitswurzel (Repository, Datenwurzel, Datei), der
+  Unterprozess und der `config/`-Vergleich gegen `HEAD`.
+
+Eine Mutationsprobe (in einer Kopie mit eigenem `pyproject.toml`, `path` aus
+`manifeste.FLUECHTIG` genommen) liess vier dieser Tests fallen.
+
+Mit dem Werkzeug liegen zwölf Dateien unter `tools/`; `architektur-kontext.svg` ist neu gebaut (seine Beschriftung heisst jetzt „12 Werkzeuge unter tools/“ und „darunter: …“ statt „Generatoren“ und „erzeugt mit:“, weil nicht jedes davon etwas erzeugt — dieses vergleicht nur).
+
+**Zahlen.** 2'959 → **2'976 Tests**, Standardlauf 2'848 → **2'865**, im protokollierten Linux-CI-Lauf 2'769 → **2'786** ausgeführt (die siebzehn neuen Tests brauchen keine Daten). `fr-stand.md`: 39 → **40** erfüllt, 14 → **13** teilweise.
+
+## 14.11.2026 · Die Löschregel für Job-Daten läuft auch unter Windows (Branch `fix-job-daten-windows`)
+
+Seit #232 war der Windows-Lauf auf `main` rot, und niemand sah es, weil er
+auf Pull Requests nicht läuft. `platform_admin.job_data.prune()` löschte
+`jobs/<id>/data` mit `rmtree`, während es die Sperre dieses Ordners hielt —
+und die Sperrdatei `.analyse/zugriff.lock` liegt in genau diesem Ordner.
+Linux löscht eine offene Datei, Windows nicht (`WinError 32`). Fünf Tests in
+`tests/platform_admin/test_job_data.py` scheiterten, und auf einem
+Windows-Rechner wäre jeder Takt der Konsole beim Aufräumen gescheitert.
+
+Jetzt löscht `prune` unter der Sperre alles ausser der Sperrdatei, gibt die
+Sperre frei und entfernt dann den leeren Rest. Neu bewacht:
+`test_die_loeschregel_loescht_keine_gehaltene_sperrdatei` bildet das
+Windows-Verhalten auf jedem Betriebssystem nach — eine gehaltene Sperrdatei
+lässt sich nicht löschen — und war vor dem Fix rot. Er prüft auch, dass beim
+Freigeben nur noch die Sperrdatei lag, die Daten also unter der Sperre gingen.
+Der Windows-Lauf lief vor dem Merge per `workflow_dispatch` auf dem Branch und
+war grün (Lauf 43613103771: 2'718 bestanden, 130 übersprungen).
+
+**Zahlen.** 2'958 → **2'959 Tests**, Standardlauf 2'847 → **2'848**, im protokollierten Linux-CI-Lauf 2'768 → **2'769**.
+
+## 14.11.2026 · Ein publiziertes Release lässt sich zurücknehmen (Branch `fr-20-release-zuruecknehmen`)
+
+FR-20 verlangt, dass ein grüner Lauf, der einen falschen Stand publiziert,
+rückholbar ist: welcher Befehl, wer löst aus, woran merkt man es.
+`fr-stand.md` nannte den Mechanismus „steht", gemeint war
+`release holen <kennung> --einsetzen` — und der legt nur den **lokalen**
+Zeiger um. `releases/AKTUELL.json` im Eimer, nach dem sich Dashboard,
+Notebooks und Analysten richten, setzte kein Befehl auf ein früheres Release
+zurück.
+
+Jetzt: `python -m orchestration.release zuruecknehmen <kennung> --grund "…"`
+(`storage.release.zuruecknehmen`). Der Befehl prüft, dass `release.json` des
+Ziels und **jede** darin genannte Datei in der genannten Grösse oben liegen
+(im Modus `local`: lokal), und bricht sonst ab, bevor der Zeiger sich bewegt.
+Dann ersetzt er den Zeiger als ein Objekt, in `hybrid` dazu einen
+vorhandenen lokalen; `hybrid` ohne Publizieren bewegt wie `local` nur den
+lokalen. Der Zeiger trägt wie bisher `release_id`,
+`created_at_utc`, `path`, `bytes` und neu `zurueckgenommen: {von, grund,
+am_utc}`; wer nur `release_id` liest, merkt keinen Unterschied. Gelöscht oder
+umgeschrieben wird nichts, `--grund` ist Pflicht, und dieselbe Sperre wie bei
+`erstellen` und `holen` gilt. Wieder vor geht es mit demselben Befehl.
+
+**Bewusst kein Alarm auf Drift** (Christian, 14.11.2026): Der Ablauf in
+`docs/storage-architektur.md` 6a („Ein falsches Release zurücknehmen") nennt
+wer (Christian, auf `srv01`), woran (Ampel
+`urbancrime_drift_innerhalb_toleranz` und Drift-Panel in Grafana, der Stand
+im Dashboard, ein Hinweis von Artan) und was danach (auf `srv01` genügt der
+Zeiger oben für das Dashboard; Einstiegsseite, Notebooks und ClickHouse-Lader
+hängen am lokalen Zeiger und zeigen den alten Stand, und `holen --einsetzen`
+entwertet den Analysenachweis bis zum nächsten Lauf, ist also nur bewusst zu
+wählen; der nächste Montagslauf publiziert wieder — Ursache beheben oder den
+Takt bewusst aussetzen).
+
+**Auf `srv01` erprobt, 14.11.2026** (Abbild `14a6ade`, Modus `s3`), mit
+`docker compose -f docker-compose.srv01.yml run --rm --no-deps pipeline
+python -m orchestration.release …`. Zeiten in UTC:
+
+| Zeit | Schritt | Zeiger | Dashboard (`stand.release`) |
+| --- | --- | --- | --- |
+| 15:11:17 | Ausgangsstand | `2026-11-14T09-09-47Z` | `2026-11-14T09-09-47Z` |
+| 15:11:44 | `zuruecknehmen 2026-11-14T08-06-10Z --grund "FR-20 Probe"` | `2026-11-14T08-06-10Z`, Vermerk `von 2026-11-14T09-09-47Z` | — |
+| 15:12:02 | erste Abfrage danach | — | `2026-11-14T08-06-10Z` |
+| 15:12:12 | `zuruecknehmen 2026-11-14T09-09-47Z --grund "FR-20 Probe zurück"` | `2026-11-14T09-09-47Z`, Vermerk `von 2026-11-14T08-06-10Z` | — |
+| 15:13:11 | vierte Abfrage danach | — | `2026-11-14T09-09-47Z` |
+
+Beide Male Exit 0, und `release aktuell` nannte Kennung, Herkunft und Grund.
+Das Dashboard folgte nach 18 und 59 Sekunden, also innerhalb seines
+Nachlade-Intervalls von einer Minute. Der Analysenachweis
+(`/app/data/.analyse/stand.json`) blieb unberührt, weil kein `holen
+--einsetzen` lief. Der Vermerk der Probe steht bis zum nächsten Montagslauf im
+Zeiger; der publiziert neu und schreibt ihn ohne Vermerk. FR-20 steht damit
+in `fr-stand.md` auf ●. Dort ist auch FR-58 berichtigt: Die LN1-Rückmeldung
+kam am 3.11.2026 (Note 5.75), eingearbeitet ist sie noch nicht (bleibt ○).
+
+Neu bewacht: zehn Tests `test_zuruecknehmen_*` in
+`tests/storage/test_release.py`, je einer für eine Zeile der I/O-Matrix (s3,
+hybrid, hybrid ohne Publizieren, local, unbekannt, unvollständig, schon aktuell, wieder vor, ohne
+Grund) und einer für die Kommandozeile.
+
+**Zahlen.** 2'948 → **2'958 Tests**, Standardlauf 2'837 → **2'847**, im protokollierten Linux-CI-Lauf 2'758 → **2'768** ausgeführt (die zehn neuen Tests brauchen keine Daten).
+
+## 14.11.2026 · Das Dashboard nennt die Fallebene vorn (Branch `c-11-dashboard-fallebene`)
+
+Seit E-2 (12.11.2026) führen die Dokumente die **Fallebene** vorn, die Tafel
+»Delikte je 1'000 Einwohner« im Überblick rechnete aber weiter auf der
+Tatebene: Detroit 2024 stand dort mit 134,0, in den Dokumenten mit 124,7
+(C-11). Jetzt heisst sie **»Fälle je 1'000 Einwohner«** und zählt Fälle
+(`count(*) FILTER (counts_case)`), wie `raten_je_stadt.rate_fallebene`. Die
+**Tatebene steht daneben**, als zweite, blasse Balkenzeile »Delikte
+(Tatebene)« im selben Massstab, und ein Hinweis nennt den Grund aus E5:
+Detroit erfasst jedes Delikt eines Falls, Chicago nur das schwerste.
+
+| 2024, Release vom 10.11.2026 | Chicago | Detroit |
+| --- | ---: | ---: |
+| Balken (Fallebene) | 94,5 | **124,7** (vorher 134,0) |
+| blasse Zeile (Tatebene) | 94,5 | 134,0 |
+
+**Keine Zeilen je Kategorie mehr in dieser Tafel.** Bisher standen unter
+»Alle« die vier häufigsten Kategorien; auf der Fallebene zählte ein Fall dort
+nur in der Kategorie seines schwersten Delikts. Nach E5 rechnen Kategorien
+aber auf der Tatebene, weil sie sich nur dort addieren — die Rate je
+Kategorie steht deshalb nur noch in »Registrierte Delikte nach Kategorie«
+(Schalter »Rate«), auf der Tatebene und mit „Delikte" im Titel. Ist oben eine
+Kategorie gewählt, zeigt die Tafel die Fallrate dieser Kategorie und die
+blasse Zeile deren Tatebene. Entschieden von Christian am 14.11.2026.
+
+Neu bewacht: `test_die_balken_stehen_auf_der_fallebene_die_tatebene_daneben`
+— eine Folgeanklage zählt nur in der Tatebene, beide Werte stehen gegen
+`raten_je_stadt` (`rate_fallebene` und `rate`), und die Kategorieansicht
+»Rate« bleibt auf der Tatebene.
+
+**Zahlen.** 2'942 → **2'943 Tests**, Standardlauf 2'831 → **2'832**, im frischen Klon 2'753 → **2'754**.
+
+## 14.11.2026 · Rate und Armut zoomen gemeinsam (Branch `karten-gekoppelt`)
+
+Auf »Soziales Umfeld« stehen je Stadt die Fallrate und die Armutsquote
+nebeneinander — der Sinn des Paars ist, denselben Ausschnitt zu vergleichen.
+Seit dem Zoom (Eintrag darunter) liessen sich die beiden Karten aber getrennt
+bewegen. Jetzt sind sie **gekoppelt**: Wer eine zoomt, verschiebt oder auf
+»Ganze Stadt« setzt, nimmt die andere mit. Chicago und Detroit bleiben
+voneinander unabhängig; die bivariate Ansicht hat je Stadt nur eine Karte.
+
+Umgesetzt als `kopplung()` in `static/karte.js`; beide Karten eines Paars
+teilen dieselben Karteneinheiten, der Zustand (Massstab, Versatz) geht
+unverändert hinüber.
+
+Keine Zahl und kein Test ändert sich — das Verhalten ist im Browser geprüft,
+nicht bewacht.
+
+## 14.11.2026 · Die Tract-Karten liegen auf einer Stadtkarte und lassen sich zoomen (Branch `karte-hintergrund-und-zoom`)
+
+Die Karten auf »Geografie« und »Soziales Umfeld« zeigten die Tracts als
+Flächen ohne Hintergrund; wo ein Tract liegt, liess sich nur an der Form
+der Stadt erraten. Jetzt liegen sie halb durchsichtig auf den
+**Standardkacheln von OpenStreetMap** (entfärbt, damit nur die Tracts Farbe
+tragen), und jede Karte lässt sich **zoomen und verschieben**: Mausrad,
+Doppelklick (mit Umschalt heraus), Ziehen sowie die Knöpfe +, − und »Ganze
+Stadt«. Massstabsleiste und Nordpfeil stehen fest und rechnen mit; die
+Leiste wählt eine runde Strecke von 100 m bis 20 km.
+
+- **Projektion:** `geografie.pfade` rechnet jetzt in **Web-Mercator** statt
+  Länge × cos(Mittelbreite), sonst lägen die Tracts neben den Kacheln. Für
+  eine Stadt ändert das die Form kaum; die Karten liefern zusätzlich
+  `x0`, `y0` und `massstab`, aus denen der Browser die Kacheln rechnet.
+- **Content-Security-Policy:** Sie erlaubt jetzt **Bilder** von
+  `https://tile.openstreetmap.org` — und nur Bilder. Skripte, Stile und
+  Abrufe bleiben bei `'self'`. Die Aussage vom 1.11. („die
+  Content-Security-Policy bleibt bei `'self'`") gilt damit nur noch für
+  diese drei.
+- **Referrer-Policy:** `no-referrer` → `strict-origin`. Die Kachelserver von
+  OpenStreetMap verlangen einen Referer; gesendet wird nur der Ursprung, nie
+  Pfad oder Filterauswahl.
+- **Was der Kachelanbieter sieht:** welche Ausschnitte von Chicago und
+  Detroit jemand ansieht, und von welchem Ursprung. Keine Falldaten — die
+  Tracts und Raten kommen weiter nur vom eigenen Server.
+- **CARTO verworfen:** Der erste Versuch nahm CARTOs helle Kacheln; sie
+  liefern seit 2025 ohne API-Schlüssel nur noch ein Bild „API KEY
+  REQUIRED".
+
+Neu bewacht: `test_die_pfade_liegen_auf_den_kacheln` (ein Eckpunkt führt über
+`x0`, `y0` und `massstab` dorthin zurück, wo Web-Mercator ihn hinlegt) und
+`test_die_kacheln_kommen_von_dem_host_den_die_csp_erlaubt` (Kachel-URL in
+`karte.js` und CSP in `app.py` stehen an zwei Orten; laufen sie auseinander,
+bliebe der Hintergrund still leer).
+
+**Zahlen.** 2'940 → **2'942 Tests**, Standardlauf 2'829 → **2'831**, im frischen Klon 2'751 → **2'753**.
+
+## 14.11.2026 · Die Notebooks finden den Job des aktiven Release, und alte Job-Daten gehen (Branch `feature/job-zeiger-und-loeschregel`)
+
+**Was fehlte.** Im verwalteten Betrieb liegen die Daten eines Release im Ordner
+seines Kandidaten-Jobs (`admin/jobs/<Job-ID>/data/`). Welcher Job zum aktiven
+Release gehört, musste der Betreiber bisher selbst heraussuchen und in
+`CRIME_ANALYSIS_ROOT` eintragen. Gelöscht wurde ein Job-Ordner nie: Jeder trug
+eine vollständige Kopie seiner Eingaben, und alle gingen jeden Tag mit in die
+Kontrollsicherung. Beides war als Teil von S-10 offen (E-5, Rückmeldung Artan
+vom 13.11.2026).
+
+**Was sich ändert.**
+- **Job-Zeiger.** `finish_publication` trägt beim Aktivieren eines Release
+  dessen Job in `admin/jobs/ANALYSE.json` ein
+  (`platform_admin.job_data.set_pointer`). Die Datei liegt in `jobs/`, weil
+  Jupyter nur diesen Teil des Konsolen-Volumes sieht.
+- **Auflösung in der Startzelle.** `orchestration.analyse.waehle_analysebestand`
+  liest das Release aus `releases/AKTUELL.json` und schlägt es im Zeiger nach.
+  Nach einem Zurückschalten sind es also die Daten des älteren Release.
+  - Ein Konsolen-Release (`approved-…`) ohne Eintrag oder ohne Ordner ist ein
+    Fehler, kein Rückfall auf einen anderen Stand.
+  - Jedes andere Release liest weiter die Datenwurzel.
+  - Die Sitzung prüft, dass der Nachweis im Job-Ordner den Kandidaten des
+    aktiven Release nennt.
+  - Die Notebooks 34 und 37 lesen danach `analyse.root`.
+- **Löschregel.** Der Worker entfernt in jedem Takt vor der Sicherung
+  `jobs/<Job-ID>/data/` aller Jobs, die niemand mehr braucht
+  (`job_data.prune`). Die Nachweise daneben bleiben. Geschützt sind:
+  - eingereihte und laufende Jobs, laufende Freigaben und Publikationen;
+  - Kandidaten im Review, solange ihre Basis das aktive Release ist;
+  - das aktive und das zuletzt aktivierte Release davor
+    (`ADMIN_JOB_DATA_KEEP`, Vorgabe 2).
+
+  Einen Ordner, den eine Analysesitzung liest, lässt der Takt bis zum nächsten
+  stehen. Der Job des aktiven Release bleibt auch ohne Zeiger-Eintrag.
+- `python -m platform_admin prune-job-data --dry-run` zeigt, was ginge, mit
+  Grund und Grösse.
+- Neue Tests in `tests/platform_admin/test_job_data.py`: Zeiger, Zurückschalten,
+  Fehlerfälle, jede Schutzregel, die Sperre und die Reihenfolge im Takt.
+- Die Nachweise der Notebooks sind neu gebaut, weil sich ihr Code geändert hat.
+- Handbuch (`ENGINEERING_KONSOLE.md`, „Notebooks 34 und 37“ und „Aufräumen und
+  Backup“) samt PDF und `notebook-analysesitzungen.md` sind nachgezogen.
+
+**Zahlen.** 2'924 → **2'940 Tests**, Standardlauf 2'813 → **2'829**, im frischen Klon 2'735 → **2'751**.
+
+---
+
+## 14.11.2026 · E-5 ist auf srv01 für den Cron-Datenlauf abgenommen (Branch `docs/e5-abgenommen`)
+
+**Was geschah.** Nach #228–#230 liefen auf `srv01` die Notebooks 34 und 37
+vollständig und fehlerfrei, auf Release `2026-11-14T09-09-47Z` (Commit
+`abda4e0`). Notebook 37 wertete dabei echte Quelländerungen aus (113'745 Zeilen,
+47'681 Delikte).
+
+**Was sich ändert.** `e5-pruefnachweis.md` hält die Abnahme fest: die drei
+Fehler, den Lauf und die Kernzahlen. In `offene-punkte.md` bleibt von E-5 nur
+die Abnahme mit einem echten Konsolen-Job; sie ist als letzter Schritt bei S-10
+vermerkt. Nur Dokumente, keine Testzahl ändert sich.
+
+---
+
+## 14.11.2026 · Fehlende Analysetabellen kommen vor dem Bestätigen aus dem Eimer (Branch `fix/analysetabellen-aus-dem-eimer`)
+
+**Was geschah.** Nach #229 lief auf `srv01` ein Delta-Lauf. Der Nachweis blieb
+nach dem Einsetzen stehen, und Notebook 34 startete. Notebook 37 meldete:
+„Benoetigte Daten fehlen im Nachweis:
+`silver/dataset=source_change/part-0001.parquet`“. Die Stufe hatte „0 Paare
+neu“ gefunden und nichts gebaut, also entstand keine lokale Kopie. Die alte
+Kopie hatte der Lauf vom 13.11. noch weggeräumt, damals ohne Schalter.
+
+**Was sich ändert.**
+- `orchestration.analyse.benoetigte_dateien(notebook)` führt die Liste der
+  Pflichtdateien, die die Sitzung bisher inline prüfte.
+- `hole_fehlende_analysetabellen(ablage)` holt jeden Tabellenordner aus dieser
+  Liste, der lokal fehlt, aus dem Eimer. Erst kommt er in einen `.part`-Ordner,
+  dann in einem Zug an den festen Pfad. Was lokal liegt, bleibt unberührt.
+- `run_all` ruft es mit `STORAGE_ANALYSEBESTAND_LOKAL` vor dem Bestätigen auf
+  und protokolliert jede geholte Tabelle.
+- Zwei Tests: Eine fehlende Tabelle kommt samt Manifest, und Notebook 37 startet
+  danach. Eine lokale Tabelle wird nicht überschrieben. Der Reihenfolgetest in
+  `test_run_all` verlangt das Holen vor dem Bestätigen.
+
+**Zahlen.** 2'922 → **2'924 Tests**, Standardlauf 2'811 → **2'813**, im frischen Klon 2'733 → **2'735**.
+
+---
+
+## 13.11.2026 · srv01 behält Silver und Gold als Analysebestand (Branch `fix/analysebestand-auf-srv01`)
+
+**Was geschah.** Nach #228 lief auf `srv01` ein Delta-Lauf. `stand.json`
+fehlte danach immer noch, und das Einsetzen meldete „Herkunftsnachweis
+entwertet". Der Grund: Im Modus `s3` entfernt `run_all` nach dem Release die
+18 lokalen Kopien von Silver und Gold und bestätigt erst danach. Der Nachweis
+erfasste also nur Bronze. Das Einsetzen legte Gold wieder hin, und die
+Prüfsummen stimmten nicht mehr. `/app/data/silver` war leer, und die Notebooks
+34 und 37 konnten dort seit dem Wechsel auf `s3` nie starten.
+
+**Was sich ändert.**
+- Neuer Schalter `STORAGE_ANALYSEBESTAND_LOKAL` (`Config.analysebestand_lokal`,
+  Vorgabe `false`). Ist er gesetzt, lässt `run_all` die Arbeitskopien nach dem
+  Release liegen. Gelesen wird weiter aus dem Eimer.
+- `docker-compose.srv01.yml` setzt ihn in `pipeline` und `worker`.
+- `docs/storage-architektur.md` beschreibt ihn in der Variablentabelle und in
+  einem eigenen Abschnitt. `notebook-analysesitzungen.md` nennt ihn für
+  `srv01`.
+- Drei Tests:
+  - Die Vorgabe ist aus, und der Modus liest auch mit gesetztem Schalter
+    nicht lokal.
+  - Der Schalter steht im Räumzweig von `run_all`, vor dem Bestätigen.
+  - Die Pipeline auf `srv01` setzt ihn.
+
+**Platz.** Silver und Gold belegen auf `srv01` ein paar hundert MB im Volume
+`arbeitsdaten`; frei sind 104 GB.
+
+**Zahlen.** 2'919 → **2'922 Tests**, Standardlauf 2'808 → **2'811**, im frischen Klon 2'730 → **2'733**.
+
+---
+
+## 13.11.2026 · Das Einsetzen des eigenen Release entwertet den Analysenachweis nicht mehr (Branch `fix/nachweis-nach-einsetzen`)
+
+**Was geschah.** Auf `srv01` fehlte `data/.analyse/stand.json` seit dem
+Volllauf vom 10.11.2026, und die Notebooks 34 und 37 brachen dort mit „Kein
+bestaetigter Aufbau" ab. `docker/srv01-datenlauf.sh` ruft nach `run_all`
+noch `release holen aktuell --einsetzen` auf. Weil das Einsetzen Gold
+ersetzen kann, löschte es unter der Schreibsperre den Nachweis, den `run_all`
+eben geschrieben hatte. Dabei setzte es dasselbe Release mit denselben
+Bytes ein. Danach schrieb niemand einen neuen Nachweis. Gefunden beim Prüfen
+von E-5 mit Artan.
+
+**Was sich ändert.**
+- `storage.analysesitzung.schreibzugriff` löscht den alten Nachweis nicht
+  mehr sofort, sondern legt ihn bis zum Ende der Sitzung als
+  `stand.vorher.json` beiseite. Danach verfällt er, auch nach einem Fehler.
+- Das neue `bewahre_nachweis(root, release_id=…)` setzt ihn unter derselben
+  Sperre zurück, aber nur, wenn er dasselbe Release nennt und jede erfasste
+  Datei dieselbe Prüfsumme hat. `release holen --einsetzen` ruft es nach dem
+  Einsetzen auf und sagt, ob der Nachweis bleibt.
+- Fünf Tests in `tests/storage/test_release.py` decken beide Fälle ab:
+  - Dasselbe Release behält den Nachweis.
+  - In vier Fällen bleibt der Bestand gesperrt: eine andere Release-ID, ein
+    Nachweis ohne Release-ID, abweichende Prüfsummen und ein gescheitertes
+    Einsetzen.
+- Nicht enthalten: der Zeiger vom aktiven Release auf seinen Job und die
+  Löschregel für Job-Ordner. Beides nimmt Artan für S-10 auf.
+
+**Zahlen.** 2'914 → **2'919 Tests**, Standardlauf 2'803 → **2'808**, im frischen Klon 2'725 → **2'730**.
+
+---
+
+## 12.11.2026 · Die Fallebene steht vorn (Branch `docs/e2-fallebene-vorn`)
+
+**Entschieden (E-2).** Beschlossen war es seit dem 5.10.2026 (E5 im PRD), die
+Dokumente führten trotzdem die Tatebene vorn. Jetzt nennen sie zuerst den
+**Fall** — je Vorfall das schwerste Delikt nach der Hierarchieregel des UCR
+Handbook, für beide Städte dieselbe (`counts_case`) — und die Tatebene daneben.
+
+| Jahrgang 2024, je 1'000 | Chicago | Detroit |
+| --- | ---: | ---: |
+| **Fallebene** (vorn) | **94,5** | **124,7** |
+| Tatebene | 94,5 | 134,0 |
+
+**Was sich ändert.**
+- Die Kopftabellen hier, im README und in `architektur-ist-und-ziel.md`:
+  Die Stadtzeilen nennen Fälle und Fallrate, eine Zeile „Tatebene" darunter
+  Taten und Tatrate beider Städte (vorher stand dort nur die Detroiter
+  Fallrate).
+- `orchestration.drift` liest dieselben Zeilen mit neuen Mustern und misst
+  jetzt auch Chicagos Fallrate; die Schlüssel bleiben, was sie messen.
+- Konzept 5.2 nennt den Entscheid mit seinen zwei Auflagen: Die Regel wirkt
+  ungleich (Detroit 5,6 % der Taten verworfen, Chicago 0,013 %), und Anteile
+  je Deliktart rechnen auf der Tatebene. Die Ratentabelle in 5.4 zählt Fälle,
+  Kapitel 9 sagt nicht mehr „zu entscheiden".
+- **Eine falsche Prämisse ist gestrichen.** In 5.2 stand „Chicagos Zählweise
+  ist das Fallebene". Nativ ist die Fallebene für keine der beiden Quellen;
+  in Chicago fallen beide Masse nur fast zusammen, weil die Quelle je Vorfall
+  in aller Regel eine Zeile führt.
+- `eine-zahl.md` rechnet in Stufe 1 mit den Fällen (251'482 / 2'661'953 ×
+  1000 = 94,47), der Titel bleibt 94,5. Einseiter, Ausblick,
+  `leistungsnachweise.md` und die Einstiegsseite (`serving.build_einstieg`,
+  neu erzeugt) ziehen mit.
+
+**Offen (C-11).** Das Dashboard rechnet seine Rate weiter auf der Tatebene
+und zeigt für Detroit 134,0. Das README sagt das jetzt; umgestellt ist es noch
+nicht.
+
+---
+
+## 12.11.2026 · Die Geo-Lücke und die Gegenprobe stehen auf dem Sechs-Jahres-Stand (Branch `docs/h1-sechs-jahrgaenge`)
+
+**Was nicht stimmte.** Notebook 34 rechnet seit dem Mehrjahresbau vom
+4.10.2026 über den ganzen Bestand, sein Text sprach weiter vom Einjahresbau.
+Zwei Stellen waren davon betroffen:
+
+- **§5.2, die Geo-Lücke** (Befund zu H1, Konzept 8.7): Der Text nannte
+  Sexualdelikte beim 12,0- und 5,2-Fachen des Stadtschnitts und Betrug mit
+  3,78 % gegen 0,19 %, „Faktor 20". Die Zelle darunter gab 7,5×, 3,7× und
+  6,90 % gegen 0,10 % aus.
+- **§3.2, die Gegenprobe der Stadtzuordnung**: Hier war die Rechnung falsch,
+  nicht der Text. Die Zelle teilte sechs Jahre Taten durch die Einwohner eines
+  Jahres und gab 509,7 je 1'000 aus, wo der Text 94,5 sagte.
+
+**Was sich ändert.**
+- §3.2 zählt jetzt den Ratenjahrgang (`year(f.date) = RATENJAHR`) und gibt
+  wieder 5'249 Fälle, 94,5 gegen 95,6 und 12 Detroiter Fälle aus. Text und
+  Ausgabe stimmen überein; nachgezogen sind 134,0 statt 132,7 (42 % statt
+  40 % Abstand) und 251'512 statt 251'516.
+- §5.2 bleibt beim ganzen Bestand, weil ein Anteil keinen Einwohner-Nenner
+  braucht, und sagt das jetzt. Neu ist ein Befund: **Drogendelikte** fehlen in
+  Chicago beim 4,6-Fachen, in Detroit beim 1,5-Fachen. Betrug liegt jetzt bei
+  einem Faktor von fast 70 statt 20, auf 28 Detroiter Fällen.
+- Konzept 8.7, Kapitel 9 und 5.x und `leistungsnachweise.md` stehen auf
+  denselben Werten: Stadtschnitt 1,47 % gegen 0,14 % (vorher 0,81/0,29 und
+  1,48/0,15), nicht verortet 2024 0,83 % gegen 0,28 % (vorher 0,70/0,29),
+  ausserhalb der Städte 1,8 % (vorher 2,9 %). `leistungsnachweise.md` hält
+  den alten Stand als Nachmessung fest.
+- **Neuer Nachweis** `docs/nachweise/2026-11-12_6eae64d/`: alle sechs
+  belegenden Notebooks auf dem Release `2026-11-10T13-47-23Z`, ohne
+  Fehlerausgabe. Der vom 7.11. bleibt liegen.
+
+**Nicht angefasst.** Die Notebooks 03, 11 und 13 nennen 0,81 % und 0,29 %.
+Das ist dort richtig: Sie beschreiben die Quelle eines geladenen Jahrgangs,
+nicht den Bestand.
+
+---
+
+## 12.11.2026 · Die Versionierung des Eimers ist ausgesetzt (Branch `docs/e3-versionierung-ausgesetzt`)
+
+**Entschieden (E-3).** Der Eimer `urban-crime` auf `srv01` versioniert nicht
+mehr: `s3.bucket.versioning -name urban-crime -suspend`, danach meldet
+`weed shell` „Versioning: Suspended". Keine Objektsperre, kein Alarm auf der
+Metrik `srv01_seaweedfs_bucket_versioning_status` (sie meldet jetzt 1 statt 2).
+
+**Warum.** Läufe und Releases überschreiben nichts. Überschrieben werden nur
+Silver und Gold, bei jedem Neubau, und genau dort legte die Versionierung jedes
+Mal eine alte Fassung ab: 3,91 GiB bis zum 18.10.2026, und nach dem Aufräumen
+vom 10.11. wären sie wieder nachgewachsen.
+
+**Was bleibt.** Ganz abschalten kennt S3 nicht, nur aussetzen. Fassungen von
+davor liegen weiter, bis `aufraeumen --fassungen --auch-fern` sie entfernt.
+Das Modul zeigt sie deshalb weiter, und `FakeS3Client` versioniert vorgabemässig
+weiter mit. Geändert sind nur Docstrings in `storage.backend` und
+`orchestration.aufraeumen`, `storage-architektur.md` und `offene-punkte.md`.
+
+---
+
+## 12.11.2026 · Kein Test entwertet mehr den echten Analysenachweis (Branch `fix/tests-ohne-echtes-data`)
+
+**Was geschah.** Nach jedem Lauf der Suite fehlte `data/.analyse/stand.json`,
+und Notebook 34 brach mit „Kein bestaetigter Aufbau" ab. Gesucht mit einem
+Plugin, das nach jedem Test nachsieht: Vier Tests der Detroit-CLI und
+`test_nachpublizieren_im_local_modus_sagt_nein` riefen `main()` ohne
+`--data-root` auf. Die Ablage nimmt dann `data` relativ zum
+Arbeitsverzeichnis, also den echten Bestand, und jede Stufe entwertet mit
+`schreibzugriff` dessen Nachweis. Dieselben Aufrufe nahmen auch die echte
+Datensperre: Während einer Analysesitzung wären sie gescheitert.
+
+**Was sich ändert.**
+- `tests/conftest.py` lässt jeden Schreibzugriff auf das echte `data/` mit
+  einem Fehler durchfallen, der den Test nennt (`_echte_daten_unberuehrt`).
+  Gesucht wird also nicht mehr jeder Aufruf einzeln.
+- Die fünf Tests laufen in einem tmp-Verzeichnis.
+- Ein neuer Test prüft, dass der Wächter greift.
+
+**Zahlen.** 2'913 → **2'914 Tests**, Standardlauf 2'802 → **2'803**, im frischen Klon 2'724 → **2'725**.
+
+---
+
+## 12.11.2026 · Die Dokumente stehen auf dem Stand vom 10.11.2026 (Branch `docs/referenzstand-nachziehen`)
+
+**Warum.** Der GitHub-Datenlauf vom 11.11. war bis auf einen Schritt grün:
+die Drift. Detroits Rate lag bei 134,0 statt der dokumentierten 133,1 je
+1'000, die Zeilenzahlen 1,9 % über dem Kopf dieser Datei. Entschieden (E-1):
+Die Dokumente gehen auf den Serverstand.
+
+**Welcher Stand.** Der Volllauf auf `srv01` vom 10.11.2026, Release
+`2026-11-10T13-47-23Z`: je Stadt und Jahrgang ein Vollschnappschuss, noch
+kein Delta danach. Lokal aus genau diesen Läufen nachgebaut (`storage holen`,
+dann `run_all --ohne-ingestion`); `silver/crime_offense` trägt denselben
+Eingabeabdruck `b90a1fe4…` wie auf dem Server, und jede Gold-Tabelle dieselbe
+Zeilenzahl wie das Release.
+
+| | vorher | jetzt |
+| --- | ---: | ---: |
+| `silver/crime_offense` | 1'875'374 | **1'909'461** |
+| `gold/fact_offense` | 1'851'946 | **1'887'009** |
+| Chicago 2024, Delikte · Rate | 251'513 · 94,5 | 251'512 · **94,5** |
+| Detroit 2024, Delikte · Rate | 84'987 · 133,1 | 85'557 · **134,0** |
+| Detroit 2024, Fälle · Rate | 79'587 · 124,6 | 79'614 · **124,7** |
+| `silver/weather_day` | 55'497 | 55'573 |
+
+**Was mitging.**
+- Jede Zahl, die ein Wächter mit `referenzstand` hält (104 grün), dazu
+  die ungeprüften Folgezahlen, die ein Vergleich gegen das alte Release
+  `2026-11-07T13-12-32Z` fand: die sechs häufigsten NIBRS-Codes und der
+  Auffang in `ln2_konzept.md`, Taten je Fall (1,060), die 509,7 für sechs
+  Jahre auf einem Jahr Nenner, 33'654 Fälle ausserhalb in `ausblick.md`.
+- `eine-zahl.md` verfolgt die Zahl jetzt über den Vollschnappschuss 2024 vom
+  10.11. (`run_20261110T131057453169Z`, 259'686 Zeilen) statt über den
+  LN1-Lauf vom 5.9.; `tests/test_eine_zahl.py` zeigt mit `LAUF` dorthin.
+- `zaehlperspektiven.md`: Der Ladetag war ein Dienstag, die letzte Woche hat
+  also **zwei** Tage. Der Meldeverzug steht deshalb an der letzten vollen
+  Woche (1'417 Taten gegen 6'246 im Median); der Wächter prüft beides.
+- `datenhistorie.md`: `3072` trägt jetzt **weniger** Zeilen (6'730 statt
+  7'076) — Detroit hat weiter umcodiert.
+- Feldkatalog, Platzbedarf und Einstiegsseite neu erzeugt; die
+  Grössentabelle in Architekturtext und Einseiter übernommen.
+- 19 Läufe und das Release als `LN2` in `config/referenzstand.csv` gepinnt.
+  Die LN1-Pins bleiben.
+
+**Was nicht mitging, mit Absicht.** Datierte Messungen („Nachgemessen am …",
+der Schnappschussvergleich vom 11./12.9., die 55,9 % vom 18.9.) und die
+Historie in dieser Datei. Zwei Zahlen, die `serving/source_movement` nur
+ähnlich sehen, stehen jetzt in `SCHUTZ` von `test_dokumentzahlen.py`.
+
+**Was offen bleibt.**
+- `silver/source_change` hängt an der Lauf-Historie: lokal 95'484 Zeilen, auf
+  `srv01` am 10.11. 79'801 (`serving/source_movement` im Release). Das
+  Aufräumen vom 10.11. hat die Läufe gelöscht, aus denen der Serverwert
+  entstand; nachbauen lässt er sich nicht mehr. Der Feldkatalog beschreibt
+  die lokalen Manifeste, die Einstiegsseite das Release.
+- Abschnitt 8.7 des Konzepts und Notebook 34, Abschnitt 5.2, nennen für die
+  Geo-Lücke noch die Werte des Einjahresbaus (Sexualdelikte 12,0×, Betrug
+  3,78 % gegen 0,19 %, „Faktor 20"); das Notebook rechnet seit dem 4.10. über
+  sechs Jahrgänge und gibt heute 7,5×, 6,90 % gegen 0,10 % aus. Älter als
+  dieser Stand, und eine Aussage zu H1 — nicht hier angefasst.
+
+---
+
+## 12.11.2026 · `aufraeumen` entfernt die alten Fassungen zuletzt (Branch `fix/aufraeumen-reihenfolge`)
+
+**Was geschah.** Beim Aufräumen auf `srv01` am 10.11.2026
+(`--loeschen --fassungen --auch-fern`) entfernte das Werkzeug zuerst die
+alten Fassungen und löschte danach sechs Releases. In einem versionierten
+Eimer setzt dieses Löschen nur Markierungen: Die 530 MB der Releases blieben
+als 140 alte Fassungen liegen, und erst ein zweiter Durchgang gab sie frei.
+
+**Was sich ändert.** Die Fassungen gehen jetzt als letzter Schritt weg, nach
+Läufen, halben Releases und Releases — und unabhängig davon, ob der Bericht
+vor dem Löschen welche gefunden hatte, denn das Löschen erzeugt sie erst. Ein
+Durchgang lässt oben keine Reste mehr.
+
+**Zahlen.** 2'912 → **2'913 Tests**, Standardlauf 2'801 → **2'802**, im frischen Klon 2'723 → **2'724**.
+
+---
+
+## 12.11.2026 · Eine gescheiterte Quelle wird nachgefasst, statt den Lauf zu fällen (Branch `feature/ingestion-nachfassen`)
+
+**Was geschah.** Am Montag, 9.11.2026, antwortete Socrata vormittags nicht.
+Chicago 2021 stand als erste Stufe vorn, der Lauf brach ab, und Detroit,
+Census und Wetter luden gar nicht erst — auf `srv01` wie im GitHub-Datenlauf.
+Das Wochenrelease fehlte. Am Nachmittag lief derselbe Abruf glatt durch. #218
+macht den einzelnen Abruf zäher; fällt er trotzdem, fiel bisher alles.
+
+**Was sich ändert.**
+- Die Ingestion fährt jede Quelle, auch nach einem Fehler — die Quellen
+  hängen nicht voneinander ab. Was scheitert, kommt nach **30** und nach
+  weiteren **60 Minuten** noch einmal dran (`run_all --nachfassen`, Vorgabe
+  `30 60`; ohne Wert kein zweiter Versuch). Das Protokoll in
+  `pipeline_run.json` nennt je Stufe `versuche`.
+- **Abgeleitet wird weiterhin nur, wenn am Ende jede Quelle da ist.** Bleibt
+  eine rot, entsteht kein Silver, kein Gold und kein Release — die Zusage
+  „kein halber Stand" gilt unverändert. Innerhalb der Ableitung bricht die
+  erste gescheiterte Stufe ab wie bisher.
+- Der Volllauf auf `srv01` (`docker/srv01-datenlauf.sh full`) ruft die
+  Quellen nicht mehr einzeln mit `set -e`, sondern über `laden` mit denselben
+  Pausen; ein Test hält beide Pausenlisten gleich.
+
+**Was das kostet.** Ein roter Lauf dauert bis zu anderthalb Stunden länger.
+Der GitHub-Datenlauf brauchte am 11.11. 36 Minuten, mit dem Nachfassen
+höchstens gut zwei Stunden — unter seiner Grenze von 180.
+
+**Zahlen.** 2'900 → **2'912 Tests**, Standardlauf 2'789 → **2'801**, im frischen Klon 2'711 → **2'723**.
+
+## 10.11.2026 · Die Konsolensicherung packt keine Releases mehr ein, die der Eimer schon hält (Branch `feature/konsolensicherung-schlank`)
+
+**Was geschah.** Am 10.11. war der Eimer `urban-crime` über seinem
+Kontingent und schreibgeschützt; der Volllauf des Tages scheiterte daran, und
+die Konsole versuchte ihre Sicherung seit Mitternacht alle fünf Minuten
+vergeblich. Unter `backups/control/` lagen **11,2 GB** — zwölf tägliche
+Sicherungen seit dem 31.10., jede inzwischen **1,74 GB** gross, weil
+`object_store.backup` alle lokalen Releases in den Tarball packte. Dieselben
+Releases liegen ohnehin unter `releases/` im Eimer. Gelöscht wurde keine
+Sicherung, und `aufraeumen` kennt das Präfix nicht.
+
+**Was sich ändert.**
+- Ein lokales Release kommt nur noch ins Archiv, wenn der Eimer es nicht
+  schon hält: `releases/<Kennung>/release.json` mit denselben Bytes.
+  `release.json` geht immer zuletzt hoch, das Release ist dann vollständig
+  dort. `backup.json` nennt `releases_in_bucket` und `releases_archived`;
+  beim Wiederherstellen holt `python -m orchestration.release holen` die
+  ersten. Im lokalen Modus kommt weiterhin jedes Release mit.
+- Nach jeder geprüften Sicherung bleiben die neuesten **`ADMIN_BACKUP_KEEP`
+  (Vorgabe 7)**; ältere werden samt allen Fassungen endgültig gelöscht, die
+  gerade geschriebene nie, fremde Schlüssel unter dem Präfix nie.
+
+**Folge beim Einsetzen.** Die erste Sicherung nach dem Einsetzen behält
+sich selbst und die sechs neuesten alten und löscht den Rest endgültig — auf
+srv01 die sechs vom 31.10. bis 5.11., zusammen 3,4 GB (je 0,50 bzw. 0,63 GB,
+am 10.11. gemessen). Die übrigen sechs alten mit 7,8 GB fallen in den sechs
+Tagen danach nacheinander weg; dann liegt unter `backups/control/` nur noch
+eine Woche schlanker Sicherungen.
+
+**Zahlen.** 2'889 → **2'900 Tests**, Standardlauf 2'778 → **2'789**, im frischen Klon 2'700 → **2'711**.
+
+## 9.11.2026 · Der Chicago-Abruf hält eine Überlast von Socrata aus (Branch `feature/chicago-abruf-robust`)
+
+Der Montagslauf auf srv01 brach am 9.11. um 04:48 ab, ein Nachholversuch um
+11:34 ebenso. Beide Male lieferte data.cityofchicago.org minutenlang
+Timeouts und 503. Der Abruf gab nach fünf Versuchen auf, mit 60 s Lesefrist
+und zusammen 31 s Pause. Danach liefen Detroit, Census, Wetter, Silver, Gold
+und das Release wegen `set -e` nicht mehr. Derselbe Timeout steht auch im
+roten GitHub-Datenlauf vom 2.11.
+
+`chicago_pipeline.download_chicago` wartet jetzt länger:
+- **Getrennte Fristen:** 15 s für den Verbindungsaufbau, 180 s für das
+  Lesen. Ein toter Host fällt weiter schnell auf, eine langsame Seite darf
+  drei Minuten dauern.
+- **Acht statt fünf Versuche:** Die Pause verdoppelt sich (Faktor 2,
+  gedeckelt bei 120 s), zusammen gut sechs Minuten statt 31 s.
+- Das gilt für 429/5xx ebenso wie für Timeouts.
+- **Die Seite wird neu angefragt:** Bricht die Verbindung erst beim Lesen
+  der Antwort ab, wiederholt urllib3 nicht mehr, weil die Kopfzeilen schon
+  da sind. So scheiterte der zweite Nachholversuch am 9.11. um 22:08 bei
+  Chicago 2023 mit „Connection reset by peer", nachdem 2021 und 2022 schon
+  durch waren. `fetch_raw` fragt dann die ganze Seite neu an, bis zu
+  dreimal, nach 60 s und 120 s Pause. Ebenso nach einem Verbindungsfehler,
+  wenn die urllib3-Versuche aufgebraucht sind. Ein HTTP-Fehler und kaputtes
+  JSON lösen keinen neuen Versuch aus.
+
+Die Seitengrösse bleibt bei 10'000. Kleinere Seiten hätten die Raw-Schicht
+anders geschnitten, eine Datei je API-Antwort. Was geladen wird, bleibt
+gleich, deshalb steigt kein Ladevertrag.
+
+Neu gewacht: 8 Tests in `tests/chicago_pipeline/test_download_chicago.py`.
+- Die Pausen überbrücken mindestens fünf Minuten.
+- Verbinden und Lesen haben getrennte Fristen.
+- Nach einem abgerissenen Körper, einem Verbindungsfehler oder einem Timeout
+  wird die Seite neu angefragt, die Pause verdoppelt sich, und nach dem
+  letzten Versuch bricht der Abruf ab.
+- Nach einem HTTP-Fehler oder erschöpften 5xx-Versuchen wird die Seite
+  nicht neu angefragt.
+
+Nicht in diesem PR: Ein Ausfall von Chicago reisst weiterhin den ganzen
+Datenlauf mit.
+
+**Zahlen.** 2'881 → **2'889 Tests**, Standardlauf 2'770 → **2'778**, im frischen Klon 2'690 → **2'700** (am 10.11. gemessen; #219 hatte diese Zahl nicht nachgeführt).
 
 ## 8.11.2026 · Die Ingestion liest ihre Quellen aus einer Datei (Branch `feature/ingestion-konfigurierbar`)
 
@@ -824,7 +4100,7 @@ Platzhalter für eine unbekannte Tatzeit. In Chicago sind es 2024 9'445
 Fälle um 00:00 gegen 1'967 um 00:01. Kibana zeichnet sie mit und vermerkt
 es; der Entwurf verlangt, fehlende Tatzeiten getrennt auszuweisen. Das Brett
 nimmt sie heraus und nennt ihre Zahl, für Jan–Sep 2025 Chicago 11'078
-(6,1 %) und Detroit 2'907 (5,0 %). Echte Taten um genau 00:00 fehlen dann
+(6,1 %) und Detroit 2'932 (5,0 %). Echte Taten um genau 00:00 fehlen dann
 mit; die Zahl daneben macht das sichtbar.
 
 **Ein Fehler, der auch »Überblick« betraf.** `comparison_month` misst Teilmonate

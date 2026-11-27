@@ -99,3 +99,24 @@ def test_die_meldung_sagt_was_zu_tun_ist(tmp_path):
     assert ".env" in meldung, "die Meldung sagt nicht, wohin der Schluessel"
     assert "abbrechen" in meldung or "Mitte" in meldung, (
         "die Meldung sagt nicht, was sonst passiert waere")
+
+
+@pytest.mark.parametrize("stapel, erwartet", [
+    ("compose.cloud.yml", "compose.cloud.yml nennt nur den Namen"),
+    ("", "die Compose-Beschreibung nennt nur den Namen"),
+])
+def test_die_meldung_nennt_den_stapel_aus_der_umgebung(tmp_path, stapel, erwartet):
+    """FR-46: Bis zum 14.11.2026 nannte die Meldung srv01 und seine
+    Compose-Datei fest. Jetzt nennt sie, was der Stapel als STAPEL_COMPOSE
+    setzt, und sonst keine Datei."""
+    lauf = subprocess.run(
+        [sys.executable, "-m", "orchestration.vorpruefung"],
+        cwd=tmp_path, capture_output=True, text=True,
+        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path),
+             "STORAGE_BACKEND": "local", "LOCAL_DATA_ROOT": str(tmp_path),
+             "STAPEL_COMPOSE": stapel,
+             "PYTHONPATH": str(PROJECT_ROOT / "src" / "crime")},
+    )
+    assert lauf.returncode == 1, lauf.stderr
+    assert erwartet in lauf.stderr, lauf.stderr
+    assert "srv01" not in lauf.stderr, lauf.stderr

@@ -73,6 +73,22 @@ def test_batch_deduplication_pins_approved_configuration(store):
     assert candidates.active_id(store) is None
 
 
+def test_batch_log_can_be_opened_by_its_operation_id(store):
+    from platform_admin.web import create_app
+
+    job_id = enqueue_batch(store, "full", "scheduler")
+    client = create_app(
+        store, operator="viewer", token="local-test", config={"ADMIN_AUTH": "local"}
+    ).test_client()
+    headers = {"Authorization": "Bearer local-test"}
+    url = f"/api/job-log?id={job_id}"
+    assert client.get(url, headers=headers).status_code == 400
+    folder = store.root / "jobs" / job_id
+    folder.mkdir(parents=True)
+    (folder / "run.log").write_text("Gesamtimport gestartet", encoding="utf-8")
+    assert client.get(url, headers=headers).json["log"] == "Gesamtimport gestartet"
+
+
 def test_remote_snapshot_and_ui_use_s3_not_local_stale_cache(store):
     fake = storage.FakeS3Client()
     backend = storage.Storage(storage.Config(backend="s3", local_root=store.data), client=fake)
@@ -136,6 +152,23 @@ def test_recovery_only_closes_abandoned_nonimpact_job(store):
     assert (store.root / "jobs" / jid / "recovery.json").exists()
     with pytest.raises(AdminError):
         jobs.recover_import(store, jid, "operator", "Duplicate recovery")
+
+
+def test_local_backup_keeps_releases_and_only_the_newest_archives(store, tmp_path, monkeypatch):
+    # Locally there is no second copy of a release; the archive must carry it.
+    from platform_admin.object_store import backup
+    monkeypatch.setenv("ADMIN_BACKUP_KEEP", "1")
+    release = store.data / "releases/release=2026-11-10T13-47-23Z"
+    release.mkdir(parents=True)
+    (release / "release.json").write_text("{}")
+    with jobs.writer_lock(store):
+        first = backup(store)
+        second = backup(store)
+    assert second["releases_archived"] == ["release=2026-11-10T13-47-23Z"]
+    folder = store.data / "backups/control"
+    assert sorted(p.name for p in folder.iterdir()) == sorted(
+        [Path(second["key"]).name, Path(second["key"]).name.replace(".tar.gz", ".json")])
+    assert first["key"] in second["removed"]
 
 
 def test_local_backup_includes_management_and_serving_evidence(store, tmp_path):

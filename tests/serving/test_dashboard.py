@@ -14,8 +14,9 @@ import json
 import math
 import re
 import shutil
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import duckdb
 import pyarrow as pa
@@ -47,13 +48,74 @@ TRACT_STADT = {TRACT_C: "chicago", TRACT_D: "detroit",
                TRACT_KLEIN: "chicago", TRACT_LEER: "chicago"}
 
 
+ZONEN = {"chicago": ZoneInfo("America/Chicago"), "detroit": ZoneInfo("America/Detroit")}
+
+
+def utc(stadt: str, ortszeit: datetime) -> datetime:
+    """Ortszeit der Stadt als naiver UTC-Zeitpunkt, wie ``fact_offense.occurred_at_utc``."""
+    return ortszeit.replace(tzinfo=ZONEN[stadt]).astimezone(timezone.utc).replace(tzinfo=None)
+
+
 def quadrat(x: float, y: float) -> str:
     return f"POLYGON (({x} {y}, {x + 0.01} {y}, {x + 0.01} {y + 0.01}, {x} {y + 0.01}, {x} {y}))"
 
 
-def stern(root: Path, taten: list[tuple], *, kleine: bool = False) -> Path:
-    """(meldende Stadt, Datum, NIBRS-Code, Tract[, Uhrzeit[, Fall[, Zuordnung]]]) je Tat."""
+#: Seit Gold-Vertrag 11: je Tract ein Polizeibezirk - Chicago 1, Detroit 2.
+BEZIRK_VON = {TRACT_C: "1", TRACT_D: "2", TRACT_KLEIN: "1", TRACT_LEER: "1"}
+#: Seit Gold-Vertrag 12: je Tract ein Stadtteil; in Detroit ein Name.
+STADTTEIL_VON = {TRACT_C: "1", TRACT_D: "Brightmoor", TRACT_KLEIN: "2", TRACT_LEER: "2"}
+
+
+def stern(root: Path, taten: list[tuple], *, kleine: bool = False,
+          bezirke: bool = False, festnahme=None) -> Path:
+    """(meldende Stadt, Datum, NIBRS-Code, Tract[, Uhrzeit[, Fall[, Zuordnung]]]) je Tat.
+
+    ``bezirke`` legt die Polizeibezirke dazu wie Gold-Vertrag 11, und
+    ``festnahme(i, tat)`` gibt je Tat ``arrest``. Ohne beides sieht der Stern
+    aus wie ein Release vor dem 25.11.2026.
+    """
+    # Die Koordinate: der Mittelpunkt des Quadrats, das der Tract in
+    # dim_tract_geo hat; ausserhalb der Stadt ein Punkt daneben.
+    mittelpunkt = {TRACT_C: (41.805, -87.695), TRACT_D: (42.305, -83.095),
+                   TRACT_AUSSEN: (41.9, -87.9), TRACT_KLEIN: (41.805, -87.675),
+                   TRACT_LEER: (41.805, -87.655)}
+    extra = {"latitude": [mittelpunkt[t[3]][0] for t in taten],
+             "longitude": [mittelpunkt[t[3]][1] for t in taten]}
+    if bezirke:
+        extra |= {
+            "police_area": [BEZIRK_VON.get(t[3]) for t in taten],
+            "community_area": [STADTTEIL_VON.get(t[3]) for t in taten],
+            "arrest": [festnahme(i, t) if festnahme else False for i, t in enumerate(taten)],
+        }
+        schreibe(root, "dim_police_area", {
+            "city": ["chicago", "chicago", "detroit"],
+            "area_id": ["1", "31", "2"],
+            "area_name": ["District 1", "District 31", "Precinct 2"],
+            "within_city": [True, False, True],
+            "boundary_wkt": [quadrat(-87.7, 41.8), quadrat(-87.9, 41.95), quadrat(-83.1, 42.3)],
+        })
+        bruecke = [(TRACT_C, "chicago", "1"), (TRACT_D, "detroit", "2")] + (
+            [(TRACT_KLEIN, "chicago", "1"), (TRACT_LEER, "chicago", "1")] if kleine else [])
+        schreibe(root, "bridge_tract_police_area", {
+            "geoid": [b[0] for b in bruecke], "city": [b[1] for b in bruecke],
+            "area_id": [b[2] for b in bruecke], "tract_share": [1.0] * len(bruecke),
+        })
+        # Seit Gold-Vertrag 12: Stadtteile. Chicagos Tracts teilen sich zwei,
+        # Detroits liegt in »Brightmoor« - ein Name als Schluessel.
+        schreibe(root, "dim_community_area", {
+            "city": ["chicago", "chicago", "detroit"],
+            "area_id": ["1", "2", "Brightmoor"],
+            "area_name": ["Rogers Park", "West Ridge", "Brightmoor"],
+            "within_city": [True, True, True],
+            "boundary_wkt": [quadrat(-87.7, 41.8), quadrat(-87.68, 41.8), quadrat(-83.1, 42.3)],
+        })
+        teile = [(g, s_, STADTTEIL_VON[g]) for g, s_, _ in bruecke]
+        schreibe(root, "bridge_tract_community_area", {
+            "geoid": [b[0] for b in teile], "city": [b[1] for b in teile],
+            "area_id": [b[2] for b in teile], "tract_share": [1.0] * len(teile),
+        })
     schreibe(root, "fact_offense", {
+        **extra,
         "offense_id": [f"o{i}" for i in range(len(taten))],
         "reporting_city": [t[0] for t in taten],
         "date": [t[1] for t in taten],
@@ -63,6 +125,10 @@ def stern(root: Path, taten: list[tuple], *, kleine: bool = False) -> Path:
         "counts_case": [t[5] if len(t) > 5 else True for t in taten],
         # Das siebte Feld: der Zuordnungsstatus, sonst exact.
         "mapping_status": [t[6] if len(t) > 6 else "exact" for t in taten],
+        # Der Quellcode, wie ihn die Stadt vergibt - hier aus dem NIBRS-Code
+        # abgeleitet, damit jeder NIBRS-Code genau einen Quellcode hat.
+        "source_offense_code": [f"Q{t[2]}" for t in taten],
+        "source_offense_description": [f"Quelle {t[2]}" for t in taten],
         # Wie in Gold: inside_city nur, wenn der Tract zur meldenden Stadt gehoert.
         "geo_status": ["inside_city" if TRACT_STADT.get(t[3]) == t[0] else "outside_city"
                        for t in taten],
@@ -72,6 +138,9 @@ def stern(root: Path, taten: list[tuple], *, kleine: bool = False) -> Path:
         "hour_of_day": [(t[4] if len(t) > 4 else time(18, 5)).hour for t in taten],
         "occurred_at_local": [datetime.combine(t[1], t[4] if len(t) > 4 else time(18, 5))
                               for t in taten],
+        # Wie in Silver: der Zeitpunkt in UTC, aus der Ortszeit der meldenden Stadt.
+        "occurred_at_utc": [utc(t[0], datetime.combine(t[1], t[4] if len(t) > 4 else time(18, 5)))
+                            for t in taten],
         "population_vintage": [2024 if t[1].year >= 2024 else 2023 for t in taten],
     })
     schreibe(root, "dim_offense", {
@@ -122,7 +191,14 @@ def freigeben(root: Path, kennung: str) -> Path:
 
 
 def jahr(stadt: str, j: int, code: str, tract: str, monate=range(1, 13), je=1) -> list:
-    return [(stadt, date(j, m, 1), code, tract) for m in monate for _ in range(je)]
+    """Je Monat eine Tat am Ersten - im Dezember am 31.
+
+    So reicht das Fenster einer Stadt mit ganzem Jahr bis zum Jahresende, und
+    die Rate je Jahr ist die von ``raten_je_stadt`` (``serving.dashboard.
+    zeitraum``). Am 1.12. endete es elf Monate und einen Tag nach Beginn.
+    """
+    return [(stadt, date(j, m, 31 if m == 12 else 1), code, tract)
+            for m in monate for _ in range(je)]
 
 
 @pytest.fixture
@@ -143,19 +219,48 @@ def bestand(tmp_path) -> Bestand:
     return Bestand(stern(tmp_path, taten))
 
 
-def test_die_rate_ist_die_der_dokumente(bestand):
-    """Dieselbe Zahl wie gold_pipeline.raten_je_stadt - Nenner, Tract-Regel, Jahr."""
-    rate = bestand.ueberblick(bestand.auswahl({"jahr": "2024"}))["raten"]["zeilen"][0]
-    gold = bestand.data_root / "gold"
+def _raten_aus_gold(root: Path, jahr: int) -> dict[str, tuple[float, float]]:
+    """(Fallebene, Tatebene) je Stadt aus gold_pipeline.raten_je_stadt."""
+    gold = root / "gold"
 
     def rel(t):
         return f"read_parquet('{gold}/dataset={t}/part-0001.parquet')"
 
-    erwartet = {s: r for s, r in duckdb.connect().execute(
-        "SELECT city, rate FROM (" + raten_je_stadt(rel("fact_offense"), rel("dim_tract"),
-                                                   rel("dim_tract_acs"), 2024) + ")").fetchall()}
-    assert rate["kategorie"] == "alle"
-    assert rate["werte"] == erwartet == {"chicago": 24.0, "detroit": 24.0}
+    return {s: (fall, tat) for s, fall, tat in duckdb.connect().execute(
+        "SELECT city, rate_fallebene, rate FROM (" + raten_je_stadt(
+            rel("fact_offense"), rel("dim_tract"), rel("dim_tract_acs"), jahr) + ")").fetchall()}
+
+
+def test_die_rate_ist_die_der_dokumente(bestand):
+    """Dieselbe Zahl wie gold_pipeline.raten_je_stadt - Nenner, Tract-Regel, Jahr."""
+    rate = bestand.ueberblick(bestand.auswahl({"jahr": "2024"}))["raten"]
+    gold = _raten_aus_gold(bestand.data_root, 2024)
+    assert rate["zeilen"][0]["kategorie"] == "alle"
+    assert rate["zeilen"][0]["werte"] == {s: g[0] for s, g in gold.items()}
+    assert rate["tatebene"] == {s: g[1] for s, g in gold.items()}
+
+
+def test_die_balken_stehen_auf_der_fallebene_die_tatebene_daneben(tmp_path):
+    """E5: Fallebene vorn. Eine weitere Anklage im selben Fall zaehlt nur in
+    der Tatebene - wie Detroit, das jedes Delikt eines Falls erfasst."""
+    taten = (jahr("chicago", 2024, "13A", TRACT_C)
+             + jahr("detroit", 2024, "13A", TRACT_D)
+             + [("detroit", date(2024, m, 31 if m == 12 else 1), "13B", TRACT_D, time(18, 5),
+                 False) for m in range(1, 13)])
+    b = Bestand(stern(tmp_path, taten))
+    rate = b.ueberblick(b.auswahl({"jahr": "2024"}))["raten"]
+    assert rate["zeilen"][0]["werte"] == {"chicago": 6.0, "detroit": 12.0}
+    assert rate["tatebene"] == {"chicago": 6.0, "detroit": 24.0}
+    # Eine Zeile, keine je Kategorie: Kategorien rechnen auf der Tatebene (E5).
+    assert len(rate["zeilen"]) == 1
+    # Beide Ebenen gegen raten_je_stadt, dort wo sie auseinandergehen.
+    gold = _raten_aus_gold(tmp_path, 2024)
+    assert rate["zeilen"][0]["werte"] == {s: g[0] for s, g in gold.items()}
+    assert rate["tatebene"] == {s: g[1] for s, g in gold.items()}
+    # Die Kategorieansicht »Rate« bleibt auf der Tatebene: Nur dort addieren
+    # sich Kategorien (E5).
+    kategorien = b.ueberblick(b.auswahl({"jahr": "2024", "mass": "rate"}))["kategorien"]
+    assert kategorien["zeilen"][0]["werte"]["detroit"] == 24.0
 
 
 def test_gezaehlt_wird_nach_meldender_stadt(bestand):
@@ -187,17 +292,23 @@ def test_der_teilmonat_ist_nicht_vollstaendig(bestand):
     assert detroit["letzter_monat"] == "2025-03-01"
 
 
-def test_zum_vorjahr_nur_ueber_vergleichbare_monate(bestand):
-    """Jan-Dez 2025 hat zwei ganze Monate; nur sie stehen gegen 2024."""
+def test_zum_vorjahr_nur_ueber_vergleichbare_tage(bestand):
+    """2025 reicht bei Chicago bis zum 1.3., bei Detroit bis zum 10.3.
+
+    Verglichen wird ueber die Tage, die in beiden Jahren fuer beide Staedte
+    vorliegen: 1.1. bis 1.3., 60 Tage. Bis Stufe 3 waren es die zwei ganzen
+    Monate; der 1.3. fiel mit dem halben Maerz heraus.
+    """
     k = bestand.ueberblick(bestand.auswahl({"jahr": "2025"}))["kennzahlen"]
-    assert k["vorjahr_monate"] == 2
-    # 2025: je Monat 1 + 1; 2024: je Monat 3 + 1 + 2.
-    assert k["vorjahr_prozent"] == round((4 - 12) * 100 / 12, 1)
+    assert k["vorjahr_tage"] == 60
+    # 2025: Chicago am 1.1., 1.2., 1.3., Detroit am 1.1. und 1.2.;
+    # 2024 an denselben Tagen: Chicago je 3 + 1, Detroit je 2.
+    assert k["vorjahr_prozent"] == round((5 - 18) * 100 / 18, 1)
 
 
 def test_ohne_vorjahr_kein_vergleich(bestand):
     k = bestand.ueberblick(bestand.auswahl({"jahr": "2023"}))["kennzahlen"]
-    assert k["vorjahr_prozent"] is None and k["vorjahr_monate"] == 0
+    assert k["vorjahr_prozent"] is None and k["vorjahr_tage"] == 0
 
 
 def test_der_anteil_summiert_sich_je_stadt_auf_hundert(bestand):
@@ -212,7 +323,9 @@ def test_die_kategorie_filtert_alles(bestand):
     assert r["kennzahlen"]["delikte"] == 1
     assert [z["name"] for z in r["kategorien"]["zeilen"]] == ["Raub"]
     # Der Raub lag ausserhalb jedes Stadt-Tracts: gezaehlt, aber ohne Rate.
-    assert r["raten"]["zeilen"][1]["werte"] == {"chicago": 0.0, "detroit": 0.0}
+    assert [z["name"] for z in r["raten"]["zeilen"]] == ["Raub"]
+    assert r["raten"]["zeilen"][0]["werte"] == {"chicago": 0.0, "detroit": 0.0}
+    assert r["raten"]["tatebene"] == {"chicago": 0.0, "detroit": 0.0}
 
 
 def test_der_rest_heisst_nicht_wie_nibrs_90z(monkeypatch, bestand):
@@ -412,7 +525,8 @@ def test_der_verlauf_zeigt_faelle_gegen_das_vorjahr(stunden):
     # Faelle, nicht Taten: Die zweite Anklage am 8.1. zaehlt nicht mit.
     assert chicago["jetzt"] == [6, 4, 5]
     assert chicago["vorjahr"] == [2, 2, 2]
-    assert s["vergleich"] == {"jahr": 2025, "vorjahr": 2024, "vorjahr_vorhanden": True}
+    assert s["vergleich"] == {"jahr": 2025, "vorjahr": 2024, "vorjahr_vorhanden": True,
+                              "von": "2024-01-01", "bis": "2024-03-31", "grund": None}
 
 
 def test_der_index_beginnt_beim_ersten_vollen_monat(tmp_path):
@@ -522,8 +636,44 @@ def test_die_umrisse_werden_zu_pfaden(karte):
     assert len(k["chicago"]["tracts"]) == 3
     d = k["detroit"]["tracts"][0]["d"]
     assert d.startswith("M0.0 ") and d.endswith("Z") and d.count("L") == 4
-    # Ein Quadrat in Grad ist in der Projektion hoeher als breit: cos(42,3 Grad).
+    # Ein Quadrat in Grad ist in Mercator hoeher als breit: 1/cos(42,3 Grad).
     assert k["detroit"]["hoehe"] == pytest.approx(600 / math.cos(math.radians(42.305)), rel=1e-3)
+
+
+def test_die_pfade_liegen_auf_den_kacheln():
+    """Aus x0, y0 und massstab rechnet karte.js die Kacheln; ein Eckpunkt muss
+    dorthin zurueckfuehren, wo Web-Mercator ihn hinlegt."""
+    from serving.dashboard.geografie import _welt
+    assert _welt(0.0, 0.0) == pytest.approx((0.5, 0.5))
+    assert _welt(180.0, 85.0511287798)[0] == pytest.approx(1.0)
+    assert _welt(0.0, 85.0511287798)[1] == pytest.approx(0.0, abs=1e-9)
+    from serving.dashboard.geografie import pfade
+    wkt = "POLYGON ((-83.1 42.3, -83.0 42.3, -83.0 42.4, -83.1 42.4, -83.1 42.3))"
+    k = pfade([("g", "detroit", "T", wkt)])["detroit"]
+    # Die Pfade sind auf 0,1 Einheiten gerundet.
+    for punkt, (lon, lat) in zip(k["tracts"][0]["d"][1:-1].split("L"),
+                                 [(-83.1, 42.3), (-83.0, 42.3), (-83.0, 42.4)]):
+        x, y = map(float, punkt.split())
+        wx, wy = _welt(lon, lat)
+        assert k["x0"] + x / k["massstab"] == pytest.approx(wx, abs=0.05 / k["massstab"])
+        assert k["y0"] + y / k["massstab"] == pytest.approx(wy, abs=0.05 / k["massstab"])
+    # Die Massstabsleiste: 0,1 Grad Laenge sind bei 42,35 Grad rund 8,2 km.
+    assert 600 / k["km"] == pytest.approx(8.22, rel=1e-2)
+
+
+def test_die_kacheln_kommen_von_dem_host_den_die_csp_erlaubt(bestand):
+    """Kachel-URL und CSP stehen an zwei Orten; laufen sie auseinander, bleibt
+    der Hintergrund still leer."""
+    from serving.dashboard.app import KACHELHOST
+    js = (Path(__file__).parents[2] / "src/crime/serving/dashboard/static/karte.js").read_text()
+    url = re.search(r'const KACHEL = "([^"]+)"', js).group(1)
+    assert url.startswith(KACHELHOST.replace("*", "{s}"))
+    csp = create_app(bestand=bestand).test_client().get("/geografie").headers["Content-Security-Policy"]
+    regeln = dict(r.strip().split(" ", 1) for r in csp.split(";"))
+    assert regeln["img-src"] == f"'self' {KACHELHOST}"
+    # Nur Bilder: Skripte, Stile und Abrufe bleiben bei 'self'.
+    assert regeln["default-src"] == "'self'"
+    assert not {"script-src", "style-src", "connect-src"} & set(regeln)
 
 
 def test_die_api_liefert_karten_und_raten(karte):
@@ -594,8 +744,8 @@ def test_zum_vorjahr_je_stadt_und_erst_ab_der_mindestzahl(struktur):
     assert zeilen["Robbery"]["vorjahr"]["chicago"] is None
 
 
-def test_zum_vorjahr_nur_ueber_vergleichbare_monate_der_stadt(tmp_path):
-    """Detroit endet am 10.3.: Fuer Detroit zaehlen nur Jan und Feb."""
+def test_zum_vorjahr_nur_ueber_vergleichbare_tage_der_stadt(tmp_path):
+    """Detroit endet am 10.3.: Fuer Detroit zaehlt der 1.1. bis 10.3., nicht Chicagos Ende."""
     b = Bestand(stern(tmp_path, (
         jahr("chicago", 2024, "13A", TRACT_C, je=25)
         + jahr("chicago", 2025, "13A", TRACT_C, monate=range(1, 4), je=25)
@@ -605,10 +755,13 @@ def test_zum_vorjahr_nur_ueber_vergleichbare_monate_der_stadt(tmp_path):
         + [("detroit", date(2025, 3, 10), "13A", TRACT_D)] * 2
     )))
     r = b.deliktstruktur(b.auswahl({"jahr": "2025", "bis": "3"}))
-    assert {s["stadt"]: s["vergleichbare_monate"] for s in r["staedte"]} == {"chicago": 3, "detroit": 2}
+    assert {s["stadt"]: s["vergleichbare_tage"] for s in r["staedte"]} == {"chicago": 90,
+                                                                          "detroit": 69}
     koerper = r["tabelle"][0]["vorjahr"]
-    # Chicago: 75 + 1 gegen 75; Detroit ohne den angebrochenen Maerz: 40 gegen 40.
-    assert koerper == {"chicago": round(1 * 100 / 75, 1), "detroit": 0.0}
+    # Chicago: 75 + 1 gegen 75. Detroit bis zum 10.3.: 40 + 2 gegen 60, denn
+    # 2024 liegen am 1.3. noch einmal 20. Bis Stufe 3 fiel der angebrochene
+    # Maerz ganz heraus, und es stand 40 gegen 40.
+    assert koerper == {"chicago": round(1 * 100 / 75, 1), "detroit": round(-18 * 100 / 60, 1)}
 
 
 def test_die_beispiele_sind_die_haeufigsten_delikte(struktur):
@@ -744,3 +897,444 @@ def test_gleichzeitige_erste_anfragen_laden_den_bestand_einmal(tmp_path, monkeyp
         f.join()
     assert antworten == [200] * 4
     assert len(geladen) == 1
+
+
+# --------------------------------------------------------------------------
+# Die Staedtewahl: »Alle« und je Stadt eine Checkbox (22.11.2026)
+# --------------------------------------------------------------------------
+
+
+def test_die_staedte_kommen_aus_den_studienstaedten():
+    """Nicht mehr fest eingetragen (FR-43): eine dritte Stadt fiele sonst still heraus."""
+    from gold_pipeline import STADT_SCHLUESSEL
+    from serving import dashboard
+
+    assert set(dashboard.STAEDTE) == set(STADT_SCHLUESSEL.values())
+    assert set(dashboard.STADTNAMEN) == set(dashboard.STAEDTE)
+
+
+@pytest.mark.parametrize("wert,erwartet", [
+    ("alle", ("chicago", "detroit")),
+    ("beide", ("chicago", "detroit")),          # alte Links
+    ("", ("chicago", "detroit")),
+    ("detroit", ("detroit",)),
+    ("detroit,chicago", ("chicago", "detroit")),  # feste Folge
+    (" Chicago ", ("chicago",)),
+])
+def test_die_auswahl_versteht_alle_formen(wert, erwartet):
+    from serving import dashboard
+
+    assert dashboard.staedte_aus(wert) == erwartet
+
+
+@pytest.mark.parametrize("wert", ["berlin", "chicago,berlin", ","])
+def test_eine_unbekannte_oder_leere_stadt_ist_ein_fehler(wert):
+    from serving import dashboard
+
+    with pytest.raises(dashboard.EingabeFehler):
+        dashboard.staedte_aus(wert)
+
+
+def test_dieselbe_auswahl_heisst_gleich(bestand):
+    """``beide`` und die volle Liste werden zu ``alle``, eine Stadt bleibt sie."""
+    for wert in ("beide", "chicago,detroit", "alle"):
+        assert bestand.auswahl({"jahr": "2024", "stadt": wert}).stadt == "alle"
+    assert bestand.auswahl({"jahr": "2024", "stadt": "detroit,"}).stadt == "detroit"
+
+
+def test_jede_seite_hat_die_checkboxen_und_kein_auswahlfeld():
+    """Alle Bretter teilen die Leiste - keines darf beim alten Auswahlfeld bleiben."""
+    statisch = PROJEKT / "src/crime/serving/dashboard/static"
+    seiten = sorted(statisch.glob("*.html"))
+    assert len(seiten) >= 8
+    for seite in seiten:
+        html = seite.read_text(encoding="utf-8")
+        assert 'id="staedte"' in html, seite.name
+        assert '<input type="hidden" name="stadt" id="stadt">' in html, seite.name
+        assert '<select name="stadt"' not in html, seite.name
+
+
+
+def test_die_staedte_stehen_in_einer_aufklappliste():
+    """Die Häkchen liegen in einer Liste, die aufklappt wie ein Auswahlfeld.
+
+    Erst standen sie offen in der Leiste. Christian wollte sie am 22.11.2026
+    in einer Aufklappliste: zu sehen ist die Zusammenfassung, ein Klick
+    oeffnet die Häkchen. ``<details>``, damit Tastatur und Vorleser es kennen.
+    """
+    js = (PROJEKT / "src/crime/serving/dashboard/static/gemeinsam.js").read_text(encoding="utf-8")
+    assert 'document.createElement("details")' in js
+    assert 'klappe.className = "mehrfach-klappe"' in js
+    assert 'kopf.textContent = alle.checked ? "Alle"' in js
+
+
+# --------------------------------------------------------------------------
+# Mehrere Kategorien (22.11.2026)
+# --------------------------------------------------------------------------
+
+
+def test_mehrere_kategorien_zaehlen_zusammen(bestand):
+    """Zwei Kategorien gewaehlt ergeben die Summe der beiden einzeln."""
+    def delikte(kat: str) -> int:
+        return bestand.ueberblick(bestand.auswahl(
+            {"jahr": "2024", "kategorie": kat}))["kennzahlen"]["delikte"]
+
+    einzeln = delikte("Robbery") + delikte("Assault Offenses")
+    assert einzeln > 0
+    assert delikte("Robbery|Assault Offenses") == einzeln
+
+
+def test_die_kategorienwahl_heisst_kanonisch(bestand):
+    """Folge nach Haeufigkeit, und alle gewaehlt heisst ``alle``."""
+    a = bestand.auswahl({"jahr": "2024", "kategorie": "Robbery|Assault Offenses"})
+    b = bestand.auswahl({"jahr": "2024", "kategorie": "Assault Offenses|Robbery"})
+    assert a.kategorie == b.kategorie
+    alle = "|".join(bestand.kategorien)
+    assert bestand.auswahl({"jahr": "2024", "kategorie": alle}).kategorie == "alle"
+
+
+def test_eine_kategorie_mit_komma_bleibt_ganz():
+    """Darum ``|`` statt Komma: NIBRS kennt »Family Offenses, Nonviolent«."""
+    from serving import dashboard
+
+    bekannte = ["Family Offenses, Nonviolent", "Robbery", "Arson"]
+    assert dashboard.kategorien_aus("Family Offenses, Nonviolent|Robbery", bekannte) == (
+        "Family Offenses, Nonviolent", "Robbery")
+    with pytest.raises(dashboard.EingabeFehler):
+        dashboard.kategorien_aus("Robbery|Erfunden", bekannte)
+    with pytest.raises(dashboard.EingabeFehler):
+        dashboard.kategorien_aus("|", bekannte)
+
+
+def test_die_optionen_bieten_jede_kategorie_einzeln(bestand):
+    """»Alle« baut die Oberflaeche selbst - in der Liste stuende es doppelt."""
+    werte = [k["wert"] for k in bestand.optionen()["kategorien"]]
+    assert "alle" not in werte
+    assert set(werte) == set(bestand.kategorien)
+
+
+def test_jede_seite_mit_kategorie_hat_die_mehrfachwahl():
+    """Wo eine Kategorie gewaehlt wird, dann mit Häkchen - auf jeder Seite gleich."""
+    statisch = PROJEKT / "src/crime/serving/dashboard/static"
+    mit = [s for s in sorted(statisch.glob("*.html"))
+           if 'name="kategorie"' in s.read_text(encoding="utf-8")]
+    assert len(mit) >= 7
+    for seite in mit:
+        html = seite.read_text(encoding="utf-8")
+        assert 'id="kategorien"' in html, seite.name
+        assert '<select name="kategorie"' not in html, seite.name
+
+
+def test_ein_gesetzter_filter_ist_markiert():
+    """Wichtig war: Die Auswahl ist als aktiver Filter zu sehen."""
+    statisch = PROJEKT / "src/crime/serving/dashboard/static"
+    js = (statisch / "gemeinsam.js").read_text(encoding="utf-8")
+    css = (statisch / "dashboard.css").read_text(encoding="utf-8")
+    assert 'klappe.classList.toggle("aktiv", !alle.checked)' in js
+    assert ".mehrfach-klappe.aktiv summary" in css
+
+
+# --------------------------------------------------------------------------
+# NIBRS-Zuordnung im Detail (22.11.2026)
+# --------------------------------------------------------------------------
+
+
+def test_die_detailzeilen_summieren_sich_zu_den_taten(bestand):
+    """Jede Tat steht in genau einer Zeile: Quellcode, NIBRS-Code, Status."""
+    d = bestand.datenqualitaet(bestand.auswahl({"jahr": "2024"}))
+    zeilen = d["zuordnung_detail"]
+    assert zeilen
+    assert sum(z["delikte"] for z in zeilen) == d["kennzahlen"]["delikte"]
+    for s in ("chicago", "detroit"):
+        assert sum(z["anteil"] for z in zeilen if z["stadt"] == s) == pytest.approx(100, abs=0.1)
+    assert {z["status"] for z in zeilen} <= {"exact", "fallback_90Z", "ambiguous", "unmapped"}
+
+
+def test_die_detailzeilen_folgen_der_leiste(bestand):
+    """Stadt und Kategorie der Leiste gelten auch fuer die Detailtafel."""
+    d = bestand.datenqualitaet(bestand.auswahl(
+        {"jahr": "2024", "stadt": "detroit", "kategorie": "Assault Offenses"}))
+    zeilen = d["zuordnung_detail"]
+    assert zeilen and {z["stadt"] for z in zeilen} == {"detroit"}
+    assert {z["kategorie"] for z in zeilen} == {"Körperverletzung"}
+
+
+def test_die_detailtafel_ist_da_und_die_grafik_fuehrt_hin():
+    """Ein Klick auf einen Abschnitt der Grafik setzt Stadt und Status der Tafel."""
+    statisch = PROJEKT / "src/crime/serving/dashboard/static"
+    html = (statisch / "datenqualitaet.html").read_text(encoding="utf-8")
+    js = (statisch / "datenqualitaet.js").read_text(encoding="utf-8")
+    assert 'id="zuordnung-detail"' in html and 'id="f-status"' in html
+    # Kein .umschalter: starteBrett naehme ihn als Parameter der Leiste.
+    assert 'class="umschalter' not in html
+    assert 'Object.assign(detailwahl, { status: z, stadt: s.stadt' in js
+    for status in ("exact", "fallback_90Z", "ambiguous", "unmapped"):
+        assert f'["{status}",' in js
+
+
+
+# --------------------------------------------------------------------------
+# Polizeibezirke und Festnahmen (Gold-Vertrag 11, 25.11.2026)
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def bezirke(tmp_path) -> Bestand:
+    taten = (
+        jahr("chicago", 2024, "13A", TRACT_C, je=3)
+        + jahr("chicago", 2024, "13A", TRACT_KLEIN, monate=[3])
+        + jahr("chicago", 2024, "120", TRACT_AUSSEN, monate=[5, 6])
+        + jahr("detroit", 2024, "13A", TRACT_D, je=2)
+    )
+    # Jede vierte Tat mit Festnahme; in Detroit ist der Stand einer Tat unbekannt.
+    def festnahme(i, t):
+        if t[0] == "detroit" and i == len(taten) - 1:
+            return None
+        return i % 4 == 0
+    return Bestand(stern(tmp_path, taten, kleine=True, bezirke=True, festnahme=festnahme))
+
+
+def test_die_rate_je_bezirk_teilt_die_faelle_durch_die_einwohner_des_bezirks(bezirke):
+    g = bezirke.geografie(bezirke.auswahl({"jahr": "2024"}), "bezirk")
+    nach = {(s["stadt"], t["geoid"]): t for s in g["staedte"] for t in s["tracts"]}
+    # Chicago 1 traegt TRACT_C (2'000) und TRACT_KLEIN (100): 37 Faelle.
+    assert nach[("chicago", "1")]["einwohner"] == 2100
+    assert nach[("chicago", "1")]["faelle"] == 37
+    assert nach[("chicago", "1")]["rate"] == round(37 * 1000 / 2100, 1)
+    assert nach[("detroit", "2")]["rate"] == 24.0
+    # District 31 zaehlt nicht zur Stadt und steht nicht auf der Karte.
+    assert ("chicago", "31") not in nach
+    assert set(bezirke.karten_bezirke["chicago"]["tracts"][0]) >= {"geoid", "d"}
+    assert [t["geoid"] for t in bezirke.karten_bezirke["chicago"]["tracts"]] == ["1"]
+
+
+def test_ueber_alle_bezirke_ergibt_sich_die_rate_der_stadt(bezirke):
+    g = bezirke.geografie(bezirke.auswahl({"jahr": "2024", "stadt": "detroit"}), "bezirk")
+    t = g["staedte"][0]["tracts"]
+    assert sum(x["faelle"] for x in t) * 1000 / sum(x["einwohner"] for x in t) == 24.0
+
+
+def test_die_festnahmequote_zaehlt_nur_faelle_mit_bekanntem_stand(bezirke):
+    g = bezirke.geografie(bezirke.auswahl({"jahr": "2024"}), "festnahme")
+    detroit = next(s for s in g["staedte"] if s["stadt"] == "detroit")
+    bezirk = detroit["tracts"][0]
+    assert bezirk["faelle"] == 24 and bezirk["bekannt"] == 23
+    assert bezirk["anteil"] == round(bezirk["festnahmen"] * 100 / 23, 1)
+    assert bezirk["wert"] == bezirk["anteil"]
+    # 23 Faelle mit Stand liegen unter der Mindestzahl: geringe Basis.
+    assert bezirk["geringe_basis"] and g["mindestfaelle"] == 30
+    assert detroit["anteil"] == bezirk["anteil"]
+
+
+def test_ein_junger_zeitraum_traegt_den_hinweis(bezirke):
+    alt = bezirke.geografie(bezirke.auswahl({"von": "2024-01-01", "bis": "2024-06-30"}), "festnahme")
+    jung = bezirke.geografie(bezirke.auswahl({"von": "2024-07-01", "bis": "2024-12-31"}), "festnahme")
+    # Die Daten enden am 31.12.2024; ein Zeitraum bis dahin ist jung.
+    assert all(s["jung"] for s in jung["staedte"])
+    assert all(s["jung"] for s in alt["staedte"])
+    from serving.dashboard.geografie import NACHFUEHRUNG_TAGE
+    assert NACHFUEHRUNG_TAGE == 365
+
+
+def test_die_alte_ansicht_gilt_als_raum_und_kennzahl(bezirke):
+    g = bezirke.geografie(bezirke.auswahl({"jahr": "2024"}), "festnahme")
+    assert (g["raum"], g["kennzahl"]) == ("bezirk", "festnahme")
+    assert (g["auswahl"]["raum"], g["auswahl"]["kennzahl"]) == ("bezirk", "festnahme")
+    assert g["ansicht"] == "festnahme"
+
+
+def test_eine_unbekannte_ansicht_ist_ein_eingabefehler(bezirke):
+    with pytest.raises(EingabeFehler, match="Ansicht"):
+        bezirke.geografie(bezirke.auswahl({"jahr": "2024"}), "wohnort")
+
+
+def test_ein_release_ohne_bezirke_sagt_es_statt_zu_scheitern(karte):
+    """Ein Release vor Gold-Vertrag 11: Tracts gehen, Bezirke nicht."""
+    assert karte.karten_bezirke is None
+    assert karte.geografie(karte.auswahl({"jahr": "2024"}), "tract")["ansicht"] == "tract"
+    with pytest.raises(EingabeFehler, match="Polizeibezirke"):
+        karte.geografie(karte.auswahl({"jahr": "2024"}), "bezirk")
+    client = create_app(bestand=karte).test_client()
+    assert client.get("/api/karten?raum=bezirk").get_json() == {}
+
+
+def test_die_api_reicht_die_ansicht_durch(bezirke):
+    client = create_app(bestand=bezirke).test_client()
+    antwort = client.get("/api/geografie?jahr=2024&ansicht=bezirk").get_json()
+    assert antwort["ansicht"] == "bezirk"
+    assert set(client.get("/api/karten?raum=bezirk").get_json()) == {"chicago", "detroit"}
+
+
+def test_ein_multipolygon_zeichnet_jeden_teil():
+    """Chicagos District 31 kommt aus drei Teilen; bis 25.11. las pfade nur den ersten."""
+    from serving.dashboard.geografie import pfade
+    wkt = ("MULTIPOLYGON (((-83.1 42.3, -83.0 42.3, -83.0 42.4, -83.1 42.3)), "
+           "((-83.2 42.3, -83.15 42.3, -83.15 42.35, -83.2 42.3)))")
+    d = pfade([("31", "detroit", "District 31", wkt)])["detroit"]["tracts"][0]["d"]
+    assert d.count("M") == 2 and d.count("Z") == 2
+
+
+
+# --------------------------------------------------------------------------
+# Raum und Kennzahl (25.11.2026): geglaettet, Vorjahr, Profil, Nacht, Sechseck
+# --------------------------------------------------------------------------
+
+
+def test_raum_und_kennzahl_werden_geprueft(karte):
+    a = karte.auswahl({"jahr": "2024"})
+    with pytest.raises(EingabeFehler, match="Raum"):
+        karte.geografie(a, raum="bundesstaat")
+    with pytest.raises(EingabeFehler, match="Kennzahl"):
+        karte.geografie(a, kennzahl="wohnort")
+    with pytest.raises(EingabeFehler, match="keine Einwohner"):
+        karte.geografie(a, raum="sechseck", kennzahl="geglaettet")
+
+
+def test_die_geglaettete_rate_rueckt_kleine_tracts_zum_mittel(karte):
+    a = karte.auswahl({"jahr": "2024", "stadt": "chicago"})
+    roh = {t["geoid"]: t for t in karte.geografie(a)["staedte"][0]["tracts"]}
+    glatt = {t["geoid"]: t for t in
+             karte.geografie(a, kennzahl="geglaettet")["staedte"][0]["tracts"]}
+    klein = glatt[TRACT_KLEIN]
+    mittel = (sum(t["faelle"] for t in roh.values())
+              / sum(t["personenjahre"] for t in roh.values() if t["personenjahre"]) * 1000)
+    # Zwischen eigener Rate und Mittel der Stadt, und nicht mehr schraffiert.
+    lo, hi = sorted([roh[TRACT_KLEIN]["rate"], mittel])
+    assert lo <= klein["wert"] <= hi and not klein["geringe_basis"]
+    assert 0 <= klein["gewicht"] <= glatt[TRACT_C]["gewicht"] <= 1
+    # Ohne Einwohner auch geglaettet keine Rate.
+    assert glatt[TRACT_LEER]["wert"] is None
+
+
+def test_die_veraenderung_vergleicht_mit_denselben_tagen_ein_jahr_frueher(bestand):
+    g = bestand.geografie(bestand.auswahl({"jahr": "2024", "stadt": "chicago"}),
+                          kennzahl="veraenderung")
+    t = next(x for x in g["staedte"][0]["tracts"] if x["geoid"] == TRACT_C)
+    # 2024: 36 Faelle 13A und 12 Faelle 23C; 2023: 24 Faelle 13A.
+    assert (t["faelle"], t["faelle_vorjahr"]) == (48, 24)
+    assert t["wert"] == 100.0 and g["vergleich"] == ["2024-01-01", "2024-12-31"]
+    assert g["klassen"] == [-20.0, -5.0, 5.0, 20.0]
+
+
+def test_die_veraenderung_folgt_der_kategorie(bestand):
+    a = bestand.auswahl({"jahr": "2024", "stadt": "chicago", "kategorie": "Assault Offenses"})
+    t = next(x for x in bestand.geografie(a, kennzahl="veraenderung")["staedte"][0]["tracts"]
+             if x["geoid"] == TRACT_C)
+    assert (t["faelle"], t["faelle_vorjahr"], t["wert"]) == (36, 24, 50.0)
+
+
+def test_das_profil_teilt_den_anteil_hier_durch_den_der_stadt(karte):
+    with pytest.raises(EingabeFehler, match="Kategorien"):
+        karte.geografie(karte.auswahl({"jahr": "2024"}), kennzahl="profil")
+    a = karte.auswahl({"jahr": "2024", "stadt": "chicago",
+                       "kategorie": "Larceny/Theft Offenses"})
+    t = {x["geoid"]: x for x in karte.geografie(a, kennzahl="profil")["staedte"][0]["tracts"]}
+    # TRACT_C: 12 von 48 Faellen Diebstahl; die Stadt: 12 von 49 - fast gleich.
+    assert (t[TRACT_C]["faelle"], t[TRACT_C]["faelle_alle"]) == (12, 48)
+    assert t[TRACT_C]["wert"] == round((12 / 48) / (12 / 49), 2)
+    # TRACT_KLEIN: kein Diebstahl, Quotient 0 - aber geringe Basis.
+    assert t[TRACT_KLEIN]["wert"] == 0.0 and t[TRACT_KLEIN]["geringe_basis"]
+
+
+def test_der_nachtanteil_folgt_dem_sonnenstand(tmp_path):
+    # Hell von 13 bis 23 Uhr UTC an jedem Tag.
+    tage = [date(2024, 1, 1) + timedelta(days=i) for i in range(366)]
+    n = 2 * len(tage)
+    schreibe(tmp_path, "dim_city_day", {
+        "city": ["chicago"] * 366 + ["detroit"] * 366, "date": tage * 2,
+        "sunrise_utc": [datetime.combine(t, time(13)) for t in tage] * 2,
+        "sunset_utc": [datetime.combine(t, time(23)) for t in tage] * 2,
+        "daylight_hours": [10.0] * n,
+        # Das Wetter, das »Wetter« aus derselben Tabelle liest.
+        "temp_max_c": [1.0] * n, "temp_min_c": [-1.0] * n,
+        "precipitation_mm": [0.0] * n, "snowfall_mm": [0.0] * n,
+        "precipitation_trace": [False] * n, "station_name": ["Station"] * n,
+    })
+    # 18:05 Ortszeit in Chicago ist 00:05 UTC am Folgetag - dunkel; 10:00 ist 16:00 UTC - hell.
+    taten = ([("chicago", date(2024, 1, 15), "13A", TRACT_C, time(18, 5))] * 30
+             + [("chicago", date(2024, 1, 15), "13A", TRACT_C, time(10, 0))] * 10
+             + jahr("detroit", 2024, "13A", TRACT_D))
+    b = Bestand(stern(tmp_path, taten))
+    g = b.geografie(b.auswahl({"jahr": "2024", "stadt": "chicago"}), kennzahl="nacht")
+    t = next(x for x in g["staedte"][0]["tracts"] if x["geoid"] == TRACT_C)
+    assert (t["dunkel"], t["licht_bekannt"], t["wert"]) == (30, 40, 75.0)
+
+
+def test_ohne_sonnenstand_bleibt_der_nachtanteil_leer(karte):
+    g = karte.geografie(karte.auswahl({"jahr": "2024"}), kennzahl="nacht")
+    assert all(t["wert"] is None for s in g["staedte"] for t in s["tracts"])
+
+
+def test_sechsecke_zeigen_die_dichte_und_ihren_umriss(karte):
+    from serving.dashboard.taten import SECHSECK_M
+    g = karte.geografie(karte.auswahl({"jahr": "2024", "stadt": "chicago"}), raum="sechseck")
+    zellen = g["staedte"][0]["tracts"]
+    # Nur Zellen mit Faellen in der Stadt; jede mit einem sechseckigen Umriss.
+    assert zellen and all(z["delikte"] and z["d"].count("L") == 5 for z in zellen)
+    assert sum(z["faelle"] for z in zellen) == 49
+    km2 = 3 * math.sqrt(3) / 2 * (SECHSECK_M / 1000) ** 2
+    groesste = max(zellen, key=lambda z: z["faelle"])
+    assert groesste["wert"] == round(groesste["faelle"] / km2 / (366 / 365.25), 1)
+    assert g["staedte"][0]["tracts"][0]["einwohner"] is None
+
+
+def test_die_sechseck_zelle_ist_die_naechste_nach_red_blob_games():
+    """Ein Punkt genau in einer Zellmitte bleibt dort; einer daneben findet die Nachbarzelle."""
+    import duckdb as d
+    from serving.dashboard.taten import ERDRADIUS_M, SECHSECK_M, sechseck_sql
+    lat0, lon0 = 41.8, -87.7
+
+    def zelle(dx, dy):
+        lat = lat0 + math.degrees(dy / ERDRADIUS_M)
+        lon = lon0 + math.degrees(dx / (ERDRADIUS_M * math.cos(math.radians(lat0))))
+        q, r = sechseck_sql(str(lat), str(lon), str(lat0), str(lon0))
+        return d.connect().execute(f"SELECT {q}, {r}").fetchone()
+
+    assert zelle(0, 0) == (0, 0)
+    # Mitte der Zelle (1, 0) liegt sqrt(3) * Kante oestlich.
+    assert zelle(math.sqrt(3) * SECHSECK_M, 0) == (1, 0)
+    # Mitte von (0, 1): halbe Breite oestlich, 1,5 Kanten noerdlich.
+    assert zelle(math.sqrt(3) / 2 * SECHSECK_M, 1.5 * SECHSECK_M) == (0, 1)
+def test_jede_ladung_lagert_in_ihr_eigenes_verzeichnis_aus(karte, tmp_path):
+    """25.11.2026 auf srv01: Alte und neue Verbindung teilten sich die
+    Auslagerungsdatei; das Schliessen der alten nahm der neuen ihre Daten,
+    und jede Anfrage endete mit 500."""
+    erstes = Path(karte.auslagerung)
+    assert erstes.is_dir()
+    assert karte._con.execute("SELECT current_setting('temp_directory')").fetchone()[0] == str(erstes)
+    # Ein neues Release: dieselbe Kopie unter neuer Kennung, der Zeiger zeigt dorthin.
+    freigeben(karte.data_root, "2026-11-25T10-47-20Z")
+    karte._lade()
+    zweites = Path(karte.auslagerung)
+    assert zweites != erstes and zweites.is_dir()
+    # Lokal mit Absicht: Das alte Verzeichnis ist weg, das neue bleibt.
+    assert not erstes.exists()
+    # Die neue Verbindung rechnet weiter, auch nachdem die alte geschlossen ist.
+    assert karte.geografie(karte.auswahl({"jahr": "2024"}))["staedte"]
+
+
+
+# --------------------------------------------------------------------------
+# Stadtteile (Gold-Vertrag 12, 25.11.2026)
+# --------------------------------------------------------------------------
+
+
+def test_die_rate_je_stadtteil_nimmt_die_einwohner_des_stadtteils(bezirke):
+    g = bezirke.geografie(bezirke.auswahl({"jahr": "2024"}), raum="stadtteil")
+    nach = {(s["stadt"], t["geoid"]): t for s in g["staedte"] for t in s["tracts"]}
+    assert nach[("chicago", "1")]["einwohner"] == 2000
+    assert nach[("chicago", "1")]["rate"] == 18.0           # 36 Faelle
+    assert nach[("chicago", "2")]["faelle"] == 1             # TRACT_KLEIN, 100 Einwohner
+    assert nach[("chicago", "2")]["geringe_basis"]
+    # Detroits Schluessel ist ein Name.
+    assert nach[("detroit", "Brightmoor")]["name"] == "Brightmoor"
+    assert nach[("detroit", "Brightmoor")]["rate"] == 24.0
+    assert set(bezirke.karten_stadtteile) == {"chicago", "detroit"}
+
+
+def test_ein_release_ohne_stadtteile_sagt_es(karte):
+    assert karte.karten_stadtteile is None
+    with pytest.raises(EingabeFehler, match="Stadtteile"):
+        karte.geografie(karte.auswahl({"jahr": "2024"}), raum="stadtteil")
+    assert create_app(bestand=karte).test_client().get(
+        "/api/karten?raum=stadtteil").get_json() == {}

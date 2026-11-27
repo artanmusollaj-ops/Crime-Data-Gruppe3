@@ -26,9 +26,12 @@ STAGE_NAMES = {
     "census_pipeline.download_tiger": "Import · Census TIGER",
     "census_pipeline.download_acs": "Import · Census ACS5",
     "weather_pipeline.download_noaa": "Import · NOAA-Wetter",
+    "gebiete_pipeline.download_gebiete": "Import · Polizeibezirke",
     "silver_pipeline.build_tract": "Silver · Census-Tracts",
     "silver_pipeline.build_place": "Silver · Stadtgrenzen",
     "silver_pipeline.build_weather_day": "Silver · Wettertage",
+    "silver_pipeline.build_police_area": "Silver · Polizeibezirke",
+    "silver_pipeline.build_community_area": "Silver · Stadtteile",
     "silver_pipeline.build_crime_offense": "Silver · harmonisierte Delikte",
     "silver_pipeline.build_source_change": "Silver · Quellhistorisierung",
     "orchestration.vorpruefung": "Vorpruefung · Quellen und Speicher",
@@ -551,6 +554,10 @@ def run_standard(store, job, spec, folder, log_path, runner, evaluator):
     config = store.materialize(job["mapping_revision"])
     from .run_evidence import capture, inventory
 
+    # Two cities (FR-43): the city is read from the task name, here and in the
+    # note below, which falls back to "Chicago". Unknown tasks are rejected
+    # above today. Once a third city's task is added there, its runs would go
+    # uncaptured and the note would name the wrong city.
     city_key = "detroit" if "detroit" in spec["task"] else "chicago" if "chicago" in spec["task"] else None
     before = inventory(store, city_key) if city_key else {}
     try:

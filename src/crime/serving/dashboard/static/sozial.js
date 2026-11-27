@@ -1,6 +1,7 @@
 // Das Brett »Soziales Umfeld«.
 import { FARBE, achsenzahl, balken, el, komma, leer, legende, starteBrett, zahl, zeitraumtext }
   from "./gemeinsam.js";
+import { kartenflaeche, kopplung, schraffur } from "./karte.js";
 
 // Dieselben Stufen wie auf der »Geografie«: dieselbe Farbe ist dieselbe Rate.
 const RATE = ["#dcebfa", "#a9cdf2", "#6aa6e4", "#2f7de1", "#0b3f8a"];
@@ -31,22 +32,14 @@ function armutsstufe(t, baender) {
 }
 
 // Eine Karte: je Tract die Farbe, die ``farbe(t)`` sagt; ``null`` heisst schraffiert.
-function karte(stadt, titel, farbe, d) {
+function karte(stadt, titel, farbe, d, gekoppelt = null) {
   const k = karten[stadt.stadt];
   const tafel = document.createElement("article");
   tafel.className = `tafel karte ${stadt.stadt}`;
   const h2 = document.createElement("h2");
   h2.textContent = titel;
   const id = `schraffur-${stadt.stadt}-${titel.length}`;
-  const svg = el("svg", { viewBox: `-10 -10 ${k.breite + 20} ${k.hoehe + 20}`, role: "img",
-    "aria-label": titel });
-  const defs = el("defs");
-  const muster = el("pattern", { id, width: 6, height: 6, patternUnits: "userSpaceOnUse",
-    patternTransform: "rotate(45)" });
-  muster.append(el("rect", { width: 6, height: 6, fill: "#f1f3f6" }),
-    el("line", { x1: 0, y1: 0, x2: 0, y2: 6, stroke: "#aab3bf", "stroke-width": 2 }));
-  defs.append(muster);
-  svg.append(defs);
+  const inhalt = el("g");
   const nach = Object.fromEntries(stadt.tracts.map((t) => [t.geoid, t]));
   for (const f of k.tracts) {
     const t = nach[f.geoid];
@@ -60,11 +53,9 @@ function karte(stadt, titel, farbe, d) {
       if (t.geringe_basis && t.einwohner) zeilen.push(`geringe Basis (unter ${zahl.format(d.geringe_basis)})`);
     }
     pfad.append(el("title", {}, zeilen.join("\n")));
-    svg.append(pfad);
+    inhalt.append(pfad);
   }
-  const flaeche = document.createElement("div");
-  flaeche.className = "kartenflaeche";
-  flaeche.append(svg);
+  const flaeche = kartenflaeche(k, { titel, inhalt, defs: schraffur(id), gekoppelt });
   tafel.append(h2, flaeche);
   return tafel;
 }
@@ -88,8 +79,11 @@ function kartenbereich(d) {
     for (const s of d.staedte) {
       const paar = document.createElement("div");
       paar.className = "raster kartenpaar";
-      paar.append(karte(s, `${s.name}: Fälle je 1'000 Einwohner`, rateFarbe, d),
-        karte(s, `${s.name}: Armutsquote`, armutFarbe, d));
+      // Rate und Armut derselben Stadt zoomen gemeinsam: Derselbe Ausschnitt
+      // nebeneinander ist der Sinn des Paars.
+      const gemeinsam = kopplung();
+      paar.append(karte(s, `${s.name}: Fälle je 1'000 Einwohner und Jahr`, rateFarbe, d, gemeinsam),
+        karte(s, `${s.name}: Armutsquote`, armutFarbe, d, gemeinsam));
       ziel.append(paar);
     }
   }
@@ -188,7 +182,7 @@ function streuung(ziel, d) {
 
 function zeichne(d) {
   const zr = zeitraumtext(d.auswahl);
-  document.getElementById("u-sozial").textContent = `Fälle je 1'000 Einwohner und Armutsquote je Census `
+  document.getElementById("u-sozial").textContent = `Fälle je 1'000 Einwohner und Jahr sowie die Armutsquote je Census `
     + `Tract · ${zr}` + (d.vintage ? ` · ACS ${d.vintage}` : "");
   document.getElementById("ohne-vintage").hidden = Boolean(d.vintage);
   if (!karten) return;

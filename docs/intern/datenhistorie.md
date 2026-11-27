@@ -154,14 +154,19 @@ Welche Felder sich geändert haben:
 Durchweg vom spezifischen zum allgemeinen Code. Das ist keine Korrektur
 einzelner Tippfehler, das sieht nach einer Regel aus.
 
-`3072` ist dabei kein beliebiger Code. Er trägt **7'076 Anklagen** in
-`silver/crime_offense` und davon **6'860 zählende Taten** in
+`3072` ist dabei kein beliebiger Code. Er trägt **6'601 Anklagen** in
+`silver/crime_offense` und davon **6'400 zählende Taten** in
 `gold/fact_offense` — alle mit `mapping_status = ambiguous`. Eine Umcodierung
 dort verschiebt die NIBRS-Zuordnung und damit die Vergleichszahl.
 
 > **Diese zwei Zahlen messen den heutigen Bestand**, nicht die beiden
 > Schnappschüsse oben. Sie standen bis zum 4.10.2026 bei 1'404 und 1'365 und
-> sind mit dem Mehrjahresbau (2021–2026) mitgewachsen; die Messung in
+> sind mit dem Mehrjahresbau (2021–2026) mitgewachsen, auf 7'076 und 6'860.
+> Am Referenzstand vom 10.11.2026 waren es 6'730 und 6'526, im Zwischenstand
+> vom 20.11.2026 6'643 und 6'441, im Stand vom 26.11.2026 noch einmal
+> **weniger** — Detroit hat seither
+> weitere `3072`-Einträge umcodiert, genau die Bewegung, von der dieser
+> Abschnitt handelt. Die Messung in
 > Abschnitt 1 und 2 bleibt dagegen die des Paars vom 11./12.9.2026 und soll es
 > bleiben — sie ist der Vergleichspunkt, um den es in diesem Papier geht.
 
@@ -403,13 +408,21 @@ Silver-Tabelle, die neue Vorbedingung in `aufraeumen`, Tests.
    aktuelle (5.5)?~~ — **entschieden am 4.10.2026: gepinnt + die letzten
    acht, lokal und auf SeaweedFS.** Die Regel ist gebaut; gelöscht wird
    weiterhin nur auf Zuruf, und auf SeaweedFS nur mit `--auch-fern`.
-6. **Wann ziehen wir den Referenzstand nach?** Er ist seit dem 17.9. überholt
-   — siehe unten.
+6. ~~Wann ziehen wir den Referenzstand nach?~~ — **entschieden am
+   12.11.2026: auf den Volllauf vom 10.11.2026** (Release
+   `2026-11-10T13-47-23Z`), die Läufe als `LN2` gepinnt (`offene-punkte.md`,
+   E-1). Seit dem 20.11.2026 nennen die Dokumente einen ungepinnten
+   Zwischenstand, seit dem 26.11.2026 den vom selben Tag (Release
+   `2026-11-26T05-27-08Z`); vor der Abgabe wird noch
+   einmal nachgezogen (`abgabestand.md`).
 
 Punkt 1 ist der einzige, der Zeitdruck hat. Die übrigen drei lassen sich auch
 später ändern, solange die Rohläufe noch liegen.
 
-### Offen seit dem 17.9.2026: der Referenzstand ist überholt
+### Offen vom 17.9. bis 12.11.2026: der Referenzstand ist überholt
+
+> **Entschieden am 12.11.2026**, siehe Punkt 6 oben. Der Abschnitt bleibt als
+> Verlauf stehen: So sah die Lage aus, solange nicht nachgezogen war.
 
 Am Abend des 17.9. lief die Strecke erstmals seit dem 5.–8. September wieder
 **mit Ingestion**. Die Quellen hatten sich in diesen zehn Tagen bewegt, und

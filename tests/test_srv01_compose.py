@@ -63,6 +63,11 @@ GRENZEN_MIB = {
     # durch das eigene Dashboard ersetzt. Auf srv01 gemessen: Spitze 429 MiB
     # beim ersten Laden, danach rund 300 (lokal 476 beziehungsweise 412).
     "dashboard": 640,
+    # 15.11.2026: ``kibana`` ist kein Kibana, sondern der IAP-Tunnel in die
+    # Google-Cloud-Probe (gcloud im eigenen Abbild). Auf srv01 gemessen am
+    # 15.11.2026: Spitze 139,7 MiB beim ersten Laden von Kibana (rund 80
+    # Dateien zugleich); 128 MiB rissen dort.
+    "kibana": 256,
     # Am 16.10.2026 stand hier fuer einen Tag 2'048, weil ich die Grenze fuer
     # die Ursache hielt. Der Bau braucht gestuft 256 MB; zurueck auf die
     # Messung. Begruendung in der Compose-Datei.
@@ -300,14 +305,23 @@ def test_der_dauerbetrieb_ist_entschieden(dienste):
     mit dem Zeitweiligen **2'112** von 4'325 - rund 2,2 GiB frei statt 37.
     Entschieden ist nur der Server; lokal bleiben beide in
     docker-compose.yml (``test_die_entwicklungsfassung_bleibt_lauffaehig``).
+
+    **Am 15.11.2026 der Tunnel zu Kibana in Google Cloud** (Entscheid
+    Christian: laeuft dauernd). Kein Kibana, nur gcloud mit einem IAP-Tunnel:
+    640 + 160 + 32 + 256 = **1'088 MiB** dauernd, mit dem Zeitweiligen
+    **2'368** von 4'325 (die Grenze des Tunnels ist auf srv01 gemessen,
+    die erste Schaetzung von 128 MiB riss beim ersten Laden).
     """
     dauernd = sorted(n for n, d in dienste.items() if not d.get("profiles"))
-    assert dauernd == ["admin", "dashboard", "start"], (
-        f"Dauerbetrieb ist {dauernd}; FR-13 rechnet seit dem 1.11.2026 mit "
-        "dem Dashboard (640 MiB), der Einstiegsseite (32 MiB) und dem "
-        "Konsolen-Webdienst (160 MiB); Pipeline, Konsolen-Worker und Jupyter "
-        "sind zeitweilig"
+    assert dauernd == ["admin", "dashboard", "kibana", "start"], (
+        f"Dauerbetrieb ist {dauernd}; FR-13 rechnet seit dem 15.11.2026 mit "
+        "dem Dashboard (640 MiB), der Einstiegsseite (32 MiB), dem "
+        "Konsolen-Webdienst (160 MiB) und dem Kibana-Tunnel (256 MiB); "
+        "Pipeline, Konsolen-Worker und Jupyter sind zeitweilig"
     )
+    summe = sum(mib(dienste[n]["mem_limit"]) for n in dauernd)
+    zeitweilig = max(mib(d["mem_limit"]) for d in dienste.values() if d.get("profiles"))
+    assert (summe, summe + zeitweilig) == (1088, 2368), (summe, zeitweilig)
 
 
 # --------------------------------------------------------------------------
@@ -346,11 +360,12 @@ def test_die_pipeline_ist_nicht_im_netz_proxy(dienste):
 
 
 # --------------------------------------------------------------------------
-# Das Dashboard statt Elasticsearch und Kibana (1.11.2026, C-9)
+# Das Dashboard statt Elasticsearch und Kibana (1.11.2026, C-9), und Kibana
+# nur als Tunnel nach Google Cloud (15.11.2026)
 # --------------------------------------------------------------------------
 
 
-def test_srv01_traegt_weder_elasticsearch_noch_kibana(beschreibung):
+def test_srv01_traegt_elasticsearch_nie_und_kibana_nur_als_tunnel(beschreibung):
     """Entschieden ist der Server, nicht das Projekt.
 
     Bis zum 1.11.2026 hielt ``test_beide_fassungen_binden_dieselbe_elastic_version``
@@ -358,12 +373,128 @@ def test_srv01_traegt_weder_elasticsearch_noch_kibana(beschreibung):
     srv01 entfiel der Gegenstand; geblieben ist die Gegenrichtung: Kommt einer
     der beiden zurueck, ohne dass FR-13 neu gerechnet ist, faellt es hier auf
     und nicht erst an ``docker stats``.
+
+    **Seit dem 15.11.2026 heisst ein Dienst wieder ``kibana``** - als Tunnel
+    in die Google-Cloud-Probe, nicht als Kibana (Plan, Never). Bewacht ist
+    deshalb, was er **nicht** ist: kein Elastic-Abbild, kein Datentraeger
+    ausser dem eingehaengten Skript, keine Verbindung zu Elasticsearch.
     """
-    zurueck = sorted({"elasticsearch", "kibana"} & set(beschreibung["services"]))
-    assert not zurueck, f"wieder in der Serverfassung: {zurueck}"
+    dienste = beschreibung["services"]
+    assert "elasticsearch" not in dienste, "Elasticsearch wieder in der Serverfassung"
     alte = sorted({"elasticsearch-daten", "kibana-daten"}
                   & set(beschreibung.get("volumes") or {}))
     assert not alte, f"Datentraeger ohne Dienst: {alte}"
+    tunnel = dienste["kibana"]
+    assert "elastic" not in tunnel["image"], tunnel["image"]
+    assert tunnel["image"].startswith("gcr.io/google.com/cloudsdktool/google-cloud-cli:")
+    assert re.search(r"@sha256:[0-9a-f]{64}$", tunnel["image"]), "gcloud-Abbild ohne Digest"
+    assert tunnel["volumes"] == [
+        "./docker/srv01-kibana-tunnel.sh:/usr/local/bin/kibana-tunnel.sh:ro"], tunnel["volumes"]
+    assert "kibana-tunnel.sh" in tunnel["entrypoint"]
+    umgebung = tunnel["environment"]
+    assert not [v for v in umgebung if v.startswith(("ELASTICSEARCH", "XPACK", "KIBANA"))], umgebung
+    for name in ("pipeline", "worker", "dashboard"):
+        assert "KIBANA_URL" not in (dienste[name].get("environment") or {}), name
+
+
+def test_der_tunnel_haelt_den_schluessel_nur_im_arbeitsspeicher(dienste):
+    """Plan, Always: Der Schluessel steht base64-kodiert in der .env und wird
+    im Container nur in ein tmpfs geschrieben."""
+    tunnel = dienste["kibana"]
+    assert tunnel["environment"]["GCP_TUNNEL_SCHLUESSEL"] == "", (
+        "der Schluessel kommt aus der .env, nicht aus dieser Datei")
+    assert tunnel.get("read_only") == "true"
+    assert any(t.startswith("/run/geheim:") for t in tunnel["tmpfs"]), tunnel["tmpfs"]
+    assert tunnel.get("cap_drop") == ["ALL"]
+    assert list(tunnel["networks"]) == ["proxy"]
+    skript = (PROJECT_ROOT / "docker" / "srv01-kibana-tunnel.sh").read_text(encoding="utf-8")
+    assert ': "${TUNNEL_GEHEIM:=/run/geheim}"' in skript
+    assert 'export CLOUDSDK_CONFIG="${TUNNEL_GEHEIM}/gcloud"' in skript
+    beispiel = (PROJECT_ROOT / ".env.example").read_text(encoding="utf-8")
+    assert re.search(r"^GCP_TUNNEL_SCHLUESSEL=$", beispiel, re.MULTILINE), (
+        ".env.example nennt GCP_TUNNEL_SCHLUESSEL nicht (ohne Wert)")
+
+
+def test_der_tunnel_zeigt_auf_die_vm_der_probe(dienste):
+    """Dieselben Namen wie die Vorgaben in docker/gcp-gemeinsam.sh."""
+    gemeinsam = (PROJECT_ROOT / "docker" / "gcp-gemeinsam.sh").read_text(encoding="utf-8")
+    umgebung = dienste["kibana"]["environment"]
+    for variable in ("GCP_PROJEKT", "GCP_ZONE", "GCP_VM"):
+        assert f': "${{{variable}:={umgebung[variable]}}}"' in gemeinsam, variable
+
+
+TUNNEL_SKRIPT = PROJECT_ROOT / "docker" / "srv01-kibana-tunnel.sh"
+
+FALSCHES_GCLOUD = r"""#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${GCLOUD_PROTOKOLL}"
+printf 'CLOUDSDK_CONFIG=%s\n' "${CLOUDSDK_CONFIG:-}" >> "${GCLOUD_PROTOKOLL}"
+printf 'CLOUDSDK_CORE_DISABLE_FILE_LOGGING=%s\n' "${CLOUDSDK_CORE_DISABLE_FILE_LOGGING:-}" >> "${GCLOUD_PROTOKOLL}"
+exit 0
+"""
+
+
+def tunnel_lauf(tmp_path: Path, **umgebung: str):
+    import os
+    import subprocess
+
+    gcloud = tmp_path / "gcloud"
+    gcloud.write_text(FALSCHES_GCLOUD, encoding="utf-8")
+    gcloud.chmod(0o755)
+    protokoll = tmp_path / "protokoll.txt"
+    protokoll.write_text("", encoding="utf-8")
+    geheim = tmp_path / "geheim"
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GCP_")}
+    env.update(GCLOUD=str(gcloud), GCLOUD_PROTOKOLL=str(protokoll), TUNNEL_GEHEIM=str(geheim),
+               GCP_PROJEKT="urbancrime", GCP_ZONE="europe-west6-a", GCP_VM="urbancrime-probe",
+               **umgebung)
+    fertig = subprocess.run(["bash", str(TUNNEL_SKRIPT)], capture_output=True, text=True,
+                            env=env, stdin=subprocess.DEVNULL)
+    return fertig, protokoll.read_text(encoding="utf-8").splitlines(), geheim
+
+
+def test_ohne_schluessel_endet_der_tunnel_mit_dem_namen_der_variable(tmp_path, benutzbares_bash):
+    """I/O-Matrix "Schluessel fehlt"."""
+    for wert in (None, ""):
+        umgebung = {} if wert is None else {"GCP_TUNNEL_SCHLUESSEL": wert}
+        fertig, aufrufe, _ = tunnel_lauf(tmp_path, **umgebung)
+        assert fertig.returncode != 0
+        assert "GCP_TUNNEL_SCHLUESSEL" in fertig.stderr
+        assert not aufrufe, "gcloud gerufen ohne Schluessel"
+
+
+def test_ein_kaputter_schluessel_wird_nicht_benutzt(tmp_path, benutzbares_bash):
+    import base64
+
+    fertig, aufrufe, geheim = tunnel_lauf(
+        tmp_path, GCP_TUNNEL_SCHLUESSEL=base64.b64encode(b"kein json").decode())
+    assert fertig.returncode != 0 and "GCP_TUNNEL_SCHLUESSEL" in fertig.stderr
+    assert not aufrufe and not (geheim / "tunnel-schluessel.json").exists()
+
+
+def test_der_tunnel_meldet_sich_an_und_oeffnet_nur_port_5601(tmp_path, benutzbares_bash):
+    import base64
+
+    inhalt = b'{"type": "service_account", "private_key": "TUNNEL-GEHEIM"}'
+    fertig, aufrufe, geheim = tunnel_lauf(
+        tmp_path, GCP_TUNNEL_SCHLUESSEL=base64.b64encode(inhalt).decode())
+    assert fertig.returncode == 0, fertig.stderr
+    assert "TUNNEL-GEHEIM" not in fertig.stdout + fertig.stderr
+    befehle = [a for a in aufrufe if not a.startswith("CLOUDSDK_")]
+    # Keine Protokolldateien ins kleine tmpfs (gcloud schriebe sie nach
+    # $CLOUDSDK_CONFIG/logs, bei jeder Verbindung des Healthchecks).
+    protokolle = [a for a in aufrufe if a.startswith("CLOUDSDK_CORE_DISABLE_FILE_LOGGING=")]
+    assert protokolle and all(a.endswith("=true") for a in protokolle), aufrufe
+    assert befehle[0].startswith("auth activate-service-account --key-file=")
+    assert befehle[1] == ("compute start-iap-tunnel urbancrime-probe 5601 --project urbancrime "
+                          "--zone europe-west6-a --local-host-port=0.0.0.0:5601 "
+                          "--iap-tunnel-disable-connection-check")
+    assert all(a == f"CLOUDSDK_CONFIG={geheim}/gcloud"
+               for a in aufrufe if a.startswith("CLOUDSDK_CONFIG=")), aufrufe
+    datei = geheim / "tunnel-schluessel.json"
+    assert datei.read_bytes() == inhalt
+    import os
+    if os.name == "posix":
+        assert datei.stat().st_mode & 0o777 == 0o600
 
 
 def test_das_dashboard_liest_den_eimer_und_haengt_nichts_ein(dienste):
@@ -477,7 +608,8 @@ def test_kein_webdienst_veroeffentlicht_einen_port(dienste):
 
 def test_der_geroutete_port_ist_der_container_port(dienste):
     """Punkt 3 der Serververeinbarung - und ein Fehler, der still 502 ergibt."""
-    erwartet = {"dashboard": "8050", "jupyter": "8888", "start": "80", "admin": "8765"}
+    erwartet = {"dashboard": "8050", "jupyter": "8888", "start": "80", "admin": "8765",
+                "kibana": "5601"}
     for name, dienst in webdienste(dienste).items():
         port = dienst["labels"][
             f"traefik.http.services.urbancrime-{name}.loadbalancer.server.port"]
@@ -499,6 +631,15 @@ def test_die_hostnamen_folgen_dem_muster(dienste):
     ``infra-*`` ist der Infrastruktur vorbehalten, und die dortige
     Wildcard-Policy greift fuer dieses Projekt nicht (FR-21).
     """
+    # FR-46: Das Muster steht als EINSTIEG_ADRESSMUSTER bei Pipeline und
+    # Worker - dieselbe Angabe, aus der die Startseite ihre Verweise baut.
+    # Gelesen wird es dort, damit Startseite und Traefik nicht auseinanderlaufen.
+    muster = {dienste[n]["environment"].get("EINSTIEG_ADRESSMUSTER")
+              for n in ("pipeline", "worker")}
+    assert len(muster) == 1 and None not in muster, (
+        f"pipeline und worker setzen EINSTIEG_ADRESSMUSTER verschieden oder nicht: {muster}")
+    muster = muster.pop()
+    assert muster == "https://urbancrime-{dienst}.datenwerft.ch", muster
     gefunden = []
     for name, dienst in webdienste(dienste).items():
         regel = dienst["labels"][f"traefik.http.routers.urbancrime-{name}.rule"]
@@ -506,8 +647,9 @@ def test_die_hostnamen_folgen_dem_muster(dienste):
         assert treffer, f"{name}: keine einfache Host-Regel: {regel!r}"
         host = treffer.group(1)
         gefunden.append(host)
-        assert host == f"urbancrime-{name}.datenwerft.ch", (
-            f"{name}: Hostname {host!r} folgt nicht urbancrime-<dienst>.datenwerft.ch"
+        erwartet = muster.format(dienst=name).split("//", 1)[1]
+        assert host == erwartet, (
+            f"{name}: Hostname {host!r} folgt nicht EINSTIEG_ADRESSMUSTER ({erwartet!r})"
         )
     assert not [h for h in gefunden if h.startswith("infra-")], (
         f"infra-* ist der Infrastruktur vorbehalten: {gefunden}"
@@ -1102,3 +1244,12 @@ def test_der_leser_traegt_auch_die_lange_volume_syntax():
     mount = gelesen["services"]["jupyter"]["volumes"][0]
     assert mount_info(mount) == ("konsole", "/app/data/admin/jobs", True)
     assert mount["volume"] == {"subpath": "jobs", "nocopy": "true"}
+
+
+def test_die_pipeline_haelt_den_analysebestand_fuer_jupyter(dienste):
+    # Ohne den Schalter raeumt s3 Silver und Gold nach dem Release weg, und
+    # die Notebooks 34 und 37 in ``jupyter`` starten auf srv01 nie.
+    umgebung = dienste["pipeline"]["environment"]
+    assert umgebung["STORAGE_BACKEND"] == "s3"
+    assert str(umgebung["STORAGE_ANALYSEBESTAND_LOKAL"]).lower() == "true"
+    assert dienste["jupyter"]["environment"]["CRIME_ANALYSIS_ROOT"].endswith("/app/data}")

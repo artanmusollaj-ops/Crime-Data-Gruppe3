@@ -129,11 +129,15 @@ REGEL_JE_QUELLE: dict[str, str] = {
     # GHCN-Daily liefert die ganze Reihe einer Station, egal welches Jahr
     # gefragt war. Sechs Jahrgaenge kosten dort keine Byte mehr als einer.
     "dataset=noaa_ghcnd": KONSTANT,
+    # Die Grenzen der Polizeibezirke: rund 1,1 MB je Lauf, gleich fuer jedes Jahr.
+    "dataset=gebiete": KONSTANT,
     # Silver
     "dataset=crime_offense": TATEN,
     "dataset=source_change": TATEN,
     "dataset=tract": CENSUS,
     "dataset=place": CENSUS,
+    "dataset=police_area": KONSTANT,
+    "dataset=community_area": KONSTANT,
     "dataset=weather_day": KONSTANT,
     # Gold
     "dataset=fact_offense": TATEN,
@@ -149,6 +153,11 @@ REGEL_JE_QUELLE: dict[str, str] = {
     "dataset=dim_tract_geo": CENSUS,
     "dataset=dim_tract_acs": CENSUS,
     "dataset=dim_city_day": KONSTANT,
+    # Seit Gold-Vertrag 11: 34 Bezirke, rund 1'500 Anteile - fest wie die Grenzen.
+    "dataset=dim_police_area": KONSTANT,
+    "dataset=bridge_tract_police_area": KONSTANT,
+    "dataset=dim_community_area": KONSTANT,
+    "dataset=bridge_tract_community_area": KONSTANT,
     # Serving
     "dataset=comparison_day": TATEN,
     "dataset=comparison_week": TATEN,
@@ -166,6 +175,22 @@ REGEL_JE_QUELLE: dict[str, str] = {
     # Fakten, und deshalb gilt beide Male dieselbe Regel.
     "analyse.duckdb": TATEN,
     "tracts.geojson": CENSUS,
+    # Ein Release aus der Engineering-Konsole traegt zusaetzlich admin/
+    # (platform_admin.candidates.RELEASE_ADMIN_FILES). Der Impact-Bericht
+    # hat eine Zeile je geaenderter Tat, je Tag oder Monat und je Partition;
+    # mehr als der Bestand wird es nie, und mit ihm waechst es. Die Freigabe
+    # traegt die Qualitaet je Tag mit. Beim ersten Release der Konsole
+    # (18.11.2026) waren es zusammen rund 2,7 MB.
+    "impact_report.json": TATEN,
+    "impact_by_partition.parquet": TATEN,
+    "impact_records.parquet": TATEN,
+    "impact_quality.parquet": TATEN,
+    "impact_quality_month.parquet": TATEN,
+    "source_snapshot.json": TATEN,
+    "approval.json": TATEN,
+    # admin/config: die Crosswalks und Overrides, mit denen gebaut wurde -
+    # rund 100 KB, die mit keinem Jahrgang mehr werden.
+    "config": KONSTANT,
     # Marken und Zeiger: ein paar Hundert Bytes, und sie bleiben es.
     "tracts.manifest.json": KONSTANT,
     "manifest.json": KONSTANT,

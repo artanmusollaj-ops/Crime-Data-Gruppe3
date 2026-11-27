@@ -403,23 +403,11 @@ class Store:
                     or old["actor"].strip().casefold() != actor.strip().casefold()
                 ):
                     raise AdminError("Nur eigenen offenen Vorschlag ersetzen")
-                if c.execute("SELECT 1 FROM decision WHERE revision=?", (supersedes,)).fetchone():
-                    raise AdminError("Revision wurde bereits entschieden")
                 if c.execute(
                     "SELECT 1 FROM impact WHERE revision_id=? AND status='RUNNING'", (supersedes,)
                 ).fetchone():
                     raise AdminError("Laufenden Impact zuerst abschliessen lassen")
-                c.execute(
-                    "INSERT INTO decision(id,revision,decision,actor,reason,decided_at) VALUES (?,?,?,?,?,?)",
-                    (
-                        uuid.uuid4().hex,
-                        supersedes,
-                        "superseded",
-                        actor.strip(),
-                        "Ersetzt durch " + rid + ": " + reason.strip(),
-                        now(),
-                    ),
-                )
+                self._supersede(c, supersedes, rid, actor.strip(), reason.strip())
                 c.execute(
                     "UPDATE job SET status='CANCELLED',finished_at=? WHERE id IN (SELECT id FROM impact WHERE revision_id=?) AND status='QUEUED'",
                     (now(), supersedes),
@@ -432,6 +420,39 @@ class Store:
 
             queue_in_transaction(self, c, rid, actor.strip())
         return rid
+
+    def _supersede(self, c, old, new, actor, reason):
+        decision = c.execute("SELECT * FROM decision WHERE revision=?", (old,)).fetchone()
+        if not decision:
+            c.execute(
+                "INSERT INTO decision(id,revision,decision,actor,reason,decided_at) VALUES (?,?,?,?,?,?)",
+                (uuid.uuid4().hex, old, "superseded", actor, "Ersetzt durch " + new + ": " + reason, now()),
+            )
+            return
+
+        from .release_flow import baseline_changed, event
+
+        impact = c.execute("SELECT * FROM impact WHERE id=?", (decision["impact_id"],)).fetchone()
+        if decision["decision"] != "approve" or not impact or impact["status"] not in {"AWAITING_GIT", "WITHDRAWN"}:
+            raise AdminError("Revision wurde bereits entschieden")
+        if c.execute(
+            "SELECT 1 FROM release_event WHERE revision_id=? AND action='PROPOSAL_REBASED'", (old,)
+        ).fetchone():
+            raise AdminError("Revision wurde bereits auf aktuelle Basis uebertragen")
+        if impact["status"] == "AWAITING_GIT":
+            heads = dict(c.execute("SELECT resource,revision FROM head").fetchall())
+            if not baseline_changed(self, impact, heads):
+                raise AdminError("Revision wurde bereits entschieden")
+            if c.execute("SELECT 1 FROM git_change WHERE revision=?", (old,)).fetchone():
+                raise AdminError("Reviewer muss die Freigabe mit bestehendem Git-Vorgang zuerst zurueckziehen")
+            c.execute("UPDATE impact SET status='WITHDRAWN' WHERE id=?", (impact["id"],))
+            c.execute(
+                "UPDATE operation SET status='CANCELLED',finished_at=? "
+                "WHERE kind IN ('git-open','git-merge','git-withdraw') AND payload=? AND status='QUEUED'",
+                (now(), encode({"id": old})),
+            )
+            event(c, impact, "REVIEW_WITHDRAWN", actor, reason, {"report_hash": impact["report_hash"]})
+        event(c, impact, "PROPOSAL_REBASED", actor, reason, {"new_revision_id": new})
 
     def propose_mapping(self, city, code, target, parent, actor, reason):
         """One source-code override; no substring/similarity-based automatic mapping.

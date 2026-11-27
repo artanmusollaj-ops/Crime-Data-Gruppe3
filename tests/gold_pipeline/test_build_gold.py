@@ -31,7 +31,7 @@ from gold_pipeline import (
 )
 # Statt einer vierten Fassung: manifeste, serving.pruefe_stand und
 # storage.release rechnen dasselbe SHA-256 schon.
-from manifeste import datei_hash
+from manifeste import datei_hash, read_manifest
 from silver_pipeline import TransformError, connect
 
 
@@ -174,6 +174,12 @@ def offense_quelle(tmp_path: Path, zeilen) -> bg.Quelle:
              else "weitere_anklage_zur_selben_tat" for z in zeilen]),
         # Jede Zeile ist hier ihr eigener Fall: Fallebene gleich Tatebene.
         "counts_case": pa.array([z[5] if len(z) > 5 else True for z in zeilen]),
+        # Seit Silver-Vertrag 5 (25.11.2026).
+        "police_area": pa.array(["1"] * n),
+        "police_area_source": pa.array(["1"] * n),
+        "case_status": pa.array([None] * n, pa.string()),
+        # Seit Silver-Vertrag 6.
+        "community_area": pa.array(["1"] * n),
     }))
 
 
@@ -249,6 +255,49 @@ def test_der_flaechenanteil_bleibt_auch_unterhalb_der_schwelle(con, tmp_path):
     stadt, anteil = con.execute("SELECT city, city_area_share FROM d").fetchone()
     assert stadt is None
     assert anteil == pytest.approx(0.3)
+
+
+def _mit_wasser(tract: bg.Quelle, land: int, wasser: int) -> bg.Quelle:
+    tabelle = pq.read_table(tract.pfad)
+    n = tabelle.num_rows
+    tabelle = tabelle.set_column(
+        tabelle.schema.get_field_index("land_area_m2"), "land_area_m2",
+        pa.array([land] * n, type=pa.int64()))
+    tabelle = tabelle.set_column(
+        tabelle.schema.get_field_index("water_area_m2"), "water_area_m2",
+        pa.array([wasser] * n, type=pa.int64()))
+    pq.write_table(tabelle, tract.pfad)
+    return tract
+
+
+def test_ein_tract_am_seeufer_gehoert_zur_stadt(con, tmp_path):
+    """Vertrag 10: Der Anteil zaehlt auf der Landflaeche, nicht auf dem Wasser.
+
+    Der Tract liegt zu 30 % in Chicago, und der Rest ist See: Land und Wasser
+    stehen 3 zu 7. Sein ganzes Land liegt also in der Stadt. Bis Vertrag 9
+    blieb er bei 0,3 haengen - so fehlten am 21.11.2026 zwoelf bewohnte
+    Tracts am Chicagoer Ufer, Streeterville darunter.
+    """
+    tract = _mit_wasser(tract_quelle(tmp_path, [
+        ("17031081403", 10291, wkb_rechteck(9.7, 1, 1.0, 1.0)),
+    ]), land=30_000, wasser=70_000)
+    con.execute(
+        f"CREATE OR REPLACE TEMP VIEW d AS {bg.dim_tract_query(tract, place_quelle(tmp_path), VINTAGE)}"
+    )
+    stadt, anteil = con.execute("SELECT city, city_area_share FROM d").fetchone()
+    assert stadt == "chicago"
+    assert anteil == pytest.approx(1.0)
+
+
+def test_ein_tract_ohne_land_gehoert_zu_keiner_stadt(con, tmp_path):
+    """Ganz Wasser: kein Anteil, den man auf Land umrechnen koennte."""
+    tract = _mit_wasser(tract_quelle(tmp_path, [
+        ("17031990000", 0, wkb_rechteck(1, 1, 2, 2)),
+    ]), land=0, wasser=100_000)
+    con.execute(
+        f"CREATE OR REPLACE TEMP VIEW d AS {bg.dim_tract_query(tract, place_quelle(tmp_path), VINTAGE)}"
+    )
+    assert con.execute("SELECT city, city_area_share FROM d").fetchone() == (None, 0.0)
 
 
 def test_jeder_tract_steht_genau_einmal(con, tmp_path):
@@ -501,10 +550,150 @@ def test_dim_city_day_wird_auf_die_spanne_beschnitten(con, tmp_path):
         date(1980, 5, 1), date(2024, 1, 1), date(2024, 1, 3), date(2024, 1, 9),
     ])
     con.execute(
-        f"CREATE OR REPLACE TEMP VIEW d AS {bg.dim_city_day_query(weather, offense)}"
+        "CREATE OR REPLACE TEMP VIEW d AS "
+        + bg.dim_city_day_query(weather, offense, place_quelle(tmp_path))
     )
-    tage = [z[0] for z in con.execute("SELECT date FROM d ORDER BY date").fetchall()]
-    assert tage == [date(2024, 1, 3)]
+    mit_wetter = [z[0] for z in con.execute(
+        "SELECT date FROM d WHERE temp_max_c IS NOT NULL ORDER BY date").fetchall()]
+    assert mit_wetter == [date(2024, 1, 3)]
+
+
+def test_dim_city_day_ist_ein_geruest_aus_fallspanne_und_staedten(con, tmp_path):
+    """Jeder Tag der Fallspanne je Stadt, auch ohne Wetter (Vertrag 9).
+
+    NOAA liefert mit Nachlauf; am 19.11.2026 reichten die Falldaten bis zum
+    15.11., das Wetter bis zum 6.11. Bis Vertrag 8 fehlten diese Tage, und
+    eine Tat dort fand keinen Sonnenstand.
+    """
+    offense = offense_quelle(tmp_path, [
+        ("a", "chicago", date(2024, 1, 2), "13A", "17031010100"),
+        ("b", "detroit", date(2024, 1, 4), "13A", "26163500100"),
+    ])
+    weather = weather_quelle(tmp_path, [date(2024, 1, 2), date(2024, 1, 3)])
+    con.execute(
+        "CREATE OR REPLACE TEMP VIEW d AS "
+        + bg.dim_city_day_query(weather, offense, place_quelle(tmp_path))
+    )
+    zeilen = con.execute(
+        "SELECT city, date, temp_max_c IS NOT NULL, sunrise_utc IS NOT NULL "
+        "FROM d ORDER BY city, date").fetchall()
+    assert [(z[0], z[1]) for z in zeilen] == [
+        (stadt, date(2024, 1, t)) for stadt in ("chicago", "detroit")
+        for t in (2, 3, 4)
+    ]
+    assert [z[2] for z in zeilen] == [True, True, False, False, False, False], (
+        "Wetter nur, wo NOAA geliefert hat - hier Chicago am 2. und 3.1."
+    )
+    assert all(z[3] for z in zeilen), "der Sonnenstand ist immer gefuellt"
+
+
+def test_ein_tag_ohne_wetter_traegt_das_flag_no_weather(con, tmp_path):
+    """Nicht NULL: ClickHouse laesst Array(String) nicht in Nullable stehen."""
+    offense = offense_quelle(tmp_path, [
+        ("a", "chicago", date(2024, 1, 2), "13A", "17031010100"),
+        ("b", "chicago", date(2024, 1, 3), "13A", "17031010100"),
+    ])
+    weather = weather_quelle(tmp_path, [date(2024, 1, 2)])
+    con.execute(
+        "CREATE OR REPLACE TEMP VIEW d AS "
+        + bg.dim_city_day_query(weather, offense, place_quelle(tmp_path))
+    )
+    flags = dict(((s, t), f) for s, t, f in con.execute(
+        "SELECT city, date, quality_flags FROM d").fetchall())
+    assert flags[("chicago", date(2024, 1, 2))] == []
+    assert flags[("chicago", date(2024, 1, 3))] == [bg.OHNE_WETTER] == ["no_weather"]
+    assert flags[("detroit", date(2024, 1, 2))] == ["no_weather"]
+
+
+def sonne_quellen(tmp_path, tage):
+    """Ein Bestand ueber ``tage`` mit den echten Schwerpunkten beider Staedte.
+
+    Die Koordinaten sind die von ``silver/place`` (Vintage 2024): Chicago
+    41,8370 / -87,6849, Detroit 42,3830 / -83,1022.
+    """
+    offense = offense_quelle(tmp_path, [
+        (f"t{i}", "chicago", tag, "13A", "17031010100") for i, tag in enumerate(tage)
+    ])
+    place = schreibe(tmp_path, "place_echt", pa.table({
+        "geoid": pa.array([CHICAGO, DETROIT]),
+        "centroid_lat": pa.array([41.8370453, 42.3830375], type=pa.float64()),
+        "centroid_lon": pa.array([-87.6849386, -83.1022365], type=pa.float64()),
+    }))
+    return weather_quelle(tmp_path, []), offense, place
+
+
+# Bezugswerte: NOAA Solar Calculator, Tabelle fuer 2024
+# (https://gml.noaa.gov/grad/solcalc/table.php, abgerufen am 19.11.2026), an
+# den Schwerpunkten aus silver/place - Chicago 41.83705 / -87.68494, Detroit
+# 42.38304 / -83.10224 -, von CDT/CST bzw. EDT/EST in UTC umgerechnet. Die
+# Tabelle nennt ganze Minuten; Gold liegt gemessen hoechstens 56 Sekunden
+# daneben (Detroit, Aufgang 21.12.). Die Toleranz ist zwei Minuten.
+SONNE_BEZUG = [
+    ("chicago", date(2024, 6, 21), datetime(2024, 6, 21, 10, 16), datetime(2024, 6, 22, 1, 29)),
+    ("chicago", date(2024, 12, 21), datetime(2024, 12, 21, 13, 15), datetime(2024, 12, 21, 22, 23)),
+    ("detroit", date(2024, 6, 21), datetime(2024, 6, 21, 9, 56), datetime(2024, 6, 22, 1, 13)),
+    ("detroit", date(2024, 12, 21), datetime(2024, 12, 21, 12, 59), datetime(2024, 12, 21, 22, 3)),
+]
+
+
+@pytest.mark.parametrize("stadt,tag,aufgang,untergang", SONNE_BEZUG)
+def test_der_sonnenstand_trifft_den_bezugswert(con, tmp_path, stadt, tag, aufgang, untergang):
+    """NOAA General Solar Position Calculations, hoechstens zwei Minuten daneben."""
+    weather, offense, place = sonne_quellen(tmp_path, [tag])
+    con.execute(f"CREATE TABLE d AS {bg.dim_city_day_query(weather, offense, place)}")
+    auf, unter, stunden = con.execute(
+        "SELECT sunrise_utc, sunset_utc, daylight_hours FROM d "
+        "WHERE city = $s AND date = $t", {"s": stadt, "t": tag}).fetchone()
+    assert abs((auf - aufgang).total_seconds()) <= 120, (stadt, tag, auf)
+    assert abs((unter - untergang).total_seconds()) <= 120, (stadt, tag, unter)
+    assert stunden == pytest.approx((unter - auf).total_seconds() / 3600)
+
+
+def test_der_sommerliche_untergang_liegt_am_utc_folgetag(con, tmp_path):
+    """Verglichen wird mit occurred_at_utc; der Ortstag bleibt der Schluessel.
+
+    Eine Tat um 20:30 CDT am 1.7. ist 01:30 UTC am 2.7. - und noch hell.
+    """
+    weather, offense, place = sonne_quellen(tmp_path, [date(2024, 7, 1)])
+    con.execute(f"CREATE TABLE d AS {bg.dim_city_day_query(weather, offense, place)}")
+    unter = con.execute("SELECT sunset_utc FROM d WHERE city = 'chicago'").fetchone()[0]
+    assert unter.date() == date(2024, 7, 2)
+    assert datetime(2024, 7, 2, 1, 25) <= unter <= datetime(2024, 7, 2, 1, 35)
+
+
+def test_die_tageslaenge_folgt_der_jahreszeit(con, tmp_path):
+    """Um die 15 Stunden im Juni, um die 9 im Dezember - und nie NULL."""
+    weather, offense, place = sonne_quellen(
+        tmp_path, [date(2024, 1, 1), date(2024, 12, 31)])
+    con.execute(f"CREATE TABLE d AS {bg.dim_city_day_query(weather, offense, place)}")
+    n, leer, kuerzest, laengst = con.execute(
+        "SELECT count(*), count(*) FILTER (daylight_hours IS NULL), "
+        "min(daylight_hours), max(daylight_hours) FROM d").fetchone()
+    assert n == 2 * 366 and leer == 0
+    assert 9.0 <= kuerzest <= 9.2 and 15.2 <= laengst <= 15.35
+    con.execute("CREATE TABLE dim_city_day AS SELECT * FROM d")
+    bg.pruefe_sonnenstand(con)
+
+
+def test_ohne_ort_in_silver_place_bricht_der_bau_ab(con, tmp_path):
+    """Sonst ginge Detroit ohne Sonnenstand ins Release."""
+    weather, offense, _ = sonne_quellen(tmp_path, [date(2024, 1, 1)])
+    nur_chicago = schreibe(tmp_path, "place_halb", pa.table({
+        "geoid": pa.array([CHICAGO]),
+        "centroid_lat": pa.array([41.8], type=pa.float64()),
+        "centroid_lon": pa.array([-87.6], type=pa.float64()),
+    }))
+    con.execute("CREATE TABLE dim_city_day AS "
+                + bg.dim_city_day_query(weather, offense, nur_chicago))
+    with pytest.raises(TransformError, match="detroit"):
+        bg.pruefe_sonnenstand(con)
+
+
+def test_die_koordinaten_kommen_aus_silver_place():
+    """Eine dritte Stadt bringt ihren Ort mit ihrer Grenze mit, nicht mit Code."""
+    quelltext = Path(bg.__file__).read_text(encoding="utf-8")
+    for koordinate in ("41.83", "-87.68", "42.38", "-83.10"):
+        assert koordinate not in quelltext, koordinate
 
 
 # --------------------------------------------------------------------------
@@ -547,7 +736,8 @@ def baue(con, tmp_path, zeilen, tracts=None):
     )
     con.execute(f"CREATE OR REPLACE TABLE dim_date AS {bg.dim_date_query(offense)}")
     con.execute(
-        f"CREATE OR REPLACE TABLE dim_city_day AS {bg.dim_city_day_query(weather, offense)}"
+        "CREATE OR REPLACE TABLE dim_city_day AS "
+        + bg.dim_city_day_query(weather, offense, place)
     )
     con.execute(f"CREATE OR REPLACE TABLE fact_offense AS {bg.fact_offense_query(offense)}")
     return offense
@@ -1152,7 +1342,8 @@ def test_dim_city_day_fuehrt_die_spurenspalten(con, tmp_path):
         "occurred_date_local": [date(2024, 1, 1), date(2024, 1, 2)],
     }))
     con.execute(
-        f"CREATE TABLE dim_city_day AS {bg.dim_city_day_query(wetter, delikte)}"
+        "CREATE TABLE dim_city_day AS "
+        + bg.dim_city_day_query(wetter, delikte, place_quelle(tmp_path))
     )
 
     spalten = [r[0] for r in con.execute("DESCRIBE dim_city_day").fetchall()]
@@ -1844,6 +2035,15 @@ def test_ein_zweiter_lauf_liefert_dieselben_bytes(tmp_path):
     ``vintage=2024`` hat. Die Mehr-Vintage-Gestalt ist ein ``UNION ALL`` mit
     eigenem ``ORDER BY`` und hier nicht abgedeckt.
 
+    **Derselbe Abdruck an zwei Orten (FR-8).** Die beiden Wurzeln haben
+    verschiedene absolute Pfade, und jede Gold-Tabelle nennt ihr Silber mit
+    dem Pfad, unter dem sie es las. Der ``input_fingerprint`` darf daran nicht
+    haengen - sonst truegen Host und Container (``/app/data`` gegen
+    ``/Users/...`` oder ``s3://``) denselben Stand mit zwei Abdruecken.
+    Deshalb vergleicht dieser Waechter zusaetzlich den Abdruck je Tabelle.
+    Den Vergleich gegen einen echten Containerlauf fuehrt
+    ``tools/abdruck_host_container.py``.
+
     Gelesen wird das echte Silber ueber einen Symlink, geschrieben in zwei
     eigene Wurzeln unter ``tmp_path``: Ein Test darf messen, nie den
     Arbeitsbaum veraendern. Unter Windows braucht ein Symlink Sonderrechte,
@@ -1858,6 +2058,7 @@ def test_ein_zweiter_lauf_liefert_dieselben_bytes(tmp_path):
         pytest.skip(f"Silber unvollstaendig, es fehlt: {fehlend}")
 
     staende = []
+    abdruecke = []
     for lauf in ("eins", "zwei"):
         wurzel = tmp_path / lauf / "data"
         wurzel.mkdir(parents=True)
@@ -1873,6 +2074,19 @@ def test_ein_zweiter_lauf_liefert_dieselben_bytes(tmp_path):
             name: datei_hash(wurzel / "gold" / f"dataset={name}" / "part-0001.parquet")
             for name in TABELLEN
         })
+        abdruecke.append({
+            name: read_manifest(wurzel / "gold" / f"dataset={name}"
+                                / "manifest.json")["input_fingerprint"]
+            for name in TABELLEN
+        })
+
+    ort_eins, ort_zwei = abdruecke
+    am_ort = sorted(name for name in TABELLEN if ort_eins[name] != ort_zwei[name])
+    assert not am_ort, (
+        f"diese Gold-Tabellen tragen in zwei Wurzeln verschiedene "
+        f"input_fingerprint: {am_ort}. Der Abdruck haengt am Ort - steht ein "
+        f"Pfad darin, der nicht in manifeste.FLUECHTIG faellt? Siehe FR-8."
+    )
 
     eins, zwei = staende
     anders = sorted(name for name in TABELLEN if eins[name] != zwei[name])
@@ -1937,3 +2151,125 @@ def test_der_schlussbericht_liest_ueber_die_ablage_nicht_ueber_den_pfad(
     assert bg.main() == 0, "der Schlussbericht hat den weggeraeumten Pfad gelesen"
     assert gefragt == [weggeraeumt], (
         "die Ablage wurde nicht nach der Tabelle gefragt: " + repr(gefragt))
+
+
+# --------------------------------------------------------------------------
+# Polizeibezirke (Vertrag 11, 25.11.2026)
+# --------------------------------------------------------------------------
+
+
+def police_quelle(tmp_path: Path, bezirke) -> bg.Quelle:
+    """bezirke: (city, area_id, geometrie) - wie silver/police_area."""
+    n = len(bezirke)
+    return schreibe(tmp_path, "police_area", pa.table({
+        "city": pa.array([b[0] for b in bezirke]),
+        "area_id": pa.array([b[1] for b in bezirke]),
+        "area_name": pa.array([f"District {b[1]}" for b in bezirke]),
+        "source_name": pa.array([b[1] for b in bezirke]),
+        "source_polygons": pa.array([1] * n, pa.int32()),
+        "area_km2": pa.array([1.0] * n),
+        "centroid_lat": pa.array([41.8] * n),
+        "centroid_lon": pa.array([-87.6] * n),
+        "geometry": pa.array([b[2] for b in bezirke], pa.binary()),
+    }))
+
+
+def bezirke_bauen(con, tmp_path, tracts, bezirke):
+    tract = tract_quelle(tmp_path, tracts)
+    place = place_quelle(tmp_path)
+    police = police_quelle(tmp_path, bezirke)
+    con.execute(f"CREATE OR REPLACE TABLE dim_tract AS {bg.dim_tract_query(tract, place, VINTAGE)}")
+    con.execute("CREATE OR REPLACE TABLE dim_tract_acs AS "
+                + bg.dim_tract_acs_query({VINTAGE: tract}))
+    con.execute(f"CREATE OR REPLACE TABLE dim_police_area AS {bg.dim_police_area_query(police, place)}")
+    con.execute("CREATE OR REPLACE TABLE bridge_tract_police_area AS "
+                + bg.bridge_tract_police_area_query(tract, police))
+
+
+# Chicago reicht von (0,0) bis (10,10). Bezirk 1 links, Bezirk 2 rechts, und
+# Bezirk 31 fast ganz ausserhalb - wie Chicagos District der umschlossenen
+# Gemeinden. Detroit (100,100) hat einen Bezirk.
+BEZIRKE = [
+    ("chicago", "1", wkb_rechteck(0, 0, 5, 10)),
+    ("chicago", "2", wkb_rechteck(5, 0, 5, 10)),
+    ("chicago", "31", wkb_rechteck(9.9, 0, 5, 1)),
+    ("detroit", "2", wkb_rechteck(100, 100, 10, 10)),
+]
+
+
+def test_ein_bezirk_zaehlt_zur_stadt_nach_der_mehrheitsregel(con, tmp_path):
+    bezirke_bauen(con, tmp_path, [("17031010100", 1000, wkb_rechteck(1, 1, 2, 2)),
+                                  DETROIT_TRACT], BEZIRKE)
+    zeilen = {(c, a): (anteil, drin) for c, a, anteil, drin in con.execute(
+        "SELECT city, area_id, city_area_share, within_city FROM dim_police_area").fetchall()}
+    assert zeilen[("chicago", "1")] == (1.0, True)
+    assert zeilen[("chicago", "31")] == (pytest.approx(0.02), False)
+    # Die Nummer 2 gibt es in beiden Staedten; der Schluessel traegt die Stadt.
+    assert zeilen[("chicago", "2")][1] and zeilen[("detroit", "2")][1]
+
+
+def test_ein_tract_auf_der_grenze_teilt_sich_nach_flaeche(con, tmp_path):
+    bezirke_bauen(con, tmp_path, [("17031010100", 1000, wkb_rechteck(4, 1, 2, 2)),
+                                  DETROIT_TRACT], BEZIRKE)
+    assert con.execute("SELECT area_id, tract_share FROM bridge_tract_police_area "
+                       "WHERE city = 'chicago' ORDER BY area_id").fetchall() == [
+        ("1", 0.5), ("2", 0.5)]
+
+
+def test_der_anteil_ausserhalb_zaehlender_bezirke_geht_an_die_uebrigen(con, tmp_path):
+    """Ein Tract, der in District 31 hineinragt, bleibt ganz in der Stadt."""
+    bezirke_bauen(con, tmp_path, [("17031010100", 1000, wkb_rechteck(8.5, 0, 1.5, 1)),
+                                  DETROIT_TRACT], BEZIRKE)
+    assert con.execute("SELECT area_id, tract_share FROM bridge_tract_police_area "
+                       "WHERE city = 'chicago'").fetchall() == [("2", 1.0)]
+    bg.pruefe_polizeibezirke(con)
+
+
+def test_ein_stadt_tract_ohne_bezirk_haelt_den_bau_an(con, tmp_path):
+    bezirke_bauen(con, tmp_path, [("17031010100", 1000, wkb_rechteck(1, 1, 2, 2)),
+                                  DETROIT_TRACT],
+                  [b for b in BEZIRKE if b[1] != "1"])
+    with pytest.raises(bg.TransformError, match="nicht ganz auf Polizeibezirke"):
+        bg.pruefe_polizeibezirke(con)
+
+
+def test_eine_stadt_ohne_zaehlenden_bezirk_haelt_den_bau_an(con, tmp_path):
+    bezirke_bauen(con, tmp_path, [("17031010100", 1000, wkb_rechteck(1, 1, 2, 2)),
+                                  DETROIT_TRACT],
+                  [b for b in BEZIRKE if b[0] == "chicago"])
+    with pytest.raises(bg.TransformError, match="detroit"):
+        bg.pruefe_polizeibezirke(con)
+
+
+def test_fact_offense_traegt_bezirk_und_stand_des_falls(con, tmp_path):
+    baue(con, tmp_path, [("a", "chicago", date(2024, 3, 1), "13A", "17031010100")])
+    assert con.execute("SELECT police_area, police_area_source, case_status "
+                       "FROM fact_offense").fetchone() == ("1", "1", None)
+
+
+
+def test_ein_unbewohnter_tract_ohne_bezirk_haelt_den_bau_nicht_an(con, tmp_path):
+    """Belle Isle: ein Inselpark ohne Einwohner, in keinem Detroiter Stadtteil."""
+    bezirke_bauen(con, tmp_path, [("17031010100", 0, wkb_rechteck(1, 1, 2, 2)),
+                                  DETROIT_TRACT],
+                  [b for b in BEZIRKE if b[1] != "1"])
+    bg.pruefe_polizeibezirke(con)
+
+
+def test_die_stadtteile_folgen_derselben_regel(con, tmp_path):
+    tract = tract_quelle(tmp_path, [("17031010100", 1000, wkb_rechteck(4, 1, 2, 2)),
+                                    DETROIT_TRACT])
+    place = place_quelle(tmp_path)
+    teile = police_quelle(tmp_path, [("chicago", "Rogers Park", wkb_rechteck(0, 0, 5, 10)),
+                                     ("chicago", "Edgewater", wkb_rechteck(5, 0, 5, 10)),
+                                     ("detroit", "Brightmoor", wkb_rechteck(100, 100, 10, 10))])
+    con.execute(f"CREATE OR REPLACE TABLE dim_tract AS {bg.dim_tract_query(tract, place, VINTAGE)}")
+    con.execute(f"CREATE OR REPLACE TABLE dim_tract_acs AS {bg.dim_tract_acs_query({VINTAGE: tract})}")
+    con.execute(f"CREATE OR REPLACE TABLE dim_community_area AS {bg.dim_community_area_query(teile, place)}")
+    con.execute("CREATE OR REPLACE TABLE bridge_tract_community_area AS "
+                + bg.bridge_tract_community_area_query(tract, teile))
+    assert con.execute("SELECT area_id, tract_share FROM bridge_tract_community_area "
+                       "WHERE city = 'chicago' ORDER BY area_id").fetchall() == [
+        ("Edgewater", 0.5), ("Rogers Park", 0.5)]
+    bg.pruefe_polizeibezirke(con, "dim_community_area", "bridge_tract_community_area",
+                             "Stadtteile")

@@ -36,12 +36,12 @@ Was sich nicht ohne uns lesen lässt, lässt sich auch nicht übertragen.
 | [`ln2_konzept.md`](ln2_konzept.md) | Konzept, Methode, Befunde — **die Hauptquelle des LN2-Word-Dokuments** |
 | [`architektur-ist-und-ziel.md`](architektur-ist-und-ziel.md) | Ist- und Ziel-Architektur, Teil A und Teil B |
 | [`architektur-einseiter.html`](architektur-einseiter.html) | dieselbe Architektur auf **einer A4-Seite**, zum Ausdrucken |
-| [`architektur.md`](architektur.md) | der Aufbau in zwei erzeugten Bildern, dazu ein Lesepfad |
+| [`architektur.md`](architektur.md) | der Aufbau in drei erzeugten Bildern, dazu ein Lesepfad |
 | [`sternschema-und-wuerfel.md`](sternschema-und-wuerfel.md) · [`.html`](sternschema-und-wuerfel.html) | warum Gold ein Stern ist und kein Würfel — die begründete Entwurfsentscheidung |
 | [`zaehlperspektiven.md`](zaehlperspektiven.md) | vier Arten zu zählen, und was sich nicht addiert |
 | [`eine-zahl.md`](eine-zahl.md) | eine Zahl über sieben Schichten zurückverfolgt |
 | [`storage-architektur.md`](storage-architektur.md) | die Ablage im Aufbau: Modi, Zusagen, API, Fehlerbilder — LN1 verlangt die Storage-Evaluation ausdrücklich; Abschnitt 16 beschreibt, wie die Strecke auf `srv01` liegt, mit den gemessenen Speichergrenzen und den sieben Diensten |
-| [`feldkatalog.md`](feldkatalog.md) | was jede Spalte bedeutet, 192 Spalten in 15 Tabellen — und **erzeugt** (siehe unten) |
+| [`feldkatalog.md`](feldkatalog.md) | was jede Spalte bedeutet, 280 Spalten in 24 Tabellen — und **erzeugt** (siehe unten) |
 | [`ausblick.md`](ausblick.md) | was nach LN1 käme, mit Messwerten und Reihenfolge |
 | [`nachweise/`](nachweise/README.md) | die Notebooks 31, 33–37 **ausgeführt**, als HTML mit allen Ausgaben, je Lauf mit Commit, Umgebung und Datenstand — der Beleg, den die Beurteilung von LN1 vermisste (siehe unten) |
 
@@ -66,9 +66,16 @@ Word-Dokument verweist**: auf keines davon.
 | [`AENDERUNGEN.md`](intern/AENDERUNGEN.md) | das Projektgedächtnis: was sich wann geändert hat und warum |
 | [`intern/fr-stand.md`](intern/fr-stand.md) | der Stand je Anforderung des PRD — mit Beleg je Zeile; `tests/test_fr_stand.py` hält sie gegen das PRD |
 | [`intern/offene-punkte.md`](intern/offene-punkte.md) | was liegen geblieben ist, an einer Stelle — Entscheidungen, Handgriffe auf dem Server, Code; je Punkt ein Verantwortlicher und ein Beleg. Die Anforderungen stehen in `fr-stand.md` |
+| [`intern/pflichtbestandteile.md`](intern/pflichtbestandteile.md) | wo die sechs Pflichtbestandteile P1–P6 von LN2 stehen, je mit Fundstelle und Stand (FR-56); `tests/test_pflichtbestandteile.py` hält Anker und Stand |
+| [`intern/textvorschlag-fr-58.md`](intern/textvorschlag-fr-58.md) | Textvorschlag für Artan: was aus jedem Punkt der LN1-Rückmeldung wurde, mit Beleg und Grenze (FR-58) — ein Vorschlag, keine Fundstelle |
+| [`intern/textvorschlag-dashboard.md`](intern/textvorschlag-dashboard.md) | Textvorschlag für Artan: die acht Bretter des Dashboards und was für alle gilt, als Stoff für einen Abschnitt in `ln2_konzept.md` 5.2 — ein Vorschlag, keine Fundstelle |
+| [`intern/textvorschlag-mehrheitsregel.md`](intern/textvorschlag-mehrheitsregel.md) | Textvorschlag für Artan: die Mehrheitsregel nach der Neumessung vom 26.11.2026, mit Wortlaut für Konzept 5.2 und Kapitel 9 — ein Vorschlag, keine Fundstelle |
 | [`datenhistorie.md`](intern/datenhistorie.md) | was beim Aufräumen verlorenginge — Entscheidungspapier |
 | [`dritte-stadt.md`](intern/dritte-stadt.md) | was eine dritte Stadt bräuchte: welche der zehn grössten US-Städte in Frage kommen, was an der Ingestion vorbereitet ist (`config/quellen.toml`) und was Schicht für Schicht noch fehlt — keine Stadt geplant |
 | [`platzbedarf.md`](intern/platzbedarf.md) | was die Strecke an Platz braucht, gemessen und auf 2021–2026 hochgerechnet — **erzeugt** (siehe unten) |
+| [`abgabestand.md`](intern/abgabestand.md) | der Ablauf am Tag, an dem der Abgabestand gepinnt wird: welcher Lauf, Stand lokal herstellen, pinnen, Notebook 34 und die Nachweise, erzeugte Dateien, Dokumente, Einsetzen |
+| [`umstellung-verwaltet.md`](intern/umstellung-verwaltet.md) | S-10: wie `srv01` vom Cron-Datenlauf auf den Konsolen-Worker umgestellt wird — Vorprüfung, Umstellen, Probelauf von Hand, Abnahme, Rückweg; vorbereitet, nicht entschieden |
+| [`vorfuehrung.md`](intern/vorfuehrung.md) | die Vorführung: Kibana aus Google Cloud über `srv01` starten, prüfen und stoppen, dazu der Rückfallweg ohne `srv01` |
 | [`DETROIT_PIPELINE_ANLEITUNG.md`](intern/DETROIT_PIPELINE_ANLEITUNG.md) | Detroit-Pipeline Schritt für Schritt (Windows) |
 | [`ENGINEERING_KONSOLE.md`](intern/ENGINEERING_KONSOLE.md) | die Engineering-Konsole: Funktionen, Impact-Bericht, lokale Einrichtung, Betrieb auf `srv01`, Umstellung auf den verwalteten Betrieb, Fehlerdiagnose — als PDF unter [`intern/handbuch/`](intern/handbuch/ENGINEERING_KONSOLE.pdf) (erzeugt, siehe unten) |
 | [`konsole-vorschlagseditor.md`](intern/konsole-vorschlagseditor.md) | zweisprachige Vorschlagserfassung, Stadt-/Jobauswahl, Importdetails und Abgrenzung zur bestehenden Worker- und Freigabelogik |
@@ -89,13 +96,18 @@ Eine Handänderung hier ist beim nächsten Lauf weg. Wer den Inhalt ändern will
 | [`referenz/`](referenz/index.html) | `tools/build_referenz.py` (pdoc), eine Seite je Modul |
 | [`einstieg.html`](einstieg.html) | `python -m serving.build_einstieg`, aus dem aktuellen Release — **wo ein Analyst anfängt**. Dieselbe Seite liefert auf `srv01` der Dienst `urbancrime-start` aus, mit Serveradressen statt `localhost` (`--adressen server`); sie liegt dort in einem Datenträger und nicht in diesem Ordner |
 | `bilder/architektur-pakete.svg`, `bilder/architektur-datenfluss.svg`, `bilder/architektur-kontext.svg` | `tools/build_architekturbilder.py`, aus dem Importgraphen |
+| `bilder/stern.svg` und das Bild im Block `<!-- stern -->` von `sternschema-und-wuerfel.html` | `tools/build_sternbild.py`, aus `gold_pipeline.TABELLEN` und den Gold-Manifesten; `tests/test_sternbild.py` hält beide Fassungen gegen einen frischen Bau |
 | `bilder/dashboard-*.png` | `tools/build_dashboardbilder.py`, fotografiert die laufenden Kibana-Dashboards |
 | [`nachweise/README.md`](nachweise/README.md) | `tools/build_nachweise.py`, aus den abgelegten `nachweis.json`. Die Nachweise selbst erzeugt dasselbe Werkzeug, sie sind aber **kein Erzeugnis**: Laufzeiten wiederholen sich nicht byteweise, also kein Reproduktionswächter. Stattdessen hält `tests/test_nachweise.py` den Code-Abdruck je Notebook gegen das Notebook — ändert sich der Code, ist der Nachweis veraltet und der Test rot |
 | [`intern/handbuch/ENGINEERING_KONSOLE.pdf`](intern/handbuch/ENGINEERING_KONSOLE.pdf) | `tools/build_konsole_pdf.py`, aus `intern/ENGINEERING_KONSOLE.md`; der Titel trägt den Hash des Markdowns, und `tests/test_konsole_handbuch.py` vergleicht ihn |
 
 Die übrigen Dateien in [`bilder/`](bilder/) sind von Hand gezeichnet
-(`granularitaet.svg`, `stern.svg`, `wuerfel.svg`) beziehungsweise für Folien
-gesetzt (`Data_Pipeline_fuer_Folie.png`, `Endarchitektur_LN2.png`).
+(`granularitaet.svg`, `wuerfel.svg`), für Folien gesetzt
+(`Endarchitektur_LN2.png`) oder Artans Entwürfe für die Bretter des
+Dashboards (`dashboard_*.png` mit Unterstrich, 15.10.2026), nach denen die
+Bretter gebaut sind. `architektur-sichten.*` und `architektur-uebersicht.*`
+vom 22.9.2026 bindet kein Dokument mehr ein; sie sind Vorläufer der drei
+erzeugten Architekturbilder.
 
 ## Quellen — die amtlichen Unterlagen
 

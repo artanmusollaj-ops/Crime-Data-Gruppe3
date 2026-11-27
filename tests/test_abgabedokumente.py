@@ -117,13 +117,32 @@ def test_silber_tabelle_in_82(con, konzept, dataset, muster):
         ("dim_tract", r"\| `dim_tract` \|[^|]*\| ([0-9']+) \|"),
         ("dim_offense", r"\| `dim_offense` \| ein NIBRS-Delikt \| ([0-9']+) \|"),
         ("dim_date", r"\| `dim_date` \| ein Kalendertag \| ([0-9']+) \|"),
-        ("dim_city_day", r"\| `dim_city_day` \|[^|]*\| ([0-9']+) \|"),
     ],
 )
 @pytest.mark.referenzstand
 def test_gold_tabelle_in_52(con, konzept, dataset, muster):
     """Kapitel 5.2 nennt je Gold-Tabelle ihre Zeilenzahl."""
     assert genannt(konzept, muster) == zeilen(con, parquet(GOLD, dataset)), dataset
+
+
+@pytest.mark.referenzstand
+def test_dim_city_day_in_52_zaehlt_die_tage_mit_wetter(con, konzept):
+    """Kapitel 5.2 nennt ``dim_city_day`` als "Stadt und Tag, mit dem Wetter".
+
+    Seit Gold-Vertrag 9 (19.11.2026) ist die Tabelle ein Geruest aus der
+    Fallspanne und den Studienstaedten; das Wetter kommt per LEFT JOIN, und
+    an den Tagen, fuer die NOAA noch nicht geliefert hat, sind die
+    Wetterspalten NULL. Die genannte Zahl zaehlt deshalb die Zeilen **mit**
+    Wetter - bis Vertrag 8 war das dasselbe wie alle Zeilen. Ein Gold mit
+    Vertrag 8 haelt den Waechter deshalb genauso.
+    """
+    pfad = parquet(GOLD, "dim_city_day")
+    if pfad is None or not pfad.exists():
+        pytest.skip(f"nicht gebaut: {pfad}")
+    mit_wetter = con.execute(
+        f"SELECT count(*) FROM read_parquet('{pfad}') WHERE temp_max_c IS NOT NULL"
+    ).fetchone()[0]
+    assert genannt(konzept, r"\| `dim_city_day` \|[^|]*\| ([0-9']+) \|") == mit_wetter
 
 
 # --------------------------------------------------------------------------
@@ -203,11 +222,12 @@ def test_rate_je_einwohner(con, konzept, stadt):
         rf"\| {stadt} \| ([0-9']+) \| ([0-9']+) \| \*\*([0-9]+,[0-9])\*\* \|", konzept
     )
     assert treffer, f"Ratenzeile fuer {stadt} nicht gefunden"
-    delikte = int(treffer.group(1).replace("'", ""))
+    faelle = int(treffer.group(1).replace("'", ""))
     einwohner = int(treffer.group(2).replace("'", ""))
     rate = float(treffer.group(3).replace(",", "."))
-    delikte_echt, _, einwohner_echt, rate_echt, _ = echt[stadt.lower()]
-    assert (delikte, einwohner) == (delikte_echt, einwohner_echt)
+    # Seit E-2 (12.11.2026) die Fallebene: Faelle und Fallrate.
+    _, faelle_echt, einwohner_echt, _, rate_echt = echt[stadt.lower()]
+    assert (faelle, einwohner) == (faelle_echt, einwohner_echt)
     assert rate == pytest.approx(rate_echt, abs=0.05)
     # Die 500 Zeichen vor der Zeile, nicht "der Absatz davor": Eine
     # Tabellenzeile hat als Absatz die Kopfzeile der Tabelle, und darin steht
@@ -277,15 +297,16 @@ def test_readme_nennt_die_zeilenzahlen(con, readme, dataset, schicht, muster):
 def test_readme_nennt_die_raten(con, readme, stadt):
     """Dieselbe Rate auf der ersten Seite, die jemand liest - mit ihrem Jahr."""
     echt = gemessene_raten(con)
+    # Vorn die Fallebene (E-2, 12.11.2026): Faelle und Fallrate.
     treffer = re.search(
-        rf"\| {stadt} \| ([0-9']+) Delikte .*?\*\*([0-9]+,[0-9])\*\* je 1'000",
+        rf"\| {stadt} \| ([0-9']+) Fälle .*?\*\*([0-9]+,[0-9])\*\* je 1'000",
         readme,
     )
     assert treffer, f"Ratenzeile fuer {stadt} nicht im README"
-    delikte = int(treffer.group(1).replace("'", ""))
+    faelle = int(treffer.group(1).replace("'", ""))
     rate = float(treffer.group(2).replace(",", "."))
-    assert delikte == echt[stadt.lower()][0]
-    assert rate == pytest.approx(echt[stadt.lower()][3], abs=0.05)
+    assert faelle == echt[stadt.lower()][1]
+    assert rate == pytest.approx(echt[stadt.lower()][4], abs=0.05)
     kopf = readme[max(0, treffer.start() - 500):treffer.start()]
     assert str(RATENJAHR) in kopf, (
         f"die Ratenzeilen im README nennen den Jahrgang {RATENJAHR} nicht"
@@ -363,3 +384,18 @@ def test_das_konzept_nennt_die_testzahl_ueberall_gleich(konzept):
         f"{sorted(erlaubt)} (ganz / ohne Referenzwaechter). "
         "Alle drei Stellen mitziehen: Kurzfassung, Tabelle 5.3, Kapitel 10."
     )
+
+
+def test_das_konzept_nennt_jedes_notebook_in_11_2(konzept):
+    """Kapitel 11.2 heisst "Die Notebooks: der Rechenweg" und fuehrt sie auf.
+
+    Bis zum 25.11.2026 endete die Liste bei 34. Die Notebooks 35 bis 37 gab es
+    seit Wochen, 36 rechnet die Hypothesen, und das Konzept verweist an zwei
+    anderen Stellen darauf - nur sein eigenes Verzeichnis kannte es nicht.
+    Geprueft wird gegen ``notebooks/``, nicht gegen eine Liste hier.
+    """
+    anfang = konzept.index("### 11.2")
+    abschnitt = konzept[anfang:konzept.index("### 11.3", anfang)]
+    fehlt = [nb.name for nb in sorted((PROJECT_ROOT / "notebooks").glob("*.ipynb"))
+             if f"(../notebooks/{nb.name})" not in abschnitt]
+    assert not fehlt, f"ln2_konzept.md 11.2 nennt nicht: {fehlt}"

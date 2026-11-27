@@ -811,8 +811,8 @@
     },
     {
       "type": "table",
-      "title": "Abweichung je Groesse (Prozent)",
-      "description": "Eine Groesse, die nicht gebaut ist, kommt hier nicht vor - 'nicht gebaut' ist keine Drift von null.",
+      "title": "Abweichung je Groesse",
+      "description": "Je Groesse die Abweichung der dokumentierten Zahl vom gebauten Stand, und ob sie die Toleranz reisst. Zwei Regeln (orchestration.drift): Raten gelten absolut, Toleranz 0,1 je 1'000 Einwohner. Zaehlungen gelten in Prozent, Toleranz 1 %. Eine Rate kann deshalb mit 0,2 % die Toleranz reissen, eine Zaehlung mit 0,9 % nicht. Eine Groesse, die nicht gebaut ist, kommt hier nicht vor - 'nicht gebaut' ist keine Drift von null.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -825,12 +825,51 @@
       },
       "fieldConfig": {
         "defaults": {},
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Toleranz"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "haelt",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "1": {
+                        "text": "reisst",
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "showHeader": true
       },
       "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
         {
           "id": "organize",
           "options": {
@@ -839,15 +878,59 @@
               "job": true,
               "instance": true,
               "__name__": true
+            },
+            "indexByName": {
+              "groesse": 0,
+              "Value #A": 1,
+              "Value #B": 2,
+              "Value #C": 3
+            },
+            "renameByName": {
+              "groesse": "Groesse",
+              "Value #A": "Toleranz",
+              "Value #B": "Abweichung",
+              "Value #C": "Abweichung (%)"
             }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Toleranz",
+                "desc": true
+              }
+            ]
           }
         }
       ],
       "targets": [
         {
-          "expr": "urbancrime_drift_prozent",
+          "expr": "max by (groesse) (urbancrime_drift_ueberschritten)",
           "refId": "A",
           "instant": true,
+          "format": "table",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "expr": "max by (groesse) (urbancrime_drift)",
+          "refId": "B",
+          "instant": true,
+          "format": "table",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "expr": "max by (groesse) (urbancrime_drift_prozent)",
+          "refId": "C",
+          "instant": true,
+          "format": "table",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"

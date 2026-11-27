@@ -29,14 +29,16 @@
 </nav>
 
 <form class="leiste" id="leiste">
-  <label>Stadt <select name="stadt" id="stadt"></select></label>
+  <div class="mehrfach" id="staedte" role="group" aria-label="Stadt"><span>Stadt</span></div>
+  <input type="hidden" name="stadt" id="stadt">
   <label>Zeitraum
     <select name="von" id="von" aria-label="von Monat"></select>
     <span class="bis">–</span>
     <select name="bis" id="bis" aria-label="bis Monat"></select>
     <select name="jahr" id="jahr" aria-label="Jahr"></select>
   </label>
-  <label>Kategorie <select name="kategorie" id="kategorie"></select></label>
+  <div class="mehrfach" id="kategorien" role="group" aria-label="Kategorie"><span>Kategorie</span></div>
+  <input type="hidden" name="kategorie" id="kategorie">
 </form>
 
 <main class="brett">
@@ -75,10 +77,29 @@
     </article>
     <article class="tafel">
       <h2>NIBRS-Zuordnung je Stadt</h2>
-      <p class="unterzeile">Anteil der Taten je Zuordnungsstatus aus gold/fact_offense</p>
+      <p class="unterzeile">Anteil der Taten je Zuordnungsstatus aus gold/fact_offense ·
+        ein Klick auf einen Abschnitt zeigt seine Quellcodes unten im Detail</p>
       <div class="diagramm" id="d-zuordnung"></div>
       <div class="legende" id="l-zuordnung"></div>
     </article>
+  </section>
+
+  <section class="tafel detail" id="zuordnung-detail">
+    <div class="tafelkopf">
+      <div>
+        <h2>NIBRS-Zuordnung im Detail</h2>
+        <p class="unterzeile">Je Quellcode (IUCR in Chicago, MICR in Detroit), wohin er in NIBRS
+          fällt · Taten im gewählten Zeitraum, nach Häufigkeit</p>
+      </div>
+      <div class="filterknoepfe" id="f-status" role="group" aria-label="Zuordnung filtern"></div>
+    </div>
+    <div class="detailfilter">
+      <input type="search" id="f-suche" placeholder="Code oder Bezeichnung suchen" aria-label="Code oder Bezeichnung suchen">
+      <button type="button" class="filterchip" id="f-stadt" hidden></button>
+      <span class="leise" id="f-treffer"></span>
+    </div>
+    <table class="tabelle zuordnungstabelle" id="d-zuordnung-detail"></table>
+    <button type="button" class="knopf" id="f-mehr" hidden></button>
   </section>
 
   <section class="tafel detail">

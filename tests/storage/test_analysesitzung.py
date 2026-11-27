@@ -237,3 +237,71 @@ def test_release_erstellen_laesst_den_nachweis_stehen():
     quelle = (PROJECT / "src" / "crime" / "orchestration" / "release.py").read_text(encoding="utf-8")
     assert 'ersetzt_gold = args.was == "holen" and args.einsetzen' in quelle
     assert "invalidieren=ersetzt_gold" in quelle
+
+
+def test_kein_test_entwertet_den_echten_nachweis(tmp_path):
+    """Der Waechter aus conftest greift: das echte data/ bleibt unberuehrt.
+
+    Am 12.11.2026 entwerteten fuenf Tests bei jedem Lauf der Suite
+    ``data/.analyse/stand.json``, weil sie ``main()`` ohne ``--data-root``
+    aufriefen. Danach startete Notebook 34 nicht mehr.
+    """
+    from storage import analysesitzung
+
+    ECHTE_DATEN = Path(__file__).resolve().parents[2] / "data"
+
+    with pytest.raises(AssertionError, match="echte"):
+        with analysesitzung.schreibzugriff(ECHTE_DATEN):
+            pass
+    with pytest.raises(AssertionError, match="echte"):
+        with analysesitzung.schreibzugriff("data"):
+            pass
+    # Ein anderes Ziel geht durch.
+    with analysesitzung.schreibzugriff(tmp_path) as root:
+        assert root == tmp_path.resolve()
+
+
+def test_fehlende_analysetabellen_kommen_aus_dem_eimer(bestand):
+    """Der 14.11.2026: "0 Paare neu", und source_change lag nur oben.
+
+    Die Stufe baute nichts neu, also entstand keine lokale Kopie, und
+    Notebook 37 startete auf srv01 nicht. Mit dem Analysebestand holt
+    ``run_all`` die fehlende Tabelle vor dem Bestaetigen.
+    """
+    from orchestration.analyse import hole_fehlende_analysetabellen
+    from storage import Config, FakeS3Client, Storage
+
+    tabelle = bestand / "silver" / "dataset=source_change"
+    fake = FakeS3Client()
+    fake.put("silver/dataset=source_change/part-0001.parquet", b"PAR1oben")
+    fake.put("silver/dataset=source_change/manifest.json", b'{"row_count": 1}')
+    fake.put("silver/dataset=source_change_alt/part-0001.parquet", b"fremd")
+    for datei in tabelle.iterdir():
+        datei.unlink()
+    tabelle.rmdir()
+    ablage = Storage(Config(backend="s3", local_root=bestand, s3_access_key="k",
+                            s3_secret_key="s", analysebestand_lokal=True), fake)
+
+    assert hole_fehlende_analysetabellen(ablage) == ["silver/dataset=source_change"]
+    assert (tabelle / "part-0001.parquet").read_bytes() == b"PAR1oben"
+    assert (tabelle / "manifest.json").is_file()
+    assert sorted(p.name for p in tabelle.iterdir()) == ["manifest.json", "part-0001.parquet"]
+    assert not list(tabelle.parent.glob(".*part")), "kein .part bleibt liegen"
+    # Was lokal liegt, bleibt unberuehrt; ein zweiter Aufruf holt nichts.
+    assert hole_fehlende_analysetabellen(ablage) == []
+    with schreibzugriff(bestand):
+        bestaetige(bestand, run_id="build-b", projekt_root=PROJECT, release_id="r")
+    with Analysesitzung(bestand, "37"):
+        pass
+
+
+def test_eine_lokale_analysetabelle_wird_nicht_ueberschrieben(bestand):
+    from orchestration.analyse import hole_fehlende_analysetabellen
+    from storage import Config, FakeS3Client, Storage
+
+    fake = FakeS3Client()
+    fake.put("silver/dataset=source_change/part-0001.parquet", b"PAR1oben")
+    ablage = Storage(Config(backend="s3", local_root=bestand, s3_access_key="k",
+                            s3_secret_key="s"), fake)
+    assert hole_fehlende_analysetabellen(ablage) == []
+    assert (bestand / "silver/dataset=source_change/part-0001.parquet").read_bytes() == b"PAR1test"

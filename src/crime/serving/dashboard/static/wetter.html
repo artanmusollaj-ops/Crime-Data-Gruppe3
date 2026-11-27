@@ -29,14 +29,16 @@
 </nav>
 
 <form class="leiste" id="leiste">
-  <label>Stadt <select name="stadt" id="stadt"></select></label>
+  <div class="mehrfach" id="staedte" role="group" aria-label="Stadt"><span>Stadt</span></div>
+  <input type="hidden" name="stadt" id="stadt">
   <label>Zeitraum
     <select name="von" id="von" aria-label="von Monat"></select>
     <span class="bis">–</span>
     <select name="bis" id="bis" aria-label="bis Monat"></select>
     <select name="jahr" id="jahr" aria-label="Jahr"></select>
   </label>
-  <label>Kategorie <select name="kategorie" id="kategorie"></select></label>
+  <div class="mehrfach" id="kategorien" role="group" aria-label="Kategorie"><span>Kategorie</span></div>
+  <input type="hidden" name="kategorie" id="kategorie">
 </form>
 
 <main class="brett">

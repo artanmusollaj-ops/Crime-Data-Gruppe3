@@ -634,6 +634,34 @@ def test_loeschen_mit_auch_fern_raeumt_beide_orte_ganz(tmp_path, monkeypatch, ca
     assert "2 Release(s) auf SeaweedFS geloescht (6 Objekte), 2.0 MB frei." in out
 
 
+def test_die_fassungen_gehen_nach_den_releases_und_nehmen_deren_reste_mit(
+        tmp_path, monkeypatch, capsys):
+    """10.11.2026: 530 MB der geloeschten Releases blieben als alte Fassungen liegen.
+
+    Das Entfernen der Fassungen stand vor dem Loeschen der Releases, und das
+    Loeschen setzte danach nur noch Markierungen. Ein Durchgang muss reichen.
+    """
+    _, fake = ablage(tmp_path)
+    alle = kennungen(10)
+    for k in alle:
+        release_oben(fake, k)
+        release_lokal(tmp_path, k)
+    zeiger(tmp_path, alle[-1])
+    assert all(f.aktuell for f in fake.fassungen("")), "vorher gibt es keine alte Fassung"
+
+    monkeypatch.setattr(sys, "argv",
+                        ["aufraeumen", "--loeschen", "--fassungen", "--auch-fern"])
+    assert au.main() == 0
+
+    reste = [f for f in fake.fassungen("") if not f.aktuell or f.markierung]
+    assert reste == [], f"nach einem Durchgang liegen noch {len(reste)} Reste oben"
+    for k in alle[:2]:
+        assert not [f for f in fake.fassungen("") if f"release={k}/" in f.key]
+    # Zwei Releases mit je drei Objekten: sechs Fassungen und sechs Markierungen.
+    assert "12 alte Fassungen und Markierungen entfernt" in capsys.readouterr().out
+    assert len([f for f in fake.fassungen("") if "release=" in f.key]) == 8 * 3
+
+
 def test_der_zeiger_selbst_wird_nie_angefasst(tmp_path, monkeypatch):
     """``releases/AKTUELL.json`` liegt ausserhalb jedes Release-Praefixes."""
     _, fake = ablage(tmp_path)

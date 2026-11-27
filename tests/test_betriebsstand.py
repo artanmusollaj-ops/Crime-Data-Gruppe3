@@ -96,14 +96,14 @@ UEBERHOLT = {
 }
 
 #: Was **nicht** mitgedreht wurde, weil es unbelegt blieb. Datei -> Phrase.
-NOCH_WAHR = {
-    # Der Zeitplan steht, aber er hat am 11.10.2026 noch nie gefeuert -
-    # ``logs/scheduled-pipeline.log`` gibt es nicht, und der Crontab schreibt
-    # mit ``>>`` hinein. Dieselbe Elle, die 5.3 an den Datenlauf in GitHub
-    # Actions legt: bis zum ersten gruenen Lauf eine Einrichtung.
-    "docs/architektur-ist-und-ziel.md": "Einrichtung, kein Nachweis",
-    "README.md": "Einrichtung, kein Nachweis",
-    "docs/ln2_konzept.md": "Einrichtung, kein Nachweis",
+NOCH_WAHR: dict[str, str] = {
+    # Leer seit dem 25.11.2026. Hier stand dreimal "Einrichtung, kein
+    # Nachweis" - fuer den Zeitplan auf srv01, der am 11.10.2026 noch nie
+    # gefeuert hatte. Seit dem 12.10.2026 feuert er jede Woche; die Laeufe
+    # vom 16. und 23.11.2026 endeten mit Exit 0 und publizierten je ein
+    # Release (``logs/scheduled-pipeline.log``). README.md, ln2_konzept.md und
+    # architektur-ist-und-ziel.md sagen das jetzt mit Datum und Beleg.
+    #
     # Hier stand bis zum 1.11.2026 der vierte Posten unter "Was daneben
     # einzurichten ist": der Elasticsearch-Datentraeger fuer Restic, am
     # 11.10.2026 nicht geprueft. Er ist nicht eingerichtet, sondern
@@ -211,16 +211,22 @@ def test_die_gedrehten_aussagen_kommen_nicht_zurueck(phrase: str) -> None:
     )
 
 
-@pytest.mark.parametrize("rel,phrase", sorted(NOCH_WAHR.items()))
-def test_die_unbelegten_aussagen_stehen_weiter_da(rel: str, phrase: str) -> None:
+def test_die_unbelegten_aussagen_stehen_weiter_da() -> None:
     """Was nicht belegt ist, bleibt stehen - auch wenn es unfertig klingt.
 
     Faellt dieser Test, ist eine Aussage mitgedreht worden, fuer die es keinen
     Beleg gibt. Dann gehoert entweder der Beleg her (``docker compose ps`` auf
     der Maschine) oder die Aussage zurueck.
+
+    Eine Schleife statt ``parametrize``: Ist ``NOCH_WAHR`` leer, wie seit dem
+    25.11.2026, bliebe sonst ein uebersprungener Test mit leerer
+    Parametermenge stehen, und die Testzahl hinge davon ab, wie viel gerade
+    unbelegt ist.
     """
-    assert phrase in text_von(rel), (
-        f"{rel} sagt {phrase!r} nicht mehr - ist der Beleg dafuer da, oder "
+    fehlt = [(rel, phrase) for rel, phrase in sorted(NOCH_WAHR.items())
+             if phrase not in text_von(rel)]
+    assert not fehlt, (
+        f"{fehlt} steht nicht mehr da - ist der Beleg dafuer da, oder "
         "ist die Aussage ohne Beleg gedreht worden?"
     )
 

@@ -222,7 +222,10 @@ def test_operations_deduplicate_and_preserve_failure(store, monkeypatch):
     )
     result = operations.run_operation(store)
     assert result["id"] == oid and result["status"] == "FAILED"
-    assert "secret-value" not in json.dumps(operations.overview(store))
+    overview = operations.overview(store)
+    row = overview["operations"][0]
+    assert row["created_at"] <= row["started_at"] <= row["finished_at"]
+    assert "secret-value" not in json.dumps(overview)
 
 
 def test_running_operation_needs_explicit_recovery(store):
@@ -233,6 +236,24 @@ def test_running_operation_needs_explicit_recovery(store):
         operations.run_operation(store)
     operations.recover(store, oid, "operator", "Process confirmed stopped")
     assert operations.overview(store)["operations"][0]["status"] == "FAILED"
+
+
+def test_operation_start_time_migration_preserves_older_jobs(store):
+    with store.db() as c:
+        c.execute(
+            """CREATE TABLE operation(
+                id TEXT PRIMARY KEY, kind TEXT, payload TEXT, actor TEXT, reason TEXT,
+                status TEXT, created_at TEXT, finished_at TEXT, result TEXT
+            )"""
+        )
+        c.execute(
+            "INSERT INTO operation(id,kind,status,finished_at) VALUES (?,?,?,?)",
+            ("old", "batch", "SUCCEEDED", "2026-11-14T09:29:00Z"),
+        )
+    row = operations.overview(store)["operations"][0]
+    assert row["id"] == "old"
+    assert row["started_at"] is None
+    assert row["finished_at"] == "2026-11-14T09:29:00Z"
 
 
 class FakeObjects:
@@ -257,6 +278,16 @@ class FakeObjects:
         assert etag == ("etag" if key in self.data else None)
         self.data[key] = body
         self.calls.append(key)
+
+    def holds(self, key, body):
+        return self.data.get(key) == body
+
+    def keys(self, prefix):
+        return sorted(k for k in self.data if k.startswith(prefix))
+
+    def remove(self, key):
+        self.data.pop(key, None)
+        self.calls.append("remove " + key)
 
 
 def approved_revision(store):
@@ -323,6 +354,178 @@ def test_backup_and_restore_roundtrip(store, tmp_path):
         assert db.execute("SELECT count(*) FROM head").fetchone()[0] == 3
     with pytest.raises(AdminError, match="leer"):
         object_store.restore_archive(path, dest)
+
+
+def release_dir(store, name, body):
+    folder = store.data / "releases" / name
+    (folder / "gold").mkdir(parents=True)
+    (folder / "gold/part-0001.parquet").write_bytes(b"x" * 1000)
+    (folder / "release.json").write_bytes(body)
+    return folder
+
+
+def archived_names(objects, info):
+    with tarfile.open(fileobj=io.BytesIO(objects.data[info["key"]]), mode="r:gz") as t:
+        return t.getnames()
+
+
+def test_backup_leaves_out_releases_the_bucket_already_holds(store):
+    # 10.11.2026: every archive carried all releases, 1.74 GB a day, and the
+    # bucket ran over its quota. A release stored under releases/ is not packed again.
+    objects = FakeObjects()
+    release_dir(store, "release=2026-11-02T03-34-54Z", b'{"a": 1}')
+    release_dir(store, "release=2026-11-10T13-47-23Z", b'{"b": 2}')
+    objects.data["releases/release=2026-11-02T03-34-54Z/release.json"] = b'{"a": 1}'
+    info = object_store.backup(store, objects)
+    names = archived_names(objects, info)
+    assert info["releases_in_bucket"] == ["release=2026-11-02T03-34-54Z"]
+    assert info["releases_archived"] == ["release=2026-11-10T13-47-23Z"]
+    assert not any("2026-11-02" in n for n in names)
+    assert "releases/release=2026-11-10T13-47-23Z/gold/part-0001.parquet" in names
+    assert "admin/control.sqlite" in names
+
+
+def test_backup_archives_a_release_whose_stored_manifest_differs(store):
+    objects = FakeObjects()
+    release_dir(store, "release=2026-11-10T13-47-23Z", b'{"lokal": 1}')
+    objects.data["releases/release=2026-11-10T13-47-23Z/release.json"] = b'{"fern": 1}'
+    info = object_store.backup(store, objects)
+    assert info["releases_archived"] == ["release=2026-11-10T13-47-23Z"]
+    assert "releases/release=2026-11-10T13-47-23Z/release.json" in archived_names(objects, info)
+
+
+def test_backup_keeps_the_pointer_file(store):
+    objects = FakeObjects()
+    (store.data / "releases").mkdir(parents=True)
+    (store.data / "releases/AKTUELL.json").write_text("{}")
+    info = object_store.backup(store, objects)
+    assert "releases/AKTUELL.json" in archived_names(objects, info)
+
+
+def test_backup_leaves_out_job_data_but_keeps_the_evidence(store):
+    # 25.11.2026: the data folder of the candidate of 18.11. (1.1 GiB) made
+    # every daily archive 830 MiB. It can be rebuilt; the evidence cannot.
+    objects = FakeObjects()
+    job = store.root / "jobs" / "9d265b70"
+    (job / "data/bronze").mkdir(parents=True)
+    (job / "data/bronze/part-0.parquet").write_bytes(b"x" * 1000)
+    (job / "run.log").write_text("log")
+    (job / "result.json").write_text("{}")
+    (store.root / "jobs/ANALYSE.json").write_text("{}")
+    info = object_store.backup(store, objects)
+    names = archived_names(objects, info)
+    assert info["job_data_left_out"] == ["9d265b70"]
+    assert not any(n.startswith("admin/jobs/9d265b70/data") for n in names)
+    assert "admin/jobs/9d265b70/run.log" in names
+    assert "admin/jobs/9d265b70/result.json" in names
+    assert "admin/jobs/ANALYSE.json" in names
+
+
+def test_backup_keeps_a_data_file_that_is_not_a_job_folder(store):
+    # Only jobs/<id>/data is left out, not a file of that name elsewhere.
+    objects = FakeObjects()
+    (store.root / "jobs/abc").mkdir(parents=True)
+    (store.root / "jobs/abc/data.json").write_text("{}")
+    (store.root / "serving/data").mkdir(parents=True)
+    (store.root / "serving/data/x.json").write_text("{}")
+    names = archived_names(objects, object_store.backup(store, objects))
+    assert "admin/jobs/abc/data.json" in names
+    assert "admin/serving/data/x.json" in names
+
+
+def test_backup_keeps_only_the_newest_and_never_the_one_just_written(store, monkeypatch):
+    monkeypatch.setenv("ADMIN_BACKUP_KEEP", "2")
+    objects = FakeObjects()
+    for day in ("2026-10-31", "2026-11-01", "2026-11-02"):
+        for suffix in (".tar.gz", ".json"):
+            objects.data["backups/control/" + day + "T00-00-00+00-00-aaaa" + suffix] = b"alt"
+    objects.data["backups/control/notiz.txt"] = b"fremd"
+    objects.data["backups/control/ordner/2026-10-01T00-00-00.json"] = b"tiefer"
+    info = object_store.backup(store, objects)
+    left = sorted(k for k in objects.data if k.startswith("backups/control/"))
+    stamp = info["key"][len("backups/control/"):-len(".tar.gz")]
+    assert left == sorted([
+        "backups/control/2026-11-02T00-00-00+00-00-aaaa.json",
+        "backups/control/2026-11-02T00-00-00+00-00-aaaa.tar.gz",
+        "backups/control/" + stamp + ".json",
+        "backups/control/" + stamp + ".tar.gz",
+        "backups/control/notiz.txt",
+        "backups/control/ordner/2026-10-01T00-00-00.json",
+    ])
+    assert len(info["removed"]) == 4
+    assert all(k.startswith("backups/control/2026-1") for k in info["removed"])
+
+
+def test_prune_never_removes_the_current_backup():
+    objects = FakeObjects()
+    for stamp in ("2026-11-01", "2099-01-01"):
+        objects.data["backups/control/" + stamp + ".tar.gz"] = b"x"
+    # The current stamp sorts oldest (clock skew): it stays, the other one is kept by count.
+    assert object_store.prune_backups(objects, 1, "2026-11-01") == []
+
+
+@pytest.mark.parametrize("value", ["0", "-3"])
+def test_backup_keep_must_be_at_least_one(monkeypatch, value):
+    monkeypatch.setenv("ADMIN_BACKUP_KEEP", value)
+    with pytest.raises(AdminError, match="ADMIN_BACKUP_KEEP"):
+        object_store.backup_keep()
+
+
+def test_backup_keep_defaults_to_a_week(monkeypatch):
+    monkeypatch.delenv("ADMIN_BACKUP_KEEP", raising=False)
+    assert object_store.backup_keep() == 7
+
+
+class VersionedClient:
+    """list_object_versions/delete_object of a versioned bucket, in memory."""
+
+    def __init__(self, versions):
+        self.versions = versions
+        self.deleted = []
+
+    def get_paginator(self, name):
+        assert name == "list_object_versions"
+        client = self
+
+        class Paginator:
+            def paginate(self, Bucket, Prefix):
+                hits = [v for v in client.versions if v[0].startswith(Prefix)]
+                yield {
+                    "Versions": [{"Key": k, "VersionId": v} for k, v, m in hits if not m],
+                    "DeleteMarkers": [{"Key": k, "VersionId": v} for k, v, m in hits if m],
+                }
+
+        return Paginator()
+
+    def delete_object(self, Bucket, Key, VersionId=None):
+        self.deleted.append((Key, VersionId))
+
+
+def test_remove_deletes_every_version_not_just_a_marker():
+    o = object_store.Objects.__new__(object_store.Objects)
+    o.bucket = "urban-crime"
+    o.client = VersionedClient([
+        ("backups/control/a.tar.gz", "v1", False),
+        ("backups/control/a.tar.gz", "v2", False),
+        ("backups/control/a.tar.gz", "m1", True),
+        ("backups/control/a.tar.gz.anders", "v9", False),
+    ])
+    o.remove("backups/control/a.tar.gz")
+    assert o.client.deleted == [
+        ("backups/control/a.tar.gz", "v1"),
+        ("backups/control/a.tar.gz", "v2"),
+        ("backups/control/a.tar.gz", "m1"),
+    ]
+    assert o.keys("backups/control/") == [
+        "backups/control/a.tar.gz", "backups/control/a.tar.gz.anders"]
+
+
+def test_remove_in_an_unversioned_bucket_deletes_the_object():
+    o = object_store.Objects.__new__(object_store.Objects)
+    o.bucket = "urban-crime"
+    o.client = VersionedClient([("backups/control/a.json", "null", False)])
+    o.remove("backups/control/a.json")
+    assert o.client.deleted == [("backups/control/a.json", None)]
 
 
 def test_restore_rejects_traversal(tmp_path):

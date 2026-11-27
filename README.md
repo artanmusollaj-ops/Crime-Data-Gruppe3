@@ -2,7 +2,7 @@
 
 [![Tests](https://github.com/artanmusollaj-ops/Crime-Data-Gruppe3/actions/workflows/tests.yml/badge.svg)](https://github.com/artanmusollaj-ops/Crime-Data-Gruppe3/actions/workflows/tests.yml)
 
-Vergleich der Kriminalitätsdaten von **Chicago und Detroit für das Jahr 2024** —
+Vergleich der Kriminalitätsdaten von **Chicago und Detroit für die Jahrgänge 2021–2026** —
 eine Semesterarbeit im CAS Data Engineering.
 
 Die Frage klingt einfach und ist es nicht: *Wo passiert was, wie oft, im
@@ -21,16 +21,20 @@ vergleichbare Tabelle macht:
         Detroit ─┤
   Census TIGER ──┼──▶  raw ─▶ bronze ─▶ silver ─▶ gold ─▶ serving ─▶ releases
     Census ACS ──┤       │       │         │        │        │           │
-     NOAA GHCN ──┘    Beweis  geparst   gedeutet  Stern   Abfragen   freigegeben
+     NOAA GHCN ──┤    Beweis  geparst   gedeutet  Stern   Abfragen   freigegeben
+       Gebiete ──┘
 ```
+
+*Gebiete* sind die Polizeibezirke und Stadtteile beider Städte, seit dem
+25.11.2026 die sechste Quelle.
 
 | Schicht | Was sie ist |
 | --- | --- |
 | **raw** | die Antwort der Quelle, Byte für Byte, mit SHA-256. Nicht rekonstruierbar |
 | **bronze** | daraus abgeleitetes Parquet mit gepinntem Schema. Deutet nichts |
 | **silver** | die erste deutende Schicht: Typen, Einheiten, Zeitzonen, NIBRS, Raum |
-| **gold** | Sternschema mit einer Faktentabelle je Tat und vier Dimensionen |
-| **serving** | DuckDB-Sichten über die Schichten, dazu vier aus Gold abgeleitete Vergleichstabellen |
+| **gold** | Sternschema mit einer Faktentabelle je Tat, acht Dimensionen und zwei Brücken |
+| **serving** | DuckDB-Sichten über die Schichten, dazu fünf aus Gold abgeleitete Vergleichstabellen und die Quellbewegung |
 | **releases** | ein freigegebener Gesamtstand unter einer Kennung, unveränderlich, mit Prüfsummen |
 
 **Der Stand in Zahlen** — was gerade in den Schichten liegt:
@@ -38,16 +42,20 @@ vergleichbare Tabelle macht:
 | | |
 | --- | ---: |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
-| `silver/crime_offense` | 1'875'374 Zeilen (Detroit: eine Anklage) |
-| `gold/fact_offense` | 1'851'946 Zeilen (eine Tat) |
+| `silver/crime_offense` | 1'922'278 Zeilen (Detroit: eine Anklage) |
+| `gold/fact_offense` | 1'900'131 Zeilen (eine Tat) |
 
 Und die Raten, **für den Jahrgang 2024** — eine Rate braucht einen Zeitraum,
 der Bestand trägt sechs:
 
 | | |
 | --- | ---: |
-| Chicago | 251'513 Delikte · 2'661'953 Einwohner · **94,5** je 1'000 |
-| Detroit | 84'987 Delikte · 638'635 Einwohner · **133,1** je 1'000 |
+| Chicago | 256'317 Fälle · 2'713'800 Einwohner · **94,4** je 1'000 |
+| Detroit | 79'619 Fälle · 638'635 Einwohner · **124,7** je 1'000 |
+| Tatebene (`fact_offense`) | Chicago 256'347 · Detroit 85'701 Taten; je 1'000: Chicago **94,5** · Detroit **134,2** |
+
+Vorn steht die **Fallebene**: je Vorfall das schwerste Delikt, nach derselben
+Regel für beide Städte (`counts_case`). Die Tatebene zählt jedes Delikt.
 
 Wo etwas ausführlich steht:
 
@@ -115,12 +123,14 @@ src/crime/
 ├── detroit_pipeline/   → import detroit_pipeline
 ├── census_pipeline/    → import census_pipeline
 ├── weather_pipeline/   → import weather_pipeline
+├── gebiete_pipeline/   → import gebiete_pipeline  (Polizeibezirke, Stadtteile)
 ├── silver_pipeline/    → import silver_pipeline
 ├── gold_pipeline/      → import gold_pipeline
 ├── serving/            → import serving
 ├── manifeste/          → import manifeste      (ein Leser für alle Manifeste)
 ├── storage/            → import storage        (lokal, SeaweedFS, Releases)
-└── orchestration/      → import orchestration  (Gesamtlauf, Aufräumen, Drift)
+├── orchestration/      → import orchestration  (Gesamtlauf, Aufräumen, Drift)
+└── platform_admin/     → import platform_admin (die Engineering-Konsole)
 ```
 
 **Anaconda oder Miniconda installiert?** Dann ist `python` in einer frischen
@@ -197,11 +207,12 @@ Zugriff auf Chicago ebenfalls, wird aber stärker gedrosselt.
 **Den gemeinsamen Speicher braucht es nur, wenn du ihn willst.** `data/` ist
 die Vorgabe; solange `STORAGE_BACKEND` fehlt oder auf `local` steht, wird
 keine einzige `S3_`-Variable gelesen und `boto3` nie importiert. Wer den
-Bestand mit dem Team teilen will, ergänzt drei Zeilen (mehr zu den Modi
+Bestand mit dem Team teilen will, ergänzt vier Zeilen (mehr zu den Modi
 in 2.5):
 
 ```text
 STORAGE_BACKEND=hybrid             # lokal zuerst, SeaweedFS als Rückfall
+S3_ENDPOINT=s3.datenwerft.ch      # der gemeinsame Eimer; seit FR-46 ohne Vorgabe
 S3_ACCESS_KEY=dein_schluessel
 S3_SECRET_KEY=dein_geheimnis
 ```
@@ -210,7 +221,7 @@ S3_SECRET_KEY=dein_geheimnis
 | --- | --- | --- |
 | `STORAGE_BACKEND` | `local` | für `hybrid` und `s3` |
 | `S3_ACCESS_KEY`, `S3_SECRET_KEY` | — | für `hybrid` und `s3`, sonst nie |
-| `S3_ENDPOINT` | `s3.datenwerft.ch` | nur bei abweichendem Server |
+| `S3_ENDPOINT` | — | für `hybrid` und `s3`, sonst nie |
 | `S3_BUCKET` | `urban-crime` | nur bei abweichendem Bucket |
 | `LOCAL_DATA_ROOT` | `data` | nur bei abweichendem Verzeichnis |
 
@@ -223,17 +234,17 @@ Fehlt ein Schlüssel, sagt es die Konfiguration sofort und nennt die Variable
 python -m pytest
 ```
 
-Erwartet wird **grün**: 2'770 ausgeführte Tests, ohne Netzzugriff und ohne
-Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
+Der Standardlauf wählt 3'433 Tests aus. Erwartet wird **grün** ohne
+Netzzugriff und ohne Schlüssel. Läuft das durch, ist die Einrichtung in Ordnung — die Tests arbeiten
 mit kleinen Fixtures und simulierten Quellen.
 
-Die Summenzeile nennt daneben **108 abgewählte**. Das sind die Wächter mit dem
+Die Summenzeile nennt daneben **111 abgewählte**. Das sind die Wächter mit dem
 Marker `referenzstand`, und der Standardlauf lässt sie bewusst aus:
 
 ```bash
 python -m pytest                     # alles ausser dem Referenzstand
 python -m pytest -m referenzstand    # genau diese Wächter
-python -m pytest -m ""               # beides zusammen, alle 2'881
+python -m pytest -m ""               # beides zusammen, alle 3'544
 ```
 
 > **Warum sie nicht im Standardlauf stehen.** Sie halten die dokumentierten
@@ -293,15 +304,15 @@ python -m orchestration.run_all --jahre 2021-2026 --bis silver   # mehrere Jahrg
 `--jahre` nimmt `2024`, `2021-2026` oder `2021,2023`; Vorgabe ist 2024, ein
 Aufruf ohne die Option tut also genau das, was er vorher tat. Die
 Kriminalquellen laufen **je Jahrgang**, die Census-Stufen **je Vintage**, NOAA
-und die abgeleiteten Stufen einmal — aus 2021–2026 werden so 39 Stufen statt
-14. Ab 2025 bleibt es beim 2024er Vintage, weil es kein neueres gibt; eine Rate
+und die abgeleiteten Stufen einmal — aus 2021–2026 werden so 44 Stufen statt
+19. Ab 2025 bleibt es beim 2024er Vintage, weil es kein neueres gibt; eine Rate
 für 2025 ruht damit auf der Bevölkerung von 2024.
 
-Mehr als ein Vintage und **Gold im Lauf** lehnt der Controller vorerst ab, mit
-Grund und **vor der ersten Stufe**: `build_gold` nimmt ein einzelnes
-`--vintage` und verbindet alles damit, jede Tat von 2021 bekäme also den
-Nenner von 2024 — und das Ergebnis sähe vollständig aus. Bis Gold je Jahrgang
-wählt, geht ein Mehrjahreslauf mit `--bis silver`.
+Gold läuft **einmal und bekommt alle Vintages** (`--acs-vintages`, seit dem
+4.10.2026): Es legt `dim_tract_acs` je Vintage an, und jede Tat findet über
+`population_vintage` ihren Nenner. Bis dahin lehnte der Controller mehrere
+Vintages mit Gold im Lauf ab, weil `build_gold` ein einzelnes `--vintage` nahm
+und jede Tat von 2021 den Nenner von 2024 bekommen hätte.
 
 Der Controller kennt die Reihenfolge, bricht bei der ersten gescheiterten Stufe
 ab und schreibt `data/pipeline_run.json`. Mit `--maximal-alter-tage 8` scheitert
@@ -349,6 +360,9 @@ python -m census_pipeline.download_acs
 
 # Wetter: je Stadt eine Station
 python -m weather_pipeline.download_noaa
+
+# Gebiete: Polizeibezirke und Stadtteile beider Städte, je Lauf ein neuer Stand
+python -m gebiete_pipeline.download_gebiete
 ```
 
 **Worauf Detroits Delta geht — und warum nicht aufs Tatdatum.** **55,9 %** des
@@ -407,14 +421,17 @@ python -m chicago_pipeline.download_chicago \
 python -m silver_pipeline.build_tract          # zuerst: crime_offense braucht ihn
 python -m silver_pipeline.build_place
 python -m silver_pipeline.build_weather_day
+python -m silver_pipeline.build_police_area    # vor crime_offense: der Bezirk je Tat
+python -m silver_pipeline.build_community_area # ebenso der Stadtteil
 python -m silver_pipeline.build_crime_offense
+python -m silver_pipeline.build_source_change  # die Quellbewegung zwischen Vollabzügen
 ```
 
 Anders als Bronze wird Silver **ersetzt und nicht angehäuft** — die Schicht ist
 abgeleitet und jederzeit neu erzeugbar. Das Manifest nennt trotzdem die `run_id`
 jedes Bronze-Laufs, aus dem die Tabelle entstand.
 
-Vier Tabellen, weil die Quellen vier Granularitäten haben. Sie in eine zu zwingen würde
+Sieben Tabellen, weil die Quellen so viele Granularitäten haben. Sie in eine zu zwingen würde
 Zeilen vervielfachen — ein Wetterwert an jedem Delikt derselben Stadt und
 desselben Tages — oder Information wegwerfen:
 
@@ -422,8 +439,11 @@ desselben Tages — oder Information wegwerfen:
 | --- | --- | ---: |
 | `tract` | ein Census Tract | 6'282 |
 | `place` | ein Ort (Stadtgrenze) | 2'206 |
-| `weather_day` | eine Stadt an einem Tag | 55'497 |
-| `crime_offense` | eine **Anklage**; je Tat zählt eine | 1'875'374 |
+| `weather_day` | eine Stadt an einem Tag | 55'587 |
+| `police_area` | ein Polizeibezirk (Chicago District, Detroit Precinct) | 34 |
+| `community_area` | ein Stadtteil (Chicago Community Area, Detroit Neighborhood) | 131 |
+| `crime_offense` | eine **Anklage**; je Tat zählt eine | 1'922'278 |
+| `source_change` | ein geändertes Feld zwischen zwei Vollabzügen einer Quelle | wächst je Paar |
 
 `crime_offense` leistet drei Übersetzungen auf einmal, und jede ist ein eigener
 Fehlerherd:
@@ -436,7 +456,9 @@ Fehlerherd:
   Die beiden Crosswalks sind erzeugt; eine fachliche Korrektur steht daneben in
   [`config/mapping_overrides.csv`](config/mapping_overrides.csv), gewinnt gegen
   den Crosswalk und trägt die Herkunft `admin_review`. Die Engineering-Konsole
-  schreibt sie nach Review; heute enthält sie nur die Kopfzeile.
+  schreibt sie nach Review; heute enthält sie nur die Kopfzeile. Die
+  Testkorrektur der Konsole, Detroits MICR-Code 3072 nach 26A (#259), hat die
+  Konsole am 26.11.2026 selbst zurückgenommen (#317).
 * **Zeit.** Chicagos `date` sieht aus wie ein Zeitstempel, ist aber Ortszeit
   ohne Zone; Detroits Feld ist bereits UTC. Wer beide gleich behandelt,
   vergleicht Städte, die je nach Jahreszeit ein bis zwei Stunden
@@ -460,9 +482,10 @@ python -m serving.export_geojson      # die Tract-Umrisse für eine Karte
 ```
 
 Gold ist ein **Sternschema**: eine Faktentabelle `fact_offense` mit einer Zeile
-je **Tat** und vier Dimensionen daneben. Der Unterschied zu Silver ist die Granularität
+je **Tat**, daneben acht Dimensionen und zwei Brücken, die die Einwohner der
+Tracts auf Polizeibezirke und Stadtteile verteilen. Der Unterschied zu Silver ist die Granularität
 — Detroit liefert je Vorfall mehrere Anklagen; wer Zeilen zählt, zählt Detroit
-um 3,8 % zu hoch. Warum kein vorberechneter Würfel gebaut wurde, steht in
+über 2021–2026 um 4,6 % zu hoch ([`docs/zaehlperspektiven.md`](docs/zaehlperspektiven.md)). Warum kein vorberechneter Würfel gebaut wurde, steht in
 [`docs/sternschema-und-wuerfel.md`](docs/sternschema-und-wuerfel.md).
 
 `build_comparison` leitet aus Gold **fünf Vergleichstabellen** für das
@@ -485,7 +508,7 @@ duckdb -readonly data/serving/analyse.duckdb
 ```
 
 ```sql
-SHOW TABLES;              -- 15: fünf Gold-, vier Silver-, vier Serving- und zwei Metasichten
+SHOW TABLES;              -- 26: elf Gold-, sieben Silver-, sechs Serving- und zwei Metasichten
 SELECT * FROM tabellen;   -- welche Sicht auf welche Datei zeigt
 ```
 
@@ -509,7 +532,7 @@ GROUP BY 1 ORDER BY je_1000 DESC;
 beider Countys, auch die ausserhalb der Stadtgrenzen — ohne den Filter zählen
 Vorstädte mit.
 
-`export_geojson` schreibt daneben `data/serving/tracts.geojson`: die **1'055
+`export_geojson` schreibt daneben `data/serving/tracts.geojson`: die **1'066
 Tract-Umrisse** der beiden Städte, auf rund zwei Meter vereinfacht, 0,55 MB.
 Die Datei trägt je Fläche nur `geoid`, `city` und `tract_name` — **keine
 Kennzahl**. Wer einfärben will, verbindet über `geoid` mit `dim_tract` und
@@ -705,8 +728,8 @@ Verbindungsabbruch) werden bis zu viermal mit Pause wiederholt.
 
 **Ein Release: der ganze Stand unter einer Kennung.** Seit dem 17.9.2026
 bildet jeder grüne Gesamtlauf in einem publizierenden Modus (`hybrid`, `s3`)
-ein Release: `data/releases/release=<Kennung>/` mit den fünf Gold-Tabellen,
-den vier Serving-Tabellen, dem GeoJSON, einer **selbständigen**
+ein Release: `data/releases/release=<Kennung>/` mit den elf Gold-Tabellen,
+den sechs Serving-Tabellen, dem GeoJSON, einer **selbständigen**
 `analyse.duckdb` (Tabellen statt Sichten — sie antwortet auf jedem Rechner)
 und `release.json` mit SHA-256 je Datei, Vertrags- und Code-Versionen und den
 Bronze-Läufen, auf denen alles ruht. Es geht unveränderlich nach SeaweedFS,
@@ -727,9 +750,10 @@ python -m orchestration.release holen --nur-datenbank  # nur die analyse.duckdb
 python -m orchestration.release holen --einsetzen      # und an die festen Pfade
 ```
 
-Releases werden **aufgehoben**, bis eine Regel dafür entschieden ist
-([`docs/intern/datenhistorie.md`](docs/intern/datenhistorie.md) 5.5); 42 MB je Release —
-14 MB Parquet plus die Datenbank.
+Aufgehoben werden die gepinnten Releases und die letzten acht (entschieden am
+4.10.2026, [`docs/intern/datenhistorie.md`](docs/intern/datenhistorie.md) 5.5;
+gelöscht wird nur auf Zuruf mit `orchestration.aufraeumen`). Das Release vom
+26.11.2026 belegt 190 MB, davon 100 MB die Datenbank (MiB, wie `du -m`).
 
 **Der Ablauf, Schritt für Schritt.** Zwei Rollen, zwei Befehle.
 
@@ -752,7 +776,7 @@ GitHub läuft ohne S3 und bildet keine Releases; sie kommen vom Rechner.
 *Wer liest* (Artan, ein Dashboard, ein zweiter Rechner):
 
 ```bash
-python -m orchestration.release holen --nur-datenbank   # 26 MB, zehn fertige Tabellen
+python -m orchestration.release holen --nur-datenbank   # rund 100 MB, eine Tabelle je Release-Tabelle
 duckdb data/releases/release=<Kennung>/serving/analyse.duckdb
 ```
 
@@ -781,13 +805,13 @@ beide als Option:
 
 ```bash
 docker compose up -d                    # Elasticsearch, Kibana
-python -m serving.load_elasticsearch     # das ganze Sternschema, sechs Indizes
+python -m serving.load_elasticsearch     # das ganze Sternschema und rate_tract, zwölf Indizes
 python -m serving.build_kibana           # die Dashboards anlegen
 ```
 
 | Dienst | Port | wofür |
 | --- | ---: | --- |
-| Elasticsearch | 19200 | das Sternschema als sechs Indizes: Volltext über die Deliktbeschreibung, Umkreissuche über `geo_point`, dazu Kalender, Wetter und die Einwohnerzahlen |
+| Elasticsearch | 19200 | das Sternschema und `rate_tract` als zwölf Indizes: Volltext über die Deliktbeschreibung, Umkreissuche über `geo_point`, dazu Kalender, Wetter und die Einwohnerzahlen |
 | Kibana | 15601 | die Dashboards, und die Suchleiste als Einstieg |
 
 Die Ports sind bewusst verschoben. 9200 und 5601 sind die Voreinstellungen und
@@ -797,13 +821,13 @@ seinen Dienst weg.
 
 > **ClickHouse steht noch im `docker-compose.yml` und wird nicht mehr
 > geladen** (Entscheid vom 5.10.2026). Bis dahin teilten sich die beiden
-> Dienste die sechs Gold-Tabellen: Elasticsearch nahm, was Text oder Ort trägt,
+> Dienste die damals sechs Gold-Tabellen: Elasticsearch nahm, was Text oder Ort trägt,
 > ClickHouse die Zahlen. Mit dem Entscheid war die Begründung weg — und die
 > Zahlen lagen nirgends mehr abfragbar. `dim_tract_acs` lag sogar in keinem der
 > beiden Speicher; `fact_offense` trägt mit `population_vintage` nur den
 > *Zeiger* auf den richtigen Nenner, der Nenner selbst fehlte. Eine Rate je
 > 1'000 Einwohner war aus Elasticsearch allein nicht zu rechnen. Seither lädt
-> `load_elasticsearch` alle sieben Tabellen, und ein Test hält fest, dass die
+> `load_elasticsearch` alle Gold-Tabellen, und ein Test hält fest, dass die
 > Liste `gold_pipeline.TABELLEN` erschöpft. `serving/load_clickhouse` bleibt
 > unberührt und lauffähig: Wer es braucht, ruft es von Hand auf.
 
@@ -944,7 +968,7 @@ sich stimmig sind. Jede Stelle ist konsistent, das Ganze ist falsch.
 | Ort | woran der Stand erkennbar ist |
 | --- | --- |
 | Gold (Arbeitsschicht) | SHA-256 je Datei gegen die des Releases |
-| Elasticsearch | der Index hinter jedem der sechs Aliase trägt die Release-Kennung |
+| Elasticsearch | der Index hinter jedem der zwölf Aliase trägt die Release-Kennung |
 | Kibana | das eingebackene Zeitfenster deckt den Datenbereich ab |
 | ClickHouse | nichts — der Bericht nennt den Dienst als *nicht geladen* und wird davon nicht rot |
 | Dashboard (nur `--betrieb server`) | das Release, das es geladen hat, gegen `AKTUELL.json` — mit Geduld, weil es erst bis zu einer Minute nach dem Publizieren nachlädt |
@@ -964,19 +988,19 @@ Keine Zahl der Abgabe hängt an ihnen — sie hängt am Release.
 > **Das hier ist die Entwicklungsfassung.** `docker-compose.yml` bindet die
 > Ports an `127.0.0.1`, kennt kein Traefik und setzt keine Speichergrenzen —
 > auf diesem Rechner richtig. Für den Betrieb auf einem geteilten Server liegt
-> daneben `docker-compose.srv01.yml`: sechs Dienste, gemessene
+> daneben `docker-compose.srv01.yml`: sieben Dienste, gemessene
 > Speichergrenzen, die Strecke als Stapellauf, ein lesendes Jupyter, seit
 > dem 12.10.2026 ein nginx für die Einstiegsseite, seit dem 30.10.2026 die
 > Engineering-Konsole und seit dem 1.11.2026 das eigene Dashboard statt
-> Elasticsearch und Kibana, dort eingesetzt am 1.11.2026.
-> **Seit dem 8.10.2026 läuft sie dort.** Elasticsearch, Kibana und Jupyter
-> stehen auf `srv01`, beide Abbilder per Digest gepinnt; die Tunnel-Routen für
-> Kibana und Jupyter und die Access-Anwendung sind seit dem 9.10.2026
-> eingerichtet und von aussen gemessen (Abschnitt 16) — die Route für
-> `urbancrime-start` ist
-> seit dem 12.10.2026 fällig und **nicht** angelegt. Ein Zeitplan steht auch — montags 04:30 —, hat aber noch nie
-> gefeuert: erster Termin ist der 12.10.2026, bis dahin eine **Einrichtung,
-> kein Nachweis**. Alles dazu in
+> Elasticsearch und Kibana, dort eingesetzt am 1.11.2026. Seit dem
+> 15.11.2026 beschrieben: ein Dienst `kibana`, der nur einen IAP-Tunnel zu
+> Kibana in der Google-Cloud-Probe öffnet.
+> **Seit dem 8.10.2026 läuft sie dort**, damals mit Elasticsearch, Kibana und
+> Jupyter; Elasticsearch und Kibana sind seit dem 6.11.2026 von `srv01`
+> entfernt. Die Tunnel-Routen und die Access-Anwendung sind seit dem 9.10.2026
+> eingerichtet und von aussen gemessen, die Einstiegsseite läuft unter
+> `urbancrime-start`, und der Zeitplan — montags 04:30 — baut jede Woche ein
+> Release. Alles dazu in
 > [`docs/storage-architektur.md`](docs/storage-architektur.md), Abschnitt 16.
 
 #### Das eigene Dashboard — der Ersatz für Kibana
@@ -1001,6 +1025,25 @@ Ebenfalls am 8.11.2026 kam »Soziales Umfeld« dazu: die Fallrate je Tract
 neben der Armutsquote, als zwei Karten nebeneinander oder als eine bivariate
 Karte übereinander, dazu die Rate nach gemeinsamen Armutsbändern beider Städte.
 
+Seit dem 25.11.2026 hat »Geografie« zwei Schalter. **Raum:** Tract,
+**Polizeibezirk** (Chicago District, Detroit Precinct), **Stadtteil**
+(Chicago Community Area, Detroit Master Plan Neighborhood) oder ein Raster aus
+**Sechsecken** mit 500 m Kante. **Kennzahl:** die Rate, die nach Empirical
+Bayes **geglättete** Rate, die **Veränderung zum Vorjahr**, das
+**Deliktprofil** (Lokationsquotient der gewählten Kategorien), der Anteil der
+Fälle bei **Dunkelheit** und der Anteil mit **Festnahme**. Sechsecke haben
+keine Einwohner; dort ist die Rate eine Dichte je km². Das Raster ist das
+Gegenbild zu den Flächen: Gleich grosse Zellen hängen von keiner gezogenen
+Grenze ab, also zeigt sich dort, ob eine Häufung am Zuschnitt liegt
+(Modifiable Areal Unit Problem). Eine dunkle Zelle heisst viele Fälle, nicht
+hohes Risiko. Die Begründung samt Quellen steht in
+`serving.dashboard.geografie`. Die Einwohner eines
+Bezirks verteilt Gold flächengewichtet aus den Tracts
+(`bridge_tract_police_area`); Chicagos District 31 zählt nicht, er umfasst
+die Gemeinden Norridge und Harwood Heights. Reicht ein Zeitraum in das
+letzte Jahr vor dem Datenende, sagt das Brett dazu, dass junge Fälle noch
+nicht geklärt sind.
+
 **Auf `srv01` ersetzt es Elasticsearch und Kibana**, seit dem 1.11.2026
 eingesetzt (C-9); seit dem 6.11.2026 sind dort ihre Container, Datenträger und
 Abbilder gelöscht. Dort heisst es `urbancrime-dashboard.datenwerft.ch`, liegt hinter
@@ -1015,10 +1058,23 @@ python -m serving.dashboard --data-root data    # http://127.0.0.1:8050
 ```
 
 Gezählt wird nach meldender Stadt, wie in Kibana und `comparison_month`.
-Die Rate je 1'000 rechnet nach der Regel von `gold_pipeline.raten_je_stadt`:
-2024 ergibt sie dieselben 94,5 und 133,1 wie die Dokumente. Ein Monat ohne
-Daten ist eine Lücke, keine Null, und „Zum Vorjahr“ vergleicht nur Monate,
-die in beiden Jahren vollständig vorliegen.
+Die Rate je 1'000 rechnet nach der Regel von `gold_pipeline.raten_je_stadt`,
+**Fallebene vorn, Tatebene daneben** (E5), wie die Dokumente seit E-2: Die
+Tafel zählt Fälle, eine blasse zweite Zeile zeigt die Rate aller Delikte. Ein
+Wächter hält beide gegen `rate_fallebene` und `rate` derselben Abfrage. Raten
+je Kategorie stehen nur in der Kategorieansicht »Rate«, auf der Tatebene,
+weil sich Kategorien nur dort addieren. Ein Monat ohne
+Daten ist eine Lücke, keine Null, und „Zum Vorjahr“ vergleicht nur Tage,
+die in beiden Jahren für jede gewählte Stadt vorliegen.
+
+Seit dem 24.11.2026 nimmt jedes Brett einen **freien Zeitraum**, auf den Tag
+genau und über Jahresgrenzen, auch einen einzelnen Tag. Die Rate gilt dann
+je 1'000 Einwohner **und Jahr**: Ein Tag zählt mit den Einwohnern seines
+ACS-Vintage, geteilt durch die Tage seines Jahres. Über ein ganzes Jahr ist
+das die Rate der Dokumente, über kürzere Zeiträume steht dabei, aus wie vielen
+Tagen hochgerechnet ist. Einen Vorjahresvergleich gibt es bis ein Jahr Spanne.
+Die Achse zeigt bis 92 Tage jeden Tag, bis zwei Jahre jede Woche, darüber
+Monate (`serving.dashboard.zeitraum`).
 
 ### 2.7 Die Strecke im Container
 
@@ -1033,7 +1089,7 @@ docker run --rm urban-crime python -m orchestration.run_all --trocken --jahre 20
 ```
 
 Der dritte Aufruf ist der billigste Nachweis, dass das Abbild taugt: Er nennt
-dieselben **39 Stufen** wie derselbe Befehl auf dem Rechner. Der eigentliche
+dieselben **44 Stufen** wie derselbe Befehl auf dem Rechner. Der eigentliche
 Nachweis ist der Fingerabdruck: Derselbe Bronze-Stand ergibt im Container
 denselben Eingabe-Fingerabdruck wie auf dem Host.
 
@@ -1080,12 +1136,11 @@ nichts. `CLICKHOUSE_URL`, `ELASTICSEARCH_URL` und `KIBANA_URL` ersetzen die
 Vorgabe, ein getipptes `--url` sticht sie weiterhin, und ohne beides bleibt
 alles wie bisher.
 
-> **Noch kein Betrieb.** Das Abbild ist eine Zusicherung über die
-> Abhängigkeiten, keine über den Lauf. Den Pipeline-Dienst gibt es seit dem
-> 6.10.2026 als Beschreibung — mit gemessener Speichergrenze und
-> Logrotation —, seit dem 8.10.2026 liegen die Abbilder in
-> `ghcr.io/datenwerft`, und was noch fehlt, ist der **Zeitplan** und ein
-> Stapel, der tatsächlich läuft. Das steht in
+> **Das Abbild ist eine Zusicherung über die Abhängigkeiten, keine über den
+> Lauf.** Den Pipeline-Dienst gibt es seit dem 6.10.2026 — mit gemessener
+> Speichergrenze und Logrotation —, seit dem 8.10.2026 liegen die Abbilder in
+> `ghcr.io/datenwerft`, und seither läuft der Stapel auf `srv01` mit dem
+> wöchentlichen Zeitplan. Das steht in
 > [`docs/architektur-ist-und-ziel.md`](docs/architektur-ist-und-ziel.md) B.2,
 > der Ablauf in
 > [`docs/storage-architektur.md`](docs/storage-architektur.md) Abschnitt 16.
@@ -1119,7 +1174,7 @@ alles wie bisher.
 python -m pytest
 ```
 
-**2'881 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
+**3'544 Tests**, alle ohne Netzzugriff und ohne Schlüssel. Sie decken ab:
 
 * **Ingestion** — Argumentprüfung, Token-Ermittlung, Wasserzeichen und
   Lookback, Paginierung, Wiederholungen, Vollständigkeits-Gates, das Aufräumen
@@ -1153,15 +1208,16 @@ durchgerutscht, bevor es die Prüfung gab. CI führt sie vor der Suite aus.
 ### Sie laufen auch ohne dich
 
 Seit dem 12.9.2026 führt **GitHub Actions** die Suite auf jedem Pull Request und
-auf `main` aus — unter **Linux und Windows**, je mit Python **3.11 und 3.13**.
+auf `main` aus: auf jedem Pull Request unter **Linux** mit Python **3.11**, dazu der
+Referenz-Wächter unter **3.13**; auf `main` zusätzlich unter **Windows** mit **3.13**.
 Windows, weil Artan darauf entwickelt.
 
-In einem frischen Klon laufen **2'690 der 2'770 Tests** des Standardlaufs, und
-sie sind grün (am 30.10.2026 in einem Baum ohne `data/` nachgemessen).
-Die übrigen 78 überspringen sich selbst, weil sie gebaute Daten brauchen und
-`data/` nicht versioniert ist — dazu seit dem 5.10.2026 die Reproduktion von
+Im Linux-CI-Lauf werden hochgerechnet **3'346 der 3'433 Tests** des
+Standardlaufs ausgeführt (am PR-Lauf zu bestätigen, nicht gemessen). Die übrigen 87 werden übersprungen. Die Zahl hängt
+von der Umgebung ab. Einige Prüfungen brauchen gebaute Daten, die in
+`data/` liegen und nicht versioniert sind — dazu seit dem 5.10.2026 die Reproduktion von
 `docs/forschungsfragen.md`, deren Quelle das ungetrackte LN1-PDF ist, und
-zwei Prüfungen gegen das ebenfalls ungetrackte PRD in `_bmad-output/`; die 111
+drei Prüfungen gegen das ebenfalls ungetrackte PRD in `_bmad-output/`; die 111
 Referenzstand-Wächter sind ohnehin abgewählt.
 Was trotzdem läuft, ist das Wesentliche: die Reproduzierbarkeit der Crosswalks
 aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
@@ -1169,15 +1225,15 @@ aus den amtlichen PDFs, die Form der Abgabedokumente — und die beiden Wächter
 
 ### Einmal die Woche mit echten Daten
 
-Die 81 Tests, die ein Pull Request überspringt, sind ausgerechnet die
-Wächter — Zahlen gegen Parquet, die Einwohnerprobe, „kein Delikt in der
-falschen Stadt". Der Workflow `datenlauf.yml` fährt deshalb **montags** die
-ganze Strecke: alle fünf Quellen laden, Silver, Gold und Serving bauen, dann
+Zu den im Pull Request übersprungenen Prüfungen gehören die Wächter
+für Parquet-Zahlen, die Einwohnerprobe und die Stadtzuordnung. Der Workflow `datenlauf.yml` fährt deshalb **montags** die
+ganze Strecke: alle sechs Quellen laden, Silver, Gold und Serving bauen, dann
 die komplette Suite. Von Hand startbar unter *Actions → Datenlauf*. Er läuft
 ohne S3 und bildet deshalb **kein Release**.
 
 Nach dem Bau führt er die **acht Notebooks aus, die Zahlen belegen** — 03, 13,
-31, 32, 33, 34, 35, 36 — und legt sie mit Ausgaben als Artefakt ab. Die sechs,
+31, 32, 33, 34, 35, 37 — und legt sie mit Ausgaben als Artefakt ab. Notebook 36
+läuft nur auf dem gepinnten Bestand (`tools/build_nachweise.py`). Die sechs,
 die laden, laufen bewusst nicht: Sie würden zusätzliche Bronze-Läufe erzeugen.
 Notebook 32 war vor dieser Prüfung einen Tag lang still kaputt, Notebook 34
 später noch einmal drei Tage.
@@ -1187,7 +1243,7 @@ das und sagt, was fehlt.
 
 **Drift statt Rot.** Die Quellen bewegen sich jede Woche — Detroit ändert
 Einträge noch Jahre nach der Tat, Chicago liefert Deltas. Die Wächter, die
-dokumentierte Zahlen gegen Parquet halten (Marker `referenzstand`, 74 Stück),
+dokumentierte Zahlen gegen Parquet halten (Marker `referenzstand`, 111 Stück),
 laufen im Datenlauf deshalb **nicht**; sie gelten für den Referenzstand auf deinem
 Rechner. Stattdessen weist `orchestration.drift` je Grösse aus, wie weit der
 dokumentierte Stand vom frischen entfernt ist — als Tabelle in der

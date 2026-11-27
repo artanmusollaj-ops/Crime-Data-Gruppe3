@@ -92,10 +92,10 @@ def test_die_stufenzahl_stimmt(teil_a):
 
 
 def test_die_pakete_stimmen(teil_a):
-    """Elf inklusive der integrierten Konsole; jedes wird genannt."""
+    """Zwoelf inklusive der integrierten Konsole; jedes wird genannt."""
     pakete = sorted(p.name for p in QUELLE.iterdir()
                     if p.is_dir() and (p / "__init__.py").is_file())
-    assert len(pakete) == 11 and "elf Pakete" in teil_a
+    assert len(pakete) == 12 and "zwölf Pakete" in teil_a
     fehlend = [p for p in pakete if p.replace("_pipeline", "_\npipeline") not in teil_a
                and p not in teil_a]
     assert not fehlend, f"diese Pakete fehlen im Bild: {fehlend}"
@@ -129,7 +129,8 @@ def test_die_kontrollzahlen_stimmen_mit_der_landkarte(teil_a):
 
 
 # Nur so weit, wie ein Sternschema je kommen wird.
-ZAHLWORT = {4: "vier", 5: "fünf", 6: "sechs", 7: "sieben", 8: "acht"}
+ZAHLWORT = {4: "vier", 5: "fünf", 6: "sechs", 7: "sieben", 8: "acht", 9: "neun",
+            10: "zehn", 11: "elf", 12: "zwölf"}
 
 
 def test_die_schichten_und_ihre_tabellen_stimmen(teil_a):
@@ -184,8 +185,10 @@ def test_die_referenzzahlen_stimmen_mit_den_uebrigen_dokumenten(teil_a):
         (r"Bei ([\d']+) Zeilen liegt jede realistische", r"`gold/fact_offense` \| \*\*([\d']+)\*\*"),
         (r"`silver/crime_offense` \| ([\d']+) Zeilen", r"`silver/crime_offense` \| ([\d']+) Zeilen"),
         (r"`gold/fact_offense` \| \*\*([\d']+)\*\*", r"`gold/fact_offense` \| \*\*([\d']+)\*\*"),
-        (r"Chicago \| ([\d']+) Delikte", r"Chicago \| ([\d']+) Delikte"),
-        (r"Detroit \| ([\d']+) Delikte", r"Detroit \| ([\d']+) Delikte"),
+        (r"Chicago \| ([\d']+) Fälle", r"Chicago \| ([\d']+) Fälle"),
+        (r"Detroit \| ([\d']+) Fälle", r"Detroit \| ([\d']+) Fälle"),
+        (r"Tatebene.*?Chicago ([\d']+)", r"Tatebene.*?Chicago ([\d']+)"),
+        (r"Tatebene.*?Detroit ([\d']+)", r"Tatebene.*?Detroit ([\d']+)"),
     ):
         assert zahl(teil_a, muster_hier) == zahl(aenderungen, muster_dort)
 
@@ -347,8 +350,8 @@ def test_der_einseiter_traegt_dieselben_zahlen(blatt, text):
     # Diese Liste ist von Hand gefuehrt und muss nach einem Neubau mitgezogen
     # werden - sie sagt, **welche** Zahlen an beiden Stellen stehen muessen,
     # und das laesst sich aus den Daten nicht ableiten.
-    for wert in ("1'875'374", "1'851'946", "94,5", "133,1", "42 Kontrollen",
-                 "1'055", "23,3 %", "55,9 %"):
+    for wert in ("1'922'278", "1'900'131", "94,4", "124,7", "42 Kontrollen",
+                 "1'066", "23,3 %", "55,9 %"):
         assert wert in blatt, f"{wert} fehlt im Einseiter"
         assert wert in text or wert.replace("'", "") in text, (
             f"{wert} steht im Einseiter, aber nicht im langen Text"

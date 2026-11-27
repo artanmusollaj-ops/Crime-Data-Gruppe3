@@ -21,7 +21,9 @@ schmal - aufeinanderfolgende Tage aehneln sich (Wetterlagen, Wochentag).
 **Faelle, nicht Taten** (Entscheid E5), wie auf den uebrigen Brettern.
 
 **Was es nicht kann.** Gemessen wird am Flughafen (O'Hare, Detroit Metro),
-nicht im Quartier. NOAA veroeffentlicht mit rund vier Tagen Nachlauf. Wochentag
+nicht im Quartier. NOAA veroeffentlicht mit rund vier Tagen Nachlauf;
+``dim_city_day`` fuehrt seit Gold-Vertrag 9 auch diese Tage, mit leeren
+Wetterspalten, und das Brett laesst sie aus (``tmax IS NULL``). Wochentag
 und Feiertage sind nicht herausgerechnet. Und ein Zusammenhang ist keine
 Ursache: An heissen Tagen sind mehr Menschen draussen - das ist eine
 Erklaerung, keine Messung.
@@ -29,7 +31,7 @@ Erklaerung, keine Messung.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import timedelta
 from math import sqrt
 from typing import Any
 
@@ -104,16 +106,15 @@ def _effekt(zeilen: list[tuple]) -> dict[str, Any] | None:
 def wetter(bestand, a) -> dict[str, Any]:
     from serving.dashboard import STADTNAMEN
 
-    antwort: dict[str, Any] = {"auswahl": a.__dict__, "stand": bestand.stand}
+    antwort: dict[str, Any] = {"auswahl": a.json, "stand": bestand.stand}
     if not bestand.wetter:
         return antwort | {"vorhanden": False}
     cur = bestand._cursor()
     staedte = list(a.staedte)
-    von = date(a.jahr, a.von, 1)
-    bis = date(a.jahr + (a.bis == 12), a.bis % 12 + 1, 1)
-    kat = "" if a.kategorie == "alle" else "AND kategorie = $kat"
-    p = {"staedte": staedte, "von": von, "bis": bis} | (
-        {"kat": a.kategorie} if kat else {})
+    # Der Zeitraum, das Ende ausschliesslich wie in den Abfragen unten.
+    von, bis = a.tag_von, a.tag_bis + timedelta(days=1)
+    kat = a.kat_sql
+    p = {"staedte": staedte, "von": von, "bis": bis} | a.kat_param
 
     # Ein Tag je Stadt mit Wetter, im Fenster der Falldaten dieser Stadt: Ein
     # Tag nach dem Datenende ist kein Tag ohne Faelle. Ohne Fall im Fenster

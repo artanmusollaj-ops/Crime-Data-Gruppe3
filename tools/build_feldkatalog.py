@@ -133,8 +133,28 @@ GEMEINSAM: dict[str, str] = {
                    "eigenen räumlichen Join, nicht aus der Quelle.",
     "located": "Ob die Zeile einem Tract zugeordnet werden konnte. **Warum "
                "nicht**, sagt `geo_status` in Gold.",
-    "arrest": "Ob es zu einer Festnahme kam. Nur Chicago liefert das; bei "
-              "Detroit `NULL`.",
+    "arrest": "Ob es zu einer Festnahme kam. Chicago führt das als eigenes "
+              "Feld; für Detroit seit Silver-Vertrag 5 (25.11.2026) aus dem "
+              "Stand des Falls, `case_status = 'CLEARED BY ARREST'`, und `NULL` "
+              "ohne Stand. Beide Quellen tragen den Stand nach: Junge Fälle "
+              "sehen weniger aufgeklärt aus, als sie es am Ende sind - in "
+              "Detroit stärker.",
+    # Seit Silver-Vertrag 5 (25.11.2026).
+    "police_area": "Der Polizeibezirk (Chicago District, Detroit Precinct), in "
+                   "dem die Koordinate liegt - aus dem eigenen räumlichen Join "
+                   "gegen `silver/police_area`, nicht aus der Quelle. Wie "
+                   "`area_id` dort: die Zahl ohne führende Null.",
+    "police_area_source": "Der Polizeibezirk, den die Quelle nennt (Chicago "
+                          "`district`, Detroit `police_precinct`), in derselben "
+                          "Form wie `police_area`. Was keine Zahl über null ist "
+                          "(Detroit `HP`, `0W`), bleibt `NULL`.",
+    # Seit Silver-Vertrag 6 (25.11.2026).
+    "community_area": "Der Stadtteil (Chicago Community Area, Detroit Master "
+                      "Plan Neighborhood), in dem die Koordinate liegt - aus dem "
+                      "eigenen räumlichen Join gegen `silver/community_area`.",
+    "case_status": "Detroits Stand des Falls, gross geschrieben, etwa "
+                   "`CLEARED BY ARREST`, `EXCEPTIONALLY CLEARED`, `ACTIVE`, "
+                   "`INACTIVE`. Chicago führt keinen; dort `NULL`.",
     "unfounded": "Ob der Fall als unbegründet zurückgezogen wurde. Nur Detroit "
                  "führt das; die Zeilen bleiben erhalten und werden "
                  "gekennzeichnet statt entfernt.",
@@ -289,11 +309,35 @@ JE_TABELLE: dict[tuple[str, str], str] = {
     ("crime_offense", "counts"):
         "**Die zählende Zeile je Tat.** Detroit liefert je Vorfall mehrere "
         "Anklagen; genau eine trägt `true`. Gold nimmt nur diese - sonst "
-        "zählte Detroit 3,8 % zu hoch.",
+        "zählte Detroit über 2021–2026 4,6 % zu hoch.",
     ("crime_offense", "counts_reason"):
         "Warum diese Zeile zählt oder nicht: `eine_zeile_ist_ein_delikt` "
         "(Chicago), `anklage_ist_die_tat`, `schwerste_anklage`, "
         "`weitere_anklage_zur_selben_tat`.",
+    # silver/police_area, seit 25.11.2026.
+    ("police_area", "area_id"): "Nummer des Polizeibezirks ohne führende Null, "
+        "als Text - Chicago `1` bis `31`, Detroit `2` bis `12`. Zusammen mit "
+        "`city` der Schlüssel.",
+    ("police_area", "area_name"): "Lesbarer Name im Wort der Stadt: "
+        "*District 1*, *Precinct 2*.",
+    ("police_area", "source_name"): "Die Bezeichnung, wie die Quelle sie führt "
+        "(Chicago `1ST`, Detroit `02`).",
+    ("police_area", "source_polygons"): "Aus wie vielen Polygonen der Quelle "
+        "der Bezirk vereinigt wurde. Chicagos District 31 kommt aus drei, "
+        "Detroits Precinct 7 aus zwei.",
+    ("police_area", "area_km2"): "Fläche in Quadratkilometern, auf dem "
+        "Ellipsoid gerechnet. Wasser innerhalb der Grenze zählt mit.",
+    # silver/community_area, seit 25.11.2026 - Spalten wie police_area.
+    ("community_area", "area_id"): "Kennung des Stadtteils: in Chicago die "
+        "Nummer der Community Area (`1` bis `77`), in Detroit der Name des Master "
+        "Plan Neighborhood. Mit `city` der Schlüssel.",
+    ("community_area", "area_name"): "Name des Stadtteils, Chicagos "
+        "Grossbuchstaben in gewohnter Schreibung (*Rogers Park*).",
+    ("community_area", "source_name"): "Der Name, wie die Quelle ihn führt.",
+    ("community_area", "source_polygons"): "Aus wie vielen Polygonen der Quelle "
+        "der Stadtteil vereinigt wurde.",
+    ("community_area", "area_km2"): "Fläche in Quadratkilometern, auf dem "
+        "Ellipsoid gerechnet.",
     ("place", "place_fips"): "Fünf Ziffern des Orts innerhalb des Bundesstaats.",
     ("place", "name"): "Kurzname des Orts, etwa *Chicago*.",
     ("place", "name_long"): "Vollständiger Name mit Rechtsform, etwa *Chicago city*.",
@@ -321,6 +365,28 @@ JE_TABELLE: dict[tuple[str, str], str] = {
     ("dim_date", "date"): "Der Kalendertag. **Jeder Tag steht hier**, auch einer "
                           "ohne Delikt - sonst zeigte eine Zeitreihe eine Lücke "
                           "als Nicht-Ereignis.",
+    # Seit Gold-Vertrag 9 (19.11.2026). Gerechnet nach NOAA "General Solar
+    # Position Calculations" in gold_pipeline.build_gold.sonnenstand_sql.
+    ("dim_city_day", "sunrise_utc"):
+        "Sonnenaufgang in UTC an diesem Ortstag, nach NOAA (Zenit 90,833°) am "
+        "Schwerpunkt der Ortsgrenze aus `silver/place`. Auf die Sekunde "
+        "gerundet; gegen den NOAA-Rechner höchstens zwei Minuten daneben.",
+    ("dim_city_day", "sunset_utc"):
+        "Sonnenuntergang in UTC, wie `sunrise_utc`. Im Sommer liegt er am "
+        "**UTC-Folgetag** - gewollt, der Ortstag bleibt der Schlüssel. Hell "
+        "ist eine Tat, wenn `sunrise_utc <= occurred_at_utc < sunset_utc` für "
+        "dieselbe Stadt und dasselbe `date` gilt; eine Dämmerungsklasse gibt "
+        "es nicht.",
+    ("dim_city_day", "quality_flags"):
+        "Auffälligkeiten aus `silver/weather_day`, **benannt und nicht "
+        "entfernt** - etwa `SUSPECT_SNOWFALL`; leer, wenn nichts auffiel. "
+        "Seit Gold-Vertrag 9 steht `no_weather` an Tagen der Fallspanne, für "
+        "die NOAA noch nicht geliefert hat: Dort sind `station_id`, "
+        "`station_name` und alle Wetterspalten `NULL`, der Sonnenstand ist "
+        "gefüllt. Nie `NULL` - ClickHouse lässt eine Liste nicht leer stehen.",
+    ("dim_city_day", "daylight_hours"):
+        "Tageslänge in Stunden: `sunset_utc - sunrise_utc`. Nie `NULL`, auch "
+        "an Tagen, für die NOAA noch kein Wetter geliefert hat.",
     ("dim_offense", "nibrs_category"):
         "Die **amtliche** Deliktgliederung aus dem NIBRS User Manual 2025.0: "
         "28 Group-A- und 10 Group-B-Kategorien. Danach wird gruppiert, nicht "
@@ -352,16 +418,18 @@ JE_TABELLE: dict[tuple[str, str], str] = {
         "liegen dagegen je Vintage in `dim_tract_acs` - verbunden wird über "
         "`geoid` **und** `vintage`.",
     ("dim_tract", "city_area_share"):
-        "Welcher Anteil der Tractfläche in der Stadt liegt, 0 bis 1. Ueber 0,5 "
-        "gehört der Tract zur Stadt (Mehrheitsregel). Der Wert bleibt "
-        "erhalten, damit sich auch flächengewichtet rechnen lässt.",
+        "Welcher Anteil der Landfläche des Tracts in der Stadt liegt, 0 bis 1. "
+        "Über 0,5 gehört der Tract zur Stadt (Mehrheitsregel). Seit Vertrag 10 "
+        "auf die Landfläche gerechnet, damit Tracts am Seeufer nicht am Wasser "
+        "scheitern. Der Wert bleibt erhalten, damit sich auch flächengewichtet "
+        "rechnen lässt.",
     ("dim_tract", "tract_name"): "Bezeichnung des Tracts.",
 
     # --- dim_tract_geo: der Umriss, fuer die Karte ------------------------
     #
     # Eigene Tabelle und keine Spalte an dim_tract: Die Dimension deckt beide
     # Countys ab (6'282 Zeilen) und waere mit Umrissen 26 MB statt 194 KB.
-    # Diese hier traegt nur die 1'055 Tracts mit Stadt.
+    # Diese hier traegt nur die 1'066 Tracts mit Stadt.
     ("dim_tract_geo", "tract_name"): "Bezeichnung des Tracts.",
 
     # --- rate_tract: die Rate je Tract, fuer die Karte --------------------
@@ -401,6 +469,42 @@ JE_TABELLE: dict[tuple[str, str], str] = {
         "dieser Tabelle** - fuer sie ist keine Rate definiert, und eine "
         "gezeigte Null liesse sich als Sicherheit lesen, wo in Wirklichkeit "
         "niemand wohnt: Flughaefen, Parks, Gewerbegebiete.",
+    # gold/dim_police_area und gold/bridge_tract_police_area, seit Vertrag 11.
+    ("dim_police_area", "area_id"): "Nummer des Polizeibezirks ohne führende "
+        "Null, wie in `silver/police_area`. Mit `city` der Schlüssel.",
+    ("dim_police_area", "area_name"): "*District 1*, *Precinct 2*.",
+    ("dim_police_area", "area_km2"): "Fläche in Quadratkilometern, auf dem "
+        "Ellipsoid, Wasser innerhalb der Grenze eingeschlossen.",
+    ("dim_police_area", "city_area_share"): "Anteil der Fläche, der in der "
+        "Grenze der Stadt liegt, deren Polizei den Bezirk führt.",
+    ("dim_police_area", "within_city"): "Ob der Bezirk zur Stadt zählt - "
+        "dieselbe Mehrheitsregel wie bei `dim_tract` (Anteil über 0,5). Falsch "
+        "nur für Chicagos District 31, den Bezirk der umschlossenen Gemeinden "
+        "Norridge und Harwood Heights.",
+    ("dim_police_area", "boundary_wkt"): "Der Umriss als WKT in EPSG:4326, "
+        "vereinfacht wie in `dim_tract_geo`.",
+    ("bridge_tract_police_area", "area_id"): "Der Polizeibezirk, in dem ein "
+        "Teil des Tracts liegt.",
+    ("bridge_tract_police_area", "tract_share"): "Welcher Anteil der Fläche "
+        "des Tracts in diesem Bezirk liegt. Je Tract summieren sich die Anteile "
+        "auf 1 über die Bezirke mit `within_city`; Einwohner eines Bezirks = "
+        "Summe von Einwohnern mal Anteil. Flächengewichtet - die Einwohner "
+        "eines Tracts gelten als gleich verteilt.",
+    ("dim_community_area", "area_id"): "Kennung des Stadtteils wie in "
+        "`silver/community_area`; in Detroit ein Name. Mit `city` der Schlüssel.",
+    ("dim_community_area", "area_name"): "*Rogers Park*, *Brightmoor*.",
+    ("dim_community_area", "area_km2"): "Fläche in Quadratkilometern.",
+    ("dim_community_area", "city_area_share"): "Anteil der Fläche in der "
+        "Grenze der Stadt.",
+    ("dim_community_area", "within_city"): "Ob der Stadtteil zur Stadt zählt, "
+        "nach der Mehrheitsregel; für alle 131 wahr.",
+    ("dim_community_area", "boundary_wkt"): "Der Umriss als WKT in EPSG:4326, "
+        "vereinfacht wie in `dim_tract_geo`.",
+    ("bridge_tract_community_area", "area_id"): "Der Stadtteil, in dem ein "
+        "Teil des Tracts liegt.",
+    ("bridge_tract_community_area", "tract_share"): "Flächenanteil des Tracts "
+        "in diesem Stadtteil, je Tract auf 1 normiert. Belle Isle (Detroit) "
+        "liegt in keinem Stadtteil und fehlt hier; sie hat keine Einwohner.",
     ("dim_tract_geo", "boundary_wkt"):
         "Der **Umriss** des Tracts als WKT in EPSG:4269, vereinfacht mit "
         "Douglas-Peucker 0,00002 Grad - rund zwei Meter, und die Flaeche je "

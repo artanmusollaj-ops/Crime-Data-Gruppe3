@@ -18,7 +18,7 @@ def test_local_ist_eine_gewoehnliche_verbindung():
 
 def test_das_secret_ist_temporaer_pfadstil_und_maskiert_nichts_im_sql():
     config = Config(backend="s3", s3_access_key="AKIA'x", s3_secret_key="geheim",
-                    s3_endpoint="s3.datenwerft.ch", s3_use_ssl=False)
+                    s3_endpoint="s3.beispiel.invalid", s3_use_ssl=False)
     sql = sd.secret_sql(config)
     assert sql.startswith("CREATE OR REPLACE SECRET seaweedfs (TYPE S3")
     assert "PERSISTENT" not in sql
@@ -181,14 +181,24 @@ def test_ausgelagert_laeuft_was_sonst_am_speicher_scheitert(tmp_path):
     Dieselbe Abfrage, einmal ohne und einmal mit Auslagerungsverzeichnis -
     bei einer Grenze, die sie nicht im Speicher schafft. Ohne das
     Verzeichnis wirft DuckDB genau die Fehlerform von srv01.
+
+    **Ein Thread und 250 MB, nicht zwei Threads und 150 MB** (C-8,
+    22.11.2026). Am 30.10.2026 fiel der Test einmal auf CI mit "failed to
+    pin block (142,8 von 143 MiB)", obwohl er ausgelagert hatte: Jeder
+    Thread haelt eigene Puffer, die sich nicht auslagern lassen. Gemessen am
+    22.11.2026, je drei Versuche *mit* Auslagerung: Zwei Threads scheitern
+    bis 130 MB immer, bei 140 MB zweimal von drei, ab 150 MB nie - die alte
+    Grenze lag auf der Kante. Ein Thread kommt ab 90 MB durch. 250 MB lassen
+    ihm fast das Dreifache. Ohne Auslagerung scheitert die Abfrage bei 250 MB
+    weiter sicher: Sie sortiert rund 1 GB.
     """
     duckdb = pytest.importorskip("duckdb")
 
     def versuch(ziel: str | None) -> str | None:
         con = duckdb.connect(":memory:")
         try:
-            con.execute("SET memory_limit='150MB'")
-            con.execute("SET threads=2")
+            con.execute("SET memory_limit='250MB'")
+            con.execute("SET threads=1")
             con.execute(f"SET temp_directory='{ziel or ''}'")
             con.execute("""
                 SELECT count(*) FROM (

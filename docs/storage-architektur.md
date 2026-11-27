@@ -136,7 +136,7 @@ nie committet.
 | --- | --- | :---: | :---: | :---: |
 | `STORAGE_BACKEND` | `local` | — | **nötig** | **nötig** |
 | `LOCAL_DATA_ROOT` | `data` | optional | optional | optional |
-| `S3_ENDPOINT` | `s3.datenwerft.ch` | — | optional | optional |
+| `S3_ENDPOINT` | — | — | **nötig** | **nötig** |
 | `S3_ACCESS_KEY` | — | — | **nötig** | **nötig** |
 | `S3_SECRET_KEY` | — | — | **nötig** | **nötig** |
 | `S3_BUCKET` | `urban-crime` | — | optional | optional |
@@ -144,6 +144,7 @@ nie committet.
 | `HYBRID_READ_PRIORITY` | `local` | — | optional | — |
 | `HYBRID_PUBLISH_AFTER_WRITE` | `true` | — | optional | — |
 | `STORAGE_KEEP_LOCAL` | `false` | — | — | **wird je Lauf gesetzt** |
+| `STORAGE_ANALYSEBESTAND_LOKAL` | `false` | — | — | optional, auf `srv01` gesetzt |
 
 **Wer lokal arbeitet, füllt nichts davon aus.** Keine der S3-Variablen wird
 gelesen, `STORAGE_BACKEND` selbst kann fehlen — `local` ist die Vorgabe. Eine
@@ -160,8 +161,11 @@ Zwei Einstellungen sind absichtlich eng gehalten:
   nichts. Nützlich, wenn jemand einen Zwischenstand bauen will, ohne ihn für
   alle zu setzen.
 
-Fehlt ein Schlüssel im Modus `hybrid` oder `s3`, sagt das die Konfiguration
-sofort und nennt die Variable — nicht erst die fünfte Pipeline-Stufe.
+Fehlt ein Schlüssel oder `S3_ENDPOINT` im Modus `hybrid` oder `s3`, sagt das
+die Konfiguration sofort und nennt die Variable — nicht erst die fünfte
+Pipeline-Stufe. Der Endpunkt hat seit dem 14.11.2026 keine Vorgabe mehr
+(FR-46): Bis dahin griff eine Ablage ohne `S3_ENDPOINT` still auf den Eimer
+von `srv01` zu, in jeder anderen Umgebung also auf den falschen.
 
 ---
 
@@ -329,6 +333,85 @@ ein Lauf, der ihn füllte, widerspräche der eigenen Definition — dort liest
 Silver Bronze direkt von S3. `tests/storage/test_modi.py` hält diese Matrix
 fest.
 
+### Ein falsches Release zurücknehmen
+
+Seit dem 14.11.2026 (FR-20). Das Publish-Gate aus Gold hält einen Stand auf,
+der die Abdeckung verfehlt — nicht einen, der die Prüfungen besteht und
+trotzdem falsch ist. Läuft so ein Stand unbeaufsichtigt durch, liegt er
+unveränderlich oben, und `AKTUELL.json` zeigt darauf. Zurückgenommen wird
+der **Zeiger**, nicht das Release:
+
+```bash
+cd /srv/docker/apps/urbancrime
+docker compose -f docker-compose.srv01.yml run --rm --no-deps pipeline \
+    python -m orchestration.release liste            # welches Release davor lag
+docker compose -f docker-compose.srv01.yml run --rm --no-deps pipeline \
+    python -m orchestration.release zuruecknehmen 2026-11-14T08-06-10Z \
+    --grund "detroit_rate um Faktor 10 daneben, Artan 14.11."
+# AKTUELL: 2026-11-14T09-09-47Z -> 2026-11-14T08-06-10Z (detroit_rate ...)
+```
+
+**Was der Befehl tut.** Er prüft zuerst, dass `release.json` des Ziels und
+**jede** darin genannte Datei in der genannten Grösse oben liegen (im Modus
+`local` und in `hybrid` ohne Publizieren: lokal), und bricht sonst ab, bevor der Zeiger sich bewegt — mit der
+ersten fehlenden Datei in der Meldung. Ein Ziel, auf das der Zeiger schon
+zeigt, ist ebenfalls ein Abbruch. Dann ersetzt er `AKTUELL.json` als **ein**
+Objekt (oben per PUT, lokal über `.part` und `rename`), in `hybrid` oben und
+einen vorhandenen lokalen Zeiger dazu; wer nicht publiziert
+(`HYBRID_PUBLISH_AFTER_WRITE=false`), bewegt nur den lokalen. Der Zeiger trägt danach wie bisher
+`release_id`, `created_at_utc`, `path` und `bytes`, dazu
+`zurueckgenommen: {von, grund, am_utc}`; `release aktuell` zeigt es an.
+Gelöscht oder umgeschrieben wird nichts — weder das zurückgenommene Release
+noch ein Lauf —, und dieselbe Sperre wie bei `erstellen` und `holen` hält
+einen gleichzeitigen Datenlauf fern. `--grund` ist Pflicht. Wieder vor geht
+es mit demselben Befehl und der späteren Kennung.
+
+**Wer.** Christian, auf `srv01`. Den Befehl kann jeder mit Zugang zum
+Stapel ausführen; die Entscheidung, einen Stand zurückzunehmen, trifft, wer
+für Silver und Gold zuständig ist.
+
+**Woran man es merkt.** Es gibt bewusst **keinen** Alarm darauf: Die Quellen
+bewegen sich wöchentlich, und eine Drift über der Toleranz ist eine Aufgabe
+für die Dokumente, kein Vorfall (`orchestration.drift`,
+`serving/betriebsstand.py`). Bemerkt wird ein falscher Stand an drei Stellen:
+an der Ampel `urbancrime_drift_innerhalb_toleranz` und dem Drift-Panel im
+Grafana-Brett (unten), am Stand, den das Dashboard nennt, und an einem
+Hinweis von Artan, der mit den Zahlen der Abgabedokumente arbeitet.
+
+**Was danach.** Auf `srv01` (Modus `s3`) genügt der Zeiger im Eimer für das
+Dashboard: Es liest ihn oben und lädt innerhalb einer Minute nach
+(`serving.dashboard.PRUEFABSTAND_S`). Was am **lokalen** Zeiger und an Gold
+unter den festen Pfaden hängt, zieht der Befehl nicht mit und zeigt weiter
+den alten Stand: die Einstiegsseite, die Notebooks
+(`orchestration.analyse`) und der ClickHouse-Lader. `release holen aktuell
+--einsetzen` brächte sie nach, **entwertet aber den Herkunftsnachweis**
+(`.analyse/stand.json`): Er bleibt nur, wenn dasselbe Release eingesetzt
+wird, das `run_all` bestätigt hat, und das ist nach einem Zurücknehmen nie
+der Fall — auch nach dem Wiedervor-Schritt nicht. Die Notebooks 34 und 37
+bleiben dann bis zum nächsten vollen Lauf gesperrt. Deshalb ist das kein
+fester Folgeschritt, sondern nur bewusst zu wählen.
+
+Der nächste Montagslauf publiziert wieder neu und legt den Zeiger um. Bis
+dahin ist die Ursache zu beheben — oder der Takt bewusst auszusetzen, wenn
+sie es nicht ist. Das zurückgenommene Release bleibt oben liegen, bis die
+Aufbewahrungsregel (*gepinnt plus die letzten acht*) es erreicht.
+
+### `STORAGE_ANALYSEBESTAND_LOKAL` — Silver und Gold bleiben für die Notebooks
+
+Im Modus `s3` entfernt `run_all` die Arbeitskopien nach dem Release (unten).
+Die Notebooks 34 und 37 lesen aber Silver und Gold unter der Datenwurzel und
+starten nur mit einem Herkunftsnachweis über genau diese Dateien. Auf `srv01`
+erfasste der Nachweis deshalb nur Bronze, und beide Notebooks starteten dort
+nie; aufgefallen am 13.11.2026. Mit `STORAGE_ANALYSEBESTAND_LOKAL=true` bleiben
+die Kopien liegen. Gelesen wird weiter aus dem Eimer, die Kopien sind nur der
+Analysebestand. Überspringt eine Stufe ihren Bau, weil nichts neu ist, entsteht
+keine Kopie; `run_all` holt deshalb jede Tabelle der beiden Notebooks, die
+lokal fehlt, vor dem Bestätigen aus dem Eimer
+(`orchestration.analyse.hole_fehlende_analysetabellen`). Gesetzt ist der Schalter im Compose-Dienst `pipeline` von
+`docker-compose.srv01.yml`. Das danach eingesetzte Release bringt dieselben
+Bytes, und `release holen --einsetzen` lässt den Nachweis stehen
+(`bewahre_nachweis`).
+
 ### `STORAGE_KEEP_LOCAL` — warum „danach" eine Reihenfolge braucht
 
 Die Release-Zeile sagt für `s3`: *lokal gebildet, hochgebracht, lokale Kopie
@@ -447,7 +530,7 @@ des Zensus, die nur im Volllauf am zweiten Montag geholt werden. Taten und
 Wetter kommen wöchentlich (acht Tage), die drei Jahrgänge monatlich (35 Tage,
 denn zwei zweite Montage können so weit auseinanderliegen). Ein Wächter hält
 jede Quelle aus `run_all.ERWARTETE_QUELLEN` gegen **genau eine** der beiden
-Schwellen — eine siebte Quelle fällt damit auf, bevor sie unbewacht bleibt
+Schwellen — eine weitere Quelle fällt damit auf, bevor sie unbewacht bleibt
 oder doppelt alarmiert.
 
 **1 · `start` muss für Prometheus erreichbar sein.** Heute liegt der Dienst in
@@ -512,7 +595,7 @@ Der Glob zählt nur die eine Form.
 ```bash
 cd /srv/docker/apps/urbancrime        && docker compose -f docker-compose.srv01.yml up -d start
 cd /srv/docker/infrastructure/monitoring && docker compose up -d prometheus
-# Acht Regeln geladen? Und das Ziel oben?
+# Neun Regeln geladen? Und das Ziel oben?
 docker exec prometheus wget -qO- http://127.0.0.1:9090/api/v1/rules | grep -c urbancrime
 docker exec prometheus wget -qO- "http://127.0.0.1:9090/api/v1/targets?state=active" | grep urbancrime
 ```
@@ -645,14 +728,14 @@ Exitcode 1, einer Warnung im Protokoll und in `sicherungssatz.json`.
 `urbancrime_elasticsearch-daten` nicht mehr hinein. Damit fällt die
 Sicherungsquelle von 7,3 GB auf etwa **0,6 GB**.
 
-### Der Eimer ist versioniert, und das hat 3,91 GiB gekostet
+### Der Eimer war versioniert, und das hat 3,91 GiB gekostet
 
 **Am 18.10.2026 gefunden, aus einem fremden Anlass.** Die nächtliche
 Serversicherung von `srv01` nach Backblaze lief voll; der letzte erfolgreiche
 Lauf war der **24.9.2026**. Gesucht wurde die Ursache dort, gefunden wurde
 sie hier.
 
-Der Eimer `urban-crime` hat **Versionierung eingeschaltet**. Ein `delete`
+Der Eimer `urban-crime` hatte **Versionierung eingeschaltet**. Ein `delete`
 setzt damit eine Löschmarkierung — die Fassung darunter bleibt liegen. Jedes
 Aufräumen, das `orchestration.aufraeumen` je gemacht hat, hat deshalb
 **keinen Platz freigegeben**. Sichtbar war das in nichts: `list_objects_v2`
@@ -682,11 +765,34 @@ es löscht, kann einen Rest nicht sehen, den diese Schnittstelle verbirgt.
 Gegengeprüft wurde hier über den Filer — eine zweite, unabhängige Sicht auf
 denselben Speicher.
 
+**Seit dem 12.11.2026 ausgesetzt** (Entscheid E-3). Unser Entwurf braucht
+die Versionierung nicht: Läufe und Releases werden nie überschrieben
+(`publish_files` lehnt stilles Überschreiben ab), und was überschrieben wird —
+Silver und Gold —, ist aus den Läufen nachrechenbar. Mit Versionierung legte
+aber genau dieses Überschreiben bei jedem Neubau eine alte Fassung ab.
+
+```text
+weed shell> s3.bucket.versioning -name urban-crime -suspend
+Bucket urban-crime versioning set to Suspended
+```
+
+„Ausgesetzt" ist der Zustand, den S3 kennt; ganz abschalten lässt sich eine
+einmal eingeschaltete Versionierung nicht. Ein Überschreiben oder Löschen
+ersetzt jetzt die eine `null`-Fassung, statt eine weitere anzulegen. Was
+vorher entstand, liegt weiter als alte Fassung da, bis
+`aufraeumen --fassungen --auch-fern` es entfernt. Deshalb zeigt das Modul die
+Fassungen weiter, und `FakeS3Client` versioniert vorgabemässig weiter mit.
+Wieder einschalten: `s3.bucket.versioning -name urban-crime -enable`. Die
+Metrik `srv01_seaweedfs_bucket_versioning_status` meldet 1 (ausgesetzt)
+statt 2.
+
 Ein Release entsteht nur nach einem **vollständigen** grünen Lauf bis
 einschliesslich Serving — ein halber Stand bekommt keine Kennung. Scheitert
 das Publizieren, ist der Lauf gescheitert.
 
-Releases werden aufgehoben; eine Löschregel ist offen (`datenhistorie.md`).
+Aufgehoben werden die gepinnten Releases und die letzten acht, entschieden am
+4.10.2026 (`datenhistorie.md` 5.5); gelöscht wird nur auf Zuruf mit
+`orchestration.aufraeumen`.
 
 ---
 
@@ -722,7 +828,7 @@ alle.
 Deshalb vergleicht die Ablage bei abgeleiteten Tabellen beide Manifeste. Zwei
 Signale, weil eines nicht reicht:
 
-1. **`built_at_utc`** — wann gebaut wurde. Alle neun Tabellen tragen es.
+1. **`built_at_utc`** — wann gebaut wurde. Jede abgeleitete Tabelle trägt es.
 2. **Die Bronze-Läufe aus `derived_from`** — worauf der Stand ruht. Das fängt
    den Fall, den die Uhrzeit nicht fängt: *heute gebaut, aber ohne den Lauf,
    den jemand anders längst geladen hat.*
@@ -990,7 +1096,12 @@ von sich aus nicht. Endgültige Fehler — falscher Schlüssel, fehlender Bucket
 | `src/crime/storage/backend.py` | `Storage`, `Boto3Client`, `FakeS3Client`, Publizieren, Standvergleich |
 | `src/crime/storage/duckdb.py` | Verbindung mit `httpfs` und temporärem Secret |
 | `src/crime/storage/__main__.py` | `python -m storage` und `publizieren` |
-| `tests/storage/` | 103 Tests gegen ein S3 **im Speicher** — kein Test braucht SeaweedFS |
+| `src/crime/storage/parquet.py` | was wirklich in einer Parquet-Datei steht, ohne die Hive-Spalten, die DuckDB aus dem Pfad ableitet |
+| `src/crime/storage/release.py` | ein Release bilden, prüfen, publizieren und holen |
+| `src/crime/storage/quellen.py` | `config/quellen.toml` lesen: woher je Stadt geladen wird |
+| `src/crime/storage/verwaltet.py` | der Marker des verwalteten Betriebs, der `run_all` und `release` sperrt |
+| `src/crime/storage/analysesitzung.py` | die gemeinsame Sperre für Notebook-Sitzungen auf einem belegten Stand |
+| `tests/storage/` | 317 Tests gegen ein S3 **im Speicher** — kein Test braucht SeaweedFS |
 
 Dass die Tests ohne Server laufen, ist Absicht: `FakeS3Client` ist ein dict
 mit vier Methoden. Damit lässt sich alles prüfen, worauf es ankommt — die
@@ -1044,6 +1155,24 @@ Container, die Datenträger `urbancrime_elasticsearch-daten` (1,69 GB) und
 Platte wurden 10 GB frei. Der Rückweg oben gilt seither nicht mehr. Zurück
 ginge es nur über die lokale `docker-compose.yml` und einen neuen Ladelauf.
 
+**Seit dem 15.11.2026 heisst wieder ein Dienst `kibana` — als Tunnel, nicht
+als Kibana.** Elasticsearch und Kibana laufen in der Probe-VM in Google Cloud
+(Abschnitt 17), gestartet mit `docker/gcp-starten.sh --nur-kibana`. Auf
+`srv01` öffnet der Dienst `kibana` nur einen IAP-Tunnel auf Port 5601 der VM
+(`gcloud compute start-iap-tunnel` im gcloud-Abbild, per Digest gepinnt), und
+Traefik routet `urbancrime-kibana.datenwerft.ch` darauf; Cloudflare Access
+steht davor wie vor jedem Dienst hier. Entschieden hat Christian am
+15.11.2026: IAP-Tunnel, nicht SSH mit fester IP und nicht ein Rücktunnel, und
+der Dienst läuft dauernd. Ist die VM gestoppt, antwortet Traefik mit 502, der
+Tunnel läuft weiter. Der Schlüssel des Tunnelkontos steht base64-kodiert als
+`GCP_TUNNEL_SCHLUESSEL` in der `.env` des Stapels und wird im Container nur
+in ein tmpfs geschrieben. **Eingesetzt und gemessen am 15.11.2026:** Der
+Dienst läuft auf `srv01`, Kibana antwortet über den Tunnel aus dem Netz
+`proxy` auf `/api/status` mit 200 in 0,2 s, und die Grenze ist am ersten
+Laden nachgemessen (unten, „Die Speichergrenzen"). Eine 302 auf das
+Anmeldetor von aussen liegt weiter vor dem Ursprung und sagt nicht, ob Kibana
+dahinter antwortet; das sagt erst die Messung aus dem Netz `proxy`.
+
 **Sie ist seit dem 8.10.2026 angewandt.** Auf `srv01` liefen Elasticsearch,
 Kibana und Jupyter nach dieser Beschreibung; am 11.10.2026 waren alle drei
 `healthy`, beide Abbilder per Digest gepinnt, und die Digests in der `.env`
@@ -1055,6 +1184,23 @@ dem 9.10.2026, von aussen gemessen. Ein Zeitplan steht ebenfalls: montags
 Delta, der zweite den Volllauf, der dritte und vierte wieder Delta; ein fünfter
 Montag bleibt frei. Der Volllauf liegt bewusst auf dem zweiten Montag, damit
 er nie mit dem Restic-Vollrestore am Monatsersten um 05:00 zusammentrifft.
+Ein Delta-Lauf könnte es: Der nächste Montag, der auf einen Ersten fällt,
+ist der 1.2.2027. Gemessen am 14.11.2026 dauerten die drei Delta-Läufe 4,7
+bis 5,1 Minuten bis zur letzten Python-Logzeile, um 04:34/04:35; Drift und
+Sicherungssatz danach schreiben keinen Zeitstempel. Der Restore-Test
+(`srv01-restore-test.timer`) beginnt frühestens um 05:00,
+`RandomizedDelaySec=1h`; am 1.11.2026 lief er um 05:39. Fällt eine Quelle
+aus, fasst `run_all` aber nach 30 und 60 Minuten nach, und der Lauf endet
+nach 06:00. **Am Monatsersten fasst der Delta-Lauf deshalb nicht nach**
+(`delta_nachfassen` in `srv01-datenlauf.sh`): Eine gescheiterte Quelle macht
+ihn sofort rot, der nächste Montag holt nach. Seit dem 14.11.2026 schreibt
+das Skript Beginn und Ende mit Zeitstempel, auch bei einem Abbruch. Der
+erste so gestempelte Lauf, am 16.11.2026, dauerte **ganz 6 min 11 s**
+(04:30:01 → 04:36:12, Exit 0): 41 Stufen in 306 s, danach Drift und
+Sicherungssatz in rund einer Minute. Bis zum frühesten Restore-Test bleiben
+knapp 24 Minuten. Das gilt für den Weg über `cron`; nach der
+Umstellung auf den verwalteten Betrieb (S-10) fährt der Konsolen-Worker den
+Montag, und die Frage stellt sich dort neu.
 
 **Was sie weiter nicht ist: ein Nachweis.** Der Zeitplan hat am 11.10.2026
 noch nie gefeuert — `logs/scheduled-pipeline.log` gibt es nicht, und der
@@ -1078,16 +1224,17 @@ die beides sein will, ist in einem der beiden Fälle falsch. Die
 Entwicklungsfassung bleibt deshalb unangetastet; ein Test hält fest, dass sie
 weiter an `127.0.0.1` bindet und kein Traefik-Label trägt.
 
-### Die sechs Dienste
+### Die sieben Dienste
 
 | Dienst | Was er ist | Wie er erreichbar ist |
 | --- | --- | --- |
 | `dashboard` | Dauerbetrieb, gerouteter Webdienst, liest den Eimer (seit 1.11.2026, statt `elasticsearch` und `kibana`) | `urbancrime-dashboard.datenwerft.ch` über Traefik |
+| `kibana` | Dauerbetrieb, **nur ein IAP-Tunnel** auf Kibana in der Google-Cloud-Probe (seit 15.11.2026); kein Kibana, kein Elasticsearch | `urbancrime-kibana.datenwerft.ch` über Traefik |
 | `start` | Dauerbetrieb, liefert die Einstiegsseite aus (seit 12.10.2026, FR-31) | `urbancrime-start.datenwerft.ch` über Traefik |
 | `pipeline` | **Stapellauf**, läuft einmal durch und endet | gar nicht — kein Port, kein Label, kein `unless-stopped` |
 | `jupyter` | zeitweilig, **lesende** Analyse | `urbancrime-jupyter.datenwerft.ch` über Traefik |
 | `admin` | Dauerbetrieb, Webdienst der Engineering-Konsole (seit 30.10.2026) | `urbancrime-admin.datenwerft.ch` über Traefik |
-| `worker` | **Stapellauf** der Konsole, ein Auftrag je Fünf-Minuten-Takt | gar nicht — kein Port, kein Label, `restart: "no"` |
+| `worker` | **Stapellauf** der Konsole, ein Auftrag je Minutentakt | gar nicht — kein Port, kein Label, `restart: "no"` |
 
 Bis zum 1.11.2026 stand Elasticsearch in dieser Tabelle, und dass es `proxy`
 nicht beitrat, war keine Vorsicht, sondern die Vorgabe des Servers: Ein
@@ -1098,8 +1245,8 @@ also auch keinen Datenträger ein.
 
 Pipeline, Worker und Jupyter tragen ein Compose-**Profil** und starten deshalb
 nicht mit `up -d`. Das ist nicht Kosmetik: Die Rechnung unten geht nur auf,
-solange der Dauerbetrieb aus Dashboard, Konsole und dem kleinen `start`
-besteht.
+solange der Dauerbetrieb aus Dashboard, Konsole, dem Kibana-Tunnel und dem
+kleinen `start` besteht.
 
 ### Die Speichergrenzen — gemessen, nicht geschätzt
 
@@ -1110,9 +1257,10 @@ bereits belegt. Die vorher veranschlagten 5'632 MiB lagen damit **1'307 MiB
 
 | Dienst | Grenze | Woher die Zahl kommt |
 | --- | ---: | --- |
-| `dashboard` | 640 MiB | am 1.11.2026 auf `srv01` gemessen: Spitze **429 MiB** beim ersten Laden aus dem Eimer (11 s, im Sekundentakt abgelesen), danach **299–319 MiB**. Lokal waren es 476 beziehungsweise 412 MiB mit den Grenzen (DuckDB auf 256 MB, zwei Threads) |
+| `dashboard` | 640 MiB | am 1.11.2026 auf `srv01` gemessen: Spitze **429 MiB** beim ersten Laden aus dem Eimer (11 s, im Sekundentakt abgelesen), danach **299–319 MiB**. Seit es die Taten im Speicher hält (23.11.2026), liegt die Spitze bei rund **475 MiB**. Lokal waren es 476 beziehungsweise 412 MiB mit den Grenzen (DuckDB auf 256 MB, zwei Threads) |
 | ~~`elasticsearch`~~ | ~~1'792 MiB~~ | bis zum 1.11.2026; der Heap nutzte gemessen **195 von 1'024 MiB** |
 | ~~`kibana`~~ | ~~1'024 MiB~~ | bis zum 1.11.2026; gemessen belegt **771 MiB** |
+| `kibana` (Tunnel) | 256 MiB | seit 15.11.2026 nur `gcloud compute start-iap-tunnel`. Auf `srv01` gemessen am 15.11.2026: Leerlauf 57–59 MiB, Spitze **139,7 MiB**, wenn Kibana beim ersten Laden rund 80 Dateien gleichzeitig holt. Die erste, lokal geschätzte Grenze von 128 MiB riss genau dort. 256 MiB sind die Spitze mal 1,8 |
 | `start` | 32 MiB | das obere Ende der Spanne, die ein nginx mit einer statischen Datei belegt (16–32); **nicht** gemessen — gemessen ist der Platz, in den es passt |
 | `pipeline` | 1'280 MiB | 1,25 GiB, zeitweilig |
 | `jupyter` | 768 MiB | zeitweilig; passt nur, wenn cadvisor gedeckelt wird |
@@ -1139,7 +1287,7 @@ heute „Elasticsearch, Kibana und `start`" sagt und seinen Grund dazu.
 braucht einen Webdienst, der antwortet, wenn jemand die Adresse aufruft, und
 einen Worker, der die Pipelines ausführt. Dauernd laufend hätte der Worker
 deren 1'280 MiB belegt — rund 1,3 GiB über dem Budget. Er läuft deshalb wie
-die Pipeline als Stapellauf, angestossen alle fünf Minuten von
+die Pipeline als Stapellauf, angestossen jede Minute von
 [`docker/srv01-konsole-takt.sh`](../docker/srv01-konsole-takt.sh) über
 dieselbe Sperre wie der Datenlauf, aber ohne zu warten. Dauernd ist nur
 `admin`: 2'848 + 160 = 3'008 MiB, mit dem grösseren Zeitweiligen
@@ -1150,6 +1298,11 @@ weichen dem Dashboard: 640 + 160 + 32 = **832 MiB** dauernd, mit dem
 grösseren Zeitweiligen **2'112 von 4'325 MiB** — rund 2,2 GiB frei statt 37.
 Der Test heisst weiter `test_der_dauerbetrieb_ist_entschieden` und nennt
 jetzt `admin`, `dashboard` und `start`.
+
+**Am 15.11.2026 kommt der Kibana-Tunnel dazu** (Entscheid: läuft dauernd):
+640 + 160 + 32 + 256 = **1'088 MiB** dauernd, mit dem grösseren Zeitweiligen
+**2'368 von 4'325 MiB**. Der Test nennt jetzt `admin`, `dashboard`, `kibana`
+und `start` und rechnet beide Summen nach.
 
 **Die eine Voraussetzung, die nicht in dieser Datei steht:** cadvisor muss auf
 **256 MiB** gedeckelt werden. Es belegt heute 1'047 MiB — 29 % des gesamten
@@ -1179,8 +1332,8 @@ ist besser als ein getöteter.
 Vier Dinge kann eine Compose-Datei nicht sagen, und alle vier sind nötig,
 damit etwas erreichbar **sein kann**. Zwei davon sind eingerichtet: die
 Access-Anwendung seit dem 9.10.2026, von aussen gemessen, und die Abbilder
-seit dem 8.10.2026 in der Registry. Offen ist allein der Datenträger für Restic:
-Die dritte Tunnel-Route, die für `urbancrime-start`, ist seit dem 14.10.2026
+seit dem 8.10.2026 in der Registry. Der vierte, der Datenträger für Restic,
+ist entfallen (unten). Die dritte Tunnel-Route, die für `urbancrime-start`, ist seit dem 14.10.2026
 angelegt und von aussen gemessen — `urbancrime-start.datenwerft.ch` löst auf
 und antwortet mit **302** auf dasselbe Anmeldetor wie Kibana, ohne dass an
 der Access-Anwendung etwas zu ändern war. Das Muster `urbancrime-*` hat sie
@@ -1190,8 +1343,10 @@ nicht, dass dort etwas antwortet — was gemessen wurde, liegt vollständig
 
 **Seit dem 1.11.2026 angelegt: die Route für `urbancrime-dashboard`**, auf
 dieselbe Weise und unter derselben Access-Anwendung — von aussen gemessen
-mit 302 auf das Anmeldetor. Die Route für `urbancrime-kibana` kann entfallen;
-hinter ihr antwortet nichts mehr.
+mit 302 auf das Anmeldetor. Die Route für `urbancrime-kibana` bleibt
+(15.11.2026): Statt sie zu entfernen, zeigt Traefik sie auf den Tunneldienst
+`kibana` zu Kibana in Google Cloud. An Route und Access-Anwendung ändert sich
+nichts.
 
 **Die Tunnel-Route je Hostname** — angelegt am 9.10.2026, je Hostname eine
 veröffentlichte Anwendung auf dem bestehenden Tunnel, und zwar so:
@@ -1205,10 +1360,10 @@ Service URL:     http://traefik:80
 Der Ursprung ist **immer** `http://traefik:80` und **nie** der öffentliche
 Hostname: Zeigt die Route auf sich selbst, läuft der Verkehr zurück durch
 Cloudflare — eine Schleife oder ein HTTP 403. Traefiks `Host(...)`-Regel
-erledigt danach die Zuordnung. Angelegt sind die beiden Routen für Kibana und
-Jupyter; für `urbancrime-start.datenwerft.ch` ist sie seit dem 12.10.2026
-**fällig und noch nicht angelegt** — der Dienst steht in der Beschreibung, die
-Route ist eine Cloudflare-Einstellung und keine Compose-Zeile.
+erledigt danach die Zuordnung. Angelegt sind die Routen für Kibana und
+Jupyter (9.10.2026), `urbancrime-start` (14.10.2026), `urbancrime-admin`
+(31.10.2026) und `urbancrime-dashboard` (1.11.2026). Eine Route ist eine
+Cloudflare-Einstellung und keine Compose-Zeile.
 `urbancrime.datenwerft.ch` bleibt dagegen unbesetzt und hat bewusst kein DNS:
 Es ist der **einzige** Hostname, den das Muster `urbancrime-*` nicht deckt,
 und damit der einzige, den die eine Access-Anwendung nicht schützt. Nichts an
@@ -1266,13 +1421,13 @@ Projektgedächtnis; was auf `srv01` wirklich läuft, sagt dort
 
 ### Was die Engineering-Konsole zusätzlich braucht
 
-Seit dem 30.10.2026 beschrieben, **seit dem 31.10.2026 eingerichtet bis
-auf das GitHub-Token**: Abbild mit dem Konsolen-Code (`554fd02`), `.env`,
+Seit dem 30.10.2026 beschrieben, **seit dem 31.10.2026 eingerichtet**, das
+GitHub-Token spätestens seit dem 18.11.2026: Abbild mit dem Konsolen-Code (`554fd02`), `.env`,
 `init` mit 2021–2026, `urbancrime_konsole` in der Sicherung, `admin` läuft,
 die Tunnel-Route steht hinter derselben Access-Anwendung, und der Takt läuft
-alle fünf Minuten aus `crontab`. Offen ist nur das Token (S-6 in
-[`intern/offene-punkte.md`](intern/offene-punkte.md)); ohne es legt die
-Konsole keine PRs an. Die Schritte:
+jede Minute aus `crontab`. Das Token (S-6, erledigt in
+[`intern/offene-punkte.md`](intern/offene-punkte.md)) steht in der `.env`
+und geht nur an den Worker; seit dem 18.11.2026 legt die Konsole PRs an. Die Schritte:
 
 1. **Die Tunnel-Route** für `urbancrime-admin.datenwerft.ch`, wie oben auf
    `http://traefik:80`. Die Access-Anwendung über `urbancrime-*` deckt sie mit.
@@ -1282,14 +1437,23 @@ Konsole keine PRs an. Die Schritte:
    Contents, Pull requests Lesen und Schreiben, Actions Lesen).
 3. **Den Datenträger `urbancrime_konsole` in die Serversicherung.** Er trägt
    die SQLite-Datenbank mit den Review-Entscheidungen; die lässt sich nicht
-   nachrechnen.
+   nachrechnen. Daneben legt der Worker täglich ein eigenes Archiv unter
+   `backups/control/` im Eimer ab, seit dem 25.11.2026 **ohne** die Ordner
+   `jobs/<Job-ID>/data/` (`backup.json` nennt sie unter `job_data_left_out`):
+   Ein Kandidat vom 18.11.2026 trug 1,1 GiB und liess jedes Archiv von 2,2 auf
+   830 MiB wachsen. Was darin lag, lässt sich aus Bronze nachbauen
+   ([`intern/ENGINEERING_KONSOLE.md`](intern/ENGINEERING_KONSOLE.md)).
 4. **Einmal `python -m platform_admin init`** im Worker-Container, dann die
    Takt-Zeile in [`deploy/cron/urbancrime.crontab`](../deploy/cron/urbancrime.crontab)
    einkommentieren. Vorher bricht jeder Takt ab.
 
 Der bisherige Datenlauf bleibt, bis jemand `enable-managed` ausführt. Danach
 sperrt [`storage.verwaltet`](../src/crime/storage/verwaltet.py) `run_all` und
-`release` für alles ausser dem Worker — der Cron-Datenlauf scheitert dann.
+`release` in jedem Container, der den Marker sieht, also in `admin` und
+`worker`. **Den Cron-Datenlauf hält das nicht auf:** Der Dienst `pipeline`
+hängt das Volume `konsole` nicht ein und liefe weiter durch. Der Tausch der
+Crontab-Zeilen ist der einzige Schutz (`intern/umstellung-verwaltet.md`,
+Vorprüfung Punkt 4).
 **Der Worker übernimmt ihn ganz** (Entscheidung vom 30.10.2026):
 
 | Datenlauf heute | Worker |
@@ -1323,7 +1487,7 @@ liegt ein eigener beschreibbarer Arbeitsbereich, sonst liesse sich kein
 Notebook speichern.
 
 Gelesen wird die **selbständige** `analyse.duckdb` aus einem Release (93 MB,
-Tabellen darin), nicht `data/serving/analyse.duckdb`. Die trägt 17 Sichten mit
+Tabellen darin), nicht `data/serving/analyse.duckdb`. Die trägt 26 Sichten mit
 absoluten Pfaden auf den Entwicklungsrechner und ist im Container wertlos —
 Abschnitt 9 sagt, warum das so ist und warum es so bleibt. Hereingeholt wird
 sie über den Stapellauf:
@@ -1552,6 +1716,40 @@ demselben Tag unter `src/crime/serving/build_einstieg.py` und nicht mehr unter
 `tools/`: `.dockerignore` hält `tools/` aus dem Baukontext, im Abbild gab es
 ihn also nicht.
 
+**Die Serverwerte stehen nicht im Code, sondern in der Beschreibung (FR-46,
+seit 14.11.2026).** Die Flagge wählt nur die Fassung; was die Fassung
+`server` einsetzt, kommt aus drei Umgebungsvariablen, die
+`docker-compose.srv01.yml` den Diensten `pipeline` und `worker` setzt:
+
+* `EINSTIEG_ADRESSMUSTER` — die Adresse jeder Karte, `{dienst}` ist
+  Pflicht; auf `srv01` `https://urbancrime-{dienst}.datenwerft.ch`, dasselbe
+  Muster wie in den Traefik-Regeln.
+* `STAPEL_COMPOSE` — die Compose-Datei in den Befehlen unter „Starten“ und auf
+  der Jupyter-Karte; auf `srv01` `docker-compose.srv01.yml`.
+* `STAPEL_DATENLAUF` — das Skript, das den Datenlauf anstösst; auf `srv01`
+  `docker/srv01-datenlauf.sh`.
+
+(Eine Liste und keine Tabelle: Die Variablentabelle in Abschnitt 4 hält
+`tests/storage/test_dokumentation.py` gegen `storage.config`, und diese drei
+liest die Ablage nicht.)
+
+Fehlt eine davon, bricht `build_einstieg --adressen server` mit Exit 1 ab
+und nennt sie — es nimmt nie still die Werte von `srv01`. Die Fassung
+`lokal` liest keine der drei, `docs/einstieg.html` bleibt byte-gleich.
+`STAPEL_COMPOSE` nennen auch die Abhilfetexte von `pruefe_stand` und der
+Vorprüfung, wenn es gesetzt ist; sonst steht dort nur `docker compose`.
+`tests/test_abbild_ohne_srv01.py` sucht nach `srv01`, `datenwerft`,
+`/srv/`, `urbancrime-` und `urbancrime_`. Durchsucht wird alles, was die
+`COPY`-Anweisungen beider Dockerfiles kopieren, gelesen aus den Anweisungen
+selbst. In Python-Dateien prüft er nur die Zeichenketten, in Notebooks nur
+die Code-Zellen. Shell-Skripte und die Dockerfiles liest er ohne
+Kommentarzeilen, alles Übrige (`config/`, Lock-Dateien, statische Dateien)
+ganz. Ausgenommen sind Kommentare und Docstrings, weil sie `srv01` als
+Beispiel oder Geschichte nennen. Ausgenommen ist auch
+`docs/intern/AENDERUNGEN.md`: Das Abbild trägt es nur als Herkunftsangabe,
+und als Projektgedächtnis muss es `srv01` nennen. Zusammengesetzte Namen,
+deren Teile einzeln unverdächtig sind, sieht er nicht.
+
 **Der Healthcheck greift nach unserer Seite, nicht nach HTTP 200.** Der Grund
 ist am 12.10.2026 am laufenden Docker nachgestellt worden: Docker befüllt
 einen leeren benannten Datenträger beim ersten Start **aus dem Abbild**, und
@@ -1563,11 +1761,11 @@ auslieferte. Geprüft wird deshalb ein Kennzeichen unserer Seite
 (`serving.build_einstieg` aus ihrer Fusszeile), und der Datenlauf **leert den
 Datenträger**, bevor er schreibt — sonst bliebe `50x.html` auch danach liegen.
 
-**Der Nachweis fehlt hier noch ganz.** Der Dienst steht in der Beschreibung,
-und das ist alles: Seine Tunnel-Route ist am 12.10.2026 **nicht** angelegt,
-der Stapel auf `srv01` kennt ihn noch nicht, und ohne einen Datenlauf trägt
-der Datenträger keine Seite von uns — der Dienst ist dann `unhealthy` und
-behauptet nichts. Was die Beschreibung zusichert, halten
+**Der Nachweis.** Am 12.10.2026 stand der Dienst nur in der Beschreibung.
+Seine Tunnel-Route ist seit dem 14.10.2026 angelegt, er läuft auf `srv01`
+(`healthy`, abgelesen am 25.11.2026), und jeder Datenlauf schreibt die Seite
+neu. Ohne einen Datenlauf trüge der Datenträger keine Seite von uns — der
+Dienst wäre dann `unhealthy` und behauptete nichts. Was die Beschreibung zusichert, halten
 `tests/test_srv01_compose.py` und `tests/test_srv01_datenlauf.py`; was auf
 `srv01` steht, sagt dort `docker compose ps`.
 
@@ -1586,8 +1784,9 @@ Angestossen wird er von Hand oder vom Zeitplan:
 docker compose -f docker-compose.srv01.yml run --rm pipeline
 ```
 
-Der Zeitplan selbst, die Meldung bei Rot und die Rücknahme eines falsch
-publizierten Standes sind nicht Teil dieser Beschreibung.
+Der Zeitplan selbst und die Meldung bei Rot sind nicht Teil dieser
+Beschreibung; die Rücknahme eines falsch publizierten Standes steht in
+Abschnitt 6a („Ein falsches Release zurücknehmen").
 
 ### Die Geheimnisse
 
@@ -1595,10 +1794,72 @@ Keines steht in der Compose-Datei. Jede Variable ist dort **ohne Wert**
 aufgeführt — in Compose heisst das *hole ihn aus der Umgebung* —, und geholt
 wird er aus der ignorierten `.env` des Stapels. Fehlt eine Variable dort,
 erreicht sie den Container nicht; der Schlüssel für Census fällt dann vor dem
-Lauf auf und nicht bei Stufe 5 von 14. Ein Test prüft beide Richtungen: dass
+Lauf auf und nicht bei Stufe 5 von 19. Ein Test prüft beide Richtungen: dass
 keine Variable mit einem Namen wie `…KEY` oder `…TOKEN` einen Wert trägt, und
 dass die drei, die der Lauf braucht, überhaupt genannt sind.
 
 Eine Ausnahme von „ohne Wert": Der Ablagemodus steht fest im Text, als `s3`.
 Er ist kein Geheimnis, und ein Serverlauf, der versehentlich in `local` liefe,
 publizierte nichts und sähe dabei grün aus.
+
+---
+
+## 17 · Dieselbe Strecke in Google Cloud
+
+Die Handgriffe für die Vorführung (starten, prüfen, stoppen, Rückfallweg)
+stehen in [`intern/vorfuehrung.md`](intern/vorfuehrung.md).
+
+Am 15.11.2026 einmal belegt (FR-44, FR-47): **dasselbe Abbild wie auf
+`srv01`, eine andere `.env`, sonst nichts.** Cloud Storage spricht über seine
+XML-Schnittstelle S3; `storage` merkt davon nichts. Unter `src/` steht kein
+Wort für Google, und `tests/test_gcp_stapel.py` hält das.
+
+Was in der `.env` anders ist als auf `srv01`:
+
+| Was | Wert in Google Cloud | Warum |
+| --- | --- | --- |
+| Endpunkt, `S3_ENDPOINT` | `storage.googleapis.com` | die S3-Schnittstelle von Cloud Storage |
+| Eimer, `S3_BUCKET` | `urbancrime-probe-<projektnummer>` | Eimernamen sind weltweit eindeutig |
+| Schlüssel, `S3_ACCESS_KEY` und `S3_SECRET_KEY` | HMAC-Schlüssel eines Dienstkontos, das nur den Eimer sieht | Cloud Storage kennt für S3 nur HMAC |
+| Prüfsummen, `AWS_REQUEST_CHECKSUM_CALCULATION` und `AWS_RESPONSE_CHECKSUM_VALIDATION` | `when_required` | **gemessen:** Mit der Vorgabe von botocore (seit 1.36 `when_supported`) lehnt Cloud Storage jedes `PutObject` mit `SignatureDoesNotMatch` ab. botocore liest beide selbst aus der Umgebung; SeaweedFS stören sie nicht |
+
+Aufbau, Start, Stopp und Abbau liegen in `docker/gcp-*.sh`, der Stapel in
+`docker-compose.gcp.yml` (Pipeline als Stapellauf, Dashboard,
+Elasticsearch, Kibana; das Dashboard nur an `127.0.0.1` der VM, erreichbar
+über `gcloud compute ssh … --tunnel-through-iap -- -L`; Kibana dazu über
+einen IAP-Tunnel, siehe unten). Die VM stoppt jeden
+Abend um 20:00 Europe/Zurich von selbst; ein Budget meldet bei 15, 30 und
+45 $.
+
+**Der Vergleich.** `tools/kopiere_laeufe.py` kopiert die Bronze-Läufe eines
+Release in den zweiten Eimer, `tools/vergleiche_releases.py` stellt danach
+je Tabelle Eingabe-Abdruck und SHA-256 beider Releases nebeneinander. Am
+15.11.2026: 13 von 13 Tabellen mit gleichem Abdruck, 12 byteweise gleich.
+Die dreizehnte, `serving/source_movement`, vergleicht Bronze-Läufe
+untereinander und bleibt leer, solange je Quelle nur ein Lauf kopiert ist.
+
+**Was der Neuaufbau gelehrt hat.** Ein frischer Datenträger hatte kein
+`duckdb-tmp`, und `silver · crime_offense` brach daran ab; auf `srv01` lag
+das Verzeichnis aus früheren Läufen. Der Bau legt es jetzt selbst an.
+Ausserdem nennt ein Release nur die Läufe, auf denen Gold ruht, nicht jeden,
+den `run_all` liest. Der Kopierschritt ergänzt deshalb je Partition einer
+Referenzquelle den jüngsten fertigen Lauf. Zahlen, Zeiten und Kosten stehen
+in `docs/intern/AENDERUNGEN.md` unter dem 15.11.2026.
+
+**Kibana über `srv01`** (seit dem 15.11.2026 beschrieben). Kibana und
+Elasticsearch passen nicht ins Speicherbudget von `srv01` (C-9) und laufen
+deshalb nur hier. Erreichbar sind sie über `urbancrime-kibana.datenwerft.ch`:
+
+| Teil | Wo | Was er tut |
+| --- | --- | --- |
+| `docker/gcp-starten.sh --nur-kibana` | eigener Rechner | startet die VM, kopiert das aktuelle Release von `srv01` mit `tools/kopiere_release.py` (`quelle.env` → `hmac.env`; geprüft gegen `release.json`, publiziert mit `storage.release.publiziere`, `AKTUELL.json` umgelegt), stoppt auf der VM das Dashboard, startet nur `elasticsearch` und `kibana`, schlägt das Strecken-Abbild der Marke `:aktuell` nach und schreibt dessen Digest in die `.env` der VM, wenn er neu ist (seit dem 17.11.2026; vorher gesichert als `.env.vor-abbild-<UTC-Zeit>`, die Ausgabe nennt alt, neu und `GIT_COMMIT`), setzt mit `holen aktuell --einsetzen` immer zuerst das Release ein und lädt Elasticsearch und Kibana nur, **wenn** das Abbild neu ist oder `serving.pruefe_stand` den Stand danach nicht als geladen meldet. Danach steht die `.env` der VM auf `:aktuell`. Ein Vergleich (FR-47) muss deshalb zuerst mit `--env` den Digest von `srv01` wieder setzen; `--env` und `--nur-kibana` zusammen lehnt das Skript ab (Exit 64) |
+| Firewall `urbancrime-probe-kibana-iap` | VPC der Probe | lässt `tcp:5601` nur aus dem IAP-Bereich `35.235.240.0/20` herein; Kibana bindet dafür `5601:5601`, das Dashboard bleibt an `127.0.0.1` |
+| Tunnelkonto `urbancrime-probe-tunnel` | Projekt `urbancrime` | `roles/iap.tunnelResourceAccessor` mit der Bedingung `destination.port == 5601` und `roles/compute.viewer` auf der einen VM — kein SSH, kein Eimer. Der Schlüssel liegt unter `~/.config/urbancrime-probe/tunnel-schluessel.json` (600) |
+| Dienst `kibana` | `srv01` | `gcloud compute start-iap-tunnel urbancrime-probe 5601 --local-host-port=0.0.0.0:5601`; Traefik routet darauf, Access steht davor |
+
+Die IAP-Rolle ist im Projekt gebunden, nicht auf der VM: `gcloud` setzt sie
+nicht auf einer einzelnen Tunnel-Instanz, und die Probe hat genau eine. Der
+Abbau nimmt Tunnelkonto, seine Rolle (auch die eines schon gelöschten Kontos)
+und die Kibana-Regel mit. **Ausgeführt am 15.11.2026:** Aufbau, Schlüssel
+nach `srv01`, Einsetzen und der Aufruf über die URL, mit der Messung des
+laufenden Tunnels (Leerlauf 57–59 MiB, Spitze 139,7 MiB; Abschnitt 16).

@@ -33,7 +33,7 @@ import re
 from pathlib import Path
 
 import pytest
-from gold_pipeline import einwohner_je_stadt
+from gold_pipeline import RATENJAHR, einwohner_je_stadt, raten_je_stadt
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -56,9 +56,18 @@ SCHUTZ = (
     "Detroits Bronze-Lauf", "gelesen über DuckDB",
     "Zusammen 259'356 Zeilen", "zuvor standen hier",
     "Gemessen am 13.9.2026", "Gemessen am 14.9.2026", "gemessen am 13.9.2026",
+    # Der Nachweis vom 14.11.2026 zu H6 (ausblick.md, Abschnitt 3): eine Messung
+    # an einem bestimmten Silver-Stand, die veralten darf.
+    "Notebook 36 (H6)", "24,0 bis 24,9, für",
     "Beide Schnappschüsse enthalten", "in beiden Schnappschüssen",
     "Bronze, Abfrage über Detroits",
     "Nachgemessen am", "Nachgerechnet am",
+    # Detroits Anklagen minus Taten (ln2_konzept.md 5.2, Tabelle zur
+    # Granularitaet). Am Stand vom 26.11.2026 liegt die Zahl drei neben 22'144,
+    # den Vorfaellen mit mehr als einer Familie, und sah fuer den Vergleich
+    # nach deren veralteter Fassung aus. Bewacht ist sie dort, wo sie entsteht:
+    # Anklagen und Taten stehen in derselben Tabelle unter test_abgabedokumente.
+    "| Unterschied | −",
     # Die Zahl der Tests, die in einem frischen Klon laufen. Sie wandert mit
     # jeder neuen Pruefung und lag am 18.10.2026 bei 2'099 - vier neben
     # ``gold/dim_date`` = 2'103, mit dem sie nichts zu tun hat. Dasselbe
@@ -94,6 +103,24 @@ SCHUTZ = (
     # laufende Jahrgang waechst taeglich - Detroit 2026 um 240 Zeilen. Waeren
     # sie gleich, waere eine der beiden abgeschrieben.
     "Zeilen × ",
+    # Eine Zahl, die serving/source_movement (79'801 am 10.11.2026) nur
+    # aehnlich sieht: das LN1-Zitat zur Nachrechnung der Raumzuordnung
+    # (79'874 vergleichbare Zeilen), das woertlich bleiben muss. Detroits
+    # Fallzahl 2024 (79'614) stand hier auch; sie ist seit dem 12.11.2026
+    # gemessen (``faelle_2024``) und braucht keinen Schutz mehr.
+    "vergleichbare Zeilen",
+    # Speicher in MiB, nicht Zeilen: die Grenze des Dashboard-Containers mit
+    # Elasticsearch (2'816 MiB) und die Belegung von srv01 (4'288 von 4'325
+    # MiB). Beide sehen Detroits ``outside_city`` und ``gold/dim_city_day``
+    # nur aehnlich; am 20.11.2026 lagen sie zwei bzw. zehn daneben.
+    "MiB Grenze", "belegte es 2'816 MiB", "von 4'325 MiB",
+    # Die Tage *mit Wetter* in dim_city_day (test_abgabedokumente haelt sie);
+    # die Kennzahl ``gold/dim_city_day`` zaehlt alle Tage des Geruests.
+    "| `dim_city_day` | Stadt und Tag, mit dem Wetter |",
+    # Detroits von der Hierarchieregel verworfene Taten (27'343 am 20.11.),
+    # nicht Chicagos ``ambiguous`` (27'348) - zwei Zahlen, die sich zufaellig
+    # um fuenf unterscheiden.
+    "— Faktor",
 )
 
 # datenhistorie.md *ist* der Verlauf; archiv/ haelt Ueberholtes absichtlich.
@@ -151,6 +178,17 @@ def kennzahlen() -> dict[str, int]:
     for stadt, ew in con.execute(einwohner_je_stadt(
             f"read_parquet('{tracts}')", f"read_parquet('{acs}')")).fetchall():
         zahlen[f"{stadt}/einwohner"] = int(ew)
+
+    # Taten und Faelle in der Stadt im Ratenjahrgang - die Zahlen der
+    # Kopftabellen. Seit dort die Fallebene vorn steht (E-2, 12.11.2026), nennen
+    # vier Dokumente Detroits 79'614 Faelle, und ungemessen hielt dieser
+    # Waechter sie fuer eine veraltete Fassung von source_movement (79'801).
+    fakt = DATEN / "gold" / "dataset=fact_offense" / "part-0001.parquet"
+    for stadt, taten, faelle, *_ in con.execute(raten_je_stadt(
+            f"read_parquet('{fakt}')", f"read_parquet('{tracts}')",
+            f"read_parquet('{acs}')")).fetchall():
+        zahlen[f"{stadt}/taten_{RATENJAHR}"] = taten
+        zahlen[f"{stadt}/faelle_{RATENJAHR}"] = faelle
 
     for name, muster in (("silver/tract", "dataset=tract/**/*.parquet"),
                          ("silver/place", "dataset=place/**/*.parquet"),

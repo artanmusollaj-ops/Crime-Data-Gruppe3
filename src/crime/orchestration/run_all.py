@@ -9,8 +9,8 @@
 ``--jahre`` nimmt einen Jahrgang, einen Bereich oder eine Liste; Vorgabe ist
 2024. Die Kriminalquellen laufen je Jahrgang, die Census-Stufen je Vintage,
 alles andere einmal. Ab 2025 bleibt es beim 2024er Vintage - ein neueres gibt
-es nicht. Mehrere Vintages **und** Gold im Lauf lehnt der Controller ab, weil
-``build_gold`` noch ein einzelnes ``--vintage`` nimmt.
+es nicht. Gold laeuft einmal und bekommt alle Vintages (``--acs-vintages``,
+seit dem 4.10.2026); jede Tat findet ueber ``population_vintage`` ihren Nenner.
 
 Am Ende steht ``data/pipeline_run.json``: welche Stufen liefen, wie lange, auf
 **welchen Bronze-Laeufen** das Ergebnis ruht, und ein Fingerabdruck darueber.
@@ -117,12 +117,19 @@ STUFEN: tuple[Stufe, ...] = (
           quelle="dataset=acs5_tract", je="vintage", flagge="--vintage"),
     Stufe("ingestion", "noaa", "weather_pipeline.download_noaa",
           quelle="dataset=noaa_ghcnd"),
+    # Die Polizeibezirke beider Staedte (25.11.2026). Jeder Lauf schreibt
+    # einen neuen Stand; ob sich eine Grenze bewegt hat, zeigt der Hash.
+    Stufe("ingestion", "gebiete", "gebiete_pipeline.download_gebiete",
+          quelle="dataset=gebiete"),
 
     Stufe("silver", "tract", "silver_pipeline.build_tract",
           je="vintage", flagge="--vintage"),
     Stufe("silver", "place", "silver_pipeline.build_place",
           je="vintage", flagge="--vintage"),
     Stufe("silver", "weather_day", "silver_pipeline.build_weather_day"),
+    # Vor crime_offense: Es haelt jede Koordinate gegen die Bezirke.
+    Stufe("silver", "police_area", "silver_pipeline.build_police_area"),
+    Stufe("silver", "community_area", "silver_pipeline.build_community_area"),
     Stufe("silver", "crime_offense", "silver_pipeline.build_crime_offense"),
     # **Die Historisierung gehoert in den Lauf, nicht in einen Merkzettel.**
     # Bis zum 16.10.2026 stand ``build_source_change`` hier nicht, und kein
@@ -360,9 +367,9 @@ def auswahl(ohne_ingestion: bool, bis: str | None,
     """Welche Stufen laufen, in welcher Reihenfolge, fuer welche Jahrgaenge.
 
     Mit einem einzigen Jahrgang ist die Entfaltung die Identitaet: Es kommen
-    genau die vierzehn Stufen heraus, die ``STUFEN`` nennt. ``STUFEN``
-    beschreibt die **Form** der Strecke - daraus entstehen das Architekturbild
-    und die Referenz-Startseite, und die zaehlen vierzehn. Wie oft eine Stufe
+    genau die Stufen heraus, die ``STUFEN`` nennt (seit dem 25.11.2026
+    neunzehn). ``STUFEN`` beschreibt die **Form** der Strecke - daraus
+    entstehen das Architekturbild und die Referenz-Startseite. Wie oft eine Stufe
     laeuft, ist dagegen eine Eigenschaft des Laufs und steht hier.
     """
     stufen = [s for s in STUFEN
@@ -417,6 +424,54 @@ def fahre(stufen: list[Stufe], projekt_root: Path,
     return protokoll
 
 
+#: Pausen vor dem zweiten und dritten Versuch einer gescheiterten Quelle, in
+#: Minuten. Am 9.11.2026 antwortete Socrata vormittags nicht und fiel den
+#: Montagslauf - Detroit, Census und Wetter waren gar nicht erst geladen, und
+#: das Wochenrelease fehlte. Am Nachmittag lief derselbe Abruf glatt durch.
+#: Eine Stunde und eine halbe ueberbrueckt so einen Aussetzer; ein laengerer
+#: Ausfall bleibt ein roter Lauf.
+NACHFASSEN_MINUTEN: tuple[float, ...] = (30, 60)
+
+_schlafen = time.sleep
+
+
+def lade(stufen: list[Stufe], projekt_root: Path,
+         data_root: Path | None = None, *,
+         nachfassen: Iterable[float] = NACHFASSEN_MINUTEN) -> list[dict]:
+    """Die Ingestion: jede Quelle, und die gescheiterten noch einmal.
+
+    Anders als ``fahre`` geht es nach einem Fehler weiter, denn die Quellen
+    haengen nicht voneinander ab - ein Chicago-Aussetzer ist kein Grund,
+    Detroit nicht zu laden. Was scheitert, wird nach jeder Pause in
+    ``nachfassen`` (Minuten) erneut versucht. **Abgeleitet wird trotzdem nur,
+    wenn am Ende jede Quelle da ist** - das entscheidet ``lauf``, und daran
+    aendert sich nichts: Kein Silver auf einem halben Stand.
+
+    Das Protokoll hat einen Eintrag je Stufe, in ihrer Reihenfolge: den
+    letzten Versuch, mit ``versuche``.
+    """
+    ergebnis: dict[int, dict] = {}
+    offen = list(range(len(stufen)))
+    for runde, pause in enumerate((0, *nachfassen), 1):
+        if not offen:
+            break
+        if pause:
+            LOG.warning(
+                "Gescheitert: %s. Naechster Versuch in %g Minuten.",
+                ", ".join(stufen[i].name for i in offen), pause)
+            _schlafen(pause * 60)
+        for i in offen:
+            eintrag = fahre([stufen[i]], projekt_root, data_root)[0]
+            eintrag["versuche"] = runde
+            ergebnis[i] = eintrag
+        offen = [i for i in offen if ergebnis[i]["exit"] != 0]
+    if offen:
+        LOG.error("Auch nach %d Versuchen gescheitert: %s. Nichts abgeleitet.",
+                  len(tuple(nachfassen)) + 1,
+                  ", ".join(stufen[i].name for i in offen))
+    return [ergebnis[i] for i in range(len(stufen))]
+
+
 def schreibe_manifest(data_root: Path, manifest: dict) -> Path:
     ziel = data_root / LAUF_MANIFEST
     ziel.parent.mkdir(parents=True, exist_ok=True)
@@ -432,7 +487,8 @@ def lauf(data_root: Path, projekt_root: Path, *,
          ohne_ingestion: bool = False, bis: str | None = None,
          maximal_alter_tage: float | None = None,
          release: bool | None = None, holen: bool = True,
-         jahre: Iterable[int] = VORGABE_JAHRE) -> dict:
+         jahre: Iterable[int] = VORGABE_JAHRE,
+         nachfassen: Iterable[float] = NACHFASSEN_MINUTEN) -> dict:
     """Die ganze Strecke - und am Ende, wenn alles gruen ist, ein Release.
 
     ``release``: ``None`` heisst *wenn die Ablage publiziert* (hybrid, s3),
@@ -500,7 +556,8 @@ def lauf(data_root: Path, projekt_root: Path, *,
 
         protokoll: list[dict] = []
         if not zu_alt and holen_gescheitert is None:
-            protokoll = fahre(geladen, projekt_root, data_root)
+            protokoll = lade(geladen, projekt_root, data_root,
+                             nachfassen=tuple(nachfassen))
             ingestion_ok = (all(s["exit"] == 0 for s in protokoll)
                             and len(protokoll) == len(geladen))
 
@@ -549,10 +606,22 @@ def lauf(data_root: Path, projekt_root: Path, *,
             LOG.info("Lokale Arbeitskopien bleiben: Das Release ist gescheitert, "
                      "und ohne sie braeuchte der zweite Versuch einen neuen Bau.")
         if behalte_lokal and not gescheitert:
-            weg = ablage.arbeitskopien_entfernen()
-            if weg:
-                LOG.info("%d lokale Arbeitskopie(n) nach dem Release entfernt",
-                         len(weg))
+            # Auf srv01 bleiben sie als Analysebestand fuer die Notebooks 34
+            # und 37: Ohne Silver und Gold erfasst der Nachweis unten nur
+            # Bronze (``Config.analysebestand_lokal``).
+            if ablage.config.analysebestand_lokal:
+                LOG.info("Lokale Arbeitskopien bleiben als Analysebestand "
+                         "(STORAGE_ANALYSEBESTAND_LOKAL).")
+                # Was eine uebersprungene Stufe nicht lokal hingelegt hat,
+                # kommt aus dem Eimer - sonst fehlt es dem Nachweis unten.
+                from orchestration.analyse import hole_fehlende_analysetabellen
+                for verzeichnis in hole_fehlende_analysetabellen(ablage):
+                    LOG.info("Fuer die Analyse aus dem Eimer geholt: %s", verzeichnis)
+            else:
+                weg = ablage.arbeitskopien_entfernen()
+                if weg:
+                    LOG.info("%d lokale Arbeitskopie(n) nach dem Release entfernt",
+                             len(weg))
 
         # Der Bestand fuer das Manifest liest im Hybridmodus auch S3. Faellt die
         # Ablage aus, ist das kein Grund fuer einen Traceback: Der Lauf ist dann
@@ -632,6 +701,11 @@ def arguments() -> argparse.Namespace:
     p.add_argument("--maximal-alter-tage", type=float, default=None, metavar="TAGE",
                    help="scheitern, wenn der juengste Lauf einer Quelle aelter ist "
                         "(ohne Angabe wird die Aktualitaet nur aufgezeichnet)")
+    p.add_argument("--nachfassen", type=float, nargs="*", default=list(NACHFASSEN_MINUTEN),
+                   metavar="MINUTEN",
+                   help="Pausen, nach denen eine gescheiterte Quelle erneut geladen wird "
+                        f"(Vorgabe {' '.join(f'{m:g}' for m in NACHFASSEN_MINUTEN)}; "
+                        "ohne Wert kein zweiter Versuch)")
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args()
 
@@ -674,7 +748,7 @@ def main() -> int:
                         ohne_ingestion=args.ohne_ingestion, bis=args.bis,
                         maximal_alter_tage=args.maximal_alter_tage,
                         release=args.release, holen=args.holen,
-                        jahre=args.jahre)
+                        jahre=args.jahre, nachfassen=tuple(args.nachfassen))
     except StorageError as fehler:
         # Der Schlussfang. Was die Ablage angeht, ist innen schon abgefangen;
         # hier steht er, damit kein Weg uebrigbleibt, der einen botocore-Stapel

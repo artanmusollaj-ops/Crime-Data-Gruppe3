@@ -145,6 +145,85 @@ services:
       traefik.http.services.urbancrime-dashboard.loadbalancer.server.port: "8050"
 
   # --------------------------------------------------------------------
+  # Kibana - nur ein Tunnel in die Google-Cloud-Probe (15.11.2026)
+  # --------------------------------------------------------------------
+  # **Kein Kibana und kein Elasticsearch auf srv01** (C-9, seit dem
+  # 1.11.2026). Beide laufen in der Probe-VM in Google Cloud
+  # (docker-compose.gcp.yml, gestartet mit "docker/gcp-starten.sh
+  # --nur-kibana"). Dieser Dienst oeffnet nur einen IAP-Tunnel auf Port 5601
+  # der VM (gcloud compute start-iap-tunnel) und gibt ihn an Traefik weiter;
+  # die Route urbancrime-kibana.datenwerft.ch und die Access-Anwendung ueber
+  # urbancrime-* bestehen schon. Entscheid Christian vom 15.11.2026:
+  # IAP-Tunnel, nicht SSH mit fester IP und nicht ein Ruecktunnel. Der Dienst
+  # laeuft dauernd; ist die VM gestoppt, antwortet Traefik mit 502.
+  kibana:
+    # Das amtliche gcloud-Abbild, per SHA-256-Digest gepinnt wie alles Fremde
+    # hier. Der Digest ist der des Multi-Arch-Index von
+    # google-cloud-cli:592.0.0-alpine, am 15.11.2026 mit
+    # "docker buildx imagetools inspect" abgelesen; srv01 bekommt daraus das
+    # amd64-Abbild. Alpine, weil der Dienst nur gcloud braucht.
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:592.0.0-alpine@sha256:9040d28a6512f32c495322a3af6ea000f803a0ae001cec055937154efe5a2230
+    restart: unless-stopped
+    # Das Skript kommt aus dem Repository wie docker/start-nginx.conf bei
+    # `start`; es entschluesselt den Schluessel ins tmpfs und startet den
+    # Tunnel (Begruendung je Zeile dort).
+    entrypoint: ["bash", "/usr/local/bin/kibana-tunnel.sh"]
+    networks:
+      # Nur proxy: Traefik muss ihn erreichen, sonst niemand im Stapel.
+      proxy:
+    environment:
+      # Ohne Wert: der JSON-Schluessel des Tunnelkontos
+      # urbancrime-probe-tunnel, base64-kodiert, aus der .env des Stapels.
+      # Das Konto darf nur einen IAP-Tunnel auf Port 5601 der einen VM.
+      GCP_TUNNEL_SCHLUESSEL:
+      # Wohin der Tunnel geht - die Vorgaben von docker/gcp-gemeinsam.sh.
+      GCP_PROJEKT: urbancrime
+      GCP_ZONE: europe-west6-a
+      GCP_VM: urbancrime-probe
+    volumes:
+      - ./docker/srv01-kibana-tunnel.sh:/usr/local/bin/kibana-tunnel.sh:ro
+    # Der Schluessel liegt nur im Arbeitsspeicher: /run/geheim ist ein tmpfs,
+    # und die Schreibschicht des Containers ist zu (read_only).
+    read_only: true
+    tmpfs:
+      - /run/geheim:mode=700,size=4m
+      - /tmp:size=16m
+    cap_drop:
+      - ALL
+    # FR-13, auf srv01 gemessen am 15.11.2026: Leerlauf 57-59 MiB, Spitze
+    # 139,7 MiB, wenn Kibana beim ersten Laden rund 80 Dateien gleichzeitig
+    # holt. Die erste Grenze, 128 MiB (lokal geschaetzt), riss genau dort: der
+    # Tunnel startete neu, der Browser zeigte "Elastic did not load properly".
+    # 256 MiB sind die Spitze mal 1,8. Dauernd verplant: 1'088 MiB statt 832.
+    mem_limit: 256m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    healthcheck:
+      # Gesund heisst: der Tunnel nimmt auf 5601 an. Ob dahinter Kibana
+      # antwortet, sagt er nicht - die VM laeuft nur, wenn jemand sie startet.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5601"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    labels:
+      # FR-10, vollstaendig wie beim Dashboard.
+      traefik.enable: "true"
+      traefik.docker.network: proxy
+      # FR-22: dieselbe Route wie bis zum 1.11.2026, jetzt auf den Tunnel.
+      # Kibana hat keine eigene Anmeldung - Access ist sie.
+      traefik.http.routers.urbancrime-kibana.rule: Host(`urbancrime-kibana.datenwerft.ch`)
+      traefik.http.routers.urbancrime-kibana.entrypoints: web
+      traefik.http.routers.urbancrime-kibana.middlewares: urbancrime-kibana-proto
+      traefik.http.routers.urbancrime-kibana.service: urbancrime-kibana
+      traefik.http.middlewares.urbancrime-kibana-proto.headers.customrequestheaders.X-Forwarded-Proto: https
+      traefik.http.services.urbancrime-kibana.loadbalancer.server.port: "5601"
+
+  # --------------------------------------------------------------------
   # Die Einstiegsseite - der dritte geroutete Webdienst (FR-31)
   # --------------------------------------------------------------------
   start:
@@ -291,6 +370,11 @@ services:
       # Serverlauf, der versehentlich in local liefe, publizierte nichts und
       # saehe dabei gruen aus.
       STORAGE_BACKEND: s3
+      # Silver und Gold bleiben nach dem Release lokal liegen: Die Notebooks
+      # 34 und 37 in ``jupyter`` lesen sie unter /app/data und verlangen den
+      # Herkunftsnachweis ueber genau diese Dateien. Ohne den Schalter erfasste
+      # er nur Bronze, und beide starteten nie (13.11.2026).
+      STORAGE_ANALYSEBESTAND_LOKAL: "true"
       DATA_LOCK_ROOT: /app/datensperren
       # Wohin ``orchestration.sicherungssatz`` schreibt. **Nicht nach
       # ``/app/data``**: Das ist ``arbeitsdaten``, und das steht nicht in
@@ -329,6 +413,15 @@ services:
       # ein Container tippt kein --dashboard (FR-14).
       SERVING_BETRIEB: server
       DASHBOARD_URL: http://dashboard:8050
+      # FR-46: Was nur auf diesem Server stimmt, steht hier und nicht im
+      # Abbild. ``serving.build_einstieg --adressen server`` setzt damit die
+      # Adressen und Befehle der ausgelieferten Startseite ein und bricht ab,
+      # wenn eine fehlt; ``pruefe_stand`` und die Vorpruefung nennen
+      # STAPEL_COMPOSE in ihren Abhilfetexten. Das Muster ist dasselbe wie in
+      # den Traefik-Regeln unten (test_die_hostnamen_folgen_dem_muster).
+      EINSTIEG_ADRESSMUSTER: https://urbancrime-{dienst}.datenwerft.ch
+      STAPEL_COMPOSE: docker-compose.srv01.yml
+      STAPEL_DATENLAUF: docker/srv01-datenlauf.sh
       # FR-61: DuckDB von innen begrenzen, unterhalb des Container-Limits.
       # Ohne Angabe nimmt DuckDB rund 80 % des Arbeitsspeichers der
       # **Maschine** - nicht des Containers -, und das waeren hier 6,3 GiB auf
@@ -524,8 +617,8 @@ services:
   # Vier-Augen-Review, Kandidaten-Releases. Sie ist in zwei Dienste geteilt,
   # und nur der eine laeuft dauernd. Der Worker fuehrt die Pipelines aus und
   # braucht deren 1'280 MiB; dauernd belegt waeren das rund 1,3 GiB ueber dem
-  # Budget von FR-13. Er laeuft deshalb wie die Pipeline als Stapellauf, alle
-  # fuenf Minuten angestossen von docker/srv01-konsole-takt.sh.
+  # Budget von FR-13. Er laeuft deshalb wie die Pipeline als Stapellauf, jede
+  # Minute angestossen von docker/srv01-konsole-takt.sh.
   #
   # Dasselbe Abbild wie die Pipeline: Flask, PyJWT und gunicorn stehen seit
   # dem 30.10.2026 in requirements.lock. Ein zweites Abbild waere ein zweiter
@@ -617,7 +710,7 @@ services:
   worker:
     image: ${PIPELINE_IMAGE:-urban-crime:latest}
     # Ein Takt, ein Auftrag, Ende - wie die Pipeline nie unless-stopped
-    # (FR-9). Kein on-failure: Der naechste Takt in fuenf Minuten ist der
+    # (FR-9). Kein on-failure: Der naechste Takt in einer Minute ist der
     # Wiederholungsversuch, und die Konsole fuehrt Buch ueber den Auftrag.
     restart: "no"
     profiles:
@@ -641,6 +734,8 @@ services:
       # Alles, was die Pipeline setzt, und mit denselben Werten - der Worker
       # ruft dieselben Module auf (test_der_worker_traegt_was_die_pipeline_traegt).
       STORAGE_BACKEND: s3
+      # Wie die Pipeline: Silver und Gold bleiben fuer die Notebooks liegen.
+      STORAGE_ANALYSEBESTAND_LOKAL: "true"
       DATA_LOCK_ROOT: /app/datensperren
       SICHERUNG_ROOT: /app/sicherung
       DUCKDB_TEMP_DIRECTORY: /app/data/duckdb-tmp
@@ -652,6 +747,10 @@ services:
       SOCRATA_APP_TOKEN:
       SERVING_BETRIEB: server
       DASHBOARD_URL: http://dashboard:8050
+      # FR-46, wie in der Pipeline: Der Worker baut die Startseite ebenfalls.
+      EINSTIEG_ADRESSMUSTER: https://urbancrime-{dienst}.datenwerft.ch
+      STAPEL_COMPOSE: docker-compose.srv01.yml
+      STAPEL_DATENLAUF: docker/srv01-datenlauf.sh
       DUCKDB_MEMORY_LIMIT: 896MB
       DUCKDB_THREADS: "2"
       ADMIN_PROJECT_ROOT: /app

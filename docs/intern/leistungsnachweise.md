@@ -21,28 +21,31 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 | Anforderung | Stand | Was fehlt |
 | --- | --- | --- |
 | **Problemstellung, Ausgangslage** | ● geschrieben | [`ln2_konzept.md`](../ln2_konzept.md) Kapitel 2 |
-| **Forschungsfragen, Hypothesen** | ◐ Vorschlag steht, vier bereits vorgeprüft | Auswahl und Formulierung entscheiden → Abschnitt 2.2 / 2.3 |
+| **Forschungsfragen, Hypothesen** | ● abgegeben | F1 bis F6 und H1 bis H6 in [`forschungsfragen.md`](../forschungsfragen.md), gemessen in Notebook 36. Die Nummern in 2.2 bis 2.5 sind die des Vorschlags davor |
 | **Vorgehen und Methoden** | ◐ implizit im Code | Methodenteil ausformulieren → Abschnitt 2.4 |
 | **Entwurf DE-Lebenszyklus** | ● benannt | Abschnitt 3; ausführlich in [`ln2_konzept.md`](../ln2_konzept.md) Kapitel 5 |
-| **Ingestion: Quellen, Beschaffung** | ● fertig | fünf Quellen, je ein Quellnotebook |
+| **Ingestion: Quellen, Beschaffung** | ● fertig | sechs Quellen; ein Quellnotebook je Quelle bis auf die Polizeibezirke (seit 25.11.2026) |
 | **Storage: Evaluation, Wahl, Implementierung** | ● fertig | gemessen in Notebook 31 (NDJSON gegen Parquet), verschriftlicht in [`ln2_konzept.md`](../ln2_konzept.md) Kapitel 7 |
 | **Transformation 1: Analyse, Hypothesentest** | ◐ Qualität beider Städte fertig | der eigentliche Hypothesentest → Abschnitt 5 |
-| **Initiale Datenbereinigung** | ● fertig | vier Silver-Tabellen, `crime_offense` mit 1'875'374 Zeilen über 2021–2026 |
+| **Initiale Datenbereinigung** | ● fertig | sieben Silver-Tabellen, `crime_offense` mit 1'922'278 Zeilen über 2021–2026 |
 | **Beantwortung der Forschungsfragen** | ○ | folgt aus allem davor |
 
 ● fertig ◐ teilweise ○ offen
 
 **Die gute Nachricht:** Ingestion und Storage — die beiden praktisch
-aufwendigsten Blöcke — stehen. 2'881 Tests, fünf Quellen in vier Pipelines,
-nachgewiesene Vollständigkeit. Und weil die Hypothesen Fragen des Data Engineering sind
-(Abschnitt 2.0), sind fünf davon durch die bisherige Arbeit **bereits
-gemessen**: Wir haben Befunde, bevor wir die Hypothesen formuliert haben — und
-mit H7 auch eine falsifizierte.
+aufwendigsten Blöcke — stehen. 3'544 Tests, sechs Quellen in fünf Pipelines,
+nachgewiesene Vollständigkeit. Die Hypothesen sind mit LN1 abgegeben: F1 bis F6 und
+H1 bis H6 in [`forschungsfragen.md`](../forschungsfragen.md), alle sechs in
+Notebook 36 gemessen.
 
-**Die Baustelle:** Der konzeptionelle Teil steht inzwischen in
-[`ln2_konzept.md`](../ln2_konzept.md), Silver und Gold sind gebaut. Offen ist die
-Auswahl und Formulierung der Hypothesen. Ohne formulierte Hypothesen gibt es
-keinen ausweisbaren Hypothesentest, auch wenn die Messungen längst vorliegen.
+> **Nicht die abgegebene Hypothesenmenge.** Abschnitt 2 hält den Vorschlag
+> fest, der in der Sitzung vom 8.9.2026 auf dem Tisch lag, vor der
+> LN1-Abgabe: FF1 bis FF3 und
+> H1 bis H8. Gleiche Nummern meinen dort etwas anderes als in der Abgabe, H2
+> zum Beispiel die Duplikate im Überlapp der Delta-Läufe und nicht die
+> Idempotenz. Wer eine Hypothese zitiert, zitiert
+> [`forschungsfragen.md`](../forschungsfragen.md). Die Befunde aus dem
+> Vorschlag stehen im Konzept als Befunde (3.5, 8.3 bis 8.5, 8.7).
 
 ---
 
@@ -117,6 +120,9 @@ Bereinigung zu messen statt sie nur durchzuführen — etwa den Unterschied
 zwischen „Fälle ohne Koordinaten löschen" und „markieren".
 
 ### 2.3 Hypothesen (Vorschlag)
+
+> **Nicht die abgegebene Hypothesenmenge** (siehe Abschnitt 1 und den Hinweis
+> in 2.2). H1 bis H8 hier sind die Nummern des Vorschlags.
 
 Alle falsifizierbar, alle mit einem Verfahren aus dem Modul prüfbar, alle mit
 unseren Daten tatsächlich durchführbar. **Fünf sind bereits gemessen** — vier
@@ -262,12 +268,15 @@ Vorschlag für die Gliederung:
 
 ### 2.5 Was die Entscheide vom 8.9.2026 für Fragen und Hypothesen bedeuten
 
+> **Nicht die abgegebene Hypothesenmenge.** FF1 bis FF3 und H1 bis H8 sind die
+> Nummern des Vorschlags aus 2.2 und 2.3.
+
 Der Scope-Entscheid ist **Variante D** ([Absprache 2.1](projektabsprache.md)):
 deskriptiver Vergleich *plus* sozioökonomischer Zusammenhang *plus*
 Wettereinfluss. Das ist die umfangreichste der vier Varianten. Die Begründung im
 Entscheid ist pragmatisch — „ein Grossteil der Daten ist schon heruntergeladen,
 eine Integration sollte nicht mehr so aufwändig sein" —, und für die Ingestion
-trifft das zu: alle fünf Quellen liegen in Bronze.
+trifft das zu: alle sechs Quellen liegen in Bronze.
 
 Für Fragen und Hypothesen folgt daraus:
 
@@ -309,11 +318,11 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 
 | Phase | Was wir haben | Beleg | Lücke |
 | --- | --- | --- | --- |
-| **Generation** | Fünf Quellsysteme: Socrata (Chicago), ArcGIS REST (Detroit), HTTPS-Dateien (TIGER und NOAA), JSON-API (ACS). Je Quelle dokumentiert: Aktualisierungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 11, 21, 22, 32 | – |
-| **Ingestion** | Vier Pipelines. Batch, kein Streaming. Chicago inkrementell über Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` | – |
+| **Generation** | Sechs Quellen auf vier Arten von Schnittstelle: Socrata (Chicago, dazu seine Polizeibezirke und Stadtteile), ArcGIS REST (Detroit, ebenso), HTTPS-Dateien (TIGER und NOAA), JSON-API (ACS). Je Quelle dokumentiert: Aktualisierungsverhalten, Schlüsselbedarf, Formate | Notebooks 01, 11, 21, 22, 32 | – |
+| **Ingestion** | Fünf Pipelines. Batch, kein Streaming. Chicago inkrementell über Wasserzeichen mit 14 Tagen Rückgriff; Census als eingefrorene Vintage; NOAA als Vollschnappschuss im Wochenrhythmus mit bedingtem Abruf | `src/crime/*_pipeline/` | – |
 | **Storage** | Dateibasierte Schichten, Parquet mit festem Schema, Hive-Partitionen, unveränderliche Läufe mit Manifest. Ablage wahlweise lokal, SeaweedFS über S3 oder hybrid | `data/`, Abschnitt 4, [`storage-architektur.md`](../storage-architektur.md) | – |
 | **Transformation** | Bronze bewusst ohne Transformation. Silver und Gold gebaut, Qualitätsanalyse beider Städte fertig | Notebook 03, 13, 34 | – |
-| **Serving** | Option **A · Analytik** gewählt: Auswertungsdatenbank auf der Gold-Schicht | Abschnitt 6, Notebook 33 | gebaut: dreizehn Sichten über Silver, Gold und die vier Vergleichstabellen in Serving; das Dashboard darauf fehlt |
+| **Serving** | Option **A · Analytik** gewählt: Auswertungsdatenbank auf der Gold-Schicht | Abschnitt 6, Notebook 33 | gebaut: Sichten über Silver, Gold und Serving, dazu seit dem 1.11.2026 das eigene Dashboard auf `srv01`, das das aktive Release liest |
 
 ### Unterströmungen
 
@@ -321,17 +330,17 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie im Manifest oder in abgelegten URLs; drei Tests prüfen das. `.env` und `data/` aus Git ausgeschlossen, `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf, Herkunftsnachweis über `derived_from` und `input_fingerprint` durchgehend bis Gold, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog aus den Manifesten erzeugt, Aufbewahrungsregel mit `orchestration.aufraeumen` | das Aufräumen ist ein Handgriff, kein Automatismus |
-| **DataOps** | 2'881 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions über zwei Betriebssysteme und zwei Python-Versionen; dazu der wöchentliche Datenlauf | keine Alarmierung ausser dem roten Lauf selbst |
-| **Data Architecture** | Vier Schichten, gepinnte Schemata, Trennung von Beweis (raw) und Ableitung (bronze). Zwei Architekturbilder, aus dem Code erzeugt ([`architektur.md`](../architektur.md)) | Vintage 2024 hart verdrahtet |
-| **Orchestration** | `orchestration.run_all`: 13 Stufen in Reihenfolge, Abbruch beim ersten Fehler, Gesamtmanifest über alle Eingabe-Läufe | der geplante Lauf ist wöchentlich, die Quellen ändern sich täglich; keine Wiederaufnahme nach Abbruch, bewusst |
+| **DataOps** | 3'544 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions unter Linux, auf `main` zusätzlich unter Windows, mit zwei Python-Versionen; dazu der wöchentliche Datenlauf | – (seit dem 18.10.2026 neun Alarmregeln mit Meldung über Telegram) |
+| **Data Architecture** | Schichten raw bis releases, gepinnte Schemata, Trennung von Beweis (raw) und Ableitung (bronze). Drei Architekturbilder, aus dem Code erzeugt ([`architektur.md`](../architektur.md)) | – (das Vintage 2024 war hart verdrahtet; seit dem 4.10.2026 rechnet Gold mit vier ACS-Vintages) |
+| **Orchestration** | `orchestration.run_all`: 19 Stufen in Reihenfolge, eine gescheiterte Quelle zweimal nachgefasst, sonst Abbruch vor dem Ableiten, Gesamtmanifest über alle Eingabe-Läufe | der geplante Lauf ist wöchentlich, die Quellen ändern sich täglich; keine Wiederaufnahme nach Abbruch, bewusst |
 | **Software Engineering** | Modulare Pakete, Typannotationen, ausführliche Docstrings, Fehlerbehandlung mit Wiederholungen | – |
 
 **Beide damaligen Lücken sind geschlossen.** Für die Orchestrierung war der
 bescheidene Ansatz angesetzt — ein Skript, das die Pipelines in der richtigen
 Reihenfolge aufruft und protokolliert. Genau das ist `orchestration.run_all`
-geworden. Airflow oder Prefect wären für vier Batch-Läufe unangemessen; das
-lässt sich in der Präsentation gut begründen. Beim Serving stehen dreizehn Sichten und vier vorberechnete Vergleichstabellen;
-offen ist allein das Dashboard darauf, und das gehört bewusst in LN2.
+geworden. Airflow oder Prefect wären für fünf Batch-Läufe unangemessen; das
+lässt sich in der Präsentation gut begründen. Beim Serving stehen die Sichten und die vorberechneten Vergleichstabellen,
+und seit dem 1.11.2026 auch das Dashboard darauf, das bewusst in LN2 gehörte.
 
 ---
 
@@ -342,7 +351,7 @@ Tabelle taugt als Gliederung für den Transformationsteil der Präsentation.
 
 | Modulinhalt | Bei uns | Stand |
 | --- | --- | --- |
-| **Kombination von Streams** | Alle fünf Quellen sind Batch. Bewusst begründen statt weglassen: Ein Tumbling-Window ist der Batch-Fall der ereignisbasierten Verarbeitung | zu formulieren |
+| **Kombination von Streams** | Alle sechs Quellen sind Batch. Bewusst begründen statt weglassen: Ein Tumbling-Window ist der Batch-Fall der ereignisbasierten Verarbeitung | zu formulieren |
 | **Watermark, verspätete Daten** | Unser 14-Tage-Lookback ist funktional die Toleranz für verspätet eintreffende Änderungen | vorhanden, zu benennen |
 | **Verteiltes Setting (MapReduce, Spark)** | Nicht verwendet. Bei rund 350'000 Zeilen und 70 MB wäre es unangemessen — „so einfach und selbstisolierend wie möglich" | Begründung schreiben |
 | **Formatbedingte Kompatibilität** | Bronze hält alles als Text; Typisierung erst in Silver. Führende Nullen in `iucr`, `beat`, `district` müssen erhalten bleiben | umgesetzt |
@@ -512,7 +521,7 @@ Gefordert sind **Analyse der Datengrundlage**, **Hypothesentest** und
 | Silver: Dedup und Typen | ● fertig | – |
 | Silver: räumlicher Join auf Tracts | ● fertig, 99,3 % / 99,7 % verortet | – |
 | NIBRS-Harmonisierung beider Städte | ● fertig, beide Städte 100 % zugeordnet — aber H3 teilweise falsifiziert (Konzept 8.5) | – |
-| Gold: Raten je Tract | ● fertig, Sternschema mit `fact_offense` und vier Dimensionen | – |
+| Gold: Raten je Tract | ● fertig, Sternschema mit `fact_offense` und vier Dimensionen (Stand LN1; heute elf Gold-Tabellen) | – |
 | Hypothesentest H1–H4 | ○ | ~1 Tag |
 
 **Offen ist noch der Hypothesentest** — rund ein Arbeitstag. Die Wetterquelle
@@ -524,18 +533,27 @@ beiden Städten nicht zufällig, aber er ist **nicht durchweg derselbe**. Auf
 gemeinsamer NIBRS-Achse gemessen (Notebook 34, Abschnitt 5.2):
 
 * **Sexualdelikte** fehlen in beiden Städten deutlich überproportional —
-  Chicago beim 12,0-Fachen des Stadtschnitts, Detroit beim 5,2-Fachen. Gleiche
+  Chicago beim 7,5-Fachen des Stadtschnitts, Detroit beim 3,7-Fachen. Gleiche
   Richtung, vermutlich gleiche Ursache: die zurückgehaltene Adresse. Dieser
   Teil der Lücke verzerrt den Vergleich **nicht**, er trifft beide Seiten.
-* **Betrug** fehlt dagegen nur in Chicago: 3,78 % gegen 0,19 % — Faktor 20
-  zwischen den Städten. Hier ist Chicagos Zahl die untererfasste.
+* **Betrug** fehlt dagegen nur in Chicago: 6,90 % gegen 0,10 % — ein Faktor
+  von fast 70 zwischen den Städten. Hier ist Chicagos Zahl die untererfasste.
+* **Drogendelikte** liegen dazwischen: in beiden Städten über dem Schnitt, in
+  Chicago aber beim 4,6-Fachen, in Detroit beim 1,5-Fachen.
 
 > **Nachgemessen am 20.09.2026 (Christian).** Die Faktoren sind auf den
 > aktuellen Stand gehoben (zuvor 6,5 / 5,1 / 3,5 % / Faktor 18). Die Richtung
 > und damit die Argumentation ändern sich nicht — Chicagos Sexualdelikte
 > fallen sogar deutlicher aus als bisher notiert.
+>
+> **Nachgemessen am 12.11.2026, auf sechs Jahrgängen.** Notebook 34 rechnet
+> seit dem 4.10.2026 über den ganzen Bestand; die Werte oben stammten noch
+> aus dem Einjahresbau (12,0× / 5,2×, 3,78 % gegen 0,19 %, Faktor 20,
+> Stadtschnitt 0,81 % / 0,29 %). Mit mehr Jahren sinken die Faktoren bei
+> Sexualdelikten, der Abstand bei Betrug wächst, und Drogendelikte kommen als
+> dritte auffällige Kategorie dazu. Die Argumentation bleibt.
 
-Für den Vergleich der Gesamtraten trägt das (0,81 % gegen 0,29 % Ausfall
+Für den Vergleich der Gesamtraten trägt das (1,47 % gegen 0,14 % Ausfall
 verschieben keine Rangfolge); für einen Vergleich **je Delikttyp** muss bei
 Betrug die Abdeckung danebenstehen.
 
@@ -590,9 +608,9 @@ Kategorie. Das ist der Grund, weshalb der Entscheid nicht warten kann.
 | 5 | Storage-Evaluation verschriftlichen | Abschnitt 4 als Präsentationsteil | | |
 | 6 | ~~Datenqualität Detroit~~ | erledigt am 12.9.2026: Notebook 13 | Christian | ✓ |
 | 7 | ~~Detroit-Bronze angleichen~~ | erledigt am 12.9.2026: Raw-Schicht und `city=`-Partition wie Chicago | Christian | ✓ |
-| 8 | ~~Silver: Dedup, Typen, räumlicher Join~~ | erledigt: `silver/crime_offense`, 1'875'374 Zeilen | Christian | ✓ |
+| 8 | ~~Silver: Dedup, Typen, räumlicher Join~~ | erledigt: `silver/crime_offense`, 1'922'278 Zeilen | Christian | ✓ |
 | 9 | ~~NIBRS-Harmonisierung über beide Städte~~ | erledigt: beide Crosswalks angewandt, H3 dabei teilweise falsifiziert | Christian | ✓ |
-| 10 | ~~Gold: Raten je Tract~~ | erledigt: Sternschema, Chicago 94,5 / Detroit 133,1 je 1'000 (Jahrgang 2024) | Christian | ✓ |
+| 10 | ~~Gold: Raten je Tract~~ | erledigt: Sternschema, Chicago 94,4 / Detroit 124,7 Fälle je 1'000 (Jahrgang 2024; Tatebene 94,5 / 134,2) | Christian | ✓ |
 | 11 | Hypothesentest H1–H4 | Notebook mit Ergebnissen | | |
 | 12 | Präsentation | Abgabe | beide | |
 
@@ -809,7 +827,7 @@ Dazu ein Skript mit zwei Betriebsarten:
 | Aufruf | Was passiert | Wofür |
 | --- | --- | --- |
 | `fetch_data.py --referenz` | lädt den Referenzstand aus dem Release | Zahlen der Präsentation nachvollziehen |
-| `fetch_data.py --neu-laden` | lässt alle vier Pipelines gegen die Originalquellen laufen | zeigt, dass die Ingestion funktioniert |
+| `fetch_data.py --neu-laden` | lässt alle fünf Pipelines gegen die Originalquellen laufen | zeigt, dass die Ingestion funktioniert |
 
 **Die Manifeste sind der Abgleich zwischen beiden.** Sie tragen SHA-256 je
 Datei, Zeilenzahl, Wasserzeichen und Vollständigkeitsnachweis. Das Skript kann
