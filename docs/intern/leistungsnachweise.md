@@ -33,7 +33,7 @@ technischen stehen in [`projektabsprache.md`](projektabsprache.md).
 ● fertig ◐ teilweise ○ offen
 
 **Die gute Nachricht:** Ingestion und Storage — die beiden praktisch
-aufwendigsten Blöcke — stehen. 3'593 Tests, sechs Quellen in fünf Pipelines,
+aufwendigsten Blöcke — stehen. 3'594 Tests, sechs Quellen in fünf Pipelines,
 nachgewiesene Vollständigkeit. Die Hypothesen sind mit LN1 abgegeben: F1 bis F6 und
 H1 bis H6 in [`forschungsfragen.md`](../forschungsfragen.md), alle sechs in
 Notebook 36 gemessen.
@@ -330,7 +330,7 @@ unter diesen Begriffen dokumentiert. Diese Tabelle ist die Vorlage dafür.
 | --- | --- | --- |
 | **Security** | Schlüssel nur in `.env`, nie im Manifest oder in abgelegten URLs; drei Tests prüfen das. `.env` und `data/` aus Git ausgeschlossen, `requirements.lock` pinnt jede Abhängigkeit exakt | kein Vulnerability-Scan der Abhängigkeiten; Datenschutzabschnitt schriftlich |
 | **Data Management** | Manifest je Lauf, Herkunftsnachweis über `derived_from` und `input_fingerprint` durchgehend bis Gold, unveränderliche Läufe, Schema-Fingerabdruck gegen Drift, `_extra` gegen Datenverlust. Feldkatalog aus den Manifesten erzeugt, Aufbewahrungsregel mit `orchestration.aufraeumen` | das Aufräumen ist ein Handgriff, kein Automatismus |
-| **DataOps** | 3'593 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions unter Linux, auf `main` zusätzlich unter Windows, mit zwei Python-Versionen; dazu der wöchentliche Datenlauf | – (seit dem 18.10.2026 neun Alarmregeln mit Meldung über Telegram) |
+| **DataOps** | 3'594 automatisierte Tests, alle ohne Netz und ohne Schlüssel, auf jedem Pull Request in GitHub Actions unter Linux, auf `main` zusätzlich unter Windows, mit zwei Python-Versionen; dazu der wöchentliche Datenlauf | – (seit dem 18.10.2026 neun Alarmregeln mit Meldung über Telegram) |
 | **Data Architecture** | Schichten raw bis releases, gepinnte Schemata, Trennung von Beweis (raw) und Ableitung (bronze). Drei Architekturbilder, aus dem Code erzeugt ([`architektur.md`](../architektur.md)) | – (das Vintage 2024 war hart verdrahtet; seit dem 4.10.2026 rechnet Gold mit vier ACS-Vintages) |
 | **Orchestration** | `orchestration.run_all`: 19 Stufen in Reihenfolge, eine gescheiterte Quelle zweimal nachgefasst, sonst Abbruch vor dem Ableiten, Gesamtmanifest über alle Eingabe-Läufe | der geplante Lauf ist wöchentlich, die Quellen ändern sich täglich; keine Wiederaufnahme nach Abbruch, bewusst |
 | **Software Engineering** | Modulare Pakete, Typannotationen, ausführliche Docstrings, Fehlerbehandlung mit Wiederholungen | – |

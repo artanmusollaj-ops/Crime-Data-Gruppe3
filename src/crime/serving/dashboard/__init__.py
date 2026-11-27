@@ -607,7 +607,7 @@ class Bestand:
             ("Letzte 12 Monate", vor_einem_jahr + timedelta(days=1), letzter),
             ("Laufendes Jahr", date(letzter.year, 1, 1), letzter),
             (f"Sommer {sommer}", date(sommer, 6, 1), date(sommer, 8, 31)),
-            ("Ganzer Bestand", erster, letzter),
+            ("Ganzer Zeitraum", erster, letzter),
         ]
         return {
             "tage": {"erster": erster.isoformat(), "letzter": letzter.isoformat()},

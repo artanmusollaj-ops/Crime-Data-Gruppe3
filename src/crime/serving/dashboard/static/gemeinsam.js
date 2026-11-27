@@ -97,6 +97,17 @@ const ISO_TAG = /^\d{4}-\d{2}-\d{2}$/;
 const zwei = (n) => String(n).padStart(2, "0");
 const monatsende = (j, m) => `${j}-${zwei(m)}-${zwei(new Date(Date.UTC(j, m, 0)).getUTCDate())}`;
 
+// Welche Vorgabe den Zeitraum von-bis genau trifft, als Index - sonst "".
+// Treffen zwei denselben Zeitraum, bleibt die gewaehlte stehen. Seit dem
+// 27.11.2026 zeigt die Liste so die aktive Vorgabe, auch nach dem Neuladen,
+// statt nach jeder Wahl auf »Vorgabe …« zurueckzuspringen.
+export function passendeVorgabe(vorgaben, von, bis, gewaehlt = "") {
+  const trifft = (i) => vorgaben[i] && vorgaben[i].von === von && vorgaben[i].bis === bis;
+  if (gewaehlt !== "" && trifft(Number(gewaehlt))) return String(gewaehlt);
+  const i = vorgaben.findIndex((v, j) => trifft(j));
+  return i < 0 ? "" : String(i);
+}
+
 // Die erweiterte Zeitwahl: zwei Tage statt Monaten eines Jahres, dazu
 // Vorgaben vom letzten Tag mit Daten aus (»Letzte 30 Tage«, »Sommer 2025«).
 // Beide Wahlen schicken ``von`` und ``bis``: als Monate mit ``jahr`` oder als
@@ -142,12 +153,19 @@ function zeitwahl(o, brett, url) {
     tagVon.value = url.get("von");
     tagBis.value = url.get("bis") || url.get("von");
   }
+  // Die Liste zeigt die Vorgabe, die den Zeitraum trifft; aendert jemand
+  // ein Datum von Hand, steht sie wieder auf »Vorgabe …«.
+  const zeigeVorgabe = () => {
+    vorgabe.value = passendeVorgabe(o.vorgaben, tagVon.value, tagBis.value, vorgabe.value);
+  };
   setze(tagModus);
+  zeigeVorgabe();
   vorgabe.addEventListener("change", () => {
     const v = o.vorgaben[Number(vorgabe.value)];
     if (v) { tagVon.value = v.von; tagBis.value = v.bis; }
-    vorgabe.value = "";
+    zeigeVorgabe();
   });
+  [tagVon, tagBis].forEach((f) => f.addEventListener("change", zeigeVorgabe));
   knopf.addEventListener("click", () => {
     if (tagfeld.hidden) {
       // Von den Monaten zu den Tagen: derselbe Zeitraum, jetzt als Daten.
@@ -155,6 +173,7 @@ function zeitwahl(o, brett, url) {
       tagVon.value = `${j}-${zwei(von.value)}-01`;
       tagBis.value = monatsende(j, Number(bis.value));
       setze(true);
+      zeigeVorgabe();
     } else {
       // Zurueck: die Monate des ersten Tages, bis Jahresende, wenn der
       // Zeitraum darueber hinausgeht.

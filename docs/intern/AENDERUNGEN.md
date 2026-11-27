@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'593** |
+| Tests | **3'594** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'922'278 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'900'131** Zeilen (eine Tat) |
@@ -112,6 +112,31 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 27.11.2026 · Die Zeitwahl zeigt die aktive Vorgabe (Branch `zeitwahl-zeigt-vorgabe`)
+
+Christian wünschte sich zwei Änderungen an der Tageswahl des Dashboards:
+
+- **Die Liste bleibt auf der gewählten Vorgabe.** Bis jetzt sprang sie nach
+  jeder Wahl auf „Vorgabe …" zurück, und man sah nicht mehr, welcher
+  Zeitraum filtert. Jetzt zeigt sie die Vorgabe, deren Zeitraum genau dem
+  gewählten entspricht. Das gilt auch nach dem Neuladen und auf dem nächsten
+  Brett, weil die Liste den Zeitraum aus der Adresse liest. Wer ein Datum von
+  Hand ändert, sieht wieder „Vorgabe …". Die neue Funktion `passendeVorgabe`
+  in `static/gemeinsam.js` sucht die Vorgabe. Fallen zwei Vorgaben auf
+  denselben Zeitraum, bleibt die gewählte stehen. Weil die Vorgaben am letzten
+  Tag mit Daten hängen, trifft ein alter Link „Letzte 7 Tage" nach einem neuen
+  Release nicht mehr. Die Liste zeigt dann „Vorgabe …", und das stimmt auch.
+- **„Ganzer Bestand" heisst „Ganzer Zeitraum"** (`Bestand._tagesfenster`).
+
+Im Browser geprüft an einem lokalen Dashboard auf Testdaten: Wahl, Neuladen,
+Datum von Hand und „Ganzer Zeitraum". Neuer Test
+`test_die_vorgabeliste_zeigt_die_aktive_vorgabe`. Er scheitert am alten
+JavaScript.
+
+Auf `urbancrime-dashboard` erscheint beides erst mit einem neuen Abbild.
+
+Tests 3'594 (+1), Standardauswahl 3'483.
 
 ## 27.11.2026 · Das Wetterbrett misst die Abweichung in °C (Branch `wetter-grad-celsius`)
 

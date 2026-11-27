@@ -21,7 +21,9 @@ die neuen Felder der Auswahl (``AENDERUNGEN.md``, 24.11.2026).
 
 from __future__ import annotations
 
+import re
 from datetime import date
+from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -165,12 +167,29 @@ def test_die_optionen_tragen_fenster_und_vorgaben(bestand):  # noqa: F811
         "Laufendes Jahr": ("2025-01-01", "2025-03-10"),
         # Der Sommer 2025 ist noch nicht vorbei.
         "Sommer 2024": ("2024-06-01", "2024-08-31"),
-        "Ganzer Bestand": ("2023-01-01", "2025-03-10"),
+        "Ganzer Zeitraum": ("2023-01-01", "2025-03-10"),
     }
     # Jede Vorgabe ist eine gueltige Auswahl - fuer ein Brett, das Tage rechnet.
     for von, bis in vorgaben.values():
         a = Auswahl(tag_von=date.fromisoformat(von), tag_bis=date.fromisoformat(bis))
         a.pruefe(bestand.jahre, bestand.kategorien)
+
+
+def test_die_vorgabeliste_zeigt_die_aktive_vorgabe():
+    """Die Liste springt nicht mehr auf »Vorgabe …« zurueck.
+
+    Christian wollte am 27.11.2026 sehen, welche Vorgabe gerade filtert, auch
+    nach dem Neuladen und auf dem naechsten Brett. ``passendeVorgabe`` sucht
+    die Vorgabe, die den Zeitraum genau trifft; im Browser geprueft am selben
+    Tag (Wahl, Neuladen, Datum von Hand, »Ganzer Zeitraum«).
+    """
+    js = (Path(dashboard.__file__).parent / "static" / "gemeinsam.js").read_text(encoding="utf-8")
+    koerper = re.search(r"function zeitwahl\(o, brett, url\) \{(.*?)\n\}\n", js, re.S).group(1)
+    assert 'vorgabe.value = "";' not in koerper, "die Liste springt nach der Wahl zurueck"
+    assert "export function passendeVorgabe(" in js
+    # Nach dem Aufbau, nach einer Wahl und nach jeder Aenderung eines Datums.
+    assert koerper.count("zeigeVorgabe()") >= 2
+    assert '[tagVon, tagBis].forEach((f) => f.addEventListener("change", zeigeVorgabe));' in koerper
 
 
 def test_die_zeitwahl_ist_auf_jedem_brett_mit_monaten(bestand):  # noqa: F811
