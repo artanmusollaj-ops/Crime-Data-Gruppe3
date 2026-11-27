@@ -1648,6 +1648,20 @@ der Verbund doch einen Benutzer, bleiben Arbeitsbereich und `$HOME`
 beschreibbar — beide stehen auf `0777`, weil ein Abbild, das nur für eine uid
 funktioniert, genau dann klemmt.
 
+**Anmeldung über Access, das Token als zweiter Weg.** Seit dem 27.11.2026
+nimmt Jupyter eine gültige Marke von Cloudflare Access als Anmeldung, als die
+E-Mail-Adresse darin (`serving.jupyter_zugang`, eingesetzt von
+`docker/jupyter_server_config.py`). Wer über `urbancrime-jupyter` kommt und bei
+Access angemeldet ist, braucht kein Token mehr; für die Prüfenden war das der
+Unterschied zwischen „anmelden“ und „anmelden, dann ein Geheimnis vom Server
+abtippen“. Geprüft wird die Marke selbst: Signatur gegen die Schlüssel des
+Teams, Aussteller, Zielgruppe der Access-Anwendung über `urbancrime-*` und
+Ablauf, wie in der Engineering-Konsole. Wer am Tunnel vorbei auf den Container
+käme, kann den Kopf setzen, aber keine Marke signieren. Ohne gültige Marke
+gilt weiter `JUPYTER_TOKEN`, etwa über einen `ssh`-Tunnel. Ohne
+`CF_ACCESS_ISSUER` und `CF_ACCESS_AUD` in der Umgebung, etwa bei einem lokalen
+`docker run`, bleibt es beim Token allein.
+
 **E-5: vollständige Job-Daten nur lesend, Sperren gemeinsam.** Die Konsole baut
 isoliert unter `/app/data/admin/jobs/<Job-ID>/data`. Ein erfolgreicher Aufbau
 schreibt `.analyse/stand.json` mit Job-/Run-ID, Code-Stand, Schichten, Prüfsummen
