@@ -484,6 +484,13 @@ anderen Dienst, kein zweiter Weg daneben. Die eigene, zeitlich befristete
 Policy für die Prüfenden ist **zurückgestellt mit Grund**: Jetzt angelegt,
 wäre ihre Frist zum Prüfungstermin abgelaufen.
 
+**Eine Anmeldung für alle Dienste.** Seit dem 27.11.2026 nimmt auch Jupyter
+die Anmeldung bei Access und verlangt kein eigenes Token mehr
+(`serving.jupyter_zugang`). Wer bei Access angemeldet ist, öffnet Dashboard,
+Startseite und Jupyter ohne weitere Abfrage. Das Token gilt nur noch für den
+Weg ohne Access. Für die Prüfenden heisst das: Sie bekommen mit der Policy
+**einen** Zugang und kein Geheimnis vom Server.
+
 ## B.4 Auswertung: Elasticsearch — und der Widerspruch, der aufzulösen ist
 
 **Der Widerspruch, offen benannt.** [`ausblick.md`](ausblick.md) Abschnitt 5

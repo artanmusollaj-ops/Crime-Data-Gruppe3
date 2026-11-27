@@ -250,6 +250,15 @@ def dienste(fassung: str = "lokal",
         "keinen Notebook-Server; der Verweis trägt, sobald in diesem "
         "Verzeichnis <code>jupyter lab</code> läuft.")
 
+    # Seit dem 27.11.2026 nimmt Jupyter auf dem Server die Anmeldung bei
+    # Access (serving.jupyter_zugang). Ohne diesen Satz suchte, wer die Seite
+    # liest, nach einem Token, das er nicht braucht und nicht sehen kann.
+    jupyter_anmeldung = (
+        "<strong>Anmeldung:</strong> Wer bei Cloudflare Access angemeldet ist, "
+        "ist es auch in Jupyter — ohne Token. Das Token gilt nur noch für den "
+        "Weg ohne Access, etwa über einen <code>ssh</code>-Tunnel. "
+        if server else "")
+
     def web(dienst: str, pfad: str, port: int) -> str:
         """Dieselbe Adresse in beiden Fassungen - aus einem Muster, nicht getippt.
 
@@ -315,7 +324,7 @@ def dienste(fassung: str = "lokal",
      "die selbständige <code>analyse.duckdb</code> aus dem Release — nicht "
      "die mit den Sichten, die zeigen auf Pfade dieses Rechners. Der "
      "Arbeitsbereich daneben ist beschreibbar, die mitgelieferten Notebooks "
-     "sind Vorlagen. " + jupyter_start,
+     "sind Vorlagen. " + jupyter_anmeldung + jupyter_start,
      None, None),
     ("Admin-Konsole",
      web("admin", "/", 0) if server else None,
