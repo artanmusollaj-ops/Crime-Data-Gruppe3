@@ -190,6 +190,9 @@ def test_die_vorgabeliste_zeigt_die_aktive_vorgabe():
     # Nach dem Aufbau, nach einer Wahl und nach jeder Aenderung eines Datums.
     assert koerper.count("zeigeVorgabe()") >= 2
     assert '[tagVon, tagBis].forEach((f) => f.addEventListener("change", zeigeVorgabe));' in koerper
+    # Die Liste heisst seit dem 27.11.2026 »Schnellauswahl …«, nicht mehr »Vorgabe …«.
+    assert 'new Option("Schnellauswahl …", "")' in koerper and "Vorgabe …\"" not in koerper
+    assert 'vorgabe.setAttribute("aria-label", "Schnellauswahl");' in koerper
 
 
 def test_die_zeitwahl_ist_auf_jedem_brett_mit_monaten(bestand):  # noqa: F811

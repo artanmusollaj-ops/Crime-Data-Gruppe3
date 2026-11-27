@@ -113,6 +113,16 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 27.11.2026 · Die Liste der Zeitwahl heisst „Schnellauswahl" (Branch `zeitwahl-schnellauswahl`)
+
+Christian hat bestätigt, dass die gewählte Vorgabe seit #326 stehen bleibt.
+Die Liste hiess „Vorgabe …" und heisst jetzt „Schnellauswahl …", sichtbar und
+für Vorleser (`aria-label`). Das Verhalten bleibt gleich.
+`test_die_vorgabeliste_zeigt_die_aktive_vorgabe` prüft zusätzlich die
+Beschriftung. Die Testzahl bleibt.
+
+Auf `urbancrime-dashboard` erscheint die Beschriftung erst mit einem neuen Abbild.
+
 ## 27.11.2026 · Die Zeitwahl zeigt die aktive Vorgabe (Branch `zeitwahl-zeigt-vorgabe`)
 
 Christian wünschte sich zwei Änderungen an der Tageswahl des Dashboards:
