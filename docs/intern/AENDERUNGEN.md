@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'544** |
+| Tests | **3'574** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'922'278 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'900'131** Zeilen (eine Tat) |
@@ -112,6 +112,49 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 27.11.2026 · Jupyter nimmt die Anmeldung bei Access (Branch `jupyter-access-anmeldung`)
+
+Wer `urbancrime-jupyter.datenwerft.ch` öffnete, meldete sich bei Cloudflare
+Access an und musste danach das Token von Jupyter eingeben. Das steht nur in
+der `.env` auf `srv01`. Für die Prüfenden wäre das ein Geheimnis gewesen, das
+sie nicht sehen können.
+
+**Neu:** `serving.jupyter_zugang` mit einem Anmeldebaustein für
+`jupyter_server` (`ServerApp.identity_provider_class`). Kommt eine Anfrage mit
+einer gültigen Marke im Kopf `Cf-Access-Jwt-Assertion`, ist die Person
+angemeldet, als die E-Mail-Adresse darin. Geprüft wird wie in der Konsole:
+Signatur gegen die Schlüssel des Teams, Aussteller, Zielgruppe und Ablauf.
+Ohne gültige Marke gilt weiter das Token. `docker/jupyter_server_config.py`
+setzt den Baustein nur ein, wenn `CF_ACCESS_ISSUER` und `CF_ACCESS_AUD`
+gesetzt sind. `docker-compose.srv01.yml` gibt sie dem Dienst `jupyter` jetzt
+mit, aus derselben `.env` wie bei `admin`: Jupyter liegt hinter derselben
+Access-Anwendung (Kennung `7b915eae…` in der Weiterleitung).
+
+**Gemessen** in einem Wegwerf-Container aus dem laufenden Jupyter-Abbild auf
+`srv01`, ohne Netz und mit einem Testschlüssel:
+- ohne alles 403, mit Token 200;
+- mit gültiger Marke 200, `/api/me` nennt die E-Mail-Adresse;
+- fremd signiert, abgelaufen und mit fremder Zielgruppe je 403;
+- Schreiben ohne XSRF 403, mit XSRF 201;
+- Kernel starten 201, Websocket mit Marke verbunden, ohne 403.
+
+Aus dem laufenden Container sind die Schlüssel der Teamdomain
+(`/cdn-cgi/access/certs`) erreichbar.
+
+**Tests** (`tests/serving/test_jupyter_zugang.py`, 30), mit echt signierten
+Marken:
+- die Anmeldung;
+- acht Arten falscher Marken;
+- die Regel für den Aussteller;
+- die Klasse über synchroner und asynchroner Grundlage;
+- die Konfiguration mit und ohne Access;
+- die Umgebung im Verbund.
+
+`storage-architektur.md` §16 beschreibt den neuen Weg.
+
+Tests 3'574 (+30), Standardauswahl 3'463. Wirksam erst mit einem neuen Abbild
+auf `srv01`.
 
 ## 27.11.2026 · Die Konsole zeigt sich sofort (Branch `konsole-startet-sofort`)
 

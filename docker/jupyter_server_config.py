@@ -39,3 +39,15 @@ c.MappingKernelManager.cull_idle_timeout = 2 * 60 * 60
 c.MappingKernelManager.cull_interval = 5 * 60
 c.MappingKernelManager.cull_connected = True
 c.MappingKernelManager.cull_busy = False
+
+# Wer mit einer gueltigen Marke von Cloudflare Access kommt, ist angemeldet;
+# alle anderen brauchen weiter das Token (serving.jupyter_zugang, seit dem
+# 27.11.2026). Nur, wenn der Verbund Aussteller und Zielgruppe mitgibt - ein
+# lokaler `docker run` ohne sie bleibt beim Token allein. Ein falscher
+# Aussteller bricht den Start ab, statt still auf das Token zurueckzufallen.
+import os  # noqa: E402
+
+from serving import jupyter_zugang  # noqa: E402
+
+if jupyter_zugang.eingerichtet(os.environ):
+    c.ServerApp.identity_provider_class = jupyter_zugang.identitaetsklasse()

@@ -513,6 +513,11 @@ services:
       # (FR-23). Ein Notebook-Server ist eine Shell; ein Token allein waere
       # zu wenig.
       JUPYTER_TOKEN:
+      # Wer mit einer gueltigen Marke von Cloudflare Access kommt, braucht das
+      # Token nicht (serving.jupyter_zugang). Dieselben Werte wie bei admin:
+      # Jupyter liegt hinter derselben Access-Anwendung ueber urbancrime-*.
+      CF_ACCESS_ISSUER:
+      CF_ACCESS_AUD:
       # E-5: dieselbe Sperrdatei wie beim Worker, auch bei Daten nur lesend.
       DATA_LOCK_ROOT: /app/datensperren
       # Fuer 34/37 auf den vollstaendigen, erfolgreich gebauten Job zeigen.
