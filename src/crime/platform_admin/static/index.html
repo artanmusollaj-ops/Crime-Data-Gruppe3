@@ -330,6 +330,21 @@ dialog::backdrop{background:#14263880}
 @media(max-width:650px){.publication-flow{grid-template-columns:1fr 1fr}}
 @media(max-width:650px){.operation-facts{grid-template-columns:1fr;gap:6px}.operation-facts dd{margin-bottom:14px}.backup-scope{grid-template-columns:1fr}.operation-tabs button{flex:1}}
 #source-code-lines li.match.current-match{box-shadow:inset 0 0 0 2px #173e54;background:#ffd873}
+#code-search-results{margin-top:12px;border:1px solid #ccdce4;border-radius:7px;overflow:hidden}
+#code-search-results summary{padding:10px 14px;background:#f1f6f8;color:#1d3041}
+#code-search-results summary .hit-toggle{float:right;margin-left:8px;color:#24576a;font-size:.875rem;font-weight:600}
+#code-search-results:not([open]) .hit-collapse,#code-search-results[open] .hit-expand{display:none}
+#code-search-position{margin-left:12px;font-size:.875rem;color:#526c7e}
+#code-search-hits{position:relative;max-height:8.5rem;overflow-y:auto;list-style:none;margin:0;padding:0}
+#code-search-hits li+li{border-top:1px solid #e3ebf0}
+#code-search-hits button{display:flex;gap:12px;align-items:baseline;width:100%;margin:0;padding:7px 12px;border:0;border-left:4px solid transparent;border-radius:0;background:#fff;color:#1d3041;text-align:left;font:inherit}
+#code-search-hits button[aria-current="location"]{background:#e5f3f5;border-left-color:#247386}
+#code-search-hits button:focus-visible,#code-search-results summary:focus-visible{outline:2px solid #247386;outline-offset:-2px}
+#code-search-hits .hit-line{flex:none;color:#456578;font-size:.875rem;font-weight:600}
+#code-search-hits code{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:pre}
+#code-search-hits mark{background:#ffe99c;color:inherit}
+#code-search-help{margin:8px 0;color:#526c7e;font-size:.875rem}
+#code-search-status.has-results{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 </style></head><body>
 <header class="console-header">
  <a class="console-brand" href="#changes">Engineering-Konsole</a>
@@ -342,7 +357,7 @@ dialog::backdrop{background:#14263880}
 <button type="button" data-page="operations"><svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-settings"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>Betrieb</button>
  <div class="console-nav-foot"><strong>URBAN CRIME</strong><br>Chicago & Detroit</div>
 </nav>
-<aside id="code-drawer" role="dialog" aria-label="Ladelogik ansehen" hidden><button id="code-close">Schliessen</button><h2 id="code-title">Ladelogik</h2><p id="code-version" class="notice"></p><div class="tabs"><button id="source-full">Full Load</button><button id="source-daily">Delta (Wasserzeichen)</button></div><p id="highlight-legend" class="notice"></p><button id="next-highlight">Nächste markierte Stelle</button><span id="highlight-count"></span><label for="code-module">Python-Datei</label><select id="code-module"></select><pre id="code-meta"></pre><label for="code-search">Im Code suchen</label><input id="code-search" type="search"><p id="code-search-status" aria-live="polite"></p><ol id="source-code-lines"></ol></aside>
+<aside id="code-drawer" role="dialog" aria-label="Ladelogik ansehen" hidden><button id="code-close">Schliessen</button><h2 id="code-title">Ladelogik</h2><p id="code-version" class="notice"></p><div class="tabs"><button id="source-full">Full Load</button><button id="source-daily">Delta (Wasserzeichen)</button></div><p id="highlight-legend" class="notice"></p><button id="next-highlight">Nächste markierte Stelle</button><span id="highlight-count"></span><label for="code-module">Python-Datei</label><select id="code-module"></select><pre id="code-meta"></pre><label for="code-search">Im Code suchen</label><input id="code-search" type="search"><p id="code-search-status" aria-live="polite"></p><details id="code-search-results" open hidden><summary><strong>Trefferübersicht</strong><span id="code-search-position"></span><span class="hit-toggle hit-collapse">Trefferliste einklappen</span><span class="hit-toggle hit-expand">Trefferliste ausklappen</span></summary><ol id="code-search-hits"></ol></details><p id="code-search-help" hidden>Enter im Suchfeld springt zum nächsten Treffer. Klicke auf eine Zeile, um sie im Code zu öffnen.</p><ol id="source-code-lines"></ol></aside>
 <main><div id="message" role="status" aria-live="polite"></div>
 <div id="page-changes" class="workspace">
 <div class="workspace-heading board-heading"><div><small>Änderungsanträge & Review</small><h1>Aufgaben nach Arbeitsstand</h1><p>Mapping, Konfiguration und Kandidaten im Überblick.</p></div><button type="button" id="new-proposal" aria-controls="proposal-tools" aria-expanded="false" translate="no" disabled><span class="proposal-plus" aria-hidden="true">+</span><span id="new-proposal-label">Neuer Vorschlag</span></button></div>
@@ -800,6 +815,9 @@ async function openSourceCode(city,run,module){
  const request=++sourceRequest;sourceContext={city,run};
  if($('code-drawer').hidden)sourceReturnFocus=document.activeElement;
  $('code-drawer').hidden=false;$('code-title').textContent=city+' · Ladelogik';$('code-version').textContent='Lade Quelltext …';$('source-code-lines').replaceChildren();$('code-meta').textContent='';$('code-module').disabled=true;$('code-close').focus();
+ $('code-search').value='';
+ updateCodeSearch();
+ $('code-search-results').open=true;
  try{const data=await api('source-code?city='+encodeURIComponent(city)+(run?'&run='+encodeURIComponent(run):'')+(module?'&module='+encodeURIComponent(module):''));if(request!==sourceRequest)return;
  $('code-version').textContent=data.version_note+(data.history_note?' '+data.history_note:'');$('code-module').replaceChildren();for(const name of data.modules){const o=document.createElement('option');o.value=name;o.textContent=name;$('code-module').append(o)}$('code-module').value=data.module;$('code-module').disabled=false;
  sourceHighlights=data.highlights||{};$('code-meta').textContent='Datei-SHA-256: '+data.sha256+(data.run?'\nDokumentierte Laufdaten:\n'+JSON.stringify(data.run,null,2):'');
@@ -810,33 +828,72 @@ function closeSourceCode(){sourceRequest++;$('code-drawer').hidden=true;sourceRe
 $('code-close').onclick=closeSourceCode;
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('code-drawer').hidden)closeSourceCode()});
 $('code-module').onchange=()=>openSourceCode(sourceContext.city,sourceContext.run,$('code-module').value);
-function showCodeSearchMatch(matches,index){
- const line=matches[index];
+let codeSearchMatches=[];
+let codeSearchIndex=-1;
+function showCodeSearchMatch(index){
+ const previous=codeSearchMatches[codeSearchIndex];
+ previous?.line.classList.remove('current-match');
+ previous?.button.removeAttribute('aria-current');
+ codeSearchIndex=index;
+ const {line,button}=codeSearchMatches[index];
  line.classList.add('current-match');
- $('code-search-status').textContent=tr('Treffer {current} von {total}','Match {current} of {total}')
-  .replace('{current}',index+1).replace('{total}',matches.length);
+ button.setAttribute('aria-current','location');
+ const position=tr('Treffer {current} von {total}','Match {current} of {total}')
+  .replace('{current}',index+1).replace('{total}',codeSearchMatches.length);
+ $('code-search-position').textContent=position;
+ $('code-search-status').textContent=position;
+ if($('code-search-results').open){
+  const list=$('code-search-hits');
+  const {offsetTop:top,offsetHeight:height}=button.parentElement;
+  if(top<list.scrollTop)list.scrollTop=top;
+  else if(top+height>list.scrollTop+list.clientHeight)list.scrollTop=top+height-list.clientHeight;
+ }
  line.scrollIntoView({block:'nearest',inline:'nearest'});
 }
-$('code-search').oninput=()=>{
- const query=$('code-search').value.toLocaleLowerCase();
- const matches=[];
- for(const line of $('source-code-lines').children){
-  const hit=!!query&&line.textContent.toLocaleLowerCase().includes(query);
-  line.classList.toggle('match',hit);
+function updateCodeSearch(){
+ const query=$('code-search').value;
+ const pattern=query?new RegExp(query.replace(/[.*+?^$(){}|[\]\\]/g,'\\$&'),'giu'):null;
+ const list=$('code-search-hits');
+ const entries=document.createDocumentFragment();
+ codeSearchMatches=[];
+ codeSearchIndex=-1;
+ for(const [index,line] of Array.from($('source-code-lines').children).entries()){
+  const snippet=line.textContent;
+  const hits=pattern?Array.from(snippet.matchAll(pattern)):[];
+  line.classList.toggle('match',hits.length>0);
   line.classList.remove('current-match');
-  if(hit)matches.push(line);
+  if(!hits.length)continue;
+  const item=element('li');
+  const matchIndex=codeSearchMatches.length;
+  const jump=button(item,'',()=>showCodeSearchMatch(matchIndex));
+  jump.type='button';
+  const preview=element('code');
+  preview.title=snippet.trimStart();
+  let offset=0;
+  for(const hit of hits){
+   const before=snippet.slice(offset,hit.index);
+   preview.append(offset===0?before.trimStart():before,element('mark',hit[0]));
+   offset=hit.index+hit[0].length;
+  }
+  preview.append(snippet.slice(offset));
+  jump.append(element('span',tr('Zeile','Line')+' '+(index+1),'hit-line'),preview);
+  entries.append(item);
+  codeSearchMatches.push({line,button:jump});
  }
- if(matches.length)showCodeSearchMatch(matches,0);
+ list.replaceChildren(entries);
+ list.scrollTop=0;
+ const hasResults=codeSearchMatches.length>0;
+ $('code-search-results').hidden=!hasResults;
+ $('code-search-help').hidden=!hasResults;
+ $('code-search-status').classList.toggle('has-results',hasResults);
+ if(hasResults)showCodeSearchMatch(0);
  else $('code-search-status').textContent=query?tr('Keine passenden Zeilen','No matching lines'):tr('Suche eingeben');
-};
+}
+$('code-search').oninput=updateCodeSearch;
 $('code-search').onkeydown=event=>{
  if(event.key!=='Enter'||event.isComposing||event.shiftKey||event.ctrlKey||event.altKey||event.metaKey)return;
  event.preventDefault();
- const matches=Array.from($('source-code-lines').querySelectorAll('.match'));
- if(!matches.length)return;
- const current=matches.findIndex(line=>line.classList.contains('current-match'));
- matches[current]?.classList.remove('current-match');
- showCodeSearchMatch(matches,(current+1)%matches.length);
+ if(codeSearchMatches.length)showCodeSearchMatch((codeSearchIndex+1)%codeSearchMatches.length);
 };
 function configuredJob(name){return state?.settings.payload.jobs.find(job=>job.name===name)}
 function loadChicagoForm(){const task=$('chicago-task').value,spec=configuredJob(task==='daily_chicago'?'chicago_daily':'chicago_full');if(spec){$('chicago-time').value=spec.at_utc;$('chicago-enabled').value=String(spec.enabled);$('chicago-year').value=spec.year;if(spec.lookback_days)$('chicago-lookback').value=spec.lookback_days}$('chicago-lookback').disabled=true}
@@ -994,6 +1051,8 @@ document.querySelectorAll('[data-operation-tab]').forEach(tab=>tab.onclick=()=>{
 async function downloadArchive(iid){const response=await fetch('/api/impact-archive?id='+encodeURIComponent(iid),{headers:headers()});if(!response.ok){const e=await response.json();throw Error(e.error)}const url=URL.createObjectURL(await response.blob()),a=document.createElement('a');a.href=url;a.download='impact-'+iid+'.zip';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 // Nur Oberflächentexte übersetzen. JSON, Code, Protokolle und Nutzereingaben bleiben unverändert.
 const consoleTranslations={
+ 'Trefferübersicht':'Search results','Trefferliste einklappen':'Collapse results','Trefferliste ausklappen':'Expand results',
+ 'Enter im Suchfeld springt zum nächsten Treffer. Klicke auf eine Zeile, um sie im Code zu öffnen.':'Press Enter in the search field for the next match. Select a result to jump to its line.',
  'Engineering-Konsole':'Engineering console','Hauptnavigation':'Main navigation','Sprache':'Language','Abmelden':'Sign out','Änderungen':'Changes','Quellläufe':'Source runs','Betrieb':'Operations',
  'Änderungsanträge & Review':'Change proposals & review','Aufgaben nach Arbeitsstand':'Tasks by status','Mapping, Konfiguration und Kandidaten im Überblick.':'Mapping, configuration and candidates at a glance.',
  'Review-Inbox':'Review inbox','Antrag prüfen':'Review proposal','Details schliessen':'Close details','Antragsdetails':'Proposal details','Änderung':'Change','Impact prüfen':'Review impact','Entscheidung':'Decision','Veröffentlichung':'Publication','Kandidat · Prüfung':'Candidate · Review','Impact-Bericht':'Impact report','Überblick':'Overview','Goldzahlen':'Gold counts','Quellenstände':'Source versions','Qualität':'Quality','Nachweise':'Evidence','Vollständiger JSON-Nachweis':'Full JSON evidence','Weitere Aktionen':'More actions','ETL und Zeitverlauf':'ETL and timeline','Neuen Änderungsvorschlag erfassen':'Create a change proposal',
