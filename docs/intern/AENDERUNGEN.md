@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'541** |
+| Tests | **3'544** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'922'278 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'900'131** Zeilen (eine Tat) |
@@ -112,6 +112,38 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 27.11.2026 · Die Konsole zeigt sich sofort (Branch `konsole-startet-sofort`)
+
+Beim Öffnen der Engineering-Konsole dauerte es rund 10 Sekunden, bis alles
+angezeigt war. Einen Timeout gab es dabei nicht. Gemessen im `admin`-Container
+auf `srv01` brauchte jeder Baustein der Startseite unter 0,02 s, bis auf
+`sources.source_status` mit **10,5 s**. Diese Funktion las alle
+Bronze-Manifeste beider Städte, 136 Stück, eines nach dem anderen, je ein
+S3-GET von rund 70 ms. Gezeigt werden davon 20 je Stadt. `refresh()` im
+Frontend wartete mit `Promise.all` auf `state` **und** `sources`, erst dann
+zeichnete es irgendetwas. Mit jedem Delta-Lauf wäre es länger geworden.
+
+**Backend.** `source_status` sortiert die Pfade wie bisher, neueste zuerst,
+und liest nur noch die gezeigten 20 Manifeste je Stadt, parallel mit acht
+Lesern (`SHOWN_RUNS`, `READERS`). `run_count` zählt weiter alle Läufe. Auf
+`srv01` mit dem laufenden Bestand verglichen: identisches Ergebnis, 1,3 s
+statt 9,6 s. Ein unlesbares Manifest trägt jetzt auch seinen Pfad und behält
+damit seinen Platz in der Reihenfolge.
+
+**Frontend.** `refresh()` wartet nur noch auf `state`. Die Quellenliste
+wird nachgetragen, sobald sie da ist. Scheitert sie, meldet die Konsole
+„Quellenstand nicht geladen“, der Rest der Seite steht trotzdem.
+
+**Tests** (`tests/platform_admin/test_source_inventory_start.py`): nur die
+gezeigten Läufe werden gelesen, mit voller Zählung; ein kaputtes Manifest
+behält seinen Platz; `refresh()` wartet nicht auf `api('sources')`. Der
+erste und der dritte scheitern am alten Code; der zweite hält fest, was schon
+galt. Die Code-Referenz ist
+neu erzeugt (`tools/build_referenz.py`).
+
+Tests 3'544 (+3), Standardauswahl 3'433. Wirksam erst mit einem neuen Abbild
+auf `srv01`.
 
 ## 27.11.2026 · Auch eine Modulfixture sieht keine `.env` (Branch `tests-ohne-env-in-modulfixtures`)
 

@@ -862,13 +862,15 @@ async function refresh(){
  const version=++refreshVersion;
  refreshing=true;
  try{
- const [fresh,sources]=await Promise.all([api('state'),api('sources')]);
+ // Die Quellenliste liest Bronze-Manifeste im Eimer und kommt nach; die Seite
+ // wartet nicht auf sie (bis 27.11.2026 rund 10 s bis zum ersten Bild).
+ api('sources').then(sources=>{if(version===refreshVersion)renderSourceInventory(sources)},error=>message('Quellenstand nicht geladen: '+error.message));
+ const fresh=await api('state');
  if(version!==refreshVersion)return;
  setState(fresh);
  renderAccount();$('active-release').textContent='Aktiver Release: '+(state.active_release_id||'Noch keiner');$('settings').value=JSON.stringify(state.settings.payload,null,2);loadChicagoForm();loadDetroitForm();$('mapping-version').textContent='Aktive Mappingrevision: '+state.mapping.id;renderDecision();renderConflicts();
  $('job-start').disabled=!(state.roles||[]).includes('operator')||!state.settings.payload.jobs.length;
  renderJobs();
- renderSourceInventory(sources);
  const [, , inbox]=await Promise.all([loadCodes(),refreshOperations(),api('inbox')]);
  inboxState=inbox;
  renderInbox();
