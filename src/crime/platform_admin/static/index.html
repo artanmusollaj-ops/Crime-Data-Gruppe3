@@ -329,6 +329,7 @@ dialog::backdrop{background:#14263880}
 .publication-flow li{border-bottom:3px solid #cbdce5;padding:12px 4px;font-weight:700}.publication-flow li[data-done="true"]{border-color:#087b65;color:#087b65}.publication-flow small{display:block;font-weight:400;margin-top:6px}
 @media(max-width:650px){.publication-flow{grid-template-columns:1fr 1fr}}
 @media(max-width:650px){.operation-facts{grid-template-columns:1fr;gap:6px}.operation-facts dd{margin-bottom:14px}.backup-scope{grid-template-columns:1fr}.operation-tabs button{flex:1}}
+#source-code-lines li.match.current-match{box-shadow:inset 0 0 0 2px #173e54;background:#ffd873}
 </style></head><body>
 <header class="console-header">
  <a class="console-brand" href="#changes">Engineering-Konsole</a>
@@ -809,7 +810,34 @@ function closeSourceCode(){sourceRequest++;$('code-drawer').hidden=true;sourceRe
 $('code-close').onclick=closeSourceCode;
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('code-drawer').hidden)closeSourceCode()});
 $('code-module').onchange=()=>openSourceCode(sourceContext.city,sourceContext.run,$('code-module').value);
-$('code-search').oninput=()=>{const q=$('code-search').value.toLocaleLowerCase();let count=0,first;for(const li of $('source-code-lines').children){const hit=!!q&&li.textContent.toLocaleLowerCase().includes(q);li.classList.toggle('match',hit);if(hit){count++;first=first||li}}$('code-search-status').textContent=q?count+' passende Zeilen':'Suche eingeben';if(first)first.scrollIntoView({block:'nearest'})};
+function showCodeSearchMatch(matches,index){
+ const line=matches[index];
+ line.classList.add('current-match');
+ $('code-search-status').textContent=tr('Treffer {current} von {total}','Match {current} of {total}')
+  .replace('{current}',index+1).replace('{total}',matches.length);
+ line.scrollIntoView({block:'nearest',inline:'nearest'});
+}
+$('code-search').oninput=()=>{
+ const query=$('code-search').value.toLocaleLowerCase();
+ const matches=[];
+ for(const line of $('source-code-lines').children){
+  const hit=!!query&&line.textContent.toLocaleLowerCase().includes(query);
+  line.classList.toggle('match',hit);
+  line.classList.remove('current-match');
+  if(hit)matches.push(line);
+ }
+ if(matches.length)showCodeSearchMatch(matches,0);
+ else $('code-search-status').textContent=query?tr('Keine passenden Zeilen','No matching lines'):tr('Suche eingeben');
+};
+$('code-search').onkeydown=event=>{
+ if(event.key!=='Enter'||event.isComposing||event.shiftKey||event.ctrlKey||event.altKey||event.metaKey)return;
+ event.preventDefault();
+ const matches=Array.from($('source-code-lines').querySelectorAll('.match'));
+ if(!matches.length)return;
+ const current=matches.findIndex(line=>line.classList.contains('current-match'));
+ matches[current]?.classList.remove('current-match');
+ showCodeSearchMatch(matches,(current+1)%matches.length);
+};
 function configuredJob(name){return state?.settings.payload.jobs.find(job=>job.name===name)}
 function loadChicagoForm(){const task=$('chicago-task').value,spec=configuredJob(task==='daily_chicago'?'chicago_daily':'chicago_full');if(spec){$('chicago-time').value=spec.at_utc;$('chicago-enabled').value=String(spec.enabled);$('chicago-year').value=spec.year;if(spec.lookback_days)$('chicago-lookback').value=spec.lookback_days}$('chicago-lookback').disabled=true}
 function loadDetroitForm(){const task=$('detroit-task').value,spec=configuredJob(task==='daily_detroit'?'detroit_daily':task==='delta_detroit'?'detroit_delta':'detroit_full');if(spec){$('detroit-time').value=spec.at_utc;$('detroit-enabled').value=String(spec.enabled);if(spec.lookback_days)$('detroit-lookback').value=spec.lookback_days;if(spec.years)$('detroit-years').value=spec.years.join(', ')}$('detroit-lookback').disabled=task!=='daily_detroit';$('detroit-years').disabled=task==='daily_detroit'}
