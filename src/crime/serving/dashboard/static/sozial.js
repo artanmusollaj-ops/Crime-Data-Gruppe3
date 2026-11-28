@@ -149,35 +149,192 @@ function kacheln(d) {
   }));
 }
 
+// Das Streudiagramm, seit dem 28.11.2026 mit drei Aenderungen:
+// * Die senkrechte Achse richtet sich nach den Daten. Vorher begann sie fest
+//   bei 1 je 1'000 und setzte alles darunter auf 1; bei Toetungsdelikten
+//   (2025) lagen so 989 von 1'052 Punkten am Boden, 675 davon mit Rate 0.
+//   Eine Rate 0 hat auf einer logarithmischen Achse keinen Ort; diese Tracts
+//   stehen in einem eigenen Streifen »0 Fälle« unter der Achse.
+// * Ein Klick auf eine Stadt in der Legende blendet sie aus und ein.
+// * Ein aufgezogenes Rechteck zoomt hinein; Doppelklick oder »Zurücksetzen«
+//   fuehrt zurueck. Ein neuer Filter beginnt wieder ungezoomt.
+const streuwahl = { aus: new Set(), zoom: null, daten: null };
+
+// Logarithmische Teilstriche zwischen a und b: 1-3-10, bei kleiner Spanne 1-2-5.
+function logstriche(a, b) {
+  const striche = (faktoren) => {
+    const t = [];
+    for (let e = Math.floor(Math.log10(a)) - 1; e <= Math.ceil(Math.log10(b)) + 1; e++) {
+      for (const f of faktoren) {
+        const v = Number((f * 10 ** e).toPrecision(6));
+        if (v >= a * 0.999 && v <= b * 1.001) t.push(v);
+      }
+    }
+    return t;
+  };
+  const grob = striche([1, 3]);
+  return grob.length >= 4 ? grob : striche([1, 2, 5]);
+}
+
+// Die Huelle aus 1-3-10-Stufen um die positiven Raten.
+function loghuelle(werte) {
+  if (!werte.length) return [0.1, 1];
+  const min = Math.min(...werte), max = Math.max(...werte);
+  const stufen = [];
+  for (let e = Math.floor(Math.log10(min)) - 1; e <= Math.ceil(Math.log10(max)) + 1; e++) {
+    stufen.push(10 ** e, 3 * 10 ** e);
+  }
+  const unten = Math.max(...stufen.filter((v) => v <= min * 1.0001));
+  const oben = Math.min(...stufen.filter((v) => v >= max * 0.9999));
+  return [unten, oben > unten ? oben : unten * 10];
+}
+
+// Ein fester Versatz je Tract im Nullstreifen, damit die Punkte nicht
+// aufeinander liegen und bei jedem Zeichnen gleich stehen.
+function versatz(text) {
+  let h = 2166136261;
+  for (const c of text) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  return ((h >>> 0) % 1000) / 1000;
+}
+
+function linearstriche(a, b) {
+  const schritt = [0.5, 1, 2, 5, 10, 20, 25].find((s) => (b - a) / s <= 8) ?? 50;
+  const t = [];
+  for (let v = Math.ceil(a / schritt) * schritt; v <= b + 1e-9; v += schritt) t.push(Number(v.toFixed(2)));
+  return t;
+}
+
 function streuung(ziel, d) {
-  const punkte = d.staedte.flatMap((s) => s.tracts
+  if (streuwahl.daten !== d) { streuwahl.daten = d; streuwahl.zoom = null; }
+  const alle = d.staedte.flatMap((s) => s.tracts
     .filter((t) => !t.geringe_basis && t.rate !== null && t.armut !== null)
     .map((t) => ({ ...t, stadt: s.stadt, name_stadt: s.name })));
-  if (!punkte.length) return leer(ziel, "Keine Tracts mit tragfähiger Basis");
-  const b = Math.max(ziel.clientWidth, 320), h = 300, l = 56, r = 16, o = 12, u = 40;
-  const xmax = Math.ceil(Math.max(...punkte.map((p) => p.armut)) / 10) * 10;
-  const ticks = [1, 3, 10, 30, 100, 300, 1000, 3000];
-  const ymax = ticks.find((t) => t >= Math.max(...punkte.map((p) => p.rate))) ?? 3000;
-  const x = (v) => l + ((b - l - r) * v) / xmax;
-  const y = (v) => o + (h - o - u) * (1 - Math.log10(Math.max(v, 1)) / Math.log10(ymax));
-  const svg = el("svg", { viewBox: `0 0 ${b} ${h}`, role: "img" });
-  for (const t of ticks.filter((t) => t <= ymax)) {
+  const knopf = document.getElementById("streuung-zurueck");
+  knopf.hidden = !streuwahl.zoom;
+  if (!alle.length) return leer(ziel, "Keine Tracts mit tragfähiger Basis");
+  const sichtbar = alle.filter((p) => !streuwahl.aus.has(p.stadt));
+  if (!sichtbar.length) return leer(ziel, "Alle Städte ausgeblendet – Klick auf eine Stadt in der Legende");
+
+  // Bereich: ungezoomt aus allen Tracts (auch ausgeblendeten), damit die Achse
+  // beim Ein- und Ausblenden stehen bleibt.
+  const z = streuwahl.zoom;
+  const [ya, yb] = z ? [z.ya, z.yb] : loghuelle(alle.filter((p) => p.rate > 0).map((p) => p.rate));
+  const [xa, xb] = z ? [z.xa, z.xb] : [0, Math.max(10, Math.ceil(Math.max(...alle.map((p) => p.armut)) / 10) * 10)];
+  const hatNull = alle.some((p) => p.rate === 0);
+  const mitNull = z ? z.mitNull : hatNull;
+  const nullen = mitNull ? sichtbar.filter((p) => p.rate === 0 && p.armut >= xa && p.armut <= xb) : [];
+  const positiv = sichtbar.filter((p) => p.rate > 0 && p.rate >= ya && p.rate <= yb
+    && p.armut >= xa && p.armut <= xb);
+
+  const b = Math.max(ziel.clientWidth, 320), l = 56, r = 16, o = 12, u = 40;
+  // Die Hoehe bleibt beim Zoomen dieselbe, damit die Legende nicht springt.
+  const streifen = mitNull ? 44 : 0, h = 300 + (hatNull ? 44 : 0);
+  const unten = h - u - streifen;  // Unterkante der logarithmischen Flaeche
+  const x = (v) => l + ((b - l - r) * (v - xa)) / (xb - xa);
+  const y = (v) => o + (unten - o) * (1 - (Math.log10(v) - Math.log10(ya)) / (Math.log10(yb) - Math.log10(ya)));
+  const svg = el("svg", { viewBox: `0 0 ${b} ${h}`, role: "img", class: "streuflaeche" });
+  for (const t of logstriche(ya, yb)) {
     svg.append(el("line", { x1: l, x2: b - r, y1: y(t), y2: y(t), class: "achse" }));
-    svg.append(el("text", { x: l - 8, y: y(t) + 4, "text-anchor": "end" }, zahl.format(t)));
+    svg.append(el("text", { x: l - 8, y: y(t) + 4, "text-anchor": "end" }, achsenzahl(t)));
   }
-  for (let v = 0; v <= xmax; v += 10) {
+  for (const v of linearstriche(xa, xb)) {
     svg.append(el("line", { x1: x(v), x2: x(v), y1: o, y2: h - u, class: "achse" }));
-    svg.append(el("text", { x: x(v), y: h - u + 16, "text-anchor": "middle" }, `${v} %`));
+    svg.append(el("text", { x: x(v), y: h - u + 16, "text-anchor": "middle" }, `${achsenzahl(v)} %`));
+  }
+  if (mitNull) {
+    const oben = unten + 6;
+    svg.append(el("rect", { x: l, y: oben, width: b - l - r, height: streifen - 8, class: "nullstreifen" }));
+    svg.append(el("text", { x: l - 8, y: oben + (streifen - 8) / 2 + 4, "text-anchor": "end" }, "0"));
+    const anzahl = nullen.length;
+    const zahltext = el("text", { x: b - r - 6, y: oben + 13, "text-anchor": "end", class: "nullzahl" },
+      `${zahl.format(anzahl)} ${anzahl === 1 ? "Tract" : "Tracts"} ohne Fall`);
+    for (const p of nullen) {
+      const c = el("circle", { cx: x(p.armut), cy: oben + 4 + versatz(p.stadt + p.name) * (streifen - 16),
+        r: 3, fill: FARBE[p.stadt], "fill-opacity": 0.45 });
+      c.append(el("title", {}, `${p.name_stadt}, ${p.name}: kein Fall, Armutsquote ${komma.format(p.armut)} %`));
+      svg.append(c);
+    }
+    svg.append(zahltext);
   }
   svg.append(el("text", { x: (l + b - r) / 2, y: h - 4, "text-anchor": "middle", class: "achsentitel" },
     "Armutsquote des Tracts"));
-  for (const p of punkte) {
+  for (const p of positiv) {
     const c = el("circle", { cx: x(p.armut), cy: y(p.rate), r: 3, fill: FARBE[p.stadt], "fill-opacity": 0.55 });
     c.append(el("title", {}, `${p.name_stadt}, ${p.name}: ${komma.format(p.rate)} je 1'000, `
       + `Armutsquote ${komma.format(p.armut)} %`));
     svg.append(c);
   }
+
+  // Zoomen: ein Rechteck aufziehen (Maus; auf dem Telefon bleibt das Wischen
+  // dem Scrollen). Reicht es in den Nullstreifen, bleibt der Streifen.
+  const punkt = (ev) => {
+    const box = svg.getBoundingClientRect(), f = b / box.width;
+    return [(ev.clientX - box.left) * f, (ev.clientY - box.top) * f];
+  };
+  const imFeld = ([px, py]) => Math.min(Math.max(px, l), b - r) === px && py >= o && py <= h - u;
+  let start = null, rahmen = null;
+  svg.addEventListener("pointerdown", (ev) => {
+    if (ev.pointerType !== "mouse" || ev.button !== 0 || !imFeld(punkt(ev))) return;
+    start = punkt(ev);
+    rahmen = el("rect", { class: "zoomrahmen", x: start[0], y: start[1], width: 0, height: 0 });
+    svg.append(rahmen);
+    svg.setPointerCapture(ev.pointerId);
+    ev.preventDefault();
+  });
+  svg.addEventListener("pointermove", (ev) => {
+    if (!start) return;
+    const [px, py] = punkt(ev);
+    const cx = Math.min(Math.max(px, l), b - r), cy = Math.min(Math.max(py, o), h - u);
+    Object.entries({ x: Math.min(start[0], cx), y: Math.min(start[1], cy),
+      width: Math.abs(cx - start[0]), height: Math.abs(cy - start[1]) })
+      .forEach(([k, v]) => rahmen.setAttribute(k, v));
+  });
+  svg.addEventListener("pointerup", () => {
+    if (!start) return;
+    const bx = Number(rahmen.getAttribute("x")), by = Number(rahmen.getAttribute("y"));
+    const bw = Number(rahmen.getAttribute("width")), bh = Number(rahmen.getAttribute("height"));
+    start = null;
+    rahmen.remove();
+    if (bw < 8 || bh < 8) return;  // ein Klick, kein Rahmen
+    const wert = (py) => 10 ** (Math.log10(ya) + (1 - (Math.min(py, unten) - o) / (unten - o))
+      * (Math.log10(yb) - Math.log10(ya)));
+    const armut = (px) => xa + ((px - l) / (b - l - r)) * (xb - xa);
+    const neuNull = mitNull && by + bh > unten;
+    let neuYa = wert(by + bh), neuYb = wert(by);
+    if (by >= unten) { neuYa = ya; neuYb = ya * 10; }  // nur im Nullstreifen
+    if (neuYb / neuYa < 1.5) neuYb = neuYa * 1.5;
+    streuwahl.zoom = { xa: armut(bx), xb: Math.max(armut(bx + bw), armut(bx) + 0.5),
+      ya: neuYa, yb: neuYb, mitNull: neuNull };
+    streuung(ziel, d);
+  });
+  svg.addEventListener("dblclick", () => { if (streuwahl.zoom) { streuwahl.zoom = null; streuung(ziel, d); } });
   ziel.replaceChildren(svg);
+}
+
+// Die Legende des Streudiagramms: ein Klick blendet eine Stadt aus und ein.
+function streulegende(ziel, d) {
+  legende(ziel, d.staedte.map((s) => ({ name: s.name, klasse: s.stadt })));
+  [...ziel.children].forEach((span, i) => {
+    const stadt = d.staedte[i].stadt;
+    const setze = () => {
+      span.classList.toggle("aus", streuwahl.aus.has(stadt));
+      span.setAttribute("aria-pressed", String(!streuwahl.aus.has(stadt)));
+    };
+    span.classList.add("umschaltbar");
+    span.setAttribute("role", "button");
+    span.tabIndex = 0;
+    span.title = "Klick blendet die Stadt aus oder ein";
+    setze();
+    const wechsle = () => {
+      if (streuwahl.aus.has(stadt)) streuwahl.aus.delete(stadt); else streuwahl.aus.add(stadt);
+      setze();
+      streuung(document.getElementById("d-streuung"), d);
+    };
+    span.addEventListener("click", wechsle);
+    span.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); wechsle(); }
+    });
+  });
 }
 
 function zeichne(d) {
@@ -203,7 +360,7 @@ function zeichne(d) {
   }));
   legende(document.getElementById("l-baender"), legendeStaedte);
   streuung(document.getElementById("d-streuung"), d);
-  legende(document.getElementById("l-streuung"), legendeStaedte);
+  streulegende(document.getElementById("l-streuung"), d);
 
   const punkte = [
     "Ein Zusammenhang je Tract sagt nichts über einzelne Menschen (ökologischer Fehlschluss) "
@@ -224,6 +381,10 @@ function zeichne(d) {
 }
 
 async function start() {
+  document.getElementById("streuung-zurueck").addEventListener("click", () => {
+    streuwahl.zoom = null;
+    if (streuwahl.daten) streuung(document.getElementById("d-streuung"), streuwahl.daten);
+  });
   const antwort = await fetch("/api/karten");
   if (antwort.ok) karten = await antwort.json();
   starteBrett({ api: "/api/sozial", zeichne });

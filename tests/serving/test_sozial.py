@@ -134,3 +134,26 @@ def test_die_baender_rechnen_je_jahr_wie_die_tracts(brett):
             geprueft += 1
     assert geprueft >= 2, "kein Band mit Tracts - dann prueft der Test nichts"
 
+
+
+def test_das_streudiagramm_zeigt_seltene_delikte_und_laesst_sich_bedienen():
+    """Bis zum 28.11.2026 begann die Achse fest bei 1 je 1'000 und setzte alles darunter auf 1.
+
+    Bei Toetungsdelikten (srv01, 2025) lagen so 989 von 1'052 Punkten am
+    Boden, 675 davon mit Rate 0. Jetzt richtet sich die Achse nach den Daten,
+    Rate 0 steht in einem eigenen Streifen, die Legende blendet Staedte aus und
+    ein aufgezogenes Rechteck zoomt. Im Browser geprueft am selben Tag mit
+    der echten Antwort von srv01.
+    """
+    import re
+    from serving.dashboard.app import _STATISCH
+
+    js = (_STATISCH / "sozial.js").read_text(encoding="utf-8")
+    koerper = re.search(r"\nfunction streuung\(ziel, d\) \{(.*?)\n\}\n", js, re.S).group(1)
+    assert "Math.max(v, 1)" not in koerper, "die Achse klemmt wieder bei 1"
+    assert "loghuelle(" in koerper and "nullstreifen" in koerper
+    assert "streuwahl.aus.has(p.stadt)" in koerper
+    assert '"pointerdown"' in koerper and '"dblclick"' in koerper
+    assert "streulegende(document.getElementById(\"l-streuung\"), d);" in js
+    html = (_STATISCH / "sozial.html").read_text(encoding="utf-8")
+    assert 'id="streuung-zurueck"' in html
