@@ -41,10 +41,11 @@ def test_ein_takt_startet_genau_einen_worker_und_sonst_nichts():
 
 
 def test_takt_und_datenlauf_teilen_eine_sperre():
-    datenlauf = [z for z in CRONTAB.read_text(encoding="utf-8").splitlines()
-                 if "srv01-datenlauf.sh" in z and not z.lstrip().startswith("#")]
-    sperre = re.search(r"/usr/bin/flock .*?(/\S+\.lock)", datenlauf[0]).group(1)
-    assert sperre in takt_zeile(), "ohne gemeinsame Sperre laufen beide nebeneinander"
+    """Auch der auskommentierte alte Datenlauf: Er ist der Rueckweg (S-10)."""
+    for skript in ("srv01-datenlauf.sh", "srv01-konsole-datenlauf.sh"):
+        zeile = [z for z in CRONTAB.read_text(encoding="utf-8").splitlines() if skript + " auto" in z]
+        sperre = re.search(r"/usr/bin/flock .*?(/\S+\.lock)", zeile[0]).group(1)
+        assert sperre in takt_zeile(), (skript, "ohne gemeinsame Sperre laufen beide nebeneinander")
 
 
 def test_der_takt_wartet_nicht():
@@ -68,10 +69,12 @@ def test_der_takt_kommt_jede_minute():
         assert "angestossen jede Minute" in text or "startet ihn jede Minute" in text, dokument
 
 
-def test_der_takt_ist_bis_zur_einrichtung_auskommentiert():
-    """Vor ``platform_admin init`` bricht jeder Takt ab. Eingeschaltet wird
-    er auf srv01 von Hand, nicht durch das naechste ``crontab``."""
-    assert takt_zeile().lstrip().startswith("#")
+def test_der_takt_ist_eingeschaltet():
+    """Bis zum 28.11.2026 stand er hier auskommentiert und war auf srv01 seit
+    S-8 (31.10.2026) von Hand eingeschaltet. Mit S-10 wird die Crontab aus
+    dieser Datei geladen; sie muss also den Takt tragen, sonst stuende der
+    eingereihte Wochenlauf still."""
+    assert not takt_zeile().lstrip().startswith("#")
 
 
 # --------------------------------------------------------------------------
@@ -112,6 +115,6 @@ def test_der_montag_wartet_auf_den_takt():
     nur weil gerade ein Auftrag laeuft - sonst fehlte der Wochenlauf."""
     zeilen = [z for z in CRONTAB.read_text(encoding="utf-8").splitlines()
               if "srv01-konsole-datenlauf.sh" in z]
-    assert len(zeilen) == 1 and zeilen[0].lstrip().startswith("#")
+    assert len(zeilen) == 1 and not zeilen[0].lstrip().startswith("#"), "seit S-10 aktiv"
     assert "--wait" in zeilen[0] and "logs/pipeline.lock" in zeilen[0]
-    assert zeilen[0].lstrip("# ").startswith("30 4 * * 1 "), "derselbe Termin wie der Datenlauf"
+    assert zeilen[0].startswith("30 4 * * 1 "), "derselbe Termin wie der Datenlauf"

@@ -13,8 +13,12 @@ Das Kolloquium ist am Samstag, 12.12.2026. Die Abgabe ist am Vortag um 14:00 Uhr
 **Donnerstag, 10.12.** Der Abgabestand sollte zwei Tage früher stehen, damit
 für die Nachweise und das Nachziehen Luft bleibt.
 
-Bis dahin baut der Zeitplan auf `srv01` (`docker/srv01-datenlauf.sh auto`,
-montags 04:30) noch diese Läufe:
+Bis dahin baut der Zeitplan auf `srv01` noch diese Läufe, montags 04:30.
+Seit S-10 (28.11.2026) reiht `docker/srv01-konsole-datenlauf.sh auto` sie in
+die Engineering-Konsole ein, und die Takte führen sie aus. Vorher lief
+`docker/srv01-datenlauf.sh auto` direkt.
+
+
 
 | Montag | Tag im Monat | Lauf |
 | --- | ---: | --- |
@@ -43,16 +47,27 @@ Seeufer elf Tracts gefehlt.
 ### 1. Den Lauf auf `srv01` prüfen, oder einen anstossen
 
 ```bash
-ssh netcup 'cd /srv/docker/apps/urbancrime && tail -20 logs/scheduled-pipeline.log'
-python -m orchestration.release liste           # lokal, mit .env (s3): das jüngste Release oben
+ssh netcup 'cd /srv/docker/apps/urbancrime && tail -5 logs/scheduled-pipeline.log && tail -40 logs/konsole-takt.log'
+python -m orchestration.release liste           # lokal, mit .env (s3): das aktive Release trägt <- AKTUELL
 ```
+
+`scheduled-pipeline.log` zeigt seit S-10 nur noch das Einreihen. Der Lauf
+selbst steht in `konsole-takt.log`, und sein Release heisst `approved-…`.
+`release liste` sortiert nach Kennung, deshalb steht es nicht oben. Den
+aktiven Stand zeigt die Marke `<- AKTUELL`.
 
 Ist der Montagslauf rot oder fehlt er, dann einen Delta-Lauf von Hand
-starten, unter derselben Sperre wie der Zeitplan:
+einreihen, unter derselben Sperre wie der Zeitplan. Danach arbeiten die
+Takte, je bis zu einer Minute Abstand, zusammen etwa 15 bis 25 Minuten:
 
 ```bash
-ssh netcup 'cd /srv/docker/apps/urbancrime && L=logs/abgabestand-$(date -u +%Y%m%dT%H%MZ).log && nohup setsid /usr/bin/flock --wait 600 logs/pipeline.lock docker/srv01-datenlauf.sh delta > $L 2>&1 < /dev/null &'
+ssh netcup 'cd /srv/docker/apps/urbancrime && /usr/bin/flock --wait 600 logs/pipeline.lock docker/srv01-konsole-datenlauf.sh delta'
 ```
+
+Ein zweiter Aufruf am selben Tag reiht nichts Neues ein (Slot
+`scheduled-<Datum>-delta`). Wurde S-10 zurückgenommen
+(`umstellung-verwaltet.md`, Schritt 6), gilt wieder der alte Lauf:
+`docker/srv01-datenlauf.sh delta`.
 
 Danach ist das neue Release das aktive auf `srv01`, und das Dashboard hat es
 spätestens eine Minute später geladen. Die Kennung notieren, unten heisst sie

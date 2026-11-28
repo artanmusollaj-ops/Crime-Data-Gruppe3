@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'597** |
+| Tests | **3'598** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'922'278 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'900'131** Zeilen (eine Tat) |
@@ -112,6 +112,45 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 28.11.2026 · S-10: Der Wochenlauf geht über die Konsole (Branch `s10-verwalteter-betrieb`)
+
+Christian hat am 28.11.2026 entschieden, auf den verwalteten Betrieb
+umzustellen. Getestet wird mit einem Probelauf von Hand an diesem Wochenende,
+denn am Montag, 30.11., fällt der Lauf aus (fünfter Montag). Das ist
+Schritt 0 aus `umstellung-verwaltet.md`, der Teil im Repository:
+
+- **Crontab** (`deploy/cron/urbancrime.crontab`): Aktiv sind jetzt der Takt
+  der Konsole und montags `srv01-konsole-datenlauf.sh auto`. Die Zeile des
+  alten Datenlaufs steht auskommentiert als Rückweg da. Der Takt war auf
+  srv01 seit S-8 von Hand eingeschaltet, stand in der Datei aber noch
+  auskommentiert. Ein `crontab deploy/cron/urbancrime.crontab` hätte ihn
+  wieder abgeschaltet.
+- **Die Sperre erreicht den alten Lauf** (`docker-compose.srv01.yml`): Der
+  Dienst `pipeline` hängt `konsole:/app/data/admin:ro` ein. Bis jetzt sah er
+  den Marker `managed.json` nicht, und `srv01-datenlauf.sh` wäre nach
+  `enable-managed` weiter durchgelaufen und hätte am Review vorbei
+  veröffentlicht. Neuer Test
+  `test_wer_den_arbeitsraum_beschreibt_sieht_den_marker_der_konsole`. Er
+  verlangt das Volume für jeden Dienst, der `arbeitsdaten` beschreibt.
+- **Von Hand einreihen statt laufen lassen:** `abgabestand.md` Schritt 1 und
+  der Hinweis am Ende von `srv01-abbild-einsetzen.sh` nennen jetzt
+  `srv01-konsole-datenlauf.sh delta`. Der alte Befehl scheiterte nach der
+  Umstellung an `storage.verwaltet`.
+- **Nachgeführt:** `ENGINEERING_KONSOLE.md`, `storage-architektur.md` §16,
+  `umstellung-verwaltet.md` und S-10 in `offene-punkte.md`. Die drei
+  Crontab-Tests halten den neuen Stand.
+
+Was die Konsole dabei nicht braucht: einen geschützten `main`. Den Schutz
+prüft sie nur, wenn sie eine Korrektur in `main` merged
+(`gitops.check_protection`), und auf srv01 gilt `ADMIN_GIT_SCHUTZ:
+entwicklung`. `enable-managed` und der Wochenlauf sprechen GitHub nicht an.
+
+Auf srv01 wirkt das erst mit `git pull`, `enable-managed` und
+`crontab deploy/cron/urbancrime.crontab` (Schritte 1 bis 3), danach folgt
+der Probelauf (Schritt 4). Ein neues Abbild braucht es dafür nicht.
+
+Tests 3'598 (+1), Standardauswahl 3'487.
 
 ## 28.11.2026 · „Die Vergleichspaare" sind so hoch wie die Tafel daneben (Branch `vergleichspaare-scrollbar`)
 

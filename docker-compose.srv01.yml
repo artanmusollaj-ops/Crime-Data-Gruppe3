@@ -459,6 +459,12 @@ services:
       # kann und damit er nicht in config/srv01.yaml gehoert: Was Restic
       # sichern muss, ist der Bucket, nicht dieser Zwischenstand.
       - arbeitsdaten:/app/data
+      # Seit dem 28.11.2026 (S-10): der Marker der Konsole, nur lesend. Ohne
+      # ihn sah dieser Dienst unter /app/data/admin den leeren Ordner aus
+      # arbeitsdaten, storage.verwaltet meldete "nicht verwaltet", und der
+      # alte Datenlauf liefe nach enable-managed weiter durch und
+      # veroeffentlichte am Review vorbei. Mit ihm bricht er ab.
+      - konsole:/app/data/admin:ro
       - datensperren:/app/datensperren
       # Dorthin schreibt der Lauf die Einstiegsseite (FR-31). Er leert das
       # Verzeichnis vorher (siehe docker/srv01-datenlauf.sh): Docker befuellt

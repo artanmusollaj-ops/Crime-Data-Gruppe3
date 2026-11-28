@@ -1450,9 +1450,10 @@ und geht nur an den Worker; seit dem 18.11.2026 legt die Konsole PRs an. Die Sch
 Der bisherige Datenlauf bleibt, bis jemand `enable-managed` ausführt. Danach
 sperrt [`storage.verwaltet`](../src/crime/storage/verwaltet.py) `run_all` und
 `release` in jedem Container, der den Marker sieht, also in `admin` und
-`worker`. **Den Cron-Datenlauf hält das nicht auf:** Der Dienst `pipeline`
-hängt das Volume `konsole` nicht ein und liefe weiter durch. Der Tausch der
-Crontab-Zeilen ist der einzige Schutz (`intern/umstellung-verwaltet.md`,
+`worker`, seit dem 28.11.2026 auch in `pipeline`. Dieser Dienst hängt
+`konsole` nur lesend ein, damit der alte Cron-Datenlauf nach der Umstellung
+abbricht, statt am Review vorbei zu veröffentlichen. Bis dahin hätte nur der
+Tausch der Crontab-Zeilen ihn aufgehalten (`intern/umstellung-verwaltet.md`,
 Vorprüfung Punkt 4).
 **Der Worker übernimmt ihn ganz** (Entscheidung vom 30.10.2026):
 
