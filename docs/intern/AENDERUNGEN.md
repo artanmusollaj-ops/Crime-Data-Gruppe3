@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'595** |
+| Tests | **3'596** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'922'278 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'900'131** Zeilen (eine Tat) |
@@ -112,6 +112,28 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 28.11.2026 · Die Zuordnungstabelle scrollt nach 20 Zeilen (Branch `zuordnung-scrollbar`)
+
+Bisher zeigte die Tabelle „NIBRS-Zuordnung im Detail" auf „Datenqualität"
+die ersten 50 Quellcodes und darunter einen Knopf „alle … zeigen". Christian
+wollte 20 sehen und den Rest beim Scrollen. Die Tabelle steht jetzt in
+einem Fenster, das nach der zwanzigsten Zeile endet und eine eigene
+Scrollleiste hat. Der Tabellenkopf bleibt darin stehen, und der Knopf
+entfällt. `datenqualitaet.js` misst die Höhe der ersten 20 Zeilen, denn eine
+lange Bezeichnung bricht ihre Zeile um. Die Höhe wird nach jedem Filter und
+nach einer Änderung der Fensterbreite neu gemessen. Ein neuer Filter beginnt
+wieder oben. Bei 20 oder weniger Treffern gibt es kein Fenster.
+
+Im Browser geprüft an einem lokalen Dashboard mit 60 Zeilen und einer
+umbrechenden Bezeichnung: genau 20 Zeilen ganz sichtbar, der Kopf bleibt
+beim Scrollen stehen, und bei einem Treffer verschwindet das Fenster. Neuer
+Test `test_die_zuordnungstabelle_scrollt_nach_zwanzig_zeilen`. Er scheitert
+am alten JavaScript.
+
+Auf `urbancrime-dashboard` erscheint die Änderung erst mit einem neuen Abbild.
+
+Tests 3'596 (+1), Standardauswahl 3'485.
 
 ## 28.11.2026 · Kopf und Filter bleiben beim Scrollen stehen (Branch `kopf-bleibt-sichtbar`)
 

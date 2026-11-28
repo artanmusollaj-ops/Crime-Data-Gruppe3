@@ -955,6 +955,27 @@ def test_jede_seite_hat_die_checkboxen_und_kein_auswahlfeld():
 
 
 
+def test_die_zuordnungstabelle_scrollt_nach_zwanzig_zeilen():
+    """Christian wollte am 28.11.2026 20 Quellcodes sehen und den Rest im Scrollen.
+
+    Vorher zeigte die Detailtabelle 50 Zeilen und einen Knopf »alle zeigen«.
+    Jetzt steht sie in einem Fenster, das nach der zwanzigsten Zeile endet;
+    der Kopf haftet darin. Im Browser geprueft am selben Tag mit 60 Zeilen
+    und einer umbrechenden Bezeichnung: genau 20 ganz sichtbar.
+    """
+    html = (_STATISCH / "datenqualitaet.html").read_text(encoding="utf-8")
+    fenster = re.search(r'<div class="tabellenfenster" id="f-fenster"[^>]*>(.*?)</div>', html, re.S)
+    assert fenster and 'id="d-zuordnung-detail"' in fenster.group(1)
+    assert 'id="f-mehr"' not in html
+    js = (_STATISCH / "datenqualitaet.js").read_text(encoding="utf-8")
+    assert "const SICHTBARE_ZEILEN = 20;" in js
+    assert "gezeigt.slice(" not in js, "die Tabelle schneidet wieder ab"
+    assert "fensterhoehe();" in js
+    css = (_STATISCH / "dashboard.css").read_text(encoding="utf-8")
+    assert re.search(r"\.tabellenfenster \{[^}]*overflow-y: auto", css)
+    assert re.search(r"\.tabellenfenster \.tabelle th \{[^}]*position: sticky", css)
+
+
 def test_kopf_reiter_und_filter_bleiben_beim_scrollen_stehen():
     """Christian wollte am 28.11.2026 die Filter beim Scrollen sehen.
 
