@@ -1,18 +1,22 @@
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
+# Seit dem 28.11.2026 (S-10) verwaltet die Engineering-Konsole den Bestand.
+# Die Zeile des alten Datenlaufs bleibt als Rueckweg stehen, auskommentiert:
+# Nach "enable-managed" scheitert er an storage.verwaltet, auch im Dienst
+# pipeline, der den Marker seit S-10 sieht. Rueckweg in
+# docs/intern/umstellung-verwaltet.md, Schritt 6.
 # First Monday: delta. Second: full. Third/fourth: delta. Fifth: skip.
-30 4 * * 1 /usr/bin/flock --wait 21600 /srv/docker/apps/urbancrime/logs/pipeline.lock /srv/docker/apps/urbancrime/docker/srv01-datenlauf.sh auto >> /srv/docker/apps/urbancrime/logs/scheduled-pipeline.log 2>&1
+# 30 4 * * 1 /usr/bin/flock --wait 21600 /srv/docker/apps/urbancrime/logs/pipeline.lock /srv/docker/apps/urbancrime/docker/srv01-datenlauf.sh auto >> /srv/docker/apps/urbancrime/logs/scheduled-pipeline.log 2>&1
 
-# Engineering-Konsole: ein Takt jede Minute. Erst einkommentieren, wenn
-# auf srv01 "python -m platform_admin init" gelaufen ist - vorher bricht jeder
-# Takt mit "Zuerst initialisieren" ab. Dieselbe Sperre wie der Datenlauf, aber
+# Engineering-Konsole: ein Takt jede Minute. Auf srv01 eingeschaltet seit
+# S-8 (31.10.2026), nach "python -m platform_admin init" - vorher bricht jeder
+# Takt mit "Zuerst initialisieren" ab. Dieselbe Sperre wie der Wochenlauf, aber
 # --nonblock: Laeuft er, entfaellt der Takt still.
-# * * * * * /usr/bin/flock --nonblock --conflict-exit-code 0 /srv/docker/apps/urbancrime/logs/pipeline.lock /srv/docker/apps/urbancrime/docker/srv01-konsole-takt.sh >> /srv/docker/apps/urbancrime/logs/konsole-takt.log 2>&1
+* * * * * /usr/bin/flock --nonblock --conflict-exit-code 0 /srv/docker/apps/urbancrime/logs/pipeline.lock /srv/docker/apps/urbancrime/docker/srv01-konsole-takt.sh >> /srv/docker/apps/urbancrime/logs/konsole-takt.log 2>&1
 
-# Ab "platform_admin enable-managed" ersetzt diese Zeile die Datenlauf-Zeile
-# oben (die dann an storage.verwaltet scheitert): Sie reiht den Wochenlauf in
-# die Konsole ein, und die Takte fuehren ihn aus. Derselbe Termin, dieselbe
-# Sperre, und sie wartet - ein Wochenlauf darf nicht ausfallen, nur weil
-# gerade ein Takt laeuft.
-# 30 4 * * 1 /usr/bin/flock --wait 21600 /srv/docker/apps/urbancrime/logs/pipeline.lock /srv/docker/apps/urbancrime/docker/srv01-konsole-datenlauf.sh auto >> /srv/docker/apps/urbancrime/logs/scheduled-pipeline.log 2>&1
+# Montags: den Wochenlauf in die Konsole einreihen; die Takte fuehren ihn aus.
+# Derselbe Termin und Rhythmus wie der alte Datenlauf, dieselbe Sperre, und
+# sie wartet - ein Wochenlauf darf nicht ausfallen, nur weil gerade ein Takt
+# laeuft.
+30 4 * * 1 /usr/bin/flock --wait 21600 /srv/docker/apps/urbancrime/logs/pipeline.lock /srv/docker/apps/urbancrime/docker/srv01-konsole-datenlauf.sh auto >> /srv/docker/apps/urbancrime/logs/scheduled-pipeline.log 2>&1

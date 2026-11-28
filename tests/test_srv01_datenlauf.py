@@ -53,18 +53,29 @@ def test_der_zweite_montag_ist_der_einzige_volllauf(
     assert result.stdout.strip() == expected
 
 
-def test_der_crontab_ruft_genau_das_versionierte_skript_auf():
+def test_der_crontab_ruft_genau_die_versionierten_skripte_auf():
+    """Seit S-10 (28.11.2026): der Takt der Konsole und montags das Einreihen.
+
+    Der alte Datenlauf steht nur noch auskommentiert da, als Rueckweg. Liefe er
+    neben dem Einreihen, veroeffentlichte er am Review vorbei.
+    """
     text = CRONTAB.read_text(encoding="utf-8")
     aktive_zeilen = [
         line for line in text.splitlines()
         if line.strip() and not line.lstrip().startswith(("#", "SHELL=", "PATH="))
     ]
     assert aktive_zeilen == [
+        "* * * * * /usr/bin/flock --nonblock --conflict-exit-code 0 "
+        "/srv/docker/apps/urbancrime/logs/pipeline.lock "
+        "/srv/docker/apps/urbancrime/docker/srv01-konsole-takt.sh "
+        ">> /srv/docker/apps/urbancrime/logs/konsole-takt.log 2>&1",
         "30 4 * * 1 /usr/bin/flock --wait 21600 "
         "/srv/docker/apps/urbancrime/logs/pipeline.lock "
-        "/srv/docker/apps/urbancrime/docker/srv01-datenlauf.sh auto "
-        ">> /srv/docker/apps/urbancrime/logs/scheduled-pipeline.log 2>&1"
+        "/srv/docker/apps/urbancrime/docker/srv01-konsole-datenlauf.sh auto "
+        ">> /srv/docker/apps/urbancrime/logs/scheduled-pipeline.log 2>&1",
     ]
+    rueckweg = [z for z in text.splitlines() if "srv01-datenlauf.sh auto" in z]
+    assert len(rueckweg) == 1 and rueckweg[0].startswith("# 30 4 * * 1 "), rueckweg
 
 
 def test_das_skript_prueft_den_veroeffentlichten_stand_am_ende():

@@ -1145,7 +1145,10 @@ def test_der_worker_traegt_was_die_pipeline_traegt(dienste):
     assert not fehlend, f"dem Worker fehlt, was die Pipeline hat: {fehlend}"
     abweichend = {k: (pipeline[k], worker[k]) for k in pipeline if pipeline[k] != worker[k]}
     assert not abweichend, f"Worker und Pipeline setzen verschieden: {abweichend}"
-    assert set(dienste["pipeline"]["volumes"]) <= set(dienste["worker"]["volumes"])
+    # Quelle und Ziel, nicht die Zugriffsart: Seit S-10 (28.11.2026) liest die
+    # Pipeline ``konsole`` nur (:ro), der Worker schreibt hinein.
+    ohne_art = lambda vs: {v.removesuffix(":ro") for v in vs if isinstance(v, str)}  # noqa: E731
+    assert ohne_art(dienste["pipeline"]["volumes"]) <= ohne_art(dienste["worker"]["volumes"])
 
 
 def test_admin_und_worker_pruefen_git_unter_demselben_schutz(dienste):
@@ -1169,6 +1172,27 @@ def test_der_kontrollzustand_liegt_in_einem_eigenen_datentraeger(beschreibung, d
     for name in ("admin", "worker"):
         assert "konsole:/app/data/admin" in dienste[name]["volumes"], name
     assert "konsole" in beschreibung["volumes"]
+
+
+def test_wer_den_arbeitsraum_beschreibt_sieht_den_marker_der_konsole(dienste):
+    """S-10, 28.11.2026: Jeder Dienst, der ``arbeitsdaten`` beschreibbar
+    einhaengt, haengt darueber ``konsole`` ein.
+
+    Der Marker ``admin/managed.json`` liegt in ``konsole``. Wer ihn nicht
+    sieht, haelt den Bestand fuer unverwaltet: ``pipeline`` sah unter
+    /app/data/admin den leeren Ordner aus ``arbeitsdaten``, und der alte
+    Datenlauf liefe nach ``enable-managed`` weiter und veroeffentlichte am
+    Review vorbei (``umstellung-verwaltet.md``, Punkt 4).
+    """
+    schreibend = [n for n, d in dienste.items()
+                  if "arbeitsdaten:/app/data" in (d.get("volumes") or [])]
+    assert {"pipeline", "admin", "worker"} <= set(schreibend), schreibend
+    for name in schreibend:
+        marker = [v for v in dienste[name]["volumes"]
+                  if isinstance(v, str) and v.startswith("konsole:/app/data/admin")]
+        assert marker in (["konsole:/app/data/admin"], ["konsole:/app/data/admin:ro"]), (name, marker)
+    # Die Strecke liest den Marker nur; schreiben darf ihn die Konsole.
+    assert "konsole:/app/data/admin:ro" in dienste["pipeline"]["volumes"]
 
 
 def test_die_oeffentliche_adresse_ist_die_geroutete(dienste):

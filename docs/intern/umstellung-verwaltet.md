@@ -1,6 +1,12 @@
 # Umstellung auf den verwalteten Betrieb (S-10): der Ablauf
 
-**Vorbereitung, kein Entscheid.** Diese Datei hält fest, wie `srv01` vom
+**Entschieden am 28.11.2026: umstellen.** Christian will den Wochenlauf
+über die Konsole testen. Geht der Probelauf schief, folgt der Rückweg
+(Schritt 6), und der Lauf wird von Hand über den alten Weg nachgeholt.
+Schritt 0 ist der PR „S-10: Der Wochenlauf geht über die Konsole“ vom
+28.11.2026. Er hängt auch die Sperre in `pipeline` ein (Punkt 4).
+
+Ursprünglich: **Vorbereitung, kein Entscheid.** Diese Datei hält fest, wie `srv01` vom
 Cron-Datenlauf auf den Konsolen-Worker umgestellt wird, wie der erste Lauf
 geprüft wird und wie es zurückgeht. Ob umgestellt wird, entscheidet die
 Besprechung am Freitag, 27.11.2026. Der Punkt steht als S-10 in
@@ -47,7 +53,9 @@ ist dafür nichts geprüft und nichts geändert.
    Releasebasis weicht ab“).
    **Abhilfe für Schritt 0:** `konsole:/app/data/admin:ro` auch in `pipeline`
    einhängen, mit einem Test, der für jeden Dienst mit `arbeitsdaten` das
-   Volume `konsole` verlangt.
+   Volume `konsole` verlangt. **Umgesetzt am 28.11.2026**
+   (`test_wer_den_arbeitsraum_beschreibt_sieht_den_marker_der_konsole`).
+   Damit bricht in Schritt 3 auch `pipeline` ab.
 5. **Die tägliche Konsolensicherung ist seit dem 19.11. 830 MiB gross**
    (vorher 2,2 MiB). Gemessen am 24.11.2026 unter `backups/control/`: sieben
    Archive, zusammen 4,98 GiB. Kein Release ist darin (`releases_archived`
@@ -182,7 +190,9 @@ Datenbestand: Aktion über die Engineering-Konsole …“. `release.py` ruft
 Kindprozessen gibt. Er bricht deshalb ab wie jeder andere Schreiber.
 
 **Ohne die Abhilfe aus Punkt 4 bricht `pipeline` nicht ab.** Dann ist genau
-das der Befund, und es geht nicht weiter. Die Probe richtet auch dann keinen
+das der Befund, und es geht nicht weiter. Seit dem 28.11.2026 ist sie im
+Compose, wirksam nach `git pull` auf srv01, weil `run --rm` die Datei neu
+liest. Die Probe richtet auch dann keinen
 Schaden an: `holen aktuell` ist der Schritt, den der Cron-Lauf jede Woche
 macht.
 

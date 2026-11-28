@@ -181,8 +181,11 @@ main() {
     done
 
     melde ""
-    melde "Eingesetzt. Der naechste Datenlauf nimmt das neue Abbild von selbst:"
-    melde "  flock --wait 60 logs/pipeline.lock docker/srv01-datenlauf.sh delta"
+    # Seit S-10 (28.11.2026) laeuft der Wochenlauf ueber die Konsole: Von
+    # Hand wird er eingereiht, die Takte fuehren ihn aus.
+    melde "Eingesetzt. Der naechste Wochenlauf nimmt das neue Abbild von selbst."
+    melde "Einen Lauf von Hand einreihen (danach arbeiten die Takte, logs/konsole-takt.log):"
+    melde "  flock --wait 60 logs/pipeline.lock docker/srv01-konsole-datenlauf.sh delta"
 }
 
 # Nur ausfuehren, wenn aufgerufen - nicht, wenn eine Testdatei die Funktionen
