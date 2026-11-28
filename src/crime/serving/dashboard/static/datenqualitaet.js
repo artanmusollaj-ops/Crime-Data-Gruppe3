@@ -68,7 +68,7 @@ function zuordnung(ziel, staedte) {
       rect.append(el("title", {}, `${s.name}, ${info.name}: ${prozent(s.zuordnung[z])} · Klick zeigt die Quellcodes`));
       // Der Klick setzt Stadt und Status der Detailtafel und springt dorthin.
       rect.addEventListener("click", () => {
-        Object.assign(detailwahl, { status: z, stadt: s.stadt, stadtname: s.name, alle: false });
+        Object.assign(detailwahl, { status: z, stadt: s.stadt, stadtname: s.name });
         if (letzte) detail(letzte);
         document.getElementById("zuordnung-detail").scrollIntoView({ behavior: "smooth", block: "start" });
       });
@@ -85,9 +85,21 @@ function zuordnung(ziel, staedte) {
 
 // Die Detailtafel. Ihr Filter lebt hier und nicht in der Leiste: Er gilt nur
 // fuer diese Tabelle, und ein Wechsel braucht keinen Rundweg zum Server.
-const detailwahl = { status: "alle", stadt: null, stadtname: "", suche: "", alle: false };
-const ERSTE = 50;
+const detailwahl = { status: "alle", stadt: null, stadtname: "", suche: "" };
+// So viele Zeilen zeigt das Fenster der Detailtabelle, der Rest scrollt darin.
+const SICHTBARE_ZEILEN = 20;
 let letzte = null;
+
+// Das Fenster endet nach der zwanzigsten Zeile. Gemessen und nicht fest, weil
+// eine lange Bezeichnung ihre Zeile umbricht; bei weniger Zeilen kein Fenster.
+function fensterhoehe() {
+  const fenster = document.getElementById("f-fenster");
+  const t = document.getElementById("d-zuordnung-detail");
+  const zeilen = t.tBodies[0] ? t.tBodies[0].rows : [];
+  if (zeilen.length <= SICHTBARE_ZEILEN) { fenster.style.maxHeight = ""; return; }
+  const unten = zeilen[SICHTBARE_ZEILEN - 1].getBoundingClientRect().bottom;
+  fenster.style.maxHeight = `${Math.ceil(unten - t.getBoundingClientRect().top)}px`;
+}
 
 function detail(d) {
   letzte = d;
@@ -106,7 +118,7 @@ function detail(d) {
     const b = Object.assign(document.createElement("button"), { type: "button" });
     b.append(name, Object.assign(document.createElement("small"), { textContent: ` ${zahl.format(zaehler[w] || 0)}` }));
     b.classList.toggle("an", detailwahl.status === w);
-    b.addEventListener("click", () => { Object.assign(detailwahl, { status: w, alle: false }); detail(d); });
+    b.addEventListener("click", () => { Object.assign(detailwahl, { status: w }); detail(d); });
     return b;
   }));
   const chip = document.getElementById("f-stadt");
@@ -124,8 +136,7 @@ function detail(d) {
     kopf.append(Object.assign(document.createElement("th"), { textContent: s }));
   }
   const rumpf = t.createTBody();
-  const sichtbar = detailwahl.alle ? gezeigt : gezeigt.slice(0, ERSTE);
-  for (const z of sichtbar) {
+  for (const z of gezeigt) {
     const tr = rumpf.insertRow();
     const stadt = tr.insertCell();
     stadt.textContent = z.name;
@@ -143,14 +154,14 @@ function detail(d) {
     Object.assign(tr.insertCell(), { textContent: zahl.format(z.delikte), className: "zahl" });
     Object.assign(tr.insertCell(), { textContent: prozent(z.anteil), className: "zahl" });
   }
-  if (!sichtbar.length) {
+  if (!gezeigt.length) {
     const td = rumpf.insertRow().insertCell();
     td.colSpan = 9;
     td.textContent = "Kein Quellcode in dieser Auswahl";
   }
-  const mehr = document.getElementById("f-mehr");
-  mehr.hidden = gezeigt.length <= ERSTE;
-  mehr.textContent = detailwahl.alle ? `nur die ersten ${ERSTE} zeigen` : `alle ${zahl.format(gezeigt.length)} zeigen`;
+  // Ein neuer Filter beginnt wieder oben im Fenster.
+  document.getElementById("f-fenster").scrollTop = 0;
+  fensterhoehe();
 }
 
 function detailsteuerung() {
@@ -160,10 +171,9 @@ function detailsteuerung() {
     Object.assign(detailwahl, { stadt: null, stadtname: "" });
     if (letzte) detail(letzte);
   });
-  document.getElementById("f-mehr").addEventListener("click", () => {
-    detailwahl.alle = !detailwahl.alle;
-    if (letzte) detail(letzte);
-  });
+  // Eine andere Breite bricht andere Zeilen um.
+  let warte;
+  window.addEventListener("resize", () => { clearTimeout(warte); warte = setTimeout(fensterhoehe, 150); });
 }
 
 function status(zelle, schluessel) {
