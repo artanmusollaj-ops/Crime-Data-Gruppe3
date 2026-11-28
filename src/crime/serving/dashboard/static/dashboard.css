@@ -337,3 +337,17 @@ h2.abstand { margin-top: 16px; }
 /* »Geografie«: zwei Umschalter untereinander, rechtsbuendig. */
 .schalterpaar { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .umschalter button[hidden] { display: none; }
+
+/* Brett »Soziales Umfeld«: das Streudiagramm (28.11.2026) - Nullstreifen,
+   Zoomrahmen und eine Legende, die Staedte ein- und ausblendet. */
+.streuflaeche { cursor: crosshair; user-select: none; }
+.streuflaeche .nullstreifen { fill: #f2f6fb; stroke: #c9d3e0; stroke-dasharray: 4 3; }
+.streuflaeche .nullzahl { fill: #44505f; font-size: 11px; font-weight: 600;
+  paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+.streuflaeche .zoomrahmen { fill: rgba(47, 125, 225, 0.12); stroke: var(--blau); stroke-width: 1; }
+#streuung-zurueck { font: inherit; font-size: 13px; color: var(--blau); background: none; cursor: pointer;
+  border: 1px solid #cfd6e0; border-radius: 6px; padding: 5px 12px; }
+#streuung-zurueck:hover { background: #eaf2fd; border-color: var(--blau); }
+.legende .umschaltbar { cursor: pointer; border-radius: 4px; padding: 2px 4px; }
+.legende .umschaltbar:hover, .legende .umschaltbar:focus-visible { background: #eef3fa; }
+.legende .umschaltbar.aus { opacity: 0.45; text-decoration: line-through; }

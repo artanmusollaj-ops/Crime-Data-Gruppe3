@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'596** |
+| Tests | **3'597** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'922'278 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'900'131** Zeilen (eine Tat) |
@@ -112,6 +112,40 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 28.11.2026 · Das Streudiagramm zeigt seltene Delikte und lässt sich bedienen (Branch `streuung-achse-zoom`)
+
+Christian fiel auf: Bei den Tötungsdelikten liegen im Diagramm „Jeder Tract
+ein Punkt" auf „Soziales Umfeld" fast alle Punkte am Boden. Das war ein
+Fehler der Achse. Sie war logarithmisch, begann fest bei 1 Fall je 1'000
+Einwohner und setzte alles darunter auf 1. Gemessen auf srv01 für 2025:
+Von 1'052 Tracts mit tragfähiger Basis hatten 675 keinen Fall und 314 eine
+Rate unter 1. Damit lagen 989 Punkte auf derselben Linie. Für alle Delikte
+zusammen fiel das nicht auf, weil die kleinste Rate dort 1,8 ist.
+
+- **Die Achse richtet sich nach den Daten** und reicht in 1-3-10-Stufen von
+  der kleinsten bis zur grössten Rate über 0, bei Tötungsdelikten von 0,1
+  bis 10. Eine Rate 0 hat auf einer logarithmischen Achse keinen Ort. Diese
+  Tracts stehen deshalb in einem eigenen Streifen „0" unter der Achse. Jeder
+  Punkt hat dort einen festen Versatz, und der Streifen nennt ihre Zahl
+  („675 Tracts ohne Fall").
+- **Ein- und Ausblenden:** Ein Klick auf eine Stadt in der Legende blendet
+  sie aus und wieder ein, auch mit der Tastatur. Die Achse bleibt dabei
+  stehen.
+- **Zoomen:** Mit der Maus ein Rechteck aufziehen zoomt hinein. Reicht das
+  Rechteck in den Nullstreifen, bleibt der Streifen sichtbar.
+  „Zurücksetzen" oder ein Doppelklick führt zurück, und ein neuer Filter
+  beginnt ungezoomt. Auf dem Telefon bleibt das Wischen dem Scrollen.
+
+Im Browser geprüft mit der echten Antwort von srv01 (Tötungsdelikte 2025)
+und mit erzeugten Daten. Geprüft sind Zoomen, Zoomen in den Streifen,
+Ausblenden und beide Wege zurück. Neuer Test
+`test_das_streudiagramm_zeigt_seltene_delikte_und_laesst_sich_bedienen`. Er
+scheitert am alten JavaScript.
+
+Auf `urbancrime-dashboard` erscheint die Änderung erst mit einem neuen Abbild.
+
+Tests 3'597 (+1), Standardauswahl 3'486.
 
 ## 28.11.2026 · Die Zuordnungstabelle scrollt nach 20 Zeilen (Branch `zuordnung-scrollbar`)
 
