@@ -1,5 +1,6 @@
 // Das Brett »Datenqualität«.
-import { MONATE, PERIODEN, el, komma, legende, periodentext, starteBrett, zahl } from "./gemeinsam.js";
+import { MONATE, PERIODEN, el, komma, legende, periodentext, scrollfenster, starteBrett, zahl }
+  from "./gemeinsam.js";
 
 const ZUORDNUNG = {
   exact: { name: "Exakt (eindeutige Zuordnung)", kurz: "Exakt", farbe: "#17a38b" },
@@ -86,20 +87,7 @@ function zuordnung(ziel, staedte) {
 // Die Detailtafel. Ihr Filter lebt hier und nicht in der Leiste: Er gilt nur
 // fuer diese Tabelle, und ein Wechsel braucht keinen Rundweg zum Server.
 const detailwahl = { status: "alle", stadt: null, stadtname: "", suche: "" };
-// So viele Zeilen zeigt das Fenster der Detailtabelle, der Rest scrollt darin.
-const SICHTBARE_ZEILEN = 20;
 let letzte = null;
-
-// Das Fenster endet nach der zwanzigsten Zeile. Gemessen und nicht fest, weil
-// eine lange Bezeichnung ihre Zeile umbricht; bei weniger Zeilen kein Fenster.
-function fensterhoehe() {
-  const fenster = document.getElementById("f-fenster");
-  const t = document.getElementById("d-zuordnung-detail");
-  const zeilen = t.tBodies[0] ? t.tBodies[0].rows : [];
-  if (zeilen.length <= SICHTBARE_ZEILEN) { fenster.style.maxHeight = ""; return; }
-  const unten = zeilen[SICHTBARE_ZEILEN - 1].getBoundingClientRect().bottom;
-  fenster.style.maxHeight = `${Math.ceil(unten - t.getBoundingClientRect().top)}px`;
-}
 
 function detail(d) {
   letzte = d;
@@ -159,9 +147,7 @@ function detail(d) {
     td.colSpan = 9;
     td.textContent = "Kein Quellcode in dieser Auswahl";
   }
-  // Ein neuer Filter beginnt wieder oben im Fenster.
-  document.getElementById("f-fenster").scrollTop = 0;
-  fensterhoehe();
+  scrollfenster(t);
 }
 
 function detailsteuerung() {
@@ -171,9 +157,6 @@ function detailsteuerung() {
     Object.assign(detailwahl, { stadt: null, stadtname: "" });
     if (letzte) detail(letzte);
   });
-  // Eine andere Breite bricht andere Zeilen um.
-  let warte;
-  window.addEventListener("resize", () => { clearTimeout(warte); warte = setTimeout(fensterhoehe, 150); });
 }
 
 function status(zelle, schluessel) {

@@ -113,6 +113,30 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 28.11.2026 · Auch „Entfernte Einträge" scrollt nach 20 Zeilen (Branch `entfernte-scrollbar`)
+
+Die Tabelle „Entfernte Einträge" auf „Quellbewegung" zeigte bis zu 200
+Zeilen am Stück, auf srv01 heute 194. Sie steht jetzt im selben Fenster wie
+seit #329 die Zuordnungstabelle: Es zeigt 20 Zeilen, der Rest scrollt darin,
+und der Kopf bleibt stehen. Das Fenster misst jetzt die gemeinsame Funktion
+`scrollfenster` in `gemeinsam.js`. `datenqualitaet.js` hatte dafür eine eigene
+Funktion, die ist dabei entfallen.
+
+Im Browser geprüft mit der echten Antwort von srv01 (194 Einträge) und mit
+60 erzeugten Quellcodes auf „Datenqualität": je 20 Zeilen ganz sichtbar, der
+Kopf bleibt beim Scrollen stehen, und eine Suche beginnt wieder oben. Dabei
+fiel ein eigener Fehler des Umbaus auf, eine versehentlich gelöschte
+Variable. Ohne sie zeichnete „Datenqualität" die Detailtabelle nicht. Die
+Tests hatten ihn nicht gemeldet, weil sie das JavaScript nur als Text lesen
+und nicht ausführen.
+
+Der Test zur Zuordnungstabelle heisst jetzt
+`test_die_langen_tabellen_scrollen_nach_zwanzig_zeilen` und prüft beide
+Tabellen. Er scheitert an der alten Seite „Quellbewegung". Die Testzahl
+bleibt.
+
+Auf `urbancrime-dashboard` erscheint die Änderung erst mit einem neuen Abbild.
+
 ## 28.11.2026 · Das Streudiagramm zeigt seltene Delikte und lässt sich bedienen (Branch `streuung-achse-zoom`)
 
 Christian fiel auf: Bei den Tötungsdelikten liegen im Diagramm „Jeder Tract

@@ -190,6 +190,34 @@ function zeitwahl(o, brett, url) {
   return { tagVon, tagBis };
 }
 
+// Eine lange Tabelle in einem Fenster ``.tabellenfenster``: Es zeigt
+// SICHTBARE_ZEILEN Zeilen, der Rest scrollt darin, der Kopf haftet (CSS).
+// Seit dem 28.11.2026, zuerst fuer die Zuordnungstabelle auf
+// »Datenqualität«, dann fuer »Entfernte Einträge« auf »Quellbewegung«.
+// Gemessen und nicht fest, weil eine lange Bezeichnung ihre Zeile umbricht;
+// bei weniger Zeilen kein Fenster. Nach jedem Zeichnen aufrufen.
+export const SICHTBARE_ZEILEN = 20;
+const beobachtet = new WeakSet();
+
+export function scrollfenster(tabelle) {
+  const fenster = tabelle.closest(".tabellenfenster");
+  if (!fenster) return;
+  const messe = () => {
+    const zeilen = tabelle.tBodies[0] ? tabelle.tBodies[0].rows : [];
+    if (zeilen.length <= SICHTBARE_ZEILEN) { fenster.style.maxHeight = ""; return; }
+    const unten = zeilen[SICHTBARE_ZEILEN - 1].getBoundingClientRect().bottom;
+    fenster.style.maxHeight = `${Math.ceil(unten - tabelle.getBoundingClientRect().top)}px`;
+  };
+  fenster.scrollTop = 0;  // ein neuer Filter beginnt wieder oben
+  messe();
+  if (!beobachtet.has(fenster)) {
+    // Eine andere Breite bricht andere Zeilen um.
+    beobachtet.add(fenster);
+    let warte;
+    window.addEventListener("resize", () => { clearTimeout(warte); warte = setTimeout(messe, 150); });
+  }
+}
+
 // Die Achse endet bei vier glatten Schritten: 4 x 5'000, nicht 4 x 4'687,5.
 // Die Stufen liegen eng genug, dass die Linie mehr als die halbe Hoehe nutzt.
 export function runde(max) {

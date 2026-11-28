@@ -1,5 +1,6 @@
 // Das Brett »Quellbewegung«.
-import { FARBE, MONATE, balken, el, komma, leer, legende, runde, starteBrett, zahl } from "./gemeinsam.js";
+import { FARBE, MONATE, balken, el, komma, leer, legende, runde, scrollfenster, starteBrett, zahl }
+  from "./gemeinsam.js";
 
 const ARTNAME = { entfernt: "Entfernt", geaendert: "Geändert", neu: "Neu" };
 const tag = (iso) => new Date(iso).toLocaleDateString("de-CH");
@@ -186,6 +187,7 @@ function liste(d) {
     zelle(tr, `${tag(z.von)} und ${tag(z.bis)}`);
   }
   if (!d.entfernt.liste.length) zelle(rumpf.insertRow(), "Kein Eintrag entfernt").colSpan = 6;
+  scrollfenster(document.getElementById("d-liste"));
 }
 
 // Die Filter kennt erst die Antwort des Bretts: welche Jahrgaenge und Monate es gibt.
