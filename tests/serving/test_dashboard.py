@@ -955,22 +955,27 @@ def test_jede_seite_hat_die_checkboxen_und_kein_auswahlfeld():
 
 
 
-def test_die_zuordnungstabelle_scrollt_nach_zwanzig_zeilen():
-    """Christian wollte am 28.11.2026 20 Quellcodes sehen und den Rest im Scrollen.
+def test_die_langen_tabellen_scrollen_nach_zwanzig_zeilen():
+    """Christian wollte am 28.11.2026 20 Zeilen sehen und den Rest im Scrollen.
 
-    Vorher zeigte die Detailtabelle 50 Zeilen und einen Knopf »alle zeigen«.
-    Jetzt steht sie in einem Fenster, das nach der zwanzigsten Zeile endet;
-    der Kopf haftet darin. Im Browser geprueft am selben Tag mit 60 Zeilen
-    und einer umbrechenden Bezeichnung: genau 20 ganz sichtbar.
+    Zuerst fuer »NIBRS-Zuordnung im Detail« (vorher 50 Zeilen und ein Knopf
+    »alle zeigen«), am selben Tag auch fuer »Entfernte Einträge« auf
+    »Quellbewegung« (bis zu 200 Zeilen am Stueck). Beide stehen in einem
+    Fenster, das ``scrollfenster`` in ``gemeinsam.js`` nach der zwanzigsten
+    Zeile enden laesst; der Kopf haftet darin. Im Browser geprueft mit 60
+    beziehungsweise 200 Zeilen.
     """
-    html = (_STATISCH / "datenqualitaet.html").read_text(encoding="utf-8")
-    fenster = re.search(r'<div class="tabellenfenster" id="f-fenster"[^>]*>(.*?)</div>', html, re.S)
-    assert fenster and 'id="d-zuordnung-detail"' in fenster.group(1)
-    assert 'id="f-mehr"' not in html
-    js = (_STATISCH / "datenqualitaet.js").read_text(encoding="utf-8")
-    assert "const SICHTBARE_ZEILEN = 20;" in js
-    assert "gezeigt.slice(" not in js, "die Tabelle schneidet wieder ab"
-    assert "fensterhoehe();" in js
+    for seite, modul, tabelle in [("datenqualitaet.html", "datenqualitaet.js", "d-zuordnung-detail"),
+                                  ("quellbewegung.html", "quellbewegung.js", "d-liste")]:
+        html = (_STATISCH / seite).read_text(encoding="utf-8")
+        fenster = re.search(r'<div class="tabellenfenster"[^>]*>(.*?)</div>', html, re.S)
+        assert fenster and f'id="{tabelle}"' in fenster.group(1), seite
+        js = (_STATISCH / modul).read_text(encoding="utf-8")
+        assert "scrollfenster(" in js and "slice(0," not in js.split("scrollfenster")[0][-400:], modul
+    assert 'id="f-mehr"' not in (_STATISCH / "datenqualitaet.html").read_text(encoding="utf-8")
+    gemeinsam = (_STATISCH / "gemeinsam.js").read_text(encoding="utf-8")
+    assert "export const SICHTBARE_ZEILEN = 20;" in gemeinsam
+    assert "export function scrollfenster(tabelle)" in gemeinsam
     css = (_STATISCH / "dashboard.css").read_text(encoding="utf-8")
     assert re.search(r"\.tabellenfenster \{[^}]*overflow-y: auto", css)
     assert re.search(r"\.tabellenfenster \.tabelle th \{[^}]*position: sticky", css)
