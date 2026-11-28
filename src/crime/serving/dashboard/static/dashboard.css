@@ -18,6 +18,18 @@
 [hidden] { display: none !important; }
 body { margin: 0; background: var(--grund); color: var(--text); font-size: 14px; }
 
+/* Kopf, Reiter und Filterleiste bleiben beim Scrollen oben stehen (seit
+   28.11.2026). Auf kleinen Bildschirmen nicht: dort naehmen sie zu viel
+   der Hoehe. Sprungziele landen unter dem Block, nicht dahinter; die Hoehe
+   setzt gemeinsam.js in --fixiert-hoehe. */
+.fixiert { position: sticky; top: 0; z-index: 50; background: var(--grund);
+  box-shadow: 0 1px 0 var(--linie), 0 4px 10px rgba(31, 42, 58, 0.06); }
+html { scroll-padding-top: calc(var(--fixiert-hoehe, 0px) + 12px); }
+@media (max-width: 700px), (max-height: 560px) {
+  .fixiert { position: static; box-shadow: none; }
+  html { scroll-padding-top: 0; }
+}
+
 .kopf { display: flex; justify-content: space-between; align-items: center;
   background: var(--navy); color: #fff; padding: 12px 24px; }
 .marke { display: flex; align-items: center; gap: 8px; font-size: 20px; }

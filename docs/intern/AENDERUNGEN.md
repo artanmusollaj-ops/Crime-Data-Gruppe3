@@ -30,7 +30,7 @@ Eintrag hier sagt, was das war.
 
 | | |
 | --- | ---: |
-| Tests | **3'594** |
+| Tests | **3'595** |
 | Jahrgänge | **2021–2026**, 2026 als Teiljahr |
 | `silver/crime_offense` | 1'922'278 Zeilen (Detroit: eine Anklage) |
 | `gold/fact_offense` | **1'900'131** Zeilen (eine Tat) |
@@ -112,6 +112,27 @@ vorgetäuscht, die es damals nicht gab. Detroit ist die Ausnahme: Dort steht
 die 2 seit dem 11.9. in den Daten selbst.
 
 ---
+
+## 28.11.2026 · Kopf und Filter bleiben beim Scrollen stehen (Branch `kopf-bleibt-sichtbar`)
+
+Christian wollte die Filterauswahl auch weiter unten auf einem Brett sehen.
+Kopf, Reiter und Filterleiste liegen jetzt auf allen acht Brettern in einem
+gemeinsamen Block `.fixiert` (`position: sticky`). Der Block haftet oben,
+während der Inhalt darunter durchläuft. Auf schmalen (bis 700 px) oder
+niedrigen (bis 560 px) Bildschirmen haftet er nicht, weil er dort zu viel
+der Höhe nähme. `gemeinsam.js` misst die Höhe des Blocks, denn die Leiste
+bricht je nach Breite um. So landet ein Sprungziel, etwa der Sprung zum
+Zuordnungsdetail auf „Datenqualität", unter dem Block und nicht dahinter.
+
+Im Browser geprüft an einem lokalen Dashboard auf Testdaten: Auf
+„Zeitverlauf" öffnet sich die Stadtwahl im gescrollten Zustand über dem
+Inhalt. Auf „Geografie" laufen Karte und Kartenknöpfe unter dem Block durch.
+Neuer Test `test_kopf_reiter_und_filter_bleiben_beim_scrollen_stehen`. Er
+scheitert, sobald einem Brett der Block fehlt.
+
+Auf `urbancrime-dashboard` erscheint die Änderung erst mit einem neuen Abbild.
+
+Tests 3'595 (+1), Standardauswahl 3'484.
 
 ## 27.11.2026 · Die Liste der Zeitwahl heisst „Schnellauswahl" (Branch `zeitwahl-schnellauswahl`)
 
