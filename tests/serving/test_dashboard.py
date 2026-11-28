@@ -964,18 +964,27 @@ def test_die_langen_tabellen_scrollen_nach_zwanzig_zeilen():
     Fenster, das ``scrollfenster`` in ``gemeinsam.js`` nach der zwanzigsten
     Zeile enden laesst; der Kopf haftet darin. Im Browser geprueft mit 60
     beziehungsweise 200 Zeilen.
+
+    »Die Vergleichspaare« (ebenfalls 28.11.2026) enden statt nach 20 Zeilen
+    dort, wo die Tafel »Welche Deliktsarten verschwinden?« daneben endet;
+    im Browser geprueft mit den 34 Paaren von srv01: beide Tafeln gleich hoch.
     """
     for seite, modul, tabelle in [("datenqualitaet.html", "datenqualitaet.js", "d-zuordnung-detail"),
-                                  ("quellbewegung.html", "quellbewegung.js", "d-liste")]:
+                                  ("quellbewegung.html", "quellbewegung.js", "d-liste"),
+                                  ("quellbewegung.html", "quellbewegung.js", "d-paare")]:
         html = (_STATISCH / seite).read_text(encoding="utf-8")
-        fenster = re.search(r'<div class="tabellenfenster"[^>]*>(.*?)</div>', html, re.S)
-        assert fenster and f'id="{tabelle}"' in fenster.group(1), seite
+        fenster = [f for f in re.findall(r'<div class="tabellenfenster"[^>]*>(.*?)</div>', html, re.S)
+                   if f'id="{tabelle}"' in f]
+        assert fenster, (seite, tabelle)
         js = (_STATISCH / modul).read_text(encoding="utf-8")
         assert "scrollfenster(" in js and "slice(0," not in js.split("scrollfenster")[0][-400:], modul
     assert 'id="f-mehr"' not in (_STATISCH / "datenqualitaet.html").read_text(encoding="utf-8")
     gemeinsam = (_STATISCH / "gemeinsam.js").read_text(encoding="utf-8")
     assert "export const SICHTBARE_ZEILEN = 20;" in gemeinsam
-    assert "export function scrollfenster(tabelle)" in gemeinsam
+    assert "export function scrollfenster(tabelle, { nachbar = null } = {})" in gemeinsam
+    quell = (_STATISCH / "quellbewegung.js").read_text(encoding="utf-8")
+    assert re.search(r'scrollfenster\(document.getElementById\("d-paare"\),\s*'
+                     r'\{ nachbar: document.getElementById\("d-kategorien"\).closest\(".tafel"\) \}\)', quell)
     css = (_STATISCH / "dashboard.css").read_text(encoding="utf-8")
     assert re.search(r"\.tabellenfenster \{[^}]*overflow-y: auto", css)
     assert re.search(r"\.tabellenfenster \.tabelle th \{[^}]*position: sticky", css)

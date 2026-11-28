@@ -172,6 +172,9 @@ function paare(d) {
     zelle(tr, p.bestand === null ? "unbekannt" : zahl.format(p.bestand), "zahl");
     for (const f of ["geaendert", "entfernt", "neu"]) zelle(tr, zahl.format(p[f]), "zahl");
   }
+  // So hoch wie die Tafel »Welche Deliktsarten verschwinden?« daneben.
+  scrollfenster(document.getElementById("d-paare"),
+    { nachbar: document.getElementById("d-kategorien").closest(".tafel") });
 }
 
 function liste(d) {
