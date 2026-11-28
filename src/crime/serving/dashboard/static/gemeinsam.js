@@ -414,7 +414,20 @@ function fehler(text) {
 
 // Startet ein Brett: fuellt Leiste, Kopf und Fuss, laedt bei jeder Aenderung
 // von api neu und ruft zeichne(daten). Jeder .umschalter setzt seinen Parameter.
+// Die Hoehe des oben haftenden Blocks (Kopf, Reiter, Filterleiste) als
+// --fixiert-hoehe, damit ein Sprungziel nicht hinter ihm verschwindet. Die
+// Leiste bricht je nach Breite um, deshalb gemessen und nicht fest.
+function halteKopfHoehe() {
+  const block = document.getElementById("fixiert");
+  if (!block) return;
+  const setze = () => document.documentElement.style.setProperty(
+    "--fixiert-hoehe", `${block.getBoundingClientRect().height}px`);
+  setze();
+  if (typeof ResizeObserver === "function") new ResizeObserver(setze).observe(block);
+}
+
 export async function starteBrett({ api, zeichne }) {
+  halteKopfHoehe();
   // Jeder Umschalter setzt den Parameter aus data-param (Vorgabe: mass). Seit
   // dem 25.11.2026 duerfen es mehrere sein (»Geografie«: Raum und Kennzahl).
   const schalter = [...document.querySelectorAll(".umschalter")];

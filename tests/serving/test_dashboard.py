@@ -955,6 +955,31 @@ def test_jede_seite_hat_die_checkboxen_und_kein_auswahlfeld():
 
 
 
+def test_kopf_reiter_und_filter_bleiben_beim_scrollen_stehen():
+    """Christian wollte am 28.11.2026 die Filter beim Scrollen sehen.
+
+    Kopf, Reiter und Filterleiste liegen auf jedem Brett in einem Block
+    ``.fixiert``, der oben haftet. Fehlt er auf einem Brett, scrollt dort die
+    Leiste wieder weg. Im Browser geprueft am selben Tag (Zeitverlauf mit
+    offener Stadtwahl, Geografie mit Karte).
+    """
+    seiten = sorted(_STATISCH.glob("*.html"))
+    assert len(seiten) == 8
+    for seite in seiten:
+        html = seite.read_text(encoding="utf-8")
+        block = re.search(r'<div class="fixiert" id="fixiert">(.*?)\n</div>', html, re.S)
+        assert block, seite.name
+        for teil in ('<header class="kopf">', '<nav class="reiter"', '<form class="leiste" id="leiste">'):
+            assert teil in block.group(1), (seite.name, teil)
+    css = (_STATISCH / "dashboard.css").read_text(encoding="utf-8")
+    regel = re.search(r"\.fixiert \{([^}]*)\}", css).group(1)
+    assert "position: sticky" in regel and "top: 0" in regel
+    # Sprungziele (Datenqualitaet) landen unter dem Block, nicht dahinter.
+    assert "scroll-padding-top: calc(var(--fixiert-hoehe" in css
+    js = (_STATISCH / "gemeinsam.js").read_text(encoding="utf-8")
+    assert '"--fixiert-hoehe"' in js and "halteKopfHoehe();" in js
+
+
 def test_die_staedte_stehen_in_einer_aufklappliste():
     """Die Häkchen liegen in einer Liste, die aufklappt wie ein Auswahlfeld.
 
