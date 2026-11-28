@@ -196,17 +196,40 @@ function zeitwahl(o, brett, url) {
 // »Datenqualität«, dann fuer »Entfernte Einträge« auf »Quellbewegung«.
 // Gemessen und nicht fest, weil eine lange Bezeichnung ihre Zeile umbricht;
 // bei weniger Zeilen kein Fenster. Nach jedem Zeichnen aufrufen.
+//
+// Mit ``nachbar`` (seit 28.11.2026, »Die Vergleichspaare«) endet die Tafel
+// der Tabelle dort, wo die Tafel daneben endet - solange beide
+// nebeneinander stehen und daneben Platz fuer mindestens MIN_ZEILEN ist.
+// Sonst, und auf schmalen Bildschirmen, wo sie untereinander stehen, gilt
+// wieder SICHTBARE_ZEILEN.
 export const SICHTBARE_ZEILEN = 20;
+const MIN_ZEILEN = 6;
 const beobachtet = new WeakSet();
 
-export function scrollfenster(tabelle) {
+export function scrollfenster(tabelle, { nachbar = null } = {}) {
   const fenster = tabelle.closest(".tabellenfenster");
   if (!fenster) return;
+  const bisZeile = (zeilen, n) =>
+    Math.ceil(zeilen[n - 1].getBoundingClientRect().bottom - tabelle.getBoundingClientRect().top);
   const messe = () => {
     const zeilen = tabelle.tBodies[0] ? tabelle.tBodies[0].rows : [];
-    if (zeilen.length <= SICHTBARE_ZEILEN) { fenster.style.maxHeight = ""; return; }
-    const unten = zeilen[SICHTBARE_ZEILEN - 1].getBoundingClientRect().bottom;
-    fenster.style.maxHeight = `${Math.ceil(unten - tabelle.getBoundingClientRect().top)}px`;
+    const normal = zeilen.length <= SICHTBARE_ZEILEN ? null : bisZeile(zeilen, SICHTBARE_ZEILEN);
+    const tafel = fenster.closest(".tafel");
+    if (nachbar && tafel && zeilen.length > MIN_ZEILEN) {
+      // Erst zusammenklappen: sonst ist die Zeile des Rasters so hoch wie
+      // die lange Tabelle, und der Nachbar misst sich an ihr.
+      fenster.style.maxHeight = "0px";
+      const n = nachbar.getBoundingClientRect(), t = tafel.getBoundingClientRect();
+      const nebeneinander = Math.abs(n.top - t.top) < 2;
+      const luft = parseFloat(getComputedStyle(tafel).paddingBottom) + 1;
+      const platz = Math.floor(n.bottom - fenster.getBoundingClientRect().top - luft);
+      if (nebeneinander && platz >= bisZeile(zeilen, MIN_ZEILEN)) {
+        // Passt alles hinein, braucht es kein Fenster.
+        fenster.style.maxHeight = platz >= tabelle.getBoundingClientRect().height ? "" : `${platz}px`;
+        return;
+      }
+    }
+    fenster.style.maxHeight = normal === null ? "" : `${normal}px`;
   };
   fenster.scrollTop = 0;  // ein neuer Filter beginnt wieder oben
   messe();

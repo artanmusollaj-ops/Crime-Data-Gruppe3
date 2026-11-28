@@ -113,6 +113,26 @@ die 2 seit dem 11.9. in den Daten selbst.
 
 ---
 
+## 28.11.2026 · „Die Vergleichspaare" sind so hoch wie die Tafel daneben (Branch `vergleichspaare-scrollbar`)
+
+Auf „Quellbewegung" stand die Tabelle „Die Vergleichspaare" (auf srv01 heute
+34 Paare) ganz auf der Seite. Sie war damit deutlich höher als die Tafel
+„Welche Deliktsarten verschwinden?" daneben. Christian wollte, dass sie
+gleich hoch sind. Die Tabelle steht jetzt in einem Scrollfenster, das dort
+endet, wo die Tafel daneben endet. `scrollfenster` in `gemeinsam.js` hat
+dafür die Option `nachbar`. Stehen die Tafeln untereinander, gilt die Regel
+mit 20 Zeilen, ebenso wenn neben der Tabelle für weniger als 6 Zeilen Platz
+ist. Untereinander stehen sie auf Bildschirmen unter 1'000 px Breite.
+
+Im Browser geprüft mit der echten Antwort von srv01: nebeneinander sind
+beide Tafeln gleich hoch, untereinander zeigt das Fenster 20 Zeilen.
+Gemessen ist das nebeneinander nur in einem 757 px breiten Fenster mit
+erzwungenen zwei Spalten. Die Breite liess sich in der Probe nicht ändern.
+`test_die_langen_tabellen_scrollen_nach_zwanzig_zeilen` prüft jetzt auch
+diese Tabelle. Er scheitert an der alten Seite. Die Testzahl bleibt.
+
+Auf `urbancrime-dashboard` erscheint die Änderung erst mit einem neuen Abbild.
+
 ## 28.11.2026 · Auch „Entfernte Einträge" scrollt nach 20 Zeilen (Branch `entfernte-scrollbar`)
 
 Die Tabelle „Entfernte Einträge" auf „Quellbewegung" zeigte bis zu 200
